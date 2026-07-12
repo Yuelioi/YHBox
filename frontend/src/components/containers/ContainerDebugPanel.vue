@@ -1,9 +1,5 @@
 <template>
-  <aside
-    v-if="summary.visible"
-    class="debug-panel pointer-events-auto"
-    :class="toneClass"
-  >
+  <aside v-if="summary.visible" class="debug-panel pointer-events-auto" :class="toneClass">
     <div class="flex items-center gap-2 min-w-0">
       <UIcon name="i-tabler-bug" class="size-4 shrink-0" />
       <span class="text-xs font-semibold">{{ t('editor.debug_panel.title') }}</span>
@@ -66,7 +62,9 @@
 
     <div v-if="summary.error" class="debug-note error">
       <UIcon name="i-tabler-circle-x" class="size-3.5 shrink-0" />
-      <span>{{ summary.error.message || summary.error.code || t('editor.debug_panel.unknown_error') }}</span>
+      <span>{{
+        summary.error.message || summary.error.code || t('editor.debug_panel.unknown_error')
+      }}</span>
     </div>
   </aside>
 </template>

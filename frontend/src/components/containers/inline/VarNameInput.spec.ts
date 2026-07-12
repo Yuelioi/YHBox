@@ -3,7 +3,12 @@
 // Nuxt UI 组件无法在 vitest 环境 mount, 与 NewVarModal.spec.ts 保持同一惯例.
 
 import { describe, it, expect } from 'vitest'
-import { filterVars, shouldShowCreate, computeConflict, resolveOnBlur } from './VarNameInput.helpers'
+import {
+  filterVars,
+  shouldShowCreate,
+  computeConflict,
+  resolveOnBlur,
+} from './VarNameInput.helpers'
 import type { VarType } from '@/lib/variableRef'
 
 // ── 测试数据 ─────────────────────────────────────────────────────────────────
@@ -53,8 +58,8 @@ describe('§2 filterVars', () => {
   it('子串匹配 → 返回含该子串的多个项', () => {
     // 'la' 匹配 label; 'l' 匹配 label + flag
     const r = filterVars(vars, 'l')
-    expect(r.map(v => v.name)).toContain('label')
-    expect(r.map(v => v.name)).toContain('flag')
+    expect(r.map((v) => v.name)).toContain('label')
+    expect(r.map((v) => v.name)).toContain('flag')
   })
 
   it('无匹配 → 返回空数组', () => {
@@ -64,7 +69,7 @@ describe('§2 filterVars', () => {
 
 // ── §3 shouldShowCreate: 新建项显隐 ──────────────────────────────────────────
 describe('§3 shouldShowCreate', () => {
-  const names = vars.map(v => v.name)
+  const names = vars.map((v) => v.name)
 
   it('合法且不重名 → true (显示新建)', () => {
     expect(shouldShowCreate('newVar', names)).toBe(true)

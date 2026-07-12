@@ -8,7 +8,7 @@
       :value="point.x"
       class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
       @input="onChange('x', $event)"
-    >
+    />
     <span class="text-[10px] text-dimmed">y:</span>
     <input
       type="number"
@@ -16,14 +16,17 @@
       :value="point.y"
       class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
       @input="onChange('y', $event)"
-    >
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
-interface PointValue { x: number; y: number }
+interface PointValue {
+  x: number
+  y: number
+}
 
 const props = defineProps<{ modelValue: PointValue | null | undefined }>()
 const emit = defineEmits<{ 'update:modelValue': [v: PointValue] }>()

@@ -17,7 +17,8 @@ export function useFolding(opts: {
   getSelectedNodes: Ref<VueFlowNode[]>
   toast: { add: (o: Record<string, unknown>) => unknown }
 }) {
-  const { draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast } = opts
+  const { draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast } =
+    opts
   const { confirm } = useConfirm()
   const editorStore = useContainerEditorStore()
   const { t } = useI18n()
@@ -103,14 +104,18 @@ export function useFolding(opts: {
     }
 
     // 刚 create 的子图 rev=1, 乐观锁基准直接用返回值的 rev。
-    await backend.subgraphs.update(sgRaw.id, JSON.stringify({
-      graph: {
-        id: sgRaw.graph.id,
-        schemaVersion: sgRaw.graph.schemaVersion,
-        nodes: [...sgRaw.graph.nodes, ...movedNodes],
-        edges: innerEdges,
-      },
-    }), sgRaw.rev ?? 1)
+    await backend.subgraphs.update(
+      sgRaw.id,
+      JSON.stringify({
+        graph: {
+          id: sgRaw.graph.id,
+          schemaVersion: sgRaw.graph.schemaVersion,
+          nodes: [...sgRaw.graph.nodes, ...movedNodes],
+          edges: innerEdges,
+        },
+      }),
+      sgRaw.rev ?? 1,
+    )
     const savedSubgraph = await backend.subgraphs.get(sgRaw.id)
     if (savedSubgraph) editorStore.replaceSubgraph(savedSubgraph)
 
@@ -136,7 +141,8 @@ export function useFolding(opts: {
       if (autoConnectable && declID) {
         // 改写 external 边的 dangling 端指向新 call node
         for (const e of activeGraph.value.edges as any[]) {
-          if (e === externalIns[0]) e.to = `${callNodeID}.In` // Subgraph 调用节点 exec-in = "In"
+          if (e === externalIns[0])
+            e.to = `${callNodeID}.In` // Subgraph 调用节点 exec-in = "In"
           else if (e === externalOuts[0]) e.from = `${callNodeID}.${declID}`
         }
       }

@@ -17,7 +17,7 @@ let fnNames = new Set<string>()
 /** 启动时由 populateRegistryFromBackend 填; 测试可直接调. */
 export function setExprFunctions(list: ExprFunction[]) {
   exprFunctions = list
-  fnNames = new Set(list.map(f => f.name))
+  fnNames = new Set(list.map((f) => f.name))
 }
 
 export function allExprFunctions(): ExprFunction[] {
@@ -35,7 +35,12 @@ export function parseSigParams(sig: string): string[] {
   if (open < 0 || close <= open) return []
   const inner = sig.slice(open + 1, close).trim()
   if (!inner) return []
-  return inner.split(',').map((s) => s.trim().replace(/^\[|\]$/g, '').trim())
+  return inner.split(',').map((s) =>
+    s
+      .trim()
+      .replace(/^\[|\]$/g, '')
+      .trim(),
+  )
 }
 
 /** 光标处 token (往前扫 identifier 字符). 补全替换区间 = [start, caret). */
@@ -114,13 +119,17 @@ export function lintExpr(text: string, known: Set<string>): ExprDiagnostic[] {
       if (depth < 0) return [{ from: i, to: i + 1, messageKey: 'expression.error.paren_mismatch' }]
     }
   }
-  if (inStr) return [{ from: strStart, to: text.length, messageKey: 'expression.error.string_unclosed' }]
+  if (inStr)
+    return [{ from: strStart, to: text.length, messageKey: 'expression.error.string_unclosed' }]
   if (depth > 0) {
-    return [{
-      from: text.length, to: text.length,
-      messageKey: 'expression.error.paren_missing',
-      params: { count: depth, char: ')' },
-    }]
+    return [
+      {
+        from: text.length,
+        to: text.length,
+        messageKey: 'expression.error.paren_missing',
+        params: { count: depth, char: ')' },
+      },
+    ]
   }
 
   const out: ExprDiagnostic[] = []
@@ -129,7 +138,8 @@ export function lintExpr(text: string, known: Set<string>): ExprDiagnostic[] {
 
   if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed) && !['true', 'false', 'null'].includes(trimmed)) {
     out.push({
-      from: lead, to: lead + trimmed.length,
+      from: lead,
+      to: lead + trimmed.length,
       messageKey: 'expression.error.bare_word',
       params: { var: trimmed },
     })
@@ -145,7 +155,8 @@ export function lintExpr(text: string, known: Set<string>): ExprDiagnostic[] {
     if (known.has(call.name) || seen.has(call.name)) continue
     seen.add(call.name)
     out.push({
-      from: call.from, to: call.to,
+      from: call.from,
+      to: call.to,
       messageKey: 'expression.error.unknown_fn',
       params: { name: call.name },
     })

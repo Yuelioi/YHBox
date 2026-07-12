@@ -8,8 +8,11 @@
       color="neutral"
       class="!px-1.5 !py-0 !h-auto text-toned truncate max-w-[180px]"
       @click="$emit('goto', -1)"
-    >{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</UButton>
-    <span v-else class="text-toned truncate max-w-[180px]">{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</span>
+      >{{ rootLabel ?? t('editor.breadcrumb.root_fallback') }}</UButton
+    >
+    <span v-else class="text-toned truncate max-w-[180px]">{{
+      rootLabel ?? t('editor.breadcrumb.root_fallback')
+    }}</span>
     <template v-for="(sgID, idx) in editorPath" :key="sgID">
       <UIcon name="i-tabler-chevron-right" class="size-3 text-dimmed" />
       <UButton
@@ -18,9 +21,12 @@
         color="neutral"
         class="!px-1.5 !py-0 !h-auto"
         @click="$emit('goto', idx)"
-      >{{ sgLabelFn(sgID) }}</UButton>
+        >{{ sgLabelFn(sgID) }}</UButton
+      >
     </template>
-    <span v-if="dirty" class="ml-2 text-[10px] text-warning/80 shrink-0">{{ t('editor.header.dirty_dot') }}</span>
+    <span v-if="dirty" class="ml-2 text-[10px] text-warning/80 shrink-0">{{
+      t('editor.header.dirty_dot')
+    }}</span>
   </div>
 </template>
 
@@ -37,6 +43,6 @@ defineProps<{
 }>()
 
 defineEmits<{
-  'goto': [idx: number] // idx -1 = 回主图根; >=0 = 跳到该层子图
+  goto: [idx: number] // idx -1 = 回主图根; >=0 = 跳到该层子图
 }>()
 </script>

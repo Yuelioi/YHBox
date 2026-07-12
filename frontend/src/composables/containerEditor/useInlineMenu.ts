@@ -9,7 +9,11 @@
 
 import { ref, type Ref } from 'vue'
 import type { Container, Graph, GraphNode, GraphEdge } from '@/lib/backend'
-import { dataInTypeFor, dataOutTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
+import {
+  dataInTypeFor,
+  dataOutTypeFor,
+  getSpec,
+} from '@/components/containers/nodeRegistry/registry'
 import { pinTypeCompat, type PinType } from '@/components/containers/nodeRegistry'
 import { newNodeID } from './ids'
 import { useInsertPoint } from './useInsertPoint'
@@ -23,8 +27,8 @@ function compatibleDataInEntriesPreferExact(
   pins: Record<string, PinType>,
   sourceType: PinType,
 ): Array<[string, PinType]> {
-  const compatible = Object.entries(pins).filter(([, candidate]) =>
-    pinTypeCompat(sourceType, candidate).allow,
+  const compatible = Object.entries(pins).filter(
+    ([, candidate]) => pinTypeCompat(sourceType, candidate).allow,
   )
   return compatible.sort(([, a], [, b]) => {
     const aExact = a === sourceType
@@ -38,8 +42,8 @@ function compatibleDataOutEntriesPreferExact(
   pins: Record<string, PinType>,
   targetType: PinType,
 ): Array<[string, PinType]> {
-  const compatible = Object.entries(pins).filter(([, candidate]) =>
-    pinTypeCompat(candidate, targetType).allow,
+  const compatible = Object.entries(pins).filter(
+    ([, candidate]) => pinTypeCompat(candidate, targetType).allow,
   )
   return compatible.sort(([, a], [, b]) => {
     const aExact = a === targetType
@@ -51,8 +55,8 @@ function compatibleDataOutEntriesPreferExact(
 
 interface InlineMenuState {
   open: boolean
-  position: { x: number; y: number }  // viewport (screen) coords
-  flowPos: { x: number; y: number }   // flow canvas coords
+  position: { x: number; y: number } // viewport (screen) coords
+  flowPos: { x: number; y: number } // flow canvas coords
   pinContext?: InlinePinContext
   sourcePin?: { nodeID: string; pinName: string; side: 'input' | 'output'; isExec?: boolean }
 }
@@ -94,7 +98,11 @@ export function useInlineMenu(opts: UseInlineMenuOpts) {
     if (!srcNode || !tgtNode) return true
 
     const srcOutType = dataOutTypeFor(srcNode.kind, conn.sourceHandle)
-    const tgtInType = dataInTypeFor(tgtNode.kind, conn.targetHandle, tgtNode.config as Record<string, unknown>)
+    const tgtInType = dataInTypeFor(
+      tgtNode.kind,
+      conn.targetHandle,
+      tgtNode.config as Record<string, unknown>,
+    )
 
     // 非 data pin (exec 或 unknown kind) → 放行
     if (!srcOutType || !tgtInType) return true

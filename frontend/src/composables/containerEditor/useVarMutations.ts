@@ -76,7 +76,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
 
   function addVar(v: VarDecl): void {
     if (!draft.value) throw new Error('draft is null')
-    const existing = (draft.value.vars ?? []).some(x => x.name === v.name)
+    const existing = (draft.value.vars ?? []).some((x) => x.name === v.name)
     if (existing) throw new Error(`Variable '${v.name}' already exists`)
     if (!draft.value.vars) draft.value.vars = []
     draft.value.vars.push(v)
@@ -85,17 +85,17 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function renameVar(oldName: string, newName: string): void {
     if (!draft.value) return
     if (oldName === newName) return
-    const decl = (draft.value.vars ?? []).find(v => v.name === oldName)
-    if (!decl) return  // nonexistent → no-op
-    const dup = (draft.value.vars ?? []).some(v => v.name === newName)
+    const decl = (draft.value.vars ?? []).find((v) => v.name === oldName)
+    if (!decl) return // nonexistent → no-op
+    const dup = (draft.value.vars ?? []).some((v) => v.name === newName)
     if (dup) throw new Error(`Variable '${newName}' already exists`)
     decl.name = newName
-    walkAllGraphs(draft.value, g => {
+    walkAllGraphs(draft.value, (g) => {
       for (const node of g.nodes) {
         // VAR_NODE_KINDS: rename config.literal.VarName
         if (VAR_NODE_KINDS.has(node.kind)) {
           if (varNodeName(node) === oldName && isContainerScope(node)) {
-            (node.config!.literal as Record<string, unknown>).VarName = newName
+            ;(node.config!.literal as Record<string, unknown>).VarName = newName
           }
         }
         // 输出捕获绑定: rename config.capture[field]
@@ -115,7 +115,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function countUsage(name: string): number {
     if (!draft.value) return 0
     let count = 0
-    walkAllGraphs(draft.value, g => {
+    walkAllGraphs(draft.value, (g) => {
       for (const node of g.nodes) {
         // VAR_NODE_KINDS: count config.literal.VarName refs
         if (VAR_NODE_KINDS.has(node.kind)) {
@@ -135,7 +135,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function listUsageNodeIDs(name: string): string[] {
     if (!draft.value) return []
     const ids: string[] = []
-    walkAllGraphs(draft.value, g => {
+    walkAllGraphs(draft.value, (g) => {
       for (const node of g.nodes) {
         let matched = false
         // VAR_NODE_KINDS
@@ -145,7 +145,10 @@ export function useVarMutations(draft: Ref<Container | null>) {
         // 输出捕获绑定
         if (!matched) {
           for (const f of bindableFields(node.kind, node.config)) {
-            if (captureVarOf(node, f) === name) { matched = true; break }
+            if (captureVarOf(node, f) === name) {
+              matched = true
+              break
+            }
           }
         }
         if (matched) ids.push(node.id)
@@ -156,18 +159,18 @@ export function useVarMutations(draft: Ref<Container | null>) {
 
   function deleteVar(name: string, opts: DeleteVarOptions): void {
     if (!draft.value) return
-    draft.value.vars = (draft.value.vars ?? []).filter(v => v.name !== name)
+    draft.value.vars = (draft.value.vars ?? []).filter((v) => v.name !== name)
     if (!opts.cascade) return
-    walkAllGraphs(draft.value, g => {
+    walkAllGraphs(draft.value, (g) => {
       const removedIDs = new Set<string>()
-      g.nodes = g.nodes.filter(node => {
+      g.nodes = g.nodes.filter((node) => {
         if (!VAR_NODE_KINDS.has(node.kind)) return true
         if (varNodeName(node) !== name) return true
         if (!isContainerScope(node)) return true
         removedIDs.add(node.id)
         return false
       })
-      g.edges = g.edges.filter(e => {
+      g.edges = g.edges.filter((e) => {
         const fromID = e.from.split('.')[0]
         const toID = e.to.split('.')[0]
         return !removedIDs.has(fromID) && !removedIDs.has(toID)
@@ -186,7 +189,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
   function listUsageRefs(name: string): UsageRef[] {
     if (!draft.value) return []
     const refs: UsageRef[] = []
-    walkAllGraphs(draft.value, g => {
+    walkAllGraphs(draft.value, (g) => {
       for (const node of g.nodes) {
         // VAR_NODE_KINDS: read vs write based on kind
         if (VAR_NODE_KINDS.has(node.kind) && varNodeName(node) === name && isContainerScope(node)) {
@@ -197,7 +200,7 @@ export function useVarMutations(draft: Ref<Container | null>) {
         for (const f of bindableFields(node.kind, node.config)) {
           if (captureVarOf(node, f) === name) {
             refs.push({ nodeID: node.id, access: 'write', kind: node.kind })
-            break  // 同一节点多个捕获字段命中同名变量, 只计一条
+            break // 同一节点多个捕获字段命中同名变量, 只计一条
           }
         }
       }

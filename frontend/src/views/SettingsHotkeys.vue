@@ -8,20 +8,10 @@
         icon="i-tabler-search"
         class="flex-1"
       />
-      <UButton
-        color="neutral"
-        variant="outline"
-        icon="i-tabler-restore"
-        @click="onResetSystem"
-      >
+      <UButton color="neutral" variant="outline" icon="i-tabler-restore" @click="onResetSystem">
         {{ t('hotkeys.reset_system') }}
       </UButton>
-      <UButton
-        color="neutral"
-        variant="outline"
-        icon="i-tabler-eraser"
-        @click="onClearContainers"
-      >
+      <UButton color="neutral" variant="outline" icon="i-tabler-eraser" @click="onClearContainers">
         {{ t('hotkeys.clear_containers') }}
       </UButton>
     </div>
@@ -128,24 +118,38 @@ const filteredGrouped = computed(() => {
 
 function groupIcon(source: string): string {
   switch (source) {
-    case 'system': return 'i-tabler-tool'
-    case 'recording': return 'i-tabler-player-record'
-    case 'action': return 'i-tabler-bolt'
-    case 'container': return 'i-tabler-box'
-    case 'schedule': return 'i-tabler-calendar-clock'
-    case 'editor': return 'i-tabler-edit'
-    default: return 'i-tabler-keyboard'
+    case 'system':
+      return 'i-tabler-tool'
+    case 'recording':
+      return 'i-tabler-player-record'
+    case 'action':
+      return 'i-tabler-bolt'
+    case 'container':
+      return 'i-tabler-box'
+    case 'schedule':
+      return 'i-tabler-calendar-clock'
+    case 'editor':
+      return 'i-tabler-edit'
+    default:
+      return 'i-tabler-keyboard'
   }
 }
 function groupLabel(source: string): string {
   switch (source) {
-    case 'system': return t('hotkeys.group.system')
-    case 'recording': return t('hotkeys.group.recording')
-    case 'action': return t('hotkeys.group.action')
-    case 'container': return t('hotkeys.group.container')
-    case 'schedule': return t('hotkeys.group.schedule')
-    case 'editor': return t('hotkeys.group.editor')
-    default: return source
+    case 'system':
+      return t('hotkeys.group.system')
+    case 'recording':
+      return t('hotkeys.group.recording')
+    case 'action':
+      return t('hotkeys.group.action')
+    case 'container':
+      return t('hotkeys.group.container')
+    case 'schedule':
+      return t('hotkeys.group.schedule')
+    case 'editor':
+      return t('hotkeys.group.editor')
+    default:
+      return source
   }
 }
 
@@ -189,9 +193,17 @@ async function onClearContainers() {
   const n = await backend.containers.clearAllHotkeys()
   await store.reload()
   if (typeof n === 'number' && n > 0) {
-    toast.add({ title: t('hotkeys.toast.containers_cleared', { n }), icon: 'i-tabler-check', color: 'neutral' })
+    toast.add({
+      title: t('hotkeys.toast.containers_cleared', { n }),
+      icon: 'i-tabler-check',
+      color: 'neutral',
+    })
   } else {
-    toast.add({ title: t('hotkeys.toast.containers_none'), icon: 'i-tabler-info-circle', color: 'neutral' })
+    toast.add({
+      title: t('hotkeys.toast.containers_none'),
+      icon: 'i-tabler-info-circle',
+      color: 'neutral',
+    })
   }
 }
 </script>

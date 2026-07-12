@@ -16,10 +16,24 @@ const h = vi.hoisted(() => {
   const calls: string[] = []
   return {
     calls,
-    updateSilent: vi.fn(async () => { calls.push('main') }),
-    sgUpdateSilent: vi.fn(async (sgID: string) => { calls.push('sg:' + sgID) }),
-    sgGet: vi.fn(async (sgID: string) => ({ id: sgID, rev: 2, label: sgID, outputPins: [], entry: { nodeID: '' }, graph: { id: 'g', schemaVersion: 1, nodes: [], edges: [] }, createdAt: '' })),
-    sgDelete: vi.fn(async (sgID: string) => { calls.push('del:' + sgID) }),
+    updateSilent: vi.fn(async () => {
+      calls.push('main')
+    }),
+    sgUpdateSilent: vi.fn(async (sgID: string) => {
+      calls.push('sg:' + sgID)
+    }),
+    sgGet: vi.fn(async (sgID: string) => ({
+      id: sgID,
+      rev: 2,
+      label: sgID,
+      outputPins: [],
+      entry: { nodeID: '' },
+      graph: { id: 'g', schemaVersion: 1, nodes: [], edges: [] },
+      createdAt: '',
+    })),
+    sgDelete: vi.fn(async (sgID: string) => {
+      calls.push('del:' + sgID)
+    }),
   }
 })
 vi.mock('@/lib/backend', () => ({
@@ -52,7 +66,9 @@ function sg(id: string, refSubID?: string) {
     graph: {
       id: 'g-' + id,
       schemaVersion: 1,
-      nodes: refSubID ? [{ id: 'n', kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: refSubID } }] : [],
+      nodes: refSubID
+        ? [{ id: 'n', kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: refSubID } }]
+        : [],
       edges: [],
     },
     createdAt: '',
@@ -72,7 +88,13 @@ function setup(sgs: ReturnType<typeof sg>[], mainSubRefs: string[] = [], touched
     graph: {
       id: 'g-main',
       schemaVersion: 1,
-      nodes: mainSubRefs.map((s, i) => ({ id: 'm' + i, kind: 'Subgraph', x: 0, y: 0, config: { SubgraphID: s } })),
+      nodes: mainSubRefs.map((s, i) => ({
+        id: 'm' + i,
+        kind: 'Subgraph',
+        x: 0,
+        y: 0,
+        config: { SubgraphID: s },
+      })),
       edges: [],
     },
     createdAt: '',
@@ -108,7 +130,9 @@ describe('useEditorSave.onSave', () => {
   })
 
   it('子图落盘失败 → 不保存主图, 保留 dirty, 返 false', async () => {
-    h.sgUpdateSilent.mockImplementationOnce(async () => { throw new Error('boom') })
+    h.sgUpdateSilent.mockImplementationOnce(async () => {
+      throw new Error('boom')
+    })
     const { onSave, dirty } = setup([sg('sg-a')], ['sg-a'], ['sg-a'])
     const ok = await onSave()
     expect(ok).toBe(false)
@@ -117,7 +141,9 @@ describe('useEditorSave.onSave', () => {
   })
 
   it('乐观锁被拒 → staleSubgraphs 暴露, 不碰主图, 不弹错误 toast', async () => {
-    h.sgUpdateSilent.mockImplementationOnce(async () => { throw new Error('subgraph rev stale: 盘上已有更新 (盘上 rev=3, 基准 rev=1)') })
+    h.sgUpdateSilent.mockImplementationOnce(async () => {
+      throw new Error('subgraph rev stale: 盘上已有更新 (盘上 rev=3, 基准 rev=1)')
+    })
     const { onSave, staleSubgraphs, toast } = setup([sg('sg-a')], ['sg-a'], ['sg-a'])
     const ok = await onSave()
     expect(ok).toBe(false)

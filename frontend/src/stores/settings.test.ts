@@ -20,7 +20,9 @@ describe('settings store · patchAIConnections', () => {
     const store = useSettingsStore()
     await store.patchAIConnections([conn])
     expect(updateMock).toHaveBeenCalledTimes(1)
-    const patch = updateMock.mock.calls[0][0] as { ai: { connections: unknown[]; default?: string } }
+    const patch = updateMock.mock.calls[0][0] as {
+      ai: { connections: unknown[]; default?: string }
+    }
     expect(patch.ai.connections).toEqual([conn])
     expect('default' in patch.ai).toBe(false)
   })
@@ -28,7 +30,9 @@ describe('settings store · patchAIConnections', () => {
   it('includes an explicit empty default (delete-clears-default)', async () => {
     const store = useSettingsStore()
     await store.patchAIConnections([], '')
-    const patch = updateMock.mock.calls[0][0] as { ai: { connections: unknown[]; default?: string } }
+    const patch = updateMock.mock.calls[0][0] as {
+      ai: { connections: unknown[]; default?: string }
+    }
     expect(patch.ai).toEqual({ connections: [], default: '' })
   })
 })

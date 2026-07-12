@@ -37,26 +37,45 @@ describe('filterInlineNodeCandidates', () => {
 
   it('filters output data pins to nodes that can consume that pin type', () => {
     const specs = [
-      spec({ kind: 'ReadTextFile', execIn: ['In'], execOut: ['Done'], dataOut: { Text: 'string' } }),
+      spec({
+        kind: 'ReadTextFile',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Text: 'string' },
+      }),
       spec({ kind: 'Log', execIn: ['In'], execOut: ['Done'], dataIn: { Message: 'any' } }),
       spec({ kind: 'Fetch', execIn: ['In'], execOut: ['Done'], dataIn: { URL: 'string' } }),
       spec({ kind: 'ClickAt', execIn: ['In'], execOut: ['Done'], dataIn: { Point: 'point' } }),
     ]
 
-    const got = filterInlineNodeCandidates(specs, { side: 'output', pinType: 'string' }).map((s) => s.kind)
+    const got = filterInlineNodeCandidates(specs, { side: 'output', pinType: 'string' }).map(
+      (s) => s.kind,
+    )
 
     expect(got).toEqual(['Log', 'Fetch'])
   })
 
   it('filters input data pins to nodes that can produce that pin type', () => {
     const specs = [
-      spec({ kind: 'ReadTextFile', execIn: ['In'], execOut: ['Done'], dataOut: { Text: 'string' } }),
+      spec({
+        kind: 'ReadTextFile',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Text: 'string' },
+      }),
       spec({ kind: 'Fetch', execIn: ['In'], execOut: ['Done'], dataOut: { Body: 'string' } }),
       spec({ kind: 'Now', isPureData: true, dataOut: { Value: 'number' } }),
-      spec({ kind: 'ClickTemplate', execIn: ['In'], execOut: ['Found'], dataOut: { Point: 'point' } }),
+      spec({
+        kind: 'ClickTemplate',
+        execIn: ['In'],
+        execOut: ['Found'],
+        dataOut: { Point: 'point' },
+      }),
     ]
 
-    const got = filterInlineNodeCandidates(specs, { side: 'input', pinType: 'string' }).map((s) => s.kind)
+    const got = filterInlineNodeCandidates(specs, { side: 'input', pinType: 'string' }).map(
+      (s) => s.kind,
+    )
 
     expect(got).toEqual(['ReadTextFile', 'Fetch'])
   })
@@ -71,11 +90,32 @@ describe('filterInlineNodeCandidates', () => {
     ['file'],
   ] satisfies Array<[PinType]>)('filters output data pins for %s consumers', (pinType) => {
     const specs = [
-      spec({ kind: 'ExactConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: pinType } }),
+      spec({
+        kind: 'ExactConsumer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataIn: { Value: pinType },
+      }),
       spec({ kind: 'AnyConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: 'any' } }),
-      spec({ kind: 'WrongConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: incompatibleTypeFor(pinType) } }),
-      spec({ kind: 'ProducerOnly', execIn: ['In'], execOut: ['Done'], dataOut: { Value: pinType } }),
-      spec({ kind: 'Marker', execIn: ['In'], execOut: ['Done'], dataIn: { Value: pinType }, excludeFromPalette: true }),
+      spec({
+        kind: 'WrongConsumer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataIn: { Value: incompatibleTypeFor(pinType) },
+      }),
+      spec({
+        kind: 'ProducerOnly',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: pinType },
+      }),
+      spec({
+        kind: 'Marker',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataIn: { Value: pinType },
+        excludeFromPalette: true,
+      }),
     ]
 
     const got = filterInlineNodeCandidates(specs, { side: 'output', pinType }).map((s) => s.kind)
@@ -89,13 +129,25 @@ describe('filterInlineNodeCandidates', () => {
 
   it('does not include warning-only coercion targets in output data candidates', () => {
     const specs = [
-      spec({ kind: 'NumberConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: 'number' } }),
+      spec({
+        kind: 'NumberConsumer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataIn: { Value: 'number' },
+      }),
       spec({ kind: 'AnyConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: 'any' } }),
-      spec({ kind: 'StringConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: 'string' } }),
+      spec({
+        kind: 'StringConsumer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataIn: { Value: 'string' },
+      }),
       spec({ kind: 'BoolConsumer', execIn: ['In'], execOut: ['Done'], dataIn: { Value: 'bool' } }),
     ]
 
-    const got = filterInlineNodeCandidates(specs, { side: 'output', pinType: 'number' }).map((s) => s.kind)
+    const got = filterInlineNodeCandidates(specs, { side: 'output', pinType: 'number' }).map(
+      (s) => s.kind,
+    )
 
     expect(got).toEqual(['NumberConsumer', 'AnyConsumer'])
   })
@@ -110,11 +162,27 @@ describe('filterInlineNodeCandidates', () => {
     ['file'],
   ] satisfies Array<[PinType]>)('filters input data pins for %s producers', (pinType) => {
     const specs = [
-      spec({ kind: 'ExactProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: pinType } }),
+      spec({
+        kind: 'ExactProducer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: pinType },
+      }),
       spec({ kind: 'AnyProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: 'any' } }),
-      spec({ kind: 'WrongProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: incompatibleTypeFor(pinType) } }),
+      spec({
+        kind: 'WrongProducer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: incompatibleTypeFor(pinType) },
+      }),
       spec({ kind: 'ConsumerOnly', execIn: ['In'], execOut: ['Done'], dataIn: { Value: pinType } }),
-      spec({ kind: 'Marker', execIn: ['In'], execOut: ['Done'], dataOut: { Value: pinType }, excludeFromPalette: true }),
+      spec({
+        kind: 'Marker',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: pinType },
+        excludeFromPalette: true,
+      }),
     ]
 
     const got = filterInlineNodeCandidates(specs, { side: 'input', pinType }).map((s) => s.kind)
@@ -130,11 +198,23 @@ describe('filterInlineNodeCandidates', () => {
     const specs = [
       spec({ kind: 'BoolProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: 'bool' } }),
       spec({ kind: 'AnyProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: 'any' } }),
-      spec({ kind: 'NumberProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: 'number' } }),
-      spec({ kind: 'StringProducer', execIn: ['In'], execOut: ['Done'], dataOut: { Value: 'string' } }),
+      spec({
+        kind: 'NumberProducer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: 'number' },
+      }),
+      spec({
+        kind: 'StringProducer',
+        execIn: ['In'],
+        execOut: ['Done'],
+        dataOut: { Value: 'string' },
+      }),
     ]
 
-    const got = filterInlineNodeCandidates(specs, { side: 'input', pinType: 'bool' }).map((s) => s.kind)
+    const got = filterInlineNodeCandidates(specs, { side: 'input', pinType: 'bool' }).map(
+      (s) => s.kind,
+    )
 
     expect(got).toEqual(['BoolProducer', 'AnyProducer'])
   })
@@ -142,7 +222,12 @@ describe('filterInlineNodeCandidates', () => {
   it('filters exec output pins to executable nodes only', () => {
     const specs = [
       spec({ kind: 'Log', execIn: ['In'], execOut: ['Done'], dataIn: { Message: 'any' } }),
-      spec({ kind: 'ParseJSON', isPureData: true, dataIn: { Text: 'string' }, dataOut: { JSON: 'any' } }),
+      spec({
+        kind: 'ParseJSON',
+        isPureData: true,
+        dataIn: { Text: 'string' },
+        dataOut: { JSON: 'any' },
+      }),
       spec({ kind: 'MakePoint', isPureData: true, dataOut: { Result: 'point' } }),
       spec({ kind: 'CommentBox', isVisualOnly: true }),
       spec({ kind: 'SubgraphInput', execOut: ['Out'], excludeFromPalette: true }),
@@ -158,11 +243,18 @@ describe('filterInlineNodeCandidates', () => {
     const specs = [
       spec({ kind: 'If', execIn: ['In'], execOut: ['Then', 'Else'] }),
       spec({ kind: 'Start', execOut: ['Out'] }),
-      spec({ kind: 'ParseJSON', isPureData: true, dataIn: { Text: 'string' }, dataOut: { JSON: 'any' } }),
+      spec({
+        kind: 'ParseJSON',
+        isPureData: true,
+        dataIn: { Text: 'string' },
+        dataOut: { JSON: 'any' },
+      }),
       spec({ kind: 'CommentBox', isVisualOnly: true }),
     ]
 
-    const got = filterInlineNodeCandidates(specs, { side: 'input', isExec: true }).map((s) => s.kind)
+    const got = filterInlineNodeCandidates(specs, { side: 'input', isExec: true }).map(
+      (s) => s.kind,
+    )
 
     expect(got).toEqual(['If', 'Start'])
   })

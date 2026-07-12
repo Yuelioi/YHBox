@@ -34,9 +34,7 @@
 
       <!-- Global status bar -->
       <AppStatusBar />
-
-      </div>
-
+    </div>
 
     <!-- 全局 ConfirmDialog：useConfirm() Promise API 触发 -->
     <ConfirmDialog

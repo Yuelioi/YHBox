@@ -51,7 +51,16 @@ export interface StartRecordingOpts {
 }
 
 export function useRecording(opts: RecordOpts) {
-  const { draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft, dropPoint, selectNode, toast } = opts
+  const {
+    draft,
+    activeGraph,
+    syncFlowFromDraft,
+    refreshSubgraphStore,
+    saveDraft,
+    dropPoint,
+    selectNode,
+    toast,
+  } = opts
   const recordStore = useRecordingStore()
   const hotkeysStore = useHotkeysStore()
   const { t } = useI18n()
@@ -89,7 +98,11 @@ export function useRecording(opts: RecordOpts) {
     try {
       await backend.recording.validateTarget(containerID)
     } catch (e: any) {
-      toast.add({ title: t('recording.launch_failed'), description: errorMessage(e), color: 'error' })
+      toast.add({
+        title: t('recording.launch_failed'),
+        description: errorMessage(e),
+        color: 'error',
+      })
       return
     }
 
@@ -110,7 +123,11 @@ export function useRecording(opts: RecordOpts) {
       Events.Emit('recording:countdown', { sec: i, mode, stopKey, pauseKey })
       await new Promise((r) => setTimeout(r, 1000))
       if (countdownSec.value === 0) {
-        try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
+        try {
+          await backend.tools.closeRecordingHUD()
+        } catch {
+          /* ignore */
+        }
         Events.Emit('recording:countdown', { sec: 0, mode, stopKey, pauseKey })
         return
       }
@@ -121,14 +138,29 @@ export function useRecording(opts: RecordOpts) {
       await recordStore.start(mode, containerID)
       ownsRecording.value = true // 本窗发起 — 后续 recording:completed 由本窗处理
       toast.add({
-        title: t('recordComposable.recording_in_progress', { mode: mode === 'precise' ? t('recordComposable.mode_precise') : t('recordComposable.mode_simple') }),
-        description: t('recordComposable.stop_methods', { hk: hotkeysStore.keyFor('recording.stop', 'F12') }),
+        title: t('recordComposable.recording_in_progress', {
+          mode:
+            mode === 'precise'
+              ? t('recordComposable.mode_precise')
+              : t('recordComposable.mode_simple'),
+        }),
+        description: t('recordComposable.stop_methods', {
+          hk: hotkeysStore.keyFor('recording.stop', 'F12'),
+        }),
         color: 'success',
         duration: 5000,
       })
     } catch (e: any) {
-      try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
-      toast.add({ title: t('recording.launch_failed'), description: errorMessage(e), color: 'error' })
+      try {
+        await backend.tools.closeRecordingHUD()
+      } catch {
+        /* ignore */
+      }
+      toast.add({
+        title: t('recording.launch_failed'),
+        description: errorMessage(e),
+        color: 'error',
+      })
     }
   }
 
@@ -138,7 +170,11 @@ export function useRecording(opts: RecordOpts) {
     if (!recordStore.isRecording && !recordStore.isPaused) return
     try {
       const payload = await recordStore.stop()
-      try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
+      try {
+        await backend.tools.closeRecordingHUD()
+      } catch {
+        /* ignore */
+      }
       if (!payload?.pendingID) {
         toast.add({ title: t('recording.no_steps'), color: 'warning' })
         return
@@ -168,7 +204,11 @@ export function useRecording(opts: RecordOpts) {
       pendingRecording.value = null
       await attachFinalizedProduct(product)
     } catch (e: any) {
-      toast.add({ title: t('recordingSave.save_failed'), description: errorMessage(e), color: 'error' })
+      toast.add({
+        title: t('recordingSave.save_failed'),
+        description: errorMessage(e),
+        color: 'error',
+      })
     } finally {
       pendingBusy.value = false
     }
@@ -183,7 +223,11 @@ export function useRecording(opts: RecordOpts) {
       pendingRecording.value = null
       replaceNodeID.value = null
     } catch (e: any) {
-      toast.add({ title: t('recordingSave.discard_failed'), description: errorMessage(e), color: 'error' })
+      toast.add({
+        title: t('recordingSave.discard_failed'),
+        description: errorMessage(e),
+        color: 'error',
+      })
     } finally {
       pendingBusy.value = false
     }
@@ -199,7 +243,13 @@ export function useRecording(opts: RecordOpts) {
         color: 'primary',
       })
       // simple 仍刷一下 editorStore 让其他视图能看到新子图.
-      if (!isPrecise) { try { await refreshSubgraphStore() } catch { /* ignore */ } }
+      if (!isPrecise) {
+        try {
+          await refreshSubgraphStore()
+        } catch {
+          /* ignore */
+        }
+      }
       return
     }
 
@@ -212,7 +262,9 @@ export function useRecording(opts: RecordOpts) {
       try {
         const c = await backend.containers.get(payload.containerID)
         if (c?.name) targetName = c.name
-      } catch { /* fallback 裸 ID */ }
+      } catch {
+        /* fallback 裸 ID */
+      }
       toast.add({
         title: t('recordComposable.container_mismatch', {
           target: targetName,
@@ -221,7 +273,13 @@ export function useRecording(opts: RecordOpts) {
         color: 'warning',
         duration: 8000,
       })
-      if (!isPrecise) { try { await refreshSubgraphStore() } catch { /* ignore */ } }
+      if (!isPrecise) {
+        try {
+          await refreshSubgraphStore()
+        } catch {
+          /* ignore */
+        }
+      }
       return
     }
 
@@ -231,7 +289,11 @@ export function useRecording(opts: RecordOpts) {
       try {
         await refreshSubgraphStore()
       } catch (e: any) {
-        toast.add({ title: t('recordComposable.refresh_subgraphs_failed'), description: errorMessage(e), color: 'error' })
+        toast.add({
+          title: t('recordComposable.refresh_subgraphs_failed'),
+          description: errorMessage(e),
+          color: 'error',
+        })
         return
       }
     }
@@ -256,7 +318,10 @@ export function useRecording(opts: RecordOpts) {
         else target.config.SubgraphID = payload.subgraphID
         syncFlowFromDraft()
         await maybeSave()
-        toast.add({ title: t('recording.rerecord_overwrite', { name: payload.label }), color: 'success' })
+        toast.add({
+          title: t('recording.rerecord_overwrite', { name: payload.label }),
+          color: 'success',
+        })
         return
       }
     }
@@ -277,7 +342,9 @@ export function useRecording(opts: RecordOpts) {
     await maybeSave()
     selectNode(nodeId)
     toast.add({
-      title: t(isPrecise ? 'recording.added_clip' : 'recording.added_subgraph', { name: payload.label }),
+      title: t(isPrecise ? 'recording.added_clip' : 'recording.added_subgraph', {
+        name: payload.label,
+      }),
       color: 'success',
     })
   }
@@ -312,10 +379,18 @@ export function useRecording(opts: RecordOpts) {
       const firstArg = Array.isArray(raw) ? raw[0] : raw
       // 状态由后端 'recording:state' 广播 (已收敛到 idle); 这里对账一次兜底防丢事件.
       void recordStore.reconcile()
-      try { await backend.tools.closeRecordingHUD() } catch { /* ignore */ }
+      try {
+        await backend.tools.closeRecordingHUD()
+      } catch {
+        /* ignore */
+      }
       const errMsg = firstArg?.error
       if (errMsg) {
-        toast.add({ title: t('recordComposable.recording_failed'), description: String(errMsg), color: 'error' })
+        toast.add({
+          title: t('recordComposable.recording_failed'),
+          description: String(errMsg),
+          color: 'error',
+        })
         return
       }
       if (!firstArg?.pendingID) {

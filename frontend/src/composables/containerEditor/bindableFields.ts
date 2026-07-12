@@ -11,10 +11,7 @@ import { pinsFor } from '@/components/containers/pinSpec'
 //
 // 与后端 node.BindableFields 集合一致 (单一来源, 不各维护白名单)。Inspector「输出」组 +
 // useVarMutations (rename/count/usage/cascade) 共用此派生。
-export function bindableFields(
-  kind: string,
-  config?: Record<string, unknown> | null,
-): string[] {
+export function bindableFields(kind: string, config?: Record<string, unknown> | null): string[] {
   const s = getSpec(kind)
   if (!s || s.isPureData) return []
   return pinsFor(kind, config).dataOut

@@ -7,7 +7,10 @@ import { renderSignature } from '@/lib/editorHover'
 
 // ── Expr: 字符串扫描, 跳过双引号串 (含 \" 转义), 找 pos 处最内层未闭合的括号 ──
 
-export function exprSigContext(text: string, pos: number): { name: string; argIndex: number } | null {
+export function exprSigContext(
+  text: string,
+  pos: number,
+): { name: string; argIndex: number } | null {
   const stack: { name: string; argIndex: number }[] = []
   let i = 0
   while (i < pos) {
@@ -50,7 +53,10 @@ export function exprSigContext(text: string, pos: number): { name: string; argIn
 
 const jsParser = javascript().language.parser
 
-export function scriptSigContext(doc: string, pos: number): { name: string; argIndex: number } | null {
+export function scriptSigContext(
+  doc: string,
+  pos: number,
+): { name: string; argIndex: number } | null {
   const tree = jsParser.parse(doc)
   let node = tree.resolveInner(pos, -1) as ReturnType<typeof tree.resolveInner> | null
   while (node && node.name !== 'ArgList') node = node.parent
@@ -74,7 +80,10 @@ export function scriptSigContext(doc: string, pos: number): { name: string; argI
 // ── Script: 光标落在节点调用对象字面量的某个 pin 值位置 → {kind, pin} ──
 //    用于在值位置补全: 枚举 pin → 候选值 (Scope→auto/local/global); varname pin → 容器变量名。
 //    走 lezer 树: Property → ObjectExpression → ArgList → CallExpression。
-export function scriptPinValueContext(doc: string, pos: number): { kind: string; pin: string } | null {
+export function scriptPinValueContext(
+  doc: string,
+  pos: number,
+): { kind: string; pin: string } | null {
   const tree = jsParser.parse(doc)
   let prop = tree.resolveInner(pos, -1) as ReturnType<typeof tree.resolveInner> | null
   while (prop && prop.name !== 'Property') prop = prop.parent
@@ -107,7 +116,10 @@ export function scriptExitCompareContext(
   const compareAt = before.lastIndexOf(`${varName}.exit`)
   if (compareAt < 0) return null
   const decls = before.slice(0, compareAt)
-  const re = new RegExp(`\\b(?:const|let|var)\\s+${escapeRegExp(varName)}\\s*=\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, 'g')
+  const re = new RegExp(
+    `\\b(?:const|let|var)\\s+${escapeRegExp(varName)}\\s*=\\s*([A-Za-z_$][\\w$]*)\\s*\\(`,
+    'g',
+  )
   let kind = ''
   let d: RegExpExecArray | null
   while ((d = re.exec(decls))) kind = d[1]
@@ -135,7 +147,10 @@ export function signatureHelp(opts: {
 
 function sigTooltip(
   state: EditorState,
-  opts: { context: (s: EditorState, p: number) => { name: string; argIndex: number } | null; lookup: (n: string) => { sig: string } | null },
+  opts: {
+    context: (s: EditorState, p: number) => { name: string; argIndex: number } | null
+    lookup: (n: string) => { sig: string } | null
+  },
 ): Tooltip | null {
   const pos = state.selection.main.head
   const ctx = opts.context(state, pos)

@@ -15,10 +15,7 @@
           <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" />
         </div>
         <span class="text-sm font-semibold tracking-tight text-highlighted">Yotta</span>
-        <span
-          v-if="versionLabel"
-          class="font-mono text-[11px] tabular-nums text-dimmed"
-        >
+        <span v-if="versionLabel" class="font-mono text-[11px] tabular-nums text-dimmed">
           {{ versionLabel }}
         </span>
       </div>
@@ -30,7 +27,11 @@
           :to="item.to"
           :title="item.label"
           class="relative flex items-center gap-2 px-4 text-sm transition-colors duration-150"
-          :class="item.active ? 'text-highlighted' : 'text-muted hover:bg-elevated/60 hover:text-highlighted'"
+          :class="
+            item.active
+              ? 'text-highlighted'
+              : 'text-muted hover:bg-elevated/60 hover:text-highlighted'
+          "
         >
           <span
             v-if="item.active"
@@ -49,7 +50,10 @@
     </div>
 
     <!-- RIGHT: utility icons + window controls (border-l 跟左侧品牌 border-r 对称, 把工具区跟导航/标题分开) -->
-    <div class="shrink-0 flex items-stretch border-l border-default" style="--wails-draggable: no-drag">
+    <div
+      class="shrink-0 flex items-stretch border-l border-default"
+      style="--wails-draggable: no-drag"
+    >
       <!-- 悬浮启动器 / 设置 / 关于：任何路由 1 步可达 -->
       <button
         type="button"
@@ -118,7 +122,7 @@ const route = useRoute()
 const editorStore = useContainerEditorStore()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 const appVersion = ref('')
-const versionLabel = computed(() => appVersion.value ? `v${appVersion.value}` : '')
+const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
 // '容器' 主导航 — 有 lastEditingContainerID 就跳回编辑器路由 (keep-alive cache 命中, draft 不丢),
 // 否则跳列表 (从侧栏迁来的逻辑)。

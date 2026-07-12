@@ -14,7 +14,11 @@ describe('useEditorDragDrop', () => {
   it('startEditorDrag stores payload + sets effectAllowed', () => {
     const dt = fakeDataTransfer()
     const e = { dataTransfer: dt, altKey: false } as unknown as DragEvent
-    const payload: EditorDragPayload = { type: 'var', ref: { name: 'x', type: 'number' }, modifier: 'none' }
+    const payload: EditorDragPayload = {
+      type: 'var',
+      ref: { name: 'x', type: 'number' },
+      modifier: 'none',
+    }
     startEditorDrag(payload, e)
     expect(dt.effectAllowed).toBe('copy')
     expect(JSON.parse(dt.getData(MIME))).toEqual(payload)
@@ -23,7 +27,11 @@ describe('useEditorDragDrop', () => {
   it('startEditorDrag auto-detects Alt modifier for var payload', () => {
     const dt = fakeDataTransfer()
     const e = { dataTransfer: dt, altKey: true } as unknown as DragEvent
-    const payload: EditorDragPayload = { type: 'var', ref: { name: 'x', type: 'number' }, modifier: 'none' }
+    const payload: EditorDragPayload = {
+      type: 'var',
+      ref: { name: 'x', type: 'number' },
+      modifier: 'none',
+    }
     startEditorDrag(payload, e)
     expect(JSON.parse(dt.getData(MIME)).modifier).toBe('alt')
   })
@@ -36,7 +44,11 @@ describe('useEditorDragDrop', () => {
 
   it('readDragPayload parses var payload', () => {
     const dt = fakeDataTransfer()
-    const payload: EditorDragPayload = { type: 'var', ref: { name: 'y', type: 'string' }, modifier: 'none' }
+    const payload: EditorDragPayload = {
+      type: 'var',
+      ref: { name: 'y', type: 'string' },
+      modifier: 'none',
+    }
     dt.setData(MIME, JSON.stringify(payload))
     const e = { dataTransfer: dt } as unknown as DragEvent
     expect(readDragPayload(e)).toEqual(payload)

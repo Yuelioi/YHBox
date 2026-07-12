@@ -77,21 +77,23 @@ function mountPointWidget(modelValue: PointValue | null, fieldPath = 'pt', nodeI
 
   const app = createApp(Wrapper)
   app.use(createPinia())
-  app.use(createI18n({
-    legacy: false,
-    locale: 'zh',
-    messages: {
-      zh: {
-        point_widget: {
-          unit_percent: '百分比',
-          unit_px: '像素',
-          pick_point: '截图取点',
-          hint_percent: '比例：随窗口大小自适应（换分辨率仍按比例）',
-          hint_px: '绝对像素：固定不随窗口缩放，适合固定位置的 UI',
+  app.use(
+    createI18n({
+      legacy: false,
+      locale: 'zh',
+      messages: {
+        zh: {
+          point_widget: {
+            unit_percent: '百分比',
+            unit_px: '像素',
+            pick_point: '截图取点',
+            hint_percent: '比例：随窗口大小自适应（换分辨率仍按比例）',
+            hint_px: '绝对像素：固定不随窗口缩放，适合固定位置的 UI',
+          },
         },
       },
-    },
-  }))
+    }),
+  )
   for (const name of ['UInputNumber', 'UButton']) {
     app.component(name, makeStub(name))
   }
@@ -110,7 +112,13 @@ function round4(n: number): number {
 
 // ─── picker mock helpers ────────────────────────────────────────────────────
 
-type PickerPayload = { xRatio: number; yRatio: number; screenW: number; screenH: number; cancelled?: boolean }
+type PickerPayload = {
+  xRatio: number
+  yRatio: number
+  screenW: number
+  screenH: number
+  cancelled?: boolean
+}
 
 function mockPicker(payload: PickerPayload) {
   // openScreenPicker success: returns non-undefined (Go void → null in JS)
@@ -270,7 +278,9 @@ describe('PointWidget', () => {
   it('切到 px: mousePos 有值时换算 (1920×1080, x:0.5 → 960)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: true, clientW: 1920, clientH: 1080 })
     const { emitted, app, el } = mountPointWidget({ x: 0.5, y: 0.5 })
-    const pxBtn = el.querySelector('[data-testid="point-unit-toggle"] button:last-child') as HTMLButtonElement
+    const pxBtn = el.querySelector(
+      '[data-testid="point-unit-toggle"] button:last-child',
+    ) as HTMLButtonElement
     expect(pxBtn).toBeTruthy()
     pxBtn.click()
     await flushPromises()
@@ -286,7 +296,9 @@ describe('PointWidget', () => {
   it('px 模式切回 %: mousePos 有值时换算 (x:960/1920 → 0.5)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: true, clientW: 1920, clientH: 1080 })
     const { emitted, app, el } = mountPointWidget({ x: 960, y: 540, unit: 'px' })
-    const pctBtn = el.querySelector('[data-testid="point-unit-toggle"] button:first-child') as HTMLButtonElement
+    const pctBtn = el.querySelector(
+      '[data-testid="point-unit-toggle"] button:first-child',
+    ) as HTMLButtonElement
     expect(pctBtn).toBeTruthy()
     pctBtn.click()
     await flushPromises()
@@ -302,7 +314,9 @@ describe('PointWidget', () => {
   it('切到 px: mousePos hasGame=false 时不切单位、不 emit (no-op)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
     const { emitted, app, el } = mountPointWidget({ x: 0.5, y: 0.5 })
-    const pxBtn = el.querySelector('[data-testid="point-unit-toggle"] button:last-child') as HTMLButtonElement
+    const pxBtn = el.querySelector(
+      '[data-testid="point-unit-toggle"] button:last-child',
+    ) as HTMLButtonElement
     expect(pxBtn).toBeTruthy()
     pxBtn.click()
     await flushPromises()
@@ -314,7 +328,9 @@ describe('PointWidget', () => {
   it('px 模式切回 %: mousePos hasGame=false 时不切单位、不 emit (no-op)', async () => {
     mockBackend.tools.mousePos.mockResolvedValue({ hasGame: false, clientW: 0, clientH: 0 })
     const { emitted, app, el } = mountPointWidget({ x: 960, y: 540, unit: 'px' })
-    const pctBtn = el.querySelector('[data-testid="point-unit-toggle"] button:first-child') as HTMLButtonElement
+    const pctBtn = el.querySelector(
+      '[data-testid="point-unit-toggle"] button:first-child',
+    ) as HTMLButtonElement
     expect(pctBtn).toBeTruthy()
     pctBtn.click()
     await flushPromises()

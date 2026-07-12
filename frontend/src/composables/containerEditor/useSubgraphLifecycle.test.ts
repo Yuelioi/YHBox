@@ -32,7 +32,10 @@ function makeContainer(mainNodes: GraphNode[]): Container {
   }
 }
 
-function setup(draft: Container | null, sgs: Array<{ id: string; graph: Graph; outputPins?: any[] }>) {
+function setup(
+  draft: Container | null,
+  sgs: Array<{ id: string; graph: Graph; outputPins?: any[] }>,
+) {
   setActivePinia(createPinia())
   const store = useContainerEditorStore()
   store.setActiveContainer(draft?.id ?? '')

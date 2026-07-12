@@ -103,9 +103,12 @@ const draftDoc = ref('')
 const bodyRef = ref<InstanceType<typeof CodeEditor> | null>(null)
 
 // 打开时灌当前值当 draft (CodeEditor 跟 modal 内容懒挂/卸, mount 时读 draftDoc 当初值)。
-watch(() => props.open, (open) => {
-  if (open) draftDoc.value = props.modelValue ?? ''
-})
+watch(
+  () => props.open,
+  (open) => {
+    if (open) draftDoc.value = props.modelValue ?? ''
+  },
+)
 
 function confirm() {
   emit('update:modelValue', draftDoc.value)

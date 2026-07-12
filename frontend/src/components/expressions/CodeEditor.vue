@@ -8,41 +8,106 @@
     <div class="flex-1 min-w-0 flex flex-col gap-1.5">
       <div class="flex items-center shrink-0">
         <div class="flex items-center gap-0.5">
-          <UButton icon="i-tabler-arrow-back-up" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_undo')" @click="run(undo)" />
-          <UButton icon="i-tabler-arrow-forward-up" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_redo')" @click="run(redo)" />
+          <UButton
+            icon="i-tabler-arrow-back-up"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            :title="t('inspector.editor_undo')"
+            @click="run(undo)"
+          />
+          <UButton
+            icon="i-tabler-arrow-forward-up"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            :title="t('inspector.editor_redo')"
+            @click="run(redo)"
+          />
         </div>
         <span class="h-4 border-l border-default mx-1.5" />
         <div class="flex items-center gap-0.5">
-          <UButton v-if="commentable" variant="ghost" color="neutral" size="xs"
-            class="font-mono" :title="t('inspector.editor_comment')" @click="run(toggleComment)">//</UButton>
-          <UButton icon="i-tabler-list-search" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_search')" @click="run(openSearchPanel)" />
+          <UButton
+            v-if="commentable"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            class="font-mono"
+            :title="t('inspector.editor_comment')"
+            @click="run(toggleComment)"
+            >//</UButton
+          >
+          <UButton
+            icon="i-tabler-list-search"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            :title="t('inspector.editor_search')"
+            @click="run(openSearchPanel)"
+          />
         </div>
         <template v-if="snippetLang || $slots['toolbar-extra']">
           <span class="h-4 border-l border-default mx-1.5" />
           <div class="flex items-center gap-0.5">
-            <UButton v-if="snippetLang" icon="i-tabler-template" variant="ghost" color="neutral" size="xs"
-              :title="t('inspector.editor_snippets_tip')" @click="openSnippetManager">
+            <UButton
+              v-if="snippetLang"
+              icon="i-tabler-template"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              :title="t('inspector.editor_snippets_tip')"
+              @click="openSnippetManager"
+            >
               {{ t('inspector.editor_snippets') }}
             </UButton>
             <slot name="toolbar-extra" />
           </div>
         </template>
         <div class="ml-auto flex items-center gap-0.5">
-          <UButton v-if="reference?.length" icon="i-tabler-book" variant="ghost"
-            :color="refDrawerOpen ? 'primary' : 'neutral'" size="xs"
-            :title="t('inspector.editor_ref_toggle')" @click="refDrawerOpen = !refDrawerOpen" />
-          <UButton v-if="formattable" icon="i-tabler-wand" variant="ghost" color="neutral" size="xs"
-            :loading="formatting" :title="t('inspector.editor_format')" @click="formatDoc" />
-          <UButton icon="i-tabler-indent-increase" variant="ghost" color="neutral" size="xs"
-            :title="t('inspector.editor_indent_tidy')" @click="reindentAll" />
+          <UButton
+            v-if="reference?.length"
+            icon="i-tabler-book"
+            variant="ghost"
+            :color="refDrawerOpen ? 'primary' : 'neutral'"
+            size="xs"
+            :title="t('inspector.editor_ref_toggle')"
+            @click="refDrawerOpen = !refDrawerOpen"
+          />
+          <UButton
+            v-if="formattable"
+            icon="i-tabler-wand"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            :loading="formatting"
+            :title="t('inspector.editor_format')"
+            @click="formatDoc"
+          />
+          <UButton
+            icon="i-tabler-indent-increase"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            :title="t('inspector.editor_indent_tidy')"
+            @click="reindentAll"
+          />
           <template v-if="foldable">
-            <UButton icon="i-tabler-fold" variant="ghost" color="neutral" size="xs"
-              :title="t('inspector.editor_fold_all')" @click="run(foldAll)" />
-            <UButton icon="i-tabler-fold-down" variant="ghost" color="neutral" size="xs"
-              :title="t('inspector.editor_unfold_all')" @click="run(unfoldAll)" />
+            <UButton
+              icon="i-tabler-fold"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              :title="t('inspector.editor_fold_all')"
+              @click="run(foldAll)"
+            />
+            <UButton
+              icon="i-tabler-fold-down"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              :title="t('inspector.editor_unfold_all')"
+              @click="run(unfoldAll)"
+            />
           </template>
         </div>
       </div>
@@ -72,101 +137,138 @@
     </div>
 
     <Transition name="ref-drawer">
-    <aside
-      v-if="reference?.length && refDrawerOpen"
-      class="w-80 shrink-0 flex flex-col gap-2 min-h-0 border-l border-default pl-3"
-    >
-      <div class="flex items-center justify-between shrink-0">
-        <span class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-          <UIcon name="i-tabler-book" class="size-3.5" />
-          {{ t('inspector.editor_ref_toggle') }}
-        </span>
-        <UButton icon="i-tabler-x" variant="ghost" color="neutral" size="xs" @click="refDrawerOpen = false" />
-      </div>
-      <UInput
-        v-model="search"
-        icon="i-tabler-search"
-        size="xs"
-        class="shrink-0"
-        :placeholder="t('inspector.editor_ref_search')"
-      />
-      <div class="flex-1 min-h-0 overflow-y-auto pr-1">
-        <template v-for="group in filteredGroups" :key="group.name">
-          <div
-            v-if="group.name"
-            class="flex items-center gap-1.5 px-1 pt-4 pb-1.5 first:pt-1 sticky top-0 bg-default z-10"
-            :class="group.cls || 'text-muted'"
+      <aside
+        v-if="reference?.length && refDrawerOpen"
+        class="w-80 shrink-0 flex flex-col gap-2 min-h-0 border-l border-default pl-3"
+      >
+        <div class="flex items-center justify-between shrink-0">
+          <span
+            class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted"
           >
-            <span class="size-1.5 rounded-full bg-current shrink-0" />
-            <span class="text-[10px] font-semibold uppercase tracking-wider text-toned">{{ group.name }}</span>
-            <span class="h-px flex-1 bg-accented/60 ml-1" />
-            <span class="text-[10px] font-normal text-dimmed tabular-nums">{{ group.items.length }}</span>
-          </div>
-          <div
-            v-for="it in group.items"
-            :key="it.label"
-            class="rounded-md"
-            :class="isExpanded(it) ? 'bg-elevated/50 ring-1 ring-default my-1' : ''"
-          >
-            <div class="flex items-center group/row">
-              <button
-                type="button"
-                class="flex-1 min-w-0 text-left px-2 py-1.5 rounded-md hover:bg-elevated/60 focus:bg-elevated/60 focus:outline-none"
-                @click="onRowClick(it)"
-              >
-                <div class="text-[12px] font-mono truncate leading-snug">
-                  <span class="text-highlighted">{{ sigName(it) }}</span><span class="text-dimmed">{{ sigArgs(it) }}</span>
-                </div>
-                <div v-if="it.desc" class="text-[11px] text-muted truncate mt-0.5">{{ it.desc }}</div>
-              </button>
-              <UIcon
-                v-if="expandable(it)"
-                name="i-tabler-chevron-right"
-                class="size-3 shrink-0 text-dimmed transition-transform duration-150 mr-0.5"
-                :class="isExpanded(it) ? 'rotate-90' : ''"
-              />
-              <UButton
-                icon="i-tabler-corner-down-left"
-                variant="ghost"
-                color="neutral"
-                size="xs"
-                class="shrink-0 opacity-0 group-hover/row:opacity-70 hover:!opacity-100"
-                :title="t('inspector.editor_insert')"
-                @click="insertItem(it)"
-              />
-            </div>
-            <div v-if="isExpanded(it)" class="mx-2 pb-2 pt-1.5 space-y-1.5 border-t border-default/60">
-              <p v-if="it.docs" class="text-[11px] text-toned leading-snug whitespace-pre-line">{{ it.docs }}</p>
-              <div v-if="it.params?.length" class="space-y-0.5">
-                <div class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">{{ t('inspector.editor_params') }}</div>
-                <div
-                  v-for="p in it.params"
-                  :key="p.name"
-                  class="flex items-baseline gap-2 text-[11px] leading-snug"
-                >
-                  <span class="font-mono text-highlighted shrink-0">{{ p.name }}</span>
-                  <span class="font-mono text-[10px] text-info/80 shrink-0">{{ p.type }}<span v-if="p.required" class="text-error">*</span></span>
-                  <span class="text-muted truncate">{{ p.label }}</span>
-                  <span v-if="p.options?.length" class="font-mono text-[10px] text-dimmed shrink-0">{{ p.options.join(' | ') }}</span>
-                </div>
-              </div>
-              <p v-if="it.example" class="text-[10px] text-dimmed leading-snug italic whitespace-pre-line">{{ it.example }}</p>
-              <UButton
-                size="xs"
-                variant="soft"
-                color="primary"
-                icon="i-tabler-corner-down-left"
-                @click="insertItem(it)"
-              >{{ t('inspector.editor_insert') }}</UButton>
-            </div>
-          </div>
-        </template>
-        <div v-if="!filteredGroups.length" class="flex flex-col items-center gap-1.5 py-8 text-muted">
-          <UIcon name="i-tabler-search-off" class="size-5 opacity-60" />
-          <p class="text-[11px]">{{ t('inspector.editor_ref_empty') }}</p>
+            <UIcon name="i-tabler-book" class="size-3.5" />
+            {{ t('inspector.editor_ref_toggle') }}
+          </span>
+          <UButton
+            icon="i-tabler-x"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            @click="refDrawerOpen = false"
+          />
         </div>
-      </div>
-    </aside>
+        <UInput
+          v-model="search"
+          icon="i-tabler-search"
+          size="xs"
+          class="shrink-0"
+          :placeholder="t('inspector.editor_ref_search')"
+        />
+        <div class="flex-1 min-h-0 overflow-y-auto pr-1">
+          <template v-for="group in filteredGroups" :key="group.name">
+            <div
+              v-if="group.name"
+              class="flex items-center gap-1.5 px-1 pt-4 pb-1.5 first:pt-1 sticky top-0 bg-default z-10"
+              :class="group.cls || 'text-muted'"
+            >
+              <span class="size-1.5 rounded-full bg-current shrink-0" />
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-toned">{{
+                group.name
+              }}</span>
+              <span class="h-px flex-1 bg-accented/60 ml-1" />
+              <span class="text-[10px] font-normal text-dimmed tabular-nums">{{
+                group.items.length
+              }}</span>
+            </div>
+            <div
+              v-for="it in group.items"
+              :key="it.label"
+              class="rounded-md"
+              :class="isExpanded(it) ? 'bg-elevated/50 ring-1 ring-default my-1' : ''"
+            >
+              <div class="flex items-center group/row">
+                <button
+                  type="button"
+                  class="flex-1 min-w-0 text-left px-2 py-1.5 rounded-md hover:bg-elevated/60 focus:bg-elevated/60 focus:outline-none"
+                  @click="onRowClick(it)"
+                >
+                  <div class="text-[12px] font-mono truncate leading-snug">
+                    <span class="text-highlighted">{{ sigName(it) }}</span
+                    ><span class="text-dimmed">{{ sigArgs(it) }}</span>
+                  </div>
+                  <div v-if="it.desc" class="text-[11px] text-muted truncate mt-0.5">
+                    {{ it.desc }}
+                  </div>
+                </button>
+                <UIcon
+                  v-if="expandable(it)"
+                  name="i-tabler-chevron-right"
+                  class="size-3 shrink-0 text-dimmed transition-transform duration-150 mr-0.5"
+                  :class="isExpanded(it) ? 'rotate-90' : ''"
+                />
+                <UButton
+                  icon="i-tabler-corner-down-left"
+                  variant="ghost"
+                  color="neutral"
+                  size="xs"
+                  class="shrink-0 opacity-0 group-hover/row:opacity-70 hover:!opacity-100"
+                  :title="t('inspector.editor_insert')"
+                  @click="insertItem(it)"
+                />
+              </div>
+              <div
+                v-if="isExpanded(it)"
+                class="mx-2 pb-2 pt-1.5 space-y-1.5 border-t border-default/60"
+              >
+                <p v-if="it.docs" class="text-[11px] text-toned leading-snug whitespace-pre-line">
+                  {{ it.docs }}
+                </p>
+                <div v-if="it.params?.length" class="space-y-0.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">
+                    {{ t('inspector.editor_params') }}
+                  </div>
+                  <div
+                    v-for="p in it.params"
+                    :key="p.name"
+                    class="flex items-baseline gap-2 text-[11px] leading-snug"
+                  >
+                    <span class="font-mono text-highlighted shrink-0">{{ p.name }}</span>
+                    <span class="font-mono text-[10px] text-info/80 shrink-0"
+                      >{{ p.type }}<span v-if="p.required" class="text-error">*</span></span
+                    >
+                    <span class="text-muted truncate">{{ p.label }}</span>
+                    <span
+                      v-if="p.options?.length"
+                      class="font-mono text-[10px] text-dimmed shrink-0"
+                      >{{ p.options.join(' | ') }}</span
+                    >
+                  </div>
+                </div>
+                <p
+                  v-if="it.example"
+                  class="text-[10px] text-dimmed leading-snug italic whitespace-pre-line"
+                >
+                  {{ it.example }}
+                </p>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  color="primary"
+                  icon="i-tabler-corner-down-left"
+                  @click="insertItem(it)"
+                  >{{ t('inspector.editor_insert') }}</UButton
+                >
+              </div>
+            </div>
+          </template>
+          <div
+            v-if="!filteredGroups.length"
+            class="flex flex-col items-center gap-1.5 py-8 text-muted"
+          >
+            <UIcon name="i-tabler-search-off" class="size-5 opacity-60" />
+            <p class="text-[11px]">{{ t('inspector.editor_ref_empty') }}</p>
+          </div>
+        </div>
+      </aside>
     </Transition>
 
     <SnippetManagerModal
@@ -244,11 +346,19 @@ let view: EditorView | null = null
 // 参考面板抽屉开关 — 默认收起, 状态记本地, 工具栏按钮 + F1 切换。
 const REF_DRAWER_KEY = 'yotta.editor.refDrawer'
 function loadRefDrawer(): boolean {
-  try { return localStorage.getItem(REF_DRAWER_KEY) === '1' } catch { return false }
+  try {
+    return localStorage.getItem(REF_DRAWER_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 const refDrawerOpen = ref(loadRefDrawer())
 function persistRefDrawer(v: boolean) {
-  try { localStorage.setItem(REF_DRAWER_KEY, v ? '1' : '0') } catch { /* localStorage 不可用 → 静默 */ }
+  try {
+    localStorage.setItem(REF_DRAWER_KEY, v ? '1' : '0')
+  } catch {
+    /* localStorage 不可用 → 静默 */
+  }
 }
 
 const statusError = computed<{ message: string; from: number } | null>(() =>
@@ -336,10 +446,43 @@ onMounted(async () => {
       searchExt(),
       searchPanelTheme,
       keymap.of(searchKeymap),
-      Prec.high(keymap.of([{ key: 'Mod-Enter', run: () => { emit('submit'); return true } }])),
-      Prec.high(keymap.of([{ key: 'F1', run: () => { refDrawerOpen.value = !refDrawerOpen.value; persistRefDrawer(refDrawerOpen.value); return true } }])),
+      Prec.high(
+        keymap.of([
+          {
+            key: 'Mod-Enter',
+            run: () => {
+              emit('submit')
+              return true
+            },
+          },
+        ]),
+      ),
+      Prec.high(
+        keymap.of([
+          {
+            key: 'F1',
+            run: () => {
+              refDrawerOpen.value = !refDrawerOpen.value
+              persistRefDrawer(refDrawerOpen.value)
+              return true
+            },
+          },
+        ]),
+      ),
       ...(props.formattable
-        ? [Prec.high(keymap.of([{ key: 'Shift-Alt-f', run: () => { void formatDoc(); return true } }]))]
+        ? [
+            Prec.high(
+              keymap.of([
+                {
+                  key: 'Shift-Alt-f',
+                  run: () => {
+                    void formatDoc()
+                    return true
+                  },
+                },
+              ]),
+            ),
+          ]
         : []),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) {

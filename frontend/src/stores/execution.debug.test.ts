@@ -67,18 +67,20 @@ describe('execution store debug state', () => {
     })
 
     await Events.Emit('debug:state', {
-      data: [{
-        SessionID: 'dbg1',
-        ContainerID: 'c1',
-        Status: 'paused',
-        Mode: 'entry',
-        CurrentNodeID: 'androidstartapp',
-        CurrentNodeKind: 'AndroidStartApp',
-        LastNodeID: 'androidtarget',
-        LastNodeKind: 'AndroidTarget',
-        LastExit: 'Done',
-        Queue: [{ NodeID: 'androidstartapp', NodeKind: 'AndroidStartApp', InPin: 'In' }],
-      }],
+      data: [
+        {
+          SessionID: 'dbg1',
+          ContainerID: 'c1',
+          Status: 'paused',
+          Mode: 'entry',
+          CurrentNodeID: 'androidstartapp',
+          CurrentNodeKind: 'AndroidStartApp',
+          LastNodeID: 'androidtarget',
+          LastNodeKind: 'AndroidTarget',
+          LastExit: 'Done',
+          Queue: [{ NodeID: 'androidstartapp', NodeKind: 'AndroidStartApp', InPin: 'In' }],
+        },
+      ],
     })
 
     expect(s.debugStatus).toBe('paused')

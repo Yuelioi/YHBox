@@ -15,7 +15,9 @@
         class="text-primary hover:text-primary/80 px-1 text-base leading-none"
         :title="t('var.add')"
         @click.stop="$emit('add-var')"
-      >+</button>
+      >
+        +
+      </button>
     </template>
 
     <!-- Search input: only shown when >4 vars -->
@@ -35,12 +37,14 @@
 
     <!-- Search-active: simple list, no reorder -->
     <div v-else-if="searchQuery.trim()" class="space-y-1 max-h-64 overflow-y-auto pr-1">
-      <p v-if="filteredVars.length === 0" class="text-[10px] text-dimmed italic px-1">{{ t('var.no_match') }}</p>
+      <p v-if="filteredVars.length === 0" class="text-[10px] text-dimmed italic px-1">
+        {{ t('var.no_match') }}
+      </p>
       <VarRow
         v-for="v in filteredVars"
         :key="v.name"
         :decl="v"
-        :existing-names="vars.map(x => x.name)"
+        :existing-names="vars.map((x) => x.name)"
         @rename="(oldN, newN) => $emit('rename-var', oldN, newN)"
         @update-field="(n, f, val) => $emit('update-var-field', n, f, val)"
         @delete="(n) => $emit('request-delete', n)"
@@ -61,7 +65,7 @@
         v-for="v in orderedVars"
         :key="v.name"
         :decl="v"
-        :existing-names="vars.map(x => x.name)"
+        :existing-names="vars.map((x) => x.name)"
         @rename="(oldN, newN) => $emit('rename-var', oldN, newN)"
         @update-field="(n, f, val) => $emit('update-var-field', n, f, val)"
         @delete="(n) => $emit('request-delete', n)"
@@ -100,12 +104,18 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 
 const orderedVars = ref<VarDecl[]>([...props.vars])
-watch(() => props.vars, (v) => { orderedVars.value = [...v] }, { deep: true })
+watch(
+  () => props.vars,
+  (v) => {
+    orderedVars.value = [...v]
+  },
+  { deep: true },
+)
 
 const filteredVars = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (!q) return orderedVars.value
-  return orderedVars.value.filter(v => v.name.toLowerCase().includes(q))
+  return orderedVars.value.filter((v) => v.name.toLowerCase().includes(q))
 })
 
 function onReorderEnd(e: { oldIndex?: number; newIndex?: number }) {

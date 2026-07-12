@@ -19,7 +19,13 @@ const { pauseMock, resumeMock } = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/backend', () => ({
   backend: {
-    recording: { getState: getStateMock, start: vi.fn(), stop: vi.fn(), pause: pauseMock, resume: resumeMock },
+    recording: {
+      getState: getStateMock,
+      start: vi.fn(),
+      stop: vi.fn(),
+      pause: pauseMock,
+      resume: resumeMock,
+    },
   },
 }))
 vi.mock('@/i18n', () => ({ i18n: { global: { t: (k: string) => k } } }))
@@ -36,7 +42,13 @@ describe('recordStore — 后端状态机镜像', () => {
     expect(s.isRecording).toBe(false) // 初始 idle
     expect(s.activeTargetContainerID).toBe('')
 
-    s.applyState({ phase: 'recording', containerID: 'cA', filterMode: 'precise', tempID: 'x', startedAtMs: 1 })
+    s.applyState({
+      phase: 'recording',
+      containerID: 'cA',
+      filterMode: 'precise',
+      tempID: 'x',
+      startedAtMs: 1,
+    })
     expect(s.isRecording).toBe(true)
     expect(s.activeTargetContainerID).toBe('cA')
   })
@@ -58,7 +70,13 @@ describe('recordStore — 后端状态机镜像', () => {
 
   it('applyState(paused) → isPaused 派生 true, isRecording false, target 仍可见', () => {
     const s = useRecordingStore()
-    s.applyState({ phase: 'paused', containerID: 'cA', startedAtMs: 1, pausedMs: 500, pausedAtMs: 2000 })
+    s.applyState({
+      phase: 'paused',
+      containerID: 'cA',
+      startedAtMs: 1,
+      pausedMs: 500,
+      pausedAtMs: 2000,
+    })
     expect(s.isPaused).toBe(true)
     expect(s.isRecording).toBe(false) // 暂停时严格 false (会话进行中判 isRecording||isPaused)
     expect(s.activeTargetContainerID).toBe('cA')

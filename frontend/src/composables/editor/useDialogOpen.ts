@@ -12,12 +12,14 @@ import { ref, watch, type Ref } from 'vue'
 
 type EmitOpen = (event: 'update:open', v: boolean) => void
 
-export function useDialogOpen(
-  props: { open: boolean },
-  emit: EmitOpen,
-): Ref<boolean> {
+export function useDialogOpen(props: { open: boolean }, emit: EmitOpen): Ref<boolean> {
   const modelOpen = ref(props.open)
-  watch(() => props.open, (v) => { modelOpen.value = v })
+  watch(
+    () => props.open,
+    (v) => {
+      modelOpen.value = v
+    },
+  )
   watch(modelOpen, (v) => emit('update:open', v))
   return modelOpen
 }

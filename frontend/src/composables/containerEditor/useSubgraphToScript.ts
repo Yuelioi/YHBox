@@ -34,7 +34,13 @@ export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
   const { t } = useI18n()
   const registry = useNodeRegistryStore()
   const editorStore = useContainerEditorStore()
-  const state = ref<ToScriptState>({ open: false, sgLabel: '', code: '', unsupported: [], insertPos: null })
+  const state = ref<ToScriptState>({
+    open: false,
+    sgLabel: '',
+    code: '',
+    unsupported: [],
+    insertPos: null,
+  })
 
   // 子图完整数据(含 graph)活在全局池 (2026-06-12 全局化) — 容器只引用不拥有。
   const subgraphs = (): SubgraphLike[] => editorStore.subgraphList as unknown as SubgraphLike[]
@@ -53,7 +59,9 @@ export function useSubgraphToScript(opts: UseSubgraphToScriptOpts) {
 
   // 节点右键入口: callee 从全局池找, 插入位 = 被转节点旁。
   function convertFromNode(node: GraphNode) {
-    const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
+    const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as
+      | string
+      | undefined
     const sg = subgraphs().find((s) => s.id === sgID)
     if (!sg) {
       opts.toast.add({ title: t('toast.subgraph_not_set'), color: 'warning' })

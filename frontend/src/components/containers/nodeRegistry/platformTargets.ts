@@ -7,7 +7,8 @@ export interface PlatformBadge {
 }
 
 const WINDOWS_BADGE = 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
-const ANDROID_BADGE = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+const ANDROID_BADGE =
+  'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
 const COMMON_BADGE = 'border-zinc-500/40 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
 
 export interface PlatformBadgeOptions {

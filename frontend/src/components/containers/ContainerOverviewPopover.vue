@@ -2,7 +2,10 @@
 <template>
   <UPopover>
     <UButton
-      size="xs" variant="ghost" color="neutral" icon="i-tabler-info-circle"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      icon="i-tabler-info-circle"
       :title="t('editor.overview.title')"
     />
     <template #content>
@@ -21,7 +24,11 @@
         </div>
         <div class="flex items-center gap-2 text-[11px]">
           <span class="text-dimmed">{{ t('editor.inspector.empty.hotkey_label') }}</span>
-          <kbd v-if="hotkey" class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px]">{{ hotkey }}</kbd>
+          <kbd
+            v-if="hotkey"
+            class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px]"
+            >{{ hotkey }}</kbd
+          >
           <span v-else class="text-dimmed">{{ t('editor.inspector.empty.hotkey_none') }}</span>
         </div>
         <button
@@ -30,7 +37,9 @@
           @click="$emit('open-help')"
         >
           <UIcon name="i-tabler-help-circle" class="size-3.5 text-primary shrink-0" />
-          <span class="text-[12px] font-medium text-toned flex-1">{{ t('editor.inspector.empty.open_help') }}</span>
+          <span class="text-[12px] font-medium text-toned flex-1">{{
+            t('editor.inspector.empty.open_help')
+          }}</span>
           <UIcon name="i-tabler-chevron-right" class="size-3.5 text-dimmed shrink-0" />
         </button>
       </div>

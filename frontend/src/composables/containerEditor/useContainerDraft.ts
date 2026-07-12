@@ -1,7 +1,14 @@
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MarkerType } from '@vue-flow/core'
-import { backend, type Container, type Graph, type GraphNode, type GraphEdge, type Subgraph } from '@/lib/backend'
+import {
+  backend,
+  type Container,
+  type Graph,
+  type GraphNode,
+  type GraphEdge,
+  type Subgraph,
+} from '@/lib/backend'
 import { useContainerEditorStore } from '@/stores/containerEditor'
 import { edgeKind } from '@/components/containers/pinSpec'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
@@ -111,8 +118,18 @@ export function useContainerDraft(containerID: string) {
           virtualNodes.push({
             id: sg.entry.nodeID,
             type: 'SubgraphInput',
-            position: { x: sg.entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: sg.entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y },
-            data: { kind: 'SubgraphInput', config: {}, disabled: false, label: t('editorAux.entry_pin'), _virtual: true, _markerRole: 'entry' },
+            position: {
+              x: sg.entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x,
+              y: sg.entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y,
+            },
+            data: {
+              kind: 'SubgraphInput',
+              config: {},
+              disabled: false,
+              label: t('editorAux.entry_pin'),
+              _virtual: true,
+              _markerRole: 'entry',
+            },
           })
         }
         for (const p of sg.outputPins ?? []) {
@@ -121,7 +138,15 @@ export function useContainerDraft(containerID: string) {
             id: p.nodeID,
             type: 'SubgraphOutput',
             position: { x: p.x ?? SUBGRAPH_OUTPUT_DEFAULT.x, y: p.y ?? SUBGRAPH_OUTPUT_DEFAULT.y },
-            data: { kind: 'SubgraphOutput', config: { DeclID: p.id }, disabled: false, label: p.name ?? t('editorAux.output_pin'), _virtual: true, _markerRole: 'output', _declID: p.id },
+            data: {
+              kind: 'SubgraphOutput',
+              config: { DeclID: p.id },
+              disabled: false,
+              label: p.name ?? t('editorAux.output_pin'),
+              _virtual: true,
+              _markerRole: 'output',
+              _declID: p.id,
+            },
           })
         }
       }
@@ -207,7 +232,13 @@ export function useContainerDraft(containerID: string) {
     // 子图 dirty: 只 watch 本实例当前正在编辑的那张图 (activeGraph), 不 watch 全局池 ——
     // 否则别的容器编辑器改池里任意子图会误标本实例 dirty (复发#5 同类误触发)。
     // 改动归属: path 非空时记 touch(本容器, 当前子图) — 保存流只写本容器动过的子图。
-    watch(draft, () => { dirty.value = true }, { deep: true })
+    watch(
+      draft,
+      () => {
+        dirty.value = true
+      },
+      { deep: true },
+    )
     watch(
       () => activeGraph.value,
       (g, prev) => {
@@ -330,7 +361,10 @@ export function useContainerDraft(containerID: string) {
     dirty.value = true
     syncFlowFromDraft()
     // 改后: 推新条目带改后子图状态。
-    histState.value = hist.pushEntry(histState.value, hist.makeEntry(draft.value, touchedSubgraphSnapshot(touchedSgIDs)))
+    histState.value = hist.pushEntry(
+      histState.value,
+      hist.makeEntry(draft.value, touchedSubgraphSnapshot(touchedSgIDs)),
+    )
     lastSnapshotAt = Date.now()
   }
 

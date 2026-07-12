@@ -26,7 +26,9 @@ import type { PinMenuAction, PinInfo } from '@/components/containers/menus/PinCo
 import type { PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
 import type { RefEntry } from '@/components/containers/FindReferencesModal.vue'
 
-type ToastApi = { add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void }
+type ToastApi = {
+  add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void
+}
 
 interface UseContextMenuRouterOpts {
   containerID: string
@@ -53,12 +55,23 @@ interface UseContextMenuRouterOpts {
 
 export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   const {
-    containerID, draft, activeGraph, selectedID,
-    promoteCtx, findRefsState,
-    applyDraftMutation, varMutations,
-    onCopySelection, onPasteSelection, onFoldSelection,
-    onAlignSelected, onAutoLayout,
-    emitSaveSnippetIntent, onSubgraphToScript, onHardDelete, onDebugFromNode,
+    containerID,
+    draft,
+    activeGraph,
+    selectedID,
+    promoteCtx,
+    findRefsState,
+    applyDraftMutation,
+    varMutations,
+    onCopySelection,
+    onPasteSelection,
+    onFoldSelection,
+    onAlignSelected,
+    onAutoLayout,
+    emitSaveSnippetIntent,
+    onSubgraphToScript,
+    onHardDelete,
+    onDebugFromNode,
     toast,
   } = opts
 
@@ -68,17 +81,33 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
   const { getSelectedNodes, removeNodes, setCenter } = useVueFlow()
 
   // ===== Menu state (4 个 menu 互斥) =====
-  const nodeMenu = ref<{ open: boolean; position: { x: number; y: number }; node: GraphNode | null }>({
-    open: false, position: { x: 0, y: 0 }, node: null,
+  const nodeMenu = ref<{
+    open: boolean
+    position: { x: number; y: number }
+    node: GraphNode | null
+  }>({
+    open: false,
+    position: { x: 0, y: 0 },
+    node: null,
   })
   const multiMenu = ref<{ open: boolean; position: { x: number; y: number }; count: number }>({
-    open: false, position: { x: 0, y: 0 }, count: 0,
+    open: false,
+    position: { x: 0, y: 0 },
+    count: 0,
   })
-  const edgeMenu = ref<{ open: boolean; position: { x: number; y: number }; edge: GraphEdge | null }>({
-    open: false, position: { x: 0, y: 0 }, edge: null,
+  const edgeMenu = ref<{
+    open: boolean
+    position: { x: number; y: number }
+    edge: GraphEdge | null
+  }>({
+    open: false,
+    position: { x: 0, y: 0 },
+    edge: null,
   })
   const pinMenu = ref<{ open: boolean; position: { x: number; y: number }; pin: PinInfo | null }>({
-    open: false, position: { x: 0, y: 0 }, pin: null,
+    open: false,
+    position: { x: 0, y: 0 },
+    pin: null,
   })
 
   // ===== Capture handlers =====
@@ -113,7 +142,15 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
     nodeMenu.value.open = false
   }
 
-  function onEdgeContextMenu(event: { event: Event; edge: { source: string; sourceHandle?: string | null; target: string; targetHandle?: string | null } }) {
+  function onEdgeContextMenu(event: {
+    event: Event
+    edge: {
+      source: string
+      sourceHandle?: string | null
+      target: string
+      targetHandle?: string | null
+    }
+  }) {
     if (event.event instanceof MouseEvent) event.event.preventDefault()
     const clientX = event.event instanceof MouseEvent ? event.event.clientX : 0
     const clientY = event.event instanceof MouseEvent ? event.event.clientY : 0
@@ -149,7 +186,8 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
 
     let pinType: string | undefined
     if (side === 'input') {
-      pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) || undefined
+      pinType =
+        dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) || undefined
     } else {
       pinType = dataOutTypeFor(node.kind, pinName) || undefined
     }
@@ -202,7 +240,9 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'toggle-disable':
         applyDraftMutation(() => {
           const g = activeGraph.value
-          const n = g?.nodes.find((x) => x.id === node.id) as (GraphNode & { disabled?: boolean }) | undefined
+          const n = g?.nodes.find((x) => x.id === node.id) as
+            | (GraphNode & { disabled?: boolean })
+            | undefined
           if (!n) return
           n.disabled = !n.disabled
         })
@@ -211,15 +251,23 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         emitSaveSnippetIntent(node)
         return
       case 'find-references': {
-        const varName = (node.config as Record<string, unknown> | undefined)?.varName as string | undefined
+        const varName = (node.config as Record<string, unknown> | undefined)?.varName as
+          | string
+          | undefined
         if (!varName) return
         const usageRefs = varMutations.listUsageRefs(varName)
-        const accessByID = new Map(usageRefs.map(r => [r.nodeID, r.access]))
+        const accessByID = new Map(usageRefs.map((r) => [r.nodeID, r.access]))
         const refs: RefEntry[] = []
         if (draft.value) {
           walkAllGraphs(draft.value, editorStore.subgraphList, (n, { location }) => {
             if (accessByID.has(n.id)) {
-              refs.push({ id: n.id, kind: n.kind, label: n.label, location, access: accessByID.get(n.id) })
+              refs.push({
+                id: n.id,
+                kind: n.kind,
+                label: n.label,
+                location,
+                access: accessByID.get(n.id),
+              })
             }
           })
         }
@@ -227,24 +275,40 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         return
       }
       case 'promote-to-var': {
-        const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
+        const lit = (node.config as Record<string, unknown> | undefined)?.literal as
+          | Record<string, unknown>
+          | undefined
         if (!lit || Object.keys(lit).length === 0) {
-          toast.add({ title: 'Promote', description: t('contextMenu.no_literal_pin'), color: 'warning' })
+          toast.add({
+            title: 'Promote',
+            description: t('contextMenu.no_literal_pin'),
+            color: 'warning',
+          })
           return
         }
         // 单选节点 promote 只挑第一个 literal pin
         const pinName = Object.keys(lit)[0]
         const literal = lit[pinName]
-        const pinType = dataInTypeFor(node.kind, pinName, node.config as Record<string, unknown>) as VarType | ''
+        const pinType = dataInTypeFor(
+          node.kind,
+          pinName,
+          node.config as Record<string, unknown>,
+        ) as VarType | ''
         if (!pinType) {
-          toast.add({ title: 'Promote', description: t('contextMenu.pin_not_data_in', { pin: pinName }), color: 'warning' })
+          toast.add({
+            title: 'Promote',
+            description: t('contextMenu.pin_not_data_in', { pin: pinName }),
+            color: 'warning',
+          })
           return
         }
         promoteCtx.value = { nodeID: node.id, pinName, pinType: pinType as VarType, literal }
         return
       }
       case 'jump-to-subgraph': {
-        const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as string | undefined
+        const sgID = (node.config as Record<string, unknown> | undefined)?.SubgraphID as
+          | string
+          | undefined
         if (sgID) editorStore.pushPath(sgID)
         return
       }
@@ -295,14 +359,30 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'auto-layout-tb':
         onAutoLayout('TB')
         return
-      case 'align-left': onAlignSelected('left'); return
-      case 'align-right': onAlignSelected('right'); return
-      case 'align-top': onAlignSelected('top'); return
-      case 'align-bottom': onAlignSelected('bottom'); return
-      case 'align-center-h': onAlignSelected('center-h'); return
-      case 'align-center-v': onAlignSelected('center-v'); return
-      case 'distribute-h': onAlignSelected('h-equal'); return
-      case 'distribute-v': onAlignSelected('v-equal'); return
+      case 'align-left':
+        onAlignSelected('left')
+        return
+      case 'align-right':
+        onAlignSelected('right')
+        return
+      case 'align-top':
+        onAlignSelected('top')
+        return
+      case 'align-bottom':
+        onAlignSelected('bottom')
+        return
+      case 'align-center-h':
+        onAlignSelected('center-h')
+        return
+      case 'align-center-v':
+        onAlignSelected('center-v')
+        return
+      case 'distribute-h':
+        onAlignSelected('h-equal')
+        return
+      case 'distribute-v':
+        onAlignSelected('v-equal')
+        return
     }
   }
 
@@ -335,10 +415,16 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
       case 'promote-to-var': {
         const node = activeGraph.value?.nodes.find((n) => n.id === pin.nodeID)
         if (!node) return
-        const lit = (node.config as Record<string, unknown> | undefined)?.literal as Record<string, unknown> | undefined
+        const lit = (node.config as Record<string, unknown> | undefined)?.literal as
+          | Record<string, unknown>
+          | undefined
         const literal = lit?.[pin.pinName]
         if (literal === undefined) {
-          toast.add({ title: 'Promote', description: t('contextMenu.pin_no_literal', { pin: pin.pinName }), color: 'warning' })
+          toast.add({
+            title: 'Promote',
+            description: t('contextMenu.pin_no_literal', { pin: pin.pinName }),
+            color: 'warning',
+          })
           return
         }
         promoteCtx.value = {
@@ -359,11 +445,15 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
           const cfg = node.config as Record<string, unknown>
           const lit = (cfg.literal as Record<string, unknown> | undefined) ?? {}
           const def =
-            pin.pinType === 'number' ? 0
-            : pin.pinType === 'string' ? ''
-            : pin.pinType === 'bool' ? false
-            : pin.pinType === 'point' ? { x: 0.5, y: 0.5 }
-            : null
+            pin.pinType === 'number'
+              ? 0
+              : pin.pinType === 'string'
+                ? ''
+                : pin.pinType === 'bool'
+                  ? false
+                  : pin.pinType === 'point'
+                    ? { x: 0.5, y: 0.5 }
+                    : null
           lit[pin.pinName] = def
           cfg.literal = lit
         })
@@ -399,7 +489,11 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
         selectedID.value = nodeID
         if (targetNode) centerOnNode(setCenter, targetNode)
       } else {
-        toast.add({ title: t('contextMenu.jump_failed'), description: t('contextMenu.node_not_in_container', { id: nodeID }), color: 'warning' })
+        toast.add({
+          title: t('contextMenu.jump_failed'),
+          description: t('contextMenu.node_not_in_container', { id: nodeID }),
+          color: 'warning',
+        })
       }
       findRefsState.value = null
       return
@@ -455,12 +549,22 @@ export function useContextMenuRouter(opts: UseContextMenuRouterOpts) {
 
   return {
     // menu state refs (template 用)
-    nodeMenu, multiMenu, edgeMenu, pinMenu,
+    nodeMenu,
+    multiMenu,
+    edgeMenu,
+    pinMenu,
     // capture handlers
-    onNodeContextMenu, onSelectionContextMenu, onEdgeContextMenu, onCanvasContextMenuCapture,
+    onNodeContextMenu,
+    onSelectionContextMenu,
+    onEdgeContextMenu,
+    onCanvasContextMenuCapture,
     // action dispatchers
-    onNodeMenuAction, onMultiMenuAction, onEdgeMenuAction, onPinMenuAction,
+    onNodeMenuAction,
+    onMultiMenuAction,
+    onEdgeMenuAction,
+    onPinMenuAction,
     // modal flow handlers
-    onFindRefsPick, onPromoteConfirm,
+    onFindRefsPick,
+    onPromoteConfirm,
   }
 }

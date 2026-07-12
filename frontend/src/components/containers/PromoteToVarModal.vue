@@ -1,10 +1,17 @@
 <!-- Promote-to-Variable modal. -->
 <template>
-  <BaseModal v-model:open="modelOpen" :title="t('var.promote.modal_title')" icon="i-tabler-arrows-up-right" size="md">
+  <BaseModal
+    v-model:open="modelOpen"
+    :title="t('var.promote.modal_title')"
+    icon="i-tabler-arrows-up-right"
+    size="md"
+  >
     <div class="space-y-4">
       <p class="text-xs text-muted">
-        {{ t('var.promote.desc_prefix') }} <code class="text-primary">{{ context?.nodeID }}.{{ context?.pinName }}</code>
-        {{ t('var.promote.desc_literal_label') }} <code class="text-emerald-400">{{ formatLit(context?.literal) }}</code>
+        {{ t('var.promote.desc_prefix') }}
+        <code class="text-primary">{{ context?.nodeID }}.{{ context?.pinName }}</code>
+        {{ t('var.promote.desc_literal_label') }}
+        <code class="text-emerald-400">{{ formatLit(context?.literal) }}</code>
         {{ t('var.promote.desc_suffix') }}
       </p>
 
@@ -31,7 +38,9 @@
     </div>
 
     <template #footer>
-      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{ t('common.cancel') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
       <UButton color="primary" icon="i-tabler-check" :disabled="!!nameError" @click="confirm">
         {{ t('var.promote.confirm') }}
       </UButton>
@@ -52,7 +61,7 @@ export interface PromoteContext {
   nodeID: string
   pinName: string
   pinType: VarType
-  literal: unknown  // current literal value
+  literal: unknown // current literal value
 }
 
 const props = defineProps<{
@@ -71,15 +80,19 @@ const varName = ref('')
 const varType = ref<VarType>('any')
 const nameInputRef = ref<any>(null)
 
-watch(() => props.context, async (c) => {
-  if (c) {
-    varName.value = suggestName(c.pinName)
-    varType.value = c.pinType
-    await nextTick()
-    nameInputRef.value?.inputRef?.focus?.()
-    nameInputRef.value?.inputRef?.select?.()
-  }
-}, { immediate: true })
+watch(
+  () => props.context,
+  async (c) => {
+    if (c) {
+      varName.value = suggestName(c.pinName)
+      varType.value = c.pinType
+      await nextTick()
+      nameInputRef.value?.inputRef?.focus?.()
+      nameInputRef.value?.inputRef?.select?.()
+    }
+  },
+  { immediate: true },
+)
 
 function suggestName(pinName: string): string {
   return pinName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()

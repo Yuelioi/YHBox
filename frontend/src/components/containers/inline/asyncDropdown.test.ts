@@ -9,10 +9,7 @@ describe('asyncDropdown helpers', () => {
 
   it('resolves selected option metadata by string-equivalent value', () => {
     expect(
-      asyncOptionPayloadForValue(
-        [{ value: 123, label: 'Tab', meta: { ws: 'ws://page' } }],
-        '123',
-      ),
+      asyncOptionPayloadForValue([{ value: 123, label: 'Tab', meta: { ws: 'ws://page' } }], '123'),
     ).toEqual({ value: '123', meta: { ws: 'ws://page' } })
   })
 

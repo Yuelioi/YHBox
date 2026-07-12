@@ -141,13 +141,16 @@ onMounted(() => {
   })
 })
 
-watch(() => props.modelValue, (v) => {
-  if (!view) return
-  const cur = view.state.doc.toString()
-  if (v !== cur) {
-    view.dispatch({ changes: { from: 0, to: cur.length, insert: v ?? '' } })
-  }
-})
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (!view) return
+    const cur = view.state.doc.toString()
+    if (v !== cur) {
+      view.dispatch({ changes: { from: 0, to: cur.length, insert: v ?? '' } })
+    }
+  },
+)
 
 onBeforeUnmount(() => {
   view?.destroy()

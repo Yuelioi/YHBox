@@ -30,7 +30,10 @@ export function useSubgraphLifecycle(opts: {
     if (!draft.value) return false
     try {
       const created = await backend.subgraphs.create(
-        nextSubgraphName(editorStore.visibleSubgraphs.map((s) => s.label), t('subgraphLifecycle.default_name_prefix')),
+        nextSubgraphName(
+          editorStore.visibleSubgraphs.map((s) => s.label),
+          t('subgraphLifecycle.default_name_prefix'),
+        ),
       )
       if (!created) return false
       node.config = { ...node.config, SubgraphID: created.id }

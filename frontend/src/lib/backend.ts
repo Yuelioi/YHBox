@@ -52,11 +52,11 @@ export interface VarDecl {
 export interface GraphNode {
   id: string
   kind: string
-  label?: string       // 用户可编辑的显示名 (UE/Houdini 标准, optional, 不影响逻辑)
+  label?: string // 用户可编辑的显示名 (UE/Houdini 标准, optional, 不影响逻辑)
   x: number
   y: number
   config?: Record<string, any>
-  disabled?: boolean   // runtime 跳过该节点 — 走 kind-aware passthrough
+  disabled?: boolean // runtime 跳过该节点 — 走 kind-aware passthrough
   logEnabled?: boolean // 勾选 → 执行时吐通用 dump 日志到面板/文件
   createdAt?: string
 }
@@ -129,8 +129,18 @@ export interface DebugSessionState {
     loopDepth?: number
     execDataKeys?: string[]
   }>
-  error?: { message?: string; code?: string; params?: Record<string, unknown>; errors?: ValidationError[] } | null
-  warnings?: Array<{ code: string; message: string; nodeId?: string; params?: Record<string, unknown> }>
+  error?: {
+    message?: string
+    code?: string
+    params?: Record<string, unknown>
+    errors?: ValidationError[]
+  } | null
+  warnings?: Array<{
+    code: string
+    message: string
+    nodeId?: string
+    params?: Record<string, unknown>
+  }>
 }
 
 export interface RecordingContext {
@@ -216,7 +226,7 @@ export interface Schedule {
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
 export interface AssetSummary {
   guid: string
-  kind: string         // "template" | "clip"
+  kind: string // "template" | "clip"
   name: string
   description?: string
   category?: string
@@ -272,7 +282,9 @@ export const backend = {
   },
   ai: {
     testConnection: (connection: AIConnection, testModel: string) =>
-      invoke(AIService.TestConnection, { connection, testModel }) as Promise<AITestResult | undefined>,
+      invoke(AIService.TestConnection, { connection, testModel }) as Promise<
+        AITestResult | undefined
+      >,
   },
   containers: {
     list: () => invoke(ContainerService.List),
@@ -298,7 +310,9 @@ export const backend = {
     run: (id: string) => invoke(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
     debugStart: (id: string, options: DebugStartOptions = {}) =>
-      invoke(ContainerService.DebugStart, id, options as any) as Promise<DebugSessionState | undefined>,
+      invoke(ContainerService.DebugStart, id, options as any) as Promise<
+        DebugSessionState | undefined
+      >,
     debugStep: (sessionID: string) =>
       invoke(ContainerService.DebugStep, sessionID) as Promise<DebugSessionState | undefined>,
     debugContinue: (sessionID: string) =>
@@ -321,7 +335,8 @@ export const backend = {
   subgraphs: {
     list: () => invoke(SubgraphService.List) as Promise<Subgraph[] | undefined>,
     get: (id: string) => invoke(SubgraphService.Get, id) as Promise<Subgraph | undefined>,
-    create: (label: string) => invoke(SubgraphService.Create, label) as Promise<Subgraph | undefined>,
+    create: (label: string) =>
+      invoke(SubgraphService.Create, label) as Promise<Subgraph | undefined>,
     update: (id: string, patchJSON: string, baseRev: number) =>
       invoke(SubgraphService.Update, id, patchJSON, baseRev),
     // 裸版本: 不走 invoke 自动 toast, useEditorSave 子图循环汇总失败 + 乐观锁拒绝走重载对话框。
@@ -329,7 +344,8 @@ export const backend = {
       SubgraphService.Update(id, patchJSON, baseRev),
     delete_: (id: string, baseRev: number) => invoke(SubgraphService.Delete, id, baseRev),
     // 复制为新子图 (fork, ≈Blender Make Local): 新 ID / rev=1 / 一律具名.
-    duplicate: (id: string) => invoke(SubgraphService.Duplicate, id) as Promise<Subgraph | undefined>,
+    duplicate: (id: string) =>
+      invoke(SubgraphService.Duplicate, id) as Promise<Subgraph | undefined>,
     // 删除前警告 + 库页引用计数 ("被 N 个容器使用" = referrers 按 containerID 去重).
     referrers: (id: string) =>
       invoke(SubgraphService.Referrers, id) as Promise<SubgraphReferrer[] | undefined>,
@@ -337,8 +353,16 @@ export const backend = {
   // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
   codeSnippets: {
     list: () => invoke(CodeSnippetService.List),
-    saveAll: (list: { id: string; lang: string; prefix: string; name: string; description?: string; body: string }[]) =>
-      invoke(CodeSnippetService.SaveAll, list as any),
+    saveAll: (
+      list: {
+        id: string
+        lang: string
+        prefix: string
+        name: string
+        description?: string
+        body: string
+      }[],
+    ) => invoke(CodeSnippetService.SaveAll, list as any),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),
@@ -375,10 +399,16 @@ export const backend = {
     referrers: (guid: string) =>
       invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
-    updateMeta: (guid: string, name: string, description: string, category: string, tags: string[]) =>
-      invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
+    updateMeta: (
+      guid: string,
+      name: string,
+      description: string,
+      category: string,
+      tags: string[],
+    ) => invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
     // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
-    capture: (containerID: string, nodeID = '') => invoke(AssetService.Capture, containerID, nodeID),
+    capture: (containerID: string, nodeID = '') =>
+      invoke(AssetService.Capture, containerID, nodeID),
     // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
     readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
     gcBlobs: () => invoke(AssetService.GCBlobs),
@@ -441,8 +471,13 @@ export const backend = {
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
     cancel: () => invoke(RecordingService.Cancel),
-    finalize: (args: { pendingID: string; label: string; description: string; category: string; tags: string[] }) =>
-      invoke(RecordingService.Finalize, args as any),
+    finalize: (args: {
+      pendingID: string
+      label: string
+      description: string
+      category: string
+      tags: string[]
+    }) => invoke(RecordingService.Finalize, args as any),
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
     previewCleanup: () => invoke(RecordingService.PreviewCleanup),
     cleanupUnused: (ids: string[]) => invoke(RecordingService.CleanupUnused, { ids } as any),
@@ -463,8 +498,10 @@ export const backend = {
     resolve: (id: string) => invoke(ClipService.Resolve, id),
   },
   tools: {
-    mousePos: (containerID: string, nodeID = '') => invoke(ToolsService.MousePos, containerID, nodeID),
-    pixelAt: (containerID: string, nodeID = '') => invoke(ToolsService.PixelAt, containerID, nodeID),
+    mousePos: (containerID: string, nodeID = '') =>
+      invoke(ToolsService.MousePos, containerID, nodeID),
+    pixelAt: (containerID: string, nodeID = '') =>
+      invoke(ToolsService.PixelAt, containerID, nodeID),
     openMouseHUD: (containerID: string) => invoke(ToolsService.OpenMouseHUD, containerID),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
@@ -492,7 +529,8 @@ export const backend = {
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
     hideLauncher: () => invoke(ToolsService.HideLauncher),
     setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
-    setLauncherSize: (width: number, height: number) => invoke(ToolsService.SetLauncherSize, width, height),
+    setLauncherSize: (width: number, height: number) =>
+      invoke(ToolsService.SetLauncherSize, width, height),
   },
   events: {
     // 共享事件

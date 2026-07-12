@@ -9,7 +9,7 @@ export function filterVars(
 ): { name: string; type: VarType }[] {
   const q = draft.trim().toLowerCase()
   if (!q) return declaredVars
-  return declaredVars.filter(v => v.name.toLowerCase().includes(q))
+  return declaredVars.filter((v) => v.name.toLowerCase().includes(q))
 }
 
 /**
@@ -30,7 +30,7 @@ export function computeConflict(
   captureType: string | undefined,
 ): { cap: string; dst: string } | null {
   if (!captureType) return null
-  const v = declaredVars.find(x => x.name === modelValue)
+  const v = declaredVars.find((x) => x.name === modelValue)
   if (!v) return null
   if (!isCompatibleType(captureType as VarType, v.type)) return { cap: captureType, dst: v.type }
   return null
@@ -46,6 +46,6 @@ export function resolveOnBlur(
   declaredVars: { name: string; type: VarType }[],
 ): string | null {
   const n = draft.trim()
-  const hit = declaredVars.find(v => v.name === n)
+  const hit = declaredVars.find((v) => v.name === n)
   return hit ? hit.name : null
 }

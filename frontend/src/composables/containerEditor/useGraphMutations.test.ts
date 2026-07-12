@@ -35,13 +35,23 @@ describe('useGraphMutations.onConnect 哨兵防火墙', () => {
 
   it('source 是 __missing__ 哨兵 → 不连边 (杜绝存盘失败)', () => {
     const { m, graph } = setup([node('a', 'Subgraph'), node('b', 'Log')])
-    m.onConnect({ source: 'a', sourceHandle: '__missing__', target: 'b', targetHandle: 'In' } as any)
+    m.onConnect({
+      source: 'a',
+      sourceHandle: '__missing__',
+      target: 'b',
+      targetHandle: 'In',
+    } as any)
     expect(graph.edges).toEqual([])
   })
 
   it('target 是 __empty__ 哨兵 → 不连边', () => {
     const { m, graph } = setup([node('a', 'Log'), node('b', 'Subgraph')])
-    m.onConnect({ source: 'a', sourceHandle: 'Done', target: 'b', targetHandle: '__empty__' } as any)
+    m.onConnect({
+      source: 'a',
+      sourceHandle: 'Done',
+      target: 'b',
+      targetHandle: '__empty__',
+    } as any)
     expect(graph.edges).toEqual([])
   })
 

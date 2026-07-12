@@ -3,7 +3,11 @@ import { normalizeError, errorMessage } from './invoke'
 
 describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
-    const e = { message: 'X map[]', cause: { Errors: [{ code: 'NO_START', params: {} }] }, kind: 'RuntimeError' }
+    const e = {
+      message: 'X map[]',
+      cause: { Errors: [{ code: 'NO_START', params: {} }] },
+      kind: 'RuntimeError',
+    }
     expect(normalizeError(e)).toEqual({ errors: [{ code: 'NO_START', params: {} }] })
   })
   it('通道A apperr: cause.code 小写', () => {
@@ -30,7 +34,9 @@ describe('normalizeError', () => {
     const e = new Error(
       JSON.stringify({
         message: 'MISSING_WIN32_WINDOW_TARGET map[]',
-        cause: { Errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }] },
+        cause: {
+          Errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }],
+        },
         kind: 'RuntimeError',
       }),
     )
@@ -40,7 +46,11 @@ describe('normalizeError', () => {
   })
   it('dev-fetch transport: 信封塞进 Error.message (apperr code)', () => {
     const e = new Error(
-      JSON.stringify({ message: 'WAILS_NOT_READY', cause: { code: 'WAILS_NOT_READY', params: { x: 1 } }, kind: 'RuntimeError' }),
+      JSON.stringify({
+        message: 'WAILS_NOT_READY',
+        cause: { code: 'WAILS_NOT_READY', params: { x: 1 } },
+        kind: 'RuntimeError',
+      }),
     )
     expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
   })

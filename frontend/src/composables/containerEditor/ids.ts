@@ -4,7 +4,9 @@
 
 /** 通用随机短 ID — prefix + '_' + base36 后缀 (默认 6 字符). */
 export function randID(prefix: string, len: number = 6): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 2 + len)}`
+  return `${prefix}_${Math.random()
+    .toString(36)
+    .slice(2, 2 + len)}`
 }
 
 /** 按 kind 命名节点 ID — kind 小写做前缀. 'Subgraph' → 'subgraph_abc123'. */

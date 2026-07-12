@@ -48,10 +48,22 @@ function mountJSONInput(modelValue: unknown) {
       },
     }),
   )
-  app.component('UCheckbox', defineComponent(() => () => null))
-  app.component('UInputNumber', defineComponent(() => () => null))
-  app.component('USelect', defineComponent(() => () => null))
-  app.component('UInput', defineComponent(() => () => null))
+  app.component(
+    'UCheckbox',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'UInputNumber',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'USelect',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'UInput',
+    defineComponent(() => () => null),
+  )
 
   const el = document.createElement('div')
   document.body.appendChild(el)

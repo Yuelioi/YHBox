@@ -149,45 +149,56 @@ describe('useInlineMenu pin 拖到空白', () => {
     expect((targets[0].config as any).literal).not.toBe((targets[1].config as any).literal)
   })
 
-  it.each([
-    ['number'],
-    ['point'],
-    ['file'],
-  ] satisfies Array<[PinType]>)('data output pin pick auto-wires first compatible %s input', (pinType) => {
-    register(spec({ kind: 'SourceNode', dataOut: { Value: pinType } }))
-    register(spec({ kind: 'ConsumerNode', execIn: ['In'], dataIn: { Incompatible: 'bool', Value: pinType } }))
-    const { m, graph } = setup('SourceNode')
+  it.each([['number'], ['point'], ['file']] satisfies Array<[PinType]>)(
+    'data output pin pick auto-wires first compatible %s input',
+    (pinType) => {
+      register(spec({ kind: 'SourceNode', dataOut: { Value: pinType } }))
+      register(
+        spec({
+          kind: 'ConsumerNode',
+          execIn: ['In'],
+          dataIn: { Incompatible: 'bool', Value: pinType },
+        }),
+      )
+      const { m, graph } = setup('SourceNode')
 
-    m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'source' })
-    m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
-    vi.runAllTimers()
-    m.onInlineMenuPick('ConsumerNode')
+      m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'source' })
+      m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
+      vi.runAllTimers()
+      m.onInlineMenuPick('ConsumerNode')
 
-    expect(graph.edges).toHaveLength(1)
-    expect(graph.edges[0]).toMatchObject({
-      from: 'a.Value',
-      to: expect.stringMatching(/\.Value$/),
-    })
-  })
+      expect(graph.edges).toHaveLength(1)
+      expect(graph.edges[0]).toMatchObject({
+        from: 'a.Value',
+        to: expect.stringMatching(/\.Value$/),
+      })
+    },
+  )
 
-  it.each([
-    ['number'],
-    ['point'],
-    ['file'],
-  ] satisfies Array<[PinType]>)('data input pin pick auto-wires first compatible %s output', (pinType) => {
-    register(spec({ kind: 'SinkNode', dataIn: { Value: pinType } }))
-    register(spec({ kind: 'ProducerNode', execIn: ['In'], execOut: ['Done'], dataOut: { Incompatible: 'bool', Value: pinType } }))
-    const { m, graph } = setup('SinkNode')
+  it.each([['number'], ['point'], ['file']] satisfies Array<[PinType]>)(
+    'data input pin pick auto-wires first compatible %s output',
+    (pinType) => {
+      register(spec({ kind: 'SinkNode', dataIn: { Value: pinType } }))
+      register(
+        spec({
+          kind: 'ProducerNode',
+          execIn: ['In'],
+          execOut: ['Done'],
+          dataOut: { Incompatible: 'bool', Value: pinType },
+        }),
+      )
+      const { m, graph } = setup('SinkNode')
 
-    m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'target' })
-    m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
-    vi.runAllTimers()
-    m.onInlineMenuPick('ProducerNode')
+      m.onVfConnectStart({ nodeId: 'a', handleId: 'Value', handleType: 'target' })
+      m.onVfConnectEnd({ clientX: 100, clientY: 100 } as MouseEvent)
+      vi.runAllTimers()
+      m.onInlineMenuPick('ProducerNode')
 
-    expect(graph.edges).toHaveLength(1)
-    expect(graph.edges[0]).toMatchObject({
-      from: expect.stringMatching(/\.Value$/),
-      to: 'a.Value',
-    })
-  })
+      expect(graph.edges).toHaveLength(1)
+      expect(graph.edges[0]).toMatchObject({
+        from: expect.stringMatching(/\.Value$/),
+        to: 'a.Value',
+      })
+    },
+  )
 })

@@ -20,7 +20,8 @@
           class="flex items-start gap-2 text-xs rounded-md bg-elevated/40 px-3 py-2"
         >
           <span class="font-mono text-toned shrink-0">
-            {{ kindLabel(g.kind) }}<span v-if="g.count > 1" class="text-muted">&nbsp;×{{ g.count }}</span>
+            {{ kindLabel(g.kind)
+            }}<span v-if="g.count > 1" class="text-muted">&nbsp;×{{ g.count }}</span>
           </span>
           <span class="text-muted">{{ t(g.reason) }}</span>
         </li>
@@ -136,7 +137,9 @@ async function onCopy() {
     await navigator.clipboard.writeText(props.code)
     copied.value = true
     window.clearTimeout(copiedTimer)
-    copiedTimer = window.setTimeout(() => { copied.value = false }, 1500)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1500)
   } catch {
     toast.add({ title: t('toast.copy_failed'), color: 'error' })
   }

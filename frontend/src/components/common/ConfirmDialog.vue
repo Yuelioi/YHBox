@@ -7,7 +7,9 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
 <template>
   <BaseModal :open="open" :title="title" size="md" :show-close="false" @update:open="onUpdateOpen">
     <div class="space-y-3">
-      <p v-if="description" class="text-xs text-toned leading-relaxed whitespace-pre-line">{{ description }}</p>
+      <p v-if="description" class="text-xs text-toned leading-relaxed whitespace-pre-line">
+        {{ description }}
+      </p>
       <div v-if="hasInput" class="space-y-1.5">
         <label v-if="inputLabel" class="text-xs text-toned">{{ inputLabel }}</label>
         <UInput
@@ -21,8 +23,12 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
     </div>
 
     <template #footer>
-      <UButton size="sm" variant="ghost" color="neutral" @click="onCancel">{{ cancelTextResolved }}</UButton>
-      <UButton size="sm" :color="colorResolved" @click="onConfirm">{{ confirmTextResolved }}</UButton>
+      <UButton size="sm" variant="ghost" color="neutral" @click="onCancel">{{
+        cancelTextResolved
+      }}</UButton>
+      <UButton size="sm" :color="colorResolved" @click="onConfirm">{{
+        confirmTextResolved
+      }}</UButton>
     </template>
   </BaseModal>
 </template>
@@ -54,9 +60,12 @@ const emit = defineEmits<{
 const hasInput = computed(() => props.inputDefault !== undefined)
 const inputValue = ref(props.inputDefault ?? '')
 
-watch(() => props.open, (v) => {
-  if (v) inputValue.value = props.inputDefault ?? ''
-})
+watch(
+  () => props.open,
+  (v) => {
+    if (v) inputValue.value = props.inputDefault ?? ''
+  },
+)
 
 // 打开即聚焦并全选默认值 — 直接打字替换, 回车接受。纯确认框无输入, 用
 // open && hasInput 守门, 不让空抢焦点跑 12 帧重试 + DEV 告警。

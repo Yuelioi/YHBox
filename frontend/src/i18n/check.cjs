@@ -79,13 +79,20 @@ function checkMessageCompile() {
   }
 
   const fails = []
-  for (const [loc, file] of [['zh', 'zh.ts'], ['en', 'en.ts']]) {
+  for (const [loc, file] of [
+    ['zh', 'zh.ts'],
+    ['en', 'en.ts'],
+  ]) {
     const msgs = loadMessages(file)
     const flat = flatten(msgs)
     const i18n = createI18n({
-      legacy: false, locale: loc, fallbackLocale: false,
+      legacy: false,
+      locale: loc,
+      fallbackLocale: false,
       messages: { [loc]: msgs },
-      missingWarn: false, fallbackWarn: false, warnHtmlMessage: false,
+      missingWarn: false,
+      fallbackWarn: false,
+      warnHtmlMessage: false,
     })
     const t = i18n.global.t
     const origErr = console.error
@@ -93,10 +100,17 @@ function checkMessageCompile() {
     for (const key of Object.keys(flat)) {
       if (typeof flat[key] !== 'string') continue
       let err = null
-      const cap = (...a) => { const s = a.map(String).join(' '); if (/compil/i.test(s)) err = s }
+      const cap = (...a) => {
+        const s = a.map(String).join(' ')
+        if (/compil/i.test(s)) err = s
+      }
       console.error = cap
       console.warn = cap
-      try { t(key) } catch (e) { err = e.message } finally {
+      try {
+        t(key)
+      } catch (e) {
+        err = e.message
+      } finally {
         console.error = origErr
         console.warn = origWarn
       }
@@ -107,7 +121,9 @@ function checkMessageCompile() {
     console.log('[compile] OK 全部 message 编译通过')
     return true
   }
-  console.error(`[compile] FAIL ${fails.length} 处 (vue-i18n message compiler — 含特殊字符要 {'literal'} escape):`)
+  console.error(
+    `[compile] FAIL ${fails.length} 处 (vue-i18n message compiler — 含特殊字符要 {'literal'} escape):`,
+  )
   fails.forEach((f) => console.error('  ' + f))
   return false
 }
@@ -205,10 +221,9 @@ function checkStaticKeyReferences() {
       const key = match[2]
       if (zhKeys.has(key) && enKeys.has(key)) continue
       const line = lineStarts.findLastIndex((start) => start <= match.index) + 1
-      const missing = [
-        zhKeys.has(key) ? null : 'zh',
-        enKeys.has(key) ? null : 'en',
-      ].filter(Boolean).join('/')
+      const missing = [zhKeys.has(key) ? null : 'zh', enKeys.has(key) ? null : 'en']
+        .filter(Boolean)
+        .join('/')
       hits.push({ file: rel, line, key, missing })
     }
   }

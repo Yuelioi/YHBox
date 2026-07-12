@@ -14,12 +14,7 @@ import {
   tooltips,
 } from '@codemirror/view'
 import { EditorState, type Extension } from '@codemirror/state'
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import {
   HighlightStyle,
   bracketMatching,
@@ -38,8 +33,7 @@ import { lintGutter } from '@codemirror/lint'
 import { tags } from '@lezer/highlight'
 import { i18n } from '@/i18n'
 
-export const EDITOR_FONT =
-  `'JetBrains Mono Variable', ui-monospace, Consolas, 'Courier New', monospace`
+export const EDITOR_FONT = `'JetBrains Mono Variable', ui-monospace, Consolas, 'Courier New', monospace`
 
 // ── 语法配色: VSCode Dark+ (Expr / Script 共用一份) ──
 
@@ -49,7 +43,11 @@ export const editorHighlightStyle = HighlightStyle.define([
   { tag: [tags.bool, tags.null, tags.atom, tags.self], color: '#569cd6' },
   { tag: [tags.string, tags.special(tags.string)], color: '#ce9178' },
   { tag: tags.number, color: '#b5cea8' },
-  { tag: [tags.comment, tags.lineComment, tags.blockComment], color: '#6a9955', fontStyle: 'italic' },
+  {
+    tag: [tags.comment, tags.lineComment, tags.blockComment],
+    color: '#6a9955',
+    fontStyle: 'italic',
+  },
   { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: '#dcdcaa' },
   { tag: [tags.variableName, tags.definition(tags.variableName)], color: '#9cdcfe' },
   { tag: [tags.propertyName, tags.definition(tags.propertyName)], color: '#9cdcfe' },
@@ -66,79 +64,91 @@ export const editorHighlightStyle = HighlightStyle.define([
 // ── chrome: 编辑面/光标/选区/当前行/括号/gutter/tooltip — 全走 --ui-* semantic 变量;
 //    选区/选中词用 primary 的 color-mix, 与全局 ::selection 同源 ──
 
-const chromeTheme = EditorView.theme({
-  '&': { backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
-  '&.cm-focused': { outline: 'none' },
-  // 连字关掉: === 渲成三横长等号对脚本新手是误导, VSCode 默认也不开
-  '.cm-scroller': { fontFamily: EDITOR_FONT, overflow: 'auto', fontVariantLigatures: 'none' },
-  '.cm-content': { caretColor: 'var(--ui-text-toned)' },
-  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--ui-text-toned)', borderLeftWidth: '2px' },
-  '.cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 20%, transparent)',
+const chromeTheme = EditorView.theme(
+  {
+    '&': { backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
+    '&.cm-focused': { outline: 'none' },
+    // 连字关掉: === 渲成三横长等号对脚本新手是误导, VSCode 默认也不开
+    '.cm-scroller': { fontFamily: EDITOR_FONT, overflow: 'auto', fontVariantLigatures: 'none' },
+    '.cm-content': { caretColor: 'var(--ui-text-toned)' },
+    '.cm-cursor, .cm-dropCursor': {
+      borderLeftColor: 'var(--ui-text-toned)',
+      borderLeftWidth: '2px',
+    },
+    '.cm-selectionBackground, .cm-content ::selection': {
+      backgroundColor: 'color-mix(in oklab, var(--ui-primary) 20%, transparent)',
+    },
+    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+      backgroundColor: 'color-mix(in oklab, var(--ui-primary) 32%, transparent)',
+    },
+    '.cm-selectionMatch': {
+      backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)',
+    },
+    '.cm-activeLine': { backgroundColor: '#ffffff0a' },
+    '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--ui-text-toned)' },
+    '.cm-gutters': {
+      backgroundColor: 'var(--ui-bg)',
+      color: 'var(--ui-text-dimmed)',
+      border: 'none',
+    },
+    '.cm-lineNumbers .cm-gutterElement': { paddingLeft: '14px', paddingRight: '6px' },
+    '&.cm-focused .cm-matchingBracket': {
+      backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)',
+      outline: '1px solid var(--ui-text-dimmed)',
+    },
+    '&.cm-focused .cm-nonmatchingBracket': {
+      outline: '1px solid color-mix(in oklab, var(--ui-error) 60%, transparent)',
+    },
+    '.cm-foldGutter .cm-gutterElement': { color: 'var(--ui-text-dimmed)', cursor: 'pointer' },
+    '.cm-foldPlaceholder': {
+      backgroundColor: 'var(--ui-bg-elevated)',
+      border: '1px solid var(--ui-border-accented)',
+      color: 'var(--ui-text)',
+      borderRadius: '3px',
+      padding: '0 6px',
+      margin: '0 2px',
+    },
+    '.cm-gutter-lint': { width: '8px' },
+    '.cm-gutter-lint .cm-gutterElement': { padding: '2px 0 0 2px' },
+    '.cm-tooltip': {
+      backgroundColor: 'var(--ui-bg-elevated)',
+      border: '1px solid var(--ui-border-accented)',
+      color: 'var(--ui-text)',
+      // 浮层挂到 document.body (见 baseEditorExtensions 的 tooltips parent) — z-index 必须盖过
+      // 放大编辑 modal (Nuxt UI z-[100]), 否则签名/hover 浮层会渲染到模态下方看不见。
+      zIndex: '1000',
+    },
+    '.cm-placeholder': { color: 'var(--ui-text-dimmed)' },
+    // $变量徽标: theme 规则带 scope 前缀, 特异性盖过 HighlightStyle 的 token 色
+    '.cm-yh-dollar': {
+      color: '#fb923c',
+      backgroundColor: 'rgba(251,146,60,.09)',
+      borderRadius: '3px',
+    },
+    '.cm-tooltip .cm-yh-doc': {
+      padding: '6px 10px',
+      maxWidth: '30em',
+      fontSize: '12px',
+      lineHeight: '1.5',
+    },
+    '.cm-yh-doc-sig': { fontFamily: EDITOR_FONT, color: '#dcdcaa' },
+    '.cm-yh-doc-sig-active': { color: '#dcdcaa', fontWeight: 'bold' },
+    '.cm-yh-doc-desc': { color: 'var(--ui-text-muted)', marginTop: '2px' },
+    '.cm-yh-doc-param': { display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px' },
+    '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
+    '.cm-yh-doc-param-type': { fontFamily: EDITOR_FONT, color: '#4ec9b0' },
+    '.cm-yh-doc-param-label': { color: 'var(--ui-text-muted)' },
+    '.cm-yh-doc-param-enum': { fontFamily: EDITOR_FONT, color: '#d7ba7d', opacity: '0.85' },
+    '.cm-yh-doc-snippet-body': {
+      fontFamily: EDITOR_FONT,
+      whiteSpace: 'pre-wrap',
+      marginTop: '4px',
+      fontSize: '11px',
+      color: 'var(--ui-text-muted)',
+    },
   },
-  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 32%, transparent)',
-  },
-  '.cm-selectionMatch': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)' },
-  '.cm-activeLine': { backgroundColor: '#ffffff0a' },
-  '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--ui-text-toned)' },
-  '.cm-gutters': { backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text-dimmed)', border: 'none' },
-  '.cm-lineNumbers .cm-gutterElement': { paddingLeft: '14px', paddingRight: '6px' },
-  '&.cm-focused .cm-matchingBracket': {
-    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 12%, transparent)',
-    outline: '1px solid var(--ui-text-dimmed)',
-  },
-  '&.cm-focused .cm-nonmatchingBracket': {
-    outline: '1px solid color-mix(in oklab, var(--ui-error) 60%, transparent)',
-  },
-  '.cm-foldGutter .cm-gutterElement': { color: 'var(--ui-text-dimmed)', cursor: 'pointer' },
-  '.cm-foldPlaceholder': {
-    backgroundColor: 'var(--ui-bg-elevated)',
-    border: '1px solid var(--ui-border-accented)',
-    color: 'var(--ui-text)',
-    borderRadius: '3px',
-    padding: '0 6px',
-    margin: '0 2px',
-  },
-  '.cm-gutter-lint': { width: '8px' },
-  '.cm-gutter-lint .cm-gutterElement': { padding: '2px 0 0 2px' },
-  '.cm-tooltip': {
-    backgroundColor: 'var(--ui-bg-elevated)',
-    border: '1px solid var(--ui-border-accented)',
-    color: 'var(--ui-text)',
-    // 浮层挂到 document.body (见 baseEditorExtensions 的 tooltips parent) — z-index 必须盖过
-    // 放大编辑 modal (Nuxt UI z-[100]), 否则签名/hover 浮层会渲染到模态下方看不见。
-    zIndex: '1000',
-  },
-  '.cm-placeholder': { color: 'var(--ui-text-dimmed)' },
-  // $变量徽标: theme 规则带 scope 前缀, 特异性盖过 HighlightStyle 的 token 色
-  '.cm-yh-dollar': {
-    color: '#fb923c',
-    backgroundColor: 'rgba(251,146,60,.09)',
-    borderRadius: '3px',
-  },
-  '.cm-tooltip .cm-yh-doc': {
-    padding: '6px 10px',
-    maxWidth: '30em',
-    fontSize: '12px',
-    lineHeight: '1.5',
-  },
-  '.cm-yh-doc-sig': { fontFamily: EDITOR_FONT, color: '#dcdcaa' },
-  '.cm-yh-doc-sig-active': { color: '#dcdcaa', fontWeight: 'bold' },
-  '.cm-yh-doc-desc': { color: 'var(--ui-text-muted)', marginTop: '2px' },
-  '.cm-yh-doc-param': { display: 'flex', gap: '8px', marginTop: '2px', fontSize: '11px' },
-  '.cm-yh-doc-param-name': { fontFamily: EDITOR_FONT, color: '#9cdcfe', minWidth: '6em' },
-  '.cm-yh-doc-param-type': { fontFamily: EDITOR_FONT, color: '#4ec9b0' },
-  '.cm-yh-doc-param-label': { color: 'var(--ui-text-muted)' },
-  '.cm-yh-doc-param-enum': { fontFamily: EDITOR_FONT, color: '#d7ba7d', opacity: '0.85' },
-  '.cm-yh-doc-snippet-body': {
-    fontFamily: EDITOR_FONT,
-    whiteSpace: 'pre-wrap',
-    marginTop: '4px',
-    fontSize: '11px',
-    color: 'var(--ui-text-muted)',
-  },
-}, { dark: true })
+  { dark: true },
+)
 
 // 字号/行距/留白分两档: 放大编辑 (modal) 13px 宽松; 卡片内小框 12px 紧凑。
 const modalSizeTheme = EditorView.theme({
@@ -287,17 +297,17 @@ export const searchPanelTheme: Extension = EditorView.theme({
 
 // CodeMirror 查找/替换面板的中文文案 (phrases key 是固定英文原文)。
 export const zhSearchPhrases: Extension = EditorState.phrases.of({
-  'Find': i18n.global.t('editorSearch.find'),
-  'Replace': i18n.global.t('editorSearch.replace'),
-  'next': i18n.global.t('editorSearch.next'),
-  'previous': i18n.global.t('editorSearch.previous'),
-  'all': i18n.global.t('editorSearch.all'),
+  Find: i18n.global.t('editorSearch.find'),
+  Replace: i18n.global.t('editorSearch.replace'),
+  next: i18n.global.t('editorSearch.next'),
+  previous: i18n.global.t('editorSearch.previous'),
+  all: i18n.global.t('editorSearch.all'),
   'match case': i18n.global.t('editorSearch.match_case'),
   'by word': i18n.global.t('editorSearch.by_word'),
-  'regexp': i18n.global.t('editorSearch.regexp'),
-  'replace': i18n.global.t('editorSearch.replace'),
+  regexp: i18n.global.t('editorSearch.regexp'),
+  replace: i18n.global.t('editorSearch.replace'),
   'replace all': i18n.global.t('editorSearch.replace_all'),
-  'close': i18n.global.t('editorSearch.close'),
+  close: i18n.global.t('editorSearch.close'),
 })
 
 // ── 共享基础扩展: 主题 + 编辑手感, 语言无关 (语言/补全/lint 由各语言工厂叠加) ──

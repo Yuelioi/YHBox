@@ -1,6 +1,9 @@
 <!-- Var 行: 折叠摘要 + ✎ 切换展开行内编辑 + drag-start + IncVar hover button. -->
 <template>
-  <div class="rounded text-[11px] group" :class="expanded ? 'bg-elevated/60 border border-default' : 'bg-elevated/30'">
+  <div
+    class="rounded text-[11px] group"
+    :class="expanded ? 'bg-elevated/60 border border-default' : 'bg-elevated/30'"
+  >
     <!-- Collapsed -->
     <div
       v-if="!expanded"
@@ -25,7 +28,12 @@
       >
         <UIcon name="i-tabler-circle-plus" class="size-3" />
       </button>
-      <button type="button" class="text-dimmed hover:text-default px-1" :title="t('common.edit')" @click="expanded = true">
+      <button
+        type="button"
+        class="text-dimmed hover:text-default px-1"
+        :title="t('common.edit')"
+        @click="expanded = true"
+      >
         <UIcon name="i-tabler-edit" class="size-3" />
       </button>
     </div>
@@ -43,8 +51,13 @@
           @blur="commitName"
           @keydown.enter="commitName"
           @keydown.esc="cancelName"
+        />
+        <button
+          type="button"
+          class="text-error/80 hover:text-error px-1 shrink-0"
+          :title="t('common.delete')"
+          @click="$emit('delete', decl.name)"
         >
-        <button type="button" class="text-error/80 hover:text-error px-1 shrink-0" :title="t('common.delete')" @click="$emit('delete', decl.name)">
           <UIcon name="i-tabler-trash" class="size-3" />
         </button>
       </div>
@@ -79,7 +92,7 @@
           :placeholder="t('var.list_placeholder')"
           :title="listDraftInvalid ? t('var.list_invalid') : ''"
           @input="onListInput"
-        >
+        />
         <input
           v-else
           :type="editType === 'number' ? 'number' : 'text'"
@@ -88,7 +101,7 @@
           class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
           :placeholder="editType === 'any' ? t('var.any_independent_placeholder') : ''"
           @input="commitField('default', parseDefault($event, editType))"
-        >
+        />
         <button
           type="button"
           class="text-dimmed hover:text-default px-1 shrink-0"
@@ -114,7 +127,7 @@ const { t } = useI18n()
 
 const props = defineProps<{
   decl: VarDecl
-  existingNames: string[]   // for uniqueness validation
+  existingNames: string[] // for uniqueness validation
 }>()
 
 const emit = defineEmits<{
@@ -132,11 +145,15 @@ const editName = ref(props.decl.name)
 const editType = ref<VarType>(props.decl.type as VarType)
 const editDefault = ref(props.decl.default)
 
-watch(() => props.decl, (d) => {
-  editName.value = d.name
-  editType.value = d.type
-  editDefault.value = d.default
-}, { deep: true })
+watch(
+  () => props.decl,
+  (d) => {
+    editName.value = d.name
+    editType.value = d.type
+    editDefault.value = d.default
+  },
+  { deep: true },
+)
 
 watch(expanded, async (v) => {
   if (v) {
@@ -161,12 +178,16 @@ const defaultAsPoint = computed(() => {
 const listDraft = ref('')
 const listDraftInvalid = ref(false)
 
-watch([expanded, editType], ([exp, type]) => {
-  if (exp && type === 'list') {
-    listDraft.value = JSON.stringify(Array.isArray(editDefault.value) ? editDefault.value : [])
-    listDraftInvalid.value = false
-  }
-}, { immediate: true })
+watch(
+  [expanded, editType],
+  ([exp, type]) => {
+    if (exp && type === 'list') {
+      listDraft.value = JSON.stringify(Array.isArray(editDefault.value) ? editDefault.value : [])
+      listDraftInvalid.value = false
+    }
+  },
+  { immediate: true },
+)
 
 function onListInput(e: Event) {
   listDraft.value = (e.target as HTMLInputElement).value
@@ -211,7 +232,11 @@ function formatDefault(d: unknown): string {
 
 function onDragStart(e: DragEvent) {
   startEditorDrag(
-    { type: 'var', ref: { name: props.decl.name, type: props.decl.type as VarType }, modifier: 'none' },
+    {
+      type: 'var',
+      ref: { name: props.decl.name, type: props.decl.type as VarType },
+      modifier: 'none',
+    },
     e,
   )
 }

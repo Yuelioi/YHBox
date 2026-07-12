@@ -67,16 +67,20 @@
         icon="i-tabler-refresh"
         :disabled="stage === 'waiting' || stage === 'countingDown'"
         @click="resetSession"
-      >{{ t('common.retest') }}</UButton>
+        >{{ t('common.retest') }}</UButton
+      >
       <span class="ml-auto" />
-      <UButton size="xs" variant="ghost" color="neutral" @click="onCancel">{{ t('common.cancel') }}</UButton>
+      <UButton size="xs" variant="ghost" color="neutral" @click="onCancel">{{
+        t('common.cancel')
+      }}</UButton>
       <UButton
         size="xs"
         color="primary"
         icon="i-tabler-device-floppy"
         :disabled="stage !== 'done' || liveAbsDx === 0"
         @click="onSave"
-      >{{ t('calibration.save_with_value', { value: liveAbsDx }) }}</UButton>
+        >{{ t('calibration.save_with_value', { value: liveAbsDx }) }}</UButton
+      >
     </footer>
   </div>
 </template>

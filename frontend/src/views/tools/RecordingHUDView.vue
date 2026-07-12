@@ -29,7 +29,10 @@
         v-if="resumeCountdown > 0"
         class="w-full rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-center space-y-1"
       >
-        <UIcon name="i-tabler-player-play-filled" class="size-6 text-success animate-pulse mx-auto" />
+        <UIcon
+          name="i-tabler-player-play-filled"
+          class="size-6 text-success animate-pulse mx-auto"
+        />
         <div class="text-4xl font-mono tabular-nums text-success">{{ resumeCountdown }}</div>
         <p class="text-[11px] text-success/80">秒后继续 · 切到游戏</p>
       </div>
@@ -90,7 +93,8 @@
           icon="i-tabler-player-pause-filled"
           class="flex-1 justify-center"
           @click="onPause"
-        >暂停</UButton>
+          >暂停</UButton
+        >
         <UButton
           v-else
           size="xs"
@@ -99,7 +103,8 @@
           icon="i-tabler-player-play-filled"
           class="flex-1 justify-center"
           @click="onResume"
-        >继续</UButton>
+          >继续</UButton
+        >
         <UButton
           size="xs"
           color="primary"
@@ -108,7 +113,8 @@
           class="flex-1 justify-center"
           :title="`点此或按 ${stopKey} 停止`"
           @click="onStop"
-        >停止</UButton>
+          >停止</UButton
+        >
         <UButton
           size="xs"
           color="error"
@@ -116,9 +122,12 @@
           icon="i-tabler-trash"
           class="flex-1 justify-center"
           @click="armOrCancel"
-        >{{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}</UButton>
+          >{{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}</UButton
+        >
       </template>
-      <span v-else class="text-[10px] text-dimmed mx-auto">{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</span>
+      <span v-else class="text-[10px] text-dimmed mx-auto"
+        >{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</span
+      >
     </footer>
   </div>
 </template>
@@ -226,7 +235,10 @@ const offResumeHotkey = Events.On('recording:resume-hotkey', () => {
 
 let resumeTimer: ReturnType<typeof setTimeout> | null = null
 function clearResumeTimer() {
-  if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null }
+  if (resumeTimer) {
+    clearTimeout(resumeTimer)
+    resumeTimer = null
+  }
 }
 
 // startResumeCountdown 继续录制前的 3s 倒计时 (HUD 按钮 / 暂停热键都走它).
@@ -234,13 +246,22 @@ function clearResumeTimer() {
 async function startResumeCountdown() {
   if (state.value !== 'paused' || resumeCountdown.value > 0) return
   for (let i = 3; i >= 1; i--) {
-    if (state.value !== 'paused') { resumeCountdown.value = 0; return } // 期间停录 → 中止
+    if (state.value !== 'paused') {
+      resumeCountdown.value = 0
+      return
+    } // 期间停录 → 中止
     resumeCountdown.value = i
-    await new Promise<void>((r) => { resumeTimer = setTimeout(r, 1000) })
+    await new Promise<void>((r) => {
+      resumeTimer = setTimeout(r, 1000)
+    })
   }
   resumeCountdown.value = 0
   if (state.value !== 'paused') return
-  try { await backend.recording.resume() } catch (e) { console.warn('继续失败', e) }
+  try {
+    await backend.recording.resume()
+  } catch (e) {
+    console.warn('继续失败', e)
+  }
 }
 
 onUnmounted(() => {
@@ -253,7 +274,11 @@ onUnmounted(() => {
 })
 
 async function onPause() {
-  try { await backend.recording.pause() } catch (e) { console.warn('暂停失败', e) }
+  try {
+    await backend.recording.pause()
+  } catch (e) {
+    console.warn('暂停失败', e)
+  }
 }
 function onResume() {
   void startResumeCountdown()
@@ -271,7 +296,9 @@ async function onStop() {
 async function armOrCancel() {
   if (!cancelArmed.value) {
     cancelArmed.value = true
-    cancelTimer = setTimeout(() => { cancelArmed.value = false }, 4000)
+    cancelTimer = setTimeout(() => {
+      cancelArmed.value = false
+    }, 4000)
     return
   }
   clearCancelTimer()

@@ -23,10 +23,7 @@
          这里不再自渲染否则双标签。 noTextMode (array 项内) 且非 colorRange → 整条工具栏隐藏。 -->
     <div v-if="!noTextMode || schema.widget === 'colorRange'" class="flex items-center justify-end">
       <div class="flex items-center gap-1">
-        <UTooltip
-          v-if="textMode && !jsonOk"
-          :text="t('structured_input.json_error_tooltip')"
-        >
+        <UTooltip v-if="textMode && !jsonOk" :text="t('structured_input.json_error_tooltip')">
           <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
         <UButton
@@ -46,7 +43,9 @@
           color="neutral"
           :icon="textMode ? 'i-tabler-forms' : 'i-tabler-code'"
           :disabled="textMode && !jsonOk"
-          :title="textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')"
+          :title="
+            textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')
+          "
           @click="toggleTextMode"
         />
       </div>
@@ -63,27 +62,21 @@
         @update:model-value="onRawJsonInput"
       />
       <p v-if="!jsonOk" class="text-[10px] text-error leading-snug">{{ jsonError }}</p>
-      <UButton
-        v-if="!jsonOk"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        @click="abandonTextMode"
-      >
+      <UButton v-if="!jsonOk" size="xs" variant="ghost" color="neutral" @click="abandonTextMode">
         {{ t('structured_input.abandon_changes') }}
       </UButton>
     </div>
 
     <!-- 结构模式: 递归渲染每个 field -->
     <div v-else class="pl-2 border-l border-default/40 space-y-3">
-      <div
-        v-for="field in schema.fields ?? []"
-        :key="field.key"
-        class="space-y-1"
-      >
+      <div v-for="field in schema.fields ?? []" :key="field.key" class="space-y-1">
         <label class="block text-[11px] text-toned">
           {{ childLabel(field.key) }}
-          <span v-if="field.required && isEmpty(modelValue?.[field.key])" class="text-[10px] text-error ml-1">{{ t('structured_input.field_required') }}</span>
+          <span
+            v-if="field.required && isEmpty(modelValue?.[field.key])"
+            class="text-[10px] text-error ml-1"
+            >{{ t('structured_input.field_required') }}</span
+          >
         </label>
         <StructuredInput
           :schema="field.schema"
@@ -101,10 +94,7 @@
   <div v-else-if="schema.type === 'tuple'" class="space-y-3">
     <div v-if="!noTextMode || schema.widget === 'colorRange'" class="flex items-center justify-end">
       <div class="flex items-center gap-1">
-        <UTooltip
-          v-if="textMode && !jsonOk"
-          :text="t('structured_input.json_error_tooltip')"
-        >
+        <UTooltip v-if="textMode && !jsonOk" :text="t('structured_input.json_error_tooltip')">
           <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
         <UButton
@@ -124,7 +114,9 @@
           color="neutral"
           :icon="textMode ? 'i-tabler-forms' : 'i-tabler-code'"
           :disabled="textMode && !jsonOk"
-          :title="textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')"
+          :title="
+            textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')
+          "
           @click="toggleTextMode"
         />
       </div>
@@ -141,24 +133,14 @@
         @update:model-value="onRawJsonInput"
       />
       <p v-if="!jsonOk" class="text-[10px] text-error leading-snug">{{ jsonError }}</p>
-      <UButton
-        v-if="!jsonOk"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        @click="abandonTextMode"
-      >
+      <UButton v-if="!jsonOk" size="xs" variant="ghost" color="neutral" @click="abandonTextMode">
         {{ t('structured_input.abandon_changes') }}
       </UButton>
     </div>
 
     <!-- 结构模式: 按位置逐项渲染 (childLabel 走 fieldPath.<key> i18n) -->
     <div v-else class="pl-2 border-l border-default/40 space-y-3">
-      <div
-        v-for="(field, idx) in schema.fields ?? []"
-        :key="field.key"
-        class="space-y-1"
-      >
+      <div v-for="(field, idx) in schema.fields ?? []" :key="field.key" class="space-y-1">
         <label class="block text-[11px] text-toned">{{ childLabel(field.key) }}</label>
         <StructuredInput
           :schema="field.schema"
@@ -177,10 +159,7 @@
   <div v-else-if="schema.type === 'array'" class="space-y-2">
     <div class="flex items-center justify-end">
       <div class="flex items-center gap-1">
-        <UTooltip
-          v-if="textMode && !jsonOk"
-          :text="t('structured_input.json_error_tooltip')"
-        >
+        <UTooltip v-if="textMode && !jsonOk" :text="t('structured_input.json_error_tooltip')">
           <span class="text-[10px] text-error">JSON {{ t('structured_input.json_invalid') }}</span>
         </UTooltip>
         <UButton
@@ -189,7 +168,9 @@
           color="neutral"
           :icon="textMode ? 'i-tabler-forms' : 'i-tabler-code'"
           :disabled="textMode && !jsonOk"
-          :title="textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')"
+          :title="
+            textMode ? t('structured_input.switch_to_struct') : t('structured_input.switch_to_text')
+          "
           @click="toggleTextMode"
         />
       </div>
@@ -206,13 +187,7 @@
         @update:model-value="onRawJsonInput"
       />
       <p v-if="!jsonOk" class="text-[10px] text-error leading-snug">{{ jsonError }}</p>
-      <UButton
-        v-if="!jsonOk"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        @click="abandonTextMode"
-      >
+      <UButton v-if="!jsonOk" size="xs" variant="ghost" color="neutral" @click="abandonTextMode">
         {{ t('structured_input.abandon_changes') }}
       </UButton>
     </div>
@@ -383,9 +358,7 @@ function isEmpty(v: any): boolean {
 }
 
 // ─── array model + add/remove ─────────────────────────────────────────────────
-const arrayModel = computed<any[]>(() =>
-  Array.isArray(props.modelValue) ? props.modelValue : [],
-)
+const arrayModel = computed<any[]>(() => (Array.isArray(props.modelValue) ? props.modelValue : []))
 
 // schemaZero 按 schema 造「空值」(array 新增项初值): object 只填 required 字段 (optional 省略 →
 // 由后端默认/缺省语义决定, 如颜色签名 tol 留空走节点默认容差); tuple 按位置零值; array 空; 标量零值.

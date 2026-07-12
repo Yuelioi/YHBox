@@ -68,9 +68,18 @@ export const useSnippetsStore = defineStore('snippets', () => {
     try {
       const json = JSON.stringify(snippets.value)
       localStorage.setItem(STORAGE_KEY, json)
-      console.log('[snippets store] persist', snippets.value.length, 'snippets (', json.length, 'bytes)')
+      console.log(
+        '[snippets store] persist',
+        snippets.value.length,
+        'snippets (',
+        json.length,
+        'bytes)',
+      )
     } catch (e) {
-      console.error('[snippets store] persist error (' + i18n.global.t('snippet.quota_unavailable') + '):', e)
+      console.error(
+        '[snippets store] persist error (' + i18n.global.t('snippet.quota_unavailable') + '):',
+        e,
+      )
     }
   }
 
@@ -209,8 +218,21 @@ export function normalizeShortcut(s: string): string {
 
 /** 系统/编辑器保留快捷键, 用户不能覆盖 (会破坏 copy/paste/undo 等). */
 export const RESERVED_SHORTCUTS = new Set([
-  'ctrl+c', 'ctrl+v', 'ctrl+x', 'ctrl+z', 'ctrl+y', 'ctrl+s', 'ctrl+a', 'ctrl+d',
-  'ctrl+shift+z', 'delete', 'backspace', 'escape', 'enter', 'space', 'tab',
+  'ctrl+c',
+  'ctrl+v',
+  'ctrl+x',
+  'ctrl+z',
+  'ctrl+y',
+  'ctrl+s',
+  'ctrl+a',
+  'ctrl+d',
+  'ctrl+shift+z',
+  'delete',
+  'backspace',
+  'escape',
+  'enter',
+  'space',
+  'tab',
 ])
 
 export function isReservedShortcut(s: string): boolean {

@@ -36,9 +36,16 @@ export function renderSignature(sig: string, activeIndex: number): HTMLElement {
   line.className = 'cm-yh-doc-sig'
   const open = sig.indexOf('(')
   const close = sig.lastIndexOf(')')
-  if (open < 0 || close <= open) { line.textContent = sig; return root }
+  if (open < 0 || close <= open) {
+    line.textContent = sig
+    return root
+  }
   const name = sig.slice(0, open)
-  const params = sig.slice(open + 1, close).split(',').map((s) => s.trim()).filter(Boolean)
+  const params = sig
+    .slice(open + 1, close)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
   line.appendChild(document.createTextNode(`${name}(`))
   params.forEach((p, i) => {
     if (i > 0) line.appendChild(document.createTextNode(', '))

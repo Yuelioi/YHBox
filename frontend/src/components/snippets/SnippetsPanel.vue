@@ -30,9 +30,16 @@
     </div>
 
     <!-- Group list -->
-    <div v-if="filteredByCategory.length === 0" class="text-[11px] text-dimmed italic px-3 py-4 text-center">
+    <div
+      v-if="filteredByCategory.length === 0"
+      class="text-[11px] text-dimmed italic px-3 py-4 text-center"
+    >
       <UIcon name="i-tabler-bookmarks" class="size-5 block mx-auto mb-2 opacity-50" />
-      {{ store.snippets.length === 0 ? t('editor.snippet.panel.empty_none') : t('editor.snippet.panel.empty_no_match') }}
+      {{
+        store.snippets.length === 0
+          ? t('editor.snippet.panel.empty_none')
+          : t('editor.snippet.panel.empty_no_match')
+      }}
     </div>
 
     <div v-else class="px-2 py-1">
@@ -106,8 +113,8 @@ const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
 
 const emit = defineEmits<{
-  apply: [s: Snippet]   // 单击应用 (在画布中心生成)
-  edit: [s: Snippet]    // 编辑 (打开 SaveSnippetDrawer)
+  apply: [s: Snippet] // 单击应用 (在画布中心生成)
+  edit: [s: Snippet] // 编辑 (打开 SaveSnippetDrawer)
 }>()
 
 const store = useSnippetsStore()
@@ -140,7 +147,8 @@ const filteredByCategory = computed(() => {
       category: g.category,
       list: g.list.filter((s) => {
         if (q) {
-          const hay = `${s.name} ${s.description ?? ''} ${s.payload.kind} ${s.tags.join(' ')}`.toLowerCase()
+          const hay =
+            `${s.name} ${s.description ?? ''} ${s.payload.kind} ${s.tags.join(' ')}`.toLowerCase()
           if (!hay.includes(q)) return false
         }
         if (tags.size > 0) {
@@ -189,7 +197,9 @@ async function onRemove(s: Snippet) {
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-left: 3px solid rgba(255, 255, 255, 0.1);
   cursor: grab;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 .snippet-item:hover {
   background: rgba(255, 255, 255, 0.06);

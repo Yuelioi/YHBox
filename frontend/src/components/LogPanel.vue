@@ -34,24 +34,24 @@
       />
 
       <!-- 双源 filter -->
-      <div
-        v-if="!collapsed"
-        class="flex items-center gap-0.5 ml-1"
-        @click.stop
-      >
+      <div v-if="!collapsed" class="flex items-center gap-0.5 ml-1" @click.stop>
         <button
-          v-for="opt in (['ALL', 'SYS', 'CTR'] as const)"
+          v-for="opt in ['ALL', 'SYS', 'CTR'] as const"
           :key="opt"
           class="px-1.5 py-0.5 text-[10px] rounded transition-colors"
           :class="filter === opt ? 'bg-primary/15 text-primary' : 'text-dimmed hover:text-toned'"
           @click="filter = opt"
-        >{{ opt }}</button>
+        >
+          {{ opt }}
+        </button>
       </div>
 
       <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
       <UButton
         v-if="!collapsed"
-        size="xs" variant="ghost" color="neutral"
+        size="xs"
+        variant="ghost"
+        color="neutral"
         icon="i-tabler-route"
         :title="t('log.action_trace.open')"
         :ui="{ base: 'h-5 px-1' }"
@@ -60,7 +60,9 @@
 
       <UPopover v-if="!collapsed" mode="click" :ui="{ content: 'p-2 w-48' }">
         <UButton
-          size="xs" variant="ghost" color="neutral"
+          size="xs"
+          variant="ghost"
+          color="neutral"
           icon="i-tabler-settings"
           :ui="{ base: 'h-5 px-1' }"
           @click.stop
@@ -68,29 +70,53 @@
         <template #content>
           <div class="space-y-1 text-[11px]">
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="showTime" @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)" />
+              <input
+                type="checkbox"
+                :checked="showTime"
+                @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)"
+              />
               {{ t('log.popover.show_time') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="showTag" @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)" />
+              <input
+                type="checkbox"
+                :checked="showTag"
+                @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)"
+              />
               {{ t('log.popover.show_tag') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="wrapText" @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)" />
+              <input
+                type="checkbox"
+                :checked="wrapText"
+                @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)"
+              />
               {{ t('log.popover.wrap_text') }}
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="autoScroll" @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)" />
+              <input
+                type="checkbox"
+                :checked="autoScroll"
+                @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)"
+              />
               {{ t('log.popover.auto_scroll') }}
             </label>
             <hr class="border-default my-1" />
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="writeFile" @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)" />
+              <input
+                type="checkbox"
+                :checked="writeFile"
+                @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)"
+              />
               {{ t('log.popover.write_file') }}
             </label>
             <hr class="border-default my-1" />
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" :checked="showNodeEnter" @change="showNodeEnter = ($event.target as HTMLInputElement).checked" />
+              <input
+                type="checkbox"
+                :checked="showNodeEnter"
+                @change="showNodeEnter = ($event.target as HTMLInputElement).checked"
+              />
               {{ t('log.popover.show_node_enter') }}
             </label>
           </div>
@@ -100,7 +126,9 @@
       <!-- clear -->
       <UButton
         v-if="!collapsed"
-        size="xs" variant="ghost" color="neutral"
+        size="xs"
+        variant="ghost"
+        color="neutral"
         icon="i-tabler-trash"
         :ui="{ base: 'h-5 px-1' }"
         @click.stop="logStore.clear()"
@@ -120,16 +148,19 @@
         class="flex gap-2 leading-tight"
         :class="wrapText ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap'"
       >
-        <span v-if="showTime" class="text-dimmed shrink-0 tabular-nums">{{ fmtShortTime(l.time) }}</span>
-        <span
-          class="shrink-0 uppercase tracking-wide w-8"
-          :class="sourceClass(l.source)"
-        >{{ l.source }}</span>
-        <span
-          class="shrink-0 uppercase tracking-wide w-12"
-          :class="levelClass(l.level)"
-        >{{ l.level }}</span>
-        <span class="text-default break-all">{{ l.message }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span>
+        <span v-if="showTime" class="text-dimmed shrink-0 tabular-nums">{{
+          fmtShortTime(l.time)
+        }}</span>
+        <span class="shrink-0 uppercase tracking-wide w-8" :class="sourceClass(l.source)">{{
+          l.source
+        }}</span>
+        <span class="shrink-0 uppercase tracking-wide w-12" :class="levelClass(l.level)">{{
+          l.level
+        }}</span>
+        <span class="text-default break-all"
+          >{{ l.message
+          }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span
+        >
       </div>
     </div>
 
@@ -157,7 +188,9 @@ const collapsed = computed({
   set: (v) => settingsStore.patch({ ui: { logger: { panelOpen: !v } } }),
 })
 
-function togglePanel() { collapsed.value = !collapsed.value }
+function togglePanel() {
+  collapsed.value = !collapsed.value
+}
 
 const showTime = computed(() => settingsStore.data?.ui.logger.showTime ?? true)
 const showTag = computed(() => settingsStore.data?.ui.logger.showTag ?? true)
@@ -192,15 +225,23 @@ function sourceClass(s: string) {
 
 function levelClass(level: string) {
   switch (level) {
-    case 'error': return 'text-error'
-    case 'warn': return 'text-warning'
-    case 'debug': return 'text-dimmed'
+    case 'error':
+      return 'text-error'
+    case 'warn':
+      return 'text-warning'
+    case 'debug':
+      return 'text-dimmed'
     // node/dump/log 是日志流身份色 (区分流, 非状态语义), 不走 semantic
-    case 'node': return 'text-violet-300'
-    case 'dump': return 'text-emerald-300'
-    case 'log': return 'text-emerald-400'
-    case 'action': return 'text-sky-300'
-    default: return 'text-info'
+    case 'node':
+      return 'text-violet-300'
+    case 'dump':
+      return 'text-emerald-300'
+    case 'log':
+      return 'text-emerald-400'
+    case 'action':
+      return 'text-sky-300'
+    default:
+      return 'text-info'
   }
 }
 

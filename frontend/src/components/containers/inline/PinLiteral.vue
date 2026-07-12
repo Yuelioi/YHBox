@@ -21,10 +21,9 @@
     />
   </div>
   <!-- list pin — wire-only, 不渲染可编辑 input 防手输垃圾 literal -->
-  <span
-    v-else-if="type === 'list'"
-    class="text-xs text-dimmed italic"
-  >{{ t('containers.listPinWireOnly') }}</span>
+  <span v-else-if="type === 'list'" class="text-xs text-dimmed italic">{{
+    t('containers.listPinWireOnly')
+  }}</span>
   <UInput
     v-else-if="type === 'number'"
     type="number"

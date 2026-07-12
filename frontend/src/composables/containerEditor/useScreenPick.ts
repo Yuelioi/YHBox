@@ -53,14 +53,23 @@ export function useScreenPick(opts: {
     return k === 'DetectColor'
   })
 
-  async function openPicker<T>(mode: 'point' | 'rect' | 'color', colorSpace = ''): Promise<T | null> {
+  async function openPicker<T>(
+    mode: 'point' | 'rect' | 'color',
+    colorSpace = '',
+  ): Promise<T | null> {
     if (picking.value) return null // 防并发: 已有拾取进行中, 忽略重复触发 (吸管按钮无 :loading 守卫, 在此兜底)
     const id = genID()
     picking.value = true
     try {
       // 先挂监听再开窗口, 防 race
       const waiter = awaitWailsEvent<PickerResult<T>>('tools:picker-result', (p) => p?.id === id)
-      const r = await backend.tools.openScreenPicker(mode, id, tplStore.containerId, getNode()?.id ?? '', colorSpace)
+      const r = await backend.tools.openScreenPicker(
+        mode,
+        id,
+        tplStore.containerId,
+        getNode()?.id ?? '',
+        colorSpace,
+      )
       if (r === undefined) return null
       const result = await waiter
       const cancelled = (result.payload as { cancelled?: boolean } | undefined)?.cancelled

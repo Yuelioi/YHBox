@@ -25,7 +25,10 @@
           @submit="onRun"
         />
       </div>
-      <div v-if="report" class="shrink-0 max-h-[28vh] overflow-y-auto border-t border-default pt-2 space-y-2 font-mono text-xs">
+      <div
+        v-if="report"
+        class="shrink-0 max-h-[28vh] overflow-y-auto border-t border-default pt-2 space-y-2 font-mono text-xs"
+      >
         <div v-if="report.error" class="whitespace-pre-wrap text-error">{{ report.error }}</div>
         <div v-else class="text-primary">
           {{ t('editor.jsConsole.applied', { nodes: report.nodeCount, pins: report.pinCount }) }}
@@ -38,7 +41,9 @@
             </li>
           </ul>
         </div>
-        <pre v-if="report.logs.length" class="whitespace-pre-wrap text-muted">{{ report.logs.join('\n') }}</pre>
+        <pre v-if="report.logs.length" class="whitespace-pre-wrap text-muted">{{
+          report.logs.join('\n')
+        }}</pre>
       </div>
     </div>
 
@@ -52,21 +57,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import type { Extension } from "@codemirror/state";
-import { scriptEditorExtensions } from "@/lib/scriptCompletions";
-import { ytHoverDoc, YT_ENTRIES, ytCompletionSource } from "@/lib/ytConsole/completions";
-import type { RunResult } from "@/lib/ytConsole/executor";
-import BaseModal from "@/components/common/BaseModal.vue";
-import CodeEditor, { type RefItem } from "@/components/expressions/CodeEditor.vue";
+import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { Extension } from '@codemirror/state'
+import { scriptEditorExtensions } from '@/lib/scriptCompletions'
+import { ytHoverDoc, YT_ENTRIES, ytCompletionSource } from '@/lib/ytConsole/completions'
+import type { RunResult } from '@/lib/ytConsole/executor'
+import BaseModal from '@/components/common/BaseModal.vue'
+import CodeEditor, { type RefItem } from '@/components/expressions/CodeEditor.vue'
 
-const props = defineProps<{ open: boolean; run: (code: string) => RunResult }>();
-const emit = defineEmits<{ "update:open": [v: boolean] }>();
-const { t } = useI18n();
+const props = defineProps<{ open: boolean; run: (code: string) => RunResult }>()
+const emit = defineEmits<{ 'update:open': [v: boolean] }>()
+const { t } = useI18n()
 
-const code = ref("");
-const report = ref<RunResult | null>(null);
+const code = ref('')
+const report = ref<RunResult | null>(null)
 
 // 参考面板项 (右侧"文档"栏) — 跟补全/hover 同一份 YT_ENTRIES, 单一来源。
 const reference: RefItem[] = YT_ENTRIES.map((e) => ({
@@ -76,31 +81,31 @@ const reference: RefItem[] = YT_ENTRIES.map((e) => ({
   docs: e.desc,
   insert: e.label,
   caretBack: 0,
-  group: e.label.startsWith("yt.") ? "yt" : "NodeHandle",
-}));
+  group: e.label.startsWith('yt.') ? 'yt' : 'NodeHandle',
+}))
 
 function ytExtensions(): Extension[] {
   return scriptEditorExtensions({
     completionSource: ytCompletionSource,
     hoverDoc: ytHoverDoc,
     lintMessages: {
-      syntaxError: (line: number) => t("inspector.editor_syntax_error_line", { line }),
-      unknownVar: (name: string) => t("inspector.editor_unknown_var", { name }),
+      syntaxError: (line: number) => t('inspector.editor_syntax_error_line', { line }),
+      unknownVar: (name: string) => t('inspector.editor_unknown_var', { name }),
     },
-    placeholder: t("editor.jsConsole.placeholder"),
+    placeholder: t('editor.jsConsole.placeholder'),
     modal: true,
-  });
+  })
 }
 
 function onRun(): void {
-  report.value = props.run(code.value);
+  report.value = props.run(code.value)
 }
 
 // 每次开窗清掉上次的报告 (代码保留, 方便接着调)。
 watch(
   () => props.open,
   (o) => {
-    if (o) report.value = null;
+    if (o) report.value = null
   },
-);
+)
 </script>

@@ -59,7 +59,10 @@ const emit = defineEmits<{
   action: [a: EdgeMenuAction]
 }>()
 
-const positionStyle = computed(() => ({ left: `${props.position.x}px`, top: `${props.position.y}px` }))
+const positionStyle = computed(() => ({
+  left: `${props.position.x}px`,
+  top: `${props.position.y}px`,
+}))
 
 const items = computed(() => [
   {
@@ -84,7 +87,11 @@ function close() {
 <style scoped>
 .ctx-menu {
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
   box-shadow:
     0 16px 48px -12px rgba(0, 0, 0, 0.7),
@@ -93,11 +100,7 @@ function close() {
   backdrop-filter: blur(6px);
 }
 .ctx-header {
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    transparent 60%
-  );
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%);
 }
 .ctx-divider {
   height: 1px;
@@ -115,7 +118,9 @@ function close() {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .ctx-item:hover {
   background: rgba(255, 255, 255, 0.06);

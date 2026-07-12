@@ -2,7 +2,9 @@
 <template>
   <BaseModal v-model:open="modelOpen" :title="refsTitle" icon="i-tabler-link" size="md">
     <template #header-extra>
-      <span class="text-[10px] text-dimmed">{{ t('var.refs.count_label', { n: refs.length }) }}</span>
+      <span class="text-[10px] text-dimmed">{{
+        t('var.refs.count_label', { n: refs.length })
+      }}</span>
     </template>
 
     <div class="space-y-3">
@@ -26,11 +28,16 @@
           <span
             v-if="ref.access"
             class="text-[9px] font-semibold px-1 py-0.5 rounded"
-            :class="ref.access === 'read'
-              ? 'bg-sky-500/20 text-sky-400'
-              : 'bg-amber-500/20 text-amber-400'"
-          >{{ t(ref.access === 'read' ? 'var.refs.read' : 'var.refs.write') }}</span>
-          <span v-if="ref.location" class="ml-auto text-[10px] text-indigo-400">{{ ref.location }}</span>
+            :class="
+              ref.access === 'read'
+                ? 'bg-sky-500/20 text-sky-400'
+                : 'bg-amber-500/20 text-amber-400'
+            "
+            >{{ t(ref.access === 'read' ? 'var.refs.read' : 'var.refs.write') }}</span
+          >
+          <span v-if="ref.location" class="ml-auto text-[10px] text-indigo-400">{{
+            ref.location
+          }}</span>
         </button>
       </div>
 
@@ -53,8 +60,8 @@ const { t } = useI18n()
 export interface RefEntry {
   id: string
   kind: string
-  label?: string           // user-set display name
-  location?: string        // e.g. "主图" or "子图: foo"
+  label?: string // user-set display name
+  location?: string // e.g. "主图" or "子图: foo"
   access?: 'read' | 'write'
 }
 

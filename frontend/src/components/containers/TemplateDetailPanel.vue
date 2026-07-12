@@ -22,8 +22,15 @@
       </UButton>
 
       <!-- 缩略图 (当前变体档) -->
-      <div class="rounded-md overflow-hidden border border-default bg-elevated flex items-center justify-center aspect-[4/3]">
-        <img v-if="displayThumb" :src="displayThumb" class="max-w-full max-h-full object-contain" :alt="tpl.name" />
+      <div
+        class="rounded-md overflow-hidden border border-default bg-elevated flex items-center justify-center aspect-[4/3]"
+      >
+        <img
+          v-if="displayThumb"
+          :src="displayThumb"
+          class="max-w-full max-h-full object-contain"
+          :alt="tpl.name"
+        />
         <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
       </div>
 
@@ -45,7 +52,10 @@
           @dblclick="enterEditName"
         >
           <span class="truncate min-w-0">{{ tpl.name || tpl.guid }}</span>
-          <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100" />
+          <UIcon
+            name="i-tabler-pencil"
+            class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100"
+          />
         </h3>
       </div>
 
@@ -109,7 +119,9 @@
           <template v-if="curRes">
             <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
             <span class="text-toned">{{ curResLabel }}</span>
-            <span v-if="curResHint" class="text-warning/80"> · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span>
+            <span v-if="curResHint" class="text-warning/80">
+              · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span
+            >
           </template>
           <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
         </p>
@@ -123,12 +135,18 @@
             @click="activeVariantIdx = i"
           >
             {{ v.resolution[0] }}×{{ v.resolution[1] }}
-            <span v-if="isCurResVariant(v)" class="ml-1 text-[9px] opacity-70">{{ t('template.picker.current_badge') }}</span>
+            <span v-if="isCurResVariant(v)" class="ml-1 text-[9px] opacity-70">{{
+              t('template.picker.current_badge')
+            }}</span>
             <UIcon
               v-if="(detailRecord?.variants?.length ?? 0) > 1"
               name="i-tabler-x"
               class="ml-1 size-3 opacity-60 hover:opacity-100 hover:text-error"
-              :title="t('template.picker.del_variant_title', { res: `${v.resolution[0]}×${v.resolution[1]}` })"
+              :title="
+                t('template.picker.del_variant_title', {
+                  res: `${v.resolution[0]}×${v.resolution[1]}`,
+                })
+              "
               @click.stop="removeVariant(v.resolution)"
             />
           </UButton>
@@ -155,7 +173,9 @@
 
       <!-- ID -->
       <section class="space-y-1.5">
-        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
+        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
+          >ID</label
+        >
         <button
           type="button"
           class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
@@ -168,7 +188,14 @@
       </section>
 
       <div class="pt-3 border-t border-default flex">
-        <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" class="ml-auto" @click="onDelete">
+        <UButton
+          size="xs"
+          variant="soft"
+          color="error"
+          icon="i-tabler-trash"
+          class="ml-auto"
+          @click="onDelete"
+        >
           {{ t('common.delete') }}
         </UButton>
       </div>
@@ -193,7 +220,9 @@ const store = useTemplatesStore()
 const { confirm } = useConfirm()
 const toast = useToast()
 
-const tpl = computed<AssetSummary | undefined>(() => (props.guid ? store.map[props.guid] : undefined))
+const tpl = computed<AssetSummary | undefined>(() =>
+  props.guid ? store.map[props.guid] : undefined,
+)
 
 const allCategories = computed(() => {
   const set = new Set<string>()
@@ -207,7 +236,12 @@ const allTags = computed(() => {
 })
 
 // 字段级保存 — 模板无 rev, updateMeta 全覆盖; 缺的字段用当前值补全, 改完 store 自 reload.
-async function patch(p: { name?: string; description?: string; category?: string; tags?: string[] }) {
+async function patch(p: {
+  name?: string
+  description?: string
+  category?: string
+  tags?: string[]
+}) {
   const s = tpl.value
   if (!s) return
   await store.updateMeta(
@@ -277,7 +311,9 @@ const recaptureLabel = computed(() =>
     : t('template.picker.recapture'),
 )
 function isCurResVariant(v: { resolution: number[] }): boolean {
-  return !!curRes.value && v.resolution[0] === curRes.value[0] && v.resolution[1] === curRes.value[1]
+  return (
+    !!curRes.value && v.resolution[0] === curRes.value[0] && v.resolution[1] === curRes.value[1]
+  )
 }
 
 // 选中 guid 变化 → 拉完整 record (取 variants) + 当前分辨率挑档. (代表缩略图 baseThumb 走独立 watch)

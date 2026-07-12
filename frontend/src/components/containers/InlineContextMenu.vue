@@ -3,12 +3,7 @@
      Pin-context 时按 pin 类型过滤 compatible nodes. -->
 <template>
   <!-- Backdrop to dismiss on outside click (renders below the panel) -->
-  <div
-    v-if="open"
-    class="fixed inset-0 z-40"
-    @click="close"
-    @contextmenu.prevent="close"
-  />
+  <div v-if="open" class="fixed inset-0 z-40" @click="close" @contextmenu.prevent="close" />
 
   <div
     v-if="open"
@@ -22,7 +17,9 @@
       <template v-if="pinContext && !pinContext.isExec && pinContext.pinType">
         <UIcon name="i-tabler-plus" class="size-3.5" />
         <i18n-t keypath="editor.menu.inline.accept_type" tag="span">
-          <template #type><strong class="text-primary">{{ pinContext.pinType }}</strong></template>
+          <template #type
+            ><strong class="text-primary">{{ pinContext.pinType }}</strong></template
+          >
           <template #n>{{ filtered.length }}</template>
         </i18n-t>
       </template>
@@ -45,9 +42,11 @@
     />
 
     <!-- Tree: per-group collapsible sections -->
-    <div class="max-h-80 overflow-y-auto pr-1" style="width: 280px;">
+    <div class="max-h-80 overflow-y-auto pr-1" style="width: 280px">
       <template v-if="filtered.length === 0">
-        <p class="text-[11px] text-dimmed italic px-1 py-2 text-center">{{ t('editor.menu.inline.empty') }}</p>
+        <p class="text-[11px] text-dimmed italic px-1 py-2 text-center">
+          {{ t('editor.menu.inline.empty') }}
+        </p>
       </template>
       <template v-else>
         <div v-for="g in groupedFiltered" :key="g.group" class="mb-1">
@@ -56,7 +55,10 @@
             class="w-full flex items-center gap-1.5 px-1 py-1 hover:bg-elevated/40 rounded text-[11px] font-semibold text-default"
             @click="toggleGroup(g.group)"
           >
-            <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
+            <UIcon
+              :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'"
+              class="size-3.5"
+            />
             <span>{{ groupLabelZh(g.group) }}</span>
             <span class="text-[10px] opacity-60 font-normal">({{ g.specs.length }})</span>
           </button>
@@ -69,8 +71,15 @@
               :title="spec.description ? t(spec.description) : spec.kind"
               @click="pick(spec.kind)"
             >
-              <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-4 shrink-0" :class="nodeIconColor(spec)" />
-              <span class="flex-1 truncate text-default">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
+              <UIcon
+                v-if="spec.visual?.icon"
+                :name="spec.visual.icon"
+                class="size-4 shrink-0"
+                :class="nodeIconColor(spec)"
+              />
+              <span class="flex-1 truncate text-default">{{
+                spec.labelZh ? t(spec.labelZh) : spec.kind
+              }}</span>
               <span class="text-[10px] text-dimmed font-mono">{{ spec.kind }}</span>
             </button>
           </div>
@@ -88,7 +97,11 @@ import { ref, computed, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry'
-import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import {
+  ALL_NODE_GROUPS,
+  nodeIconColor,
+  groupLabelZh,
+} from '@/composables/editor/useNodeGroupColor'
 import { useAutoFocusOnOpen } from '@/composables/editor/useAutoFocusOnOpen'
 import { filterInlineNodeCandidates, type InlineNodeCandidateContext } from './inlineNodeCandidates'
 
@@ -168,7 +181,7 @@ function toggleGroup(group: string) {
 }
 
 function isExpanded(group: string): boolean {
-  if (query.value.trim()) return true  // Auto-expand all when searching
+  if (query.value.trim()) return true // Auto-expand all when searching
   return expandedGroups.value.has(group)
 }
 

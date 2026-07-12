@@ -87,7 +87,9 @@
       <div class="flex items-start gap-3">
         <UIcon name="i-tabler-terminal" class="size-4 text-dimmed mt-0.5 shrink-0" />
         <div class="space-y-1">
-          <h2 class="text-sm font-medium text-highlighted">{{ t('settings.log.section_title') }}</h2>
+          <h2 class="text-sm font-medium text-highlighted">
+            {{ t('settings.log.section_title') }}
+          </h2>
           <p class="text-xs text-dimmed">{{ t('settings.log.hint') }}</p>
         </div>
       </div>

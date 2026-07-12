@@ -80,7 +80,10 @@ export function useElkLayout(opts: {
       const oldConnected: Record<string, Pos> = {}
       for (const k of Object.keys(newP)) if (oldP[k]) oldConnected[k] = oldP[k]
       const { dx, dy } = anchorOffset(oldConnected, newP)
-      for (const k of Object.keys(newP)) { newP[k].x += dx; newP[k].y += dy }
+      for (const k of Object.keys(newP)) {
+        newP[k].x += dx
+        newP[k].y += dy
+      }
 
       // 游离节点安置（基于锚定后的连通簇总包围盒）
       const bbox = bboxOf(res.children ?? [], dx, dy)
@@ -99,13 +102,20 @@ export function useElkLayout(opts: {
         if (!graph) return
         for (const n of graph.nodes) {
           if (markerIDs.has(n.id)) continue // marker 不在 graph.nodes, 这里只动真实 body 节点
-          if (newP[n.id]) { n.x = newP[n.id].x; n.y = newP[n.id].y }
-          else if (detP[n.id]) { n.x = detP[n.id].x; n.y = detP[n.id].y }
+          if (newP[n.id]) {
+            n.x = newP[n.id].x
+            n.y = newP[n.id].y
+          } else if (detP[n.id]) {
+            n.x = detP[n.id].x
+            n.y = detP[n.id].y
+          }
         }
         // marker 新坐标写回 sg.entry / outputPins (不在 graph.nodes) + 标脏归属本容器。
         // 跟 onNodesChange 的 marker 拖动写回同路径; syncFlowFromDraft (applyDraftMutation 内) 重渲染。
         if (markerCtx && markerIDs.size) {
-          const sg = editorStore.subgraphById(markerCtx.sgID) as { entry?: any; outputPins?: any[] } | undefined
+          const sg = editorStore.subgraphById(markerCtx.sgID) as
+            | { entry?: any; outputPins?: any[] }
+            | undefined
           if (sg) {
             const markerPos: Record<string, Pos> = {}
             for (const id of markerIDs) {
@@ -120,7 +130,11 @@ export function useElkLayout(opts: {
       })
       if (o.fitView) fitView()
     } catch (e) {
-      toast.add({ title: t('graphLayout.layout_failed'), description: String((e as Error)?.message ?? e), color: 'error' })
+      toast.add({
+        title: t('graphLayout.layout_failed'),
+        description: String((e as Error)?.message ?? e),
+        color: 'error',
+      })
     } finally {
       isLayouting.value = false
     }
@@ -131,11 +145,17 @@ export function useElkLayout(opts: {
 
 // 连通簇布局后的总包围盒（dx/dy 是锚定平移量）。
 function bboxOf(children: ElkNode[], dx: number, dy: number): BBox {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity
   for (const c of children) {
-    const x = (c.x ?? 0) + dx, y = (c.y ?? 0) + dy
-    minX = Math.min(minX, x); minY = Math.min(minY, y)
-    maxX = Math.max(maxX, x + (c.width ?? 0)); maxY = Math.max(maxY, y + (c.height ?? 0))
+    const x = (c.x ?? 0) + dx,
+      y = (c.y ?? 0) + dy
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x + (c.width ?? 0))
+    maxY = Math.max(maxY, y + (c.height ?? 0))
   }
   if (minX === Infinity) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
   return { minX, minY, maxX, maxY }

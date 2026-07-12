@@ -2,10 +2,7 @@
      插入引用 = 唯一主 CTA; 复制为新/删除弱化到底部一行。 -->
 <template>
   <div class="w-full overflow-y-auto">
-    <div
-      v-if="!sg"
-      class="flex flex-col items-center justify-center text-center px-6 py-10"
-    >
+    <div v-if="!sg" class="flex flex-col items-center justify-center text-center px-6 py-10">
       <UIcon name="i-tabler-pointer" class="size-10 text-dimmed mb-3" />
       <p class="text-sm text-toned">{{ t('library.detail.empty') }}</p>
       <p class="text-[11px] text-dimmed mt-1">{{ t('library.detail.empty_hint') }}</p>
@@ -13,7 +10,9 @@
 
     <div v-else class="p-4 space-y-4">
       <header class="flex items-start gap-3">
-        <div class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-fuchsia-500/15 border border-fuchsia-500/40">
+        <div
+          class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-fuchsia-500/15 border border-fuchsia-500/40"
+        >
           <UIcon name="i-tabler-subtask" class="size-5 text-fuchsia-300" />
         </div>
         <div class="min-w-0 flex-1">
@@ -33,10 +32,18 @@
             @dblclick="enterEditName"
           >
             <span class="truncate min-w-0">{{ sg.label || sg.id }}</span>
-            <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100" />
+            <UIcon
+              name="i-tabler-pencil"
+              class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100"
+            />
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
-            {{ t('library.detail.nodes_and_outputs', { n: sg.graph?.nodes?.length ?? 0, m: sg.outputPins?.length ?? 0 }) }}
+            {{
+              t('library.detail.nodes_and_outputs', {
+                n: sg.graph?.nodes?.length ?? 0,
+                m: sg.outputPins?.length ?? 0,
+              })
+            }}
           </p>
         </div>
       </header>
@@ -98,7 +105,9 @@
       <section class="space-y-1 text-[11px] text-dimmed">
         <div class="flex justify-between">
           <span>{{ t('library.detail.used_by') }}</span>
-          <span>{{ useCount === null ? '…' : t('library.detail.used_by_n', { n: useCount }) }}</span>
+          <span>{{
+            useCount === null ? '…' : t('library.detail.used_by_n', { n: useCount })
+          }}</span>
         </div>
         <div v-if="sg.createdAt" class="flex justify-between">
           <span>{{ t('library.detail.created_at') }}</span>
@@ -107,7 +116,9 @@
       </section>
 
       <section class="space-y-1.5">
-        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
+        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
+          >ID</label
+        >
         <button
           type="button"
           class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
@@ -121,10 +132,23 @@
       </section>
 
       <div class="pt-3 border-t border-default flex items-center gap-2">
-        <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-copy-plus" @click="onDuplicate">
+        <UButton
+          size="xs"
+          variant="soft"
+          color="neutral"
+          icon="i-tabler-copy-plus"
+          @click="onDuplicate"
+        >
           {{ t('library.card.duplicate') }}
         </UButton>
-        <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" class="ml-auto" @click="onDelete">
+        <UButton
+          size="xs"
+          variant="soft"
+          color="error"
+          icon="i-tabler-trash"
+          class="ml-auto"
+          @click="onDelete"
+        >
           {{ t('library.detail.delete') }}
         </UButton>
       </div>
@@ -150,7 +174,9 @@ const libraryStore = useLibraryStore()
 const { confirm } = useConfirm()
 const toast = useToast()
 
-const sg = computed<Subgraph | undefined>(() => (props.sgID ? libraryStore.byId(props.sgID) : undefined))
+const sg = computed<Subgraph | undefined>(() =>
+  props.sgID ? libraryStore.byId(props.sgID) : undefined,
+)
 
 const allCategories = computed(() => {
   const set = new Set<string>()
@@ -220,19 +246,26 @@ function saveDesc() {
 }
 
 // 切换选中项时退出编辑态, 防 draft 串台
-watch(() => props.sgID, () => {
-  editingName.value = false
-  editingDesc.value = false
-})
+watch(
+  () => props.sgID,
+  () => {
+    editingName.value = false
+    editingDesc.value = false
+  },
+)
 
 // 「被 N 个容器使用」— 选中时拉一次 referrers (null = 加载中)。
 const useCount = ref<number | null>(null)
-watch(() => props.sgID, async (id) => {
-  useCount.value = null
-  if (!id) return
-  const refs = await libraryStore.referrersOf(id)
-  useCount.value = libraryStore.containerUseCount(refs)
-}, { immediate: true })
+watch(
+  () => props.sgID,
+  async (id) => {
+    useCount.value = null
+    if (!id) return
+    const refs = await libraryStore.referrersOf(id)
+    useCount.value = libraryStore.containerUseCount(refs)
+  },
+  { immediate: true },
+)
 
 const copied = ref(false)
 let copiedTimer = 0
@@ -242,7 +275,9 @@ async function onCopyID() {
     await navigator.clipboard.writeText(props.sgID)
     copied.value = true
     window.clearTimeout(copiedTimer)
-    copiedTimer = window.setTimeout(() => { copied.value = false }, 1500)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1500)
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -252,7 +287,11 @@ async function onDuplicate() {
   if (!props.sgID) return
   const dup = await libraryStore.duplicateSubgraph(props.sgID)
   if (dup) {
-    toast.add({ title: t('library.card.duplicated', { name: dup.label }), color: 'success', icon: 'i-tabler-check' })
+    toast.add({
+      title: t('library.card.duplicated', { name: dup.label }),
+      color: 'success',
+      icon: 'i-tabler-check',
+    })
   }
 }
 
@@ -260,9 +299,10 @@ async function onDelete() {
   if (!props.sgID || !sg.value) return
   const refs = await libraryStore.referrersOf(props.sgID)
   const n = libraryStore.containerUseCount(refs)
-  const desc = n > 0
-    ? t('library.card.delete_confirm_referenced', { name: sg.value.label || props.sgID, n })
-    : t('library.card.delete_confirm_desc', { name: sg.value.label || props.sgID })
+  const desc =
+    n > 0
+      ? t('library.card.delete_confirm_referenced', { name: sg.value.label || props.sgID, n })
+      : t('library.card.delete_confirm_desc', { name: sg.value.label || props.sgID })
   const yes = await confirm({
     title: t('library.card.delete_confirm_title'),
     description: desc,

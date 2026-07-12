@@ -1,11 +1,7 @@
 <!-- Single-node right-click menu. -->
 <template>
   <template v-if="open">
-    <div
-      class="fixed inset-0 z-40"
-      @click="close"
-      @contextmenu.prevent="close"
-    />
+    <div class="fixed inset-0 z-40" @click="close" @contextmenu.prevent="close" />
     <div
       class="ctx-menu fixed z-50 bg-default border border-default rounded-lg shadow-2xl py-2 min-w-[240px]"
       :style="positionStyle"
@@ -70,10 +66,19 @@ import { pinsFor } from '@/components/containers/pinSpec'
 const { t } = useI18n()
 
 export type NodeMenuAction =
-  | 'copy' | 'cut' | 'paste' | 'duplicate' | 'delete' | 'hard-delete'
-  | 'toggle-disable' | 'save-as-snippet'
-  | 'find-references' | 'promote-to-var' | 'jump-to-subgraph'
-  | 'to-script' | 'debug-from-here'
+  | 'copy'
+  | 'cut'
+  | 'paste'
+  | 'duplicate'
+  | 'delete'
+  | 'hard-delete'
+  | 'toggle-disable'
+  | 'save-as-snippet'
+  | 'find-references'
+  | 'promote-to-var'
+  | 'jump-to-subgraph'
+  | 'to-script'
+  | 'debug-from-here'
 
 const props = defineProps<{
   open: boolean
@@ -99,19 +104,13 @@ const kindLabel = computed(() => {
 
 const iconForKind = computed(() => getSpec(props.node.kind)?.visual?.icon ?? 'i-tabler-box')
 
-const isVarRef = computed(() =>
-  ['GetVar', 'SetVar', 'IncVar'].includes(props.node.kind),
-)
+const isVarRef = computed(() => ['GetVar', 'SetVar', 'IncVar'].includes(props.node.kind))
 
-const isSubgraph = computed(() =>
-  ['Subgraph', 'CollapsedNode'].includes(props.node.kind),
-)
+const isSubgraph = computed(() => ['Subgraph', 'CollapsedNode'].includes(props.node.kind))
 
 // 有底层全局定义、删节点不会连带删的: 具名 Subgraph (子图池) / PlayClip (clip 资产).
 // 这俩才提供「彻底删除」连定义删. CollapsedNode 的后备子图是匿名、删节点后自动 GC, 不用.
-const hasUnderlyingDef = computed(() =>
-  ['Subgraph', 'PlayClip'].includes(props.node.kind),
-)
+const hasUnderlyingDef = computed(() => ['Subgraph', 'PlayClip'].includes(props.node.kind))
 
 const hasLiteralPin = computed(() => {
   const lit = (props.node.config as Record<string, unknown> | undefined)?.literal as
@@ -120,18 +119,47 @@ const hasLiteralPin = computed(() => {
   return lit && Object.keys(lit).length > 0
 })
 
-const isDisabled = computed(() => (props.node as GraphNode & { disabled?: boolean }).disabled === true)
-const canDebugFromHere = computed(() => pinsFor(
-  props.node.kind,
-  props.node.config as Record<string, unknown> | undefined,
-).execIn.length > 0)
+const isDisabled = computed(
+  () => (props.node as GraphNode & { disabled?: boolean }).disabled === true,
+)
+const canDebugFromHere = computed(
+  () =>
+    pinsFor(props.node.kind, props.node.config as Record<string, unknown> | undefined).execIn
+      .length > 0,
+)
 
 const commonItems = computed(() => [
-  { key: 'copy' as const, label: t('editor.menu.node.copy'), icon: 'i-tabler-copy', shortcut: 'Ctrl+C' },
-  { key: 'cut' as const, label: t('editor.menu.node.cut'), icon: 'i-tabler-cut', shortcut: 'Ctrl+X' },
-  { key: 'paste' as const, label: t('editor.menu.node.paste'), icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V' },
-  { key: 'duplicate' as const, label: t('editor.menu.node.duplicate'), icon: 'i-tabler-stack-2', shortcut: 'Ctrl+D' },
-  { key: 'delete' as const, label: t('editor.menu.node.delete'), icon: 'i-tabler-trash', shortcut: 'Del', colorClass: 'text-error' },
+  {
+    key: 'copy' as const,
+    label: t('editor.menu.node.copy'),
+    icon: 'i-tabler-copy',
+    shortcut: 'Ctrl+C',
+  },
+  {
+    key: 'cut' as const,
+    label: t('editor.menu.node.cut'),
+    icon: 'i-tabler-cut',
+    shortcut: 'Ctrl+X',
+  },
+  {
+    key: 'paste' as const,
+    label: t('editor.menu.node.paste'),
+    icon: 'i-tabler-clipboard',
+    shortcut: 'Ctrl+V',
+  },
+  {
+    key: 'duplicate' as const,
+    label: t('editor.menu.node.duplicate'),
+    icon: 'i-tabler-stack-2',
+    shortcut: 'Ctrl+D',
+  },
+  {
+    key: 'delete' as const,
+    label: t('editor.menu.node.delete'),
+    icon: 'i-tabler-trash',
+    shortcut: 'Del',
+    colorClass: 'text-error',
+  },
 ])
 
 const specialItems = computed(() => {
@@ -162,9 +190,9 @@ const specialItems = computed(() => {
   )
 
   if (isVarRef.value) {
-    const varName = (props.node.config as Record<string, unknown> | undefined)?.varName as
-      | string
-      | undefined ?? '?'
+    const varName =
+      ((props.node.config as Record<string, unknown> | undefined)?.varName as string | undefined) ??
+      '?'
     items.push({
       key: 'find-references',
       label: t('editor.menu.node.find_var_refs', { name: varName }),
@@ -222,7 +250,11 @@ function close() {
 <style scoped>
 .ctx-menu {
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
   /* glassmorphism: 跟节点同款 — 内描边高光 + drop shadow */
   box-shadow:
@@ -233,21 +265,12 @@ function close() {
 }
 .ctx-header {
   /* 跟节点 header 同款渐变 */
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    transparent 60%
-  );
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%);
 }
 .ctx-divider {
   height: 1px;
   margin: 4px 8px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
 }
 .ctx-item {
   display: flex;
@@ -260,7 +283,9 @@ function close() {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .ctx-item:hover {
   background: rgba(255, 255, 255, 0.06);

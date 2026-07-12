@@ -25,7 +25,13 @@ describe('bindableFields (Spec C 单一来源)', () => {
   beforeEach(() => __resetForTests())
 
   it('非纯数据 + exec 出口 Data 字段 (DetectColor 风格) → 全部字段', () => {
-    register(makeSpec({ kind: 'DetectColor', execOut: ['Found', 'NotFound'], dataOut: { Count: 'number', Center: 'point' } }))
+    register(
+      makeSpec({
+        kind: 'DetectColor',
+        execOut: ['Found', 'NotFound'],
+        dataOut: { Count: 'number', Center: 'point' },
+      }),
+    )
     expect(bindableFields('DetectColor', null)).toEqual(['Count', 'Center'])
   })
 

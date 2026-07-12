@@ -1,7 +1,12 @@
 <!-- frontend/src/components/containers/ContainerSettingsModal.vue -->
 <!-- 容器基本信息 — 从右抽屉抽出, 顶部 ⚙ 设置 / Ctrl+, 触发. -->
 <template>
-  <BaseModal v-model:open="modelOpen" :title="t('containers.settings_title')" icon="i-tabler-settings" size="lg">
+  <BaseModal
+    v-model:open="modelOpen"
+    :title="t('containers.settings_title')"
+    icon="i-tabler-settings"
+    size="lg"
+  >
     <div class="space-y-3">
       <UFormField :label="t('common.name')" required>
         <UInput v-model="form.name" :placeholder="t('containers.name_placeholder')" size="sm" />
@@ -12,15 +17,34 @@
       </UFormField>
 
       <UFormField :label="t('common.description')">
-        <UTextarea v-model="form.description" :rows="3" size="sm" :placeholder="t('containers.description_placeholder')" />
+        <UTextarea
+          v-model="form.description"
+          :rows="3"
+          size="sm"
+          :placeholder="t('containers.description_placeholder')"
+        />
       </UFormField>
 
       <UFormField :label="t('common.tags')" :hint="t('containers.tags_hint')">
-        <UInputMenu v-model="form.tags" multiple :items="allTags" :create-item="'always'" size="sm" @create="(v: string) => (form.tags = [...(form.tags ?? []), v])" />
+        <UInputMenu
+          v-model="form.tags"
+          multiple
+          :items="allTags"
+          :create-item="'always'"
+          size="sm"
+          @create="(v: string) => (form.tags = [...(form.tags ?? []), v])"
+        />
       </UFormField>
 
       <UFormField :label="t('common.category')">
-        <UInputMenu v-model="form.category" :items="categoryItems" create-item size="sm" :placeholder="t('containers.category_placeholder')" @create="onCreateCategory" />
+        <UInputMenu
+          v-model="form.category"
+          :items="categoryItems"
+          create-item
+          size="sm"
+          :placeholder="t('containers.category_placeholder')"
+          @create="onCreateCategory"
+        />
       </UFormField>
 
       <UFormField :label="t('containers.input_backend_label')">
@@ -35,13 +59,24 @@
       </UFormField>
 
       <UFormField :label="t('containers.scale_tolerance_label')">
-        <UInputNumber v-model="form.scaleTolerance" :min="1" :max="4" :step="0.1" size="sm" class="w-36" />
+        <UInputNumber
+          v-model="form.scaleTolerance"
+          :min="1"
+          :max="4"
+          :step="0.1"
+          size="sm"
+          class="w-36"
+        />
       </UFormField>
     </div>
 
     <template #footer>
-      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{ t('common.cancel') }}</UButton>
-      <UButton color="primary" icon="i-tabler-check" @click="onConfirm">{{ t('common.save') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton color="primary" icon="i-tabler-check" @click="onConfirm">{{
+        t('common.save')
+      }}</UButton>
     </template>
   </BaseModal>
 </template>
@@ -82,7 +117,13 @@ const emit = defineEmits<{
 const modelOpen = useDialogOpen(props, emit)
 
 const form = ref<FormState>({ ...props.initial })
-watch(() => props.initial, v => { form.value = { ...v } }, { deep: true })
+watch(
+  () => props.initial,
+  (v) => {
+    form.value = { ...v }
+  },
+  { deep: true },
+)
 const createdCategories = ref<string[]>([])
 const categoryItems = computed(() => {
   return uniqueCategoryOptions(props.allCategories, createdCategories.value, [form.value.category])

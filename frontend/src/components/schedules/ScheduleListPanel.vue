@@ -70,7 +70,8 @@ function triggerLabel(s: Schedule): string {
   switch (tg.kind) {
     case 'cron':
       if (tg.subKind === 'daily') return t('schedule.display.daily', { at: tg.at ?? '--:--' })
-      if (tg.subKind === 'interval') return t('schedule.display.interval', { mins: tg.everyMinutes })
+      if (tg.subKind === 'interval')
+        return t('schedule.display.interval', { mins: tg.everyMinutes })
       return 'cron'
     case 'hotkey':
       return t('schedule.display.hotkey', { key: tg.hotkey ?? '' })

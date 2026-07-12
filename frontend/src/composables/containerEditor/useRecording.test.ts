@@ -52,7 +52,12 @@ function makeDraft(): Container {
   return {
     id: 'cMine',
     name: '我的容器',
-    graph: { id: 'g', schemaVersion: 1, nodes: [{ id: 'start', kind: 'Start', x: 0, y: 0, config: {} }], edges: [] },
+    graph: {
+      id: 'g',
+      schemaVersion: 1,
+      nodes: [{ id: 'start', kind: 'Start', x: 0, y: 0, config: {} }],
+      edges: [],
+    },
   } as unknown as Container
 }
 
@@ -111,10 +116,18 @@ describe('useRecording — recording:completed 归属守卫', () => {
 
   it('停止后只打开 pending 保存状态，Finalize 后才把资产节点加入画布', async () => {
     backendMocks.stop.mockResolvedValueOnce({
-      pendingID: 'pending-1', containerID: 'cMine', filterMode: 'precise', durationUs: 1_000_000, eventCount: 2,
+      pendingID: 'pending-1',
+      containerID: 'cMine',
+      filterMode: 'precise',
+      durationUs: 1_000_000,
+      eventCount: 2,
     })
     backendMocks.finalize.mockResolvedValueOnce({
-      clipID: 'clip-1', subgraphID: '', containerID: 'cMine', filterMode: 'precise', label: '领奖前置',
+      clipID: 'clip-1',
+      subgraphID: '',
+      containerID: 'cMine',
+      filterMode: 'precise',
+      label: '领奖前置',
     })
     const draft = ref(makeDraft())
     const { recordingApi, store } = mountComposable(draft)
@@ -124,11 +137,23 @@ describe('useRecording — recording:completed 归属守卫', () => {
     expect(recordingApi.pendingRecording.value?.pendingID).toBe('pending-1')
     expect(draft.value!.graph.nodes).toHaveLength(1)
 
-    await recordingApi.finalizePending({ label: '领奖前置', description: '', category: '日常', tags: ['每日'] })
+    await recordingApi.finalizePending({
+      label: '领奖前置',
+      description: '',
+      category: '日常',
+      tags: ['每日'],
+    })
     expect(backendMocks.finalize).toHaveBeenCalledWith({
-      pendingID: 'pending-1', label: '领奖前置', description: '', category: '日常', tags: ['每日'],
+      pendingID: 'pending-1',
+      label: '领奖前置',
+      description: '',
+      category: '日常',
+      tags: ['每日'],
     })
     expect(recordingApi.pendingRecording.value).toBeNull()
-    expect(draft.value!.graph.nodes.at(-1)).toMatchObject({ kind: 'PlayClip', config: { ClipID: 'clip-1' } })
+    expect(draft.value!.graph.nodes.at(-1)).toMatchObject({
+      kind: 'PlayClip',
+      config: { ClipID: 'clip-1' },
+    })
   })
 })

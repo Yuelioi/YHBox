@@ -60,7 +60,7 @@ export function filterContainers(items: Container[], options: ContainerFilterOpt
     if (options.category !== null && (c.category ?? '') !== options.category) return false
     if (options.tags.length > 0 && !options.tags.every((tag) => tags.includes(tag))) return false
     if (!q) return true
-    const author = typeof c.author === 'string' ? c.author : c.author?.name ?? ''
+    const author = typeof c.author === 'string' ? c.author : (c.author?.name ?? '')
     const hay = [
       c.name ?? '',
       c.description ?? '',
@@ -69,12 +69,18 @@ export function filterContainers(items: Container[], options: ContainerFilterOpt
       author,
       ...(c.keywords ?? []),
       ...tags,
-    ].join(' ').toLowerCase()
+    ]
+      .join(' ')
+      .toLowerCase()
     return hay.includes(q)
   })
 }
 
-export function sortContainers(items: Container[], sortKey: ContainerSortKey, sortDesc: boolean): Container[] {
+export function sortContainers(
+  items: Container[],
+  sortKey: ContainerSortKey,
+  sortDesc: boolean,
+): Container[] {
   return items
     .map((item, index) => ({ item, index }))
     .sort((a, b) => {
@@ -99,7 +105,10 @@ export function sortContainers(items: Container[], sortKey: ContainerSortKey, so
     .map(({ item }) => item)
 }
 
-export function buildContainerPage(items: Container[], options: ContainerPageOptions): ContainerPageResult {
+export function buildContainerPage(
+  items: Container[],
+  options: ContainerPageOptions,
+): ContainerPageResult {
   const filtered = filterContainers(items, options)
   const sorted = sortContainers(filtered, options.sortKey, options.sortDesc)
   const result = paginate(sorted, options.page, options.pageSize)

@@ -6,12 +6,7 @@
   >
     <slot />
   </aside>
-  <SplitHandle
-    :model-value="width"
-    :min="min"
-    :max="max"
-    @update:model-value="setWidth"
-  />
+  <SplitHandle :model-value="width" :min="min" :max="max" @update:model-value="setWidth" />
 </template>
 
 <script setup lang="ts">

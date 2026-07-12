@@ -2,7 +2,11 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
   { path: '/', redirect: '/containers' },
-  { path: '/containers', name: 'containers', component: () => import('@/views/ContainersView.vue') },
+  {
+    path: '/containers',
+    name: 'containers',
+    component: () => import('@/views/ContainersView.vue'),
+  },
   {
     path: '/containers/:id/edit',
     name: 'container-edit',

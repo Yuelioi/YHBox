@@ -3,7 +3,10 @@
 <template>
   <div
     class="rounded-xl raised-surface"
-    :class="[paddingClass, hover ? 'transition-shadow duration-150 hover:shadow-[0_6px_20px_rgba(0,0,0,0.45)]' : '']"
+    :class="[
+      paddingClass,
+      hover ? 'transition-shadow duration-150 hover:shadow-[0_6px_20px_rgba(0,0,0,0.45)]' : '',
+    ]"
   >
     <slot />
   </div>

@@ -7,15 +7,21 @@
           class="text-[10px] px-1.5 py-0.5 rounded"
           :class="!isPx ? 'bg-primary text-white' : 'text-dimmed hover:bg-elevated'"
           @click="setUnit('percent')"
-        >{{ t('point_widget.unit_percent') }}</button>
+        >
+          {{ t('point_widget.unit_percent') }}
+        </button>
         <button
           class="text-[10px] px-1.5 py-0.5 rounded"
           :class="isPx ? 'bg-primary text-white' : 'text-dimmed hover:bg-elevated'"
           @click="setUnit('px')"
-        >{{ t('point_widget.unit_px') }}</button>
+        >
+          {{ t('point_widget.unit_px') }}
+        </button>
       </div>
     </div>
-    <p class="text-[10px] text-dimmed leading-snug">{{ isPx ? t('point_widget.hint_px') : t('point_widget.hint_percent') }}</p>
+    <p class="text-[10px] text-dimmed leading-snug">
+      {{ isPx ? t('point_widget.hint_px') : t('point_widget.hint_percent') }}
+    </p>
     <div class="grid grid-cols-2 gap-1.5">
       <div class="space-y-0.5">
         <label class="text-[10px] text-dimmed">X {{ unitLabel }}</label>
@@ -43,8 +49,12 @@
       </div>
     </div>
     <UButton
-      size="xs" variant="soft" color="primary" icon="i-tabler-pointer"
-      data-testid="point-pick-btn" :loading="picking"
+      size="xs"
+      variant="soft"
+      color="primary"
+      icon="i-tabler-pointer"
+      data-testid="point-pick-btn"
+      :loading="picking"
       @click="onPickPoint"
     >
       {{ t('point_widget.pick_point') }}
@@ -126,7 +136,13 @@ function notifyNoSize() {
 }
 
 // ─── 截图取点 ────────────────────────────────────────────────────────────────
-type PointPayload = { xRatio: number; yRatio: number; screenW?: number; screenH?: number; cancelled?: boolean }
+type PointPayload = {
+  xRatio: number
+  yRatio: number
+  screenW?: number
+  screenH?: number
+  cancelled?: boolean
+}
 
 const tplStore = useTemplatesStore()
 const picking = ref(false)
@@ -140,8 +156,16 @@ async function onPickPoint() {
   const id = genID()
   picking.value = true
   try {
-    const waiter = awaitWailsEvent<{ id: string; payload: PointPayload }>('tools:picker-result', (p) => p?.id === id)
-    const r = await backend.tools.openScreenPicker('point', id, tplStore.containerId, props.nodeId ?? '')
+    const waiter = awaitWailsEvent<{ id: string; payload: PointPayload }>(
+      'tools:picker-result',
+      (p) => p?.id === id,
+    )
+    const r = await backend.tools.openScreenPicker(
+      'point',
+      id,
+      tplStore.containerId,
+      props.nodeId ?? '',
+    )
     if (r === undefined) return
     const res = await waiter
     const p = res.payload

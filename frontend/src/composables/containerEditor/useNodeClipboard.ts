@@ -26,8 +26,14 @@ export function useNodeClipboard(opts: {
   toast: { add: (o: Record<string, unknown>) => unknown }
 }) {
   const {
-    draft, activeGraph, flowNodes, syncFlowFromDraft, refreshSubgraphStore,
-    getSelectedNodes, genID, toast,
+    draft,
+    activeGraph,
+    flowNodes,
+    syncFlowFromDraft,
+    refreshSubgraphStore,
+    getSelectedNodes,
+    genID,
+    toast,
   } = opts
   const { t } = useI18n()
 
@@ -57,7 +63,11 @@ export function useNodeClipboard(opts: {
     // 子图已全局化: 粘贴 = 引用同一个全局子图 (引用即语义), 不再深拷贝副本 —
     // 想要独立副本用「复制为新子图」。subgraphsDeepCopy 留空仅为 clipboard 形状兼容。
     clipboard.value = { nodes, edges, subgraphsDeepCopy: {} }
-    toast.add({ title: t('editorAux.copied_nodes', { n: nodes.length }), color: 'success', duration: 1500 })
+    toast.add({
+      title: t('editorAux.copied_nodes', { n: nodes.length }),
+      color: 'success',
+      duration: 1500,
+    })
   }
 
   async function onPasteSelection() {

@@ -9,7 +9,10 @@
     </div>
 
     <!-- 在线: 占位 -->
-    <div v-if="activeTab === 'online'" class="flex-1 flex flex-col items-center justify-center text-center py-16">
+    <div
+      v-if="activeTab === 'online'"
+      class="flex-1 flex flex-col items-center justify-center text-center py-16"
+    >
       <UIcon name="i-tabler-cloud" class="size-12 text-dimmed mb-3" />
       <h3 class="text-sm text-toned font-medium">{{ t('library.online.title') }}</h3>
       <p class="text-xs text-dimmed mt-2 max-w-xs">{{ t('library.online.desc') }}</p>
@@ -54,14 +57,13 @@
         />
       </div>
 
-      <p v-if="selected.size === 0" class="text-[10px] text-dimmed px-1 shrink-0">{{ t('editor.dock.drag_hint') }}</p>
+      <p v-if="selected.size === 0" class="text-[10px] text-dimmed px-1 shrink-0">
+        {{ t('editor.dock.drag_hint') }}
+      </p>
       <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
 
       <div class="flex-1 min-h-0 overflow-y-auto select-none">
-        <div
-          v-if="filteredItems.length === 0"
-          class="text-center text-xs text-dimmed py-8 italic"
-        >
+        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
           <span v-if="lib.loading">{{ t('library.loading') }}</span>
           <span v-else-if="lib.subgraphs.length === 0">{{ t('library.explorer.empty') }}</span>
           <span v-else>{{ t('library.explorer.no_match') }}</span>
@@ -69,14 +71,20 @@
 
         <div v-else class="space-y-2">
           <template v-for="group in groupedItems" :key="group.category">
-            <div class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5">
+            <div
+              class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5"
+            >
               {{ group.category }}
             </div>
             <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
               <div
                 draggable="true"
                 class="group rounded p-3 cursor-grab active:cursor-grabbing"
-                :class="isSelected(item.id) ? 'bg-primary/15 ring-1 ring-inset ring-primary/50' : 'bg-elevated/30 hover:bg-elevated/60'"
+                :class="
+                  isSelected(item.id)
+                    ? 'bg-primary/15 ring-1 ring-inset ring-primary/50'
+                    : 'bg-elevated/30 hover:bg-elevated/60'
+                "
                 @click="onRowClick(item.id, $event)"
                 @dblclick="openDetail(item.id)"
                 @contextmenu="selClick(item.id)"
@@ -85,7 +93,9 @@
                 <div class="flex items-start gap-2">
                   <span
                     class="mt-0.5 shrink-0 transition-opacity"
-                    :class="isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+                    :class="
+                      isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    "
                     @click.stop
                     @dblclick.stop
                     @dragstart.stop.prevent
@@ -99,7 +109,10 @@
                   <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
                   <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium">{{ item.label }}</div>
-                    <div v-if="item.description" class="text-[11px] text-dimmed mt-0.5 line-clamp-2">
+                    <div
+                      v-if="item.description"
+                      class="text-[11px] text-dimmed mt-0.5 line-clamp-2"
+                    >
                       {{ item.description }}
                     </div>
                     <div v-if="item.tags && item.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
@@ -131,7 +144,9 @@
 
       <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span class="text-[11px] text-dimmed shrink-0">{{ t('library.toolbar.total', { n: pageResult.total }) }}</span>
+        <span class="text-[11px] text-dimmed shrink-0">{{
+          t('library.toolbar.total', { n: pageResult.total })
+        }}</span>
         <div class="flex items-center gap-2 shrink-0">
           <UPagination
             v-if="pageResult.totalPages > 1"
@@ -148,12 +163,22 @@
   </div>
 
   <!-- 详情 (按需): 改名/描述/分类/标签/被引用统计/复制为新/删除 -->
-  <BaseModal v-model:open="detailOpen" :title="t('editor.dock.detail')" icon="i-tabler-package" size="sm">
+  <BaseModal
+    v-model:open="detailOpen"
+    :title="t('editor.dock.detail')"
+    icon="i-tabler-package"
+    size="sm"
+  >
     <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
   </BaseModal>
 
   <!-- 批量加标签 -->
-  <BaseModal v-model:open="batchTagsOpen" :title="t('library.batch.add_tags_title')" icon="i-tabler-tags" size="md">
+  <BaseModal
+    v-model:open="batchTagsOpen"
+    :title="t('library.batch.add_tags_title')"
+    icon="i-tabler-tags"
+    size="md"
+  >
     <UInputMenu
       v-model="batchTags"
       multiple
@@ -164,13 +189,22 @@
       @create="(v: string) => (batchTags = [...batchTags, v])"
     />
     <template #footer>
-      <UButton variant="ghost" color="neutral" @click="batchTagsOpen = false">{{ t('common.cancel') }}</UButton>
-      <UButton color="primary" :disabled="batchTags.length === 0" @click="onBatchAddTags">{{ t('library.batch.add_tags_apply') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="batchTagsOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton color="primary" :disabled="batchTags.length === 0" @click="onBatchAddTags">{{
+        t('library.batch.add_tags_apply')
+      }}</UButton>
     </template>
   </BaseModal>
 
   <!-- 批量改分类 -->
-  <BaseModal v-model:open="batchCategoryOpen" :title="t('library.batch.change_category_title')" icon="i-tabler-category" size="md">
+  <BaseModal
+    v-model:open="batchCategoryOpen"
+    :title="t('library.batch.change_category_title')"
+    icon="i-tabler-category"
+    size="md"
+  >
     <UInputMenu
       v-model="batchCategory"
       :create-item="'always'"
@@ -180,8 +214,12 @@
       @create="(v: string) => (batchCategory = v)"
     />
     <template #footer>
-      <UButton variant="ghost" color="neutral" @click="batchCategoryOpen = false">{{ t('common.cancel') }}</UButton>
-      <UButton color="primary" @click="onBatchChangeCategory">{{ t('library.batch.change_category_apply') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="batchCategoryOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton color="primary" @click="onBatchChangeCategory">{{
+        t('library.batch.change_category_apply')
+      }}</UButton>
     </template>
   </BaseModal>
 </template>
@@ -259,16 +297,26 @@ const filteredItems = computed<Subgraph[]>(() => {
   const arr = filterSubgraphs(lib.subgraphs, {
     query: query.value,
     category:
-      categoryFilter.value === 'all' ? null : categoryFilter.value === 'none' ? '' : categoryFilter.value.slice(2),
+      categoryFilter.value === 'all'
+        ? null
+        : categoryFilter.value === 'none'
+          ? ''
+          : categoryFilter.value.slice(2),
     tags: tagFilter.value,
   })
   const sorted = [...arr]
   sorted.sort((a, b) => {
     let cmp = 0
     switch (sortKey.value) {
-      case 'label': cmp = (a.label ?? '').localeCompare(b.label ?? ''); break
-      case 'createdAt': cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? ''); break
-      case 'nodes': cmp = (a.graph?.nodes?.length ?? 0) - (b.graph?.nodes?.length ?? 0); break
+      case 'label':
+        cmp = (a.label ?? '').localeCompare(b.label ?? '')
+        break
+      case 'createdAt':
+        cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+        break
+      case 'nodes':
+        cmp = (a.graph?.nodes?.length ?? 0) - (b.graph?.nodes?.length ?? 0)
+        break
     }
     return sortDesc.value ? -cmp : cmp
   })
@@ -277,13 +325,24 @@ const filteredItems = computed<Subgraph[]>(() => {
 
 const page = ref(1)
 const pageSize = useLocalStorage('library.pageSize', 50)
-const pageSizeItems = computed(() => [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })))
+const pageSizeItems = computed(() =>
+  [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })),
+)
 
 const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
-const groupedItems = computed(() => groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')))
+const groupedItems = computed(() =>
+  groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
+)
 
-watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => { page.value = 1 })
-watch(() => pageResult.value.totalPages, (tp) => { if (page.value > tp) page.value = tp })
+watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
+  page.value = 1
+})
+watch(
+  () => pageResult.value.totalPages,
+  (tp) => {
+    if (page.value > tp) page.value = tp
+  },
+)
 
 // 选中 (单击/Ctrl/Shift/勾选框) — 用于批量操作.
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
@@ -325,15 +384,30 @@ function onDetailInsert() {
 function ctxMenuItems(item: Subgraph) {
   return [
     [
-      { label: t('library.explorer.insert'), icon: 'i-tabler-package-import', onSelect: () => onPick(item.id) },
-      { label: t('editor.dock.detail'), icon: 'i-tabler-info-circle', onSelect: () => openDetail(item.id) },
-      { label: t('library.card.duplicate'), icon: 'i-tabler-copy-plus', onSelect: () => onDuplicate(item) },
+      {
+        label: t('library.explorer.insert'),
+        icon: 'i-tabler-package-import',
+        onSelect: () => onPick(item.id),
+      },
+      {
+        label: t('editor.dock.detail'),
+        icon: 'i-tabler-info-circle',
+        onSelect: () => openDetail(item.id),
+      },
+      {
+        label: t('library.card.duplicate'),
+        icon: 'i-tabler-copy-plus',
+        onSelect: () => onDuplicate(item),
+      },
     ],
+    [{ label: t('library.card.copy_id'), icon: 'i-tabler-copy', onSelect: () => onCopyID(item) }],
     [
-      { label: t('library.card.copy_id'), icon: 'i-tabler-copy', onSelect: () => onCopyID(item) },
-    ],
-    [
-      { label: t('library.card.delete'), icon: 'i-tabler-trash', color: 'error' as const, onSelect: () => onDelete(item) },
+      {
+        label: t('library.card.delete'),
+        icon: 'i-tabler-trash',
+        color: 'error' as const,
+        onSelect: () => onDelete(item),
+      },
     ],
   ]
 }
@@ -341,7 +415,12 @@ function ctxMenuItems(item: Subgraph) {
 async function onCopyID(item: Subgraph) {
   try {
     await navigator.clipboard.writeText(item.id)
-    toast.add({ title: t('toast.copy_id_success'), color: 'success', icon: 'i-tabler-check', duration: 1500 })
+    toast.add({
+      title: t('toast.copy_id_success'),
+      color: 'success',
+      icon: 'i-tabler-check',
+      duration: 1500,
+    })
   } catch (e: any) {
     toast.add({ title: t('toast.copy_failed'), description: errorMessage(e), color: 'error' })
   }
@@ -351,7 +430,11 @@ async function onCopyID(item: Subgraph) {
 async function onDuplicate(item: Subgraph) {
   const dup = await lib.duplicateSubgraph(item.id)
   if (dup) {
-    toast.add({ title: t('library.card.duplicated', { name: dup.label }), color: 'success', icon: 'i-tabler-check' })
+    toast.add({
+      title: t('library.card.duplicated', { name: dup.label }),
+      color: 'success',
+      icon: 'i-tabler-check',
+    })
   }
 }
 
@@ -360,9 +443,10 @@ async function onDelete(item: Subgraph) {
   const refs = await lib.referrersOf(item.id)
   const useCount = lib.containerUseCount(refs)
   const name = item.label || item.id
-  const desc = useCount > 0
-    ? t('library.card.delete_confirm_referenced', { name, n: useCount })
-    : t('library.card.delete_confirm_desc', { name })
+  const desc =
+    useCount > 0
+      ? t('library.card.delete_confirm_referenced', { name, n: useCount })
+      : t('library.card.delete_confirm_desc', { name })
   const yes = await confirm({
     title: t('library.card.delete_confirm_title'),
     description: desc,
@@ -384,9 +468,14 @@ async function onBatchDelete() {
     const refs = await lib.referrersOf(id)
     if (lib.containerUseCount(refs) > 0) referenced.push(lib.byId(id)?.label || id)
   }
-  const desc = referenced.length > 0
-    ? t('library.batch.delete_confirm_referenced', { n: ids.length, m: referenced.length, names: referenced.join('、') })
-    : t('library.batch.delete_confirm_desc', { n: ids.length })
+  const desc =
+    referenced.length > 0
+      ? t('library.batch.delete_confirm_referenced', {
+          n: ids.length,
+          m: referenced.length,
+          names: referenced.join('、'),
+        })
+      : t('library.batch.delete_confirm_desc', { n: ids.length })
   const yes = await confirm({
     title: t('library.batch.delete_confirm_title'),
     description: desc,
@@ -418,7 +507,10 @@ async function onBatchAddTags() {
   let failed = 0
   for (const id of ids) {
     const sg = lib.byId(id)
-    if (!sg) { failed++; continue }
+    if (!sg) {
+      failed++
+      continue
+    }
     const tags = [...new Set([...(sg.tags ?? []), ...add])]
     try {
       await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ tags }), sg.rev)
@@ -437,11 +529,30 @@ async function onBatchAddTags() {
 // 批量动作收进下拉.
 const batchMenuItems = computed(() => [
   [
-    { label: t('library.batch.add_tags'), icon: 'i-tabler-tags', onSelect: () => { batchTagsOpen.value = true } },
-    { label: t('library.batch.change_category'), icon: 'i-tabler-category', onSelect: () => { batchCategoryOpen.value = true } },
+    {
+      label: t('library.batch.add_tags'),
+      icon: 'i-tabler-tags',
+      onSelect: () => {
+        batchTagsOpen.value = true
+      },
+    },
+    {
+      label: t('library.batch.change_category'),
+      icon: 'i-tabler-category',
+      onSelect: () => {
+        batchCategoryOpen.value = true
+      },
+    },
   ],
   [
-    { label: t('library.batch.delete'), icon: 'i-tabler-trash', color: 'error' as const, onSelect: () => { void onBatchDelete() } },
+    {
+      label: t('library.batch.delete'),
+      icon: 'i-tabler-trash',
+      color: 'error' as const,
+      onSelect: () => {
+        void onBatchDelete()
+      },
+    },
   ],
 ])
 
@@ -455,7 +566,10 @@ async function onBatchChangeCategory() {
   let failed = 0
   for (const id of ids) {
     const sg = lib.byId(id)
-    if (!sg) { failed++; continue }
+    if (!sg) {
+      failed++
+      continue
+    }
     try {
       await backend.subgraphs.updateSilent(sg.id, JSON.stringify({ category: target }), sg.rev)
     } catch {

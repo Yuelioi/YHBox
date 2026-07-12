@@ -62,7 +62,7 @@ function exprCompletionSource(opts: {
       from,
       validFor: /^[a-zA-Z0-9_]*$/,
       options: [
-        ...allExprFunctions().map(f => ({
+        ...allExprFunctions().map((f) => ({
           label: f.name,
           displayLabel: f.sig,
           type: 'function',
@@ -71,11 +71,14 @@ function exprCompletionSource(opts: {
           apply: (v: EditorView, _c: unknown, applyFrom: number, applyTo: number) => {
             const insert = `${f.name}()`
             const caret = applyFrom + insert.length - (f.maxArgs === 0 ? 0 : 1)
-            v.dispatch({ changes: { from: applyFrom, to: applyTo, insert }, selection: { anchor: caret } })
+            v.dispatch({
+              changes: { from: applyFrom, to: applyTo, insert },
+              selection: { anchor: caret },
+            })
           },
         })),
-        ...['true', 'false', 'null'].map(l => ({ label: l, type: 'keyword' as const })),
-        ...(opts.inputNames?.() ?? []).map(n => ({ label: n, type: 'variable' as const })),
+        ...['true', 'false', 'null'].map((l) => ({ label: l, type: 'keyword' as const })),
+        ...(opts.inputNames?.() ?? []).map((n) => ({ label: n, type: 'variable' as const })),
         ...(opts.extraCompletions?.() ?? []),
       ],
     }
@@ -92,19 +95,21 @@ export function firstExprError(
   return first ? { message: diagMessage(first), from: first.from } : null
 }
 
-export function exprEditorExtensions(opts: {
-  fnDesc: (name: string) => string
-  diagMessage: (d: ExprDiagnostic) => string
-  inputNames?: () => string[]
-  /** 容器变量名 — $ 补全源。 */
-  varNames?: () => string[]
-  /** 追加补全项 (用户片段 prefix 等), 与函数/字面量合并。 */
-  extraCompletions?: () => Completion[]
-  placeholder?: string
-  onChange?: (doc: string) => void
-} & BaseEditorOpts): Extension[] {
+export function exprEditorExtensions(
+  opts: {
+    fnDesc: (name: string) => string
+    diagMessage: (d: ExprDiagnostic) => string
+    inputNames?: () => string[]
+    /** 容器变量名 — $ 补全源。 */
+    varNames?: () => string[]
+    /** 追加补全项 (用户片段 prefix 等), 与函数/字面量合并。 */
+    extraCompletions?: () => Completion[]
+    placeholder?: string
+    onChange?: (doc: string) => void
+  } & BaseEditorOpts,
+): Extension[] {
   const lintSource = (v: EditorView): Diagnostic[] =>
-    lintExpr(v.state.doc.toString(), exprFnNames()).map(d => ({
+    lintExpr(v.state.doc.toString(), exprFnNames()).map((d) => ({
       from: d.from,
       to: Math.max(d.to, d.from),
       severity: 'error' as const,
@@ -115,10 +120,12 @@ export function exprEditorExtensions(opts: {
     exprLanguage,
     autocompletion({ override: [exprCompletionSource(opts)] }),
     linter(lintSource, { delay: 300 }),
-    hoverTooltip(fnHoverTooltip((word) => {
-      const f = allExprFunctions().find((x) => x.name === word)
-      return f ? { sig: f.sig, desc: opts.fnDesc(f.name) || undefined } : null
-    })),
+    hoverTooltip(
+      fnHoverTooltip((word) => {
+        const f = allExprFunctions().find((x) => x.name === word)
+        return f ? { sig: f.sig, desc: opts.fnDesc(f.name) || undefined } : null
+      }),
+    ),
     cmPlaceholder(opts.placeholder ?? ''),
     signatureHelp({
       context: (s, p) => exprSigContext(s.doc.toString(), p),

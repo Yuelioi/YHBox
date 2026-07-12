@@ -4,7 +4,9 @@
     <div class="space-y-2">
       <div class="flex items-center gap-1.5">
         <span class="text-[11px] text-toned font-medium">{{ t('geometry.default_region') }}</span>
-        <span v-if="isFullFrame" class="text-[10px] text-dimmed">{{ t('geometry.full_frame') }}</span>
+        <span v-if="isFullFrame" class="text-[10px] text-dimmed">{{
+          t('geometry.full_frame')
+        }}</span>
       </div>
 
       <div class="grid grid-cols-2 gap-1.5">
@@ -184,7 +186,12 @@
               {{ t('geometry.pick_override_rect') }}
             </UButton>
             <p v-if="pickResMismatch[idx]" class="text-[10px] text-warning">
-              {{ t('geometry.pick_res_mismatch', { w: pickResMismatch[idx]!.w, h: pickResMismatch[idx]!.h }) }}
+              {{
+                t('geometry.pick_res_mismatch', {
+                  w: pickResMismatch[idx]!.w,
+                  h: pickResMismatch[idx]!.h,
+                })
+              }}
             </p>
           </div>
 
@@ -193,12 +200,7 @@
             <p class="text-[10px] text-dimmed">{{ t('geometry.add_override_title') }}</p>
 
             <!-- 分辨率预设选择 -->
-            <USelect
-              v-model="addResPreset"
-              :items="resPresetItems"
-              size="xs"
-              class="w-full"
-            />
+            <USelect v-model="addResPreset" :items="resPresetItems" size="xs" class="w-full" />
 
             <!-- 自定义分辨率输入 -->
             <div v-if="addResPreset === 'custom'" class="flex items-center gap-1.5">
@@ -335,7 +337,12 @@ async function openRectPicker(): Promise<RectPayload | null> {
   picking.value = true
   try {
     const waiter = awaitWailsEvent<PickerResult>('tools:picker-result', (p) => p?.id === id)
-    const r = await backend.tools.openScreenPicker('rect', id, tplStore.containerId, props.nodeId ?? '')
+    const r = await backend.tools.openScreenPicker(
+      'rect',
+      id,
+      tplStore.containerId,
+      props.nodeId ?? '',
+    )
     if (r === undefined) return null
     const result = await waiter
     if (result.payload?.cancelled) return null

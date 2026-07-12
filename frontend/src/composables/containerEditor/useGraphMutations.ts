@@ -26,7 +26,9 @@ export function useGraphMutations(opts: {
 
   // B2: virtual entry/output marker — 找当前 subgraph 里这个 id 对应的 slot.
   // 返回 'entry' / 'output' / null. null = 不是 marker (普通节点走老路径).
-  function virtualMarkerSlot(id: string): { kind: 'entry' | 'output'; sgID: string; declID?: string } | null {
+  function virtualMarkerSlot(
+    id: string,
+  ): { kind: 'entry' | 'output'; sgID: string; declID?: string } | null {
     if (editorStore.editorPath.length === 0) return null
     const sgID = editorStore.editorPath[editorStore.editorPath.length - 1]
     const sg = editorStore.subgraphById(sgID)

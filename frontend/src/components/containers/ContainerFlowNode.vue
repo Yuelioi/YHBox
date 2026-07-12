@@ -27,10 +27,7 @@
         class="size-3.5 text-warning shrink-0"
         :title="t('editor.canvas.node_disabled_tooltip')"
       />
-      <span
-        v-if="isRunning"
-        class="size-1.5 rounded-full bg-primary animate-pulse shrink-0"
-      />
+      <span v-if="isRunning" class="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
     </div>
 
     <!-- Body: grid 严格对齐. 同 row index 的 left/right 自动同 Y.
@@ -39,10 +36,9 @@
       <template v-for="i in maxRows" :key="'row-' + i">
         <div class="pin-row pin-row-left">
           <template v-if="leftPins[i - 1]">
-            <span
-              class="pin-label truncate"
-              :style="{ color: labelColor(leftPins[i - 1]) }"
-            >{{ leftPins[i - 1].label }}</span>
+            <span class="pin-label truncate" :style="{ color: labelColor(leftPins[i - 1]) }">{{
+              leftPins[i - 1].label
+            }}</span>
             <PinLiteral
               v-if="showInlineLiteral(leftPins[i - 1])"
               class="pin-inline-input nodrag"
@@ -61,7 +57,8 @@
             v-if="rightPins[i - 1]"
             class="pin-label truncate"
             :style="{ color: labelColor(rightPins[i - 1]) }"
-          >{{ rightPins[i - 1].label }}</span>
+            >{{ rightPins[i - 1].label }}</span
+          >
         </div>
       </template>
     </div>
@@ -85,11 +82,14 @@
     <!-- Subgraph 子图 ID + 节点数 -->
     <div v-if="kind === 'Subgraph'" class="node-footer subgraph-footer" :class="v.border">
       <UIcon name="i-tabler-arrow-narrow-right" class="size-3 shrink-0 text-dimmed" />
-      <span class="truncate font-mono">{{ props.data?.config?.SubgraphID || t('editor.canvas.subgraph_no_id') }}</span>
+      <span class="truncate font-mono">{{
+        props.data?.config?.SubgraphID || t('editor.canvas.subgraph_no_id')
+      }}</span>
       <span
         v-if="boundSubgraphNodeCount !== null"
         class="ml-auto shrink-0 text-fuchsia-300/80 font-medium"
-      >{{ t('containers.node_count', { n: boundSubgraphNodeCount }) }}</span>
+        >{{ t('containers.node_count', { n: boundSubgraphNodeCount }) }}</span
+      >
     </div>
 
     <!-- Handles: exec 三角 + data 圆按 type 上色 -->
@@ -123,9 +123,18 @@ import { computed, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import { useExecutionStore } from '@/stores/execution'
-import { pinsFor, KIND_VISUAL, KIND_LABEL_ZH, PIN_SPECS, resolveSubgraphCallExecOut } from './pinSpec'
+import {
+  pinsFor,
+  KIND_VISUAL,
+  KIND_LABEL_ZH,
+  PIN_SPECS,
+  resolveSubgraphCallExecOut,
+} from './pinSpec'
 import PinLiteral from './inline/PinLiteral.vue'
-import { unconnectedDataInPins, ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
+import {
+  unconnectedDataInPins,
+  ContainerCanvasApiKey,
+} from '@/composables/containerEditor/pinLiterals'
 import { getSpec } from './nodeRegistry/registry'
 import { TYPE_COLOR } from './nodeRegistry/index'
 import type { PinType, FieldSchema } from './nodeRegistry/index'
@@ -178,20 +187,20 @@ const displayLabel = computed(() => {
 const kindSubtitle = computed(() =>
   displayLabel.value !== kindLabel(kind.value) ? kindLabel(kind.value) : null,
 )
-const isRunning = computed(() =>
-  (execStore.running && execStore.currentNodeID === props.id) ||
-  (execStore.debugActive && execStore.debugRunningNodeID === props.id),
+const isRunning = computed(
+  () =>
+    (execStore.running && execStore.currentNodeID === props.id) ||
+    (execStore.debugActive && execStore.debugRunningNodeID === props.id),
 )
-const isDebugNext = computed(() =>
-  execStore.debugActive &&
-  !isRunning.value &&
-  execStore.debugNextNodeID === props.id,
+const isDebugNext = computed(
+  () => execStore.debugActive && !isRunning.value && execStore.debugNextNodeID === props.id,
 )
-const isDebugLast = computed(() =>
-  !!execStore.debugLastNodeID &&
-  execStore.debugLastNodeID === props.id &&
-  !isRunning.value &&
-  !isDebugNext.value,
+const isDebugLast = computed(
+  () =>
+    !!execStore.debugLastNodeID &&
+    execStore.debugLastNodeID === props.id &&
+    !isRunning.value &&
+    !isDebugNext.value,
 )
 const isDebugFailed = computed(() => execStore.debugFailedNodeID === props.id)
 const isDisabled = computed(() => props.data?.disabled === true)
@@ -321,17 +330,38 @@ interface PinEntry {
 }
 
 const leftPins = computed<PinEntry[]>(() => [
-  ...pins.value.execIn.map((p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'exec', type: 'any', dir: 'in' })),
+  ...pins.value.execIn.map(
+    (p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'exec', type: 'any', dir: 'in' }),
+  ),
   ...pins.value.dataIn.map(
-    (p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'data', type: dataTypeMap.value.in[p] ?? 'any', dir: 'in' }),
+    (p): PinEntry => ({
+      id: p,
+      label: pinLabel(p, 'in'),
+      kind: 'data',
+      type: dataTypeMap.value.in[p] ?? 'any',
+      dir: 'in',
+    }),
   ),
 ])
 const rightPins = computed<PinEntry[]>(() => [
   ...execOutPinsForRender.value.map(
-    (p): PinEntry => ({ id: p.id, label: p.label, kind: 'exec', type: 'any', dir: 'out', isError: p.isError }),
+    (p): PinEntry => ({
+      id: p.id,
+      label: p.label,
+      kind: 'exec',
+      type: 'any',
+      dir: 'out',
+      isError: p.isError,
+    }),
   ),
   ...pins.value.dataOut.map(
-    (p): PinEntry => ({ id: p, label: pinLabel(p, 'out'), kind: 'data', type: dataTypeMap.value.out[p] ?? 'any', dir: 'out' }),
+    (p): PinEntry => ({
+      id: p,
+      label: pinLabel(p, 'out'),
+      kind: 'data',
+      type: dataTypeMap.value.out[p] ?? 'any',
+      dir: 'out',
+    }),
   ),
 ])
 
@@ -408,11 +438,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   border-width: 1px;
   font-size: 12px;
   /* radial subtle gradient: 节点中心略亮向边缘衰减, 立体感 */
-  background-image: radial-gradient(
-    circle at 30% 0%,
-    rgba(255, 255, 255, 0.04),
-    transparent 60%
-  );
+  background-image: radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.04), transparent 60%);
   box-shadow:
     0 10px 30px -10px rgba(0, 0, 0, 0.7),
     0 2px 6px -1px rgba(0, 0, 0, 0.35),
@@ -551,8 +577,13 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   letter-spacing: 0.4px;
   color: rgba(255, 255, 255, 0.97);
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Display', 'SF Pro Display',
-    'PingFang SC', 'Microsoft YaHei', sans-serif;
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Display',
+    'SF Pro Display',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .header-sub {
@@ -561,7 +592,11 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   font-weight: 500;
   letter-spacing: 0.3px;
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'SF Pro Text', 'PingFang SC',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'SF Pro Text',
+    'PingFang SC',
     sans-serif;
 }
 
@@ -619,7 +654,9 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
     'Microsoft YaHei', 'PingFang SC', monospace;
   letter-spacing: 0.3px;
   font-weight: 500;
-  font-feature-settings: 'liga' 0, 'calt' 0;
+  font-feature-settings:
+    'liga' 0,
+    'calt' 0;
 }
 
 .node-footer {
@@ -640,7 +677,9 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
 .preview-row {
   display: flex;
   gap: 6px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, 'Microsoft YaHei', 'PingFang SC', monospace;
+  font-family:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, 'Microsoft YaHei', 'PingFang SC',
+    monospace;
 }
 .preview-key {
   color: var(--ui-text-toned);
@@ -691,8 +730,7 @@ const bodyHeight = computed(() => maxRows.value * ROW_H)
   z-index: 10;
 }
 :deep(.vue-flow__handle.handle-exec:hover) {
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1))
-    drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
 }
 :deep(.vue-flow__handle.handle-data:hover) {
   box-shadow:

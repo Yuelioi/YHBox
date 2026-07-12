@@ -32,7 +32,10 @@ describe('scriptSigContext', () => {
     expect(scriptSigContext('params.get("hp", ', 17)).toEqual({ name: 'params.get', argIndex: 1 })
   })
   it('outer call after closed inner', () => {
-    expect(scriptSigContext('log.info(params.get("a"), ', 26)).toEqual({ name: 'log.info', argIndex: 1 })
+    expect(scriptSigContext('log.info(params.get("a"), ', 26)).toEqual({
+      name: 'log.info',
+      argIndex: 1,
+    })
   })
   it('null outside any call', () => {
     expect(scriptSigContext('let x = 1', 9)).toBeNull()
@@ -42,19 +45,31 @@ describe('scriptSigContext', () => {
 describe('scriptPinValueContext', () => {
   it('cursor inside string value of a pin', () => {
     const doc = 'GetVar({Scope: "au"})'
-    expect(scriptPinValueContext(doc, doc.indexOf('au') + 1)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.indexOf('au') + 1)).toEqual({
+      kind: 'GetVar',
+      pin: 'Scope',
+    })
   })
   it('cursor right after colon (bare value position)', () => {
     const doc = 'GetVar({Scope: })'
-    expect(scriptPinValueContext(doc, doc.indexOf(': ') + 2)).toEqual({ kind: 'GetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.indexOf(': ') + 2)).toEqual({
+      kind: 'GetVar',
+      pin: 'Scope',
+    })
   })
   it('varname pin value (VarName)', () => {
     const doc = 'SetVar({VarName: "h"})'
-    expect(scriptPinValueContext(doc, doc.indexOf('h"') + 1)).toEqual({ kind: 'SetVar', pin: 'VarName' })
+    expect(scriptPinValueContext(doc, doc.indexOf('h"') + 1)).toEqual({
+      kind: 'SetVar',
+      pin: 'VarName',
+    })
   })
   it('second pin in the object', () => {
     const doc = 'SetVar({VarName: "hp", Scope: ""})'
-    expect(scriptPinValueContext(doc, doc.lastIndexOf('"'))).toEqual({ kind: 'SetVar', pin: 'Scope' })
+    expect(scriptPinValueContext(doc, doc.lastIndexOf('"'))).toEqual({
+      kind: 'SetVar',
+      pin: 'Scope',
+    })
   })
   it('null when cursor is on the key, not the value', () => {
     const doc = 'GetVar({Scope: ""})'

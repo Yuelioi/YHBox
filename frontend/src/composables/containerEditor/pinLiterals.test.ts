@@ -62,7 +62,12 @@ describe('unconnectedDataInPins', () => {
   })
 
   it('dynamicInputs 节点 (Expr) 并入 config.Inputs[] 未连线动态输入', () => {
-    const config = { Inputs: [{ Name: 'a', Type: 'number' }, { Name: 'b', Type: 'number' }] }
+    const config = {
+      Inputs: [
+        { Name: 'a', Type: 'number' },
+        { Name: 'b', Type: 'number' },
+      ],
+    }
     const edges = [{ from: 's.out', to: 'n1.a' }]
     const out = unconnectedDataInPins('Expr', {}, config, edges, 'n1')
     expect(out.map((p) => p.name)).toEqual(['b'])
@@ -72,7 +77,9 @@ describe('unconnectedDataInPins', () => {
     // 这些节点 input 由各自专属 Inspector section / 画布也不出内联框。与存储位置正交。
     const wtDataIn: Record<string, PinType> = { Title: 'string', Class: 'string' }
     expect(unconnectedDataInPins('Win32WindowTarget', wtDataIn, null, [], 'n1')).toEqual([])
-    expect(unconnectedDataInPins('MouseCalibration', { Counts360: 'number' }, null, [], 'n2')).toEqual([])
+    expect(
+      unconnectedDataInPins('MouseCalibration', { Counts360: 'number' }, null, [], 'n2'),
+    ).toEqual([])
     expect(unconnectedDataInPins('Subgraph', { SubgraphID: 'string' }, null, [], 'n3')).toEqual([])
     expect(unconnectedDataInPins('PlayClip', { ClipID: 'string' }, null, [], 'n4')).toEqual([])
     expect(unconnectedDataInPins('Switch', { Value: 'string' }, null, [], 'n5')).toEqual([])

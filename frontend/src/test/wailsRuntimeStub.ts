@@ -27,7 +27,10 @@ export const Create = {
     return (value: unknown): Record<string, unknown> => {
       if (!value || typeof value !== 'object') return {}
       return Object.fromEntries(
-        Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, valueCreate(item)]),
+        Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+          key,
+          valueCreate(item),
+        ]),
       )
     }
   },

@@ -1,4 +1,9 @@
-import type { DebugSessionState, DebugTokenSummary, DebugWarning, DebugRunError } from '@/stores/execution'
+import type {
+  DebugSessionState,
+  DebugTokenSummary,
+  DebugWarning,
+  DebugRunError,
+} from '@/stores/execution'
 
 export type DebugPanelTone = 'neutral' | 'primary' | 'warning' | 'error' | 'success'
 
@@ -25,7 +30,9 @@ export interface DebugPanelSummary {
 
 const terminal = new Set(['finished', 'failed', 'stopped'])
 
-export function summarizeDebugSession(state: Partial<DebugSessionState> | null | undefined): DebugPanelSummary {
+export function summarizeDebugSession(
+  state: Partial<DebugSessionState> | null | undefined,
+): DebugPanelSummary {
   const status = String(state?.status ?? '')
   const active = !!state?.sessionId && !terminal.has(status)
   const queue = Array.isArray(state?.queue) ? state.queue : []
@@ -92,8 +99,9 @@ export function previewQueue(queue: DebugTokenSummary[], limit = 3): string {
 
 export function previewRecord(value: unknown, limit = 3): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
-  const entries = Object.entries(value as Record<string, unknown>)
-    .sort(([a], [b]) => a.localeCompare(b))
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )
   if (entries.length === 0) return ''
   const shown = entries.slice(0, limit).map(([k, v]) => `${k}=${formatDebugValue(v)}`)
   const rest = entries.length - shown.length

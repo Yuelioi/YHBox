@@ -8,8 +8,12 @@
     :dismissible="false"
   >
     <form class="flex flex-col gap-5" @submit.prevent="submit">
-      <div class="flex items-center gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3">
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div
+        class="flex items-center gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
+      >
+        <div
+          class="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+        >
           <UIcon :name="modeIcon" class="size-5" aria-hidden="true" />
         </div>
         <div class="min-w-0 flex-1">
@@ -60,13 +64,19 @@
       </div>
 
       <UFormField :label="t('common.description')" :hint="t('common.optional')">
-        <UTextarea v-model="description" :rows="2" :placeholder="t('recordingSave.description_placeholder')" />
+        <UTextarea
+          v-model="description"
+          :rows="2"
+          :placeholder="t('recordingSave.description_placeholder')"
+        />
       </UFormField>
     </form>
 
     <template #footer>
       <p class="mr-auto max-w-56 text-xs text-dimmed" role="status" aria-live="polite">
-        {{ discardArmed ? t('recordingSave.discard_confirm_hint') : t('recordingSave.pending_hint') }}
+        {{
+          discardArmed ? t('recordingSave.discard_confirm_hint') : t('recordingSave.pending_hint')
+        }}
       </p>
       <UButton
         color="error"
@@ -118,10 +128,14 @@ const nameTouched = ref(false)
 const discardArmed = ref(false)
 let discardTimer: ReturnType<typeof setTimeout> | null = null
 
-const modeLabel = computed(() => props.pending.filterMode === 'precise'
-  ? t('recordingSave.mode_precise')
-  : t('recordingSave.mode_simple'))
-const modeIcon = computed(() => props.pending.filterMode === 'precise' ? 'i-tabler-movie' : 'i-tabler-route')
+const modeLabel = computed(() =>
+  props.pending.filterMode === 'precise'
+    ? t('recordingSave.mode_precise')
+    : t('recordingSave.mode_simple'),
+)
+const modeIcon = computed(() =>
+  props.pending.filterMode === 'precise' ? 'i-tabler-movie' : 'i-tabler-route',
+)
 const durationLabel = computed(() => {
   const total = Math.max(0, Math.round(props.pending.durationUs / 1_000_000))
   const minutes = Math.floor(total / 60)
@@ -129,19 +143,27 @@ const durationLabel = computed(() => {
   return `${minutes}:${seconds}`
 })
 const trimmedLabel = computed(() => label.value.trim())
-const nameError = computed(() => nameTouched.value && !trimmedLabel.value ? t('recordingSave.name_required') : '')
+const nameError = computed(() =>
+  nameTouched.value && !trimmedLabel.value ? t('recordingSave.name_required') : '',
+)
 const canSave = computed(() => !!trimmedLabel.value && !props.busy)
-const categoryItems = computed(() => [...new Set([...categories.value, category.value].filter(Boolean))])
+const categoryItems = computed(() => [
+  ...new Set([...categories.value, category.value].filter(Boolean)),
+])
 const tagItems = computed(() => [...new Set([...knownTags.value, ...tags.value].filter(Boolean))])
 
-watch(() => props.pending.pendingID, () => {
-  label.value = ''
-  description.value = ''
-  category.value = ''
-  tags.value = []
-  nameTouched.value = false
-  void loadOptions()
-}, { immediate: true })
+watch(
+  () => props.pending.pendingID,
+  () => {
+    label.value = ''
+    description.value = ''
+    category.value = ''
+    tags.value = []
+    nameTouched.value = false
+    void loadOptions()
+  },
+  { immediate: true },
+)
 
 async function loadOptions() {
   try {
@@ -149,9 +171,21 @@ async function loadOptions() {
       backend.subgraphs.list(),
       backend.clipsContainer.list(),
     ])
-    const assets = [...(subgraphs ?? []), ...(clips ?? [])] as Array<{ category?: string; tags?: string[] }>
-    categories.value = [...new Set(assets.map((item) => item.category?.trim()).filter(Boolean) as string[])]
-    knownTags.value = [...new Set(assets.flatMap((item) => item.tags ?? []).map((tag) => tag.trim()).filter(Boolean))]
+    const assets = [...(subgraphs ?? []), ...(clips ?? [])] as Array<{
+      category?: string
+      tags?: string[]
+    }>
+    categories.value = [
+      ...new Set(assets.map((item) => item.category?.trim()).filter(Boolean) as string[]),
+    ]
+    knownTags.value = [
+      ...new Set(
+        assets
+          .flatMap((item) => item.tags ?? [])
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      ),
+    ]
   } catch {
     categories.value = []
     knownTags.value = []
@@ -191,7 +225,9 @@ function armOrDiscard() {
     return
   }
   discardArmed.value = true
-  discardTimer = setTimeout(() => { discardArmed.value = false }, 4000)
+  discardTimer = setTimeout(() => {
+    discardArmed.value = false
+  }, 4000)
 }
 
 function clearDiscardTimer() {

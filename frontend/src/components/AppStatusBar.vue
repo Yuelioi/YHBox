@@ -24,14 +24,17 @@
         <button
           type="button"
           class="ml-2 px-2 py-0.5 rounded text-[10px] bg-error/15 border border-error/40 text-error hover:bg-error/25 transition-colors inline-flex items-center gap-1"
-          :title="t('status.stop_tooltip', { hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9') })"
+          :title="
+            t('status.stop_tooltip', {
+              hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9'),
+            })
+          "
           @click="onStopAll"
         >
           <UIcon name="i-tabler-square" class="size-2.5" /> {{ t('status.stop_button') }}
         </button>
       </template>
     </div>
-
   </div>
 </template>
 
@@ -70,7 +73,8 @@ type Active = {
 const activeStatus = computed<Active>(() => {
   if (execStore.running) {
     const cur = containersStore.list.find((c) => c.id === execStore.currentTargetID)
-    const name = cur?.name || execStore.currentTargetID.slice(0, 8) || t('status.container_fallback')
+    const name =
+      cur?.name || execStore.currentTargetID.slice(0, 8) || t('status.container_fallback')
     const metrics: string[] = []
     if (execStore.targets.length > 1) {
       metrics.push(`target ${execStore.targetIdx + 1}/${execStore.targets.length}`)
@@ -97,5 +101,4 @@ const leftLabelClass = computed(() => {
       return 'text-dimmed'
   }
 })
-
 </script>

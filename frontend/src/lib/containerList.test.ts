@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Container } from '@/lib/backend'
-import { buildContainerPage, containerCategories, containerTagsByCount, filterContainers, formatContainerDate, sortContainers } from '@/lib/containerList'
+import {
+  buildContainerPage,
+  containerCategories,
+  containerTagsByCount,
+  filterContainers,
+  formatContainerDate,
+  sortContainers,
+} from '@/lib/containerList'
 
 function c(partial: Partial<Container>): Container {
   return {
@@ -14,7 +21,7 @@ function c(partial: Partial<Container>): Container {
     version: partial.version,
     author: partial.author,
     hotkey: partial.hotkey,
-    graph: partial.graph ?? { id: 'g', schemaVersion: 1, nodes: [], edges: [] } as any,
+    graph: partial.graph ?? ({ id: 'g', schemaVersion: 1, nodes: [], edges: [] } as any),
     createdAt: partial.createdAt ?? '',
     updatedAt: partial.updatedAt ?? '',
   } as Container
@@ -27,18 +34,40 @@ describe('filterContainers', () => {
       c({ id: 'b', name: 'Raid', description: 'boss', tags: ['daily', 'raid'] }),
     ]
 
-    expect(filterContainers(items, { query: 'lake', category: null, tags: ['daily'] }).map((x) => x.id)).toEqual(['a'])
-    expect(filterContainers(items, { query: 'raid', category: null, tags: ['fish'] }).map((x) => x.id)).toEqual([])
+    expect(
+      filterContainers(items, { query: 'lake', category: null, tags: ['daily'] }).map((x) => x.id),
+    ).toEqual(['a'])
+    expect(
+      filterContainers(items, { query: 'raid', category: null, tags: ['fish'] }).map((x) => x.id),
+    ).toEqual([])
   })
 
   it('matches category and package-backed fields', () => {
     const items = [
-      c({ id: 'a', name: 'Fishing Daily', category: 'daily', keywords: ['lake'], version: '1.2.0', author: { name: 'yl' } }),
-      c({ id: 'b', name: 'Raid', category: 'combat', keywords: ['boss'], version: '0.4.0', author: { name: 'team' } }),
+      c({
+        id: 'a',
+        name: 'Fishing Daily',
+        category: 'daily',
+        keywords: ['lake'],
+        version: '1.2.0',
+        author: { name: 'yl' },
+      }),
+      c({
+        id: 'b',
+        name: 'Raid',
+        category: 'combat',
+        keywords: ['boss'],
+        version: '0.4.0',
+        author: { name: 'team' },
+      }),
     ]
 
-    expect(filterContainers(items, { query: 'yl', category: 'daily', tags: [] }).map((x) => x.id)).toEqual(['a'])
-    expect(filterContainers(items, { query: 'boss', category: 'daily', tags: [] }).map((x) => x.id)).toEqual([])
+    expect(
+      filterContainers(items, { query: 'yl', category: 'daily', tags: [] }).map((x) => x.id),
+    ).toEqual(['a'])
+    expect(
+      filterContainers(items, { query: 'boss', category: 'daily', tags: [] }).map((x) => x.id),
+    ).toEqual([])
   })
 })
 
@@ -85,7 +114,10 @@ describe('sortContainers', () => {
   it('sorts by node count', () => {
     const items = [
       c({ id: 'small', graph: { id: 'g1', schemaVersion: 1, nodes: [{}], edges: [] } as any }),
-      c({ id: 'large', graph: { id: 'g2', schemaVersion: 1, nodes: [{}, {}, {}], edges: [] } as any }),
+      c({
+        id: 'large',
+        graph: { id: 'g2', schemaVersion: 1, nodes: [{}, {}, {}], edges: [] } as any,
+      }),
     ]
 
     expect(sortContainers(items, 'nodes', true).map((x) => x.id)).toEqual(['large', 'small'])
@@ -95,7 +127,15 @@ describe('sortContainers', () => {
 describe('buildContainerPage', () => {
   it('returns clamped page items and visible range', () => {
     const items = Array.from({ length: 5 }, (_, i) => c({ id: String(i), name: `c${i}` }))
-    const page = buildContainerPage(items, { query: '', category: null, tags: [], sortKey: 'name', sortDesc: false, page: 3, pageSize: 2 })
+    const page = buildContainerPage(items, {
+      query: '',
+      category: null,
+      tags: [],
+      sortKey: 'name',
+      sortDesc: false,
+      page: 3,
+      pageSize: 2,
+    })
 
     expect(page.page).toBe(3)
     expect(page.pageItems.map((x) => x.id)).toEqual(['4'])

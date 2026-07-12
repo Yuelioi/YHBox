@@ -41,8 +41,14 @@ export function useExprFusion(deps: FusionDeps) {
     // 表达式存 Expression pin literal, 动态输入存 config.Inputs[] (PascalCase Name/Type) — 跟后端 ParseExprConfig 对齐。
     const aExpr = String(a.config?.literal?.Expression ?? '')
     const bExpr = String(b.config?.literal?.Expression ?? '')
-    const aInputs: ExprInput[] = (a.config?.Inputs ?? []).map((i: any) => ({ name: String(i.Name), type: String(i.Type ?? 'any') }))
-    const bInputs: ExprInput[] = (b.config?.Inputs ?? []).map((i: any) => ({ name: String(i.Name), type: String(i.Type ?? 'any') }))
+    const aInputs: ExprInput[] = (a.config?.Inputs ?? []).map((i: any) => ({
+      name: String(i.Name),
+      type: String(i.Type ?? 'any'),
+    }))
+    const bInputs: ExprInput[] = (b.config?.Inputs ?? []).map((i: any) => ({
+      name: String(i.Name),
+      type: String(i.Type ?? 'any'),
+    }))
 
     // Step 2: rename A.inputs to avoid collision with B's input names
     // (and the targetPin we're about to remove from B but still must avoid).
@@ -69,7 +75,10 @@ export function useExprFusion(deps: FusionDeps) {
     let renamedAExpr = aExpr
     for (const [oldName, newName] of Object.entries(renameMap)) {
       if (oldName === newName) continue
-      renamedAExpr = renamedAExpr.replace(new RegExp('\\b' + escapeRe(oldName) + '\\b', 'g'), newName)
+      renamedAExpr = renamedAExpr.replace(
+        new RegExp('\\b' + escapeRe(oldName) + '\\b', 'g'),
+        newName,
+      )
     }
 
     // Step 4: replace targetPin identifier in B.expr with parenthesized A.expr.

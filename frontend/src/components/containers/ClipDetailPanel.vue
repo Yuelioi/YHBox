@@ -10,7 +10,9 @@
 
     <div v-else class="p-4 space-y-4">
       <header class="flex items-start gap-3">
-        <div class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/15 border border-primary/40">
+        <div
+          class="size-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/15 border border-primary/40"
+        >
           <UIcon name="i-tabler-movie" class="size-5 text-primary" />
         </div>
         <div class="min-w-0 flex-1">
@@ -30,10 +32,14 @@
             @dblclick="enterEditName"
           >
             <span class="truncate min-w-0">{{ clip.label || t('clip.manager.untitled') }}</span>
-            <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100" />
+            <UIcon
+              name="i-tabler-pencil"
+              class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100"
+            />
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
-            {{ formatDuration(clip.durationUs) }} · {{ clip.eventCount }} {{ t('clip.manager.events') }}
+            {{ formatDuration(clip.durationUs) }} · {{ clip.eventCount }}
+            {{ t('clip.manager.events') }}
           </p>
         </div>
       </header>
@@ -105,7 +111,9 @@
 
       <!-- ID -->
       <section class="space-y-1.5">
-        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
+        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
+          >ID</label
+        >
         <button
           type="button"
           class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
@@ -118,7 +126,14 @@
       </section>
 
       <div class="pt-3 border-t border-default flex">
-        <UButton size="xs" variant="soft" color="error" icon="i-tabler-trash" class="ml-auto" @click="onDelete">
+        <UButton
+          size="xs"
+          variant="soft"
+          color="error"
+          icon="i-tabler-trash"
+          class="ml-auto"
+          @click="onDelete"
+        >
           {{ t('common.delete') }}
         </UButton>
       </div>
@@ -164,7 +179,12 @@ function formatDuration(us: number): string {
 }
 
 // 字段级保存 — clip update 全覆盖; 缺的字段用当前值补全, 改完 store 自 refresh.
-async function patch(p: { label?: string; description?: string; category?: string; tags?: string[] }) {
+async function patch(p: {
+  label?: string
+  description?: string
+  category?: string
+  tags?: string[]
+}) {
   const c = clip.value
   if (!c) return
   await store.update(c.id, {

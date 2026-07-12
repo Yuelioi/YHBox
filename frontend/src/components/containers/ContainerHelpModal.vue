@@ -27,63 +27,63 @@
       </div>
 
       <!-- 快速上手 -->
-          <div v-if="activeTab === 'getting_started'" class="space-y-4">
-            <p class="text-toned leading-relaxed">{{ t('editor.help.gs.intro') }}</p>
-            <ol class="space-y-1.5 list-decimal pl-5 marker:text-dimmed text-toned">
-              <li v-for="i in 4" :key="i">{{ t(`editor.help.gs.step${i}`) }}</li>
-            </ol>
-            <div class="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 p-3">
-              <UIcon name="i-tabler-shield-lock" class="size-4 text-warning shrink-0 mt-0.5" />
-              <div class="text-warning">
-                <div class="font-medium mb-0.5">{{ t('editor.help.gs.uac_title') }}</div>
-                <div class="text-[11px] leading-relaxed text-warning/90">{{ t('editor.help.gs.uac') }}</div>
-              </div>
+      <div v-if="activeTab === 'getting_started'" class="space-y-4">
+        <p class="text-toned leading-relaxed">{{ t('editor.help.gs.intro') }}</p>
+        <ol class="space-y-1.5 list-decimal pl-5 marker:text-dimmed text-toned">
+          <li v-for="i in 4" :key="i">{{ t(`editor.help.gs.step${i}`) }}</li>
+        </ol>
+        <div class="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 p-3">
+          <UIcon name="i-tabler-shield-lock" class="size-4 text-warning shrink-0 mt-0.5" />
+          <div class="text-warning">
+            <div class="font-medium mb-0.5">{{ t('editor.help.gs.uac_title') }}</div>
+            <div class="text-[11px] leading-relaxed text-warning/90">
+              {{ t('editor.help.gs.uac') }}
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- 错误码参考 -->
-          <div v-else-if="activeTab === 'errorcodes'" class="space-y-2">
-            <p class="text-dimmed leading-relaxed">{{ t('editor.help.errorcodes_hint') }}</p>
-            <div
-              v-for="code in errorCodes"
-              :key="code"
-              class="flex items-start gap-3 rounded-lg bg-elevated/30 border border-default/50 p-2.5"
+      <!-- 错误码参考 -->
+      <div v-else-if="activeTab === 'errorcodes'" class="space-y-2">
+        <p class="text-dimmed leading-relaxed">{{ t('editor.help.errorcodes_hint') }}</p>
+        <div
+          v-for="code in errorCodes"
+          :key="code"
+          class="flex items-start gap-3 rounded-lg bg-elevated/30 border border-default/50 p-2.5"
+        >
+          <code
+            class="shrink-0 font-mono text-[10px] text-error bg-error/10 border border-error/20 rounded px-1.5 py-0.5"
+            >{{ code }}</code
+          >
+          <div class="min-w-0">
+            <div class="text-default mb-0.5">{{ errorCodeLabel(code) }}</div>
+            <div class="text-[11px] text-muted leading-relaxed">{{ errorCodeDesc(code) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 快捷键参考 -->
+      <div v-else-if="activeTab === 'shortcuts'" class="space-y-2">
+        <p class="text-dimmed leading-relaxed">{{ t('editor.help.shortcuts_hint') }}</p>
+        <ul class="space-y-1.5">
+          <li v-for="k in editorKeys" :key="k.key" class="flex items-center justify-between gap-3">
+            <span class="text-toned">{{ t(k.label) }}</span>
+            <kbd
+              class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px] font-mono shrink-0"
+              >{{ k.hotkeyStr }}</kbd
             >
-              <code
-                class="shrink-0 font-mono text-[10px] text-error bg-error/10 border border-error/20 rounded px-1.5 py-0.5"
-              >{{ code }}</code>
-              <div class="min-w-0">
-                <div class="text-default mb-0.5">{{ errorCodeLabel(code) }}</div>
-                <div class="text-[11px] text-muted leading-relaxed">{{ errorCodeDesc(code) }}</div>
-              </div>
-            </div>
-          </div>
+          </li>
+        </ul>
+      </div>
 
-          <!-- 快捷键参考 -->
-          <div v-else-if="activeTab === 'shortcuts'" class="space-y-2">
-            <p class="text-dimmed leading-relaxed">{{ t('editor.help.shortcuts_hint') }}</p>
-            <ul class="space-y-1.5">
-              <li
-                v-for="k in editorKeys"
-                :key="k.key"
-                class="flex items-center justify-between gap-3"
-              >
-                <span class="text-toned">{{ t(k.label) }}</span>
-                <kbd
-                  class="px-1.5 py-0.5 bg-elevated rounded border border-default text-[10px] font-mono shrink-0"
-                >{{ k.hotkeyStr }}</kbd>
-              </li>
-            </ul>
-          </div>
-
-          <!-- 节点速查 -->
-          <div v-else class="space-y-2">
-            <p class="text-dimmed leading-relaxed">{{ t('editor.help.nodes_hint') }}</p>
-            <div v-for="g in nodeGroups" :key="g.label" class="flex gap-3">
-              <span class="text-toned shrink-0 w-14 font-medium">{{ t(g.label) }}</span>
-              <span class="text-muted leading-relaxed">{{ t(g.desc) }}</span>
-            </div>
-          </div>
+      <!-- 节点速查 -->
+      <div v-else class="space-y-2">
+        <p class="text-dimmed leading-relaxed">{{ t('editor.help.nodes_hint') }}</p>
+        <div v-for="g in nodeGroups" :key="g.label" class="flex gap-3">
+          <span class="text-toned shrink-0 w-14 font-medium">{{ t(g.label) }}</span>
+          <span class="text-muted leading-relaxed">{{ t(g.desc) }}</span>
+        </div>
+      </div>
     </div>
   </BaseModal>
 </template>

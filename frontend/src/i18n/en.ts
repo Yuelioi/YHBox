@@ -1837,11 +1837,21 @@ export default {
       input: {
         Method: {
           label: 'Method',
-          option: { GET: 'GET', POST: 'POST', PUT: 'PUT', PATCH: 'PATCH', DELETE: 'DELETE', HEAD: 'HEAD' },
+          option: {
+            GET: 'GET',
+            POST: 'POST',
+            PUT: 'PUT',
+            PATCH: 'PATCH',
+            DELETE: 'DELETE',
+            HEAD: 'HEAD',
+          },
         },
         URL: { label: 'URL', hint: 'Only absolute http:// or https:// URLs are supported' },
         Headers: { label: 'Headers', hint: 'JSON object, for example Authorization = Bearer ...' },
-        Cookies: { label: 'Cookie', hint: 'Raw Cookie header string; ignored if Headers already contains Cookie' },
+        Cookies: {
+          label: 'Cookie',
+          hint: 'Raw Cookie header string; ignored if Headers already contains Cookie',
+        },
         Body: { label: 'Body' },
         BodyMode: { label: 'Body mode', option: { none: 'None', text: 'Text', json: 'JSON' } },
         TimeoutMs: { label: 'Timeout (ms)' },
@@ -3534,7 +3544,8 @@ export default {
     scanning: 'Checking references across all workflows…',
     scan_failed: 'Could not check recording references',
     empty_title: 'No recordings to clean',
-    empty_desc: 'Every recording is in use, or the library is already clean. {n} recording(s) are referenced.',
+    empty_desc:
+      'Every recording is in use, or the library is already clean. {n} recording(s) are referenced.',
     can_delete: 'Safe to delete',
     in_use: 'Still used by workflows',
     selected_title: 'Recordings to delete',

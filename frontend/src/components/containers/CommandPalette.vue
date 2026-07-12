@@ -2,7 +2,10 @@
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-2xl' }">
     <template #content>
-      <div class="bg-default" style="min-height: 40vh; max-height: 70vh; display: flex; flex-direction: column;">
+      <div
+        class="bg-default"
+        style="min-height: 40vh; max-height: 70vh; display: flex; flex-direction: column"
+      >
         <div class="p-3 border-b border-default flex items-center gap-2">
           <UIcon name="i-tabler-command" class="size-4 text-primary" />
           <UInput
@@ -22,7 +25,7 @@
             {{ t('editor.palette.empty') }}
           </div>
           <div v-else>
-            <div v-for="(group, gIdx) in grouped" :key="group.name" :class="{'mt-2': gIdx > 0}">
+            <div v-for="(group, gIdx) in grouped" :key="group.name" :class="{ 'mt-2': gIdx > 0 }">
               <div class="text-[10px] font-medium text-primary px-2 mb-1 uppercase tracking-wider">
                 {{ group.label }}
               </div>
@@ -31,19 +34,30 @@
                 :key="cmd.id"
                 type="button"
                 class="w-full text-left px-3 py-2 text-[11px] rounded flex items-center gap-3 hover:bg-elevated/60"
-                :class="{'bg-elevated/60': activeIdx === flatIdx(gIdx, idx)}"
+                :class="{ 'bg-elevated/60': activeIdx === flatIdx(gIdx, idx) }"
                 :disabled="cmd.disabled === true"
                 @click="execute(cmd)"
                 @mouseenter="activeIdx = flatIdx(gIdx, idx)"
               >
-                <UIcon v-if="cmd.icon" :name="cmd.icon" class="size-3.5" :class="cmd.disabled ? 'text-dimmed' : 'text-default'" />
-                <span class="flex-1" :class="cmd.disabled ? 'text-dimmed' : ''">{{ cmd.label }}</span>
-                <span v-if="cmd.shortcut" class="text-[10px] text-dimmed font-mono">{{ cmd.shortcut }}</span>
+                <UIcon
+                  v-if="cmd.icon"
+                  :name="cmd.icon"
+                  class="size-3.5"
+                  :class="cmd.disabled ? 'text-dimmed' : 'text-default'"
+                />
+                <span class="flex-1" :class="cmd.disabled ? 'text-dimmed' : ''">{{
+                  cmd.label
+                }}</span>
+                <span v-if="cmd.shortcut" class="text-[10px] text-dimmed font-mono">{{
+                  cmd.shortcut
+                }}</span>
               </button>
             </div>
           </div>
         </div>
-        <div class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between">
+        <div
+          class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between"
+        >
           <span>{{ t('editor.palette.hint') }}</span>
           <span>{{ t('editor.palette.count', { n: filtered.length }) }}</span>
         </div>
@@ -86,15 +100,20 @@ const activeIdx = ref(0)
 const searchInputRef = ref<any>(null)
 
 useAutoFocusOnOpen(modelOpen, searchInputRef, {
-  onOpen: () => { query.value = ''; activeIdx.value = 0 },
+  onOpen: () => {
+    query.value = ''
+    activeIdx.value = 0
+  },
 })
 
-watch(query, () => { activeIdx.value = 0 })
+watch(query, () => {
+  activeIdx.value = 0
+})
 
 const filtered = computed(() => {
   const q = query.value.toLowerCase().trim()
   if (!q) return props.commands
-  return props.commands.filter(c => {
+  return props.commands.filter((c) => {
     const hay = `${c.label} ${c.id} ${(c.keywords ?? []).join(' ')}`.toLowerCase()
     return hay.includes(q)
   })
@@ -115,8 +134,11 @@ const grouped = computed(() => {
     if (!map.has(c.group)) map.set(c.group, [])
     map.get(c.group)!.push(c)
   }
-  return Array.from(map.entries())
-    .map(([name, commands]) => ({ name, label: GROUP_KEYS[name] ? t(GROUP_KEYS[name]) : name, commands }))
+  return Array.from(map.entries()).map(([name, commands]) => ({
+    name,
+    label: GROUP_KEYS[name] ? t(GROUP_KEYS[name]) : name,
+    commands,
+  }))
 })
 
 function flatIdx(gIdx: number, idx: number): number {

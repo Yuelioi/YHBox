@@ -18,7 +18,7 @@ export interface RecordingState {
   filterMode: string
   tempID: string
   startedAtMs: number
-  pausedMs: number   // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
+  pausedMs: number // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
   pausedAtMs: number // 本次暂停起点 (>0 即暂停态, HUD 冻结计时); recording 态为 0
 }
 
@@ -38,7 +38,15 @@ export interface RecordingFinalizePayload {
   filterMode: string
 }
 
-const IDLE: RecordingState = { phase: 'idle', containerID: '', filterMode: '', tempID: '', startedAtMs: 0, pausedMs: 0, pausedAtMs: 0 }
+const IDLE: RecordingState = {
+  phase: 'idle',
+  containerID: '',
+  filterMode: '',
+  tempID: '',
+  startedAtMs: 0,
+  pausedMs: 0,
+  pausedAtMs: 0,
+}
 
 function normalize(st: any): RecordingState {
   const p = st?.phase
@@ -89,7 +97,8 @@ export const useRecordingStore = defineStore('recording', () => {
 
   async function start(filterMode: 'precise' | 'simple', containerID: string): Promise<void> {
     if (isRecording.value) return
-    if (!containerID) throw new Error('recording.start: containerID ' + i18n.global.t('common.required'))
+    if (!containerID)
+      throw new Error('recording.start: containerID ' + i18n.global.t('common.required'))
     lastResult.value = null
     await backend.recording.start({ filterMode, containerID })
     // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
@@ -129,7 +138,10 @@ export const useRecordingStore = defineStore('recording', () => {
     category: string
     tags: string[]
   }): Promise<RecordingFinalizePayload> {
-    const payload = await backend.recording.finalize(args) as RecordingFinalizePayload | null | undefined
+    const payload = (await backend.recording.finalize(args)) as
+      | RecordingFinalizePayload
+      | null
+      | undefined
     if (!payload) throw new Error('recording.finalize: empty result')
     return payload
   }
@@ -140,7 +152,19 @@ export const useRecordingStore = defineStore('recording', () => {
   }
 
   return {
-    state, lastResult, isRecording, isPaused, activeTargetContainerID,
-    applyState, reconcile, start, pause, resume, stop, cancel, finalize, discard,
+    state,
+    lastResult,
+    isRecording,
+    isPaused,
+    activeTargetContainerID,
+    applyState,
+    reconcile,
+    start,
+    pause,
+    resume,
+    stop,
+    cancel,
+    finalize,
+    discard,
   }
 })

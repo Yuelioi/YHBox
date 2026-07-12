@@ -13,7 +13,12 @@
       @click="openPicker"
     >
       <div class="flex items-center gap-2 min-w-0 flex-1">
-        <img v-if="firstThumb" :src="firstThumb" class="size-6 rounded object-contain bg-elevated shrink-0" alt="" />
+        <img
+          v-if="firstThumb"
+          :src="firstThumb"
+          class="size-6 rounded object-contain bg-elevated shrink-0"
+          alt=""
+        />
         <UIcon
           v-else
           :name="selected.length ? 'i-tabler-photo' : 'i-tabler-photo-plus'"

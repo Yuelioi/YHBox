@@ -53,7 +53,10 @@ export interface PointValue {
 /** 几何输入存储值 (pct ratio 0-1 + 可选每分辨率像素覆盖). */
 export interface GeometryValue {
   pct: { x: number; y: number; w: number; h: number }
-  overrides?: { resolution: { w: number; h: number }; px: { x: number; y: number; w: number; h: number } }[]
+  overrides?: {
+    resolution: { w: number; h: number }
+    px: { x: number; y: number; w: number; h: number }
+  }[]
 }
 
 /** Field schema for Inspector form (replaces nodeFieldSchemas.NODE_FIELD_SCHEMAS). */

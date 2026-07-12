@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { declToRef, isCompatibleType, parseListDraft, zeroDefaultFor, VAR_TYPE_VALUES, type VariableRef, type VarType } from './variableRef'
+import {
+  declToRef,
+  isCompatibleType,
+  parseListDraft,
+  zeroDefaultFor,
+  VAR_TYPE_VALUES,
+  type VariableRef,
+  type VarType,
+} from './variableRef'
 
 describe('VariableRef', () => {
   it('declToRef strips runtime fields', () => {
@@ -18,13 +26,18 @@ describe('VariableRef', () => {
   })
 
   it('declToRef throws on unknown type (system boundary guard)', () => {
-    expect(() => declToRef({ name: 'x', type: 'integer' as unknown as string })).toThrow(/unknown VarType/i)
+    expect(() => declToRef({ name: 'x', type: 'integer' as unknown as string })).toThrow(
+      /unknown VarType/i,
+    )
   })
 
   it('list is a declared VarType with [] zero default', () => {
     expect(VAR_TYPE_VALUES).toContain('list')
     expect(zeroDefaultFor('list')).toEqual([])
-    expect(declToRef({ name: 'items', type: 'list', default: [1, 2] })).toEqual({ name: 'items', type: 'list' })
+    expect(declToRef({ name: 'items', type: 'list', default: [1, 2] })).toEqual({
+      name: 'items',
+      type: 'list',
+    })
   })
 
   it('isCompatibleType: list matches list/any only', () => {

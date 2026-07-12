@@ -4,7 +4,10 @@
 <template>
   <UModal v-model:open="modelOpen" :ui="{ content: 'sm:max-w-2xl' }">
     <template #content>
-      <div class="bg-default" style="min-height: 40vh; max-height: 70vh; display: flex; flex-direction: column;">
+      <div
+        class="bg-default"
+        style="min-height: 40vh; max-height: 70vh; display: flex; flex-direction: column"
+      >
         <div class="p-3 border-b border-default flex items-center gap-2 shrink-0">
           <UIcon name="i-tabler-search" class="size-4 text-primary" />
           <UInput
@@ -37,15 +40,23 @@
               @click="pick(r)"
               @mouseenter="activeIdx = idx"
             >
-              <UIcon :name="iconFor(r.kind)" class="size-3.5 shrink-0" :class="iconColorFor(r.kind)" />
+              <UIcon
+                :name="iconFor(r.kind)"
+                class="size-3.5 shrink-0"
+                :class="iconColorFor(r.kind)"
+              />
               <span class="font-medium">{{ r.label || labelZhFor(r.kind) || r.kind }}</span>
-              <span v-if="r.label" class="text-[10px] text-dimmed">({{ labelZhFor(r.kind) || r.kind }})</span>
+              <span v-if="r.label" class="text-[10px] text-dimmed"
+                >({{ labelZhFor(r.kind) || r.kind }})</span
+              >
               <span class="text-dimmed font-mono text-[10px]">{{ r.id }}</span>
               <span class="ml-auto text-[10px] text-indigo-400">{{ r.location }}</span>
             </button>
           </div>
         </div>
-        <div class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between shrink-0">
+        <div
+          class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between shrink-0"
+        >
           <span>{{ t('editor.search.hint') }}</span>
           <span>{{ t('editor.search.count', { n: results.length }) }}</span>
         </div>
@@ -68,13 +79,13 @@ export interface NodeSearchResult {
   id: string
   kind: string
   label?: string
-  location: string         // '主图' | '子图: <label>'
-  sgID: string | null      // null if in main graph, else subgraph ID
+  location: string // '主图' | '子图: <label>'
+  sgID: string | null // null if in main graph, else subgraph ID
 }
 
 const props = defineProps<{
   open: boolean
-  results: NodeSearchResult[]   // computed by parent walking all graphs
+  results: NodeSearchResult[] // computed by parent walking all graphs
 }>()
 const emit = defineEmits<{
   'update:open': [v: boolean]
@@ -85,14 +96,22 @@ const emit = defineEmits<{
 const modelOpen = useDialogOpen(props, emit)
 
 const query = ref('')
-watch(query, v => emit('update:query', v))
+watch(query, (v) => emit('update:query', v))
 const activeIdx = ref(0)
 const searchInputRef = ref<any>(null)
 
 useAutoFocusOnOpen(modelOpen, searchInputRef, {
-  onOpen: () => { query.value = ''; activeIdx.value = 0 },
+  onOpen: () => {
+    query.value = ''
+    activeIdx.value = 0
+  },
 })
-watch(() => props.results, () => { activeIdx.value = 0 })
+watch(
+  () => props.results,
+  () => {
+    activeIdx.value = 0
+  },
+)
 
 function labelZhFor(kind: string): string {
   // spec.labelZh 值现在是 i18n key, t() 渲染.

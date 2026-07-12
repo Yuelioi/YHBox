@@ -11,7 +11,12 @@
   <!-- number / slider / duration — duration 值就是毫秒数 (number), 必须走数字框存 number;
        漏了它会掉到末尾文本框 → 存成字符串 → 保存被 LITERAL_TYPE_MISMATCH 拦 (Sleep.Duration 即此坑) -->
   <UInputNumber
-    v-else-if="kind === 'number' || kind === 'slider' || kind === 'duration' || (kind === '' && type === 'number')"
+    v-else-if="
+      kind === 'number' ||
+      kind === 'slider' ||
+      kind === 'duration' ||
+      (kind === '' && type === 'number')
+    "
     :model-value="numModel"
     :min="min"
     :max="max"
@@ -70,7 +75,9 @@
       :placeholder="placeholder"
       @update:model-value="onJsonInput"
     />
-    <p v-if="!jsonValid" class="text-[10px] text-error">{{ t('inspector.pin_input_json_invalid') }}</p>
+    <p v-if="!jsonValid" class="text-[10px] text-error">
+      {{ t('inspector.pin_input_json_invalid') }}
+    </p>
   </div>
 
   <!-- expr (Expr Expression) — 函数/$变量补全 + 即时语法红错 + 放大编辑 modal -->
@@ -127,10 +134,9 @@
   />
 
   <!-- list pin — wire-only, 不渲染可编辑 input 防手输垃圾 literal -->
-  <span
-    v-else-if="type === 'list'"
-    class="text-xs text-dimmed italic"
-  >{{ t('containers.listPinWireOnly') }}</span>
+  <span v-else-if="type === 'list'" class="text-xs text-dimmed italic">{{
+    t('containers.listPinWireOnly')
+  }}</span>
 
   <!-- text / password / 默认 → 文本框 -->
   <UInput

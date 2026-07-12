@@ -9,14 +9,22 @@
     >
       <UIcon v-if="icon" :name="icon" class="size-4 shrink-0" :class="accentClass" />
       <h3 v-if="title" class="text-xs font-medium text-highlighted truncate">{{ title }}</h3>
-      <UIcon v-if="!icon && !title" name="i-tabler-grip-horizontal" class="size-3 text-dimmed shrink-0" />
+      <UIcon
+        v-if="!icon && !title"
+        name="i-tabler-grip-horizontal"
+        class="size-3 text-dimmed shrink-0"
+      />
       <span class="ml-auto" />
       <div class="flex items-center gap-0.5" style="--wails-draggable: no-drag">
         <slot name="actions" />
         <UButton
           v-if="!noClose"
-          size="xs" variant="ghost" color="neutral" icon="i-tabler-x"
-          :title="closeTitle" @click="emit('close')"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-tabler-x"
+          :title="closeTitle"
+          @click="emit('close')"
         />
       </div>
     </header>

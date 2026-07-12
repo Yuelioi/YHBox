@@ -20,9 +20,9 @@
           </div>
           <p class="text-xs text-muted">{{ t('editor.dirty.desc') }}</p>
           <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="ghost" color="neutral" @click="resolveDirty('cancel')"
-              >{{ t('editor.dirty.cancel') }}</UButton
-            >
+            <UButton variant="ghost" color="neutral" @click="resolveDirty('cancel')">{{
+              t('editor.dirty.cancel')
+            }}</UButton>
             <UButton
               class="ml-auto"
               color="error"
@@ -30,9 +30,9 @@
               @click="resolveDirty('discard')"
               >{{ t('editor.dirty.discard') }}</UButton
             >
-            <UButton color="primary" icon="i-tabler-check" @click="resolveDirty('save')"
-              >{{ t('editor.dirty.save_and_close') }}</UButton
-            >
+            <UButton color="primary" icon="i-tabler-check" @click="resolveDirty('save')">{{
+              t('editor.dirty.save_and_close')
+            }}</UButton>
           </div>
         </div>
       </template>
@@ -56,7 +56,9 @@
         :debug-can-step="execStore.debugCanStep"
         :debug-can-continue="execStore.debugCanContinue"
         :debug-can-pause="execStore.debugCanPause"
-        :debug-running-node-kind="execStore.debugRunningNodeKind || execStore.debugNextNodeKind || undefined"
+        :debug-running-node-kind="
+          execStore.debugRunningNodeKind || execStore.debugNextNodeKind || undefined
+        "
         :debug-running-node-label="debugNodeLabel"
         :dirty="dirty"
         :save-flash="saveFlash"
@@ -99,15 +101,19 @@
       <div class="flex flex-1 min-h-0">
         <!-- 左活动栏 rail (常驻细栏, VS Code 式): 变量/Snippets 开收停靠 drawer,
              节点库/子图库 点开 5xl modal。录制在 toolbar 右区 (主操作要显眼)。加节点也可走 Tab / 右键画布。 -->
-        <nav class="shrink-0 w-11 border-r border-default flex flex-col items-center py-2 gap-1 bg-elevated/20">
+        <nav
+          class="shrink-0 w-11 border-r border-default flex flex-col items-center py-2 gap-1 bg-elevated/20"
+        >
           <button
             v-for="item in leftRail"
             :key="item.key"
             type="button"
             class="size-8 flex items-center justify-center rounded-md transition-colors"
-            :class="railActive(item)
-              ? 'text-primary bg-primary/10'
-              : 'text-dimmed hover:text-default hover:bg-elevated/60'"
+            :class="
+              railActive(item)
+                ? 'text-primary bg-primary/10'
+                : 'text-dimmed hover:text-default hover:bg-elevated/60'
+            "
             :title="item.title"
             @click="onRailClick(item)"
           >
@@ -235,10 +241,17 @@
           v-if="inspectorMode !== 'collapsed'"
           type="button"
           class="shrink-0 w-5 self-stretch flex items-center justify-center border-l border-default text-dimmed hover:text-default hover:bg-elevated/40 transition-colors"
-          :title="showInspector ? t('editor.toolbar.inspector_collapse') : t('editor.toolbar.inspector_expand')"
+          :title="
+            showInspector
+              ? t('editor.toolbar.inspector_collapse')
+              : t('editor.toolbar.inspector_expand')
+          "
           @click="sidebarPrefs.inspectorCollapsed = !sidebarPrefs.inspectorCollapsed"
         >
-          <UIcon :name="showInspector ? 'i-tabler-chevron-right' : 'i-tabler-chevron-left'" class="size-4" />
+          <UIcon
+            :name="showInspector ? 'i-tabler-chevron-right' : 'i-tabler-chevron-left'"
+            class="size-4"
+          />
         </button>
 
         <SplitHandle
@@ -282,7 +295,6 @@
         @fix-missing-win32-window-target="onFixMissingWin32WindowTarget"
         @run="onValidationPanelRun"
       />
-
     </div>
 
     <ContainerSettingsModal
@@ -317,7 +329,11 @@
       :open="true"
       :var-name="deleteConfirm.name"
       :ref-i-ds="deleteConfirm.refIDs"
-      @update:open="(v) => { if (!v) deleteConfirm = null }"
+      @update:open="
+        (v) => {
+          if (!v) deleteConfirm = null
+        }
+      "
       @confirm="onDeleteConfirm"
     />
 
@@ -335,7 +351,11 @@
       :open="inlineMenu.open"
       :position="inlineMenu.position"
       :pin-context="inlineMenu.pinContext"
-      @update:open="(v) => { inlineMenu.open = v }"
+      @update:open="
+        (v) => {
+          inlineMenu.open = v
+        }
+      "
       @pick="onInlineMenuPick"
     />
 
@@ -345,14 +365,22 @@
       :open="nodeMenu.open"
       :position="nodeMenu.position"
       :node="nodeMenu.node"
-      @update:open="(v) => { nodeMenu.open = v }"
+      @update:open="
+        (v) => {
+          nodeMenu.open = v
+        }
+      "
       @action="onNodeMenuAction"
     />
     <MultiNodeContextMenu
       :open="multiMenu.open"
       :position="multiMenu.position"
       :count="multiMenu.count"
-      @update:open="(v) => { multiMenu.open = v }"
+      @update:open="
+        (v) => {
+          multiMenu.open = v
+        }
+      "
       @action="onMultiMenuAction"
     />
     <EdgeContextMenu
@@ -360,7 +388,11 @@
       :open="edgeMenu.open"
       :position="edgeMenu.position"
       :edge="edgeMenu.edge"
-      @update:open="(v) => { edgeMenu.open = v }"
+      @update:open="
+        (v) => {
+          edgeMenu.open = v
+        }
+      "
       @action="onEdgeMenuAction"
     />
     <PinContextMenu
@@ -368,15 +400,16 @@
       :open="pinMenu.open"
       :position="pinMenu.position"
       :pin="pinMenu.pin"
-      @update:open="(v) => { pinMenu.open = v }"
+      @update:open="
+        (v) => {
+          pinMenu.open = v
+        }
+      "
       @action="onPinMenuAction"
     />
 
     <!-- 命令面板 Ctrl+K -->
-    <CommandPalette
-      v-model:open="commandPaletteOpen"
-      :commands="commands"
-    />
+    <CommandPalette v-model:open="commandPaletteOpen" :commands="commands" />
 
     <YtConsoleModal v-model:open="jsConsoleOpen" :run="ytConsole.run" />
 
@@ -385,8 +418,12 @@
       v-if="promoteCtx"
       :open="!!promoteCtx"
       :context="promoteCtx"
-      :existing-var-names="(draft?.vars ?? []).map(v => v.name)"
-      @update:open="(v) => { if (!v) promoteCtx = null }"
+      :existing-var-names="(draft?.vars ?? []).map((v) => v.name)"
+      @update:open="
+        (v) => {
+          if (!v) promoteCtx = null
+        }
+      "
       @confirm="onPromoteConfirm"
     />
 
@@ -400,7 +437,11 @@
       :source-kind="saveSnippetState.sourceKind"
       :source-config="saveSnippetState.sourceConfig"
       :editing-id="saveSnippetState.editingId"
-      @update:open="(v) => { if (!v) saveSnippetState.open = false }"
+      @update:open="
+        (v) => {
+          if (!v) saveSnippetState.open = false
+        }
+      "
       @saved="onSnippetSaved"
     />
 
@@ -410,7 +451,11 @@
       :open="!!findRefsState"
       :var-name="findRefsState.varName"
       :refs="findRefsState.refs"
-      @update:open="(v) => { if (!v) findRefsState = null }"
+      @update:open="
+        (v) => {
+          if (!v) findRefsState = null
+        }
+      "
       @pick="onFindRefsPick"
     />
 
@@ -418,11 +463,18 @@
     <NodeSearchModal
       :open="nodeSearchOpen"
       :results="nodeSearchResults"
-      @update:open="(v) => { nodeSearchOpen = v }"
-      @update:query="(q) => { nodeSearchQuery = q }"
+      @update:open="
+        (v) => {
+          nodeSearchOpen = v
+        }
+      "
+      @update:query="
+        (q) => {
+          nodeSearchQuery = q
+        }
+      "
       @pick="onNodeSearchPick"
     />
-
   </div>
 </template>
 
@@ -431,7 +483,16 @@
 // draft / canvas viewport / selection / dirty 全保留, 不重新 load.
 defineOptions({ name: 'ContainerEditorView' })
 
-import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
@@ -446,7 +507,14 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
-import { backend, type Container, type GraphNode, type GraphEdge, type ValidationError, type VarDecl } from '@/lib/backend'
+import {
+  backend,
+  type Container,
+  type GraphNode,
+  type GraphEdge,
+  type ValidationError,
+  type VarDecl,
+} from '@/lib/backend'
 import { type VarType } from '@/lib/variableRef'
 import { errorMessage } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
@@ -503,7 +571,9 @@ import ContainerEditorDock from '@/components/containers/dock/ContainerEditorDoc
 import NodeLibraryPanel from '@/components/containers/dock/NodeLibraryPanel.vue'
 import AssetDockPanel from '@/components/containers/dock/AssetDockPanel.vue'
 import ContainerHelpModal from '@/components/containers/ContainerHelpModal.vue'
-import InlineContextMenu, { type PinContext as InlinePinContext } from '@/components/containers/InlineContextMenu.vue'
+import InlineContextMenu, {
+  type PinContext as InlinePinContext,
+} from '@/components/containers/InlineContextMenu.vue'
 import SubgraphScriptPreviewModal from '@/components/containers/SubgraphScriptPreviewModal.vue'
 import NodeContextMenu from '@/components/containers/menus/NodeContextMenu.vue'
 import MultiNodeContextMenu from '@/components/containers/menus/MultiNodeContextMenu.vue'
@@ -511,7 +581,9 @@ import EdgeContextMenu from '@/components/containers/menus/EdgeContextMenu.vue'
 import PinContextMenu from '@/components/containers/menus/PinContextMenu.vue'
 import CommandPalette from '@/components/containers/CommandPalette.vue'
 import YtConsoleModal from '@/components/containers/YtConsoleModal.vue'
-import PromoteToVarModal, { type PromoteContext } from '@/components/containers/PromoteToVarModal.vue'
+import PromoteToVarModal, {
+  type PromoteContext,
+} from '@/components/containers/PromoteToVarModal.vue'
 import FindReferencesModal, { type RefEntry } from '@/components/containers/FindReferencesModal.vue'
 import NodeSearchModal from '@/components/containers/NodeSearchModal.vue'
 import SnapGuideOverlay from '@/components/containers/SnapGuideOverlay.vue'
@@ -544,7 +616,8 @@ const runningNodeLabel = computed(() => {
 })
 
 const debugNodeLabel = computed(() => {
-  const k = execStore.debugRunningNodeKind || execStore.debugNextNodeKind || execStore.debugCurrentNodeKind
+  const k =
+    execStore.debugRunningNodeKind || execStore.debugNextNodeKind || execStore.debugCurrentNodeKind
   if (!k) return ''
   const key = KIND_LABEL_ZH[k]
   return key ? t(key) : k
@@ -563,7 +636,11 @@ async function onStopRun() {
 async function startDebug(startNodeID = '', startNodeLabel = '') {
   if (!draft.value) return
   if (dirty.value) {
-    toast.add({ title: t('toast.debug_save_first'), color: 'warning', icon: 'i-tabler-device-floppy' })
+    toast.add({
+      title: t('toast.debug_save_first'),
+      color: 'warning',
+      icon: 'i-tabler-device-floppy',
+    })
     return
   }
   if (execStore.running) {
@@ -573,7 +650,9 @@ async function startDebug(startNodeID = '', startNodeLabel = '') {
   if (startNodeID) {
     const ok = await confirm({
       title: t('editor.debug.confirm_from_here_title'),
-      description: t('editor.debug.confirm_from_here_desc', { node: startNodeLabel || startNodeID }),
+      description: t('editor.debug.confirm_from_here_desc', {
+        node: startNodeLabel || startNodeID,
+      }),
       color: 'warning',
       confirmText: t('editor.debug.confirm_from_here_action'),
       cancelText: t('common.cancel'),
@@ -703,7 +782,10 @@ const recordingTargetName = computed(() => {
 //    keep-alive 缓存实例里, 跨容器状态串 (孤儿边 / 拿错 Win32WindowTarget)。
 async function guardLeaveEditor(): Promise<boolean> {
   // A3: 录制本容器进行中 → 确认. 留下 → 录完正常 autoConnect; 确认离开 → 放行.
-  if ((recordStore.isRecording || recordStore.isPaused) && recordStore.activeTargetContainerID === containerID) {
+  if (
+    (recordStore.isRecording || recordStore.isPaused) &&
+    recordStore.activeTargetContainerID === containerID
+  ) {
     const ok = await confirm({
       title: t('recordComposable.leave_title'),
       description: t('recordComposable.leave_during_recording'),
@@ -723,24 +805,32 @@ onBeforeRouteUpdate(guardLeaveEditor)
 // 子图 metadata 外部编辑 (NodeInspector / SubgraphPropsPanel) 改的是 store 里 sg 对象,
 // useContainerDraft 的 deep watch 自动标 dirty — 之前的 window 总线桥接已删除.
 
-const {
-  autoCreateSubgraphForNewNode,
-  countSubgraphReferencesIncludeMain,
-  findNodeAcrossGraphs,
-} = useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
+const { autoCreateSubgraphForNewNode, countSubgraphReferencesIncludeMain, findNodeAcrossGraphs } =
+  useSubgraphLifecycle({ draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore })
 
 const selectedID = ref<string | null>(null)
 
 // 节点创建 pipeline (drop / picker / programmatic add) — 9 处 GraphNode push 散落抽这里.
 const {
-  dropVar, dropNodeSpec, dropSnippet,
-  onInsertIncVar, onApplySnippet,
-  onPickKind, onPickLibrarySubgraph, onPickLibraryClip,
-  onAddNode, addNode,
+  dropVar,
+  dropNodeSpec,
+  dropSnippet,
+  onInsertIncVar,
+  onApplySnippet,
+  onPickKind,
+  onPickLibrarySubgraph,
+  onPickLibraryClip,
+  onAddNode,
+  addNode,
 } = useNodeCreation({
-  draft, activeGraph, selectedID,
-  applyDraftMutation, syncFlowFromDraft, refreshSubgraphStore,
-  autoCreateSubgraphForNewNode, toast,
+  draft,
+  activeGraph,
+  selectedID,
+  applyDraftMutation,
+  syncFlowFromDraft,
+  refreshSubgraphStore,
+  autoCreateSubgraphForNewNode,
+  toast,
 })
 
 // 子图一键转脚本 (右键菜单 / 子图属性面板 → 预览 modal → 复制/插入 Script 节点)
@@ -766,7 +856,11 @@ const leftRail = [
   { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
   { key: 'assets' as const, icon: 'i-tabler-stack-2', title: t('editor.dock.assets') },
 ]
-const { request: assetPickRequest, updateSelection: updateAssetPick, cancel: cancelAssetPick } = useAssetPicker()
+const {
+  request: assetPickRequest,
+  updateSelection: updateAssetPick,
+  cancel: cancelAssetPick,
+} = useAssetPicker()
 function toggleDock(key: DockPanel) {
   const next = sidebarPrefs.value.leftDrawer === key ? null : key
   // 离开资产 tab → 取消可能挂着的字段 pick 上下文
@@ -787,7 +881,9 @@ watch(assetPickRequest, (req) => {
   }
 })
 // 切/取消选中节点 → 丢弃挂着的 pick 上下文 (别把上个节点的指派写到新节点).
-watch(selectedID, () => { if (assetPickRequest.value) cancelAssetPick() })
+watch(selectedID, () => {
+  if (assetPickRequest.value) cancelAssetPick()
+})
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const settingsOpen = ref(false)
 const helpModalOpen = ref(false)
@@ -818,7 +914,7 @@ function onAddVar() {
   applyDraftMutation((d) => {
     let n = 1
     const vars = d.vars ?? []
-    while (vars.some(v => v.name === `v${n}`)) n++
+    while (vars.some((v) => v.name === `v${n}`)) n++
     if (!d.vars) d.vars = []
     d.vars.push({ name: `v${n}`, type: 'number', default: 0 })
   })
@@ -850,7 +946,7 @@ function onRenameVar(oldName: string, newName: string) {
 
 function onUpdateVarField(name: string, field: 'type' | 'default', value: unknown) {
   applyDraftMutation((d) => {
-    const v = (d.vars ?? []).find(x => x.name === name)
+    const v = (d.vars ?? []).find((x) => x.name === name)
     if (!v) return
     if (field === 'type') {
       v.type = value as VarDecl['type']
@@ -950,11 +1046,16 @@ function onCanvasDrop(e: DragEvent) {
   if (payload) {
     const pos = screenPointToFlow({ x: e.clientX, y: e.clientY })
     switch (payload.type) {
-      case 'var': return dropVar(payload, pos)
-      case 'node-spec': return dropNodeSpec(payload, pos)
-      case 'snippet': return dropSnippet(payload, pos)
-      case 'library-subgraph': return void onPickLibrarySubgraph(payload.id, pos)
-      case 'clip': return void onPickLibraryClip(payload.id, pos)
+      case 'var':
+        return dropVar(payload, pos)
+      case 'node-spec':
+        return dropNodeSpec(payload, pos)
+      case 'snippet':
+        return dropSnippet(payload, pos)
+      case 'library-subgraph':
+        return void onPickLibrarySubgraph(payload.id, pos)
+      case 'clip':
+        return void onPickLibraryClip(payload.id, pos)
     }
   }
 }
@@ -962,10 +1063,7 @@ function onCanvasDrop(e: DragEvent) {
 // Real usage count — sum across all vars (derive from draft, reactive)
 const totalVarUsageCount = computed(() => {
   if (!draft.value) return 0
-  return (draft.value.vars ?? []).reduce(
-    (sum, v) => sum + varMutations.countUsage(v.name),
-    0,
-  )
+  return (draft.value.vars ?? []).reduce((sum, v) => sum + varMutations.countUsage(v.name), 0)
 })
 
 // onPickKind / onPickLibrarySubgraph / onAddNode 等 — 已抽 useNodeCreation
@@ -1024,8 +1122,8 @@ const showInspector = computed(
 // 画布是否空(驱动画布空态「快捷开始」)。
 const canvasEmpty = computed(() => (activeGraph.value?.nodes?.length ?? 0) === 0)
 
-const declaredVars = computed<{ name: string; type: VarType }[]>(
-  () => (draft.value?.vars ?? []).map((v) => ({ name: v.name, type: v.type as VarType })),
+const declaredVars = computed<{ name: string; type: VarType }[]>(() =>
+  (draft.value?.vars ?? []).map((v) => ({ name: v.name, type: v.type as VarType })),
 )
 
 function onDeclareVar(a: { name: string; type: VarType; default: unknown }) {
@@ -1047,9 +1145,19 @@ function miniNodeColor(node: any): string {
   return BORDER_CLASS_HEX[v?.border ?? ''] ?? PALETTE.zinc.hex
 }
 
-
 // Vue Flow viewport API：屏幕坐标 → canvas 坐标（考虑 zoom/pan）。
-const { project, getSelectedNodes, removeNodes, removeSelectedNodes, setCenter, getViewport, setViewport, fitView, findNode, addSelectedNodes } = useVueFlow()
+const {
+  project,
+  getSelectedNodes,
+  removeNodes,
+  removeSelectedNodes,
+  setCenter,
+  getViewport,
+  setViewport,
+  fitView,
+  findNode,
+  addSelectedNodes,
+} = useVueFlow()
 // 节点插入落点统一来源: 视口中心 (录制/库插入/picker) + 指针位置 (拖放/快捷键)。详见 useInsertPoint。
 const { viewportCenterForNode, screenPointToFlow } = useInsertPoint()
 
@@ -1063,7 +1171,9 @@ function graphLevelKey(path: string[]): string {
 function startNodeOf(path: string[]): { x: number; y: number } | null {
   if (path.length > 0) {
     const e = editorStore.subgraphById(path[path.length - 1])?.entry
-    return e?.nodeID ? { x: e.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: e.y ?? SUBGRAPH_ENTRY_DEFAULT.y } : null
+    return e?.nodeID
+      ? { x: e.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: e.y ?? SUBGRAPH_ENTRY_DEFAULT.y }
+      : null
   }
   const start = activeGraph.value?.nodes.find((n) => n.kind === 'Start')
   return start ? { x: start.x, y: start.y } : null
@@ -1101,7 +1211,12 @@ function onCanvasDragOver(e: DragEvent) {
 
 // 折叠选中节点为新子图
 const { onFoldSelection } = useFolding({
-  draft, activeGraph, refreshSubgraphStore, syncFlowFromDraft, getSelectedNodes, toast,
+  draft,
+  activeGraph,
+  refreshSubgraphStore,
+  syncFlowFromDraft,
+  getSelectedNodes,
+  toast,
 })
 
 // 校验问题条状态 (检查按钮 / 保存失败 / 试运行前置校验 共用)。
@@ -1113,7 +1228,10 @@ const validationErrors = ref<ValidationError[]>([])
 // 保存 (子图带 rev 乐观锁). 提前到 useRecording 之前: 录制完成自动 save 需要 onSave.
 const { onSave, saveFlash, staleSubgraphs, reloadStaleSubgraphs, dismissStaleSubgraphs } =
   useEditorSave({
-    containerID, draft, dirty, toast,
+    containerID,
+    draft,
+    dirty,
+    toast,
     // 主图保存因校验失败 → 灌进问题面板 (逐条可跳转 / 一键修复), 取代干巴巴 toast。
     onValidationErrors: (errs) => {
       validationErrors.value = errs
@@ -1144,19 +1262,31 @@ watch(staleSubgraphs, async (ids) => {
 // 容器热键靠后端 containers.update → emitChange → binder.Refresh 注册到热键中心;
 // 只 mutate draft 不落盘 → 热键永远进不了注册中心 (「快捷键」页无容器分组)。
 // 只 patch 元数据字段, 不带 graph/vars → Update 的 Unmarshal 只覆盖这几个键, 蓝图 draft 不受影响。
-async function onSettingsSave(form: { name: string; hotkey: string; description: string; tags: string[]; category: string; inputBackend: string; captureBackend: string; scaleTolerance: number }) {
+async function onSettingsSave(form: {
+  name: string
+  hotkey: string
+  description: string
+  tags: string[]
+  category: string
+  inputBackend: string
+  captureBackend: string
+  scaleTolerance: number
+}) {
   applyDraftMutation((d) => Object.assign(d, form))
   if (!draft.value) return
-  await backend.containers.update(draft.value.id, JSON.stringify({
-    name: form.name,
-    hotkey: form.hotkey,
-    description: form.description,
-    tags: form.tags,
-    category: form.category,
-    inputBackend: form.inputBackend,
-    captureBackend: form.captureBackend,
-    scaleTolerance: form.scaleTolerance,
-  }))
+  await backend.containers.update(
+    draft.value.id,
+    JSON.stringify({
+      name: form.name,
+      hotkey: form.hotkey,
+      description: form.description,
+      tags: form.tags,
+      category: form.category,
+      inputBackend: form.inputBackend,
+      captureBackend: form.captureBackend,
+      scaleTolerance: form.scaleTolerance,
+    }),
+  )
 }
 
 // 全局快捷键: Ctrl+K palette / Ctrl+F search / Ctrl+S save / Ctrl+, settings /
@@ -1164,10 +1294,17 @@ async function onSettingsSave(form: { name: string; hotkey: string; description:
 // dedup 原 5 处 isTypingTarget. composable 内 onMounted/onUnmounted 自挂 keydown listener.
 // 放 useEditorSave 之后 — onSave 在那里声明.
 useEditorHotkeys({
-  commandPaletteOpen, nodeSearchOpen, settingsOpen,
-  dirty, onSave, undo, redo,
+  commandPaletteOpen,
+  nodeSearchOpen,
+  settingsOpen,
+  dirty,
+  onSave,
+  undo,
+  redo,
   togglePalette: () => toggleDock('vars'),
-  toggleInspector: () => { sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed },
+  toggleInspector: () => {
+    sidebarPrefs.value.inspectorCollapsed = !sidebarPrefs.value.inspectorCollapsed
+  },
   isNodeLibraryOpen: () => sidebarPrefs.value.leftDrawer === 'nodes',
   toggleNodeLibrary: () => toggleDock('nodes'),
 })
@@ -1194,21 +1331,36 @@ const {
   finalizePending,
   discardPending,
 } = useRecording({
-  draft, activeGraph, syncFlowFromDraft, refreshSubgraphStore, saveDraft: onSave,
-  dropPoint: viewportCenterForNode, selectNode: selectRecordedNode, toast,
+  draft,
+  activeGraph,
+  syncFlowFromDraft,
+  refreshSubgraphStore,
+  saveDraft: onSave,
+  dropPoint: viewportCenterForNode,
+  selectNode: selectRecordedNode,
+  toast,
 })
 
 // 节点剪贴板 (Ctrl+C/V) — 全局化后粘贴 Subgraph 节点 = 引用同一个全局子图
 const { onCopySelection, onPasteSelection } = useNodeClipboard({
-  draft, activeGraph, flowNodes,
-  syncFlowFromDraft, refreshSubgraphStore,
+  draft,
+  activeGraph,
+  flowNodes,
+  syncFlowFromDraft,
+  refreshSubgraphStore,
   getSelectedNodes,
-  genID: genNodeID, toast,
+  genID: genNodeID,
+  toast,
 })
 
 // 自动布局 (ELK) + 对齐
 const { autoLayout, alignSelected } = useGraphLayout({
-  activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast, applyDraftMutation,
+  activeGraph,
+  getSelectedNodes,
+  syncFlowFromDraft,
+  dirty,
+  toast,
+  applyDraftMutation,
 })
 async function onAutoLayout(direction: 'LR' | 'TB') {
   await autoLayout(direction)
@@ -1220,20 +1372,40 @@ function onAlignSelected(mode: AlignMode) {
 // 4 个右键菜单路由 (Node / Multi / Edge / Pin) + action dispatchers + onFindRefsPick
 // + onPromoteConfirm. promoteCtx / findRefsState 仍 view 持有 (modal state), 内部写回.
 const {
-  nodeMenu, multiMenu, edgeMenu, pinMenu,
-  onNodeContextMenu, onSelectionContextMenu, onEdgeContextMenu, onCanvasContextMenuCapture,
-  onNodeMenuAction, onMultiMenuAction, onEdgeMenuAction, onPinMenuAction,
-  onFindRefsPick, onPromoteConfirm,
+  nodeMenu,
+  multiMenu,
+  edgeMenu,
+  pinMenu,
+  onNodeContextMenu,
+  onSelectionContextMenu,
+  onEdgeContextMenu,
+  onCanvasContextMenuCapture,
+  onNodeMenuAction,
+  onMultiMenuAction,
+  onEdgeMenuAction,
+  onPinMenuAction,
+  onFindRefsPick,
+  onPromoteConfirm,
 } = useContextMenuRouter({
-  containerID, draft, activeGraph, selectedID,
-  promoteCtx, findRefsState,
-  applyDraftMutation, varMutations,
-  onCopySelection, onPasteSelection, onFoldSelection,
-  onAlignSelected, onAutoLayout,
+  containerID,
+  draft,
+  activeGraph,
+  selectedID,
+  promoteCtx,
+  findRefsState,
+  applyDraftMutation,
+  varMutations,
+  onCopySelection,
+  onPasteSelection,
+  onFoldSelection,
+  onAlignSelected,
+  onAutoLayout,
   emitSaveSnippetIntent,
   onSubgraphToScript: convertSubgraphNodeToScript,
   onHardDelete: (node: GraphNode) => hardDeleteNodes([node.id]),
-  onDebugFromNode: (node: GraphNode) => { void startDebug(node.id, displayNodeLabel(node)) },
+  onDebugFromNode: (node: GraphNode) => {
+    void startDebug(node.id, displayNodeLabel(node))
+  },
   toast,
 })
 
@@ -1282,10 +1454,14 @@ function onNodeDoubleClick(evt: any) {
   }
 }
 
-
 // 所有 graph mutation 走 useGraphMutations 唯一写入点 (内部 activeGraph)
 // 避免 6 个 handler 各自写错 graph 引用的整类 bug
-const { onNodesChange, onEdgeDoubleClick, onEdgesChange, onConnect: _onConnectBase } = useGraphMutations({
+const {
+  onNodesChange,
+  onEdgeDoubleClick,
+  onEdgesChange,
+  onConnect: _onConnectBase,
+} = useGraphMutations({
   activeGraph,
   flowEdges,
   syncFlowFromDraft,
@@ -1363,16 +1539,19 @@ import { useExprFusion } from '@/composables/containerEditor/useExprFusion'
 import { useEditorBusStore } from '@/stores/editorBus'
 const { fuse: fuseExpr } = useExprFusion({ activeGraph, syncFlowFromDraft })
 const editorBus = useEditorBusStore()
-watch(() => editorBus.pendingExprFusion, (req) => {
-  if (!req) return
-  const ok = fuseExpr(req.sourceID, req.targetID, req.targetPin)
-  editorBus.clearExprFusion()
-  if (ok) {
-    selectedID.value = null
-  } else {
-    toast.add({ title: t('toast.expr_fuse_failed'), color: 'warning' })
-  }
-})
+watch(
+  () => editorBus.pendingExprFusion,
+  (req) => {
+    if (!req) return
+    const ok = fuseExpr(req.sourceID, req.targetID, req.targetPin)
+    editorBus.clearExprFusion()
+    if (ok) {
+      selectedID.value = null
+    } else {
+      toast.add({ title: t('toast.expr_fuse_failed'), color: 'warning' })
+    }
+  },
+)
 // tplStore.containerId 是全局单指针, capture()/openScreenPicker 靠它定位本容器目标窗口。
 // keep-alive 缓存多个容器编辑器时, 切到已缓存容器只走 onActivated(onMounted 不再触发),
 // 漏掉这里指针就停在上一个容器 → WaitTemplate 截图/校验拿错容器的 Win32WindowTarget(「没有异环窗口」)。
@@ -1419,8 +1598,10 @@ async function hardDeleteNodes(ids: string[]) {
   for (const id of ids) {
     const node = (g.nodes as GraphNode[]).find((n) => n.id === id)
     if (!node) continue
-    const sgID = node.kind === 'Subgraph' ? (node.config?.SubgraphID as string | undefined) : undefined
-    const clipID = node.kind === 'PlayClip' ? (node.config?.ClipID as string | undefined) : undefined
+    const sgID =
+      node.kind === 'Subgraph' ? (node.config?.SubgraphID as string | undefined) : undefined
+    const clipID =
+      node.kind === 'PlayClip' ? (node.config?.ClipID as string | undefined) : undefined
     if (sgID) defs.push({ nodeID: id, kind: 'subgraph', defID: sgID })
     else if (clipID) defs.push({ nodeID: id, kind: 'clip', defID: clipID })
     else plainIDs.push(id)
@@ -1525,7 +1706,11 @@ async function onValidate() {
     validationRan.value = true
     problemsExpanded.value = true
   } catch (e) {
-    toast.add({ title: t('toast.validate_call_failed'), description: errorMessage(e), color: 'error' })
+    toast.add({
+      title: t('toast.validate_call_failed'),
+      description: errorMessage(e),
+      color: 'error',
+    })
   }
 }
 
@@ -1541,12 +1726,25 @@ const ytConsole = useYtConsole({
   defaultsOf: (k) => KIND_DEFAULTS[k] ?? {},
 })
 const { commands } = useCommandPalette({
-  canUndo, canRedo, dirty, sidebarPrefs,
-  settingsOpen, nodeSearchOpen, jsConsoleOpen,
-  undo, redo,
-  onCopySelection, onPasteSelection, onFoldSelection,
-  onAlignSelected, onAutoLayout,
-  onSave, onValidate, onTryRun, onStopRun, onAddVar,
+  canUndo,
+  canRedo,
+  dirty,
+  sidebarPrefs,
+  settingsOpen,
+  nodeSearchOpen,
+  jsConsoleOpen,
+  undo,
+  redo,
+  onCopySelection,
+  onPasteSelection,
+  onFoldSelection,
+  onAlignSelected,
+  onAutoLayout,
+  onSave,
+  onValidate,
+  onTryRun,
+  onStopRun,
+  onAddVar,
 })
 
 async function onValidationPanelRun() {
@@ -1700,7 +1898,11 @@ async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Pr
   }
   // discard
   if (reloadOnDiscard) {
-    try { await reload() } catch { dirty.value = false }
+    try {
+      await reload()
+    } catch {
+      dirty.value = false
+    }
   } else {
     dirty.value = false
   }
@@ -1714,16 +1916,8 @@ async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Pr
 /* ---- Canvas 背景: 深色 radial gradient + 微妙 vignette + 网格 dots ---- */
 .canvas-bg {
   background:
-    radial-gradient(
-      ellipse 80% 60% at 50% 0%,
-      rgba(99, 102, 241, 0.08) 0%,
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 60% 50% at 50% 100%,
-      rgba(6, 182, 212, 0.05) 0%,
-      transparent 65%
-    ),
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 65%),
     linear-gradient(180deg, #0c0c14 0%, #07070c 100%);
 }
 .canvas-bg::after {
@@ -1732,11 +1926,7 @@ async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Pr
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse at center,
-    transparent 50%,
-    rgba(0, 0, 0, 0.35) 100%
-  );
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.35) 100%);
   z-index: 0;
 }
 /* vue-flow 内部 viewport / pane / nodes 都 z-index > 0, vignette 不挡 */

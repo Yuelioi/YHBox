@@ -75,9 +75,10 @@ export const useLibraryStore = defineStore('library', () => {
         }
       }
       for (const n of sg.graph?.nodes ?? []) {
-        const ref = (n as { kind?: string; config?: Record<string, unknown> })
+        const ref = n as { kind?: string; config?: Record<string, unknown> }
         const calleeID = ref.config?.SubgraphID as string | undefined
-        if ((ref.kind === 'Subgraph' || ref.kind === 'CollapsedNode') && calleeID) queue.push(calleeID)
+        if ((ref.kind === 'Subgraph' || ref.kind === 'CollapsedNode') && calleeID)
+          queue.push(calleeID)
       }
     }
     return missing

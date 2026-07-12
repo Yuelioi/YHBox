@@ -8,12 +8,7 @@
   >
     <div class="space-y-4">
       <UFormField :label="t('var.new.name_label')" required :error="nameError ?? undefined">
-        <UInput
-          ref="nameInputRef"
-          v-model="varName"
-          size="sm"
-          @keydown.enter="confirm"
-        />
+        <UInput ref="nameInputRef" v-model="varName" size="sm" @keydown.enter="confirm" />
       </UFormField>
 
       <UFormField :label="t('var.new.type_label')">
@@ -22,7 +17,9 @@
     </div>
 
     <template #footer>
-      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{ t('common.cancel') }}</UButton>
+      <UButton variant="ghost" color="neutral" @click="modelOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
       <UButton color="primary" icon="i-tabler-check" :disabled="!!nameError" @click="confirm">
         {{ t('var.new.confirm') }}
       </UButton>
@@ -56,15 +53,18 @@ const varName = ref(props.initialName)
 const varType = ref<VarType>('number')
 const nameInputRef = ref<any>(null)
 
-watch(() => props.open, async (v) => {
-  if (v) {
-    varName.value = props.initialName
-    varType.value = 'number'
-    await nextTick()
-    nameInputRef.value?.inputRef?.focus?.()
-    nameInputRef.value?.inputRef?.select?.()
-  }
-})
+watch(
+  () => props.open,
+  async (v) => {
+    if (v) {
+      varName.value = props.initialName
+      varType.value = 'number'
+      await nextTick()
+      nameInputRef.value?.inputRef?.focus?.()
+      nameInputRef.value?.inputRef?.select?.()
+    }
+  },
+)
 
 const nameError = computed<string | null>(() => {
   const key = validateVarName(varName.value, props.existingVarNames)

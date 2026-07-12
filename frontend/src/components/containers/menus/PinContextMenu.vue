@@ -17,7 +17,11 @@
           />
           <div class="flex-1 min-w-0">
             <div class="text-[11px] text-dimmed">
-              {{ pin.side === 'input' ? t('editor.menu.pin.title_in') : t('editor.menu.pin.title_out') }}
+              {{
+                pin.side === 'input'
+                  ? t('editor.menu.pin.title_in')
+                  : t('editor.menu.pin.title_out')
+              }}
               <span v-if="pin.pinType" class="text-toned">· {{ pin.pinType }}</span>
             </div>
             <div class="text-[11px] font-mono text-default truncate">
@@ -77,7 +81,10 @@ const emit = defineEmits<{
   action: [a: PinMenuAction]
 }>()
 
-const positionStyle = computed(() => ({ left: `${props.position.x}px`, top: `${props.position.y}px` }))
+const positionStyle = computed(() => ({
+  left: `${props.position.x}px`,
+  top: `${props.position.y}px`,
+}))
 
 const pinColor = computed(() => {
   if (!props.pin.pinType) return '#e5e7eb' // exec 灰白
@@ -129,7 +136,11 @@ function close() {
 <style scoped>
 .ctx-menu {
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'PingFang SC', 'Microsoft YaHei',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
   box-shadow:
     0 16px 48px -12px rgba(0, 0, 0, 0.7),
@@ -138,11 +149,7 @@ function close() {
   backdrop-filter: blur(6px);
 }
 .ctx-header {
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    transparent 60%
-  );
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%);
 }
 .ctx-divider {
   height: 1px;
@@ -160,7 +167,9 @@ function close() {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 .ctx-item:hover {
   background: rgba(255, 255, 255, 0.06);

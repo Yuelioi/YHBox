@@ -37,7 +37,9 @@
           v-if="hoverIdx === idx"
           class="absolute top-0.5 right-1 size-3 rounded-full bg-error text-highlighted text-[8px] flex items-center justify-center"
           @click.stop="$emit('remove', idx)"
-        >×</button>
+        >
+          ×
+        </button>
       </div>
 
       <!-- hover 提示 -->
@@ -59,7 +61,10 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-interface Range { fromMs: number; toMs: number }
+interface Range {
+  fromMs: number
+  toMs: number
+}
 
 const props = defineProps<{
   durationMs: number

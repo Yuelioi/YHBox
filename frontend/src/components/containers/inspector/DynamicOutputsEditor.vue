@@ -77,7 +77,9 @@ const dupNames = computed<Set<string>>(() => {
 
 // 非法标识符 / 重名 / 保留名 → 标红。空行不红。
 function rowInvalid(r: OutputRow): boolean {
-  return (r.name !== '' && !NAME_RE.test(r.name)) || dupNames.value.has(r.name) || RESERVED.has(r.name)
+  return (
+    (r.name !== '' && !NAME_RE.test(r.name)) || dupNames.value.has(r.name) || RESERVED.has(r.name)
+  )
 }
 
 function addRow() {

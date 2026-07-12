@@ -109,7 +109,11 @@ describe('StructuredInput — object schema', () => {
 
   it('required field with null value shows 必填 hint', async () => {
     const msgs = { structured_input: { field_required: '必填' } }
-    const { app, el } = mountStructuredInput(objectSchema, { hue: null, sat: 50 }, { messages: msgs })
+    const { app, el } = mountStructuredInput(
+      objectSchema,
+      { hue: null, sat: 50 },
+      { messages: msgs },
+    )
     await nextTick()
     expect(el.innerHTML).toContain('必填')
     cleanup(app, el)
@@ -247,14 +251,16 @@ describe('StructuredInput — text mode (object)', () => {
   it('validateAgainstSchema: valid object → null', () => {
     function validate(value: unknown, schema: NodeFieldSchema): string | null {
       if (schema.type === 'object') {
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'expected object'
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+          return 'expected object'
         const obj = value as Record<string, unknown>
         const declared = new Set((schema.fields ?? []).map((f) => f.key))
         for (const k of Object.keys(obj)) {
           if (!declared.has(k)) return `unknown key: ${k}`
         }
         for (const f of schema.fields ?? []) {
-          if (f.required && (!(f.key in obj) || obj[f.key] == null)) return `required field missing: ${f.key}`
+          if (f.required && (!(f.key in obj) || obj[f.key] == null))
+            return `required field missing: ${f.key}`
         }
         return null
       }
@@ -269,7 +275,10 @@ describe('StructuredInput — text mode (object)', () => {
     const obj = { x: 1, y: 2, z: 3 }
     let err: string | null = null
     for (const k of Object.keys(obj)) {
-      if (!declaredKeys.has(k)) { err = `unknown key: ${k}`; break }
+      if (!declaredKeys.has(k)) {
+        err = `unknown key: ${k}`
+        break
+      }
     }
     expect(err).toBe('unknown key: z')
   })
@@ -284,7 +293,8 @@ describe('StructuredInput — text mode (object)', () => {
         if (typeof value !== 'object' || value === null) return 'expected object'
         const obj = value as Record<string, unknown>
         for (const f of schema.fields ?? []) {
-          if (f.required && (!(f.key in obj) || obj[f.key] == null)) return `required field missing: ${f.key}`
+          if (f.required && (!(f.key in obj) || obj[f.key] == null))
+            return `required field missing: ${f.key}`
         }
         return null
       }
@@ -322,7 +332,9 @@ describe('StructuredInput — tuple schema', () => {
   })
 
   it('uses i18n child label via fieldPath.<key>', async () => {
-    const msgs = { node: { TestNode: { input: { myField: { c1Min: { label: '通道1 下限 (H/R)' } } } } } }
+    const msgs = {
+      node: { TestNode: { input: { myField: { c1Min: { label: '通道1 下限 (H/R)' } } } } },
+    }
     const { app, el } = mountStructuredInput(tupleSchema, [0, 0, 0, 0, 0, 0], { messages: msgs })
     await nextTick()
     expect(el.innerHTML).toContain('通道1 下限 (H/R)')
@@ -385,11 +397,7 @@ describe('StructuredInput — widget:colorRange eyedropper button', () => {
   beforeEach(() => vi.clearAllMocks())
 
   // 复用 mountStructuredInput 但同时捕获 pick-color 事件.
-  function mountWithPickColor(
-    schema: NodeFieldSchema,
-    modelValue: any,
-    fieldPath = 'colorField',
-  ) {
+  function mountWithPickColor(schema: NodeFieldSchema, modelValue: any, fieldPath = 'colorField') {
     const emittedPickColor: string[] = []
     const valueRef = ref(modelValue)
 
@@ -401,8 +409,12 @@ describe('StructuredInput — widget:colorRange eyedropper button', () => {
             modelValue: valueRef.value,
             fieldPath,
             kind: 'TestNode',
-            'onUpdate:modelValue': (v: any) => { valueRef.value = v },
-            'onPick-color': (fp: string) => { emittedPickColor.push(fp) },
+            'onUpdate:modelValue': (v: any) => {
+              valueRef.value = v
+            },
+            'onPick-color': (fp: string) => {
+              emittedPickColor.push(fp)
+            },
           })
       },
     })
@@ -536,7 +548,9 @@ describe('StructuredInput — array schema', () => {
   })
 
   it('add button appends a zero item (required fields filled, optional tol omitted)', async () => {
-    const { emitted, app, el } = mountStructuredInput(arraySchema, [{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }])
+    const { emitted, app, el } = mountStructuredInput(arraySchema, [
+      { dx: 0, dy: 0, r: 1, g: 2, b: 3 },
+    ])
     await nextTick()
     ;(el.querySelector('[data-testid="array-add-btn"]') as HTMLElement).click()
     await nextTick()
@@ -572,7 +586,9 @@ describe('StructuredInput — array schema', () => {
 
   it('array items do not render their own JSON toggle (noTextMode); only the array owns one', async () => {
     const msgs = { structured_input: { switch_to_text: 'TO_JSON' } }
-    const { app, el } = mountStructuredInput(arraySchema, [{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }], { messages: msgs })
+    const { app, el } = mountStructuredInput(arraySchema, [{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }], {
+      messages: msgs,
+    })
     await nextTick()
     const toggles = Array.from(el.querySelectorAll('button')).filter(
       (b) => b.getAttribute('title') === 'TO_JSON',
@@ -594,12 +610,14 @@ describe('StructuredInput — array schema', () => {
         return null
       }
       if (schema.type === 'object') {
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'expected object'
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+          return 'expected object'
         const obj = value as Record<string, unknown>
         const declared = new Set((schema.fields ?? []).map((f) => f.key))
         for (const k of Object.keys(obj)) if (!declared.has(k)) return `unknown key: ${k}`
         for (const f of schema.fields ?? []) {
-          if (f.required && (!(f.key in obj) || obj[f.key] == null)) return `required field missing: ${f.key}`
+          if (f.required && (!(f.key in obj) || obj[f.key] == null))
+            return `required field missing: ${f.key}`
           if (f.key in obj) {
             const e = validate(obj[f.key], f.schema)
             if (e) return `${f.key}: ${e}`
@@ -612,8 +630,12 @@ describe('StructuredInput — array schema', () => {
     }
     expect(validate({}, arraySchema)).toBe('expected array')
     expect(validate([{ dx: 0, dy: 0, r: 1, g: 2, b: 3 }], arraySchema)).toBeNull()
-    expect(validate([{ dx: 0, dy: 0, r: 1, g: 2, b: 3, x: 9 }], arraySchema)).toBe('[0]: unknown key: x')
-    expect(validate([{ dx: 0, dy: 0, r: 'no', g: 2, b: 3 }], arraySchema)).toBe('[0]: r: expected number')
+    expect(validate([{ dx: 0, dy: 0, r: 1, g: 2, b: 3, x: 9 }], arraySchema)).toBe(
+      '[0]: unknown key: x',
+    )
+    expect(validate([{ dx: 0, dy: 0, r: 'no', g: 2, b: 3 }], arraySchema)).toBe(
+      '[0]: r: expected number',
+    )
   })
 })
 

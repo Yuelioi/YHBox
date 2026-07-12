@@ -4,11 +4,15 @@
     <header class="flex items-center gap-2 pb-3 border-b border-default">
       <UIcon name="i-tabler-package" class="size-4 text-fuchsia-300" />
       <h3 class="text-sm font-medium text-highlighted">{{ subgraph.label }}</h3>
-      <UBadge size="xs" color="neutral" variant="soft">{{ t('subgraphProps.outputs_count', { n: subgraph.outputPins?.length ?? 0 }) }}</UBadge>
+      <UBadge size="xs" color="neutral" variant="soft">{{
+        t('subgraphProps.outputs_count', { n: subgraph.outputPins?.length ?? 0 })
+      }}</UBadge>
     </header>
 
     <section class="space-y-1.5">
-      <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed">ID</label>
+      <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
+        >ID</label
+      >
       <button
         type="button"
         class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"
@@ -52,7 +56,10 @@
     </section>
 
     <!-- 录制元数据 -->
-    <section v-if="subgraph.recordingContext" class="space-y-2 rounded-md bg-elevated/30 border border-default/40 p-3">
+    <section
+      v-if="subgraph.recordingContext"
+      class="space-y-2 rounded-md bg-elevated/30 border border-default/40 p-3"
+    >
       <div class="flex items-center gap-1.5">
         <UIcon name="i-tabler-clipboard-data" class="size-3.5 text-toned" />
         <span class="text-xs text-toned font-medium">{{ t('subgraphProps.recording_meta') }}</span>
@@ -97,7 +104,9 @@
           </div>
         </div>
         <p class="text-[10px] text-dimmed">
-          {{ t('subgraphProps.recorded_at', { time: subgraph.recordingContext.recordedAt || '—' }) }}
+          {{
+            t('subgraphProps.recorded_at', { time: subgraph.recordingContext.recordedAt || '—' })
+          }}
         </p>
       </div>
     </section>
@@ -172,7 +181,9 @@ async function onCopyID() {
     await navigator.clipboard.writeText(props.subgraph.id)
     copied.value = true
     window.clearTimeout(copiedTimer)
-    copiedTimer = window.setTimeout(() => { copied.value = false }, 1500)
+    copiedTimer = window.setTimeout(() => {
+      copied.value = false
+    }, 1500)
   } catch {
     toast.add({ title: t('toast.copy_failed'), color: 'error' })
   }

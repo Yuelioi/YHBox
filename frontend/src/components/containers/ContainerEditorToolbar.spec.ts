@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const source = readFileSync(join(process.cwd(), 'src/components/containers/ContainerEditorToolbar.vue'), 'utf8')
+const source = readFileSync(
+  join(process.cwd(), 'src/components/containers/ContainerEditorToolbar.vue'),
+  'utf8',
+)
 
 function zone(name: string): string {
   const match = source.match(new RegExp(`<div[^>]+data-zone="${name}"[\\s\\S]*?<!-- /${name} -->`))

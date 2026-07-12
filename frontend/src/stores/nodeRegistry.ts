@@ -43,5 +43,16 @@ export const useNodeRegistryStore = defineStore('nodeRegistry', () => {
     return types.value.get(typeTag)?.color || '#888'
   }
 
-  return { specs, types, errorCodes, exprFunctions, scriptBindableKinds, loaded, loadAll, getSpec, getType, pinColor }
+  return {
+    specs,
+    types,
+    errorCodes,
+    exprFunctions,
+    scriptBindableKinds,
+    loaded,
+    loadAll,
+    getSpec,
+    getType,
+    pinColor,
+  }
 })

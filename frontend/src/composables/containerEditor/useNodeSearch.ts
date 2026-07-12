@@ -44,8 +44,9 @@ export function useNodeSearch(opts: UseNodeSearchOpts) {
   })
 
   async function onPick(r: NodeSearchResult) {
-    const inCurrent = (!r.sgID && editorStore.editorPath.length === 0)
-      || (!!r.sgID && editorStore.editorPath[editorStore.editorPath.length - 1] === r.sgID)
+    const inCurrent =
+      (!r.sgID && editorStore.editorPath.length === 0) ||
+      (!!r.sgID && editorStore.editorPath[editorStore.editorPath.length - 1] === r.sgID)
     if (!inCurrent) {
       editorStore.setPath(r.sgID ? [r.sgID] : [])
       await nextTick()

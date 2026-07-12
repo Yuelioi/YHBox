@@ -28,13 +28,22 @@
           />
           <template #content>
             <div class="p-3 max-w-xs space-y-3">
-              <p v-if="description" class="text-[12px] text-toned leading-relaxed">{{ description }}</p>
-              <div v-if="example" class="rounded-md bg-elevated/40 border border-default/40 px-2.5 py-2">
+              <p v-if="description" class="text-[12px] text-toned leading-relaxed">
+                {{ description }}
+              </p>
+              <div
+                v-if="example"
+                class="rounded-md bg-elevated/40 border border-default/40 px-2.5 py-2"
+              >
                 <div class="flex items-center gap-1.5 mb-1">
                   <UIcon name="i-tabler-bulb" class="size-3.5 text-amber-400 shrink-0" />
-                  <span class="text-[11px] font-medium text-toned">{{ t('inspector.example_title') }}</span>
+                  <span class="text-[11px] font-medium text-toned">{{
+                    t('inspector.example_title')
+                  }}</span>
                 </div>
-                <p class="text-[12px] text-toned leading-relaxed whitespace-pre-line">{{ example }}</p>
+                <p class="text-[12px] text-toned leading-relaxed whitespace-pre-line">
+                  {{ example }}
+                </p>
               </div>
             </div>
           </template>
@@ -61,7 +70,11 @@
       </div>
     </header>
 
-    <SectionHeader :title="t('editor.inspector.group_basics')" icon="i-tabler-adjustments" class="-mx-4 mt-2 mb-4" />
+    <SectionHeader
+      :title="t('editor.inspector.group_basics')"
+      icon="i-tabler-adjustments"
+      class="-mx-4 mt-2 mb-4"
+    />
 
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
     <section class="mb-4">
@@ -87,7 +100,11 @@
       </UFormField>
     </section>
 
-    <SectionHeader :title="t('editor.inspector.group_inputs')" icon="i-tabler-login-2" class="-mx-4 mt-5 mb-4" />
+    <SectionHeader
+      :title="t('editor.inspector.group_inputs')"
+      icon="i-tabler-login-2"
+      class="-mx-4 mt-5 mb-4"
+    />
 
     <!-- 并发警告 -->
     <section
@@ -118,7 +135,13 @@
           <div class="text-warning/80 mt-1 mb-2 leading-relaxed">
             {{ t('inspector.expr_chain_desc') }}
           </div>
-          <UButton size="xs" color="warning" variant="soft" icon="i-tabler-arrow-merge" @click="onFuseExpr">
+          <UButton
+            size="xs"
+            color="warning"
+            variant="soft"
+            icon="i-tabler-arrow-merge"
+            @click="onFuseExpr"
+          >
             {{ t('inspector.expr_chain_fuse') }}
           </UButton>
         </div>
@@ -157,7 +180,13 @@
         </UButton>
       </div>
       <p class="text-[10px] text-dimmed leading-snug">
-        {{ t('inspector.screen_pick_hint', { action: canPickRect ? t('inspector.screen_pick_action_drag') : t('inspector.screen_pick_action_click') }) }}
+        {{
+          t('inspector.screen_pick_hint', {
+            action: canPickRect
+              ? t('inspector.screen_pick_action_drag')
+              : t('inspector.screen_pick_action_click'),
+          })
+        }}
       </p>
     </section>
 
@@ -175,7 +204,9 @@
 
         <!-- 子图 label 编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_label_field') }}</label>
+          <label class="text-[11px] text-toned">{{
+            t('node.Subgraph.inspector.subgraph_label_field')
+          }}</label>
           <UInput
             :model-value="boundSubgraph?.label ?? ''"
             size="sm"
@@ -187,7 +218,9 @@
 
         <!-- 子图描述编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_description_field') }}</label>
+          <label class="text-[11px] text-toned">{{
+            t('node.Subgraph.inspector.subgraph_description_field')
+          }}</label>
           <UTextarea
             :model-value="(boundSubgraph as any)?.description ?? ''"
             size="sm"
@@ -200,7 +233,9 @@
 
         <!-- 子图标签 tags -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{ t('node.Subgraph.inspector.subgraph_tags_field') }}</label>
+          <label class="text-[11px] text-toned">{{
+            t('node.Subgraph.inspector.subgraph_tags_field')
+          }}</label>
           <UInputMenu
             :model-value="(boundSubgraph as any)?.tags ?? []"
             multiple
@@ -210,7 +245,9 @@
             :placeholder="t('node.Subgraph.inspector.subgraph_tags_placeholder')"
             :disabled="!boundSubgraph"
             @update:model-value="(v: string[]) => onPatchSubgraph({ tags: v })"
-            @create="(v: string) => onPatchSubgraph({ tags: [...((boundSubgraph as any)?.tags ?? []), v] })"
+            @create="
+              (v: string) => onPatchSubgraph({ tags: [...((boundSubgraph as any)?.tags ?? []), v] })
+            "
           />
         </div>
 
@@ -237,14 +274,21 @@
     <section v-else-if="node.kind === 'MouseCalibration'" class="space-y-3">
       <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-2">
         <div class="flex items-baseline gap-2">
-          <span class="text-xs text-toned">{{ t('node.MouseCalibration.inspector.counts_label') }}</span>
+          <span class="text-xs text-toned">{{
+            t('node.MouseCalibration.inspector.counts_label')
+          }}</span>
         </div>
         <div class="flex items-center gap-2">
           <span
             class="text-2xl font-mono tabular-nums"
             :class="mcCounts > 0 ? 'text-success' : 'text-error'"
-          >{{ mcCounts }}</span>
-          <span class="text-[11px] text-dimmed">{{ mcCounts > 0 ? t('node.MouseCalibration.inspector.calibrated') : t('node.MouseCalibration.inspector.not_calibrated') }}</span>
+            >{{ mcCounts }}</span
+          >
+          <span class="text-[11px] text-dimmed">{{
+            mcCounts > 0
+              ? t('node.MouseCalibration.inspector.calibrated')
+              : t('node.MouseCalibration.inspector.not_calibrated')
+          }}</span>
         </div>
         <p class="text-[11px] text-dimmed leading-relaxed">
           {{ t('node.MouseCalibration.inspector.counts_hint') }}<br />
@@ -257,7 +301,8 @@
           icon="i-tabler-target"
           block
           @click="onOpenCalibrator"
-        >{{ t('node.MouseCalibration.inspector.start_calibrate') }}</UButton>
+          >{{ t('node.MouseCalibration.inspector.start_calibrate') }}</UButton
+        >
 
         <!-- 未校准 + 设置里有档 → 「从设置加载」: 单档直接填, 多档下拉选 -->
         <template v-if="mcCounts === 0 && mouseProfiles.length > 0">
@@ -269,7 +314,13 @@
             icon="i-tabler-download"
             block
             @click="loadProfileIntoNode(mouseProfiles[0].label)"
-          >{{ t('node.MouseCalibration.inspector.load_from_settings_one', { label: mouseProfiles[0].label || '?', n: mouseProfiles[0].counts360 }) }}</UButton>
+            >{{
+              t('node.MouseCalibration.inspector.load_from_settings_one', {
+                label: mouseProfiles[0].label || '?',
+                n: mouseProfiles[0].counts360,
+              })
+            }}</UButton
+          >
           <USelect
             v-else
             :items="profileSelectItems"
@@ -288,7 +339,8 @@
             color="neutral"
             icon="i-tabler-chevron-right"
             class="w-full justify-start"
-          >{{ t('node.MouseCalibration.inspector.advanced_manual') }}</UButton>
+            >{{ t('node.MouseCalibration.inspector.advanced_manual') }}</UButton
+          >
 
           <template #content>
             <UInputNumber
@@ -318,7 +370,11 @@
           block
           @click="toggleWindowCapture"
         >
-          {{ capturing ? t('node.Win32WindowTarget.inspector.capture_waiting', { hk: captureHk }) : t('node.Win32WindowTarget.inspector.capture_start', { hk: captureHk }) }}
+          {{
+            capturing
+              ? t('node.Win32WindowTarget.inspector.capture_waiting', { hk: captureHk })
+              : t('node.Win32WindowTarget.inspector.capture_start', { hk: captureHk })
+          }}
         </UButton>
         <p class="text-xs text-dimmed mt-1">
           {{ t('node.Win32WindowTarget.inspector.capture_hint_a', { hk: captureHk }) }}
@@ -328,9 +384,14 @@
 
       <!-- match section -->
       <div class="border border-default rounded-lg p-3 space-y-2">
-        <h4 class="text-sm font-semibold">{{ t('node.Win32WindowTarget.inspector.match_section') }}</h4>
+        <h4 class="text-sm font-semibold">
+          {{ t('node.Win32WindowTarget.inspector.match_section') }}
+        </h4>
         <UFormField :label="t('node.Win32WindowTarget.inspector.title_label')">
-          <UInput v-model="wtConfig.Title" :placeholder="t('node.Win32WindowTarget.inspector.title_placeholder')" />
+          <UInput
+            v-model="wtConfig.Title"
+            :placeholder="t('node.Win32WindowTarget.inspector.title_placeholder')"
+          />
         </UFormField>
         <UFormField :label="t('node.Win32WindowTarget.inspector.class_label')">
           <UInput v-model="wtConfig.Class" placeholder="UnrealWindow" />
@@ -339,11 +400,7 @@
           <UInput v-model="wtConfig.ProcessName" placeholder="game.exe" />
         </UFormField>
         <UFormField :label="t('node.Win32WindowTarget.inspector.title_match_label')">
-          <USelect
-            v-model="wtConfig.TitleMatch"
-            class="w-full"
-            :items="titleMatchOptions"
-          />
+          <USelect v-model="wtConfig.TitleMatch" class="w-full" :items="titleMatchOptions" />
         </UFormField>
       </div>
     </section>
@@ -357,11 +414,21 @@
       >
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-vinyl" class="size-3.5 text-emerald-400 shrink-0" />
-          <span class="text-default font-medium truncate">{{ selectedClip.label || selectedClip.id }}</span>
+          <span class="text-default font-medium truncate">{{
+            selectedClip.label || selectedClip.id
+          }}</span>
         </div>
         <div class="flex items-center gap-3 text-[10px] text-dimmed">
-          <span class="flex items-center gap-1"><UIcon name="i-tabler-clock" class="size-3" />{{ formatDuration(selectedClip.durationUs) }}</span>
-          <span class="flex items-center gap-1"><UIcon name="i-tabler-calendar" class="size-3" />{{ formatDate(selectedClip.createdAt) }}</span>
+          <span class="flex items-center gap-1"
+            ><UIcon name="i-tabler-clock" class="size-3" />{{
+              formatDuration(selectedClip.durationUs)
+            }}</span
+          >
+          <span class="flex items-center gap-1"
+            ><UIcon name="i-tabler-calendar" class="size-3" />{{
+              formatDate(selectedClip.createdAt)
+            }}</span
+          >
         </div>
         <div
           v-if="selectedClip.tags && selectedClip.tags.length"
@@ -373,13 +440,21 @@
             size="xs"
             color="neutral"
             variant="subtle"
-          >{{ t }}</UBadge>
+            >{{ t }}</UBadge
+          >
         </div>
         <div class="text-[10px] text-dimmed font-mono break-all">{{ selectedClip.id }}</div>
       </div>
-      <div v-else class="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning">
+      <div
+        v-else
+        class="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning"
+      >
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
-        {{ t('node.PlayClip.inspector.clip_missing', { id: node.config?.ClipID || t('node.PlayClip.inspector.clip_unset_placeholder') }) }}
+        {{
+          t('node.PlayClip.inspector.clip_missing', {
+            id: node.config?.ClipID || t('node.PlayClip.inspector.clip_unset_placeholder'),
+          })
+        }}
       </div>
 
       <!-- 重新录制覆盖 (一节点一 clip, 不允许下拉切换; 想换 clip 就重录) -->
@@ -391,7 +466,8 @@
           icon="i-tabler-circle-dot"
           class="flex-1"
           @click="$emit('request-record', { mode: 'precise', replaceNodeID: node.id })"
-        >{{ t('node.PlayClip.inspector.record_precise') }}</UButton>
+          >{{ t('node.PlayClip.inspector.record_precise') }}</UButton
+        >
         <UButton
           size="xs"
           color="neutral"
@@ -399,7 +475,8 @@
           icon="i-tabler-zap"
           class="flex-1"
           @click="$emit('request-record', { mode: 'simple', replaceNodeID: node.id })"
-        >{{ t('node.PlayClip.inspector.record_simple') }}</UButton>
+          >{{ t('node.PlayClip.inspector.record_simple') }}</UButton
+        >
       </div>
       <p class="text-[10px] text-dimmed leading-snug -mt-1">
         {{ t('node.PlayClip.inspector.bind_hint') }}
@@ -419,8 +496,12 @@
         />
 
         <div class="flex items-center justify-between mb-1">
-          <span class="text-[11px] text-toned">{{ t('node.PlayClip.inspector.keep_ranges_label') }}</span>
-          <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">{{ t('common.add') }}</UButton>
+          <span class="text-[11px] text-toned">{{
+            t('node.PlayClip.inspector.keep_ranges_label')
+          }}</span>
+          <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">{{
+            t('common.add')
+          }}</UButton>
         </div>
         <p class="text-[10px] text-dimmed mb-2 leading-snug">
           {{ t('node.PlayClip.inspector.keep_ranges_hint') }}
@@ -429,11 +510,7 @@
           {{ t('node.PlayClip.inspector.full_playback') }}
         </div>
         <div v-else class="space-y-1.5">
-          <div
-            v-for="(r, idx) in keepRanges"
-            :key="idx"
-            class="flex items-center gap-1.5"
-          >
+          <div v-for="(r, idx) in keepRanges" :key="idx" class="flex items-center gap-1.5">
             <UInput
               :model-value="r.fromMs"
               type="number"
@@ -465,11 +542,7 @@
 
     <!-- Switch: 多路分支 case 编辑器 -->
     <section v-else-if="node.kind === 'Switch'" class="mb-5">
-      <SwitchInspector
-        :node="node"
-        :edges="edges ?? []"
-        @update="emit('update', $event)"
-      />
+      <SwitchInspector :node="node" :edges="edges ?? []" @update="emit('update', $event)" />
     </section>
 
     <!-- 动态输入声明 (spec.dynamicInputs: Expr/Script) — 编辑 config.Inputs[],
@@ -530,7 +603,7 @@
           />
           <PinInput
             v-else
-            :type="(lit.type as any)"
+            :type="lit.type as any"
             :widget-kind="fieldFor(lit.name)?.widgetKind"
             :options="fieldFor(lit.name)?.options"
             :async-source="fieldFor(lit.name)?.asyncSource"
@@ -551,7 +624,9 @@
           <p
             v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
             class="text-[11px] text-dimmed leading-snug"
-          >{{ t(fieldFor(lit.name)!.hint!) }}</p>
+          >
+            {{ t(fieldFor(lit.name)!.hint!) }}
+          </p>
         </div>
       </div>
     </section>
@@ -559,10 +634,16 @@
     <p
       v-if="dataInLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
       class="text-[12px] text-dimmed"
-    >{{ t('inspector.no_config') }}</p>
+    >
+      {{ t('inspector.no_config') }}
+    </p>
 
     <!-- 输出组 — ① 可绑产出 (config.capture: 绑变量名 → 运行时把该出口产出写进变量) ② exec/纯数据出口 (只读)。 -->
-    <SectionHeader :title="t('editor.inspector.group_outputs')" icon="i-tabler-logout-2" class="-mx-4 mt-5 mb-3" />
+    <SectionHeader
+      :title="t('editor.inspector.group_outputs')"
+      icon="i-tabler-logout-2"
+      class="-mx-4 mt-5 mb-3"
+    />
 
     <!-- 可绑产出 (非纯数据节点 exec 出口 Data 字段): 方案 A — 未绑显「+绑定」按钮, 绑了/编辑中显 VarNameInput + 解绑 ✕。 -->
     <div v-if="bindable.length" class="space-y-3 mb-4">
@@ -570,7 +651,9 @@
         <div class="flex items-center gap-2 text-[11px]">
           <UIcon name="i-tabler-variable" class="size-3.5 text-primary shrink-0" />
           <span class="text-toned">{{ outLabel(field) }}</span>
-          <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono">({{ dataTypeOf(field) }})</span>
+          <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono"
+            >({{ dataTypeOf(field) }})</span
+          >
           <UButton
             v-if="!getCapture(field) && !editing.has(field)"
             size="xs"
@@ -579,7 +662,8 @@
             icon="i-tabler-plus"
             class="ml-auto"
             @click="editing.add(field)"
-          >{{ t('inspector.output.bind') }}</UButton>
+            >{{ t('inspector.output.bind') }}</UButton
+          >
         </div>
         <div v-if="getCapture(field) || editing.has(field)" class="flex items-center gap-1.5">
           <VarNameInput
@@ -601,14 +685,20 @@
           />
         </div>
         <p class="text-[10px] text-dimmed leading-snug">
-          {{ field === 'Found' ? t('inspector.output.found_hint') : t('inspector.output.stale_hint') }}
+          {{
+            field === 'Found' ? t('inspector.output.found_hint') : t('inspector.output.stale_hint')
+          }}
         </p>
       </div>
     </div>
 
     <!-- 悬空捕获绑定 (字段已不在可绑集 — 声明被删/改后残留): 标红 + 可解绑, 清除后端 INVALID_PIN。 -->
     <div v-if="danglingCaptures.length" class="space-y-1.5 mb-4">
-      <div v-for="field in danglingCaptures" :key="'dangling-' + field" class="flex items-center gap-2 text-[11px]">
+      <div
+        v-for="field in danglingCaptures"
+        :key="'dangling-' + field"
+        class="flex items-center gap-2 text-[11px]"
+      >
         <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-error shrink-0" />
         <span class="text-error font-mono">{{ field }}</span>
         <span class="text-[10px] text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
@@ -626,11 +716,7 @@
 
     <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
     <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
-      <div
-        v-for="pn in outPins.exec"
-        :key="'x-' + pn"
-        class="flex items-center gap-2 text-[11px]"
-      >
+      <div v-for="pn in outPins.exec" :key="'x-' + pn" class="flex items-center gap-2 text-[11px]">
         <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
         <span class="text-toned">{{ outLabel(pn) }}</span>
         <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
@@ -645,7 +731,12 @@
         <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{ dp.type }}</span>
       </div>
     </div>
-    <p v-if="!bindable.length && !outPins.exec.length && !readonlyData.length" class="text-[11px] text-dimmed">{{ t('editor.inspector.outputs_none') }}</p>
+    <p
+      v-if="!bindable.length && !outPins.exec.length && !readonlyData.length"
+      class="text-[11px] text-dimmed"
+    >
+      {{ t('editor.inspector.outputs_none') }}
+    </p>
   </div>
 </template>
 
@@ -664,7 +755,15 @@ import ClipTimeline from './ClipTimeline.vue'
 import TemplatePickerField from './TemplatePickerField.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import { useI18n } from 'vue-i18n'
-import { KIND_LABEL_ZH, KIND_DESCRIPTION, KIND_EXAMPLE, KIND_VISUAL, PIN_SPECS, edgeKind, pinsFor } from './pinSpec'
+import {
+  KIND_LABEL_ZH,
+  KIND_DESCRIPTION,
+  KIND_EXAMPLE,
+  KIND_VISUAL,
+  PIN_SPECS,
+  edgeKind,
+  pinsFor,
+} from './pinSpec'
 
 const { t, te } = useI18n()
 
@@ -749,11 +848,8 @@ const specHasDynamicDataFields = computed(
 const dynamicInputNames = computed<string[]>(() => {
   const raw = props.node?.config?.Inputs
   if (!Array.isArray(raw)) return []
-  return raw
-    .map((d: any) => String(d?.Name ?? ''))
-    .filter((n) => n !== '')
+  return raw.map((d: any) => String(d?.Name ?? '')).filter((n) => n !== '')
 })
-
 
 // 节点 scope — 传给 VarNameInput，影响补全行为。
 // Scope pin 字面量 = config.literal.Scope (跟后端 + 真实存盘 shape 对齐)。
@@ -811,20 +907,21 @@ function onFuseExpr() {
 
 // Expr 链检测 — 如果当前 Expr 节点的 value out 唯一连到另一 Expr 的 input,
 // Inspector 显示合并建议 + 按钮.
-interface ChainHint { targetID: string; targetPin: string }
+interface ChainHint {
+  targetID: string
+  targetPin: string
+}
 const exprChainHint = computed<ChainHint | null>(() => {
   if (!props.node || props.node.kind !== 'Expr') return null
   if (!props.nodes || !props.edges) return null
   const myID = props.node.id
-  const outgoing = (props.edges ?? []).filter(
-    (e: any) => {
-      const [src, srcPin] = (e.from ?? '').split('.')
-      // edge kind 由 (srcNode.kind, srcPin) 推导 (无 edge.kind 字段).
-      if (src !== myID || srcPin !== 'value') return false
-      const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
-      return srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
-    },
-  )
+  const outgoing = (props.edges ?? []).filter((e: any) => {
+    const [src, srcPin] = (e.from ?? '').split('.')
+    // edge kind 由 (srcNode.kind, srcPin) 推导 (无 edge.kind 字段).
+    if (src !== myID || srcPin !== 'value') return false
+    const srcNode = (props.nodes ?? []).find((n: any) => n.id === src)
+    return srcNode ? edgeKind(srcNode.kind, srcPin) === 'data' : false
+  })
   if (outgoing.length !== 1) return null
   const [tgtID, tgtPin] = (outgoing[0].to ?? '').split('.')
   const tgtNode = (props.nodes ?? []).find((n: any) => n.id === tgtID)
@@ -874,7 +971,11 @@ async function copyAndFlash(text: string, which: 'id' | 'json' | 'script', e?: E
       copiedItem.value = null
     }, 1500)
   } catch (err: any) {
-    toastForSync.add({ title: t('toast.copy_failed'), description: errorMessage(err), color: 'error' })
+    toastForSync.add({
+      title: t('toast.copy_failed'),
+      description: errorMessage(err),
+      color: 'error',
+    })
   }
 }
 
@@ -987,12 +1088,19 @@ const visual = computed(() =>
     : { icon: '', bg: '', border: '' },
 )
 
-
-const fields = computed<Field[]>(() => (props.node ? (NODE_FIELD_SCHEMAS[props.node.kind] ?? []) : []))
+const fields = computed<Field[]>(() =>
+  props.node ? (NODE_FIELD_SCHEMAS[props.node.kind] ?? []) : [],
+)
 
 // 有专属 Inspector section 的 kind — 这些不显通用「数据输入」section (BESPOKE_EDITOR_KINDS 同源),
 // 也不显 "no_config" 占位 (它们有自己的 UI)。
-const BESPOKE_SECTION_KINDS = new Set(['Subgraph', 'MouseCalibration', 'Win32WindowTarget', 'PlayClip', 'Switch'])
+const BESPOKE_SECTION_KINDS = new Set([
+  'Subgraph',
+  'MouseCalibration',
+  'Win32WindowTarget',
+  'PlayClip',
+  'Switch',
+])
 const hasBespokeSection = computed(() => !!props.node && BESPOKE_SECTION_KINDS.has(props.node.kind))
 
 // 「输出」组速览: 当前 config 下的出口 pin(exec + data), 只读展示。
@@ -1022,7 +1130,10 @@ const danglingCaptures = computed<string[]>(() => {
 })
 // 正在绑/改的字段 (未绑时点「+绑定」加入 → 展开 VarNameInput)。切节点清空 (避免上个节点的编辑态串台)。
 const editing = ref(new Set<string>())
-watch(() => props.node?.id, () => editing.value.clear())
+watch(
+  () => props.node?.id,
+  () => editing.value.clear(),
+)
 // 字段类型 (PIN_SPECS.dataOut) — 传给 VarNameInput 推断新建变量类型 + 行内显示。
 function dataTypeOf(field: string): string {
   return props.node ? String(PIN_SPECS[props.node.kind]?.dataOut?.[field] ?? '') : ''
@@ -1065,7 +1176,10 @@ const readonlyData = computed(() =>
 //   - color: Range / 对应 pin (DetectColor/DetectColorHSV) — tuple 直传数组, object 映射 hsv 字段。
 
 // 按目标 pin 决定 schemaType + colorSpace (开吸管前和回填时都用).
-function colorMetaFor(fieldPath: string): { schemaType: 'tuple' | 'object'; colorSpace: 'hsv' | 'rgb' } {
+function colorMetaFor(fieldPath: string): {
+  schemaType: 'tuple' | 'object'
+  colorSpace: 'hsv' | 'rgb'
+} {
   const sc = fieldFor(fieldPath)?.schema
   const schemaType = sc?.type === 'tuple' ? 'tuple' : 'object'
   // object schema 恒 hsv; tuple 读 config.literal.Mode (缺/空 → hsv)

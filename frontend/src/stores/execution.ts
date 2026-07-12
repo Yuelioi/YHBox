@@ -192,9 +192,15 @@ export const useExecutionStore = defineStore('execution', () => {
     if (status === 'stepping' || status === 'running' || status === 'pause_requested') {
       const busyNodeID = runningID || currentID
       const sameSession = nextSessionID && nextSessionID === debugSessionID.value
-      const alreadyCompletedBusyNode = busyNodeID && debugLastNodeID.value && busyNodeID === debugLastNodeID.value
+      const alreadyCompletedBusyNode =
+        busyNodeID && debugLastNodeID.value && busyNodeID === debugLastNodeID.value
       const noNewCompletion = !incomingLastNodeID || incomingLastNodeID === debugLastNodeID.value
-      if (sameSession && debugStatus.value === 'paused' && alreadyCompletedBusyNode && noNewCompletion) {
+      if (
+        sameSession &&
+        debugStatus.value === 'paused' &&
+        alreadyCompletedBusyNode &&
+        noNewCompletion
+      ) {
         return
       }
     }
@@ -208,9 +214,15 @@ export const useExecutionStore = defineStore('execution', () => {
     debugWarnings.value = normalizeDebugWarnings(pickField(state, 'warnings', 'Warnings'))
     debugError.value = pickField<DebugRunError | null>(state, 'error', 'Error') ?? null
 
-    debugLastNodeID.value = String(pickField(state, 'lastNodeId', 'LastNodeID') ?? debugLastNodeID.value ?? '')
-    debugLastNodeKind.value = String(pickField(state, 'lastNodeKind', 'LastNodeKind') ?? debugLastNodeKind.value ?? '')
-    debugLastExit.value = String(pickField(state, 'lastExit', 'LastExit') ?? debugLastExit.value ?? '')
+    debugLastNodeID.value = String(
+      pickField(state, 'lastNodeId', 'LastNodeID') ?? debugLastNodeID.value ?? '',
+    )
+    debugLastNodeKind.value = String(
+      pickField(state, 'lastNodeKind', 'LastNodeKind') ?? debugLastNodeKind.value ?? '',
+    )
+    debugLastExit.value = String(
+      pickField(state, 'lastExit', 'LastExit') ?? debugLastExit.value ?? '',
+    )
     debugLastOutput.value = copyRecord(pickField(state, 'lastOutput', 'LastOutput'))
     debugVars.value = copyRecord(pickField(state, 'vars', 'Vars'))
 

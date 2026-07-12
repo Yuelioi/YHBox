@@ -103,7 +103,12 @@ export function toastError(msg: string, title?: string) {
     color: 'error',
     duration: 6000,
     actions: [
-      { label: t('common.copy'), icon: 'i-tabler-copy', color: 'neutral', onClick: () => copyText(msg) },
+      {
+        label: t('common.copy'),
+        icon: 'i-tabler-copy',
+        color: 'neutral',
+        onClick: () => copyText(msg),
+      },
     ],
   })
 }

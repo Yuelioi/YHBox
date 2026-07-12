@@ -4,10 +4,18 @@
       <!-- 主介绍卡 (hero, 居中) -->
       <section class="rounded-xl bg-default border border-default p-5">
         <div class="flex flex-col items-center text-center py-1">
-          <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" class="mb-4" />
+          <IconBadge
+            icon="i-tabler-info-circle"
+            size="lg"
+            shape="round"
+            color="primary"
+            class="mb-4"
+          />
           <h2 class="text-lg font-semibold text-highlighted mb-1.5">
             {{ info?.name ?? 'Yotta' }}
-            <span class="text-muted font-normal ml-1 font-mono tabular-nums">v{{ info?.version ?? '...' }}</span>
+            <span class="text-muted font-normal ml-1 font-mono tabular-nums"
+              >v{{ info?.version ?? '...' }}</span
+            >
           </h2>
           <p class="text-sm text-muted leading-relaxed max-w-sm">
             {{ t('about.tagline') }}
@@ -25,9 +33,13 @@
           <div v-for="c in concepts" :key="c.key">
             <div class="flex items-center gap-2 mb-1.5">
               <UIcon :name="c.icon" class="size-4" :class="c.iconClass" />
-              <span class="text-sm font-medium text-highlighted">{{ t(`about.concepts.${c.key}.name`) }}</span>
+              <span class="text-sm font-medium text-highlighted">{{
+                t(`about.concepts.${c.key}.name`)
+              }}</span>
             </div>
-            <p class="text-xs text-muted leading-relaxed">{{ t(`about.concepts.${c.key}.desc`) }}</p>
+            <p class="text-xs text-muted leading-relaxed">
+              {{ t(`about.concepts.${c.key}.desc`) }}
+            </p>
           </div>
         </div>
       </section>
@@ -60,7 +72,8 @@
           </div>
           <div class="flex items-center justify-between gap-4">
             <span class="text-muted inline-flex items-center gap-1.5">
-              <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B {{ t('about.label_site') }}
+              <UIcon name="i-tabler-brand-bilibili" class="size-3.5" /> B
+              {{ t('about.label_site') }}
             </span>
             <button
               v-if="info?.bilibili"

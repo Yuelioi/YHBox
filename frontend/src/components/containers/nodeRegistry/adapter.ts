@@ -182,8 +182,9 @@ export function deriveFields(kind: string, inputs: InputSpec[]): FieldSchema[] {
     if (typeof props.asyncSource === 'string') f.asyncSource = props.asyncSource
     if (props.applyMeta && typeof props.applyMeta === 'object' && !Array.isArray(props.applyMeta)) {
       f.applyMeta = Object.fromEntries(
-        Object.entries(props.applyMeta as Record<string, unknown>)
-          .filter(([, v]) => typeof v === 'string'),
+        Object.entries(props.applyMeta as Record<string, unknown>).filter(
+          ([, v]) => typeof v === 'string',
+        ),
       ) as Record<string, string>
     }
     if (f.type === 'select' && Array.isArray(props.options)) {
@@ -248,9 +249,7 @@ function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): st
 function parseDynamicInputsCfg(
   cfg: Record<string, unknown> | null | undefined,
 ): Record<string, PinType> {
-  const inputs = Array.isArray(cfg?.Inputs)
-    ? (cfg!.Inputs as Array<Record<string, unknown>>)
-    : []
+  const inputs = Array.isArray(cfg?.Inputs) ? (cfg!.Inputs as Array<Record<string, unknown>>) : []
   const out: Record<string, PinType> = {}
   for (const i of inputs) {
     const name = typeof i.Name === 'string' ? i.Name : ''

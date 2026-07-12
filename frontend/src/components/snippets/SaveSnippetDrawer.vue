@@ -9,10 +9,18 @@
           <UIcon name="i-tabler-bookmark-plus" class="size-5 text-primary" />
           <div class="flex-1">
             <div class="text-[13px] font-semibold text-default">
-              {{ editingId ? t('editor.snippet.drawer.title_edit') : t('editor.snippet.drawer.title_new') }}
+              {{
+                editingId
+                  ? t('editor.snippet.drawer.title_edit')
+                  : t('editor.snippet.drawer.title_new')
+              }}
             </div>
             <div class="text-[10px] text-dimmed">
-              {{ editingId ? `ID: ${editingId.slice(0, 8)}…` : t('editor.snippet.drawer.subtitle_source_kind', { kind: sourceKind || '?' }) }}
+              {{
+                editingId
+                  ? `ID: ${editingId.slice(0, 8)}…`
+                  : t('editor.snippet.drawer.subtitle_source_kind', { kind: sourceKind || '?' })
+              }}
             </div>
           </div>
           <UButton
@@ -27,13 +35,26 @@
 
         <div class="drawer-body">
           <div class="field">
-            <label>{{ t('editor.snippet.drawer.name_label') }} <span class="text-error">*</span></label>
-            <UInput v-model="formName" size="sm" :placeholder="t('editor.snippet.drawer.name_placeholder')" class="w-full" />
+            <label
+              >{{ t('editor.snippet.drawer.name_label') }} <span class="text-error">*</span></label
+            >
+            <UInput
+              v-model="formName"
+              size="sm"
+              :placeholder="t('editor.snippet.drawer.name_placeholder')"
+              class="w-full"
+            />
           </div>
 
           <div class="field">
             <label>{{ t('editor.snippet.drawer.desc_label') }}</label>
-            <UTextarea v-model="formDesc" size="sm" :rows="2" :placeholder="t('editor.snippet.drawer.desc_placeholder')" class="w-full" />
+            <UTextarea
+              v-model="formDesc"
+              size="sm"
+              :rows="2"
+              :placeholder="t('editor.snippet.drawer.desc_placeholder')"
+              class="w-full"
+            />
           </div>
 
           <div class="field">
@@ -52,7 +73,9 @@
                 class="suggestion-chip"
                 :class="formCategory === c ? 'is-active' : ''"
                 @click="formCategory = formCategory === c ? '' : c"
-              >{{ c }}</button>
+              >
+                {{ c }}
+              </button>
             </div>
           </div>
 
@@ -68,7 +91,9 @@
               class="w-full"
             />
             <div v-if="allTags.length > 0" class="flex flex-wrap gap-1 mt-1">
-              <span class="text-[10px] text-dimmed mr-1">{{ t('editor.snippet.drawer.tags_suggest') }}</span>
+              <span class="text-[10px] text-dimmed mr-1">{{
+                t('editor.snippet.drawer.tags_suggest')
+              }}</span>
               <button
                 v-for="tag in allTags"
                 :key="tag"
@@ -76,7 +101,9 @@
                 class="suggestion-chip"
                 :class="formTags.includes(tag) ? 'is-active' : ''"
                 @click="toggleTag(tag)"
-              >#{{ tag }}</button>
+              >
+                #{{ tag }}
+              </button>
             </div>
           </div>
 
@@ -129,10 +156,16 @@
                 size="sm"
                 :icon="capturing ? 'i-tabler-keyboard' : 'i-tabler-target'"
                 @click="toggleCapture"
-                :title="capturing ? t('editor.snippet.drawer.shortcut_record') : t('editor.snippet.drawer.shortcut_idle')"
+                :title="
+                  capturing
+                    ? t('editor.snippet.drawer.shortcut_record')
+                    : t('editor.snippet.drawer.shortcut_idle')
+                "
               />
             </div>
-            <div v-if="shortcutError" class="text-[10px] text-error mt-1">⚠ {{ shortcutError }}</div>
+            <div v-if="shortcutError" class="text-[10px] text-error mt-1">
+              ⚠ {{ shortcutError }}
+            </div>
             <div v-else-if="formShortcut" class="text-[10px] text-dimmed mt-1">
               normalize: <code class="text-primary">{{ normalizeShortcut(formShortcut) }}</code>
             </div>
@@ -147,10 +180,15 @@
             variant="ghost"
             icon="i-tabler-trash"
             @click="onDelete"
-          >{{ t('editor.snippet.drawer.delete') }}</UButton>
+            >{{ t('editor.snippet.drawer.delete') }}</UButton
+          >
           <div class="flex-1" />
-          <UButton size="sm" variant="ghost" color="neutral" @click="close">{{ t('editor.snippet.drawer.cancel') }}</UButton>
-          <UButton size="sm" color="primary" :disabled="!canSave" @click="onSave">{{ t('editor.snippet.drawer.save') }}</UButton>
+          <UButton size="sm" variant="ghost" color="neutral" @click="close">{{
+            t('editor.snippet.drawer.cancel')
+          }}</UButton>
+          <UButton size="sm" color="primary" :disabled="!canSave" @click="onSave">{{
+            t('editor.snippet.drawer.save')
+          }}</UButton>
         </div>
       </div>
     </div>
@@ -245,13 +283,28 @@ const existingCategories = computed(() => store.allCategories)
 const allTags = computed(() => store.allTags)
 
 // 色板从视觉注册中心取 (单一真源); snippet 仍存 hex, value=hex.
-const colorPalette = PALETTE_KEYS.map((k) => ({ labelKey: PALETTE[k].labelKey, value: PALETTE[k].hex }))
+const colorPalette = PALETTE_KEYS.map((k) => ({
+  labelKey: PALETTE[k].labelKey,
+  value: PALETTE[k].hex,
+}))
 
 const iconPalette = [
-  'i-tabler-bookmark', 'i-tabler-target', 'i-tabler-eye', 'i-tabler-mouse',
-  'i-tabler-keyboard', 'i-tabler-clock', 'i-tabler-flag', 'i-tabler-bolt',
-  'i-tabler-fish', 'i-tabler-sword', 'i-tabler-heart', 'i-tabler-coin',
-  'i-tabler-package', 'i-tabler-settings', 'i-tabler-puzzle', 'i-tabler-wand',
+  'i-tabler-bookmark',
+  'i-tabler-target',
+  'i-tabler-eye',
+  'i-tabler-mouse',
+  'i-tabler-keyboard',
+  'i-tabler-clock',
+  'i-tabler-flag',
+  'i-tabler-bolt',
+  'i-tabler-fish',
+  'i-tabler-sword',
+  'i-tabler-heart',
+  'i-tabler-coin',
+  'i-tabler-package',
+  'i-tabler-settings',
+  'i-tabler-puzzle',
+  'i-tabler-wand',
 ]
 
 const shortcutError = computed(() => {
@@ -292,7 +345,7 @@ function onSave() {
   if (!canSave.value) return
   const payload = props.editingId
     ? store.getById(props.editingId)?.payload
-    : ({ type: 'node' as const, kind: props.sourceKind!, config: props.sourceConfig ?? {} })
+    : { type: 'node' as const, kind: props.sourceKind!, config: props.sourceConfig ?? {} }
   if (!payload) return
 
   const data = {
@@ -355,7 +408,11 @@ function close() {
   flex-direction: column;
   box-shadow: -20px 0 50px -10px rgba(0, 0, 0, 0.7);
   font-family:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'PingFang SC', sans-serif;
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'PingFang SC',
+    sans-serif;
 }
 .drawer-header {
   display: flex;
@@ -363,11 +420,7 @@ function close() {
   gap: 10px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--ui-border);
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    transparent 60%
-  );
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%);
 }
 .drawer-body {
   flex: 1;

@@ -1,9 +1,9 @@
 <template>
   <div class="px-8 py-6 space-y-5">
     <header class="flex items-center gap-3">
-      <UButton v-if="!editing" color="primary" icon="i-tabler-plus" @click="onCreate"
-        >{{ t('schedule.create') }}</UButton
-      >
+      <UButton v-if="!editing" color="primary" icon="i-tabler-plus" @click="onCreate">{{
+        t('schedule.create')
+      }}</UButton>
       <UButton
         v-else
         variant="ghost"
@@ -52,7 +52,9 @@ onMounted(() => {
 })
 
 async function onCreate() {
-  const draft = await store.createDraft(t('schedule.create_default_name', { n: store.list.length + 1 }))
+  const draft = await store.createDraft(
+    t('schedule.create_default_name', { n: store.list.length + 1 }),
+  )
   if (draft) editing.value = draft
 }
 

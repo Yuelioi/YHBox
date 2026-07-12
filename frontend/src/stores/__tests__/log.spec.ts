@@ -7,7 +7,9 @@ describe('useLogStore', () => {
 
   it('appendSystem adds SYS-tagged lines', () => {
     const s = useLogStore()
-    s.appendSystem(1, ['{"time":"2026-05-28T10:00:00Z","level":"info","tag":"SYSTEM","message":"hello"}'])
+    s.appendSystem(1, [
+      '{"time":"2026-05-28T10:00:00Z","level":"info","tag":"SYSTEM","message":"hello"}',
+    ])
     expect(s.lines).toHaveLength(1)
     expect(s.lines[0].source).toBe('SYS')
   })

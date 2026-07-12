@@ -4,7 +4,7 @@
   <svg
     v-if="guides.length > 0"
     class="absolute inset-0 pointer-events-none w-full h-full"
-    style="z-index: 5; overflow: visible;"
+    style="z-index: 5; overflow: visible"
   >
     <g :transform="transform">
       <line
@@ -29,8 +29,10 @@ import { useVueFlow } from '@vue-flow/core'
 
 export interface SnapGuide {
   axis: 'x' | 'y'
-  x1: number; y1: number
-  x2: number; y2: number
+  x1: number
+  y1: number
+  x2: number
+  y2: number
 }
 
 defineProps<{

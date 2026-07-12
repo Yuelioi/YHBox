@@ -56,10 +56,14 @@
       >
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-[11px] font-mono text-primary bg-primary/10 rounded px-1 shrink-0">{{ s.prefix }}</span>
+            <span class="text-[11px] font-mono text-primary bg-primary/10 rounded px-1 shrink-0">{{
+              s.prefix
+            }}</span>
             <span class="text-[12px] text-highlighted truncate">{{ s.name }}</span>
           </div>
-          <div class="text-[11px] font-mono text-muted truncate">{{ s.description || firstLine(s.body) }}</div>
+          <div class="text-[11px] font-mono text-muted truncate">
+            {{ s.description || firstLine(s.body) }}
+          </div>
         </div>
         <UButton
           icon="i-tabler-pencil"
@@ -92,7 +96,13 @@
         </UButton>
       </template>
       <template v-else>
-        <UButton variant="soft" color="primary" icon="i-tabler-plus" class="mr-auto" @click="startNew('')">
+        <UButton
+          variant="soft"
+          color="primary"
+          icon="i-tabler-plus"
+          class="mr-auto"
+          @click="startNew('')"
+        >
           {{ t('inspector.snippet_manager_new') }}
         </UButton>
         <UButton variant="ghost" color="neutral" @click="emit('update:open', false)">
@@ -107,11 +117,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
-import {
-  useCodeSnippetsStore,
-  type CodeSnippet,
-  type CodeSnippetLang,
-} from '@/stores/codeSnippets'
+import { useCodeSnippetsStore, type CodeSnippet, type CodeSnippetLang } from '@/stores/codeSnippets'
 
 const { t } = useI18n()
 
@@ -138,12 +144,15 @@ const body = ref('')
 const prefixValid = computed(() => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(prefix.value.trim()))
 const canSave = computed(() => prefixValid.value && !!name.value.trim() && !!body.value.trim())
 
-watch(() => props.open, (open) => {
-  if (!open) return
-  void store.ensureLoaded()
-  if (props.initialBody !== undefined) startNew(props.initialBody)
-  else editing.value = null
-})
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) return
+    void store.ensureLoaded()
+    if (props.initialBody !== undefined) startNew(props.initialBody)
+    else editing.value = null
+  },
+)
 
 function startNew(initial: string) {
   editing.value = 'new'

@@ -26,8 +26,12 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
 
   // 侧栏 '容器' 跳回正在编辑的容器 — 离开列表/进入编辑器时 set, ContainersView mount 时 clear.
   const lastEditingContainerID = ref<string>('')
-  function setLastEditing(id: string) { lastEditingContainerID.value = id }
-  function clearLastEditing() { lastEditingContainerID.value = '' }
+  function setLastEditing(id: string) {
+    lastEditingContainerID.value = id
+  }
+  function clearLastEditing() {
+    lastEditingContainerID.value = ''
+  }
 
   // ── 全局池访问 ──
   const subgraphList = computed<Subgraph[]>(() => Object.values(subgraphsById.value))
@@ -35,7 +39,9 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     return subgraphsById.value[id]
   }
   // 用户可见子图 = 排除匿名 (CollapsedNode 后备体)。子图库/插入候选用。
-  const visibleSubgraphs = computed<Subgraph[]>(() => subgraphList.value.filter((s) => !s.isAnonymous))
+  const visibleSubgraphs = computed<Subgraph[]>(() =>
+    subgraphList.value.filter((s) => !s.isAnonymous),
+  )
 
   // setPool 整体替换全局池 (首次加载).
   function setPool(list: Subgraph[]) {
@@ -60,7 +66,9 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
     return editorPathByContainer.value[cid] ?? []
   }
   // 只读 computed —— 写走 setPath / 导航 action。
-  const editorPath = computed<string[]>(() => editorPathByContainer.value[activeContainerID.value] ?? [])
+  const editorPath = computed<string[]>(
+    () => editorPathByContainer.value[activeContainerID.value] ?? [],
+  )
 
   function setPath(path: string[]) {
     if (activeContainerID.value) editorPathByContainer.value[activeContainerID.value] = path
@@ -120,7 +128,7 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   function countSubgraphRefs(sgID: string): number {
     let count = 0
     for (const sg of subgraphList.value) {
-      for (const n of (sg.graph?.nodes ?? [])) {
+      for (const n of sg.graph?.nodes ?? []) {
         if (n.kind === 'Subgraph' && (n as any).config?.SubgraphID === sgID) count++
       }
     }
@@ -142,7 +150,11 @@ export const useContainerEditorStore = defineStore('containerEditor', () => {
   }
 
   // clipboard 暂存 — 跨容器共享是有意的 (容器间 copy/paste; 全局化后引用即语义).
-  const clipboard = ref<{ nodes: any[]; edges: any[]; subgraphsDeepCopy: Record<string, any> } | null>(null)
+  const clipboard = ref<{
+    nodes: any[]
+    edges: any[]
+    subgraphsDeepCopy: Record<string, any>
+  } | null>(null)
 
   return {
     MAIN_GRAPH_KEY,

@@ -98,7 +98,7 @@ async function openCleanup() {
   cleanupLoading.value = true
   cleanupError.value = ''
   try {
-    cleanupPreview.value = await backend.recording.previewCleanup() as RecordingCleanupPreview
+    cleanupPreview.value = (await backend.recording.previewCleanup()) as RecordingCleanupPreview
   } catch (error) {
     cleanupError.value = errorMessage(error)
   } finally {
@@ -109,7 +109,7 @@ async function openCleanup() {
 async function cleanup(ids: string[]) {
   cleanupBusy.value = true
   try {
-    const result = await backend.recording.cleanupUnused(ids) as {
+    const result = (await backend.recording.cleanupUnused(ids)) as {
       deleted: string[]
       skipped: unknown[]
       failed: string[]
@@ -130,7 +130,11 @@ async function cleanup(ids: string[]) {
     }
     cleanupOpen.value = false
   } catch (error) {
-    toast.add({ title: t('recordingCleanup.delete_failed'), description: errorMessage(error), color: 'error' })
+    toast.add({
+      title: t('recordingCleanup.delete_failed'),
+      description: errorMessage(error),
+      color: 'error',
+    })
   } finally {
     cleanupBusy.value = false
   }

@@ -74,7 +74,15 @@ export const useContainersStore = defineStore('containers', () => {
   }
 
   return {
-    list, reload, create, update, remove, deleteMany, exportPackage, run, stopAll,
+    list,
+    reload,
+    create,
+    update,
+    remove,
+    deleteMany,
+    exportPackage,
+    run,
+    stopAll,
     isRecordingLocked,
   }
 })

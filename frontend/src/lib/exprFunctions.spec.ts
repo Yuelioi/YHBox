@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { setExprFunctions, allExprFunctions, exprFnNames, tokenAtCaret, unknownFnsIn, lintExpr, parseSigParams } from './exprFunctions'
+import {
+  setExprFunctions,
+  allExprFunctions,
+  exprFnNames,
+  tokenAtCaret,
+  unknownFnsIn,
+  lintExpr,
+  parseSigParams,
+} from './exprFunctions'
 
 // 函数表集合/arity 的权威测试在 Go 侧 (builtins_test.go TestFunctions_DTO) —
 // FE 不再手写表, 这里只测 store 喂表 + 纯函数逻辑.
@@ -10,7 +18,7 @@ describe('setExprFunctions', () => {
       { name: 'clamp', sig: 'clamp(x, min, max)', minArgs: 3, maxArgs: 3 },
       { name: 'rand', sig: 'rand()', minArgs: 0, maxArgs: 0 },
     ])
-    expect(allExprFunctions().map(f => f.name)).toEqual(['clamp', 'rand'])
+    expect(allExprFunctions().map((f) => f.name)).toEqual(['clamp', 'rand'])
     expect(exprFnNames().has('clamp')).toBe(true)
     expect(exprFnNames().has('clmap')).toBe(false)
   })

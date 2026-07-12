@@ -48,8 +48,16 @@ export function useBatchSelect() {
   }
 
   return {
-    enabled, selected, selectedIDs, count,
-    toggle, clear, selectAll, isSelected,
-    enable, disable, toggleMode,
+    enabled,
+    selected,
+    selectedIDs,
+    count,
+    toggle,
+    clear,
+    selectAll,
+    isSelected,
+    enable,
+    disable,
+    toggleMode,
   }
 }

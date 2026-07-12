@@ -108,7 +108,10 @@ describe('deriveFields schema passthrough', () => {
       type: 'String',
       widget: {
         kind: 'async-dropdown',
-        props: { asyncSource: 'androidADBDevices', applyMeta: { width: 'Width', height: 'Height' } },
+        props: {
+          asyncSource: 'androidADBDevices',
+          applyMeta: { width: 'Width', height: 'Height' },
+        },
       },
     } as unknown as InputSpec
 

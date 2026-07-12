@@ -17,7 +17,13 @@ import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useSnippetsStore, type Snippet } from '@/stores/snippets'
 import { useLibraryStore } from '@/stores/library'
-import { type Container, type Graph, type GraphNode, type GraphEdge, type VarDecl } from '@/lib/backend'
+import {
+  type Container,
+  type Graph,
+  type GraphNode,
+  type GraphEdge,
+  type VarDecl,
+} from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { dataInTypeFor, getSpec } from '@/components/containers/nodeRegistry/registry'
 import { isCompatibleType, type VarType } from '@/lib/variableRef'
@@ -27,7 +33,9 @@ import { newNodeID, genNodeID } from './ids'
 import { AUTO_CONNECT_THRESHOLD_FLOW_PX } from './constants'
 import { useInsertPoint } from './useInsertPoint'
 
-type ToastApi = { add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void }
+type ToastApi = {
+  add: (opts: { title: string; description?: string; color?: string; icon?: string }) => void
+}
 
 function cloneDefaultConfig(config: Record<string, unknown> | undefined): Record<string, unknown> {
   return JSON.parse(JSON.stringify(config ?? {}))
@@ -67,9 +75,14 @@ interface UseNodeCreationOpts {
 
 export function useNodeCreation(opts: UseNodeCreationOpts) {
   const {
-    draft, activeGraph, selectedID,
-    applyDraftMutation, syncFlowFromDraft, refreshSubgraphStore,
-    autoCreateSubgraphForNewNode, toast,
+    draft,
+    activeGraph,
+    selectedID,
+    applyDraftMutation,
+    syncFlowFromDraft,
+    refreshSubgraphStore,
+    autoCreateSubgraphForNewNode,
+    toast,
   } = opts
   const { screenToFlowCoordinate } = useVueFlow()
   const { viewportCenterForNode, screenPointToFlow } = useInsertPoint()
@@ -111,12 +124,18 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
 
   function defaultLiteralFor(type: VarDecl['type']): unknown {
     switch (type) {
-      case 'number': return 0
-      case 'string': return ''
-      case 'bool': return false
-      case 'point': return { x: 0.5, y: 0.5 }
-      case 'list': return []
-      default: return null  // 'any' — no useful default
+      case 'number':
+        return 0
+      case 'string':
+        return ''
+      case 'bool':
+        return false
+      case 'point':
+        return { x: 0.5, y: 0.5 }
+      case 'list':
+        return []
+      default:
+        return null // 'any' — no useful default
     }
   }
 
@@ -173,17 +192,19 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     }
     const config: Record<string, unknown> = { literal }
     // Pin-aware auto-connect: DOM query 必须在 applyDraftMutation 触发 re-render 前
-    const autoConnectTarget = kind === 'GetVar'
-      ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType)
-      : null
+    const autoConnectTarget =
+      kind === 'GetVar' ? findNearestEligibleDataInPin(pos, payload.ref.type as VarType) : null
 
     addNode({
-      kind, pos, config,
+      kind,
+      pos,
+      config,
       connectEdge: autoConnectTarget
-        ? (node) => ({
-            from: `${node.id}.Value`,
-            to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
-          } as GraphEdge)
+        ? (node) =>
+            ({
+              from: `${node.id}.Value`,
+              to: `${autoConnectTarget.nodeID}.${autoConnectTarget.pinName}`,
+            }) as GraphEdge
         : undefined,
     })
   }
@@ -238,9 +259,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   // NodeExplorerModal 选 kind. screenPos = 唤起 explorer 那刻的鼠标屏幕坐标
   // (view 在 explorer 打开时快照 lastMousePos); 给了就落在鼠标附近, 没给落当前视口中心。
   function onPickKind(kind: string, screenPos?: { x: number; y: number }) {
-    const pos = screenPos
-      ? screenPointToFlow(screenPos)
-      : viewportCenterForNode()
+    const pos = screenPos ? screenPointToFlow(screenPos) : viewportCenterForNode()
     addNode({
       kind,
       pos,
@@ -266,7 +285,10 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
           draft.value.vars.push({ name, type: 'any' })
         }
         toast.add({
-          title: t('nodeCreation.auto_added_vars', { n: missing.length, names: missing.join(', ') }),
+          title: t('nodeCreation.auto_added_vars', {
+            n: missing.length,
+            names: missing.join(', '),
+          }),
           color: 'info',
         })
       }
@@ -300,11 +322,7 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
   // Programmatic add (录制完成等程序化加点).
   // 特殊: 不走 applyDraftMutation (直接 push + syncFlowFromDraft + 设 selected).
   // Start 单例 guard + autoCreateSubgraphForNewNode 前置 hook (失败不 push).
-  async function onAddNode(
-    kind: string,
-    atX?: number,
-    atY?: number,
-  ): Promise<string | null> {
+  async function onAddNode(kind: string, atX?: number, atY?: number): Promise<string | null> {
     if (!draft.value) return null
     const targetGraph = activeGraph.value
     if (!targetGraph) {
@@ -346,9 +364,14 @@ export function useNodeCreation(opts: UseNodeCreationOpts) {
     defaultLiteralFor,
     findNearestEligibleDataInPin,
     // 8 callsite 包装 (面向 view)
-    dropVar, dropNodeSpec, dropSnippet,
-    onInsertIncVar, onApplySnippet,
-    onPickKind, onPickLibrarySubgraph, onPickLibraryClip,
+    dropVar,
+    dropNodeSpec,
+    dropSnippet,
+    onInsertIncVar,
+    onApplySnippet,
+    onPickKind,
+    onPickLibrarySubgraph,
+    onPickLibraryClip,
     onAddNode,
   }
 }

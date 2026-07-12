@@ -44,9 +44,15 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-dimmed">
-            <span v-if="row.trace.backend">{{ t('log.action_trace.backend') }}={{ row.trace.backend }}</span>
-            <span v-if="hasDuration(row.trace)">{{ t('log.action_trace.duration') }}={{ row.trace.durationMs }}ms</span>
-            <span v-if="stepCount(row.trace)">{{ t('log.action_trace.coords') }}={{ stepCount(row.trace) }}</span>
+            <span v-if="row.trace.backend"
+              >{{ t('log.action_trace.backend') }}={{ row.trace.backend }}</span
+            >
+            <span v-if="hasDuration(row.trace)"
+              >{{ t('log.action_trace.duration') }}={{ row.trace.durationMs }}ms</span
+            >
+            <span v-if="stepCount(row.trace)"
+              >{{ t('log.action_trace.coords') }}={{ stepCount(row.trace) }}</span
+            >
             <span v-if="row.trace.containerId">container={{ row.trace.containerId }}</span>
           </div>
 
@@ -58,13 +64,14 @@
             <summary class="cursor-pointer select-none text-dimmed hover:text-toned">
               {{ t('log.action_trace.payload') }}
             </summary>
-            <pre class="mt-1 max-h-40 overflow-auto rounded bg-sunken px-2 py-1 text-[10px] leading-snug text-toned">{{ payloadText(row) }}</pre>
+            <pre
+              class="mt-1 max-h-40 overflow-auto rounded bg-sunken px-2 py-1 text-[10px] leading-snug text-toned"
+              >{{ payloadText(row) }}</pre
+            >
           </details>
         </div>
 
-        <div class="text-right text-dimmed tabular-nums">
-          #{{ row.number }}
-        </div>
+        <div class="text-right text-dimmed tabular-nums">#{{ row.number }}</div>
       </div>
     </div>
   </BaseModal>

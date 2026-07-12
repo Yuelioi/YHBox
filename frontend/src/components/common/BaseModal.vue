@@ -7,9 +7,17 @@ BaseModal 共享 modal 外壳 (纯黑底, 内容平铺 — 复刻 BaseModal 之�
 open 走 v-model, 跟 useDialogOpen() 正交。复杂内部布局由调用方塞 slot。
 -->
 <template>
-  <UModal :open="open" :dismissible="dismissible" :ui="{ content: contentClasses }" @update:open="(v: boolean) => emit('update:open', v)">
+  <UModal
+    :open="open"
+    :dismissible="dismissible"
+    :ui="{ content: contentClasses }"
+    @update:open="(v: boolean) => emit('update:open', v)"
+  >
     <template #content>
-      <div class="flex flex-col bg-default" :class="tall ? 'h-[92vh] max-h-[92vh]' : 'max-h-[85vh]'">
+      <div
+        class="flex flex-col bg-default"
+        :class="tall ? 'h-[92vh] max-h-[92vh]' : 'max-h-[85vh]'"
+      >
         <header class="flex items-center gap-2.5 px-5 py-3.5 border-b border-default shrink-0">
           <UIcon v-if="icon" :name="icon" :class="['size-5 shrink-0', iconColorClass]" />
           <h3 class="text-sm font-medium text-highlighted flex-1 min-w-0 truncate">{{ title }}</h3>

@@ -17,7 +17,11 @@ export type AlignMode =
   | 'v-equal'
 
 // sizeLookup 从 VueFlow 量好的 dimensions 建 id→尺寸 查表 (兜底 fallback, 含 0/缺失).
-function sizeLookup(nodes: VueFlowNode[], dim: 'width' | 'height', fallback: number): (id: string) => number {
+function sizeLookup(
+  nodes: VueFlowNode[],
+  dim: 'width' | 'height',
+  fallback: number,
+): (id: string) => number {
   const byID = new Map<string, number>()
   for (const n of nodes) byID.set(n.id, n.dimensions?.[dim] || fallback)
   return (id) => byID.get(id) ?? fallback
@@ -31,7 +35,8 @@ export function useGraphLayout(opts: {
   toast: { add: (o: Record<string, unknown>) => unknown }
   applyDraftMutation: (m: (d: Container) => void) => void
 }) {
-  const { activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast, applyDraftMutation } = opts
+  const { activeGraph, getSelectedNodes, syncFlowFromDraft, dirty, toast, applyDraftMutation } =
+    opts
   const { t } = useI18n()
 
   const { autoLayout } = useElkLayout({ activeGraph, applyDraftMutation, toast, t })
@@ -84,23 +89,31 @@ export function useGraphLayout(opts: {
         // 首尾节点保持不动, 中间节点摊成相邻边距相等. 尺寸取自 VueFlow 量好的 dimensions (兜底 220).
         const w = sizeLookup(sel, 'width', 220)
         const sorted = [...targets].sort((a, b) => a.x - b.x)
-        const first = sorted[0], last = sorted[sorted.length - 1]
-        const span = (last.x + w(last.id)) - first.x
+        const first = sorted[0],
+          last = sorted[sorted.length - 1]
+        const span = last.x + w(last.id) - first.x
         const totalW = sorted.reduce((s, n) => s + w(n.id), 0)
         const gap = (span - totalW) / (sorted.length - 1)
         let cursor = first.x
-        for (const n of sorted) { n.x = cursor; cursor += w(n.id) + gap }
+        for (const n of sorted) {
+          n.x = cursor
+          cursor += w(n.id) + gap
+        }
         break
       }
       case 'v-equal': {
         const h = sizeLookup(sel, 'height', 90)
         const sorted = [...targets].sort((a, b) => a.y - b.y)
-        const first = sorted[0], last = sorted[sorted.length - 1]
-        const span = (last.y + h(last.id)) - first.y
+        const first = sorted[0],
+          last = sorted[sorted.length - 1]
+        const span = last.y + h(last.id) - first.y
         const totalH = sorted.reduce((s, n) => s + h(n.id), 0)
         const gap = (span - totalH) / (sorted.length - 1)
         let cursor = first.y
-        for (const n of sorted) { n.y = cursor; cursor += h(n.id) + gap }
+        for (const n of sorted) {
+          n.y = cursor
+          cursor += h(n.id) + gap
+        }
         break
       }
     }

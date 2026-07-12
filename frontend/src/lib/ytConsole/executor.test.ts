@@ -5,29 +5,46 @@ import { runConsoleScript, type NodeModel } from './executor'
 function model(): NodeModel[] {
   return [
     {
-      id: 'a', kind: 'Sleep', label: '', sgID: null,
-      literal: { JitterPct: 0 }, defaults: { Duration: 1000, JitterPct: 0 },
+      id: 'a',
+      kind: 'Sleep',
+      label: '',
+      sgID: null,
+      literal: { JitterPct: 0 },
+      defaults: { Duration: 1000, JitterPct: 0 },
       specPins: { Duration: 'number', JitterPct: 'number' },
     },
     {
-      id: 'b', kind: 'Sleep', label: '', sgID: null,
-      literal: {}, defaults: { Duration: 1000, JitterPct: 0 },
+      id: 'b',
+      kind: 'Sleep',
+      label: '',
+      sgID: null,
+      literal: {},
+      defaults: { Duration: 1000, JitterPct: 0 },
       specPins: { Duration: 'number', JitterPct: 'number' },
     },
     {
-      id: 'c', kind: 'ClickTemplate', label: '', sgID: 'sub-1',
-      literal: { TimeoutMs: 5000 }, defaults: { TimeoutMs: 5000, Threshold: 0.85 },
+      id: 'c',
+      kind: 'ClickTemplate',
+      label: '',
+      sgID: 'sub-1',
+      literal: { TimeoutMs: 5000 },
+      defaults: { TimeoutMs: 5000, Threshold: 0.85 },
       specPins: { TimeoutMs: 'number', Threshold: 'number', MatchMode: 'string' },
     },
   ]
 }
 const ctx = (nodes = model(), selectedIds: string[] = []) => ({
-  nodes, selectedIds, container: { id: 'cont-1', name: 'C' },
+  nodes,
+  selectedIds,
+  container: { id: 'cont-1', name: 'C' },
 })
 
 describe('runConsoleScript', () => {
   it('filter + set 命中节点 → applied 正确, 计数对', () => {
-    const r = runConsoleScript(`yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))`, ctx())
+    const r = runConsoleScript(
+      `yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))`,
+      ctx(),
+    )
     expect(r.error).toBeUndefined()
     expect(r.applied).toEqual([
       { nodeId: 'a', sgID: null, pin: 'JitterPct', value: 10 },
@@ -41,11 +58,18 @@ describe('runConsoleScript', () => {
     const r = runConsoleScript(`yt.nodes[0].set('Nope', 1)`, ctx())
     expect(r.applied).toEqual([])
     expect(r.rejected).toHaveLength(1)
-    expect(r.rejected[0]).toMatchObject({ nodeId: 'a', pin: 'Nope', reason: expect.stringContaining('pin') })
+    expect(r.rejected[0]).toMatchObject({
+      nodeId: 'a',
+      pin: 'Nope',
+      reason: expect.stringContaining('pin'),
+    })
   })
 
   it('同 pin 多次 set → 只留最后值, 算 1 个改动', () => {
-    const r = runConsoleScript(`yt.nodes[0].set('JitterPct', 1); yt.nodes[0].set('JitterPct', 2)`, ctx())
+    const r = runConsoleScript(
+      `yt.nodes[0].set('JitterPct', 1); yt.nodes[0].set('JitterPct', 2)`,
+      ctx(),
+    )
     expect(r.applied).toEqual([{ nodeId: 'a', sgID: null, pin: 'JitterPct', value: 2 }])
     expect(r.pinCount).toBe(1)
   })
@@ -80,7 +104,7 @@ describe('runConsoleScript', () => {
       ctx(),
     )
     expect(r.applied).toEqual([{ nodeId: 'a', sgID: null, pin: 'Duration', value: 3000 }])
-    expect(r.rejected.map(x => x.pin).sort()).toEqual(['Duration', 'JitterPct'])
+    expect(r.rejected.map((x) => x.pin).sort()).toEqual(['Duration', 'JitterPct'])
   })
 
   it('bool 归一: "false" → false (不是 true), 2 → rejected', () => {
@@ -115,7 +139,10 @@ describe('runConsoleScript', () => {
   })
 
   it('yt.selected 仅选中子集', () => {
-    const r = runConsoleScript(`yt.selected.forEach(n => n.set('JitterPct', 9))`, ctx(model(), ['b']))
+    const r = runConsoleScript(
+      `yt.selected.forEach(n => n.set('JitterPct', 9))`,
+      ctx(model(), ['b']),
+    )
     expect(r.applied).toEqual([{ nodeId: 'b', sgID: null, pin: 'JitterPct', value: 9 }])
   })
 
@@ -127,7 +154,10 @@ describe('runConsoleScript', () => {
   })
 
   it('0 改动如实报告', () => {
-    const r = runConsoleScript(`yt.nodes.filter(n => n.kind === 'Nonexistent').forEach(n => n.set('X', 1))`, ctx())
+    const r = runConsoleScript(
+      `yt.nodes.filter(n => n.kind === 'Nonexistent').forEach(n => n.set('X', 1))`,
+      ctx(),
+    )
     expect(r.applied).toEqual([])
     expect(r.nodeCount).toBe(0)
     expect(r.pinCount).toBe(0)

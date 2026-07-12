@@ -74,14 +74,22 @@
             label="重新截屏"
             @click="reCapture"
           />
-          <span class="ml-auto text-[10px] text-dimmed">滚轮缩放 · 右键/空格拖动平移 · 方向键微调</span>
+          <span class="ml-auto text-[10px] text-dimmed"
+            >滚轮缩放 · 右键/空格拖动平移 · 方向键微调</span
+          >
         </div>
 
         <!-- 图区视口 -->
         <div
           ref="viewportEl"
           class="flex-1 min-h-0 relative overflow-hidden bg-default"
-          :class="viewport.panning.value ? 'cursor-grabbing' : viewport.spaceHeld.value ? 'cursor-grab' : 'cursor-crosshair'"
+          :class="
+            viewport.panning.value
+              ? 'cursor-grabbing'
+              : viewport.spaceHeld.value
+                ? 'cursor-grab'
+                : 'cursor-crosshair'
+          "
           @wheel="viewport.onWheel"
           @pointerdown="onViewportPointerDown"
           @mousemove="onViewportMouseMove"
@@ -145,15 +153,28 @@
                 />
                 <div
                   class="absolute left-0 bg-black/55"
-                  :style="{ top: rectScreen.y + 'px', height: rectScreen.h + 'px', width: Math.max(0, rectScreen.x) + 'px' }"
+                  :style="{
+                    top: rectScreen.y + 'px',
+                    height: rectScreen.h + 'px',
+                    width: Math.max(0, rectScreen.x) + 'px',
+                  }"
                 />
                 <div
                   class="absolute right-0 bg-black/55"
-                  :style="{ top: rectScreen.y + 'px', height: rectScreen.h + 'px', left: rectScreen.x + rectScreen.w + 'px' }"
+                  :style="{
+                    top: rectScreen.y + 'px',
+                    height: rectScreen.h + 'px',
+                    left: rectScreen.x + rectScreen.w + 'px',
+                  }"
                 />
                 <div
                   class="absolute border-2 border-primary"
-                  :style="{ left: rectScreen.x + 'px', top: rectScreen.y + 'px', width: rectScreen.w + 'px', height: rectScreen.h + 'px' }"
+                  :style="{
+                    left: rectScreen.x + 'px',
+                    top: rectScreen.y + 'px',
+                    width: rectScreen.w + 'px',
+                    height: rectScreen.h + 'px',
+                  }"
                 />
               </template>
             </div>
@@ -172,7 +193,9 @@
       </div>
 
       <!-- 右侧侧栏 -->
-      <aside class="w-72 shrink-0 border-l border-default bg-default p-3 overflow-y-auto flex flex-col gap-3">
+      <aside
+        class="w-72 shrink-0 border-l border-default bg-default p-3 overflow-y-auto flex flex-col gap-3"
+      >
         <!-- 实时读数 -->
         <section class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2">
           <h4 class="text-[10px] uppercase tracking-wider text-dimmed">光标</h4>
@@ -188,14 +211,23 @@
               </span>
             </div>
             <div v-if="cursorColor" class="flex items-center gap-2 pt-1">
-              <div class="size-6 rounded border border-default shrink-0" :style="{ backgroundColor: cursorColor.hex }" />
+              <div
+                class="size-6 rounded border border-default shrink-0"
+                :style="{ backgroundColor: cursorColor.hex }"
+              />
               <div class="space-y-0.5">
                 <div class="text-highlighted">{{ cursorColor.hex }}</div>
                 <div class="text-[10px] text-dimmed">
-                  RGB <span class="text-toned">{{ cursorColor.r }} {{ cursorColor.g }} {{ cursorColor.b }}</span>
+                  RGB
+                  <span class="text-toned"
+                    >{{ cursorColor.r }} {{ cursorColor.g }} {{ cursorColor.b }}</span
+                  >
                 </div>
                 <div class="text-[10px] text-dimmed">
-                  HSV <span class="text-toned">{{ cursorColor.h }} {{ cursorColor.s }} {{ cursorColor.v }}</span>
+                  HSV
+                  <span class="text-toned"
+                    >{{ cursorColor.h }} {{ cursorColor.s }} {{ cursorColor.v }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -233,32 +265,66 @@
             </div>
             <div class="text-[11px] font-mono tabular-nums">
               <span class="text-dimmed">ratio</span>
-              <span class="text-primary"> {{ pointRatio.x.toFixed(4) }}, {{ pointRatio.y.toFixed(4) }}</span>
+              <span class="text-primary">
+                {{ pointRatio.x.toFixed(4) }}, {{ pointRatio.y.toFixed(4) }}</span
+              >
             </div>
           </template>
         </section>
 
         <!-- 当前选择: rect / template_save / color -->
         <section v-else class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2">
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">{{ mode === 'color' ? '取色' : '框选' }}</h4>
-          <div v-if="!rectSelNat" class="text-[11px] text-dimmed">{{ mode === 'color' ? '框选颜色区域或点击单点取色' : '在图上拖一个矩形' }}</div>
+          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">
+            {{ mode === 'color' ? '取色' : '框选' }}
+          </h4>
+          <div v-if="!rectSelNat" class="text-[11px] text-dimmed">
+            {{ mode === 'color' ? '框选颜色区域或点击单点取色' : '在图上拖一个矩形' }}
+          </div>
           <template v-else>
             <div class="grid grid-cols-2 gap-1.5">
               <div class="flex items-center gap-1">
                 <label class="text-[10px] text-dimmed w-3">x</label>
-                <UInput :model-value="Math.round(rectSelNat.x)" type="number" size="xs" class="flex-1" :ui="{ base: 'font-mono' }" @update:model-value="(v: string | number) => setRect('x', v)" />
+                <UInput
+                  :model-value="Math.round(rectSelNat.x)"
+                  type="number"
+                  size="xs"
+                  class="flex-1"
+                  :ui="{ base: 'font-mono' }"
+                  @update:model-value="(v: string | number) => setRect('x', v)"
+                />
               </div>
               <div class="flex items-center gap-1">
                 <label class="text-[10px] text-dimmed w-3">y</label>
-                <UInput :model-value="Math.round(rectSelNat.y)" type="number" size="xs" class="flex-1" :ui="{ base: 'font-mono' }" @update:model-value="(v: string | number) => setRect('y', v)" />
+                <UInput
+                  :model-value="Math.round(rectSelNat.y)"
+                  type="number"
+                  size="xs"
+                  class="flex-1"
+                  :ui="{ base: 'font-mono' }"
+                  @update:model-value="(v: string | number) => setRect('y', v)"
+                />
               </div>
               <div class="flex items-center gap-1">
                 <label class="text-[10px] text-dimmed w-3">w</label>
-                <UInput :model-value="Math.round(rectSelNat.w)" type="number" size="xs" class="flex-1" :ui="{ base: 'font-mono' }" @update:model-value="(v: string | number) => setRect('w', v)" />
+                <UInput
+                  :model-value="Math.round(rectSelNat.w)"
+                  type="number"
+                  size="xs"
+                  class="flex-1"
+                  :ui="{ base: 'font-mono' }"
+                  @update:model-value="(v: string | number) => setRect('w', v)"
+                />
               </div>
               <div class="flex items-center gap-1">
                 <label class="text-[10px] text-dimmed w-3">h</label>
-                <UInput :model-value="Math.round(rectSelNat.h)" type="number" size="xs" class="flex-1" :ui="{ base: 'font-mono' }" @update:model-value="(v: string | number) => setRect('h', v)" />
+                <UInput
+                  :model-value="Math.round(rectSelNat.h)"
+                  type="number"
+                  size="xs"
+                  class="flex-1"
+                  :ui="{ base: 'font-mono' }"
+                  @update:model-value="(v: string | number) => setRect('h', v)"
+                />
               </div>
             </div>
             <div class="text-[11px] font-mono tabular-nums">
@@ -287,10 +353,20 @@
                 class="inline-flex items-center gap-1 rounded bg-elevated/60 border border-default/40 pl-1.5 pr-1 py-0.5 text-[10px] text-toned"
               >
                 {{ tag }}
-                <UIcon name="i-tabler-x" class="size-3 cursor-pointer hover:text-error" @click="tplTags.splice(i, 1)" />
+                <UIcon
+                  name="i-tabler-x"
+                  class="size-3 cursor-pointer hover:text-error"
+                  @click="tplTags.splice(i, 1)"
+                />
               </span>
             </div>
-            <UInput v-model="tplTagInput" size="sm" class="w-full" placeholder="输入后回车添加" @keyup.enter="addTplTag" />
+            <UInput
+              v-model="tplTagInput"
+              size="sm"
+              class="w-full"
+              placeholder="输入后回车添加"
+              @keyup.enter="addTplTag"
+            />
           </div>
           <p class="text-[10px] text-dimmed">不框选 = 保存全图；框选 = 自动裁剪</p>
         </section>
@@ -413,13 +489,23 @@ const cursorColor = ref<CursorColor | null>(null)
 
 // 原生 → 视口容器屏幕坐标 (覆盖层用).
 function natToScreen(nx: number, ny: number): Point {
-  return { x: viewport.offset.value.x + nx * viewport.zoom.value, y: viewport.offset.value.y + ny * viewport.zoom.value }
+  return {
+    x: viewport.offset.value.x + nx * viewport.zoom.value,
+    y: viewport.offset.value.y + ny * viewport.zoom.value,
+  }
 }
-const pointScreen = computed(() => (pointSelNat.value ? natToScreen(pointSelNat.value.x, pointSelNat.value.y) : null))
+const pointScreen = computed(() =>
+  pointSelNat.value ? natToScreen(pointSelNat.value.x, pointSelNat.value.y) : null,
+)
 const rectScreen = computed(() => {
   if (!rectSelNat.value) return null
   const tl = natToScreen(rectSelNat.value.x, rectSelNat.value.y)
-  return { x: tl.x, y: tl.y, w: rectSelNat.value.w * viewport.zoom.value, h: rectSelNat.value.h * viewport.zoom.value }
+  return {
+    x: tl.x,
+    y: tl.y,
+    w: rectSelNat.value.w * viewport.zoom.value,
+    h: rectSelNat.value.h * viewport.zoom.value,
+  }
 })
 
 const pointRatio = computed<Point>(() => ({
@@ -557,7 +643,15 @@ function updateCursor(clientX: number, clientY: number) {
     const py = Math.min(natH.value - 1, Math.round(raw.y))
     const d = sampleCtx.getImageData(px, py, 1, 1).data
     const hsv = rgbToHsv(d[0], d[1], d[2])
-    cursorColor.value = { r: d[0], g: d[1], b: d[2], h: hsv.h, s: hsv.s, v: hsv.v, hex: rgbToHex(d[0], d[1], d[2]) }
+    cursorColor.value = {
+      r: d[0],
+      g: d[1],
+      b: d[2],
+      h: hsv.h,
+      s: hsv.s,
+      v: hsv.v,
+      hex: rgbToHex(d[0], d[1], d[2]),
+    }
   }
 }
 
@@ -646,7 +740,8 @@ function setRect(field: 'x' | 'y' | 'w' | 'h', v: string | number) {
 // ── 方向键微调 ─────────────────────────────────────────
 function onKeyDown(e: KeyboardEvent) {
   const el = e.target as HTMLElement | null
-  const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+  const typing =
+    !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
   // 空格 = 临时手型平移; preventDefault 防止聚焦的工具栏按钮被空格"点击"复位视图 + 防页面滚动.
   if (e.code === 'Space' && !typing) e.preventDefault()
   viewport.onKeyDown(e)

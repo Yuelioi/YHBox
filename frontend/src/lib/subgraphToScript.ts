@@ -27,7 +27,9 @@ export interface ConvertCtx {
   subgraphsById: ReadonlyMap<string, SubgraphLike>
 }
 
-export type ConvertResult = { ok: true; code: string } | { ok: false; unsupported: UnsupportedItem[] }
+export type ConvertResult =
+  | { ok: true; code: string }
+  | { ok: false; unsupported: UnsupportedItem[] }
 
 const SUBGRAPH_KINDS = new Set(['Subgraph', 'CollapsedNode'])
 const STRUCTURAL_KINDS = new Set(['Loop', 'Break', 'Continue'])
@@ -147,7 +149,11 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
       continue
     }
     if (spec?.dynamicInputs && n.kind !== 'Expr') bad(n, 'dynamic_inputs')
-    if (spec?.isPureData && (dataConsumers.get(n.id) ?? 0) > 0 && Object.keys(spec.dataOut).length > 1)
+    if (
+      spec?.isPureData &&
+      (dataConsumers.get(n.id) ?? 0) > 0 &&
+      Object.keys(spec.dataOut).length > 1
+    )
       bad(n, 'multi_out_pure')
     // Fail(error 语义)出口接线 → 图里是错误路由, 脚本里是异常, v1 不自动生成 try/catch。
     const wiredPins = execOutByNode.get(n.id)
@@ -213,7 +219,12 @@ export function subgraphToScript(sg: SubgraphLike, ctx: ConvertCtx): ConvertResu
   }
 
   // data 入 pin → 表达式 (来源: 纯函数内联/提升 const、exec 祖先的 rN.字段)。
-  const dataRef = (consumer: GraphNode, src: { src: string; pin: string }, ancestors: Set<string>, indent: string): string => {
+  const dataRef = (
+    consumer: GraphNode,
+    src: { src: string; pin: string },
+    ancestors: Set<string>,
+    indent: string,
+  ): string => {
     const srcNode = nodeById.get(src.src)
     if (!srcNode) {
       bad(consumer, 'cross_branch_data')

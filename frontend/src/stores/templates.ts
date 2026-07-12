@@ -37,7 +37,13 @@ export const useTemplatesStore = defineStore('templates', () => {
     recordedResolution: [number, number],
     region: [number, number, number, number],
   ): Promise<string | null> {
-    const guid = await backend.assets.saveTemplateCapture(dataURL, name, tags, recordedResolution, region)
+    const guid = await backend.assets.saveTemplateCapture(
+      dataURL,
+      name,
+      tags,
+      recordedResolution,
+      region,
+    )
     if (guid === undefined || guid === null) return null
     await reload()
     return guid as string
@@ -76,5 +82,15 @@ export const useTemplatesStore = defineStore('templates', () => {
     return r === undefined ? null : (r as string)
   }
 
-  return { containerId, map, setContainer, reload, save, remove, updateMeta, capture, readBlobDataURL }
+  return {
+    containerId,
+    map,
+    setContainer,
+    reload,
+    save,
+    remove,
+    updateMeta,
+    capture,
+    readBlobDataURL,
+  }
 })

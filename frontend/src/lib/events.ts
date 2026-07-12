@@ -30,25 +30,29 @@ export function wireEvents() {
     const payload = e?.data?.[0] ?? e?.data ?? e
     const entries = payload?.entries
     if (Array.isArray(entries)) {
-      useLogStore().appendNodeEnter(entries.map((x: any) => ({
-        nodeId: String(x?.nodeId ?? '?'),
-        nodeKind: String(x?.nodeKind ?? '?'),
-        count: Number(x?.count ?? 1),
-      })))
+      useLogStore().appendNodeEnter(
+        entries.map((x: any) => ({
+          nodeId: String(x?.nodeId ?? '?'),
+          nodeKind: String(x?.nodeKind ?? '?'),
+          count: Number(x?.count ?? 1),
+        })),
+      )
     }
   })
   Events.On('container:node-dump-batch', (e: any) => {
     const payload = e?.data?.[0] ?? e?.data ?? e
     const entries = payload?.entries
     if (Array.isArray(entries)) {
-      useLogStore().appendNodeDump(entries.map((x: any) => ({
-        nodeId: String(x?.nodeId ?? '?'),
-        nodeKind: String(x?.nodeKind ?? '?'),
-        lineKey: String(x?.lineKey ?? ''),
-        line: String(x?.line ?? ''),
-        count: Number(x?.count ?? 1),
-        final: Boolean(x?.final),
-      })))
+      useLogStore().appendNodeDump(
+        entries.map((x: any) => ({
+          nodeId: String(x?.nodeId ?? '?'),
+          nodeKind: String(x?.nodeKind ?? '?'),
+          lineKey: String(x?.lineKey ?? ''),
+          line: String(x?.line ?? ''),
+          count: Number(x?.count ?? 1),
+          final: Boolean(x?.final),
+        })),
+      )
     }
   })
   Events.On('container:action-trace', (e: any) => {

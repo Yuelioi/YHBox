@@ -11,7 +11,9 @@
     <section class="rounded-xl bg-default border border-default p-5 space-y-4">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-plug-connected" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('settingsAI.connections.title') }}</h2>
+        <h2 class="text-sm font-medium text-highlighted">
+          {{ t('settingsAI.connections.title') }}
+        </h2>
       </div>
       <p class="text-xs text-dimmed">{{ t('settingsAI.connections.hint') }}</p>
 
@@ -20,7 +22,11 @@
           v-for="(c, i) in draft"
           :key="c.id"
           class="rounded-md border px-3 py-3 space-y-2.5"
-          :class="c.id === defaultId ? 'border-primary/50 bg-primary/5' : 'border-default/60 bg-elevated/30'"
+          :class="
+            c.id === defaultId
+              ? 'border-primary/50 bg-primary/5'
+              : 'border-default/60 bg-elevated/30'
+          "
         >
           <div class="flex items-center gap-2">
             <URadio

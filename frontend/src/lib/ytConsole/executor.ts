@@ -43,11 +43,15 @@ export interface RunContext {
 }
 
 // 把值按 pin 类型归一; 返回 { ok, value } 或 { ok:false, reason }。
-function coerce(type: PinType, v: unknown): { ok: true; value: unknown } | { ok: false; reason: string } {
+function coerce(
+  type: PinType,
+  v: unknown,
+): { ok: true; value: unknown } | { ok: false; reason: string } {
   switch (type) {
     case 'number': {
       const n = Number(v)
-      if (!Number.isFinite(n)) return { ok: false, reason: `${JSON.stringify(v)} is not a finite number` }
+      if (!Number.isFinite(n))
+        return { ok: false, reason: `${JSON.stringify(v)} is not a finite number` }
       return { ok: true, value: n }
     }
     case 'bool': {
@@ -105,7 +109,12 @@ export function runConsoleScript(code: string, ctx: RunContext): RunResult {
       set(pin: string, value: unknown): void {
         const type = m.specPins[pin]
         if (type === undefined) {
-          rejected.push({ nodeId: m.id, kind: m.kind, pin, reason: `node (${m.kind}) has no input pin "${pin}"` })
+          rejected.push({
+            nodeId: m.id,
+            kind: m.kind,
+            pin,
+            reason: `node (${m.kind}) has no input pin "${pin}"`,
+          })
           return
         }
         const c = coerce(type, value)
@@ -127,7 +136,9 @@ export function runConsoleScript(code: string, ctx: RunContext): RunResult {
 
   const nodes = Object.freeze(ctx.nodes.map((m) => handleById.get(m.id)))
   const selectedSet = new Set(ctx.selectedIds)
-  const selected = Object.freeze(ctx.nodes.filter((m) => selectedSet.has(m.id)).map((m) => handleById.get(m.id)))
+  const selected = Object.freeze(
+    ctx.nodes.filter((m) => selectedSet.has(m.id)).map((m) => handleById.get(m.id)),
+  )
   const yt = Object.freeze({
     nodes,
     selected,

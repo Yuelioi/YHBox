@@ -3,7 +3,11 @@
        modelValue = 完整 tabler 名 (i-tabler-xxx)。 -->
   <div class="space-y-2 w-full">
     <UInput
-      v-model="query" size="xs" class="w-full" :placeholder="t('iconPicker.search_placeholder')" icon="i-tabler-search"
+      v-model="query"
+      size="xs"
+      class="w-full"
+      :placeholder="t('iconPicker.search_placeholder')"
+      icon="i-tabler-search"
       :loading="searching"
     />
     <div class="flex flex-wrap gap-1.5 max-h-48 overflow-auto">
@@ -18,7 +22,10 @@
       >
         <UIcon :name="ic" class="size-4" />
       </button>
-      <div v-if="query.trim() && shown.length === 0 && !searching" class="text-[11px] text-dimmed py-2 px-1">
+      <div
+        v-if="query.trim() && shown.length === 0 && !searching"
+        class="text-[11px] text-dimmed py-2 px-1"
+      >
         {{ t('iconPicker.no_match') }}
       </div>
     </div>

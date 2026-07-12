@@ -80,7 +80,11 @@ export function useEditorSave(opts: {
       if (verrs && verrs.length > 0 && onValidationErrors) {
         onValidationErrors(verrs)
       } else {
-        toast.add({ title: t('editorSave.main_save_failed'), description: errorMessage(e), color: 'error' })
+        toast.add({
+          title: t('editorSave.main_save_failed'),
+          description: errorMessage(e),
+          color: 'error',
+        })
       }
       return false
     }
@@ -88,7 +92,9 @@ export function useEditorSave(opts: {
     dirty.value = false
     saveFlash.value = true
     window.clearTimeout(flashTimer)
-    flashTimer = window.setTimeout(() => { saveFlash.value = false }, 1600)
+    flashTimer = window.setTimeout(() => {
+      saveFlash.value = false
+    }, 1600)
     return true
   }
 

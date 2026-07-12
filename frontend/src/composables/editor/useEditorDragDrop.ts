@@ -18,9 +18,8 @@ export type EditorDragPayload =
  */
 export function startEditorDrag(payload: EditorDragPayload, e: DragEvent): void {
   if (!e.dataTransfer) return
-  const enriched: EditorDragPayload = payload.type === 'var'
-    ? { ...payload, modifier: e.altKey ? 'alt' : 'none' }
-    : payload
+  const enriched: EditorDragPayload =
+    payload.type === 'var' ? { ...payload, modifier: e.altKey ? 'alt' : 'none' } : payload
   e.dataTransfer.setData(MIME, JSON.stringify(enriched))
   e.dataTransfer.effectAllowed = 'copy'
 }

@@ -40,7 +40,9 @@ interface UseCommandPaletteOpts {
   onAddVar: () => void
 }
 
-export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: ComputedRef<Command[]> } {
+export function useCommandPalette(opts: UseCommandPaletteOpts): {
+  commands: ComputedRef<Command[]>
+} {
   const { t } = useI18n()
   const editorStore = useContainerEditorStore()
   const execStore = useExecutionStore()
@@ -52,127 +54,210 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
     return [
       // ── edit ──
       {
-        id: 'edit.copy', label: t('editor.palette.cmd.copy'), group: 'edit', icon: 'i-tabler-copy', shortcut: 'Ctrl+C',
+        id: 'edit.copy',
+        label: t('editor.palette.cmd.copy'),
+        group: 'edit',
+        icon: 'i-tabler-copy',
+        shortcut: 'Ctrl+C',
         disabled: selCount === 0,
         exec: () => opts.onCopySelection(),
       },
       {
-        id: 'edit.paste', label: t('editor.palette.cmd.paste'), group: 'edit', icon: 'i-tabler-clipboard', shortcut: 'Ctrl+V',
+        id: 'edit.paste',
+        label: t('editor.palette.cmd.paste'),
+        group: 'edit',
+        icon: 'i-tabler-clipboard',
+        shortcut: 'Ctrl+V',
         exec: () => void opts.onPasteSelection(),
       },
       {
-        id: 'edit.delete', label: t('editor.palette.cmd.delete'), group: 'edit', icon: 'i-tabler-trash', shortcut: 'Del',
+        id: 'edit.delete',
+        label: t('editor.palette.cmd.delete'),
+        group: 'edit',
+        icon: 'i-tabler-trash',
+        shortcut: 'Del',
         disabled: selCount === 0,
         exec: () => sel.forEach((n: any) => removeNodes([n.id])),
       },
       {
-        id: 'edit.undo', label: t('editor.palette.cmd.undo'), group: 'edit', icon: 'i-tabler-arrow-back-up', shortcut: 'Ctrl+Z',
+        id: 'edit.undo',
+        label: t('editor.palette.cmd.undo'),
+        group: 'edit',
+        icon: 'i-tabler-arrow-back-up',
+        shortcut: 'Ctrl+Z',
         disabled: !opts.canUndo.value,
         exec: () => opts.undo(),
       },
       {
-        id: 'edit.redo', label: t('editor.palette.cmd.redo'), group: 'edit', icon: 'i-tabler-arrow-forward-up', shortcut: 'Ctrl+Y',
+        id: 'edit.redo',
+        label: t('editor.palette.cmd.redo'),
+        group: 'edit',
+        icon: 'i-tabler-arrow-forward-up',
+        shortcut: 'Ctrl+Y',
         disabled: !opts.canRedo.value,
         exec: () => opts.redo(),
       },
       {
-        id: 'edit.fold', label: t('editor.palette.cmd.fold'), group: 'edit', icon: 'i-tabler-package-import',
+        id: 'edit.fold',
+        label: t('editor.palette.cmd.fold'),
+        group: 'edit',
+        icon: 'i-tabler-package-import',
         keywords: ['fold', 'subgraph', '折叠'],
         disabled: selCount === 0,
         exec: () => opts.onFoldSelection(),
       },
       {
-        id: 'edit.align-left', label: t('editor.palette.cmd.align_left'), group: 'edit', keywords: ['align', '对齐'],
+        id: 'edit.align-left',
+        label: t('editor.palette.cmd.align_left'),
+        group: 'edit',
+        keywords: ['align', '对齐'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('left'),
       },
       {
-        id: 'edit.align-right', label: t('editor.palette.cmd.align_right'), group: 'edit', keywords: ['align', '对齐'],
+        id: 'edit.align-right',
+        label: t('editor.palette.cmd.align_right'),
+        group: 'edit',
+        keywords: ['align', '对齐'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('right'),
       },
       {
-        id: 'edit.align-top', label: t('editor.palette.cmd.align_top'), group: 'edit', keywords: ['align', '对齐'],
+        id: 'edit.align-top',
+        label: t('editor.palette.cmd.align_top'),
+        group: 'edit',
+        keywords: ['align', '对齐'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('top'),
       },
       {
-        id: 'edit.align-bottom', label: t('editor.palette.cmd.align_bottom'), group: 'edit', keywords: ['align', '对齐'],
+        id: 'edit.align-bottom',
+        label: t('editor.palette.cmd.align_bottom'),
+        group: 'edit',
+        keywords: ['align', '对齐'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('bottom'),
       },
       {
-        id: 'edit.align-center-h', label: t('editor.palette.cmd.center_h'), group: 'edit', keywords: ['align', '对齐', '居中'],
+        id: 'edit.align-center-h',
+        label: t('editor.palette.cmd.center_h'),
+        group: 'edit',
+        keywords: ['align', '对齐', '居中'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('center-h'),
       },
       {
-        id: 'edit.align-center-v', label: t('editor.palette.cmd.center_v'), group: 'edit', keywords: ['align', '对齐', '居中'],
+        id: 'edit.align-center-v',
+        label: t('editor.palette.cmd.center_v'),
+        group: 'edit',
+        keywords: ['align', '对齐', '居中'],
         disabled: selCount < 2,
         exec: () => opts.onAlignSelected('center-v'),
       },
       {
-        id: 'edit.distribute-h', label: t('editor.palette.cmd.dist_h'), group: 'edit', keywords: ['distribute', '分布'],
+        id: 'edit.distribute-h',
+        label: t('editor.palette.cmd.dist_h'),
+        group: 'edit',
+        keywords: ['distribute', '分布'],
         disabled: selCount < 3,
         exec: () => opts.onAlignSelected('h-equal'),
       },
       {
-        id: 'edit.distribute-v', label: t('editor.palette.cmd.dist_v'), group: 'edit', keywords: ['distribute', '分布'],
+        id: 'edit.distribute-v',
+        label: t('editor.palette.cmd.dist_v'),
+        group: 'edit',
+        keywords: ['distribute', '分布'],
         disabled: selCount < 3,
         exec: () => opts.onAlignSelected('v-equal'),
       },
       {
-        id: 'edit.auto-layout-lr', label: t('editor.palette.cmd.auto_layout_lr'), group: 'edit',
-        icon: 'i-tabler-layout-board-split', shortcut: 'Ctrl+L',
+        id: 'edit.auto-layout-lr',
+        label: t('editor.palette.cmd.auto_layout_lr'),
+        group: 'edit',
+        icon: 'i-tabler-layout-board-split',
+        shortcut: 'Ctrl+L',
         keywords: ['layout', 'elk', '布局'],
         exec: () => opts.onAutoLayout('LR'),
       },
       {
-        id: 'edit.auto-layout-tb', label: t('editor.palette.cmd.auto_layout_tb'), group: 'edit',
-        icon: 'i-tabler-layout-rows', shortcut: 'Ctrl+Shift+L',
+        id: 'edit.auto-layout-tb',
+        label: t('editor.palette.cmd.auto_layout_tb'),
+        group: 'edit',
+        icon: 'i-tabler-layout-rows',
+        shortcut: 'Ctrl+Shift+L',
         keywords: ['layout', 'elk', '布局'],
         exec: () => opts.onAutoLayout('TB'),
       },
 
       // ── view ──
       {
-        id: 'view.toggle-left-sidebar', label: t('editor.palette.cmd.toggle_left_sidebar'), group: 'view',
+        id: 'view.toggle-left-sidebar',
+        label: t('editor.palette.cmd.toggle_left_sidebar'),
+        group: 'view',
         keywords: ['sidebar', 'panel', '侧栏', '变量', 'vars'],
-        exec: () => { opts.sidebarPrefs.value.leftDrawer = opts.sidebarPrefs.value.leftDrawer ? null : 'vars' },
+        exec: () => {
+          opts.sidebarPrefs.value.leftDrawer = opts.sidebarPrefs.value.leftDrawer ? null : 'vars'
+        },
       },
       {
-        id: 'view.toggle-inspector', label: t('editor.palette.cmd.toggle_inspector'), group: 'view',
+        id: 'view.toggle-inspector',
+        label: t('editor.palette.cmd.toggle_inspector'),
+        group: 'view',
         keywords: ['inspector', 'panel', '检查器'],
-        exec: () => { opts.sidebarPrefs.value.inspectorCollapsed = !opts.sidebarPrefs.value.inspectorCollapsed },
+        exec: () => {
+          opts.sidebarPrefs.value.inspectorCollapsed = !opts.sidebarPrefs.value.inspectorCollapsed
+        },
       },
 
       // ── navigate ──
       {
-        id: 'navigate.node-explorer', label: t('editor.palette.cmd.node_explorer'), group: 'navigate',
-        icon: 'i-tabler-grid-dots', shortcut: 'Tab',
+        id: 'navigate.node-explorer',
+        label: t('editor.palette.cmd.node_explorer'),
+        group: 'navigate',
+        icon: 'i-tabler-grid-dots',
+        shortcut: 'Tab',
         keywords: ['explorer', 'node', '节点'],
-        exec: () => { opts.sidebarPrefs.value.leftDrawer = opts.sidebarPrefs.value.leftDrawer === 'nodes' ? null : 'nodes' },
+        exec: () => {
+          opts.sidebarPrefs.value.leftDrawer =
+            opts.sidebarPrefs.value.leftDrawer === 'nodes' ? null : 'nodes'
+        },
       },
       {
-        id: 'navigate.library', label: t('editor.palette.cmd.library'), group: 'navigate',
+        id: 'navigate.library',
+        label: t('editor.palette.cmd.library'),
+        group: 'navigate',
         icon: 'i-tabler-books',
         keywords: ['library', 'subgraph', '库', '子图'],
-        exec: () => { opts.sidebarPrefs.value.leftDrawer = 'assets'; opts.sidebarPrefs.value.assetTab = 'library' },
+        exec: () => {
+          opts.sidebarPrefs.value.leftDrawer = 'assets'
+          opts.sidebarPrefs.value.assetTab = 'library'
+        },
       },
       {
-        id: 'navigate.settings', label: t('editor.palette.cmd.settings'), group: 'navigate',
-        icon: 'i-tabler-settings', shortcut: 'Ctrl+,',
+        id: 'navigate.settings',
+        label: t('editor.palette.cmd.settings'),
+        group: 'navigate',
+        icon: 'i-tabler-settings',
+        shortcut: 'Ctrl+,',
         keywords: ['settings', 'config', '设置'],
-        exec: () => { opts.settingsOpen.value = true },
+        exec: () => {
+          opts.settingsOpen.value = true
+        },
       },
       {
-        id: 'edit.js-console', label: t('editor.palette.cmd.js_console'), group: 'edit',
+        id: 'edit.js-console',
+        label: t('editor.palette.cmd.js_console'),
+        group: 'edit',
         icon: 'i-tabler-terminal-2',
         keywords: ['script', 'console', 'js', 'bulk', 'jitter', '脚本', '控制台', '批量'],
-        exec: () => { opts.jsConsoleOpen.value = true },
+        exec: () => {
+          opts.jsConsoleOpen.value = true
+        },
       },
       {
-        id: 'navigate.back', label: t('editor.palette.cmd.back'), group: 'navigate',
+        id: 'navigate.back',
+        label: t('editor.palette.cmd.back'),
+        group: 'navigate',
         keywords: ['back', 'up', '返回', '主图'],
         disabled: editorStore.editorPath.length === 0,
         exec: () => editorStore.popPath(),
@@ -180,28 +265,37 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
 
       // ── run ──
       {
-        id: 'run.save', label: t('editor.palette.cmd.save'), group: 'run',
-        icon: 'i-tabler-check', shortcut: 'Ctrl+S',
+        id: 'run.save',
+        label: t('editor.palette.cmd.save'),
+        group: 'run',
+        icon: 'i-tabler-check',
+        shortcut: 'Ctrl+S',
         keywords: ['save', '保存'],
         disabled: !opts.dirty.value,
         exec: () => void opts.onSave(),
       },
       {
-        id: 'run.validate', label: t('editor.palette.cmd.validate'), group: 'run',
+        id: 'run.validate',
+        label: t('editor.palette.cmd.validate'),
+        group: 'run',
         icon: 'i-tabler-checks',
         keywords: ['validate', 'check', '校验', '检查'],
         disabled: opts.dirty.value,
         exec: () => void opts.onValidate(),
       },
       {
-        id: 'run.try-run', label: t('editor.palette.cmd.try_run'), group: 'run',
+        id: 'run.try-run',
+        label: t('editor.palette.cmd.try_run'),
+        group: 'run',
         icon: 'i-tabler-player-play',
         keywords: ['run', 'play', '运行'],
         disabled: opts.dirty.value || execStore.running,
         exec: () => void opts.onTryRun(),
       },
       {
-        id: 'run.stop', label: t('editor.palette.cmd.stop'), group: 'run',
+        id: 'run.stop',
+        label: t('editor.palette.cmd.stop'),
+        group: 'run',
         icon: 'i-tabler-square',
         keywords: ['stop', 'halt', '停止'],
         disabled: !execStore.running,
@@ -210,7 +304,9 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
 
       // ── var ──
       {
-        id: 'var.add', label: t('editor.palette.cmd.add_var'), group: 'var',
+        id: 'var.add',
+        label: t('editor.palette.cmd.add_var'),
+        group: 'var',
         icon: 'i-tabler-circle-plus',
         keywords: ['variable', 'add', '变量', '添加'],
         exec: () => opts.onAddVar(),
@@ -218,10 +314,15 @@ export function useCommandPalette(opts: UseCommandPaletteOpts): { commands: Comp
 
       // ── navigate: find-node (Ctrl+F) ──
       {
-        id: 'navigate.find-node', label: t('editor.palette.cmd.find_node'), group: 'navigate',
-        icon: 'i-tabler-search', shortcut: 'Ctrl+F',
+        id: 'navigate.find-node',
+        label: t('editor.palette.cmd.find_node'),
+        group: 'navigate',
+        icon: 'i-tabler-search',
+        shortcut: 'Ctrl+F',
         keywords: ['find', 'search', '搜索', '查找'],
-        exec: () => { opts.nodeSearchOpen.value = true },
+        exec: () => {
+          opts.nodeSearchOpen.value = true
+        },
       },
     ]
   })

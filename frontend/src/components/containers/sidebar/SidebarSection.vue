@@ -44,10 +44,14 @@ defineEmits<{
 
 const titleColorClass = computed(() => {
   switch (props.titleColor) {
-    case 'amber': return 'text-amber-400'
-    case 'indigo': return 'text-indigo-400'
-    case 'emerald': return 'text-emerald-400'
-    default: return 'text-default'
+    case 'amber':
+      return 'text-amber-400'
+    case 'indigo':
+      return 'text-indigo-400'
+    case 'emerald':
+      return 'text-emerald-400'
+    default:
+      return 'text-default'
   }
 })
 </script>

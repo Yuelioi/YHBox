@@ -21,9 +21,8 @@
           <li>{{ t('settings.input.intro_box.item_sync_action') }}</li>
         </ul>
         <span class="mt-1 block">
-          {{ t('settings.input.intro_box.footnote_prefix') }}<span class="text-warning">{{
-            t('settings.input.intro_box.footnote_negation')
-          }}</span
+          {{ t('settings.input.intro_box.footnote_prefix')
+          }}<span class="text-warning">{{ t('settings.input.intro_box.footnote_negation') }}</span
           >{{ t('settings.input.intro_box.footnote_rest') }}
         </span>
       </div>
@@ -73,7 +72,11 @@
           v-for="(p, i) in profiles"
           :key="i"
           class="flex items-center gap-2 rounded-md border px-3 py-2"
-          :class="p.label === activeLabel ? 'border-primary/50 bg-primary/5' : 'border-default/60 bg-elevated/30'"
+          :class="
+            p.label === activeLabel
+              ? 'border-primary/50 bg-primary/5'
+              : 'border-default/60 bg-elevated/30'
+          "
         >
           <div class="w-8 flex justify-center">
             <URadio
@@ -152,9 +155,21 @@
       <ol class="list-decimal pl-5 space-y-1 text-xs text-dimmed">
         <li>{{ t('settings.input.howto.step_open') }}</li>
         <li>{{ t('settings.input.howto.step_focus') }}</li>
-        <li>{{ t('settings.input.howto.step_start', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
+        <li>
+          {{
+            t('settings.input.howto.step_start', {
+              hk: hotkeys.keyFor('system.calibrate-toggle', 'F8'),
+            })
+          }}
+        </li>
         <li>{{ t('settings.input.howto.step_spin') }}</li>
-        <li>{{ t('settings.input.howto.step_stop', { hk: hotkeys.keyFor('system.calibrate-toggle', 'F8') }) }}</li>
+        <li>
+          {{
+            t('settings.input.howto.step_stop', {
+              hk: hotkeys.keyFor('system.calibrate-toggle', 'F8'),
+            })
+          }}
+        </li>
         <li>{{ t('settings.input.howto.step_save') }}</li>
       </ol>
     </section>

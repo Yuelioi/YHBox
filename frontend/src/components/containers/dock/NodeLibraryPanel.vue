@@ -8,7 +8,10 @@
       <span class="text-sm font-medium">{{ t('nodeExplorer.title') }}</span>
     </div>
 
-    <div data-testid="node-library-search" class="shrink-0 border-b border-default bg-default px-3 py-3">
+    <div
+      data-testid="node-library-search"
+      class="shrink-0 border-b border-default bg-default px-3 py-3"
+    >
       <UInput
         ref="searchInputRef"
         v-model="query"
@@ -32,11 +35,18 @@
               class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-elevated/30 rounded text-[12px] font-medium text-default"
               @click="toggleGroup(g.group)"
             >
-              <UIcon :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'" class="size-3.5" />
+              <UIcon
+                :name="isExpanded(g.group) ? 'i-tabler-chevron-down' : 'i-tabler-chevron-right'"
+                class="size-3.5"
+              />
               <span>{{ groupLabelZh(g.group) }}</span>
               <span class="text-[10px] opacity-70">({{ g.specs.length }})</span>
             </button>
-            <div v-show="isExpanded(g.group)" class="grid gap-1 pl-5 mt-1" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+            <div
+              v-show="isExpanded(g.group)"
+              class="grid gap-1 pl-5 mt-1"
+              style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))"
+            >
               <div
                 v-for="spec in g.specs"
                 :key="spec.kind"
@@ -46,10 +56,19 @@
                 @click="onSelectKind(spec.kind)"
                 @dragstart="(e) => startEditorDrag({ type: 'node-spec', kind: spec.kind }, e)"
               >
-                <UIcon v-if="spec.visual?.icon" :name="spec.visual.icon" class="size-3.5 shrink-0" :class="nodeIconColor(spec)" />
-                <span class="min-w-0 flex-1 truncate">{{ spec.labelZh ? t(spec.labelZh) : spec.kind }}</span>
+                <UIcon
+                  v-if="spec.visual?.icon"
+                  :name="spec.visual.icon"
+                  class="size-3.5 shrink-0"
+                  :class="nodeIconColor(spec)"
+                />
+                <span class="min-w-0 flex-1 truncate">{{
+                  spec.labelZh ? t(spec.labelZh) : spec.kind
+                }}</span>
                 <span
-                  v-for="badge in platformBadgesForTargets(spec.supportedTargets, { isPureData: spec.isPureData })"
+                  v-for="badge in platformBadgesForTargets(spec.supportedTargets, {
+                    isPureData: spec.isPureData,
+                  })"
                   :key="badge.key"
                   class="shrink-0 rounded border px-1 py-0.5 text-[9px] leading-none"
                   :class="badge.class"
@@ -71,7 +90,11 @@ import { useI18n } from 'vue-i18n'
 import { allSpecs } from '@/components/containers/nodeRegistry/registry'
 import type { NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { platformBadgesForTargets } from '@/components/containers/nodeRegistry/platformTargets'
-import { ALL_NODE_GROUPS, nodeIconColor, groupLabelZh } from '@/composables/editor/useNodeGroupColor'
+import {
+  ALL_NODE_GROUPS,
+  nodeIconColor,
+  groupLabelZh,
+} from '@/composables/editor/useNodeGroupColor'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 
 const { t } = useI18n()

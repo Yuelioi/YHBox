@@ -22,10 +22,14 @@ describe('filterSubgraphs', () => {
   })
   it('tags 为 AND 语义', () => {
     expect(filterSubgraphs(items, { query: '', category: null, tags: ['钓鱼'] })).toHaveLength(2)
-    expect(filterSubgraphs(items, { query: '', category: null, tags: ['钓鱼', '主流程'] })).toHaveLength(1)
+    expect(
+      filterSubgraphs(items, { query: '', category: null, tags: ['钓鱼', '主流程'] }),
+    ).toHaveLength(1)
   })
   it('三条件叠加', () => {
-    expect(filterSubgraphs(items, { query: '上钩', category: '钓鱼', tags: ['钓鱼'] })).toHaveLength(1)
+    expect(
+      filterSubgraphs(items, { query: '上钩', category: '钓鱼', tags: ['钓鱼'] }),
+    ).toHaveLength(1)
   })
 })
 

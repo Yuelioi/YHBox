@@ -63,10 +63,7 @@ function mountWidget(modelValue: GeometryValue | null, fieldPath = 'geom') {
   app.use(createI18n({ legacy: false, locale: 'zh', messages: { zh: {} } }))
 
   // Stub all NuxtUI globals used by GeometryWidget
-  for (const name of [
-    'UInputNumber', 'UButton', 'UCollapsible', 'UBadge',
-    'USelect', 'UTooltip',
-  ]) {
+  for (const name of ['UInputNumber', 'UButton', 'UCollapsible', 'UBadge', 'USelect', 'UTooltip']) {
     app.component(name, makeStub(name))
   }
 
@@ -160,13 +157,23 @@ describe('GeometryWidget', () => {
   it('pct 超 100% 标识: hasPctOver100 逻辑', () => {
     // pct.x=1.5 → display=150 > 100 → hasPctOver100=true
     const over: GeometryValue = { pct: { x: 1.5, y: 0, w: 0.5, h: 0.5 } }
-    const display = { x: over.pct.x * 100, y: over.pct.y * 100, w: over.pct.w * 100, h: over.pct.h * 100 }
+    const display = {
+      x: over.pct.x * 100,
+      y: over.pct.y * 100,
+      w: over.pct.w * 100,
+      h: over.pct.h * 100,
+    }
     const hasPctOver100 = display.x > 100 || display.y > 100 || display.w > 100 || display.h > 100
     expect(hasPctOver100).toBe(true)
 
     // 正常范围
     const normal: GeometryValue = { pct: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } }
-    const nd = { x: normal.pct.x * 100, y: normal.pct.y * 100, w: normal.pct.w * 100, h: normal.pct.h * 100 }
+    const nd = {
+      x: normal.pct.x * 100,
+      y: normal.pct.y * 100,
+      w: normal.pct.w * 100,
+      h: normal.pct.h * 100,
+    }
     expect(nd.x > 100 || nd.y > 100 || nd.w > 100 || nd.h > 100).toBe(false)
   })
 

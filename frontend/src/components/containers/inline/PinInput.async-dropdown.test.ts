@@ -41,11 +41,26 @@ function mountAsyncDropdown() {
   const app = createApp(Wrapper)
   app.use(createPinia())
   app.use(createI18n({ legacy: false, locale: 'zh', messages: { zh: {} } }))
-  app.component('UCheckbox', defineComponent(() => () => null))
-  app.component('UInputNumber', defineComponent(() => () => null))
-  app.component('USelect', defineComponent(() => () => null))
-  app.component('UTextarea', defineComponent(() => () => null))
-  app.component('UInput', defineComponent(() => () => null))
+  app.component(
+    'UCheckbox',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'UInputNumber',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'USelect',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'UTextarea',
+    defineComponent(() => () => null),
+  )
+  app.component(
+    'UInput',
+    defineComponent(() => () => null),
+  )
 
   const el = document.createElement('div')
   document.body.appendChild(el)
@@ -63,12 +78,9 @@ describe('PinInput async-dropdown', () => {
     await flushPromises()
     await nextTick()
 
-    expect(asyncOptionsMock).toHaveBeenCalledWith(
-      'node-1',
-      'AndroidTarget',
-      'androidADBDevices',
-      { Serial: 'old' },
-    )
+    expect(asyncOptionsMock).toHaveBeenCalledWith('node-1', 'AndroidTarget', 'androidADBDevices', {
+      Serial: 'old',
+    })
     expect(wrapper.el.querySelector('[role="combobox"]')).toBeTruthy()
     expect(wrapper.updates).toEqual([])
     expect(wrapper.selected).toEqual([])

@@ -14,13 +14,17 @@ interface FilterableSubgraph {
   category?: string
 }
 
-export function filterSubgraphs<T extends FilterableSubgraph>(items: T[], f: LibraryFilterInput): T[] {
+export function filterSubgraphs<T extends FilterableSubgraph>(
+  items: T[],
+  f: LibraryFilterInput,
+): T[] {
   const q = f.query.toLowerCase().trim()
   return items.filter((item) => {
     if (f.category !== null && (item.category ?? '') !== f.category) return false
     if (f.tags.length > 0 && !f.tags.every((tg) => (item.tags ?? []).includes(tg))) return false
     if (!q) return true
-    const hay = `${item.label} ${item.description ?? ''} ${(item.tags ?? []).join(' ')} ${item.category ?? ''}`.toLowerCase()
+    const hay =
+      `${item.label} ${item.description ?? ''} ${(item.tags ?? []).join(' ')} ${item.category ?? ''}`.toLowerCase()
     return hay.includes(q)
   })
 }
@@ -30,7 +34,10 @@ export interface CategoryGroup<T> {
   items: T[]
 }
 
-export function groupByCategory<T extends { category?: string }>(items: T[], uncategorized: string): CategoryGroup<T>[] {
+export function groupByCategory<T extends { category?: string }>(
+  items: T[],
+  uncategorized: string,
+): CategoryGroup<T>[] {
   const map = new Map<string, T[]>()
   for (const item of items) {
     const key = item.category || uncategorized

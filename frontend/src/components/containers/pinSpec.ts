@@ -86,13 +86,21 @@ export function rebuildPinSpecMaps(): void {
   KIND_LABEL_ZH['SubgraphInput'] = 'node.SubgraphInput.label'
   KIND_DESCRIPTION['SubgraphInput'] = 'node.SubgraphInput.description'
   KIND_DEFAULTS['SubgraphInput'] = {}
-  KIND_VISUAL['SubgraphInput'] = { icon: 'i-tabler-circle-arrow-right', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40' }
+  KIND_VISUAL['SubgraphInput'] = {
+    icon: 'i-tabler-circle-arrow-right',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/40',
+  }
 
   PIN_SPECS['SubgraphOutput'] = { execIn: ['In'], execOut: [], dataIn: {}, dataOut: {} }
   KIND_LABEL_ZH['SubgraphOutput'] = 'node.SubgraphOutput.label'
   KIND_DESCRIPTION['SubgraphOutput'] = 'node.SubgraphOutput.description'
   KIND_DEFAULTS['SubgraphOutput'] = {}
-  KIND_VISUAL['SubgraphOutput'] = { icon: 'i-tabler-circle-arrow-left', bg: 'bg-rose-500/10', border: 'border-rose-500/40' }
+  KIND_VISUAL['SubgraphOutput'] = {
+    icon: 'i-tabler-circle-arrow-left',
+    bg: 'bg-rose-500/10',
+    border: 'border-rose-500/40',
+  }
 }
 
 /**
@@ -160,7 +168,8 @@ export function resolveSubgraphCallExecOut(
   const sg = allSubgraphs.find((s) => s.id === sgID)
   const t = i18n.global.t
   if (!sg) return [{ id: MISSING_PIN, name: t('node.Subgraph.fallback_missing') }]
-  if (sg.outputPins.length === 0) return [{ id: EMPTY_PIN, name: t('node.Subgraph.fallback_empty') }]
+  if (sg.outputPins.length === 0)
+    return [{ id: EMPTY_PIN, name: t('node.Subgraph.fallback_empty') }]
   return sg.outputPins.map((p) => ({ id: p.id, name: p.name }))
 }
 

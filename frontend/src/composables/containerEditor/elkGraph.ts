@@ -3,7 +3,10 @@ import type { GraphNode, GraphEdge } from '@/lib/backend'
 import type { ElkNode } from './elkConfig'
 import { SUBGRAPH_ENTRY_DEFAULT, SUBGRAPH_OUTPUT_DEFAULT } from './constants'
 
-export interface Size { width: number; height: number }
+export interface Size {
+  width: number
+  height: number
+}
 
 const ROW_H = 26 // 每个 pin 行约高
 // 节点尺寸估算 —— 仅当 vue-flow 实测 dimensions 拿不到时的兜底(刚开容器、节点未 mount)。
@@ -11,7 +14,8 @@ const ROW_H = 26 // 每个 pin 行约高
 // 正确派生后传入 —— 不在这里自己解析 cfg.cases/N/Inputs: 各 kind 存法不一
 // (Parallel 读 literal.N、Expr 读顶层 Inputs ...)，自己解析必然 drift。基线 90≈2 行。
 export function estimateNodeSize(kind: string, cfg: Record<string, any> = {}, pinCount = 0): Size {
-  if (kind === 'CommentBox') return { width: Number(cfg.width) || 320, height: Number(cfg.height) || 160 }
+  if (kind === 'CommentBox')
+    return { width: Number(cfg.width) || 320, height: Number(cfg.height) || 160 }
   const extra = Math.max(0, pinCount - 2) * ROW_H
   return { width: 220, height: 90 + extra }
 }
@@ -34,11 +38,23 @@ export function subgraphMarkerNodes(
 ): GraphNode[] {
   const out: GraphNode[] = []
   if (entry?.nodeID) {
-    out.push({ id: entry.nodeID, kind: 'SubgraphInput', x: entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x, y: entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y, config: {} })
+    out.push({
+      id: entry.nodeID,
+      kind: 'SubgraphInput',
+      x: entry.x ?? SUBGRAPH_ENTRY_DEFAULT.x,
+      y: entry.y ?? SUBGRAPH_ENTRY_DEFAULT.y,
+      config: {},
+    })
   }
   for (const p of outputPins ?? []) {
     if (!p.nodeID) continue
-    out.push({ id: p.nodeID, kind: 'SubgraphOutput', x: p.x ?? SUBGRAPH_OUTPUT_DEFAULT.x, y: p.y ?? SUBGRAPH_OUTPUT_DEFAULT.y, config: {} })
+    out.push({
+      id: p.nodeID,
+      kind: 'SubgraphOutput',
+      x: p.x ?? SUBGRAPH_OUTPUT_DEFAULT.x,
+      y: p.y ?? SUBGRAPH_OUTPUT_DEFAULT.y,
+      config: {},
+    })
   }
   return out
 }
@@ -119,7 +135,8 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
     // 中心才排平）。我们又不渲染 ELK 的端口/边路由（VueFlow 自己画），去端口零渲染损失。
     const inP = spec ? inputPins(spec, cfg) : []
     const outP = spec ? outputPins(spec, cfg) : []
-    const size = opts.getDims(n.id, n.kind) ?? estimateNodeSize(n.kind, cfg, inP.length + outP.length)
+    const size =
+      opts.getDims(n.id, n.kind) ?? estimateNodeSize(n.kind, cfg, inP.length + outP.length)
     return { id: n.id, width: size.width, height: size.height } as unknown as ElkNode
   })
 
@@ -148,23 +165,45 @@ export function buildElkGraph(nodes: GraphNode[], edges: GraphEdge[], opts: Buil
 
 // ── anchorOffset / placeDetached ───────────────────────────────────────────
 
-export interface Pos { x: number; y: number }
-export interface BBox { minX: number; minY: number; maxX: number; maxY: number }
+export interface Pos {
+  x: number
+  y: number
+}
+export interface BBox {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
 
 // ELK 布局后坐标系整体偏移量：使新布局重心与旧布局重心对齐，防整图跳位。
-export function anchorOffset(oldP: Record<string, Pos>, newP: Record<string, Pos>): { dx: number; dy: number } {
+export function anchorOffset(
+  oldP: Record<string, Pos>,
+  newP: Record<string, Pos>,
+): { dx: number; dy: number } {
   const center = (m: Record<string, Pos>) => {
     const ks = Object.keys(m)
     if (!ks.length) return { x: 0, y: 0 }
-    let sx = 0, sy = 0
-    for (const k of ks) { sx += m[k].x; sy += m[k].y }
+    let sx = 0,
+      sy = 0
+    for (const k of ks) {
+      sx += m[k].x
+      sy += m[k].y
+    }
     return { x: sx / ks.length, y: sy / ks.length }
   }
-  const o = center(oldP), n = center(newP)
+  const o = center(oldP),
+    n = center(newP)
   return { dx: o.x - n.x, dy: o.y - n.y }
 }
 
-interface DetachedNode { id: string; x: number; y: number; width: number; height: number }
+interface DetachedNode {
+  id: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
 // 判断游离节点是否与主图包围盒重叠（任一轴不重叠即视为在外侧）。
 function overlaps(n: DetachedNode, b: BBox): boolean {

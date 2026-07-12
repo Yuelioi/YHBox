@@ -37,19 +37,8 @@
       <p class="text-xs text-dimmed">{{ t('settingsMCP.urlHint') }}</p>
 
       <div class="flex items-center gap-2">
-        <UInput
-          :model-value="MCP_URL"
-          readonly
-          size="sm"
-          class="flex-1 min-w-0 font-mono"
-        />
-        <UButton
-          size="sm"
-          variant="soft"
-          color="primary"
-          icon="i-tabler-copy"
-          @click="copyUrl"
-        >
+        <UInput :model-value="MCP_URL" readonly size="sm" class="flex-1 min-w-0 font-mono" />
+        <UButton size="sm" variant="soft" color="primary" icon="i-tabler-copy" @click="copyUrl">
           {{ t('settingsMCP.copy') }}
         </UButton>
       </div>

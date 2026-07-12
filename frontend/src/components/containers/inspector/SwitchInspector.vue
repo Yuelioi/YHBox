@@ -136,7 +136,9 @@ function currentValue(): string {
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <label class="text-xs text-toned">{{ t('node.Switch.inspector.cases_label') }}</label>
-        <UBadge size="xs" color="neutral" variant="soft">{{ t('node.Switch.inspector.cases_count', { n: rows.length }) }}</UBadge>
+        <UBadge size="xs" color="neutral" variant="soft">{{
+          t('node.Switch.inspector.cases_count', { n: rows.length })
+        }}</UBadge>
       </div>
 
       <!-- Dangling edge warning -->
@@ -155,11 +157,7 @@ function currentValue(): string {
         {{ t('node.Switch.inspector.empty') }}
       </div>
       <div v-else class="space-y-1.5">
-        <div
-          v-for="(row, i) in rows"
-          :key="row.id"
-          class="flex gap-2 items-center"
-        >
+        <div v-for="(row, i) in rows" :key="row.id" class="flex gap-2 items-center">
           <UInputMenu
             v-model="row.value"
             :create-item="'always'"
@@ -181,18 +179,13 @@ function currentValue(): string {
       </div>
 
       <!-- Add case button -->
-      <UButton
-        size="xs"
-        variant="soft"
-        color="primary"
-        icon="i-tabler-plus"
-        @click="addCase"
-      >
+      <UButton size="xs" variant="soft" color="primary" icon="i-tabler-plus" @click="addCase">
         {{ t('node.Switch.inspector.add_case') }}
       </UButton>
 
       <p class="text-[10px] text-dimmed leading-snug">
-        {{ t('node.Switch.inspector.footer_pre') }}<code class="font-mono">default</code> {{ t('node.Switch.inspector.footer_post') }}
+        {{ t('node.Switch.inspector.footer_pre') }}<code class="font-mono">default</code>
+        {{ t('node.Switch.inspector.footer_post') }}
       </p>
     </div>
   </div>

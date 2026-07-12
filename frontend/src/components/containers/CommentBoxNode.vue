@@ -2,7 +2,12 @@
   <!-- CommentBox — visual-only 注释节点, 仿普通节点卡片 (彩色标题栏 + 半透明 body), 无 handle.
        颜色/图标从视觉注册中心取 (config.literal.Color = palette key, Icon = tabler 名).
        双击标题/正文内联编辑; 颜色/图标在 NodeInspector 选. body 加 .nodrag → 只标题栏可拖. -->
-  <div class="cb-card" :class="{ 'is-selected': selected }" :style="cardStyle" @dblclick.stop="enterEdit">
+  <div
+    class="cb-card"
+    :class="{ 'is-selected': selected }"
+    :style="cardStyle"
+    @dblclick.stop="enterEdit"
+  >
     <!-- 标题栏 = 拖拽手柄 (非 .nodrag) -->
     <div class="cb-header" :style="headerStyle">
       <span class="cb-accent" :style="{ background: hex }" />
@@ -131,7 +136,9 @@ function onContentClick(e: MouseEvent) {
   backdrop-filter: blur(2px);
 }
 .cb-card.is-selected {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 2px 12px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.7),
+    0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* 标题栏 = 拖拽手柄 */

@@ -1,10 +1,18 @@
 <template>
   <!-- 哑工具条：渲染块序列 (容器按钮 / 文字标题 / 水平·垂直分隔符) + 单击跑 + 图钉置顶 + 隐藏。
        自适应高度 + 右下角拖拽改尺寸。编排在 设置→悬浮窗。 -->
-  <HudShell dense icon="i-tabler-rocket" :title="t('floatingLauncher.title')" :close-title="t('floatingLauncher.hide')" @close="onHide">
+  <HudShell
+    dense
+    icon="i-tabler-rocket"
+    :title="t('floatingLauncher.title')"
+    :close-title="t('floatingLauncher.hide')"
+    @close="onHide"
+  >
     <template #actions>
       <UButton
-        size="xs" variant="ghost" :color="pinned ? 'primary' : 'neutral'"
+        size="xs"
+        variant="ghost"
+        :color="pinned ? 'primary' : 'neutral'"
         :icon="pinned ? 'i-tabler-pin-filled' : 'i-tabler-pin'"
         :title="pinned ? t('floatingLauncher.unpin') : t('floatingLauncher.pin')"
         @click="togglePin"
@@ -33,23 +41,36 @@
           >
             <UIcon
               v-if="display !== 'text' || isRunning(b.containerId!)"
-              :name="isRunning(b.containerId!) ? 'i-tabler-loader-2' : b.icon || 'i-tabler-square-rounded'"
-              :class="[isRunning(b.containerId!) ? 'animate-spin text-primary' : 'text-toned', display === 'icon' ? 'size-6' : 'size-5']"
+              :name="
+                isRunning(b.containerId!)
+                  ? 'i-tabler-loader-2'
+                  : b.icon || 'i-tabler-square-rounded'
+              "
+              :class="[
+                isRunning(b.containerId!) ? 'animate-spin text-primary' : 'text-toned',
+                display === 'icon' ? 'size-6' : 'size-5',
+              ]"
             />
             <span
               v-if="display !== 'icon'"
               class="w-full text-[10px] leading-none text-center truncate text-highlighted"
-            >{{ b.label }}</span>
+              >{{ b.label }}</span
+            >
           </button>
           <!-- 文字标题：占整行 -->
           <div
             v-else-if="b.type === 'label'"
             class="basis-full text-[10px] uppercase tracking-wider text-dimmed px-0.5 pt-1 pb-0.5 truncate"
-          >{{ b.label }}</div>
+          >
+            {{ b.label }}
+          </div>
           <!-- 水平分隔符：占整行的横线 (把后面挤到下一排) -->
           <div v-else-if="b.type === 'hsep'" class="basis-full border-t border-default/60 my-0.5" />
           <!-- 垂直分隔符：同排按钮之间的竖线 -->
-          <div v-else-if="b.type === 'vsep'" class="self-stretch border-l border-default/60 mx-0.5" />
+          <div
+            v-else-if="b.type === 'vsep'"
+            class="self-stretch border-l border-default/60 mx-0.5"
+          />
         </template>
       </div>
     </div>
@@ -61,7 +82,10 @@
       :title="t('floatingLauncher.resize')"
       @pointerdown="onGripDown"
     >
-      <svg viewBox="0 0 10 10" class="size-full"><path d="M9 1v8H1" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/><path d="M9 5v4H5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <svg viewBox="0 0 10 10" class="size-full">
+        <path d="M9 1v8H1" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5" />
+        <path d="M9 5v4H5" fill="none" stroke="currentColor" stroke-width="1.2" />
+      </svg>
     </div>
   </HudShell>
 </template>
@@ -95,7 +119,13 @@ const COL_W: Record<string, number> = { icon: 48, both: 80, text: 100 }
 const colW = computed(() => COL_W[display.value] ?? 80)
 
 // 渲染块：container 解析容器名/图标（容器没了则跳过该块）；label/hsep/vsep 原样。
-interface RBlock { id: string; type: 'container' | 'label' | 'hsep' | 'vsep'; containerId?: string; icon?: string; label?: string }
+interface RBlock {
+  id: string
+  type: 'container' | 'label' | 'hsep' | 'vsep'
+  containerId?: string
+  icon?: string
+  label?: string
+}
 const blocks = computed<RBlock[]>(() => {
   const raw = settingsStore.data?.ui.launcherItems ?? []
   const out: RBlock[] = []
@@ -103,7 +133,13 @@ const blocks = computed<RBlock[]>(() => {
     if (b.type === 'container') {
       const c = containersStore.list.find((x) => x.id === b.containerId)
       if (!c) continue
-      out.push({ id: b.id, type: 'container', containerId: b.containerId, icon: b.icon, label: b.label || c.name })
+      out.push({
+        id: b.id,
+        type: 'container',
+        containerId: b.containerId,
+        icon: b.icon,
+        label: b.label || c.name,
+      })
     } else {
       out.push({ id: b.id, type: b.type, label: b.label })
     }
@@ -171,8 +207,9 @@ let offSettings: (() => void) | null = null
 onMounted(() => {
   void settingsStore.load().then(() => nextTick(fitHeight))
   void containersStore.reload().then(() => nextTick(fitHeight))
-  offSettings = Events.On('settings:changed', () =>
-    void settingsStore.load().then(() => nextTick(fitHeight)),
+  offSettings = Events.On(
+    'settings:changed',
+    () => void settingsStore.load().then(() => nextTick(fitHeight)),
   ) as unknown as () => void
   window.addEventListener('keydown', onKeyDown)
 })

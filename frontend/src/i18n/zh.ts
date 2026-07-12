@@ -1754,7 +1754,14 @@ export default {
       input: {
         Method: {
           label: '方法',
-          option: { GET: 'GET', POST: 'POST', PUT: 'PUT', PATCH: 'PATCH', DELETE: 'DELETE', HEAD: 'HEAD' },
+          option: {
+            GET: 'GET',
+            POST: 'POST',
+            PUT: 'PUT',
+            PATCH: 'PATCH',
+            DELETE: 'DELETE',
+            HEAD: 'HEAD',
+          },
         },
         URL: { label: '网址', hint: '仅支持 http:// 或 https:// 绝对地址' },
         Headers: { label: '请求头', hint: 'JSON 对象，例如 Authorization = Bearer ...' },

@@ -32,11 +32,15 @@
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-lg border border-default px-4 py-3">
           <p class="text-xs text-muted">{{ t('recordingCleanup.can_delete') }}</p>
-          <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">{{ preview.unused.length }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
+            {{ preview.unused.length }}
+          </p>
         </div>
         <div class="rounded-lg border border-default px-4 py-3">
           <p class="text-xs text-muted">{{ t('recordingCleanup.in_use') }}</p>
-          <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">{{ preview.referenced.length }}</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
+            {{ preview.referenced.length }}
+          </p>
         </div>
       </div>
 
@@ -46,17 +50,29 @@
             {{ t('recordingCleanup.selected_title') }}
           </h4>
           <UButton size="xs" color="neutral" variant="ghost" @click="toggleAll">
-            {{ allSelected ? t('recordingCleanup.clear_selection') : t('recordingCleanup.select_all') }}
+            {{
+              allSelected ? t('recordingCleanup.clear_selection') : t('recordingCleanup.select_all')
+            }}
           </UButton>
         </div>
-        <ul class="max-h-64 overflow-y-auto rounded-lg border border-default divide-y divide-default/60">
-          <li v-for="item in preview.unused" :key="item.id" class="flex items-center gap-3 px-3 py-2.5">
+        <ul
+          class="max-h-64 overflow-y-auto rounded-lg border border-default divide-y divide-default/60"
+        >
+          <li
+            v-for="item in preview.unused"
+            :key="item.id"
+            class="flex items-center gap-3 px-3 py-2.5"
+          >
             <UCheckbox
               :model-value="selected.has(item.id)"
               :aria-label="t('recordingCleanup.select_item', { name: item.label })"
               @update:model-value="toggle(item.id, !!$event)"
             />
-            <UIcon :name="kindIcon(item.kind)" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
+            <UIcon
+              :name="kindIcon(item.kind)"
+              class="size-4 shrink-0 text-dimmed"
+              aria-hidden="true"
+            />
             <span class="min-w-0 flex-1 truncate text-sm text-default">{{ item.label }}</span>
             <UBadge color="neutral" variant="soft" size="xs" :label="kindLabel(item.kind)" />
           </li>
@@ -120,11 +136,17 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 const selected = ref(new Set<string>())
-const allSelected = computed(() => props.preview.unused.length > 0 && selected.value.size === props.preview.unused.length)
+const allSelected = computed(
+  () => props.preview.unused.length > 0 && selected.value.size === props.preview.unused.length,
+)
 
-watch(() => props.preview.unused, (items) => {
-  selected.value = new Set(items.map((item) => item.id))
-}, { immediate: true })
+watch(
+  () => props.preview.unused,
+  (items) => {
+    selected.value = new Set(items.map((item) => item.id))
+  },
+  { immediate: true },
+)
 
 function toggle(id: string, checked: boolean) {
   const next = new Set(selected.value)
@@ -134,7 +156,9 @@ function toggle(id: string, checked: boolean) {
 }
 
 function toggleAll() {
-  selected.value = allSelected.value ? new Set() : new Set(props.preview.unused.map((item) => item.id))
+  selected.value = allSelected.value
+    ? new Set()
+    : new Set(props.preview.unused.map((item) => item.id))
 }
 
 function kindIcon(kind: string) {
