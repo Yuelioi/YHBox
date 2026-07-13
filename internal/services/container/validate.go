@@ -215,10 +215,12 @@ func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName
 	if t := dataInPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
-		for _, in := range ParseDynamicInputDecls(n) {
-			if in.Name == pinName && in.Type != "" {
-				return strings.ToLower(in.Type)
+	if rn, ok := registry.Get(n.Kind); ok {
+		if dynamic, found := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortInput); found && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
+			for _, in := range ParseDynamicPortDecls(n, dynamic.ConfigKey) {
+				if in.Name == pinName && in.Type != "" {
+					return strings.ToLower(in.Type)
+				}
 			}
 		}
 	}
@@ -297,10 +299,12 @@ func dataOutPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinNam
 	if t := dataOutPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortOutputData) {
-		for _, o := range ParseDynamicOutputDecls(n) {
-			if o.Name == pinName && o.Type != "" {
-				return canonPinType(o.Type)
+	if rn, ok := registry.Get(n.Kind); ok {
+		if dynamic, found := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortOutputData); found && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
+			for _, o := range ParseDynamicPortDecls(n, dynamic.ConfigKey) {
+				if o.Name == pinName && o.Type != "" {
+					return canonPinType(o.Type)
+				}
 			}
 		}
 	}
@@ -329,10 +333,12 @@ func IsExecOutputDataFieldNodeWithRegistry(registry nodepkg.RegistryReader, n *G
 	if IsExecOutputDataFieldWithRegistry(registry, n.Kind, pin) {
 		return true
 	}
-	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortOutputData) {
-		for _, o := range ParseDynamicOutputDecls(n) {
-			if o.Name == pin {
-				return true
+	if rn, ok := registry.Get(n.Kind); ok {
+		if dynamic, found := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortOutputData); found && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
+			for _, o := range ParseDynamicPortDecls(n, dynamic.ConfigKey) {
+				if o.Name == pin {
+					return true
+				}
 			}
 		}
 	}

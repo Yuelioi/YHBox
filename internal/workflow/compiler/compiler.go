@@ -605,7 +605,7 @@ func dynamicPortNameReason(name string, staticNames, seen map[string]bool) strin
 
 func containsUnsafePortRune(name string) bool {
 	for _, value := range name {
-		if unicode.IsControl(value) || value == '\u200e' || value == '\u200f' || value >= '\u202a' && value <= '\u202e' || value >= '\u2066' && value <= '\u2069' {
+		if unicode.IsControl(value) || unicode.Is(unicode.Bidi_Control, value) {
 			return true
 		}
 	}

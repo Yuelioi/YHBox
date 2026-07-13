@@ -130,15 +130,20 @@ type Spec struct {
 }
 
 func HasDynamicPortRole(spec *Spec, role DynamicPortRole) bool {
+	_, ok := DynamicPortForRole(spec, role)
+	return ok
+}
+
+func DynamicPortForRole(spec *Spec, role DynamicPortRole) (DynamicPortSpec, bool) {
 	if spec == nil {
-		return false
+		return DynamicPortSpec{}, false
 	}
 	for _, dynamic := range spec.DynamicPorts {
 		if dynamic.Role == role {
-			return true
+			return dynamic, true
 		}
 	}
-	return false
+	return DynamicPortSpec{}, false
 }
 
 type InputSpec struct {
@@ -200,14 +205,15 @@ func BindableFields(spec *Spec) []string {
 // 让 config 声明的动态输出 Data 字段也可被捕获绑定; FE 输出组 / capture 校验共用此派生。
 func BindableFieldsForNode(spec *Spec, config map[string]any) []string {
 	fields := BindableFields(spec)
-	if spec == nil || !HasDynamicPortRole(spec, DynamicPortOutputData) {
+	dynamic, ok := DynamicPortForRole(spec, DynamicPortOutputData)
+	if !ok || dynamic.Shape != DynamicPortNameTypeRecords {
 		return fields
 	}
 	seen := map[string]bool{}
 	for _, f := range fields {
 		seen[f] = true
 	}
-	raw, _ := config["Outputs"].([]any)
+	raw, _ := config[dynamic.ConfigKey].([]any)
 	for _, it := range raw {
 		m, ok := it.(map[string]any)
 		if !ok {

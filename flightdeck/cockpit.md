@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 3 strict `WorkflowSource v3 → Compiler → ProgramSnapshot` 已完成 static core 与 typed subgraph closure，下一步进入 declarative dynamic/validation/dependency/effect phases；同时等待 OSI/identity/source-open 决策。
+Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 3 strict `WorkflowSource v3 → Compiler → ProgramSnapshot` 已完成 static core、typed subgraph closure 与 declarative Switch dynamic contract，下一步进入 custom validation/dependency/effect phases；同时等待 OSI/identity/source-open 决策。
 
 ## In flight
 
-- `major-upgrade-review` — Wave 1/2 完成；Wave 3 已冻结 Source/Diagnostic、Catalog/content identity、opaque Program 与 typed subgraph closure，下一切片先迁移 Switch declarative dynamic outputs，再接 validation/dependency/effect contracts。
+- `major-upgrade-review` — Wave 1/2 完成；Wave 3 已冻结 Source/Diagnostic、Catalog/content identity、opaque Program、typed subgraph closure 与 Switch dynamic outputs，下一切片进入 declarative validation/dependency/effect contracts。
 - `recording-asset-lifecycle` — 实现与自动化验证已完成；用 `bin/Yotta.exe` 验收三条用户路径后归档。
 
 ## Open questions

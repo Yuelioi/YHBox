@@ -266,37 +266,18 @@ function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): st
   return out
 }
 
-// Dynamic input descriptors use Name/Type records from their declared config key.
-// 镜像 backend ParseDynamicInputDecls: PascalCase Name/Type 键, 空 Name 跳过.
-function parseDynamicInputsCfg(
+// Name/type record descriptors read PascalCase Name/Type keys from their declared config key.
+function parseNameTypeRecordsCfg(
   configKey: string,
   cfg: Record<string, unknown> | null | undefined,
 ): Record<string, PinType> {
-  const inputs = Array.isArray(cfg?.[configKey])
+  const records = Array.isArray(cfg?.[configKey])
     ? (cfg?.[configKey] as Array<Record<string, unknown>>)
     : []
   const out: Record<string, PinType> = {}
-  for (const i of inputs) {
-    const name = typeof i.Name === 'string' ? i.Name : ''
-    const type = typeof i.Type === 'string' ? i.Type : 'any'
-    if (name) out[name] = backendTypeToPinType(type)
-  }
-  return out
-}
-
-// Dynamic output-data descriptors use Name/Type records from their declared config key.
-// 镜像 backend BindableFieldsForNode: 声明字段并入可绑 Data 字段(逐个绑变量)。
-function parseDynamicOutputsCfg(
-  configKey: string,
-  cfg: Record<string, unknown> | null | undefined,
-): Record<string, PinType> {
-  const outputs = Array.isArray(cfg?.[configKey])
-    ? (cfg?.[configKey] as Array<Record<string, unknown>>)
-    : []
-  const out: Record<string, PinType> = {}
-  for (const o of outputs) {
-    const name = typeof o.Name === 'string' ? o.Name : ''
-    const type = typeof o.Type === 'string' ? o.Type : 'any'
+  for (const record of records) {
+    const name = typeof record.Name === 'string' ? record.Name : ''
+    const type = typeof record.Type === 'string' ? record.Type : 'any'
     if (name) out[name] = backendTypeToPinType(type)
   }
   return out
@@ -350,7 +331,7 @@ export function adaptSpec(s: Spec): NodeKindSpec {
   )
   if (dynamicInputs) {
     out.dynamicInputs = true
-    out.dataInDynamicFn = (cfg) => parseDynamicInputsCfg(dynamicInputs.configKey, cfg)
+    out.dataInDynamicFn = (cfg) => parseNameTypeRecordsCfg(dynamicInputs.configKey, cfg)
   }
   const dynamicOutputData = dynamicPorts.find(
     (port) =>
@@ -359,7 +340,7 @@ export function adaptSpec(s: Spec): NodeKindSpec {
   )
   if (dynamicOutputData) {
     out.dynamicDataFields = true
-    out.dataOutDynamicFn = (cfg) => parseDynamicOutputsCfg(dynamicOutputData.configKey, cfg)
+    out.dataOutDynamicFn = (cfg) => parseNameTypeRecordsCfg(dynamicOutputData.configKey, cfg)
   }
   return out
 }

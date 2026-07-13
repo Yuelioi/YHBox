@@ -98,6 +98,7 @@ func TestCompileDraftRejectsInvalidSwitchDynamicPorts(t *testing.T) {
 		{"dot", `["A.B"]`, "contains_dot"},
 		{"control", `["A\nB"]`, "control_character"},
 		{"bidi control", `["A\u202eB"]`, "control_character"},
+		{"arabic letter mark", `["A\u061cB"]`, "control_character"},
 		{"static conflict", `["default"]`, "static_conflict"},
 		{"duplicate", `["A","A"]`, "duplicate"},
 		{"too long", `["` + strings.Repeat("a", MaxDynamicPortNameBytes+1) + `"]`, "too_long"},

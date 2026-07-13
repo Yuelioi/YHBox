@@ -32,6 +32,17 @@ func TestParseDynamicInputDecls_NilSafe(t *testing.T) {
 	}
 }
 
+func TestParseDynamicPortDecls_UsesDescriptorConfigKey(t *testing.T) {
+	n := &GraphNode{Config: map[string]any{
+		"Inputs":       []any{map[string]any{"Name": "wrong", "Type": "String"}},
+		"RuntimePorts": []any{map[string]any{"Name": "right", "Type": "Integer"}},
+	}}
+	decls := ParseDynamicPortDecls(n, "RuntimePorts")
+	if len(decls) != 1 || decls[0].Name != "right" || decls[0].Type != "Integer" {
+		t.Fatalf("got %+v", decls)
+	}
+}
+
 func TestParseSwitchConfig(t *testing.T) {
 	cases := []struct {
 		name     string

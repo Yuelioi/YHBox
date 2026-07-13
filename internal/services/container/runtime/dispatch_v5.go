@@ -107,12 +107,12 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 	// input descriptor 节点 (Expr/Script) 的 dynamic data-in pins 在静态 Inputs 里登记不到 —
 	// 走 config.Inputs[] 声明. 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire,
 	// 节点 Evaluate/Run 再从 in.Keys() 遍历 (跳过 Spec 静态 pin) 消费.
-	if nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
+	if dynamic, ok := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortInput); ok && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
 		static := map[string]bool{}
 		for _, ip := range rn.Spec.Inputs {
 			static[ip.Name] = true
 		}
-		for _, in := range container.ParseDynamicInputDecls(node) {
+		for _, in := range container.ParseDynamicPortDecls(node, dynamic.ConfigKey) {
 			if in.Name == "" || static[in.Name] {
 				continue
 			}

@@ -64,10 +64,16 @@ func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
 // ParseDynamicInputDecls 解析 config.Inputs[] 动态 data-in pin 声明
 // 节点 (Expr / Script) 通用. nil-safe; 空 Name 项跳过. 重名不在这里去重 — 由 validator 报错.
 func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
+	return ParseDynamicPortDecls(n, "Inputs")
+}
+
+// ParseDynamicPortDecls parses Name/Type records from the config key owned by
+// a DynamicPortSpec. Descriptor-driven consumers must use this entry point.
+func ParseDynamicPortDecls(n *GraphNode, configKey string) []ExprInputDecl {
 	if n == nil || n.Config == nil {
 		return nil
 	}
-	raw, ok := n.Config["Inputs"].([]any)
+	raw, ok := n.Config[configKey].([]any)
 	if !ok {
 		return nil
 	}
@@ -93,25 +99,5 @@ func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
 // 节点 (AI) 通用。结构同 Inputs ({Name,Type}); 这些字段挂在 Done 出口, 可绑变量, 也可经
 // exec-data 直连紧邻下游(同 Fail.Code 机制)。nil-safe; 空 Name 跳过。
 func ParseDynamicOutputDecls(n *GraphNode) []ExprInputDecl {
-	if n == nil || n.Config == nil {
-		return nil
-	}
-	raw, ok := n.Config["Outputs"].([]any)
-	if !ok {
-		return nil
-	}
-	var decls []ExprInputDecl
-	for _, it := range raw {
-		m, ok := it.(map[string]any)
-		if !ok {
-			continue
-		}
-		name, _ := m["Name"].(string)
-		typ, _ := m["Type"].(string)
-		if name == "" {
-			continue
-		}
-		decls = append(decls, ExprInputDecl{Name: name, Type: typ})
-	}
-	return decls
+	return ParseDynamicPortDecls(n, "Outputs")
 }
