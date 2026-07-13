@@ -81,7 +81,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 
 	source, diagnostics := schema.ParseSource(request.SourceJSON)
 	if len(diagnostics) > 0 {
-		result.Diagnostics = cloneDiagnostics(diagnostics)
+		result.Diagnostics = cappedDiagnostics(diagnostics)
 		return result, nil
 	}
 	if exceedsSourceCollections(source) {
@@ -160,6 +160,8 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 	capabilities := map[string]bool{}
 	contractCache := map[string]catalog.NodeContract{}
 	validatedContractDefaults := map[string]bool{}
+	pinIndexesByKind := map[string]nodePinIndex{}
+	configIndexesByKind := map[string]nodeConfigContract{}
 	missingKinds := map[string]bool{}
 	graphsByID := make(map[string]schema.Graph, len(source.Graphs))
 	interfaces := make(map[string]graphInterface, len(source.Graphs))
@@ -178,16 +180,16 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			path := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", "graphId"}
 			target, ok := sourceNode.Config["graphId"].(string)
 			if !ok || target == "" {
-				result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, sourceNode.ID, path, "calleeGraphId", map[string]any{}))
+				appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, sourceNode.ID, path, "calleeGraphId", map[string]any{}))
 				continue
 			}
 			targetGraph, exists := graphsByID[target]
 			if !exists {
-				result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeUnknownCalleeGraph, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target}})
+				appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeUnknownCalleeGraph, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target}})
 				continue
 			}
 			if targetGraph.Kind != schema.GraphKindSubgraph {
-				result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidCalleeGraphKind, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target, "kind": targetGraph.Kind}})
+				appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidCalleeGraphKind, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target, "kind": targetGraph.Kind}})
 				continue
 			}
 			ref := callReference{graphID: graph.ID, nodeID: sourceNode.ID, target: target, graphIndex: graphIndex, nodeIndex: nodeIndex}
@@ -262,7 +264,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 				}
 			}
 			if !ok {
-				result.diagnostics = append(result.diagnostics, schema.Diagnostic{
+				appendDiagnostic(&result.diagnostics, schema.Diagnostic{
 					Code: schema.CodeUnknownNodeKind, Severity: schema.SeverityError,
 					GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
 					FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "kind"},
@@ -280,7 +282,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 				validatedContractDefaults[contract.Kind] = true
 			}
 			if contract.DynamicInputs || contract.DynamicOutputs || contract.DynamicDataFields || contract.HasCustomValidation || contract.HasDependencies {
-				result.diagnostics = append(result.diagnostics, schema.Diagnostic{
+				appendDiagnostic(&result.diagnostics, schema.Diagnostic{
 					Code: schema.CodeUnsupportedNodeContract, Severity: schema.SeverityError,
 					GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
 					FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "kind"},
@@ -309,8 +311,8 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 		usedBoundaryInputs, usedBoundaryOutputs := map[string]bool{}, map[string]bool{}
 		boundaryOutputCounts := map[string]int{}
 		iface := interfaces[graph.ID]
-		pinsByNode := indexNodePins(contractsByNode)
-		configByNode := indexNodeConfigContracts(contractsByNode)
+		pinsByNode := indexNodePins(contractsByNode, pinIndexesByKind)
+		configByNode := indexNodeConfigContracts(contractsByNode, configIndexesByKind)
 		for edgeIndex, edge := range graph.Edges {
 			if edgeIndex&255 == 0 {
 				if err := ctx.Err(); err != nil {
@@ -327,11 +329,11 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			}{{"from", edge.From, true, from}, {"to", edge.To, false, to}} {
 				path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), endpoint.field}
 				if endpoint.bound.wrongDirection {
-					result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint.value}})
+					appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint.value}})
 					continue
 				}
 				if !endpoint.bound.valid {
-					result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, "", path, "edgeEndpoint", map[string]any{"endpoint": endpoint.value}))
+					appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, "", path, "edgeEndpoint", map[string]any{"endpoint": endpoint.value}))
 					continue
 				}
 				if endpoint.bound.nodeID == "" {
@@ -342,16 +344,16 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 					continue
 				}
 				if !endpoint.bound.pinValid {
-					result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, endpoint.bound.nodeID, path, "edgePin", map[string]any{"pin": endpoint.bound.pin, "kind": contract.Kind}))
+					appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, endpoint.bound.nodeID, path, "edgePin", map[string]any{"pin": endpoint.bound.pin, "kind": contract.Kind}))
 				}
 			}
 			if from.valid && to.valid && from.pinValid && to.pinValid && from.typ != "" && to.typ != "" {
 				if !compatibleTypes(from.typ, to.typ) {
 					path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex)}
 					if from.boundary || to.boundary || callNodeIDs[from.nodeID] || callNodeIDs[to.nodeID] {
-						result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeCallPinTypeMismatch, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: to.nodeID, FieldPath: path, Params: map[string]any{"fromType": from.typ, "toType": to.typ}})
+						appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeCallPinTypeMismatch, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: to.nodeID, FieldPath: path, Params: map[string]any{"fromType": from.typ, "toType": to.typ}})
 					} else {
-						result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "pinType", map[string]any{"fromType": from.typ, "toType": to.typ}))
+						appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "pinType", map[string]any{"fromType": from.typ, "toType": to.typ}))
 					}
 				} else {
 					if from.boundary {
@@ -362,7 +364,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 						boundaryOutputCounts[edge.To]++
 						if to.typ != node.TypeExec && boundaryOutputCounts[edge.To] == 2 {
 							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
-							result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, "", path, "multipleGraphOutputSources", map[string]any{"endpoint": edge.To}))
+							appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, "", path, "multipleGraphOutputSources", map[string]any{"endpoint": edge.To}))
 						}
 					}
 					if to.nodeID != "" {
@@ -374,7 +376,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 						incomingCounts[to.nodeID][to.pin]++
 						if to.typ != node.TypeExec && incomingCounts[to.nodeID][to.pin] == 2 {
 							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
-							result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "multipleInputSources", map[string]any{"pin": to.pin}))
+							appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "multipleInputSources", map[string]any{"pin": to.pin}))
 						}
 					}
 				}
@@ -414,7 +416,7 @@ func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphI
 	iface := graphInterface{inputs: map[string]schema.GraphPort{}, outputs: map[string]schema.GraphPort{}}
 	if graph.Kind == schema.GraphKindMain {
 		if len(graph.Inputs) != 0 || len(graph.Outputs) != 0 {
-			*out = append(*out, schema.Diagnostic{Code: schema.CodeUnsupportedGraphContract, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex)}, Params: map[string]any{"kind": graph.Kind}})
+			appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeUnsupportedGraphContract, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex)}, Params: map[string]any{"kind": graph.Kind}})
 		}
 		return iface
 	}
@@ -432,7 +434,7 @@ func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphI
 		for index, port := range group.ports {
 			path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(index)}
 			if ids[port.ID] || boundaryNodes[port.NodeID] || nodes[port.NodeID] || strings.Contains(port.ID, ".") || strings.Contains(port.NodeID, ".") || port.ID == callInputPin || port.ID == callFailurePin || port.ID == "graphId" {
-				*out = append(*out, bindingDiagnostic(graph.ID, "", path, "graphInterfaceIdentity", map[string]any{"id": port.ID, "nodeId": port.NodeID}))
+				appendDiagnostic(out, bindingDiagnostic(graph.ID, "", path, "graphInterfaceIdentity", map[string]any{"id": port.ID, "nodeId": port.NodeID}))
 			}
 			ids[port.ID], boundaryNodes[port.NodeID] = true, true
 			endpoint := port.NodeID + "." + port.ID
@@ -451,10 +453,10 @@ func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphI
 		}
 	}
 	if execInputs != 1 {
-		*out = append(*out, schema.Diagnostic{Code: schema.CodeInvalidGraphEntry, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "inputs"}, Params: map[string]any{"execInputs": execInputs}})
+		appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeInvalidGraphEntry, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "inputs"}, Params: map[string]any{"execInputs": execInputs}})
 	}
 	if execOutputs == 0 {
-		*out = append(*out, schema.Diagnostic{Code: schema.CodeMissingGraphOutput, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "outputs"}})
+		appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeMissingGraphOutput, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "outputs"}})
 	}
 	return iface
 }
@@ -486,9 +488,8 @@ type nodeConfigContract struct {
 	required []catalog.InputContract
 }
 
-func indexNodeConfigContracts(contracts map[string]catalog.NodeContract) map[string]nodeConfigContract {
+func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind map[string]nodeConfigContract) map[string]nodeConfigContract {
 	out := make(map[string]nodeConfigContract, len(contracts))
-	byKind := make(map[string]nodeConfigContract)
 	for nodeID, contract := range contracts {
 		if contract.Kind != CallSubgraphKind {
 			if cached, ok := byKind[contract.Kind]; ok {
@@ -511,9 +512,8 @@ func indexNodeConfigContracts(contracts map[string]catalog.NodeContract) map[str
 	return out
 }
 
-func indexNodePins(contracts map[string]catalog.NodeContract) map[string]nodePinIndex {
+func indexNodePins(contracts map[string]catalog.NodeContract, byKind map[string]nodePinIndex) map[string]nodePinIndex {
 	out := make(map[string]nodePinIndex, len(contracts))
-	byKind := make(map[string]nodePinIndex)
 	for nodeID, contract := range contracts {
 		if contract.Kind != CallSubgraphKind {
 			if pins, ok := byKind[contract.Kind]; ok {
@@ -579,7 +579,7 @@ func validateBoundaryCoverage(out *[]schema.Diagnostic, graph schema.Graph, grap
 			endpoint := port.NodeID + "." + port.ID
 			if !group.used[endpoint] {
 				path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(portIndex)}
-				*out = append(*out, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint, "reason": "unbound"}})
+				appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint, "reason": "unbound"}})
 			}
 		}
 	}
@@ -592,7 +592,7 @@ func appendCallCycleDiagnostics(out *[]schema.Diagnostic, graphs []schema.Graph,
 		state[graphID] = 1
 		for _, ref := range adjacency[graphID] {
 			if state[ref.target] == 1 {
-				*out = append(*out, schema.Diagnostic{Code: schema.CodeSubgraphCallCycle, Severity: schema.SeverityError, GraphPath: []string{ref.graphID}, NodeID: ref.nodeID, FieldPath: []string{"graphs", strconv.Itoa(ref.graphIndex), "nodes", strconv.Itoa(ref.nodeIndex), "config", "graphId"}, Params: map[string]any{"graphId": ref.target}})
+				appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeSubgraphCallCycle, Severity: schema.SeverityError, GraphPath: []string{ref.graphID}, NodeID: ref.nodeID, FieldPath: []string{"graphs", strconv.Itoa(ref.graphIndex), "nodes", strconv.Itoa(ref.nodeIndex), "config", "graphId"}, Params: map[string]any{"graphId": ref.target}})
 			} else if state[ref.target] == 0 {
 				visit(ref.target)
 			}
@@ -626,18 +626,24 @@ func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, no
 		return
 	}
 	base := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config"}
-	for key, value := range sourceNode.Config {
+	keys := make([]string, 0, len(sourceNode.Config))
+	for key := range sourceNode.Config {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		if len(*out) >= MaxDiagnostics {
 			return
 		}
+		value := sourceNode.Config[key]
 		input, ok := contract.inputs[key]
 		path := appendPath(base, key)
 		if !ok || input.Type == "Exec" {
-			*out = append(*out, bindingDiagnostic(graphID, sourceNode.ID, path, "configField", map[string]any{"field": key}))
+			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, path, "configField", map[string]any{"field": key}))
 			continue
 		}
 		if !valueMatchesType(value, input.Type) || input.Schema != nil && !valueMatchesSchema(value, input.Schema) {
-			*out = append(*out, bindingDiagnostic(graphID, sourceNode.ID, path, "configType", map[string]any{"field": key, "type": input.Type}))
+			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, path, "configType", map[string]any{"field": key, "type": input.Type}))
 		}
 	}
 	for _, input := range contract.required {
@@ -646,7 +652,7 @@ func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, no
 		}
 		_, configured := sourceNode.Config[input.Name]
 		if !configured && input.Default == nil && !incoming[input.Name] {
-			*out = append(*out, bindingDiagnostic(graphID, sourceNode.ID, appendPath(base, input.Name), "requiredInput", map[string]any{"field": input.Name}))
+			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, appendPath(base, input.Name), "requiredInput", map[string]any{"field": input.Name}))
 		}
 	}
 }
@@ -932,12 +938,12 @@ func validateCapabilityDeclaration(declared, required []string) []schema.Diagnos
 	var diagnostics []schema.Diagnostic
 	for _, value := range required {
 		if !declaredSet[value] {
-			diagnostics = append(diagnostics, schema.Diagnostic{Code: schema.CodeMissingCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
+			appendDiagnostic(&diagnostics, schema.Diagnostic{Code: schema.CodeMissingCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
 		}
 	}
 	for _, value := range declared {
 		if !requiredSet[value] {
-			diagnostics = append(diagnostics, schema.Diagnostic{Code: schema.CodeUnusedCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
+			appendDiagnostic(&diagnostics, schema.Diagnostic{Code: schema.CodeUnusedCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
 		}
 	}
 	sortDiagnostics(diagnostics)
@@ -1003,6 +1009,20 @@ func bindingDiagnostic(graphID, nodeID string, fieldPath []string, keyword strin
 	}
 }
 
+func appendDiagnostic(out *[]schema.Diagnostic, diagnostic schema.Diagnostic) {
+	if len(*out) < MaxDiagnostics-1 {
+		*out = append(*out, diagnostic)
+		return
+	}
+	if len(*out) == MaxDiagnostics-1 {
+		*out = append(*out, diagnosticBudgetExceeded())
+	}
+}
+
+func diagnosticBudgetExceeded() schema.Diagnostic {
+	return schema.Diagnostic{Code: schema.CodeDiagnosticBudgetExceeded, Severity: schema.SeverityError, Params: map[string]any{"maximum": MaxDiagnostics}}
+}
+
 func lowerGraphs(graphs []schema.Graph, binding bindingResult) []programGraph {
 	out := make([]programGraph, 0, len(graphs))
 	for _, graph := range graphs {
@@ -1030,6 +1050,15 @@ func lowerGraphs(graphs []schema.Graph, binding bindingResult) []programGraph {
 func cloneDiagnostics(source []schema.Diagnostic) []schema.Diagnostic {
 	out := make([]schema.Diagnostic, len(source))
 	copy(out, source)
+	return out
+}
+
+func cappedDiagnostics(source []schema.Diagnostic) []schema.Diagnostic {
+	if len(source) < MaxDiagnostics {
+		return cloneDiagnostics(source)
+	}
+	out := cloneDiagnostics(source[:MaxDiagnostics-1])
+	out = append(out, diagnosticBudgetExceeded())
 	return out
 }
 

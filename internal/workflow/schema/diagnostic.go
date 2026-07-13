@@ -27,6 +27,7 @@ const (
 	CodeInvalidCalleeGraphKind       = "INVALID_CALLEE_GRAPH_KIND"
 	CodeSubgraphCallCycle            = "SUBGRAPH_CALL_CYCLE"
 	CodeCallPinTypeMismatch          = "CALL_PIN_TYPE_MISMATCH"
+	CodeDiagnosticBudgetExceeded     = "DIAGNOSTIC_BUDGET_EXCEEDED"
 	CodeMissingCapabilityDeclaration = "MISSING_CAPABILITY_DECLARATION"
 	CodeUnusedCapabilityDeclaration  = "UNUSED_CAPABILITY_DECLARATION"
 )

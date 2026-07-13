@@ -315,6 +315,39 @@ func TestCompileDraftNeverSealsProgramDeeperThanOpenAccepts(t *testing.T) {
 	}
 }
 
+func TestCompileDraftDeterministicallyCapsDiagnostics(t *testing.T) {
+	compiler, snapshot := testCompiler(t)
+	var config strings.Builder
+	config.WriteByte('{')
+	for index := 0; index < MaxDiagnostics+20; index++ {
+		if index > 0 {
+			config.WriteByte(',')
+		}
+		config.WriteString(`"unknown` + stringInt(index) + `":0`)
+	}
+	config.WriteByte('}')
+	raw := strings.Replace(validSource("1", 0, 0), `"config":{"Value":1}`, `"config":`+config.String(), 1)
+	var canonical []byte
+	for run := 0; run < 2; run++ {
+		result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Diagnostics) != MaxDiagnostics || !hasDiagnosticCode(result.Diagnostics, schema.CodeDiagnosticBudgetExceeded) {
+			t.Fatalf("diagnostics = %d %#v", len(result.Diagnostics), result.Diagnostics)
+		}
+		encoded, err := json.Marshal(result.Diagnostics)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if run == 0 {
+			canonical = encoded
+		} else if !bytes.Equal(canonical, encoded) {
+			t.Fatal("diagnostic truncation changed across identical compiles")
+		}
+	}
+}
+
 func TestProgramSnapshotRejectsMutationAndNonCanonicalArtifacts(t *testing.T) {
 	compiler, catalogSnapshot := testCompiler(t)
 	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(validSource("1", 0, 0)), Catalog: catalogSnapshot})
