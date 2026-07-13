@@ -7,21 +7,43 @@ export interface YottaWorkflowSourceV3 {
   format: 'yotta.workflow'
   /**
    * @minItems 1
+   * @maxItems 256
    */
   graphs: [Graph, ...Graph[]]
+  /**
+   * @maxItems 4096
+   */
   requestedCapabilities: Capability[]
   revision: number
+  /**
+   * @maxItems 4096
+   */
   secretRefs: SecretRef[]
+  /**
+   * @maxItems 4096
+   */
   variables: Variable[]
   version: 3
   workflow: Workflow
 }
 export interface Graph {
+  /**
+   * @maxItems 16384
+   */
   edges: Edge[]
   id: string
+  /**
+   * @maxItems 4096
+   */
   inputs: GraphPort[]
   kind: 'main' | 'subgraph'
+  /**
+   * @maxItems 4096
+   */
   nodes: Node[]
+  /**
+   * @maxItems 4096
+   */
   outputs: GraphPort[]
 }
 export interface Edge {

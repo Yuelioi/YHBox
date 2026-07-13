@@ -29,6 +29,7 @@
           "items": {
             "$ref": "#/$defs/Edge"
           },
+          "maxItems": 16384,
           "type": "array"
         },
         "id": {
@@ -39,6 +40,7 @@
           "items": {
             "$ref": "#/$defs/GraphPort"
           },
+          "maxItems": 4096,
           "type": "array"
         },
         "kind": {
@@ -52,12 +54,14 @@
           "items": {
             "$ref": "#/$defs/Node"
           },
+          "maxItems": 4096,
           "type": "array"
         },
         "outputs": {
           "items": {
             "$ref": "#/$defs/GraphPort"
           },
+          "maxItems": 4096,
           "type": "array"
         }
       },
@@ -221,6 +225,7 @@
       "items": {
         "$ref": "#/$defs/Graph"
       },
+      "maxItems": 256,
       "minItems": 1,
       "type": "array"
     },
@@ -228,6 +233,7 @@
       "items": {
         "$ref": "#/$defs/Capability"
       },
+      "maxItems": 4096,
       "type": "array"
     },
     "revision": {
@@ -239,12 +245,14 @@
       "items": {
         "$ref": "#/$defs/SecretRef"
       },
+      "maxItems": 4096,
       "type": "array"
     },
     "variables": {
       "items": {
         "$ref": "#/$defs/Variable"
       },
+      "maxItems": 4096,
       "type": "array"
     },
     "version": {

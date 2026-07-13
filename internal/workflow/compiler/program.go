@@ -395,6 +395,9 @@ func validateEnvelope(envelope programEnvelope) error {
 	if body.NodeLocks == nil || body.RequestedCapabilities == nil || body.RequiredCapabilities == nil || body.Variables == nil || body.SecretRefs == nil || len(body.Graphs) == 0 {
 		return fmt.Errorf("%w: missing collections", ErrInvalidProgramArtifact)
 	}
+	if len(body.Variables) > schema.MaxVariables || len(body.SecretRefs) > schema.MaxSecretRefs || len(body.RequestedCapabilities) > schema.MaxRequestedCapabilities || len(body.RequiredCapabilities) > schema.MaxRequestedCapabilities {
+		return fmt.Errorf("%w: scalar collection budget", ErrInvalidProgramArtifact)
+	}
 	if len(body.Graphs) > MaxGraphs {
 		return fmt.Errorf("%w: graph budget", ErrInvalidProgramArtifact)
 	}

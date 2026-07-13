@@ -4,10 +4,13 @@ package schema
 import contractjsonschema "github.com/invopop/jsonschema"
 
 const (
-	Format         = "yotta.workflow"
-	Version        = 3
-	MaxRevision    = 9_007_199_254_740_991
-	MaxDiagnostics = 10_000
+	Format                   = "yotta.workflow"
+	Version                  = 3
+	MaxRevision              = 9_007_199_254_740_991
+	MaxDiagnostics           = 10_000
+	MaxVariables             = 4_096
+	MaxSecretRefs            = 4_096
+	MaxRequestedCapabilities = 4_096
 )
 
 type GraphKind string
@@ -30,10 +33,10 @@ type WorkflowSource struct {
 	Workflow              Workflow     `json:"workflow" jsonschema:"required"`
 	Revision              int64        `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
 	EntryGraph            string       `json:"entryGraph" jsonschema:"required,minLength=1"`
-	Graphs                []Graph      `json:"graphs" jsonschema:"required,minItems=1"`
-	Variables             []Variable   `json:"variables" jsonschema:"required"`
-	SecretRefs            []SecretRef  `json:"secretRefs" jsonschema:"required"`
-	RequestedCapabilities []Capability `json:"requestedCapabilities" jsonschema:"required"`
+	Graphs                []Graph      `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
+	Variables             []Variable   `json:"variables" jsonschema:"required,maxItems=4096"`
+	SecretRefs            []SecretRef  `json:"secretRefs" jsonschema:"required,maxItems=4096"`
+	RequestedCapabilities []Capability `json:"requestedCapabilities" jsonschema:"required,maxItems=4096"`
 }
 
 type Workflow struct {
@@ -44,10 +47,10 @@ type Workflow struct {
 type Graph struct {
 	ID      string      `json:"id" jsonschema:"required,minLength=1"`
 	Kind    GraphKind   `json:"kind" jsonschema:"required,enum=main,enum=subgraph"`
-	Nodes   []Node      `json:"nodes" jsonschema:"required"`
-	Edges   []Edge      `json:"edges" jsonschema:"required"`
-	Inputs  []GraphPort `json:"inputs" jsonschema:"required"`
-	Outputs []GraphPort `json:"outputs" jsonschema:"required"`
+	Nodes   []Node      `json:"nodes" jsonschema:"required,maxItems=4096"`
+	Edges   []Edge      `json:"edges" jsonschema:"required,maxItems=16384"`
+	Inputs  []GraphPort `json:"inputs" jsonschema:"required,maxItems=4096"`
+	Outputs []GraphPort `json:"outputs" jsonschema:"required,maxItems=4096"`
 }
 
 type GraphPort struct {

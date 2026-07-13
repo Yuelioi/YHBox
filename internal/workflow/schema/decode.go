@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -51,7 +52,7 @@ func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	if !hasFormat || !hasVersion || !formatOK || !versionOK || format != Format || !isCurrentVersion(versionNumber) {
 		return WorkflowSource{}, oneDiagnostic(CodeUnsupportedWorkflowFormat, nil, map[string]any{"expectedFormat": Format, "expectedVersion": Version})
 	}
-	if structuralViolationBudgetExceeded(document, MaxDiagnostics) {
+	if schemaContractViolationBudgetExceeded(document, reflect.TypeFor[WorkflowSource](), MaxDiagnostics) {
 		return WorkflowSource{}, oneDiagnostic(CodeDiagnosticBudgetExceeded, nil, map[string]any{"maximum": MaxDiagnostics})
 	}
 
@@ -111,179 +112,124 @@ func (c *structuralViolationCounter) add() bool {
 	return c.count >= c.limit
 }
 
-var (
-	sourceKeys   = stringSet("format", "version", "workflow", "revision", "entryGraph", "graphs", "variables", "secretRefs", "requestedCapabilities")
-	workflowKeys = stringSet("id", "name")
-	graphKeys    = stringSet("id", "kind", "nodes", "edges", "inputs", "outputs")
-	nodeKeys     = stringSet("id", "kind", "label", "position", "config", "disabled")
-	positionKeys = stringSet("x", "y")
-	edgeKeys     = stringSet("from", "to")
-	portKeys     = stringSet("id", "name", "type", "nodeId")
-	variableKeys = stringSet("name", "type", "default")
-	secretKeys   = stringSet("id", "purpose")
-)
-
-func stringSet(values ...string) map[string]bool {
-	out := make(map[string]bool, len(values))
-	for _, value := range values {
-		out[value] = true
-	}
-	return out
+type reflectedFieldContract struct {
+	typ       reflect.Type
+	required  bool
+	minLength bool
+	enum      map[string]bool
+	maxItems  int
 }
 
-// structuralViolationBudgetExceeded is a resource preflight, not a second
-// schema implementation. It only counts definitely-invalid structural slots
-// before the JSON Schema engine can materialize an adversarial error tree.
-func structuralViolationBudgetExceeded(document any, limit int) bool {
-	counter := &structuralViolationCounter{limit: limit}
-	object := inspectObject(document, sourceKeys, []string{"format", "version", "workflow", "revision", "entryGraph", "graphs", "variables", "secretRefs", "requestedCapabilities"}, counter)
-	if object == nil || counter.count >= limit {
-		return counter.count >= limit
-	}
-	inspectString(object, "format", true, counter)
-	inspectNumber(object, "version", counter)
-	inspectNumber(object, "revision", counter)
-	inspectString(object, "entryGraph", true, counter)
-	workflow := inspectObject(object["workflow"], workflowKeys, []string{"id", "name"}, counter)
-	inspectString(workflow, "id", true, counter)
-	inspectString(workflow, "name", true, counter)
+type reflectedStructContract struct {
+	fields map[string]reflectedFieldContract
+}
 
-	inspectArray(object["graphs"], counter, func(value any) {
-		graph := inspectObject(value, graphKeys, []string{"id", "kind", "nodes", "edges", "inputs", "outputs"}, counter)
-		inspectString(graph, "id", true, counter)
-		inspectEnum(graph, "kind", counter, "main", "subgraph")
-		inspectArrayValue(graph, "nodes", counter, func(value any) {
-			n := inspectObject(value, nodeKeys, []string{"id", "kind", "position", "config"}, counter)
-			inspectString(n, "id", true, counter)
-			inspectString(n, "kind", true, counter)
-			if _, ok := n["label"]; ok {
-				inspectString(n, "label", false, counter)
-			}
-			position := inspectObject(n["position"], positionKeys, []string{"x", "y"}, counter)
-			inspectNumber(position, "x", counter)
-			inspectNumber(position, "y", counter)
-			if _, ok := n["config"].(map[string]any); !ok && n != nil {
-				counter.add()
-			}
-			if value, ok := n["disabled"]; ok {
-				if _, ok := value.(bool); !ok {
-					counter.add()
-				}
-			}
-		})
-		inspectArrayValue(graph, "edges", counter, func(value any) {
-			edge := inspectObject(value, edgeKeys, []string{"from", "to"}, counter)
-			inspectString(edge, "from", true, counter)
-			inspectString(edge, "to", true, counter)
-		})
-		for _, field := range []string{"inputs", "outputs"} {
-			inspectArrayValue(graph, field, counter, func(value any) {
-				port := inspectObject(value, portKeys, []string{"id", "name", "type", "nodeId"}, counter)
-				for _, name := range []string{"id", "name", "type", "nodeId"} {
-					inspectString(port, name, true, counter)
-				}
-			})
-		}
-	})
-	inspectArrayValue(object, "variables", counter, func(value any) {
-		variable := inspectObject(value, variableKeys, []string{"name", "type"}, counter)
-		inspectString(variable, "name", true, counter)
-		inspectString(variable, "type", true, counter)
-	})
-	inspectArrayValue(object, "secretRefs", counter, func(value any) {
-		secret := inspectObject(value, secretKeys, []string{"id", "purpose"}, counter)
-		inspectString(secret, "id", true, counter)
-		inspectString(secret, "purpose", true, counter)
-	})
-	inspectArrayValue(object, "requestedCapabilities", counter, func(value any) {
-		if text, ok := value.(string); !ok || text == "" {
-			counter.add()
-		}
-	})
+var reflectedContracts sync.Map
+
+func schemaContractViolationBudgetExceeded(document any, typ reflect.Type, limit int) bool {
+	counter := &structuralViolationCounter{limit: limit}
+	inspectSchemaValue(document, typ, reflectedFieldContract{}, counter)
 	return counter.count >= limit
 }
 
-func inspectObject(value any, allowed map[string]bool, required []string, counter *structuralViolationCounter) map[string]any {
+func inspectSchemaValue(value any, typ reflect.Type, field reflectedFieldContract, counter *structuralViolationCounter) {
 	if counter.count >= counter.limit {
-		return nil
-	}
-	object, ok := value.(map[string]any)
-	if !ok {
-		counter.add()
-		return nil
-	}
-	for key := range object {
-		if !allowed[key] && counter.add() {
-			return object
-		}
-	}
-	for _, key := range required {
-		if _, ok := object[key]; !ok && counter.add() {
-			return object
-		}
-	}
-	return object
-}
-
-func inspectArrayValue(object map[string]any, field string, counter *structuralViolationCounter, visit func(any)) {
-	if object == nil {
 		return
 	}
-	inspectArray(object[field], counter, visit)
-}
-
-func inspectArray(value any, counter *structuralViolationCounter, visit func(any)) {
-	values, ok := value.([]any)
-	if !ok {
-		counter.add()
-		return
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
 	}
-	for _, value := range values {
-		if counter.count >= counter.limit {
+	switch typ.Kind() {
+	case reflect.Struct:
+		object, ok := value.(map[string]any)
+		if !ok {
+			counter.add()
 			return
 		}
-		visit(value)
-	}
-}
-
-func inspectString(object map[string]any, field string, nonempty bool, counter *structuralViolationCounter) {
-	if object == nil {
-		return
-	}
-	value, exists := object[field]
-	if !exists {
-		return
-	}
-	text, ok := value.(string)
-	if !ok || nonempty && text == "" {
-		counter.add()
-	}
-}
-
-func inspectNumber(object map[string]any, field string, counter *structuralViolationCounter) {
-	if object == nil {
-		return
-	}
-	if _, ok := object[field].(json.Number); !ok {
-		counter.add()
-	}
-}
-
-func inspectEnum(object map[string]any, field string, counter *structuralViolationCounter, allowed ...string) {
-	if object == nil {
-		return
-	}
-	value, ok := object[field].(string)
-	if !ok {
-		counter.add()
-		return
-	}
-	for _, candidate := range allowed {
-		if value == candidate {
+		contract := reflectedContract(typ)
+		for key := range object {
+			if _, ok := contract.fields[key]; !ok && counter.add() {
+				return
+			}
+		}
+		for name, child := range contract.fields {
+			childValue, exists := object[name]
+			if !exists {
+				if child.required {
+					counter.add()
+				}
+				continue
+			}
+			inspectSchemaValue(childValue, child.typ, child, counter)
+		}
+	case reflect.Slice, reflect.Array:
+		values, ok := value.([]any)
+		if !ok {
+			counter.add()
 			return
 		}
+		if field.maxItems > 0 && len(values) > field.maxItems {
+			counter.count = counter.limit
+			return
+		}
+		for _, child := range values {
+			inspectSchemaValue(child, typ.Elem(), reflectedFieldContract{}, counter)
+			if counter.count >= counter.limit {
+				return
+			}
+		}
+	case reflect.Map:
+		if _, ok := value.(map[string]any); !ok {
+			counter.add()
+		}
+	case reflect.Interface:
+		return
+	case reflect.String:
+		text, ok := value.(string)
+		if !ok || (field.minLength || typ == reflect.TypeFor[Capability]()) && text == "" || len(field.enum) > 0 && !field.enum[text] {
+			counter.add()
+		}
+	case reflect.Bool:
+		if _, ok := value.(bool); !ok {
+			counter.add()
+		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		if _, ok := value.(json.Number); !ok {
+			counter.add()
+		}
 	}
-	counter.add()
+}
+
+func reflectedContract(typ reflect.Type) reflectedStructContract {
+	if cached, ok := reflectedContracts.Load(typ); ok {
+		return cached.(reflectedStructContract)
+	}
+	contract := reflectedStructContract{fields: make(map[string]reflectedFieldContract, typ.NumField())}
+	for index := 0; index < typ.NumField(); index++ {
+		modelField := typ.Field(index)
+		name := strings.Split(modelField.Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		field := reflectedFieldContract{typ: modelField.Type, enum: map[string]bool{}}
+		for _, option := range strings.Split(modelField.Tag.Get("jsonschema"), ",") {
+			switch {
+			case option == "required":
+				field.required = true
+			case option == "minLength=1":
+				field.minLength = true
+			case strings.HasPrefix(option, "enum="):
+				field.enum[strings.TrimPrefix(option, "enum=")] = true
+			case strings.HasPrefix(option, "maxItems="):
+				field.maxItems, _ = strconv.Atoi(strings.TrimPrefix(option, "maxItems="))
+			}
+		}
+		contract.fields[name] = field
+	}
+	actual, _ := reflectedContracts.LoadOrStore(typ, contract)
+	return actual.(reflectedStructContract)
 }
 
 func validateSource(source WorkflowSource) []Diagnostic {
@@ -293,6 +239,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	graphKinds := map[string]GraphKind{}
 	mainGraphs := 0
 	for graphIndex, graph := range source.Graphs {
+		if len(out) >= MaxDiagnostics {
+			return sortedDiagnostics(out)
+		}
 		graphPath := []string{graph.ID}
 		base := []string{"graphs", fmt.Sprint(graphIndex)}
 		if graphIDs[graph.ID] {
@@ -305,6 +254,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		nodeIDs := map[string]bool{}
 		for nodeIndex, node := range graph.Nodes {
+			if len(out) >= MaxDiagnostics {
+				return sortedDiagnostics(out)
+			}
 			nodePath := append(append([]string(nil), base...), "nodes", fmt.Sprint(nodeIndex))
 			if nodeIDs[node.ID] {
 				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
@@ -314,6 +266,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		validateGraphPorts := func(ports []GraphPort, field string) {
 			portIDs := map[string]bool{}
 			for portIndex, port := range ports {
+				if len(out) >= MaxDiagnostics {
+					return
+				}
 				portPath := append(append([]string(nil), base...), field, fmt.Sprint(portIndex))
 				if portIDs[port.ID] {
 					appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(portPath, "id"), map[string]any{"id": port.ID}))
@@ -323,12 +278,18 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		validateGraphPorts(graph.Inputs, "inputs")
 		validateGraphPorts(graph.Outputs, "outputs")
+		if len(out) >= MaxDiagnostics {
+			return sortedDiagnostics(out)
+		}
 	}
 	if !graphIDs[source.EntryGraph] || graphKinds[source.EntryGraph] != GraphKindMain || mainGraphs != 1 {
 		appendDiagnostic(&out, diagnostic(CodeMissingEntryGraph, []string{"entryGraph"}, map[string]any{"entryGraph": source.EntryGraph, "mainGraphs": mainGraphs}))
 	}
 	variableNames := map[string]bool{}
 	for index, variable := range source.Variables {
+		if len(out) >= MaxDiagnostics {
+			return sortedDiagnostics(out)
+		}
 		path := []string{"variables", fmt.Sprint(index)}
 		if variableNames[variable.Name] {
 			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "name"), map[string]any{"id": variable.Name}))
@@ -337,6 +298,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	}
 	secretIDs := map[string]bool{}
 	for index, secret := range source.SecretRefs {
+		if len(out) >= MaxDiagnostics {
+			return sortedDiagnostics(out)
+		}
 		path := []string{"secretRefs", fmt.Sprint(index)}
 		if secretIDs[secret.ID] {
 			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
@@ -345,6 +309,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	}
 	capabilities := map[Capability]bool{}
 	for index, capability := range source.RequestedCapabilities {
+		if len(out) >= MaxDiagnostics {
+			return sortedDiagnostics(out)
+		}
 		path := []string{"requestedCapabilities", fmt.Sprint(index)}
 		if capability == "" {
 			appendDiagnostic(&out, diagnostic(CodeInvalidField, path, map[string]any{"keyword": "minLength"}))
@@ -353,8 +320,12 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		capabilities[capability] = true
 	}
-	sortDiagnostics(out)
-	return out
+	return sortedDiagnostics(out)
+}
+
+func sortedDiagnostics(values []Diagnostic) []Diagnostic {
+	sortDiagnostics(values)
+	return values
 }
 
 func compileWorkflowValidator() (*runtimejsonschema.Schema, error) {

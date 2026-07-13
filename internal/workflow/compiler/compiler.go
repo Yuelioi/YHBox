@@ -951,7 +951,7 @@ func validateCapabilityDeclaration(declared, required []string) []schema.Diagnos
 }
 
 func exceedsSourceCollections(source schema.WorkflowSource) bool {
-	if len(source.Graphs) > MaxGraphs {
+	if len(source.Graphs) > MaxGraphs || len(source.Variables) > schema.MaxVariables || len(source.SecretRefs) > schema.MaxSecretRefs || len(source.RequestedCapabilities) > schema.MaxRequestedCapabilities {
 		return true
 	}
 	totalNodes, totalEdges, totalPorts := 0, 0, 0
