@@ -1,7 +1,7 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="settings-page">
     <!-- Title section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-plug" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settingsMCP.title') }}</h2>
@@ -9,12 +9,16 @@
     </section>
 
     <!-- Arm toggle section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center justify-between gap-6">
         <div>
           <div class="text-sm text-default">{{ t('settingsMCP.armLabel') }}</div>
         </div>
-        <USwitch :model-value="armed" @update:model-value="onToggleArmed" />
+        <USwitch
+          :model-value="armed"
+          :aria-label="t('settingsMCP.armLabel')"
+          @update:model-value="onToggleArmed"
+        />
       </div>
 
       <!-- Warning shown when armed -->
@@ -28,7 +32,7 @@
     </section>
 
     <!-- Server URL section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-link" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settingsMCP.urlLabel') }}</h2>
@@ -37,7 +41,13 @@
       <p class="text-xs text-dimmed">{{ t('settingsMCP.urlHint') }}</p>
 
       <div class="flex items-center gap-2">
-        <UInput :model-value="MCP_URL" readonly size="sm" class="flex-1 min-w-0 font-mono" />
+        <UInput
+          :model-value="MCP_URL"
+          readonly
+          size="sm"
+          class="flex-1 min-w-0 font-mono"
+          :aria-label="t('settingsMCP.urlLabel')"
+        />
         <UButton size="sm" variant="soft" color="primary" icon="i-tabler-copy" @click="copyUrl">
           {{ t('settingsMCP.copy') }}
         </UButton>

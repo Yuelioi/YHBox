@@ -1,7 +1,7 @@
 <template>
   <!-- CommentBox — visual-only 注释节点, 仿普通节点卡片 (彩色标题栏 + 半透明 body), 无 handle.
        颜色/图标从视觉注册中心取 (config.literal.Color = palette key, Icon = tabler 名).
-       双击标题/正文内联编辑; 颜色/图标在 NodeInspector 选. body 加 .nodrag → 只标题栏可拖. -->
+       标题栏编辑按钮/双击进入内联编辑; 颜色/图标在 NodeInspector 选. body 加 .nodrag → 只标题栏可拖. -->
   <div
     class="cb-card"
     :class="{ 'is-selected': selected }"
@@ -17,6 +17,7 @@
         ref="titleEl"
         v-model="draftTitle"
         class="nodrag cb-title-input"
+        :aria-label="t('commentBox.title_placeholder')"
         :placeholder="t('commentBox.title_placeholder')"
         @mousedown.stop
         @keydown.esc.prevent="save"
@@ -25,6 +26,16 @@
       <span v-else class="cb-title truncate" :class="{ 'opacity-50': !title }">
         {{ title || t('commentBox.title_placeholder') }}
       </span>
+      <button
+        v-if="!editing"
+        type="button"
+        class="nodrag cb-edit"
+        :aria-label="t('common.edit')"
+        @click.stop="enterEdit"
+        @mousedown.stop
+      >
+        <UIcon name="i-tabler-edit" class="size-3.5" />
+      </button>
     </div>
 
     <!-- 正文 body (.nodrag 不参与拖拽) -->
@@ -33,6 +44,7 @@
         v-if="editing"
         v-model="draftContent"
         class="cb-textarea"
+        :aria-label="t('commentBox.content_placeholder')"
         :rows="contentRows"
         :placeholder="t('commentBox.content_placeholder')"
         @mousedown.stop
@@ -181,6 +193,35 @@ function onContentClick(e: MouseEvent) {
 }
 .cb-title-input::placeholder {
   opacity: 0.5;
+}
+.cb-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: -4px -5px -4px 0;
+  border-radius: 6px;
+  color: rgba(244, 244, 245, 0.72);
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.cb-card:hover .cb-edit,
+.cb-card:focus-within .cb-edit,
+.cb-edit:focus-visible {
+  opacity: 1;
+}
+.cb-edit:hover,
+.cb-edit:focus-visible {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+.cb-edit:focus-visible {
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.75);
 }
 
 /* 正文 body */

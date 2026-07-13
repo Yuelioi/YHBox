@@ -126,6 +126,47 @@ textarea {
   .relative.inline-flex.items-center:has(> textarea) {
     width: 100%;
   }
+
+  /* 设置页使用一条连续内容流；分区靠节奏和分隔线组织，避免同色卡片层层嵌套。 */
+  .settings-page {
+    display: flex;
+    width: 100%;
+    max-width: 920px;
+    margin-inline: auto;
+    padding: 28px 32px 40px;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .settings-section:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .detail-form {
+    display: flex;
+    width: 100%;
+    max-width: 920px;
+    margin-inline: auto;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--ui-border);
+  }
 }
 
 /* ── Compact toast: 顶部居中 / 暗色 + border / 无倒计时进度条 / 紧凑（Plan B Task A.5）── */

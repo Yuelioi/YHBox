@@ -35,6 +35,7 @@ export default {
     about: '关于',
     container_edit: '编辑容器',
     launcher: '悬浮启动器',
+    primary_navigation: '主导航',
   },
   controls: {
     start: '开始',
@@ -118,6 +119,7 @@ export default {
         col_active: '默认',
         col_label: '名字',
         col_counts: 'counts360',
+        set_active: '将“{name}”设为默认校准档',
         label_placeholder: '如: 异环 / 原神',
         empty: '还没有校准档. 点下面「新建档」加一个, 再用「校准」实测填值.',
         add_profile: '新建档',
@@ -190,6 +192,7 @@ export default {
       dirty_dot: '· 未保存',
     },
     window: {
+      controls: '窗口控制',
       minimize: '最小化',
       maximize: '最大化',
       restore: '还原',
@@ -267,7 +270,8 @@ export default {
     dock: {
       assets: '资产',
       detail: '详情',
-      drag_hint: '拖到画布插入 · 单击选中 · 双击看详情',
+      drag_hint: '拖到画布插入 · 单击选中 · 回车或更多查看详情',
+      select_asset: '选择“{name}”',
     },
     toolbar: {
       back_to_list: '返回容器列表',
@@ -2955,6 +2959,7 @@ export default {
     delete_count: '删除 ({n})',
     actions: {
       more: '更多操作',
+      more_for: '“{name}”的更多操作',
     },
     create: '新建容器',
     empty_title: '还没有容器',
@@ -2993,6 +2998,7 @@ export default {
       select_page: '选择当前页',
       clear: '清空选择',
       delete: '删除所选',
+      select_one: '选择“{name}”',
     },
     toast: {
       stop_signal: '已发出停止信号',
@@ -3186,6 +3192,12 @@ export default {
     timeout_label: '超时',
     timeout_hint: '单位分钟, 0 = 不限时',
     add_container: '添加容器',
+    target_n: '第 {n} 个目标容器',
+    move_up: '上移目标',
+    move_down: '下移目标',
+    remove_target: '移除目标',
+    edit_action: '编辑计划「{name}」',
+    delete_action: '删除计划「{name}」',
     interval_label: '每 N 分钟',
     hotkey_label: '热键',
     limit_label: '限制',
@@ -3193,11 +3205,13 @@ export default {
     empty: '还没有计划',
     empty_desc: '计划绑定 cron / 热键 / 启动后一次, 触发后顺序跑指定容器.',
     table: {
+      caption: '计划列表',
       name: '名称',
       trigger: '触发',
       count: '容器数',
       last: '上次触发',
       enabled: '启用',
+      actions: '操作',
     },
     trigger: {
       manual: '仅手动',
@@ -3730,6 +3744,8 @@ export default {
     hsep: '水平分隔符',
     vsep: '垂直分隔符',
     delete_block: '删除此块',
+    move_up: '上移此块',
+    move_down: '下移此块',
     from_container: '来自容器：{name}',
     add_container: '+ 容器',
     label_block: '文字标题',
@@ -3769,6 +3785,7 @@ export default {
       title: '连接',
       hint: '本地(Ollama / LM Studio 等,通常免密钥)或线上(OpenAI / DeepSeek / Claude 等)。',
       set_default: '设为默认',
+      protocol_label: '接口协议',
       label_placeholder: '连接名,如 本地 Ollama',
       test: '测试',
       delete: '删除连接',

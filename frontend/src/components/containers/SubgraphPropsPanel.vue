@@ -10,9 +10,7 @@
     </header>
 
     <section class="space-y-1.5">
-      <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
-        >ID</label
-      >
+      <label class="block text-xs font-medium text-muted">ID</label>
       <button
         type="button"
         class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"

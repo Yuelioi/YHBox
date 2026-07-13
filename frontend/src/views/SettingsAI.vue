@@ -1,6 +1,6 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
-    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+  <div class="settings-page">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-sparkles" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settingsAI.title') }}</h2>
@@ -8,7 +8,7 @@
       <p class="text-xs text-dimmed leading-relaxed">{{ t('settingsAI.intro') }}</p>
     </section>
 
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-plug-connected" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">
@@ -33,6 +33,7 @@
               :model-value="defaultId"
               :value="c.id"
               :title="t('settingsAI.connections.set_default')"
+              :aria-label="t('settingsAI.connections.set_default')"
               @update:model-value="() => setDefault(c.id)"
             />
             <UInput
@@ -40,6 +41,7 @@
               size="sm"
               class="flex-1 min-w-0"
               :placeholder="t('settingsAI.connections.label_placeholder')"
+              :aria-label="t('settingsAI.connections.label_placeholder')"
               @update:model-value="(v: string) => (draft[i].label = v)"
               @change="commit()"
             />
@@ -59,6 +61,7 @@
               color="error"
               icon="i-tabler-trash"
               :title="t('settingsAI.connections.delete')"
+              :aria-label="t('settingsAI.connections.delete')"
               @click="removeConnection(c.id)"
             />
           </div>
@@ -69,6 +72,7 @@
               :items="protocolItems"
               size="sm"
               class="w-44 shrink-0"
+              :aria-label="t('settingsAI.connections.protocol_label')"
               @update:model-value="(v: 'openai' | 'anthropic') => onProtocol(i, v)"
             />
             <UInput
@@ -76,6 +80,7 @@
               size="sm"
               class="flex-1 min-w-0"
               :placeholder="t('settingsAI.connections.baseurl_placeholder')"
+              :aria-label="t('settingsAI.connections.baseurl_placeholder')"
               @update:model-value="(v: string) => (draft[i].baseURL = v)"
               @change="commit()"
             />
@@ -88,6 +93,7 @@
               size="sm"
               class="flex-1 min-w-0"
               :placeholder="t('settingsAI.connections.apikey_placeholder')"
+              :aria-label="t('settingsAI.connections.apikey_placeholder')"
               @update:model-value="(v: string) => (draft[i].apiKey = v)"
               @change="commit()"
             >
@@ -98,6 +104,7 @@
                   color="neutral"
                   size="xs"
                   :title="t('settingsAI.connections.reveal')"
+                  :aria-label="t('settingsAI.connections.reveal')"
                   @click="revealed[c.id] = !revealed[c.id]"
                 />
               </template>
@@ -107,6 +114,7 @@
               size="sm"
               class="w-44 shrink-0"
               :placeholder="t('settingsAI.connections.testmodel_placeholder')"
+              :aria-label="t('settingsAI.connections.testmodel_placeholder')"
               @update:model-value="(v: string) => (testModels[c.id] = v)"
             />
           </div>

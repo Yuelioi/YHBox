@@ -6,51 +6,62 @@
       :title="t('schedule.empty')"
       :description="t('schedule.empty_desc')"
     />
-    <table v-else class="w-full text-sm">
-      <thead class="text-xs text-dimmed uppercase tracking-wider border-b border-default">
-        <tr>
-          <th class="text-left p-2">{{ t('schedule.table.name') }}</th>
-          <th class="text-left p-2">{{ t('schedule.table.trigger') }}</th>
-          <th class="text-left p-2">{{ t('schedule.table.count') }}</th>
-          <th class="text-left p-2">{{ t('schedule.table.last') }}</th>
-          <th class="text-left p-2">{{ t('schedule.table.enabled') }}</th>
-          <th class="p-2"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in list" :key="s.id" class="border-b border-default/40 hover:bg-elevated/40">
-          <td class="p-2 text-default">{{ s.name }}</td>
-          <td class="p-2 text-dimmed">{{ triggerLabel(s) }}</td>
-          <td class="p-2 text-dimmed font-mono tabular-nums">{{ s.targets.length }}</td>
-          <td class="p-2 text-dimmed font-mono tabular-nums">
-            {{ s.lastFiredAt?.slice(0, 16).replace('T', ' ') ?? '—' }}
-          </td>
-          <td class="p-2">
-            <StatusPill
-              :status="s.enabled ? 'online' : 'ready'"
-              :label="s.enabled ? t('schedule.enable') : t('schedule.disable')"
-              :dot="s.enabled"
-            />
-          </td>
-          <td class="p-2 text-right">
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-edit"
-              @click="$emit('edit', s)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="error"
-              icon="i-tabler-trash"
-              @click="$emit('delete', s)"
-            />
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="overflow-x-auto rounded-lg border border-default/60">
+      <table class="w-full min-w-[760px] text-sm">
+        <caption class="sr-only">
+          {{
+            t('schedule.table.caption')
+          }}
+        </caption>
+        <thead class="border-b border-default bg-muted/20 text-xs text-muted">
+          <tr>
+            <th class="text-left p-2">{{ t('schedule.table.name') }}</th>
+            <th class="text-left p-2">{{ t('schedule.table.trigger') }}</th>
+            <th class="text-left p-2">{{ t('schedule.table.count') }}</th>
+            <th class="text-left p-2">{{ t('schedule.table.last') }}</th>
+            <th class="text-left p-2">{{ t('schedule.table.enabled') }}</th>
+            <th class="p-2 text-right">{{ t('schedule.table.actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in list" :key="s.id" class="border-b border-default/40 hover:bg-elevated/40">
+            <td class="p-2 text-default">{{ s.name }}</td>
+            <td class="p-2 text-dimmed">{{ triggerLabel(s) }}</td>
+            <td class="p-2 text-dimmed font-mono tabular-nums">{{ s.targets.length }}</td>
+            <td class="p-2 text-dimmed font-mono tabular-nums">
+              {{ s.lastFiredAt?.slice(0, 16).replace('T', ' ') ?? '—' }}
+            </td>
+            <td class="p-2">
+              <StatusPill
+                :status="s.enabled ? 'online' : 'ready'"
+                :label="s.enabled ? t('schedule.enable') : t('schedule.disable')"
+                :dot="s.enabled"
+              />
+            </td>
+            <td class="p-2 text-right">
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-edit"
+                :title="t('schedule.edit_action', { name: s.name })"
+                :aria-label="t('schedule.edit_action', { name: s.name })"
+                @click="$emit('edit', s)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="error"
+                icon="i-tabler-trash"
+                :title="t('schedule.delete_action', { name: s.name })"
+                :aria-label="t('schedule.delete_action', { name: s.name })"
+                @click="$emit('delete', s)"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 

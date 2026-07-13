@@ -57,7 +57,7 @@
         />
       </div>
 
-      <p v-if="selected.size === 0" class="text-[10px] text-dimmed px-1 shrink-0">
+      <p v-if="selected.size === 0" class="px-1 text-xs text-dimmed shrink-0">
         {{ t('editor.dock.drag_hint') }}
       </p>
       <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
@@ -69,17 +69,19 @@
           <span v-else>{{ t('library.explorer.no_match') }}</span>
         </div>
 
-        <div v-else class="space-y-2">
+        <div v-else role="listbox" aria-multiselectable="true" class="space-y-2">
           <template v-for="group in groupedItems" :key="group.category">
-            <div
-              class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5"
-            >
+            <div class="px-1 pt-2 pb-0.5 text-xs font-medium text-muted">
               {{ group.category }}
             </div>
             <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
               <div
                 draggable="true"
-                class="group rounded p-3 cursor-grab active:cursor-grabbing"
+                role="option"
+                tabindex="0"
+                :aria-selected="isSelected(item.id)"
+                :aria-label="t('editor.dock.select_asset', { name: item.label })"
+                class="group rounded p-3 cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 :class="
                   isSelected(item.id)
                     ? 'bg-primary/15 ring-1 ring-inset ring-primary/50'
@@ -87,6 +89,7 @@
                 "
                 @click="onRowClick(item.id, $event)"
                 @dblclick="openDetail(item.id)"
+                @keydown="onRowKeydown(item.id, $event)"
                 @contextmenu="selClick(item.id)"
                 @dragstart="(e) => startEditorDrag({ type: 'library-subgraph', id: item.id }, e)"
               >
@@ -94,7 +97,9 @@
                   <span
                     class="mt-0.5 shrink-0 transition-opacity"
                     :class="
-                      isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      isSelected(item.id)
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
                     "
                     @click.stop
                     @dblclick.stop
@@ -103,23 +108,21 @@
                     <UCheckbox
                       :model-value="isSelected(item.id)"
                       size="sm"
+                      :aria-label="t('editor.dock.select_asset', { name: item.label })"
                       @update:model-value="selClick(item.id, { ctrl: true })"
                     />
                   </span>
                   <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
                   <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium">{{ item.label }}</div>
-                    <div
-                      v-if="item.description"
-                      class="text-[11px] text-dimmed mt-0.5 line-clamp-2"
-                    >
+                    <div v-if="item.description" class="text-xs text-dimmed mt-0.5 line-clamp-2">
                       {{ item.description }}
                     </div>
                     <div v-if="item.tags && item.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
                       <span
                         v-for="tg in item.tags"
                         :key="tg"
-                        class="px-1.5 py-0 bg-elevated/60 text-[9px] rounded text-dimmed"
+                        class="px-1.5 py-0.5 bg-elevated/60 text-[11px] rounded text-dimmed"
                       >
                         {{ tg }}
                       </span>
@@ -130,7 +133,7 @@
                     variant="ghost"
                     color="neutral"
                     icon="i-tabler-dots"
-                    class="opacity-0 group-hover:opacity-100 shrink-0"
+                    class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0"
                     :aria-label="t('editor.dock.detail')"
                     @click.stop="openDetail(item.id)"
                     @dblclick.stop
@@ -144,7 +147,7 @@
 
       <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span class="text-[11px] text-dimmed shrink-0">{{
+        <span class="text-xs text-dimmed shrink-0">{{
           t('library.toolbar.total', { n: pageResult.total })
         }}</span>
         <div class="flex items-center gap-2 shrink-0">
@@ -363,6 +366,18 @@ onMounted(async () => {
 
 function onRowClick(id: string, e: MouseEvent) {
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
+}
+
+function onRowKeydown(id: string, e: KeyboardEvent) {
+  if (e.target !== e.currentTarget) return
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    openDetail(id)
+    return
+  }
+  if (e.key !== ' ') return
+  e.preventDefault()
+  selClick(id)
 }
 
 function onPick(libraryID: string) {

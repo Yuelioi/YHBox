@@ -10,6 +10,7 @@ export default {
     about: 'About',
     container_edit: 'Edit container',
     launcher: 'Floating launcher',
+    primary_navigation: 'Primary navigation',
   },
   controls: {
     start: 'Start',
@@ -97,6 +98,7 @@ export default {
         col_active: 'Default',
         col_label: 'Name',
         col_counts: 'counts360',
+        set_active: 'Set “{name}” as the default calibration profile',
         label_placeholder: 'e.g. Genshin / Valorant',
         empty:
           'No calibration profiles yet. Click "Add profile" below, then "Calibrate" to measure the value.',
@@ -171,6 +173,7 @@ export default {
       dirty_dot: '· Unsaved',
     },
     window: {
+      controls: 'Window controls',
       minimize: 'Minimize',
       maximize: 'Maximize',
       restore: 'Restore',
@@ -251,7 +254,8 @@ export default {
     dock: {
       assets: 'Assets',
       detail: 'Details',
-      drag_hint: 'Drag to canvas to insert · click to select · double-click for details',
+      drag_hint: 'Drag to canvas to insert · click to select · Enter or More for details',
+      select_asset: 'Select “{name}”',
     },
     toolbar: {
       back_to_list: 'Back to container list',
@@ -3110,6 +3114,7 @@ export default {
     delete_count: 'Delete ({n})',
     actions: {
       more: 'More actions',
+      more_for: 'More actions for “{name}”',
     },
     create: 'New container',
     empty_title: 'No containers yet',
@@ -3149,6 +3154,7 @@ export default {
       select_page: 'Select current page',
       clear: 'Clear selection',
       delete: 'Delete selected',
+      select_one: 'Select “{name}”',
     },
     toast: {
       stop_signal: 'Stop signal sent',
@@ -3329,6 +3335,12 @@ export default {
     timeout_label: 'Timeout',
     timeout_hint: 'In minutes, 0 = no limit',
     add_container: 'Add container',
+    target_n: 'Target container {n}',
+    move_up: 'Move target up',
+    move_down: 'Move target down',
+    remove_target: 'Remove target',
+    edit_action: 'Edit schedule “{name}”',
+    delete_action: 'Delete schedule “{name}”',
     interval_label: 'Every N minutes',
     hotkey_label: 'Hotkey',
     limit_label: 'Limit',
@@ -3337,11 +3349,13 @@ export default {
     empty_desc:
       'Schedules bind cron / hotkey / once-at-startup, then run the listed containers sequentially.',
     table: {
+      caption: 'Schedule list',
       name: 'Name',
       trigger: 'Trigger',
       count: 'Containers',
       last: 'Last triggered',
       enabled: 'Enabled',
+      actions: 'Actions',
     },
     trigger: {
       manual: 'Manual only',
@@ -3862,6 +3876,8 @@ export default {
     hsep: 'Horizontal separator',
     vsep: 'Vertical separator',
     delete_block: 'Delete this block',
+    move_up: 'Move block up',
+    move_down: 'Move block down',
     from_container: 'From container: {name}',
     add_container: '+ Container',
     label_block: 'Text heading',
@@ -3902,6 +3918,7 @@ export default {
       title: 'Connections',
       hint: 'Local (Ollama / LM Studio, usually no key) or hosted (OpenAI / DeepSeek / Claude).',
       set_default: 'Set as default',
+      protocol_label: 'API protocol',
       label_placeholder: 'Name, e.g. Local Ollama',
       test: 'Test',
       delete: 'Delete connection',

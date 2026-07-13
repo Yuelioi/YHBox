@@ -12,7 +12,7 @@
         <div
           class="size-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0"
         >
-          <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" />
+          <UIcon name="i-tabler-device-gamepad-2" class="size-4 text-primary" aria-hidden="true" />
         </div>
         <span class="text-sm font-semibold tracking-tight text-highlighted">Yotta</span>
         <span v-if="versionLabel" class="font-mono text-[11px] tabular-nums text-dimmed">
@@ -20,12 +20,17 @@
         </span>
       </div>
 
-      <nav class="flex items-stretch" style="--wails-draggable: no-drag">
+      <nav
+        class="flex items-stretch"
+        :aria-label="t('sidebar.primary_navigation')"
+        style="--wails-draggable: no-drag"
+      >
         <RouterLink
           v-for="item in navItems"
           :key="item.key"
           :to="item.to"
           :title="item.label"
+          :aria-current="item.active ? 'page' : undefined"
           class="relative flex items-center gap-2 px-4 text-sm transition-colors duration-150"
           :class="
             item.active
@@ -36,8 +41,9 @@
           <span
             v-if="item.active"
             class="absolute left-2 right-2 bottom-0 h-0.5 bg-primary rounded-t"
+            aria-hidden="true"
           />
-          <UIcon :name="item.icon" class="size-4 shrink-0" />
+          <UIcon :name="item.icon" class="size-4 shrink-0" aria-hidden="true" />
           <span class="truncate">{{ item.label }}</span>
         </RouterLink>
       </nav>
@@ -45,7 +51,12 @@
 
     <!-- CENTER: drag region with current view title -->
     <div class="flex-1 flex items-center px-6 min-w-0" style="--wails-draggable: drag">
-      <UIcon v-if="currentIcon" :name="currentIcon" class="size-4 text-muted shrink-0 mr-2" />
+      <UIcon
+        v-if="currentIcon"
+        :name="currentIcon"
+        class="size-4 text-muted shrink-0 mr-2"
+        aria-hidden="true"
+      />
       <span class="text-sm font-medium text-highlighted truncate">{{ currentTitle }}</span>
     </div>
 
@@ -59,52 +70,66 @@
         type="button"
         class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
         :title="t('sidebar.launcher')"
+        :aria-label="t('sidebar.launcher')"
         @click="openLauncher"
       >
-        <UIcon name="i-tabler-rocket" class="size-4" />
+        <UIcon name="i-tabler-rocket" class="size-4" aria-hidden="true" />
       </button>
       <RouterLink
         to="/settings"
         class="w-10 flex items-center justify-center hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
         :class="route.name === 'settings' ? 'text-primary' : 'text-muted'"
         :title="t('sidebar.settings')"
+        :aria-label="t('sidebar.settings')"
+        :aria-current="route.name === 'settings' ? 'page' : undefined"
       >
-        <UIcon name="i-tabler-settings" class="size-4" />
+        <UIcon name="i-tabler-settings" class="size-4" aria-hidden="true" />
       </RouterLink>
       <RouterLink
         to="/about"
         class="w-10 flex items-center justify-center hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
         :class="route.name === 'about' ? 'text-primary' : 'text-muted'"
         :title="t('sidebar.about')"
+        :aria-label="t('sidebar.about')"
+        :aria-current="route.name === 'about' ? 'page' : undefined"
       >
-        <UIcon name="i-tabler-info-circle" class="size-4" />
+        <UIcon name="i-tabler-info-circle" class="size-4" aria-hidden="true" />
       </RouterLink>
       <span class="w-px bg-default/60 my-3" />
 
-      <button
-        type="button"
-        class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        :title="t('editor.window.minimize')"
-        @click="onMinimise"
-      >
-        <UIcon name="i-tabler-minus" class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        :title="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
-        @click="onToggleMaximise"
-      >
-        <UIcon :name="isMaximised ? 'i-tabler-copy' : 'i-tabler-square'" class="size-3.5" />
-      </button>
-      <button
-        type="button"
-        class="w-12 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors duration-150"
-        :title="t('editor.window.close')"
-        @click="onClose"
-      >
-        <UIcon name="i-tabler-x" class="size-4" />
-      </button>
+      <div class="flex items-stretch" role="group" :aria-label="t('editor.window.controls')">
+        <button
+          type="button"
+          class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
+          :title="t('editor.window.minimize')"
+          :aria-label="t('editor.window.minimize')"
+          @click="onMinimise"
+        >
+          <UIcon name="i-tabler-minus" class="size-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="w-12 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
+          :title="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
+          :aria-label="isMaximised ? t('editor.window.restore') : t('editor.window.maximize')"
+          @click="onToggleMaximise"
+        >
+          <UIcon
+            :name="isMaximised ? 'i-tabler-copy' : 'i-tabler-square'"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+        </button>
+        <button
+          type="button"
+          class="w-12 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted transition-colors duration-150"
+          :title="t('editor.window.close')"
+          :aria-label="t('editor.window.close')"
+          @click="onClose"
+        >
+          <UIcon name="i-tabler-x" class="size-4" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   </div>
 </template>

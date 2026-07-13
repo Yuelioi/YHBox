@@ -4,7 +4,7 @@
     <UIcon :name="icon || style.defaultIcon" class="mt-0.5 size-4 shrink-0" :class="style.icon" />
     <div class="min-w-0 flex-1">
       <p v-if="title" class="text-xs font-medium text-highlighted">{{ title }}</p>
-      <p v-if="$slots.default" class="text-[11px] text-muted" :class="title ? 'mt-0.5' : ''">
+      <p v-if="$slots.default" class="text-xs text-muted" :class="title ? 'mt-0.5' : ''">
         <slot />
       </p>
     </div>

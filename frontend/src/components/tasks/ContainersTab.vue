@@ -17,6 +17,7 @@
               color="neutral"
               :variant="viewMode === 'cards' ? 'soft' : 'ghost'"
               icon="i-tabler-layout-grid"
+              :aria-pressed="viewMode === 'cards'"
               :aria-label="t('containers.view.cards')"
               :title="t('containers.view.cards')"
               @click="viewMode = 'cards'"
@@ -26,6 +27,7 @@
               color="neutral"
               :variant="viewMode === 'list' ? 'soft' : 'ghost'"
               icon="i-tabler-list"
+              :aria-pressed="viewMode === 'list'"
               :aria-label="t('containers.view.list')"
               :title="t('containers.view.list')"
               @click="viewMode = 'list'"
@@ -133,14 +135,13 @@
           hover
           class="flex flex-col gap-3 relative"
           :class="batch.isSelected(c.id) ? '!border-primary ring-2 ring-primary/40' : ''"
-          @click="batch.toggle(c.id)"
-          @dblclick="onEdit(c)"
         >
           <UCheckbox
             :data-testid="`container-checkbox-${c.id}`"
             :model-value="batch.isSelected(c.id)"
             size="sm"
             class="absolute top-2 left-2"
+            :aria-label="t('containers.batch_actions.select_one', { name: c.name })"
             @click.stop
             @update:model-value="batch.toggle(c.id)"
           />
@@ -164,7 +165,7 @@
             <div class="mt-1.5 flex items-center gap-1.5 overflow-hidden">
               <span
                 v-if="c.category"
-                class="inline-flex shrink-0 items-center gap-1 rounded bg-elevated/70 px-1.5 py-0.5 text-[10px] text-toned"
+                class="inline-flex shrink-0 items-center gap-1 rounded bg-elevated/70 px-1.5 py-0.5 text-[11px] text-toned"
               >
                 <UIcon name="i-tabler-category" class="size-3" />
                 {{ c.category }}
@@ -172,19 +173,19 @@
               <span
                 v-for="tag in (c.tags ?? []).slice(0, 3)"
                 :key="tag"
-                class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
+                class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
               >
                 {{ tag }}
               </span>
             </div>
             <div class="flex items-center gap-2 mt-1.5 flex-wrap">
               <span
-                class="text-[11px] text-dimmed inline-flex items-center gap-1 font-mono tabular-nums"
+                class="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-dimmed"
               >
                 <UIcon name="i-tabler-cpu" class="size-3" />
                 {{ t('containers.node_count', { n: c.graph.nodes.length }) }}
               </span>
-              <span v-if="c.hotkey" class="text-[11px] text-dimmed inline-flex items-center gap-1">
+              <span v-if="c.hotkey" class="inline-flex items-center gap-1 text-xs text-dimmed">
                 <UIcon name="i-tabler-keyboard" class="size-3" />
                 <code class="text-toned bg-elevated/60 px-1 rounded font-mono">{{ c.hotkey }}</code>
               </span>
@@ -243,7 +244,7 @@
         <div data-testid="containers-list-table" class="w-full">
           <div
             data-testid="containers-list-header"
-            class="sticky top-0 z-10 grid items-center gap-3 border-b border-default/60 bg-default/95 px-3 py-2 text-[11px] font-medium uppercase text-dimmed backdrop-blur"
+            class="sticky top-0 z-10 grid items-center gap-3 border-b border-default/60 bg-default px-3 py-2 text-xs font-medium text-muted"
             :style="{ gridTemplateColumns: listGridTemplate }"
           >
             <span />
@@ -275,6 +276,7 @@
                 :data-testid="`container-checkbox-${c.id}`"
                 :model-value="batch.isSelected(c.id)"
                 size="sm"
+                :aria-label="t('containers.batch_actions.select_one', { name: c.name })"
                 @click.stop
                 @update:model-value="batch.toggle(c.id)"
               />
@@ -303,7 +305,7 @@
               <span
                 v-for="tag in (c.tags ?? []).slice(0, 4)"
                 :key="tag"
-                class="rounded bg-elevated/60 px-1.5 py-0.5 text-[10px] text-dimmed"
+                class="rounded bg-elevated/60 px-1.5 py-0.5 text-[11px] text-dimmed"
               >
                 {{ tag }}
               </span>
@@ -354,7 +356,7 @@
                   variant="ghost"
                   color="neutral"
                   icon="i-tabler-dots"
-                  :aria-label="t('containers.actions.more')"
+                  :aria-label="t('containers.actions.more_for', { name: c.name })"
                   @click.stop
                 />
               </UDropdownMenu>
@@ -367,7 +369,7 @@
     <footer
       v-if="store.list.length > 0"
       data-testid="containers-pagination"
-      class="shrink-0 flex flex-col gap-3 border-t border-default/60 bg-default/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+      class="flex shrink-0 flex-col gap-3 border-t border-default/60 bg-default py-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <div class="flex flex-wrap items-center gap-2">
         <UDropdownMenu :items="batchMenuItems">

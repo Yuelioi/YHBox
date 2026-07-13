@@ -1,30 +1,26 @@
 <template>
-  <div class="px-8 py-8">
-    <div class="mx-auto max-w-3xl space-y-6">
-      <!-- 主介绍卡 (hero, 居中) -->
-      <section class="rounded-xl bg-default border border-default p-5">
-        <div class="flex flex-col items-center text-center py-1">
-          <IconBadge
-            icon="i-tabler-info-circle"
-            size="lg"
-            shape="round"
-            color="primary"
-            class="mb-4"
-          />
+  <div class="h-full overflow-y-auto">
+    <div class="detail-form px-8 py-8">
+      <!-- 产品介绍 -->
+      <section class="flex items-start gap-4 border-b border-default pb-7">
+        <div class="pt-0.5">
+          <IconBadge icon="i-tabler-info-circle" size="lg" shape="round" color="primary" />
+        </div>
+        <div class="min-w-0">
           <h2 class="text-lg font-semibold text-highlighted mb-1.5">
             {{ info?.name ?? 'Yotta' }}
             <span class="text-muted font-normal ml-1 font-mono tabular-nums"
               >v{{ info?.version ?? '...' }}</span
             >
           </h2>
-          <p class="text-sm text-muted leading-relaxed max-w-sm">
+          <p class="max-w-xl text-sm text-muted leading-relaxed">
             {{ t('about.tagline') }}
           </p>
         </div>
       </section>
 
       <!-- 核心概念 -->
-      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <section class="detail-section">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-bulb" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.concepts.title') }}</h2>
@@ -45,7 +41,7 @@
       </section>
 
       <!-- 作者 / 链接 -->
-      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <section class="detail-section">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-user" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_author') }}</h2>
@@ -64,7 +60,7 @@
             <button
               v-if="info?.repo"
               type="button"
-              class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
+              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer truncate"
               @click="openExternal(info.repo)"
             >
               {{ info.repo.replace('https://', '') }} ↗
@@ -78,7 +74,7 @@
             <button
               v-if="info?.bilibili"
               type="button"
-              class="text-default font-medium hover:text-primary transition-colors cursor-pointer truncate"
+              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer truncate"
               @click="openExternal(info.bilibili)"
             >
               {{ info.bilibili.replace('https://', '') }} ↗
@@ -88,7 +84,7 @@
       </section>
 
       <!-- 技术栈 -->
-      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <section class="detail-section">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_stack') }}</h2>
@@ -122,7 +118,7 @@
       </section>
 
       <!-- 致谢 -->
-      <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+      <section class="space-y-4 pt-1">
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-heart" class="size-4 text-dimmed" />
           <h2 class="text-sm font-medium text-highlighted">{{ t('about.section_thanks') }}</h2>
@@ -132,7 +128,7 @@
             <span class="text-muted">{{ t('about.label_icon') }}</span>
             <button
               type="button"
-              class="text-default font-medium hover:text-primary transition-colors cursor-pointer"
+              class="rounded text-default font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer"
               @click="openExternal('https://www.pixiv.net/artworks/120610310')"
             >
               Pixiv #120610310 ↗

@@ -107,6 +107,7 @@ describe('ContainersTab layout', () => {
       expect(selectModeButton).toBeNull()
       expect(batchActions).toBeTruthy()
       expect(firstCheckbox).toBeTruthy()
+      expect(firstCheckbox!.getAttribute('aria-label')).toBeTruthy()
       expect(listHeader).toBeTruthy()
       expect(listHeader!.className).toContain('sticky')
       expect(listHeader!.className).toContain('top-0')

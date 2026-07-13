@@ -5,7 +5,7 @@
     v-if="count > 0"
     class="flex items-center gap-2 shrink-0 rounded-md bg-primary/10 ring-1 ring-inset ring-primary/30 px-2.5 py-1.5"
   >
-    <span class="text-[11px] text-toned shrink-0">{{
+    <span class="text-xs text-toned shrink-0">{{
       t('library.batch.selected_n', { n: count })
     }}</span>
     <UDropdownMenu :items="batchItems">

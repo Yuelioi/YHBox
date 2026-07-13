@@ -1,20 +1,22 @@
 <!-- Point type 行内编辑 — 用 2 个 number input 横排, 比 JSON textarea 易用. -->
 <template>
   <div class="flex items-center gap-1">
-    <span class="text-[10px] text-dimmed">x:</span>
+    <span class="text-[11px] text-dimmed">x:</span>
     <input
       type="number"
       step="0.01"
       :value="point.x"
-      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
+      aria-label="X"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[11px] focus:border-primary focus:outline-none"
       @input="onChange('x', $event)"
     />
-    <span class="text-[10px] text-dimmed">y:</span>
+    <span class="text-[11px] text-dimmed">y:</span>
     <input
       type="number"
       step="0.01"
       :value="point.y"
-      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
+      aria-label="Y"
+      class="w-12 bg-elevated/50 border border-default rounded px-1 py-0.5 text-[11px] focus:border-primary focus:outline-none"
       @input="onChange('y', $event)"
     />
   </div>

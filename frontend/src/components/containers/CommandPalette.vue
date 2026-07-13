@@ -26,14 +26,14 @@
           </div>
           <div v-else>
             <div v-for="(group, gIdx) in grouped" :key="group.name" :class="{ 'mt-2': gIdx > 0 }">
-              <div class="text-[10px] font-medium text-primary px-2 mb-1 uppercase tracking-wider">
+              <div class="px-2 mb-1 text-xs font-medium text-primary">
                 {{ group.label }}
               </div>
               <button
                 v-for="(cmd, idx) in group.commands"
                 :key="cmd.id"
                 type="button"
-                class="w-full text-left px-3 py-2 text-[11px] rounded flex items-center gap-3 hover:bg-elevated/60"
+                class="w-full text-left px-3 py-2 text-xs rounded flex items-center gap-3 hover:bg-elevated/60"
                 :class="{ 'bg-elevated/60': activeIdx === flatIdx(gIdx, idx) }"
                 :disabled="cmd.disabled === true"
                 @click="execute(cmd)"
@@ -48,7 +48,7 @@
                 <span class="flex-1" :class="cmd.disabled ? 'text-dimmed' : ''">{{
                   cmd.label
                 }}</span>
-                <span v-if="cmd.shortcut" class="text-[10px] text-dimmed font-mono">{{
+                <span v-if="cmd.shortcut" class="text-[11px] text-dimmed font-mono">{{
                   cmd.shortcut
                 }}</span>
               </button>
@@ -56,7 +56,7 @@
           </div>
         </div>
         <div
-          class="px-3 py-1.5 border-t border-default text-[9px] text-dimmed flex justify-between"
+          class="px-3 py-1.5 border-t border-default text-[11px] text-dimmed flex justify-between"
         >
           <span>{{ t('editor.palette.hint') }}</span>
           <span>{{ t('editor.palette.count', { n: filtered.length }) }}</span>

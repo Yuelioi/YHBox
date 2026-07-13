@@ -8,6 +8,7 @@
         v-model="query"
         size="sm"
         icon="i-tabler-search"
+        :aria-label="t('editor.snippet.panel.search_placeholder')"
         :placeholder="t('editor.snippet.panel.search_placeholder')"
         class="w-full"
       />
@@ -16,7 +17,8 @@
           v-for="t in store.allTags"
           :key="t"
           type="button"
-          class="text-[10px] px-1.5 py-0.5 rounded transition-colors"
+          class="px-1.5 py-0.5 text-[11px] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          :aria-pressed="activeTags.has(t)"
           :class="
             activeTags.has(t)
               ? 'bg-primary/30 text-primary border border-primary/50'
@@ -46,7 +48,8 @@
       <div v-for="g in filteredByCategory" :key="g.category" class="mb-2">
         <button
           type="button"
-          class="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-default hover:bg-elevated/40 rounded"
+          class="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-semibold text-default hover:bg-elevated/40 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          :aria-expanded="isExpanded(g.category)"
           @click="toggleGroup(g.category)"
         >
           <UIcon
@@ -54,18 +57,23 @@
             class="size-3.5"
           />
           <span>{{ g.category }}</span>
-          <span class="text-[10px] opacity-60 font-normal">({{ g.list.length }})</span>
+          <span class="text-xs opacity-60 font-normal">({{ g.list.length }})</span>
         </button>
         <div v-show="isExpanded(g.category)" class="space-y-1 mt-1">
           <div
             v-for="s in g.list"
             :key="s.id"
             class="snippet-item group"
+            role="button"
+            tabindex="0"
+            :aria-label="s.name"
             :style="s.color ? { borderLeftColor: s.color } : {}"
             draggable="true"
             :title="snippetTooltip(s)"
             @dragstart="(e) => onDragStart(s, e)"
             @click="emit('apply', s)"
+            @keydown.enter.prevent="emit('apply', s)"
+            @keydown.space.prevent="emit('apply', s)"
           >
             <UIcon
               v-if="s.icon"
@@ -74,23 +82,25 @@
               :style="s.color ? { color: s.color } : {}"
             />
             <div class="flex-1 min-w-0">
-              <div class="text-[11.5px] truncate font-medium">{{ s.name }}</div>
-              <div class="text-[10px] text-dimmed truncate font-mono">
+              <div class="text-xs truncate font-medium">{{ s.name }}</div>
+              <div class="text-[11px] text-dimmed truncate font-mono">
                 {{ s.payload.kind }}<span v-if="s.shortcut"> · {{ s.shortcut }}</span>
               </div>
             </div>
             <button
               type="button"
-              class="text-dimmed hover:text-primary px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              class="text-dimmed hover:text-primary p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 rounded transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               :title="t('editor.snippet.panel.edit_tip')"
+              :aria-label="t('editor.snippet.panel.edit_tip')"
               @click.stop="emit('edit', s)"
             >
               <UIcon name="i-tabler-pencil" class="size-3" />
             </button>
             <button
               type="button"
-              class="text-dimmed hover:text-error px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              class="text-dimmed hover:text-error p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 rounded transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               :title="t('editor.snippet.panel.delete_tip')"
+              :aria-label="t('editor.snippet.panel.delete_tip')"
               @click.stop="onRemove(s)"
             >
               <UIcon name="i-tabler-x" class="size-3" />
@@ -204,6 +214,10 @@ async function onRemove(s: Snippet) {
 .snippet-item:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.08);
+}
+.snippet-item:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 1px;
 }
 .snippet-item:active {
   cursor: grabbing;

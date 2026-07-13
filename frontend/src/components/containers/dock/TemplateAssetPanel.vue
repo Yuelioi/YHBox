@@ -64,19 +64,23 @@
 
         <template v-else>
           <div v-for="group in groupedItems" :key="group.category">
-            <div
-              class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-1"
-            >
+            <div class="px-1 pt-2 pb-1 text-xs font-medium text-muted">
               {{ group.category }}
             </div>
             <div
+              role="listbox"
+              aria-multiselectable="true"
               class="grid gap-2.5"
               style="grid-template-columns: repeat(auto-fill, minmax(112px, 1fr))"
             >
               <div
                 v-for="item in group.items"
                 :key="item.guid"
-                class="group relative rounded-lg overflow-hidden cursor-pointer border transition-colors"
+                role="option"
+                tabindex="0"
+                :aria-selected="cellActive(item.guid)"
+                :aria-label="t('editor.dock.select_asset', { name: item.name || item.guid })"
+                class="group relative rounded-lg overflow-hidden cursor-pointer border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 :class="
                   cellActive(item.guid)
                     ? 'border-primary ring-1 ring-inset ring-primary/60'
@@ -84,12 +88,13 @@
                 "
                 @click="onCellClick(item.guid, $event)"
                 @dblclick="!pickMode && openDetail(item.guid)"
+                @keydown="onCellKeydown(item.guid, $event)"
               >
                 <div class="aspect-[4/3] bg-sunken flex items-center justify-center">
                   <TemplateThumb :sha="item.firstBlobSha" />
                 </div>
                 <div
-                  class="px-1.5 py-1 text-[11px] truncate"
+                  class="px-1.5 py-1.5 text-xs truncate"
                   :class="cellActive(item.guid) ? 'text-highlighted' : 'text-toned'"
                 >
                   {{ item.name || item.guid }}
@@ -107,7 +112,7 @@
                 <button
                   v-if="!pickMode"
                   type="button"
-                  class="absolute top-1 right-1 size-6 rounded-md bg-black/55 text-white opacity-0 group-hover:opacity-100 hover:bg-black/75 flex items-center justify-center transition-colors"
+                  class="absolute top-1 right-1 size-7 rounded-md bg-default/90 text-highlighted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-elevated focus-visible:opacity-100 flex items-center justify-center border border-default shadow-sm transition-colors"
                   :aria-label="t('editor.dock.detail')"
                   @click.stop="openDetail(item.guid)"
                   @dblclick.stop
@@ -122,10 +127,10 @@
 
       <!-- 底部: pick=已指派计数 / 管理=总数 + 分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span v-if="pickMode" class="text-[11px] text-toned shrink-0">{{
+        <span v-if="pickMode" class="text-xs text-toned shrink-0">{{
           t('template.picker.selected_count', { n: assigned.length })
         }}</span>
-        <span v-else class="text-[11px] text-dimmed shrink-0">{{
+        <span v-else class="text-xs text-dimmed shrink-0">{{
           t('library.toolbar.total', { n: pageResult.total })
         }}</span>
         <div class="flex items-center gap-2 shrink-0">
@@ -249,6 +254,19 @@ function onCellClick(guid: string, e: MouseEvent) {
     return
   }
   selClick(guid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
+}
+
+function onCellKeydown(guid: string, e: KeyboardEvent) {
+  if (e.target !== e.currentTarget) return
+  if (e.key === 'Enter' && !props.pickMode) {
+    e.preventDefault()
+    openDetail(guid)
+    return
+  }
+  if (e.key !== ' ' && e.key !== 'Enter') return
+  e.preventDefault()
+  if (props.pickMode) toggleAssign(guid)
+  else selClick(guid)
 }
 
 const tplStore = useTemplatesStore()

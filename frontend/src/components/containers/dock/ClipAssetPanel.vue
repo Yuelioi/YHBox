@@ -40,7 +40,7 @@
         />
       </div>
 
-      <p v-if="selected.size === 0" class="text-[10px] text-dimmed px-1 shrink-0">
+      <p v-if="selected.size === 0" class="px-1 text-xs text-dimmed shrink-0">
         {{ t('editor.dock.drag_hint') }}
       </p>
       <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
@@ -51,17 +51,21 @@
           <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
         </div>
 
-        <div v-else class="space-y-2">
+        <div v-else role="listbox" aria-multiselectable="true" class="space-y-2">
           <template v-for="group in groupedItems" :key="group.category">
-            <div
-              class="text-[10px] font-semibold text-dimmed uppercase tracking-wider px-1 pt-2 pb-0.5"
-            >
+            <div class="px-1 pt-2 pb-0.5 text-xs font-medium text-muted">
               {{ group.category }}
             </div>
             <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
               <div
                 draggable="true"
-                class="group rounded p-2.5 cursor-grab active:cursor-grabbing"
+                role="option"
+                tabindex="0"
+                :aria-selected="isSelected(item.id)"
+                :aria-label="
+                  t('editor.dock.select_asset', { name: item.label || t('clip.manager.untitled') })
+                "
+                class="group rounded p-2.5 cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 :class="
                   isSelected(item.id)
                     ? 'bg-primary/15 ring-1 ring-inset ring-primary/50'
@@ -69,6 +73,7 @@
                 "
                 @click="onRowClick(item.id, $event)"
                 @dblclick="openDetail(item.id)"
+                @keydown="onRowKeydown(item.id, $event)"
                 @contextmenu="selClick(item.id)"
                 @dragstart="(e) => startEditorDrag({ type: 'clip', id: item.id }, e)"
               >
@@ -76,7 +81,9 @@
                   <span
                     class="shrink-0 transition-opacity"
                     :class="
-                      isSelected(item.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      isSelected(item.id)
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
                     "
                     @click.stop
                     @dblclick.stop
@@ -85,6 +92,11 @@
                     <UCheckbox
                       :model-value="isSelected(item.id)"
                       size="sm"
+                      :aria-label="
+                        t('editor.dock.select_asset', {
+                          name: item.label || t('clip.manager.untitled'),
+                        })
+                      "
                       @update:model-value="selClick(item.id, { ctrl: true })"
                     />
                   </span>
@@ -93,7 +105,7 @@
                     <div class="text-sm font-medium truncate">
                       {{ item.label || t('clip.manager.untitled') }}
                     </div>
-                    <div class="text-[10px] text-dimmed flex items-center gap-1.5 truncate mt-0.5">
+                    <div class="text-xs text-dimmed flex items-center gap-1.5 truncate mt-0.5">
                       <span>{{ formatDuration(item.durationUs) }}</span>
                       <span>· {{ item.eventCount }} {{ t('clip.manager.events') }}</span>
                       <span v-if="item.tags?.length" class="truncate"
@@ -106,7 +118,7 @@
                     variant="ghost"
                     color="neutral"
                     icon="i-tabler-dots"
-                    class="opacity-0 group-hover:opacity-100 shrink-0"
+                    class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0"
                     :aria-label="t('editor.dock.detail')"
                     @click.stop="openDetail(item.id)"
                     @dblclick.stop
@@ -120,7 +132,7 @@
 
       <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
       <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span class="text-[11px] text-dimmed shrink-0">{{
+        <span class="text-xs text-dimmed shrink-0">{{
           t('library.toolbar.total', { n: pageResult.total })
         }}</span>
         <div class="flex items-center gap-2 shrink-0">
@@ -333,6 +345,18 @@ onMounted(async () => {
 
 function onRowClick(id: string, e: MouseEvent) {
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
+}
+
+function onRowKeydown(id: string, e: KeyboardEvent) {
+  if (e.target !== e.currentTarget) return
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    openDetail(id)
+    return
+  }
+  if (e.key !== ' ') return
+  e.preventDefault()
+  selClick(id)
 }
 
 function byId(id: string): ClipSummary | undefined {

@@ -21,21 +21,21 @@
             ref="nameInputRef"
             v-model="draftName"
             size="sm"
+            :aria-label="t('common.name')"
             @keyup.enter="saveName"
             @keydown.esc.stop="editingName = false"
             @blur="saveName"
           />
-          <h3
-            v-else
-            class="group flex items-center gap-1 text-sm font-medium text-highlighted leading-tight cursor-text"
-            :title="t('library.detail.dblclick_edit')"
-            @dblclick="enterEditName"
-          >
-            <span class="truncate min-w-0">{{ sg.label || sg.id }}</span>
-            <UIcon
-              name="i-tabler-pencil"
-              class="size-3 shrink-0 text-dimmed opacity-0 group-hover:opacity-100"
-            />
+          <h3 v-else>
+            <button
+              type="button"
+              class="group flex w-full items-center gap-1 text-left text-sm font-medium leading-tight text-highlighted"
+              :title="t('common.edit')"
+              @click="enterEditName"
+            >
+              <span class="min-w-0 truncate">{{ sg.label || sg.id }}</span>
+              <UIcon name="i-tabler-pencil" class="size-3 shrink-0 text-dimmed" />
+            </button>
           </h3>
           <p class="text-[11px] text-dimmed mt-0.5">
             {{
@@ -60,20 +60,27 @@
           v-model="draftDesc"
           :rows="3"
           size="sm"
+          :aria-label="t('library.detail.description')"
           @keydown.esc.stop="editingDesc = false"
           @blur="saveDesc"
         />
-        <p
+        <button
           v-else-if="sg.description"
-          class="text-xs text-default whitespace-pre-line cursor-text"
-          :title="t('library.detail.dblclick_edit')"
-          @dblclick="enterEditDesc"
+          type="button"
+          class="w-full whitespace-pre-line text-left text-xs text-default"
+          :title="t('common.edit')"
+          @click="enterEditDesc"
         >
           {{ sg.description }}
-        </p>
-        <p v-else class="text-xs text-dimmed italic cursor-text" @dblclick="enterEditDesc">
+        </button>
+        <button
+          v-else
+          type="button"
+          class="w-full text-left text-xs italic text-dimmed"
+          @click="enterEditDesc"
+        >
           {{ t('library.detail.desc_empty') }}
-        </p>
+        </button>
       </section>
 
       <section class="space-y-1.5">
@@ -116,9 +123,7 @@
       </section>
 
       <section class="space-y-1.5">
-        <label class="block text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed"
-          >ID</label
-        >
+        <label class="block text-xs font-medium text-muted">ID</label>
         <button
           type="button"
           class="w-full text-left text-[11px] font-mono bg-elevated/40 rounded px-2 py-1 hover:bg-elevated/60 transition-colors truncate flex items-center gap-1.5"

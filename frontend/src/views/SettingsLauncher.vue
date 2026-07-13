@@ -1,7 +1,7 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="settings-page">
     <!-- 启动器总说明 + 全局选项 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-layout-grid-add" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settingsLauncher.title') }}</h2>
@@ -21,13 +21,14 @@
           :model-value="display"
           :items="displayItems"
           class="w-32"
+          :aria-label="t('settingsLauncher.display_label')"
           @update:model-value="(v: string) => setDisplay(v)"
         />
       </div>
     </section>
 
     <!-- 编排：单条有序块列表 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-layout-list" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">
@@ -54,7 +55,7 @@
         @end="persist"
       >
         <div
-          v-for="b in editItems"
+          v-for="(b, index) in editItems"
           :key="b.id"
           class="flex flex-col gap-1 px-3 py-2 rounded-md bg-elevated/30 border border-default/60"
         >
@@ -74,6 +75,7 @@
                   square
                   class="shrink-0"
                   :title="t('settingsLauncher.pick_icon')"
+                  :aria-label="t('settingsLauncher.pick_icon')"
                 >
                   <UIcon
                     :name="b.icon || 'i-tabler-photo-plus'"
@@ -106,6 +108,7 @@
                 class="flex-1 min-w-0"
                 :placeholder="containerName(b.containerId)"
                 :title="containerName(b.containerId)"
+                :aria-label="t('settingsLauncher.label_placeholder')"
                 @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
               />
               <HotkeyCaptureInput
@@ -123,6 +126,7 @@
                 size="sm"
                 class="flex-1 min-w-0"
                 :placeholder="t('settingsLauncher.label_placeholder')"
+                :aria-label="t('settingsLauncher.label_placeholder')"
                 @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
               />
             </template>
@@ -152,9 +156,30 @@
             <UButton
               size="xs"
               variant="ghost"
+              color="neutral"
+              icon="i-tabler-arrow-up"
+              :disabled="index === 0"
+              :title="t('settingsLauncher.move_up')"
+              :aria-label="t('settingsLauncher.move_up')"
+              @click="moveBlock(index, index - 1)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-tabler-arrow-down"
+              :disabled="index === editItems.length - 1"
+              :title="t('settingsLauncher.move_down')"
+              :aria-label="t('settingsLauncher.move_down')"
+              @click="moveBlock(index, index + 1)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
               color="error"
               icon="i-tabler-trash"
               :title="t('settingsLauncher.delete_block')"
+              :aria-label="t('settingsLauncher.delete_block')"
               @click="removeBlock(b.id)"
             />
           </div>
@@ -243,6 +268,13 @@ function setDisplay(v: string) {
 
 function persist() {
   void settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
+}
+function moveBlock(from: number, to: number) {
+  if (to < 0 || to >= editItems.value.length) return
+  const [item] = editItems.value.splice(from, 1)
+  if (!item) return
+  editItems.value.splice(to, 0, item)
+  persist()
 }
 function genId(): string {
   return 'lb_' + Math.random().toString(36).slice(2, 10)

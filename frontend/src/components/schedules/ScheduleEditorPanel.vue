@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
+  <div class="detail-form">
     <!-- 基础 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="detail-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-adjustments" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.basics_section') }}</h2>
@@ -9,19 +9,19 @@
 
       <div class="flex items-center justify-between gap-6">
         <div class="text-sm text-default">{{ t('schedule.name_label') }}</div>
-        <UInput v-model="draft.name" class="w-64" />
+        <UInput v-model="draft.name" class="w-64" :aria-label="t('schedule.name_label')" />
       </div>
 
       <div class="border-t border-default/60" />
 
       <div class="flex items-center justify-between gap-6">
         <div class="text-sm text-default">{{ t('schedule.enabled_label') }}</div>
-        <USwitch v-model="draft.enabled" />
+        <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
       </div>
     </section>
 
     <!-- 目标容器 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="detail-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.targets_section') }}</h2>
@@ -32,13 +32,20 @@
       <div class="space-y-2">
         <div v-for="(tg, i) in draft.targets" :key="i" class="flex items-center gap-2">
           <span class="text-dimmed text-xs w-4 tabular-nums shrink-0">{{ i + 1 }}.</span>
-          <USelect v-model="tg.id" :items="containerItems" class="flex-1" />
+          <USelect
+            v-model="tg.id"
+            :items="containerItems"
+            class="flex-1"
+            :aria-label="t('schedule.target_n', { n: i + 1 })"
+          />
           <UButton
             size="xs"
             variant="ghost"
             color="neutral"
             icon="i-tabler-arrow-up"
             :disabled="i === 0"
+            :title="t('schedule.move_up')"
+            :aria-label="t('schedule.move_up')"
             @click="moveTarget(i, i - 1)"
           />
           <UButton
@@ -47,6 +54,8 @@
             color="neutral"
             icon="i-tabler-arrow-down"
             :disabled="i === draft.targets.length - 1"
+            :title="t('schedule.move_down')"
+            :aria-label="t('schedule.move_down')"
             @click="moveTarget(i, i + 1)"
           />
           <UButton
@@ -54,6 +63,8 @@
             variant="ghost"
             color="error"
             icon="i-tabler-x"
+            :title="t('schedule.remove_target')"
+            :aria-label="t('schedule.remove_target')"
             @click="draft.targets.splice(i, 1)"
           />
         </div>
@@ -65,7 +76,7 @@
     </section>
 
     <!-- 触发 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="detail-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-bolt" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.trigger_section') }}</h2>
@@ -73,21 +84,36 @@
 
       <div class="flex items-center justify-between gap-6">
         <div class="text-sm text-default">{{ t('schedule.trigger_kind_label') }}</div>
-        <USelect v-model="draft.trigger.kind" :items="triggerKinds" class="w-48" />
+        <USelect
+          v-model="draft.trigger.kind"
+          :items="triggerKinds"
+          class="w-48"
+          :aria-label="t('schedule.trigger_kind_label')"
+        />
       </div>
 
       <template v-if="draft.trigger.kind === 'cron'">
         <div class="border-t border-default/60" />
         <div class="flex items-center justify-between gap-6">
           <div class="text-sm text-default">{{ t('schedule.cron_subkind_label') }}</div>
-          <USelect v-model="draft.trigger.subKind" :items="cronSubKinds" class="w-48" />
+          <USelect
+            v-model="draft.trigger.subKind"
+            :items="cronSubKinds"
+            class="w-48"
+            :aria-label="t('schedule.cron_subkind_label')"
+          />
         </div>
         <div
           v-if="draft.trigger.subKind === 'daily'"
           class="flex items-center justify-between gap-6"
         >
           <div class="text-sm text-default">{{ t('schedule.daily_at_label') }}</div>
-          <UInput v-model="draft.trigger.at" placeholder="05:00" class="w-32" />
+          <UInput
+            v-model="draft.trigger.at"
+            placeholder="05:00"
+            class="w-32"
+            :aria-label="t('schedule.daily_at_label')"
+          />
         </div>
         <div
           v-else-if="draft.trigger.subKind === 'interval'"
@@ -98,6 +124,7 @@
             :model-value="draft.trigger.everyMinutes ?? 30"
             :min="1"
             class="w-32"
+            :aria-label="t('schedule.interval_label')"
             @update:model-value="draft.trigger.everyMinutes = Number($event)"
           />
         </div>
@@ -107,13 +134,18 @@
         <div class="border-t border-default/60" />
         <div class="flex items-center justify-between gap-6">
           <div class="text-sm text-default">{{ t('schedule.hotkey_label') }}</div>
-          <UInput v-model="draft.trigger.hotkey" placeholder="Ctrl+Shift+2" class="w-48" />
+          <UInput
+            v-model="draft.trigger.hotkey"
+            placeholder="Ctrl+Shift+2"
+            class="w-48"
+            :aria-label="t('schedule.hotkey_label')"
+          />
         </div>
       </template>
     </section>
 
     <!-- 限制 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="detail-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-shield-half" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.limit_label') }}</h2>
@@ -128,6 +160,7 @@
           :model-value="draft.timeoutMinutes"
           :min="0"
           class="w-32"
+          :aria-label="t('schedule.timeout_label')"
           @update:model-value="draft.timeoutMinutes = Number($event)"
         />
       </div>
@@ -136,7 +169,12 @@
 
       <div class="flex items-center justify-between gap-6">
         <div class="text-sm text-default">{{ t('schedule.on_error_label') }}</div>
-        <USelect v-model="draft.onError" :items="onErrorOptions" class="w-48" />
+        <USelect
+          v-model="draft.onError"
+          :items="onErrorOptions"
+          class="w-48"
+          :aria-label="t('schedule.on_error_label')"
+        />
       </div>
     </section>
 

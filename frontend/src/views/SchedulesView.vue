@@ -1,6 +1,6 @@
 <template>
-  <div class="px-8 py-6 space-y-5">
-    <header class="flex items-center gap-3">
+  <div class="flex h-full min-h-0 flex-col gap-5 overflow-auto px-8 py-6">
+    <header class="mx-auto flex w-full max-w-6xl shrink-0 items-center gap-3">
       <UButton v-if="!editing" color="primary" icon="i-tabler-plus" @click="onCreate">{{
         t('schedule.create')
       }}</UButton>
@@ -14,10 +14,17 @@
       >
     </header>
 
-    <ScheduleListPanel v-if="!editing" :list="store.list" @edit="onEdit" @delete="onDelete" />
+    <ScheduleListPanel
+      v-if="!editing"
+      class="mx-auto w-full max-w-6xl"
+      :list="store.list"
+      @edit="onEdit"
+      @delete="onDelete"
+    />
 
     <ScheduleEditorPanel
       v-else
+      class="w-full"
       :schedule="editing"
       :containers="containersStore.list"
       @save="onSaveEdit"

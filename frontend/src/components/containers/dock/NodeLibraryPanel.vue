@@ -40,7 +40,7 @@
                 class="size-3.5"
               />
               <span>{{ groupLabelZh(g.group) }}</span>
-              <span class="text-[10px] opacity-70">({{ g.specs.length }})</span>
+              <span class="text-xs opacity-70">({{ g.specs.length }})</span>
             </button>
             <div
               v-show="isExpanded(g.group)"
@@ -51,7 +51,7 @@
                 v-for="spec in g.specs"
                 :key="spec.kind"
                 draggable="true"
-                class="flex items-center gap-2 px-2 py-1 bg-elevated/30 hover:bg-elevated/60 rounded text-[11px] cursor-grab active:cursor-grabbing"
+                class="flex items-center gap-2 px-2 py-1.5 bg-elevated/30 hover:bg-elevated/60 rounded text-xs cursor-grab active:cursor-grabbing"
                 :title="spec.description ? t(spec.description) : spec.kind"
                 @click="onSelectKind(spec.kind)"
                 @dragstart="(e) => startEditorDrag({ type: 'node-spec', kind: spec.kind }, e)"
@@ -70,7 +70,7 @@
                     isPureData: spec.isPureData,
                   })"
                   :key="badge.key"
-                  class="shrink-0 rounded border px-1 py-0.5 text-[9px] leading-none"
+                  class="shrink-0 rounded border px-1 py-0.5 text-[11px] leading-none"
                   :class="badge.class"
                 >
                   {{ t(badge.labelKey) }}

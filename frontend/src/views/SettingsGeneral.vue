@@ -1,7 +1,7 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="settings-page">
     <!-- Startup & Close section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-power" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">
@@ -14,7 +14,11 @@
           <div class="text-sm text-default">{{ t('settings.startup.autostart_label') }}</div>
           <p class="text-xs text-dimmed mt-0.5">{{ t('settings.startup.autostart_hint') }}</p>
         </div>
-        <USwitch :model-value="autostart" @update:model-value="onToggleAutostart" />
+        <USwitch
+          :model-value="autostart"
+          :aria-label="t('settings.startup.autostart_label')"
+          @update:model-value="onToggleAutostart"
+        />
       </div>
 
       <div class="border-t border-default/60" />
@@ -24,12 +28,16 @@
           <div class="text-sm text-default">{{ t('settings.startup.tray_label') }}</div>
           <p class="text-xs text-dimmed mt-0.5">{{ t('settings.startup.tray_hint') }}</p>
         </div>
-        <USwitch :model-value="minimizeToTray" @update:model-value="onToggleMinimizeToTray" />
+        <USwitch
+          :model-value="minimizeToTray"
+          :aria-label="t('settings.startup.tray_label')"
+          @update:model-value="onToggleMinimizeToTray"
+        />
       </div>
     </section>
 
     <!-- Language section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-language" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settings.language') }}</h2>
@@ -41,13 +49,14 @@
           :model-value="currentLocale"
           :items="localeItems"
           class="w-32"
+          :aria-label="t('settings.language')"
           @update:model-value="onLocaleChange"
         />
       </div>
     </section>
 
     <!-- Capture backend section -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-camera" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">
@@ -67,6 +76,7 @@
           :model-value="currentCapture"
           :items="captureItems"
           class="w-32"
+          :aria-label="t('settings.capture.section_title')"
           @update:model-value="onCaptureChange"
         />
       </div>
@@ -78,12 +88,16 @@
           <div class="text-sm text-default">{{ t('settings.capture.dump_debug_label') }}</div>
           <p class="text-xs text-dimmed mt-0.5">{{ t('settings.capture.dump_debug_hint') }}</p>
         </div>
-        <USwitch :model-value="dumpDebug" @update:model-value="onDumpDebugChange" />
+        <USwitch
+          :model-value="dumpDebug"
+          :aria-label="t('settings.capture.dump_debug_label')"
+          @update:model-value="onDumpDebugChange"
+        />
       </div>
     </section>
 
     <!-- Log: 所有日志设置统一在底部日志面板 header 的设置图标里 -->
-    <section class="rounded-xl bg-default border border-default p-5">
+    <section class="settings-section">
       <div class="flex items-start gap-3">
         <UIcon name="i-tabler-terminal" class="size-4 text-dimmed mt-0.5 shrink-0" />
         <div class="space-y-1">

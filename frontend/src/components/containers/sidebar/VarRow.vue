@@ -14,16 +14,17 @@
     >
       <UIcon name="i-tabler-grip-vertical" class="size-3 text-dimmed cursor-grab" />
       <span class="font-medium">{{ decl.name }}</span>
-      <span class="text-dimmed text-[10px]">{{ shortType(decl.type) }}</span>
+      <span class="text-dimmed text-[11px]">{{ shortType(decl.type) }}</span>
       <!-- emerald 是变量区块身份色 (默认值展示), 不是 success 状态色 -->
-      <span class="ml-auto text-emerald-400 text-[10px] truncate max-w-20">
+      <span class="ml-auto text-emerald-400 text-[11px] truncate max-w-20">
         = {{ formatDefault(decl.default) }}
       </span>
       <button
         v-if="decl.type === 'number'"
         type="button"
-        class="text-dimmed hover:text-default px-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        class="text-dimmed hover:text-default p-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 rounded transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         :title="t('var.insert_inc')"
+        :aria-label="t('var.insert_inc')"
         @click="$emit('insert-incvar', decl.name)"
       >
         <UIcon name="i-tabler-circle-plus" class="size-3" />
@@ -32,6 +33,7 @@
         type="button"
         class="text-dimmed hover:text-default px-1"
         :title="t('common.edit')"
+        :aria-label="t('common.edit')"
         @click="expanded = true"
       >
         <UIcon name="i-tabler-edit" class="size-3" />
@@ -48,6 +50,7 @@
           class="flex-1 min-w-0 bg-elevated/80 border rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none"
           :class="nameError ? 'border-error' : 'border-default focus:border-primary'"
           :title="nameError || ''"
+          :aria-label="t('common.name')"
           @blur="commitName"
           @keydown.enter="commitName"
           @keydown.esc="cancelName"
@@ -56,6 +59,7 @@
           type="button"
           class="text-error/80 hover:text-error px-1 shrink-0"
           :title="t('common.delete')"
+          :aria-label="t('common.delete')"
           @click="$emit('delete', decl.name)"
         >
           <UIcon name="i-tabler-trash" class="size-3" />
@@ -68,9 +72,10 @@
           :items="TYPE_OPTIONS_OBJ"
           size="xs"
           class="w-20 shrink-0"
+          :aria-label="t('var.new.type_label')"
           @update:model-value="(v: VarType) => commitField('type', v)"
         />
-        <span class="text-[10px] text-dimmed shrink-0">=</span>
+        <span class="text-[11px] text-dimmed shrink-0">=</span>
         <!-- Default value editor by type -->
         <VarPointInput
           v-if="editType === 'point'"
@@ -81,6 +86,7 @@
         <UCheckbox
           v-else-if="editType === 'bool'"
           :model-value="!!editDefault"
+          :aria-label="t('var.promote.default_label')"
           @update:model-value="(v: boolean) => commitField('default', v)"
         />
         <input
@@ -90,6 +96,7 @@
           class="flex-1 min-w-0 w-0 bg-elevated/80 border rounded px-1 py-0.5 text-[10px] focus:outline-none"
           :class="listDraftInvalid ? 'border-error' : 'border-default focus:border-primary'"
           :placeholder="t('var.list_placeholder')"
+          :aria-label="t('var.promote.default_label')"
           :title="listDraftInvalid ? t('var.list_invalid') : ''"
           @input="onListInput"
         />
@@ -100,12 +107,14 @@
           :value="editDefault ?? ''"
           class="flex-1 min-w-0 w-0 bg-elevated/80 border border-default rounded px-1 py-0.5 text-[10px] focus:border-primary focus:outline-none"
           :placeholder="editType === 'any' ? t('var.any_independent_placeholder') : ''"
+          :aria-label="t('var.promote.default_label')"
           @input="commitField('default', parseDefault($event, editType))"
         />
         <button
           type="button"
           class="text-dimmed hover:text-default px-1 shrink-0"
           :title="t('var.collapse')"
+          :aria-label="t('var.collapse')"
           @click="expanded = false"
         >
           <UIcon name="i-tabler-x" class="size-3" />

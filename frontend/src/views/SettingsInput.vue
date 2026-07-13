@@ -1,7 +1,7 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="settings-page">
     <!-- 总说明 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-mouse" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.title') }}</h2>
@@ -29,7 +29,7 @@
     </section>
 
     <!-- 录制配置 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-player-record" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.record.title') }}</h2>
@@ -48,12 +48,13 @@
           :model-value="settings?.ui.recordingMouseMode ?? 'relative'"
           :items="mouseModeItems"
           class="w-56"
+          :aria-label="t('settings.input.record.mouse_mode_label')"
           @update:model-value="(v: string) => patchRecord({ recordingMouseMode: v })"
         />
       </div>
     </section>
 
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-target" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.counts.title') }}</h2>
@@ -83,6 +84,7 @@
               :model-value="activeLabel"
               :value="p.label"
               :disabled="!p.label"
+              :aria-label="t('settings.input.counts.set_active', { name: p.label })"
               @update:model-value="() => setActive(p.label)"
             />
           </div>
@@ -91,6 +93,7 @@
             size="sm"
             class="flex-1 min-w-0"
             :placeholder="t('settings.input.counts.label_placeholder')"
+            :aria-label="t('settings.input.counts.col_label')"
             @update:model-value="(v: string) => updateLabel(i, v)"
           />
           <div class="w-28 shrink-0">
@@ -101,6 +104,7 @@
               :step="100"
               size="sm"
               class="w-full"
+              :aria-label="t('settings.input.counts.col_counts')"
               @update:model-value="(v: number) => updateCounts(i, v)"
             />
           </div>
@@ -111,6 +115,7 @@
               color="primary"
               icon="i-tabler-target"
               :title="t('settings.input.counts.recalibrate')"
+              :aria-label="t('settings.input.counts.recalibrate')"
               @click="openCalibratorFor(i)"
             />
             <UButton
@@ -119,6 +124,7 @@
               color="error"
               icon="i-tabler-trash"
               :title="t('settings.input.counts.delete_profile')"
+              :aria-label="t('settings.input.counts.delete_profile')"
               @click="removeProfile(i)"
             />
           </div>
@@ -147,7 +153,7 @@
     </section>
 
     <!-- 说明 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-3">
+    <section class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-list-numbers" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ t('settings.input.howto.title') }}</h2>

@@ -1,5 +1,5 @@
 <template>
-  <div class="px-8 py-6 space-y-6">
+  <div class="settings-page">
     <!-- 搜索框 + 批量操作 -->
     <div class="flex items-center gap-2">
       <UInput
@@ -7,6 +7,7 @@
         :placeholder="t('hotkeys.search_placeholder')"
         icon="i-tabler-search"
         class="flex-1"
+        :aria-label="t('hotkeys.search_placeholder')"
       />
       <UButton color="neutral" variant="outline" icon="i-tabler-restore" @click="onResetSystem">
         {{ t('hotkeys.reset_system') }}
@@ -17,11 +18,7 @@
     </div>
 
     <!-- 按 source 分组渲染 -->
-    <section
-      v-for="group in filteredGrouped"
-      :key="group.source"
-      class="rounded-xl bg-default border border-default p-5 space-y-3"
-    >
+    <section v-for="group in filteredGrouped" :key="group.source" class="settings-section">
       <div class="flex items-center gap-2">
         <UIcon :name="groupIcon(group.source)" class="size-4 text-dimmed" />
         <h2 class="text-sm font-medium text-highlighted">{{ groupLabel(group.source) }}</h2>
