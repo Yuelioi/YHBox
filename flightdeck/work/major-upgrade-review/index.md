@@ -65,6 +65,7 @@ Done:
 - Program v3 把每个节点的 resolved dynamic ports 冻结为必填非 nil 计划；`OpenProgram` 从 trusted Catalog 与 config 重派生并 exact compare，伪造 plan/config 均 fail closed。
 - Standards/Spec/Threat 终审修复 descriptor 泛型消费者仍读固定 config key、前端重复 parser，以及遗漏 U+061C bidi control 的动态端口名过滤；复核后无剩余 P0–P2。
 - 新增 `InputSpec.Constraints` 的 `nonBlank` 与 `numberGreaterThan` 声明式约束；Registry 统一校验和 canonicalize，Catalog v3 冻结约束，Compiler 对静态值/默认值产出稳定诊断并为全图评估设预算，接线值延迟到 runtime 校验。
+- 截图新模板表单已加入可创建的分类选择，`SaveTemplateCapture` 在首次资产记录中原子保存 category；主窗口把历史小宽度钳到 1640 并设置系统最小宽度，短期阻止编辑器工具条在低宽度下崩坏。
 
 Current:
 - Wave 2、Wave 3 strict Source、static compiler core、typed subgraph closure、declarative Switch dynamic contract 与首个 declarative input constraint 切片已完成。下一入口是 dependency/effect 与剩余 custom validation；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
@@ -82,6 +83,7 @@ Verified:
 - Switch dynamic contract 切片在终审修复后完整 `task check` 通过：Go atomic coverage 66.4%（floor 65%），Wails contract 14 services / 112 methods / 89 models，frontend 70 files / 537 tests，entry 309,160 / 350,000 bytes、editor 468,818 / 650,000 bytes。
 - `go test -race -count=1 ./internal/workflow/schema ./internal/workflow/catalog ./internal/workflow/compiler` 通过；ParseSource、CompileDraft、OpenProgram 三个 fuzz target 各运行 5 秒通过。
 - declarative input constraints 聚焦门禁通过：`go test ./internal/node ./internal/nodes/system ./internal/workflow/catalog ./internal/workflow/compiler ./internal/workflow/schema`。
+- 模板分类与主窗口宽度修复后完整 `task check` 通过：Go coverage 66.2%，frontend 71 files / 538 tests，Wails contract 14 services / 112 methods / 91 models，entry 309,295 / 350,000 bytes，editor 471,230 / 650,000 bytes。
 
 ## Open questions
 
@@ -91,6 +93,8 @@ Verified:
 - 是否把完整路线拆成 issue；插件门 C 明确不属于 3.0 stable 的必交付范围。
 - 本机全局 Node 仍是 22.14；engine-strict 会正确拒绝，Wave 2 验证使用经官方 SHA256 校验的临时 Node 22.23.1。开发机应升级全局 Node。
 - stable installer 仍缺 Yotta/capture Authenticode 签名，且应用当前把 settings/data/logs 写到 exe 旁；迁移到用户可写目录前不得恢复安装器发布。
+- 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
 

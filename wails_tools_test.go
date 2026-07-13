@@ -36,3 +36,10 @@ func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 		t.Fatal("unknown window kind succeeded")
 	}
 }
+
+func TestMainWindowOptionsEnforceEditorMinimumWidth(t *testing.T) {
+	options := mainWindowOptions(1100, 720)
+	if options.MinWidth != 1640 || options.Width < options.MinWidth {
+		t.Fatalf("main window width = %d, minimum = %d", options.Width, options.MinWidth)
+	}
+}

@@ -10,7 +10,26 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/services/tools"
+	"github.com/yottaapp/yotta/pkg/version"
 )
+
+const mainWindowMinWidth = 1640
+
+func mainWindowOptions(width, height int) application.WebviewWindowOptions {
+	if width < mainWindowMinWidth {
+		width = mainWindowMinWidth
+	}
+	return application.WebviewWindowOptions{
+		Title:            "Yotta " + version.Version,
+		Width:            width,
+		Height:           height,
+		MinWidth:         mainWindowMinWidth,
+		MinHeight:        600,
+		BackgroundColour: application.NewRGB(9, 9, 11),
+		Frameless:        true,
+		URL:              "/#/containers",
+	}
+}
 
 // wailsToolsPresenter adapts the GUI runtime to the narrow tools presentation
 // port. It exists in the executable layer so backend packages do not import Wails.

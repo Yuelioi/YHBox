@@ -575,16 +575,7 @@ func main() {
 
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
-	mainWin := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "Yotta " + version.Version,
-		Width:            winCfg.Width,
-		Height:           winCfg.Height,
-		MinWidth:         900,
-		MinHeight:        600,
-		BackgroundColour: application.NewRGB(9, 9, 11), // zinc-950
-		Frameless:        true,
-		URL:              "/#/containers",
-	})
+	mainWin := wailsApp.Window.NewWithOptions(mainWindowOptions(winCfg.Width, winCfg.Height))
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
 	// settings.UI.Window 不走 SettingsService.Update 的 patch 流程 —— 这只是 UI 状态，
