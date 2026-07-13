@@ -1,8 +1,8 @@
 # AI 节点 — 图里调 LLM（动态带类型 IO + 结构化输出 + vision）
 
 SUMMARY: AI 节点怎么在图里调 LLM —— 动态带类型 IO、结构化输出、vision 识图、Image 节点与 Provider 缓存
-READ WHEN: 改/排查 AI 节点（图里调 LLM）、结构化类型输出、vision 识图、Image 节点（Capture/SaveImage/LoadImage）、Provider 缓存前; 加 DynamicDataFields 类动态带类型输出机制时; 撞「AI 输出字段绑不上变量 / 结构化解析 Fail / 图像输入没喂进去 / 改连接后没生效」
-RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 / 改 Provider 缓存失效条件 / 加图像节点或改 node.Image 形态 / 改 DynamicDataFields 机制 / AI 节点 Spec 增删 pin 时
+READ WHEN: 改/排查 AI 节点（图里调 LLM）、结构化类型输出、vision 识图、Image 节点（Capture/SaveImage/LoadImage）、Provider 缓存前; 加 outputData role 动态带类型输出机制时; 撞「AI 输出字段绑不上变量 / 结构化解析 Fail / 图像输入没喂进去 / 改连接后没生效」
+RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 / 改 Provider 缓存失效条件 / 加图像节点或改 node.Image 形态 / 改 DynamicPorts outputData 机制 / AI 节点 Spec 增删 pin 时
 
 ---
 
@@ -13,16 +13,16 @@ RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 
 实现 `internal/nodes/ai/`（`ai.go` Run + `structured.go` + `template.go`）。
 
 - **静态输入**：`Connection`（connectionID，空=运行时取 `ai.default`）、`Model`（combobox，FE 按需拉 `ListModels` 建议+手填）、`System`/`User`（提示词模板，User 必填）、`Mode`（`auto`/`native`/`prompt` 结构化模式，默认 auto）、`Temperature`、`MaxTokens`。
-- **动态输入**（`DynamicInputs`，`config.Inputs[]` `{Name,Type,Var?,Scope?}`）：提示词用 `{{Name}}` 双花括号插值（字面 `{{` 写 `\{{`；引用名**须在 config.Inputs[] 声明，未声明→硬错**）。`Image` 类型输入不进文本插值，改作多模态块，`{{imageInput}}` 渲染成 `[image]` 标记。
-- **动态输出**（`DynamicDataFields`，`config.Outputs[]` `{Name,Type}`）：见下。
+- **动态输入**（`DynamicPorts` 的 input/nameTypeRecords descriptor，`config.Inputs[]` `{Name,Type,Var?,Scope?}`）：提示词用 `{{Name}}` 双花括号插值（字面 `{{` 写 `\{{`；引用名**须在 config.Inputs[] 声明，未声明→硬错**）。`Image` 类型输入不进文本插值，改作多模态块，`{{imageInput}}` 渲染成 `[image]` 标记。
+- **动态输出**（`DynamicPorts` 的 outputData/nameTypeRecords descriptor，`config.Outputs[]` `{Name,Type}`，parentOutput=`Done`）：见下。
 - **输出**：`Done`（Data = `Text` 模型原文**恒有** + 各声明字段）；`Fail`（`Semantic:"error"`，Data = `Error`/`Code`/**`Text` 原文**——下游接 Fail 仍能消费模型原文）。
 - **输入名与输出字段名是两个独立命名空间**（`{{}}` 只查 `config.Inputs[]`）。
 
-## 框架机制：动态带类型输出（`DynamicDataFields`）
+## 框架机制：动态带类型输出
 
-与 `DynamicInputs` 对称的 config 驱动机制（`internal/node/spec.go`，通用、不写死 AI kind）：
+与动态输入对称的 config 驱动机制（`internal/node/spec.go`，通用、不写死 AI kind）：
 
-- `Spec.DynamicDataFields bool`（**刻意不叫 `DynamicOutputs`**——那是 Switch 出口名动态；同节点二者并开 → validator 硬错互斥）。
+- `Spec.DynamicPorts` 以 `role=outputData`、`shape=nameTypeRecords`、`configKey=Outputs`、`parentOutput=Done` 表达完整机器契约；它进入 Catalog identity，不再靠 bool 暗示另一套 parser。
 - config 形态 `config.Outputs[]`，后端 `container.ParseDynamicOutputDecls`（镜像 `ParseDynamicInputDecls`）。
 - 可绑字段 config 化：`nodepkg.BindableFieldsForNode(spec, config)` = 静态 `BindableFields(spec)` ∪ `config.Outputs[]` 各 Name（去重）；保留名 `Text` 不可声明。捕获校验 + FE「输出」组用它。
 - **运行时零特殊**：`applyCaptures` 本就按 `config.capture[field]` 写出口实际带的字段；AI Run 把各声明字段 `.Set()` 即被捕获。各字段也进 held output 缓存可被下游数据线直连（见 [held-exec-outputs](held-exec-outputs.md)）。

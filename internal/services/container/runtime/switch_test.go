@@ -8,7 +8,7 @@ import (
 )
 
 // Switch dispatch 集成 smoke: 验 named-by-value 模型经真实 execNode 路径
-// (buildConfigFor → in.Raw("cases") + DynamicOutputs ctx.Out(caseValue) 不 panic) 跑通无 error。
+// (buildConfigFor → in.Raw("cases") + dynamic output ctx.Out(caseValue) 不 panic) 跑通无 error。
 // 命中哪个 pin 的精确路由由 internal/nodes/control/switch_test.go (RunNode 直查 ExitName) 覆盖。
 
 func TestExecSwitch_MatchedCase(t *testing.T) {

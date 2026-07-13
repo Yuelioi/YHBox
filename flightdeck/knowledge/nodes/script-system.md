@@ -2,7 +2,7 @@
 
 SUMMARY: Script 节点（goja JS）+ 节点即函数自动绑定 —— 调用/返回/错误约定、$变量、糖函数、动态输入、前端编辑器链路
 READ WHEN: 写/改 Script 节点或绑定层前; 想知道脚本里能调什么函数、怎么传参取值接错误; 加新节点想确认脚本侧是否自动可见; 改 Expr/Script 动态输入机制前; 撞 SCRIPT_* 校验码或脚本取消/行号问题
-RECHECK WHEN: 改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicInputs 机制时
+RECHECK WHEN: 改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicPorts input 机制时
 
 ---
 
@@ -14,7 +14,7 @@ RECHECK WHEN: 改绑定调用/返回/错误约定、糖函数集合、ScriptBind
 - 输入: `In` (Exec) / `Code` (String, widget `code`) / `Window` (可选窗口覆盖输入)。
 - 输出: `Done` (Data 字段 `Result` `*` = 脚本 `return` 的值) / `Fail` (error 语义, Error+Code)。
 - `NeedsWindow: true`, `NeedsForeground: true` — 含 Script 的容器必须有窗口上下文；sendinput 后端派发前会按可选 Window 输入补前台。
-- `DynamicInputs: true` — 动态输入 pin, 见下。
+- `DynamicPorts` 声明 `role=input / shape=nameTypeRecords / configKey=Inputs` — 动态输入 pin, 见下。
 - 返回值消费: `Result` 是 Done 出口 Data 字段，可用 held-output 数据线直连下游；需要命名复用时在 Inspector 输出组把 `Result` 绑到变量，再用 GetVar 读。
 
 ## 脚本怎么写 (用户面约定)
@@ -67,7 +67,7 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 
 ## 动态输入机制 (Expr/Script 共用)
 
-- `Spec.DynamicInputs: true` 节点的额外输入由 `config.Inputs[]` 声明 (PascalCase `{Name, Type, Var?, Scope?}`), 后端统一走 `container.ParseDynamicInputDecls`; dispatch (`buildDataWireFor`) / validator (`dataInPinTypeForNode` / unknown-literal 跳过) / FE (`adapter.ts parseDynamicInputsCfg` / `pinLiterals.ts`) 全部标志驱动, **无 kind 字符串特判**。
+- `Spec.DynamicPorts` 中 input/nameTypeRecords descriptor 的额外输入由其 config key（当前 Expr/Script/AI 为 `config.Inputs[]`）声明，条目是 PascalCase `{Name, Type, Var?, Scope?}`。后端统一走 `container.ParseDynamicInputDecls`; dispatch (`buildDataWireFor`) / validator (`dataInPinTypeForNode` / unknown-literal 跳过) / FE (`adapter.ts parseDynamicInputsCfg` / `pinLiterals.ts`) 全部 descriptor role 驱动, **无 kind 字符串特判**。
 - 输入口 = **连线 data-in pin** (接别的节点输出/字面量); 想用变量直接写 `$名` (见上节), 不必声明输入口。
 - 声明编辑 UI: Inspector「输入口」区 (`DynamicInputsEditor.vue`) — 名字合法性/重名标红 + 底部一句话提示 `$名` 用法。
 - 连线值在脚本里是**同名只读全局变量** (Expr 里是表达式标识符)。卡片 footer 自动列脚本/表达式里的 `$` 引用 (正则提取)。

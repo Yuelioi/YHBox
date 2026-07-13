@@ -23,7 +23,7 @@ RECHECK WHEN: 改节点数据线/exec 线规则 / pin-wiring / output-capture / 
 
 判定在 `internal/services/container/validate.go`：
 - 顶层数据输出：`dataOutPinTypeForKind` / `IsDataOutPinNode`。
-- exec 出口 Data 字段：`IsExecOutputDataField` / `IsExecOutputDataFieldNode`（config-aware，覆盖 `DynamicDataFields` 节点的 `config.Outputs[]`）。
+- exec 出口 Data 字段：`IsExecOutputDataField` / `IsExecOutputDataFieldNode`（config-aware，覆盖 `DynamicPorts` outputData descriptor 指向的 `config.Outputs[]`）。
 
 ## 谁能当数据线的源（data-out pin）
 
@@ -33,7 +33,7 @@ RECHECK WHEN: 改节点数据线/exec 线规则 / pin-wiring / output-capture / 
 
 ## exec 节点的 Data 字段：held output 直连（任意距离）
 
-exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []DataField`（如 `DetectColor.Found` 带 `Count`/`Center`；`CheckTemplate.Found` 带 `Point`/`Conf`；`Fail` 带 `Error`/`Code`），以及 `DynamicDataFields` 节点 config 声明的字段（如 AI 结构化输出 `red`/`white`）。这些 Data 字段：
+exec 节点常在某个 exec 出口上**携带数据**：`OutputSpec.Data []DataField`（如 `DetectColor.Found` 带 `Count`/`Center`；`CheckTemplate.Found` 带 `Point`/`Conf`；`Fail` 带 `Error`/`Code`），以及 `DynamicPorts` outputData descriptor 指向的 config 声明字段（如 AI 结构化输出 `red`/`white`）。这些 Data 字段：
 
 - **是 data-out pin、可直连数据线**：`IsDataOutPin`/`IsDataOutPinNode`（config-aware）认 exec 出口的 Data 字段 → validator 放行连线。
 - **值经 held output 缓存任意距离直连下游 data-in**：源 fire 时存进 `ContainerRunner.execOutputs`，下游 `pullDataPin` 直读，**免 GetVar、免紧邻约束**。完整机制 → [held-exec-outputs.md](held-exec-outputs.md)。

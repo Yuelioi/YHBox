@@ -47,7 +47,10 @@ func (Script) Spec() node.Spec {
 			node.RuntimeCapabilityParams,
 			node.RuntimeCapabilityRegistry,
 		},
-		DynamicInputs: true,
+		DynamicPorts: []node.DynamicPortSpec{{
+			Role: node.DynamicPortInput, ConfigKey: "Inputs", Shape: node.DynamicPortNameTypeRecords,
+			MaxItems: 256,
+		}},
 	}
 }
 

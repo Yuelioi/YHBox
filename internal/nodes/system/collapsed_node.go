@@ -1,6 +1,6 @@
 // internal/nodes/system/collapsed_node.go
 // CollapsedNode — Subgraph 的折叠 (anonymous) 表示, 跟 Subgraph 共享 RegionRunner
-// 语义: body() 调一次, fire body 回报的出口 decl ID (DynamicOutputs).
+// 语义: body() 调一次, fire body 回报的动态出口 decl ID.
 package system
 
 import "github.com/yottaapp/yotta/internal/node"
@@ -20,7 +20,10 @@ func (CollapsedNode) Spec() node.Spec {
 		Kind:     "CollapsedNode",
 		Category: "System",
 		// 出口 = callee OutputPins 的 decl ID, 随后备子图动态变 — 静态只声明 Fail.
-		DynamicOutputs: true,
+		DynamicPorts: []node.DynamicPortSpec{{
+			Role: node.DynamicPortOutput, Shape: node.DynamicPortGraphInterface,
+			MaxItems: 4096,
+		}},
 		Inputs: []node.InputSpec{
 			{Name: cnInExec, Type: "Exec"},
 			{Name: cnInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,

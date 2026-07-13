@@ -150,13 +150,11 @@ export interface NodeKindSpec {
   dataOut: Record<string, PinType>
   /** Dynamic data-in (Expr.inputs[], Subgraph inputParams). Merged with dataIn at lookup time. */
   dataInDynamicFn?: (cfg: Record<string, unknown> | null | undefined) => Record<string, PinType>
-  /** backend Spec.DynamicInputs — 动态 data-in pin 由 config.Inputs[] (PascalCase Name/Type)
-   * 声明 (Expr / Script). 驱动 Inspector 声明编辑区 + pinLiterals 动态 pin 合并. */
+  /** Derived from backend DynamicPorts input descriptor. */
   dynamicInputs?: boolean
   /** Dynamic data-out (AI.config.Outputs[]). Merged with dataOut at lookup time → 可绑字段。 */
   dataOutDynamicFn?: (cfg: Record<string, unknown> | null | undefined) => Record<string, PinType>
-  /** backend Spec.DynamicDataFields — 动态 Data 出口字段由 config.Outputs[] 声明 (AI).
-   * 驱动 Inspector 输出声明编辑区 + bindableFields 动态字段合并. */
+  /** Derived from backend DynamicPorts outputData descriptor. */
   dynamicDataFields?: boolean
 
   /** Config schema for Inspector form (replaces nodeFieldSchemas.ts NODE_FIELD_SCHEMAS[kind]). */

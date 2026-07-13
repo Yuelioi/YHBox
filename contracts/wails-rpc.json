@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 112,
-    "models": 86
+    "models": 89
   },
   "services": [
     {
@@ -1753,6 +1753,91 @@
           ]
         },
         {
+          "kind": "enum",
+          "name": "DynamicPortRole",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "DynamicPortInput",
+              "value": "\"input\""
+            },
+            {
+              "name": "DynamicPortOutput",
+              "value": "\"output\""
+            },
+            {
+              "name": "DynamicPortOutputData",
+              "value": "\"outputData\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "DynamicPortShape",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "DynamicPortNames",
+              "value": "\"names\""
+            },
+            {
+              "name": "DynamicPortNameTypeRecords",
+              "value": "\"nameTypeRecords\""
+            },
+            {
+              "name": "DynamicPortGraphInterface",
+              "value": "\"graphInterface\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DynamicPortSpec",
+          "fields": [
+            {
+              "name": "\"role\"",
+              "optional": false,
+              "type": "DynamicPortRole"
+            },
+            {
+              "name": "\"configKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"shape\"",
+              "optional": false,
+              "type": "DynamicPortShape"
+            },
+            {
+              "name": "\"fixedType\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"parentOutput\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"minItems\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"maxItems\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
           "kind": "class",
           "name": "EnumOption",
           "fields": [
@@ -2106,19 +2191,9 @@
               "type": "boolean"
             },
             {
-              "name": "\"dynamicOutputs\"",
+              "name": "\"dynamicPorts\"",
               "optional": true,
-              "type": "boolean"
-            },
-            {
-              "name": "\"dynamicInputs\"",
-              "optional": true,
-              "type": "boolean"
-            },
-            {
-              "name": "\"dynamicDataFields\"",
-              "optional": true,
-              "type": "boolean"
+              "type": "DynamicPortSpec[]"
             }
           ]
         },

@@ -10,8 +10,7 @@
 //  - defaults: 从 InputSpec.Default 收集 (literal map)
 //  - visual: 按 group 用 fallback mapping (没每节点装饰多样化, 后续 backend Spec
 //    加 Visual 字段才能 fine-grain)
-//  - execOutFn: 几个特殊 Kind hardcode (Switch/Parallel/Race), 跟 backend validator 镜像.
-//  - dataInDynamicFn: Spec.DynamicInputs 标志驱动 (Expr/Script), config.Inputs[] 声明.
+//  - dynamicPorts: backend descriptor 驱动 config-derived pins.
 //
 // app 入口 main.ts boot 时 await populateRegistryFromBackend() 把 RPC spec 注册到
 // 老 byKind, 各 consumer (ContextMenu / NodeExplorerModal /
@@ -21,7 +20,14 @@ import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import { setExprFunctions } from '@/lib/exprFunctions'
 import { __resetForTests, register } from './registry'
 import type { FieldSchema, NodeFieldSchema, NodeGroup, NodeKindSpec, PinType } from './index'
-import type { Spec, InputSpec, OutputSpec } from '@bindings/github.com/yottaapp/yotta/internal/node'
+import {
+  DynamicPortRole,
+  DynamicPortShape,
+  type DynamicPortSpec,
+  type InputSpec,
+  type OutputSpec,
+  type Spec,
+} from '@bindings/github.com/yottaapp/yotta/internal/node'
 import { groupVisual, resolvePalette } from '../visualRegistry'
 import { rebuildPinSpecMaps } from '@/components/containers/pinSpec'
 import { rebuildNodeFieldSchemas } from '@/components/containers/nodeFieldSchemas'
@@ -210,28 +216,44 @@ function deriveDefaults(inputs: InputSpec[]): Record<string, unknown> {
   return Object.keys(literal).length > 0 ? { literal } : {}
 }
 
-// dynamic exec out — 镜像 backend validator. Switch/Parallel/Race 等节点 exec 出口由
-// config 推. 这部分目前 backend Spec 不暴露, FE hardcode.
+function dynamicPortsOf(spec: Spec): DynamicPortSpec[] {
+  return spec.dynamicPorts ?? []
+}
+
+// Parallel/Race still use their legacy numeric branch contract. Config-derived node
+// contracts such as Switch are handled from backend dynamicPorts below.
 const DYNAMIC_EXEC_OUT: Record<
   string,
   (cfg: Record<string, unknown> | null | undefined) => string[]
 > = {
-  Switch: (cfg) => {
-    // named-by-value: 出口 = config.cases 里每个 case 值 + 'default' 兜底.
-    // 镜像 backend switch.go Run + validate.go execOutPinsForNode.
-    const cases = Array.isArray(cfg?.cases) ? (cfg!.cases as unknown[]) : []
-    const out: string[] = []
-    const seen = new Set<string>()
-    for (const c of cases) {
-      if (typeof c !== 'string' || c === '' || seen.has(c)) continue
-      seen.add(c)
-      out.push(c)
-    }
-    out.push('default')
-    return out
-  },
   Parallel: parallelBranchPins,
   Race: parallelBranchPins,
+}
+
+function namedDynamicExecOutputs(
+  descriptor: DynamicPortSpec,
+  staticOutputs: string[],
+): (cfg: Record<string, unknown> | null | undefined) => string[] {
+  return (cfg) => {
+    const values = Array.isArray(cfg?.[descriptor.configKey])
+      ? (cfg?.[descriptor.configKey] as unknown[])
+      : []
+    const out: string[] = []
+    const seen = new Set(staticOutputs)
+    for (const value of values.slice(0, descriptor.maxItems)) {
+      if (
+        typeof value !== 'string' ||
+        value === '' ||
+        value.trim() !== value ||
+        value.includes('.') ||
+        seen.has(value)
+      )
+        continue
+      seen.add(value)
+      out.push(value)
+    }
+    return [...out, ...staticOutputs]
+  }
 }
 
 function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): string[] {
@@ -244,12 +266,15 @@ function parallelBranchPins(cfg: Record<string, unknown> | null | undefined): st
   return out
 }
 
-// dynamic data in — Spec.DynamicInputs 节点 (Expr / Script) 的 config.Inputs[] 声明.
+// Dynamic input descriptors use Name/Type records from their declared config key.
 // 镜像 backend ParseDynamicInputDecls: PascalCase Name/Type 键, 空 Name 跳过.
 function parseDynamicInputsCfg(
+  configKey: string,
   cfg: Record<string, unknown> | null | undefined,
 ): Record<string, PinType> {
-  const inputs = Array.isArray(cfg?.Inputs) ? (cfg!.Inputs as Array<Record<string, unknown>>) : []
+  const inputs = Array.isArray(cfg?.[configKey])
+    ? (cfg?.[configKey] as Array<Record<string, unknown>>)
+    : []
   const out: Record<string, PinType> = {}
   for (const i of inputs) {
     const name = typeof i.Name === 'string' ? i.Name : ''
@@ -259,13 +284,14 @@ function parseDynamicInputsCfg(
   return out
 }
 
-// dynamic data out — Spec.DynamicDataFields 节点 (AI) 的 config.Outputs[] 声明.
+// Dynamic output-data descriptors use Name/Type records from their declared config key.
 // 镜像 backend BindableFieldsForNode: 声明字段并入可绑 Data 字段(逐个绑变量)。
 function parseDynamicOutputsCfg(
+  configKey: string,
   cfg: Record<string, unknown> | null | undefined,
 ): Record<string, PinType> {
-  const outputs = Array.isArray(cfg?.Outputs)
-    ? (cfg!.Outputs as Array<Record<string, unknown>>)
+  const outputs = Array.isArray(cfg?.[configKey])
+    ? (cfg?.[configKey] as Array<Record<string, unknown>>)
     : []
   const out: Record<string, PinType> = {}
   for (const o of outputs) {
@@ -282,6 +308,7 @@ export function adaptSpec(s: Spec): NodeKindSpec {
   const visual = visualForGroup(group)
   const { execIn, dataIn } = splitInputs(s.inputs ?? [])
   const { execOut, dataOut, errorOut } = splitOutputs(s.outputs ?? [])
+  const dynamicPorts = dynamicPortsOf(s)
 
   const out: NodeKindSpec = {
     kind: s.kind,
@@ -308,16 +335,31 @@ export function adaptSpec(s: Spec): NodeKindSpec {
   if ((s.isGraphMarker || s.isVisualOnly) && s.kind !== 'CommentBox') {
     out.excludeFromPalette = true
   }
-  if (DYNAMIC_EXEC_OUT[s.kind]) out.execOutFn = DYNAMIC_EXEC_OUT[s.kind]
-  // 标志驱动 (backend Spec.DynamicInputs): 动态 data-in pin 由 config.Inputs[] 声明.
-  if (s.dynamicInputs) {
+  const namedOutputs = dynamicPorts.find(
+    (port) =>
+      port.role === DynamicPortRole.DynamicPortOutput &&
+      port.shape === DynamicPortShape.DynamicPortNames &&
+      port.fixedType === 'Exec',
+  )
+  if (namedOutputs) out.execOutFn = namedDynamicExecOutputs(namedOutputs, execOut)
+  else if (DYNAMIC_EXEC_OUT[s.kind]) out.execOutFn = DYNAMIC_EXEC_OUT[s.kind]
+  const dynamicInputs = dynamicPorts.find(
+    (port) =>
+      port.role === DynamicPortRole.DynamicPortInput &&
+      port.shape === DynamicPortShape.DynamicPortNameTypeRecords,
+  )
+  if (dynamicInputs) {
     out.dynamicInputs = true
-    out.dataInDynamicFn = parseDynamicInputsCfg
+    out.dataInDynamicFn = (cfg) => parseDynamicInputsCfg(dynamicInputs.configKey, cfg)
   }
-  // 标志驱动 (backend Spec.DynamicDataFields): 动态 Data 出口字段由 config.Outputs[] 声明.
-  if (s.dynamicDataFields) {
+  const dynamicOutputData = dynamicPorts.find(
+    (port) =>
+      port.role === DynamicPortRole.DynamicPortOutputData &&
+      port.shape === DynamicPortShape.DynamicPortNameTypeRecords,
+  )
+  if (dynamicOutputData) {
     out.dynamicDataFields = true
-    out.dataOutDynamicFn = parseDynamicOutputsCfg
+    out.dataOutDynamicFn = (cfg) => parseDynamicOutputsCfg(dynamicOutputData.configKey, cfg)
   }
   return out
 }

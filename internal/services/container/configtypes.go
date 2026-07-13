@@ -61,7 +61,7 @@ func ParseExprConfig(n *GraphNode) (ExprConfig, error) {
 	return c, nil
 }
 
-// ParseDynamicInputDecls 解析 config.Inputs[] 动态 data-in pin 声明 — 凡 Spec.DynamicInputs
+// ParseDynamicInputDecls 解析 config.Inputs[] 动态 data-in pin 声明
 // 节点 (Expr / Script) 通用. nil-safe; 空 Name 项跳过. 重名不在这里去重 — 由 validator 报错.
 func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
 	if n == nil || n.Config == nil {
@@ -89,7 +89,7 @@ func ParseDynamicInputDecls(n *GraphNode) []ExprInputDecl {
 	return decls
 }
 
-// ParseDynamicOutputDecls 解析 config.Outputs[] 动态 Data 字段声明 — Spec.DynamicDataFields
+// ParseDynamicOutputDecls 解析 config.Outputs[] 动态 Data 字段声明
 // 节点 (AI) 通用。结构同 Inputs ({Name,Type}); 这些字段挂在 Done 出口, 可绑变量, 也可经
 // exec-data 直连紧邻下游(同 Fail.Code 机制)。nil-safe; 空 Name 跳过。
 func ParseDynamicOutputDecls(n *GraphNode) []ExprInputDecl {

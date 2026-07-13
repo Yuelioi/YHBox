@@ -85,7 +85,7 @@ RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / �
 
 节点不直接构造 `Outputs`，走 `ctx.Out(exitName).Set(field, value).Fire()`（`outputs.go` / `ctx.go`）。守卫：
 
-- `Out(name)`：name 不在 `Spec.Outputs` → **立即 panic**（author bug，fail fast）。`DynamicOutputs` 节点放行任意 name。
+- `Out(name)`：name 不在 `Spec.Outputs` → **立即 panic**（author bug，fail fast）。声明 output role 的 `DynamicPorts` 节点由外部绑定完整出口集，旧 runtime 的 builder 因此放行动态 name；新 Program runtime 必须改为只接受 Compiler 冻结的 resolved ports。
 - `Set` after `Fire` → panic；同一 Run 内**第二次 Fire**（任何 builder）→ panic（ctx 级 `markFired` 守卫）。
 - exec 出口携带数据：`ctx.Out("Found").Set("Point", pt).Fire()` —— 下游 exec-data wire 收同名字段。出口能带哪些 Data 在 `Spec.Outputs[].Data` 声明。
 

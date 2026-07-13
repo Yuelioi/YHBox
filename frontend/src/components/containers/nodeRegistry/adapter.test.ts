@@ -1,7 +1,7 @@
 // adapter.test.ts — 验证 deriveFields schema 透传行为 (D1 结构化输入基建).
 import { describe, it, expect } from 'vitest'
 import { adaptSpec, deriveFields } from './adapter'
-import type { InputSpec } from '@bindings/github.com/yottaapp/yotta/internal/node'
+import type { InputSpec, Spec } from '@bindings/github.com/yottaapp/yotta/internal/node'
 
 describe('deriveFields schema passthrough', () => {
   it('InputSpec.schema 透传到 FieldSchema.schema (object + fields)', () => {
@@ -134,5 +134,31 @@ describe('deriveFields schema passthrough', () => {
 
     const adapted = adaptSpec(spec)
     expect(adapted.supportedTargets).toEqual(['win32-window', 'android-adb'])
+  })
+
+  it('adaptSpec 从声明式契约派生 Switch 动态出口', () => {
+    const adapted = adaptSpec({
+      kind: 'Switch',
+      category: 'Control',
+      inputs: [],
+      outputs: [{ name: 'default', type: 'Exec' }],
+      dynamicPorts: [
+        {
+          role: 'output',
+          configKey: 'cases',
+          shape: 'names',
+          fixedType: 'Exec',
+          parentOutput: '',
+          minItems: 1,
+          maxItems: 256,
+        },
+      ],
+    } as unknown as Spec)
+
+    expect(adapted.execOutFn?.({ cases: ['Ready', '恢复', 'Ready', 'bad.pin'] })).toEqual([
+      'Ready',
+      '恢复',
+      'default',
+    ])
   })
 })

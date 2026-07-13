@@ -49,7 +49,12 @@ func (n compilerTestNode) Spec() node.Spec {
 		Inputs:              inputs,
 		Outputs:             outputs,
 		RuntimeCapabilities: []node.RuntimeCapability{capability},
-		DynamicInputs:       n.dynamic,
+		DynamicPorts: func() []node.DynamicPortSpec {
+			if !n.dynamic {
+				return nil
+			}
+			return []node.DynamicPortSpec{{Role: node.DynamicPortInput, ConfigKey: "Inputs", Shape: node.DynamicPortNameTypeRecords, MaxItems: 8}}
+		}(),
 	}
 }
 
@@ -498,8 +503,8 @@ func TestProgramIdentityGolden(t *testing.T) {
 		t.Fatalf("diagnostics = %#v", result.Diagnostics)
 	}
 	const wantSource = "sha256:cfbe4d5ba8d9a4105d551e797d2c1e3c212ad87bc6344be83ce62d486bf8729c"
-	const wantCatalog = "sha256:98f3593c845500d660bb7fe92af1b9d602d0fb7254c122f1b3cfc19546f126dd"
-	const wantProgram = "sha256:186aa0a1e003a891fcc5e004b2d0144d22e90b8966694d485767a1efa0592cd6"
+	const wantCatalog = "sha256:a3770d5eb798404d629a2130bdd28014907034a66f2dc6cc946487dbc6ded4c4"
+	const wantProgram = "sha256:dcd2e169d2fda09923c2649cc1f824fb5dc89d13d4788375375c5315e984fd3c"
 	if result.SourceHash.String() != wantSource || catalogSnapshot.Hash().String() != wantCatalog || program.Hash().String() != wantProgram {
 		t.Fatalf("golden drift:\nsource  %s\ncatalog %s\nprogram %s", result.SourceHash, catalogSnapshot.Hash(), program.Hash())
 	}

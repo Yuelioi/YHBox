@@ -14,6 +14,34 @@ type TargetCapability string
 // describes which runtime service ports the node itself consumes.
 type RuntimeCapability string
 
+type DynamicPortRole string
+
+const (
+	DynamicPortInput      DynamicPortRole = "input"
+	DynamicPortOutput     DynamicPortRole = "output"
+	DynamicPortOutputData DynamicPortRole = "outputData"
+)
+
+type DynamicPortShape string
+
+const (
+	DynamicPortNames           DynamicPortShape = "names"
+	DynamicPortNameTypeRecords DynamicPortShape = "nameTypeRecords"
+	DynamicPortGraphInterface  DynamicPortShape = "graphInterface"
+)
+
+// DynamicPortSpec declares how a node's config or bound graph interface
+// contributes ports that are not present in the static Inputs/Outputs lists.
+type DynamicPortSpec struct {
+	Role         DynamicPortRole  `json:"role"`
+	ConfigKey    string           `json:"configKey"`
+	Shape        DynamicPortShape `json:"shape"`
+	FixedType    string           `json:"fixedType"`
+	ParentOutput string           `json:"parentOutput"`
+	MinItems     int              `json:"minItems"`
+	MaxItems     int              `json:"maxItems"`
+}
+
 const (
 	RuntimeCapabilityVision      RuntimeCapability = "vision"
 	RuntimeCapabilityLog         RuntimeCapability = "log"
@@ -97,19 +125,20 @@ type Spec struct {
 	// runtime 在 dispatch_v5 / runRegionBody 里 special-route 跳过 Run.
 	// 跟 IsVisualOnly 对称 (一个渲染标, 一个结构标), 跟 IsPureData 区分.
 	// Register 允许 IsGraphMarker=true 时 zero capability.
-	IsGraphMarker bool `json:"isGraphMarker,omitempty"`
-	// DynamicOutputs — 出口名运行时按 config 推导, 不在静态 Outputs 里枚举 (e.g. Switch
-	// 的 named-by-value case 出口). 置真时 ctx.Out(name) 放行任意 name (跳过 Outputs 成员检查);
-	// 出口名合法性由节点自身 + validator 静态保证. Outputs 仍可列固定兜底出口 (Switch 的 default).
-	DynamicOutputs bool `json:"dynamicOutputs,omitempty"`
-	// DynamicInputs — 动态 data-in pin 由 config.Inputs[] 声明, 不在静态 Inputs 里枚举
-	// (Expr / Script). dispatch / validator / FE 按此标志走 ParseDynamicInputDecls
-	// 解析声明列表; Inputs 仍可列固定静态 pin (Expr 的 Expression).
-	DynamicInputs bool `json:"dynamicInputs,omitempty"`
-	// DynamicDataFields — exec 出口携带的 Data 字段集由 config.Outputs[] 声明 (AI 节点结构化输出)。
-	// 区别于 DynamicOutputs (出口名动态); 两者正交、不在同一节点并用 (spec consistency 守卫)。
-	// BindableFieldsForNode 把 config.Outputs[] 各 Name 并入可绑字段。
-	DynamicDataFields bool `json:"dynamicDataFields,omitempty"`
+	IsGraphMarker bool              `json:"isGraphMarker,omitempty"`
+	DynamicPorts  []DynamicPortSpec `json:"dynamicPorts,omitempty"`
+}
+
+func HasDynamicPortRole(spec *Spec, role DynamicPortRole) bool {
+	if spec == nil {
+		return false
+	}
+	for _, dynamic := range spec.DynamicPorts {
+		if dynamic.Role == role {
+			return true
+		}
+	}
+	return false
 }
 
 type InputSpec struct {
@@ -167,11 +196,11 @@ func BindableFields(spec *Spec) []string {
 	return out
 }
 
-// BindableFieldsForNode = 静态 BindableFields(spec) ∪ (DynamicDataFields 时) config.Outputs[] 各 Name (去重)。
+// BindableFieldsForNode = 静态字段加 outputData descriptor 声明的 config.Outputs[] 名称。
 // 让 config 声明的动态输出 Data 字段也可被捕获绑定; FE 输出组 / capture 校验共用此派生。
 func BindableFieldsForNode(spec *Spec, config map[string]any) []string {
 	fields := BindableFields(spec)
-	if spec == nil || !spec.DynamicDataFields {
+	if spec == nil || !HasDynamicPortRole(spec, DynamicPortOutputData) {
 		return fields
 	}
 	seen := map[string]bool{}

@@ -38,8 +38,7 @@ Yotta 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（c
 | `IsPureData` | 纯数据节点（无副作用、求一个值）。**必须实现 Evaluator**（Register 强制） |
 | `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
 | `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |
-| `DynamicOutputs` | 出口名运行时按 config 推导（Switch 的 named-by-value case 出口；Subgraph/CollapsedNode 的出口 = callee OutputPins decl ID）。置真时 `ctx.Out(name)` 放行任意 name |
-| `DynamicInputs` | data-in pin 由 `config.Inputs[]` 运行时声明、不在静态 `Inputs` 枚举（Expr / Script）。dispatch / validator / 前端都按此标志统一走 `container.ParseDynamicInputDecls`，**无 kind 字符串特判**（`spec.go`） |
+| `DynamicPorts` | 声明动态端口的 role、config key、shape、固定类型/父出口与数量预算。Switch 使用 `output + names + cases + Exec`；Expr/Script 使用 `input + nameTypeRecords + Inputs`；AI 的输出字段使用 `outputData + nameTypeRecords + Outputs + Done`；Subgraph/CollapsedNode 的 legacy graph-interface shape 只服务旧 runtime。消费者按 descriptor role/shape 工作，不按 kind 猜 config。 |
 | `IsNonDeterministic` | Evaluate 非确定（随机 / now）。框架在 per-dispatch eval 缓存里**只记忆化带此标志的节点**（`runtime/data_pull.go::evalPureDataCached` 的 `caching` gate），保证同一次派发内多路径引用同一节点拿同一个值。仅对 `IsPureData` 节点有意义 |
 
 `InputSpec` 关键字段：`Type`（类型 tag，见 reference）、`Required`、`Advanced`、`Default`（**Number 类用 `json.Number` 保精度**）、`Widget`（UI 控件，跟 Type 解耦）、`VisibleWhen`（条件显隐）、`Schema`（结构化输入递归 schema，非 nil → 前端 StructuredInput，如 Geometry/HSV）。
@@ -58,7 +57,7 @@ Yotta 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（c
 
 ### RegionRunner 的 body 回调
 
-`body func(Ctx) (string, error)` 是"执行 region 内部下游"的回调，第一返回值 = **region 内部到达的出口**（Subgraph/CollapsedNode：callee OutputPins 的 decl ID；Loop/ForEach 单轮迭代无出口语义，忽略它）。Subgraph/CollapsedNode 把 body 回报的出口原样 `ctx.Out(exit)` fire（Spec 是 `DynamicOutputs`，父图边 pin = decl ID）；`""` = 没到达任何出口 → 不 fire。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；四个 RegionRunner 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
+`body func(Ctx) (string, error)` 是"执行 region 内部下游"的回调，第一返回值 = **region 内部到达的出口**（Subgraph/CollapsedNode：callee OutputPins 的 decl ID；Loop/ForEach 单轮迭代无出口语义，忽略它）。Subgraph/CollapsedNode 把 body 回报的出口原样 `ctx.Out(exit)` fire（Spec 声明 graph-interface dynamic output descriptor，父图边 pin = decl ID）；`""` = 没到达任何出口 → 不 fire。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；四个 RegionRunner 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
 
 ### 子图调用的出口路由（2026-06-11 起）
 

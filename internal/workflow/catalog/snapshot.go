@@ -17,15 +17,15 @@ const (
 	// compiler itself. Registry implementations must never share this authority.
 	CompilerIntrinsicPrefix = "core."
 	SnapshotFormat          = "yotta.catalog"
-	SnapshotVersion         = 1
+	SnapshotVersion         = 2
 	MaxCatalogNodes         = 4096
 	MaxNodePins             = 4096
 	MaxNodeContractBytes    = 1 << 20
 	MaxCatalogBytes         = 16 << 20
 	MaxFieldSchemaDepth     = 64
 	MaxFieldSchemaEntries   = 4096
-	catalogHashDomain       = "yotta/catalog/v1"
-	nodeContractHashDomain  = "yotta/node-contract/v1"
+	catalogHashDomain       = "yotta/catalog/v2"
+	nodeContractHashDomain  = "yotta/node-contract/v2"
 )
 
 type ExecutionMode string
@@ -55,9 +55,7 @@ type NodeContract struct {
 	NeedsWindow         bool                     `json:"needsWindow"`
 	NeedsForeground     bool                     `json:"needsForeground"`
 	IsGraphMarker       bool                     `json:"isGraphMarker"`
-	DynamicOutputs      bool                     `json:"dynamicOutputs"`
-	DynamicInputs       bool                     `json:"dynamicInputs"`
-	DynamicDataFields   bool                     `json:"dynamicDataFields"`
+	DynamicPorts        []node.DynamicPortSpec   `json:"dynamicPorts"`
 	HasCustomValidation bool                     `json:"hasCustomValidation"`
 	HasDependencies     bool                     `json:"hasDependencies"`
 	ContractHash        artifact.Digest          `json:"contractHash"`
@@ -189,8 +187,8 @@ func projectNode(entry *node.RegisteredNode) (NodeContract, error) {
 		TargetCapabilities:  append(make([]node.TargetCapability, 0, len(spec.TargetCapabilities)), spec.TargetCapabilities...),
 		RuntimeCapabilities: append(make([]node.RuntimeCapability, 0, len(spec.RuntimeCapabilities)), spec.RuntimeCapabilities...),
 		NeedsWindow:         spec.NeedsWindow, NeedsForeground: spec.NeedsForeground,
-		IsGraphMarker: spec.IsGraphMarker, DynamicOutputs: spec.DynamicOutputs,
-		DynamicInputs: spec.DynamicInputs, DynamicDataFields: spec.DynamicDataFields,
+		IsGraphMarker:       spec.IsGraphMarker,
+		DynamicPorts:        append(make([]node.DynamicPortSpec, 0, len(spec.DynamicPorts)), spec.DynamicPorts...),
 		HasCustomValidation: entry.Validate != nil, HasDependencies: entry.Dependencies != nil,
 	}
 	if err := validateUniqueCapabilities(spec.Kind, spec.TargetCapabilities, spec.RuntimeCapabilities); err != nil {
@@ -229,6 +227,12 @@ func projectNode(entry *node.RegisteredNode) (NodeContract, error) {
 			Data: append(make([]node.DataField, 0, len(output.Data)), output.Data...),
 		})
 	}
+	if err := validateDynamicPorts(spec, inputNames, outputNames); err != nil {
+		return NodeContract{}, err
+	}
+	sort.Slice(contract.DynamicPorts, func(i, j int) bool {
+		return contract.DynamicPorts[i].Role < contract.DynamicPorts[j].Role
+	})
 	sort.Slice(contract.TargetCapabilities, func(i, j int) bool { return contract.TargetCapabilities[i] < contract.TargetCapabilities[j] })
 	sort.Slice(contract.RuntimeCapabilities, func(i, j int) bool { return contract.RuntimeCapabilities[i] < contract.RuntimeCapabilities[j] })
 	canonical, err := artifact.Marshal(contract)
@@ -243,6 +247,59 @@ func projectNode(entry *node.RegisteredNode) (NodeContract, error) {
 		return NodeContract{}, err
 	}
 	return cloneContract(contract)
+}
+
+func validateDynamicPorts(spec node.Spec, inputNames, outputNames map[string]bool) error {
+	roles := map[node.DynamicPortRole]bool{}
+	configKeys := map[string]bool{}
+	dynamicBudget := len(spec.Inputs) + len(spec.Outputs)
+	for _, dynamic := range spec.DynamicPorts {
+		if roles[dynamic.Role] {
+			return fmt.Errorf("node %q contains duplicate dynamic port role %q", spec.Kind, dynamic.Role)
+		}
+		roles[dynamic.Role] = true
+		if dynamic.ConfigKey != "" {
+			if configKeys[dynamic.ConfigKey] {
+				return fmt.Errorf("node %q contains duplicate dynamic port config key %q", spec.Kind, dynamic.ConfigKey)
+			}
+			configKeys[dynamic.ConfigKey] = true
+		}
+		if dynamic.MinItems < 0 || dynamic.MaxItems <= 0 || dynamic.MinItems > dynamic.MaxItems {
+			return fmt.Errorf("node %q contains invalid dynamic port budget", spec.Kind)
+		}
+		if dynamic.Shape != node.DynamicPortGraphInterface {
+			if dynamic.MaxItems > MaxNodePins-dynamicBudget {
+				return fmt.Errorf("node %q exceeds dynamic pin budget", spec.Kind)
+			}
+			dynamicBudget += dynamic.MaxItems
+		}
+		switch {
+		case dynamic.Role == node.DynamicPortOutput && dynamic.Shape == node.DynamicPortNames:
+			if dynamic.ConfigKey == "" || dynamic.FixedType == "" || dynamic.ParentOutput != "" || inputNames[dynamic.ConfigKey] {
+				return fmt.Errorf("node %q contains invalid named dynamic outputs", spec.Kind)
+			}
+		case dynamic.Role == node.DynamicPortOutput && dynamic.Shape == node.DynamicPortGraphInterface:
+			if dynamic.ConfigKey != "" || dynamic.FixedType != "" || dynamic.ParentOutput != "" || dynamic.MinItems != 0 {
+				return fmt.Errorf("node %q contains invalid graph-interface outputs", spec.Kind)
+			}
+		case dynamic.Role == node.DynamicPortInput && dynamic.Shape == node.DynamicPortNameTypeRecords:
+			if dynamic.ConfigKey == "" || dynamic.FixedType != "" || dynamic.ParentOutput != "" || inputNames[dynamic.ConfigKey] {
+				return fmt.Errorf("node %q contains invalid dynamic inputs", spec.Kind)
+			}
+		case dynamic.Role == node.DynamicPortOutputData && dynamic.Shape == node.DynamicPortNameTypeRecords:
+			if dynamic.ConfigKey == "" || dynamic.FixedType != "" || !outputNames[dynamic.ParentOutput] || inputNames[dynamic.ConfigKey] {
+				return fmt.Errorf("node %q contains invalid dynamic output data", spec.Kind)
+			}
+			for _, output := range spec.Outputs {
+				if output.Name == dynamic.ParentOutput && output.Type != node.TypeExec {
+					return fmt.Errorf("node %q dynamic output data parent is not exec", spec.Kind)
+				}
+			}
+		default:
+			return fmt.Errorf("node %q contains unsupported dynamic port contract", spec.Kind)
+		}
+	}
+	return nil
 }
 
 func projectFieldContract(source *node.FieldSchema) (*FieldContract, error) {

@@ -12,16 +12,17 @@ import (
 	"sort"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	nodespec "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/workflow/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 const (
 	ProgramFormat       = "yotta.program"
-	ProgramVersion      = 2
+	ProgramVersion      = 3
 	MaxProgramBytes     = 16 << 20
 	MaxProgramJSONDepth = 128
-	programHashDomain   = "yotta/program/v2"
+	programHashDomain   = "yotta/program/v3"
 )
 
 var (
@@ -42,11 +43,19 @@ type NodeLock struct {
 }
 
 type programNode struct {
-	ID       string         `json:"id"`
-	Kind     string         `json:"kind"`
-	Config   map[string]any `json:"config"`
-	Disabled bool           `json:"disabled"`
-	Call     *programCall   `json:"call"`
+	ID           string         `json:"id"`
+	Kind         string         `json:"kind"`
+	Config       map[string]any `json:"config"`
+	Disabled     bool           `json:"disabled"`
+	Call         *programCall   `json:"call"`
+	DynamicPorts []programPort  `json:"dynamicPorts"`
+}
+
+type programPort struct {
+	Role         nodespec.DynamicPortRole `json:"role"`
+	Name         string                   `json:"name"`
+	Type         string                   `json:"type"`
+	ParentOutput string                   `json:"parentOutput"`
 }
 
 type programCall struct {
@@ -278,8 +287,13 @@ func validateRequiredFields(raw []byte) error {
 			return fmt.Errorf("%w: missing graph field", ErrInvalidProgramArtifact)
 		}
 		for _, node := range asObjects(graph["nodes"]) {
-			if !hasFields(node, "id", "kind", "config", "disabled", "call") {
+			if !hasFields(node, "id", "kind", "config", "disabled", "call", "dynamicPorts") {
 				return fmt.Errorf("%w: missing node field", ErrInvalidProgramArtifact)
+			}
+			for _, port := range asObjects(node["dynamicPorts"]) {
+				if !hasFields(port, "role", "name", "type", "parentOutput") {
+					return fmt.Errorf("%w: missing dynamic port field", ErrInvalidProgramArtifact)
+				}
 			}
 		}
 		for _, edge := range asObjects(graph["edges"]) {
@@ -426,6 +440,7 @@ func validateEnvelope(envelope programEnvelope) error {
 	usedKinds := map[string]bool{}
 	mainGraphs := 0
 	totalNodes, totalEdges, totalPorts := 0, 0, 0
+	totalDynamicPorts, totalDynamicPortBytes := 0, 0
 	for _, graph := range body.Graphs {
 		if len(graph.Nodes) > MaxNodesPerGraph || len(graph.Edges) > MaxEdgesPerGraph || len(graph.Inputs)+len(graph.Outputs) > MaxPortsPerGraph {
 			return fmt.Errorf("%w: graph collection budget", ErrInvalidProgramArtifact)
@@ -449,13 +464,29 @@ func validateEnvelope(envelope programEnvelope) error {
 		nodes := map[string]bool{}
 		nodeIDs := make(map[string]bool, len(graph.Nodes))
 		for _, node := range graph.Nodes {
-			if node.ID == "" || node.Kind == "" || node.Config == nil || nodes[node.ID] {
+			if node.ID == "" || node.Kind == "" || node.Config == nil || node.DynamicPorts == nil || nodes[node.ID] {
 				return fmt.Errorf("%w: invalid node", ErrInvalidProgramArtifact)
+			}
+			if len(node.DynamicPorts) > MaxDynamicPortsPerNode || len(node.DynamicPorts) > MaxTotalDynamicPorts-totalDynamicPorts {
+				return fmt.Errorf("%w: dynamic port collection budget", ErrInvalidProgramArtifact)
+			}
+			planBytes := dynamicPortPlanSize(node.DynamicPorts)
+			if planBytes > MaxDynamicPortPlanBytes-totalDynamicPortBytes {
+				return fmt.Errorf("%w: dynamic port byte budget", ErrInvalidProgramArtifact)
+			}
+			totalDynamicPorts += len(node.DynamicPorts)
+			totalDynamicPortBytes += planBytes
+			dynamicNames := map[string]bool{}
+			for _, port := range node.DynamicPorts {
+				if port.Role != nodespec.DynamicPortOutput || port.Type != nodespec.TypeExec || port.ParentOutput != "" || dynamicPortNameReason(port.Name, nil, dynamicNames) != "" {
+					return fmt.Errorf("%w: invalid dynamic port", ErrInvalidProgramArtifact)
+				}
+				dynamicNames[port.Name] = true
 			}
 			nodes[node.ID] = true
 			nodeIDs[node.ID] = true
 			if node.Kind == CallSubgraphKind {
-				if node.Call == nil || node.Call.GraphID == "" || !validProgramCallPort(node.Call.Entry) || node.Call.Entry.Type != "Exec" || node.Call.Inputs == nil || node.Call.Outputs == nil || node.Call.FailurePin != callFailurePin {
+				if len(node.DynamicPorts) != 0 || node.Call == nil || node.Call.GraphID == "" || !validProgramCallPort(node.Call.Entry) || node.Call.Entry.Type != "Exec" || node.Call.Inputs == nil || node.Call.Outputs == nil || node.Call.FailurePin != callFailurePin {
 					return fmt.Errorf("%w: invalid subgraph call plan", ErrInvalidProgramArtifact)
 				}
 				for _, port := range append(append([]programCallPort(nil), node.Call.Inputs...), node.Call.Outputs...) {

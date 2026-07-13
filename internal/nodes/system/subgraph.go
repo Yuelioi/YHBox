@@ -3,7 +3,7 @@
 //
 // 节点本身只 wrap region 边界 — body 回调由 runner 构造, 内含 "切换 dispatch
 // table 到目标子图 + 推 ExecFrame + 跑下游 + 返回" 全套. body 回报 callee 到达的
-// 出口 decl ID, 节点原样 fire — 父图边以 decl ID 为 pin (DynamicOutputs).
+// 出口 decl ID, 节点原样 fire — 父图边以 decl ID 为动态 output pin.
 //
 // 只支持静态 SubgraphID 输入 + 单 Params JSON, 无 dynamic DataIn pin.
 package system
@@ -27,7 +27,10 @@ func (Subgraph) Spec() node.Spec {
 		Kind:     "Subgraph",
 		Category: "System",
 		// 出口 = callee OutputPins 的 decl ID, 随绑定子图动态变 — 静态只声明 Fail.
-		DynamicOutputs: true,
+		DynamicPorts: []node.DynamicPortSpec{{
+			Role: node.DynamicPortOutput, Shape: node.DynamicPortGraphInterface,
+			MaxItems: 4096,
+		}},
 		Inputs: []node.InputSpec{
 			{Name: sgInExec, Type: "Exec"},
 			{Name: sgInSubgraphID, Type: "String", Semantic: "SubgraphID", Required: true,

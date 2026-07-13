@@ -2,9 +2,7 @@
 // Switch — 多 case 路由 (named-by-value). Value 跟 config.cases[] 里每个 case 字符串逐一比较,
 // 命中走同名 exec 出口 (case 值即出口 pin 名), 全不命中走 default。
 //
-// 动态输出: 出口由 config.cases 推导, 不在静态 Spec 里枚举 → Spec.DynamicOutputs=true,
-// 框架放行任意 ctx.Out(caseValue)。case 值合法性 (非空 / 无 '.' / 非 default / 不重复) 由
-// validator.validateSwitchConfig 静态保证; 运行时 switchCases 再做一层防御性规整。
+// 动态输出由 config.cases 的声明式端口契约推导；case 值即出口名。
 //
 // 跟 Loop 不同 — Switch 不是 region (无 body), 走 Run() 而非 RunRegion().
 package control
@@ -25,16 +23,19 @@ const (
 
 func (Switch) Spec() node.Spec {
 	return node.Spec{
-		Kind:           "Switch",
-		Category:       "Control",
-		DynamicOutputs: true, // 出口名 = config.cases[] 里的 case 值, 运行时动态
+		Kind:     "Switch",
+		Category: "Control",
+		DynamicPorts: []node.DynamicPortSpec{{
+			Role: node.DynamicPortOutput, ConfigKey: "cases", Shape: node.DynamicPortNames,
+			FixedType: node.TypeExec, MinItems: 1, MaxItems: 256,
+		}},
 		Inputs: []node.InputSpec{
 			{Name: swInExec, Type: "Exec"},
 			{Name: swInValue, Type: "String", Required: true,
 				Widget: node.WidgetSpec{Kind: "text"}},
 		},
 		Outputs: []node.OutputSpec{
-			// 唯一静态出口 — 兜底. case 出口动态 (DynamicOutputs).
+			// 唯一静态出口 — 兜底；case 出口由 descriptor 生成。
 			{Name: swOutDefault, Type: "Exec"},
 		},
 	}

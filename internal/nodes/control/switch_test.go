@@ -98,8 +98,8 @@ func TestSwitch_RequiredValueMissing(t *testing.T) {
 
 func TestSwitch_Spec_DynamicOutputs(t *testing.T) {
 	sp := Switch{}.Spec()
-	if !sp.DynamicOutputs {
-		t.Error("Switch.Spec.DynamicOutputs should be true (named-by-value 出口)")
+	if !node.HasDynamicPortRole(&sp, node.DynamicPortOutput) {
+		t.Error("Switch.Spec should declare named-by-value dynamic outputs")
 	}
 	// 唯一静态出口 = default 兜底
 	if len(sp.Outputs) != 1 || sp.Outputs[0].Name != swOutDefault {

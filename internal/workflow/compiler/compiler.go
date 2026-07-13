@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/node"
@@ -20,22 +21,26 @@ import (
 )
 
 const (
-	CallSubgraphKind = catalog.CompilerIntrinsicPrefix + "call-subgraph"
-	callFailurePin   = "Fail"
-	callInputPin     = "In"
-	sourceHashDomain = "yotta/source/v3"
-	MaxSourceBytes   = 8 << 20
-	MaxJSONDepth     = 128
-	MaxGraphs        = 256
-	MaxNodesPerGraph = 4096
-	MaxEdgesPerGraph = 16384
-	MaxPortsPerGraph = 4096
-	MaxTotalNodes    = 20000
-	MaxTotalEdges    = 50000
-	MaxTotalPorts    = 10000
-	MaxCallPlanPorts = 10000
-	MaxCallPlanBytes = 4 << 20
-	MaxDiagnostics   = schema.MaxDiagnostics
+	CallSubgraphKind        = catalog.CompilerIntrinsicPrefix + "call-subgraph"
+	callFailurePin          = "Fail"
+	callInputPin            = "In"
+	sourceHashDomain        = "yotta/source/v3"
+	MaxSourceBytes          = 8 << 20
+	MaxJSONDepth            = 128
+	MaxGraphs               = 256
+	MaxNodesPerGraph        = 4096
+	MaxEdgesPerGraph        = 16384
+	MaxPortsPerGraph        = 4096
+	MaxTotalNodes           = 20000
+	MaxTotalEdges           = 50000
+	MaxTotalPorts           = 10000
+	MaxCallPlanPorts        = 10000
+	MaxCallPlanBytes        = 4 << 20
+	MaxDynamicPortsPerNode  = 256
+	MaxTotalDynamicPorts    = 10000
+	MaxDynamicPortNameBytes = 128
+	MaxDynamicPortPlanBytes = 4 << 20
+	MaxDiagnostics          = schema.MaxDiagnostics
 )
 
 var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
@@ -141,6 +146,7 @@ type bindingResult struct {
 	diagnostics  []schema.Diagnostic
 	reachable    map[string]bool
 	calls        map[string]map[string]*programCall
+	dynamicPorts map[string]map[string][]programPort
 }
 
 type graphInterface struct {
@@ -155,7 +161,7 @@ type callReference struct {
 }
 
 func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot catalog.Snapshot) (bindingResult, error) {
-	result := bindingResult{reachable: map[string]bool{}, calls: map[string]map[string]*programCall{}}
+	result := bindingResult{reachable: map[string]bool{}, calls: map[string]map[string]*programCall{}, dynamicPorts: map[string]map[string][]programPort{}}
 	locksByKind := map[string]NodeLock{}
 	capabilities := map[string]bool{}
 	contractCache := map[string]catalog.NodeContract{}
@@ -166,6 +172,8 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 	graphsByID := make(map[string]schema.Graph, len(source.Graphs))
 	interfaces := make(map[string]graphInterface, len(source.Graphs))
 	totalCallPlanPorts, totalCallPlanBytes := 0, 0
+	totalDynamicPorts, totalDynamicPortBytes := 0, 0
+	dynamicPortBudgetExceeded := false
 	for graphIndex, graph := range source.Graphs {
 		graphsByID[graph.ID] = graph
 		interfaces[graph.ID] = validateGraphInterface(&result.diagnostics, graph, graphIndex)
@@ -281,7 +289,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 				}
 				validatedContractDefaults[contract.Kind] = true
 			}
-			if contract.DynamicInputs || contract.DynamicOutputs || contract.DynamicDataFields || contract.HasCustomValidation || contract.HasDependencies {
+			if !supportsCompilerContract(contract) {
 				appendDiagnostic(&result.diagnostics, schema.Diagnostic{
 					Code: schema.CodeUnsupportedNodeContract, Severity: schema.SeverityError,
 					GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
@@ -289,6 +297,44 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 					Params:    map[string]any{"kind": sourceNode.Kind},
 				})
 				continue
+			}
+			if len(contract.DynamicPorts) > 0 {
+				ports := resolveDynamicPorts(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, contract)
+				if dynamicPortBudgetExceeded {
+					ports = nil
+				} else if len(ports) > MaxTotalDynamicPorts-totalDynamicPorts {
+					appendDiagnostic(&result.diagnostics, schema.Diagnostic{
+						Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
+						GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
+						FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", contract.DynamicPorts[0].ConfigKey},
+						Params:    map[string]any{"scope": "compile", "maximum": MaxTotalDynamicPorts},
+					})
+					ports = nil
+					dynamicPortBudgetExceeded = true
+				} else {
+					planBytes := dynamicPortPlanSize(ports)
+					if planBytes > MaxDynamicPortPlanBytes-totalDynamicPortBytes {
+						appendDiagnostic(&result.diagnostics, schema.Diagnostic{
+							Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
+							GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
+							FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", contract.DynamicPorts[0].ConfigKey},
+							Params:    map[string]any{"scope": "compile_bytes", "maximum": MaxDynamicPortPlanBytes},
+						})
+						ports = nil
+						dynamicPortBudgetExceeded = true
+					} else {
+						totalDynamicPorts += len(ports)
+						totalDynamicPortBytes += planBytes
+					}
+				}
+				if result.dynamicPorts[graph.ID] == nil {
+					result.dynamicPorts[graph.ID] = map[string][]programPort{}
+				}
+				result.dynamicPorts[graph.ID][sourceNode.ID] = append([]programPort(nil), ports...)
+				for _, port := range ports {
+					contract.Outputs = append(contract.Outputs, catalog.OutputContract{Name: port.Name, Type: port.Type})
+				}
+				contractsByNode[sourceNode.ID] = contract
 			}
 			if result.reachable[graph.ID] {
 				locksByKind[contract.Kind] = NodeLock{Kind: contract.Kind, ContractHash: contract.ContractHash}
@@ -385,7 +431,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 		validateBoundaryCoverage(&result.diagnostics, graph, graphIndex, usedBoundaryInputs, usedBoundaryOutputs)
 		for nodeIndex, sourceNode := range graph.Nodes {
 			contract, ok := contractsByNode[sourceNode.ID]
-			if !ok || contract.DynamicInputs || contract.DynamicOutputs || contract.DynamicDataFields || contract.HasCustomValidation || contract.HasDependencies {
+			if !ok || !supportsCompilerContract(contract) {
 				continue
 			}
 			if sourceNode.Kind == CallSubgraphKind {
@@ -473,6 +519,121 @@ func callContract(plan *programCall) catalog.NodeContract {
 	return contract
 }
 
+func supportsCompilerContract(contract catalog.NodeContract) bool {
+	if contract.HasCustomValidation || contract.HasDependencies {
+		return false
+	}
+	if len(contract.DynamicPorts) == 0 {
+		return true
+	}
+	if len(contract.DynamicPorts) != 1 {
+		return false
+	}
+	dynamic := contract.DynamicPorts[0]
+	return dynamic.Role == node.DynamicPortOutput && dynamic.Shape == node.DynamicPortNames &&
+		dynamic.FixedType == node.TypeExec && dynamic.ConfigKey != "" && dynamic.ParentOutput == ""
+}
+
+func resolveDynamicPorts(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract catalog.NodeContract) []programPort {
+	dynamic := contract.DynamicPorts[0]
+	path := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", dynamic.ConfigKey}
+	raw, exists := sourceNode.Config[dynamic.ConfigKey]
+	items, ok := raw.([]any)
+	if !exists || !ok {
+		appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, -1, "", "wrong_shape"))
+		return nil
+	}
+	maximum := dynamic.MaxItems
+	if maximum > MaxDynamicPortsPerNode {
+		maximum = MaxDynamicPortsPerNode
+	}
+	if len(items) > maximum {
+		appendDiagnostic(out, schema.Diagnostic{
+			Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
+			GraphPath: []string{graphID}, NodeID: sourceNode.ID, FieldPath: path,
+			Params: map[string]any{"scope": "node", "maximum": maximum, "actual": len(items)},
+		})
+		return nil
+	}
+	if len(items) < dynamic.MinItems {
+		appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, -1, "", "too_few"))
+		return nil
+	}
+	staticNames := make(map[string]bool, len(contract.Outputs))
+	for _, output := range contract.Outputs {
+		staticNames[output.Name] = true
+	}
+	seen := make(map[string]bool, len(items))
+	ports := make([]programPort, 0, len(items))
+	for index, item := range items {
+		name, ok := item.(string)
+		if !ok {
+			appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, index, "", "wrong_item_type"))
+			continue
+		}
+		reason := dynamicPortNameReason(name, staticNames, seen)
+		if reason != "" {
+			appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, index, name, reason))
+			continue
+		}
+		seen[name] = true
+		ports = append(ports, programPort{Role: dynamic.Role, Name: name, Type: dynamic.FixedType})
+	}
+	return ports
+}
+
+func dynamicPortNameReason(name string, staticNames, seen map[string]bool) string {
+	switch {
+	case name == "":
+		return "empty"
+	case len([]byte(name)) > MaxDynamicPortNameBytes:
+		return "too_long"
+	case strings.TrimSpace(name) != name:
+		return "whitespace"
+	case strings.Contains(name, "."):
+		return "contains_dot"
+	case containsUnsafePortRune(name):
+		return "control_character"
+	case staticNames[name]:
+		return "static_conflict"
+	case seen[name]:
+		return "duplicate"
+	default:
+		return ""
+	}
+}
+
+func containsUnsafePortRune(name string) bool {
+	for _, value := range name {
+		if unicode.IsControl(value) || value == '\u200e' || value == '\u200f' || value >= '\u202a' && value <= '\u202e' || value >= '\u2066' && value <= '\u2069' {
+			return true
+		}
+	}
+	return false
+}
+
+func dynamicPortDiagnostic(graphID, nodeID string, path []string, index int, name, reason string) schema.Diagnostic {
+	params := map[string]any{"reason": reason}
+	if index >= 0 {
+		params["index"] = index
+	}
+	if name != "" {
+		params["name"] = name
+	}
+	return schema.Diagnostic{
+		Code: schema.CodeInvalidDynamicPortDeclaration, Severity: schema.SeverityError,
+		GraphPath: []string{graphID}, NodeID: nodeID, FieldPath: path, Params: params,
+	}
+}
+
+func dynamicPortPlanSize(ports []programPort) int {
+	size := 0
+	for _, port := range ports {
+		size += 64 + len(port.Role) + len(port.Name) + len(port.Type) + len(port.ParentOutput)
+	}
+	return size
+}
+
 type endpointResolution struct {
 	nodeID, pin, typ                string
 	valid, pinValid, wrongDirection bool
@@ -486,6 +647,7 @@ type nodePinIndex struct {
 type nodeConfigContract struct {
 	inputs   map[string]catalog.InputContract
 	required []catalog.InputContract
+	consumed map[string]bool
 }
 
 func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind map[string]nodeConfigContract) map[string]nodeConfigContract {
@@ -497,11 +659,16 @@ func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind 
 				continue
 			}
 		}
-		indexed := nodeConfigContract{inputs: make(map[string]catalog.InputContract, len(contract.Inputs))}
+		indexed := nodeConfigContract{inputs: make(map[string]catalog.InputContract, len(contract.Inputs)), consumed: map[string]bool{}}
 		for _, input := range contract.Inputs {
 			indexed.inputs[input.Name] = input
 			if input.Required {
 				indexed.required = append(indexed.required, input)
+			}
+		}
+		for _, dynamic := range contract.DynamicPorts {
+			if dynamic.ConfigKey != "" {
+				indexed.consumed[dynamic.ConfigKey] = true
 			}
 		}
 		out[nodeID] = indexed
@@ -515,7 +682,7 @@ func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind 
 func indexNodePins(contracts map[string]catalog.NodeContract, byKind map[string]nodePinIndex) map[string]nodePinIndex {
 	out := make(map[string]nodePinIndex, len(contracts))
 	for nodeID, contract := range contracts {
-		if contract.Kind != CallSubgraphKind {
+		if contract.Kind != CallSubgraphKind && len(contract.DynamicPorts) == 0 {
 			if pins, ok := byKind[contract.Kind]; ok {
 				out[nodeID] = pins
 				continue
@@ -529,7 +696,7 @@ func indexNodePins(contracts map[string]catalog.NodeContract, byKind map[string]
 			pins.outputs[output.Name] = output.Type
 		}
 		out[nodeID] = pins
-		if contract.Kind != CallSubgraphKind {
+		if contract.Kind != CallSubgraphKind && len(contract.DynamicPorts) == 0 {
 			byKind[contract.Kind] = pins
 		}
 	}
@@ -636,6 +803,9 @@ func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, no
 			return
 		}
 		value := sourceNode.Config[key]
+		if contract.consumed[key] {
+			continue
+		}
 		input, ok := contract.inputs[key]
 		path := appendPath(base, key)
 		if !ok || input.Type == "Exec" {
@@ -1031,7 +1201,8 @@ func lowerGraphs(graphs []schema.Graph, binding bindingResult) []programGraph {
 		}
 		nodes := make([]programNode, len(graph.Nodes))
 		for nodeIndex, node := range graph.Nodes {
-			nodes[nodeIndex] = programNode{ID: node.ID, Kind: node.Kind, Config: node.Config, Disabled: node.Disabled, Call: binding.calls[graph.ID][node.ID]}
+			dynamicPorts := append([]programPort{}, binding.dynamicPorts[graph.ID][node.ID]...)
+			nodes[nodeIndex] = programNode{ID: node.ID, Kind: node.Kind, Config: node.Config, Disabled: node.Disabled, Call: binding.calls[graph.ID][node.ID], DynamicPorts: dynamicPorts}
 		}
 		edges := make([]schema.Edge, len(graph.Edges))
 		copy(edges, graph.Edges)

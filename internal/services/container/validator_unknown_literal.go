@@ -10,7 +10,7 @@ import (
 // Text→Message) → UNKNOWN_LITERAL_PIN warning。现状是静默丢值 (literals.go 跳过未知 pin,
 // INVALID_PIN 只查边端点不查 literal key)。
 //
-// DynamicInputs 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
+// input descriptor 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
 func validateUnknownLiteralPins(c *Container, sgs []Subgraph) []ValidationError {
 	return validateUnknownLiteralPinsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
 }
@@ -31,7 +31,7 @@ func validateUnknownLiteralPinsWithRegistry(registry nodepkg.RegistryReader, c *
 			if !ok {
 				continue
 			}
-			if rn.Spec.DynamicInputs {
+			if nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
 				continue
 			}
 			valid := map[string]bool{}

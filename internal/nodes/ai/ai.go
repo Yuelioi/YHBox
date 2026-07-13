@@ -64,8 +64,10 @@ func (AI) Spec() node.Spec {
 				{Name: outText, Type: "String", Optional: true},
 			}},
 		},
-		DynamicInputs:     true,
-		DynamicDataFields: true,
+		DynamicPorts: []node.DynamicPortSpec{
+			{Role: node.DynamicPortInput, ConfigKey: "Inputs", Shape: node.DynamicPortNameTypeRecords, MaxItems: 256},
+			{Role: node.DynamicPortOutputData, ConfigKey: "Outputs", Shape: node.DynamicPortNameTypeRecords, ParentOutput: pinDone, MaxItems: 256},
+		},
 	}
 }
 

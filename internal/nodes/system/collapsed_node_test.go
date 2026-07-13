@@ -9,8 +9,8 @@ import (
 
 func TestCollapsedNode_Spec_DynamicOutputsWithOnlyFailStatic(t *testing.T) {
 	sp := (CollapsedNode{}).Spec()
-	if !sp.DynamicOutputs {
-		t.Error("CollapsedNode.Spec.DynamicOutputs should be true (出口 = callee OutputPins decl ID)")
+	if !node.HasDynamicPortRole(&sp, node.DynamicPortOutput) {
+		t.Error("CollapsedNode.Spec should declare graph-interface outputs")
 	}
 	if len(sp.Outputs) != 1 || sp.Outputs[0].Name != "Fail" {
 		t.Errorf("Outputs = %+v, want only static Fail", sp.Outputs)

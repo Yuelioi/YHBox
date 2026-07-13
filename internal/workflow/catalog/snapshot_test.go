@@ -60,6 +60,68 @@ func TestSnapshotIdentityChangesWithMachineContractOrImplementation(t *testing.T
 	}
 }
 
+func TestSnapshotIdentityIncludesDeclarativeDynamicPorts(t *testing.T) {
+	leftSpec := snapshotSpec("A", "presentation")
+	leftSpec.DynamicPorts = []node.DynamicPortSpec{{
+		Role: node.DynamicPortOutput, ConfigKey: "cases", Shape: node.DynamicPortNames,
+		FixedType: node.TypeExec, MinItems: 1, MaxItems: 8,
+	}}
+	rightSpec := snapshotSpec("A", "presentation")
+	rightSpec.DynamicPorts = []node.DynamicPortSpec{{
+		Role: node.DynamicPortOutput, ConfigKey: "branches", Shape: node.DynamicPortNames,
+		FixedType: node.TypeExec, MinItems: 1, MaxItems: 8,
+	}}
+	leftRegistry, rightRegistry := node.NewRegistry(), node.NewRegistry()
+	leftRegistry.Register(snapshotTestNode{spec: leftSpec})
+	rightRegistry.Register(snapshotTestNode{spec: rightSpec})
+	left, leftErr := NewSnapshot(leftRegistry.Snapshot(), implementationSet(t, "test"))
+	right, rightErr := NewSnapshot(rightRegistry.Snapshot(), implementationSet(t, "test"))
+	if leftErr != nil || rightErr != nil {
+		t.Fatalf("snapshot errors: left=%v right=%v", leftErr, rightErr)
+	}
+	if left.Hash() == right.Hash() {
+		t.Fatal("dynamic port derivation did not affect catalog identity")
+	}
+}
+
+func TestSnapshotCanonicalizesDynamicPortOrder(t *testing.T) {
+	leftSpec := snapshotSpec("A", "presentation")
+	leftSpec.DynamicPorts = []node.DynamicPortSpec{
+		{Role: node.DynamicPortInput, ConfigKey: "Inputs", Shape: node.DynamicPortNameTypeRecords, MaxItems: 8},
+		{Role: node.DynamicPortOutputData, ConfigKey: "Outputs", Shape: node.DynamicPortNameTypeRecords, ParentOutput: "Next", MaxItems: 8},
+	}
+	rightSpec := snapshotSpec("A", "presentation")
+	rightSpec.DynamicPorts = []node.DynamicPortSpec{leftSpec.DynamicPorts[1], leftSpec.DynamicPorts[0]}
+	leftRegistry, rightRegistry := node.NewRegistry(), node.NewRegistry()
+	leftRegistry.Register(snapshotTestNode{spec: leftSpec})
+	rightRegistry.Register(snapshotTestNode{spec: rightSpec})
+	left, leftErr := NewSnapshot(leftRegistry.Snapshot(), implementationSet(t, "test"))
+	right, rightErr := NewSnapshot(rightRegistry.Snapshot(), implementationSet(t, "test"))
+	if leftErr != nil || rightErr != nil {
+		t.Fatalf("snapshot errors: left=%v right=%v", leftErr, rightErr)
+	}
+	if left.Hash() != right.Hash() {
+		t.Fatal("dynamic port declaration order changed catalog identity")
+	}
+}
+
+func TestSnapshotRejectsMalformedDynamicPorts(t *testing.T) {
+	tests := []node.DynamicPortSpec{
+		{Role: node.DynamicPortOutput, ConfigKey: "cases", Shape: node.DynamicPortNames, FixedType: node.TypeExec, MinItems: 9, MaxItems: 8},
+		{Role: node.DynamicPortOutput, ConfigKey: "cases", Shape: node.DynamicPortNames, FixedType: node.TypeExec, MaxItems: MaxNodePins},
+		{Role: node.DynamicPortOutputData, ConfigKey: "Outputs", Shape: node.DynamicPortNameTypeRecords, ParentOutput: "missing", MaxItems: 8},
+		{Role: node.DynamicPortOutput, ConfigKey: "cases", Shape: node.DynamicPortNames, FixedType: node.TypeExec, MaxItems: int(^uint(0) >> 1)},
+	}
+	for _, dynamic := range tests {
+		spec := snapshotSpec("A", "presentation")
+		spec.DynamicPorts = []node.DynamicPortSpec{dynamic}
+		entry := &node.RegisteredNode{Spec: spec, Run: func(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }}
+		if _, err := NewSnapshot(malformedReader{entry}, implementationSet(t, "test")); err == nil {
+			t.Fatalf("accepted malformed dynamic port contract %#v", dynamic)
+		}
+	}
+}
+
 func TestSnapshotAccessorsAreDefensive(t *testing.T) {
 	registry := node.NewRegistry()
 	registry.Register(snapshotTestNode{spec: snapshotSpec("A", "presentation")})

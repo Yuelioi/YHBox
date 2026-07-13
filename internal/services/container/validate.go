@@ -206,7 +206,7 @@ func dataInPinSemanticForKind(registry nodepkg.RegistryReader, kind, pinName str
 	return ""
 }
 
-// dataInPinTypeForNode cfg-aware 变种 — DynamicInputs 节点 config.Inputs[] 动态声明的
+// dataInPinTypeForNode cfg-aware 变种 — input descriptor 指向 config.Inputs[] 动态声明的
 // pin 走 ParseDynamicInputDecls 查.
 func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName string) string {
 	if n == nil {
@@ -215,7 +215,7 @@ func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName
 	if t := dataInPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicInputs {
+	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
 		for _, in := range ParseDynamicInputDecls(n) {
 			if in.Name == pinName && in.Type != "" {
 				return strings.ToLower(in.Type)
@@ -288,7 +288,7 @@ func IsDataOutPinWithRegistry(registry nodepkg.RegistryReader, kind, pin string)
 	return dataOutPinTypeForKind(registry, kind, pin) != ""
 }
 
-// dataOutPinTypeForNode — config-aware 变种: 静态 + DynamicDataFields 节点 config.Outputs[]
+// dataOutPinTypeForNode — config-aware 变种: 静态 + outputData descriptor 指向的 config.Outputs[]
 // 动态声明的 Data 字段 (AI 结构化输出)。让 AI.red 这类动态输出字段也算 data-out, 可直连。
 func dataOutPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName string) string {
 	if n == nil {
@@ -297,7 +297,7 @@ func dataOutPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinNam
 	if t := dataOutPinTypeForKind(registry, n.Kind, pinName); t != "" {
 		return t
 	}
-	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortOutputData) {
 		for _, o := range ParseDynamicOutputDecls(n) {
 			if o.Name == pinName && o.Type != "" {
 				return canonPinType(o.Type)
@@ -316,7 +316,7 @@ func IsDataOutPinNodeWithRegistry(registry nodepkg.RegistryReader, n *GraphNode,
 	return dataOutPinTypeForNode(registry, n, pin) != ""
 }
 
-// IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + DynamicDataFields
+// IsExecOutputDataFieldNode — config-aware IsExecOutputDataField: 静态 + outputData descriptor
 // 的 config.Outputs[] 字段。值同样经 per-run held output 缓存 (captureExecOutputs 写 / pullDataPin 读) 直连下游。
 func IsExecOutputDataFieldNode(n *GraphNode, pin string) bool {
 	return IsExecOutputDataFieldNodeWithRegistry(nodepkg.DefaultRegistrySnapshot(), n, pin)
@@ -329,7 +329,7 @@ func IsExecOutputDataFieldNodeWithRegistry(registry nodepkg.RegistryReader, n *G
 	if IsExecOutputDataFieldWithRegistry(registry, n.Kind, pin) {
 		return true
 	}
-	if rn, ok := registry.Get(n.Kind); ok && rn.Spec.DynamicDataFields {
+	if rn, ok := registry.Get(n.Kind); ok && nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortOutputData) {
 		for _, o := range ParseDynamicOutputDecls(n) {
 			if o.Name == pin {
 				return true

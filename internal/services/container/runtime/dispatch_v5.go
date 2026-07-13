@@ -104,10 +104,10 @@ func (r *ContainerRunner) buildDataWireFor(ctx context.Context, node *container.
 		}
 		dw[ip.Name] = coerceToType(v, ip.Type)
 	}
-	// DynamicInputs 节点 (Expr/Script) 的 dynamic data-in pins 在 Spec 里登记不到 —
+	// input descriptor 节点 (Expr/Script) 的 dynamic data-in pins 在静态 Inputs 里登记不到 —
 	// 走 config.Inputs[] 声明. 必须额外 pull 一轮把声明的 dynamic name 喂进 dataWire,
 	// 节点 Evaluate/Run 再从 in.Keys() 遍历 (跳过 Spec 静态 pin) 消费.
-	if rn.Spec.DynamicInputs {
+	if nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
 		static := map[string]bool{}
 		for _, ip := range rn.Spec.Inputs {
 			static[ip.Name] = true
