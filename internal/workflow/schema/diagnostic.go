@@ -20,6 +20,13 @@ const (
 	CodeUnknownNodeKind              = "UNKNOWN_NODE_KIND"
 	CodeUnsupportedNodeContract      = "UNSUPPORTED_NODE_CONTRACT"
 	CodeUnsupportedGraphContract     = "UNSUPPORTED_GRAPH_CONTRACT"
+	CodeInvalidGraphEntry            = "INVALID_GRAPH_ENTRY"
+	CodeMissingGraphOutput           = "MISSING_GRAPH_OUTPUT"
+	CodeInvalidGraphBoundaryEdge     = "INVALID_GRAPH_BOUNDARY_EDGE"
+	CodeUnknownCalleeGraph           = "UNKNOWN_CALLEE_GRAPH"
+	CodeInvalidCalleeGraphKind       = "INVALID_CALLEE_GRAPH_KIND"
+	CodeSubgraphCallCycle            = "SUBGRAPH_CALL_CYCLE"
+	CodeCallPinTypeMismatch          = "CALL_PIN_TYPE_MISMATCH"
 	CodeMissingCapabilityDeclaration = "MISSING_CAPABILITY_DECLARATION"
 	CodeUnusedCapabilityDeclaration  = "UNUSED_CAPABILITY_DECLARATION"
 )

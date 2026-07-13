@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"slices"
 	"sort"
 
@@ -17,10 +18,10 @@ import (
 
 const (
 	ProgramFormat       = "yotta.program"
-	ProgramVersion      = 1
+	ProgramVersion      = 2
 	MaxProgramBytes     = 16 << 20
 	MaxProgramJSONDepth = 128
-	programHashDomain   = "yotta/program/v1"
+	programHashDomain   = "yotta/program/v2"
 )
 
 var (
@@ -45,6 +46,20 @@ type programNode struct {
 	Kind     string         `json:"kind"`
 	Config   map[string]any `json:"config"`
 	Disabled bool           `json:"disabled"`
+	Call     *programCall   `json:"call"`
+}
+
+type programCall struct {
+	GraphID     string            `json:"graphId"`
+	EntryPortID string            `json:"entryPortId"`
+	Inputs      []programCallPort `json:"inputs"`
+	Outputs     []programCallPort `json:"outputs"`
+	FailurePin  string            `json:"failurePin"`
+}
+
+type programCallPort struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 type programGraph struct {
@@ -256,7 +271,7 @@ func validateRequiredFields(raw []byte) error {
 			return fmt.Errorf("%w: missing graph field", ErrInvalidProgramArtifact)
 		}
 		for _, node := range asObjects(graph["nodes"]) {
-			if !hasFields(node, "id", "kind", "config", "disabled") {
+			if !hasFields(node, "id", "kind", "config", "disabled", "call") {
 				return fmt.Errorf("%w: missing node field", ErrInvalidProgramArtifact)
 			}
 		}
@@ -324,6 +339,9 @@ func validateTrustedBindings(body programBody, snapshot catalog.Snapshot, expect
 	}
 	if !slices.Equal(binding.capabilities, body.RequiredCapabilities) {
 		return ErrCapabilityMismatch
+	}
+	if !reflect.DeepEqual(lowerGraphs(source.Graphs, binding), body.Graphs) {
+		return fmt.Errorf("%w: lowered graph plan mismatch", ErrInvalidProgramArtifact)
 	}
 	return nil
 }
@@ -426,32 +444,44 @@ func validateEnvelope(envelope programEnvelope) error {
 			}
 			nodes[node.ID] = true
 			nodeIDs[node.ID] = true
-			usedKinds[node.Kind] = true
-			if !lockedKinds[node.Kind] {
+			if node.Kind == CallSubgraphKind {
+				if node.Call == nil || node.Call.GraphID == "" || node.Call.EntryPortID == "" || node.Call.Inputs == nil || node.Call.Outputs == nil || node.Call.FailurePin != callFailurePin {
+					return fmt.Errorf("%w: invalid subgraph call plan", ErrInvalidProgramArtifact)
+				}
+			} else if node.Call != nil {
+				return fmt.Errorf("%w: unexpected call plan", ErrInvalidProgramArtifact)
+			} else {
+				usedKinds[node.Kind] = true
+			}
+			if node.Kind != CallSubgraphKind && !lockedKinds[node.Kind] {
 				return fmt.Errorf("%w: missing node lock", ErrInvalidProgramArtifact)
+			}
+		}
+		inputBoundaries, outputBoundaries := map[string]bool{}, map[string]bool{}
+		allPortIDs, boundaryNodes := map[string]bool{}, map[string]bool{}
+		for groupIndex, ports := range [][]schema.GraphPort{graph.Inputs, graph.Outputs} {
+			for _, port := range ports {
+				if port.ID == "" || port.Name == "" || port.Type == "" || port.NodeID == "" || allPortIDs[port.ID] || boundaryNodes[port.NodeID] || nodes[port.NodeID] {
+					return fmt.Errorf("%w: invalid graph port", ErrInvalidProgramArtifact)
+				}
+				allPortIDs[port.ID], boundaryNodes[port.NodeID] = true, true
+				endpoint := port.NodeID + "." + port.ID
+				if groupIndex == 0 {
+					inputBoundaries[endpoint] = true
+				} else {
+					outputBoundaries[endpoint] = true
+				}
 			}
 		}
 		for _, edge := range graph.Edges {
 			if edge.From == "" || edge.To == "" {
 				return fmt.Errorf("%w: invalid edge", ErrInvalidProgramArtifact)
 			}
-			if _, _, ok := splitEndpoint(edge.From, nodeIDs); !ok {
+			if _, _, ok := splitEndpoint(edge.From, nodeIDs); !ok && !inputBoundaries[edge.From] {
 				return fmt.Errorf("%w: dangling edge source", ErrInvalidProgramArtifact)
 			}
-			if _, _, ok := splitEndpoint(edge.To, nodeIDs); !ok {
+			if _, _, ok := splitEndpoint(edge.To, nodeIDs); !ok && !outputBoundaries[edge.To] {
 				return fmt.Errorf("%w: dangling edge target", ErrInvalidProgramArtifact)
-			}
-		}
-		for _, ports := range [][]schema.GraphPort{graph.Inputs, graph.Outputs} {
-			portIDs := map[string]bool{}
-			for _, port := range ports {
-				if port.ID == "" || port.Name == "" || port.Type == "" || port.NodeID == "" || portIDs[port.ID] {
-					return fmt.Errorf("%w: invalid graph port", ErrInvalidProgramArtifact)
-				}
-				portIDs[port.ID] = true
-				if !nodes[port.NodeID] {
-					return fmt.Errorf("%w: dangling graph port", ErrInvalidProgramArtifact)
-				}
 			}
 		}
 	}

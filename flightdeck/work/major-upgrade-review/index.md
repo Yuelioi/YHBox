@@ -6,7 +6,7 @@ Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec
 
 ## Next
 
-Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建立 RFC 8785/domain-separated content identity、machine-only CatalogSnapshot、受预算约束的 static compiler core 与可信重绑定的 opaque ProgramSnapshot；仍明确拒绝 subgraph/dynamic/custom/dependency contract，下一步补齐这些 compiler phase 后再迁移 Runtime。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
+Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建立 RFC 8785/domain-separated content identity、machine-only CatalogSnapshot、受预算约束的 static compiler core 与可信重绑定的 opaque ProgramSnapshot；第三切片已加入 compiler-owned typed subgraph interface、静态 call closure/cycle rejection、reachable-only locks/capabilities 与冻结 call plan。下一步是 declarative dynamic pin、custom validation/dependency/effect phase，完成前仍禁止 Runtime 接入。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
@@ -58,7 +58,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 2、Wave 3 strict Source 第一切片与 static compiler core 第二切片均已完成双轴/威胁 review。下一入口是 subgraph closure、dynamic contract、custom validation/dependency/effect phase；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
+- Wave 2、Wave 3 strict Source、static compiler core 与 typed subgraph closure 已完成实现和全仓验证。下一入口是 declarative dynamic contract（先 Switch）、custom validation/dependency/effect phase；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。

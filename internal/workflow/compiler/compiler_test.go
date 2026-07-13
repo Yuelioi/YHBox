@@ -22,6 +22,8 @@ type compilerTestNode struct {
 	fieldSchema  *node.FieldSchema
 	required     bool
 	dynamic      bool
+	execInput    bool
+	capability   node.RuntimeCapability
 }
 
 func (n compilerTestNode) Spec() node.Spec {
@@ -29,11 +31,19 @@ func (n compilerTestNode) Spec() node.Spec {
 	if inputType == "" {
 		inputType = "Number"
 	}
+	inputs := []node.InputSpec{{Name: "Value", Type: inputType, Required: n.required, Default: n.defaultValue, Schema: n.fieldSchema}}
+	if n.execInput {
+		inputs = append([]node.InputSpec{{Name: "In", Type: node.TypeExec}}, inputs...)
+	}
+	capability := n.capability
+	if capability == "" {
+		capability = node.RuntimeCapabilityLog
+	}
 	return node.Spec{
 		Kind:                n.kind,
-		Inputs:              []node.InputSpec{{Name: "Value", Type: inputType, Required: n.required, Default: n.defaultValue, Schema: n.fieldSchema}},
+		Inputs:              inputs,
 		Outputs:             []node.OutputSpec{{Name: "Next", Type: node.TypeExec}},
-		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityLog},
+		RuntimeCapabilities: []node.RuntimeCapability{capability},
 		DynamicInputs:       n.dynamic,
 	}
 }
@@ -244,7 +254,7 @@ func TestCompileDraftValidatesStaticConfigAndRejectsUnmodeledContracts(t *testin
 	}
 }
 
-func TestCompileDraftRejectsSubgraphsUntilClosureContractExists(t *testing.T) {
+func TestCompileDraftRejectsMalformedSubgraphInterface(t *testing.T) {
 	compiler, snapshot := testCompiler(t)
 	subgraph := `,{"id":"sub","kind":"subgraph","nodes":[],"edges":[],"inputs":[],"outputs":[]}`
 	raw := strings.Replace(validSource("1", 0, 0), `}],"variables"`, `}`+subgraph+`],"variables"`, 1)
@@ -252,7 +262,7 @@ func TestCompileDraftRejectsSubgraphsUntilClosureContractExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := result.Program(); ok || len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != schema.CodeUnsupportedGraphContract {
+	if _, ok := result.Program(); ok || !hasDiagnosticCode(result.Diagnostics, schema.CodeInvalidGraphEntry) || !hasDiagnosticCode(result.Diagnostics, schema.CodeMissingGraphOutput) {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -417,7 +427,7 @@ func TestProgramIdentityGolden(t *testing.T) {
 	}
 	const wantSource = "sha256:cfbe4d5ba8d9a4105d551e797d2c1e3c212ad87bc6344be83ce62d486bf8729c"
 	const wantCatalog = "sha256:98f3593c845500d660bb7fe92af1b9d602d0fb7254c122f1b3cfc19546f126dd"
-	const wantProgram = "sha256:1fbda4ccacb5acf064e5c97a27ebf99b15063dc7ae95b2f0bb9123ba7df0777e"
+	const wantProgram = "sha256:186aa0a1e003a891fcc5e004b2d0144d22e90b8966694d485767a1efa0592cd6"
 	if result.SourceHash.String() != wantSource || catalogSnapshot.Hash().String() != wantCatalog || program.Hash().String() != wantProgram {
 		t.Fatalf("golden drift:\nsource  %s\ncatalog %s\nprogram %s", result.SourceHash, catalogSnapshot.Hash(), program.Hash())
 	}
