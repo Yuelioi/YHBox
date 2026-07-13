@@ -336,6 +336,9 @@ func TestCompileDraftDeterministicallyCapsDiagnostics(t *testing.T) {
 		if len(result.Diagnostics) != MaxDiagnostics || !hasDiagnosticCode(result.Diagnostics, schema.CodeDiagnosticBudgetExceeded) {
 			t.Fatalf("diagnostics = %d %#v", len(result.Diagnostics), result.Diagnostics)
 		}
+		if result.Diagnostics[len(result.Diagnostics)-1].Code != schema.CodeDiagnosticBudgetExceeded {
+			t.Fatal("diagnostic budget sentinel is not last")
+		}
 		encoded, err := json.Marshal(result.Diagnostics)
 		if err != nil {
 			t.Fatal(err)

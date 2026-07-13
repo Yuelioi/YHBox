@@ -3,6 +3,8 @@ package schema
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -138,6 +140,19 @@ func TestParseSourceReportsCompleteNestedUnknownFieldContext(t *testing.T) {
 	}
 	if diagnostics[0].GraphPath[0] != "main" || diagnostics[0].NodeID != "n" {
 		t.Fatalf("context = %#v", diagnostics[0])
+	}
+}
+
+func TestParseSourceRejectsStructuralDiagnosticBombBeforeSchemaValidation(t *testing.T) {
+	var raw strings.Builder
+	raw.WriteString(`{"format":"yotta.workflow","version":3`)
+	for index := 0; index < MaxDiagnostics+20; index++ {
+		raw.WriteString(`,"unknown` + strconv.Itoa(index) + `":true`)
+	}
+	raw.WriteString(`,"workflow":{"id":"w","name":"W"},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":[]}`)
+	_, diagnostics := ParseSource([]byte(raw.String()))
+	if len(diagnostics) != 1 || diagnostics[0].Code != CodeDiagnosticBudgetExceeded {
+		t.Fatalf("diagnostics = %d %#v", len(diagnostics), diagnostics)
 	}
 }
 

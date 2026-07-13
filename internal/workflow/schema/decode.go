@@ -51,6 +51,9 @@ func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	if !hasFormat || !hasVersion || !formatOK || !versionOK || format != Format || !isCurrentVersion(versionNumber) {
 		return WorkflowSource{}, oneDiagnostic(CodeUnsupportedWorkflowFormat, nil, map[string]any{"expectedFormat": Format, "expectedVersion": Version})
 	}
+	if structuralViolationBudgetExceeded(document, MaxDiagnostics) {
+		return WorkflowSource{}, oneDiagnostic(CodeDiagnosticBudgetExceeded, nil, map[string]any{"maximum": MaxDiagnostics})
+	}
 
 	validator, err := workflowValidator()
 	if err != nil {
@@ -99,6 +102,190 @@ func isCurrentVersion(number json.Number) bool {
 	return ok && value.Cmp(big.NewRat(Version, 1)) == 0
 }
 
+type structuralViolationCounter struct {
+	count, limit int
+}
+
+func (c *structuralViolationCounter) add() bool {
+	c.count++
+	return c.count >= c.limit
+}
+
+var (
+	sourceKeys   = stringSet("format", "version", "workflow", "revision", "entryGraph", "graphs", "variables", "secretRefs", "requestedCapabilities")
+	workflowKeys = stringSet("id", "name")
+	graphKeys    = stringSet("id", "kind", "nodes", "edges", "inputs", "outputs")
+	nodeKeys     = stringSet("id", "kind", "label", "position", "config", "disabled")
+	positionKeys = stringSet("x", "y")
+	edgeKeys     = stringSet("from", "to")
+	portKeys     = stringSet("id", "name", "type", "nodeId")
+	variableKeys = stringSet("name", "type", "default")
+	secretKeys   = stringSet("id", "purpose")
+)
+
+func stringSet(values ...string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, value := range values {
+		out[value] = true
+	}
+	return out
+}
+
+// structuralViolationBudgetExceeded is a resource preflight, not a second
+// schema implementation. It only counts definitely-invalid structural slots
+// before the JSON Schema engine can materialize an adversarial error tree.
+func structuralViolationBudgetExceeded(document any, limit int) bool {
+	counter := &structuralViolationCounter{limit: limit}
+	object := inspectObject(document, sourceKeys, []string{"format", "version", "workflow", "revision", "entryGraph", "graphs", "variables", "secretRefs", "requestedCapabilities"}, counter)
+	if object == nil || counter.count >= limit {
+		return counter.count >= limit
+	}
+	inspectString(object, "format", true, counter)
+	inspectNumber(object, "version", counter)
+	inspectNumber(object, "revision", counter)
+	inspectString(object, "entryGraph", true, counter)
+	workflow := inspectObject(object["workflow"], workflowKeys, []string{"id", "name"}, counter)
+	inspectString(workflow, "id", true, counter)
+	inspectString(workflow, "name", true, counter)
+
+	inspectArray(object["graphs"], counter, func(value any) {
+		graph := inspectObject(value, graphKeys, []string{"id", "kind", "nodes", "edges", "inputs", "outputs"}, counter)
+		inspectString(graph, "id", true, counter)
+		inspectEnum(graph, "kind", counter, "main", "subgraph")
+		inspectArrayValue(graph, "nodes", counter, func(value any) {
+			n := inspectObject(value, nodeKeys, []string{"id", "kind", "position", "config"}, counter)
+			inspectString(n, "id", true, counter)
+			inspectString(n, "kind", true, counter)
+			if _, ok := n["label"]; ok {
+				inspectString(n, "label", false, counter)
+			}
+			position := inspectObject(n["position"], positionKeys, []string{"x", "y"}, counter)
+			inspectNumber(position, "x", counter)
+			inspectNumber(position, "y", counter)
+			if _, ok := n["config"].(map[string]any); !ok && n != nil {
+				counter.add()
+			}
+			if value, ok := n["disabled"]; ok {
+				if _, ok := value.(bool); !ok {
+					counter.add()
+				}
+			}
+		})
+		inspectArrayValue(graph, "edges", counter, func(value any) {
+			edge := inspectObject(value, edgeKeys, []string{"from", "to"}, counter)
+			inspectString(edge, "from", true, counter)
+			inspectString(edge, "to", true, counter)
+		})
+		for _, field := range []string{"inputs", "outputs"} {
+			inspectArrayValue(graph, field, counter, func(value any) {
+				port := inspectObject(value, portKeys, []string{"id", "name", "type", "nodeId"}, counter)
+				for _, name := range []string{"id", "name", "type", "nodeId"} {
+					inspectString(port, name, true, counter)
+				}
+			})
+		}
+	})
+	inspectArrayValue(object, "variables", counter, func(value any) {
+		variable := inspectObject(value, variableKeys, []string{"name", "type"}, counter)
+		inspectString(variable, "name", true, counter)
+		inspectString(variable, "type", true, counter)
+	})
+	inspectArrayValue(object, "secretRefs", counter, func(value any) {
+		secret := inspectObject(value, secretKeys, []string{"id", "purpose"}, counter)
+		inspectString(secret, "id", true, counter)
+		inspectString(secret, "purpose", true, counter)
+	})
+	inspectArrayValue(object, "requestedCapabilities", counter, func(value any) {
+		if text, ok := value.(string); !ok || text == "" {
+			counter.add()
+		}
+	})
+	return counter.count >= limit
+}
+
+func inspectObject(value any, allowed map[string]bool, required []string, counter *structuralViolationCounter) map[string]any {
+	if counter.count >= counter.limit {
+		return nil
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		counter.add()
+		return nil
+	}
+	for key := range object {
+		if !allowed[key] && counter.add() {
+			return object
+		}
+	}
+	for _, key := range required {
+		if _, ok := object[key]; !ok && counter.add() {
+			return object
+		}
+	}
+	return object
+}
+
+func inspectArrayValue(object map[string]any, field string, counter *structuralViolationCounter, visit func(any)) {
+	if object == nil {
+		return
+	}
+	inspectArray(object[field], counter, visit)
+}
+
+func inspectArray(value any, counter *structuralViolationCounter, visit func(any)) {
+	values, ok := value.([]any)
+	if !ok {
+		counter.add()
+		return
+	}
+	for _, value := range values {
+		if counter.count >= counter.limit {
+			return
+		}
+		visit(value)
+	}
+}
+
+func inspectString(object map[string]any, field string, nonempty bool, counter *structuralViolationCounter) {
+	if object == nil {
+		return
+	}
+	value, exists := object[field]
+	if !exists {
+		return
+	}
+	text, ok := value.(string)
+	if !ok || nonempty && text == "" {
+		counter.add()
+	}
+}
+
+func inspectNumber(object map[string]any, field string, counter *structuralViolationCounter) {
+	if object == nil {
+		return
+	}
+	if _, ok := object[field].(json.Number); !ok {
+		counter.add()
+	}
+}
+
+func inspectEnum(object map[string]any, field string, counter *structuralViolationCounter, allowed ...string) {
+	if object == nil {
+		return
+	}
+	value, ok := object[field].(string)
+	if !ok {
+		counter.add()
+		return
+	}
+	for _, candidate := range allowed {
+		if value == candidate {
+			return
+		}
+	}
+	counter.add()
+}
+
 func validateSource(source WorkflowSource) []Diagnostic {
 	var out []Diagnostic
 
@@ -109,7 +296,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		graphPath := []string{graph.ID}
 		base := []string{"graphs", fmt.Sprint(graphIndex)}
 		if graphIDs[graph.ID] {
-			out = append(out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(base, "id"), map[string]any{"id": graph.ID}))
+			appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(base, "id"), map[string]any{"id": graph.ID}))
 		}
 		graphIDs[graph.ID] = true
 		graphKinds[graph.ID] = graph.Kind
@@ -120,7 +307,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		for nodeIndex, node := range graph.Nodes {
 			nodePath := append(append([]string(nil), base...), "nodes", fmt.Sprint(nodeIndex))
 			if nodeIDs[node.ID] {
-				out = append(out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
+				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
 			}
 			nodeIDs[node.ID] = true
 		}
@@ -129,7 +316,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 			for portIndex, port := range ports {
 				portPath := append(append([]string(nil), base...), field, fmt.Sprint(portIndex))
 				if portIDs[port.ID] {
-					out = append(out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(portPath, "id"), map[string]any{"id": port.ID}))
+					appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(portPath, "id"), map[string]any{"id": port.ID}))
 				}
 				portIDs[port.ID] = true
 			}
@@ -138,13 +325,13 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		validateGraphPorts(graph.Outputs, "outputs")
 	}
 	if !graphIDs[source.EntryGraph] || graphKinds[source.EntryGraph] != GraphKindMain || mainGraphs != 1 {
-		out = append(out, diagnostic(CodeMissingEntryGraph, []string{"entryGraph"}, map[string]any{"entryGraph": source.EntryGraph, "mainGraphs": mainGraphs}))
+		appendDiagnostic(&out, diagnostic(CodeMissingEntryGraph, []string{"entryGraph"}, map[string]any{"entryGraph": source.EntryGraph, "mainGraphs": mainGraphs}))
 	}
 	variableNames := map[string]bool{}
 	for index, variable := range source.Variables {
 		path := []string{"variables", fmt.Sprint(index)}
 		if variableNames[variable.Name] {
-			out = append(out, diagnostic(CodeDuplicateID, append(path, "name"), map[string]any{"id": variable.Name}))
+			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "name"), map[string]any{"id": variable.Name}))
 		}
 		variableNames[variable.Name] = true
 	}
@@ -152,7 +339,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	for index, secret := range source.SecretRefs {
 		path := []string{"secretRefs", fmt.Sprint(index)}
 		if secretIDs[secret.ID] {
-			out = append(out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
+			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
 		}
 		secretIDs[secret.ID] = true
 	}
@@ -160,9 +347,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	for index, capability := range source.RequestedCapabilities {
 		path := []string{"requestedCapabilities", fmt.Sprint(index)}
 		if capability == "" {
-			out = append(out, diagnostic(CodeInvalidField, path, map[string]any{"keyword": "minLength"}))
+			appendDiagnostic(&out, diagnostic(CodeInvalidField, path, map[string]any{"keyword": "minLength"}))
 		} else if capabilities[capability] {
-			out = append(out, diagnostic(CodeDuplicateID, path, map[string]any{"id": capability}))
+			appendDiagnostic(&out, diagnostic(CodeDuplicateID, path, map[string]any{"id": capability}))
 		}
 		capabilities[capability] = true
 	}
@@ -190,9 +377,15 @@ func diagnosticsFromSchemaError(validationError *runtimejsonschema.ValidationErr
 	var out []Diagnostic
 	var visit func(*runtimejsonschema.ValidationError)
 	visit = func(current *runtimejsonschema.ValidationError) {
+		if len(out) >= MaxDiagnostics {
+			return
+		}
 		if len(current.Causes) > 0 {
 			for _, cause := range current.Causes {
 				visit(cause)
+				if len(out) >= MaxDiagnostics {
+					return
+				}
 			}
 			return
 		}
@@ -201,14 +394,14 @@ func diagnosticsFromSchemaError(validationError *runtimejsonschema.ValidationErr
 		switch typed := current.ErrorKind.(type) {
 		case *kind.Required:
 			for _, field := range typed.Missing {
-				out = append(out, schemaDiagnostic(CodeMissingRequiredField, appendPath(base, field), keyword, document))
+				appendDiagnostic(&out, schemaDiagnostic(CodeMissingRequiredField, appendPath(base, field), keyword, document))
 			}
 		case *kind.AdditionalProperties:
 			for _, field := range typed.Properties {
-				out = append(out, schemaDiagnostic(CodeUnknownField, appendPath(base, field), keyword, document))
+				appendDiagnostic(&out, schemaDiagnostic(CodeUnknownField, appendPath(base, field), keyword, document))
 			}
 		default:
-			out = append(out, schemaDiagnostic(CodeInvalidField, base, keyword, document))
+			appendDiagnostic(&out, schemaDiagnostic(CodeInvalidField, base, keyword, document))
 		}
 	}
 	visit(validationError)
@@ -340,13 +533,27 @@ func oneDiagnostic(code string, fieldPath []string, params map[string]any) []Dia
 	return []Diagnostic{diagnostic(code, fieldPath, params)}
 }
 
+func appendDiagnostic(out *[]Diagnostic, value Diagnostic) {
+	if len(*out) < MaxDiagnostics-1 {
+		*out = append(*out, value)
+		return
+	}
+	if len(*out) == MaxDiagnostics-1 {
+		*out = append(*out, diagnostic(CodeDiagnosticBudgetExceeded, nil, map[string]any{"maximum": MaxDiagnostics}))
+	}
+}
+
 func hasError(diagnostics []Diagnostic) bool {
 	return slices.ContainsFunc(diagnostics, func(d Diagnostic) bool { return d.Severity == SeverityError })
 }
 
 func sortDiagnostics(diagnostics []Diagnostic) {
-	sort.SliceStable(diagnostics, func(i, j int) bool {
-		left, right := diagnostics[i], diagnostics[j]
+	sortable := diagnostics
+	if len(diagnostics) > 0 && diagnostics[len(diagnostics)-1].Code == CodeDiagnosticBudgetExceeded {
+		sortable = diagnostics[:len(diagnostics)-1]
+	}
+	sort.SliceStable(sortable, func(i, j int) bool {
+		left, right := sortable[i], sortable[j]
 		for _, pair := range [][2]string{{strings.Join(left.GraphPath, "/"), strings.Join(right.GraphPath, "/")}, {left.NodeID, right.NodeID}, {strings.Join(left.FieldPath, "/"), strings.Join(right.FieldPath, "/")}, {left.Code, right.Code}} {
 			if pair[0] != pair[1] {
 				return pair[0] < pair[1]

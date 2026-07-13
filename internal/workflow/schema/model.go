@@ -4,9 +4,10 @@ package schema
 import contractjsonschema "github.com/invopop/jsonschema"
 
 const (
-	Format      = "yotta.workflow"
-	Version     = 3
-	MaxRevision = 9_007_199_254_740_991
+	Format         = "yotta.workflow"
+	Version        = 3
+	MaxRevision    = 9_007_199_254_740_991
+	MaxDiagnostics = 10_000
 )
 
 type GraphKind string

@@ -35,7 +35,7 @@ const (
 	MaxTotalPorts    = 10000
 	MaxCallPlanPorts = 10000
 	MaxCallPlanBytes = 4 << 20
-	MaxDiagnostics   = 10000
+	MaxDiagnostics   = schema.MaxDiagnostics
 )
 
 var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
@@ -1063,8 +1063,12 @@ func cappedDiagnostics(source []schema.Diagnostic) []schema.Diagnostic {
 }
 
 func sortDiagnostics(diagnostics []schema.Diagnostic) {
-	sort.SliceStable(diagnostics, func(i, j int) bool {
-		left, right := diagnostics[i], diagnostics[j]
+	sortable := diagnostics
+	if len(diagnostics) > 0 && diagnostics[len(diagnostics)-1].Code == schema.CodeDiagnosticBudgetExceeded {
+		sortable = diagnostics[:len(diagnostics)-1]
+	}
+	sort.SliceStable(sortable, func(i, j int) bool {
+		left, right := sortable[i], sortable[j]
 		for _, pair := range [][2]string{
 			{strings.Join(left.GraphPath, "/"), strings.Join(right.GraphPath, "/")},
 			{left.NodeID, right.NodeID}, {strings.Join(left.FieldPath, "/"), strings.Join(right.FieldPath, "/")}, {left.Code, right.Code},
