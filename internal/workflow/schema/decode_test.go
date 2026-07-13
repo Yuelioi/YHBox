@@ -79,6 +79,14 @@ func TestParseSourceRejectsNullRequiredCollections(t *testing.T) {
 	}
 }
 
+func TestParseSourceRejectsEmptyCapability(t *testing.T) {
+	raw := []byte(`{"format":"yotta.workflow","version":3,"workflow":{"id":"w","name":"W"},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":[""]}`)
+	_, diagnostics := ParseSource(raw)
+	if !hasDiagnosticPath(diagnostics, []string{"requestedCapabilities", "0"}) {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+}
+
 func TestParseSourceEnforcesGeneratedStructuralContract(t *testing.T) {
 	tests := []struct {
 		name string

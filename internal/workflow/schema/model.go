@@ -1,6 +1,8 @@
 // Package schema defines the only durable Workflow Source contract accepted by Yotta 3.
 package schema
 
+import contractjsonschema "github.com/invopop/jsonschema"
+
 const (
 	Format      = "yotta.workflow"
 	Version     = 3
@@ -15,6 +17,11 @@ const (
 )
 
 type Capability string
+
+func (Capability) JSONSchema() *contractjsonschema.Schema {
+	minimum := uint64(1)
+	return &contractjsonschema.Schema{Type: "string", MinLength: &minimum}
+}
 
 type WorkflowSource struct {
 	Format                string       `json:"format" jsonschema:"required,enum=yotta.workflow"`

@@ -9,14 +9,19 @@ const (
 )
 
 const (
-	CodeUnsupportedWorkflowFormat = "UNSUPPORTED_WORKFLOW_FORMAT"
-	CodeInvalidWorkflowJSON       = "INVALID_WORKFLOW_JSON"
-	CodeDuplicateField            = "DUPLICATE_FIELD"
-	CodeUnknownField              = "UNKNOWN_FIELD"
-	CodeMissingRequiredField      = "MISSING_REQUIRED_FIELD"
-	CodeInvalidField              = "INVALID_FIELD"
-	CodeDuplicateID               = "DUPLICATE_ID"
-	CodeMissingEntryGraph         = "MISSING_ENTRY_GRAPH"
+	CodeUnsupportedWorkflowFormat    = "UNSUPPORTED_WORKFLOW_FORMAT"
+	CodeInvalidWorkflowJSON          = "INVALID_WORKFLOW_JSON"
+	CodeDuplicateField               = "DUPLICATE_FIELD"
+	CodeUnknownField                 = "UNKNOWN_FIELD"
+	CodeMissingRequiredField         = "MISSING_REQUIRED_FIELD"
+	CodeInvalidField                 = "INVALID_FIELD"
+	CodeDuplicateID                  = "DUPLICATE_ID"
+	CodeMissingEntryGraph            = "MISSING_ENTRY_GRAPH"
+	CodeUnknownNodeKind              = "UNKNOWN_NODE_KIND"
+	CodeUnsupportedNodeContract      = "UNSUPPORTED_NODE_CONTRACT"
+	CodeUnsupportedGraphContract     = "UNSUPPORTED_GRAPH_CONTRACT"
+	CodeMissingCapabilityDeclaration = "MISSING_CAPABILITY_DECLARATION"
+	CodeUnusedCapabilityDeclaration  = "UNUSED_CAPABILITY_DECLARATION"
 )
 
 type Diagnostic struct {

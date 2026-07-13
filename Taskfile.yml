@@ -75,6 +75,8 @@ tasks:
       - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime={{.FUZZ_TIME}}
     vars:
       FUZZ_TIME: '{{.FUZZ_TIME | default "10s"}}'
 

@@ -3,6 +3,43 @@ package node
 
 import "sync"
 
+// CanonicalPinType maps public node tags onto the type families shared by
+// validators and compilers. Exec is deliberately not a data type.
+func CanonicalPinType(tag string) string {
+	switch tag {
+	case "Number", "Integer", "Duration":
+		return "number"
+	case "String":
+		return "string"
+	case "Bool":
+		return "bool"
+	case "Point":
+		return "point"
+	case "*", "Any", "JSON":
+		return "any"
+	case "Color":
+		return "color"
+	case "Rect":
+		return "rect"
+	case "Geometry":
+		return "geometry"
+	case "Image":
+		return "image"
+	case "Time":
+		return "time"
+	case "Window":
+		return "window"
+	case "List":
+		return "list"
+	case "File":
+		return "file"
+	case "Exec":
+		return ""
+	default:
+		return tag
+	}
+}
+
 // PointUnit — Point 坐标单位. "" = 比例(0-1), "px" = 客户区像素.
 type PointUnit string
 

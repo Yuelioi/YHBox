@@ -159,7 +159,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	capabilities := map[Capability]bool{}
 	for index, capability := range source.RequestedCapabilities {
 		path := []string{"requestedCapabilities", fmt.Sprint(index)}
-		if capabilities[capability] {
+		if capability == "" {
+			out = append(out, diagnostic(CodeInvalidField, path, map[string]any{"keyword": "minLength"}))
+		} else if capabilities[capability] {
 			out = append(out, diagnostic(CodeDuplicateID, path, map[string]any{"id": capability}))
 		}
 		capabilities[capability] = true

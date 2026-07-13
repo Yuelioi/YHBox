@@ -136,25 +136,7 @@ func nodeHasExecOutPinWithRegistry(registry nodepkg.RegistryReader, n *GraphNode
 // (number/string/bool/point/any), 让 literal 校验 + data-graph 类型比较仍走单一坐标系.
 // Integer / Duration JSON 值都是数字 (Integer=ms; Duration ms 整数); JSON/Color/Rect/Time 暂归 any.
 func canonPinType(t string) string {
-	switch t {
-	case "Number", "Integer", "Duration":
-		return "number"
-	case "String":
-		return "string"
-	case "Bool":
-		return "bool"
-	case "Point":
-		return "point"
-	case "*", "JSON", "Color", "Rect", "Time":
-		return "any"
-	case "List":
-		return "list"
-	case "File":
-		return "file"
-	case "Exec":
-		return ""
-	}
-	return strings.ToLower(t)
+	return nodepkg.CanonicalPinType(t)
 }
 
 // Normalize self-heal — 填默认值 (SchemaVersion/Graph.ID/Graph.SchemaVersion) + 子图补缺

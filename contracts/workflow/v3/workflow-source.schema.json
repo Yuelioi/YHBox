@@ -1,5 +1,9 @@
 {
   "$defs": {
+    "Capability": {
+      "minLength": 1,
+      "type": "string"
+    },
     "Edge": {
       "additionalProperties": false,
       "properties": {
@@ -222,7 +226,7 @@
     },
     "requestedCapabilities": {
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/Capability"
       },
       "type": "array"
     },

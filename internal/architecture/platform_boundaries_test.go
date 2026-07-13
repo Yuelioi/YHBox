@@ -74,6 +74,62 @@ func TestBackendServicesDoNotImportWails(t *testing.T) {
 	)
 }
 
+func TestWorkflowCompilerDoesNotImportLegacyRuntimeOrStores(t *testing.T) {
+	assertNoBannedTransitiveImports(
+		t,
+		repositoryRoot(t),
+		[]string{"internal/workflow/compiler"},
+		[]string{
+			"github.com/yottaapp/yotta/internal/services/container",
+			"github.com/yottaapp/yotta/internal/services/execution",
+		},
+	)
+}
+
+func assertNoBannedTransitiveImports(t *testing.T, repoRoot string, roots, banned []string) {
+	t.Helper()
+	const module = "github.com/yottaapp/yotta/"
+	queue := append([]string(nil), roots...)
+	visited := map[string]bool{}
+	for len(queue) > 0 {
+		relative := queue[0]
+		queue = queue[1:]
+		if visited[relative] {
+			continue
+		}
+		visited[relative] = true
+		directory := filepath.Join(repoRoot, filepath.FromSlash(relative))
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			t.Fatalf("scan dependency %s: %v", relative, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".go" || strings.HasSuffix(entry.Name(), "_test.go") {
+				continue
+			}
+			path := filepath.Join(directory, entry.Name())
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+			if err != nil {
+				t.Fatalf("parse %s: %v", path, err)
+			}
+			for _, spec := range file.Imports {
+				importPath, err := strconv.Unquote(spec.Path.Value)
+				if err != nil {
+					t.Fatalf("parse import in %s: %v", path, err)
+				}
+				for _, prefix := range banned {
+					if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
+						t.Errorf("workflow compiler transitively imports %s via %s", importPath, filepath.ToSlash(path))
+					}
+				}
+				if strings.HasPrefix(importPath, module) {
+					queue = append(queue, strings.TrimPrefix(importPath, module))
+				}
+			}
+		}
+	}
+}
+
 func TestRootWiringDoesNotImportWin32Packages(t *testing.T) {
 	repoRoot := repositoryRoot(t)
 	entries, err := os.ReadDir(repoRoot)

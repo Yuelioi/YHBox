@@ -1,5 +1,7 @@
 /* Generated from WorkflowSource Go types. Do not edit. */
 
+export type Capability = string
+
 export interface YottaWorkflowSourceV3 {
   entryGraph: string
   format: 'yotta.workflow'
@@ -7,7 +9,7 @@ export interface YottaWorkflowSourceV3 {
    * @minItems 1
    */
   graphs: [Graph, ...Graph[]]
-  requestedCapabilities: string[]
+  requestedCapabilities: Capability[]
   revision: number
   secretRefs: SecretRef[]
   variables: Variable[]

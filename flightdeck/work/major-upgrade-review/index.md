@@ -6,7 +6,7 @@ Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec
 
 ## Next
 
-Wave 3 第一切片已完成并通过双轴 review 修复：唯一 `WorkflowSource v3`、稳定 `Diagnostic`、strict raw JSON boundary 与 generated JSON Schema/TypeScript 已冻结，运行时与生成物共享同一个 schema generator。下一切片建立 CatalogSnapshot、canonical hash、Compiler 与 opaque ProgramSnapshot。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
+Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建立 RFC 8785/domain-separated content identity、machine-only CatalogSnapshot、受预算约束的 static compiler core 与可信重绑定的 opaque ProgramSnapshot；仍明确拒绝 subgraph/dynamic/custom/dependency contract，下一步补齐这些 compiler phase 后再迁移 Runtime。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
@@ -25,6 +25,7 @@ Wave 3 第一切片已完成并通过双轴 review 修复：唯一 `WorkflowSour
 - `flightdeck/knowledge/build/build.md` — 开始运行构建、测试或产物验证前
 - `flightdeck/knowledge/architecture/go-module-identity.md` — 方案涉及 module、仓库身份或 bindings 路径时
 - `flightdeck/knowledge/architecture/go-multiplatform-boundary.md` — 评估跨平台 seam 与发布声明时
+- `flightdeck/knowledge/architecture/content-addressed-workflow-artifacts.md` — 修改 Source/Catalog/Compiler/Program identity 或执行绑定时
 - `flightdeck/knowledge/agent/untracked-agent-instructions-drift.md` — 新建 tracked AGENTS 或调整 provider-specific agent 指令时
 - `flightdeck/work/major-upgrade-review/research/oss-platforms.md` — 需要复核 n8n/Node-RED/Windmill/Temporal/VS Code/ComfyUI 取舍时
 - `flightdeck/work/major-upgrade-review/research/ai-prompting.md` — 需要复核最新模型、provider、prompt/tool/schema/eval/MCP 决策时
@@ -57,7 +58,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 2 已完成实现、双轴 review 与修复。Wave 3 第一切片也已完成 review 修复；当前工程入口是 canonical CatalogSnapshot/compiler/program slice。
+- Wave 2、Wave 3 strict Source 第一切片与 static compiler core 第二切片均已完成双轴/威胁 review。下一入口是 subgraph closure、dynamic contract、custom validation/dependency/effect phase；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -67,7 +68,7 @@ Verified:
 - `task check:frontend` 全绿：frozen install、bindings generation/contract、format、oxlint、eslint baseline、vue-tsc、i18n、70 files / 536 tests、production build、bundle budget。
 - `task check:go` 全绿：全量 atomic coverage 65.3%、关键包 floors、vet、staticcheck。
 - Wave 3 strict parser 由生成的 Draft 2020-12 Schema 直接驱动，结构规则不再手写复制；schema 包 coverage 77.2%，parser fuzz 3 秒完成 80,751 次执行。
-- `task check:fuzz FUZZ_TIME=2s` 四个 fuzz target 全绿；CI 配置为各 10 秒。
+- `task check:fuzz FUZZ_TIME=2s` 七个 fuzz target 全绿（含 strict Source、CompileDraft 与 trusted Program open）；CI 配置为各 10 秒。
 - `go test -race -count=1 ./internal/node ./cmd/node-catalog` 通过。
 
 ## Open questions

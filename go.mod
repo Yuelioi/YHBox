@@ -5,6 +5,7 @@ go 1.25.12
 require (
 	github.com/anthropics/anthropic-sdk-go v1.51.1
 	github.com/coder/websocket v1.8.14
+	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467
 	github.com/dop251/goja v0.0.0-20260607120635-348e6bea910d
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/google/uuid v1.6.0

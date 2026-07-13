@@ -57,6 +57,20 @@ func TestFileTypeRegistered(t *testing.T) {
 	}
 }
 
+func TestCanonicalPinTypeFamilies(t *testing.T) {
+	tests := map[string]string{
+		"Number": "number", "Integer": "number", "Duration": "number",
+		"String": "string", "Bool": "bool", "Point": "point",
+		"JSON": "any", "Any": "any", "*": "any", "List": "list",
+		"File": "file", "Exec": "", "Geometry": "geometry", "Image": "image", "Window": "window",
+	}
+	for input, want := range tests {
+		if got := CanonicalPinType(input); got != want {
+			t.Errorf("CanonicalPinType(%q)=%q want %q", input, got, want)
+		}
+	}
+}
+
 func TestInputsWindow(t *testing.T) {
 	w := Window{HWND: 123, Title: "记事本"}
 	in := newInputs(map[string]any{"W": w}, nil, nil, nil)

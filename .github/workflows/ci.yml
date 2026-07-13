@@ -203,6 +203,12 @@ jobs:
       - name: Fuzz Workflow v3 strict parser
         run: go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime=10s
 
+      - name: Fuzz Workflow v3 compiler
+        run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime=10s
+
+      - name: Fuzz Workflow v3 Program open
+        run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime=10s
+
   portable-core:
     strategy:
       fail-fast: false
