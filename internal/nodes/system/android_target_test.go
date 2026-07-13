@@ -77,14 +77,23 @@ func TestAndroidTarget_RunSetsActiveTarget(t *testing.T) {
 	}
 }
 
-func TestAndroidTarget_ValidateRejectsInvalidResolution(t *testing.T) {
-	in := node.NewInputsFromConfig(map[string]any{
-		atInSerial: "emulator-5554",
+func TestAndroidTarget_DeclarativeConstraintsBlockRun(t *testing.T) {
+	registry := node.NewRegistry()
+	registry.Register(&AndroidTarget{})
+	rn, _ := registry.Get("AndroidTarget")
+	if rn.Validate != nil {
+		t.Fatal("AndroidTarget retained executable validation callback")
+	}
+	services := node.StubServices()
+	result := node.RunNode(context.Background(), rn, nil, map[string]any{
+		atInSerial: " \t ",
 		atInWidth:  0,
 		atInHeight: -1,
-	})
-	errs := AndroidTarget{}.Validate(in)
-	if len(errs) != 2 {
-		t.Fatalf("Validate errors = %#v, want 2", errs)
+	}, nil, services, false)
+	if len(result.Validation) != 3 {
+		t.Fatalf("validation = %#v, want 3 constraints", result.Validation)
+	}
+	if _, active := services.Target.Active(); active {
+		t.Fatal("invalid target changed active runtime target")
 	}
 }

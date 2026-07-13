@@ -17,15 +17,15 @@ const (
 	// compiler itself. Registry implementations must never share this authority.
 	CompilerIntrinsicPrefix = "core."
 	SnapshotFormat          = "yotta.catalog"
-	SnapshotVersion         = 2
+	SnapshotVersion         = 3
 	MaxCatalogNodes         = 4096
 	MaxNodePins             = 4096
 	MaxNodeContractBytes    = 1 << 20
 	MaxCatalogBytes         = 16 << 20
 	MaxFieldSchemaDepth     = 64
 	MaxFieldSchemaEntries   = 4096
-	catalogHashDomain       = "yotta/catalog/v2"
-	nodeContractHashDomain  = "yotta/node-contract/v2"
+	catalogHashDomain       = "yotta/catalog/v3"
+	nodeContractHashDomain  = "yotta/node-contract/v3"
 )
 
 type ExecutionMode string
@@ -62,12 +62,13 @@ type NodeContract struct {
 }
 
 type InputContract struct {
-	Name     string         `json:"name"`
-	Type     string         `json:"type"`
-	Semantic string         `json:"semantic"`
-	Required bool           `json:"required"`
-	Default  any            `json:"default"`
-	Schema   *FieldContract `json:"schema"`
+	Name        string                 `json:"name"`
+	Type        string                 `json:"type"`
+	Semantic    string                 `json:"semantic"`
+	Required    bool                   `json:"required"`
+	Default     any                    `json:"default"`
+	Schema      *FieldContract         `json:"schema"`
+	Constraints []node.InputConstraint `json:"constraints"`
 }
 
 type FieldContract struct {
@@ -199,6 +200,10 @@ func projectNode(entry *node.RegisteredNode) (NodeContract, error) {
 		if input.Name == "" || input.Type == "" || inputNames[input.Name] {
 			return NodeContract{}, fmt.Errorf("node %q contains invalid or duplicate input %q", spec.Kind, input.Name)
 		}
+		constraints, err := node.NormalizeInputConstraints(input)
+		if err != nil {
+			return NodeContract{}, fmt.Errorf("node %q: %w", spec.Kind, err)
+		}
 		inputNames[input.Name] = true
 		fieldContract, err := projectFieldContract(input.Schema)
 		if err != nil {
@@ -207,6 +212,7 @@ func projectNode(entry *node.RegisteredNode) (NodeContract, error) {
 		contract.Inputs = append(contract.Inputs, InputContract{
 			Name: input.Name, Type: input.Type, Semantic: input.Semantic, Required: input.Required,
 			Default: input.Default, Schema: fieldContract,
+			Constraints: constraints,
 		})
 	}
 	outputNames := map[string]bool{}

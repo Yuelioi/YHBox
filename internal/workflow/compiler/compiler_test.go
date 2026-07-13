@@ -16,15 +16,17 @@ import (
 )
 
 type compilerTestNode struct {
-	kind         string
-	inputType    string
-	defaultValue any
-	fieldSchema  *node.FieldSchema
-	required     bool
-	dynamic      bool
-	execInput    bool
-	capability   node.RuntimeCapability
-	dataOutput   bool
+	kind                 string
+	inputType            string
+	defaultValue         any
+	fieldSchema          *node.FieldSchema
+	required             bool
+	dynamic              bool
+	execInput            bool
+	capability           node.RuntimeCapability
+	dataOutput           bool
+	constraints          []node.InputConstraint
+	constraintInputCount int
 }
 
 func (n compilerTestNode) Spec() node.Spec {
@@ -32,7 +34,10 @@ func (n compilerTestNode) Spec() node.Spec {
 	if inputType == "" {
 		inputType = "Number"
 	}
-	inputs := []node.InputSpec{{Name: "Value", Type: inputType, Required: n.required, Default: n.defaultValue, Schema: n.fieldSchema}}
+	inputs := []node.InputSpec{{Name: "Value", Type: inputType, Required: n.required, Default: n.defaultValue, Schema: n.fieldSchema, Constraints: n.constraints}}
+	for index := 1; index < n.constraintInputCount; index++ {
+		inputs = append(inputs, node.InputSpec{Name: "Value" + strconv.Itoa(index), Type: inputType, Constraints: n.constraints})
+	}
 	if n.execInput {
 		inputs = append([]node.InputSpec{{Name: "In", Type: node.TypeExec}}, inputs...)
 	}
@@ -82,6 +87,93 @@ func TestCompileDraftUsesCanonicalIntegerAndEnumContracts(t *testing.T) {
 				t.Fatalf("valid=%t diagnostics=%#v", ok, result.Diagnostics)
 			}
 		})
+	}
+}
+
+func TestCompileDraftEvaluatesKnownInputConstraints(t *testing.T) {
+	fixture := compilerTestNode{kind: "fixture", constraints: []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}}
+	compiler, snapshot := testCompilerWithNode(t, fixture)
+	invalid := strings.Replace(validSource("1", 0, 0), `"config":{"Value":1}`, `"config":{"Value":0}`, 1)
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(invalid), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Program(); ok || len(result.Diagnostics) != 1 {
+		t.Fatalf("invalid result = %#v", result)
+	}
+	diagnostic := result.Diagnostics[0]
+	if diagnostic.Code != schema.CodeInputConstraintViolation || diagnostic.Params["constraint"] != string(node.InputConstraintNumberGreaterThan) || diagnostic.Params["threshold"] != "0" {
+		t.Fatalf("diagnostic = %#v", diagnostic)
+	}
+	if got := strings.Join(diagnostic.FieldPath, "."); got != "graphs.0.nodes.0.config.Value" {
+		t.Fatalf("field path = %q", got)
+	}
+	valid, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(validSource("1", 0, 0)), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := valid.Program(); !ok || len(valid.Diagnostics) != 0 {
+		t.Fatalf("valid result = %#v", valid)
+	}
+}
+
+func TestCompileDraftBoundsInputConstraintEvaluations(t *testing.T) {
+	fixture := compilerTestNode{
+		kind: "fixture", constraintInputCount: 4095,
+		constraints: []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan, Threshold: "0"}},
+	}
+	compiler, snapshot := testCompilerWithNode(t, fixture)
+	nodes := make([]string, 25)
+	for index := range nodes {
+		nodes[index] = `{"id":"n` + strconv.Itoa(index) + `","kind":"fixture","position":{"x":0,"y":0},"config":{"Value":1}}`
+	}
+	raw := `{"format":"yotta.workflow","version":3,"workflow":{"id":"w","name":"Workflow"},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[` + strings.Join(nodes, ",") + `],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":["runtime:log"]}`
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Program(); ok || !hasDiagnosticCode(result.Diagnostics, schema.CodeInputConstraintBudgetExceeded) {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestOpenProgramRejectsForgedConstraintViolation(t *testing.T) {
+	fixture := compilerTestNode{kind: "fixture", constraints: []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}}
+	compiler, snapshot := testCompilerWithNode(t, fixture)
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(validSource("1", 0, 0)), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, ok := result.Program()
+	if !ok {
+		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+	var forged programEnvelope
+	if err := json.Unmarshal(program.Artifact(), &forged); err != nil {
+		t.Fatal(err)
+	}
+	forged.Program.Graphs[0].Nodes[0].Config["Value"] = float64(0)
+	if _, err := OpenProgram(rehashEnvelope(t, forged), snapshot, compiler.build); !errors.Is(err, ErrInvalidProgramArtifact) {
+		t.Fatalf("forged constraint config err = %v", err)
+	}
+}
+
+func TestCompileDraftDefersConstraintForWiredRuntimeValue(t *testing.T) {
+	fixture := compilerTestNode{kind: "fixture", dataOutput: true, constraints: []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}}
+	compiler, snapshot := testCompilerWithNode(t, fixture)
+	raw := `{"format":"yotta.workflow","version":3,"workflow":{"id":"w","name":"Workflow"},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{"id":"source","kind":"fixture","position":{"x":0,"y":0},"config":{"Value":1}},{"id":"target","kind":"fixture","position":{"x":1,"y":0},"config":{"Value":0}}],"edges":[{"from":"source.Result","to":"target.Value"}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":["runtime:log"]}`
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Program(); !ok || len(result.Diagnostics) != 0 {
+		t.Fatalf("result = %#v", result)
 	}
 }
 
@@ -503,8 +595,8 @@ func TestProgramIdentityGolden(t *testing.T) {
 		t.Fatalf("diagnostics = %#v", result.Diagnostics)
 	}
 	const wantSource = "sha256:cfbe4d5ba8d9a4105d551e797d2c1e3c212ad87bc6344be83ce62d486bf8729c"
-	const wantCatalog = "sha256:a3770d5eb798404d629a2130bdd28014907034a66f2dc6cc946487dbc6ded4c4"
-	const wantProgram = "sha256:dcd2e169d2fda09923c2649cc1f824fb5dc89d13d4788375375c5315e984fd3c"
+	const wantCatalog = "sha256:1974dfd28beb89f264f3ca1de5b4ebdc689e8c82704f982e023332488a9ff960"
+	const wantProgram = "sha256:bb1a3084e7c828344e2c241c11b56105024beab826e3960f5c302ba11a537053"
 	if result.SourceHash.String() != wantSource || catalogSnapshot.Hash().String() != wantCatalog || program.Hash().String() != wantProgram {
 		t.Fatalf("golden drift:\nsource  %s\ncatalog %s\nprogram %s", result.SourceHash, catalogSnapshot.Hash(), program.Hash())
 	}

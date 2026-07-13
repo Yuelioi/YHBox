@@ -63,6 +63,13 @@ func (r *Registry) Register(impl Node) {
 	// Spec is extension code. Evaluate and validate it without holding the
 	// registry lock so a slow or re-entrant implementation cannot block readers.
 	spec := cloneSpec(impl.Spec())
+	for inputIndex := range spec.Inputs {
+		constraints, err := NormalizeInputConstraints(spec.Inputs[inputIndex])
+		if err != nil {
+			panic(fmt.Sprintf("node %q: %v", spec.Kind, err))
+		}
+		spec.Inputs[inputIndex].Constraints = constraints
+	}
 	rn := &RegisteredNode{
 		Impl:     impl,
 		Spec:     spec,
@@ -71,6 +78,13 @@ func (r *Registry) Register(impl Node) {
 	// 扩展 interface 探测
 	if v, ok := impl.(Validator); ok {
 		rn.Validate = v.Validate
+	}
+	if rn.Validate != nil {
+		for _, input := range spec.Inputs {
+			if len(input.Constraints) > 0 {
+				panic(fmt.Sprintf("node %q: declarative constraints and Validator callback cannot coexist", spec.Kind))
+			}
+		}
 	}
 	if d, ok := impl.(Dependencer); ok {
 		rn.Dependencies = d.Dependencies

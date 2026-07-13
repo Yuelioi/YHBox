@@ -35,6 +35,9 @@ func prepareExec(ctx context.Context, rn *RegisteredNode, dataWire, config, exec
 	if errs := validateRequired(&rn.Spec, in); len(errs) > 0 {
 		return nil, &RunResult{Validation: errs}
 	}
+	if errs := validateDeclarativeConstraints(&rn.Spec, in); len(errs) > 0 {
+		return nil, &RunResult{Validation: errs}
+	}
 	if rn.Validate != nil {
 		if errs := rn.Validate(in); len(errs) > 0 {
 			return nil, &RunResult{Validation: errs}

@@ -21,26 +21,27 @@ import (
 )
 
 const (
-	CallSubgraphKind        = catalog.CompilerIntrinsicPrefix + "call-subgraph"
-	callFailurePin          = "Fail"
-	callInputPin            = "In"
-	sourceHashDomain        = "yotta/source/v3"
-	MaxSourceBytes          = 8 << 20
-	MaxJSONDepth            = 128
-	MaxGraphs               = 256
-	MaxNodesPerGraph        = 4096
-	MaxEdgesPerGraph        = 16384
-	MaxPortsPerGraph        = 4096
-	MaxTotalNodes           = 20000
-	MaxTotalEdges           = 50000
-	MaxTotalPorts           = 10000
-	MaxCallPlanPorts        = 10000
-	MaxCallPlanBytes        = 4 << 20
-	MaxDynamicPortsPerNode  = 256
-	MaxTotalDynamicPorts    = 10000
-	MaxDynamicPortNameBytes = 128
-	MaxDynamicPortPlanBytes = 4 << 20
-	MaxDiagnostics          = schema.MaxDiagnostics
+	CallSubgraphKind              = catalog.CompilerIntrinsicPrefix + "call-subgraph"
+	callFailurePin                = "Fail"
+	callInputPin                  = "In"
+	sourceHashDomain              = "yotta/source/v3"
+	MaxSourceBytes                = 8 << 20
+	MaxJSONDepth                  = 128
+	MaxGraphs                     = 256
+	MaxNodesPerGraph              = 4096
+	MaxEdgesPerGraph              = 16384
+	MaxPortsPerGraph              = 4096
+	MaxTotalNodes                 = 20000
+	MaxTotalEdges                 = 50000
+	MaxTotalPorts                 = 10000
+	MaxCallPlanPorts              = 10000
+	MaxCallPlanBytes              = 4 << 20
+	MaxDynamicPortsPerNode        = 256
+	MaxTotalDynamicPorts          = 10000
+	MaxDynamicPortNameBytes       = 128
+	MaxDynamicPortPlanBytes       = 4 << 20
+	MaxInputConstraintEvaluations = 100000
+	MaxDiagnostics                = schema.MaxDiagnostics
 )
 
 var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
@@ -174,6 +175,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 	totalCallPlanPorts, totalCallPlanBytes := 0, 0
 	totalDynamicPorts, totalDynamicPortBytes := 0, 0
 	dynamicPortBudgetExceeded := false
+	constraintBudget := inputConstraintBudget{}
 	for graphIndex, graph := range source.Graphs {
 		graphsByID[graph.ID] = graph
 		interfaces[graph.ID] = validateGraphInterface(&result.diagnostics, graph, graphIndex)
@@ -442,9 +444,9 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 						copyNode.Config[key] = value
 					}
 				}
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, copyNode, configByNode[sourceNode.ID], incoming[sourceNode.ID])
+				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, copyNode, configByNode[sourceNode.ID], incoming[sourceNode.ID], &constraintBudget)
 			} else {
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, configByNode[sourceNode.ID], incoming[sourceNode.ID])
+				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, configByNode[sourceNode.ID], incoming[sourceNode.ID], &constraintBudget)
 			}
 		}
 	}
@@ -645,9 +647,15 @@ type nodePinIndex struct {
 }
 
 type nodeConfigContract struct {
-	inputs   map[string]catalog.InputContract
-	required []catalog.InputContract
-	consumed map[string]bool
+	inputs      map[string]catalog.InputContract
+	required    []catalog.InputContract
+	constrained []catalog.InputContract
+	consumed    map[string]bool
+}
+
+type inputConstraintBudget struct {
+	evaluations int
+	exceeded    bool
 }
 
 func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind map[string]nodeConfigContract) map[string]nodeConfigContract {
@@ -664,6 +672,9 @@ func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind 
 			indexed.inputs[input.Name] = input
 			if input.Required {
 				indexed.required = append(indexed.required, input)
+			}
+			if len(input.Constraints) > 0 {
+				indexed.constrained = append(indexed.constrained, input)
 			}
 		}
 		for _, dynamic := range contract.DynamicPorts {
@@ -788,7 +799,7 @@ func compatibleTypes(from, to string) bool {
 	return left == right || left == "any" || right == "any"
 }
 
-func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract nodeConfigContract, incoming map[string]bool) {
+func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract nodeConfigContract, incoming map[string]bool, budget *inputConstraintBudget) {
 	if len(*out) >= MaxDiagnostics {
 		return
 	}
@@ -823,6 +834,49 @@ func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, no
 		_, configured := sourceNode.Config[input.Name]
 		if !configured && input.Default == nil && !incoming[input.Name] {
 			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, appendPath(base, input.Name), "requiredInput", map[string]any{"field": input.Name}))
+		}
+	}
+	constraintCount := 0
+	for _, input := range contract.constrained {
+		constraintCount += len(input.Constraints)
+	}
+	if budget.exceeded {
+		return
+	}
+	if constraintCount > MaxInputConstraintEvaluations-budget.evaluations {
+		appendDiagnostic(out, schema.Diagnostic{
+			Code: schema.CodeInputConstraintBudgetExceeded, Severity: schema.SeverityError,
+			GraphPath: []string{graphID}, NodeID: sourceNode.ID,
+			FieldPath: base, Params: map[string]any{"maximum": MaxInputConstraintEvaluations},
+		})
+		budget.exceeded = true
+		return
+	}
+	budget.evaluations += constraintCount
+	for _, input := range contract.constrained {
+		if len(*out) >= MaxDiagnostics || incoming[input.Name] {
+			continue
+		}
+		value, configured := sourceNode.Config[input.Name]
+		if !configured {
+			value = input.Default
+		}
+		if value == nil || !valueMatchesType(value, input.Type) || input.Schema != nil && !valueMatchesSchema(value, input.Schema) {
+			continue
+		}
+		for _, constraint := range input.Constraints {
+			if !node.InputConstraintViolated(constraint, value) {
+				continue
+			}
+			params := map[string]any{"input": input.Name, "constraint": string(constraint.Kind)}
+			if constraint.Threshold != "" {
+				params["threshold"] = constraint.Threshold
+			}
+			appendDiagnostic(out, schema.Diagnostic{
+				Code: schema.CodeInputConstraintViolation, Severity: schema.SeverityError,
+				GraphPath: []string{graphID}, NodeID: sourceNode.ID,
+				FieldPath: appendPath(base, input.Name), Params: params,
+			})
 		}
 	}
 }

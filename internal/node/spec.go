@@ -147,15 +147,28 @@ func DynamicPortForRole(spec *Spec, role DynamicPortRole) (DynamicPortSpec, bool
 }
 
 type InputSpec struct {
-	Name        string       `json:"name"`
-	Type        string       `json:"type"`               // runtime 类型 tag
-	Semantic    string       `json:"semantic,omitempty"` // UI 语义提示
-	Required    bool         `json:"required,omitempty"`
-	Advanced    bool         `json:"advanced,omitempty"`
-	Default     any          `json:"default,omitempty"` // JSON 序列化用 json.Number
-	Widget      WidgetSpec   `json:"widget,omitempty"`
-	VisibleWhen *VisibleRule `json:"visibleWhen,omitempty"`
-	Schema      *FieldSchema `json:"schema,omitempty"` // 结构化输入的数据 schema; 非 nil → FE StructuredInput
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`               // runtime 类型 tag
+	Semantic    string            `json:"semantic,omitempty"` // UI 语义提示
+	Required    bool              `json:"required,omitempty"`
+	Advanced    bool              `json:"advanced,omitempty"`
+	Default     any               `json:"default,omitempty"` // JSON 序列化用 json.Number
+	Widget      WidgetSpec        `json:"widget,omitempty"`
+	VisibleWhen *VisibleRule      `json:"visibleWhen,omitempty"`
+	Schema      *FieldSchema      `json:"schema,omitempty"` // 结构化输入的数据 schema; 非 nil → FE StructuredInput
+	Constraints []InputConstraint `json:"constraints,omitempty"`
+}
+
+type InputConstraintKind string
+
+const (
+	InputConstraintNonBlank          InputConstraintKind = "nonBlank"
+	InputConstraintNumberGreaterThan InputConstraintKind = "numberGreaterThan"
+)
+
+type InputConstraint struct {
+	Kind      InputConstraintKind `json:"kind"`
+	Threshold string              `json:"threshold"`
 }
 
 // WindowInputSpec — NeedsWindow 节点统一 spread 的可选窗口输入。连了→派发期作用在该窗口;

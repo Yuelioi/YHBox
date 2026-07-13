@@ -32,15 +32,15 @@ func (AndroidTarget) Spec() node.Spec {
 		RuntimeCapabilities: []node.RuntimeCapability{node.RuntimeCapabilityTarget},
 		Inputs: []node.InputSpec{
 			{Name: atInExec, Type: node.TypeExec},
-			{Name: atInSerial, Type: "String", Required: true, Widget: node.WidgetSpec{Kind: "async-dropdown",
+			{Name: atInSerial, Type: "String", Required: true, Constraints: []node.InputConstraint{{Kind: node.InputConstraintNonBlank}}, Widget: node.WidgetSpec{Kind: "async-dropdown",
 				Props: node.MarshalProps(node.AsyncDropdownProps{AsyncSource: androidADBDevicesSource, ApplyMeta: map[string]string{
 					"name":   atInName,
 					"width":  atInWidth,
 					"height": atInHeight,
 				}})}},
 			{Name: atInName, Type: "String", Default: "", Widget: node.WidgetSpec{Kind: "text"}},
-			{Name: atInWidth, Type: "Number", Default: json.Number("1080"), Widget: node.WidgetSpec{Kind: "number"}},
-			{Name: atInHeight, Type: "Number", Default: json.Number("1920"), Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: atInWidth, Type: "Number", Default: json.Number("1080"), Constraints: []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan, Threshold: "0"}}, Widget: node.WidgetSpec{Kind: "number"}},
+			{Name: atInHeight, Type: "Number", Default: json.Number("1920"), Constraints: []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan, Threshold: "0"}}, Widget: node.WidgetSpec{Kind: "number"}},
 		},
 		Outputs: []node.OutputSpec{
 			{Name: atOutDone, Type: node.TypeExec, Data: []node.DataField{
@@ -49,20 +49,6 @@ func (AndroidTarget) Spec() node.Spec {
 			}},
 		},
 	}
-}
-
-func (AndroidTarget) Validate(in node.Inputs) []node.ValidationError {
-	var errs []node.ValidationError
-	if strings.TrimSpace(in.String(atInSerial)) == "" {
-		errs = append(errs, node.ValidationError{Code: "REQUIRED_FIELD_MISSING", Message: "required field \"Serial\" missing", Field: atInSerial})
-	}
-	if in.Int(atInWidth) <= 0 {
-		errs = append(errs, node.ValidationError{Code: "INVALID_FIELD", Message: "Width must be greater than 0", Field: atInWidth})
-	}
-	if in.Int(atInHeight) <= 0 {
-		errs = append(errs, node.ValidationError{Code: "INVALID_FIELD", Message: "Height must be greater than 0", Field: atInHeight})
-	}
-	return errs
 }
 
 func (AndroidTarget) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {

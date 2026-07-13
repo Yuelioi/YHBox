@@ -29,6 +29,8 @@ const (
 	CodeCallPinTypeMismatch           = "CALL_PIN_TYPE_MISMATCH"
 	CodeInvalidDynamicPortDeclaration = "INVALID_DYNAMIC_PORT_DECLARATION"
 	CodeDynamicPortBudgetExceeded     = "DYNAMIC_PORT_BUDGET_EXCEEDED"
+	CodeInputConstraintViolation      = "INPUT_CONSTRAINT_VIOLATION"
+	CodeInputConstraintBudgetExceeded = "INPUT_CONSTRAINT_BUDGET_EXCEEDED"
 	CodeDiagnosticBudgetExceeded      = "DIAGNOSTIC_BUDGET_EXCEEDED"
 	CodeMissingCapabilityDeclaration  = "MISSING_CAPABILITY_DECLARATION"
 	CodeUnusedCapabilityDeclaration   = "UNUSED_CAPABILITY_DECLARATION"

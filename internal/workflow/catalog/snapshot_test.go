@@ -84,6 +84,90 @@ func TestSnapshotIdentityIncludesDeclarativeDynamicPorts(t *testing.T) {
 	}
 }
 
+func TestSnapshotIdentityIncludesInputConstraints(t *testing.T) {
+	leftSpec := snapshotSpec("A", "presentation")
+	leftSpec.Inputs[0].Constraints = []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}
+	rightSpec := snapshotSpec("A", "presentation")
+	rightSpec.Inputs[0].Constraints = []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "-1",
+	}}
+	leftRegistry, rightRegistry := node.NewRegistry(), node.NewRegistry()
+	leftRegistry.Register(snapshotTestNode{spec: leftSpec})
+	rightRegistry.Register(snapshotTestNode{spec: rightSpec})
+	left, leftErr := NewSnapshot(leftRegistry.Snapshot(), implementationSet(t, "test"))
+	right, rightErr := NewSnapshot(rightRegistry.Snapshot(), implementationSet(t, "test"))
+	if leftErr != nil || rightErr != nil {
+		t.Fatalf("snapshot errors: left=%v right=%v", leftErr, rightErr)
+	}
+	if left.Hash() == right.Hash() {
+		t.Fatal("input constraints did not affect catalog identity")
+	}
+}
+
+func TestSnapshotRejectsInputDefaultViolatingConstraint(t *testing.T) {
+	spec := snapshotSpec("A", "presentation")
+	spec.Inputs[0].Default = 0
+	spec.Inputs[0].Constraints = []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}
+	entry := &node.RegisteredNode{Spec: spec, Run: func(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }}
+	if _, err := NewSnapshot(malformedReader{entry}, implementationSet(t, "test")); err == nil {
+		t.Fatal("accepted input default that violates its constraint")
+	}
+}
+
+func TestSnapshotCanonicalizesEquivalentInputConstraintThresholds(t *testing.T) {
+	leftSpec := snapshotSpec("A", "presentation")
+	leftSpec.Inputs[0].Constraints = []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0",
+	}}
+	rightSpec := snapshotSpec("A", "presentation")
+	rightSpec.Inputs[0].Constraints = []node.InputConstraint{{
+		Kind: node.InputConstraintNumberGreaterThan, Threshold: "0.0",
+	}}
+	leftRegistry, rightRegistry := node.NewRegistry(), node.NewRegistry()
+	leftRegistry.Register(snapshotTestNode{spec: leftSpec})
+	rightRegistry.Register(snapshotTestNode{spec: rightSpec})
+	left, _ := NewSnapshot(leftRegistry.Snapshot(), implementationSet(t, "test"))
+	right, _ := NewSnapshot(rightRegistry.Snapshot(), implementationSet(t, "test"))
+	if left.Hash() != right.Hash() {
+		t.Fatal("equivalent numeric thresholds changed catalog identity")
+	}
+}
+
+func TestSnapshotRejectsMalformedInputConstraints(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputType   string
+		constraints []node.InputConstraint
+	}{
+		{"unknown kind", "Number", []node.InputConstraint{{Kind: "unknown"}}},
+		{"non blank on number", "Number", []node.InputConstraint{{Kind: node.InputConstraintNonBlank}}},
+		{"non blank threshold", "String", []node.InputConstraint{{Kind: node.InputConstraintNonBlank, Threshold: "0"}}},
+		{"missing numeric threshold", "Number", []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan}}},
+		{"invalid numeric threshold", "Number", []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan, Threshold: "NaN"}}},
+		{"numeric constraint on string", "String", []node.InputConstraint{{Kind: node.InputConstraintNumberGreaterThan, Threshold: "0"}}},
+		{"duplicate kind", "Number", []node.InputConstraint{
+			{Kind: node.InputConstraintNumberGreaterThan, Threshold: "0"},
+			{Kind: node.InputConstraintNumberGreaterThan, Threshold: "1"},
+		}},
+		{"constraint budget", "Number", make([]node.InputConstraint, node.MaxInputConstraints+1)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			spec := snapshotSpec("A", "presentation")
+			spec.Inputs[0].Type = test.inputType
+			spec.Inputs[0].Constraints = test.constraints
+			entry := &node.RegisteredNode{Spec: spec, Run: func(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }}
+			if _, err := NewSnapshot(malformedReader{entry}, implementationSet(t, "test")); err == nil {
+				t.Fatalf("accepted malformed constraints %#v", test.constraints)
+			}
+		})
+	}
+}
+
 func TestSnapshotCanonicalizesDynamicPortOrder(t *testing.T) {
 	leftSpec := snapshotSpec("A", "presentation")
 	leftSpec.DynamicPorts = []node.DynamicPortSpec{
