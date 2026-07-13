@@ -6,7 +6,7 @@ Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec
 
 ## Next
 
-Wave 3 已进入实施：第一切片冻结唯一 `WorkflowSource v3`、稳定 `Diagnostic`、strict raw JSON boundary 与 generated JSON Schema/TypeScript；下一切片建立 CatalogSnapshot、canonical hash、Compiler 与 opaque ProgramSnapshot。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
+Wave 3 第一切片已完成并通过双轴 review 修复：唯一 `WorkflowSource v3`、稳定 `Diagnostic`、strict raw JSON boundary 与 generated JSON Schema/TypeScript 已冻结，运行时与生成物共享同一个 schema generator。下一切片建立 CatalogSnapshot、canonical hash、Compiler 与 opaque ProgramSnapshot。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
@@ -57,7 +57,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 2 已完成实现、双轴 review 与修复。Wave 3 第一切片实现中：strict Source/Diagnostic contract；下一工程入口是 canonical compiler/program slice。
+- Wave 2 已完成实现、双轴 review 与修复。Wave 3 第一切片也已完成 review 修复；当前工程入口是 canonical CatalogSnapshot/compiler/program slice。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -66,6 +66,7 @@ Verified:
 - 三份外部研究均只采用项目官方文档、官方仓库或官方规范，并已保留直接链接。
 - `task check:frontend` 全绿：frozen install、bindings generation/contract、format、oxlint、eslint baseline、vue-tsc、i18n、70 files / 536 tests、production build、bundle budget。
 - `task check:go` 全绿：全量 atomic coverage 65.3%、关键包 floors、vet、staticcheck。
+- Wave 3 strict parser 由生成的 Draft 2020-12 Schema 直接驱动，结构规则不再手写复制；schema 包 coverage 77.2%，parser fuzz 3 秒完成 80,751 次执行。
 - `task check:fuzz FUZZ_TIME=2s` 四个 fuzz target 全绿；CI 配置为各 10 秒。
 - `go test -race -count=1 ./internal/node ./cmd/node-catalog` 通过。
 

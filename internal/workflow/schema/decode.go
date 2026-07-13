@@ -6,11 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
+
+	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 )
+
+var workflowValidator = sync.OnceValues(compileWorkflowValidator)
 
 func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	if len(raw) == 0 || !utf8.Valid(raw) || bytes.HasPrefix(raw, []byte{0xef, 0xbb, 0xbf}) {
@@ -22,71 +30,77 @@ func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 		return WorkflowSource{}, oneDiagnostic(CodeDuplicateField, duplicate, map[string]any{"field": duplicate[len(duplicate)-1]})
 	}
 
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
-	}
-	var format string
-	var version int
-	formatRaw, hasFormat := envelope["format"]
-	versionRaw, hasVersion := envelope["version"]
-	if !hasFormat || !hasVersion || json.Unmarshal(formatRaw, &format) != nil || json.Unmarshal(versionRaw, &version) != nil || format != Format || version != Version {
-		return WorkflowSource{}, oneDiagnostic(CodeUnsupportedWorkflowFormat, nil, map[string]any{"expectedFormat": Format, "expectedVersion": Version})
-	}
-
 	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
 	decoder.UseNumber()
-	var source WorkflowSource
-	if err := decoder.Decode(&source); err != nil {
-		code := CodeInvalidWorkflowJSON
-		var fieldPath []string
-		if strings.HasPrefix(err.Error(), "json: unknown field ") {
-			code = CodeUnknownField
-			field := strings.Trim(err.Error()[len("json: unknown field "):], "\"")
-			fieldPath = []string{field}
-		}
-		return WorkflowSource{}, oneDiagnostic(code, fieldPath, map[string]any{"reason": err.Error()})
+	var document any
+	if err := decoder.Decode(&document); err != nil {
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
 	}
 	if err := requireEOF(decoder); err != nil {
 		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
 	}
+	envelope, ok := document.(map[string]any)
+	if !ok {
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": "source must be a JSON object"})
+	}
+	var format string
+	formatValue, hasFormat := envelope["format"]
+	versionValue, hasVersion := envelope["version"]
+	format, formatOK := formatValue.(string)
+	versionNumber, versionOK := versionValue.(json.Number)
+	if !hasFormat || !hasVersion || !formatOK || !versionOK || format != Format || !isCurrentVersion(versionNumber) {
+		return WorkflowSource{}, oneDiagnostic(CodeUnsupportedWorkflowFormat, nil, map[string]any{"expectedFormat": Format, "expectedVersion": Version})
+	}
 
-	diagnostics := validateSource(source, envelope)
+	validator, err := workflowValidator()
+	if err != nil {
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": "workflow contract is unavailable: " + err.Error()})
+	}
+	if err := validator.Validate(document); err != nil {
+		var validationError *runtimejsonschema.ValidationError
+		if errors.As(err, &validationError) {
+			return WorkflowSource{}, diagnosticsFromSchemaError(validationError, document)
+		}
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
+	}
+
+	var source WorkflowSource
+	if err := decodeValidatedSource(document, &source); err != nil {
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
+	}
+	diagnostics := validateSource(source)
 	if hasError(diagnostics) {
 		return WorkflowSource{}, diagnostics
 	}
 	return source, diagnostics
 }
 
-func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) []Diagnostic {
+func decodeValidatedSource(document any, source *WorkflowSource) error {
+	root := document.(map[string]any)
+	canonical := make(map[string]any, len(root))
+	for key, value := range root {
+		canonical[key] = value
+	}
+	canonical["version"] = json.Number(strconv.Itoa(Version))
+	revision, ok := new(big.Rat).SetString(root["revision"].(json.Number).String())
+	if !ok || !revision.IsInt() {
+		return errors.New("validated revision is not an integer")
+	}
+	canonical["revision"] = json.Number(revision.Num().String())
+	raw, err := json.Marshal(canonical)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, source)
+}
+
+func isCurrentVersion(number json.Number) bool {
+	value, ok := new(big.Rat).SetString(number.String())
+	return ok && value.Cmp(big.NewRat(Version, 1)) == 0
+}
+
+func validateSource(source WorkflowSource) []Diagnostic {
 	var out []Diagnostic
-	requiredTop := []string{"format", "version", "workflow", "revision", "entryGraph", "graphs", "variables", "secretRefs", "requestedCapabilities"}
-	for _, field := range requiredTop {
-		if _, ok := envelope[field]; !ok {
-			out = append(out, diagnostic(CodeMissingRequiredField, []string{field}, map[string]any{"field": field}))
-		}
-	}
-	if source.Workflow.ID == "" {
-		out = append(out, diagnostic(CodeMissingRequiredField, []string{"workflow", "id"}, map[string]any{"field": "id"}))
-	}
-	if source.Workflow.Name == "" {
-		out = append(out, diagnostic(CodeMissingRequiredField, []string{"workflow", "name"}, map[string]any{"field": "name"}))
-	}
-	if source.Revision < 0 {
-		out = append(out, diagnostic(CodeInvalidField, []string{"revision"}, map[string]any{"minimum": 0}))
-	}
-	if source.EntryGraph == "" {
-		out = append(out, diagnostic(CodeMissingRequiredField, []string{"entryGraph"}, map[string]any{"field": "entryGraph"}))
-	}
-	if len(source.Graphs) == 0 {
-		out = append(out, diagnostic(CodeMissingRequiredField, []string{"graphs"}, map[string]any{"field": "graphs"}))
-	}
-	for field, missing := range map[string]bool{"variables": source.Variables == nil, "secretRefs": source.SecretRefs == nil, "requestedCapabilities": source.RequestedCapabilities == nil} {
-		if missing {
-			out = append(out, diagnostic(CodeMissingRequiredField, []string{field}, map[string]any{"field": field}))
-		}
-	}
 
 	graphIDs := map[string]bool{}
 	graphKinds := map[string]GraphKind{}
@@ -94,36 +108,18 @@ func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) 
 	for graphIndex, graph := range source.Graphs {
 		graphPath := []string{graph.ID}
 		base := []string{"graphs", fmt.Sprint(graphIndex)}
-		if graph.ID == "" {
-			out = append(out, diagnosticAtGraph(CodeMissingRequiredField, graphPath, append(base, "id"), map[string]any{"field": "id"}))
-		} else if graphIDs[graph.ID] {
+		if graphIDs[graph.ID] {
 			out = append(out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(base, "id"), map[string]any{"id": graph.ID}))
 		}
 		graphIDs[graph.ID] = true
 		graphKinds[graph.ID] = graph.Kind
 		if graph.Kind == GraphKindMain {
 			mainGraphs++
-		} else if graph.Kind != GraphKindSubgraph {
-			out = append(out, diagnosticAtGraph(CodeInvalidField, graphPath, append(base, "kind"), map[string]any{"value": graph.Kind}))
-		}
-		for field, missing := range map[string]bool{"nodes": graph.Nodes == nil, "edges": graph.Edges == nil, "inputs": graph.Inputs == nil, "outputs": graph.Outputs == nil} {
-			if missing {
-				out = append(out, diagnosticAtGraph(CodeMissingRequiredField, graphPath, append(base, field), map[string]any{"field": field}))
-			}
 		}
 		nodeIDs := map[string]bool{}
 		for nodeIndex, node := range graph.Nodes {
 			nodePath := append(append([]string(nil), base...), "nodes", fmt.Sprint(nodeIndex))
-			if node.ID == "" || node.Kind == "" || node.Config == nil {
-				field := "id"
-				if node.ID != "" && node.Kind == "" {
-					field = "kind"
-				}
-				if node.ID != "" && node.Kind != "" && node.Config == nil {
-					field = "config"
-				}
-				out = append(out, Diagnostic{Code: CodeMissingRequiredField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, field), Params: map[string]any{"field": field}})
-			} else if nodeIDs[node.ID] {
+			if nodeIDs[node.ID] {
 				out = append(out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
 			}
 			nodeIDs[node.ID] = true
@@ -132,9 +128,7 @@ func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) 
 			portIDs := map[string]bool{}
 			for portIndex, port := range ports {
 				portPath := append(append([]string(nil), base...), field, fmt.Sprint(portIndex))
-				if port.ID == "" || port.Name == "" || port.Type == "" || port.NodeID == "" {
-					out = append(out, diagnosticAtGraph(CodeMissingRequiredField, graphPath, portPath, map[string]any{"field": field}))
-				} else if portIDs[port.ID] {
+				if portIDs[port.ID] {
 					out = append(out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(portPath, "id"), map[string]any{"id": port.ID}))
 				}
 				portIDs[port.ID] = true
@@ -149,9 +143,7 @@ func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) 
 	variableNames := map[string]bool{}
 	for index, variable := range source.Variables {
 		path := []string{"variables", fmt.Sprint(index)}
-		if variable.Name == "" || variable.Type == "" {
-			out = append(out, diagnostic(CodeMissingRequiredField, path, map[string]any{"field": "variables"}))
-		} else if variableNames[variable.Name] {
+		if variableNames[variable.Name] {
 			out = append(out, diagnostic(CodeDuplicateID, append(path, "name"), map[string]any{"id": variable.Name}))
 		}
 		variableNames[variable.Name] = true
@@ -159,9 +151,7 @@ func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) 
 	secretIDs := map[string]bool{}
 	for index, secret := range source.SecretRefs {
 		path := []string{"secretRefs", fmt.Sprint(index)}
-		if secret.ID == "" || secret.Purpose == "" {
-			out = append(out, diagnostic(CodeMissingRequiredField, path, map[string]any{"field": "secretRefs"}))
-		} else if secretIDs[secret.ID] {
+		if secretIDs[secret.ID] {
 			out = append(out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
 		}
 		secretIDs[secret.ID] = true
@@ -169,15 +159,95 @@ func validateSource(source WorkflowSource, envelope map[string]json.RawMessage) 
 	capabilities := map[Capability]bool{}
 	for index, capability := range source.RequestedCapabilities {
 		path := []string{"requestedCapabilities", fmt.Sprint(index)}
-		if capability == "" {
-			out = append(out, diagnostic(CodeInvalidField, path, map[string]any{"reason": "capability is empty"}))
-		} else if capabilities[capability] {
+		if capabilities[capability] {
 			out = append(out, diagnostic(CodeDuplicateID, path, map[string]any{"id": capability}))
 		}
 		capabilities[capability] = true
 	}
 	sortDiagnostics(out)
 	return out
+}
+
+func compileWorkflowValidator() (*runtimejsonschema.Schema, error) {
+	raw, err := GenerateContract("workflow")
+	if err != nil {
+		return nil, err
+	}
+	var document any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	compiler := runtimejsonschema.NewCompiler()
+	if err := compiler.AddResource(workflowSchemaID, document); err != nil {
+		return nil, err
+	}
+	return compiler.Compile(workflowSchemaID)
+}
+
+func diagnosticsFromSchemaError(validationError *runtimejsonschema.ValidationError, document any) []Diagnostic {
+	var out []Diagnostic
+	var visit func(*runtimejsonschema.ValidationError)
+	visit = func(current *runtimejsonschema.ValidationError) {
+		if len(current.Causes) > 0 {
+			for _, cause := range current.Causes {
+				visit(cause)
+			}
+			return
+		}
+		base := append([]string(nil), current.InstanceLocation...)
+		keyword := strings.Join(current.ErrorKind.KeywordPath(), "/")
+		switch typed := current.ErrorKind.(type) {
+		case *kind.Required:
+			for _, field := range typed.Missing {
+				out = append(out, schemaDiagnostic(CodeMissingRequiredField, appendPath(base, field), keyword, document))
+			}
+		case *kind.AdditionalProperties:
+			for _, field := range typed.Properties {
+				out = append(out, schemaDiagnostic(CodeUnknownField, appendPath(base, field), keyword, document))
+			}
+		default:
+			out = append(out, schemaDiagnostic(CodeInvalidField, base, keyword, document))
+		}
+	}
+	visit(validationError)
+	sortDiagnostics(out)
+	return out
+}
+
+func schemaDiagnostic(code string, fieldPath []string, keyword string, document any) Diagnostic {
+	d := diagnostic(code, fieldPath, map[string]any{"keyword": keyword})
+	d.GraphPath, d.NodeID = locationContext(document, fieldPath)
+	return d
+}
+
+func locationContext(document any, fieldPath []string) ([]string, string) {
+	root, _ := document.(map[string]any)
+	graphs, _ := root["graphs"].([]any)
+	if len(fieldPath) < 2 || fieldPath[0] != "graphs" {
+		return nil, ""
+	}
+	graphIndex, err := strconv.Atoi(fieldPath[1])
+	if err != nil || graphIndex < 0 || graphIndex >= len(graphs) {
+		return nil, ""
+	}
+	graph, _ := graphs[graphIndex].(map[string]any)
+	graphID, _ := graph["id"].(string)
+	graphPath := []string{graphID}
+	if len(fieldPath) < 4 || fieldPath[2] != "nodes" {
+		return graphPath, ""
+	}
+	nodes, _ := graph["nodes"].([]any)
+	nodeIndex, err := strconv.Atoi(fieldPath[3])
+	if err != nil || nodeIndex < 0 || nodeIndex >= len(nodes) {
+		return graphPath, ""
+	}
+	node, _ := nodes[nodeIndex].(map[string]any)
+	nodeID, _ := node["id"].(string)
+	return graphPath, nodeID
+}
+
+func appendPath(path []string, field string) []string {
+	return append(append([]string(nil), path...), field)
 }
 
 func firstDuplicateField(raw []byte) ([]string, error) {

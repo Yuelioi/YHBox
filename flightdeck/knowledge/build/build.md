@@ -26,7 +26,7 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
-production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow v3 的 durable contract 不依赖 Wails：Go 类型经 `task contracts:update` 生成 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。
+production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow v3 的 durable contract 不依赖 Wails：同一个 Go contract generator 同时喂给运行时 JSON Schema validator 与 `task contracts:update` 生成的 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。结构规则只写在 schema tag；Go semantic validator 只处理跨对象约束。
 
 Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。统一入口 `node frontend/scripts/generate-bindings.mjs` 会拒绝非零 warning；随后 `pnpm -C frontend bindings:check` 对比 tracked `contracts/wails-rpc.json`。alpha2.117 当前基线是 14 services / 112 methods / 86 model+enum declarations；数量不再硬编码到 workflow。接口有意变化后审查 diff，再运行 `pnpm -C frontend bindings:update`。
 

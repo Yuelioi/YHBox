@@ -2,8 +2,9 @@
 package schema
 
 const (
-	Format  = "yotta.workflow"
-	Version = 3
+	Format      = "yotta.workflow"
+	Version     = 3
+	MaxRevision = 9_007_199_254_740_991
 )
 
 type GraphKind string
@@ -19,7 +20,7 @@ type WorkflowSource struct {
 	Format                string       `json:"format" jsonschema:"required,enum=yotta.workflow"`
 	Version               int          `json:"version" jsonschema:"required,enum=3"`
 	Workflow              Workflow     `json:"workflow" jsonschema:"required"`
-	Revision              int64        `json:"revision" jsonschema:"required,minimum=0"`
+	Revision              int64        `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
 	EntryGraph            string       `json:"entryGraph" jsonschema:"required,minLength=1"`
 	Graphs                []Graph      `json:"graphs" jsonschema:"required,minItems=1"`
 	Variables             []Variable   `json:"variables" jsonschema:"required"`
