@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 112,
-    "models": 89
+    "models": 91
   },
   "services": [
     {
@@ -374,6 +374,11 @@
             },
             {
               "name": "name",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "category",
               "optional": false,
               "type": "string"
             },
@@ -1970,6 +1975,40 @@
         },
         {
           "kind": "class",
+          "name": "InputConstraint",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "InputConstraintKind"
+            },
+            {
+              "name": "\"threshold\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "InputConstraintKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "InputConstraintNonBlank",
+              "value": "\"nonBlank\""
+            },
+            {
+              "name": "InputConstraintNumberGreaterThan",
+              "value": "\"numberGreaterThan\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "InputSpec",
           "fields": [
             {
@@ -2016,6 +2055,11 @@
               "name": "\"schema\"",
               "optional": true,
               "type": "FieldSchema | null"
+            },
+            {
+              "name": "\"constraints\"",
+              "optional": true,
+              "type": "InputConstraint[]"
             }
           ]
         },

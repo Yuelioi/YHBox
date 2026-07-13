@@ -381,10 +381,11 @@ export const backend = {
     saveTemplateCapture: (
       dataURL: string,
       name: string,
+      category: string,
       tags: string[],
       recRes: [number, number],
       region: [number, number, number, number],
-    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, tags, recRes, region),
+    ) => invoke(AssetService.SaveTemplateCapture, dataURL, name, category, tags, recRes, region),
     // AddTemplateVariant 给已有资产加/换分辨率变体.
     addTemplateVariant: (
       guid: string,

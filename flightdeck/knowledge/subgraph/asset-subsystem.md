@@ -60,7 +60,7 @@ GUID/sha 寻址天然幂等 → **冲突/strategy 概念整个删掉了**。
 
 ## RPC 面 (`asset.Service`, 全局无 containerID)
 
-`list` / `get(guid)` / `saveTemplateCapture(dataURL,name,tags,recRes,region)→guid` / `addTemplateVariant(guid,...)→guid` / `removeVariant(guid,w,h)→guid` / `updateMeta(guid,name,tags)` / `delete(guid)→referrers` / `referrers(guid)` / `capture(containerID,nodeID?)` / `currentResolution(containerID)→[w,h]` / `pickVariant(guid,w,h)→{index,exact}` / `readBlobDataURL(sha)` / `gcBlobs()`。
+`list` / `get(guid)` / `saveTemplateCapture(dataURL,name,category,tags,recRes,region)→guid` / `addTemplateVariant(guid,...)→guid` / `removeVariant(guid,w,h)→guid` / `updateMeta(guid,name,description,category,tags)` / `delete(guid)→referrers` / `referrers(guid)` / `capture(containerID,nodeID?)` / `currentResolution(containerID)→[w,h]` / `pickVariant(guid,w,h)→{index,exact}` / `readBlobDataURL(sha)` / `gcBlobs()`。
 
 `capture`/`currentResolution` 要目标窗口开着(走 `ResolveWindow`);FE 静默封装(窗口没开返 undefined 不弹 toast,浏览常态)。
 
@@ -68,7 +68,9 @@ GUID/sha 寻址天然幂等 → **冲突/strategy 概念整个删掉了**。
 
 - `TemplatePicker.vue`(节点选模板,有容器上下文): 钻入式资产浏览 modal —— 网格页(虚拟滚动 + 多选 + 标签筛选) ↔ 详情页(滚轮缩放/拖拽平移 + 分辨率变体切换 + 行内改名/标签 + 上一个/下一个翻页 + 重拍/新增/删档)。详情页**当前分辨率感知**: 进来调 `currentResolution`+`pickVariant` 自动切到运行时真会用的那档、顶部显当前窗口分辨率、按钮按"当前分辨率有无精确档"在「重拍」(覆盖)/「新增」(加档)间切换;窗口没开优雅降级。
 - `stores/templates.ts` `map[guid]`;`stores/library.ts` `SubgraphPackage = {root, embedded, assets:string[]}`(无旧 templates/clips)。
+- 新模板的 name/category/tags 必须随 `SaveTemplateCapture` 的首次 `PutRecord` 原子落盘。不要先创建无分类记录再调用 `UpdateMeta`：第二步失败会留下半完成资产，changed 事件也会让无分类记录先进入前端池。ScreenPicker 在保存前加载既有 template categories，并允许通过 `UInputMenu create-item` 创建新分类。
 
 ## 零迁移 (二号铁律)
 
 升级后旧本地图里 `namespace.name` 的 Templates 值不是合法 GUID → 节点变红;旧 `_clips/` 不可读。**用户接受**: 重截模板、重录 clip。无迁移码、无 compat 读。
+

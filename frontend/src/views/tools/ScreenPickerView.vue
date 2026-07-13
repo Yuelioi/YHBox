@@ -345,6 +345,18 @@
             <UInput v-model="tplName" size="sm" class="w-full" placeholder="例：上钩图标" />
           </div>
           <div class="space-y-1.5">
+            <label class="block text-[11px] text-toned">分类 (可选)</label>
+            <UInputMenu
+              v-model="tplCategory"
+              :items="tplCategoryItems"
+              :create-item="'always'"
+              size="sm"
+              class="w-full"
+              placeholder="选择或输入分类"
+              @create="onCreateTplCategory"
+            />
+          </div>
+          <div class="space-y-1.5">
             <label class="block text-[11px] text-toned">标签 (可选)</label>
             <div v-if="tplTags.length" class="flex flex-wrap gap-1">
               <span
@@ -402,6 +414,7 @@ import { backend } from '@/lib/backend'
 import { rgbToHsv, rgbToHex } from '@/lib/color'
 import { usePickerViewport } from '@/composables/tools/usePickerViewport'
 import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
+import { addCreatedCategory, uniqueCategoryOptions } from '@/components/containers/categoryOptions'
 
 const route = useRoute()
 const mode = computed(
@@ -532,10 +545,32 @@ const loupeStyle = computed(() => {
   return { left: `${left}px`, top: `${top}px` }
 })
 
-// template form — key 已移除，后端分配 GUID; 填名称 + 可选标签
+// template form — key 已移除，后端分配 GUID; 填名称 + 可选分类/标签
 const tplName = ref('')
+const tplCategory = ref('')
+const tplKnownCategories = ref<string[]>([])
+const tplCreatedCategories = ref<string[]>([])
+const tplCategoryItems = computed(() =>
+  uniqueCategoryOptions(tplKnownCategories.value, tplCreatedCategories.value, [tplCategory.value]),
+)
 const tplTags = ref<string[]>([])
 const tplTagInput = ref('')
+function onCreateTplCategory(item: string) {
+  const result = addCreatedCategory(tplCreatedCategories.value, item)
+  if (!result.value) return
+  tplCreatedCategories.value = result.categories
+  tplCategory.value = result.value
+}
+async function loadTemplateCategories() {
+  if (mode.value !== 'template_save') return
+  const summaries = await backend.assets.list()
+  if (!summaries) return
+  tplKnownCategories.value = uniqueCategoryOptions(
+    (summaries as { kind: string; category?: string }[])
+      .filter((item) => item.kind === 'template')
+      .map((item) => item.category ?? ''),
+  )
+}
 function addTplTag() {
   const v = tplTagInput.value.trim()
   if (v && !tplTags.value.includes(v)) tplTags.value.push(v)
@@ -848,6 +883,7 @@ async function confirm() {
         const guid = await backend.assets.saveTemplateCapture(
           png,
           tplName.value.trim(),
+          tplCategory.value.trim(),
           tplTags.value,
           [natW.value, natH.value],
           region,
@@ -914,7 +950,7 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('resize', onResize)
-  await capture()
+  await Promise.all([capture(), loadTemplateCategories()])
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown)

@@ -51,7 +51,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	svc := NewService(s, nil)
 
-	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 32, 16), "登录按钮", []string{"按钮"}, [2]int{1920, 1080}, [4]float32{0.1, 0.2, 0.3, 0.4})
+	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 32, 16), "登录按钮", "登录", []string{"按钮"}, [2]int{1920, 1080}, [4]float32{0.1, 0.2, 0.3, 0.4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rec.Kind != KindTemplate || rec.Name != "登录按钮" || len(rec.Variants) != 1 {
+	if rec.Kind != KindTemplate || rec.Name != "登录按钮" || rec.Category != "登录" || len(rec.Variants) != 1 {
 		t.Fatalf("bad record: %+v", rec)
 	}
 	// bbox 换算: x1 = 0.1*1920=192, y1=0.2*1080=216, x2=(0.1+0.3)*1920=768, y2=(0.2+0.4)*1080=648
@@ -77,10 +77,27 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	}
 }
 
+func TestService_SaveTemplateCapture_PersistsCategory(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	svc := NewService(s, nil)
+
+	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "确认按钮", "战斗", []string{"按钮"}, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, err := svc.Get(guid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Category != "战斗" {
+		t.Fatalf("category = %q, want %q", rec.Category, "战斗")
+	}
+}
+
 func TestService_RenameDelete(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	svc := NewService(s, nil)
-	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "旧名", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "旧名", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 
 	if err := svc.UpdateMeta(guid, "新名", "测试描述", "采集", []string{"物品", "背包"}); err != nil {
 		t.Fatal(err)
@@ -115,7 +132,7 @@ func TestService_RenameDelete(t *testing.T) {
 func TestService_ReadBlobDataURL(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	svc := NewService(s, nil)
-	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", nil, [2]int{800, 600}, [4]float32{0, 0, 1, 1})
+	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{800, 600}, [4]float32{0, 0, 1, 1})
 	rec, _ := svc.Get(guid)
 	url, err := svc.ReadBlobDataURL(rec.Variants[0].Blob)
 	if err != nil {
@@ -147,7 +164,7 @@ func TestService_PickVariant(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	svc := NewService(s, nil)
 	// 1280×720 建档 (Variants[0]), 再加 1920×1080 (Variants[1], 不同分辨率 → 追加).
-	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +189,7 @@ func TestService_PickVariant(t *testing.T) {
 func TestService_RemoveVariant(t *testing.T) {
 	s, _ := NewStore(t.TempDir())
 	svc := NewService(s, nil)
-	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
 		t.Fatal(err)
 	}

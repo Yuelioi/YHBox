@@ -65,7 +65,7 @@ func (s *Service) notifyChange() {
 // dataURL 必须 data:image/png;base64,...; recRes = 录制帧分辨率 [W,H];
 // region = ratio [x,y,w,h] within recRes 帧 → 换算成 bbox 像素 (逐字搬旧 template/service.go).
 // 返新分配的 GUID (用户看不到, FE 拿来 set 节点 pin).
-func (s *Service) SaveTemplateCapture(dataURL, name string, tags []string, recRes [2]int, region [4]float32) (string, error) {
+func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []string, recRes [2]int, region [4]float32) (string, error) {
 	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
 		return "", fmt.Errorf("data URL must start with %q", "data:image/png;base64,")
 	}
@@ -89,6 +89,7 @@ func (s *Service) SaveTemplateCapture(dataURL, name string, tags []string, recRe
 		GUID:      guid,
 		Kind:      KindTemplate,
 		Name:      name,
+		Category:  category,
 		Tags:      tags,
 		Origin:    Origin{Kind: "user"},
 		Variants:  []Variant{{Resolution: recRes, BBox: bbox, Blob: sha}},

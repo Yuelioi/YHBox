@@ -33,6 +33,7 @@ export const useTemplatesStore = defineStore('templates', () => {
   async function save(
     dataURL: string,
     name: string,
+    category: string,
     tags: string[],
     recordedResolution: [number, number],
     region: [number, number, number, number],
@@ -40,6 +41,7 @@ export const useTemplatesStore = defineStore('templates', () => {
     const guid = await backend.assets.saveTemplateCapture(
       dataURL,
       name,
+      category,
       tags,
       recordedResolution,
       region,
