@@ -165,6 +165,7 @@
           ><span class="toolbar-secondary-label">{{ t('editor.toolbar.validate') }}</span></UButton
         >
         <UButton
+          v-if="experienceMode === 'pro'"
           size="sm"
           color="neutral"
           variant="soft"
@@ -192,6 +193,24 @@
 
     <!-- ====== 右 · 低频工具: 录制 · 自动布局 · ⋯ ====== -->
     <div data-zone="utility" class="toolbar-zone toolbar-utility">
+      <UDropdownMenu :items="experienceMenuItems">
+        <UButton
+          data-testid="experience-mode-menu"
+          size="sm"
+          variant="ghost"
+          color="neutral"
+          :icon="experienceMode === 'pro' ? 'i-tabler-tool' : 'i-tabler-sparkles'"
+          :title="t(`editor.experience.${experienceMode}_desc`)"
+          :aria-label="t('editor.experience.switch_mode')"
+        >
+          <span class="toolbar-utility-label">{{
+            t(`editor.experience.${experienceMode}`)
+          }}</span></UButton
+        >
+      </UDropdownMenu>
+
+      <div class="toolbar-divider" />
+
       <!-- 录制 (三态紧凑单控件): 空闲=下拉选精准·简易 (neutral, 次操作); 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
       <UButton
         v-if="isRecording"
@@ -268,6 +287,7 @@ import { useI18n } from 'vue-i18n'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import ContainerEditorBreadcrumb from '@/components/containers/ContainerEditorBreadcrumb.vue'
 import ContainerOverviewPopover from '@/components/containers/ContainerOverviewPopover.vue'
+import type { EditorExperienceMode } from '@/composables/editor/useSidebarPrefs'
 
 const { t } = useI18n()
 const hotkeys = useHotkeysStore()
@@ -278,6 +298,7 @@ const props = defineProps<{
   varCount: number
   subgraphCount: number
   overviewHotkey: string
+  experienceMode: EditorExperienceMode
   // recording 三态: isRecording (后端真的在录) / countdownSec>0 (倒计时中) / 都不是 (空闲)
   isRecording: boolean
   /** 录制目标容器名 (录制中进停止按钮 tooltip, 空则不拼) */
@@ -332,6 +353,7 @@ const emit = defineEmits<{
   'back-to-list': []
   // 面包屑层级导航 (goto -1 = 回主图根)
   goto: [idx: number]
+  'set-experience-mode': [mode: EditorExperienceMode]
 }>()
 
 const activeNodeLabel = computed(() => {
@@ -370,6 +392,29 @@ const layoutMenuItems = [
     },
   ],
 ]
+
+const experienceMenuItems = computed(() => [
+  [
+    {
+      label: t('editor.experience.basic'),
+      icon: 'i-tabler-sparkles',
+      type: 'checkbox' as const,
+      checked: props.experienceMode === 'basic',
+      onUpdateChecked: (checked: boolean) => {
+        if (checked) emit('set-experience-mode', 'basic')
+      },
+    },
+    {
+      label: t('editor.experience.pro'),
+      icon: 'i-tabler-tool',
+      type: 'checkbox' as const,
+      checked: props.experienceMode === 'pro',
+      onUpdateChecked: (checked: boolean) => {
+        if (checked) emit('set-experience-mode', 'pro')
+      },
+    },
+  ],
+])
 
 // ⋯ 更多菜单: 低频收纳 — 连线样式 / 吸附 / 重载 + 设置 / 帮助。(自动布局已出, 设置已进)
 const moreMenuItems = computed(() => {
@@ -413,11 +458,15 @@ const moreMenuItems = computed(() => {
         icon: 'i-tabler-refresh',
         onSelect: () => emit('reload'),
       },
-      {
-        label: t('editor.palette.cmd.js_console'),
-        icon: 'i-tabler-terminal-2',
-        onSelect: () => emit('open-js-console'),
-      },
+      ...(props.experienceMode === 'pro'
+        ? [
+            {
+              label: t('editor.palette.cmd.js_console'),
+              icon: 'i-tabler-terminal-2',
+              onSelect: () => emit('open-js-console'),
+            },
+          ]
+        : []),
       {
         label: t('editor.toolbar.open_settings'),
         icon: 'i-tabler-settings',

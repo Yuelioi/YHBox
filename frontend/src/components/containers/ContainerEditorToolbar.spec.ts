@@ -48,4 +48,13 @@ describe('ContainerEditorToolbar structure', () => {
     expect(source).toContain('.toolbar-state-label')
     expect(source).toContain('.toolbar-utility-label')
   })
+
+  it('exposes Basic and Pro modes while keeping debug as a Pro action', () => {
+    const workflow = zone('workflow')
+    const utility = zone('utility')
+
+    expect(utility).toContain('experienceMenuItems')
+    expect(utility).toContain('experience-mode-menu')
+    expect(workflow).toContain(`v-if="experienceMode === 'pro'"`)
+  })
 })

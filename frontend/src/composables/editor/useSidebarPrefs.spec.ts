@@ -13,6 +13,7 @@ describe('useSidebarPrefs', () => {
     const { prefs } = useSidebarPrefs()
     expect(prefs.value.leftDrawer).toBe(null)
     expect(prefs.value.varsExpanded).toBe(true)
+    expect(prefs.value.experienceMode).toBe('basic')
   })
 
   it('persists changes to localStorage', async () => {
@@ -33,6 +34,16 @@ describe('useSidebarPrefs', () => {
     const { prefs } = useSidebarPrefs()
     expect(prefs.value.inspectorCollapsed).toBe(true)
     expect(prefs.value.varsExpanded).toBe(true)
+    expect(prefs.value.experienceMode).toBe('pro')
+  })
+
+  it('persists an explicit experience mode', async () => {
+    const { useSidebarPrefs, SIDEBAR_PREFS_KEY } = await import('./useSidebarPrefs')
+    const { prefs } = useSidebarPrefs()
+    prefs.value.experienceMode = 'pro'
+    await nextTick()
+
+    expect(JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY)!).experienceMode).toBe('pro')
   })
 
   it('assetTab 默认是 templates', async () => {

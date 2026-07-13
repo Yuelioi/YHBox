@@ -40,7 +40,13 @@ function mountAsyncDropdown() {
 
   const app = createApp(Wrapper)
   app.use(createPinia())
-  app.use(createI18n({ legacy: false, locale: 'zh', messages: { zh: {} } }))
+  app.use(
+    createI18n({
+      legacy: false,
+      locale: 'zh',
+      messages: { zh: { common: { retry: '重试' } } },
+    }),
+  )
   app.component(
     'UCheckbox',
     defineComponent(() => () => null),
@@ -84,6 +90,29 @@ describe('PinInput async-dropdown', () => {
     expect(wrapper.el.querySelector('[role="combobox"]')).toBeTruthy()
     expect(wrapper.updates).toEqual([])
     expect(wrapper.selected).toEqual([])
+
+    wrapper.app.unmount()
+    wrapper.el.remove()
+  })
+
+  it('explains a timeout and lets the user retry in place', async () => {
+    asyncOptionsMock
+      .mockRejectedValueOnce(new Error('context deadline exceeded'))
+      .mockResolvedValueOnce([])
+
+    const wrapper = mountAsyncDropdown()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.el.textContent).toContain('超时')
+    const retry = wrapper.el.querySelector('[data-testid="async-options-retry"]') as HTMLElement
+    expect(retry).toBeTruthy()
+
+    const callsBeforeRetry = asyncOptionsMock.mock.calls.length
+    retry.click()
+    await flushPromises()
+    await nextTick()
+    expect(asyncOptionsMock.mock.calls.length).toBe(callsBeforeRetry + 1)
 
     wrapper.app.unmount()
     wrapper.el.remove()

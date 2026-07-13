@@ -70,8 +70,27 @@ export function errorMessage(e: unknown): string {
     const key = `error.${n.code}`
     return te(key) ? t(key, (n.params ?? {}) as Record<string, unknown>) : n.code
   }
-  if (n.message) return n.message
+  if (n.message) return friendlyRawErrorMessage(n.message)
   return t('error.UNKNOWN_ERROR')
+}
+
+/** 把底层 transport 文案收敛为用户知道下一步该做什么的提示。 */
+export function friendlyRawErrorMessage(message: string): string {
+  const normalized = message.trim().toLowerCase()
+  if (
+    normalized.includes('context deadline exceeded') ||
+    normalized.includes('deadline exceeded') ||
+    normalized.includes('request canceled while waiting')
+  ) {
+    return i18n.global.t('error.TRANSPORT_TIMEOUT')
+  }
+  if (
+    normalized.includes('connection refused') ||
+    normalized.includes('no connection could be made')
+  ) {
+    return i18n.global.t('error.TRANSPORT_UNAVAILABLE')
+  }
+  return message
 }
 
 function copyText(s: string) {
@@ -95,21 +114,38 @@ function fallbackCopy(s: string) {
   document.body.removeChild(ta)
 }
 
-export function toastError(msg: string, title?: string) {
+export function toastError(error: unknown, title?: string, retry?: () => void | Promise<void>) {
   const t = i18n.global.t
+  const msg = typeof error === 'string' ? friendlyRawErrorMessage(error) : errorMessage(error)
+  const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : msg
+  const actions: Array<{
+    label: string
+    icon: string
+    color: string
+    onClick: () => void
+  }> = []
+  if (retry) {
+    actions.push({
+      label: t('common.retry'),
+      icon: 'i-tabler-refresh',
+      color: 'primary',
+      onClick: () => {
+        void retry()
+      },
+    })
+  }
+  actions.push({
+    label: t('common.copy'),
+    icon: 'i-tabler-copy',
+    color: 'neutral',
+    onClick: () => copyText(detail),
+  })
   _toastAdd?.({
     title: title ?? t('toast.operation_failed'),
     description: msg,
     color: 'error',
     duration: 6000,
-    actions: [
-      {
-        label: t('common.copy'),
-        icon: 'i-tabler-copy',
-        color: 'neutral',
-        onClick: () => copyText(msg),
-      },
-    ],
+    actions,
   })
 }
 
@@ -125,7 +161,7 @@ export async function invoke<R, A extends any[]>(
   try {
     return await fn(...args)
   } catch (e) {
-    toastError(errorMessage(e))
+    toastError(e)
     return undefined
   }
 }

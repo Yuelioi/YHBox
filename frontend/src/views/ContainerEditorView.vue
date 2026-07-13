@@ -73,6 +73,7 @@
         :var-count="declaredVars.length"
         :subgraph-count="editorStore.visibleSubgraphs.length"
         :overview-hotkey="draft?.hotkey ?? ''"
+        :experience-mode="sidebarPrefs.experienceMode"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -96,6 +97,7 @@
         @back-to-list="onBackToList"
         @open-help="helpModalOpen = true"
         @goto="editorStore.gotoPathIndex($event)"
+        @set-experience-mode="setExperienceMode"
       />
 
       <div
@@ -119,6 +121,8 @@
                 : 'text-dimmed hover:text-default hover:bg-elevated/60'
             "
             :title="item.title"
+            :aria-label="item.title"
+            :aria-pressed="railActive(item)"
             @click="onRailClick(item)"
           >
             <UIcon :name="item.icon" class="size-5" />
@@ -279,6 +283,7 @@
           :declared-vars="declaredVars"
           :all-subgraph-tags="allSubgraphTags"
           :all-subgraph-categories="allSubgraphCategories"
+          :experience-mode="sidebarPrefs.experienceMode"
           @config-update="onConfigUpdate"
           @remove-switch-case="removeSwitchCase"
           @declare-var="onDeclareVar"
@@ -517,7 +522,7 @@ import '@vue-flow/minimap/dist/style.css'
 
 import { backend, type GraphNode, type ValidationError, type VarDecl } from '@/lib/backend'
 import { type VarType } from '@/lib/variableRef'
-import { errorMessage } from '@/lib/invoke'
+import { toastError } from '@/lib/invoke'
 import { useRecordingStore } from '@/stores/recording'
 import { useExecutionStore } from '@/stores/execution'
 import { useContainersStore } from '@/stores/containers'
@@ -725,7 +730,7 @@ async function onReload() {
   try {
     await reload()
   } catch (e) {
-    toast.add({ title: t('editor.reload.failed'), description: errorMessage(e), color: 'error' })
+    toastError(e, t('editor.reload.failed'), () => onReload())
   }
 }
 
@@ -852,12 +857,17 @@ const workspaceLayout = computed(() => resolveEditorWorkspaceLayout(workspaceWid
 const dockOverlay = computed(() => workspaceLayout.value !== 'spacious')
 // 左活动栏 rail: 4 个停靠面板 (节点库/变量/Snippets/资产), 点同图标收回。录制在 toolbar 右区。
 type DockPanel = 'nodes' | 'vars' | 'snippets' | 'assets'
-const leftRail = [
+const allLeftRail = [
   { key: 'nodes' as const, icon: 'i-tabler-grid-dots', title: t('editor.toolbar.node_explorer') },
   { key: 'vars' as const, icon: 'i-tabler-variable', title: t('var.title') },
   { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
   { key: 'assets' as const, icon: 'i-tabler-stack-2', title: t('editor.dock.assets') },
 ]
+const leftRail = computed(() =>
+  sidebarPrefs.value.experienceMode === 'pro'
+    ? allLeftRail
+    : allLeftRail.filter((item) => item.key === 'nodes' || item.key === 'assets'),
+)
 const {
   request: assetPickRequest,
   updateSelection: updateAssetPick,
@@ -869,11 +879,21 @@ function toggleDock(key: DockPanel) {
   if (sidebarPrefs.value.leftDrawer === 'assets' && next !== 'assets') cancelAssetPick()
   sidebarPrefs.value.leftDrawer = next
 }
-function onRailClick(item: (typeof leftRail)[number]) {
+function onRailClick(item: (typeof allLeftRail)[number]) {
   toggleDock(item.key)
 }
-function railActive(item: (typeof leftRail)[number]): boolean {
+function railActive(item: (typeof allLeftRail)[number]): boolean {
   return sidebarPrefs.value.leftDrawer === item.key
+}
+function setExperienceMode(mode: 'basic' | 'pro') {
+  sidebarPrefs.value.experienceMode = mode
+  if (
+    mode === 'basic' &&
+    sidebarPrefs.value.leftDrawer !== 'nodes' &&
+    sidebarPrefs.value.leftDrawer !== 'assets'
+  ) {
+    sidebarPrefs.value.leftDrawer = null
+  }
 }
 // 节点字段 (TemplatePickerField) 发起选模板 → 自动开停靠区资产·模板 tab (pick 模式).
 watch(assetPickRequest, (req) => {
@@ -1700,7 +1720,7 @@ async function onTryRun() {
       return
     }
   } catch (e) {
-    toast.add({ title: t('toast.validate_failed'), description: errorMessage(e), color: 'error' })
+    toastError(e, t('toast.validate_failed'), () => onTryRun())
     return
   }
   await backend.containers.run(draft.value.id)
@@ -1715,11 +1735,7 @@ async function onValidate() {
     validationRan.value = true
     problemsExpanded.value = true
   } catch (e) {
-    toast.add({
-      title: t('toast.validate_call_failed'),
-      description: errorMessage(e),
-      color: 'error',
-    })
+    toastError(e, t('toast.validate_call_failed'), () => onValidate())
   }
 }
 

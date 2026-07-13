@@ -3,7 +3,11 @@ import { ref, watch } from 'vue'
 
 export const SIDEBAR_PREFS_KEY = 'yotta.editor.sidebar'
 
+export type EditorExperienceMode = 'basic' | 'pro'
+
 export interface SidebarPrefs {
+  /** 基础模式收起变量、调试和技术元数据；专业模式暴露完整编辑能力。 */
+  experienceMode: EditorExperienceMode
   /** 左侧 VS Code 活动栏式: 哪个停靠面板打开 (null = 只剩细图标栏, 画布最大). */
   leftDrawer: 'vars' | 'snippets' | 'nodes' | 'assets' | null
   /** 资产停靠面板当前 tab (模板 / 子图库 / Clip). */
@@ -16,6 +20,7 @@ export interface SidebarPrefs {
 }
 
 const DEFAULTS: SidebarPrefs = {
+  experienceMode: 'basic',
   leftDrawer: null,
   assetTab: 'templates',
   inspectorCollapsed: false,
@@ -28,7 +33,14 @@ function loadInitial(): SidebarPrefs {
   const merged: SidebarPrefs = { ...DEFAULTS }
   try {
     const raw = localStorage.getItem(SIDEBAR_PREFS_KEY)
-    if (raw) Object.assign(merged, JSON.parse(raw))
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<SidebarPrefs>
+      Object.assign(merged, saved)
+      // 升级前没有模式字段的既有用户继续看到完整工具，避免功能突然消失。
+      if (saved.experienceMode !== 'basic' && saved.experienceMode !== 'pro') {
+        merged.experienceMode = 'pro'
+      }
+    }
   } catch {
     // localStorage 不可用或 JSON 坏 → 保留 defaults
   }

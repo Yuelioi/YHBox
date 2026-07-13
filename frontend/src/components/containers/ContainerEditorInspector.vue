@@ -6,6 +6,7 @@
       :declared-vars="declaredVars"
       :nodes="activeGraph?.nodes ?? []"
       :edges="activeGraph?.edges ?? []"
+      :experience-mode="experienceMode"
       @update="$emit('config-update', $event)"
       @remove-switch-case="$emit('remove-switch-case', $event)"
       @label-update="$emit('label-update', $event)"
@@ -29,6 +30,7 @@
 import type { Graph, GraphNode } from '@/lib/backend'
 import type { VarType } from '@/lib/variableRef'
 import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
+import type { EditorExperienceMode } from '@/composables/editor/useSidebarPrefs'
 import type { SubgraphSummary } from '@/stores/containerEditor'
 import NodeInspector from '@/components/containers/NodeInspector.vue'
 import SubgraphPropsPanel from '@/components/containers/SubgraphPropsPanel.vue'
@@ -44,6 +46,7 @@ defineProps<{
   declaredVars: { name: string; type: VarType }[]
   allSubgraphTags: string[]
   allSubgraphCategories: string[]
+  experienceMode: EditorExperienceMode
 }>()
 
 defineEmits<{

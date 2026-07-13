@@ -51,7 +51,23 @@
       @update:model-value="onAsyncValue"
       @create="(v: string) => commit(v)"
     />
-    <p v-if="asyncError" class="text-[10px] text-error">{{ asyncError }}</p>
+    <div
+      v-if="asyncError"
+      class="flex items-center gap-2 rounded-md border border-error/25 bg-error/5 px-2 py-1.5"
+    >
+      <UIcon name="i-tabler-alert-circle" class="size-3.5 shrink-0 text-error" />
+      <p class="min-w-0 flex-1 text-[10px] leading-snug text-error">{{ asyncError }}</p>
+      <UButton
+        data-testid="async-options-retry"
+        size="xs"
+        variant="ghost"
+        color="error"
+        icon="i-tabler-refresh"
+        @click="loadAsyncOptions"
+      >
+        {{ t('common.retry') }}
+      </UButton>
+    </div>
   </div>
 
   <!-- ai-connection: AI 节点连接选择器, 从 settings 读连接列表 (label→id); 空 = 用默认连接 -->
@@ -163,6 +179,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { NodeService } from '@bindings/github.com/yottaapp/yotta/internal/node'
 import type { PinType } from '../pinSpec'
 import type { VarType } from '@/lib/variableRef'
+import { errorMessage } from '@/lib/invoke'
 import {
   asyncOptionPayloadForValue,
   normalizeAsyncDropdownValue,
@@ -260,7 +277,7 @@ async function loadAsyncOptions() {
   } catch (err) {
     if (seq !== asyncLoadSeq) return
     asyncOptions.value = []
-    asyncError.value = err instanceof Error ? err.message : String(err)
+    asyncError.value = errorMessage(err)
   } finally {
     if (seq === asyncLoadSeq) asyncLoading.value = false
   }

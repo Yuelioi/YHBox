@@ -12,7 +12,10 @@
       </div>
       <div class="min-w-0 flex-1">
         <h3 class="text-sm font-medium text-highlighted leading-tight">{{ label }}</h3>
-        <p class="text-[11px] text-dimmed font-mono truncate mt-0.5">
+        <p
+          v-if="experienceMode === 'pro'"
+          class="text-[11px] text-dimmed font-mono truncate mt-0.5"
+        >
           {{ node.kind }} · {{ node.id }}
         </p>
       </div>
@@ -50,7 +53,7 @@
         </UPopover>
         <!-- 复制菜单: 节点 ID / JSON / 脚本调用信息。下拉项点完即关、无处内联 →
              走短 toast (ui.md「反馈方式」决策树第 2 条)。 -->
-        <UDropdownMenu :items="copyMenuItems">
+        <UDropdownMenu v-if="experienceMode === 'pro'" :items="copyMenuItems">
           <UButton
             size="xs"
             variant="ghost"
@@ -77,7 +80,7 @@
     />
 
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
-    <section class="mb-4">
+    <section v-if="experienceMode === 'pro'" class="mb-4">
       <UFormField :label="t('inspector.label_field_label')" :hint="t('inspector.label_field_hint')">
         <UInput
           :model-value="node.label ?? ''"
@@ -122,7 +125,7 @@
 
     <!-- Expr 链提示 + 一键合并按钮 -->
     <section
-      v-if="exprChainHint"
+      v-if="experienceMode === 'pro' && exprChainHint"
       class="mb-5 rounded-md bg-warning/10 border border-warning/30 px-3 py-2.5"
     >
       <div class="flex items-start gap-2">
@@ -643,105 +646,123 @@
       {{ t('inspector.no_config') }}
     </p>
 
-    <!-- 输出组 — ① 可绑产出 (config.capture: 绑变量名 → 运行时把该出口产出写进变量) ② exec/纯数据出口 (只读)。 -->
-    <SectionHeader
-      :title="t('editor.inspector.group_outputs')"
-      icon="i-tabler-logout-2"
-      class="-mx-4 mt-5 mb-3"
-    />
+    <template v-if="experienceMode === 'pro' || danglingCaptures.length > 0">
+      <!-- 输出组 — ① 可绑产出 (config.capture: 绑变量名 → 运行时把该出口产出写进变量) ② exec/纯数据出口 (只读)。 -->
+      <SectionHeader
+        :title="t('editor.inspector.group_outputs')"
+        icon="i-tabler-logout-2"
+        class="-mx-4 mt-5 mb-3"
+      />
 
-    <!-- 可绑产出 (非纯数据节点 exec 出口 Data 字段): 方案 A — 未绑显「+绑定」按钮, 绑了/编辑中显 VarNameInput + 解绑 ✕。 -->
-    <div v-if="bindable.length" class="space-y-3 mb-4">
-      <div v-for="field in bindable" :key="'b-' + field" class="space-y-1">
-        <div class="flex items-center gap-2 text-[11px]">
-          <UIcon name="i-tabler-variable" class="size-3.5 text-primary shrink-0" />
-          <span class="text-toned">{{ outLabel(field) }}</span>
-          <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono"
-            >({{ dataTypeOf(field) }})</span
-          >
-          <UButton
-            v-if="!getCapture(field) && !editing.has(field)"
-            size="xs"
-            variant="ghost"
-            color="primary"
-            icon="i-tabler-plus"
-            class="ml-auto"
-            @click="editing.add(field)"
-            >{{ t('inspector.output.bind') }}</UButton
-          >
+      <!-- 可绑产出 (非纯数据节点 exec 出口 Data 字段): 方案 A — 未绑显「+绑定」按钮, 绑了/编辑中显 VarNameInput + 解绑 ✕。 -->
+      <div v-if="bindable.length" class="space-y-3 mb-4">
+        <div v-for="field in bindable" :key="'b-' + field" class="space-y-1">
+          <div class="flex items-center gap-2 text-[11px]">
+            <UIcon name="i-tabler-variable" class="size-3.5 text-primary shrink-0" />
+            <span class="text-toned">{{ outLabel(field) }}</span>
+            <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono"
+              >({{ dataTypeOf(field) }})</span
+            >
+            <UButton
+              v-if="!getCapture(field) && !editing.has(field)"
+              size="xs"
+              variant="ghost"
+              color="primary"
+              icon="i-tabler-plus"
+              class="ml-auto"
+              @click="editing.add(field)"
+              >{{ t('inspector.output.bind') }}</UButton
+            >
+          </div>
+          <div v-if="getCapture(field) || editing.has(field)" class="flex items-center gap-1.5">
+            <VarNameInput
+              class="flex-1"
+              :model-value="getCapture(field)"
+              :declared-vars="declaredVars ?? []"
+              :capture-type="dataTypeOf(field)"
+              scope="auto"
+              @update:model-value="(v: string) => setCapture(field, v)"
+              @declare-var="(a) => emit('declare-var', a)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-tabler-x"
+              :title="t('inspector.output.unbind_tooltip')"
+              @click="clearCapture(field)"
+            />
+          </div>
+          <p class="text-[10px] text-dimmed leading-snug">
+            {{
+              field === 'Found'
+                ? t('inspector.output.found_hint')
+                : t('inspector.output.stale_hint')
+            }}
+          </p>
         </div>
-        <div v-if="getCapture(field) || editing.has(field)" class="flex items-center gap-1.5">
-          <VarNameInput
-            class="flex-1"
-            :model-value="getCapture(field)"
-            :declared-vars="declaredVars ?? []"
-            :capture-type="dataTypeOf(field)"
-            scope="auto"
-            @update:model-value="(v: string) => setCapture(field, v)"
-            @declare-var="(a) => emit('declare-var', a)"
-          />
+      </div>
+
+      <!-- 悬空捕获绑定 (字段已不在可绑集 — 声明被删/改后残留): 标红 + 可解绑, 清除后端 INVALID_PIN。 -->
+      <div v-if="danglingCaptures.length" class="space-y-1.5 mb-4">
+        <div
+          v-for="field in danglingCaptures"
+          :key="'dangling-' + field"
+          class="flex items-center gap-2 text-[11px]"
+        >
+          <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-error shrink-0" />
+          <span class="text-error font-mono">{{ field }}</span>
+          <span class="text-[10px] text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
           <UButton
             size="xs"
             variant="ghost"
-            color="neutral"
+            color="error"
             icon="i-tabler-x"
+            class="ml-auto"
             :title="t('inspector.output.unbind_tooltip')"
             @click="clearCapture(field)"
           />
         </div>
-        <p class="text-[10px] text-dimmed leading-snug">
-          {{
-            field === 'Found' ? t('inspector.output.found_hint') : t('inspector.output.stale_hint')
-          }}
-        </p>
       </div>
-    </div>
 
-    <!-- 悬空捕获绑定 (字段已不在可绑集 — 声明被删/改后残留): 标红 + 可解绑, 清除后端 INVALID_PIN。 -->
-    <div v-if="danglingCaptures.length" class="space-y-1.5 mb-4">
-      <div
-        v-for="field in danglingCaptures"
-        :key="'dangling-' + field"
-        class="flex items-center gap-2 text-[11px]"
-      >
-        <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-error shrink-0" />
-        <span class="text-error font-mono">{{ field }}</span>
-        <span class="text-[10px] text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="error"
-          icon="i-tabler-x"
-          class="ml-auto"
-          :title="t('inspector.output.unbind_tooltip')"
-          @click="clearCapture(field)"
-        />
+      <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
+      <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
+        <div
+          v-for="pn in outPins.exec"
+          :key="'x-' + pn"
+          class="flex items-center gap-2 text-[11px]"
+        >
+          <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
+          <span class="text-toned">{{ outLabel(pn) }}</span>
+          <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
+        </div>
+        <div
+          v-for="dp in readonlyData"
+          :key="'d-' + dp.name"
+          class="flex items-center gap-2 text-[11px]"
+        >
+          <UIcon name="i-tabler-variable" class="size-3.5 text-dimmed shrink-0" />
+          <span class="text-toned">{{ outLabel(dp.name) }}</span>
+          <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{
+            dp.type
+          }}</span>
+        </div>
       </div>
-    </div>
+      <p
+        v-if="!bindable.length && !outPins.exec.length && !readonlyData.length"
+        class="text-[11px] text-dimmed"
+      >
+        {{ t('editor.inspector.outputs_none') }}
+      </p>
+    </template>
 
-    <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
-    <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
-      <div v-for="pn in outPins.exec" :key="'x-' + pn" class="flex items-center gap-2 text-[11px]">
-        <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
-        <span class="text-toned">{{ outLabel(pn) }}</span>
-        <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
-      </div>
-      <div
-        v-for="dp in readonlyData"
-        :key="'d-' + dp.name"
-        class="flex items-center gap-2 text-[11px]"
-      >
-        <UIcon name="i-tabler-variable" class="size-3.5 text-dimmed shrink-0" />
-        <span class="text-toned">{{ outLabel(dp.name) }}</span>
-        <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{ dp.type }}</span>
-      </div>
-    </div>
-    <p
-      v-if="!bindable.length && !outPins.exec.length && !readonlyData.length"
-      class="text-[11px] text-dimmed"
+    <div
+      v-else
+      class="mt-5 flex items-start gap-2 border-t border-default pt-3 text-[11px] text-dimmed"
     >
-      {{ t('editor.inspector.outputs_none') }}
-    </p>
+      <UIcon name="i-tabler-adjustments-code" class="mt-0.5 size-3.5 shrink-0" />
+      <span>{{ t('editor.experience.basic_inspector_hint') }}</span>
+    </div>
   </div>
 </template>
 
@@ -787,6 +808,7 @@ import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
 import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
 import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
+import type { EditorExperienceMode } from '@/composables/editor/useSidebarPrefs'
 import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 import { applyAsyncOptionMeta, type AsyncOptionPayload } from './asyncOptionMeta'
@@ -796,6 +818,7 @@ const props = defineProps<{
   declaredVars?: { name: string; type: VarType }[]
   nodes?: GraphNode[]
   edges?: GraphEdge[]
+  experienceMode: EditorExperienceMode
 }>()
 const emit = defineEmits<{
   update: [config: Record<string, any>]

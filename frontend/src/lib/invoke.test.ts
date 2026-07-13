@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { normalizeError, errorMessage } from './invoke'
+import { describe, it, expect, vi } from 'vitest'
+import {
+  normalizeError,
+  errorMessage,
+  friendlyRawErrorMessage,
+  setupInvoker,
+  toastError,
+} from './invoke'
 
 describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
@@ -90,5 +96,34 @@ describe('errorMessage', () => {
     expect(msg).not.toContain('{') // 不再糊裸 JSON
     expect(msg).not.toContain('map[]')
     expect(msg).toContain('Windows 窗口目标') // zh user-facing label, not raw kind
+  })
+})
+
+describe('friendlyRawErrorMessage', () => {
+  it('turns a transport timeout into an actionable message', () => {
+    const msg = friendlyRawErrorMessage('context deadline exceeded')
+    expect(msg).toContain('超时')
+    expect(msg).toContain('重试')
+    expect(msg).not.toContain('deadline')
+  })
+
+  it('keeps unknown technical messages intact for diagnosis', () => {
+    expect(friendlyRawErrorMessage('boom')).toBe('boom')
+  })
+
+  it('offers retry while preserving the technical detail for copy', () => {
+    const retry = vi.fn()
+    let toast: Record<string, unknown> | undefined
+    setupInvoker((options) => {
+      toast = options
+    })
+
+    toastError(new Error('context deadline exceeded'), '加载设备失败', retry)
+
+    const actions = toast?.actions as Array<{ onClick: () => void }> | undefined
+    expect(String(toast?.description)).toContain('超时')
+    expect(actions).toHaveLength(2)
+    actions?.[0]?.onClick()
+    expect(retry).toHaveBeenCalledOnce()
   })
 })

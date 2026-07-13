@@ -157,6 +157,15 @@ export default {
     and_n_more: ' (and {n} more)',
   },
   editor: {
+    experience: {
+      basic: 'Basic',
+      basic_desc: 'Focus on node setup, assets, saving, and running',
+      pro: 'Pro',
+      pro_desc: 'Show variables, debugging, output bindings, and technical details',
+      switch_mode: 'Switch editor mode',
+      basic_inspector_hint:
+        'Variable bindings, runtime logs, and node technical details are hidden. Switch to Pro from the top toolbar to show them.',
+    },
     header: {
       loading: 'Loading...',
       dirty_dot: '· Unsaved',
@@ -2863,6 +2872,7 @@ export default {
     tags: 'Tags',
     category: 'Category',
     retest: 'Retest',
+    retry: 'Retry',
     refresh: 'Refresh',
     coming_soon: 'Coming soon',
     untitled: '(Untitled)',
@@ -2957,6 +2967,9 @@ export default {
     UNSUPPORTED_TARGET_CAPABILITY:
       '{kind} requires target capability {capability}, but target {targetKind} does not support it',
     UNKNOWN_ERROR: 'An unknown error occurred',
+    TRANSPORT_TIMEOUT: 'The response timed out. Check that the target is available, then retry.',
+    TRANSPORT_UNAVAILABLE:
+      'Could not establish a connection. Check the target or network connection, then retry.',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
     CONTAINER_ID_REQUIRED: 'Container ID is required',
     RECORDING_NO_WIN32_WINDOW_TARGET:

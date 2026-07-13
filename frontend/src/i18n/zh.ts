@@ -177,6 +177,14 @@ export default {
     and_n_more: '，还有 {n} 个错误',
   },
   editor: {
+    experience: {
+      basic: '基础',
+      basic_desc: '聚焦节点配置、素材、保存和运行',
+      pro: '专业',
+      pro_desc: '显示变量、调试、输出绑定和技术信息',
+      switch_mode: '切换编辑模式',
+      basic_inspector_hint: '变量绑定、运行日志和节点技术信息已收起，可从顶部切换到专业模式。',
+    },
     header: {
       loading: '加载中...',
       dirty_dot: '· 未保存',
@@ -2719,6 +2727,7 @@ export default {
     tags: '标签',
     category: '分类',
     retest: '重测',
+    retry: '重试',
     refresh: '刷新',
     coming_soon: '敬请期待',
     untitled: '(未命名)',
@@ -2809,6 +2818,8 @@ export default {
     UNSUPPORTED_TARGET_CAPABILITY:
       '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
     UNKNOWN_ERROR: '发生未知错误',
+    TRANSPORT_TIMEOUT: '等待响应超时。请确认目标仍可用，然后重试。',
+    TRANSPORT_UNAVAILABLE: '无法建立连接。请检查目标或网络连接，然后重试。',
     WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
     CONTAINER_ID_REQUIRED: '缺容器 ID',
     RECORDING_NO_WIN32_WINDOW_TARGET: '容器缺 Windows 窗口目标节点（录制需要 Windows 窗口）',
