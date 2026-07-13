@@ -1,10 +1,10 @@
 # Cockpit — Yotta
 
-Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 2 工具链/供应链工程实现已完成，双轴 review 后进入 Wave 3 Source/Compiler/Snapshot contract；同时等待 OSI/identity/source-open 决策。
+Focus: **实施 Yotta 3.0 AI-native 大型开源破坏性升级。** Wave 3 已进入 strict `WorkflowSource v3 → Compiler → ProgramSnapshot` 主链实施；同时等待 OSI/identity/source-open 决策。
 
 ## In flight
 
-- `major-upgrade-review` — Wave 1 完成；Wave 2 已实现精确工具链、immutable Actions、frozen build、完整 Windows candidate、SBOM/attestation、安全扫描和 reproducibility workflow，待双轴 review。
+- `major-upgrade-review` — Wave 1/2 完成；Wave 3 第一切片正在冻结唯一 Workflow Source/Diagnostic contract、strict raw JSON boundary 与 generated Schema/TS，下一切片接 CatalogSnapshot/canonical hash/Compiler。
 - `recording-asset-lifecycle` — 实现与自动化验证已完成；用 `bin/Yotta.exe` 验收三条用户路径后归档。
 
 ## Open questions

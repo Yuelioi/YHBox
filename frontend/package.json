@@ -73,6 +73,7 @@
     "eslint-plugin-vue": "^10.9.1",
     "happy-dom": "^20.9.0",
     "jiti": "^2.7.0",
+    "json-schema-to-typescript": "15.0.4",
     "npm-run-all2": "^8.0.4",
     "oxfmt": "^0.50.0",
     "oxlint": "^1.64.0",

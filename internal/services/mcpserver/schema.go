@@ -6,7 +6,7 @@ const graphSchemaVersion = 1
 
 func schemaText() string {
 	return `Yotta 容器图 schema:
-- 顶层: {schemaVersion:1, name, runMode:"background", graph:{version:1, nodes:[], edges:[]}}
+- 顶层: {schemaVersion:1, name, graph:{id, schemaVersion:1, nodes:[], edges:[]}}
 - 节点: {id, kind, x, y, config:{literal:{<pinName>:<value>}}}
 - pin 值唯一合法写法 = config.literal[<pinName>]。
 - edge: {from:"<nodeId>.<PinName>", to:"<nodeId>.<PinName>"}
@@ -25,9 +25,9 @@ func schemaExamples() [][]byte {
 	minimal := []byte(`{
   "schemaVersion": 1,
   "name": "最简",
-  "runMode": "background",
   "graph": {
-    "version": 1,
+    "id": "main",
+    "schemaVersion": 1,
     "nodes": [
       { "id": "s", "kind": "Start", "x": 100, "y": 100 },
       { "id": "t", "kind": "Stop",  "x": 400, "y": 100 }
@@ -41,9 +41,9 @@ func schemaExamples() [][]byte {
 	rich := []byte(`{
   "schemaVersion": 1,
   "name": "循环按F",
-  "runMode": "background",
   "graph": {
-    "version": 1,
+    "id": "main",
+    "schemaVersion": 1,
     "nodes": [
       { "id": "s",  "kind": "Start",        "x": 100, "y": 100 },
       { "id": "w",  "kind": "Win32WindowTarget",  "x": 100, "y": 260,

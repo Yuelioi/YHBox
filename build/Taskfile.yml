@@ -91,7 +91,7 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
+      - wails3 generate bindings -ts ./... -f '{{.BUILD_FLAGS}}' -clean=true
     env:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly

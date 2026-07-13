@@ -6,11 +6,12 @@ Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec
 
 ## Next
 
-完成 Wave 2 双轴 review 后进入 Wave 3：建立唯一 `WorkflowSource v3 -> Compiler -> ProgramSnapshot` 主链并明确拒绝 v2。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
+Wave 3 已进入实施：第一切片冻结唯一 `WorkflowSource v3`、稳定 `Diagnostic`、strict raw JSON boundary 与 generated JSON Schema/TypeScript；下一切片建立 CatalogSnapshot、canonical hash、Compiler 与 opaque ProgramSnapshot。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
 
 ## Read now
 
 - `flightdeck/knowledge/agent/codex-working-agreement.md`
+- `CONTEXT.md`
 - `flightdeck/work/major-upgrade-review/review.md`
 - `flightdeck/work/major-upgrade-review/design.md`
 - `flightdeck/work/major-upgrade-review/ai-native-design.md`
@@ -56,7 +57,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 2 工程实现与本地验证已完成，等待 Standards/Spec 双轴 review；下一工程入口是 Wave 3 contract 主链。
+- Wave 2 已完成实现、双轴 review 与修复。Wave 3 第一切片实现中：strict Source/Diagnostic contract；下一工程入口是 canonical compiler/program slice。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。

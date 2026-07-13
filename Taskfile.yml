@@ -14,6 +14,7 @@ tasks:
     summary: Runs the canonical local quality gate
     cmds:
       - task: check:supply-chain
+      - task: contracts:check
       - task: version:verify
       - task: wails:verify
       - task: check:go
@@ -48,6 +49,24 @@ tasks:
       - node frontend/scripts/generate-bindings.mjs
       - pnpm -C frontend check
 
+  contracts:check:
+    summary: Regenerates Workflow v3 Schema and TypeScript in memory and rejects drift
+    deps: [common:install:frontend:deps]
+    cmds:
+      - node ./scripts/generate-workflow-contracts.mjs
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  contracts:update:
+    summary: Updates tracked Workflow v3 Schema and TypeScript from Go source types
+    deps: [common:install:frontend:deps]
+    cmds:
+      - node ./scripts/generate-workflow-contracts.mjs --write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
   check:fuzz:
     summary: Runs bounded fuzz smoke tests for untrusted parsers and authoring inputs
     cmds:
@@ -55,6 +74,7 @@ tasks:
       - go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}
     vars:
       FUZZ_TIME: '{{.FUZZ_TIME | default "10s"}}'
 

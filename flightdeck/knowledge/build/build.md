@@ -13,7 +13,7 @@ RECHECK WHEN: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bi
 - **Wails library 与 CLI 必须同版**: 当前 Go/CLI pin 是 `v3.0.0-alpha2.117`，对应 frontend runtime 固定为 `3.0.0-alpha.97`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 Go/CLI/workflow/package/lock 多处 pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。
 
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
-- **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
+- **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、generated Workflow v3 Schema/TS、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
 - **构建**: `task build` — frozen install / bindings / `vite build` 后，以 `-mod=readonly` 执行 production Go build；Rust capture DLL 使用 `cargo build --release --locked`。构建链不会运行 `go mod tidy`、重写 icon 或调用 UPX。
 - **发布候选**: `task package` — 构建前后都要求 index/worktree（含 untracked）完全干净；完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
 - **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
@@ -25,6 +25,8 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 ## bindings（gitignore 生成物）
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
+
+production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow v3 的 durable contract 不依赖 Wails：Go 类型经 `task contracts:update` 生成 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。
 
 Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。统一入口 `node frontend/scripts/generate-bindings.mjs` 会拒绝非零 warning；随后 `pnpm -C frontend bindings:check` 对比 tracked `contracts/wails-rpc.json`。alpha2.117 当前基线是 14 services / 112 methods / 86 model+enum declarations；数量不再硬编码到 workflow。接口有意变化后审查 diff，再运行 `pnpm -C frontend bindings:update`。
 

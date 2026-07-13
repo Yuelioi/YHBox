@@ -200,6 +200,9 @@ jobs:
       - name: Fuzz expressions
         run: go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime=10s
 
+      - name: Fuzz Workflow v3 strict parser
+        run: go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime=10s
+
   portable-core:
     strategy:
       fail-fast: false

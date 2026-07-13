@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "to": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Graph": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Edge"
+          },
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "main",
+            "subgraph"
+          ],
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "nodes",
+        "edges",
+        "inputs",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "GraphPort": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "nodeId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "nodeId"
+      ],
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "type": "object"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "position",
+        "config"
+      ],
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "purpose": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "purpose"
+      ],
+      "type": "object"
+    },
+    "Variable": {
+      "additionalProperties": false,
+      "properties": {
+        "default": true,
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Workflow": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://yottaapp.dev/contracts/workflow/v3/workflow-source.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "entryGraph": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "yotta.workflow"
+      ],
+      "type": "string"
+    },
+    "graphs": {
+      "items": {
+        "$ref": "#/$defs/Graph"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "requestedCapabilities": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "revision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "secretRefs": {
+      "items": {
+        "$ref": "#/$defs/SecretRef"
+      },
+      "type": "array"
+    },
+    "variables": {
+      "items": {
+        "$ref": "#/$defs/Variable"
+      },
+      "type": "array"
+    },
+    "version": {
+      "enum": [
+        3
+      ],
+      "type": "integer"
+    },
+    "workflow": {
+      "$ref": "#/$defs/Workflow"
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "workflow",
+    "revision",
+    "entryGraph",
+    "graphs",
+    "variables",
+    "secretRefs",
+    "requestedCapabilities"
+  ],
+  "title": "Yotta Workflow Source v3",
+  "type": "object"
+}

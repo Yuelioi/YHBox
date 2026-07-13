@@ -1,0 +1,36 @@
+{
+  "format": "yotta.workflow",
+  "version": 3,
+  "workflow": {
+    "id": "workflow-minimal",
+    "name": "Minimal"
+  },
+  "revision": 0,
+  "entryGraph": "main",
+  "graphs": [
+    {
+      "id": "main",
+      "kind": "main",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "Start",
+          "position": { "x": 0, "y": 0 },
+          "config": {}
+        },
+        {
+          "id": "stop",
+          "kind": "Stop",
+          "position": { "x": 240, "y": 0 },
+          "config": {}
+        }
+      ],
+      "edges": [{ "from": "start.Done", "to": "stop.In" }],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "variables": [],
+  "secretRefs": [],
+  "requestedCapabilities": []
+}
