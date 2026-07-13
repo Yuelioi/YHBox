@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	CallSubgraphKind = "core.call-subgraph"
+	CallSubgraphKind = catalog.CompilerIntrinsicPrefix + "call-subgraph"
 	callFailurePin   = "Fail"
 	callInputPin     = "In"
 	sourceHashDomain = "yotta/source/v3"
@@ -188,14 +188,14 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			ref := callReference{graphID: graph.ID, nodeID: sourceNode.ID, target: target, graphIndex: graphIndex, nodeIndex: nodeIndex}
 			adjacency[graph.ID] = append(adjacency[graph.ID], ref)
 			iface := interfaces[target]
-			plan := &programCall{GraphID: target, EntryPortID: iface.entry.ID, Inputs: []programCallPort{}, Outputs: []programCallPort{}, FailurePin: callFailurePin}
+			plan := &programCall{GraphID: target, Entry: programCallPort{ID: iface.entry.ID, Type: iface.entry.Type, NodeID: iface.entry.NodeID}, Inputs: []programCallPort{}, Outputs: []programCallPort{}, FailurePin: callFailurePin}
 			for _, port := range targetGraph.Inputs {
 				if port.Type != node.TypeExec {
-					plan.Inputs = append(plan.Inputs, programCallPort{ID: port.ID, Type: port.Type})
+					plan.Inputs = append(plan.Inputs, programCallPort{ID: port.ID, Type: port.Type, NodeID: port.NodeID})
 				}
 			}
 			for _, port := range targetGraph.Outputs {
-				plan.Outputs = append(plan.Outputs, programCallPort{ID: port.ID, Type: port.Type})
+				plan.Outputs = append(plan.Outputs, programCallPort{ID: port.ID, Type: port.Type, NodeID: port.NodeID})
 			}
 			if result.calls[graph.ID] == nil {
 				result.calls[graph.ID] = map[string]*programCall{}
@@ -223,6 +223,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 		}
 		contractsByNode := make(map[string]catalog.NodeContract, len(graph.Nodes))
 		nodeExists := make(map[string]bool, len(graph.Nodes))
+		callNodeIDs := make(map[string]bool)
 		for nodeIndex, sourceNode := range graph.Nodes {
 			if nodeIndex&255 == 0 {
 				if err := ctx.Err(); err != nil {
@@ -231,6 +232,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			}
 			nodeExists[sourceNode.ID] = true
 			if sourceNode.Kind == CallSubgraphKind {
+				callNodeIDs[sourceNode.ID] = true
 				if plan := result.calls[graph.ID][sourceNode.ID]; plan != nil {
 					contract := callContract(plan)
 					contractsByNode[sourceNode.ID] = contract
@@ -288,6 +290,8 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			}
 		}
 		incoming := map[string]map[string]bool{}
+		incomingCounts := map[string]map[string]int{}
+		usedBoundaryInputs, usedBoundaryOutputs := map[string]bool{}, map[string]bool{}
 		iface := interfaces[graph.ID]
 		for edgeIndex, edge := range graph.Edges {
 			if edgeIndex&255 == 0 {
@@ -295,52 +299,65 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 					return result, err
 				}
 			}
+			from := resolveEndpoint(edge.From, true, nodeExists, contractsByNode, iface)
+			to := resolveEndpoint(edge.To, false, nodeExists, contractsByNode, iface)
 			for _, endpoint := range []struct {
 				field string
 				value string
 				from  bool
-			}{{"from", edge.From, true}, {"to", edge.To, false}} {
-				nodeID, pin, _, ok, wrongDirection, _ := resolveEndpoint(endpoint.value, endpoint.from, nodeExists, contractsByNode, iface)
+				bound endpointResolution
+			}{{"from", edge.From, true, from}, {"to", edge.To, false, to}} {
 				path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), endpoint.field}
-				if wrongDirection {
+				if endpoint.bound.wrongDirection {
 					result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint.value}})
 					continue
 				}
-				if !ok {
+				if !endpoint.bound.valid {
 					result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, "", path, "edgeEndpoint", map[string]any{"endpoint": endpoint.value}))
 					continue
 				}
-				if nodeID == "" {
+				if endpoint.bound.nodeID == "" {
 					continue
 				}
-				contract, bound := contractsByNode[nodeID]
+				contract, bound := contractsByNode[endpoint.bound.nodeID]
 				if !bound {
 					continue
 				}
-				if !pinAllowed(contract, pin, endpoint.from) {
-					result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, nodeID, path, "edgePin", map[string]any{"pin": pin, "kind": contract.Kind}))
+				if !endpoint.bound.pinValid {
+					result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, endpoint.bound.nodeID, path, "edgePin", map[string]any{"pin": endpoint.bound.pin, "kind": contract.Kind}))
 				}
 			}
-			fromNode, _, fromType, fromOK, _, fromBoundary := resolveEndpoint(edge.From, true, nodeExists, contractsByNode, iface)
-			toNode, toPin, toType, toOK, _, toBoundary := resolveEndpoint(edge.To, false, nodeExists, contractsByNode, iface)
-			if fromOK && toOK && fromType != "" && toType != "" {
-				if !compatibleTypes(fromType, toType) {
+			if from.valid && to.valid && from.pinValid && to.pinValid && from.typ != "" && to.typ != "" {
+				if !compatibleTypes(from.typ, to.typ) {
 					path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex)}
-					if fromBoundary || toBoundary || sourceNodeIsCall(graph.Nodes, fromNode) || sourceNodeIsCall(graph.Nodes, toNode) {
-						result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeCallPinTypeMismatch, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: toNode, FieldPath: path, Params: map[string]any{"fromType": fromType, "toType": toType}})
+					if from.boundary || to.boundary || callNodeIDs[from.nodeID] || callNodeIDs[to.nodeID] {
+						result.diagnostics = append(result.diagnostics, schema.Diagnostic{Code: schema.CodeCallPinTypeMismatch, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: to.nodeID, FieldPath: path, Params: map[string]any{"fromType": from.typ, "toType": to.typ}})
 					} else {
-						result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, toNode, path, "pinType", map[string]any{"fromType": fromType, "toType": toType}))
+						result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "pinType", map[string]any{"fromType": from.typ, "toType": to.typ}))
 					}
 				} else {
-					if toNode != "" && incoming[toNode] == nil {
-						incoming[toNode] = map[string]bool{}
+					if from.boundary {
+						usedBoundaryInputs[edge.From] = true
 					}
-					if toNode != "" {
-						incoming[toNode][toPin] = true
+					if to.boundary {
+						usedBoundaryOutputs[edge.To] = true
+					}
+					if to.nodeID != "" {
+						if incoming[to.nodeID] == nil {
+							incoming[to.nodeID] = map[string]bool{}
+							incomingCounts[to.nodeID] = map[string]int{}
+						}
+						incoming[to.nodeID][to.pin] = true
+						incomingCounts[to.nodeID][to.pin]++
+						if to.typ != node.TypeExec && incomingCounts[to.nodeID][to.pin] == 2 {
+							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
+							result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "multipleInputSources", map[string]any{"pin": to.pin}))
+						}
 					}
 				}
 			}
 		}
+		validateBoundaryCoverage(&result.diagnostics, graph, graphIndex, usedBoundaryInputs, usedBoundaryOutputs)
 		for nodeIndex, sourceNode := range graph.Nodes {
 			contract, ok := contractsByNode[sourceNode.ID]
 			if !ok || contract.DynamicInputs || contract.DynamicOutputs || contract.DynamicDataFields || contract.HasCustomValidation || contract.HasDependencies {
@@ -391,7 +408,7 @@ func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphI
 	}{{"inputs", graph.Inputs, true}, {"outputs", graph.Outputs, false}} {
 		for index, port := range group.ports {
 			path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(index)}
-			if ids[port.ID] || boundaryNodes[port.NodeID] || nodes[port.NodeID] || port.ID == callInputPin || port.ID == callFailurePin || port.ID == "graphId" {
+			if ids[port.ID] || boundaryNodes[port.NodeID] || nodes[port.NodeID] || strings.Contains(port.ID, ".") || strings.Contains(port.NodeID, ".") || port.ID == callInputPin || port.ID == callFailurePin || port.ID == "graphId" {
 				*out = append(*out, bindingDiagnostic(graph.ID, "", path, "graphInterfaceIdentity", map[string]any{"id": port.ID, "nodeId": port.NodeID}))
 			}
 			ids[port.ID], boundaryNodes[port.NodeID] = true, true
@@ -406,8 +423,6 @@ func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphI
 				iface.outputs[endpoint] = port
 				if port.Type == node.TypeExec {
 					execOutputs++
-				} else {
-					*out = append(*out, bindingDiagnostic(graph.ID, "", append(path, "type"), "graphOutputType", map[string]any{"type": port.Type}))
 				}
 			}
 		}
@@ -433,37 +448,49 @@ func callContract(plan *programCall) catalog.NodeContract {
 	return contract
 }
 
-func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, contracts map[string]catalog.NodeContract, iface graphInterface) (string, string, string, bool, bool, bool) {
+type endpointResolution struct {
+	nodeID, pin, typ                string
+	valid, pinValid, wrongDirection bool
+	boundary                        bool
+}
+
+func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, contracts map[string]catalog.NodeContract, iface graphInterface) endpointResolution {
 	if port, ok := iface.inputs[value]; ok {
-		return "", port.ID, port.Type, from, !from, true
+		return endpointResolution{pin: port.ID, typ: port.Type, valid: from, pinValid: from, wrongDirection: !from, boundary: true}
 	}
 	if port, ok := iface.outputs[value]; ok {
-		return "", port.ID, port.Type, !from, from, true
+		return endpointResolution{pin: port.ID, typ: port.Type, valid: !from, pinValid: !from, wrongDirection: from, boundary: true}
 	}
 	nodeID, pin, ok := splitEndpoint(value, nodeIDs)
 	if !ok {
-		return "", "", "", false, false, false
+		return endpointResolution{}
 	}
 	contract, bound := contracts[nodeID]
 	if !bound {
-		return nodeID, pin, "", true, false, false
+		return endpointResolution{nodeID: nodeID, pin: pin, valid: true, pinValid: true}
 	}
 	if from {
-		typ, _ := outputType(contract, pin)
-		return nodeID, pin, typ, true, false, false
+		typ, allowed := outputType(contract, pin)
+		return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
 	}
 	typ, allowed := inputType(contract, pin)
-	_ = allowed
-	return nodeID, pin, typ, true, false, false
+	return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
 }
 
-func sourceNodeIsCall(nodes []schema.Node, nodeID string) bool {
-	for _, sourceNode := range nodes {
-		if sourceNode.ID == nodeID {
-			return sourceNode.Kind == CallSubgraphKind
+func validateBoundaryCoverage(out *[]schema.Diagnostic, graph schema.Graph, graphIndex int, usedInputs, usedOutputs map[string]bool) {
+	for _, group := range []struct {
+		name  string
+		ports []schema.GraphPort
+		used  map[string]bool
+	}{{"inputs", graph.Inputs, usedInputs}, {"outputs", graph.Outputs, usedOutputs}} {
+		for portIndex, port := range group.ports {
+			endpoint := port.NodeID + "." + port.ID
+			if !group.used[endpoint] {
+				path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(portIndex)}
+				*out = append(*out, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint, "reason": "unbound"}})
+			}
 		}
 	}
-	return false
 }
 
 func appendCallCycleDiagnostics(out *[]schema.Diagnostic, graphs []schema.Graph, adjacency map[string][]callReference) {
@@ -495,29 +522,6 @@ func splitEndpoint(endpoint string, nodeIDs map[string]bool) (string, string, bo
 		}
 	}
 	return "", "", false
-}
-
-func pinAllowed(contract catalog.NodeContract, pin string, from bool) bool {
-	if from {
-		if contract.DynamicOutputs {
-			return true
-		}
-		for _, output := range contract.Outputs {
-			if output.Name == pin {
-				return true
-			}
-		}
-		return false
-	}
-	if contract.DynamicInputs {
-		return true
-	}
-	for _, input := range contract.Inputs {
-		if input.Name == pin {
-			return true
-		}
-	}
-	return false
 }
 
 func outputType(contract catalog.NodeContract, pin string) (string, bool) {

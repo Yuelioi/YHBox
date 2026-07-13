@@ -6,22 +6,26 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/node"
 )
 
 const (
-	SnapshotFormat         = "yotta.catalog"
-	SnapshotVersion        = 1
-	MaxCatalogNodes        = 4096
-	MaxNodePins            = 4096
-	MaxNodeContractBytes   = 1 << 20
-	MaxCatalogBytes        = 16 << 20
-	MaxFieldSchemaDepth    = 64
-	MaxFieldSchemaEntries  = 4096
-	catalogHashDomain      = "yotta/catalog/v1"
-	nodeContractHashDomain = "yotta/node-contract/v1"
+	// CompilerIntrinsicPrefix reserves node kinds lowered by the workflow
+	// compiler itself. Registry implementations must never share this authority.
+	CompilerIntrinsicPrefix = "core."
+	SnapshotFormat          = "yotta.catalog"
+	SnapshotVersion         = 1
+	MaxCatalogNodes         = 4096
+	MaxNodePins             = 4096
+	MaxNodeContractBytes    = 1 << 20
+	MaxCatalogBytes         = 16 << 20
+	MaxFieldSchemaDepth     = 64
+	MaxFieldSchemaEntries   = 4096
+	catalogHashDomain       = "yotta/catalog/v1"
+	nodeContractHashDomain  = "yotta/node-contract/v1"
 )
 
 type ExecutionMode string
@@ -124,8 +128,8 @@ func NewSnapshot(reader node.RegistryReader, implementationSet artifact.Digest) 
 		if entry == nil {
 			return Snapshot{}, errors.New("catalog contains nil node")
 		}
-		if entry.Spec.Kind == "" || seenKinds[entry.Spec.Kind] {
-			return Snapshot{}, fmt.Errorf("catalog contains empty or duplicate node kind %q", entry.Spec.Kind)
+		if entry.Spec.Kind == "" || strings.HasPrefix(entry.Spec.Kind, CompilerIntrinsicPrefix) || seenKinds[entry.Spec.Kind] {
+			return Snapshot{}, fmt.Errorf("catalog contains empty, reserved, or duplicate node kind %q", entry.Spec.Kind)
 		}
 		seenKinds[entry.Spec.Kind] = true
 		contract, err := projectNode(entry)

@@ -37,7 +37,7 @@ func TestCompileDraftCompilesTypedSubgraphClosure(t *testing.T) {
 		t.Fatalf("compiled closure = %#v", envelope.Program.Graphs)
 	}
 	call := envelope.Program.Graphs[0].Nodes[0].Call
-	if call == nil || call.GraphID != "worker" || call.EntryPortID != "start" || len(call.Inputs) != 1 || call.Inputs[0].ID != "amount" || len(call.Outputs) != 1 || call.Outputs[0].ID != "done" {
+	if call == nil || call.GraphID != "worker" || call.Entry.ID != "start" || call.Entry.NodeID != "$entry" || len(call.Inputs) != 1 || call.Inputs[0].ID != "amount" || call.Inputs[0].NodeID != "$amount" || len(call.Outputs) != 1 || call.Outputs[0].ID != "done" || call.Outputs[0].NodeID != "$out" {
 		t.Fatalf("program did not freeze call plan: %#v", call)
 	}
 }
@@ -73,6 +73,8 @@ func TestCompileDraftRejectsInvalidSubgraphBoundary(t *testing.T) {
 		{"edge out of output boundary", `"from":"n1.Next","to":"$out.done"`, `"from":"$out.done","to":"n1.In"`, "INVALID_GRAPH_BOUNDARY_EDGE"},
 		{"wrong boundary type", `"id":"amount","name":"Amount","type":"Number"`, `"id":"amount","name":"Amount","type":"String"`, "CALL_PIN_TYPE_MISMATCH"},
 		{"missing exec entry", `{"id":"start","name":"Start","type":"Exec","nodeId":"$entry"},`, ``, "INVALID_GRAPH_ENTRY"},
+		{"unbound data boundary", `,{"from":"$amount.amount","to":"n1.Value"}`, ``, "INVALID_GRAPH_BOUNDARY_EDGE"},
+		{"ambiguous boundary identity", `"id":"amount","name":"Amount"`, `"id":"amount.bad","name":"Amount"`, schema.CodeInvalidField},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -85,6 +87,44 @@ func TestCompileDraftRejectsInvalidSubgraphBoundary(t *testing.T) {
 				t.Fatalf("result = %#v", result)
 			}
 		})
+	}
+}
+
+func TestCompileDraftFreezesTypedSubgraphDataOutput(t *testing.T) {
+	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", required: true, execInput: true, dataOutput: true})
+	raw := strings.Replace(validSubgraphSource(),
+		`{"from":"n1.Next","to":"$out.done"}],`,
+		`{"from":"n1.Next","to":"$out.done"},{"from":"n1.Result","to":"$result.result"}],`, 1)
+	raw = strings.Replace(raw,
+		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"}]}`,
+		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"},{"id":"result","name":"Result","type":"Number","nodeId":"$result"}]}`, 1)
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, ok := result.Program()
+	if !ok {
+		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+	var envelope programEnvelope
+	if err := json.Unmarshal(program.Artifact(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	outputs := envelope.Program.Graphs[0].Nodes[0].Call.Outputs
+	if len(outputs) != 2 || outputs[1] != (programCallPort{ID: "result", Type: "Number", NodeID: "$result"}) {
+		t.Fatalf("typed call outputs = %#v", outputs)
+	}
+}
+
+func TestCompileDraftRejectsMultipleSourcesForOneInput(t *testing.T) {
+	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", required: true, execInput: true})
+	raw := strings.Replace(validSubgraphSource(), `{"from":"$amount.amount","to":"n1.Value"}`, `{"from":"$amount.amount","to":"n1.Value"},{"from":"$amount.amount","to":"n1.Value"}`, 1)
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Program(); ok || len(result.Diagnostics) != 1 || result.Diagnostics[0].Params["keyword"] != "multipleInputSources" {
+		t.Fatalf("result = %#v", result)
 	}
 }
 

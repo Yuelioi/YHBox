@@ -98,6 +98,10 @@ func TestSnapshotRejectsAmbiguousRegistryReaders(t *testing.T) {
 	if _, err := NewSnapshot(malformedReader{}, "not-a-digest"); err == nil {
 		t.Fatal("accepted unverified implementation identity")
 	}
+	reserved := &node.RegisteredNode{Spec: snapshotSpec("core.call-subgraph", "presentation"), Run: func(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }}
+	if _, err := NewSnapshot(malformedReader{reserved}, implementationSet(t, "test")); err == nil {
+		t.Fatal("accepted compiler intrinsic in registry catalog")
+	}
 }
 
 func TestSnapshotHashIncludesMachineSemantic(t *testing.T) {

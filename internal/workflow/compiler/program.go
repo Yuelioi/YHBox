@@ -50,16 +50,17 @@ type programNode struct {
 }
 
 type programCall struct {
-	GraphID     string            `json:"graphId"`
-	EntryPortID string            `json:"entryPortId"`
-	Inputs      []programCallPort `json:"inputs"`
-	Outputs     []programCallPort `json:"outputs"`
-	FailurePin  string            `json:"failurePin"`
+	GraphID    string            `json:"graphId"`
+	Entry      programCallPort   `json:"entry"`
+	Inputs     []programCallPort `json:"inputs"`
+	Outputs    []programCallPort `json:"outputs"`
+	FailurePin string            `json:"failurePin"`
 }
 
 type programCallPort struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	NodeID string `json:"nodeId"`
 }
 
 type programGraph struct {
@@ -445,8 +446,13 @@ func validateEnvelope(envelope programEnvelope) error {
 			nodes[node.ID] = true
 			nodeIDs[node.ID] = true
 			if node.Kind == CallSubgraphKind {
-				if node.Call == nil || node.Call.GraphID == "" || node.Call.EntryPortID == "" || node.Call.Inputs == nil || node.Call.Outputs == nil || node.Call.FailurePin != callFailurePin {
+				if node.Call == nil || node.Call.GraphID == "" || !validProgramCallPort(node.Call.Entry) || node.Call.Entry.Type != "Exec" || node.Call.Inputs == nil || node.Call.Outputs == nil || node.Call.FailurePin != callFailurePin {
 					return fmt.Errorf("%w: invalid subgraph call plan", ErrInvalidProgramArtifact)
+				}
+				for _, port := range append(append([]programCallPort(nil), node.Call.Inputs...), node.Call.Outputs...) {
+					if !validProgramCallPort(port) {
+						return fmt.Errorf("%w: invalid subgraph call port", ErrInvalidProgramArtifact)
+					}
 				}
 			} else if node.Call != nil {
 				return fmt.Errorf("%w: unexpected call plan", ErrInvalidProgramArtifact)
@@ -495,6 +501,10 @@ func validateEnvelope(envelope programEnvelope) error {
 		return fmt.Errorf("%w: invalid entry graph", ErrInvalidProgramArtifact)
 	}
 	return nil
+}
+
+func validProgramCallPort(port programCallPort) bool {
+	return port.ID != "" && port.Type != "" && port.NodeID != ""
 }
 
 func strictlySortedLocks(locks []NodeLock) bool {

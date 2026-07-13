@@ -24,6 +24,7 @@ type compilerTestNode struct {
 	dynamic      bool
 	execInput    bool
 	capability   node.RuntimeCapability
+	dataOutput   bool
 }
 
 func (n compilerTestNode) Spec() node.Spec {
@@ -39,10 +40,14 @@ func (n compilerTestNode) Spec() node.Spec {
 	if capability == "" {
 		capability = node.RuntimeCapabilityLog
 	}
+	outputs := []node.OutputSpec{{Name: "Next", Type: node.TypeExec}}
+	if n.dataOutput {
+		outputs = append(outputs, node.OutputSpec{Name: "Result", Type: "Number"})
+	}
 	return node.Spec{
 		Kind:                n.kind,
 		Inputs:              inputs,
-		Outputs:             []node.OutputSpec{{Name: "Next", Type: node.TypeExec}},
+		Outputs:             outputs,
 		RuntimeCapabilities: []node.RuntimeCapability{capability},
 		DynamicInputs:       n.dynamic,
 	}
