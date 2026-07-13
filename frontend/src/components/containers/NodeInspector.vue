@@ -557,7 +557,7 @@
          画布 data-in 引脚 + 下方 literal 区 + code 补全据此联动。独立 v-if (不进上面
          bespoke v-else-if 链): 这些节点还要渲染通用 literal 区。 -->
     <section v-if="specHasDynamicInputs" class="mb-5">
-      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+      <h4 class="mb-3 text-xs font-medium text-muted">
         {{ t('inspector.dyn_inputs_title') }}
       </h4>
       <DynamicInputsEditor :node="node" @update="emit('update', $event)" />
@@ -566,7 +566,7 @@
     <!-- 动态输出声明 (spec.dynamicDataFields: AI) — 编辑 config.Outputs[],
          每字段成 Done 出口可绑 Data 字段, 在下方「输出」组绑变量。 -->
     <section v-if="specHasDynamicDataFields" class="mb-5">
-      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+      <h4 class="mb-3 text-xs font-medium text-muted">
         {{ t('inspector.dyn_outputs_title') }}
       </h4>
       <DynamicOutputsEditor :node="node" @update="emit('update', $event)" />
@@ -575,7 +575,7 @@
     <!-- 数据输入 — 每个未连线 data-in pin 一个 widget-aware 编辑器, 写回 config.literal[pin]。
          连线的 pin 不显 (值走 data 边)。有专属 section 的 kind (BESPOKE_EDITOR_KINDS) 这里返空。 -->
     <section v-if="dataInLiterals.length > 0" class="mb-5">
-      <h4 class="text-[10px] uppercase tracking-[0.08em] font-semibold text-dimmed mb-3">
+      <h4 class="mb-3 text-xs font-medium text-muted">
         {{ t('inspector.literal_section') }}
       </h4>
       <div class="space-y-4">

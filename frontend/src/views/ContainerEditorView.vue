@@ -183,12 +183,16 @@
             @align-selected="onAlignSelected"
             @delete-selected="onDeleteSelectedNodes"
           />
-          <!-- 画布空态: 无节点时居中显「快捷开始」(取代原 Inspector 常占栏)。 -->
-          <CanvasEmptyState v-if="canvasEmpty" />
+          <!-- 画布空态: 无节点时直接给出添加节点与录制入口。 -->
+          <CanvasEmptyState
+            v-if="canvasEmpty"
+            @open-nodes="openNodeDock"
+            @record="startRecording('simple')"
+          />
           <ContainerDebugPanel @stop="onDebugStop" />
           <!-- 操作提示 -->
           <div
-            class="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-dimmed pointer-events-none bg-default/70 px-2 py-1 rounded"
+            class="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2 rounded bg-default/70 px-2 py-1 text-xs text-dimmed"
           >
             {{ t('editor.canvas.hint') }}
           </div>
@@ -878,6 +882,9 @@ function toggleDock(key: DockPanel) {
   // 离开资产 tab → 取消可能挂着的字段 pick 上下文
   if (sidebarPrefs.value.leftDrawer === 'assets' && next !== 'assets') cancelAssetPick()
   sidebarPrefs.value.leftDrawer = next
+}
+function openNodeDock() {
+  sidebarPrefs.value.leftDrawer = 'nodes'
 }
 function onRailClick(item: (typeof allLeftRail)[number]) {
   toggleDock(item.key)

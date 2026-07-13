@@ -1,5 +1,4 @@
-/* 字体走本地打包 (fontsource): 桌面 app 离线时 Google CDN 会静默回退成系统字体 */
-@import '@fontsource-variable/inter';
+/* 技术值使用本地等宽字体；界面正文跟随桌面系统字体，避免额外加载一整套 UI 字体。 */
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @import '@nuxt/ui';
@@ -12,7 +11,8 @@
 html,
 body {
   font-family:
-    'Inter Variable', 'Microsoft YaHei', 'PingFang SC', ui-sans-serif, system-ui, sans-serif;
+    'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC',
+    'Noto Sans CJK SC', ui-sans-serif, system-ui, sans-serif;
   height: 100%;
   overflow: hidden;
 }
