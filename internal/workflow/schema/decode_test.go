@@ -156,6 +156,30 @@ func TestParseSourceRejectsStructuralDiagnosticBombBeforeSchemaValidation(t *tes
 	}
 }
 
+func TestParseSourceReportsCollectionLimitWithoutDiagnosticBudgetSentinel(t *testing.T) {
+	var graphs strings.Builder
+	for index := 0; index < 257; index++ {
+		if index > 0 {
+			graphs.WriteByte(',')
+		}
+		kind := "subgraph"
+		if index == 0 {
+			kind = "main"
+		}
+		graphs.WriteString(`{"id":"g` + strconv.Itoa(index) + `","kind":"` + kind + `","nodes":[],"edges":[],"inputs":[],"outputs":[]}`)
+	}
+	raw := `{"format":"yotta.workflow","version":3,"workflow":{"id":"w","name":"W"},"revision":0,"entryGraph":"g0","graphs":[` + graphs.String() + `],"variables":[],"secretRefs":[],"requestedCapabilities":[]}`
+	_, diagnostics := ParseSource([]byte(raw))
+	if len(diagnostics) == 0 {
+		t.Fatal("oversized graph collection was accepted")
+	}
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == CodeDiagnosticBudgetExceeded {
+			t.Fatalf("collection limit mislabeled as diagnostic exhaustion: %#v", diagnostics)
+		}
+	}
+}
+
 func hasDiagnosticAt(diagnostics []Diagnostic, code, field string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Code == code && len(diagnostic.FieldPath) > 0 && diagnostic.FieldPath[len(diagnostic.FieldPath)-1] == field {

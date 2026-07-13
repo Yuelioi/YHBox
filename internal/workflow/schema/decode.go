@@ -117,7 +117,6 @@ type reflectedFieldContract struct {
 	required  bool
 	minLength bool
 	enum      map[string]bool
-	maxItems  int
 }
 
 type reflectedStructContract struct {
@@ -166,10 +165,6 @@ func inspectSchemaValue(value any, typ reflect.Type, field reflectedFieldContrac
 		values, ok := value.([]any)
 		if !ok {
 			counter.add()
-			return
-		}
-		if field.maxItems > 0 && len(values) > field.maxItems {
-			counter.count = counter.limit
 			return
 		}
 		for _, child := range values {
@@ -222,8 +217,6 @@ func reflectedContract(typ reflect.Type) reflectedStructContract {
 				field.minLength = true
 			case strings.HasPrefix(option, "enum="):
 				field.enum[strings.TrimPrefix(option, "enum=")] = true
-			case strings.HasPrefix(option, "maxItems="):
-				field.maxItems, _ = strconv.Atoi(strings.TrimPrefix(option, "maxItems="))
 			}
 		}
 		contract.fields[name] = field
