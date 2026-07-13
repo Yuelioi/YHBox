@@ -58,7 +58,7 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 
 Current:
-- Wave 2、Wave 3 strict Source、static compiler core 与 typed subgraph closure 已完成实现和全仓验证。下一入口是 declarative dynamic contract（先 Switch）、custom validation/dependency/effect phase；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
+- Wave 2、Wave 3 strict Source、static compiler core 与 typed subgraph closure 已完成实现、全仓/race/fuzz 验证和 Standards/Spec/Threat 三轴复审，最终无剩余 P0–P2。下一入口是 declarative dynamic contract（先 Switch）、custom validation/dependency/effect phase；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
 
 Verified:
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
