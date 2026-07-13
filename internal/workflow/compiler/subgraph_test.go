@@ -92,12 +92,7 @@ func TestCompileDraftRejectsInvalidSubgraphBoundary(t *testing.T) {
 
 func TestCompileDraftFreezesTypedSubgraphDataOutput(t *testing.T) {
 	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", required: true, execInput: true, dataOutput: true})
-	raw := strings.Replace(validSubgraphSource(),
-		`{"from":"n1.Next","to":"$out.done"}],`,
-		`{"from":"n1.Next","to":"$out.done"},{"from":"n1.Result","to":"$result.result"}],`, 1)
-	raw = strings.Replace(raw,
-		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"}]}`,
-		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"},{"id":"result","name":"Result","type":"Number","nodeId":"$result"}]}`, 1)
+	raw := validTypedSubgraphSource()
 	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
 	if err != nil {
 		t.Fatal(err)
@@ -113,6 +108,37 @@ func TestCompileDraftFreezesTypedSubgraphDataOutput(t *testing.T) {
 	outputs := envelope.Program.Graphs[0].Nodes[0].Call.Outputs
 	if len(outputs) != 2 || outputs[1] != (programCallPort{ID: "result", Type: "Number", NodeID: "$result"}) {
 		t.Fatalf("typed call outputs = %#v", outputs)
+	}
+}
+
+func TestCompileDraftRejectsMultipleTypedGraphOutputSources(t *testing.T) {
+	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", required: true, execInput: true, dataOutput: true})
+	raw := strings.Replace(validTypedSubgraphSource(),
+		`{"from":"n1.Result","to":"$result.result"}`,
+		`{"from":"n1.Result","to":"$result.result"},{"from":"n1.Result","to":"$result.result"}`, 1)
+	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Program(); ok || len(result.Diagnostics) != 1 || result.Diagnostics[0].Params["keyword"] != "multipleGraphOutputSources" {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestCompileDraftRejectsExpandedCallPlanBudget(t *testing.T) {
+	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", required: true, execInput: true})
+	nodes := make([]string, MaxNodesPerGraph)
+	for index := range nodes {
+		nodes[index] = `{"id":"call-` + stringInt(index) + `","kind":"core.call-subgraph","position":{"x":0,"y":0},"config":{"graphId":"worker","amount":1}}`
+	}
+	raw := strings.Replace(validSubgraphSource(),
+		`{"id":"call","kind":"core.call-subgraph","position":{"x":0,"y":0},"config":{"graphId":"worker","amount":1}}`,
+		strings.Join(nodes, ","), 1)
+	if len(raw) >= MaxSourceBytes {
+		t.Fatalf("budget fixture unexpectedly exceeds source bytes: %d", len(raw))
+	}
+	if _, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot}); !errors.Is(err, ErrSourceBudgetExceeded) {
+		t.Fatalf("expanded call plan err = %v", err)
 	}
 }
 
@@ -201,6 +227,15 @@ func validSubgraphSource() string {
 		`{"id":"worker","kind":"subgraph","nodes":[{"id":"n1","kind":"fixture","position":{"x":0,"y":0},"config":{}}],"edges":[{"from":"$entry.start","to":"n1.In"},{"from":"$amount.amount","to":"n1.Value"},{"from":"n1.Next","to":"$out.done"}],` +
 		`"inputs":[{"id":"start","name":"Start","type":"Exec","nodeId":"$entry"},{"id":"amount","name":"Amount","type":"Number","nodeId":"$amount"}],"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"}]}` +
 		`],"variables":[],"secretRefs":[],"requestedCapabilities":["runtime:log"]}`
+}
+
+func validTypedSubgraphSource() string {
+	raw := strings.Replace(validSubgraphSource(),
+		`{"from":"n1.Next","to":"$out.done"}],`,
+		`{"from":"n1.Next","to":"$out.done"},{"from":"n1.Result","to":"$result.result"}],`, 1)
+	return strings.Replace(raw,
+		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"}]}`,
+		`"outputs":[{"id":"done","name":"Done","type":"Exec","nodeId":"$out"},{"id":"result","name":"Result","type":"Number","nodeId":"$result"}]}`, 1)
 }
 
 func recursiveSubgraphSource() string {

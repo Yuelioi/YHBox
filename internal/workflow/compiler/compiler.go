@@ -33,6 +33,8 @@ const (
 	MaxTotalNodes    = 20000
 	MaxTotalEdges    = 50000
 	MaxTotalPorts    = 10000
+	MaxCallPlanPorts = 10000
+	MaxCallPlanBytes = 4 << 20
 )
 
 var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
@@ -159,6 +161,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 	missingKinds := map[string]bool{}
 	graphsByID := make(map[string]schema.Graph, len(source.Graphs))
 	interfaces := make(map[string]graphInterface, len(source.Graphs))
+	totalCallPlanPorts, totalCallPlanBytes := 0, 0
 	for graphIndex, graph := range source.Graphs {
 		graphsByID[graph.ID] = graph
 		interfaces[graph.ID] = validateGraphInterface(&result.diagnostics, graph, graphIndex)
@@ -187,6 +190,13 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			}
 			ref := callReference{graphID: graph.ID, nodeID: sourceNode.ID, target: target, graphIndex: graphIndex, nodeIndex: nodeIndex}
 			adjacency[graph.ID] = append(adjacency[graph.ID], ref)
+			callPorts := 1 + len(targetGraph.Inputs) + len(targetGraph.Outputs)
+			callBytes := callPlanEncodedSize(target, targetGraph)
+			if totalCallPlanPorts > MaxCallPlanPorts-callPorts || totalCallPlanBytes > MaxCallPlanBytes-callBytes {
+				return result, ErrSourceBudgetExceeded
+			}
+			totalCallPlanPorts += callPorts
+			totalCallPlanBytes += callBytes
 			iface := interfaces[target]
 			plan := &programCall{GraphID: target, Entry: programCallPort{ID: iface.entry.ID, Type: iface.entry.Type, NodeID: iface.entry.NodeID}, Inputs: []programCallPort{}, Outputs: []programCallPort{}, FailurePin: callFailurePin}
 			for _, port := range targetGraph.Inputs {
@@ -292,15 +302,17 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 		incoming := map[string]map[string]bool{}
 		incomingCounts := map[string]map[string]int{}
 		usedBoundaryInputs, usedBoundaryOutputs := map[string]bool{}, map[string]bool{}
+		boundaryOutputCounts := map[string]int{}
 		iface := interfaces[graph.ID]
+		pinsByNode := indexNodePins(contractsByNode)
 		for edgeIndex, edge := range graph.Edges {
 			if edgeIndex&255 == 0 {
 				if err := ctx.Err(); err != nil {
 					return result, err
 				}
 			}
-			from := resolveEndpoint(edge.From, true, nodeExists, contractsByNode, iface)
-			to := resolveEndpoint(edge.To, false, nodeExists, contractsByNode, iface)
+			from := resolveEndpoint(edge.From, true, nodeExists, pinsByNode, iface)
+			to := resolveEndpoint(edge.To, false, nodeExists, pinsByNode, iface)
 			for _, endpoint := range []struct {
 				field string
 				value string
@@ -341,6 +353,11 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 					}
 					if to.boundary {
 						usedBoundaryOutputs[edge.To] = true
+						boundaryOutputCounts[edge.To]++
+						if to.typ != node.TypeExec && boundaryOutputCounts[edge.To] == 2 {
+							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
+							result.diagnostics = append(result.diagnostics, bindingDiagnostic(graph.ID, "", path, "multipleGraphOutputSources", map[string]any{"endpoint": edge.To}))
+						}
 					}
 					if to.nodeID != "" {
 						if incoming[to.nodeID] == nil {
@@ -454,7 +471,36 @@ type endpointResolution struct {
 	boundary                        bool
 }
 
-func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, contracts map[string]catalog.NodeContract, iface graphInterface) endpointResolution {
+type nodePinIndex struct {
+	inputs, outputs map[string]string
+}
+
+func indexNodePins(contracts map[string]catalog.NodeContract) map[string]nodePinIndex {
+	out := make(map[string]nodePinIndex, len(contracts))
+	byKind := make(map[string]nodePinIndex)
+	for nodeID, contract := range contracts {
+		if contract.Kind != CallSubgraphKind {
+			if pins, ok := byKind[contract.Kind]; ok {
+				out[nodeID] = pins
+				continue
+			}
+		}
+		pins := nodePinIndex{inputs: make(map[string]string, len(contract.Inputs)), outputs: make(map[string]string, len(contract.Outputs))}
+		for _, input := range contract.Inputs {
+			pins.inputs[input.Name] = input.Type
+		}
+		for _, output := range contract.Outputs {
+			pins.outputs[output.Name] = output.Type
+		}
+		out[nodeID] = pins
+		if contract.Kind != CallSubgraphKind {
+			byKind[contract.Kind] = pins
+		}
+	}
+	return out
+}
+
+func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, pinsByNode map[string]nodePinIndex, iface graphInterface) endpointResolution {
 	if port, ok := iface.inputs[value]; ok {
 		return endpointResolution{pin: port.ID, typ: port.Type, valid: from, pinValid: from, wrongDirection: !from, boundary: true}
 	}
@@ -465,16 +511,26 @@ func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, contracts
 	if !ok {
 		return endpointResolution{}
 	}
-	contract, bound := contracts[nodeID]
+	pins, bound := pinsByNode[nodeID]
 	if !bound {
 		return endpointResolution{nodeID: nodeID, pin: pin, valid: true, pinValid: true}
 	}
 	if from {
-		typ, allowed := outputType(contract, pin)
+		typ, allowed := pins.outputs[pin]
 		return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
 	}
-	typ, allowed := inputType(contract, pin)
+	typ, allowed := pins.inputs[pin]
 	return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
+}
+
+func callPlanEncodedSize(target string, graph schema.Graph) int {
+	size := 128 + len(target)
+	for _, ports := range [][]schema.GraphPort{graph.Inputs, graph.Outputs} {
+		for _, port := range ports {
+			size += 64 + len(port.ID) + len(port.Type) + len(port.NodeID)
+		}
+	}
+	return size
 }
 
 func validateBoundaryCoverage(out *[]schema.Diagnostic, graph schema.Graph, graphIndex int, usedInputs, usedOutputs map[string]bool) {
@@ -522,24 +578,6 @@ func splitEndpoint(endpoint string, nodeIDs map[string]bool) (string, string, bo
 		}
 	}
 	return "", "", false
-}
-
-func outputType(contract catalog.NodeContract, pin string) (string, bool) {
-	for _, output := range contract.Outputs {
-		if output.Name == pin {
-			return output.Type, true
-		}
-	}
-	return "", false
-}
-
-func inputType(contract catalog.NodeContract, pin string) (string, bool) {
-	for _, input := range contract.Inputs {
-		if input.Name == pin {
-			return input.Type, true
-		}
-	}
-	return "", false
 }
 
 func compatibleTypes(from, to string) bool {
