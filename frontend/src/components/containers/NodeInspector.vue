@@ -3,15 +3,17 @@
 
   <div v-else>
     <!-- Header: 大图标 + 中文名 + ID -->
-    <header class="flex items-start gap-3 pb-4 mb-4 border-b border-default">
+    <header
+      class="sticky top-0 z-20 -mx-4 -mt-4 mb-4 flex items-start gap-3 border-b border-default bg-default px-4 pb-4 pt-4"
+    >
       <div
-        class="size-10 rounded-lg flex items-center justify-center shrink-0"
+        class="flex size-11 shrink-0 items-center justify-center rounded-lg"
         :class="[visual.bg, visual.border, 'border']"
       >
-        <UIcon :name="visual.icon" class="size-5 text-default" />
+        <UIcon :name="visual.icon" class="size-5 text-default" aria-hidden="true" />
       </div>
       <div class="min-w-0 flex-1">
-        <h3 class="text-sm font-medium text-highlighted leading-tight">{{ label }}</h3>
+        <h3 class="text-[15px] font-semibold leading-tight text-highlighted">{{ label }}</h3>
         <p
           v-if="experienceMode === 'pro'"
           class="text-[11px] text-dimmed font-mono truncate mt-0.5"
@@ -27,7 +29,9 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-help-circle"
+            class="size-8"
             :title="t('inspector.help_tooltip')"
+            :aria-label="t('inspector.help_tooltip')"
           />
           <template #content>
             <div class="p-3 max-w-xs space-y-3">
@@ -40,7 +44,7 @@
               >
                 <div class="flex items-center gap-1.5 mb-1">
                   <UIcon name="i-tabler-bulb" class="size-3.5 text-amber-400 shrink-0" />
-                  <span class="text-[11px] font-medium text-toned">{{
+                  <span class="text-xs font-medium text-toned">{{
                     t('inspector.example_title')
                   }}</span>
                 </div>
@@ -59,7 +63,9 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-copy"
+            class="size-8"
             :title="t('inspector.copy_menu_tooltip')"
+            :aria-label="t('inspector.copy_menu_tooltip')"
           />
         </UDropdownMenu>
         <UButton
@@ -67,13 +73,16 @@
           variant="ghost"
           color="error"
           icon="i-tabler-trash"
+          class="size-8"
           :title="t('inspector.delete_node_tooltip')"
+          :aria-label="t('inspector.delete_node_tooltip')"
           @click="$emit('delete')"
         />
       </div>
     </header>
 
     <SectionHeader
+      v-if="experienceMode === 'pro'"
       :title="t('editor.inspector.group_basics')"
       icon="i-tabler-adjustments"
       class="-mx-4 mt-2 mb-4"
@@ -93,7 +102,7 @@
     </section>
 
     <!-- 打印日志 (LogEnabled) — 勾选后该节点执行时吐通用 dump 日志 -->
-    <section class="mb-4">
+    <section v-if="experienceMode === 'pro'" class="mb-4">
       <UFormField :label="t('inspector.log_enabled_label')" :hint="t('inspector.log_enabled_hint')">
         <USwitch
           :model-value="node.logEnabled ?? false"
@@ -132,7 +141,7 @@
         <UIcon name="i-tabler-info-circle" class="size-3.5 text-warning shrink-0 mt-0.5" />
         <div class="text-[12px] text-warning flex-1">
           <div class="font-medium leading-tight">{{ t('inspector.expr_chain_title') }}</div>
-          <div class="text-warning/80 mt-1 leading-relaxed font-mono text-[11px]">
+          <div class="mt-1 font-mono text-xs leading-relaxed text-warning/80">
             value → {{ exprChainHint.targetID }}.{{ exprChainHint.targetPin }}
           </div>
           <div class="text-warning/80 mt-1 mb-2 leading-relaxed">
@@ -158,7 +167,7 @@
     >
       <div class="flex items-center gap-2">
         <UIcon name="i-tabler-crosshair" class="size-3.5 text-primary" />
-        <span class="text-[11px] text-toned">{{ t('inspector.screen_pick_label') }}</span>
+        <span class="text-xs text-toned">{{ t('inspector.screen_pick_label') }}</span>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <UButton
@@ -182,7 +191,7 @@
           {{ t('inspector.screen_pick_hud') }}
         </UButton>
       </div>
-      <p class="text-[10px] text-dimmed leading-snug">
+      <p class="text-xs leading-relaxed text-dimmed">
         {{
           t('inspector.screen_pick_hint', {
             action: canPickRect
@@ -207,7 +216,7 @@
 
         <!-- 子图 label 编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{
+          <label class="text-xs text-toned">{{
             t('node.Subgraph.inspector.subgraph_label_field')
           }}</label>
           <UInput
@@ -221,7 +230,7 @@
 
         <!-- 子图描述编辑 -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{
+          <label class="text-xs text-toned">{{
             t('node.Subgraph.inspector.subgraph_description_field')
           }}</label>
           <UTextarea
@@ -236,7 +245,7 @@
 
         <!-- 子图标签 tags -->
         <div class="space-y-1">
-          <label class="text-[11px] text-toned">{{
+          <label class="text-xs text-toned">{{
             t('node.Subgraph.inspector.subgraph_tags_field')
           }}</label>
           <UInputMenu
@@ -266,7 +275,7 @@
           {{ t('node.Subgraph.inspector.enter_subgraph') }}
         </UButton>
         <!-- 「发布到库」已删 — 子图全局化后天生在池里, 子图库直接可见。 -->
-        <p class="text-[10px] text-dimmed leading-snug">
+        <p class="text-xs leading-relaxed text-dimmed">
           {{ t('node.Subgraph.inspector.footer_meta_hint') }}<br />
           {{ t('node.Subgraph.inspector.footer_delete_hint') }}
         </p>
@@ -287,13 +296,13 @@
             :class="mcCounts > 0 ? 'text-success' : 'text-error'"
             >{{ mcCounts }}</span
           >
-          <span class="text-[11px] text-dimmed">{{
+          <span class="text-xs text-dimmed">{{
             mcCounts > 0
               ? t('node.MouseCalibration.inspector.calibrated')
               : t('node.MouseCalibration.inspector.not_calibrated')
           }}</span>
         </div>
-        <p class="text-[11px] text-dimmed leading-relaxed">
+        <p class="text-xs leading-relaxed text-dimmed">
           {{ t('node.MouseCalibration.inspector.counts_hint') }}<br />
           <span class="text-error/80">{{ t('node.MouseCalibration.inspector.counts_warn') }}</span>
         </p>
@@ -413,7 +422,7 @@
       <!-- 绑定的 clip 概要 (只读) -->
       <div
         v-if="selectedClip"
-        class="rounded-md bg-elevated/30 border border-default/40 px-3 py-2.5 text-[11px] space-y-1.5"
+        class="space-y-1.5 rounded-md border border-default/40 bg-elevated/30 px-3 py-2.5 text-xs"
       >
         <div class="flex items-center gap-2">
           <UIcon name="i-tabler-vinyl" class="size-3.5 text-emerald-400 shrink-0" />
@@ -421,7 +430,7 @@
             selectedClip.label || selectedClip.id
           }}</span>
         </div>
-        <div class="flex items-center gap-3 text-[10px] text-dimmed">
+        <div class="flex items-center gap-3 text-xs text-dimmed">
           <span class="flex items-center gap-1"
             ><UIcon name="i-tabler-clock" class="size-3" />{{
               formatDuration(selectedClip.durationUs)
@@ -446,11 +455,11 @@
             >{{ t }}</UBadge
           >
         </div>
-        <div class="text-[10px] text-dimmed font-mono break-all">{{ selectedClip.id }}</div>
+        <div class="break-all font-mono text-[11px] text-dimmed">{{ selectedClip.id }}</div>
       </div>
       <div
         v-else
-        class="rounded-md bg-warning/10 border border-warning/30 px-3 py-2 text-[11px] text-warning"
+        class="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
       >
         <UIcon name="i-tabler-alert-triangle" class="size-3 inline mr-1" />
         {{
@@ -481,7 +490,7 @@
           >{{ t('node.PlayClip.inspector.record_simple') }}</UButton
         >
       </div>
-      <p class="text-[10px] text-dimmed leading-snug -mt-1">
+      <p class="-mt-1 text-xs leading-relaxed text-dimmed">
         {{ t('node.PlayClip.inspector.bind_hint') }}
       </p>
 
@@ -499,17 +508,17 @@
         />
 
         <div class="flex items-center justify-between mb-1">
-          <span class="text-[11px] text-toned">{{
+          <span class="text-xs text-toned">{{
             t('node.PlayClip.inspector.keep_ranges_label')
           }}</span>
           <UButton size="xs" variant="ghost" icon="i-tabler-plus" @click="addRange">{{
             t('common.add')
           }}</UButton>
         </div>
-        <p class="text-[10px] text-dimmed mb-2 leading-snug">
+        <p class="mb-2 text-xs leading-relaxed text-dimmed">
           {{ t('node.PlayClip.inspector.keep_ranges_hint') }}
         </p>
-        <div v-if="keepRanges.length === 0" class="text-[10px] text-dimmed italic">
+        <div v-if="keepRanges.length === 0" class="text-xs italic text-dimmed">
           {{ t('node.PlayClip.inspector.full_playback') }}
         </div>
         <div v-else class="space-y-1.5">
@@ -522,7 +531,7 @@
               placeholder="from ms"
               @update:model-value="updateRange(idx, 'fromMs', Number($event))"
             />
-            <span class="text-[10px] text-dimmed">→</span>
+            <span class="text-xs text-dimmed">→</span>
             <UInput
               :model-value="r.toMs"
               type="number"
@@ -536,6 +545,8 @@
               variant="ghost"
               color="error"
               icon="i-tabler-x"
+              :title="t('node.PlayClip.inspector.remove_range')"
+              :aria-label="t('node.PlayClip.inspector.remove_range')"
               @click="removeRange(idx)"
             />
           </div>
@@ -582,7 +593,7 @@
         <div v-for="lit in dataInLiterals" :key="lit.name" class="space-y-1.5">
           <label class="block text-xs text-toned">
             {{ fieldFor(lit.name) ? t(fieldFor(lit.name)!.label) : lit.name }}
-            <span class="text-[10px] text-dimmed font-mono ml-1">({{ lit.type }})</span>
+            <span class="ml-1 font-mono text-[11px] text-dimmed">({{ lit.type }})</span>
           </label>
           <VarNameInput
             v-if="fieldFor(lit.name)?.semantic === 'varname'"
@@ -631,7 +642,7 @@
           />
           <p
             v-if="fieldFor(lit.name)?.hint && te(fieldFor(lit.name)!.hint!)"
-            class="text-[11px] text-dimmed leading-snug"
+            class="text-xs leading-relaxed text-dimmed"
           >
             {{ t(fieldFor(lit.name)!.hint!) }}
           </p>
@@ -657,10 +668,10 @@
       <!-- 可绑产出 (非纯数据节点 exec 出口 Data 字段): 方案 A — 未绑显「+绑定」按钮, 绑了/编辑中显 VarNameInput + 解绑 ✕。 -->
       <div v-if="bindable.length" class="space-y-3 mb-4">
         <div v-for="field in bindable" :key="'b-' + field" class="space-y-1">
-          <div class="flex items-center gap-2 text-[11px]">
+          <div class="flex items-center gap-2 text-xs">
             <UIcon name="i-tabler-variable" class="size-3.5 text-primary shrink-0" />
             <span class="text-toned">{{ outLabel(field) }}</span>
-            <span v-if="dataTypeOf(field)" class="text-[10px] text-dimmed font-mono"
+            <span v-if="dataTypeOf(field)" class="font-mono text-[11px] text-dimmed"
               >({{ dataTypeOf(field) }})</span
             >
             <UButton
@@ -690,10 +701,11 @@
               color="neutral"
               icon="i-tabler-x"
               :title="t('inspector.output.unbind_tooltip')"
+              :aria-label="t('inspector.output.unbind_tooltip')"
               @click="clearCapture(field)"
             />
           </div>
-          <p class="text-[10px] text-dimmed leading-snug">
+          <p class="text-xs leading-relaxed text-dimmed">
             {{
               field === 'Found'
                 ? t('inspector.output.found_hint')
@@ -708,11 +720,11 @@
         <div
           v-for="field in danglingCaptures"
           :key="'dangling-' + field"
-          class="flex items-center gap-2 text-[11px]"
+          class="flex items-center gap-2 text-xs"
         >
           <UIcon name="i-tabler-alert-triangle" class="size-3.5 text-error shrink-0" />
           <span class="text-error font-mono">{{ field }}</span>
-          <span class="text-[10px] text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
+          <span class="text-xs text-dimmed">{{ t('inspector.output.dangling_hint') }}</span>
           <UButton
             size="xs"
             variant="ghost"
@@ -720,6 +732,7 @@
             icon="i-tabler-x"
             class="ml-auto"
             :title="t('inspector.output.unbind_tooltip')"
+            :aria-label="t('inspector.output.unbind_tooltip')"
             @click="clearCapture(field)"
           />
         </div>
@@ -727,30 +740,26 @@
 
       <!-- exec 出口 (只读参考) + 纯数据节点 data 输出 (只读, 不可绑 — 存值用 SetVar)。 -->
       <div v-if="outPins.exec.length || readonlyData.length" class="space-y-1.5">
-        <div
-          v-for="pn in outPins.exec"
-          :key="'x-' + pn"
-          class="flex items-center gap-2 text-[11px]"
-        >
+        <div v-for="pn in outPins.exec" :key="'x-' + pn" class="flex items-center gap-2 text-xs">
           <UIcon name="i-tabler-arrow-right" class="size-3.5 text-dimmed shrink-0" />
           <span class="text-toned">{{ outLabel(pn) }}</span>
-          <span class="ml-auto text-[10px] text-dimmed font-mono">exec</span>
+          <span class="ml-auto font-mono text-[11px] text-dimmed">exec</span>
         </div>
         <div
           v-for="dp in readonlyData"
           :key="'d-' + dp.name"
-          class="flex items-center gap-2 text-[11px]"
+          class="flex items-center gap-2 text-xs"
         >
           <UIcon name="i-tabler-variable" class="size-3.5 text-dimmed shrink-0" />
           <span class="text-toned">{{ outLabel(dp.name) }}</span>
-          <span v-if="dp.type" class="ml-auto text-[10px] text-dimmed font-mono">{{
+          <span v-if="dp.type" class="ml-auto font-mono text-[11px] text-dimmed">{{
             dp.type
           }}</span>
         </div>
       </div>
       <p
         v-if="!bindable.length && !outPins.exec.length && !readonlyData.length"
-        class="text-[11px] text-dimmed"
+        class="text-xs text-dimmed"
       >
         {{ t('editor.inspector.outputs_none') }}
       </p>
@@ -758,7 +767,7 @@
 
     <div
       v-else
-      class="mt-5 flex items-start gap-2 border-t border-default pt-3 text-[11px] text-dimmed"
+      class="mt-5 flex items-start gap-2 border-t border-default pt-3 text-xs text-dimmed"
     >
       <UIcon name="i-tabler-adjustments-code" class="mt-0.5 size-3.5 shrink-0" />
       <span>{{ t('editor.experience.basic_inspector_hint') }}</span>

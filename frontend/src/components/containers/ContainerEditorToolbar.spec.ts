@@ -47,6 +47,12 @@ describe('ContainerEditorToolbar structure', () => {
     expect(source).toContain('.toolbar-secondary-label')
     expect(source).toContain('.toolbar-state-label')
     expect(source).toContain('.toolbar-utility-label')
+    expect(source).toContain(':aria-label="t(\'editor.toolbar.stop_record\')"')
+    expect(source).toContain(':aria-label="t(\'editor.toolbar.record\')"')
+  })
+
+  it('respects reduced motion for execution state indicators', () => {
+    expect(source).toContain('motion-reduce:animate-none')
   })
 
   it('exposes Basic and Pro modes while keeping debug as a Pro action', () => {

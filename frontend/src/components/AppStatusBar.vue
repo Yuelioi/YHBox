@@ -1,14 +1,21 @@
 <template>
   <div
-    class="h-7 shrink-0 flex items-center justify-between px-4 border-t border-default bg-default text-[11px] text-muted select-none"
+    class="flex h-8 shrink-0 select-none items-center justify-between border-t border-default bg-default px-4 text-xs text-muted"
   >
     <!-- LEFT — active status -->
     <div class="flex items-center gap-3 min-w-0 flex-1">
       <span
-        class="size-1.5 rounded-full shrink-0 transition-colors duration-300"
+        class="size-1.5 shrink-0 rounded-full transition-colors duration-300 motion-reduce:transition-none"
         :class="leftDotClass"
+        aria-hidden="true"
       />
-      <span class="font-medium" :class="leftLabelClass">{{ activeStatus.label }}</span>
+      <span
+        role="status"
+        aria-live="polite"
+        class="min-w-0 truncate font-medium"
+        :class="leftLabelClass"
+        >{{ activeStatus.label }}</span
+      >
       <template v-if="activeStatus.metrics.length">
         <span class="text-dimmed">·</span>
         <span class="tabular-nums text-toned truncate">
@@ -18,12 +25,12 @@
       <!-- 容器跑中 → 显示当前节点 + 一键停止按钮 -->
       <template v-if="activeStatus.kind === 'container'">
         <span v-if="currentNodeLabel" class="text-dimmed">·</span>
-        <span v-if="currentNodeLabel" class="text-primary truncate">
+        <span v-if="currentNodeLabel" class="min-w-0 truncate text-primary">
           ▶ {{ currentNodeLabel }}
         </span>
         <button
           type="button"
-          class="ml-2 px-2 py-0.5 rounded text-[10px] bg-error/15 border border-error/40 text-error hover:bg-error/25 transition-colors inline-flex items-center gap-1"
+          class="ml-2 inline-flex h-6 shrink-0 items-center gap-1 rounded border border-error/40 bg-error/15 px-2 text-xs text-error transition-colors hover:bg-error/25"
           :title="
             t('status.stop_tooltip', {
               hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9'),
@@ -87,7 +94,7 @@ const activeStatus = computed<Active>(() => {
 const leftDotClass = computed(() => {
   switch (activeStatus.value.state) {
     case 'running':
-      return 'bg-primary animate-pulse'
+      return 'bg-primary animate-pulse motion-reduce:animate-none'
     default:
       return 'bg-accented'
   }

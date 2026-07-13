@@ -1908,6 +1908,7 @@ export default {
         keep_ranges_label: 'Keep ranges (keepRanges)',
         keep_ranges_hint:
           'Empty = play full clip. With ranges, only those segments play; gaps between segments are auto-compressed.',
+        remove_range: 'Remove range',
         full_playback: 'None — play full clip',
       },
     },
@@ -2839,6 +2840,12 @@ export default {
     write_file_tooltip_on: 'Writing to {dir}/yotta-*.log',
     write_file_tooltip_off: 'Not writing to file',
     empty: 'No logs.',
+    settings: 'Log display settings',
+    clear: 'Clear logs',
+    filter_label: 'Log source',
+    filter_all: 'All logs',
+    filter_sys: 'System logs',
+    filter_ctr: 'Container logs',
     action_trace: {
       open: 'Action trace',
       title: 'Action trace',

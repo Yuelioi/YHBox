@@ -1,145 +1,159 @@
 <template>
   <div
-    class="border-t border-default flex flex-col shrink-0 bg-default"
-    :style="{ height: collapsed ? '28px' : '220px' }"
+    class="flex shrink-0 flex-col border-t border-default bg-default"
+    :style="{ height: collapsed ? '32px' : 'clamp(180px, 28vh, 320px)' }"
   >
     <!-- header -->
-    <div
-      class="h-7 px-2 flex items-center gap-2 border-b border-default shrink-0 select-none cursor-pointer hover:bg-elevated/40"
-      @click="togglePanel"
-    >
-      <UIcon
-        :name="collapsed ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
-        class="size-3.5 text-dimmed"
-      />
-      <span class="text-[11px] text-toned font-medium">{{ t('log.header_title') }}</span>
-      <span v-if="filteredLines.length" class="text-[10px] text-dimmed">{{
-        t('log.count', { n: filteredLines.length })
-      }}</span>
-      <span v-if="hasErrors" class="text-[10px] text-error">{{ t('log.has_errors') }}</span>
+    <div class="flex h-8 shrink-0 select-none items-center border-b border-default px-2">
+      <button
+        type="button"
+        class="flex h-full min-w-0 flex-1 items-center gap-2 rounded px-1 text-left hover:bg-elevated/40"
+        :aria-expanded="!collapsed"
+        aria-controls="app-log-panel-body"
+        @click="togglePanel"
+      >
+        <UIcon
+          :name="collapsed ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+          class="size-3.5 shrink-0 text-dimmed"
+        />
+        <span class="text-xs font-medium text-toned">{{ t('log.header_title') }}</span>
+        <span v-if="filteredLines.length" class="text-xs tabular-nums text-dimmed">{{
+          t('log.count', { n: filteredLines.length })
+        }}</span>
+        <span v-if="hasErrors" class="text-xs text-error">{{ t('log.has_errors') }}</span>
+      </button>
 
-      <div class="flex-1" />
+      <div v-if="!collapsed" class="ml-2 flex shrink-0 items-center gap-1">
+        <!-- 写文件状态 -->
+        <span
+          role="status"
+          :aria-label="
+            writeFile
+              ? t('log.write_file_tooltip_on', { dir: fileDir })
+              : t('log.write_file_tooltip_off')
+          "
+          :title="
+            writeFile
+              ? t('log.write_file_tooltip_on', { dir: fileDir })
+              : t('log.write_file_tooltip_off')
+          "
+          class="mx-1 size-2 shrink-0 rounded-full"
+          :class="writeFile ? 'bg-success' : 'bg-accented'"
+        />
 
-      <!-- 写文件状态 icon -->
-      <span
-        v-if="!collapsed"
-        :title="
-          writeFile
-            ? t('log.write_file_tooltip_on', { dir: fileDir })
-            : t('log.write_file_tooltip_off')
-        "
-        class="size-2 rounded-full shrink-0"
-        :class="writeFile ? 'bg-success' : 'bg-accented'"
-        @click.stop
-      />
+        <!-- 双源 filter -->
+        <div class="flex items-center gap-0.5" role="group" :aria-label="t('log.filter_label')">
+          <button
+            v-for="opt in ['ALL', 'SYS', 'CTR'] as const"
+            :key="opt"
+            type="button"
+            class="rounded px-1.5 py-1 text-[11px] transition-colors"
+            :class="filter === opt ? 'bg-primary/15 text-primary' : 'text-dimmed hover:text-toned'"
+            :aria-pressed="filter === opt"
+            :aria-label="t(`log.filter_${opt.toLowerCase()}`)"
+            @click="filter = opt"
+          >
+            {{ opt }}
+          </button>
+        </div>
 
-      <!-- 双源 filter -->
-      <div v-if="!collapsed" class="flex items-center gap-0.5 ml-1" @click.stop>
-        <button
-          v-for="opt in ['ALL', 'SYS', 'CTR'] as const"
-          :key="opt"
-          class="px-1.5 py-0.5 text-[10px] rounded transition-colors"
-          :class="filter === opt ? 'bg-primary/15 text-primary' : 'text-dimmed hover:text-toned'"
-          @click="filter = opt"
-        >
-          {{ opt }}
-        </button>
-      </div>
-
-      <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
-      <UButton
-        v-if="!collapsed"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        icon="i-tabler-route"
-        :title="t('log.action_trace.open')"
-        :ui="{ base: 'h-5 px-1' }"
-        @click.stop="actionTraceOpen = true"
-      />
-
-      <UPopover v-if="!collapsed" mode="click" :ui="{ content: 'p-2 w-48' }">
         <UButton
           size="xs"
           variant="ghost"
           color="neutral"
-          icon="i-tabler-settings"
-          :ui="{ base: 'h-5 px-1' }"
-          @click.stop
+          icon="i-tabler-route"
+          :title="t('log.action_trace.open')"
+          :aria-label="t('log.action_trace.open')"
+          :ui="{ base: 'size-7 p-0' }"
+          @click="actionTraceOpen = true"
         />
-        <template #content>
-          <div class="space-y-1 text-[11px]">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="showTime"
-                @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)"
-              />
-              {{ t('log.popover.show_time') }}
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="showTag"
-                @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)"
-              />
-              {{ t('log.popover.show_tag') }}
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="wrapText"
-                @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)"
-              />
-              {{ t('log.popover.wrap_text') }}
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="autoScroll"
-                @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)"
-              />
-              {{ t('log.popover.auto_scroll') }}
-            </label>
-            <hr class="border-default my-1" />
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="writeFile"
-                @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)"
-              />
-              {{ t('log.popover.write_file') }}
-            </label>
-            <hr class="border-default my-1" />
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                :checked="showNodeEnter"
-                @change="showNodeEnter = ($event.target as HTMLInputElement).checked"
-              />
-              {{ t('log.popover.show_node_enter') }}
-            </label>
-          </div>
-        </template>
-      </UPopover>
 
-      <!-- clear -->
-      <UButton
-        v-if="!collapsed"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        icon="i-tabler-trash"
-        :ui="{ base: 'h-5 px-1' }"
-        @click.stop="logStore.clear()"
-      />
+        <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
+        <UPopover mode="click" :ui="{ content: 'p-2 w-48' }">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-tabler-settings"
+            :title="t('log.settings')"
+            :aria-label="t('log.settings')"
+            :ui="{ base: 'size-7 p-0' }"
+          />
+          <template #content>
+            <div class="space-y-1 text-xs">
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="showTime"
+                  @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.show_time') }}
+              </label>
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="showTag"
+                  @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.show_tag') }}
+              </label>
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="wrapText"
+                  @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.wrap_text') }}
+              </label>
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="autoScroll"
+                  @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.auto_scroll') }}
+              </label>
+              <hr class="my-1 border-default" />
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="writeFile"
+                  @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.write_file') }}
+              </label>
+              <hr class="my-1 border-default" />
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  :checked="showNodeEnter"
+                  @change="showNodeEnter = ($event.target as HTMLInputElement).checked"
+                />
+                {{ t('log.popover.show_node_enter') }}
+              </label>
+            </div>
+          </template>
+        </UPopover>
+
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-tabler-trash"
+          :title="t('log.clear')"
+          :aria-label="t('log.clear')"
+          :ui="{ base: 'size-7 p-0' }"
+          @click="logStore.clear()"
+        />
+      </div>
     </div>
 
     <!-- body -->
     <div
       v-show="!collapsed"
+      id="app-log-panel-body"
       ref="bodyRef"
-      class="flex-1 overflow-y-auto font-mono text-[11px] px-2 py-1 space-y-0.5 bg-sunken"
+      class="flex-1 space-y-0.5 overflow-y-auto bg-sunken px-2 py-1 font-mono text-xs"
     >
       <div v-if="filteredLines.length === 0" class="text-dimmed italic">{{ t('log.empty') }}</div>
       <div

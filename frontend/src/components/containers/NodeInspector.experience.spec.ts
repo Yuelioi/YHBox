@@ -12,5 +12,14 @@ describe('NodeInspector experience modes', () => {
     expect(source).toContain('v-if="experienceMode === \'pro\'"')
     expect(source).toContain("t('editor.inspector.group_inputs')")
     expect(source).toContain("t('editor.experience.basic_inspector_hint')")
+    expect(source).toContain('v-if="experienceMode === \'pro\'"')
+    expect(source).toContain("t('inspector.log_enabled_label')")
+  })
+
+  it('keeps node identity visible and names icon-only actions', () => {
+    expect(source).toContain('sticky top-0')
+    expect(source).toContain(':aria-label="t(\'inspector.help_tooltip\')"')
+    expect(source).toContain(':aria-label="t(\'inspector.copy_menu_tooltip\')"')
+    expect(source).toContain(':aria-label="t(\'inspector.delete_node_tooltip\')"')
   })
 })

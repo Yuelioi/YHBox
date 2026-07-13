@@ -259,6 +259,13 @@
               ? t('editor.toolbar.inspector_collapse')
               : t('editor.toolbar.inspector_expand')
           "
+          :aria-label="
+            showInspector
+              ? t('editor.toolbar.inspector_collapse')
+              : t('editor.toolbar.inspector_expand')
+          "
+          :aria-expanded="showInspector"
+          aria-controls="container-editor-inspector"
           @click="sidebarPrefs.inspectorCollapsed = !sidebarPrefs.inspectorCollapsed"
         >
           <UIcon
@@ -278,6 +285,7 @@
 
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
         <ContainerEditorInspector
+          id="container-editor-inspector"
           v-show="showInspector"
           :style="{ width: inspectorWidth + 'px' }"
           :selected-node="selectedNode"

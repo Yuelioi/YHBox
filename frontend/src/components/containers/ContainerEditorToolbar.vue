@@ -59,9 +59,12 @@
     <div data-zone="workflow" class="toolbar-zone toolbar-workflow">
       <template v-if="execStoreRunning">
         <div
-          class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
+          class="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/15 px-2 py-1 text-xs text-primary"
         >
-          <span class="size-1.5 rounded-full bg-primary animate-pulse" />
+          <span
+            class="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
+            aria-hidden="true"
+          />
           <span>{{ t('editor.toolbar.running') }}</span>
           <span v-if="activeNodeLabel" class="toolbar-state-label text-primary/80"
             >· {{ activeNodeLabel }}</span
@@ -77,6 +80,7 @@
               hk: hotkeys.keyFor('system.execution-stop', 'Ctrl+Shift+F9'),
             })
           "
+          :aria-label="t('editor.toolbar.stop_run')"
           @click="$emit('stop-run')"
           ><span class="toolbar-state-label">{{ t('editor.toolbar.stop_run') }}</span></UButton
         >
@@ -84,9 +88,12 @@
 
       <template v-else-if="debugActive">
         <div
-          class="inline-flex items-center gap-2 rounded-md bg-primary/15 border border-primary/40 px-2 py-0.5 text-[11px] text-primary"
+          class="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/15 px-2 py-1 text-xs text-primary"
         >
-          <span class="size-1.5 rounded-full bg-primary animate-pulse" />
+          <span
+            class="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
+            aria-hidden="true"
+          />
           <span>{{ t('editor.toolbar.debugging') }}</span>
           <span v-if="activeNodeLabel" class="toolbar-state-label text-primary/80"
             >· {{ activeNodeLabel }}</span
@@ -99,6 +106,7 @@
           icon="i-tabler-player-track-next"
           :disabled="!debugCanStep"
           :title="t('editor.toolbar.debug_step_tip')"
+          :aria-label="t('editor.toolbar.debug_step')"
           @click="$emit('debug-step')"
           ><span class="toolbar-state-label">{{ t('editor.toolbar.debug_step') }}</span></UButton
         >
@@ -109,6 +117,7 @@
           icon="i-tabler-player-play"
           :disabled="!debugCanContinue"
           :title="t('editor.toolbar.debug_continue_tip')"
+          :aria-label="t('editor.toolbar.debug_continue')"
           @click="$emit('debug-continue')"
           ><span class="toolbar-state-label">{{
             t('editor.toolbar.debug_continue')
@@ -121,6 +130,7 @@
           icon="i-tabler-player-pause"
           :disabled="!debugCanPause"
           :title="t('editor.toolbar.debug_pause_tip')"
+          :aria-label="t('editor.toolbar.debug_pause')"
           @click="$emit('debug-pause')"
           ><span class="toolbar-state-label">{{ t('editor.toolbar.debug_pause') }}</span></UButton
         >
@@ -130,6 +140,7 @@
           variant="solid"
           icon="i-tabler-square"
           :title="t('editor.toolbar.debug_stop_tip')"
+          :aria-label="t('editor.toolbar.stop_run')"
           @click="$emit('debug-stop')"
           ><span class="toolbar-state-label">{{ t('editor.toolbar.stop_run') }}</span></UButton
         >
@@ -224,6 +235,7 @@
             : '') +
           t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })
         "
+        :aria-label="t('editor.toolbar.stop_record')"
         @click="$emit('stop-record')"
         ><span class="toolbar-utility-label">{{ t('editor.toolbar.stop_record') }}</span></UButton
       >
@@ -234,6 +246,7 @@
         variant="solid"
         icon="i-tabler-x"
         :title="t('editor.toolbar.cancel_countdown_tip')"
+        :aria-label="t('editor.toolbar.cancel_countdown', { n: countdownSec })"
         @click="$emit('cancel-countdown')"
         ><span class="toolbar-utility-label">{{
           t('editor.toolbar.cancel_countdown', { n: countdownSec })
@@ -246,6 +259,7 @@
           variant="soft"
           icon="i-tabler-circle-dot"
           :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')"
+          :aria-label="t('editor.toolbar.record')"
         >
           <span class="toolbar-utility-label">{{ t('editor.toolbar.record') }}</span></UButton
         >
