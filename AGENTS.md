@@ -40,6 +40,6 @@ task check
 
 ## Flightdeck
 
-- 显式启用 Flightdeck 时，从 `flightdeck/briefing.md` 与 `flightdeck/cockpit.md` 开始，再进入对应 `flightdeck/work/<topic>/index.md`。
-- `flightdeck/knowledge/` 按文件头的 `READ WHEN` 路由；不要整库加载，也不要把任务进度写入常驻指令。
-- 任务设计、计划、状态和开放问题写入对应 topic；不要把它们追加到本文件。
+- 显式启用 Flightdeck 时，调用 `/flightdeck:preflight`，从 `flightdeck/deck.md` 读取稳定约定，再选择对应 `flightdeck/work/<topic>/index.md` 恢复。
+- `flightdeck/knowledge/` 按严格 frontmatter 的 `activation`、`read_when` 与可选 `recheck_when` 路由；不要整库加载，也不要把任务进度写入常驻指令。
+- 任务设计、计划、状态和开放问题写入对应 topic；稳定项目约定写入 `flightdeck/deck.md`，不要追加到本文件。

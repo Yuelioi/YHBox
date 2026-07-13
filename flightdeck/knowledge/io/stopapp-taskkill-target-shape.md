@@ -1,11 +1,11 @@
-# ⚠ StopApp 的 taskkill /IM 目标只能是 image name
-
-SUMMARY: Windows `taskkill /IM` 不接受完整 exe 路径；StopApp 接到完整路径时必须先折成文件名，否则会报“无效查询/invalid query”。
-READ WHEN: 改 StopApp / KillProcess / RunProgram→StopApp 流程；排查 StopApp 对完整 exe 路径失败；设计按进程名、PID 或路径结束程序的节点语义时。
-RECHECK WHEN: StopApp 改成 path-specific 进程过滤、改用 PowerShell/WMI/Win32 API 枚举进程，或 taskkill 参数变化时。
-
 ---
-
+kind: trap
+summary: "Windows `taskkill /IM` 不接受完整 exe 路径；StopApp 接到完整路径时必须先折成文件名，否则会报“无效查询/invalid query”。"
+activation: symptom
+read_when: "改 StopApp / KillProcess / RunProgram→StopApp 流程；排查 StopApp 对完整 exe 路径失败；设计按进程名、PID 或路径结束程序的节点语义时。"
+recheck_when: "StopApp 改成 path-specific 进程过滤、改用 PowerShell/WMI/Win32 API 枚举进程，或 taskkill 参数变化时。"
+---
+# ⚠ StopApp 的 taskkill /IM 目标只能是 image name
 `RunProgram.Target` 常是完整路径，例如 `E:\adobe\Adobe After Effects 2022\Support Files\AfterFX.exe`。如果用户把同一个值接到 StopApp，底层不能直接执行 `taskkill /IM <full-path>`，因为 `/IM` 只接受 image name 或通配 image name。
 
 当前约定：

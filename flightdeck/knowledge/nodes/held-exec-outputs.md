@@ -1,11 +1,11 @@
-# held exec output — exec 出口 Data 字段任意距离直连（免 GetVar）
-
-SUMMARY: exec 出口 Data 字段的 UE 式 held output 语义 —— per-run 缓存让下游数据线任意距离直连，免 GetVar、免紧邻约束
-READ WHEN: 设计/排查 exec 节点出口 Data 字段被下游数据线消费时（Fail.Code→Switch、AI 结构化输出 red/white 多消费、Capture.Image→AI vision）; 撞「数据线接了 exec 出口字段但下游取不到值」; 改 pullDataPin / routeResult / 数据线求值路径前
-RECHECK WHEN: 改 ContainerRunner.execOutputs 键格式/生命周期 / routeResult 的写钩子 / pullDataPin 对 exec 出口字段的读路径 / IsExecOutputDataFieldNode 判定 / 重新引入紧邻约束时
-
 ---
-
+kind: note
+summary: "exec 出口 Data 字段的 UE 式 held output 语义 —— per-run 缓存让下游数据线任意距离直连，免 GetVar、免紧邻约束"
+activation: action
+read_when: "设计/排查 exec 节点出口 Data 字段被下游数据线消费时（Fail.Code→Switch、AI 结构化输出 red/white 多消费、Capture.Image→AI vision）; 撞「数据线接了 exec 出口字段但下游取不到值」; 改 pullDataPin / routeResult / 数据线求值路径前"
+recheck_when: "改 ContainerRunner.execOutputs 键格式/生命周期 / routeResult 的写钩子 / pullDataPin 对 exec 出口字段的读路径 / IsExecOutputDataFieldNode 判定 / 重新引入紧邻约束时"
+---
+# held exec output — exec 出口 Data 字段任意距离直连（免 GetVar）
 exec 节点出口携带的 **Data 字段**（`Fail.Code`/`Fail.Error`、AI 结构化输出声明的 `red`/`white`、`Capture.Image` 等）具备 **UE 式 "held output" 语义**：节点 fire 某出口时该出口的每个 Data 字段自动存进本次运行的缓存，下游**数据线可从任意距离直连读**，不需要 GetVar、不要求源是紧邻 exec 上游。
 
 ## 机制（写 → 读）

@@ -1,10 +1,11 @@
-# ⚠ Normalize 会掩盖 MCP schema 与示例的 contract 漂移
-SUMMARY: MCP `get_graph_schema` 曾把真实的 `graph.schemaVersion` 写成 `graph.version`；示例测试在校验前调用 `Container.Normalize()` 自动补 version/id，导致错误的 LLM-facing contract 仍然绿。
-READ WHEN: 修改 MCP graph schema、LLM 示例、container Normalize、严格 JSON decode 或声称“生成示例已通过 validator”时
-RECHECK WHEN: Yotta v3 删除 Normalize self-heal、MCP 改用生成 JSON Schema 或 authoring tools 改版后
-
 ---
-
+kind: trap
+summary: "MCP `get_graph_schema` 曾把真实的 `graph.schemaVersion` 写成 `graph.version`；示例测试在校验前调用 `Container.Normalize()` 自动补 version/id，导致错误的 LLM-facing contract 仍然绿。"
+activation: symptom
+read_when: "修改 MCP graph schema、LLM 示例、container Normalize、严格 JSON decode 或声称“生成示例已通过 validator”时"
+recheck_when: "Yotta v3 删除 Normalize self-heal、MCP 改用生成 JSON Schema 或 authoring tools 改版后"
+---
+# ⚠ Normalize 会掩盖 MCP schema 与示例的 contract 漂移
 `internal/services/mcpserver/schema.go` 的说明和两个示例曾使用：
 
 ```json

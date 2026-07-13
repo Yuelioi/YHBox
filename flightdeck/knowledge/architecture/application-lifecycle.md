@@ -1,10 +1,11 @@
-# Application runtime 生命周期
-SUMMARY: 后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → debug manager → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才有界 drain application/log。
-READ WHEN: 新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏
-RECHECK WHEN: application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变
-
 ---
-
+kind: note
+summary: "后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → debug manager → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才有界 drain application/log。"
+activation: action
+read_when: "新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏"
+recheck_when: "application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变"
+---
+# Application runtime 生命周期
 生命周期契约：
 
 - 构造函数只组装依赖，不启动 goroutine/listener；所有资源准备完成后统一 `Runtime.Start(ctx)`。

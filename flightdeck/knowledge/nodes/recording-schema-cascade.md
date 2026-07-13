@@ -1,10 +1,10 @@
-# ⚠ 录制流程 schema cascade — 一次 session 撞 4 层 drift
-
-SUMMARY: 录制流程一次撞 4 层 schema drift：二号铁律不只指代码也指约定，Spec 是唯一源，重命名必须全扫 callsite
-READ WHEN: 改节点 Spec 字段名 / pin 名前; 撞 INVALID_PIN / REQUIRED_FIELD_MISSING 撞得莫名其妙; 录制录像跑通但保存/运行炸; 任何 frontend/backend schema mismatch 类问题
-
 ---
-
+kind: trap
+summary: "录制流程一次撞 4 层 schema drift：二号铁律不只指代码也指约定，Spec 是唯一源，重命名必须全扫 callsite"
+activation: symptom
+read_when: "改节点 Spec 字段名 / pin 名前; 撞 INVALID_PIN / REQUIRED_FIELD_MISSING 撞得莫名其妙; 录制录像跑通但保存/运行炸; 任何 frontend/backend schema mismatch 类问题"
+---
+# ⚠ 录制流程 schema cascade — 一次 session 撞 4 层 drift
 ## 教训 (4 条)
 
 1. **二号铁律 "不要兼容" 不只指代码逻辑, 也指 schema/约定**. 如果 Spec 改 PascalCase 但 FE writer / fixture / validator 还小写, 你**默默重新引入了兼容层** — 只不过是隐式的 (key 不匹配 → fallback "" / 缺失). 重命名约定 = 必须扫 ALL grep 命中, 一次性切干净.

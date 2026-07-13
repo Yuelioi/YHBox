@@ -1,11 +1,11 @@
-# Node Spec Style checklist
-
-SUMMARY: nodepkg.Spec 的统一约定 —— pin 命名大小写、Default 类型、exec exit 命名、canonical pin 词汇表、i18n 文案规范
-READ WHEN: before writing / editing 任何 nodepkg.Spec (`internal/nodes/**/*.go`) — 含 Inputs/Outputs/Default
-RECHECK WHEN: 改 nodepkg.Spec 的 pin 命名约定 / Inputs·Outputs·Default 结构时
-
 ---
-
+kind: checklist
+summary: "nodepkg.Spec 的统一约定 —— pin 命名大小写、Default 类型、exec exit 命名、canonical pin 词汇表、i18n 文案规范"
+activation: action
+read_when: "before writing / editing 任何 nodepkg.Spec (`internal/nodes/**/*.go`) — 含 Inputs/Outputs/Default"
+recheck_when: "改 nodepkg.Spec 的 pin 命名约定 / Inputs·Outputs·Default 结构时"
+---
+# Node Spec Style checklist
 写/改任何 `internal/nodes/**/*.go` 节点 Spec 前**前置**读这份. P2.1 锁定的统一约定 — 防止 4 套混 (PascalCase / lowercase / 老 vs 新) 再次漂移.
 
 ## 1. Pin Name 大小写

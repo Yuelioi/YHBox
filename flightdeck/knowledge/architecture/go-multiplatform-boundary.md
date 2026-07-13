@@ -1,9 +1,10 @@
-# Go 多平台边界现状
-SUMMARY: Yotta backend core 已闭合 Win32/Wails seam 并进入 Windows/Linux/macOS 门禁；完整 GUI 必须按宿主 OS 使用 Wails 原生依赖单独验收。
-READ WHEN: before adding Linux/macOS support, moving Win32 code, designing automation targets/controllers, or claiming the Go backend is cross-platform.
-
 ---
-
+kind: note
+summary: "Yotta backend core 已闭合 Win32/Wails seam 并进入 Windows/Linux/macOS 门禁；完整 GUI 必须按宿主 OS 使用 Wails 原生依赖单独验收。"
+activation: action
+read_when: "before adding Linux/macOS support, moving Win32 code, designing automation targets/controllers, or claiming the Go backend is cross-platform."
+---
+# Go 多平台边界现状
 2026-07-11 源码、依赖图与交叉编译确认：
 
 - `internal/automation/controller` 已把 Controller、Screenshotter、PointerInput、KeyboardInput、AppLifecycle 拆成平台中立能力 interface，并已有 Win32、Android ADB、Browser CDP adapter。这是应保留的方向。

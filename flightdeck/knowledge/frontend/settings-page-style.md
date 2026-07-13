@@ -1,12 +1,11 @@
-# 设置页视觉范式 checklist
-
-SUMMARY: 设置页视觉范式 — 所有设置子页照 SettingsGeneral.vue 的卡片骨架来.
-READ WHEN: 写/改任何设置 tab（SettingsView 下的子页：General/Hotkeys/Input/Launcher 等）前；新增设置子页前；想让设置页风格统一时
-RECHECK WHEN: 改 SettingsView 设置子页的布局/风格基线 / 设置页公共组件时
-
 ---
-
-
+kind: checklist
+summary: "设置页视觉范式 — 所有设置子页照 SettingsGeneral.vue 的卡片骨架来."
+activation: action
+read_when: "写/改任何设置 tab（SettingsView 下的子页：General/Hotkeys/Input/Launcher 等）前；新增设置子页前；想让设置页风格统一时"
+recheck_when: "改 SettingsView 设置子页的布局/风格基线 / 设置页公共组件时"
+---
+# 设置页视觉范式 checklist
 **基准 = `SettingsGeneral.vue`（通用 tab）。** 所有设置子页照它来，别各写各的。下面每条都从 General 提炼，直接照抄。
 组件级通用规范（Tailwind / Nuxt UI 用法）见 [ui.md](ui.md)；独立工具 HUD 窗是另一套外壳，见 [standalone-window-style.md](../wails/standalone-window-style.md)，别混。
 

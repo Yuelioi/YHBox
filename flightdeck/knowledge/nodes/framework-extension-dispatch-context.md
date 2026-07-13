@@ -1,11 +1,11 @@
-# Framework extension when behavior varies by dispatch context
-
-SUMMARY: 节点行为随 dispatch context 变时怎么扩 —— 优先在 dispatch 入口 wrap 服务，别加宽 Ctx 接口
-READ WHEN: 设计 framework / DI 容器扩展 / 节点 Ctx 加新方法前 / "这种节点该看到不同的 X" 类需求
-RECHECK WHEN: 改 Ctx 接口 / ServiceBundle 组成 / DI 容器装配 / 给节点 Ctx 加新方法 / 改 dispatch 入口适配层时
-
 ---
-
+kind: note
+summary: "节点行为随 dispatch context 变时怎么扩 —— 优先在 dispatch 入口 wrap 服务，别加宽 Ctx 接口"
+activation: action
+read_when: "设计 framework / DI 容器扩展 / 节点 Ctx 加新方法前 / \"这种节点该看到不同的 X\" 类需求"
+recheck_when: "改 Ctx 接口 / ServiceBundle 组成 / DI 容器装配 / 给节点 Ctx 加新方法 / 改 dispatch 入口适配层时"
+---
+# Framework extension when behavior varies by dispatch context
 ## 决策原则
 
 **新需求**: "某类节点 (PureData / Cron / Async / 等) 看到的 X 服务行为应该跟普通节点不同" (X = Vars / time / Stop 信号 / etc.)

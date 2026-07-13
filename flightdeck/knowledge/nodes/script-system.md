@@ -1,11 +1,11 @@
-# Script 系统 — 内嵌 JS 脚本节点与节点即函数绑定
-
-SUMMARY: Script 节点（goja JS）+ 节点即函数自动绑定 —— 调用/返回/错误约定、$变量、糖函数、动态输入、前端编辑器链路
-READ WHEN: 写/改 Script 节点或绑定层前; 想知道脚本里能调什么函数、怎么传参取值接错误; 加新节点想确认脚本侧是否自动可见; 改 Expr/Script 动态输入机制前; 撞 SCRIPT_* 校验码或脚本取消/行号问题
-RECHECK WHEN: 改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicPorts input 机制时
-
 ---
-
+kind: note
+summary: "Script 节点（goja JS）+ 节点即函数自动绑定 —— 调用/返回/错误约定、$变量、糖函数、动态输入、前端编辑器链路"
+activation: action
+read_when: "写/改 Script 节点或绑定层前; 想知道脚本里能调什么函数、怎么传参取值接错误; 加新节点想确认脚本侧是否自动可见; 改 Expr/Script 动态输入机制前; 撞 SCRIPT_* 校验码或脚本取消/行号问题"
+recheck_when: "改绑定调用/返回/错误约定、糖函数集合、ScriptBindable 排除规则、IIFE 包裹/行号修正、code widget 组件链路或 DynamicPorts input 机制时"
+---
+# Script 系统 — 内嵌 JS 脚本节点与节点即函数绑定
 一句话: **Script 节点让用户用 JavaScript (goja 引擎) 写一段逻辑, 每个已注册的 Runnable/Evaluator 节点自动是脚本里的同名全局函数** — 加新节点零绑定维护, 脚本侧自动多一个函数 + 补全自动多一项。
 
 ## 节点形态 (`internal/nodes/script/script.go`)
@@ -97,4 +97,4 @@ watchdog goroutine 监听 `ctx.Context().Done()` → `vm.Interrupt()`: 停容器
 - 语言选 JS/goja 而非 Lua/starlark: 纯 Go + Interrupt 可打断 + 语法与 expr 同体系 + CodeMirror 官方包 + 默认无 IO (沙箱)。
 - 绑定走「节点即函数自动绑定」而非手写精选 API (用户 2026-06-10 拍板): 零维护、覆盖面随注册表增长; 没有节点替身或 `$` 捷径的高频项用糖弥补人体工学 (现仅 params.get/sleep/log)。
 - **删 `vars.*` 糖 (2026-06-11 用户拍板)**: 变量在脚本里曾有三套写法 — `$hp`(读) / `vars.get/set/inc` / `GetVar/SetVar/IncVar` 节点函数。节点函数已完整覆盖且 VarName/Scope pin 值位有补全, `vars.*` 是冗余的第三套, 删之 (单源 `SUGAR_ITEMS`, 连带清死 i18n `script.fn.vars_*`)。读用 `$hp`/GetVar, 写用 SetVar/IncVar。2026-06-12 复查发现后端 `binding.go` 的 vars 对象当时漏删, 用户拍板补删干净 (含 `scopeArg` 死 helper; 有 ReferenceError 回归测试钉死)。
-- 编辑器自动建 GetVar / 恢复 $vars 语法等方案的淘汰理由见变量系统议题 (cockpit 在册)。
+- 编辑器自动建 GetVar / 恢复 $vars 语法等方案的淘汰理由见变量系统议题 （记录在相关 topic 的 Open questions）。

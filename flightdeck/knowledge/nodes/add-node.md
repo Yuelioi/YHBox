@@ -1,11 +1,11 @@
-# 加一个节点 kind — 全链路 checklist
-
-SUMMARY: 加一个节点 kind 的全链路机械步骤 —— backend Spec、blank-import、i18n、前端渲染、3 个面板、校验、验证
-READ WHEN: 新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路)
-RECHECK WHEN: 改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注册 / palette 面板 / 前端渲染映射 / i18n 注入流程) 时
-
 ---
-
+kind: checklist
+summary: "加一个节点 kind 的全链路机械步骤 —— backend Spec、blank-import、i18n、前端渲染、3 个面板、校验、验证"
+activation: action
+read_when: "新增 / 改一个节点 kind 前 (backend Spec → 前端渲染 → 面板 → i18n 全链路)"
+recheck_when: "改节点新增链路任一环 (nodepkg.Spec 结构 / registry 注册 / palette 面板 / 前端渲染映射 / i18n 注入流程) 时"
+---
+# 加一个节点 kind — 全链路 checklist
 新增节点是**跨 Go + 前端多处**的事，漏一处就"代码在、能渲染、但用户加不进去 / 没翻译 / 没默认值"。按这份走，别凭记忆。
 
 > 配套：pin 命名规范看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)；Geometry pin 值形状看 [geometry-pin-value-pct-shape.md](geometry-pin-value-pct-shape.md)。

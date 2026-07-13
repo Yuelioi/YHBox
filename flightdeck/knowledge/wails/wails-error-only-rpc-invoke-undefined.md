@@ -1,10 +1,10 @@
-# ⚠ wails error-only RPC → FE invoke() 返 undefined 不可辨成功失败
-
-SUMMARY: error-only wails RPC 成功和失败都让 invoke() 返 undefined, 无法分支; 改返 (bool, error)
-READ WHEN: 加一个"开窗 / 跑前置检查"类 wails RPC 且 FE 之后要 awaitWailsEvent 拿结果; 或撞 "RPC 失败了但前端没察觉, await 一直不返回"
-
 ---
-
+kind: trap
+summary: "error-only wails RPC 成功和失败都让 invoke() 返 undefined, 无法分支; 改返 (bool, error)"
+activation: symptom
+read_when: "加一个\"开窗 / 跑前置检查\"类 wails RPC 且 FE 之后要 awaitWailsEvent 拿结果; 或撞 \"RPC 失败了但前端没察觉, await 一直不返回\""
+---
+# ⚠ wails error-only RPC → FE invoke() 返 undefined 不可辨成功失败
 ## 症状
 `OpenCalibratorHUD` 起初签名 `func(reqID string) error`。FE 流程:
 ```

@@ -1,10 +1,10 @@
-# ⚠ 子图 virtual marker 的 pin 名必须三层一致 (渲染 / 边 / runtime)
-
-SUMMARY: 子图 virtual marker 的 exec pin 名必须在存的边/渲染 handle/runtime 播种三层一致
-READ WHEN: 改子图折叠 (useFolding) / virtual marker (SubgraphInput·Output) 接线 / 改 pinsFor / 改子图调用出口 (decl ID) / 撞「子图入口出口线掉节点底部」「子图调用下游不触发」或 INVALID_PIN Subgraph 不存在 in pin
-
 ---
-
+kind: trap
+summary: "子图 virtual marker 的 exec pin 名必须在存的边/渲染 handle/runtime 播种三层一致"
+activation: symptom
+read_when: "改子图折叠 (useFolding) / virtual marker (SubgraphInput·Output) 接线 / 改 pinsFor / 改子图调用出口 (decl ID) / 撞「子图入口出口线掉节点底部」「子图调用下游不触发」或 INVALID_PIN Subgraph 不存在 in pin"
+---
+# ⚠ 子图 virtual marker 的 pin 名必须三层一致 (渲染 / 边 / runtime)
 **Symptom**: 折叠选中节点为子图后, ① 主图保存失败 `节点 n-call_xxx (Subgraph) 不存在 in pin in, 还有 2 个错误`; 修了边 pin 名后 ② 子图入口/出口的线**不从 handle 出来、掉到节点底部**。
 
 **Root cause** (I assumed pin 名随便取 / 改 `PIN_SPECS` 就能改渲染, 实际三层各有约定且渲染根本不读 PIN_SPECS):

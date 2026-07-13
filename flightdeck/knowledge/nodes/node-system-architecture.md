@@ -1,11 +1,11 @@
-# 节点系统架构
-
-SUMMARY: 节点怎么被定义·注册·派发 —— 声明式 Spec + 运行时注册表 + 三条 capability 路线（Runnable/RegionRunner/Evaluator）
-READ WHEN: 第一次碰节点系统 / 设计新节点前想搞懂"节点怎么被定义·注册·派发" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前
-RECHECK WHEN: 改节点注册流程 / capability 分类 / dispatch 派发逻辑 / RegionRunner / Evaluator / validator 管线结构时
-
 ---
-
+kind: note
+summary: "节点怎么被定义·注册·派发 —— 声明式 Spec + 运行时注册表 + 三条 capability 路线（Runnable/RegionRunner/Evaluator）"
+activation: action
+read_when: "第一次碰节点系统 / 设计新节点前想搞懂\"节点怎么被定义·注册·派发\" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前"
+recheck_when: "改节点注册流程 / capability 分类 / dispatch 派发逻辑 / RegionRunner / Evaluator / validator 管线结构时"
+---
+# 节点系统架构
 Yotta 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
 
 源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（节点实现；数量用 `go run ./cmd/node-catalog export` 查当前值）。

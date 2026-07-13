@@ -1,10 +1,10 @@
-# ⚠ pkg/input 部分 SendInput 原语不查注入数, 失败上报不到节点层
-
-SUMMARY: sendinput 后端 keyboard path 已检查 `procSendInput.Call` 注入数, 但鼠标按钮/绝对移动/滚轮/相对移动/TypeText 仍丢弃返回值, 真 SendInput 失败可能不到节点 Fail 出口
-READ WHEN: 给 pkg/input 后端方法加错误处理 / 排查「输入静默失败但节点走 Done」/ 评估 InputText 等输入节点 error 路径的生产可靠性
-
 ---
-
+kind: trap
+summary: "sendinput 后端 keyboard path 已检查 `procSendInput.Call` 注入数, 但鼠标按钮/绝对移动/滚轮/相对移动/TypeText 仍丢弃返回值, 真 SendInput 失败可能不到节点 Fail 出口"
+activation: symptom
+read_when: "给 pkg/input 后端方法加错误处理 / 排查「输入静默失败但节点走 Done」/ 评估 InputText 等输入节点 error 路径的生产可靠性"
+---
+# ⚠ pkg/input 部分 SendInput 原语不查注入数, 失败上报不到节点层
 **Date**: 2026-06-24 (Phase 3 InputText 终审定夺)
 
 `procSendInput.Call(1, ...)` 的正确语义: 第一返回值 = 成功注入的事件数; 第二/三返回是 syscall sentinel (恒非 nil, 必须忽略); **真信号是 `ret < 期望事件数`**。

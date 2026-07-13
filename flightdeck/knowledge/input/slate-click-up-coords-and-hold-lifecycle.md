@@ -1,10 +1,10 @@
-# ⚠ UE Slate 点击落点三根因 + hold 生命周期留尾
-
-SUMMARY: UE Slate 点击点歪/点不到的三根因(坐标变换/松键落点/hover-settle)+ hold 图保活留尾
-READ WHEN: 改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMessageBackend.Mouse* / sendinput 坐标); UE 里点击点歪或点不到或「按住变单击」; 给 ClickAt 加可取消长按; review MouseDown/MouseUp 落点坐标或 hover 时序; 排查「held 按键莫名被松」类问题
-
 ---
-
+kind: trap
+summary: "UE Slate 点击点歪/点不到的三根因(坐标变换/松键落点/hover-settle)+ hold 图保活留尾"
+activation: symptom
+read_when: "改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMessageBackend.Mouse* / sendinput 坐标); UE 里点击点歪或点不到或「按住变单击」; 给 ClickAt 加可取消长按; review MouseDown/MouseUp 落点坐标或 hover 时序; 排查「held 按键莫名被松」类问题"
+---
+# ⚠ UE Slate 点击落点三根因 + hold 生命周期留尾
 **Date**: 2026-06-08（用户报 ClickAt 在 UE 里点歪/点不到 → 一路查到 MouseHold「按住变单击」）
 
 相关前案: [node-timed-input-loses-backend-activate.md](node-timed-input-loses-backend-activate.md)（#4 把 timed-input 拆成节点层 down/up 的那次；本次 ClickAt 把它**拆回** Click，方向相反，见留尾 1）。

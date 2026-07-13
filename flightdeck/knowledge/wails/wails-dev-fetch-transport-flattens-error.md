@@ -1,10 +1,10 @@
-# ⚠ wails dev fetch transport 把错误信封拍平进 Error.message, 读不到 cause
-
-SUMMARY: dev fetch transport 把 wails 错误信封塞进 Error.message 字符串, e.cause 是 undefined 读不到结构化字段
-READ WHEN: 设计"FE 读 wails RPC 抛错的结构化字段 (cause / errors / code)"类方案前; 或撞 toast / 错误显示糊出整坨 wails JSON 信封 (`{"message":...,"cause":...,"kind":"RuntimeError"}`)
-
 ---
-
+kind: trap
+summary: "dev fetch transport 把 wails 错误信封塞进 Error.message 字符串, e.cause 是 undefined 读不到结构化字段"
+activation: symptom
+read_when: "设计\"FE 读 wails RPC 抛错的结构化字段 (cause / errors / code)\"类方案前; 或撞 toast / 错误显示糊出整坨 wails JSON 信封 (`{\"message\":...,\"cause\":...,\"kind\":\"RuntimeError\"}`)"
+---
+# ⚠ wails dev fetch transport 把错误信封拍平进 Error.message, 读不到 cause
 ## 症状
 
 错误 i18n 体系落地后手动 smoke 第一下就崩: 保存一个缺 Win32WindowTarget 的容器, toast **糊出整坨原始 JSON** 而非本地化文案。历史材料在 cold archive `2026-06-02-error-i18n-catalog`;本 trap 不依赖它。

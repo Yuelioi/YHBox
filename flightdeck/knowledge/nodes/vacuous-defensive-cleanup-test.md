@@ -1,10 +1,10 @@
-# ⚠ Defensive-cleanup test must exercise the populated-then-panic path
-
-SUMMARY: defer recover() 清 partial state 的测试必须走「写了部分 result 后才 panic」路径，否则 vacuous
-READ WHEN: 写 panic recover + 清 partial state 的测试 / 加 defer recover() 后想验 cleanup 起效 / review panic hygiene 测试时
-
 ---
-
+kind: trap
+summary: "defer recover() 清 partial state 的测试必须走「写了部分 result 后才 panic」路径，否则 vacuous"
+activation: symptom
+read_when: "写 panic recover + 清 partial state 的测试 / 加 defer recover() 后想验 cleanup 起效 / review panic hygiene 测试时"
+---
+# ⚠ Defensive-cleanup test must exercise the populated-then-panic path
 ## 教训
 
 写 `defer recover()` 块清 partial result 的 cleanup 代码 → 必须用 "操作中途 panic, **部分** result 已写" 的路径测; 用 "操作开头就 panic, **零** result 已写" 的路径测是 vacuous test — 它对 cleanup 在不在都通过.

@@ -1,10 +1,10 @@
-# ⚠ 子图 create→update 时 mergePool 会保留先入池的空壳
-
-SUMMARY: 子图先 create 空壳再 update 内容时，changed 事件可能让空壳先进入前端池；mergePool 对同 ID 保留内存对象，普通 refresh 无法带回已写入的节点。
-READ WHEN: 新增或修改子图 create→update 流程；折叠/导入/生成子图后后端已有内容但编辑器进入后为空；使用 mergePool 刷新刚创建的子图时。
-
 ---
-
+kind: trap
+summary: "子图先 create 空壳再 update 内容时，changed 事件可能让空壳先进入前端池；mergePool 对同 ID 保留内存对象，普通 refresh 无法带回已写入的节点。"
+activation: symptom
+read_when: "新增或修改子图 create→update 流程；折叠/导入/生成子图后后端已有内容但编辑器进入后为空；使用 mergePool 刷新刚创建的子图时。"
+---
+# ⚠ 子图 create→update 时 mergePool 会保留先入池的空壳
 ## 症状与根因
 
 “折叠为子图”先调用 `subgraphs.create` 建空子图，再调用 `subgraphs.update` 写入选中节点。create 会触发 changed 同步，空壳可能在 update 完成前进入 `containerEditor` store。

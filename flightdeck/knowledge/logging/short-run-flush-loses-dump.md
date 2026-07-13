@@ -1,11 +1,11 @@
-# ⚠ 短图节点日志在前端丢失 — LogMerger.finalizeLocked 旧实现只写文件不 emit
-
-SUMMARY: 节点 logEnabled 的 dump 行经 LogMerger 合并, 普通行的前端 emit **只在 tick(250ms)** 发生; 容器结束的 FlushContainer (及 Add 换 lineKey 收尾旧段) 走 finalizeLocked, 旧实现只 writeFile 不 emit —— 短图 (250ms tick 前跑完) 的 dirty 段只落文件、GUI 面板一条都收不到, 表现为「勾了启用日志却经常没日志」(间歇: 跑得慢/跨 tick 才有)
-READ WHEN: 排查「节点启用日志但面板没日志/时有时无」/ 改 LogMerger / 改节点 dump emit 路径 / 日志文件有但 UI 没有
-RECHECK WHEN: LogMerger flush/tick/finalize 逻辑改 / logMergerFlushInterval 改 / 前端 appendNodeDump 的 (nodeId,lineKey,frozen) 幂等键改
-
 ---
-
+kind: trap
+summary: "节点 logEnabled 的 dump 行经 LogMerger 合并, 普通行的前端 emit **只在 tick(250ms)** 发生; 容器结束的 FlushContainer (及 Add 换 lineKey 收尾旧段) 走 finalizeLocked, 旧实现只 writeFile 不 emit —— 短图 (250ms tick 前跑完) 的 dirty 段只落文件、GUI 面板一条都收不到, 表现为「勾了启用日志却经常没日志」(间歇: 跑得慢/跨 tick 才有)"
+activation: symptom
+read_when: "排查「节点启用日志但面板没日志/时有时无」/ 改 LogMerger / 改节点 dump emit 路径 / 日志文件有但 UI 没有"
+recheck_when: "LogMerger flush/tick/finalize 逻辑改 / logMergerFlushInterval 改 / 前端 appendNodeDump 的 (nodeId,lineKey,frozen) 幂等键改"
+---
+# ⚠ 短图节点日志在前端丢失 — LogMerger.finalizeLocked 旧实现只写文件不 emit
 **Date**: 2026-06-25 (detect-click 真机 smoke 期间发现: 节点全勾 logEnabled, 运行经常没日志; container da4755f5 短图 Win32WindowTarget→BringForeground→InputText→Stop)
 
 ## 根因

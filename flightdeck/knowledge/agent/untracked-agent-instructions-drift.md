@@ -1,10 +1,11 @@
-# ⚠ 未跟踪的 agent 指令会与仓库事实静默漂移
-SUMMARY: Yotta 本地被 gitignore 的 `CLAUDE.md` 曾保留旧项目名 `YHFish`、直接提交 main 和过时的硬审批流程；它既无法随 PR 评审，也会与 Flightdeck/真实 CI/当前协作规则冲突。
-READ WHEN: 新增或修改 AGENTS.md、CLAUDE.md、Codex/Claude 指令、repo skill、贡献者自动化或“让 agent 更懂仓库”的 prompt 时
-RECHECK WHEN: tracked `AGENTS.md` 落地、Flightdeck 入口变化、CI 主命令变化或 provider-specific instruction 文件增删后
-
 ---
-
+kind: trap
+summary: "Yotta 本地被 gitignore 的 `CLAUDE.md` 曾保留旧项目名 `YHFish`、直接提交 main 和过时的硬审批流程；它既无法随 PR 评审，也会与 Flightdeck/真实 CI/当前协作规则冲突。"
+activation: symptom
+read_when: "新增或修改 AGENTS.md、CLAUDE.md、Codex/Claude 指令、repo skill、贡献者自动化或“让 agent 更懂仓库”的 prompt 时"
+recheck_when: "tracked `AGENTS.md` 落地、Flightdeck 入口变化、CI 主命令变化或 provider-specific instruction 文件增删后"
+---
+# ⚠ 未跟踪的 agent 指令会与仓库事实静默漂移
 仓库级开发 agent 指令是公开工程 contract，不能依赖每个维护者机器上的 ignored 文件。canonical 文件应受版本控制、短小且只包含：
 
 1. 仓库事实与架构导航；

@@ -1,9 +1,10 @@
-# ⚠ Go coverage instrumentation 会被源码 UTF-8 BOM 阻断
-SUMMARY: 普通 `go test` 可接受 Go 文件开头 BOM，但 `go test -cover` 插桩后会报 `invalid BOM in the middle of the file`；Go 源码必须保存为 UTF-8 without BOM。
-READ WHEN: 当 `go test -cover` / coverage CI 报 `invalid BOM in the middle of the file`，而普通 `go test` 仍通过时；新增或修复 Go coverage 门禁前。
-
 ---
-
+kind: trap
+summary: "普通 `go test` 可接受 Go 文件开头 BOM，但 `go test -cover` 插桩后会报 `invalid BOM in the middle of the file`；Go 源码必须保存为 UTF-8 without BOM。"
+activation: symptom
+read_when: "当 `go test -cover` / coverage CI 报 `invalid BOM in the middle of the file`，而普通 `go test` 仍通过时；新增或修复 Go coverage 门禁前。"
+---
+# ⚠ Go coverage instrumentation 会被源码 UTF-8 BOM 阻断
 2026-07-10 曾确认 `internal/services/container/rewriter.go` 的字节 0 是 `EF BB BF`。普通 `go test ./...` 通过，但 `go test -cover ./...` 在构建 container test 时失败：
 
 ```text

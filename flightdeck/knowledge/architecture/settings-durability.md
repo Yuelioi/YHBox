@@ -1,10 +1,11 @@
-# Settings snapshot 与 durability
-SUMMARY: Settings 读路径只返回 deep snapshot；所有写入经单一 writer 执行 clone → mutate → validate → same-directory atomic save → publish → ordered side effects，禁止暴露或原地修改 live 指针。
-READ WHEN: 修改 Settings schema、SettingsService、热键/窗口配置持久化、autostart/logger side effect；排查设置并发覆盖、重启回退或损坏 JSON
-RECHECK WHEN: 改变 settings 文件位置/格式；新增 settings writer 或 commit side effect；调整 Windows/Unix replace 实现
-
 ---
-
+kind: note
+summary: "Settings 读路径只返回 deep snapshot；所有写入经单一 writer 执行 clone → mutate → validate → same-directory atomic save → publish → ordered side effects，禁止暴露或原地修改 live 指针。"
+activation: action
+read_when: "修改 Settings schema、SettingsService、热键/窗口配置持久化、autostart/logger side effect；排查设置并发覆盖、重启回退或损坏 JSON"
+recheck_when: "改变 settings 文件位置/格式；新增 settings writer 或 commit side effect；调整 Windows/Unix replace 实现"
+---
+# Settings snapshot 与 durability
 ## 权威事务
 
 - `App.Settings()` 返回 deep clone，调用方修改不会触及 live state。

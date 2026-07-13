@@ -1,11 +1,10 @@
-# ⚠ vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport
-
-SUMMARY: vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport.
-READ WHEN: 改容器编辑器视口/相机/切主图↔子图层级行为前; 撞「切图后相机跑飞 / 视口不对 / 首次进入看不到内容」
-
 ---
-
-
+kind: trap
+summary: "vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport."
+activation: symptom
+read_when: "改容器编辑器视口/相机/切主图↔子图层级行为前; 撞「切图后相机跑飞 / 视口不对 / 首次进入看不到内容」"
+---
+# ⚠ vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport
 ## Signature
 - symptom: 在内容很远的子图 pan 走(如 19000,1000), 切回主图相机还停在那 → 主图内容(3000 区域)看不见, 像"跑飞"
 - error_type: —  (UI/视口, 非异常)

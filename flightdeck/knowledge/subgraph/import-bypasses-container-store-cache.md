@@ -1,10 +1,10 @@
-# ⚠ 导入子图绕过容器 Store 内存缓存致"子图未找到"
-
-SUMMARY: 跨 store 写盘(import 子图)没同步属主 store 内存缓存, 致前端节点 "(子图未找到)"
-READ WHEN: 写"一个服务直接写另一个 store 拥有的磁盘文件"类逻辑(library import/export / 录制落盘 / 外部工具改盘)前; 撞"刚导入/刚生成的东西后端 List 查不到但磁盘明明有" / 前端节点 "(子图未找到)" 但文件存在; review 跨 store 写盘是否同步属主内存
-
 ---
-
+kind: trap
+summary: "跨 store 写盘(import 子图)没同步属主 store 内存缓存, 致前端节点 \"(子图未找到)\""
+activation: symptom
+read_when: "写\"一个服务直接写另一个 store 拥有的磁盘文件\"类逻辑(library import/export / 录制落盘 / 外部工具改盘)前; 撞\"刚导入/刚生成的东西后端 List 查不到但磁盘明明有\" / 前端节点 \"(子图未找到)\" 但文件存在; review 跨 store 写盘是否同步属主内存"
+---
+# ⚠ 导入子图绕过容器 Store 内存缓存致"子图未找到"
 ## Signature
 - symptom: `前端 Subgraph 节点出口渲染成 "(子图未找到)" (node.Subgraph.fallback_missing); 磁盘上 containers/<id>/subgraphs/<sgID>.json 明明存在`
 - error_type: —  (数据/缓存一致性, 非 exception/错误码)

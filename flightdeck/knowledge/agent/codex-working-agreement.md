@@ -1,11 +1,11 @@
-# Codex working agreement
-
-SUMMARY: Codex 在本仓库的长期工作规范 — 源码优先、根因优先、验证优先、Git 边界
-READ WHEN: 每次开始任务 / 写方案 / 修 bug / 准备提交或切分支前
-RECHECK WHEN: 用户调整协作方式 / Flightdeck 流程变化 / Git 习惯变化 / 构建验证入口变化时
-
 ---
-
+kind: note
+summary: "Codex 在本仓库的长期工作规范 — 源码优先、根因优先、验证优先、Git 边界"
+activation: action
+read_when: "每次开始任务 / 写方案 / 修 bug / 准备提交或切分支前"
+recheck_when: "用户调整协作方式 / Flightdeck 流程变化 / Git 习惯变化 / 构建验证入口变化时"
+---
+# Codex working agreement
 ## 基本协作
 
 - 对话、报告、提问、验收说明一律用中文；代码标识符、命令、commit message 按项目原有规范。
@@ -32,8 +32,8 @@ RECHECK WHEN: 用户调整协作方式 / Flightdeck 流程变化 / Git 习惯变
 ## Flightdeck 落点
 
 - 常驻规则放 `flightdeck/knowledge/`。
-- 任务状态、下一步、开放问题放 `flightdeck/cockpit.md` 或具体 `flightdeck/work/`。
-- 错误复盘和踩坑放 `flightdeck/incidents/`；可复用流程放 `flightdeck/checklists/`；外部资料和三方源码放 `flightdeck/references/`。
+- 任务状态、下一步和开放问题放对应 `flightdeck/work/<topic>/index.md`；稳定项目约定放 `flightdeck/deck.md`。
+- 错误复盘、踩坑和可复用流程进入 `flightdeck/knowledge/<domain>/`，并设置严格的 kind/activation/read_when 路由；大型外部资料和临时源码不进入恢复载荷，只提升可复用结论。
 - 不再写 auto-memory 文件；不要把易过期状态塞进常驻规范。
 
 ## 本项目约束

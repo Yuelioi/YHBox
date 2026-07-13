@@ -1,11 +1,11 @@
-# 节点系统参考
-
-SUMMARY: 节点系统速查表 —— pin 类型、pin 值取值优先级、Ctx 服务目录、节点目录查询命令、jitter
-READ WHEN: 查 pin 类型有哪些 / 查节点 Run 里能拿哪些 ctx 服务 / 不确定 pin 值取值优先级 / 想要节点 kind 当前目录 / 用拟人化 jitter
-RECHECK WHEN: 增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / 新增或删除节点 kind / 改 jitter 模型时
-
 ---
-
+kind: note
+summary: "节点系统速查表 —— pin 类型、pin 值取值优先级、Ctx 服务目录、节点目录查询命令、jitter"
+activation: action
+read_when: "查 pin 类型有哪些 / 查节点 Run 里能拿哪些 ctx 服务 / 不确定 pin 值取值优先级 / 想要节点 kind 当前目录 / 用拟人化 jitter"
+recheck_when: "增删 pin 类型 / 改 ctx 服务集 / pin 值取值优先级 / 新增或删除节点 kind / 改 jitter 模型时"
+---
+# 节点系统参考
 配套 [node-system-architecture.md](node-system-architecture.md) 的速查表。源码：`internal/node/`。
 
 ## 1. Pin 类型（14 内置）

@@ -1,11 +1,11 @@
-# 资产子系统 — GUID + 全局内容寻址 blob 池
-
-SUMMARY: 模板与 clip 统一成稳定 GUID + 全局内容寻址 blob 池的资产子系统 — 存储/变体/匹配/分享导入全貌
-READ WHEN: 改模板/clip 存储 / 节点引用素材 / 运行时模板匹配 / 子图分享导入 / 资产 picker UI 前; 撞"刚导入/重拍的素材查不到"、"(子图未找到)"、节点引用 GUID 失效、变体分辨率挑错档 类问题
-RECHECK WHEN: 改 asset 存储布局 / 记录或变体 schema / PickVariant 挑档算法 / blob GC 条件 / import-export 合并语义 / asset RPC 面 / 资产 picker 交互时
-
 ---
-
+kind: note
+summary: "模板与 clip 统一成稳定 GUID + 全局内容寻址 blob 池的资产子系统 — 存储/变体/匹配/分享导入全貌"
+activation: action
+read_when: "改模板/clip 存储 / 节点引用素材 / 运行时模板匹配 / 子图分享导入 / 资产 picker UI 前; 撞\"刚导入/重拍的素材查不到\"、\"(子图未找到)\"、节点引用 GUID 失效、变体分辨率挑错档 类问题"
+recheck_when: "改 asset 存储布局 / 记录或变体 schema / PickVariant 挑档算法 / blob GC 条件 / import-export 合并语义 / asset RPC 面 / 资产 picker 交互时"
+---
+# 资产子系统 — GUID + 全局内容寻址 blob 池
 模板(图片识别素材)与 clip(录制)统一成**全局资产**:每资产一个稳定 GUID,name 只是可变标签,像素/事件字节进全局内容寻址池。节点按 GUID 引用,资产独立于图引用存在。**身份是 GUID,不是人类命名** —— 这是整个设计的根(对标 Unity 的 stable-ID + content-addressing + 引用计数)。
 
 ## 存储布局

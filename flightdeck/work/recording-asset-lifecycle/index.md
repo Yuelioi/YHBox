@@ -1,4 +1,8 @@
-# Index — 录制资产生命周期
+---
+topic: recording-asset-lifecycle
+title: "Recording asset lifecycle"
+summary: "Complete recording asset lifecycle implementation and finish desktop interaction smoke verification."
+---
 
 ## State
 
@@ -13,16 +17,15 @@
 
 ## Read now
 
-- `design.md`
-- `.impeccable.md`
+- work/recording-asset-lifecycle/design.md
 
 ## Read if
 
-- `flightdeck/knowledge/build/code-style.md` — 开始修改源码前
-- `flightdeck/knowledge/build/build.md` — 运行测试、构建或 Wails smoke 前
-- `flightdeck/knowledge/frontend/ui.md` — 修改 Vue/Nuxt UI 组件前
-- `flightdeck/knowledge/nodes/recording-schema-cascade.md` — 修改录制产物 schema 或跨层字段时
-- `flightdeck/knowledge/subgraph/import-bypasses-container-store-cache.md` — 新增录制资产落盘/刷新路径时
+- knowledge/build/code-style.md — 开始修改源码前
+- knowledge/build/build.md — 运行测试、构建或 Wails smoke 前
+- knowledge/frontend/ui.md — 修改 Vue UI 组件前
+- knowledge/nodes/recording-schema-cascade.md — 修改录制产物 schema 或跨层字段时
+- knowledge/subgraph/import-bypasses-container-store-cache.md — 新增录制资产落盘或刷新路径时
 
 ## Progress
 

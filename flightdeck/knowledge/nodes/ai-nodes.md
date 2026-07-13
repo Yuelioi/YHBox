@@ -1,11 +1,11 @@
-# AI 节点 — 图里调 LLM（动态带类型 IO + 结构化输出 + vision）
-
-SUMMARY: AI 节点怎么在图里调 LLM —— 动态带类型 IO、结构化输出、vision 识图、Image 节点与 Provider 缓存
-READ WHEN: 改/排查 AI 节点（图里调 LLM）、结构化类型输出、vision 识图、Image 节点（Capture/SaveImage/LoadImage）、Provider 缓存前; 加 outputData role 动态带类型输出机制时; 撞「AI 输出字段绑不上变量 / 结构化解析 Fail / 图像输入没喂进去 / 改连接后没生效」
-RECHECK WHEN: 加结构化输出模式/类型 / 改 ChatStructured 协议映射 / 改 Provider 缓存失效条件 / 加图像节点或改 node.Image 形态 / 改 DynamicPorts outputData 机制 / AI 节点 Spec 增删 pin 时
-
 ---
-
+kind: note
+summary: "AI 节点怎么在图里调 LLM —— 动态带类型 IO、结构化输出、vision 识图、Image 节点与 Provider 缓存"
+activation: action
+read_when: "改/排查 AI 节点（图里调 LLM）、结构化类型输出、vision 识图、Image 节点（Capture/SaveImage/LoadImage）、Provider 缓存前; 加 outputData role 动态带类型输出机制时; 撞「AI 输出字段绑不上变量 / 结构化解析 Fail / 图像输入没喂进去 / 改连接后没生效」"
+recheck_when: "加结构化输出模式/类型 / 改 ChatStructured 协议映射 / 改 Provider 缓存失效条件 / 加图像节点或改 node.Image 形态 / 改 DynamicPorts outputData 机制 / AI 节点 Spec 增删 pin 时"
+---
+# AI 节点 — 图里调 LLM（动态带类型 IO + 结构化输出 + vision）
 "AI 功能" epic 的第②块：让图作者拖一个 AI 节点、选连接+模型、给提示词与任意个带类型输入、拿任意个带类型输出、识图。基础设施①已落地：本地 AI 配置、`llm.Provider` 双协议与连接池；③ MCP 对外暴露另起。历史设计材料在 cold archive `2026-06-23-local-ai-config`;本知识不依赖它。
 
 ## AI 节点（Kind `AI`，Category `AI`，`NeedsWindow:false`）

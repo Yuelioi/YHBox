@@ -1,11 +1,11 @@
-# ⚠ 移动/删除/归档文件后必须全仓 grep 更新引用者
-
-SUMMARY: 移/删/归档文件只动文件本身会留断链, 必须全仓 grep 旧路径更新所有引用者
-READ WHEN: 移动/删除/重命名文件或归档 spec·plan 前; 改完后验断链
-
 ---
-
-**现象**: 2026-06-02 Yotta rebrand 删整个旧技术文档目录 + 把 5 个 done spec/plan 归档, 两个动作各留断链, 直到 walkaround Audit 7 才兜住:
+kind: trap
+summary: "移/删/归档文件只动文件本身会留断链, 必须全仓 grep 旧路径更新所有引用者"
+activation: symptom
+read_when: "移动/删除/重命名文件或归档 spec·plan 前; 改完后验断链"
+---
+# ⚠ 移动/删除/归档文件后必须全仓 grep 更新引用者
+**现象**: 2026-06-02 Yotta rebrand 删整个旧技术文档目录 + 把 5 个 done spec/plan 归档, 两个动作各留断链, 直到恢复图检查才发现:
 
 - `README.md` 仍指向已删除的技术文档目录 → 目标目录已删
 - 某 incident 仍以 markdown 链接指向旧 specs 路径 → spec 已移入 cold archive package
@@ -16,6 +16,6 @@ READ WHEN: 移动/删除/重命名文件或归档 spec·plan 前; 改完后验�
 **怎么做**:
 
 - 删目录 / 删文件 / 重命名 / 归档 **之前或紧接着**: 全仓 grep 旧文件名/路径, 找所有引用者一起改。
-- flightdeck 归档尤其易漏: active knowledge / cockpit / work index 不应依赖历史 spec/plan 路径;关键内容要摘进 knowledge 本体,历史只写成 cold archive package 注记。
-- 验证: 改完跑 `/flightdeck:walkaround` Audit 7 (dangling refs), 或 `grep -rl '<旧路径>'` 确认零残留。
+- flightdeck 归档尤其易漏: active knowledge / deck.md / topic index 不应依赖历史 spec/plan 路径;关键内容要摘进 knowledge 本体,历史只写成 cold archive package 注记。
+- 验证: 改完跑 `/flightdeck:check` 验证显式恢复依赖，并用 `rg '<旧路径>'` 检查普通 Markdown 引用零残留。
 - 同源精神见 [storage-convention-consumer-audit-gap.md](../nodes/storage-convention-consumer-audit-gap.md)——本质都是「改/移一个东西前先找全依赖它的」。

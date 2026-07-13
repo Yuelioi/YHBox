@@ -1,10 +1,10 @@
-# ⚠ 节点校验有两条管线，别把它们当一条
-
-SUMMARY: 节点校验分容器/编辑期(validator.go switch)与节点级 Validator 接口(运行期)两条管线，别混
-READ WHEN: 写"给节点加校验 / 加 Validate"类 spec 或代码前; 撞"我加了 Validate 但编辑期没报/重复报"
-
 ---
-
+kind: trap
+summary: "节点校验分容器/编辑期(validator.go switch)与节点级 Validator 接口(运行期)两条管线，别混"
+activation: symptom
+read_when: "写\"给节点加校验 / 加 Validate\"类 spec 或代码前; 撞\"我加了 Validate 但编辑期没报/重复报\""
+---
+# ⚠ 节点校验有两条管线，别把它们当一条
 **坑**: P1-1 §D 立项说"DetectColorHSV 没 Validate，HSV 倒置只能 Run 时报"，于是给节点加了个 `Validate()` 方法。真相是**编辑期 HSV 校验早就有**——只是在另一条管线里。§D 漏核 `validator.go` 直接基于"没有"的幻觉立项，加出来的是重复死码（头号铁律反面教材）。
 
 **两条管线**（写校验前必须先认清要进哪条）:

@@ -1,11 +1,10 @@
-# ⚠ Vue prop 名禁连续大写 — kebab/camel 转换不对称
-
-SUMMARY: Vue prop 名禁连续大写 — kebab/camel 转换不对称导致 prop 永远 undefined.
-READ WHEN: 写 Vue 组件 prop / template 传 prop 用 :attr-name= / 撞 prop 在子组件永远 undefined 但 parent 明明传了
-
 ---
-
-
+kind: trap
+summary: "Vue prop 名禁连续大写 — kebab/camel 转换不对称导致 prop 永远 undefined."
+activation: symptom
+read_when: "写 Vue 组件 prop / template 传 prop 用 :attr-name= / 撞 prop 在子组件永远 undefined 但 parent 明明传了"
+---
+# ⚠ Vue prop 名禁连续大写 — kebab/camel 转换不对称
 ## 教训
 
 Vue prop 名**禁连续大写字母**. 用 `editingId` / `userUrl` / `nodeHtml` (单大写), **不要** `editingID` / `userURL` / `nodeHTML` (连续大写). 否则 `:editing-id="..."` 这种正常 template 写法 camelize 后得不到 prop 名, prop 值永远 undefined.

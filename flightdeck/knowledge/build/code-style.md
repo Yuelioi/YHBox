@@ -1,10 +1,10 @@
-# Code Style checklist
-
-SUMMARY: 写/改源码前的前置约定 — 注释规范 + 删疑似死代码/符号前的双向全仓 grep
-READ WHEN: before writing / editing / deleting source code (.go / .ts / .vue) — including comments / 删疑似死代码或符号前
-
 ---
-
+kind: checklist
+summary: "写/改源码前的前置约定 — 注释规范 + 删疑似死代码/符号前的双向全仓 grep"
+activation: action
+read_when: "before writing / editing / deleting source code (.go / .ts / .vue) — including comments / 删疑似死代码或符号前"
+---
+# Code Style checklist
 写/改源码 (`.go` / `.ts` / `.vue`) 时**前置**读这份.
 
 ### 注释

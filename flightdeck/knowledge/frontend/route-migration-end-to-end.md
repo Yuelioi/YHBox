@@ -1,11 +1,10 @@
-# ⚠ vue router 路径迁移必须端到端追双端
-
-SUMMARY: 改 vue router 路径必须端到端追双端(写入方+读取方), 只改 routes 数组是 1/N.
-READ WHEN: 改任何 vue route 命名 / 路径模板 / params↔query 形态 / hash router URL / wails frameless 子窗 URL / 写 plan 涉及 router 迁移时
-
 ---
-
-
+kind: trap
+summary: "改 vue router 路径必须端到端追双端(写入方+读取方), 只改 routes 数组是 1/N."
+activation: symptom
+read_when: "改任何 vue route 命名 / 路径模板 / params↔query 形态 / hash router URL / wails frameless 子窗 URL / 写 plan 涉及 router 迁移时"
+---
+# ⚠ vue router 路径迁移必须端到端追双端
 ## 教训
 
 改 vue router 路径不是"改 routes 数组"一行事. 涉及 N 个角色:

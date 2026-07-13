@@ -1,11 +1,11 @@
-# 表达式系统 (Expr)
-
-SUMMARY: Expr pure-data 节点全貌 —— 语法、内置函数单一来源、$变量、EXPR_* 校验码、ExprInput 编辑器
-READ WHEN: 加/改 Expr 内置函数前; 改表达式语法/parser/求值前; 碰 ExprInput 编辑器或函数补全前; 撞 EXPR_* 校验码不懂含义时
-RECHECK WHEN: 加/删/改内置函数或其 arity·签名; 改 expr 语法 (lexer/parser); 改 EXPR_* 校验码; 改 ExprInput 编辑器或函数元数据管道时
-
 ---
-
+kind: note
+summary: "Expr pure-data 节点全貌 —— 语法、内置函数单一来源、$变量、EXPR_* 校验码、ExprInput 编辑器"
+activation: action
+read_when: "加/改 Expr 内置函数前; 改表达式语法/parser/求值前; 碰 ExprInput 编辑器或函数补全前; 撞 EXPR_* 校验码不懂含义时"
+recheck_when: "加/删/改内置函数或其 arity·签名; 改 expr 语法 (lexer/parser); 改 EXPR_* 校验码; 改 ExprInput 编辑器或函数元数据管道时"
+---
+# 表达式系统 (Expr)
 ## 一句话
 
 Expr 是一个 pure-data 节点 (`internal/nodes/purefunc/expr.go`): 用户写一行表达式串, 动态声明若干输入 pin, 求值吐一个 `Result`。语法引擎在 `internal/services/expr` (lexer → parser → AST → eval), 与节点框架解耦。

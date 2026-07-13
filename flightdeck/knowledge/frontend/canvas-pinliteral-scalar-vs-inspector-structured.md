@@ -1,10 +1,10 @@
-# ⚠ 画布内联 literal 只认 scalar; 结构化类型(point/geometry)手填走 Inspector
-
-SUMMARY: 画布(ContainerFlowNode→PinLiteral)只渲染 scalar(number/bool/text/dropdown), 结构化值落 else 分支 String(obj)→"[object Object]"; 结构化类型(Point/Geometry/object)手填在 NodeInspector 走 StructuredInput→专用 Widget。给结构化类型加手填别动画布 inlineLiteralPins。
-READ WHEN: 给某结构化 pin 类型(Point/Geometry/新 object)加手填控件 / 改 ContainerFlowNode inlineLiteralPins / 排查「某 pin 在画布显示 [object Object]」/ pin 字面量在画布 vs Inspector 渲染不一致
-
 ---
-
+kind: trap
+summary: "画布(ContainerFlowNode→PinLiteral)只渲染 scalar(number/bool/text/dropdown), 结构化值落 else 分支 String(obj)→\"[object Object]\"; 结构化类型(Point/Geometry/object)手填在 NodeInspector 走 StructuredInput→专用 Widget。给结构化类型加手填别动画布 inlineLiteralPins。"
+activation: symptom
+read_when: "给某结构化 pin 类型(Point/Geometry/新 object)加手填控件 / 改 ContainerFlowNode inlineLiteralPins / 排查「某 pin 在画布显示 [object Object]」/ pin 字面量在画布 vs Inspector 渲染不一致"
+---
+# ⚠ 画布内联 literal 只认 scalar; 结构化类型(point/geometry)手填走 Inspector
 **Date**: 2026-06-24 (Phase 4 Point 手填实测踩坑)
 
 前端 pin 字面量编辑有**两套渲染路径**, 别混:

@@ -1,10 +1,10 @@
-# ⚠ 拆 timed-input 到节点层时丢了 backend 的激活时序
-
-SUMMARY: 把带时长输入拆成节点层 down/up 丢了 backend 自带的 FakeActivate + settle 激活时序
-READ WHEN: 把 backend 带时长输入操作拆成节点层 down/up / 改 PostMessage 激活逻辑 / 失焦窗口「第一次」按键或点击在游戏里没生效 / review 输入节点 ctx 化改动是否丢了激活时序
-
 ---
-
+kind: trap
+summary: "把带时长输入拆成节点层 down/up 丢了 backend 自带的 FakeActivate + settle 激活时序"
+activation: symptom
+read_when: "把 backend 带时长输入操作拆成节点层 down/up / 改 PostMessage 激活逻辑 / 失焦窗口「第一次」按键或点击在游戏里没生效 / review 输入节点 ctx 化改动是否丢了激活时序"
+---
+# ⚠ 拆 timed-input 到节点层时丢了 backend 的激活时序
 **Date**: 2026-05-31（input-editor-optimizations #4 实施中发现）
 
 ## 背景

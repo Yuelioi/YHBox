@@ -1,11 +1,11 @@
-# 独立工具窗统一样式 checklist
-
-SUMMARY: frameless 独立工具窗共用 HudShell + 设计 token 的统一样式约定, 让所有 HUD 像一个产品
-READ WHEN: 新建 / 改任何独立工具窗 (frameless HUD —— 录屏 / 截图 / 鼠标检测 / 校准 / 悬浮窗启动器 等) 前; 想让这些窗口风格统一 / "像一个产品" 时
-RECHECK WHEN: 改 HudShell / frameless 独立工具窗的公共风格约定时
-
 ---
-
+kind: checklist
+summary: "frameless 独立工具窗共用 HudShell + 设计 token 的统一样式约定, 让所有 HUD 像一个产品"
+activation: action
+read_when: "新建 / 改任何独立工具窗 (frameless HUD —— 录屏 / 截图 / 鼠标检测 / 校准 / 悬浮窗启动器 等) 前; 想让这些窗口风格统一 / \"像一个产品\" 时"
+recheck_when: "改 HudShell / frameless 独立工具窗的公共风格约定时"
+---
+# 独立工具窗统一样式 checklist
 项目有一组 frameless + AlwaysOnTop 的独立窗口 (录屏 HUD / 截图选择器 / 鼠标检测 HUD / 校准 HUD / 悬浮窗启动器)。它们**必须看起来像一个产品** —— 共用一套 chrome，别各写各的。
 
 ## 共享外壳 `components/tools/HudShell.vue`

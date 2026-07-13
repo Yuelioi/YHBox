@@ -1,11 +1,11 @@
-# 错误模型：节点失败出口 + Coded 路由 + 集中错误码
-
-SUMMARY: 节点失败怎么走 —— 只有实现 Coded 的错误路由到 Fail 出口，外加集中错误码表与 region 兜底
-READ WHEN: 给节点加错误处理 / 加新错误码 / 改 dispatch 失败路由 / 加 region 容错 / 撞「节点报错没被 Fail 出口接住」类问题前
-RECHECK WHEN: 改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集中错误码表 / Fail 出口约定 / region 容错策略时
-
 ---
-
+kind: note
+summary: "节点失败怎么走 —— 只有实现 Coded 的错误路由到 Fail 出口，外加集中错误码表与 region 兜底"
+activation: action
+read_when: "给节点加错误处理 / 加新错误码 / 改 dispatch 失败路由 / 加 region 容错 / 撞「节点报错没被 Fail 出口接住」类问题前"
+recheck_when: "改 dispatch 失败路由 / Failf / NodeError / Coded 语义 / 集中错误码表 / Fail 出口约定 / region 容错策略时"
+---
+# 错误模型：节点失败出口 + Coded 路由 + 集中错误码
 > 取代了旧的「异常冒泡 + Try 包子图」模型（Try 节点已删）。本页是当前规则的自包含说明；冷档溯源包：`2026-06-07-error-model-per-node-fail-output`。
 
 ## 一句话

@@ -1,10 +1,10 @@
-# ⚠ 节点/适配器契约校验的两个假绿陷阱
-
-SUMMARY: 全节点不变式别靠文本 grep(漏对齐空格), 用遍历 node.All() 的语义守卫; 节点测试 stub 服务会掩盖真 adapter 没实现 design 要求的行为, 需在 runtime 包补 adapter 级测试。
-READ WHEN: 给一批/全部节点加统一字段或输入(全节点 sweep) · 写「每个 NeedsX 节点都该有 Y」类不变式 · 节点测试 stub 了某 service 而该 service 的真 adapter 有 design 强制行为(如重读/刷新) · 排查「单任务测试全绿但跨任务集成出错」时
-
 ---
-
+kind: trap
+summary: "全节点不变式别靠文本 grep(漏对齐空格), 用遍历 node.All() 的语义守卫; 节点测试 stub 服务会掩盖真 adapter 没实现 design 要求的行为, 需在 runtime 包补 adapter 级测试。"
+activation: symptom
+read_when: "给一批/全部节点加统一字段或输入(全节点 sweep) · 写「每个 NeedsX 节点都该有 Y」类不变式 · 节点测试 stub 了某 service 而该 service 的真 adapter 有 design 强制行为(如重读/刷新) · 排查「单任务测试全绿但跨任务集成出错」时"
+---
+# ⚠ 节点/适配器契约校验的两个假绿陷阱
 window-control(2026-06-25)两个被终审才抓到的坑,都是「局部看着绿、整体是错的」:
 
 ## 1. 全节点不变式用语义守卫, 别用文本 grep

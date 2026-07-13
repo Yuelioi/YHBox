@@ -1,11 +1,11 @@
-# 变量系统 (Variable System)
-
-SUMMARY: 容器级命名值存储全貌 —— VarDecl 类型、scope（local/global/auto）、VarStore 读写、快照、变量节点、config.capture 存储与校验
-READ WHEN: 加变量类型 / 加变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 撞 'config 有 varName 但 widget 空 / runtime missing VarName' 类 bug 前
-RECHECK WHEN: 加变量类型 / 加或改变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 改 scope 规则时
-
 ---
-
+kind: note
+summary: "容器级命名值存储全貌 —— VarDecl 类型、scope（local/global/auto）、VarStore 读写、快照、变量节点、config.capture 存储与校验"
+activation: action
+read_when: "加变量类型 / 加变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 撞 'config 有 varName 但 widget 空 / runtime missing VarName' 类 bug 前"
+recheck_when: "加变量类型 / 加或改变量节点 (GetVar/SetVar/IncVar/VarLastChange/输出捕获) / 改变量引用存储或读写法 / 改 scope 规则时"
+---
+# 变量系统 (Variable System)
 ## 一句话
 
 变量 = **容器级的命名值存储**。用户在容器上声明若干变量（`VarDecl`），运行时由 `VarStore` 服务读写；节点（GetVar/SetVar/IncVar/VarLastChange/输出捕获）、表达式（`$hp`）、脚本（`$hp` / GetVar·SetVar 节点函数）三条路都走同一个 `VarStore`。源码：声明结构 `internal/services/container/model.go`、运行时存储+读写 `internal/services/container/runtime/`、变量节点 `internal/nodes/variable/`。

@@ -1,11 +1,11 @@
-# Build checklist
-
-SUMMARY: 编译 / 验证产物的前置约定 — task check/dev/build / pnpm / bindings contract / bundle budget / 测试套件 / smoke 留意
-READ WHEN: before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 跑前端 vitest / 真机 smoke
-RECHECK WHEN: 改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口 / 前端测试跑法时
-
 ---
-
+kind: checklist
+summary: "编译 / 验证产物的前置约定 — task check/dev/build / pnpm / bindings contract / bundle budget / 测试套件 / smoke 留意"
+activation: action
+read_when: "before compiling / building / verifying production artifact / 跑 runtime 测试套件 / 跑前端 vitest / 真机 smoke"
+recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口 / 前端测试跑法时"
+---
+# Build checklist
 编译 / 验证产物时**前置**读这份.
 
 - **frontend 包管理只用 pnpm** (`frontend/package.json` 固定 `Node 22.23.1` / `pnpm@11.1.2`，有 pnpm-lock.yaml 与 engine-strict): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好. 安装与 CI 一律 `--frozen-lockfile`。

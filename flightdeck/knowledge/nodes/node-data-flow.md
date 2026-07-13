@@ -1,11 +1,11 @@
-# 节点数据流与连线 checklist
-
-SUMMARY: 节点间数据怎么连 —— 控制流走 exec 线、纯数据节点输出可直连、exec 出口 Data 字段走 held output 直连；需要命名复用时再捕获到变量 + GetVar
-READ WHEN: 设计让节点消费/产出数据的节点前; 连线节点间数据前; 撞 INVALID_PIN 'out pin X 不存在' 或数据连不上时
-RECHECK WHEN: 改节点数据线/exec 线规则 / pin-wiring / output-capture / validator 对 pin 存在性的判定时
-
 ---
-
+kind: checklist
+summary: "节点间数据怎么连 —— 控制流走 exec 线、纯数据节点输出可直连、exec 出口 Data 字段走 held output 直连；需要命名复用时再捕获到变量 + GetVar"
+activation: action
+read_when: "设计让节点消费/产出数据的节点前; 连线节点间数据前; 撞 INVALID_PIN 'out pin X 不存在' 或数据连不上时"
+recheck_when: "改节点数据线/exec 线规则 / pin-wiring / output-capture / validator 对 pin 存在性的判定时"
+---
+# 节点数据流与连线 checklist
 设计"消费/产出别的节点的数据"的节点、或连线节点间数据**之前**先读这份。先分清连的是 exec 流、纯数据输出，还是 exec 出口携带的 Data 字段；三者的校验和运行时取值路径不同。
 
 > 配套：加节点 kind 的全链路机械步骤看 [add-node.md](add-node.md)（含产出节点 `config.capture` 模型——节点只声明 Data 字段，无捕获框）；pin 命名看 [node-spec-style.md](node-spec-style.md)；校验该写哪条管线看 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)。

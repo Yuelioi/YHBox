@@ -1,11 +1,10 @@
-# ⚠ vue-flow v-model:nodes ↔ store 同步是 shallow
-
-SUMMARY: vue-flow v-model:nodes ↔ store 同步是 shallow, drag 后读坐标只能用 event.node.position.
-READ WHEN: 写 vue-flow drag-stop / position-related handler / 改 store.nodes / v-model 同步逻辑 / drag 之后读 flowNodes 拿坐标但发现是老值
-
 ---
-
-
+kind: trap
+summary: "vue-flow v-model:nodes ↔ store 同步是 shallow, drag 后读坐标只能用 event.node.position."
+activation: symptom
+read_when: "写 vue-flow drag-stop / position-related handler / 改 store.nodes / v-model 同步逻辑 / drag 之后读 flowNodes 拿坐标但发现是老值"
+---
+# ⚠ vue-flow v-model:nodes ↔ store 同步是 shallow
 ## 教训
 
 vue-flow 1.48.2 用 `v-model:nodes="flowNodes"` 时, **store→model 同步 watcher 是 shallow**. 监听的是 `store.nodes` 这个 ref 跟 `nodes.value.length`. 拖动期间内部只 mutate `state.nodes[i].position` (element 内字段), 既不重赋值 ref 也不改 length → watcher 不触发 → `flowNodes.value[i].position` 拿不到新坐标.

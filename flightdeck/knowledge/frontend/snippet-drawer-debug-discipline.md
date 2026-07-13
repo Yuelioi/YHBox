@@ -1,11 +1,10 @@
-# ⚠ 撞 bug 先 dig source/log, 别反复 fix 让用户验
-
-SUMMARY: 撞 frontend bug 反复 fix 不好时, 先打 log dig root cause, 别反复 fix 让用户验.
-READ WHEN: 撞 frontend bug 反复 fix 不好 / 想 reload 第 N 次让用户试 / 改了又改还在猜 root cause
-
 ---
-
-
+kind: trap
+summary: "撞 frontend bug 反复 fix 不好时, 先打 log dig root cause, 别反复 fix 让用户验."
+activation: symptom
+read_when: "撞 frontend bug 反复 fix 不好 / 想 reload 第 N 次让用户试 / 改了又改还在猜 root cause"
+---
+# ⚠ 撞 bug 先 dig source/log, 别反复 fix 让用户验
 ## 教训
 
 撞 frontend bug 反复 fix 不好 = **没找 root cause**, 一直在猜. 停手. 加 1 行 `console.log` 把关键状态打出来 + 让用户贴 log, 比再改 3 轮重新 build 让用户 reload 试快 10x.

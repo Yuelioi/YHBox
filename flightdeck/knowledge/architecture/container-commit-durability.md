@@ -1,10 +1,11 @@
-# Container lock-last commit 与恢复语义
-SUMMARY: Container 的 package/graph/installation/yotta-lock 采用固定 lock-last commit；lock v2 覆盖本机 installation hash，load 对 schema、身份、三文件 hash 与 closure 自一致性做验证，任何混合代都隔离为 incompatible。
-READ WHEN: 修改 Container Store、package/installation/lock schema、导出 bundle、容器恢复/迁移或持久化故障处理
-RECHECK WHEN: 新增权威容器文件；改变 lock schema/hash；引入 import；实现 generation directory/current pointer；改变外部改盘或 MCP 写入契约
-
 ---
-
+kind: note
+summary: "Container 的 package/graph/installation/yotta-lock 采用固定 lock-last commit；lock v2 覆盖本机 installation hash，load 对 schema、身份、三文件 hash 与 closure 自一致性做验证，任何混合代都隔离为 incompatible。"
+activation: action
+read_when: "修改 Container Store、package/installation/lock schema、导出 bundle、容器恢复/迁移或持久化故障处理"
+recheck_when: "新增权威容器文件；改变 lock schema/hash；引入 import；实现 generation directory/current pointer；改变外部改盘或 MCP 写入契约"
+---
+# Container lock-last commit 与恢复语义
 ## 权威提交协议
 
 - `Store.Save` 先 deep clone caller，再 validate；持 store writer lock 固定写 `package.json` → `graph.json` → `installation.json` → `yotta-lock.json`。

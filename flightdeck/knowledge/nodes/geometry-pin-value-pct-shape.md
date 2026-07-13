@@ -1,10 +1,10 @@
-# ⚠ Geometry pin 的值是 `{ pct, overrides }`，不是扁平 `{x,y,w,h}`
-
-SUMMARY: Geometry pin 存 `{pct, overrides}` 而非扁平 rect，前端回填/后端校验读错形状会全 0 或误报
-READ WHEN: 读/写 Geometry 类型 pin 的值 (前端回填 / 后端校验); 撞"框选/截图设了值但 widget 显示全 0 / 校验永远报 ROI 错"
-
 ---
-
+kind: trap
+summary: "Geometry pin 存 `{pct, overrides}` 而非扁平 rect，前端回填/后端校验读错形状会全 0 或误报"
+activation: symptom
+read_when: "读/写 Geometry 类型 pin 的值 (前端回填 / 后端校验); 撞\"框选/截图设了值但 widget 显示全 0 / 校验永远报 ROI 错\""
+---
+# ⚠ Geometry pin 的值是 `{ pct, overrides }`，不是扁平 `{x,y,w,h}`
 **坑（同次 smoke 挖出两处）**:
 
 1. **前端回填写错形状** → DetectColor 截屏框选不显示。`NodeInspector` 的 `applyRect` 仍写扁平 `{x,y,w,h}` 到 `config.literal.Region`，但 `Region` 早迁成 `Geometry` 类型。`GeometryWidget.safeValue` 读 `v.pct`，读不到就**整体回退全 0** → 框选结果不显示。

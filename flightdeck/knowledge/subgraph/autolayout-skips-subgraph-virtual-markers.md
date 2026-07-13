@@ -1,11 +1,11 @@
-# ⚠ 全图操作漏掉子图 virtual marker (入口/出口不在 graph.nodes)
-
-SUMMARY: 子图入口/出口不在 graph.nodes；全图操作必须合入 marker，异步结果还必须绑定发起时的 editor context
-READ WHEN: 写任何遍历子图 graph.nodes 的全图操作(自动布局/导出/转脚本/遍历/分析)，或让异步工作读取 activeGraph/editorPath 后再写回时
-RECHECK WHEN: activeGraph/editorPath 的容器隔离方式、ELK 加载/worker 边界或 applyDraftMutation 历史语义改变时
-
 ---
-
+kind: trap
+summary: "子图入口/出口不在 graph.nodes；全图操作必须合入 marker，异步结果还必须绑定发起时的 editor context"
+activation: symptom
+read_when: "写任何遍历子图 graph.nodes 的全图操作(自动布局/导出/转脚本/遍历/分析)，或让异步工作读取 activeGraph/editorPath 后再写回时"
+recheck_when: "activeGraph/editorPath 的容器隔离方式、ELK 加载/worker 边界或 applyDraftMutation 历史语义改变时"
+---
+# ⚠ 全图操作漏掉子图 virtual marker (入口/出口不在 graph.nodes)
 ## Signature
 - symptom: 子图里运行自动布局, 入口/出口 marker 不跟着排版(留在原地)、body 布局还变乱
 - error_type: —  (数据遗漏/布局错, 非异常)

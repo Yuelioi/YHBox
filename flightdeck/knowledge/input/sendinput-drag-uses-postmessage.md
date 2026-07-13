@@ -1,10 +1,10 @@
-# ⚠ Swipe 在 sendinput 后端走 PostMessage, Raw-Input 游戏收不到
-
-SUMMARY: sendInputBackend.Drag 调共享原语 pkg/input.MouseDrag, 而 MouseDrag 是 PostMessage(WM_MOUSEMOVE/BUTTONDOWN/UP) 实现 — 选 sendinput 后端跑 Swipe 时走的是窗口消息而非 SendInput 全局注入, 读 RawInput/DirectInput 的游戏收不到拖拽, 且无报错
-READ WHEN: 改 Swipe/拖拽 / 选 sendinput 后端跑拖拽 / 排查「拖拽在某游戏不生效但点击生效」/ 给 sendinput 后端补原生 Drag
-
 ---
-
+kind: trap
+summary: "sendInputBackend.Drag 调共享原语 pkg/input.MouseDrag, 而 MouseDrag 是 PostMessage(WM_MOUSEMOVE/BUTTONDOWN/UP) 实现 — 选 sendinput 后端跑 Swipe 时走的是窗口消息而非 SendInput 全局注入, 读 RawInput/DirectInput 的游戏收不到拖拽, 且无报错"
+activation: symptom
+read_when: "改 Swipe/拖拽 / 选 sendinput 后端跑拖拽 / 排查「拖拽在某游戏不生效但点击生效」/ 给 sendinput 后端补原生 Drag"
+---
+# ⚠ Swipe 在 sendinput 后端走 PostMessage, Raw-Input 游戏收不到
 **Date**: 2026-06-24 (Phase 3 detect/click 整支终审发现)
 
 sendinput 后端存在的全部理由 = 读 RawInput/DirectInput 的游戏收不到 PostMessage 的窗口消息, 所以它的 Click/MouseDown 走 SendInput 真实注入 (sendAbsMove / sendMouseBtnEvent)。

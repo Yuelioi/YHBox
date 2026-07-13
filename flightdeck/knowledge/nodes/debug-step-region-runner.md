@@ -1,9 +1,10 @@
-# ⚠ 调试单步不能直接执行 RegionRunner 整块语义
-SUMMARY: Loop/ForEach/Subgraph 等 RegionRunner 在普通运行里会整块执行 body；调试 StepOnce 若直接复用会越过用户期望的下一步暂停点。
-READ WHEN: 改 DebugStep/StepOnce/Loop/ForEach/Subgraph 调试语义；排查“单步遇到循环直接跑完”“禁用控制节点后队列断掉”“强停停不掉调试 session”。
-
 ---
-
+kind: trap
+summary: "Loop/ForEach/Subgraph 等 RegionRunner 在普通运行里会整块执行 body；调试 StepOnce 若直接复用会越过用户期望的下一步暂停点。"
+activation: symptom
+read_when: "改 DebugStep/StepOnce/Loop/ForEach/Subgraph 调试语义；排查“单步遇到循环直接跑完”“禁用控制节点后队列断掉”“强停停不掉调试 session”。"
+---
+# ⚠ 调试单步不能直接执行 RegionRunner 整块语义
 调试单步的暂停单位是用户看到的节点，不是普通 runtime 的执行单元。
 
 普通运行中 `Loop` 是 RegionRunner：一次执行 Loop 节点会调用 body 回调 N 次或 forever，直到整个 region 完成后才从 `Loop.Done` 继续。这对 `Run()` 正确，但对 `StepOnce()` 会让用户点击一次单步后直接跑完整个循环体。

@@ -1,9 +1,10 @@
-# Windows ABI 裸地址复制 checklist
-SUMMARY: Always copy Win32 callback / native DLL `uintptr` memory into Go-owned values through `pkg/winutil` helpers; never retain or directly cast external addresses to Go pointers.
-READ WHEN: before decoding Win32 callback lParam, reading a native DLL C string, fixing `possible misuse of unsafe.Pointer`, or adding a Windows ABI adapter.
-
 ---
-
+kind: checklist
+summary: "Always copy Win32 callback / native DLL `uintptr` memory into Go-owned values through `pkg/winutil` helpers; never retain or directly cast external addresses to Go pointers."
+activation: action
+read_when: "before decoding Win32 callback lParam, reading a native DLL C string, fixing `possible misuse of unsafe.Pointer`, or adding a Windows ABI adapter."
+---
+# Windows ABI 裸地址复制 checklist
 Win32 callback 和 `syscall.LazyProc.Call` 用 `uintptr` 搬运 OS/C 地址。该地址不是 Go object，把它直接写成 `(*T)(unsafe.Pointer(src))` 不属于 Go `unsafe.Pointer` 文档列出的安全往返模式，也会触发 `go vet` 的 unsafeptr analyzer。
 
 Yotta 的统一入口是：
