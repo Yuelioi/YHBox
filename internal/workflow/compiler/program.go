@@ -184,6 +184,9 @@ func sealProgram(body programBody) (ProgramSnapshot, error) {
 	if len(canonical) > MaxProgramBytes {
 		return ProgramSnapshot{}, ErrProgramTooLarge
 	}
+	if exceedsJSONDepth(canonical, MaxProgramJSONDepth) {
+		return ProgramSnapshot{}, ErrProgramTooDeep
+	}
 	return ProgramSnapshot{state: &programState{envelope: envelope, artifact: canonical}}, nil
 }
 

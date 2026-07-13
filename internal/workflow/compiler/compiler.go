@@ -35,6 +35,7 @@ const (
 	MaxTotalPorts    = 10000
 	MaxCallPlanPorts = 10000
 	MaxCallPlanBytes = 4 << 20
+	MaxDiagnostics   = 10000
 )
 
 var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
@@ -158,6 +159,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 	locksByKind := map[string]NodeLock{}
 	capabilities := map[string]bool{}
 	contractCache := map[string]catalog.NodeContract{}
+	validatedContractDefaults := map[string]bool{}
 	missingKinds := map[string]bool{}
 	graphsByID := make(map[string]schema.Graph, len(source.Graphs))
 	interfaces := make(map[string]graphInterface, len(source.Graphs))
@@ -190,7 +192,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 			}
 			ref := callReference{graphID: graph.ID, nodeID: sourceNode.ID, target: target, graphIndex: graphIndex, nodeIndex: nodeIndex}
 			adjacency[graph.ID] = append(adjacency[graph.ID], ref)
-			callPorts := 1 + len(targetGraph.Inputs) + len(targetGraph.Outputs)
+			callPorts := len(targetGraph.Inputs) + len(targetGraph.Outputs)
 			callBytes := callPlanEncodedSize(target, targetGraph)
 			if totalCallPlanPorts > MaxCallPlanPorts-callPorts || totalCallPlanBytes > MaxCallPlanBytes-callBytes {
 				return result, ErrSourceBudgetExceeded
@@ -269,10 +271,13 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 				continue
 			}
 			contractsByNode[sourceNode.ID] = contract
-			for _, input := range contract.Inputs {
-				if input.Default != nil && (!valueMatchesType(input.Default, input.Type) || input.Schema != nil && !valueMatchesSchema(input.Default, input.Schema)) {
-					return result, fmt.Errorf("%w: node %q input %q has invalid default", ErrInvalidCatalog, contract.Kind, input.Name)
+			if !validatedContractDefaults[contract.Kind] {
+				for _, input := range contract.Inputs {
+					if input.Default != nil && (!valueMatchesType(input.Default, input.Type) || input.Schema != nil && !valueMatchesSchema(input.Default, input.Schema)) {
+						return result, fmt.Errorf("%w: node %q input %q has invalid default", ErrInvalidCatalog, contract.Kind, input.Name)
+					}
 				}
+				validatedContractDefaults[contract.Kind] = true
 			}
 			if contract.DynamicInputs || contract.DynamicOutputs || contract.DynamicDataFields || contract.HasCustomValidation || contract.HasDependencies {
 				result.diagnostics = append(result.diagnostics, schema.Diagnostic{
@@ -305,6 +310,7 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 		boundaryOutputCounts := map[string]int{}
 		iface := interfaces[graph.ID]
 		pinsByNode := indexNodePins(contractsByNode)
+		configByNode := indexNodeConfigContracts(contractsByNode)
 		for edgeIndex, edge := range graph.Edges {
 			if edgeIndex&255 == 0 {
 				if err := ctx.Err(); err != nil {
@@ -388,9 +394,9 @@ func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot cata
 						copyNode.Config[key] = value
 					}
 				}
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, copyNode, contract, incoming[sourceNode.ID])
+				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, copyNode, configByNode[sourceNode.ID], incoming[sourceNode.ID])
 			} else {
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, contract, incoming[sourceNode.ID])
+				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, configByNode[sourceNode.ID], incoming[sourceNode.ID])
 			}
 		}
 	}
@@ -473,6 +479,36 @@ type endpointResolution struct {
 
 type nodePinIndex struct {
 	inputs, outputs map[string]string
+}
+
+type nodeConfigContract struct {
+	inputs   map[string]catalog.InputContract
+	required []catalog.InputContract
+}
+
+func indexNodeConfigContracts(contracts map[string]catalog.NodeContract) map[string]nodeConfigContract {
+	out := make(map[string]nodeConfigContract, len(contracts))
+	byKind := make(map[string]nodeConfigContract)
+	for nodeID, contract := range contracts {
+		if contract.Kind != CallSubgraphKind {
+			if cached, ok := byKind[contract.Kind]; ok {
+				out[nodeID] = cached
+				continue
+			}
+		}
+		indexed := nodeConfigContract{inputs: make(map[string]catalog.InputContract, len(contract.Inputs))}
+		for _, input := range contract.Inputs {
+			indexed.inputs[input.Name] = input
+			if input.Required {
+				indexed.required = append(indexed.required, input)
+			}
+		}
+		out[nodeID] = indexed
+		if contract.Kind != CallSubgraphKind {
+			byKind[contract.Kind] = indexed
+		}
+	}
+	return out
 }
 
 func indexNodePins(contracts map[string]catalog.NodeContract) map[string]nodePinIndex {
@@ -585,14 +621,16 @@ func compatibleTypes(from, to string) bool {
 	return left == right || left == "any" || right == "any"
 }
 
-func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract catalog.NodeContract, incoming map[string]bool) {
-	inputs := make(map[string]catalog.InputContract, len(contract.Inputs))
-	for _, input := range contract.Inputs {
-		inputs[input.Name] = input
+func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract nodeConfigContract, incoming map[string]bool) {
+	if len(*out) >= MaxDiagnostics {
+		return
 	}
 	base := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config"}
 	for key, value := range sourceNode.Config {
-		input, ok := inputs[key]
+		if len(*out) >= MaxDiagnostics {
+			return
+		}
+		input, ok := contract.inputs[key]
 		path := appendPath(base, key)
 		if !ok || input.Type == "Exec" {
 			*out = append(*out, bindingDiagnostic(graphID, sourceNode.ID, path, "configField", map[string]any{"field": key}))
@@ -602,9 +640,9 @@ func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, no
 			*out = append(*out, bindingDiagnostic(graphID, sourceNode.ID, path, "configType", map[string]any{"field": key, "type": input.Type}))
 		}
 	}
-	for _, input := range contract.Inputs {
-		if !input.Required {
-			continue
+	for _, input := range contract.required {
+		if len(*out) >= MaxDiagnostics {
+			return
 		}
 		_, configured := sourceNode.Config[input.Name]
 		if !configured && input.Default == nil && !incoming[input.Name] {

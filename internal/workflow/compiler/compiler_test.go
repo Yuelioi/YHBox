@@ -284,6 +284,37 @@ func TestCompileDraftFailsClosedForCatalogAndCancellation(t *testing.T) {
 	}
 }
 
+func TestCompileDraftNeverSealsProgramDeeperThanOpenAccepts(t *testing.T) {
+	compiler, snapshot := testCompilerWithNode(t, compilerTestNode{kind: "fixture", inputType: "JSON"})
+	sawProgramDepthLimit := false
+	for depth := 100; depth <= MaxJSONDepth+8; depth++ {
+		value := "0"
+		for range depth {
+			value = "[" + value + "]"
+		}
+		raw := strings.Replace(validSource("1", 0, 0), `"config":{"Value":1}`, `"config":{"Value":`+value+`}`, 1)
+		if exceedsJSONDepth([]byte(raw), MaxJSONDepth) {
+			continue
+		}
+		result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: snapshot})
+		if errors.Is(err, ErrProgramTooDeep) {
+			sawProgramDepthLimit = true
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if program, ok := result.Program(); ok {
+			if _, err := OpenProgram(program.Artifact(), snapshot, compiler.build); err != nil {
+				t.Fatalf("compiler sealed program rejected by open at source depth %d: %v", depth, err)
+			}
+		}
+	}
+	if !sawProgramDepthLimit {
+		t.Fatal("fixture did not reach the program-only depth boundary")
+	}
+}
+
 func TestProgramSnapshotRejectsMutationAndNonCanonicalArtifacts(t *testing.T) {
 	compiler, catalogSnapshot := testCompiler(t)
 	result, err := compiler.CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(validSource("1", 0, 0)), Catalog: catalogSnapshot})
