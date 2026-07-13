@@ -98,7 +98,11 @@
         @goto="editorStore.gotoPathIndex($event)"
       />
 
-      <div class="flex flex-1 min-h-0">
+      <div
+        ref="workspace"
+        class="editor-workspace flex flex-1 min-h-0"
+        :data-layout="workspaceLayout"
+      >
         <!-- 左活动栏 rail (常驻细栏, VS Code 式): 变量/Snippets 开收停靠 drawer,
              节点库/子图库 点开 5xl modal。录制在 toolbar 右区 (主操作要显眼)。加节点也可走 Tab / 右键画布。 -->
         <nav
@@ -126,6 +130,7 @@
         <ContainerEditorDock
           v-if="sidebarPrefs.leftDrawer"
           :wide="sidebarPrefs.leftDrawer === 'assets'"
+          :overlay="dockOverlay"
         >
           <NodeLibraryPanel
             v-if="sidebarPrefs.leftDrawer === 'nodes'"
@@ -161,7 +166,7 @@
 
         <!-- Canvas -->
         <div
-          class="flex-1 min-w-0 relative"
+          class="editor-canvas-shell flex-1 min-w-0 relative"
           @dragover.prevent="onCanvasDragOver"
           @drop.prevent="onCanvasDrop"
           @contextmenu.capture="onCanvasContextMenuCapture"
@@ -260,13 +265,13 @@
           :model-value="rightPane.width.value"
           @update:model-value="rightPane.setWidth"
           :min="200"
-          :max="480"
+          :max="workspaceLayout === 'spacious' ? 480 : 320"
         />
 
         <!-- Right panel：选中节点显示 Inspector，否则显示引导空状态 -->
         <ContainerEditorInspector
           v-show="showInspector"
-          :style="{ width: rightPane.width.value + 'px' }"
+          :style="{ width: inspectorWidth + 'px' }"
           :selected-node="selectedNode"
           :in-subgraph="editorStore.editorPath.length > 0"
           :current-subgraph="currentSubgraph"
@@ -492,8 +497,10 @@ import {
   onMounted,
   provide,
   ref,
+  useTemplateRef,
   watch,
 } from 'vue'
+import { useElementSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { ContainerCanvasApiKey } from '@/composables/containerEditor/pinLiterals'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
@@ -550,6 +557,7 @@ import ContainerDebugPanel from '@/components/containers/ContainerDebugPanel.vue
 import EditorProblemsBar from '@/components/containers/EditorProblemsBar.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { resolveInspectorMode } from '@/composables/editor/inspectorMode'
+import { resolveEditorWorkspaceLayout } from '@/composables/editor/workspaceLayout'
 import { useAssetPicker } from '@/composables/editor/useAssetPicker'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
@@ -838,6 +846,10 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
+const workspace = useTemplateRef<HTMLElement>('workspace')
+const { width: workspaceWidth } = useElementSize(workspace)
+const workspaceLayout = computed(() => resolveEditorWorkspaceLayout(workspaceWidth.value))
+const dockOverlay = computed(() => workspaceLayout.value !== 'spacious')
 // 左活动栏 rail: 4 个停靠面板 (节点库/变量/Snippets/资产), 点同图标收回。录制在 toolbar 右区。
 type DockPanel = 'nodes' | 'vars' | 'snippets' | 'assets'
 const leftRail = [
@@ -875,6 +887,11 @@ watch(selectedID, () => {
   if (assetPickRequest.value) cancelAssetPick()
 })
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
+const inspectorWidth = computed(() =>
+  workspaceLayout.value === 'spacious'
+    ? rightPane.width.value
+    : Math.min(rightPane.width.value, 320),
+)
 const settingsOpen = ref(false)
 const helpModalOpen = ref(false)
 
@@ -1905,20 +1922,37 @@ async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Pr
 <style scoped>
 /* 自定义节点容器（ContainerFlowNode 自己有 bg/border，这里不再覆盖） */
 
-/* ---- Canvas 背景: 深色 radial gradient + 微妙 vignette + 网格 dots ---- */
+.editor-workspace {
+  position: relative;
+  isolation: isolate;
+  container: editor-workspace / inline-size;
+}
+
+.editor-canvas-shell {
+  container: editor-canvas / inline-size;
+}
+
+/* ---- Canvas 背景: 安静的翠绿倾向工作台，网点承担空间定位。 ---- */
 .canvas-bg {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(6, 182, 212, 0.05) 0%, transparent 65%),
-    linear-gradient(180deg, #0c0c14 0%, #07070c 100%);
+    radial-gradient(
+      ellipse 70% 42% at 50% 0%,
+      color-mix(in oklch, var(--ui-primary) 5%, transparent) 0%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--ui-bg) 96%, var(--ui-primary)) 0%,
+      color-mix(in oklch, var(--ui-bg) 98%, oklch(0.08 0.006 160)) 100%
+    );
 }
 .canvas-bg::after {
-  /* vignette: 边缘略暗, 中心略亮, 把焦点收回画布中央 */
+  /* 轻微边缘收束，避免高亮或霓虹发光。 */
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.35) 100%);
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.24) 100%);
   z-index: 0;
 }
 /* vue-flow 内部 viewport / pane / nodes 都 z-index > 0, vignette 不挡 */
@@ -1975,13 +2009,13 @@ async function guardDirty({ reloadOnDiscard }: { reloadOnDiscard: boolean }): Pr
 
 /* ---- Edge selected: 边的 stroke 色是 useContainerDraft 内联 style 设的 (data蓝/exec灰),
    内联样式优先级高于类选择器 → 必须 !important 才压得过, 否则点了边看不出高亮.
-   只换 primary 色 + 取消虚线 + 发光, 不改 stroke-width — 加粗会让箭头(markerUnits=strokeWidth)
+   只换 primary 色 + 取消虚线, 不改 stroke-width — 加粗会让箭头(markerUnits=strokeWidth)
    跟着放大, 用户只要高亮. ---- */
 :deep(.vue-flow__edge.selected .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus .vue-flow__edge-path),
 :deep(.vue-flow__edge:focus-visible .vue-flow__edge-path) {
   stroke: var(--ui-primary) !important;
   stroke-dasharray: none !important;
-  filter: drop-shadow(0 0 5px var(--ui-primary));
+  filter: none;
 }
 </style>

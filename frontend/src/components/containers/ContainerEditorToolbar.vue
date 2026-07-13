@@ -1,56 +1,59 @@
 <template>
   <!-- 三区分层：左 [返回 · 面包屑 · 概览 · 撤销/重做] · 中 [保存 · 检测 · 调试/运行状态] · 右 [录制 · 自动布局 · ⋯]
        (加内容 节点库/资产 在左侧 rail; 折叠 Inspector 在画布右边缘 toggle) -->
-  <div class="shrink-0 h-11 px-3 border-b border-default flex items-center gap-1 bg-default/60">
+  <header data-testid="editor-toolbar" class="editor-toolbar">
     <!-- ====== 左: 回列表 + 面包屑身份 + 撤销/重做 ====== -->
-    <UButton
-      size="xs"
-      variant="ghost"
-      color="neutral"
-      icon="i-tabler-arrow-left"
-      :title="t('editor.toolbar.back_to_list')"
-      @click="$emit('back-to-list')"
-    />
-    <ContainerEditorBreadcrumb
-      class="ml-1 min-w-0"
-      :root-label="rootLabel"
-      :editor-path="editorPath"
-      :sg-label-fn="sgLabelFn"
-      :dirty="dirty"
-      @goto="$emit('goto', $event)"
-    />
+    <div data-zone="identity" class="toolbar-zone toolbar-identity">
+      <UButton
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        icon="i-tabler-arrow-left"
+        :title="t('editor.toolbar.back_to_list')"
+        :aria-label="t('editor.toolbar.back_to_list')"
+        @click="$emit('back-to-list')"
+      />
+      <ContainerEditorBreadcrumb
+        class="toolbar-breadcrumb"
+        :root-label="rootLabel"
+        :editor-path="editorPath"
+        :sg-label-fn="sgLabelFn"
+        :dirty="dirty"
+        @goto="$emit('goto', $event)"
+      />
 
-    <ContainerOverviewPopover
-      class="ml-1"
-      :node-count="nodeCount"
-      :var-count="varCount"
-      :subgraph-count="subgraphCount"
-      :hotkey="overviewHotkey"
-      @open-help="$emit('open-help')"
-    />
+      <ContainerOverviewPopover
+        class="toolbar-overview"
+        :node-count="nodeCount"
+        :var-count="varCount"
+        :subgraph-count="subgraphCount"
+        :hotkey="overviewHotkey"
+        @open-help="$emit('open-help')"
+      />
 
-    <!-- 撤销/重做: 跟在面包屑后 (标题栏左区)。 -->
-    <div class="w-px h-5 bg-default mx-1" />
-    <UButton
-      size="sm"
-      variant="ghost"
-      color="neutral"
-      icon="i-tabler-arrow-back-up"
-      :disabled="!canUndo"
-      :title="t('editor.toolbar.undo')"
-      @click="$emit('undo')"
-    />
-    <UButton
-      size="sm"
-      variant="ghost"
-      color="neutral"
-      icon="i-tabler-arrow-forward-up"
-      :disabled="!canRedo"
-      :title="t('editor.toolbar.redo')"
-      @click="$emit('redo')"
-    />
-
-    <div class="flex-1" />
+      <div class="toolbar-divider toolbar-history-divider" />
+      <UButton
+        size="sm"
+        variant="ghost"
+        color="neutral"
+        icon="i-tabler-arrow-back-up"
+        :disabled="!canUndo"
+        :title="t('editor.toolbar.undo')"
+        :aria-label="t('editor.toolbar.undo')"
+        @click="$emit('undo')"
+      />
+      <UButton
+        size="sm"
+        variant="ghost"
+        color="neutral"
+        icon="i-tabler-arrow-forward-up"
+        :disabled="!canRedo"
+        :title="t('editor.toolbar.redo')"
+        :aria-label="t('editor.toolbar.redo')"
+        @click="$emit('redo')"
+      />
+      <!-- /identity -->
+    </div>
 
     <!-- ====== 中 · 主工作流: 保存 · 检测 · 调试 / 运行 ====== -->
     <div data-zone="workflow" class="toolbar-zone toolbar-workflow">
@@ -60,7 +63,9 @@
         >
           <span class="size-1.5 rounded-full bg-primary animate-pulse" />
           <span>{{ t('editor.toolbar.running') }}</span>
-          <span v-if="activeNodeLabel" class="text-primary/80">· {{ activeNodeLabel }}</span>
+          <span v-if="activeNodeLabel" class="toolbar-state-label text-primary/80"
+            >· {{ activeNodeLabel }}</span
+          >
         </div>
         <UButton
           size="sm"
@@ -73,7 +78,7 @@
             })
           "
           @click="$emit('stop-run')"
-          >{{ t('editor.toolbar.stop_run') }}</UButton
+          ><span class="toolbar-state-label">{{ t('editor.toolbar.stop_run') }}</span></UButton
         >
       </template>
 
@@ -83,7 +88,9 @@
         >
           <span class="size-1.5 rounded-full bg-primary animate-pulse" />
           <span>{{ t('editor.toolbar.debugging') }}</span>
-          <span v-if="activeNodeLabel" class="text-primary/80">· {{ activeNodeLabel }}</span>
+          <span v-if="activeNodeLabel" class="toolbar-state-label text-primary/80"
+            >· {{ activeNodeLabel }}</span
+          >
         </div>
         <UButton
           size="sm"
@@ -93,7 +100,7 @@
           :disabled="!debugCanStep"
           :title="t('editor.toolbar.debug_step_tip')"
           @click="$emit('debug-step')"
-          >{{ t('editor.toolbar.debug_step') }}</UButton
+          ><span class="toolbar-state-label">{{ t('editor.toolbar.debug_step') }}</span></UButton
         >
         <UButton
           size="sm"
@@ -103,7 +110,9 @@
           :disabled="!debugCanContinue"
           :title="t('editor.toolbar.debug_continue_tip')"
           @click="$emit('debug-continue')"
-          >{{ t('editor.toolbar.debug_continue') }}</UButton
+          ><span class="toolbar-state-label">{{
+            t('editor.toolbar.debug_continue')
+          }}</span></UButton
         >
         <UButton
           size="sm"
@@ -113,7 +122,7 @@
           :disabled="!debugCanPause"
           :title="t('editor.toolbar.debug_pause_tip')"
           @click="$emit('debug-pause')"
-          >{{ t('editor.toolbar.debug_pause') }}</UButton
+          ><span class="toolbar-state-label">{{ t('editor.toolbar.debug_pause') }}</span></UButton
         >
         <UButton
           size="sm"
@@ -122,7 +131,7 @@
           icon="i-tabler-square"
           :title="t('editor.toolbar.debug_stop_tip')"
           @click="$emit('debug-stop')"
-          >{{ t('editor.toolbar.stop_run') }}</UButton
+          ><span class="toolbar-state-label">{{ t('editor.toolbar.stop_run') }}</span></UButton
         >
       </template>
 
@@ -151,8 +160,9 @@
           icon="i-tabler-checks"
           :disabled="dirty"
           :title="dirty ? t('editor.toolbar.validate_dirty_tip') : t('editor.toolbar.validate_tip')"
+          :aria-label="t('editor.toolbar.validate')"
           @click="$emit('validate')"
-          >{{ t('editor.toolbar.validate') }}</UButton
+          ><span class="toolbar-secondary-label">{{ t('editor.toolbar.validate') }}</span></UButton
         >
         <UButton
           size="sm"
@@ -162,8 +172,9 @@
           class="toolbar-debug-risk"
           :disabled="dirty"
           :title="dirty ? t('editor.toolbar.debug_dirty_tip') : t('editor.toolbar.debug_tip')"
+          :aria-label="t('editor.toolbar.debug')"
           @click="$emit('debug-start')"
-          >{{ t('editor.toolbar.debug') }}</UButton
+          ><span class="toolbar-secondary-label">{{ t('editor.toolbar.debug') }}</span></UButton
         >
         <UButton
           size="md"
@@ -178,8 +189,6 @@
       </template>
       <!-- /workflow -->
     </div>
-
-    <div class="flex-1" />
 
     <!-- ====== 右 · 低频工具: 录制 · 自动布局 · ⋯ ====== -->
     <div data-zone="utility" class="toolbar-zone toolbar-utility">
@@ -197,7 +206,7 @@
           t('editor.toolbar.stop_record_tip', { hk: hotkeys.keyFor('recording.stop', 'F12') })
         "
         @click="$emit('stop-record')"
-        >{{ t('editor.toolbar.stop_record') }}</UButton
+        ><span class="toolbar-utility-label">{{ t('editor.toolbar.stop_record') }}</span></UButton
       >
       <UButton
         v-else-if="countdownSec > 0"
@@ -207,7 +216,9 @@
         icon="i-tabler-x"
         :title="t('editor.toolbar.cancel_countdown_tip')"
         @click="$emit('cancel-countdown')"
-        >{{ t('editor.toolbar.cancel_countdown', { n: countdownSec }) }}</UButton
+        ><span class="toolbar-utility-label">{{
+          t('editor.toolbar.cancel_countdown', { n: countdownSec })
+        }}</span></UButton
       >
       <UDropdownMenu v-else :items="recordMenuItems">
         <UButton
@@ -217,11 +228,11 @@
           icon="i-tabler-circle-dot"
           :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')"
         >
-          {{ t('editor.toolbar.record') }}</UButton
+          <span class="toolbar-utility-label">{{ t('editor.toolbar.record') }}</span></UButton
         >
       </UDropdownMenu>
 
-      <div class="w-px h-5 bg-default mx-1" />
+      <div class="toolbar-divider" />
 
       <!-- 自动布局 (升为直接下拉, 出 ⋯) -->
       <UDropdownMenu :items="layoutMenuItems">
@@ -231,6 +242,7 @@
           color="neutral"
           icon="i-tabler-layout-grid"
           :title="t('editor.toolbar.auto_layout')"
+          :aria-label="t('editor.toolbar.auto_layout')"
         />
       </UDropdownMenu>
 
@@ -242,11 +254,12 @@
           color="neutral"
           icon="i-tabler-dots"
           :title="t('editor.toolbar.more')"
+          :aria-label="t('editor.toolbar.more')"
         />
       </UDropdownMenu>
       <!-- /utility -->
     </div>
-  </div>
+  </header>
 </template>
 
 <script setup lang="ts">
@@ -423,20 +436,72 @@ const moreMenuItems = computed(() => {
 </script>
 
 <style scoped>
+.editor-toolbar {
+  container: editor-toolbar / inline-size;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(80px, 1fr);
+  align-items: center;
+  min-height: 48px;
+  padding-inline: 12px;
+  gap: 12px;
+  flex: none;
+  border-bottom: 1px solid var(--ui-border);
+  background: color-mix(in oklch, var(--ui-bg) 94%, var(--ui-bg-elevated));
+}
+
 .toolbar-zone {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
 }
+
+.toolbar-identity {
+  overflow: hidden;
+}
+
+.toolbar-breadcrumb {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  margin-inline: 4px;
+  flex: none;
+  background: var(--ui-border);
+}
+
 .toolbar-workflow {
+  justify-self: center;
   justify-content: center;
 }
 .toolbar-utility {
+  justify-self: end;
   justify-content: flex-end;
 }
 .toolbar-debug-risk :deep(svg),
 .toolbar-debug-risk :deep(.iconify) {
   color: var(--ui-warning);
+}
+
+@container editor-toolbar (max-width: 1450px) {
+  .toolbar-overview,
+  .toolbar-secondary-label,
+  .toolbar-state-label {
+    display: none;
+  }
+}
+
+@container editor-toolbar (max-width: 1220px) {
+  .toolbar-zone {
+    gap: 2px;
+  }
+
+  .toolbar-utility-label,
+  .toolbar-history-divider {
+    display: none;
+  }
 }
 </style>

@@ -13,7 +13,7 @@ import (
 	"github.com/yottaapp/yotta/pkg/version"
 )
 
-const mainWindowMinWidth = 1640
+const mainWindowMinWidth = 1180
 
 func mainWindowOptions(width, height int) application.WebviewWindowOptions {
 	if width < mainWindowMinWidth {

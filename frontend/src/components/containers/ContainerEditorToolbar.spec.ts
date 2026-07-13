@@ -13,6 +13,13 @@ function zone(name: string): string {
 }
 
 describe('ContainerEditorToolbar structure', () => {
+  it('uses independent identity, workflow, and utility grid zones', () => {
+    expect(zone('identity')).toContain('toolbar-breadcrumb')
+    expect(zone('workflow')).toContain('toolbar-workflow')
+    expect(zone('utility')).toContain('toolbar-utility')
+    expect(source).toContain('grid-template-columns: minmax(180px, 1fr) auto minmax(80px, 1fr)')
+  })
+
   it('keeps save, validate, debug, and run in the central workflow zone', () => {
     const workflow = zone('workflow')
     const utility = zone('utility')
@@ -33,5 +40,12 @@ describe('ContainerEditorToolbar structure', () => {
     expect(workflow).not.toContain('layoutMenuItems')
     expect(utility).toContain('recordMenuItems')
     expect(utility).toContain('layoutMenuItems')
+  })
+
+  it('progressively hides secondary labels without removing their actions', () => {
+    expect(source).toContain('@container editor-toolbar (max-width: 1450px)')
+    expect(source).toContain('.toolbar-secondary-label')
+    expect(source).toContain('.toolbar-state-label')
+    expect(source).toContain('.toolbar-utility-label')
   })
 })
