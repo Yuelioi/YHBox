@@ -337,7 +337,7 @@ export const backend = {
       }),
     exportPackage: (id: string, destPath: string) =>
       invoke(ContainerService.ExportPackage, id, destPath) as Promise<boolean | undefined>,
-    run: (id: string) => invoke(ContainerService.Run, id),
+    run: (id: string) => invokeVoid(ContainerService.Run, id),
     stopAll: () => invoke(ContainerService.StopAll),
     debugStart: (id: string, options: DebugStartOptions = {}) =>
       invoke(ContainerService.DebugStart, id, options as any) as Promise<

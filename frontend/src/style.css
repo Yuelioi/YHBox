@@ -285,26 +285,115 @@ textarea {
 
   .launcher-builder {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     align-items: start;
     gap: 24px;
   }
 
   .launcher-block {
     display: flex;
-    min-height: 58px;
+    min-height: 60px;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
     border: 1px solid var(--ui-border);
     border-radius: 10px;
-    background: color-mix(in oklab, var(--ui-bg-elevated) 36%, transparent);
+    background: color-mix(in oklab, var(--ui-bg-elevated) 42%, transparent);
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease;
+  }
+
+  .launcher-block:hover {
+    border-color: var(--ui-border-accented);
+    background: color-mix(in oklab, var(--ui-bg-elevated) 64%, transparent);
   }
 
   .launcher-library {
-    padding: 14px;
+    padding: 14px 16px;
     border: 1px dashed var(--ui-border);
     border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 22%, transparent);
+  }
+
+  .launcher-health-card {
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+  }
+
+  .launcher-health-card--warning {
+    border-color: color-mix(in oklab, var(--ui-warning) 28%, var(--ui-border));
+  }
+
+  .launcher-health-loading {
+    display: flex;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+  }
+
+  .launcher-health-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .launcher-health-stats > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+  }
+
+  .launcher-health-stats > div + div {
+    border-left: 1px solid var(--ui-border);
+  }
+
+  .launcher-health-stats strong {
+    color: var(--ui-text-highlighted);
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .launcher-health-stats span {
+    overflow: hidden;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-health-action {
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .launcher-health-action__icon {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--ui-warning) 30%, var(--ui-border));
+    border-radius: 8px;
+    color: var(--ui-warning);
+    background: color-mix(in oklab, var(--ui-warning) 8%, transparent);
+  }
+
+  .launcher-health-action--ready .launcher-health-action__icon {
+    color: var(--ui-success);
+    border-color: color-mix(in oklab, var(--ui-success) 28%, var(--ui-border));
+    background: color-mix(in oklab, var(--ui-success) 7%, transparent);
   }
 
   .launcher-preview {
@@ -314,17 +403,13 @@ textarea {
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     background: var(--ui-bg-elevated);
-    box-shadow: 0 16px 48px rgb(0 0 0 / 18%);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
   }
 
   .launcher-preview__window {
-    display: flex;
-    min-height: 160px;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    align-items: center;
-    gap: 6px;
-    padding: 24px 12px 12px;
+    position: relative;
+    min-height: 180px;
+    padding: 26px 8px 8px;
     border: 1px solid color-mix(in oklab, var(--ui-border) 80%, transparent);
     border-radius: 10px;
     background: color-mix(in oklab, var(--ui-bg) 78%, black);
@@ -332,52 +417,13 @@ textarea {
 
   .launcher-preview__handle {
     position: absolute;
-    top: 50px;
+    top: 10px;
     left: 50%;
     width: 32px;
     height: 3px;
     border-radius: 999px;
     background: var(--ui-border-accented);
     transform: translateX(-50%);
-  }
-
-  .launcher-preview__button {
-    display: inline-flex;
-    max-width: 100%;
-    min-height: 32px;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 9px;
-    border: 1px solid var(--ui-border);
-    border-radius: 7px;
-    color: var(--ui-text-highlighted);
-    background: var(--ui-bg-elevated);
-  }
-
-  .launcher-preview__button--missing {
-    color: var(--ui-error);
-    border-color: color-mix(in oklab, var(--ui-error) 44%, var(--ui-border));
-  }
-
-  .launcher-preview__label {
-    width: 100%;
-    padding-top: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--ui-text-muted);
-  }
-
-  .launcher-preview__hsep {
-    width: 100%;
-    height: 1px;
-    background: var(--ui-border);
-  }
-
-  .launcher-preview__vsep {
-    width: 1px;
-    height: 24px;
-    margin-inline: 2px;
-    background: var(--ui-border);
   }
 
   .ai-connection {

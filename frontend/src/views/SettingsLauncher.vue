@@ -17,6 +17,89 @@
     </SettingsSection>
 
     <SettingsSection
+      :title="t('settingsLauncher.health_title')"
+      :description="t('settingsLauncher.health_hint')"
+      icon="i-tabler-shield-check"
+      :badge="healthBadge"
+    >
+      <div
+        v-if="dependenciesLoaded"
+        class="launcher-health-card"
+        :class="{ 'launcher-health-card--warning': staleCount }"
+      >
+        <div class="launcher-health-stats">
+          <div>
+            <strong>{{ resolution.items.length }}</strong>
+            <span>{{ t('settingsLauncher.health_available') }}</span>
+          </div>
+          <div>
+            <strong :class="{ 'text-warning': staleCount }">{{ staleCount }}</strong>
+            <span>{{ t('settingsLauncher.health_stale') }}</span>
+          </div>
+          <div>
+            <strong :class="{ 'text-error': failedHotkeys.length }">{{
+              failedHotkeys.length
+            }}</strong>
+            <span>{{ t('settingsLauncher.health_hotkeys') }}</span>
+          </div>
+        </div>
+
+        <div v-if="staleCount" class="launcher-health-action">
+          <span class="launcher-health-action__icon">
+            <UIcon name="i-tabler-unlink" class="size-4" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold text-highlighted">
+              {{ t('settingsLauncher.stale_title', { n: staleCount }) }}
+            </p>
+            <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-muted">
+              {{ staleNames }}
+            </p>
+          </div>
+          <UButton
+            size="xs"
+            color="warning"
+            variant="soft"
+            icon="i-tabler-eraser"
+            :loading="cleanupBusy"
+            @click="cleanupStale"
+          >
+            {{ t('settingsLauncher.cleanup_stale', { n: staleCount }) }}
+          </UButton>
+        </div>
+        <div v-else class="launcher-health-action launcher-health-action--ready">
+          <span class="launcher-health-action__icon">
+            <UIcon name="i-tabler-check" class="size-4" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold text-highlighted">
+              {{ t('settingsLauncher.health_ready') }}
+            </p>
+            <p class="mt-1 text-[11px] leading-4 text-muted">
+              {{ t('settingsLauncher.health_ready_hint') }}
+            </p>
+          </div>
+          <UButton
+            v-if="cleanupUndo"
+            size="xs"
+            color="neutral"
+            variant="outline"
+            icon="i-tabler-arrow-back-up"
+            :loading="cleanupBusy"
+            @click="undoCleanup"
+          >
+            {{ t('settingsLauncher.undo_cleanup') }}
+          </UButton>
+        </div>
+      </div>
+      <div v-else class="launcher-health-loading" aria-busy="true">
+        <USkeleton class="h-14 flex-1" />
+        <USkeleton class="h-14 flex-1" />
+        <USkeleton class="h-14 flex-1" />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
       :title="t('settingsLauncher.layout_title')"
       :description="t('settingsLauncher.layout_hint')"
       icon="i-tabler-layout-list"
@@ -208,34 +291,14 @@
           </div>
           <div class="launcher-preview__window">
             <div class="launcher-preview__handle" />
-            <template v-if="editItems.length">
-              <template v-for="block in editItems" :key="block.id">
-                <p v-if="block.type === 'label'" class="launcher-preview__label">
-                  {{ block.label || t('settingsLauncher.untitled_label') }}
-                </p>
-                <div v-else-if="block.type === 'hsep'" class="launcher-preview__hsep" />
-                <div v-else-if="block.type === 'vsep'" class="launcher-preview__vsep" />
-                <div
-                  v-else
-                  class="launcher-preview__button"
-                  :class="
-                    containerExists(block.containerId) ? '' : 'launcher-preview__button--missing'
-                  "
-                >
-                  <UIcon
-                    v-if="display !== 'text'"
-                    :name="block.icon || 'i-tabler-player-play-filled'"
-                    class="size-4"
-                  />
-                  <span v-if="display !== 'icon'" class="truncate">{{
-                    block.label || containerName(block.containerId)
-                  }}</span>
-                </div>
-              </template>
-            </template>
-            <p v-else class="text-center text-xs text-dimmed">
-              {{ t('settingsLauncher.preview_empty') }}
-            </p>
+            <LauncherSurface
+              :groups="resolution.groups"
+              :display="display"
+              preview
+              :empty-label="t('settingsLauncher.preview_empty')"
+              :run-label="(name: string) => t('floatingLauncher.run', { name })"
+              :status-labels="statusLabels"
+            />
           </div>
         </aside>
       </div>
@@ -255,18 +318,29 @@ import IconPicker from '@/components/containers/inline/IconPicker.vue'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import LauncherSurface, { type LauncherDisplay } from '@/components/launcher/LauncherSurface.vue'
+import { cleanupStaleLauncherBlocks, resolveLauncher } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 const editItems = ref<LauncherBlock[]>([])
+const cleanupBusy = ref(false)
+const dependenciesLoaded = ref(false)
+const cleanupUndo = ref<{
+  blocks: LauncherBlock[]
+  hotkeys: { key: string; value: string }[]
+} | null>(null)
 const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
 const syncFromStore = () =>
   (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
 watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
-const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both')
+const display = computed<LauncherDisplay>(() => {
+  const value = settingsStore.data?.ui.launcherDisplay
+  return value === 'icon' || value === 'text' ? value : 'both'
+})
 const displayItems = computed(() => [
   { label: t('settingsLauncher.display_both'), value: 'both' },
   { label: t('settingsLauncher.display_icon'), value: 'icon' },
@@ -275,8 +349,39 @@ const displayItems = computed(() => [
 const containerItems = computed(() =>
   containersStore.list.map((container) => ({ label: container.name, value: container.id })),
 )
-const persist = () =>
-  void settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
+const resolution = computed(() =>
+  resolveLauncher(editItems.value, containersStore.list, hotkeysStore.list),
+)
+const staleCount = computed(() => resolution.value.staleBlocks.length)
+const staleNames = computed(() =>
+  resolution.value.staleBlocks
+    .map(
+      (item) => item.label?.trim() || item.containerId || t('settingsLauncher.deleted_container'),
+    )
+    .join(' · '),
+)
+const launcherContainerIds = computed(
+  () => new Set(resolution.value.items.map((item) => item.containerId)),
+)
+const failedHotkeys = computed(() =>
+  hotkeysStore.list.filter(
+    (entry) =>
+      entry.key.startsWith('container.') &&
+      launcherContainerIds.value.has(entry.key.slice('container.'.length)) &&
+      entry.status === 'failed',
+  ),
+)
+const healthBadge = computed(() =>
+  staleCount.value || failedHotkeys.value.length
+    ? t('settingsLauncher.health_attention')
+    : t('settingsLauncher.health_normal'),
+)
+const statusLabels = computed(() => ({
+  running: t('floatingLauncher.running'),
+  success: t('floatingLauncher.success'),
+  error: t('floatingLauncher.failed'),
+}))
+const persist = () => settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
 const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
 const block = (id: string) => editItems.value.find((item) => item.id === id)
 const genId = () => `lb_${crypto.randomUUID()}`
@@ -309,6 +414,52 @@ function removeBlock(id: string) {
   editItems.value = editItems.value.filter((item) => item.id !== id)
   persist()
 }
+async function cleanupStale() {
+  if (!staleCount.value || cleanupBusy.value) return
+  cleanupBusy.value = true
+  const previousBlocks = copyItems(editItems.value)
+  const staleContainerIds = new Set(
+    resolution.value.staleBlocks.map((item) => item.containerId).filter(Boolean) as string[],
+  )
+  const previousHotkeys = hotkeysStore.list
+    .filter((entry) => staleContainerIds.has(entry.key.slice('container.'.length)))
+    .map((entry) => ({ key: entry.key, value: entry.hotkeyStr }))
+  const cleaned = cleanupStaleLauncherBlocks(
+    editItems.value,
+    new Set(containersStore.list.map((container) => container.id)),
+  )
+  editItems.value = copyItems(cleaned.blocks)
+  const saved = await persist()
+  if (!saved) {
+    editItems.value = previousBlocks
+    cleanupBusy.value = false
+    return
+  }
+  for (const entry of previousHotkeys) {
+    await backend.hotkeys.update(entry.key, '')
+  }
+  if (previousHotkeys.length) await hotkeysStore.reload()
+  cleanupUndo.value = { blocks: previousBlocks, hotkeys: previousHotkeys }
+  cleanupBusy.value = false
+}
+async function undoCleanup() {
+  const snapshot = cleanupUndo.value
+  if (!snapshot || cleanupBusy.value) return
+  cleanupBusy.value = true
+  const currentBlocks = copyItems(editItems.value)
+  editItems.value = copyItems(snapshot.blocks)
+  const saved = await persist()
+  if (saved) {
+    for (const entry of snapshot.hotkeys) {
+      await backend.hotkeys.update(entry.key, entry.value)
+    }
+    if (snapshot.hotkeys.length) await hotkeysStore.reload()
+    cleanupUndo.value = null
+  } else {
+    editItems.value = currentBlocks
+  }
+  cleanupBusy.value = false
+}
 function setIcon(id: string, icon: string) {
   const item = block(id)
   if (item) {
@@ -324,9 +475,6 @@ async function setHotkey(containerId: string, hotkey: string) {
   await backend.hotkeys.update(`container.${containerId}`, hotkey)
   await hotkeysStore.reload()
 }
-function containerExists(id?: string) {
-  return containersStore.list.some((container) => container.id === id)
-}
 function containerName(id?: string) {
   return (
     containersStore.list.find((container) => container.id === id)?.name ??
@@ -337,8 +485,8 @@ function containerHotkey(id?: string) {
   return hotkeysStore.list.find((item) => item.key === `container.${id}`)?.hotkeyStr ?? ''
 }
 
-onMounted(() => {
-  void containersStore.reload()
-  void hotkeysStore.reload()
+onMounted(async () => {
+  await Promise.all([containersStore.reload(), hotkeysStore.reload()])
+  dependenciesLoaded.value = true
 })
 </script>

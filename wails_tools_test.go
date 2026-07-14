@@ -44,7 +44,7 @@ func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if launcher.Width != 280 || launcher.Height != 320 || launcher.MinWidth != 200 || launcher.MinHeight != 96 {
+	if launcher.Width != 300 || launcher.Height != 360 || launcher.MinWidth != 220 || launcher.MinHeight != 120 {
 		t.Fatalf("launcher options = %+v", launcher)
 	}
 

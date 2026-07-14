@@ -97,7 +97,7 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 		}, nil
 	case tools.WindowLauncher:
 		return application.WebviewWindowOptions{
-			Title: "启动器", Width: 280, Height: 320, MinWidth: 200, MinHeight: 96,
+			Title: "启动器", Width: 300, Height: 360, MinWidth: 220, MinHeight: 120,
 			URL: "/#/tools/launcher", Frameless: true, AlwaysOnTop: true,
 			BackgroundColour: darkBackground,
 		}, nil

@@ -1,12 +1,10 @@
 <template>
-  <!-- 哑工具条：渲染块序列 (容器按钮 / 文字标题 / 水平·垂直分隔符) + 单击跑 + 图钉置顶 + 隐藏。
-       自适应高度 + 右下角拖拽改尺寸。编排在 设置→悬浮窗。 -->
   <HudShell
     dense
     icon="i-tabler-rocket"
     :title="t('floatingLauncher.title')"
     :subtitle="t('floatingLauncher.subtitle')"
-    :status="t('floatingLauncher.item_count', { n: flat.length })"
+    :status="headerStatus"
     :close-title="t('floatingLauncher.hide')"
     @close="onHide"
   >
@@ -22,10 +20,23 @@
       />
     </template>
 
-    <div ref="contentRef" class="min-h-0 flex-1 overflow-auto p-2">
+    <div ref="contentRef" class="launcher-content">
+      <div v-if="resolution.items.length" class="launcher-search">
+        <UInput
+          v-model="query"
+          size="xs"
+          icon="i-tabler-search"
+          :placeholder="t('floatingLauncher.search_placeholder')"
+          :aria-label="t('floatingLauncher.search_aria')"
+          autocomplete="off"
+          class="w-full"
+        />
+        <UKbd value="/" class="launcher-search__kbd" />
+      </div>
+
       <div
-        v-if="blocks.length === 0"
-        class="flex h-full min-h-24 flex-col items-center justify-center gap-2 px-4 py-6 text-center"
+        v-if="resolution.items.length === 0"
+        class="flex min-h-24 flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center"
       >
         <span
           class="inline-flex size-9 items-center justify-center rounded-xl border border-default bg-elevated/30"
@@ -34,56 +45,26 @@
         </span>
         <p class="text-xs text-dimmed">{{ t('floatingLauncher.empty') }}</p>
       </div>
-      <div v-else class="flex flex-wrap items-stretch gap-1.5">
-        <template v-for="b in blocks" :key="b.id">
-          <UButton
-            v-if="b.type === 'container'"
-            color="neutral"
-            variant="soft"
-            class="launcher-item relative shrink-0"
-            :class="{ 'launcher-item--running': isRunning(b.containerId!) }"
-            :style="{ width: colW + 'px' }"
-            :title="b.label"
-            :aria-label="t('floatingLauncher.run', { name: b.label })"
-            :disabled="isRunning(b.containerId!)"
-            @click="onRun(b.containerId!)"
-          >
-            <UKbd
-              v-if="shortcutFor(b.containerId!)"
-              class="launcher-item__shortcut"
-              :value="shortcutFor(b.containerId!)"
-            />
-            <UIcon
-              v-if="display !== 'text' || isRunning(b.containerId!)"
-              :name="
-                isRunning(b.containerId!)
-                  ? 'i-tabler-loader-2'
-                  : b.icon || 'i-tabler-square-rounded'
-              "
-              :class="[
-                isRunning(b.containerId!) ? 'animate-spin text-primary' : 'text-toned',
-                display === 'icon' ? 'size-5' : 'size-4',
-              ]"
-            />
-            <span
-              v-if="display !== 'icon'"
-              class="w-full truncate text-center text-xs leading-none text-highlighted"
-              >{{ b.label }}</span
-            >
-          </UButton>
-          <div v-else-if="b.type === 'label'" class="launcher-group-label basis-full truncate">
-            {{ b.label }}
-          </div>
-          <div v-else-if="b.type === 'hsep'" class="basis-full border-t border-default/60 my-0.5" />
-          <div
-            v-else-if="b.type === 'vsep'"
-            class="self-stretch border-l border-default/60 mx-0.5"
-          />
-        </template>
+
+      <LauncherSurface
+        v-else
+        :groups="filteredGroups"
+        :display="display"
+        :selected-id="selectedId"
+        :statuses="statuses"
+        :empty-label="t('floatingLauncher.no_results')"
+        :run-label="(name: string) => t('floatingLauncher.run', { name })"
+        :status-labels="statusLabels"
+        @run="onRun"
+        @select="selectItem"
+      />
+
+      <div v-if="resolution.staleBlocks.length" class="launcher-health">
+        <UIcon name="i-tabler-alert-triangle" class="size-3.5" />
+        <span>{{ t('floatingLauncher.stale_hint', { n: resolution.staleBlocks.length }) }}</span>
       </div>
     </div>
 
-    <!-- 右下角拖拽手柄：改窗口宽高 -->
     <div
       class="absolute bottom-0 right-0 size-3.5 cursor-nwse-resize text-dimmed/70 hover:text-toned"
       style="--wails-draggable: no-drag"
@@ -106,14 +87,27 @@ import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useContainersStore } from '@/stores/containers'
 import { useExecutionStore } from '@/stores/execution'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import HudShell from '@/components/tools/HudShell.vue'
+import LauncherSurface, {
+  type LauncherCommandStatus,
+  type LauncherDisplay,
+} from '@/components/launcher/LauncherSurface.vue'
+import { filterLauncherGroups, resolveLauncher } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const execStore = useExecutionStore()
+const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 
 const contentRef = ref<HTMLElement | null>(null)
+const query = ref('')
+const selectedId = ref('')
+const requestedId = ref('')
+const feedback = ref<{ id: string; status: 'success' | 'error' } | null>(null)
+let feedbackTimer: ReturnType<typeof setTimeout> | undefined
+let requestTimer: ReturnType<typeof setTimeout> | undefined
 
 const pinned = ref(true)
 function togglePin() {
@@ -121,94 +115,162 @@ function togglePin() {
   void backend.tools.setLauncherAlwaysOnTop(pinned.value)
 }
 
-const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both') // both | icon | text
-// 按钮固定紧凑宽度（flex-wrap 自动换行）。各模式宽度不同：纯图标方块最窄，带文字的要给标签留位。
-const COL_W: Record<string, number> = { icon: 48, both: 80, text: 100 }
-const colW = computed(() => COL_W[display.value] ?? 80)
-
-// 渲染块：container 解析容器名/图标（容器没了则跳过该块）；label/hsep/vsep 原样。
-interface RBlock {
-  id: string
-  type: 'container' | 'label' | 'hsep' | 'vsep'
-  containerId?: string
-  icon?: string
-  label?: string
-}
-const blocks = computed<RBlock[]>(() => {
-  const raw = settingsStore.data?.ui.launcherItems ?? []
-  const out: RBlock[] = []
-  for (const b of raw) {
-    if (b.type === 'container') {
-      const c = containersStore.list.find((x) => x.id === b.containerId)
-      if (!c) continue
-      out.push({
-        id: b.id,
-        type: 'container',
-        containerId: b.containerId,
-        icon: b.icon,
-        label: b.label || c.name,
-      })
-    } else {
-      out.push({ id: b.id, type: b.type, label: b.label })
-    }
-  }
-  return out
+const display = computed<LauncherDisplay>(() => {
+  const value = settingsStore.data?.ui.launcherDisplay
+  return value === 'icon' || value === 'text' ? value : 'both'
 })
-// 数字热键 1-9 跑第 N 个容器块（按出现顺序）。
-const flat = computed<string[]>(() =>
-  blocks.value.filter((b) => b.type === 'container').map((b) => b.containerId!),
+const resolution = computed(() =>
+  resolveLauncher(
+    settingsStore.data?.ui.launcherItems ?? [],
+    containersStore.list,
+    hotkeysStore.list,
+  ),
+)
+const filteredGroups = computed(() => filterLauncherGroups(resolution.value.groups, query.value))
+const filteredItems = computed(() => filteredGroups.value.flatMap((group) => group.items))
+const headerStatus = computed(() => {
+  const count = t('floatingLauncher.item_count', { n: resolution.value.items.length })
+  return resolution.value.staleBlocks.length
+    ? `${count} · ${t('floatingLauncher.stale_count', { n: resolution.value.staleBlocks.length })}`
+    : count
+})
+const statusLabels = computed(() => ({
+  running: t('floatingLauncher.running'),
+  success: t('floatingLauncher.success'),
+  error: t('floatingLauncher.failed'),
+}))
+const statuses = computed<Record<string, LauncherCommandStatus>>(() => {
+  const result: Record<string, LauncherCommandStatus> = {}
+  if (feedback.value) result[feedback.value.id] = feedback.value.status
+  if (requestedId.value) result[requestedId.value] = 'running'
+  if (execStore.running && execStore.currentTargetID) {
+    result[execStore.currentTargetID] = 'running'
+  }
+  return result
+})
+
+watch(
+  filteredItems,
+  (items) => {
+    if (!items.some((item) => item.containerId === selectedId.value)) {
+      selectedId.value = items[0]?.containerId ?? ''
+    }
+  },
+  { immediate: true },
 )
 
-function isRunning(id: string): boolean {
-  return execStore.running && execStore.currentTargetID === id
+watch(
+  () => execStore.running,
+  (running, wasRunning) => {
+    if (running || !wasRunning || !requestedId.value) return
+    settleRequest(execStore.lastError ? 'error' : 'success')
+  },
+)
+
+function selectItem(id: string) {
+  selectedId.value = id
 }
-function shortcutFor(id: string): string {
-  const index = flat.value.indexOf(id)
-  return index >= 0 && index < 9 ? String(index + 1) : ''
+
+function moveSelection(delta: number) {
+  const items = filteredItems.value
+  if (!items.length) return
+  const current = items.findIndex((item) => item.containerId === selectedId.value)
+  const next = current < 0 ? 0 : (current + delta + items.length) % items.length
+  selectedId.value = items[next]?.containerId ?? ''
 }
+
+function settleRequest(status: 'success' | 'error') {
+  if (!requestedId.value) return
+  feedback.value = { id: requestedId.value, status }
+  requestedId.value = ''
+  clearTimeout(requestTimer)
+  clearTimeout(feedbackTimer)
+  feedbackTimer = setTimeout(() => (feedback.value = null), 1800)
+}
+
 async function onRun(id: string) {
-  if (isRunning(id)) return
-  await backend.containers.run(id)
+  if (!id || requestedId.value || execStore.running) return
+  requestedId.value = id
+  feedback.value = null
+  const accepted = await backend.containers.run(id)
+  if (!accepted) {
+    settleRequest('error')
+    return
+  }
+  requestTimer = setTimeout(() => {
+    if (!execStore.running && requestedId.value === id) settleRequest('success')
+  }, 500)
 }
+
 function onHide() {
   void backend.tools.hideLauncher()
 }
-function onKeyDown(e: KeyboardEvent) {
-  if (e.key < '1' || e.key > '9') return
-  const id = flat.value[Number(e.key) - 1]
-  if (!id) return
-  e.preventDefault()
-  void onRun(id)
+
+function focusSearch() {
+  document.querySelector<HTMLInputElement>('.launcher-search input')?.focus()
 }
 
-// ── 自适应高度：内容变化 → 量内容高 + chrome → SetSize（保持当前宽度）──
-const CHROME_H = 34 // 标题栏 + 边框估算
+function onKeyDown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null
+  const editing = target?.matches('input, textarea, [contenteditable="true"]') ?? false
+
+  if (event.key === '/' && !editing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault()
+    focusSearch()
+    return
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    moveSelection(event.key === 'ArrowDown' ? 1 : -1)
+    return
+  }
+  if (event.key === 'Enter' && selectedId.value) {
+    event.preventDefault()
+    void onRun(selectedId.value)
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    if (query.value) query.value = ''
+    else onHide()
+    return
+  }
+  if (!editing && event.key >= '1' && event.key <= '9') {
+    const item = resolution.value.items[Number(event.key) - 1]
+    if (!item) return
+    event.preventDefault()
+    void onRun(item.containerId)
+  }
+}
+
+const MIN_W = 220
+const MIN_H = 120
+const CHROME_H = 35
 function fitHeight() {
-  const el = contentRef.value
-  if (!el) return
-  const h = Math.min(900, Math.max(56, Math.ceil(el.scrollHeight) + CHROME_H))
-  void backend.tools.setLauncherSize(Math.round(window.innerWidth), h)
+  const element = contentRef.value
+  if (!element) return
+  const height = Math.min(720, Math.max(MIN_H, Math.ceil(element.scrollHeight) + CHROME_H))
+  void backend.tools.setLauncherSize(Math.max(MIN_W, Math.round(window.innerWidth)), height)
 }
-watch([blocks, display], () => void nextTick(fitHeight))
+watch([filteredGroups, display], () => void nextTick(fitHeight))
 
-// ── 右下角手柄拖拽改宽高 ──
 let startX = 0
 let startY = 0
 let startW = 0
 let startH = 0
-function onGripMove(e: PointerEvent) {
-  const w = Math.max(140, startW + (e.clientX - startX))
-  const h = Math.max(56, startH + (e.clientY - startY))
-  void backend.tools.setLauncherSize(Math.round(w), Math.round(h))
+function onGripMove(event: PointerEvent) {
+  const width = Math.max(MIN_W, startW + (event.clientX - startX))
+  const height = Math.max(MIN_H, startH + (event.clientY - startY))
+  void backend.tools.setLauncherSize(Math.round(width), Math.round(height))
 }
 function onGripUp() {
   window.removeEventListener('pointermove', onGripMove)
   window.removeEventListener('pointerup', onGripUp)
 }
-function onGripDown(e: PointerEvent) {
-  e.preventDefault()
-  startX = e.clientX
-  startY = e.clientY
+function onGripDown(event: PointerEvent) {
+  event.preventDefault()
+  startX = event.clientX
+  startY = event.clientY
   startW = window.innerWidth
   startH = window.innerHeight
   window.addEventListener('pointermove', onGripMove)
@@ -219,6 +281,7 @@ let offSettings: (() => void) | null = null
 onMounted(() => {
   void settingsStore.load().then(() => nextTick(fitHeight))
   void containersStore.reload().then(() => nextTick(fitHeight))
+  void hotkeysStore.reload()
   offSettings = Events.On(
     'settings:changed',
     () => void settingsStore.load().then(() => nextTick(fitHeight)),
@@ -227,6 +290,8 @@ onMounted(() => {
 })
 onUnmounted(() => {
   offSettings?.()
+  clearTimeout(requestTimer)
+  clearTimeout(feedbackTimer)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('pointermove', onGripMove)
   window.removeEventListener('pointerup', onGripUp)
@@ -234,38 +299,47 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.launcher-item {
-  min-height: 54px;
+.launcher-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
-  gap: 5px;
-  padding: 7px 6px;
-  border: 1px solid var(--ui-border);
-  border-radius: 10px;
+  gap: 8px;
+  overflow: auto;
+  padding: 8px;
 }
 
-.launcher-item--running {
-  border-color: color-mix(in oklab, var(--ui-primary) 55%, var(--ui-border));
-  background: color-mix(in oklab, var(--ui-primary) 10%, var(--ui-bg));
+.launcher-search {
+  position: relative;
+  flex: none;
 }
 
-.launcher-item__shortcut {
+.launcher-search :deep(input) {
+  height: 30px;
+  padding-right: 30px;
+  font-size: 11px;
+}
+
+.launcher-search__kbd {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 16px;
-  height: 16px;
-  padding-inline: 3px;
+  top: 6px;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   font-size: 9px;
-  opacity: 0.65;
+  pointer-events: none;
+  opacity: 0.62;
 }
 
-.launcher-group-label {
-  padding: 5px 2px 2px;
+.launcher-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-warning);
   font-size: 10px;
-  line-height: 13px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  color: var(--ui-text-dimmed);
-  text-transform: uppercase;
+  line-height: 14px;
 }
 </style>

@@ -34,6 +34,15 @@ describe('standalone window presentation contract', () => {
     }
   })
 
+  it('uses one launcher surface for the floating window and settings preview', () => {
+    const floatingSource = readSource('src/views/tools/FloatingLauncherView.vue')
+    const settingsSource = readSource('src/views/SettingsLauncher.vue')
+
+    expect(floatingSource).toContain('<LauncherSurface')
+    expect(settingsSource).toContain('<LauncherSurface')
+    expect(settingsSource).not.toContain('launcher-preview__button')
+  })
+
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
     for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
       const source = readSource(`src/views/tools/${filename}`)

@@ -68,6 +68,7 @@ declare module 'vue' {
     IconPicker: typeof import('./src/components/containers/inline/IconPicker.vue')['default']
     InlineContextMenu: typeof import('./src/components/containers/InlineContextMenu.vue')['default']
     KeyCapture: typeof import('./src/components/containers/KeyCapture.vue')['default']
+    LauncherSurface: typeof import('./src/components/launcher/LauncherSurface.vue')['default']
     LibraryAssetPanel: typeof import('./src/components/containers/dock/LibraryAssetPanel.vue')['default']
     LibraryDetailPanel: typeof import('./src/components/containers/LibraryDetailPanel.vue')['default']
     ListRow: typeof import('./src/components/common/ListRow.vue')['default']
