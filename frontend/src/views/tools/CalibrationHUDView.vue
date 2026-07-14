@@ -8,44 +8,46 @@
     @close="onCancel"
   >
     <div class="flex min-h-0 flex-1 flex-col gap-3 p-3">
-      <HudStatePanel
-        v-if="stage === 'waiting'"
-        tone="neutral"
-        icon="i-tabler-keyboard"
-        :eyebrow="t('calibration.hud.waiting')"
-        :hint="t('calibration.hud.press_to_start', { hk })"
-      >
-        <UKbd :value="hk" />
-      </HudStatePanel>
+      <div class="live-hud__stage">
+        <HudStatePanel
+          v-if="stage === 'waiting'"
+          tone="neutral"
+          icon="i-tabler-keyboard"
+          :eyebrow="t('calibration.hud.waiting')"
+          :hint="t('calibration.hud.press_to_start', { hk })"
+        >
+          <UKbd :value="hk" />
+        </HudStatePanel>
 
-      <HudStatePanel
-        v-else-if="stage === 'countingDown'"
-        tone="warning"
-        icon="i-tabler-hourglass-high"
-        :eyebrow="t('calibration.hud.countdown')"
-        :value="countdown"
-        :hint="t('calibration.ready_status')"
-      />
+        <HudStatePanel
+          v-else-if="stage === 'countingDown'"
+          tone="warning"
+          icon="i-tabler-hourglass-high"
+          :eyebrow="t('calibration.hud.countdown')"
+          :value="countdown"
+          :hint="t('calibration.ready_status')"
+        />
 
-      <HudStatePanel
-        v-else-if="stage === 'accumulating'"
-        tone="success"
-        active
-        :eyebrow="t('calibration.recording_status')"
-        :value="liveAbsDx"
-        :hint="t('calibration.press_f8_stop', { hk })"
-      >
-        <span class="font-mono">|dy| {{ liveAbsDy }}</span>
-      </HudStatePanel>
+        <HudStatePanel
+          v-else-if="stage === 'accumulating'"
+          tone="success"
+          active
+          :eyebrow="t('calibration.recording_status')"
+          :value="liveAbsDx"
+          :hint="t('calibration.press_f8_stop', { hk })"
+        >
+          <span class="font-mono">|dy| {{ liveAbsDy }}</span>
+        </HudStatePanel>
 
-      <HudStatePanel
-        v-else
-        tone="primary"
-        icon="i-tabler-circle-check"
-        :eyebrow="t('calibration.recorded_label')"
-        :value="liveAbsDx"
-        :hint="t('calibration.save_or_retest', { hk })"
-      />
+        <HudStatePanel
+          v-else
+          tone="primary"
+          icon="i-tabler-circle-check"
+          :eyebrow="t('calibration.recorded_label')"
+          :value="liveAbsDx"
+          :hint="t('calibration.save_or_retest', { hk })"
+        />
+      </div>
 
       <UAlert
         v-if="hotkeyWarn"
@@ -56,7 +58,7 @@
         :ui="{ description: 'text-xs' }"
       />
 
-      <div class="mt-auto flex items-center gap-2 border-t border-default pt-3">
+      <div class="flex shrink-0 items-center gap-2 border-t border-default pt-3">
         <UButton
           size="sm"
           variant="ghost"
@@ -135,3 +137,12 @@ async function closeWindow() {
   } catch {}
 }
 </script>
+
+<style scoped>
+.live-hud__stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+</style>

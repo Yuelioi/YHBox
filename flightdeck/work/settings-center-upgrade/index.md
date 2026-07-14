@@ -47,6 +47,7 @@ Done:
 - 截图选择器重排为顶部工具栏、画布优先和响应式属性侧栏；模板名称、分类、标签和选区操作统一使用 Nuxt UI。
 - 鼠标定位补齐坐标/比例/颜色读数与复制反馈；悬浮启动器补齐空状态、运行态、快捷键提示与无障碍名称。
 - 工具窗默认/最小尺寸集中到 `wailsToolsWindowOptions`，并增加 Go 与前端 presentation contract 回归测试。
+- 修复录制与校准 HUD 状态卡按内容收缩、`mt-auto` 将空白堆在操作栏上方造成的垂直不对称；全部实时状态与加载态改为弹性填满并居中，新增布局回归契约。
 - Wails RPC contract 更新为 14 services / 119 methods / 100 models。
 
 Verified:
@@ -57,6 +58,7 @@ Verified:
 - 生产构建与 bundle budget 通过；entry gzip 333,058 / 350,000，editor gzip 472,215 / 650,000。
 - 浏览器视觉通道本轮不可用，未伪报自动化视觉截图。
 - 独立窗口 focused 校验已通过：前端 lint/typecheck/i18n、9 个工具窗测试与 Go 窗口参数测试全绿；修正无效 Tabler 图标后完整 `task check` 全绿。
+- HUD 垂直节奏修复按红绿回归完成，独立窗口契约 8/8 通过，随后完整 `task check` 再次全绿。
 
 ## Open questions
 

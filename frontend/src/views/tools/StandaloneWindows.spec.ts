@@ -33,4 +33,14 @@ describe('standalone window presentation contract', () => {
       expect(readSource(`src/views/tools/${filename}`)).toContain('<HudStatePanel')
     }
   })
+
+  it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
+    for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
+      const source = readSource(`src/views/tools/${filename}`)
+
+      expect(source).toContain('class="live-hud__stage"')
+      expect(source).toMatch(/\.live-hud__stage\s*\{[^}]*flex:\s*1;/s)
+      expect(source).not.toContain('class="mt-auto flex items-center')
+    }
+  })
 })

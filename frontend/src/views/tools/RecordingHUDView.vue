@@ -10,51 +10,53 @@
     @close="onCloseHud"
   >
     <div class="flex min-h-0 flex-1 flex-col gap-3 p-3">
-      <HudStatePanel
-        v-if="resumeCountdown > 0"
-        tone="success"
-        icon="i-tabler-player-play-filled"
-        :eyebrow="t('recordingHud.resuming')"
-        :value="resumeCountdown"
-        :hint="t('recordingHud.resume_hint')"
-      />
+      <div class="live-hud__stage">
+        <HudStatePanel
+          v-if="resumeCountdown > 0"
+          tone="success"
+          icon="i-tabler-player-play-filled"
+          :eyebrow="t('recordingHud.resuming')"
+          :value="resumeCountdown"
+          :hint="t('recordingHud.resume_hint')"
+        />
 
-      <HudStatePanel
-        v-else-if="state === 'countdown'"
-        tone="primary"
-        icon="i-tabler-hourglass-high"
-        :eyebrow="modeLabel"
-        :value="countdownSec"
-        :hint="t('recordingHud.countdown_hint')"
-      />
+        <HudStatePanel
+          v-else-if="state === 'countdown'"
+          tone="primary"
+          icon="i-tabler-hourglass-high"
+          :eyebrow="modeLabel"
+          :value="countdownSec"
+          :hint="t('recordingHud.countdown_hint')"
+        />
 
-      <HudStatePanel
-        v-else-if="state === 'recording'"
-        tone="error"
-        active
-        eyebrow="REC"
-        :value="elapsedLabel"
-        :hint="modeLabel"
-      />
+        <HudStatePanel
+          v-else-if="state === 'recording'"
+          tone="error"
+          active
+          eyebrow="REC"
+          :value="elapsedLabel"
+          :hint="modeLabel"
+        />
 
-      <HudStatePanel
-        v-else-if="state === 'paused'"
-        tone="warning"
-        icon="i-tabler-player-pause-filled"
-        :eyebrow="t('recordingHud.paused')"
-        :value="elapsedLabel"
-        :hint="modeLabel"
-      />
+        <HudStatePanel
+          v-else-if="state === 'paused'"
+          tone="warning"
+          icon="i-tabler-player-pause-filled"
+          :eyebrow="t('recordingHud.paused')"
+          :value="elapsedLabel"
+          :hint="modeLabel"
+        />
 
-      <HudStatePanel
-        v-else
-        tone="neutral"
-        icon="i-tabler-loader-2"
-        :eyebrow="t('recordingHud.preparing')"
-        :hint="t('recordingHud.preparing_hint')"
-      />
+        <HudStatePanel
+          v-else
+          tone="neutral"
+          icon="i-tabler-loader-2"
+          :eyebrow="t('recordingHud.preparing')"
+          :hint="t('recordingHud.preparing_hint')"
+        />
+      </div>
 
-      <div class="mt-auto flex items-center gap-2 border-t border-default pt-3">
+      <div class="flex shrink-0 items-center gap-2 border-t border-default pt-3">
         <template v-if="state === 'recording' || state === 'paused'">
           <UButton
             v-if="state === 'recording'"
@@ -301,3 +303,12 @@ function onCloseHud() {
   Window.Close()
 }
 </script>
+
+<style scoped>
+.live-hud__stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+</style>
