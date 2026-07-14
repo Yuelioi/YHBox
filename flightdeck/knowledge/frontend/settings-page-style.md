@@ -1,72 +1,53 @@
 ---
 kind: checklist
-summary: "设置页视觉范式 — 所有设置子页照 SettingsGeneral.vue 的卡片骨架来."
+summary: "设置中心统一使用共享壳层、连续内容流、显式保存状态与渐进披露；禁止各主题复制卡片骨架。"
 activation: action
-read_when: "写/改任何设置 tab（SettingsView 下的子页：General/Hotkeys/Input/Launcher 等）前；新增设置子页前；想让设置页风格统一时"
-recheck_when: "改 SettingsView 设置子页的布局/风格基线 / 设置页公共组件时"
+read_when: "写/改 SettingsView 或任一设置主题；新增设置项、设置主题、保存状态、危险权限或设置响应式布局前"
+recheck_when: "SettingsView 信息架构、Nuxt UI 版本、设置持久化契约或 Settings* 公共组件变化时"
 ---
-# 设置页视觉范式 checklist
-**基准 = `SettingsGeneral.vue`（通用 tab）。** 所有设置子页照它来，别各写各的。下面每条都从 General 提炼，直接照抄。
-组件级通用规范（Tailwind / Nuxt UI 用法）见 [ui.md](ui.md)；独立工具 HUD 窗是另一套外壳，见 [standalone-window-style.md](../wails/standalone-window-style.md)，别混。
+# 设置中心设计与实现约定
 
-## 骨架（照抄）
+## 共享结构
 
-```vue
-<template>
-  <!-- 页容器：左右 px-8、上下 py-6、分区间距 space-y-6；不要加 max-w-* 限宽（General 不限宽） -->
-  <div class="px-8 py-6 space-y-6">
-    <!-- 一个分区 = 一张卡片 -->
-    <section class="rounded-xl bg-default border border-default p-5 space-y-4">
-      <!-- 分区标题：icon + h2，固定结构 -->
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-xxx" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ 标题 }}</h2>
-      </div>
+- 主题元数据只放在 `frontend/src/settings/registry.ts`，导航、标题与 URL key 不得各自维护副本。
+- 顶层使用 `SettingsView` 的共享壳层：主题搜索、深链、上次访问恢复、键盘导航和响应式布局都由壳层负责。
+- 子页使用 `SettingsSection`、`SettingsRow`、`SettingsRestartBadge`；保存状态统一由 `SettingsPageHeader` / `SettingsSaveStatus` 展示。
+- 页面采用有限宽度的连续内容流和分隔节奏。不要恢复“每个小分区套一张同色卡片”的旧范式，也不要让六个主题各写一套 header。
+- 只有启动器编排等真正需要工作台空间的页面使用 `settings-page--wide`。
 
-      <!-- 可选：分区说明一段 -->
-      <p class="text-xs text-dimmed leading-relaxed">{{ 说明 }}</p>
+## 交互与状态
 
-      <!-- 同一分区内多个设置项之间用这条分隔 -->
-      <div class="border-t border-default/60" />
+- 自动保存必须有 `saving / saved / error` 可见状态，失败必须可重试。
+- Wails error-only/void RPC 用 `invokeVoid`：成功的 `undefined` 不是失败。
+- 所有设置写入经 settings store 串行队列；页面不得绕过 store 直接并发 patch。
+- 文本输入先改本地草稿，在 change/blur/显式动作时持久化；不要逐键 RPC。
+- 重启后生效的设置必须显示 `SettingsRestartBadge`，不能只埋在说明文字中。
+- 删除连接、批量覆盖、开放 MCP 执行等高风险动作必须在动作前说明影响并确认。
+- AI 连接删除前调用实际引用扫描；安全提示必须如实说明凭据当前保存方式，不得暗示已进入系统凭据库。
 
-      <!-- 设置行：左文案 + 右控件，两端对齐 -->
-      <div class="flex items-center justify-between gap-6">
-        <div>
-          <div class="text-sm text-default">{{ 项名 }}</div>
-          <p class="text-xs text-dimmed mt-0.5">{{ 项说明 }}</p>
-        </div>
-        <USelect class="w-32" ... />   <!-- 或 USwitch / UInput 等 -->
-      </div>
-    </section>
-  </div>
-</template>
-```
+## 信息架构
 
-## 硬性规则
+六个主题职责固定为：
 
-- **页容器**：`px-8 py-6 space-y-6`。**不加 `max-w-*` / `mx-auto`**——General 内容靠 `justify-between` 自己撑开，不靠限宽。
-- **分区卡片**：永远 `<section class="rounded-xl bg-default border border-default p-5">`。
-  - 圆角只用 `rounded-xl`（卡片）；卡片里的列表项用 `rounded-md`。不要 `rounded-md`/`rounded-lg` 当卡片，不要 `bg-elevated/40` 当卡片底（那是列表项的底）。
-  - 卡片内间距 `space-y-4`（纯设置项）或 `space-y-3`（列表型，如 hotkeys/分组）。
-- **分区标题**：固定 `<div class="flex items-center gap-2"><UIcon class="size-4 text-dimmed"/><h2 class="text-sm font-medium text-highlighted">`。
-  - 用 `<h2>`，不用 `<h3>/<h4>`；不用 `text-base`。**每个分区都配一个 tabler 图标**，别留空标题。
-- **分区内分隔**：同卡片里多个设置项之间用 `<div class="border-t border-default/60" />`。
-- **设置行**：`flex items-center justify-between gap-6`。左侧 `text-sm text-default` 项名 + `text-xs text-dimmed mt-0.5` 说明；右侧控件。
-- **列表项**（hotkey 行 / 启动器分组项 / profile 行等）：`rounded-md bg-elevated/30 border border-default/60 px-3 py-2`。被选中/激活态再叠 `border-primary/50 bg-primary/5`。
-- **字号**：正文 `text-sm`，次要说明 `text-xs`。**禁用魔法字号 `text-[10px]`/`text-[11px]`**——一律 `text-xs`。
-- **底部操作按钮**（新建/添加）：`<UButton variant="soft" color="primary" icon="i-tabler-plus">`，放分区/列表末尾，参考 Input 的「添加 profile」。
-- **空态**：`text-xs text-dimmed py-8 text-center border border-dashed border-default/60 rounded-xl`。
+1. 常规：界面语言、应用行为、采集与诊断。
+2. 快捷键：搜索、状态筛选、分组绑定与集中重置。
+3. 输入与校准：录制语义、校准档及全容器同步。
+4. 悬浮启动器：显示规则、内容编排与实时预览。
+5. AI 连接：provider 连接、默认项、测试、凭据提示与引用保护。
+6. MCP 集成：只读能力、执行/写入授权与本地连接信息。
 
-## 自查（改完逐条看）
+## 响应式与可访问性
 
-- [ ] 页容器是 `px-8 py-6 space-y-6`，没有 `max-w-*`。
-- [ ] 每个分区都是 `rounded-xl bg-default border border-default p-5` 的 `<section>`。
-- [ ] 每个分区标题都是 icon + `<h2 class="text-sm ...">` 结构，且有图标。
-- [ ] 全页搜不到 `text-[10px]` / `text-[11px]` / `text-base`（标题除外无）；次要文字都是 `text-xs`。
-- [ ] 列表项底是 `bg-elevated/30 border-default/60`，不是 `bg-default/40`。
-- [ ] 跟 General tab 并排切一眼：卡片底色、圆角、标题、间距对得上，不突兀。
-- [ ] 视觉拿不准 → 用 [headless-ui-verify.md](headless-ui-verify.md) 离屏渲染，把新页和 General 截图对比。
+- 默认侧栏宽 224px；860px 以下改成横向可滚动主题导航，设置行由双列变单列。
+- tab 使用 roving tabindex，并支持方向键、Home、End。
+- 图标按钮优先 Nuxt UI `UButton`，必须有 aria-label；原生 button 只用于键盘捕获等组件语义。
+- 保存、测试、复制结果使用 `aria-live` 或等价可感知反馈。
+- 空态必须同时给出原因和下一步动作，不能只有“暂无数据”。
 
-## 已对齐（2026-06-06）
+## 提交前检查
 
-四个 tab 全部对齐 General：Hotkeys（标题结构 + `space-y-6`）、Input（卡片/字号/去限宽，差最多）、Launcher（重排为卡片范式）。新增设置子页直接按本清单写，不要再发明新样式。
+- `pnpm -C frontend format:check`
+- `pnpm -C frontend lint`
+- `pnpm -C frontend typecheck`
+- `pnpm -C frontend i18n:check`
+- 交付前仍以仓库根目录 `task check` 为唯一完整门禁。
