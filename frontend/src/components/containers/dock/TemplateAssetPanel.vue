@@ -340,7 +340,9 @@ const { confirm } = useConfirm()
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'name' | 'createdAt' | 'variantCount'>('templates', 'name')
-const effectiveQuery = computed(() => props.workspaceQuery?.trim() || query.value)
+const effectiveQuery = computed(() =>
+  props.workspace ? (props.workspaceQuery ?? '').trim() : query.value,
+)
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 // 排序

@@ -302,7 +302,7 @@ const { confirm } = useConfirm()
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'label' | 'createdAt' | 'duration'>('clips', 'label')
-const effectiveQuery = computed(() => workspaceQuery.trim() || query.value)
+const effectiveQuery = computed(() => (workspace ? workspaceQuery.trim() : query.value))
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 const sortItems = computed(() => [

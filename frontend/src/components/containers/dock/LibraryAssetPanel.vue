@@ -303,7 +303,7 @@ const emit = defineEmits<{
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'label' | 'createdAt' | 'nodes'>('blueprints', 'label')
-const effectiveQuery = computed(() => workspaceQuery.trim() || query.value)
+const effectiveQuery = computed(() => (workspace ? workspaceQuery.trim() : query.value))
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 // 排序 (镜像模板/clip 管理): 名称/创建时间/节点数 × 正逆序.
