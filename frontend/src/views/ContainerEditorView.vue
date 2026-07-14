@@ -73,7 +73,6 @@
         :var-count="declaredVars.length"
         :subgraph-count="editorStore.visibleSubgraphs.length"
         :overview-hotkey="draft?.hotkey ?? ''"
-        :experience-mode="sidebarPrefs.experienceMode"
         @record="(mode) => startRecording(mode)"
         @stop-record="stopRecording"
         @cancel-countdown="startRecording('precise')"
@@ -97,7 +96,6 @@
         @back-to-list="onBackToList"
         @open-help="helpModalOpen = true"
         @goto="editorStore.gotoPathIndex($event)"
-        @set-experience-mode="setExperienceMode"
       />
 
       <div
@@ -897,11 +895,7 @@ const allLeftRail = [
   { key: 'snippets' as const, icon: 'i-tabler-bookmarks', title: 'Snippets' },
   { key: 'assets' as const, icon: 'i-tabler-stack-2', title: t('editor.dock.assets') },
 ]
-const leftRail = computed(() =>
-  sidebarPrefs.value.experienceMode === 'pro'
-    ? allLeftRail
-    : allLeftRail.filter((item) => item.key === 'nodes' || item.key === 'assets'),
-)
+const leftRail = allLeftRail
 const {
   request: assetPickRequest,
   updateSelection: updateAssetPick,
@@ -921,16 +915,6 @@ function onRailClick(item: (typeof allLeftRail)[number]) {
 }
 function railActive(item: (typeof allLeftRail)[number]): boolean {
   return sidebarPrefs.value.leftDrawer === item.key
-}
-function setExperienceMode(mode: 'basic' | 'pro') {
-  sidebarPrefs.value.experienceMode = mode
-  if (
-    mode === 'basic' &&
-    sidebarPrefs.value.leftDrawer !== 'nodes' &&
-    sidebarPrefs.value.leftDrawer !== 'assets'
-  ) {
-    sidebarPrefs.value.leftDrawer = null
-  }
 }
 // 节点字段 (TemplatePickerField) 发起选模板 → 自动开停靠区资产·模板 tab (pick 模式).
 watch(assetPickRequest, (req) => {

@@ -50,6 +50,11 @@ export default {
     },
   },
   settings: {
+    editor_display: {
+      section_title: '编辑器显示',
+      detail_label: '节点信息详细程度',
+      detail_hint: '只调整技术元数据的默认显示；变量、调试和输出绑定始终可用。',
+    },
     language: '语言',
     language_zh: '中文',
     language_en: 'English',
@@ -180,12 +185,8 @@ export default {
   },
   editor: {
     experience: {
-      basic: '基础',
-      basic_desc: '聚焦节点配置、素材、保存和运行',
-      pro: '专业',
-      pro_desc: '显示变量、调试、输出绑定和技术信息',
-      switch_mode: '切换编辑模式',
-      basic_inspector_hint: '变量绑定、运行日志和节点技术信息已收起，可从顶部切换到专业模式。',
+      basic: '简洁',
+      pro: '完整',
     },
     header: {
       loading: '加载中...',

@@ -8,12 +8,14 @@ const source = readFileSync(
 )
 
 describe('NodeInspector experience modes', () => {
-  it('keeps node inputs visible while progressively disclosing technical controls', () => {
+  it('keeps task capabilities visible while progressively disclosing technical controls', () => {
     expect(source).toContain('v-if="experienceMode === \'pro\'"')
     expect(source).toContain("t('editor.inspector.group_inputs')")
-    expect(source).toContain("t('editor.experience.basic_inspector_hint')")
-    expect(source).toContain('v-if="experienceMode === \'pro\'"')
+    expect(source).not.toContain("t('editor.experience.basic_inspector_hint')")
     expect(source).toContain("t('inspector.log_enabled_label')")
+    expect(source).toContain('v-if="exprChainHint"')
+    expect(source).not.toContain("experienceMode === 'pro' && exprChainHint")
+    expect(source).not.toContain("experienceMode === 'pro' || danglingCaptures.length > 0")
   })
 
   it('keeps node identity visible and names icon-only actions', () => {

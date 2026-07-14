@@ -55,12 +55,12 @@ describe('ContainerEditorToolbar structure', () => {
     expect(source).toContain('motion-reduce:animate-none')
   })
 
-  it('exposes Basic and Pro modes while keeping debug as a Pro action', () => {
+  it('keeps editor capabilities discoverable without a global mode gate', () => {
     const workflow = zone('workflow')
-    const utility = zone('utility')
 
-    expect(utility).toContain('experienceMenuItems')
-    expect(utility).toContain('experience-mode-menu')
-    expect(workflow).toContain(`v-if="experienceMode === 'pro'"`)
+    expect(source).not.toContain('experience-mode-menu')
+    expect(source).not.toContain('experienceMenuItems')
+    expect(workflow).toContain("t('editor.toolbar.debug')")
+    expect(source).toContain("t('editor.palette.cmd.js_console')")
   })
 })

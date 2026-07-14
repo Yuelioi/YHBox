@@ -1,5 +1,31 @@
 <template>
   <div class="settings-page">
+    <!-- Editor display: controls information density only; capabilities stay discoverable. -->
+    <section class="settings-section">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-tabler-layout-dashboard" class="size-4 text-dimmed" />
+        <h2 class="text-sm font-medium text-highlighted">
+          {{ t('settings.editor_display.section_title') }}
+        </h2>
+      </div>
+
+      <div class="flex items-center justify-between gap-6">
+        <div>
+          <div class="text-sm text-default">{{ t('settings.editor_display.detail_label') }}</div>
+          <p class="text-xs text-dimmed mt-0.5">
+            {{ t('settings.editor_display.detail_hint') }}
+          </p>
+        </div>
+        <USelect
+          :model-value="sidebarPrefs.experienceMode"
+          :items="editorDetailItems"
+          class="w-32 shrink-0"
+          :aria-label="t('settings.editor_display.detail_label')"
+          @update:model-value="onEditorDetailChange"
+        />
+      </div>
+    </section>
+
     <!-- Startup & Close section -->
     <section class="settings-section">
       <div class="flex items-center gap-2">
@@ -117,10 +143,23 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSettingsStore } from '@/stores/settings'
 import { setLocale, type Locale } from '@/i18n'
+import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const toast = useToast()
+const { prefs: sidebarPrefs } = useSidebarPrefs()
+
+const editorDetailItems = computed(() => [
+  { label: t('editor.experience.basic'), value: 'basic' },
+  { label: t('editor.experience.pro'), value: 'pro' },
+])
+
+function onEditorDetailChange(v: string) {
+  if (v === 'basic' || v === 'pro') {
+    sidebarPrefs.value.experienceMode = v
+  }
+}
 
 const currentLocale = computed(() => (settingsStore.data?.locale ?? 'zh') as Locale)
 

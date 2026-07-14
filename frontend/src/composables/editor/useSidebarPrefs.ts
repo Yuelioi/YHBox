@@ -6,7 +6,7 @@ export const SIDEBAR_PREFS_KEY = 'yotta.editor.sidebar'
 export type EditorExperienceMode = 'basic' | 'pro'
 
 export interface SidebarPrefs {
-  /** 基础模式收起变量、调试和技术元数据；专业模式暴露完整编辑能力。 */
+  /** 简洁模式收起节点技术元数据；完整模式默认显示技术详情。 */
   experienceMode: EditorExperienceMode
   /** 左侧 VS Code 活动栏式: 哪个停靠面板打开 (null = 只剩细图标栏, 画布最大). */
   leftDrawer: 'vars' | 'snippets' | 'nodes' | 'assets' | null

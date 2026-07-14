@@ -25,6 +25,12 @@ export default {
     },
   },
   settings: {
+    editor_display: {
+      section_title: 'Editor display',
+      detail_label: 'Node detail level',
+      detail_hint:
+        'Only changes technical metadata visibility; variables, debugging, and output bindings stay available.',
+    },
     language: 'Language',
     language_zh: '中文',
     language_en: 'English',
@@ -160,13 +166,8 @@ export default {
   },
   editor: {
     experience: {
-      basic: 'Basic',
-      basic_desc: 'Focus on node setup, assets, saving, and running',
-      pro: 'Pro',
-      pro_desc: 'Show variables, debugging, output bindings, and technical details',
-      switch_mode: 'Switch editor mode',
-      basic_inspector_hint:
-        'Variable bindings, runtime logs, and node technical details are hidden. Switch to Pro from the top toolbar to show them.',
+      basic: 'Concise',
+      pro: 'Complete',
     },
     header: {
       loading: 'Loading...',

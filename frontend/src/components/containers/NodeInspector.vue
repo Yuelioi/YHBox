@@ -83,14 +83,13 @@
     </header>
 
     <SectionHeader
-      v-if="experienceMode === 'pro'"
       :title="t('editor.inspector.group_basics')"
       icon="i-tabler-adjustments"
       class="-mx-4 mt-2 mb-4"
     />
 
     <!-- 标签 (Label) — 用户可编辑的节点显示名 -->
-    <section v-if="experienceMode === 'pro'" class="mb-4">
+    <section class="mb-4">
       <UFormField :label="t('inspector.label_field_label')" :hint="t('inspector.label_field_hint')">
         <UInput
           :model-value="node.label ?? ''"
@@ -135,7 +134,7 @@
 
     <!-- Expr 链提示 + 一键合并按钮 -->
     <section
-      v-if="experienceMode === 'pro' && exprChainHint"
+      v-if="exprChainHint"
       class="mb-5 rounded-md bg-warning/10 border border-warning/30 px-3 py-2.5"
     >
       <div class="flex items-start gap-2">
@@ -658,7 +657,7 @@
       {{ t('inspector.no_config') }}
     </p>
 
-    <template v-if="experienceMode === 'pro' || danglingCaptures.length > 0">
+    <template v-if="hasOutputs">
       <!-- 输出组 — ① 可绑产出 (config.capture: 绑变量名 → 运行时把该出口产出写进变量) ② exec/纯数据出口 (只读)。 -->
       <SectionHeader
         :title="t('editor.inspector.group_outputs')"
@@ -758,21 +757,7 @@
           }}</span>
         </div>
       </div>
-      <p
-        v-if="!bindable.length && !outPins.exec.length && !readonlyData.length"
-        class="text-xs text-dimmed"
-      >
-        {{ t('editor.inspector.outputs_none') }}
-      </p>
     </template>
-
-    <div
-      v-else
-      class="mt-5 flex items-start gap-2 border-t border-default pt-3 text-xs text-dimmed"
-    >
-      <UIcon name="i-tabler-adjustments-code" class="mt-0.5 size-3.5 shrink-0" />
-      <span>{{ t('editor.experience.basic_inspector_hint') }}</span>
-    </div>
   </div>
 </template>
 
@@ -1206,6 +1191,13 @@ function clearCapture(field: string) {
 // 纯数据节点的 data 输出 (只读, 不可绑): outPins.data 里不在 bindable 的。非纯节点 → 空。
 const readonlyData = computed(() =>
   outPins.value.data.filter((d) => !bindable.value.includes(d.name)),
+)
+const hasOutputs = computed(
+  () =>
+    bindable.value.length > 0 ||
+    danglingCaptures.value.length > 0 ||
+    outPins.value.exec.length > 0 ||
+    readonlyData.value.length > 0,
 )
 
 // 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
