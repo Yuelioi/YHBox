@@ -18,15 +18,20 @@
             class="launcher-command"
             :class="[
               `launcher-command--${statusFor(item.containerId)}`,
-              { 'launcher-command--selected': selectedId === item.containerId },
+              {
+                'launcher-command--selected': selectedId === item.containerId,
+                'launcher-command--stale': item.stale,
+                'launcher-command--separator-before': item.separatorBefore === 'vertical',
+              },
             ]"
             :title="item.label"
-            :aria-label="runLabel(item.label)"
+            :aria-label="item.stale ? `${item.label}: ${staleLabel}` : runLabel(item.label)"
             :aria-current="selectedId === item.containerId ? 'true' : undefined"
+            :aria-disabled="item.stale ? 'true' : undefined"
             :tabindex="preview ? -1 : 0"
-            @mouseenter="emit('select', item.containerId)"
-            @focus="emit('select', item.containerId)"
-            @click="!preview && emit('run', item.containerId)"
+            @mouseenter="!item.stale && emit('select', item.containerId)"
+            @focus="!item.stale && emit('select', item.containerId)"
+            @click="!preview && !item.stale && emit('run', item.containerId)"
           >
             <span v-if="display !== 'text'" class="launcher-command__icon">
               <UIcon
@@ -37,17 +42,20 @@
             </span>
             <span v-if="display !== 'icon'" class="launcher-command__copy">
               <span class="launcher-command__label">{{ item.label }}</span>
-              <span v-if="statusText(item.containerId)" class="launcher-command__status">
-                {{ statusText(item.containerId) }}
+              <span v-if="statusText(item)" class="launcher-command__status">
+                {{ statusText(item) }}
               </span>
             </span>
             <span v-if="display !== 'icon'" class="launcher-command__meta">
               <UKbd v-if="item.shortcut" :value="item.shortcut" />
-              <UKbd v-else-if="item.ordinal <= 9" :value="String(item.ordinal)" />
+              <UKbd
+                v-else-if="item.ordinal > 0 && item.ordinal <= 9"
+                :value="String(item.ordinal)"
+              />
               <UIcon v-else name="i-tabler-chevron-right" class="size-3 text-dimmed" />
             </span>
             <UKbd
-              v-else-if="item.ordinal <= 9"
+              v-else-if="item.ordinal > 0 && item.ordinal <= 9"
               class="launcher-command__ordinal"
               :value="String(item.ordinal)"
             />
@@ -64,9 +72,8 @@
 </template>
 
 <script setup lang="ts">
-import type { ResolvedLauncherGroup } from './launcherModel'
+import type { LauncherDisplay, ResolvedLauncherGroup, ResolvedLauncherItem } from './launcherModel'
 
-export type LauncherDisplay = 'both' | 'icon' | 'text'
 export type LauncherCommandStatus = 'idle' | 'running' | 'success' | 'error'
 
 const {
@@ -78,6 +85,7 @@ const {
   emptyLabel,
   runLabel,
   statusLabels,
+  staleLabel,
 } = defineProps<{
   groups: ResolvedLauncherGroup[]
   display?: LauncherDisplay
@@ -87,6 +95,7 @@ const {
   emptyLabel: string
   runLabel: (name: string) => string
   statusLabels: Pick<Record<LauncherCommandStatus, string>, 'running' | 'success' | 'error'>
+  staleLabel: string
 }>()
 
 const emit = defineEmits<{
@@ -98,8 +107,9 @@ function statusFor(containerId: string): LauncherCommandStatus {
   return statuses[containerId] ?? 'idle'
 }
 
-function statusText(containerId: string) {
-  const status = statusFor(containerId)
+function statusText(item: ResolvedLauncherItem) {
+  if (item.stale) return staleLabel
+  const status = statusFor(item.containerId)
   return status === 'idle' ? '' : statusLabels[status]
 }
 
@@ -253,6 +263,22 @@ function statusIcon(containerId: string, fallback: string) {
   color: var(--ui-error);
 }
 
+.launcher-command--stale {
+  cursor: not-allowed;
+  color: var(--ui-text-muted);
+  opacity: 0.72;
+}
+
+.launcher-command--stale .launcher-command__icon,
+.launcher-command--stale .launcher-command__status {
+  color: var(--ui-warning);
+}
+
+.launcher-surface:not(.launcher-surface--icon) .launcher-command--separator-before {
+  margin-top: 5px;
+  border-top-color: var(--ui-border);
+}
+
 .launcher-surface--text .launcher-command {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -269,6 +295,10 @@ function statusIcon(containerId: string, fallback: string) {
   align-items: center;
   justify-content: center;
   padding: 6px;
+}
+
+.launcher-surface--icon .launcher-command--separator-before {
+  border-left-color: var(--ui-border-accented);
 }
 
 .launcher-surface--icon .launcher-command__ordinal {

@@ -21,7 +21,7 @@
     </template>
 
     <div ref="contentRef" class="launcher-content">
-      <div v-if="resolution.items.length" class="launcher-search">
+      <div v-if="resolution.groups.length" class="launcher-search">
         <UInput
           v-model="query"
           size="xs"
@@ -35,7 +35,7 @@
       </div>
 
       <div
-        v-if="resolution.items.length === 0"
+        v-if="resolution.groups.length === 0"
         class="flex min-h-24 flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center"
       >
         <span
@@ -55,6 +55,7 @@
         :empty-label="t('floatingLauncher.no_results')"
         :run-label="(name: string) => t('floatingLauncher.run', { name })"
         :status-labels="statusLabels"
+        :stale-label="t('floatingLauncher.stale_item')"
         @run="onRun"
         @select="selectItem"
       />
@@ -91,9 +92,13 @@ import { useHotkeysStore } from '@/stores/hotkeys'
 import HudShell from '@/components/tools/HudShell.vue'
 import LauncherSurface, {
   type LauncherCommandStatus,
-  type LauncherDisplay,
 } from '@/components/launcher/LauncherSurface.vue'
-import { filterLauncherGroups, resolveLauncher } from '@/components/launcher/launcherModel'
+import {
+  filterLauncherGroups,
+  normalizeLauncherDisplay,
+  resolveLauncher,
+  type LauncherDisplay,
+} from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
@@ -115,10 +120,9 @@ function togglePin() {
   void backend.tools.setLauncherAlwaysOnTop(pinned.value)
 }
 
-const display = computed<LauncherDisplay>(() => {
-  const value = settingsStore.data?.ui.launcherDisplay
-  return value === 'icon' || value === 'text' ? value : 'both'
-})
+const display = computed<LauncherDisplay>(() =>
+  normalizeLauncherDisplay(settingsStore.data?.ui.launcherDisplay),
+)
 const resolution = computed(() =>
   resolveLauncher(
     settingsStore.data?.ui.launcherItems ?? [],
@@ -127,7 +131,9 @@ const resolution = computed(() =>
   ),
 )
 const filteredGroups = computed(() => filterLauncherGroups(resolution.value.groups, query.value))
-const filteredItems = computed(() => filteredGroups.value.flatMap((group) => group.items))
+const filteredItems = computed(() =>
+  filteredGroups.value.flatMap((group) => group.items).filter((item) => !item.stale),
+)
 const headerStatus = computed(() => {
   const count = t('floatingLauncher.item_count', { n: resolution.value.items.length })
   return resolution.value.staleBlocks.length
@@ -240,6 +246,12 @@ function onKeyDown(event: KeyboardEvent) {
     if (!item) return
     event.preventDefault()
     void onRun(item.containerId)
+    return
+  }
+  if (!editing && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault()
+    query.value += event.key
+    void nextTick(focusSearch)
   }
 }
 

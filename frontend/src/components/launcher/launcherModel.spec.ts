@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { LauncherBlock } from '@/stores/settings'
-import { cleanupStaleLauncherBlocks, filterLauncherGroups, resolveLauncher } from './launcherModel'
+import {
+  cleanupStaleLauncherBlocks,
+  countLauncherHotkeyConflicts,
+  filterLauncherGroups,
+  resolveLauncher,
+} from './launcherModel'
 
 const blocks: LauncherBlock[] = [
   { id: 'heading', type: 'label', label: '战斗' },
   { id: 'alpha', type: 'container', containerId: 'alpha', icon: 'i-tabler-sword' },
+  { id: 'vertical', type: 'vsep' },
   { id: 'missing', type: 'container', containerId: 'missing' },
   { id: 'split', type: 'hsep' },
   { id: 'beta', type: 'container', containerId: 'beta', label: '每日钓鱼' },
@@ -25,6 +31,11 @@ describe('launcher model', () => {
     expect(result.items[0]?.shortcut).toBe('Ctrl+1')
     expect(result.groups.map((group) => group.label)).toEqual(['战斗', ''])
     expect(result.staleBlocks.map((block) => block.id)).toEqual(['missing'])
+    expect(result.groups[0]?.items[1]).toMatchObject({
+      id: 'missing',
+      stale: true,
+      separatorBefore: 'vertical',
+    })
   })
 
   it('filters resolved items without changing their configured groups', () => {
@@ -39,6 +50,32 @@ describe('launcher model', () => {
     const cleaned = cleanupStaleLauncherBlocks(blocks, new Set(containers.map((item) => item.id)))
 
     expect(cleaned.removed.map((block) => block.id)).toEqual(['missing'])
-    expect(cleaned.blocks.map((block) => block.id)).toEqual(['heading', 'alpha', 'split', 'beta'])
+    expect(cleaned.blocks.map((block) => block.id)).toEqual([
+      'heading',
+      'alpha',
+      'vertical',
+      'split',
+      'beta',
+    ])
+  })
+
+  it('detects launcher conflicts from persisted container bindings and the live registry', () => {
+    const configuredContainers = [
+      { id: 'alpha', name: 'Alpha', hotkey: 'Shift + Ctrl + 1' },
+      { id: 'beta', name: 'Beta', hotkey: 'ctrl+shift+1' },
+      { id: 'gamma', name: 'Gamma', hotkey: 'F4' },
+    ]
+    const hotkeys = [
+      { key: 'container.alpha', hotkeyStr: 'Shift+Ctrl+1' },
+      { key: 'system.stop', hotkeyStr: 'F4' },
+    ]
+
+    expect(
+      countLauncherHotkeyConflicts(
+        new Set(['alpha', 'beta', 'gamma']),
+        configuredContainers,
+        hotkeys,
+      ),
+    ).toBe(3)
   })
 })

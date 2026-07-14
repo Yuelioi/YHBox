@@ -43,6 +43,17 @@ describe('standalone window presentation contract', () => {
     expect(settingsSource).not.toContain('launcher-preview__button')
   })
 
+  it('keeps the launcher keyboard and stale-state interaction contract', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+    const surface = readSource('src/components/launcher/LauncherSurface.vue')
+
+    expect(source).toContain("event.key === 'ArrowDown'")
+    expect(source).toContain("event.key === 'Enter'")
+    expect(source).toContain('query.value += event.key')
+    expect(surface).toContain('launcher-command--stale')
+    expect(surface).toContain(':aria-disabled="item.stale')
+  })
+
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
     for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
       const source = readSource(`src/views/tools/${filename}`)

@@ -396,6 +396,29 @@ textarea {
     background: color-mix(in oklab, var(--ui-success) 7%, transparent);
   }
 
+  .launcher-stale-list {
+    display: flex;
+    max-height: 72px;
+    flex-wrap: wrap;
+    gap: 4px;
+    overflow: auto;
+    margin-top: 6px;
+    padding-right: 4px;
+    list-style: none;
+  }
+
+  .launcher-stale-list li {
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in oklab, var(--ui-warning) 22%, var(--ui-border));
+    border-radius: 5px;
+    color: var(--ui-text-muted);
+    background: color-mix(in oklab, var(--ui-warning) 5%, transparent);
+    font-size: 10px;
+    line-height: 14px;
+    overflow-wrap: anywhere;
+  }
+
   .launcher-preview {
     position: sticky;
     top: 0;

@@ -37,8 +37,8 @@
             <span>{{ t('settingsLauncher.health_stale') }}</span>
           </div>
           <div>
-            <strong :class="{ 'text-error': failedHotkeys.length }">{{
-              failedHotkeys.length
+            <strong :class="{ 'text-error': hotkeyConflictCount }">{{
+              hotkeyConflictCount
             }}</strong>
             <span>{{ t('settingsLauncher.health_hotkeys') }}</span>
           </div>
@@ -52,9 +52,11 @@
             <p class="text-xs font-semibold text-highlighted">
               {{ t('settingsLauncher.stale_title', { n: staleCount }) }}
             </p>
-            <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-muted">
-              {{ staleNames }}
-            </p>
+            <ul class="launcher-stale-list" :aria-label="t('settingsLauncher.cleanup_scope')">
+              <li v-for="item in resolution.staleBlocks" :key="item.id">
+                {{ staleBlockName(item) }}
+              </li>
+            </ul>
           </div>
           <UButton
             size="xs"
@@ -298,6 +300,7 @@
               :empty-label="t('settingsLauncher.preview_empty')"
               :run-label="(name: string) => t('floatingLauncher.run', { name })"
               :status-labels="statusLabels"
+              :stale-label="t('floatingLauncher.stale_item')"
             />
           </div>
         </aside>
@@ -318,8 +321,15 @@ import IconPicker from '@/components/containers/inline/IconPicker.vue'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
-import LauncherSurface, { type LauncherDisplay } from '@/components/launcher/LauncherSurface.vue'
-import { cleanupStaleLauncherBlocks, resolveLauncher } from '@/components/launcher/launcherModel'
+import LauncherSurface from '@/components/launcher/LauncherSurface.vue'
+import {
+  cleanupStaleLauncherBlocks,
+  countLauncherHotkeyConflicts,
+  containerHotkeyKey,
+  normalizeLauncherDisplay,
+  resolveLauncher,
+  type LauncherDisplay,
+} from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
@@ -328,19 +338,15 @@ const { t } = useI18n()
 const editItems = ref<LauncherBlock[]>([])
 const cleanupBusy = ref(false)
 const dependenciesLoaded = ref(false)
-const cleanupUndo = ref<{
-  blocks: LauncherBlock[]
-  hotkeys: { key: string; value: string }[]
-} | null>(null)
+const cleanupUndo = ref<LauncherBlock[] | null>(null)
 const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
 const syncFromStore = () =>
   (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
 watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
-const display = computed<LauncherDisplay>(() => {
-  const value = settingsStore.data?.ui.launcherDisplay
-  return value === 'icon' || value === 'text' ? value : 'both'
-})
+const display = computed<LauncherDisplay>(() =>
+  normalizeLauncherDisplay(settingsStore.data?.ui.launcherDisplay),
+)
 const displayItems = computed(() => [
   { label: t('settingsLauncher.display_both'), value: 'both' },
   { label: t('settingsLauncher.display_icon'), value: 'icon' },
@@ -353,26 +359,18 @@ const resolution = computed(() =>
   resolveLauncher(editItems.value, containersStore.list, hotkeysStore.list),
 )
 const staleCount = computed(() => resolution.value.staleBlocks.length)
-const staleNames = computed(() =>
-  resolution.value.staleBlocks
-    .map(
-      (item) => item.label?.trim() || item.containerId || t('settingsLauncher.deleted_container'),
-    )
-    .join(' · '),
-)
 const launcherContainerIds = computed(
   () => new Set(resolution.value.items.map((item) => item.containerId)),
 )
-const failedHotkeys = computed(() =>
-  hotkeysStore.list.filter(
-    (entry) =>
-      entry.key.startsWith('container.') &&
-      launcherContainerIds.value.has(entry.key.slice('container.'.length)) &&
-      entry.status === 'failed',
-  ),
-)
+const hotkeyConflictCount = computed(() => {
+  return countLauncherHotkeyConflicts(
+    launcherContainerIds.value,
+    containersStore.list,
+    hotkeysStore.list,
+  )
+})
 const healthBadge = computed(() =>
-  staleCount.value || failedHotkeys.value.length
+  staleCount.value || hotkeyConflictCount.value
     ? t('settingsLauncher.health_attention')
     : t('settingsLauncher.health_normal'),
 )
@@ -418,12 +416,6 @@ async function cleanupStale() {
   if (!staleCount.value || cleanupBusy.value) return
   cleanupBusy.value = true
   const previousBlocks = copyItems(editItems.value)
-  const staleContainerIds = new Set(
-    resolution.value.staleBlocks.map((item) => item.containerId).filter(Boolean) as string[],
-  )
-  const previousHotkeys = hotkeysStore.list
-    .filter((entry) => staleContainerIds.has(entry.key.slice('container.'.length)))
-    .map((entry) => ({ key: entry.key, value: entry.hotkeyStr }))
   const cleaned = cleanupStaleLauncherBlocks(
     editItems.value,
     new Set(containersStore.list.map((container) => container.id)),
@@ -435,11 +427,7 @@ async function cleanupStale() {
     cleanupBusy.value = false
     return
   }
-  for (const entry of previousHotkeys) {
-    await backend.hotkeys.update(entry.key, '')
-  }
-  if (previousHotkeys.length) await hotkeysStore.reload()
-  cleanupUndo.value = { blocks: previousBlocks, hotkeys: previousHotkeys }
+  cleanupUndo.value = previousBlocks
   cleanupBusy.value = false
 }
 async function undoCleanup() {
@@ -447,13 +435,9 @@ async function undoCleanup() {
   if (!snapshot || cleanupBusy.value) return
   cleanupBusy.value = true
   const currentBlocks = copyItems(editItems.value)
-  editItems.value = copyItems(snapshot.blocks)
+  editItems.value = copyItems(snapshot)
   const saved = await persist()
   if (saved) {
-    for (const entry of snapshot.hotkeys) {
-      await backend.hotkeys.update(entry.key, entry.value)
-    }
-    if (snapshot.hotkeys.length) await hotkeysStore.reload()
     cleanupUndo.value = null
   } else {
     editItems.value = currentBlocks
@@ -472,7 +456,7 @@ function setLabel(id: string, label: string) {
   if (item) item.label = label
 }
 async function setHotkey(containerId: string, hotkey: string) {
-  await backend.hotkeys.update(`container.${containerId}`, hotkey)
+  await backend.hotkeys.update(containerHotkeyKey(containerId), hotkey)
   await hotkeysStore.reload()
 }
 function containerName(id?: string) {
@@ -482,7 +466,12 @@ function containerName(id?: string) {
   )
 }
 function containerHotkey(id?: string) {
-  return hotkeysStore.list.find((item) => item.key === `container.${id}`)?.hotkeyStr ?? ''
+  return (
+    hotkeysStore.list.find((item) => item.key === containerHotkeyKey(id ?? ''))?.hotkeyStr ?? ''
+  )
+}
+function staleBlockName(item: LauncherBlock) {
+  return item.label?.trim() || item.containerId || t('settingsLauncher.deleted_container')
 }
 
 onMounted(async () => {
