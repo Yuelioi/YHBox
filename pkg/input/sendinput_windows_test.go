@@ -24,6 +24,16 @@ func TestNewBackend_SendInput(t *testing.T) {
 	}
 }
 
+func TestNewBackend_EmptyNameDefaultsToSendInput(t *testing.T) {
+	b, err := NewBackend("")
+	if err != nil {
+		t.Fatalf("NewBackend with empty name should default to sendinput, got err: %v", err)
+	}
+	if b.Name() != "sendinput" {
+		t.Errorf("empty name should default to sendinput, got %q", b.Name())
+	}
+}
+
 func TestSendInputBackend_ReleaseAll_ClearsState(t *testing.T) {
 	b := newSendInputBackend()
 	// 未知 vk (0xFE/0xFF): MapVirtualKey 返 0, SendInput 静默丢 — 不真敲键盘.

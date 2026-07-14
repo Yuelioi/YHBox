@@ -67,6 +67,16 @@
           size="sm"
           class="w-36"
         />
+        <template #help>
+          <p class="text-xs text-muted">
+            {{
+              t('containers.scale_tolerance_hint', {
+                min: scaleToleranceRange.min,
+                max: scaleToleranceRange.max,
+              })
+            }}
+          </p>
+        </template>
       </UFormField>
     </div>
 
@@ -128,6 +138,10 @@ const createdCategories = ref<string[]>([])
 const categoryItems = computed(() => {
   return uniqueCategoryOptions(props.allCategories, createdCategories.value, [form.value.category])
 })
+const scaleToleranceRange = computed(() => {
+  const max = Math.max(1, Number(form.value.scaleTolerance) || 1)
+  return { min: formatScale(1 / max), max: formatScale(max) }
+})
 
 const INPUT_BACKEND_OPTIONS = computed(() => [
   { value: 'postmessage', label: t('containers.input_backend_postmessage') },
@@ -151,5 +165,9 @@ function onCreateCategory(item: string) {
   if (!result.value) return
   createdCategories.value = result.categories
   form.value.category = result.value
+}
+
+function formatScale(value: number) {
+  return Number(value.toFixed(2)).toString()
 }
 </script>

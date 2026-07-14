@@ -1,6 +1,6 @@
 ---
 kind: trap
-summary: "PostMessageBackend.TypeText 旧实现直接调 pkg/input.TypeText (全局 SendInput KEYEVENTF_UNICODE), 注入到真实前台焦点窗口 — 但 postmessage 后端默认后台、目标窗口不持焦, 字符全进错窗口; 同窗口 KeyPress 走 targeted WM_KEYDOWN 却能打字. 已修: 改走 PostText (PostMessage WM_CHAR, targeted hwnd)"
+summary: "PostMessageBackend.TypeText 旧实现直接调 pkg/input.TypeText (全局 SendInput KEYEVENTF_UNICODE), 注入到真实前台焦点窗口 — 但 postmessage 模式面向后台、目标窗口不持焦, 字符全进错窗口; 同窗口 KeyPress 走 targeted WM_KEYDOWN 却能打字. 已修: 改走 PostText (PostMessage WM_CHAR, targeted hwnd)"
 activation: symptom
 read_when: "改 InputText/TypeText / 排查「文本输入节点在后台窗口没生效但按键/点击生效」/ 给后端补文本输入 / review TypeText 走哪条路"
 recheck_when: "TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_CHAR 对某类窗口 (Chromium/Slate) 真机表现有新发现"
@@ -11,7 +11,7 @@ recheck_when: "TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_C
 ## 根因
 `InputText` → `ctx.Services().Input.TypeText` → backend.TypeText。`PostMessageBackend.TypeText` **旧实现**直接 `return TypeText(hwnd, s)`, 而 pkg 级 `TypeText` (pkg/input/typetext_windows.go) 走**全局 SendInput KEYEVENTF_UNICODE**, `func TypeText(_ win.HWND, ...)` 把 hwnd 直接丢弃 —— SendInput 注入到**真实持有键盘焦点的前台窗口**。
 
-但 postmessage 后端 (默认) 整个设计前提 = 目标窗口在后台、不抢前台 (`BackgroundInput=true`)。跑流程时焦点在 Yotta GUI / 别处, 目标窗口 (记事本/vscode) 后台无焦 → SendInput 的字符全注入到错误窗口 → 目标一个字收不到、**且不报错**。
+但 postmessage 后端整个设计前提 = 目标窗口可在后台、不抢前台 (`BackgroundInput=true`)。跑流程时焦点在 Yotta GUI / 别处, 目标窗口 (记事本/vscode) 后台无焦 → SendInput 的字符全注入到错误窗口 → 目标一个字收不到、**且不报错**。2026-07-14 起容器默认已改为 `sendinput`；本条仍约束用户显式选择 PostMessage 的路径。
 
 对照实证 (用户真机): **同一个 vscode 窗口**, `KeyPress` (按键) 能打字、`InputText` 不能。差异就在 KeyPress 走 `PostMessageBackend.KeyDown` → `postMessage(hwnd, WM_KEYDOWN)` (**targeted hwnd, 后台可用**), InputText 走全局 SendInput。
 

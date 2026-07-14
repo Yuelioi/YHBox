@@ -75,16 +75,6 @@ func TestNewBackend_PostMessage(t *testing.T) {
 	}
 }
 
-func TestNewBackend_EmptyName(t *testing.T) {
-	b, err := NewBackend("")
-	if err != nil {
-		t.Fatalf("NewBackend with empty name should default to postmessage, got err: %v", err)
-	}
-	if b.Name() != "postmessage" {
-		t.Errorf("empty name should default to postmessage, got %q", b.Name())
-	}
-}
-
 func TestNewBackend_Unknown(t *testing.T) {
 	if _, err := NewBackend("xxx"); err == nil {
 		t.Error("unknown backend should err")

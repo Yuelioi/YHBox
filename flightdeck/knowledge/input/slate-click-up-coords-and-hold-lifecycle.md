@@ -11,7 +11,7 @@ read_when: "改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostM
 
 ## 根因 + 修法（commit `9e7d6ac` / `0dda3a3`，均验证通过）
 
-1. **点歪** — `sendInputBackend` 把窗口客户区 ratio 直接喂 `sendAbsMove`，但 SendInput 绝对坐标基准是**整屏**。修: `clientRatioToScreenRatio` = 客户区 ratio →(×GetClientRect)客户区像素 →(ClientToScreen)屏幕像素 →(÷SM_CXSCREEN)全屏 ratio。`CursorRatio` 同步走逆变换。（注: 默认后端是 `postmessage`，这条只在容器显式设 `sendinput` 时才在生效路径上。）
+1. **点歪** — `sendInputBackend` 把窗口客户区 ratio 直接喂 `sendAbsMove`，但 SendInput 绝对坐标基准是**整屏**。修: `clientRatioToScreenRatio` = 客户区 ratio →(×GetClientRect)客户区像素 →(ClientToScreen)屏幕像素 →(÷SM_CXSCREEN)全屏 ratio。`CursorRatio` 同步走逆变换。2026-07-14 起默认后端已改为 `sendinput`，因此这条现在属于默认生效路径。
 
 2. **点不到（松键落点）** — `PostMessageBackend.MouseUp` 旧实现 `MouseBtnUp(hwnd, 0, 0, btn)`，WM_xBUTTONUP 的 lParam 是 (0,0)。**UE Slate 在 BUTTONUP 判 click 且看坐标** → 按在 (x,y)、松在 (0,0) = 控件外松手 → 不触发。修: `heldBtns` 从 `map[...]struct{}` 改存按下坐标 `map[...]point`，松键回按下坐标（ReleaseAll 同改）。**这条同时修好了 `MouseHoldStop`。**
 

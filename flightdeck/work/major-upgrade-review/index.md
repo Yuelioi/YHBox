@@ -66,6 +66,7 @@ Done:
 - Standards/Spec/Threat 终审修复 descriptor 泛型消费者仍读固定 config key、前端重复 parser，以及遗漏 U+061C bidi control 的动态端口名过滤；复核后无剩余 P0–P2。
 - 新增 `InputSpec.Constraints` 的 `nonBlank` 与 `numberGreaterThan` 声明式约束；Registry 统一校验和 canonicalize，Catalog v3 冻结约束，Compiler 对静态值/默认值产出稳定诊断并为全图评估设预算，接线值延迟到 runtime 校验。
 - 截图新模板表单已加入可创建的分类选择，`SaveTemplateCapture` 在首次资产记录中原子保存 category；主窗口把历史小宽度钳到 1640 并设置系统最小宽度，短期阻止编辑器工具条在低宽度下崩坏。
+- 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
 - Wave 2、Wave 3 strict Source、static compiler core、typed subgraph closure、declarative Switch dynamic contract 与首个 declarative input constraint 切片已完成。下一入口是 dependency/effect 与剩余 custom validation；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
@@ -84,6 +85,7 @@ Verified:
 - `go test -race -count=1 ./internal/workflow/schema ./internal/workflow/catalog ./internal/workflow/compiler` 通过；ParseSource、CompileDraft、OpenProgram 三个 fuzz target 各运行 5 秒通过。
 - declarative input constraints 聚焦门禁通过：`go test ./internal/node ./internal/nodes/system ./internal/workflow/catalog ./internal/workflow/compiler ./internal/workflow/schema`。
 - 模板分类与主窗口宽度修复后完整 `task check` 通过：Go coverage 66.2%，frontend 71 files / 538 tests，Wails contract 14 services / 112 methods / 91 models，entry 309,295 / 350,000 bytes，editor 471,230 / 650,000 bytes。
+- 输入默认与缩放容差说明更新后完整 `task check` 通过：Go coverage 66.5%，frontend 89 files / 590 tests，Wails contract 14 services / 116 methods / 100 models，entry 323,845 / 350,000 bytes，editor 462,559 / 650,000 bytes。
 
 ## Open questions
 

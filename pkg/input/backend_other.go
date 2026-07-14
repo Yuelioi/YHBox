@@ -13,7 +13,7 @@ func NewBackend(name string) (Backend, error) {
 	switch name {
 	case "", "postmessage", "sendinput":
 		if name == "" {
-			name = "postmessage"
+			name = "sendinput"
 		}
 		return nil, platform.NewUnsupportedError("input backend " + name)
 	default:

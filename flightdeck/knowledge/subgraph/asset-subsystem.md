@@ -36,7 +36,7 @@ recheck_when: "改 asset 存储布局 / 记录或变体 schema / PickVariant 挑
 
 `templateMatcherAdapter.Detect(frame, guid, threshold, region, scaleTolerance)`(`wire_container.go`,**不再按 containerID 分 store**):
 1. `store.PickVariant(guid, frameW, frameH)`(`pick.go`): **精确分辨率命中优先,否则长边比对称最近**的那一档(纯内存 map + 小循环,变体 1-5,每帧零额外开销)。
-2. 长边比缩放比超出容器 `ScaleTolerance` → 判太远, miss + `emitScaleTooFarWarning`。
+2. 长边比缩放比超出容器 `ScaleTolerance=k` 的 `[1/k, k]` → 判太远, miss + `emitScaleTooFarWarning`。默认 `k=2` 即允许把最近分辨率档缩到 `0.5×–2×`；它不是 NCC 置信度阈值。调大可覆盖更远的窗口分辨率，但会增加插值失真、误匹配和匹配开销；优先为常用分辨率补精确变体，不要靠无限放大容差代替。
 3. **解码缓存键 = `blob:<sha256>` → 未缩放 `*vision.Template`**(blob 不可变 → 缓存条目永不 stale, 删 blob 后旧条目死重无害);缓存在 PickVariant **之后**(变体已选定)→ 无跨分辨率误命中,同像素跨容器复用同一份解码。
 4. 缩放(per-call)→ ROI / 多槽 NCC。
 

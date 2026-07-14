@@ -107,7 +107,7 @@ func (s *Service) Create(name string) (Container, error) {
 		SchemaVersion:  CurrentSchemaVersion,
 		ID:             uuid.NewString(),
 		Name:           name,
-		InputBackend:   "postmessage",
+		InputBackend:   DefaultInputBackend,
 		CaptureBackend: "auto",
 		ScaleTolerance: DefaultScaleTolerance,
 		Graph: Graph{

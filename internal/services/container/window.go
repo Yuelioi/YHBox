@@ -48,6 +48,19 @@ func ReadWin32WindowTargetCaptureBackend(c *Container) string {
 	return "auto"
 }
 
+// DefaultInputBackend is the container-level default for Windows input.
+// SendInput uses real foreground OS input and covers applications that ignore window messages.
+const DefaultInputBackend = "sendinput"
+
+// ReadWin32WindowTargetInputBackend reads the container input mode and applies the default for
+// legacy or incomplete records. Explicit postmessage remains supported for background automation.
+func ReadWin32WindowTargetInputBackend(c *Container) string {
+	if c != nil && c.InputBackend != "" {
+		return c.InputBackend
+	}
+	return DefaultInputBackend
+}
+
 // DefaultScaleTolerance 模板跨分辨率缩放容差默认值. k=2.0 → 允许缩放比 ∈ [0.5, 2.0].
 const DefaultScaleTolerance = 2.0
 

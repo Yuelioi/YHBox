@@ -3195,12 +3195,14 @@ export default {
     add_tag_placeholder: 'Add tag...',
     tags_hint: 'Used to filter the container list; name freely (e.g. "daily", "raid", "fishing")',
     input_backend_label: 'Input mode',
-    input_backend_postmessage: 'PostMessage — background, no focus steal (default)',
-    input_backend_sendinput: 'SendInput — global foreground injection (auto-activates window)',
+    input_backend_postmessage: 'PostMessage — background, no focus steal',
+    input_backend_sendinput: 'SendInput — foreground injection, auto-activates window (default)',
     input_backend_hint:
       'PostMessage targets a Windows window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a Windows window target resolves.',
     capture_backend_label: 'Capture backend',
-    scale_tolerance_label: 'Template scale tolerance (cross-resolution)',
+    scale_tolerance_label: 'Maximum template scale',
+    scale_tolerance_hint:
+      'When no exact-resolution template exists, resize the nearest variant within {min}×–{max}× before matching. Larger values cover more resolutions but increase false-match risk.',
     variables_section: 'Variables',
     add_var: 'Add',
     var_declare_hint: 'After declaring, use $vars.varName in node config expressions.',

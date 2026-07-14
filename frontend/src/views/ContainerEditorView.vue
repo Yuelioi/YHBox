@@ -329,7 +329,7 @@
         description: draft.description ?? '',
         tags: draft.tags ?? [],
         category: draft.category ?? '',
-        inputBackend: draft.inputBackend || 'postmessage',
+        inputBackend: draft.inputBackend || 'sendinput',
         captureBackend: draft.captureBackend || 'auto',
         scaleTolerance: draft.scaleTolerance ?? 2.0,
       }"

@@ -52,7 +52,7 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 		r.rt.PushWindowOverride(wh)
 		defer r.rt.PopWindowOverride()
 		// sendinput 后端 + 需前台的输入节点: 补拉一次前台(不在前台 SendInput 打错窗)。
-		if r.rt.Container != nil && r.rt.Container.InputBackend == "sendinput" &&
+		if container.ReadWin32WindowTargetInputBackend(r.rt.Container) == "sendinput" &&
 			rn.Spec.NeedsForeground && r.rt.Game != nil {
 			r.rt.Game.BringToForeground(w.HWND)
 			time.Sleep(150 * time.Millisecond)

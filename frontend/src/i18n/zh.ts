@@ -3039,12 +3039,14 @@ export default {
     add_tag_placeholder: '添加标签...',
     tags_hint: '用于在容器列表筛选; 可自由命名 (如「日常」「副本」「钓鱼」)',
     input_backend_label: '输入模式',
-    input_backend_postmessage: 'PostMessage — 后台直发, 不抢焦点 (默认)',
-    input_backend_sendinput: 'SendInput — 前台全局注入 (解析窗口时自动拉前台)',
+    input_backend_postmessage: 'PostMessage — 后台直发，不抢焦点',
+    input_backend_sendinput: 'SendInput — 前台全局注入，自动拉前台（默认）',
     input_backend_hint:
       'PostMessage 按 Windows 窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 Windows 窗口目标解析窗口时自动把它拉到前台.',
     capture_backend_label: '截图后端',
-    scale_tolerance_label: '模板缩放容差 (跨分辨率)',
+    scale_tolerance_label: '模板最大缩放倍率',
+    scale_tolerance_hint:
+      '没有同分辨率模板时，允许把最近的模板缩放到 {min}×–{max}× 后再匹配。数值越大兼容范围越广，但误匹配风险也越高。',
     variables_section: '变量',
     add_var: '添加',
     var_declare_hint: '声明变量后可在节点 config 表达式里用 $vars.变量名 引用.',

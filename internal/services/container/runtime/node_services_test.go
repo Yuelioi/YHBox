@@ -975,8 +975,16 @@ func TestDetectColor_UsesGeometryOverride(t *testing.T) {
 // WindowAdapter.SetActive
 // ============================================================================
 
+type foregroundSpy struct{ hwnd uintptr }
+
+func (s *foregroundSpy) BringToForeground(hwnd uintptr) bool {
+	s.hwnd = hwnd
+	return true
+}
+
 func TestWindowAdapter_SetActive_SetsStickyWindow(t *testing.T) {
-	rt := &RuntimeContext{Container: &container.Container{}}
+	game := &foregroundSpy{}
+	rt := &RuntimeContext{Container: &container.Container{}, Game: game}
 	rt.initFrameCache()
 	orig := resolveWindowFn
 	defer func() { resolveWindowFn = orig }()
@@ -989,6 +997,9 @@ func TestWindowAdapter_SetActive_SetsStickyWindow(t *testing.T) {
 	}
 	if rt.WindowHandle().HWND != 99 {
 		t.Fatalf("active hwnd = %d, want 99", rt.WindowHandle().HWND)
+	}
+	if game.hwnd != 99 {
+		t.Fatalf("empty input backend should use foreground default, activated hwnd = %d", game.hwnd)
 	}
 }
 

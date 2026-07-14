@@ -17,7 +17,7 @@ const siKeyUnicode uint32 = 0x0004
 // 每个 rune 拆成 UTF-16 code unit(s), 每个 code unit 发一对 keydown+keyup.
 // BMP 外字符 (>U+FFFF) 自动拆 surrogate pair (两个 code unit = 4 次 SendInput 调用).
 //
-// 全局路径 = sendinput backend 用 (它本就要前台). postmessage backend (默认, 后台不抢前台)
+// 全局路径 = sendinput backend 用 (它本就要前台). postmessage backend (可选, 后台不抢前台)
 // 走 PostText (WM_CHAR targeted) 而非这里 —— 全局 SendInput 会把字符注入到真正持有键盘焦点
 // 的窗口, 后台目标窗口收不到. hwnd 在此忽略.
 func TypeText(_ win.HWND, s string) error {

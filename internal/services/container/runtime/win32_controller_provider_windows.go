@@ -9,6 +9,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	automationtrace "github.com/yottaapp/yotta/internal/automation/trace"
+	"github.com/yottaapp/yotta/internal/services/container"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
@@ -19,10 +20,7 @@ type nativeWin32ControllerProvider struct {
 }
 
 func newWin32ControllerProvider(rt *RuntimeContext) (win32ControllerProvider, error) {
-	inputName := rt.Container.InputBackend
-	if inputName == "" {
-		inputName = "postmessage"
-	}
+	inputName := container.ReadWin32WindowTargetInputBackend(rt.Container)
 	rawInput, err := pkginput.NewBackend(inputName)
 	if err != nil {
 		return nil, fmt.Errorf("input backend %q: %w", inputName, err)

@@ -544,7 +544,7 @@ func (a *windowAdapter) SetActive(ctx context.Context, title, class, processName
 
 	// SendInput 后端需前台焦点才能注入到目标窗口 → 解析窗口时拉到前台 (固定 150ms 有界等待).
 	// PostMessage 按 hwnd 直发, 不激活. (原 RunMode=foreground 已并入 InputBackend=sendinput.)
-	if a.rt.Container != nil && a.rt.Container.InputBackend == "sendinput" && a.rt.Game != nil {
+	if container.ReadWin32WindowTargetInputBackend(a.rt.Container) == "sendinput" && a.rt.Game != nil {
 		a.rt.Game.BringToForeground(wh.HWND)
 		time.Sleep(150 * time.Millisecond)
 	}

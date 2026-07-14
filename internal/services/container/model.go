@@ -252,7 +252,7 @@ type Container struct {
 	Hotkey        string        `json:"hotkey,omitempty"`
 	// 容器级窗口后端配置 (原在 Win32WindowTarget 节点, v2 挪容器级 — 整容器一套后端).
 	// InputBackend "sendinput" 走 OS 全局注入 (需前台焦点 → Win32WindowTarget 解析时自动拉前台);
-	// "postmessage" (默认) 按 hwnd 直发, 后台不抢焦点. 激活与否由此字段决定 (原 RunMode 已并入).
+	// "postmessage" 按 hwnd 直发, 后台不抢焦点. 默认 "sendinput"; 激活与否由此字段决定 (原 RunMode 已并入).
 	InputBackend   string    `json:"inputBackend,omitempty"`
 	CaptureBackend string    `json:"captureBackend,omitempty"`
 	ScaleTolerance float64   `json:"scaleTolerance,omitempty"`

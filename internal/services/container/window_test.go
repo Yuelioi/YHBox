@@ -75,3 +75,22 @@ func TestReadWin32WindowTargetScaleTolerance(t *testing.T) {
 		})
 	}
 }
+
+func TestReadWin32WindowTargetInputBackend(t *testing.T) {
+	cases := []struct {
+		name string
+		c    *Container
+		want string
+	}{
+		{"未填 → 前台默认", &Container{}, "sendinput"},
+		{"显式后台", &Container{InputBackend: "postmessage"}, "postmessage"},
+		{"显式前台", &Container{InputBackend: "sendinput"}, "sendinput"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ReadWin32WindowTargetInputBackend(c.c); got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}

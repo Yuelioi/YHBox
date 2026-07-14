@@ -101,7 +101,7 @@ func TestCreate_SeedsBackendFieldsAndWiresWin32WindowTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.InputBackend != "postmessage" || c.CaptureBackend != "auto" || c.ScaleTolerance < 1.0 {
+	if c.InputBackend != "sendinput" || c.CaptureBackend != "auto" || c.ScaleTolerance < 1.0 {
 		t.Fatalf("默认字段未 seed: InputBackend=%q CaptureBackend=%q ScaleTolerance=%v",
 			c.InputBackend, c.CaptureBackend, c.ScaleTolerance)
 	}
