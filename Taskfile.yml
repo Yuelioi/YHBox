@@ -50,7 +50,7 @@ tasks:
       - pnpm -C frontend check
 
   contracts:check:
-    summary: Regenerates Workflow v3 Schema and TypeScript in memory and rejects drift
+    summary: Regenerates Workflow v3 and Node Contract 3.1 artifacts in memory and rejects drift
     deps: [common:install:frontend:deps]
     cmds:
       - node ./scripts/generate-workflow-contracts.mjs
@@ -59,7 +59,7 @@ tasks:
       GOFLAGS: -mod=readonly
 
   contracts:update:
-    summary: Updates tracked Workflow v3 Schema and TypeScript from Go source types
+    summary: Updates tracked Workflow v3 and Node Contract 3.1 artifacts from Go source types
     deps: [common:install:frontend:deps]
     cmds:
       - node ./scripts/generate-workflow-contracts.mjs --write

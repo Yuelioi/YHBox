@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/contractschema"
 )
 
 const (
@@ -22,12 +23,12 @@ const (
 	MaxDefinitionBytes     = 1 << 20
 	MaxDefinitionDepth     = 96
 	MaxDefinitionNodes     = 262_144
-	MaxSchemaResources     = 256
-	MaxSchemaResourceBytes = 256 << 10
-	MaxSchemaBundleBytes   = 1 << 20
-	MaxSchemaDepth         = 64
-	MaxSchemaNodes         = 65_536
-	MaxSchemaReferences    = 1_024
+	MaxSchemaResources     = contractschema.MaxResources
+	MaxSchemaResourceBytes = contractschema.MaxResourceBytes
+	MaxSchemaBundleBytes   = contractschema.MaxBundleBytes
+	MaxSchemaDepth         = contractschema.MaxDepth
+	MaxSchemaNodes         = contractschema.MaxNodes
+	MaxSchemaReferences    = contractschema.MaxReferences
 	MaxAuthoringExamples   = 64
 	MaxExampleBytes        = 64 << 10
 	MaxAuthoringBytes      = 256 << 10
@@ -62,10 +63,7 @@ type RepresentationSpec struct {
 	Codec string             `json:"codec"`
 }
 
-type SchemaResource struct {
-	ID     string          `json:"id"`
-	Schema json.RawMessage `json:"schema"`
-}
+type SchemaResource = contractschema.Resource
 
 type Authoring struct {
 	TitleKey       string            `json:"titleKey,omitempty"`
@@ -229,71 +227,10 @@ func normalizeSemantic(source semanticDocument) (semanticDocument, error) {
 	if source.SchemaDialect != JSONSchemaDialect {
 		return semanticDocument{}, errors.New("unsupported data type schema dialect")
 	}
-	if len(source.SchemaBundle) == 0 || len(source.SchemaBundle) > MaxSchemaResources {
-		return semanticDocument{}, errors.New("data type schema bundle exceeds resource budget")
+	bundle, err := contractschema.Normalize(source.SchemaDialect, "", source.SchemaBundle)
+	if err != nil {
+		return semanticDocument{}, fmt.Errorf("normalize data type schema bundle: %w", err)
 	}
-	bundle := make([]SchemaResource, len(source.SchemaBundle))
-	seenResources := make(map[string]bool, len(bundle))
-	totalSchemaBytes := 0
-	for _, resource := range source.SchemaBundle {
-		if err := validateAbsoluteURI(resource.ID); err != nil {
-			return semanticDocument{}, fmt.Errorf("invalid schema resource id: %w", err)
-		}
-		if seenResources[resource.ID] {
-			return semanticDocument{}, fmt.Errorf("duplicate schema resource %q", resource.ID)
-		}
-		seenResources[resource.ID] = true
-		if len(resource.Schema) == 0 || len(resource.Schema) > MaxSchemaResourceBytes || totalSchemaBytes > MaxSchemaBundleBytes-len(resource.Schema) {
-			return semanticDocument{}, errors.New("data type schema bundle exceeds byte budget")
-		}
-		totalSchemaBytes += len(resource.Schema)
-		if err := inspectJSONBudget(resource.Schema, MaxSchemaDepth, MaxSchemaNodes); err != nil {
-			return semanticDocument{}, fmt.Errorf("schema resource %q exceeds structural budget: %w", resource.ID, err)
-		}
-	}
-	parsedSchemas := make([]any, len(source.SchemaBundle))
-	for i, resource := range source.SchemaBundle {
-		canonical, err := artifact.Canonicalize(resource.Schema)
-		if err != nil {
-			return semanticDocument{}, fmt.Errorf("canonicalize schema resource %q: %w", resource.ID, err)
-		}
-		var schema map[string]json.RawMessage
-		if err := json.Unmarshal(canonical, &schema); err != nil || schema == nil {
-			return semanticDocument{}, fmt.Errorf("schema resource %q must be a JSON object", resource.ID)
-		}
-		var schemaID string
-		if err := json.Unmarshal(schema["$id"], &schemaID); err != nil || schemaID != resource.ID {
-			return semanticDocument{}, fmt.Errorf("schema resource %q has mismatched $id", resource.ID)
-		}
-		var dialect string
-		if err := json.Unmarshal(schema["$schema"], &dialect); err != nil || dialect != source.SchemaDialect {
-			return semanticDocument{}, fmt.Errorf("schema resource %q has mismatched $schema", resource.ID)
-		}
-		parsed, err := decodeJSONValue(canonical)
-		if err != nil {
-			return semanticDocument{}, fmt.Errorf("decode schema resource %q: %w", resource.ID, err)
-		}
-		parsedSchemas[i] = parsed
-		bundle[i] = SchemaResource{ID: resource.ID, Schema: append(json.RawMessage(nil), canonical...)}
-	}
-	allResourceIDs := make(map[string]bool, len(seenResources))
-	for id := range seenResources {
-		allResourceIDs[id] = true
-	}
-	for i, resource := range source.SchemaBundle {
-		base, _ := url.Parse(resource.ID)
-		if err := collectBundledResourceIDs(parsedSchemas[i], base, allResourceIDs, 0, true); err != nil {
-			return semanticDocument{}, fmt.Errorf("schema resource %q: %w", resource.ID, err)
-		}
-	}
-	referenceCount := 0
-	for i, resource := range source.SchemaBundle {
-		base, _ := url.Parse(resource.ID)
-		if err := validateBundledReferences(parsedSchemas[i], base, allResourceIDs, 0, &referenceCount); err != nil {
-			return semanticDocument{}, fmt.Errorf("schema resource %q: %w", resource.ID, err)
-		}
-	}
-	sort.Slice(bundle, func(i, j int) bool { return bundle[i].ID < bundle[j].ID })
 
 	if len(source.Representations) == 0 || len(source.Representations) > 4 {
 		return semanticDocument{}, errors.New("data type must declare one to four representations")

@@ -26,6 +26,7 @@ status: open
 <!-- closed tickets only; one linked gist per resolution -->
 
 - [定义 Data Type 3.1 与 Value Envelope](tickets/define-data-types-and-value-envelope.md) — 采用带摘要的名义 TypeRef、JSON Schema TypeDefinition、独立 BindingState，以及 inline/blob/stream/handle 四分支 ValueEnvelope；禁止 `any` 降级和隐式转换。
+- [定义 Node Contract 3.1 元模式](tickets/define-node-contract-metaschema.md) — NodeRef 固定 canonical semantic contract；端口通道显式分离，pure-data 不含 exec，安装实现锁由 Catalog/Program 持有，authoring/docs 不污染语义摘要。
 
 ## Fog
 
