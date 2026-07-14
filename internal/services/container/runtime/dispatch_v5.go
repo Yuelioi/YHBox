@@ -60,7 +60,8 @@ func (r *ContainerRunner) execNodeViaFramework(ctx context.Context, node *contai
 	}
 
 	bundle := r.bundleForNode(node, tok)
-	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, bundle, node.LogEnabled)
+	logEnabled := node.LogEnabled && r.rt.DiagnosticsEnabled()
+	result := nodepkg.RunNode(ctx, rn, dataWire, config, execData, bundle, logEnabled)
 	return r.routeResult(node, tok, result)
 }
 
@@ -324,7 +325,7 @@ func (r *ContainerRunner) routeResult(node *container.GraphNode, tok ExecToken, 
 // emitDump 给勾选节点组 dump 行并经 Emit 送中央 merger (app 拦截 container:node-dump).
 // runErr != nil → error 行 (in{} err=, out 仅非空才带); 该行由 merger 落定不参与合并.
 func (r *ContainerRunner) emitDump(node *container.GraphNode, result nodepkg.RunResult, runErr error) {
-	if !node.LogEnabled || r.rt.Emit == nil {
+	if !node.LogEnabled || !r.rt.DiagnosticsEnabled() || r.rt.Emit == nil {
 		return
 	}
 	rn, ok := r.registeredNode(node.Kind)
@@ -367,7 +368,8 @@ func (r *ContainerRunner) execNodeAsRegionViaFramework(ctx context.Context, node
 	execData := r.buildExecDataFor(tok)
 
 	bundle := r.bundleForNode(node, tok)
-	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, bundle, node.LogEnabled, body)
+	logEnabled := node.LogEnabled && r.rt.DiagnosticsEnabled()
+	result := nodepkg.RunNodeAsRegion(ctx, rn, dataWire, config, execData, bundle, logEnabled, body)
 	return r.routeResult(node, tok, result)
 }
 

@@ -23,6 +23,9 @@ export interface LauncherBlock {
 export interface Settings {
   ui: {
     logger: {
+      enabled: boolean
+      liveView: boolean
+      level: 'debug' | 'info' | 'warn' | 'error'
       panelOpen: boolean
       autoScroll: boolean
       showTime: boolean

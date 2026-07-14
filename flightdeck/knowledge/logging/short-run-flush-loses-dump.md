@@ -9,7 +9,7 @@ recheck_when: "LogMerger flush/tick/finalize 逻辑改 / logMergerFlushInterval 
 **Date**: 2026-06-25 (detect-click 真机 smoke 期间发现: 节点全勾 logEnabled, 运行经常没日志; container da4755f5 短图 Win32WindowTarget→BringForeground→InputText→Stop)
 
 ## 根因
-节点级「启用日志」(`logEnabled`) 执行时 `emitDump` 发 `container:node-dump` → app.go 喂 `LogMerger.Add` 合并 → 合并后发 `container:node-dump-batch` 给前端面板 + 写文件。
+节点级「启用日志」(`logEnabled`) 执行时 `emitDump` 发 `container:node-dump` → app.go 喂 `LogMerger.Add` 合并 → 合并后内部发 `container:node-dump-batch`，再由 `LogSink` 归一化进统一 `log:batch` 前端流；文件仍独立写入。
 
 普通 (非 error) dump 行进 `Add` 后**不立即 emit**, 只建/更新一个 `dirty` 段。它的前端 emit **唯一**路径是 `tick()` (每 `logMergerFlushInterval`=250ms 扫 dirty 段批量发)。而容器结束信号 → `FlushContainer` → `finalizeLocked`, **旧实现只 `writeFile` 不 emit**。
 

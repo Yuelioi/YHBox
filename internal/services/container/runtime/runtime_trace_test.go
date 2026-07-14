@@ -126,3 +126,19 @@ func TestRuntimeContextTraceRecorderEmitsActionTraceEvent(t *testing.T) {
 		t.Fatalf("memory trace records = %#v", records)
 	}
 }
+
+func TestRuntimeContextTraceRecorderSkipsPresentationWhenDiagnosticsDisabled(t *testing.T) {
+	rt := newTraceRuntime()
+	rt.SetDiagnosticsEnabled(func() bool { return false })
+	emitted := false
+	rt.Emit = func(string, any) { emitted = true }
+
+	rt.TraceRecorder().Record(traceTestRecord("click"))
+
+	if emitted {
+		t.Fatal("disabled diagnostics emitted an action trace payload")
+	}
+	if records := rt.TraceRecords(); len(records) != 0 {
+		t.Fatalf("disabled diagnostics retained %d action records", len(records))
+	}
+}

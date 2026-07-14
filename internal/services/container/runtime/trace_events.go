@@ -8,9 +8,13 @@ type emittingTraceRecorder struct {
 	base        automationtrace.Recorder
 	containerID string
 	emit        func(name string, data any)
+	enabled     func() bool
 }
 
 func (r emittingTraceRecorder) Record(record automationtrace.ActionRecord) {
+	if r.enabled != nil && !r.enabled() {
+		return
+	}
 	if r.base != nil {
 		r.base.Record(record)
 	}

@@ -22,7 +22,7 @@ type LogMerger struct {
 	mu          sync.Mutex
 	segs        map[string]*dumpSegment // key: containerID + "\x00" + nodeID
 	emit        func(name string, data any)
-	writeFile   func(line string)
+	writeFile   func(line string, isError bool)
 	ticker      *time.Ticker
 	stop        chan struct{}
 	done        chan struct{}
@@ -32,7 +32,7 @@ type LogMerger struct {
 	now         func() time.Time
 }
 
-func NewLogMerger(emit func(string, any), writeFile func(string)) *LogMerger {
+func NewLogMerger(emit func(string, any), writeFile func(string, bool)) *LogMerger {
 	m := &LogMerger{
 		segs:        map[string]*dumpSegment{},
 		emit:        emit,
@@ -61,8 +61,8 @@ func (m *LogMerger) Add(containerID, nodeID, nodeKind, line, lineKey string, isE
 		if cur != nil {
 			m.finalizeLocked(k, cur)
 		}
-		m.writeFile(line)
-		m.emitOneLocked(nodeID, nodeKind, lineKey, line, 1, true)
+		m.writeFile(line, true)
+		m.emitOneLocked(nodeID, nodeKind, lineKey, line, 1, true, true)
 		return
 	}
 	if cur != nil && cur.lineKey == lineKey {
@@ -83,8 +83,8 @@ func (m *LogMerger) Add(containerID, nodeID, nodeKind, line, lineKey string, isE
 // 否则短图 (250ms tick 前跑完) 的 dirty 段只写文件、前端面板一条都收不到.
 // 前端按 (nodeId,lineKey,!frozen) 幂等更新: 已 emit 过的段再 emit final 只是定版、不重复行.
 func (m *LogMerger) finalizeLocked(k string, s *dumpSegment) {
-	m.writeFile(renderCount(s.line, s.count))
-	m.emitOneLocked(s.nodeID, s.nodeKind, s.lineKey, s.line, s.count, true)
+	m.writeFile(renderCount(s.line, s.count), false)
+	m.emitOneLocked(s.nodeID, s.nodeKind, s.lineKey, s.line, s.count, true, false)
 	delete(m.segs, k)
 }
 
@@ -166,12 +166,12 @@ func (m *LogMerger) tick() {
 	}
 }
 
-func (m *LogMerger) emitOneLocked(nodeID, nodeKind, lineKey, line string, count int, final bool) {
+func (m *LogMerger) emitOneLocked(nodeID, nodeKind, lineKey, line string, count int, final, isError bool) {
 	if m.emit == nil {
 		return
 	}
 	m.emit("container:node-dump-batch", map[string]any{"entries": []map[string]any{
-		{"nodeId": nodeID, "nodeKind": nodeKind, "lineKey": lineKey, "line": line, "count": count, "final": final},
+		{"nodeId": nodeID, "nodeKind": nodeKind, "lineKey": lineKey, "line": line, "count": count, "final": final, "isError": isError},
 	}})
 }
 

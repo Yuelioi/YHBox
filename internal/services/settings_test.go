@@ -207,6 +207,14 @@ func TestSettingsValidate_OK(t *testing.T) {
 	}
 }
 
+func TestSettingsValidateRejectsUnknownLoggerLevel(t *testing.T) {
+	s := defaultSettings()
+	s.UI.Logger.Level = "verbose"
+	if err := s.Validate(); err == nil {
+		t.Fatal("unknown logger level validated")
+	}
+}
+
 func TestApplyMergePatch_DeepMergeUILogger(t *testing.T) {
 	s := defaultSettings()
 	patch := json.RawMessage(`{"ui":{"logger":{"panelOpen":false}}}`)
@@ -273,6 +281,9 @@ func TestLoadSettings_MissingFileReturnsDefault(t *testing.T) {
 	}
 	if s.UI.Logger.FileDir != "logs" {
 		t.Errorf("expected default FileDir=logs, got %q", s.UI.Logger.FileDir)
+	}
+	if !s.UI.Logger.Enabled || !s.UI.Logger.LiveView || s.UI.Logger.Level != "info" {
+		t.Fatalf("unexpected logger defaults: %+v", s.UI.Logger)
 	}
 }
 

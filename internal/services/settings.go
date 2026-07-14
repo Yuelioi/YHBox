@@ -166,6 +166,9 @@ type WindowSettings struct {
 }
 
 type LoggerSettings struct {
+	Enabled       bool   `json:"enabled"`   // master diagnostic switch; false stops production at source
+	LiveView      bool   `json:"liveView"`  // stream normalized batches to the main webview
+	Level         string `json:"level"`     // debug | info | warn | error
 	PanelOpen     bool   `json:"panelOpen"` // 面板折叠态 (false=折叠)
 	AutoScroll    bool   `json:"autoScroll"`
 	ShowTime      bool   `json:"showTime"`
@@ -181,6 +184,7 @@ func defaultSettings() *Settings {
 	return &Settings{
 		UI: UISettings{
 			Logger: LoggerSettings{
+				Enabled: true, LiveView: true, Level: "info",
 				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
 				WrapText: false, WriteFile: true, FileDir: "logs",
 			},
@@ -331,6 +335,12 @@ func (s *Settings) Validate() error {
 	// 窗口尺寸不强制下限（main.go 用 SetMinSize 兜底），但拦住明显无效值
 	if s.UI.Window.Width < 100 || s.UI.Window.Height < 100 {
 		return fmt.Errorf("ui.window 尺寸过小: %dx%d", s.UI.Window.Width, s.UI.Window.Height)
+	}
+	switch s.UI.Logger.Level {
+	case "debug", "info", "warn", "error":
+		// ok
+	default:
+		return fmt.Errorf("ui.logger.level 必须是 debug/info/warn/error，got %q", s.UI.Logger.Level)
 	}
 	if err := s.AI.validate(); err != nil {
 		return err

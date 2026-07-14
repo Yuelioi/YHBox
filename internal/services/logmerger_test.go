@@ -11,7 +11,7 @@ func newTestMerger() (*LogMerger, *[]string, *sync.Mutex) {
 	var files []string
 	m := NewLogMerger(
 		func(name string, data any) {},
-		func(line string) { mu.Lock(); files = append(files, line); mu.Unlock() },
+		func(line string, _ bool) { mu.Lock(); files = append(files, line); mu.Unlock() },
 	)
 	return m, &files, &mu
 }
@@ -95,7 +95,7 @@ func TestLogMerger_FlushEmitsUnflushedSegments(t *testing.T) {
 			emitted = append(emitted, es...)
 			mu.Unlock()
 		},
-		func(line string) {},
+		func(line string, _ bool) {},
 	)
 	defer m.Close()
 	// 模拟短图: 两节点各 dump 一次, 不等 tick 立刻 Flush.

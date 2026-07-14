@@ -39,13 +39,8 @@ func (s *SettingsService) Update(patchJSON string) error {
 					Msg("自启注册表更新失败（settings 仍已保存）")
 			}
 		}
-		if sink := s.app.GetLogSink(); sink != nil {
-			ls := cur.UI.Logger
-			dir := ls.FileDir
-			if !ls.WriteFile {
-				dir = ""
-			}
-			sink.SetFileWriter(dir)
+		if s.app.logs != nil {
+			s.app.logs.Configure(cur.UI.Logger)
 		}
 	})
 	if err != nil && cur == nil {

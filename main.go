@@ -54,11 +54,12 @@ var trayIcon []byte
 func main() {
 	platform.EnsureAdmin()
 
-	// 日志栈：zerolog → LogSink → wails3 Event.Emit + 顺便 append 到 logs/yotta-YYYYMMDD.log
+	// 日志栈：zerolog/container diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
-	// 启动期先按 default 接通 (settings 未加载, 用 "logs" 兜底)
-	logSink.SetFileWriter("logs")
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
+	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
+	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
+	app.ConfigureLogging()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
 	// → 新 layout（containers/<id>/{package.json,graph.json,installation.json,yotta-lock.json} + library/）。
@@ -67,19 +68,6 @@ func main() {
 	backupLegacyDataIfNeeded(rootLog)
 
 	ensureV2DataLayout(rootLog)
-
-	// App 协调器（不暴露 JS）
-	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
-
-	// app 加载完 settings 后按 settings.UI.Logger.WriteFile + FileDir 重新接通
-	{
-		ls := app.Settings().UI.Logger
-		dir := ls.FileDir
-		if !ls.WriteFile {
-			dir = ""
-		}
-		logSink.SetFileWriter(dir)
-	}
 
 	// Screenshot writer: 给 bot 异步落盘带标注 PNG 用，调试调参时打开 Capture.DumpDebug
 	// settings 在 debug/captures/<bot>/<date>/ 累积。默认关，写盘走独立 goroutine。
@@ -267,9 +255,6 @@ func main() {
 	// logs/yotta-*.log (LogSink) 给 post-mortem 用.
 	templateMatcher := newTemplateMatcherAdapter(assetStore, func(name string, payload map[string]any) {
 		app.Emit(name, payload)
-		if name == "container:warning" {
-			rootLog.Warn().Interface("payload", payload).Msg("container warning")
-		}
 	})
 	// 用户在编辑器里存/删/重拍资产后, 让 matcher 丢弃解码缓存 (否则重拍换 blob 后旧图还在匹配).
 	asset.ConfigureChangeListener(assetSvc, templateMatcher.Invalidate)
@@ -280,9 +265,6 @@ func main() {
 	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
 	emitForRuntime := func(name string, data any) {
 		app.Emit(name, data)
-		if name == "container:warning" {
-			rootLog.Warn().Interface("payload", data).Msg("container warning")
-		}
 	}
 	newRunnerForContainer := func(containerID string) (*containerruntime.ContainerRunner, error) {
 		c, ok := containerStore.Get(containerID)
@@ -295,11 +277,12 @@ func main() {
 			clipSvc, app.Settings().ActiveMouseCounts360(),
 		)
 		rt.ControllerFactory = containerruntime.DefaultControllerFactory{BrowserCDP: browserCDPProvider}
+		rt.SetDiagnosticsEnabled(app.DiagnosticsEnabled)
 		// 起跑时从全局池解析引用闭包 → 快照进 rt (跑中不回查 store, 编辑不影响在跑实例).
 		rt.Subgraphs = subgraphClosureFor(&c, sgStore)
 		r := containerruntime.NewContainerRunner(rt)
 		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
-		r.SetLogger(rootLog)
+		r.SetLogger(rootLog.With().Str("source", "CTR").Str("containerId", containerID).Logger())
 		r.SetAIProvider(aiProviderCache)
 		return r, nil
 	}
@@ -565,13 +548,15 @@ func main() {
 	// tools secondary windows/event delivery become ready with the GUI runtime.
 	toolsPresenter.Attach(wailsApp)
 
-	// 装配 LogSink emit（这样 logSink Write 触发 flush 时会推 log:lines 给前端）
-	logSink.SetEmit(func(e services.LogLinesEvent) {
-		wailsApp.Event.Emit(services.EventLogLines, e)
+	// 装配统一日志 transport（system/runtime/dump/trace 都经 log:batch）。
+	logSink.SetEmit(func(e services.LogBatchEvent) {
+		if app.LogStreamingEnabled() {
+			wailsApp.Event.Emit(services.EventLogBatch, e)
+		}
 	})
 
 	// 注册事件 payload 类型（让 bindings 生成器产 TS 类型）
-	application.RegisterEvent[services.LogLinesEvent](services.EventLogLines)
+	application.RegisterEvent[services.LogBatchEvent](services.EventLogBatch)
 
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window

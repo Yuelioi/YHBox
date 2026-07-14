@@ -49,6 +49,7 @@ type RuntimeContext struct {
 
 	traceMu       sync.Mutex
 	traceRecorder *automationtrace.MemoryRecorder
+	diagnosticsOn func() bool
 
 	// 粘性活动窗口寄存器. 运行时由 Win32WindowTarget.Run 经 SetActiveWindow 改写;
 	// 输入/检测节点 + EventTick listener goroutine 经 WindowHandle()/ActiveHWND() 并发读.
@@ -140,7 +141,18 @@ func (rt *RuntimeContext) TraceRecorder() automationtrace.Recorder {
 		base:        rt.ensureTraceRecorder(),
 		containerID: containerID,
 		emit:        rt.Emit,
+		enabled:     rt.DiagnosticsEnabled,
 	}
+}
+
+// SetDiagnosticsEnabled installs a live policy predicate. Runtime diagnostics
+// query it before resolving dump inputs or allocating action-trace payloads.
+func (rt *RuntimeContext) SetDiagnosticsEnabled(enabled func() bool) {
+	rt.diagnosticsOn = enabled
+}
+
+func (rt *RuntimeContext) DiagnosticsEnabled() bool {
+	return rt.diagnosticsOn == nil || rt.diagnosticsOn()
 }
 
 func (rt *RuntimeContext) TraceRecords() []automationtrace.ActionRecord {

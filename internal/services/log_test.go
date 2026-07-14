@@ -10,14 +10,17 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 func TestLogSink_AppendDumpLine_FileOnly(t *testing.T) {
 	dir := t.TempDir()
 	emitted := 0
-	s := NewLogSink(func(LogLinesEvent) { emitted++ })
+	s := NewLogSink(func(LogBatchEvent) { emitted++ })
 	s.SetFileWriter(dir)
 	s.AppendDumpLine(`CheckTemplate(n1) in{a=1} ×3`)
+	s.Flush()
 
 	files, _ := os.ReadDir(dir)
 	if len(files) == 0 {
@@ -28,15 +31,15 @@ func TestLogSink_AppendDumpLine_FileOnly(t *testing.T) {
 		t.Fatalf("dump line not in file: %s", data)
 	}
 	if emitted != 0 {
-		t.Fatalf("AppendDumpLine must not emit log:lines, emitted=%d", emitted)
+		t.Fatalf("AppendDumpLine must not emit log:batch, emitted=%d", emitted)
 	}
 	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
 }
 
-func TestLogSink_AppendActionTrace_FileOnlyRedacted(t *testing.T) {
+func TestLogSink_AppendActionTrace_StreamsAndPersistsRedacted(t *testing.T) {
 	dir := t.TempDir()
 	emitted := 0
-	s := NewLogSink(func(LogLinesEvent) { emitted++ })
+	s := NewLogSink(func(LogBatchEvent) { emitted++ })
 	s.SetFileWriter(dir)
 	s.AppendActionTrace(map[string]any{
 		"containerId": "container-1",
@@ -58,6 +61,8 @@ func TestLogSink_AppendActionTrace_FileOnlyRedacted(t *testing.T) {
 		"coordinateSteps": []any{map[string]any{"Input": "raw coords"}},
 		"durationMs":      12,
 	})
+	s.drain()
+	s.Flush()
 
 	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
 	if len(files) != 1 {
@@ -79,16 +84,16 @@ func TestLogSink_AppendActionTrace_FileOnlyRedacted(t *testing.T) {
 	if target["id"] != "win32:100" || target["kind"] != "win32-window" {
 		t.Fatalf("target not sanitized as expected: %#v", target)
 	}
-	if emitted != 0 {
-		t.Fatalf("AppendActionTrace must not emit log:lines, emitted=%d", emitted)
+	if emitted != 1 {
+		t.Fatalf("AppendActionTrace must emit one normalized batch, emitted=%d", emitted)
 	}
 	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
 }
 
 func TestLogSink_DebounceFlush(t *testing.T) {
-	var got []LogLinesEvent
+	var got []LogBatchEvent
 	var mu sync.Mutex
-	sink := NewLogSink(func(e LogLinesEvent) {
+	sink := NewLogSink(func(e LogBatchEvent) {
 		mu.Lock()
 		got = append(got, e)
 		mu.Unlock()
@@ -102,8 +107,8 @@ func TestLogSink_DebounceFlush(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 emit, got %d", len(got))
 	}
-	if len(got[0].Lines) != 2 {
-		t.Errorf("expected 2 lines, got %d", len(got[0].Lines))
+	if len(got[0].Entries) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(got[0].Entries))
 	}
 	if got[0].Seq != 1 {
 		t.Errorf("expected seq=1, got %d", got[0].Seq)
@@ -112,7 +117,7 @@ func TestLogSink_DebounceFlush(t *testing.T) {
 
 func TestLogSink_SeqMonotonic(t *testing.T) {
 	seqs := make(chan uint64, 3)
-	sink := NewLogSink(func(e LogLinesEvent) {
+	sink := NewLogSink(func(e LogBatchEvent) {
 		seqs <- e.Seq
 	})
 
@@ -137,7 +142,7 @@ func TestLogSink_DoesNotDeliverLaterBatchBeforeBlockedCallback(t *testing.T) {
 	firstStarted := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	delivered := make(chan uint64, 2)
-	sink := NewLogSink(func(e LogLinesEvent) {
+	sink := NewLogSink(func(e LogBatchEvent) {
 		if e.Seq == 1 {
 			close(firstStarted)
 			<-releaseFirst
@@ -183,7 +188,7 @@ func TestLogSink_DoesNotDeliverLaterBatchBeforeBlockedCallback(t *testing.T) {
 func TestLogSink_CloseIsSafeFromEmitCallback(t *testing.T) {
 	done := make(chan error, 1)
 	var sink *LogSink
-	sink = NewLogSink(func(LogLinesEvent) {
+	sink = NewLogSink(func(LogBatchEvent) {
 		done <- sink.Close()
 	})
 	sink.Write([]byte("line\n"))
@@ -224,8 +229,8 @@ func TestLogSinkCloseClosesFileAndRejectsLateWrites(t *testing.T) {
 func TestLogSink_BoundsQueuedLinesBehindSlowEmitter(t *testing.T) {
 	firstStarted := make(chan struct{})
 	releaseFirst := make(chan struct{})
-	delivered := make(chan LogLinesEvent, 2)
-	sink := NewLogSink(func(event LogLinesEvent) {
+	delivered := make(chan LogBatchEvent, 2)
+	sink := NewLogSink(func(event LogBatchEvent) {
 		if event.Seq == 1 {
 			close(firstStarted)
 			<-releaseFirst
@@ -244,7 +249,7 @@ func TestLogSink_BoundsQueuedLinesBehindSlowEmitter(t *testing.T) {
 
 	sink.mu.Lock()
 	queuedBatches := len(sink.deliveries)
-	queuedLines := len(sink.deliveries[0].event.Lines)
+	queuedLines := len(sink.deliveries[0].event.Entries)
 	sink.mu.Unlock()
 	if queuedBatches != 1 {
 		t.Fatalf("queued batches=%d, want 1 coalesced batch", queuedBatches)
@@ -261,8 +266,8 @@ func TestLogSink_BoundsQueuedLinesBehindSlowEmitter(t *testing.T) {
 			if event.Seq != wantSeq {
 				t.Fatalf("got seq=%d, want %d", event.Seq, wantSeq)
 			}
-			if wantSeq == 2 && !strings.Contains(event.Lines[0], "log-delivery-overflow") {
-				t.Fatalf("overflow delivery missing warning: %q", event.Lines[0])
+			if wantSeq == 2 && event.Dropped == 0 {
+				t.Fatal("overflow delivery missing dropped count")
 			}
 		case <-time.After(time.Second):
 			t.Fatalf("timed out waiting for seq=%d", wantSeq)
@@ -272,7 +277,7 @@ func TestLogSink_BoundsQueuedLinesBehindSlowEmitter(t *testing.T) {
 
 func TestLogSink_MaxBatchTriggersImmediateFlush(t *testing.T) {
 	var emitCount atomic.Int32
-	sink := NewLogSink(func(e LogLinesEvent) {
+	sink := NewLogSink(func(e LogBatchEvent) {
 		emitCount.Add(1)
 	})
 
@@ -290,8 +295,8 @@ func TestLogSink_MaxBatchTriggersImmediateFlush(t *testing.T) {
 
 func TestLogSink_PartialLineBuffered(t *testing.T) {
 	var mu sync.Mutex
-	var got []LogLinesEvent
-	sink := NewLogSink(func(e LogLinesEvent) {
+	var got []LogBatchEvent
+	sink := NewLogSink(func(e LogBatchEvent) {
 		mu.Lock()
 		got = append(got, e)
 		mu.Unlock()
@@ -316,8 +321,8 @@ func TestLogSink_PartialLineBuffered(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 emit after newline, got %d", len(got))
 	}
-	if got[0].Lines[0] != "incomplete continued" {
-		t.Errorf("partial concat wrong: %q", got[0].Lines[0])
+	if got[0].Entries[0].Message != "incomplete continued" {
+		t.Errorf("partial concat wrong: %q", got[0].Entries[0].Message)
 	}
 }
 
@@ -335,8 +340,8 @@ func TestLogSink_SnapshotRingBuffer(t *testing.T) {
 
 func TestLogSink_Flush(t *testing.T) {
 	var mu sync.Mutex
-	var got []LogLinesEvent
-	sink := NewLogSink(func(e LogLinesEvent) {
+	var got []LogBatchEvent
+	sink := NewLogSink(func(e LogBatchEvent) {
 		mu.Lock()
 		got = append(got, e)
 		mu.Unlock()
@@ -390,4 +395,110 @@ func TestLogSink_SetFileWriter_Reopen(t *testing.T) {
 		t.Fatalf("line b should be in file after re-enable, got: %s", string(data))
 	}
 	sink.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
+}
+
+func TestLogRuntime_MasterOffStopsSourceAndAllDestinations(t *testing.T) {
+	defer zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	dir := t.TempDir()
+	emitted := 0
+	sink := NewLogSink(func(LogBatchEvent) { emitted++ })
+	runtime := NewLogRuntime(sink)
+	settings := defaultSettings().UI.Logger
+	settings.Enabled = false
+	settings.FileDir = dir
+	runtime.Configure(settings)
+
+	logger := zerolog.New(sink)
+	logger.Error().Str("expensive", strings.Repeat("x", 128)).Msg("must not be built")
+	sink.Flush()
+
+	if emitted != 0 || sink.Snapshot() != "" {
+		t.Fatalf("disabled logger produced output: emitted=%d snapshot=%q", emitted, sink.Snapshot())
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if err != nil || len(files) != 0 {
+		t.Fatalf("disabled logger created files: files=%v err=%v", files, err)
+	}
+}
+
+func TestLogRuntime_LiveAndFileDestinationsAreIndependent(t *testing.T) {
+	defer zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	dir := t.TempDir()
+	emitted := 0
+	sink := NewLogSink(func(LogBatchEvent) { emitted++ })
+	runtime := NewLogRuntime(sink)
+	settings := defaultSettings().UI.Logger
+	settings.LiveView = false
+	settings.WriteFile = true
+	settings.FileDir = dir
+	runtime.Configure(settings)
+
+	logger := zerolog.New(sink)
+	logger.Info().Msg("file only")
+	sink.Flush()
+	if emitted != 0 || sink.Snapshot() != "" {
+		t.Fatalf("file-only logger reached presentation: emitted=%d snapshot=%q", emitted, sink.Snapshot())
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
+	if len(files) != 1 {
+		t.Fatalf("file-only logger files=%v", files)
+	}
+	data, _ := os.ReadFile(files[0])
+	if !strings.Contains(string(data), "file only") {
+		t.Fatalf("file-only logger did not persist message: %s", data)
+	}
+	_ = sink.Close()
+}
+
+func TestLogRuntime_MinimumLevelFiltersBeforeSink(t *testing.T) {
+	defer zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	var got LogBatchEvent
+	sink := NewLogSink(func(event LogBatchEvent) { got = event })
+	runtime := NewLogRuntime(sink)
+	settings := defaultSettings().UI.Logger
+	settings.Level = "warn"
+	settings.WriteFile = false
+	runtime.Configure(settings)
+
+	logger := zerolog.New(sink)
+	logger.Info().Msg("filtered")
+	logger.Warn().Msg("kept")
+	sink.drain()
+	if len(got.Entries) != 1 || got.Entries[0].Message != "kept" {
+		t.Fatalf("minimum level entries=%#v", got.Entries)
+	}
+}
+
+func BenchmarkLogSinkWrite(b *testing.B) {
+	line := []byte(`{"time":"2026-07-14T00:00:00Z","level":"info","message":"benchmark"}` + "\n")
+	b.Run("stream-disabled", func(b *testing.B) {
+		sink := NewLogSink(nil)
+		sink.SetStreamEnabled(false)
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = sink.Write(line)
+		}
+	})
+	b.Run("stream-enabled", func(b *testing.B) {
+		sink := NewLogSink(nil)
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = sink.Write(line)
+		}
+	})
+}
+
+func BenchmarkLoggerSourceDisabled(b *testing.B) {
+	defer zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	sink := NewLogSink(nil)
+	runtime := NewLogRuntime(sink)
+	settings := defaultSettings().UI.Logger
+	settings.Enabled = false
+	runtime.Configure(settings)
+	logger := zerolog.New(sink)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		logger.Info().Str("field", "value").Msg("disabled")
+	}
 }

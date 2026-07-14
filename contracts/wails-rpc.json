@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 112,
-    "models": 91
+    "models": 92
   },
   "services": [
     {
@@ -3652,8 +3652,110 @@
         },
         {
           "kind": "class",
+          "name": "LogBatchEvent",
+          "fields": [
+            {
+              "name": "\"seq\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"entries\"",
+              "optional": false,
+              "type": "LogEntry[]"
+            },
+            {
+              "name": "\"dropped\"",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "LogEntry",
+          "fields": [
+            {
+              "name": "\"time\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"level\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"source\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tag\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"message\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"fields\"",
+              "optional": true,
+              "type": "any"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lineKey\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"final\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"trace\"",
+              "optional": true,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "LoggerSettings",
           "fields": [
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"liveView\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"level\"",
+              "optional": false,
+              "type": "string"
+            },
             {
               "name": "\"panelOpen\"",
               "optional": false,
@@ -3693,22 +3795,6 @@
               "name": "\"fileDir\"",
               "optional": false,
               "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "LogLinesEvent",
-          "fields": [
-            {
-              "name": "\"seq\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"lines\"",
-              "optional": false,
-              "type": "string[]"
             }
           ]
         },

@@ -20,9 +20,24 @@ import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
-export interface LogLinesEvent {
+export interface BackendLogEntry {
+  time: string
+  level: string
+  source: 'SYS' | 'CTR'
+  kind: 'system' | 'log' | 'node' | 'dump' | 'action'
+  tag?: string
+  message: string
+  fields?: unknown
+  nodeId?: string
+  lineKey?: string
+  count?: number
+  final?: boolean
+  trace?: unknown
+}
+export interface LogBatchEvent {
   seq: number
-  lines: string[]
+  entries: BackendLogEntry[]
+  dropped?: number
 }
 // HotkeyEntry 跟 Go services.HotkeyEntry 对齐。Normalized 字段后端故意不导出 — 前端不依赖
 // canonicalization 规则。冲突 / reserved / 验证错误通过 error message 前缀 [conflict] /
@@ -535,8 +550,8 @@ export const backend = {
   },
   events: {
     // 共享事件
-    onLogLines: (cb: (e: LogLinesEvent) => void) =>
-      Events.On(E.EVENT_LOG_LINES, (e: any) => cb(e.data)),
+    onLogBatch: (cb: (e: LogBatchEvent) => void) =>
+      Events.On(E.EVENT_LOG_BATCH, (e: any) => cb(e?.data?.[0] ?? e?.data ?? e)),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
   },
 }

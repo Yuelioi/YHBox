@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,40 +13,46 @@ import (
 )
 
 const (
-	flushDebounce = 80 * time.Millisecond
-	maxBatchLines = 128 // 极端情况下立刻 flush，不等 debounce
-	ringCapacity  = 500 // GUI snapshot 用，不影响 emit 量
+	flushDebounce  = 80 * time.Millisecond
+	fileFlushDelay = 250 * time.Millisecond
+	maxBatchLines  = 128 // 极端情况下立刻 flush，不等 debounce
+	ringCapacity   = 500 // GUI snapshot 用，不影响 emit 量
 	// A blocked presentation callback may accumulate one queued delivery. Keep
 	// its newest lines bounded; the ring snapshot remains the recovery source.
 	maxQueuedDeliveryLines = 4 * ringCapacity
+	fileBufferSize         = 64 * 1024
 )
 
 // LogSink 实现 io.Writer。zerolog 输出 JSON Lines → 按 \n 切行 →
-// trailing-edge debounce + maxBatch 双保险 → flush 时给 emit 加单调 seq → 推 log:lines。
+// trailing-edge debounce + maxBatch 双保险 → flush 时给 emit 加单调 seq → 推 log:batch。
 // 同时把每完整行原始 bytes 顺手写入 logs/yotta-YYYYMMDD.log (post-mortem 调试).
 type LogSink struct {
 	mu               sync.Mutex
 	buf              strings.Builder // 累积未完整行
-	ring             []string        // 最近完整行（GUI snapshot 用）
-	pending          []string        // 自上次 flush 起新增的行
+	ring             []LogEntry      // 最近完整 entry（GUI snapshot 用）
+	ringStart        int             // ring 满后最旧 entry 的索引
+	pending          []LogEntry      // 自上次 flush 起新增的 entry
 	timer            *time.Timer
 	seq              atomic.Uint64
-	emit             func(LogLinesEvent) // flush 时调；外部装配（app.Emit）
+	emit             func(LogBatchEvent) // flush 时调；外部装配（app.Emit）
+	streamEnabled    bool
 	emitGeneration   uint64
 	deliveries       []logDelivery // FIFO，保证 seq 按生成顺序交付
 	delivering       bool
 	lastDeliveryDone <-chan struct{}
 	file             *os.File // 当日日志文件 (logs/yotta-YYYYMMDD.log), 持续 append
-	fileDay          string   // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
-	fileDir          string   // logs 目录路径
+	fileBuf          *bufio.Writer
+	fileTimer        *time.Timer
+	fileDay          string // file 是哪天的 (YYYYMMDD), 跨天自动 rotate
+	fileDir          string // logs 目录路径
 	closed           bool
 	closeOnce        sync.Once
 	closeErr         error
 }
 
 type logDelivery struct {
-	event          LogLinesEvent
-	emit           func(LogLinesEvent)
+	event          LogBatchEvent
+	emit           func(LogBatchEvent)
 	emitGeneration uint64
 	droppedLines   uint64
 	done           chan struct{}
@@ -53,10 +60,36 @@ type logDelivery struct {
 
 // NewLogSink 创建一个 sink。emit 可为 nil（测试用），nil 时仅维护 ring。
 // logsDir 不空时启用 file 持久化 (按天 rotate). 空时仅 ring buffer.
-func NewLogSink(emit func(LogLinesEvent)) *LogSink {
+func NewLogSink(emit func(LogBatchEvent)) *LogSink {
 	return &LogSink{
-		ring: make([]string, 0, ringCapacity),
-		emit: emit,
+		ring:          make([]LogEntry, 0, ringCapacity),
+		emit:          emit,
+		streamEnabled: true,
+	}
+}
+
+// SetStreamEnabled controls presentation capture. Disabling it drops pending
+// and queued UI work immediately while leaving file persistence independent.
+func (s *LogSink) SetStreamEnabled(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.streamEnabled == enabled {
+		return
+	}
+	s.streamEnabled = enabled
+	if enabled {
+		return
+	}
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
+	s.pending = nil
+	s.ring = s.ring[:0]
+	s.ringStart = 0
+	s.emitGeneration++
+	for i := range s.deliveries {
+		s.deliveries[i].emit = nil
 	}
 }
 
@@ -72,11 +105,19 @@ func (s *LogSink) SetFileWriter(dir string) {
 	if dir == "" {
 		// 关: 关现有文件, 清 dir 状态
 		if s.file != nil {
+			if s.fileBuf != nil {
+				_ = s.fileBuf.Flush()
+			}
 			_ = s.file.Close()
 			s.file = nil
+			s.fileBuf = nil
 		}
 		s.fileDir = ""
 		s.fileDay = ""
+		if s.fileTimer != nil {
+			s.fileTimer.Stop()
+			s.fileTimer = nil
+		}
 		return
 	}
 
@@ -94,8 +135,12 @@ func (s *LogSink) openTodayFileLocked() {
 		return
 	}
 	if s.file != nil {
+		if s.fileBuf != nil {
+			_ = s.fileBuf.Flush()
+		}
 		_ = s.file.Close()
 		s.file = nil
+		s.fileBuf = nil
 	}
 	path := filepath.Join(s.fileDir, "yotta-"+day+".log")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -104,18 +149,26 @@ func (s *LogSink) openTodayFileLocked() {
 		return
 	}
 	s.file = f
+	s.fileBuf = bufio.NewWriterSize(f, fileBufferSize)
 	s.fileDay = day
 }
 
 // SetEmit 装配 emit 回调（main.go 在 wailsApp 构造完成后调）。
-func (s *LogSink) SetEmit(emit func(LogLinesEvent)) {
+func (s *LogSink) SetEmit(emit func(LogBatchEvent)) {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
 		return
 	}
+	wasDetached := s.emit == nil
 	s.emit = emit
 	s.emitGeneration++
+	if emit != nil && wasDetached && len(s.pending) == 0 {
+		s.pending = s.ringEntriesLocked()
+	}
+	if emit != nil && s.streamEnabled && len(s.pending) > 0 && s.timer == nil {
+		s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
+	}
 	s.mu.Unlock()
 }
 
@@ -126,8 +179,13 @@ func (s *LogSink) Write(p []byte) (int, error) {
 		s.mu.Unlock()
 		return 0, os.ErrClosed
 	}
+	if !s.streamEnabled && s.fileDir == "" {
+		s.mu.Unlock()
+		return len(p), nil
+	}
 	s.buf.Write(p)
 	current := s.buf.String()
+	urgentFileFlush := false
 
 	for {
 		idx := strings.IndexByte(current, '\n')
@@ -136,21 +194,32 @@ func (s *LogSink) Write(p []byte) (int, error) {
 		}
 		line := current[:idx]
 		current = current[idx+1:]
-		s.appendLineLocked(line)
-		s.pending = append(s.pending, line)
+		s.appendFileLineLocked(line)
+		if s.streamEnabled {
+			entry := parseSystemLogEntry(line)
+			s.appendEntryLocked(entry)
+			urgentFileFlush = urgentFileFlush || entry.Level == "warn" || entry.Level == "error" || entry.Level == "fatal"
+		} else if s.fileDir != "" {
+			// File-only mode still flushes warnings/failures promptly.
+			entry := parseSystemLogEntry(line)
+			urgentFileFlush = urgentFileFlush || entry.Level == "warn" || entry.Level == "error" || entry.Level == "fatal"
+		}
 	}
 	s.buf.Reset()
 	s.buf.WriteString(current)
+	if urgentFileFlush {
+		s.flushFileLocked()
+	}
 
 	// maxBatch 触发：立刻 flush 不等 debounce
-	if len(s.pending) >= maxBatchLines {
+	if s.streamEnabled && len(s.pending) >= maxBatchLines {
 		s.flushLocked()
 		s.mu.Unlock()
 		return len(p), nil
 	}
 
 	// 否则 debounce：第一次 pending 时起 timer，已有 timer 不重置
-	if s.timer == nil && s.emit != nil {
+	if s.streamEnabled && s.timer == nil && s.emit != nil && len(s.pending) > 0 {
 		s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
 	}
 	s.mu.Unlock()
@@ -174,12 +243,15 @@ func (s *LogSink) flushLocked() {
 	if len(s.pending) == 0 {
 		return
 	}
-	lines := append([]string(nil), s.pending...)
+	if s.emit == nil {
+		return
+	}
+	entries := append([]LogEntry(nil), s.pending...)
 	s.pending = nil
 	if count := len(s.deliveries); count > 0 {
 		last := &s.deliveries[count-1]
 		if last.emitGeneration == s.emitGeneration {
-			s.appendQueuedLinesLocked(last, lines)
+			s.appendQueuedEntriesLocked(last, entries)
 			return
 		}
 	}
@@ -188,12 +260,12 @@ func (s *LogSink) flushLocked() {
 
 	done := make(chan struct{})
 	delivery := logDelivery{
-		event:          LogLinesEvent{Seq: seq},
+		event:          LogBatchEvent{Seq: seq},
 		emit:           cb,
 		emitGeneration: s.emitGeneration,
 		done:           done,
 	}
-	s.appendQueuedLinesLocked(&delivery, lines)
+	s.appendQueuedEntriesLocked(&delivery, entries)
 	s.lastDeliveryDone = done
 	s.deliveries = append(s.deliveries, delivery)
 	if !s.delivering {
@@ -202,25 +274,25 @@ func (s *LogSink) flushLocked() {
 	}
 }
 
-func (s *LogSink) appendQueuedLinesLocked(delivery *logDelivery, lines []string) {
-	combined := len(delivery.event.Lines) + len(lines)
+func (s *LogSink) appendQueuedEntriesLocked(delivery *logDelivery, entries []LogEntry) {
+	combined := len(delivery.event.Entries) + len(entries)
 	if combined <= maxQueuedDeliveryLines {
-		delivery.event.Lines = append(delivery.event.Lines, lines...)
+		delivery.event.Entries = append(delivery.event.Entries, entries...)
 		return
 	}
 
 	overflow := combined - maxQueuedDeliveryLines
 	delivery.droppedLines += uint64(overflow)
-	bounded := make([]string, 0, maxQueuedDeliveryLines)
-	if len(lines) >= maxQueuedDeliveryLines {
-		bounded = append(bounded, lines[len(lines)-maxQueuedDeliveryLines:]...)
+	bounded := make([]LogEntry, 0, maxQueuedDeliveryLines)
+	if len(entries) >= maxQueuedDeliveryLines {
+		bounded = append(bounded, entries[len(entries)-maxQueuedDeliveryLines:]...)
 	} else {
-		keepExisting := maxQueuedDeliveryLines - len(lines)
-		existing := delivery.event.Lines
+		keepExisting := maxQueuedDeliveryLines - len(entries)
+		existing := delivery.event.Entries
 		bounded = append(bounded, existing[len(existing)-keepExisting:]...)
-		bounded = append(bounded, lines...)
+		bounded = append(bounded, entries...)
 	}
-	delivery.event.Lines = bounded
+	delivery.event.Entries = bounded
 }
 
 // deliver serializes callbacks without holding s.mu, preserving sequence order
@@ -241,11 +313,7 @@ func (s *LogSink) deliver() {
 
 		if delivery.emit != nil {
 			if delivery.droppedLines > 0 {
-				warning := fmt.Sprintf(
-					`{"level":"warn","event":"log-delivery-overflow","dropped":%d,"message":"presentation log delivery was slower than producers"}`,
-					delivery.droppedLines,
-				)
-				delivery.event.Lines = append([]string{warning}, delivery.event.Lines...)
+				delivery.event.Dropped = delivery.droppedLines
 			}
 			delivery.emit(delivery.event)
 		}
@@ -258,6 +326,7 @@ func (s *LogSink) deliver() {
 func (s *LogSink) Flush() {
 	s.mu.Lock()
 	s.flushLocked()
+	s.flushFileLocked()
 	s.mu.Unlock()
 }
 
@@ -274,24 +343,148 @@ func (s *LogSink) drain() {
 	}
 }
 
-// appendLineLocked 持锁加一行到 ring + file (如启用).
-func (s *LogSink) appendLineLocked(line string) {
+func (s *LogSink) appendEntryLocked(entry LogEntry) {
 	if len(s.ring) >= ringCapacity {
-		copy(s.ring, s.ring[1:])
-		s.ring[len(s.ring)-1] = line
+		s.ring[s.ringStart] = entry
+		s.ringStart = (s.ringStart + 1) % ringCapacity
 	} else {
-		s.ring = append(s.ring, line)
+		s.ring = append(s.ring, entry)
 	}
+	if s.emit != nil {
+		s.pending = append(s.pending, entry)
+	}
+}
+
+func (s *LogSink) ringEntriesLocked() []LogEntry {
+	if len(s.ring) < ringCapacity || s.ringStart == 0 {
+		return append([]LogEntry(nil), s.ring...)
+	}
+	entries := make([]LogEntry, 0, len(s.ring))
+	entries = append(entries, s.ring[s.ringStart:]...)
+	entries = append(entries, s.ring[:s.ringStart]...)
+	return entries
+}
+
+func (s *LogSink) appendFileLineLocked(line string) {
 	if s.fileDir != "" {
 		s.openTodayFileLocked()
-		if s.file != nil {
-			_, _ = s.file.WriteString(line)
-			_, _ = s.file.WriteString("\n")
+		if s.fileBuf != nil {
+			_, _ = s.fileBuf.WriteString(line)
+			_ = s.fileBuf.WriteByte('\n')
+			s.scheduleFileFlushLocked()
 		}
 	}
 }
 
-// AppendDumpLine 把一条 opt-in 节点 dump 行只写进文件 (不进 ring / 不 emit log:lines,
+func (s *LogSink) scheduleFileFlushLocked() {
+	if s.fileTimer == nil {
+		s.fileTimer = time.AfterFunc(fileFlushDelay, s.flushFileAsync)
+	}
+}
+
+func (s *LogSink) flushFileAsync() {
+	s.mu.Lock()
+	s.flushFileLocked()
+	s.mu.Unlock()
+}
+
+func (s *LogSink) flushFileLocked() {
+	if s.fileTimer != nil {
+		s.fileTimer.Stop()
+		s.fileTimer = nil
+	}
+	if s.fileBuf != nil {
+		_ = s.fileBuf.Flush()
+	}
+}
+
+func parseSystemLogEntry(line string) LogEntry {
+	entry := LogEntry{Time: time.Now().Format(time.RFC3339Nano), Level: "info", Source: "SYS", Kind: "system", Message: line}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		entry.Level = "error"
+		return entry
+	}
+	if value, ok := raw["time"].(string); ok {
+		entry.Time = value
+	}
+	if value, ok := raw["level"].(string); ok {
+		entry.Level = value
+	}
+	if value, ok := raw["tag"].(string); ok {
+		entry.Tag = value
+	}
+	if value, ok := raw["message"].(string); ok {
+		entry.Message = value
+	}
+	if value, ok := raw["source"].(string); ok && strings.EqualFold(value, "CTR") {
+		entry.Source = "CTR"
+		entry.Kind = "log"
+	}
+	for _, key := range []string{"time", "level", "source", "tag", "message"} {
+		delete(raw, key)
+	}
+	if len(raw) > 0 {
+		entry.Fields = raw
+	}
+	return entry
+}
+
+// AppendEntries adds already-normalized runtime diagnostics to the same
+// bounded/debounced transport used by zerolog output.
+func (s *LogSink) AppendEntries(entries ...LogEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || !s.streamEnabled {
+		return
+	}
+	for _, entry := range entries {
+		if entry.Time == "" {
+			entry.Time = time.Now().Format(time.RFC3339Nano)
+		}
+		s.appendEntryLocked(entry)
+	}
+	if len(s.pending) >= maxBatchLines {
+		s.flushLocked()
+	} else if s.timer == nil && s.emit != nil {
+		s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
+	}
+}
+
+// AppendRuntimeLog preserves the legacy structured runtime log path while
+// using the same independent stream/file destinations as zerolog output.
+func (s *LogSink) AppendRuntimeLog(level, message string) {
+	entry := LogEntry{
+		Time: time.Now().Format(time.RFC3339Nano), Level: level, Source: "CTR", Kind: "log", Message: message,
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	if s.streamEnabled {
+		s.appendEntryLocked(entry)
+		if len(s.pending) >= maxBatchLines {
+			s.flushLocked()
+		} else if s.timer == nil && s.emit != nil {
+			s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
+		}
+	}
+	if s.fileDir != "" {
+		encoded, _ := json.Marshal(map[string]any{
+			"time": entry.Time, "level": entry.Level, "source": entry.Source, "message": entry.Message,
+		})
+		s.appendFileLineLocked(string(encoded))
+		if level == "warn" || level == "error" || level == "fatal" {
+			s.flushFileLocked()
+		}
+	}
+}
+
+// AppendDumpLine 把一条 opt-in 节点 dump 行只写进文件 (不进 ring / 不 emit log:batch,
 // 避免与前端 container:node-dump-batch 双显). 写成 JSON 行, 与现有 file log 保持一致.
 func (s *LogSink) AppendDumpLine(line string) {
 	s.mu.Lock()
@@ -300,7 +493,7 @@ func (s *LogSink) AppendDumpLine(line string) {
 		return
 	}
 	s.openTodayFileLocked()
-	if s.file == nil {
+	if s.fileBuf == nil {
 		return
 	}
 	obj := map[string]any{
@@ -310,8 +503,9 @@ func (s *LogSink) AppendDumpLine(line string) {
 		"time":  time.Now().Format(time.RFC3339Nano),
 	}
 	b, _ := json.Marshal(obj)
-	_, _ = s.file.Write(b)
-	_, _ = s.file.WriteString("\n")
+	_, _ = s.fileBuf.Write(b)
+	_ = s.fileBuf.WriteByte('\n')
+	s.scheduleFileFlushLocked()
 }
 
 // AppendActionTrace writes a redacted action trace JSON line to the file log only.
@@ -320,16 +514,51 @@ func (s *LogSink) AppendActionTrace(data any) {
 	line := sanitizeActionTrace(data)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed || s.fileDir == "" {
+	if s.closed {
 		return
 	}
-	s.openTodayFileLocked()
-	if s.file == nil {
-		return
+	if s.streamEnabled {
+		entry := actionTraceLogEntry(line, data)
+		s.appendEntryLocked(entry)
+		if len(s.pending) >= maxBatchLines {
+			s.flushLocked()
+		} else if s.timer == nil && s.emit != nil {
+			s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
+		}
 	}
-	b, _ := json.Marshal(line)
-	_, _ = s.file.Write(b)
-	_, _ = s.file.WriteString("\n")
+	if s.fileDir != "" {
+		s.openTodayFileLocked()
+		if s.fileBuf != nil {
+			b, _ := json.Marshal(line)
+			_, _ = s.fileBuf.Write(b)
+			_ = s.fileBuf.WriteByte('\n')
+			s.scheduleFileFlushLocked()
+		}
+	}
+}
+
+func actionTraceLogEntry(sanitized map[string]any, raw any) LogEntry {
+	action, _ := sanitized["action"].(string)
+	status, _ := sanitized["status"].(string)
+	backend, _ := sanitized["backend"].(string)
+	errorText, _ := sanitized["error"].(string)
+	message := action
+	if status != "" {
+		message += " " + status
+	}
+	if duration, ok := sanitized["durationMs"]; ok {
+		message += fmt.Sprintf(" %vms", duration)
+	}
+	if backend != "" {
+		message += " via " + backend
+	}
+	if errorText != "" {
+		message += ": " + errorText
+	}
+	return LogEntry{
+		Time: time.Now().Format(time.RFC3339Nano), Level: "info", Source: "CTR", Kind: "action",
+		Message: message, Trace: raw,
+	}
 }
 
 func sanitizeActionTrace(data any) map[string]any {
@@ -414,13 +643,24 @@ func (s *LogSink) Close() error {
 		s.emitGeneration++
 		s.fileDir = ""
 		s.fileDay = ""
+		s.pending = nil
+		s.ring = nil
+		s.ringStart = 0
 		if s.timer != nil {
 			s.timer.Stop()
 			s.timer = nil
 		}
+		if s.fileTimer != nil {
+			s.fileTimer.Stop()
+			s.fileTimer = nil
+		}
 		if s.file != nil {
+			if s.fileBuf != nil {
+				_ = s.fileBuf.Flush()
+			}
 			s.closeErr = s.file.Close()
 			s.file = nil
+			s.fileBuf = nil
 		}
 		s.mu.Unlock()
 	})
@@ -431,5 +671,11 @@ func (s *LogSink) Close() error {
 func (s *LogSink) Snapshot() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return strings.Join(s.ring, "\n")
+	entries := s.ringEntriesLocked()
+	lines := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		encoded, _ := json.Marshal(entry)
+		lines = append(lines, string(encoded))
+	}
+	return strings.Join(lines, "\n")
 }

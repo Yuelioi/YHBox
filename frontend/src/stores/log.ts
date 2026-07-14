@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
+import type { BackendLogEntry } from '@/lib/backend'
 import { parseLine, type LogLine } from '@/lib/logFormat'
 
-const RING_CAP = 500
+const RING_CAP = 1000
 
 interface NodeEnterEntry {
   nodeId: string
@@ -37,10 +38,7 @@ export interface ActionTraceEntry {
     NodeKind?: string
     InPin?: string
   }
-  target?: {
-    id?: string
-    ID?: string
-  }
+  target?: { id?: string; ID?: string }
   backend?: string
   request?: unknown
   result?: unknown
@@ -52,22 +50,8 @@ export interface ActionTraceEntry {
   durationMs?: number
 }
 
-function pushBounded(lines: LogLine[], line: LogLine) {
-  lines.push(line)
-  if (lines.length > RING_CAP) {
-    lines.splice(0, lines.length - RING_CAP)
-  }
-}
-
 function nowIso() {
   return new Date().toISOString()
-}
-
-function pushBoundedTrace(traces: ActionTraceEntry[], trace: ActionTraceEntry) {
-  traces.push(trace)
-  if (traces.length > RING_CAP) {
-    traces.splice(0, traces.length - RING_CAP)
-  }
 }
 
 function traceSource(trace: ActionTraceEntry) {
@@ -78,14 +62,10 @@ function traceSource(trace: ActionTraceEntry) {
   return `${nodeKind}(${nodeId})${inPin ? '.' + inPin : ''}`
 }
 
-function traceTarget(trace: ActionTraceEntry) {
-  return trace.target?.id ?? trace.target?.ID ?? ''
-}
-
 function formatActionTrace(trace: ActionTraceEntry) {
   const status = trace.status || 'unknown'
   const duration = Number.isFinite(trace.durationMs) ? ` ${trace.durationMs}ms` : ''
-  const target = traceTarget(trace)
+  const target = trace.target?.id ?? trace.target?.ID ?? ''
   const targetPart = target ? ` @ ${target}` : ''
   const backend = trace.backend ? ` via ${trace.backend}` : ''
   const error = trace.error ? `: ${trace.error}` : ''
@@ -93,81 +73,162 @@ function formatActionTrace(trace: ActionTraceEntry) {
 }
 
 export const useLogStore = defineStore('log', () => {
-  const lines = ref<LogLine[]>([])
-  const actionTraces = ref<ActionTraceEntry[]>([])
+  // One shallow array replacement per backend batch avoids hundreds of deep
+  // reactive push/splice notifications under noisy workflows.
+  const lines = shallowRef<LogLine[]>([])
+  const actionTraces = shallowRef<ActionTraceEntry[]>([])
   const lastSeq = ref(0)
   const dropDetected = ref(false)
+  const received = ref(0)
+  const dropped = ref(0)
+  let nextID = 1
 
-  function appendSystem(seq: number, raw: string[]) {
-    if (lastSeq.value !== 0 && seq !== lastSeq.value + 1) {
-      dropDetected.value = true
-      pushBounded(lines.value, {
-        time: nowIso(),
-        level: 'warn',
-        message: `[log:lines] sequence gap: expected ${lastSeq.value + 1}, got ${seq}`,
-        source: 'SYS',
-      })
-    }
-    lastSeq.value = seq
-    for (const r of raw) {
-      pushBounded(lines.value, parseLine(r))
-    }
+  function withID(line: LogLine): LogLine {
+    return { ...line, id: nextID++ }
   }
 
-  function appendContainerLog(p: ContainerLogPayload) {
-    pushBounded(lines.value, {
-      time: nowIso(),
-      level: p.level || 'info',
-      message: p.message,
-      source: 'CTR',
+  function commit(nextLines: LogLine[], nextTraces = actionTraces.value) {
+    if (nextLines.length > RING_CAP) {
+      const overflow = nextLines.length - RING_CAP
+      dropped.value += overflow
+      nextLines = nextLines.slice(overflow)
+    }
+    if (nextTraces.length > RING_CAP) nextTraces = nextTraces.slice(-RING_CAP)
+    lines.value = nextLines
+    actionTraces.value = nextTraces
+  }
+
+  function appendBatch(seq: number, entries: BackendLogEntry[], transportDropped = 0) {
+    const next = lines.value.slice()
+    const traces = actionTraces.value.slice()
+    if (lastSeq.value !== 0 && seq !== lastSeq.value + 1) {
+      dropDetected.value = true
+      next.push(
+        withID({
+          time: nowIso(),
+          level: 'warn',
+          message: `[log:batch] sequence gap: expected ${lastSeq.value + 1}, got ${seq}`,
+          source: 'SYS',
+        }),
+      )
+    }
+    lastSeq.value = seq
+    if (transportDropped > 0) {
+      dropDetected.value = true
+      dropped.value += transportDropped
+    }
+
+    for (const entry of entries) {
+      received.value++
+      if (entry.kind === 'dump') {
+        const idx = next.findIndex(
+          (line) => line.nodeId === entry.nodeId && line.lineKey === entry.lineKey && !line.frozen,
+        )
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            count: entry.count ?? 1,
+            message: entry.message,
+            frozen: entry.final,
+          }
+          continue
+        }
+      }
+
+      let message = entry.message
+      if (entry.kind === 'action' && entry.trace && typeof entry.trace === 'object') {
+        const trace = entry.trace as ActionTraceEntry
+        traces.push(trace)
+        message = formatActionTrace(trace)
+      }
+      next.push(
+        withID({
+          time: entry.time || nowIso(),
+          level: entry.level || 'info',
+          message,
+          source: entry.source === 'CTR' ? 'CTR' : 'SYS',
+          tag: entry.tag,
+          fields: entry.fields,
+          nodeId: entry.nodeId,
+          lineKey: entry.lineKey,
+          count: entry.count,
+          frozen: entry.final,
+        }),
+      )
+    }
+    commit(next, traces)
+  }
+
+  // Local adapters keep tests and non-Wails callers on the same batch path.
+  function appendSystem(seq: number, raw: string[]) {
+    const entries = raw.map((line) => {
+      const parsed = parseLine(line)
+      return {
+        time: parsed.time,
+        level: parsed.level,
+        source: 'SYS' as const,
+        kind: 'system' as const,
+        tag: parsed.tag,
+        message: parsed.message,
+      }
     })
+    appendBatch(seq, entries)
+  }
+
+  function appendContainerLog(payload: ContainerLogPayload) {
+    appendBatch(lastSeq.value + 1, [
+      {
+        time: nowIso(),
+        level: payload.level || 'info',
+        source: 'CTR',
+        kind: 'log',
+        message: payload.message,
+      },
+    ])
   }
 
   function appendNodeEnter(entries: NodeEnterEntry[]) {
-    for (const e of entries) {
-      const suffix = e.count > 1 ? ` × ${e.count}` : ''
-      pushBounded(lines.value, {
+    appendBatch(
+      lastSeq.value + 1,
+      entries.map((entry) => ({
         time: nowIso(),
         level: 'node',
-        message: `→ ${e.nodeKind} (${e.nodeId})${suffix}`,
-        source: 'CTR',
-      })
-    }
+        source: 'CTR' as const,
+        kind: 'node' as const,
+        message: `→ ${entry.nodeKind} (${entry.nodeId})${entry.count > 1 ? ` × ${entry.count}` : ''}`,
+        count: entry.count,
+      })),
+    )
   }
 
   function appendNodeDump(entries: NodeDumpEntry[]) {
-    for (const e of entries) {
-      const idx = lines.value.findIndex(
-        (l) => l.nodeId === e.nodeId && l.lineKey === e.lineKey && !l.frozen,
-      )
-      if (idx >= 0) {
-        const row = lines.value[idx]
-        row.count = e.count
-        row.message = e.line
-        if (e.final) row.frozen = true
-        continue
-      }
-      pushBounded(lines.value, {
+    appendBatch(
+      lastSeq.value + 1,
+      entries.map((entry) => ({
         time: nowIso(),
         level: 'dump',
-        message: e.line,
-        source: 'CTR',
-        nodeId: e.nodeId,
-        lineKey: e.lineKey,
-        count: e.count,
-        frozen: e.final,
-      })
-    }
+        source: 'CTR' as const,
+        kind: 'dump' as const,
+        message: entry.line,
+        nodeId: entry.nodeId,
+        lineKey: entry.lineKey,
+        count: entry.count,
+        final: entry.final,
+      })),
+    )
   }
 
   function appendActionTrace(trace: ActionTraceEntry) {
-    pushBoundedTrace(actionTraces.value, trace)
-    pushBounded(lines.value, {
-      time: nowIso(),
-      level: 'action',
-      message: formatActionTrace(trace),
-      source: 'CTR',
-    })
+    appendBatch(lastSeq.value + 1, [
+      {
+        time: nowIso(),
+        level: 'action',
+        source: 'CTR',
+        kind: 'action',
+        message: '',
+        trace,
+      },
+    ])
   }
 
   function clear() {
@@ -175,6 +236,8 @@ export const useLogStore = defineStore('log', () => {
     actionTraces.value = []
     lastSeq.value = 0
     dropDetected.value = false
+    received.value = 0
+    dropped.value = 0
   }
 
   return {
@@ -182,6 +245,9 @@ export const useLogStore = defineStore('log', () => {
     actionTraces,
     lastSeq,
     dropDetected,
+    received,
+    dropped,
+    appendBatch,
     appendSystem,
     appendContainerLog,
     appendNodeEnter,

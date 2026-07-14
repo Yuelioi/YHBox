@@ -21,24 +21,39 @@
           t('log.count', { n: filteredLines.length })
         }}</span>
         <span v-if="hasErrors" class="text-xs text-error">{{ t('log.has_errors') }}</span>
+        <span v-if="logStore.dropped" class="text-[11px] tabular-nums text-warning">
+          {{ t('log.dropped', { n: logStore.dropped }) }}
+        </span>
       </button>
 
       <div v-if="!collapsed" class="ml-2 flex shrink-0 items-center gap-1">
-        <!-- 写文件状态 -->
+        <UButton
+          size="xs"
+          variant="ghost"
+          :color="enabled ? 'primary' : 'neutral'"
+          :icon="enabled ? 'i-tabler-activity' : 'i-tabler-activity-off'"
+          :title="enabled ? t('log.disable') : t('log.enable')"
+          :aria-label="enabled ? t('log.disable') : t('log.enable')"
+          :aria-pressed="enabled"
+          :ui="{ base: 'size-7 p-0' }"
+          @click="toggleField('enabled', !enabled)"
+        />
+
+        <!-- 实际落盘状态 -->
         <span
           role="status"
           :aria-label="
-            writeFile
+            enabled && writeFile
               ? t('log.write_file_tooltip_on', { dir: fileDir })
               : t('log.write_file_tooltip_off')
           "
           :title="
-            writeFile
+            enabled && writeFile
               ? t('log.write_file_tooltip_on', { dir: fileDir })
               : t('log.write_file_tooltip_off')
           "
           class="mx-1 size-2 shrink-0 rounded-full"
-          :class="writeFile ? 'bg-success' : 'bg-accented'"
+          :class="enabled && writeFile ? 'bg-success' : 'bg-accented'"
         />
 
         <!-- 双源 filter -->
@@ -69,7 +84,7 @@
         />
 
         <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
-        <UPopover mode="click" :ui="{ content: 'p-2 w-48' }">
+        <UPopover mode="click" :ui="{ content: 'p-3 w-60' }">
           <UButton
             size="xs"
             variant="ghost"
@@ -81,6 +96,52 @@
           />
           <template #content>
             <div class="space-y-1 text-xs">
+              <label class="flex cursor-pointer items-center justify-between gap-3 pb-1">
+                <span>
+                  <span class="block font-medium text-toned">{{ t('log.popover.enabled') }}</span>
+                  <span class="block text-[10px] leading-tight text-dimmed">{{
+                    t('log.popover.enabled_hint')
+                  }}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  :checked="enabled"
+                  @change="toggleField('enabled', ($event.target as HTMLInputElement).checked)"
+                />
+              </label>
+              <label
+                class="flex cursor-pointer items-center gap-2"
+                :class="{ 'opacity-50': !enabled }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="liveView"
+                  :disabled="!enabled"
+                  @change="toggleField('liveView', ($event.target as HTMLInputElement).checked)"
+                />
+                {{ t('log.popover.live_view') }}
+              </label>
+              <label
+                class="flex items-center justify-between gap-3 py-1"
+                :class="{ 'opacity-50': !enabled }"
+              >
+                <span>{{ t('log.popover.level') }}</span>
+                <select
+                  class="rounded border border-default bg-elevated px-1.5 py-1 text-xs text-toned outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  :value="level"
+                  :disabled="!enabled"
+                  @change="toggleField('level', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option
+                    v-for="option in ['debug', 'info', 'warn', 'error']"
+                    :key="option"
+                    :value="option"
+                  >
+                    {{ option.toUpperCase() }}
+                  </option>
+                </select>
+              </label>
+              <hr class="my-1 border-default" />
               <label class="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
@@ -118,6 +179,7 @@
                 <input
                   type="checkbox"
                   :checked="writeFile"
+                  :disabled="!enabled"
                   @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)"
                 />
                 {{ t('log.popover.write_file') }}
@@ -155,22 +217,58 @@
       ref="bodyRef"
       class="flex-1 space-y-0.5 overflow-y-auto bg-sunken px-2 py-1 font-mono text-xs"
     >
-      <div v-if="filteredLines.length === 0" class="text-dimmed italic">{{ t('log.empty') }}</div>
+      <div
+        v-if="!enabled"
+        class="flex items-center justify-center text-dimmed"
+        :class="
+          filteredLines.length
+            ? 'sticky top-0 z-10 border-b border-default bg-sunken/95 py-2'
+            : 'h-full'
+        "
+      >
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-activity-off" class="size-4" />
+          <span>{{ t('log.disabled') }}</span>
+        </div>
+      </div>
+      <div
+        v-else-if="!liveView"
+        class="flex items-center justify-center text-dimmed"
+        :class="
+          filteredLines.length
+            ? 'sticky top-0 z-10 border-b border-default bg-sunken/95 py-2'
+            : 'h-full'
+        "
+      >
+        <div class="flex items-center gap-2">
+          <UIcon name="i-tabler-player-pause" class="size-4" />
+          <span>{{ t('log.live_paused') }}</span>
+        </div>
+      </div>
+      <div v-else-if="filteredLines.length === 0" class="text-dimmed italic">
+        {{ t('log.empty') }}
+      </div>
       <div
         v-for="(l, idx) in filteredLines"
-        :key="idx"
+        :key="l.id ?? idx"
         class="flex gap-2 leading-tight"
         :class="wrapText ? 'whitespace-pre-wrap wrap-break-word' : 'whitespace-nowrap'"
       >
         <span v-if="showTime" class="text-dimmed shrink-0 tabular-nums">{{
           fmtShortTime(l.time)
         }}</span>
-        <span class="shrink-0 uppercase tracking-wide w-8" :class="sourceClass(l.source)">{{
-          l.source
-        }}</span>
-        <span class="shrink-0 uppercase tracking-wide w-12" :class="levelClass(l.level)">{{
-          l.level
-        }}</span>
+        <span
+          v-if="showTag"
+          class="shrink-0 uppercase tracking-wide w-8"
+          :class="sourceClass(l.source)"
+          >{{ l.source }}</span
+        >
+        <span
+          v-if="showTag"
+          class="shrink-0 uppercase tracking-wide w-12"
+          :class="levelClass(l.level)"
+          >{{ l.level }}</span
+        >
         <span class="text-default break-all"
           >{{ l.message
           }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span
@@ -210,6 +308,9 @@ const showTime = computed(() => settingsStore.data?.ui.logger.showTime ?? true)
 const showTag = computed(() => settingsStore.data?.ui.logger.showTag ?? true)
 const wrapText = computed(() => settingsStore.data?.ui.logger.wrapText ?? false)
 const autoScroll = computed(() => settingsStore.data?.ui.logger.autoScroll ?? true)
+const enabled = computed(() => settingsStore.data?.ui.logger.enabled ?? true)
+const liveView = computed(() => settingsStore.data?.ui.logger.liveView ?? true)
+const level = computed(() => settingsStore.data?.ui.logger.level ?? 'info')
 const writeFile = computed(() => settingsStore.data?.ui.logger.writeFile ?? true)
 const fileDir = computed(() => settingsStore.data?.ui.logger.fileDir ?? 'logs')
 
@@ -218,7 +319,7 @@ const showNodeEnter = computed({
   set: (v: boolean) => settingsStore.patch({ ui: { logger: { showNodeEnter: v } } }),
 })
 
-function toggleField(field: string, v: boolean) {
+function toggleField(field: string, v: boolean | string) {
   settingsStore.patch({ ui: { logger: { [field]: v } } })
 }
 

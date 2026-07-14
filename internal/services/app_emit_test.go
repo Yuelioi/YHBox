@@ -21,13 +21,13 @@ func TestShouldMirrorToRootLog(t *testing.T) {
 	}{
 		{"container:warning", true},
 		{"container:node-error", true},
-		{"container:log", true},
+		{"container:log", false},
 		{"container:node-enter", false},
 		{"container:node-dump", false},       // 每节点执行一发 → 不能镜像 (用户撞到的刷屏)
 		{"container:node-dump-batch", false}, // merger 已把它发前端; 文件另有 AppendDumpLine
 		{"container:node-dump-flush", false}, // run 停止内部信号
 		{"container:action-trace", false},    // 专用脱敏文件行; generic mirror 会泄漏 raw payload
-		{"log:lines", false},                 // 非 container: 前缀
+		{"log:batch", false},                 // 非 container: 前缀
 		{"hotkey:changed", false},
 		{"", false},
 	}
@@ -80,9 +80,10 @@ func TestAppNodeEnterBatchUsesAttachedTransport(t *testing.T) {
 }
 
 func TestAttachEmitterPublishesMergerAtomicallyAndOnlyOnce(t *testing.T) {
-	app := NewApp(t.TempDir()+"/settings.json", nil, zerolog.Nop())
-	received := make(chan string, 1)
-	if err := app.AttachEmitter(func(name string, _ any) { received <- name }); err != nil {
+	received := make(chan LogBatchEvent, 1)
+	sink := NewLogSink(func(event LogBatchEvent) { received <- event })
+	app := NewApp(t.TempDir()+"/settings.json", sink, zerolog.Nop())
+	if err := app.AttachEmitter(func(string, any) {}); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(app.Shutdown)
@@ -91,10 +92,11 @@ func TestAttachEmitterPublishesMergerAtomicallyAndOnlyOnce(t *testing.T) {
 		"containerId": "c1", "nodeId": "n1", "nodeKind": "Sleep",
 		"line": "failed", "lineKey": "k1", "isError": true,
 	})
+	sink.Flush()
 	select {
-	case name := <-received:
-		if name != "container:node-dump-batch" {
-			t.Fatalf("event = %q", name)
+	case event := <-received:
+		if len(event.Entries) != 1 || event.Entries[0].Kind != "dump" {
+			t.Fatalf("event = %#v", event)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("node dump was lost during emitter attachment")
@@ -102,6 +104,37 @@ func TestAttachEmitterPublishesMergerAtomicallyAndOnlyOnce(t *testing.T) {
 
 	if err := app.AttachEmitter(func(string, any) {}); err == nil {
 		t.Fatal("second emitter attachment succeeded")
+	}
+}
+
+func TestAppDiagnosticsRespectMinimumLevelAcrossStructuredEvents(t *testing.T) {
+	defer zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	received := make(chan LogBatchEvent, 2)
+	sink := NewLogSink(func(event LogBatchEvent) { received <- event })
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), sink, zerolog.Nop())
+	settings := app.Settings().UI.Logger
+	settings.Level = "error"
+	settings.WriteFile = false
+	app.logs.Configure(settings)
+	if err := app.AttachEmitter(func(string, any) {}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Shutdown)
+
+	app.Emit("container:action-trace", map[string]any{"action": "filtered"})
+	app.Emit("container:node-dump", map[string]any{
+		"containerId": "c1", "nodeId": "n1", "nodeKind": "Sleep",
+		"line": "failed", "lineKey": "k1", "isError": true,
+	})
+	sink.drain()
+
+	select {
+	case event := <-received:
+		if len(event.Entries) != 1 || event.Entries[0].Level != "error" {
+			t.Fatalf("minimum-level event = %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("error diagnostic was filtered")
 	}
 }
 
@@ -136,7 +169,7 @@ func TestAppShutdownDeadlineDoesNotLeaveLogFileOpen(t *testing.T) {
 	dir := t.TempDir()
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
-	sink := NewLogSink(func(LogLinesEvent) {
+	sink := NewLogSink(func(LogBatchEvent) {
 		close(callbackStarted)
 		<-releaseCallback
 	})
@@ -174,17 +207,15 @@ func TestAppShutdownDeadlineDoesNotLeaveLogFileOpen(t *testing.T) {
 
 func TestAppShutdownDeadlineClosesFileBehindBlockedMergerEmitter(t *testing.T) {
 	dir := t.TempDir()
-	sink := NewLogSink(nil)
-	sink.SetFileWriter(dir)
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
+	sink := NewLogSink(func(LogBatchEvent) {
+		close(callbackStarted)
+		<-releaseCallback
+	})
+	sink.SetFileWriter(dir)
 	app := NewApp(filepath.Join(dir, "settings.json"), sink, zerolog.Nop())
-	if err := app.AttachEmitter(func(name string, _ any) {
-		if name == "container:node-dump-batch" {
-			close(callbackStarted)
-			<-releaseCallback
-		}
-	}); err != nil {
+	if err := app.AttachEmitter(func(string, any) {}); err != nil {
 		t.Fatal(err)
 	}
 	emitDone := make(chan struct{})
@@ -193,6 +224,7 @@ func TestAppShutdownDeadlineClosesFileBehindBlockedMergerEmitter(t *testing.T) {
 			"containerId": "c1", "nodeId": "n1", "nodeKind": "Sleep",
 			"line": "blocked", "lineKey": "k", "isError": true,
 		})
+		sink.Flush()
 		close(emitDone)
 	}()
 	select {

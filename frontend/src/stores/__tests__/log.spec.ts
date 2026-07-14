@@ -34,13 +34,29 @@ describe('useLogStore', () => {
     expect(s.lines[1].message).toContain('Click')
   })
 
-  it('ring buffer caps at 500', () => {
+  it('ring buffer caps at 1000 and reports local drops', () => {
     const s = useLogStore()
-    for (let i = 0; i < 600; i++) {
+    for (let i = 0; i < 1200; i++) {
       s.appendContainerLog({ level: 'info', message: `m${i}` })
     }
-    expect(s.lines).toHaveLength(500)
-    expect(s.lines[0].message).toBe('m100')
+    expect(s.lines).toHaveLength(1000)
+    expect(s.lines[0].message).toBe('m200')
+    expect(s.dropped).toBe(200)
+  })
+
+  it('appends a transport batch with one sequence and dropped count', () => {
+    const s = useLogStore()
+    s.appendBatch(
+      7,
+      [
+        { time: '', level: 'info', source: 'SYS', kind: 'system', message: 'a' },
+        { time: '', level: 'warn', source: 'CTR', kind: 'log', message: 'b' },
+      ],
+      3,
+    )
+    expect(s.lines.map((line) => line.message)).toEqual(['a', 'b'])
+    expect(s.received).toBe(2)
+    expect(s.dropped).toBe(3)
   })
 
   it('clear empties all', () => {

@@ -7,6 +7,20 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
+func TestMemoryRecorderBoundsAndPreservesNewestOrder(t *testing.T) {
+	recorder := NewMemoryRecorder()
+	for i := 0; i < defaultMemoryCapacity+10; i++ {
+		recorder.Record(ActionRecord{Action: string(rune(i))})
+	}
+	records := recorder.Records()
+	if len(records) != defaultMemoryCapacity {
+		t.Fatalf("records=%d, want %d", len(records), defaultMemoryCapacity)
+	}
+	if records[0].Action != string(rune(10)) || records[len(records)-1].Action != string(rune(defaultMemoryCapacity+9)) {
+		t.Fatal("bounded recorder did not retain newest records in order")
+	}
+}
+
 func TestMemoryRecorderRecordAndRecords(t *testing.T) {
 	rec := NewMemoryRecorder()
 	started := time.UnixMilli(1000)

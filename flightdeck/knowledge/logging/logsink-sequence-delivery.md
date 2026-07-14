@@ -2,7 +2,7 @@
 kind: note
 summary: "LogSink 的 seq 在锁内递增仍不足以保证前端按序收到事件；每批独立 goroutine 会让 seq=2 越过阻塞的 seq=1，shutdown 也可能在 callback 完成前退出。使用单一 FIFO delivery pump，并在退出路径调用包内 drain barrier。"
 activation: action
-read_when: "修改 LogSink flush/debounce/emit、前端 log:lines 丢包检测、应用 shutdown 日志排空，或测试出现 expected emits / seq gap / 尾日志丢失时"
+read_when: "修改 LogSink flush/debounce/emit、前端 log:batch 丢包检测、应用 shutdown 日志排空，或测试出现 expected emits / seq gap / 尾日志丢失时"
 recheck_when: "更换 Wails event transport；调整 LogSink 背压/队列上限；允许更多生命周期调用方使用 drain barrier"
 ---
 # LogSink 序列号必须按 FIFO 实际交付
@@ -13,5 +13,6 @@ recheck_when: "更换 Wails event transport；调整 LogSink 背压/队列上限
 - `flushLocked` 只复制 batch、分配 seq、入 FIFO queue；单一 delivery pump 在不持 `LogSink.mu` 时串行调用 emitter。
 - `Flush` 只强制入队且不等待，因此 emit callback 写新日志或调用 `Flush` 不会自锁。
 - 包内 `drain` barrier 等待调用时已排在队尾的 delivery 完成，只用于 App shutdown；它不导出，避免 emit callback 自调用后等待自身完成。`Close` 仍保持非等待可重入。
-- 慢 callback 后面同 emitter 代际的 batch 会合并，最多保留 `4 * ringCapacity` 条最新日志；溢出时 delivery 首行带 `log-delivery-overflow` warning，避免无界内存和静默丢弃。
+- 慢 callback 后面同 emitter 代际的 batch 会合并，最多保留 `4 * ringCapacity` 条最新日志；溢出数写入 `LogBatchEvent.Dropped`，前端累计并显示，避免无界内存和静默丢弃。
+- presentation transport 统一为 `log:batch`；system/runtime/dump/action 都先归一化成 `LogEntry`，前端每批只做一次浅数组提交。
 - 顺序回归测试必须阻塞 seq=1 callback 并证明 seq=2 不可越过；不要用“睡 120ms 期望正好三个 debounce batch”验证单调性。

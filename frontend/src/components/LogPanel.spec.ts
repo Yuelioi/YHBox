@@ -20,4 +20,11 @@ describe('LogPanel shell', () => {
   it('adapts expanded height to the available viewport', () => {
     expect(source).toContain('clamp(180px, 28vh, 320px)')
   })
+
+  it('offers source-level logging, live transport, and minimum-level controls', () => {
+    expect(source).toContain("toggleField('enabled', !enabled)")
+    expect(source).toContain("toggleField('liveView'")
+    expect(source).toContain("toggleField('level'")
+    expect(source).toContain("t('log.disabled')")
+  })
 })

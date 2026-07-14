@@ -4,11 +4,13 @@
 // 非 JSON 行——panic 栈、第三方库直写——会 sneak 进同一 sink。一条坏行不能炸 LogPanel。
 
 export interface LogLine {
+  id?: number
   time: string
   level: string
   bot?: string
   tag?: string
   message: string
+  fields?: unknown
   source: 'SYS' | 'CTR'
   // node dump 专用 (按节点 upsert + ×N)
   nodeId?: string
