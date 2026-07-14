@@ -35,7 +35,7 @@
           :title="enabled ? t('log.disable') : t('log.enable')"
           :aria-label="enabled ? t('log.disable') : t('log.enable')"
           :aria-pressed="enabled"
-          :ui="{ base: 'size-7 p-0' }"
+          class="size-7 p-0"
           @click="toggleField('enabled', !enabled)"
         />
 
@@ -79,7 +79,7 @@
           icon="i-tabler-route"
           :title="t('log.action_trace.open')"
           :aria-label="t('log.action_trace.open')"
-          :ui="{ base: 'size-7 p-0' }"
+          class="size-7 p-0"
           @click="actionTraceOpen = true"
         />
 
@@ -92,7 +92,7 @@
             icon="i-tabler-settings"
             :title="t('log.settings')"
             :aria-label="t('log.settings')"
-            :ui="{ base: 'size-7 p-0' }"
+            class="size-7 p-0"
           />
           <template #content>
             <div class="text-[11px] leading-4 text-toned">
@@ -223,7 +223,7 @@
           icon="i-tabler-trash"
           :title="t('log.clear')"
           :aria-label="t('log.clear')"
-          :ui="{ base: 'size-7 p-0' }"
+          class="size-7 p-0"
           @click="logStore.clear()"
         />
       </div>

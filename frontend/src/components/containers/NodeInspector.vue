@@ -30,7 +30,7 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-help-circle"
-            :ui="inspectorIconButtonUi"
+            class="size-8 p-0"
             :title="t('inspector.help_tooltip')"
             :aria-label="t('inspector.help_tooltip')"
           />
@@ -64,7 +64,7 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-copy"
-            :ui="inspectorIconButtonUi"
+            class="size-8 p-0"
             :title="t('inspector.copy_menu_tooltip')"
             :aria-label="t('inspector.copy_menu_tooltip')"
           />
@@ -74,7 +74,7 @@
           variant="ghost"
           color="error"
           icon="i-tabler-trash"
-          :ui="inspectorIconButtonUi"
+          class="size-8 p-0"
           :title="t('inspector.delete_node_tooltip')"
           :aria-label="t('inspector.delete_node_tooltip')"
           @click="$emit('delete')"
@@ -802,7 +802,6 @@ import {
 } from './pinSpec'
 
 const { t, te } = useI18n()
-const inspectorIconButtonUi = { base: 'size-8 justify-center p-0' }
 
 import PinInput from './inline/PinInput.vue'
 import StructuredInput from './inline/StructuredInput.vue'

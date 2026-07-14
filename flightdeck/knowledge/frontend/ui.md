@@ -61,11 +61,18 @@ recheck_when: "改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公
 
 1. **`<html class="dark">`** (index.html 静态写)
 2. **`<div id="app" class="isolate dark">`** (`isolate` 创 stacking context; `dark` 双保险)
-3. **`vite.config.ts` 只配 colors, 别动 slots**:
+3. **`vite.config.ts` 配 colors + 已批准的全局组件基线**；不要在页面里重复修公共组件:
 
    ```ts
-   ui({ ui: { colors: { primary: 'emerald', neutral: 'zinc' } } })
+   ui({
+     ui: {
+       colors: { primary: 'emerald', neutral: 'zinc' },
+       button: { slots: { base: 'justify-center' } },
+     },
+   })
    ```
+
+   `UButton` 的全局主轴居中规则见 [nuxt-ui-icon-button-alignment.md](nuxt-ui-icon-button-alignment.md)。
 
 4. **`main.ts` 强制 `useDark().value = true`** — **最关键**. NuxtUI v4 plugin 内部用 @vueuse `useDark()`, 启动时读 localStorage + 系统 `prefers-color-scheme` 动态改 `<html>` class, 会把 index.html 的 `class="dark"` 覆盖. 不锁就在用户 light mode 下全失效.
 
@@ -114,6 +121,8 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 ### `:ui="{ base: '...' }"` 是替换不是 merge
 
 调 NuxtUI 组件加 width / 样式 → `class="w-24"`, **不是** `:ui="{ base: 'w-24' }"`. 后者会把 base slot 默认那一长串 (`bg-default text-default ring-default ...`) 清空, 只剩 `w-24`, 背景变裸 HTML 白色. 踩过 Step editor 输入框白底的坑.
+
+固定尺寸 icon button 同理写 `<UButton icon="..." class="size-7 p-0" />`，居中由全局 Button base 保证；需要左对齐的菜单/导航按钮显式加 `justify-start`。
 
 ### `UInputMenu` 让用户创建新项 → `create-item` + `@create`, 不是 `creatable`
 

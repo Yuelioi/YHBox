@@ -23,9 +23,9 @@ describe('NodeInspector layout', () => {
     expect(inspector).toContain('-mx-4 -mt-4')
   })
 
-  it('centers every header icon action explicitly', () => {
-    expect(inspector).toContain("base: 'size-8 justify-center p-0'")
-    expect(inspector).toContain(':ui="inspectorIconButtonUi"')
+  it('uses the global button alignment baseline for fixed-size header actions', () => {
+    expect(inspector).toContain('class="size-8 p-0"')
+    expect(inspector).not.toContain('inspectorIconButtonUi')
     expect(inspector).toContain('items-center gap-3')
   })
 })
