@@ -73,6 +73,8 @@ Verified:
 - HUD 垂直节奏修复按红绿回归完成，独立窗口契约 8/8 通过，随后完整 `task check` 再次全绿。
 - 启动器第一阶段完整 `task check` 通过：95 个前端测试文件 / 631 项测试，Go test/vet/staticcheck、覆盖率、bindings contract、i18n、生产构建与 bundle budget 全绿。
 - 双轴代码审查完成：旧分隔符兼容、清理事务边界、清理范围披露、输入即搜索、共享失效态与持久化热键冲突诊断均修正；复审无剩余 P1/P2。
+- 修复已打开的独立启动器无法感知新建容器：composition root 的容器 change listener 现在先刷新热键 binder，再广播 `container:changed`；启动器在 `settings:changed` 时同步重拉 settings / containers / hotkeys。
+- 同步回归覆盖 Go 事件接线和独立 webview 三依赖刷新；完整 `task check` 通过，95 个前端测试文件 / 632 项测试全绿。
 
 ## Open questions
 

@@ -62,6 +62,7 @@ HUD 各状态 (校准: 等待/倒计时/录制/完成；录制: 倒计时/录制
 
 - **置顶盖不住独占全屏**：AlwaysOnTop 在独占全屏游戏上盖不住 (Windows 层限制)，窗口化/无边框全屏 OK。文档化即可，别想在这解决。
 - **跨窗口状态不同步**：独立窗口是另一个 webview = **另一个 pinia store**。主程序改了 settings/数据，独立窗口收不到。要后端 `app.Emit("xxx:changed")` + 独立窗口 `Events.On(...)` reload，否则"改了没反应"。(悬浮窗 icon 不生效就是栽在这。)
+- 容器 CRUD 的 `ConfigureChangeListener` 必须同时刷新运行时消费者并广播 `container:changed`；不能只接 hotkey binder。启动器收到 `settings:changed` 时还要一起重拉 settings / containers / hotkeys，避免“新入口先到、旧容器目录仍在”被误判为失效。
 
 ## 视觉自检
 
