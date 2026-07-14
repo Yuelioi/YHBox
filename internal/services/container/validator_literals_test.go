@@ -2,6 +2,8 @@ package container
 
 import (
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/node"
 )
 
 func TestLiteralTypeMismatch_StringForNumberPin(t *testing.T) {
@@ -138,5 +140,31 @@ func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 		if e.Code == CodeLiteralTypeMismatch {
 			t.Errorf("unexpected LITERAL_TYPE_MISMATCH on valid literals: %+v", e)
 		}
+	}
+}
+
+func TestLiteralTypeMismatch_DynamicInput(t *testing.T) {
+	c := reqContainer([]GraphNode{
+		{ID: "expr", Kind: "Expr", Config: map[string]any{
+			"Inputs":  []any{map[string]any{"Name": "count", "Type": "Number"}},
+			"literal": map[string]any{"count": "not-a-number"},
+		}},
+	}, nil)
+	errs := validateLiteralTypes(node.DefaultRegistrySnapshot(), c, nil)
+	if !hasCodeForNode(errs, CodeLiteralTypeMismatch, "expr") {
+		t.Fatalf("dynamic input literal type must be checked, got %+v", errs)
+	}
+}
+
+func TestLiteralTypeMatch_DynamicIntegerInputUsesCanonicalNumberType(t *testing.T) {
+	c := reqContainer([]GraphNode{
+		{ID: "ai", Kind: "AI", Config: map[string]any{
+			"Inputs":  []any{map[string]any{"Name": "count", "Type": "Integer"}},
+			"literal": map[string]any{"count": float64(2)},
+		}},
+	}, nil)
+	errs := validateLiteralTypes(node.DefaultRegistrySnapshot(), c, nil)
+	if hasCodeForNode(errs, CodeLiteralTypeMismatch, "ai") {
+		t.Fatalf("dynamic Integer must use the canonical number type, got %+v", errs)
 	}
 }

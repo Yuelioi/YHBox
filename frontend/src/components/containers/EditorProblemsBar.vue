@@ -55,7 +55,9 @@
             color="primary"
             icon="i-tabler-wand"
             @click="emit('fix', e)"
-            >{{ t('validation.fix') }}</UButton
+            >{{
+              e.code === 'UNKNOWN_LITERAL_PIN' ? t('validation.clear_unused') : t('validation.fix')
+            }}</UButton
           >
           <UButton
             v-if="e.code === 'MISSING_WIN32_WINDOW_TARGET'"
@@ -141,7 +143,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ValidationError } from '@/lib/backend'
-import { safeCoerceForFix } from '@/components/containers/inline/coerceLiteral'
+import { literalValidationFix } from '@/composables/containerEditor/validationFix'
 import { summarizeProblems } from '@/composables/editor/problemsBar'
 
 const props = defineProps<{
@@ -161,12 +163,9 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 const summary = computed(() => summarizeProblems(props.errors))
 
-// canFix: 仅 LITERAL_TYPE_MISMATCH 且能安全 coerce 时显「修复」(含糊值不显)。
+// 可机械且无损修复的 literal 问题才显示按钮：安全类型收口或删除运行时本就忽略的未知值。
 function canFix(e: ValidationError): boolean {
-  return (
-    e.code === 'LITERAL_TYPE_MISMATCH' &&
-    safeCoerceForFix(e.params?.value, String(e.params?.expected ?? '')) !== undefined
-  )
+  return literalValidationFix(e) !== null
 }
 // 链: t('error.<CODE>', params) → raw code (兜底)。
 function errorText(e: ValidationError): string {

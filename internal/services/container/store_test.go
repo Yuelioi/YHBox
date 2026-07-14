@@ -457,6 +457,50 @@ func TestContainerStore_SaveSplitsPortableGraphAndInstallationBindings(t *testin
 	}
 }
 
+func TestContainerStore_AggregatedBindingSlotsAreNotUnknownLiteralPins(t *testing.T) {
+	dir := t.TempDir()
+	s, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := &Container{
+		SchemaVersion: 1,
+		ID:            "binding-validation",
+		Name:          "binding validation",
+		Graph: Graph{Nodes: []GraphNode{
+			{ID: "start", Kind: "Start"},
+			{
+				ID:   "2c0266df-4595-4118-9a7b-2549e4e7eeb3",
+				Kind: "Win32WindowTarget",
+				Config: map[string]any{
+					"Title": "Blue Archive",
+				},
+			},
+			{
+				ID:   "android-target",
+				Kind: "AndroidTarget",
+				Config: map[string]any{
+					"Serial": "emulator-5554",
+				},
+			},
+		}},
+	}
+	if err := s.Save(c); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, ok := s.Get(c.ID)
+	if !ok {
+		t.Fatal("Get failed")
+	}
+	for _, nodeID := range []string{"2c0266df-4595-4118-9a7b-2549e4e7eeb3", "android-target"} {
+		if errs := validateUnknownLiteralPins(&got, nil); hasCodeForNode(errs, CodeUnknownLiteralPin, nodeID) {
+			t.Fatalf("package binding metadata must not be reported as an unknown pin for %s: %+v", nodeID, errs)
+		}
+	}
+}
+
 func TestContainerStore_ExportPackageZipExcludesInstallation(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)

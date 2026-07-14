@@ -287,7 +287,7 @@ func splitPortableGraphBindings(graph Graph) (Graph, map[string]TargetBinding, m
 		n.Config = cloneConfig(n.Config)
 		switch n.Kind {
 		case "Win32WindowTarget":
-			slot := PinString(&n, "Target")
+			slot := PinString(&n, portableTargetBindingKey)
 			if slot == "" {
 				slot = defaultSlotName("game", "target_", n.ID, targetCount)
 			}
@@ -301,9 +301,9 @@ func splitPortableGraphBindings(graph Graph) (Graph, map[string]TargetBinding, m
 				}),
 			}
 			removePins(&n, "Title", "Class", "ProcessName", "TitleMatch")
-			SetPinValue(&n, "Target", slot)
+			SetPinValue(&n, portableTargetBindingKey, slot)
 		case "AndroidTarget":
-			slot := PinString(&n, "Target")
+			slot := PinString(&n, portableTargetBindingKey)
 			if slot == "" {
 				slot = defaultSlotName("android", "target_", n.ID, targetCount)
 			}
@@ -319,7 +319,7 @@ func splitPortableGraphBindings(graph Graph) (Graph, map[string]TargetBinding, m
 				}),
 			}
 			removePins(&n, "Serial", "Name", "Width", "Height")
-			SetPinValue(&n, "Target", slot)
+			SetPinValue(&n, portableTargetBindingKey, slot)
 		case "AI":
 			conn := PinString(&n, "Connection")
 			if conn != "" {
@@ -342,14 +342,14 @@ func hydrateGraphBindings(graph Graph, installation Installation) Graph {
 		n.Config = cloneConfig(n.Config)
 		switch n.Kind {
 		case "Win32WindowTarget":
-			if binding, ok := installation.TargetBindings[PinString(&n, "Target")]; ok {
+			if binding, ok := installation.TargetBindings[PinString(&n, portableTargetBindingKey)]; ok {
 				SetPinValue(&n, "Title", stringFromMap(binding.Match, "title"))
 				SetPinValue(&n, "Class", stringFromMap(binding.Match, "class"))
 				SetPinValue(&n, "ProcessName", stringFromMap(binding.Match, "processName"))
 				SetPinValue(&n, "TitleMatch", stringFromMap(binding.Match, "titleMatch"))
 			}
 		case "AndroidTarget":
-			if binding, ok := installation.TargetBindings[PinString(&n, "Target")]; ok {
+			if binding, ok := installation.TargetBindings[PinString(&n, portableTargetBindingKey)]; ok {
 				SetPinValue(&n, "Serial", stringFromMap(binding.Match, "serial"))
 				SetPinValue(&n, "Name", stringFromMap(binding.Match, "name"))
 				if v, ok := binding.Match["width"]; ok {
@@ -375,11 +375,11 @@ func targetSlotsFromGraph(graph Graph) map[string]TargetSlot {
 		n := &graph.Nodes[i]
 		switch n.Kind {
 		case "Win32WindowTarget":
-			if slot := PinString(n, "Target"); slot != "" {
+			if slot := PinString(n, portableTargetBindingKey); slot != "" {
 				out[slot] = TargetSlot{Kind: "win32-window"}
 			}
 		case "AndroidTarget":
-			if slot := PinString(n, "Target"); slot != "" {
+			if slot := PinString(n, portableTargetBindingKey); slot != "" {
 				out[slot] = TargetSlot{Kind: "android-adb"}
 			}
 		}

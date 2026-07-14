@@ -15,9 +15,9 @@ import (
 // because user wrote "500ms" not 500). LITERAL_TYPE_MISMATCH catches this at
 // design time.
 //
-// Coverage: static data-in pins only. Expr's dynamic inputs are NOT scanned
-// here — the Expr Inspector validates its own literals against declared input
-// types.
+// Coverage: static data-in pins and descriptor-driven dynamic inputs. Using
+// the same cfg-aware resolver as edge validation keeps editor, validator and
+// runtime materialization aligned.
 func validateLiteralTypes(registry nodepkg.RegistryReader, c *Container, sgs []Subgraph) []ValidationError {
 	if c == nil {
 		return nil
@@ -34,9 +34,9 @@ func validateLiteralTypes(registry nodepkg.RegistryReader, c *Container, sgs []S
 				continue
 			}
 			for pinName, raw := range lit {
-				pinType := dataInPinTypeForKind(registry, n.Kind, pinName)
+				pinType := dataInPinTypeForNode(registry, n, pinName)
 				if pinType == "" {
-					continue // pin not in static schema — INVALID_PIN handles unknown pins
+					continue // UNKNOWN_LITERAL_PIN handles unknown stored values
 				}
 				if literalMatchesType(raw, pinType) {
 					continue

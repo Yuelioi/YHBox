@@ -18,4 +18,9 @@ describe('EditorProblemsBar hierarchy', () => {
     expect(source).toContain(':aria-expanded="expanded"')
     expect(source).toContain('aria-controls="editor-problems-panel"')
   })
+
+  it('offers the shared safe fix path for stale unknown literal values', () => {
+    expect(source).toContain('import { literalValidationFix }')
+    expect(source).toContain('return literalValidationFix(e) !== null')
+  })
 })

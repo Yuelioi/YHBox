@@ -27,6 +27,7 @@ var (
 	reParamKey    = regexp.MustCompile(`"(\w+)":`)
 	rePlaceholder = regexp.MustCompile(`\{(\w+)\}`)
 	reI18nEntry   = regexp.MustCompile(`(?m)^\s{4}([A-Z][A-Z0-9_]+):\s*'((?:[^'\\]|\\.)*)'`)
+	reI18nKey     = regexp.MustCompile(`(?m)^\s{4}([A-Z][A-Z0-9_]+):`)
 )
 
 // scanBackendParams 扫本包 (含子目录) 非测试 Go 源, 返回 code(字符串值) → 内联 Params 键集合 (并集)。
@@ -137,29 +138,32 @@ func scanI18nPlaceholders(t *testing.T, path string) map[string][]string {
 
 func TestI18nErrorPlaceholdersMatchBackendParams(t *testing.T) {
 	params := scanBackendParams(t)
-	i18n := scanI18nPlaceholders(t, filepath.Join("..", "..", "..", "frontend", "src", "i18n", "zh.ts"))
-	if i18n == nil {
-		t.Skip("frontend i18n 不可读 (纯后端环境) — 跳过契约校验")
-	}
 	if len(params) == 0 {
 		t.Fatal("没扫到任何后端 Params 构造 — 解析器可能失效")
 	}
 
 	checked := 0
-	for code, phs := range i18n {
-		if len(phs) == 0 {
-			continue
+	for _, locale := range []string{"zh.ts", "en.ts"} {
+		path := filepath.Join("..", "..", "..", "frontend", "src", "i18n", locale)
+		i18n := scanI18nPlaceholders(t, path)
+		if i18n == nil {
+			t.Skipf("frontend i18n %s 不可读 (纯后端环境) — 跳过契约校验", locale)
 		}
-		have, ok := params[code]
-		if !ok {
-			// 后端无内联 Params 构造 (死码 / 变量传参) — 静态无法确认, 跳过不误报。
-			continue
-		}
-		checked++
-		for _, ph := range phs {
-			if !have[ph] {
-				t.Errorf("error.%s 用了占位符 {%s} 但后端该 code 的 Params 没这个键 (会渲染成空白)。"+
-					"后端实发: %v — 对齐 i18n 占位符或后端 Params 键。", code, ph, keysOf(have))
+		for code, phs := range i18n {
+			if len(phs) == 0 {
+				continue
+			}
+			have, ok := params[code]
+			if !ok {
+				// 后端无内联 Params 构造 (死码 / 变量传参) — 静态无法确认, 跳过不误报。
+				continue
+			}
+			checked++
+			for _, ph := range phs {
+				if !have[ph] {
+					t.Errorf("%s error.%s 用了占位符 {%s} 但后端该 code 的 Params 没这个键 (会渲染成空白)。"+
+						"后端实发: %v — 对齐 i18n 占位符或后端 Params 键。", locale, code, ph, keysOf(have))
+				}
 			}
 		}
 	}
@@ -167,6 +171,55 @@ func TestI18nErrorPlaceholdersMatchBackendParams(t *testing.T) {
 		t.Fatal("没有可校验的 code (i18n 占位符 ∩ 后端 Params) — 解析器可能失效")
 	}
 	t.Logf("校验了 %d 个有占位符且后端有内联 Params 的 error code", checked)
+}
+
+func TestI18nCoversEveryValidatorCode(t *testing.T) {
+	b, err := os.ReadFile("validator.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{}
+	for _, m := range reConstDef.FindAllStringSubmatch(string(b), -1) {
+		want[m[2]] = true
+	}
+	if len(want) == 0 {
+		t.Fatal("没扫到 validator error code — 解析器可能失效")
+	}
+
+	for _, locale := range []string{"zh.ts", "en.ts"} {
+		path := filepath.Join("..", "..", "..", "frontend", "src", "i18n", locale)
+		keys := scanI18nErrorKeys(t, path)
+		if keys == nil {
+			t.Skipf("frontend i18n %s 不可读 (纯后端环境) — 跳过契约校验", locale)
+		}
+		for code := range want {
+			if !keys[code] {
+				t.Errorf("%s 缺少 error.%s；ProblemsBar 将退化为裸错误码", locale, code)
+			}
+		}
+	}
+}
+
+func scanI18nErrorKeys(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	src := string(b)
+	start := strings.Index(src, "\n  error: {")
+	if start < 0 {
+		t.Fatalf("%s 没有 error i18n block", path)
+	}
+	end := strings.Index(src[start:], "\n  },")
+	if end < 0 {
+		t.Fatalf("%s 的 error i18n block 未闭合", path)
+	}
+	keys := map[string]bool{}
+	for _, m := range reI18nKey.FindAllStringSubmatch(src[start:start+end], -1) {
+		keys[m[1]] = true
+	}
+	return keys
 }
 
 func keysOf(m map[string]bool) []string {

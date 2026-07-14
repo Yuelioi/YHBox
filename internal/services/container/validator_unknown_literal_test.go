@@ -28,12 +28,54 @@ func TestUnknownLiteral_ValidPinNoWarn(t *testing.T) {
 	}
 }
 
-// Expr 节点 inputs 是动态的(config.Inputs[]), 不在 Spec.Inputs — 不可误报。
-func TestUnknownLiteral_ExprSkipped(t *testing.T) {
+func TestUnknownLiteral_DynamicDeclaredPinNoWarn(t *testing.T) {
 	c := reqContainer([]GraphNode{
-		{ID: "e", Kind: "Expr", Config: map[string]any{"literal": map[string]any{"foo": 1}}},
+		{ID: "e", Kind: "Expr", Config: map[string]any{
+			"Inputs":  []any{map[string]any{"Name": "foo", "Type": "Number"}},
+			"literal": map[string]any{"foo": 1},
+		}},
 	}, nil)
 	if errs := validateUnknownLiteralPins(c, nil); hasCodeForNode(errs, CodeUnknownLiteralPin, "e") {
-		t.Fatalf("Expr dynamic inputs must be skipped, got %+v", errs)
+		t.Fatalf("declared dynamic input must be accepted, got %+v", errs)
 	}
+}
+
+func TestUnknownLiteral_DynamicUndeclaredPinWarns(t *testing.T) {
+	c := reqContainer([]GraphNode{
+		{ID: "e", Kind: "Expr", Config: map[string]any{
+			"Inputs":  []any{map[string]any{"Name": "foo", "Type": "Number"}},
+			"literal": map[string]any{"foo": 1, "fooo": 2},
+		}},
+	}, nil)
+	if errs := validateUnknownLiteralPins(c, nil); !hasCodeForNode(errs, CodeUnknownLiteralPin, "e") {
+		t.Fatalf("undeclared dynamic input must warn, got %+v", errs)
+	}
+}
+
+func TestUnknownLiteral_PortableMetadataAllowedButBogusPinWarns(t *testing.T) {
+	for _, kind := range []string{"Win32WindowTarget", "AndroidTarget"} {
+		t.Run(kind, func(t *testing.T) {
+			c := reqContainer([]GraphNode{
+				{ID: "target", Kind: kind, Config: map[string]any{
+					"literal": map[string]any{"Target": "game", "Bogus": true},
+				}},
+			}, nil)
+			errs := validateUnknownLiteralPins(c, nil)
+			if !hasUnknownLiteralPin(errs, "target", "Bogus") {
+				t.Fatalf("bogus pin must still warn, got %+v", errs)
+			}
+			if hasUnknownLiteralPin(errs, "target", "Target") {
+				t.Fatalf("portable binding metadata must not warn, got %+v", errs)
+			}
+		})
+	}
+}
+
+func hasUnknownLiteralPin(errs []ValidationError, nodeID, pin string) bool {
+	for _, issue := range errs {
+		if issue.Code == CodeUnknownLiteralPin && issue.NodeID == nodeID && issue.Params["pin"] == pin {
+			return true
+		}
+	}
+	return false
 }

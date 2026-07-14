@@ -49,7 +49,7 @@ func deriveTargetSlots(nodes []GraphNode) []string {
 		if n.Kind != "Win32WindowTarget" && n.Kind != "AndroidTarget" {
 			continue
 		}
-		slot := configString(n.Config, "Target")
+		slot := configString(n.Config, portableTargetBindingKey)
 		if slot != "" {
 			seen[slot] = true
 		}

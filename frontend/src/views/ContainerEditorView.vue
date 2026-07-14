@@ -554,7 +554,7 @@ import { centerOnNode, SUBGRAPH_ENTRY_DEFAULT } from '@/composables/containerEdi
 import { useSnapEngine } from '@/composables/containerEditor/useSnapEngine'
 import { useEditorHotkeys } from '@/composables/containerEditor/useEditorHotkeys'
 import { useNodeSearch } from '@/composables/containerEditor/useNodeSearch'
-import { safeCoerceForFix } from '@/components/containers/inline/coerceLiteral'
+import { literalValidationFix } from '@/composables/containerEditor/validationFix'
 import { useInlineMenu } from '@/composables/containerEditor/useInlineMenu'
 import { useCommandPalette } from '@/composables/containerEditor/useCommandPalette'
 import { useYtConsole } from '@/composables/containerEditor/useYtConsole'
@@ -1851,22 +1851,34 @@ async function onJumpToErrorNode(e: ValidationError) {
   }
 }
 
-// 问题面板「修复」: 仅 LITERAL_TYPE_MISMATCH 且能安全 coerce (干净数字串→number / 真假串→bool 等) 时生效。
-// 改 live literal + 标 dirty/touched, 乐观摘掉该条; 真正确认靠用户再保存/检查。含糊值不在此列 (按钮不显)。
+// 问题面板「修复」: 安全类型收口，或删除 Spec/动态描述器均不认识、运行时本就忽略的 literal。
+// 所有修改都走 draft mutation gate，确保主图/子图 dirty、history 与保存状态一致。
 function onFixError(e: ValidationError) {
-  if (e.code !== 'LITERAL_TYPE_MISMATCH' || !e.nodeId) return
-  const pin = e.params?.pin as string | undefined
-  const expected = e.params?.expected as string | undefined
-  if (!pin || !expected) return
+  if (!e.nodeId) return
   const loc = locateNode(e.nodeId)
   const lit = loc?.node.config?.literal as Record<string, unknown> | undefined
   if (!loc || !lit) return
-  const fixed = safeCoerceForFix(lit[pin], expected)
-  if (fixed === undefined) return
-  lit[pin] = fixed
-  if (loc.sgID) editorStore.touchSubgraph(containerID, loc.sgID)
-  syncFlowFromDraft()
-  validationErrors.value = validationErrors.value.filter((x) => x !== e)
+  const issues =
+    e.code === 'UNKNOWN_LITERAL_PIN'
+      ? validationErrors.value.filter(
+          (candidate) => candidate.code === e.code && candidate.nodeId === e.nodeId,
+        )
+      : [e]
+  const fixes = issues
+    .map((issue) => literalValidationFix(issue, lit[issue.params?.pin as string]))
+    .filter((fix) => fix !== null)
+  if (fixes.length === 0) return
+
+  const mutate = () => {
+    for (const fix of fixes) {
+      if (fix.action === 'remove') delete lit[fix.pin]
+      else lit[fix.pin] = fix.value
+    }
+    if (Object.keys(lit).length === 0 && loc.node.config) delete loc.node.config.literal
+  }
+  if (loc.sgID) applyBulkMutation([loc.sgID], mutate)
+  else applyDraftMutation(mutate)
+  validationErrors.value = validationErrors.value.filter((issue) => !issues.includes(issue))
 }
 
 // currentSubgraph 由 useEditorPath 提供

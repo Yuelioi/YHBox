@@ -2830,6 +2830,8 @@ export default {
     EMPTY_SUBGRAPH_OUTPUT: '子图没有任何 SubgraphOutput 节点',
     CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
+    MISSING_REQUIRED_PIN: '{kind} 缺少必填输入 {pin}',
+    UNKNOWN_LITERAL_PIN: '{kind} 保存了未知输入 {pin} 的无效值，可安全清理',
     MISSING_WIN32_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
     UNSUPPORTED_TARGET_CAPABILITY:
       '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
@@ -2841,6 +2843,7 @@ export default {
     RECORDING_NO_WIN32_WINDOW_TARGET: '容器缺 Windows 窗口目标节点（录制需要 Windows 窗口）',
     INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows 窗口目标正则不合法: {error}',
     INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows 窗口目标 match 不能为空',
+    NO_ACTIVE_WINDOW: '当前没有可用的 Windows 目标窗口',
     INVALID_HSV_RANGE: 'HSV 范围不合法',
     INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
     INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',
@@ -2848,6 +2851,9 @@ export default {
     INVALID_MOUSE_BUTTON: 'button 必须是 left/right/middle, 得到 {button}',
     UNSAFE_SCREENSHOT_PATH: 'Screenshot pathTemplate 路径不安全',
     POLL_TOO_FAST: '轮询间隔太小 (<{minMs}ms), 会让 CPU 飙升',
+    INVALID_COLOR_MODE: '颜色模式只能是 hsv 或 rgb，当前为 {got}',
+    INVALID_BLOB_PARAM: '{field} 不能小于 0，当前为 {got}',
+    INVALID_SORT_MODE: '不支持的色块排序方式：{got}',
     STOPWATCH_EMPTY_KEY: 'Stopwatch key 不能为空',
     STOPWATCH_KEY_MISMATCH: '{kind} 使用 key {key} 但同图中无对应 StopwatchStart',
     THROW_IN_MAIN_GRAPH: 'Throw 节点不能在主图 (必须在子图内)',
@@ -2878,6 +2884,7 @@ export default {
       'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
     // B11/B3+ 加的 code
     INVALID_VAR_REF: '节点引用未声明的容器变量 {varName} (scope={scope})',
+    SUBGRAPH_VAR_UNDECLARED: '子图 {subgraphLabel} 需要容器变量 {name}，但当前容器未声明',
     // 禁用节点
     WARN_DISABLED_BRANCH_NODE:
       '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
@@ -2905,6 +2912,7 @@ export default {
     fix_missing_win32_window_target: '一键添加 Windows 窗口目标节点',
     jump: '跳转',
     fix: '修复',
+    clear_unused: '清理无效值',
   },
   // ContainersView / ContainersTab / TemplatesTab 文案.
   containers: {

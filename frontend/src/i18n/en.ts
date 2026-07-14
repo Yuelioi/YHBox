@@ -2979,6 +2979,8 @@ export default {
     EMPTY_SUBGRAPH_OUTPUT: 'Subgraph has no SubgraphOutput node',
     CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
     PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
+    MISSING_REQUIRED_PIN: '{kind} is missing required input {pin}',
+    UNKNOWN_LITERAL_PIN: '{kind} contains an unused value for unknown input {pin}',
     MISSING_WIN32_WINDOW_TARGET: 'Main graph missing a Windows window target node',
     UNSUPPORTED_TARGET_CAPABILITY:
       '{kind} requires target capability {capability}, but target {targetKind} does not support it',
@@ -2992,6 +2994,7 @@ export default {
       'Container has no Windows window target node (recording needs a Windows window)',
     INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
     INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
+    NO_ACTIVE_WINDOW: 'No active Windows target is available',
     INVALID_HSV_RANGE: 'HSV range is invalid',
     INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
     INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
@@ -2999,6 +3002,9 @@ export default {
     INVALID_MOUSE_BUTTON: 'button must be left/right/middle, got {button}',
     UNSAFE_SCREENSHOT_PATH: 'Screenshot pathTemplate is unsafe',
     POLL_TOO_FAST: 'Poll interval too small (<{minMs}ms), will spike CPU',
+    INVALID_COLOR_MODE: 'Color mode must be hsv or rgb, got {got}',
+    INVALID_BLOB_PARAM: '{field} must not be negative, got {got}',
+    INVALID_SORT_MODE: 'Unsupported blob sorting mode: {got}',
     STOPWATCH_EMPTY_KEY: 'Stopwatch key cannot be empty',
     STOPWATCH_KEY_MISMATCH: '{kind} uses key {key} but no matching StopwatchStart in same graph',
     THROW_IN_MAIN_GRAPH: 'Throw node cannot be in main graph (must be inside a subgraph)',
@@ -3032,6 +3038,8 @@ export default {
       'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
     // B11/B3+ added codes
     INVALID_VAR_REF: 'Node references undeclared container variable {varName} (scope={scope})',
+    SUBGRAPH_VAR_UNDECLARED:
+      'Subgraph {subgraphLabel} requires container variable {name}, but it is not declared',
     // disabled nodes
     WARN_DISABLED_BRANCH_NODE:
       'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
@@ -3061,6 +3069,7 @@ export default {
     fix_missing_win32_window_target: 'Auto-add Windows window target node',
     jump: 'Jump',
     fix: 'Fix',
+    clear_unused: 'Clear unused values',
   },
   containers: {
     tab: {

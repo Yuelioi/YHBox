@@ -219,7 +219,7 @@ func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName
 		if dynamic, found := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortInput); found && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
 			for _, in := range ParseDynamicPortDecls(n, dynamic.ConfigKey) {
 				if in.Name == pinName && in.Type != "" {
-					return strings.ToLower(in.Type)
+					return canonPinType(in.Type)
 				}
 			}
 		}

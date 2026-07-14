@@ -10,7 +10,9 @@ import (
 // Text→Message) → UNKNOWN_LITERAL_PIN warning。现状是静默丢值 (literals.go 跳过未知 pin,
 // INVALID_PIN 只查边端点不查 literal key)。
 //
-// input descriptor 节点 (Expr/Script) 跳过: 其 inputs 是 config.Inputs[] 动态声明, 不在 Spec.Inputs。
+// descriptor-driven dynamic inputs are resolved from their declared config
+// records. Package-owned literal metadata is accepted explicitly; everything
+// else must match a static or materialized data-in pin.
 func validateUnknownLiteralPins(c *Container, sgs []Subgraph) []ValidationError {
 	return validateUnknownLiteralPinsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)
 }
@@ -31,17 +33,19 @@ func validateUnknownLiteralPinsWithRegistry(registry nodepkg.RegistryReader, c *
 			if !ok {
 				continue
 			}
-			if nodepkg.HasDynamicPortRole(&rn.Spec, nodepkg.DynamicPortInput) {
-				continue
-			}
 			valid := map[string]bool{}
 			for _, ip := range rn.Spec.Inputs {
 				if ip.Type != nodepkg.TypeExec {
 					valid[ip.Name] = true
 				}
 			}
+			if dynamic, found := nodepkg.DynamicPortForRole(&rn.Spec, nodepkg.DynamicPortInput); found && dynamic.Shape == nodepkg.DynamicPortNameTypeRecords {
+				for _, input := range ParseDynamicPortDecls(n, dynamic.ConfigKey) {
+					valid[input.Name] = true
+				}
+			}
 			for pinName := range lit {
-				if !valid[pinName] {
+				if !valid[pinName] && !isLiteralMetadataKey(n.Kind, pinName) {
 					errs = append(errs, ValidationError{
 						Severity:  SeverityWarning,
 						Code:      CodeUnknownLiteralPin,
