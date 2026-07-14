@@ -5,16 +5,20 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(join(process.cwd(), 'src/views/SettingsView.vue'), 'utf8')
 
 describe('SettingsView navigation', () => {
-  it('exposes a labelled vertical tab interface', () => {
+  it('exposes a searchable, deep-linkable tab interface', () => {
     expect(source).toContain('role="tablist"')
     expect(source).toContain('aria-orientation="vertical"')
     expect(source).toContain('role="tab"')
-    expect(source).toContain(':aria-selected="activeTab === tab.key"')
+    expect(source).toContain(':aria-selected="activeKey === theme.key"')
+    expect(source).toContain(':tabindex="activeKey === theme.key ? 0 : -1"')
     expect(source).toContain('role="tabpanel"')
-    expect(source).toContain('@keydown="onTabKeydown"')
+    expect(source).toContain('route.query.section')
+    expect(source).toContain('v-model="searchQuery"')
   })
 
-  it('keeps the settings content independently scrollable', () => {
-    expect(source).toContain('class="min-w-0 flex-1 overflow-auto"')
+  it('uses the shared commercial settings shell and preserves theme drafts', () => {
+    expect(source).toContain('class="settings-shell"')
+    expect(source).toContain('<SettingsPageHeader')
+    expect(source).toContain('<KeepAlive>')
   })
 })

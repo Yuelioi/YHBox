@@ -1,98 +1,195 @@
 <template>
-  <div class="flex h-full min-h-0">
-    <!-- 左侧 vertical tab -->
-    <aside class="w-44 shrink-0 border-r border-default bg-muted/10 p-4">
-      <div class="mb-4 flex items-center gap-2 px-2">
-        <UIcon name="i-tabler-settings" class="size-4 text-primary" aria-hidden="true" />
-        <h1 class="text-sm font-semibold text-highlighted">{{ t('sidebar.settings') }}</h1>
+  <div class="settings-shell">
+    <aside class="settings-sidebar" :aria-label="t('sidebar.settings')">
+      <div class="flex items-center gap-2 px-1">
+        <div
+          class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10"
+        >
+          <UIcon name="i-tabler-settings" class="size-4 text-primary" aria-hidden="true" />
+        </div>
+        <div class="min-w-0">
+          <h1 class="truncate text-sm font-semibold text-highlighted">
+            {{ t('sidebar.settings') }}
+          </h1>
+          <p class="truncate text-[11px] text-dimmed">{{ t('settingsCenter.local_hint') }}</p>
+        </div>
       </div>
+
+      <UInput
+        v-model="searchQuery"
+        size="sm"
+        icon="i-tabler-search"
+        :placeholder="t('settingsCenter.search_placeholder')"
+        :aria-label="t('settingsCenter.search_placeholder')"
+        class="w-full"
+      >
+        <template v-if="searchQuery" #trailing>
+          <UButton
+            size="xs"
+            variant="link"
+            color="neutral"
+            icon="i-tabler-x"
+            :aria-label="t('settingsCenter.clear_search')"
+            @click="searchQuery = ''"
+          />
+        </template>
+      </UInput>
+
       <nav
-        class="space-y-1"
+        class="settings-navigation"
         role="tablist"
         aria-orientation="vertical"
-        :aria-label="t('sidebar.settings')"
+        :aria-label="t('settingsCenter.themes_label')"
       >
-        <button
-          v-for="tab in tabs"
-          :id="`settings-tab-${tab.key}`"
-          :key="tab.key"
-          type="button"
+        <UButton
+          v-for="theme in filteredThemes"
+          :id="`settings-tab-${theme.key}`"
+          :key="theme.key"
+          size="sm"
+          variant="ghost"
+          color="neutral"
           role="tab"
-          :aria-selected="activeTab === tab.key"
+          :tabindex="activeKey === theme.key ? 0 : -1"
+          :aria-selected="activeKey === theme.key"
           aria-controls="settings-tabpanel"
-          :class="[
-            'flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary',
-            activeTab === tab.key
-              ? 'bg-elevated text-highlighted'
-              : 'text-muted hover:bg-elevated/50 hover:text-default',
-          ]"
-          @click="activeTab = tab.key"
-          @keydown="onTabKeydown"
+          class="settings-nav-item"
+          :class="activeKey === theme.key ? 'settings-nav-item--active' : ''"
+          @click="selectTheme(theme.key)"
+          @keydown="onTabKeydown($event, theme.key)"
         >
           <UIcon
-            :name="tab.icon"
+            :name="theme.icon"
             class="size-4 shrink-0"
-            :class="activeTab === tab.key ? 'text-primary' : 'text-dimmed'"
+            :class="activeKey === theme.key ? 'text-primary' : 'text-dimmed'"
             aria-hidden="true"
           />
-          <span class="truncate">{{ tab.label }}</span>
-        </button>
+          <span class="min-w-0 flex-1 text-left">
+            <span class="block truncate text-xs font-medium">{{ t(theme.labelKey) }}</span>
+            <span class="mt-0.5 block truncate text-[10px] font-normal text-dimmed">
+              {{ t(theme.descriptionKey) }}
+            </span>
+          </span>
+          <UIcon
+            v-if="activeKey === theme.key"
+            name="i-tabler-chevron-right"
+            class="size-3.5 shrink-0 text-primary"
+            aria-hidden="true"
+          />
+        </UButton>
+
+        <p v-if="filteredThemes.length === 0" class="px-3 py-6 text-center text-xs text-dimmed">
+          {{ t('settingsCenter.no_results') }}
+        </p>
       </nav>
     </aside>
-    <!-- 右侧 content -->
-    <div
-      id="settings-tabpanel"
-      role="tabpanel"
-      :aria-labelledby="`settings-tab-${activeTab}`"
-      tabindex="0"
-      class="min-w-0 flex-1 overflow-auto"
-    >
-      <SettingsGeneral v-if="activeTab === 'general'" />
-      <SettingsHotkeys v-if="activeTab === 'hotkeys'" />
-      <SettingsInput v-if="activeTab === 'input'" />
-      <SettingsLauncher v-if="activeTab === 'launcher'" />
-      <SettingsAI v-if="activeTab === 'ai'" />
-      <SettingsMCP v-if="activeTab === 'mcp'" />
-    </div>
+
+    <section class="settings-content">
+      <SettingsPageHeader
+        :title="t(activeTheme.labelKey)"
+        :description="t(activeTheme.descriptionKey)"
+        :icon="activeTheme.icon"
+      />
+      <div
+        id="settings-tabpanel"
+        role="tabpanel"
+        :aria-labelledby="`settings-tab-${activeKey}`"
+        tabindex="0"
+        class="min-h-0 min-w-0 flex-1 overflow-auto focus:outline-none"
+      >
+        <KeepAlive>
+          <component :is="activeComponent" />
+        </KeepAlive>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import SettingsGeneral from './SettingsGeneral.vue'
 import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
 import SettingsLauncher from './SettingsLauncher.vue'
 import SettingsAI from './SettingsAI.vue'
 import SettingsMCP from './SettingsMCP.vue'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader.vue'
+import { SETTINGS_THEMES, isSettingsThemeKey, type SettingsThemeKey } from '@/settings/registry'
 
+const LAST_THEME_KEY = 'yotta.settings.section'
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const searchQuery = ref('')
 
-type TabKey = 'general' | 'hotkeys' | 'input' | 'launcher' | 'ai' | 'mcp'
+const componentByTheme = {
+  general: SettingsGeneral,
+  hotkeys: SettingsHotkeys,
+  input: SettingsInput,
+  launcher: SettingsLauncher,
+  ai: SettingsAI,
+  mcp: SettingsMCP,
+} as const
 
-const tabs = computed<{ key: TabKey; label: string; icon: string }[]>(() => [
-  { key: 'general', label: t('settingsTab.general'), icon: 'i-tabler-adjustments' },
-  { key: 'hotkeys', label: t('settingsTab.hotkeys'), icon: 'i-tabler-keyboard' },
-  { key: 'input', label: t('settingsTab.input_calibration'), icon: 'i-tabler-mouse' },
-  { key: 'launcher', label: t('settingsTab.launcher'), icon: 'i-tabler-layout-grid' },
-  { key: 'ai', label: t('settingsTab.ai'), icon: 'i-tabler-sparkles' },
-  { key: 'mcp', label: t('settingsTab.mcp'), icon: 'i-tabler-plug' },
-])
-const activeTab = ref<TabKey>('general')
+function initialTheme(): SettingsThemeKey {
+  const fromRoute = route.query.section
+  if (isSettingsThemeKey(fromRoute)) return fromRoute
+  try {
+    const stored = localStorage.getItem(LAST_THEME_KEY)
+    if (isSettingsThemeKey(stored)) return stored
+  } catch {
+    // localStorage unavailable: fall back to General.
+  }
+  return 'general'
+}
 
-function onTabKeydown(event: KeyboardEvent) {
-  const keys = tabs.value.map((tab) => tab.key)
-  const current = keys.indexOf(activeTab.value)
+const activeKey = ref<SettingsThemeKey>(initialTheme())
+const activeTheme = computed(
+  () => SETTINGS_THEMES.find((theme) => theme.key === activeKey.value) ?? SETTINGS_THEMES[0],
+)
+const activeComponent = computed(() => componentByTheme[activeKey.value])
+const filteredThemes = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return SETTINGS_THEMES
+  return SETTINGS_THEMES.filter((theme) =>
+    `${t(theme.labelKey)} ${t(theme.descriptionKey)}`.toLocaleLowerCase().includes(query),
+  )
+})
+
+watch(
+  () => route.query.section,
+  (section) => {
+    if (isSettingsThemeKey(section) && section !== activeKey.value) activeKey.value = section
+  },
+)
+
+function selectTheme(key: SettingsThemeKey) {
+  activeKey.value = key
+  try {
+    localStorage.setItem(LAST_THEME_KEY, key)
+  } catch {
+    // Preference persistence is optional; navigation still works.
+  }
+  if (route.query.section !== key) {
+    void router.replace({ query: { ...route.query, section: key } })
+  }
+}
+
+function onTabKeydown(event: KeyboardEvent, currentKey: SettingsThemeKey) {
+  const visible = filteredThemes.value.map((theme) => theme.key)
+  const current = visible.indexOf(currentKey)
   let next = current
-  if (event.key === 'ArrowDown') next = (current + 1) % keys.length
-  else if (event.key === 'ArrowUp') next = (current - 1 + keys.length) % keys.length
+  if (event.key === 'ArrowDown') next = (current + 1) % visible.length
+  else if (event.key === 'ArrowUp') next = (current - 1 + visible.length) % visible.length
   else if (event.key === 'Home') next = 0
-  else if (event.key === 'End') next = keys.length - 1
+  else if (event.key === 'End') next = visible.length - 1
   else return
 
+  const key = visible[next]
+  if (!key) return
   event.preventDefault()
-  activeTab.value = keys[next]
-  void nextTick(() => document.getElementById(`settings-tab-${activeTab.value}`)?.focus())
+  selectTheme(key)
+  void nextTick(() => document.getElementById(`settings-tab-${key}`)?.focus())
 }
 </script>

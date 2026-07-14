@@ -1,259 +1,269 @@
 <template>
-  <div class="settings-page">
-    <!-- 启动器总说明 + 全局选项 -->
-    <section class="settings-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-layout-grid-add" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('settingsLauncher.title') }}</h2>
-      </div>
-      <p class="text-xs text-dimmed leading-relaxed">
-        {{ t('settingsLauncher.intro') }}
-      </p>
-
-      <div class="border-t border-default/60" />
-
-      <div class="flex items-center justify-between gap-6">
-        <div>
-          <div class="text-sm text-default">{{ t('settingsLauncher.display_label') }}</div>
-          <p class="text-xs text-dimmed mt-0.5">{{ t('settingsLauncher.display_hint') }}</p>
-        </div>
+  <div class="settings-page settings-page--wide">
+    <SettingsSection
+      :title="t('settingsLauncher.appearance_title')"
+      :description="t('settingsLauncher.display_hint')"
+      icon="i-tabler-adjustments-horizontal"
+    >
+      <SettingsRow :label="t('settingsLauncher.display_label')">
         <USelect
           :model-value="display"
           :items="displayItems"
-          class="w-32"
+          class="w-44"
           :aria-label="t('settingsLauncher.display_label')"
-          @update:model-value="(v: string) => setDisplay(v)"
+          @update:model-value="setDisplay"
         />
-      </div>
-    </section>
+      </SettingsRow>
+    </SettingsSection>
 
-    <!-- 编排：单条有序块列表 -->
-    <section class="settings-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-layout-list" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">
-          {{ t('settingsLauncher.layout_title') }}
-        </h2>
-        <span class="text-xs text-dimmed">({{ editItems.length }})</span>
-      </div>
-      <p class="text-xs text-dimmed leading-relaxed">
-        {{ t('settingsLauncher.layout_hint') }}
-      </p>
-
-      <div
-        v-if="editItems.length === 0"
-        class="text-xs text-dimmed py-6 text-center border border-dashed border-default/60 rounded-lg"
-      >
-        {{ t('settingsLauncher.empty') }}
-      </div>
-      <VueDraggable
-        v-else
-        v-model="editItems"
-        :animation="150"
-        handle=".drag-h"
-        class="space-y-2"
-        @end="persist"
-      >
-        <div
-          v-for="(b, index) in editItems"
-          :key="b.id"
-          class="flex flex-col gap-1 px-3 py-2 rounded-md bg-elevated/30 border border-default/60"
-        >
-          <div class="flex items-center gap-2">
-            <UIcon
-              name="i-tabler-grip-vertical"
-              class="drag-h size-4 text-dimmed cursor-grab shrink-0"
-            />
-
-            <!-- 容器按钮块 -->
-            <template v-if="b.type === 'container'">
-              <UPopover :ui="{ content: 'w-[300px] p-2' }">
+    <SettingsSection
+      :title="t('settingsLauncher.layout_title')"
+      :description="t('settingsLauncher.layout_hint')"
+      icon="i-tabler-layout-list"
+      :badge="String(editItems.length)"
+    >
+      <div class="launcher-builder">
+        <div class="min-w-0 space-y-3">
+          <div v-if="editItems.length === 0" class="settings-empty-state">
+            <UIcon name="i-tabler-layout-off" class="size-6 text-dimmed" />
+            <p class="text-sm font-medium text-default">{{ t('settingsLauncher.empty') }}</p>
+          </div>
+          <VueDraggable
+            v-else
+            v-model="editItems"
+            :animation="150"
+            handle=".drag-h"
+            class="space-y-2"
+            @end="persist"
+          >
+            <article v-for="(block, index) in editItems" :key="block.id" class="launcher-block">
+              <UIcon
+                name="i-tabler-grip-vertical"
+                class="drag-h size-4 shrink-0 cursor-grab text-dimmed"
+              />
+              <template v-if="block.type === 'container'">
+                <UPopover :ui="{ content: 'w-[300px] p-2' }">
+                  <UButton
+                    size="xs"
+                    variant="outline"
+                    color="neutral"
+                    square
+                    :title="t('settingsLauncher.pick_icon')"
+                    :aria-label="t('settingsLauncher.pick_icon')"
+                  >
+                    <UIcon :name="block.icon || 'i-tabler-photo-plus'" class="size-4" />
+                  </UButton>
+                  <template #content>
+                    <div class="space-y-2">
+                      <IconPicker
+                        :model-value="block.icon"
+                        @update:model-value="(value: string) => setIcon(block.id, value)"
+                      />
+                      <UButton
+                        v-if="block.icon"
+                        size="xs"
+                        variant="ghost"
+                        color="neutral"
+                        block
+                        @click="setIcon(block.id, '')"
+                      >
+                        {{ t('settingsLauncher.clear_icon') }}
+                      </UButton>
+                    </div>
+                  </template>
+                </UPopover>
+                <div class="min-w-0 flex-1">
+                  <UInput
+                    :model-value="block.label"
+                    size="sm"
+                    :placeholder="containerName(block.containerId)"
+                    :aria-label="t('settingsLauncher.label_placeholder')"
+                    @update:model-value="
+                      (value: string | number) => setLabel(block.id, String(value))
+                    "
+                    @change="persist"
+                  />
+                  <p class="mt-1 truncate text-[11px] text-dimmed">
+                    {{
+                      t('settingsLauncher.from_container', {
+                        name: containerName(block.containerId),
+                      })
+                    }}
+                  </p>
+                </div>
+                <HotkeyCaptureInput
+                  class="w-32 shrink-0"
+                  :model-value="containerHotkey(block.containerId)"
+                  :aria-label="
+                    t('settingsLauncher.hotkey_aria', { name: containerName(block.containerId) })
+                  "
+                  @update:model-value="(value: string) => setHotkey(block.containerId!, value)"
+                />
+              </template>
+              <template v-else-if="block.type === 'label'">
+                <UIcon name="i-tabler-heading" class="size-4 shrink-0 text-dimmed" />
+                <UInput
+                  :model-value="block.label"
+                  class="min-w-0 flex-1"
+                  size="sm"
+                  :placeholder="t('settingsLauncher.label_placeholder')"
+                  @update:model-value="
+                    (value: string | number) => setLabel(block.id, String(value))
+                  "
+                  @change="persist"
+                />
+              </template>
+              <div v-else class="flex min-w-0 flex-1 items-center gap-2 text-xs text-dimmed">
+                <UIcon
+                  :name="
+                    block.type === 'hsep'
+                      ? 'i-tabler-separator-horizontal'
+                      : 'i-tabler-separator-vertical'
+                  "
+                  class="size-4"
+                />
+                {{ t(block.type === 'hsep' ? 'settingsLauncher.hsep' : 'settingsLauncher.vsep') }}
+              </div>
+              <div class="ml-auto flex shrink-0 items-center">
                 <UButton
                   size="xs"
-                  variant="outline"
+                  variant="ghost"
                   color="neutral"
-                  square
-                  class="shrink-0"
-                  :title="t('settingsLauncher.pick_icon')"
-                  :aria-label="t('settingsLauncher.pick_icon')"
+                  icon="i-tabler-arrow-up"
+                  :disabled="index === 0"
+                  :aria-label="t('settingsLauncher.move_up')"
+                  @click="moveBlock(index, index - 1)"
+                />
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  icon="i-tabler-arrow-down"
+                  :disabled="index === editItems.length - 1"
+                  :aria-label="t('settingsLauncher.move_down')"
+                  @click="moveBlock(index, index + 1)"
+                />
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  icon="i-tabler-trash"
+                  :aria-label="t('settingsLauncher.delete_block')"
+                  @click="removeBlock(block.id)"
+                />
+              </div>
+            </article>
+          </VueDraggable>
+
+          <div class="launcher-library">
+            <p class="text-xs font-medium text-default">
+              {{ t('settingsLauncher.library_title') }}
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <USelect
+                v-if="containerItems.length"
+                :model-value="undefined"
+                :items="containerItems"
+                size="sm"
+                class="w-48"
+                :placeholder="t('settingsLauncher.add_container')"
+                @update:model-value="addContainer"
+              />
+              <UButton
+                size="xs"
+                variant="soft"
+                color="neutral"
+                icon="i-tabler-heading"
+                @click="addLabel"
+                >{{ t('settingsLauncher.label_block') }}</UButton
+              >
+              <UButton
+                size="xs"
+                variant="soft"
+                color="neutral"
+                icon="i-tabler-separator-horizontal"
+                @click="addHsep"
+                >{{ t('settingsLauncher.hsep') }}</UButton
+              >
+              <UButton
+                size="xs"
+                variant="soft"
+                color="neutral"
+                icon="i-tabler-separator-vertical"
+                @click="addVsep"
+                >{{ t('settingsLauncher.vsep') }}</UButton
+              >
+            </div>
+          </div>
+        </div>
+
+        <aside class="launcher-preview" aria-live="polite">
+          <div class="mb-3 flex items-center justify-between">
+            <p class="text-xs font-medium text-default">
+              {{ t('settingsLauncher.preview_title') }}
+            </p>
+            <UBadge size="xs" variant="subtle" color="neutral">{{
+              t('settingsLauncher.live_badge')
+            }}</UBadge>
+          </div>
+          <div class="launcher-preview__window">
+            <div class="launcher-preview__handle" />
+            <template v-if="editItems.length">
+              <template v-for="block in editItems" :key="block.id">
+                <p v-if="block.type === 'label'" class="launcher-preview__label">
+                  {{ block.label || t('settingsLauncher.untitled_label') }}
+                </p>
+                <div v-else-if="block.type === 'hsep'" class="launcher-preview__hsep" />
+                <div v-else-if="block.type === 'vsep'" class="launcher-preview__vsep" />
+                <div
+                  v-else
+                  class="launcher-preview__button"
+                  :class="
+                    containerExists(block.containerId) ? '' : 'launcher-preview__button--missing'
+                  "
                 >
                   <UIcon
-                    :name="b.icon || 'i-tabler-photo-plus'"
+                    v-if="display !== 'text'"
+                    :name="block.icon || 'i-tabler-player-play-filled'"
                     class="size-4"
-                    :class="b.icon ? 'text-toned' : 'text-dimmed'"
                   />
-                </UButton>
-                <template #content>
-                  <div class="space-y-2">
-                    <IconPicker
-                      :model-value="b.icon"
-                      @update:model-value="(v: string) => setIcon(b.id, v)"
-                    />
-                    <UButton
-                      v-if="b.icon"
-                      size="xs"
-                      variant="ghost"
-                      color="neutral"
-                      block
-                      @click="setIcon(b.id, '')"
-                    >
-                      {{ t('settingsLauncher.clear_icon') }}
-                    </UButton>
-                  </div>
-                </template>
-              </UPopover>
-              <UInput
-                :model-value="b.label"
-                size="sm"
-                class="flex-1 min-w-0"
-                :placeholder="containerName(b.containerId)"
-                :title="containerName(b.containerId)"
-                :aria-label="t('settingsLauncher.label_placeholder')"
-                @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
-              />
-              <HotkeyCaptureInput
-                class="w-28 sm:w-32 shrink-0"
-                :model-value="containerHotkey(b.containerId)"
-                @update:model-value="(v: string) => setHotkey(b.containerId!, v)"
-              />
+                  <span v-if="display !== 'icon'" class="truncate">{{
+                    block.label || containerName(block.containerId)
+                  }}</span>
+                </div>
+              </template>
             </template>
-
-            <!-- 文字标题块 -->
-            <template v-else-if="b.type === 'label'">
-              <UIcon name="i-tabler-heading" class="size-4 text-dimmed shrink-0" />
-              <UInput
-                :model-value="b.label"
-                size="sm"
-                class="flex-1 min-w-0"
-                :placeholder="t('settingsLauncher.label_placeholder')"
-                :aria-label="t('settingsLauncher.label_placeholder')"
-                @update:model-value="(v: string | number) => setLabel(b.id, String(v))"
-              />
-            </template>
-
-            <!-- 水平分隔符块 -->
-            <div
-              v-else-if="b.type === 'hsep'"
-              class="flex-1 flex items-center gap-2 text-xs text-dimmed"
-            >
-              <span class="flex-1 border-t border-default/60" />
-              <span class="shrink-0 inline-flex items-center gap-1"
-                ><UIcon name="i-tabler-separator-horizontal" class="size-4" />
-                {{ t('settingsLauncher.hsep') }}</span
-              >
-              <span class="flex-1 border-t border-default/60" />
-            </div>
-
-            <!-- 垂直分隔符块 -->
-            <div
-              v-else-if="b.type === 'vsep'"
-              class="flex-1 inline-flex items-center gap-1 text-xs text-dimmed"
-            >
-              <UIcon name="i-tabler-separator-vertical" class="size-4" />
-              {{ t('settingsLauncher.vsep') }}
-            </div>
-
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-arrow-up"
-              :disabled="index === 0"
-              :title="t('settingsLauncher.move_up')"
-              :aria-label="t('settingsLauncher.move_up')"
-              @click="moveBlock(index, index - 1)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-arrow-down"
-              :disabled="index === editItems.length - 1"
-              :title="t('settingsLauncher.move_down')"
-              :aria-label="t('settingsLauncher.move_down')"
-              @click="moveBlock(index, index + 1)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="error"
-              icon="i-tabler-trash"
-              :title="t('settingsLauncher.delete_block')"
-              :aria-label="t('settingsLauncher.delete_block')"
-              @click="removeBlock(b.id)"
-            />
+            <p v-else class="text-center text-xs text-dimmed">
+              {{ t('settingsLauncher.preview_empty') }}
+            </p>
           </div>
-          <!-- 容器块：自定义了显示名时，常驻一行原容器名兜底 -->
-          <p v-if="b.type === 'container' && b.label" class="pl-7 text-xs text-dimmed truncate">
-            {{ t('settingsLauncher.from_container', { name: containerName(b.containerId) }) }}
-          </p>
-        </div>
-      </VueDraggable>
-
-      <!-- 添加块 -->
-      <div class="flex flex-wrap items-center gap-2 pt-1">
-        <USelect
-          v-if="containerItems.length"
-          :model-value="undefined"
-          :items="containerItems"
-          size="sm"
-          class="w-44"
-          :placeholder="t('settingsLauncher.add_container')"
-          @update:model-value="(v: string) => addContainer(v)"
-        />
-        <UButton
-          size="xs"
-          variant="soft"
-          color="neutral"
-          icon="i-tabler-heading"
-          @click="addLabel"
-          >{{ t('settingsLauncher.label_block') }}</UButton
-        >
-        <UButton
-          size="xs"
-          variant="soft"
-          color="neutral"
-          icon="i-tabler-separator-horizontal"
-          @click="addHsep"
-          >{{ t('settingsLauncher.hsep') }}</UButton
-        >
-        <UButton
-          size="xs"
-          variant="soft"
-          color="neutral"
-          icon="i-tabler-separator-vertical"
-          @click="addVsep"
-          >{{ t('settingsLauncher.vsep') }}</UButton
-        >
+        </aside>
       </div>
-    </section>
+    </SettingsSection>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { VueDraggable } from 'vue-draggable-plus'
 import { backend } from '@/lib/backend'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
 import { useContainersStore } from '@/stores/containers'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import { VueDraggable } from 'vue-draggable-plus'
 import IconPicker from '@/components/containers/inline/IconPicker.vue'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
+import SettingsRow from '@/components/settings/SettingsRow.vue'
+import SettingsSection from '@/components/settings/SettingsSection.vue'
 
 const settingsStore = useSettingsStore()
 const containersStore = useContainersStore()
 const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
-
-// 本地工作副本（浅拷贝每块），本页是 launcherItems 唯一编辑者，每次改动立即 persist。
 const editItems = ref<LauncherBlock[]>([])
-function copyItems(items: LauncherBlock[]): LauncherBlock[] {
-  return items.map((b) => ({ ...b }))
-}
-function syncFromStore() {
-  editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? [])
-}
+const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
+const syncFromStore = () =>
+  (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
 watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
 const display = computed(() => settingsStore.data?.ui.launcherDisplay || 'both')
@@ -262,13 +272,15 @@ const displayItems = computed(() => [
   { label: t('settingsLauncher.display_icon'), value: 'icon' },
   { label: t('settingsLauncher.display_text'), value: 'text' },
 ])
-function setDisplay(v: string) {
-  void settingsStore.patch({ ui: { launcherDisplay: v } })
-}
-
-function persist() {
+const containerItems = computed(() =>
+  containersStore.list.map((container) => ({ label: container.name, value: container.id })),
+)
+const persist = () =>
   void settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
-}
+const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
+const block = (id: string) => editItems.value.find((item) => item.id === id)
+const genId = () => `lb_${crypto.randomUUID()}`
+
 function moveBlock(from: number, to: number) {
   if (to < 0 || to >= editItems.value.length) return
   const [item] = editItems.value.splice(from, 1)
@@ -276,15 +288,9 @@ function moveBlock(from: number, to: number) {
   editItems.value.splice(to, 0, item)
   persist()
 }
-function genId(): string {
-  return 'lb_' + Math.random().toString(36).slice(2, 10)
-}
-function block(id: string) {
-  return editItems.value.find((b) => b.id === id)
-}
-function addContainer(cid: string) {
-  if (!cid) return
-  editItems.value.push({ id: genId(), type: 'container', containerId: cid, icon: '', label: '' })
+function addContainer(containerId: string) {
+  if (!containerId) return
+  editItems.value.push({ id: genId(), type: 'container', containerId, icon: '', label: '' })
   persist()
 }
 function addLabel() {
@@ -300,42 +306,38 @@ function addVsep() {
   persist()
 }
 function removeBlock(id: string) {
-  editItems.value = editItems.value.filter((b) => b.id !== id)
+  editItems.value = editItems.value.filter((item) => item.id !== id)
   persist()
 }
 function setIcon(id: string, icon: string) {
-  const b = block(id)
-  if (b) {
-    b.icon = icon
+  const item = block(id)
+  if (item) {
+    item.icon = icon
     persist()
   }
 }
 function setLabel(id: string, label: string) {
-  const b = block(id)
-  if (b) {
-    b.label = label
-    persist()
-  }
+  const item = block(id)
+  if (item) item.label = label
 }
-async function setHotkey(cid: string, hk: string) {
-  await backend.hotkeys.update('container.' + cid, hk)
+async function setHotkey(containerId: string, hotkey: string) {
+  await backend.hotkeys.update(`container.${containerId}`, hotkey)
   await hotkeysStore.reload()
 }
-function containerName(id: string | undefined): string {
+function containerExists(id?: string) {
+  return containersStore.list.some((container) => container.id === id)
+}
+function containerName(id?: string) {
   return (
-    containersStore.list.find((c) => c.id === id)?.name ?? t('settingsLauncher.deleted_container')
+    containersStore.list.find((container) => container.id === id)?.name ??
+    t('settingsLauncher.deleted_container')
   )
 }
-function containerHotkey(id: string | undefined): string {
-  return hotkeysStore.list.find((e) => e.key === 'container.' + id)?.hotkeyStr ?? ''
+function containerHotkey(id?: string) {
+  return hotkeysStore.list.find((item) => item.key === `container.${id}`)?.hotkeyStr ?? ''
 }
-// 块自由编排，同一容器允许出现多次 → 不去重，列全部容器。
-const containerItems = computed(() =>
-  containersStore.list.map((c) => ({ label: c.name, value: c.id })),
-)
 
 onMounted(() => {
-  void settingsStore.load()
   void containersStore.reload()
   void hotkeysStore.reload()
 })

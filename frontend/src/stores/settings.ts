@@ -66,9 +66,17 @@ export interface Settings {
   }
 }
 
+export type SettingsSaveState = 'idle' | 'saving' | 'saved' | 'error'
+
 export const useSettingsStore = defineStore('settings', () => {
   const data = ref<Settings | null>(null)
   const loaded = ref(false)
+  const saveState = ref<SettingsSaveState>('idle')
+  const pendingWrites = ref(0)
+  const lastSavedAt = ref<number | null>(null)
+  const lastFailedPatch = ref<object | null>(null)
+  let patchTail: Promise<unknown> = Promise.resolve()
+  let syncStarted = false
 
   // activeMouseProfile 命中 → 该档 counts；失配但只有一档 → 那一档；否则 0。
   // 跟 Go Settings.ActiveMouseCounts360() 逻辑一致。
@@ -91,24 +99,71 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // patch 是 partial Settings（RFC7386 deep merge 语义）
-  async function patch(p: object) {
-    const result = await backend.settings.update(p)
-    if (result === undefined) return // 失败已 toast
-    // Go 端不发 settings:changed 事件，前端本地立刻 deep-merge 进 store，
-    // 让任何在监听 data 的 view 立即看到新值，不必等下一次 load。
-    if (data.value) {
-      deepMerge(data.value, p)
+  function patch(p: object): Promise<boolean> {
+    pendingWrites.value++
+    saveState.value = 'saving'
+
+    const run = async () => {
+      const ok = await backend.settings.update(p)
+      if (ok && data.value) {
+        deepMerge(data.value, p)
+      }
+      lastFailedPatch.value = ok ? null : p
+      pendingWrites.value--
+      if (pendingWrites.value === 0) {
+        saveState.value = ok ? 'saved' : 'error'
+        if (ok) lastSavedAt.value = Date.now()
+      }
+      return ok
     }
+
+    // Serialize RFC7386 patches so rapid edits cannot finish out of order and
+    // restore an older value in the local store.
+    const result = patchTail.then(run, run)
+    patchTail = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
   }
 
   // patchAIConnections 整替 connections（RFC7386 数组整替）；删档清 default 时一并传 def=''。
   async function patchAIConnections(connections: AIConnection[], def?: string) {
     const ai: { connections: AIConnection[]; default?: string } = { connections }
     if (def !== undefined) ai.default = def
-    await patch({ ai })
+    return patch({ ai })
   }
 
-  return { data, loaded, load, patch, patchAIConnections, mouseProfiles, activeMouseCounts360 }
+  function startSync() {
+    if (syncStarted) return
+    syncStarted = true
+    backend.events.onSettingsChanged(() => {
+      // Own writes also emit this event. Wait until the local write queue is
+      // drained, then reconcile with the committed backend snapshot.
+      void patchTail.then(() => load())
+    })
+  }
+
+  async function retryLastPatch() {
+    const failed = lastFailedPatch.value
+    if (!failed) return true
+    return patch(failed)
+  }
+
+  return {
+    data,
+    loaded,
+    saveState,
+    pendingWrites,
+    lastSavedAt,
+    load,
+    patch,
+    patchAIConnections,
+    retryLastPatch,
+    startSync,
+    mouseProfiles,
+    activeMouseCounts360,
+  }
 })
 
 function deepMerge(target: any, source: any) {

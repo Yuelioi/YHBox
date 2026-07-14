@@ -25,6 +25,14 @@ export default {
     },
   },
   settings: {
+    general: {
+      appearance_title: 'Interface & language',
+      appearance_hint: 'Control editor information density and the Yotta display language.',
+      behavior_hint: 'Choose how Yotta starts after sign-in and behaves when its window closes.',
+      capture_diagnostics_title: 'Capture & diagnostics',
+      capture_diagnostics_hint:
+        'Keep the recommended defaults unless you are diagnosing compatibility or detection issues.',
+    },
     editor_display: {
       section_title: 'Editor display',
       detail_label: 'Node detail level',
@@ -61,6 +69,12 @@ export default {
         wgc: 'WGC',
         mock: 'Mock (offline replay)',
       },
+      method_hint: {
+        auto: 'Recommended. Chooses a stable capture method for the current Windows version.',
+        gdi: 'Broadest compatibility, but some 3D apps may return a frozen frame in the background.',
+        wgc: 'More reliable background capture for Windows 11 and modern graphics apps.',
+        mock: 'Development only. Replays a local sequence of PNG frames.',
+      },
       dump_debug_label: 'Dump detect-annotated frames',
       dump_debug_hint:
         'Bot detection async writes boxed PNGs to debug/captures/. For tuning / debugging detection issues. Applies immediately.',
@@ -70,6 +84,14 @@ export default {
     log: {
       section_title: 'Log',
       hint: 'Folding, file write, timestamps, line-wrap, autoscroll — settings live in the bottom log panel header gear.',
+      enabled_label: 'Enable runtime logging',
+      enabled_hint:
+        'Stops log production at the source when disabled, reducing overhead during long automation runs.',
+      level_label: 'Minimum level',
+      level_hint: 'Keep this level and more severe messages. INFO is recommended for daily use.',
+      live_label: 'Stream to the log panel',
+      live_hint:
+        'When disabled, logs can still be written to file without streaming to the main window.',
     },
     input: {
       title: 'Input calibration',
@@ -97,9 +119,16 @@ export default {
           relative: 'Relative (FPS camera)',
           absolute: 'Absolute (UI click)',
         },
+        mouse_mode_detail: {
+          relative: 'Records raw mouse deltas for camera movement. Restart Yotta after changing.',
+          absolute:
+            'Records screen coordinates for clicks, hover and drag. Restart Yotta after changing.',
+        },
       },
       counts: {
         title: 'Mouse calibration profiles',
+        commercial_hint:
+          'Keep a profile per game or sensitivity so relative movement replays consistently across devices.',
         hint: `Each profile = one game's cumulative {'|'}dx{'|'} for a 360° turn; if in-game sensitivity differs per game on the same machine, make one profile each and pick a default`,
         col_active: 'Default',
         col_label: 'Name',
@@ -112,11 +141,24 @@ export default {
         new_profile_label: 'New profile',
         delete_profile: 'Delete this profile',
         recalibrate: 'Calibrate this profile',
+        start_calibration: 'Start calibration',
+        active_badge: 'Default',
+        calibrated: 'Calibrated · {n}',
+        uncalibrated: 'Needs calibration',
+        advanced_value: 'Advanced value',
+        advanced_value_hint: 'Raw counts for a 360° turn',
+        make_default: 'Make default',
+        empty_hint: 'Once calibrated, recordings and cross-device replay use the selected default.',
         sync_all: 'Sync default profile to all containers',
+        sync_all_hint:
+          'Overwrites MouseCalibration values in every local container main graph. Recordings are not changed.',
+        sync_action: 'Sync to all containers',
         share_hint: "You can also hand-enter counts shared from another machine's script",
       },
       howto: {
         title: 'How to use',
+        compact:
+          'In the target game, press {hk}, turn exactly 360° at a steady speed, then press it again. The result is saved to this profile.',
         step_open: 'Click "Start calibration" to open the dialog',
         step_focus: 'Switch to game, aim at a fixed reference, get ready',
         step_start: 'Press {hk} to start a 3-second countdown (no need to come back to this app!)',
@@ -130,11 +172,18 @@ export default {
         synced_skipped: 'Skipped {n} (no MouseCalibration node)',
       },
       confirm: {
+        delete_profile_title: 'Delete “{name}”?',
+        delete_profile_desc:
+          'This calibration profile will be removed from local settings. Recorded assets are not deleted.',
         sync_title: 'Sync to all containers?',
         sync_desc:
           "Current local counts360 = {cur}.\nSyncing overwrites the value in every local container's main-graph MouseCalibration node.",
         sync_confirm: 'Sync',
         sync_cancel: 'Do not sync',
+      },
+      validation: {
+        label_required: 'Enter a profile name.',
+        label_duplicate: 'Profile names must be unique.',
       },
     },
   },
@@ -2910,6 +2959,21 @@ export default {
   },
   hotkeys: {
     search_placeholder: 'Search hotkey name or binding...',
+    filter_label: 'Filter hotkey status',
+    reset_menu: 'Reset & clean up',
+    capture_aria: 'Set the shortcut for {name}',
+    empty_hint: 'Try a different search term or status filter.',
+    clear_filters: 'Clear filters',
+    filter: {
+      all: 'All statuses',
+      failed: 'Registration failed',
+      unbound: 'Unbound only',
+    },
+    summary: {
+      total: '{n} total',
+      failed: '{n} failed',
+      unbound: '{n} unbound',
+    },
     group: {
       system: 'System',
       recording: 'Recording',
@@ -2917,6 +2981,14 @@ export default {
       container: 'Container',
       schedule: 'Schedule',
       editor: 'Editor',
+    },
+    group_hint: {
+      system: 'Affects Yotta-wide execution and system tools.',
+      recording: 'Captured by the low-level keyboard hook and not forwarded to the target app.',
+      action: 'Triggers an independent action directly.',
+      container: 'Runs a specific container from any window.',
+      schedule: 'Provides a manual trigger for scheduled work.',
+      editor: 'Active only while the container editor has focus.',
     },
     status: {
       register_failed: 'Registration failed',
@@ -3876,6 +3948,7 @@ export default {
   },
   hotkeyInput: {
     click_to_set: 'Click to set hotkey',
+    clear: 'Clear hotkey',
     instruction: 'Press combo · Backspace clears · Esc cancels',
     press_key: 'Press any key...',
     key_example: 'e.g. W / Space',
@@ -3965,10 +4038,33 @@ export default {
   settingsTab: {
     general: 'General',
     hotkeys: 'Hotkeys',
-    input_calibration: 'Input calibration',
-    launcher: 'Launcher',
-    ai: 'AI',
-    mcp: 'MCP',
+    input_calibration: 'Input & calibration',
+    launcher: 'Floating launcher',
+    ai: 'AI connections',
+    mcp: 'MCP integration',
+  },
+  settingsCenter: {
+    eyebrow: 'YOTTA SETTINGS',
+    local_hint: 'Device and workspace preferences',
+    search_placeholder: 'Search settings themes',
+    clear_search: 'Clear settings search',
+    themes_label: 'Settings themes',
+    no_results: 'No matching settings themes',
+    restart_required: 'Applies after restart',
+    theme: {
+      general: 'Interface language, startup behavior, and app-wide defaults',
+      hotkeys: 'Review, search, and manage global and editor shortcuts',
+      input: 'Configure recorded input semantics and maintain game calibration profiles',
+      launcher: 'Arrange the floating launcher content, appearance, and quick actions',
+      ai: 'Manage AI service endpoints, credentials, and connection health',
+      mcp: 'Control external access and the boundary for executable permissions',
+    },
+    save: {
+      automatic: 'Saved automatically on this device',
+      saving: 'Saving',
+      saved: 'Saved on this device',
+      failed: 'Save failed',
+    },
   },
   iconPicker: {
     search_placeholder: 'Search icons...',
@@ -3991,6 +4087,7 @@ export default {
     intro:
       'Put frequently used containers into a small launcher window and run them with one click. Open it with the show/hide hotkey or from a container page.',
     display_label: 'Button display',
+    appearance_title: 'Appearance & display',
     display_hint: 'Each launcher button can show an icon, text, or both.',
     display_both: 'Icon + text',
     display_icon: 'Icon only',
@@ -4011,6 +4108,12 @@ export default {
     add_container: '+ Container',
     label_block: 'Text heading',
     deleted_container: '(deleted container)',
+    library_title: 'Add content block',
+    preview_title: 'Live preview',
+    live_badge: 'Live',
+    preview_empty: 'Add content to preview it here',
+    untitled_label: 'Untitled heading',
+    hotkey_aria: 'Set the launch shortcut for “{name}”',
   },
   editorSearch: {
     find: 'Find',
@@ -4034,11 +4137,32 @@ export default {
       'The local server is always available. Until execution and writes are allowed, AI clients can only use read-only tools.',
     copy: 'Copy',
     copied: 'Copied!',
+    copyFailed: 'Copy failed. Copy the address manually.',
+    accessTitle: 'Capabilities & permission boundary',
+    accessHint:
+      'The local MCP server is read-only by default. Execution and writes require explicit approval.',
+    readOnlyTitle: 'Read workspace',
+    readOnlyHint: 'Inspect containers, nodes, assets, and diagnostics.',
+    executeTitle: 'Execute & write',
+    executeHint: 'Run automation, drive input, and modify the workspace.',
+    alwaysOn: 'Always available',
+    enabled: 'Authorized',
+    disabled: 'Not authorized',
+    connectionTitle: 'Connection details',
+    localOnlyHint: 'Listens on the local loopback address only, not the LAN.',
+    confirmTitle: 'Allow MCP execution and writes?',
+    confirmHint:
+      'Connected AI clients will be able to run nodes, modify containers, and control mouse and keyboard. Enable only for trusted clients.',
+    confirmAction: 'Authorize access',
   },
   settingsAI: {
     title: 'AI Models',
     intro:
       'Configure AI connections (model endpoint + key) for AI nodes to call. A connection can be reused by many nodes; the specific model is chosen on each node.',
+    security: {
+      title: 'Credentials are stored in local settings',
+      hint: 'Yotta does not upload keys to a Yotta service, but they are still saved as local configuration. Use least-privilege keys and avoid production credentials on shared computers.',
+    },
     protocol: {
       openai: 'OpenAI-compatible',
       anthropic: 'Anthropic (Claude)',
@@ -4047,20 +4171,35 @@ export default {
       title: 'Connections',
       hint: 'Local (Ollama / LM Studio, usually no key) or hosted (OpenAI / DeepSeek / Claude).',
       set_default: 'Set as default',
+      default_badge: 'Default',
+      unnamed: 'Unnamed connection',
+      official_endpoint: 'Official default endpoint',
+      name_label: 'Connection name',
       protocol_label: 'API protocol',
+      endpoint_label: 'Service endpoint',
+      endpoint_hint: 'Leave blank to use the selected protocol’s official default endpoint.',
       label_placeholder: 'Name, e.g. Local Ollama',
       test: 'Test',
       delete: 'Delete connection',
       baseurl_placeholder: 'http://localhost:11434/v1 (blank for official default)',
       apikey_placeholder: 'API key (often blank for local)',
+      apikey_label: 'API key',
+      apikey_hint: 'Usually optional for local model servers.',
       reveal: 'Show / hide key',
       testmodel_placeholder: 'Test model (optional)',
+      testmodel_label: 'Test model',
       protocol_hint: 'Most third-party gateways are OpenAI-compatible; pick OpenAI when unsure.',
       ok_models: 'Connected. Available models:',
       ok_no_models: 'Connected (model list unavailable, enter a model name manually).',
       empty: 'No connections yet. Add one below.',
       add: 'Add connection',
       new_label: 'New connection',
+    },
+    confirm: {
+      delete_title: 'Delete “{name}”?',
+      delete_unused: 'No AI nodes currently use this connection. Deletion cannot be undone.',
+      delete_referenced:
+        '{n} AI node(s) still use this connection in: {containers}. Those nodes will stop working after deletion.',
     },
   },
   about: {

@@ -15,7 +15,7 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
-import { invoke } from './invoke'
+import { invoke, invokeVoid } from './invoke'
 import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
@@ -290,15 +290,25 @@ export interface AITestResult {
   kind: string
 }
 
+export interface AIConnectionRef {
+  containerId: string
+  containerName: string
+  nodeId: string
+}
+
 export const backend = {
   settings: {
     get: () => invoke(SettingsService.Get),
-    update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
+    update: (patch: object) => invokeVoid(SettingsService.Update, JSON.stringify(patch)),
   },
   ai: {
     testConnection: (connection: AIConnection, testModel: string) =>
       invoke(AIService.TestConnection, { connection, testModel }) as Promise<
         AITestResult | undefined
+      >,
+    nodesUsingConnection: (connectionID: string) =>
+      invoke(ContainerService.AINodesUsingConnection, connectionID) as Promise<
+        AIConnectionRef[] | undefined
       >,
   },
   containers: {
@@ -557,5 +567,6 @@ export const backend = {
     onLogBatch: (cb: (e: LogBatchEvent) => void) =>
       Events.On(E.EVENT_LOG_BATCH, (e: any) => cb(e?.data?.[0] ?? e?.data ?? e)),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
+    onSettingsChanged: (cb: () => void) => Events.On('settings:changed', () => cb()),
   },
 }

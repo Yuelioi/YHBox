@@ -1,97 +1,139 @@
 <template>
   <div class="settings-page">
-    <!-- 搜索框 + 批量操作 -->
-    <div class="flex items-center gap-2">
+    <div class="settings-toolbar">
       <UInput
         v-model="searchText"
         :placeholder="t('hotkeys.search_placeholder')"
         icon="i-tabler-search"
-        class="flex-1"
+        class="min-w-0 flex-1"
         :aria-label="t('hotkeys.search_placeholder')"
       />
-      <UButton color="neutral" variant="outline" icon="i-tabler-restore" @click="onResetSystem">
-        {{ t('hotkeys.reset_system') }}
-      </UButton>
-      <UButton color="neutral" variant="outline" icon="i-tabler-eraser" @click="onClearContainers">
-        {{ t('hotkeys.clear_containers') }}
-      </UButton>
+      <USelect
+        v-model="statusFilter"
+        :items="filterItems"
+        class="w-36 shrink-0"
+        :aria-label="t('hotkeys.filter_label')"
+      />
+      <UDropdownMenu :items="resetMenuItems">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-tabler-restore"
+          trailing-icon="i-tabler-chevron-down"
+        >
+          {{ t('hotkeys.reset_menu') }}
+        </UButton>
+      </UDropdownMenu>
     </div>
 
-    <!-- 按 source 分组渲染 -->
-    <section v-for="group in filteredGrouped" :key="group.source" class="settings-section">
-      <div class="flex items-center gap-2">
-        <UIcon :name="groupIcon(group.source)" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ groupLabel(group.source) }}</h2>
-      </div>
-      <div class="space-y-2">
-        <div
-          v-for="entry in group.entries"
-          :key="entry.key"
-          class="flex items-center gap-3 px-3 py-2 rounded-md bg-elevated/30 border border-default/60"
-        >
-          <div class="flex-1 min-w-0">
-            <div class="text-sm text-default truncate">
+    <div class="flex flex-wrap items-center gap-2" aria-live="polite">
+      <UBadge color="neutral" variant="subtle" icon="i-tabler-keyboard">
+        {{ t('hotkeys.summary.total', { n: store.list.length }) }}
+      </UBadge>
+      <UBadge color="error" variant="subtle" icon="i-tabler-alert-circle">
+        {{ t('hotkeys.summary.failed', { n: failedCount }) }}
+      </UBadge>
+      <UBadge color="neutral" variant="subtle" icon="i-tabler-keyboard-off">
+        {{ t('hotkeys.summary.unbound', { n: unboundCount }) }}
+      </UBadge>
+    </div>
+
+    <SettingsSection
+      v-for="group in filteredGrouped"
+      :key="group.source"
+      :title="groupLabel(group.source)"
+      :description="t(`hotkeys.group_hint.${group.source}`)"
+      :icon="groupIcon(group.source)"
+    >
+      <template #badge>
+        <UBadge color="neutral" variant="subtle" size="xs">{{ group.entries.length }}</UBadge>
+      </template>
+
+      <div class="divide-y divide-default/60 border-y border-default/60">
+        <div v-for="entry in group.entries" :key="entry.key" class="hotkey-row">
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-default">
               {{ t(entry.label, entry.labelParams ?? {}) }}
             </div>
             <div
               v-if="entry.lastError"
-              class="text-xs text-error mt-0.5 truncate"
-              :title="entry.lastError"
+              class="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-error"
+              role="alert"
             >
-              ⚠ {{ t('hotkeys.status.register_failed') }}: {{ entry.lastError }}
+              <UIcon name="i-tabler-alert-circle" class="mt-0.5 size-3.5 shrink-0" />
+              <span>{{ t('hotkeys.status.register_failed') }}：{{ entry.lastError }}</span>
             </div>
-            <div v-else-if="entry.readonlyReason" class="text-xs text-dimmed mt-0.5">
+            <div v-else-if="entry.readonlyReason" class="mt-1 text-xs text-dimmed">
               {{ entry.readonlyReason }}
             </div>
-            <div v-else-if="entry.status === 'unbound'" class="text-xs text-dimmed mt-0.5">
+            <div v-else-if="entry.status === 'unbound'" class="mt-1 text-xs text-dimmed">
               {{ t('hotkeys.status.unbound') }}
             </div>
           </div>
-          <div class="w-56 shrink-0">
-            <HotkeyCaptureInput
-              :model-value="entry.hotkeyStr"
-              :disabled="!!entry.readonlyReason"
-              @update:model-value="(v: string) => onUpdate(entry.key, v)"
-            />
-          </div>
+          <HotkeyCaptureInput
+            class="w-full sm:w-56 sm:shrink-0"
+            :model-value="entry.hotkeyStr"
+            :disabled="!!entry.readonlyReason"
+            :aria-label="
+              t('hotkeys.capture_aria', { name: t(entry.label, entry.labelParams ?? {}) })
+            "
+            @update:model-value="(value: string) => onUpdate(entry.key, value)"
+          />
         </div>
       </div>
-    </section>
+    </SettingsSection>
 
-    <p v-if="filteredGrouped.length === 0" class="text-xs text-dimmed text-center py-8">
-      {{ t('hotkeys.empty') }}
-    </p>
+    <div v-if="filteredGrouped.length === 0" class="settings-empty-state">
+      <UIcon name="i-tabler-search-off" class="size-6 text-dimmed" aria-hidden="true" />
+      <div>
+        <p class="text-sm font-medium text-default">{{ t('hotkeys.empty') }}</p>
+        <p class="mt-1 text-xs text-dimmed">{{ t('hotkeys.empty_hint') }}</p>
+      </div>
+      <UButton size="xs" variant="soft" color="neutral" @click="clearFilters">
+        {{ t('hotkeys.clear_filters') }}
+      </UButton>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useToast } from '@nuxt/ui/composables'
 import { useHotkeysStore } from '@/stores/hotkeys'
 import { useConfirm } from '@/composables/useConfirm'
 import { backend } from '@/lib/backend'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
+import SettingsSection from '@/components/settings/SettingsSection.vue'
+
+type StatusFilter = 'all' | 'failed' | 'unbound'
 
 const { t } = useI18n()
 const store = useHotkeysStore()
-const toast = useToast()
 const { confirm } = useConfirm()
 const searchText = ref('')
+const statusFilter = ref<StatusFilter>('all')
 
-onMounted(() => {
-  void store.reload()
-})
+onMounted(() => void store.reload())
+
+const failedCount = computed(() => store.list.filter((entry) => entry.status === 'failed').length)
+const unboundCount = computed(() => store.list.filter((entry) => entry.status === 'unbound').length)
+const filterItems = computed(() => [
+  { label: t('hotkeys.filter.all'), value: 'all' },
+  { label: t('hotkeys.filter.failed'), value: 'failed' },
+  { label: t('hotkeys.filter.unbound'), value: 'unbound' },
+])
 
 const filteredGrouped = computed(() => {
-  const q = searchText.value.trim().toLowerCase()
-  const filtered = q
-    ? store.list.filter((e) => {
-        const label = t(e.label, e.labelParams ?? {})
-        return label.toLowerCase().includes(q) || e.hotkeyStr.toLowerCase().includes(q)
-      })
-    : store.list
-  // 顺序: system → action → container → schedule (key 顺序即 UI 顺序)
+  const query = searchText.value.trim().toLocaleLowerCase()
+  const filtered = store.list.filter((entry) => {
+    if (statusFilter.value !== 'all' && entry.status !== statusFilter.value) return false
+    if (!query) return true
+    const label = t(entry.label, entry.labelParams ?? {})
+    return (
+      label.toLocaleLowerCase().includes(query) ||
+      entry.hotkeyStr.toLocaleLowerCase().includes(query)
+    )
+  })
   const groups: Record<string, typeof filtered> = {
     system: [],
     recording: [],
@@ -100,11 +142,9 @@ const filteredGrouped = computed(() => {
     schedule: [],
     editor: [],
   }
-  for (const e of filtered) {
-    if (groups[e.source]) groups[e.source].push(e)
-  }
-  for (const k of Object.keys(groups)) {
-    groups[k].sort((a, b) =>
+  for (const entry of filtered) groups[entry.source]?.push(entry)
+  for (const key of Object.keys(groups)) {
+    groups[key].sort((a, b) =>
       t(a.label, a.labelParams ?? {}).localeCompare(t(b.label, b.labelParams ?? {}), 'zh'),
     )
   }
@@ -113,56 +153,48 @@ const filteredGrouped = computed(() => {
     .map(([source, entries]) => ({ source, entries }))
 })
 
+const resetMenuItems = computed(() => [
+  [
+    {
+      label: t('hotkeys.reset_system'),
+      icon: 'i-tabler-restore',
+      onSelect: onResetSystem,
+    },
+    {
+      label: t('hotkeys.clear_containers'),
+      icon: 'i-tabler-eraser',
+      color: 'error' as const,
+      onSelect: onClearContainers,
+    },
+  ],
+])
+
 function groupIcon(source: string): string {
-  switch (source) {
-    case 'system':
-      return 'i-tabler-tool'
-    case 'recording':
-      return 'i-tabler-player-record'
-    case 'action':
-      return 'i-tabler-bolt'
-    case 'container':
-      return 'i-tabler-box'
-    case 'schedule':
-      return 'i-tabler-calendar-clock'
-    case 'editor':
-      return 'i-tabler-edit'
-    default:
-      return 'i-tabler-keyboard'
-  }
+  return (
+    {
+      system: 'i-tabler-tool',
+      recording: 'i-tabler-player-record',
+      action: 'i-tabler-bolt',
+      container: 'i-tabler-box',
+      schedule: 'i-tabler-calendar-clock',
+      editor: 'i-tabler-edit',
+    }[source] ?? 'i-tabler-keyboard'
+  )
 }
+
 function groupLabel(source: string): string {
-  switch (source) {
-    case 'system':
-      return t('hotkeys.group.system')
-    case 'recording':
-      return t('hotkeys.group.recording')
-    case 'action':
-      return t('hotkeys.group.action')
-    case 'container':
-      return t('hotkeys.group.container')
-    case 'schedule':
-      return t('hotkeys.group.schedule')
-    case 'editor':
-      return t('hotkeys.group.editor')
-    default:
-      return source
-  }
+  return t(`hotkeys.group.${source}`)
+}
+
+function clearFilters() {
+  searchText.value = ''
+  statusFilter.value = 'all'
 }
 
 async function onUpdate(key: string, hotkeyStr: string) {
-  const ok = await store.update(key, hotkeyStr)
-  if (ok) {
-    toast.add({
-      title: hotkeyStr ? t('hotkeys.toast.bound', { hk: hotkeyStr }) : t('hotkeys.toast.cleared'),
-      icon: 'i-tabler-check',
-      color: 'neutral',
-    })
-  }
-  // 失败 invoke wrapper 已 toast 带 [conflict]/[reserved]/[invalid] 前缀，不再重复
+  await store.update(key, hotkeyStr)
 }
 
-// 重置内置热键 (强停/校准/录制停止/录制暂停) 为出厂默认。容器热键不动。
 async function onResetSystem() {
   const ok = await confirm({
     title: t('hotkeys.confirm.reset_title'),
@@ -174,10 +206,8 @@ async function onResetSystem() {
   if (ok !== true) return
   await backend.hotkeys.resetSystemDefaults()
   await store.reload()
-  toast.add({ title: t('hotkeys.toast.reset_done'), icon: 'i-tabler-check', color: 'neutral' })
 }
 
-// 清空所有容器的热键绑定 (容器/蓝图保留)。
 async function onClearContainers() {
   const ok = await confirm({
     title: t('hotkeys.confirm.clear_title'),
@@ -187,20 +217,7 @@ async function onClearContainers() {
     color: 'error',
   })
   if (ok !== true) return
-  const n = await backend.containers.clearAllHotkeys()
+  await backend.containers.clearAllHotkeys()
   await store.reload()
-  if (typeof n === 'number' && n > 0) {
-    toast.add({
-      title: t('hotkeys.toast.containers_cleared', { n }),
-      icon: 'i-tabler-check',
-      color: 'neutral',
-    })
-  } else {
-    toast.add({
-      title: t('hotkeys.toast.containers_none'),
-      icon: 'i-tabler-info-circle',
-      color: 'neutral',
-    })
-  }
 }
 </script>

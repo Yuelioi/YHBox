@@ -5,6 +5,7 @@ import {
   friendlyRawErrorMessage,
   setupInvoker,
   toastError,
+  invokeVoid,
 } from './invoke'
 
 describe('normalizeError', () => {
@@ -125,5 +126,12 @@ describe('friendlyRawErrorMessage', () => {
     expect(actions).toHaveLength(2)
     actions?.[0]?.onClick()
     expect(retry).toHaveBeenCalledOnce()
+  })
+})
+
+describe('invokeVoid', () => {
+  it('distinguishes a successful void RPC from failure', async () => {
+    await expect(invokeVoid(async () => undefined)).resolves.toBe(true)
+    await expect(invokeVoid(async () => Promise.reject(new Error('boom')))).resolves.toBe(false)
   })
 })

@@ -1,34 +1,41 @@
 <template>
   <div class="flex items-center gap-2">
-    <button
+    <UButton
       v-if="!listening"
       type="button"
+      size="sm"
+      variant="outline"
+      color="neutral"
+      :disabled="disabled"
+      :aria-label="ariaLabel || t('hotkeyInput.click_to_set')"
       :class="[
-        'flex-1 px-3 py-1.5 rounded-md text-sm text-left font-mono transition-colors cursor-pointer',
-        modelValue
-          ? 'bg-elevated border border-default text-default hover:border-accented'
-          : 'bg-elevated/50 border border-dashed border-default text-dimmed hover:text-muted hover:border-accented',
+        'min-w-0 flex-1 justify-start px-3 text-left font-mono',
+        modelValue ? 'text-default' : 'border-dashed text-dimmed hover:text-muted',
       ]"
       @click="startListening"
     >
-      {{ modelValue || t('hotkeyInput.click_to_set') }}
-    </button>
-    <div
+      <span class="truncate">{{ modelValue || t('hotkeyInput.click_to_set') }}</span>
+    </UButton>
+    <button
       v-else
       ref="listenerEl"
+      type="button"
       tabindex="0"
-      class="flex-1 px-3 py-1.5 rounded-md bg-primary/10 border border-primary text-sm text-primary cursor-pointer focus:outline-none"
+      :aria-label="t('hotkeyInput.instruction')"
+      class="min-w-0 flex-1 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-left text-sm text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-default"
       @keydown="onKeydown"
       @blur="stopListening"
     >
       <span class="animate-pulse">{{ t('hotkeyInput.instruction') }}</span>
-    </div>
+    </button>
     <UButton
       v-if="modelValue && !listening"
       icon="i-tabler-x"
       size="xs"
       variant="ghost"
       color="neutral"
+      :disabled="disabled"
+      :aria-label="t('hotkeyInput.clear')"
       @click="emit('update:modelValue', '')"
     />
   </div>
@@ -41,7 +48,7 @@ import { backend } from '@/lib/backend'
 
 const { t } = useI18n()
 
-defineProps<{ modelValue: string }>()
+const props = defineProps<{ modelValue: string; disabled?: boolean; ariaLabel?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string] }>()
 
 const listening = ref(false)
@@ -51,6 +58,7 @@ const listenerEl = ref<HTMLElement | null>(null)
 // 否则用户按已注册的组合（如 Ctrl+Shift+1）会被 Win32 RegisterHotKey 拦截
 // 直接派发给原 action，webview 收不到键，捕获失败。
 async function startListening() {
+  if (props.disabled) return
   listening.value = true
   await backend.hotkeys.pause()
   await nextTick()

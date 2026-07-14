@@ -39,7 +39,9 @@ wireEvents()
 
 // Hydrate then mount
 ;(async () => {
-  await useSettingsStore().load()
+  const settingsStore = useSettingsStore()
+  await settingsStore.load()
+  settingsStore.startSync()
   // 节点 registry RPC populate: 必须 mount 前, 否则 ContextMenu / NodeExplorerModal 等
   // consumer 用 allSpecs() 拿空. backend NodeService.GetAllNodeSpecs 是 SoT.
   await populateRegistryFromBackend()

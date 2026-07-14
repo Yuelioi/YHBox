@@ -165,3 +165,20 @@ export async function invoke<R, A extends any[]>(
     return undefined
   }
 }
+
+/**
+ * Void RPCs cannot use `undefined` as both their success value and invoke's
+ * failure sentinel. Convert the transport outcome into an explicit boolean.
+ */
+export async function invokeVoid<A extends any[]>(
+  fn: (...args: A) => Promise<void>,
+  ...args: A
+): Promise<boolean> {
+  try {
+    await fn(...args)
+    return true
+  } catch (e) {
+    toastError(e)
+    return false
+  }
+}
