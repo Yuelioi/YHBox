@@ -101,8 +101,28 @@ Run 首次产生后以运行事实保存、后续重放直接复用的非确定�
 _Avoid_: Random cache, nondeterministic result
 
 **Capability Requirement**:
-Node Contract 声明的外部能力需求；它只表达需求，不代表 Run 已获得授权。
+Node Contract 声明的精确、版本化外部能力、操作、目标种类与 scope 需求；它只表达需求，不代表 Run 已获得授权。
 _Avoid_: Runtime service, platform target
+
+**Host Profile**:
+一次运行宿主不可由 workflow 伪造的平台事实与已安装 provider inventory，例如 OS、architecture 和可提供的 capability。
+_Avoid_: Environment variables, platform capability
+
+**Automation Target**:
+可被 capability provider 操作的具名对象，例如 host desktop、Android device 或 After Effects instance；它不是授权本身。
+_Avoid_: Platform, credential, capability
+
+**Capability Plan**:
+Compiler 从每个 Effective Node Contract 汇总出的不可变最小权限清单，保留来源节点、所需操作、target slot、credential slot 和 scope。
+_Avoid_: Permission list, service bundle
+
+**Run Grant**:
+Policy 在一次 Run 开始前签发的短期、不透明授权，精确绑定 Program、Capability Plan、principal、provider、target、operation、scope 与 expiry。
+_Avoid_: Requested capability, access token, approval flag
+
+**Credential Binding**:
+宿主把 Program 中的 credential slot 绑定到安全存储中 credential 的运行期事实；secret material 不进入 Source、Program、Value Envelope 或 Run Grant projection。
+_Avoid_: API key config, secret value
 
 **Node Package**:
 可独立安装和验证的节点发布制品，包含一个或多个 Node Contract 及其可执行实现。

@@ -27,6 +27,7 @@ status: open
 
 - [定义 Data Type 3.1 与 Value Envelope](tickets/define-data-types-and-value-envelope.md) — 采用带摘要的名义 TypeRef、JSON Schema TypeDefinition、独立 BindingState，以及 inline/blob/stream/handle 四分支 ValueEnvelope；禁止 `any` 降级和隐式转换。
 - [定义 Node Contract 3.1 元模式](tickets/define-node-contract-metaschema.md) — NodeRef 固定 canonical semantic contract；端口通道显式分离，pure-data 不含 exec，安装实现锁由 Catalog/Program 持有，authoring/docs 不污染语义摘要。
+- [定义 Capability 与 Target Planning](tickets/define-capability-and-target-planning.md) — Compiler 冻结 attributed least-privilege plan；Run policy 另行签发绑定 Program/plan/principal/provider/target/operation/scope 的短期 grant，所有 host 均无 ambient ServiceBundle 权限。
 
 ## Fog
 

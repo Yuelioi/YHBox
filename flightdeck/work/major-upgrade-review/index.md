@@ -38,6 +38,7 @@ Yotta 3.1 contract kernel 与首条端到端 tracer 已落地：Data Type、Valu
 ## Progress
 
 Done:
+- 关闭 Capability/Target Planning Wayfinder gate：Host Profile、Automation Target、Capability Definition/Requirement/Plan、Run Grant 与 Credential Binding 分离；授权同时绑定 Program plan 与 Run，不允许 ambient ServiceBundle 或 token passthrough。
 - 完成 Node Contract 3.1 opaque seal/open、generated JSON Schema/TypeScript 与 semantic/authoring digest 分离；端口按 data/exec/error/status 明确分频道。
 - 完成 Catalog 3.1 exact TypeRef/NodeRef/implementation lock snapshot，并删除旧 `internal/workflow/catalog` 投影。
 - 破坏性切换 Workflow Source/Compiler/Program 到 3.1：显式 edge channel、typed endpoint、literal/default provenance、strict trusted reopen、全边界资源预算与 fail-closed preview feature set。
@@ -78,7 +79,7 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Node Contract/Catalog/Workflow/Program/ValueEnvelope 3.1 kernel 与 Concat tracer 已完成；正在完成最终全仓门禁、Flightdeck checkpoint 与本地提交。下一 frontier 是 Capability/Resource/Program-Run，而不是扩张 preview interpreter 的隐式语义。
+- Capability/Target Planning 决议已闭合并记录 ADR/领域语言；下一 frontier 是 Blob Store/Stream/Resource Broker，完成后才能冻结正式 Program/Run 语义。当前代码仍保持 pure-data fail closed，不提前猜 resource 或 effect runtime。
 
 Verified:
 - 3.1 Concat tracer destructive cutover 最终 `task check` 通过（2026-07-15，117s）：全局 coverage 65.2%，frontend 97 files / 635 tests，Wails contract 14 services / 119 methods / 100 models，contracts drift/staticcheck/vet/build/bundle budget 全绿。
@@ -112,5 +113,6 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
 
 
