@@ -26,7 +26,7 @@ recheck_when: "改 HudShell / frameless 独立工具窗的公共风格约定时"
 
 - 在这里统一维护初始宽高、最小宽高、`Frameless` / `AlwaysOnTop` / `DisableResize` 和路由，不要把尺寸散落到 service
 - 调整尺寸时同步改 `wails_tools_test.go`；默认尺寸必须能完整容纳标题、副标题、状态面板与底部操作
-- 可缩放窗口必须给真实可用的最小尺寸；截图选择器当前最小 `760×520`，小 HUD 不低于 `300×240`，启动器不低于 `200×96`
+- 可缩放窗口必须给真实可用的最小尺寸；截图选择器当前最小 `760×520`，小 HUD 不低于 `300×240`，启动器不低于 `220×120`
 - 运行时改尺寸/置顶：wails3 `WebviewWindow` 有 `SetSize(w,h)` / `SetAlwaysOnTop(b)` / `Show()` / `Hide()` (webview_window.go)
 
 ## 路由
@@ -54,6 +54,7 @@ HUD 各状态 (校准: 等待/倒计时/录制/完成；录制: 倒计时/录制
 - 小 HUD 首先保留标题、状态与主动作；`HudShell` 在容器宽度 `≤340px` 隐藏副标题，业务 view 不要用固定横向空白撑宽
 - 截图选择器保持“画布优先”：工具栏在上，属性侧栏 `clamp(272px, 24vw, 328px)`；`≤860px` 收到 270px，低高度减少面板 padding
 - 需要滚动的内容区必须有 `min-h-0`；鼠标 HUD 与启动器允许 body 内滚动，固定录制/校准 HUD 的默认高度必须无裁切
+- 启动器实际窗口与设置预览必须共用 `components/launcher/LauncherSurface.vue`；分组、密度、快捷键与状态视觉不要复制两套。默认用命令列表，`icon` 仅作为紧凑网格兼容模式
 - 录制/校准这类“单状态 + 固定操作栏”窗口，状态区用 `display:flex; min-height:0; flex:1` 填满剩余高度，操作栏 `shrink-0`；禁止用 `mt-auto` 把未使用空间堆到状态卡下方，否则 REC 与加载态都会视觉偏上
 - 截图、坐标、颜色和快捷键等技术值用等宽字体；说明文本用产品语言并纳入 zh/en i18n，独立窗里不留中文硬编码
 
