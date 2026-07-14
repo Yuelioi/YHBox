@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestTrackedSchemasAreClosedAndPinnedToV3(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "contracts", "workflow", "v3")
+func TestTrackedSchemasAreClosedAndPinnedTo31(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "contracts", "workflow", "3.1")
 	for _, name := range []string{"workflow-source.schema.json", "diagnostic.schema.json"} {
 		raw, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil {
@@ -34,8 +34,12 @@ func TestTrackedSchemasAreClosedAndPinnedToV3(t *testing.T) {
 	if got := properties["format"].(map[string]any)["enum"].([]any); len(got) != 1 || got[0] != Format {
 		t.Fatalf("format enum = %#v", got)
 	}
-	if got := properties["version"].(map[string]any)["enum"].([]any); len(got) != 1 || got[0] != float64(Version) {
+	if got := properties["version"].(map[string]any)["enum"].([]any); len(got) != 1 || got[0] != Version {
 		t.Fatalf("version enum = %#v", got)
+	}
+	typeExpression := sourceSchema["$defs"].(map[string]any)["TypeExpression"].(map[string]any)
+	if variants, ok := typeExpression["oneOf"].([]any); !ok || len(variants) != 4 {
+		t.Fatalf("workflow TypeExpression is not the shared four-way union: %#v", typeExpression)
 	}
 }
 

@@ -1,5 +1,6 @@
 // frontend/src/components/containers/nodeRegistry/registry.ts
 import type { NodeKindSpec, PinType } from './index'
+import { builtinNodeProjections31 } from '@/contracts/node31'
 
 const byKind: Record<string, NodeKindSpec> = {}
 
@@ -37,15 +38,15 @@ export function allSpecs(): NodeKindSpec[] {
   return Object.values(byKind)
 }
 
-/** v4 replacement for old PIN_SPECS[kind].execOutFn || execOut. */
+/** Node Contract 3.1 projection. An empty set is meaningful and must stay empty. */
 export function execOutPinsFor(
   kind: string,
   cfg: Record<string, unknown> | null | undefined,
 ): string[] {
   const s = byKind[kind]
-  if (!s) return ['out']
+  if (!s) return []
   if (s.execOutFn) return s.execOutFn(cfg)
-  return s.execOut.length > 0 ? s.execOut : ['out']
+  return s.execOut
 }
 
 /** Returns the PinType of (kind, dataIn pin) or '' if missing. Considers dynamic. */
@@ -75,6 +76,20 @@ export function dataOutTypeFor(kind: string, pin: string): PinType | '' {
  * Derives edge type from (from-kind, from-pin) — never stored as edge field.
  * 须与后端 validator 推导一致.
  */
-export function edgeKindOf(fromKind: string, fromPin: string): 'data' | 'exec' {
-  return dataOutTypeFor(fromKind, fromPin) !== '' ? 'data' : 'exec'
+export function edgeKindOf(fromKind: string, fromPin: string): 'data' | 'exec' | '' {
+  const projection = builtinNodeProjections31.get(fromKind)
+  if (projection) {
+    if (projection.dataOutputs.some((port) => port.id === fromPin)) return 'data'
+    if (
+      projection.execOutputs.includes(fromPin) ||
+      projection.errorOutputs.includes(fromPin) ||
+      projection.statusOutputs.includes(fromPin)
+    )
+      return 'exec'
+    return ''
+  }
+  const spec = byKind[fromKind]
+  if (!spec) return ''
+  if (dataOutTypeFor(fromKind, fromPin) !== '') return 'data'
+  return spec.execOut.includes(fromPin) || spec.errorOut?.includes(fromPin) ? 'exec' : ''
 }

@@ -36,9 +36,12 @@
       <template v-for="i in maxRows" :key="'row-' + i">
         <div class="pin-row pin-row-left">
           <template v-if="leftPins[i - 1]">
-            <span class="pin-label truncate" :style="{ color: labelColor(leftPins[i - 1]) }">{{
-              leftPins[i - 1].label
-            }}</span>
+            <span
+              class="pin-label truncate"
+              :title="leftPins[i - 1].typeHint"
+              :style="{ color: labelColor(leftPins[i - 1]) }"
+              >{{ leftPins[i - 1].label }}</span
+            >
             <PinLiteral
               v-if="showInlineLiteral(leftPins[i - 1])"
               class="pin-inline-input nodrag"
@@ -56,6 +59,7 @@
           <span
             v-if="rightPins[i - 1]"
             class="pin-label truncate"
+            :title="rightPins[i - 1].typeHint"
             :style="{ color: labelColor(rightPins[i - 1]) }"
             >{{ rightPins[i - 1].label }}</span
           >
@@ -139,6 +143,7 @@ import { getSpec } from './nodeRegistry/registry'
 import { TYPE_COLOR } from './nodeRegistry/index'
 import type { PinType, FieldSchema } from './nodeRegistry/index'
 import { useContainerEditorStore } from '@/stores/containerEditor'
+import { builtinNodeProjections31 } from '@/contracts/node31'
 
 const { t, te } = useI18n()
 const execStore = useExecutionStore()
@@ -165,8 +170,11 @@ const props = defineProps<{
 }>()
 
 const kind = computed(() => props.data?.kind ?? '')
+const contractProjection31 = computed(() => builtinNodeProjections31.get(kind.value))
 // KIND_LABEL_ZH[k] 是 i18n key 字符串, 经 t() 渲染; 未注册 kind 时 fallback 到 kind 字面.
 function kindLabel(k: string): string {
+  const titleKey31 = builtinNodeProjections31.get(k)?.titleKey
+  if (titleKey31) return te(titleKey31) ? t(titleKey31) : titleKey31
   const key = KIND_LABEL_ZH[k]
   return key ? t(key) : k
 }
@@ -325,6 +333,7 @@ interface PinEntry {
   kind: 'exec' | 'data'
   type: PinType
   dir: 'in' | 'out'
+  typeHint?: string
   /** 失败出口 (Semantic==='error') — exec 引脚渲染成红色. */
   isError?: boolean
 }
@@ -340,6 +349,7 @@ const leftPins = computed<PinEntry[]>(() => [
       kind: 'data',
       type: dataTypeMap.value.in[p] ?? 'any',
       dir: 'in',
+      typeHint: contractProjection31.value?.dataInputs.find((port) => port.id === p)?.typeLabel,
     }),
   ),
 ])
@@ -361,6 +371,7 @@ const rightPins = computed<PinEntry[]>(() => [
       kind: 'data',
       type: dataTypeMap.value.out[p] ?? 'any',
       dir: 'out',
+      typeHint: contractProjection31.value?.dataOutputs.find((port) => port.id === p)?.typeLabel,
     }),
   ),
 ])

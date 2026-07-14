@@ -51,6 +51,20 @@ func NewServer(deps Deps) *Server {
 // Register 把全部工具挂到 MCPServer (authoring 复用迁入的纯函数; execution 新增).
 func (s *Server) Register(m *server.MCPServer) {
 	// --- authoring (只读/写图, 不受 arm 闸; save_container 受 arm 闸) ---
+	m.AddTool(mcp.NewTool("catalog_search", mcp.WithDescription("Search the Yotta 3.1 node catalog without loading the full catalog."),
+		mcp.WithString("query", mcp.Description("Node ID, title key, description key, or tag substring."))),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(string(searchCatalog31JSON(req.GetString("query", "")))), nil
+		})
+	m.AddTool(mcp.NewTool("catalog_describe", mcp.WithDescription("Describe one exact Node Contract 3.1, including typed channel-separated ports."),
+		mcp.WithString("nodeTypeId", mcp.Required(), mcp.Description("Absolute versioned Node Type ID."))),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			nodeTypeID, err := req.RequireString("nodeTypeId")
+			if err != nil {
+				return mcp.NewToolResultError("missing 'nodeTypeId'"), nil
+			}
+			return mcp.NewToolResultText(string(describeCatalog31JSON(nodeTypeID))), nil
+		})
 	m.AddTool(mcp.NewTool("list_nodes", mcp.WithDescription("List all Yotta node kinds with pins/types/required/defaults/category/capability flags. The building blocks; run_node executes one target/window action against a supplied window.")),
 		func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return mcp.NewToolResultText(string(listNodesJSONWithRegistry(s.deps.Registry))), nil

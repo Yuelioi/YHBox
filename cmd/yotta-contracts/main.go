@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodes31"
 	workflowschema "github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func main() {
-	output := flag.String("output", "contracts/workflow/v3/workflow-source.schema.json", "JSON Schema output path")
-	contractName := flag.String("contract", "workflow", "contract to generate: workflow, diagnostic, or node")
+	output := flag.String("output", "contracts/workflow/3.1/workflow-source.schema.json", "JSON Schema output path")
+	contractName := flag.String("contract", "workflow", "contract to generate: workflow, diagnostic, node, builtin-catalog, builtin-presentation, or builtin-docs")
 	flag.Parse()
 
 	formatted, err := generate(*contractName)
@@ -30,6 +31,20 @@ func main() {
 func generate(name string) ([]byte, error) {
 	if name == "node" {
 		return nodecontract.GenerateSchema()
+	}
+	if name == "builtin-catalog" || name == "builtin-presentation" || name == "builtin-docs" {
+		artifacts, err := nodes31.GenerateArtifacts()
+		if err != nil {
+			return nil, err
+		}
+		switch name {
+		case "builtin-catalog":
+			return artifacts.Catalog, nil
+		case "builtin-presentation":
+			return artifacts.Presentation, nil
+		default:
+			return artifacts.Documentation, nil
+		}
 	}
 	return workflowschema.GenerateContract(name)
 }

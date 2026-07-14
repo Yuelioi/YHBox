@@ -18,7 +18,7 @@
 ## 版本关系与合并原则
 
 - **产品、节点系统和持久协议统一使用 3.1。** Yotta 3.1 是同一个升级项目，不再维护另一套节点版本号。
-- 当前已完成的 Workflow/Catalog/Program v3 Compiler 切片保留其严格解析、JCS、内容寻址、诊断预算、动态端口与约束基础；其 wire identity 不是 stable 合同。凡 canonical DTO 或运行语义被 3.1 改写，必须切换新的 format/hash domain 并显式拒绝 v3。
+- 已删除未发布的 Workflow/Catalog/Program v3 wire contract；3.1 复用 strict parse、JCS、内容寻址和诊断预算原则，但使用新的 DTO/hash domain 并显式拒绝 v3，不保留双 runtime。
 - Node System 3.1 替换此前方案里尚未进入生产 runtime 的 NodeSpec、类型、Program lowering、Authoring Projection 与扩展生态部分；旧 ContainerRunner 不得作为第二执行事实保留。
 - 设计决策由 Wayfinder tickets 管理，实施波次与发布门只在本文维护。未关闭的 meta-schema、capability、resource、Program、authoring 与 plugin tickets 是实现 gate，不允许调用方自行猜协议。
 

@@ -1,1307 +1,478 @@
-// Package compiler is the only path from editable Workflow Source to an
-// immutable ProgramSnapshot.
 package compiler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"math/big"
 	"sort"
-	"strconv"
-	"strings"
-	"unicode"
 
+	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
-	"github.com/yottaapp/yotta/internal/node"
-	"github.com/yottaapp/yotta/internal/workflow/catalog"
+	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 const (
-	CallSubgraphKind              = catalog.CompilerIntrinsicPrefix + "call-subgraph"
-	callFailurePin                = "Fail"
-	callInputPin                  = "In"
-	sourceHashDomain              = "yotta/source/v3"
-	MaxSourceBytes                = 8 << 20
-	MaxJSONDepth                  = 128
-	MaxGraphs                     = 256
-	MaxNodesPerGraph              = 4096
-	MaxEdgesPerGraph              = 16384
-	MaxPortsPerGraph              = 4096
-	MaxTotalNodes                 = 20000
-	MaxTotalEdges                 = 50000
-	MaxTotalPorts                 = 10000
-	MaxCallPlanPorts              = 10000
-	MaxCallPlanBytes              = 4 << 20
-	MaxDynamicPortsPerNode        = 256
-	MaxTotalDynamicPorts          = 10000
-	MaxDynamicPortNameBytes       = 128
-	MaxDynamicPortPlanBytes       = 4 << 20
-	MaxInputConstraintEvaluations = 100000
-	MaxDiagnostics                = schema.MaxDiagnostics
+	MaxSourceBytes = 16 << 20
+
+	CodeInvalidCatalog           = "INVALID_CATALOG"
+	CodeUnknownNodeType          = "UNKNOWN_NODE_TYPE"
+	CodeNodeContractMismatch     = "NODE_CONTRACT_MISMATCH"
+	CodeUnknownPort              = "UNKNOWN_PORT"
+	CodeEdgeChannelMismatch      = "EDGE_CHANNEL_MISMATCH"
+	CodeTypeMismatch             = "TYPE_MISMATCH"
+	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
+	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
+	CodeInvalidBinding           = "INVALID_BINDING"
+	CodeInvalidConfig            = "INVALID_CONFIG"
+	CodeDataCycle                = "DATA_CYCLE"
+	CodeCapabilityMismatch       = "CAPABILITY_MISMATCH"
+	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
+	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
+
+	sourceDigestDomain = "yotta/workflow-source/v1"
 )
 
-var ErrInvalidCatalog = errors.New("invalid catalog snapshot")
-var ErrSourceBudgetExceeded = errors.New("workflow source exceeds compiler budget")
-
-type Compiler struct{ build artifact.Digest }
-
-func New(build artifact.Digest) (*Compiler, error) {
-	if !build.Valid() {
-		return nil, errors.New("compiler build identity must be a content digest")
-	}
-	return &Compiler{build: build}, nil
-}
+type Diagnostic = schema.Diagnostic
 
 type CompileRequest struct {
 	SourceJSON []byte
-	Catalog    catalog.Snapshot
+	Catalog    nodecatalog.Snapshot
 }
 
 type CompileResult struct {
-	SourceHash  artifact.Digest
-	Diagnostics []schema.Diagnostic
+	SourceHash  artifact.Digest `json:"sourceHash,omitempty"`
+	Diagnostics []Diagnostic    `json:"diagnostics"`
 	program     ProgramSnapshot
 }
 
-func (r CompileResult) Program() (ProgramSnapshot, bool) {
-	return r.program, r.program.Valid()
-}
+func (r CompileResult) Program() (ProgramSnapshot, bool) { return r.program, r.program.Valid() }
 
-// CompileDraft reports source and catalog failures as stable diagnostics.
-// Errors are reserved for cancellation and compiler infrastructure failures.
+type Compiler struct{ build artifact.Digest }
+
+func New(build artifact.Digest) *Compiler { return &Compiler{build: build} }
+
 func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (CompileResult, error) {
-	if c == nil || !c.build.Valid() {
-		return CompileResult{}, errors.New("compiler is not initialized")
-	}
 	if err := ctx.Err(); err != nil {
 		return CompileResult{}, err
 	}
-	if len(request.SourceJSON) > MaxSourceBytes || exceedsJSONDepth(request.SourceJSON, MaxJSONDepth) {
-		return CompileResult{}, ErrSourceBudgetExceeded
+	if !c.build.Valid() {
+		return CompileResult{}, errors.New("compiler build must be a content digest")
 	}
-	result := CompileResult{}
-
+	if len(request.SourceJSON) == 0 || len(request.SourceJSON) > MaxSourceBytes {
+		return CompileResult{}, errors.New("workflow source exceeds byte budget")
+	}
 	source, diagnostics := schema.ParseSource(request.SourceJSON)
-	if len(diagnostics) > 0 {
-		result.Diagnostics = cappedDiagnostics(diagnostics)
+	result := CompileResult{Diagnostics: diagnostics}
+	if len(diagnostics) != 0 {
 		return result, nil
-	}
-	if exceedsSourceCollections(source) {
-		return result, ErrSourceBudgetExceeded
 	}
 	canonicalSource, err := artifact.Canonicalize(request.SourceJSON)
 	if err != nil {
-		result.Diagnostics = []schema.Diagnostic{{
-			Code: schema.CodeInvalidField, Severity: schema.SeverityError,
-			Params: map[string]any{"keyword": "rfc8785"},
-		}}
-		return result, nil
+		return result, fmt.Errorf("canonicalize workflow source: %w", err)
 	}
-	result.SourceHash, err = artifact.Sum(sourceHashDomain, canonicalSource)
+	result.SourceHash, err = artifact.Sum(sourceDigestDomain, canonicalSource)
 	if err != nil {
 		return result, err
 	}
 	if !request.Catalog.Valid() {
-		return result, ErrInvalidCatalog
+		result.Diagnostics = []Diagnostic{diagnostic(CodeInvalidCatalog, nil, "")}
+		return result, nil
 	}
 
-	binding, err := bindSource(ctx, source, request.Catalog)
-	if err != nil {
-		return result, err
-	}
-	if len(binding.diagnostics) > 0 {
-		result.Diagnostics = binding.diagnostics
-		return result, nil
-	}
-	declaredCapabilities := capabilitiesFromSource(source.RequestedCapabilities)
-	capabilityDiagnostics := validateCapabilityDeclaration(declaredCapabilities, binding.capabilities)
-	if len(capabilityDiagnostics) > 0 {
-		result.Diagnostics = capabilityDiagnostics
-		return result, nil
-	}
-	if err := ctx.Err(); err != nil {
-		return result, err
-	}
 	body := programBody{
-		SourceHash: result.SourceHash, CatalogHash: request.Catalog.Hash(),
-		CompilerBuild: c.build, ImplementationSet: request.Catalog.ImplementationSet(),
+		SourceHash: result.SourceHash, CatalogHash: request.Catalog.Hash(), CompilerBuild: c.build,
 		WorkflowID: source.Workflow.ID, Revision: source.Revision, EntryGraph: source.EntryGraph,
-		NodeLocks: binding.locks, RequestedCapabilities: declaredCapabilities, RequiredCapabilities: binding.capabilities,
-		Variables: source.Variables, SecretRefs: source.SecretRefs,
-		Graphs: lowerGraphs(source.Graphs, binding),
+		Graphs: []programGraph{}, RequiredCapabilities: []string{},
+	}
+	if len(source.Variables) != 0 {
+		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"variables"}, ""))
+	}
+	if len(source.SecretRefs) != 0 {
+		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
+	}
+	requiredCapabilities := map[string]bool{}
+	for graphIndex, graph := range source.Graphs {
+		if err := ctx.Err(); err != nil {
+			return CompileResult{}, err
+		}
+		if graph.Kind != schema.GraphKindMain || graph.ID != source.EntryGraph {
+			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedGraph, []string{"graphs", fmt.Sprint(graphIndex)}, ""))
+			continue
+		}
+		if len(graph.Inputs) != 0 || len(graph.Outputs) != 0 {
+			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"graphs", fmt.Sprint(graphIndex), "inputs"}, graph.ID))
+			continue
+		}
+		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog)
+		if compileErr != nil {
+			return CompileResult{}, compileErr
+		}
+		result.Diagnostics = append(result.Diagnostics, graphDiagnostics...)
+		for _, node := range compiled.Nodes {
+			entry, _ := request.Catalog.Lookup(node.NodeRef.NodeTypeID)
+			for _, capability := range entry.Contract.Machine().Capabilities {
+				requiredCapabilities[string(capability)] = true
+			}
+		}
+		body.Graphs = append(body.Graphs, compiled)
+	}
+	declared := make(map[string]bool, len(source.RequestedCapabilities))
+	for _, capability := range source.RequestedCapabilities {
+		declared[string(capability)] = true
+	}
+	if !equalStringSets(declared, requiredCapabilities) {
+		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeCapabilityMismatch, []string{"requestedCapabilities"}, ""))
+	}
+	for capability := range requiredCapabilities {
+		body.RequiredCapabilities = append(body.RequiredCapabilities, capability)
+	}
+	sort.Strings(body.RequiredCapabilities)
+	if len(result.Diagnostics) != 0 {
+		if len(result.Diagnostics) > schema.MaxDiagnostics {
+			result.Diagnostics = result.Diagnostics[:schema.MaxDiagnostics]
+		}
+		sortDiagnostics(result.Diagnostics)
+		return result, nil
 	}
 	result.program, err = sealProgram(body)
 	if err != nil {
-		return result, fmt.Errorf("seal program: %w", err)
+		return result, err
 	}
 	return result, nil
 }
 
-type bindingResult struct {
-	locks        []NodeLock
-	capabilities []string
-	diagnostics  []schema.Diagnostic
-	reachable    map[string]bool
-	calls        map[string]map[string]*programCall
-	dynamicPorts map[string]map[string][]programPort
-}
-
-type graphInterface struct {
-	entry   schema.GraphPort
-	inputs  map[string]schema.GraphPort
-	outputs map[string]schema.GraphPort
-}
-
-type callReference struct {
-	graphID, nodeID, target string
-	graphIndex, nodeIndex   int
-}
-
-func bindSource(ctx context.Context, source schema.WorkflowSource, snapshot catalog.Snapshot) (bindingResult, error) {
-	result := bindingResult{reachable: map[string]bool{}, calls: map[string]map[string]*programCall{}, dynamicPorts: map[string]map[string][]programPort{}}
-	locksByKind := map[string]NodeLock{}
-	capabilities := map[string]bool{}
-	contractCache := map[string]catalog.NodeContract{}
-	validatedContractDefaults := map[string]bool{}
-	pinIndexesByKind := map[string]nodePinIndex{}
-	configIndexesByKind := map[string]nodeConfigContract{}
-	missingKinds := map[string]bool{}
-	graphsByID := make(map[string]schema.Graph, len(source.Graphs))
-	interfaces := make(map[string]graphInterface, len(source.Graphs))
-	totalCallPlanPorts, totalCallPlanBytes := 0, 0
-	totalDynamicPorts, totalDynamicPortBytes := 0, 0
-	dynamicPortBudgetExceeded := false
-	constraintBudget := inputConstraintBudget{}
-	for graphIndex, graph := range source.Graphs {
-		graphsByID[graph.ID] = graph
-		interfaces[graph.ID] = validateGraphInterface(&result.diagnostics, graph, graphIndex)
-	}
-
-	adjacency := map[string][]callReference{}
-	for graphIndex, graph := range source.Graphs {
-		for nodeIndex, sourceNode := range graph.Nodes {
-			if sourceNode.Kind != CallSubgraphKind {
-				continue
-			}
-			path := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", "graphId"}
-			target, ok := sourceNode.Config["graphId"].(string)
-			if !ok || target == "" {
-				appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, sourceNode.ID, path, "calleeGraphId", map[string]any{}))
-				continue
-			}
-			targetGraph, exists := graphsByID[target]
-			if !exists {
-				appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeUnknownCalleeGraph, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target}})
-				continue
-			}
-			if targetGraph.Kind != schema.GraphKindSubgraph {
-				appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidCalleeGraphKind, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: sourceNode.ID, FieldPath: path, Params: map[string]any{"graphId": target, "kind": targetGraph.Kind}})
-				continue
-			}
-			ref := callReference{graphID: graph.ID, nodeID: sourceNode.ID, target: target, graphIndex: graphIndex, nodeIndex: nodeIndex}
-			adjacency[graph.ID] = append(adjacency[graph.ID], ref)
-			callPorts := len(targetGraph.Inputs) + len(targetGraph.Outputs)
-			callBytes := callPlanEncodedSize(target, targetGraph)
-			if totalCallPlanPorts > MaxCallPlanPorts-callPorts || totalCallPlanBytes > MaxCallPlanBytes-callBytes {
-				return result, ErrSourceBudgetExceeded
-			}
-			totalCallPlanPorts += callPorts
-			totalCallPlanBytes += callBytes
-			iface := interfaces[target]
-			plan := &programCall{GraphID: target, Entry: programCallPort{ID: iface.entry.ID, Type: iface.entry.Type, NodeID: iface.entry.NodeID}, Inputs: []programCallPort{}, Outputs: []programCallPort{}, FailurePin: callFailurePin}
-			for _, port := range targetGraph.Inputs {
-				if port.Type != node.TypeExec {
-					plan.Inputs = append(plan.Inputs, programCallPort{ID: port.ID, Type: port.Type, NodeID: port.NodeID})
-				}
-			}
-			for _, port := range targetGraph.Outputs {
-				plan.Outputs = append(plan.Outputs, programCallPort{ID: port.ID, Type: port.Type, NodeID: port.NodeID})
-			}
-			if result.calls[graph.ID] == nil {
-				result.calls[graph.ID] = map[string]*programCall{}
-			}
-			result.calls[graph.ID][sourceNode.ID] = plan
-		}
-	}
-	appendCallCycleDiagnostics(&result.diagnostics, source.Graphs, adjacency)
-	queue := []string{source.EntryGraph}
-	for len(queue) > 0 {
-		graphID := queue[0]
-		queue = queue[1:]
-		if result.reachable[graphID] {
-			continue
-		}
-		result.reachable[graphID] = true
-		for _, ref := range adjacency[graphID] {
-			queue = append(queue, ref.target)
-		}
-	}
-
-	for graphIndex, graph := range source.Graphs {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot) (programGraph, []Diagnostic, error) {
+	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, Edges: append([]schema.Edge(nil), graph.Edges...), Order: []string{}}
+	var diagnostics []Diagnostic
+	nodes := make(map[string]*programNode, len(graph.Nodes))
+	contracts := make(map[string]nodecontract.MachineContract, len(graph.Nodes))
+	validators := map[string]*runtimejsonschema.Schema{}
+	for nodeIndex, sourceNode := range graph.Nodes {
 		if err := ctx.Err(); err != nil {
-			return result, err
+			return compiled, diagnostics, err
 		}
-		contractsByNode := make(map[string]catalog.NodeContract, len(graph.Nodes))
-		nodeExists := make(map[string]bool, len(graph.Nodes))
-		callNodeIDs := make(map[string]bool)
-		for nodeIndex, sourceNode := range graph.Nodes {
-			if nodeIndex&255 == 0 {
-				if err := ctx.Err(); err != nil {
-					return result, err
-				}
-			}
-			nodeExists[sourceNode.ID] = true
-			if sourceNode.Kind == CallSubgraphKind {
-				callNodeIDs[sourceNode.ID] = true
-				if plan := result.calls[graph.ID][sourceNode.ID]; plan != nil {
-					contract := callContract(plan)
-					contractsByNode[sourceNode.ID] = contract
-				}
+		path := []string{"graphs", fmt.Sprint(graphIndex), "nodes", fmt.Sprint(nodeIndex)}
+		if sourceNode.Disabled {
+			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnsupportedSourceFeature, append(path, "disabled"), graph.ID, sourceNode.ID))
+			continue
+		}
+		entry, ok := catalog.Lookup(sourceNode.NodeRef.NodeTypeID)
+		if !ok {
+			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnknownNodeType, path, graph.ID, sourceNode.ID))
+			continue
+		}
+		if entry.Contract.NodeRef() != sourceNode.NodeRef {
+			diagnostics = append(diagnostics, diagnosticAtNode(CodeNodeContractMismatch, append(path, "nodeRef"), graph.ID, sourceNode.ID))
+			continue
+		}
+		machine := entry.Contract.Machine()
+		if machine.Execution.Class != nodecontract.ExecutionPureData {
+			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnsupportedSourceFeature, append(path, "nodeRef"), graph.ID, sourceNode.ID))
+			continue
+		}
+		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, sourceNode.Config); err != nil {
+			diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID))
+		}
+		plan := programNode{
+			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
+			Inputs: map[string]inputPlan{}, Ports: machine.Ports, Execution: machine.Execution,
+			Implementation: entry.Implementation,
+		}
+		inputs := make(map[string]nodecontract.DataInputPort, len(machine.Ports.DataInputs))
+		for _, port := range machine.Ports.DataInputs {
+			inputs[port.ID] = port
+		}
+		for portID, binding := range sourceNode.Bindings {
+			port, exists := inputs[portID]
+			if !exists {
+				diagnostics = append(diagnostics, diagnosticAtNode(CodeUnknownPort, append(path, "bindings", portID), graph.ID, sourceNode.ID))
 				continue
 			}
-			contract, cached := contractCache[sourceNode.Kind]
-			ok := cached
-			if !cached && !missingKinds[sourceNode.Kind] {
-				contract, ok = snapshot.Lookup(sourceNode.Kind)
-				if ok {
-					contractCache[sourceNode.Kind] = contract
-				} else {
-					missingKinds[sourceNode.Kind] = true
+			var value json.RawMessage
+			provenance := inputSourceLiteral
+			switch binding.Kind {
+			case schema.BindingValue:
+				value = binding.Value
+			case schema.BindingDefault:
+				provenance = inputSourceDefault
+				if port.Default == nil {
+					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
+					continue
 				}
-			}
-			if !ok {
-				appendDiagnostic(&result.diagnostics, schema.Diagnostic{
-					Code: schema.CodeUnknownNodeKind, Severity: schema.SeverityError,
-					GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
-					FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "kind"},
-					Params:    map[string]any{"kind": sourceNode.Kind},
-				})
+				value = *port.Default
+			default:
 				continue
 			}
-			contractsByNode[sourceNode.ID] = contract
-			if !validatedContractDefaults[contract.Kind] {
-				for _, input := range contract.Inputs {
-					if input.Default != nil && (!valueMatchesType(input.Default, input.Type) || input.Schema != nil && !valueMatchesSchema(input.Default, input.Schema)) {
-						return result, fmt.Errorf("%w: node %q input %q has invalid default", ErrInvalidCatalog, contract.Kind, input.Name)
-					}
-				}
-				validatedContractDefaults[contract.Kind] = true
+			canonical, err := artifact.Canonicalize(value)
+			if err == nil {
+				err = validateLiteralCached(port.Type, canonical, catalog, validators)
 			}
-			if !supportsCompilerContract(contract) {
-				appendDiagnostic(&result.diagnostics, schema.Diagnostic{
-					Code: schema.CodeUnsupportedNodeContract, Severity: schema.SeverityError,
-					GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
-					FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "kind"},
-					Params:    map[string]any{"kind": sourceNode.Kind},
-				})
+			if err != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+				diagnostic.Params["reason"] = err.Error()
+				diagnostics = append(diagnostics, diagnostic)
 				continue
 			}
-			if len(contract.DynamicPorts) > 0 {
-				ports := resolveDynamicPorts(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, contract)
-				if dynamicPortBudgetExceeded {
-					ports = nil
-				} else if len(ports) > MaxTotalDynamicPorts-totalDynamicPorts {
-					appendDiagnostic(&result.diagnostics, schema.Diagnostic{
-						Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
-						GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
-						FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", contract.DynamicPorts[0].ConfigKey},
-						Params:    map[string]any{"scope": "compile", "maximum": MaxTotalDynamicPorts},
-					})
-					ports = nil
-					dynamicPortBudgetExceeded = true
-				} else {
-					planBytes := dynamicPortPlanSize(ports)
-					if planBytes > MaxDynamicPortPlanBytes-totalDynamicPortBytes {
-						appendDiagnostic(&result.diagnostics, schema.Diagnostic{
-							Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
-							GraphPath: []string{graph.ID}, NodeID: sourceNode.ID,
-							FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", contract.DynamicPorts[0].ConfigKey},
-							Params:    map[string]any{"scope": "compile_bytes", "maximum": MaxDynamicPortPlanBytes},
-						})
-						ports = nil
-						dynamicPortBudgetExceeded = true
-					} else {
-						totalDynamicPorts += len(ports)
-						totalDynamicPortBytes += planBytes
-					}
-				}
-				if result.dynamicPorts[graph.ID] == nil {
-					result.dynamicPorts[graph.ID] = map[string][]programPort{}
-				}
-				result.dynamicPorts[graph.ID][sourceNode.ID] = append([]programPort(nil), ports...)
-				for _, port := range ports {
-					contract.Outputs = append(contract.Outputs, catalog.OutputContract{Name: port.Name, Type: port.Type})
-				}
-				contractsByNode[sourceNode.ID] = contract
-			}
-			if result.reachable[graph.ID] {
-				locksByKind[contract.Kind] = NodeLock{Kind: contract.Kind, ContractHash: contract.ContractHash}
-				for _, capability := range contract.RuntimeCapabilities {
-					capabilities["runtime:"+string(capability)] = true
-				}
-				for _, capability := range contract.TargetCapabilities {
-					capabilities["target:"+string(capability)] = true
-				}
-				if contract.NeedsTarget {
-					capabilities["target:required"] = true
-				}
-				if contract.NeedsWindow {
-					capabilities["platform:win32-window"] = true
-				}
-			}
-		}
-		incoming := map[string]map[string]bool{}
-		incomingCounts := map[string]map[string]int{}
-		usedBoundaryInputs, usedBoundaryOutputs := map[string]bool{}, map[string]bool{}
-		boundaryOutputCounts := map[string]int{}
-		iface := interfaces[graph.ID]
-		pinsByNode := indexNodePins(contractsByNode, pinIndexesByKind)
-		configByNode := indexNodeConfigContracts(contractsByNode, configIndexesByKind)
-		for edgeIndex, edge := range graph.Edges {
-			if edgeIndex&255 == 0 {
-				if err := ctx.Err(); err != nil {
-					return result, err
-				}
-			}
-			from := resolveEndpoint(edge.From, true, nodeExists, pinsByNode, iface)
-			to := resolveEndpoint(edge.To, false, nodeExists, pinsByNode, iface)
-			for _, endpoint := range []struct {
-				field string
-				value string
-				from  bool
-				bound endpointResolution
-			}{{"from", edge.From, true, from}, {"to", edge.To, false, to}} {
-				path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), endpoint.field}
-				if endpoint.bound.wrongDirection {
-					appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint.value}})
-					continue
-				}
-				if !endpoint.bound.valid {
-					appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, "", path, "edgeEndpoint", map[string]any{"endpoint": endpoint.value}))
-					continue
-				}
-				if endpoint.bound.nodeID == "" {
-					continue
-				}
-				contract, bound := contractsByNode[endpoint.bound.nodeID]
-				if !bound {
-					continue
-				}
-				if !endpoint.bound.pinValid {
-					appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, endpoint.bound.nodeID, path, "edgePin", map[string]any{"pin": endpoint.bound.pin, "kind": contract.Kind}))
-				}
-			}
-			if from.valid && to.valid && from.pinValid && to.pinValid && from.typ != "" && to.typ != "" {
-				if !compatibleTypes(from.typ, to.typ) {
-					path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex)}
-					if from.boundary || to.boundary || callNodeIDs[from.nodeID] || callNodeIDs[to.nodeID] {
-						appendDiagnostic(&result.diagnostics, schema.Diagnostic{Code: schema.CodeCallPinTypeMismatch, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, NodeID: to.nodeID, FieldPath: path, Params: map[string]any{"fromType": from.typ, "toType": to.typ}})
-					} else {
-						appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "pinType", map[string]any{"fromType": from.typ, "toType": to.typ}))
-					}
-				} else {
-					if from.boundary {
-						usedBoundaryInputs[edge.From] = true
-					}
-					if to.boundary {
-						usedBoundaryOutputs[edge.To] = true
-						boundaryOutputCounts[edge.To]++
-						if to.typ != node.TypeExec && boundaryOutputCounts[edge.To] == 2 {
-							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
-							appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, "", path, "multipleGraphOutputSources", map[string]any{"endpoint": edge.To}))
-						}
-					}
-					if to.nodeID != "" {
-						if incoming[to.nodeID] == nil {
-							incoming[to.nodeID] = map[string]bool{}
-							incomingCounts[to.nodeID] = map[string]int{}
-						}
-						incoming[to.nodeID][to.pin] = true
-						incomingCounts[to.nodeID][to.pin]++
-						if to.typ != node.TypeExec && incomingCounts[to.nodeID][to.pin] == 2 {
-							path := []string{"graphs", strconv.Itoa(graphIndex), "edges", strconv.Itoa(edgeIndex), "to"}
-							appendDiagnostic(&result.diagnostics, bindingDiagnostic(graph.ID, to.nodeID, path, "multipleInputSources", map[string]any{"pin": to.pin}))
-						}
-					}
-				}
-			}
-		}
-		validateBoundaryCoverage(&result.diagnostics, graph, graphIndex, usedBoundaryInputs, usedBoundaryOutputs)
-		for nodeIndex, sourceNode := range graph.Nodes {
-			contract, ok := contractsByNode[sourceNode.ID]
-			if !ok || !supportsCompilerContract(contract) {
+			resolved, resolveErr := resolvedTypeForExactRef(port.Type, catalog)
+			if resolveErr != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+				diagnostic.Params["reason"] = resolveErr.Error()
+				diagnostics = append(diagnostics, diagnostic)
 				continue
 			}
-			if sourceNode.Kind == CallSubgraphKind {
-				copyNode := sourceNode
-				copyNode.Config = make(map[string]any, len(sourceNode.Config))
-				for key, value := range sourceNode.Config {
-					if key != "graphId" {
-						copyNode.Config[key] = value
-					}
+			envelope, envelopeErr := datatype.SealInlineJSON(resolved, canonical)
+			if envelopeErr != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+				diagnostic.Params["reason"] = envelopeErr.Error()
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			plan.Inputs[portID] = inputPlan{Kind: inputLiteral, Provenance: provenance, Value: envelope.Artifact()}
+		}
+		compiled.Nodes = append(compiled.Nodes, plan)
+		nodes[plan.ID] = &compiled.Nodes[len(compiled.Nodes)-1]
+		contracts[plan.ID] = machine
+	}
+
+	incoming := map[string]bool{}
+	adjacency := map[string][]string{}
+	indegree := map[string]int{}
+	for _, node := range compiled.Nodes {
+		indegree[node.ID] = 0
+	}
+	for edgeIndex, edge := range graph.Edges {
+		if err := ctx.Err(); err != nil {
+			return compiled, diagnostics, err
+		}
+		path := []string{"graphs", fmt.Sprint(graphIndex), "edges", fmt.Sprint(edgeIndex)}
+		if edge.Channel != schema.EdgeData {
+			diagnostics = append(diagnostics, diagnostic(CodeUnsupportedSourceFeature, append(path, "channel"), graph.ID))
+			continue
+		}
+		fromNode, fromOK := nodes[edge.From.NodeID]
+		toNode, toOK := nodes[edge.To.NodeID]
+		if !fromOK || !toOK {
+			diagnostics = append(diagnostics, diagnostic(CodeUnknownPort, path, graph.ID))
+			continue
+		}
+		fromMachine, toMachine := contracts[fromNode.ID], contracts[toNode.ID]
+		fromType, fromExists := outputForChannel(fromMachine.Ports, edge.Channel, edge.From.PortID)
+		toType, toExists := inputForChannel(toMachine.Ports, edge.Channel, edge.To.PortID)
+		if !fromExists || !toExists {
+			diagnostics = append(diagnostics, diagnostic(CodeUnknownPort, path, graph.ID))
+			continue
+		}
+		key := edge.To.NodeID + "\x00" + string(edge.Channel) + "\x00" + edge.To.PortID
+		if incoming[key] {
+			diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
+			continue
+		}
+		incoming[key] = true
+		if edge.Channel == schema.EdgeData {
+			assignable, err := datatype.Assignable(*fromType, *toType)
+			if err != nil || !assignable {
+				diagnostics = append(diagnostics, diagnostic(CodeTypeMismatch, path, graph.ID))
+				continue
+			}
+			if _, already := toNode.Inputs[edge.To.PortID]; already {
+				diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
+				continue
+			}
+			toNode.Inputs[edge.To.PortID] = inputPlan{Kind: inputEdge, From: edge.From}
+			adjacency[fromNode.ID] = append(adjacency[fromNode.ID], toNode.ID)
+			indegree[toNode.ID]++
+		}
+	}
+	for _, node := range compiled.Nodes {
+		for _, port := range node.Ports.DataInputs {
+			if port.Required {
+				if _, present := node.Inputs[port.ID]; !present {
+					diagnostics = append(diagnostics, diagnosticAtNode(CodeMissingInputBinding, []string{"bindings", port.ID}, graph.ID, node.ID))
 				}
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, copyNode, configByNode[sourceNode.ID], incoming[sourceNode.ID], &constraintBudget)
-			} else {
-				validateNodeConfig(&result.diagnostics, graph.ID, graphIndex, nodeIndex, sourceNode, configByNode[sourceNode.ID], incoming[sourceNode.ID], &constraintBudget)
 			}
 		}
 	}
-	result.locks = make([]NodeLock, 0, len(locksByKind))
-	for _, lock := range locksByKind {
-		result.locks = append(result.locks, lock)
+	compiled.Order = topologicalOrder(compiled.Nodes, adjacency, indegree)
+	if len(compiled.Order) != len(compiled.Nodes) {
+		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
 	}
-	sort.Slice(result.locks, func(i, j int) bool { return result.locks[i].Kind < result.locks[j].Kind })
-	result.capabilities = sortedSet(capabilities)
-	sortDiagnostics(result.diagnostics)
-	return result, nil
+	return compiled, diagnostics, nil
 }
 
-func validateGraphInterface(out *[]schema.Diagnostic, graph schema.Graph, graphIndex int) graphInterface {
-	iface := graphInterface{inputs: map[string]schema.GraphPort{}, outputs: map[string]schema.GraphPort{}}
-	if graph.Kind == schema.GraphKindMain {
-		if len(graph.Inputs) != 0 || len(graph.Outputs) != 0 {
-			appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeUnsupportedGraphContract, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex)}, Params: map[string]any{"kind": graph.Kind}})
-		}
-		return iface
-	}
-	nodes := map[string]bool{}
-	for _, sourceNode := range graph.Nodes {
-		nodes[sourceNode.ID] = true
-	}
-	ids, boundaryNodes := map[string]bool{}, map[string]bool{}
-	execInputs, execOutputs := 0, 0
-	for _, group := range []struct {
-		name  string
-		ports []schema.GraphPort
-		input bool
-	}{{"inputs", graph.Inputs, true}, {"outputs", graph.Outputs, false}} {
-		for index, port := range group.ports {
-			path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(index)}
-			if ids[port.ID] || boundaryNodes[port.NodeID] || nodes[port.NodeID] || strings.Contains(port.ID, ".") || strings.Contains(port.NodeID, ".") || port.ID == callInputPin || port.ID == callFailurePin || port.ID == "graphId" {
-				appendDiagnostic(out, bindingDiagnostic(graph.ID, "", path, "graphInterfaceIdentity", map[string]any{"id": port.ID, "nodeId": port.NodeID}))
-			}
-			ids[port.ID], boundaryNodes[port.NodeID] = true, true
-			endpoint := port.NodeID + "." + port.ID
-			if group.input {
-				iface.inputs[endpoint] = port
-				if port.Type == node.TypeExec {
-					execInputs++
-					iface.entry = port
-				}
-			} else {
-				iface.outputs[endpoint] = port
-				if port.Type == node.TypeExec {
-					execOutputs++
-				}
+func outputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id string) (*datatype.TypeExpression, bool) {
+	if channel == schema.EdgeData {
+		for _, port := range ports.DataOutputs {
+			if port.ID == id {
+				return &port.Type, true
 			}
 		}
+		return nil, false
 	}
-	if execInputs != 1 {
-		appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeInvalidGraphEntry, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "inputs"}, Params: map[string]any{"execInputs": execInputs}})
+	for _, port := range signalOutputs(ports, channel) {
+		if port.ID == id {
+			return nil, true
+		}
 	}
-	if execOutputs == 0 {
-		appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeMissingGraphOutput, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: []string{"graphs", strconv.Itoa(graphIndex), "outputs"}})
-	}
-	return iface
+	return nil, false
 }
 
-func callContract(plan *programCall) catalog.NodeContract {
-	contract := catalog.NodeContract{Kind: CallSubgraphKind, Inputs: []catalog.InputContract{{Name: callInputPin, Type: node.TypeExec}}, Outputs: []catalog.OutputContract{}}
-	for _, port := range plan.Inputs {
-		contract.Inputs = append(contract.Inputs, catalog.InputContract{Name: port.ID, Type: port.Type, Required: true})
+func inputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id string) (*datatype.TypeExpression, bool) {
+	if channel == schema.EdgeData {
+		for _, port := range ports.DataInputs {
+			if port.ID == id {
+				return &port.Type, true
+			}
+		}
+		return nil, false
 	}
-	for _, port := range plan.Outputs {
-		contract.Outputs = append(contract.Outputs, catalog.OutputContract{Name: port.ID, Type: port.Type})
+	if channel != schema.EdgeExec {
+		return nil, false
 	}
-	contract.Outputs = append(contract.Outputs, catalog.OutputContract{Name: callFailurePin, Type: node.TypeExec, Semantic: "error"})
-	return contract
+	for _, port := range ports.ExecInputs {
+		if port.ID == id {
+			return nil, true
+		}
+	}
+	return nil, false
 }
 
-func supportsCompilerContract(contract catalog.NodeContract) bool {
-	if contract.HasCustomValidation || contract.HasDependencies {
-		return false
-	}
-	if len(contract.DynamicPorts) == 0 {
-		return true
-	}
-	if len(contract.DynamicPorts) != 1 {
-		return false
-	}
-	dynamic := contract.DynamicPorts[0]
-	return dynamic.Role == node.DynamicPortOutput && dynamic.Shape == node.DynamicPortNames &&
-		dynamic.FixedType == node.TypeExec && dynamic.ConfigKey != "" && dynamic.ParentOutput == ""
-}
-
-func resolveDynamicPorts(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract catalog.NodeContract) []programPort {
-	dynamic := contract.DynamicPorts[0]
-	path := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config", dynamic.ConfigKey}
-	raw, exists := sourceNode.Config[dynamic.ConfigKey]
-	items, ok := raw.([]any)
-	if !exists || !ok {
-		appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, -1, "", "wrong_shape"))
+func signalOutputs(ports nodecontract.PortSet, channel schema.EdgeChannel) []nodecontract.SignalPort {
+	switch channel {
+	case schema.EdgeExec:
+		return ports.ExecOutputs
+	case schema.EdgeError:
+		return ports.ErrorOutputs
+	case schema.EdgeStatus:
+		return ports.StatusOutputs
+	default:
 		return nil
 	}
-	maximum := dynamic.MaxItems
-	if maximum > MaxDynamicPortsPerNode {
-		maximum = MaxDynamicPortsPerNode
-	}
-	if len(items) > maximum {
-		appendDiagnostic(out, schema.Diagnostic{
-			Code: schema.CodeDynamicPortBudgetExceeded, Severity: schema.SeverityError,
-			GraphPath: []string{graphID}, NodeID: sourceNode.ID, FieldPath: path,
-			Params: map[string]any{"scope": "node", "maximum": maximum, "actual": len(items)},
-		})
-		return nil
-	}
-	if len(items) < dynamic.MinItems {
-		appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, -1, "", "too_few"))
-		return nil
-	}
-	staticNames := make(map[string]bool, len(contract.Outputs))
-	for _, output := range contract.Outputs {
-		staticNames[output.Name] = true
-	}
-	seen := make(map[string]bool, len(items))
-	ports := make([]programPort, 0, len(items))
-	for index, item := range items {
-		name, ok := item.(string)
-		if !ok {
-			appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, index, "", "wrong_item_type"))
-			continue
-		}
-		reason := dynamicPortNameReason(name, staticNames, seen)
-		if reason != "" {
-			appendDiagnostic(out, dynamicPortDiagnostic(graphID, sourceNode.ID, path, index, name, reason))
-			continue
-		}
-		seen[name] = true
-		ports = append(ports, programPort{Role: dynamic.Role, Name: name, Type: dynamic.FixedType})
-	}
-	return ports
 }
 
-func dynamicPortNameReason(name string, staticNames, seen map[string]bool) string {
-	switch {
-	case name == "":
-		return "empty"
-	case len([]byte(name)) > MaxDynamicPortNameBytes:
-		return "too_long"
-	case strings.TrimSpace(name) != name:
-		return "whitespace"
-	case strings.Contains(name, "."):
-		return "contains_dot"
-	case containsUnsafePortRune(name):
-		return "control_character"
-	case staticNames[name]:
-		return "static_conflict"
-	case seen[name]:
-		return "duplicate"
-	default:
-		return ""
+func validateLiteralCached(expression datatype.TypeExpression, raw []byte, catalog nodecatalog.Snapshot, validators map[string]*runtimejsonschema.Schema) error {
+	if expression.Kind != datatype.TypeExpressionRef || expression.Ref == nil {
+		return errors.New("literal binding currently requires an exact ref type")
 	}
+	definition, ok := catalog.LookupType(expression.Ref.TypeID)
+	if !ok || definition.TypeRef() != *expression.Ref {
+		return errors.New("literal type is not in catalog")
+	}
+	machine := definition.Machine()
+	if len(machine.SchemaBundle) != 1 {
+		return errors.New("literal schema requires one explicit root in this compiler generation")
+	}
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	return validateJSONSchemaBundleCached(validators, "type:"+expression.Ref.SemanticDigest.String(), machine.SchemaBundle[0].ID, machine.SchemaBundle, value)
 }
 
-func containsUnsafePortRune(name string) bool {
-	for _, value := range name {
-		if unicode.IsControl(value) || unicode.Is(unicode.Bidi_Control, value) {
-			return true
+func resolvedTypeForExactRef(expression datatype.TypeExpression, catalog nodecatalog.Snapshot) (datatype.ResolvedType, error) {
+	if expression.Kind != datatype.TypeExpressionRef || expression.Ref == nil {
+		return datatype.ResolvedType{}, errors.New("preview runtime requires an exact ref type")
+	}
+	definition, ok := catalog.LookupType(expression.Ref.TypeID)
+	if !ok || definition.TypeRef() != *expression.Ref {
+		return datatype.ResolvedType{}, errors.New("value type is not in catalog")
+	}
+	return datatype.RefResolvedType(*expression.Ref), nil
+}
+
+func validateJSONSchemaBundleCached(cache map[string]*runtimejsonschema.Schema, key, root string, resources []datatype.SchemaResource, value any) error {
+	if cache != nil {
+		if validator := cache[key]; validator != nil {
+			return validator.Validate(value)
 		}
 	}
-	return false
-}
-
-func dynamicPortDiagnostic(graphID, nodeID string, path []string, index int, name, reason string) schema.Diagnostic {
-	params := map[string]any{"reason": reason}
-	if index >= 0 {
-		params["index"] = index
-	}
-	if name != "" {
-		params["name"] = name
-	}
-	return schema.Diagnostic{
-		Code: schema.CodeInvalidDynamicPortDeclaration, Severity: schema.SeverityError,
-		GraphPath: []string{graphID}, NodeID: nodeID, FieldPath: path, Params: params,
-	}
-}
-
-func dynamicPortPlanSize(ports []programPort) int {
-	size := 0
-	for _, port := range ports {
-		size += 64 + len(port.Role) + len(port.Name) + len(port.Type) + len(port.ParentOutput)
-	}
-	return size
-}
-
-type endpointResolution struct {
-	nodeID, pin, typ                string
-	valid, pinValid, wrongDirection bool
-	boundary                        bool
-}
-
-type nodePinIndex struct {
-	inputs, outputs map[string]string
-}
-
-type nodeConfigContract struct {
-	inputs      map[string]catalog.InputContract
-	required    []catalog.InputContract
-	constrained []catalog.InputContract
-	consumed    map[string]bool
-}
-
-type inputConstraintBudget struct {
-	evaluations int
-	exceeded    bool
-}
-
-func indexNodeConfigContracts(contracts map[string]catalog.NodeContract, byKind map[string]nodeConfigContract) map[string]nodeConfigContract {
-	out := make(map[string]nodeConfigContract, len(contracts))
-	for nodeID, contract := range contracts {
-		if contract.Kind != CallSubgraphKind {
-			if cached, ok := byKind[contract.Kind]; ok {
-				out[nodeID] = cached
-				continue
-			}
+	compiler := runtimejsonschema.NewCompiler()
+	for _, resource := range resources {
+		var schemaDocument any
+		decoder := json.NewDecoder(bytes.NewReader(resource.Schema))
+		decoder.UseNumber()
+		if err := decoder.Decode(&schemaDocument); err != nil {
+			return err
 		}
-		indexed := nodeConfigContract{inputs: make(map[string]catalog.InputContract, len(contract.Inputs)), consumed: map[string]bool{}}
-		for _, input := range contract.Inputs {
-			indexed.inputs[input.Name] = input
-			if input.Required {
-				indexed.required = append(indexed.required, input)
-			}
-			if len(input.Constraints) > 0 {
-				indexed.constrained = append(indexed.constrained, input)
-			}
-		}
-		for _, dynamic := range contract.DynamicPorts {
-			if dynamic.ConfigKey != "" {
-				indexed.consumed[dynamic.ConfigKey] = true
-			}
-		}
-		out[nodeID] = indexed
-		if contract.Kind != CallSubgraphKind {
-			byKind[contract.Kind] = indexed
+		if err := compiler.AddResource(resource.ID, schemaDocument); err != nil {
+			return err
 		}
 	}
-	return out
+	validator, err := compiler.Compile(root)
+	if err != nil {
+		return err
+	}
+	if cache != nil {
+		cache[key] = validator
+	}
+	return validator.Validate(value)
 }
 
-func indexNodePins(contracts map[string]catalog.NodeContract, byKind map[string]nodePinIndex) map[string]nodePinIndex {
-	out := make(map[string]nodePinIndex, len(contracts))
-	for nodeID, contract := range contracts {
-		if contract.Kind != CallSubgraphKind && len(contract.DynamicPorts) == 0 {
-			if pins, ok := byKind[contract.Kind]; ok {
-				out[nodeID] = pins
-				continue
-			}
-		}
-		pins := nodePinIndex{inputs: make(map[string]string, len(contract.Inputs)), outputs: make(map[string]string, len(contract.Outputs))}
-		for _, input := range contract.Inputs {
-			pins.inputs[input.Name] = input.Type
-		}
-		for _, output := range contract.Outputs {
-			pins.outputs[output.Name] = output.Type
-		}
-		out[nodeID] = pins
-		if contract.Kind != CallSubgraphKind && len(contract.DynamicPorts) == 0 {
-			byKind[contract.Kind] = pins
+func topologicalOrder(nodes []programNode, adjacency map[string][]string, indegree map[string]int) []string {
+	queue := make([]string, 0, len(nodes))
+	for id, degree := range indegree {
+		if degree == 0 {
+			queue = append(queue, id)
 		}
 	}
-	return out
-}
-
-func resolveEndpoint(value string, from bool, nodeIDs map[string]bool, pinsByNode map[string]nodePinIndex, iface graphInterface) endpointResolution {
-	if port, ok := iface.inputs[value]; ok {
-		return endpointResolution{pin: port.ID, typ: port.Type, valid: from, pinValid: from, wrongDirection: !from, boundary: true}
-	}
-	if port, ok := iface.outputs[value]; ok {
-		return endpointResolution{pin: port.ID, typ: port.Type, valid: !from, pinValid: !from, wrongDirection: from, boundary: true}
-	}
-	nodeID, pin, ok := splitEndpoint(value, nodeIDs)
-	if !ok {
-		return endpointResolution{}
-	}
-	pins, bound := pinsByNode[nodeID]
-	if !bound {
-		return endpointResolution{nodeID: nodeID, pin: pin, valid: true, pinValid: true}
-	}
-	if from {
-		typ, allowed := pins.outputs[pin]
-		return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
-	}
-	typ, allowed := pins.inputs[pin]
-	return endpointResolution{nodeID: nodeID, pin: pin, typ: typ, valid: true, pinValid: allowed}
-}
-
-func callPlanEncodedSize(target string, graph schema.Graph) int {
-	size := 128 + len(target)
-	for _, ports := range [][]schema.GraphPort{graph.Inputs, graph.Outputs} {
-		for _, port := range ports {
-			size += 64 + len(port.ID) + len(port.Type) + len(port.NodeID)
-		}
-	}
-	return size
-}
-
-func validateBoundaryCoverage(out *[]schema.Diagnostic, graph schema.Graph, graphIndex int, usedInputs, usedOutputs map[string]bool) {
-	for _, group := range []struct {
-		name  string
-		ports []schema.GraphPort
-		used  map[string]bool
-	}{{"inputs", graph.Inputs, usedInputs}, {"outputs", graph.Outputs, usedOutputs}} {
-		for portIndex, port := range group.ports {
-			endpoint := port.NodeID + "." + port.ID
-			if !group.used[endpoint] {
-				path := []string{"graphs", strconv.Itoa(graphIndex), group.name, strconv.Itoa(portIndex)}
-				appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeInvalidGraphBoundaryEdge, Severity: schema.SeverityError, GraphPath: []string{graph.ID}, FieldPath: path, Params: map[string]any{"endpoint": endpoint, "reason": "unbound"}})
+	sort.Strings(queue)
+	order := make([]string, 0, len(nodes))
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		order = append(order, id)
+		next := append([]string(nil), adjacency[id]...)
+		sort.Strings(next)
+		for _, target := range next {
+			indegree[target]--
+			if indegree[target] == 0 {
+				queue = append(queue, target)
+				sort.Strings(queue)
 			}
 		}
 	}
+	return order
 }
 
-func appendCallCycleDiagnostics(out *[]schema.Diagnostic, graphs []schema.Graph, adjacency map[string][]callReference) {
-	state := map[string]uint8{}
-	var visit func(string)
-	visit = func(graphID string) {
-		state[graphID] = 1
-		for _, ref := range adjacency[graphID] {
-			if state[ref.target] == 1 {
-				appendDiagnostic(out, schema.Diagnostic{Code: schema.CodeSubgraphCallCycle, Severity: schema.SeverityError, GraphPath: []string{ref.graphID}, NodeID: ref.nodeID, FieldPath: []string{"graphs", strconv.Itoa(ref.graphIndex), "nodes", strconv.Itoa(ref.nodeIndex), "config", "graphId"}, Params: map[string]any{"graphId": ref.target}})
-			} else if state[ref.target] == 0 {
-				visit(ref.target)
-			}
-		}
-		state[graphID] = 2
+func diagnostic(code string, path []string, graphID string) Diagnostic {
+	diagnostic := Diagnostic{Code: code, Severity: schema.SeverityError, FieldPath: append([]string(nil), path...), Params: map[string]any{}}
+	if graphID != "" {
+		diagnostic.GraphPath = []string{graphID}
 	}
-	for _, graph := range graphs {
-		if state[graph.ID] == 0 {
-			visit(graph.ID)
-		}
-	}
+	return diagnostic
 }
 
-func splitEndpoint(endpoint string, nodeIDs map[string]bool) (string, string, bool) {
-	for dot := strings.LastIndexByte(endpoint, '.'); dot > 0; dot = strings.LastIndexByte(endpoint[:dot], '.') {
-		nodeID, pin := endpoint[:dot], endpoint[dot+1:]
-		if nodeIDs[nodeID] && pin != "" {
-			return nodeID, pin, true
-		}
-	}
-	return "", "", false
+func diagnosticAtNode(code string, path []string, graphID, nodeID string) Diagnostic {
+	diagnostic := diagnostic(code, path, graphID)
+	diagnostic.NodeID = nodeID
+	return diagnostic
 }
 
-func compatibleTypes(from, to string) bool {
-	left, right := node.CanonicalPinType(from), node.CanonicalPinType(to)
-	return left == right || left == "any" || right == "any"
-}
-
-func validateNodeConfig(out *[]schema.Diagnostic, graphID string, graphIndex, nodeIndex int, sourceNode schema.Node, contract nodeConfigContract, incoming map[string]bool, budget *inputConstraintBudget) {
-	if len(*out) >= MaxDiagnostics {
-		return
-	}
-	base := []string{"graphs", strconv.Itoa(graphIndex), "nodes", strconv.Itoa(nodeIndex), "config"}
-	keys := make([]string, 0, len(sourceNode.Config))
-	for key := range sourceNode.Config {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if len(*out) >= MaxDiagnostics {
-			return
+func sortDiagnostics(values []Diagnostic) {
+	sort.SliceStable(values, func(i, j int) bool {
+		left, _ := json.Marshal(values[i].FieldPath)
+		right, _ := json.Marshal(values[j].FieldPath)
+		if string(left) == string(right) {
+			return values[i].Code < values[j].Code
 		}
-		value := sourceNode.Config[key]
-		if contract.consumed[key] {
-			continue
-		}
-		input, ok := contract.inputs[key]
-		path := appendPath(base, key)
-		if !ok || input.Type == "Exec" {
-			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, path, "configField", map[string]any{"field": key}))
-			continue
-		}
-		if !valueMatchesType(value, input.Type) || input.Schema != nil && !valueMatchesSchema(value, input.Schema) {
-			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, path, "configType", map[string]any{"field": key, "type": input.Type}))
-		}
-	}
-	for _, input := range contract.required {
-		if len(*out) >= MaxDiagnostics {
-			return
-		}
-		_, configured := sourceNode.Config[input.Name]
-		if !configured && input.Default == nil && !incoming[input.Name] {
-			appendDiagnostic(out, bindingDiagnostic(graphID, sourceNode.ID, appendPath(base, input.Name), "requiredInput", map[string]any{"field": input.Name}))
-		}
-	}
-	constraintCount := 0
-	for _, input := range contract.constrained {
-		constraintCount += len(input.Constraints)
-	}
-	if budget.exceeded {
-		return
-	}
-	if constraintCount > MaxInputConstraintEvaluations-budget.evaluations {
-		appendDiagnostic(out, schema.Diagnostic{
-			Code: schema.CodeInputConstraintBudgetExceeded, Severity: schema.SeverityError,
-			GraphPath: []string{graphID}, NodeID: sourceNode.ID,
-			FieldPath: base, Params: map[string]any{"maximum": MaxInputConstraintEvaluations},
-		})
-		budget.exceeded = true
-		return
-	}
-	budget.evaluations += constraintCount
-	for _, input := range contract.constrained {
-		if len(*out) >= MaxDiagnostics || incoming[input.Name] {
-			continue
-		}
-		value, configured := sourceNode.Config[input.Name]
-		if !configured {
-			value = input.Default
-		}
-		if value == nil || !valueMatchesType(value, input.Type) || input.Schema != nil && !valueMatchesSchema(value, input.Schema) {
-			continue
-		}
-		for _, constraint := range input.Constraints {
-			if !node.InputConstraintViolated(constraint, value) {
-				continue
-			}
-			params := map[string]any{"input": input.Name, "constraint": string(constraint.Kind)}
-			if constraint.Threshold != "" {
-				params["threshold"] = constraint.Threshold
-			}
-			appendDiagnostic(out, schema.Diagnostic{
-				Code: schema.CodeInputConstraintViolation, Severity: schema.SeverityError,
-				GraphPath: []string{graphID}, NodeID: sourceNode.ID,
-				FieldPath: appendPath(base, input.Name), Params: params,
-			})
-		}
-	}
-}
-
-func valueMatchesType(value any, expected string) bool {
-	if value == nil {
-		return expected == "Any" || expected == "JSON" || expected == "*"
-	}
-	switch expected {
-	case "*", "Any", "JSON":
-		return true
-	case "String":
-		_, ok := value.(string)
-		return ok
-	case "Number":
-		switch value.(type) {
-		case float64, json.Number:
-			return true
-		default:
-			return false
-		}
-	case "Integer", "Int", "Duration":
-		return isIntegerValue(value)
-	case "Bool", "Boolean":
-		_, ok := value.(bool)
-		return ok
-	case "List", "Array":
-		_, ok := value.([]any)
-		return ok
-	case "Object":
-		_, ok := value.(map[string]any)
-		return ok
-	case "Point":
-		return matchesPoint(value)
-	case "Rect":
-		return matchesRect(value, false)
-	case "Geometry":
-		return matchesGeometry(value)
-	case "Color":
-		return matchesColor(value)
-	case "File":
-		return matchesFile(value)
-	case "Window", "Image":
-		return false
-	default:
-		return false
-	}
-}
-
-func isIntegerValue(value any) bool {
-	switch typed := value.(type) {
-	case float64:
-		return math.Trunc(typed) == typed
-	case json.Number:
-		rational, ok := new(big.Rat).SetString(typed.String())
-		return ok && rational.IsInt()
-	default:
-		return false
-	}
-}
-
-func isNumberValue(value any) bool {
-	switch value.(type) {
-	case float64, json.Number:
-		return true
-	default:
-		return false
-	}
-}
-
-func matchesPoint(value any) bool {
-	object, ok := value.(map[string]any)
-	if !ok || !hasOnlyKeys(object, "x", "y", "unit") || !isNumberValue(object["x"]) || !isNumberValue(object["y"]) {
-		return false
-	}
-	if unit, exists := object["unit"]; exists {
-		text, ok := unit.(string)
-		return ok && (text == "" || text == "px")
-	}
-	return true
-}
-
-func matchesRect(value any, integer bool) bool {
-	object, ok := value.(map[string]any)
-	if !ok || !hasOnlyKeys(object, "x", "y", "w", "h") {
-		return false
-	}
-	for _, key := range []string{"x", "y", "w", "h"} {
-		if integer {
-			if !isIntegerValue(object[key]) {
-				return false
-			}
-		} else if !isNumberValue(object[key]) {
-			return false
-		}
-	}
-	return true
-}
-
-func matchesGeometry(value any) bool {
-	object, ok := value.(map[string]any)
-	if !ok || !hasOnlyKeys(object, "pct", "overrides") || !matchesRect(object["pct"], false) {
-		return false
-	}
-	rawOverrides, exists := object["overrides"]
-	if !exists {
-		return true
-	}
-	overrides, ok := rawOverrides.([]any)
-	if !ok {
-		return false
-	}
-	for _, raw := range overrides {
-		override, ok := raw.(map[string]any)
-		if !ok || !hasOnlyKeys(override, "resolution", "px") || !matchesResolution(override["resolution"]) || !matchesRect(override["px"], true) {
-			return false
-		}
-	}
-	return true
-}
-
-func matchesResolution(value any) bool {
-	object, ok := value.(map[string]any)
-	return ok && hasOnlyKeys(object, "w", "h") && isIntegerValue(object["w"]) && isIntegerValue(object["h"])
-}
-
-func matchesColor(value any) bool {
-	object, ok := value.(map[string]any)
-	return ok && hasOnlyKeys(object, "h", "s", "v") && isIntegerValue(object["h"]) && isIntegerValue(object["s"]) && isIntegerValue(object["v"])
-}
-
-func matchesFile(value any) bool {
-	object, ok := value.(map[string]any)
-	if !ok || !hasOnlyKeys(object, "path", "name", "ext", "mime", "size", "modTimeMs", "isDir") {
-		return false
-	}
-	if _, ok := object["path"].(string); !ok {
-		return false
-	}
-	if name, exists := object["name"]; exists {
-		if _, ok := name.(string); !ok {
-			return false
-		}
-	}
-	for _, key := range []string{"ext", "mime"} {
-		if item, exists := object[key]; exists {
-			if _, ok := item.(string); !ok {
-				return false
-			}
-		}
-	}
-	for _, key := range []string{"size", "modTimeMs"} {
-		if item, exists := object[key]; exists && !isIntegerValue(item) {
-			return false
-		}
-	}
-	if item, exists := object["isDir"]; exists {
-		if _, ok := item.(bool); !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func hasOnlyKeys(object map[string]any, allowed ...string) bool {
-	set := map[string]bool{}
-	for _, key := range allowed {
-		set[key] = true
-	}
-	for key := range object {
-		if !set[key] {
-			return false
-		}
-	}
-	return true
-}
-
-func valueMatchesSchema(value any, field *catalog.FieldContract) bool {
-	if field == nil {
-		return true
-	}
-	switch field.Type {
-	case "number":
-		switch value.(type) {
-		case float64, json.Number:
-			return true
-		default:
-			return false
-		}
-	case "string":
-		_, ok := value.(string)
-		return ok
-	case "enum":
-		left, leftErr := artifact.Marshal(map[string]any{"value": value})
-		if leftErr != nil {
-			return false
-		}
-		for _, option := range field.Options {
-			right, rightErr := artifact.Marshal(map[string]any{"value": option})
-			if leftErr == nil && rightErr == nil && string(left) == string(right) {
-				return true
-			}
-		}
-		return false
-	case "bool":
-		_, ok := value.(bool)
-		return ok
-	case "array":
-		items, ok := value.([]any)
-		if !ok {
-			return false
-		}
-		for _, item := range items {
-			if !valueMatchesSchema(item, field.Items) {
-				return false
-			}
-		}
-		return true
-	case "tuple":
-		items, ok := value.([]any)
-		if !ok || len(items) != len(field.Fields) {
-			return false
-		}
-		for index, entry := range field.Fields {
-			if !valueMatchesSchema(items[index], entry.Schema) {
-				return false
-			}
-		}
-		return true
-	case "object":
-		if field.Shape == "point" {
-			return matchesPoint(value)
-		}
-		if field.Shape == "geometry" {
-			return matchesGeometry(value)
-		}
-		object, ok := value.(map[string]any)
-		if !ok {
-			return false
-		}
-		known := map[string]bool{}
-		for _, entry := range field.Fields {
-			known[entry.Key] = true
-			child, exists := object[entry.Key]
-			if entry.Required && !exists {
-				return false
-			}
-			if exists && !valueMatchesSchema(child, entry.Schema) {
-				return false
-			}
-		}
-		for key := range object {
-			if !known[key] {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
-}
-
-func appendPath(path []string, value string) []string {
-	return append(append([]string(nil), path...), value)
-}
-
-func capabilitiesFromSource(values []schema.Capability) []string {
-	set := map[string]bool{}
-	for _, value := range values {
-		set[string(value)] = true
-	}
-	return sortedSet(set)
-}
-
-func validateCapabilityDeclaration(declared, required []string) []schema.Diagnostic {
-	declaredSet, requiredSet := map[string]bool{}, map[string]bool{}
-	for _, value := range declared {
-		declaredSet[value] = true
-	}
-	for _, value := range required {
-		requiredSet[value] = true
-	}
-	var diagnostics []schema.Diagnostic
-	for _, value := range required {
-		if !declaredSet[value] {
-			appendDiagnostic(&diagnostics, schema.Diagnostic{Code: schema.CodeMissingCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
-		}
-	}
-	for _, value := range declared {
-		if !requiredSet[value] {
-			appendDiagnostic(&diagnostics, schema.Diagnostic{Code: schema.CodeUnusedCapabilityDeclaration, Severity: schema.SeverityError, FieldPath: []string{"requestedCapabilities"}, Params: map[string]any{"capability": value}})
-		}
-	}
-	sortDiagnostics(diagnostics)
-	return diagnostics
-}
-
-func exceedsSourceCollections(source schema.WorkflowSource) bool {
-	if len(source.Graphs) > MaxGraphs || len(source.Variables) > schema.MaxVariables || len(source.SecretRefs) > schema.MaxSecretRefs || len(source.RequestedCapabilities) > schema.MaxRequestedCapabilities {
-		return true
-	}
-	totalNodes, totalEdges, totalPorts := 0, 0, 0
-	for _, graph := range source.Graphs {
-		if len(graph.Nodes) > MaxNodesPerGraph || len(graph.Edges) > MaxEdgesPerGraph || len(graph.Inputs)+len(graph.Outputs) > MaxPortsPerGraph {
-			return true
-		}
-		totalNodes += len(graph.Nodes)
-		totalEdges += len(graph.Edges)
-		totalPorts += len(graph.Inputs) + len(graph.Outputs)
-	}
-	return totalNodes > MaxTotalNodes || totalEdges > MaxTotalEdges || totalPorts > MaxTotalPorts
-}
-
-func exceedsJSONDepth(raw []byte, maximum int) bool {
-	depth := 0
-	inString, escaped := false, false
-	for _, value := range raw {
-		if inString {
-			if escaped {
-				escaped = false
-				continue
-			}
-			if value == '\\' {
-				escaped = true
-				continue
-			}
-			if value == '"' {
-				inString = false
-			}
-			continue
-		}
-		switch value {
-		case '"':
-			inString = true
-		case '{', '[':
-			depth++
-			if depth > maximum {
-				return true
-			}
-		case '}', ']':
-			if depth > 0 {
-				depth--
-			}
-		}
-	}
-	return false
-}
-
-func bindingDiagnostic(graphID, nodeID string, fieldPath []string, keyword string, params map[string]any) schema.Diagnostic {
-	params["keyword"] = keyword
-	return schema.Diagnostic{
-		Code: schema.CodeInvalidField, Severity: schema.SeverityError,
-		GraphPath: []string{graphID}, NodeID: nodeID, FieldPath: fieldPath, Params: params,
-	}
-}
-
-func appendDiagnostic(out *[]schema.Diagnostic, diagnostic schema.Diagnostic) {
-	if len(*out) < MaxDiagnostics-1 {
-		*out = append(*out, diagnostic)
-		return
-	}
-	if len(*out) == MaxDiagnostics-1 {
-		*out = append(*out, diagnosticBudgetExceeded())
-	}
-}
-
-func diagnosticBudgetExceeded() schema.Diagnostic {
-	return schema.Diagnostic{Code: schema.CodeDiagnosticBudgetExceeded, Severity: schema.SeverityError, Params: map[string]any{"maximum": MaxDiagnostics}}
-}
-
-func lowerGraphs(graphs []schema.Graph, binding bindingResult) []programGraph {
-	out := make([]programGraph, 0, len(graphs))
-	for _, graph := range graphs {
-		if !binding.reachable[graph.ID] {
-			continue
-		}
-		nodes := make([]programNode, len(graph.Nodes))
-		for nodeIndex, node := range graph.Nodes {
-			dynamicPorts := append([]programPort{}, binding.dynamicPorts[graph.ID][node.ID]...)
-			nodes[nodeIndex] = programNode{ID: node.ID, Kind: node.Kind, Config: node.Config, Disabled: node.Disabled, Call: binding.calls[graph.ID][node.ID], DynamicPorts: dynamicPorts}
-		}
-		edges := make([]schema.Edge, len(graph.Edges))
-		copy(edges, graph.Edges)
-		inputs := make([]schema.GraphPort, len(graph.Inputs))
-		copy(inputs, graph.Inputs)
-		outputs := make([]schema.GraphPort, len(graph.Outputs))
-		copy(outputs, graph.Outputs)
-		out = append(out, programGraph{
-			ID: graph.ID, Kind: graph.Kind, Nodes: nodes,
-			Edges: edges, Inputs: inputs, Outputs: outputs,
-		})
-	}
-	return out
-}
-
-func cloneDiagnostics(source []schema.Diagnostic) []schema.Diagnostic {
-	out := make([]schema.Diagnostic, len(source))
-	copy(out, source)
-	return out
-}
-
-func cappedDiagnostics(source []schema.Diagnostic) []schema.Diagnostic {
-	if len(source) < MaxDiagnostics {
-		return cloneDiagnostics(source)
-	}
-	out := cloneDiagnostics(source[:MaxDiagnostics-1])
-	out = append(out, diagnosticBudgetExceeded())
-	return out
-}
-
-func sortDiagnostics(diagnostics []schema.Diagnostic) {
-	sortable := diagnostics
-	if len(diagnostics) > 0 && diagnostics[len(diagnostics)-1].Code == schema.CodeDiagnosticBudgetExceeded {
-		sortable = diagnostics[:len(diagnostics)-1]
-	}
-	sort.SliceStable(sortable, func(i, j int) bool {
-		left, right := sortable[i], sortable[j]
-		for _, pair := range [][2]string{
-			{strings.Join(left.GraphPath, "/"), strings.Join(right.GraphPath, "/")},
-			{left.NodeID, right.NodeID}, {strings.Join(left.FieldPath, "/"), strings.Join(right.FieldPath, "/")}, {left.Code, right.Code},
-		} {
-			if pair[0] != pair[1] {
-				return pair[0] < pair[1]
-			}
-		}
-		return false
+		return string(left) < string(right)
 	})
+}
+
+func equalStringSets(left, right map[string]bool) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for value := range left {
+		if !right[value] {
+			return false
+		}
+	}
+	return true
 }

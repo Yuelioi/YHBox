@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/invopop/jsonschema"
+	"github.com/yottaapp/yotta/internal/datatype"
 )
 
 const (
-	workflowSchemaID   = "https://yottaapp.dev/contracts/workflow/v3/workflow-source.schema.json"
-	diagnosticSchemaID = "https://yottaapp.dev/contracts/workflow/v3/diagnostic.schema.json"
+	workflowSchemaID   = "https://yottaapp.dev/contracts/workflow/3.1/workflow-source.schema.json"
+	diagnosticSchemaID = "https://yottaapp.dev/contracts/workflow/3.1/diagnostic.schema.json"
 )
 
 // GenerateContract returns the canonical JSON Schema document used by both the
@@ -22,11 +23,11 @@ func GenerateContract(name string) ([]byte, error) {
 	case "workflow":
 		contract = reflector.Reflect(&WorkflowSource{})
 		id = workflowSchemaID
-		title = "Yotta Workflow Source v3"
+		title = "Yotta Workflow Source 3.1"
 	case "diagnostic":
 		contract = reflector.Reflect(&Diagnostic{})
 		id = diagnosticSchemaID
-		title = "Yotta Compiler Diagnostic v3"
+		title = "Yotta Compiler Diagnostic 3.1"
 	default:
 		return nil, fmt.Errorf("unknown contract %q", name)
 	}
@@ -41,6 +42,9 @@ func GenerateContract(name string) ([]byte, error) {
 	}
 	document["$id"] = id
 	document["title"] = title
+	if definitions, ok := document["$defs"].(map[string]any); ok {
+		datatype.TuneTypeExpressionDefinitions(definitions)
+	}
 	formatted, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
 		return nil, err

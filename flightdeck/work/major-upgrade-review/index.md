@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 全仓方案已进入实施；产品、Node System、Workflow、Data、Catalog 与 Program 统一使用 3.1。首个 Contract Kernel 切片已落地：Data Type 3.1 definition、独立 `/v1` semantic digest、离线 schema bundle、Resolved Type 与规范化 assignability 已形成 strict public seam。现有 v3 Compiler 仍只是待替换的未发布脚手架，不能形成第二 runtime。公开 stable 仍被 owner 设置、代码签名、用户数据目录迁移以及 3.1 Node/Plugin 完成门阻断。
+Yotta 3.1 contract kernel 与首条端到端 tracer 已落地：Data Type、ValueEnvelope、Node Contract、Catalog、Workflow Source、Compiler 与 Program 均为 3.1 strict artifact。Concat 由同一 sealed contract 生成 machine catalog、Vue presentation、MCP describe/search 与 Markdown 文档，并以两个 string data input、一个 string data output、零 control pin 贯通 compile/open/run。3.1 interpreter 仍是 fail-closed pure-data preview，尚未接成生产 fallback；旧 ContainerRunner 必须在 capability/resource、Program/Run 与 catalog-wide migration 完成后整体删除。
 
 ## Next
 
-先按 Node System 3.1 Wayfinder frontier 完成“定义 Node Contract 3.1 元模式”，再把已落地的 Data Type kernel 接入 Catalog/Compiler，并以 Concat 完成首条 tracer bullet：两个 data input、一个 data output、零 exec pin，贯通 Source 3.1 → Compiler → Program 3.1 → interpreter → Vue → MCP/docs。随后依次闭合 Capability、Resource、Program/Run、Authoring 与 Plugin 决策。Program/Run 决议和 catalog-wide 编译完成前禁止把新 interpreter 接成生产 fallback；旧 ContainerRunner 最终整体删除。
+沿 Wayfinder 依次闭合 Capability、Resource、Program/Run、Authoring 与 Plugin 决策；下一 tracer 应把 capability grant、resource quota/cancellation 与正式 Run artifact 接入同一 strict Program boundary。随后批量迁移 built-in catalog 和编辑器存储到精确 NodeRef/port identity。Program/Run 决议和 catalog-wide 编译完成前禁止把 3.1 interpreter 接成生产 fallback。
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -38,6 +38,12 @@ Yotta 3.1 全仓方案已进入实施；产品、Node System、Workflow、Data�
 ## Progress
 
 Done:
+- 完成 Node Contract 3.1 opaque seal/open、generated JSON Schema/TypeScript 与 semantic/authoring digest 分离；端口按 data/exec/error/status 明确分频道。
+- 完成 Catalog 3.1 exact TypeRef/NodeRef/implementation lock snapshot，并删除旧 `internal/workflow/catalog` 投影。
+- 破坏性切换 Workflow Source/Compiler/Program 到 3.1：显式 edge channel、typed endpoint、literal/default provenance、strict trusted reopen、全边界资源预算与 fail-closed preview feature set。
+- 新增 ValueEnvelope 3.1；interpreter 使用可信 Catalog、capability grant 和完整 installed implementation lock，输出按 pinned Data Type 复验并限制 retained bytes。
+- 完成 Concat Source → Compiler → Program → interpreter → Vue/MCP/docs tracer；Vue 未知 pin 不再猜成 exec，generated machine Catalog 可由 strict opener 原样打开。
+- Standards/Spec 双轴复审发现的 implementation bypass、untyped output、silent control semantics、Source semantic drop、fake exec-out、canonical catalog 与 Program strict-boundary 问题均已修复并加回归测试。
 - 落地 Data Type 3.1 Contract Kernel：opaque definition seal/open、算法域 `/v1` semantic digest、版本化 TypeRef、离线 Draft 2020-12 bundle 与真实 schema 引用预算、codec/editor allowlist、Resolved Type、union/list assignability；双轴终审无剩余 P1/P2。
 - 完成 Node System 3.1 设计变更的 Standards/Spec 双轴 review；修正 Data Type semantic digest 自引用、list 运行类型身份与研究/决议漂移。
 - 将插件安装信任、SDK/文档/conformance 从 Fog 升格为阻塞 tickets，并明确 Yotta 3.1 产品版本与 3.1 协议代际可合并且必须共用唯一 runtime。
@@ -65,16 +71,18 @@ Done:
 - review 修复 Switch case 删除的非原子历史写入，以及 ELK lazy-load/layout 期间切图后写错 graph/marker 的竞态。
 - 删除 NodeSpec 的 `DynamicOutputs` / `DynamicInputs` / `DynamicDataFields` 三个行为布尔值，改为进入 Catalog v2 identity 的 role/shape/config-key/budget descriptor；旧运行时消费者与前端均从 descriptor 派生。
 - 新 Compiler 首个动态切片严格支持 Switch `output + names + Exec`：拒绝错 shape、非字符串、空白/点/control/bidi、重复、静态冲突和预算放大，并隔离不同节点的 resolved pin index。
-- Program v3 把每个节点的 resolved dynamic ports 冻结为必填非 nil 计划；`OpenProgram` 从 trusted Catalog 与 config 重派生并 exact compare，伪造 plan/config 均 fail closed。
+- 历史 v3 prototype 曾冻结 resolved dynamic ports；该未发布 wire contract 已由 Program 3.1 destructive cutover 删除，后续动态端口必须以 3.1 Node Contract/Program 决议重新进入。
 - Standards/Spec/Threat 终审修复 descriptor 泛型消费者仍读固定 config key、前端重复 parser，以及遗漏 U+061C bidi control 的动态端口名过滤；复核后无剩余 P0–P2。
-- 新增 `InputSpec.Constraints` 的 `nonBlank` 与 `numberGreaterThan` 声明式约束；Registry 统一校验和 canonicalize，Catalog v3 冻结约束，Compiler 对静态值/默认值产出稳定诊断并为全图评估设预算，接线值延迟到 runtime 校验。
+- 历史 prototype 新增 `InputSpec.Constraints` 的声明式约束；旧 Catalog v3 投影已删除，约束在 3.1 的最终表达仍由 Data Type/Node Contract 后续切片决定。
 - 截图新模板表单已加入可创建的分类选择，`SaveTemplateCapture` 在首次资产记录中原子保存 category；主窗口把历史小宽度钳到 1640 并设置系统最小宽度，短期阻止编辑器工具条在低宽度下崩坏。
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Data Type 3.1 kernel 首切片已完成并通过全仓门禁；Node Contract 3.1 元模式仍是唯一 Wayfinder frontier。下一实施动作是冻结 Node Contract meta-schema，再把 Data Type kernel 接入 Catalog/Compiler 并以 Concat 做端到端 tracer bullet。
+- Node Contract/Catalog/Workflow/Program/ValueEnvelope 3.1 kernel 与 Concat tracer 已完成；正在完成最终全仓门禁、Flightdeck checkpoint 与本地提交。下一 frontier 是 Capability/Resource/Program-Run，而不是扩张 preview interpreter 的隐式语义。
 
 Verified:
+- 3.1 Concat tracer destructive cutover 最终 `task check` 通过（2026-07-15，117s）：全局 coverage 65.2%，frontend 97 files / 635 tests，Wails contract 14 services / 119 methods / 100 models，contracts drift/staticcheck/vet/build/bundle budget 全绿。
+- `go test -race` 覆盖 artifact/datatype/nodecatalog/nodecontract/nodes31/workflow schema/compiler；ParseSource、CompileDraft、OpenProgram fuzz 各 5 秒通过（约 10.4 万、17.5 万、36.6 万 executions）。
 - Data Type 3.1 kernel 最终 `task check` 通过（2026-07-15，109.9s）；聚焦 race、5 秒 fuzz、vet、staticcheck 通过，datatype coverage 71.0%。Standards/Spec 复核确认无剩余 P1/P2。
 - Node System 3.1 与 Yotta 3.1 计划合并后，Flightdeck recovery graph 无诊断，Wayfinder 10 个 tickets 依赖闭合且唯一 frontier 为 Node Contract 3.1 元模式；完整 `task check` 通过（2026-07-15，107.6s）。
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
@@ -94,7 +102,7 @@ Verified:
 
 ## Open questions
 
-- Node Contract 3.1 元模式、Program/Run lowering、package trust 与 SDK/docs 的精确 schema 仍由对应 Wayfinder tickets 决定；实施不得先猜。
+- Program/Run 的 durable Run/trace/error artifact、Resource budget 模型、外部 capability grant 生命周期和 package trust 仍由对应 Wayfinder tickets 决定；preview 必须继续 fail closed。
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。

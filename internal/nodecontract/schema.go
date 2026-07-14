@@ -36,44 +36,11 @@ func GenerateSchema() ([]byte, error) {
 
 func tuneKnownDefinitions(schema map[string]any) {
 	definitions := schema["$defs"].(map[string]any)
-	definitions["TypeExpression"] = map[string]any{
-		"title": "TypeExpression",
-		"oneOf": []any{
-			typeExpressionVariant("ref", map[string]any{
-				"ref": map[string]any{"$ref": "#/$defs/TypeRef"},
-			}, "ref"),
-			typeExpressionVariant("list", map[string]any{
-				"element": map[string]any{"$ref": "#/$defs/TypeExpression"},
-			}, "element"),
-			typeExpressionVariant("union", map[string]any{
-				"members": map[string]any{
-					"type": "array", "minItems": 2, "maxItems": datatype.MaxUnionMembers,
-					"items": map[string]any{"$ref": "#/$defs/TypeExpression"},
-				},
-			}, "members"),
-			typeExpressionVariant("variable", map[string]any{
-				"variable": map[string]any{"type": "string", "minLength": 1, "maxLength": datatype.MaxTypeStringBytes},
-				"constraints": map[string]any{
-					"type": "array", "maxItems": datatype.MaxTypeConstraints,
-					"items": map[string]any{"type": "string", "minLength": 1, "maxLength": datatype.MaxTypeStringBytes},
-				},
-			}, "variable"),
-		},
-	}
+	datatype.TuneTypeExpressionDefinitions(definitions)
 	resource := definitions["Resource"].(map[string]any)
 	resource["properties"].(map[string]any)["schema"] = map[string]any{
 		"type":                 "object",
 		"additionalProperties": true,
-	}
-}
-
-func typeExpressionVariant(kind string, properties map[string]any, required ...string) map[string]any {
-	properties["kind"] = map[string]any{"const": kind, "type": "string"}
-	return map[string]any{
-		"type":                 "object",
-		"additionalProperties": false,
-		"properties":           properties,
-		"required":             append([]string{"kind"}, required...),
 	}
 }
 

@@ -6,13 +6,16 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const outputRoot = resolve(root, 'contracts/workflow/v3')
+const outputRoot = resolve(root, 'contracts/workflow/3.1')
 const nodeOutputRoot = resolve(root, 'contracts/node/3.1')
 const writeMode = process.argv.includes('--write')
 const temporary = await mkdtemp(resolve(tmpdir(), 'yotta-contracts-'))
 const temporarySchema = resolve(temporary, 'workflow-source.schema.json')
 const temporaryDiagnostic = resolve(temporary, 'diagnostic.schema.json')
 const temporaryNodeSchema = resolve(temporary, 'node-contract.schema.json')
+const temporaryBuiltinCatalog = resolve(temporary, 'builtin-catalog.json')
+const temporaryBuiltinPresentation = resolve(temporary, 'builtin-presentation.json')
+const temporaryBuiltinDocs = resolve(temporary, 'builtin-nodes.md')
 const require = createRequire(resolve(root, 'frontend/package.json'))
 const { compile } = require('json-schema-to-typescript')
 
@@ -34,9 +37,19 @@ try {
     '-output',
     temporaryNodeSchema,
   ])
+  for (const [contract, output] of [
+    ['builtin-catalog', temporaryBuiltinCatalog],
+    ['builtin-presentation', temporaryBuiltinPresentation],
+    ['builtin-docs', temporaryBuiltinDocs],
+  ]) {
+    await run('go', ['run', './cmd/yotta-contracts', '-contract', contract, '-output', output])
+  }
   const schemaText = await readFile(temporarySchema, 'utf8')
   const diagnosticSchemaText = await readFile(temporaryDiagnostic, 'utf8')
   const nodeSchemaText = await readFile(temporaryNodeSchema, 'utf8')
+  const builtinCatalogText = await readFile(temporaryBuiltinCatalog, 'utf8')
+  const builtinPresentationText = await readFile(temporaryBuiltinPresentation, 'utf8')
+  const builtinDocsText = await readFile(temporaryBuiltinDocs, 'utf8')
   const schema = JSON.parse(schemaText)
   const diagnosticSchema = JSON.parse(diagnosticSchemaText)
   const nodeSchema = JSON.parse(nodeSchemaText)
@@ -63,6 +76,9 @@ try {
   const nodeFiles = new Map([
     ['node-contract.schema.json', nodeSchemaText],
     ['node-contract.ts', nodeTypes],
+    ['builtin-catalog.json', builtinCatalogText],
+    ['builtin-presentation.json', builtinPresentationText],
+    ['builtin-nodes.md', builtinDocsText],
   ])
 
   if (writeMode) {
@@ -70,7 +86,7 @@ try {
     for (const [name, content] of files) await writeFile(resolve(outputRoot, name), content)
     await mkdir(nodeOutputRoot, { recursive: true })
     for (const [name, content] of nodeFiles) await writeFile(resolve(nodeOutputRoot, name), content)
-    console.log(`updated ${files.size} Workflow v3 and ${nodeFiles.size} Node Contract 3.1 files`)
+    console.log(`updated ${files.size} Workflow 3.1 and ${nodeFiles.size} Node Contract 3.1 files`)
   } else {
     for (const [name, generated] of files) {
       let tracked
@@ -84,7 +100,7 @@ try {
       catch (error) { fail(`missing ${name}: ${error.message}\nRun task contracts:update.`) }
       if (tracked !== generated) fail(`${name} differs from generated contract. Run task contracts:update and review the diff.`)
     }
-    console.log(`Workflow v3 contracts OK: ${files.size} files; Node Contract 3.1: ${nodeFiles.size} files`)
+    console.log(`Workflow 3.1 contracts OK: ${files.size} files; Node Contract 3.1: ${nodeFiles.size} files`)
   }
 } finally {
   await rm(temporary, { recursive: true, force: true })

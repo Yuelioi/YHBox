@@ -39,6 +39,46 @@ func ParseDigest(value string) (Digest, error) {
 	return digest, nil
 }
 
+// InspectJSONBudget performs an iterative token preflight before callers enter
+// recursive canonicalizers, validators, or typed decoders on untrusted JSON.
+func InspectJSONBudget(raw []byte, maxDepth, maxNodes, maxStringBytes int) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	depth, nodes := 0, 0
+	for {
+		token, err := decoder.Token()
+		if errors.Is(err, io.EOF) {
+			if depth != 0 {
+				return errors.New("unbalanced JSON containers")
+			}
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		nodes++
+		if nodes > maxNodes {
+			return errors.New("JSON node budget exceeded")
+		}
+		switch value := token.(type) {
+		case json.Delim:
+			switch value {
+			case '{', '[':
+				depth++
+				if depth > maxDepth {
+					return errors.New("JSON depth budget exceeded")
+				}
+			case '}', ']':
+				depth--
+			}
+		case string:
+			if len(value) > maxStringBytes {
+				return errors.New("JSON string budget exceeded")
+			}
+		}
+	}
+}
+
 // Sum hashes canonical bytes with a versioned domain separator.
 func Sum(domain string, canonical []byte) (Digest, error) {
 	if !domainPattern.MatchString(domain) {
@@ -59,11 +99,24 @@ func Canonicalize(raw []byte) ([]byte, error) {
 	if err := validateNumbers(raw); err != nil {
 		return nil, err
 	}
-	canonical, err := jsoncanonicalizer.Transform(raw)
+	// The upstream canonicalizer accepts a JSON object at the root. RFC 8785
+	// applies to every JSON value, so wrap the value in a single-property object
+	// and extract the already-canonical member afterwards.
+	wrapped := make([]byte, 0, len(raw)+10)
+	wrapped = append(wrapped, `{"value":`...)
+	wrapped = append(wrapped, raw...)
+	wrapped = append(wrapped, '}')
+	canonical, err := jsoncanonicalizer.Transform(wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize JSON: %w", err)
 	}
-	return canonical, nil
+	var envelope struct {
+		Value json.RawMessage `json:"value"`
+	}
+	if err := json.Unmarshal(canonical, &envelope); err != nil || envelope.Value == nil {
+		return nil, errors.New("canonicalizer returned an invalid value envelope")
+	}
+	return append([]byte(nil), envelope.Value...), nil
 }
 
 func validateNumbers(raw []byte) error {

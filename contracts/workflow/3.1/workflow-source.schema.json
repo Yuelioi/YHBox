@@ -1,24 +1,51 @@
 {
   "$defs": {
     "Capability": {
+      "format": "uri",
       "minLength": 1,
       "type": "string"
     },
     "Edge": {
       "additionalProperties": false,
       "properties": {
+        "channel": {
+          "enum": [
+            "data",
+            "exec",
+            "error",
+            "status"
+          ],
+          "type": "string"
+        },
         "from": {
+          "$ref": "#/$defs/Endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/Endpoint"
+        }
+      },
+      "required": [
+        "channel",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Endpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeId": {
           "minLength": 1,
           "type": "string"
         },
-        "to": {
+        "portId": {
           "minLength": 1,
           "type": "string"
         }
       },
       "required": [
-        "from",
-        "to"
+        "nodeId",
+        "portId"
       ],
       "type": "object"
     },
@@ -82,30 +109,52 @@
           "minLength": 1,
           "type": "string"
         },
-        "name": {
-          "minLength": 1,
-          "type": "string"
-        },
         "nodeId": {
           "minLength": 1,
           "type": "string"
         },
-        "type": {
+        "portId": {
           "minLength": 1,
           "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
         }
       },
       "required": [
         "id",
-        "name",
         "type",
-        "nodeId"
+        "nodeId",
+        "portId"
+      ],
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "value",
+            "default"
+          ],
+          "type": "string"
+        },
+        "value": true
+      },
+      "required": [
+        "kind"
       ],
       "type": "object"
     },
     "Node": {
       "additionalProperties": false,
       "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "type": "object"
+        },
         "config": {
           "type": "object"
         },
@@ -116,12 +165,11 @@
           "minLength": 1,
           "type": "string"
         },
-        "kind": {
-          "minLength": 1,
-          "type": "string"
-        },
         "label": {
           "type": "string"
+        },
+        "nodeRef": {
+          "$ref": "#/$defs/NodeRef"
         },
         "position": {
           "$ref": "#/$defs/Position"
@@ -129,9 +177,29 @@
       },
       "required": [
         "id",
-        "kind",
+        "nodeRef",
         "position",
-        "config"
+        "config",
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "NodeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeTypeId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "semanticDigest"
       ],
       "type": "object"
     },
@@ -169,6 +237,113 @@
       ],
       "type": "object"
     },
+    "TypeExpression": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ref",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/TypeRef"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "element": {
+              "$ref": "#/$defs/TypeExpression"
+            },
+            "kind": {
+              "const": "list",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "element"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "union",
+              "type": "string"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/TypeExpression"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "members"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "constraints": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "kind": {
+              "const": "variable",
+              "type": "string"
+            },
+            "variable": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "variable"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "TypeExpression"
+    },
+    "TypeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "typeId": {
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "typeId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
     "Variable": {
       "additionalProperties": false,
       "properties": {
@@ -178,8 +353,7 @@
           "type": "string"
         },
         "type": {
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/TypeExpression"
         }
       },
       "required": [
@@ -207,7 +381,7 @@
       "type": "object"
     }
   },
-  "$id": "https://yottaapp.dev/contracts/workflow/v3/workflow-source.schema.json",
+  "$id": "https://yottaapp.dev/contracts/workflow/3.1/workflow-source.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -257,9 +431,9 @@
     },
     "version": {
       "enum": [
-        3
+        "3.1"
       ],
-      "type": "integer"
+      "type": "string"
     },
     "workflow": {
       "$ref": "#/$defs/Workflow"
@@ -276,6 +450,6 @@
     "secretRefs",
     "requestedCapabilities"
   ],
-  "title": "Yotta Workflow Source v3",
+  "title": "Yotta Workflow Source 3.1",
   "type": "object"
 }

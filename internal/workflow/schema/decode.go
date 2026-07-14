@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"reflect"
 	"slices"
 	"sort"
@@ -17,6 +16,7 @@ import (
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
+	"github.com/yottaapp/yotta/internal/artifact"
 )
 
 var workflowValidator = sync.OnceValues(compileWorkflowValidator)
@@ -24,6 +24,9 @@ var workflowValidator = sync.OnceValues(compileWorkflowValidator)
 func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	if len(raw) == 0 || !utf8.Valid(raw) || bytes.HasPrefix(raw, []byte{0xef, 0xbb, 0xbf}) {
 		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": "source must be non-empty UTF-8 without BOM"})
+	}
+	if err := artifact.InspectJSONBudget(raw, 128, 1_048_576, 1<<20); err != nil {
+		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": "source exceeds structural budget: " + err.Error()})
 	}
 	if duplicate, err := firstDuplicateField(raw); err != nil {
 		return WorkflowSource{}, oneDiagnostic(CodeInvalidWorkflowJSON, nil, map[string]any{"reason": err.Error()})
@@ -48,8 +51,8 @@ func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	formatValue, hasFormat := envelope["format"]
 	versionValue, hasVersion := envelope["version"]
 	format, formatOK := formatValue.(string)
-	versionNumber, versionOK := versionValue.(json.Number)
-	if !hasFormat || !hasVersion || !formatOK || !versionOK || format != Format || !isCurrentVersion(versionNumber) {
+	version, versionOK := versionValue.(string)
+	if !hasFormat || !hasVersion || !formatOK || !versionOK || format != Format || version != Version {
 		return WorkflowSource{}, oneDiagnostic(CodeUnsupportedWorkflowFormat, nil, map[string]any{"expectedFormat": Format, "expectedVersion": Version})
 	}
 	if schemaContractViolationBudgetExceeded(document, reflect.TypeFor[WorkflowSource](), MaxDiagnostics) {
@@ -85,22 +88,11 @@ func decodeValidatedSource(document any, source *WorkflowSource) error {
 	for key, value := range root {
 		canonical[key] = value
 	}
-	canonical["version"] = json.Number(strconv.Itoa(Version))
-	revision, ok := new(big.Rat).SetString(root["revision"].(json.Number).String())
-	if !ok || !revision.IsInt() {
-		return errors.New("validated revision is not an integer")
-	}
-	canonical["revision"] = json.Number(revision.Num().String())
 	raw, err := json.Marshal(canonical)
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(raw, source)
-}
-
-func isCurrentVersion(number json.Number) bool {
-	value, ok := new(big.Rat).SetString(number.String())
-	return ok && value.Cmp(big.NewRat(Version, 1)) == 0
 }
 
 type structuralViolationCounter struct {
@@ -255,6 +247,19 @@ func validateSource(source WorkflowSource) []Diagnostic {
 				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
 			}
 			nodeIDs[node.ID] = true
+			for portID, binding := range node.Bindings {
+				bindingPath := append(append([]string(nil), nodePath...), "bindings", portID)
+				switch binding.Kind {
+				case BindingValue:
+					if len(binding.Value) == 0 {
+						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
+					}
+				case BindingDefault:
+					if len(binding.Value) != 0 {
+						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
+					}
+				}
+			}
 		}
 		validateGraphPorts := func(ports []GraphPort, field string) {
 			portIDs := map[string]bool{}
@@ -265,6 +270,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 				portPath := append(append([]string(nil), base...), field, fmt.Sprint(portIndex))
 				if portIDs[port.ID] {
 					appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(portPath, "id"), map[string]any{"id": port.ID}))
+				}
+				if err := port.Type.Validate(); err != nil {
+					appendDiagnostic(&out, diagnosticAtGraph(CodeInvalidField, graphPath, append(portPath, "type"), map[string]any{"keyword": "typeExpression", "reason": err.Error()}))
 				}
 				portIDs[port.ID] = true
 			}
@@ -286,6 +294,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		path := []string{"variables", fmt.Sprint(index)}
 		if variableNames[variable.Name] {
 			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "name"), map[string]any{"id": variable.Name}))
+		}
+		if err := variable.Type.Validate(); err != nil {
+			appendDiagnostic(&out, diagnostic(CodeInvalidField, append(path, "type"), map[string]any{"keyword": "typeExpression", "reason": err.Error()}))
 		}
 		variableNames[variable.Name] = true
 	}

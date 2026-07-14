@@ -13,6 +13,7 @@ import {
 import { TYPE_COLOR, pinTypeCompat } from '@/components/containers/nodeRegistry/index'
 import type { PinType, FieldSchema, NodeKindSpec } from '@/components/containers/nodeRegistry/index'
 import { i18n } from '@/i18n'
+import { builtinNodeProjections31 } from '@/contracts/node31'
 
 // Re-exports from nodeRegistry.
 export { TYPE_COLOR, pinTypeCompat }
@@ -111,6 +112,15 @@ export function pinsFor(
   kind: string,
   config?: Record<string, unknown> | null,
 ): { execIn: string[]; execOut: string[]; dataIn: string[]; dataOut: string[] } {
+  const projection31 = builtinNodeProjections31.get(kind)
+  if (projection31) {
+    return {
+      execIn: projection31.execInputs,
+      execOut: projection31.execOutputs,
+      dataIn: projection31.dataInputs.map((port) => port.id),
+      dataOut: projection31.dataOutputs.map((port) => port.id),
+    }
+  }
   const s = getSpec(kind)
   if (!s) {
     // virtual marker (SubgraphInput/Output) 不在 registry, pin 定义在 PIN_SPECS —
@@ -141,7 +151,7 @@ export function pinsFor(
 export const execOutPinsFor = registryExecOutPinsFor
 
 /** Edge type derived from pin (kind, fromPin). 须与后端 edge-kind 推导一致. */
-export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' {
+export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' | '' {
   return edgeKindOf(fromKind, fromPin)
 }
 

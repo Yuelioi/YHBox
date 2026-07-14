@@ -1,11 +1,17 @@
-// Package schema defines the only durable Workflow Source contract accepted by Yotta 3.
+// Package schema defines the only durable Workflow Source contract accepted by Yotta 3.1.
 package schema
 
-import contractjsonschema "github.com/invopop/jsonschema"
+import (
+	"encoding/json"
+
+	contractjsonschema "github.com/invopop/jsonschema"
+	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecontract"
+)
 
 const (
 	Format                   = "yotta.workflow"
-	Version                  = 3
+	Version                  = "3.1"
 	MaxRevision              = 9_007_199_254_740_991
 	MaxDiagnostics           = 10_000
 	MaxVariables             = 4_096
@@ -24,12 +30,12 @@ type Capability string
 
 func (Capability) JSONSchema() *contractjsonschema.Schema {
 	minimum := uint64(1)
-	return &contractjsonschema.Schema{Type: "string", MinLength: &minimum}
+	return &contractjsonschema.Schema{Type: "string", MinLength: &minimum, Format: "uri"}
 }
 
 type WorkflowSource struct {
 	Format                string       `json:"format" jsonschema:"required,enum=yotta.workflow"`
-	Version               int          `json:"version" jsonschema:"required,enum=3"`
+	Version               string       `json:"version" jsonschema:"required,enum=3.1"`
 	Workflow              Workflow     `json:"workflow" jsonschema:"required"`
 	Revision              int64        `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
 	EntryGraph            string       `json:"entryGraph" jsonschema:"required,minLength=1"`
@@ -54,19 +60,32 @@ type Graph struct {
 }
 
 type GraphPort struct {
-	ID     string `json:"id" jsonschema:"required,minLength=1"`
-	Name   string `json:"name" jsonschema:"required,minLength=1"`
-	Type   string `json:"type" jsonschema:"required,minLength=1"`
-	NodeID string `json:"nodeId" jsonschema:"required,minLength=1"`
+	ID     string                  `json:"id" jsonschema:"required,minLength=1"`
+	Type   datatype.TypeExpression `json:"type" jsonschema:"required"`
+	NodeID string                  `json:"nodeId" jsonschema:"required,minLength=1"`
+	PortID string                  `json:"portId" jsonschema:"required,minLength=1"`
+}
+
+type BindingKind string
+
+const (
+	BindingValue   BindingKind = "value"
+	BindingDefault BindingKind = "default"
+)
+
+type InputBinding struct {
+	Kind  BindingKind     `json:"kind" jsonschema:"required,enum=value,enum=default"`
+	Value json.RawMessage `json:"value,omitempty"`
 }
 
 type Node struct {
-	ID       string         `json:"id" jsonschema:"required,minLength=1"`
-	Kind     string         `json:"kind" jsonschema:"required,minLength=1"`
-	Label    string         `json:"label,omitempty"`
-	Position Position       `json:"position" jsonschema:"required"`
-	Config   map[string]any `json:"config" jsonschema:"required"`
-	Disabled bool           `json:"disabled,omitempty"`
+	ID       string                  `json:"id" jsonschema:"required,minLength=1"`
+	NodeRef  nodecontract.NodeRef    `json:"nodeRef" jsonschema:"required"`
+	Label    string                  `json:"label,omitempty"`
+	Position Position                `json:"position" jsonschema:"required"`
+	Config   map[string]any          `json:"config" jsonschema:"required"`
+	Bindings map[string]InputBinding `json:"bindings" jsonschema:"required"`
+	Disabled bool                    `json:"disabled,omitempty"`
 }
 
 type Position struct {
@@ -74,15 +93,30 @@ type Position struct {
 	Y float64 `json:"y" jsonschema:"required"`
 }
 
+type EdgeChannel string
+
+const (
+	EdgeData   EdgeChannel = "data"
+	EdgeExec   EdgeChannel = "exec"
+	EdgeError  EdgeChannel = "error"
+	EdgeStatus EdgeChannel = "status"
+)
+
+type Endpoint struct {
+	NodeID string `json:"nodeId" jsonschema:"required,minLength=1"`
+	PortID string `json:"portId" jsonschema:"required,minLength=1"`
+}
+
 type Edge struct {
-	From string `json:"from" jsonschema:"required,minLength=1"`
-	To   string `json:"to" jsonschema:"required,minLength=1"`
+	Channel EdgeChannel `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error,enum=status"`
+	From    Endpoint    `json:"from" jsonschema:"required"`
+	To      Endpoint    `json:"to" jsonschema:"required"`
 }
 
 type Variable struct {
-	Name    string `json:"name" jsonschema:"required,minLength=1"`
-	Type    string `json:"type" jsonschema:"required,minLength=1"`
-	Default any    `json:"default,omitempty"`
+	Name    string                  `json:"name" jsonschema:"required,minLength=1"`
+	Type    datatype.TypeExpression `json:"type" jsonschema:"required"`
+	Default json.RawMessage         `json:"default,omitempty"`
 }
 
 type SecretRef struct {

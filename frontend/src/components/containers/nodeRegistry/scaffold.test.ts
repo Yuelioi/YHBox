@@ -49,11 +49,11 @@ describe('nodeRegistry scaffold', () => {
   it('edgeKindOf returns data for data-out pin', () => {
     register(minimalSpec)
     expect(edgeKindOf('__TestKind', 'v')).toBe('data')
-    expect(edgeKindOf('__TestKind', 'out')).toBe('exec') // not a data-out
+    expect(edgeKindOf('__TestKind', 'out')).toBe('exec') // explicitly declared exec output
     expect(dataOutTypeFor('__TestKind', 'v')).toBe('any')
   })
 
-  it('edgeKindOf returns exec for unknown kind', () => {
-    expect(edgeKindOf('UnknownKind', 'pin')).toBe('exec')
+  it('edgeKindOf returns unknown for unknown kind', () => {
+    expect(edgeKindOf('UnknownKind', 'pin')).toBe('')
   })
 })

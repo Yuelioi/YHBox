@@ -1,8 +1,33 @@
 /* Generated from WorkflowSource Go types. Do not edit. */
 
+export type TypeExpression =
+  | {
+      kind: 'ref'
+      ref: TypeRef
+    }
+  | {
+      element: TypeExpression
+      kind: 'list'
+    }
+  | {
+      kind: 'union'
+      /**
+       * @minItems 2
+       * @maxItems 64
+       */
+      members: [TypeExpression, TypeExpression, ...TypeExpression[]]
+    }
+  | {
+      /**
+       * @maxItems 32
+       */
+      constraints?: string[]
+      kind: 'variable'
+      variable: string
+    }
 export type Capability = string
 
-export interface YottaWorkflowSourceV3 {
+export interface YottaWorkflowSource31 {
   entryGraph: string
   format: 'yotta.workflow'
   /**
@@ -23,7 +48,7 @@ export interface YottaWorkflowSourceV3 {
    * @maxItems 4096
    */
   variables: Variable[]
-  version: 3
+  version: '3.1'
   workflow: Workflow
 }
 export interface Graph {
@@ -47,24 +72,44 @@ export interface Graph {
   outputs: GraphPort[]
 }
 export interface Edge {
-  from: string
-  to: string
+  channel: 'data' | 'exec' | 'error' | 'status'
+  from: Endpoint
+  to: Endpoint
+}
+export interface Endpoint {
+  nodeId: string
+  portId: string
 }
 export interface GraphPort {
   id: string
-  name: string
   nodeId: string
-  type: string
+  portId: string
+  type: TypeExpression
+}
+export interface TypeRef {
+  semanticDigest: string
+  typeId: string
 }
 export interface Node {
+  bindings: {
+    [k: string]: InputBinding
+  }
   config: {
     [k: string]: any
   }
   disabled?: boolean
   id: string
-  kind: string
   label?: string
+  nodeRef: NodeRef
   position: Position
+}
+export interface InputBinding {
+  kind: 'value' | 'default'
+  value?: any
+}
+export interface NodeRef {
+  nodeTypeId: string
+  semanticDigest: string
 }
 export interface Position {
   x: number
@@ -77,7 +122,7 @@ export interface SecretRef {
 export interface Variable {
   default?: any
   name: string
-  type: string
+  type: TypeExpression
 }
 export interface Workflow {
   id: string

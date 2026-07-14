@@ -19,6 +19,20 @@ func TestCanonicalizeUsesRFC8785ValueSemantics(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeAcceptsEveryJSONValueKind(t *testing.T) {
+	for input, want := range map[string]string{
+		`"text"`: `"text"`, `[3,1]`: `[3,1]`, `null`: `null`, `true`: `true`, `1.0`: `1`,
+	} {
+		got, err := Canonicalize([]byte(input))
+		if err != nil {
+			t.Fatalf("Canonicalize(%s): %v", input, err)
+		}
+		if string(got) != want {
+			t.Fatalf("Canonicalize(%s) = %s, want %s", input, got, want)
+		}
+	}
+}
+
 func TestDigestIsDomainSeparatedAndStrict(t *testing.T) {
 	a, err := Sum("yotta/test/a/v1", []byte("same"))
 	if err != nil {

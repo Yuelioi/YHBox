@@ -1,6 +1,6 @@
 /* Generated from Diagnostic Go types. Do not edit. */
 
-export interface YottaCompilerDiagnosticV3 {
+export interface YottaCompilerDiagnostic31 {
   code: string
   fieldPath?: string[]
   fix?: DiagnosticFix

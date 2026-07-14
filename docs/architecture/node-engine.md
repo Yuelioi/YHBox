@@ -1,8 +1,23 @@
 # Node engine
 
-节点由声明式 `Spec` 与恰好一种执行能力组成：`Runnable`、`RegionRunner` 或 `Evaluator`。视觉/图标记节点可以没有执行能力。注册期验证 capability invariant、pin contract 和 runtime capability；执行前验证实际 `ServiceBundle`，缺失能力返回 typed `AssemblyError`。
+Yotta 3.1 把节点系统拆成一条单向、可验证的契约链：
 
-Registry 可实例化。生产 `init()` 只写默认实例；Store、validator、dependency scanner、catalog、runner、Script 和 MCP 使用同一个不可变 snapshot。测试使用局部 Registry，可安全并行。
+```text
+Data Type 3.1 → Node Contract 3.1 → Catalog 3.1
+                                      ↓
+Workflow Source 3.1 → Compiler → Program 3.1 → authorized host adapter
+```
 
-`Ctx` 只暴露执行核心和窄化的 Services view。新增节点应在 `internal/nodes/<category>` 内贡献；当前不承诺动态 Go plugin 或 public ABI。
+`internal/datatype` 定义版本化 `TypeRef`、`ResolvedType` 与不可变 `ValueEnvelope`。跨 Program/host 边界的值必须携带完整 resolved type、representation 与 codec；inline JSON 在进入信封前 canonicalize，host 输出在封装前按 Catalog 中锁定的 Data Type schema 复验。
 
+`internal/nodecontract` 是节点 machine contract 的唯一事实源。端口按 data、exec、error、status 分频道声明；空频道就是空，不允许 UI 或 runtime 猜测一个通用 `out`。展示字段不参与 semantic digest。`internal/nodecatalog` 把精确 NodeRef、Data Type definition 与 implementation lock 封成不可变 machine snapshot。
+
+`internal/workflow/schema` 只接受 `yotta.workflow` / `3.1`。节点固定精确 NodeRef，边固定显式 channel 和 `{nodeId, portId}` endpoint。解析边界在递归处理前执行 byte/depth/node budget，并验证嵌套 TypeExpression。
+
+`internal/workflow/compiler` 当前是 3.1 的 pure-data tracer：只 lower main graph、data edge、inline value/default binding 与 `pure-data` 节点。variables、secret refs、graph boundaries、disabled nodes 及 exec/error/status edge 会以稳定诊断 fail closed；在对应 Program/Run 决议实现前不得静默忽略。Program 保存 literal/default provenance、typed ValueEnvelope、effective ports、execution contract 和完整 implementation lock；严格 opener 使用可信 Catalog 与 compiler build 重验 hash、身份、拓扑、端口、类型、capability manifest 和资源预算。
+
+预览 interpreter 必须接收可信 Catalog、显式 capability grant 与已安装 adapter 的完整 implementation lock。只按 entrypoint 字符串注册不足以授权执行。每个输出都按 pinned Data Type 复验，并受单值和整次运行 retained-value budget 限制。
+
+`internal/nodes31` 显式装配内建 Catalog。Concat 是首条 tracer：`a`、`b` 两个 string data input，`result` 一个 string data output，exec/error/status 均为空。生成器从同一 sealed contract 产出 machine Catalog、Vue presentation projection 与 Markdown 文档；MCP search/describe 返回 presentation digest 和 generator version。Vue 对 3.1 精确 Node Type ID 直接读取生成 projection，未知端口返回 unknown，不再猜成 exec。
+
+旧 `internal/node` 与 `internal/services/container/runtime` 仍服务尚未迁移的生产编辑器/执行路径；3.1 interpreter 在 Program/Run 与 capability/resource 决议完成前不能作为它的 fallback。迁移完成后删除旧路径，不能长期保留双 runtime。

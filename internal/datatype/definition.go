@@ -82,7 +82,8 @@ type DefinitionDraft struct {
 	Authoring       Authoring
 }
 
-type semanticDocument struct {
+// MachineDefinition is the compiler-facing semantic portion of a data type.
+type MachineDefinition struct {
 	TypeID          string               `json:"typeId"`
 	SchemaDialect   string               `json:"schemaDialect"`
 	SchemaBundle    []SchemaResource     `json:"schemaBundle"`
@@ -90,11 +91,11 @@ type semanticDocument struct {
 }
 
 type definitionDocument struct {
-	Format    string           `json:"format"`
-	Version   string           `json:"version"`
-	TypeRef   TypeRef          `json:"typeRef"`
-	Semantic  semanticDocument `json:"semantic"`
-	Authoring Authoring        `json:"authoring"`
+	Format    string            `json:"format"`
+	Version   string            `json:"version"`
+	TypeRef   TypeRef           `json:"typeRef"`
+	Semantic  MachineDefinition `json:"semantic"`
+	Authoring Authoring         `json:"authoring"`
 }
 
 type definitionState struct {
@@ -105,7 +106,7 @@ type definitionState struct {
 type Definition struct{ state *definitionState }
 
 func SealDefinition(draft DefinitionDraft) (Definition, error) {
-	semantic, err := normalizeSemantic(semanticDocument{
+	semantic, err := normalizeSemantic(MachineDefinition{
 		TypeID:          draft.TypeID,
 		SchemaDialect:   draft.SchemaDialect,
 		SchemaBundle:    draft.SchemaBundle,
@@ -198,7 +199,7 @@ func OpenSemanticDefinition(ref TypeRef, raw []byte) (Definition, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	decoder.UseNumber()
-	var semantic semanticDocument
+	var semantic MachineDefinition
 	if err := decoder.Decode(&semantic); err != nil {
 		return Definition{}, fmt.Errorf("decode data type semantic artifact: %w", err)
 	}
@@ -249,7 +250,22 @@ func (d Definition) SemanticBytes() []byte {
 	return canonical
 }
 
-func sealNormalized(semantic semanticDocument, authoring Authoring) (Definition, error) {
+func (d Definition) Machine() MachineDefinition {
+	if !d.Valid() {
+		return MachineDefinition{}
+	}
+	raw, err := json.Marshal(d.state.document.Semantic)
+	if err != nil {
+		panic("data type definition invariant: " + err.Error())
+	}
+	var machine MachineDefinition
+	if err := json.Unmarshal(raw, &machine); err != nil {
+		panic("data type definition invariant: " + err.Error())
+	}
+	return machine
+}
+
+func sealNormalized(semantic MachineDefinition, authoring Authoring) (Definition, error) {
 	canonicalSemantic, err := artifact.Marshal(semantic)
 	if err != nil {
 		return Definition{}, fmt.Errorf("encode data type semantics: %w", err)
@@ -275,20 +291,20 @@ func sealNormalized(semantic semanticDocument, authoring Authoring) (Definition,
 	return Definition{state: &definitionState{document: document, bytes: canonical}}, nil
 }
 
-func normalizeSemantic(source semanticDocument) (semanticDocument, error) {
+func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 	if err := validateTypeID(source.TypeID); err != nil {
-		return semanticDocument{}, fmt.Errorf("invalid data type id: %w", err)
+		return MachineDefinition{}, fmt.Errorf("invalid data type id: %w", err)
 	}
 	if source.SchemaDialect != JSONSchemaDialect {
-		return semanticDocument{}, errors.New("unsupported data type schema dialect")
+		return MachineDefinition{}, errors.New("unsupported data type schema dialect")
 	}
 	bundle, err := contractschema.Normalize(source.SchemaDialect, "", source.SchemaBundle)
 	if err != nil {
-		return semanticDocument{}, fmt.Errorf("normalize data type schema bundle: %w", err)
+		return MachineDefinition{}, fmt.Errorf("normalize data type schema bundle: %w", err)
 	}
 
 	if len(source.Representations) == 0 || len(source.Representations) > 4 {
-		return semanticDocument{}, errors.New("data type must declare one to four representations")
+		return MachineDefinition{}, errors.New("data type must declare one to four representations")
 	}
 	representations := append([]RepresentationSpec(nil), source.Representations...)
 	sort.Slice(representations, func(i, j int) bool {
@@ -300,14 +316,14 @@ func normalizeSemantic(source semanticDocument) (semanticDocument, error) {
 	seenKinds := map[RepresentationKind]bool{}
 	for _, representation := range representations {
 		if !validRepresentationCodec(representation.Kind, representation.Codec) {
-			return semanticDocument{}, errors.New("data type contains invalid representation")
+			return MachineDefinition{}, errors.New("data type contains invalid representation")
 		}
 		if seenKinds[representation.Kind] {
-			return semanticDocument{}, fmt.Errorf("duplicate data type representation %q", representation.Kind)
+			return MachineDefinition{}, fmt.Errorf("duplicate data type representation %q", representation.Kind)
 		}
 		seenKinds[representation.Kind] = true
 	}
-	return semanticDocument{
+	return MachineDefinition{
 		TypeID:          source.TypeID,
 		SchemaDialect:   source.SchemaDialect,
 		SchemaBundle:    bundle,
