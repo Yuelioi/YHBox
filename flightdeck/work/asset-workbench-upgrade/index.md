@@ -37,14 +37,14 @@ active
 - 已将 ContainerEditorView 的 containerID 显式贯穿 AssetDockPanel、TemplateAssetPanel 和两个 TemplateDetailPanel 入口。
 - 已把模板 record 与窗口分辨率拆成 recordLoading / resolutionLoading 两条独立链路；已有变体不再等待窗口解析，检测中显示 loading，只有请求结束仍无结果才显示“窗口未开”。
 - 已用真实资产确认“本局收益”裁剪尺寸为 96×27；卡片与普通详情改为 1:1 像素上限，大图查看保留 2×。
-- 2026-07-14 用户提供生产堆栈 ReferenceError: Cannot access 'editingName' before initialization。根因是 guid 的 immediate watcher在 setup 中同步执行，却访问了文件后部才声明的 editingName/editingDesc refs；异常中断 detail record 初始化，导致双击详情只剩 skeleton、缺少已有变体。
+- 2026-07-14 用户提供生产堆栈 ReferenceError: Cannot access 'editingName' before initialization。根因是 guid 的 immediate watcher 在 setup 中同步执行，却访问了文件后部才声明的 editingName/editingDesc refs；异常中断 detail record 初始化，导致双击详情只剩 skeleton、缺少已有变体。
 - 新增 TemplateDetailPanel 真实挂载回归测试：修复前稳定捕获同一 ReferenceError；修复后要求 errorHandler 为空并确认异步 DOM 中出现 1920×1080 变体。编辑状态 refs 已移动到所有 immediate watcher 之前。
 - 2026-07-14 将详情面板共享的“新增分辨率变体”动作从 block 全宽按钮改为内容宽度，普通详情与展开详情同步生效，并增加回归检查。
 - 深入审计原“基础/专业”模式：它跨工具栏、左侧 rail、Inspector 隐藏多类能力，却又能被快捷键、命令面板和右键菜单绕过；结论是它不是可靠能力边界，而是不一致的显示预设。
 - 已移除顶部常驻“基础/专业”入口，统一暴露变量、Snippets、调试、JS 控制台、节点改名、Expr 链建议和输出绑定。全局设置新增“编辑器显示 → 节点信息详细程度（简洁/完整）”，只控制节点 ID、复制技术信息和节点日志开关。
 - 2026-07-14 最新 task check 明确 exit 0：前端 93 个测试文件、613 项测试通过，Go、lint、类型、i18n、bindings、生产构建和 bundle budget 均通过。
 - 最新 task build 明确 exit 0，已重新生成包含本轮 UI 改造的 bin/Yotta.exe。
-- 相关提交基线：5f8a5dac、808dffc6、e915af3a、db536810、3afd1647、666f3a64、07bfa1ae、559ebfa6、78c774af、c5bc69ba、94bd0c94；本批待提交。
+- 相关提交：dde4a7dc（紧凑变体动作）、5cfd1b09（编辑器显示偏好重构）。
 
 ## Open questions
 
