@@ -22,7 +22,7 @@ import (
 const Algorithm = "sha256"
 
 var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-var domainPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]*/v[1-9][0-9]*$`)
+var domainPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]*/v[1-9][0-9]*(?:\.(?:0|[1-9][0-9]*))*$`)
 var maxSafeInteger = big.NewInt(9_007_199_254_740_991)
 
 // Digest is the strict textual form of a content identity.
@@ -84,6 +84,9 @@ func validateNumbers(raw []byte) error {
 		floatValue, err := strconv.ParseFloat(number.String(), 64)
 		if err != nil || math.IsInf(floatValue, 0) {
 			return fmt.Errorf("JSON number %q is outside binary64", number)
+		}
+		if floatValue == 0 && math.Signbit(floatValue) {
+			return fmt.Errorf("JSON number %q is negative zero", number)
 		}
 		rational, ok := new(big.Rat).SetString(number.String())
 		if !ok {

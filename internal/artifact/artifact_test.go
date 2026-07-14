@@ -31,14 +31,25 @@ func TestDigestIsDomainSeparatedAndStrict(t *testing.T) {
 	if a == b || !a.Valid() || !b.Valid() {
 		t.Fatalf("a=%q b=%q", a, b)
 	}
+	if _, err := Sum("yotta/test/a/v3.1", []byte("same")); err != nil {
+		t.Fatalf("rejected semantic version domain: %v", err)
+	}
 	for _, invalid := range []string{"", string(a)[7:], "SHA256:" + string(a)[7:]} {
 		if _, err := ParseDigest(invalid); err == nil {
 			t.Fatalf("accepted invalid digest %q", invalid)
 		}
 	}
-	for _, domain := range []string{"", "unversioned", "yotta/test/v0", "yotta/test\x00/v1"} {
+	for _, domain := range []string{"", "unversioned", "yotta/test/v0", "yotta/test/v3.", "yotta/test/v3.01", "yotta/test\x00/v1"} {
 		if _, err := Sum(domain, nil); err == nil {
 			t.Fatalf("accepted invalid domain %q", domain)
+		}
+	}
+}
+
+func TestCanonicalizeRejectsNegativeZero(t *testing.T) {
+	for _, raw := range []string{"-0", "-0.0", "-0e1"} {
+		if _, err := Canonicalize([]byte(`{"n":` + raw + `}`)); err == nil {
+			t.Fatalf("accepted negative zero %s", raw)
 		}
 	}
 }
