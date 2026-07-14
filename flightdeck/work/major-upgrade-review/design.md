@@ -1,10 +1,10 @@
-# Yotta 3.0 目标设计
+# Yotta 3.1 目标设计
 
 ## 结论
 
 Yotta 已有可靠性基础：Go 全量测试、race-sensitive package、三平台 portable-core、原子持久化、节点 capability 校验和应用生命周期 owner 都已存在。升级不应推倒这些成果，而应删除围绕它们累积的重复协议、后置注入、旧数据分支和巨型 UI 协调层。
 
-本次目标版本定义为 **Yotta 3.0**。它是一次格式、接口、装配、AI 和发布体系同时换代的 breaking release。产品层的 AI-native 设计见 `ai-native-design.md`，本文件聚焦共享核心：
+本次目标版本定义为 **Yotta 3.1**。它是一次格式、接口、装配、AI 和发布体系同时换代的 breaking release。产品层的 AI-native 设计见 `ai-native-design.md`，本文件聚焦共享核心：
 
 - 不读、不迁移、不修复 Yotta 2.x 数据；旧版本用户须在升级前自行导出或保留旧安装。
 - 不保留旧 RPC、旧节点 pin、旧环境变量、旧 schema、旧前端 re-export。
@@ -23,7 +23,7 @@ Yotta 已有可靠性基础：Go 全量测试、race-sensitive package、三平�
 - 基线验证：Go test/vet/staticcheck、Vitest 529 tests、vue-tsc、i18n 和 production build 通过；`pnpm format:check` 对 188 个文件失败。
 - CI 真实性：工作流没有运行 Vitest、typecheck、i18n、format check；Go coverage 只上传不设阈值。现有 coverage profile 总计 64.4%，root composition 与多个 platform adapter 覆盖偏低。
 - 产物：主 chunk 977 KB、icons chunk 2.10 MB、ContainerEditor chunk 2.74 MB（gzip 859 KB），只有 warning，没有预算门禁。
-- 可复现性：`@wailsio/runtime` 使用 `latest`，lock 当前解析到 `3.0.0-alpha.79`；Go/Wails CLI pin 为 `v3.0.0-alpha2.117`，验证脚本未检查前端 runtime。GitHub Actions、Rust `stable`、Task `3.x` 也未固定到不可变来源。
+- 可复现性：`@wailsio/runtime` 使用 `latest`，lock 当前解析到 `3.0.0-alpha.79`；Go/Wails CLI pin 为 `v3.1.0-alpha2.117`，验证脚本未检查前端 runtime。GitHub Actions、Rust `stable`、Task `3.x` 也未固定到不可变来源。
 - 发布：当前 LICENSE 禁止商业使用，不是 OSI 开源许可证；release 只上传未签名的 `Yotta.exe`，没有 checksum、SBOM、provenance 或正式 smoke gate。
 - 治理：缺少 CODEOWNERS、issue/PR templates、治理/维护者、支持、发布流程和 changelog 文件。
 
@@ -77,7 +77,7 @@ frontend/src/app
 
 Workspace 统一拥有 container、subgraph、asset 与 blob 的写事务、引用索引和 GC。外部 interface 以业务操作为单位，而不是暴露 Store 后再调用多个 setter。加载损坏数据返回显式 error/result，不把 incompatible placeholder 当成功对象。
 
-Yotta 3.0 只接受 v3 epoch。所有 schema 必填、拒绝 unknown/zero version；删除 lock v1、旧单文件 container、旧 subgraph marker、顶层 config fallback 和启动期 legacy rename。
+Yotta 3.1 只接受 v3 epoch。所有 schema 必填、拒绝 unknown/zero version；删除 lock v1、旧单文件 container、旧 subgraph marker、顶层 config fallback 和启动期 legacy rename。
 
 ### Execution
 
@@ -109,7 +109,7 @@ MCP 默认关闭；启用时显式配置 endpoint，仍只允许 loopback，并�
 
 ## 不做的事情
 
-- 不承诺第三方 Go plugin ABI。3.0 先把 in-tree 官方 Node SDK 做稳定、可生成、可测试；未来执行插件只考虑版本化 IPC + 进程外 Runner + capability broker。
+- 不承诺第三方 Go plugin ABI。3.1 先把 in-tree 官方 Node SDK 做稳定、可生成、可测试；第三方执行插件只使用版本化 Wasm/IPC host + capability broker。
 - 不把 Linux/macOS compile gate 宣称为完整产品支持；没有宿主 smoke、签名和权限 UX 前继续标 preview。
 - 不为“架构好看”创建只有一个 adapter 的 port。
 - 不在同一 PR 中同时搬包、改行为、改 schema 和重写 UI。

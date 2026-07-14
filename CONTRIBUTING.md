@@ -29,7 +29,7 @@ task check
 - 测试使用局部 `node.NewRegistry()`；不要清空默认全局 registry。
 - 当前只承诺 in-tree 节点贡献，不承诺 Go plugin ABI。
 
-详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)、breaking-change 说明和旧格式拒绝测试；Yotta 3.0 不新增迁移器或兼容 shim。
+详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)、breaking-change 说明和旧格式拒绝测试；Yotta 3.1 不新增迁移器或兼容 shim。
 
 ## Pull request
 

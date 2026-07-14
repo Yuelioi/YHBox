@@ -1,17 +1,16 @@
 ---
 topic: major-upgrade-review
-title: "Yotta 3.0 major upgrade"
-summary: "Implement and validate the AI-native destructive Yotta 3.0 architecture and release program."
+title: "Yotta 3.1 major upgrade"
+summary: "Implement and validate the AI-native destructive Yotta 3.1 architecture and release program."
 ---
 
 ## State
 
-Yotta 3.0 全仓方案已进入实施。Wave 1 已完成并通过 Standards/Spec 双轴 review。Wave 2 工程实现已完成：精确工具链/Wails runtime、immutable Actions、frozen build、Windows staging/manifest、SBOM/checksum/attestation candidate、CodeQL/dependency review/secret scan/Scorecard 与双 clean-build 比较均已落地；公开 stable 仍被 owner 设置、代码签名和用户数据目录迁移阻断。
+Yotta 3.1 全仓方案已进入实施；产品、Node System、Workflow、Data、Catalog 与 Program 统一使用 3.1。首个 Contract Kernel 切片已落地：Data Type 3.1 definition、独立 `/v1` semantic digest、离线 schema bundle、Resolved Type 与规范化 assignability 已形成 strict public seam。现有 v3 Compiler 仍只是待替换的未发布脚手架，不能形成第二 runtime。公开 stable 仍被 owner 设置、代码签名、用户数据目录迁移以及 3.1 Node/Plugin 完成门阻断。
 
 ## Next
 
-Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建立 RFC 8785/domain-separated content identity、machine-only CatalogSnapshot、受预算约束的 static compiler core 与可信重绑定的 opaque ProgramSnapshot；第三切片已加入 compiler-owned typed subgraph interface、静态 call closure/cycle rejection、reachable-only locks/capabilities 与冻结 call plan；第四切片已用 Catalog v2 声明式 dynamic descriptor 取代三个动态布尔契约，并在 Program v3 中严格冻结 Switch case outputs；第五切片已把可判定的输入约束纳入 Catalog v3 identity、编译诊断与 runtime adapter。下一步继续收敛 declarative dependency/effect 与剩余 custom validation，完成前仍禁止 Runtime 接入。项目所有者仍须并行拍板 Wave 0 的 OSI license、canonical identity 和公开主线，未完成前不能发布 Source Open/Stable。
-
+先按 Node System 3.1 Wayfinder frontier 完成“定义 Node Contract 3.1 元模式”，再把已落地的 Data Type kernel 接入 Catalog/Compiler，并以 Concat 完成首条 tracer bullet：两个 data input、一个 data output、零 exec pin，贯通 Source 3.1 → Compiler → Program 3.1 → interpreter → Vue → MCP/docs。随后依次闭合 Capability、Resource、Program/Run、Authoring 与 Plugin 决策。Program/Run 决议和 catalog-wide 编译完成前禁止把新 interpreter 接成生产 fallback；旧 ContainerRunner 最终整体删除。
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -31,6 +30,7 @@ Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建�
 - knowledge/architecture/go-multiplatform-boundary.md — 评估跨平台 seam 与发布声明时
 - knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Source/Catalog/Compiler/Program identity 或执行绑定时
 - knowledge/agent/untracked-agent-instructions-drift.md — 新建 tracked AGENTS 或调整 provider-specific agent 指令时
+- knowledge/flightdeck/checkpoint-large-document-truncation.md — checkpoint 包含经 shell 分页读取的大型 topic/research 文档时
 - work/major-upgrade-review/research/oss-platforms.md — 需要复核 n8n/Node-RED/Windmill/Temporal/VS Code/ComfyUI 取舍时
 - work/major-upgrade-review/research/ai-prompting.md — 需要复核最新模型、provider、prompt/tool/schema/eval/MCP 决策时
 - work/major-upgrade-review/research/oss-governance.md — 需要执行 license、ruleset、release、SLSA/OpenSSF 路线时
@@ -38,6 +38,9 @@ Wave 3 第一切片已完成并通过双轴 review 修复。第二切片已建�
 ## Progress
 
 Done:
+- 落地 Data Type 3.1 Contract Kernel：opaque definition seal/open、算法域 `/v1` semantic digest、版本化 TypeRef、离线 Draft 2020-12 bundle 与真实 schema 引用预算、codec/editor allowlist、Resolved Type、union/list assignability；双轴终审无剩余 P1/P2。
+- 完成 Node System 3.1 设计变更的 Standards/Spec 双轴 review；修正 Data Type semantic digest 自引用、list 运行类型身份与研究/决议漂移。
+- 将插件安装信任、SDK/文档/conformance 从 Fog 升格为阻塞 tickets，并明确 Yotta 3.1 产品版本与 3.1 协议代际可合并且必须共用唯一 runtime。
 - 盘点 1,169 个 tracked files 与主要 package/module。
 - 审查应用装配、节点/运行时、持久化、前端 contract/editor、CI、供应链与开源治理。
 - 完成 `review.md` 成熟度评分与 P0/P1 缺口，保留/替换/延期边界明确。
@@ -69,9 +72,11 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Wave 2、Wave 3 strict Source、static compiler core、typed subgraph closure、declarative Switch dynamic contract 与首个 declarative input constraint 切片已完成。下一入口是 dependency/effect 与剩余 custom validation；在这些完成前禁止 Runtime 接入或把 compiler core 宣称为完整 compiler。
+- Data Type 3.1 kernel 首切片已完成并通过全仓门禁；Node Contract 3.1 元模式仍是唯一 Wayfinder frontier。下一实施动作是冻结 Node Contract meta-schema，再把 Data Type kernel 接入 Catalog/Compiler 并以 Concat 做端到端 tracer bullet。
 
 Verified:
+- Data Type 3.1 kernel 最终 `task check` 通过（2026-07-15，109.9s）；聚焦 race、5 秒 fuzz、vet、staticcheck 通过，datatype coverage 71.0%。Standards/Spec 复核确认无剩余 P1/P2。
+- Node System 3.1 与 Yotta 3.1 计划合并后，Flightdeck recovery graph 无诊断，Wayfinder 10 个 tickets 依赖闭合且唯一 frontier 为 Node Contract 3.1 元模式；完整 `task check` 通过（2026-07-15，107.6s）。
 - 用户已明确允许破坏性升级，不要求兼容与兜底。
 - `go test ./...`、`go vet ./...`、`staticcheck ./...` 通过。
 - frontend Vitest 70 files / 537 tests、vue-tsc、i18n、format/lint 与 production build 通过。
@@ -89,10 +94,11 @@ Verified:
 
 ## Open questions
 
+- Node Contract 3.1 元模式、Program/Run lowering、package trust 与 SDK/docs 的精确 schema 仍由对应 Wayfinder tickets 决定；实施不得先猜。
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。
-- 是否把完整路线拆成 issue；插件门 C 明确不属于 3.0 stable 的必交付范围。
+- 完整路线已由 Node System 3.1 Wayfinder tickets 表达；最小 Wasm + Process Plugin Host 已纳入 3.1 stable，marketplace 仍不在范围内。
 - 本机全局 Node 仍是 22.14；engine-strict 会正确拒绝，Wave 2 验证使用经官方 SHA256 校验的临时 Node 22.23.1。开发机应升级全局 Node。
 - stable installer 仍缺 Yotta/capture Authenticode 签名，且应用当前把 settings/data/logs 写到 exe 旁；迁移到用户可写目录前不得恢复安装器发布。
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。

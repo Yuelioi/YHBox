@@ -1,17 +1,17 @@
-# Yotta 3.0：2026 模型时代的 Prompt、Tool 与 Agent 升级研究
+# Yotta 3.1：2026 模型时代的 Prompt、Tool 与 Agent 升级研究
 
 > 调研日期：2026-07-13
 > 来源范围：只采用 OpenAI、Anthropic 与 Model Context Protocol 的官方文档/规范；项目判断来自当前仓库源码。外部产品能力会继续变化，因此文中具体模型名用于说明“截至调研日的基线”，Yotta 的长期设计不应把滚动别名写死为协议。
 
 ## 结论先行
 
-Yotta 的 AI 能力不应继续围绕“给任意端点发送两段字符串，再尽量把返回文本解析出来”扩建。3.0 应把 AI 子系统从一个薄 `Chat` adapter 升级为一个有明确模型能力、指令权限、结构化数据流、工具授权、会话状态、评测与追踪的深模块。
+Yotta 的 AI 能力不应继续围绕“给任意端点发送两段字符串，再尽量把返回文本解析出来”扩建。3.1 应把 AI 子系统从一个薄 `Chat` adapter 升级为一个有明确模型能力、指令权限、结构化数据流、工具授权、会话状态、评测与追踪的深模块。
 
 最关键的变化不是把旧提示词润色得更长，而是删除已经被新模型能力和运行时机制替代的文字脚手架：删除“逐步思考”、反复的 `CRITICAL/MUST`、只回 JSON 的提示词、Markdown 围栏剥离、端点猜测与结构化输出 fallback；把格式约束交给严格 schema，把工具边界交给类型与权限，把长会话交给状态/压缩，把模型升级交给 eval gate。
 
 截至调研日，OpenAI 官方模型指南以 GPT-5.6 为当前系列，并明确建议 reasoning、tool calling 与多轮工作流使用 Responses API；同时提醒更聪明的模型能从上下文推断意图，不必规定每一步，但仍要提供领域上下文、硬约束、审批边界和成功标准。[OpenAI：Model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 
-这意味着 Yotta 3.0 应采用以下总原则：
+这意味着 Yotta 3.1 应采用以下总原则：
 
 1. **模型是经评测的运行配置，不是节点里的自由字符串。** 默认使用固定 snapshot；滚动 alias 只能是用户明确选择的实验策略。OpenAI 官方同样建议生产应用固定 model snapshot，并用测试/eval 监控升级。[OpenAI：Text generation](https://developers.openai.com/api/docs/guides/text)
 2. **Prompt 是代码与 typed builder，不是散落字符串。** 产品内置 prompt 应与功能同目录、接受 typed inputs、走代码评审和测试；用户自定义 prompt 则是有 schema/version/hash 的工作流资产。OpenAI 已宣布弃用 API reusable prompt objects，并建议将生产 prompt 存在代码中。[OpenAI：Prompt engineering](https://developers.openai.com/api/docs/guides/prompt-engineering)
@@ -23,7 +23,7 @@ Yotta 的 AI 能力不应继续围绕“给任意端点发送两段字符串，�
 
 以下不是抽象最佳实践，而是当前源码与 2026 官方基线之间的差距。
 
-| 优先级 | 当前事实 | 3.0 问题 | 应采取的破坏性变化 |
+| 优先级 | 当前事实 | 3.1 问题 | 应采取的破坏性变化 |
 | --- | --- | --- | --- |
 | P0 | `internal/services/llm/openai.go:46,85` 仍调用 Chat Completions | 丢失 Responses 的 reasoning items、state、compaction、原生 agentic loop 与更佳缓存利用 | OpenAI 官方 adapter 改为 Responses-only；删除官方 OpenAI 的 Chat Completions 路径 |
 | P0 | `provider.go:12-14` 只有 `system/user/assistant`；OpenAI 映射仍用 `SystemMessage` | 没有显式 developer authority；内部语义被旧 API 角色绑死 | 内部改为 `Instructions + InputBlock`；OpenAI 映射 `instructions/developer`，Anthropic 映射顶层 `system` |
@@ -38,7 +38,7 @@ Yotta 的 AI 能力不应继续围绕“给任意端点发送两段字符串，�
 | P0 | `main.go:339-340` 每次启动固定监听 `127.0.0.1:8765/mcp`；`list_windows` 不受 armed 闸 | loopback 不是身份验证；读取窗口标题/进程也是敏感能力 | 默认不启动；优先本地 stdio；若启用 HTTP，则临时端口 + session credential + capability approvals |
 | P1 | MCP 工具几乎都返回大段 text；`run_node.params` 是无约束 object | 无 output schema、低信号大输出、难验证；任意节点参数扩大攻击面 | MCP 2025-11-25 typed input/output schema、客户端/服务端双校验；按 namespace/capability 延迟发现工具 |
 
-OpenAI 已明确推荐所有新项目使用 Responses API，并称其为统一的 agent-like interface，支持内建工具、多轮状态、reasoning/tool context 与结构化 Items。[OpenAI：Migrate to Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses) 因此，对“不需要兼容、不需要兜底”的 Yotta 3.0，继续保留官方 OpenAI Chat Completions 没有收益。
+OpenAI 已明确推荐所有新项目使用 Responses API，并称其为统一的 agent-like interface，支持内建工具、多轮状态、reasoning/tool context 与结构化 Items。[OpenAI：Migrate to Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses) 因此，对“不需要兼容、不需要兜底”的 Yotta 3.1，继续保留官方 OpenAI Chat Completions 没有收益。
 
 ## 模型选择与升级策略
 
@@ -97,7 +97,7 @@ OpenAI adapter 可以使用 Responses state/reasoning items；Anthropic adapter 
 
 ### 第三方“OpenAI 兼容”必须降级为显式插件能力，不得伪装官方语义
 
-3.0 core 可只内置官方 `openai-responses` 与 `anthropic-messages`。如仍要支持 Ollama、LM Studio 或其他网关，应作为明确 provider/plugin，声明自己支持的 capability；不能再由 BaseURL 域名判断，也不能请求失败后从 native 自动切到 prompt parsing。
+3.1 core 可只内置官方 `openai-responses` 与 `anthropic-messages`。如仍要支持 Ollama、LM Studio 或其他网关，应作为明确 provider/plugin，声明自己支持的 capability；不能再由 BaseURL 域名判断，也不能请求失败后从 native 自动切到 prompt parsing。
 
 这不是删除本地模型生态，而是删除“兼容接口等于兼容行为”的错误承诺。
 
@@ -375,7 +375,7 @@ MCP 2025-11-25 是调研日官方标为 latest 的稳定规范。[MCP：Tools 20
 - 所有 tools 有 input/output schema、timeout、rate limit、audit；敏感 tool 输入在确认 UI 中完整展示。
 - 本地 server 以最低 OS 权限运行，文件/网络/进程访问受 manifest/sandbox。MCP 官方安全最佳实践也建议本地 server 最小默认权限、限制 filesystem/network、显式增权，HTTP transport 必须限制未授权进程访问。[MCP：Security best practices](https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices)
 
-## 建议的 Yotta 3.0 AI 模块
+## 建议的 Yotta 3.1 AI 模块
 
 ```text
 internal/ai

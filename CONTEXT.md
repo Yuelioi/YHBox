@@ -5,7 +5,7 @@ Yotta 将可编辑的自动化意图编译成不可变程序，再把程序绑�
 ## Language
 
 **Workflow Source**:
-用户或 AI 可编辑的 v3 自动化文档，带文档身份与 revision，但本身不可执行。
+用户或 AI 可编辑的 3.1 自动化文档，带文档身份与 revision，但本身不可执行；它属于 Yotta 3.1 产品发布线。
 _Avoid_: Container, blueprint, flow
 
 **Compile Result**:
@@ -19,6 +19,106 @@ _Avoid_: Compiled container, runtime config
 **Catalog Snapshot**:
 一次编译所绑定的不可变节点目录代际，包含节点 contract 与实现锁。
 _Avoid_: Current registry, node list
+
+**Node Type**:
+具有稳定身份和版本化语义的一类节点定义；它描述端口、配置、执行特征、能力要求和展示注解。
+_Avoid_: Node kind, Go node
+
+**Node Instance**:
+Workflow Source 中对某个 Node Type 的一次具名使用，包含实例配置和连线。
+_Avoid_: Graph node, node config
+
+**Node Contract**:
+Node Type 的可序列化、版本化事实，可被 Compiler、运行时、编辑器、目录和文档共同消费。
+_Avoid_: Backend spec, frontend node metadata
+
+**Data Type**:
+带命名空间和版本的连线值语义，定义其 schema、兼容关系、序列化形式和展示注解；Node Package 可以发布新的 Data Type。
+_Avoid_: Pin color, Go type, TypeScript union
+
+**Type Reference**:
+对一个精确、版本化 Data Type 及其 semantic digest 的引用；持久化和跨执行边界不得只保存宽泛类型名。
+_Avoid_: Type tag, PinType
+
+**Resolved Type**:
+运行值的完整具体类型，仅由精确 Type Reference 或递归 list 构成；它不得包含 union 或尚未解析的类型变量。
+_Avoid_: Runtime TypeExpr, inferred value type
+
+**Value Envelope**:
+携带完整 Resolved Type，并以 inline、blob、stream 或 handle 之一承载运行值的封闭联合；它不包含输入是否提供或运行血缘。
+_Avoid_: Any value, output data map
+
+**Binding State**:
+输入绑定是否 absent 或 present 的独立状态；present-null、present-default 和 absent 必须保持可区分。
+_Avoid_: Nullable input, defaulted value
+
+**Blob Reference**:
+通过 media type、内容摘要和字节大小引用不可变大对象的可持久化值表示；存储位置不属于其身份。
+_Avoid_: Base64 payload, image bytes
+
+**Stream Reference**:
+对带类型、背压、取消和明确终态的运行期增量通道的引用；它不是可持久化 list。
+_Avoid_: List, byte slice
+
+**Resource Reference**:
+由宿主 Resource Broker 解析、限定 authority、scope、owner 和 operation 的临时 capability token；原始 HWND、指针和文件描述符不得跨边界传递。
+_Avoid_: HWND, pointer, handle object
+
+**Conversion**:
+Workflow Source 中显式可见的 Data Type 转换；类型系统不得通过隐式 coercion 改变连线值的语义。
+_Avoid_: Auto-cast, runtime coercion
+
+**Authoring Projection**:
+由 Node Contract 和 Data Type schema 派生的编辑事实，包含画布端口、参数表单、校验提示、平台可用性和帮助内容。
+_Avoid_: Frontend registry, pin spec
+
+**Editor Adapter**:
+Yotta 为无法由通用 schema 表单充分表达的复杂交互提供的内置编辑能力；它不拥有或改写 Node Contract。
+_Avoid_: Custom node UI, plugin JavaScript
+
+**Data Channel**:
+在节点之间传递带 Data Type、值身份和来源关系的业务数据。
+_Avoid_: Value pin, data wire
+
+**Exec Channel**:
+表达 effect、control 和 event 节点之间执行顺序与分支选择的控制关系，不携带业务值。
+_Avoid_: Out pin, flow wire
+
+**Error Channel**:
+传递带稳定 code、来源、重试属性和修复建议的结构化失败。
+_Avoid_: Fail output, error string
+
+**Status Event**:
+Run 中的进度、等待和连接状态事实，不是 Workflow Source 中的普通连线值。
+_Avoid_: Status output, progress pin
+
+**Execution Class**:
+Node Type 的执行类别，取 pure-data、effect、control 或 event；类别决定其可拥有的通道与调度方式。
+_Avoid_: Runnable kind, pure flag
+
+**Recorded Value**:
+Run 首次产生后以运行事实保存、后续重放直接复用的非确定性值。
+_Avoid_: Random cache, nondeterministic result
+
+**Capability Requirement**:
+Node Contract 声明的外部能力需求；它只表达需求，不代表 Run 已获得授权。
+_Avoid_: Runtime service, platform target
+
+**Node Package**:
+可独立安装和验证的节点发布制品，包含一个或多个 Node Contract 及其可执行实现。
+_Avoid_: Go plugin, node bundle
+
+**Plugin Host**:
+Yotta 用于发现、验证并隔离执行第三方 Node Package 的宿主能力。
+_Avoid_: Dynamic Go loader, extension registry
+
+**Wasm Node**:
+由 Plugin Host 在受限 WebAssembly 环境中执行的 Node Type 实现，默认不能直接访问外部能力。
+_Avoid_: Script node, embedded plugin
+
+**Process Node**:
+由 Plugin Host 在独立本机进程中执行、通过版本化协议交换值与运行事件的 Node Type 实现。
+_Avoid_: Go plugin, child command
 
 **Diagnostic**:
 Compiler 对 Source 的稳定机器可读判断，以 code、位置、params 和 optional fix 表达；message 只用于展示。

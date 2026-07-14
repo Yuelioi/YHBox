@@ -1,8 +1,8 @@
-# Yotta 3.0：开源工作流与扩展平台一手资料研究
+# Yotta 3.1：开源工作流与扩展平台一手资料研究
 
 > 调研日期：2026-07-13
 > 范围：n8n、Node-RED、Windmill；以 Temporal、VS Code、ComfyUI 补足可靠执行、插件治理和可视化 AI 工作流的参照。
-> 取材规则：只采用项目官方文档、官方仓库和官方规范。本文不是功能抄录，而是回答“Yotta 3.0 应采用什么、明确不照搬什么、先建立哪些不可逆契约”。
+> 取材规则：只采用项目官方文档、官方仓库和官方规范。本文不是功能抄录，而是回答“Yotta 3.1 应采用什么、明确不照搬什么、先建立哪些不可逆契约”。
 
 ## 1. 结论先行
 
@@ -19,7 +19,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 | VS Code | 声明式贡献点；惰性激活；稳定/实验 API 分道；Workspace Trust 与能力降级 | 把“独立进程”误认为安全沙箱；允许扩展任意修改编辑器 DOM |
 | ComfyUI | 入队时冻结整个工作流快照；只对纯节点做变更缓存；Registry 的不可变版本与工作流版本锁 | 进程内导入任意 Python；把任意插件 JS 全量注入页面；允许插件绕过宿主的类型与范围校验 |
 
-这组组合导向一个明确的 3.0 主链路：
+这组组合导向一个明确的 3.1 主链路：
 
     EditorSession.draft
         -> CompileDraft(WorkflowSource, CatalogSnapshot)
@@ -36,7 +36,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 
 1. internal/services/execution/queue.go 是内存 FIFO，Run ID 由进程内 atomic.Int64 递增；进程退出后队列、ID 连续性与运行状态均消失。
 2. internal/services/execution/worker.go 是单 goroutine 串行消费，这一点符合键鼠独占的桌面约束；但事件主要是 Running、TargetIdx 和最后一个错误，缺少 Program 哈希、节点 attempt、终止原因和持久 Run 账本。
-3. internal/services/container/service.go 的 ValidateContainerByID 明确校验持久化版本，frontend/src/i18n/zh.ts 也提示“请先保存再检查”。3.0 若仍把保存当校验入口，EditorSession 与 Compiler 的新分层就没有真正成立。
+3. internal/services/container/service.go 的 ValidateContainerByID 明确校验持久化版本，frontend/src/i18n/zh.ts 也提示“请先保存再检查”。3.1 若仍把保存当校验入口，EditorSession 与 Compiler 的新分层就没有真正成立。
 4. internal/services/log.go 已有 JSONL、500 行 GUI ring 和脱敏 action trace，这是可保留的基础；但 action trace 尚不是按 Run 查询的执行事实库，也没有统一 run_id / node_id / attempt / program_hash 关联。
 5. internal/node/interfaces.go 已有 Node.Spec、Runnable、RegionRunner、Evaluator、Validator 与 ServiceBundle，足以演进为正式 Node SDK；当前缺少由宿主强制执行的副作用类别、确定性、缓存、重试安全、能力和敏感数据声明。
 
@@ -64,13 +64,13 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 1. **把 workflow history 与 run history 分开。** 保存历史回答“用户改了什么”，RunRecord 回答“当时究竟执行了什么”；两者通过 workflow_revision 与 program_hash 关联，但不能共用一套记录。
 2. **Run 在入队时锁定 ProgramSnapshot。** 用户可以继续编辑，已排队运行不受影响；UI 可同时提供“用原快照重跑”和“用当前草稿重新编译后运行”，两者必须明确命名。
 3. **给编辑器一等的 dirty 状态。** 不能只显示“未保存”；应基于 sourceHash、lastCompiledHash、lastRunHash 区分“未保存”“未重新编译”“预览结果已陈旧”。
-4. **建立官方节点工具链。** 3.0 即使只有仓库内节点，也要有 node new、node lint、node test、catalog generate、docs generate，一套 Spec 同时生成 Go 校验材料、TypeScript 类型、Inspector schema 和文档。
+4. **建立官方节点工具链。** 3.1 即使只有仓库内节点，也要有 node new、node lint、node test、catalog generate、docs generate，一套 Spec 同时生成 Go 校验材料、TypeScript 类型、Inspector schema 和文档。
 5. **由宿主管理跨节点元数据。** run_id、graph_path、node_id、attempt、输入来源和敏感标记由 Runtime 注入，不让每个节点手填。
 6. **把健康状态和运行指标作为 Community 版基线。** 桌面应用不需要暴露公网端口，但应有内部 health snapshot、队列深度、运行时长、错误分类和 adapter 失败计数，并允许用户显式开启本地端点或 OpenTelemetry 导出。
 
 ### 3.3 Yotta 不应照搬
 
-1. **不保留 n8n 式节点旧版本分支。** 用户已授权破坏性 3.0：核心只接受 formatVersion=3 和当前 Node API；不得在节点 Run 中按旧 typeVersion 分叉。第三方制品版本锁定只服务可重复执行，不是兼容 v2 语义。
+1. **不保留 n8n 式节点旧版本分支。** 用户已授权破坏性 3.1：核心只接受 3.1 Workflow/Node contract；不得在节点 Run 中按旧 typeVersion 分叉。第三方制品版本锁定只服务可重复执行，不是兼容旧语义。
 2. **不引入 Redis + 主数据库队列。** Yotta 的单机键鼠独占 Worker 是合理约束；所需的是本地持久 Run 账本与崩溃状态恢复，而不是分布式吞吐架构。
 3. **不允许未隔离节点直接获得 ServiceBundle 全能力。** n8n 对社区代码的风险警告说明，“能安装 npm 包”不是成熟扩展系统；Yotta 应先有能力声明与进程边界，再开放第三方执行代码。
 
@@ -101,9 +101,9 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 ### 4.3 Yotta 不应照搬
 
 1. **不手写 Runtime 与 Editor 两份节点契约。** Node-RED 的 JS + HTML 配对简单但容易漂移。Yotta 应以 Go NodeSpec 为唯一事实源，生成 TS、JSON Schema、Inspector 控件描述和文档；CI 检查生成结果无 diff。
-2. **不保留两代 flow API。** 3.0 只有一个规范化 WorkflowSource 格式；读到 v2 立即返回明确的 UNSUPPORTED_WORKFLOW_FORMAT，不在 Runtime 内静默转换。
+2. **不保留两代 flow API。** 3.1 只有一个规范化 WorkflowSource 格式；读到 v2/v3 立即返回明确的 UNSUPPORTED_WORKFLOW_FORMAT，不在 Runtime 内静默转换。
 3. **不把 localfilesystem 的定时 flush 当执行可靠性。** Run 入队、状态转换和 attempt 事件必须事务写入；不能接受最长 30 秒丢失窗口。
-4. **不让插件异常拖垮宿主。** 首批 3.0 官方节点可以同进程；第三方扩展开放前必须先有 panic/异常边界、资源限制，最终使用独立 Runner。独立进程解决可用性隔离，安全仍需能力代理。
+4. **不让插件异常拖垮宿主。** 首批 3.1 官方节点可以同进程；第三方扩展必须先有 panic/异常边界、资源限制，并使用 Wasm 或独立 Process Host。执行隔离解决可用性边界，安全仍需能力代理。
 
 ## 5. Windmill：不可变程序、步骤 Job 与可观测运行
 
@@ -131,7 +131,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 ### 5.3 Yotta 不应照搬
 
 1. **不把每个节点都变成 PostgreSQL job。** Yotta 的大量节点处于同一交互控制循环，逐节点约几十毫秒的排队成本和数据库依赖不合适。持久化的是 Run 与 attempt 事实，不代表每个节点都必须跨进程排队。
-2. **不在 3.0 承担任意语言 Runtime。** Python/TypeScript/Bun/Deno 等多语言执行会同时扩大安装体积、依赖冲突、沙箱、调试和供应链攻击面。先把 Go 官方节点 SDK 做深。
+2. **不在 3.1 承担任意语言 Runtime。** Python/TypeScript/Bun/Deno 等多语言执行会同时扩大安装体积、依赖冲突、沙箱、调试和供应链攻击面。先把 Go 官方节点 SDK 与受约束 Wasm/Process host 做深。
 3. **不把线性历史当协作模型。** 保存快照适合本机恢复；开源协作仍由 Git 分支和 PR 完成。内部 revision 解决并发覆盖，不伪造一个弱 Git。
 4. **不把核心恢复与指标做成版本差异。** 运行事实、崩溃标记和基础指标是可靠自动化的底座，不是高级附加功能。
 
@@ -170,7 +170,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 ### 7.2 Yotta 应采用
 
 1. **先定义声明式 PluginManifest，再开放执行入口。** 建议字段包括 pluginId、version、apiVersion、engineRange、artifactDigest、signature、contributes.nodes、capabilities、entrypoint 和 publisher。
-2. **3.0 Node API 标记 v1alpha1。** 只给仓库内官方节点使用；达到契约测试、能力代理和 Runner 隔离门禁后再提升 stable。用户授权破坏性更新，正适合此时不作过早兼容承诺。
+2. **3.1 Node API 先标记预览。** 达到契约测试、能力代理和 host 隔离门禁后再提升 stable。用户授权破坏性更新，正适合此时不作过早兼容承诺。
 3. **按能力惰性装载。** 纯节点不应初始化 Vision/ADB/Win32/LLM；只有 Program 需要某能力时才启动对应 adapter/runner。
 4. **引入 Workflow Trust。** 未信任导入流程只能查看与编译，不能执行 process、filesystem write、network、input、screen capture、secret read；用户授予的是具体能力，不是一个笼统“运行所有”按钮。
 5. **插件不能直接改 Vue DOM。** Editor 只渲染宿主支持的声明式 Inspector schema、图标和文档；高级 UI 扩展另设极窄、版本化的 surface。
@@ -178,7 +178,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 ### 7.3 Yotta 不应照搬
 
 1. **独立进程不等于安全。** Runner 仍必须通过 capability broker 请求屏幕、键鼠、文件、网络、Secret；宿主校验参数、记录审计并可撤销。
-2. **不在 3.0 承诺长期稳定插件 ABI。** Go 原生 plugin ABI 不适合作为跨版本边界；未来优先使用版本化 IPC protocol + 进程外 Runner。
+2. **不在 3.1 承诺 Go 插件 ABI。** Go 原生 plugin ABI 不适合作为跨版本边界；第三方扩展使用版本化 WIT/IPC protocol + Wasm/Process Host。
 3. **不允许扩展把自己声明为可信。** Trust 是用户与宿主策略的决定，manifest 只能声明需求。
 
 ## 8. ComfyUI：运行快照、纯节点缓存与 Registry 锁定
@@ -206,7 +206,7 @@ Yotta 不应升级成一个缩小版 n8n、Windmill 或 Temporal。它是本地�
 3. **不把任意插件 JS 注入编辑器。** 这会让 Editor API、DOM 和用户数据都成为非正式公共接口。
 4. **不对有副作用节点做增量缓存。** “输入没变”不代表外部窗口、文件或网络状态没变。
 
-## 9. 建议的 Yotta 3.0 目标契约
+## 9. 建议的 Yotta 3.1 目标契约
 
 ### 9.1 WorkflowSource、CompileResult 与 ProgramSnapshot
 
@@ -377,7 +377,7 @@ n8n 已建议 execution/workflow/session 关联字段，Windmill 展示了 queue
 
 ### 9.6 插件路线：先作者体验，再第三方代码
 
-3.0 建议分三道门：
+3.1 建议分三道门：
 
 **门 A：官方 Node SDK（本轮必须）**
 
@@ -489,7 +489,7 @@ n8n 的分包开发与 Testcontainers、Node-RED 的真实 flow test helper、Co
 
 **门禁：** 在没有 Runner 隔离、能力代理、签名/制品锁和撤权 UI 前，不接受第三方可执行插件。这不是兼容兜底，而是供应链安全的发布条件。
 
-## 12. 可验收的 3.0 结果
+## 12. 可验收的 3.1 结果
 
 - 修改未保存草稿后点击“检查”，Compiler 直接校验内存 Source；磁盘内容不变。
 - 相同 Source/Catalog/Compiler 在 CI 支持的平台上 programHash 一致。
@@ -510,7 +510,7 @@ n8n 的分包开发与 Testcontainers、Node-RED 的真实 flow test helper、Co
 2. **Run 固定不可变 ProgramSnapshot；这叫执行正确性，不叫旧版本兼容。**
 3. **以 effect 为中心设计 retry、cache、replay 和 permission；桌面副作用默认一次执行。**
 4. **保留单机串行 Worker，但用持久 Run/Attempt 账本替换内存状态作为事实源。**
-5. **3.0 先把官方 Node SDK、生成契约和能力门禁做完整；第三方可执行插件必须等进程外 Runner 与 capability broker。**
+5. **3.1 把官方 Node SDK、生成契约和能力门禁做完整；第三方可执行插件只能经 Wasm/Process Host 与 capability broker。**
 
 ## 14. 一手来源索引
 

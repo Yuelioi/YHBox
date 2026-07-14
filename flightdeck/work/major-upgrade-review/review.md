@@ -14,13 +14,13 @@ Yotta 不是需要推倒重写的原型。它已经具备大型产品的功能�
 - 本地领先主线与公开 GitHub 主线；
 - “开源项目”定位与非 OSI LICENSE。
 
-因此 3.0 的主任务不是再加功能，而是把 Source → Compiler → ProgramSnapshot → RunRecord 建成唯一真相链，并让 UI、AI、CLI、MCP、插件和 release 都围绕它工作。
+因此 3.1 的主任务不是再加功能，而是把 Source → Compiler → ProgramSnapshot → RunRecord 建成唯一真相链，并让 UI、AI、CLI、MCP、插件和 release 都围绕它工作。
 
 ## 当前成熟度评分
 
 评分是本轮审查的诊断量表（0=缺失，5=大型成熟项目），不是行业认证。
 
-| 维度 | 当前 | 3.0 目标 | 主要依据 |
+| 维度 | 当前 | 3.1 目标 | 主要依据 |
 | --- | ---: | ---: | --- |
 | 产品/节点能力 | 4.0 | 4.5 | 137 个节点、桌面/ADB/视觉/LLM/录制/调度能力完整 |
 | 核心正确性 | 3.3 | 4.5 | Go 测试与原子存储良好；运行快照、持久 Run 事实仍缺失 |
@@ -40,7 +40,7 @@ Yotta 不是需要推倒重写的原型。它已经具备大型产品的功能�
 2. **Wails + Vue 产品形态。** 桌面交互是 Yotta 的差异化；问题是契约与状态边界，不是框架本身。
 3. **单机串行 Worker。** 键鼠与目标窗口具有排他性；不应照搬云工作流的分布式队列。
 4. **现有 portable-core 和 adapter 方向。** 跨平台 compile gate、平台 adapter 与生命周期 owner 是可继续深化的正确基础。
-5. **节点库与录制能力。** 这是项目护城河；3.0 应优先统一 Spec、effect 与生成工具，而不是重写每个算法。
+5. **节点库与录制能力。** 这是项目护城河；3.1 应优先统一 Spec、effect 与生成工具，而不是重写每个算法。
 6. **原子文件写、action trace 与已有安全校验。** 它们应被 Workspace transaction、Run timeline 与统一 redaction 吸收。
 7. **已有 `AISlot` 概念。** 它适合作为可移植模型意图，不应让节点继续绑定具体 connection/model string。
 
@@ -97,7 +97,7 @@ Yotta 不是需要推倒重写的原型。它已经具备大型产品的功能�
 | OpenAI/Anthropic/MCP | provider-native API、strict schema、typed tools、eval/trace | lowest-common-denominator Chat、prompt JSON fallback、全量上下文 |
 | OpenSSF/SLSA/GitHub | 可执行治理、固定供应链、attestation、双人控制 | 只增加徽章或文档而不改变真实 settings/workflow |
 
-## 3.0 的核心对象
+## 3.1 的核心对象
 
 ```text
 WorkflowSource
@@ -132,10 +132,10 @@ NodeAttempt / AdapterAction
 - NodeSpec effect/capability 与生成链。
 - Workflow Trust、SecretRef/OS credential store。
 - provider-native AI、PromptManifest、strict schema、eval/trace。
-- typed AI authoring 与 MCP 3.0。
+- typed AI authoring 与 MCP 3.1。
 - 完整、签名、可验证的 Windows stable release。
 
-### 3.0 只打基础
+### 3.1 只打基础
 
 - 官方 Node SDK 标记 `v1alpha1`，不承诺长期 Go ABI。
 - OpenTelemetry 只做 opt-in exporter；本地 Run timeline 才是产品主面。
@@ -160,4 +160,4 @@ NodeAttempt / AdapterAction
 3. 再让 Editor、Node SDK、权限模型围绕它收敛；
 4. 最后把更强模型接到 typed authoring protocol，并以 eval、trace 和宿主权限约束它。
 
-模型更聪明的价值，是可以把 prompt 从冗长威慑改成清晰目标、schema、工具和成功标准；它不意味着可以减少编译器、事务、权限或发布门禁。Yotta 3.0 最值得追求的不是“更自主”，而是 **更少隐式状态、更少平行协议、更强可验证性**。
+模型更聪明的价值，是可以把 prompt 从冗长威慑改成清晰目标、schema、工具和成功标准；它不意味着可以减少编译器、事务、权限或发布门禁。Yotta 3.1 最值得追求的不是“更自主”，而是 **更少隐式状态、更少平行协议、更强可验证性**。

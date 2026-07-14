@@ -1,8 +1,8 @@
-# Yotta 3.0 AI-native 目标设计
+# Yotta 3.1 AI-native 目标设计
 
 ## 产品判断
 
-Yotta 3.0 不应继续被定义为“带一个 AI 节点的可视化自动化工具”。更强的模型使自然语言规划、工具调用和迭代修复变得可用，但模型不会替代可靠的工作流 IR、编译器、权限边界和可观测执行。
+Yotta 3.1 不应继续被定义为“带一个 AI 节点的可视化自动化工具”。更强的模型使自然语言规划、工具调用和迭代修复变得可用，但模型不会替代可靠的工作流 IR、编译器、权限边界和可观测执行。
 
 新的产品定义是：
 
@@ -34,7 +34,7 @@ EditorSession             plan → patch → compile         run / validate / in
 
 ## 当前 AI surface 的审查结论
 
-| 当前实现 | 问题 | 3.0 决策 |
+| 当前实现 | 问题 | 3.1 决策 |
 | --- | --- | --- |
 | `internal/services/llm.Provider` 只有 Chat/Text 最低公分母 | 丢失 provider-native item、usage、stop reason、request ID、reasoning/tool loop 语义 | 删除通用 Chat 抽象；建立共享 orchestration contract 与 provider-native adapter |
 | OpenAI adapter 使用 Chat Completions | 无法成为新的 OpenAI 主路径 | 官方 OpenAI adapter 只实现 Responses API；迁移完成后删除旧路径 |
@@ -152,7 +152,7 @@ workflow.run_preview(revision, policy, budget)
 
 节点的 machine contract 与 UI 文案分离。catalog description 应短、稳定、任务导向，不复用诸如“看起来更像真人”的营销/帮助文本。每个节点明确 effect class、determinism、idempotency、required capability、inputs/outputs、config schema、examples 与 error codes。
 
-## MCP 3.0
+## MCP 3.1
 
 MCP 是 AI authoring protocol 的适配器，不是另一个业务层。
 

@@ -1,4 +1,4 @@
-# Yotta 3.0：大型开源项目治理、供应链、发布与安全成熟度调研
+# Yotta 3.1：大型开源项目治理、供应链、发布与安全成熟度调研
 
 > 调研日期：2026-07-13（Asia/Shanghai）
 > 范围：治理、贡献者权利、GitHub 保护、依赖与 CI 供应链、桌面发布、漏洞响应、版本支持、可复现构建和维护者连续性。
@@ -20,7 +20,7 @@ OSI 对 open source 的定义不仅要求源码可见，还要求自由再分发
 
 ### P0/P1 缺口
 
-| 优先级 | 现状证据（2026-07-13 快照） | 为什么是问题 | 3.0 要求 |
+| 优先级 | 现状证据（2026-07-13 快照） | 为什么是问题 | 3.1 要求 |
 |---|---|---|---|
 | P0 | `LICENSE` 禁止商业使用、盈利分发、SaaS 和付费服务 | 不是 OSI open source；无法通过 OpenSSF 最基础 FLOSS 条件 | 由权利人采用一个 OSI 批准许可证，完成历史代码与资产权利核对，并在 README、包元数据和发布物中统一声明 |
 | P0 | `origin` 仍写作 `Yuelioi/YHBox.git`，GitHub 重定向到 `Yuelioi/Yotta`，Go module 与安全报告 URL 却使用 `github.com/yottaapp/yotta`；公开 `origin/main` 为 `124d48a`，本地审计时比它领先约 1,578 commits | 源码、模块、报告入口和 provenance 会指向不同主体；公众无法审阅当前开发过程。OpenSSF Passing 要求公开仓库包含发布之间供审阅的中间版本，而不是只公开最终快照 | 迁移到唯一组织/仓库身份（推荐 `yottaapp/yotta`），统一 remote、module、下载、SECURITY、更新源和签名主体；全历史 secrets/license 扫描后公开当前开发分支 |
@@ -58,7 +58,7 @@ gh api repos/Yuelioi/Yotta/code-scanning/default-setup    -> not-configured
 
 ### 2. DCO 还是 CLA
 
-推荐 Yotta 3.0 使用 **DCO 1.1 + 每 commit sign-off + required DCO check**，暂不引入 CLA。
+推荐 Yotta 3.1 使用 **DCO 1.1 + 每 commit sign-off + required DCO check**，暂不引入 CLA。
 
 | 机制 | 它解决什么 | 成本与适用条件 | Yotta 决策 |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Electron 是更贴近桌面开发工具的成熟案例：它按 API、Community 
 
 ### 4. GitHub 强制保护，而不是文档倡议
 
-#### `main` ruleset（3.0 公开前必须）
+#### `main` ruleset（3.1 stable 前必须）
 
 - 所有改动经 PR；阻止直接 push、force-push 和删除；规则不得由管理员常态绕过。
 - 至少 1 个非作者 approval；有第二位稳定维护者后启用 “require last push approval”、dismiss stale approvals 和 CODEOWNER review。成熟阶段升为敏感目录 2 人审查。
@@ -122,7 +122,7 @@ GitHub branch protection 支持 required review、Code Owner review、required s
 
 #### Action 与 dependency policy
 
-- 所有 `uses:` 固定 **完整 40 位 commit SHA**，同行注释上游版本，如 `# v4.2.2`；Dependabot 的 `github-actions` ecosystem 继续负责升级 PR。
+- 所有 `uses:` 固定 **完整 40 位 commit SHA**，同行注释上游版本，如 `# 3.1.2.2`；Dependabot 的 `github-actions` ecosystem 继续负责升级 PR。
 - 组织设置启用 “Require actions to be pinned to a full-length commit SHA”，并只允许 GitHub 官方、已评审的明确 allowlist 和仓库内 action。
 - 删除 `stable`、`latest`、`3.x` 等动态输入；Rust 用 `rust-toolchain.toml` 精确 channel/components/profile，Node/pnpm/Task/NSIS/Wails 都采用机器可校验的精确版本。
 - build 脚本不得自动 `tidy` 或修改 lock；依赖更新是单独 PR。release 使用 `pnpm install --frozen-lockfile`、`cargo build --locked`、`go mod download`，构建后必须 clean tree。
@@ -167,7 +167,7 @@ Windows stable release 至少发布：
 
 #### SLSA 目标
 
-- **Yotta 3.0 GA：SLSA Build L2**。要求 provenance 被签名并由 hosted build platform 产生，重点防止构建后 artifact/provenance 被篡改。
+- **Yotta 3.1 GA：SLSA Build L2**。要求 provenance 被签名并由 hosted build platform 产生，重点防止构建后 artifact/provenance 被篡改。
 - **成熟阶段：SLSA Build L3**。采用经过隔离的 reusable build workflow/hardened build platform，减少 build process 内部篡改风险。
 
 SLSA v1.0 的 Build L1/L2/L3 分别是“存在 provenance”“hosted platform 生成的 signed provenance”“hardened build platform”；不要把有 checksum 或有 SBOM 误报成 SLSA L2。[SLSA security levels](https://slsa.dev/spec/v1.0/levels)
@@ -204,11 +204,11 @@ GitHub 建议项目清楚公布私密报告入口，并指出 private vulnerabil
 
 ### 8. 支持窗口：允许破坏性升级，也要有明确合同
 
-“3.0 不兼容 2.x”是一次版本策略，不等于可以没有支持策略。建议按当前维护能力采用保守合同：
+“3.1 不兼容 2.x”是一次版本策略，不等于可以没有支持策略。建议按当前维护能力采用保守合同：
 
 - `3.x stable`：只支持最新 minor 的最新 patch；安全修复只回补当前 stable line。
 - `preview/nightly`：不承诺数据兼容与回补，不能覆盖 stable 安装，UI 和下载页显著标识。
-- `2.x`：在 3.0 GA 当天 EOL，不再修复；提前在 2.x 最后一个 release 和 3.0 release notes 中明确数据不可打开、备份方式和 EOL 日期。3.0 不携带 migration/fallback。
+- `2.x`：在 3.1 GA 当天 EOL，不再修复；提前在 2.x 最后一个 release 和 3.1 release notes 中明确数据不可打开、备份方式和 EOL 日期。3.1 不携带 migration/fallback。
 - 下一 major：至少在 roadmap/release notes 宣布 breaking epoch 与 EOL 日期；发现被主动利用的严重漏洞时，项目可缩短窗口并清楚公告。
 - `SUPPORT.md` 同时列 host OS、target adapter、架构、安装形式和支持等级；不要把“CI 能编译”写成“产品支持”。
 
@@ -229,7 +229,7 @@ GitHub 建议项目清楚公布私密报告入口，并指出 private vulnerabil
 
 ## Yotta 的最低可公开门槛
 
-项目已经在 GitHub 公开，因此这里的“门槛”指：在 README、官网或 3.0 宣传中准确自称 open source，并发布新的 stable binary 之前必须全部满足。任一项未完成，应把下载标记为 experimental/source-available preview，不能发布 `v3.0.0` stable。
+项目已经在 GitHub 公开，因此这里的“门槛”指：在 README、官网或 3.1 宣传中准确自称 open source，并发布新的 stable binary 之前必须全部满足。任一项未完成，应把下载标记为 experimental/source-available preview，不能发布 `v3.1.0` stable。
 
 ### Source open gate
 
@@ -248,7 +248,7 @@ GitHub 建议项目清楚公布私密报告入口，并指出 private vulnerabil
 - [ ] exe/DLL/installer Authenticode 签名并 timestamp；失败即阻断。
 - [ ] 每个 release 有 SHA256SUMS、artifact SBOM、build provenance/attestation、人类 release notes、第三方 notices。
 - [ ] GitHub release immutable；用户文档给出 `gh release verify`、attestation、Authenticode 和 checksum 验证方法。
-- [ ] 支持渠道/EOL/漏洞回补边界已发布；3.0 对 2.x 的拒绝与备份提示清楚。
+- [ ] 支持渠道/EOL/漏洞回补边界已发布；3.1 对 2.x 的拒绝与备份提示清楚。
 - [ ] 达成并公开 OpenSSF Best Practices Passing；供应链目标至少 SLSA Build L2。
 
 ## 成熟阶段
@@ -257,7 +257,7 @@ GitHub 建议项目清楚公布私密报告入口，并指出 private vulnerabil
 |---|---|---|
 | L0 当前 | public source snapshot / source-available preview | 非 OSI license、公开主线滞后、单 admin、无保护分支、裸且不可验证 release；不得称“大型开源项目” |
 | L1 可公开开源 | open source preview | 完成 Source open gate；当前开发公开；DCO/CoC/governance/required checks/PVR/双管理员生效；可以接受社区贡献，但 stable binary 仍受发布门槛限制 |
-| L2 可信 3.0 | stable open-source desktop tool | 完成 Stable binary gate；OpenSSF Passing；SLSA Build L2；signed complete artifacts；明确 support/EOL；可由第二人独立发布和响应漏洞 |
+| L2 可信 3.1 | stable open-source desktop tool | 完成 Stable binary gate；OpenSSF Passing；SLSA Build L2；signed complete artifacts；明确 support/EOL；可由第二人独立发布和响应漏洞 |
 | L3 大型项目 | mature community project | OpenSSF Silver；SLSA Build L3；unsigned payload 可复现；≥3 active maintainers、至少 2 org；公开 contributor ladder/RFC-roadmap/release train；依赖与安全门禁全自动；第三方安全评审开始周期化 |
 | L4 关键生态 | security-mature critical project | OpenSSF Gold；至少两个非关联重要贡献者；敏感变更双人审查；90% statement/80% branch coverage（适用时）；最近 5 年安全评审；多组织治理、事故演练、密钥轮换和独立重建验证持续运行 |
 
@@ -292,22 +292,22 @@ GitHub 建议项目清楚公布私密报告入口，并指出 private vulnerabil
 
 ## 可验收的外部检查
 
-发布 `v3.0.0` 前应能由一台无项目私钥的干净机器完成：
+发布 `v3.1.0` 前应能由一台无项目私钥的干净机器完成：
 
 ```powershell
 # Release/tag/asset 不可变与匹配
-gh release verify v3.0.0 -R yottaapp/yotta
-gh release verify-asset v3.0.0 .\Yotta-3.0.0-windows-x64.zip -R yottaapp/yotta
+gh release verify v3.1.0 -R yottaapp/yotta
+gh release verify-asset v3.1.0 .\Yotta-3.1.0-windows-x64.zip -R yottaapp/yotta
 
 # Build provenance
-gh attestation verify .\Yotta-3.0.0-windows-x64.zip -R yottaapp/yotta
+gh attestation verify .\Yotta-3.1.0-windows-x64.zip -R yottaapp/yotta
 
 # Windows publisher signature与 timestamp
 signtool verify /pa /all /v .\Yotta.exe
 signtool verify /pa /all /v .\Yotta-Setup.exe
 
 # Published checksum
-Get-FileHash .\Yotta-3.0.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\Yotta-3.1.0-windows-x64.zip -Algorithm SHA256
 ```
 
 项目维护者还应能证明：

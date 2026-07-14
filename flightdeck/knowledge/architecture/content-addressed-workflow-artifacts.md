@@ -1,11 +1,20 @@
 ---
 kind: note
-summary: "Workflow v3 的 Source、Catalog 与 Program 使用 RFC 8785 canonical JSON、版本化 hash domain、strict digest 与 opaque seal；hash 是完整性标识，不是签名或授权。"
+summary: "Yotta 3.1 与 Workflow/Node/Data/Program 3.1 统一发布命名，但内容摘要算法域独立版本化；canonical DTO 改变必须换 hash domain 并拒绝旧 artifact，不能保留双 runtime。"
 activation: action
 read_when: "修改 Workflow Source 数字/JSON 边界、CatalogSnapshot、Compiler、ProgramSnapshot、ProgramStore、执行队列或 runtime bind 时。"
 recheck_when: "RFC 8785 实现、hash 算法/域、Program format、NodeContract projection、compiler build identity 或插件 implementation lock 改变时。"
 ---
 # Content-addressed Workflow artifacts
+
+## 产品版本与协议代际
+
+Yotta 3.1 是产品发布版本，Workflow/Node/Data/Program 3.1 是同一发布线内部的协议代际。当前代码中的 v3 Source/Catalog/Program 仍是未发布的 Compiler 切片：其 strict parse、JCS、diagnostic budget、opaque seal 与 trusted reopen 可以复用；一旦 3.1 改变 canonical DTO、类型身份、contract projection 或 execution plan，就必须使用新的 format/hash domain，并在 strict boundary 拒绝 v3。禁止在同一 domain 下改变摘要含义，也禁止让 v3/3.1 两个 runtime 同时成为生产事实。
+
+Data Type 的 semanticDigest preimage 必须排除 digest 字段本身和 presentation annotations；Value digest 包含完整 Resolved Type。发布合同统一叫 3.1 不代表摘要算法域也叫 `/v3.1`：Product SemVer 不参与内容身份，Data Type 3.1 首版语义摘要仍使用冻结的算法域 `yotta/data-type-semantic/v1`。只有 canonical preimage 或摘要算法改变时才升级该域。
+
+## 当前已实现的 v3 基础
+
 三个身份不能混用：
 
 - `sourceHash = SHA-256("yotta/source/v3\0" || JCS(source))`
