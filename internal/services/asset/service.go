@@ -3,6 +3,7 @@ package asset
 import (
 	"encoding/base64"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -213,6 +214,92 @@ func (s *Service) Delete(guid string) ([]Referrer, error) {
 	}
 	s.notifyChange()
 	return refs, nil
+}
+
+// CleanupItem describes one template and its current reference count.
+type CleanupItem struct {
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	Kind       string `json:"kind"`
+	References int    `json:"references"`
+}
+
+type CleanupPreview struct {
+	Unused     []CleanupItem `json:"unused"`
+	Referenced []CleanupItem `json:"referenced"`
+}
+
+type CleanupArgs struct {
+	IDs []string `json:"ids"`
+}
+
+type CleanupResult struct {
+	Deleted []string      `json:"deleted"`
+	Skipped []CleanupItem `json:"skipped"`
+	Failed  []string      `json:"failed"`
+}
+
+// PreviewCleanup lists template assets without mutating storage. Clip assets are managed separately.
+func (s *Service) PreviewCleanup() CleanupPreview {
+	preview := CleanupPreview{Unused: []CleanupItem{}, Referenced: []CleanupItem{}}
+	for _, item := range s.cleanupItems() {
+		if item.References == 0 {
+			preview.Unused = append(preview.Unused, item)
+		} else {
+			preview.Referenced = append(preview.Referenced, item)
+		}
+	}
+	return preview
+}
+
+// CleanupUnused rechecks references and deletes only selected templates that remain unused.
+func (s *Service) CleanupUnused(args CleanupArgs) CleanupResult {
+	current := s.cleanupItems()
+	byID := make(map[string]CleanupItem, len(current))
+	for _, item := range current {
+		byID[item.ID] = item
+	}
+	result := CleanupResult{Deleted: []string{}, Skipped: []CleanupItem{}, Failed: []string{}}
+	for _, id := range args.IDs {
+		item, ok := byID[id]
+		if !ok {
+			continue
+		}
+		refs := len(s.Referrers(id))
+		if refs > 0 {
+			item.References = refs
+			result.Skipped = append(result.Skipped, item)
+			continue
+		}
+		if err := s.store.DeleteRecord(id); err != nil {
+			result.Failed = append(result.Failed, id)
+			continue
+		}
+		result.Deleted = append(result.Deleted, id)
+	}
+	if len(result.Deleted) > 0 {
+		s.notifyChange()
+	}
+	return result
+}
+
+func (s *Service) cleanupItems() []CleanupItem {
+	items := []CleanupItem{}
+	for _, rec := range s.store.List() {
+		if rec.Kind != KindTemplate {
+			continue
+		}
+		items = append(items, CleanupItem{
+			ID: rec.GUID, Label: rec.Name, Kind: KindTemplate, References: len(s.Referrers(rec.GUID)),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Label != items[j].Label {
+			return items[i].Label < items[j].Label
+		}
+		return items[i].ID < items[j].ID
+	})
+	return items
 }
 
 // ReadBlobDataURL 给 FE thumbnail: 按 sha 读 blob → data:image/png;base64,...

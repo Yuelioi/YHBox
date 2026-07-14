@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 112,
-    "models": 92
+    "methods": 116,
+    "models": 100
   },
   "services": [
     {
@@ -248,6 +248,18 @@
           "returns": "$CancellablePromise<string>"
         },
         {
+          "name": "CleanupUnused",
+          "bindingId": "1446127923",
+          "parameters": [
+            {
+              "name": "args",
+              "optional": false,
+              "type": "$models.CleanupArgs"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CleanupResult>"
+        },
+        {
           "name": "CurrentResolution",
           "bindingId": "2642272974",
           "parameters": [
@@ -316,6 +328,12 @@
             }
           ],
           "returns": "$CancellablePromise<$models.VariantPick>"
+        },
+        {
+          "name": "PreviewCleanup",
+          "bindingId": "2483312603",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.CleanupPreview>"
         },
         {
           "name": "ReadBlobDataURL",
@@ -813,6 +831,18 @@
       "module": "internal/services/container/subgraphservice",
       "methods": [
         {
+          "name": "CleanupUnused",
+          "bindingId": "3591370622",
+          "parameters": [
+            {
+              "name": "args",
+              "optional": false,
+              "type": "$models.CleanupArgs"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CleanupResult>"
+        },
+        {
           "name": "Create",
           "bindingId": "1185056940",
           "parameters": [
@@ -870,6 +900,12 @@
           "bindingId": "2861679568",
           "parameters": [],
           "returns": "$CancellablePromise<$models.Subgraph[]>"
+        },
+        {
+          "name": "PreviewCleanup",
+          "bindingId": "1261537792",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.CleanupPreview>"
         },
         {
           "name": "Referrers",
@@ -2497,6 +2533,80 @@
         },
         {
           "kind": "class",
+          "name": "CleanupArgs",
+          "fields": [
+            {
+              "name": "\"ids\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupItem",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"references\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupPreview",
+          "fields": [
+            {
+              "name": "\"unused\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"referenced\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupResult",
+          "fields": [
+            {
+              "name": "\"deleted\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"skipped\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"failed\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Origin",
           "fields": [
             {
@@ -2669,6 +2779,80 @@
               "name": "\"nodeId\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupArgs",
+          "fields": [
+            {
+              "name": "\"ids\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupItem",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"references\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupPreview",
+          "fields": [
+            {
+              "name": "\"unused\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"referenced\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupResult",
+          "fields": [
+            {
+              "name": "\"deleted\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"skipped\"",
+              "optional": false,
+              "type": "CleanupItem[]"
+            },
+            {
+              "name": "\"failed\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         },

@@ -485,7 +485,7 @@
           size="xs"
           color="neutral"
           variant="soft"
-          icon="i-tabler-zap"
+          icon="i-tabler-bolt"
           class="flex-1"
           @click="$emit('request-record', { mode: 'simple', replaceNodeID: node.id })"
           >{{ t('node.PlayClip.inspector.record_simple') }}</UButton

@@ -3618,10 +3618,52 @@ export default {
     changed_refs: '{n} recording(s) became referenced and were skipped',
     delete_failed: 'Could not clean recordings',
   },
+  subgraphCleanup: {
+    title: 'Clean unused blueprints',
+    scanning: 'Checking blueprint references across all workflows and blueprints…',
+    scan_failed: 'Could not check blueprint references',
+    empty_title: 'No blueprints to clean',
+    empty_desc:
+      'Every blueprint is in use, or the library is already clean. {n} blueprint(s) are referenced.',
+    can_delete: 'Safe to delete',
+    in_use: 'Still used by workflows or blueprints',
+    selected_title: 'Blueprints to delete',
+    select_all: 'Select all',
+    clear_selection: 'Clear selection',
+    select_item: 'Select blueprint “{name}”',
+    skipped_title: '{n} blueprint(s) in use were skipped',
+    skipped_desc: 'These blueprints are still referenced and will not be deleted.',
+    delete_count: 'Delete {n} blueprints',
+    partial_failed: '{n} blueprint(s) could not be deleted',
+    changed_refs: '{n} blueprint(s) became referenced and were skipped',
+    delete_failed: 'Could not clean blueprints',
+    kind: 'Blueprint',
+  },
+  templateCleanup: {
+    title: 'Clean unused templates',
+    scanning: 'Checking template references across all workflows and blueprints…',
+    scan_failed: 'Could not check template references',
+    empty_title: 'No templates to clean',
+    empty_desc:
+      'Every template is in use, or the library is already clean. {n} template(s) are referenced.',
+    can_delete: 'Safe to delete',
+    in_use: 'Still used by workflows or blueprints',
+    selected_title: 'Templates to delete',
+    select_all: 'Select all',
+    clear_selection: 'Clear selection',
+    select_item: 'Select template “{name}”',
+    skipped_title: '{n} template(s) in use were skipped',
+    skipped_desc: 'These templates are still referenced and will not be deleted.',
+    delete_count: 'Delete {n} templates',
+    partial_failed: '{n} template(s) could not be deleted',
+    changed_refs: '{n} template(s) became referenced and were skipped',
+    delete_failed: 'Could not clean templates',
+    kind: 'Template',
+  },
   assetMaintenance: {
     title: 'Resource management',
     description:
-      'Keep automation assets organized. Recording cleanup checks workflow references first; blueprints and templates open their existing batch managers.',
+      'Scan real references for recordings, blueprints, and templates, then preview and select what to safely remove.',
     recordings: {
       title: 'Unused recordings',
       description:
@@ -3631,14 +3673,14 @@ export default {
     subgraphs: {
       title: 'Blueprint library',
       description:
-        'Review references, then organize categories and tags or remove obsolete blueprints.',
-      action: 'Manage blueprints',
+        'Scan non-recording blueprints and list items unused by workflows or blueprints.',
+      action: 'Scan and clean',
     },
     templates: {
       title: 'Template library',
       description:
-        'Organize template categories and tags or remove duplicates with reference warnings.',
-      action: 'Manage templates',
+        'Scan the template library and list templates unused by workflows or blueprints.',
+      action: 'Scan and clean',
     },
   },
   calibration: {

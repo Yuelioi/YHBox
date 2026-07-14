@@ -6,7 +6,7 @@ summary: "Complete recording asset lifecycle implementation and finish desktop i
 
 ## State
 
-实施完成，等待桌面端视觉/交互 smoke。停止生成内存 pending，Finalize 才落库，Discard/Cancel 不产生资产；未引用录制支持预览与删除前引用复检。
+实施完成，等待桌面端视觉/交互 smoke。停止生成内存 pending，Finalize 才落库，Discard/Cancel 不产生资产；录制、蓝图与模板均支持未引用项预览、勾选清理与删除前引用复检。
 
 目标用户以普通人为主，专业能力渐进披露；设计关键词为清晰、可靠、高效。
 
@@ -36,6 +36,8 @@ Done:
 - 已实现并测试 pending/finalize/discard/cancel/cleanup 后端契约。
 - 已实现 HUD 二次确认取消、停止后必填命名及可选分类/标签/描述。
 - 已实现资产库清理预览、默认全选未引用项、删除前引用复检与跳过提示。
+- 资源管理中的蓝图库、模板库已从导航入口升级为真实扫描清理；蓝图排除录制产物与匿名实现子图，模板排除 Clip，避免资源类型重叠和误删。
+- 新增全前端 Tabler 字面量图标名有效性扫描，修复 `broom`、`zap`、`activity-off` 三个不存在且会静默空渲染的名称。
 - 已生成最新 Wails bindings，并完成 production build。
 
 Current:
@@ -52,6 +54,7 @@ Verified:
 - `cd frontend && pnpm i18n:check`（2717 keys）
 - `cd frontend && pnpm build`
 - `task build`（112 methods / 0 warnings，产物 `bin/Yotta.exe`）
+- `task check`（14 services / 116 methods，Go coverage 66.5%，frontend lint/type/i18n/Vitest/build/bundle gate 全绿）
 
 ## Open questions
 

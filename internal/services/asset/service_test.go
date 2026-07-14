@@ -234,3 +234,51 @@ func TestService_CurrentResolution(t *testing.T) {
 		t.Error("CurrentResolution with nil adapter should error")
 	}
 }
+
+func TestServiceCleanupOnlyDeletesSelectedUnusedTemplates(t *testing.T) {
+	s, _ := NewStore(t.TempDir())
+	for _, rec := range []AssetRecord{
+		makeRecord("unused", "Unused", KindTemplate),
+		makeRecord("used", "Used", KindTemplate),
+		makeRecord("clip", "Clip", KindClip),
+	} {
+		if err := s.PutRecord(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	refs := map[string]int{"used": 1}
+	svc := NewService(s, nil)
+	ConfigureReferrerScanner(svc, func(id string) []Referrer {
+		return make([]Referrer, refs[id])
+	})
+
+	preview := svc.PreviewCleanup()
+	if len(preview.Unused) != 1 || preview.Unused[0].ID != "unused" {
+		t.Fatalf("unused preview = %+v", preview.Unused)
+	}
+	if len(preview.Referenced) != 1 || preview.Referenced[0].ID != "used" {
+		t.Fatalf("referenced preview = %+v", preview.Referenced)
+	}
+
+	refs["unused"] = 1
+	result := svc.CleanupUnused(CleanupArgs{IDs: []string{"unused"}})
+	if len(result.Skipped) != 1 || result.Skipped[0].ID != "unused" {
+		t.Fatalf("cleanup should recheck references: %+v", result)
+	}
+	if _, ok := s.Get("unused"); !ok {
+		t.Fatal("newly referenced template was deleted")
+	}
+
+	refs["unused"] = 0
+	result = svc.CleanupUnused(CleanupArgs{IDs: []string{"unused"}})
+	if len(result.Deleted) != 1 || result.Deleted[0] != "unused" {
+		t.Fatalf("cleanup result = %+v", result)
+	}
+	if _, ok := s.Get("unused"); ok {
+		t.Fatal("unused template still exists")
+	}
+	if _, ok := s.Get("clip"); !ok {
+		t.Fatal("clip must not be exposed to template cleanup")
+	}
+}

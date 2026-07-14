@@ -25,10 +25,7 @@
         v-else-if="tab === 'clips'"
         @pick-clip="(id: string) => emit('pick-clip', id)"
       />
-      <AssetMaintenancePanel
-        v-else-if="tab === 'maintenance'"
-        @navigate="(target) => emit('update:tab', target)"
-      />
+      <AssetMaintenancePanel v-else-if="tab === 'maintenance'" />
     </div>
   </div>
 </template>

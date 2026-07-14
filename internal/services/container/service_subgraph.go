@@ -6,6 +6,7 @@ package container
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -139,4 +140,95 @@ func (s *SubgraphService) Referrers(id string) []SubgraphReferrer {
 		return nil
 	}
 	return s.scanReferrers(id)
+}
+
+// CleanupItem describes one reusable blueprint and its current reference count.
+// Recording-derived and anonymous implementation subgraphs are intentionally handled elsewhere.
+type CleanupItem struct {
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	Kind       string `json:"kind"`
+	References int    `json:"references"`
+}
+
+type CleanupPreview struct {
+	Unused     []CleanupItem `json:"unused"`
+	Referenced []CleanupItem `json:"referenced"`
+}
+
+type CleanupArgs struct {
+	IDs []string `json:"ids"`
+}
+
+type CleanupResult struct {
+	Deleted []string      `json:"deleted"`
+	Skipped []CleanupItem `json:"skipped"`
+	Failed  []string      `json:"failed"`
+}
+
+// PreviewCleanup lists reusable blueprints without mutating the global pool.
+func (s *SubgraphService) PreviewCleanup() CleanupPreview {
+	preview := CleanupPreview{Unused: []CleanupItem{}, Referenced: []CleanupItem{}}
+	for _, item := range s.cleanupItems() {
+		if item.References == 0 {
+			preview.Unused = append(preview.Unused, item)
+		} else {
+			preview.Referenced = append(preview.Referenced, item)
+		}
+	}
+	return preview
+}
+
+// CleanupUnused rechecks references and deletes only selected blueprints that remain unused.
+func (s *SubgraphService) CleanupUnused(args CleanupArgs) CleanupResult {
+	current := s.cleanupItems()
+	byID := make(map[string]CleanupItem, len(current))
+	for _, item := range current {
+		byID[item.ID] = item
+	}
+	result := CleanupResult{Deleted: []string{}, Skipped: []CleanupItem{}, Failed: []string{}}
+	for _, id := range args.IDs {
+		item, ok := byID[id]
+		if !ok {
+			continue
+		}
+		refs := len(s.Referrers(id))
+		if refs > 0 {
+			item.References = refs
+			result.Skipped = append(result.Skipped, item)
+			continue
+		}
+		sg, ok := s.store.Get(id)
+		if !ok {
+			continue
+		}
+		if err := s.store.Delete(id, sg.Rev); err != nil {
+			result.Failed = append(result.Failed, id)
+			continue
+		}
+		result.Deleted = append(result.Deleted, id)
+	}
+	if len(result.Deleted) > 0 {
+		s.emitChanged()
+	}
+	return result
+}
+
+func (s *SubgraphService) cleanupItems() []CleanupItem {
+	items := []CleanupItem{}
+	for _, sg := range s.store.List() {
+		if sg.IsAnonymous || sg.RecordingContext != nil {
+			continue
+		}
+		items = append(items, CleanupItem{
+			ID: sg.ID, Label: sg.Label, Kind: "subgraph", References: len(s.Referrers(sg.ID)),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Label != items[j].Label {
+			return items[i].Label < items[j].Label
+		}
+		return items[i].ID < items[j].ID
+	})
+	return items
 }

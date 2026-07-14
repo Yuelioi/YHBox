@@ -25,9 +25,9 @@
           size="xs"
           color="neutral"
           variant="outline"
-          icon="i-tabler-broom"
+          icon="i-tabler-database-search"
           class="shrink-0"
-          @click="openCleanup"
+          @click="openCleanup('recordings')"
         >
           {{ t('assetMaintenance.recordings.action') }}
         </UButton>
@@ -46,10 +46,10 @@
         <UButton
           size="xs"
           color="neutral"
-          variant="ghost"
-          icon="i-tabler-arrow-right"
+          variant="outline"
+          icon="i-tabler-hierarchy"
           class="shrink-0"
-          @click="emit('navigate', 'library')"
+          @click="openCleanup('subgraphs')"
         >
           {{ t('assetMaintenance.subgraphs.action') }}
         </UButton>
@@ -68,18 +68,19 @@
         <UButton
           size="xs"
           color="neutral"
-          variant="ghost"
-          icon="i-tabler-arrow-right"
+          variant="outline"
+          icon="i-tabler-photo-search"
           class="shrink-0"
-          @click="emit('navigate', 'templates')"
+          @click="openCleanup('templates')"
         >
           {{ t('assetMaintenance.templates.action') }}
         </UButton>
       </section>
     </div>
 
-    <RecordingCleanupModal
+    <AssetCleanupModal
       v-model:open="cleanupOpen"
+      :resource="cleanupResource"
       :preview="cleanupPreview"
       :loading="cleanupLoading"
       :busy="cleanupBusy"
@@ -95,31 +96,38 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
-import RecordingCleanupModal from '@/components/containers/RecordingCleanupModal.vue'
+import AssetCleanupModal from '@/components/containers/AssetCleanupModal.vue'
 
-interface RecordingCleanupPreview {
+type CleanupResource = 'recording' | 'subgraph' | 'template'
+
+interface CleanupPreview {
   unused: Array<{ id: string; label: string; kind: string; references: number }>
   referenced: Array<{ id: string; label: string; kind: string; references: number }>
 }
 
-const emit = defineEmits<{
-  navigate: [target: 'templates' | 'library']
-}>()
-
 const { t } = useI18n()
 const toast = useToast()
 const cleanupOpen = ref(false)
+const cleanupResource = ref<CleanupResource>('recording')
 const cleanupLoading = ref(false)
 const cleanupBusy = ref(false)
 const cleanupError = ref('')
-const cleanupPreview = ref<RecordingCleanupPreview>({ unused: [], referenced: [] })
+const cleanupPreview = ref<CleanupPreview>({ unused: [], referenced: [] })
 
-async function openCleanup() {
+async function openCleanup(kind: 'recordings' | 'subgraphs' | 'templates') {
+  cleanupResource.value =
+    kind === 'subgraphs' ? 'subgraph' : kind === 'templates' ? 'template' : 'recording'
   cleanupOpen.value = true
   cleanupLoading.value = true
   cleanupError.value = ''
   try {
-    cleanupPreview.value = (await backend.recording.previewCleanup()) as RecordingCleanupPreview
+    const preview =
+      kind === 'subgraphs'
+        ? await backend.subgraphs.previewCleanup()
+        : kind === 'templates'
+          ? await backend.assets.previewCleanup()
+          : await backend.recording.previewCleanup()
+    cleanupPreview.value = (preview ?? { unused: [], referenced: [] }) as CleanupPreview
   } catch (error) {
     cleanupError.value = errorMessage(error)
   } finally {
@@ -130,29 +138,45 @@ async function openCleanup() {
 async function cleanup(ids: string[]) {
   cleanupBusy.value = true
   try {
-    const result = (await backend.recording.cleanupUnused(ids)) as {
+    const cleanupCall =
+      cleanupResource.value === 'subgraph'
+        ? backend.subgraphs.cleanupUnused(ids)
+        : cleanupResource.value === 'template'
+          ? backend.assets.cleanupUnused(ids)
+          : backend.recording.cleanupUnused(ids)
+    const result = (await cleanupCall) as {
       deleted: string[]
       skipped: unknown[]
       failed: string[]
     }
+    const copyPrefix = `${cleanupResource.value}Cleanup`
     if (result.failed.length > 0) {
       toast.add({
-        title: t('recordingCleanup.partial_failed', { n: result.failed.length }),
+        title: t(`${copyPrefix}.partial_failed`, { n: result.failed.length }),
         color: 'error',
       })
-      await openCleanup()
+      await openCleanup(
+        cleanupResource.value === 'subgraph'
+          ? 'subgraphs'
+          : cleanupResource.value === 'template'
+            ? 'templates'
+            : 'recordings',
+      )
       return
     }
     if (result.skipped.length > 0) {
       toast.add({
-        title: t('recordingCleanup.changed_refs', { n: result.skipped.length }),
+        title: t(`${copyPrefix}.changed_refs`, { n: result.skipped.length }),
         color: 'warning',
       })
+    }
+    if (cleanupResource.value === 'template' && result.deleted.length > 0) {
+      await backend.assets.gcBlobs()
     }
     cleanupOpen.value = false
   } catch (error) {
     toast.add({
-      title: t('recordingCleanup.delete_failed'),
+      title: t(`${cleanupResource.value}Cleanup.delete_failed`),
       description: errorMessage(error),
       color: 'error',
     })

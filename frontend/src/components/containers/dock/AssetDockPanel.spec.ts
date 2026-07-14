@@ -18,11 +18,13 @@ describe('AssetDockPanel information architecture', () => {
     expect(dock).not.toContain("t('recordingCleanup.action')")
   })
 
-  it('offers recording cleanup and routes to existing blueprint and template managers', () => {
+  it('offers cleanup workflows for recordings, blueprints, and templates', () => {
     expect(maintenance).toContain("t('assetMaintenance.recordings.title')")
     expect(maintenance).toContain("t('assetMaintenance.subgraphs.title')")
     expect(maintenance).toContain("t('assetMaintenance.templates.title')")
-    expect(maintenance).toContain("emit('navigate', 'library')")
-    expect(maintenance).toContain("emit('navigate', 'templates')")
+    expect(maintenance).toContain("openCleanup('recordings')")
+    expect(maintenance).toContain("openCleanup('subgraphs')")
+    expect(maintenance).toContain("openCleanup('templates')")
+    expect(maintenance).not.toContain("emit('navigate'")
   })
 })

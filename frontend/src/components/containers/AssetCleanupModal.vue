@@ -1,15 +1,15 @@
 <template>
   <BaseModal
     :open="open"
-    :title="t('recordingCleanup.title')"
-    icon="i-tabler-broom"
+    :title="copy('title')"
+    :icon="resourceIcon"
     size="2xl"
     @update:open="emit('update:open', $event)"
   >
     <div v-if="loading" class="flex flex-col gap-3" aria-busy="true">
       <USkeleton class="h-16 w-full" />
       <USkeleton class="h-28 w-full" />
-      <p class="text-xs text-muted" role="status">{{ t('recordingCleanup.scanning') }}</p>
+      <p class="text-xs text-muted" role="status">{{ copy('scanning') }}</p>
     </div>
 
     <UAlert
@@ -17,42 +17,40 @@
       color="error"
       variant="soft"
       icon="i-tabler-alert-circle"
-      :title="t('recordingCleanup.scan_failed')"
+      :title="copy('scan_failed')"
       :description="error"
     />
 
     <UEmpty
       v-else-if="preview.unused.length === 0"
       icon="i-tabler-sparkles"
-      :title="t('recordingCleanup.empty_title')"
-      :description="t('recordingCleanup.empty_desc', { n: preview.referenced.length })"
+      :title="copy('empty_title')"
+      :description="copy('empty_desc', { n: preview.referenced.length })"
     />
 
     <div v-else class="flex flex-col gap-5">
       <div class="grid grid-cols-2 gap-3">
         <div class="rounded-lg border border-default px-4 py-3">
-          <p class="text-xs text-muted">{{ t('recordingCleanup.can_delete') }}</p>
+          <p class="text-xs text-muted">{{ copy('can_delete') }}</p>
           <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
             {{ preview.unused.length }}
           </p>
         </div>
         <div class="rounded-lg border border-default px-4 py-3">
-          <p class="text-xs text-muted">{{ t('recordingCleanup.in_use') }}</p>
+          <p class="text-xs text-muted">{{ copy('in_use') }}</p>
           <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
             {{ preview.referenced.length }}
           </p>
         </div>
       </div>
 
-      <section class="flex flex-col gap-2" aria-labelledby="cleanup-unused-title">
+      <section class="flex flex-col gap-2" :aria-labelledby="selectionTitleId">
         <div class="flex items-center justify-between gap-4">
-          <h4 id="cleanup-unused-title" class="text-sm font-medium text-highlighted">
-            {{ t('recordingCleanup.selected_title') }}
+          <h4 :id="selectionTitleId" class="text-sm font-medium text-highlighted">
+            {{ copy('selected_title') }}
           </h4>
           <UButton size="xs" color="neutral" variant="ghost" @click="toggleAll">
-            {{
-              allSelected ? t('recordingCleanup.clear_selection') : t('recordingCleanup.select_all')
-            }}
+            {{ allSelected ? copy('clear_selection') : copy('select_all') }}
           </UButton>
         </div>
         <ul
@@ -65,7 +63,7 @@
           >
             <UCheckbox
               :model-value="selected.has(item.id)"
-              :aria-label="t('recordingCleanup.select_item', { name: item.label })"
+              :aria-label="copy('select_item', { name: item.label })"
               @update:model-value="toggle(item.id, !!$event)"
             />
             <UIcon
@@ -84,8 +82,8 @@
         color="warning"
         variant="soft"
         icon="i-tabler-link"
-        :title="t('recordingCleanup.skipped_title', { n: preview.referenced.length })"
-        :description="t('recordingCleanup.skipped_desc')"
+        :title="copy('skipped_title', { n: preview.referenced.length })"
+        :description="copy('skipped_desc')"
       />
     </div>
 
@@ -100,7 +98,7 @@
         :disabled="selected.size === 0 || loading || !!error"
         @click="emit('confirm', [...selected])"
       >
-        {{ t('recordingCleanup.delete_count', { n: selected.size }) }}
+        {{ copy('delete_count', { n: selected.size }) }}
       </UButton>
     </template>
   </BaseModal>
@@ -111,21 +109,24 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
 
-interface RecordingCleanupItem {
+type CleanupResource = 'recording' | 'subgraph' | 'template'
+
+interface CleanupItem {
   id: string
   label: string
-  kind: 'simple' | 'precise' | string
+  kind: string
   references: number
 }
 
-interface RecordingCleanupPreview {
-  unused: RecordingCleanupItem[]
-  referenced: RecordingCleanupItem[]
+interface CleanupPreview {
+  unused: CleanupItem[]
+  referenced: CleanupItem[]
 }
 
 const props = defineProps<{
+  resource: CleanupResource
   open: boolean
-  preview: RecordingCleanupPreview
+  preview: CleanupPreview
   loading: boolean
   busy: boolean
   error: string
@@ -139,6 +140,12 @@ const selected = ref(new Set<string>())
 const allSelected = computed(
   () => props.preview.unused.length > 0 && selected.value.size === props.preview.unused.length,
 )
+const resourceIcon = computed(() => {
+  if (props.resource === 'subgraph') return 'i-tabler-hierarchy'
+  if (props.resource === 'template') return 'i-tabler-photo-search'
+  return 'i-tabler-database-search'
+})
+const selectionTitleId = computed(() => `${props.resource}-cleanup-selection-title`)
 
 watch(
   () => props.preview.unused,
@@ -147,6 +154,10 @@ watch(
   },
   { immediate: true },
 )
+
+function copy(key: string, params?: Record<string, unknown>) {
+  return t(`${props.resource}Cleanup.${key}`, params ?? {})
+}
 
 function toggle(id: string, checked: boolean) {
   const next = new Set(selected.value)
@@ -162,10 +173,14 @@ function toggleAll() {
 }
 
 function kindIcon(kind: string) {
+  if (props.resource === 'subgraph') return 'i-tabler-hierarchy'
+  if (props.resource === 'template') return 'i-tabler-photo'
   return kind === 'precise' ? 'i-tabler-movie' : 'i-tabler-route'
 }
 
 function kindLabel(kind: string) {
+  if (props.resource === 'subgraph') return t('subgraphCleanup.kind')
+  if (props.resource === 'template') return t('templateCleanup.kind')
   return kind === 'precise' ? t('recordingSave.mode_precise') : t('recordingSave.mode_simple')
 }
 </script>

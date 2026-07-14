@@ -364,6 +364,8 @@ export const backend = {
     // 删除前警告 + 库页引用计数 ("被 N 个容器使用" = referrers 按 containerID 去重).
     referrers: (id: string) =>
       invoke(SubgraphService.Referrers, id) as Promise<SubgraphReferrer[] | undefined>,
+    previewCleanup: () => invoke(SubgraphService.PreviewCleanup),
+    cleanupUnused: (ids: string[]) => invoke(SubgraphService.CleanupUnused, { ids }),
   },
   // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
   codeSnippets: {
@@ -414,6 +416,8 @@ export const backend = {
     // Referrers 只扫不删 — 删除前拿引用列表, FE 据此弹"被 N 处引用"确认.
     referrers: (guid: string) =>
       invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
+    previewCleanup: () => invoke(AssetService.PreviewCleanup),
+    cleanupUnused: (ids: string[]) => invoke(AssetService.CleanupUnused, { ids }),
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
     updateMeta: (
       guid: string,

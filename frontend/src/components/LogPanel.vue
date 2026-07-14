@@ -31,7 +31,7 @@
           size="xs"
           variant="ghost"
           :color="enabled ? 'primary' : 'neutral'"
-          :icon="enabled ? 'i-tabler-activity' : 'i-tabler-activity-off'"
+          :icon="enabled ? 'i-tabler-activity' : 'i-tabler-player-pause'"
           :title="enabled ? t('log.disable') : t('log.enable')"
           :aria-label="enabled ? t('log.disable') : t('log.enable')"
           :aria-pressed="enabled"
@@ -246,7 +246,7 @@
         "
       >
         <div class="flex items-center gap-2">
-          <UIcon name="i-tabler-activity-off" class="size-4" />
+          <UIcon name="i-tabler-player-pause" class="size-4" />
           <span>{{ t('log.disabled') }}</span>
         </div>
       </div>
