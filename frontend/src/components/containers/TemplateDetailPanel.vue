@@ -319,6 +319,13 @@ const variantThumbs = ref<Record<string, string>>({}) // blobSha → dataURL
 const activeVariantIdx = ref(0)
 const curRes = ref<[number, number] | null>(null)
 const curResExact = ref(false)
+// immediate watcher 会在 setup 声明顺序内同步执行；其访问的编辑状态必须先初始化。
+const editingName = ref(false)
+const draftName = ref('')
+const nameInputRef = ref<any>(null)
+const editingDesc = ref(false)
+const draftDesc = ref('')
+const descInputRef = ref<any>(null)
 
 const activeVariant = computed(() => detailRecord.value?.variants?.[activeVariantIdx.value])
 // 代表缩略图: 与网格 TemplateThumb 同源同法 (独立 watch on firstBlobSha),
@@ -470,9 +477,6 @@ async function onRecapture() {
 }
 
 // 名称双击编辑
-const editingName = ref(false)
-const draftName = ref('')
-const nameInputRef = ref<any>(null)
 async function enterEditName() {
   if (!tpl.value) return
   draftName.value = tpl.value.name ?? ''
@@ -491,9 +495,6 @@ function saveName() {
 }
 
 // 描述双击编辑
-const editingDesc = ref(false)
-const draftDesc = ref('')
-const descInputRef = ref<any>(null)
 async function enterEditDesc() {
   if (!tpl.value) return
   draftDesc.value = tpl.value.description ?? ''
