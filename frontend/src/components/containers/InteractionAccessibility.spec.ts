@@ -56,6 +56,17 @@ describe('editor interaction accessibility', () => {
     )
   })
 
+  it('keeps the add-variant action compact in dock and workspace details', () => {
+    const detail = source('containers/TemplateDetailPanel.vue')
+    const marker = detail.indexOf('data-testid="template-variant-capture"')
+    const action = detail.slice(
+      detail.lastIndexOf('<UButton', marker),
+      detail.indexOf('</UButton>', marker),
+    )
+    expect(action).toContain('class="max-w-full"')
+    expect(action).not.toMatch(/\sblock(?:\s|>)/)
+  })
+
   it('does not report the target window as unavailable while resolution detection is pending', () => {
     const detail = source('containers/TemplateDetailPanel.vue')
     expect(detail).toContain('v-if="resolutionLoading"')

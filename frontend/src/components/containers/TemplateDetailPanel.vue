@@ -125,10 +125,11 @@
           </div>
         </div>
         <UButton
+          data-testid="template-variant-capture"
           size="xs"
           variant="soft"
           color="neutral"
-          block
+          class="max-w-full"
           :icon="curRes && !curResExact ? 'i-tabler-plus' : 'i-tabler-refresh'"
           @click="onRecapture"
         >
