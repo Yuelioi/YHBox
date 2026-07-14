@@ -102,7 +102,7 @@
 
       <div
         ref="workspace"
-        class="editor-workspace flex flex-1 min-h-0"
+        class="editor-workspace relative flex flex-1 min-h-0"
         :data-layout="workspaceLayout"
       >
         <!-- 左活动栏 rail (常驻细栏, VS Code 式): 变量/Snippets 开收停靠 drawer,
@@ -165,8 +165,27 @@
             @update:template-selected="updateAssetPick"
             @pick-subgraph="onPickLibrarySubgraph"
             @pick-clip="onPickLibraryClip"
+            @open-workspace="assetWorkspaceOpen = true"
           />
         </ContainerEditorDock>
+
+        <section
+          v-if="assetWorkspaceOpen"
+          class="absolute inset-0 z-50 flex min-h-0 flex-col bg-default"
+          :aria-label="t('assetBrowser.workspaceTitle')"
+          @keydown.esc.stop="assetWorkspaceOpen = false"
+        >
+          <AssetDockPanel
+            v-model:tab="sidebarPrefs.assetTab"
+            workspace
+            :template-pick-mode="!!assetPickRequest"
+            :template-selected="assetPickRequest?.selected ?? []"
+            @update:template-selected="updateAssetPick"
+            @pick-subgraph="onPickLibrarySubgraph"
+            @pick-clip="onPickLibraryClip"
+            @close-workspace="assetWorkspaceOpen = false"
+          />
+        </section>
 
         <!-- Canvas -->
         <div
@@ -863,6 +882,7 @@ function onSubgraphPanelToScript() {
 
 // 折叠侧栏：持久化到 localStorage via useSidebarPrefs
 const { prefs: sidebarPrefs } = useSidebarPrefs()
+const assetWorkspaceOpen = ref(false)
 const workspace = useTemplateRef<HTMLElement>('workspace')
 const { width: workspaceWidth } = useElementSize(workspace)
 const workspaceLayout = computed(() => resolveEditorWorkspaceLayout(workspaceWidth.value))

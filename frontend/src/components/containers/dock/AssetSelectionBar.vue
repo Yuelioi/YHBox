@@ -2,11 +2,11 @@
      与底部分页解耦, 各占一行不互挤。三个资产面板共用。 -->
 <template>
   <div
-    v-if="count > 0"
+    v-if="count > 1"
     class="flex items-center gap-2 shrink-0 rounded-md bg-primary/10 ring-1 ring-inset ring-primary/30 px-2.5 py-1.5"
   >
-    <span class="text-xs text-toned shrink-0">{{
-      t('library.batch.selected_n', { n: count })
+    <span class="shrink-0 text-xs text-toned">{{
+      t('assetBrowser.selectedCount', { n: count })
     }}</span>
     <UDropdownMenu :items="batchItems">
       <UButton

@@ -100,6 +100,7 @@
           :items="allCategories"
           size="sm"
           :placeholder="t('library.explorer.category_placeholder')"
+          :aria-label="t('common.category')"
           @update:model-value="(v: string) => patch({ category: v ?? '' })"
           @create="(v: string) => patch({ category: v })"
         />
@@ -114,6 +115,7 @@
           :create-item="'always'"
           :items="allTags"
           size="sm"
+          :aria-label="t('library.detail.tags')"
           @update:model-value="(v: string[]) => patch({ tags: v })"
           @create="(v: string) => patch({ tags: [...(tpl?.tags ?? []), v] })"
         />
@@ -122,7 +124,7 @@
       <!-- 分辨率变体管理 -->
       <section v-if="detailRecord?.variants?.length" class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('template.picker.variants_label') }}</label>
-        <p class="text-[10px] leading-tight">
+        <p class="text-xs leading-relaxed">
           <template v-if="curRes">
             <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
             <span class="text-toned">{{ curResLabel }}</span>
@@ -132,31 +134,38 @@
           </template>
           <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
         </p>
-        <div class="flex flex-wrap gap-1">
-          <UButton
+        <div class="flex flex-wrap gap-1.5">
+          <div
             v-for="(v, i) in detailRecord.variants"
             :key="i"
-            size="xs"
-            :variant="activeVariantIdx === i ? 'solid' : 'soft'"
-            :color="activeVariantIdx === i ? 'primary' : 'neutral'"
-            @click="activeVariantIdx = i"
+            class="flex items-center rounded-md bg-elevated/50 p-0.5"
           >
-            {{ v.resolution[0] }}×{{ v.resolution[1] }}
-            <span v-if="isCurResVariant(v)" class="ml-1 text-[9px] opacity-70">{{
-              t('template.picker.current_badge')
-            }}</span>
-            <UIcon
+            <UButton
+              size="xs"
+              :variant="activeVariantIdx === i ? 'solid' : 'ghost'"
+              :color="activeVariantIdx === i ? 'primary' : 'neutral'"
+              @click="activeVariantIdx = i"
+            >
+              {{ v.resolution[0] }}×{{ v.resolution[1] }}
+              <span v-if="isCurResVariant(v)" class="ml-1 text-[10px] opacity-80">{{
+                t('template.picker.current_badge')
+              }}</span>
+            </UButton>
+            <UButton
               v-if="(detailRecord?.variants?.length ?? 0) > 1"
-              name="i-tabler-x"
-              class="ml-1 size-3 opacity-60 hover:opacity-100 hover:text-error"
-              :title="
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-x"
+              class="size-6 p-0"
+              :aria-label="
                 t('template.picker.del_variant_title', {
                   res: `${v.resolution[0]}×${v.resolution[1]}`,
                 })
               "
-              @click.stop="removeVariant(v.resolution)"
+              @click="removeVariant(v.resolution)"
             />
-          </UButton>
+          </div>
         </div>
         <UButton
           size="xs"
@@ -171,7 +180,7 @@
       </section>
 
       <!-- 元信息 -->
-      <section v-if="tpl.createdAt" class="space-y-1 text-[11px] text-dimmed">
+      <section v-if="tpl.createdAt" class="space-y-1 text-xs text-dimmed">
         <div class="flex justify-between">
           <span>{{ t('library.detail.created_at') }}</span>
           <span>{{ new Date(tpl.createdAt).toLocaleString() }}</span>

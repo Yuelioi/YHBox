@@ -6,7 +6,7 @@ summary: "Research and implement a commercial-grade asset browser and management
 
 ## State
 
-方案完成，尚未进入生产代码实现。当前资产区功能完整，但在窄 dock 内同时承担快速选用、深度编辑、批量整理、分页和资源维护，视觉与交互更像内部 CRUD 面板，不像成熟的资产工作台。
+生产实现已完成，等待在匹配仓库 Node 版本的环境执行根门禁。模板、蓝图和 Clip 已共用浏览工具栏、分类、分页、网格/列表、键盘导航和展开式工作台；三类资产仍保留各自真实预览与主动作。
 
 目标气质是 **Quiet Precision Asset Studio / 安静精密的资产台**：专业、可信、预览优先；不靠玻璃、霓虹、渐变或大阴影制造“商业感”。
 
@@ -190,5 +190,23 @@ Clip 当前前端只有总时长、事件数和录制元数据，没有逐段事
 
 ## Next
 
-按 Slice 1 开始实现，以视觉模板纵切验证统一浏览器骨架；通过后再接入蓝图与 Clip，避免一次性重写三个面板。
+- 使用仓库固定的 Node 22.23.1 执行 `task check`；当前机器 Node 24.18.0 会被严格工具链检查提前拒绝。
+- Windows 桌面真机复核 520/600/760px dock、1640/1920 工作台以及 125%/150% 缩放；当前会话没有可连接的应用内浏览器实例。
+- 后续若增加 Clip `activityBuckets`、引用/健康状态或跨类型搜索，必须使用真实后端摘要，不在前端推测或伪造。
 
+## Implemented
+
+- `AssetBrowserToolbar`、`AssetCategoryRail`、`AssetPager` 与 `useRovingAssetList` 统一了筛选、视图、分页及 Arrow/Home/End 键盘模型。
+- 视觉模板使用真实截图和变体元数据；自动化蓝图从真实 nodes/edges 生成有界拓扑；操作片段仅展示真实时长、事件数、鼠标模式和基准分辨率。
+- dock 单击选择、显式详情 drill-in；蓝图/Clip 双击或 Enter 插入。完整工作台提供分类、内容、常驻 inspector 三栏。
+- 资产维护从第四个产品 tab 移为独立工具入口；父宿主统一预载三类资产，避免父子重复请求。
+- 详情表单补齐 accessible name，模板变体删除改为独立可聚焦按钮，列表使用 roving tabindex。
+
+## Verified
+
+- `pnpm -C frontend typecheck`
+- `pnpm -C frontend test`：90 files / 594 tests
+- `pnpm -C frontend build`：bundle budget passed
+- `pnpm -C frontend i18n:check`：中英文 2859 keys parity / compile / refs passed
+- `pnpm -C frontend lint`：0 warnings / 0 errors；`no-explicit-any` 技术债由 270 降至 267
+- `task check`：供应链 pin 检查通过，随后因本机 Node 24.18.0 与仓库固定 22.23.1 不匹配而提前停止

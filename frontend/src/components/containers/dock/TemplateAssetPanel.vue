@@ -1,167 +1,208 @@
-<!-- 模板资产停靠面板 — 缩略图网格 (主操作=看图, 高频零点击).
-     pick 模式: 点缩略图=勾选指派给节点 (✓ 角标, 实时回写). 管理模式: 点=选中(批量); ⋯=详情(改名/重拍/变体/删除, 低频按需弹).
-     批量改标签/分类/删. 新建截图: tplStore.containerId 定位目标窗口. -->
+<!-- 视觉模板资产面板：共享筛选/分页/键盘模型，dock 原位钻取详情，workspace 常驻检查器。
+     pick 模式保留点选即回写；管理模式单击选中，双击或详情按钮进入编辑。 -->
 <template>
-  <div class="flex flex-col h-full min-h-0">
-    <!-- 顶部: 新建截图 -->
-    <div class="flex items-center border-b border-default px-3 py-2 shrink-0">
-      <UButton color="primary" icon="i-tabler-camera" size="xs" @click="onNewTemplate">
-        {{ t('template.capture.title') }}
-      </UButton>
-    </div>
-
-    <div class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
-      <div class="flex items-center gap-3 shrink-0">
-        <UInput
-          ref="searchInputRef"
-          v-model="query"
-          :placeholder="t('template.manager.search')"
-          icon="i-tabler-search"
-          size="sm"
-          class="flex-1"
-        />
-        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+  <div class="asset-panel flex h-full min-h-0 flex-col" :data-workspace="workspace">
+    <div v-if="drillIn && detailId && !workspace && !pickMode" class="flex h-full min-h-0 flex-col">
+      <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
           size="xs"
           variant="ghost"
-          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-          :title="sortDesc ? t('template.manager.sort_desc') : t('template.manager.sort_asc')"
-          @click="sortDesc = !sortDesc"
-        />
+          color="neutral"
+          icon="i-tabler-arrow-left"
+          @click="drillIn = false"
+        >
+          {{ t('common.back') }}
+        </UButton>
+        <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{
+          tplStore.map[detailId]?.name || detailId
+        }}</span>
       </div>
+      <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
+    </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <USelectMenu
-          v-model="categoryFilter"
-          :items="categoryFilterItems"
-          value-key="id"
-          size="xs"
-          class="w-40"
-        />
-        <UInputMenu
-          v-model="tagFilter"
-          multiple
-          :items="allTags"
-          size="xs"
-          :placeholder="t('library.explorer.filter_tags')"
-          class="flex-1"
-        />
-      </div>
-
-      <AssetSelectionBar
-        v-if="!pickMode"
-        :count="selected.size"
-        :batch-items="batchMenuItems"
-        @clear="selClear()"
-      />
-
-      <!-- 缩略图网格 -->
-      <div class="flex-1 min-h-0 overflow-y-auto select-none">
-        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-          <span v-if="entries.length === 0">{{ t('template.manager.empty') }}</span>
-          <span v-else>{{ t('template.manager.no_match', { search: query }) }}</span>
+    <template v-else>
+      <div
+        class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-3 py-2.5"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-highlighted">
+            {{ t('assetBrowser.visualTemplates') }}
+          </p>
+          <p class="text-xs text-dimmed">{{ t('assetBrowser.templateSubtitle') }}</p>
         </div>
+        <UButton
+          color="primary"
+          icon="i-tabler-camera"
+          size="xs"
+          class="shrink-0"
+          @click="onNewTemplate"
+        >
+          {{ t('template.capture.title') }}
+        </UButton>
+      </div>
 
-        <template v-else>
-          <div v-for="group in groupedItems" :key="group.category">
-            <div class="px-1 pt-2 pb-1 text-xs font-medium text-muted">
-              {{ group.category }}
-            </div>
+      <div class="flex min-h-0 flex-1 overflow-hidden">
+        <AssetCategoryRail v-if="workspace" v-model="categoryFilter" :items="categoryFilterItems" />
+        <div class="flex min-w-0 flex-1 flex-col gap-2.5 overflow-hidden p-3">
+          <AssetBrowserToolbar
+            ref="toolbarRef"
+            v-model:query="query"
+            v-model:category="categoryFilter"
+            v-model:tags="tagFilter"
+            v-model:sort-key="sortKey"
+            v-model:sort-desc="sortDesc"
+            v-model:view="viewMode"
+            :search-placeholder="t('template.manager.search')"
+            :category-items="categoryFilterItems"
+            :tag-items="allTags"
+            :sort-items="sortItems"
+            allow-view-switch
+            :show-category-scopes="!workspace"
+          />
+
+          <AssetSelectionBar
+            v-if="!pickMode"
+            :count="selected.size"
+            :batch-items="batchMenuItems"
+            @clear="selClear()"
+          />
+
+          <div class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
             <div
-              role="listbox"
-              aria-multiselectable="true"
-              class="grid gap-2.5"
-              style="grid-template-columns: repeat(auto-fill, minmax(112px, 1fr))"
+              v-if="filteredItems.length === 0"
+              class="flex min-h-56 flex-col items-center justify-center text-center"
             >
               <div
-                v-for="item in group.items"
-                :key="item.guid"
-                role="option"
-                tabindex="0"
-                :aria-selected="cellActive(item.guid)"
-                :aria-label="t('editor.dock.select_asset', { name: item.name || item.guid })"
-                class="group relative rounded-lg overflow-hidden cursor-pointer border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                :class="
-                  cellActive(item.guid)
-                    ? 'border-primary ring-1 ring-inset ring-primary/60'
-                    : 'border-default hover:border-primary/40'
-                "
-                @click="onCellClick(item.guid, $event)"
-                @dblclick="!pickMode && openDetail(item.guid)"
-                @keydown="onCellKeydown(item.guid, $event)"
+                class="mb-3 flex size-11 items-center justify-center rounded-lg bg-elevated/60 text-muted"
               >
-                <div class="aspect-[4/3] bg-sunken flex items-center justify-center">
-                  <TemplateThumb :sha="item.firstBlobSha" />
-                </div>
-                <div
-                  class="px-1.5 py-1.5 text-xs truncate"
-                  :class="cellActive(item.guid) ? 'text-highlighted' : 'text-toned'"
-                >
-                  {{ item.name || item.guid }}
-                </div>
-
-                <!-- pick: 已指派 ✓ 角标 -->
-                <div
-                  v-if="pickMode && isAssigned(item.guid)"
-                  class="absolute top-1 right-1 size-5 rounded-full bg-primary text-inverted flex items-center justify-center shadow"
-                >
-                  <UIcon name="i-tabler-check" class="size-3.5" />
-                </div>
-
-                <!-- 管理: ⋯ 详情 (hover); 深色半透明, 缩略图上够对比 (不用 solid 白) -->
-                <button
-                  v-if="!pickMode"
-                  type="button"
-                  class="absolute top-1 right-1 size-7 rounded-md bg-default/90 text-highlighted opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-elevated focus-visible:opacity-100 flex items-center justify-center border border-default shadow-sm transition-colors"
-                  :aria-label="t('editor.dock.detail')"
-                  @click.stop="openDetail(item.guid)"
-                  @dblclick.stop
-                >
-                  <UIcon name="i-tabler-dots" class="size-4" />
-                </button>
+                <UIcon
+                  :name="entries.length === 0 ? 'i-tabler-camera-plus' : 'i-tabler-filter-off'"
+                  class="size-5"
+                />
               </div>
+              <p class="text-sm font-medium text-toned">
+                <span v-if="entries.length === 0">{{ t('template.manager.empty') }}</span>
+                <span v-else>{{ t('template.manager.no_match', { search: query }) }}</span>
+              </p>
+              <p
+                v-if="entries.length === 0"
+                class="mt-1 max-w-64 text-xs leading-relaxed text-dimmed"
+              >
+                {{ t('template.manager.empty_hint') }}
+              </p>
             </div>
-          </div>
-        </template>
-      </div>
 
-      <!-- 底部: pick=已指派计数 / 管理=总数 + 分页 (批量操作移到顶部上下文条) -->
-      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span v-if="pickMode" class="text-xs text-toned shrink-0">{{
-          t('template.picker.selected_count', { n: assigned.length })
-        }}</span>
-        <span v-else class="text-xs text-dimmed shrink-0">{{
-          t('library.toolbar.total', { n: pageResult.total })
-        }}</span>
-        <div class="flex items-center gap-2 shrink-0">
-          <UPagination
-            v-if="pageResult.totalPages > 1"
+            <template v-else>
+              <div v-for="group in groupedItems" :key="group.category">
+                <div class="px-1 pb-1.5 pt-3 text-xs font-medium text-muted">
+                  {{ group.category }}
+                </div>
+                <div
+                  role="listbox"
+                  :aria-label="group.category"
+                  aria-multiselectable="true"
+                  data-asset-list
+                  class="template-asset-grid grid gap-3"
+                  :class="viewMode === 'list' ? 'template-asset-grid--list' : ''"
+                >
+                  <div
+                    v-for="item in group.items"
+                    :key="item.guid"
+                    role="option"
+                    data-asset-option
+                    :data-asset-id="item.guid"
+                    :tabindex="isTabStop(item.guid) ? 0 : -1"
+                    :aria-selected="cellActive(item.guid)"
+                    :aria-label="t('editor.dock.select_asset', { name: item.name || item.guid })"
+                    class="group relative cursor-pointer overflow-hidden rounded-lg border bg-default transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    :class="
+                      cellActive(item.guid)
+                        ? 'border-primary bg-primary/5 ring-1 ring-inset ring-primary/50'
+                        : 'border-default hover:border-accented hover:bg-elevated/25'
+                    "
+                    @click="onCellClick(item.guid, $event)"
+                    @dblclick="!pickMode && openDetail(item.guid)"
+                    @focus="setActive(item.guid)"
+                    @keydown="onCellKeydown(item.guid, $event)"
+                  >
+                    <div
+                      class="template-card-preview flex aspect-[16/10] items-center justify-center bg-sunken"
+                    >
+                      <TemplateThumb :sha="item.firstBlobSha" :alt="item.name || item.guid" />
+                    </div>
+                    <div class="min-w-0 px-2.5 py-2">
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="min-w-0 flex-1 truncate text-[13px] font-medium text-highlighted"
+                          >{{ item.name || item.guid }}</span
+                        >
+                        <UIcon
+                          v-if="cellActive(item.guid)"
+                          name="i-tabler-circle-check-filled"
+                          class="size-4 shrink-0 text-primary"
+                        />
+                      </div>
+                      <div class="mt-1 flex items-center gap-1.5 text-xs text-dimmed">
+                        <span>{{
+                          t('assetBrowser.variantCount', { n: item.variantCount ?? 0 })
+                        }}</span>
+                        <span v-if="item.tags?.length" class="truncate"
+                          >· {{ item.tags.slice(0, 2).join(' · ') }}</span
+                        >
+                      </div>
+                    </div>
+
+                    <!-- pick: 已指派 ✓ 角标 -->
+                    <div
+                      v-if="pickMode && isAssigned(item.guid)"
+                      class="absolute top-1 right-1 size-5 rounded-full bg-primary text-inverted flex items-center justify-center shadow"
+                    >
+                      <UIcon name="i-tabler-check" class="size-3.5" />
+                    </div>
+
+                    <!-- 管理: ⋯ 详情 (hover); 深色半透明, 缩略图上够对比 (不用 solid 白) -->
+                    <UButton
+                      v-if="!pickMode"
+                      size="xs"
+                      variant="soft"
+                      color="neutral"
+                      icon="i-tabler-dots"
+                      class="absolute right-2 top-2 size-7 p-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+                      :aria-label="t('editor.dock.detail')"
+                      @click.stop="openDetail(item.guid)"
+                      @dblclick.stop
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div
+            v-if="pickMode"
+            class="flex shrink-0 items-center justify-between border-t border-default pt-2 text-xs text-toned"
+          >
+            <span>{{ t('template.picker.selected_count', { n: assigned.length }) }}</span>
+            <span>{{ t('library.toolbar.total', { n: pageResult.total }) }}</span>
+          </div>
+          <AssetPager
+            v-else
             v-model:page="page"
             :total="pageResult.total"
+            :total-pages="pageResult.totalPages"
             :items-per-page="pageSize"
-            :sibling-count="1"
-            size="xs"
           />
-          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- 详情 (按需): 改名/描述/分类/标签/多分辨率变体/重拍/删除 -->
-  <BaseModal
-    v-model:open="detailOpen"
-    :title="t('editor.dock.detail')"
-    icon="i-tabler-photo"
-    size="md"
-  >
-    <TemplateDetailPanel
-      :guid="detailId"
-      :pick-mode="false"
-      :assigned="false"
-      @toggle-assign="() => {}"
-    />
-  </BaseModal>
+        <aside
+          v-if="workspace"
+          class="asset-inspector min-h-0 w-[340px] shrink-0 overflow-y-auto border-l border-default bg-default"
+        >
+          <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
+        </aside>
+      </div>
+    </template>
+  </div>
 
   <!-- 批量加标签 -->
   <BaseModal
@@ -216,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLocalStorage } from '@vueuse/core'
 import { backend, type AssetSummary } from '@/lib/backend'
@@ -227,11 +268,15 @@ import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AssetSelectionBar from './AssetSelectionBar.vue'
+import AssetBrowserToolbar from './AssetBrowserToolbar.vue'
+import AssetPager from './AssetPager.vue'
+import AssetCategoryRail from './AssetCategoryRail.vue'
 import TemplateDetailPanel from '@/components/containers/TemplateDetailPanel.vue'
 import TemplateThumb from './TemplateThumb.vue'
+import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 
 const { t } = useI18n()
-const props = defineProps<{ pickMode?: boolean; modelValue?: string[] }>()
+const props = defineProps<{ pickMode?: boolean; modelValue?: string[]; workspace?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [v: string[]] }>()
 
 // pick 模式: 缩略图勾选=指派给节点 (按 modelValue 回显); 管理模式: 选中=批量.
@@ -253,11 +298,13 @@ function onCellClick(guid: string, e: MouseEvent) {
     toggleAssign(guid)
     return
   }
+  detailId.value = guid
   selClick(guid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
 function onCellKeydown(guid: string, e: KeyboardEvent) {
   if (e.target !== e.currentTarget) return
+  if (move(guid, e)) return
   if (e.key === 'Enter' && !props.pickMode) {
     e.preventDefault()
     openDetail(guid)
@@ -273,7 +320,8 @@ const tplStore = useTemplatesStore()
 const { confirm } = useConfirm()
 
 const query = ref('')
-const searchInputRef = ref<any>(null)
+const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
+const viewMode = useLocalStorage<'grid' | 'list'>('asset.templates.view', 'grid')
 
 // 排序
 const sortKey = ref<'name' | 'createdAt' | 'variantCount'>('name')
@@ -343,9 +391,6 @@ const filteredItems = computed<TplItem[]>(() => {
 // 分页 + 分组
 const page = ref(1)
 const pageSize = useLocalStorage('template.pageSize', 50)
-const pageSizeItems = computed(() =>
-  [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })),
-)
 const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
 const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
@@ -364,26 +409,24 @@ watch(
 // 多选 (批量用)
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.guid)))
 const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { isTabStop, setActive, move } = useRovingAssetList(visibleIds)
 
-// 面板 mount (切到资产·模板 tab) → reload + 重置过滤 + 聚焦搜索.
+// 数据由 AssetDockPanel 统一预载，避免父子组件重复请求同一资产接口。
 onMounted(async () => {
-  void tplStore.reload()
   query.value = ''
   categoryFilter.value = 'all'
   tagFilter.value = []
   page.value = 1
   selClear()
   await nextTick()
-  const el = searchInputRef.value?.$el as HTMLElement | undefined
-  el?.querySelector('input')?.focus()
+  await toolbarRef.value?.focusSearch()
 })
 
-// ── 详情 (按需弹出) ──
-const detailOpen = ref(false)
 const detailId = ref<string | null>(null)
+const drillIn = ref(false)
 function openDetail(guid: string) {
   detailId.value = guid
-  detailOpen.value = true
+  drillIn.value = true
 }
 
 // 新建截图
@@ -492,3 +535,36 @@ async function onBatchDelete() {
   selClear()
 }
 </script>
+
+<style scoped>
+.asset-panel {
+  container-type: inline-size;
+}
+
+.template-asset-grid {
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+}
+
+.template-asset-grid--list {
+  grid-template-columns: 1fr;
+}
+
+.template-asset-grid--list > [data-asset-option] {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+}
+
+@container (width < 520px) {
+  .template-asset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .template-asset-grid--list {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-inspector {
+    display: none;
+  }
+}
+</style>

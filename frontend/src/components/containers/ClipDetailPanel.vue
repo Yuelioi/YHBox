@@ -89,6 +89,7 @@
           :items="allCategories"
           size="sm"
           :placeholder="t('library.explorer.category_placeholder')"
+          :aria-label="t('common.category')"
           @update:model-value="(v: string) => patch({ category: v ?? '' })"
           @create="(v: string) => patch({ category: v })"
         />
@@ -103,13 +104,14 @@
           :create-item="'always'"
           :items="allTags"
           size="sm"
+          :aria-label="t('library.detail.tags')"
           @update:model-value="(v: string[]) => patch({ tags: v })"
           @create="(v: string) => patch({ tags: [...(clip?.tags ?? []), v] })"
         />
       </section>
 
       <!-- 元信息 -->
-      <section v-if="clip.createdAt" class="space-y-1 text-[11px] text-dimmed">
+      <section v-if="clip.createdAt" class="space-y-1 text-xs text-dimmed">
         <div class="flex justify-between">
           <span>{{ t('library.detail.created_at') }}</span>
           <span>{{ new Date(clip.createdAt).toLocaleString() }}</span>

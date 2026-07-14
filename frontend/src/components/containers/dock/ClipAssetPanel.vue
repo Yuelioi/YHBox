@@ -1,164 +1,203 @@
 <!-- clip 资产停靠面板. 主操作 = 放进画布: 行可拖到画布(落松手处) / 双击插到中心 (裸 PlayClip).
      单击=选中(批量); 右键/⋯=插入 + 详情(改名/标签等低频 → 按需弹小 modal) + 删除. -->
 <template>
-  <div class="flex flex-col h-full min-h-0">
-    <div class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
-      <div class="flex items-center gap-3 shrink-0">
-        <UInput
-          ref="searchInputRef"
-          v-model="query"
-          :placeholder="t('clip.manager.search')"
-          icon="i-tabler-search"
-          size="sm"
-          class="flex-1"
-        />
-        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+  <div class="asset-panel flex h-full min-h-0 flex-col" :data-workspace="workspace">
+    <div v-if="drillIn && detailId && !workspace" class="flex h-full min-h-0 flex-col">
+      <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
           size="xs"
           variant="ghost"
-          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-          :title="sortDesc ? t('clip.manager.sort_desc') : t('clip.manager.sort_asc')"
-          @click="sortDesc = !sortDesc"
-        />
+          color="neutral"
+          icon="i-tabler-arrow-left"
+          @click="drillIn = false"
+        >
+          {{ t('common.back') }}
+        </UButton>
+        <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{
+          byId(detailId)?.label || detailId
+        }}</span>
+        <UButton size="xs" color="primary" icon="i-tabler-package-import" @click="onDetailInsert">
+          {{ t('library.explorer.insert') }}
+        </UButton>
       </div>
+      <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
+    </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <USelectMenu
-          v-model="categoryFilter"
-          :items="categoryFilterItems"
-          value-key="id"
-          size="xs"
-          class="w-40"
-        />
-        <UInputMenu
-          v-model="tagFilter"
-          multiple
-          :items="allTags"
-          size="xs"
-          :placeholder="t('library.explorer.filter_tags')"
-          class="flex-1"
-        />
-      </div>
-
-      <p v-if="selected.size === 0" class="px-1 text-xs text-dimmed shrink-0">
-        {{ t('editor.dock.drag_hint') }}
-      </p>
-      <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
-
-      <div class="flex-1 min-h-0 overflow-y-auto select-none">
-        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-          <span v-if="entries.length === 0">{{ t('clip.manager.empty') }}</span>
-          <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
+    <template v-else>
+      <div
+        class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-3 py-2.5"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-highlighted">{{ t('assetBrowser.actionClips') }}</p>
+          <p class="text-xs text-dimmed">{{ t('assetBrowser.clipSubtitle') }}</p>
         </div>
+        <div class="flex shrink-0 items-center gap-2 text-xs text-dimmed">
+          <UIcon name="i-tabler-grip-horizontal" class="size-4" />
+          <span>{{ t('assetBrowser.dragToCanvas') }}</span>
+        </div>
+      </div>
 
-        <div v-else role="listbox" aria-multiselectable="true" class="space-y-2">
-          <template v-for="group in groupedItems" :key="group.category">
-            <div class="px-1 pt-2 pb-0.5 text-xs font-medium text-muted">
-              {{ group.category }}
-            </div>
-            <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
-              <div
-                draggable="true"
-                role="option"
-                tabindex="0"
-                :aria-selected="isSelected(item.id)"
-                :aria-label="
-                  t('editor.dock.select_asset', { name: item.label || t('clip.manager.untitled') })
-                "
-                class="group rounded p-2.5 cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                :class="
-                  isSelected(item.id)
-                    ? 'bg-primary/15 ring-1 ring-inset ring-primary/50'
-                    : 'bg-elevated/30 hover:bg-elevated/60'
-                "
-                @click="onRowClick(item.id, $event)"
-                @dblclick="openDetail(item.id)"
-                @keydown="onRowKeydown(item.id, $event)"
-                @contextmenu="selClick(item.id)"
-                @dragstart="(e) => startEditorDrag({ type: 'clip', id: item.id }, e)"
+      <div class="flex min-h-0 flex-1 overflow-hidden">
+        <AssetCategoryRail v-if="workspace" v-model="categoryFilter" :items="categoryFilterItems" />
+        <div class="flex min-w-0 flex-1 flex-col gap-2.5 overflow-hidden p-3">
+          <AssetBrowserToolbar
+            ref="toolbarRef"
+            v-model:query="query"
+            v-model:category="categoryFilter"
+            v-model:tags="tagFilter"
+            v-model:sort-key="sortKey"
+            v-model:sort-desc="sortDesc"
+            v-model:view="viewMode"
+            :search-placeholder="t('clip.manager.search')"
+            :category-items="categoryFilterItems"
+            :tag-items="allTags"
+            :sort-items="sortItems"
+            allow-view-switch
+            :show-category-scopes="!workspace"
+          />
+
+          <AssetSelectionBar
+            :count="selected.size"
+            :batch-items="batchMenuItems"
+            @clear="selClear()"
+          />
+
+          <div class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
+            <div
+              v-if="filteredItems.length === 0"
+              class="flex min-h-56 flex-col items-center justify-center text-center"
+            >
+              <div class="mb-3 flex size-11 items-center justify-center rounded-lg bg-elevated/60">
+                <UIcon name="i-tabler-player-record" class="size-5 text-muted" />
+              </div>
+              <p class="text-sm font-medium text-toned">
+                <span v-if="entries.length === 0">{{ t('clip.manager.empty') }}</span>
+                <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
+              </p>
+              <p
+                v-if="entries.length === 0"
+                class="mt-1 max-w-64 text-xs leading-relaxed text-dimmed"
               >
-                <div class="flex items-center gap-2">
-                  <span
-                    class="shrink-0 transition-opacity"
-                    :class="
-                      isSelected(item.id)
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    "
-                    @click.stop
-                    @dblclick.stop
-                    @dragstart.stop.prevent
+                {{ t('assetBrowser.clipEmptyHint') }}
+              </p>
+            </div>
+
+            <div v-else class="space-y-1">
+              <template v-for="group in groupedItems" :key="group.category">
+                <div class="px-1 pb-1.5 pt-3 text-xs font-medium text-muted">
+                  {{ group.category }}
+                </div>
+                <div
+                  role="listbox"
+                  :aria-label="group.category"
+                  aria-multiselectable="true"
+                  data-asset-list
+                  class="clip-grid grid gap-3"
+                  :class="viewMode === 'list' ? 'clip-grid--list' : ''"
+                >
+                  <UContextMenu
+                    v-for="item in group.items"
+                    :key="item.id"
+                    :items="ctxMenuItems(item)"
                   >
-                    <UCheckbox
-                      :model-value="isSelected(item.id)"
-                      size="sm"
+                    <div
+                      draggable="true"
+                      role="option"
+                      data-asset-option
+                      :data-asset-id="item.id"
+                      :tabindex="isTabStop(item.id) ? 0 : -1"
+                      :aria-selected="isSelected(item.id)"
                       :aria-label="
                         t('editor.dock.select_asset', {
                           name: item.label || t('clip.manager.untitled'),
                         })
                       "
-                      @update:model-value="selClick(item.id, { ctrl: true })"
-                    />
-                  </span>
-                  <UIcon name="i-tabler-movie" class="size-4 text-primary shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium truncate">
-                      {{ item.label || t('clip.manager.untitled') }}
+                      class="group cursor-grab overflow-hidden rounded-lg border bg-default active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      :class="
+                        isSelected(item.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-default hover:border-accented hover:bg-elevated/25'
+                      "
+                      @click="onRowClick(item.id, $event)"
+                      @dblclick="onPick(item.id)"
+                      @focus="setActive(item.id)"
+                      @keydown="onRowKeydown(item.id, $event)"
+                      @contextmenu="selClick(item.id)"
+                      @dragstart="(e) => startEditorDrag({ type: 'clip', id: item.id }, e)"
+                    >
+                      <div class="clip-preview aspect-[15/7] border-b border-default">
+                        <ClipTimelinePreview
+                          :duration-us="item.durationUs"
+                          :event-count="item.eventCount"
+                          :mouse-mode="item.meta?.mouseMode"
+                          :base-resolution="item.meta?.baseResolution"
+                        />
+                      </div>
+                      <div class="min-w-0 p-3">
+                        <div class="flex items-start gap-2">
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                              <span class="truncate text-[13px] font-semibold text-highlighted">{{
+                                item.label || t('clip.manager.untitled')
+                              }}</span>
+                              <UIcon
+                                v-if="isSelected(item.id)"
+                                name="i-tabler-circle-check-filled"
+                                class="size-4 shrink-0 text-primary"
+                              />
+                            </div>
+                            <p
+                              v-if="item.description"
+                              class="mt-1 line-clamp-2 text-xs leading-relaxed text-dimmed"
+                            >
+                              {{ item.description }}
+                            </p>
+                          </div>
+                          <UButton
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            icon="i-tabler-dots"
+                            class="size-7 shrink-0 p-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                            :aria-label="t('editor.dock.detail')"
+                            @click.stop="openDetail(item.id)"
+                            @dblclick.stop
+                          />
+                        </div>
+                        <div
+                          class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dimmed"
+                        >
+                          <span>{{ formatDuration(item.durationUs) }}</span>
+                          <span>{{ t('assetBrowser.inputEvents', { n: item.eventCount }) }}</span>
+                          <span v-if="item.tags?.length" class="truncate">{{
+                            item.tags.slice(0, 2).join(' · ')
+                          }}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="text-xs text-dimmed flex items-center gap-1.5 truncate mt-0.5">
-                      <span>{{ formatDuration(item.durationUs) }}</span>
-                      <span>· {{ item.eventCount }} {{ t('clip.manager.events') }}</span>
-                      <span v-if="item.tags?.length" class="truncate"
-                        >· {{ item.tags.join(', ') }}</span
-                      >
-                    </div>
-                  </div>
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-tabler-dots"
-                    class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0"
-                    :aria-label="t('editor.dock.detail')"
-                    @click.stop="openDetail(item.id)"
-                    @dblclick.stop
-                  />
+                  </UContextMenu>
                 </div>
-              </div>
-            </UContextMenu>
-          </template>
-        </div>
-      </div>
+              </template>
+            </div>
+          </div>
 
-      <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
-      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span class="text-xs text-dimmed shrink-0">{{
-          t('library.toolbar.total', { n: pageResult.total })
-        }}</span>
-        <div class="flex items-center gap-2 shrink-0">
-          <UPagination
-            v-if="pageResult.totalPages > 1"
+          <AssetPager
             v-model:page="page"
             :total="pageResult.total"
+            :total-pages="pageResult.totalPages"
             :items-per-page="pageSize"
-            :sibling-count="1"
-            size="xs"
           />
-          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- 详情 (按需): 改名/描述/分类/标签/删除 -->
-  <BaseModal
-    v-model:open="detailOpen"
-    :title="t('editor.dock.detail')"
-    icon="i-tabler-movie"
-    size="sm"
-  >
-    <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
-  </BaseModal>
+        <aside
+          v-if="workspace"
+          class="asset-inspector min-h-0 w-[360px] shrink-0 overflow-y-auto border-l border-default bg-default"
+        >
+          <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
+        </aside>
+      </div>
+    </template>
+  </div>
 
   <!-- 批量加标签 -->
   <BaseModal
@@ -213,7 +252,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLocalStorage } from '@vueuse/core'
@@ -224,9 +263,15 @@ import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AssetSelectionBar from './AssetSelectionBar.vue'
+import AssetBrowserToolbar from './AssetBrowserToolbar.vue'
+import AssetPager from './AssetPager.vue'
+import AssetCategoryRail from './AssetCategoryRail.vue'
+import ClipTimelinePreview from './ClipTimelinePreview.vue'
 import ClipDetailPanel from '@/components/containers/ClipDetailPanel.vue'
+import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 
 const { t } = useI18n()
+const { workspace = false } = defineProps<{ workspace?: boolean }>()
 const emit = defineEmits<{
   'pick-clip': [clipID: string]
 }>()
@@ -240,7 +285,8 @@ const store = useClipsStore()
 const { confirm } = useConfirm()
 
 const query = ref('')
-const searchInputRef = ref<any>(null)
+const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
+const viewMode = useLocalStorage<'grid' | 'list'>('asset.clips.view', 'grid')
 
 const sortKey = ref<'label' | 'createdAt' | 'duration'>('label')
 const sortDesc = ref(false)
@@ -309,9 +355,6 @@ const filteredItems = computed<ClipSummary[]>(() => {
 
 const page = ref(1)
 const pageSize = useLocalStorage('clip.pageSize', 50)
-const pageSizeItems = computed(() =>
-  [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })),
-)
 const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
 const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
@@ -329,29 +372,30 @@ watch(
 
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
 const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { isTabStop, setActive, move } = useRovingAssetList(visibleIds)
 
-// 面板 mount → refresh + 重置过滤 + 聚焦搜索.
+// 数据由 AssetDockPanel 统一预载，避免父子组件重复请求同一资产接口。
 onMounted(async () => {
-  void store.refresh()
   query.value = ''
   categoryFilter.value = 'all'
   tagFilter.value = []
   page.value = 1
   selClear()
   await nextTick()
-  const el = searchInputRef.value?.$el as HTMLElement | undefined
-  el?.querySelector('input')?.focus()
+  await toolbarRef.value?.focusSearch()
 })
 
 function onRowClick(id: string, e: MouseEvent) {
+  detailId.value = id
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
 function onRowKeydown(id: string, e: KeyboardEvent) {
   if (e.target !== e.currentTarget) return
+  if (move(id, e)) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    openDetail(id)
+    onPick(id)
     return
   }
   if (e.key !== ' ') return
@@ -364,15 +408,15 @@ function byId(id: string): ClipSummary | undefined {
 }
 
 // ── 详情 (按需弹出) ──
-const detailOpen = ref(false)
 const detailId = ref<string | null>(null)
+const drillIn = ref(false)
 function openDetail(id: string) {
   detailId.value = id
-  detailOpen.value = true
+  drillIn.value = true
 }
 function onDetailInsert() {
   if (detailId.value) onPick(detailId.value)
-  detailOpen.value = false
+  if (!workspace) drillIn.value = false
 }
 
 function ctxMenuItems(item: ClipSummary) {
@@ -508,3 +552,37 @@ async function onBatchDelete() {
   selClear()
 }
 </script>
+
+<style scoped>
+.asset-panel {
+  container-type: inline-size;
+}
+
+.clip-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.clip-grid--list {
+  grid-template-columns: 1fr;
+}
+
+.clip-grid--list [data-asset-option] {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+}
+
+.clip-grid--list .clip-preview {
+  border-bottom: 0;
+  border-right: 1px solid var(--ui-border);
+}
+
+@container (width < 520px) {
+  .clip-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-inspector {
+    display: none;
+  }
+}
+</style>

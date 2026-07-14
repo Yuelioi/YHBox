@@ -2,178 +2,208 @@
      单击=选中(批量); 右键=快捷动作 + 详情(改名/描述/标签等低频 → 按需弹小 modal).
      在线 tab: 占位。 -->
 <template>
-  <div class="flex flex-col h-full min-h-0">
-    <!-- 本地/在线 tab -->
-    <div class="border-b border-default px-2 py-2 shrink-0">
-      <UTabs v-model="activeTab" :items="tabItems" size="xs" :content="false" />
-    </div>
-
-    <!-- 在线: 占位 -->
-    <div
-      v-if="activeTab === 'online'"
-      class="flex-1 flex flex-col items-center justify-center text-center py-16"
-    >
-      <UIcon name="i-tabler-cloud" class="size-12 text-dimmed mb-3" />
-      <h3 class="text-sm text-toned font-medium">{{ t('library.online.title') }}</h3>
-      <p class="text-xs text-dimmed mt-2 max-w-xs">{{ t('library.online.desc') }}</p>
-    </div>
-
-    <!-- 本地: 列表占满 (详情走右键 → modal) -->
-    <div v-else class="flex-1 min-h-0 overflow-hidden flex flex-col gap-2 p-3">
-      <div class="flex items-center gap-3 shrink-0">
-        <UInput
-          ref="searchInputRef"
-          v-model="query"
-          :placeholder="t('library.explorer.search')"
-          icon="i-tabler-search"
-          size="sm"
-          class="flex-1"
-        />
-        <USelect v-model="sortKey" :items="sortItems" size="xs" class="w-32" />
+  <div class="asset-panel flex h-full min-h-0 flex-col" :data-workspace="workspace">
+    <div v-if="drillIn && detailId && !workspace" class="flex h-full min-h-0 flex-col">
+      <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
           size="xs"
           variant="ghost"
-          :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
-          :title="sortDesc ? t('library.explorer.sort_desc') : t('library.explorer.sort_asc')"
-          @click="sortDesc = !sortDesc"
-        />
-      </div>
-
-      <div class="flex items-center gap-2 shrink-0">
-        <USelectMenu
-          v-model="categoryFilter"
-          :items="categoryFilterItems"
-          value-key="id"
-          size="xs"
-          class="w-40"
-        />
-        <UInputMenu
-          v-model="tagFilter"
-          multiple
-          :items="allTags"
-          size="xs"
-          :placeholder="t('library.explorer.filter_tags')"
-          class="flex-1"
-        />
-      </div>
-
-      <p v-if="selected.size === 0" class="px-1 text-xs text-dimmed shrink-0">
-        {{ t('editor.dock.drag_hint') }}
-      </p>
-      <AssetSelectionBar :count="selected.size" :batch-items="batchMenuItems" @clear="selClear()" />
-
-      <div class="flex-1 min-h-0 overflow-y-auto select-none">
-        <div v-if="filteredItems.length === 0" class="text-center text-xs text-dimmed py-8 italic">
-          <span v-if="lib.loading">{{ t('library.loading') }}</span>
-          <span v-else-if="lib.subgraphs.length === 0">{{ t('library.explorer.empty') }}</span>
-          <span v-else>{{ t('library.explorer.no_match') }}</span>
-        </div>
-
-        <div v-else role="listbox" aria-multiselectable="true" class="space-y-2">
-          <template v-for="group in groupedItems" :key="group.category">
-            <div class="px-1 pt-2 pb-0.5 text-xs font-medium text-muted">
-              {{ group.category }}
-            </div>
-            <UContextMenu v-for="item in group.items" :key="item.id" :items="ctxMenuItems(item)">
-              <div
-                draggable="true"
-                role="option"
-                tabindex="0"
-                :aria-selected="isSelected(item.id)"
-                :aria-label="t('editor.dock.select_asset', { name: item.label })"
-                class="group rounded p-3 cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                :class="
-                  isSelected(item.id)
-                    ? 'bg-primary/15 ring-1 ring-inset ring-primary/50'
-                    : 'bg-elevated/30 hover:bg-elevated/60'
-                "
-                @click="onRowClick(item.id, $event)"
-                @dblclick="openDetail(item.id)"
-                @keydown="onRowKeydown(item.id, $event)"
-                @contextmenu="selClick(item.id)"
-                @dragstart="(e) => startEditorDrag({ type: 'library-subgraph', id: item.id }, e)"
-              >
-                <div class="flex items-start gap-2">
-                  <span
-                    class="mt-0.5 shrink-0 transition-opacity"
-                    :class="
-                      isSelected(item.id)
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                    "
-                    @click.stop
-                    @dblclick.stop
-                    @dragstart.stop.prevent
-                  >
-                    <UCheckbox
-                      :model-value="isSelected(item.id)"
-                      size="sm"
-                      :aria-label="t('editor.dock.select_asset', { name: item.label })"
-                      @update:model-value="selClick(item.id, { ctrl: true })"
-                    />
-                  </span>
-                  <UIcon name="i-tabler-package" class="size-4 text-primary mt-0.5 shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium">{{ item.label }}</div>
-                    <div v-if="item.description" class="text-xs text-dimmed mt-0.5 line-clamp-2">
-                      {{ item.description }}
-                    </div>
-                    <div v-if="item.tags && item.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
-                      <span
-                        v-for="tg in item.tags"
-                        :key="tg"
-                        class="px-1.5 py-0.5 bg-elevated/60 text-[11px] rounded text-dimmed"
-                      >
-                        {{ tg }}
-                      </span>
-                    </div>
-                  </div>
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-tabler-dots"
-                    class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0"
-                    :aria-label="t('editor.dock.detail')"
-                    @click.stop="openDetail(item.id)"
-                    @dblclick.stop
-                  />
-                </div>
-              </div>
-            </UContextMenu>
-          </template>
-        </div>
-      </div>
-
-      <!-- 底部: 仅分页 (批量操作移到顶部上下文条) -->
-      <div class="flex items-center justify-between gap-3 pt-2 border-t border-default shrink-0">
-        <span class="text-xs text-dimmed shrink-0">{{
-          t('library.toolbar.total', { n: pageResult.total })
+          color="neutral"
+          icon="i-tabler-arrow-left"
+          @click="drillIn = false"
+        >
+          {{ t('common.back') }}
+        </UButton>
+        <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{
+          lib.byId(detailId)?.label || detailId
         }}</span>
-        <div class="flex items-center gap-2 shrink-0">
-          <UPagination
-            v-if="pageResult.totalPages > 1"
+        <UButton size="xs" color="primary" icon="i-tabler-package-import" @click="onDetailInsert">
+          {{ t('library.explorer.insert') }}
+        </UButton>
+      </div>
+      <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
+    </div>
+
+    <template v-else>
+      <div
+        class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-3 py-2.5"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-highlighted">
+            {{ t('assetBrowser.automationBlueprints') }}
+          </p>
+          <p class="text-xs text-dimmed">{{ t('assetBrowser.blueprintSubtitle') }}</p>
+        </div>
+        <UIcon name="i-tabler-hierarchy" class="size-4 shrink-0 text-primary" />
+      </div>
+
+      <div class="flex min-h-0 flex-1 overflow-hidden">
+        <AssetCategoryRail v-if="workspace" v-model="categoryFilter" :items="categoryFilterItems" />
+        <div class="flex min-w-0 flex-1 flex-col gap-2.5 overflow-hidden p-3">
+          <AssetBrowserToolbar
+            ref="toolbarRef"
+            v-model:query="query"
+            v-model:category="categoryFilter"
+            v-model:tags="tagFilter"
+            v-model:sort-key="sortKey"
+            v-model:sort-desc="sortDesc"
+            v-model:view="viewMode"
+            :search-placeholder="t('library.explorer.search')"
+            :category-items="categoryFilterItems"
+            :tag-items="allTags"
+            :sort-items="sortItems"
+            allow-view-switch
+            :show-category-scopes="!workspace"
+          />
+
+          <div class="flex shrink-0 items-center justify-between gap-3 px-0.5">
+            <p class="text-xs text-dimmed">{{ t('editor.dock.drag_hint') }}</p>
+            <span class="text-xs text-dimmed">{{
+              t('library.toolbar.total', { n: pageResult.total })
+            }}</span>
+          </div>
+          <AssetSelectionBar
+            :count="selected.size"
+            :batch-items="batchMenuItems"
+            @clear="selClear()"
+          />
+
+          <div class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
+            <div
+              v-if="filteredItems.length === 0"
+              class="flex min-h-56 flex-col items-center justify-center text-center"
+            >
+              <div class="mb-3 flex size-11 items-center justify-center rounded-lg bg-elevated/60">
+                <UIcon
+                  :name="lib.loading ? 'i-tabler-loader-2' : 'i-tabler-hierarchy-off'"
+                  class="size-5 text-muted"
+                  :class="{ 'animate-spin': lib.loading }"
+                />
+              </div>
+              <p class="text-sm font-medium text-toned">
+                <span v-if="lib.loading">{{ t('library.loading') }}</span>
+                <span v-else-if="lib.subgraphs.length === 0">{{
+                  t('library.explorer.empty')
+                }}</span>
+                <span v-else>{{ t('library.explorer.no_match') }}</span>
+              </p>
+            </div>
+
+            <div v-else class="space-y-1">
+              <template v-for="group in groupedItems" :key="group.category">
+                <div class="px-1 pb-1.5 pt-3 text-xs font-medium text-muted">
+                  {{ group.category }}
+                </div>
+                <div
+                  role="listbox"
+                  :aria-label="group.category"
+                  aria-multiselectable="true"
+                  data-asset-list
+                  class="blueprint-grid grid gap-3"
+                  :class="viewMode === 'list' ? 'blueprint-grid--list' : ''"
+                >
+                  <UContextMenu
+                    v-for="item in group.items"
+                    :key="item.id"
+                    :items="ctxMenuItems(item)"
+                  >
+                    <div
+                      draggable="true"
+                      role="option"
+                      data-asset-option
+                      :data-asset-id="item.id"
+                      :tabindex="isTabStop(item.id) ? 0 : -1"
+                      :aria-selected="isSelected(item.id)"
+                      :aria-label="t('editor.dock.select_asset', { name: item.label })"
+                      class="group cursor-grab overflow-hidden rounded-lg border bg-default active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      :class="
+                        isSelected(item.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-default hover:border-accented hover:bg-elevated/25'
+                      "
+                      @click="onRowClick(item.id, $event)"
+                      @dblclick="onPick(item.id)"
+                      @focus="setActive(item.id)"
+                      @keydown="onRowKeydown(item.id, $event)"
+                      @contextmenu="selClick(item.id)"
+                      @dragstart="
+                        (e) => startEditorDrag({ type: 'library-subgraph', id: item.id }, e)
+                      "
+                    >
+                      <div
+                        class="blueprint-preview aspect-[15/7] border-b border-default bg-sunken"
+                      >
+                        <BlueprintTopologyPreview :graph="item.graph" />
+                      </div>
+                      <div class="min-w-0 p-3">
+                        <div class="flex items-start gap-2">
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                              <span class="truncate text-[13px] font-semibold text-highlighted">{{
+                                item.label
+                              }}</span>
+                              <UIcon
+                                v-if="isSelected(item.id)"
+                                name="i-tabler-circle-check-filled"
+                                class="size-4 shrink-0 text-primary"
+                              />
+                            </div>
+                            <p
+                              v-if="item.description"
+                              class="mt-1 line-clamp-2 text-xs leading-relaxed text-dimmed"
+                            >
+                              {{ item.description }}
+                            </p>
+                          </div>
+                          <UButton
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            icon="i-tabler-dots"
+                            class="size-7 shrink-0 p-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                            :aria-label="t('editor.dock.detail')"
+                            @click.stop="openDetail(item.id)"
+                            @dblclick.stop
+                          />
+                        </div>
+                        <div
+                          class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-dimmed"
+                        >
+                          <span>{{
+                            t('assetBrowser.nodeCount', { n: item.graph?.nodes?.length ?? 0 })
+                          }}</span>
+                          <span>{{
+                            t('assetBrowser.outputCount', { n: item.outputPins?.length ?? 0 })
+                          }}</span>
+                          <span v-if="item.requiredGlobals?.length">{{
+                            t('assetBrowser.requiredVariables', { n: item.requiredGlobals.length })
+                          }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </UContextMenu>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <AssetPager
             v-model:page="page"
             :total="pageResult.total"
+            :total-pages="pageResult.totalPages"
             :items-per-page="pageSize"
-            :sibling-count="1"
-            size="xs"
           />
-          <USelect v-model="pageSize" :items="pageSizeItems" size="xs" class="w-24" />
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- 详情 (按需): 改名/描述/分类/标签/被引用统计/复制为新/删除 -->
-  <BaseModal
-    v-model:open="detailOpen"
-    :title="t('editor.dock.detail')"
-    icon="i-tabler-package"
-    size="sm"
-  >
-    <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
-  </BaseModal>
+        <aside
+          v-if="workspace"
+          class="asset-inspector min-h-0 w-[360px] shrink-0 overflow-y-auto border-l border-default bg-default"
+        >
+          <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
+        </aside>
+      </div>
+    </template>
+  </div>
 
   <!-- 批量加标签 -->
   <BaseModal
@@ -228,7 +258,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, nextTick } from 'vue'
+import { computed, onMounted, ref, watch, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useLocalStorage } from '@vueuse/core'
@@ -239,18 +269,25 @@ import { filterSubgraphs, groupByCategory, paginate } from '@/lib/libraryFilter'
 import { startEditorDrag } from '@/composables/editor/useEditorDragDrop'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AssetSelectionBar from './AssetSelectionBar.vue'
+import AssetBrowserToolbar from './AssetBrowserToolbar.vue'
+import AssetPager from './AssetPager.vue'
+import AssetCategoryRail from './AssetCategoryRail.vue'
+import BlueprintTopologyPreview from './BlueprintTopologyPreview.vue'
 import LibraryDetailPanel from '@/components/containers/LibraryDetailPanel.vue'
 import { backend, type Subgraph } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
+import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 
 const { t } = useI18n()
+const { workspace = false } = defineProps<{ workspace?: boolean }>()
 
 const emit = defineEmits<{
   'pick-subgraph': [libraryID: string]
 }>()
 
 const query = ref('')
-const searchInputRef = ref<any>(null)
+const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
+const viewMode = useLocalStorage<'grid' | 'list'>('asset.blueprints.view', 'grid')
 
 // 排序 (镜像模板/clip 管理): 名称/创建时间/节点数 × 正逆序.
 const sortKey = ref<'label' | 'createdAt' | 'nodes'>('label')
@@ -264,16 +301,6 @@ const sortItems = computed(() => [
 const lib = useLibraryStore()
 const toast = useToast()
 const { confirm } = useConfirm()
-
-const activeTab = ref<'local' | 'online'>('local')
-const tabItems = computed(() => [
-  { label: t('library.explorer.tab_local'), value: 'local' },
-  { label: t('library.explorer.tab_online'), value: 'online' },
-])
-
-async function refreshLibrary() {
-  await lib.reload()
-}
 
 // ── 过滤 + 分组 ──
 const categoryFilter = ref<string>('all')
@@ -328,10 +355,6 @@ const filteredItems = computed<Subgraph[]>(() => {
 
 const page = ref(1)
 const pageSize = useLocalStorage('library.pageSize', 50)
-const pageSizeItems = computed(() =>
-  [20, 50, 100].map((n) => ({ label: t('library.toolbar.per_page', { n }), value: n })),
-)
-
 const pageResult = computed(() => paginate(filteredItems.value, page.value, pageSize.value))
 const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
@@ -350,29 +373,30 @@ watch(
 // 选中 (单击/Ctrl/Shift/勾选框) — 用于批量操作.
 const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map((i) => i.id)))
 const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
+const { isTabStop, setActive, move } = useRovingAssetList(visibleIds)
 
-// 面板 mount → reload + 重置过滤 + 聚焦搜索.
+// 数据由 AssetDockPanel 统一预载，避免父子组件重复请求同一资产接口。
 onMounted(async () => {
-  void refreshLibrary()
   query.value = ''
   categoryFilter.value = 'all'
   tagFilter.value = []
   page.value = 1
   selClear()
   await nextTick()
-  const el = searchInputRef.value?.$el as HTMLElement | undefined
-  el?.querySelector('input')?.focus()
+  await toolbarRef.value?.focusSearch()
 })
 
 function onRowClick(id: string, e: MouseEvent) {
+  detailId.value = id
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
 function onRowKeydown(id: string, e: KeyboardEvent) {
   if (e.target !== e.currentTarget) return
+  if (move(id, e)) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    openDetail(id)
+    onPick(id)
     return
   }
   if (e.key !== ' ') return
@@ -385,15 +409,15 @@ function onPick(libraryID: string) {
 }
 
 // ── 详情 (按需弹出) ──
-const detailOpen = ref(false)
 const detailId = ref<string | null>(null)
+const drillIn = ref(false)
 function openDetail(id: string) {
   detailId.value = id
-  detailOpen.value = true
+  drillIn.value = true
 }
 function onDetailInsert() {
   if (detailId.value) onPick(detailId.value)
-  detailOpen.value = false
+  if (!workspace) drillIn.value = false
 }
 
 function ctxMenuItems(item: Subgraph) {
@@ -599,3 +623,37 @@ async function onBatchChangeCategory() {
   batchCategory.value = ''
 }
 </script>
+
+<style scoped>
+.asset-panel {
+  container-type: inline-size;
+}
+
+.blueprint-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+.blueprint-grid--list {
+  grid-template-columns: 1fr;
+}
+
+.blueprint-grid--list [data-asset-option] {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+
+.blueprint-grid--list .blueprint-preview {
+  border-bottom: 0;
+  border-right: 1px solid var(--ui-border);
+}
+
+@container (width < 520px) {
+  .blueprint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-inspector {
+    display: none;
+  }
+}
+</style>

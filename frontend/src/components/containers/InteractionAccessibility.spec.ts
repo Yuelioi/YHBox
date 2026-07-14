@@ -14,9 +14,18 @@ describe('editor interaction accessibility', () => {
   ])('%s exposes asset selection and details to the keyboard', (file) => {
     const panel = source(file)
     expect(panel).toContain('role="option"')
-    expect(panel).toContain('tabindex="0"')
+    expect(panel).toContain(':tabindex="isTabStop(')
     expect(panel).toContain('aria-selected')
+    expect(panel).toContain('data-asset-option')
+    expect(panel).toContain('@focus="setActive(')
+    expect(panel).toContain('if (move(')
     expect(panel).toMatch(/@keydown="on(?:Cell|Row)Keydown/)
+  })
+
+  it('keeps template variant deletion as a named keyboard action', () => {
+    const detail = source('containers/TemplateDetailPanel.vue')
+    expect(detail).toContain("t('template.picker.del_variant_title'")
+    expect(detail).toContain('@click="removeVariant(v.resolution)"')
   })
 
   it('provides a visible, named edit control for comment boxes', () => {

@@ -91,6 +91,7 @@
           :items="allCategories"
           size="sm"
           :placeholder="t('library.explorer.category_placeholder')"
+          :aria-label="t('common.category')"
           @update:model-value="(v: string) => patchField({ category: v ?? '' })"
           @create="(v: string) => patchField({ category: v })"
         />
@@ -104,12 +105,13 @@
           :create-item="'always'"
           :items="allTags"
           size="sm"
+          :aria-label="t('library.detail.tags')"
           @update:model-value="(v: string[]) => patchField({ tags: v })"
           @create="(v: string) => patchField({ tags: [...(sg?.tags ?? []), v] })"
         />
       </section>
 
-      <section class="space-y-1 text-[11px] text-dimmed">
+      <section class="space-y-1 text-xs text-dimmed">
         <div class="flex justify-between">
           <span>{{ t('library.detail.used_by') }}</span>
           <span>{{

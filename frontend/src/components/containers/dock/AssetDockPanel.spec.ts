@@ -12,10 +12,17 @@ const maintenance = readFileSync(
 )
 
 describe('AssetDockPanel information architecture', () => {
-  it('places maintenance in the asset navigation instead of beside it', () => {
-    expect(dock).toContain("value: 'maintenance'")
+  it('keeps maintenance as a utility instead of a fourth asset type', () => {
+    expect(dock).not.toContain("{ value: 'maintenance'")
     expect(dock).toContain('<AssetMaintenancePanel')
-    expect(dock).not.toContain("t('recordingCleanup.action')")
+    expect(dock).toContain("emit('update:tab', 'maintenance')")
+    expect(dock).toContain("t('assetBrowser.openWorkspace')")
+  })
+
+  it('uses product language for the three reusable asset types', () => {
+    expect(dock).toContain("t('assetBrowser.visualTemplates')")
+    expect(dock).toContain("t('assetBrowser.automationBlueprints')")
+    expect(dock).toContain("t('assetBrowser.actionClips')")
   })
 
   it('offers cleanup workflows for recordings, blueprints, and templates', () => {
