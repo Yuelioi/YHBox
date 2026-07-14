@@ -17,7 +17,12 @@
           tplStore.map[detailId]?.name || detailId
         }}</span>
       </div>
-      <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
+      <TemplateDetailPanel
+        :guid="detailId"
+        :container-id="containerId"
+        :pick-mode="false"
+        :assigned="false"
+      />
     </div>
 
     <template v-else>
@@ -134,7 +139,11 @@
                     <div
                       class="template-card-preview flex aspect-[16/10] items-center justify-center bg-sunken p-3"
                     >
-                      <TemplateThumb :sha="item.firstBlobSha" :alt="item.name || item.guid" />
+                      <TemplateThumb
+                        :sha="item.firstBlobSha"
+                        :alt="item.name || item.guid"
+                        :max-upscale="2"
+                      />
                     </div>
                     <div class="min-w-0 px-2.5 py-2">
                       <div class="flex items-center gap-2">
@@ -209,7 +218,12 @@
           "
           @close="drillIn = false"
         >
-          <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
+          <TemplateDetailPanel
+            :guid="detailId"
+            :container-id="containerId"
+            :pick-mode="false"
+            :assigned="false"
+          />
         </AssetWorkspaceInspector>
       </div>
     </template>
@@ -290,6 +304,7 @@ import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowser
 
 const { t } = useI18n()
 const props = defineProps<{
+  containerId: string
   pickMode?: boolean
   modelValue?: string[]
   workspace?: boolean
@@ -449,7 +464,7 @@ async function onNewTemplate() {
     'tools:picker-result',
     (p) => p?.id === id,
   )
-  await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
+  await backend.tools.openScreenPicker('template_save', id, props.containerId)
   const result = await waiter
   if (!result.payload?.cancelled) {
     await tplStore.reload()

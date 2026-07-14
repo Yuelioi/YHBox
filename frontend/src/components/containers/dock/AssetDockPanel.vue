@@ -87,6 +87,7 @@
     <div class="flex-1 min-h-0 overflow-hidden">
       <TemplateAssetPanel
         v-if="tab === 'templates'"
+        :container-id="containerId"
         :pick-mode="templatePickMode"
         :model-value="templateSelected"
         :workspace="workspace"
@@ -126,6 +127,7 @@ type AssetTab = 'templates' | 'library' | 'clips' | 'maintenance'
 
 defineProps<{
   tab: AssetTab
+  containerId: string
   templatePickMode: boolean
   templateSelected: string[]
   workspace?: boolean

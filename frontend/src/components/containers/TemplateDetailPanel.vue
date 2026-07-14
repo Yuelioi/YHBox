@@ -1,5 +1,5 @@
 <!-- 模板库右栏详情 (就地编辑 + 变体管理): 名称/描述双击改, 分类/标签即改即存; 变体多分辨率档(重拍/新增/删档,
-     当前窗口分辨率感知)吸纳自旧 TemplatePicker. 模板全局资产、无 rev. 变体逻辑需 containerId(tplStore 注入)定位窗口.
+     当前窗口分辨率感知)吸纳自旧 TemplatePicker. 模板全局资产、无 rev. 变体逻辑由宿主显式传 containerId 定位窗口.
      pick 模式额外: 顶部「用于此节点」开关 (emit toggle-assign). -->
 <template>
   <div class="w-full overflow-y-auto">
@@ -25,11 +25,11 @@
       <div
         class="relative flex h-40 items-center justify-center overflow-hidden rounded-md border border-default bg-elevated"
       >
-        <img
+        <CappedPreviewImage
           v-if="displayThumb"
           :src="displayThumb"
-          class="h-full w-full object-contain"
           :alt="tpl.name"
+          :max-upscale="2"
         />
         <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
         <UButton
@@ -238,11 +238,12 @@
     size="6xl"
   >
     <div class="flex min-h-80 items-center justify-center rounded-md bg-sunken p-4">
-      <img
+      <CappedPreviewImage
         v-if="displayThumb"
         :src="displayThumb"
-        class="h-[70vh] w-full object-contain"
+        class="h-[70vh] w-full"
         :alt="tpl?.name || t('template.capture.preview')"
+        :max-upscale="2"
       />
     </div>
   </BaseModal>
@@ -258,9 +259,15 @@ import { useToast } from '@nuxt/ui/composables'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import BaseModal from '@/components/common/BaseModal.vue'
+import CappedPreviewImage from '@/components/common/CappedPreviewImage.vue'
 
 const { t } = useI18n()
-const props = defineProps<{ guid: string | null; pickMode?: boolean; assigned?: boolean }>()
+const props = defineProps<{
+  guid: string | null
+  containerId: string
+  pickMode?: boolean
+  assigned?: boolean
+}>()
 const emit = defineEmits<{ 'toggle-assign': [] }>()
 const store = useTemplatesStore()
 const { confirm } = useConfirm()
@@ -331,7 +338,7 @@ async function loadVariantThumb(sha: string) {
 }
 
 async function refreshCurRes() {
-  curRes.value = (await backend.assets.currentResolution(store.containerId)) ?? null
+  curRes.value = (await backend.assets.currentResolution(props.containerId)) ?? null
 }
 // 用当前分辨率挑"运行时真会用的那档" → 自动切到该档 (挑档算法在后端).
 async function applyCurResPick(guid: string) {
@@ -422,7 +429,7 @@ async function onRecapture() {
     'tools:picker-result',
     (p) => p?.id === id,
   )
-  await backend.tools.openScreenPicker('template_recapture', id, store.containerId, '', '', guid)
+  await backend.tools.openScreenPicker('template_recapture', id, props.containerId, '', '', guid)
   const result = await waiter
   if (result.payload?.cancelled || !result.payload?.guid) return
   variantThumbs.value = {}

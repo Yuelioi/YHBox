@@ -38,6 +38,11 @@ describe('AssetDockPanel information architecture', () => {
     expect(dock).toContain('width: min(100%, 720px)')
   })
 
+  it('forwards the editor container context to template workflows', () => {
+    expect(dock).toContain('containerId: string')
+    expect(dock).toContain(':container-id="containerId"')
+  })
+
   it('offers cleanup workflows for recordings, blueprints, and templates', () => {
     expect(maintenance).toContain("t('assetMaintenance.recordings.title')")
     expect(maintenance).toContain("t('assetMaintenance.subgraphs.title')")

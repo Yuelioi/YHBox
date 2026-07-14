@@ -160,6 +160,7 @@
           <AssetDockPanel
             v-else-if="sidebarPrefs.leftDrawer === 'assets'"
             v-model:tab="sidebarPrefs.assetTab"
+            :container-id="containerID"
             :template-pick-mode="!!assetPickRequest"
             :template-selected="assetPickRequest?.selected ?? []"
             @update:template-selected="updateAssetPick"
@@ -178,6 +179,7 @@
           <AssetDockPanel
             v-model:tab="sidebarPrefs.assetTab"
             workspace
+            :container-id="containerID"
             :template-pick-mode="!!assetPickRequest"
             :template-selected="assetPickRequest?.selected ?? []"
             @update:template-selected="updateAssetPick"

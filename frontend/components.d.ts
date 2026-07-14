@@ -29,6 +29,7 @@ declare module 'vue' {
     BotControls: typeof import('./src/components/BotControls.vue')['default']
     CanvasContextBar: typeof import('./src/components/containers/CanvasContextBar.vue')['default']
     CanvasEmptyState: typeof import('./src/components/containers/CanvasEmptyState.vue')['default']
+    CappedPreviewImage: typeof import('./src/components/common/CappedPreviewImage.vue')['default']
     ClipAssetPanel: typeof import('./src/components/containers/dock/ClipAssetPanel.vue')['default']
     ClipDetailPanel: typeof import('./src/components/containers/ClipDetailPanel.vue')['default']
     ClipTimeline: typeof import('./src/components/containers/ClipTimeline.vue')['default']

@@ -66,6 +66,16 @@ describe('editor interaction accessibility', () => {
   it('gives low-resolution template thumbnails a quiet inset stage', () => {
     const panel = source('containers/dock/TemplateAssetPanel.vue')
     expect(panel).toContain('bg-sunken p-3')
+    expect(panel).toContain(':max-upscale="2"')
+  })
+
+  it('passes the same explicit container context to every template detail entry', () => {
+    const panel = source('containers/dock/TemplateAssetPanel.vue')
+    const detail = source('containers/TemplateDetailPanel.vue')
+    expect(panel.match(/:container-id="containerId"/g)).toHaveLength(2)
+    expect(detail).toContain('containerId: string')
+    expect(detail).toContain('currentResolution(props.containerId)')
+    expect(detail).toContain("'template_recapture', id, props.containerId")
   })
 
   it('provides a visible, named edit control for comment boxes', () => {
