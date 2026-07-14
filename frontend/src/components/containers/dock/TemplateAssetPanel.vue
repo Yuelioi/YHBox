@@ -132,7 +132,7 @@
                     @keydown="onCellKeydown(item.guid, $event)"
                   >
                     <div
-                      class="template-card-preview flex aspect-[16/10] items-center justify-center bg-sunken"
+                      class="template-card-preview flex aspect-[16/10] items-center justify-center bg-sunken p-3"
                     >
                       <TemplateThumb :sha="item.firstBlobSha" :alt="item.name || item.guid" />
                     </div>

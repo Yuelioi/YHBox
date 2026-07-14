@@ -49,6 +49,8 @@ describe('editor interaction accessibility', () => {
   it('keeps template variants visible before secondary metadata in every detail entry', () => {
     const detail = source('containers/TemplateDetailPanel.vue')
     expect(detail.match(/template\.picker\.variants_label/g)).toHaveLength(1)
+    expect(detail).toContain('v-if="detailLoading"')
+    expect(detail).not.toContain('v-if="detailRecord?.variants?.length"')
     expect(detail.indexOf('template.picker.variants_label')).toBeLessThan(
       detail.indexOf('library.detail.description'),
     )
@@ -59,6 +61,11 @@ describe('editor interaction accessibility', () => {
     expect(detail).toContain('class="relative flex h-40')
     expect(detail).toContain("t('template.detail.view_large')")
     expect(detail).toContain('<BaseModal')
+  })
+
+  it('gives low-resolution template thumbnails a quiet inset stage', () => {
+    const panel = source('containers/dock/TemplateAssetPanel.vue')
+    expect(panel).toContain('bg-sunken p-3')
   })
 
   it('provides a visible, named edit control for comment boxes', () => {

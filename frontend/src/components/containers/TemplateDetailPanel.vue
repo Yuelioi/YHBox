@@ -71,7 +71,7 @@
       </div>
 
       <!-- 分辨率变体是模板的核心操作，前置到名称后，dock 与 workspace 共用同一入口。 -->
-      <section v-if="detailRecord?.variants?.length" class="space-y-1.5">
+      <section class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('template.picker.variants_label') }}</label>
         <p class="text-xs leading-relaxed">
           <template v-if="curRes">
@@ -83,7 +83,11 @@
           </template>
           <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
         </p>
-        <div class="flex flex-wrap gap-1.5">
+        <div v-if="detailLoading" class="flex gap-1.5" aria-hidden="true">
+          <USkeleton class="h-7 w-24" />
+          <USkeleton class="h-7 w-20" />
+        </div>
+        <div v-else-if="detailRecord?.variants?.length" class="flex flex-wrap gap-1.5">
           <div
             v-for="(v, i) in detailRecord.variants"
             :key="i"
@@ -298,6 +302,7 @@ async function patch(p: {
 
 // ── 变体管理 (吸纳自 TemplatePicker) ──────────────────────
 const detailRecord = ref<AssetRecord | null>(null)
+const detailLoading = ref(false)
 const variantThumbs = ref<Record<string, string>>({}) // blobSha → dataURL
 const activeVariantIdx = ref(0)
 const curRes = ref<[number, number] | null>(null)
@@ -364,17 +369,25 @@ watch(
   () => props.guid,
   async (guid) => {
     detailRecord.value = null
+    detailLoading.value = !!guid
     variantThumbs.value = {}
     activeVariantIdx.value = 0
+    previewOpen.value = false
     editingName.value = false
     editingDesc.value = false
     if (!guid) return
-    const rec = await backend.assets.get(guid)
-    if (!rec || props.guid !== guid) return
-    detailRecord.value = rec
-    for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
-    await refreshCurRes()
-    await applyCurResPick(guid)
+    try {
+      const [recordResult] = await Promise.allSettled([backend.assets.get(guid), refreshCurRes()])
+      if (props.guid !== guid) return
+      const rec = recordResult.status === 'fulfilled' ? recordResult.value : undefined
+      if (rec) {
+        detailRecord.value = rec
+        for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
+      }
+      await applyCurResPick(guid)
+    } finally {
+      if (props.guid === guid) detailLoading.value = false
+    }
   },
   { immediate: true },
 )
