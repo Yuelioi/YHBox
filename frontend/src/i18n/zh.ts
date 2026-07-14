@@ -2992,6 +2992,18 @@ export default {
   },
   // ContainersView / ContainersTab / TemplatesTab 文案.
   containers: {
+    workspace: {
+      eyebrow: 'AUTOMATION WORKSPACE',
+      title: '容器工作台',
+      description: '组织、运行和维护可执行自动化。双击容器可直接进入编辑器。',
+      summary: '容器概览',
+      total: '全部容器',
+      running: '正在运行',
+      nodes: '节点总数',
+      categories: '分类',
+      no_description: '暂无说明，进入编辑器补充这个容器的用途。',
+      updated: '更新于 {value}',
+    },
     tab: {
       local: '本地容器',
       online: '在线容器',
@@ -3001,6 +3013,7 @@ export default {
       desc: '这里将展示由社区分享的整包容器, 可一键克隆到本机.',
     },
     search_placeholder: '搜索容器...',
+    filters: '筛选',
     filter_category: '筛选分类',
     filter_category_all: '全部分类',
     category_placeholder: '选择或输入分类',
@@ -3260,7 +3273,43 @@ export default {
   },
   // 计划任务 (SchedulesView / ScheduleListPanel / ScheduleEditorPanel).
   schedule: {
+    workspace: {
+      eyebrow: 'SCHEDULE CONTROL',
+      title: '计划控制台',
+      description: '集中管理自动触发、执行顺序与失败策略，快速判断哪些计划正在生效。',
+      editor_description: '配置触发方式、目标容器和运行边界；右侧预览会同步反映最终行为。',
+      summary: '计划概览',
+      total: '全部计划',
+      enabled: '已启用',
+      automatic: '自动触发',
+      targets: '目标总数',
+      showing: '显示 {n} 个计划',
+      error_policy: '失败策略',
+      no_targets: '尚未选择目标容器',
+      no_targets_hint: '添加至少一个容器，计划触发后会按顺序执行。',
+      more_targets: '{names} 等 +{n}',
+      never_run: '尚未触发',
+      last_run: '上次 {value}',
+      basics_hint: '计划名称与启停状态。',
+      trigger_hint: '决定何时把计划送入执行队列。',
+      policy_hint: '限制单次运行时间，并定义目标失败后的行为。',
+      preview: '行为预览',
+      trigger_preview_hint: '保存后按此规则触发',
+      timeout_minutes: '{n} 分钟',
+      no_timeout: '不限时',
+    },
     title: '计划',
+    search_placeholder: '搜索计划...',
+    status_filter: '筛选计划状态',
+    filter: {
+      all: '全部状态',
+      enabled: '仅已启用',
+      disabled: '仅已停用',
+    },
+    status: {
+      queued: '已进入队列',
+    },
+    more_action: '“{name}”的更多操作',
     create: '新建计划',
     back_to_list: '返回列表',
     name_label: '名称',
@@ -4011,8 +4060,8 @@ export default {
     intro:
       '配置 AI 连接(模型服务地址 + 密钥),供 AI 节点调用。一个连接可被多个节点复用;具体用哪个模型在节点上选。',
     security: {
-      title: '凭据保存在本机设置中',
-      hint: '当前版本不会把密钥上传到 Yotta 服务，但密钥仍以本机配置形式保存。请使用最小权限密钥，不要在共享电脑上保存生产凭据。',
+      title: '凭据由 Windows 安全保管',
+      hint: 'API 密钥保存在当前 Windows 用户的凭据管理器中，不再写入 settings.json，也不会在页面重新显示。旧版明文密钥会在首次启动时自动迁移。',
     },
     protocol: {
       openai: 'OpenAI 兼容',
@@ -4036,6 +4085,10 @@ export default {
       apikey_placeholder: '密钥(本地通常留空)',
       apikey_label: 'API 密钥',
       apikey_hint: '本地模型服务通常可以留空。',
+      apikey_secure_hint: '保存后只显示配置状态，不会再次读取到界面。',
+      apikey_replace_placeholder: '已安全保存 · 输入新密钥以替换',
+      apikey_remove: '移除密钥',
+      credential_saved: '密钥已保护',
       reveal: '显示 / 隐藏密钥',
       testmodel_placeholder: '测试用模型(可选)',
       testmodel_label: '测试模型',
@@ -4051,6 +4104,8 @@ export default {
       delete_unused: '该连接当前没有被 AI 节点引用。删除后无法撤销。',
       delete_referenced:
         '仍有 {n} 个 AI 节点引用此连接，涉及：{containers}。删除后这些节点会失效。',
+      delete_key_title: '移除已保存的 API 密钥？',
+      delete_key_hint: '连接元数据会保留，但需要密钥的模型调用将失败，直到你保存新的密钥。',
     },
   },
   // 关于页 (AboutView).

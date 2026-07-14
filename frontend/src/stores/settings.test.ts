@@ -16,7 +16,7 @@ vi.mock('@/lib/backend', () => ({
 
 import { useSettingsStore, type Settings } from './settings'
 
-const conn = { id: 'a', label: 'X', protocol: 'openai' as const, baseURL: '', apiKey: '' }
+const conn = { id: 'a', label: 'X', protocol: 'openai' as const, baseURL: '' }
 
 describe('settings store · patchAIConnections', () => {
   beforeEach(() => {

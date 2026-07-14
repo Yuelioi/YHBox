@@ -62,3 +62,24 @@ func TestAIProviderCache_LabelChangeDoesNotRebuild(t *testing.T) {
 		t.Error("Label change must not evict the cached provider (fingerprint excludes Label)")
 	}
 }
+
+func TestAIProviderCacheRebuildsWhenStoredCredentialChanges(t *testing.T) {
+	s := aiTestSettings()
+	s.AI.Connections[0].APIKey = ""
+	store := newFakeSecretStore()
+	store.values[aiCredentialTargetPrefix+"c1"] = "first"
+	cache := NewAIProviderCache(func() *Settings { return s }, NewAISecrets(store))
+
+	p1, err := cache.Provider("c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.values[aiCredentialTargetPrefix+"c1"] = "second"
+	p2, err := cache.Provider("c1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1 == p2 {
+		t.Fatal("credential change did not rebuild provider")
+	}
+}

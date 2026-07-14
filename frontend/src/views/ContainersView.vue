@@ -1,17 +1,31 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-3 overflow-hidden px-8 py-4">
-    <header class="flex shrink-0 items-center justify-center">
-      <UTabs v-model="tab" :items="tabs" class="w-[360px]" />
+  <div class="workspace-page">
+    <header class="workspace-page__header">
+      <div class="min-w-0">
+        <div class="flex items-center gap-3">
+          <span class="workspace-page__mark"
+            ><UIcon name="i-tabler-box-multiple" class="size-5"
+          /></span>
+          <div>
+            <p class="workspace-page__eyebrow">{{ t('containers.workspace.eyebrow') }}</p>
+            <h1 class="workspace-page__title">{{ t('containers.workspace.title') }}</h1>
+          </div>
+        </div>
+        <p class="workspace-page__description">{{ t('containers.workspace.description') }}</p>
+      </div>
+
+      <UTabs v-model="tab" :items="tabs" size="sm" :content="false" class="workspace-page__tabs" />
     </header>
 
-    <ContainersTab v-if="tab === 'local'" />
-    <!-- 在线容器: 占位 (整包容器分享/下载留口, 未实现 — 见 specs/2026-06-13-editor-rail-resources.md ⑥) -->
-    <EmptyState
-      v-else
-      icon="i-tabler-cloud"
-      :title="t('containers.online.title')"
-      :description="t('containers.online.desc')"
-    />
+    <div class="min-h-0 flex-1 px-6 pb-5 sm:px-8">
+      <ContainersTab v-if="tab === 'local'" />
+      <EmptyState
+        v-else
+        icon="i-tabler-cloud"
+        :title="t('containers.online.title')"
+        :description="t('containers.online.desc')"
+      />
+    </div>
   </div>
 </template>
 
@@ -23,13 +37,11 @@ import { useContainerEditorStore } from '@/stores/containerEditor'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const { t } = useI18n()
-
-const tab = ref<string>('local')
+const tab = ref('local')
 const tabs = computed(() => [
-  { label: t('containers.tab.local'), value: 'local', icon: 'i-tabler-schema' },
+  { label: t('containers.tab.local'), value: 'local', icon: 'i-tabler-device-desktop' },
   { label: t('containers.tab.online'), value: 'online', icon: 'i-tabler-cloud' },
 ])
 
-// 进列表 = 用户主动放手 "正在编辑某容器" 状态. 侧栏 '容器' 跳法跟着切回列表.
 useContainerEditorStore().clearLastEditing()
 </script>

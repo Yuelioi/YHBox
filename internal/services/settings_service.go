@@ -7,14 +7,24 @@ import (
 
 // SettingsService 是 wails3 binding 暴露给 JS 的设置 RPC 入口。
 type SettingsService struct {
-	app *App
+	app     *App
+	secrets *AISecrets
 }
 
-func NewSettingsService(app *App) *SettingsService { return &SettingsService{app: app} }
+func NewSettingsService(app *App, secrets ...*AISecrets) *SettingsService {
+	service := &SettingsService{app: app}
+	if len(secrets) > 0 {
+		service.secrets = secrets[0]
+	}
+	return service
+}
 
 // Get 返回当前 settings 的快照。前端启动时 hydrate Pinia store。
 func (s *SettingsService) Get() Settings {
 	cur := s.app.Settings()
+	for index := range cur.AI.Connections {
+		cur.AI.Connections[index].APIKey = ""
+	}
 	return *cur
 }
 
@@ -24,8 +34,23 @@ func (s *SettingsService) Get() Settings {
 func (s *SettingsService) Update(patchJSON string) error {
 	patch := json.RawMessage(patchJSON)
 	_, cur, err := s.app.MutateSettings(func(settings *Settings) error {
+		legacyKeys := make(map[string]string, len(settings.AI.Connections))
+		for _, connection := range settings.AI.Connections {
+			if connection.APIKey != "" {
+				legacyKeys[connection.ID] = connection.APIKey
+			}
+		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
+		}
+		// Metadata-only connection arrays from the modern UI omit apiKey. If a
+		// startup migration failed, retain the legacy plaintext until a later
+		// migration succeeds instead of silently losing the only credential.
+		for index := range settings.AI.Connections {
+			connection := &settings.AI.Connections[index]
+			if connection.APIKey == "" {
+				connection.APIKey = legacyKeys[connection.ID]
+			}
 		}
 		return nil
 	}, func(old, cur *Settings) {
@@ -42,6 +67,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 		if s.app.logs != nil {
 			s.app.logs.Configure(cur.UI.Logger)
 		}
+		s.deleteRemovedAISecrets(old, cur)
 	})
 	if err != nil && cur == nil {
 		return err
@@ -51,4 +77,24 @@ func (s *SettingsService) Update(patchJSON string) error {
 	// 通知所有 webview（尤其独立悬浮窗这种自带 store 的窗口）设置已变 → 各自 reload。
 	s.app.Emit("settings:changed", map[string]any{})
 	return commitErr
+}
+
+func (s *SettingsService) deleteRemovedAISecrets(before, after *Settings) {
+	if s.secrets == nil {
+		return
+	}
+	remaining := make(map[string]struct{}, len(after.AI.Connections))
+	for _, connection := range after.AI.Connections {
+		remaining[connection.ID] = struct{}{}
+	}
+	for _, connection := range before.AI.Connections {
+		if _, ok := remaining[connection.ID]; ok {
+			continue
+		}
+		if err := s.secrets.Delete(connection.ID); err != nil {
+			logger := s.app.RootLogger()
+			logger.Warn().Err(err).Str("tag", "AI_SECRET").
+				Str("connectionId", connection.ID).Msg("delete orphaned AI credential")
+		}
+	}
 }

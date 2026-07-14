@@ -8,14 +8,17 @@ const source = readFileSync(
 )
 
 describe('ScheduleListPanel structure', () => {
-  it('keeps the table usable at compact widths', () => {
-    expect(source).toContain('overflow-x-auto')
-    expect(source).toContain('min-w-[760px]')
-    expect(source).toContain('<caption class="sr-only">')
+  it('uses an operational list instead of a compact data table', () => {
+    expect(source).toContain('class="schedule-list"')
+    expect(source).toContain('role="list"')
+    expect(source).toContain('class="schedule-row"')
+    expect(source).toContain('<USwitch')
+    expect(source).not.toContain('<table')
   })
 
-  it('names edit and delete actions with schedule context', () => {
-    expect(source).toContain(':aria-label="t(\'schedule.edit_action\', { name: s.name })"')
-    expect(source).toContain(':aria-label="t(\'schedule.delete_action\', { name: s.name })"')
+  it('names edit and overflow actions with schedule context', () => {
+    expect(source).toContain(':aria-label="t(\'schedule.edit_action\', { name: schedule.name })"')
+    expect(source).toContain(':aria-label="t(\'schedule.more_action\', { name: schedule.name })"')
+    expect(source).toContain("label: t('schedule.delete_action', { name: schedule.name })")
   })
 })

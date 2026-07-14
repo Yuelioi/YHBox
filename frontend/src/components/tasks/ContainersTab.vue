@@ -1,5 +1,27 @@
 <template>
-  <div data-testid="containers-shell" class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+  <div
+    data-testid="containers-shell"
+    class="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+  >
+    <section class="workspace-metrics" :aria-label="t('containers.workspace.summary')">
+      <div class="workspace-metric workspace-metric--primary">
+        <span>{{ t('containers.workspace.total') }}</span>
+        <strong>{{ store.list.length }}</strong>
+      </div>
+      <div class="workspace-metric">
+        <span>{{ t('containers.workspace.running') }}</span>
+        <strong>{{ runningCount }}</strong>
+      </div>
+      <div class="workspace-metric">
+        <span>{{ t('containers.workspace.nodes') }}</span>
+        <strong>{{ totalNodeCount }}</strong>
+      </div>
+      <div class="workspace-metric">
+        <span>{{ t('containers.workspace.categories') }}</span>
+        <strong>{{ categoryCount }}</strong>
+      </div>
+    </section>
+
     <header class="flex shrink-0 flex-col gap-2">
       <div data-testid="containers-toolbar" class="flex min-w-0 items-center justify-between gap-3">
         <UInput
@@ -7,11 +29,24 @@
           icon="i-tabler-search"
           :placeholder="t('containers.search_placeholder')"
           size="sm"
-          class="w-52 lg:w-64"
+          class="min-w-0 flex-1 sm:max-w-sm"
         />
 
         <div class="flex shrink-0 items-center justify-end gap-2">
-          <div class="inline-flex shrink-0 rounded-md border border-default bg-muted/20 p-0.5">
+          <UButton
+            size="sm"
+            color="neutral"
+            :variant="filtersOpen || activeFilterCount > 0 ? 'soft' : 'ghost'"
+            icon="i-tabler-filter"
+            :aria-expanded="filtersOpen"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <span class="hidden sm:inline">{{ t('containers.filters') }}</span>
+            <UBadge v-if="activeFilterCount" size="xs" color="primary" variant="solid">{{
+              activeFilterCount
+            }}</UBadge>
+          </UButton>
+          <div class="view-switcher">
             <UButton
               size="sm"
               color="neutral"
@@ -44,7 +79,11 @@
         </div>
       </div>
 
-      <div data-testid="containers-filterbar" class="flex shrink-0 flex-wrap items-center gap-2">
+      <div
+        v-show="filtersOpen || activeFilterCount > 0"
+        data-testid="containers-filterbar"
+        class="container-filterbar flex shrink-0 flex-wrap items-center gap-2"
+      >
         <UInputMenu
           v-model="selectedTags"
           multiple
@@ -72,7 +111,7 @@
         />
         <UButton
           size="xs"
-          variant="soft"
+          variant="ghost"
           color="neutral"
           class="shrink-0"
           :icon="sortDesc ? 'i-tabler-sort-descending' : 'i-tabler-sort-ascending'"
@@ -84,7 +123,7 @@
           <UButton
             data-testid="containers-column-selector"
             size="xs"
-            variant="soft"
+            variant="ghost"
             color="neutral"
             class="shrink-0"
             icon="i-tabler-columns-3"
@@ -133,8 +172,9 @@
           :key="c.id"
           padding="panel"
           hover
-          class="flex flex-col gap-3 relative"
+          class="container-card group relative flex min-h-52 flex-col gap-4"
           :class="batch.isSelected(c.id) ? '!border-primary ring-2 ring-primary/40' : ''"
+          @dblclick="onEdit(c)"
         >
           <UCheckbox
             :data-testid="`container-checkbox-${c.id}`"
@@ -145,56 +185,69 @@
             @click.stop
             @update:model-value="batch.toggle(c.id)"
           />
-          <div class="min-w-0 pl-6">
-            <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium text-highlighted truncate">
-                {{ c.name || t('common.untitled') }}
-              </h3>
-              <StatusPill
-                :status="isRunning(c.id) ? 'online' : 'ready'"
-                :label="
-                  isRunning(c.id) ? t('containers.status.running') : t('containers.status.idle')
-                "
-                :dot="isRunning(c.id)"
-                class="shrink-0"
-              />
-            </div>
-            <p v-if="c.description" class="text-xs text-dimmed truncate mt-0.5">
-              {{ c.description }}
-            </p>
-            <div class="mt-1.5 flex items-center gap-1.5 overflow-hidden">
-              <span
-                v-if="c.category"
-                class="inline-flex shrink-0 items-center gap-1 rounded bg-elevated/70 px-1.5 py-0.5 text-[11px] text-toned"
-              >
-                <UIcon name="i-tabler-category" class="size-3" />
-                {{ c.category }}
-              </span>
-              <span
-                v-for="tag in (c.tags ?? []).slice(0, 3)"
-                :key="tag"
-                class="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"
-              >
-                {{ tag }}
-              </span>
-            </div>
-            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span
-                class="inline-flex items-center gap-1 font-mono text-xs tabular-nums text-dimmed"
-              >
-                <UIcon name="i-tabler-cpu" class="size-3" />
-                {{ t('containers.node_count', { n: c.graph.nodes.length }) }}
-              </span>
-              <span v-if="c.hotkey" class="inline-flex items-center gap-1 text-xs text-dimmed">
-                <UIcon name="i-tabler-keyboard" class="size-3" />
-                <code class="text-toned bg-elevated/60 px-1 rounded font-mono">{{ c.hotkey }}</code>
-              </span>
+          <div class="flex min-w-0 items-start gap-3 pl-7">
+            <span class="container-card__icon">
+              <UIcon name="i-tabler-route-square-2" class="size-5" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="truncate text-sm font-semibold text-highlighted">
+                  {{ c.name || t('common.untitled') }}
+                </h3>
+                <StatusPill
+                  :status="isRunning(c.id) ? 'online' : 'ready'"
+                  :label="
+                    isRunning(c.id) ? t('containers.status.running') : t('containers.status.idle')
+                  "
+                  :dot="isRunning(c.id)"
+                  class="shrink-0"
+                />
+              </div>
+              <p class="mt-1 line-clamp-2 min-h-8 text-xs leading-relaxed text-dimmed">
+                {{ c.description || t('containers.workspace.no_description') }}
+              </p>
             </div>
           </div>
-          <div class="flex items-center gap-1.5 pt-1 border-t border-default/60">
+
+          <div class="flex min-h-6 items-center gap-1.5 overflow-hidden">
+            <span
+              v-if="c.category"
+              class="inline-flex shrink-0 items-center gap-1 rounded-md bg-elevated px-2 py-1 text-xs text-toned"
+            >
+              <UIcon name="i-tabler-category" class="size-3" />
+              {{ c.category }}
+            </span>
+            <span
+              v-for="tag in (c.tags ?? []).slice(0, 2)"
+              :key="tag"
+              class="shrink-0 rounded-md bg-primary/8 px-2 py-1 text-xs text-primary"
+            >
+              {{ tag }}
+            </span>
+            <span v-if="(c.tags?.length ?? 0) > 2" class="text-xs text-dimmed">
+              +{{ (c.tags?.length ?? 0) - 2 }}
+            </span>
+          </div>
+
+          <div class="container-card__facts">
+            <span>
+              <UIcon name="i-tabler-route" class="size-3.5" />
+              {{ t('containers.node_count', { n: c.graph.nodes.length }) }}
+            </span>
+            <span>
+              <UIcon name="i-tabler-history" class="size-3.5" />
+              {{ t('containers.workspace.updated', { value: formatContainerDate(c.updatedAt) }) }}
+            </span>
+            <span v-if="c.hotkey">
+              <UIcon name="i-tabler-keyboard" class="size-3.5" />
+              <code>{{ c.hotkey }}</code>
+            </span>
+          </div>
+
+          <div class="mt-auto flex items-center gap-1.5 border-t border-default/60 pt-3">
             <UButton
               v-if="!isRunning(c.id)"
-              size="xs"
+              size="sm"
               color="primary"
               variant="soft"
               icon="i-tabler-player-play"
@@ -203,7 +256,7 @@
             >
             <UButton
               v-else
-              size="xs"
+              size="sm"
               color="error"
               variant="soft"
               icon="i-tabler-square"
@@ -211,7 +264,7 @@
               >{{ t('containers.stop') }}</UButton
             >
             <UButton
-              size="xs"
+              size="sm"
               variant="ghost"
               color="neutral"
               icon="i-tabler-edit"
@@ -219,23 +272,16 @@
               >{{ t('containers.edit') }}</UButton
             >
             <div class="flex-1" />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              icon="i-tabler-package-export"
-              :aria-label="t('containers.export')"
-              :title="t('containers.export')"
-              @click.stop="onExport(c)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              color="error"
-              icon="i-tabler-trash"
-              :aria-label="t('containers.delete.title')"
-              @click.stop="onAskDelete(c)"
-            />
+            <UDropdownMenu :items="rowMenuItems(c)">
+              <UButton
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-dots-vertical"
+                :aria-label="t('containers.actions.more_for', { name: c.name })"
+                @click.stop
+              />
+            </UDropdownMenu>
           </div>
         </AppCard>
       </div>
@@ -491,6 +537,7 @@ const search = ref('')
 const sortKey = useLocalStorage<ContainerSortKey>('containers.sortKey', 'updatedAt')
 const sortDesc = useLocalStorage('containers.sortDesc', true)
 const viewMode = useLocalStorage<'cards' | 'list'>('containers.viewMode', 'cards')
+const filtersOpen = useLocalStorage('containers.filtersOpen', false)
 const page = ref(1)
 const pageSize = useLocalStorage('containers.pageSize', 24)
 const createDialogOpen = ref(false)
@@ -512,6 +559,14 @@ const listColumns = useLocalStorage<ListColumnKey[]>('containers.listColumns', d
 // 批量删除（E.5）
 const batch = useBatchSelect()
 const { confirm } = useConfirm()
+
+const runningCount = computed(
+  () => store.list.filter((container) => isRunning(container.id)).length,
+)
+const totalNodeCount = computed(() =>
+  store.list.reduce((total, container) => total + containerNodeCount(container), 0),
+)
+const categoryCount = computed(() => containerCategories(store.list).length)
 
 const sortItems = computed(() => [
   { label: t('containers.sort.name'), value: 'name' },
@@ -674,6 +729,9 @@ onMounted(() => {
 const selectedTags = ref<string[]>([])
 const categoryFilter = ref<string>('all')
 const createdCategories = ref<string[]>([])
+const activeFilterCount = computed(
+  () => selectedTags.value.length + (categoryFilter.value === 'all' ? 0 : 1),
+)
 
 const tagsByCount = computed(() => {
   return containerTagsByCount(store.list ?? [])

@@ -63,6 +63,14 @@
                   variant="subtle"
                   >{{ t('settingsAI.connections.default_badge') }}</UBadge
                 >
+                <UBadge
+                  v-if="secretStatus[connection.id]"
+                  size="xs"
+                  color="success"
+                  variant="subtle"
+                  icon="i-tabler-shield-check"
+                  >{{ t('settingsAI.connections.credential_saved') }}</UBadge
+                >
               </span>
               <span class="mt-1 block truncate text-xs text-dimmed"
                 >{{ protocolName(connection.protocol) }} ·
@@ -114,8 +122,12 @@
                 v-model="connection.apiKey"
                 :type="revealed[connection.id] ? 'text' : 'password'"
                 size="sm"
-                :placeholder="t('settingsAI.connections.apikey_placeholder')"
-                @change="commit"
+                :placeholder="
+                  secretStatus[connection.id]
+                    ? t('settingsAI.connections.apikey_replace_placeholder')
+                    : t('settingsAI.connections.apikey_placeholder')
+                "
+                @change="saveAPIKey(connection)"
               >
                 <template #trailing>
                   <UButton
@@ -128,6 +140,20 @@
                   />
                 </template>
               </UInput>
+              <template #help>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span>{{ t('settingsAI.connections.apikey_secure_hint') }}</span>
+                  <UButton
+                    v-if="secretStatus[connection.id]"
+                    size="xs"
+                    variant="link"
+                    color="error"
+                    icon="i-tabler-key-off"
+                    @click="deleteAPIKey(connection.id)"
+                    >{{ t('settingsAI.connections.apikey_remove') }}</UButton
+                  >
+                </div>
+              </template>
             </UFormField>
             <div class="flex flex-wrap items-end gap-3 border-t border-default/60 pt-4">
               <UFormField
@@ -218,16 +244,21 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 
+interface AIConnectionDraft extends AIConnection {
+  apiKey: string
+}
+
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const store = useSettingsStore()
 const connections = computed<AIConnection[]>(() => store.data?.ai.connections ?? [])
 const defaultId = computed(() => store.data?.ai.default ?? '')
-const draft = ref<AIConnection[]>([])
+const draft = ref<AIConnectionDraft[]>([])
 const expandedId = ref('')
 const testing = reactive<Record<string, boolean>>({})
 const results = reactive<Record<string, AITestResult>>({})
 const revealed = reactive<Record<string, boolean>>({})
+const secretStatus = reactive<Record<string, boolean>>({})
 const testModels = reactive<Record<string, string>>({})
 const protocolItems = computed(() => [
   { label: t('settingsAI.protocol.openai'), value: 'openai' },
@@ -237,7 +268,8 @@ const protocolItems = computed(() => [
 watch(
   connections,
   () => {
-    draft.value = connections.value.map((connection) => ({ ...connection }))
+    draft.value = connections.value.map((connection) => ({ ...connection, apiKey: '' }))
+    void refreshSecretStatus()
   },
   { immediate: true },
 )
@@ -255,17 +287,14 @@ async function commit() {
   for (const connection of draft.value)
     if (connection.baseURL && !/^https?:\/\//i.test(connection.baseURL))
       connection.baseURL = `http://${connection.baseURL}`
-  await store.patchAIConnections(draft.value.map((connection) => ({ ...connection })))
+  await store.patchAIConnections(draft.value.map(connectionMetadata))
 }
 async function onProtocol(index: number, value: AIConnection['protocol']) {
   draft.value[index].protocol = value
   await commit()
 }
 async function setDefault(id: string) {
-  await store.patchAIConnections(
-    draft.value.map((connection) => ({ ...connection })),
-    id,
-  )
+  await store.patchAIConnections(draft.value.map(connectionMetadata), id)
 }
 async function addConnection() {
   const connection: AIConnection = {
@@ -273,7 +302,6 @@ async function addConnection() {
     label: uniqueLabel(t('settingsAI.connections.new_label')),
     protocol: 'openai',
     baseURL: '',
-    apiKey: '',
   }
   const ok = await store.patchAIConnections([...connections.value, connection])
   if (ok) expandedId.value = connection.id
@@ -302,8 +330,49 @@ async function test(index: number) {
   await commit()
   testing[connection.id] = true
   delete results[connection.id]
-  const result = await backend.ai.testConnection({ ...connection }, testModels[connection.id] ?? '')
+  const result = await backend.ai.testConnection(
+    connectionMetadata(connection),
+    testModels[connection.id] ?? '',
+    connection.apiKey,
+  )
   testing[connection.id] = false
   if (result) results[connection.id] = result
+}
+
+function connectionMetadata(connection: AIConnectionDraft): AIConnection {
+  return {
+    id: connection.id,
+    label: connection.label,
+    protocol: connection.protocol,
+    baseURL: connection.baseURL,
+  }
+}
+
+async function refreshSecretStatus() {
+  const ids = connections.value.map((connection) => connection.id)
+  const status = (await backend.ai.secretStatus(ids)) ?? {}
+  for (const key of Object.keys(secretStatus)) delete secretStatus[key]
+  Object.assign(secretStatus, status)
+}
+
+async function saveAPIKey(connection: AIConnectionDraft) {
+  if (!connection.apiKey) return
+  const ok = await backend.ai.setAPIKey(connection.id, connection.apiKey)
+  if (!ok) return
+  connection.apiKey = ''
+  revealed[connection.id] = false
+  await refreshSecretStatus()
+}
+
+async function deleteAPIKey(connectionID: string) {
+  const ok = await confirm({
+    title: t('settingsAI.confirm.delete_key_title'),
+    description: t('settingsAI.confirm.delete_key_hint'),
+    confirmText: t('settingsAI.connections.apikey_remove'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (ok !== true) return
+  if (await backend.ai.deleteAPIKey(connectionID)) await refreshSecretStatus()
 }
 </script>

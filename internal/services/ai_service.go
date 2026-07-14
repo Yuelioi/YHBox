@@ -8,14 +8,24 @@ import (
 	"github.com/yottaapp/yotta/internal/services/llm"
 )
 
-// AIService 暴露给前端的 AI 连接相关 RPC。无状态: 只对传入的连接做测试, 不持久化、不读 settings。
-type AIService struct{}
+// AIService exposes transient credential operations without returning stored
+// secret values to the presentation layer.
+type AIService struct {
+	secrets *AISecrets
+}
 
-func NewAIService() *AIService { return &AIService{} }
+func NewAIService(secrets ...*AISecrets) *AIService {
+	service := &AIService{}
+	if len(secrets) > 0 {
+		service.secrets = secrets[0]
+	}
+	return service
+}
 
 type TestConnReq struct {
 	Connection AIConnection `json:"connection"`
 	TestModel  string       `json:"testModel"`
+	APIKey     string       `json:"apiKey"`
 }
 
 type TestResult struct {
@@ -29,7 +39,14 @@ type TestResult struct {
 // 拉不到再用可选 TestModel 发一次最小 chat 兜底。
 func (s *AIService) TestConnection(req TestConnReq) TestResult {
 	c := req.Connection
-	p, err := llm.New(llm.ConnectionConfig{Protocol: c.Protocol, BaseURL: c.BaseURL, APIKey: c.APIKey})
+	apiKey := req.APIKey
+	if apiKey == "" && c.ID != "" && s.secrets != nil {
+		stored, err := s.secrets.Get(c.ID)
+		if err == nil {
+			apiKey = stored
+		}
+	}
+	p, err := llm.New(llm.ConnectionConfig{Protocol: c.Protocol, BaseURL: c.BaseURL, APIKey: apiKey})
 	if err != nil {
 		return TestResult{Error: err.Error(), Kind: string(llm.KindOf(err))}
 	}
@@ -54,4 +71,22 @@ func (s *AIService) TestConnection(req TestConnReq) TestResult {
 		return TestResult{Error: cerr.Error(), Kind: string(llm.KindOf(cerr))}
 	}
 	return TestResult{Ok: true}
+}
+
+// SecretStatus returns only presence metadata, never credential values.
+func (s *AIService) SecretStatus(connectionIDs []string) map[string]bool {
+	status := make(map[string]bool, len(connectionIDs))
+	for _, id := range connectionIDs {
+		has, err := s.secrets.Has(id)
+		status[id] = err == nil && has
+	}
+	return status
+}
+
+func (s *AIService) SetAPIKey(connectionID, apiKey string) error {
+	return s.secrets.Set(connectionID, apiKey)
+}
+
+func (s *AIService) DeleteAPIKey(connectionID string) error {
+	return s.secrets.Delete(connectionID)
 }

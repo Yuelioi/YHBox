@@ -3155,6 +3155,19 @@ export default {
     clear_unused: 'Clear unused values',
   },
   containers: {
+    workspace: {
+      eyebrow: 'AUTOMATION WORKSPACE',
+      title: 'Container workspace',
+      description:
+        'Organize, run, and maintain executable automation. Double-click a container to edit it.',
+      summary: 'Container overview',
+      total: 'All containers',
+      running: 'Running now',
+      nodes: 'Total nodes',
+      categories: 'Categories',
+      no_description: 'No description yet. Add one in the editor to explain this container.',
+      updated: 'Updated {value}',
+    },
     tab: {
       local: 'Local',
       online: 'Online',
@@ -3164,6 +3177,7 @@ export default {
       desc: 'Community-shared containers will appear here — one-click clone to local.',
     },
     search_placeholder: 'Search containers...',
+    filters: 'Filters',
     filter_category: 'Filter category',
     filter_category_all: 'All categories',
     category_placeholder: 'Pick or type a category',
@@ -3411,7 +3425,46 @@ export default {
     advanced_word: 'advanced',
   },
   schedule: {
+    workspace: {
+      eyebrow: 'SCHEDULE CONTROL',
+      title: 'Schedule control',
+      description:
+        'Manage automatic triggers, execution order, and failure policy from one operational view.',
+      editor_description:
+        'Configure the trigger, target containers, and runtime boundaries. The preview reflects the saved behavior.',
+      summary: 'Schedule overview',
+      total: 'All schedules',
+      enabled: 'Enabled',
+      automatic: 'Automatic',
+      targets: 'Total targets',
+      showing: 'Showing {n} schedules',
+      error_policy: 'Failure policy',
+      no_targets: 'No target containers selected',
+      no_targets_hint:
+        'Add at least one container. Targets run in order after the schedule triggers.',
+      more_targets: '{names} and +{n}',
+      never_run: 'Never triggered',
+      last_run: 'Last run {value}',
+      basics_hint: 'Schedule identity and availability.',
+      trigger_hint: 'Controls when this schedule enters the execution queue.',
+      policy_hint: 'Bound runtime and choose what happens after a target fails.',
+      preview: 'Behavior preview',
+      trigger_preview_hint: 'Runs with this rule after saving',
+      timeout_minutes: '{n} minutes',
+      no_timeout: 'No timeout',
+    },
     title: 'Schedule',
+    search_placeholder: 'Search schedules...',
+    status_filter: 'Filter schedule status',
+    filter: {
+      all: 'All statuses',
+      enabled: 'Enabled only',
+      disabled: 'Disabled only',
+    },
+    status: {
+      queued: 'Queued',
+    },
+    more_action: 'More actions for “{name}”',
     create: 'New schedule',
     back_to_list: 'Back to list',
     name_label: 'Name',
@@ -4160,8 +4213,8 @@ export default {
     intro:
       'Configure AI connections (model endpoint + key) for AI nodes to call. A connection can be reused by many nodes; the specific model is chosen on each node.',
     security: {
-      title: 'Credentials are stored in local settings',
-      hint: 'Yotta does not upload keys to a Yotta service, but they are still saved as local configuration. Use least-privilege keys and avoid production credentials on shared computers.',
+      title: 'Credentials are protected by Windows',
+      hint: 'API keys are stored in Windows Credential Manager for the current user. They are no longer written to settings.json or returned to this page. Legacy plaintext keys migrate on first launch.',
     },
     protocol: {
       openai: 'OpenAI-compatible',
@@ -4185,6 +4238,11 @@ export default {
       apikey_placeholder: 'API key (often blank for local)',
       apikey_label: 'API key',
       apikey_hint: 'Usually optional for local model servers.',
+      apikey_secure_hint:
+        'After saving, only configuration status is shown; the key is never loaded back into the UI.',
+      apikey_replace_placeholder: 'Protected · enter a new key to replace it',
+      apikey_remove: 'Remove key',
+      credential_saved: 'Key protected',
       reveal: 'Show / hide key',
       testmodel_placeholder: 'Test model (optional)',
       testmodel_label: 'Test model',
@@ -4200,6 +4258,9 @@ export default {
       delete_unused: 'No AI nodes currently use this connection. Deletion cannot be undone.',
       delete_referenced:
         '{n} AI node(s) still use this connection in: {containers}. Those nodes will stop working after deletion.',
+      delete_key_title: 'Remove the saved API key?',
+      delete_key_hint:
+        'Connection metadata is kept, but model calls that require a key will fail until a new one is saved.',
     },
   },
   about: {

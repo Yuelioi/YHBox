@@ -1,191 +1,228 @@
 <template>
-  <div class="detail-form">
-    <!-- 基础 -->
-    <section class="detail-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-adjustments" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.basics_section') }}</h2>
-      </div>
-
-      <div class="flex items-center justify-between gap-6">
-        <div class="text-sm text-default">{{ t('schedule.name_label') }}</div>
-        <UInput v-model="draft.name" class="w-64" :aria-label="t('schedule.name_label')" />
-      </div>
-
-      <div class="border-t border-default/60" />
-
-      <div class="flex items-center justify-between gap-6">
-        <div class="text-sm text-default">{{ t('schedule.enabled_label') }}</div>
-        <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
-      </div>
-    </section>
-
-    <!-- 目标容器 -->
-    <section class="detail-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-stack-2" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.targets_section') }}</h2>
-        <span class="text-xs text-dimmed">({{ draft.targets.length }})</span>
-      </div>
-      <p class="text-xs text-dimmed">{{ t('schedule.targets_hint') }}</p>
-
-      <div class="space-y-2">
-        <div v-for="(tg, i) in draft.targets" :key="i" class="flex items-center gap-2">
-          <span class="text-dimmed text-xs w-4 tabular-nums shrink-0">{{ i + 1 }}.</span>
-          <USelect
-            v-model="tg.id"
-            :items="containerItems"
-            class="flex-1"
-            :aria-label="t('schedule.target_n', { n: i + 1 })"
-          />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-arrow-up"
-            :disabled="i === 0"
-            :title="t('schedule.move_up')"
-            :aria-label="t('schedule.move_up')"
-            @click="moveTarget(i, i - 1)"
-          />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-tabler-arrow-down"
-            :disabled="i === draft.targets.length - 1"
-            :title="t('schedule.move_down')"
-            :aria-label="t('schedule.move_down')"
-            @click="moveTarget(i, i + 1)"
-          />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="error"
-            icon="i-tabler-x"
-            :title="t('schedule.remove_target')"
-            :aria-label="t('schedule.remove_target')"
-            @click="draft.targets.splice(i, 1)"
-          />
+  <div class="schedule-editor">
+    <div class="schedule-editor__form">
+      <section class="schedule-editor__section">
+        <div class="schedule-editor__section-heading">
+          <span><UIcon name="i-tabler-adjustments" class="size-4" /></span>
+          <div>
+            <h2>{{ t('schedule.basics_section') }}</h2>
+            <p>{{ t('schedule.workspace.basics_hint') }}</p>
+          </div>
         </div>
-      </div>
-
-      <UButton size="xs" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">{{
-        t('schedule.add_container')
-      }}</UButton>
-    </section>
-
-    <!-- 触发 -->
-    <section class="detail-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-bolt" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.trigger_section') }}</h2>
-      </div>
-
-      <div class="flex items-center justify-between gap-6">
-        <div class="text-sm text-default">{{ t('schedule.trigger_kind_label') }}</div>
-        <USelect
-          v-model="draft.trigger.kind"
-          :items="triggerKinds"
-          class="w-48"
-          :aria-label="t('schedule.trigger_kind_label')"
-        />
-      </div>
-
-      <template v-if="draft.trigger.kind === 'cron'">
-        <div class="border-t border-default/60" />
-        <div class="flex items-center justify-between gap-6">
-          <div class="text-sm text-default">{{ t('schedule.cron_subkind_label') }}</div>
-          <USelect
-            v-model="draft.trigger.subKind"
-            :items="cronSubKinds"
-            class="w-48"
-            :aria-label="t('schedule.cron_subkind_label')"
-          />
+        <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <UFormField :label="t('schedule.name_label')" required>
+            <UInput v-model="draft.name" :aria-label="t('schedule.name_label')" />
+          </UFormField>
+          <UFormField :label="t('schedule.enabled_label')">
+            <div class="flex h-8 items-center gap-2">
+              <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
+              <span class="text-xs text-toned">{{
+                draft.enabled ? t('schedule.enable') : t('schedule.disable')
+              }}</span>
+            </div>
+          </UFormField>
         </div>
-        <div
-          v-if="draft.trigger.subKind === 'daily'"
-          class="flex items-center justify-between gap-6"
+      </section>
+
+      <section class="schedule-editor__section">
+        <div class="schedule-editor__section-heading">
+          <span><UIcon name="i-tabler-bolt" class="size-4" /></span>
+          <div>
+            <h2>{{ t('schedule.trigger_section') }}</h2>
+            <p>{{ t('schedule.workspace.trigger_hint') }}</p>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField :label="t('schedule.trigger_kind_label')">
+            <USelect
+              v-model="draft.trigger.kind"
+              :items="triggerKinds"
+              :aria-label="t('schedule.trigger_kind_label')"
+            />
+          </UFormField>
+          <UFormField
+            v-if="draft.trigger.kind === 'cron'"
+            :label="t('schedule.cron_subkind_label')"
+          >
+            <USelect
+              v-model="draft.trigger.subKind"
+              :items="cronSubKinds"
+              :aria-label="t('schedule.cron_subkind_label')"
+            />
+          </UFormField>
+          <UFormField
+            v-if="draft.trigger.kind === 'cron' && draft.trigger.subKind === 'daily'"
+            :label="t('schedule.daily_at_label')"
+          >
+            <UInput
+              v-model="draft.trigger.at"
+              placeholder="05:00"
+              :aria-label="t('schedule.daily_at_label')"
+            />
+          </UFormField>
+          <UFormField
+            v-if="draft.trigger.kind === 'cron' && draft.trigger.subKind === 'interval'"
+            :label="t('schedule.interval_label')"
+          >
+            <UInputNumber
+              :model-value="draft.trigger.everyMinutes ?? 30"
+              :min="1"
+              :aria-label="t('schedule.interval_label')"
+              @update:model-value="draft.trigger.everyMinutes = Number($event)"
+            />
+          </UFormField>
+          <UFormField v-if="draft.trigger.kind === 'hotkey'" :label="t('schedule.hotkey_label')">
+            <UInput
+              v-model="draft.trigger.hotkey"
+              placeholder="Ctrl+Shift+2"
+              :aria-label="t('schedule.hotkey_label')"
+            />
+          </UFormField>
+        </div>
+      </section>
+
+      <section class="schedule-editor__section">
+        <div class="schedule-editor__section-heading">
+          <span><UIcon name="i-tabler-stack-2" class="size-4" /></span>
+          <div class="min-w-0 flex-1">
+            <h2>{{ t('schedule.targets_section') }}</h2>
+            <p>{{ t('schedule.targets_hint') }}</p>
+          </div>
+          <UBadge size="xs" color="neutral" variant="subtle">{{ draft.targets.length }}</UBadge>
+        </div>
+
+        <div v-if="draft.targets.length" class="space-y-2">
+          <div
+            v-for="(target, index) in draft.targets"
+            :key="`${target.id}-${index}`"
+            class="schedule-target"
+          >
+            <span class="schedule-target__order">{{ index + 1 }}</span>
+            <USelect
+              v-model="target.id"
+              :items="containerItems"
+              class="min-w-0 flex-1"
+              :aria-label="t('schedule.target_n', { n: index + 1 })"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-tabler-arrow-up"
+              :disabled="index === 0"
+              :aria-label="t('schedule.move_up')"
+              @click="moveTarget(index, index - 1)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-tabler-arrow-down"
+              :disabled="index === draft.targets.length - 1"
+              :aria-label="t('schedule.move_down')"
+              @click="moveTarget(index, index + 1)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-x"
+              :aria-label="t('schedule.remove_target')"
+              @click="draft.targets.splice(index, 1)"
+            />
+          </div>
+        </div>
+        <div v-else class="schedule-target-empty">
+          <UIcon name="i-tabler-box-off" class="size-5 text-dimmed" />
+          <span>{{ t('schedule.workspace.no_targets_hint') }}</span>
+        </div>
+        <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">{{
+          t('schedule.add_container')
+        }}</UButton>
+      </section>
+
+      <section class="schedule-editor__section">
+        <div class="schedule-editor__section-heading">
+          <span><UIcon name="i-tabler-shield-half" class="size-4" /></span>
+          <div>
+            <h2>{{ t('schedule.limit_label') }}</h2>
+            <p>{{ t('schedule.workspace.policy_hint') }}</p>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField :label="t('schedule.timeout_label')" :hint="t('schedule.timeout_hint')">
+            <UInputNumber
+              :model-value="draft.timeoutMinutes"
+              :min="0"
+              :aria-label="t('schedule.timeout_label')"
+              @update:model-value="draft.timeoutMinutes = Number($event)"
+            />
+          </UFormField>
+          <UFormField :label="t('schedule.on_error_label')">
+            <USelect
+              v-model="draft.onError"
+              :items="onErrorOptions"
+              :aria-label="t('schedule.on_error_label')"
+            />
+          </UFormField>
+        </div>
+      </section>
+
+      <footer class="schedule-editor__actions">
+        <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{
+          t('common.cancel')
+        }}</UButton>
+        <UButton
+          color="primary"
+          icon="i-tabler-check"
+          :disabled="!draft.name.trim()"
+          @click="$emit('save', draft)"
+          >{{ t('common.save') }}</UButton
         >
-          <div class="text-sm text-default">{{ t('schedule.daily_at_label') }}</div>
-          <UInput
-            v-model="draft.trigger.at"
-            placeholder="05:00"
-            class="w-32"
-            :aria-label="t('schedule.daily_at_label')"
-          />
-        </div>
-        <div
-          v-else-if="draft.trigger.subKind === 'interval'"
-          class="flex items-center justify-between gap-6"
-        >
-          <div class="text-sm text-default">{{ t('schedule.interval_label') }}</div>
-          <UInputNumber
-            :model-value="draft.trigger.everyMinutes ?? 30"
-            :min="1"
-            class="w-32"
-            :aria-label="t('schedule.interval_label')"
-            @update:model-value="draft.trigger.everyMinutes = Number($event)"
-          />
-        </div>
-      </template>
-
-      <template v-if="draft.trigger.kind === 'hotkey'">
-        <div class="border-t border-default/60" />
-        <div class="flex items-center justify-between gap-6">
-          <div class="text-sm text-default">{{ t('schedule.hotkey_label') }}</div>
-          <UInput
-            v-model="draft.trigger.hotkey"
-            placeholder="Ctrl+Shift+2"
-            class="w-48"
-            :aria-label="t('schedule.hotkey_label')"
-          />
-        </div>
-      </template>
-    </section>
-
-    <!-- 限制 -->
-    <section class="detail-section">
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-shield-half" class="size-4 text-dimmed" />
-        <h2 class="text-sm font-medium text-highlighted">{{ t('schedule.limit_label') }}</h2>
-      </div>
-
-      <div class="flex items-center justify-between gap-6">
-        <div>
-          <div class="text-sm text-default">{{ t('schedule.timeout_label') }}</div>
-          <p class="text-xs text-dimmed mt-0.5">{{ t('schedule.timeout_hint') }}</p>
-        </div>
-        <UInputNumber
-          :model-value="draft.timeoutMinutes"
-          :min="0"
-          class="w-32"
-          :aria-label="t('schedule.timeout_label')"
-          @update:model-value="draft.timeoutMinutes = Number($event)"
-        />
-      </div>
-
-      <div class="border-t border-default/60" />
-
-      <div class="flex items-center justify-between gap-6">
-        <div class="text-sm text-default">{{ t('schedule.on_error_label') }}</div>
-        <USelect
-          v-model="draft.onError"
-          :items="onErrorOptions"
-          class="w-48"
-          :aria-label="t('schedule.on_error_label')"
-        />
-      </div>
-    </section>
-
-    <div class="flex justify-end gap-2">
-      <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{
-        t('common.cancel')
-      }}</UButton>
-      <UButton color="primary" icon="i-tabler-check" @click="$emit('save', draft)">{{
-        t('common.save')
-      }}</UButton>
+      </footer>
     </div>
+
+    <aside class="schedule-editor__summary">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-xs font-semibold text-default">{{ t('schedule.workspace.preview') }}</p>
+        <StatusPill
+          :status="draft.enabled ? 'online' : 'paused'"
+          :label="draft.enabled ? t('schedule.enable') : t('schedule.disable')"
+          :dot="draft.enabled"
+        />
+      </div>
+      <div class="schedule-preview__trigger">
+        <span><UIcon :name="previewIcon" class="size-6" /></span>
+        <div>
+          <p>{{ triggerPreview }}</p>
+          <small>{{ t('schedule.workspace.trigger_preview_hint') }}</small>
+        </div>
+      </div>
+      <div>
+        <p class="schedule-preview__label">{{ t('schedule.targets_section') }}</p>
+        <ol v-if="previewTargets.length" class="mt-2 space-y-2">
+          <li
+            v-for="(name, index) in previewTargets"
+            :key="`${name}-${index}`"
+            class="schedule-preview__target"
+          >
+            <span>{{ index + 1 }}</span
+            ><strong>{{ name }}</strong>
+          </li>
+        </ol>
+        <p v-else class="mt-2 text-xs text-dimmed">{{ t('schedule.workspace.no_targets') }}</p>
+      </div>
+      <dl class="schedule-preview__facts">
+        <div>
+          <dt>{{ t('schedule.timeout_label') }}</dt>
+          <dd>{{ timeoutPreview }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('schedule.on_error_label') }}</dt>
+          <dd>{{ t(`schedule.error_mode.${draft.onError}`) }}</dd>
+        </div>
+      </dl>
+    </aside>
   </div>
 </template>
 
@@ -193,47 +230,71 @@
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Container, Schedule } from '@/lib/backend'
+import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
-
-const props = defineProps<{ schedule: Schedule; containers: Container[] }>()
-defineEmits<{ save: [s: Schedule]; cancel: [] }>()
-
-// 深拷贝一次进 reactive；外部 schedule prop 变动也同步
-const draft = reactive<Schedule>(JSON.parse(JSON.stringify(props.schedule)))
+const { schedule, containers } = defineProps<{ schedule: Schedule; containers: Container[] }>()
+defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
+const draft = reactive<Schedule>(structuredClone(schedule))
 watch(
-  () => props.schedule,
-  (s) => Object.assign(draft, JSON.parse(JSON.stringify(s))),
+  () => schedule,
+  (value) => Object.assign(draft, structuredClone(value)),
 )
 
 const containerItems = computed(() =>
-  props.containers.map((c) => ({ label: c.name || t('common.untitled'), value: c.id })),
+  containers.map((container) => ({
+    label: container.name || t('common.untitled'),
+    value: container.id,
+  })),
 )
-
 const triggerKinds = computed(() => [
   { label: t('schedule.container_unbound'), value: 'manual' },
   { label: t('schedule.trigger.cron'), value: 'cron' },
   { label: t('schedule.trigger.once'), value: 'once' },
   { label: t('schedule.trigger.hotkey'), value: 'hotkey' },
 ])
-
 const cronSubKinds = computed(() => [
   { label: t('schedule.trigger.daily'), value: 'daily' },
   { label: t('schedule.trigger.interval'), value: 'interval' },
 ])
-
 const onErrorOptions = computed(() => [
   { label: t('schedule.error_mode.stop'), value: 'stop' },
   { label: t('schedule.error_mode.continue'), value: 'continue' },
 ])
+const previewTargets = computed(() =>
+  draft.targets.map(
+    (target) =>
+      containers.find((container) => container.id === target.id)?.name ??
+      t('schedule.container_unnamed'),
+  ),
+)
+const previewIcon = computed(() => {
+  if (draft.trigger.kind === 'hotkey') return 'i-tabler-keyboard'
+  if (draft.trigger.kind === 'once') return 'i-tabler-rocket'
+  if (draft.trigger.kind === 'manual') return 'i-tabler-hand-click'
+  return draft.trigger.subKind === 'daily' ? 'i-tabler-sun' : 'i-tabler-repeat'
+})
+const triggerPreview = computed(() => {
+  if (draft.trigger.kind === 'cron' && draft.trigger.subKind === 'daily')
+    return t('schedule.display.daily', { at: draft.trigger.at ?? '--:--' })
+  if (draft.trigger.kind === 'cron' && draft.trigger.subKind === 'interval')
+    return t('schedule.display.interval', { mins: draft.trigger.everyMinutes ?? 30 })
+  if (draft.trigger.kind === 'hotkey')
+    return t('schedule.display.hotkey', { key: draft.trigger.hotkey || '—' })
+  return t(`schedule.trigger.${draft.trigger.kind}`)
+})
+const timeoutPreview = computed(() =>
+  draft.timeoutMinutes > 0
+    ? t('schedule.workspace.timeout_minutes', { n: draft.timeoutMinutes })
+    : t('schedule.workspace.no_timeout'),
+)
 
 function addTarget() {
-  draft.targets.push({ kind: 'container', id: props.containers[0]?.id ?? '' })
+  draft.targets.push({ kind: 'container', id: containers[0]?.id ?? '' })
 }
-
 function moveTarget(from: number, to: number) {
   if (to < 0 || to >= draft.targets.length) return
-  const [m] = draft.targets.splice(from, 1)
-  draft.targets.splice(to, 0, m)
+  const [target] = draft.targets.splice(from, 1)
+  if (target) draft.targets.splice(to, 0, target)
 }
 </script>

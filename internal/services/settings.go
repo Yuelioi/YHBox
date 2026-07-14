@@ -50,9 +50,9 @@ type AISettings struct {
 type AIConnection struct {
 	ID       string `json:"id"`
 	Label    string `json:"label"`
-	Protocol string `json:"protocol"` // "openai" | "anthropic"
-	BaseURL  string `json:"baseURL"`  // 空 = 该协议官方默认
-	APIKey   string `json:"apiKey"`   // 明文; 本地常空
+	Protocol string `json:"protocol"`         // "openai" | "anthropic"
+	BaseURL  string `json:"baseURL"`          // 空 = 该协议官方默认
+	APIKey   string `json:"apiKey,omitempty"` // 仅用于读取旧配置并迁移；新写入必须走 AISecrets
 }
 
 // DefaultConnection 返回 Default 指向的连接; 空或失配 → nil(显式, 不自动选单档)。

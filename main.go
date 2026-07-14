@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 	"github.com/yottaapp/yotta/internal/runclassify"
+	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -59,6 +60,12 @@ func main() {
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
 	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
+	aiSecrets := services.NewAISecrets(securestore.New())
+	if migrated, err := aiSecrets.MigrateLegacy(app); err != nil {
+		rootLog.Error().Err(err).Str("tag", "AI_SECRET").Msg("migrate legacy AI credentials")
+	} else if migrated > 0 {
+		rootLog.Info().Int("count", migrated).Str("tag", "AI_SECRET").Msg("migrated AI credentials")
+	}
 	app.ConfigureLogging()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
@@ -94,14 +101,13 @@ func main() {
 	// 两个 manager 就两个 hotkey 线程互相覆盖反注册，热键全丢。
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
-	settingsSvc := services.NewSettingsService(app)
+	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
 	// AI 节点用的按连接缓存 Provider 服务(进程级单例)。getter 每次读 live settings 快照,
 	// 改连接 endpoint/key 后指纹自愈重建。注入进每个 ContainerRunner。
 	aiProviderCache := services.NewAIProviderCache(func() *services.Settings {
-		s := settingsSvc.Get()
-		return &s
-	})
+		return app.Settings()
+	}, aiSecrets)
 
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
@@ -516,7 +522,7 @@ func main() {
 		application.NewService(clipSvc),
 		application.NewService(nodeSvc),
 		application.NewService(codeSnippetSvc),
-		application.NewService(services.NewAIService()),
+		application.NewService(services.NewAIService(aiSecrets)),
 	)
 	// wails3 application
 	wailsApp := application.New(application.Options{

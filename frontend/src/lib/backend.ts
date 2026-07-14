@@ -273,13 +273,13 @@ export interface AssetReferrer {
   nodeKind: string
 }
 
-// AIConnection 跟 Go services.AIConnection 对齐（连接 = credential，model 由 AI 节点选）。
+// AIConnection only carries non-secret metadata. Stored API keys never cross
+// the backend boundary after they enter the OS credential manager.
 export interface AIConnection {
   id: string
   label: string
   protocol: 'openai' | 'anthropic'
   baseURL: string
-  apiKey: string
 }
 
 // AITestResult 跟 Go services.TestResult 对齐。
@@ -302,10 +302,15 @@ export const backend = {
     update: (patch: object) => invokeVoid(SettingsService.Update, JSON.stringify(patch)),
   },
   ai: {
-    testConnection: (connection: AIConnection, testModel: string) =>
-      invoke(AIService.TestConnection, { connection, testModel }) as Promise<
+    testConnection: (connection: AIConnection, testModel: string, apiKey = '') =>
+      invoke(AIService.TestConnection, { connection, testModel, apiKey }) as Promise<
         AITestResult | undefined
       >,
+    secretStatus: (connectionIDs: string[]) =>
+      invoke(AIService.SecretStatus, connectionIDs) as Promise<Record<string, boolean> | undefined>,
+    setAPIKey: (connectionID: string, apiKey: string) =>
+      invokeVoid(AIService.SetAPIKey, connectionID, apiKey),
+    deleteAPIKey: (connectionID: string) => invokeVoid(AIService.DeleteAPIKey, connectionID),
     nodesUsingConnection: (connectionID: string) =>
       invoke(ContainerService.AINodesUsingConnection, connectionID) as Promise<
         AIConnectionRef[] | undefined

@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 116,
+    "methods": 119,
     "models": 100
   },
   "services": [
@@ -175,6 +175,47 @@
     {
       "module": "internal/services/aiservice",
       "methods": [
+        {
+          "name": "DeleteAPIKey",
+          "bindingId": "3519466312",
+          "parameters": [
+            {
+              "name": "connectionID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SecretStatus",
+          "bindingId": "2874549086",
+          "parameters": [
+            {
+              "name": "connectionIDs",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<{ [_ in string]?: boolean }>"
+        },
+        {
+          "name": "SetAPIKey",
+          "bindingId": "2565015335",
+          "parameters": [
+            {
+              "name": "connectionID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "apiKey",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
         {
           "name": "TestConnection",
           "bindingId": "2834824220",
@@ -3735,7 +3776,7 @@
             },
             {
               "name": "\"apiKey\"",
-              "optional": false,
+              "optional": true,
               "type": "string"
             }
           ]
@@ -4051,6 +4092,11 @@
             },
             {
               "name": "\"testModel\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"apiKey\"",
               "optional": false,
               "type": "string"
             }
