@@ -1,5 +1,5 @@
 <template>
-  <aside class="shrink-0 border-l border-default overflow-y-auto p-4">
+  <aside class="h-full min-h-0 shrink-0 overflow-y-auto border-l border-default">
     <NodeInspector
       v-if="selectedNode"
       :node="selectedNode"
@@ -17,6 +17,7 @@
     />
     <SubgraphPropsPanel
       v-else-if="inSubgraph"
+      class="p-4"
       :subgraph="currentSubgraph"
       :all-tags="allSubgraphTags"
       :all-categories="allSubgraphCategories"

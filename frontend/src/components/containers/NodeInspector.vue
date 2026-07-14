@@ -1,10 +1,11 @@
 <template>
-  <div v-if="!node" class="text-sm text-dimmed">{{ t('inspector.no_selection') }}</div>
+  <div v-if="!node" class="p-4 text-sm text-dimmed">{{ t('inspector.no_selection') }}</div>
 
-  <div v-else>
+  <div v-else class="p-4">
     <!-- Header: 大图标 + 中文名 + ID -->
     <header
-      class="sticky top-0 z-20 -mx-4 -mt-4 mb-4 flex items-start gap-3 border-b border-default bg-default px-4 pb-4 pt-4"
+      data-inspector-header
+      class="sticky top-0 z-20 -mx-4 -mt-4 mb-4 flex items-center gap-3 border-b border-default bg-default px-4 pb-4 pt-4"
     >
       <div
         class="flex size-11 shrink-0 items-center justify-center rounded-lg"
@@ -29,7 +30,7 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-help-circle"
-            class="size-8"
+            :ui="inspectorIconButtonUi"
             :title="t('inspector.help_tooltip')"
             :aria-label="t('inspector.help_tooltip')"
           />
@@ -63,7 +64,7 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-copy"
-            class="size-8"
+            :ui="inspectorIconButtonUi"
             :title="t('inspector.copy_menu_tooltip')"
             :aria-label="t('inspector.copy_menu_tooltip')"
           />
@@ -73,7 +74,7 @@
           variant="ghost"
           color="error"
           icon="i-tabler-trash"
-          class="size-8"
+          :ui="inspectorIconButtonUi"
           :title="t('inspector.delete_node_tooltip')"
           :aria-label="t('inspector.delete_node_tooltip')"
           @click="$emit('delete')"
@@ -801,6 +802,7 @@ import {
 } from './pinSpec'
 
 const { t, te } = useI18n()
+const inspectorIconButtonUi = { base: 'size-8 justify-center p-0' }
 
 import PinInput from './inline/PinInput.vue'
 import StructuredInput from './inline/StructuredInput.vue'

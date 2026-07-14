@@ -62,4 +62,13 @@ describe('useSidebarPrefs', () => {
     expect(saved.leftDrawer).toBe('assets')
     expect(saved.assetTab).toBe('clips')
   })
+
+  it('persists the resource management tab', async () => {
+    const { useSidebarPrefs, SIDEBAR_PREFS_KEY } = await import('./useSidebarPrefs')
+    const { prefs } = useSidebarPrefs()
+    prefs.value.assetTab = 'maintenance'
+    await nextTick()
+
+    expect(JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY)!).assetTab).toBe('maintenance')
+  })
 })

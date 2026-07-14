@@ -3618,6 +3618,29 @@ export default {
     changed_refs: '{n} recording(s) became referenced and were skipped',
     delete_failed: 'Could not clean recordings',
   },
+  assetMaintenance: {
+    title: 'Resource management',
+    description:
+      'Keep automation assets organized. Recording cleanup checks workflow references first; blueprints and templates open their existing batch managers.',
+    recordings: {
+      title: 'Unused recordings',
+      description:
+        'Scan every workflow and list only unreferenced recordings before deleting them.',
+      action: 'Scan and clean',
+    },
+    subgraphs: {
+      title: 'Blueprint library',
+      description:
+        'Review references, then organize categories and tags or remove obsolete blueprints.',
+      action: 'Manage blueprints',
+    },
+    templates: {
+      title: 'Template library',
+      description:
+        'Organize template categories and tags or remove duplicates with reference warnings.',
+      action: 'Manage templates',
+    },
+  },
   calibration: {
     title: 'Mouse DPI calibration',
     switch_game_hint: 'Switch to game, press',

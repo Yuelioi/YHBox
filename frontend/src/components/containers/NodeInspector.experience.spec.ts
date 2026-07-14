@@ -17,6 +17,7 @@ describe('NodeInspector experience modes', () => {
   })
 
   it('keeps node identity visible and names icon-only actions', () => {
+    expect(source).toContain('data-inspector-header')
     expect(source).toContain('sticky top-0')
     expect(source).toContain(':aria-label="t(\'inspector.help_tooltip\')"')
     expect(source).toContain(':aria-label="t(\'inspector.copy_menu_tooltip\')"')

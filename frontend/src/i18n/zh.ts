@@ -3472,6 +3472,26 @@ export default {
     changed_refs: '{n} 个录制刚刚被引用，已跳过',
     delete_failed: '清理录制失败',
   },
+  assetMaintenance: {
+    title: '资源管理',
+    description:
+      '集中整理自动化资产。删除录制前会检查流程引用；蓝图和模板可进入对应管理页批量处理。',
+    recordings: {
+      title: '未使用录制',
+      description: '扫描所有流程，只列出没有被引用的录制，确认后再删除。',
+      action: '扫描并清理',
+    },
+    subgraphs: {
+      title: '蓝图库',
+      description: '查看引用情况，批量整理分类、标签或删除不再需要的蓝图。',
+      action: '管理蓝图',
+    },
+    templates: {
+      title: '模板库',
+      description: '批量整理模板分类、标签和冗余模板，删除前会提示引用情况。',
+      action: '管理模板',
+    },
+  },
   // DPI 校准 (CalibratorModal).
   calibration: {
     title: '鼠标 DPI 校准',

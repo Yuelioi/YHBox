@@ -10,8 +10,8 @@ export interface SidebarPrefs {
   experienceMode: EditorExperienceMode
   /** 左侧 VS Code 活动栏式: 哪个停靠面板打开 (null = 只剩细图标栏, 画布最大). */
   leftDrawer: 'vars' | 'snippets' | 'nodes' | 'assets' | null
-  /** 资产停靠面板当前 tab (模板 / 子图库 / Clip). */
-  assetTab: 'templates' | 'library' | 'clips'
+  /** 资产停靠面板当前 tab (模板 / 子图库 / Clip / 资源管理). */
+  assetTab: 'templates' | 'library' | 'clips' | 'maintenance'
   inspectorCollapsed: boolean
   varsExpanded: boolean
   snapEnabled: boolean
