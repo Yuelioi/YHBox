@@ -568,7 +568,8 @@ textarea {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     flex: none;
     overflow: hidden;
-    border-block: 1px solid var(--ui-border);
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
     background: color-mix(in oklab, var(--ui-bg-elevated) 24%, transparent);
   }
 

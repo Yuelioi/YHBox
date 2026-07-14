@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createI18n } from 'vue-i18n'
 import { createApp, defineComponent, nextTick } from 'vue'
 import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ContainersTab from './ContainersTab.vue'
+
+const styleSource = readFileSync(join(process.cwd(), 'src/style.css'), 'utf8')
 
 const routerPush = vi.fn()
 
@@ -149,5 +153,12 @@ describe('ContainersTab layout', () => {
       app.unmount()
       el.remove()
     }
+  })
+
+  it('draws a complete frame around workspace metrics', () => {
+    const metricsRule = styleSource.match(/\.workspace-metrics\s*\{(?<body>[^}]*)\}/)?.groups?.body
+
+    expect(metricsRule).toBeTruthy()
+    expect(metricsRule).toContain('border: 1px solid var(--ui-border)')
   })
 })
