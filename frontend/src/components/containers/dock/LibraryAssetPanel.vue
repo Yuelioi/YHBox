@@ -58,6 +58,7 @@
             :tag-items="allTags"
             :sort-items="sortItems"
             allow-view-switch
+            :show-search="!workspace"
             :show-category-scopes="!workspace"
           />
 
@@ -200,16 +201,13 @@
           />
         </div>
 
-        <aside
-          v-if="workspace"
-          class="asset-inspector min-h-0 w-[360px] shrink-0 overflow-y-auto border-l border-default bg-default"
-        >
-          <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
-        </aside>
-
         <AssetWorkspaceInspector
-          v-if="workspace && drillIn && detailId"
-          :title="lib.subgraphs.find((item) => item.id === detailId)?.label || detailId"
+          v-if="workspace"
+          :open="drillIn && !!detailId"
+          :title="
+            (detailId && (lib.subgraphs.find((item) => item.id === detailId)?.label || detailId)) ||
+            t('assetBrowser.automationBlueprints')
+          "
           @close="drillIn = false"
         >
           <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
@@ -294,7 +292,10 @@ import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowserPreferences'
 
 const { t } = useI18n()
-const { workspace = false } = defineProps<{ workspace?: boolean }>()
+const { workspace = false, workspaceQuery = '' } = defineProps<{
+  workspace?: boolean
+  workspaceQuery?: string
+}>()
 
 const emit = defineEmits<{
   'pick-subgraph': [libraryID: string]
@@ -302,6 +303,7 @@ const emit = defineEmits<{
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'label' | 'createdAt' | 'nodes'>('blueprints', 'label')
+const effectiveQuery = computed(() => workspaceQuery.trim() || query.value)
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 // 排序 (镜像模板/clip 管理): 名称/创建时间/节点数 × 正逆序.
@@ -335,7 +337,7 @@ const categoryFilterItems = computed(() => [
 
 const filteredItems = computed<Subgraph[]>(() => {
   const arr = filterSubgraphs(lib.subgraphs, {
-    query: query.value,
+    query: effectiveQuery.value,
     category:
       categoryFilter.value === 'all'
         ? null
@@ -370,7 +372,7 @@ const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
 )
 
-watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
+watch([effectiveQuery, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
   page.value = 1
 })
 watch(
@@ -651,12 +653,6 @@ async function onBatchChangeCategory() {
 .blueprint-grid--list .blueprint-preview {
   border-bottom: 0;
   border-right: 1px solid var(--ui-border);
-}
-
-@container (width < 1040px) {
-  [data-workspace='true'] .asset-inspector {
-    display: none;
-  }
 }
 
 @container (width < 760px) {

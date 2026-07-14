@@ -3668,6 +3668,7 @@ export default {
     workspaceSubtitle: 'Find, reuse, and maintain automation assets',
     openWorkspace: 'Open asset workbench',
     backToAssets: 'Back to assets',
+    searchAll: 'Search all templates, blueprints, and action clips',
     visualTemplates: 'Visual templates',
     automationBlueprints: 'Automation blueprints',
     actionClips: 'Action clips',

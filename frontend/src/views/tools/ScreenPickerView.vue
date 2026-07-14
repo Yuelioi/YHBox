@@ -410,6 +410,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Window, Events } from '@wailsio/runtime'
+import { useLocalStorage } from '@vueuse/core'
 import { backend } from '@/lib/backend'
 import { rgbToHsv, rgbToHex } from '@/lib/color'
 import { usePickerViewport } from '@/composables/tools/usePickerViewport'
@@ -547,7 +548,8 @@ const loupeStyle = computed(() => {
 
 // template form — key 已移除，后端分配 GUID; 填名称 + 可选分类/标签
 const tplName = ref('')
-const tplCategory = ref('')
+const lastTplCategory = useLocalStorage('template.capture.lastCategory', '')
+const tplCategory = ref(lastTplCategory.value)
 const tplKnownCategories = ref<string[]>([])
 const tplCreatedCategories = ref<string[]>([])
 const tplCategoryItems = computed(() =>
@@ -892,6 +894,7 @@ async function confirm() {
           saving.value = false
           return
         }
+        lastTplCategory.value = tplCategory.value.trim()
         await emitResult({ guid: guid as string })
       }
     } else if (mode.value === 'point' && pointSelNat.value) {

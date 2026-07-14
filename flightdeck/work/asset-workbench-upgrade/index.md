@@ -197,17 +197,19 @@ Clip 当前前端只有总时长、事件数和录制元数据，没有逐段事
 ## Implemented
 
 - `AssetBrowserToolbar`、`AssetCategoryRail`、`AssetPager` 与 `useRovingAssetList` 统一了筛选、视图、分页及 Arrow/Home/End 键盘模型。
+- 完整工作台提供一条跨视觉模板、自动化蓝图和操作片段的统一搜索，并在类型 tab 中同步显示匹配数。
 - 视觉模板使用真实截图和变体元数据；自动化蓝图从真实 nodes/edges 生成有界拓扑；操作片段仅展示真实时长、事件数、鼠标模式和基准分辨率。
 - dock 单击选择、显式详情 drill-in；蓝图/Clip 双击或 Enter 插入。完整工作台提供分类、内容、常驻 inspector 三栏。
-- 搜索、分类、标签、排序方向和视图按资产类型持久化；工作台低于 1040px 时 inspector 转为原位覆盖详情，低于 760px 折叠分类 rail。
+- 搜索、分类、标签、排序方向和视图按资产类型持久化；截图新模板默认使用上次成功保存的分类。
+- 工作台低于 1040px 时同一个 inspector 转为原位覆盖详情并接管 Esc/焦点，低于 760px 折叠分类 rail；不会因响应式切换丢失详情草稿。
 - 资产维护从第四个产品 tab 移为独立工具入口；父宿主统一预载三类资产，避免父子重复请求。
 - 详情表单补齐 accessible name，模板变体删除改为独立可聚焦按钮，列表使用 roving tabindex。
 
 ## Verified
 
 - `pnpm -C frontend typecheck`
-- `pnpm -C frontend test`：90 files / 598 tests
+- `pnpm -C frontend test`：90 files / 601 tests
 - `pnpm -C frontend build`：bundle budget passed
-- `pnpm -C frontend i18n:check`：中英文 2859 keys parity / compile / refs passed
+- `pnpm -C frontend i18n:check`：中英文 2860 keys parity / compile / refs passed
 - `pnpm -C frontend lint`：0 warnings / 0 errors；`no-explicit-any` 技术债由 270 降至 267
 - `task check`：供应链 pin 检查通过，随后因本机 Node 24.18.0 与仓库固定 22.23.1 不匹配而提前停止

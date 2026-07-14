@@ -58,6 +58,7 @@
             :tag-items="allTags"
             :sort-items="sortItems"
             allow-view-switch
+            :show-search="!workspace"
             :show-category-scopes="!workspace"
           />
 
@@ -77,7 +78,7 @@
               </div>
               <p class="text-sm font-medium text-toned">
                 <span v-if="entries.length === 0">{{ t('clip.manager.empty') }}</span>
-                <span v-else>{{ t('clip.manager.no_match', { search: query }) }}</span>
+                <span v-else>{{ t('clip.manager.no_match', { search: effectiveQuery }) }}</span>
               </p>
               <p
                 v-if="entries.length === 0"
@@ -194,16 +195,13 @@
           />
         </div>
 
-        <aside
-          v-if="workspace"
-          class="asset-inspector min-h-0 w-[360px] shrink-0 overflow-y-auto border-l border-default bg-default"
-        >
-          <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
-        </aside>
-
         <AssetWorkspaceInspector
-          v-if="workspace && drillIn && detailId"
-          :title="store.clips.find((item) => item.id === detailId)?.label || detailId"
+          v-if="workspace"
+          :open="drillIn && !!detailId"
+          :title="
+            (detailId && (store.clips.find((item) => item.id === detailId)?.label || detailId)) ||
+            t('assetBrowser.actionClips')
+          "
           @close="drillIn = false"
         >
           <ClipDetailPanel :clip-id="detailId" @insert="onDetailInsert" />
@@ -286,7 +284,10 @@ import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowserPreferences'
 
 const { t } = useI18n()
-const { workspace = false } = defineProps<{ workspace?: boolean }>()
+const { workspace = false, workspaceQuery = '' } = defineProps<{
+  workspace?: boolean
+  workspaceQuery?: string
+}>()
 const emit = defineEmits<{
   'pick-clip': [clipID: string]
 }>()
@@ -301,6 +302,7 @@ const { confirm } = useConfirm()
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'label' | 'createdAt' | 'duration'>('clips', 'label')
+const effectiveQuery = computed(() => workspaceQuery.trim() || query.value)
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 const sortItems = computed(() => [
@@ -336,7 +338,7 @@ function formatDuration(us: number): string {
 
 const filteredItems = computed<ClipSummary[]>(() => {
   const arr = filterSubgraphs(entries.value, {
-    query: query.value,
+    query: effectiveQuery.value,
     category:
       categoryFilter.value === 'all'
         ? null
@@ -371,7 +373,7 @@ const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
 )
 
-watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
+watch([effectiveQuery, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
   page.value = 1
 })
 watch(
@@ -581,12 +583,6 @@ async function onBatchDelete() {
 .clip-grid--list .clip-preview {
   border-bottom: 0;
   border-right: 1px solid var(--ui-border);
-}
-
-@container (width < 1040px) {
-  [data-workspace='true'] .asset-inspector {
-    display: none;
-  }
 }
 
 @container (width < 760px) {

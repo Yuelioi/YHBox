@@ -29,8 +29,15 @@ describe('editor interaction accessibility', () => {
     'containers/dock/ClipAssetPanel.vue',
   ])('%s keeps details reachable when the workspace collapses', (file) => {
     const panel = source(file)
-    expect(panel).toContain('<AssetWorkspaceInspector')
-    expect(panel).toContain('@container (width < 1040px)')
+    expect(panel.match(/<AssetWorkspaceInspector/g)).toHaveLength(1)
+  })
+
+  it('moves and traps focus in the compact workspace inspector', () => {
+    const inspector = source('containers/dock/AssetWorkspaceInspector.vue')
+    expect(inspector).toContain('@container (width < 1040px)')
+    expect(inspector).toContain('@keydown.esc.stop')
+    expect(inspector).toContain('@keydown.tab="trapFocus"')
+    expect(inspector).toContain('sibling.inert = value')
   })
 
   it('keeps template variant deletion as a named keyboard action', () => {

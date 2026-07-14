@@ -2,6 +2,7 @@
   <div class="asset-browser-toolbar shrink-0 space-y-2">
     <div class="flex items-center gap-2">
       <UInput
+        v-if="showSearch"
         ref="searchRef"
         v-model="query"
         icon="i-tabler-search"
@@ -147,6 +148,7 @@ const {
   sortItems,
   allowViewSwitch = false,
   showCategoryScopes = true,
+  showSearch = true,
 } = defineProps<{
   searchPlaceholder: string
   categoryItems: CategoryItem[]
@@ -154,6 +156,7 @@ const {
   sortItems: SelectItem[]
   allowViewSwitch?: boolean
   showCategoryScopes?: boolean
+  showSearch?: boolean
 }>()
 
 const query = defineModel<string>('query', { required: true })

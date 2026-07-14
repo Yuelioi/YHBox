@@ -52,6 +52,16 @@
         />
       </div>
 
+      <UInput
+        v-if="workspace && tab !== 'maintenance'"
+        v-model="workspaceQuery"
+        icon="i-tabler-search"
+        size="sm"
+        class="mb-2.5 w-full"
+        :placeholder="t('assetBrowser.searchAll')"
+        :aria-label="t('assetBrowser.searchAll')"
+      />
+
       <div v-if="tab === 'maintenance'" class="flex items-center gap-2">
         <UButton
           size="xs"
@@ -80,16 +90,19 @@
         :pick-mode="templatePickMode"
         :model-value="templateSelected"
         :workspace="workspace"
+        :workspace-query="workspaceQuery"
         @update:model-value="(v: string[]) => emit('update:template-selected', v)"
       />
       <LibraryAssetPanel
         v-else-if="tab === 'library'"
         :workspace="workspace"
+        :workspace-query="workspaceQuery"
         @pick-subgraph="(id: string) => emit('pick-subgraph', id)"
       />
       <ClipAssetPanel
         v-else-if="tab === 'clips'"
         :workspace="workspace"
+        :workspace-query="workspaceQuery"
         @pick-clip="(id: string) => emit('pick-clip', id)"
       />
       <AssetMaintenancePanel v-else-if="tab === 'maintenance'" />
@@ -100,6 +113,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocalStorage } from '@vueuse/core'
 import TemplateAssetPanel from './TemplateAssetPanel.vue'
 import LibraryAssetPanel from './LibraryAssetPanel.vue'
 import ClipAssetPanel from './ClipAssetPanel.vue'
@@ -129,20 +143,39 @@ const { t } = useI18n()
 const templates = useTemplatesStore()
 const library = useLibraryStore()
 const clips = useClipsStore()
+const workspaceQuery = useLocalStorage('asset.workspace.query', '')
+const normalizedWorkspaceQuery = computed(() => workspaceQuery.value.trim().toLocaleLowerCase())
+
+function matchesWorkspaceQuery(parts: Array<string | undefined>) {
+  const query = normalizedWorkspaceQuery.value
+  return !query || parts.some((part) => part?.toLocaleLowerCase().includes(query))
+}
+
+const matchingCounts = computed(() => ({
+  templates: Object.values(templates.map).filter((item) =>
+    matchesWorkspaceQuery([item.name, item.description, item.category, ...(item.tags ?? [])]),
+  ).length,
+  library: library.subgraphs.filter((item) =>
+    matchesWorkspaceQuery([item.label, item.description, item.category, ...(item.tags ?? [])]),
+  ).length,
+  clips: clips.clips.filter((item) =>
+    matchesWorkspaceQuery([item.label, item.description, item.category, ...(item.tags ?? [])]),
+  ).length,
+}))
 const tabItems = computed(() => [
   {
     value: 'templates',
-    label: `${t('assetBrowser.visualTemplates')} ${Object.keys(templates.map).length}`,
+    label: `${t('assetBrowser.visualTemplates')} ${matchingCounts.value.templates}`,
     icon: 'i-tabler-photo',
   },
   {
     value: 'library',
-    label: `${t('assetBrowser.automationBlueprints')} ${library.subgraphs.length}`,
+    label: `${t('assetBrowser.automationBlueprints')} ${matchingCounts.value.library}`,
     icon: 'i-tabler-hierarchy',
   },
   {
     value: 'clips',
-    label: `${t('assetBrowser.actionClips')} ${clips.clips.length}`,
+    label: `${t('assetBrowser.actionClips')} ${matchingCounts.value.clips}`,
     icon: 'i-tabler-player-record',
   },
 ])

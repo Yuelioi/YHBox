@@ -3520,6 +3520,7 @@ export default {
     workspaceSubtitle: '查找、复用和维护自动化素材',
     openWorkspace: '展开资产工作台',
     backToAssets: '返回资产浏览',
+    searchAll: '搜索全部模板、蓝图和操作片段',
     visualTemplates: '视觉模板',
     automationBlueprints: '自动化蓝图',
     actionClips: '操作片段',

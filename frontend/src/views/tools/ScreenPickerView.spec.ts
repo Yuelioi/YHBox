@@ -11,4 +11,10 @@ describe('ScreenPickerView template capture metadata', () => {
       /saveTemplateCapture\(\s*png,\s*tplName\.value\.trim\(\),\s*tplCategory\.value\.trim\(\),/,
     )
   })
+
+  it('starts with and updates the last successfully used category', () => {
+    expect(source).toContain("useLocalStorage('template.capture.lastCategory', '')")
+    expect(source).toContain('const tplCategory = ref(lastTplCategory.value)')
+    expect(source).toContain('lastTplCategory.value = tplCategory.value.trim()')
+  })
 })

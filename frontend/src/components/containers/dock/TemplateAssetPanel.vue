@@ -62,6 +62,7 @@
             :tag-items="allTags"
             :sort-items="sortItems"
             allow-view-switch
+            :show-search="!workspace"
             :show-category-scopes="!workspace"
           />
 
@@ -87,7 +88,7 @@
               </div>
               <p class="text-sm font-medium text-toned">
                 <span v-if="entries.length === 0">{{ t('template.manager.empty') }}</span>
-                <span v-else>{{ t('template.manager.no_match', { search: query }) }}</span>
+                <span v-else>{{ t('template.manager.no_match', { search: effectiveQuery }) }}</span>
               </p>
               <p
                 v-if="entries.length === 0"
@@ -199,16 +200,13 @@
           />
         </div>
 
-        <aside
-          v-if="workspace"
-          class="asset-inspector min-h-0 w-[340px] shrink-0 overflow-y-auto border-l border-default bg-default"
-        >
-          <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
-        </aside>
-
         <AssetWorkspaceInspector
-          v-if="workspace && drillIn && detailId"
-          :title="tplStore.map[detailId]?.name || detailId"
+          v-if="workspace"
+          :open="drillIn && !!detailId"
+          :title="
+            (detailId && (tplStore.map[detailId]?.name || detailId)) ||
+            t('assetBrowser.visualTemplates')
+          "
           @close="drillIn = false"
         >
           <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
@@ -291,7 +289,12 @@ import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
 import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowserPreferences'
 
 const { t } = useI18n()
-const props = defineProps<{ pickMode?: boolean; modelValue?: string[]; workspace?: boolean }>()
+const props = defineProps<{
+  pickMode?: boolean
+  modelValue?: string[]
+  workspace?: boolean
+  workspaceQuery?: string
+}>()
 const emit = defineEmits<{ 'update:modelValue': [v: string[]] }>()
 
 // pick 模式: 缩略图勾选=指派给节点 (按 modelValue 回显); 管理模式: 选中=批量.
@@ -337,6 +340,7 @@ const { confirm } = useConfirm()
 
 const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
   useAssetBrowserPreferences<'name' | 'createdAt' | 'variantCount'>('templates', 'name')
+const effectiveQuery = computed(() => props.workspaceQuery?.trim() || query.value)
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
 
 // 排序
@@ -372,7 +376,7 @@ const categoryFilterItems = computed(() => [
 
 const filteredItems = computed<TplItem[]>(() => {
   const arr = filterSubgraphs(entries.value, {
-    query: query.value,
+    query: effectiveQuery.value,
     category:
       categoryFilter.value === 'all'
         ? null
@@ -408,7 +412,7 @@ const groupedItems = computed(() =>
   groupByCategory(pageResult.value.pageItems, t('library.explorer.uncategorized')),
 )
 
-watch([query, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
+watch([effectiveQuery, categoryFilter, tagFilter, pageSize, sortKey, sortDesc], () => {
   page.value = 1
 })
 watch(
@@ -559,12 +563,6 @@ async function onBatchDelete() {
 .template-asset-grid--list > [data-asset-option] {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
-}
-
-@container (width < 1040px) {
-  [data-workspace='true'] .asset-inspector {
-    display: none;
-  }
 }
 
 @container (width < 760px) {

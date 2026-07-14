@@ -25,6 +25,13 @@ describe('AssetDockPanel information architecture', () => {
     expect(dock).toContain("t('assetBrowser.actionClips')")
   })
 
+  it('provides one workspace query across all three asset types', () => {
+    expect(dock).toContain('v-model="workspaceQuery"')
+    expect(dock).toContain("t('assetBrowser.searchAll')")
+    expect(dock.match(/:workspace-query="workspaceQuery"/g)).toHaveLength(3)
+    expect(dock).toContain('matchingCounts')
+  })
+
   it('offers cleanup workflows for recordings, blueprints, and templates', () => {
     expect(maintenance).toContain("t('assetMaintenance.recordings.title')")
     expect(maintenance).toContain("t('assetMaintenance.subgraphs.title')")
