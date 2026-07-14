@@ -1,56 +1,51 @@
 <template>
-  <div class="h-screen flex flex-col bg-default text-default select-none">
-    <!-- Header (跟录屏家族 HUD 同风格: 主题底色 + 下边框 + UButton 关闭) -->
-    <header
-      class="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-default"
-      style="--wails-draggable: drag"
-    >
-      <UIcon name="i-tabler-crosshair" class="size-3.5 text-primary" />
-      <span class="text-xs font-medium text-highlighted">{{ titleByMode }}</span>
-      <span class="ml-auto text-[10px] text-dimmed shrink-0" style="--wails-draggable: no-drag">
-        {{ hint }}
-      </span>
-      <UButton
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        icon="i-tabler-x"
-        style="--wails-draggable: no-drag"
-        title="取消并关闭"
-        @click="cancel"
-      />
-    </header>
+  <HudShell
+    icon="i-tabler-crosshair"
+    :accent="pickerAccent"
+    :title="titleByMode"
+    :subtitle="hint"
+    :status="pickerStatus"
+    :status-active="!capturing && !!dataURL"
+    :close-title="t('screenPicker.cancel_close')"
+    @close="cancel"
+  >
+    <template #actions>
+      <UBadge v-if="natW && natH" size="xs" color="neutral" variant="subtle">
+        {{ natW }} × {{ natH }}
+      </UBadge>
+    </template>
 
-    <!-- Body -->
-    <div class="flex-1 flex min-h-0">
+    <div class="screen-picker-layout">
       <!-- 左: 工具栏 + 图区 -->
-      <div class="flex-1 min-w-0 flex flex-col">
-        <!-- 工具栏 (底部状态条) -->
-        <div class="order-last shrink-0 h-9 flex items-center gap-1 px-2 border-t border-default">
+      <div class="flex min-w-0 flex-1 flex-col">
+        <div class="screen-picker-toolbar">
           <UButton
             size="xs"
             variant="ghost"
             color="neutral"
             icon="i-tabler-arrows-maximize"
-            title="适应窗口"
+            :title="t('screenPicker.fit')"
+            :aria-label="t('screenPicker.fit')"
             @click="doFit"
           />
           <UButton
             size="xs"
             variant="ghost"
             color="neutral"
+            class="font-mono"
             label="1:1"
-            :ui="{ label: 'text-[11px] font-mono' }"
-            title="原始像素 1:1"
+            :title="t('screenPicker.actual')"
+            :aria-label="t('screenPicker.actual')"
             @click="doActual"
           />
-          <div class="mx-1 h-4 w-px bg-default" />
+          <USeparator orientation="vertical" class="mx-1 h-4" />
           <UButton
             size="xs"
             variant="ghost"
             color="neutral"
             icon="i-tabler-minus"
-            title="缩小"
+            :title="t('screenPicker.zoom_out')"
+            :aria-label="t('screenPicker.zoom_out')"
             @click="zoomBy(1 / 1.25)"
           />
           <span class="text-[11px] font-mono tabular-nums text-toned w-12 text-center">
@@ -61,28 +56,27 @@
             variant="ghost"
             color="neutral"
             icon="i-tabler-plus"
-            title="放大"
+            :title="t('screenPicker.zoom_in')"
+            :aria-label="t('screenPicker.zoom_in')"
             @click="zoomBy(1.25)"
           />
-          <div class="mx-1 h-4 w-px bg-default" />
+          <USeparator orientation="vertical" class="mx-1 h-4" />
           <UButton
             size="xs"
             variant="soft"
             color="neutral"
             icon="i-tabler-refresh"
             :loading="capturing"
-            label="重新截屏"
+            :label="t('screenPicker.recapture')"
             @click="reCapture"
           />
-          <span class="ml-auto text-[10px] text-dimmed"
-            >滚轮缩放 · 右键/空格拖动平移 · 方向键微调</span
-          >
+          <span class="screen-picker-toolbar__hint">{{ t('screenPicker.gesture_hint') }}</span>
         </div>
 
         <!-- 图区视口 -->
         <div
           ref="viewportEl"
-          class="flex-1 min-h-0 relative overflow-hidden bg-default"
+          class="screen-picker-canvas"
           :class="
             viewport.panning.value
               ? 'cursor-grabbing'
@@ -102,7 +96,7 @@
             class="absolute inset-0 flex flex-col items-center justify-center text-dimmed text-sm gap-3"
           >
             <UIcon name="i-tabler-camera" class="size-10 animate-pulse" />
-            <p>正在截屏...</p>
+            <p>{{ t('screenPicker.capturing') }}</p>
           </div>
 
           <template v-else>
@@ -112,7 +106,7 @@
               class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-highlighted text-sm gap-2 z-20"
             >
               <UIcon name="i-tabler-loader-2" class="size-8 animate-spin" />
-              <p>正在提取颜色范围...</p>
+              <p>{{ t('screenPicker.extracting') }}</p>
             </div>
             <!-- 图 (transform 缩放/平移) -->
             <img
@@ -193,12 +187,13 @@
       </div>
 
       <!-- 右侧侧栏 -->
-      <aside
-        class="w-72 shrink-0 border-l border-default bg-default p-3 overflow-y-auto flex flex-col gap-3"
-      >
+      <aside class="screen-picker-inspector">
         <!-- 实时读数 -->
-        <section class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2">
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">光标</h4>
+        <section class="screen-picker-section">
+          <div class="screen-picker-section__heading">
+            <UIcon name="i-tabler-pointer" class="size-3.5" />
+            <h2>{{ t('screenPicker.cursor') }}</h2>
+          </div>
           <div v-if="cursorNat" class="space-y-1.5 text-[11px] font-mono tabular-nums">
             <div>
               <span class="text-dimmed">px</span> {{ Math.round(cursorNat.x) }},
@@ -232,16 +227,18 @@
               </div>
             </div>
           </div>
-          <div v-else class="text-[11px] text-dimmed">移到图上看坐标/取色</div>
+          <div v-else class="text-xs text-dimmed">{{ t('screenPicker.cursor_hint') }}</div>
         </section>
 
         <!-- 当前选择: point -->
-        <section
-          v-if="mode === 'point'"
-          class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2"
-        >
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">选点</h4>
-          <div v-if="!pointSelNat" class="text-[11px] text-dimmed">在图上点一下</div>
+        <section v-if="mode === 'point'" class="screen-picker-section">
+          <div class="screen-picker-section__heading">
+            <UIcon name="i-tabler-focus-2" class="size-3.5" />
+            <h2>{{ t('screenPicker.point') }}</h2>
+          </div>
+          <div v-if="!pointSelNat" class="text-xs text-dimmed">
+            {{ t('screenPicker.point_hint') }}
+          </div>
           <template v-else>
             <div class="flex items-center gap-2">
               <label class="text-[10px] text-dimmed w-3">x</label>
@@ -273,12 +270,16 @@
         </section>
 
         <!-- 当前选择: rect / template_save / color -->
-        <section v-else class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-2">
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">
-            {{ mode === 'color' ? '取色' : '框选' }}
-          </h4>
-          <div v-if="!rectSelNat" class="text-[11px] text-dimmed">
-            {{ mode === 'color' ? '框选颜色区域或点击单点取色' : '在图上拖一个矩形' }}
+        <section v-else class="screen-picker-section">
+          <div class="screen-picker-section__heading">
+            <UIcon
+              :name="mode === 'color' ? 'i-tabler-color-picker' : 'i-tabler-crop'"
+              class="size-3.5"
+            />
+            <h2>{{ mode === 'color' ? t('screenPicker.color') : t('screenPicker.region') }}</h2>
+          </div>
+          <div v-if="!rectSelNat" class="text-xs text-dimmed">
+            {{ mode === 'color' ? t('screenPicker.color_hint') : t('screenPicker.region_hint') }}
           </div>
           <template v-else>
             <div class="grid grid-cols-2 gap-1.5">
@@ -335,59 +336,69 @@
         </section>
 
         <!-- template_save 表单 -->
-        <section
-          v-if="mode === 'template_save'"
-          class="rounded-lg border border-default/60 bg-elevated/40 p-2.5 space-y-3"
-        >
-          <h4 class="text-[10px] uppercase tracking-wider text-dimmed">保存为模板</h4>
-          <div class="space-y-1.5">
-            <label class="block text-[11px] text-toned">显示名 (必填)</label>
-            <UInput v-model="tplName" size="sm" class="w-full" placeholder="例：上钩图标" />
+        <section v-if="mode === 'template_save'" class="screen-picker-section">
+          <div class="screen-picker-section__heading">
+            <UIcon name="i-tabler-photo-plus" class="size-3.5" />
+            <h2>{{ t('screenPicker.template.title') }}</h2>
           </div>
-          <div class="space-y-1.5">
-            <label class="block text-[11px] text-toned">分类 (可选)</label>
+          <UFormField :label="t('screenPicker.template.name')" required>
+            <UInput
+              v-model="tplName"
+              size="sm"
+              class="w-full"
+              :placeholder="t('screenPicker.template.name_placeholder')"
+            />
+          </UFormField>
+          <UFormField :label="t('screenPicker.template.category')">
             <UInputMenu
               v-model="tplCategory"
               :items="tplCategoryItems"
               :create-item="'always'"
               size="sm"
               class="w-full"
-              placeholder="选择或输入分类"
+              :placeholder="t('screenPicker.template.category_placeholder')"
               @create="onCreateTplCategory"
             />
-          </div>
-          <div class="space-y-1.5">
-            <label class="block text-[11px] text-toned">标签 (可选)</label>
+          </UFormField>
+          <UFormField :label="t('screenPicker.template.tags')">
             <div v-if="tplTags.length" class="flex flex-wrap gap-1">
-              <span
+              <UBadge
                 v-for="(tag, i) in tplTags"
                 :key="tag + i"
-                class="inline-flex items-center gap-1 rounded bg-elevated/60 border border-default/40 pl-1.5 pr-1 py-0.5 text-[10px] text-toned"
+                color="neutral"
+                variant="subtle"
+                class="gap-1"
               >
                 {{ tag }}
-                <UIcon
-                  name="i-tabler-x"
-                  class="size-3 cursor-pointer hover:text-error"
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="link"
+                  icon="i-tabler-x"
+                  class="size-4 p-0"
+                  :aria-label="t('screenPicker.template.remove_tag', { tag })"
                   @click="tplTags.splice(i, 1)"
                 />
-              </span>
+              </UBadge>
             </div>
             <UInput
               v-model="tplTagInput"
               size="sm"
               class="w-full"
-              placeholder="输入后回车添加"
+              :placeholder="t('screenPicker.template.tags_placeholder')"
               @keyup.enter="addTplTag"
             />
-          </div>
-          <p class="text-[10px] text-dimmed">不框选 = 保存全图；框选 = 自动裁剪</p>
+          </UFormField>
+          <p class="text-xs text-dimmed">{{ t('screenPicker.template.crop_hint') }}</p>
         </section>
 
         <div class="grow" />
 
         <!-- 底栏按钮 -->
         <div class="pt-2 border-t border-default flex items-center gap-2">
-          <UButton size="sm" variant="ghost" color="neutral" @click="cancel">取消</UButton>
+          <UButton size="sm" variant="ghost" color="neutral" @click="cancel">{{
+            t('common.cancel')
+          }}</UButton>
           <span class="grow" />
           <UButton
             v-if="mode !== 'color'"
@@ -403,12 +414,13 @@
         </div>
       </aside>
     </div>
-  </div>
+  </HudShell>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Window, Events } from '@wailsio/runtime'
 import { useLocalStorage } from '@vueuse/core'
 import { backend } from '@/lib/backend'
@@ -416,8 +428,10 @@ import { rgbToHsv, rgbToHex } from '@/lib/color'
 import { usePickerViewport } from '@/composables/tools/usePickerViewport'
 import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
 import { addCreatedCategory, uniqueCategoryOptions } from '@/components/containers/categoryOptions'
+import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()
+const { t } = useI18n()
 const mode = computed(
   () =>
     String(route.query.mode ?? 'point') as
@@ -434,37 +448,18 @@ const containerID = computed(() => String(route.query.containerID ?? ''))
 const nodeID = computed(() => String(route.query.nodeID ?? ''))
 // template_recapture: 重拍目标资产 GUID (存成同 GUID 的新分辨率档).
 const recaptureGUID = computed(() => String(route.query.guid ?? ''))
+const pickerAccent = computed<'primary' | 'success' | 'warning'>(() => {
+  if (mode.value === 'color') return 'warning'
+  if (mode.value === 'template_save' || mode.value === 'template_recapture') return 'success'
+  return 'primary'
+})
 
 const titleByMode = computed(() => {
-  switch (mode.value) {
-    case 'point':
-      return '屏幕选点'
-    case 'rect':
-      return '屏幕框选'
-    case 'template_save':
-      return '截图新模板'
-    case 'template_recapture':
-      return '重拍模板'
-    case 'color':
-      return '屏幕取色'
-  }
-  return '屏幕选择器'
+  return t(`screenPicker.mode.${mode.value}`)
 })
 
 const hint = computed(() => {
-  switch (mode.value) {
-    case 'point':
-      return '在图上点一下选取位置'
-    case 'rect':
-      return '在图上拖一个矩形选取区域'
-    case 'template_save':
-      return '可选拖一个矩形裁剪；不拖则保存全图'
-    case 'template_recapture':
-      return '重拍：可选拖矩形裁剪，保存为同一资产的新图（保留 GUID，所有引用自动跟随）'
-    case 'color':
-      return '框选目标颜色区域（点一下取单点色）'
-  }
-  return ''
+  return t(`screenPicker.hint.${mode.value}`)
 })
 
 const dataURL = ref('')
@@ -500,6 +495,13 @@ interface CursorColor {
   hex: string
 }
 const cursorColor = ref<CursorColor | null>(null)
+const pickerStatus = computed(() => {
+  if (capturing.value) return t('screenPicker.status.capturing')
+  if (saving.value) return t('screenPicker.status.saving')
+  if (extracting.value) return t('screenPicker.status.extracting')
+  if (pointSelNat.value || rectSelNat.value) return t('screenPicker.status.selected')
+  return t('screenPicker.status.ready')
+})
 
 // 原生 → 视口容器屏幕坐标 (覆盖层用).
 function natToScreen(nx: number, ny: number): Point {
@@ -590,9 +592,13 @@ const canConfirm = computed(() => {
   return false
 })
 const confirmLabel = computed(() => {
-  if (mode.value === 'template_save') return rectSelNat.value ? '保存（裁剪）' : '保存（全图）'
-  if (mode.value === 'template_recapture') return rectSelNat.value ? '重拍（裁剪）' : '重拍（全图）'
-  return '确定'
+  if (mode.value === 'template_save') {
+    return t(rectSelNat.value ? 'screenPicker.save_crop' : 'screenPicker.save_full')
+  }
+  if (mode.value === 'template_recapture') {
+    return t(rectSelNat.value ? 'screenPicker.recapture_crop' : 'screenPicker.recapture_full')
+  }
+  return t('common.confirm')
 })
 
 // ── 截屏 ───────────────────────────────────────────────
@@ -961,3 +967,122 @@ onUnmounted(() => {
   window.removeEventListener('resize', onResize)
 })
 </script>
+
+<style scoped>
+.screen-picker-layout {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.screen-picker-toolbar {
+  display: flex;
+  min-height: 40px;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--ui-border);
+  background: color-mix(in oklab, var(--ui-bg-elevated) 28%, transparent);
+}
+
+.screen-picker-toolbar__hint {
+  overflow: hidden;
+  margin-left: auto;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--ui-text-dimmed);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.screen-picker-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background:
+    linear-gradient(
+        45deg,
+        color-mix(in oklab, var(--ui-border) 35%, transparent) 25%,
+        transparent 25%
+      )
+      0 0 / 20px 20px,
+    linear-gradient(
+        -45deg,
+        color-mix(in oklab, var(--ui-border) 35%, transparent) 25%,
+        transparent 25%
+      )
+      0 10px / 20px 20px,
+    linear-gradient(
+        45deg,
+        transparent 75%,
+        color-mix(in oklab, var(--ui-border) 35%, transparent) 75%
+      )
+      10px -10px / 20px 20px,
+    linear-gradient(
+        -45deg,
+        transparent 75%,
+        color-mix(in oklab, var(--ui-border) 35%, transparent) 75%
+      ) -10px
+      0 / 20px 20px,
+    var(--ui-bg);
+}
+
+.screen-picker-inspector {
+  display: flex;
+  width: clamp(272px, 24vw, 328px);
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 12px;
+  border-left: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+}
+
+.screen-picker-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in oklab, var(--ui-bg-elevated) 24%, transparent);
+}
+
+.screen-picker-section__heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ui-text-muted);
+}
+
+.screen-picker-section__heading h2 {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 860px) {
+  .screen-picker-inspector {
+    width: 270px;
+  }
+
+  .screen-picker-toolbar__hint {
+    display: none;
+  }
+}
+
+@media (max-height: 560px) {
+  .screen-picker-section {
+    gap: 7px;
+    padding: 9px;
+  }
+}
+</style>

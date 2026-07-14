@@ -1,135 +1,110 @@
 <template>
-  <!-- 录制控制 HUD: 360×200 实心盒子窗 (Frameless + AlwaysOnTop), 跟校准窗同风格.
-       标题栏 / 大号状态 + 计时 / 底栏按钮.
-       态: countdown(3/2/1) · recording · paused · idle(兜底). -->
-  <div class="h-screen w-screen bg-default flex flex-col select-none">
-    <header
-      class="flex items-center gap-2 px-3 py-2 border-b border-default shrink-0"
-      style="--wails-draggable: drag"
-    >
-      <UIcon name="i-tabler-video" class="size-4 text-error" />
-      <h3 class="text-xs font-medium text-highlighted">鼠标录制</h3>
-      <span class="ml-auto" />
-      <UButton
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        icon="i-tabler-x"
-        style="--wails-draggable: no-drag"
-        title="关闭悬浮窗 (录制不停, 仍可按热键停)"
-        aria-label="关闭悬浮窗"
-        @click="onCloseHud"
-      />
-    </header>
-
-    <div class="flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-3 gap-2">
-      <!-- 状态面板: 深底 + 语义实彩描边 (跟输入校准 HUD 同风格) -->
-      <!-- resume countdown (继续录制前的 3s 倒计时; 优先于 paused 显示) -->
-      <div
+  <HudShell
+    icon="i-tabler-video"
+    accent="error"
+    :title="t('recordingHud.title')"
+    :subtitle="t('recordingHud.subtitle')"
+    :status="windowStatus"
+    :status-active="state === 'recording'"
+    :close-title="t('recordingHud.close_hint')"
+    @close="onCloseHud"
+  >
+    <div class="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <HudStatePanel
         v-if="resumeCountdown > 0"
-        class="w-full rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-center space-y-1"
-      >
-        <UIcon
-          name="i-tabler-player-play-filled"
-          class="size-6 text-success animate-pulse mx-auto"
-        />
-        <div class="text-4xl font-mono tabular-nums text-success">{{ resumeCountdown }}</div>
-        <p class="text-[11px] text-success/80">秒后继续 · 切到游戏</p>
-      </div>
+        tone="success"
+        icon="i-tabler-player-play-filled"
+        :eyebrow="t('recordingHud.resuming')"
+        :value="resumeCountdown"
+        :hint="t('recordingHud.resume_hint')"
+      />
 
-      <!-- countdown -->
-      <div
+      <HudStatePanel
         v-else-if="state === 'countdown'"
-        class="w-full rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-center space-y-1"
-      >
-        <span class="text-[11px] text-primary">{{ modeLabel }}</span>
-        <div class="text-5xl font-mono tabular-nums text-primary">{{ countdownSec }}</div>
-        <p class="text-[11px] text-dimmed">秒后开始 · 切到游戏</p>
-      </div>
+        tone="primary"
+        icon="i-tabler-hourglass-high"
+        :eyebrow="modeLabel"
+        :value="countdownSec"
+        :hint="t('recordingHud.countdown_hint')"
+      />
 
-      <!-- recording -->
-      <div
+      <HudStatePanel
         v-else-if="state === 'recording'"
-        class="w-full rounded-lg border border-error/40 bg-error/10 px-4 py-3 text-center space-y-1"
-      >
-        <div class="flex items-center justify-center gap-2">
-          <span class="size-2.5 rounded-full bg-error animate-pulse" />
-          <span class="text-xs text-error font-semibold">REC</span>
-        </div>
-        <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
-        <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>
-      </div>
+        tone="error"
+        active
+        eyebrow="REC"
+        :value="elapsedLabel"
+        :hint="modeLabel"
+      />
 
-      <!-- paused -->
-      <div
+      <HudStatePanel
         v-else-if="state === 'paused'"
-        class="w-full rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-center space-y-1"
-      >
-        <div class="flex items-center justify-center gap-2">
-          <UIcon name="i-tabler-player-pause-filled" class="size-3.5 text-warning" />
-          <span class="text-xs text-warning font-semibold">已暂停</span>
-        </div>
-        <div class="text-4xl font-mono tabular-nums text-highlighted">{{ elapsedLabel }}</div>
-        <p v-if="modeLabel" class="text-[10px] text-dimmed">{{ modeLabel }}</p>
-      </div>
+        tone="warning"
+        icon="i-tabler-player-pause-filled"
+        :eyebrow="t('recordingHud.paused')"
+        :value="elapsedLabel"
+        :hint="modeLabel"
+      />
 
-      <!-- idle 兜底 -->
-      <div
+      <HudStatePanel
         v-else
-        class="w-full rounded-lg border border-dashed border-default/60 bg-elevated/40 px-4 py-3 text-center space-y-1"
-      >
-        <UIcon name="i-tabler-loader" class="size-5 text-dimmed animate-spin mx-auto" />
-        <p class="text-[11px] text-dimmed">准备录制...</p>
+        tone="neutral"
+        icon="i-tabler-loader-2"
+        :eyebrow="t('recordingHud.preparing')"
+        :hint="t('recordingHud.preparing_hint')"
+      />
+
+      <div class="mt-auto flex items-center gap-2 border-t border-default pt-3">
+        <template v-if="state === 'recording' || state === 'paused'">
+          <UButton
+            v-if="state === 'recording'"
+            size="sm"
+            color="warning"
+            variant="soft"
+            icon="i-tabler-player-pause-filled"
+            class="flex-1"
+            @click="onPause"
+          >
+            {{ t('recordingHud.pause') }}
+          </UButton>
+          <UButton
+            v-else
+            size="sm"
+            color="success"
+            variant="soft"
+            icon="i-tabler-player-play-filled"
+            class="flex-1"
+            @click="onResume"
+          >
+            {{ t('recordingHud.resume') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            icon="i-tabler-player-stop-filled"
+            class="flex-1"
+            :title="t('recordingHud.stop_hint', { key: stopKey })"
+            @click="onStop"
+          >
+            {{ t('recordingHud.stop') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="error"
+            variant="ghost"
+            icon="i-tabler-trash"
+            class="flex-1"
+            @click="armOrCancel"
+          >
+            {{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}
+          </UButton>
+        </template>
+        <span v-else class="mx-auto text-xs text-dimmed">
+          {{ t('recordingHud.shortcut_hint', { stop: stopKey, pause: pauseKey }) }}
+        </span>
       </div>
     </div>
-
-    <footer class="flex items-center gap-2 px-3 py-2 border-t border-default shrink-0">
-      <template v-if="state === 'recording' || state === 'paused'">
-        <UButton
-          v-if="state === 'recording'"
-          size="xs"
-          color="warning"
-          variant="soft"
-          icon="i-tabler-player-pause-filled"
-          class="flex-1 justify-center"
-          @click="onPause"
-          >暂停</UButton
-        >
-        <UButton
-          v-else
-          size="xs"
-          color="success"
-          variant="soft"
-          icon="i-tabler-player-play-filled"
-          class="flex-1 justify-center"
-          @click="onResume"
-          >继续</UButton
-        >
-        <UButton
-          size="xs"
-          color="primary"
-          variant="solid"
-          icon="i-tabler-player-stop-filled"
-          class="flex-1 justify-center"
-          :title="`点此或按 ${stopKey} 停止`"
-          @click="onStop"
-          >停止</UButton
-        >
-        <UButton
-          size="xs"
-          color="error"
-          variant="ghost"
-          icon="i-tabler-trash"
-          class="flex-1 justify-center"
-          @click="armOrCancel"
-          >{{ cancelArmed ? t('recordingHud.cancel_confirm') : t('recordingHud.cancel') }}</UButton
-        >
-      </template>
-      <span v-else class="text-[10px] text-dimmed mx-auto"
-        >{{ stopKey }} 停止 · {{ pauseKey }} 暂停/继续</span
-      >
-    </footer>
-  </div>
+  </HudShell>
 </template>
 
 <script setup lang="ts">
@@ -137,6 +112,8 @@ import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Events, Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import HudShell from '@/components/tools/HudShell.vue'
+import HudStatePanel from '@/components/tools/HudStatePanel.vue'
 
 type State = 'idle' | 'countdown' | 'recording' | 'paused'
 
@@ -155,7 +132,15 @@ let timer: ReturnType<typeof setInterval> | null = null
 const cancelArmed = ref(false)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
 
-const modeLabel = computed(() => (mode.value === 'precise' ? '精准录制' : '简易录制'))
+const modeLabel = computed(() =>
+  t(mode.value === 'precise' ? 'recordingSave.mode_precise' : 'recordingSave.mode_simple'),
+)
+const windowStatus = computed(() => {
+  if (resumeCountdown.value > 0 || state.value === 'countdown') return t('recordingHud.countdown')
+  if (state.value === 'recording') return t('recordingHud.recording')
+  if (state.value === 'paused') return t('recordingHud.paused')
+  return t('recordingHud.preparing')
+})
 
 const elapsedLabel = computed(() => {
   const s = Math.max(0, Math.floor(elapsedMs.value / 1000))

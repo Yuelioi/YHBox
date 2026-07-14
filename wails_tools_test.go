@@ -15,7 +15,7 @@ func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mouse.Title != "鼠标位置" || mouse.Width != 320 || mouse.Height != 240 || !mouse.Frameless || !mouse.AlwaysOnTop {
+	if mouse.Title != "鼠标位置" || mouse.Width != 340 || mouse.Height != 300 || mouse.MinWidth != 300 || mouse.MinHeight != 240 || !mouse.Frameless || !mouse.AlwaysOnTop {
 		t.Fatalf("mouse options = %+v", mouse)
 	}
 	if mouse.URL != "/#/tools/mouse-hud?containerID=container+with+spaces" {
@@ -28,8 +28,32 @@ func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if picker.Title != "选择屏幕位置" || picker.MinWidth != 720 || picker.MinHeight != 480 || !strings.HasPrefix(picker.URL, "/#/tools/screen-picker?") {
+	if picker.Title != "选择屏幕位置" || picker.Width != 1360 || picker.Height != 860 || picker.MinWidth != 760 || picker.MinHeight != 520 || !strings.HasPrefix(picker.URL, "/#/tools/screen-picker?") {
 		t.Fatalf("picker options = %+v", picker)
+	}
+
+	recording, err := wailsToolsWindowOptions(tools.WindowRequest{Kind: tools.WindowRecordingHUD})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recording.Width != 380 || recording.Height != 240 || !recording.DisableResize {
+		t.Fatalf("recording options = %+v", recording)
+	}
+
+	launcher, err := wailsToolsWindowOptions(tools.WindowRequest{Kind: tools.WindowLauncher})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launcher.Width != 280 || launcher.Height != 320 || launcher.MinWidth != 200 || launcher.MinHeight != 96 {
+		t.Fatalf("launcher options = %+v", launcher)
+	}
+
+	calibrator, err := wailsToolsWindowOptions(tools.WindowRequest{Kind: tools.WindowCalibratorHUD})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calibrator.Width != 380 || calibrator.Height != 260 || !calibrator.DisableResize {
+		t.Fatalf("calibrator options = %+v", calibrator)
 	}
 
 	if _, err := wailsToolsWindowOptions(tools.WindowRequest{Kind: "unknown"}); err == nil {

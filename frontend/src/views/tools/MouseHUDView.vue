@@ -1,100 +1,117 @@
 <template>
-  <div class="h-screen flex flex-col bg-default text-default text-xs select-none">
-    <!-- 拖区 + 关闭 -->
-    <header
-      class="h-7 shrink-0 flex items-center px-2 border-b border-default bg-elevated/30"
-      style="--wails-draggable: drag"
-    >
-      <UIcon name="i-tabler-pointer" class="size-3.5 text-primary" />
-      <span class="ml-1.5 text-[11px] text-toned">鼠标 HUD</span>
-      <span class="ml-auto" />
-      <button
-        type="button"
-        class="size-5 flex items-center justify-center text-muted hover:bg-error hover:text-highlighted rounded transition-colors"
-        style="--wails-draggable: no-drag"
-        title="关闭"
-        @click="onClose"
-      >
-        <UIcon name="i-tabler-x" class="size-3.5" />
-      </button>
-    </header>
+  <HudShell
+    dense
+    icon="i-tabler-pointer"
+    :title="t('mouseHud.title')"
+    :subtitle="t('mouseHud.subtitle')"
+    :status="pos.hasGame ? t('mouseHud.target_ready') : t('mouseHud.screen_only')"
+    :status-active="pos.hasGame"
+    @close="onClose"
+  >
+    <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      <UAlert
+        v-if="toolError"
+        color="error"
+        variant="subtle"
+        icon="i-tabler-alert-circle"
+        :description="toolError"
+        :ui="{ description: 'break-words text-xs' }"
+      />
 
-    <div class="flex-1 p-3 font-mono tabular-nums space-y-1.5">
-      <p v-if="toolError" class="text-[10px] text-error break-words">{{ toolError }}</p>
-      <div class="flex items-center gap-2">
-        <span class="text-dimmed w-14">屏幕</span>
-        <span class="text-highlighted">{{ pos.screenX }}, {{ pos.screenY }}</span>
-      </div>
-      <div v-if="pos.hasGame" class="space-y-1.5">
-        <div class="flex items-center gap-2">
-          <span class="text-dimmed w-14">客户区</span>
-          <span class="text-highlighted">{{ pos.clientX }}, {{ pos.clientY }}</span>
-          <span class="ml-auto text-[10px] text-dimmed">{{ pos.clientW }}×{{ pos.clientH }}</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-dimmed w-14">比例</span>
-          <span class="text-primary">{{ pos.xRatio.toFixed(4) }}, {{ pos.yRatio.toFixed(4) }}</span>
-        </div>
-        <div class="pt-2 border-t border-default/40 mt-2 space-y-1.5">
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="flex-1 px-2 py-1 rounded bg-elevated/60 hover:bg-elevated text-[10px] text-toned inline-flex items-center justify-center gap-1 transition-colors"
-              title="复制 xRatio, yRatio 到剪贴板"
-              @click="copyRatio"
-            >
-              <UIcon name="i-tabler-copy" class="size-3" />
-              复制比例
-            </button>
-            <button
-              type="button"
-              class="flex-1 px-2 py-1 rounded bg-primary/15 hover:bg-primary/25 text-[10px] text-primary inline-flex items-center justify-center gap-1 transition-colors"
-              title="读光标位置当前像素的 RGB/HSV"
-              @click="pickPixel"
-            >
-              <UIcon name="i-tabler-color-picker" class="size-3" />
-              取色
-            </button>
-          </div>
+      <section class="rounded-xl border border-default bg-elevated/25 px-3 py-2.5">
+        <dl
+          class="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-2 font-mono text-xs tabular-nums"
+        >
+          <dt class="text-dimmed">{{ t('mouseHud.screen') }}</dt>
+          <dd class="text-highlighted">{{ pos.screenX }}, {{ pos.screenY }}</dd>
+          <template v-if="pos.hasGame">
+            <dt class="text-dimmed">{{ t('mouseHud.client') }}</dt>
+            <dd class="flex min-w-0 items-center gap-2 text-highlighted">
+              <span>{{ pos.clientX }}, {{ pos.clientY }}</span>
+              <span class="ml-auto text-xs text-dimmed">{{ pos.clientW }}×{{ pos.clientH }}</span>
+            </dd>
+            <dt class="text-dimmed">{{ t('mouseHud.ratio') }}</dt>
+            <dd class="text-primary">{{ pos.xRatio.toFixed(4) }}, {{ pos.yRatio.toFixed(4) }}</dd>
+          </template>
+        </dl>
+      </section>
 
-          <div v-if="pixel?.ok" class="rounded bg-elevated/40 px-2 py-1.5 space-y-1">
-            <div class="flex items-center gap-2">
-              <div
-                class="size-5 rounded border border-default"
-                :style="{ backgroundColor: pixel.hex }"
-              />
-              <code class="text-[11px] text-highlighted">{{ pixel.hex }}</code>
-              <button
-                type="button"
-                class="ml-auto text-[10px] text-dimmed hover:text-primary"
-                @click="copyHex"
-              >
-                copy
-              </button>
-            </div>
-            <div class="text-[10px] text-dimmed">
-              RGB <span class="text-toned">{{ pixel.r }} {{ pixel.g }} {{ pixel.b }}</span> · HSV
-              <span class="text-toned">{{ pixel.h }} {{ pixel.s }} {{ pixel.v }}</span>
-            </div>
-          </div>
-          <p v-else-if="pixel && !pixel.ok" class="text-[10px] text-warning">光标不在游戏窗口内</p>
+      <template v-if="pos.hasGame">
+        <div class="grid grid-cols-2 gap-2">
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="soft"
+            :icon="copiedRatio ? 'i-tabler-check' : 'i-tabler-copy'"
+            @click="copyRatio"
+          >
+            {{ copiedRatio ? t('common.copied') : t('mouseHud.copy_ratio') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-color-picker"
+            @click="pickPixel"
+          >
+            {{ t('mouseHud.pick_color') }}
+          </UButton>
         </div>
-      </div>
-      <div v-else class="text-warning/80 text-[11px] pt-1">
-        <UIcon name="i-tabler-alert-triangle" class="size-3 inline" />
-        未检测到游戏窗口（只显示屏幕坐标）
-      </div>
+
+        <section v-if="pixel?.ok" class="rounded-xl border border-default bg-elevated/25 p-3">
+          <div class="flex items-center gap-3">
+            <span
+              class="size-9 shrink-0 rounded-lg border border-default"
+              :style="{ backgroundColor: pixel.hex }"
+            />
+            <div class="min-w-0 flex-1">
+              <code class="text-sm text-highlighted">{{ pixel.hex }}</code>
+              <p class="mt-1 font-mono text-xs text-dimmed">
+                RGB <span class="text-toned">{{ pixel.r }} {{ pixel.g }} {{ pixel.b }}</span> · HSV
+                <span class="text-toned">{{ pixel.h }} {{ pixel.s }} {{ pixel.v }}</span>
+              </p>
+            </div>
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :icon="copiedHex ? 'i-tabler-check' : 'i-tabler-copy'"
+              :aria-label="t('mouseHud.copy_hex')"
+              :title="t('mouseHud.copy_hex')"
+              @click="copyHex"
+            />
+          </div>
+        </section>
+        <UAlert
+          v-else-if="pixel && !pixel.ok"
+          color="warning"
+          variant="subtle"
+          icon="i-tabler-focus-auto"
+          :description="t('mouseHud.outside_target')"
+        />
+      </template>
+
+      <UAlert
+        v-else
+        color="warning"
+        variant="subtle"
+        icon="i-tabler-window-off"
+        :description="t('mouseHud.no_target')"
+      />
     </div>
-  </div>
+  </HudShell>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()
+const { t } = useI18n()
 const containerID = String(route.query.containerID ?? '')
 
 interface MousePos {
@@ -121,6 +138,8 @@ const pos = ref<MousePos>({
   clientH: 0,
 })
 const toolError = ref('')
+const copiedRatio = ref(false)
+const copiedHex = ref(false)
 
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -134,9 +153,11 @@ async function poll() {
   }
 }
 
-function copyRatio() {
+async function copyRatio() {
   const v = `${pos.value.xRatio.toFixed(4)}, ${pos.value.yRatio.toFixed(4)}`
-  navigator.clipboard?.writeText(v).catch(() => {})
+  await navigator.clipboard?.writeText(v).catch(() => undefined)
+  copiedRatio.value = true
+  window.setTimeout(() => (copiedRatio.value = false), 1400)
 }
 
 interface PixelInfo {
@@ -161,8 +182,11 @@ async function pickPixel() {
     toolError.value = error instanceof Error ? error.message : String(error)
   }
 }
-function copyHex() {
-  if (pixel.value?.hex) navigator.clipboard?.writeText(pixel.value.hex).catch(() => {})
+async function copyHex() {
+  if (!pixel.value?.hex) return
+  await navigator.clipboard?.writeText(pixel.value.hex).catch(() => undefined)
+  copiedHex.value = true
+  window.setTimeout(() => (copiedHex.value = false), 1400)
 }
 
 function onClose() {

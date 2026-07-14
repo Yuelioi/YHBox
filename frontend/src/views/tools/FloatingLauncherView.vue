@@ -5,6 +5,8 @@
     dense
     icon="i-tabler-rocket"
     :title="t('floatingLauncher.title')"
+    :subtitle="t('floatingLauncher.subtitle')"
+    :status="t('floatingLauncher.item_count', { n: flat.length })"
     :close-title="t('floatingLauncher.hide')"
     @close="onHide"
   >
@@ -15,30 +17,42 @@
         :color="pinned ? 'primary' : 'neutral'"
         :icon="pinned ? 'i-tabler-pin-filled' : 'i-tabler-pin'"
         :title="pinned ? t('floatingLauncher.unpin') : t('floatingLauncher.pin')"
+        :aria-label="pinned ? t('floatingLauncher.unpin') : t('floatingLauncher.pin')"
         @click="togglePin"
       />
     </template>
 
-    <div ref="contentRef" class="flex-1 min-h-0 overflow-auto p-1.5">
+    <div ref="contentRef" class="min-h-0 flex-1 overflow-auto p-2">
       <div
         v-if="blocks.length === 0"
-        class="h-full flex items-center justify-center text-center text-[11px] text-dimmed px-3 py-4"
+        class="flex h-full min-h-24 flex-col items-center justify-center gap-2 px-4 py-6 text-center"
       >
-        {{ t('floatingLauncher.empty') }}
+        <span
+          class="inline-flex size-9 items-center justify-center rounded-xl border border-default bg-elevated/30"
+        >
+          <UIcon name="i-tabler-layout-grid-add" class="size-4 text-dimmed" />
+        </span>
+        <p class="text-xs text-dimmed">{{ t('floatingLauncher.empty') }}</p>
       </div>
-      <div v-else class="flex flex-wrap items-stretch gap-1">
+      <div v-else class="flex flex-wrap items-stretch gap-1.5">
         <template v-for="b in blocks" :key="b.id">
-          <!-- 容器按钮 -->
-          <button
+          <UButton
             v-if="b.type === 'container'"
-            type="button"
-            class="flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-md border border-default/50 bg-elevated/40 hover:bg-elevated transition-colors disabled:opacity-70 shrink-0"
-            :class="{ 'ring-1 ring-primary': isRunning(b.containerId!) }"
+            color="neutral"
+            variant="soft"
+            class="launcher-item relative shrink-0"
+            :class="{ 'launcher-item--running': isRunning(b.containerId!) }"
             :style="{ width: colW + 'px' }"
             :title="b.label"
+            :aria-label="t('floatingLauncher.run', { name: b.label })"
             :disabled="isRunning(b.containerId!)"
             @click="onRun(b.containerId!)"
           >
+            <UKbd
+              v-if="shortcutFor(b.containerId!)"
+              class="launcher-item__shortcut"
+              :value="shortcutFor(b.containerId!)"
+            />
             <UIcon
               v-if="display !== 'text' || isRunning(b.containerId!)"
               :name="
@@ -48,25 +62,19 @@
               "
               :class="[
                 isRunning(b.containerId!) ? 'animate-spin text-primary' : 'text-toned',
-                display === 'icon' ? 'size-6' : 'size-5',
+                display === 'icon' ? 'size-5' : 'size-4',
               ]"
             />
             <span
               v-if="display !== 'icon'"
-              class="w-full text-[10px] leading-none text-center truncate text-highlighted"
+              class="w-full truncate text-center text-xs leading-none text-highlighted"
               >{{ b.label }}</span
             >
-          </button>
-          <!-- 文字标题：占整行 -->
-          <div
-            v-else-if="b.type === 'label'"
-            class="basis-full text-[10px] uppercase tracking-wider text-dimmed px-0.5 pt-1 pb-0.5 truncate"
-          >
+          </UButton>
+          <div v-else-if="b.type === 'label'" class="launcher-group-label basis-full truncate">
             {{ b.label }}
           </div>
-          <!-- 水平分隔符：占整行的横线 (把后面挤到下一排) -->
           <div v-else-if="b.type === 'hsep'" class="basis-full border-t border-default/60 my-0.5" />
-          <!-- 垂直分隔符：同排按钮之间的竖线 -->
           <div
             v-else-if="b.type === 'vsep'"
             class="self-stretch border-l border-default/60 mx-0.5"
@@ -154,6 +162,10 @@ const flat = computed<string[]>(() =>
 function isRunning(id: string): boolean {
   return execStore.running && execStore.currentTargetID === id
 }
+function shortcutFor(id: string): string {
+  const index = flat.value.indexOf(id)
+  return index >= 0 && index < 9 ? String(index + 1) : ''
+}
 async function onRun(id: string) {
   if (isRunning(id)) return
   await backend.containers.run(id)
@@ -220,3 +232,40 @@ onUnmounted(() => {
   window.removeEventListener('pointerup', onGripUp)
 })
 </script>
+
+<style scoped>
+.launcher-item {
+  min-height: 54px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+}
+
+.launcher-item--running {
+  border-color: color-mix(in oklab, var(--ui-primary) 55%, var(--ui-border));
+  background: color-mix(in oklab, var(--ui-primary) 10%, var(--ui-bg));
+}
+
+.launcher-item__shortcut {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: 3px;
+  font-size: 9px;
+  opacity: 0.65;
+}
+
+.launcher-group-label {
+  padding: 5px 2px 2px;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  color: var(--ui-text-dimmed);
+  text-transform: uppercase;
+}
+</style>

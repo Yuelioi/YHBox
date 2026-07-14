@@ -85,26 +85,26 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 	case tools.WindowMouseHUD:
 		query.Set("containerID", request.ContainerID)
 		return application.WebviewWindowOptions{
-			Title: "鼠标位置", Width: 320, Height: 240, MinWidth: 260, MinHeight: 180,
+			Title: "鼠标位置", Width: 340, Height: 300, MinWidth: 300, MinHeight: 240,
 			URL: withQuery("/#/tools/mouse-hud"), Frameless: true, AlwaysOnTop: true,
 			BackgroundColour: darkBackground,
 		}, nil
 	case tools.WindowRecordingHUD:
 		return application.WebviewWindowOptions{
-			Title: "录制控制", Width: 360, Height: 200, URL: "/#/tools/recording-hud",
+			Title: "录制控制", Width: 380, Height: 240, URL: "/#/tools/recording-hud",
 			Frameless: true, AlwaysOnTop: true, DisableResize: true,
 			BackgroundColour: darkBackground,
 		}, nil
 	case tools.WindowLauncher:
 		return application.WebviewWindowOptions{
-			Title: "启动器", Width: 240, Height: 300, MinWidth: 140, MinHeight: 56,
+			Title: "启动器", Width: 280, Height: 320, MinWidth: 200, MinHeight: 96,
 			URL: "/#/tools/launcher", Frameless: true, AlwaysOnTop: true,
 			BackgroundColour: darkBackground,
 		}, nil
 	case tools.WindowCalibratorHUD:
 		query.Set("id", request.RequestID)
 		return application.WebviewWindowOptions{
-			Title: "鼠标校准", Width: 360, Height: 220, URL: withQuery("/#/tools/calibration-hud"),
+			Title: "鼠标校准", Width: 380, Height: 260, URL: withQuery("/#/tools/calibration-hud"),
 			Frameless: true, AlwaysOnTop: true, DisableResize: true,
 			BackgroundColour: darkBackground,
 		}, nil
@@ -116,7 +116,7 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 		query.Set("colorSpace", request.ColorSpace)
 		query.Set("guid", request.GUID)
 		return application.WebviewWindowOptions{
-			Title: "选择屏幕位置", Width: 1280, Height: 800, MinWidth: 720, MinHeight: 480,
+			Title: "选择屏幕位置", Width: 1360, Height: 860, MinWidth: 760, MinHeight: 520,
 			URL: withQuery("/#/tools/screen-picker"), Frameless: true,
 		}, nil
 	default:
