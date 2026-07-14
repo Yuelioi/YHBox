@@ -30,7 +30,7 @@ export interface YottaNodeContract31 {
   authoring: Authoring
   format: 'yotta.node-contract'
   nodeRef: NodeRef
-  semantic: SemanticDocument
+  semantic: MachineContract
   version: '3.1'
 }
 export interface Authoring {
@@ -48,7 +48,7 @@ export interface NodeRef {
   nodeTypeId: string
   semanticDigest: string
 }
-export interface SemanticDocument {
+export interface MachineContract {
   /**
    * @maxItems 4096
    */

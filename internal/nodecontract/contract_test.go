@@ -1,6 +1,7 @@
 package nodecontract
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -54,6 +55,35 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	}
 	if reopened.NodeRef() != contract.NodeRef() {
 		t.Fatalf("reopened ref = %#v, want %#v", reopened.NodeRef(), contract.NodeRef())
+	}
+}
+
+func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
+	left := concatContractDraftForTest()
+	left.Authoring = Authoring{TitleKey: "node.concat.title", Tags: []string{"text"}}
+	right := concatContractDraftForTest()
+	right.Authoring = Authoring{TitleKey: "node.concat.renamed", Tags: []string{"utility"}}
+
+	leftContract, err := Seal(left)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightContract, err := Seal(right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(leftContract.SemanticBytes(), rightContract.SemanticBytes()) {
+		t.Fatal("authoring changed semantic artifact")
+	}
+	reopened, err := OpenSemantic(leftContract.NodeRef(), leftContract.SemanticBytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.NodeRef() != leftContract.NodeRef() || !bytes.Equal(reopened.SemanticBytes(), leftContract.SemanticBytes()) {
+		t.Fatal("semantic artifact round trip changed identity")
+	}
+	if reopened.Authoring().TitleKey != "" || len(reopened.Authoring().Tags) != 0 {
+		t.Fatalf("machine-only contract leaked authoring: %#v", reopened.Authoring())
 	}
 }
 

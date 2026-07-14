@@ -182,7 +182,9 @@ type Draft struct {
 	Authoring          Authoring
 }
 
-type semanticDocument struct {
+// MachineContract is the normalized compiler-facing portion of a Node Contract.
+// It is safe to persist in a machine catalog because it excludes authoring data.
+type MachineContract struct {
 	NodeTypeID         string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
 	ConfigSchemaRoot   string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
 	ConfigSchemaBundle []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
@@ -195,16 +197,19 @@ type semanticDocument struct {
 }
 
 type document struct {
-	Format    string           `json:"format" jsonschema:"required,enum=yotta.node-contract"`
-	Version   string           `json:"version" jsonschema:"required,enum=3.1"`
-	NodeRef   NodeRef          `json:"nodeRef" jsonschema:"required"`
-	Semantic  semanticDocument `json:"semantic" jsonschema:"required"`
-	Authoring Authoring        `json:"authoring" jsonschema:"required"`
+	Format    string          `json:"format" jsonschema:"required,enum=yotta.node-contract"`
+	Version   string          `json:"version" jsonschema:"required,enum=3.1"`
+	NodeRef   NodeRef         `json:"nodeRef" jsonschema:"required"`
+	Semantic  MachineContract `json:"semantic" jsonschema:"required"`
+	Authoring Authoring       `json:"authoring" jsonschema:"required"`
 }
 
 type state struct {
-	nodeRef NodeRef
-	bytes   []byte
+	nodeRef       NodeRef
+	machine       MachineContract
+	semanticBytes []byte
+	authoring     Authoring
+	bytes         []byte
 }
 
 type Contract struct{ state *state }
@@ -280,6 +285,57 @@ func Open(raw []byte) (Contract, error) {
 	return sealed, nil
 }
 
+// OpenSemantic validates a machine-only semantic artifact against its pinned
+// NodeRef. It is the Catalog boundary; presentation annotations are deliberately
+// absent and therefore cannot affect machine catalog identity.
+func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
+	if ref.NodeTypeID == "" || !ref.SemanticDigest.Valid() {
+		return Contract{}, errors.New("invalid node reference")
+	}
+	if len(raw) == 0 || len(raw) > MaxContractBytes {
+		return Contract{}, errors.New("node semantic artifact exceeds byte budget")
+	}
+	if err := inspectJSON(raw); err != nil {
+		return Contract{}, fmt.Errorf("node semantic artifact exceeds structural budget: %w", err)
+	}
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		return Contract{}, fmt.Errorf("canonicalize node semantic artifact: %w", err)
+	}
+	if !bytes.Equal(raw, canonical) {
+		return Contract{}, errors.New("node semantic artifact is not canonical")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	var semantic MachineContract
+	if err := decoder.Decode(&semantic); err != nil {
+		return Contract{}, fmt.Errorf("decode node semantic artifact: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return Contract{}, errors.New("node semantic artifact contains trailing JSON values")
+	}
+	normalized, err := normalizeSemantic(Draft{
+		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
+		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
+		Execution: semantic.Execution, Capabilities: semantic.Capabilities,
+		Errors: semantic.Errors, InstanceResolver: semantic.InstanceResolver,
+		ImplementationABI: semantic.ImplementationABI,
+	})
+	if err != nil {
+		return Contract{}, err
+	}
+	sealed, err := sealNormalized(normalized, Authoring{Tags: []string{}})
+	if err != nil {
+		return Contract{}, err
+	}
+	if sealed.NodeRef() != ref || !bytes.Equal(sealed.SemanticBytes(), raw) {
+		return Contract{}, errors.New("node semantic digest mismatch")
+	}
+	return sealed, nil
+}
+
 func (c Contract) Valid() bool {
 	return c.state != nil && c.state.nodeRef.SemanticDigest.Valid()
 }
@@ -298,7 +354,38 @@ func (c Contract) Bytes() []byte {
 	return append([]byte(nil), c.state.bytes...)
 }
 
-func sealNormalized(semantic semanticDocument, authoring Authoring) (Contract, error) {
+func (c Contract) SemanticBytes() []byte {
+	if !c.Valid() {
+		return nil
+	}
+	return append([]byte(nil), c.state.semanticBytes...)
+}
+
+func (c Contract) Authoring() Authoring {
+	if !c.Valid() {
+		return Authoring{}
+	}
+	authoring := c.state.authoring
+	authoring.Tags = append([]string(nil), authoring.Tags...)
+	return authoring
+}
+
+func (c Contract) Machine() MachineContract {
+	if !c.Valid() {
+		return MachineContract{}
+	}
+	raw, err := json.Marshal(c.state.machine)
+	if err != nil {
+		panic("node contract invariant: " + err.Error())
+	}
+	var machine MachineContract
+	if err := json.Unmarshal(raw, &machine); err != nil {
+		panic("node contract invariant: " + err.Error())
+	}
+	return machine
+}
+
+func sealNormalized(semantic MachineContract, authoring Authoring) (Contract, error) {
 	semanticBytes, err := artifact.Marshal(semantic)
 	if err != nil {
 		return Contract{}, err
@@ -315,53 +402,56 @@ func sealNormalized(semantic semanticDocument, authoring Authoring) (Contract, e
 	if len(canonical) > MaxContractBytes {
 		return Contract{}, errors.New("node contract exceeds byte budget")
 	}
-	return Contract{state: &state{nodeRef: ref, bytes: canonical}}, nil
+	return Contract{state: &state{
+		nodeRef: ref, machine: semantic, semanticBytes: append([]byte(nil), semanticBytes...),
+		authoring: authoring, bytes: canonical,
+	}}, nil
 }
 
-func normalizeSemantic(draft Draft) (semanticDocument, error) {
+func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err := validateVersionedURI(draft.NodeTypeID); err != nil {
-		return semanticDocument{}, fmt.Errorf("invalid node type id: %w", err)
+		return MachineContract{}, fmt.Errorf("invalid node type id: %w", err)
 	}
 	bundle, err := normalizeSchemaBundle(draft.ConfigSchemaRoot, draft.ConfigSchemaBundle)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	ports, err := normalizePorts(draft.Ports)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	execution, err := normalizeExecution(draft.Execution, ports)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	capabilities, err := normalizeStringSet(draft.Capabilities, "capability")
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	for _, capability := range capabilities {
 		if err := validateVersionedURI(string(capability)); err != nil {
-			return semanticDocument{}, fmt.Errorf("invalid capability requirement %q: %w", capability, err)
+			return MachineContract{}, fmt.Errorf("invalid capability requirement %q: %w", capability, err)
 		}
 	}
 	if execution.Class == ExecutionPureData && len(capabilities) != 0 {
-		return semanticDocument{}, errors.New("pure-data node must not require capabilities")
+		return MachineContract{}, errors.New("pure-data node must not require capabilities")
 	}
 	if execution.Class == ExecutionEffect && len(execution.Effects)+len(capabilities) == 0 {
-		return semanticDocument{}, errors.New("effect node must declare an effect or capability")
+		return MachineContract{}, errors.New("effect node must declare an effect or capability")
 	}
 	errorsList, err := normalizeErrors(draft.Errors)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	resolver, err := normalizeResolver(draft.InstanceResolver)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
 	abis, err := normalizeABIs(draft.ImplementationABI)
 	if err != nil {
-		return semanticDocument{}, err
+		return MachineContract{}, err
 	}
-	return semanticDocument{
+	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution,
 		Capabilities: capabilities, Errors: errorsList, InstanceResolver: resolver,

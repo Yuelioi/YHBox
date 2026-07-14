@@ -222,6 +222,69 @@
       ],
       "type": "object"
     },
+    "MachineContract": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "configSchemaBundle": {
+          "items": {
+            "$ref": "#/$defs/Resource"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "configSchemaRoot": {
+          "format": "uri",
+          "type": "string"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/ErrorSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionSpec"
+        },
+        "implementationABI": {
+          "items": {
+            "$ref": "#/$defs/ABIRequirement"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "instanceResolver": {
+          "$ref": "#/$defs/InstanceResolver"
+        },
+        "nodeTypeId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "ports": {
+          "$ref": "#/$defs/PortSet"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "configSchemaRoot",
+        "configSchemaBundle",
+        "ports",
+        "execution",
+        "capabilities",
+        "errors",
+        "implementationABI"
+      ],
+      "type": "object"
+    },
     "NodeRef": {
       "additionalProperties": false,
       "properties": {
@@ -431,69 +494,6 @@
         "semanticDigest"
       ],
       "type": "object"
-    },
-    "semanticDocument": {
-      "additionalProperties": false,
-      "properties": {
-        "capabilities": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 4096,
-          "type": "array"
-        },
-        "configSchemaBundle": {
-          "items": {
-            "$ref": "#/$defs/Resource"
-          },
-          "maxItems": 256,
-          "minItems": 1,
-          "type": "array"
-        },
-        "configSchemaRoot": {
-          "format": "uri",
-          "type": "string"
-        },
-        "errors": {
-          "items": {
-            "$ref": "#/$defs/ErrorSpec"
-          },
-          "maxItems": 4096,
-          "type": "array"
-        },
-        "execution": {
-          "$ref": "#/$defs/ExecutionSpec"
-        },
-        "implementationABI": {
-          "items": {
-            "$ref": "#/$defs/ABIRequirement"
-          },
-          "minItems": 1,
-          "type": "array"
-        },
-        "instanceResolver": {
-          "$ref": "#/$defs/InstanceResolver"
-        },
-        "nodeTypeId": {
-          "format": "uri",
-          "pattern": "/v[1-9][0-9]*$",
-          "type": "string"
-        },
-        "ports": {
-          "$ref": "#/$defs/PortSet"
-        }
-      },
-      "required": [
-        "nodeTypeId",
-        "configSchemaRoot",
-        "configSchemaBundle",
-        "ports",
-        "execution",
-        "capabilities",
-        "errors",
-        "implementationABI"
-      ],
-      "type": "object"
     }
   },
   "$id": "https://yottaapp.dev/contracts/node/3.1/node-contract.schema.json",
@@ -513,7 +513,7 @@
       "$ref": "#/$defs/NodeRef"
     },
     "semantic": {
-      "$ref": "#/$defs/semanticDocument"
+      "$ref": "#/$defs/MachineContract"
     },
     "version": {
       "enum": [

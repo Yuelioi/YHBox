@@ -1,6 +1,7 @@
 package datatype
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -51,6 +52,31 @@ func TestSealDefinitionUsesStableSemanticDigest(t *testing.T) {
 	}
 	if reopened.TypeRef() != definition.TypeRef() {
 		t.Fatalf("reopened ref = %#v, want %#v", reopened.TypeRef(), definition.TypeRef())
+	}
+}
+
+func TestSemanticDefinitionArtifactExcludesAuthoring(t *testing.T) {
+	draft := definitionDraftForTest()
+	draft.Authoring = Authoring{TitleKey: "type.string.title"}
+	definition, err := SealDefinition(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	draft.Authoring = Authoring{TitleKey: "type.string.renamed", Color: "#fff"}
+	renamed, err := SealDefinition(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(definition.SemanticBytes(), renamed.SemanticBytes()) {
+		t.Fatal("authoring changed machine type artifact")
+	}
+	reopened, err := OpenSemanticDefinition(definition.TypeRef(), definition.SemanticBytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.TypeRef() != definition.TypeRef() || !bytes.Equal(reopened.SemanticBytes(), definition.SemanticBytes()) {
+		t.Fatal("machine type artifact changed during round trip")
 	}
 }
 

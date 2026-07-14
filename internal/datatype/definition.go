@@ -176,6 +176,50 @@ func OpenDefinition(raw []byte) (Definition, error) {
 	return sealed, nil
 }
 
+// OpenSemanticDefinition validates the machine-only portion of a data type
+// against its pinned TypeRef. Presentation metadata is intentionally absent.
+func OpenSemanticDefinition(ref TypeRef, raw []byte) (Definition, error) {
+	if err := ref.Validate(); err != nil {
+		return Definition{}, fmt.Errorf("invalid data type reference: %w", err)
+	}
+	if len(raw) == 0 || len(raw) > MaxDefinitionBytes {
+		return Definition{}, errors.New("data type semantic artifact exceeds byte budget")
+	}
+	if err := inspectJSONBudget(raw, MaxDefinitionDepth, MaxDefinitionNodes); err != nil {
+		return Definition{}, fmt.Errorf("data type semantic artifact exceeds structural budget: %w", err)
+	}
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		return Definition{}, fmt.Errorf("canonicalize data type semantic artifact: %w", err)
+	}
+	if !bytes.Equal(raw, canonical) {
+		return Definition{}, errors.New("data type semantic artifact is not canonical")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	decoder.UseNumber()
+	var semantic semanticDocument
+	if err := decoder.Decode(&semantic); err != nil {
+		return Definition{}, fmt.Errorf("decode data type semantic artifact: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return Definition{}, errors.New("data type semantic artifact contains trailing JSON values")
+	}
+	normalized, err := normalizeSemantic(semantic)
+	if err != nil {
+		return Definition{}, err
+	}
+	sealed, err := sealNormalized(normalized, Authoring{})
+	if err != nil {
+		return Definition{}, err
+	}
+	if sealed.TypeRef() != ref || !bytes.Equal(sealed.SemanticBytes(), raw) {
+		return Definition{}, errors.New("data type semantic digest mismatch")
+	}
+	return sealed, nil
+}
+
 func (d Definition) Valid() bool {
 	return d.state != nil && d.state.document.TypeRef.SemanticDigest.Valid()
 }
@@ -192,6 +236,17 @@ func (d Definition) Bytes() []byte {
 		return nil
 	}
 	return append([]byte(nil), d.state.bytes...)
+}
+
+func (d Definition) SemanticBytes() []byte {
+	if !d.Valid() {
+		return nil
+	}
+	canonical, err := artifact.Marshal(d.state.document.Semantic)
+	if err != nil {
+		panic("data type definition invariant: " + err.Error())
+	}
+	return canonical
 }
 
 func sealNormalized(semantic semanticDocument, authoring Authoring) (Definition, error) {
