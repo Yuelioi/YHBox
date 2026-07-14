@@ -1,23 +1,28 @@
 ---
 topic: settings-center-upgrade
 title: Settings center upgrade
-summary: Upgrade the six settings themes into a professional, consistent and reliable settings center.
+summary: Upgrade the six settings themes, AI credential security, and adjacent automation workspaces.
 ---
 # Settings center upgrade
 
 ## State
 
-设置中心与六个主题已经完成结构性升级。共享壳层提供主题搜索、URL 深链、上次访问恢复、键盘导航、响应式侧栏与全局自动保存状态；常规、快捷键、输入与校准、悬浮启动器、AI 连接、MCP 集成均已迁移到统一信息架构。
+设置中心与六个主题已完成结构性升级；随后完成 AI API Key 的系统凭据迁移，并升级容器、计划两个主工作台。设置查询和 AI 连接元数据不再返回密钥，Windows 使用 Credential Manager；容器页改为运行导向工作台，计划页改为触发与健康状态导向的控制台。
 
 ## Next
 
-由用户进行真实桌面视觉与交互 smoke。重点检查 860px 响应式切换、启动器实时预览、校准档编辑、AI 删除引用确认、MCP 授权前确认；若无问题，本主题可归档。
+由用户进行真实桌面视觉与交互 smoke。重点检查：
+- AI 连接旧明文密钥启动迁移、替换、删除与测试连接。
+- 容器工作台在常用窗口宽度下的概览、筛选、卡片/列表与运行操作。
+- 计划控制台的搜索、启停、目标摘要、编辑器双栏与窄窗布局。
+- 设置中心原有 860px 响应式切换及六主题交互。
 
 ## Read now
 
 - knowledge/frontend/settings-page-style.md
 - knowledge/frontend/ui.md
 - knowledge/architecture/settings-durability.md
+- knowledge/security/ai-credentials-windows-credential-manager.md
 
 ## Read if
 
@@ -27,22 +32,23 @@ summary: Upgrade the six settings themes into a professional, consistent and rel
 ## Progress
 
 Done:
-- 修复 Wails void RPC 成功返回 undefined 被误判为失败的设置保存契约。
-- 设置写入改为串行队列；成功后本地 deep merge，失败可重试，并监听 settings:changed。
-- 新增共享设置组件与六主题 registry。
-- 设置中心支持搜索、深链、上次主题恢复、roving tabindex 和窄窗横向导航。
-- 完成常规、快捷键、输入与校准、悬浮启动器、AI 连接、MCP 集成六个主题升级。
-- AI 删除前扫描节点引用；MCP 授权前确认；凭据风险如实提示。
-- HotkeyCaptureInput 正确声明 disabled/ariaLabel，图标按钮统一使用 Nuxt UI。
-- ESLint explicit-any 历史债务由 267 降到 265。
+- 设置中心共享壳层、搜索/深链/访问恢复、键盘导航、响应式侧栏和六主题升级。
+- 设置写入串行、保存状态反馈、AI 引用保护与 MCP 授权确认。
+- Windows AI API Key 改存 Credential Manager；旧 settings 明文执行无损启动迁移。
+- Settings RPC 只返回 AI 连接元数据；新增密钥存在状态、写入、删除 RPC，测试连接可使用一次性表单密钥或已保存密钥。
+- 容器 Tab 增加工作台标题、运行/节点/分类概览、渐进筛选和更完整的运行卡片。
+- 计划 Tab 增加启用/自动触发/目标概览、搜索与状态筛选、运行态列表，以及带行为预览的分区编辑器。
+- Wails RPC contract 更新为 14 services / 119 methods / 100 models。
 
 Verified:
-- frontend format、oxlint、eslint、vue-tsc、i18n 全绿。
-- Vitest 93 files / 616 tests全绿。
-- 完整 task check 通过：Go test/vet/staticcheck、Wails 14 services / 116 methods / 100 models、生产构建和 bundle budget 全绿。
-- entry gzip 329,366 / 350,000；editor gzip 470,305 / 650,000。
+- 完整 `task check` 通过。
+- Go test/vet/staticcheck、全局覆盖率门槛通过。
+- 前端 format、oxlint、eslint、vue-tsc、i18n、bindings contract 全绿。
+- Vitest 93 files / 616 tests 全绿。
+- 生产构建与 bundle budget 通过；entry gzip 330,896 / 350,000，editor gzip 470,302 / 650,000。
+- 浏览器视觉通道本轮不可用，未伪报自动化视觉截图。
 
 ## Open questions
 
-- API key 仍以本机 settings 明文保存；迁移 OS credential store 属于 Wave 8，不在本轮伪装成已解决。
-- 本轮没有自动化视觉快照，真实桌面 smoke 仍需用户验收。
+- Windows 桌面真实 smoke 尚待用户验收。
+- Linux/macOS 仍为预览平台，当前 secure store 明确返回 unavailable；后续若承诺完整支持，需要接入各平台原生凭据库。
