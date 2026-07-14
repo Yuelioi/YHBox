@@ -9,7 +9,7 @@ summary: Upgrade the six settings themes, AI credential security, and adjacent a
 
 设置中心与六个主题已完成结构性升级；随后完成 AI API Key 的系统凭据迁移，并升级容器、计划两个主工作台。设置查询和 AI 连接元数据不再返回密钥，Windows 使用 Credential Manager；容器页改为运行导向工作台，计划页改为触发与健康状态导向的控制台。独立工具窗现统一为精密仪器式的产品界面：录制、校准、鼠标定位、截图选择器与悬浮启动器共用窗口 chrome、状态语言和响应式尺寸策略。
 
-本轮产品改动已提交为 `c4d1307e`，Flightdeck 文档已提交为 `d92c11b0`。工作台概览栏左右缺边问题已修复并提交为 `ec771606`。独立窗口升级已通过完整门禁，待提交。
+本轮产品改动已提交为 `c4d1307e`，Flightdeck 文档已提交为 `d92c11b0`。工作台概览栏左右缺边问题已修复并提交为 `ec771606`。独立窗口升级已通过完整门禁并提交为 `88a845bd`。
 
 ## Next
 
