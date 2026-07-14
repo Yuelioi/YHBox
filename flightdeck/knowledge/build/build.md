@@ -8,7 +8,7 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 # Build checklist
 编译 / 验证产物时**前置**读这份.
 
-- **frontend 包管理只用 pnpm** (`frontend/package.json` 固定 `Node 22.23.1` / `pnpm@11.1.2`，有 pnpm-lock.yaml 与 engine-strict): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好. 安装与 CI 一律 `--frozen-lockfile`。
+- **frontend 包管理只用 pnpm** (`frontend/package.json` 固定 `Node 24.18.0` / `pnpm@11.1.2`，有 pnpm-lock.yaml 与 engine-strict): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好. 安装与 CI 一律 `--frozen-lockfile`。
 
 - **Wails library 与 CLI 必须同版**: 当前 Go/CLI pin 是 `v3.0.0-alpha2.117`，对应 frontend runtime 固定为 `3.0.0-alpha.97`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 Go/CLI/workflow/package/lock 多处 pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。
 
