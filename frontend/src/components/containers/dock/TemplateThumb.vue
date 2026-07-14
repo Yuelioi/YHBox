@@ -23,7 +23,7 @@ import CappedPreviewImage from '@/components/common/CappedPreviewImage.vue'
 const {
   sha,
   alt,
-  maxUpscale = 2,
+  maxUpscale = 1,
 } = defineProps<{
   sha?: string
   alt?: string

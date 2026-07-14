@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import CappedPreviewImage from './CappedPreviewImage.vue'
 
 describe('CappedPreviewImage', () => {
-  it('caps rendered dimensions at twice the source pixels by default', async () => {
+  it('keeps source pixels at a 1:1 maximum by default', async () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     const app = createApp(CappedPreviewImage, { src: 'data:image/png;base64,preview' })
@@ -16,8 +16,8 @@ describe('CappedPreviewImage', () => {
       image.dispatchEvent(new Event('load'))
       await nextTick()
 
-      expect(image.style.maxWidth).toBe('160px')
-      expect(image.style.maxHeight).toBe('90px')
+      expect(image.style.maxWidth).toBe('80px')
+      expect(image.style.maxHeight).toBe('45px')
     } finally {
       app.unmount()
       el.remove()

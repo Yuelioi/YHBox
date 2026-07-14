@@ -14,7 +14,7 @@ const props = withDefaults(
   }>(),
   {
     alt: '',
-    maxUpscale: 2,
+    maxUpscale: 1,
   },
 )
 

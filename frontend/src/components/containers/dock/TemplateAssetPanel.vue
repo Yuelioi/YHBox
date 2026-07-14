@@ -142,7 +142,7 @@
                       <TemplateThumb
                         :sha="item.firstBlobSha"
                         :alt="item.name || item.guid"
-                        :max-upscale="2"
+                        :max-upscale="1"
                       />
                     </div>
                     <div class="min-w-0 px-2.5 py-2">

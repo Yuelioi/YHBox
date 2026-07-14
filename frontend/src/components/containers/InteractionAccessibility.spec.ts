@@ -49,11 +49,21 @@ describe('editor interaction accessibility', () => {
   it('keeps template variants visible before secondary metadata in every detail entry', () => {
     const detail = source('containers/TemplateDetailPanel.vue')
     expect(detail.match(/template\.picker\.variants_label/g)).toHaveLength(1)
-    expect(detail).toContain('v-if="detailLoading"')
+    expect(detail).toContain('v-if="recordLoading"')
     expect(detail).not.toContain('v-if="detailRecord?.variants?.length"')
     expect(detail.indexOf('template.picker.variants_label')).toBeLessThan(
       detail.indexOf('library.detail.description'),
     )
+  })
+
+  it('does not report the target window as unavailable while resolution detection is pending', () => {
+    const detail = source('containers/TemplateDetailPanel.vue')
+    expect(detail).toContain('v-if="resolutionLoading"')
+    expect(detail.indexOf('v-if="resolutionLoading"')).toBeLessThan(
+      detail.indexOf('v-else-if="curRes"'),
+    )
+    expect(detail).toContain('const resolutionLoading = ref(false)')
+    expect(detail).not.toContain('Promise.allSettled([backend.assets.get(guid), refreshCurRes()])')
   })
 
   it('uses a compact preview with an explicit full-image action', () => {
@@ -66,7 +76,7 @@ describe('editor interaction accessibility', () => {
   it('gives low-resolution template thumbnails a quiet inset stage', () => {
     const panel = source('containers/dock/TemplateAssetPanel.vue')
     expect(panel).toContain('bg-sunken p-3')
-    expect(panel).toContain(':max-upscale="2"')
+    expect(panel).toContain(':max-upscale="1"')
   })
 
   it('passes the same explicit container context to every template detail entry', () => {
@@ -74,7 +84,8 @@ describe('editor interaction accessibility', () => {
     const detail = source('containers/TemplateDetailPanel.vue')
     expect(panel.match(/:container-id="containerId"/g)).toHaveLength(2)
     expect(detail).toContain('containerId: string')
-    expect(detail).toContain('currentResolution(props.containerId)')
+    expect(detail).toContain('const containerId = props.containerId')
+    expect(detail).toContain('currentResolution(containerId)')
     expect(detail).toContain("'template_recapture', id, props.containerId")
   })
 

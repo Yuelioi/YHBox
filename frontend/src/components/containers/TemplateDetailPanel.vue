@@ -29,7 +29,7 @@
           v-if="displayThumb"
           :src="displayThumb"
           :alt="tpl.name"
-          :max-upscale="2"
+          :max-upscale="1"
         />
         <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
         <UButton
@@ -74,7 +74,11 @@
       <section class="space-y-1.5">
         <label class="block text-xs text-toned">{{ t('template.picker.variants_label') }}</label>
         <p class="text-xs leading-relaxed">
-          <template v-if="curRes">
+          <template v-if="resolutionLoading">
+            <UIcon name="i-tabler-loader-2" class="mr-1 inline size-3 animate-spin text-dimmed" />
+            <span class="text-dimmed">{{ t('common.loading') }}</span>
+          </template>
+          <template v-else-if="curRes">
             <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
             <span class="text-toned">{{ curResLabel }}</span>
             <span v-if="curResHint" class="text-warning/80">
@@ -83,7 +87,7 @@
           </template>
           <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
         </p>
-        <div v-if="detailLoading" class="flex gap-1.5" aria-hidden="true">
+        <div v-if="recordLoading" class="flex gap-1.5" aria-hidden="true">
           <USkeleton class="h-7 w-24" />
           <USkeleton class="h-7 w-20" />
         </div>
@@ -309,7 +313,8 @@ async function patch(p: {
 
 // ── 变体管理 (吸纳自 TemplatePicker) ──────────────────────
 const detailRecord = ref<AssetRecord | null>(null)
-const detailLoading = ref(false)
+const recordLoading = ref(false)
+const resolutionLoading = ref(false)
 const variantThumbs = ref<Record<string, string>>({}) // blobSha → dataURL
 const activeVariantIdx = ref(0)
 const curRes = ref<[number, number] | null>(null)
@@ -337,8 +342,15 @@ async function loadVariantThumb(sha: string) {
   if (typeof r === 'string') variantThumbs.value[sha] = r
 }
 
-async function refreshCurRes() {
-  curRes.value = (await backend.assets.currentResolution(props.containerId)) ?? null
+async function refreshCurRes(guid = props.guid) {
+  const containerId = props.containerId
+  resolutionLoading.value = true
+  try {
+    const next = (await backend.assets.currentResolution(containerId)) ?? null
+    if (props.guid === guid && props.containerId === containerId) curRes.value = next
+  } finally {
+    if (props.guid === guid && props.containerId === containerId) resolutionLoading.value = false
+  }
 }
 // 用当前分辨率挑"运行时真会用的那档" → 自动切到该档 (挑档算法在后端).
 async function applyCurResPick(guid: string) {
@@ -371,12 +383,12 @@ function isCurResVariant(v: { resolution: number[] }): boolean {
   )
 }
 
-// 选中 guid 变化 → 拉完整 record (取 variants) + 当前分辨率挑档. (代表缩略图 baseThumb 走独立 watch)
+// 完整 record 独立加载，不能被最长 3 秒的窗口解析拖住；已有变体应立即可见。
 watch(
   () => props.guid,
   async (guid) => {
     detailRecord.value = null
-    detailLoading.value = !!guid
+    recordLoading.value = !!guid
     variantThumbs.value = {}
     activeVariantIdx.value = 0
     previewOpen.value = false
@@ -384,17 +396,31 @@ watch(
     editingDesc.value = false
     if (!guid) return
     try {
-      const [recordResult] = await Promise.allSettled([backend.assets.get(guid), refreshCurRes()])
+      const rec = await backend.assets.get(guid)
       if (props.guid !== guid) return
-      const rec = recordResult.status === 'fulfilled' ? recordResult.value : undefined
       if (rec) {
         detailRecord.value = rec
         for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
       }
-      await applyCurResPick(guid)
     } finally {
-      if (props.guid === guid) detailLoading.value = false
+      if (props.guid === guid) recordLoading.value = false
     }
+  },
+  { immediate: true },
+)
+
+// 当前窗口分辨率有独立状态：pending 不等于窗口未开；容器上下文变化也必须重新检测。
+watch(
+  [() => props.guid, () => props.containerId],
+  async ([guid]) => {
+    curRes.value = null
+    curResExact.value = false
+    if (!guid) {
+      resolutionLoading.value = false
+      return
+    }
+    await refreshCurRes(guid)
+    if (props.guid === guid) await applyCurResPick(guid)
   },
   { immediate: true },
 )
