@@ -266,6 +266,12 @@ function fitHeight() {
 }
 watch([filteredGroups, display], () => void nextTick(fitHeight))
 
+async function refreshLauncherData() {
+  await Promise.all([settingsStore.load(), containersStore.reload(), hotkeysStore.reload()])
+  await nextTick()
+  fitHeight()
+}
+
 let startX = 0
 let startY = 0
 let startW = 0
@@ -291,12 +297,10 @@ function onGripDown(event: PointerEvent) {
 
 let offSettings: (() => void) | null = null
 onMounted(() => {
-  void settingsStore.load().then(() => nextTick(fitHeight))
-  void containersStore.reload().then(() => nextTick(fitHeight))
-  void hotkeysStore.reload()
+  void refreshLauncherData()
   offSettings = Events.On(
     'settings:changed',
-    () => void settingsStore.load().then(() => nextTick(fitHeight)),
+    () => void refreshLauncherData(),
   ) as unknown as () => void
   window.addEventListener('keydown', onKeyDown)
 })

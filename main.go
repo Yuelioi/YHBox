@@ -332,7 +332,10 @@ func main() {
 	// CRUD 后经 ConfigureChangeListener 重扫一次。触发后入队单 target manual run。
 	containerHotkeys := newContainerHotkeyBinder(containerStore, hotkeyRegistry, execQueue)
 	containerHotkeys.Refresh()
-	container.ConfigureChangeListener(containerSvc, containerHotkeys.Refresh)
+	container.ConfigureChangeListener(
+		containerSvc,
+		containerChangeListener(containerHotkeys.Refresh, app.Emit),
+	)
 
 	// 容器热键在「快捷键」中心页 rebind → 回写容器四件套 (直接 store.Save, 不走 service.Update
 	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
@@ -654,6 +657,16 @@ func main() {
 	if runErr != nil {
 		fmt.Fprintf(os.Stderr, "wails app run failed: %v\n", runErr)
 		os.Exit(1)
+	}
+}
+
+// containerChangeListener keeps runtime consumers and every webview on the same
+// committed container snapshot after CRUD. Independent tool windows own their
+// own Pinia stores, so refreshing only the hotkey binder leaves their catalogs stale.
+func containerChangeListener(refresh func(), emit func(string, any)) func() {
+	return func() {
+		refresh()
+		emit("container:changed", map[string]any{})
 	}
 }
 

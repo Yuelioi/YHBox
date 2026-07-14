@@ -54,6 +54,15 @@ describe('standalone window presentation contract', () => {
     expect(surface).toContain(':aria-disabled="item.stale')
   })
 
+  it('refreshes every launcher dependency after cross-window settings changes', () => {
+    const source = readSource('src/views/tools/FloatingLauncherView.vue')
+
+    expect(source).toMatch(
+      /function refreshLauncherData[\s\S]*settingsStore\.load\(\)[\s\S]*containersStore\.reload\(\)[\s\S]*hotkeysStore\.reload\(\)/,
+    )
+    expect(source).toMatch(/Events\.On\([\s\S]*'settings:changed'[\s\S]*refreshLauncherData/)
+  })
+
   it('lets live HUD state regions fill spare height instead of pushing it above actions', () => {
     for (const filename of ['RecordingHUDView.vue', 'CalibrationHUDView.vue']) {
       const source = readSource(`src/views/tools/${filename}`)
