@@ -16,10 +16,21 @@ describe('editor interaction accessibility', () => {
     expect(panel).toContain('role="option"')
     expect(panel).toContain(':tabindex="isTabStop(')
     expect(panel).toContain('aria-selected')
+    expect(panel).toContain('data-asset-browser-list')
     expect(panel).toContain('data-asset-option')
     expect(panel).toContain('@focus="setActive(')
     expect(panel).toContain('if (move(')
     expect(panel).toMatch(/@keydown="on(?:Cell|Row)Keydown/)
+  })
+
+  it.each([
+    'containers/dock/TemplateAssetPanel.vue',
+    'containers/dock/LibraryAssetPanel.vue',
+    'containers/dock/ClipAssetPanel.vue',
+  ])('%s keeps details reachable when the workspace collapses', (file) => {
+    const panel = source(file)
+    expect(panel).toContain('<AssetWorkspaceInspector')
+    expect(panel).toContain('@container (width < 1040px)')
   })
 
   it('keeps template variant deletion as a named keyboard action', () => {

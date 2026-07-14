@@ -43,7 +43,7 @@ export function useRovingAssetList(visibleIds: Ref<string[]>) {
     }
     event.preventDefault()
     activeId.value = ids[target] ?? null
-    const root = (event.currentTarget as HTMLElement | null)?.closest('[data-asset-list]')
+    const root = (event.currentTarget as HTMLElement | null)?.closest('[data-asset-browser-list]')
     const option = [...(root?.querySelectorAll<HTMLElement>('[data-asset-option]') ?? [])].find(
       (node) => node.dataset.assetId === activeId.value,
     )

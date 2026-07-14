@@ -23,6 +23,7 @@ declare module 'vue' {
     AssetMaintenancePanel: typeof import('./src/components/containers/dock/AssetMaintenancePanel.vue')['default']
     AssetPager: typeof import('./src/components/containers/dock/AssetPager.vue')['default']
     AssetSelectionBar: typeof import('./src/components/containers/dock/AssetSelectionBar.vue')['default']
+    AssetWorkspaceInspector: typeof import('./src/components/containers/dock/AssetWorkspaceInspector.vue')['default']
     BaseModal: typeof import('./src/components/common/BaseModal.vue')['default']
     BlueprintTopologyPreview: typeof import('./src/components/containers/dock/BlueprintTopologyPreview.vue')['default']
     BotControls: typeof import('./src/components/BotControls.vue')['default']

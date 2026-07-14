@@ -2,7 +2,7 @@
      单击=选中(批量); 右键=快捷动作 + 详情(改名/描述/标签等低频 → 按需弹小 modal).
      在线 tab: 占位。 -->
 <template>
-  <div class="asset-panel flex h-full min-h-0 flex-col" :data-workspace="workspace">
+  <div class="asset-panel relative flex h-full min-h-0 flex-col" :data-workspace="workspace">
     <div v-if="drillIn && detailId && !workspace" class="flex h-full min-h-0 flex-col">
       <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
@@ -38,7 +38,12 @@
       </div>
 
       <div class="flex min-h-0 flex-1 overflow-hidden">
-        <AssetCategoryRail v-if="workspace" v-model="categoryFilter" :items="categoryFilterItems" />
+        <AssetCategoryRail
+          v-if="workspace"
+          v-model="categoryFilter"
+          :items="categoryFilterItems"
+          class="asset-category-rail"
+        />
         <div class="flex min-w-0 flex-1 flex-col gap-2.5 overflow-hidden p-3">
           <AssetBrowserToolbar
             ref="toolbarRef"
@@ -68,7 +73,7 @@
             @clear="selClear()"
           />
 
-          <div class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
+          <div data-asset-browser-list class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
             <div
               v-if="filteredItems.length === 0"
               class="flex min-h-56 flex-col items-center justify-center text-center"
@@ -201,6 +206,14 @@
         >
           <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
         </aside>
+
+        <AssetWorkspaceInspector
+          v-if="workspace && drillIn && detailId"
+          :title="lib.subgraphs.find((item) => item.id === detailId)?.label || detailId"
+          @close="drillIn = false"
+        >
+          <LibraryDetailPanel :sgID="detailId" @insert="onDetailInsert" />
+        </AssetWorkspaceInspector>
       </div>
     </template>
   </div>
@@ -272,11 +285,13 @@ import AssetSelectionBar from './AssetSelectionBar.vue'
 import AssetBrowserToolbar from './AssetBrowserToolbar.vue'
 import AssetPager from './AssetPager.vue'
 import AssetCategoryRail from './AssetCategoryRail.vue'
+import AssetWorkspaceInspector from './AssetWorkspaceInspector.vue'
 import BlueprintTopologyPreview from './BlueprintTopologyPreview.vue'
 import LibraryDetailPanel from '@/components/containers/LibraryDetailPanel.vue'
 import { backend, type Subgraph } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
+import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowserPreferences'
 
 const { t } = useI18n()
 const { workspace = false } = defineProps<{ workspace?: boolean }>()
@@ -285,13 +300,11 @@ const emit = defineEmits<{
   'pick-subgraph': [libraryID: string]
 }>()
 
-const query = ref('')
+const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
+  useAssetBrowserPreferences<'label' | 'createdAt' | 'nodes'>('blueprints', 'label')
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
-const viewMode = useLocalStorage<'grid' | 'list'>('asset.blueprints.view', 'grid')
 
 // 排序 (镜像模板/clip 管理): 名称/创建时间/节点数 × 正逆序.
-const sortKey = ref<'label' | 'createdAt' | 'nodes'>('label')
-const sortDesc = ref(false)
 const sortItems = computed(() => [
   { label: t('library.explorer.view_by_name'), value: 'label' },
   { label: t('library.explorer.view_by_created'), value: 'createdAt' },
@@ -303,9 +316,6 @@ const toast = useToast()
 const { confirm } = useConfirm()
 
 // ── 过滤 + 分组 ──
-const categoryFilter = ref<string>('all')
-const tagFilter = ref<string[]>([])
-
 const allCategories = computed(() => {
   const set = new Set<string>()
   for (const sg of lib.subgraphs) if (sg.category) set.add(sg.category)
@@ -375,19 +385,15 @@ const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map(
 const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 const { isTabStop, setActive, move } = useRovingAssetList(visibleIds)
 
-// 数据由 AssetDockPanel 统一预载，避免父子组件重复请求同一资产接口。
+// 数据由 AssetDockPanel 统一预载；浏览偏好保留到下次打开。
 onMounted(async () => {
-  query.value = ''
-  categoryFilter.value = 'all'
-  tagFilter.value = []
-  page.value = 1
-  selClear()
   await nextTick()
   await toolbarRef.value?.focusSearch()
 })
 
 function onRowClick(id: string, e: MouseEvent) {
   detailId.value = id
+  if (workspace && !e.ctrlKey && !e.metaKey && !e.shiftKey) drillIn.value = true
   selClick(id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
@@ -647,13 +653,21 @@ async function onBatchChangeCategory() {
   border-right: 1px solid var(--ui-border);
 }
 
+@container (width < 1040px) {
+  [data-workspace='true'] .asset-inspector {
+    display: none;
+  }
+}
+
+@container (width < 760px) {
+  [data-workspace='true'] .asset-category-rail {
+    display: none;
+  }
+}
+
 @container (width < 520px) {
   .blueprint-grid {
     grid-template-columns: 1fr;
-  }
-
-  .asset-inspector {
-    display: none;
   }
 }
 </style>

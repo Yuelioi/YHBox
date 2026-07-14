@@ -1,7 +1,7 @@
 <!-- 视觉模板资产面板：共享筛选/分页/键盘模型，dock 原位钻取详情，workspace 常驻检查器。
      pick 模式保留点选即回写；管理模式单击选中，双击或详情按钮进入编辑。 -->
 <template>
-  <div class="asset-panel flex h-full min-h-0 flex-col" :data-workspace="workspace">
+  <div class="asset-panel relative flex h-full min-h-0 flex-col" :data-workspace="workspace">
     <div v-if="drillIn && detailId && !workspace && !pickMode" class="flex h-full min-h-0 flex-col">
       <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
@@ -42,7 +42,12 @@
       </div>
 
       <div class="flex min-h-0 flex-1 overflow-hidden">
-        <AssetCategoryRail v-if="workspace" v-model="categoryFilter" :items="categoryFilterItems" />
+        <AssetCategoryRail
+          v-if="workspace"
+          v-model="categoryFilter"
+          :items="categoryFilterItems"
+          class="asset-category-rail"
+        />
         <div class="flex min-w-0 flex-1 flex-col gap-2.5 overflow-hidden p-3">
           <AssetBrowserToolbar
             ref="toolbarRef"
@@ -67,7 +72,7 @@
             @clear="selClear()"
           />
 
-          <div class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
+          <div data-asset-browser-list class="min-h-0 flex-1 overflow-y-auto pr-1 select-none">
             <div
               v-if="filteredItems.length === 0"
               class="flex min-h-56 flex-col items-center justify-center text-center"
@@ -200,6 +205,14 @@
         >
           <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
         </aside>
+
+        <AssetWorkspaceInspector
+          v-if="workspace && drillIn && detailId"
+          :title="tplStore.map[detailId]?.name || detailId"
+          @close="drillIn = false"
+        >
+          <TemplateDetailPanel :guid="detailId" :pick-mode="false" :assigned="false" />
+        </AssetWorkspaceInspector>
       </div>
     </template>
   </div>
@@ -271,9 +284,11 @@ import AssetSelectionBar from './AssetSelectionBar.vue'
 import AssetBrowserToolbar from './AssetBrowserToolbar.vue'
 import AssetPager from './AssetPager.vue'
 import AssetCategoryRail from './AssetCategoryRail.vue'
+import AssetWorkspaceInspector from './AssetWorkspaceInspector.vue'
 import TemplateDetailPanel from '@/components/containers/TemplateDetailPanel.vue'
 import TemplateThumb from './TemplateThumb.vue'
 import { useRovingAssetList } from '@/composables/editor/useRovingAssetList'
+import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowserPreferences'
 
 const { t } = useI18n()
 const props = defineProps<{ pickMode?: boolean; modelValue?: string[]; workspace?: boolean }>()
@@ -299,6 +314,7 @@ function onCellClick(guid: string, e: MouseEvent) {
     return
   }
   detailId.value = guid
+  if (props.workspace && !e.ctrlKey && !e.metaKey && !e.shiftKey) drillIn.value = true
   selClick(guid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
 }
 
@@ -319,13 +335,11 @@ function onCellKeydown(guid: string, e: KeyboardEvent) {
 const tplStore = useTemplatesStore()
 const { confirm } = useConfirm()
 
-const query = ref('')
+const { query, categoryFilter, tagFilter, sortKey, sortDesc, viewMode } =
+  useAssetBrowserPreferences<'name' | 'createdAt' | 'variantCount'>('templates', 'name')
 const toolbarRef = useTemplateRef<{ focusSearch: () => Promise<void> }>('toolbarRef')
-const viewMode = useLocalStorage<'grid' | 'list'>('asset.templates.view', 'grid')
 
 // 排序
-const sortKey = ref<'name' | 'createdAt' | 'variantCount'>('name')
-const sortDesc = ref(false)
 const sortItems = computed(() => [
   { label: t('template.manager.view_by_name'), value: 'name' },
   { label: t('template.manager.view_by_created'), value: 'createdAt' },
@@ -350,8 +364,6 @@ const allTags = computed(() => {
 })
 
 // 过滤
-const categoryFilter = ref<string>('all')
-const tagFilter = ref<string[]>([])
 const categoryFilterItems = computed(() => [
   { label: t('library.explorer.filter_category_all'), id: 'all' },
   ...allCategories.value.map((c) => ({ label: c, id: `c:${c}` })),
@@ -411,13 +423,8 @@ const visibleIds = computed(() => groupedItems.value.flatMap((g) => g.items.map(
 const { selected, click: selClick, clear: selClear, isSelected } = useListSelection(visibleIds)
 const { isTabStop, setActive, move } = useRovingAssetList(visibleIds)
 
-// 数据由 AssetDockPanel 统一预载，避免父子组件重复请求同一资产接口。
+// 数据由 AssetDockPanel 统一预载；浏览偏好保留到下次打开。
 onMounted(async () => {
-  query.value = ''
-  categoryFilter.value = 'all'
-  tagFilter.value = []
-  page.value = 1
-  selClear()
   await nextTick()
   await toolbarRef.value?.focusSearch()
 })
@@ -554,6 +561,18 @@ async function onBatchDelete() {
   grid-template-columns: 132px minmax(0, 1fr);
 }
 
+@container (width < 1040px) {
+  [data-workspace='true'] .asset-inspector {
+    display: none;
+  }
+}
+
+@container (width < 760px) {
+  [data-workspace='true'] .asset-category-rail {
+    display: none;
+  }
+}
+
 @container (width < 520px) {
   .template-asset-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -561,10 +580,6 @@ async function onBatchDelete() {
 
   .template-asset-grid--list {
     grid-template-columns: 1fr;
-  }
-
-  .asset-inspector {
-    display: none;
   }
 }
 </style>
