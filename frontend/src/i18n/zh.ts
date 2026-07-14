@@ -3385,6 +3385,7 @@ export default {
     },
     detail: {
       empty: '选择一个模板查看详情',
+      view_large: '查看大图',
     },
     picker: {
       not_selected: '未选择',

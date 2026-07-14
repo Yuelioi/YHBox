@@ -23,15 +23,26 @@
 
       <!-- 缩略图 (当前变体档) -->
       <div
-        class="rounded-md overflow-hidden border border-default bg-elevated flex items-center justify-center aspect-[4/3]"
+        class="relative flex h-40 items-center justify-center overflow-hidden rounded-md border border-default bg-elevated"
       >
         <img
           v-if="displayThumb"
           :src="displayThumb"
-          class="max-w-full max-h-full object-contain"
+          class="h-full w-full object-contain"
           :alt="tpl.name"
         />
         <UIcon v-else name="i-tabler-photo" class="size-8 text-dimmed" />
+        <UButton
+          v-if="displayThumb"
+          size="xs"
+          variant="solid"
+          color="neutral"
+          icon="i-tabler-maximize"
+          class="absolute bottom-2 right-2"
+          @click="previewOpen = true"
+        >
+          {{ t('template.detail.view_large') }}
+        </UButton>
       </div>
 
       <!-- 名称 -->
@@ -58,6 +69,64 @@
           </button>
         </h3>
       </div>
+
+      <!-- 分辨率变体是模板的核心操作，前置到名称后，dock 与 workspace 共用同一入口。 -->
+      <section v-if="detailRecord?.variants?.length" class="space-y-1.5">
+        <label class="block text-xs text-toned">{{ t('template.picker.variants_label') }}</label>
+        <p class="text-xs leading-relaxed">
+          <template v-if="curRes">
+            <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
+            <span class="text-toned">{{ curResLabel }}</span>
+            <span v-if="curResHint" class="text-warning/80">
+              · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span
+            >
+          </template>
+          <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
+        </p>
+        <div class="flex flex-wrap gap-1.5">
+          <div
+            v-for="(v, i) in detailRecord.variants"
+            :key="i"
+            class="flex items-center rounded-md bg-elevated/50 p-0.5"
+          >
+            <UButton
+              size="xs"
+              :variant="activeVariantIdx === i ? 'solid' : 'ghost'"
+              :color="activeVariantIdx === i ? 'primary' : 'neutral'"
+              @click="activeVariantIdx = i"
+            >
+              {{ v.resolution[0] }}×{{ v.resolution[1] }}
+              <span v-if="isCurResVariant(v)" class="ml-1 text-[10px] opacity-80">{{
+                t('template.picker.current_badge')
+              }}</span>
+            </UButton>
+            <UButton
+              v-if="(detailRecord?.variants?.length ?? 0) > 1"
+              size="xs"
+              variant="ghost"
+              color="error"
+              icon="i-tabler-x"
+              class="size-6 p-0"
+              :aria-label="
+                t('template.picker.del_variant_title', {
+                  res: `${v.resolution[0]}×${v.resolution[1]}`,
+                })
+              "
+              @click="removeVariant(v.resolution)"
+            />
+          </div>
+        </div>
+        <UButton
+          size="xs"
+          variant="soft"
+          color="neutral"
+          block
+          :icon="curRes && !curResExact ? 'i-tabler-plus' : 'i-tabler-refresh'"
+          @click="onRecapture"
+        >
+          {{ recaptureLabel }}
+        </UButton>
+      </section>
 
       <!-- 描述 -->
       <section class="space-y-1.5">
@@ -121,64 +190,6 @@
         />
       </section>
 
-      <!-- 分辨率变体管理 -->
-      <section v-if="detailRecord?.variants?.length" class="space-y-1.5">
-        <label class="block text-xs text-toned">{{ t('template.picker.variants_label') }}</label>
-        <p class="text-xs leading-relaxed">
-          <template v-if="curRes">
-            <span class="text-dimmed">{{ t('template.picker.current_window') }}: </span>
-            <span class="text-toned">{{ curResLabel }}</span>
-            <span v-if="curResHint" class="text-warning/80">
-              · {{ t('template.picker.scaled_from', { res: curResHint }) }}</span
-            >
-          </template>
-          <span v-else class="text-dimmed">{{ t('template.picker.window_not_open') }}</span>
-        </p>
-        <div class="flex flex-wrap gap-1.5">
-          <div
-            v-for="(v, i) in detailRecord.variants"
-            :key="i"
-            class="flex items-center rounded-md bg-elevated/50 p-0.5"
-          >
-            <UButton
-              size="xs"
-              :variant="activeVariantIdx === i ? 'solid' : 'ghost'"
-              :color="activeVariantIdx === i ? 'primary' : 'neutral'"
-              @click="activeVariantIdx = i"
-            >
-              {{ v.resolution[0] }}×{{ v.resolution[1] }}
-              <span v-if="isCurResVariant(v)" class="ml-1 text-[10px] opacity-80">{{
-                t('template.picker.current_badge')
-              }}</span>
-            </UButton>
-            <UButton
-              v-if="(detailRecord?.variants?.length ?? 0) > 1"
-              size="xs"
-              variant="ghost"
-              color="error"
-              icon="i-tabler-x"
-              class="size-6 p-0"
-              :aria-label="
-                t('template.picker.del_variant_title', {
-                  res: `${v.resolution[0]}×${v.resolution[1]}`,
-                })
-              "
-              @click="removeVariant(v.resolution)"
-            />
-          </div>
-        </div>
-        <UButton
-          size="xs"
-          variant="soft"
-          color="neutral"
-          block
-          :icon="curRes && !curResExact ? 'i-tabler-plus' : 'i-tabler-refresh'"
-          @click="onRecapture"
-        >
-          {{ recaptureLabel }}
-        </UButton>
-      </section>
-
       <!-- 元信息 -->
       <section v-if="tpl.createdAt" class="space-y-1 text-xs text-dimmed">
         <div class="flex justify-between">
@@ -215,6 +226,22 @@
       </div>
     </div>
   </div>
+
+  <BaseModal
+    v-model:open="previewOpen"
+    :title="tpl?.name || t('template.capture.preview')"
+    icon="i-tabler-photo"
+    size="6xl"
+  >
+    <div class="flex min-h-80 items-center justify-center rounded-md bg-sunken p-4">
+      <img
+        v-if="displayThumb"
+        :src="displayThumb"
+        class="h-[70vh] w-full object-contain"
+        :alt="tpl?.name || t('template.capture.preview')"
+      />
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -226,6 +253,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 const props = defineProps<{ guid: string | null; pickMode?: boolean; assigned?: boolean }>()
@@ -233,6 +261,7 @@ const emit = defineEmits<{ 'toggle-assign': [] }>()
 const store = useTemplatesStore()
 const { confirm } = useConfirm()
 const toast = useToast()
+const previewOpen = ref(false)
 
 const tpl = computed<AssetSummary | undefined>(() =>
   props.guid ? store.map[props.guid] : undefined,

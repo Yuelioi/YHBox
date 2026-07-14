@@ -190,7 +190,6 @@ Clip 当前前端只有总时长、事件数和录制元数据，没有逐段事
 
 ## Next
 
-- 使用仓库固定的 Node 22.23.1 执行 `task check`；当前机器 Node 24.18.0 会被严格工具链检查提前拒绝。
 - Windows 桌面真机复核 520/600/760px dock、1640/1920 工作台以及 125%/150% 缩放；当前会话没有可连接的应用内浏览器实例。
 - 后续若增加 Clip `activityBuckets`、引用/健康状态或跨类型搜索，必须使用真实后端摘要，不在前端推测或伪造。
 
@@ -202,14 +201,16 @@ Clip 当前前端只有总时长、事件数和录制元数据，没有逐段事
 - dock 单击选择、显式详情 drill-in；蓝图/Clip 双击或 Enter 插入。完整工作台提供分类、内容、常驻 inspector 三栏。
 - 搜索、分类、标签、排序方向和视图按资产类型持久化；截图新模板默认使用上次成功保存的分类。
 - 工作台低于 1040px 时同一个 inspector 转为原位覆盖详情并接管 Esc/焦点，低于 760px 折叠分类 rail；不会因响应式切换丢失详情草稿。
+- 完整工作台类型 tabs 最大宽度为 720px，不随全屏无限拉伸；模板详情预览压缩为 160px，并提供显式“查看大图”。
+- 模板分辨率变体与新增/重拍操作前置到详情名称之后，dock 双击详情和 workspace inspector 使用完全相同的功能顺序。
 - 资产维护从第四个产品 tab 移为独立工具入口；父宿主统一预载三类资产，避免父子重复请求。
 - 详情表单补齐 accessible name，模板变体删除改为独立可聚焦按钮，列表使用 roving tabindex。
 
 ## Verified
 
 - `pnpm -C frontend typecheck`
-- `pnpm -C frontend test`：90 files / 601 tests
+- `pnpm -C frontend test`：90 files / 604 tests
 - `pnpm -C frontend build`：bundle budget passed
-- `pnpm -C frontend i18n:check`：中英文 2860 keys parity / compile / refs passed
+- `pnpm -C frontend i18n:check`：中英文 2861 keys parity / compile / refs passed
 - `pnpm -C frontend lint`：0 warnings / 0 errors；`no-explicit-any` 技术债由 270 降至 267
-- `task check`：供应链 pin 检查通过，随后因本机 Node 24.18.0 与仓库固定 22.23.1 不匹配而提前停止
+- `task check`：Node 24.18.0、Go / Rust / Wails、供应链、Go tests/vet/staticcheck、前端 format/lint/typecheck/i18n/bindings/tests/build 与 bundle budget 全部通过

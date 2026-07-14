@@ -80,7 +80,7 @@
         :items="tabItems"
         :content="false"
         size="sm"
-        class="min-w-0"
+        class="asset-type-tabs min-w-0"
         @update:model-value="(v: string | number) => emit('update:tab', v as AssetTab)"
       />
     </header>
@@ -188,6 +188,10 @@ onMounted(() => {
 <style scoped>
 .asset-dock {
   container-type: inline-size;
+}
+
+[data-workspace='true'] .asset-type-tabs {
+  width: min(100%, 720px);
 }
 
 @container (width < 520px) {

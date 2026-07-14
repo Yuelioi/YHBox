@@ -46,6 +46,21 @@ describe('editor interaction accessibility', () => {
     expect(detail).toContain('@click="removeVariant(v.resolution)"')
   })
 
+  it('keeps template variants visible before secondary metadata in every detail entry', () => {
+    const detail = source('containers/TemplateDetailPanel.vue')
+    expect(detail.match(/template\.picker\.variants_label/g)).toHaveLength(1)
+    expect(detail.indexOf('template.picker.variants_label')).toBeLessThan(
+      detail.indexOf('library.detail.description'),
+    )
+  })
+
+  it('uses a compact preview with an explicit full-image action', () => {
+    const detail = source('containers/TemplateDetailPanel.vue')
+    expect(detail).toContain('class="relative flex h-40')
+    expect(detail).toContain("t('template.detail.view_large')")
+    expect(detail).toContain('<BaseModal')
+  })
+
   it('provides a visible, named edit control for comment boxes', () => {
     const comment = source('containers/CommentBoxNode.vue')
     expect(comment).toContain('class="nodrag cb-edit"')

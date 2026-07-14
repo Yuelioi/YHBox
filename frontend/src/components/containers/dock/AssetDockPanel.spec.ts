@@ -32,6 +32,12 @@ describe('AssetDockPanel information architecture', () => {
     expect(dock).toContain('matchingCounts')
   })
 
+  it('caps type navigation width in the expanded workspace', () => {
+    expect(dock).toContain('class="asset-type-tabs min-w-0"')
+    expect(dock).toContain("[data-workspace='true'] .asset-type-tabs")
+    expect(dock).toContain('width: min(100%, 720px)')
+  })
+
   it('offers cleanup workflows for recordings, blueprints, and templates', () => {
     expect(maintenance).toContain("t('assetMaintenance.recordings.title')")
     expect(maintenance).toContain("t('assetMaintenance.subgraphs.title')")

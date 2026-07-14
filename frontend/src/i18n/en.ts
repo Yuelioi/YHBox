@@ -3530,6 +3530,7 @@ export default {
     },
     detail: {
       empty: 'Select a template to view details',
+      view_large: 'View full image',
     },
     picker: {
       not_selected: 'Not selected',
