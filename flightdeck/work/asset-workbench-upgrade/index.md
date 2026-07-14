@@ -11,7 +11,7 @@ active
 
 ## Next
 
-- 在新构建的 Wails 桌面应用内 smoke：打开“容器 4”的模板详情，确认检测期间显示加载状态，已有 1920×1080 变体立即出现，检测完成后显示当前窗口分辨率。
+- 启动刚生成的 bin/Yotta.exe 做 Wails smoke：打开“容器 4”的模板详情，确认检测期间显示加载状态，已有 1920×1080 变体立即出现，检测完成后显示当前窗口分辨率。
 - 检查本局收益等 96×27 低分辨率模板：卡片与普通详情保持 1:1 像素上限，大图查看允许最多 2×。
 - 根据下一轮视觉反馈继续收尾资产工作台，稳定后结束本 topic。
 
@@ -40,9 +40,10 @@ active
 - 已用真实资产确认“本局收益”裁剪尺寸为 96×27；139px 卡片只放大约 1.45×，原先 2×阈值不会触发。卡片与普通详情现改为 1:1 像素上限，大图查看保留 2×。
 - 回归命令 pnpm vitest run src/components/containers/InteractionAccessibility.spec.ts 在修复前稳定失败 2 项，修复后聚焦 23 项通过。
 - 2026-07-14 最新 task check 全通过：前端 91 个测试文件、610 项测试通过，Go、lint、类型、i18n、bindings、生产构建和 bundle budget 均通过。
-- 相关提交基线：5f8a5dac、808dffc6、e915af3a、db536810、3afd1647、666f3a64、07bfa1ae、559ebfa6；本批 pending/unavailable 与 1:1 预览修复待提交。
+- 提交 78c774af 已落地；随后 task build 成功完成 frontend production bundle、Wails syso 与 Windows production go build，新的 bin/Yotta.exe 已生成。
+- 相关提交基线：5f8a5dac、808dffc6、e915af3a、db536810、3afd1647、666f3a64、07bfa1ae、559ebfa6、78c774af。
 
 ## Open questions
 
-- 新构建中窗口检测完成后的 currentResolution 是否与真实容器诊断一致；若 Wails RPC 最终仍失败，需要保留错误原因而不是由 backend wrapper 静默吞掉。
+- 新 bin/Yotta.exe 中窗口检测完成后的 currentResolution 是否与真实容器诊断一致；若 Wails RPC 最终仍失败，需要保留错误原因而不是由 backend wrapper 静默吞掉。
 - 1:1 是卡片和普通详情的默认保真上限；后续是否为不同资产类型提供可配置倍率，等待真实素材库反馈后决定。
