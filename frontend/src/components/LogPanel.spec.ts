@@ -27,4 +27,12 @@ describe('LogPanel shell', () => {
     expect(source).toContain("toggleField('level'")
     expect(source).toContain("t('log.disabled')")
   })
+
+  it('uses compact Nuxt UI controls for every logging setting', () => {
+    expect(source).toContain('<USwitch')
+    expect(source).toContain('<USelect')
+    expect(source).toContain('text-[11px] leading-4')
+    expect(source).not.toContain('type="checkbox"')
+    expect(source).not.toContain('<select')
+  })
 })

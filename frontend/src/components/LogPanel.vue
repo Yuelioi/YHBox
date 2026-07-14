@@ -84,7 +84,7 @@
         />
 
         <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
-        <UPopover mode="click" :ui="{ content: 'p-3 w-60' }">
+        <UPopover mode="click" :ui="{ content: 'w-60 p-2.5' }">
           <UButton
             size="xs"
             variant="ghost"
@@ -95,104 +95,123 @@
             :ui="{ base: 'size-7 p-0' }"
           />
           <template #content>
-            <div class="space-y-1 text-xs">
-              <label class="flex cursor-pointer items-center justify-between gap-3 pb-1">
-                <span>
-                  <span class="block font-medium text-toned">{{ t('log.popover.enabled') }}</span>
-                  <span class="block text-[10px] leading-tight text-dimmed">{{
-                    t('log.popover.enabled_hint')
-                  }}</span>
-                </span>
-                <input
-                  type="checkbox"
-                  :checked="enabled"
-                  @change="toggleField('enabled', ($event.target as HTMLInputElement).checked)"
-                />
-              </label>
-              <label
-                class="flex cursor-pointer items-center gap-2"
-                :class="{ 'opacity-50': !enabled }"
+            <div class="text-[11px] leading-4 text-toned">
+              <div
+                class="flex items-center justify-between gap-3 rounded-md bg-elevated/60 px-2 py-1.5"
               >
-                <input
-                  type="checkbox"
-                  :checked="liveView"
-                  :disabled="!enabled"
-                  @change="toggleField('liveView', ($event.target as HTMLInputElement).checked)"
+                <div class="min-w-0">
+                  <div class="font-medium text-highlighted">{{ t('log.popover.enabled') }}</div>
+                  <div class="text-[10px] leading-3.5 text-dimmed">
+                    {{ t('log.popover.enabled_hint') }}
+                  </div>
+                </div>
+                <USwitch
+                  size="xs"
+                  :model-value="enabled"
+                  :aria-label="t('log.popover.enabled')"
+                  @update:model-value="toggleField('enabled', $event)"
                 />
-                {{ t('log.popover.live_view') }}
-              </label>
-              <label
-                class="flex items-center justify-between gap-3 py-1"
-                :class="{ 'opacity-50': !enabled }"
-              >
-                <span>{{ t('log.popover.level') }}</span>
-                <select
-                  class="rounded border border-default bg-elevated px-1.5 py-1 text-xs text-toned outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  :value="level"
-                  :disabled="!enabled"
-                  @change="toggleField('level', ($event.target as HTMLSelectElement).value)"
+              </div>
+
+              <div class="mt-1 space-y-0.5">
+                <div
+                  class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5"
+                  :class="{ 'opacity-50': !enabled }"
                 >
-                  <option
-                    v-for="option in ['debug', 'info', 'warn', 'error']"
-                    :key="option"
-                    :value="option"
-                  >
-                    {{ option.toUpperCase() }}
-                  </option>
-                </select>
-              </label>
-              <hr class="my-1 border-default" />
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="showTime"
-                  @change="toggleField('showTime', ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('log.popover.show_time') }}
-              </label>
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="showTag"
-                  @change="toggleField('showTag', ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('log.popover.show_tag') }}
-              </label>
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="wrapText"
-                  @change="toggleField('wrapText', ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('log.popover.wrap_text') }}
-              </label>
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="autoScroll"
-                  @change="toggleField('autoScroll', ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('log.popover.auto_scroll') }}
-              </label>
-              <hr class="my-1 border-default" />
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="writeFile"
-                  :disabled="!enabled"
-                  @change="toggleField('writeFile', ($event.target as HTMLInputElement).checked)"
-                />
-                {{ t('log.popover.write_file') }}
-              </label>
-              <hr class="my-1 border-default" />
-              <label class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  :checked="showNodeEnter"
-                  @change="showNodeEnter = ($event.target as HTMLInputElement).checked"
-                />
-                {{ t('log.popover.show_node_enter') }}
-              </label>
+                  <span>{{ t('log.popover.live_view') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="liveView"
+                    :disabled="!enabled"
+                    :aria-label="t('log.popover.live_view')"
+                    @update:model-value="toggleField('liveView', $event)"
+                  />
+                </div>
+                <div
+                  class="flex min-h-7 items-center justify-between gap-3 rounded px-1.5"
+                  :class="{ 'opacity-50': !enabled }"
+                >
+                  <span>{{ t('log.popover.level') }}</span>
+                  <USelect
+                    size="xs"
+                    class="w-22"
+                    :ui="{ base: 'text-[11px]' }"
+                    :model-value="level"
+                    :items="logLevelItems"
+                    :disabled="!enabled"
+                    :aria-label="t('log.popover.level')"
+                    @update:model-value="toggleField('level', $event)"
+                  />
+                </div>
+              </div>
+
+              <div class="my-1 border-t border-default/70" />
+
+              <div class="space-y-0.5">
+                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
+                  <span>{{ t('log.popover.show_time') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="showTime"
+                    :aria-label="t('log.popover.show_time')"
+                    @update:model-value="toggleField('showTime', $event)"
+                  />
+                </div>
+                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
+                  <span>{{ t('log.popover.show_tag') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="showTag"
+                    :aria-label="t('log.popover.show_tag')"
+                    @update:model-value="toggleField('showTag', $event)"
+                  />
+                </div>
+                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
+                  <span>{{ t('log.popover.wrap_text') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="wrapText"
+                    :aria-label="t('log.popover.wrap_text')"
+                    @update:model-value="toggleField('wrapText', $event)"
+                  />
+                </div>
+                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
+                  <span>{{ t('log.popover.auto_scroll') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="autoScroll"
+                    :aria-label="t('log.popover.auto_scroll')"
+                    @update:model-value="toggleField('autoScroll', $event)"
+                  />
+                </div>
+              </div>
+
+              <div class="my-1 border-t border-default/70" />
+
+              <div class="space-y-0.5">
+                <div
+                  class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5"
+                  :class="{ 'opacity-50': !enabled }"
+                >
+                  <span>{{ t('log.popover.write_file') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="writeFile"
+                    :disabled="!enabled"
+                    :aria-label="t('log.popover.write_file')"
+                    @update:model-value="toggleField('writeFile', $event)"
+                  />
+                </div>
+                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
+                  <span>{{ t('log.popover.show_node_enter') }}</span>
+                  <USwitch
+                    size="xs"
+                    :model-value="showNodeEnter"
+                    :aria-label="t('log.popover.show_node_enter')"
+                    @update:model-value="showNodeEnter = $event"
+                  />
+                </div>
+              </div>
             </div>
           </template>
         </UPopover>
@@ -294,6 +313,12 @@ const settingsStore = useSettingsStore()
 const filter = ref<'ALL' | 'SYS' | 'CTR'>('ALL')
 const bodyRef = ref<HTMLDivElement | null>(null)
 const actionTraceOpen = ref(false)
+const logLevelItems = [
+  { label: 'DEBUG', value: 'debug' },
+  { label: 'INFO', value: 'info' },
+  { label: 'WARN', value: 'warn' },
+  { label: 'ERROR', value: 'error' },
+]
 
 const collapsed = computed({
   get: () => !(settingsStore.data?.ui.logger.panelOpen ?? true),
