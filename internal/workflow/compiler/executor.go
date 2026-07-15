@@ -3,9 +3,11 @@ package compiler
 import (
 	"bytes"
 	"context"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sync"
 	"time"
@@ -79,6 +81,8 @@ type Invocation struct {
 	OutputTypes  map[string]datatype.ResolvedType
 	Sessions     map[string]*run31.Session
 	Trigger      *SignalTrigger
+	ObservedAt   time.Time
+	ReadEntropy  func([]byte) error
 	Spawn        func(func(context.Context) error) error
 	RecordAction func(context.Context, AdapterAction) error
 	EmitStatus   func(context.Context, string, map[string]int64) error
@@ -103,12 +107,17 @@ type ExecutionResult struct {
 }
 
 type Executor struct {
-	catalog  nodecatalog.Snapshot
-	adapters map[string]InstalledAdapter
-	now      func() time.Time
+	catalog   nodecatalog.Snapshot
+	adapters  map[string]InstalledAdapter
+	now       func() time.Time
+	entropy   io.Reader
+	entropyMu sync.Mutex
 }
 
-type ExecutorOptions struct{ Now func() time.Time }
+type ExecutorOptions struct {
+	Now     func() time.Time
+	Entropy io.Reader
+}
 
 type ownedLease struct {
 	session *run31.Session
@@ -123,7 +132,20 @@ func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdap
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	return &Executor{catalog: catalog, adapters: installed, now: options.Now}
+	if options.Entropy == nil {
+		options.Entropy = cryptorand.Reader
+	}
+	return &Executor{catalog: catalog, adapters: installed, now: options.Now, entropy: options.Entropy}
+}
+
+func (e *Executor) readEntropy(target []byte) error {
+	if len(target) == 0 {
+		return nil
+	}
+	e.entropyMu.Lock()
+	defer e.entropyMu.Unlock()
+	_, err := io.ReadFull(e.entropy, target)
+	return err
 }
 
 func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run31.Owner, journal *run31.JournalWriter) (ExecutionResult, error) {

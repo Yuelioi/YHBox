@@ -888,6 +888,12 @@ export default {
       point: { title: '点', description: '带显式单位的二维点。' },
       region: { title: '区域', description: '带显式单位的矩形区域。' },
     },
+    random: {
+      distribution: {
+        title: '随机分布',
+        description: 'recorded 随机观测所使用的概率分布。',
+      },
+    },
   },
   node: {
     text: {
@@ -910,6 +916,30 @@ export default {
             description: '写入持久 Blob 的 MIME 类型，例如 image/png。',
           },
         },
+      },
+    },
+    random: {
+      integer: {
+        title: '随机整数',
+        description: '从宿主加密熵源观测一个整数样本，并把结果持久化到 Run 记录。',
+      },
+      number: {
+        title: '随机数值',
+        description: '观测一个有限数值样本，并把结果持久化到 Run 记录。',
+      },
+      boolean: {
+        title: '随机布尔值',
+        description: '按零到一之间的显式概率观测一个 true/false 样本。',
+      },
+      choice: {
+        title: '随机取值',
+        description: '从非空的强类型列表中等概率观测一个元素，并持久化结果。',
+      },
+    },
+    time: {
+      observe: {
+        title: '观测时间',
+        description: '捕获宿主提供的调用时间（Unix 毫秒），并持久化到 Run 记录。',
       },
     },
     // ai

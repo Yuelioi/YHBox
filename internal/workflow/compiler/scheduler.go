@@ -157,9 +157,10 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return err
 	}
+	observedAt := s.executor.now().UTC()
 	started, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
 		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptStarted,
-		OccurredAt: s.executor.now().UTC(), Summary: summary,
+		OccurredAt: observedAt, Summary: summary,
 	})
 	if err != nil {
 		return err
@@ -175,7 +176,8 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	outcome, runErr := installed.Run(ctx, Invocation{
 		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions,
-		Trigger: cloneTrigger(trigger), Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
+		Trigger: cloneTrigger(trigger), ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
+		Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
 	actionErr := actions.Close()
 	statusErr := statuses.Close()

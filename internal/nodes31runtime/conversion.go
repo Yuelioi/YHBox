@@ -22,8 +22,13 @@ const conversionChunkBytes = 64 << 10
 func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter, error) {
 	installed := make(map[string]compiler.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]compiler.Adapter{
-		nodes31.BlobToStreamNodeID: blobToStream(builtins),
-		nodes31.StreamToBlobNodeID: streamToBlob(builtins),
+		nodes31.BlobToStreamNodeID:  blobToStream(builtins),
+		nodes31.StreamToBlobNodeID:  streamToBlob(builtins),
+		nodes31.RandomIntegerNodeID: randomInteger(builtins),
+		nodes31.RandomNumberNodeID:  randomNumber(builtins),
+		nodes31.RandomBooleanNodeID: randomBoolean(builtins),
+		nodes31.RandomChoiceNodeID:  randomChoice(builtins),
+		nodes31.ObserveTimeNodeID:   observeTime(builtins),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)
@@ -265,6 +270,10 @@ func recordAdapterOutcome(ctx context.Context, invocation compiler.Invocation, a
 	case runErr != nil:
 		action.Outcome = run31.ActionFailed
 		action.ErrorCode = failureCode
+		var failure *compiler.NodeFailure
+		if errors.As(runErr, &failure) && runErr == failure && failure.Code != "" {
+			action.ErrorCode = failure.Code
+		}
 	default:
 		action.Outcome = run31.ActionSucceeded
 	}

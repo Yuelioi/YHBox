@@ -908,6 +908,12 @@ export default {
       },
       region: { title: 'Region', description: 'A typed rectangular region with an explicit unit.' },
     },
+    random: {
+      distribution: {
+        title: 'Random distribution',
+        description: 'The probability distribution used by a recorded random observation.',
+      },
+    },
   },
   node: {
     text: {
@@ -931,6 +937,33 @@ export default {
             description: 'MIME type recorded with the durable blob, for example image/png.',
           },
         },
+      },
+    },
+    random: {
+      integer: {
+        title: 'Random integer',
+        description:
+          'Observe a cryptographically seeded integer sample and persist it in the Run record.',
+      },
+      number: {
+        title: 'Random number',
+        description: 'Observe a finite number sample and persist it in the Run record.',
+      },
+      boolean: {
+        title: 'Random boolean',
+        description: 'Observe a true/false sample using an explicit probability from zero to one.',
+      },
+      choice: {
+        title: 'Random choice',
+        description:
+          'Observe one unbiased item from a non-empty typed list and persist the result.',
+      },
+    },
+    time: {
+      observe: {
+        title: 'Observe time',
+        description:
+          'Capture the host-provided invocation time as Unix milliseconds and persist it in the Run record.',
       },
     },
     // ai

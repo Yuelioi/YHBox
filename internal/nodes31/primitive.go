@@ -206,6 +206,22 @@ func sealPrimitiveType(typeID, jsonType, key, color, icon string) (datatype.Defi
 	})
 }
 
+func sealSafeIntegerType() (datatype.Definition, error) {
+	const schemaID = IntegerTypeID + "/schema"
+	return datatype.SealDefinition(datatype.DefinitionDraft{
+		TypeID: IntegerTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
+		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
+			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema",
+			"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991
+		}`, schemaID))}},
+		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Authoring: datatype.Authoring{
+			TitleKey: "type.core.integer.title", DescriptionKey: "type.core.integer.description", Color: "#06b6d4", Icon: "number-123",
+			Examples: []json.RawMessage{json.RawMessage(`0`), json.RawMessage(`42`)},
+		},
+	})
+}
+
 func pureDataExecution() nodecontract.ExecutionSpec {
 	return nodecontract.ExecutionSpec{
 		Class: nodecontract.ExecutionPureData, Effects: []nodecontract.EffectID{}, Determinism: nodecontract.Deterministic,
