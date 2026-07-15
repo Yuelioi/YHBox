@@ -18,8 +18,12 @@ func TestCatalog31SearchAndDescribePreserveConcatChannels(t *testing.T) {
 	if bytes.Contains(description, []byte(`"id": "out"`)) {
 		t.Fatalf("description invented out: %s", description)
 	}
+	builtins, err := builtinCatalog31()
+	if err != nil {
+		t.Fatal(err)
+	}
 	all := searchCatalog31JSON("")
-	if bytes.Count(all, []byte(`"nodeTypeId":`)) != 3 {
-		t.Fatalf("search omitted built-in projections: %s", all)
+	if got, want := bytes.Count(all, []byte(`"nodeTypeId":`)), len(builtins.Contracts); got != want {
+		t.Fatalf("search returned %d of %d built-in projections: %s", got, want, all)
 	}
 }

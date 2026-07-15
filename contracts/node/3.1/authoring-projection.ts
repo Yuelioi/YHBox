@@ -119,7 +119,11 @@ export interface ResourceLeaseBinding {
 }
 export interface TypeUse {
   color?: string
+  constraints: FieldConstraints
+  control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json'
   descriptionKey?: string
+  editorAdapter?: string
+  examples: any[]
   expression: TypeExpression
   label: string
   lifecycle: 'durable' | 'runtime-only' | 'durable-or-runtime' | 'resolved-at-compile'
@@ -169,6 +173,7 @@ export interface StatusEventSpec {
 export interface TypeProjection {
   color?: string
   constraints: FieldConstraints
+  control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json'
   descriptionKey?: string
   editorAdapter?: string
   examples: any[]

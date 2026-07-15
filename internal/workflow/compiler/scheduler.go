@@ -333,7 +333,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 		return errors.Join(errors.New("node failure returned outputs, exec signals, or invalid status"), statusErr, journalErr)
 	}
 	spec, declared := declaredNodeError(machine.Errors, failure.Code)
-	if !declared || !signalPortExists(machine.Ports.ErrorOutputs, failure.Output) {
+	if !declared || (failure.Output != "" && !signalPortExists(machine.Ports.ErrorOutputs, failure.Output)) {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("adapter returned an undeclared node failure"), journalErr)
 	}

@@ -17,6 +17,9 @@ import (
 const (
 	StringTypeID       = "https://schemas.yotta.dev/types/core/string/v1"
 	BinaryTypeID       = "https://schemas.yotta.dev/types/core/binary/v1"
+	NumberTypeID       = "https://schemas.yotta.dev/types/core/number/v1"
+	IntegerTypeID      = "https://schemas.yotta.dev/types/core/integer/v1"
+	BooleanTypeID      = "https://schemas.yotta.dev/types/core/boolean/v1"
 	ConcatNodeID       = "https://schemas.yotta.dev/nodes/text/concat/v1"
 	BlobToStreamNodeID = "https://schemas.yotta.dev/nodes/conversion/blob-to-stream/v1"
 	StreamToBlobNodeID = "https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1"
@@ -34,16 +37,44 @@ const (
 	conversionImplementationVersion = "v2"
 )
 
+// InlineEvaluator is the narrow ABI shared by deterministic built-ins whose
+// complete inputs and outputs are durable inline JSON. The generic runtime
+// adapter seals every returned value against the exact output TypeRef.
+type InlineEvaluator func(context.Context, map[string]json.RawMessage, map[string]any) (map[string]json.RawMessage, error)
+
+// BuiltinDefinition binds one immutable Node Contract to the implementation
+// manifest compiled into this build. A pure inline evaluator is optional;
+// resource/effect families provide a specialized runtime installer instead.
+type BuiltinDefinition struct {
+	Contract       nodecontract.Contract
+	Implementation nodecatalog.ImplementationLock
+	EvaluateInline InlineEvaluator
+}
+
 type Builtins struct {
 	Catalog              nodecatalog.Snapshot
 	StringType           datatype.Definition
 	BinaryType           datatype.Definition
+	NumberType           datatype.Definition
+	IntegerType          datatype.Definition
+	BooleanType          datatype.Definition
 	ConcatContract       nodecontract.Contract
 	BlobToStreamContract nodecontract.Contract
 	StreamToBlobContract nodecontract.Contract
 	Types                []datatype.Definition
 	Contracts            []nodecontract.Contract
 	Capabilities         []capability.Definition
+	definitions          []BuiltinDefinition
+	definitionByID       map[string]BuiltinDefinition
+}
+
+func (b Builtins) Definitions() []BuiltinDefinition {
+	return append([]BuiltinDefinition(nil), b.definitions...)
+}
+
+func (b Builtins) Definition(nodeTypeID string) (BuiltinDefinition, bool) {
+	definition, ok := b.definitionByID[nodeTypeID]
+	return definition, ok
 }
 
 func Build() (Builtins, error) {
@@ -51,11 +82,19 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	concat, err := sealConcat(stringType.TypeRef())
+	binaryType, err := sealBinaryType()
 	if err != nil {
 		return Builtins{}, err
 	}
-	binaryType, err := sealBinaryType()
+	numberType, err := sealPrimitiveType(NumberTypeID, "number", "type.core.number", "#38bdf8", "decimal")
+	if err != nil {
+		return Builtins{}, err
+	}
+	integerType, err := sealPrimitiveType(IntegerTypeID, "integer", "type.core.integer", "#06b6d4", "number-123")
+	if err != nil {
+		return Builtins{}, err
+	}
+	booleanType, err := sealPrimitiveType(BooleanTypeID, "boolean", "type.core.boolean", "#f59e0b", "toggle-right")
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -79,64 +118,68 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	concatLock, err := BuiltinImplementationLock(ConcatNodeID)
+	concat, err := sealConcat(stringType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
-	blobToStreamLock, err := BuiltinImplementationLock(BlobToStreamNodeID)
+	concatDefinition, err := defineBuiltin(concat, concatEntrypoint, concatImplementationVersion, "utf8-string-concatenation/a+b/result", func(ctx context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+		return Concat(ctx, inputs)
+	})
 	if err != nil {
 		return Builtins{}, err
 	}
-	streamToBlobLock, err := BuiltinImplementationLock(StreamToBlobNodeID)
+	blobToStreamDefinition, err := defineBuiltin(blobToStream, blobToStreamEntrypoint, conversionImplementationVersion, "blob-range-to-bounded-stream/v1", nil)
 	if err != nil {
 		return Builtins{}, err
 	}
-	bindings := []nodecatalog.Binding{
-		{Contract: concat, Implementation: concatLock},
-		{Contract: blobToStream, Implementation: blobToStreamLock},
-		{Contract: streamToBlob, Implementation: streamToBlobLock},
+	streamToBlobDefinition, err := defineBuiltin(streamToBlob, streamToBlobEntrypoint, conversionImplementationVersion, "bounded-stream-to-content-addressed-blob/v1", nil)
+	if err != nil {
+		return Builtins{}, err
 	}
-	types := []datatype.Definition{stringType, binaryType}
-	contracts := []nodecontract.Contract{concat, blobToStream, streamToBlob}
+	primitiveDefinitions, err := definePrimitiveNodes(primitiveTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+	})
+	if err != nil {
+		return Builtins{}, err
+	}
+	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
+	definitions = append(definitions, primitiveDefinitions...)
+	bindings := make([]nodecatalog.Binding, 0, len(definitions))
+	contracts := make([]nodecontract.Contract, 0, len(definitions))
+	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
+	for _, definition := range definitions {
+		nodeTypeID := definition.Contract.NodeRef().NodeTypeID
+		if _, exists := definitionByID[nodeTypeID]; exists {
+			return Builtins{}, fmt.Errorf("duplicate built-in definition %q", nodeTypeID)
+		}
+		definitionByID[nodeTypeID] = definition
+		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
+		contracts = append(contracts, definition.Contract)
+	}
+	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType}
 	capabilities := []capability.Definition{blobRead, blobWrite, streamSession}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
 	}
 	return Builtins{
-		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ConcatContract: concat,
+		Catalog: catalog, StringType: stringType, BinaryType: binaryType, NumberType: numberType,
+		IntegerType: integerType, BooleanType: booleanType, ConcatContract: concat,
 		BlobToStreamContract: blobToStream, StreamToBlobContract: streamToBlob,
 		Types: types, Contracts: contracts, Capabilities: capabilities,
+		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }
 
-// ConcatImplementationDigest identifies the installed builtin adapter
-// manifest. The runtime additionally compares the complete lock before
-// dispatch; bump the manifest version whenever its implementation/ABI changes.
-func ConcatImplementationDigest() (artifact.Digest, error) {
-	return builtinImplementationDigest(concatEntrypoint, concatImplementationVersion, "utf8-string-concatenation/a+b/result")
-}
-
-// BuiltinImplementationLock returns the independently trusted manifest lock
-// for code compiled into this Yotta build. Runtime installation must compare
-// this value with the Catalog instead of relabeling code with Catalog data.
-func BuiltinImplementationLock(nodeTypeID string) (nodecatalog.ImplementationLock, error) {
-	var entrypoint, version, conformance string
-	switch nodeTypeID {
-	case ConcatNodeID:
-		entrypoint, version, conformance = concatEntrypoint, concatImplementationVersion, "utf8-string-concatenation/a+b/result"
-	case BlobToStreamNodeID:
-		entrypoint, version, conformance = blobToStreamEntrypoint, conversionImplementationVersion, "blob-range-to-bounded-stream/v1"
-	case StreamToBlobNodeID:
-		entrypoint, version, conformance = streamToBlobEntrypoint, conversionImplementationVersion, "bounded-stream-to-content-addressed-blob/v1"
-	default:
-		return nodecatalog.ImplementationLock{}, fmt.Errorf("unknown built-in node type %q", nodeTypeID)
+func defineBuiltin(contract nodecontract.Contract, entrypoint, version, conformance string, evaluator InlineEvaluator) (BuiltinDefinition, error) {
+	if !contract.Valid() || entrypoint == "" || version == "" || conformance == "" {
+		return BuiltinDefinition{}, fmt.Errorf("built-in definition is incomplete")
 	}
 	digest, err := builtinImplementationDigest(entrypoint, version, conformance)
 	if err != nil {
-		return nodecatalog.ImplementationLock{}, err
+		return BuiltinDefinition{}, err
 	}
-	return builtinLock(entrypoint, digest), nil
+	return BuiltinDefinition{Contract: contract, Implementation: builtinLock(entrypoint, digest), EvaluateInline: evaluator}, nil
 }
 
 func builtinImplementationDigest(entrypoint, version, conformance string) (artifact.Digest, error) {

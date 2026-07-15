@@ -639,6 +639,19 @@
         "constraints": {
           "$ref": "#/$defs/FieldConstraints"
         },
+        "control": {
+          "enum": [
+            "text",
+            "number",
+            "integer",
+            "toggle",
+            "select",
+            "object",
+            "list",
+            "json"
+          ],
+          "type": "string"
+        },
         "descriptionKey": {
           "type": "string"
         },
@@ -680,6 +693,7 @@
       "required": [
         "typeRef",
         "schemaRoot",
+        "control",
         "examples",
         "representations",
         "lifecycle",
@@ -711,8 +725,31 @@
         "color": {
           "type": "string"
         },
+        "constraints": {
+          "$ref": "#/$defs/FieldConstraints"
+        },
+        "control": {
+          "enum": [
+            "text",
+            "number",
+            "integer",
+            "toggle",
+            "select",
+            "object",
+            "list",
+            "json"
+          ],
+          "type": "string"
+        },
         "descriptionKey": {
           "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "examples": {
+          "items": true,
+          "type": "array"
         },
         "expression": {
           "$ref": "#/$defs/TypeExpression"
@@ -748,9 +785,12 @@
       "required": [
         "expression",
         "label",
+        "control",
         "typeIds",
         "representations",
-        "lifecycle"
+        "lifecycle",
+        "constraints",
+        "examples"
       ],
       "type": "object"
     },

@@ -874,6 +874,9 @@ export default {
   type: {
     core: {
       string: { title: '字符串', description: '可持久化的 Unicode 文本。' },
+      number: { title: '数值', description: '有限的 binary64 数值。' },
+      integer: { title: '整数', description: '位于可互操作 JSON 安全范围内的精确整数。' },
+      boolean: { title: '布尔值', description: '严格的 true 或 false 值。' },
       binary: {
         title: '二进制',
         description: '可表示为持久 Blob 或带租约的运行时流的二进制内容。',

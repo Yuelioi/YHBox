@@ -115,6 +115,7 @@ type FieldProjection struct {
 type TypeProjection struct {
 	TypeRef         datatype.TypeRef              `json:"typeRef"`
 	SchemaRoot      string                        `json:"schemaRoot"`
+	Control         Control                       `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json"`
 	TitleKey        string                        `json:"titleKey,omitempty"`
 	DescriptionKey  string                        `json:"descriptionKey,omitempty"`
 	Color           string                        `json:"color,omitempty"`
@@ -129,12 +130,16 @@ type TypeProjection struct {
 type TypeUse struct {
 	Expression      datatype.TypeExpression       `json:"expression"`
 	Label           string                        `json:"label"`
+	Control         Control                       `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json"`
 	Color           string                        `json:"color,omitempty"`
 	TypeIDs         []string                      `json:"typeIds"`
 	TitleKey        string                        `json:"titleKey,omitempty"`
 	DescriptionKey  string                        `json:"descriptionKey,omitempty"`
 	Representations []datatype.RepresentationSpec `json:"representations"`
 	Lifecycle       Lifecycle                     `json:"lifecycle" jsonschema:"required,enum=durable,enum=runtime-only,enum=durable-or-runtime,enum=resolved-at-compile"`
+	Constraints     FieldConstraints              `json:"constraints"`
+	Examples        []json.RawMessage             `json:"examples"`
+	EditorAdapter   string                        `json:"editorAdapter,omitempty"`
 }
 
 type PortProjection struct {
@@ -293,11 +298,18 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 		if err != nil {
 			return nil, nil, fmt.Errorf("data type %q: %w", ref.TypeID, err)
 		}
+		resolved, _, complete, err := resolveSchema(root, machine.SchemaBundle, machine.SchemaRoot, map[string]bool{}, &projectionBudget{}, 0)
+		if err != nil {
+			return nil, nil, fmt.Errorf("data type %q: %w", ref.TypeID, err)
+		}
+		if !complete {
+			resolved = root
+		}
 		projection := TypeProjection{
 			TypeRef: ref, SchemaRoot: machine.SchemaRoot, TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 			Color: authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 			Examples: cloneRawList(authoring.Examples), Representations: append([]datatype.RepresentationSpec(nil), machine.Representations...),
-			Lifecycle: lifecycleFor(machine.Representations), Constraints: constraintsFor(root),
+			Lifecycle: lifecycleFor(machine.Representations), Control: controlForSchema(resolved, complete), Constraints: constraintsFor(resolved),
 		}
 		result = append(result, projection)
 		index[ref.TypeID] = projection
@@ -445,7 +457,11 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 }
 
 func projectTypeUse(expression datatype.TypeExpression, types map[string]TypeProjection) (TypeUse, error) {
-	use := TypeUse{Expression: expression, Label: typeExpressionLabel(expression), TypeIDs: []string{}, Representations: []datatype.RepresentationSpec{}, Lifecycle: LifecycleDependent}
+	use := TypeUse{
+		Expression: expression, Label: typeExpressionLabel(expression), Control: ControlJSON,
+		TypeIDs: []string{}, Representations: []datatype.RepresentationSpec{}, Lifecycle: LifecycleDependent,
+		Constraints: FieldConstraints{Enum: []json.RawMessage{}}, Examples: []json.RawMessage{},
+	}
 	ids := map[string]struct{}{}
 	representations := map[string]datatype.RepresentationSpec{}
 	lifecycles := map[Lifecycle]struct{}{}
@@ -494,7 +510,15 @@ func projectTypeUse(expression datatype.TypeExpression, types map[string]TypePro
 	}
 	sort.Strings(use.TypeIDs)
 	if len(use.TypeIDs) == 1 {
-		use.Color = types[use.TypeIDs[0]].Color
+		projection := types[use.TypeIDs[0]]
+		use.Color, use.Control, use.Constraints = projection.Color, projection.Control, cloneConstraints(projection.Constraints)
+		use.Examples, use.EditorAdapter = cloneRawList(projection.Examples), projection.EditorAdapter
+	}
+	if expression.Kind != datatype.TypeExpressionRef {
+		use.Control, use.Constraints, use.Examples, use.EditorAdapter = ControlJSON, FieldConstraints{Enum: []json.RawMessage{}}, []json.RawMessage{}, ""
+		if expression.Kind == datatype.TypeExpressionList {
+			use.Control = ControlList
+		}
 	}
 	keys := make([]string, 0, len(representations))
 	for key := range representations {
@@ -764,6 +788,39 @@ func constraintsFor(schema map[string]any) FieldConstraints {
 		Minimum: numberRaw(schema["minimum"]), Maximum: numberRaw(schema["maximum"]),
 		MinItems: intPointer(schema["minItems"]), MaxItems: intPointer(schema["maxItems"]), Enum: rawList(schema["enum"]),
 	}
+}
+
+func controlForSchema(schema map[string]any, complete bool) Control {
+	if !complete {
+		return ControlJSON
+	}
+	if values := rawList(schema["enum"]); len(values) != 0 {
+		return ControlSelect
+	}
+	switch schemaType(schema) {
+	case "string":
+		return ControlText
+	case "number":
+		return ControlNumber
+	case "integer":
+		return ControlInteger
+	case "boolean":
+		return ControlToggle
+	case "object":
+		return ControlObject
+	case "array":
+		return ControlList
+	default:
+		return ControlJSON
+	}
+}
+
+func cloneConstraints(source FieldConstraints) FieldConstraints {
+	clone := source
+	clone.Minimum = append(json.RawMessage(nil), source.Minimum...)
+	clone.Maximum = append(json.RawMessage(nil), source.Maximum...)
+	clone.Enum = cloneRawList(source.Enum)
+	return clone
 }
 
 func lifecycleFor(representations []datatype.RepresentationSpec) Lifecycle {

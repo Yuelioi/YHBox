@@ -11,7 +11,6 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
-	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
@@ -21,56 +20,82 @@ import (
 const conversionChunkBytes = 64 << 10
 
 func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter, error) {
-	concat, err := trustedEntry(builtins, nodes31.ConcatNodeID)
-	if err != nil {
-		return nil, err
+	installed := make(map[string]compiler.InstalledAdapter, len(builtins.Definitions()))
+	specialized := map[string]compiler.Adapter{
+		nodes31.BlobToStreamNodeID: blobToStream(builtins),
+		nodes31.StreamToBlobNodeID: streamToBlob(builtins),
 	}
-	toStream, err := trustedEntry(builtins, nodes31.BlobToStreamNodeID)
-	if err != nil {
-		return nil, err
+	for _, definition := range builtins.Definitions() {
+		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)
+		if err != nil {
+			return nil, err
+		}
+		adapter := specialized[trusted.Contract.NodeRef().NodeTypeID]
+		if trusted.EvaluateInline != nil {
+			adapter = inlineAdapter(builtins, trusted)
+		}
+		if adapter == nil {
+			return nil, fmt.Errorf("built-in %q has no runtime adapter", trusted.Contract.NodeRef().NodeTypeID)
+		}
+		entrypoint := trusted.Implementation.Entrypoint
+		if _, duplicate := installed[entrypoint]; duplicate {
+			return nil, fmt.Errorf("duplicate built-in entrypoint %q", entrypoint)
+		}
+		installed[entrypoint] = compiler.InstalledAdapter{Implementation: trusted.Implementation, Run: adapter}
 	}
-	toBlob, err := trustedEntry(builtins, nodes31.StreamToBlobNodeID)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]compiler.InstalledAdapter{
-		concat.Implementation.Entrypoint:   {Implementation: concat.Implementation, Run: concatAdapter(builtins)},
-		toStream.Implementation.Entrypoint: {Implementation: toStream.Implementation, Run: blobToStream(builtins)},
-		toBlob.Implementation.Entrypoint:   {Implementation: toBlob.Implementation, Run: streamToBlob(builtins)},
-	}, nil
+	return installed, nil
 }
 
-func trustedEntry(builtins nodes31.Builtins, nodeTypeID string) (nodecatalog.Entry, error) {
+func trustedDefinition(builtins nodes31.Builtins, nodeTypeID string) (nodes31.BuiltinDefinition, error) {
+	definition, ok := builtins.Definition(nodeTypeID)
+	if !ok {
+		return nodes31.BuiltinDefinition{}, fmt.Errorf("built-in definition for %q is missing", nodeTypeID)
+	}
 	entry, ok := builtins.Catalog.Lookup(nodeTypeID)
 	if !ok {
-		return nodecatalog.Entry{}, fmt.Errorf("built-in implementation lock for %q is missing", nodeTypeID)
+		return nodes31.BuiltinDefinition{}, fmt.Errorf("built-in Catalog entry for %q is missing", nodeTypeID)
 	}
-	trusted, err := nodes31.BuiltinImplementationLock(nodeTypeID)
-	if err != nil {
-		return nodecatalog.Entry{}, err
+	if entry.Contract.NodeRef() != definition.Contract.NodeRef() || entry.Implementation != definition.Implementation {
+		return nodes31.BuiltinDefinition{}, fmt.Errorf("built-in definition for %q does not match the Catalog", nodeTypeID)
 	}
-	if entry.Implementation != trusted {
-		return nodecatalog.Entry{}, fmt.Errorf("built-in implementation lock for %q does not match this build", nodeTypeID)
-	}
-	return entry, nil
+	return definition, nil
 }
 
-func concatAdapter(builtins nodes31.Builtins) compiler.Adapter {
+func inlineAdapter(builtins nodes31.Builtins, definition nodes31.BuiltinDefinition) compiler.Adapter {
+	machine := definition.Contract.Machine()
 	return func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
-		a, aOK := invocation.Inputs["a"]
-		b, bOK := invocation.Inputs["b"]
-		if !aOK || !bOK || len(a.InlineJSON()) == 0 || len(b.InlineJSON()) == 0 {
-			return compiler.AdapterResult{}, errors.New("concat requires inline inputs a and b")
+		inputs := make(map[string]json.RawMessage, len(machine.Ports.DataInputs))
+		for _, port := range machine.Ports.DataInputs {
+			envelope, ok := invocation.Inputs[port.ID]
+			if !ok || len(envelope.InlineJSON()) == 0 {
+				return compiler.AdapterResult{}, fmt.Errorf("inline input %q is missing", port.ID)
+			}
+			inputs[port.ID] = envelope.InlineJSON()
 		}
-		outputs, err := nodes31.Concat(ctx, map[string]json.RawMessage{"a": a.InlineJSON(), "b": b.InlineJSON()})
+		rawOutputs, err := definition.EvaluateInline(ctx, inputs, invocation.Config)
 		if err != nil {
+			var failure *nodes31.InlineFailure
+			if errors.As(err, &failure) && err == failure {
+				return compiler.AdapterResult{}, &compiler.NodeFailure{Code: failure.Code, Output: failure.Output, Cause: failure.Cause}
+			}
 			return compiler.AdapterResult{}, err
 		}
-		result, err := datatype.SealInlineJSON(builtins.Catalog, a.Type(), outputs["result"])
-		if err != nil {
-			return compiler.AdapterResult{}, err
+		if len(rawOutputs) != len(machine.Ports.DataOutputs) {
+			return compiler.AdapterResult{}, errors.New("inline evaluator returned the wrong output count")
 		}
-		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": result}}, nil
+		outputs := make(map[string]datatype.ValueEnvelope, len(machine.Ports.DataOutputs))
+		for _, port := range machine.Ports.DataOutputs {
+			raw, ok := rawOutputs[port.ID]
+			if !ok || port.Type.Kind != datatype.TypeExpressionRef || port.Type.Ref == nil {
+				return compiler.AdapterResult{}, fmt.Errorf("inline output %q is missing or non-concrete", port.ID)
+			}
+			sealed, err := datatype.SealInlineJSON(builtins.Catalog, datatype.RefResolvedType(*port.Type.Ref), raw)
+			if err != nil {
+				return compiler.AdapterResult{}, fmt.Errorf("seal inline output %q: %w", port.ID, err)
+			}
+			outputs[port.ID] = sealed
+		}
+		return compiler.AdapterResult{Outputs: outputs}, nil
 	}
 }
 

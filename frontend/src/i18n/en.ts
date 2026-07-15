@@ -885,6 +885,12 @@ export default {
   type: {
     core: {
       string: { title: 'String', description: 'Durable Unicode text.' },
+      number: { title: 'Number', description: 'A finite binary64 number.' },
+      integer: {
+        title: 'Integer',
+        description: 'An exact integer within the interoperable JSON safe range.',
+      },
+      boolean: { title: 'Boolean', description: 'A strict true or false value.' },
       binary: {
         title: 'Binary',
         description: 'Binary content represented by a durable blob or a leased runtime stream.',

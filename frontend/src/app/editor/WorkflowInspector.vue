@@ -80,14 +80,47 @@
               aria-hidden="true"
             />
             <span class="text-xs font-medium text-toned">{{ port.id }}</span>
-            <span class="ml-auto font-mono text-[10px] text-dimmed">{{ port.binding }}</span>
+            <span class="ml-auto font-mono text-[10px] text-dimmed">
+              {{ typeLabel(port) }} · {{ port.binding }}
+            </span>
           </div>
+          <USwitch
+            v-if="acceptsInline(port) && port.type.control === 'toggle'"
+            :model-value="literalBoolean(node.bindings[port.id], port.default)"
+            @update:model-value="setLiteral(port.id, $event)"
+          />
+          <UInputNumber
+            v-else-if="
+              acceptsInline(port) &&
+              (port.type.control === 'number' || port.type.control === 'integer')
+            "
+            :model-value="literalNumber(node.bindings[port.id], port.default)"
+            :min="numericConstraint(port.type.constraints.minimum)"
+            :max="numericConstraint(port.type.constraints.maximum)"
+            :step="port.type.control === 'integer' ? 1 : 'any'"
+            class="w-full"
+            @update:model-value="setLiteral(port.id, Number($event))"
+          />
+          <USelect
+            v-else-if="acceptsInline(port) && port.type.control === 'select'"
+            :model-value="literalValue(node.bindings[port.id], port.default)"
+            :items="port.type.constraints.enum.map((value) => ({ label: String(value), value }))"
+            class="w-full"
+            @update:model-value="setLiteral(port.id, $event)"
+          />
           <UInput
-            v-if="acceptsInline(port)"
+            v-else-if="acceptsInline(port) && port.type.control === 'text'"
             :model-value="literalText(node.bindings[port.id])"
             :placeholder="literalPlaceholder(port)"
             class="w-full"
-            @change="setLiteral(port.id, $event)"
+            @change="setLiteralText(port.id, $event)"
+          />
+          <UTextarea
+            v-else-if="acceptsInline(port)"
+            :model-value="literalJSON(node.bindings[port.id], port.default)"
+            :placeholder="literalPlaceholder(port)"
+            class="w-full font-mono text-xs"
+            @change="setLiteralJSON(port.id, $event)"
           />
           <p v-else class="text-[11px] leading-5 text-muted">
             {{ t('workflow31.inspector.reference_only', { carrier: port.carrier }) }}
@@ -156,7 +189,7 @@ import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 
 const props = defineProps<{ node: Node | null; projection: NodeProjection | null }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 function setLabel(event: Event): void {
   if (!props.node) return
@@ -167,14 +200,27 @@ function setLabel(event: Event): void {
   })
 }
 
-function setLiteral(portId: string, event: Event): void {
+function setLiteral(portId: string, value: unknown): void {
   if (!props.node) return
   emit('command', {
     kind: 'bind-value',
     nodeId: props.node.id,
     portId,
-    value: (event.target as HTMLInputElement).value,
+    value,
   })
+}
+
+function setLiteralText(portId: string, event: Event): void {
+  setLiteral(portId, (event.target as HTMLInputElement).value)
+}
+
+function setLiteralJSON(portId: string, event: Event): void {
+  const raw = (event.target as HTMLTextAreaElement).value
+  try {
+    setLiteral(portId, JSON.parse(raw))
+  } catch {
+    return
+  }
 }
 
 function acceptsInline(port: PortProjection): boolean {
@@ -183,6 +229,37 @@ function acceptsInline(port: PortProjection): boolean {
 
 function literalText(binding: InputBinding | undefined): string {
   return binding?.kind === 'value' && typeof binding.value === 'string' ? binding.value : ''
+}
+
+function literalValue(binding: InputBinding | undefined, defaultValue: unknown): unknown {
+  return binding?.kind === 'value' ? binding.value : defaultValue
+}
+
+function literalBoolean(binding: InputBinding | undefined, defaultValue: unknown): boolean {
+  const value = literalValue(binding, defaultValue)
+  return typeof value === 'boolean' ? value : false
+}
+
+function literalNumber(
+  binding: InputBinding | undefined,
+  defaultValue: unknown,
+): number | undefined {
+  const value = literalValue(binding, defaultValue)
+  return typeof value === 'number' ? value : undefined
+}
+
+function literalJSON(binding: InputBinding | undefined, defaultValue: unknown): string {
+  const value = literalValue(binding, defaultValue)
+  return value === undefined ? '' : JSON.stringify(value, null, 2)
+}
+
+function numericConstraint(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined
+}
+
+function typeLabel(port: PortProjection): string {
+  if (port.type.titleKey && te(port.type.titleKey)) return t(port.type.titleKey)
+  return port.type.typeIds.join(' | ') || port.type.label
 }
 
 function literalPlaceholder(port: PortProjection): string {
