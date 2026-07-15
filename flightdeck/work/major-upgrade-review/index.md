@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 已完成 strict-open Program → admission → durable RunRecord 的执行前主链，并完成绑定精确 Catalog 的 Authoring Projection。Inspector、画布类型/频道、MCP 与生成文档共享 projected ports、config/default/constraint、lifecycle 与 capability facts；writeOnly config 被拒绝并强制使用 credential slot。production composition、全频道 Program lowering 与旧 ContainerRunner 删除完成前继续 fail closed。
+Yotta 3.1 已完成 production Program Run、Schedule 3.1 与主 GUI Authoring cutover。Workflow Source 的创建、列表、revision save、draft compile、run/debug timeline、cancel、Authoring Projection 驱动的精确 data/exec/error port 与 generated config/constraint UI 已形成唯一主命令面；Schedule 只接受 workflow target，不存在 Container fallback。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
 
 ## Next
 
-下一独立提交阶段实现 data/exec/error/status 全频道 Program lowering 与 production interpreter composition，并删除对应旧 ContainerRunner dispatch，不建立 dual-write、legacy read 或 fallback；每个阶段通过 review/task check 后立即 commit。
+按 pure-data → conversion/collection → effect → control/region → event/listener 顺序迁移全部内建节点。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并在定向验证后独立 commit。
 
 ## Read now
 
@@ -41,6 +41,7 @@ Yotta 3.1 已完成 strict-open Program → admission → durable RunRecord 的�
 ## Progress
 
 Done:
+- 完成 Workflow 3.1 主 GUI 纵切面：host-owned Source create、EditorSession revision/history/save-conflict/compile/run/debug/cancel、exact Authoring Projection 画布与 Inspector、Run timeline、Schedule workflow target、Wails RPC contract 与 200 KB editor gzip budget；旧 Container 路由、全局 registry 初始化与主窗口 launcher 入口已移出生产命令面。
 - 完成 Authoring Projection 3.1：Data Type 显式 schemaRoot；projection strict-open 绑定 exact Catalog/Data Type/Capability/Node Contract；标准本地 $defs/$ref 与展开预算；端口 default 仅提示；writeOnly config fail closed。生产 Inspector、nominal pin color、exec/error/status channel、MCP search/describe 与 Markdown 文档消费同一生成物，旧 builtin-presentation 已删除；Standards/Spec review 的 6 项阻断全部修复。
 - 完成 Target Planner/Policy admission deep module：content-addressed Host Profile 封存平台、provider、target 与 credential metadata；target slot 对全部 attributed requirements 求候选交集，零候选、歧义、unsupported host、capability digest/ABI/artifact 不匹配均在 Policy/provider effect 前稳定失败。
 - Policy 只收到 exact plan proposal，不能扩大 operation/scope/binding；approved decision seal bounded Run Grant，ConsentOnce/ConsentEveryRun 强制 durable consent lineage，随后才创建 QUEUED RunRecord。
@@ -106,9 +107,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Admission 与 Authoring Projection 阶段均已封口；唯一 frontier 是全频道 Program lowering、production interpreter composition 与旧 ContainerRunner 删除。后续按小阶段 review/check/checkpoint/commit。
+- production Program/Schedule/GUI authoring cutover 已完成；当前 frontier 是按类别迁移全部内建节点，并同步删除每批旧契约、隐式 coercion 与 kind dispatch。每批单独 review/check/commit。
 
 Verified:
+- Workflow 3.1 EditorSession/GUI 批次提交 `e54ad72c`（2026-07-15）：`go test ./...` 通过；frontend 100 files / 644 tests、typecheck、i18n 3241 keys、format、双 lint、production build 与 bindings contract 全绿；Wails contract 15 services / 129 methods / 118 models，entry 327,229 / 350,000 bytes、editor 81,172 / 200,000 bytes。
 - Authoring Projection 批次提交 `06481351`，最终 `task check` 通过（2026-07-15，280.7s）：全局 coverage 65.6%、`internal/nodeauthoring` 72.2%，frontend 99 files / 641 tests，Wails contract 14 services / 118 methods / 102 models，entry 337,732 / 350,000 bytes、editor 474,539 / 650,000 bytes；contracts/vet/staticcheck/typecheck/i18n/build 全绿。
 - Target Planner/Policy admission 批次最终 `task check` 通过（2026-07-15，228.6s）：全局 coverage 65.5%，`internal/admission` 72.8%、`internal/run` 75.0%，frontend 97 files / 635 tests，entry 336,131 / 350,000 bytes、editor 472,080 / 650,000 bytes；聚焦 race/staticcheck 与 Standards/Spec 双轴复审无 findings。
 - NodeAttempt/AdapterAction journal 批次最终 `task check` 通过（2026-07-15，147.1s）：全局 coverage 65.5%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models，entry 336,131 / 350,000 bytes、editor 472,080 / 650,000 bytes；聚焦 race/staticcheck 与 Standards/Spec 双轴终审无 findings。
