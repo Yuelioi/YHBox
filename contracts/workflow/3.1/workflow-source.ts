@@ -121,7 +121,7 @@ export interface SecretRef {
   purpose: string
 }
 export interface Variable {
-  default?: any
+  default: any
   name: string
   type: TypeExpression
 }

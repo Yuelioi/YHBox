@@ -108,7 +108,7 @@ type Edge struct {
 type Variable struct {
 	Name    string                  `json:"name" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Type    datatype.TypeExpression `json:"type" jsonschema:"required"`
-	Default json.RawMessage         `json:"default,omitempty"`
+	Default json.RawMessage         `json:"default" jsonschema:"required"`
 }
 
 type SecretRef struct {

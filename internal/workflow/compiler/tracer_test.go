@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -311,6 +312,91 @@ func TestCompilerFailsClosedForDisabledNodes(t *testing.T) {
 	}
 	if !hasDiagnostic(result.Diagnostics, CodeUnsupportedSourceFeature) {
 		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+}
+
+func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := builtins.ConcatContract.NodeRef()
+	typeRef := builtins.StringType.TypeRef()
+	raw := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-state","name":"State"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
+		}],"edges":[],"inputs":[],"outputs":[]}],
+		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"secretRefs":[]
+	}`, ref.NodeTypeID, ref.SemanticDigest, typeRef.TypeID, typeRef.SemanticDigest))
+	build := testDigest(t, "compiler-state")
+	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile=%v diagnostics=%#v", err, compiled.Diagnostics)
+	}
+	program, ok := compiled.Program()
+	if !ok || len(program.State()) != 1 || program.State()[0].Name != "message" || !reflect.DeepEqual(program.State()[0].Type, datatype.RefResolvedType(typeRef)) {
+		t.Fatalf("program state = %#v", program.State())
+	}
+	initial, err := datatype.OpenValueEnvelope(builtins.Catalog, program.State()[0].InitialArtifact)
+	if err != nil || string(initial.InlineJSON()) != `"ready"` {
+		t.Fatalf("initial=%s err=%v", initial.InlineJSON(), err)
+	}
+	if _, err := OpenProgram(program.Artifact(), builtins.Catalog, build); err != nil {
+		t.Fatalf("strict-open state Program: %v", err)
+	}
+	view := program.State()
+	view[0].Type.Ref.TypeID = "https://attacker.invalid/types/forged/v1"
+	view[0].InitialArtifact[0] = '['
+	if program.State()[0].Type.Ref.TypeID != typeRef.TypeID || program.State()[0].InitialArtifact[0] != '{' {
+		t.Fatal("Program State view leaked mutable snapshot storage")
+	}
+
+	var document programDocument
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	wrong, err := datatype.SealInlineJSON(builtins.Catalog, datatype.RefResolvedType(builtins.BooleanType.TypeRef()), []byte(`true`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document.Body.State[0].Initial = wrong.Artifact()
+	forged, err := sealProgram(document.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenProgram(forged.Artifact(), builtins.Catalog, build); err == nil {
+		t.Fatal("strict opener accepted a state initial value with a forged type")
+	}
+}
+
+func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := builtins.ConcatContract.NodeRef()
+	base := fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-state-invalid","name":"State invalid"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[%s],"secretRefs":[]
+	}`, ref.NodeTypeID, ref.SemanticDigest, "%s")
+	unknown := artifact.Digest("sha256:" + strings.Repeat("2", 64))
+	tests := []string{
+		`{"name":"generic","type":{"kind":"variable","variable":"T"},"default":null}`,
+		fmt.Sprintf(`{"name":"unknown","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/unknown/v1","semanticDigest":%q}},"default":null}`, unknown),
+		fmt.Sprintf(`{"name":"binary","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":null}`, builtins.BinaryType.TypeRef().TypeID, builtins.BinaryType.TypeRef().SemanticDigest),
+	}
+	for index, declaration := range tests {
+		compiled, err := New(testDigest(t, fmt.Sprintf("invalid-state-%d", index))).CompileDraft(context.Background(), CompileRequest{
+			SourceJSON: []byte(fmt.Sprintf(base, declaration)), Catalog: builtins.Catalog,
+		})
+		if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeInvalidStateVariable) {
+			t.Fatalf("case %d compile=%v diagnostics=%#v", index, err, compiled.Diagnostics)
+		}
 	}
 }
 

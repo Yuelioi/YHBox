@@ -33,6 +33,7 @@ const (
 	CodeDuplicateSignalRoute     = "DUPLICATE_SIGNAL_ROUTE"
 	CodeInvalidBinding           = "INVALID_BINDING"
 	CodeInvalidConfig            = "INVALID_CONFIG"
+	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
 	CodeDataCycle                = "DATA_CYCLE"
 	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
@@ -84,11 +85,11 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	body := programBody{
 		SourceHash: result.SourceHash, CatalogHash: request.Catalog.Hash(), CompilerBuild: c.build,
 		WorkflowID: source.Workflow.ID, Revision: source.Revision, EntryGraph: source.EntryGraph,
-		Graphs: []programGraph{},
+		State: []programStateSlot{}, Graphs: []programGraph{},
 	}
-	if len(source.Variables) != 0 {
-		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"variables"}, ""))
-	}
+	stateSlots, stateDiagnostics := compileStateVariables(source.Variables, request.Catalog)
+	body.State = stateSlots
+	result.Diagnostics = append(result.Diagnostics, stateDiagnostics...)
 	if len(source.SecretRefs) != 0 {
 		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
 	}
@@ -135,6 +136,67 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		return result, err
 	}
 	return result, nil
+}
+
+func compileStateVariables(source []schema.Variable, catalog nodecatalog.Snapshot) ([]programStateSlot, []Diagnostic) {
+	result := make([]programStateSlot, 0, len(source))
+	diagnostics := make([]Diagnostic, 0)
+	for index, variable := range source {
+		path := []string{"variables", fmt.Sprint(index)}
+		resolved, err := resolveDeclaredStateType(variable.Type, catalog, 0)
+		if err != nil {
+			diagnostic := diagnostic(CodeInvalidStateVariable, append(path, "type"), "")
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+			continue
+		}
+		canonical, err := artifact.Canonicalize(variable.Default)
+		if err != nil {
+			diagnostic := diagnostic(CodeInvalidStateVariable, append(path, "default"), "")
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+			continue
+		}
+		envelope, err := datatype.SealInlineJSON(catalog, resolved, canonical)
+		if err != nil {
+			diagnostic := diagnostic(CodeInvalidStateVariable, append(path, "default"), "")
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+			continue
+		}
+		result = append(result, programStateSlot{Name: variable.Name, Type: resolved, Initial: envelope.Artifact()})
+	}
+	return result, diagnostics
+}
+
+func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodecatalog.Snapshot, depth int) (datatype.ResolvedType, error) {
+	if depth > datatype.MaxTypeDepth {
+		return datatype.ResolvedType{}, errors.New("state type exceeds depth budget")
+	}
+	switch expression.Kind {
+	case datatype.TypeExpressionRef:
+		if expression.Ref == nil {
+			return datatype.ResolvedType{}, errors.New("state type reference is missing")
+		}
+		definition, ok := catalog.LookupType(expression.Ref.TypeID)
+		if !ok || definition.TypeRef() != *expression.Ref {
+			return datatype.ResolvedType{}, errors.New("state type is not pinned by the trusted Catalog")
+		}
+		return datatype.RefResolvedType(*expression.Ref), nil
+	case datatype.TypeExpressionList:
+		if expression.Element == nil {
+			return datatype.ResolvedType{}, errors.New("state list element type is missing")
+		}
+		element, err := resolveDeclaredStateType(*expression.Element, catalog, depth+1)
+		if err != nil {
+			return datatype.ResolvedType{}, err
+		}
+		return datatype.ListResolvedType(element), nil
+	case datatype.TypeExpressionVariable, datatype.TypeExpressionUnion:
+		return datatype.ResolvedType{}, errors.New("state variables require one concrete resolved type")
+	default:
+		return datatype.ResolvedType{}, errors.New("state variable uses an unknown type expression")
+	}
 }
 
 func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot) (programGraph, []Diagnostic, error) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"slices"
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
@@ -26,6 +27,8 @@ const (
 	MaxProgramJSONNodes = 1_048_576
 	programHashDomain   = "yotta/program/v1"
 )
+
+var programStateNamePattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`)
 
 const (
 	inputLiteral       = "literal"
@@ -70,15 +73,22 @@ type programGraph struct {
 	DataOrder    []string             `json:"dataOrder"`
 }
 
+type programStateSlot struct {
+	Name    string                `json:"name"`
+	Type    datatype.ResolvedType `json:"type"`
+	Initial json.RawMessage       `json:"initial"`
+}
+
 type programBody struct {
-	SourceHash     artifact.Digest `json:"sourceHash"`
-	CatalogHash    artifact.Digest `json:"catalogHash"`
-	CompilerBuild  artifact.Digest `json:"compilerBuild"`
-	WorkflowID     string          `json:"workflowId"`
-	Revision       int64           `json:"revision"`
-	EntryGraph     string          `json:"entryGraph"`
-	CapabilityPlan json.RawMessage `json:"capabilityPlan"`
-	Graphs         []programGraph  `json:"graphs"`
+	SourceHash     artifact.Digest    `json:"sourceHash"`
+	CatalogHash    artifact.Digest    `json:"catalogHash"`
+	CompilerBuild  artifact.Digest    `json:"compilerBuild"`
+	WorkflowID     string             `json:"workflowId"`
+	Revision       int64              `json:"revision"`
+	EntryGraph     string             `json:"entryGraph"`
+	CapabilityPlan json.RawMessage    `json:"capabilityPlan"`
+	State          []programStateSlot `json:"state"`
+	Graphs         []programGraph     `json:"graphs"`
 }
 
 type programDocument struct {
@@ -103,6 +113,12 @@ type NodeView struct {
 	OutputTypes    map[string]datatype.ResolvedType
 	Execution      nodecontract.ExecutionSpec
 	Implementation nodecatalog.ImplementationLock
+}
+
+type StateView struct {
+	Name            string
+	Type            datatype.ResolvedType
+	InitialArtifact []byte
 }
 
 func sealProgram(body programBody) (ProgramSnapshot, error) {
@@ -166,9 +182,12 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 	if !expectedCompilerBuild.Valid() || document.Body.CompilerBuild != expectedCompilerBuild {
 		return ProgramSnapshot{}, errors.New("program compiler build mismatch")
 	}
-	if !document.Body.SourceHash.Valid() || document.Body.WorkflowID == "" || document.Body.Revision < 0 ||
+	if !document.Body.SourceHash.Valid() || document.Body.WorkflowID == "" || document.Body.Revision < 0 || document.Body.State == nil ||
 		document.Body.EntryGraph == "" || len(document.Body.Graphs) != 1 || document.Body.Graphs[0].ID != document.Body.EntryGraph {
 		return ProgramSnapshot{}, errors.New("program identity or entry graph is invalid")
+	}
+	if err := validateProgramState(document.Body.State, trustedCatalog); err != nil {
+		return ProgramSnapshot{}, err
 	}
 	plan, err := capability.OpenPlan(document.Body.CapabilityPlan)
 	if err != nil {
@@ -209,6 +228,30 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 		return ProgramSnapshot{}, errors.New("program capability manifest mismatch")
 	}
 	return sealed, nil
+}
+
+func validateProgramState(slots []programStateSlot, catalog nodecatalog.Snapshot) error {
+	if len(slots) > schema.MaxVariables {
+		return errors.New("program state exceeds slot budget")
+	}
+	seen := make(map[string]struct{}, len(slots))
+	for _, slot := range slots {
+		if len(slot.Name) > 128 || !programStateNamePattern.MatchString(slot.Name) {
+			return errors.New("program state contains an invalid name")
+		}
+		if _, duplicate := seen[slot.Name]; duplicate {
+			return errors.New("program state contains duplicate names")
+		}
+		seen[slot.Name] = struct{}{}
+		if err := slot.Type.Validate(); err != nil {
+			return fmt.Errorf("program state %q has an invalid type: %w", slot.Name, err)
+		}
+		envelope, err := datatype.OpenValueEnvelope(catalog, slot.Initial)
+		if err != nil || !envelope.Durable() || envelope.Representation() != datatype.RepresentationInlineJSON || !reflect.DeepEqual(envelope.Type(), slot.Type) {
+			return fmt.Errorf("program state %q has an invalid initial value", slot.Name)
+		}
+	}
+	return nil
 }
 
 func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) error {
@@ -422,6 +465,25 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 			}
 			result = append(result, clone)
 		}
+	}
+	return result
+}
+
+func (p ProgramSnapshot) State() []StateView {
+	if !p.Valid() {
+		return nil
+	}
+	result := make([]StateView, 0, len(p.state.document.Body.State))
+	for _, slot := range p.state.document.Body.State {
+		rawType, err := json.Marshal(slot.Type)
+		if err != nil {
+			panic("program snapshot invariant: " + err.Error())
+		}
+		var clonedType datatype.ResolvedType
+		if err := json.Unmarshal(rawType, &clonedType); err != nil {
+			panic("program snapshot invariant: " + err.Error())
+		}
+		result = append(result, StateView{Name: slot.Name, Type: clonedType, InitialArtifact: append([]byte(nil), slot.Initial...)})
 	}
 	return result
 }

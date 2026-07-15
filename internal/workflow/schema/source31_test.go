@@ -2,6 +2,7 @@ package schema
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -103,13 +104,20 @@ func TestParseSource31RejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T)
 }
 
 func TestParseSource31ValidatesNestedTypeExpressionsAndWholeDocumentBudget(t *testing.T) {
-	invalidType := strings.Replace(validSource31ForTest(), `"variables":[]`, fmt.Sprintf(`"variables":[{"name":"bad","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/bad","semanticDigest":"sha256:%s"}}}]`, strings.Repeat("2", 64)), 1)
+	invalidType := strings.Replace(validSource31ForTest(), `"variables":[]`, fmt.Sprintf(`"variables":[{"name":"bad","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/bad","semanticDigest":"sha256:%s"}},"default":null}]`, strings.Repeat("2", 64)), 1)
 	if _, diagnostics := ParseSource([]byte(invalidType)); len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidField {
 		t.Fatalf("invalid TypeExpression diagnostics = %#v", diagnostics)
 	}
 	deep := strings.Replace(validSource31ForTest(), `"config":{}`, `"config":{"deep":`+strings.Repeat("[", 129)+`0`+strings.Repeat("]", 129)+`}`, 1)
 	if _, diagnostics := ParseSource([]byte(deep)); len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidWorkflowJSON {
 		t.Fatalf("deep source diagnostics = %#v", diagnostics)
+	}
+}
+
+func TestParseSource31RequiresAnExplicitVariableInitialValue(t *testing.T) {
+	withMissingDefault := strings.Replace(validSource31ForTest(), `"variables":[]`, fmt.Sprintf(`"variables":[{"name":"state","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/core/string/v1","semanticDigest":"sha256:%s"}}}]`, strings.Repeat("2", 64)), 1)
+	if _, diagnostics := ParseSource([]byte(withMissingDefault)); len(diagnostics) == 0 || diagnostics[0].Code != CodeMissingRequiredField || !slices.Equal(diagnostics[0].FieldPath, []string{"variables", "0", "default"}) {
+		t.Fatalf("missing variable default diagnostics = %#v", diagnostics)
 	}
 }
 

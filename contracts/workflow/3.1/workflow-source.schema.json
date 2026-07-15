@@ -390,7 +390,8 @@
       },
       "required": [
         "name",
-        "type"
+        "type",
+        "default"
       ],
       "type": "object"
     },
