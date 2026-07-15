@@ -272,6 +272,46 @@ func (s *Store) InterruptRunning(ctx context.Context, at time.Time) ([]Record, e
 	return updated, nil
 }
 
+// CancelQueued durably closes Runs that were admitted but never handed to a
+// live worker before the previous process stopped. Startup never guesses that
+// a stale in-memory notification was delivered.
+func (s *Store) CancelQueued(ctx context.Context, at time.Time) ([]Record, error) {
+	if at.Location() != time.UTC {
+		return nil, errors.New("run recovery timestamp must be UTC")
+	}
+	s.mu.RLock()
+	ids := make([]string, 0)
+	for id, record := range s.records {
+		if record.Status() == StatusQueued {
+			ids = append(ids, id)
+		}
+	}
+	s.mu.RUnlock()
+	sort.Strings(ids)
+	updated := make([]Record, 0, len(ids))
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return updated, err
+		}
+		current, err := s.Load(id)
+		if err != nil {
+			return updated, err
+		}
+		if current.Status() != StatusQueued {
+			continue
+		}
+		next, err := current.Cancel(at)
+		if err != nil {
+			return updated, err
+		}
+		if err := s.Update(ctx, current.Digest(), next); err != nil {
+			return updated, err
+		}
+		updated = append(updated, next)
+	}
+	return updated, nil
+}
+
 func (s *Store) recordPath(runID string) string { return filepath.Join(s.root, runID+".json") }
 
 func validSuccessor(current, next Record) bool {

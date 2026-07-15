@@ -138,6 +138,30 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 	}
 }
 
+func TestRunStoreCancelsUndeliveredQueuedRecordsWithoutStartingThem(t *testing.T) {
+	catalog, _ := stringValueCatalog(t)
+	queuedAt := time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)
+	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queued := queuedRecord(t, queuedAt)
+	if outcome, err := store.Create(context.Background(), queued); err != nil || outcome != run31.CommitDurable {
+		t.Fatalf("Create = %v, %v", outcome, err)
+	}
+	cancelled, err := store.CancelQueued(context.Background(), queuedAt.Add(time.Second))
+	if err != nil || len(cancelled) != 1 || cancelled[0].Status() != run31.StatusCancelled || cancelled[0].Generation() != 2 {
+		t.Fatalf("CancelQueued = %#v, %v", cancelled, err)
+	}
+	loaded, err := store.Load(queued.Admission().RunID)
+	if err != nil || loaded.Status() != run31.StatusCancelled || len(loaded.Journal()) != 0 {
+		t.Fatalf("Load = %#v, %v", loaded, err)
+	}
+	if again, err := store.CancelQueued(context.Background(), queuedAt.Add(2*time.Second)); err != nil || len(again) != 0 {
+		t.Fatalf("second CancelQueued = %#v, %v", again, err)
+	}
+}
+
 func queuedRecord(t *testing.T, queuedAt time.Time) run31.Record {
 	t.Helper()
 	definition := streamCapability(t)
