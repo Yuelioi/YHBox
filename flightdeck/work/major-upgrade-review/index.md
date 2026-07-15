@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover，以及第一批基础 pure-data 节点迁移。Workflow Source 的创建、列表、revision save、draft compile、run/debug timeline、cancel、Authoring Projection 驱动的精确 data/exec/error port 与 generated config/constraint UI 已形成唯一主命令面；Schedule 只接受 workflow target，不存在 Container fallback。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
+Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover，以及 pure-data/collection 节点生产迁移。Workflow Source 的创建、列表、revision save、draft compile、run/debug timeline、cancel、Authoring Projection 驱动的精确 data/exec/error port 与 generated config/constraint UI 已形成唯一主命令面；Schedule 只接受 workflow target，不存在 Container fallback。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
 
 ## Next
 
-继续按 pure-data → conversion/collection → effect → control/region → event/listener 顺序迁移全部内建节点；基础 math/comparison/logic/text pure-data 已完成，下一批处理 collection/conversion 与多态有效类型。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并在定向验证后独立 commit。
+继续按 effect → control/region → event/listener 顺序迁移内建节点；pure-data、collection、多态有效类型、显式 conversion/JSON/geometry 已进入生产 Catalog，下一批处理 random/time/variable 等非确定性与状态节点，并把它们建模为显式 effect/state，而不是 pure-data。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并在定向验证后独立 commit。
 
 ## Read now
 
@@ -41,6 +41,7 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 ## Progress
 
 Done:
+- 完成 pure-data/collection 生产迁移：Program 冻结每个调用实例的 effective InputTypes/OutputTypes，node-local 类型变量经 data edge 统一后 strict-open/runtime 双重复验；ValueEnvelope 支持逐元素验证的 resolved list。新增 7 个 collection、35 个 strict math/text/conversion/JSON/select/geometry 节点与 JSON/PointUnit/Point/Region Data Type，Catalog 共 57 节点/9 类型；Point editor adapter 已接入 3.1 Inspector。旧 collection 包已删除；legacy purefunc 仅因待删旧 container runtime 的编译测试依赖暂存，不进入生产 Application/Catalog 且无 fallback。
 - 完成第一批基础 pure-data 节点迁移：Number/Integer/Boolean 严格名义类型；math/comparison/logic/text 共 12 个节点与 Concat 共用声明式 BuiltinDefinition 和通用 inline adapter；不允许隐式 coercion，不为 pure-data 终止错误伪造 error/out 端口；Authoring Projection 将 exact schema 约束投影为 number/integer/toggle/text/select 控件，MCP/catalog/docs 同源生成。
 - 完成 Workflow 3.1 主 GUI 纵切面：host-owned Source create、EditorSession revision/history/save-conflict/compile/run/debug/cancel、exact Authoring Projection 画布与 Inspector、Run timeline、Schedule workflow target、Wails RPC contract 与 200 KB editor gzip budget；旧 Container 路由、全局 registry 初始化与主窗口 launcher 入口已移出生产命令面。
 - 完成 Authoring Projection 3.1：Data Type 显式 schemaRoot；projection strict-open 绑定 exact Catalog/Data Type/Capability/Node Contract；标准本地 $defs/$ref 与展开预算；端口 default 仅提示；writeOnly config fail closed。生产 Inspector、nominal pin color、exec/error/status channel、MCP search/describe 与 Markdown 文档消费同一生成物，旧 builtin-presentation 已删除；Standards/Spec review 的 6 项阻断全部修复。
@@ -108,9 +109,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- 基础 pure-data 节点已完成；当前 frontier 是 collection/conversion 与多态有效类型，随后 effect、control/region、event/listener。每批同步删除旧契约、隐式 coercion 与 kind dispatch，并单独 review/check/commit。
+- production pure-data/collection/conversion/JSON/geometry 已完成；当前 frontier 是 random/time/variable 等非确定性和状态节点，随后 effect、control/region、event/listener。legacy purefunc 与旧 container runtime 必须在 effect/control 调用方切换后同一原子阶段删除，不能留下生产 fallback。
 
 Verified:
+- 多态 collection 提交 `6acb1957` 与 strict pure-data families 提交 `53f5dcbc`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3259 keys、lint、contracts check 与 production build 全绿；entry 327,740 / 350,000 bytes、editor 89,061 / 200,000 bytes。
 - 基础 pure-data 节点批次提交 `b37e0016`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3247 keys、lint、contracts check 与 production build 全绿；entry 327,456 / 350,000 bytes、editor 88,765 / 200,000 bytes。
 - Workflow 3.1 EditorSession/GUI 批次提交 `e54ad72c`（2026-07-15）：`go test ./...` 通过；frontend 100 files / 644 tests、typecheck、i18n 3241 keys、format、双 lint、production build 与 bindings contract 全绿；Wails contract 15 services / 129 methods / 118 models，entry 327,229 / 350,000 bytes、editor 81,172 / 200,000 bytes。
 - Authoring Projection 批次提交 `06481351`，最终 `task check` 通过（2026-07-15，280.7s）：全局 coverage 65.6%、`internal/nodeauthoring` 72.2%，frontend 99 files / 641 tests，Wails contract 14 services / 118 methods / 102 models，entry 337,732 / 350,000 bytes、editor 474,539 / 650,000 bytes；contracts/vet/staticcheck/typecheck/i18n/build 全绿。
