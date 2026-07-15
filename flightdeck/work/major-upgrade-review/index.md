@@ -6,18 +6,17 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation、typed Run state、显式 event/control signal flow，以及共享 typed Workflow authoring protocol。UI、AI、CLI/debug 与 MCP 不再提交整图 JSON；Application 只接受 exact baseRevision 的 tagged domain commands，host 生成节点 ID/default，原子 reduce 后 CAS 持久化。MCP 已删除 legacy Container runtime、单节点执行、窗口枚举和默认 HTTP listener，只保留 bounded catalog/workflow authoring、compile 与 effect-free preview。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
+Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation、typed Run state、共享 typed Workflow authoring protocol，以及 activation-scoped control region。Node Contract/Authoring Projection/Program 共享 exact tagged InstructionSpec；RunStarted、Repeat、ForEach、Retry 由 host compiler lowering 执行，使用隔离 activation queue、显式 error retry、嵌套目标传播与 retained-value/invocation budget，不依赖 node kind switch、ambient loop stack 或通用 out。UI、AI、CLI/debug 与 MCP 不再提交整图 JSON。旧 runtime 与未迁移 effect 节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批迁移和删除。
 
 ## Next
 
 剩余工作按以下阶段连续执行；每阶段先完成纵向语义与删除清单，再运行该阶段的 Go/前端/contract 门禁并独立 commit，不保留旧入口、dual-read/write 或运行时 fallback：
 
-1. activation-scoped control/region/event：由 Compiler lower loop/foreach/retry/listener，Program interpreter 只执行通用冻结 instruction，不复制 legacy kind switch 或 ambient state。
-2. effect migration：按 AI/script → I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、attempt/action journal。
-3. composition cutover：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，随后删除 legacy Container runtime、旧 NodeSpec/coercion/dispatch。
-4. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK、conformance fixture；不加载 Go plugin 或第三方前端代码。
-5. projection/docs/cleanup：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs、golden fixture，清除残留旧类型与展示逻辑。
-6. 最终门禁：运行 task check、跨平台/安全/架构 review；只在全部修复后归档 Flightdeck。
+1. effect migration：按 AI/script → I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、attempt/action journal。
+2. composition cutover：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，随后删除 legacy Container runtime、旧 NodeSpec/coercion/dispatch。
+3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK、conformance fixture；不加载 Go plugin 或第三方前端代码。
+4. projection/docs/cleanup：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs、golden fixture，清除残留旧类型与展示逻辑。
+5. 最终门禁：运行 task check、跨平台/安全/架构 review；只在全部修复后归档 Flightdeck。
 
 ## Read now
 
@@ -48,6 +47,7 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 ## Progress
 
 Done:
+- 完成 activation-scoped control region：Node Contract 新增 exact tagged InstructionSpec 与专用 host-instruction ABI；Compiler/strict Program opener 冻结并复验 run-root/counted-loop/for-each/retry，拒绝错误 signal channel、body 外控制信号和多入口 body。Scheduler 使用隔离 activation queue，支持嵌套目标传播、显式 error retry、typed ordinal/item 输出、统一 invocation/retained-value budget；RunStarted 与 region 不再安装伪 adapter。Authoring Projection、后端 patch、EditorSession、生成 Schema/TypeScript/Markdown 与 UI 提示共享同一 instruction 语义；外部 listener 决议为 lifecycle-owned trigger 提交独立 admitted Run。提交 `1f122ef3`。
 - 完成共享 typed Workflow authoring protocol 与 MCP/CLI-debug destructive cutover：新增 `internal/workflow/authoring` deep module 和 generated exact tagged-union JSON Schema/TypeScript；Application 只接受 revision-CAS domain commands，host 拥有 ID/default，整批失败不发布。Wails EditorSession 改用 ApplyPatch/CompileSource；MCP 升级为 validated structured output，只提供 bounded catalog/workflow authoring、compile、diagnostic explain 与 effect-free preview，删除 whole-document save、legacy runtime、单节点执行、窗口枚举、默认 listener 和虚假设置 UI。提交 `b4aa17aa`。
 - 完成首个显式 event/control signal flow：新增 RunStarted、Branch、Delay、EndBranch 与 nominal DurationMilliseconds Data Type。Executor 注入 cancellable host wait；Delay 记录 waiting status 与 declared time effect；Compiler/Program 验证真实 execution root，未连接 push 节点作为 non-blocking warning。RunStarted → Branch → Delay → StateWrite → EndBranch 端到端执行，无通用 `out`；提交 `8b567939`。随后将 diagnostic error admission 收口到 `schema.HasErrors`，修复 Application 将 warning 误当阻断错误的跨层漂移，提交 `9bab3765`。
 - 完成 typed Run state 纵切面：Workflow 变量必须带 exact concrete TypeExpression 与默认值，Compiler 冻结为 Program state artifact；strict opener 双重复验 catalog type 与 initial envelope。Node Contract 新增声明式 StateAccessSpec，编译器用配置选择的 slot 解析泛型，Executor 为每个 Run 建立隔离 store 并只向 adapter 注入衰减 read/write binding。新增 StateRead/StateWrite/StateMetadata 节点、runtime adapter、状态 effect journal、跨 pure-data 依赖的 volatility 传播，以及 Editor 状态声明/选择器和生成文档；无 ambient/global VarStore 或兼容路径，提交 `45e7f125`。
@@ -120,9 +120,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- 共享 typed authoring/MCP cutover 已完成；当前 frontier 是 compiler-lowered activation-scoped region/loop/event 语义，随后迁移 AI/script/I/O/input/window/image effect 与 listener。legacy purefunc、random、variable、control/event 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
+- activation-scoped control region 已完成；当前 frontier 是 effect migration，先迁移 AI/script，再按 I/O/system、input/window/image/automation 收口 Capability、Run Grant 与 attempt/action journal。legacy purefunc、random、variable、control/event 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
 
 Verified:
+- activation-scoped control region 提交 `1f122ef3`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 646 tests、i18n 3276 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,750 / 350,000 bytes、editor 92,312 / 200,000 bytes；嵌套 region 信号传播、显式 Retry error route、多入口 body 拒绝、exact instruction union 与 host-instruction ABI 回归通过。
 - typed authoring/MCP 提交 `b4aa17aa`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 645 tests、i18n 3270 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,398 / 350,000 bytes、editor 92,152 / 200,000 bytes；MCP in-process structuredContent/output schema 与显式分页上限回归通过。
 - explicit signal flow 提交 `8b567939`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3294 keys、Wails contract 15 services / 129 methods / 118 models，entry 329,171 / 350,000 bytes、editor 91,571 / 200,000 bytes；contracts strict check 与 production build 全绿。
 - typed Run state 提交 `45e7f125`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3284 keys、Wails contract 15 services / 129 methods / 118 models，entry 328,721 / 350,000 bytes、editor 91,564 / 200,000 bytes；contracts strict check 与 production build 全绿。
@@ -168,3 +169,4 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
