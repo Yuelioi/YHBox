@@ -79,7 +79,7 @@
 
         <ScheduleListPanel
           :list="filteredSchedules"
-          :containers="containersStore.list"
+          :workflows="workflows"
           @edit="onEdit"
           @delete="onDelete"
           @toggle="onToggle"
@@ -89,7 +89,7 @@
       <ScheduleEditorPanel
         v-else
         :schedule="editing"
-        :containers="containersStore.list"
+        :workflows="workflows"
         @save="onSaveEdit"
         @cancel="editing = null"
       />
@@ -102,20 +102,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
-import { useContainersStore } from '@/stores/containers'
 import { useConfirm } from '@/composables/useConfirm'
 import type { Schedule } from '@/lib/backend'
+import { workflowTransport, type SourceView } from '@/app/transport/workflow31'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 
 const { t } = useI18n()
 const store = useSchedulesStore()
-const containersStore = useContainersStore()
 const toast = useToast()
 const { confirm } = useConfirm()
 const editing = ref<Schedule | null>(null)
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
+const workflows = ref<SourceView[]>([])
 
 const enabledCount = computed(() => store.list.filter((schedule) => schedule.enabled).length)
 const automaticCount = computed(
@@ -138,9 +138,17 @@ const filteredSchedules = computed(() => {
   })
 })
 
-onMounted(() => {
+onMounted(async () => {
   void store.reload()
-  void containersStore.reload()
+  try {
+    workflows.value = await workflowTransport.listSources()
+  } catch (error) {
+    toast.add({
+      title: t('workflow31.toast.list_failed'),
+      description: error instanceof Error ? error.message : String(error),
+      color: 'error',
+    })
+  }
 })
 
 async function onCreate() {

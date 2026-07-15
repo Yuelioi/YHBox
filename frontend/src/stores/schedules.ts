@@ -7,12 +7,12 @@ export const useSchedulesStore = defineStore('schedules', () => {
 
   async function reload() {
     const r = await backend.schedules.list()
-    if (r !== undefined) list.value = r as unknown as Schedule[]
+    if (r !== undefined) list.value = r
   }
 
   async function createDraft(name: string): Promise<Schedule | null> {
     const r = await backend.schedules.create(name)
-    return r === undefined ? null : (r as unknown as Schedule)
+    return r === undefined ? null : r
   }
 
   async function save(sc: Schedule): Promise<boolean> {

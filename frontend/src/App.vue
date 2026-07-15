@@ -1,11 +1,11 @@
 <template>
   <UApp :toaster="{ position: 'top-center', duration: 2500 }">
     <!-- Standalone 工具窗（HUD / ScreenPicker 等 meta.standalone 路由）：跳过整个主壳，直接渲染 router-view -->
-    <div v-if="isStandalone" class="h-screen overflow-hidden bg-default">
+    <div v-if="isStandalone" class="h-[100dvh] overflow-hidden bg-default">
       <router-view />
     </div>
 
-    <div v-else class="h-screen flex flex-col bg-default overflow-hidden">
+    <div v-else class="h-[100dvh] flex flex-col bg-default overflow-hidden">
       <!-- Custom title bar (frameless window) -->
       <AppTitleBar />
 
@@ -19,10 +19,10 @@
                避免内容跳一下 -->
       <div class="flex flex-1 overflow-hidden">
         <main class="flex-1 overflow-auto pr-3" style="scrollbar-gutter: stable">
-          <!-- keep-alive 仅 cache ContainerEditorView, 不同 :id 各自 instance (max 3 防内存爆).
+          <!-- keep-alive 仅 cache WorkflowEditorView, 不同 :id 各自 instance (max 3 防内存爆).
                用户切去 settings/help 等再回 → draft/canvas viewport/selection/dirty 保留. -->
           <router-view v-slot="{ Component, route: r }">
-            <keep-alive include="ContainerEditorView" :max="3">
+            <keep-alive include="WorkflowEditorView" :max="3">
               <component :is="Component" :key="r.params.id || r.path" />
             </keep-alive>
           </router-view>

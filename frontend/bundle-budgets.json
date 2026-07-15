@@ -7,9 +7,9 @@
     "maxInitialGzipBytes": 350000
   },
   "editor": {
-    "manifestKey": "src/views/ContainerEditorView.vue",
-    "maxInitialGzipBytes": 650000,
-    "targetInitialGzipBytes": 450000
+    "manifestKey": "src/views/WorkflowEditorView.vue",
+    "maxInitialGzipBytes": 200000,
+    "targetInitialGzipBytes": 125000
   },
   "forbidden": {
     "tablerIconsManifestSuffix": "node_modules/@iconify-json/tabler/icons.json"

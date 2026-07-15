@@ -10,8 +10,9 @@ describe('AppTitleBar accessibility', () => {
     expect(source).toContain(':aria-current="item.active ? \'page\' : undefined"')
   })
 
-  it('names launcher and native window controls', () => {
-    expect(source).toContain(':aria-label="t(\'sidebar.launcher\')"')
+  it('names utility destinations and native window controls', () => {
+    expect(source).toContain(':aria-label="t(\'sidebar.settings\')"')
+    expect(source).toContain(':aria-label="t(\'sidebar.about\')"')
     expect(source).toContain(':aria-label="t(\'editor.window.minimize\')"')
     expect(source).toContain(':aria-label="t(\'editor.window.close\')"')
   })

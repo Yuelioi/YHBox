@@ -7,9 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
@@ -192,6 +194,35 @@ func (a *Application) SaveSource(ctx context.Context, raw []byte, baseRevision i
 		return workflowstore.SourceSnapshot{}, err
 	}
 	return a.sources.Save(ctx, raw, baseRevision)
+}
+
+// CreateSource creates the only valid empty authoring root. IDs and structural
+// defaults are host-owned so UI, CLI, and MCP cannot invent divergent source
+// envelopes.
+func (a *Application) CreateSource(ctx context.Context, name string) (workflowstore.SourceSnapshot, error) {
+	if ctx == nil {
+		return workflowstore.SourceSnapshot{}, errors.New("create Workflow Source context is required")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return workflowstore.SourceSnapshot{}, errors.New("workflow name is required")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	if err := a.requireRunning(); err != nil {
+		return workflowstore.SourceSnapshot{}, err
+	}
+	source := schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: uuid.NewString(), Name: name}, Revision: 0, EntryGraph: "main",
+		Graphs:    []schema.Graph{{ID: "main", Kind: schema.GraphKindMain, Nodes: []schema.Node{}, Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{}}},
+		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+	}
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		return workflowstore.SourceSnapshot{}, err
+	}
+	return a.sources.Save(ctx, raw, -1)
 }
 
 func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (StartRunResult, error) {

@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 15,
-    "methods": 126,
+    "methods": 129,
     "models": 118
   },
   "services": [
@@ -1485,6 +1485,12 @@
       "module": "internal/services/workflow31/service",
       "methods": [
         {
+          "name": "CancelAllRuns",
+          "bindingId": "2211038583",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "CancelRun",
           "bindingId": "579970475",
           "parameters": [
@@ -1507,6 +1513,24 @@
             }
           ],
           "returns": "$CancellablePromise<$models.CompileView>"
+        },
+        {
+          "name": "CreateSource",
+          "bindingId": "2705089841",
+          "parameters": [
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "GetAuthoringProjection",
+          "bindingId": "4125171028",
+          "parameters": [],
+          "returns": "$CancellablePromise<string>"
         },
         {
           "name": "GetCatalog",
@@ -5061,6 +5085,11 @@
           "fields": [
             {
               "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
               "optional": false,
               "type": "string"
             },

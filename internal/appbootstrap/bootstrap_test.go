@@ -42,7 +42,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	service, err := workflow31.NewService(runtime.Application)
+	service, err := workflow31.NewService(runtime.Application, runtime.Builtins)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,8 +55,16 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	if err != nil || saved.WorkflowID != "wf-bootstrap" || saved.SourceJSON == "" || saved.SourceHash != compiled.SourceHash {
 		t.Fatalf("SaveSource = %#v, %v", saved, err)
 	}
-	if listed := service.ListSources(); len(listed) != 1 || listed[0].SourceJSON != "" || listed[0].SourceHash != saved.SourceHash {
-		t.Fatalf("ListSources = %#v", listed)
+	listed, err := service.ListSources()
+	if err != nil || len(listed) != 1 || listed[0].Name != "Bootstrap" || listed[0].SourceJSON != "" || listed[0].SourceHash != saved.SourceHash {
+		t.Fatalf("ListSources = %#v, %v", listed, err)
+	}
+	if authoring := service.GetAuthoringProjection(); !strings.Contains(authoring, `"format":"yotta.node-authoring-projection"`) {
+		t.Fatalf("GetAuthoringProjection = %s", authoring)
+	}
+	created, err := service.CreateSource(" Empty ")
+	if err != nil || created.Name != "Empty" || created.Revision != 0 || !strings.Contains(created.SourceJSON, `"version":"3.1"`) {
+		t.Fatalf("CreateSource = %#v, %v", created, err)
 	}
 	started, err := service.StartRun(saved.WorkflowID)
 	if err != nil || started.Run == nil || started.Run.Status != string(run31.StatusQueued) || started.ProgramHash != compiled.ProgramHash {

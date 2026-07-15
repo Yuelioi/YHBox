@@ -1,9 +1,9 @@
 <template>
   <!--
     Frameless 窗口的自定义 title bar —— 同时是全局导航 (侧栏已删, 省空间)。
-    - 左: 品牌 + 主导航 (容器 / 计划), 图标+字, 当前视图底部下划线高亮
+    - 左: 品牌 + 主导航 (工作流 / 计划), 图标+字, 当前视图底部下划线高亮
     - 中: drag region (--wails-draggable: drag) + 当前视图标题, 用户拖这里移窗
-    - 右: 工具图标 (悬浮启动器 / 设置 / 关于) + minimize / maximize-restore / close
+    - 右: 工具图标 (设置 / 关于) + minimize / maximize-restore / close
   -->
   <div class="h-14 shrink-0 flex items-stretch bg-default border-b border-default select-none">
     <!-- LEFT: brand + primary nav -->
@@ -65,16 +65,6 @@
       class="shrink-0 flex items-stretch border-l border-default"
       style="--wails-draggable: no-drag"
     >
-      <!-- 悬浮启动器 / 设置 / 关于：任何路由 1 步可达 -->
-      <button
-        type="button"
-        class="w-10 flex items-center justify-center text-muted hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
-        :title="t('sidebar.launcher')"
-        :aria-label="t('sidebar.launcher')"
-        @click="openLauncher"
-      >
-        <UIcon name="i-tabler-rocket" class="size-4" aria-hidden="true" />
-      </button>
       <RouterLink
         to="/settings"
         class="w-10 flex items-center justify-center hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
@@ -139,31 +129,21 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useWindowControls } from '@/composables/useWindowControls'
-import { useContainerEditorStore } from '@/stores/containerEditor'
 import { backend } from '@/lib/backend'
 
 const { t } = useI18n()
 const route = useRoute()
-const editorStore = useContainerEditorStore()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 const appVersion = ref('')
 const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
-// '容器' 主导航 — 有 lastEditingContainerID 就跳回编辑器路由 (keep-alive cache 命中, draft 不丢),
-// 否则跳列表 (从侧栏迁来的逻辑)。
-const containersTo = computed(() =>
-  editorStore.lastEditingContainerID
-    ? `/containers/${editorStore.lastEditingContainerID}/edit`
-    : '/containers',
-)
-
 const navItems = computed(() => [
   {
-    key: 'containers',
-    to: containersTo.value,
-    icon: 'i-tabler-package',
-    label: t('sidebar.containers'),
-    active: route.name === 'containers' || route.name === 'container-edit',
+    key: 'workflows',
+    to: '/workflows',
+    icon: 'i-tabler-route',
+    label: t('sidebar.workflows'),
+    active: route.name === 'workflows' || route.name === 'workflow-edit',
   },
   {
     key: 'schedules',
@@ -176,15 +156,14 @@ const navItems = computed(() => [
 
 // route.name → i18n key. 标题文字走 t() (locale 切换刷新), icon 配静态 map.
 const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
-  containers: { titleKey: 'sidebar.containers', icon: 'i-tabler-package' },
-  'container-edit': { titleKey: 'sidebar.container_edit', icon: 'i-tabler-schema' },
+  workflows: { titleKey: 'sidebar.workflows', icon: 'i-tabler-route' },
+  'workflow-edit': { titleKey: 'sidebar.workflow_edit', icon: 'i-tabler-schema' },
   schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }
-// 左侧主导航已高亮 容器/计划 → 中间不再重复显同名标题 (避免 "2 个计划")。
-// 设置/关于 是右侧图标 (无左侧文字标签), container-edit 显 "编辑容器" 区别于 "容器" — 这些仍显中间标题。
-const SUPPRESS_CENTER = new Set(['containers', 'schedules'])
+// 左侧主导航已高亮工作流/计划，中间不重复显示同名标题。
+const SUPPRESS_CENTER = new Set(['workflows', 'schedules'])
 const currentTitle = computed(() => {
   if (SUPPRESS_CENTER.has(route.name as string)) return ''
   const meta = VIEW_META[route.name as string]
@@ -194,10 +173,6 @@ const currentIcon = computed(() => {
   if (SUPPRESS_CENTER.has(route.name as string)) return ''
   return VIEW_META[route.name as string]?.icon ?? ''
 })
-
-function openLauncher() {
-  void backend.tools.openLauncher()
-}
 
 onMounted(async () => {
   const info = await backend.appInfo.info()

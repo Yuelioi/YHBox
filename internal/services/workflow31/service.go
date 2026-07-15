@@ -5,24 +5,39 @@ package workflow31
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
-type Service struct{ application *app31.Application }
+type Service struct {
+	application *app31.Application
+	authoring   nodeauthoring.Snapshot
+}
 
-func NewService(application *app31.Application) (*Service, error) {
+func NewService(application *app31.Application, builtins nodes31.Builtins) (*Service, error) {
 	if application == nil {
 		return nil, errors.New("workflow service requires Application")
 	}
-	return &Service{application: application}, nil
+	authoring, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: "v1",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build workflow authoring projection: %w", err)
+	}
+	return &Service{application: application, authoring: authoring}, nil
 }
 
 type SourceView struct {
 	WorkflowID string          `json:"workflowId"`
+	Name       string          `json:"name"`
 	Revision   int64           `json:"revision"`
 	SourceHash artifact.Digest `json:"sourceHash"`
 	SourceJSON string          `json:"sourceJson,omitempty"`
@@ -88,7 +103,15 @@ func (s *Service) SaveSource(sourceJSON string, baseRevision int64) (SourceView,
 	if err != nil {
 		return SourceView{}, err
 	}
-	return sourceView(snapshot.WorkflowID(), snapshot.Revision(), snapshot.Hash(), snapshot.Artifact()), nil
+	return sourceView(snapshot, true)
+}
+
+func (s *Service) CreateSource(name string) (SourceView, error) {
+	snapshot, err := s.application.CreateSource(context.Background(), name)
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(snapshot, true)
 }
 
 func (s *Service) GetSource(workflowID string) (SourceView, error) {
@@ -96,16 +119,20 @@ func (s *Service) GetSource(workflowID string) (SourceView, error) {
 	if err != nil {
 		return SourceView{}, err
 	}
-	return sourceView(snapshot.WorkflowID(), snapshot.Revision(), snapshot.Hash(), snapshot.Artifact()), nil
+	return sourceView(snapshot, true)
 }
 
-func (s *Service) ListSources() []SourceView {
+func (s *Service) ListSources() ([]SourceView, error) {
 	snapshots := s.application.ListSources()
 	result := make([]SourceView, 0, len(snapshots))
 	for _, snapshot := range snapshots {
-		result = append(result, sourceView(snapshot.WorkflowID(), snapshot.Revision(), snapshot.Hash(), nil))
+		view, err := sourceView(snapshot, false)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, view)
 	}
-	return result
+	return result, nil
 }
 
 func (s *Service) CompileDraft(sourceJSON string) (CompileView, error) {
@@ -138,6 +165,10 @@ func (s *Service) CancelRun(runID string) (RunView, error) {
 	return runView(record), nil
 }
 
+func (s *Service) CancelAllRuns() error {
+	return s.application.CancelAll(context.Background())
+}
+
 func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 	record, err := s.application.GetRun(runID)
 	if err != nil {
@@ -148,8 +179,21 @@ func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 
 func (s *Service) GetCatalog() string { return string(s.application.CatalogArtifact()) }
 
-func sourceView(workflowID string, revision int64, hash artifact.Digest, raw []byte) SourceView {
-	return SourceView{WorkflowID: workflowID, Revision: revision, SourceHash: hash, SourceJSON: string(raw)}
+func (s *Service) GetAuthoringProjection() string { return string(s.authoring.Bytes()) }
+
+func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (SourceView, error) {
+	document, diagnostics := schema.ParseSource(snapshot.Artifact())
+	if len(diagnostics) != 0 {
+		return SourceView{}, errors.New("stored Workflow Source failed strict reopen")
+	}
+	view := SourceView{
+		WorkflowID: snapshot.WorkflowID(), Name: document.Workflow.Name,
+		Revision: snapshot.Revision(), SourceHash: snapshot.Hash(),
+	}
+	if includeSource {
+		view.SourceJSON = string(snapshot.Artifact())
+	}
+	return view, nil
 }
 
 func runView(record run31.Record) RunView {

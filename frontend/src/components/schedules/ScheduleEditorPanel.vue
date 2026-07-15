@@ -100,7 +100,7 @@
             <span class="schedule-target__order">{{ index + 1 }}</span>
             <USelect
               v-model="target.id"
-              :items="containerItems"
+              :items="workflowItems"
               class="min-w-0 flex-1"
               :aria-label="t('schedule.target_n', { n: index + 1 })"
             />
@@ -137,7 +137,7 @@
           <span>{{ t('schedule.workspace.no_targets_hint') }}</span>
         </div>
         <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">{{
-          t('schedule.add_container')
+          t('schedule.add_workflow')
         }}</UButton>
       </section>
 
@@ -229,11 +229,13 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Container, Schedule } from '@/lib/backend'
+import { TargetKind } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
+import type { Schedule } from '@/lib/backend'
+import type { SourceView } from '@/app/transport/workflow31'
 import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
-const { schedule, containers } = defineProps<{ schedule: Schedule; containers: Container[] }>()
+const { schedule, workflows } = defineProps<{ schedule: Schedule; workflows: SourceView[] }>()
 defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
 const draft = reactive<Schedule>(structuredClone(schedule))
 watch(
@@ -241,14 +243,14 @@ watch(
   (value) => Object.assign(draft, structuredClone(value)),
 )
 
-const containerItems = computed(() =>
-  containers.map((container) => ({
-    label: container.name || t('common.untitled'),
-    value: container.id,
+const workflowItems = computed(() =>
+  workflows.map((workflow) => ({
+    label: workflow.name || t('common.untitled'),
+    value: workflow.workflowId,
   })),
 )
 const triggerKinds = computed(() => [
-  { label: t('schedule.container_unbound'), value: 'manual' },
+  { label: t('schedule.workflow_unbound'), value: 'manual' },
   { label: t('schedule.trigger.cron'), value: 'cron' },
   { label: t('schedule.trigger.once'), value: 'once' },
   { label: t('schedule.trigger.hotkey'), value: 'hotkey' },
@@ -264,8 +266,8 @@ const onErrorOptions = computed(() => [
 const previewTargets = computed(() =>
   draft.targets.map(
     (target) =>
-      containers.find((container) => container.id === target.id)?.name ??
-      t('schedule.container_unnamed'),
+      workflows.find((workflow) => workflow.workflowId === target.id)?.name ??
+      t('schedule.workflow_unnamed'),
   ),
 )
 const previewIcon = computed(() => {
@@ -280,7 +282,9 @@ const triggerPreview = computed(() => {
   if (draft.trigger.kind === 'cron' && draft.trigger.subKind === 'interval')
     return t('schedule.display.interval', { mins: draft.trigger.everyMinutes ?? 30 })
   if (draft.trigger.kind === 'hotkey')
-    return t('schedule.display.hotkey', { key: draft.trigger.hotkey || '—' })
+    return t('schedule.display.hotkey', {
+      key: draft.trigger.hotkey || t('schedule.workflow_unbound'),
+    })
   return t(`schedule.trigger.${draft.trigger.kind}`)
 })
 const timeoutPreview = computed(() =>
@@ -290,7 +294,7 @@ const timeoutPreview = computed(() =>
 )
 
 function addTarget() {
-  draft.targets.push({ kind: 'container', id: containers[0]?.id ?? '' })
+  draft.targets.push({ kind: TargetKind.TargetWorkflow, id: workflows[0]?.workflowId ?? '' })
 }
 function moveTarget(from: number, to: number) {
   if (to < 0 || to >= draft.targets.length) return

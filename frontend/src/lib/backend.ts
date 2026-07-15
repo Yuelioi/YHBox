@@ -15,6 +15,7 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
+import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { invoke, invokeVoid } from './invoke'
 import * as E from '@/constants/events'
 
@@ -216,26 +217,7 @@ export interface Container {
   updatedAt: string
 }
 
-export interface Schedule {
-  schemaVersion: number
-  id: string
-  name: string
-  enabled: boolean
-  targets: { kind: 'container'; id: string }[]
-  trigger: {
-    kind: 'cron' | 'hotkey' | 'once' | 'manual'
-    subKind?: 'daily' | 'interval'
-    at?: string
-    everyMinutes?: number
-    hotkey?: string
-  }
-  timeoutMinutes: number
-  onError: 'stop' | 'continue'
-  lastFiredAt?: string
-  lastStatus?: string
-  createdAt: string
-  updatedAt: string
-}
+export type Schedule = ScheduleModel
 
 // AssetSummary 全局资产列表项 — 对应后端 asset.AssetSummary.
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
@@ -406,9 +388,7 @@ export const backend = {
     list: () => invoke(ScheduleService.List),
     get: (id: string) => invoke(ScheduleService.Get, id),
     create: (name: string) => invoke(ScheduleService.Create, name),
-    // Schedule 类型 cast：wails 生成的 Trigger 把 optional 字段当成 required-undefined，
-    // 跟我们手写的 optional Schedule 类型有微小不兼容。运行期 JSON 形态一致。
-    save: (sc: Schedule) => invoke(ScheduleService.Save, sc as any),
+    save: (sc: Schedule) => invoke(ScheduleService.Save, sc),
     update: (id: string, patchJSON: string) => invoke(ScheduleService.Update, id, patchJSON),
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
