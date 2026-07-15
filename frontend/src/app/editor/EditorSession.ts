@@ -14,6 +14,8 @@ import type {
   CompileView,
   RunView,
   SourceView,
+  WorkflowJSONValue,
+  WorkflowPatchCommand,
   WorkflowTransport,
 } from '@/app/transport/workflow31'
 
@@ -35,6 +37,11 @@ export type EditorCommand =
   | { kind: 'connect'; edge: Edge }
   | { kind: 'disconnect'; edge: Edge }
 
+interface PendingCommand {
+  graphId: string
+  command: EditorCommand
+}
+
 export class EditorSession {
   phase: EditorPhase = 'empty'
   source: YottaWorkflowSource31 | null = null
@@ -53,6 +60,8 @@ export class EditorSession {
 
   private readonly history: YottaWorkflowSource31[] = []
   private readonly future: YottaWorkflowSource31[] = []
+  private readonly pendingCommands: PendingCommand[] = []
+  private readonly revertedCommands: PendingCommand[] = []
   private readonly projections = new Map<string, NodeProjection>()
 
   constructor(
@@ -103,11 +112,14 @@ export class EditorSession {
     const source = this.requireSource()
     const next = clone(source)
     const graph = graphAt(next, this.graphPath)
-    applyCommand(next, graph, command, this.projections, this.idFactory)
+    const resolved = resolveEditorCommand(command, graph, this.idFactory)
+    applyCommand(next, graph, resolved, this.projections)
     next.revision = this.baseRevision + 1
     this.history.push(clone(source))
     if (this.history.length > 100) this.history.shift()
     this.future.length = 0
+    this.pendingCommands.push({ graphId: graph.id, command: clone(resolved) })
+    this.revertedCommands.length = 0
     this.source = next
     this.dirty = true
     this.saveConflict = ''
@@ -118,6 +130,8 @@ export class EditorSession {
     if (!this.source || this.history.length === 0) return
     this.future.push(clone(this.source))
     this.source = this.history.pop() ?? this.source
+    const reverted = this.pendingCommands.pop()
+    if (reverted) this.revertedCommands.push(reverted)
     this.source.revision = this.baseRevision + 1
     this.dirty = true
     this.resetCompileFacts()
@@ -127,6 +141,8 @@ export class EditorSession {
     if (!this.source || this.future.length === 0) return
     this.history.push(clone(this.source))
     this.source = this.future.pop() ?? this.source
+    const restored = this.revertedCommands.pop()
+    if (restored) this.pendingCommands.push(restored)
     this.source.revision = this.baseRevision + 1
     this.dirty = true
     this.resetCompileFacts()
@@ -145,7 +161,8 @@ export class EditorSession {
   }
 
   async validate(): Promise<CompileView> {
-    const result = await this.transport.compileDraft(this.serialize())
+    if (this.dirty) await this.save()
+    const result = await this.transport.compileSource(this.workflowId)
     this.sourceHash = result.sourceHash ?? ''
     this.compiledHash = result.programHash ?? ''
     this.diagnostics = [...result.diagnostics]
@@ -166,10 +183,11 @@ export class EditorSession {
     this.phase = 'saving'
     this.saveConflict = ''
     try {
-      const saved = await this.transport.saveSource(this.serialize(), this.baseRevision)
-      this.acceptSource(saved)
+      const commands = toWorkflowPatch(this.pendingCommands)
+      const patched = await this.transport.applyPatch(this.workflowId, this.baseRevision, commands)
+      this.acceptSource(patched.source)
       this.phase = 'ready'
-      return saved
+      return patched.source
     } catch (error) {
       this.saveConflict = errorText(error)
       this.phase = 'ready'
@@ -211,7 +229,6 @@ export class EditorSession {
       const compile = await this.validate()
       if (compile.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
       if (!compile.programHash) throw new Error('compiler produced no Program hash')
-      if (this.dirty) await this.save()
       this.phase = 'running'
       const started = await this.transport.startRun(this.workflowId)
       this.diagnostics = [...started.diagnostics]
@@ -250,6 +267,8 @@ export class EditorSession {
     this.graphPath = [parsed.entryGraph]
     this.history.length = 0
     this.future.length = 0
+    this.pendingCommands.length = 0
+    this.revertedCommands.length = 0
     this.dirty = false
     this.saveConflict = ''
     this.resetCompileFacts()
@@ -271,12 +290,136 @@ export class EditorSession {
   }
 }
 
+function resolveEditorCommand(
+  command: EditorCommand,
+  graph: Graph,
+  idFactory: () => string,
+): EditorCommand {
+  if (command.kind !== 'add-node' || command.nodeId) return command
+  return { ...command, nodeId: uniqueNodeId(graph, idFactory) }
+}
+
+function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
+  const generated = new Set(
+    pending.flatMap(({ command }) =>
+      command.kind === 'add-node' && command.nodeId ? [command.nodeId] : [],
+    ),
+  )
+  const nodeRef = (nodeId: string): string => (generated.has(nodeId) ? `$${nodeId}` : nodeId)
+  return pending.map(({ graphId, command }): WorkflowPatchCommand => {
+    switch (command.kind) {
+      case 'rename-workflow':
+        return { kind: command.kind, renameWorkflow: { name: command.name } }
+      case 'add-state-variable':
+        return {
+          kind: command.kind,
+          addStateVariable: {
+            name: command.name,
+            type: clone(command.type),
+            default: jsonValue(command.defaultValue),
+          },
+        }
+      case 'remove-state-variable':
+        return { kind: command.kind, removeStateVariable: { name: command.name } }
+      case 'add-node':
+        if (!command.nodeId) throw new Error('pending add-node command omitted node ID')
+        return {
+          kind: command.kind,
+          addNode: {
+            graphId,
+            nodeTypeId: command.nodeTypeId,
+            handle: command.nodeId,
+            position: clone(command.position),
+          },
+        }
+      case 'remove-node':
+        return { kind: command.kind, removeNode: { graphId, nodeId: nodeRef(command.nodeId) } }
+      case 'move-node':
+        return {
+          kind: command.kind,
+          moveNode: { graphId, nodeId: nodeRef(command.nodeId), position: clone(command.position) },
+        }
+      case 'set-node-label':
+        return {
+          kind: command.kind,
+          setNodeLabel: { graphId, nodeId: nodeRef(command.nodeId), label: command.label },
+        }
+      case 'set-config':
+        return {
+          kind: command.kind,
+          setConfig: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            fieldId: command.fieldId,
+            value: jsonValue(command.value),
+          },
+        }
+      case 'clear-config':
+        return {
+          kind: command.kind,
+          clearConfig: { graphId, nodeId: nodeRef(command.nodeId), fieldId: command.fieldId },
+        }
+      case 'bind-value':
+        return {
+          kind: command.kind,
+          bindValue: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            portId: command.portId,
+            value: jsonValue(command.value),
+          },
+        }
+      case 'bind-default':
+        return {
+          kind: command.kind,
+          bindDefault: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            portId: command.portId,
+          },
+        }
+      case 'clear-binding':
+        return {
+          kind: command.kind,
+          clearBinding: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            portId: command.portId,
+          },
+        }
+      case 'connect':
+        return {
+          kind: command.kind,
+          connect: {
+            graphId,
+            edge: {
+              channel: command.edge.channel,
+              from: { nodeId: nodeRef(command.edge.from.nodeId), portId: command.edge.from.portId },
+              to: { nodeId: nodeRef(command.edge.to.nodeId), portId: command.edge.to.portId },
+            },
+          },
+        }
+      case 'disconnect':
+        return {
+          kind: command.kind,
+          disconnect: {
+            graphId,
+            edge: {
+              channel: command.edge.channel,
+              from: { nodeId: nodeRef(command.edge.from.nodeId), portId: command.edge.from.portId },
+              to: { nodeId: nodeRef(command.edge.to.nodeId), portId: command.edge.to.portId },
+            },
+          },
+        }
+    }
+  })
+}
+
 function applyCommand(
   source: YottaWorkflowSource31,
   graph: Graph,
   command: EditorCommand,
   projections: Map<string, NodeProjection>,
-  idFactory: () => string,
 ): void {
   switch (command.kind) {
     case 'rename-workflow': {
@@ -316,7 +459,8 @@ function applyCommand(
     case 'add-node': {
       const projection = projections.get(command.nodeTypeId)
       if (!projection) throw new Error(`unknown Node Contract ${command.nodeTypeId}`)
-      const id = command.nodeId ?? uniqueNodeId(graph, idFactory)
+      if (!command.nodeId) throw new Error('resolved add-node command omitted node ID')
+      const id = command.nodeId
       if (graph.nodes.some((node) => node.id === id)) throw new Error(`duplicate node ${id}`)
       graph.nodes.push({
         id,
@@ -537,6 +681,21 @@ function isAuthoringProjection(value: unknown): value is YottaNodeAuthoringProje
 
 function clone<T>(value: T): T {
   return structuredClone(value)
+}
+
+function jsonValue(value: unknown): WorkflowJSONValue {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('authoring value must be a finite JSON number')
+    return value
+  }
+  if (Array.isArray(value)) return value.map(jsonValue)
+  if (typeof value === 'object') {
+    const result: Record<string, WorkflowJSONValue> = {}
+    for (const [key, member] of Object.entries(value)) result[key] = jsonValue(member)
+    return result
+  }
+  throw new Error('authoring value must be JSON data')
 }
 
 function errorText(error: unknown): string {

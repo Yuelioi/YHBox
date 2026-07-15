@@ -34,7 +34,6 @@ describe('settings store · patchAIConnections', () => {
       locale: 'zh',
       capture: {},
       ai: { connections: [], default: '' },
-      mcp: { armed: false },
     } as unknown as Settings
 
     await expect(store.patch({ ui: { autostart: true } })).resolves.toBe(true)
@@ -54,7 +53,6 @@ describe('settings store · patchAIConnections', () => {
       locale: 'zh',
       capture: {},
       ai: { connections: [], default: '' },
-      mcp: { armed: false },
     } as unknown as Settings
 
     const first = store.patch({ ui: { launcherDisplay: 'icon' } })

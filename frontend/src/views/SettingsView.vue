@@ -113,7 +113,6 @@ import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
 import SettingsLauncher from './SettingsLauncher.vue'
 import SettingsAI from './SettingsAI.vue'
-import SettingsMCP from './SettingsMCP.vue'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader.vue'
 import { SETTINGS_THEMES, isSettingsThemeKey, type SettingsThemeKey } from '@/settings/registry'
 
@@ -129,7 +128,6 @@ const componentByTheme = {
   input: SettingsInput,
   launcher: SettingsLauncher,
   ai: SettingsAI,
-  mcp: SettingsMCP,
 } as const
 
 function initialTheme(): SettingsThemeKey {

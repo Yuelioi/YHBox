@@ -12,6 +12,7 @@ const writeMode = process.argv.includes('--write')
 const temporary = await mkdtemp(resolve(tmpdir(), 'yotta-contracts-'))
 const temporarySchema = resolve(temporary, 'workflow-source.schema.json')
 const temporaryDiagnostic = resolve(temporary, 'diagnostic.schema.json')
+const temporaryWorkflowAuthoring = resolve(temporary, 'authoring-patch.schema.json')
 const temporaryNodeSchema = resolve(temporary, 'node-contract.schema.json')
 const temporaryAuthoringSchema = resolve(temporary, 'authoring-projection.schema.json')
 const temporaryBuiltinCatalog = resolve(temporary, 'builtin-catalog.json')
@@ -29,6 +30,14 @@ try {
     'diagnostic',
     '-output',
     temporaryDiagnostic,
+  ])
+  await run('go', [
+    'run',
+    './cmd/yotta-contracts',
+    '-contract',
+    'workflow-authoring',
+    '-output',
+    temporaryWorkflowAuthoring,
   ])
   await run('go', [
     'run',
@@ -55,6 +64,7 @@ try {
   }
   const schemaText = await readFile(temporarySchema, 'utf8')
   const diagnosticSchemaText = await readFile(temporaryDiagnostic, 'utf8')
+  const workflowAuthoringSchemaText = await readFile(temporaryWorkflowAuthoring, 'utf8')
   const nodeSchemaText = await readFile(temporaryNodeSchema, 'utf8')
   const authoringSchemaText = await readFile(temporaryAuthoringSchema, 'utf8')
   const builtinCatalogText = await readFile(temporaryBuiltinCatalog, 'utf8')
@@ -62,6 +72,7 @@ try {
   const builtinDocsText = await readFile(temporaryBuiltinDocs, 'utf8')
   const schema = JSON.parse(schemaText)
   const diagnosticSchema = JSON.parse(diagnosticSchemaText)
+  const workflowAuthoringSchema = JSON.parse(workflowAuthoringSchemaText)
   const nodeSchema = JSON.parse(nodeSchemaText)
   const authoringSchema = JSON.parse(authoringSchemaText)
   const options = {
@@ -73,6 +84,10 @@ try {
   const diagnosticTypes = await compile(diagnosticSchema, 'Diagnostic', {
     ...options,
     bannerComment: '/* Generated from Diagnostic Go types. Do not edit. */',
+  })
+  const workflowAuthoringTypes = await compile(workflowAuthoringSchema, 'WorkflowPatch', {
+    ...options,
+    bannerComment: '/* Generated from Workflow Authoring Patch 3.1 Go types. Do not edit. */',
   })
   const nodeTypes = await compile(nodeSchema, 'NodeContract', {
     ...options,
@@ -87,6 +102,8 @@ try {
     ['diagnostic.schema.json', diagnosticSchemaText],
     ['workflow-source.ts', sourceTypes],
     ['diagnostic.ts', diagnosticTypes],
+    ['authoring-patch.schema.json', workflowAuthoringSchemaText],
+    ['authoring-patch.ts', workflowAuthoringTypes],
   ])
   const nodeFiles = new Map([
     ['node-contract.schema.json', nodeSchemaText],

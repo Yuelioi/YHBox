@@ -986,6 +986,13 @@ func (s Snapshot) CatalogHash() artifact.Digest {
 	return s.state.document.Body.CatalogHash
 }
 
+func (s Snapshot) GeneratorVersion() string {
+	if !s.Valid() {
+		return ""
+	}
+	return s.state.document.Body.GeneratorVersion
+}
+
 func (s Snapshot) Bytes() []byte {
 	if !s.Valid() {
 		return nil
@@ -1007,6 +1014,17 @@ func (s Snapshot) Node(nodeTypeID string) (NodeProjection, bool) {
 	}
 	projection, ok := s.state.nodes[nodeTypeID]
 	return cloneNode(projection), ok
+}
+
+func (s Snapshot) Nodes() []NodeProjection {
+	if !s.Valid() {
+		return nil
+	}
+	result := make([]NodeProjection, len(s.state.document.Body.Nodes))
+	for index := range s.state.document.Body.Nodes {
+		result[index] = cloneNode(s.state.document.Body.Nodes[index])
+	}
+	return result
 }
 
 func cloneType(source TypeProjection) TypeProjection {

@@ -72,7 +72,7 @@ tasks:
     cmds:
       - go test ./internal/services/container -run=^$ -fuzz=^FuzzGraphRewriter$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime={{.FUZZ_TIME}}
-      - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime={{.FUZZ_TIME}}

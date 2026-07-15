@@ -9,12 +9,13 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	workflowauthoring "github.com/yottaapp/yotta/internal/workflow/authoring"
 	workflowschema "github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func main() {
 	output := flag.String("output", "contracts/workflow/3.1/workflow-source.schema.json", "JSON Schema output path")
-	contractName := flag.String("contract", "workflow", "contract to generate: workflow, diagnostic, node, authoring, builtin-catalog, builtin-authoring, or builtin-docs")
+	contractName := flag.String("contract", "workflow", "contract to generate: workflow, diagnostic, workflow-authoring, node, authoring, builtin-catalog, builtin-authoring, or builtin-docs")
 	flag.Parse()
 
 	formatted, err := generate(*contractName)
@@ -35,6 +36,9 @@ func generate(name string) ([]byte, error) {
 	}
 	if name == "authoring" {
 		return nodeauthoring.GenerateSchema()
+	}
+	if name == "workflow-authoring" {
+		return workflowauthoring.GenerateSchema()
 	}
 	if name == "builtin-catalog" || name == "builtin-authoring" || name == "builtin-docs" {
 		artifacts, err := nodes31.GenerateArtifacts()

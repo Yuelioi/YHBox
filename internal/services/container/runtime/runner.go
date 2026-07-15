@@ -205,7 +205,7 @@ func (r *ContainerRunner) SetAIProvider(p node.AIProviderService) {
 func (r *ContainerRunner) Bundle() node.ServiceBundle { return r.bundle }
 
 // ExecOutputs 返 held-output 缓存的浅拷贝 (键 "<nodeID>.<field>").
-// MCP run_node 跑完单节点后据此收割节点输出 (见 docs/held-exec-outputs).
+// Held executions expose their completed outputs to the owning admitted Run.
 func (r *ContainerRunner) ExecOutputs() map[string]any {
 	out := make(map[string]any, len(r.execOutputs))
 	for k, v := range r.execOutputs {

@@ -2,7 +2,6 @@ package appbootstrap_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +14,8 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/services/workflow31"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T) {
@@ -42,18 +43,28 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	service, err := workflow31.NewService(runtime.Application, runtime.Builtins)
+	service, err := workflow31.NewService(runtime.Application)
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := concatSource(runtime.Builtins)
-	compiled, err := service.CompileDraft(string(source))
-	if err != nil || !compiled.ProgramHash.Valid() || len(compiled.Diagnostics) != 0 {
-		t.Fatalf("CompileDraft = %#v, %v", compiled, err)
+	createdSource, err := service.CreateSource("Bootstrap")
+	if err != nil {
+		t.Fatal(err)
 	}
-	saved, err := service.SaveSource(string(source), -1)
-	if err != nil || saved.WorkflowID != "wf-bootstrap" || saved.SourceJSON == "" || saved.SourceHash != compiled.SourceHash {
-		t.Fatalf("SaveSource = %#v, %v", saved, err)
+	patched, err := service.ApplyPatch(createdSource.WorkflowID, createdSource.Revision, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "concat", Position: schema.Position{},
+		}},
+		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "a"}},
+		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: "b"}},
+	})
+	if err != nil || patched.Source.SourceJSON == "" || patched.Source.Revision != 1 || len(patched.GeneratedNodes) != 1 {
+		t.Fatalf("ApplyPatch = %#v, %v", patched, err)
+	}
+	saved := patched.Source
+	compiled, err := service.CompileSource(saved.WorkflowID)
+	if err != nil || !compiled.ProgramHash.Valid() || len(compiled.Diagnostics) != 0 || saved.SourceHash != compiled.SourceHash {
+		t.Fatalf("CompileSource = %#v, %v", compiled, err)
 	}
 	listed, err := service.ListSources()
 	if err != nil || len(listed) != 1 || listed[0].Name != "Bootstrap" || listed[0].SourceJSON != "" || listed[0].SourceHash != saved.SourceHash {
@@ -111,17 +122,6 @@ func testLimits() appbootstrap.Limits {
 		MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 1 << 20,
 		BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 	}
-}
-
-func concatSource(builtins nodes31.Builtins) []byte {
-	ref := builtins.ConcatContract.NodeRef()
-	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-bootstrap","name":"Bootstrap"},
-		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
-			 "bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}}
-		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
-	}`, ref.NodeTypeID, ref.SemanticDigest))
 }
 
 func testDigest(t *testing.T, label string) artifact.Digest {

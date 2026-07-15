@@ -50,7 +50,11 @@ describe('EditorSession', () => {
     expect(session.debugging).toBe(true)
     expect(session.lastRunHash).toBe('sha256:program')
     expect(session.dirty).toBe(false)
-    expect(transport.saveSource).toHaveBeenCalledWith(expect.any(String), 0)
+    expect(transport.applyPatch).toHaveBeenCalledWith(
+      source.workflow.id,
+      0,
+      expect.arrayContaining([expect.objectContaining({ kind: 'add-node' })]),
+    )
     expect(transport.startRun).toHaveBeenCalledWith(source.workflow.id)
   })
 
@@ -183,11 +187,13 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     listSources: vi.fn(async () => [saved]),
     createSource: vi.fn(async () => saved),
     getSource: vi.fn(async () => saved),
-    saveSource: vi.fn(async (raw: string) => {
-      const source = JSON.parse(raw) as YottaWorkflowSource31
-      return sourceView(source)
+    applyPatch: vi.fn(async (_workflowId: string, baseRevision: number) => {
+      if (!saved.sourceJson) throw new Error('mock source omitted sourceJson')
+      const source = JSON.parse(saved.sourceJson) as YottaWorkflowSource31
+      source.revision = baseRevision + 1
+      return { source: sourceView(source), generatedNodes: [] }
     }),
-    compileDraft: vi.fn(
+    compileSource: vi.fn(
       async () =>
         ({
           sourceHash: 'sha256:source-next',

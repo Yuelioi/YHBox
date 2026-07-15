@@ -68,6 +68,15 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		stateRead.StateAccesses[0].SlotConfigKey != "variable" || stateRead.StateAccesses[0].Type.Label != "$T" {
 		t.Fatalf("state read projection = %#v", stateRead)
 	}
+	nodes := projection.Nodes()
+	if len(nodes) == 0 || len(nodes[0].Tags) == 0 {
+		t.Fatal("projection did not enumerate nodes")
+	}
+	nodes[0].Tags[0] = "mutated"
+	unchanged, ok := projection.Node(nodes[0].NodeRef.NodeTypeID)
+	if !ok || unchanged.Tags[0] == "mutated" {
+		t.Fatal("node enumeration leaked mutable trusted projection state")
+	}
 }
 
 func TestProjectionRejectsIncompletePresentationAndTampering(t *testing.T) {

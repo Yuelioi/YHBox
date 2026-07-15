@@ -2,10 +2,15 @@ import { Events } from '@wailsio/runtime'
 import * as WorkflowService from '@bindings/github.com/yottaapp/yotta/internal/services/workflow31/service.js'
 import type {
   CompileView,
+  PatchView,
   RunView,
   SourceView,
   StartRunView,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/workflow31/models.js'
+import type {
+  Command as WorkflowPatchCommand,
+  JSONValue as WorkflowJSONValue,
+} from '../../../../contracts/workflow/3.1/authoring-patch'
 
 export interface RunChangedEvent {
   runId: string
@@ -19,8 +24,12 @@ export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   createSource(name: string): Promise<SourceView>
   getSource(workflowId: string): Promise<SourceView>
-  saveSource(sourceJson: string, baseRevision: number): Promise<SourceView>
-  compileDraft(sourceJson: string): Promise<CompileView>
+  applyPatch(
+    workflowId: string,
+    baseRevision: number,
+    commands: WorkflowPatchCommand[],
+  ): Promise<PatchView>
+  compileSource(workflowId: string): Promise<CompileView>
   startRun(workflowId: string): Promise<StartRunView>
   cancelRun(runId: string): Promise<RunView>
   cancelAllRuns(): Promise<void>
@@ -32,8 +41,13 @@ export const workflowTransport: WorkflowTransport = {
   listSources: () => WorkflowService.ListSources(),
   createSource: (name) => WorkflowService.CreateSource(name),
   getSource: (workflowId) => WorkflowService.GetSource(workflowId),
-  saveSource: (sourceJson, baseRevision) => WorkflowService.SaveSource(sourceJson, baseRevision),
-  compileDraft: (sourceJson) => WorkflowService.CompileDraft(sourceJson),
+  applyPatch: (workflowId, baseRevision, commands) =>
+    WorkflowService.ApplyPatch(
+      workflowId,
+      baseRevision,
+      commands as Parameters<typeof WorkflowService.ApplyPatch>[2],
+    ),
+  compileSource: (workflowId) => WorkflowService.CompileSource(workflowId),
   startRun: (workflowId) => WorkflowService.StartRun(workflowId),
   cancelRun: (runId) => WorkflowService.CancelRun(runId),
   cancelAllRuns: () => WorkflowService.CancelAllRuns(),
@@ -61,4 +75,12 @@ function isRunChangedEvent(value: unknown): value is RunChangedEvent {
   )
 }
 
-export type { CompileView, RunView, SourceView, StartRunView }
+export type {
+  CompileView,
+  PatchView,
+  RunView,
+  SourceView,
+  StartRunView,
+  WorkflowJSONValue,
+  WorkflowPatchCommand,
+}

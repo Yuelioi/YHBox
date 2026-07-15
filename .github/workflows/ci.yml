@@ -195,7 +195,7 @@ jobs:
         run: go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime=10s
 
       - name: Fuzz MCP node parameters
-        run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPNodeParams$ -fuzztime=10s
+        run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime=10s
 
       - name: Fuzz expressions
         run: go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime=10s

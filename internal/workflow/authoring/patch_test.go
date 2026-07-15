@@ -1,0 +1,104 @@
+package authoring_test
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
+)
+
+func TestEngineAppliesAtomicTypedPatchWithHostOwnedNodeIDs(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"node-left", "node-right"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := emptySource()
+	result, err := engine.Apply(source, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "left", Position: schema.Position{X: 10, Y: 20},
+		}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "right", Position: schema.Position{X: 30, Y: 40},
+		}},
+		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$left", PortID: "a", Value: "hello"}},
+		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$left", PortID: "b", Value: " world"}},
+		{Kind: authoring.CommandClearBinding, ClearBinding: &authoring.PortCommand{GraphID: "main", NodeID: "$right", PortID: "a"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
+			Channel: schema.EdgeData,
+			From:    schema.Endpoint{NodeID: "$left", PortID: "result"},
+			To:      schema.Endpoint{NodeID: "$right", PortID: "a"},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Source.Revision != 1 || len(result.Source.Graphs[0].Nodes) != 2 || len(result.Source.Graphs[0].Edges) != 1 {
+		t.Fatalf("result = %#v", result.Source)
+	}
+	if got := result.Source.Graphs[0].Edges[0]; got.From.NodeID != "node-left" || got.To.NodeID != "node-right" {
+		t.Fatalf("resolved edge = %#v", got)
+	}
+	if len(result.GeneratedNodes) != 2 || result.GeneratedNodes[0].Handle != "left" || result.GeneratedNodes[1].NodeID != "node-right" {
+		t.Fatalf("generated nodes = %#v", result.GeneratedNodes)
+	}
+	if source.Revision != 0 || len(source.Graphs[0].Nodes) != 0 {
+		t.Fatalf("input source was mutated: %#v", source)
+	}
+}
+
+func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-one" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := emptySource()
+	_, err = engine.Apply(source, []authoring.Command{{
+		Kind:     authoring.CommandAddNode,
+		MoveNode: &authoring.MoveNodeCommand{GraphID: "main", NodeID: "missing", Position: schema.Position{}},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_COMMAND" || patchErr.CommandIndex != 0 {
+		t.Fatalf("error = %#v", err)
+	}
+	if source.Revision != 0 || len(source.Graphs[0].Nodes) != 0 {
+		t.Fatalf("failed patch mutated input: %#v", source)
+	}
+}
+
+func testContracts(t *testing.T) (nodes31.Builtins, nodeauthoring.Snapshot) {
+	t.Helper()
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return builtins, projection
+}
+
+func emptySource() schema.WorkflowSource {
+	return schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: "workflow-authoring", Name: "Authoring"},
+		Revision: 0, EntryGraph: "main",
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain, Nodes: []schema.Node{}, Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+	}
+}

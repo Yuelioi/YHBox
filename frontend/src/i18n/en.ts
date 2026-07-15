@@ -4400,7 +4400,6 @@ export default {
     input_calibration: 'Input & calibration',
     launcher: 'Floating launcher',
     ai: 'AI connections',
-    mcp: 'MCP integration',
   },
   settingsCenter: {
     eyebrow: 'YOTTA SETTINGS',
@@ -4416,7 +4415,6 @@ export default {
       input: 'Configure recorded input semantics and maintain game calibration profiles',
       launcher: 'Arrange the floating launcher content, appearance, and quick actions',
       ai: 'Manage AI service endpoints, credentials, and connection health',
-      mcp: 'Control external access and the boundary for executable permissions',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -4583,34 +4581,6 @@ export default {
     regexp: 'Regex',
     replace_all: 'Replace all',
     close: 'Close',
-  },
-  settingsMCP: {
-    title: 'MCP Server',
-    armLabel: 'Allow execution and writes',
-    armWarning:
-      'Warning: when allowed, AI clients can drive your mouse and keyboard, run nodes, and write containers. Only connect trusted AI clients.',
-    urlLabel: 'Server URL',
-    urlHint:
-      'The local server is always available. Until execution and writes are allowed, AI clients can only use read-only tools.',
-    copy: 'Copy',
-    copied: 'Copied!',
-    copyFailed: 'Copy failed. Copy the address manually.',
-    accessTitle: 'Capabilities & permission boundary',
-    accessHint:
-      'The local MCP server is read-only by default. Execution and writes require explicit approval.',
-    readOnlyTitle: 'Read workspace',
-    readOnlyHint: 'Inspect containers, nodes, assets, and diagnostics.',
-    executeTitle: 'Execute & write',
-    executeHint: 'Run automation, drive input, and modify the workspace.',
-    alwaysOn: 'Always available',
-    enabled: 'Authorized',
-    disabled: 'Not authorized',
-    connectionTitle: 'Connection details',
-    localOnlyHint: 'Listens on the local loopback address only, not the LAN.',
-    confirmTitle: 'Allow MCP execution and writes?',
-    confirmHint:
-      'Connected AI clients will be able to run nodes, modify containers, and control mouse and keyboard. Enable only for trusted clients.',
-    confirmAction: 'Authorize access',
   },
   settingsAI: {
     title: 'AI Models',

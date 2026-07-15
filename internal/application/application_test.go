@@ -2,7 +2,6 @@ package application_test
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -10,17 +9,20 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
-	application, sources, programs, builtins, events := newTestApplication(t, now, nil)
+	application, sources, programs, _, events := newTestApplication(t, now, nil)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -31,16 +33,16 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	saved, err := application.SaveSource(context.Background(), concatSource(builtins, 0), -1)
-	if err != nil || saved.Revision() != 0 {
-		t.Fatalf("SaveSource = %#v, %v", saved, err)
+	saved := createConcatWorkflow(t, application)
+	if saved.Source.Revision() != 1 {
+		t.Fatalf("ApplyPatch = %#v", saved)
 	}
-	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: "wf-application", Principal: "user-1"})
+	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
 	if err != nil || !started.Record.Valid() || !started.ProgramHash.Valid() || len(started.Diagnostics) != 0 {
 		t.Fatalf("StartRun = %#v, %v", started, err)
 	}
-	if started.SourceHash != saved.Hash() {
-		t.Fatalf("compiled Source hash = %s, stored = %s", started.SourceHash, saved.Hash())
+	if started.SourceHash != saved.Source.Hash() {
+		t.Fatalf("compiled Source hash = %s, stored = %s", started.SourceHash, saved.Source.Hash())
 	}
 	if _, err := programs.Load(started.ProgramHash); err != nil {
 		t.Fatalf("Program was not durable before admission: %v", err)
@@ -54,7 +56,7 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 				if err != nil || loaded.Status() != run31.StatusSucceeded || len(loaded.Journal()) != 2 {
 					t.Fatalf("terminal Run = %#v, %v", loaded, err)
 				}
-				if listed := sources.List(); len(listed) != 1 || listed[0].Hash() != saved.Hash() {
+				if listed := sources.List(); len(listed) != 1 || listed[0].Hash() != saved.Source.Hash() {
 					t.Fatalf("Source list = %#v", listed)
 				}
 				return
@@ -67,9 +69,9 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 
 func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 30, 0, 0, time.UTC)
-	application, _, _, builtins, _ := newTestApplication(t, now, nil)
-	if _, err := application.SaveSource(context.Background(), concatSource(builtins, 0), -1); err != app31.ErrNotStarted {
-		t.Fatalf("SaveSource before Start = %v", err)
+	application, _, _, _, _ := newTestApplication(t, now, nil)
+	if _, err := application.CreateSource(context.Background(), "before start"); err != app31.ErrNotStarted {
+		t.Fatalf("CreateSource before Start = %v", err)
 	}
 	if err := application.Close(context.Background()); err != nil {
 		t.Fatal(err)
@@ -87,14 +89,12 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 		<-ctx.Done()
 		return compiler.AdapterResult{}, ctx.Err()
 	}
-	application, _, _, builtins, events := newTestApplication(t, now, adapter)
+	application, _, _, _, events := newTestApplication(t, now, adapter)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := application.SaveSource(context.Background(), concatSource(builtins, 0), -1); err != nil {
-		t.Fatal(err)
-	}
-	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: "wf-application", Principal: "user-1"})
+	saved := createConcatWorkflow(t, application)
+	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,6 +129,13 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*app31.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes31.Builtins, chan app31.RunEvent) {
 	t.Helper()
 	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +182,8 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }})
 	events := make(chan app31.RunEvent, 16)
 	application, err := app31.New(app31.Config{
-		Catalog: builtins.Catalog, CompilerBuild: build, Sources: sources, Programs: programs, Runs: runs,
+		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build,
+		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor, Providers: map[string]run31.InstalledProvider{},
 		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,
 		Now: func() time.Time { return now }, OnRunEvent: func(event app31.RunEvent) { events <- event },
@@ -186,15 +194,26 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	return application, sources, programs, builtins, events
 }
 
-func concatSource(builtins nodes31.Builtins, revision int) []byte {
-	ref := builtins.ConcatContract.NodeRef()
-	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-application","name":"Application"},
-		"revision":%d,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
-			 "bindings":{"a":{"kind":"value","value":"hello"},"b":{"kind":"value","value":" world"}}}
-		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
-	}`, revision, ref.NodeTypeID, ref.SemanticDigest))
+func createConcatWorkflow(t *testing.T, application *app31.Application) app31.ApplyPatchResult {
+	t.Helper()
+	created, err := application.CreateSource(context.Background(), "Application")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
+		Commands: []authoring.Command{
+			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+				GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "concat", Position: schema.Position{},
+			}},
+			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "hello"}},
+			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: " world"}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
 }
 
 func testDigest(t *testing.T, label string) artifact.Digest {

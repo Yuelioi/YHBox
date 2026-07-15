@@ -16,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
@@ -71,6 +72,13 @@ func Build(config Config) (*Runtime, error) {
 	builtins, err := nodes31.Build()
 	if err != nil {
 		return nil, fmt.Errorf("build Catalog 3.1: %w", err)
+	}
+	authoringProjection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build Authoring Projection 3.1: %w", err)
 	}
 	build, err := compiler.BuildDigest()
 	if err != nil {
@@ -131,7 +139,8 @@ func Build(config Config) (*Runtime, error) {
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
 	application, err := app31.New(app31.Config{
-		Catalog: builtins.Catalog, CompilerBuild: build, Sources: sources, Programs: programs, Runs: runs,
+		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build,
+		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
 		Providers: map[string]run31.InstalledProvider{
 			blob.ProviderID:   {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},

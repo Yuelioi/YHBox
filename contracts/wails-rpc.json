@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 15,
-    "methods": 129,
-    "models": 118
+    "methods": 130,
+    "models": 146
   },
   "services": [
     {
@@ -1485,6 +1485,28 @@
       "module": "internal/services/workflow31/service",
       "methods": [
         {
+          "name": "ApplyPatch",
+          "bindingId": "153961442",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRevision",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "commands",
+              "optional": false,
+              "type": "authoring$0.Command[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.PatchView>"
+        },
+        {
           "name": "CancelAllRuns",
           "bindingId": "2211038583",
           "parameters": [],
@@ -1503,11 +1525,11 @@
           "returns": "$CancellablePromise<$models.RunView>"
         },
         {
-          "name": "CompileDraft",
-          "bindingId": "1136108380",
+          "name": "CompileSource",
+          "bindingId": "2342957992",
           "parameters": [
             {
-              "name": "sourceJSON",
+              "name": "workflowID",
               "optional": false,
               "type": "string"
             }
@@ -1569,21 +1591,16 @@
           "returns": "$CancellablePromise<$models.SourceView[]>"
         },
         {
-          "name": "SaveSource",
-          "bindingId": "3628422128",
+          "name": "PreviewRun",
+          "bindingId": "1777815441",
           "parameters": [
             {
-              "name": "sourceJSON",
+              "name": "workflowID",
               "optional": false,
               "type": "string"
-            },
-            {
-              "name": "baseRevision",
-              "optional": false,
-              "type": "number"
             }
           ],
-          "returns": "$CancellablePromise<$models.SourceView>"
+          "returns": "$CancellablePromise<application$0.RunPreview>"
         },
         {
           "name": "StartRun",
@@ -1601,6 +1618,37 @@
     }
   ],
   "models": [
+    {
+      "module": "internal/application/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "RunPreview",
+          "fields": [
+            {
+              "name": "\"sourceHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"programHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"diagnostics\"",
+              "optional": false,
+              "type": "schema$0.Diagnostic[]"
+            },
+            {
+              "name": "\"capabilityPlan\"",
+              "optional": false,
+              "type": "capability$0.PlanEntry[]"
+            }
+          ]
+        }
+      ]
+    },
     {
       "module": "internal/artifact/models",
       "declarations": [
@@ -1813,6 +1861,167 @@
               "name": "\"size\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/capability/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "PlanEntry",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"requirement\"",
+              "optional": false,
+              "type": "Requirement"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Ref",
+          "fields": [
+            {
+              "name": "\"capabilityId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semanticDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Requirement",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"capability\"",
+              "optional": false,
+              "type": "Ref"
+            },
+            {
+              "name": "\"operations\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"targetSlot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"credentialSlot\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"scope\"",
+              "optional": false,
+              "type": "json$0.RawMessage"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/datatype/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "TypeExpression",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "TypeExpressionKind"
+            },
+            {
+              "name": "\"ref\"",
+              "optional": true,
+              "type": "TypeRef | null"
+            },
+            {
+              "name": "\"element\"",
+              "optional": true,
+              "type": "TypeExpression | null"
+            },
+            {
+              "name": "\"members\"",
+              "optional": true,
+              "type": "TypeExpression[]"
+            },
+            {
+              "name": "\"variable\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"constraints\"",
+              "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "TypeExpressionKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "TypeExpressionRef",
+              "value": "\"ref\""
+            },
+            {
+              "name": "TypeExpressionList",
+              "value": "\"list\""
+            },
+            {
+              "name": "TypeExpressionUnion",
+              "value": "\"union\""
+            },
+            {
+              "name": "TypeExpressionVariable",
+              "value": "\"variable\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TypeRef",
+          "fields": [
+            {
+              "name": "\"typeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semanticDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
             }
           ]
         }
@@ -4167,17 +4376,6 @@
         },
         {
           "kind": "class",
-          "name": "MCPSettings",
-          "fields": [
-            {
-              "name": "\"armed\"",
-              "optional": false,
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "MouseProfile",
           "fields": [
             {
@@ -4215,11 +4413,6 @@
               "name": "\"ai\"",
               "optional": false,
               "type": "AISettings"
-            },
-            {
-              "name": "\"mcp\"",
-              "optional": false,
-              "type": "MCPSettings"
             }
           ]
         },
@@ -5035,6 +5228,22 @@
         },
         {
           "kind": "class",
+          "name": "PatchView",
+          "fields": [
+            {
+              "name": "\"source\"",
+              "optional": false,
+              "type": "SourceView"
+            },
+            {
+              "name": "\"generatedNodes\"",
+              "optional": false,
+              "type": "authoring$0.GeneratedNode[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "RunView",
           "fields": [
             {
@@ -5231,6 +5440,481 @@
       ]
     },
     {
+      "module": "internal/workflow/authoring/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "AddNodeCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeTypeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"handle\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "schema$0.Position"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AddStateVariableCommand",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "datatype$0.TypeExpression"
+            },
+            {
+              "name": "\"default\"",
+              "optional": false,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BindBlobCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BindValueCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Command",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "CommandKind"
+            },
+            {
+              "name": "\"renameWorkflow\"",
+              "optional": true,
+              "type": "RenameWorkflowCommand | null"
+            },
+            {
+              "name": "\"addStateVariable\"",
+              "optional": true,
+              "type": "AddStateVariableCommand | null"
+            },
+            {
+              "name": "\"removeStateVariable\"",
+              "optional": true,
+              "type": "RemoveStateVariableCommand | null"
+            },
+            {
+              "name": "\"addNode\"",
+              "optional": true,
+              "type": "AddNodeCommand | null"
+            },
+            {
+              "name": "\"removeNode\"",
+              "optional": true,
+              "type": "NodeCommand | null"
+            },
+            {
+              "name": "\"moveNode\"",
+              "optional": true,
+              "type": "MoveNodeCommand | null"
+            },
+            {
+              "name": "\"setNodeLabel\"",
+              "optional": true,
+              "type": "SetNodeLabelCommand | null"
+            },
+            {
+              "name": "\"setNodeDisabled\"",
+              "optional": true,
+              "type": "SetNodeDisabledCommand | null"
+            },
+            {
+              "name": "\"setConfig\"",
+              "optional": true,
+              "type": "SetConfigCommand | null"
+            },
+            {
+              "name": "\"clearConfig\"",
+              "optional": true,
+              "type": "FieldCommand | null"
+            },
+            {
+              "name": "\"bindValue\"",
+              "optional": true,
+              "type": "BindValueCommand | null"
+            },
+            {
+              "name": "\"bindDefault\"",
+              "optional": true,
+              "type": "PortCommand | null"
+            },
+            {
+              "name": "\"bindBlob\"",
+              "optional": true,
+              "type": "BindBlobCommand | null"
+            },
+            {
+              "name": "\"clearBinding\"",
+              "optional": true,
+              "type": "PortCommand | null"
+            },
+            {
+              "name": "\"connect\"",
+              "optional": true,
+              "type": "EdgeCommand | null"
+            },
+            {
+              "name": "\"disconnect\"",
+              "optional": true,
+              "type": "EdgeCommand | null"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "CommandKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "CommandRenameWorkflow",
+              "value": "\"rename-workflow\""
+            },
+            {
+              "name": "CommandAddStateVariable",
+              "value": "\"add-state-variable\""
+            },
+            {
+              "name": "CommandRemoveStateVariable",
+              "value": "\"remove-state-variable\""
+            },
+            {
+              "name": "CommandAddNode",
+              "value": "\"add-node\""
+            },
+            {
+              "name": "CommandRemoveNode",
+              "value": "\"remove-node\""
+            },
+            {
+              "name": "CommandMoveNode",
+              "value": "\"move-node\""
+            },
+            {
+              "name": "CommandSetNodeLabel",
+              "value": "\"set-node-label\""
+            },
+            {
+              "name": "CommandSetNodeDisabled",
+              "value": "\"set-node-disabled\""
+            },
+            {
+              "name": "CommandSetConfig",
+              "value": "\"set-config\""
+            },
+            {
+              "name": "CommandClearConfig",
+              "value": "\"clear-config\""
+            },
+            {
+              "name": "CommandBindValue",
+              "value": "\"bind-value\""
+            },
+            {
+              "name": "CommandBindDefault",
+              "value": "\"bind-default\""
+            },
+            {
+              "name": "CommandBindBlob",
+              "value": "\"bind-blob\""
+            },
+            {
+              "name": "CommandClearBinding",
+              "value": "\"clear-binding\""
+            },
+            {
+              "name": "CommandConnect",
+              "value": "\"connect\""
+            },
+            {
+              "name": "CommandDisconnect",
+              "value": "\"disconnect\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "EdgeCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"edge\"",
+              "optional": false,
+              "type": "schema$0.Edge"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FieldCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"fieldId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GeneratedNode",
+          "fields": [
+            {
+              "name": "\"commandIndex\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"handle\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MoveNodeCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "schema$0.Position"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "NodeCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PortCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RemoveStateVariableCommand",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RenameWorkflowCommand",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SetConfigCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"fieldId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SetNodeDisabledCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"disabled\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SetNodeLabelCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/workflow/schema/models",
       "declarations": [
         {
@@ -5307,6 +5991,81 @@
               "name": "\"value\"",
               "optional": true,
               "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Edge",
+          "fields": [
+            {
+              "name": "\"channel\"",
+              "optional": false,
+              "type": "EdgeChannel"
+            },
+            {
+              "name": "\"from\"",
+              "optional": false,
+              "type": "Endpoint"
+            },
+            {
+              "name": "\"to\"",
+              "optional": false,
+              "type": "Endpoint"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "EdgeChannel",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "EdgeData",
+              "value": "\"data\""
+            },
+            {
+              "name": "EdgeExec",
+              "value": "\"exec\""
+            },
+            {
+              "name": "EdgeError",
+              "value": "\"error\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Endpoint",
+          "fields": [
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Position",
+          "fields": [
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         },

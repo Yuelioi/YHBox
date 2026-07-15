@@ -1,0 +1,786 @@
+{
+  "$defs": {
+    "AddNodeCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        },
+        "nodeTypeId": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeTypeId",
+        "position"
+      ],
+      "type": "object"
+    },
+    "AddStateVariableCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/JSONValue"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default"
+      ],
+      "type": "object"
+    },
+    "BindBlobCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "portId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "portId",
+        "blob"
+      ],
+      "type": "object"
+    },
+    "BindValueCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "portId": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JSONValue"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "portId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "BlobRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 255,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9!#$\u0026^_.+-]+/[a-z0-9][a-z0-9!#$\u0026^_.+-]+$",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mediaType",
+        "digest",
+        "size"
+      ],
+      "type": "object"
+    },
+    "Command": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "rename-workflow"
+            },
+            "renameWorkflow": {
+              "$ref": "#/$defs/RenameWorkflowCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "renameWorkflow"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addStateVariable": {
+              "$ref": "#/$defs/AddStateVariableCommand"
+            },
+            "kind": {
+              "const": "add-state-variable"
+            }
+          },
+          "required": [
+            "kind",
+            "addStateVariable"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-state-variable"
+            },
+            "removeStateVariable": {
+              "$ref": "#/$defs/RemoveStateVariableCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeStateVariable"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addNode": {
+              "$ref": "#/$defs/AddNodeCommand"
+            },
+            "kind": {
+              "const": "add-node"
+            }
+          },
+          "required": [
+            "kind",
+            "addNode"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-node"
+            },
+            "removeNode": {
+              "$ref": "#/$defs/NodeCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeNode"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "move-node"
+            },
+            "moveNode": {
+              "$ref": "#/$defs/MoveNodeCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "moveNode"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "set-node-label"
+            },
+            "setNodeLabel": {
+              "$ref": "#/$defs/SetNodeLabelCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "setNodeLabel"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "set-node-disabled"
+            },
+            "setNodeDisabled": {
+              "$ref": "#/$defs/SetNodeDisabledCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "setNodeDisabled"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "set-config"
+            },
+            "setConfig": {
+              "$ref": "#/$defs/SetConfigCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "setConfig"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "clearConfig": {
+              "$ref": "#/$defs/FieldCommand"
+            },
+            "kind": {
+              "const": "clear-config"
+            }
+          },
+          "required": [
+            "kind",
+            "clearConfig"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bindValue": {
+              "$ref": "#/$defs/BindValueCommand"
+            },
+            "kind": {
+              "const": "bind-value"
+            }
+          },
+          "required": [
+            "kind",
+            "bindValue"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bindDefault": {
+              "$ref": "#/$defs/PortCommand"
+            },
+            "kind": {
+              "const": "bind-default"
+            }
+          },
+          "required": [
+            "kind",
+            "bindDefault"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bindBlob": {
+              "$ref": "#/$defs/BindBlobCommand"
+            },
+            "kind": {
+              "const": "bind-blob"
+            }
+          },
+          "required": [
+            "kind",
+            "bindBlob"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "clearBinding": {
+              "$ref": "#/$defs/PortCommand"
+            },
+            "kind": {
+              "const": "clear-binding"
+            }
+          },
+          "required": [
+            "kind",
+            "clearBinding"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "connect": {
+              "$ref": "#/$defs/EdgeCommand"
+            },
+            "kind": {
+              "const": "connect"
+            }
+          },
+          "required": [
+            "kind",
+            "connect"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "disconnect": {
+              "$ref": "#/$defs/EdgeCommand"
+            },
+            "kind": {
+              "const": "disconnect"
+            }
+          },
+          "required": [
+            "kind",
+            "disconnect"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "data",
+            "exec",
+            "error"
+          ],
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/Endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/Endpoint"
+        }
+      },
+      "required": [
+        "channel",
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "EdgeCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "edge": {
+          "$ref": "#/$defs/Edge"
+        },
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "edge"
+      ],
+      "type": "object"
+    },
+    "Endpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "portId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeId",
+        "portId"
+      ],
+      "type": "object"
+    },
+    "FieldCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "type": "string"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "fieldId"
+      ],
+      "type": "object"
+    },
+    "JSONValue": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JSONValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JSONValue"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "MoveNodeCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "position"
+      ],
+      "type": "object"
+    },
+    "NodeCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId"
+      ],
+      "type": "object"
+    },
+    "PortCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "portId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "portId"
+      ],
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "RemoveStateVariableCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "RenameWorkflowCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SetConfigCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "type": "string"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JSONValue"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "fieldId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "SetNodeDisabledCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "disabled"
+      ],
+      "type": "object"
+    },
+    "SetNodeLabelCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "label"
+      ],
+      "type": "object"
+    },
+    "TypeExpression": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ref",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/TypeRef"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "element": {
+              "$ref": "#/$defs/TypeExpression"
+            },
+            "kind": {
+              "const": "list",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "element"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "union",
+              "type": "string"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/TypeExpression"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "members"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "constraints": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "kind": {
+              "const": "variable",
+              "type": "string"
+            },
+            "variable": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "variable"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "TypeExpression"
+    },
+    "TypeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "typeId": {
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "typeId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://yottaapp.dev/contracts/workflow/3.1/authoring-patch.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "baseRevision": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "commands": {
+      "items": {
+        "$ref": "#/$defs/Command"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "type": "array"
+    },
+    "workflowId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workflowId",
+    "baseRevision",
+    "commands"
+  ],
+  "title": "Yotta Workflow Authoring Patch 3.1",
+  "type": "object"
+}

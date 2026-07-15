@@ -15,9 +15,11 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
@@ -30,6 +32,7 @@ var (
 
 type Config struct {
 	Catalog           nodecatalog.Snapshot
+	Authoring         nodeauthoring.Snapshot
 	CompilerBuild     artifact.Digest
 	Sources           *workflowstore.SourceStore
 	Programs          *workflowstore.ProgramStore
@@ -64,6 +67,18 @@ type StartRunResult struct {
 	Record      run31.Record
 }
 
+type ApplyPatchResult struct {
+	Source         workflowstore.SourceSnapshot
+	GeneratedNodes []authoring.GeneratedNode
+}
+
+type RunPreview struct {
+	SourceHash     artifact.Digest        `json:"sourceHash,omitempty"`
+	ProgramHash    artifact.Digest        `json:"programHash,omitempty"`
+	Diagnostics    []schema.Diagnostic    `json:"diagnostics"`
+	CapabilityPlan []capability.PlanEntry `json:"capabilityPlan"`
+}
+
 type jobState uint8
 
 const (
@@ -86,6 +101,8 @@ const (
 
 type Application struct {
 	catalog           nodecatalog.Snapshot
+	authoring         nodeauthoring.Snapshot
+	authoringEngine   *authoring.Engine
 	compiler          *compiler.Compiler
 	sources           *workflowstore.SourceStore
 	programs          *workflowstore.ProgramStore
@@ -110,9 +127,14 @@ type Application struct {
 }
 
 func New(config Config) (*Application, error) {
-	if !config.Catalog.Valid() || !config.CompilerBuild.Valid() || config.Sources == nil || config.Programs == nil ||
+	if !config.Catalog.Valid() || !config.Authoring.Valid() || config.Authoring.CatalogHash() != config.Catalog.Hash() ||
+		!config.CompilerBuild.Valid() || config.Sources == nil || config.Programs == nil ||
 		config.Runs == nil || config.Admitter == nil || config.Executor == nil || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("application requires trusted contracts, stores, admission, executor, and owner timeout")
+	}
+	authoringEngine, err := authoring.New(config.Catalog, config.Authoring, nil)
+	if err != nil {
+		return nil, fmt.Errorf("construct authoring engine: %w", err)
 	}
 	if config.Now == nil {
 		config.Now = time.Now
@@ -122,7 +144,8 @@ func New(config Config) (*Application, error) {
 		providers[id] = provider
 	}
 	return &Application{
-		catalog: config.Catalog, compiler: compiler.New(config.CompilerBuild), sources: config.Sources,
+		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
+		compiler: compiler.New(config.CompilerBuild), sources: config.Sources,
 		programs: config.Programs, runs: config.Runs, admitter: config.Admitter, executor: config.Executor,
 		providers: providers, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		now: config.Now, onRunEvent: config.OnRunEvent, state: stateNew, wake: make(chan struct{}, 1), jobs: make(map[string]*runJob),
@@ -178,22 +201,74 @@ func (a *Application) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Application) CompileDraft(ctx context.Context, raw []byte) (compiler.CompileResult, error) {
+// CompileSource compiles one durable revision. External authoring clients use
+// this command instead of submitting an untrusted replacement document.
+func (a *Application) CompileSource(ctx context.Context, workflowID string) (compiler.CompileResult, error) {
+	if ctx == nil {
+		return compiler.CompileResult{}, errors.New("compile Workflow Source context is required")
+	}
 	a.commandMu.RLock()
 	defer a.commandMu.RUnlock()
 	if err := a.requireRunning(); err != nil {
 		return compiler.CompileResult{}, err
 	}
-	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: raw, Catalog: a.catalog})
+	source, err := a.sources.Load(workflowID)
+	if err != nil {
+		return compiler.CompileResult{}, err
+	}
+	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source.Artifact(), Catalog: a.catalog})
 }
 
-func (a *Application) SaveSource(ctx context.Context, raw []byte, baseRevision int64) (workflowstore.SourceSnapshot, error) {
+// ApplyPatch is the sole external mutation path for an existing Workflow
+// Source. The command batch is reduced atomically and persisted with revision
+// CAS; a failed command never publishes a partial source.
+func (a *Application) ApplyPatch(ctx context.Context, request authoring.PatchRequest) (ApplyPatchResult, error) {
+	if ctx == nil {
+		return ApplyPatchResult{}, errors.New("apply Workflow patch context is required")
+	}
 	a.commandMu.RLock()
 	defer a.commandMu.RUnlock()
 	if err := a.requireRunning(); err != nil {
-		return workflowstore.SourceSnapshot{}, err
+		return ApplyPatchResult{}, err
 	}
-	return a.sources.Save(ctx, raw, baseRevision)
+	snapshot, err := a.sources.Load(request.WorkflowID)
+	if err != nil {
+		return ApplyPatchResult{}, err
+	}
+	if snapshot.Revision() != request.BaseRevision {
+		return ApplyPatchResult{}, workflowstore.ErrSourceConflict
+	}
+	source, diagnostics := schema.ParseSource(snapshot.Artifact())
+	if len(diagnostics) != 0 {
+		return ApplyPatchResult{}, errors.New("stored Workflow Source failed strict reopen")
+	}
+	applied, err := a.authoringEngine.Apply(source, request.Commands)
+	if err != nil {
+		return ApplyPatchResult{}, err
+	}
+	next, saveErr := a.sources.Save(ctx, applied.Artifact, request.BaseRevision)
+	return ApplyPatchResult{
+		Source: next, GeneratedNodes: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
+	}, saveErr
+}
+
+// PreviewRun performs the exact stored-source compilation used by StartRun and
+// returns the frozen capability requirements without admission or effects.
+func (a *Application) PreviewRun(ctx context.Context, workflowID string) (RunPreview, error) {
+	compiled, err := a.CompileSource(ctx, workflowID)
+	preview := RunPreview{
+		SourceHash:     compiled.SourceHash,
+		Diagnostics:    append([]schema.Diagnostic(nil), compiled.Diagnostics...),
+		CapabilityPlan: []capability.PlanEntry{},
+	}
+	if err != nil {
+		return preview, err
+	}
+	if program, ok := compiled.Program(); ok {
+		preview.ProgramHash = program.Hash()
+		preview.CapabilityPlan = program.CapabilityPlan().Entries()
+	}
+	return preview, nil
 }
 
 // CreateSource creates the only valid empty authoring root. IDs and structural
@@ -281,6 +356,8 @@ func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot
 func (a *Application) ListSources() []workflowstore.SourceSnapshot { return a.sources.List() }
 
 func (a *Application) CatalogArtifact() []byte { return a.catalog.Bytes() }
+
+func (a *Application) AuthoringProjection() nodeauthoring.Snapshot { return a.authoring }
 
 func (a *Application) CancelRun(ctx context.Context, runID string) (run31.Record, error) {
 	if ctx == nil {

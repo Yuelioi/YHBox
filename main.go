@@ -136,7 +136,7 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow runtime init")
 	}
-	workflowSvc, err := workflow31.NewService(workflowRuntime.Application, workflowRuntime.Builtins)
+	workflowSvc, err := workflow31.NewService(workflowRuntime.Application)
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow service init")
 	}

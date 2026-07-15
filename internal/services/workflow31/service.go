@@ -5,13 +5,12 @@ package workflow31
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
@@ -21,18 +20,15 @@ type Service struct {
 	authoring   nodeauthoring.Snapshot
 }
 
-func NewService(application *app31.Application, builtins nodes31.Builtins) (*Service, error) {
+func NewService(application *app31.Application) (*Service, error) {
 	if application == nil {
 		return nil, errors.New("workflow service requires Application")
 	}
-	authoring, err := nodeauthoring.Project(nodeauthoring.Input{
-		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
-		Contracts: builtins.Contracts, GeneratorVersion: "v1",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("build workflow authoring projection: %w", err)
+	projection := application.AuthoringProjection()
+	if !projection.Valid() {
+		return nil, errors.New("workflow service requires trusted Authoring Projection")
 	}
-	return &Service{application: application, authoring: authoring}, nil
+	return &Service{application: application, authoring: projection}, nil
 }
 
 type SourceView struct {
@@ -98,12 +94,23 @@ type StartRunView struct {
 	Run         *RunView            `json:"run,omitempty"`
 }
 
-func (s *Service) SaveSource(sourceJSON string, baseRevision int64) (SourceView, error) {
-	snapshot, err := s.application.SaveSource(context.Background(), []byte(sourceJSON), baseRevision)
+type PatchView struct {
+	Source         SourceView                `json:"source"`
+	GeneratedNodes []authoring.GeneratedNode `json:"generatedNodes"`
+}
+
+func (s *Service) ApplyPatch(workflowID string, baseRevision int64, commands []authoring.Command) (PatchView, error) {
+	result, err := s.application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: workflowID, BaseRevision: baseRevision, Commands: commands,
+	})
 	if err != nil {
-		return SourceView{}, err
+		return PatchView{}, err
 	}
-	return sourceView(snapshot, true)
+	view, err := sourceView(result.Source, true)
+	if err != nil {
+		return PatchView{}, err
+	}
+	return PatchView{Source: view, GeneratedNodes: result.GeneratedNodes}, nil
 }
 
 func (s *Service) CreateSource(name string) (SourceView, error) {
@@ -135,13 +142,17 @@ func (s *Service) ListSources() ([]SourceView, error) {
 	return result, nil
 }
 
-func (s *Service) CompileDraft(sourceJSON string) (CompileView, error) {
-	result, err := s.application.CompileDraft(context.Background(), []byte(sourceJSON))
+func (s *Service) CompileSource(workflowID string) (CompileView, error) {
+	result, err := s.application.CompileSource(context.Background(), workflowID)
 	view := CompileView{SourceHash: result.SourceHash, Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...)}
 	if program, ok := result.Program(); ok {
 		view.ProgramHash = program.Hash()
 	}
 	return view, err
+}
+
+func (s *Service) PreviewRun(workflowID string) (app31.RunPreview, error) {
+	return s.application.PreviewRun(context.Background(), workflowID)
 }
 
 func (s *Service) StartRun(workflowID string) (StartRunView, error) {

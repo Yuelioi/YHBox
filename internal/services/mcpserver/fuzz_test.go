@@ -4,29 +4,25 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/node"
-
-	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/workflow/authoring"
 )
 
-func FuzzMCPNodeParams(f *testing.F) {
-	f.Add("Sleep", []byte(`{"DurationMs":10}`))
-	f.Add("ClickAt", []byte(`{"Point":{"x":0.5,"y":0.5},"Button":"left"}`))
-	f.Add("unknown", []byte(`{}`))
-	f.Fuzz(func(t *testing.T, kind string, raw []byte) {
-		if len(kind) > 256 || len(raw) > 64<<10 {
+func FuzzMCPPatchCommands(f *testing.F) {
+	f.Add([]byte(`{"workflowId":"wf","baseRevision":0,"commands":[{"kind":"rename-workflow","renameWorkflow":{"name":"ok"}}]}`))
+	f.Add([]byte(`{"workflowId":"wf","baseRevision":0,"commands":[{"kind":"add-node","moveNode":{}}]}`))
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		if len(raw) > 1<<20 {
 			t.Skip()
 		}
-		var params map[string]any
-		if json.Unmarshal(raw, &params) != nil {
+		var request WorkflowApplyPatchRequest
+		if json.Unmarshal(raw, &request) != nil {
 			return
 		}
-		container, _, err := buildMicroContainerWithRegistry(node.DefaultRegistrySnapshot(), kind, params)
-		if err != nil {
+		if len(request.Commands) > authoring.MaxCommands {
 			return
 		}
-		if _, err := json.Marshal(container); err != nil {
-			t.Fatalf("micro-container cannot be encoded: %v", err)
+		for _, command := range request.Commands {
+			_ = command.Validate()
 		}
 	})
 }

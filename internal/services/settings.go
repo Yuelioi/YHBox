@@ -30,13 +30,6 @@ type Settings struct {
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
 	AI      AISettings      `json:"ai"`      // AI 连接配置
-	MCP     MCPSettings     `json:"mcp"`     // MCP 对外暴露开关
-}
-
-// MCPSettings 控制对外 MCP server 的「武装」状态。Armed=false (默认) 时
-// 会改变世界的工具 (run_node/save_container) 拒绝执行, 只读工具不受闸。
-type MCPSettings struct {
-	Armed bool `json:"armed"`
 }
 
 // AISettings AI 连接配置。Default 指向某 connection.ID = 新建 AI 节点缺省连接;
