@@ -6,19 +6,18 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-Script 3.1 隔离执行的 Windows 生产 launcher 已提交为 `c1fd1bce`：独立最小 worker 通过 LPAC/AppContainer、原子 Job Object、显式 pipe handle allowlist、净化环境、active-process/memory/CPU/UI/child-process limits 和 parent/worker 双重 token/job 验证执行。worker 制品按 SHA-256 内容寻址复制到 AppContainer profile，逐次复验并修复篡改；取消直接终止整个 Job。Linux/macOS 保持 fail closed，没有普通子进程或进程内 fallback。
+Script 3.1 已作为唯一生产脚本节点提交为 `2ee6164b`：Node Contract 使用 `in → completed` 与 `failed` 的显式信号，不存在通用 `out`；源码配置、JSON 输入/结果、timeout、retry/cache/cancellation、8 类稳定错误和 recorded action journal 全部进入 3.1 契约。Application 只能注入 sealed `scriptengine.Runtime`，Windows 精确发布 LPAC/AppContainer/Job host feature，Compiler/Program/Admission/Authoring Projection 共同冻结并在任何 policy/provider/RunStore effect 前验证；Linux/macOS 不发布该 feature 并 fail closed。
 
-Windows 10 22H2 真机 smoke、取消、staged binary 篡改修复、脚本模块 race、全仓 `go test ./...` 与 `go vet ./...` 已通过；独立 worker 已进入 build/sign/portable staging/NSIS 和 Windows canonical gate。下一步只接入 Script 3.1 Node Contract/runtime journal/Application/code Authoring Projection。
+Windows 10 22H2 真机隔离/取消/篡改修复 smoke、script/runtime race、Linux/macOS core cross-compile 与完整 `task check` 已通过：Go coverage 65.3%，frontend 100 files / 646 tests，production bundle entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes。当前 frontier 转到 remaining effects，按 I/O/system → input/window/image/automation 迁移 exact Capability/Target/Credential binding 和 journal。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. script isolation：接入 Script 3.1 contract、runtime action journal、Application composition 和 code Authoring Projection；生成 catalog/schema/TypeScript/Markdown 后删除旧 script service/node。
-2. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant 与 exact target/credential binding。
-3. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
-4. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
-5. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
+1. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
+2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
+3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
+4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
 
 ## Read now
 
@@ -49,6 +48,7 @@ Windows 10 22H2 真机 smoke、取消、staged binary 篡改修复、脚本模�
 ## Progress
 
 Done:
+- 完成 Script 3.1 production vertical slice：显式 signal/data 端口、strict code/JSON/timeout authoring、recorded journal、sealed runtime composition、精确 host feature requirement 与 admission fail-before-effect；Windows worker 自构建门禁使真实 LPAC 测试不再静默跳过，完整 `task check` 全绿，提交 `2ee6164b`。
 - 完成 Windows Script 3.1 fail-closed launcher：独立最小 worker、LPAC/AppContainer、atomic Job Object、显式句柄/环境 allowlist、parent/worker 双重 confinement 验证、content-addressed staging/tamper repair、取消 kill；build/sign/portable/NSIS/canonical Windows smoke 全部携带并验证 worker，提交 `c1fd1bce`。
 - 完成 Script 3.1 worker core：sealed canonical frame、strict typed JSON ABI、deterministic seed/virtual clock、zero ambient authority、资源预算、稳定错误分类与 one-shot process entry；没有导出 in-process evaluator，提交 `307d7f74`。
 - 完成 Script 3.1 隔离执行研究：确认 goja.Interrupt 无法中断 native binding 且无 heap quota，因此移除 ambient ScriptBindable/任意 Go object bridge；采用一次性 worker、canonical typed JSON ABI、确定性时钟/随机、attempt/action journal。Windows 生产路径要求 LPAC/AppContainer + 原子 Job Object；其他平台在等价隔离落地前 fail closed。研究提交 `8a9bf2cb`。
@@ -126,9 +126,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- activation-scoped control region 已完成；当前 frontier 是 effect migration，先迁移 AI/script，再按 I/O/system、input/window/image/automation 收口 Capability、Run Grant 与 attempt/action journal。legacy purefunc、random、variable、control/event 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
+- Script 3.1 已完成；当前 frontier 是 remaining effects，先迁移 I/O/system，再按 input/window/image/automation 收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
 
 Verified:
+- Script 3.1 production vertical slice 提交 `2ee6164b`（2026-07-16）：完整 `task check` 全绿；Go coverage 65.3%，frontend 100 files / 646 tests，Wails contract、vet/staticcheck/typecheck/i18n/build 全绿，entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes；Windows LPAC/AppContainer/Job 真机 smoke、取消、篡改修复、聚焦 race 与 Linux/macOS core cross-compile 通过。
 - activation-scoped control region 提交 `1f122ef3`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 646 tests、i18n 3276 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,750 / 350,000 bytes、editor 92,312 / 200,000 bytes；嵌套 region 信号传播、显式 Retry error route、多入口 body 拒绝、exact instruction union 与 host-instruction ABI 回归通过。
 - typed authoring/MCP 提交 `b4aa17aa`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 645 tests、i18n 3270 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,398 / 350,000 bytes、editor 92,152 / 200,000 bytes；MCP in-process structuredContent/output schema 与显式分页上限回归通过。
 - explicit signal flow 提交 `8b567939`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3294 keys、Wails contract 15 services / 129 methods / 118 models，entry 329,171 / 350,000 bytes、editor 91,571 / 200,000 bytes；contracts strict check 与 production build 全绿。
@@ -175,4 +176,6 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
+
 

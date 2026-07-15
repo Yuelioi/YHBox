@@ -15,7 +15,11 @@ On Windows, a runnable worker is a separate minimal headless executable and requ
 
 The signed worker source executable is SHA-256 staged by content address inside the AppContainer profile. Every attempt rehashes the staged file, repairs tampering atomically and re-verifies after copy; runtime serialization prevents an earlier attempt racing a later staged image. Build, installer and portable manifests must ship the adjacent `Yotta.ScriptWorker.exe`, and the canonical Windows gate runs the real confinement/cancellation/tamper smoke.
 
+The Script Node Contract declares the exact host feature `https://schemas.yotta.dev/host-features/script-isolation/lpac-appcontainer-job/v1`. The sealed production runtime is the only component allowed to publish that feature; Compiler/Program freeze the requirement and Admission rejects `admission.unsupported_host` before policy, provider or Run Store effects. Authoring Projection exposes host-required availability from the same contract—UI code never guesses platform support.
+
 Linux and macOS may compile the GUI and test platform-neutral protocol/engine code, but script execution must return `script.isolation_unavailable` until an equivalent launcher exists. There is no in-process or weaker subprocess fallback.
 
 Only pure script computation may be replayed. Host effects must later use planned action → execute → durable receipt, and ambiguous worker death is never blindly retried. Journal stable codes, digests and counters; never persist source, input, output, credentials, or other sensitive payloads.
+
+
 
