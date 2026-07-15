@@ -15,6 +15,14 @@ func ResolveWindow(context.Context, MatchSpec, time.Duration, time.Duration) (Wi
 	return WindowHandle{}, platform.NewUnsupportedError("native window resolution")
 }
 
+func ResolveUniqueExecutableWindow(context.Context, string, string, string, time.Duration, time.Duration) (WindowHandle, error) {
+	return WindowHandle{}, platform.NewUnsupportedError("exact executable window resolution")
+}
+
+func VerifyExecutableWindow(uintptr, string, string, string) (WindowHandle, error) {
+	return WindowHandle{}, platform.NewUnsupportedError("exact executable window verification")
+}
+
 func WaitWindowGone(context.Context, MatchSpec, time.Duration, time.Duration) error {
 	return platform.NewUnsupportedError("native window wait")
 }

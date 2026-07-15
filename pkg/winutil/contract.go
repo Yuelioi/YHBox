@@ -19,6 +19,9 @@ var (
 	ErrWindowNotFound = errors.New("窗口未找到")
 	// ErrWindowStillPresent lets callers classify an exhausted wait timeout with errors.Is.
 	ErrWindowStillPresent = errors.New("窗口仍存在")
+	// ErrWindowAmbiguous reports that an exact selector resolved multiple
+	// visible top-level windows. Callers must narrow the installed selector.
+	ErrWindowAmbiguous = errors.New("窗口目标不唯一")
 )
 
 // IsEmptyMatch rejects selectors that are blank or effectively match every title.

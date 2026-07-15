@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -268,6 +269,14 @@ func getWindowPID(hwnd win.HWND) uint32 {
 // queryProcessName 用 PROCESS_QUERY_LIMITED_INFORMATION 跨权限读 exe basename.
 // 不能用 PROCESS_QUERY_INFORMATION (高权限游戏会 ERROR_ACCESS_DENIED).
 func queryProcessName(pid uint32) (string, error) {
+	full, err := queryProcessPath(pid)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Base(full), nil
+}
+
+func queryProcessPath(pid uint32) (string, error) {
 	if pid == 0 {
 		return "", errors.New("pid zero")
 	}
@@ -286,8 +295,103 @@ func queryProcessName(pid uint32) (string, error) {
 	if size > uint32(len(buf)) {
 		size = uint32(len(buf))
 	}
-	full := syscall.UTF16ToString(buf[:size])
-	return filepath.Base(full), nil
+	return filepath.Clean(syscall.UTF16ToString(buf[:size])), nil
+}
+
+// ResolveUniqueExecutableWindow resolves one visible top-level window owned by
+// the exact installed executable. Title and class are optional exact selectors;
+// multiple matches fail instead of silently selecting by Z order.
+func ResolveUniqueExecutableWindow(ctx context.Context, executable, title, class string, timeout, interval time.Duration) (WindowHandle, error) {
+	if ctx == nil || executable == "" || !filepath.IsAbs(executable) || timeout <= 0 || interval <= 0 {
+		return WindowHandle{}, errors.New("invalid exact executable window selector")
+	}
+	configured, err := os.Stat(executable)
+	if err != nil || !configured.Mode().IsRegular() {
+		return WindowHandle{}, errors.Join(err, errors.New("installed executable is unavailable"))
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		matches := enumExecutableWindows(configured, title, class)
+		switch len(matches) {
+		case 1:
+			return matches[0], nil
+		case 0:
+		default:
+			return WindowHandle{}, ErrWindowAmbiguous
+		}
+		if err := ctx.Err(); err != nil {
+			return WindowHandle{}, err
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return WindowHandle{}, ErrWindowNotFound
+		}
+		wait := min(interval, remaining)
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return WindowHandle{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+// VerifyExecutableWindow revalidates a cached HWND against the exact installed
+// executable and optional exact selectors before each automation operation.
+func VerifyExecutableWindow(handle uintptr, executable, title, class string) (WindowHandle, error) {
+	if handle == 0 || executable == "" || !filepath.IsAbs(executable) || !win.IsWindowVisible(win.HWND(handle)) {
+		return WindowHandle{}, ErrWindowNotFound
+	}
+	metadata, err := WindowMetadata(handle)
+	if err != nil || title != "" && metadata.Title != title || class != "" && metadata.Class != class {
+		return WindowHandle{}, ErrWindowNotFound
+	}
+	configured, err := os.Stat(executable)
+	if err != nil {
+		return WindowHandle{}, err
+	}
+	processPath, err := queryProcessPath(metadata.PID)
+	if err != nil {
+		return WindowHandle{}, err
+	}
+	processFile, err := os.Stat(processPath)
+	if err != nil || !os.SameFile(configured, processFile) {
+		return WindowHandle{}, ErrWindowNotFound
+	}
+	return metadata, nil
+}
+
+func enumExecutableWindows(configured os.FileInfo, title, class string) []WindowHandle {
+	var matches []WindowHandle
+	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
+		if !win.IsWindowVisible(hwnd) {
+			return 1
+		}
+		windowTitle, windowClass := getWindowText(hwnd), getClassName(hwnd)
+		if title != "" && windowTitle != title || class != "" && windowClass != class {
+			return 1
+		}
+		pid := getWindowPID(hwnd)
+		processPath, err := queryProcessPath(pid)
+		if err != nil {
+			return 1
+		}
+		processFile, err := os.Stat(processPath)
+		if err != nil || !os.SameFile(configured, processFile) {
+			return 1
+		}
+		cw, ch := getClientSize(hwnd)
+		matches = append(matches, WindowHandle{
+			HWND: uintptr(hwnd), Title: windowTitle, Class: windowClass,
+			ProcessName: strings.ToLower(filepath.Base(processPath)), PID: pid, ClientW: cw, ClientH: ch,
+		})
+		return 1
+	})
+	procEnumWindows.Call(callback, 0)
+	return matches
 }
 
 func getClientSize(hwnd win.HWND) (int, int) {

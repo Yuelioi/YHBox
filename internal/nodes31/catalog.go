@@ -72,6 +72,8 @@ type Builtins struct {
 	PointUnitType                datatype.Definition
 	PointType                    datatype.Definition
 	RegionType                   datatype.Definition
+	PointerButtonType            datatype.Definition
+	KeyCodeType                  datatype.Definition
 	RandomDistributionType       datatype.Definition
 	DurationMillisecondsType     datatype.Definition
 	FileMetadataType             datatype.Definition
@@ -88,6 +90,7 @@ type Builtins struct {
 	HTTPGetContract              nodecontract.Contract
 	LaunchApplicationContract    nodecontract.Contract
 	TerminateApplicationContract nodecontract.Contract
+	AutomationInputContracts     []nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -127,6 +130,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	jsonType, pointUnitType, pointType, regionType, err := sealExtendedTypes()
+	if err != nil {
+		return Builtins{}, err
+	}
+	pointerButtonType, keyCodeType, err := sealAutomationInputTypes()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -171,6 +178,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	applicationLifecycle, err := sealApplicationLifecycleCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	automationInput, err := sealAutomationInputCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -265,6 +276,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationInputDefinitions, automationInputContracts, err := defineAutomationInputNodes(automationInputTypes{
+		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
+		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
+	}, automationInput)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -281,6 +299,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, filesystemDefinitions...)
 	definitions = append(definitions, httpGetDefinition)
 	definitions = append(definitions, applicationDefinitions...)
+	definitions = append(definitions, automationInputDefinitions...)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -294,8 +313,8 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle}
+	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -304,6 +323,7 @@ func Build() (Builtins, error) {
 		Catalog: catalog, StringType: stringType, BinaryType: binaryType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
+		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
 		FileMetadataType:         fileMetadataType,
@@ -313,7 +333,8 @@ func Build() (Builtins, error) {
 		FileReadTextContract: filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
-		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
+		AutomationInputContracts: automationInputContracts,
+		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }
