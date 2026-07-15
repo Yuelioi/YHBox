@@ -82,6 +82,27 @@ func ParseSource(raw []byte) (WorkflowSource, []Diagnostic) {
 	return source, diagnostics
 }
 
+const sourceDigestDomain = "yotta/workflow-source/v1"
+
+// CanonicalSource validates one editable Workflow Source and returns the
+// canonical artifact and identity shared by storage and compilation. A source
+// with diagnostics never has an executable identity.
+func CanonicalSource(raw []byte) (WorkflowSource, []byte, artifact.Digest, []Diagnostic, error) {
+	source, diagnostics := ParseSource(raw)
+	if len(diagnostics) != 0 {
+		return WorkflowSource{}, nil, "", diagnostics, nil
+	}
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		return WorkflowSource{}, nil, "", nil, fmt.Errorf("canonicalize workflow source: %w", err)
+	}
+	digest, err := artifact.Sum(sourceDigestDomain, canonical)
+	if err != nil {
+		return WorkflowSource{}, nil, "", nil, err
+	}
+	return source, canonical, digest, nil, nil
+}
+
 func decodeValidatedSource(document any, source *WorkflowSource) error {
 	root := document.(map[string]any)
 	canonical := make(map[string]any, len(root))

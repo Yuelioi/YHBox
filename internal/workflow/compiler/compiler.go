@@ -35,8 +35,6 @@ const (
 	CodeDataCycle                = "DATA_CYCLE"
 	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
-
-	sourceDigestDomain = "yotta/workflow-source/v1"
 )
 
 type Diagnostic = schema.Diagnostic
@@ -68,19 +66,15 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	if len(request.SourceJSON) == 0 || len(request.SourceJSON) > MaxSourceBytes {
 		return CompileResult{}, errors.New("workflow source exceeds byte budget")
 	}
-	source, diagnostics := schema.ParseSource(request.SourceJSON)
+	source, _, sourceHash, diagnostics, err := schema.CanonicalSource(request.SourceJSON)
 	result := CompileResult{Diagnostics: diagnostics}
 	if len(diagnostics) != 0 {
 		return result, nil
 	}
-	canonicalSource, err := artifact.Canonicalize(request.SourceJSON)
-	if err != nil {
-		return result, fmt.Errorf("canonicalize workflow source: %w", err)
-	}
-	result.SourceHash, err = artifact.Sum(sourceDigestDomain, canonicalSource)
 	if err != nil {
 		return result, err
 	}
+	result.SourceHash = sourceHash
 	if !request.Catalog.Valid() {
 		result.Diagnostics = []Diagnostic{diagnostic(CodeInvalidCatalog, nil, "")}
 		return result, nil
