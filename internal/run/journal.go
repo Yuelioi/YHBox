@@ -11,6 +11,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/durablefs"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const MaxJournalEntries = 65536
@@ -22,6 +23,7 @@ type JournalKind string
 const (
 	JournalNodeAttempt   JournalKind = "node-attempt"
 	JournalAdapterAction JournalKind = "adapter-action"
+	JournalNodeStatus    JournalKind = "node-status"
 )
 
 type AttemptOutcome string
@@ -31,6 +33,7 @@ const (
 	AttemptSucceeded AttemptOutcome = "succeeded"
 	AttemptFailed    AttemptOutcome = "failed"
 	AttemptCancelled AttemptOutcome = "cancelled"
+	AttemptRouted    AttemptOutcome = "routed"
 )
 
 type ActionOutcome string
@@ -99,19 +102,31 @@ type AdapterActionInput struct {
 	Summary    RedactedSummary
 }
 
+type NodeStatusInput struct {
+	GraphPath  []string
+	NodeID     string
+	Attempt    int
+	Code       string
+	Category   nodecontract.StatusCategory
+	OccurredAt time.Time
+	Summary    RedactedSummary
+}
+
 type journalEntry struct {
-	Sequence       uint64                  `json:"sequence"`
-	Kind           JournalKind             `json:"kind"`
-	GraphPath      []string                `json:"graphPath"`
-	NodeID         string                  `json:"nodeId"`
-	EffectID       string                  `json:"effectId,omitempty"`
-	Attempt        int                     `json:"attempt"`
-	Action         string                  `json:"action,omitempty"`
-	AttemptOutcome AttemptOutcome          `json:"attemptOutcome,omitempty"`
-	ActionOutcome  ActionOutcome           `json:"actionOutcome,omitempty"`
-	OccurredAt     time.Time               `json:"occurredAt"`
-	ErrorCode      string                  `json:"errorCode,omitempty"`
-	Summary        redactedSummaryDocument `json:"summary"`
+	Sequence       uint64                      `json:"sequence"`
+	Kind           JournalKind                 `json:"kind"`
+	GraphPath      []string                    `json:"graphPath"`
+	NodeID         string                      `json:"nodeId"`
+	EffectID       string                      `json:"effectId,omitempty"`
+	Attempt        int                         `json:"attempt"`
+	Action         string                      `json:"action,omitempty"`
+	AttemptOutcome AttemptOutcome              `json:"attemptOutcome,omitempty"`
+	ActionOutcome  ActionOutcome               `json:"actionOutcome,omitempty"`
+	OccurredAt     time.Time                   `json:"occurredAt"`
+	ErrorCode      string                      `json:"errorCode,omitempty"`
+	StatusCode     string                      `json:"statusCode,omitempty"`
+	StatusCategory nodecontract.StatusCategory `json:"statusCategory,omitempty"`
+	Summary        redactedSummaryDocument     `json:"summary"`
 }
 
 type JournalFact struct{ entry journalEntry }
@@ -128,6 +143,8 @@ type JournalEntry struct {
 	ActionOutcome  ActionOutcome
 	OccurredAt     time.Time
 	ErrorCode      string
+	StatusCode     string
+	StatusCategory nodecontract.StatusCategory
 	Summary        RedactedSummaryView
 }
 
@@ -240,6 +257,18 @@ func NewAdapterActionFact(input AdapterActionInput) (JournalFact, error) {
 	return JournalFact{entry: entry}, nil
 }
 
+func NewNodeStatusFact(input NodeStatusInput) (JournalFact, error) {
+	entry := journalEntry{
+		Kind: JournalNodeStatus, GraphPath: append([]string(nil), input.GraphPath...), NodeID: input.NodeID,
+		Attempt: input.Attempt, OccurredAt: input.OccurredAt, StatusCode: input.Code, StatusCategory: input.Category,
+		Summary: cloneSummary(input.Summary.document),
+	}
+	if err := validateJournalFact(entry); err != nil {
+		return JournalFact{}, err
+	}
+	return JournalFact{entry: entry}, nil
+}
+
 func validateJournalFact(entry journalEntry) error {
 	if len(entry.GraphPath) == 0 || len(entry.GraphPath) > 32 || !attributionPattern.MatchString(entry.NodeID) || entry.Attempt < 1 || entry.OccurredAt.Location() != time.UTC || !validSummary(entry.Summary) {
 		return errors.New("invalid Run journal attribution")
@@ -251,12 +280,19 @@ func validateJournalFact(entry journalEntry) error {
 	}
 	switch entry.Kind {
 	case JournalNodeAttempt:
-		if entry.EffectID != "" || entry.Action != "" || entry.ActionOutcome != "" || !validAttemptOutcome(entry.AttemptOutcome) || !validOutcomeError(string(entry.AttemptOutcome), entry.ErrorCode) {
+		if entry.EffectID != "" || entry.Action != "" || entry.ActionOutcome != "" || entry.StatusCode != "" || entry.StatusCategory != "" ||
+			!validAttemptOutcome(entry.AttemptOutcome) || !validOutcomeError(string(entry.AttemptOutcome), entry.ErrorCode) {
 			return errors.New("invalid NodeAttempt fact")
 		}
 	case JournalAdapterAction:
-		if !validAttribution(entry.EffectID) || !runFieldPattern.MatchString(entry.Action) || entry.AttemptOutcome != "" || !validActionOutcome(entry.ActionOutcome) || !validOutcomeError(string(entry.ActionOutcome), entry.ErrorCode) {
+		if !validAttribution(entry.EffectID) || !runFieldPattern.MatchString(entry.Action) || entry.AttemptOutcome != "" || entry.StatusCode != "" || entry.StatusCategory != "" ||
+			!validActionOutcome(entry.ActionOutcome) || !validOutcomeError(string(entry.ActionOutcome), entry.ErrorCode) {
 			return errors.New("invalid AdapterAction fact")
+		}
+	case JournalNodeStatus:
+		if entry.EffectID != "" || entry.Action != "" || entry.AttemptOutcome != "" || entry.ActionOutcome != "" || entry.ErrorCode != "" ||
+			!errorCodePattern.MatchString(entry.StatusCode) || !validStatusCategory(entry.StatusCategory) {
+			return errors.New("invalid NodeStatus fact")
 		}
 	default:
 		return errors.New("invalid Run journal kind")
@@ -300,7 +336,7 @@ func validateJournal(entries []journalEntry, startedAt *time.Time, requireClosed
 				delete(active, attemptKey)
 				terminal[nodeKey] = entry.AttemptOutcome
 			}
-		} else {
+		} else if entry.Kind == JournalAdapterAction {
 			if _, exists := active[attemptKey]; !exists {
 				return ErrJournalOrder
 			}
@@ -308,6 +344,8 @@ func validateJournal(entries []journalEntry, startedAt *time.Time, requireClosed
 			actionState.failed = actionState.failed || entry.ActionOutcome == ActionFailed
 			actionState.cancelled = actionState.cancelled || entry.ActionOutcome == ActionCancelled
 			actions[attemptKey] = actionState
+		} else if _, exists := active[attemptKey]; !exists {
+			return ErrJournalOrder
 		}
 	}
 	if requireClosed && len(active) != 0 {
@@ -315,7 +353,7 @@ func validateJournal(entries []journalEntry, startedAt *time.Time, requireClosed
 	}
 	if requireSucceeded {
 		for _, outcome := range terminal {
-			if outcome != AttemptSucceeded {
+			if outcome != AttemptSucceeded && outcome != AttemptRouted {
 				return ErrJournalOrder
 			}
 		}
@@ -338,16 +376,25 @@ func validSummary(summary redactedSummaryDocument) bool {
 }
 
 func validAttemptOutcome(value AttemptOutcome) bool {
-	return value == AttemptStarted || value == AttemptSucceeded || value == AttemptFailed || value == AttemptCancelled
+	return value == AttemptStarted || value == AttemptSucceeded || value == AttemptFailed || value == AttemptCancelled || value == AttemptRouted
 }
 func validActionOutcome(value ActionOutcome) bool {
 	return value == ActionSucceeded || value == ActionFailed || value == ActionCancelled
 }
 func validOutcomeError(outcome, code string) bool {
-	if outcome == string(AttemptFailed) || outcome == string(ActionFailed) {
+	if outcome == string(AttemptFailed) || outcome == string(AttemptRouted) || outcome == string(ActionFailed) {
 		return errorCodePattern.MatchString(code)
 	}
 	return code == ""
+}
+
+func validStatusCategory(category nodecontract.StatusCategory) bool {
+	switch category {
+	case nodecontract.StatusProgress, nodecontract.StatusWaiting, nodecontract.StatusConnection:
+		return true
+	default:
+		return false
+	}
 }
 func cloneSummary(source redactedSummaryDocument) redactedSummaryDocument {
 	return redactedSummaryDocument{Code: source.Code, Counters: append([]summaryCounter(nil), source.Counters...)}

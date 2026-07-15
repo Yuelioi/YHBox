@@ -441,7 +441,8 @@ func (r Record) Journal() []JournalEntry {
 			Sequence: entry.Sequence, Kind: entry.Kind, GraphPath: append([]string(nil), entry.GraphPath...),
 			NodeID: entry.NodeID, EffectID: entry.EffectID, Attempt: entry.Attempt, Action: entry.Action,
 			AttemptOutcome: entry.AttemptOutcome, ActionOutcome: entry.ActionOutcome, OccurredAt: entry.OccurredAt,
-			ErrorCode: entry.ErrorCode, Summary: RedactedSummaryView{Code: entry.Summary.Code, Counters: counters},
+			ErrorCode: entry.ErrorCode, StatusCode: entry.StatusCode, StatusCategory: entry.StatusCategory,
+			Summary: RedactedSummaryView{Code: entry.Summary.Code, Counters: counters},
 		})
 	}
 	return result

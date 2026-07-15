@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodecontract"
 	run31 "github.com/yottaapp/yotta/internal/run"
 )
 
@@ -124,6 +125,54 @@ func TestRunJournalRejectsInvalidOrderingAndMutableHistory(t *testing.T) {
 	}
 	if _, err := withFailure.AppendJournal(action); !errors.Is(err, run31.ErrJournalOrder) {
 		t.Fatalf("adapter action after terminal attempt = %v", err)
+	}
+}
+
+func TestRunJournalPersistsStatusDuringAttemptAndAllowsRoutedFailure(t *testing.T) {
+	catalog, _ := stringValueCatalog(t)
+	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
+	running, err := queuedRecord(t, queuedAt).Start(queuedAt.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := run31.NewRedactedSummary("node.progress", map[string]int64{"percent": 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := run31.NewNodeStatusFact(run31.NodeStatusInput{
+		GraphPath: []string{"main"}, NodeID: "convert", Attempt: 1, Code: "conversion.progress",
+		Category: nodecontract.StatusProgress, OccurredAt: queuedAt.Add(3 * time.Second), Summary: summary,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := running.AppendJournal(status); !errors.Is(err, run31.ErrJournalOrder) {
+		t.Fatalf("status outside active attempt = %v", err)
+	}
+	startedSummary, err := run31.NewRedactedSummary("node.execute", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := running.AppendJournal(nodeAttemptFact(t, queuedAt.Add(2*time.Second), run31.AttemptStarted, "", startedSummary))
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err = current.AppendJournal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err = current.AppendJournal(nodeAttemptFact(t, queuedAt.Add(4*time.Second), run31.AttemptRouted, "conversion.failed", startedSummary))
+	if err != nil {
+		t.Fatal(err)
+	}
+	succeeded, err := current.Succeed(queuedAt.Add(5*time.Second), catalog, nil)
+	if err != nil {
+		t.Fatalf("handled failure could not complete Run: %v", err)
+	}
+	journal := succeeded.Journal()
+	if len(journal) != 3 || journal[1].Kind != run31.JournalNodeStatus || journal[1].StatusCode != "conversion.progress" ||
+		journal[1].StatusCategory != nodecontract.StatusProgress || journal[2].AttemptOutcome != run31.AttemptRouted {
+		t.Fatalf("journal = %#v", journal)
 	}
 }
 
