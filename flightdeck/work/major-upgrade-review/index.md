@@ -10,7 +10,15 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 
 ## Next
 
-继续完成 control/region 的编译器级语义，loop/foreach/retry 不得复制 legacy kind switch 或 ambient runtime state；Program interpreter 只执行通用冻结 instruction。随后按 AI/script → I/O → input/window/image → listener 顺序迁移副作用与事件源。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并独立 commit。
+剩余工作按以下阶段连续执行；每阶段先完成纵向语义与删除清单，再运行该阶段的 Go/前端/contract 门禁并独立 commit，不保留旧入口、dual-read/write 或运行时 fallback：
+
+1. 共享 typed Workflow authoring command：将 MCP、CLI/debug 的创作与运行面统一到 Workflow 3.1，删除 whole-JSON Container tools 和 legacy MCP runtime。
+2. activation-scoped control/region/event：由 Compiler lower loop/foreach/retry/listener，Program interpreter 只执行通用冻结 instruction，不复制 legacy kind switch 或 ambient state。
+3. effect migration：按 AI/script → I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、attempt/action journal。
+4. composition cutover：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，随后删除 legacy Container runtime、旧 NodeSpec/coercion/dispatch。
+5. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK、conformance fixture；不加载 Go plugin 或第三方前端代码。
+6. projection/docs/cleanup：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs、golden fixture，清除残留旧类型与展示逻辑。
+7. 最终门禁：运行 task check、跨平台/安全/架构 review；只在全部修复后归档 Flightdeck。
 
 ## Read now
 
@@ -159,4 +167,5 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
 
