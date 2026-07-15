@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 )
 
 func TestProtocolRegistersOnlyBoundedWorkflow31Tools(t *testing.T) {
@@ -163,7 +165,7 @@ func testApplication(t *testing.T) *app31.Application {
 			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 1 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: installations, GrantTTL: time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		AIInstallations: installations, ScriptRuntime: mcpScriptRuntime(t), GrantTTL: time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -179,4 +181,16 @@ func testApplication(t *testing.T) *app31.Application {
 		}
 	})
 	return runtime.Application
+}
+
+func mcpScriptRuntime(t *testing.T) *scriptengine.Runtime {
+	t.Helper()
+	runtime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
+		Executable:         filepath.Join(t.TempDir(), scriptengine.WorkerExecutableName),
+		ProcessMemoryBytes: scriptengine.DefaultMemoryBytes, JobMemoryBytes: scriptengine.DefaultMemoryBytes,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runtime
 }

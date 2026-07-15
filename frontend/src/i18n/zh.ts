@@ -798,8 +798,11 @@ export default {
       },
       availability: {
         portable: '跨平台',
+        'host-required': '需要宿主功能',
         'target-required': '需要目标适配器',
+        'host-and-target-required': '需要宿主功能和目标适配器',
       },
+      host_features: '宿主功能',
       direction: { input: '输入', output: '输出' },
       binding: {
         required: '必接',
@@ -965,6 +968,22 @@ export default {
       metadata: {
         title: '状态元数据',
         description: '读取状态槽的 revision 和最后修改时间，不暴露无类型值。',
+      },
+    },
+    script: {
+      execute: {
+        title: '执行脚本',
+        description: '在一次性隔离 worker 中执行 JavaScript，输入和输出均为规范化 JSON。',
+        config: {
+          source: {
+            title: 'JavaScript 源码',
+            description: '返回一个 JSON 兼容值；guest 只能看到 input 的隔离副本。',
+          },
+          timeoutMilliseconds: {
+            title: '超时（毫秒）',
+            description: '本次隔离脚本尝试的硬性墙钟时间上限。',
+          },
+        },
       },
     },
     event: {

@@ -41,6 +41,29 @@ func TestConfigProjectionRejectsWriteOnlySourceFields(t *testing.T) {
 	}
 }
 
+func TestConfigProjectionUsesExplicitCodeControlOnlyForStrings(t *testing.T) {
+	const root = "https://schemas.yotta.dev/test/config"
+	fields, err := projectConfigFields([]datatype.SchemaResource{{ID: root, Schema: json.RawMessage(`{
+		"$id":"https://schemas.yotta.dev/test/config",
+		"type":"object",
+		"properties":{"source":{"type":"string","x-yotta-control":"code"}}
+	}`)}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 1 || fields[0].Control != ControlCode {
+		t.Fatalf("fields = %#v", fields)
+	}
+	_, err = projectConfigFields([]datatype.SchemaResource{{ID: root, Schema: json.RawMessage(`{
+		"$id":"https://schemas.yotta.dev/test/config",
+		"type":"object",
+		"properties":{"source":{"type":"number","x-yotta-control":"code"}}
+	}`)}}, root)
+	if err == nil || !strings.Contains(err.Error(), "unsupported generated control") {
+		t.Fatalf("invalid code control error = %v", err)
+	}
+}
+
 func TestConfigProjectionBoundsReferenceDAGExpansion(t *testing.T) {
 	const root = "https://schemas.yotta.dev/test/config"
 	defs := []string{`"leaf":{"type":"string"}`}

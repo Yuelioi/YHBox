@@ -20,7 +20,7 @@ func TestInstalledAdaptersExcludeHostLoweredInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	installed, err := nodes31runtime.Installed(builtins)
+	installed, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestRunStartedBranchDelayAndStateWriteFormOneExplicitSignalFlow(t *testing.
 	now := time.Date(2026, 7, 15, 15, 30, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestDelayRecordsCooperativeCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestRepeatAndForEachUseIsolatedActivationState(t *testing.T) {
 			now := time.Date(2026, 7, 15, 16, 0, 0, 0, time.UTC)
 			_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 			t.Cleanup(func() { _ = owner.Close(context.Background()) })
-			adapters, err := nodes31runtime.Installed(builtins)
+			adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -254,7 +254,7 @@ func TestRetryConsumesOnlyExplicitlyRoutedFailuresInsideItsActivation(t *testing
 	now := time.Date(2026, 7, 15, 16, 30, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestNestedRegionSignalPropagatesToItsExactOwner(t *testing.T) {
 	now := time.Date(2026, 7, 15, 16, 45, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}

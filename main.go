@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
@@ -110,6 +111,18 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("AI model installation init")
 	}
+	executable, err := os.Executable()
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("resolve script worker location")
+	}
+	scriptRuntime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
+		Executable:         filepath.Join(filepath.Dir(executable), scriptengine.WorkerExecutableName),
+		ProcessMemoryBytes: scriptengine.DefaultMemoryBytes,
+		JobMemoryBytes:     scriptengine.DefaultMemoryBytes,
+	})
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("script runtime init")
+	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: dataDir,
 		Limits: appbootstrap.Limits{
@@ -117,7 +130,8 @@ func main() {
 			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
+		AIInstallations: aiInstallations, ScriptRuntime: scriptRuntime,
+		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event app31.RunEvent) {
 			payload := map[string]any{
 				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,

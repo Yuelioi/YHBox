@@ -60,7 +60,7 @@ export interface Body {
   types: TypeProjection[]
 }
 export interface NodeProjection {
-  availability: 'portable' | 'target-required'
+  availability: 'portable' | 'host-required' | 'target-required' | 'host-and-target-required'
   capabilities: CapabilityProjection[]
   category?: string
   configFields: FieldProjection[]
@@ -70,6 +70,10 @@ export interface NodeProjection {
   editorAdapter?: string
   errors: ErrorSpec[]
   execution: ExecutionSpec
+  /**
+   * @maxItems 256
+   */
+  hostFeatureRequirements: HostFeatureRequirement[]
   icon?: string
   instruction: InstructionSpec
   nodeRef: NodeRef
@@ -100,7 +104,7 @@ export interface Ref {
 export interface FieldProjection {
   additionalProperties?: never
   constraints: FieldConstraints
-  control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json' | 'state-variable'
+  control: 'text' | 'code' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json' | 'state-variable'
   default?: any
   deprecated: boolean
   description?: string
@@ -181,6 +185,10 @@ export interface ExecutionSpec {
   evaluation: 'pull' | 'push'
   retry: 'never' | 'idempotent' | 'operation-id'
   timeout: 'none' | 'required' | 'optional'
+}
+export interface HostFeatureRequirement {
+  featureId: string
+  id: string
 }
 export interface InvokeInstruction {}
 export interface RunRootInstruction {

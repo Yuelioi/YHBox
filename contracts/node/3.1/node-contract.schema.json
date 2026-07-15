@@ -329,6 +329,25 @@
       ],
       "type": "object"
     },
+    "HostFeatureRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "featureId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "featureId"
+      ],
+      "type": "object"
+    },
     "InstanceResolver": {
       "additionalProperties": false,
       "properties": {
@@ -482,6 +501,13 @@
         "execution": {
           "$ref": "#/$defs/ExecutionSpec"
         },
+        "hostFeatureRequirements": {
+          "items": {
+            "$ref": "#/$defs/HostFeatureRequirement"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
         "implementationABI": {
           "items": {
             "$ref": "#/$defs/ABIRequirement"
@@ -532,6 +558,7 @@
         "ports",
         "execution",
         "instruction",
+        "hostFeatureRequirements",
         "capabilityRequirements",
         "requirementBindings",
         "configValidators",

@@ -31,6 +31,29 @@ function mountPanel() {
   return { app, el, updates }
 }
 
+function mountScriptPanel() {
+  const projection = structuredClone(
+    builtinNodeProjections31.get('https://schemas.yotta.dev/nodes/script/execute/v1')!,
+  )
+  const updates: Record<string, unknown>[] = []
+  const app = createApp(
+    defineComponent(
+      () => () =>
+        h(NodeAuthoringPanel, {
+          nodeId: 'script/1',
+          projection,
+          modelValue: {},
+          'onUpdate:modelValue': (config: Record<string, unknown>) => updates.push(config),
+        }),
+    ),
+  )
+  app.use(createI18n({ legacy: false, locale: 'en', messages: { en } }))
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  app.mount(el)
+  return { app, el, updates }
+}
+
 describe('NodeAuthoringPanel', () => {
   it('associates visible hints with the field and writes only explicit edits', async () => {
     const wrapper = mountPanel()
@@ -50,6 +73,28 @@ describe('NodeAuthoringPanel', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }))
     await nextTick()
     expect(wrapper.updates).toEqual([{ mediaType: 'image/png' }])
+
+    wrapper.app.unmount()
+    wrapper.el.remove()
+  })
+
+  it('renders an explicit multiline code control for script source', async () => {
+    const wrapper = mountScriptPanel()
+    await nextTick()
+
+    const editor = wrapper.el.querySelector('textarea') as HTMLTextAreaElement
+    expect(editor).toBeTruthy()
+    expect(editor.getAttribute('rows')).toBe('12')
+    expect(editor.getAttribute('spellcheck')).toBe('false')
+    expect(wrapper.el.textContent).toContain('Host feature required')
+    expect(wrapper.el.textContent).toContain(
+      'https://schemas.yotta.dev/host-features/script-isolation/lpac-appcontainer-job/v1',
+    )
+
+    editor.value = 'return input;'
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(wrapper.updates).toEqual([{ source: 'return input;' }])
 
     wrapper.app.unmount()
     wrapper.el.remove()

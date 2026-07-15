@@ -105,7 +105,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}

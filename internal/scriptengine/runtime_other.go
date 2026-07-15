@@ -2,6 +2,6 @@
 
 package scriptengine
 
-func newPlatformRuntime(RuntimeOptions) Runtime {
+func newPlatformRuntime(RuntimeOptions) platformRuntime {
 	return unavailableRuntime{}
 }

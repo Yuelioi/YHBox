@@ -14,13 +14,25 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const conversionChunkBytes = 64 << 10
 
-func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter, error) {
+type Dependencies struct {
+	Script ScriptExecutor
+}
+
+type ScriptExecutor interface {
+	Execute(context.Context, scriptengine.Request) (scriptengine.Response, error)
+}
+
+func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string]compiler.InstalledAdapter, error) {
+	if dependencies.Script == nil {
+		return nil, errors.New("installed built-ins require an isolated script runtime")
+	}
 	installed := make(map[string]compiler.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]compiler.Adapter{
 		nodes31.BlobToStreamNodeID:  blobToStream(builtins),
@@ -38,6 +50,7 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		nodes31.EndBranchNodeID:     endBranch(),
 		nodes31.AIGenerateNodeID:    aiGenerate(builtins, false),
 		nodes31.AIExtractNodeID:     aiGenerate(builtins, true),
+		nodes31.ScriptExecuteNodeID: scriptExecute(builtins, dependencies.Script),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)

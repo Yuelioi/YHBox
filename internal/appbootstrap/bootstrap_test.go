@@ -2,6 +2,7 @@ package appbootstrap_test
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services/workflow31"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -23,7 +25,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
 	events := make(chan app31.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), GrantTTL: 5 * time.Minute,
+		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event app31.RunEvent) { events <- event },
 	})
@@ -170,6 +172,18 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 type testAICredentials struct{}
 
 func (testAICredentials) Get(string) (string, error) { return "secret", nil }
+
+func bootstrapScriptRuntime(t *testing.T) *scriptengine.Runtime {
+	t.Helper()
+	runtime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
+		Executable:         filepath.Join(t.TempDir(), scriptengine.WorkerExecutableName),
+		ProcessMemoryBytes: scriptengine.DefaultMemoryBytes, JobMemoryBytes: scriptengine.DefaultMemoryBytes,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runtime
+}
 
 func emptyAIInstallations(t *testing.T) ai.Installations {
 	t.Helper()

@@ -140,6 +140,9 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 	if request.Program.CatalogHash() != a.catalog.Hash() {
 		return Result{}, &Error{Code: CodeProviderIncompatible}
 	}
+	if err := a.requireHostFeatures(request.Program.Nodes()); err != nil {
+		return Result{}, err
+	}
 	runID, err := a.newID()
 	if err != nil || runid.Validate(runID) != nil {
 		return Result{}, &Error{Code: CodePolicyInvalid, Cause: err}
@@ -196,6 +199,24 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 		return Result{}, &Error{Code: CodePersistenceFailed, Commit: commit, Cause: errors.New("run store returned an invalid commit outcome")}
 	}
 	return Result{Grant: grant, Record: record}, nil
+}
+
+func (a *Admitter) requireHostFeatures(nodes []compiler.NodeView) error {
+	available := make(map[string]struct{}, len(a.profile.state.document.Features))
+	for _, feature := range a.profile.state.document.Features {
+		available[feature] = struct{}{}
+	}
+	for _, node := range nodes {
+		for _, requirement := range node.HostFeatures {
+			if _, ok := available[requirement.FeatureID]; !ok {
+				return &Error{
+					Code: CodeUnsupportedHost, GraphID: node.GraphID, NodeID: node.ID,
+					RequirementID: requirement.ID,
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type targetCandidate struct {

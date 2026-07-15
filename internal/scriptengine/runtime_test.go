@@ -21,6 +21,9 @@ func TestNewRuntimeRejectsIncompleteContainmentLimits(t *testing.T) {
 }
 
 func TestUnavailableRuntimeFailsClosed(t *testing.T) {
+	if features := (unavailableRuntime{}).HostFeatures(); features == nil || len(features) != 0 {
+		t.Fatalf("unavailable runtime features = %#v", features)
+	}
 	response, err := (unavailableRuntime{}).Execute(context.Background(), testRequest())
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)

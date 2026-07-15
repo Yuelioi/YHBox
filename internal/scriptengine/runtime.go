@@ -11,10 +11,20 @@ const (
 	MinProcessMemoryBytes = 64 << 20
 	MaxProcessMemoryBytes = 1 << 30
 	DefaultMemoryBytes    = 256 << 20
+
+	IsolationHostFeatureID = "https://schemas.yotta.dev/host-features/script-isolation/lpac-appcontainer-job/v1"
 )
 
-type Runtime interface {
+type platformRuntime interface {
 	Execute(context.Context, Request) (Response, error)
+	HostFeatures() []string
+}
+
+// Runtime is the sealed production launcher. Its platform implementation is
+// not injectable outside this package, so application composition cannot
+// replace isolation with an in-process or ordinary subprocess evaluator.
+type Runtime struct {
+	platform platformRuntime
 }
 
 type RuntimeOptions struct {
@@ -23,7 +33,7 @@ type RuntimeOptions struct {
 	JobMemoryBytes     uint64
 }
 
-func NewRuntime(options RuntimeOptions) (Runtime, error) {
+func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	if options.Executable == "" || !filepath.IsAbs(options.Executable) {
 		return nil, errors.New("script worker executable must be an absolute path")
 	}
@@ -33,10 +43,28 @@ func NewRuntime(options RuntimeOptions) (Runtime, error) {
 	if options.JobMemoryBytes < options.ProcessMemoryBytes || options.JobMemoryBytes > MaxProcessMemoryBytes {
 		return nil, fmt.Errorf("script job memory must be within process memory..%d bytes", MaxProcessMemoryBytes)
 	}
-	return newPlatformRuntime(options), nil
+	return &Runtime{platform: newPlatformRuntime(options)}, nil
+}
+
+func (runtime *Runtime) Execute(ctx context.Context, request Request) (Response, error) {
+	if runtime == nil || runtime.platform == nil {
+		return Response{}, errors.New("script runtime is not initialized")
+	}
+	return runtime.platform.Execute(ctx, request)
+}
+
+// HostFeatures returns the exact trusted host features implemented by this
+// sealed runtime. Application composition uses this for admission discovery.
+func (runtime *Runtime) HostFeatures() []string {
+	if runtime == nil || runtime.platform == nil {
+		return nil
+	}
+	return append([]string(nil), runtime.platform.HostFeatures()...)
 }
 
 type unavailableRuntime struct{}
+
+func (unavailableRuntime) HostFeatures() []string { return []string{} }
 
 func (unavailableRuntime) Execute(ctx context.Context, request Request) (Response, error) {
 	if err := request.Validate(); err != nil {

@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -168,7 +170,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: applicationScriptRuntime{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +194,12 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 		t.Fatal(err)
 	}
 	return application, sources, programs, builtins, events
+}
+
+type applicationScriptRuntime struct{}
+
+func (applicationScriptRuntime) Execute(context.Context, scriptengine.Request) (scriptengine.Response, error) {
+	return scriptengine.Response{}, errors.New("unexpected script execution in application test")
 }
 
 func createConcatWorkflow(t *testing.T, application *app31.Application) app31.ApplyPatchResult {

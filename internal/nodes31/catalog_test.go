@@ -61,6 +61,8 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 	for _, fact := range []string{
 		"Authoring projection:",
 		"Availability: `target-required`",
+		"Host features:",
+		"`isolation`: `https://schemas.yotta.dev/host-features/script-isolation/lpac-appcontainer-job/v1`",
 		"`mediaType` | `text` | yes | `minLength: 3, maxLength: 255",
 		"`stream` | `https://schemas.yotta.dev/types/core/binary/v1` | `durable-or-runtime` | `runtime`",
 		"target `blob-store`",

@@ -35,7 +35,7 @@ func TestPrimitiveInlineAdaptersCompileAndExecuteNominalValues(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestPrimitiveUnrepresentableResultPersistsDeclaredTerminalFailureWithoutInv
 	now := time.Date(2026, 7, 15, 10, 30, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}

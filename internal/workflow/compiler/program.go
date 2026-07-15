@@ -48,17 +48,18 @@ type inputPlan struct {
 }
 
 type programNode struct {
-	ID             string                           `json:"id"`
-	NodeRef        nodecontract.NodeRef             `json:"nodeRef"`
-	Config         map[string]any                   `json:"config"`
-	Inputs         map[string]inputPlan             `json:"inputs"`
-	InputTypes     map[string]datatype.ResolvedType `json:"inputTypes"`
-	OutputTypes    map[string]datatype.ResolvedType `json:"outputTypes"`
-	Ports          nodecontract.PortSet             `json:"ports"`
-	Execution      nodecontract.ExecutionSpec       `json:"execution"`
-	Instruction    nodecontract.InstructionSpec     `json:"instruction"`
-	Capabilities   []capability.Requirement         `json:"capabilityRequirements"`
-	Implementation nodecatalog.ImplementationLock   `json:"implementation"`
+	ID             string                                `json:"id"`
+	NodeRef        nodecontract.NodeRef                  `json:"nodeRef"`
+	Config         map[string]any                        `json:"config"`
+	Inputs         map[string]inputPlan                  `json:"inputs"`
+	InputTypes     map[string]datatype.ResolvedType      `json:"inputTypes"`
+	OutputTypes    map[string]datatype.ResolvedType      `json:"outputTypes"`
+	Ports          nodecontract.PortSet                  `json:"ports"`
+	Execution      nodecontract.ExecutionSpec            `json:"execution"`
+	Instruction    nodecontract.InstructionSpec          `json:"instruction"`
+	HostFeatures   []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements"`
+	Capabilities   []capability.Requirement              `json:"capabilityRequirements"`
+	Implementation nodecatalog.ImplementationLock        `json:"implementation"`
 }
 
 // programSignalRoute is an ordered control instruction. Data dependencies are
@@ -110,6 +111,7 @@ type programState struct {
 type ProgramSnapshot struct{ state *programState }
 
 type NodeView struct {
+	GraphID        string
 	ID             string
 	NodeRef        nodecontract.NodeRef
 	Ports          nodecontract.PortSet
@@ -117,6 +119,7 @@ type NodeView struct {
 	OutputTypes    map[string]datatype.ResolvedType
 	Execution      nodecontract.ExecutionSpec
 	Instruction    nodecontract.InstructionSpec
+	HostFeatures   []nodecontract.HostFeatureRequirement
 	Capabilities   []capability.Requirement
 	Implementation nodecatalog.ImplementationLock
 }
@@ -215,7 +218,8 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, validators con
 			}
 			machine := entry.Contract.Machine()
 			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) ||
-				!reflect.DeepEqual(machine.Instruction, node.Instruction) {
+				!reflect.DeepEqual(machine.Instruction, node.Instruction) ||
+				!reflect.DeepEqual(machine.HostFeatureRequirements, node.HostFeatures) {
 				return ProgramSnapshot{}, errors.New("program effective contract mismatch")
 			}
 			effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, node.Config)
@@ -493,9 +497,9 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 	for _, graph := range p.state.document.Body.Graphs {
 		for _, node := range graph.Nodes {
 			view := NodeView{
-				ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
+				GraphID: graph.ID, ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
 				InputTypes: node.InputTypes, OutputTypes: node.OutputTypes,
-				Execution: node.Execution, Instruction: node.Instruction, Capabilities: node.Capabilities, Implementation: node.Implementation,
+				Execution: node.Execution, Instruction: node.Instruction, HostFeatures: node.HostFeatures, Capabilities: node.Capabilities, Implementation: node.Implementation,
 			}
 			raw, err := json.Marshal(view)
 			if err != nil {

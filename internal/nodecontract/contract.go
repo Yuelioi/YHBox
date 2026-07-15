@@ -223,6 +223,14 @@ type ABIRequirement struct {
 	Version string  `json:"version" jsonschema:"required,pattern=^v[1-9][0-9]*$"`
 }
 
+// HostFeatureRequirement declares a trusted host implementation feature that
+// must exist before a node may be admitted. It does not grant authority and is
+// therefore intentionally separate from capability requirements.
+type HostFeatureRequirement struct {
+	ID        string `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	FeatureID string `json:"featureId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+}
+
 type Authoring struct {
 	TitleKey       string   `json:"titleKey,omitempty"`
 	DescriptionKey string   `json:"descriptionKey,omitempty"`
@@ -233,40 +241,42 @@ type Authoring struct {
 }
 
 type Draft struct {
-	NodeTypeID             string
-	ConfigSchemaRoot       string
-	ConfigSchemaBundle     []datatype.SchemaResource
-	Ports                  PortSet
-	Execution              ExecutionSpec
-	Instruction            InstructionSpec
-	CapabilityRequirements []capability.Requirement
-	RequirementBindings    []RequirementBindingSpec
-	ConfigValidators       []ConfigValidatorSpec
-	Errors                 []ErrorSpec
-	StatusEvents           []StatusEventSpec
-	StateAccesses          []StateAccessSpec
-	InstanceResolver       *InstanceResolver
-	ImplementationABI      []ABIRequirement
-	Authoring              Authoring
+	NodeTypeID              string
+	ConfigSchemaRoot        string
+	ConfigSchemaBundle      []datatype.SchemaResource
+	Ports                   PortSet
+	Execution               ExecutionSpec
+	Instruction             InstructionSpec
+	HostFeatureRequirements []HostFeatureRequirement
+	CapabilityRequirements  []capability.Requirement
+	RequirementBindings     []RequirementBindingSpec
+	ConfigValidators        []ConfigValidatorSpec
+	Errors                  []ErrorSpec
+	StatusEvents            []StatusEventSpec
+	StateAccesses           []StateAccessSpec
+	InstanceResolver        *InstanceResolver
+	ImplementationABI       []ABIRequirement
+	Authoring               Authoring
 }
 
 // MachineContract is the normalized compiler-facing portion of a Node Contract.
 // It is safe to persist in a machine catalog because it excludes authoring data.
 type MachineContract struct {
-	NodeTypeID             string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
-	ConfigSchemaRoot       string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
-	ConfigSchemaBundle     []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
-	Ports                  PortSet                   `json:"ports" jsonschema:"required"`
-	Execution              ExecutionSpec             `json:"execution" jsonschema:"required"`
-	Instruction            InstructionSpec           `json:"instruction" jsonschema:"required"`
-	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
-	RequirementBindings    []RequirementBindingSpec  `json:"requirementBindings" jsonschema:"required,maxItems=4096"`
-	ConfigValidators       []ConfigValidatorSpec     `json:"configValidators" jsonschema:"required,maxItems=4096"`
-	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
-	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
-	StateAccesses          []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
-	InstanceResolver       *InstanceResolver         `json:"instanceResolver,omitempty"`
-	ImplementationABI      []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
+	NodeTypeID              string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+	ConfigSchemaRoot        string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
+	ConfigSchemaBundle      []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
+	Ports                   PortSet                   `json:"ports" jsonschema:"required"`
+	Execution               ExecutionSpec             `json:"execution" jsonschema:"required"`
+	Instruction             InstructionSpec           `json:"instruction" jsonschema:"required"`
+	HostFeatureRequirements []HostFeatureRequirement  `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
+	CapabilityRequirements  []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
+	RequirementBindings     []RequirementBindingSpec  `json:"requirementBindings" jsonschema:"required,maxItems=4096"`
+	ConfigValidators        []ConfigValidatorSpec     `json:"configValidators" jsonschema:"required,maxItems=4096"`
+	Errors                  []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
+	StatusEvents            []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
+	StateAccesses           []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
+	InstanceResolver        *InstanceResolver         `json:"instanceResolver,omitempty"`
+	ImplementationABI       []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
 }
 
 type document struct {
@@ -328,20 +338,21 @@ func Open(raw []byte) (Contract, error) {
 		return Contract{}, errors.New("unsupported node contract format")
 	}
 	normalized, err := normalizeSemantic(Draft{
-		NodeTypeID:             decoded.Semantic.NodeTypeID,
-		ConfigSchemaRoot:       decoded.Semantic.ConfigSchemaRoot,
-		ConfigSchemaBundle:     decoded.Semantic.ConfigSchemaBundle,
-		Ports:                  decoded.Semantic.Ports,
-		Execution:              decoded.Semantic.Execution,
-		Instruction:            decoded.Semantic.Instruction,
-		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
-		RequirementBindings:    decoded.Semantic.RequirementBindings,
-		ConfigValidators:       decoded.Semantic.ConfigValidators,
-		Errors:                 decoded.Semantic.Errors,
-		StatusEvents:           decoded.Semantic.StatusEvents,
-		StateAccesses:          decoded.Semantic.StateAccesses,
-		InstanceResolver:       decoded.Semantic.InstanceResolver,
-		ImplementationABI:      decoded.Semantic.ImplementationABI,
+		NodeTypeID:              decoded.Semantic.NodeTypeID,
+		ConfigSchemaRoot:        decoded.Semantic.ConfigSchemaRoot,
+		ConfigSchemaBundle:      decoded.Semantic.ConfigSchemaBundle,
+		Ports:                   decoded.Semantic.Ports,
+		Execution:               decoded.Semantic.Execution,
+		Instruction:             decoded.Semantic.Instruction,
+		HostFeatureRequirements: decoded.Semantic.HostFeatureRequirements,
+		CapabilityRequirements:  decoded.Semantic.CapabilityRequirements,
+		RequirementBindings:     decoded.Semantic.RequirementBindings,
+		ConfigValidators:        decoded.Semantic.ConfigValidators,
+		Errors:                  decoded.Semantic.Errors,
+		StatusEvents:            decoded.Semantic.StatusEvents,
+		StateAccesses:           decoded.Semantic.StateAccesses,
+		InstanceResolver:        decoded.Semantic.InstanceResolver,
+		ImplementationABI:       decoded.Semantic.ImplementationABI,
 	})
 	if err != nil {
 		return Contract{}, err
@@ -397,7 +408,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
-		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
+		Execution: semantic.Execution, HostFeatureRequirements: semantic.HostFeatureRequirements, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
 		Instruction: semantic.Instruction,
 		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
@@ -515,6 +526,10 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	hostFeatures, err := normalizeHostFeatureRequirements(draft.HostFeatureRequirements)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	requirements := make([]capability.Requirement, len(draft.CapabilityRequirements))
 	seenRequirements := make(map[string]struct{}, len(requirements))
 	for index, requirement := range draft.CapabilityRequirements {
@@ -583,9 +598,31 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
-		CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
+		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
+}
+
+func normalizeHostFeatureRequirements(source []HostFeatureRequirement) ([]HostFeatureRequirement, error) {
+	result := append([]HostFeatureRequirement(nil), source...)
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	if result == nil {
+		result = []HostFeatureRequirement{}
+	}
+	seenFeatures := make(map[string]struct{}, len(result))
+	previous := ""
+	for _, requirement := range result {
+		if requirement.ID <= previous || len(requirement.ID) > MaxIdentifierBytes || !portIDPattern.MatchString(requirement.ID) ||
+			validateVersionedURI(requirement.FeatureID) != nil {
+			return nil, errors.New("invalid or duplicate host feature requirement")
+		}
+		if _, duplicate := seenFeatures[requirement.FeatureID]; duplicate {
+			return nil, errors.New("duplicate host feature requirement")
+		}
+		seenFeatures[requirement.FeatureID] = struct{}{}
+		previous = requirement.ID
+	}
+	return result, nil
 }
 
 func normalizeConfigValidators(source []ConfigValidatorSpec) ([]ConfigValidatorSpec, error) {

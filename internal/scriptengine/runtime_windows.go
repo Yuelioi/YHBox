@@ -63,9 +63,11 @@ type responseResult struct {
 	err      error
 }
 
-func newPlatformRuntime(options RuntimeOptions) Runtime {
+func newPlatformRuntime(options RuntimeOptions) platformRuntime {
 	return &windowsRuntime{options: options}
 }
+
+func (*windowsRuntime) HostFeatures() []string { return []string{IsolationHostFeatureID} }
 
 func (runtime *windowsRuntime) Execute(ctx context.Context, request Request) (Response, error) {
 	if err := request.Validate(); err != nil {

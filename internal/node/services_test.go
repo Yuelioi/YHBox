@@ -118,10 +118,12 @@ func TestStubCaptureService_NilBytes(t *testing.T) {
 // ---- StopwatchStore stub ----
 
 func TestStubStopwatchStore_StartStopRead(t *testing.T) {
+	clock := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
 	s := NewStubStopwatchStore()
 	if s == nil {
 		t.Fatal("NewStubStopwatchStore() returned nil")
 	}
+	s.(*stubStopwatchStore).now = func() time.Time { return clock }
 
 	// Read missing → 0
 	if e := s.Read("fish"); e != 0 {
@@ -133,16 +135,16 @@ func TestStubStopwatchStore_StartStopRead(t *testing.T) {
 
 	// Start + Read while running
 	s.Start("fish")
-	time.Sleep(20 * time.Millisecond)
+	clock = clock.Add(20 * time.Millisecond)
 	e := s.Read("fish")
-	if e < 15 {
-		t.Errorf("Read(running) = %d, want >= 15", e)
+	if e != 20 {
+		t.Errorf("Read(running) = %d, want 20", e)
 	}
 
 	// Stop + Read frozen
 	s.Stop("fish")
 	e1 := s.Read("fish")
-	time.Sleep(20 * time.Millisecond)
+	clock = clock.Add(20 * time.Millisecond)
 	e2 := s.Read("fish")
 	if e1 != e2 {
 		t.Errorf("Read after Stop changed: e1=%d e2=%d, want frozen", e1, e2)
@@ -151,8 +153,8 @@ func TestStubStopwatchStore_StartStopRead(t *testing.T) {
 	// Start again resets
 	s.Start("fish")
 	e3 := s.Read("fish")
-	if e3 > 5 {
-		t.Errorf("Read after Start (reset) = %d, want < 5", e3)
+	if e3 != 0 {
+		t.Errorf("Read after Start (reset) = %d, want 0", e3)
 	}
 }
 

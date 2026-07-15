@@ -61,6 +61,14 @@ func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) 
 			return "", fmt.Errorf("encode instruction for %q: %w", projected.NodeRef.NodeTypeID, err)
 		}
 		fmt.Fprintf(&builder, "- Program instruction: `%s` `%s`\n", projected.Instruction.Kind, instruction)
+		if len(projected.HostFeatures) == 0 {
+			builder.WriteString("- Host features: none\n")
+		} else {
+			builder.WriteString("- Host features:\n")
+			for _, requirement := range projected.HostFeatures {
+				fmt.Fprintf(&builder, "  - `%s`: `%s`\n", requirement.ID, requirement.FeatureID)
+			}
+		}
 		if len(projected.Capabilities) == 0 {
 			builder.WriteString("- Capabilities: none\n")
 		} else {

@@ -79,6 +79,7 @@ type Builtins struct {
 	StreamToBlobContract     nodecontract.Contract
 	AIGenerateContract       nodecontract.Contract
 	AIExtractContract        nodecontract.Contract
+	ScriptExecuteContract    nodecontract.Contract
 	Types                    []datatype.Definition
 	Contracts                []nodecontract.Contract
 	Capabilities             []capability.Definition
@@ -216,6 +217,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	scriptDefinition, scriptExecute, err := defineScriptNode(jsonType.TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
@@ -224,6 +229,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, stateDefinitions...)
 	definitions = append(definitions, controlDefinitions...)
 	definitions = append(definitions, aiDefinitions...)
+	definitions = append(definitions, scriptDefinition)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -249,7 +255,7 @@ func Build() (Builtins, error) {
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
-		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract,
+		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, ScriptExecuteContract: scriptExecute,
 		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil

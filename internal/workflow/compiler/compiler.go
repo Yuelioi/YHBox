@@ -288,6 +288,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
 			Inputs: map[string]inputPlan{}, InputTypes: map[string]datatype.ResolvedType{}, OutputTypes: map[string]datatype.ResolvedType{},
 			Ports: machine.Ports, Execution: machine.Execution, Instruction: machine.Instruction,
+			HostFeatures:   append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...),
 			Capabilities:   effectiveRequirements,
 			Implementation: entry.Implementation,
 		}

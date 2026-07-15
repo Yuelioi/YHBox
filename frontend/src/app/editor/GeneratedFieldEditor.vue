@@ -34,6 +34,15 @@
       @update:model-value="updateNumber"
     />
     <UTextarea
+      v-else-if="field.control === 'code'"
+      :model-value="typeof modelValue === 'string' ? modelValue : ''"
+      :rows="12"
+      :maxlength="field.constraints.maxLength"
+      spellcheck="false"
+      class="w-full font-mono text-xs leading-relaxed"
+      @update:model-value="emit('update:modelValue', $event)"
+    />
+    <UTextarea
       v-else-if="jsonControl"
       v-model="jsonText"
       :rows="5"

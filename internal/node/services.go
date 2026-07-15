@@ -254,8 +254,16 @@ type stubStopwatchEntry struct {
 
 // stubStopwatchStore in-memory, mutex-safe.
 type stubStopwatchStore struct {
-	mu sync.Mutex
-	m  map[string]*stubStopwatchEntry
+	mu  sync.Mutex
+	m   map[string]*stubStopwatchEntry
+	now func() time.Time
+}
+
+func (s *stubStopwatchStore) currentTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }
 
 func (s *stubStopwatchStore) Start(key string) {
@@ -264,7 +272,7 @@ func (s *stubStopwatchStore) Start(key string) {
 	if s.m == nil {
 		s.m = map[string]*stubStopwatchEntry{}
 	}
-	s.m[key] = &stubStopwatchEntry{startAt: time.Now(), running: true}
+	s.m[key] = &stubStopwatchEntry{startAt: s.currentTime(), running: true}
 }
 
 func (s *stubStopwatchStore) Stop(key string) {
@@ -277,7 +285,7 @@ func (s *stubStopwatchStore) Stop(key string) {
 	if !st.running {
 		return // 已停, 保留首次 stopAt
 	}
-	st.stopAt = time.Now()
+	st.stopAt = s.currentTime()
 	st.running = false
 }
 
@@ -289,14 +297,14 @@ func (s *stubStopwatchStore) Read(key string) int64 {
 		return 0
 	}
 	if st.running {
-		return time.Since(st.startAt).Milliseconds()
+		return s.currentTime().Sub(st.startAt).Milliseconds()
 	}
 	return st.stopAt.Sub(st.startAt).Milliseconds()
 }
 
 // NewStubStopwatchStore — 测试用 in-memory store.
 func NewStubStopwatchStore() StopwatchStore {
-	return &stubStopwatchStore{m: map[string]*stubStopwatchEntry{}}
+	return &stubStopwatchStore{m: map[string]*stubStopwatchEntry{}, now: time.Now}
 }
 
 // ---- ServiceBundle helpers ----

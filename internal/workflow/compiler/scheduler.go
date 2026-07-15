@@ -220,7 +220,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	actions := newAdapterActionRecorder(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine)
 	statuses := newStatusEmitter(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine.StatusEvents)
 	outcome, runErr := installed.Run(ctx, Invocation{
-		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
+		InvocationID: invocationID, Attempt: attempt, GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
 		Trigger: cloneTrigger(trigger), ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
 		Wait: s.executor.wait, Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,

@@ -61,6 +61,7 @@ type HostProfileDraft struct {
 	OS                string                  `json:"os"`
 	Architecture      string                  `json:"architecture"`
 	HostAPIGeneration string                  `json:"hostApiGeneration"`
+	Features          []string                `json:"features"`
 	Providers         []ProviderDescriptor    `json:"providers"`
 	Targets           []AutomationTarget      `json:"targets"`
 	Credentials       []CredentialBinding     `json:"credentials"`
@@ -87,6 +88,19 @@ func SealHostProfile(draft HostProfileDraft) (HostProfile, error) {
 		len(draft.Providers) > 1024 || len(draft.Targets) > 16384 || len(draft.Credentials) > 16384 ||
 		len(draft.TargetSlots) > 16384 || len(draft.CredentialSlots) > 16384 {
 		return HostProfile{}, errors.New("invalid host profile identity or budget")
+	}
+	features := append([]string(nil), draft.Features...)
+	sort.Strings(features)
+	if features == nil {
+		features = []string{}
+	}
+	if len(features) > 256 {
+		return HostProfile{}, errors.New("host profile feature budget exceeded")
+	}
+	for index, feature := range features {
+		if !validVersionedURI(feature) || index > 0 && features[index-1] == feature {
+			return HostProfile{}, errors.New("invalid or duplicate host feature")
+		}
 	}
 	providers := append([]ProviderDescriptor(nil), draft.Providers...)
 	for index := range providers {
@@ -173,7 +187,7 @@ func SealHostProfile(draft HostProfileDraft) (HostProfile, error) {
 		credentialSlotIndex[binding.Slot] = binding.CredentialID
 	}
 	document := HostProfileDraft{
-		OS: draft.OS, Architecture: draft.Architecture, HostAPIGeneration: draft.HostAPIGeneration,
+		OS: draft.OS, Architecture: draft.Architecture, HostAPIGeneration: draft.HostAPIGeneration, Features: features,
 		Providers: providers, Targets: targets, Credentials: credentials, TargetSlots: targetSlots, CredentialSlots: credentialSlots,
 	}
 	canonical, err := artifact.Marshal(document)

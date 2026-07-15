@@ -58,14 +58,17 @@ const (
 type Availability string
 
 const (
-	AvailabilityPortable       Availability = "portable"
-	AvailabilityTargetRequired Availability = "target-required"
+	AvailabilityPortable              Availability = "portable"
+	AvailabilityHostRequired          Availability = "host-required"
+	AvailabilityTargetRequired        Availability = "target-required"
+	AvailabilityHostAndTargetRequired Availability = "host-and-target-required"
 )
 
 type Control string
 
 const (
 	ControlText          Control = "text"
+	ControlCode          Control = "code"
 	ControlNumber        Control = "number"
 	ControlInteger       Control = "integer"
 	ControlToggle        Control = "toggle"
@@ -101,7 +104,7 @@ type FieldProjection struct {
 	Description    string            `json:"description,omitempty"`
 	TitleKey       string            `json:"titleKey,omitempty"`
 	DescriptionKey string            `json:"descriptionKey,omitempty"`
-	Control        Control           `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json,enum=state-variable"`
+	Control        Control           `json:"control" jsonschema:"required,enum=text,enum=code,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json,enum=state-variable"`
 	Required       bool              `json:"required"`
 	HasDefault     bool              `json:"hasDefault"`
 	Default        json.RawMessage   `json:"default,omitempty"`
@@ -182,24 +185,25 @@ type StateAccessProjection struct {
 }
 
 type NodeProjection struct {
-	NodeRef        nodecontract.NodeRef           `json:"nodeRef"`
-	TitleKey       string                         `json:"titleKey,omitempty"`
-	DescriptionKey string                         `json:"descriptionKey,omitempty"`
-	Category       string                         `json:"category,omitempty"`
-	Tags           []string                       `json:"tags"`
-	Icon           string                         `json:"icon,omitempty"`
-	EditorAdapter  string                         `json:"editorAdapter,omitempty"`
-	Execution      nodecontract.ExecutionSpec     `json:"execution"`
-	Instruction    nodecontract.InstructionSpec   `json:"instruction"`
-	Availability   Availability                   `json:"availability" jsonschema:"required,enum=portable,enum=target-required"`
-	DataInputs     []PortProjection               `json:"dataInputs"`
-	DataOutputs    []PortProjection               `json:"dataOutputs"`
-	Signals        []SignalProjection             `json:"signals"`
-	ConfigFields   []FieldProjection              `json:"configFields"`
-	Capabilities   []CapabilityProjection         `json:"capabilities"`
-	StateAccesses  []StateAccessProjection        `json:"stateAccesses"`
-	Errors         []nodecontract.ErrorSpec       `json:"errors"`
-	StatusEvents   []nodecontract.StatusEventSpec `json:"statusEvents"`
+	NodeRef        nodecontract.NodeRef                  `json:"nodeRef"`
+	TitleKey       string                                `json:"titleKey,omitempty"`
+	DescriptionKey string                                `json:"descriptionKey,omitempty"`
+	Category       string                                `json:"category,omitempty"`
+	Tags           []string                              `json:"tags"`
+	Icon           string                                `json:"icon,omitempty"`
+	EditorAdapter  string                                `json:"editorAdapter,omitempty"`
+	Execution      nodecontract.ExecutionSpec            `json:"execution"`
+	Instruction    nodecontract.InstructionSpec          `json:"instruction"`
+	Availability   Availability                          `json:"availability" jsonschema:"required,enum=portable,enum=host-required,enum=target-required,enum=host-and-target-required"`
+	HostFeatures   []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
+	DataInputs     []PortProjection                      `json:"dataInputs"`
+	DataOutputs    []PortProjection                      `json:"dataOutputs"`
+	Signals        []SignalProjection                    `json:"signals"`
+	ConfigFields   []FieldProjection                     `json:"configFields"`
+	Capabilities   []CapabilityProjection                `json:"capabilities"`
+	StateAccesses  []StateAccessProjection               `json:"stateAccesses"`
+	Errors         []nodecontract.ErrorSpec              `json:"errors"`
+	StatusEvents   []nodecontract.StatusEventSpec        `json:"statusEvents"`
 }
 
 type body struct {
@@ -404,7 +408,8 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	projection := NodeProjection{
 		NodeRef: contract.NodeRef(), TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
-		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable, DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
+		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable,
+		HostFeatures: append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...), DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
 	}
@@ -483,7 +488,11 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			ID: access.ID, SlotConfigKey: access.SlotConfigKey, Type: use, Mode: access.Mode,
 		})
 	}
-	if len(projection.Capabilities) != 0 {
+	if len(projection.HostFeatures) != 0 && len(projection.Capabilities) != 0 {
+		projection.Availability = AvailabilityHostAndTargetRequired
+	} else if len(projection.HostFeatures) != 0 {
+		projection.Availability = AvailabilityHostRequired
+	} else if len(projection.Capabilities) != 0 {
 		projection.Availability = AvailabilityTargetRequired
 	}
 	return projection, nil
@@ -638,10 +647,17 @@ func projectField(id string, schema map[string]any, required bool, bundle []data
 		return field, nil
 	}
 	if requested := stringValue(resolved["x-yotta-control"]); requested != "" {
-		if requested != string(ControlStateVariable) || schemaType(resolved) != "string" {
+		if schemaType(resolved) != "string" {
 			return FieldProjection{}, fmt.Errorf("field %q requests an unsupported generated control", id)
 		}
-		field.Control = ControlStateVariable
+		switch Control(requested) {
+		case ControlCode:
+			field.Control = ControlCode
+		case ControlStateVariable:
+			field.Control = ControlStateVariable
+		default:
+			return FieldProjection{}, fmt.Errorf("field %q requests an unsupported generated control", id)
+		}
 		return field, nil
 	}
 	if len(field.Constraints.Enum) != 0 {

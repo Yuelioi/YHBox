@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflowstore"
@@ -44,6 +45,7 @@ type Config struct {
 	DataRoot          string
 	Limits            Limits
 	AIInstallations   ai.Installations
+	ScriptRuntime     *scriptengine.Runtime
 	GrantTTL          time.Duration
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -61,8 +63,8 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
-		return nil, errors.New("app bootstrap requires trusted installations and bounded Run lifetimes")
+	if !config.AIInstallations.Valid() || config.ScriptRuntime == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+		return nil, errors.New("app bootstrap requires trusted installations, an isolated script runtime, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
 		return nil, err
@@ -125,7 +127,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, config.AIInstallations)
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, config.ScriptRuntime, config.AIInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +141,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: config.ScriptRuntime})
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +204,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest artifact.Digest, aiInstallations ai.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -228,6 +230,7 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest arti
 	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
+		Features: scriptRuntime.HostFeatures(),
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobDigest, ABI: blob.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},

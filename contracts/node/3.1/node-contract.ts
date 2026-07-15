@@ -90,6 +90,10 @@ export interface MachineContract {
   errors: ErrorSpec[]
   execution: ExecutionSpec
   /**
+   * @maxItems 256
+   */
+  hostFeatureRequirements: HostFeatureRequirement[]
+  /**
    * @minItems 1
    */
   implementationABI: [ABIRequirement, ...ABIRequirement[]]
@@ -151,6 +155,10 @@ export interface ExecutionSpec {
   evaluation: 'pull' | 'push'
   retry: 'never' | 'idempotent' | 'operation-id'
   timeout: 'none' | 'required' | 'optional'
+}
+export interface HostFeatureRequirement {
+  featureId: string
+  id: string
 }
 export interface ABIRequirement {
   kind: 'builtin' | 'host-instruction' | 'wit' | 'process'

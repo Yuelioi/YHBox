@@ -13,11 +13,72 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const admissionRunID = "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a"
+
+func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T) {
+	builtins, program := scriptProgram(t)
+	profileDraft := builtinProfileDraft(t, builtins)
+	if len(profileDraft.Features) != 0 {
+		t.Fatalf("test profile unexpectedly has features: %#v", profileDraft.Features)
+	}
+	profile, err := admission.SealHostProfile(profileDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policyCalls := 0
+	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
+		policyCalls++
+		return admission.PolicyDecision{}, nil
+	})
+	runIDCalls := 0
+	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
+		Now: time.Now, NewRunID: func() (string, error) { runIDCalls++; return admissionRunID, nil }, MaxGrantTTL: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = admitter.Admit(context.Background(), admission.Request{Program: program, Principal: "user-1"})
+	var admissionErr *admission.Error
+	if !errors.As(err, &admissionErr) || admissionErr.Code != admission.CodeUnsupportedHost ||
+		admissionErr.GraphID != "main" || admissionErr.NodeID != "script" || admissionErr.RequirementID != "isolation" {
+		t.Fatalf("Admit error = %#v", err)
+	}
+	if policyCalls != 0 || runIDCalls != 0 {
+		t.Fatalf("unsupported host reached policy/run identity: policy=%d runID=%d", policyCalls, runIDCalls)
+	}
+	if scriptengine.IsolationHostFeatureID == "" {
+		t.Fatal("script isolation feature identity is empty")
+	}
+}
+
+func TestHostProfileRejectsInvalidFeatureSets(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := builtinProfileDraft(t, builtins)
+	draft.Features = []string{"not-a-versioned-uri"}
+	if _, err := admission.SealHostProfile(draft); err == nil {
+		t.Fatal("invalid host feature URI was accepted")
+	}
+	draft = builtinProfileDraft(t, builtins)
+	draft.Features = make([]string, 257)
+	for index := range draft.Features {
+		draft.Features[index] = fmt.Sprintf("https://schemas.yotta.dev/host-features/test-%03d/v1", index)
+	}
+	if _, err := admission.SealHostProfile(draft); err == nil {
+		t.Fatal("host feature budget overflow was accepted")
+	}
+}
 
 func TestAdmitterPlansPolicyAndPersistsQueuedRunBeforeReturning(t *testing.T) {
 	builtins, program := conversionProgram(t)
@@ -332,6 +393,43 @@ func conversionProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot
 	program, ok := compiled.Program()
 	if !ok {
 		t.Fatal("compiler did not produce a Program")
+	}
+	return builtins, program
+}
+
+func scriptProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot) {
+	t.Helper()
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := builtins.ScriptExecuteContract.NodeRef()
+	started, ok := builtins.Catalog.Lookup(nodes31.RunStartedNodeID)
+	if !ok {
+		t.Fatal("run-started contract is missing")
+	}
+	startRef := started.Contract.NodeRef()
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-script-admission","name":"Script admission"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"script","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			 "config":{"source":"return input;","timeoutMilliseconds":1000},"bindings":{"input":{"kind":"default"}}}
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"script","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, startRef.NodeTypeID, startRef.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
+	compiled, err := compiler.New(testDigest(t, "script admission compiler"), builtins.ConfigValidators).CompileDraft(
+		context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog},
+	)
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile script = %v, diagnostics %#v", err, compiled.Diagnostics)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("compiler did not produce a script Program")
+	}
+	nodes := program.Nodes()
+	if len(nodes) != 2 || len(nodes[1].HostFeatures) != 1 || nodes[1].HostFeatures[0].FeatureID != scriptengine.IsolationHostFeatureID {
+		t.Fatalf("script Program host requirements = %#v", nodes)
 	}
 	return builtins, program
 }

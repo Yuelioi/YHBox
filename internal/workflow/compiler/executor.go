@@ -73,6 +73,8 @@ type InstalledAdapter struct {
 }
 
 type Invocation struct {
+	InvocationID string
+	Attempt      int
 	GraphID      string
 	NodeID       string
 	Config       map[string]any

@@ -19,6 +19,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -48,7 +49,7 @@ func TestInstalledAdaptersRejectCatalogThatSelfAssertsAnotherImplementation(t *t
 		t.Fatal(err)
 	}
 	builtins.Catalog = forged
-	if _, err := nodes31runtime.Installed(builtins); err == nil {
+	if _, err := nodes31runtime.Installed(builtins, testDependencies()); err == nil {
 		t.Fatal("installed adapters trusted implementation identity asserted by the supplied Catalog")
 	}
 }
@@ -84,7 +85,7 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	now := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 	now := time.Date(2026, 7, 15, 3, 30, 0, 0, time.UTC)
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +225,7 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 			t.Errorf("close Run Owner: %v", err)
 		}
 	})
-	adapters, err := nodes31runtime.Installed(builtins)
+	adapters, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +308,7 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 		blob.ProviderID:   {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
 		stream.ProviderID: {ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: streamProvider},
 	}
-	installed, err := nodes31runtime.Installed(builtins)
+	installed, err := nodes31runtime.Installed(builtins, testDependencies())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,6 +425,7 @@ func executionProfile(t *testing.T, builtins nodes31.Builtins) admission.HostPro
 	}
 	return admission.HostProfileDraft{
 		OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1",
+		Features: []string{scriptengine.IsolationHostFeatureID},
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{

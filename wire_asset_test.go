@@ -36,8 +36,16 @@ func TestScanAssetReferrersUsesStoreRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := subgraphs.Create(&container.Subgraph{ID: "sg-assets", Label: "assets", Graph: container.Graph{
+		Nodes: []container.GraphNode{{ID: "subgraph-asset", Kind: "AssetDependencyNode"}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
 	refs := scanAssetReferrers(store, subgraphs)("template-custom")
-	if len(refs) != 1 || refs[0].NodeKind != "AssetDependencyNode" {
+	if len(refs) != 2 || refs[0].NodeKind != "AssetDependencyNode" || refs[1].NodeKind != "AssetDependencyNode" {
 		t.Fatalf("custom dependency refs = %+v", refs)
+	}
+	if refs[0].SubgraphID == "" && refs[1].SubgraphID == "" {
+		t.Fatalf("subgraph dependency ref missing: %+v", refs)
 	}
 }

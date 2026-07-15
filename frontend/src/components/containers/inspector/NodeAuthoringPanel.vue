@@ -115,6 +115,20 @@
           @input="onNumber(field, $event)"
         />
         <textarea
+          v-else-if="field.control === 'code'"
+          :id="controlID(field.id)"
+          :value="stringValue(field.id)"
+          :readonly="field.readOnly"
+          :required="field.required"
+          :minlength="field.constraints.minLength"
+          :maxlength="field.constraints.maxLength"
+          :aria-describedby="descriptionID(field.id)"
+          rows="12"
+          spellcheck="false"
+          class="w-full resize-y rounded-md border border-default bg-default px-2.5 py-2 font-mono text-xs leading-relaxed text-highlighted outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+          @input="onCode(field, $event)"
+        />
+        <textarea
           v-else-if="['object', 'list', 'json'].includes(field.control)"
           :id="controlID(field.id)"
           :value="jsonValue(field.id)"
@@ -162,6 +176,18 @@
             {{ jsonErrors[field.id] }}
           </p>
         </div>
+      </div>
+    </div>
+
+    <div v-if="projection.hostFeatureRequirements.length" class="space-y-2">
+      <h4 class="text-xs font-semibold text-toned">{{ t('inspector.authoring.host_features') }}</h4>
+      <div
+        v-for="requirement in projection.hostFeatureRequirements"
+        :key="requirement.id"
+        class="rounded-md border border-info/25 bg-info/5 px-3 py-2 text-[11px] leading-relaxed"
+      >
+        <div class="font-mono text-info">{{ requirement.id }}</div>
+        <p class="mt-0.5 break-all text-dimmed">{{ requirement.featureId }}</p>
       </div>
     </div>
 
@@ -235,12 +261,21 @@ function valueFor(fieldID: string): unknown {
   return props.modelValue?.[fieldID]
 }
 
+function stringValue(fieldID: string): string {
+  const value = valueFor(fieldID)
+  return typeof value === 'string' ? value : ''
+}
+
 function update(field: FieldProjection, value: unknown): void {
   emit('update:modelValue', patchProjectedConfig(props.modelValue, field.id, value))
 }
 
 function onText(field: FieldProjection, event: Event): void {
   update(field, (event.target as HTMLInputElement).value)
+}
+
+function onCode(field: FieldProjection, event: Event): void {
+  update(field, (event.target as HTMLTextAreaElement).value)
 }
 
 function onNumber(field: FieldProjection, event: Event): void {

@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:38c7e06646dcaafe28a52063f1f19155989c29515d0eff0e5134cddb7a7a05b4")
+	const want = artifact.Digest("sha256:a3ba827ca0c186a6f53b36b2d97756c569dfd949d1fcde073ec97b8da8372b87")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -85,6 +85,30 @@ func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
 	}
 	if reopened.Authoring().TitleKey != "" || len(reopened.Authoring().Tags) != 0 {
 		t.Fatalf("machine-only contract leaked authoring: %#v", reopened.Authoring())
+	}
+}
+
+func TestSealNormalizesAndValidatesHostFeatureRequirements(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.HostFeatureRequirements = []HostFeatureRequirement{
+		{ID: "renderer", FeatureID: "https://schemas.yotta.dev/host-features/renderer/v1"},
+		{ID: "browser", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+	}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements := contract.Machine().HostFeatureRequirements
+	if len(requirements) != 2 || requirements[0].ID != "browser" || requirements[1].ID != "renderer" {
+		t.Fatalf("host feature requirements = %#v", requirements)
+	}
+
+	draft.HostFeatureRequirements = []HostFeatureRequirement{
+		{ID: "first", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+		{ID: "second", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+	}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("duplicate host feature was accepted")
 	}
 }
 

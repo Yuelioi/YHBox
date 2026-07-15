@@ -807,8 +807,11 @@ export default {
       },
       availability: {
         portable: 'Portable',
+        'host-required': 'Host feature required',
         'target-required': 'Target required',
+        'host-and-target-required': 'Host feature and target required',
       },
+      host_features: 'Host features',
       direction: { input: 'input', output: 'output' },
       binding: {
         required: 'required',
@@ -991,6 +994,24 @@ export default {
         title: 'State metadata',
         description:
           'Read a state slot revision and last-change time without exposing an untyped value.',
+      },
+    },
+    script: {
+      execute: {
+        title: 'Run script',
+        description:
+          'Execute JavaScript in a one-shot isolated worker with canonical JSON input and output.',
+        config: {
+          source: {
+            title: 'JavaScript source',
+            description:
+              'Return one JSON-compatible value. The guest receives only an isolated copy of input.',
+          },
+          timeoutMilliseconds: {
+            title: 'Timeout (milliseconds)',
+            description: 'Hard wall-time limit for this isolated script attempt.',
+          },
+        },
       },
     },
     event: {

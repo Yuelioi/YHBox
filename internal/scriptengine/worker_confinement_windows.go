@@ -44,11 +44,7 @@ type tokenSecurityAttributeV1 struct {
 var isProcessInJob = windows.NewLazySystemDLL("kernel32.dll").NewProc("IsProcessInJob")
 
 func verifyWorkerConfinement() error {
-	token, err := windows.OpenCurrentProcessToken()
-	if err != nil {
-		return err
-	}
-	defer token.Close()
+	token := windows.GetCurrentProcessToken()
 	isAppContainer, err := tokenBoolean(token, tokenIsAppContainer)
 	if err != nil {
 		return err
@@ -66,10 +62,7 @@ func verifyWorkerConfinement() error {
 	if !isLPAC {
 		return errWorkerNotLPAC
 	}
-	process, err := windows.GetCurrentProcess()
-	if err != nil {
-		return errors.New("open current script worker process")
-	}
+	process := windows.CurrentProcess()
 	var inJob uint32
 	result, _, callErr := isProcessInJob.Call(uintptr(process), 0, uintptr(unsafe.Pointer(&inJob)))
 	if result == 0 {

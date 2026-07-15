@@ -5,18 +5,51 @@ package scriptengine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
 
+func TestMain(m *testing.M) {
+	if os.Getenv("YOTTA_SCRIPT_WORKER_TEST_EXE") != "" {
+		os.Exit(m.Run())
+	}
+	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "resolve repository root for script worker tests: %v\n", err)
+		os.Exit(1)
+	}
+	temporary, err := os.MkdirTemp("", "yotta-script-worker-test-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "create script worker test directory: %v\n", err)
+		os.Exit(1)
+	}
+	executable := filepath.Join(temporary, WorkerExecutableName)
+	command := exec.Command("go", "build", "-mod=readonly", "-trimpath", "-buildvcs=false", "-ldflags=-w -s -H windowsgui", "-o", executable, "./cmd/yotta-script-worker")
+	command.Dir = repositoryRoot
+	if output, buildErr := command.CombinedOutput(); buildErr != nil {
+		fmt.Fprintf(os.Stderr, "build isolated script worker for tests: %v\n%s", buildErr, output)
+		os.Exit(1)
+	}
+	if err := os.Setenv("YOTTA_SCRIPT_WORKER_TEST_EXE", executable); err != nil {
+		fmt.Fprintf(os.Stderr, "publish isolated script worker test path: %v\n", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	if err := os.RemoveAll(temporary); err != nil && code == 0 {
+		fmt.Fprintf(os.Stderr, "remove script worker test directory: %v\n", err)
+		code = 1
+	}
+	os.Exit(code)
+}
+
 func TestWindowsRuntimeLaunchesVerifiedLPACJobWorker(t *testing.T) {
 	executable := os.Getenv("YOTTA_SCRIPT_WORKER_TEST_EXE")
-	if executable == "" {
-		t.Skip("set YOTTA_SCRIPT_WORKER_TEST_EXE to a freshly built script worker")
-	}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Executable:         executable,
 		ProcessMemoryBytes: DefaultMemoryBytes,
@@ -41,6 +74,54 @@ func TestWindowsRuntimeLaunchesVerifiedLPACJobWorker(t *testing.T) {
 	}
 }
 
+func TestWindowsRuntimeAdvertisesExactIsolationFeature(t *testing.T) {
+	runtime := testWindowsRuntime(t)
+	features := runtime.HostFeatures()
+	if len(features) != 1 || features[0] != IsolationHostFeatureID {
+		t.Fatalf("HostFeatures() = %#v", features)
+	}
+}
+
+func TestWindowsRuntimeFailsClosedWhenUninitialized(t *testing.T) {
+	var runtime *Runtime
+	if features := runtime.HostFeatures(); features != nil {
+		t.Fatalf("uninitialized HostFeatures() = %#v", features)
+	}
+	if _, err := runtime.Execute(context.Background(), testRequest()); err == nil {
+		t.Fatal("uninitialized Runtime.Execute accepted a request")
+	}
+}
+
+func TestWindowsRuntimeRejectsInvalidExecutableAndStatusHelpers(t *testing.T) {
+	if err := checkHRESULT("test", 0); err != nil {
+		t.Fatalf("zero HRESULT = %v", err)
+	}
+	if err := checkHRESULT("test", 0x80004005); err == nil {
+		t.Fatal("failing HRESULT was accepted")
+	}
+	if err := exitCodeError(WorkerExitOK); err != nil {
+		t.Fatalf("successful worker exit = %v", err)
+	}
+	if err := exitCodeError(WorkerExitProtocol); err == nil {
+		t.Fatal("failing worker exit was accepted")
+	}
+	if _, _, err := digestExecutable(t.TempDir()); err == nil {
+		t.Fatal("directory was accepted as a worker executable")
+	}
+	empty := filepath.Join(t.TempDir(), WorkerExecutableName)
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := digestExecutable(empty); err == nil {
+		t.Fatal("empty file was accepted as a worker executable")
+	}
+	var handle windows.Handle
+	closeHandle(nil)
+	closeHandle(&handle)
+	handle = windows.InvalidHandle
+	closeHandle(&handle)
+}
+
 func TestWindowsRuntimeKillsWorkerWhenCallerCancels(t *testing.T) {
 	runtime := testWindowsRuntime(t)
 	request := testRequest()
@@ -59,7 +140,7 @@ func TestWindowsRuntimeKillsWorkerWhenCallerCancels(t *testing.T) {
 }
 
 func TestWindowsRuntimeRepairsTamperedStagedWorker(t *testing.T) {
-	runtime := testWindowsRuntime(t).(*windowsRuntime)
+	runtime := testWindowsRuntime(t).platform.(*windowsRuntime)
 	sid, err := appContainerSID()
 	if err != nil {
 		t.Fatalf("appContainerSID() error = %v", err)
@@ -89,12 +170,9 @@ func TestWindowsRuntimeRepairsTamperedStagedWorker(t *testing.T) {
 	}
 }
 
-func testWindowsRuntime(t *testing.T) Runtime {
+func testWindowsRuntime(t *testing.T) *Runtime {
 	t.Helper()
 	executable := os.Getenv("YOTTA_SCRIPT_WORKER_TEST_EXE")
-	if executable == "" {
-		t.Skip("set YOTTA_SCRIPT_WORKER_TEST_EXE to a freshly built script worker")
-	}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Executable:         executable,
 		ProcessMemoryBytes: DefaultMemoryBytes,

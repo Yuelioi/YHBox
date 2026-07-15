@@ -176,9 +176,7 @@ func inspectWorkflow(application *app31.Application, request WorkflowInspectRequ
 }
 
 func applyWorkflowPatch(ctx context.Context, application *app31.Application, request WorkflowApplyPatchRequest) (WorkflowApplyPatchResult, error) {
-	result, err := application.ApplyPatch(ctx, authoring.PatchRequest{
-		WorkflowID: request.WorkflowID, BaseRevision: request.BaseRevision, Commands: request.Commands,
-	})
+	result, err := application.ApplyPatch(ctx, request)
 	if err != nil {
 		return WorkflowApplyPatchResult{}, err
 	}
