@@ -29,6 +29,7 @@ const (
 	CodeResourceLeaseMismatch    = "RESOURCE_LEASE_MISMATCH"
 	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
 	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
+	CodeDuplicateSignalRoute     = "DUPLICATE_SIGNAL_ROUTE"
 	CodeInvalidBinding           = "INVALID_BINDING"
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeDataCycle                = "DATA_CYCLE"
@@ -142,9 +143,9 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 }
 
 func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot) (programGraph, []Diagnostic, error) {
-	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, Edges: append([]schema.Edge(nil), graph.Edges...), Order: []string{}}
+	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
-	nodes := make(map[string]*programNode, len(graph.Nodes))
+	nodes := make(map[string]int, len(graph.Nodes))
 	contracts := make(map[string]nodecontract.MachineContract, len(graph.Nodes))
 	validators := map[string]*runtimejsonschema.Schema{}
 	for nodeIndex, sourceNode := range graph.Nodes {
@@ -166,7 +167,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			continue
 		}
 		machine := entry.Contract.Machine()
-		if machine.Execution.Class != nodecontract.ExecutionPureData && machine.Execution.Class != nodecontract.ExecutionEffect {
+		if !programExecutableClass(machine.Execution.Class) {
 			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnsupportedSourceFeature, append(path, "nodeRef"), graph.ID, sourceNode.ID))
 			continue
 		}
@@ -254,11 +255,12 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			plan.Inputs[portID] = inputPlan{Kind: inputLiteral, Provenance: provenance, Value: envelope.Artifact()}
 		}
 		compiled.Nodes = append(compiled.Nodes, plan)
-		nodes[plan.ID] = &compiled.Nodes[len(compiled.Nodes)-1]
+		nodes[plan.ID] = len(compiled.Nodes) - 1
 		contracts[plan.ID] = machine
 	}
 
 	incoming := map[string]bool{}
+	signalRoutes := map[programSignalRoute]bool{}
 	adjacency := map[string][]string{}
 	indegree := map[string]int{}
 	for _, node := range compiled.Nodes {
@@ -269,30 +271,32 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			return compiled, diagnostics, err
 		}
 		path := []string{"graphs", fmt.Sprint(graphIndex), "edges", fmt.Sprint(edgeIndex)}
-		if edge.Channel != schema.EdgeData {
-			diagnostics = append(diagnostics, diagnostic(CodeUnsupportedSourceFeature, append(path, "channel"), graph.ID))
-			continue
-		}
-		fromNode, fromOK := nodes[edge.From.NodeID]
-		toNode, toOK := nodes[edge.To.NodeID]
+		fromIndex, fromOK := nodes[edge.From.NodeID]
+		toIndex, toOK := nodes[edge.To.NodeID]
 		if !fromOK || !toOK {
 			diagnostics = append(diagnostics, diagnostic(CodeUnknownPort, path, graph.ID))
 			continue
 		}
+		fromNode, toNode := &compiled.Nodes[fromIndex], &compiled.Nodes[toIndex]
 		fromMachine, toMachine := contracts[fromNode.ID], contracts[toNode.ID]
 		fromType, fromExists := outputForChannel(fromMachine.Ports, edge.Channel, edge.From.PortID)
 		toType, toExists := inputForChannel(toMachine.Ports, edge.Channel, edge.To.PortID)
 		if !fromExists || !toExists {
-			diagnostics = append(diagnostics, diagnostic(CodeUnknownPort, path, graph.ID))
+			code := CodeUnknownPort
+			if (!fromExists && outputPortExists(fromMachine.Ports, edge.From.PortID)) ||
+				(!toExists && inputPortExists(toMachine.Ports, edge.To.PortID)) {
+				code = CodeEdgeChannelMismatch
+			}
+			diagnostics = append(diagnostics, diagnostic(code, path, graph.ID))
 			continue
 		}
-		key := edge.To.NodeID + "\x00" + string(edge.Channel) + "\x00" + edge.To.PortID
-		if incoming[key] {
-			diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
-			continue
-		}
-		incoming[key] = true
 		if edge.Channel == schema.EdgeData {
+			key := edge.To.NodeID + "\x00" + edge.To.PortID
+			if incoming[key] {
+				diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
+				continue
+			}
+			incoming[key] = true
 			assignable, err := datatype.Assignable(*fromType, *toType)
 			if err != nil || !assignable {
 				diagnostics = append(diagnostics, diagnostic(CodeTypeMismatch, path, graph.ID))
@@ -311,6 +315,14 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			toNode.Inputs[edge.To.PortID] = inputPlan{Kind: inputEdge, From: edge.From}
 			adjacency[fromNode.ID] = append(adjacency[fromNode.ID], toNode.ID)
 			indegree[toNode.ID]++
+		} else {
+			route := programSignalRoute{Channel: edge.Channel, From: edge.From, To: edge.To}
+			if signalRoutes[route] {
+				diagnostics = append(diagnostics, diagnostic(CodeDuplicateSignalRoute, path, graph.ID))
+				continue
+			}
+			signalRoutes[route] = true
+			compiled.SignalRoutes = append(compiled.SignalRoutes, route)
 		}
 	}
 	for _, node := range compiled.Nodes {
@@ -322,11 +334,41 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			}
 		}
 	}
-	compiled.Order = topologicalOrder(compiled.Nodes, adjacency, indegree)
-	if len(compiled.Order) != len(compiled.Nodes) {
+	compiled.DataOrder = topologicalOrder(compiled.Nodes, adjacency, indegree)
+	if len(compiled.DataOrder) != len(compiled.Nodes) {
 		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
 	}
 	return compiled, diagnostics, nil
+}
+
+func outputPortExists(ports nodecontract.PortSet, id string) bool {
+	for _, port := range ports.DataOutputs {
+		if port.ID == id {
+			return true
+		}
+	}
+	for _, group := range [][]nodecontract.SignalPort{ports.ExecOutputs, ports.ErrorOutputs} {
+		for _, port := range group {
+			if port.ID == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func inputPortExists(ports nodecontract.PortSet, id string) bool {
+	for _, port := range ports.DataInputs {
+		if port.ID == id {
+			return true
+		}
+	}
+	for _, port := range ports.ExecInputs {
+		if port.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func resourceLeaseAssignable(source, target *nodecontract.ResourceLeaseBinding) bool {
@@ -371,7 +413,7 @@ func inputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id 
 		}
 		return nil, false
 	}
-	if channel != schema.EdgeExec {
+	if channel != schema.EdgeExec && channel != schema.EdgeError {
 		return nil, false
 	}
 	for _, port := range ports.ExecInputs {
@@ -380,6 +422,15 @@ func inputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id 
 		}
 	}
 	return nil, false
+}
+
+func programExecutableClass(class nodecontract.ExecutionClass) bool {
+	switch class {
+	case nodecontract.ExecutionPureData, nodecontract.ExecutionEffect, nodecontract.ExecutionControl, nodecontract.ExecutionEvent:
+		return true
+	default:
+		return false
+	}
 }
 
 func signalOutputs(ports nodecontract.PortSet, channel schema.EdgeChannel) []nodecontract.SignalPort {

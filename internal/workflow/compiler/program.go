@@ -52,11 +52,20 @@ type programNode struct {
 	Implementation nodecatalog.ImplementationLock `json:"implementation"`
 }
 
+// programSignalRoute is an ordered control instruction. Data dependencies are
+// already frozen into programNode.Inputs and are intentionally not duplicated
+// as routes.
+type programSignalRoute struct {
+	Channel schema.EdgeChannel `json:"channel"`
+	From    schema.Endpoint    `json:"from"`
+	To      schema.Endpoint    `json:"to"`
+}
+
 type programGraph struct {
-	ID    string        `json:"id"`
-	Nodes []programNode `json:"nodes"`
-	Edges []schema.Edge `json:"edges"`
-	Order []string      `json:"order"`
+	ID           string               `json:"id"`
+	Nodes        []programNode        `json:"nodes"`
+	SignalRoutes []programSignalRoute `json:"signalRoutes"`
+	DataOrder    []string             `json:"dataOrder"`
 }
 
 type programBody struct {
@@ -175,7 +184,7 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) {
 				return ProgramSnapshot{}, errors.New("program effective contract mismatch")
 			}
-			if machine.Execution.Class != nodecontract.ExecutionPureData && machine.Execution.Class != nodecontract.ExecutionEffect {
+			if !programExecutableClass(machine.Execution.Class) {
 				return ProgramSnapshot{}, errors.New("program contains an unsupported execution class")
 			}
 			for _, requirement := range machine.CapabilityRequirements {
@@ -199,13 +208,15 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 }
 
 func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) error {
-	if graph.ID == "" || len(graph.Nodes) > 4096 || len(graph.Edges) > 16384 {
+	if graph.ID == "" || len(graph.Nodes) > 4096 || len(graph.SignalRoutes) > 16384 {
 		return errors.New("program graph exceeds structural budget")
+	}
+	if graph.Nodes == nil || graph.SignalRoutes == nil || graph.DataOrder == nil {
+		return errors.New("program graph instructions must use explicit arrays")
 	}
 	nodes := make(map[string]programNode, len(graph.Nodes))
 	adjacency := map[string][]string{}
 	indegree := map[string]int{}
-	edgesByInput := map[string]schema.Endpoint{}
 	validators := map[string]*runtimejsonschema.Schema{}
 	for _, node := range graph.Nodes {
 		if node.ID == "" {
@@ -217,41 +228,26 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 		nodes[node.ID] = node
 		indegree[node.ID] = 0
 	}
-	for _, edge := range graph.Edges {
-		if edge.Channel != schema.EdgeData {
-			return errors.New("program contains an unsupported edge channel")
+	seenRoutes := make(map[programSignalRoute]struct{}, len(graph.SignalRoutes))
+	for _, route := range graph.SignalRoutes {
+		if route.Channel != schema.EdgeExec && route.Channel != schema.EdgeError {
+			return errors.New("program signal route has an invalid channel")
 		}
-		if _, ok := nodes[edge.From.NodeID]; !ok {
-			return errors.New("program data edge has an unknown source")
+		fromNode, fromOK := nodes[route.From.NodeID]
+		toNode, toOK := nodes[route.To.NodeID]
+		if !fromOK || !toOK {
+			return errors.New("program signal route references an unknown node")
 		}
-		if _, ok := nodes[edge.To.NodeID]; !ok {
-			return errors.New("program data edge has an unknown target")
+		if _, exists := seenRoutes[route]; exists {
+			return errors.New("program contains a duplicate signal route")
 		}
-		fromNode, toNode := nodes[edge.From.NodeID], nodes[edge.To.NodeID]
-		fromType, fromExists := outputForChannel(fromNode.Ports, schema.EdgeData, edge.From.PortID)
-		toType, toExists := inputForChannel(toNode.Ports, schema.EdgeData, edge.To.PortID)
-		if !fromExists || !toExists {
-			return errors.New("program data edge references an unknown port")
+		seenRoutes[route] = struct{}{}
+		if _, exists := outputForChannel(fromNode.Ports, route.Channel, route.From.PortID); !exists {
+			return errors.New("program signal route references an unknown output")
 		}
-		assignable, err := datatype.Assignable(*fromType, *toType)
-		if err != nil || !assignable {
-			return errors.New("program data edge has incompatible types")
+		if _, exists := inputForChannel(toNode.Ports, route.Channel, route.To.PortID); !exists {
+			return errors.New("program signal route references an unknown input")
 		}
-		fromPort, _ := dataOutputPort(fromNode.Ports, edge.From.PortID)
-		toPort, _ := dataInputPort(toNode.Ports, edge.To.PortID)
-		if !resourceLeaseAssignable(fromPort.ResourceLease, toPort.ResourceLease) {
-			return errors.New("program data edge has incompatible resource authority")
-		}
-		key := edge.To.NodeID + "\x00" + edge.To.PortID
-		if _, duplicate := edgesByInput[key]; duplicate {
-			return errors.New("program contains duplicate data input edges")
-		}
-		edgesByInput[key] = edge.From
-		adjacency[edge.From.NodeID] = append(adjacency[edge.From.NodeID], edge.To.NodeID)
-		indegree[edge.To.NodeID]++
-	}
-	if expected := topologicalOrder(graph.Nodes, adjacency, indegree); !slices.Equal(expected, graph.Order) {
-		return errors.New("program execution order does not match its data graph")
 	}
 	for _, node := range graph.Nodes {
 		entry, ok := catalog.Lookup(node.NodeRef.NodeTypeID)
@@ -296,9 +292,27 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 					return fmt.Errorf("program node %q has an invalid literal input %q: %w", node.ID, portID, err)
 				}
 			case inputEdge:
-				if len(plan.Value) != 0 || plan.Provenance != "" || edgesByInput[node.ID+"\x00"+portID] != plan.From {
+				if len(plan.Value) != 0 || plan.Provenance != "" {
 					return fmt.Errorf("program node %q has a forged edge input %q", node.ID, portID)
 				}
+				fromNode, exists := nodes[plan.From.NodeID]
+				if !exists {
+					return fmt.Errorf("program node %q has an edge from an unknown node", node.ID)
+				}
+				fromType, fromExists := outputForChannel(fromNode.Ports, schema.EdgeData, plan.From.PortID)
+				if !fromExists {
+					return fmt.Errorf("program node %q has an edge from an unknown output", node.ID)
+				}
+				assignable, err := datatype.Assignable(*fromType, port.Type)
+				if err != nil || !assignable {
+					return fmt.Errorf("program node %q has an incompatible data edge", node.ID)
+				}
+				fromPort, _ := dataOutputPort(fromNode.Ports, plan.From.PortID)
+				if !resourceLeaseAssignable(fromPort.ResourceLease, port.ResourceLease) {
+					return fmt.Errorf("program node %q has incompatible resource authority", node.ID)
+				}
+				adjacency[plan.From.NodeID] = append(adjacency[plan.From.NodeID], node.ID)
+				indegree[node.ID]++
 			default:
 				return fmt.Errorf("program node %q has an unknown input plan", node.ID)
 			}
@@ -311,18 +325,8 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 			}
 		}
 	}
-	for target, from := range edgesByInput {
-		matched := false
-		for _, node := range graph.Nodes {
-			for portID, plan := range node.Inputs {
-				if node.ID+"\x00"+portID == target && plan.Kind == inputEdge && plan.From == from {
-					matched = true
-				}
-			}
-		}
-		if !matched {
-			return errors.New("program data edge is missing its input plan")
-		}
+	if expected := topologicalOrder(graph.Nodes, adjacency, indegree); len(expected) != len(graph.Nodes) || !slices.Equal(expected, graph.DataOrder) {
+		return errors.New("program data order does not match its data graph")
 	}
 	return nil
 }

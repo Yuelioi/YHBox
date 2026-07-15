@@ -68,7 +68,7 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 	result := RunResult{NodeOutputs: map[string]map[string]json.RawMessage{}}
 	retainedBytes := 0
 	validators := map[string]*runtimejsonschema.Schema{}
-	for _, nodeID := range graph.Order {
+	for _, nodeID := range graph.DataOrder {
 		if err := ctx.Err(); err != nil {
 			return RunResult{}, err
 		}

@@ -213,7 +213,7 @@ func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *
 			_ = cleanup()
 		}
 	}()
-	for _, nodeID := range graph.Order {
+	for _, nodeID := range graph.DataOrder {
 		if err := ctx.Err(); err != nil {
 			return ExecutionResult{}, err
 		}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
@@ -71,7 +73,7 @@ func TestConcatTracerRejectsInventedOutAndContractMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasDiagnostic(result.Diagnostics, CodeUnsupportedSourceFeature) {
+	if !hasDiagnostic(result.Diagnostics, CodeUnknownPort) {
 		t.Fatalf("invented out diagnostics = %#v", result.Diagnostics)
 	}
 
@@ -85,6 +87,89 @@ func TestConcatTracerRejectsInventedOutAndContractMismatch(t *testing.T) {
 	}
 	if !hasDiagnostic(result.Diagnostics, CodeNodeContractMismatch) {
 		t.Fatalf("contract mismatch diagnostics = %#v", result.Diagnostics)
+	}
+}
+
+func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
+	catalog, source, target := signalCatalogForTest(t)
+	build := testDigest(t, "signal-compiler")
+	raw := signalSourceForTest(source.NodeRef(), target.NodeRef(), []string{
+		`{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
+		`{"channel":"error","from":{"nodeId":"source","portId":"failed"},"to":{"nodeId":"target","portId":"in"}}`,
+	})
+	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("missing signal Program")
+	}
+	var document programDocument
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	graph := document.Body.Graphs[0]
+	if len(graph.SignalRoutes) != 2 || graph.SignalRoutes[0].Channel != schema.EdgeExec || graph.SignalRoutes[1].Channel != schema.EdgeError {
+		t.Fatalf("signal routes = %#v", graph.SignalRoutes)
+	}
+	if !slices.Equal(graph.DataOrder, []string{"source", "target"}) {
+		t.Fatalf("data order = %#v", graph.DataOrder)
+	}
+	if _, err := OpenProgram(program.Artifact(), catalog, build); err != nil {
+		t.Fatalf("strict-open signal Program: %v", err)
+	}
+
+	document.Body.Graphs[0].SignalRoutes[0].To.PortID = "missing"
+	forged, err := sealProgram(document.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+		t.Fatal("accepted a forged signal route")
+	}
+
+	document.Body.Graphs[0].SignalRoutes[0].To.PortID = "in"
+	slices.Reverse(document.Body.Graphs[0].DataOrder)
+	forged, err = sealProgram(document.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+		t.Fatal("accepted a forged data order")
+	}
+}
+
+func TestCompilerRejectsDuplicateSignalRoutesButAllowsControlCycles(t *testing.T) {
+	catalog, source, target := signalCatalogForTest(t)
+	duplicate := `{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`
+	compiled, err := New(testDigest(t, "duplicate-route")).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: signalSourceForTest(source.NodeRef(), target.NodeRef(), []string{duplicate, duplicate}), Catalog: catalog,
+	})
+	if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeDuplicateSignalRoute) {
+		t.Fatalf("duplicate route diagnostics=%#v err=%v", compiled.Diagnostics, err)
+	}
+
+	cycleCatalog, left, right := signalCycleCatalogForTest(t)
+	cycle := signalSourceForTest(left.NodeRef(), right.NodeRef(), []string{
+		`{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
+		`{"channel":"exec","from":{"nodeId":"target","portId":"next"},"to":{"nodeId":"source","portId":"in"}}`,
+	})
+	compiled, err = New(testDigest(t, "control-cycle")).CompileDraft(context.Background(), CompileRequest{SourceJSON: cycle, Catalog: cycleCatalog})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("control cycle diagnostics=%#v err=%v", compiled.Diagnostics, err)
+	}
+}
+
+func TestCompilerDistinguishesWrongChannelFromUnknownPort(t *testing.T) {
+	catalog, source, target := signalCatalogForTest(t)
+	compiled, err := New(testDigest(t, "channel-mismatch")).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: signalSourceForTest(source.NodeRef(), target.NodeRef(), []string{
+			`{"channel":"error","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
+		}), Catalog: catalog,
+	})
+	if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeEdgeChannelMismatch) {
+		t.Fatalf("channel mismatch diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 }
 
@@ -105,6 +190,17 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 	}
 	if len(result.Diagnostics) != 0 {
 		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+	program, ok := result.Program()
+	if !ok {
+		t.Fatal("missing data-edge Program")
+	}
+	var document programDocument
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	if got := document.Body.Graphs[0].Nodes[0].Inputs["a"]; got.Kind != inputEdge || got.From.NodeID != "first" || got.From.PortID != "result" {
+		t.Fatalf("frozen data input = %#v", got)
 	}
 }
 
@@ -340,6 +436,81 @@ func conversionSourceForTest(toStream, toBlob nodecontract.NodeRef, ref blob.Blo
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],
 		"variables":[],"secretRefs":[]
 	}`, toBlob.NodeTypeID, toBlob.SemanticDigest, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size))
+}
+
+func signalSourceForTest(source, target nodecontract.NodeRef, edges []string) []byte {
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-signals","name":"Signals"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"source","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"target","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
+		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, source.NodeTypeID, source.SemanticDigest, target.NodeTypeID, target.SemanticDigest, strings.Join(edges, ",")))
+}
+
+func signalCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract.Contract, nodecontract.Contract) {
+	t.Helper()
+	source := signalContractForTest(t, "source", []string{}, []string{"next"}, []string{"failed"})
+	target := signalContractForTest(t, "target", []string{"in"}, []string{}, []string{})
+	return sealSignalCatalogForTest(t, source, target), source, target
+}
+
+func signalCycleCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract.Contract, nodecontract.Contract) {
+	t.Helper()
+	left := signalContractForTest(t, "source", []string{"in"}, []string{"next"}, []string{})
+	right := signalContractForTest(t, "target", []string{"in"}, []string{"next"}, []string{})
+	return sealSignalCatalogForTest(t, left, right), left, right
+}
+
+func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, errorOutputs []string) nodecontract.Contract {
+	t.Helper()
+	nodeID := "https://schemas.yotta.dev/nodes/test/" + name + "/v1"
+	configID := nodeID + "/config"
+	ports := func(values []string) []nodecontract.SignalPort {
+		result := make([]nodecontract.SignalPort, len(values))
+		for index, value := range values {
+			result[index] = nodecontract.SignalPort{ID: value}
+		}
+		return result
+	}
+	contract, err := nodecontract.Seal(nodecontract.Draft{
+		NodeTypeID: nodeID, ConfigSchemaRoot: configID,
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: configID, Schema: json.RawMessage(fmt.Sprintf(`{"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`, configID))}},
+		Ports: nodecontract.PortSet{
+			DataInputs: []nodecontract.DataInputPort{}, DataOutputs: []nodecontract.DataOutputPort{},
+			ExecInputs: ports(execInputs), ExecOutputs: ports(execOutputs), ErrorOutputs: ports(errorOutputs),
+		},
+		Execution: nodecontract.ExecutionSpec{
+			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID("https://schemas.yotta.dev/effects/test/" + name + "/v1")},
+			Determinism: nodecontract.Deterministic, Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone,
+			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
+		},
+		CapabilityRequirements: []capability.Requirement{},
+		Errors:                 []nodecontract.ErrorSpec{{Code: "test." + name + "_failed", Category: "test", RetryHint: false}},
+		StatusEvents:           []nodecontract.StatusEventSpec{},
+		ImplementationABI:      []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+		Authoring:              nodecontract.Authoring{Tags: []string{"test"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contract
+}
+
+func sealSignalCatalogForTest(t *testing.T, contracts ...nodecontract.Contract) nodecatalog.Snapshot {
+	t.Helper()
+	bindings := make([]nodecatalog.Binding, len(contracts))
+	for index, contract := range contracts {
+		bindings[index] = nodecatalog.Binding{Contract: contract, Implementation: nodecatalog.ImplementationLock{
+			PackageID: "https://schemas.yotta.dev/packages/test/v1", ArtifactDigest: testDigest(t, contract.NodeRef().NodeTypeID),
+			ABI: nodecontract.ABIRequirement{Kind: nodecontract.ABIBuiltin, Version: "v1"}, Entrypoint: "test." + fmt.Sprint(index),
+		}}
+	}
+	catalog, err := nodecatalog.Seal([]datatype.Definition{}, []capability.Definition{}, bindings, "v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return catalog
 }
 
 func concatCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract.Contract) {
