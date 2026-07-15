@@ -6,15 +6,15 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-Script 3.1 已作为唯一生产脚本节点提交为 `2ee6164b`：Node Contract 使用 `in → completed` 与 `failed` 的显式信号，不存在通用 `out`；源码配置、JSON 输入/结果、timeout、retry/cache/cancellation、8 类稳定错误和 recorded action journal 全部进入 3.1 契约。Application 只能注入 sealed `scriptengine.Runtime`，Windows 精确发布 LPAC/AppContainer/Job host feature，Compiler/Program/Admission/Authoring Projection 共同冻结并在任何 policy/provider/RunStore effect 前验证；Linux/macOS 不发布该 feature 并 fail closed。
+remaining effects 的首个 I/O/system 批次已提交为 `3fab01e2`：新增只读 workspace filesystem provider 与 exact `workspace-files` Target/Capability/Run Grant binding，Read Text/Read JSON/Stat 只接受 Yotta 管理根内相对路径，拒绝 absolute/traversal/symlink escape，并对文件大小、编码、JSON 文档、provider artifact/ABI 和 journal payload 做严格边界。旧 File 节点的 ambient host path 语义不进入 3.1。
 
-Windows 10 22H2 真机隔离/取消/篡改修复 smoke、script/runtime race、Linux/macOS core cross-compile 与完整 `task check` 已通过：Go coverage 65.3%，frontend 100 files / 646 tests，production bundle entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes。当前 frontier 转到 remaining effects，按 I/O/system → input/window/image/automation 迁移 exact Capability/Target/Credential binding 和 journal。
+同时新增 bounded ObservabilityMessage 名义类型、recorded Log effect 和 terminal Throw control；Log 使用 `in → completed` / `failed` 并只把消息 digest/bytes/level 写入 action journal，Throw 没有成功或通用 `out`，只产生稳定 `control.thrown`。完整 `task check` 与 workspacefs/nodes31runtime/appbootstrap race 通过。当前 frontier 是 network/process/audio，再迁移 input/window/image/automation。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
+1. remaining effects：workspace I/O/Log/Throw 已完成；下一批迁移 network/process/audio，然后按 input/window/image/automation 收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
 2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -48,6 +48,7 @@ Windows 10 22H2 真机隔离/取消/篡改修复 smoke、script/runtime race、L
 ## Progress
 
 Done:
+- 完成 remaining effects 首个 I/O/system 纵切面：read-only workspace filesystem provider、File Metadata/Observability Message 名义类型、Read Text/Read JSON/Stat、recorded Log 与 terminal Throw；exact provider/target/scope/policy/grant/journal 全链闭合，ambient host path 与通用 `out` 不进入 3.1，提交 `3fab01e2`。
 - 完成 Script 3.1 production vertical slice：显式 signal/data 端口、strict code/JSON/timeout authoring、recorded journal、sealed runtime composition、精确 host feature requirement 与 admission fail-before-effect；Windows worker 自构建门禁使真实 LPAC 测试不再静默跳过，完整 `task check` 全绿，提交 `2ee6164b`。
 - 完成 Windows Script 3.1 fail-closed launcher：独立最小 worker、LPAC/AppContainer、atomic Job Object、显式句柄/环境 allowlist、parent/worker 双重 confinement 验证、content-addressed staging/tamper repair、取消 kill；build/sign/portable/NSIS/canonical Windows smoke 全部携带并验证 worker，提交 `c1fd1bce`。
 - 完成 Script 3.1 worker core：sealed canonical frame、strict typed JSON ABI、deterministic seed/virtual clock、zero ambient authority、资源预算、稳定错误分类与 one-shot process entry；没有导出 in-process evaluator，提交 `307d7f74`。
@@ -126,9 +127,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Script 3.1 已完成；当前 frontier 是 remaining effects，先迁移 I/O/system，再按 input/window/image/automation 收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
+- workspace I/O/Log/Throw 已完成；当前 frontier 是 network/process/audio，随后按 input/window/image/automation 迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
 
 Verified:
+- workspace I/O/system 批次提交 `3fab01e2`（2026-07-16）：完整 `task check` 233.6s 全绿；Go coverage 65.3%、root 33.6%，frontend 100 files / 646 tests，Wails contract 15 services / 132 methods / 151 models，entry 332,173 / 350,000 bytes、editor 92,355 / 200,000 bytes；workspacefs/nodes31runtime/appbootstrap race 通过。
 - Script 3.1 production vertical slice 提交 `2ee6164b`（2026-07-16）：完整 `task check` 全绿；Go coverage 65.3%，frontend 100 files / 646 tests，Wails contract、vet/staticcheck/typecheck/i18n/build 全绿，entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes；Windows LPAC/AppContainer/Job 真机 smoke、取消、篡改修复、聚焦 race 与 Linux/macOS core cross-compile 通过。
 - activation-scoped control region 提交 `1f122ef3`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 646 tests、i18n 3276 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,750 / 350,000 bytes、editor 92,312 / 200,000 bytes；嵌套 region 信号传播、显式 Retry error route、多入口 body 拒绝、exact instruction union 与 host-instruction ABI 回归通过。
 - typed authoring/MCP 提交 `b4aa17aa`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 645 tests、i18n 3270 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,398 / 350,000 bytes、editor 92,152 / 200,000 bytes；MCP in-process structuredContent/output schema 与显式分页上限回归通过。
