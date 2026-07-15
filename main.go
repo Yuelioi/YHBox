@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
+	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
@@ -130,7 +131,7 @@ func main() {
 			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, ScriptRuntime: scriptRuntime,
+		AIInstallations: aiInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event app31.RunEvent) {
 			payload := map[string]any{
@@ -595,6 +596,28 @@ func stopAllForHotkey(stopAll func() error, log zerolog.Logger) {
 	if err := stopAll(); err != nil {
 		log.Warn().Err(err).Str("tag", "SYSTEM").Msg("全局强停失败")
 	}
+}
+
+func newWorkflowLogEmitter(log zerolog.Logger) nodes31runtime.LogEmitter {
+	return nodes31runtime.LogEmitterFunc(func(ctx context.Context, entry nodes31runtime.LogEntry) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		var event *zerolog.Event
+		switch entry.Level {
+		case "debug":
+			event = log.Debug()
+		case "warn":
+			event = log.Warn()
+		case "error":
+			event = log.Error()
+		default:
+			event = log.Info()
+		}
+		event.Str("tag", "WORKFLOW").Str("graphId", entry.GraphID).Str("nodeId", entry.NodeID).
+			Str("invocationId", entry.InvocationID).Int("attempt", entry.Attempt).Msg(entry.Message)
+		return nil
+	})
 }
 
 // backupLegacyDataIfNeeded 检测旧 v1 数据布局，命中则整体 rename 备份。

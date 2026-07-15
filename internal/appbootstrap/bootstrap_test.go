@@ -14,11 +14,13 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services/workflow31"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
 func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T) {
@@ -26,6 +28,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	events := make(chan app31.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event app31.RunEvent) { events <- event },
 	})
@@ -115,6 +118,32 @@ func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	}
 }
 
+func TestBuiltinPolicyPinsWorkspaceFilesystemProvider(t *testing.T) {
+	now := time.Date(2026, 7, 16, 11, 0, 0, 0, time.UTC)
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := workspacefs.ProviderArtifactDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := capability.Binding{
+		ProviderID: workspacefs.ProviderID, ProviderArtifactDigest: digest, ProviderABI: workspacefs.ProviderABI,
+		TargetID: workspacefs.TargetID, TargetKind: workspacefs.TargetKind, ResourceKind: workspacefs.Kind,
+		PluginInstanceID: "builtin",
+	}
+	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved {
+		t.Fatalf("workspace filesystem decision = %#v, %v", decision, err)
+	}
+	binding.TargetID = "host-root"
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyDenied {
+		t.Fatalf("forged workspace filesystem decision = %#v, %v", decision, err)
+	}
+}
+
 func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	now := time.Date(2026, 7, 15, 13, 0, 0, 0, time.UTC)
 	profileDraft := ai.ModelProfileDraft{
@@ -173,6 +202,10 @@ type testAICredentials struct{}
 
 func (testAICredentials) Get(string) (string, error) { return "secret", nil }
 
+type discardWorkflowLog struct{}
+
+func (discardWorkflowLog) EmitWorkflowLog(context.Context, nodes31runtime.LogEntry) error { return nil }
+
 func bootstrapScriptRuntime(t *testing.T) *scriptengine.Runtime {
 	t.Helper()
 	runtime, err := scriptengine.NewRuntime(scriptengine.RuntimeOptions{
@@ -197,7 +230,7 @@ func emptyAIInstallations(t *testing.T) ai.Installations {
 func testLimits() appbootstrap.Limits {
 	return appbootstrap.Limits{
 		MaxSources: 8, MaxPrograms: 8, MaxRuns: 8,
-		MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 1 << 20,
+		MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 2 << 20,
 		BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 	}
 }

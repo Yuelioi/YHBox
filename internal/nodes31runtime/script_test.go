@@ -63,7 +63,7 @@ func TestScriptExecuteRunsThroughInjectedIsolationAndJournalsOnlyRedactedFacts(t
 	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
 	isolation := &recordingScriptRuntime{output: json.RawMessage(`{"answer":42,"now":1784190600123}`)}
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: isolation})
+	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: isolation, Log: unusedLogEmitter{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestScriptExecuteRoutesTypedWorkerFailure(t *testing.T) {
 	isolation := &recordingScriptRuntime{failure: &scriptengine.Failure{
 		Code: scriptengine.CodeGuestThrown, Message: "isolated script execution failed",
 	}}
-	installed, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: isolation})
+	installed, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: isolation, Log: unusedLogEmitter{}})
 	if err != nil {
 		t.Fatal(err)
 	}

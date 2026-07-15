@@ -170,7 +170,10 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: applicationScriptRuntime{}})
+	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{
+		Script: applicationScriptRuntime{},
+		Log:    nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

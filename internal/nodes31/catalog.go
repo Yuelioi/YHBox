@@ -74,12 +74,17 @@ type Builtins struct {
 	RegionType               datatype.Definition
 	RandomDistributionType   datatype.Definition
 	DurationMillisecondsType datatype.Definition
+	FileMetadataType         datatype.Definition
+	ObservabilityMessageType datatype.Definition
 	ConcatContract           nodecontract.Contract
 	BlobToStreamContract     nodecontract.Contract
 	StreamToBlobContract     nodecontract.Contract
 	AIGenerateContract       nodecontract.Contract
 	AIExtractContract        nodecontract.Contract
 	ScriptExecuteContract    nodecontract.Contract
+	FileReadTextContract     nodecontract.Contract
+	FileReadJSONContract     nodecontract.Contract
+	FileStatContract         nodecontract.Contract
 	Types                    []datatype.Definition
 	Contracts                []nodecontract.Contract
 	Capabilities             []capability.Definition
@@ -130,6 +135,14 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	fileMetadataType, err := sealFileMetadataType()
+	if err != nil {
+		return Builtins{}, err
+	}
+	observabilityMessageType, err := sealObservabilityMessageType()
+	if err != nil {
+		return Builtins{}, err
+	}
 	blobRead, err := sealCapability(BlobReadCapabilityID, []string{"read-range"}, "blob-store")
 	if err != nil {
 		return Builtins{}, err
@@ -143,6 +156,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	aiGeneration, err := sealAIGenerationCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	filesystemRead, err := sealFilesystemReadCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -221,6 +238,16 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	filesystemDefinitions, filesystemContracts, err := defineFilesystemNodes(extendedTypes{
+		stringRef: stringType.TypeRef(), jsonRef: jsonType.TypeRef(),
+	}, fileMetadataType.TypeRef(), filesystemRead)
+	if err != nil {
+		return Builtins{}, err
+	}
+	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
@@ -230,6 +257,8 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, controlDefinitions...)
 	definitions = append(definitions, aiDefinitions...)
 	definitions = append(definitions, scriptDefinition)
+	definitions = append(definitions, filesystemDefinitions...)
+	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -242,8 +271,8 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration}
+	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -254,8 +283,11 @@ func Build() (Builtins, error) {
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
+		FileMetadataType:         fileMetadataType,
+		ObservabilityMessageType: observabilityMessageType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
 		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, ScriptExecuteContract: scriptExecute,
+		FileReadTextContract: filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil

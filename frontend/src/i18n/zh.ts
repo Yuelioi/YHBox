@@ -903,6 +903,18 @@ export default {
         description: '以毫秒计、最大 24 小时的非负延迟时长。',
       },
     },
+    filesystem: {
+      metadata: {
+        title: '文件元数据',
+        description: 'Yotta 管理的工作流文件区中单个文件的规范化元数据。',
+      },
+    },
+    observability: {
+      message: {
+        title: '日志消息',
+        description: '显式写入带工作流归属日志的有界文本。',
+      },
+    },
   },
   node: {
     text: {
@@ -986,6 +998,42 @@ export default {
         },
       },
     },
+    filesystem: {
+      readText: {
+        title: '读取工作区文本',
+        description: '从 Yotta 管理的工作流文件区中有界读取文本。',
+      },
+      readJSON: {
+        title: '读取工作区 JSON',
+        description: '从工作流文件区读取并严格解析单个 UTF-8 JSON 文档。',
+      },
+      stat: {
+        title: '检查工作区文件',
+        description: '读取规范化元数据，不暴露宿主文件系统的任意路径权限。',
+      },
+      config: {
+        encoding: {
+          title: '文本编码',
+          description: '按 UTF-8、GBK 解码，或先检测 UTF-8 再回退到 GBK。',
+        },
+        maxBytes: {
+          title: '最大字节数',
+          description: '文件超过这个有界预算时，在读取前拒绝执行。',
+        },
+      },
+    },
+    observability: {
+      log: {
+        title: '写入日志',
+        description: '写入一条有界、带 Run 归属的消息，action journal 只记录其摘要。',
+        config: {
+          level: {
+            title: '日志级别',
+            description: '选择调试、信息、警告或错误级别。',
+          },
+        },
+      },
+    },
     event: {
       runStarted: {
         title: 'Run 开始',
@@ -993,6 +1041,10 @@ export default {
       },
     },
     control: {
+      throw: {
+        title: '令工作流失败',
+        description: '以稳定的 control.thrown 错误码结束当前分支，不产生成功出口。',
+      },
       branch: {
         title: '分支',
         description: '根据条件只从「真」或「假」中的一个路径继续。',

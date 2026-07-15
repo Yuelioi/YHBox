@@ -23,6 +23,7 @@ const conversionChunkBytes = 64 << 10
 
 type Dependencies struct {
 	Script ScriptExecutor
+	Log    LogEmitter
 }
 
 type ScriptExecutor interface {
@@ -30,8 +31,8 @@ type ScriptExecutor interface {
 }
 
 func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string]compiler.InstalledAdapter, error) {
-	if dependencies.Script == nil {
-		return nil, errors.New("installed built-ins require an isolated script runtime")
+	if dependencies.Script == nil || dependencies.Log == nil {
+		return nil, errors.New("installed built-ins require isolated script and workflow log runtimes")
 	}
 	installed := make(map[string]compiler.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]compiler.Adapter{
@@ -51,6 +52,11 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.AIGenerateNodeID:    aiGenerate(builtins, false),
 		nodes31.AIExtractNodeID:     aiGenerate(builtins, true),
 		nodes31.ScriptExecuteNodeID: scriptExecute(builtins, dependencies.Script),
+		nodes31.FileReadTextNodeID:  fileRead(builtins, false),
+		nodes31.FileReadJSONNodeID:  fileRead(builtins, true),
+		nodes31.FileStatNodeID:      fileStat(builtins),
+		nodes31.LogNodeID:           writeLog(dependencies.Log),
+		nodes31.ThrowNodeID:         throwFailure(),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)
@@ -296,7 +302,7 @@ func recordAdapterOutcome(ctx context.Context, invocation compiler.Invocation, a
 		action.Outcome = run31.ActionFailed
 		action.ErrorCode = failureCode
 		var failure *compiler.NodeFailure
-		if errors.As(runErr, &failure) && runErr == failure && failure.Code != "" {
+		if errors.As(runErr, &failure) && failure.Code != "" {
 			action.ErrorCode = failure.Code
 		}
 	default:

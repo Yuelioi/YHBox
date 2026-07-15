@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/nodes/control"
+	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container"
@@ -173,5 +176,27 @@ func TestAssetAndClipCompositionShareTheGlobalAssetStore(t *testing.T) {
 	}
 	if err := (&workflowRunStarter{application: &app31.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter hid an unavailable Application")
+	}
+}
+
+func TestWorkflowLogEmitterPreservesLevelAndAttribution(t *testing.T) {
+	var output bytes.Buffer
+	emitter := newWorkflowLogEmitter(zerolog.New(&output).Level(zerolog.DebugLevel))
+	for _, level := range []string{"debug", "info", "warn", "error"} {
+		if err := emitter.EmitWorkflowLog(context.Background(), nodes31runtime.LogEntry{
+			Level: level, Message: "message-" + level, GraphID: "main", NodeID: "log", InvocationID: "invoke-1", Attempt: 2,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, fact := range []string{"message-info", "message-warn", "message-error", `"graphId":"main"`, `"nodeId":"log"`, `"attempt":2`} {
+		if !bytes.Contains(output.Bytes(), []byte(fact)) {
+			t.Fatalf("workflow log output omitted %q: %s", fact, output.String())
+		}
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := emitter.EmitWorkflowLog(cancelled, nodes31runtime.LogEntry{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled workflow log = %v", err)
 	}
 }

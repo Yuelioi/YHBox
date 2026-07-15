@@ -26,6 +26,7 @@ import (
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflowstore"
+	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
 type Limits struct {
@@ -46,6 +47,7 @@ type Config struct {
 	Limits            Limits
 	AIInstallations   ai.Installations
 	ScriptRuntime     *scriptengine.Runtime
+	LogEmitter        nodes31runtime.LogEmitter
 	GrantTTL          time.Duration
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -63,8 +65,8 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || config.ScriptRuntime == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
-		return nil, errors.New("app bootstrap requires trusted installations, an isolated script runtime, and bounded Run lifetimes")
+	if !config.AIInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
 		return nil, err
@@ -119,6 +121,10 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	workspaceFileProvider, err := workspacefs.NewProvider(filepath.Join(workspace, "files"), workspacefs.Limits{MaxReadBytes: nodes31.DefaultFileReadBytes})
+	if err != nil {
+		return nil, err
+	}
 	blobDigest, err := blob.ProviderArtifactDigest()
 	if err != nil {
 		return nil, err
@@ -127,7 +133,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, config.ScriptRuntime, config.AIInstallations)
+	workspaceFileDigest, err := workspacefs.ProviderArtifactDigest()
+	if err != nil {
+		return nil, err
+	}
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -141,14 +151,15 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: config.ScriptRuntime})
+	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: config.ScriptRuntime, Log: config.LogEmitter})
 	if err != nil {
 		return nil, err
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
 	providers := map[string]run31.InstalledProvider{
-		blob.ProviderID:   {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
-		stream.ProviderID: {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
+		blob.ProviderID:        {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
+		stream.ProviderID:      {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
+		workspacefs.ProviderID: {ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, Provider: workspaceFileProvider},
 	}
 	for _, installed := range config.AIInstallations.Entries() {
 		if existing, ok := providers[installed.ProviderID]; ok {
@@ -196,7 +207,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 func validateLimits(limits Limits) error {
 	if limits.MaxSources <= 0 || limits.MaxPrograms <= 0 || limits.MaxRuns <= 0 ||
 		limits.MaxBlobBytes <= 0 || limits.MaxTotalBlobBytes < limits.MaxBlobBytes ||
-		limits.MaxResourcePayloadBytes <= 0 || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
+		limits.MaxResourcePayloadBytes < 2*nodes31.DefaultFileReadBytes || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
 		limits.BlobQueueCapacity <= 0 || limits.StreamCapacity <= 0 || limits.StreamChunkBytes <= 0 ||
 		limits.StreamChunkBytes > limits.MaxResourcePayloadBytes {
 		return errors.New("app bootstrap limits are invalid")
@@ -204,7 +215,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -228,6 +239,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest arti
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
+	filesystemRead, err := lookup(nodes31.FilesystemReadCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
 		Features: scriptRuntime.HostFeatures(),
@@ -241,13 +256,18 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest arti
 			{ID: stream.ProviderID, ArtifactDigest: streamDigest, ABI: stream.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
 				Capabilities: []admission.ProviderCapability{{Capability: streamSession, ResourceKind: stream.Kind}}},
+			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				Capabilities: []admission.ProviderCapability{{Capability: filesystemRead, ResourceKind: workspacefs.Kind}}},
 		},
 		Targets: []admission.AutomationTarget{
 			{ID: "workspace", Kind: "blob-store", ProviderID: blob.ProviderID},
 			{ID: "memory", Kind: "stream-session", ProviderID: stream.ProviderID},
+			{ID: workspacefs.TargetID, Kind: workspacefs.TargetKind, ProviderID: workspacefs.ProviderID},
 		},
+		TargetSlots: []admission.TargetSlotBinding{{Slot: "workspace-files", TargetID: workspacefs.TargetID}},
 	}
-	providerIDs := map[string]struct{}{blob.ProviderID: {}, stream.ProviderID: {}}
+	providerIDs := map[string]struct{}{blob.ProviderID: {}, stream.ProviderID: {}, workspacefs.ProviderID: {}}
 	for _, installed := range aiInstallations.Entries() {
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{

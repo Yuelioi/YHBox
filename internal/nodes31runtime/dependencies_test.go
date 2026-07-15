@@ -16,8 +16,14 @@ func (unusedScriptRuntime) Execute(context.Context, scriptengine.Request) (scrip
 	return scriptengine.Response{}, errors.New("unexpected script execution in non-script test")
 }
 
+type unusedLogEmitter struct{}
+
+func (unusedLogEmitter) EmitWorkflowLog(context.Context, nodes31runtime.LogEntry) error {
+	return errors.New("unexpected workflow log in non-log test")
+}
+
 func testDependencies() nodes31runtime.Dependencies {
-	return nodes31runtime.Dependencies{Script: unusedScriptRuntime{}}
+	return nodes31runtime.Dependencies{Script: unusedScriptRuntime{}, Log: unusedLogEmitter{}}
 }
 
 func TestInstalledRequiresIsolatedScriptRuntime(t *testing.T) {
@@ -26,6 +32,9 @@ func TestInstalledRequiresIsolatedScriptRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{}); err == nil {
-		t.Fatal("Installed accepted missing isolated script runtime")
+		t.Fatal("Installed accepted missing effect runtimes")
+	}
+	if _, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: unusedScriptRuntime{}}); err == nil {
+		t.Fatal("Installed accepted missing workflow log runtime")
 	}
 }

@@ -11,14 +11,16 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/stream"
+	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
 type builtinPolicy struct {
-	now          func() time.Time
-	ttl          time.Duration
-	blobDigest   artifact.Digest
-	streamDigest artifact.Digest
-	aiTargets    map[string]ai.Installation
+	now                 func() time.Time
+	ttl                 time.Duration
+	blobDigest          artifact.Digest
+	streamDigest        artifact.Digest
+	workspaceFileDigest artifact.Digest
+	aiTargets           map[string]ai.Installation
 }
 
 // NewBuiltinPolicy creates the explicit local policy for code compiled into
@@ -36,6 +38,10 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, installations ai.
 	if err != nil {
 		return nil, err
 	}
+	workspaceFileDigest, err := workspacefs.ProviderArtifactDigest()
+	if err != nil {
+		return nil, err
+	}
 	aiTargets := make(map[string]ai.Installation, len(installations.Entries()))
 	for _, installed := range installations.Entries() {
 		if _, duplicate := aiTargets[installed.TargetID]; duplicate {
@@ -43,7 +49,7 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, installations ai.
 		}
 		aiTargets[installed.TargetID] = installed
 	}
-	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, aiTargets: aiTargets}, nil
+	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest, aiTargets: aiTargets}, nil
 }
 
 func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyRequest) (admission.PolicyDecision, error) {
@@ -61,6 +67,11 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 		case stream.ProviderID:
 			if binding.ProviderArtifactDigest != p.streamDigest || binding.ProviderABI != stream.ProviderABI ||
 				binding.TargetID != "memory" || binding.TargetKind != "stream-session" || binding.ResourceKind != stream.Kind || binding.CredentialBindingID != "" {
+				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
+			}
+		case workspacefs.ProviderID:
+			if binding.ProviderArtifactDigest != p.workspaceFileDigest || binding.ProviderABI != workspacefs.ProviderABI ||
+				binding.TargetID != workspacefs.TargetID || binding.TargetKind != workspacefs.TargetKind || binding.ResourceKind != workspacefs.Kind || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 		default:

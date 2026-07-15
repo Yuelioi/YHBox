@@ -923,6 +923,18 @@ export default {
         description: 'A non-negative delay up to 24 hours, measured in milliseconds.',
       },
     },
+    filesystem: {
+      metadata: {
+        title: 'File metadata',
+        description: 'Canonical metadata for one file inside the Yotta-managed workflow workspace.',
+      },
+    },
+    observability: {
+      message: {
+        title: 'Log message',
+        description: 'Bounded text explicitly emitted to the attributed workflow log.',
+      },
+    },
   },
   node: {
     text: {
@@ -1014,6 +1026,44 @@ export default {
         },
       },
     },
+    filesystem: {
+      readText: {
+        title: 'Read workspace text',
+        description: 'Read bounded text from the Yotta-managed workflow file workspace.',
+      },
+      readJSON: {
+        title: 'Read workspace JSON',
+        description:
+          'Read and strictly parse one UTF-8 JSON document from the workflow file workspace.',
+      },
+      stat: {
+        title: 'Inspect workspace file',
+        description: 'Read canonical metadata without exposing an ambient host filesystem path.',
+      },
+      config: {
+        encoding: {
+          title: 'Text encoding',
+          description: 'Decode as UTF-8, GBK, or detect UTF-8 before falling back to GBK.',
+        },
+        maxBytes: {
+          title: 'Maximum bytes',
+          description: 'Reject the file before reading when it exceeds this bounded byte budget.',
+        },
+      },
+    },
+    observability: {
+      log: {
+        title: 'Write log',
+        description:
+          'Write one bounded, Run-attributed message and record only its digest in the action journal.',
+        config: {
+          level: {
+            title: 'Log level',
+            description: 'Select debug, info, warning, or error severity.',
+          },
+        },
+      },
+    },
     event: {
       runStarted: {
         title: 'Run started',
@@ -1021,6 +1071,11 @@ export default {
       },
     },
     control: {
+      throw: {
+        title: 'Fail workflow',
+        description:
+          'Terminate this branch with the stable control.thrown failure code and no success output.',
+      },
       branch: {
         title: 'Branch',
         description: 'Continue through exactly one of the True or False routes.',

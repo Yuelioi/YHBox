@@ -14,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 )
 
@@ -162,10 +163,12 @@ func testApplication(t *testing.T) *app31.Application {
 		DataRoot: t.TempDir(),
 		Limits: appbootstrap.Limits{
 			MaxSources: 16, MaxPrograms: 16, MaxRuns: 16,
-			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 1 << 20,
+			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 2 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: installations, ScriptRuntime: mcpScriptRuntime(t), GrantTTL: time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		AIInstallations: installations, ScriptRuntime: mcpScriptRuntime(t),
+		LogEmitter: nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),
+		GrantTTL:   time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)

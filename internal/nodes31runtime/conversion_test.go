@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
 func TestInstalledAdaptersRejectCatalogThatSelfAssertsAnotherImplementation(t *testing.T) {
@@ -436,11 +437,17 @@ func executionProfile(t *testing.T, builtins nodes31.Builtins) admission.HostPro
 				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
 					{Capability: capabilityRef(nodes31.StreamCapabilityID), ResourceKind: stream.Kind},
 				}},
+			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFSProviderDigest(t), ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+					{Capability: capabilityRef(nodes31.FilesystemReadCapabilityID), ResourceKind: workspacefs.Kind},
+				}},
 		},
 		Targets: []admission.AutomationTarget{
 			{ID: "workspace", Kind: "blob-store", ProviderID: blob.ProviderID},
 			{ID: "memory", Kind: "stream-session", ProviderID: stream.ProviderID},
+			{ID: workspacefs.TargetID, Kind: workspacefs.TargetKind, ProviderID: workspacefs.ProviderID},
 		},
+		TargetSlots: []admission.TargetSlotBinding{{Slot: "workspace-files", TargetID: workspacefs.TargetID}},
 	}
 }
 
@@ -456,6 +463,15 @@ func blobProviderDigest(t *testing.T) artifact.Digest {
 func streamProviderDigest(t *testing.T) artifact.Digest {
 	t.Helper()
 	digest, err := stream.ProviderArtifactDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest
+}
+
+func workspaceFSProviderDigest(t *testing.T) artifact.Digest {
+	t.Helper()
+	digest, err := workspacefs.ProviderArtifactDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
