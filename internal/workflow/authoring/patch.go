@@ -704,9 +704,9 @@ func edgePortsMatch(projection nodeauthoring.Snapshot, from, to schema.Node, edg
 			fromOK = fromOK || (signal.ID == edge.From.PortID && signal.Channel == string(edge.Channel) && signal.Direction == "output")
 		}
 		for _, signal := range toProjection.Signals {
-			toOK = toOK || (signal.ID == edge.To.PortID && signal.Channel == string(edge.Channel) && signal.Direction == "input")
+			toOK = toOK || (signal.ID == edge.To.PortID && signal.Direction == "input")
 		}
-		return fromOK && toOK
+		return fromOK && toOK && toProjection.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID)
 	default:
 		return false
 	}

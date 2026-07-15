@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:e05a20427c1cdf26e022576ef5e7c675c653f8e2e7a7ad0b8e5d1c4e831adfba")
+	const want = artifact.Digest("sha256:7c597ad4ebbe94083927f815e5ad8b86fa7324b857fbce57fa979213163057a5")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -105,6 +105,29 @@ func TestSealRejectsPureDataControlPortsAndInvalidTypeExpressions(t *testing.T) 
 	draft.Ports.DataInputs[0].Type = datatype.TypeExpression{Kind: datatype.TypeExpressionUnion}
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted invalid data port type expression")
+	}
+}
+
+func TestSealRequiresAnExactCompilerInstructionUnion(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Instruction = InstructionSpec{}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node contract without a compiler instruction")
+	}
+	draft = concatContractDraftForTest()
+	draft.Instruction.RunRoot = &RunRootInstruction{Output: "result"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted multiple compiler instruction payloads")
+	}
+	draft = concatContractDraftForTest()
+	draft.Instruction = RunRoot("result")
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted run-root lowering on a pure-data node")
+	}
+	draft = concatContractDraftForTest()
+	draft.ImplementationABI = []ABIRequirement{{Kind: ABIHostInstruction, Version: "v1"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted host-instruction ABI on an invoke instruction")
 	}
 }
 
@@ -309,6 +332,7 @@ func concatContractDraftForTest() Draft {
 			Cancellation: CancellationCooperative, Timeout: TimeoutNone,
 			Effects: []EffectID{},
 		},
+		Instruction:            Invoke(),
 		CapabilityRequirements: []capability.Requirement{},
 		Errors:                 []ErrorSpec{},
 		StatusEvents:           []StatusEventSpec{},

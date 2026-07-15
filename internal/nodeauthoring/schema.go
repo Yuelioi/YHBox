@@ -5,6 +5,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const SchemaID = "https://yottaapp.dev/contracts/node/3.1/authoring-projection.schema.json"
@@ -25,6 +26,7 @@ func GenerateSchema() ([]byte, error) {
 	closeProjectionObjects(schema)
 	if definitions, ok := schema["$defs"].(map[string]any); ok {
 		datatype.TuneTypeExpressionDefinitions(definitions)
+		nodecontract.TuneInstructionDefinitions(definitions)
 	}
 	formatted, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {

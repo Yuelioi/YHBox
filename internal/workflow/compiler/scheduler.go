@@ -104,7 +104,7 @@ func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
 		}
 		next := s.queue[0]
 		s.queue = s.queue[1:]
-		if err := s.invoke(ctx, next.nodeID, next.trigger, map[string]bool{}); err != nil {
+		if err := s.dispatch(ctx, next.nodeID, next.trigger, map[string]bool{}); err != nil {
 			return ExecutionResult{}, err
 		}
 	}
@@ -162,10 +162,6 @@ func executionReachability(graph programGraph) ([]string, map[string]bool) {
 }
 
 func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTrigger, evaluation map[string]bool) error {
-	if s.invocations >= MaxScheduledInvocations {
-		return errors.New("scheduler invocation budget exceeded")
-	}
-	s.invocations++
 	node, ok := s.nodes[nodeID]
 	if !ok {
 		return fmt.Errorf("scheduled node %q is missing from Program", nodeID)
@@ -220,9 +216,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if _, err := s.journal.Append(ctx, started); err != nil {
 		return fmt.Errorf("journal node %q start: %w", node.ID, err)
 	}
-	delete(s.result.NodeOutputs, node.ID)
-	delete(s.result.attempts, node.ID)
-	delete(s.outputSessions, node.ID)
+	s.clearNodeResult(node.ID)
 	actions := newAdapterActionRecorder(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine)
 	statuses := newStatusEmitter(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine.StatusEvents)
 	outcome, runErr := installed.Run(ctx, Invocation{
@@ -239,7 +233,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		return errors.Join(wrapNodeRunError(node.ID, runErr), actionErr, statusErr, journalErr)
 	}
 	var failure *NodeFailure
-	if errors.As(runErr, &failure) && runErr == failure {
+	if errors.As(runErr, &failure) && onlyNodeFailure(runErr, failure) {
 		return s.routeFailure(ctx, node, machine, attempt, outcome, failure, actions, actionErr, statusErr, summary)
 	}
 	if runErr != nil || actionErr != nil || statusErr != nil {
@@ -264,15 +258,15 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.output_invalid", summary)
 		return errors.Join(err, journalErr)
 	}
+	nextBytes := 0
 	for _, port := range node.Ports.DataOutputs {
-		envelope := sealed[port.ID]
-		size := len(envelope.RuntimeArtifact())
-		if size > MaxRunRetainedValueBytes-s.retainedBytes {
-			journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.value_budget_exceeded", summary)
-			return errors.Join(errors.New("run retained value budget exceeded"), journalErr)
-		}
-		s.retainedBytes += size
+		nextBytes += len(sealed[port.ID].RuntimeArtifact())
 	}
+	if nextBytes > MaxRunRetainedValueBytes-s.retainedBytes {
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.value_budget_exceeded", summary)
+		return errors.Join(errors.New("run retained value budget exceeded"), journalErr)
+	}
+	s.retainedBytes += nextBytes
 	s.owned = append(s.owned, leases...)
 	s.result.NodeOutputs[node.ID] = sealed
 	s.result.attempts[node.ID] = make(map[string]int, len(sealed))
@@ -300,11 +294,48 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	return nil
 }
 
+func onlyNodeFailure(err error, failure *NodeFailure) bool {
+	if err == nil || failure == nil {
+		return false
+	}
+	if err == failure {
+		return true
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		children := joined.Unwrap()
+		if len(children) == 0 {
+			return false
+		}
+		for _, child := range children {
+			if child != nil && !onlyNodeFailure(child, failure) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped := errors.Unwrap(err); wrapped != nil {
+		return onlyNodeFailure(wrapped, failure)
+	}
+	return false
+}
+
 func wrapNodeRunError(nodeID string, err error) error {
 	if err == nil {
 		return nil
 	}
 	return fmt.Errorf("run node %q: %w", nodeID, err)
+}
+
+func (s *scheduler) clearNodeResult(nodeID string) {
+	delete(s.result.NodeOutputs, nodeID)
+	delete(s.result.attempts, nodeID)
+	delete(s.outputSessions, nodeID)
+	s.retainedBytes = 0
+	for _, outputs := range s.result.NodeOutputs {
+		for _, value := range outputs {
+			s.retainedBytes += len(value.RuntimeArtifact())
+		}
+	}
 }
 
 func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSessions map[string]*run31.Session, evaluation map[string]bool) (map[string]datatype.ValueEnvelope, error) {
@@ -318,7 +349,8 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 		input := node.Inputs[portID]
 		if input.Kind == inputEdge {
 			_, available := s.result.NodeOutputs[input.From.NodeID][input.From.PortID]
-			if (!available || s.volatile[input.From.NodeID]) && !evaluation[input.From.NodeID] {
+			source := s.nodes[input.From.NodeID]
+			if (!available || s.volatile[input.From.NodeID] && source.Execution.Evaluation == nodecontract.EvaluationPull) && !evaluation[input.From.NodeID] {
 				if err := s.evaluatePull(ctx, input.From.NodeID, evaluation); err != nil {
 					return nil, err
 				}
@@ -386,7 +418,7 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation 
 	s.evaluating[nodeID] = true
 	defer delete(s.evaluating, nodeID)
 	evaluation[nodeID] = true
-	return s.invoke(ctx, nodeID, nil, evaluation)
+	return s.dispatch(ctx, nodeID, nil, evaluation)
 }
 
 func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run31.RedactedSummary) error {

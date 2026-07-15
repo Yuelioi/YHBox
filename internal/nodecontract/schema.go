@@ -37,11 +37,42 @@ func GenerateSchema() ([]byte, error) {
 func tuneKnownDefinitions(schema map[string]any) {
 	definitions := schema["$defs"].(map[string]any)
 	datatype.TuneTypeExpressionDefinitions(definitions)
+	TuneInstructionDefinitions(definitions)
 	resource := definitions["Resource"].(map[string]any)
 	resource["properties"].(map[string]any)["schema"] = map[string]any{
 		"type":                 "object",
 		"additionalProperties": true,
 	}
+}
+
+// TuneInstructionDefinitions converts the reflected pointer payload shape into
+// the exact tagged union shared by every projection that embeds InstructionSpec.
+func TuneInstructionDefinitions(definitions map[string]any) {
+	instruction := definitions["InstructionSpec"].(map[string]any)
+	properties := instruction["properties"].(map[string]any)
+	variants := []struct {
+		kind    InstructionKind
+		payload string
+	}{
+		{InstructionInvoke, "invoke"},
+		{InstructionRunRoot, "runRoot"},
+		{InstructionCountedLoop, "countedLoop"},
+		{InstructionForEach, "forEach"},
+		{InstructionRetry, "retry"},
+	}
+	oneOf := make([]any, 0, len(variants))
+	for _, variant := range variants {
+		oneOf = append(oneOf, map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"kind":          map[string]any{"const": string(variant.kind)},
+				variant.payload: properties[variant.payload],
+			},
+			"required": []string{"kind", variant.payload},
+		})
+	}
+	definitions["InstructionSpec"] = map[string]any{"oneOf": oneOf}
 }
 
 func closeObjectSchemas(value any) {

@@ -11,12 +11,6 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-func runStarted() compiler.Adapter {
-	return func(context.Context, compiler.Invocation) (compiler.AdapterResult, error) {
-		return compiler.AdapterResult{ExecOutputs: []string{"started"}}, nil
-	}
-}
-
 func branch() compiler.Adapter {
 	return func(_ context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 		input, ok := invocation.Inputs["condition"]
@@ -45,20 +39,27 @@ func delay() compiler.Adapter {
 		}()
 		duration, err := integerInput(invocation, "duration-milliseconds")
 		if err != nil || duration < 0 || duration > nodes31.MaxDelayMilliseconds {
-			return compiler.AdapterResult{}, errors.Join(errors.New("delay duration is outside its supported range"), err)
+			return compiler.AdapterResult{}, delayFailure(errors.Join(errors.New("delay duration is outside its supported range"), err))
 		}
 		if invocation.Wait == nil || invocation.EmitStatus == nil {
-			return compiler.AdapterResult{}, errors.New("delay host functions are missing")
+			return compiler.AdapterResult{}, delayFailure(errors.New("delay host functions are missing"))
 		}
 		counters["duration"] = duration
 		if err := invocation.EmitStatus(ctx, nodes31.DelayWaitingStatus, counters); err != nil {
-			return compiler.AdapterResult{}, err
+			return compiler.AdapterResult{}, delayFailure(err)
 		}
 		if err := invocation.Wait(ctx, time.Duration(duration)*time.Millisecond); err != nil {
-			return compiler.AdapterResult{}, err
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return compiler.AdapterResult{}, err
+			}
+			return compiler.AdapterResult{}, delayFailure(err)
 		}
 		return compiler.AdapterResult{ExecOutputs: []string{"done"}}, nil
 	}
+}
+
+func delayFailure(err error) error {
+	return &compiler.NodeFailure{Code: nodes31.DelayFailedCode, Output: "failed", Cause: err}
 }
 
 func endBranch() compiler.Adapter {

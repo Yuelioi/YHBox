@@ -188,6 +188,7 @@ type NodeProjection struct {
 	Icon           string                         `json:"icon,omitempty"`
 	EditorAdapter  string                         `json:"editorAdapter,omitempty"`
 	Execution      nodecontract.ExecutionSpec     `json:"execution"`
+	Instruction    nodecontract.InstructionSpec   `json:"instruction"`
 	Availability   Availability                   `json:"availability" jsonschema:"required,enum=portable,enum=target-required"`
 	DataInputs     []PortProjection               `json:"dataInputs"`
 	DataOutputs    []PortProjection               `json:"dataOutputs"`
@@ -401,7 +402,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	projection := NodeProjection{
 		NodeRef: contract.NodeRef(), TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
-		Execution: machine.Execution, Availability: AvailabilityPortable, DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
+		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable, DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
 	}
@@ -443,7 +444,13 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			projection.Signals = append(projection.Signals, SignalProjection{ID: port.ID, Channel: channel, Direction: direction})
 		}
 	}
-	addSignals("exec", "input", machine.Ports.ExecInputs)
+	for _, port := range machine.Ports.ExecInputs {
+		channel := "exec"
+		if machine.Instruction.AcceptsSignalInput("error", port.ID) && !machine.Instruction.AcceptsSignalInput("exec", port.ID) {
+			channel = "error"
+		}
+		projection.Signals = append(projection.Signals, SignalProjection{ID: port.ID, Channel: channel, Direction: "input"})
+	}
 	addSignals("exec", "output", machine.Ports.ExecOutputs)
 	addSignals("error", "output", machine.Ports.ErrorOutputs)
 	for _, requirement := range machine.CapabilityRequirements {

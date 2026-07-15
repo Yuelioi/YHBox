@@ -16,11 +16,16 @@ const (
 	BranchNodeID     = "https://schemas.yotta.dev/nodes/control/branch/v1"
 	DelayNodeID      = "https://schemas.yotta.dev/nodes/control/delay/v1"
 	EndBranchNodeID  = "https://schemas.yotta.dev/nodes/control/end-branch/v1"
+	RepeatNodeID     = "https://schemas.yotta.dev/nodes/control/repeat/v1"
+	ForEachNodeID    = "https://schemas.yotta.dev/nodes/control/for-each/v1"
+	RetryNodeID      = "https://schemas.yotta.dev/nodes/control/retry/v1"
 
 	DelayWaitEffectID          = "https://schemas.yotta.dev/effects/time/delay/v1"
 	DelayWaitingStatus         = "control.delay.waiting"
 	DelayFailedCode            = "control.delay_failed"
 	MaxDelayMilliseconds int64 = 86_400_000
+	MaxRegionIterations        = 10_000
+	MaxRetryAttempts           = 100
 )
 
 func sealDurationMillisecondsType() (datatype.Definition, error) {
@@ -42,10 +47,15 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 	durationType := datatype.RefExpression(durationRef)
 	defaultTrue := json.RawMessage("true")
 	defaultDelay := json.RawMessage("1000")
+	defaultRepeat := json.RawMessage("10")
+	defaultAttempts := json.RawMessage("3")
+	integerType := datatype.RefExpression(types.integerRef)
+	itemVariable := datatype.VariableExpression("T")
 	type controlNode struct {
 		id, entrypoint, conformance, key, category, icon string
 		ports                                            nodecontract.PortSet
 		execution                                        nodecontract.ExecutionSpec
+		instruction                                      nodecontract.InstructionSpec
 		statuses                                         []nodecontract.StatusEventSpec
 		errors                                           []nodecontract.ErrorSpec
 	}
@@ -53,7 +63,7 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 		{
 			id: RunStartedNodeID, entrypoint: "event.run-started", conformance: "exactly-once-run-root/v1",
 			key: "node.event.runStarted", category: "event", icon: "player-play",
-			ports: signalPorts(nil, []string{"started"}), execution: eventExecution(),
+			ports: signalPorts(nil, []string{"started"}), execution: eventExecution(), instruction: nodecontract.RunRoot("started"),
 		},
 		{
 			id: BranchNodeID, entrypoint: "control.branch", conformance: "strict-boolean-exclusive-route/v1",
@@ -63,7 +73,7 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 				DataOutputs: []nodecontract.DataOutputPort{}, ExecInputs: signalList("in"),
 				ExecOutputs: signalList("true", "false"), ErrorOutputs: []nodecontract.SignalPort{},
 			},
-			execution: controlExecution(),
+			execution: controlExecution(), instruction: nodecontract.Invoke(),
 		},
 		{
 			id: DelayNodeID, entrypoint: "control.delay", conformance: "cancellable-host-wait/v1",
@@ -71,16 +81,64 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 			ports: nodecontract.PortSet{
 				DataInputs:  []nodecontract.DataInputPort{{ID: "duration-milliseconds", Type: durationType, Required: true, Default: &defaultDelay}},
 				DataOutputs: []nodecontract.DataOutputPort{}, ExecInputs: signalList("in"),
-				ExecOutputs: signalList("done"), ErrorOutputs: []nodecontract.SignalPort{},
+				ExecOutputs: signalList("done"), ErrorOutputs: signalList("failed"),
 			},
-			execution: effectExecution(DelayWaitEffectID),
-			statuses:  []nodecontract.StatusEventSpec{{Code: DelayWaitingStatus, Category: nodecontract.StatusWaiting}},
-			errors:    []nodecontract.ErrorSpec{{Code: DelayFailedCode, Category: "control", RetryHint: false}},
+			execution: effectExecution(DelayWaitEffectID), instruction: nodecontract.Invoke(),
+			statuses: []nodecontract.StatusEventSpec{{Code: DelayWaitingStatus, Category: nodecontract.StatusWaiting}},
+			errors:   []nodecontract.ErrorSpec{{Code: DelayFailedCode, Category: "control", RetryHint: false}},
 		},
 		{
 			id: EndBranchNodeID, entrypoint: "control.end-branch", conformance: "explicit-branch-termination/v1",
 			key: "node.control.endBranch", category: "control", icon: "player-stop",
-			ports: signalPorts([]string{"in"}, nil), execution: controlExecution(),
+			ports: signalPorts([]string{"in"}, nil), execution: controlExecution(), instruction: nodecontract.Invoke(),
+		},
+		{
+			id: RepeatNodeID, entrypoint: "control.repeat", conformance: "activation-scoped-counted-loop/v1",
+			key: "node.control.repeat", category: "control", icon: "repeat",
+			ports: nodecontract.PortSet{
+				DataInputs:  []nodecontract.DataInputPort{{ID: "count", Type: integerType, Required: true, Default: &defaultRepeat}},
+				DataOutputs: []nodecontract.DataOutputPort{{ID: "index", Type: integerType}},
+				ExecInputs:  signalList("in", "break", "continue"), ExecOutputs: signalList("body", "completed"), ErrorOutputs: []nodecontract.SignalPort{},
+			},
+			execution: regionExecution(), instruction: nodecontract.InstructionSpec{
+				Kind: nodecontract.InstructionCountedLoop,
+				CountedLoop: &nodecontract.CountedLoopInstruction{
+					EntryInput: "in", BreakInput: "break", ContinueInput: "continue", BodyOutput: "body", CompletedOutput: "completed",
+					CountInput: "count", IndexOutput: "index", OrdinalType: types.integerRef, MaxIterations: MaxRegionIterations,
+				},
+			},
+		},
+		{
+			id: ForEachNodeID, entrypoint: "control.for-each", conformance: "activation-scoped-list-iteration/v1",
+			key: "node.control.forEach", category: "control", icon: "list-numbers",
+			ports: nodecontract.PortSet{
+				DataInputs:  []nodecontract.DataInputPort{{ID: "items", Type: datatype.ListExpression(itemVariable), Required: true}},
+				DataOutputs: []nodecontract.DataOutputPort{{ID: "index", Type: integerType}, {ID: "item", Type: itemVariable}},
+				ExecInputs:  signalList("in", "break", "continue"), ExecOutputs: signalList("body", "completed"), ErrorOutputs: []nodecontract.SignalPort{},
+			},
+			execution: regionExecution(), instruction: nodecontract.InstructionSpec{
+				Kind: nodecontract.InstructionForEach,
+				ForEach: &nodecontract.ForEachInstruction{
+					EntryInput: "in", BreakInput: "break", ContinueInput: "continue", BodyOutput: "body", CompletedOutput: "completed",
+					ItemsInput: "items", IndexOutput: "index", ItemOutput: "item", OrdinalType: types.integerRef, MaxItems: MaxRegionIterations,
+				},
+			},
+		},
+		{
+			id: RetryNodeID, entrypoint: "control.retry", conformance: "activation-scoped-explicit-error-retry/v1",
+			key: "node.control.retry", category: "control", icon: "refresh-dot",
+			ports: nodecontract.PortSet{
+				DataInputs:  []nodecontract.DataInputPort{{ID: "attempts", Type: integerType, Required: true, Default: &defaultAttempts}},
+				DataOutputs: []nodecontract.DataOutputPort{{ID: "attempt", Type: integerType}},
+				ExecInputs:  signalList("in", "retry"), ExecOutputs: signalList("body", "completed", "exhausted"), ErrorOutputs: []nodecontract.SignalPort{},
+			},
+			execution: regionExecution(), instruction: nodecontract.InstructionSpec{
+				Kind: nodecontract.InstructionRetry,
+				Retry: &nodecontract.RetryInstruction{
+					EntryInput: "in", RetryInput: "retry", BodyOutput: "body", CompletedOutput: "completed", ExhaustedOutput: "exhausted",
+					AttemptsInput: "attempts", AttemptOutput: "attempt", OrdinalType: types.integerRef, MaxAttempts: MaxRetryAttempts,
+				},
+			},
 		},
 	}
 	definitions := make([]BuiltinDefinition, 0, len(nodes))
@@ -88,9 +146,9 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 		configID := item.id + "/config"
 		contract, err := nodecontract.Seal(nodecontract.Draft{
 			NodeTypeID: item.id, ConfigSchemaRoot: configID, ConfigSchemaBundle: emptyConfigSchema(configID),
-			Ports: item.ports, Execution: item.execution, CapabilityRequirements: []capability.Requirement{},
+			Ports: item.ports, Execution: item.execution, Instruction: item.instruction, CapabilityRequirements: []capability.Requirement{},
 			Errors: item.errors, StatusEvents: item.statuses,
-			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+			ImplementationABI: []nodecontract.ABIRequirement{{Kind: instructionABI(item.instruction), Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: item.category,
 				Tags: []string{item.category, "execution"}, Icon: item.icon,
@@ -106,6 +164,13 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 		definitions = append(definitions, definition)
 	}
 	return definitions, nil
+}
+
+func instructionABI(instruction nodecontract.InstructionSpec) nodecontract.ABIKind {
+	if instruction.Kind == nodecontract.InstructionInvoke {
+		return nodecontract.ABIBuiltin
+	}
+	return nodecontract.ABIHostInstruction
 }
 
 func signalPorts(inputs, outputs []string) nodecontract.PortSet {
@@ -142,6 +207,14 @@ func controlExecution() nodecontract.ExecutionSpec {
 func effectExecution(effect nodecontract.EffectID) nodecontract.ExecutionSpec {
 	return nodecontract.ExecutionSpec{
 		Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{effect}, Determinism: nodecontract.Recorded,
+		Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
+		Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
+	}
+}
+
+func regionExecution() nodecontract.ExecutionSpec {
+	return nodecontract.ExecutionSpec{
+		Class: nodecontract.ExecutionRegion, Effects: []nodecontract.EffectID{}, Determinism: nodecontract.Deterministic,
 		Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 		Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 	}

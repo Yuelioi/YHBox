@@ -562,10 +562,49 @@ function validateEdge(graph: Graph, edge: Edge, projections: Map<string, NodePro
       signal.channel === edge.channel,
   )
   const input = to.signals.find(
-    (signal) =>
-      signal.id === edge.to.portId && signal.direction === 'input' && signal.channel === 'exec',
+    (signal) => signal.id === edge.to.portId && signal.direction === 'input',
   )
-  if (!output || !input) throw new Error(`${edge.channel} edge has invalid signal ports`)
+  if (!output || !input || !instructionAcceptsSignal(to, edge.channel, edge.to.portId)) {
+    throw new Error(`${edge.channel} edge has invalid signal ports`)
+  }
+}
+
+function instructionAcceptsSignal(
+  projection: NodeProjection,
+  channel: 'exec' | 'error',
+  inputPort: string,
+): boolean {
+  const instruction = projection.instruction
+  switch (instruction.kind) {
+    case 'invoke':
+      return channel === 'exec' || channel === 'error'
+    case 'run-root':
+      return false
+    case 'counted-loop': {
+      const value = instruction.countedLoop
+      return Boolean(
+        value &&
+        channel === 'exec' &&
+        [value.entryInput, value.breakInput, value.continueInput].includes(inputPort),
+      )
+    }
+    case 'for-each': {
+      const value = instruction.forEach
+      return Boolean(
+        value &&
+        channel === 'exec' &&
+        [value.entryInput, value.breakInput, value.continueInput].includes(inputPort),
+      )
+    }
+    case 'retry': {
+      const value = instruction.retry
+      return Boolean(
+        value &&
+        ((channel === 'exec' && inputPort === value.entryInput) ||
+          (channel === 'error' && inputPort === value.retryInput)),
+      )
+    }
+  }
 }
 
 export function assignable(output: TypeExpression, input: TypeExpression): boolean {

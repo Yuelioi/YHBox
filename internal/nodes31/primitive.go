@@ -184,7 +184,7 @@ func sealPrimitiveNode(spec primitiveNode) (nodecontract.Contract, error) {
 			DataOutputs: []nodecontract.DataOutputPort{{ID: spec.output.id, Type: datatype.RefExpression(spec.output.typeRef)}},
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: errorOutputs,
 		},
-		Execution: pureDataExecution(), CapabilityRequirements: []capability.Requirement{}, Errors: errorsList,
+		Execution: pureDataExecution(), Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{}, Errors: errorsList,
 		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{

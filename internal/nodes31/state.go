@@ -83,7 +83,7 @@ func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 				"x-yotta-title-key":"node.state.variable.title","x-yotta-description-key":"node.state.variable.description"}},
 				"required":["variable"],"additionalProperties":false
 			}`, configID))}},
-			Ports: spec.ports, Execution: spec.execution, CapabilityRequirements: []capability.Requirement{},
+			Ports: spec.ports, Execution: spec.execution, Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{},
 			Errors: spec.errors, StatusEvents: []nodecontract.StatusEventSpec{}, StateAccesses: []nodecontract.StateAccessSpec{spec.access},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{

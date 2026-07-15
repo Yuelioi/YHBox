@@ -76,6 +76,7 @@ func TestNodeProjectionCarriesInputDefaultAnnotation(t *testing.T) {
 			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative,
 			Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction:       nodecontract.Invoke(),
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring:         nodecontract.Authoring{TitleKey: "node.test.default.title"},
 	})

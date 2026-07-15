@@ -236,18 +236,19 @@ func defineBuiltin(contract nodecontract.Contract, entrypoint, version, conforma
 	if !contract.Valid() || entrypoint == "" || version == "" || conformance == "" {
 		return BuiltinDefinition{}, fmt.Errorf("built-in definition is incomplete")
 	}
-	digest, err := builtinImplementationDigest(entrypoint, version, conformance)
+	abi := contract.Machine().ImplementationABI[0]
+	digest, err := builtinImplementationDigest(entrypoint, version, conformance, abi)
 	if err != nil {
 		return BuiltinDefinition{}, err
 	}
-	return BuiltinDefinition{Contract: contract, Implementation: builtinLock(entrypoint, digest), EvaluateInline: evaluator}, nil
+	return BuiltinDefinition{Contract: contract, Implementation: builtinLock(entrypoint, digest, abi), EvaluateInline: evaluator}, nil
 }
 
-func builtinImplementationDigest(entrypoint, version, conformance string) (artifact.Digest, error) {
+func builtinImplementationDigest(entrypoint, version, conformance string, abi nodecontract.ABIRequirement) (artifact.Digest, error) {
 	manifest, err := artifact.Marshal(map[string]any{
 		"packageId":             "https://schemas.yotta.dev/packages/builtin/v1",
 		"entrypoint":            entrypoint,
-		"abi":                   map[string]any{"kind": "builtin", "version": "v1"},
+		"abi":                   abi,
 		"implementationVersion": version,
 		"conformance":           conformance,
 	})
@@ -257,10 +258,10 @@ func builtinImplementationDigest(entrypoint, version, conformance string) (artif
 	return artifact.Sum("yotta/builtin-implementation-manifest/v1", manifest)
 }
 
-func builtinLock(entrypoint string, digest artifact.Digest) nodecatalog.ImplementationLock {
+func builtinLock(entrypoint string, digest artifact.Digest, abi nodecontract.ABIRequirement) nodecatalog.ImplementationLock {
 	return nodecatalog.ImplementationLock{
 		PackageID: "https://schemas.yotta.dev/packages/builtin/v1", ArtifactDigest: digest,
-		ABI: nodecontract.ABIRequirement{Kind: nodecontract.ABIBuiltin, Version: "v1"}, Entrypoint: entrypoint,
+		ABI: abi, Entrypoint: entrypoint,
 	}
 }
 
@@ -341,7 +342,7 @@ func sealBlobToStream(binaryRef datatype.TypeRef, blobRead, streamSession capabi
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
 			ErrorOutputs: []nodecontract.SignalPort{},
 		},
-		Execution: conversionExecution(BlobToStreamEffectID),
+		Execution: conversionExecution(BlobToStreamEffectID), Instruction: nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{
 			requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store"),
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationFinish, stream.OperationReceive, stream.OperationSend}, "stream-session"),
@@ -379,7 +380,7 @@ func sealStreamToBlob(binaryRef datatype.TypeRef, blobWrite, streamSession capab
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
 			ErrorOutputs: []nodecontract.SignalPort{},
 		},
-		Execution: conversionExecution(StreamToBlobEffectID),
+		Execution: conversionExecution(StreamToBlobEffectID), Instruction: nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{
 			requirement(blobWrite, "blob-write", []string{"append", "cancel", "commit"}, "blob-store"),
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationReceive}, "stream-session"),
@@ -439,6 +440,7 @@ func sealConcat(stringRef datatype.TypeRef) (nodecontract.Contract, error) {
 			Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CachePerRun, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction:            nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{}, StatusEvents: []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{

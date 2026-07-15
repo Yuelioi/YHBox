@@ -128,6 +128,7 @@ func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Con
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryIdempotent,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
+		Instruction: nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{{
 			ID: "source", Capability: capabilityRef, Operations: []string{"read"}, TargetSlot: "blob-store", Scope: json.RawMessage(`{}`),
 		}}, Errors: []nodecontract.ErrorSpec{{Code: "blob.read.failed", Category: "storage", RetryHint: true}},
@@ -160,6 +161,7 @@ func leasedEffectContract(t *testing.T, capabilityRef capability.Ref, typeRef da
 			Determinism: nodecontract.Deterministic, Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CacheNone,
 			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction: nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{{
 			ID: "source", Capability: capabilityRef, Operations: []string{"read"}, TargetSlot: "blob-store", Scope: json.RawMessage(`{}`),
 		}},
@@ -214,6 +216,7 @@ func concatContract(t *testing.T, stringRef datatype.TypeRef, title string) node
 			Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CachePerRun, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction:            nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring:         nodecontract.Authoring{TitleKey: title, Tags: []string{"text"}},

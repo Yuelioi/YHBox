@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -54,6 +55,7 @@ type programNode struct {
 	OutputTypes    map[string]datatype.ResolvedType `json:"outputTypes"`
 	Ports          nodecontract.PortSet             `json:"ports"`
 	Execution      nodecontract.ExecutionSpec       `json:"execution"`
+	Instruction    nodecontract.InstructionSpec     `json:"instruction"`
 	Implementation nodecatalog.ImplementationLock   `json:"implementation"`
 }
 
@@ -112,6 +114,7 @@ type NodeView struct {
 	InputTypes     map[string]datatype.ResolvedType
 	OutputTypes    map[string]datatype.ResolvedType
 	Execution      nodecontract.ExecutionSpec
+	Instruction    nodecontract.InstructionSpec
 	Implementation nodecatalog.ImplementationLock
 }
 
@@ -208,7 +211,8 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 				return ProgramSnapshot{}, errors.New("program node lock mismatch")
 			}
 			machine := entry.Contract.Machine()
-			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) {
+			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) ||
+				!reflect.DeepEqual(machine.Instruction, node.Instruction) {
 				return ProgramSnapshot{}, errors.New("program effective contract mismatch")
 			}
 			if !programExecutableClass(machine.Execution.Class) {
@@ -299,6 +303,13 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, stat
 		if _, exists := inputForChannel(toNode.Ports, route.Channel, route.To.PortID); !exists {
 			return errors.New("program signal route references an unknown input")
 		}
+		if !toNode.Instruction.AcceptsSignalInput(string(route.Channel), route.To.PortID) {
+			return errors.New("program signal route violates its target instruction")
+		}
+	}
+	violations, err := regionSignalScopeViolations(context.Background(), graph)
+	if err != nil || len(violations) != 0 {
+		return errors.New("program region signal escapes its activation scope")
 	}
 	for _, node := range graph.Nodes {
 		entry, ok := catalog.Lookup(node.NodeRef.NodeTypeID)
@@ -474,7 +485,7 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 			view := NodeView{
 				ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
 				InputTypes: node.InputTypes, OutputTypes: node.OutputTypes,
-				Execution: node.Execution, Implementation: node.Implementation,
+				Execution: node.Execution, Instruction: node.Instruction, Implementation: node.Implementation,
 			}
 			raw, err := json.Marshal(view)
 			if err != nil {

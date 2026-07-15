@@ -25,6 +25,27 @@ export type TypeExpression =
       kind: 'variable'
       variable: string
     }
+export type InstructionSpec =
+  | {
+      invoke: InvokeInstruction
+      kind: 'invoke'
+    }
+  | {
+      kind: 'run-root'
+      runRoot: RunRootInstruction
+    }
+  | {
+      countedLoop: CountedLoopInstruction
+      kind: 'counted-loop'
+    }
+  | {
+      forEach: ForEachInstruction
+      kind: 'for-each'
+    }
+  | {
+      kind: 'retry'
+      retry: RetryInstruction
+    }
 
 export interface YottaNodeAuthoringProjection31 {
   body: Body
@@ -50,6 +71,7 @@ export interface NodeProjection {
   errors: ErrorSpec[]
   execution: ExecutionSpec
   icon?: string
+  instruction: InstructionSpec
   nodeRef: NodeRef
   signals: SignalProjection[]
   stateAccesses: StateAccessProjection[]
@@ -157,6 +179,44 @@ export interface ExecutionSpec {
   evaluation: 'pull' | 'push'
   retry: 'never' | 'idempotent' | 'operation-id'
   timeout: 'none' | 'required' | 'optional'
+}
+export interface InvokeInstruction {}
+export interface RunRootInstruction {
+  output: string
+}
+export interface CountedLoopInstruction {
+  bodyOutput: string
+  breakInput: string
+  completedOutput: string
+  continueInput: string
+  countInput: string
+  entryInput: string
+  indexOutput: string
+  maxIterations: number
+  ordinalType: TypeRef
+}
+export interface ForEachInstruction {
+  bodyOutput: string
+  breakInput: string
+  completedOutput: string
+  continueInput: string
+  entryInput: string
+  indexOutput: string
+  itemOutput: string
+  itemsInput: string
+  maxItems: number
+  ordinalType: TypeRef
+}
+export interface RetryInstruction {
+  attemptOutput: string
+  attemptsInput: string
+  bodyOutput: string
+  completedOutput: string
+  entryInput: string
+  exhaustedOutput: string
+  maxAttempts: number
+  ordinalType: TypeRef
+  retryInput: string
 }
 export interface NodeRef {
   nodeTypeId: string

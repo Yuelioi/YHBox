@@ -19,6 +19,7 @@ func BuildDigest() (artifact.Digest, error) {
 		"implementationVersion": compilerImplementationVersion,
 		"schedulerBudget":       MaxScheduledInvocations,
 		"signalLowering":        "ordered-exec-error-routes/v1",
+		"instructionLowering":   "activation-scoped-regions/v1",
 		"dataLowering":          "pull-bindings-topological-order/v1",
 	})
 	if err != nil {

@@ -31,6 +31,7 @@ const (
 	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
 	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
 	CodeDuplicateSignalRoute     = "DUPLICATE_SIGNAL_ROUTE"
+	CodeRegionSignalScope        = "REGION_SIGNAL_SCOPE"
 	CodeInvalidBinding           = "INVALID_BINDING"
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
@@ -267,7 +268,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		plan := programNode{
 			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
 			Inputs: map[string]inputPlan{}, InputTypes: map[string]datatype.ResolvedType{}, OutputTypes: map[string]datatype.ResolvedType{},
-			Ports: machine.Ports, Execution: machine.Execution,
+			Ports: machine.Ports, Execution: machine.Execution, Instruction: machine.Instruction,
 			Implementation: entry.Implementation,
 		}
 		inputs := make(map[string]nodecontract.DataInputPort, len(machine.Ports.DataInputs))
@@ -341,6 +342,10 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			diagnostics = append(diagnostics, diagnostic(code, path, graph.ID))
 			continue
 		}
+		if edge.Channel != schema.EdgeData && !toMachine.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID) {
+			diagnostics = append(diagnostics, diagnostic(CodeEdgeChannelMismatch, path, graph.ID))
+			continue
+		}
 		if edge.Channel == schema.EdgeData {
 			key := edge.To.NodeID + "\x00" + edge.To.PortID
 			_, sourceBound := pendingBindings[toNode.ID][edge.To.PortID]
@@ -378,6 +383,16 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			signalRoutes[route] = true
 			compiled.SignalRoutes = append(compiled.SignalRoutes, route)
 		}
+	}
+	violations, err := regionSignalScopeViolations(ctx, compiled)
+	if err != nil {
+		return compiled, diagnostics, err
+	}
+	for _, violation := range violations {
+		diagnostic := diagnosticAtNode(CodeRegionSignalScope, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID, violation.regionNodeID)
+		diagnostic.Params["inputPort"] = violation.inputPort
+		diagnostic.Params["sourceNodeId"] = violation.sourceNodeID
+		diagnostics = append(diagnostics, diagnostic)
 	}
 	for nodeIndex := range compiled.Nodes {
 		node := &compiled.Nodes[nodeIndex]
@@ -443,6 +458,121 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		}
 	}
 	return compiled, diagnostics, nil
+}
+
+type regionSignalScopeViolation struct {
+	regionNodeID string
+	inputPort    string
+	sourceNodeID string
+}
+
+func regionSignalScopeViolations(ctx context.Context, graph programGraph) ([]regionSignalScopeViolation, error) {
+	outgoing := make(map[string][]programSignalRoute)
+	for _, route := range graph.SignalRoutes {
+		outgoing[route.From.NodeID] = append(outgoing[route.From.NodeID], route)
+	}
+	var violations []regionSignalScopeViolation
+	for _, region := range graph.Nodes {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		bodyOutput, controlInputs := regionInstructionPorts(region.Instruction)
+		if bodyOutput == "" {
+			continue
+		}
+		reachable := map[string]bool{}
+		queue := []string{}
+		for _, route := range outgoing[region.ID] {
+			if route.Channel == schema.EdgeExec && route.From.PortID == bodyOutput && route.To.NodeID != region.ID {
+				queue = append(queue, route.To.NodeID)
+			}
+		}
+		for len(queue) != 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			nodeID := queue[0]
+			queue = queue[1:]
+			if reachable[nodeID] {
+				continue
+			}
+			reachable[nodeID] = true
+			for _, route := range outgoing[nodeID] {
+				if route.To.NodeID != region.ID && !reachable[route.To.NodeID] {
+					queue = append(queue, route.To.NodeID)
+				}
+			}
+		}
+		external := map[string]bool{}
+		queue = signalExecutionRoots(graph)
+		for len(queue) != 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			nodeID := queue[0]
+			queue = queue[1:]
+			if external[nodeID] {
+				continue
+			}
+			external[nodeID] = true
+			for _, route := range outgoing[nodeID] {
+				if route.From.NodeID == region.ID && route.From.PortID == bodyOutput {
+					continue
+				}
+				if !external[route.To.NodeID] {
+					queue = append(queue, route.To.NodeID)
+				}
+			}
+		}
+		for _, route := range graph.SignalRoutes {
+			if route.To.NodeID != region.ID || !controlInputs[route.To.PortID] {
+				continue
+			}
+			directBodySignal := route.From.NodeID == region.ID && route.From.PortID == bodyOutput
+			inside := directBodySignal || reachable[route.From.NodeID] && !external[route.From.NodeID]
+			if !inside {
+				violations = append(violations, regionSignalScopeViolation{
+					regionNodeID: region.ID, inputPort: route.To.PortID, sourceNodeID: route.From.NodeID,
+				})
+			}
+		}
+	}
+	return violations, nil
+}
+
+func signalExecutionRoots(graph programGraph) []string {
+	roots := make([]string, 0)
+	for _, node := range graph.Nodes {
+		if node.Execution.Class == nodecontract.ExecutionEvent && len(node.Ports.ExecInputs) == 0 {
+			roots = append(roots, node.ID)
+		}
+	}
+	return roots
+}
+
+func regionInstructionPorts(instruction nodecontract.InstructionSpec) (string, map[string]bool) {
+	switch instruction.Kind {
+	case nodecontract.InstructionCountedLoop:
+		spec := instruction.CountedLoop
+		if spec == nil {
+			return "", nil
+		}
+		return spec.BodyOutput, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
+	case nodecontract.InstructionForEach:
+		spec := instruction.ForEach
+		if spec == nil {
+			return "", nil
+		}
+		return spec.BodyOutput, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
+	case nodecontract.InstructionRetry:
+		spec := instruction.Retry
+		if spec == nil {
+			return "", nil
+		}
+		return spec.BodyOutput, map[string]bool{spec.RetryInput: true}
+	default:
+		return "", nil
+	}
 }
 
 func compileInputBinding(binding schema.InputBinding, port nodecontract.DataInputPort, resolved datatype.ResolvedType, catalog nodecatalog.Snapshot) (inputPlan, error) {
@@ -565,7 +695,7 @@ func inputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id 
 
 func programExecutableClass(class nodecontract.ExecutionClass) bool {
 	switch class {
-	case nodecontract.ExecutionPureData, nodecontract.ExecutionEffect, nodecontract.ExecutionControl, nodecontract.ExecutionEvent:
+	case nodecontract.ExecutionPureData, nodecontract.ExecutionEffect, nodecontract.ExecutionControl, nodecontract.ExecutionEvent, nodecontract.ExecutionRegion:
 		return true
 	default:
 		return false

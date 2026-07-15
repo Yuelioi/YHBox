@@ -251,7 +251,7 @@ func sealExtendedNode(spec extendedNode) (nodecontract.Contract, error) {
 			DataInputs: inputs, DataOutputs: []nodecontract.DataOutputPort{{ID: spec.output.id, Type: spec.output.typeExpr}},
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: []nodecontract.SignalPort{},
 		},
-		Execution: pureDataExecution(), CapabilityRequirements: []capability.Requirement{}, Errors: spec.errors,
+		Execution: pureDataExecution(), Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{}, Errors: spec.errors,
 		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{

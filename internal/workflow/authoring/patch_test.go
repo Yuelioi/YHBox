@@ -75,6 +75,47 @@ func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
 	}
 }
 
+func TestEngineUsesInstructionSignalChannels(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"delay", "retry"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.DelayNodeID, Handle: "delay"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.RetryNodeID, Handle: "retry"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
+			Channel: schema.EdgeError,
+			From:    schema.Endpoint{NodeID: "$delay", PortID: "failed"},
+			To:      schema.Endpoint{NodeID: "$retry", PortID: "retry"},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.Source.Graphs[0].Edges; len(got) != 1 || got[0].Channel != schema.EdgeError {
+		t.Fatalf("error route = %#v", got)
+	}
+
+	_, err = engine.Apply(result.Source, []authoring.Command{{
+		Kind: authoring.CommandConnect,
+		Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
+			Channel: schema.EdgeExec,
+			From:    schema.Endpoint{NodeID: "delay", PortID: "done"},
+			To:      schema.Endpoint{NodeID: "retry", PortID: "retry"},
+		}},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_EDGE" {
+		t.Fatalf("wrong-channel error = %#v", err)
+	}
+}
+
 func testContracts(t *testing.T) (nodes31.Builtins, nodeauthoring.Snapshot) {
 	t.Helper()
 	builtins, err := nodes31.Build()

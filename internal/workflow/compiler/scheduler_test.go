@@ -200,6 +200,7 @@ func schedulerContractForTest(t *testing.T, name string, class nodecontract.Exec
 			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction:            nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{}, Errors: errorsList, StatusEvents: statuses,
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring:         nodecontract.Authoring{Tags: []string{"test"}},

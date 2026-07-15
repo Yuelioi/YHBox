@@ -6,6 +6,7 @@
         "kind": {
           "enum": [
             "builtin",
+            "host-instruction",
             "wit",
             "process"
           ],
@@ -50,6 +51,52 @@
       },
       "required": [
         "tags"
+      ],
+      "type": "object"
+    },
+    "CountedLoopInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "countInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "maxIterations": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "countInput",
+        "indexOutput",
+        "ordinalType",
+        "maxIterations"
       ],
       "type": "object"
     },
@@ -203,6 +250,56 @@
       ],
       "type": "object"
     },
+    "ForEachInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "itemOutput": {
+          "type": "string"
+        },
+        "itemsInput": {
+          "type": "string"
+        },
+        "maxItems": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "itemsInput",
+        "indexOutput",
+        "itemOutput",
+        "ordinalType",
+        "maxItems"
+      ],
+      "type": "object"
+    },
     "InstanceResolver": {
       "additionalProperties": false,
       "properties": {
@@ -226,6 +323,95 @@
         "semanticDigest",
         "maxPorts"
       ],
+      "type": "object"
+    },
+    "InstructionSpec": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "invoke": {
+              "$ref": "#/$defs/InvokeInstruction"
+            },
+            "kind": {
+              "const": "invoke"
+            }
+          },
+          "required": [
+            "kind",
+            "invoke"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run-root"
+            },
+            "runRoot": {
+              "$ref": "#/$defs/RunRootInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "runRoot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "countedLoop": {
+              "$ref": "#/$defs/CountedLoopInstruction"
+            },
+            "kind": {
+              "const": "counted-loop"
+            }
+          },
+          "required": [
+            "kind",
+            "countedLoop"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "forEach": {
+              "$ref": "#/$defs/ForEachInstruction"
+            },
+            "kind": {
+              "const": "for-each"
+            }
+          },
+          "required": [
+            "kind",
+            "forEach"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "retry"
+            },
+            "retry": {
+              "$ref": "#/$defs/RetryInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "retry"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "InvokeInstruction": {
+      "additionalProperties": false,
+      "properties": {},
       "type": "object"
     },
     "MachineContract": {
@@ -270,6 +456,9 @@
         "instanceResolver": {
           "$ref": "#/$defs/InstanceResolver"
         },
+        "instruction": {
+          "$ref": "#/$defs/InstructionSpec"
+        },
         "nodeTypeId": {
           "format": "uri",
           "pattern": "/v[1-9][0-9]*$",
@@ -299,6 +488,7 @@
         "configSchemaBundle",
         "ports",
         "execution",
+        "instruction",
         "capabilityRequirements",
         "errors",
         "statusEvents",
@@ -458,6 +648,65 @@
       "required": [
         "requirementId",
         "operations"
+      ],
+      "type": "object"
+    },
+    "RetryInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "attemptOutput": {
+          "type": "string"
+        },
+        "attemptsInput": {
+          "type": "string"
+        },
+        "bodyOutput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "exhaustedOutput": {
+          "type": "string"
+        },
+        "maxAttempts": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        },
+        "retryInput": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryInput",
+        "retryInput",
+        "bodyOutput",
+        "completedOutput",
+        "exhaustedOutput",
+        "attemptsInput",
+        "attemptOutput",
+        "ordinalType",
+        "maxAttempts"
+      ],
+      "type": "object"
+    },
+    "RunRootInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "output": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output"
       ],
       "type": "object"
     },

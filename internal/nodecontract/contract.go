@@ -192,13 +192,14 @@ type InstanceResolver struct {
 type ABIKind string
 
 const (
-	ABIBuiltin ABIKind = "builtin"
-	ABIWIT     ABIKind = "wit"
-	ABIProcess ABIKind = "process"
+	ABIBuiltin         ABIKind = "builtin"
+	ABIHostInstruction ABIKind = "host-instruction"
+	ABIWIT             ABIKind = "wit"
+	ABIProcess         ABIKind = "process"
 )
 
 type ABIRequirement struct {
-	Kind    ABIKind `json:"kind" jsonschema:"required,enum=builtin,enum=wit,enum=process"`
+	Kind    ABIKind `json:"kind" jsonschema:"required,enum=builtin,enum=host-instruction,enum=wit,enum=process"`
 	Version string  `json:"version" jsonschema:"required,pattern=^v[1-9][0-9]*$"`
 }
 
@@ -217,6 +218,7 @@ type Draft struct {
 	ConfigSchemaBundle     []datatype.SchemaResource
 	Ports                  PortSet
 	Execution              ExecutionSpec
+	Instruction            InstructionSpec
 	CapabilityRequirements []capability.Requirement
 	Errors                 []ErrorSpec
 	StatusEvents           []StatusEventSpec
@@ -234,6 +236,7 @@ type MachineContract struct {
 	ConfigSchemaBundle     []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
 	Ports                  PortSet                   `json:"ports" jsonschema:"required"`
 	Execution              ExecutionSpec             `json:"execution" jsonschema:"required"`
+	Instruction            InstructionSpec           `json:"instruction" jsonschema:"required"`
 	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
 	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
 	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
@@ -306,6 +309,7 @@ func Open(raw []byte) (Contract, error) {
 		ConfigSchemaBundle:     decoded.Semantic.ConfigSchemaBundle,
 		Ports:                  decoded.Semantic.Ports,
 		Execution:              decoded.Semantic.Execution,
+		Instruction:            decoded.Semantic.Instruction,
 		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
 		Errors:                 decoded.Semantic.Errors,
 		StatusEvents:           decoded.Semantic.StatusEvents,
@@ -368,7 +372,8 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
 		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements,
-		Errors: semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
+		Instruction: semantic.Instruction,
+		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
 	})
 	if err != nil {
@@ -480,6 +485,10 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	instruction, err := normalizeInstruction(draft.Instruction, execution, ports)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	requirements := make([]capability.Requirement, len(draft.CapabilityRequirements))
 	seenRequirements := make(map[string]struct{}, len(requirements))
 	for index, requirement := range draft.CapabilityRequirements {
@@ -520,13 +529,26 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
+		len(stateAccesses) != 0 || resolver != nil) {
+		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, status, state, or instance resolution")
+	}
 	abis, err := normalizeABIs(draft.ImplementationABI)
 	if err != nil {
 		return MachineContract{}, err
 	}
+	if instruction.Kind == InstructionInvoke {
+		for _, abi := range abis {
+			if abi.Kind == ABIHostInstruction {
+				return MachineContract{}, errors.New("invoke instruction cannot use the host-instruction ABI")
+			}
+		}
+	} else if len(abis) != 1 || abis[0].Kind != ABIHostInstruction {
+		return MachineContract{}, errors.New("host-lowered instruction requires exactly one host-instruction ABI")
+	}
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
-		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution,
+		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
 		CapabilityRequirements: requirements, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
@@ -702,6 +724,10 @@ func normalizeExecution(source ExecutionSpec, ports PortSet, statuses []StatusEv
 	}
 	if source.Class == ExecutionEvent && (source.Evaluation != EvaluationPush || len(ports.ExecInputs) != 0) {
 		return ExecutionSpec{}, errors.New("event node requires push evaluation and no exec input")
+	}
+	if source.Class == ExecutionRegion && (source.Evaluation != EvaluationPush || len(ports.ExecInputs) == 0 ||
+		source.Determinism != Deterministic || len(effects) != 0 || source.Retry != RetryNever) {
+		return ExecutionSpec{}, errors.New("region node requires deterministic effect-free push execution")
 	}
 	if source.Cache != CacheNone && (source.Determinism != Deterministic || len(effects) != 0) {
 		return ExecutionSpec{}, errors.New("only deterministic effect-free nodes may cache")
@@ -906,5 +932,5 @@ func validTimeout(value TimeoutContract) bool {
 	return value == TimeoutNone || value == TimeoutRequired || value == TimeoutOptional
 }
 func validABIKind(value ABIKind) bool {
-	return value == ABIBuiltin || value == ABIWIT || value == ABIProcess
+	return value == ABIBuiltin || value == ABIHostInstruction || value == ABIWIT || value == ABIProcess
 }

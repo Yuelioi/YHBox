@@ -986,6 +986,19 @@ export default {
         title: '结束分支',
         description: '显式结束当前控制流分支，不再发出信号。',
       },
+      repeat: {
+        title: '重复',
+        description:
+          '在有界次数内运行隔离的 activation。本轮「循环体」排空后才进入下一轮，「中断」和「继续」只作用于这个 region。',
+      },
+      forEach: {
+        title: '遍历',
+        description: '对强类型列表的每个元素运行一次隔离 activation，并输出当前索引和元素。',
+      },
+      retry: {
+        title: '重试区域',
+        description: '只重试显式路由回该 region 的失败；「完成」和「耗尽」是两个独立的控制结果。',
+      },
     },
     // ai
     AI: {

@@ -595,6 +595,7 @@ func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, e
 			Determinism: nodecontract.Deterministic, Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone,
 			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
+		Instruction:            nodecontract.Invoke(),
 		CapabilityRequirements: []capability.Requirement{},
 		Errors:                 []nodecontract.ErrorSpec{{Code: "test." + name + "_failed", Category: "test", RetryHint: false}},
 		StatusEvents:           []nodecontract.StatusEventSpec{},

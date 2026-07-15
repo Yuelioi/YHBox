@@ -11,6 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
@@ -32,7 +33,6 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		nodes31.StateReadNodeID:     stateRead(builtins),
 		nodes31.StateWriteNodeID:    stateWrite(builtins),
 		nodes31.StateMetadataNodeID: stateMetadata(builtins),
-		nodes31.RunStartedNodeID:    runStarted(),
 		nodes31.BranchNodeID:        branch(),
 		nodes31.DelayNodeID:         delay(),
 		nodes31.EndBranchNodeID:     endBranch(),
@@ -41,6 +41,9 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)
 		if err != nil {
 			return nil, err
+		}
+		if trusted.Contract.Machine().Instruction.Kind != nodecontract.InstructionInvoke {
+			continue
 		}
 		adapter := specialized[trusted.Contract.NodeRef().NodeTypeID]
 		if trusted.EvaluateInline != nil {

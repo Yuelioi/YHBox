@@ -1013,6 +1013,21 @@ export default {
         title: 'End branch',
         description: 'Explicitly finish this control-flow branch without emitting another signal.',
       },
+      repeat: {
+        title: 'Repeat',
+        description:
+          'Run an isolated activation a bounded number of times. Body drains before the next iteration; Break and Continue target this exact region.',
+      },
+      forEach: {
+        title: 'For each',
+        description:
+          'Run an isolated activation once per typed list item and expose the current Index and Item.',
+      },
+      retry: {
+        title: 'Retry region',
+        description:
+          'Retry only failures explicitly routed back to this region. Completed and Exhausted are separate control results.',
+      },
     },
     // ai
     AI: {

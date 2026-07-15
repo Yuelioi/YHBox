@@ -119,7 +119,7 @@ func defineRecordedObservationNodes(types primitiveTypes, distribution datatype.
 				DataInputs: item.inputs, DataOutputs: []nodecontract.DataOutputPort{{ID: "result", Type: item.output}},
 				ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: []nodecontract.SignalPort{},
 			},
-			Execution: conversionExecution(item.effect), CapabilityRequirements: []capability.Requirement{}, Errors: item.errors,
+			Execution: conversionExecution(item.effect), Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{}, Errors: item.errors,
 			StatusEvents:      []nodecontract.StatusEventSpec{},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{

@@ -56,6 +56,11 @@ func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) 
 		fmt.Fprintf(&builder, "- Title key: `%s`\n", projected.TitleKey)
 		fmt.Fprintf(&builder, "- Availability: `%s`\n", projected.Availability)
 		fmt.Fprintf(&builder, "- Execution: `%s` / `%s` / cache `%s`\n", projected.Execution.Class, projected.Execution.Determinism, projected.Execution.Cache)
+		instruction, err := json.Marshal(projected.Instruction)
+		if err != nil {
+			return "", fmt.Errorf("encode instruction for %q: %w", projected.NodeRef.NodeTypeID, err)
+		}
+		fmt.Fprintf(&builder, "- Program instruction: `%s` `%s`\n", projected.Instruction.Kind, instruction)
 		if len(projected.Capabilities) == 0 {
 			builder.WriteString("- Capabilities: none\n")
 		} else {

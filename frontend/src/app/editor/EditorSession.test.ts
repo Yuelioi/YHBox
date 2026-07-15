@@ -19,6 +19,12 @@ const concat = authoring.body.nodes.find((node) => node.nodeRef.nodeTypeId.inclu
 const stateRead = authoring.body.nodes.find((node) =>
   node.nodeRef.nodeTypeId.includes('/state/read/'),
 )!
+const delay = authoring.body.nodes.find((node) =>
+  node.nodeRef.nodeTypeId.includes('/control/delay/'),
+)!
+const retry = authoring.body.nodes.find((node) =>
+  node.nodeRef.nodeTypeId.includes('/control/retry/'),
+)!
 
 describe('EditorSession', () => {
   it('owns revision, history, compile, save and Program Run facts', async () => {
@@ -101,6 +107,46 @@ describe('EditorSession', () => {
     expect(
       assignable({ kind: 'list', element: stringType }, { kind: 'list', element: union }),
     ).toBe(true)
+  })
+
+  it('uses instruction semantics for exec and error input hints', async () => {
+    const source = emptySource()
+    const ids = ['delay', 'retry']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: retry.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'error',
+        from: { nodeId: 'delay', portId: 'failed' },
+        to: { nodeId: 'retry', portId: 'retry' },
+      },
+    })
+    expect(session.currentGraph?.edges).toHaveLength(1)
+    expect(() =>
+      session.apply({
+        kind: 'connect',
+        edge: {
+          channel: 'exec',
+          from: { nodeId: 'delay', portId: 'done' },
+          to: { nodeId: 'retry', portId: 'retry' },
+        },
+      }),
+    ).toThrow('invalid signal ports')
   })
 
   it('owns typed state declarations and prevents deleting referenced slots', async () => {

@@ -1,5 +1,26 @@
 /* Generated from Node Contract 3.1 Go types. Do not edit. */
 
+export type InstructionSpec =
+  | {
+      invoke: InvokeInstruction
+      kind: 'invoke'
+    }
+  | {
+      kind: 'run-root'
+      runRoot: RunRootInstruction
+    }
+  | {
+      countedLoop: CountedLoopInstruction
+      kind: 'counted-loop'
+    }
+  | {
+      forEach: ForEachInstruction
+      kind: 'for-each'
+    }
+  | {
+      kind: 'retry'
+      retry: RetryInstruction
+    }
 export type TypeExpression =
   | {
       kind: 'ref'
@@ -69,6 +90,7 @@ export interface MachineContract {
    */
   implementationABI: [ABIRequirement, ...ABIRequirement[]]
   instanceResolver?: InstanceResolver
+  instruction: InstructionSpec
   nodeTypeId: string
   ports: PortSet
   /**
@@ -117,13 +139,55 @@ export interface ExecutionSpec {
   timeout: 'none' | 'required' | 'optional'
 }
 export interface ABIRequirement {
-  kind: 'builtin' | 'wit' | 'process'
+  kind: 'builtin' | 'host-instruction' | 'wit' | 'process'
   version: string
 }
 export interface InstanceResolver {
   maxPorts: number
   resolverId: string
   semanticDigest: string
+}
+export interface InvokeInstruction {}
+export interface RunRootInstruction {
+  output: string
+}
+export interface CountedLoopInstruction {
+  bodyOutput: string
+  breakInput: string
+  completedOutput: string
+  continueInput: string
+  countInput: string
+  entryInput: string
+  indexOutput: string
+  maxIterations: number
+  ordinalType: TypeRef
+}
+export interface TypeRef {
+  semanticDigest: string
+  typeId: string
+}
+export interface ForEachInstruction {
+  bodyOutput: string
+  breakInput: string
+  completedOutput: string
+  continueInput: string
+  entryInput: string
+  indexOutput: string
+  itemOutput: string
+  itemsInput: string
+  maxItems: number
+  ordinalType: TypeRef
+}
+export interface RetryInstruction {
+  attemptOutput: string
+  attemptsInput: string
+  bodyOutput: string
+  completedOutput: string
+  entryInput: string
+  exhaustedOutput: string
+  maxAttempts: number
+  ordinalType: TypeRef
+  retryInput: string
 }
 export interface PortSet {
   /**
@@ -161,10 +225,6 @@ export interface ResourceLeaseBinding {
    */
   operations: [string, ...string[]]
   requirementId: string
-}
-export interface TypeRef {
-  semanticDigest: string
-  typeId: string
 }
 export interface DataOutputPort {
   id: string
