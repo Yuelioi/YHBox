@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 16,
-    "methods": 134,
-    "models": 153
+    "services": 17,
+    "methods": 137,
+    "models": 156
   },
   "services": [
     {
@@ -262,6 +262,47 @@
           "bindingId": "675657359",
           "parameters": [],
           "returns": "$CancellablePromise<$models.AppInfo>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/applicationservice",
+      "methods": [
+        {
+          "name": "GrantWorkflowConsent",
+          "bindingId": "332030973",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "InspectExecutable",
+          "bindingId": "1742248542",
+          "parameters": [
+            {
+              "name": "path",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<appcontrol$0.ExecutableInspection>"
+        },
+        {
+          "name": "RevokeWorkflowConsent",
+          "bindingId": "2111541373",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
         }
       ]
     },
@@ -1850,6 +1891,32 @@
             {
               "name": "ProviderAnthropicMessages",
               "value": "\"anthropic-messages\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/appcontrol/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "ExecutableInspection",
+          "fields": [
+            {
+              "name": "\"executable\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"digest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"size\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         }
@@ -4433,6 +4500,17 @@
         },
         {
           "kind": "class",
+          "name": "ApplicationSettings",
+          "fields": [
+            {
+              "name": "\"profiles\"",
+              "optional": false,
+              "type": "InstalledApplicationSettings[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "CaptureSettings",
           "fields": [
             {
@@ -4480,6 +4558,42 @@
               "name": "\"timeoutMilliseconds\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"workflowConsent\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InstalledApplicationSettings",
+          "fields": [
+            {
+              "name": "\"slot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"executable\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"executableDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"arguments\"",
+              "optional": false,
+              "type": "string[]"
             },
             {
               "name": "\"workflowConsent\"",
@@ -4722,6 +4836,11 @@
               "name": "\"network\"",
               "optional": false,
               "type": "NetworkSettings"
+            },
+            {
+              "name": "\"applications\"",
+              "optional": false,
+              "type": "ApplicationSettings"
             }
           ]
         },

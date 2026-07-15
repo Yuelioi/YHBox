@@ -430,7 +430,7 @@ export default {
       },
       errorcodes_hint: '节点失败时「失败」出口带出的 Code，可用 Switch 按码分流。',
       errorcode_desc: {
-        launch_failed: 'RunProgram 起不来程序 —— 路径写错 / 程序不存在 / 无权限.',
+        launch_failed: '目标控制器无法启动已配置的应用程序。',
         capture_failed:
           '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见自动化目标不可用、被最小化或已关闭.',
         write_failed: 'Screenshot 等写文件失败 —— 路径非法 / 目录不可写 / 磁盘满.',
@@ -1032,6 +1032,22 @@ export default {
             title: 'HTTP Origin 槽位',
             description: '为这次请求选择已经安装并授权的精确 HTTP Origin。',
           },
+        },
+      },
+    },
+    application: {
+      launch: {
+        title: '启动已安装应用',
+        description: '启动设置中封存的精确可执行文件和固定参数；工作流不能提供路径、参数或命令行。',
+      },
+      terminate: {
+        title: '终止已安装应用',
+        description: '只终止与安装档案中可执行文件身份完全一致的进程，并返回终止数量。',
+      },
+      config: {
+        slot: {
+          title: '应用槽位',
+          description: '选择已经安装、摘要验证并显式授权的桌面应用。',
         },
       },
     },
@@ -2129,38 +2145,6 @@ export default {
         remove_range: '删除裁剪段',
         full_playback: '无, 整段播放',
       },
-    },
-    RunProgram: {
-      label: '运行程序',
-      description:
-        '用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。',
-      example:
-        '想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。',
-      input: {
-        Target: {
-          label: '目标',
-          hint: '程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com',
-        },
-        Args: { label: '启动参数', hint: '可选。传给程序的命令行参数。' },
-        WorkingDir: { label: '工作目录', hint: '可选。程序启动的工作目录，留空用默认。' },
-        WindowState: {
-          label: '窗口状态',
-          option: { normal: '正常', minimized: '最小化', maximized: '最大化', hidden: '隐藏' },
-        },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
-    },
-    StopApp: {
-      label: '关闭程序',
-      description:
-        '按进程名、完整 exe 路径或 PID 强制结束进程。完整路径会按文件名结束同名进程。进程不存在或无权限时走失败出口。',
-      input: {
-        Target: {
-          label: '目标进程',
-          hint: '进程名（notepad.exe）、完整 exe 路径，或纯数字 PID（1234）',
-        },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
     },
     AndroidTarget: {
       label: '安卓目标',
@@ -4326,6 +4310,7 @@ export default {
     launcher: '悬浮启动器',
     ai: 'AI 连接',
     network: '网络能力',
+    applications: '应用能力',
   },
   settingsCenter: {
     eyebrow: 'YOTTA 设置中心',
@@ -4342,6 +4327,7 @@ export default {
       launcher: '编排悬浮启动器的内容、外观与快捷动作',
       ai: '管理 AI 服务端点、凭据和连接状态',
       network: '安装精确 HTTP Origin，并控制工作流网络授权',
+      applications: '安装精确桌面应用，并控制启动与终止授权',
     },
     save: {
       automatic: '自动保存到本机',
@@ -4550,6 +4536,42 @@ export default {
     confirm: {
       delete_title: '删除“{name}”？',
       delete_hint: '该安装槽位会被移除，引用它的工作流将无法通过准入。',
+    },
+  },
+  settingsApplications: {
+    security: {
+      title: '桌面应用会以当前用户权限运行',
+      hint: '此能力不是进程沙箱。只有你明确选择、摘要匹配且信任的 GUI 应用才能安装；工作流只引用槽位，不能提供可执行文件、命令行、环境、工作目录或 PID。',
+    },
+    profiles: {
+      title: '已安装桌面应用',
+      hint: '每个档案固定一个 .exe 内容摘要和逐项参数。启动不经过 shell，终止只匹配同一文件身份。',
+      add: '选择并安装应用',
+      workflow_allowed: '已允许工作流',
+      consent_required: '需要授权',
+      name_label: '显示名称',
+      slot_label: '安装槽位',
+      slot_hint: '工作流持久引用该标识，保存后不可修改。',
+      executable_label: '精确可执行文件',
+      executable_hint: '只接受常规 .exe；shell、PowerShell 和脚本宿主会被拒绝。',
+      replace: '重新选择',
+      arguments_label: '固定参数',
+      arguments_hint: '每行一个参数，并作为单独 argv 元素封存。工作流运行时不能修改。',
+      arguments_placeholder: '--project\nD:\\Projects\\fixed.aep',
+      delete: '删除应用',
+      empty: '尚未安装桌面应用',
+      empty_hint: '先选择一个受信 .exe 并检查摘要。安装不会自动授予工作流启动或终止权限。',
+    },
+    consent: {
+      title: '工作流应用生命周期授权',
+      hint: '授权只匹配当前槽位、可执行文件摘要与固定参数。任何修改都会立即撤销；重启后安装新快照。',
+      grant: '允许启动与终止',
+      revoke: '撤销授权',
+    },
+    picker: { title: '选择要安装的 Windows 应用' },
+    confirm: {
+      delete_title: '删除“{name}”？',
+      delete_hint: '该槽位会被移除，引用它的工作流将无法通过准入。',
     },
   },
   settingsAI: {

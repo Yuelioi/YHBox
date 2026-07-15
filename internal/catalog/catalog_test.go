@@ -223,7 +223,7 @@ func TestBuild_WindowsPlatformNodesAreLabeledWithoutWindowRequirement(t *testing
 	for _, n := range Build() {
 		byKind[n.Kind] = n
 	}
-	for _, kind := range []string{"RunProgram", "StopApp", "GetWindow", "WaitWindow", "WaitWindowGone"} {
+	for _, kind := range []string{"GetWindow", "WaitWindow", "WaitWindowGone"} {
 		n, ok := byKind[kind]
 		if !ok {
 			t.Fatalf("%s not found in catalog", kind)

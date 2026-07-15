@@ -8,6 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/httpegress"
@@ -23,13 +24,14 @@ type builtinPolicy struct {
 	workspaceFileDigest artifact.Digest
 	aiTargets           map[string]ai.Installation
 	httpTargets         map[string]httpegress.Installation
+	applicationTargets  map[string]appcontrol.Installation
 }
 
 // NewBuiltinPolicy creates the explicit local policy for code compiled into
 // Yotta. It cannot authorize third-party providers, credentials, or remote
 // targets; plugin policies enter through their own admission owner.
-func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations ai.Installations, httpInstallations httpegress.Installations) (admission.Policy, error) {
-	if now == nil || ttl <= 0 || ttl > 24*time.Hour || !aiInstallations.Valid() || !httpInstallations.Valid() {
+func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations) (admission.Policy, error) {
+	if now == nil || ttl <= 0 || ttl > 24*time.Hour || !aiInstallations.Valid() || !httpInstallations.Valid() || !applicationInstallations.Valid() {
 		return nil, errors.New("built-in policy requires clock and bounded TTL")
 	}
 	blobDigest, err := blob.ProviderArtifactDigest()
@@ -58,7 +60,14 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations a
 		}
 		httpTargets[installed.TargetID] = installed
 	}
-	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest, aiTargets: aiTargets, httpTargets: httpTargets}, nil
+	applicationTargets := make(map[string]appcontrol.Installation, len(applicationInstallations.Entries()))
+	for _, installed := range applicationInstallations.Entries() {
+		if _, duplicate := applicationTargets[installed.TargetID]; duplicate {
+			return nil, errors.New("built-in policy received duplicate application targets")
+		}
+		applicationTargets[installed.TargetID] = installed
+	}
+	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest, aiTargets: aiTargets, httpTargets: httpTargets, applicationTargets: applicationTargets}, nil
 }
 
 func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyRequest) (admission.PolicyDecision, error) {
@@ -94,8 +103,18 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				consents[installed.Consent] = struct{}{}
 				continue
 			}
-			installed, ok := p.httpTargets[binding.TargetID]
-			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != httpegress.ProviderABI || binding.TargetKind != httpegress.TargetKind || binding.ResourceKind != httpegress.KindHTTPSession || binding.CredentialBindingID != "" {
+			if installed, ok := p.httpTargets[binding.TargetID]; ok {
+				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != httpegress.ProviderABI || binding.TargetKind != httpegress.TargetKind || binding.ResourceKind != httpegress.KindHTTPSession || binding.CredentialBindingID != "" {
+					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
+				}
+				if installed.Consent == "" {
+					return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
+				}
+				consents[installed.Consent] = struct{}{}
+				continue
+			}
+			installed, ok := p.applicationTargets[binding.TargetID]
+			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != appcontrol.ProviderABI || binding.TargetKind != appcontrol.TargetKind || binding.ResourceKind != appcontrol.KindApplication || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 			if installed.Consent == "" {
@@ -110,6 +129,6 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 	}
 	sort.Slice(lineage, func(i, j int) bool { return lineage[i] < lineage[j] })
 	return admission.PolicyDecision{
-		Outcome: admission.PolicyApproved, Generation: "builtin-local-v2", ExpiresAt: p.now().UTC().Add(p.ttl), ConsentLineage: lineage,
+		Outcome: admission.PolicyApproved, Generation: "builtin-local-v3", ExpiresAt: p.now().UTC().Add(p.ttl), ConsentLineage: lineage,
 	}, nil
 }

@@ -10,7 +10,7 @@ type ErrCode string
 
 const (
 	CodeError          ErrCode = "error"           // 兜底/未分类
-	CodeLaunchFailed   ErrCode = "launch_failed"   // RunProgram 起不来
+	CodeLaunchFailed   ErrCode = "launch_failed"   // target application 起不来
 	CodeCaptureFailed  ErrCode = "capture_failed"  // 截屏/视觉计算失败
 	CodeWriteFailed    ErrCode = "write_failed"    // 文件写盘/路径失败
 	CodeNotFound       ErrCode = "not_found"       // 找不到窗/目标

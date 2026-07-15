@@ -1,0 +1,106 @@
+package appcontrol
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"sort"
+
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/resource"
+)
+
+const workflowConsentDomain = "yotta/installed-application-workflow-consent/v1"
+
+var slotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
+
+type InstallationDraft struct {
+	Slot    string
+	Profile ProfileDraft
+	Consent artifact.Digest
+}
+
+type Installation struct {
+	Slot             string
+	Profile          Profile
+	ProviderID       string
+	ProviderArtifact artifact.Digest
+	TargetID         string
+	Consent          artifact.Digest
+	Provider         resource.Provider
+}
+
+type installationState struct{ entries []Installation }
+type Installations struct{ state *installationState }
+
+func Install(drafts []InstallationDraft) (Installations, error) {
+	if len(drafts) > 0 && !PlatformSupported() {
+		return Installations{}, errors.New("installed application lifecycle is unavailable on this host")
+	}
+	ordered := append([]InstallationDraft(nil), drafts...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Slot < ordered[j].Slot })
+	entries := make([]Installation, 0, len(ordered))
+	shared := map[artifact.Digest]Installation{}
+	previous := ""
+	for _, draft := range ordered {
+		if !slotPattern.MatchString(draft.Slot) || draft.Slot <= previous {
+			return Installations{}, errors.New("invalid or duplicate application installation slot")
+		}
+		previous = draft.Slot
+		profile, err := SealProfile(draft.Profile)
+		if err != nil {
+			return Installations{}, fmt.Errorf("seal application profile for slot %q: %w", draft.Slot, err)
+		}
+		if err := VerifyProfile(profile); err != nil {
+			return Installations{}, fmt.Errorf("verify application profile for slot %q: %w", draft.Slot, err)
+		}
+		expected, err := WorkflowConsentDigest(draft.Slot, profile)
+		if err != nil {
+			return Installations{}, err
+		}
+		if draft.Consent != "" && draft.Consent != expected {
+			return Installations{}, fmt.Errorf("application installation slot %q has stale workflow consent", draft.Slot)
+		}
+		installed, exists := shared[profile.Digest()]
+		if !exists {
+			provider, err := NewProvider(profile)
+			if err != nil {
+				return Installations{}, err
+			}
+			providerArtifact, err := ProviderArtifactDigest(profile)
+			if err != nil {
+				return Installations{}, err
+			}
+			installed = Installation{Profile: profile, ProviderID: "application-" + profile.Digest().String()[7:39], ProviderArtifact: providerArtifact, Provider: provider}
+			shared[profile.Digest()] = installed
+		}
+		installed.Slot, installed.TargetID, installed.Consent = draft.Slot, TargetID(draft.Slot), draft.Consent
+		entries = append(entries, installed)
+	}
+	return Installations{state: &installationState{entries: entries}}, nil
+}
+
+func (i Installations) Valid() bool { return i.state != nil }
+func (i Installations) Entries() []Installation {
+	if !i.Valid() {
+		return nil
+	}
+	return append([]Installation(nil), i.state.entries...)
+}
+func TargetID(slot string) string { return "installed-application/" + slot }
+func ValidateInstallationSlot(slot string) error {
+	if !slotPattern.MatchString(slot) {
+		return errors.New("invalid application installation slot")
+	}
+	return nil
+}
+func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error) {
+	if !slotPattern.MatchString(slot) || !profile.Valid() {
+		return "", errors.New("application workflow consent identity is invalid")
+	}
+	raw, err := artifact.Marshal(map[string]any{"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI, "operations": []string{OperationLaunch, OperationTerminate}})
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum(workflowConsentDomain, raw)
+}

@@ -13,6 +13,7 @@
 | MCP command surface | 未授权整图覆盖、越权 capability、schema 放大 | 旧 HTTP/runtime tools 已删除；3.1 只提供 bounded catalog、分页 inspect、revision-CAS typed patch、compile 与无副作用 run preview，全部调用同一 Application。MCP transport 默认不装配、不监听；未来显式 transport 也不得拥有旁路执行器 |
 | Script node | 任意代码、宿主逃逸和资源滥用 | Script 3.1 只在一次性隔离 worker 中接收规范化 JSON；没有节点/service registry、文件、网络或进程绑定。宿主 admission 还要求精确隔离 feature，超时由宿主终止整个 worker |
 | HTTP egress | SSRF、DNS rebinding、重定向绕过、响应放大和秘密头泄露 | 只允许显式安装并授权的 exact Origin；workflow 只给相对路径与查询；禁代理/重定向/Cookie/凭据/自定义头；DNS 与拨号地址复验，默认拒绝本机/私网/特殊地址；响应有超时、字节与 UTF-8 上限，只暴露 status/body/content-type |
+| Installed application lifecycle | 任意命令、shell/argument 注入、错误进程终止、受信应用被替换 | workflow 只选 exact installed slot；档案封存绝对 `.exe`、SHA-256 和固定逐项 argv；拒绝 shell/script host、PATH、raw command line、工作目录/env/PID 输入；每次调用重验摘要，终止只匹配 OS 文件身份；dangerous consent 与 journal 不记录路径/argv/PID。该能力明确不是目标应用 sandbox |
 | File/package import | 路径穿越、zip bomb、恶意 graph | ID/path 校验、schema/lock validation、原子提交；导入器新增时必须加 entry/size/count 上限 |
 | Fetch/network | SSRF、敏感内网访问、巨大响应 | 节点行为必须显式、超时/大小受限；未来远程分享前需要 URL policy |
 | Input/capture | 错误 target、按键残留、隐私图像 | capability/target validation、context cancel、held-input release、窗口句柄重校验 |

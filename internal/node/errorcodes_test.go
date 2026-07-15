@@ -30,7 +30,7 @@ func TestFailf_CodeAndChain(t *testing.T) {
 }
 
 func TestFailf_NilCause(t *testing.T) {
-	err := Failf(CodeLaunchFailed, nil, "RunProgram %q", "x.exe")
+	err := Failf(CodeLaunchFailed, nil, "application %q", "example.app")
 	if errors.Unwrap(err) != nil {
 		t.Error("nil cause should Unwrap to nil")
 	}

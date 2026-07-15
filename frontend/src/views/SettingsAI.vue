@@ -413,6 +413,7 @@ function uniqueSlot(): string {
   const taken = new Set([
     ...draft.value.map((profile) => profile.slot),
     ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
+    ...(store.data?.applications.profiles ?? []).map((profile) => profile.slot),
   ])
   if (!taken.has('model')) return 'model'
   for (let index = 2; ; index++) {

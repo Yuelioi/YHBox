@@ -254,7 +254,7 @@ func dataOutPinTypeForKind(registry nodepkg.RegistryReader, kind, pinName string
 }
 
 // IsExecOutputDataField reports whether (kind, pin) names a Data field nested under
-// an exec output (e.g. RunProgram.Fail 的 Error/Code). 这类 pin 连线/校验上算 data-out
+// an exec output (e.g. Script.Fail 的 Error/Code). 这类 pin 连线/校验上算 data-out
 // (IsDataOutPin 真), 但值不靠 pure-data pull —— 源 fire 时存进 per-run held output 缓存,
 // runtime 经 pullDataPin 任意距离直连读 (见 ContainerRunner.captureExecOutputs / pullDataPin).
 func IsExecOutputDataField(kind, pin string) bool {

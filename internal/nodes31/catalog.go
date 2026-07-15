@@ -62,36 +62,38 @@ type BuiltinDefinition struct {
 }
 
 type Builtins struct {
-	Catalog                  nodecatalog.Snapshot
-	StringType               datatype.Definition
-	BinaryType               datatype.Definition
-	NumberType               datatype.Definition
-	IntegerType              datatype.Definition
-	BooleanType              datatype.Definition
-	JSONType                 datatype.Definition
-	PointUnitType            datatype.Definition
-	PointType                datatype.Definition
-	RegionType               datatype.Definition
-	RandomDistributionType   datatype.Definition
-	DurationMillisecondsType datatype.Definition
-	FileMetadataType         datatype.Definition
-	ObservabilityMessageType datatype.Definition
-	ConcatContract           nodecontract.Contract
-	BlobToStreamContract     nodecontract.Contract
-	StreamToBlobContract     nodecontract.Contract
-	AIGenerateContract       nodecontract.Contract
-	AIExtractContract        nodecontract.Contract
-	ScriptExecuteContract    nodecontract.Contract
-	FileReadTextContract     nodecontract.Contract
-	FileReadJSONContract     nodecontract.Contract
-	FileStatContract         nodecontract.Contract
-	HTTPGetContract          nodecontract.Contract
-	Types                    []datatype.Definition
-	Contracts                []nodecontract.Contract
-	Capabilities             []capability.Definition
-	ConfigValidators         configvalidator.Registry
-	definitions              []BuiltinDefinition
-	definitionByID           map[string]BuiltinDefinition
+	Catalog                      nodecatalog.Snapshot
+	StringType                   datatype.Definition
+	BinaryType                   datatype.Definition
+	NumberType                   datatype.Definition
+	IntegerType                  datatype.Definition
+	BooleanType                  datatype.Definition
+	JSONType                     datatype.Definition
+	PointUnitType                datatype.Definition
+	PointType                    datatype.Definition
+	RegionType                   datatype.Definition
+	RandomDistributionType       datatype.Definition
+	DurationMillisecondsType     datatype.Definition
+	FileMetadataType             datatype.Definition
+	ObservabilityMessageType     datatype.Definition
+	ConcatContract               nodecontract.Contract
+	BlobToStreamContract         nodecontract.Contract
+	StreamToBlobContract         nodecontract.Contract
+	AIGenerateContract           nodecontract.Contract
+	AIExtractContract            nodecontract.Contract
+	ScriptExecuteContract        nodecontract.Contract
+	FileReadTextContract         nodecontract.Contract
+	FileReadJSONContract         nodecontract.Contract
+	FileStatContract             nodecontract.Contract
+	HTTPGetContract              nodecontract.Contract
+	LaunchApplicationContract    nodecontract.Contract
+	TerminateApplicationContract nodecontract.Contract
+	Types                        []datatype.Definition
+	Contracts                    []nodecontract.Contract
+	Capabilities                 []capability.Definition
+	ConfigValidators             configvalidator.Registry
+	definitions                  []BuiltinDefinition
+	definitionByID               map[string]BuiltinDefinition
 }
 
 func (b Builtins) Definitions() []BuiltinDefinition {
@@ -165,6 +167,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	httpGetCapability, err := sealHTTPGetCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	applicationLifecycle, err := sealApplicationLifecycleCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -255,6 +261,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	applicationDefinitions, applicationContracts, err := defineApplicationNodes(integerType.TypeRef(), applicationLifecycle)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -270,6 +280,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, scriptDefinition)
 	definitions = append(definitions, filesystemDefinitions...)
 	definitions = append(definitions, httpGetDefinition)
+	definitions = append(definitions, applicationDefinitions...)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -284,7 +295,7 @@ func Build() (Builtins, error) {
 		contracts = append(contracts, definition.Contract)
 	}
 	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -300,8 +311,9 @@ func Build() (Builtins, error) {
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
 		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, ScriptExecuteContract: scriptExecute,
 		FileReadTextContract: filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
-		HTTPGetContract: httpGetContract,
-		Types:           types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
+		HTTPGetContract:           httpGetContract,
+		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
+		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }

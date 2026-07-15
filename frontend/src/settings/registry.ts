@@ -5,6 +5,7 @@ export const SETTINGS_THEME_KEYS = [
   'launcher',
   'ai',
   'network',
+  'applications',
 ] as const
 
 export type SettingsThemeKey = (typeof SETTINGS_THEME_KEYS)[number]
@@ -52,6 +53,12 @@ export const SETTINGS_THEMES: readonly SettingsThemeDefinition[] = [
     labelKey: 'settingsTab.network',
     descriptionKey: 'settingsCenter.theme.network',
     icon: 'i-tabler-shield-lock',
+  },
+  {
+    key: 'applications',
+    labelKey: 'settingsTab.applications',
+    descriptionKey: 'settingsCenter.theme.applications',
+    icon: 'i-tabler-apps',
   },
 ]
 

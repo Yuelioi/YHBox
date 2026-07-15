@@ -16,6 +16,7 @@ import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/s
 import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
+import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
   EvaluationStatus as EvaluationStatusBinding,
@@ -312,6 +313,21 @@ export interface HTTPOriginProfile {
   workflowConsent?: string
 }
 
+export interface InstalledApplicationProfile {
+  slot: string
+  label: string
+  executable: string
+  executableDigest: string
+  arguments: string[]
+  workflowConsent?: string
+}
+
+export interface ExecutableInspection {
+  executable: string
+  digest: string
+  size: number
+}
+
 function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBinding {
   return new AIModelSettingsBinding({
     ...profile,
@@ -345,6 +361,22 @@ export const backend = {
       invoke(NetworkService.GrantHTTPWorkflowConsent, slot) as Promise<string | undefined>,
     revokeHTTPWorkflowConsent: (slot: string) =>
       invokeVoid(NetworkService.RevokeHTTPWorkflowConsent, slot),
+  },
+  applications: {
+    pickExecutable: (title: string) =>
+      Dialogs.OpenFile({
+        Title: title,
+        AllowsMultipleSelection: false,
+        Filters: [{ DisplayName: 'Windows Application', Pattern: '*.exe' }],
+      }) as Promise<string>,
+    inspectExecutable: (path: string) =>
+      invoke(ApplicationService.InspectExecutable, path) as Promise<
+        ExecutableInspection | undefined
+      >,
+    grantWorkflowConsent: (slot: string) =>
+      invoke(ApplicationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
+    revokeWorkflowConsent: (slot: string) =>
+      invokeVoid(ApplicationService.RevokeWorkflowConsent, slot),
   },
   containers: {
     list: () => invoke(ContainerService.List),

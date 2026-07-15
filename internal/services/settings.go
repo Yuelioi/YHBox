@@ -10,6 +10,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/pkg/locale"
@@ -28,11 +29,12 @@ var settingsFilePath = func() string {
 
 // Settings 是持久化层 schema。
 type Settings struct {
-	UI      UISettings      `json:"ui"`
-	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
-	Capture CaptureSettings `json:"capture"` // 截屏后端选择
-	AI      AISettings      `json:"ai"`
-	Network NetworkSettings `json:"network"`
+	UI           UISettings          `json:"ui"`
+	Locale       string              `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
+	Capture      CaptureSettings     `json:"capture"` // 截屏后端选择
+	AI           AISettings          `json:"ai"`
+	Network      NetworkSettings     `json:"network"`
+	Applications ApplicationSettings `json:"applications"`
 }
 
 type AISettings struct {
@@ -41,6 +43,35 @@ type AISettings struct {
 
 type NetworkSettings struct {
 	HTTPOrigins []HTTPOriginSettings `json:"httpOrigins"`
+}
+
+type ApplicationSettings struct {
+	Profiles []InstalledApplicationSettings `json:"profiles"`
+}
+
+// InstalledApplicationSettings is trusted host installation metadata. A
+// workflow persists only Slot; it never receives the executable path or argv.
+type InstalledApplicationSettings struct {
+	Slot             string          `json:"slot"`
+	Label            string          `json:"label"`
+	Executable       string          `json:"executable"`
+	ExecutableDigest artifact.Digest `json:"executableDigest"`
+	Arguments        []string        `json:"arguments"`
+	WorkflowConsent  artifact.Digest `json:"workflowConsent,omitempty"`
+}
+
+func (configured InstalledApplicationSettings) profileDraft() appcontrol.ProfileDraft {
+	return appcontrol.ProfileDraft{Executable: configured.Executable, ExecutableDigest: configured.ExecutableDigest, Arguments: append([]string(nil), configured.Arguments...)}
+}
+func (configured InstalledApplicationSettings) installationDraft() appcontrol.InstallationDraft {
+	return appcontrol.InstallationDraft{Slot: configured.Slot, Profile: configured.profileDraft(), Consent: configured.WorkflowConsent}
+}
+func (settings ApplicationSettings) InstallationDrafts() []appcontrol.InstallationDraft {
+	result := make([]appcontrol.InstallationDraft, 0, len(settings.Profiles))
+	for _, configured := range settings.Profiles {
+		result = append(result, configured.installationDraft())
+	}
+	return result
 }
 
 // HTTPOriginSettings is an installed network authority. Workflows bind the
@@ -237,9 +268,10 @@ func defaultSettings() *Settings {
 		Locale: "zh",
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
-		Capture: CaptureSettings{Method: "auto", DumpDebug: false},
-		AI:      AISettings{Profiles: []AIModelSettings{}},
-		Network: NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
+		Capture:      CaptureSettings{Method: "auto", DumpDebug: false},
+		AI:           AISettings{Profiles: []AIModelSettings{}},
+		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
+		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
 	}
 }
 
@@ -375,7 +407,10 @@ func (s *Settings) Validate() error {
 	if err := s.Network.validate(); err != nil {
 		return err
 	}
-	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins))
+	if err := s.Applications.validate(); err != nil {
+		return err
+	}
+	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins)+len(s.Applications.Profiles))
 	for _, profile := range s.AI.Profiles {
 		installedSlots[profile.Slot] = "ai.profiles"
 	}
@@ -384,6 +419,12 @@ func (s *Settings) Validate() error {
 			return fmt.Errorf("installation slot %q is shared by %s and network.httpOrigins", origin.Slot, owner)
 		}
 		installedSlots[origin.Slot] = "network.httpOrigins"
+	}
+	for _, configured := range s.Applications.Profiles {
+		if owner, exists := installedSlots[configured.Slot]; exists {
+			return fmt.Errorf("installation slot %q is shared by %s and applications.profiles", configured.Slot, owner)
+		}
+		installedSlots[configured.Slot] = "applications.profiles"
 	}
 	return nil
 }
@@ -439,6 +480,34 @@ func (settings *NetworkSettings) validate() error {
 			expected, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
 			if err != nil || configured.WorkflowConsent != expected {
 				return fmt.Errorf("network.httpOrigins[%s] has stale workflow consent", configured.Slot)
+			}
+		}
+	}
+	return nil
+}
+
+func (settings *ApplicationSettings) validate() error {
+	if len(settings.Profiles) > 64 {
+		return errors.New("applications.profiles exceeds installation budget")
+	}
+	seenSlots, seenLabels := map[string]bool{}, map[string]bool{}
+	for _, configured := range settings.Profiles {
+		if configured.Label == "" || len(configured.Label) > 128 || seenLabels[configured.Label] {
+			return fmt.Errorf("applications.profiles has an invalid or duplicate label %q", configured.Label)
+		}
+		seenLabels[configured.Label] = true
+		if err := appcontrol.ValidateInstallationSlot(configured.Slot); err != nil || seenSlots[configured.Slot] {
+			return fmt.Errorf("applications.profiles has an invalid or duplicate slot %q", configured.Slot)
+		}
+		seenSlots[configured.Slot] = true
+		profile, err := appcontrol.SealProfile(configured.profileDraft())
+		if err != nil {
+			return fmt.Errorf("applications.profiles[%s]: %w", configured.Slot, err)
+		}
+		if configured.WorkflowConsent != "" {
+			expected, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
+			if err != nil || configured.WorkflowConsent != expected {
+				return fmt.Errorf("applications.profiles[%s] has stale workflow consent", configured.Slot)
 			}
 		}
 	}

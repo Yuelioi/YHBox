@@ -12,6 +12,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
+	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodes31"
@@ -164,6 +165,10 @@ func testApplication(t *testing.T) *app31.Application {
 	if err != nil {
 		t.Fatal(err)
 	}
+	applicationInstallations, err := appcontrol.Install(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: t.TempDir(),
 		Limits: appbootstrap.Limits{
@@ -171,7 +176,7 @@ func testApplication(t *testing.T) *app31.Application {
 			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 2 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: installations, HTTPInstallations: httpInstallations, ScriptRuntime: mcpScriptRuntime(t),
+		AIInstallations: installations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, ScriptRuntime: mcpScriptRuntime(t),
 		LogEmitter: nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),
 		GrantTTL:   time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})

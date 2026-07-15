@@ -287,6 +287,7 @@ function uniqueSlot(): string {
   const taken = new Set([
     ...draft.value.map((origin) => origin.slot),
     ...(store.data?.ai.profiles ?? []).map((profile) => profile.slot),
+    ...(store.data?.applications.profiles ?? []).map((profile) => profile.slot),
   ])
   if (!taken.has('http')) return 'http'
   for (let index = 2; ; index++) {

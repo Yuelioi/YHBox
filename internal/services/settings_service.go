@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/httpegress"
 )
@@ -38,6 +39,10 @@ func (s *SettingsService) Update(patchJSON string) error {
 		for _, origin := range settings.Network.HTTPOrigins {
 			previousHTTP[origin.Slot] = consentState{consent: origin.WorkflowConsent, expected: expectedHTTPConsent(origin)}
 		}
+		previousApplications := make(map[string]consentState, len(settings.Applications.Profiles))
+		for _, configured := range settings.Applications.Profiles {
+			previousApplications[configured.Slot] = consentState{consent: configured.WorkflowConsent, expected: expectedApplicationConsent(configured)}
+		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
 		}
@@ -55,6 +60,13 @@ func (s *SettingsService) Update(patchJSON string) error {
 			old, exists := previousHTTP[origin.Slot]
 			if exists && old.consent != "" && origin.WorkflowConsent == old.consent && expectedHTTPConsent(*origin) != old.expected {
 				origin.WorkflowConsent = ""
+			}
+		}
+		for index := range settings.Applications.Profiles {
+			configured := &settings.Applications.Profiles[index]
+			old, exists := previousApplications[configured.Slot]
+			if exists && old.consent != "" && configured.WorkflowConsent == old.consent && expectedApplicationConsent(*configured) != old.expected {
+				configured.WorkflowConsent = ""
 			}
 		}
 		return nil
@@ -107,6 +119,18 @@ func expectedHTTPConsent(configured HTTPOriginSettings) artifact.Digest {
 		return ""
 	}
 	digest, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
+	if err != nil {
+		return ""
+	}
+	return digest
+}
+
+func expectedApplicationConsent(configured InstalledApplicationSettings) artifact.Digest {
+	profile, err := appcontrol.SealProfile(configured.profileDraft())
+	if err != nil {
+		return ""
+	}
+	digest, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
 	if err != nil {
 		return ""
 	}

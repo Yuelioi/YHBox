@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { backend, type AIModelProfile, type HTTPOriginProfile } from '@/lib/backend'
+import {
+  backend,
+  type AIModelProfile,
+  type HTTPOriginProfile,
+  type InstalledApplicationProfile,
+} from '@/lib/backend'
 
 // MouseProfile 命名鼠标校准档（跟 Go services.MouseProfile 对齐）。
 // counts360 = 原地转 360° 鼠标硬件累积 |dx|；同机不同游戏内灵敏度不同 → 多 profile。
@@ -62,6 +67,9 @@ export interface Settings {
   }
   network: {
     httpOrigins: HTTPOriginProfile[]
+  }
+  applications: {
+    profiles: InstalledApplicationProfile[]
   }
 }
 
@@ -134,6 +142,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return patch({ network: { httpOrigins } })
   }
 
+  async function patchApplicationProfiles(profiles: InstalledApplicationProfile[]) {
+    return patch({ applications: { profiles } })
+  }
+
   function startSync() {
     if (syncStarted) return
     syncStarted = true
@@ -160,6 +172,7 @@ export const useSettingsStore = defineStore('settings', () => {
     patch,
     patchAIProfiles,
     patchHTTPOrigins,
+    patchApplicationProfiles,
     retryLastPatch,
     startSync,
     mouseProfiles,

@@ -107,7 +107,7 @@ type Spec struct {
 	// 节点实现不要手写此字段; NodeService/Catalog 在导出前填充。
 	SupportedTargets []string `json:"supportedTargets,omitempty"`
 	// PlatformTargets — 仅用于展示/目录的目标平台标识。给 Windows-only 但不依赖
-	// 当前活动窗口的节点使用, 例如 RunProgram / WaitWindow / GetWindow。
+	// 当前活动窗口的节点使用, 例如 WaitWindow / GetWindow。
 	// 不参与 validator/runtime 依赖判断; 需要当前窗口时仍应使用 NeedsWindow。
 	PlatformTargets []string `json:"platformTargets,omitempty"`
 	// NeedsWindow — legacy Win32 HWND requirement: 节点 Run 依赖 Windows 窗口

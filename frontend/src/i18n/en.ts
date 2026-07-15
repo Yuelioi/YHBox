@@ -425,8 +425,7 @@ export default {
       },
       errorcodes_hint: 'Codes a node emits from its Fail output — branch on them with Switch.',
       errorcode_desc: {
-        launch_failed:
-          'RunProgram could not start the program — wrong path / missing / no permission.',
+        launch_failed: 'The target controller could not start its configured application.',
         capture_failed:
           'Screenshot, color detection or template matching failed — often the automation target is unavailable, minimized, or closed.',
         write_failed:
@@ -1061,6 +1060,25 @@ export default {
             title: 'HTTP origin slot',
             description: 'Select the exact installed and consented HTTP origin for this request.',
           },
+        },
+      },
+    },
+    application: {
+      launch: {
+        title: 'Launch installed application',
+        description:
+          'Launch the exact executable and fixed arguments sealed in Settings. Workflows cannot supply a path, arguments, or command line.',
+      },
+      terminate: {
+        title: 'Terminate installed application',
+        description:
+          'Terminate only processes whose executable identity exactly matches the installed profile, and return the count.',
+      },
+      config: {
+        slot: {
+          title: 'Application slot',
+          description:
+            'Select an installed, digest-verified, and explicitly consented desktop application.',
         },
       },
     },
@@ -2251,49 +2269,6 @@ export default {
         remove_range: 'Remove range',
         full_playback: 'None — play full clip',
       },
-    },
-    RunProgram: {
-      label: 'Run program',
-      description:
-        'Open a target the system default way: run an executable, open a URL in the default browser, or open a document/folder with its associated app. Continues immediately without waiting for the program to exit.',
-      example:
-        'To auto-launch a game at the start of a script, set Target to the full path of the game exe; or set Target to a URL to open it in the default browser when the script reaches here.',
-      input: {
-        Target: {
-          label: 'Target',
-          hint: 'Program path / URL / file / folder, e.g. C:\\Game\\game.exe or https://example.com',
-        },
-        Args: {
-          label: 'Arguments',
-          hint: 'Optional. Command-line arguments passed to the program.',
-        },
-        WorkingDir: {
-          label: 'Working dir',
-          hint: 'Optional. Working directory the program starts in; empty = default.',
-        },
-        WindowState: {
-          label: 'Window state',
-          option: {
-            normal: 'Normal',
-            minimized: 'Minimized',
-            maximized: 'Maximized',
-            hidden: 'Hidden',
-          },
-        },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-    },
-    StopApp: {
-      label: 'Stop App',
-      description:
-        'Forcefully terminate a process by name, full exe path, or PID. Full paths are matched by file name. Routes to Fail if the process does not exist or cannot be killed.',
-      input: {
-        Target: {
-          label: 'Target Process',
-          hint: 'Process name (notepad.exe), full exe path, or numeric PID (1234)',
-        },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Fail' } },
     },
     AndroidTarget: {
       label: 'Android Target',
@@ -4505,6 +4480,7 @@ export default {
     launcher: 'Floating launcher',
     ai: 'AI connections',
     network: 'Network capabilities',
+    applications: 'Application capabilities',
   },
   settingsCenter: {
     eyebrow: 'YOTTA SETTINGS',
@@ -4521,6 +4497,7 @@ export default {
       launcher: 'Arrange the floating launcher content, appearance, and quick actions',
       ai: 'Manage AI service endpoints, credentials, and connection health',
       network: 'Install exact HTTP origins and control workflow network consent',
+      applications: 'Install exact desktop applications and control launch and terminate consent',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -4735,6 +4712,44 @@ export default {
       delete_title: 'Delete “{name}”?',
       delete_hint:
         'The installation slot will be removed. Workflows that reference it will fail admission.',
+    },
+  },
+  settingsApplications: {
+    security: {
+      title: 'Desktop applications run with your current user authority',
+      hint: 'This capability is not a process sandbox. Install only a GUI application you explicitly selected, trust, and verified by digest. Workflows reference only its slot and cannot supply an executable, command line, environment, working directory, or PID.',
+    },
+    profiles: {
+      title: 'Installed desktop applications',
+      hint: 'Each profile pins one .exe content digest and fixed argument list. Launch never uses a shell; terminate matches the same file identity only.',
+      add: 'Select and install application',
+      workflow_allowed: 'Workflow allowed',
+      consent_required: 'Consent required',
+      name_label: 'Display name',
+      slot_label: 'Installation slot',
+      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      executable_label: 'Exact executable',
+      executable_hint: 'Regular .exe files only. Shell, PowerShell, and script hosts are rejected.',
+      replace: 'Choose another',
+      arguments_label: 'Fixed arguments',
+      arguments_hint:
+        'One argument per line, sealed as a distinct argv element. Workflows cannot modify them at run time.',
+      arguments_placeholder: '--project\nD:\\Projects\\fixed.aep',
+      delete: 'Delete application',
+      empty: 'No desktop applications installed',
+      empty_hint:
+        'Select a trusted .exe and verify its digest first. Installation does not automatically grant workflow launch or terminate authority.',
+    },
+    consent: {
+      title: 'Workflow application lifecycle consent',
+      hint: 'Consent matches this exact slot, executable digest, and fixed arguments. Any edit revokes it immediately. Restart to install the new snapshot.',
+      grant: 'Allow launch and terminate',
+      revoke: 'Revoke consent',
+    },
+    picker: { title: 'Choose a Windows application to install' },
+    confirm: {
+      delete_title: 'Delete “{name}”?',
+      delete_hint: 'The slot will be removed. Workflows that reference it will fail admission.',
     },
   },
   settingsAI: {

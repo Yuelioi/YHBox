@@ -53,19 +53,19 @@ func TestValidator_InvalidPin_MainGraph(t *testing.T) {
 func TestValidator_ExecOutputDataField_WiredAsData(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
-		GraphNode{ID: "rp", Kind: "RunProgram", CreatedAt: time.Now().UTC(),
-			Config: map[string]any{"literal": map[string]any{"Target": "notepad.exe"}}},
+		GraphNode{ID: "script", Kind: "Script", CreatedAt: time.Now().UTC(),
+			Config: map[string]any{"literal": map[string]any{"Source": "throw new Error('boom')"}}},
 		GraphNode{ID: "sw", Kind: "Switch", CreatedAt: time.Now().UTC(),
-			Config: map[string]any{"cases": []any{"launch_failed"}}},
+			Config: map[string]any{"cases": []any{"error"}}},
 	)
 	c.Graph.Edges = []GraphEdge{
-		{From: "start.Done", To: "rp.In"},
-		{From: "rp.Fail", To: "sw.In"},    // exec 边: 失败分支
-		{From: "rp.Code", To: "sw.Value"}, // data 边: Code (Fail 出口的数据字段) → Switch 分流值
+		{From: "start.Done", To: "script.In"},
+		{From: "script.Fail", To: "sw.In"},    // exec 边: 失败分支
+		{From: "script.Code", To: "sw.Value"}, // data 边: Code (Fail 出口的数据字段) → Switch 分流值
 	}
 	errs := ValidateContainer(c, nil)
 	if hasCode(errs, CodeInvalidPin) {
-		t.Errorf("RunProgram.Code → Switch.Value 应是合法 data 边, 不该报 INVALID_PIN: %+v", errs)
+		t.Errorf("Script.Code → Switch.Value 应是合法 data 边, 不该报 INVALID_PIN: %+v", errs)
 	}
 	if hasCode(errs, CodePinTypeMismatch) {
 		t.Errorf("Code(string) → Value(string) 类型相容, 不该报 PIN_TYPE_MISMATCH: %+v", errs)
