@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/runid"
 )
@@ -49,6 +50,14 @@ type Admission struct {
 	GrantDigest          artifact.Digest
 	PolicyGeneration     string
 	Principal            string
+	QueuedAt             time.Time
+}
+
+type QueueRequest struct {
+	ProgramHash          artifact.Digest
+	CatalogHash          artifact.Digest
+	CapabilityPlanDigest artifact.Digest
+	Grant                capability.RunGrant
 	QueuedAt             time.Time
 }
 
@@ -97,6 +106,7 @@ type recordDocument struct {
 	CatalogHash          artifact.Digest `json:"catalogHash"`
 	CapabilityPlanDigest artifact.Digest `json:"capabilityPlanDigest"`
 	GrantDigest          artifact.Digest `json:"grantDigest"`
+	GrantArtifact        json.RawMessage `json:"grant"`
 	PolicyGeneration     string          `json:"policyGeneration"`
 	Principal            string          `json:"principal"`
 	Status               Status          `json:"status"`
@@ -115,13 +125,16 @@ type recordState struct {
 
 type Record struct{ state *recordState }
 
-func NewQueuedRecord(admission Admission) (Record, error) {
+func NewQueuedRecord(request QueueRequest) (Record, error) {
+	if !request.Grant.Valid() {
+		return Record{}, errors.New("queued Run requires a sealed Run Grant")
+	}
 	document := recordDocument{
-		Format: RecordFormat, Version: RecordVersion, RunID: admission.RunID, Generation: 1,
-		ProgramHash: admission.ProgramHash, CatalogHash: admission.CatalogHash,
-		CapabilityPlanDigest: admission.CapabilityPlanDigest, GrantDigest: admission.GrantDigest,
-		PolicyGeneration: admission.PolicyGeneration, Principal: admission.Principal,
-		Status: StatusQueued, QueuedAt: admission.QueuedAt, Journal: []journalEntry{}, Values: []durableValue{},
+		Format: RecordFormat, Version: RecordVersion, RunID: request.Grant.RunID(), Generation: 1,
+		ProgramHash: request.ProgramHash, CatalogHash: request.CatalogHash,
+		CapabilityPlanDigest: request.CapabilityPlanDigest, GrantDigest: request.Grant.Digest(), GrantArtifact: request.Grant.Bytes(),
+		PolicyGeneration: request.Grant.PolicyGeneration(), Principal: request.Grant.Principal(),
+		Status: StatusQueued, QueuedAt: request.QueuedAt, Journal: []journalEntry{}, Values: []durableValue{},
 	}
 	return sealRecord(document, nil)
 }
@@ -183,10 +196,13 @@ func sealRecord(document recordDocument, catalog datatype.ValueTypeCatalog) (Rec
 }
 
 func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) error {
+	grant, grantErr := capability.InspectRunGrant(document.GrantArtifact)
 	if document.Format != RecordFormat || document.Version != RecordVersion || document.Generation == 0 ||
 		runid.Validate(document.RunID) != nil || !runFieldPattern.MatchString(document.PolicyGeneration) || !runFieldPattern.MatchString(document.Principal) ||
 		!document.ProgramHash.Valid() || !document.CatalogHash.Valid() || !document.CapabilityPlanDigest.Valid() || !document.GrantDigest.Valid() ||
-		document.QueuedAt.Location() != time.UTC || document.Journal == nil {
+		document.QueuedAt.Location() != time.UTC || document.Journal == nil || grantErr != nil || grant.Digest != document.GrantDigest ||
+		grant.RunID != document.RunID || grant.ProgramHash != document.ProgramHash || grant.CapabilityPlanHash != document.CapabilityPlanDigest ||
+		grant.PolicyGeneration != document.PolicyGeneration || grant.Principal != document.Principal || document.QueuedAt.Before(grant.IssuedAt) || !document.QueuedAt.Before(grant.ExpiresAt) {
 		return errors.New("invalid RunRecord identity")
 	}
 	if catalog == nil && len(document.Values) != 0 {
@@ -376,6 +392,12 @@ func validAttribution(value string) bool {
 }
 
 func (r Record) Valid() bool { return r.state != nil && r.state.document.RecordDigest.Valid() }
+func (r Record) GrantArtifact() []byte {
+	if !r.Valid() {
+		return nil
+	}
+	return append([]byte(nil), r.state.document.GrantArtifact...)
+}
 func (r Record) Digest() artifact.Digest {
 	if !r.Valid() {
 		return ""

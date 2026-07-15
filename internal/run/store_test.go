@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/stream"
 )
 
 func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
@@ -21,8 +23,9 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	}
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
-	if err := store.Create(context.Background(), queued); err != nil {
-		t.Fatal(err)
+	commit, err := store.Create(context.Background(), queued)
+	if err != nil || commit != run31.CommitDurable {
+		t.Fatalf("Create commit = %v, error = %v", commit, err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))
 	if err != nil {
@@ -52,7 +55,7 @@ func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 	queued := queuedRecord(t, time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC))
-	if err := store.Create(context.Background(), queued); err != nil {
+	if _, err := store.Create(context.Background(), queued); err != nil {
 		t.Fatal(err)
 	}
 	running, err := queued.Start(queued.Admission().QueuedAt.Add(time.Second))
@@ -82,7 +85,7 @@ func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) 
 	}
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
-	if err := store.Create(context.Background(), queued); err != nil {
+	if _, err := store.Create(context.Background(), queued); err != nil {
 		t.Fatal(err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))
@@ -115,7 +118,7 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 	}
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
-	if err := store.Create(context.Background(), queued); err != nil {
+	if _, err := store.Create(context.Background(), queued); err != nil {
 		t.Fatal(err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))
@@ -137,10 +140,21 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 
 func queuedRecord(t *testing.T, queuedAt time.Time) run31.Record {
 	t.Helper()
-	record, err := run31.NewQueuedRecord(run31.Admission{
-		RunID: testRunID, ProgramHash: digest("program"), CatalogHash: digest("catalog"),
-		CapabilityPlanDigest: digest("plan"), GrantDigest: digest("grant"), PolicyGeneration: "policy-1",
-		Principal: "user-1", QueuedAt: queuedAt,
+	definition := streamCapability(t)
+	plan := streamPlan(t, definition)
+	grant, err := capability.SealRunGrant(capability.GrantRequest{
+		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
+		IssuedAt: queuedAt, ExpiresAt: queuedAt.Add(time.Hour), Bindings: []capability.Binding{{
+			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID,
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
+			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
+		}},
+	}, catalog{definition.Ref().CapabilityID: definition})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := run31.NewQueuedRecord(run31.QueueRequest{
+		ProgramHash: digest("program"), CatalogHash: digest("catalog"), CapabilityPlanDigest: plan.Digest(), Grant: grant, QueuedAt: queuedAt,
 	})
 	if err != nil {
 		t.Fatal(err)

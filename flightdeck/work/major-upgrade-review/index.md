@@ -3,13 +3,15 @@ topic: major-upgrade-review
 title: Yotta 3.1 major upgrade
 summary: Implement and validate the AI-native destructive Yotta 3.1 architecture and release program.
 ---
+
 ## State
 
-Yotta 3.1 已具备唯一的 Source→Compiler→Program→Executor 路径：纯节点与显式 Blob→Stream→Blob effect 节点共享 pinned Catalog/implementation manifest lock、exact Capability Plan、Run Grant/Owner 和 Resource Broker。NodeAttempt/AdapterAction 已成为 RunRecord 的 durable append-only journal，真实 effect 由 adapter 主动记录并由宿主强制 exactly-once、脱敏、终态一致与 single-CAS writer；Source/Run attribution 使用受限稳定 ID，Run Value 使用固定长度内容身份。Target Planner/Policy admission、production composition 与 plugin host conformance 未完成前继续 fail closed，绝不接旧 runtime fallback。
+Yotta 3.1 已完成 strict-open Program → Host Profile target/credential planning → exact Policy request → short-lived Run Grant → durable QUEUED RunRecord 的唯一 admission 主链。RunRecord 内嵌完整 non-secret Grant artifact 供重启 strict-open；Run Owner 复验实际安装 provider artifact digest/ABI。Consent-bearing capability 必须有 durable consent lineage；Run Store create 显式区分 not-applied、published-unconfirmed 与 durable，绝不以重试生成第二个 Run。production composition、全频道 Program lowering 与旧 ContainerRunner 删除完成前继续 fail closed。
 
 ## Next
 
-下一纵向切片实现 Target Planner/Policy admission；随后进入 Authoring Projection 和 built-in catalog 批量迁移。catalog-wide 编译、admission 与 production composition 完成前禁止把 3.1 Executor 接成生产入口或建立任何旧 runtime fallback。
+下一纵向切片实现全频道 Program lowering 与 production interpreter composition，并删除对应旧 ContainerRunner dispatch，不建立 dual-write、legacy read 或 fallback。随后推进 Authoring Projection 与 built-in catalog 批量迁移。
+
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -39,6 +41,11 @@ Yotta 3.1 已具备唯一的 Source→Compiler→Program→Executor 路径：纯
 ## Progress
 
 Done:
+- 完成 Target Planner/Policy admission deep module：content-addressed Host Profile 封存平台、provider、target 与 credential metadata；target slot 对全部 attributed requirements 求候选交集，零候选、歧义、unsupported host、capability digest/ABI/artifact 不匹配均在 Policy/provider effect 前稳定失败。
+- Policy 只收到 exact plan proposal，不能扩大 operation/scope/binding；approved decision seal bounded Run Grant，ConsentOnce/ConsentEveryRun 强制 durable consent lineage，随后才创建 QUEUED RunRecord。
+- RunRecord 内嵌 canonical non-secret Grant artifact，重启 Worker 必须以 strict-open Program Plan/Catalog 重新 OpenRunGrant；Run Owner 逐项锁定实际安装 provider artifact digest/ABI，不存在内存 Grant 或同名 provider fallback。
+- Run Store create 引入三态 CommitOutcome；目录项已发布但 fsync 未确认时 Admission 返回原 Grant/Record 与 persistence_unconfirmed，调用方禁止通知 Worker 或重新 admission。
+- conversion tracer 删除手工 binding/Grant/queued record 构造，统一通过 Admitter；Standards/Spec 双轴 review 修复 durable create identity 丢失与 consent lineage 绕过后 PASS。
 - 完成 NodeAttempt/AdapterAction durable journal：RunRecord generation CAS 追加 started/terminal attempt 与 adapter 真实 effect action；Executor 强制每个 declared effect exactly-once，adapter 自报 failed/cancelled 不能被成功返回掩盖，多 effect 混合终态以 failed 确定性优先。
 - journal 只保存稳定 code 与非负数值 counter；graph/node attribution 限制为 128 字符稳定 ID，Source schema 同步破坏性收紧；Run Value identity 改为包含 run/graph/node/port/attempt 的 domain-separated 固定长度 digest，避免合法长 ID 令成功 Run 无法落盘。
 - Executor 在同一个 JournalWriter 上持久化 Run terminal 与 durable values，terminal attempt 写入使用 non-cancellable context；RunRecord validator 自身拒绝 ActionFailed/Cancelled→AttemptSucceeded 与最新 attempt 非 succeeded 的 SUCCEEDED Run，不依赖单一执行入口。
@@ -98,9 +105,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- NodeAttempt/AdapterAction durable journal 已落地并通过 Standards/Spec 双轴终审；下一 frontier 是 Target Planner/Policy admission。production composition 尚未开放，旧 runtime 不得作为 fallback 或 dual-write 目标。
+- Target Planner/Policy admission、durable Grant recovery、provider installation lock 与 consent enforcement 已落地并通过 Standards/Spec 双轴终审；下一 frontier 是全频道 Program lowering、production interpreter composition 与旧 ContainerRunner 删除。
 
 Verified:
+- Target Planner/Policy admission 批次最终 `task check` 通过（2026-07-15，228.6s）：全局 coverage 65.5%，`internal/admission` 72.8%、`internal/run` 75.0%，frontend 97 files / 635 tests，entry 336,131 / 350,000 bytes、editor 472,080 / 650,000 bytes；聚焦 race/staticcheck 与 Standards/Spec 双轴复审无 findings。
 - NodeAttempt/AdapterAction journal 批次最终 `task check` 通过（2026-07-15，147.1s）：全局 coverage 65.5%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models，entry 336,131 / 350,000 bytes、editor 472,080 / 650,000 bytes；聚焦 race/staticcheck 与 Standards/Spec 双轴终审无 findings。
 - 显式 conversion/Executor 批次最终 `task check` 通过（2026-07-15，119.8s）：全局 coverage 65.8%、`internal/resource` 80.2%、`internal/nodes31runtime` 69.5%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models，entry 336,131 / 350,000 bytes、editor 472,080 / 650,000 bytes；聚焦 race/staticcheck 与 Standards/Spec 双轴终审无 findings。
 - Run fact/lifecycle 批次最终 `task check` 通过（2026-07-15，124.1s）：全局 coverage 65.8%、`internal/run` 78.4%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models，entry 334,944 / 350,000 bytes、editor 472,084 / 650,000 bytes；run/capability/resource/stream 聚焦 race 与 staticcheck 全绿。
@@ -127,7 +135,7 @@ Verified:
 
 ## Open questions
 
-- Program/Run identity、durable Record/Value/NodeAttempt/AdapterAction、Grant、Broker owner 与显式 conversion Executor 已决议并落地；Target Planner/Policy admission、production composition 和 package trust 仍是实现门，3.1 production entry 必须继续 fail closed。
+- Program/Run identity、durable Record/Value/NodeAttempt/AdapterAction、Grant、Target Planner/Policy admission、Broker owner 与显式 conversion Executor 已决议并落地；全频道 Program lowering、production composition 和 package trust 仍是实现门，3.1 production entry 必须继续 fail closed。
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。

@@ -5,18 +5,14 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/stream"
 )
 
 func TestValidSuccessorRejectsSkippedAndTerminalTransitions(t *testing.T) {
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
-	queued, err := NewQueuedRecord(Admission{
-		RunID: "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a", ProgramHash: testDigest(t, "program"),
-		CatalogHash: testDigest(t, "catalog"), CapabilityPlanDigest: testDigest(t, "plan"), GrantDigest: testDigest(t, "grant"),
-		PolicyGeneration: "policy-1", Principal: "user-1", QueuedAt: queuedAt,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	queued := queuedRecordInternal(t, queuedAt)
 	running, err := queued.Start(queuedAt.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -50,14 +46,7 @@ func TestValidSuccessorRejectsSkippedAndTerminalTransitions(t *testing.T) {
 
 func TestValidSuccessorRejectsJournalHistoryMutation(t *testing.T) {
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
-	queued, err := NewQueuedRecord(Admission{
-		RunID: "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a", ProgramHash: testDigest(t, "program"),
-		CatalogHash: testDigest(t, "catalog"), CapabilityPlanDigest: testDigest(t, "plan"), GrantDigest: testDigest(t, "grant"),
-		PolicyGeneration: "policy-1", Principal: "user-1", QueuedAt: queuedAt,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	queued := queuedRecordInternal(t, queuedAt)
 	running, err := queued.Start(queuedAt.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -98,6 +87,57 @@ func TestValidSuccessorRejectsJournalHistoryMutation(t *testing.T) {
 	if validSuccessor(withStart, forged) {
 		t.Fatal("Run Store accepted a rewritten journal prefix")
 	}
+}
+
+type testCapabilityCatalog map[string]capability.Definition
+
+func (c testCapabilityCatalog) LookupCapability(id string) (capability.Definition, bool) {
+	definition, ok := c[id]
+	return definition, ok
+}
+
+func queuedRecordInternal(t *testing.T, queuedAt time.Time) Record {
+	t.Helper()
+	const capabilityID = "https://schemas.yotta.dev/capabilities/test/stream/v1"
+	definition, err := capability.SealDefinition(capability.DefinitionDraft{
+		CapabilityID: capabilityID, Operations: []string{stream.OperationSend}, TargetKinds: []string{"stream-session"},
+		ScopeSchemaRoot: capabilityID + "/scope", ScopeSchemaBundle: []datatype.SchemaResource{{
+			ID: capabilityID + "/scope", Schema: []byte(`{"$id":"https://schemas.yotta.dev/capabilities/test/stream/v1/scope","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`),
+		}}, Credential: capability.CredentialNone, Risk: capability.RiskLow, Consent: capability.ConsentNone,
+		ProviderABI: stream.ProviderABI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirement, err := definition.NormalizeRequirement(capability.Requirement{
+		ID: "stream", Capability: definition.Ref(), Operations: []string{stream.OperationSend}, TargetSlot: "stream", Scope: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := capability.SealPlan([]capability.PlanEntry{{GraphID: "main", NodeID: "node-1", Requirement: requirement}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, err := capability.SealRunGrant(capability.GrantRequest{
+		ProgramHash: testDigest(t, "program"), Plan: plan, RunID: "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a",
+		Principal: "user-1", PolicyGeneration: "policy-1", IssuedAt: queuedAt, ExpiresAt: queuedAt.Add(time.Hour),
+		Bindings: []capability.Binding{{
+			GraphID: "main", NodeID: "node-1", RequirementID: "stream", ProviderID: stream.ProviderID,
+			ProviderArtifactDigest: testDigest(t, "provider"), ProviderABI: stream.ProviderABI,
+			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
+		}},
+	}, testCapabilityCatalog{definition.Ref().CapabilityID: definition})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := NewQueuedRecord(QueueRequest{
+		ProgramHash: testDigest(t, "program"), CatalogHash: testDigest(t, "catalog"), CapabilityPlanDigest: plan.Digest(), Grant: grant, QueuedAt: queuedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return record
 }
 
 func testDigest(t *testing.T, label string) artifact.Digest {

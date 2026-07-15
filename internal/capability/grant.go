@@ -28,16 +28,18 @@ type DefinitionCatalog interface {
 }
 
 type Binding struct {
-	GraphID             string `json:"graphId"`
-	NodeID              string `json:"nodeId"`
-	RequirementID       string `json:"requirementId"`
-	ProviderID          string `json:"providerId"`
-	TargetID            string `json:"targetId"`
-	TargetKind          string `json:"targetKind"`
-	ResourceKind        string `json:"resourceKind"`
-	PluginInstanceID    string `json:"pluginInstanceId"`
-	SessionID           string `json:"sessionId"`
-	CredentialBindingID string `json:"credentialBindingId,omitempty"`
+	GraphID                string          `json:"graphId"`
+	NodeID                 string          `json:"nodeId"`
+	RequirementID          string          `json:"requirementId"`
+	ProviderID             string          `json:"providerId"`
+	ProviderArtifactDigest artifact.Digest `json:"providerArtifactDigest"`
+	ProviderABI            string          `json:"providerAbi"`
+	TargetID               string          `json:"targetId"`
+	TargetKind             string          `json:"targetKind"`
+	ResourceKind           string          `json:"resourceKind"`
+	PluginInstanceID       string          `json:"pluginInstanceId"`
+	SessionID              string          `json:"sessionId"`
+	CredentialBindingID    string          `json:"credentialBindingId,omitempty"`
 }
 
 type GrantEntry struct {
@@ -81,6 +83,17 @@ type runGrantState struct {
 
 type RunGrant struct{ state *runGrantState }
 
+type GrantMetadata struct {
+	Digest             artifact.Digest
+	ProgramHash        artifact.Digest
+	CapabilityPlanHash artifact.Digest
+	RunID              string
+	Principal          string
+	PolicyGeneration   string
+	IssuedAt           time.Time
+	ExpiresAt          time.Time
+}
+
 func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, error) {
 	if !request.ProgramHash.Valid() || !request.Plan.Valid() || runid.Validate(request.RunID) != nil || !authorityIDPattern.MatchString(request.Principal) ||
 		!authorityIDPattern.MatchString(request.PolicyGeneration) || request.IssuedAt.Location() != time.UTC || request.ExpiresAt.Location() != time.UTC ||
@@ -103,6 +116,7 @@ func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, er
 		bindings[key] = binding
 	}
 	entries := make([]GrantEntry, 0, len(planEntries))
+	requiresConsent := false
 	for _, planned := range planEntries {
 		key := planEntryKey(planned.GraphID, planned.NodeID, planned.Requirement.ID)
 		binding, ok := bindings[key]
@@ -118,6 +132,10 @@ func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, er
 			return RunGrant{}, err
 		}
 		machine := definition.Machine()
+		requiresConsent = requiresConsent || machine.Consent != ConsentNone
+		if binding.ProviderABI != machine.ProviderABI {
+			return RunGrant{}, errors.New("provider ABI does not match capability definition")
+		}
 		if !contains(machine.TargetKinds, binding.TargetKind) {
 			return RunGrant{}, fmt.Errorf("target kind %q is not allowed by capability", binding.TargetKind)
 		}
@@ -146,6 +164,9 @@ func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, er
 			return RunGrant{}, errors.New("duplicate consent lineage digest")
 		}
 	}
+	if requiresConsent && len(lineage) == 0 {
+		return RunGrant{}, errors.New("consent-bearing capability requires durable consent evidence")
+	}
 	document := runGrantDocument{
 		Format: RunGrantFormat, Version: RunGrantVersion, ProgramHash: request.ProgramHash,
 		CapabilityPlanHash: request.Plan.Digest(), RunID: request.RunID, Principal: request.Principal,
@@ -156,27 +177,14 @@ func SealRunGrant(request GrantRequest, catalog DefinitionCatalog) (RunGrant, er
 }
 
 func OpenRunGrant(raw []byte, plan Plan, catalog DefinitionCatalog) (RunGrant, error) {
-	if len(raw) == 0 || len(raw) > MaxRunGrantBytes || !plan.Valid() {
+	if !plan.Valid() {
 		return RunGrant{}, errors.New("run grant exceeds byte budget or has no trusted plan")
 	}
-	if err := artifact.InspectJSONBudget(raw, 96, 524288, 1<<20); err != nil {
+	document, _, err := inspectRunGrant(raw)
+	if err != nil {
 		return RunGrant{}, err
 	}
-	canonical, err := artifact.Canonicalize(raw)
-	if err != nil || !bytes.Equal(canonical, raw) {
-		return RunGrant{}, errors.New("run grant is not canonical")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	var document runGrantDocument
-	if err := decoder.Decode(&document); err != nil {
-		return RunGrant{}, fmt.Errorf("decode run grant: %w", err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return RunGrant{}, errors.New("run grant contains trailing values")
-	}
-	if document.Format != RunGrantFormat || document.Version != RunGrantVersion || document.CapabilityPlanHash != plan.Digest() {
+	if document.CapabilityPlanHash != plan.Digest() {
 		return RunGrant{}, errors.New("unsupported run grant or plan mismatch")
 	}
 	bindings := make([]Binding, 0, len(document.Entries))
@@ -195,6 +203,89 @@ func OpenRunGrant(raw []byte, plan Plan, catalog DefinitionCatalog) (RunGrant, e
 		return RunGrant{}, errors.New("run grant digest mismatch")
 	}
 	return sealed, nil
+}
+
+// InspectRunGrant validates the self-contained, non-secret artifact envelope
+// without treating it as executable authority. Exact plan/catalog validation
+// still requires OpenRunGrant before a Run Owner can be created.
+func InspectRunGrant(raw []byte) (GrantMetadata, error) {
+	_, metadata, err := inspectRunGrant(raw)
+	return metadata, err
+}
+
+func inspectRunGrant(raw []byte) (runGrantDocument, GrantMetadata, error) {
+	if len(raw) == 0 || len(raw) > MaxRunGrantBytes {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("run grant exceeds byte budget")
+	}
+	if err := artifact.InspectJSONBudget(raw, 96, 524288, 1<<20); err != nil {
+		return runGrantDocument{}, GrantMetadata{}, err
+	}
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("run grant is not canonical")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var document runGrantDocument
+	if err := decoder.Decode(&document); err != nil {
+		return runGrantDocument{}, GrantMetadata{}, fmt.Errorf("decode run grant: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("run grant contains trailing values")
+	}
+	if document.Format != RunGrantFormat || document.Version != RunGrantVersion || !document.GrantDigest.Valid() || !document.ProgramHash.Valid() ||
+		!document.CapabilityPlanHash.Valid() || runid.Validate(document.RunID) != nil || !authorityIDPattern.MatchString(document.Principal) ||
+		!authorityIDPattern.MatchString(document.PolicyGeneration) || document.IssuedAt.Location() != time.UTC || document.ExpiresAt.Location() != time.UTC ||
+		!document.ExpiresAt.After(document.IssuedAt) || len(document.Entries) > 16384 {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("invalid run grant identity or lifetime")
+	}
+	previous := ""
+	for _, entry := range document.Entries {
+		key, err := validateBinding(entry.Binding)
+		if err != nil || key <= previous || entry.Capability.Validate() != nil || len(entry.Scope) == 0 || len(entry.Scope) > 64<<10 {
+			return runGrantDocument{}, GrantMetadata{}, errors.New("invalid run grant entry")
+		}
+		operations, err := normalizeStrings(entry.Operations, operationPattern, "operation", 64)
+		canonicalScope, scopeErr := artifact.Canonicalize(entry.Scope)
+		if err != nil || len(operations) == 0 || !equalStrings(operations, entry.Operations) || scopeErr != nil || !bytes.Equal(canonicalScope, entry.Scope) {
+			return runGrantDocument{}, GrantMetadata{}, errors.New("invalid run grant operations or scope")
+		}
+		previous = key
+	}
+	for index, digest := range document.ConsentLineage {
+		if !digest.Valid() || index > 0 && document.ConsentLineage[index-1] >= digest {
+			return runGrantDocument{}, GrantMetadata{}, errors.New("invalid consent lineage")
+		}
+	}
+	body := document
+	body.GrantDigest = ""
+	bodyBytes, err := artifact.Marshal(body)
+	if err != nil {
+		return runGrantDocument{}, GrantMetadata{}, err
+	}
+	digest, err := artifact.Sum(runGrantDigestDomain, bodyBytes)
+	if err != nil || digest != document.GrantDigest {
+		return runGrantDocument{}, GrantMetadata{}, errors.New("run grant digest mismatch")
+	}
+	metadata := GrantMetadata{
+		Digest: document.GrantDigest, ProgramHash: document.ProgramHash, CapabilityPlanHash: document.CapabilityPlanHash,
+		RunID: document.RunID, Principal: document.Principal, PolicyGeneration: document.PolicyGeneration,
+		IssuedAt: document.IssuedAt, ExpiresAt: document.ExpiresAt,
+	}
+	return document, metadata, nil
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func sealRunGrantDocument(document runGrantDocument) (RunGrant, error) {
@@ -221,7 +312,8 @@ func sealRunGrantDocument(document runGrantDocument) (RunGrant, error) {
 
 func validateBinding(binding Binding) (string, error) {
 	if !validAttributionID(binding.GraphID) || !validAttributionID(binding.NodeID) || !identifierPattern.MatchString(binding.RequirementID) ||
-		!authorityIDPattern.MatchString(binding.ProviderID) || !authorityIDPattern.MatchString(binding.TargetID) || !identifierPattern.MatchString(binding.TargetKind) ||
+		!authorityIDPattern.MatchString(binding.ProviderID) || !binding.ProviderArtifactDigest.Valid() || validateVersionedURI(binding.ProviderABI) != nil ||
+		!authorityIDPattern.MatchString(binding.TargetID) || !identifierPattern.MatchString(binding.TargetKind) ||
 		!authorityIDPattern.MatchString(binding.ResourceKind) || !authorityIDPattern.MatchString(binding.PluginInstanceID) || !authorityIDPattern.MatchString(binding.SessionID) ||
 		binding.CredentialBindingID != "" && !authorityIDPattern.MatchString(binding.CredentialBindingID) {
 		return "", errors.New("invalid run grant binding")

@@ -336,6 +336,13 @@ func (p ProgramSnapshot) Hash() artifact.Digest {
 	return p.state.document.ProgramHash
 }
 
+func (p ProgramSnapshot) CatalogHash() artifact.Digest {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.document.Body.CatalogHash
+}
+
 func (p ProgramSnapshot) Artifact() []byte {
 	if !p.Valid() {
 		return nil

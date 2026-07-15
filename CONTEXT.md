@@ -132,6 +132,14 @@ _Avoid_: Environment variables, platform capability
 可被 capability provider 操作的具名对象，例如 host desktop、Android device 或 After Effects instance；它不是授权本身。
 _Avoid_: Platform, credential, capability
 
+**Target Planner**:
+Run admission 内把 Capability Plan 的 target/credential slot 与可信 Host Profile 中的 provider、Automation Target 和 non-secret credential metadata 做精确消歧的模块；零候选、歧义或 host/ABI/digest 不兼容都在 Policy 与 provider effect 前失败。
+_Avoid_: Provider lookup, default target, service discovery
+
+**Policy Admission**:
+对已经完成 target planning 的精确 permission request 做统一 allow/deny/consent-required 决策，批准后 seal 短期 Run Grant 并先持久创建 QUEUED RunRecord；GUI、headless、AI、MCP 与插件不得绕过。
+_Avoid_: Local trust, allowlist, run options
+
 **Capability Plan**:
 Compiler 从每个 Effective Node Contract 汇总出的不可变最小权限清单，保留来源节点、所需操作、target slot、credential slot 和 scope。
 _Avoid_: Permission list, service bundle
@@ -169,7 +177,7 @@ _Avoid_: ValidationError, error message
 _Avoid_: Container run, workflow execution
 
 **Run Record**:
-一次 Run 的不可变 generational durable state，绑定 Program、Catalog、Capability Plan、Run Grant、policy generation、状态、时间、稳定错误与 durable Run Value；只能通过 Run Store CAS 产生下一代。
+一次 Run 的不可变 generational durable state，绑定 Program、Catalog、Capability Plan、完整 non-secret Run Grant artifact、policy generation、状态、时间、稳定错误与 durable Run Value；只能通过 Run Store CAS 产生下一代。
 _Avoid_: Runtime state map, container status
 
 **Run Value**:

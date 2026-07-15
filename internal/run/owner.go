@@ -34,7 +34,13 @@ type Session struct {
 	entry capability.GrantEntry
 }
 
-func NewOwner(parent context.Context, grant capability.RunGrant, providers map[string]resource.Provider, options resource.Options) (*Owner, error) {
+type InstalledProvider struct {
+	ArtifactDigest artifact.Digest
+	ABI            string
+	Provider       resource.Provider
+}
+
+func NewOwner(parent context.Context, grant capability.RunGrant, providers map[string]InstalledProvider, options resource.Options) (*Owner, error) {
 	if parent == nil {
 		return nil, errors.New("run parent context is required")
 	}
@@ -42,7 +48,15 @@ func NewOwner(parent context.Context, grant capability.RunGrant, providers map[s
 	if err != nil {
 		return nil, err
 	}
-	broker, err := resource.New(authorizer, providers, options)
+	brokerProviders := make(map[string]resource.Provider, len(providers))
+	for _, entry := range grant.Entries() {
+		installed, ok := providers[entry.Binding.ProviderID]
+		if !ok || installed.Provider == nil || installed.ArtifactDigest != entry.Binding.ProviderArtifactDigest || installed.ABI != entry.Binding.ProviderABI {
+			return nil, ErrGrantDenied
+		}
+		brokerProviders[entry.Binding.ProviderID] = installed.Provider
+	}
+	broker, err := resource.New(authorizer, brokerProviders, options)
 	if err != nil {
 		return nil, err
 	}

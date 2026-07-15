@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
@@ -19,7 +20,6 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -91,28 +91,12 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 		t.Fatal("compiler did not produce a Program")
 	}
 	now := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
-	runID, err := runid.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	grant, err := capability.SealRunGrant(capability.GrantRequest{
-		ProgramHash: program.Hash(), Plan: program.CapabilityPlan(), RunID: runID,
-		Principal: "user-1", PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute),
-		Bindings: []capability.Binding{},
-	}, builtins.Catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	owner, err := run31.NewOwner(ctx, grant, nil, resource.Options{Now: func() time.Time { return now }})
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
 	adapters, err := nodes31runtime.Installed(builtins)
 	if err != nil {
 		t.Fatal(err)
 	}
-	journal := openJournal(t, builtins.Catalog, program, grant, now)
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
 	execution, err := executor.Run(ctx, program, owner, journal)
 	if err != nil {
@@ -131,8 +115,11 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	if err := owner.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	deniedJournal := openJournal(t, builtins.Catalog, program, grant, now)
-	if _, err := executor.Run(ctx, program, owner, deniedJournal); !errors.Is(err, run31.ErrGrantDenied) {
+	_, deniedOwner, deniedJournal := admittedExecution(t, builtins, program, nil, now)
+	if err := deniedOwner.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executor.Run(ctx, program, deniedOwner, deniedJournal); !errors.Is(err, run31.ErrGrantDenied) {
 		t.Fatalf("execution after Run Owner close = %v", err)
 	}
 }
@@ -229,19 +216,6 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	}
 
 	now := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
-	runID, err := runid.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	bindings := exactBindings(t, program.CapabilityPlan())
-	grant, err := capability.SealRunGrant(capability.GrantRequest{
-		ProgramHash: program.Hash(), Plan: program.CapabilityPlan(), RunID: runID,
-		Principal: "user-1", PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute),
-		Bindings: bindings,
-	}, builtins.Catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
 	blobProvider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})
 	if err != nil {
 		t.Fatal(err)
@@ -250,12 +224,10 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(ctx, grant, map[string]resource.Provider{
-		blob.ProviderID: blobProvider, stream.ProviderID: streamProvider,
-	}, resource.Options{Now: func() time.Time { return now }})
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run31.InstalledProvider{
+		blob.ProviderID:   {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
+		stream.ProviderID: {ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: streamProvider},
+	}, now)
 	t.Cleanup(func() {
 		if err := owner.Close(context.Background()); err != nil {
 			t.Errorf("close Run Owner: %v", err)
@@ -265,7 +237,6 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	journal := openJournal(t, builtins.Catalog, program, grant, now)
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
 	execution, err := executor.Run(ctx, program, owner, journal)
 	if err != nil {
@@ -341,7 +312,10 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	providers := map[string]resource.Provider{blob.ProviderID: blobProvider, stream.ProviderID: streamProvider}
+	providers := map[string]run31.InstalledProvider{
+		blob.ProviderID:   {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
+		stream.ProviderID: {ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: streamProvider},
+	}
 	installed, err := nodes31runtime.Installed(builtins)
 	if err != nil {
 		t.Fatal(err)
@@ -409,87 +383,90 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 	}
 }
 
-func admittedExecution(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]resource.Provider, now time.Time) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
+func admittedExecution(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]run31.InstalledProvider, now time.Time) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
 	t.Helper()
-	runID, err := runid.New()
+	profile, err := admission.SealHostProfile(executionProfile(t, builtins))
 	if err != nil {
 		t.Fatal(err)
 	}
-	grant, err := capability.SealRunGrant(capability.GrantRequest{
-		ProgramHash: program.Hash(), Plan: program.CapabilityPlan(), RunID: runID, Principal: "user-1",
-		PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: exactBindings(t, program.CapabilityPlan()),
-	}, builtins.Catalog)
+	store, err := run31.OpenStore(t.TempDir(), builtins.Catalog, run31.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(context.Background(), grant, providers, resource.Options{Now: func() time.Time { return now }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return grant, owner, openJournal(t, builtins.Catalog, program, grant, now)
-}
-
-func openJournal(t *testing.T, catalog nodecatalog.Snapshot, program compiler.ProgramSnapshot, grant capability.RunGrant, now time.Time) *run31.JournalWriter {
-	t.Helper()
-	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	queued, err := run31.NewQueuedRecord(run31.Admission{
-		RunID: grant.RunID(), ProgramHash: program.Hash(), CatalogHash: catalog.Hash(), CapabilityPlanDigest: program.CapabilityPlan().Digest(),
-		GrantDigest: grant.Digest(), PolicyGeneration: grant.PolicyGeneration(), Principal: grant.Principal(), QueuedAt: now.Add(-time.Second),
+	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, nil
 	})
+	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }, MaxGrantTTL: 5 * time.Minute})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Create(context.Background(), queued); err != nil {
-		t.Fatal(err)
-	}
-	running, err := queued.Start(now)
+	result, err := admitter.Admit(context.Background(), admission.Request{Program: program, Principal: "user-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(context.Background(), queued.Digest(), running); err != nil {
-		t.Fatal(err)
-	}
-	journal, err := store.OpenJournal(grant.RunID())
+	running, err := result.Record.Start(now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return journal
+	if err := store.Update(context.Background(), result.Record.Digest(), running); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := store.OpenJournal(result.Grant.RunID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := run31.NewOwner(context.Background(), result.Grant, providers, resource.Options{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result.Grant, owner, journal
 }
 
-func exactBindings(t *testing.T, plan capability.Plan) []capability.Binding {
+func executionProfile(t *testing.T, builtins nodes31.Builtins) admission.HostProfileDraft {
 	t.Helper()
-	entries := plan.Entries()
-	bindings := make([]capability.Binding, 0, len(entries))
-	for _, entry := range entries {
-		binding := capability.Binding{
-			GraphID: entry.GraphID, NodeID: entry.NodeID, RequirementID: entry.Requirement.ID,
-			PluginInstanceID: "builtin", SessionID: "conversion-1",
+	capabilityRef := func(id string) capability.Ref {
+		definition, ok := builtins.Catalog.LookupCapability(id)
+		if !ok {
+			t.Fatalf("missing capability %q", id)
 		}
-		switch entry.Requirement.ID {
-		case "blob-read":
-			binding.ProviderID = blob.ProviderID
-			binding.TargetID = "workspace"
-			binding.TargetKind = "blob-store"
-			binding.ResourceKind = blob.KindReader
-		case "blob-write":
-			binding.ProviderID = blob.ProviderID
-			binding.TargetID = "workspace"
-			binding.TargetKind = "blob-store"
-			binding.ResourceKind = blob.KindWriter
-		case "stream":
-			binding.ProviderID = stream.ProviderID
-			binding.TargetID = "memory"
-			binding.TargetKind = "stream-session"
-			binding.ResourceKind = stream.Kind
-		default:
-			t.Fatalf("unexpected conversion requirement %q", entry.Requirement.ID)
-		}
-		bindings = append(bindings, binding)
+		return definition.Ref()
 	}
-	return bindings
+	return admission.HostProfileDraft{
+		OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1",
+		Providers: []admission.ProviderDescriptor{
+			{ID: blob.ProviderID, ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+					{Capability: capabilityRef(nodes31.BlobReadCapabilityID), ResourceKind: blob.KindReader},
+					{Capability: capabilityRef(nodes31.BlobWriteCapabilityID), ResourceKind: blob.KindWriter},
+				}},
+			{ID: stream.ProviderID, ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+					{Capability: capabilityRef(nodes31.StreamCapabilityID), ResourceKind: stream.Kind},
+				}},
+		},
+		Targets: []admission.AutomationTarget{
+			{ID: "workspace", Kind: "blob-store", ProviderID: blob.ProviderID},
+			{ID: "memory", Kind: "stream-session", ProviderID: stream.ProviderID},
+		},
+	}
+}
+
+func blobProviderDigest(t *testing.T) artifact.Digest {
+	t.Helper()
+	digest, err := blob.ProviderArtifactDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest
+}
+
+func streamProviderDigest(t *testing.T) artifact.Digest {
+	t.Helper()
+	digest, err := stream.ProviderArtifactDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest
 }
 
 func conversionSource(builtins nodes31.Builtins, ref blob.BlobRef) []byte {

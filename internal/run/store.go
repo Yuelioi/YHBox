@@ -36,6 +36,17 @@ type StoreOptions struct {
 	MaxRecords int
 }
 
+// CommitOutcome distinguishes a Run that was never published, one whose
+// authoritative directory entry was published but whose directory sync could
+// not be confirmed, and one whose publication is crash-durable.
+type CommitOutcome uint8
+
+const (
+	CommitNotApplied CommitOutcome = iota
+	CommitPublished
+	CommitDurable
+)
+
 // Store is the single durable owner of RunRecord generations. Each update is
 // compare-and-swap against the previous record digest and atomically replaces
 // one canonical record file.
@@ -114,38 +125,43 @@ func OpenStore(root string, catalog datatype.ValueTypeCatalog, options StoreOpti
 	return &Store{root: resolved, catalog: catalog, max: options.MaxRecords, records: records}, nil
 }
 
-func (s *Store) Create(ctx context.Context, record Record) error {
+func (s *Store) Create(ctx context.Context, record Record) (CommitOutcome, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return CommitNotApplied, err
 	}
 	if !record.Valid() || record.Status() != StatusQueued || record.Generation() != 1 {
-		return errors.New("run store can only create a queued generation-one record")
+		return CommitNotApplied, errors.New("run store can only create a queued generation-one record")
 	}
 	trusted, err := OpenRecord(record.Bytes(), s.catalog)
 	if err != nil {
-		return fmt.Errorf("run store rejected untrusted record: %w", err)
+		return CommitNotApplied, fmt.Errorf("run store rejected untrusted record: %w", err)
 	}
 	if trusted.Digest() != record.Digest() {
-		return ErrRunIdentity
+		return CommitNotApplied, ErrRunIdentity
 	}
 	record = trusted
 	runID := record.Admission().RunID
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.records[runID]; exists {
-		return ErrRunExists
+		return CommitNotApplied, ErrRunExists
 	}
 	if len(s.records) >= s.max {
-		return errors.New("run store record limit reached")
+		return CommitNotApplied, errors.New("run store record limit reached")
 	}
 	if _, err := os.Lstat(s.recordPath(runID)); err == nil || !os.IsNotExist(err) {
-		return ErrRunExists
+		return CommitNotApplied, ErrRunExists
 	}
 	err = durablefs.WriteFile(s.recordPath(runID), record.Bytes(), 0o600)
-	if err == nil || durablefs.Committed(err) {
+	if err == nil {
 		s.records[runID] = record
+		return CommitDurable, nil
 	}
-	return err
+	if durablefs.Committed(err) {
+		s.records[runID] = record
+		return CommitPublished, err
+	}
+	return CommitNotApplied, err
 }
 
 func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Record) error {

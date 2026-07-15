@@ -12,12 +12,14 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
 const (
-	ProviderID = "yotta.stream"
-	Kind       = "yotta/stream"
+	ProviderID  = "yotta.stream"
+	ProviderABI = "https://schemas.yotta.dev/provider-abi/resource/v1"
+	Kind        = "yotta/stream"
 
 	OperationSend    = "stream/send"
 	OperationReceive = "stream/receive"
@@ -26,6 +28,17 @@ const (
 
 	maxCancelReasonBytes = 1024
 )
+
+func ProviderArtifactDigest() (artifact.Digest, error) {
+	manifest, err := artifact.Marshal(map[string]any{
+		"providerId": ProviderID, "providerAbi": ProviderABI, "implementationVersion": "v1",
+		"resourceKinds": []string{Kind},
+	})
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum("yotta/provider-implementation-manifest/v1", manifest)
+}
 
 var (
 	ErrCanceled = errors.New("stream canceled")

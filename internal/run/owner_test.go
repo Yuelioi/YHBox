@@ -21,6 +21,7 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
 		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID, TargetID: "memory",
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
 		}},
 	}, catalog{definition.Ref().CapabilityID: definition})
@@ -31,7 +32,9 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(context.Background(), grant, map[string]resource.Provider{stream.ProviderID: provider}, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+		ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: provider,
+	}}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +114,21 @@ func TestCanceledOwnerRejectsNewSessionsAndTasks(t *testing.T) {
 	}
 }
 
+func TestOwnerRejectsAProviderImplementationThatDoesNotMatchTheGrant(t *testing.T) {
+	owner, now, grant := ownerForTest(t)
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	provider, err := stream.NewProvider(stream.Limits{MaxCapacity: 2, MaxChunkBytes: 32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+		ArtifactDigest: digest("different provider"), ABI: stream.ProviderABI, Provider: provider,
+	}}, resource.Options{Now: func() time.Time { return now }})
+	if !errors.Is(err, run31.ErrGrantDenied) {
+		t.Fatalf("mismatched provider implementation = %v", err)
+	}
+}
+
 func ownerForTest(t *testing.T) (*run31.Owner, time.Time, capability.RunGrant) {
 	t.Helper()
 	return ownerForParent(t, context.Background())
@@ -125,6 +143,7 @@ func ownerForParent(t *testing.T, parent context.Context) (*run31.Owner, time.Ti
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
 		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID, TargetID: "memory",
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
 		}},
 	}, catalog{definition.Ref().CapabilityID: definition})
@@ -135,7 +154,9 @@ func ownerForParent(t *testing.T, parent context.Context) (*run31.Owner, time.Ti
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(parent, grant, map[string]resource.Provider{stream.ProviderID: provider}, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run31.NewOwner(parent, grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+		ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: provider,
+	}}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

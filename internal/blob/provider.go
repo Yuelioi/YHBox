@@ -17,15 +17,27 @@ import (
 )
 
 const (
-	ProviderID = "blob"
-	KindReader = "blob/reader"
-	KindWriter = "blob/writer"
+	ProviderID  = "blob"
+	ProviderABI = "https://schemas.yotta.dev/provider-abi/resource/v1"
+	KindReader  = "blob/reader"
+	KindWriter  = "blob/writer"
 
 	OperationReadRange = "read-range"
 	OperationAppend    = "append"
 	OperationCommit    = "commit"
 	OperationCancel    = "cancel"
 )
+
+func ProviderArtifactDigest() (artifact.Digest, error) {
+	manifest, err := artifact.Marshal(map[string]any{
+		"providerId": ProviderID, "providerAbi": ProviderABI, "implementationVersion": "v1",
+		"resourceKinds": []string{KindReader, KindWriter},
+	})
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum("yotta/provider-implementation-manifest/v1", manifest)
+}
 
 type ProviderLimits struct {
 	MaxChunkBytes int

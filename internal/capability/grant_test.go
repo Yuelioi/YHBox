@@ -27,7 +27,8 @@ func TestRunGrantBindsExactPlanAndContainsNoBearerAuthority(t *testing.T) {
 		PolicyGeneration: "policy-1", IssuedAt: issued, ExpiresAt: issued.Add(time.Minute),
 		Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "node-1", RequirementID: "source",
-			ProviderID: "blob", TargetID: "workspace", TargetKind: "blob-store", ResourceKind: "blob/session",
+			ProviderID: "blob", ProviderArtifactDigest: testArtifactDigest(t, "blob provider"), ProviderABI: "https://schemas.yotta.dev/provider-abi/resource/v1",
+			TargetID: "workspace", TargetKind: "blob-store", ResourceKind: "blob/session",
 			PluginInstanceID: "builtin", SessionID: "session-1",
 		}},
 	}, definitions{definition.Ref().CapabilityID: definition})
@@ -59,11 +60,47 @@ func TestRunGrantRejectsMissingOrWrongBindings(t *testing.T) {
 		t.Fatal("accepted a grant missing a planned binding")
 	}
 	base.Bindings = []capability.Binding{{
-		GraphID: "main", NodeID: "node-1", RequirementID: "source", ProviderID: "blob",
+		GraphID: "main", NodeID: "node-1", RequirementID: "source", ProviderID: "blob", ProviderArtifactDigest: testArtifactDigest(t, "blob provider"), ProviderABI: "https://schemas.yotta.dev/provider-abi/resource/v1",
 		TargetID: "workspace", TargetKind: "wrong-kind", ResourceKind: "blob/session", PluginInstanceID: "builtin", SessionID: "session-1",
 	}}
 	if _, err := capability.SealRunGrant(base, catalog); err == nil {
 		t.Fatal("accepted a target kind outside the capability definition")
+	}
+}
+
+func TestRunGrantRequiresConsentEvidenceForConsentBearingCapabilities(t *testing.T) {
+	for _, consent := range []capability.ConsentClass{capability.ConsentOnce, capability.ConsentEveryRun} {
+		t.Run(string(consent), func(t *testing.T) {
+			base := testDefinition(t).Machine()
+			definition, err := capability.SealDefinition(capability.DefinitionDraft{
+				CapabilityID: base.CapabilityID, Operations: base.Operations, TargetKinds: base.TargetKinds,
+				ScopeSchemaRoot: base.ScopeSchemaRoot, ScopeSchemaBundle: base.ScopeSchemaBundle,
+				Credential: base.Credential, Risk: base.Risk, Consent: consent, ProviderABI: base.ProviderABI,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan := testPlan(t, definition)
+			now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
+			request := capability.GrantRequest{
+				ProgramHash: testArtifactDigest(t, "program"), Plan: plan, RunID: testRunID, Principal: "user-1",
+				PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute),
+				Bindings: []capability.Binding{{
+					GraphID: "main", NodeID: "node-1", RequirementID: "source", ProviderID: "blob",
+					ProviderArtifactDigest: testArtifactDigest(t, "blob provider"), ProviderABI: base.ProviderABI,
+					TargetID: "workspace", TargetKind: "blob-store", ResourceKind: "blob/session",
+					PluginInstanceID: "builtin", SessionID: "session-1",
+				}},
+			}
+			catalog := definitions{definition.Ref().CapabilityID: definition}
+			if _, err := capability.SealRunGrant(request, catalog); err == nil {
+				t.Fatal("accepted consent-bearing capability without durable consent evidence")
+			}
+			request.ConsentLineage = []artifact.Digest{testArtifactDigest(t, "consent")}
+			if _, err := capability.SealRunGrant(request, catalog); err != nil {
+				t.Fatalf("rejected consent-bearing capability with evidence: %v", err)
+			}
+		})
 	}
 }
 

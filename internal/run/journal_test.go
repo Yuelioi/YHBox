@@ -19,7 +19,7 @@ func TestRunJournalPersistsAppendOnlyAttemptAndAdapterFacts(t *testing.T) {
 	}
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
-	if err := store.Create(context.Background(), queued); err != nil {
+	if _, err := store.Create(context.Background(), queued); err != nil {
 		t.Fatal(err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))
@@ -244,7 +244,7 @@ func TestJournalWriterRejectsASecondRecordOwner(t *testing.T) {
 	}
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
-	if err := store.Create(context.Background(), queued); err != nil {
+	if _, err := store.Create(context.Background(), queued); err != nil {
 		t.Fatal(err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))

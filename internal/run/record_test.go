@@ -23,14 +23,7 @@ func (catalog valueCatalog) LookupType(id string) (datatype.Definition, bool) {
 func TestRunRecordStateMachineRoundTripsDurableValues(t *testing.T) {
 	catalog, definition := stringValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
-	record, err := run31.NewQueuedRecord(run31.Admission{
-		RunID: testRunID, ProgramHash: digest("program"), CatalogHash: digest("catalog"),
-		CapabilityPlanDigest: digest("plan"), GrantDigest: digest("grant"), PolicyGeneration: "policy-1",
-		Principal: "user-1", QueuedAt: queuedAt,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	record := queuedRecord(t, queuedAt)
 	running, err := record.Start(queuedAt.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -60,13 +53,7 @@ func TestRunRecordStateMachineRoundTripsDurableValues(t *testing.T) {
 func TestRunRecordRejectsRuntimeAuthorityAndTampering(t *testing.T) {
 	catalog, definition := externalValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
-	record, err := run31.NewQueuedRecord(run31.Admission{
-		RunID: testRunID, ProgramHash: digest("program"), CatalogHash: digest("catalog"), CapabilityPlanDigest: digest("plan"),
-		GrantDigest: digest("grant"), PolicyGeneration: "policy-1", Principal: "user-1", QueuedAt: queuedAt,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	record := queuedRecord(t, queuedAt)
 	running, err := record.Start(queuedAt.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)

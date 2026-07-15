@@ -33,6 +33,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
 		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID,
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind,
 			PluginInstanceID: "builtin", SessionID: "session-1",
 		}},
@@ -135,6 +136,7 @@ func TestGrantAuthorizerRejectsBorrowAcrossDifferentCanonicalScopes(t *testing.T
 	binding := func(nodeID, requirementID string) capability.Binding {
 		return capability.Binding{
 			GraphID: "main", NodeID: nodeID, RequirementID: requirementID, ProviderID: stream.ProviderID,
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetID: "memory", TargetKind: "stream-session", ResourceKind: stream.Kind,
 			PluginInstanceID: "builtin", SessionID: "session-1",
 		}
@@ -178,6 +180,7 @@ func grantAuthorizer(t *testing.T) (*run31.GrantAuthorizer, capability.RunGrant,
 		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
 		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
 			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID, TargetID: "memory",
+			ProviderArtifactDigest: streamProviderDigest(t), ProviderABI: stream.ProviderABI,
 			TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
 		}},
 	}, catalog{definition.Ref().CapabilityID: definition})
@@ -223,5 +226,14 @@ func streamPlan(t *testing.T, definition capability.Definition) capability.Plan 
 
 func digest(label string) artifact.Digest {
 	digest, _ := artifact.Sum("test/run-authorizer/v1", []byte(strings.TrimSpace(label)))
+	return digest
+}
+
+func streamProviderDigest(t *testing.T) artifact.Digest {
+	t.Helper()
+	digest, err := stream.ProviderArtifactDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
 	return digest
 }
