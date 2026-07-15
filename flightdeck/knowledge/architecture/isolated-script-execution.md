@@ -7,7 +7,9 @@ recheck_when: "the guest engine, Windows sandbox APIs, runner protocol, or suppo
 ---
 # Script execution is an isolated typed effect
 
-Production code must never evaluate user scripts inside the Wails process. Each attempt launches one worker with a strict length-delimited protocol and an exact typed JSON input/output ABI. The guest receives no registry, node enumeration, variables, filesystem, network, process, window, secret, or arbitrary Go object bridge.
+Production code must never evaluate user scripts inside the Wails process. Each attempt launches one worker using protocol `yotta.script.worker/3.1`: a single big-endian length-delimited RFC 8785 frame in each direction and exact typed JSON input/output. Frames reject unknown fields, non-canonical JSON, trailing bytes and budget overruns.
+
+The guest receives only `input`. It has no registry, node enumeration, variables, filesystem, network, process, window, secret, or arbitrary Go object bridge. `Math.random()` uses the request's 32-byte deterministic seed. Time is limited to a frozen `Date.now()` virtual clock; the host-dependent Date constructor is unavailable. Source, input, output, JSON depth/node count, call stack and wall time are bounded.
 
 On Windows, a runnable worker requires LPAC/AppContainer and atomic Job Object association at process creation. Apply active-process=1, memory, CPU/time and kill-on-close limits; cancellation terminates the job. Failure to construct or verify containment returns `script.isolation_unavailable`.
 
