@@ -20,6 +20,64 @@
       />
     </div>
 
+    <section class="space-y-3 border-b border-default p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-xs font-semibold text-highlighted">
+            {{ t('workflow31.inspector.state_title') }}
+          </h3>
+          <p class="mt-1 text-[10px] text-dimmed">
+            {{ t('workflow31.inspector.state_hint') }}
+          </p>
+        </div>
+        <UBadge color="neutral" variant="soft" size="sm">{{ variables.length }}</UBadge>
+      </div>
+      <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
+        <UInput
+          v-model="newVariableName"
+          :placeholder="t('workflow31.inspector.state_name_placeholder')"
+          size="sm"
+        />
+        <USelect
+          v-model="newVariableTypeId"
+          :items="stateTypeItems"
+          value-key="value"
+          label-key="label"
+          size="sm"
+        />
+        <UButton
+          icon="i-tabler-plus"
+          size="sm"
+          color="neutral"
+          :disabled="!canAddVariable"
+          :aria-label="t('workflow31.inspector.state_add')"
+          @click="addStateVariable"
+        />
+      </div>
+      <div v-if="variables.length" class="space-y-1.5">
+        <div
+          v-for="variable in variables"
+          :key="variable.name"
+          class="flex items-center gap-2 rounded-md bg-elevated/55 px-2.5 py-2"
+        >
+          <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-toned">{{
+            variable.name
+          }}</span>
+          <span class="max-w-28 truncate text-[10px] text-dimmed">{{
+            variableTypeLabel(variable)
+          }}</span>
+          <UButton
+            icon="i-tabler-trash"
+            color="error"
+            variant="ghost"
+            size="xs"
+            :aria-label="t('workflow31.inspector.state_remove', { name: variable.name })"
+            @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
+          />
+        </div>
+      </div>
+    </section>
+
     <div
       v-if="!node || !projection"
       class="flex flex-1 items-center justify-center px-8 text-center"
@@ -53,6 +111,7 @@
           :key="field.id"
           :field="field"
           :model-value="node.config[field.id]"
+          :state-variables="variables.map((variable) => variable.name)"
           @update:model-value="
             emit('command', {
               kind: 'set-config',
@@ -186,16 +245,96 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { InputBinding } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { InputBinding, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 import PointValueEditor from '@/app/editor/PointValueEditor.vue'
 
-const props = defineProps<{ node: Node | null; projection: NodeProjection | null }>()
+const props = defineProps<{
+  node: Node | null
+  projection: NodeProjection | null
+  variables: Variable[]
+  types: TypeProjection[]
+}>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
+const newVariableName = ref('')
+const newVariableTypeId = ref('')
+const stateTypes = computed(() =>
+  props.types.filter((type) =>
+    type.representations.some((representation) => representation.kind === 'inline-json'),
+  ),
+)
+const stateTypeItems = computed(() =>
+  stateTypes.value.map((type) => ({
+    label:
+      type.titleKey && te(type.titleKey)
+        ? t(type.titleKey)
+        : type.typeRef.typeId.split('/').at(-2)!,
+    value: type.typeRef.typeId,
+  })),
+)
+const canAddVariable = computed(
+  () =>
+    /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(newVariableName.value) && Boolean(selectedStateType.value),
+)
+const selectedStateType = computed(() =>
+  stateTypes.value.find((type) => type.typeRef.typeId === newVariableTypeId.value),
+)
+
+watch(
+  stateTypes,
+  (values) => {
+    if (!values.some((type) => type.typeRef.typeId === newVariableTypeId.value))
+      newVariableTypeId.value = values[0]?.typeRef.typeId ?? ''
+  },
+  { immediate: true },
+)
+
+function addStateVariable(): void {
+  const type = selectedStateType.value
+  if (!type || !canAddVariable.value) return
+  emit('command', {
+    kind: 'add-state-variable',
+    name: newVariableName.value,
+    type: { kind: 'ref', ref: { ...type.typeRef } },
+    defaultValue: defaultStateValue(type),
+  })
+  newVariableName.value = ''
+}
+
+function defaultStateValue(type: TypeProjection): unknown {
+  if (type.examples.length) return structuredClone(type.examples[0])
+  switch (type.control) {
+    case 'text':
+      return ''
+    case 'number':
+    case 'integer':
+      return 0
+    case 'toggle':
+      return false
+    case 'select':
+      return type.constraints.enum[0] ?? null
+    case 'list':
+      return []
+    case 'object':
+      return {}
+    default:
+      return null
+  }
+}
+
+function variableTypeLabel(variable: Variable): string {
+  if (variable.type.kind !== 'ref') return variable.type.kind
+  const typeId = variable.type.ref.typeId
+  const type = props.types.find((candidate) => candidate.typeRef.typeId === typeId)
+  if (type?.titleKey && te(type.titleKey)) return t(type.titleKey)
+  return typeId.split('/').at(-2) ?? typeId
+}
 
 function setLabel(event: Event): void {
   if (!props.node) return

@@ -966,6 +966,27 @@ export default {
           'Capture the host-provided invocation time as Unix milliseconds and persist it in the Run record.',
       },
     },
+    state: {
+      variable: {
+        title: 'Workflow state variable',
+        description: 'Select one explicitly declared typed state slot from this Workflow.',
+      },
+      read: {
+        title: 'Read state',
+        description:
+          'Read the current value of a typed Run-local state slot. This is a recorded data effect with no control-flow output.',
+      },
+      write: {
+        title: 'Write state',
+        description:
+          'Write one exactly typed value to a Run-local state slot, then continue through Done.',
+      },
+      metadata: {
+        title: 'State metadata',
+        description:
+          'Read a state slot revision and last-change time without exposing an untyped value.',
+      },
+    },
     // ai
     AI: {
       label: 'Call AI',
@@ -3623,6 +3644,11 @@ export default {
       point_y: 'Y',
       point_ratio: 'Ratio',
       point_px: 'Pixels',
+      state_title: 'Run state',
+      state_hint: 'Typed slots are initialized separately for every Run.',
+      state_name_placeholder: 'State name',
+      state_add: 'Add state variable',
+      state_remove: 'Remove state variable {name}',
     },
     timeline: {
       run_status: 'Run {status}',

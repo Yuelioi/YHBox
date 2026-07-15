@@ -16,6 +16,9 @@ import { assignable, EditorSession } from './EditorSession'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection31
 const concat = authoring.body.nodes.find((node) => node.nodeRef.nodeTypeId.includes('/concat/'))!
+const stateRead = authoring.body.nodes.find((node) =>
+  node.nodeRef.nodeTypeId.includes('/state/read/'),
+)!
 
 describe('EditorSession', () => {
   it('owns revision, history, compile, save and Program Run facts', async () => {
@@ -94,6 +97,49 @@ describe('EditorSession', () => {
     expect(
       assignable({ kind: 'list', element: stringType }, { kind: 'list', element: union }),
     ).toBe(true)
+  })
+
+  it('owns typed state declarations and prevents deleting referenced slots', async () => {
+    const source = emptySource()
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'read',
+    )
+    await session.load(source.workflow.id)
+    const stringType = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/string/'),
+    )!
+
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'message',
+      type: { kind: 'ref', ref: stringType.typeRef },
+      defaultValue: 'initial',
+    })
+    expect(session.source?.variables).toEqual([
+      { name: 'message', type: { kind: 'ref', ref: stringType.typeRef }, default: 'initial' },
+    ])
+    expect(() =>
+      session.apply({
+        kind: 'add-state-variable',
+        name: 'message',
+        type: { kind: 'ref', ref: stringType.typeRef },
+        defaultValue: '',
+      }),
+    ).toThrow('duplicate state variable')
+
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: stateRead.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+    session.apply({ kind: 'set-config', nodeId: 'read', fieldId: 'variable', value: 'message' })
+    expect(() => session.apply({ kind: 'remove-state-variable', name: 'message' })).toThrow(
+      'still referenced',
+    )
+    session.apply({ kind: 'remove-node', nodeId: 'read' })
+    session.apply({ kind: 'remove-state-variable', name: 'message' })
+    expect(session.source?.variables).toEqual([])
   })
 })
 

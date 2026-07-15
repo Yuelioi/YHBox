@@ -278,6 +278,13 @@
         "ports": {
           "$ref": "#/$defs/PortSet"
         },
+        "stateAccesses": {
+          "items": {
+            "$ref": "#/$defs/StateAccessSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "statusEvents": {
           "items": {
             "$ref": "#/$defs/StatusEventSpec"
@@ -295,6 +302,7 @@
         "capabilityRequirements",
         "errors",
         "statusEvents",
+        "stateAccesses",
         "implementationABI"
       ],
       "type": "object"
@@ -463,6 +471,36 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "StateAccessSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "slotConfigKey",
+        "type",
+        "mode"
       ],
       "type": "object"
     },

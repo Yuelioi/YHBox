@@ -34,6 +34,7 @@ const (
 	CodeInvalidBinding           = "INVALID_BINDING"
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
+	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
 	CodeDataCycle                = "DATA_CYCLE"
 	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
@@ -90,6 +91,10 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	stateSlots, stateDiagnostics := compileStateVariables(source.Variables, request.Catalog)
 	body.State = stateSlots
 	result.Diagnostics = append(result.Diagnostics, stateDiagnostics...)
+	stateByName := make(map[string]programStateSlot, len(stateSlots))
+	for _, slot := range stateSlots {
+		stateByName[slot.Name] = slot
+	}
 	if len(source.SecretRefs) != 0 {
 		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
 	}
@@ -106,7 +111,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"graphs", fmt.Sprint(graphIndex), "inputs"}, graph.ID))
 			continue
 		}
-		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog)
+		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, stateByName)
 		if compileErr != nil {
 			return CompileResult{}, compileErr
 		}
@@ -199,7 +204,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, state map[string]programStateSlot) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -232,6 +237,26 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		}
 		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, sourceNode.Config); err != nil {
 			diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID))
+		}
+		for _, access := range machine.StateAccesses {
+			slotName, ok := sourceNode.Config[access.SlotConfigKey].(string)
+			slot, exists := state[slotName]
+			if !ok || !exists {
+				diagnostic := diagnosticAtNode(CodeInvalidStateAccess, append(path, "config", access.SlotConfigKey), graph.ID, sourceNode.ID)
+				diagnostic.Params["accessId"] = access.ID
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			concrete, err := datatype.ResolvedExpression(slot.Type)
+			if err != nil || types.unify(
+				scopedTypeExpression{scope: sourceNode.ID, expression: access.Type},
+				scopedTypeExpression{scope: sourceNode.ID, expression: concrete},
+			) != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidStateAccess, append(path, "config", access.SlotConfigKey), graph.ID, sourceNode.ID)
+				diagnostic.Params["accessId"] = access.ID
+				diagnostic.Params["reason"] = "state slot type does not satisfy the node access contract"
+				diagnostics = append(diagnostics, diagnostic)
+			}
 		}
 		plan := programNode{
 			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,

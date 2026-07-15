@@ -21,6 +21,8 @@ export type EditorPhase = 'empty' | 'loading' | 'ready' | 'saving' | 'running' |
 
 export type EditorCommand =
   | { kind: 'rename-workflow'; name: string }
+  | { kind: 'add-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
+  | { kind: 'remove-state-variable'; name: string }
   | { kind: 'add-node'; nodeTypeId: string; position: { x: number; y: number }; nodeId?: string }
   | { kind: 'remove-node'; nodeId: string }
   | { kind: 'move-node'; nodeId: string; position: { x: number; y: number } }
@@ -281,6 +283,34 @@ function applyCommand(
       const name = command.name.trim()
       if (!name) throw new Error('workflow name is required')
       source.workflow.name = name
+      return
+    }
+    case 'add-state-variable': {
+      const name = command.name.trim()
+      if (!/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(name) || name.length > 128)
+        throw new Error('state variable name is invalid')
+      if (source.variables.some((variable) => variable.name === name))
+        throw new Error(`duplicate state variable ${name}`)
+      if (source.variables.length >= 4096) throw new Error('state variable budget exceeded')
+      source.variables.push({
+        name,
+        type: clone(command.type),
+        default: clone(command.defaultValue),
+      })
+      return
+    }
+    case 'remove-state-variable': {
+      if (!source.variables.some((variable) => variable.name === command.name))
+        throw new Error(`state variable ${command.name} does not exist`)
+      const referenced = source.graphs.some((candidate) =>
+        candidate.nodes.some(
+          (node) =>
+            node.nodeRef.nodeTypeId.includes('/nodes/state/') &&
+            node.config.variable === command.name,
+        ),
+      )
+      if (referenced) throw new Error(`state variable ${command.name} is still referenced`)
+      source.variables = source.variables.filter((variable) => variable.name !== command.name)
       return
     }
     case 'add-node': {

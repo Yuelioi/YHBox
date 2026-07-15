@@ -57,13 +57,22 @@ func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) 
 		fmt.Fprintf(&builder, "- Availability: `%s`\n", projected.Availability)
 		fmt.Fprintf(&builder, "- Execution: `%s` / `%s` / cache `%s`\n", projected.Execution.Class, projected.Execution.Determinism, projected.Execution.Cache)
 		if len(projected.Capabilities) == 0 {
-			builder.WriteString("- Capabilities: none\n\n")
+			builder.WriteString("- Capabilities: none\n")
 		} else {
 			builder.WriteString("- Capabilities:\n")
 			for _, requirement := range projected.Capabilities {
 				fmt.Fprintf(&builder, "  - `%s`: `%s`; target `%s`; risk `%s`; consent `%s`; operations `%s`\n",
 					requirement.RequirementID, requirement.Capability.CapabilityID, requirement.TargetSlot,
 					requirement.Risk, requirement.Consent, strings.Join(requirement.Operations, "`, `"))
+			}
+		}
+		if len(projected.StateAccesses) == 0 {
+			builder.WriteString("- Run state access: none\n\n")
+		} else {
+			builder.WriteString("- Run state access:\n")
+			for _, access := range projected.StateAccesses {
+				fmt.Fprintf(&builder, "  - `%s`: `%s` slot selected by config `%s`; type `%s`\n",
+					access.ID, access.Mode, access.SlotConfigKey, access.Type.Label)
 			}
 			builder.WriteString("\n")
 		}

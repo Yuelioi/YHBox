@@ -214,6 +214,8 @@
         <WorkflowInspector
           :node="selectedNode"
           :projection="selectedProjection"
+          :variables="session.source?.variables ?? []"
+          :types="session.authoring?.body.types ?? []"
           @command="applyCommand"
         />
       </div>

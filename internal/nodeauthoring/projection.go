@@ -65,14 +65,15 @@ const (
 type Control string
 
 const (
-	ControlText    Control = "text"
-	ControlNumber  Control = "number"
-	ControlInteger Control = "integer"
-	ControlToggle  Control = "toggle"
-	ControlSelect  Control = "select"
-	ControlObject  Control = "object"
-	ControlList    Control = "list"
-	ControlJSON    Control = "json"
+	ControlText          Control = "text"
+	ControlNumber        Control = "number"
+	ControlInteger       Control = "integer"
+	ControlToggle        Control = "toggle"
+	ControlSelect        Control = "select"
+	ControlObject        Control = "object"
+	ControlList          Control = "list"
+	ControlJSON          Control = "json"
+	ControlStateVariable Control = "state-variable"
 )
 
 type Input struct {
@@ -100,7 +101,7 @@ type FieldProjection struct {
 	Description    string            `json:"description,omitempty"`
 	TitleKey       string            `json:"titleKey,omitempty"`
 	DescriptionKey string            `json:"descriptionKey,omitempty"`
-	Control        Control           `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json"`
+	Control        Control           `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json,enum=state-variable"`
 	Required       bool              `json:"required"`
 	HasDefault     bool              `json:"hasDefault"`
 	Default        json.RawMessage   `json:"default,omitempty"`
@@ -171,6 +172,13 @@ type CapabilityProjection struct {
 	Consent        capability.ConsentClass   `json:"consent" jsonschema:"required,enum=none,enum=once,enum=every-run"`
 }
 
+type StateAccessProjection struct {
+	ID            string                       `json:"id"`
+	SlotConfigKey string                       `json:"slotConfigKey"`
+	Type          TypeUse                      `json:"type"`
+	Mode          nodecontract.StateAccessMode `json:"mode" jsonschema:"required,enum=read,enum=write"`
+}
+
 type NodeProjection struct {
 	NodeRef        nodecontract.NodeRef           `json:"nodeRef"`
 	TitleKey       string                         `json:"titleKey,omitempty"`
@@ -186,6 +194,7 @@ type NodeProjection struct {
 	Signals        []SignalProjection             `json:"signals"`
 	ConfigFields   []FieldProjection              `json:"configFields"`
 	Capabilities   []CapabilityProjection         `json:"capabilities"`
+	StateAccesses  []StateAccessProjection        `json:"stateAccesses"`
 	Errors         []nodecontract.ErrorSpec       `json:"errors"`
 	StatusEvents   []nodecontract.StatusEventSpec `json:"statusEvents"`
 }
@@ -393,7 +402,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		NodeRef: contract.NodeRef(), TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 		Execution: machine.Execution, Availability: AvailabilityPortable, DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
-		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
+		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
 	}
 	for _, port := range machine.Ports.DataInputs {
@@ -448,6 +457,15 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			Scope: append(json.RawMessage(nil), requirement.Scope...), TargetSlot: requirement.TargetSlot, CredentialSlot: requirement.CredentialSlot,
 			TargetKinds: append([]string(nil), capabilityMachine.TargetKinds...), Credential: capabilityMachine.Credential,
 			Risk: capabilityMachine.Risk, Consent: capabilityMachine.Consent,
+		})
+	}
+	for _, access := range machine.StateAccesses {
+		use, err := projectTypeUse(access.Type, types)
+		if err != nil {
+			return NodeProjection{}, fmt.Errorf("state access %q: %w", access.ID, err)
+		}
+		projection.StateAccesses = append(projection.StateAccesses, StateAccessProjection{
+			ID: access.ID, SlotConfigKey: access.SlotConfigKey, Type: use, Mode: access.Mode,
 		})
 	}
 	if len(projection.Capabilities) != 0 {
@@ -602,6 +620,13 @@ func projectField(id string, schema map[string]any, required bool, bundle []data
 	}
 	if !complete {
 		field.Control = ControlJSON
+		return field, nil
+	}
+	if requested := stringValue(resolved["x-yotta-control"]); requested != "" {
+		if requested != string(ControlStateVariable) || schemaType(resolved) != "string" {
+			return FieldProjection{}, fmt.Errorf("field %q requests an unsupported generated control", id)
+		}
+		field.Control = ControlStateVariable
 		return field, nil
 	}
 	if len(field.Constraints.Enum) != 0 {

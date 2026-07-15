@@ -194,8 +194,12 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 		return ProgramSnapshot{}, fmt.Errorf("program capability plan: %w", err)
 	}
 	wantPlanEntries := make([]capability.PlanEntry, 0)
+	stateByName := make(map[string]programStateSlot, len(document.Body.State))
+	for _, slot := range document.Body.State {
+		stateByName[slot.Name] = slot
+	}
 	for _, graph := range document.Body.Graphs {
-		if err := validateProgramGraph(graph, trustedCatalog); err != nil {
+		if err := validateProgramGraph(graph, trustedCatalog, stateByName); err != nil {
 			return ProgramSnapshot{}, err
 		}
 		for _, node := range graph.Nodes {
@@ -254,7 +258,7 @@ func validateProgramState(slots []programStateSlot, catalog nodecatalog.Snapshot
 	return nil
 }
 
-func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) error {
+func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, state map[string]programStateSlot) error {
 	if graph.ID == "" || len(graph.Nodes) > 4096 || len(graph.SignalRoutes) > 16384 {
 		return errors.New("program graph exceeds structural budget")
 	}
@@ -302,7 +306,7 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 			return errors.New("program references an unknown node type")
 		}
 		machine := entry.Contract.Machine()
-		if err := validateEffectivePortTypes(node, machine); err != nil {
+		if err := validateEffectivePortTypes(node, machine, state); err != nil {
 			return fmt.Errorf("program node %q has invalid effective types: %w", node.ID, err)
 		}
 		if err := validateJSONSchemaBundleCached(validators, "config:"+node.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, node.Config); err != nil {
@@ -380,7 +384,7 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 	return nil
 }
 
-func validateEffectivePortTypes(node programNode, machine nodecontract.MachineContract) error {
+func validateEffectivePortTypes(node programNode, machine nodecontract.MachineContract, state map[string]programStateSlot) error {
 	if node.InputTypes == nil || node.OutputTypes == nil ||
 		len(node.InputTypes) != len(machine.Ports.DataInputs) || len(node.OutputTypes) != len(machine.Ports.DataOutputs) {
 		return errors.New("effective port type maps do not match the contract")
@@ -404,6 +408,17 @@ func validateEffectivePortTypes(node programNode, machine nodecontract.MachineCo
 		matched, err := datatype.MatchResolved(port.Type, resolved, variables)
 		if err != nil || !matched {
 			return fmt.Errorf("output %q does not satisfy its contract type", port.ID)
+		}
+	}
+	for _, access := range machine.StateAccesses {
+		slotName, ok := node.Config[access.SlotConfigKey].(string)
+		slot, exists := state[slotName]
+		if !ok || !exists {
+			return fmt.Errorf("state access %q references an unknown slot", access.ID)
+		}
+		matched, err := datatype.MatchResolved(access.Type, slot.Type, variables)
+		if err != nil || !matched {
+			return fmt.Errorf("state access %q does not satisfy its contract type", access.ID)
 		}
 	}
 	return nil

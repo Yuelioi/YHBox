@@ -52,6 +52,7 @@ export interface NodeProjection {
   icon?: string
   nodeRef: NodeRef
   signals: SignalProjection[]
+  stateAccesses: StateAccessProjection[]
   statusEvents: StatusEventSpec[]
   tags: string[]
   titleKey?: string
@@ -75,7 +76,7 @@ export interface Ref {
 export interface FieldProjection {
   additionalProperties?: never
   constraints: FieldConstraints
-  control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json'
+  control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json' | 'state-variable'
   default?: any
   deprecated: boolean
   description?: string
@@ -165,6 +166,12 @@ export interface SignalProjection {
   channel: 'exec' | 'error'
   direction: 'input' | 'output'
   id: string
+}
+export interface StateAccessProjection {
+  id: string
+  mode: 'read' | 'write'
+  slotConfigKey: string
+  type: TypeUse
 }
 export interface StatusEventSpec {
   category: 'progress' | 'waiting' | 'connection'

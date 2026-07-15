@@ -34,9 +34,11 @@ type scheduler struct {
 	graph          *programGraph
 	owner          *run31.Owner
 	journal        *run31.JournalWriter
+	state          *runState
 	nodes          map[string]programNode
 	routes         map[routeKey][]programSignalRoute
 	dataConsumers  map[string]int
+	volatile       map[string]bool
 	queue          []scheduledInvocation
 	result         ExecutionResult
 	attempts       map[string]int
@@ -47,11 +49,11 @@ type scheduler struct {
 	invocations    int
 }
 
-func newScheduler(executor *Executor, graph *programGraph, owner *run31.Owner, journal *run31.JournalWriter) *scheduler {
+func newScheduler(executor *Executor, graph *programGraph, owner *run31.Owner, journal *run31.JournalWriter, state *runState) *scheduler {
 	s := &scheduler{
-		executor: executor, graph: graph, owner: owner, journal: journal,
+		executor: executor, graph: graph, owner: owner, journal: journal, state: state,
 		nodes: make(map[string]programNode, len(graph.Nodes)), routes: make(map[routeKey][]programSignalRoute),
-		dataConsumers: make(map[string]int), attempts: make(map[string]int),
+		dataConsumers: make(map[string]int), volatile: make(map[string]bool), attempts: make(map[string]int),
 		outputSessions: make(map[string]map[string]*run31.Session), evaluating: make(map[string]bool),
 		result: ExecutionResult{
 			NodeOutputs: make(map[string]map[string]datatype.ValueEnvelope),
@@ -69,6 +71,16 @@ func newScheduler(executor *Executor, graph *programGraph, owner *run31.Owner, j
 	for _, route := range graph.SignalRoutes {
 		key := routeKey{channel: route.Channel, nodeID: route.From.NodeID, portID: route.From.PortID}
 		s.routes[key] = append(s.routes[key], route)
+	}
+	for _, nodeID := range graph.DataOrder {
+		node := s.nodes[nodeID]
+		volatile := node.Execution.Cache == nodecontract.CacheNone
+		for _, input := range node.Inputs {
+			if input.Kind == inputEdge && s.volatile[input.From.NodeID] {
+				volatile = true
+			}
+		}
+		s.volatile[nodeID] = volatile
 	}
 	return s
 }
@@ -98,7 +110,7 @@ func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
 		}
 		next := s.queue[0]
 		s.queue = s.queue[1:]
-		if err := s.invoke(ctx, next.nodeID, next.trigger); err != nil {
+		if err := s.invoke(ctx, next.nodeID, next.trigger, map[string]bool{}); err != nil {
 			return ExecutionResult{}, err
 		}
 	}
@@ -113,7 +125,7 @@ func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
 	return s.result, nil
 }
 
-func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTrigger) error {
+func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTrigger, evaluation map[string]bool) error {
 	if s.invocations >= MaxScheduledInvocations {
 		return errors.New("scheduler invocation budget exceeded")
 	}
@@ -145,13 +157,17 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		}
 		nodeSessions[requirement.ID] = session
 	}
-	inputs, err := s.resolveInputs(ctx, node, nodeSessions)
+	inputs, err := s.resolveInputs(ctx, node, nodeSessions, evaluation)
 	if err != nil {
 		return fmt.Errorf("resolve inputs for %s: %w", node.ID, err)
 	}
 	config, err := cloneConfig(node.Config)
 	if err != nil {
 		return fmt.Errorf("clone config for node %q: %w", node.ID, err)
+	}
+	stateBindings, err := s.state.bindings(machine, config)
+	if err != nil {
+		return fmt.Errorf("bind state for node %q: %w", node.ID, err)
 	}
 	summary, err := run31.NewRedactedSummary("node.execute", nil)
 	if err != nil {
@@ -175,7 +191,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	statuses := newStatusEmitter(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine.StatusEvents)
 	outcome, runErr := installed.Run(ctx, Invocation{
 		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
-		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions,
+		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
 		Trigger: cloneTrigger(trigger), ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
 		Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
@@ -255,7 +271,7 @@ func wrapNodeRunError(nodeID string, err error) error {
 	return fmt.Errorf("run node %q: %w", nodeID, err)
 }
 
-func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSessions map[string]*run31.Session) (map[string]datatype.ValueEnvelope, error) {
+func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSessions map[string]*run31.Session, evaluation map[string]bool) (map[string]datatype.ValueEnvelope, error) {
 	inputs := make(map[string]datatype.ValueEnvelope, len(node.Inputs))
 	portIDs := make([]string, 0, len(node.Inputs))
 	for portID := range node.Inputs {
@@ -265,8 +281,9 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 	for _, portID := range portIDs {
 		input := node.Inputs[portID]
 		if input.Kind == inputEdge {
-			if _, available := s.result.NodeOutputs[input.From.NodeID][input.From.PortID]; !available {
-				if err := s.evaluatePull(ctx, input.From.NodeID); err != nil {
+			_, available := s.result.NodeOutputs[input.From.NodeID][input.From.PortID]
+			if (!available || s.volatile[input.From.NodeID]) && !evaluation[input.From.NodeID] {
+				if err := s.evaluatePull(ctx, input.From.NodeID, evaluation); err != nil {
 					return nil, err
 				}
 			}
@@ -319,7 +336,7 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 	return inputs, nil
 }
 
-func (s *scheduler) evaluatePull(ctx context.Context, nodeID string) error {
+func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation map[string]bool) error {
 	node, ok := s.nodes[nodeID]
 	if !ok {
 		return errors.New("data dependency references a missing node")
@@ -332,7 +349,8 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string) error {
 	}
 	s.evaluating[nodeID] = true
 	defer delete(s.evaluating, nodeID)
-	return s.invoke(ctx, nodeID, nil)
+	evaluation[nodeID] = true
+	return s.invoke(ctx, nodeID, nil, evaluation)
 }
 
 func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run31.RedactedSummary) error {

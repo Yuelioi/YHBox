@@ -29,6 +29,9 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		nodes31.RandomBooleanNodeID: randomBoolean(builtins),
 		nodes31.RandomChoiceNodeID:  randomChoice(builtins),
 		nodes31.ObserveTimeNodeID:   observeTime(builtins),
+		nodes31.StateReadNodeID:     stateRead(builtins),
+		nodes31.StateWriteNodeID:    stateWrite(builtins),
+		nodes31.StateMetadataNodeID: stateMetadata(builtins),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)

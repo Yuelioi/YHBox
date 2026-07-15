@@ -89,6 +89,24 @@ type StatusEventSpec struct {
 	Category StatusCategory `json:"category" jsonschema:"required,enum=progress,enum=waiting,enum=connection"`
 }
 
+type StateAccessMode string
+
+const (
+	StateRead  StateAccessMode = "read"
+	StateWrite StateAccessMode = "write"
+)
+
+// StateAccessSpec declares a typed binding from one node instance to one
+// Program state slot selected by config. It gives the compiler enough
+// information to bind generic ports without executing node implementation
+// code, and gives the runtime enough information to attenuate state authority.
+type StateAccessSpec struct {
+	ID            string                  `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	SlotConfigKey string                  `json:"slotConfigKey" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	Type          datatype.TypeExpression `json:"type" jsonschema:"required"`
+	Mode          StateAccessMode         `json:"mode" jsonschema:"required,enum=read,enum=write"`
+}
+
 type ExecutionClass string
 
 const (
@@ -202,6 +220,7 @@ type Draft struct {
 	CapabilityRequirements []capability.Requirement
 	Errors                 []ErrorSpec
 	StatusEvents           []StatusEventSpec
+	StateAccesses          []StateAccessSpec
 	InstanceResolver       *InstanceResolver
 	ImplementationABI      []ABIRequirement
 	Authoring              Authoring
@@ -218,6 +237,7 @@ type MachineContract struct {
 	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
 	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
 	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
+	StateAccesses          []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
 	InstanceResolver       *InstanceResolver         `json:"instanceResolver,omitempty"`
 	ImplementationABI      []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
 }
@@ -289,6 +309,7 @@ func Open(raw []byte) (Contract, error) {
 		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
 		Errors:                 decoded.Semantic.Errors,
 		StatusEvents:           decoded.Semantic.StatusEvents,
+		StateAccesses:          decoded.Semantic.StateAccesses,
 		InstanceResolver:       decoded.Semantic.InstanceResolver,
 		ImplementationABI:      decoded.Semantic.ImplementationABI,
 	})
@@ -347,7 +368,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
 		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements,
-		Errors: semantic.Errors, StatusEvents: semantic.StatusEvents, InstanceResolver: semantic.InstanceResolver,
+		Errors: semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
 	})
 	if err != nil {
@@ -451,6 +472,10 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	stateAccesses, err := normalizeStateAccesses(draft.StateAccesses)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	execution, err := normalizeExecution(draft.Execution, ports, statusEvents)
 	if err != nil {
 		return MachineContract{}, err
@@ -481,6 +506,9 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if execution.Class == ExecutionEffect && len(execution.Effects)+len(requirements) == 0 {
 		return MachineContract{}, errors.New("effect node must declare an effect or capability")
 	}
+	if len(stateAccesses) != 0 && execution.Class != ExecutionEffect {
+		return MachineContract{}, errors.New("state access requires effect execution semantics")
+	}
 	errorsList, err := normalizeErrors(draft.Errors)
 	if err != nil {
 		return MachineContract{}, err
@@ -499,9 +527,30 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution,
-		CapabilityRequirements: requirements, Errors: errorsList, StatusEvents: statusEvents, InstanceResolver: resolver,
+		CapabilityRequirements: requirements, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
+}
+
+func normalizeStateAccesses(source []StateAccessSpec) ([]StateAccessSpec, error) {
+	result := append([]StateAccessSpec(nil), source...)
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	if result == nil {
+		result = []StateAccessSpec{}
+	}
+	previous := ""
+	for _, access := range result {
+		if access.ID <= previous || len(access.ID) > MaxIdentifierBytes || !portIDPattern.MatchString(access.ID) ||
+			len(access.SlotConfigKey) > MaxIdentifierBytes || !portIDPattern.MatchString(access.SlotConfigKey) ||
+			(access.Mode != StateRead && access.Mode != StateWrite) {
+			return nil, errors.New("invalid or duplicate state access declaration")
+		}
+		if err := access.Type.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid state access type for %q: %w", access.ID, err)
+		}
+		previous = access.ID
+	}
+	return result, nil
 }
 
 func normalizeSchemaBundle(root string, source []datatype.SchemaResource) ([]datatype.SchemaResource, error) {

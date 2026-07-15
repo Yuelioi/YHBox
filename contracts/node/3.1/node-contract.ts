@@ -74,6 +74,10 @@ export interface MachineContract {
   /**
    * @maxItems 4096
    */
+  stateAccesses: StateAccessSpec[]
+  /**
+   * @maxItems 4096
+   */
   statusEvents: StatusEventSpec[]
 }
 export interface Requirement {
@@ -169,6 +173,12 @@ export interface DataOutputPort {
 }
 export interface SignalPort {
   id: string
+}
+export interface StateAccessSpec {
+  id: string
+  mode: 'read' | 'write'
+  slotConfigKey: string
+  type: TypeExpression
 }
 export interface StatusEventSpec {
   category: 'progress' | 'waiting' | 'connection'

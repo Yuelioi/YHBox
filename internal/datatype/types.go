@@ -53,6 +53,27 @@ func ListResolvedType(element ResolvedType) ResolvedType {
 	return ResolvedType{Kind: ResolvedTypeList, Element: &copy}
 }
 
+// ResolvedExpression converts one concrete runtime type back into the exact
+// contract expression used by compiler unification. It never introduces a
+// variable or union.
+func ResolvedExpression(resolved ResolvedType) (TypeExpression, error) {
+	if err := resolved.Validate(); err != nil {
+		return TypeExpression{}, err
+	}
+	switch resolved.Kind {
+	case ResolvedTypeRef:
+		return RefExpression(*resolved.Ref), nil
+	case ResolvedTypeList:
+		element, err := ResolvedExpression(*resolved.Element)
+		if err != nil {
+			return TypeExpression{}, err
+		}
+		return ListExpression(element), nil
+	default:
+		return TypeExpression{}, errors.New("unknown resolved type")
+	}
+}
+
 // MatchResolved proves that one concrete runtime type satisfies a contract
 // expression. Variable bindings are scoped by the caller (normally one node
 // invocation) and must remain identical across every port in that scope.

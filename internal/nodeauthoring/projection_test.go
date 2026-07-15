@@ -63,6 +63,11 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	if !ok || binary.Lifecycle != nodeauthoring.LifecycleMixed || len(binary.Representations) != 2 {
 		t.Fatalf("binary type projection = %#v", binary)
 	}
+	stateRead, ok := projection.Node(nodes31.StateReadNodeID)
+	if !ok || len(stateRead.StateAccesses) != 1 || stateRead.StateAccesses[0].Mode != "read" ||
+		stateRead.StateAccesses[0].SlotConfigKey != "variable" || stateRead.StateAccesses[0].Type.Label != "$T" {
+		t.Fatalf("state read projection = %#v", stateRead)
+	}
 }
 
 func TestProjectionRejectsIncompletePresentationAndTampering(t *testing.T) {

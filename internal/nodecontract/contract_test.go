@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:f9d3ba7e507746f26df951a2d8f3b99b330ad978486f298c4654fddccf13a573")
+	const want = artifact.Digest("sha256:e05a20427c1cdf26e022576ef5e7c675c653f8e2e7a7ad0b8e5d1c4e831adfba")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -178,6 +178,31 @@ func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
 	draft.Ports.ExecOutputs = []SignalPort{{ID: "done"}}
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted effect contract without an effect or capability")
+	}
+}
+
+func TestSealRequiresTypedStateAccessToUseEffectSemantics(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.StateAccesses = []StateAccessSpec{{
+		ID: "state", SlotConfigKey: "variable", Type: datatype.VariableExpression("T"), Mode: StateRead,
+	}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted state access on a pure-data node")
+	}
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/state/read/v1"}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accesses := contract.Machine().StateAccesses
+	if len(accesses) != 1 || accesses[0].ID != "state" || accesses[0].Mode != StateRead {
+		t.Fatalf("state accesses = %#v", accesses)
+	}
+	draft.StateAccesses[0].SlotConfigKey = "Variable"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an invalid state slot config key")
 	}
 }
 

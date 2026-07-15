@@ -216,7 +216,8 @@
             "select",
             "object",
             "list",
-            "json"
+            "json",
+            "state-variable"
           ],
           "type": "string"
         },
@@ -339,6 +340,12 @@
           },
           "type": "array"
         },
+        "stateAccesses": {
+          "items": {
+            "$ref": "#/$defs/StateAccessProjection"
+          },
+          "type": "array"
+        },
         "statusEvents": {
           "items": {
             "$ref": "#/$defs/StatusEventSpec"
@@ -365,6 +372,7 @@
         "signals",
         "configFields",
         "capabilities",
+        "stateAccesses",
         "errors",
         "statusEvents"
       ],
@@ -516,6 +524,34 @@
         "id",
         "channel",
         "direction"
+      ],
+      "type": "object"
+    },
+    "StateAccessProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeUse"
+        }
+      },
+      "required": [
+        "id",
+        "slotConfigKey",
+        "type",
+        "mode"
       ],
       "type": "object"
     },

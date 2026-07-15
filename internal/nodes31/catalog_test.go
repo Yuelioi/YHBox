@@ -64,6 +64,8 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 		"`mediaType` | `text` | yes | `minLength: 3, maxLength: 255",
 		"`stream` | `https://schemas.yotta.dev/types/core/binary/v1` | `durable-or-runtime` | `runtime`",
 		"target `blob-store`",
+		"Run state access:",
+		"`state`: `write` slot selected by config `variable`; type `$T`",
 	} {
 		if !bytes.Contains(artifacts.Documentation, []byte(fact)) {
 			t.Fatalf("generated docs omit projected fact %q:\n%s", fact, artifacts.Documentation)

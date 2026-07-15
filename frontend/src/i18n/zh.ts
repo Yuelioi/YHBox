@@ -942,6 +942,25 @@ export default {
         description: '捕获宿主提供的调用时间（Unix 毫秒），并持久化到 Run 记录。',
       },
     },
+    state: {
+      variable: {
+        title: '工作流状态变量',
+        description: '选择这个工作流中显式声明的一个强类型状态槽。',
+      },
+      read: {
+        title: '读取状态',
+        description:
+          '读取 Run 本地强类型状态槽的当前值。它是 recorded 数据 effect，没有控制流出口。',
+      },
+      write: {
+        title: '写入状态',
+        description: '向 Run 本地状态槽写入类型完全一致的值，然后从「完成」继续。',
+      },
+      metadata: {
+        title: '状态元数据',
+        description: '读取状态槽的 revision 和最后修改时间，不暴露无类型值。',
+      },
+    },
     // ai
     AI: {
       label: '调用 AI',
@@ -3451,6 +3470,11 @@ export default {
       point_y: 'Y',
       point_ratio: '比例',
       point_px: '像素',
+      state_title: 'Run 状态',
+      state_hint: '每个 Run 都会单独初始化一份强类型状态槽。',
+      state_name_placeholder: '状态名称',
+      state_add: '添加状态变量',
+      state_remove: '删除状态变量 {name}',
     },
     timeline: {
       run_status: '运行状态 {status}',

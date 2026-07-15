@@ -108,6 +108,22 @@ func TestExecutorRoutesStructuredNodeFailureAndFailsWhenUnhandled(t *testing.T) 
 	}
 }
 
+func TestSchedulerPropagatesVolatilityThroughPureDataDependencies(t *testing.T) {
+	graph := programGraph{
+		ID: "main",
+		Nodes: []programNode{
+			{ID: "observed", Inputs: map[string]inputPlan{}, Execution: nodecontract.ExecutionSpec{Cache: nodecontract.CacheNone}},
+			{ID: "derived", Inputs: map[string]inputPlan{"value": {Kind: inputEdge, From: schema.Endpoint{NodeID: "observed", PortID: "result"}}}, Execution: nodecontract.ExecutionSpec{Cache: nodecontract.CachePerRun}},
+			{ID: "stable", Inputs: map[string]inputPlan{}, Execution: nodecontract.ExecutionSpec{Cache: nodecontract.CachePerRun}},
+		},
+		DataOrder: []string{"observed", "derived", "stable"},
+	}
+	scheduler := newScheduler(nil, &graph, nil, nil, nil)
+	if !scheduler.volatile["observed"] || !scheduler.volatile["derived"] || scheduler.volatile["stable"] {
+		t.Fatalf("volatile classification = %#v", scheduler.volatile)
+	}
+}
+
 func emptyAdapter(context.Context, Invocation) (AdapterResult, error) { return AdapterResult{}, nil }
 
 func schedulerCatalogForTest(t *testing.T) (nodecatalog.Snapshot, map[string]nodecontract.Contract, map[string]nodecatalog.ImplementationLock) {

@@ -1,7 +1,16 @@
 <template>
   <UFormField :label="label" :hint="hint" class="w-full">
     <USelect
-      v-if="field.control === 'select'"
+      v-if="field.control === 'state-variable'"
+      :model-value="modelValue"
+      :items="stateVariableItems"
+      value-key="value"
+      label-key="label"
+      class="w-full"
+      @update:model-value="emit('update:modelValue', $event)"
+    />
+    <USelect
+      v-else-if="field.control === 'select'"
       :model-value="modelValue"
       :items="enumItems"
       value-key="value"
@@ -48,7 +57,11 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FieldProjection31 as FieldProjection } from '@/contracts/node31'
 
-const props = defineProps<{ field: FieldProjection; modelValue: unknown }>()
+const props = defineProps<{
+  field: FieldProjection
+  modelValue: unknown
+  stateVariables?: string[]
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
 const { t, te } = useI18n()
 
@@ -63,6 +76,9 @@ const hint = computed(() => {
 })
 const enumItems = computed(() =>
   props.field.constraints.enum.map((value) => ({ label: String(value), value })),
+)
+const stateVariableItems = computed(() =>
+  (props.stateVariables ?? []).map((name) => ({ label: name, value: name })),
 )
 const jsonControl = computed(() => ['json', 'object', 'list'].includes(props.field.control))
 const numberValue = computed(() =>

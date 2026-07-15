@@ -80,6 +80,7 @@ type Invocation struct {
 	InputTypes   map[string]datatype.ResolvedType
 	OutputTypes  map[string]datatype.ResolvedType
 	Sessions     map[string]*run31.Session
+	State        map[string]StateBinding
 	Trigger      *SignalTrigger
 	ObservedAt   time.Time
 	ReadEntropy  func([]byte) error
@@ -265,7 +266,11 @@ func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *
 	if graph == nil {
 		return ExecutionResult{}, errors.New("Program entry graph is missing")
 	}
-	scheduler := newScheduler(e, graph, owner, journal)
+	state, err := newRunState(body.State, e.catalog, e.now)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	scheduler := newScheduler(e, graph, owner, journal, state)
 	return scheduler.run(ctx)
 }
 
