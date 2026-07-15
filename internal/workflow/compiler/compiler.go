@@ -73,7 +73,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	}
 	source, _, sourceHash, diagnostics, err := schema.CanonicalSource(request.SourceJSON)
 	result := CompileResult{Diagnostics: diagnostics}
-	if hasErrorDiagnostics(diagnostics) {
+	if schema.HasErrors(diagnostics) {
 		return result, nil
 	}
 	if err != nil {
@@ -131,7 +131,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		return result, fmt.Errorf("seal capability plan: %w", err)
 	}
 	body.CapabilityPlan = plan.Bytes()
-	if hasErrorDiagnostics(result.Diagnostics) {
+	if schema.HasErrors(result.Diagnostics) {
 		if len(result.Diagnostics) > schema.MaxDiagnostics {
 			result.Diagnostics = result.Diagnostics[:schema.MaxDiagnostics]
 		}
@@ -655,15 +655,6 @@ func warningAtNode(code string, path []string, graphID, nodeID string) Diagnosti
 	diagnostic := diagnosticAtNode(code, path, graphID, nodeID)
 	diagnostic.Severity = schema.SeverityWarning
 	return diagnostic
-}
-
-func hasErrorDiagnostics(values []Diagnostic) bool {
-	for _, value := range values {
-		if value.Severity == schema.SeverityError {
-			return true
-		}
-	}
-	return false
 }
 
 func sortDiagnostics(values []Diagnostic) {

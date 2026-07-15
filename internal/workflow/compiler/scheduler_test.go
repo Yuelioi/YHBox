@@ -232,7 +232,7 @@ func compileSchedulerProgram(t *testing.T, catalog nodecatalog.Snapshot, contrac
 		ref("right").NodeTypeID, ref("right").SemanticDigest, ref("handler").NodeTypeID, ref("handler").SemanticDigest,
 		joinStrings(edges)))
 	compiled, err := New(testDigest(t, "scheduler-build")).CompileDraft(context.Background(), CompileRequest{SourceJSON: source, Catalog: catalog})
-	if err != nil || hasErrorDiagnostics(compiled.Diagnostics) {
+	if err != nil || schema.HasErrors(compiled.Diagnostics) {
 		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 	program, ok := compiled.Program()

@@ -240,7 +240,7 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 	}
 	compiled, err := a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source.Artifact(), Catalog: a.catalog})
 	result := StartRunResult{SourceHash: compiled.SourceHash, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...)}
-	if err != nil || len(compiled.Diagnostics) != 0 {
+	if err != nil || schema.HasErrors(compiled.Diagnostics) {
 		return result, err
 	}
 	program, ok := compiled.Program()

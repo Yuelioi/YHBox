@@ -54,3 +54,15 @@ type DiagnosticFix struct {
 	FieldPath []string `json:"fieldPath"`
 	Value     any      `json:"value,omitempty"`
 }
+
+// HasErrors is the shared admission rule for diagnostics. Warnings and info
+// remain visible to authoring clients but do not prevent a Program from being
+// sealed, saved, or started.
+func HasErrors(values []Diagnostic) bool {
+	for _, value := range values {
+		if value.Severity == SeverityError {
+			return true
+		}
+	}
+	return false
+}
