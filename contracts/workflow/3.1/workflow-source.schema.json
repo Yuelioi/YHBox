@@ -55,11 +55,13 @@
       "additionalProperties": false,
       "properties": {
         "nodeId": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "portId": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         }
       },
@@ -80,7 +82,8 @@
           "type": "array"
         },
         "id": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "inputs": {
@@ -126,15 +129,18 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "nodeId": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "portId": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "type": {
@@ -186,7 +192,8 @@
           "type": "boolean"
         },
         "id": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "label": {
@@ -247,7 +254,8 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "purpose": {
@@ -373,7 +381,8 @@
       "properties": {
         "default": true,
         "name": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "type": {
@@ -390,7 +399,8 @@
       "additionalProperties": false,
       "properties": {
         "id": {
-          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "name": {
@@ -410,7 +420,8 @@
   "additionalProperties": false,
   "properties": {
     "entryGraph": {
-      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
       "type": "string"
     },
     "format": {

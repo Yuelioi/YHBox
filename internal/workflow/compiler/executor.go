@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
+	"time"
 
+	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -24,13 +27,25 @@ type InstalledAdapter struct {
 }
 
 type Invocation struct {
-	GraphID  string
-	NodeID   string
-	Config   map[string]any
-	Inputs   map[string]datatype.ValueEnvelope
-	Sessions map[string]*run31.Session
-	Spawn    func(func(context.Context) error) error
+	GraphID      string
+	NodeID       string
+	Config       map[string]any
+	Inputs       map[string]datatype.ValueEnvelope
+	Sessions     map[string]*run31.Session
+	Spawn        func(func(context.Context) error) error
+	RecordAction func(context.Context, AdapterAction) error
 }
+
+type AdapterAction struct {
+	EffectID    string
+	Action      string
+	Outcome     run31.ActionOutcome
+	ErrorCode   string
+	SummaryCode string
+	Counters    map[string]int64
+}
+
+var errAdapterActionFailed = errors.New("adapter recorded a failed action")
 
 type ExecutionResult struct {
 	// NodeOutputs contains only durable envelopes. Runtime authority remains an
@@ -41,24 +56,114 @@ type ExecutionResult struct {
 type Executor struct {
 	catalog  nodecatalog.Snapshot
 	adapters map[string]InstalledAdapter
+	now      func() time.Time
 }
+
+type ExecutorOptions struct{ Now func() time.Time }
 
 type ownedLease struct {
 	session *run31.Session
 	handle  resource.Handle
 }
 
-func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdapter) *Executor {
+func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdapter, options ExecutorOptions) *Executor {
 	installed := make(map[string]InstalledAdapter, len(adapters))
 	for entrypoint, adapter := range adapters {
 		installed[entrypoint] = adapter
 	}
-	return &Executor{catalog: catalog, adapters: installed}
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	return &Executor{catalog: catalog, adapters: installed, now: options.Now}
 }
 
-func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run31.Owner) (ExecutionResult, error) {
-	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil {
-		return ExecutionResult{}, errors.New("executor requires Program, Catalog, and Run Owner")
+func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run31.Owner, journal *run31.JournalWriter) (ExecutionResult, error) {
+	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
+		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
+	}
+	current := journal.Current()
+	if current.Status() != run31.StatusRunning || current.Admission().CatalogHash != e.catalog.Hash() ||
+		current.Admission().ProgramHash != program.Hash() || current.Admission().CapabilityPlanDigest != program.CapabilityPlan().Digest() {
+		return ExecutionResult{}, errors.New("executor journal does not match Program and Catalog")
+	}
+	if err := owner.ValidateAdmission(current.Admission()); err != nil {
+		return ExecutionResult{}, err
+	}
+	result, executionErr := e.execute(ctx, program, owner, journal)
+	finishedAt := e.now().UTC()
+	if executionErr != nil {
+		if errors.Is(executionErr, context.Canceled) || errors.Is(executionErr, context.DeadlineExceeded) {
+			_, terminalErr := journal.Cancel(context.WithoutCancel(ctx), finishedAt)
+			return ExecutionResult{}, errors.Join(executionErr, terminalErr)
+		}
+		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), finishedAt, runErrorForExecution(executionErr, journal.Current().Journal()))
+		return ExecutionResult{}, errors.Join(executionErr, terminalErr)
+	}
+	produced := make([]run31.ProducedValue, 0)
+	graphID := program.state.document.Body.EntryGraph
+	for nodeID, outputs := range result.NodeOutputs {
+		for portID, envelope := range outputs {
+			valueID, err := runValueID(current.Admission().RunID, graphID, nodeID, portID, 1)
+			if err != nil {
+				return ExecutionResult{}, fmt.Errorf("derive Run Value identity: %w", err)
+			}
+			produced = append(produced, run31.ProducedValue{
+				ValueID: valueID, GraphID: graphID,
+				NodeID: nodeID, PortID: portID, Attempt: 1, Envelope: envelope,
+			})
+		}
+	}
+	if _, err := journal.Succeed(context.WithoutCancel(ctx), finishedAt, e.catalog, produced); err != nil {
+		return ExecutionResult{}, fmt.Errorf("persist successful Run: %w", err)
+	}
+	return result, nil
+}
+
+func runValueID(runID, graphID, nodeID, portID string, attempt int) (string, error) {
+	identity, err := artifact.Marshal(struct {
+		RunID   string `json:"runId"`
+		GraphID string `json:"graphId"`
+		NodeID  string `json:"nodeId"`
+		PortID  string `json:"portId"`
+		Attempt int    `json:"attempt"`
+	}{RunID: runID, GraphID: graphID, NodeID: nodeID, PortID: portID, Attempt: attempt})
+	if err != nil {
+		return "", err
+	}
+	digest, err := artifact.Sum("yotta/run-value-id/v1", identity)
+	return string(digest), err
+}
+
+func runErrorForExecution(executionErr error, journal []run31.JournalEntry) run31.RunError {
+	if errors.Is(executionErr, run31.ErrGrantDenied) {
+		return run31.RunError{Code: "policy.grant_denied", Category: run31.ErrorCategoryPolicy}
+	}
+	for index := len(journal) - 1; index >= 0; index-- {
+		entry := journal[index]
+		if entry.Kind == run31.JournalNodeAttempt && entry.AttemptOutcome == run31.AttemptFailed {
+			category := run31.ErrorCategoryNode
+			for actionIndex := index - 1; actionIndex >= 0; actionIndex-- {
+				action := journal[actionIndex]
+				if action.Kind == run31.JournalNodeAttempt && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt {
+					break
+				}
+				if action.Kind == run31.JournalAdapterAction && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt && action.ActionOutcome == run31.ActionFailed {
+					category = run31.ErrorCategoryAdapter
+					break
+				}
+			}
+			return run31.RunError{
+				Code: entry.ErrorCode, Category: category, GraphID: entry.GraphPath[len(entry.GraphPath)-1],
+				NodeID: entry.NodeID, Attempt: entry.Attempt,
+			}
+		}
+	}
+	return run31.RunError{Code: "runtime.execution_failed", Category: run31.ErrorCategoryInfrastructure}
+}
+
+func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run31.Owner, journal *run31.JournalWriter) (ExecutionResult, error) {
+	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
+		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
 	}
 	runCtx, cancelRun := context.WithCancel(ctx)
 	stopOwnerWatch := context.AfterFunc(owner.Context(), cancelRun)
@@ -120,6 +225,7 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run3
 		if !ok {
 			return ExecutionResult{}, fmt.Errorf("node type %q is not installed", node.NodeRef.NodeTypeID)
 		}
+		machine := entry.Contract.Machine()
 		installed, ok := e.adapters[node.Implementation.Entrypoint]
 		if !ok || installed.Run == nil || installed.Implementation != node.Implementation {
 			return ExecutionResult{}, fmt.Errorf("adapter %q does not match the Program lock", node.Implementation.Entrypoint)
@@ -128,8 +234,8 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run3
 		if err != nil {
 			return ExecutionResult{}, err
 		}
-		nodeSessions := make(map[string]*run31.Session, len(entry.Contract.Machine().CapabilityRequirements))
-		for _, requirement := range entry.Contract.Machine().CapabilityRequirements {
+		nodeSessions := make(map[string]*run31.Session, len(machine.CapabilityRequirements))
+		for _, requirement := range machine.CapabilityRequirements {
 			session, err := owner.Session(graph.ID, node.ID, requirement.ID, invocationID)
 			if err != nil {
 				return ExecutionResult{}, err
@@ -184,26 +290,72 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run3
 		if err != nil {
 			return ExecutionResult{}, fmt.Errorf("clone config for node %q: %w", node.ID, err)
 		}
+		summary, err := run31.NewRedactedSummary("node.execute", nil)
+		if err != nil {
+			return ExecutionResult{}, err
+		}
+		started, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
+			GraphPath: []string{graph.ID}, NodeID: node.ID, Attempt: 1, Outcome: run31.AttemptStarted,
+			OccurredAt: e.now().UTC(), Summary: summary,
+		})
+		if err != nil {
+			return ExecutionResult{}, err
+		}
+		if _, err := journal.Append(ctx, started); err != nil {
+			return ExecutionResult{}, fmt.Errorf("journal node %q start: %w", node.ID, err)
+		}
+		recorder := newAdapterActionRecorder(e, journal, graph.ID, node.ID, machine)
 		outputs, runErr := installed.Run(ctx, Invocation{
 			GraphID: graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
-			Sessions: nodeSessions, Spawn: owner.Go,
+			Sessions: nodeSessions, Spawn: owner.Go, RecordAction: recorder.Record,
 		})
+		actionErr := recorder.Close()
 		if runErr != nil {
-			return ExecutionResult{}, fmt.Errorf("run node %q: %w", node.ID, runErr)
+			if errors.Is(runErr, context.Canceled) || errors.Is(runErr, context.DeadlineExceeded) || ctx.Err() != nil {
+				journalErr := e.cancelAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, summary)
+				return ExecutionResult{}, errors.Join(fmt.Errorf("run node %q: %w", node.ID, runErr), actionErr, journalErr)
+			}
+			code := declaredErrorCode(machine, "runtime.adapter_failed")
+			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, code, summary)
+			return ExecutionResult{}, errors.Join(fmt.Errorf("run node %q: %w", node.ID, runErr), actionErr, journalErr)
+		}
+		if actionErr != nil {
+			if errors.Is(actionErr, context.Canceled) || errors.Is(actionErr, context.DeadlineExceeded) {
+				journalErr := e.cancelAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, summary)
+				return ExecutionResult{}, errors.Join(actionErr, journalErr)
+			}
+			code := "runtime.journal_failed"
+			if errors.Is(actionErr, errAdapterActionFailed) {
+				code = declaredErrorCode(machine, "runtime.adapter_failed")
+			}
+			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, code, summary)
+			return ExecutionResult{}, errors.Join(actionErr, journalErr)
 		}
 		sealed, leases, err := e.validateOutputs(node, outputs, nodeSessions)
 		if err != nil {
-			return ExecutionResult{}, err
+			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, "runtime.output_invalid", summary)
+			return ExecutionResult{}, errors.Join(err, journalErr)
 		}
 		for _, envelope := range sealed {
 			size := len(envelope.RuntimeArtifact())
 			if size > MaxRunRetainedValueBytes-retainedBytes {
-				return ExecutionResult{}, errors.New("run retained value budget exceeded")
+				journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, "runtime.value_budget_exceeded", summary)
+				return ExecutionResult{}, errors.Join(errors.New("run retained value budget exceeded"), journalErr)
 			}
 			retainedBytes += size
 		}
 		owned = append(owned, leases...)
 		result.NodeOutputs[node.ID] = sealed
+		finished, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
+			GraphPath: []string{graph.ID}, NodeID: node.ID, Attempt: 1, Outcome: run31.AttemptSucceeded,
+			OccurredAt: e.now().UTC(), Summary: summary,
+		})
+		if err != nil {
+			return ExecutionResult{}, err
+		}
+		if _, err := journal.Append(context.WithoutCancel(ctx), finished); err != nil {
+			return ExecutionResult{}, fmt.Errorf("journal node %q success: %w", node.ID, err)
+		}
 	}
 	if err := owner.Wait(ctx); err != nil {
 		return ExecutionResult{}, err
@@ -214,6 +366,120 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run3
 	removeRuntimeOutputs(result.NodeOutputs)
 	completed = true
 	return result, nil
+}
+
+func declaredErrorCode(machine nodecontract.MachineContract, fallback string) string {
+	if len(machine.Errors) > 0 {
+		return machine.Errors[0].Code
+	}
+	return fallback
+}
+
+type adapterActionRecorder struct {
+	mu         sync.Mutex
+	executor   *Executor
+	journal    *run31.JournalWriter
+	graphID    string
+	nodeID     string
+	expected   map[string]struct{}
+	recorded   map[string]struct{}
+	violation  error
+	outcomeErr error
+	closed     bool
+}
+
+func newAdapterActionRecorder(executor *Executor, journal *run31.JournalWriter, graphID, nodeID string, machine nodecontract.MachineContract) *adapterActionRecorder {
+	expected := make(map[string]struct{}, len(machine.Execution.Effects))
+	for _, effect := range machine.Execution.Effects {
+		expected[string(effect)] = struct{}{}
+	}
+	return &adapterActionRecorder{executor: executor, journal: journal, graphID: graphID, nodeID: nodeID, expected: expected, recorded: map[string]struct{}{}}
+}
+
+func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	reject := func(err error) error {
+		if r.violation == nil {
+			r.violation = err
+		}
+		return err
+	}
+	if ctx == nil {
+		return reject(errors.New("adapter action context is required"))
+	}
+	if r.closed {
+		return errors.New("adapter action was recorded after invocation returned")
+	}
+	if _, expected := r.expected[action.EffectID]; !expected {
+		return reject(errors.New("adapter action does not match a declared effect"))
+	}
+	if _, duplicate := r.recorded[action.EffectID]; duplicate {
+		return reject(errors.New("adapter recorded a declared effect more than once"))
+	}
+	summary, err := run31.NewRedactedSummary(action.SummaryCode, action.Counters)
+	if err != nil {
+		return reject(err)
+	}
+	fact, err := run31.NewAdapterActionFact(run31.AdapterActionInput{
+		GraphPath: []string{r.graphID}, NodeID: r.nodeID, EffectID: action.EffectID, Attempt: 1,
+		Action: action.Action, Outcome: action.Outcome, OccurredAt: r.executor.now().UTC(), ErrorCode: action.ErrorCode, Summary: summary,
+	})
+	if err != nil {
+		return reject(err)
+	}
+	if _, err := r.journal.Append(ctx, fact); err != nil {
+		return reject(err)
+	}
+	r.recorded[action.EffectID] = struct{}{}
+	switch action.Outcome {
+	case run31.ActionFailed:
+		r.outcomeErr = errAdapterActionFailed
+	case run31.ActionCancelled:
+		if r.outcomeErr == nil {
+			r.outcomeErr = context.Canceled
+		}
+	}
+	return nil
+}
+
+func (r *adapterActionRecorder) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.closed = true
+	if r.violation != nil {
+		return r.violation
+	}
+	for effectID := range r.expected {
+		if _, recorded := r.recorded[effectID]; !recorded {
+			return errors.New("adapter did not record every declared effect")
+		}
+	}
+	return r.outcomeErr
+}
+
+func (e *Executor) failAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID, code string, summary run31.RedactedSummary) error {
+	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
+		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: 1, Outcome: run31.AttemptFailed,
+		OccurredAt: e.now().UTC(), ErrorCode: code, Summary: summary,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = journal.Append(ctx, fact)
+	return err
+}
+
+func (e *Executor) cancelAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID string, summary run31.RedactedSummary) error {
+	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
+		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: 1, Outcome: run31.AttemptCancelled,
+		OccurredAt: e.now().UTC(), Summary: summary,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = journal.Append(ctx, fact)
+	return err
 }
 
 func removeRuntimeOutputs(nodes map[string]map[string]datatype.ValueEnvelope) {

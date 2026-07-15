@@ -25,8 +25,9 @@ const (
 )
 
 var (
-	runFieldPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$`)
-	errorCodePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$`)
+	runFieldPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$`)
+	attributionPattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$`)
+	errorCodePattern   = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$`)
 )
 
 type Status string
@@ -103,6 +104,7 @@ type recordDocument struct {
 	StartedAt            *time.Time      `json:"startedAt,omitempty"`
 	EndedAt              *time.Time      `json:"endedAt,omitempty"`
 	Error                *RunError       `json:"error,omitempty"`
+	Journal              []journalEntry  `json:"journal"`
 	Values               []durableValue  `json:"values"`
 }
 
@@ -119,7 +121,7 @@ func NewQueuedRecord(admission Admission) (Record, error) {
 		ProgramHash: admission.ProgramHash, CatalogHash: admission.CatalogHash,
 		CapabilityPlanDigest: admission.CapabilityPlanDigest, GrantDigest: admission.GrantDigest,
 		PolicyGeneration: admission.PolicyGeneration, Principal: admission.Principal,
-		Status: StatusQueued, QueuedAt: admission.QueuedAt, Values: []durableValue{},
+		Status: StatusQueued, QueuedAt: admission.QueuedAt, Journal: []journalEntry{}, Values: []durableValue{},
 	}
 	return sealRecord(document, nil)
 }
@@ -184,7 +186,7 @@ func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) 
 	if document.Format != RecordFormat || document.Version != RecordVersion || document.Generation == 0 ||
 		runid.Validate(document.RunID) != nil || !runFieldPattern.MatchString(document.PolicyGeneration) || !runFieldPattern.MatchString(document.Principal) ||
 		!document.ProgramHash.Valid() || !document.CatalogHash.Valid() || !document.CapabilityPlanDigest.Valid() || !document.GrantDigest.Valid() ||
-		document.QueuedAt.Location() != time.UTC {
+		document.QueuedAt.Location() != time.UTC || document.Journal == nil {
 		return errors.New("invalid RunRecord identity")
 	}
 	if catalog == nil && len(document.Values) != 0 {
@@ -216,9 +218,15 @@ func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) 
 	default:
 		return errors.New("unsupported RunRecord status")
 	}
+	if err := validateJournal(document.Journal, document.StartedAt, document.Status != StatusRunning, document.Status == StatusSucceeded); err != nil {
+		return err
+	}
+	if document.EndedAt != nil && len(document.Journal) > 0 && document.EndedAt.Before(document.Journal[len(document.Journal)-1].OccurredAt) {
+		return errors.New("run ended before its journal")
+	}
 	seen := make(map[string]struct{}, len(document.Values))
 	for _, value := range document.Values {
-		if !runFieldPattern.MatchString(value.ValueID) || !validAttribution(value.GraphID) || !validAttribution(value.NodeID) ||
+		if !runFieldPattern.MatchString(value.ValueID) || !attributionPattern.MatchString(value.GraphID) || !attributionPattern.MatchString(value.NodeID) ||
 			!runFieldPattern.MatchString(value.PortID) || value.Attempt < 1 || !value.ValueDigest.Valid() {
 			return errors.New("invalid durable Run value provenance")
 		}
@@ -247,7 +255,7 @@ func validRunError(value RunError) bool {
 	if value.GraphID == "" && value.NodeID == "" {
 		return value.Attempt == 0
 	}
-	return validAttribution(value.GraphID) && validAttribution(value.NodeID) && value.Attempt > 0
+	return attributionPattern.MatchString(value.GraphID) && attributionPattern.MatchString(value.NodeID) && value.Attempt > 0
 }
 
 func validErrorCategory(value string) bool {
@@ -331,6 +339,24 @@ func (r Record) Cancel(at time.Time) (Record, error) {
 	return sealRecord(document, nil)
 }
 
+func (r Record) AppendJournal(fact JournalFact) (Record, error) {
+	if !r.Valid() || r.state.document.Status != StatusRunning || validateJournalFact(fact.entry) != nil || len(r.state.document.Journal) >= MaxJournalEntries {
+		return Record{}, ErrJournalOrder
+	}
+	document := r.state.document
+	document.Generation++
+	entry := fact.entry
+	entry.Sequence = uint64(len(document.Journal) + 1)
+	entry.GraphPath = append([]string(nil), entry.GraphPath...)
+	entry.Summary = cloneSummary(entry.Summary)
+	document.Journal = append(append([]journalEntry(nil), document.Journal...), entry)
+	sealed, err := sealRecord(document, nil)
+	if err != nil {
+		return Record{}, errors.Join(ErrJournalOrder, err)
+	}
+	return sealed, nil
+}
+
 func validEnd(at time.Time, started *time.Time) bool {
 	return started != nil && at.Location() == time.UTC && !at.Before(*started)
 }
@@ -378,6 +404,25 @@ func (r Record) Admission() Admission {
 		CapabilityPlanDigest: document.CapabilityPlanDigest, GrantDigest: document.GrantDigest,
 		PolicyGeneration: document.PolicyGeneration, Principal: document.Principal, QueuedAt: document.QueuedAt,
 	}
+}
+func (r Record) Journal() []JournalEntry {
+	if !r.Valid() {
+		return nil
+	}
+	result := make([]JournalEntry, 0, len(r.state.document.Journal))
+	for _, entry := range r.state.document.Journal {
+		counters := make(map[string]int64, len(entry.Summary.Counters))
+		for _, counter := range entry.Summary.Counters {
+			counters[counter.Name] = counter.Value
+		}
+		result = append(result, JournalEntry{
+			Sequence: entry.Sequence, Kind: entry.Kind, GraphPath: append([]string(nil), entry.GraphPath...),
+			NodeID: entry.NodeID, EffectID: entry.EffectID, Attempt: entry.Attempt, Action: entry.Action,
+			AttemptOutcome: entry.AttemptOutcome, ActionOutcome: entry.ActionOutcome, OccurredAt: entry.OccurredAt,
+			ErrorCode: entry.ErrorCode, Summary: RedactedSummaryView{Code: entry.Summary.Code, Counters: counters},
+		})
+	}
+	return result
 }
 func (r Record) Bytes() []byte {
 	if !r.Valid() {

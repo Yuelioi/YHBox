@@ -77,6 +77,23 @@ func TestParseSource31RequiresExplicitEdgeChannel(t *testing.T) {
 	}
 }
 
+func TestParseSource31RejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T) {
+	valid := validSource31ForTest()
+	for _, test := range []struct {
+		name string
+		raw  string
+	}{
+		{name: "filesystem path", raw: strings.Replace(valid, `"id":"concat-1"`, `"id":"C:\\secrets\\api-key"`, 1)},
+		{name: "prompt text", raw: strings.Replace(valid, `"id":"concat-1"`, `"id":"ignore previous instructions"`, 1)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, diagnostics := ParseSource([]byte(test.raw)); len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidField {
+				t.Fatalf("diagnostics = %#v", diagnostics)
+			}
+		})
+	}
+}
+
 func TestParseSource31ValidatesNestedTypeExpressionsAndWholeDocumentBudget(t *testing.T) {
 	invalidType := strings.Replace(validSource31ForTest(), `"variables":[]`, fmt.Sprintf(`"variables":[{"name":"bad","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/bad","semanticDigest":"sha256:%s"}}}]`, strings.Repeat("2", 64)), 1)
 	if _, diagnostics := ParseSource([]byte(invalidType)); len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidField {

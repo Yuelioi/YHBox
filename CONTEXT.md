@@ -181,5 +181,9 @@ _Avoid_: Output map, traced envelope
 _Avoid_: Global runtime, service bundle
 
 **Node Attempt**:
-某个 Node Instance 在一次 Run 中的一次具名执行事实；记录时间、effect、稳定错误与脱敏 lineage，重试会产生新的 attempt 而不是改写旧事实。
+某个 Node Instance 在一次 Run 中的一次具名执行事实；以 started 和 terminal 事实包围本次实现调用，记录时间、稳定错误与脱敏 lineage，重试会产生新的 attempt 而不是改写旧事实。
 _Avoid_: Retry counter, debug log
+
+**Adapter Action**:
+Node Attempt 内由 adapter 主动记录的真实 effect 动作；必须匹配 Node Contract 声明的 Effect，使用稳定 action/error code 与只含 code、数值 counters 的脱敏摘要。
+_Avoid_: Synthesized effect log, raw error, debug message

@@ -13,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodes31"
+	run31 "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -74,7 +75,14 @@ func concatAdapter(builtins nodes31.Builtins) compiler.Adapter {
 }
 
 func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ map[string]datatype.ValueEnvelope, runErr error) {
+		counters := map[string]int64{}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.stream-opened",
+				SummaryCode: "conversion.blob-to-stream", Counters: counters,
+			}, "conversion.blob_to_stream_failed", runErr))
+		}()
 		input, ok := invocation.Inputs["blob"]
 		if !ok {
 			return nil, errors.New("blob-to-stream input is missing")
@@ -83,6 +91,7 @@ func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
 		if !ok {
 			return nil, errors.New("blob-to-stream input is not a BlobRef")
 		}
+		counters["bytes"] = ref.Size
 		blobSession, streamSession := invocation.Sessions["blob-read"], invocation.Sessions["stream"]
 		if blobSession == nil || streamSession == nil {
 			return nil, errors.New("blob-to-stream capability session is missing")
@@ -145,7 +154,14 @@ func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
 }
 
 func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ map[string]datatype.ValueEnvelope, runErr error) {
+		counters := map[string]int64{}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+				EffectID: nodes31.StreamToBlobEffectID, Action: "conversion.blob-committed",
+				SummaryCode: "conversion.stream-to-blob", Counters: counters,
+			}, "conversion.stream_to_blob_failed", runErr))
+		}()
 		input, ok := invocation.Inputs["stream"]
 		if !ok {
 			return nil, errors.New("stream-to-blob input is missing")
@@ -203,6 +219,7 @@ func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
 		if err := ref.Validate(); err != nil {
 			return nil, fmt.Errorf("validate committed BlobRef: %w", err)
 		}
+		counters["bytes"] = ref.Size
 		committed = true
 		envelope, err := datatype.SealBlobRef(builtins.Catalog, input.Type(), ref)
 		if err != nil {
@@ -210,4 +227,20 @@ func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
 		}
 		return map[string]datatype.ValueEnvelope{"blob": envelope}, nil
 	}
+}
+
+func recordAdapterOutcome(ctx context.Context, invocation compiler.Invocation, action compiler.AdapterAction, failureCode string, runErr error) error {
+	if invocation.RecordAction == nil {
+		return errors.New("adapter action recorder is required")
+	}
+	switch {
+	case errors.Is(runErr, context.Canceled), errors.Is(runErr, context.DeadlineExceeded), ctx.Err() != nil:
+		action.Outcome = run31.ActionCancelled
+	case runErr != nil:
+		action.Outcome = run31.ActionFailed
+		action.ErrorCode = failureCode
+	default:
+		action.Outcome = run31.ActionSucceeded
+	}
+	return invocation.RecordAction(context.WithoutCancel(ctx), action)
 }

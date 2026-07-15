@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
@@ -62,6 +64,8 @@ func TestInstalledAdaptersRejectCatalogThatSelfAssertsAnotherImplementation(t *t
 
 func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	ctx := context.Background()
+	graphID := strings.Repeat("g", 128)
+	nodeID := strings.Repeat("n", 128)
 	builtins, err := nodes31.Build()
 	if err != nil {
 		t.Fatal(err)
@@ -73,11 +77,11 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	ref := builtins.ConcatContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-pure","name":"Pure"},
-		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+		"revision":0,"entryGraph":%q,"graphs":[{"id":%q,"kind":"main","nodes":[{
+			"id":%q,"nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
-	}`, ref.NodeTypeID, ref.SemanticDigest))
+	}`, graphID, graphID, nodeID, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(build).CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
@@ -108,22 +112,86 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execution, err := compiler.NewExecutor(builtins.Catalog, adapters).Run(ctx, program, owner)
+	journal := openJournal(t, builtins.Catalog, program, grant, now)
+	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
+	execution, err := executor.Run(ctx, program, owner, journal)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got string
-	if err := json.Unmarshal(execution.NodeOutputs["concat"]["result"].InlineJSON(), &got); err != nil {
+	if err := json.Unmarshal(execution.NodeOutputs[nodeID]["result"].InlineJSON(), &got); err != nil {
 		t.Fatal(err)
 	}
 	if got != "Yotta 3.1" {
 		t.Fatalf("concat result = %q", got)
 	}
+	if journal.Current().Status() != run31.StatusSucceeded {
+		t.Fatalf("pure Run status = %s", journal.Current().Status())
+	}
 	if err := owner.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := compiler.NewExecutor(builtins.Catalog, adapters).Run(ctx, program, owner); !errors.Is(err, run31.ErrGrantDenied) {
+	deniedJournal := openJournal(t, builtins.Catalog, program, grant, now)
+	if _, err := executor.Run(ctx, program, owner, deniedJournal); !errors.Is(err, run31.ErrGrantDenied) {
 		t.Fatalf("execution after Run Owner close = %v", err)
+	}
+}
+
+func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := artifact.Sum("yotta/test/compiler-build/v1", []byte("nodes31runtime cancellation race"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := builtins.ConcatContract.NodeRef()
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-cancel-race","name":"Cancel race"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, ref.NodeTypeID, ref.SemanticDigest))
+	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("compiler did not produce a Program")
+	}
+	now := time.Date(2026, 7, 15, 3, 30, 0, 0, time.UTC)
+	_, owner, journal := admittedExecution(t, builtins, program, nil, now)
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := nodes31runtime.Installed(builtins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := builtins.Catalog.Lookup(nodes31.ConcatNodeID)
+	if !ok {
+		t.Fatal("concat Catalog entry is missing")
+	}
+	original := adapters[entry.Implementation.Entrypoint]
+	runCtx, cancel := context.WithCancel(context.Background())
+	originalRun := original.Run
+	original.Run = func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+		outputs, err := originalRun(ctx, invocation)
+		cancel()
+		return outputs, err
+	}
+	adapters[entry.Implementation.Entrypoint] = original
+	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
+	if _, err := executor.Run(runCtx, program, owner, journal); err != nil {
+		t.Fatalf("Run error = %v", err)
+	}
+	if journal.Current().Status() != run31.StatusSucceeded {
+		t.Fatalf("Run status = %s", journal.Current().Status())
+	}
+	facts := journal.Current().Journal()
+	if len(facts) != 2 || facts[1].AttemptOutcome != run31.AttemptSucceeded {
+		t.Fatalf("journal = %#v", facts)
 	}
 }
 
@@ -197,9 +265,20 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	execution, err := compiler.NewExecutor(builtins.Catalog, adapters).Run(ctx, program, owner)
+	journal := openJournal(t, builtins.Catalog, program, grant, now)
+	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
+	execution, err := executor.Run(ctx, program, owner, journal)
 	if err != nil {
 		t.Fatal(err)
+	}
+	facts := journal.Current().Journal()
+	if len(facts) != 6 || facts[1].Kind != run31.JournalAdapterAction || facts[1].Action != "conversion.stream-opened" ||
+		facts[1].ActionOutcome != run31.ActionSucceeded || facts[1].Summary.Counters["bytes"] != int64(len(want)) ||
+		facts[4].Kind != run31.JournalAdapterAction || facts[4].Action != "conversion.blob-committed" {
+		t.Fatalf("conversion journal = %#v", facts)
+	}
+	if journal.Current().Status() != run31.StatusSucceeded {
+		t.Fatalf("conversion Run status = %s", journal.Current().Status())
 	}
 	if _, exposed := execution.NodeOutputs["to-stream"]["stream"]; exposed {
 		t.Fatal("ExecutionResult exposed a reclaimed runtime authority")
@@ -224,6 +303,160 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if reclaimed, err := store.Sweep(nil); err != nil || reclaimed != 1 {
 		t.Fatalf("Sweep after Run close = %d, %v; want released output", reclaimed, err)
 	}
+}
+
+func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *testing.T) {
+	ctx := context.Background()
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputRef, err := store.Put(ctx, "application/octet-stream", bytes.NewReader([]byte("journal")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := artifact.Sum("yotta/test/compiler-build/v1", []byte("nodes31runtime journal failures"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := compiler.New(build).CompileDraft(ctx, compiler.CompileRequest{
+		SourceJSON: conversionSource(builtins, inputRef), Catalog: builtins.Catalog,
+	})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("compiler did not produce a Program")
+	}
+	blobProvider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamProvider, err := stream.NewProvider(stream.Limits{MaxCapacity: 4, MaxChunkBytes: 64 << 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers := map[string]resource.Provider{blob.ProviderID: blobProvider, stream.ProviderID: streamProvider}
+	installed, err := nodes31runtime.Installed(builtins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := builtins.Catalog.Lookup(nodes31.BlobToStreamNodeID)
+	if !ok {
+		t.Fatal("blob-to-stream Catalog entry is missing")
+	}
+	now := time.Date(2026, 7, 15, 4, 0, 0, 0, time.UTC)
+	original := installed[entry.Implementation.Entrypoint].Run
+	tests := []struct {
+		name       string
+		adapter    compiler.Adapter
+		wantStatus run31.Status
+		wantError  error
+		wantText   string
+	}{
+		{name: "missing action", adapter: func(context.Context, compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+			return nil, errors.New("adapter omitted its action")
+		}, wantStatus: run31.StatusFailed},
+		{name: "cancelled action", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.test-action", Outcome: run31.ActionCancelled,
+				SummaryCode: "conversion.test",
+			})
+			return nil, errors.Join(context.Canceled, err)
+		}, wantStatus: run31.StatusCancelled, wantError: context.Canceled},
+		{name: "duplicate action", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+			outputs, err := original(ctx, invocation)
+			if err != nil {
+				return nil, err
+			}
+			_ = invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.duplicate", Outcome: run31.ActionSucceeded,
+				SummaryCode: "conversion.test",
+			})
+			return outputs, nil
+		}, wantStatus: run31.StatusFailed, wantText: "more than once"},
+		{name: "failed action with successful return", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
+				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.failed", Outcome: run31.ActionFailed,
+				ErrorCode: "conversion.blob_to_stream_failed", SummaryCode: "conversion.test",
+			})
+			return nil, err
+		}, wantStatus: run31.StatusFailed},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			grant, owner, journal := admittedExecution(t, builtins, program, providers, now)
+			t.Cleanup(func() { _ = owner.Close(context.Background()) })
+			adapters := make(map[string]compiler.InstalledAdapter, len(installed))
+			for id, adapter := range installed {
+				adapters[id] = adapter
+			}
+			adapters[entry.Implementation.Entrypoint] = compiler.InstalledAdapter{Implementation: entry.Implementation, Run: test.adapter}
+			executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
+			_, runErr := executor.Run(ctx, program, owner, journal)
+			if runErr == nil || test.wantError != nil && !errors.Is(runErr, test.wantError) || test.wantText != "" && !strings.Contains(runErr.Error(), test.wantText) {
+				t.Fatalf("Run error = %v", runErr)
+			}
+			if journal.Current().Status() != test.wantStatus {
+				t.Fatalf("Run %s status = %s", grant.RunID(), journal.Current().Status())
+			}
+		})
+	}
+}
+
+func admittedExecution(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]resource.Provider, now time.Time) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
+	t.Helper()
+	runID, err := runid.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant, err := capability.SealRunGrant(capability.GrantRequest{
+		ProgramHash: program.Hash(), Plan: program.CapabilityPlan(), RunID: runID, Principal: "user-1",
+		PolicyGeneration: "policy-1", IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: exactBindings(t, program.CapabilityPlan()),
+	}, builtins.Catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := run31.NewOwner(context.Background(), grant, providers, resource.Options{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return grant, owner, openJournal(t, builtins.Catalog, program, grant, now)
+}
+
+func openJournal(t *testing.T, catalog nodecatalog.Snapshot, program compiler.ProgramSnapshot, grant capability.RunGrant, now time.Time) *run31.JournalWriter {
+	t.Helper()
+	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queued, err := run31.NewQueuedRecord(run31.Admission{
+		RunID: grant.RunID(), ProgramHash: program.Hash(), CatalogHash: catalog.Hash(), CapabilityPlanDigest: program.CapabilityPlan().Digest(),
+		GrantDigest: grant.Digest(), PolicyGeneration: grant.PolicyGeneration(), Principal: grant.Principal(), QueuedAt: now.Add(-time.Second),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), queued); err != nil {
+		t.Fatal(err)
+	}
+	running, err := queued.Start(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(context.Background(), queued.Digest(), running); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := store.OpenJournal(grant.RunID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return journal
 }
 
 func exactBindings(t *testing.T, plan capability.Plan) []capability.Binding {

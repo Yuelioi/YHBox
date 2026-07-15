@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -259,6 +260,22 @@ func (s *Store) recordPath(runID string) string { return filepath.Join(s.root, r
 
 func validSuccessor(current, next Record) bool {
 	if !current.Valid() || !next.Valid() || current.Admission() != next.Admission() || next.Generation() != current.Generation()+1 {
+		return false
+	}
+	currentJournal := current.state.document.Journal
+	nextJournal := next.state.document.Journal
+	if current.Status() == StatusRunning && next.Status() == StatusRunning {
+		if len(nextJournal) != len(currentJournal)+1 || !reflect.DeepEqual(nextJournal[:len(currentJournal)], currentJournal) {
+			return false
+		}
+		currentDocument := current.state.document
+		nextDocument := next.state.document
+		currentDocument.RecordDigest, nextDocument.RecordDigest = "", ""
+		currentDocument.Generation, nextDocument.Generation = 0, 0
+		currentDocument.Journal, nextDocument.Journal = nil, nil
+		return reflect.DeepEqual(currentDocument, nextDocument)
+	}
+	if !reflect.DeepEqual(currentJournal, nextJournal) {
 		return false
 	}
 	switch current.Status() {

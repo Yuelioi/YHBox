@@ -30,19 +30,19 @@ type WorkflowSource struct {
 	Version    string      `json:"version" jsonschema:"required,enum=3.1"`
 	Workflow   Workflow    `json:"workflow" jsonschema:"required"`
 	Revision   int64       `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
-	EntryGraph string      `json:"entryGraph" jsonschema:"required,minLength=1"`
+	EntryGraph string      `json:"entryGraph" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Graphs     []Graph     `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
 	Variables  []Variable  `json:"variables" jsonschema:"required,maxItems=4096"`
 	SecretRefs []SecretRef `json:"secretRefs" jsonschema:"required,maxItems=4096"`
 }
 
 type Workflow struct {
-	ID   string `json:"id" jsonschema:"required,minLength=1"`
+	ID   string `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Name string `json:"name" jsonschema:"required,minLength=1"`
 }
 
 type Graph struct {
-	ID      string      `json:"id" jsonschema:"required,minLength=1"`
+	ID      string      `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Kind    GraphKind   `json:"kind" jsonschema:"required,enum=main,enum=subgraph"`
 	Nodes   []Node      `json:"nodes" jsonschema:"required,maxItems=4096"`
 	Edges   []Edge      `json:"edges" jsonschema:"required,maxItems=16384"`
@@ -51,10 +51,10 @@ type Graph struct {
 }
 
 type GraphPort struct {
-	ID     string                  `json:"id" jsonschema:"required,minLength=1"`
+	ID     string                  `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Type   datatype.TypeExpression `json:"type" jsonschema:"required"`
-	NodeID string                  `json:"nodeId" jsonschema:"required,minLength=1"`
-	PortID string                  `json:"portId" jsonschema:"required,minLength=1"`
+	NodeID string                  `json:"nodeId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	PortID string                  `json:"portId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 }
 
 type BindingKind string
@@ -72,7 +72,7 @@ type InputBinding struct {
 }
 
 type Node struct {
-	ID       string                  `json:"id" jsonschema:"required,minLength=1"`
+	ID       string                  `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	NodeRef  nodecontract.NodeRef    `json:"nodeRef" jsonschema:"required"`
 	Label    string                  `json:"label,omitempty"`
 	Position Position                `json:"position" jsonschema:"required"`
@@ -96,8 +96,8 @@ const (
 )
 
 type Endpoint struct {
-	NodeID string `json:"nodeId" jsonschema:"required,minLength=1"`
-	PortID string `json:"portId" jsonschema:"required,minLength=1"`
+	NodeID string `json:"nodeId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	PortID string `json:"portId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 }
 
 type Edge struct {
@@ -107,12 +107,12 @@ type Edge struct {
 }
 
 type Variable struct {
-	Name    string                  `json:"name" jsonschema:"required,minLength=1"`
+	Name    string                  `json:"name" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Type    datatype.TypeExpression `json:"type" jsonschema:"required"`
 	Default json.RawMessage         `json:"default,omitempty"`
 }
 
 type SecretRef struct {
-	ID      string `json:"id" jsonschema:"required,minLength=1"`
+	ID      string `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	Purpose string `json:"purpose" jsonschema:"required,minLength=1"`
 }

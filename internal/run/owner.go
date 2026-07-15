@@ -62,6 +62,19 @@ func (o *Owner) ValidateProgram(programHash, planDigest artifact.Digest) error {
 	return nil
 }
 
+func (o *Owner) ValidateAdmission(admission Admission) error {
+	if o == nil || o.ctx.Err() != nil {
+		return ErrGrantDenied
+	}
+	grant := o.authorizer.grant
+	if admission.RunID != grant.RunID() || admission.ProgramHash != grant.ProgramHash() ||
+		admission.CapabilityPlanDigest != grant.PlanDigest() || admission.GrantDigest != grant.Digest() ||
+		admission.PolicyGeneration != grant.PolicyGeneration() || admission.Principal != grant.Principal() {
+		return ErrGrantDenied
+	}
+	return nil
+}
+
 func (o *Owner) Session(graphID, nodeID, requirementID, invocationID string) (*Session, error) {
 	if o.ctx.Err() != nil {
 		return nil, ErrGrantDenied

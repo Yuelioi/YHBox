@@ -24,12 +24,14 @@ const (
 	BlobReadCapabilityID  = "https://schemas.yotta.dev/capabilities/blob/read/v1"
 	BlobWriteCapabilityID = "https://schemas.yotta.dev/capabilities/blob/write/v1"
 	StreamCapabilityID    = "https://schemas.yotta.dev/capabilities/stream/session/v1"
+	BlobToStreamEffectID  = "https://schemas.yotta.dev/effects/conversion/blob-to-stream/v1"
+	StreamToBlobEffectID  = "https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"
 
 	concatEntrypoint                = "text.concat"
 	blobToStreamEntrypoint          = "conversion.blob-to-stream"
 	streamToBlobEntrypoint          = "conversion.stream-to-blob"
 	concatImplementationVersion     = "v1"
-	conversionImplementationVersion = "v1"
+	conversionImplementationVersion = "v2"
 )
 
 type Builtins struct {
@@ -233,7 +235,7 @@ func sealBlobToStream(binaryRef datatype.TypeRef, blobRead, streamSession capabi
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
 			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
 		},
-		Execution: conversionExecution("https://schemas.yotta.dev/effects/conversion/blob-to-stream/v1"),
+		Execution: conversionExecution(BlobToStreamEffectID),
 		CapabilityRequirements: []capability.Requirement{
 			requirement(blobRead, "blob-read", []string{"read-range"}, "blob-store"),
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationFinish, stream.OperationReceive, stream.OperationSend}, "stream-session"),
@@ -267,7 +269,7 @@ func sealStreamToBlob(binaryRef datatype.TypeRef, blobWrite, streamSession capab
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
 			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
 		},
-		Execution: conversionExecution("https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"),
+		Execution: conversionExecution(StreamToBlobEffectID),
 		CapabilityRequirements: []capability.Requirement{
 			requirement(blobWrite, "blob-write", []string{"append", "cancel", "commit"}, "blob-store"),
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationReceive}, "stream-session"),
