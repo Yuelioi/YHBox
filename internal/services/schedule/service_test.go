@@ -13,10 +13,10 @@ func TestScheduleService_CreateDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if sc.Trigger.Kind != "manual" {
+	if sc.Trigger.Kind != TriggerManual {
 		t.Errorf("default trigger should be manual, got %q", sc.Trigger.Kind)
 	}
-	if sc.OnError != "stop" {
+	if sc.OnError != OnErrorStop {
 		t.Errorf("default onError should be stop")
 	}
 	if !sc.Enabled {
@@ -33,7 +33,7 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
 	if err := svc.Save(sc); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	want := errors.New("reload failed")
 	ConfigureChangeListener(svc, func() error { return want })
 	schedule, _ := svc.Create("x")
-	schedule.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
 	if err := svc.Save(schedule); !errors.Is(err, want) {
 		t.Fatalf("Save error = %v, want reload failure", err)
 	} else {
@@ -64,7 +64,7 @@ func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
 	_ = svc.Save(sc)
 	originalID := sc.ID
 
@@ -89,12 +89,25 @@ func TestScheduleService_Delete(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
 	_ = svc.Save(sc)
 	if err := svc.Delete(sc.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 	if len(svc.List()) != 0 {
 		t.Error("not deleted")
+	}
+}
+
+func TestScheduleServiceUpdateRejectsUnknownFields(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	svc := NewService(store)
+	schedule, _ := svc.Create("x")
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "workflow-1"}}
+	if err := svc.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Update(schedule.ID, `{"unknown":true}`); err == nil {
+		t.Fatal("Update accepted an unknown field")
 	}
 }

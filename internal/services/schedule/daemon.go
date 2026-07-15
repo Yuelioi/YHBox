@@ -37,7 +37,10 @@ type Daemon struct {
 	hotkeyKs map[string]string       // schedule.ID → hotkey registry key
 	started  bool
 	stopped  bool
-	stopDone <-chan struct{}
+	runCtx   context.Context
+	cancel   context.CancelFunc
+	fireWG   sync.WaitGroup
+	stopDone chan struct{}
 	stopErr  error
 }
 
@@ -60,6 +63,7 @@ func (d *Daemon) Start() {
 		return
 	}
 	d.started = true
+	d.runCtx, d.cancel = context.WithCancel(context.Background())
 	d.cron.Start()
 	for _, s := range d.store.List() {
 		if !s.Enabled {
@@ -82,11 +86,11 @@ func (d *Daemon) StopContext(ctx context.Context) error {
 	d.mu.Lock()
 	if !d.stopped {
 		d.stopped = true
-		if !d.started {
-			done := make(chan struct{})
-			close(done)
-			d.stopDone = done
-		} else {
+		if d.cancel != nil {
+			d.cancel()
+		}
+		cronDone := closedDone()
+		if d.started {
 			var cleanupErrs []error
 			for sid, hk := range d.hotkeyKs {
 				if err := d.hotkeys.Unregister(hk); err != nil {
@@ -99,8 +103,15 @@ func (d *Daemon) StopContext(ctx context.Context) error {
 				delete(d.cronIDs, sid)
 			}
 			d.stopErr = errors.Join(cleanupErrs...)
-			d.stopDone = d.cron.Stop().Done()
+			cronDone = d.cron.Stop().Done()
 		}
+		d.stopDone = make(chan struct{})
+		stopDone := d.stopDone
+		go func() {
+			<-cronDone
+			d.fireWG.Wait()
+			close(stopDone)
+		}()
 	}
 	done := d.stopDone
 	cleanupErr := d.stopErr
@@ -149,17 +160,17 @@ func (d *Daemon) Reload() error {
 
 func (d *Daemon) registerLocked(s *Schedule) error {
 	switch s.Trigger.Kind {
-	case "cron":
+	case TriggerCron:
 		spec, err := buildCronSpec(s.Trigger)
 		if err != nil {
 			return err
 		}
-		id, err := d.cron.AddFunc(spec, func() { _ = d.fire(context.Background(), s.ID) })
+		id, err := d.cron.AddFunc(spec, func() { _ = d.fireOwned(s.ID) })
 		if err != nil {
 			return fmt.Errorf("cron AddFunc: %w", err)
 		}
 		d.cronIDs[s.ID] = id
-	case "hotkey":
+	case TriggerHotkey:
 		if s.Trigger.Hotkey == "" {
 			return errors.New("hotkey trigger missing hotkey")
 		}
@@ -170,14 +181,14 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		if err := d.hotkeys.Register(key, "schedule",
 			"hotkeys.label.schedule", map[string]string{"name": s.Name},
 			s.Trigger.Hotkey, "",
-			func() { _ = d.fire(context.Background(), s.ID) }); err != nil {
+			func() { _ = d.fireOwned(s.ID) }); err != nil {
 			return fmt.Errorf("hotkey register: %w", err)
 		}
 		d.hotkeyKs[s.ID] = key
-	case "once":
-		// 启动后立即一次。fire 异步避免持锁。
-		go func() { _ = d.fire(context.Background(), s.ID) }()
-	case "manual":
+	case TriggerOnce:
+		// 启动后立即一次。任务先登记到 daemon owner，再异步执行以避免持锁。
+		d.launchFireLocked(s.ID)
+	case TriggerManual:
 		// 不注册自动触发
 	default:
 		return fmt.Errorf("unknown trigger kind %q", s.Trigger.Kind)
@@ -187,15 +198,41 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 
 // FireManual UI 上手动按 ▶ 跑某 schedule。
 func (d *Daemon) FireManual(scheduleID string) error {
-	return d.fire(context.Background(), scheduleID)
+	return d.fireOwned(scheduleID)
+}
+
+func (d *Daemon) fireOwned(scheduleID string) error {
+	d.mu.Lock()
+	if !d.started {
+		d.mu.Unlock()
+		return errors.New("schedule daemon not started")
+	}
+	if d.stopped {
+		d.mu.Unlock()
+		return errors.New("schedule daemon stopped")
+	}
+	ctx := d.runCtx
+	d.fireWG.Add(1)
+	d.mu.Unlock()
+	defer d.fireWG.Done()
+	return d.fire(ctx, scheduleID)
+}
+
+// launchFireLocked starts an owned fire while d.mu is held. StopContext marks
+// the daemon stopped under the same lock before waiting, so no Add can race
+// with fireWG.Wait.
+func (d *Daemon) launchFireLocked(scheduleID string) {
+	ctx := d.runCtx
+	d.fireWG.Add(1)
+	go func() {
+		defer d.fireWG.Done()
+		_ = d.fire(ctx, scheduleID)
+	}()
 }
 
 func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
-	d.mu.Lock()
-	stopped := d.stopped
-	d.mu.Unlock()
-	if stopped {
-		return errors.New("schedule daemon stopped")
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	s, ok := d.store.Get(scheduleID)
 	if !ok {
@@ -213,17 +250,17 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 	var runErr error
 	started := 0
 	for index, target := range s.Targets {
-		if target.Kind != "workflow" {
+		if target.Kind != TargetWorkflow {
 			err := fmt.Errorf("schedule target %d has unsupported kind %q", index, target.Kind)
 			runErr = errors.Join(runErr, err)
-			if s.OnError != "continue" {
+			if s.OnError != OnErrorContinue {
 				break
 			}
 			continue
 		}
 		if err := d.runner.StartWorkflow(runCtx, target.ID); err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("start workflow %q: %w", target.ID, err))
-			if s.OnError != "continue" {
+			if s.OnError != OnErrorContinue {
 				break
 			}
 			continue
@@ -236,9 +273,9 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 	if cur, ok := d.store.Get(scheduleID); ok {
 		cur.LastFiredAt = &now
 		if started > 0 {
-			cur.LastStatus = "queued"
+			cur.LastStatus = FireStatusQueued
 		} else {
-			cur.LastStatus = "failed"
+			cur.LastStatus = FireStatusFailed
 		}
 		if err := d.store.Save(&cur); err != nil {
 			runErr = errors.Join(runErr, fmt.Errorf("persist schedule %s fired status: %w", scheduleID, err))
@@ -252,19 +289,25 @@ func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 //	subKind=interval + everyMinutes=N → "@every Nm"
 func buildCronSpec(t Trigger) (string, error) {
 	switch t.SubKind {
-	case "daily":
+	case CronDaily:
 		hh, mm, err := parseHHMM(t.At)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%d %d * * *", mm, hh), nil
-	case "interval":
+	case CronInterval:
 		if t.EveryMinutes <= 0 {
 			return "", errors.New("interval everyMinutes 必须 > 0")
 		}
 		return fmt.Sprintf("@every %dm", t.EveryMinutes), nil
 	}
 	return "", fmt.Errorf("unknown cron subKind %q", t.SubKind)
+}
+
+func closedDone() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
 }
 
 func parseHHMM(s string) (hh, mm int, err error) {

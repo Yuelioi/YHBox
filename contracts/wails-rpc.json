@@ -4,7 +4,7 @@
   "summary": {
     "services": 15,
     "methods": 126,
-    "models": 112
+    "models": 118
   },
   "services": [
     {
@@ -4578,13 +4578,67 @@
       "module": "internal/services/schedule/models",
       "declarations": [
         {
+          "kind": "enum",
+          "name": "CronSubKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "CronDaily",
+              "value": "\"daily\""
+            },
+            {
+              "name": "CronInterval",
+              "value": "\"interval\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "FireStatus",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "FireStatusQueued",
+              "value": "\"queued\""
+            },
+            {
+              "name": "FireStatusFailed",
+              "value": "\"failed\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "OnErrorMode",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "OnErrorStop",
+              "value": "\"stop\""
+            },
+            {
+              "name": "OnErrorContinue",
+              "value": "\"continue\""
+            }
+          ]
+        },
+        {
           "kind": "class",
           "name": "Schedule",
           "fields": [
             {
               "name": "\"schemaVersion\"",
               "optional": false,
-              "type": "number"
+              "type": "SchemaVersion"
             },
             {
               "name": "\"id\"",
@@ -4619,7 +4673,7 @@
             {
               "name": "\"onError\"",
               "optional": false,
-              "type": "string"
+              "type": "OnErrorMode"
             },
             {
               "name": "\"lastFiredAt\"",
@@ -4629,7 +4683,7 @@
             {
               "name": "\"lastStatus\"",
               "optional": true,
-              "type": "string"
+              "type": "FireStatus"
             },
             {
               "name": "\"createdAt\"",
@@ -4644,13 +4698,41 @@
           ]
         },
         {
+          "kind": "enum",
+          "name": "SchemaVersion",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "CurrentSchemaVersion",
+              "value": "\"3.1\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "TargetKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "TargetWorkflow",
+              "value": "\"workflow\""
+            }
+          ]
+        },
+        {
           "kind": "class",
           "name": "TargetRef",
           "fields": [
             {
               "name": "\"kind\"",
               "optional": false,
-              "type": "string"
+              "type": "TargetKind"
             },
             {
               "name": "\"id\"",
@@ -4666,12 +4748,12 @@
             {
               "name": "\"kind\"",
               "optional": false,
-              "type": "string"
+              "type": "TriggerKind"
             },
             {
               "name": "\"subKind\"",
               "optional": true,
-              "type": "string"
+              "type": "CronSubKind"
             },
             {
               "name": "\"at\"",
@@ -4687,6 +4769,32 @@
               "name": "\"hotkey\"",
               "optional": true,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "TriggerKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "TriggerCron",
+              "value": "\"cron\""
+            },
+            {
+              "name": "TriggerHotkey",
+              "value": "\"hotkey\""
+            },
+            {
+              "name": "TriggerOnce",
+              "value": "\"once\""
+            },
+            {
+              "name": "TriggerManual",
+              "value": "\"manual\""
             }
           ]
         }

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -55,8 +57,20 @@ func (s *Store) load() error {
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		var sc Schedule
-		if err := json.Unmarshal(b, &sc); err != nil {
+		decoder := json.NewDecoder(strings.NewReader(string(b)))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&sc); err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return fmt.Errorf("parse %s: expected exactly one JSON value", path)
+		}
+		if err := sc.Validate(); err != nil {
+			return fmt.Errorf("validate %s: %w", path, err)
+		}
+		fileID := strings.TrimSuffix(ent.Name(), filepath.Ext(ent.Name()))
+		if sc.ID != fileID {
+			return fmt.Errorf("validate %s: schedule.id %q does not match filename %q", path, sc.ID, fileID)
 		}
 		s.byID[sc.ID] = sc
 	}
@@ -69,7 +83,6 @@ func (s *Store) Save(sc *Schedule) error {
 	}
 	// 本地副本，避免 mutation 通过指针泄漏 + 避免共享指针 race
 	local := *sc
-	local.Normalize()
 	if err := local.Validate(); err != nil {
 		return err
 	}

@@ -5,12 +5,25 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeWorkflowRunner struct {
 	mu  sync.Mutex
 	ids []string
 	err error
+}
+
+type blockingWorkflowRunner struct {
+	started chan struct{}
+	ended   chan struct{}
+}
+
+func (r *blockingWorkflowRunner) StartWorkflow(ctx context.Context, _ string) error {
+	close(r.started)
+	<-ctx.Done()
+	close(r.ended)
+	return ctx.Err()
 }
 
 func (f *fakeWorkflowRunner) StartWorkflow(_ context.Context, id string) error {
@@ -76,11 +89,11 @@ func TestParseHHMM(t *testing.T) {
 }
 
 func TestBuildCronSpec(t *testing.T) {
-	s, err := buildCronSpec(Trigger{SubKind: "daily", At: "05:00"})
+	s, err := buildCronSpec(Trigger{SubKind: CronDaily, At: "05:00"})
 	if err != nil || s != "0 5 * * *" {
 		t.Errorf("daily spec: %q err=%v", s, err)
 	}
-	s, err = buildCronSpec(Trigger{SubKind: "interval", EveryMinutes: 30})
+	s, err = buildCronSpec(Trigger{SubKind: CronInterval, EveryMinutes: 30})
 	if err != nil || s != "@every 30m" {
 		t.Errorf("interval spec: %q err=%v", s, err)
 	}
@@ -101,13 +114,13 @@ func TestDaemonHotkeyFire(t *testing.T) {
 
 	// 注册一个 hotkey schedule
 	sc := &Schedule{
-		SchemaVersion: 1,
+		SchemaVersion: CurrentSchemaVersion,
 		ID:            "test-1",
 		Name:          "test",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "workflow", ID: "C1"}},
-		Trigger:       Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"},
-		OnError:       "stop",
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "C1"}},
+		Trigger:       Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"},
+		OnError:       OnErrorStop,
 	}
 	if err := store.Save(sc); err != nil {
 		t.Fatal(err)
@@ -128,14 +141,17 @@ func TestDaemonFireManual(t *testing.T) {
 	daemon := NewDaemon(store, runner, newFakeRegistrar())
 
 	sc := &Schedule{
-		SchemaVersion: 1,
+		SchemaVersion: CurrentSchemaVersion,
 		ID:            "m-1",
 		Name:          "manual",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "workflow", ID: "X"}},
-		Trigger:       Trigger{Kind: "manual"},
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "X"}},
+		Trigger:       Trigger{Kind: TriggerManual},
+		OnError:       OnErrorStop,
 	}
 	_ = store.Save(sc)
+	daemon.Start()
+	defer daemon.Stop()
 
 	if err := daemon.FireManual("m-1"); err != nil {
 		t.Fatal(err)
@@ -195,8 +211,8 @@ func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
 
 func TestDaemonReloadReportsHotkeyCleanupErrors(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
-	schedule := &Schedule{SchemaVersion: 1, ID: "reload", Name: "reload", Enabled: true,
-		Targets: []TargetRef{{Kind: "workflow", ID: "C1"}}, Trigger: Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"}}
+	schedule := &Schedule{SchemaVersion: CurrentSchemaVersion, ID: "reload", Name: "reload", Enabled: true,
+		Targets: []TargetRef{{Kind: TargetWorkflow, ID: "C1"}}, Trigger: Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"}, OnError: OnErrorStop}
 	if err := store.Save(schedule); err != nil {
 		t.Fatal(err)
 	}
@@ -225,12 +241,13 @@ func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 	schedule := &Schedule{
-		SchemaVersion: 1,
+		SchemaVersion: CurrentSchemaVersion,
 		ID:            "cleanup",
 		Name:          "cleanup",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "workflow", ID: "C1"}},
-		Trigger:       Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"},
+		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "C1"}},
+		Trigger:       Trigger{Kind: TriggerHotkey, Hotkey: "Ctrl+Shift+1"},
+		OnError:       OnErrorStop,
 	}
 	if err := store.Save(schedule); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -243,5 +260,37 @@ func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
 
 	if err := daemon.StopContext(context.Background()); !errors.Is(err, cleanupFailure) {
 		t.Fatalf("StopContext error=%v, want cleanup failure", err)
+	}
+}
+
+func TestDaemonStopCancelsAndWaitsForOwnedOnceFire(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	schedule := validSchedule("owned-once")
+	schedule.Enabled = true
+	schedule.Trigger = Trigger{Kind: TriggerOnce}
+	if err := store.Save(schedule); err != nil {
+		t.Fatal(err)
+	}
+	runner := &blockingWorkflowRunner{started: make(chan struct{}), ended: make(chan struct{})}
+	daemon := NewDaemon(store, runner, nil)
+	daemon.Start()
+	select {
+	case <-runner.started:
+	case <-time.After(time.Second):
+		t.Fatal("once fire did not start")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := daemon.StopContext(ctx); err != nil {
+		t.Fatalf("StopContext: %v", err)
+	}
+	select {
+	case <-runner.ended:
+	default:
+		t.Fatal("StopContext returned before owned fire ended")
 	}
 }

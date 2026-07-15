@@ -3,6 +3,8 @@ package schedule
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -66,8 +68,8 @@ func (s *Service) Create(name string) (Schedule, error) {
 		Name:          name,
 		Enabled:       true,
 		Targets:       []TargetRef{},
-		Trigger:       Trigger{Kind: "manual"},
-		OnError:       "stop",
+		Trigger:       Trigger{Kind: TriggerManual},
+		OnError:       OnErrorStop,
 	}
 	return sc, nil
 }
@@ -89,8 +91,13 @@ func (s *Service) Update(id string, patchJSON string) error {
 	if !ok {
 		return fmt.Errorf("schedule %q not found", id)
 	}
-	if err := json.Unmarshal([]byte(patchJSON), &sc); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(patchJSON))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&sc); err != nil {
 		return fmt.Errorf("parse patchJSON: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("parse patchJSON: expected exactly one JSON object")
 	}
 	sc.ID = id // 防 patch 改 ID 触发 path traversal
 	if err := s.store.Save(&sc); err != nil {

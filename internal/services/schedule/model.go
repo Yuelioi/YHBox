@@ -4,12 +4,48 @@ package schedule
 
 import "time"
 
-const CurrentSchemaVersion = 1
+type SchemaVersion string
+
+const CurrentSchemaVersion SchemaVersion = "3.1"
+
+type TargetKind string
+
+const TargetWorkflow TargetKind = "workflow"
+
+type TriggerKind string
+
+const (
+	TriggerCron   TriggerKind = "cron"
+	TriggerHotkey TriggerKind = "hotkey"
+	TriggerOnce   TriggerKind = "once"
+	TriggerManual TriggerKind = "manual"
+)
+
+type CronSubKind string
+
+const (
+	CronDaily    CronSubKind = "daily"
+	CronInterval CronSubKind = "interval"
+)
+
+type OnErrorMode string
+
+const (
+	OnErrorStop     OnErrorMode = "stop"
+	OnErrorContinue OnErrorMode = "continue"
+)
+
+type FireStatus string
+
+const (
+	FireStatusQueued FireStatus = "queued"
+	FireStatusFailed FireStatus = "failed"
+)
 
 // TargetRef Schedule 触发后要跑的 Workflow Source。
 type TargetRef struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
+	Kind TargetKind `json:"kind"`
+	ID   string     `json:"id"`
 }
 
 // Trigger 触发器配置。kind 决定哪些子字段有意义。
@@ -20,24 +56,24 @@ type TargetRef struct {
 //	kind="once"   → 启动后一次，无额外字段
 //	kind="manual" → 只能 UI 手动按 ▶，无自动触发
 type Trigger struct {
-	Kind         string `json:"kind"`
-	SubKind      string `json:"subKind,omitempty"`
-	At           string `json:"at,omitempty"`
-	EveryMinutes int    `json:"everyMinutes,omitempty"`
-	Hotkey       string `json:"hotkey,omitempty"`
+	Kind         TriggerKind `json:"kind"`
+	SubKind      CronSubKind `json:"subKind,omitempty"`
+	At           string      `json:"at,omitempty"`
+	EveryMinutes int         `json:"everyMinutes,omitempty"`
+	Hotkey       string      `json:"hotkey,omitempty"`
 }
 
 type Schedule struct {
-	SchemaVersion  int         `json:"schemaVersion"`
-	ID             string      `json:"id"`
-	Name           string      `json:"name"`
-	Enabled        bool        `json:"enabled"`
-	Targets        []TargetRef `json:"targets"`
-	Trigger        Trigger     `json:"trigger"`
-	TimeoutMinutes int         `json:"timeoutMinutes"`
-	OnError        string      `json:"onError"`
-	LastFiredAt    *time.Time  `json:"lastFiredAt,omitempty"`
-	LastStatus     string      `json:"lastStatus,omitempty"`
-	CreatedAt      time.Time   `json:"createdAt"`
-	UpdatedAt      time.Time   `json:"updatedAt"`
+	SchemaVersion  SchemaVersion `json:"schemaVersion"`
+	ID             string        `json:"id"`
+	Name           string        `json:"name"`
+	Enabled        bool          `json:"enabled"`
+	Targets        []TargetRef   `json:"targets"`
+	Trigger        Trigger       `json:"trigger"`
+	TimeoutMinutes int           `json:"timeoutMinutes"`
+	OnError        OnErrorMode   `json:"onError"`
+	LastFiredAt    *time.Time    `json:"lastFiredAt,omitempty"`
+	LastStatus     FireStatus    `json:"lastStatus,omitempty"`
+	CreatedAt      time.Time     `json:"createdAt"`
+	UpdatedAt      time.Time     `json:"updatedAt"`
 }
