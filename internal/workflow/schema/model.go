@@ -89,10 +89,9 @@ type Position struct {
 type EdgeChannel string
 
 const (
-	EdgeData   EdgeChannel = "data"
-	EdgeExec   EdgeChannel = "exec"
-	EdgeError  EdgeChannel = "error"
-	EdgeStatus EdgeChannel = "status"
+	EdgeData  EdgeChannel = "data"
+	EdgeExec  EdgeChannel = "exec"
+	EdgeError EdgeChannel = "error"
 )
 
 type Endpoint struct {
@@ -101,7 +100,7 @@ type Endpoint struct {
 }
 
 type Edge struct {
-	Channel EdgeChannel `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error,enum=status"`
+	Channel EdgeChannel `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error"`
 	From    Endpoint    `json:"from" jsonschema:"required"`
 	To      Endpoint    `json:"to" jsonschema:"required"`
 }

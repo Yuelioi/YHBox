@@ -52,6 +52,7 @@ export interface NodeProjection {
   icon?: string
   nodeRef: NodeRef
   signals: SignalProjection[]
+  statusEvents: StatusEventSpec[]
   tags: string[]
   titleKey?: string
 }
@@ -157,9 +158,13 @@ export interface NodeRef {
   semanticDigest: string
 }
 export interface SignalProjection {
-  channel: 'exec' | 'error' | 'status'
+  channel: 'exec' | 'error'
   direction: 'input' | 'output'
   id: string
+}
+export interface StatusEventSpec {
+  category: 'progress' | 'waiting' | 'connection'
+  code: string
 }
 export interface TypeProjection {
   color?: string

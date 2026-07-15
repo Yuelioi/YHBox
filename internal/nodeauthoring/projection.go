@@ -149,7 +149,7 @@ type PortProjection struct {
 
 type SignalProjection struct {
 	ID        string `json:"id"`
-	Channel   string `json:"channel" jsonschema:"required,enum=exec,enum=error,enum=status"`
+	Channel   string `json:"channel" jsonschema:"required,enum=exec,enum=error"`
 	Direction string `json:"direction" jsonschema:"required,enum=input,enum=output"`
 }
 
@@ -167,21 +167,22 @@ type CapabilityProjection struct {
 }
 
 type NodeProjection struct {
-	NodeRef        nodecontract.NodeRef       `json:"nodeRef"`
-	TitleKey       string                     `json:"titleKey,omitempty"`
-	DescriptionKey string                     `json:"descriptionKey,omitempty"`
-	Category       string                     `json:"category,omitempty"`
-	Tags           []string                   `json:"tags"`
-	Icon           string                     `json:"icon,omitempty"`
-	EditorAdapter  string                     `json:"editorAdapter,omitempty"`
-	Execution      nodecontract.ExecutionSpec `json:"execution"`
-	Availability   Availability               `json:"availability" jsonschema:"required,enum=portable,enum=target-required"`
-	DataInputs     []PortProjection           `json:"dataInputs"`
-	DataOutputs    []PortProjection           `json:"dataOutputs"`
-	Signals        []SignalProjection         `json:"signals"`
-	ConfigFields   []FieldProjection          `json:"configFields"`
-	Capabilities   []CapabilityProjection     `json:"capabilities"`
-	Errors         []nodecontract.ErrorSpec   `json:"errors"`
+	NodeRef        nodecontract.NodeRef           `json:"nodeRef"`
+	TitleKey       string                         `json:"titleKey,omitempty"`
+	DescriptionKey string                         `json:"descriptionKey,omitempty"`
+	Category       string                         `json:"category,omitempty"`
+	Tags           []string                       `json:"tags"`
+	Icon           string                         `json:"icon,omitempty"`
+	EditorAdapter  string                         `json:"editorAdapter,omitempty"`
+	Execution      nodecontract.ExecutionSpec     `json:"execution"`
+	Availability   Availability                   `json:"availability" jsonschema:"required,enum=portable,enum=target-required"`
+	DataInputs     []PortProjection               `json:"dataInputs"`
+	DataOutputs    []PortProjection               `json:"dataOutputs"`
+	Signals        []SignalProjection             `json:"signals"`
+	ConfigFields   []FieldProjection              `json:"configFields"`
+	Capabilities   []CapabilityProjection         `json:"capabilities"`
+	Errors         []nodecontract.ErrorSpec       `json:"errors"`
+	StatusEvents   []nodecontract.StatusEventSpec `json:"statusEvents"`
 }
 
 type body struct {
@@ -381,6 +382,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 		Execution: machine.Execution, Availability: AvailabilityPortable, DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
+		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
 	}
 	for _, port := range machine.Ports.DataInputs {
 		use, err := projectTypeUse(port.Type, types)
@@ -423,7 +425,6 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	addSignals("exec", "input", machine.Ports.ExecInputs)
 	addSignals("exec", "output", machine.Ports.ExecOutputs)
 	addSignals("error", "output", machine.Ports.ErrorOutputs)
-	addSignals("status", "output", machine.Ports.StatusOutputs)
 	for _, requirement := range machine.CapabilityRequirements {
 		definition, ok := capabilities[requirement.Capability.CapabilityID]
 		if !ok || definition.Ref() != requirement.Capability {

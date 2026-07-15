@@ -339,6 +339,12 @@
           },
           "type": "array"
         },
+        "statusEvents": {
+          "items": {
+            "$ref": "#/$defs/StatusEventSpec"
+          },
+          "type": "array"
+        },
         "tags": {
           "items": {
             "type": "string"
@@ -359,7 +365,8 @@
         "signals",
         "configFields",
         "capabilities",
-        "errors"
+        "errors",
+        "statusEvents"
       ],
       "type": "object"
     },
@@ -490,8 +497,7 @@
         "channel": {
           "enum": [
             "exec",
-            "error",
-            "status"
+            "error"
           ],
           "type": "string"
         },
@@ -510,6 +516,28 @@
         "id",
         "channel",
         "direction"
+      ],
+      "type": "object"
+    },
+    "StatusEventSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "progress",
+            "waiting",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category"
       ],
       "type": "object"
     },

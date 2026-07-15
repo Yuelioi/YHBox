@@ -38,7 +38,7 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 	}
 	nodes := program.Nodes()
 	if len(nodes) != 1 || len(nodes[0].Ports.DataInputs) != 2 || len(nodes[0].Ports.DataOutputs) != 1 ||
-		len(nodes[0].Ports.ExecInputs)+len(nodes[0].Ports.ExecOutputs)+len(nodes[0].Ports.ErrorOutputs)+len(nodes[0].Ports.StatusOutputs) != 0 {
+		len(nodes[0].Ports.ExecInputs)+len(nodes[0].Ports.ExecOutputs)+len(nodes[0].Ports.ErrorOutputs) != 0 {
 		t.Fatalf("program ports = %#v", nodes)
 	}
 	opened, err := OpenProgram(program.Artifact(), catalog, build)

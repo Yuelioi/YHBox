@@ -15,7 +15,7 @@ status: open
 - Node Contract、Data Type、Authoring Projection、文档和第三方 Node Package 必须共享可序列化事实来源。
 - 第三方执行同时覆盖最小 Wasm Node 与 Process Node；不做商店或在线分发。
 - 插件不得注入任意前端 JavaScript；通用 UI 由 schema 生成，复杂交互只能使用 Yotta 内置 Editor Adapter。
-- 图严格区分 Data、Exec、Error 与 Status；pure-data 节点没有 Exec，任何层不得猜测或补端口。
+- 图严格区分 Data、Exec 与 Error；Status 是 Run event 而不是连线。pure-data 节点没有 Exec，任何层不得猜测或补端口。
 - Execution Class、determinism 与 Capability Requirement 是独立维度。
 - 每次工作先读 [领域语言](../../../CONTEXT.md)、[ADR-0001](../../adr/0001-compile-source-into-content-addressed-programs.md) 与[主流实践研究](../../research/node-system-mainstream-practices.md)。
 - 实现与交付遵守仓库根 `AGENTS.md`，完整门禁只有 `task check`。

@@ -277,6 +277,13 @@
         },
         "ports": {
           "$ref": "#/$defs/PortSet"
+        },
+        "statusEvents": {
+          "items": {
+            "$ref": "#/$defs/StatusEventSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
         }
       },
       "required": [
@@ -287,6 +294,7 @@
         "execution",
         "capabilityRequirements",
         "errors",
+        "statusEvents",
         "implementationABI"
       ],
       "type": "object"
@@ -347,13 +355,6 @@
           },
           "maxItems": 4096,
           "type": "array"
-        },
-        "statusOutputs": {
-          "items": {
-            "$ref": "#/$defs/SignalPort"
-          },
-          "maxItems": 4096,
-          "type": "array"
         }
       },
       "required": [
@@ -361,8 +362,7 @@
         "dataOutputs",
         "execInputs",
         "execOutputs",
-        "errorOutputs",
-        "statusOutputs"
+        "errorOutputs"
       ],
       "type": "object"
     },
@@ -463,6 +463,28 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "StatusEventSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "progress",
+            "waiting",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category"
       ],
       "type": "object"
     },

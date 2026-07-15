@@ -131,9 +131,7 @@ export function pinsFor(
       errorOut: projection31.signals
         .filter((port) => port.channel === 'error' && port.direction === 'output')
         .map((port) => port.id),
-      statusOut: projection31.signals
-        .filter((port) => port.channel === 'status' && port.direction === 'output')
-        .map((port) => port.id),
+      statusOut: [],
       dataIn: projection31.dataInputs.map((port) => port.id),
       dataOut: projection31.dataOutputs.map((port) => port.id),
     }

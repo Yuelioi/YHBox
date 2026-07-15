@@ -28,7 +28,7 @@ func TestGeneratedMetaSchemaPins31AndRequiresExplicitPortArrays(t *testing.T) {
 	semanticProperties := semantic["properties"].(map[string]any)
 	ports := resolveSchemaRefForTest(t, schema, semanticProperties["ports"])
 	required := stringSetForTest(t, ports["required"])
-	for _, name := range []string{"dataInputs", "dataOutputs", "execInputs", "execOutputs", "errorOutputs", "statusOutputs"} {
+	for _, name := range []string{"dataInputs", "dataOutputs", "execInputs", "execOutputs", "errorOutputs"} {
 		if !required[name] {
 			t.Fatalf("port array %q is not required", name)
 		}
@@ -36,6 +36,12 @@ func TestGeneratedMetaSchemaPins31AndRequiresExplicitPortArrays(t *testing.T) {
 		if property["type"] != "array" {
 			t.Fatalf("port %q schema = %#v", name, property)
 		}
+	}
+	if _, exists := ports["properties"].(map[string]any)["statusOutputs"]; exists {
+		t.Fatal("statusEvents must not be encoded as connectable ports")
+	}
+	if !stringSetForTest(t, semantic["required"])["statusEvents"] {
+		t.Fatal("semantic statusEvents declaration is not required")
 	}
 
 	definitions := schema["$defs"].(map[string]any)

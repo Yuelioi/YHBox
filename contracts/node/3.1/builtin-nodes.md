@@ -1,10 +1,10 @@
 # Yotta 3.1 built-in nodes
 
-Generated from the strict Node Authoring Projection `sha256:a746541fd4f8321cfebd58825534e02486bd91e6f96165d7b29fbbb0e8117923`. Do not edit.
+Generated from the strict Node Authoring Projection `sha256:4fc615f12c40f41426a59164f2c3c1d0463cec4c2004f1e111b9f15ca458e9e1`. Do not edit.
 
 ## `https://schemas.yotta.dev/nodes/text/concat/v1`
 
-- Authoring projection: `sha256:a746541fd4f8321cfebd58825534e02486bd91e6f96165d7b29fbbb0e8117923`
+- Authoring projection: `sha256:4fc615f12c40f41426a59164f2c3c1d0463cec4c2004f1e111b9f15ca458e9e1`
 - Title key: `node.text.concat.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
@@ -18,11 +18,12 @@ Generated from the strict Node Authoring Projection `sha256:a746541fd4f8321cfebd
 
 Configuration fields: none.
 
-Exec, Error, and Status ports: none.
+Exec and Error ports: none.
+Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/blob-to-stream/v1`
 
-- Authoring projection: `sha256:a746541fd4f8321cfebd58825534e02486bd91e6f96165d7b29fbbb0e8117923`
+- Authoring projection: `sha256:4fc615f12c40f41426a59164f2c3c1d0463cec4c2004f1e111b9f15ca458e9e1`
 - Title key: `node.conversion.blobToStream.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -37,11 +38,12 @@ Exec, Error, and Status ports: none.
 
 Configuration fields: none.
 
-Exec, Error, and Status ports: none.
+Exec and Error ports: none.
+Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1`
 
-- Authoring projection: `sha256:a746541fd4f8321cfebd58825534e02486bd91e6f96165d7b29fbbb0e8117923`
+- Authoring projection: `sha256:4fc615f12c40f41426a59164f2c3c1d0463cec4c2004f1e111b9f15ca458e9e1`
 - Title key: `node.conversion.streamToBlob.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -58,4 +60,5 @@ Exec, Error, and Status ports: none.
 | --- | --- | --- | --- |
 | `mediaType` | `text` | yes | `minLength: 3, maxLength: 255, pattern: ^[a-z0-9][a-z0-9!#$&^_.+-]+/[a-z0-9][a-z0-9!#$&^_.+-]+$` |
 
-Exec, Error, and Status ports: none.
+Exec and Error ports: none.
+Status events: none.

@@ -388,8 +388,6 @@ func signalOutputs(ports nodecontract.PortSet, channel schema.EdgeChannel) []nod
 		return ports.ExecOutputs
 	case schema.EdgeError:
 		return ports.ErrorOutputs
-	case schema.EdgeStatus:
-		return ports.StatusOutputs
 	default:
 		return nil
 	}

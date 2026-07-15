@@ -37,7 +37,7 @@ func TestSnapshot31IsDeterministicMachineOnlyAndRoundTrips(t *testing.T) {
 	}
 	ports := entry.Contract.Machine().Ports
 	if len(ports.DataInputs) != 2 || len(ports.DataOutputs) != 1 ||
-		len(ports.ExecInputs)+len(ports.ExecOutputs)+len(ports.ErrorOutputs)+len(ports.StatusOutputs) != 0 {
+		len(ports.ExecInputs)+len(ports.ExecOutputs)+len(ports.ErrorOutputs) != 0 {
 		t.Fatalf("concat catalog ports = %#v", ports)
 	}
 	reopened, err := Open(left.Bytes())
@@ -121,7 +121,7 @@ func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Con
 		Ports: nodecontract.PortSet{
 			DataInputs: []nodecontract.DataInputPort{}, DataOutputs: []nodecontract.DataOutputPort{},
 			ExecInputs: []nodecontract.SignalPort{{ID: "in"}}, ExecOutputs: []nodecontract.SignalPort{{ID: "done"}},
-			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}},
 		},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{"https://schemas.yotta.dev/effects/storage-read/v1"}, Determinism: nodecontract.Deterministic,
@@ -153,7 +153,7 @@ func leasedEffectContract(t *testing.T, capabilityRef capability.Ref, typeRef da
 				ResourceLease: &nodecontract.ResourceLeaseBinding{RequirementID: "source", Operations: []string{"read"}},
 			}},
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
-			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}},
 		},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{"https://schemas.yotta.dev/effects/storage-read/v1"},
@@ -207,7 +207,7 @@ func concatContract(t *testing.T, stringRef datatype.TypeRef, title string) node
 			DataInputs:  []nodecontract.DataInputPort{{ID: "a", Type: stringType, Required: true}, {ID: "b", Type: stringType, Required: true}},
 			DataOutputs: []nodecontract.DataOutputPort{{ID: "result", Type: stringType}},
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
-			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionPureData, Effects: []nodecontract.EffectID{}, Determinism: nodecontract.Deterministic,

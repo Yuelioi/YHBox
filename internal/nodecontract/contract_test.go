@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:78f7bc5614e2131d1d7f52f23ece9e7d780bd5d27b493cc320ffbd7b87f086cd")
+	const want = artifact.Digest("sha256:f9d3ba7e507746f26df951a2d8f3b99b330ad978486f298c4654fddccf13a573")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -34,11 +34,11 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 		t.Fatalf("concat data ports = %#v", document.Semantic.Ports)
 	}
 	if document.Semantic.Ports.ExecInputs == nil || document.Semantic.Ports.ExecOutputs == nil ||
-		document.Semantic.Ports.ErrorOutputs == nil || document.Semantic.Ports.StatusOutputs == nil {
+		document.Semantic.Ports.ErrorOutputs == nil {
 		t.Fatal("empty control port arrays were encoded as null or omitted")
 	}
 	if len(document.Semantic.Ports.ExecInputs)+len(document.Semantic.Ports.ExecOutputs)+
-		len(document.Semantic.Ports.ErrorOutputs)+len(document.Semantic.Ports.StatusOutputs) != 0 {
+		len(document.Semantic.Ports.ErrorOutputs) != 0 {
 		t.Fatalf("concat gained control ports: %#v", document.Semantic.Ports)
 	}
 
@@ -93,6 +93,12 @@ func TestSealRejectsPureDataControlPortsAndInvalidTypeExpressions(t *testing.T) 
 	draft.Ports.ExecOutputs = []SignalPort{{ID: "out"}}
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted pure-data contract with exec output")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.StatusEvents = []StatusEventSpec{{Code: "node.progress", Category: StatusProgress}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted pure-data contract with a status event")
 	}
 
 	draft = concatContractDraftForTest()
@@ -225,11 +231,10 @@ func concatContractDraftForTest() Draft {
 				{ID: "a", Type: stringType, Required: true},
 				{ID: "b", Type: stringType, Required: true},
 			},
-			DataOutputs:   []DataOutputPort{{ID: "result", Type: stringType}},
-			ExecInputs:    []SignalPort{},
-			ExecOutputs:   []SignalPort{},
-			ErrorOutputs:  []SignalPort{},
-			StatusOutputs: []SignalPort{},
+			DataOutputs:  []DataOutputPort{{ID: "result", Type: stringType}},
+			ExecInputs:   []SignalPort{},
+			ExecOutputs:  []SignalPort{},
+			ErrorOutputs: []SignalPort{},
 		},
 		Execution: ExecutionSpec{
 			Class: ExecutionPureData, Determinism: Deterministic,
@@ -239,6 +244,7 @@ func concatContractDraftForTest() Draft {
 		},
 		CapabilityRequirements: []capability.Requirement{},
 		Errors:                 []ErrorSpec{},
+		StatusEvents:           []StatusEventSpec{},
 		ImplementationABI:      []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},
 		Authoring:              Authoring{TitleKey: "node.text.concat.title", Category: "text"},
 	}

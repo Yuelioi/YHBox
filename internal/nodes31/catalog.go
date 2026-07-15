@@ -235,7 +235,7 @@ func sealBlobToStream(binaryRef datatype.TypeRef, blobRead, streamSession capabi
 				ResourceLease: &nodecontract.ResourceLeaseBinding{RequirementID: "stream", Operations: []string{stream.OperationCancel, stream.OperationReceive}},
 			}},
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
-			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: conversionExecution(BlobToStreamEffectID),
 		CapabilityRequirements: []capability.Requirement{
@@ -243,6 +243,7 @@ func sealBlobToStream(binaryRef datatype.TypeRef, blobRead, streamSession capabi
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationFinish, stream.OperationReceive, stream.OperationSend}, "stream-session"),
 		},
 		Errors:            []nodecontract.ErrorSpec{{Code: "conversion.blob_to_stream_failed", Category: "adapter", RetryHint: false}},
+		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.conversion.blobToStream.title", DescriptionKey: "node.conversion.blobToStream.description",
@@ -272,7 +273,7 @@ func sealStreamToBlob(binaryRef datatype.TypeRef, blobWrite, streamSession capab
 			}},
 			DataOutputs: []nodecontract.DataOutputPort{{ID: "blob", Type: binaryType}},
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
-			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: conversionExecution(StreamToBlobEffectID),
 		CapabilityRequirements: []capability.Requirement{
@@ -280,6 +281,7 @@ func sealStreamToBlob(binaryRef datatype.TypeRef, blobWrite, streamSession capab
 			requirement(streamSession, "stream", []string{stream.OperationCancel, stream.OperationReceive}, "stream-session"),
 		},
 		Errors:            []nodecontract.ErrorSpec{{Code: "conversion.stream_to_blob_failed", Category: "adapter", RetryHint: false}},
+		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.conversion.streamToBlob.title", DescriptionKey: "node.conversion.streamToBlob.description",
@@ -326,14 +328,14 @@ func sealConcat(stringRef datatype.TypeRef) (nodecontract.Contract, error) {
 			},
 			DataOutputs: []nodecontract.DataOutputPort{{ID: "result", Type: stringType}},
 			ExecInputs:  []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
-			ErrorOutputs: []nodecontract.SignalPort{}, StatusOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: nodecontract.ExecutionSpec{
 			Class: nodecontract.ExecutionPureData, Effects: []nodecontract.EffectID{}, Determinism: nodecontract.Deterministic,
 			Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CachePerRun, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
-		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{},
+		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{}, StatusEvents: []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.text.concat.title", DescriptionKey: "node.text.concat.description", Category: "text", Tags: []string{"text", "transform"}, Icon: "function",

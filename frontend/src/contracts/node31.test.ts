@@ -42,27 +42,27 @@ describe('generated Node Contract 3.1 authoring projection', () => {
     expect(edgeKindOf(concatID, 'out')).toBe('')
   })
 
-  it('keeps exec, error, and status as distinct canvas channels', () => {
+  it('keeps exec and error as distinct canvas channels while status remains run metadata', () => {
     const syntheticID = 'https://schemas.yotta.dev/nodes/test/signals/v1'
     const projection = structuredClone(builtinNodeProjections31.get(concatID)!)
     projection.nodeRef.nodeTypeId = syntheticID
     projection.signals = [
       { id: 'next', channel: 'exec', direction: 'output' },
       { id: 'failed', channel: 'error', direction: 'output' },
-      { id: 'progress', channel: 'status', direction: 'output' },
     ]
+    projection.statusEvents = [{ code: 'test.progress', category: 'progress' }]
     builtinNodeProjections31.set(syntheticID, projection)
     try {
       expect(pinsFor(syntheticID)).toEqual(
         expect.objectContaining({
           execOut: ['next'],
           errorOut: ['failed'],
-          statusOut: ['progress'],
+          statusOut: [],
         }),
       )
       expect(edgeKindOf(syntheticID, 'next')).toBe('exec')
       expect(edgeKindOf(syntheticID, 'failed')).toBe('error')
-      expect(edgeKindOf(syntheticID, 'progress')).toBe('status')
+      expect(projection.statusEvents).toEqual([{ code: 'test.progress', category: 'progress' }])
     } finally {
       builtinNodeProjections31.delete(syntheticID)
     }

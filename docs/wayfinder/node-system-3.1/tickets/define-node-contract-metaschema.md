@@ -29,10 +29,10 @@ Node Contract 应如何完整声明稳定身份、配置 schema、静态与实�
 semantic 至少包含且只包含：
 
 1. `configSchema`：Draft 2020-12 离线 bundle 与唯一 root `$id`；禁止联网 `$ref`，执行 byte/depth/node/reference budget。validation constraints 与 compiler-applied defaults 属于语义；title/description/examples/widget 等展示信息不得藏进 machine schema。
-2. 六个必填端口数组：`dataInputs`、`dataOutputs`、`execInputs`、`execOutputs`、`errorOutputs`、`statusOutputs`。不存在的端口必须编码为 `[]`，不能缺字段、写 `null` 或由前后端补默认 `out`。
+2. 五个必填端口数组：`dataInputs`、`dataOutputs`、`execInputs`、`execOutputs`、`errorOutputs`。不存在的端口必须编码为 `[]`，不能缺字段、写 `null` 或由前后端补默认 `out`。`statusEvents` 是顶层、不可连线的 Run 观察事实声明，不属于 PortSet。
 3. Data port 使用规范化 Type Expression；input 的 `required` 只描述 Binding State，不把类型隐式变 nullable。default 必须是显式 canonical JSON binding，并由 Compiler 的 default phase 应用。
-4. control/error/status port 只描述对应通道，不复用 Data Type 字符串。端口 ID 是稳定 machine identity；label、颜色和排序提示属于 authoring。
-5. `execution`：独立声明 Execution Class、effects、determinism、evaluation/cache、retry safety、cancellation 与 timeout contract。pure-data 必须 effects 为空且 exec/error/status 数组为空；确定性不能从 pure 推断。
+4. control/error port 只描述对应通道，不复用 Data Type 字符串。端口 ID 是稳定 machine identity；label、颜色和排序提示属于 authoring。status event 以稳定 code 与 progress/waiting/connection category 声明，由 journal 观察，不参与分支选择。
+5. `execution`：独立声明 Execution Class、effects、determinism、evaluation/cache、retry safety、cancellation 与 timeout contract。pure-data 必须 effects、exec/error 与 status event 声明为空；确定性不能从 pure 推断。
 6. `capabilities`：稳定、排序、去重的 capability requirement ID；精确 grant/target planning 由后续 Capability ticket 定义。
 7. `errors`：稳定 code、category 与 retry hint 的封闭声明；运行时不得返回 contract 未声明的业务错误 code，host/infrastructure error 使用宿主命名空间。
 8. 可选 `instanceResolver`：缺失表示 static contract；存在时必须 pin resolver ID、semantic digest 与最大 effective-port budget。resolver 是 `canonical config + frozen contract/catalog -> Effective Node Contract` 的纯确定函数，不得读取网络、文件、时间、随机数或 mutable registry。
@@ -51,8 +51,8 @@ Catalog generator 必须从同一 sealed contract 产生 machine catalog、TypeS
 - `control`/`region`/`event`：控制语义由 Program lowering 表达，runtime 不按 node kind 猜行为。
 - `marker`/`visual`：不得绑定普通可执行 implementation；Compiler 必须 lower 或删除它们。
 - 全部端口 ID 在各方向内唯一；静态和 instance-resolved 端口合并后重新执行同一预算、唯一性和 Type Expression 校验。
-- Error/Status 不等于 Exec，UI、Compiler、Program 与 runtime 必须保留通道种类。
+- Error 不等于 Exec，UI、Compiler、Program 与 runtime 必须保留通道种类；Status 不等于任何连线，它只能成为 Run event。
 
 ### 5. 首个 conformance contract
 
-`text.concat/v1` 是首个 golden contract：两个 required string data inputs `a`、`b`，一个 string data output `result`，六个控制/错误/状态数组全部为空；Execution Class=`pure-data`、effects=`[]`、determinism=`deterministic`、evaluation=`pull`、cache=`per-run`、retry=`never`、capabilities/errors=`[]`。它必须贯通 Catalog 3.1、Source 3.1、Compiler、Program、interpreter、Vue、MCP 与生成文档；任何层出现伪造 `out` 都是 conformance failure。
+`text.concat/v1` 是首个 golden contract：两个 required string data inputs `a`、`b`，一个 string data output `result`，五个 data/exec/error 端口数组中的控制与错误数组全部为空，`statusEvents=[]`；Execution Class=`pure-data`、effects=`[]`、determinism=`deterministic`、evaluation=`pull`、cache=`per-run`、retry=`never`、capabilities/errors=`[]`。它必须贯通 Catalog 3.1、Source 3.1、Compiler、Program、interpreter、Vue、MCP 与生成文档；任何层出现伪造 `out` 都是 conformance failure。

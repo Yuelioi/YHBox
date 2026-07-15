@@ -71,6 +71,10 @@ export interface MachineContract {
   instanceResolver?: InstanceResolver
   nodeTypeId: string
   ports: PortSet
+  /**
+   * @maxItems 4096
+   */
+  statusEvents: StatusEventSpec[]
 }
 export interface Requirement {
   capability: Ref
@@ -138,10 +142,6 @@ export interface PortSet {
    * @maxItems 4096
    */
   execOutputs: SignalPort[]
-  /**
-   * @maxItems 4096
-   */
-  statusOutputs: SignalPort[]
 }
 export interface DataInputPort {
   default?: any
@@ -169,4 +169,8 @@ export interface DataOutputPort {
 }
 export interface SignalPort {
   id: string
+}
+export interface StatusEventSpec {
+  category: 'progress' | 'waiting' | 'connection'
+  code: string
 }

@@ -91,12 +91,21 @@ func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) 
 			builder.WriteString("\n")
 		}
 		if len(projected.Signals) == 0 {
-			builder.WriteString("Exec, Error, and Status ports: none.\n")
+			builder.WriteString("Exec and Error ports: none.\n")
 		} else {
 			builder.WriteString("| Signal channel | Direction | Port |\n")
 			builder.WriteString("| --- | --- | --- |\n")
 			for _, signal := range projected.Signals {
 				fmt.Fprintf(&builder, "| `%s` | `%s` | `%s` |\n", signal.Channel, signal.Direction, signal.ID)
+			}
+		}
+		if len(projected.StatusEvents) == 0 {
+			builder.WriteString("Status events: none.\n")
+		} else {
+			builder.WriteString("\n| Status event | Category |\n")
+			builder.WriteString("| --- | --- |\n")
+			for _, status := range projected.StatusEvents {
+				fmt.Fprintf(&builder, "| `%s` | `%s` |\n", status.Code, status.Category)
 			}
 		}
 		builder.WriteString("\n")

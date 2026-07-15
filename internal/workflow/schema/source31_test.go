@@ -77,6 +77,14 @@ func TestParseSource31RequiresExplicitEdgeChannel(t *testing.T) {
 	}
 }
 
+func TestParseSource31RejectsStatusAsWorkflowEdge(t *testing.T) {
+	raw := strings.Replace(validSource31ForTest(), `"edges":[]`, `"edges":[{"channel":"status","from":{"nodeId":"a","portId":"progress"},"to":{"nodeId":"b","portId":"in"}}]`, 1)
+	_, diagnostics := ParseSource([]byte(raw))
+	if len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidField {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+}
+
 func TestParseSource31RejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T) {
 	valid := validSource31ForTest()
 	for _, test := range []struct {

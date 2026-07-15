@@ -32,8 +32,7 @@
           "enum": [
             "data",
             "exec",
-            "error",
-            "status"
+            "error"
           ],
           "type": "string"
         },

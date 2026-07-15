@@ -53,7 +53,8 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("generated authoring projection cannot strict-open: %v", err)
 	}
-	if !bytes.Contains(artifacts.Documentation, []byte("Exec, Error, and Status ports: none.")) ||
+	if !bytes.Contains(artifacts.Documentation, []byte("Exec and Error ports: none.")) ||
+		!bytes.Contains(artifacts.Documentation, []byte("Status events: none.")) ||
 		bytes.Contains(artifacts.Documentation, []byte("| exec | output | `out`")) {
 		t.Fatalf("generated docs invented an exec output:\n%s", artifacts.Documentation)
 	}
@@ -86,7 +87,7 @@ func TestBuiltinsExposeExplicitBlobStreamConversions(t *testing.T) {
 		}
 		machine := entry.Contract.Machine()
 		if machine.Execution.Class != nodecontract.ExecutionEffect || len(machine.Ports.ExecInputs)+len(machine.Ports.ExecOutputs) != 0 ||
-			len(machine.Ports.ErrorOutputs)+len(machine.Ports.StatusOutputs) != 0 || len(machine.CapabilityRequirements) != 2 {
+			len(machine.Ports.ErrorOutputs) != 0 || len(machine.StatusEvents) != 0 || len(machine.CapabilityRequirements) != 2 {
 			t.Fatalf("conversion contract = %#v", machine)
 		}
 	}

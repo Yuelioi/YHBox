@@ -67,7 +67,7 @@ export interface Graph {
   outputs: GraphPort[]
 }
 export interface Edge {
-  channel: 'data' | 'exec' | 'error' | 'status'
+  channel: 'data' | 'exec' | 'error'
   from: Endpoint
   to: Endpoint
 }

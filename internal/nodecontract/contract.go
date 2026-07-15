@@ -33,6 +33,7 @@ const (
 
 var versionSegmentPattern = regexp.MustCompile(`^v[1-9][0-9]*$`)
 var portIDPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
+var errorCodePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$`)
 
 type NodeRef struct {
 	NodeTypeID     string          `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
@@ -66,12 +67,26 @@ type SignalPort struct {
 }
 
 type PortSet struct {
-	DataInputs    []DataInputPort  `json:"dataInputs" jsonschema:"required,maxItems=4096"`
-	DataOutputs   []DataOutputPort `json:"dataOutputs" jsonschema:"required,maxItems=4096"`
-	ExecInputs    []SignalPort     `json:"execInputs" jsonschema:"required,maxItems=4096"`
-	ExecOutputs   []SignalPort     `json:"execOutputs" jsonschema:"required,maxItems=4096"`
-	ErrorOutputs  []SignalPort     `json:"errorOutputs" jsonschema:"required,maxItems=4096"`
-	StatusOutputs []SignalPort     `json:"statusOutputs" jsonschema:"required,maxItems=4096"`
+	DataInputs   []DataInputPort  `json:"dataInputs" jsonschema:"required,maxItems=4096"`
+	DataOutputs  []DataOutputPort `json:"dataOutputs" jsonschema:"required,maxItems=4096"`
+	ExecInputs   []SignalPort     `json:"execInputs" jsonschema:"required,maxItems=4096"`
+	ExecOutputs  []SignalPort     `json:"execOutputs" jsonschema:"required,maxItems=4096"`
+	ErrorOutputs []SignalPort     `json:"errorOutputs" jsonschema:"required,maxItems=4096"`
+}
+
+type StatusCategory string
+
+const (
+	StatusProgress   StatusCategory = "progress"
+	StatusWaiting    StatusCategory = "waiting"
+	StatusConnection StatusCategory = "connection"
+)
+
+// StatusEventSpec declares an observable Run fact. It is deliberately not a
+// port: status cannot select a Workflow Source branch or carry a graph value.
+type StatusEventSpec struct {
+	Code     string         `json:"code" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$"`
+	Category StatusCategory `json:"category" jsonschema:"required,enum=progress,enum=waiting,enum=connection"`
 }
 
 type ExecutionClass string
@@ -186,6 +201,7 @@ type Draft struct {
 	Execution              ExecutionSpec
 	CapabilityRequirements []capability.Requirement
 	Errors                 []ErrorSpec
+	StatusEvents           []StatusEventSpec
 	InstanceResolver       *InstanceResolver
 	ImplementationABI      []ABIRequirement
 	Authoring              Authoring
@@ -201,6 +217,7 @@ type MachineContract struct {
 	Execution              ExecutionSpec             `json:"execution" jsonschema:"required"`
 	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
 	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
+	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
 	InstanceResolver       *InstanceResolver         `json:"instanceResolver,omitempty"`
 	ImplementationABI      []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
 }
@@ -271,6 +288,7 @@ func Open(raw []byte) (Contract, error) {
 		Execution:              decoded.Semantic.Execution,
 		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
 		Errors:                 decoded.Semantic.Errors,
+		StatusEvents:           decoded.Semantic.StatusEvents,
 		InstanceResolver:       decoded.Semantic.InstanceResolver,
 		ImplementationABI:      decoded.Semantic.ImplementationABI,
 	})
@@ -329,7 +347,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
 		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements,
-		Errors: semantic.Errors, InstanceResolver: semantic.InstanceResolver,
+		Errors: semantic.Errors, StatusEvents: semantic.StatusEvents, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
 	})
 	if err != nil {
@@ -429,7 +447,11 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
-	execution, err := normalizeExecution(draft.Execution, ports)
+	statusEvents, err := normalizeStatusEvents(draft.StatusEvents)
+	if err != nil {
+		return MachineContract{}, err
+	}
+	execution, err := normalizeExecution(draft.Execution, ports, statusEvents)
 	if err != nil {
 		return MachineContract{}, err
 	}
@@ -474,7 +496,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution,
-		CapabilityRequirements: requirements, Errors: errorsList, InstanceResolver: resolver,
+		CapabilityRequirements: requirements, Errors: errorsList, StatusEvents: statusEvents, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
 }
@@ -488,14 +510,14 @@ func normalizeSchemaBundle(root string, source []datatype.SchemaResource) ([]dat
 }
 
 func normalizePorts(source PortSet) (PortSet, error) {
-	total := len(source.DataInputs) + len(source.DataOutputs) + len(source.ExecInputs) + len(source.ExecOutputs) + len(source.ErrorOutputs) + len(source.StatusOutputs)
+	total := len(source.DataInputs) + len(source.DataOutputs) + len(source.ExecInputs) + len(source.ExecOutputs) + len(source.ErrorOutputs)
 	if total > MaxPorts {
 		return PortSet{}, errors.New("node contract exceeds port budget")
 	}
 	result := PortSet{
 		DataInputs: append([]DataInputPort(nil), source.DataInputs...), DataOutputs: append([]DataOutputPort(nil), source.DataOutputs...),
 		ExecInputs: append([]SignalPort(nil), source.ExecInputs...), ExecOutputs: append([]SignalPort(nil), source.ExecOutputs...),
-		ErrorOutputs: append([]SignalPort(nil), source.ErrorOutputs...), StatusOutputs: append([]SignalPort(nil), source.StatusOutputs...),
+		ErrorOutputs: append([]SignalPort(nil), source.ErrorOutputs...),
 	}
 	if result.DataInputs == nil {
 		result.DataInputs = []DataInputPort{}
@@ -511,9 +533,6 @@ func normalizePorts(source PortSet) (PortSet, error) {
 	}
 	if result.ErrorOutputs == nil {
 		result.ErrorOutputs = []SignalPort{}
-	}
-	if result.StatusOutputs == nil {
-		result.StatusOutputs = []SignalPort{}
 	}
 	inputIDs, outputIDs := map[string]bool{}, map[string]bool{}
 	for i := range result.DataInputs {
@@ -543,7 +562,7 @@ func normalizePorts(source PortSet) (PortSet, error) {
 			return PortSet{}, err
 		}
 	}
-	for _, group := range [][]SignalPort{result.ExecOutputs, result.ErrorOutputs, result.StatusOutputs} {
+	for _, group := range [][]SignalPort{result.ExecOutputs, result.ErrorOutputs} {
 		for _, port := range group {
 			if err := validatePortID(port.ID, outputIDs); err != nil {
 				return PortSet{}, err
@@ -602,7 +621,7 @@ func normalizeResourceLeaseBindings(ports *PortSet, requirements []capability.Re
 	return nil
 }
 
-func normalizeExecution(source ExecutionSpec, ports PortSet) (ExecutionSpec, error) {
+func normalizeExecution(source ExecutionSpec, ports PortSet, statuses []StatusEventSpec) (ExecutionSpec, error) {
 	if !validExecutionClass(source.Class) || !validDeterminism(source.Determinism) || !validEvaluation(source.Evaluation) ||
 		!validCache(source.Cache) || !validRetry(source.Retry) || !validCancellation(source.Cancellation) || !validTimeout(source.Timeout) {
 		return ExecutionSpec{}, errors.New("node contract contains invalid execution semantics")
@@ -619,7 +638,7 @@ func normalizeExecution(source ExecutionSpec, ports PortSet) (ExecutionSpec, err
 	source.Effects = effects
 	if source.Class == ExecutionPureData {
 		if len(effects) != 0 || source.Evaluation != EvaluationPull || source.Retry != RetryNever ||
-			len(ports.ExecInputs)+len(ports.ExecOutputs)+len(ports.ErrorOutputs)+len(ports.StatusOutputs) != 0 {
+			len(ports.ExecInputs)+len(ports.ExecOutputs)+len(ports.ErrorOutputs)+len(statuses) != 0 {
 			return ExecutionSpec{}, errors.New("pure-data node contains effect or control semantics")
 		}
 	}
@@ -627,6 +646,31 @@ func normalizeExecution(source ExecutionSpec, ports PortSet) (ExecutionSpec, err
 		return ExecutionSpec{}, errors.New("only deterministic effect-free nodes may cache")
 	}
 	return source, nil
+}
+
+func normalizeStatusEvents(source []StatusEventSpec) ([]StatusEventSpec, error) {
+	result := append([]StatusEventSpec(nil), source...)
+	if result == nil {
+		result = []StatusEventSpec{}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	previous := ""
+	for _, item := range result {
+		if !validStatusCategory(item.Category) || !errorCodePattern.MatchString(item.Code) || item.Code <= previous {
+			return nil, errors.New("invalid or duplicate node status event declaration")
+		}
+		previous = item.Code
+	}
+	return result, nil
+}
+
+func validStatusCategory(category StatusCategory) bool {
+	switch category {
+	case StatusProgress, StatusWaiting, StatusConnection:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeStringSet[T ~string](source []T, label string) ([]T, error) {
