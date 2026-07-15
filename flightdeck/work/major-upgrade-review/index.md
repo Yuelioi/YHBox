@@ -1,20 +1,19 @@
 ---
 topic: major-upgrade-review
-title: Yotta 3.1 major upgrade
-summary: Implement and validate the AI-native destructive Yotta 3.1 architecture and release program.
+title: "Yotta 3.1 major upgrade"
+summary: "Implement and validate the AI-native destructive Yotta 3.1 architecture and release program."
 ---
-
 ## State
 
 process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 sandbox；generic Process Node 必须绑定 content-addressed package/operation，并在 Windows 使用 LPAC、atomic Job List、exact inherited handles、单进程与资源预算，Linux/macOS 在等价隔离前不注册 provider。旧 `RunProgram(Target, Args, WorkingDir)` 与 `taskkill /IM` 不得迁移或保留兼容入口。
 
-本阶段把两类 authority 明确分开：桌面自动化的“已安装应用生命周期”是 dangerous、exact executable identity、固定 argv、显式 ConsentOnce 的 host target；它承认目标 GUI 应用拥有当前用户权限，只约束 workflow 能触发哪个受信应用。第三方/CLI/AE/UE adapter worker 的 Process Node 仍属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器。当前 frontier 是 installed application lifecycle vertical slice；旧 PlayClip 是 input automation，后续随 input/window/image/automation 迁移。
+已安装应用生命周期纵切面已完成：桌面自动化现在使用 dangerous、exact executable identity、固定 argv、显式 ConsentOnce 的 host target；它承认目标 GUI 应用拥有当前用户权限，只约束 workflow 能触发哪个受信应用。`RunProgram`、Windows `StopApp`、`ShellExecuteW` 与 `taskkill` 旁路已破坏性删除，Yotta 自身 executable 也不能安装为 workflow application。第三方/CLI/AE/UE adapter worker 的 Process Node 仍属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器。当前 frontier 是 input/window/image/automation（含 PlayClip）能力迁移。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. remaining effects：workspace I/O/Log/Throw 与 origin-bound HTTP GET 已完成；下一批交付 installed application lifecycle（exact executable digest、fixed argv、no shell、exact terminate、dangerous consent），然后按 input/window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
+1. remaining effects：workspace I/O/Log/Throw、origin-bound HTTP GET 与 installed application lifecycle 已完成；下一批按 input/window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
 2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -36,6 +35,7 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 - knowledge/build/build.md — 开始运行构建、测试或产物验证前
 - knowledge/architecture/go-module-identity.md — 方案涉及 module、仓库身份或 bindings 路径时
 - knowledge/architecture/go-multiplatform-boundary.md — 评估跨平台 seam 与发布声明时
+- knowledge/architecture/installed-application-vs-plugin-process.md — 修改桌面应用启动/终止、进程节点、AE/UE adapter 或插件进程宿主时
 - knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Source/Catalog/Compiler/Program identity 或执行绑定时
 - knowledge/architecture/resource-lease-edge-authority.md — 新增或修改 stream/handle data port、leased edge 或 Executor borrow 时
 - knowledge/architecture/resource-broker-open-revocation.md — 修改 Broker Open/RevokeRun/Close、provider cleanup 或 Run Owner 收口时
@@ -48,6 +48,7 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 ## Progress
 
 Done:
+- 完成已安装应用生命周期 3.1 纵切面：exact `.exe` path + SHA-256 + fixed argv immutable profile，安装与每次调用重验 identity，危险能力显式 ConsentOnce；Launch 不泄露 PID，Terminate 只按 OS file identity 精确结束并仅返回计数，journal 排除 path/argv/PID/environment。Settings/Wails/Vue、Host Profile/Policy/Grant/provider/runtime 与同源生成文档全链落地；删除旧 `RunProgram`、Windows `StopApp`、`ShellExecuteW`/`taskkill` API，不留兼容入口，并拒绝把 Yotta 自身安装为 workflow application。提交 `d2c502e4`。
 - 完成 Process 3.1 官方资料研究并冻结边界：generic Process Node 是 content-addressed、operation-scoped 的隔离进程包，Windows 必须 LPAC + atomic Job + typed protocol；桌面 GUI 应用生命周期另建 exact dangerous capability，不与插件宿主混用，也不保留 `ShellExecute`/raw command line/taskkill 兼容面。
 - 完成安装式 HTTP egress 纵切面：exact Origin/Profile/slot/ConsentOnce、DNS-to-dial SSRF 防护、公共 HTTPS、禁 redirect/proxy/cookie/credential/header、UTF-8/timeout/256 KiB budget、脱敏 journal、Settings/Wails/Vue 与同源生成文档；完整 `task check` 和聚焦 race 全绿，提交 `3f2032d1`。
 - 完成 remaining effects 首个 I/O/system 纵切面：read-only workspace filesystem provider、File Metadata/Observability Message 名义类型、Read Text/Read JSON/Stat、recorded Log 与 terminal Throw；exact provider/target/scope/policy/grant/journal 全链闭合，ambient host path 与通用 `out` 不进入 3.1，提交 `3fab01e2`。
@@ -129,9 +130,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- workspace I/O/Log/Throw 与 origin-bound HTTP GET 已完成；当前 frontier 是 process capability，随后按 input/window/image/automation（含 PlayClip）迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
+- workspace I/O/Log/Throw、origin-bound HTTP GET 与 installed application lifecycle 已完成；当前 frontier 是 input/window/image/automation（含 PlayClip）能力迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
 
 Verified:
+- installed application lifecycle 提交 `d2c502e4`（2026-07-16）：最终 `task check` 221.7s 全绿；Go coverage 65.5%、`internal/appcontrol` 71.1%，frontend 100 files / 646 tests，Wails contract 17 services / 137 methods / 156 declarations，entry 334,930 / 350,000 bytes、editor 92,733 / 200,000 bytes；appcontrol/nodes31runtime/appbootstrap 聚焦 race 通过。
 - HTTP egress 提交 `3f2032d1`（2026-07-16）：最终 `task check` 295.6s 全绿；`internal/httpegress` coverage 71.7%，frontend 100 files / 646 tests，Wails contract 16 services / 134 methods / 153 models，entry 334,121 / 350,000 bytes、editor 92,357 / 200,000 bytes；httpegress/nodes31runtime/appbootstrap race 通过。一次既有 Windows high-resolution timer 环境抖动经单测复验 400ms 后，两次完整 `task check` 连续全绿。
 - workspace I/O/system 批次提交 `3fab01e2`（2026-07-16）：完整 `task check` 233.6s 全绿；Go coverage 65.3%、root 33.6%，frontend 100 files / 646 tests，Wails contract 15 services / 132 methods / 151 models，entry 332,173 / 350,000 bytes、editor 92,355 / 200,000 bytes；workspacefs/nodes31runtime/appbootstrap race 通过。
 - Script 3.1 production vertical slice 提交 `2ee6164b`（2026-07-16）：完整 `task check` 全绿；Go coverage 65.3%，frontend 100 files / 646 tests，Wails contract、vet/staticcheck/typecheck/i18n/build 全绿，entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes；Windows LPAC/AppContainer/Job 真机 smoke、取消、篡改修复、聚焦 race 与 Linux/macOS core cross-compile 通过。
