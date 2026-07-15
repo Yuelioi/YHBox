@@ -6,15 +6,15 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-Script 3.1 隔离执行阶段 1 已提交为 `307d7f74`：新增 sealed JCS length-delimited protocol、严格 typed JSON input/output、32-byte deterministic random seed、冻结 `Date.now()` 虚拟时钟、call-stack/JSON/source/input/output/timeout budgets、稳定失败码与一次性 worker 入口。worker 分支发生在 Wails、日志、数据目录和提权初始化之前；guest engine 不导出主进程执行 API，也没有 registry、变量、文件、网络、窗口、进程或任意 Go object bridge。
+Script 3.1 隔离执行的 Windows 生产 launcher 已提交为 `c1fd1bce`：独立最小 worker 通过 LPAC/AppContainer、原子 Job Object、显式 pipe handle allowlist、净化环境、active-process/memory/CPU/UI/child-process limits 和 parent/worker 双重 token/job 验证执行。worker 制品按 SHA-256 内容寻址复制到 AppContainer profile，逐次复验并修复篡改；取消直接终止整个 Job。Linux/macOS 保持 fail closed，没有普通子进程或进程内 fallback。
 
-全仓 `go test ./...`、`go vet ./...` 与脚本模块 race 测试已通过。生产 Application 尚未安装 Script 节点，因此不存在普通子进程或进程内 fallback；下一阶段只有完成 Windows LPAC/AppContainer + atomic Job Object launcher 后才接入 Catalog/runtime/UI。
+Windows 10 22H2 真机 smoke、取消、staged binary 篡改修复、脚本模块 race、全仓 `go test ./...` 与 `go vet ./...` 已通过；独立 worker 已进入 build/sign/portable staging/NSIS 和 Windows canonical gate。下一步只接入 Script 3.1 Node Contract/runtime journal/Application/code Authoring Projection。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. script isolation：实现 Windows LPAC/AppContainer + atomic Job Object launcher、parent protocol client 与 fail-closed non-Windows stub；随后接入 Script 3.1 contract、runtime journal、Application 和 code Authoring Projection。
+1. script isolation：接入 Script 3.1 contract、runtime action journal、Application composition 和 code Authoring Projection；生成 catalog/schema/TypeScript/Markdown 后删除旧 script service/node。
 2. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant 与 exact target/credential binding。
 3. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 4. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
@@ -49,6 +49,7 @@ Script 3.1 隔离执行阶段 1 已提交为 `307d7f74`：新增 sealed JCS leng
 ## Progress
 
 Done:
+- 完成 Windows Script 3.1 fail-closed launcher：独立最小 worker、LPAC/AppContainer、atomic Job Object、显式句柄/环境 allowlist、parent/worker 双重 confinement 验证、content-addressed staging/tamper repair、取消 kill；build/sign/portable/NSIS/canonical Windows smoke 全部携带并验证 worker，提交 `c1fd1bce`。
 - 完成 Script 3.1 worker core：sealed canonical frame、strict typed JSON ABI、deterministic seed/virtual clock、zero ambient authority、资源预算、稳定错误分类与 one-shot process entry；没有导出 in-process evaluator，提交 `307d7f74`。
 - 完成 Script 3.1 隔离执行研究：确认 goja.Interrupt 无法中断 native binding 且无 heap quota，因此移除 ambient ScriptBindable/任意 Go object bridge；采用一次性 worker、canonical typed JSON ABI、确定性时钟/随机、attempt/action journal。Windows 生产路径要求 LPAC/AppContainer + 原子 Job Object；其他平台在等价隔离落地前 fail closed。研究提交 `8a9bf2cb`。
 - 完成 provider-native AI 安装与生产装配：Model Profile/能力/预算/评估状态内容寻址；相同 profile 共享 native provider，slot 独立绑定 target 与 OS credential；exact workflow consent 参与 Policy/Run Grant，档案变化立即使旧授权失效。删除默认连接、BaseURL、模型发现、Chat/prompt fallback 与 provider cache；设置 UI、Wails contract、生成节点和 journal 同步切换。提交 `ab1f4cf4`、`4b630f70`、`7e9fb87c`。

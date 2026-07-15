@@ -11,8 +11,11 @@ Production code must never evaluate user scripts inside the Wails process. Each 
 
 The guest receives only `input`. It has no registry, node enumeration, variables, filesystem, network, process, window, secret, or arbitrary Go object bridge. `Math.random()` uses the request's 32-byte deterministic seed. Time is limited to a frozen `Date.now()` virtual clock; the host-dependent Date constructor is unavailable. Source, input, output, JSON depth/node count, call stack and wall time are bounded.
 
-On Windows, a runnable worker requires LPAC/AppContainer and atomic Job Object association at process creation. Apply active-process=1, memory, CPU/time and kill-on-close limits; cancellation terminates the job. Failure to construct or verify containment returns `script.isolation_unavailable`.
+On Windows, a runnable worker is a separate minimal headless executable and requires LPAC/AppContainer plus atomic Job Object association at process creation. The launcher inherits only three protocol pipe handles and supplies an allowlisted environment rooted in the AppContainer profile. Apply active-process=1, memory, CPU/time, child-process and UI restrictions plus kill-on-close; cancellation terminates the job. Both parent and worker verify AppContainer, LPAC and Job membership. On Windows versions that reject `TokenIsLessPrivilegedAppContainer`, LPAC is verified through the nonzero `WIN://NOALLAPPPKG` token security attribute. Failure to construct or verify containment returns `script.isolation_unavailable`.
+
+The signed worker source executable is SHA-256 staged by content address inside the AppContainer profile. Every attempt rehashes the staged file, repairs tampering atomically and re-verifies after copy; runtime serialization prevents an earlier attempt racing a later staged image. Build, installer and portable manifests must ship the adjacent `Yotta.ScriptWorker.exe`, and the canonical Windows gate runs the real confinement/cancellation/tamper smoke.
 
 Linux and macOS may compile the GUI and test platform-neutral protocol/engine code, but script execution must return `script.isolation_unavailable` until an equivalent launcher exists. There is no in-process or weaker subprocess fallback.
 
 Only pure script computation may be replayed. Host effects must later use planned action → execute → durable receipt, and ambiguous worker death is never blindly retried. Journal stable codes, digests and counters; never persist source, input, output, credentials, or other sensitive payloads.
+
