@@ -877,10 +877,16 @@ export default {
       number: { title: '数值', description: '有限的 binary64 数值。' },
       integer: { title: '整数', description: '位于可互操作 JSON 安全范围内的精确整数。' },
       boolean: { title: '布尔值', description: '严格的 true 或 false 值。' },
+      json: { title: 'JSON 值', description: '符合可互操作 JSON 规范的规范化值。' },
       binary: {
         title: '二进制',
         description: '可表示为持久 Blob 或带租约的运行时流的二进制内容。',
       },
+    },
+    geometry: {
+      point_unit: { title: '坐标单位', description: '比例或像素坐标单位。' },
+      point: { title: '点', description: '带显式单位的二维点。' },
+      region: { title: '区域', description: '带显式单位的矩形区域。' },
     },
   },
   node: {
@@ -3411,6 +3417,10 @@ export default {
       status_hint: '状态事件显示在 Run 时间线中，不是可连接的图端口。',
       required_value: '必须填写值或连接端口',
       optional_value: '可选值',
+      point_x: 'X',
+      point_y: 'Y',
+      point_ratio: '比例',
+      point_px: '像素',
     },
     timeline: {
       run_status: '运行状态 {status}',

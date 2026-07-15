@@ -20,6 +20,10 @@ const (
 	NumberTypeID       = "https://schemas.yotta.dev/types/core/number/v1"
 	IntegerTypeID      = "https://schemas.yotta.dev/types/core/integer/v1"
 	BooleanTypeID      = "https://schemas.yotta.dev/types/core/boolean/v1"
+	JSONTypeID         = "https://schemas.yotta.dev/types/core/json/v1"
+	PointUnitTypeID    = "https://schemas.yotta.dev/types/geometry/point-unit/v1"
+	PointTypeID        = "https://schemas.yotta.dev/types/geometry/point/v1"
+	RegionTypeID       = "https://schemas.yotta.dev/types/geometry/region/v1"
 	ConcatNodeID       = "https://schemas.yotta.dev/nodes/text/concat/v1"
 	BlobToStreamNodeID = "https://schemas.yotta.dev/nodes/conversion/blob-to-stream/v1"
 	StreamToBlobNodeID = "https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1"
@@ -58,6 +62,10 @@ type Builtins struct {
 	NumberType           datatype.Definition
 	IntegerType          datatype.Definition
 	BooleanType          datatype.Definition
+	JSONType             datatype.Definition
+	PointUnitType        datatype.Definition
+	PointType            datatype.Definition
+	RegionType           datatype.Definition
 	ConcatContract       nodecontract.Contract
 	BlobToStreamContract nodecontract.Contract
 	StreamToBlobContract nodecontract.Contract
@@ -95,6 +103,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	booleanType, err := sealPrimitiveType(BooleanTypeID, "boolean", "type.core.boolean", "#f59e0b", "toggle-right")
+	if err != nil {
+		return Builtins{}, err
+	}
+	jsonType, pointUnitType, pointType, regionType, err := sealExtendedTypes()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -148,9 +160,17 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	extendedDefinitions, err := defineExtendedPureNodes(extendedTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+		jsonRef: jsonType.TypeRef(), pointUnitRef: pointUnitType.TypeRef(), pointRef: pointType.TypeRef(), regionRef: regionType.TypeRef(),
+	})
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
+	definitions = append(definitions, extendedDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -163,7 +183,7 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType}
+	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType}
 	capabilities := []capability.Definition{blobRead, blobWrite, streamSession}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
@@ -171,7 +191,8 @@ func Build() (Builtins, error) {
 	}
 	return Builtins{
 		Catalog: catalog, StringType: stringType, BinaryType: binaryType, NumberType: numberType,
-		IntegerType: integerType, BooleanType: booleanType, ConcatContract: concat,
+		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
+		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		BlobToStreamContract: blobToStream, StreamToBlobContract: streamToBlob,
 		Types: types, Contracts: contracts, Capabilities: capabilities,
 		definitions: definitions, definitionByID: definitionByID,

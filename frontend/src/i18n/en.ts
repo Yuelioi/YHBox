@@ -891,10 +891,22 @@ export default {
         description: 'An exact integer within the interoperable JSON safe range.',
       },
       boolean: { title: 'Boolean', description: 'A strict true or false value.' },
+      json: {
+        title: 'JSON value',
+        description: 'A canonical value from the interoperable JSON profile.',
+      },
       binary: {
         title: 'Binary',
         description: 'Binary content represented by a durable blob or a leased runtime stream.',
       },
+    },
+    geometry: {
+      point_unit: { title: 'Coordinate unit', description: 'A ratio or pixel coordinate unit.' },
+      point: {
+        title: 'Point',
+        description: 'A typed two-dimensional point with an explicit unit.',
+      },
+      region: { title: 'Region', description: 'A typed rectangular region with an explicit unit.' },
     },
   },
   node: {
@@ -3574,6 +3586,10 @@ export default {
         'Status events appear in the Run timeline. They are not connectable graph ports.',
       required_value: 'Required value or connection',
       optional_value: 'Optional value',
+      point_x: 'X',
+      point_y: 'Y',
+      point_ratio: 'Ratio',
+      point_px: 'Pixels',
     },
     timeline: {
       run_status: 'Run {status}',

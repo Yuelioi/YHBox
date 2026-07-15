@@ -84,8 +84,13 @@
               {{ typeLabel(port) }} · {{ port.binding }}
             </span>
           </div>
+          <PointValueEditor
+            v-if="acceptsInline(port) && port.type.editorAdapter === 'point'"
+            :model-value="literalValue(node.bindings[port.id], port.default)"
+            @update:model-value="setLiteral(port.id, $event)"
+          />
           <USwitch
-            v-if="acceptsInline(port) && port.type.control === 'toggle'"
+            v-else-if="acceptsInline(port) && port.type.control === 'toggle'"
             :model-value="literalBoolean(node.bindings[port.id], port.default)"
             @update:model-value="setLiteral(port.id, $event)"
           />
@@ -186,6 +191,7 @@ import type { InputBinding } from '../../../../contracts/workflow/3.1/workflow-s
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
+import PointValueEditor from '@/app/editor/PointValueEditor.vue'
 
 const props = defineProps<{ node: Node | null; projection: NodeProjection | null }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
