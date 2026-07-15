@@ -39,6 +39,7 @@ tasks:
             ref: .DEV
       - task: build:adb
       - task: build:capture-dll
+      - task: build:script-worker
     cmds:
       - task: generate:syso
         vars:
@@ -52,6 +53,17 @@ tasks:
     env:
       GOOS: windows
       CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:script-worker:
+    summary: Builds the isolated headless JavaScript worker
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" ./cmd/yotta-script-worker
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
       GOARCH: '{{.ARCH | default ARCH}}'
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
@@ -109,6 +121,7 @@ tasks:
       - task: build
     cmds:
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
     preconditions:
       - sh: '[ -n "{{.SIGN_CERTIFICATE}}" ] || [ -n "{{.SIGN_THUMBPRINT}}" ]'
         msg: "Either SIGN_CERTIFICATE or SIGN_THUMBPRINT is required. Set it in the vars section at the top of build/windows/Taskfile.yml"

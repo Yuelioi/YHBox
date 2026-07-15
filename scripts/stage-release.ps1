@@ -36,6 +36,7 @@ if (Test-Path -LiteralPath $stageRoot) {
 
 $payload = @(
     @{ Source = "$BinDirectory/Yotta.exe"; Destination = "Yotta.exe"; Origin = "project-build"; Signing = "unsigned-candidate" },
+    @{ Source = "$BinDirectory/Yotta.ScriptWorker.exe"; Destination = "Yotta.ScriptWorker.exe"; Origin = "project-build"; Signing = "unsigned-candidate" },
     @{ Source = "$BinDirectory/capture_wgc.dll"; Destination = "capture_wgc.dll"; Origin = "project-build"; Signing = "unsigned-candidate" },
     @{ Source = "$BinDirectory/platform-tools/adb.exe"; Destination = "platform-tools/adb.exe"; Origin = "bundled-google-platform-tools"; Signing = "upstream-signed" },
     @{ Source = "$BinDirectory/platform-tools/AdbWinApi.dll"; Destination = "platform-tools/AdbWinApi.dll"; Origin = "bundled-google-platform-tools"; Signing = "upstream-signed" },

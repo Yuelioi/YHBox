@@ -88,6 +88,8 @@ Section
     
     !insertmacro wails.files
 
+    File "/oname=Yotta.ScriptWorker.exe" "..\..\..\bin\Yotta.ScriptWorker.exe"
+
     SetOutPath "$INSTDIR\platform-tools"
     File /r "..\..\..\bin\platform-tools\*"
     SetOutPath $INSTDIR

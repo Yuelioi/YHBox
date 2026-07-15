@@ -130,7 +130,7 @@ func TestServeOneConsumesOneRequestAndProducesOneResponse(t *testing.T) {
 		t.Fatalf("WriteRequest() error = %v", err)
 	}
 	var output bytes.Buffer
-	if exitCode := ServeOne(&input, &output); exitCode != WorkerExitOK {
+	if exitCode := serveOne(&input, &output, func() error { return nil }); exitCode != WorkerExitOK {
 		t.Fatalf("ServeOne() exit = %d", exitCode)
 	}
 	response, err := ReadResponse(bytes.NewReader(output.Bytes()))
@@ -144,7 +144,7 @@ func TestServeOneConsumesOneRequestAndProducesOneResponse(t *testing.T) {
 
 func TestServeOneReportsProtocolFailureWithoutExecuting(t *testing.T) {
 	var output bytes.Buffer
-	if exitCode := ServeOne(bytes.NewReader([]byte("invalid")), &output); exitCode != WorkerExitOK {
+	if exitCode := serveOne(bytes.NewReader([]byte("invalid")), &output, func() error { return nil }); exitCode != WorkerExitOK {
 		t.Fatalf("ServeOne() exit = %d", exitCode)
 	}
 	response, err := ReadResponse(bytes.NewReader(output.Bytes()))
@@ -152,6 +152,24 @@ func TestServeOneReportsProtocolFailureWithoutExecuting(t *testing.T) {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
 	if response.Failure == nil || response.Failure.Code != CodeRunnerProtocolViolation || response.AttemptID != "" {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
+func TestServeOneRejectsAnUnconfinedHostProcess(t *testing.T) {
+	var input bytes.Buffer
+	if err := WriteRequest(&input, testRequest()); err != nil {
+		t.Fatalf("WriteRequest() error = %v", err)
+	}
+	var output bytes.Buffer
+	if exitCode := ServeOne(&input, &output); exitCode != WorkerExitOK {
+		t.Fatalf("ServeOne() exit = %d", exitCode)
+	}
+	response, err := ReadResponse(bytes.NewReader(output.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadResponse() error = %v", err)
+	}
+	if response.Failure == nil || response.Failure.Code != CodeIsolationUnavailable {
 		t.Fatalf("response = %#v", response)
 	}
 }

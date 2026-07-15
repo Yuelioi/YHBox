@@ -22,7 +22,6 @@ import (
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
-	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
@@ -51,9 +50,6 @@ var assets embed.FS
 var trayIcon []byte
 
 func main() {
-	if scriptengine.IsWorkerCommand(os.Args[1:]) {
-		os.Exit(scriptengine.ServeOne(os.Stdin, os.Stdout))
-	}
 	platform.EnsureAdmin()
 
 	// 日志栈：zerolog/container diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
