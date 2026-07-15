@@ -316,7 +316,6 @@ async function patch(p: {
 const detailRecord = ref<AssetRecord | null>(null)
 const recordLoading = ref(false)
 const resolutionLoading = ref(false)
-const variantThumbs = ref<Record<string, string>>({}) // blobSha → dataURL
 const activeVariantIdx = ref(0)
 const curRes = ref<[number, number] | null>(null)
 const curResExact = ref(false)
@@ -329,26 +328,7 @@ const draftDesc = ref('')
 const descInputRef = ref<any>(null)
 
 const activeVariant = computed(() => detailRecord.value?.variants?.[activeVariantIdx.value])
-// 代表缩略图: 与网格 TemplateThumb 同源同法 (独立 watch on firstBlobSha),
-// 不挂在 guid 那个含 backend.assets.get 的大 watch 上 → 不受变体加载链中断影响, 保证显示.
-const baseThumb = ref<string | null>(null)
-watch(
-  () => tpl.value?.firstBlobSha,
-  async (sha) => {
-    baseThumb.value = sha ? await store.readBlobDataURL(sha) : null
-  },
-  { immediate: true },
-)
-const displayThumb = computed(() => {
-  const sha = activeVariant.value?.blob
-  return (sha && variantThumbs.value[sha]) || baseThumb.value
-})
-
-async function loadVariantThumb(sha: string) {
-  if (!sha || variantThumbs.value[sha]) return
-  const r = await store.readBlobDataURL(sha)
-  if (typeof r === 'string') variantThumbs.value[sha] = r
-}
+const displayThumb = computed<string | null>(() => null)
 
 async function refreshCurRes(guid = props.guid) {
   const containerId = props.containerId
@@ -397,7 +377,6 @@ watch(
   async (guid) => {
     detailRecord.value = null
     recordLoading.value = !!guid
-    variantThumbs.value = {}
     activeVariantIdx.value = 0
     previewOpen.value = false
     editingName.value = false
@@ -408,7 +387,6 @@ watch(
       if (props.guid !== guid) return
       if (rec) {
         detailRecord.value = rec
-        for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
       }
     } finally {
       if (props.guid === guid) recordLoading.value = false
@@ -445,12 +423,10 @@ async function removeVariant(res: number[]) {
   if (yes !== true) return
   const r = await backend.assets.removeVariant(guid, res[0], res[1])
   if (r === undefined) return
-  variantThumbs.value = {}
   await store.reload()
   const rec = await backend.assets.get(guid)
   if (rec) {
     detailRecord.value = rec
-    for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
   }
   await applyCurResPick(guid)
 }
@@ -466,12 +442,10 @@ async function onRecapture() {
   await backend.tools.openScreenPicker('template_recapture', id, props.containerId, '', '', guid)
   const result = await waiter
   if (result.payload?.cancelled || !result.payload?.guid) return
-  variantThumbs.value = {}
   await store.reload()
   const rec = await backend.assets.get(guid)
   if (rec) {
     detailRecord.value = rec
-    for (const v of rec.variants ?? []) void loadVariantThumb(v.blob)
   }
   await refreshCurRes()
   await applyCurResPick(guid)

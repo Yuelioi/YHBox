@@ -2,9 +2,11 @@ package inputclip
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
@@ -56,10 +58,6 @@ func (s *Service) Save(clip *InputClip) error {
 	if err := Encode(&buf, clip); err != nil {
 		return fmt.Errorf("encode clip: %w", err)
 	}
-	sha, err := s.store.Blobs().Put(buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("put clip blob: %w", err)
-	}
 	createdAt := clip.CreatedAt
 	if createdAt == "" {
 		createdAt = time.Now().UTC().Format(time.RFC3339)
@@ -70,13 +68,15 @@ func (s *Service) Save(clip *InputClip) error {
 		Name:   clip.Label,
 		Tags:   clip.Tags,
 		Origin: asset.Origin{Kind: "user"},
-		Blob:   sha,
 	}
 	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
 		rec.CreatedAt = t
 	}
-	if err := s.store.PutRecord(rec); err != nil {
-		return fmt.Errorf("put clip record: %w", err)
+	if _, err := s.store.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader(buf.Bytes()), func(ref blob.Ref) asset.AssetRecord {
+		rec.Blob = &ref
+		return rec
+	}); err != nil {
+		return fmt.Errorf("commit clip blob: %w", err)
 	}
 	s.emitChanged()
 	return nil
@@ -88,7 +88,10 @@ func (s *Service) Get(id string) (*InputClip, error) {
 	if !ok || rec.Kind != asset.KindClip {
 		return nil, fmt.Errorf("clip %q not found", id)
 	}
-	data, err := s.store.Blobs().Read(rec.Blob)
+	if rec.Blob == nil {
+		return nil, fmt.Errorf("clip %q has no blob reference", id)
+	}
+	data, err := s.store.ReadBlob(context.Background(), *rec.Blob)
 	if err != nil {
 		return nil, fmt.Errorf("read clip blob %q: %w", id, err)
 	}

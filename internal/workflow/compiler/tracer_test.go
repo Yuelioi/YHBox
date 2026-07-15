@@ -47,7 +47,7 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope, err := datatype.OpenValueEnvelope(run.NodeOutputs["concat-1"]["result"])
+	envelope, err := datatype.OpenValueEnvelope(catalog, run.NodeOutputs["concat-1"]["result"])
 	if err != nil {
 		t.Fatal(err)
 	}

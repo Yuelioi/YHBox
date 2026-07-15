@@ -56,6 +56,10 @@ _Avoid_: Nullable input, defaulted value
 通过 media type、内容摘要和字节大小引用不可变大对象的可持久化值表示；存储位置不属于其身份。
 _Avoid_: Base64 payload, image bytes
 
+**Blob Store**:
+拥有 immutable content-addressed object、quota、integrity、range read 与 Sweep 生命周期的唯一模块；上层不能读取其路径或直接删除对象。
+_Avoid_: Asset blob folder, file cache
+
 **Stream Reference**:
 对带类型、背压、取消和明确终态的运行期增量通道的引用；它不是可持久化 list。
 _Avoid_: List, byte slice
@@ -63,6 +67,14 @@ _Avoid_: List, byte slice
 **Resource Reference**:
 由宿主 Resource Broker 解析、限定 authority、scope、owner 和 operation 的临时 capability token；原始 HWND、指针和文件描述符不得跨边界传递。
 _Avoid_: HWND, pointer, handle object
+
+**Resource Broker**:
+在授权后签发 Run-scoped opaque lease、解析 provider object，并统一执行 operation check、borrow/drop、expiry、cancel 与 crash cleanup 的宿主边界。
+_Avoid_: Handle registry, service locator
+
+**Resource Lease**:
+Resource Broker 中绑定 Run、invocation、kind、operation set 与 expiry 的临时 authority；borrow 只能收窄，最后一个 lease drop 才释放对象。
+_Avoid_: Resource ID, reusable token
 
 **Conversion**:
 Workflow Source 中显式可见的 Data Type 转换；类型系统不得通过隐式 coercion 改变连线值的语义。

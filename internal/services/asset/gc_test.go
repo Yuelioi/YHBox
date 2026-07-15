@@ -2,32 +2,30 @@
 package asset
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/blob"
 )
 
 func TestGCBlobs_ReclaimsOrphans(t *testing.T) {
 	s, dir := newTestStore(t)
-	bs := s.Blobs()
 
 	// 写两个 blob：live（被记录引用）和 orphan（无引用）。
-	liveSha, err := bs.Put([]byte("live content"))
+	liveRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live content")), func(ref blob.Ref) AssetRecord {
+		rec := makeRecord("gc1", "GC Test", KindTemplate)
+		rec.Variants = []Variant{{Resolution: [2]int{1920, 1080}, Blob: ref}}
+		return rec
+	})
 	if err != nil {
 		t.Fatalf("Put live: %v", err)
 	}
-	orphanSha, err := bs.Put([]byte("orphan content"))
+	orphanRef, err := s.blobs.Put(context.Background(), "application/octet-stream", bytes.NewReader([]byte("orphan content")))
 	if err != nil {
 		t.Fatalf("Put orphan: %v", err)
-	}
-
-	// 建一条 template 记录，只引用 live blob。
-	rec := makeRecord("gc1", "GC Test", KindTemplate)
-	if err := s.PutRecord(rec); err != nil {
-		t.Fatalf("PutRecord: %v", err)
-	}
-	if err := s.PutVariant("gc1", [2]int{1920, 1080}, liveSha, [4]int{}, nil); err != nil {
-		t.Fatalf("PutVariant: %v", err)
 	}
 
 	// 跑 GC。
@@ -40,28 +38,26 @@ func TestGCBlobs_ReclaimsOrphans(t *testing.T) {
 	}
 
 	// orphan 没了。
-	if bs.Has(orphanSha) {
+	if _, err := s.ReadBlob(context.Background(), orphanRef); err == nil {
 		t.Error("orphan blob should be deleted")
 	}
 	// live 还在。
-	if !bs.Has(liveSha) {
-		t.Error("live blob should survive GC")
+	if _, err := s.ReadBlob(context.Background(), liveRef); err != nil {
+		t.Errorf("live blob should survive GC: %v", err)
 	}
 
 	// Case: clip 记录的 Blob 也算 live，不被回收。
-	clipSha, err := bs.Put([]byte("clip content"))
+	clipRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("clip content")), func(ref blob.Ref) AssetRecord {
+		clipRec := makeRecord("clip1", "Clip", KindClip)
+		clipRec.Blob = blobPtr(ref)
+		return clipRec
+	})
 	if err != nil {
 		t.Fatalf("Put clip blob: %v", err)
 	}
-	orphan2Sha, err := bs.Put([]byte("orphan2 content"))
+	orphan2Ref, err := s.blobs.Put(context.Background(), "application/octet-stream", bytes.NewReader([]byte("orphan2 content")))
 	if err != nil {
 		t.Fatalf("Put orphan2: %v", err)
-	}
-
-	clipRec := makeRecord("clip1", "Clip", KindClip)
-	clipRec.Blob = clipSha
-	if err := s.PutRecord(clipRec); err != nil {
-		t.Fatalf("PutRecord clip: %v", err)
 	}
 
 	n2, err := s.GCBlobs()
@@ -72,16 +68,16 @@ func TestGCBlobs_ReclaimsOrphans(t *testing.T) {
 	if n2 != 1 {
 		t.Errorf("GCBlobs round2: reclaimed %d, want 1", n2)
 	}
-	if bs.Has(orphan2Sha) {
+	if _, err := s.ReadBlob(context.Background(), orphan2Ref); err == nil {
 		t.Error("orphan2 blob should be deleted")
 	}
-	if !bs.Has(clipSha) {
-		t.Error("clip blob should survive GC")
+	if _, err := s.ReadBlob(context.Background(), clipRef); err != nil {
+		t.Errorf("clip blob should survive GC: %v", err)
 	}
 
 	// Case: .tmp 残留不被误删（也不计入回收数）。
 	blobDir := filepath.Join(dir, "blobs")
-	tmpPath := filepath.Join(blobDir, "deadbeef.tmp")
+	tmpPath := filepath.Join(blobDir, ".tmp-active")
 	if err := os.WriteFile(tmpPath, []byte("tmp"), 0o644); err != nil {
 		t.Fatalf("write .tmp: %v", err)
 	}

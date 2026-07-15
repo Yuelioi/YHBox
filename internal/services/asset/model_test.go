@@ -23,7 +23,7 @@ func TestRoundTrip_AssetRecord(t *testing.T) {
 				Resolution: [2]int{1920, 1080},
 				BBox:       [4]int{10, 20, 100, 80},
 				Regions:    [][4]int{{10, 20, 50, 80}, {50, 20, 100, 80}},
-				Blob:       "deadbeef",
+				Blob:       testBlobRef("deadbeef"),
 			},
 		},
 		CreatedAt: now,
@@ -67,8 +67,8 @@ func TestRoundTrip_AssetRecord(t *testing.T) {
 	if len(v.Regions) != 2 {
 		t.Errorf("Variant.Regions len: got %d", len(v.Regions))
 	}
-	if v.Blob != "deadbeef" {
-		t.Errorf("Variant.Blob: got %q", v.Blob)
+	if v.Blob != testBlobRef("deadbeef") {
+		t.Errorf("Variant.Blob: got %#v", v.Blob)
 	}
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt: got %v want %v", got.CreatedAt, now)
@@ -77,11 +77,11 @@ func TestRoundTrip_AssetRecord(t *testing.T) {
 
 func TestRoundTrip_AssetRecord_Clip(t *testing.T) {
 	orig := AssetRecord{
-		GUID:   "guid-clip",
-		Kind:   KindClip,
-		Name:   "测试 clip",
-		Origin: Origin{Kind: "imported"},
-		Blob:   "cafebabe",
+		GUID:      "guid-clip",
+		Kind:      KindClip,
+		Name:      "测试 clip",
+		Origin:    Origin{Kind: "imported"},
+		Blob:      blobPtr(testBlobRef("cafebabe")),
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -97,8 +97,8 @@ func TestRoundTrip_AssetRecord_Clip(t *testing.T) {
 	if got.Kind != KindClip {
 		t.Errorf("Kind: got %q", got.Kind)
 	}
-	if got.Blob != "cafebabe" {
-		t.Errorf("Blob: got %q", got.Blob)
+	if got.Blob == nil || *got.Blob != testBlobRef("cafebabe") {
+		t.Errorf("Blob: got %#v", got.Blob)
 	}
 	// Variants 和 Tags 的 omitempty: clip 无 Variants，序列化后应为 nil
 	if got.Variants != nil {
@@ -113,7 +113,7 @@ func TestRoundTrip_Variant_NoRegions(t *testing.T) {
 	v := Variant{
 		Resolution: [2]int{1280, 720},
 		BBox:       [4]int{0, 0, 100, 100},
-		Blob:       "abc123",
+		Blob:       testBlobRef("abc123"),
 	}
 	b, err := json.Marshal(v)
 	if err != nil {

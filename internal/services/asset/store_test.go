@@ -2,12 +2,19 @@
 package asset
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 )
 
 // ---- helpers ----
@@ -24,17 +31,29 @@ func newTestStore(t *testing.T) (*Store, string) {
 
 func makeRecord(guid, name, kind string) AssetRecord {
 	return AssetRecord{
-		GUID:      guid,
-		Kind:      kind,
-		Name:      name,
-		Origin:    Origin{Kind: "user"},
-		CreatedAt: time.Now().UTC(),
+		SchemaVersion: RecordSchemaVersion,
+		GUID:          guid,
+		Kind:          kind,
+		Name:          name,
+		Origin:        Origin{Kind: "user"},
+		CreatedAt:     time.Now().UTC(),
 	}
 }
 
+func testBlobRef(label string) blob.Ref {
+	digest := sha256.Sum256([]byte(label))
+	return blob.Ref{
+		MediaType: "application/octet-stream",
+		Digest:    artifact.Digest(fmt.Sprintf("sha256:%x", digest)),
+		Size:      int64(len(label)),
+	}
+}
+
+func blobPtr(ref blob.Ref) *blob.Ref { return &ref }
+
 // ---- Task 0.3 tests ----
 
-func TestStore_PreloadSkipsCorrupt(t *testing.T) {
+func TestStore_PreloadRejectsCorrupt(t *testing.T) {
 	dir := t.TempDir()
 	recDir := filepath.Join(dir, "templates")
 	if err := os.MkdirAll(recDir, 0o755); err != nil {
@@ -53,22 +72,68 @@ func TestStore_PreloadSkipsCorrupt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s, err := NewStore(dir)
+	if _, err := NewStore(dir); err == nil {
+		t.Fatal("NewStore accepted corrupt persisted contract data")
+	}
+}
+
+func TestStore_PreloadRejectsOldSchema(t *testing.T) {
+	dir := t.TempDir()
+	recDir := filepath.Join(dir, "templates")
+	if err := os.MkdirAll(recDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rec := makeRecord("old", "Old", KindTemplate)
+	rec.SchemaVersion = RecordSchemaVersion - 1
+	b, _ := json.Marshal(rec)
+	if err := os.WriteFile(filepath.Join(recDir, "old.json"), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(dir); err == nil {
+		t.Fatal("NewStore accepted an old schema through a compatibility path")
+	}
+}
+
+func TestStore_PreloadRejectsDanglingBlobReference(t *testing.T) {
+	dir := t.TempDir()
+	first, err := NewStore(dir)
 	if err != nil {
-		t.Fatalf("NewStore with corrupt file should not fail: %v", err)
+		t.Fatal(err)
 	}
+	rec := makeRecord("dangling", "Dangling", KindTemplate)
+	ref := testBlobRef("missing")
+	rec.Variants = []Variant{{Resolution: [2]int{1, 1}, Blob: ref}}
+	if err := first.putRecord(rec); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(dir); err == nil {
+		t.Fatal("NewStore accepted a durable reference to a missing blob")
+	}
+}
 
-	rec, ok := s.Get("good")
-	if !ok {
-		t.Error("Get(good) should hit")
+func TestStore_PreloadRejectsUnboundedAmbiguousOrUnknownJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  []byte
+	}{
+		{name: "unknown field", raw: []byte(`{"schemaVersion":2,"guid":"bad","guidExtra":"x","kind":"template","name":"Bad","origin":{"kind":"user"},"createdAt":"2026-07-15T00:00:00Z"}`)},
+		{name: "duplicate field", raw: []byte(`{"schemaVersion":2,"guid":"bad","guid":"other","kind":"template","name":"Bad","origin":{"kind":"user"},"createdAt":"2026-07-15T00:00:00Z"}`)},
+		{name: "oversized", raw: bytes.Repeat([]byte{' '}, maxAssetRecordBytes+1)},
 	}
-	if rec.GUID != "good" {
-		t.Errorf("Get(good).GUID = %q", rec.GUID)
-	}
-
-	_, ok = s.Get("bad")
-	if ok {
-		t.Error("Get(bad) should miss (corrupt file skipped)")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			recordDir := filepath.Join(dir, "templates")
+			if err := os.MkdirAll(recordDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(recordDir, "bad.json"), test.raw, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := NewStore(dir); err == nil {
+				t.Fatalf("NewStore accepted %s record", test.name)
+			}
+		})
 	}
 }
 
@@ -96,8 +161,11 @@ func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := makeRecord("persist1", "Persistent", KindClip)
-	rec.Blob = "deadbeef"
-	if err := s1.PutRecord(rec); err != nil {
+	ref, err := s1.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("deadbeef")), func(ref blob.Ref) AssetRecord {
+		rec.Blob = &ref
+		return rec
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -110,8 +178,8 @@ func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 	if !ok {
 		t.Fatal("preload should restore record")
 	}
-	if got.Blob != "deadbeef" {
-		t.Errorf("Blob: %q", got.Blob)
+	if got.Blob == nil || *got.Blob != ref {
+		t.Errorf("Blob: %#v", got.Blob)
 	}
 }
 
@@ -176,18 +244,63 @@ func TestStore_DeleteRecord(t *testing.T) {
 	}
 }
 
-func TestStore_Blobs(t *testing.T) {
+func TestStore_CommitRecordBlob(t *testing.T) {
 	s, _ := newTestStore(t)
-	bs := s.Blobs()
-	if bs == nil {
-		t.Fatal("Blobs() should not be nil")
-	}
-	sha, err := bs.Put([]byte("blob data"))
+	ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("blob data")), func(ref blob.Ref) AssetRecord {
+		rec := makeRecord("blob", "Blob", KindClip)
+		rec.Blob = &ref
+		return rec
+	})
 	if err != nil {
-		t.Fatalf("Blobs().Put: %v", err)
+		t.Fatalf("CommitRecordBlob: %v", err)
 	}
-	if !bs.Has(sha) {
-		t.Error("Blobs().Has should be true after Put")
+	if _, err := s.ReadBlob(context.Background(), ref); err != nil {
+		t.Errorf("stored blob is not readable: %v", err)
+	}
+}
+
+func TestStore_CommitRecordBlobExcludesGCThroughReferenceCommit(t *testing.T) {
+	s, _ := newTestStore(t)
+	enteredCommit := make(chan struct{})
+	releaseCommit := make(chan struct{})
+	commitDone := make(chan error, 1)
+	var committed blob.Ref
+	go func() {
+		ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live")), func(ref blob.Ref) AssetRecord {
+			close(enteredCommit)
+			<-releaseCommit
+			rec := makeRecord("atomic", "Atomic", KindTemplate)
+			rec.Variants = []Variant{{Resolution: [2]int{1, 1}, Blob: ref}}
+			return rec
+		})
+		committed = ref
+		commitDone <- err
+	}()
+	<-enteredCommit
+
+	gcAttempted := make(chan struct{})
+	gcDone := make(chan error, 1)
+	go func() {
+		close(gcAttempted)
+		_, err := s.GCBlobs()
+		gcDone <- err
+	}()
+	<-gcAttempted
+	select {
+	case err := <-gcDone:
+		t.Fatalf("GC crossed an in-flight reference commit: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(releaseCommit)
+	if err := <-commitDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-gcDone; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReadBlob(context.Background(), committed); err != nil {
+		t.Fatalf("GC removed the atomically committed blob: %v", err)
 	}
 }
 
@@ -204,13 +317,13 @@ func TestStore_PutVariantConcurrentNoLostUpdate(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		if err := s.PutVariant("g", res1, "sha1", [4]int{0, 0, 100, 100}, nil); err != nil {
+		if err := s.putVariant("g", res1, testBlobRef("sha1"), [4]int{0, 0, 100, 100}, nil); err != nil {
 			t.Errorf("PutVariant res1: %v", err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		if err := s.PutVariant("g", res2, "sha2", [4]int{0, 0, 200, 200}, nil); err != nil {
+		if err := s.putVariant("g", res2, testBlobRef("sha2"), [4]int{0, 0, 200, 200}, nil); err != nil {
 			t.Errorf("PutVariant res2: %v", err)
 		}
 	}()
@@ -230,15 +343,15 @@ func TestStore_PutVariant_Upsert(t *testing.T) {
 	s.PutRecord(makeRecord("u1", "Upsert", KindTemplate))
 
 	res := [2]int{1920, 1080}
-	s.PutVariant("u1", res, "sha-old", [4]int{0, 0, 100, 100}, nil)
-	s.PutVariant("u1", res, "sha-new", [4]int{5, 5, 95, 95}, nil)
+	s.putVariant("u1", res, testBlobRef("sha-old"), [4]int{0, 0, 100, 100}, nil)
+	s.putVariant("u1", res, testBlobRef("sha-new"), [4]int{5, 5, 95, 95}, nil)
 
 	got, _ := s.Get("u1")
 	if len(got.Variants) != 1 {
 		t.Errorf("upsert same res should stay 1 variant, got %d", len(got.Variants))
 	}
-	if got.Variants[0].Blob != "sha-new" {
-		t.Errorf("upsert should overwrite blob: %q", got.Variants[0].Blob)
+	if got.Variants[0].Blob != testBlobRef("sha-new") {
+		t.Errorf("upsert should overwrite blob: %#v", got.Variants[0].Blob)
 	}
 }
 
@@ -248,8 +361,8 @@ func TestStore_RemoveVariant(t *testing.T) {
 
 	res1 := [2]int{1920, 1080}
 	res2 := [2]int{1280, 720}
-	s.PutVariant("rv", res1, "sha1", [4]int{}, nil)
-	s.PutVariant("rv", res2, "sha2", [4]int{}, nil)
+	s.putVariant("rv", res1, testBlobRef("sha1"), [4]int{}, nil)
+	s.putVariant("rv", res2, testBlobRef("sha2"), [4]int{}, nil)
 
 	if err := s.RemoveVariant("rv", res1); err != nil {
 		t.Fatalf("RemoveVariant: %v", err)
@@ -266,7 +379,7 @@ func TestStore_RemoveVariant(t *testing.T) {
 
 func TestStore_PutVariant_NotFound(t *testing.T) {
 	s, _ := newTestStore(t)
-	err := s.PutVariant("nope", [2]int{1920, 1080}, "sha", [4]int{}, nil)
+	err := s.putVariant("nope", [2]int{1920, 1080}, testBlobRef("sha"), [4]int{}, nil)
 	if err == nil {
 		t.Error("PutVariant on missing guid should error")
 	}

@@ -2,11 +2,14 @@ package container
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	nodepkg "github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container/dependency"
@@ -182,7 +185,7 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 	if s.assetStore == nil {
 		return fmt.Errorf("asset store not configured for package export")
 	}
-	templateBlobs := map[string]bool{}
+	templateBlobs := map[string]blob.Ref{}
 	for _, guid := range sortedStrings(closure.Templates) {
 		rec, ok := s.assetStore.Get(guid)
 		if !ok {
@@ -195,18 +198,17 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 			return err
 		}
 		for _, v := range rec.Variants {
-			if v.Blob != "" {
-				templateBlobs[v.Blob] = true
-			}
+			templateBlobs[v.Blob.Digest.String()] = v.Blob
 		}
 	}
-	for _, sha := range sortedKeys(templateBlobs) {
-		if err := addAssetBlob(zw, s.assetStore, sha, filepath.ToSlash(filepath.Join("assets", "blobs", sha))); err != nil {
+	for _, digest := range sortedBlobDigests(templateBlobs) {
+		ref := templateBlobs[digest]
+		if err := addAssetBlob(zw, s.assetStore, ref, filepath.ToSlash(filepath.Join("assets", "blobs", blobObjectName(ref)))); err != nil {
 			return err
 		}
 	}
 
-	clipBlobs := map[string]bool{}
+	clipBlobs := map[string]blob.Ref{}
 	for _, guid := range sortedStrings(closure.Clips) {
 		rec, ok := s.assetStore.Get(guid)
 		if !ok {
@@ -218,12 +220,13 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 		if err := addZipJSON(zw, filepath.ToSlash(filepath.Join("clips", guid+".json")), rec); err != nil {
 			return err
 		}
-		if rec.Blob != "" {
-			clipBlobs[rec.Blob] = true
+		if rec.Blob != nil {
+			clipBlobs[rec.Blob.Digest.String()] = *rec.Blob
 		}
 	}
-	for _, sha := range sortedKeys(clipBlobs) {
-		if err := addAssetBlob(zw, s.assetStore, sha, filepath.ToSlash(filepath.Join("clips", "blobs", sha))); err != nil {
+	for _, digest := range sortedBlobDigests(clipBlobs) {
+		ref := clipBlobs[digest]
+		if err := addAssetBlob(zw, s.assetStore, ref, filepath.ToSlash(filepath.Join("clips", "blobs", blobObjectName(ref)))); err != nil {
 			return err
 		}
 	}
@@ -238,12 +241,25 @@ func addZipJSON(zw *zip.Writer, zipName string, value any) error {
 	return addZipBytes(zw, zipName, b)
 }
 
-func addAssetBlob(zw *zip.Writer, store *asset.Store, sha, zipName string) error {
-	b, err := store.Blobs().Read(sha)
+func addAssetBlob(zw *zip.Writer, store *asset.Store, ref blob.Ref, zipName string) error {
+	b, err := store.ReadBlob(context.Background(), ref)
 	if err != nil {
 		return err
 	}
 	return addZipBytes(zw, zipName, b)
+}
+
+func sortedBlobDigests(refs map[string]blob.Ref) []string {
+	digests := make([]string, 0, len(refs))
+	for digest := range refs {
+		digests = append(digests, digest)
+	}
+	sort.Strings(digests)
+	return digests
+}
+
+func blobObjectName(ref blob.Ref) string {
+	return ref.Digest.String()[len("sha256:"):]
 }
 
 func addZipBytes(zw *zip.Writer, zipName string, data []byte) error {

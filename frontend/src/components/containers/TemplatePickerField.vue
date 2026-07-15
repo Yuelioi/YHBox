@@ -105,16 +105,4 @@ const summaryLabel = computed(() => {
 
 // 首个已选模板缩略图 (触发按钮上显示).
 const firstThumb = ref<string | undefined>(undefined)
-watch(
-  selected,
-  async (guids) => {
-    firstThumb.value = undefined
-    const s = guids[0] ? tplStore.map[guids[0]] : undefined
-    if (s?.firstBlobSha) {
-      const r = await tplStore.readBlobDataURL(s.firstBlobSha)
-      if (typeof r === 'string') firstThumb.value = r
-    }
-  },
-  { immediate: true },
-)
 </script>

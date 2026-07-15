@@ -74,7 +74,6 @@ export interface ScriptTemplateSummary {
   category?: string
   tags?: string[]
   variantCount?: number
-  firstBlobSha?: string
   createdAt?: string
 }
 

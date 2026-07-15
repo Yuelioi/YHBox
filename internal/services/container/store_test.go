@@ -2,6 +2,8 @@ package container
 
 import (
 	"archive/zip"
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -543,34 +546,32 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	assetStore, _ := asset.NewStore(filepath.Join(dir, "assets"))
 	s.SetAssetStore(assetStore)
 
-	templateBlob, err := assetStore.Blobs().Put([]byte("template-png"))
+	templateBlob, err := assetStore.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader([]byte("template-png")), func(ref blob.Ref) asset.AssetRecord {
+		return asset.AssetRecord{
+			GUID:   "tpl-1",
+			Kind:   asset.KindTemplate,
+			Name:   "Template",
+			Origin: asset.Origin{Kind: "user"},
+			Variants: []asset.Variant{{
+				Resolution: [2]int{1280, 720},
+				BBox:       [4]int{1, 2, 3, 4},
+				Blob:       ref,
+			}},
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := assetStore.PutRecord(asset.AssetRecord{
-		GUID:   "tpl-1",
-		Kind:   asset.KindTemplate,
-		Name:   "Template",
-		Origin: asset.Origin{Kind: "user"},
-		Variants: []asset.Variant{{
-			Resolution: [2]int{1280, 720},
-			BBox:       [4]int{1, 2, 3, 4},
-			Blob:       templateBlob,
-		}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	clipBlob, err := assetStore.Blobs().Put([]byte("clip-bytes"))
+	clipBlob, err := assetStore.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader([]byte("clip-bytes")), func(ref blob.Ref) asset.AssetRecord {
+		return asset.AssetRecord{
+			GUID:   "clip-1",
+			Kind:   asset.KindClip,
+			Name:   "Clip",
+			Origin: asset.Origin{Kind: "user"},
+			Blob:   &ref,
+		}
+	})
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := assetStore.PutRecord(asset.AssetRecord{
-		GUID:   "clip-1",
-		Kind:   asset.KindClip,
-		Name:   "Clip",
-		Origin: asset.Origin{Kind: "user"},
-		Blob:   clipBlob,
-	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -601,9 +602,9 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	}
 	for _, want := range []string{
 		"assets/records/tpl-1.json",
-		"assets/blobs/" + templateBlob,
+		"assets/blobs/" + blobObjectName(templateBlob),
 		"clips/clip-1.json",
-		"clips/blobs/" + clipBlob,
+		"clips/blobs/" + blobObjectName(clipBlob),
 	} {
 		if !names[want] {
 			t.Fatalf("zip missing %s; names=%v", want, names)

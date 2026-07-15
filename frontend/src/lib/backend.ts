@@ -247,7 +247,7 @@ export interface AssetSummary {
   category?: string
   tags?: string[]
   variantCount: number
-  firstBlobSha?: string // 首变体 blob sha (FE 用 ReadBlobDataURL 拉缩略图)
+  firstBlob?: BlobRef
   createdAt?: string
 }
 
@@ -260,9 +260,15 @@ export interface AssetRecord {
   category?: string
   tags?: string[]
   origin: { kind: string; sourceID?: string }
-  variants?: Array<{ resolution: number[]; bbox: number[]; blob: string }>
-  blob?: string
+  variants?: Array<{ resolution: number[]; bbox: number[]; blob: BlobRef }>
+  blob?: BlobRef
   createdAt: string
+}
+
+export interface BlobRef {
+  mediaType: string
+  digest: string
+  size: number
 }
 
 // Referrer 引用位置 — Delete 返回, FE 据此弹"被 N 处引用"确认.
@@ -444,8 +450,6 @@ export const backend = {
     // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
     capture: (containerID: string, nodeID = '') =>
       invoke(AssetService.Capture, containerID, nodeID),
-    // ReadBlobDataURL 按 blob sha 拿 data URL (缩略图).
-    readBlobDataURL: (sha: string) => invoke(AssetService.ReadBlobDataURL, sha),
     gcBlobs: () => invoke(AssetService.GCBlobs),
     // CurrentResolution 当前容器 Windows 窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
     // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.

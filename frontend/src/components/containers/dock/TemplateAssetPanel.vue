@@ -139,11 +139,7 @@
                     <div
                       class="template-card-preview flex aspect-[16/10] items-center justify-center bg-sunken p-3"
                     >
-                      <TemplateThumb
-                        :sha="item.firstBlobSha"
-                        :alt="item.name || item.guid"
-                        :max-upscale="1"
-                      />
+                      <TemplateThumb :alt="item.name || item.guid" :max-upscale="1" />
                     </div>
                     <div class="min-w-0 px-2.5 py-2">
                       <div class="flex items-center gap-2">

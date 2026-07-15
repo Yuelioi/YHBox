@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 contract kernel 与首条端到端 tracer 已落地：Data Type、ValueEnvelope、Node Contract、Catalog、Workflow Source、Compiler 与 Program 均为 3.1 strict artifact。Concat 由同一 sealed contract 生成 machine catalog、Vue presentation、MCP describe/search 与 Markdown 文档，并以两个 string data input、一个 string data output、零 control pin 贯通 compile/open/run。3.1 interpreter 仍是 fail-closed pure-data preview，尚未接成生产 fallback；旧 ContainerRunner 必须在 capability/resource、Program/Run 与 catalog-wide migration 完成后整体删除。
+Yotta 3.1 contract kernel、首条 Concat tracer，以及 Blob/Stream/Resource kernel 已落地。ValueEnvelope 现在按 pinned Data Type 封闭为 inline/blob/stream/handle 四分支；runtime authority 无 durable artifact。资产已破坏性切换到 schema v2 typed BlobRef、严格 preload、引用完整性验证和排斥 GC 的 commit API；旧 BlobStore、string SHA 与整 Blob thumbnail RPC 已删除。Resource Broker 把 Program/plan/principal/plugin/session/Run/invocation/provider/target/operation/expiry 绑定为唯一 lease authority，并对 open/borrow/call 逐次授权。3.1 interpreter 仍是 fail-closed pure-data preview；conversion nodes、正式 Program/Run composition 与 plugin host conformance 未完成前不得接成生产 fallback。
 
 ## Next
 
-沿 Wayfinder 依次闭合 Capability、Resource、Program/Run、Authoring 与 Plugin 决策；下一 tracer 应把 capability grant、resource quota/cancellation 与正式 Run artifact 接入同一 strict Program boundary。随后批量迁移 built-in catalog 和编辑器存储到精确 NodeRef/port identity。Program/Run 决议和 catalog-wide 编译完成前禁止把 3.1 interpreter 接成生产 fallback。
+下一纵向切片先定义 Program/Run artifact 与 composition owner，把已完成的 Broker/Stream kernel 接入真实 Run grant、终止撤销和 trace redaction；同时用一个显式 blob↔stream conversion tracer 验证 effect/capability/error contract。随后进入 Authoring Projection 和 built-in catalog 批量迁移。Program/Run 决议和 catalog-wide 编译完成前禁止把 3.1 interpreter 接成生产 fallback。
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -44,6 +44,11 @@ Done:
 - 破坏性切换 Workflow Source/Compiler/Program 到 3.1：显式 edge channel、typed endpoint、literal/default provenance、strict trusted reopen、全边界资源预算与 fail-closed preview feature set。
 - 新增 ValueEnvelope 3.1；interpreter 使用可信 Catalog、capability grant 和完整 installed implementation lock，输出按 pinned Data Type 复验并限制 retained bytes。
 - 完成 Concat Source → Compiler → Program → interpreter → Vue/MCP/docs tracer；Vue 未知 pin 不再猜成 exec，generated machine Catalog 可由 strict opener 原样打开。
+- 新增 immutable Blob Store：raw-byte SHA-256、typed media/size reference、单体/总量 quota、range read、读前 integrity、dedup 复验、ownership marker、durable replace/remove 与 stop-the-world Sweep。
+- 资产 schema 破坏性升至 v2：删除 string SHA/旧 BlobStore/skip-corrupt reader；record/variant 只能经原子 blob-reference commit API 引入，preload 严格拒绝旧版、未知字段、重复字段、越界 JSON、意外目录项和 dangling/tampered blob。
+- 新增 Run-scoped Resource Broker 与 Stream provider：256-bit opaque token、完整 authority scope、逐次 open/borrow/call authorize、narrow lease、expiry/Run revoke/Broker close、active cancellation、exactly-once cleanup、bounded backpressure、finish drain/EOF 与 cancel wakeup。
+- ValueEnvelope 四分支进入 v2 digest preimage 并由 pinned Data Type representation/codec/schema 复验；inline 上限 1 MiB，stream/handle 只提供显式 RuntimeArtifact，Durable Artifact 恒为 nil。
+- 删除 `ReadBlobDataURL` Wails RPC 及前端 thumbnail base64 fallback；前端只接收 typed BlobRef 元数据，bounded preview adapter 完成前使用明确 placeholder。
 - Standards/Spec 双轴复审发现的 implementation bypass、untyped output、silent control semantics、Source semantic drop、fake exec-out、canonical catalog 与 Program strict-boundary 问题均已修复并加回归测试。
 - 落地 Data Type 3.1 Contract Kernel：opaque definition seal/open、算法域 `/v1` semantic digest、版本化 TypeRef、离线 Draft 2020-12 bundle 与真实 schema 引用预算、codec/editor allowlist、Resolved Type、union/list assignability；双轴终审无剩余 P1/P2。
 - 完成 Node System 3.1 设计变更的 Standards/Spec 双轴 review；修正 Data Type semantic digest 自引用、list 运行类型身份与研究/决议漂移。
@@ -79,9 +84,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Capability/Target Planning 决议已闭合并记录 ADR/领域语言；下一 frontier 是 Blob Store/Stream/Resource Broker，完成后才能冻结正式 Program/Run 语义。当前代码仍保持 pure-data fail closed，不提前猜 resource 或 effect runtime。
+- Blob/Stream/Resource kernel 与资产 destructive cutover 已完成并通过双轴 review；resource ticket 保持 open，明确阻塞项只剩 conversion nodes、正式 Program/Run composition、三 host conformance 和 capture/preview transport。当前代码保持 pure-data fail closed，不建立 resource/effect runtime 旁路。
 
 Verified:
+- Blob/Stream/Resource 与 asset schema v2 批次 `task check` 通过（2026-07-15，174.4s）：全局 coverage 65.6%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models；聚焦 blob/resource/stream/asset race 全绿。
 - 3.1 Concat tracer destructive cutover 最终 `task check` 通过（2026-07-15，117s）：全局 coverage 65.2%，frontend 97 files / 635 tests，Wails contract 14 services / 119 methods / 100 models，contracts drift/staticcheck/vet/build/bundle budget 全绿。
 - `go test -race` 覆盖 artifact/datatype/nodecatalog/nodecontract/nodes31/workflow schema/compiler；ParseSource、CompileDraft、OpenProgram fuzz 各 5 秒通过（约 10.4 万、17.5 万、36.6 万 executions）。
 - Data Type 3.1 kernel 最终 `task check` 通过（2026-07-15，109.9s）；聚焦 race、5 秒 fuzz、vet、staticcheck 通过，datatype coverage 71.0%。Standards/Spec 复核确认无剩余 P1/P2。
@@ -103,7 +109,7 @@ Verified:
 
 ## Open questions
 
-- Program/Run 的 durable Run/trace/error artifact、Resource budget 模型、外部 capability grant 生命周期和 package trust 仍由对应 Wayfinder tickets 决定；preview 必须继续 fail closed。
+- Program/Run 的 durable Run/trace/error artifact、Broker composition owner、外部 capability grant 生命周期和 package trust 仍由对应 Wayfinder tickets 决定；preview 必须继续 fail closed。
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。
@@ -113,4 +119,3 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
-

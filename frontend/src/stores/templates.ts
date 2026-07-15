@@ -70,13 +70,6 @@ export const useTemplatesStore = defineStore('templates', () => {
     await reload()
   }
 
-  // readBlobDataURL: 按 AssetSummary.firstBlobSha 拉缩略图.
-  async function readBlobDataURL(sha: string): Promise<string | null> {
-    if (!sha) return null
-    const r = await backend.assets.readBlobDataURL(sha)
-    return typeof r === 'string' ? r : null
-  }
-
   // capture: 截当前容器 Windows 窗口帧, 返 data URL (用于 TemplateCapture/ScreenPicker 底图).
   async function capture(): Promise<string | null> {
     if (!containerId.value) return null
@@ -93,6 +86,5 @@ export const useTemplatesStore = defineStore('templates', () => {
     remove,
     updateMeta,
     capture,
-    readBlobDataURL,
   }
 })

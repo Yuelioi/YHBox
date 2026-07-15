@@ -1,6 +1,8 @@
 package asset
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"sort"
@@ -8,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/blob"
 )
 
 // CaptureAdapter 截取指定容器目标窗口当前帧 PNG bytes. main.go 注入 (截帧仍需窗口上下文).
@@ -18,17 +21,17 @@ type CaptureAdapter interface {
 	Resolution(containerID string) ([2]int, error)
 }
 
-// AssetSummary 列表项 — 给 picker. 不含像素, 只 metadata + 首 blob sha (FE 拉缩略图用).
+// AssetSummary is picker metadata plus the first typed blob reference.
 type AssetSummary struct {
-	GUID         string   `json:"guid"`
-	Kind         string   `json:"kind"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description,omitempty"`
-	Category     string   `json:"category,omitempty"`
-	Tags         []string `json:"tags,omitempty"`
-	VariantCount int      `json:"variantCount"`
-	FirstBlobSha string   `json:"firstBlobSha,omitempty"`
-	CreatedAt    string   `json:"createdAt,omitempty"`
+	GUID         string    `json:"guid"`
+	Kind         string    `json:"kind"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description,omitempty"`
+	Category     string    `json:"category,omitempty"`
+	Tags         []string  `json:"tags,omitempty"`
+	VariantCount int       `json:"variantCount"`
+	FirstBlob    *blob.Ref `json:"firstBlob,omitempty"`
+	CreatedAt    string    `json:"createdAt,omitempty"`
 }
 
 // Service 全局资产 Wails RPC. 无 containerID (资产全局), guid 寻址.
@@ -74,10 +77,6 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 	if err != nil {
 		return "", fmt.Errorf("decode dataURL: %w", err)
 	}
-	sha, err := s.store.Blobs().Put(pngData)
-	if err != nil {
-		return "", fmt.Errorf("put template blob: %w", err)
-	}
 	// region (ratio in recRes frame) → bbox (pixel in recRes frame). 逐字搬旧 service.go:92-98.
 	bbox := [4]int{
 		int(region[0] * float32(recRes[0])),
@@ -93,11 +92,13 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 		Category:  category,
 		Tags:      tags,
 		Origin:    Origin{Kind: "user"},
-		Variants:  []Variant{{Resolution: recRes, BBox: bbox, Blob: sha}},
 		CreatedAt: time.Now().UTC(),
 	}
-	if err := s.store.PutRecord(rec); err != nil {
-		return "", err
+	if _, err := s.store.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(pngData), func(ref blob.Ref) AssetRecord {
+		rec.Variants = []Variant{{Resolution: recRes, BBox: bbox, Blob: ref}}
+		return rec
+	}); err != nil {
+		return "", fmt.Errorf("commit template blob: %w", err)
 	}
 	s.notifyChange()
 	return guid, nil
@@ -116,18 +117,14 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 	if err != nil {
 		return "", fmt.Errorf("decode dataURL: %w", err)
 	}
-	sha, err := s.store.Blobs().Put(pngData)
-	if err != nil {
-		return "", err
-	}
 	bbox := [4]int{
 		int(region[0] * float32(recRes[0])),
 		int(region[1] * float32(recRes[1])),
 		int((region[0] + region[2]) * float32(recRes[0])),
 		int((region[1] + region[3]) * float32(recRes[1])),
 	}
-	if err := s.store.PutVariant(guid, recRes, sha, bbox, nil); err != nil {
-		return "", err
+	if _, err := s.store.CommitVariantBlob(context.Background(), "image/png", bytes.NewReader(pngData), guid, recRes, bbox, nil); err != nil {
+		return "", fmt.Errorf("commit template variant: %w", err)
 	}
 	s.notifyChange()
 	return guid, nil
@@ -164,9 +161,11 @@ func (s *Service) List() []AssetSummary {
 		}
 		switch {
 		case len(rec.Variants) > 0:
-			sum.FirstBlobSha = rec.Variants[0].Blob
-		case rec.Blob != "":
-			sum.FirstBlobSha = rec.Blob
+			first := rec.Variants[0].Blob
+			sum.FirstBlob = &first
+		case rec.Blob != nil:
+			first := *rec.Blob
+			sum.FirstBlob = &first
 		}
 		out = append(out, sum)
 	}
@@ -300,15 +299,6 @@ func (s *Service) cleanupItems() []CleanupItem {
 		return items[i].ID < items[j].ID
 	})
 	return items
-}
-
-// ReadBlobDataURL 给 FE thumbnail: 按 sha 读 blob → data:image/png;base64,...
-func (s *Service) ReadBlobDataURL(sha string) (string, error) {
-	b, err := s.store.Blobs().Read(sha)
-	if err != nil {
-		return "", err
-	}
-	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Capture 截取指定容器目标窗口当前帧 (制作模板时取底图). 保留 containerID — 截帧需窗口上下文.

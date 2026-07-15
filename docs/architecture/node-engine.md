@@ -8,7 +8,9 @@ Data Type 3.1 → Node Contract 3.1 → Catalog 3.1
 Workflow Source 3.1 → Compiler → Program 3.1 → authorized host adapter
 ```
 
-`internal/datatype` 定义版本化 `TypeRef`、`ResolvedType` 与不可变 `ValueEnvelope`。跨 Program/host 边界的值必须携带完整 resolved type、representation 与 codec；inline JSON 在进入信封前 canonicalize，host 输出在封装前按 Catalog 中锁定的 Data Type schema 复验。
+`internal/datatype` 定义版本化 `TypeRef`、`ResolvedType` 与不可变 `ValueEnvelope`。跨 Program/host 边界的值必须携带完整 resolved type、representation 与 codec；四个封闭分支是 inline JSON、durable Blob Reference、runtime-only Stream Reference 与 Resource Reference。打开信封会严格解码、验证并 reseal，不存在 `any`/string fallback。
+
+`internal/blob` 独占 immutable content-addressed bytes、quota、range read、integrity 与 Sweep。`internal/resource` 独占 Run/invocation-scoped opaque lease、authorization、operation narrowing、expiry 与 cleanup；`internal/stream` 只作为 Broker Provider 提供 bounded backpressure、finish/EOF 和 cancel。原始路径、channel、pointer、HWND、fd 与 process object 不得进入 Value Envelope。
 
 `internal/nodecontract` 是节点 machine contract 的唯一事实源。端口按 data、exec、error、status 分频道声明；空频道就是空，不允许 UI 或 runtime 猜测一个通用 `out`。展示字段不参与 semantic digest。`internal/nodecatalog` 把精确 NodeRef、Data Type definition 与 implementation lock 封成不可变 machine snapshot。
 

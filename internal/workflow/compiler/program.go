@@ -263,7 +263,7 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 					(plan.Provenance != inputSourceLiteral && plan.Provenance != inputSourceDefault) {
 					return fmt.Errorf("program node %q has a malformed literal input %q", node.ID, portID)
 				}
-				envelope, err := datatype.OpenValueEnvelope(plan.Value)
+				envelope, err := datatype.OpenValueEnvelope(catalog, plan.Value)
 				if err != nil {
 					return fmt.Errorf("program node %q has an invalid value envelope for input %q: %w", node.ID, portID, err)
 				}

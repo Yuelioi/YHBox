@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -58,7 +59,7 @@ func clamp01Bound(w, x float64) float64 {
 //   - 用 pkg/vision.Match 在 caller 指定 ROI 内做 CCOEFF_NORMED 匹配
 //   - 返 found + 命中比例坐标 + 实际 region
 //
-// 资产全局 (非 per-container): matcher 持单个 *asset.Store. 解码缓存按 blob sha 键 —
+// 资产全局 (非 per-container): matcher 持单个 *asset.Store. 解码缓存按 digest 键 —
 // 内容寻址让同像素跨容器/跨资产复用同一份解码 *vision.Template.
 //
 // 命中坐标转换: vision.Match 返 ROI 内左上角像素 → 转客户区比例.
@@ -66,7 +67,7 @@ func clamp01Bound(w, x float64) float64 {
 
 type templateMatcherAdapter struct {
 	store     *asset.Store
-	loadCache sync.Map // blob sha → *vision.Template (未缩放)
+	loadCache sync.Map // digest → *vision.Template (未缩放)
 	loadSF    singleflight.Group
 
 	// emit: 投递前端事件 (e.g. App.Emit). 测试可传 nil 跳过.
@@ -177,8 +178,7 @@ func (m *templateMatcherAdapter) emitScaleTooFarWarning(guid string, frameW, fra
 
 // Invalidate 丢弃所有已解码模板缓存, 让下次 Detect 重读 blob. 资产全局, 不再按容器分.
 // 用户在同一 session 内新存/改/删资产后, asset.Service 经 change listener 调这里 ——
-// 否则 matcher 一直拿旧解码缓存 (新存的同 sha 不存在, 走重读没问题; 但重拍换 blob 后
-// 旧 sha 条目残留无害, 全清最省心).
+// 否则 matcher 一直拿旧解码缓存; 重拍换 digest 后旧条目仍会残留。
 func (m *templateMatcherAdapter) Invalidate() {
 	m.loadCache.Range(func(k, _ any) bool {
 		m.loadCache.Delete(k)
@@ -186,23 +186,26 @@ func (m *templateMatcherAdapter) Invalidate() {
 	})
 }
 
-// loadDecodedTemplate 按 blob sha 解码 PNG 成 *vision.Template, 缓存复用.
-// 缓存键 = blob sha (内容寻址, 跨容器/跨资产同像素复用), singleflight 防雪崩.
+// loadDecodedTemplate decodes one integrity-checked PNG blob and caches it by digest.
 // 缓存在 PickVariant 之后 (变体已选定) → 不存在跨分辨率误命中; blob 不可变 → 条目永不 stale.
-func (m *templateMatcherAdapter) loadDecodedTemplate(blobSha string) (*vision.Template, error) {
-	if cached, ok := m.loadCache.Load(blobSha); ok {
+func (m *templateMatcherAdapter) loadDecodedTemplate(ref blob.Ref) (*vision.Template, error) {
+	if ref.MediaType != "image/png" {
+		return nil, fmt.Errorf("template blob media type %q, require image/png", ref.MediaType)
+	}
+	cacheKey := ref.Digest.String()
+	if cached, ok := m.loadCache.Load(cacheKey); ok {
 		return cached.(*vision.Template), nil
 	}
-	v, err, _ := m.loadSF.Do(blobSha, func() (interface{}, error) {
-		pngData, err := m.store.Blobs().Read(blobSha)
+	v, err, _ := m.loadSF.Do(cacheKey, func() (interface{}, error) {
+		pngData, err := m.store.ReadBlob(context.Background(), ref)
 		if err != nil {
-			return nil, fmt.Errorf("read blob %s: %w", blobSha, err)
+			return nil, fmt.Errorf("read blob %s: %w", cacheKey, err)
 		}
 		tpl, err := vision.LoadPNG(bytes.NewReader(pngData))
 		if err != nil {
-			return nil, fmt.Errorf("decode blob %s: %w", blobSha, err)
+			return nil, fmt.Errorf("decode blob %s: %w", cacheKey, err)
 		}
-		m.loadCache.Store(blobSha, tpl)
+		m.loadCache.Store(cacheKey, tpl)
 		return tpl, nil
 	})
 	if err != nil {

@@ -12,12 +12,12 @@ func TestStore_PickVariant(t *testing.T) {
 		t.Fatalf("PutRecord: %v", err)
 	}
 
-	b1080sha := "sha-1080"
-	b720sha := "sha-720"
-	if err := s.PutVariant("g", [2]int{1920, 1080}, b1080sha, [4]int{0, 0, 1920, 1080}, nil); err != nil {
+	b1080 := testBlobRef("sha-1080")
+	b720 := testBlobRef("sha-720")
+	if err := s.putVariant("g", [2]int{1920, 1080}, b1080, [4]int{0, 0, 1920, 1080}, nil); err != nil {
 		t.Fatalf("PutVariant 1080: %v", err)
 	}
-	if err := s.PutVariant("g", [2]int{1280, 720}, b720sha, [4]int{0, 0, 1280, 720}, nil); err != nil {
+	if err := s.putVariant("g", [2]int{1280, 720}, b720, [4]int{0, 0, 1280, 720}, nil); err != nil {
 		t.Fatalf("PutVariant 720: %v", err)
 	}
 
@@ -26,8 +26,8 @@ func TestStore_PickVariant(t *testing.T) {
 	if !ok {
 		t.Fatal("case1: exact hit should return ok=true")
 	}
-	if got.Blob != b1080sha {
-		t.Errorf("case1: got blob %q, want %q", got.Blob, b1080sha)
+	if got.Blob != b1080 {
+		t.Errorf("case1: got blob %#v, want %#v", got.Blob, b1080)
 	}
 
 	// Case 2: 2560x1440 没有精确档 → 长边比 fallback（2560 vs 1920 长边比=1.33, vs 1280 长边比=2.0）

@@ -72,7 +72,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	}
 
 	list := svc.List()
-	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || list[0].FirstBlobSha != v.Blob {
+	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || list[0].FirstBlob == nil || *list[0].FirstBlob != v.Blob {
 		t.Fatalf("List = %+v", list)
 	}
 }
@@ -126,20 +126,6 @@ func TestService_RenameDelete(t *testing.T) {
 	}
 	if _, err := svc.Get(guid); err == nil {
 		t.Error("asset should be deleted")
-	}
-}
-
-func TestService_ReadBlobDataURL(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
-	svc := NewService(s, nil)
-	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{800, 600}, [4]float32{0, 0, 1, 1})
-	rec, _ := svc.Get(guid)
-	url, err := svc.ReadBlobDataURL(rec.Variants[0].Blob)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.HasPrefix([]byte(url), []byte("data:image/png;base64,")) {
-		t.Errorf("bad data url prefix: %.40s", url)
 	}
 }
 

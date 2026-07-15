@@ -225,7 +225,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 				diagnostics = append(diagnostics, diagnostic)
 				continue
 			}
-			envelope, envelopeErr := datatype.SealInlineJSON(resolved, canonical)
+			envelope, envelopeErr := datatype.SealInlineJSON(catalog, resolved, canonical)
 			if envelopeErr != nil {
 				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
 				diagnostic.Params["reason"] = envelopeErr.Error()

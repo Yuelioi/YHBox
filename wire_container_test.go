@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
@@ -26,18 +27,23 @@ func patternImg(w, h int) *image.RGBA {
 	return img
 }
 
-// makeTestPNGBlob 把一张图编码成 PNG 存进 store blob 池, 返回 sha.
-func makeTestPNGBlob(t *testing.T, s *asset.Store, img *image.RGBA) string {
+// makeTestPNGBlob 把一张图编码成 PNG 存进 store blob 池, 返回强类型引用.
+func makeTestPNGBlob(t *testing.T, s *asset.Store, img *image.RGBA, guid string, resolution [2]int) blob.Ref {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		t.Fatalf("png encode: %v", err)
 	}
-	sha, err := s.Blobs().Put(buf.Bytes())
+	ref, err := s.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(buf.Bytes()), func(ref blob.Ref) asset.AssetRecord {
+		return asset.AssetRecord{
+			GUID: guid, Kind: asset.KindTemplate, Name: guid,
+			Variants: []asset.Variant{{Resolution: resolution, BBox: [4]int{0, 0, resolution[0], resolution[1]}, Blob: ref}},
+		}
+	})
 	if err != nil {
 		t.Fatalf("blob put: %v", err)
 	}
-	return sha
+	return ref
 }
 
 // TestMatcher_DetectByGUID 验 matcher 经全局 asset store 按 guid 取 variant 解码匹配.
@@ -60,16 +66,9 @@ func TestMatcher_DetectByGUID(t *testing.T) {
 	}
 
 	// 存一个 16x16 棋盘 template 变体 (录制分辨率 200x200), frame 同尺寸在已知位置嵌同图.
-	tplImg := patternImg(16, 16)
-	sha := makeTestPNGBlob(t, s, tplImg)
 	guid := "g-pat"
-	if err := s.PutRecord(asset.AssetRecord{GUID: guid, Kind: asset.KindTemplate, Name: "pat"}); err != nil {
-		t.Fatal(err)
-	}
-	// bbox 全屏 (0,0,200,200) 让 ROI = 全帧.
-	if err := s.PutVariant(guid, [2]int{200, 200}, sha, [4]int{0, 0, 200, 200}, nil); err != nil {
-		t.Fatal(err)
-	}
+	tplImg := patternImg(16, 16)
+	_ = makeTestPNGBlob(t, s, tplImg, guid, [2]int{200, 200})
 	// frame: 在 (50,50) 嵌入同样 16x16 棋盘块 (其余黑).
 	for y := 0; y < 16; y++ {
 		for x := 0; x < 16; x++ {
@@ -89,14 +88,14 @@ func TestMatcher_DetectByGUID(t *testing.T) {
 	}
 }
 
-// TestMatcher_DecodeCacheBySha 验解码缓存按 blob sha, Invalidate 清空.
+// TestMatcher_DecodeCacheBySha 验解码缓存按 blob digest, Invalidate 清空.
 func TestMatcher_DecodeCacheBySha(t *testing.T) {
 	s, err := asset.NewStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	m := newTemplateMatcherAdapter(s, nil)
-	sha := makeTestPNGBlob(t, s, patternImg(8, 8))
+	sha := makeTestPNGBlob(t, s, patternImg(8, 8), "cache", [2]int{8, 8})
 
 	tpl1, err := m.loadDecodedTemplate(sha)
 	if err != nil {
@@ -107,10 +106,10 @@ func TestMatcher_DecodeCacheBySha(t *testing.T) {
 		t.Fatal(err)
 	}
 	if tpl1 != tpl2 {
-		t.Fatal("same sha should return cached *vision.Template")
+		t.Fatal("same digest should return cached *vision.Template")
 	}
 	m.Invalidate()
-	if _, ok := m.loadCache.Load(sha); ok {
+	if _, ok := m.loadCache.Load(sha.Digest.String()); ok {
 		t.Fatal("Invalidate should clear decode cache")
 	}
 }

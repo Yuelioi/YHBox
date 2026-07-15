@@ -16,7 +16,7 @@ Yotta 3.1 是产品版本，也是当前 Workflow/Node/Data/Catalog/Program cont
 - Workflow source hash：`yotta/workflow-source/v1` + RFC 8785 source。
 - Catalog hash：`yotta/catalog/v1` + canonical machine catalog。
 - Program hash：`yotta/program/v1` + canonical Program body。
-- Value digest：`yotta/value-envelope/v1`，preimage 包含完整 Resolved Type、representation、codec 和 canonical value。
+- Value digest：`yotta/value-envelope/v2`，preimage 包含 Value Envelope version、完整 Resolved Type、representation、codec 和 canonical value。
 
 所有 digest 只接受 `sha256:` 加 64 位小写 hex。JSON 必须是 UTF-8、无 duplicate key、可由 RFC 8785 表达；跨语言整数限制在 `±(2^53-1)`。任何会进入 recursive canonicalizer、validator 或 typed decoder 的不可信 JSON，必须先经过迭代式 byte/depth/node/string budget。
 
@@ -28,5 +28,6 @@ Source 的 `requestedCapabilities` 是作者声明上限，Compiler 从实际 co
 
 ValueEnvelope 是 Program/host 的值边界。Program literal 保存 `literal`/`default` provenance 和 envelope artifact；host adapter 只取得验证后的 payload，返回值必须按 pinned Data Type schema 验证后再封装。单值、Program 与整次运行保留值分别有资源预算。
 
-新 Compiler 不得 import legacy container runtime/store/execution queue。旧 `ContainerRunner` 迁移前仍是独立生产路径；3.1 interpreter 不得作为 fallback。Program/Run、Capability/Resource 与 catalog-wide migration 完成后整体删除旧 runtime。
+Blob 内容身份使用原始字节的 SHA-256，不使用 JSON artifact 的 domain-separated `artifact.Sum`；Blob Reference 另含 canonical media type 与 exact size。Blob/inline envelope 可持久化，Stream/Resource envelope 是 Run-only authority，禁止进入 Program、durable trace、日志、clipboard 或 cache。Resource token 必须由 Broker 以 256-bit randomness 签发并绑定 Run/invocation/operation/expiry；内容 hash 不能充当 authority。
 
+新 Compiler 不得 import legacy container runtime/store/execution queue。旧 `ContainerRunner` 迁移前仍是独立生产路径；3.1 interpreter 不得作为 fallback。Program/Run、Capability/Resource 与 catalog-wide migration 完成后整体删除旧 runtime。

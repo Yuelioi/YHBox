@@ -104,7 +104,7 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 			default:
 				return RunResult{}, fmt.Errorf("unknown input plan %q", plan.Kind)
 			}
-			envelope, err := datatype.OpenValueEnvelope(envelopeRaw)
+			envelope, err := datatype.OpenValueEnvelope(i.catalog, envelopeRaw)
 			if err != nil {
 				return RunResult{}, fmt.Errorf("open input %s.%s: %w", nodeID, portID, err)
 			}
@@ -141,7 +141,7 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 			if err != nil {
 				return RunResult{}, err
 			}
-			envelope, err := datatype.SealInlineJSON(resolved, canonical)
+			envelope, err := datatype.SealInlineJSON(i.catalog, resolved, canonical)
 			if err != nil {
 				return RunResult{}, err
 			}

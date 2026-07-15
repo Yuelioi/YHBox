@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 119,
-    "models": 100
+    "methods": 118,
+    "models": 102
   },
   "services": [
     {
@@ -375,18 +375,6 @@
           "bindingId": "2483312603",
           "parameters": [],
           "returns": "$CancellablePromise<$models.CleanupPreview>"
-        },
-        {
-          "name": "ReadBlobDataURL",
-          "bindingId": "2473241953",
-          "parameters": [
-            {
-              "name": "sha",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<string>"
         },
         {
           "name": "Referrers",
@@ -1496,6 +1484,16 @@
   ],
   "models": [
     {
+      "module": "internal/artifact/models",
+      "declarations": [
+        {
+          "kind": "type",
+          "name": "Digest",
+          "definition": "string"
+        }
+      ]
+    },
+    {
       "module": "internal/automation/target/models",
       "declarations": [
         {
@@ -1669,6 +1667,32 @@
             },
             {
               "name": "\"ClientH\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/blob/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Ref",
+          "fields": [
+            {
+              "name": "\"mediaType\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"digest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"size\"",
               "optional": false,
               "type": "number"
             }
@@ -2512,7 +2536,7 @@
             {
               "name": "\"blob\"",
               "optional": true,
-              "type": "string"
+              "type": "blob$0.Ref | null"
             },
             {
               "name": "\"createdAt\"",
@@ -2561,9 +2585,9 @@
               "type": "number"
             },
             {
-              "name": "\"firstBlobSha\"",
+              "name": "\"firstBlob\"",
               "optional": true,
-              "type": "string"
+              "type": "blob$0.Ref | null"
             },
             {
               "name": "\"createdAt\"",
@@ -2710,7 +2734,7 @@
             {
               "name": "\"blob\"",
               "optional": false,
-              "type": "string"
+              "type": "blob$0.Ref"
             }
           ]
         },

@@ -8,7 +8,12 @@ vi.mock('@/lib/backend', () => ({
     assets: {
       get: vi.fn().mockResolvedValue({
         guid: 'tpl-1',
-        variants: [{ resolution: [1920, 1080], blob: 'blob-1' }],
+        variants: [
+          {
+            resolution: [1920, 1080],
+            blob: { mediaType: 'image/png', digest: `sha256:${'1'.repeat(64)}`, size: 1 },
+          },
+        ],
       }),
       currentResolution: vi.fn().mockResolvedValue([1782, 1427]),
       pickVariant: vi.fn().mockResolvedValue({ index: 0, exact: false }),
@@ -25,10 +30,9 @@ vi.mock('@/stores/templates', () => ({
         description: '',
         category: '',
         tags: [],
-        firstBlobSha: 'blob-1',
+        firstBlob: { mediaType: 'image/png', digest: `sha256:${'1'.repeat(64)}`, size: 1 },
       },
     },
-    readBlobDataURL: vi.fn().mockResolvedValue(undefined),
   }),
 }))
 
