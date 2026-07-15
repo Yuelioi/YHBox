@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/pkg/locale"
 )
 
@@ -29,36 +30,46 @@ type Settings struct {
 	UI      UISettings      `json:"ui"`
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
-	AI      AISettings      `json:"ai"`      // AI 连接配置
+	AI      AISettings      `json:"ai"`
 }
 
-// AISettings AI 连接配置。Default 指向某 connection.ID = 新建 AI 节点缺省连接;
-// model 不在连接层, 由 AI 节点 per-调用选。
 type AISettings struct {
-	Connections []AIConnection `json:"connections"`
-	Default     string         `json:"default"`
+	Profiles []AIModelSettings `json:"profiles"`
 }
 
-// AIConnection 一个命名 AI 连接(credential)。可被多个 AI 节点按 ID 复用; Label 仅展示、全连接唯一。
-type AIConnection struct {
-	ID       string `json:"id"`
-	Label    string `json:"label"`
-	Protocol string `json:"protocol"`         // "openai" | "anthropic"
-	BaseURL  string `json:"baseURL"`          // 空 = 该协议官方默认
-	APIKey   string `json:"apiKey,omitempty"` // 仅用于读取旧配置并迁移；新写入必须走 AISecrets
+// AIModelSettings is installation metadata only. Credential material lives in
+// AISecrets; model calls bind this logical slot through the trusted Host
+// Profile frozen at application startup.
+type AIModelSettings struct {
+	Slot            string                 `json:"slot"`
+	Label           string                 `json:"label"`
+	Provider        ai.ProviderKind        `json:"provider"`
+	Model           string                 `json:"model"`
+	MaxOutputTokens int64                  `json:"maxOutputTokens"`
+	Capabilities    ai.ProfileCapabilities `json:"capabilities"`
+	Evaluation      ai.EvaluationStatus    `json:"evaluation"`
+	EvaluationSuite artifact.Digest        `json:"evaluationSuite,omitempty"`
+	WorkflowConsent artifact.Digest        `json:"workflowConsent,omitempty"`
 }
 
-// DefaultConnection 返回 Default 指向的连接; 空或失配 → nil(显式, 不自动选单档)。
-func (s *Settings) DefaultConnection() *AIConnection {
-	if s.AI.Default == "" {
-		return nil
+func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
+	return ai.ModelProfileDraft{
+		Provider: p.Provider, Model: p.Model, Capabilities: p.Capabilities,
+		MaxOutputTokens: p.MaxOutputTokens, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite,
+		ProviderMetadata: json.RawMessage(`{}`),
 	}
-	for i := range s.AI.Connections {
-		if s.AI.Connections[i].ID == s.AI.Default {
-			return &s.AI.Connections[i]
-		}
+}
+
+func (p AIModelSettings) installationDraft() ai.InstallationDraft {
+	return ai.InstallationDraft{Slot: p.Slot, Profile: p.profileDraft(), Consent: p.WorkflowConsent}
+}
+
+func (s AISettings) InstallationDrafts() []ai.InstallationDraft {
+	result := make([]ai.InstallationDraft, 0, len(s.Profiles))
+	for _, profile := range s.Profiles {
+		result = append(result, profile.installationDraft())
 	}
-	return nil
+	return result
 }
 
 // CaptureSettings 选哪个截屏后端。Method 改这个要重启 exe 才生效；DumpDebug 即时生效。
@@ -193,6 +204,7 @@ func defaultSettings() *Settings {
 		// 默认 auto：启动期 main.go 看 OS build 决定 Win10 走 GDI / Win11+ 走 WGC。
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
 		Capture: CaptureSettings{Method: "auto", DumpDebug: false},
+		AI:      AISettings{Profiles: []AIModelSettings{}},
 	}
 }
 
@@ -215,19 +227,6 @@ func LoadSettings(path string) *Settings {
 	// RecordingMouseMode 枚举校验：非 relative/absolute → relative（非空值垫片，保留）
 	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
 		s.UI.RecordingMouseMode = "relative"
-	}
-	// 悬空 default 归一化为空, 而非让 Validate 失败把整份设置重置默认。
-	if s.AI.Default != "" {
-		found := false
-		for _, c := range s.AI.Connections {
-			if c.ID == s.AI.Default {
-				found = true
-				break
-			}
-		}
-		if !found {
-			s.AI.Default = ""
-		}
 	}
 	if err := s.Validate(); err != nil {
 		return defaultSettings()
@@ -341,36 +340,31 @@ func (s *Settings) Validate() error {
 	return nil
 }
 
-func (ai *AISettings) validate() error {
-	seenID := make(map[string]bool, len(ai.Connections))
-	seenLabel := make(map[string]bool, len(ai.Connections))
-	for _, c := range ai.Connections {
-		if c.Protocol != "openai" && c.Protocol != "anthropic" {
-			return fmt.Errorf("ai.connections: protocol 必须是 openai/anthropic, got %q", c.Protocol)
+func (settings *AISettings) validate() error {
+	if len(settings.Profiles) > 64 {
+		return errors.New("ai.profiles exceeds installation budget")
+	}
+	seenSlot := make(map[string]bool, len(settings.Profiles))
+	seenLabel := make(map[string]bool, len(settings.Profiles))
+	for _, configured := range settings.Profiles {
+		if len(configured.Label) == 0 || len(configured.Label) > 128 || seenLabel[configured.Label] {
+			return fmt.Errorf("ai.profiles has an invalid or duplicate label %q", configured.Label)
 		}
-		if c.Label == "" {
-			return fmt.Errorf("ai.connections: label 不能为空")
+		seenLabel[configured.Label] = true
+		if err := ai.ValidateInstallationSlot(configured.Slot); err != nil || seenSlot[configured.Slot] {
+			return fmt.Errorf("ai.profiles has an invalid or duplicate slot %q", configured.Slot)
 		}
-		if seenLabel[c.Label] {
-			return fmt.Errorf("ai.connections: label 重复: %q", c.Label)
+		seenSlot[configured.Slot] = true
+		profile, err := ai.SealModelProfile(configured.profileDraft())
+		if err != nil {
+			return fmt.Errorf("ai.profiles[%s]: %w", configured.Slot, err)
 		}
-		seenLabel[c.Label] = true
-		if c.ID == "" {
-			return fmt.Errorf("ai.connections: id 不能为空")
-		}
-		if seenID[c.ID] {
-			return fmt.Errorf("ai.connections: id 重复: %q", c.ID)
-		}
-		seenID[c.ID] = true
-		if c.BaseURL != "" {
-			u, err := url.Parse(c.BaseURL)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-				return fmt.Errorf("ai.connections[%s]: baseURL 必须是 http(s):// 且含 host, got %q", c.Label, c.BaseURL)
+		if configured.WorkflowConsent != "" {
+			expected, err := ai.WorkflowConsentDigest(configured.Slot, profile)
+			if err != nil || configured.WorkflowConsent != expected {
+				return fmt.Errorf("ai.profiles[%s] has stale workflow consent", configured.Slot)
 			}
 		}
-	}
-	if ai.Default != "" && !seenID[ai.Default] {
-		return fmt.Errorf("ai.default 指向不存在的连接: %q", ai.Default)
 	}
 	return nil
 }

@@ -128,7 +128,7 @@ import { useNodeRegistryStore } from '@/stores/nodeRegistry'
 import {
   nodeFnCompletions,
   nodeFnItems,
-  scriptAIConnectionItemsForPin,
+  scriptAIProfileItemsForPin,
   scriptAsyncDropdownTargetForPin,
   scriptAssetItemsForPin,
   scriptColorInsertText,
@@ -274,13 +274,13 @@ function pinValues(
   if (templateItems.length) return templateItems
   const assetItems = scriptAssetItemsForPin(kind, pin, registry.specs, assetSummaries.value)
   if (assetItems.length) return assetItems
-  const aiConnectionItems = scriptAIConnectionItemsForPin(
+  const aiProfileItems = scriptAIProfileItemsForPin(
     kind,
     pin,
     registry.specs,
-    settingsStore.data?.ai.connections ?? [],
+    settingsStore.data?.ai.profiles ?? [],
   )
-  if (aiConnectionItems.length) return aiConnectionItems
+  if (aiProfileItems.length) return aiProfileItems
   if (input?.semantic === 'varname') {
     return varNames.value.map((n) => ({ value: n, type: 'variable' as const }))
   }

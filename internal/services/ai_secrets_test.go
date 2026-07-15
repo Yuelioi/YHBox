@@ -2,11 +2,9 @@ package services
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/securestore"
 )
 
@@ -40,106 +38,29 @@ func (s *fakeSecretStore) Delete(target string) error {
 	return nil
 }
 
-func TestAISecretsMigrateLegacyClearsPlaintextAfterCredentialCommit(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-	settings := defaultSettings()
-	settings.AI.Connections = []AIConnection{{
-		ID: "primary", Label: "Primary", Protocol: "openai", APIKey: "secret-value",
-	}}
-	if err := SaveSettings(path, settings); err != nil {
-		t.Fatal(err)
-	}
-	app := NewApp(path, nil, zerolog.Nop())
+func TestAISecretsResolveOnlyFrozenCredentialBindingIDs(t *testing.T) {
 	store := newFakeSecretStore()
 	secrets := NewAISecrets(store)
-
-	count, err := secrets.MigrateLegacy(app)
-	if err != nil || count != 1 {
-		t.Fatalf("MigrateLegacy = count %d, err %v", count, err)
+	if err := secrets.SetSlot("primary", "secret-value"); err != nil {
+		t.Fatal(err)
 	}
 	if got := store.values[aiCredentialTargetPrefix+"primary"]; got != "secret-value" {
 		t.Fatalf("stored credential = %q", got)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	credential, err := secrets.Get(ai.CredentialBindingID("primary"))
+	if err != nil || credential != "secret-value" {
+		t.Fatalf("Get = %q, %v", credential, err)
+	}
+	if _, err := secrets.Get("primary"); err == nil {
+		t.Fatal("accepted a workflow slot as a credential binding ID")
+	}
+	if err := secrets.SetSlot("Primary", "secret"); err == nil {
+		t.Fatal("accepted an invalid installation slot")
+	}
+	if err := secrets.DeleteSlot("primary"); err != nil {
 		t.Fatal(err)
 	}
-	if string(data) == "" || containsJSONSecret(data, "secret-value") {
-		t.Fatalf("settings still contains plaintext credential: %s", data)
+	if _, err := secrets.Get(ai.CredentialBindingID("primary")); !errors.Is(err, securestore.ErrNotFound) {
+		t.Fatalf("deleted credential error = %v", err)
 	}
-	if got := app.Settings().AI.Connections[0].APIKey; got != "" {
-		t.Fatalf("live settings retained plaintext credential: %q", got)
-	}
-}
-
-func TestAISecretsMigrationFailurePreservesPlaintext(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	settings := defaultSettings()
-	settings.AI.Connections = []AIConnection{{
-		ID: "primary", Label: "Primary", Protocol: "openai", APIKey: "keep-me",
-	}}
-	if err := SaveSettings(path, settings); err != nil {
-		t.Fatal(err)
-	}
-	app := NewApp(path, nil, zerolog.Nop())
-	store := newFakeSecretStore()
-	store.setErr = errors.New("vault unavailable")
-
-	if _, err := NewAISecrets(store).MigrateLegacy(app); err == nil {
-		t.Fatal("migration succeeded with unavailable credential store")
-	}
-	if got := app.Settings().AI.Connections[0].APIKey; got != "keep-me" {
-		t.Fatalf("plaintext was cleared after failed migration: %q", got)
-	}
-}
-
-func TestSettingsServiceGetRedactsLegacyAPIKey(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	_, _, err := app.MutateSettings(func(settings *Settings) error {
-		settings.AI.Connections = []AIConnection{{
-			ID: "primary", Label: "Primary", Protocol: "openai", APIKey: "never-return",
-		}}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := NewSettingsService(app).Get()
-	if got.AI.Connections[0].APIKey != "" {
-		t.Fatal("settings RPC returned plaintext API key")
-	}
-	if app.Settings().AI.Connections[0].APIKey != "never-return" {
-		t.Fatal("redaction mutated live settings")
-	}
-}
-
-func TestSettingsServiceMetadataUpdatePreservesUnmigratedLegacyKey(t *testing.T) {
-	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
-	_, _, err := app.MutateSettings(func(settings *Settings) error {
-		settings.AI.Connections = []AIConnection{{
-			ID: "primary", Label: "Before", Protocol: "openai", APIKey: "keep-until-migrated",
-		}}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := NewSettingsService(app)
-	if err := service.Update(`{"ai":{"connections":[{"id":"primary","label":"After","protocol":"openai","baseURL":""}]}}`); err != nil {
-		t.Fatal(err)
-	}
-	connection := app.Settings().AI.Connections[0]
-	if connection.Label != "After" || connection.APIKey != "keep-until-migrated" {
-		t.Fatalf("metadata update lost legacy key: %+v", connection)
-	}
-}
-
-func containsJSONSecret(data []byte, secret string) bool {
-	for index := 0; index+len(secret) <= len(data); index++ {
-		if string(data[index:index+len(secret)]) == secret {
-			return true
-		}
-	}
-	return false
 }

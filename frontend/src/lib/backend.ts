@@ -15,6 +15,12 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
+import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
+import {
+  EvaluationStatus as EvaluationStatusBinding,
+  ProfileCapabilities as ProfileCapabilitiesBinding,
+  ProviderKind as ProviderKindBinding,
+} from '@bindings/github.com/yottaapp/yotta/internal/ai/models.js'
 import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { invoke, invokeVoid } from './invoke'
 import * as E from '@/constants/events'
@@ -261,27 +267,47 @@ export interface AssetReferrer {
   nodeKind: string
 }
 
-// AIConnection only carries non-secret metadata. Stored API keys never cross
-// the backend boundary after they enter the OS credential manager.
-export interface AIConnection {
-  id: string
+export type AIProviderKind = 'openai-responses' | 'anthropic-messages'
+
+export interface AIProfileCapabilities {
+  structuredOutput: boolean
+  toolCalling: boolean
+  parallelTools: boolean
+  background: boolean
+  zeroRetention: boolean
+}
+
+// AIModelProfile carries installation metadata only. Stored API keys never
+// cross the backend seam after they enter the OS credential manager.
+export interface AIModelProfile {
+  slot: string
   label: string
-  protocol: 'openai' | 'anthropic'
-  baseURL: string
+  provider: AIProviderKind
+  model: string
+  maxOutputTokens: number
+  capabilities: AIProfileCapabilities
+  evaluation: 'unverified' | 'approved' | 'rejected'
+  evaluationSuite?: string
+  workflowConsent?: string
 }
 
-// AITestResult 跟 Go services.TestResult 对齐。
-export interface AITestResult {
+export interface AIProfileTestResult {
   ok: boolean
-  models: string[]
-  error: string
-  kind: string
+  provider: AIProviderKind | ''
+  requestedModel: string
+  resolvedModel: string
+  finish: string
+  failureClass?: string
+  error?: string
 }
 
-export interface AIConnectionRef {
-  containerId: string
-  containerName: string
-  nodeId: string
+function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBinding {
+  return new AIModelSettingsBinding({
+    ...profile,
+    provider: profile.provider as ProviderKindBinding,
+    evaluation: profile.evaluation as EvaluationStatusBinding,
+    capabilities: new ProfileCapabilitiesBinding(profile.capabilities),
+  })
 }
 
 export const backend = {
@@ -290,19 +316,18 @@ export const backend = {
     update: (patch: object) => invokeVoid(SettingsService.Update, JSON.stringify(patch)),
   },
   ai: {
-    testConnection: (connection: AIConnection, testModel: string, apiKey = '') =>
-      invoke(AIService.TestConnection, { connection, testModel, apiKey }) as Promise<
-        AITestResult | undefined
-      >,
-    secretStatus: (connectionIDs: string[]) =>
-      invoke(AIService.SecretStatus, connectionIDs) as Promise<Record<string, boolean> | undefined>,
-    setAPIKey: (connectionID: string, apiKey: string) =>
-      invokeVoid(AIService.SetAPIKey, connectionID, apiKey),
-    deleteAPIKey: (connectionID: string) => invokeVoid(AIService.DeleteAPIKey, connectionID),
-    nodesUsingConnection: (connectionID: string) =>
-      invoke(ContainerService.AINodesUsingConnection, connectionID) as Promise<
-        AIConnectionRef[] | undefined
-      >,
+    testProfile: (profile: AIModelProfile, apiKey = '') =>
+      invoke(AIService.TestProfile, {
+        profile: toAIModelSettingsBinding(profile),
+        apiKey,
+      }) as Promise<AIProfileTestResult | undefined>,
+    secretStatus: (slots: string[]) =>
+      invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean> | undefined>,
+    setAPIKey: (slot: string, apiKey: string) => invokeVoid(AIService.SetAPIKey, slot, apiKey),
+    deleteAPIKey: (slot: string) => invokeVoid(AIService.DeleteAPIKey, slot),
+    grantWorkflowUse: (slot: string) =>
+      invoke(AIService.GrantWorkflowUse, slot) as Promise<string | undefined>,
+    revokeWorkflowUse: (slot: string) => invokeVoid(AIService.RevokeWorkflowUse, slot),
   },
   containers: {
     list: () => invoke(ContainerService.List),

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -20,13 +21,9 @@ import (
 
 func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, 5*time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
 	events := make(chan app31.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), Limits: testLimits(), Policy: policy, GrantTTL: 5 * time.Minute,
+		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), GrantTTL: 5 * time.Minute,
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event app31.RunEvent) { events <- event },
 	})
@@ -103,7 +100,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 
 func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute)
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +111,73 @@ func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	if err != nil || decision.Outcome != admission.PolicyDenied {
 		t.Fatalf("Authorize = %#v, %v", decision, err)
 	}
+}
+
+func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
+	now := time.Date(2026, 7, 15, 13, 0, 0, 0, time.UTC)
+	profileDraft := ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
+		Capabilities: ai.ProfileCapabilities{StructuredOutput: true}, Evaluation: ai.EvaluationUnverified,
+	}
+	withoutConsent, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft}}, testAICredentials{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := withoutConsent.Entries()[0]
+	binding := capability.Binding{
+		ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: ai.ProviderABI,
+		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
+		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
+	}
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, withoutConsent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyConsentRequired {
+		t.Fatalf("unconsented decision = %#v, %v", decision, err)
+	}
+	profile, err := ai.SealModelProfile(profileDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := ai.WorkflowConsentDigest("primary", profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft, Consent: consent}}, testAICredentials{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry = installed.Entries()[0]
+	binding.ProviderID, binding.ProviderArtifactDigest = entry.ProviderID, entry.ProviderArtifact
+	binding.TargetID, binding.CredentialBindingID = entry.TargetID, entry.CredentialBindingID
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
+		t.Fatalf("consented decision = %#v, %v", decision, err)
+	}
+	binding.CredentialBindingID = "ai-credential/forged"
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyDenied {
+		t.Fatalf("forged decision = %#v, %v", decision, err)
+	}
+}
+
+type testAICredentials struct{}
+
+func (testAICredentials) Get(string) (string, error) { return "secret", nil }
+
+func emptyAIInstallations(t *testing.T) ai.Installations {
+	t.Helper()
+	installations, err := ai.Install(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return installations
 }
 
 func testLimits() appbootstrap.Limits {

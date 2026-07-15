@@ -79,11 +79,11 @@ export interface ScriptTemplateSummary {
 
 export type ScriptAssetSummary = ScriptTemplateSummary
 
-export interface ScriptAIConnectionSummary {
-  id: string
+export interface ScriptAIProfileSummary {
+  slot: string
   label: string
-  protocol?: string
-  baseURL?: string
+  provider?: string
+  model?: string
 }
 
 export interface ScriptPointPayload {
@@ -268,22 +268,22 @@ export function scriptAssetItemsForPin(
     })
 }
 
-export function scriptAIConnectionItemsForPin(
+export function scriptAIProfileItemsForPin(
   kind: string,
   pin: string,
   specs: Map<string, Spec>,
-  connections: ScriptAIConnectionSummary[],
+  profiles: ScriptAIProfileSummary[],
 ): ScriptPinValueItem[] {
   const input = specs.get(kind)?.inputs?.find((i) => i.name === pin)
   if (input?.widget?.kind !== 'ai-connection') return []
-  return connections
+  return profiles
     .slice()
-    .sort((a, b) => (a.label || a.id).localeCompare(b.label || b.id))
-    .map((c) => {
-      const meta = [c.protocol, c.baseURL, c.id].filter(Boolean).join(' · ')
+    .sort((a, b) => (a.label || a.slot).localeCompare(b.label || b.slot))
+    .map((profile) => {
+      const meta = [profile.provider, profile.model, profile.slot].filter(Boolean).join(' · ')
       return {
-        value: c.id,
-        label: c.label || c.id,
+        value: profile.slot,
+        label: profile.label || profile.slot,
         detail: meta || undefined,
         type: 'enum' as const,
         insertMode: 'string' as const,

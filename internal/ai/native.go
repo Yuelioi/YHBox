@@ -33,6 +33,8 @@ type nativeProvider struct {
 	endpoint string
 }
 
+func (p *nativeProvider) CloseIdleConnections() { p.client.CloseIdleConnections() }
+
 func NewNativeProvider(profile ModelProfile, options HTTPOptions) (Provider, error) {
 	if !profile.Valid() {
 		return nil, errors.New("native AI provider requires a model profile")

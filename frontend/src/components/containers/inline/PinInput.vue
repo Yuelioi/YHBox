@@ -70,11 +70,11 @@
     </div>
   </div>
 
-  <!-- ai-connection: AI 节点连接选择器, 从 settings 读连接列表 (label→id); 空 = 用默认连接 -->
+  <!-- ai-connection 是节点 schema 的控件名；值是稳定的模型安装槽位。 -->
   <USelect
     v-else-if="kind === 'ai-connection'"
     :model-value="modelValue == null ? '' : String(modelValue)"
-    :items="connectionItems"
+    :items="profileItems"
     size="sm"
     class="w-full"
     @update:model-value="(v: any) => commit(v)"
@@ -189,11 +189,12 @@ import {
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 
-// AI 节点连接下拉项: 第一项「用默认」(空值) + settings 里各连接 (label→id)。
-const connectionItems = computed(() => [
-  { value: '', label: t('node.AI.input.Connection.useDefault') },
-  ...(settingsStore.data?.ai?.connections ?? []).map((c) => ({ value: c.id, label: c.label })),
-])
+const profileItems = computed(() =>
+  (settingsStore.data?.ai.profiles ?? []).map((profile) => ({
+    value: profile.slot,
+    label: profile.label,
+  })),
+)
 
 const props = defineProps<{
   /** PinType (number/bool/string/point/any/list) — widgetKind 缺失时的 fallback 渲染依据。 */

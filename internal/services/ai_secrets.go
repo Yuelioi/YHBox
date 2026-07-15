@@ -2,14 +2,15 @@ package services
 
 import (
 	"errors"
-	"fmt"
+	"strings"
 
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/securestore"
 )
 
-const aiCredentialTargetPrefix = "Yotta/AI/"
+const aiCredentialTargetPrefix = "Yotta/AIModel/"
 
-// AISecrets owns AI connection credentials independently from settings.json.
+// AISecrets owns model credentials independently from settings.json.
 type AISecrets struct {
 	store securestore.Store
 }
@@ -18,38 +19,47 @@ func NewAISecrets(store securestore.Store) *AISecrets {
 	return &AISecrets{store: store}
 }
 
-func (s *AISecrets) Get(connectionID string) (string, error) {
+// Get implements ai.CredentialStore. Its input is the exact credential
+// binding ID frozen into the Host Profile, not arbitrary node config.
+func (s *AISecrets) Get(bindingID string) (string, error) {
 	if s == nil || s.store == nil {
 		return "", securestore.ErrUnavailable
 	}
-	return s.store.Get(aiCredentialTargetPrefix + connectionID)
+	slot, err := slotFromCredentialBinding(bindingID)
+	if err != nil {
+		return "", err
+	}
+	return s.store.Get(aiCredentialTargetPrefix + slot)
 }
 
-func (s *AISecrets) Set(connectionID, apiKey string) error {
-	if connectionID == "" {
-		return errors.New("connection id is required")
+func (s *AISecrets) SetSlot(slot, apiKey string) error {
+	if err := ai.ValidateInstallationSlot(slot); err != nil {
+		return err
 	}
 	if s == nil || s.store == nil {
 		return securestore.ErrUnavailable
 	}
 	if apiKey == "" {
-		return s.Delete(connectionID)
+		return s.DeleteSlot(slot)
 	}
-	return s.store.Set(aiCredentialTargetPrefix+connectionID, apiKey)
+	return s.store.Set(aiCredentialTargetPrefix+slot, apiKey)
 }
 
-func (s *AISecrets) Delete(connectionID string) error {
-	if connectionID == "" {
-		return errors.New("connection id is required")
+func (s *AISecrets) DeleteSlot(slot string) error {
+	if err := ai.ValidateInstallationSlot(slot); err != nil {
+		return err
 	}
 	if s == nil || s.store == nil {
 		return securestore.ErrUnavailable
 	}
-	return s.store.Delete(aiCredentialTargetPrefix + connectionID)
+	return s.store.Delete(aiCredentialTargetPrefix + slot)
 }
 
-func (s *AISecrets) Has(connectionID string) (bool, error) {
-	_, err := s.Get(connectionID)
+func (s *AISecrets) HasSlot(slot string) (bool, error) {
+	if err := ai.ValidateInstallationSlot(slot); err != nil {
+		return false, err
+	}
+	_, err := s.store.Get(aiCredentialTargetPrefix + slot)
 	if err == nil {
 		return true, nil
 	}
@@ -59,36 +69,10 @@ func (s *AISecrets) Has(connectionID string) (bool, error) {
 	return false, err
 }
 
-// MigrateLegacy moves every plaintext key before clearing any of them. A
-// failed credential write leaves settings.json untouched so startup never
-// trades confidentiality for data loss.
-func (s *AISecrets) MigrateLegacy(app *App) (int, error) {
-	if app == nil {
-		return 0, errors.New("app is nil")
+func slotFromCredentialBinding(bindingID string) (string, error) {
+	slot, ok := strings.CutPrefix(bindingID, "ai-credential/")
+	if !ok || ai.ValidateInstallationSlot(slot) != nil {
+		return "", errors.New("invalid AI credential binding")
 	}
-	current := app.Settings()
-	pending := make([]AIConnection, 0, len(current.AI.Connections))
-	for _, connection := range current.AI.Connections {
-		if connection.APIKey != "" {
-			pending = append(pending, connection)
-		}
-	}
-	if len(pending) == 0 {
-		return 0, nil
-	}
-	for _, connection := range pending {
-		if err := s.Set(connection.ID, connection.APIKey); err != nil {
-			return 0, fmt.Errorf("store credential for %q: %w", connection.Label, err)
-		}
-	}
-	_, _, err := app.MutateSettings(func(settings *Settings) error {
-		for index := range settings.AI.Connections {
-			settings.AI.Connections[index].APIKey = ""
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, fmt.Errorf("clear migrated plaintext credentials: %w", err)
-	}
-	return len(pending), nil
+	return slot, nil
 }

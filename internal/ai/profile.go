@@ -59,6 +59,9 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 		draft.MaxOutputTokens <= 0 || draft.MaxOutputTokens > 1_000_000 {
 		return ModelProfile{}, errors.New("invalid AI model profile identity or budget")
 	}
+	if draft.Capabilities.ParallelTools && !draft.Capabilities.ToolCalling {
+		return ModelProfile{}, errors.New("parallel AI tool calls require tool calling")
+	}
 	switch draft.Evaluation {
 	case EvaluationUnverified:
 		if draft.EvaluationSuite != "" {

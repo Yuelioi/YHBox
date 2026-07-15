@@ -16,9 +16,23 @@ vi.mock('@/lib/backend', () => ({
 
 import { useSettingsStore, type Settings } from './settings'
 
-const conn = { id: 'a', label: 'X', protocol: 'openai' as const, baseURL: '' }
+const profile = {
+  slot: 'primary',
+  label: 'Primary',
+  provider: 'openai-responses' as const,
+  model: 'gpt-test',
+  maxOutputTokens: 4096,
+  capabilities: {
+    structuredOutput: true,
+    toolCalling: false,
+    parallelTools: false,
+    background: false,
+    zeroRetention: false,
+  },
+  evaluation: 'unverified' as const,
+}
 
-describe('settings store · patchAIConnections', () => {
+describe('settings store · patchAIProfiles', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     updateMock.mockClear()
@@ -33,7 +47,7 @@ describe('settings store · patchAIConnections', () => {
       ui: { autostart: false },
       locale: 'zh',
       capture: {},
-      ai: { connections: [], default: '' },
+      ai: { profiles: [] },
     } as unknown as Settings
 
     await expect(store.patch({ ui: { autostart: true } })).resolves.toBe(true)
@@ -52,7 +66,7 @@ describe('settings store · patchAIConnections', () => {
       ui: { launcherDisplay: 'both' },
       locale: 'zh',
       capture: {},
-      ai: { connections: [], default: '' },
+      ai: { profiles: [] },
     } as unknown as Settings
 
     const first = store.patch({ ui: { launcherDisplay: 'icon' } })
@@ -70,23 +84,11 @@ describe('settings store · patchAIConnections', () => {
     expect(store.data.ui.launcherDisplay).toBe('text')
   })
 
-  it('patches the connections array, omitting default when not given', async () => {
+  it('patches the complete profile array', async () => {
     const store = useSettingsStore()
-    await store.patchAIConnections([conn])
+    await store.patchAIProfiles([profile])
     expect(updateMock).toHaveBeenCalledTimes(1)
-    const patch = updateMock.mock.calls[0][0] as {
-      ai: { connections: unknown[]; default?: string }
-    }
-    expect(patch.ai.connections).toEqual([conn])
-    expect('default' in patch.ai).toBe(false)
-  })
-
-  it('includes an explicit empty default (delete-clears-default)', async () => {
-    const store = useSettingsStore()
-    await store.patchAIConnections([], '')
-    const patch = updateMock.mock.calls[0][0] as {
-      ai: { connections: unknown[]; default?: string }
-    }
-    expect(patch.ai).toEqual({ connections: [], default: '' })
+    const patch = updateMock.mock.calls[0][0] as { ai: { profiles: unknown[] } }
+    expect(patch.ai.profiles).toEqual([profile])
   })
 })

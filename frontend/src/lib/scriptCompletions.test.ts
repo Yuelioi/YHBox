@@ -17,7 +17,7 @@ import {
   scriptGeometryInsertText,
   scriptColorPickTargetForPin,
   scriptColorInsertText,
-  scriptAIConnectionItemsForPin,
+  scriptAIProfileItemsForPin,
   scriptAsyncDropdownTargetForPin,
   scriptCurrentCallInputSnapshot,
 } from './scriptCompletions'
@@ -239,8 +239,8 @@ describe('scriptAssetItemsForPin', () => {
   })
 })
 
-describe('scriptAIConnectionItemsForPin', () => {
-  it('uses ai-connection widget pins and inserts connection ids as strings', () => {
+describe('scriptAIProfileItemsForPin', () => {
+  it('uses ai-connection widget pins and inserts installation slots as strings', () => {
     const specs = new Map<string, Spec>([
       [
         'AI',
@@ -257,20 +257,20 @@ describe('scriptAIConnectionItemsForPin', () => {
       ],
     ])
 
-    const items = scriptAIConnectionItemsForPin('AI', 'Connection', specs, [
+    const items = scriptAIProfileItemsForPin('AI', 'Connection', specs, [
       {
-        id: 'openai-main',
-        label: 'OpenAI 主连接',
-        protocol: 'openai',
-        baseURL: 'https://api.openai.com/v1',
+        slot: 'openai-main',
+        label: 'OpenAI 主模型',
+        provider: 'openai-responses',
+        model: 'gpt-5.4',
       },
     ])
 
     expect(items).toEqual([
       expect.objectContaining({
-        label: 'OpenAI 主连接',
+        label: 'OpenAI 主模型',
         value: 'openai-main',
-        detail: 'openai · https://api.openai.com/v1 · openai-main',
+        detail: 'openai-responses · gpt-5.4 · openai-main',
         insertMode: 'string',
       }),
     ])

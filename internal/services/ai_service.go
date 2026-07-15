@@ -2,91 +2,157 @@ package services
 
 import (
 	"context"
-	"sort"
+	"errors"
+	"fmt"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/services/llm"
+	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/runid"
 )
 
-// AIService exposes transient credential operations without returning stored
-// secret values to the presentation layer.
+type aiNativeFactory func(ai.ModelProfile) (ai.Provider, error)
+
+// AIService exposes transient credential, verification, and explicit
+// workflow-consent operations without returning stored secret values.
 type AIService struct {
-	secrets *AISecrets
+	app       *App
+	secrets   *AISecrets
+	newNative aiNativeFactory
 }
 
-func NewAIService(secrets ...*AISecrets) *AIService {
-	service := &AIService{}
-	if len(secrets) > 0 {
-		service.secrets = secrets[0]
+func NewAIService(app *App, secrets *AISecrets) *AIService {
+	return newAIService(app, secrets, func(profile ai.ModelProfile) (ai.Provider, error) {
+		return ai.NewNativeProvider(profile, ai.HTTPOptions{})
+	})
+}
+
+func newAIService(app *App, secrets *AISecrets, factory aiNativeFactory) *AIService {
+	return &AIService{app: app, secrets: secrets, newNative: factory}
+}
+
+type TestProfileRequest struct {
+	Profile AIModelSettings `json:"profile"`
+	APIKey  string          `json:"apiKey"`
+}
+
+type TestProfileResult struct {
+	Ok             bool            `json:"ok"`
+	Provider       ai.ProviderKind `json:"provider"`
+	RequestedModel string          `json:"requestedModel"`
+	ResolvedModel  string          `json:"resolvedModel"`
+	Finish         ai.FinishKind   `json:"finish"`
+	FailureClass   ai.FailureClass `json:"failureClass,omitempty"`
+	Error          string          `json:"error,omitempty"`
+}
+
+// TestProfile performs one explicit provider-native generation against the
+// exact configured model. It never probes compatibility endpoints or falls
+// back to a Chat emulation path.
+func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
+	profile, err := ai.SealModelProfile(request.Profile.profileDraft())
+	if err != nil {
+		return aiTestFailure(err)
 	}
-	return service
-}
-
-type TestConnReq struct {
-	Connection AIConnection `json:"connection"`
-	TestModel  string       `json:"testModel"`
-	APIKey     string       `json:"apiKey"`
-}
-
-type TestResult struct {
-	Ok     bool     `json:"ok"`
-	Models []string `json:"models"`
-	Error  string   `json:"error"`
-	Kind   string   `json:"kind"`
-}
-
-// TestConnection 测试一个连接(可为未保存的表单值): 先拉模型列表验 endpoint+key,
-// 拉不到再用可选 TestModel 发一次最小 chat 兜底。
-func (s *AIService) TestConnection(req TestConnReq) TestResult {
-	c := req.Connection
-	apiKey := req.APIKey
-	if apiKey == "" && c.ID != "" && s.secrets != nil {
-		stored, err := s.secrets.Get(c.ID)
-		if err == nil {
-			apiKey = stored
+	credential := request.APIKey
+	if credential == "" && s.secrets != nil {
+		credential, err = s.secrets.Get(ai.CredentialBindingID(request.Profile.Slot))
+		if err != nil {
+			return aiTestFailure(errors.New("AI credential is unavailable"))
 		}
 	}
-	p, err := llm.New(llm.ConnectionConfig{Protocol: c.Protocol, BaseURL: c.BaseURL, APIKey: apiKey})
+	provider, err := s.newNative(profile)
 	if err != nil {
-		return TestResult{Error: err.Error(), Kind: string(llm.KindOf(err))}
+		return aiTestFailure(err)
 	}
-
-	lmCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	attemptID, err := runid.New()
+	if err != nil {
+		return aiTestFailure(err)
+	}
+	maximum := min(profile.Machine().MaxOutputTokens, int64(8))
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	if models, lerr := p.ListModels(lmCtx); lerr == nil {
-		sort.Strings(models)
-		return TestResult{Ok: true, Models: models}
+	outcome, err := provider.Generate(ctx, credential, ai.GenerateRequest{
+		AttemptID: attemptID, Prompt: "Reply with OK.", Retention: ai.RetentionNoApplicationState,
+		Limits: ai.GenerationLimits{MaxOutputTokens: &maximum},
+	})
+	if err != nil {
+		return aiTestFailure(err)
 	}
-
-	if req.TestModel == "" {
-		return TestResult{Error: "无法列出模型;填一个测试模型名再试", Kind: string(llm.KindNotFound)}
+	return TestProfileResult{
+		Ok: true, Provider: outcome.Provider, RequestedModel: outcome.RequestedModel,
+		ResolvedModel: outcome.ResolvedModel, Finish: outcome.Finish.Kind,
 	}
-	chatCtx, cancel2 := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel2()
-	if _, cerr := p.Chat(chatCtx, llm.ChatRequest{
-		Model:     req.TestModel,
-		MaxTokens: 1,
-		Messages:  []llm.Message{{Role: llm.RoleUser, Content: "ping"}},
-	}); cerr != nil {
-		return TestResult{Error: cerr.Error(), Kind: string(llm.KindOf(cerr))}
-	}
-	return TestResult{Ok: true}
 }
 
-// SecretStatus returns only presence metadata, never credential values.
-func (s *AIService) SecretStatus(connectionIDs []string) map[string]bool {
-	status := make(map[string]bool, len(connectionIDs))
-	for _, id := range connectionIDs {
-		has, err := s.secrets.Has(id)
-		status[id] = err == nil && has
+func aiTestFailure(err error) TestProfileResult {
+	result := TestProfileResult{Error: err.Error()}
+	var failure *ai.ProviderFailure
+	if errors.As(err, &failure) {
+		result.FailureClass = failure.Class
+	}
+	return result
+}
+
+func (s *AIService) SecretStatus(slots []string) map[string]bool {
+	status := make(map[string]bool, len(slots))
+	for _, slot := range slots {
+		has, err := s.secrets.HasSlot(slot)
+		status[slot] = err == nil && has
 	}
 	return status
 }
 
-func (s *AIService) SetAPIKey(connectionID, apiKey string) error {
-	return s.secrets.Set(connectionID, apiKey)
+func (s *AIService) SetAPIKey(slot, apiKey string) error {
+	return s.secrets.SetSlot(slot, apiKey)
 }
 
-func (s *AIService) DeleteAPIKey(connectionID string) error {
-	return s.secrets.Delete(connectionID)
+func (s *AIService) DeleteAPIKey(slot string) error {
+	return s.secrets.DeleteSlot(slot)
+}
+
+func (s *AIService) GrantWorkflowUse(slot string) (string, error) {
+	var consent string
+	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
+		profile := findAIProfile(settings, slot)
+		if profile == nil {
+			return fmt.Errorf("AI profile slot %q is not configured", slot)
+		}
+		digest := expectedAIConsent(*profile)
+		if !digest.Valid() {
+			return errors.New("AI profile cannot produce workflow consent")
+		}
+		profile.WorkflowConsent = digest
+		consent = digest.String()
+		return nil
+	})
+	if err != nil && current == nil {
+		return "", err
+	}
+	s.app.Emit("settings:changed", map[string]any{})
+	return consent, err
+}
+
+func (s *AIService) RevokeWorkflowUse(slot string) error {
+	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
+		profile := findAIProfile(settings, slot)
+		if profile == nil {
+			return fmt.Errorf("AI profile slot %q is not configured", slot)
+		}
+		profile.WorkflowConsent = ""
+		return nil
+	})
+	if err != nil && current == nil {
+		return err
+	}
+	s.app.Emit("settings:changed", map[string]any{})
+	return err
+}
+
+func findAIProfile(settings *Settings, slot string) *AIModelSettings {
+	for index := range settings.AI.Profiles {
+		if settings.AI.Profiles[index].Slot == slot {
+			return &settings.AI.Profiles[index]
+		}
+	}
+	return nil
 }

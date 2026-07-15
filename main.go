@@ -15,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
@@ -57,11 +58,6 @@ func main() {
 	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
 	app := services.NewApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
 	aiSecrets := services.NewAISecrets(securestore.New())
-	if migrated, err := aiSecrets.MigrateLegacy(app); err != nil {
-		rootLog.Error().Err(err).Str("tag", "AI_SECRET").Msg("migrate legacy AI credentials")
-	} else if migrated > 0 {
-		rootLog.Info().Int("count", migrated).Str("tag", "AI_SECRET").Msg("migrated AI credentials")
-	}
 	app.ConfigureLogging()
 
 	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
@@ -110,9 +106,9 @@ func main() {
 		rootLog.Error().Err(err).Str("tag", "SYSTEM").Msg("set image output data directory")
 	}
 	const runGrantTTL = 5 * time.Minute
-	workflowPolicy, err := appbootstrap.NewBuiltinPolicy(time.Now, runGrantTTL)
+	aiInstallations, err := ai.Install(app.Settings().AI.InstallationDrafts(), aiSecrets)
 	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow policy init")
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("AI model installation init")
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: dataDir,
@@ -121,7 +117,7 @@ func main() {
 			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		Policy: workflowPolicy, GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
+		AIInstallations: aiInstallations, GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event app31.RunEvent) {
 			payload := map[string]any{
 				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
@@ -443,7 +439,7 @@ func main() {
 		application.NewService(clipSvc),
 		application.NewService(nodeSvc),
 		application.NewService(codeSnippetSvc),
-		application.NewService(services.NewAIService(aiSecrets)),
+		application.NewService(services.NewAIService(app, aiSecrets)),
 	)
 	// wails3 application
 	wailsApp := application.New(application.Options{

@@ -36,6 +36,16 @@ func TestModelProfileIsContentAddressedAndStrictlyReopened(t *testing.T) {
 	}
 }
 
+func TestModelProfileRejectsParallelToolsWithoutToolCalling(t *testing.T) {
+	_, err := SealModelProfile(ModelProfileDraft{
+		Provider: ProviderOpenAIResponses, Model: "model-snapshot-1", MaxOutputTokens: 4096,
+		Evaluation: EvaluationUnverified, Capabilities: ProfileCapabilities{ParallelTools: true},
+	})
+	if err == nil {
+		t.Fatal("accepted parallel tool calls without tool calling")
+	}
+}
+
 func TestStructuredOutputCompilerRejectsPromptOnlyAndPartialSchemas(t *testing.T) {
 	valid := json.RawMessage(`{
 		"type":"object","properties":{

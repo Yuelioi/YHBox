@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
+	"github.com/yottaapp/yotta/internal/ai"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
@@ -42,7 +43,7 @@ type Limits struct {
 type Config struct {
 	DataRoot          string
 	Limits            Limits
-	Policy            admission.Policy
+	AIInstallations   ai.Installations
 	GrantTTL          time.Duration
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -53,14 +54,15 @@ type Runtime struct {
 	Application *app31.Application
 	Builtins    nodes31.Builtins
 	BlobStore   *blob.Store
+	ai          ai.Installations
 }
 
 func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if config.Policy == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
-		return nil, errors.New("app bootstrap requires policy and bounded Run lifetimes")
+	if !config.AIInstallations.Valid() || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+		return nil, errors.New("app bootstrap requires trusted installations and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
 		return nil, err
@@ -123,11 +125,15 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest)
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, config.AIInstallations)
 	if err != nil {
 		return nil, err
 	}
-	admitter, err := admission.New(builtins.Catalog, profile, runs, config.Policy, admission.Options{
+	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations)
+	if err != nil {
+		return nil, err
+	}
+	admitter, err := admission.New(builtins.Catalog, profile, runs, policy, admission.Options{
 		Now: config.Now, MaxGrantTTL: config.GrantTTL,
 	})
 	if err != nil {
@@ -138,14 +144,26 @@ func Build(config Config) (*Runtime, error) {
 		return nil, err
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
+	providers := map[string]run31.InstalledProvider{
+		blob.ProviderID:   {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
+		stream.ProviderID: {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
+	}
+	for _, installed := range config.AIInstallations.Entries() {
+		if existing, ok := providers[installed.ProviderID]; ok {
+			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != ai.ProviderABI || existing.Provider != installed.Provider {
+				return nil, errors.New("conflicting AI provider installation")
+			}
+			continue
+		}
+		providers[installed.ProviderID] = run31.InstalledProvider{
+			ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, Provider: installed.Provider,
+		}
+	}
 	application, err := app31.New(app31.Config{
 		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
-		Providers: map[string]run31.InstalledProvider{
-			blob.ProviderID:   {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
-			stream.ProviderID: {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
-		},
+		Providers: providers,
 		ResourceOptions: resource.Options{
 			Now: config.Now, MaxPayloadBytes: config.Limits.MaxResourcePayloadBytes,
 		},
@@ -154,7 +172,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore}, nil
+	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations}, nil
 }
 
 func (r *Runtime) Start(ctx context.Context) error {
@@ -168,7 +186,9 @@ func (r *Runtime) Close(ctx context.Context) error {
 	if r == nil || r.Application == nil {
 		return nil
 	}
-	return r.Application.Close(ctx)
+	err := r.Application.Close(ctx)
+	r.ai.CloseIdleConnections()
+	return err
 }
 
 func validateLimits(limits Limits) error {
@@ -182,7 +202,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest artifact.Digest) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest artifact.Digest, aiInstallations ai.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -202,7 +222,11 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest arti
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	return admission.SealHostProfile(admission.HostProfileDraft{
+	aiGeneration, err := lookup(nodes31.AIGenerationCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
+	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobDigest, ABI: blob.ProviderABI, PluginInstanceID: "builtin",
@@ -219,5 +243,27 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest arti
 			{ID: "workspace", Kind: "blob-store", ProviderID: blob.ProviderID},
 			{ID: "memory", Kind: "stream-session", ProviderID: stream.ProviderID},
 		},
-	})
+	}
+	providerIDs := map[string]struct{}{blob.ProviderID: {}, stream.ProviderID: {}}
+	for _, installed := range aiInstallations.Entries() {
+		if _, exists := providerIDs[installed.ProviderID]; !exists {
+			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
+				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				Capabilities: []admission.ProviderCapability{{Capability: aiGeneration, ResourceKind: ai.KindModelSession}},
+			})
+			providerIDs[installed.ProviderID] = struct{}{}
+		}
+		draft.Targets = append(draft.Targets, admission.AutomationTarget{
+			ID: installed.TargetID, Kind: "ai-model", ProviderID: installed.ProviderID,
+		})
+		draft.Credentials = append(draft.Credentials, admission.CredentialBinding{
+			ID: installed.CredentialBindingID, ProviderID: installed.ProviderID, Capability: aiGeneration,
+		})
+		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
+		draft.CredentialSlots = append(draft.CredentialSlots, admission.CredentialSlotBinding{
+			Slot: installed.Slot, CredentialID: installed.CredentialBindingID,
+		})
+	}
+	return admission.SealHostProfile(draft)
 }

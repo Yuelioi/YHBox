@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodes31"
@@ -151,7 +152,7 @@ func decodeStructured(t *testing.T, result *mcp.CallToolResult, target any) {
 func testApplication(t *testing.T) *app31.Application {
 	t.Helper()
 	now := time.Date(2026, 7, 15, 15, 0, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute)
+	installations, err := ai.Install(nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +163,7 @@ func testApplication(t *testing.T) *app31.Application {
 			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 1 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
-		Policy: policy, GrantTTL: time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+		AIInstallations: installations, GrantTTL: time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatal(err)

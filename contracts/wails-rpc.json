@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 15,
-    "methods": 130,
-    "models": 146
+    "methods": 132,
+    "models": 151
   },
   "services": [
     {
@@ -180,7 +180,31 @@
           "bindingId": "3519466312",
           "parameters": [
             {
-              "name": "connectionID",
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "GrantWorkflowUse",
+          "bindingId": "3366715462",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "RevokeWorkflowUse",
+          "bindingId": "3004098454",
+          "parameters": [
+            {
+              "name": "slot",
               "optional": false,
               "type": "string"
             }
@@ -192,7 +216,7 @@
           "bindingId": "2874549086",
           "parameters": [
             {
-              "name": "connectionIDs",
+              "name": "slots",
               "optional": false,
               "type": "string[]"
             }
@@ -204,7 +228,7 @@
           "bindingId": "2565015335",
           "parameters": [
             {
-              "name": "connectionID",
+              "name": "slot",
               "optional": false,
               "type": "string"
             },
@@ -217,16 +241,16 @@
           "returns": "$CancellablePromise<void>"
         },
         {
-          "name": "TestConnection",
-          "bindingId": "2834824220",
+          "name": "TestProfile",
+          "bindingId": "892735833",
           "parameters": [
             {
-              "name": "req",
+              "name": "request",
               "optional": false,
-              "type": "$models.TestConnReq"
+              "type": "$models.TestProfileRequest"
             }
           ],
-          "returns": "$CancellablePromise<$models.TestResult>"
+          "returns": "$CancellablePromise<$models.TestProfileResult>"
         }
       ]
     },
@@ -1618,6 +1642,190 @@
     }
   ],
   "models": [
+    {
+      "module": "internal/ai/models",
+      "declarations": [
+        {
+          "kind": "enum",
+          "name": "EvaluationStatus",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "EvaluationUnverified",
+              "value": "\"unverified\""
+            },
+            {
+              "name": "EvaluationApproved",
+              "value": "\"approved\""
+            },
+            {
+              "name": "EvaluationRejected",
+              "value": "\"rejected\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "FailureClass",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "FailureInvalidRequest",
+              "value": "\"invalid-request\""
+            },
+            {
+              "name": "FailureAuthentication",
+              "value": "\"authentication\""
+            },
+            {
+              "name": "FailurePermission",
+              "value": "\"permission\""
+            },
+            {
+              "name": "FailureNotFound",
+              "value": "\"not-found\""
+            },
+            {
+              "name": "FailureConflict",
+              "value": "\"conflict\""
+            },
+            {
+              "name": "FailureRateLimit",
+              "value": "\"rate-limit\""
+            },
+            {
+              "name": "FailureOverloaded",
+              "value": "\"overloaded\""
+            },
+            {
+              "name": "FailureTimeout",
+              "value": "\"timeout\""
+            },
+            {
+              "name": "FailureServer",
+              "value": "\"server\""
+            },
+            {
+              "name": "FailureCancelled",
+              "value": "\"cancelled\""
+            },
+            {
+              "name": "FailureUnknown",
+              "value": "\"unknown\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "FinishKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "FinishCompleted",
+              "value": "\"completed\""
+            },
+            {
+              "name": "FinishToolCalls",
+              "value": "\"tool-calls\""
+            },
+            {
+              "name": "FinishMaxOutput",
+              "value": "\"max-output\""
+            },
+            {
+              "name": "FinishContextLimit",
+              "value": "\"context-limit\""
+            },
+            {
+              "name": "FinishStopSequence",
+              "value": "\"stop-sequence\""
+            },
+            {
+              "name": "FinishRefusal",
+              "value": "\"refusal\""
+            },
+            {
+              "name": "FinishContentFilter",
+              "value": "\"content-filter\""
+            },
+            {
+              "name": "FinishPaused",
+              "value": "\"paused\""
+            },
+            {
+              "name": "FinishCancelled",
+              "value": "\"cancelled\""
+            },
+            {
+              "name": "FinishFailed",
+              "value": "\"failed\""
+            },
+            {
+              "name": "FinishUnknown",
+              "value": "\"unknown\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ProfileCapabilities",
+          "fields": [
+            {
+              "name": "\"structuredOutput\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"toolCalling\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"parallelTools\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"background\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"zeroRetention\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "ProviderKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "ProviderOpenAIResponses",
+              "value": "\"openai-responses\""
+            },
+            {
+              "name": "ProviderAnthropicMessages",
+              "value": "\"anthropic-messages\""
+            }
+          ]
+        }
+      ]
+    },
     {
       "module": "internal/application/models",
       "declarations": [
@@ -4103,10 +4311,10 @@
       "declarations": [
         {
           "kind": "class",
-          "name": "AIConnection",
+          "name": "AIModelSettings",
           "fields": [
             {
-              "name": "\"id\"",
+              "name": "\"slot\"",
               "optional": false,
               "type": "string"
             },
@@ -4116,19 +4324,39 @@
               "type": "string"
             },
             {
-              "name": "\"protocol\"",
+              "name": "\"provider\"",
+              "optional": false,
+              "type": "ai$0.ProviderKind"
+            },
+            {
+              "name": "\"model\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"baseURL\"",
+              "name": "\"maxOutputTokens\"",
               "optional": false,
-              "type": "string"
+              "type": "number"
             },
             {
-              "name": "\"apiKey\"",
+              "name": "\"capabilities\"",
+              "optional": false,
+              "type": "ai$0.ProfileCapabilities"
+            },
+            {
+              "name": "\"evaluation\"",
+              "optional": false,
+              "type": "ai$0.EvaluationStatus"
+            },
+            {
+              "name": "\"evaluationSuite\"",
               "optional": true,
-              "type": "string"
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"workflowConsent\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
             }
           ]
         },
@@ -4137,14 +4365,9 @@
           "name": "AISettings",
           "fields": [
             {
-              "name": "\"connections\"",
+              "name": "\"profiles\"",
               "optional": false,
-              "type": "AIConnection[]"
-            },
-            {
-              "name": "\"default\"",
-              "optional": false,
-              "type": "string"
+              "type": "AIModelSettings[]"
             }
           ]
         },
@@ -4418,17 +4641,12 @@
         },
         {
           "kind": "class",
-          "name": "TestConnReq",
+          "name": "TestProfileRequest",
           "fields": [
             {
-              "name": "\"connection\"",
+              "name": "\"profile\"",
               "optional": false,
-              "type": "AIConnection"
-            },
-            {
-              "name": "\"testModel\"",
-              "optional": false,
-              "type": "string"
+              "type": "AIModelSettings"
             },
             {
               "name": "\"apiKey\"",
@@ -4439,7 +4657,7 @@
         },
         {
           "kind": "class",
-          "name": "TestResult",
+          "name": "TestProfileResult",
           "fields": [
             {
               "name": "\"ok\"",
@@ -4447,18 +4665,33 @@
               "type": "boolean"
             },
             {
-              "name": "\"models\"",
+              "name": "\"provider\"",
               "optional": false,
-              "type": "string[]"
+              "type": "ai$0.ProviderKind"
             },
             {
-              "name": "\"error\"",
+              "name": "\"requestedModel\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"kind\"",
+              "name": "\"resolvedModel\"",
               "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"finish\"",
+              "optional": false,
+              "type": "ai$0.FinishKind"
+            },
+            {
+              "name": "\"failureClass\"",
+              "optional": true,
+              "type": "ai$0.FailureClass"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
               "type": "string"
             }
           ]

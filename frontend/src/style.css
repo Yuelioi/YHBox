@@ -449,7 +449,7 @@ textarea {
     transform: translateX(-50%);
   }
 
-  .ai-connection {
+  .ai-profile {
     overflow: hidden;
     padding: 14px;
     border: 1px solid var(--ui-border);
@@ -457,12 +457,7 @@ textarea {
     background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
   }
 
-  .ai-connection--default {
-    border-color: color-mix(in oklab, var(--ui-primary) 38%, var(--ui-border));
-    background: color-mix(in oklab, var(--ui-primary) 5%, var(--ui-bg));
-  }
-
-  .ai-connection__details {
+  .ai-profile__details {
     display: flex;
     flex-direction: column;
     gap: 16px;

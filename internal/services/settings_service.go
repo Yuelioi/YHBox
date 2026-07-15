@@ -3,6 +3,9 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/artifact"
 )
 
 // SettingsService 是 wails3 binding 暴露给 JS 的设置 RPC 入口。
@@ -11,21 +14,13 @@ type SettingsService struct {
 	secrets *AISecrets
 }
 
-func NewSettingsService(app *App, secrets ...*AISecrets) *SettingsService {
-	service := &SettingsService{app: app}
-	if len(secrets) > 0 {
-		service.secrets = secrets[0]
-	}
-	return service
+func NewSettingsService(app *App, secrets *AISecrets) *SettingsService {
+	return &SettingsService{app: app, secrets: secrets}
 }
 
 // Get 返回当前 settings 的快照。前端启动时 hydrate Pinia store。
 func (s *SettingsService) Get() Settings {
-	cur := s.app.Settings()
-	for index := range cur.AI.Connections {
-		cur.AI.Connections[index].APIKey = ""
-	}
-	return *cur
+	return *s.app.Settings()
 }
 
 // Update RFC7386 deep merge 流程：clone → merge → Validate → swap → save → side-effects。
@@ -34,22 +29,20 @@ func (s *SettingsService) Get() Settings {
 func (s *SettingsService) Update(patchJSON string) error {
 	patch := json.RawMessage(patchJSON)
 	_, cur, err := s.app.MutateSettings(func(settings *Settings) error {
-		legacyKeys := make(map[string]string, len(settings.AI.Connections))
-		for _, connection := range settings.AI.Connections {
-			if connection.APIKey != "" {
-				legacyKeys[connection.ID] = connection.APIKey
-			}
+		previous := make(map[string]consentState, len(settings.AI.Profiles))
+		for _, profile := range settings.AI.Profiles {
+			previous[profile.Slot] = consentState{consent: profile.WorkflowConsent, expected: expectedAIConsent(profile)}
 		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
 		}
-		// Metadata-only connection arrays from the modern UI omit apiKey. If a
-		// startup migration failed, retain the legacy plaintext until a later
-		// migration succeeds instead of silently losing the only credential.
-		for index := range settings.AI.Connections {
-			connection := &settings.AI.Connections[index]
-			if connection.APIKey == "" {
-				connection.APIKey = legacyKeys[connection.ID]
+		// Consent is tied to the exact slot/profile artifact. Editing semantic
+		// profile fields revokes an unchanged prior consent automatically.
+		for index := range settings.AI.Profiles {
+			profile := &settings.AI.Profiles[index]
+			old, exists := previous[profile.Slot]
+			if exists && old.consent != "" && profile.WorkflowConsent == old.consent && expectedAIConsent(*profile) != old.expected {
+				profile.WorkflowConsent = ""
 			}
 		}
 		return nil
@@ -79,22 +72,39 @@ func (s *SettingsService) Update(patchJSON string) error {
 	return commitErr
 }
 
+type consentState struct {
+	consent  artifact.Digest
+	expected artifact.Digest
+}
+
+func expectedAIConsent(configured AIModelSettings) artifact.Digest {
+	profile, err := ai.SealModelProfile(configured.profileDraft())
+	if err != nil {
+		return ""
+	}
+	digest, err := ai.WorkflowConsentDigest(configured.Slot, profile)
+	if err != nil {
+		return ""
+	}
+	return digest
+}
+
 func (s *SettingsService) deleteRemovedAISecrets(before, after *Settings) {
 	if s.secrets == nil {
 		return
 	}
-	remaining := make(map[string]struct{}, len(after.AI.Connections))
-	for _, connection := range after.AI.Connections {
-		remaining[connection.ID] = struct{}{}
+	remaining := make(map[string]struct{}, len(after.AI.Profiles))
+	for _, profile := range after.AI.Profiles {
+		remaining[profile.Slot] = struct{}{}
 	}
-	for _, connection := range before.AI.Connections {
-		if _, ok := remaining[connection.ID]; ok {
+	for _, profile := range before.AI.Profiles {
+		if _, ok := remaining[profile.Slot]; ok {
 			continue
 		}
-		if err := s.secrets.Delete(connection.ID); err != nil {
+		if err := s.secrets.DeleteSlot(profile.Slot); err != nil {
 			logger := s.app.RootLogger()
 			logger.Warn().Err(err).Str("tag", "AI_SECRET").
-				Str("connectionId", connection.ID).Msg("delete orphaned AI credential")
+				Str("slot", profile.Slot).Msg("delete orphaned AI credential")
 		}
 	}
 }

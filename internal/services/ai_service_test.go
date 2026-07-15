@@ -3,89 +3,65 @@ package services
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"path/filepath"
 	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/ai"
 )
 
-func TestConnectionListsModels(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"object":"list","data":[{"id":"m-b","object":"model"},{"id":"m-a","object":"model"}]}`))
-	}))
-	defer srv.Close()
-	res := NewAIService().TestConnection(TestConnReq{
-		Connection: AIConnection{Protocol: "openai", BaseURL: srv.URL},
-		APIKey:     "k",
-	})
-	if !res.Ok {
-		t.Fatalf("want ok, err=%s", res.Error)
-	}
-	if len(res.Models) != 2 || res.Models[0] != "m-a" {
-		t.Errorf("models not sorted/returned: %v", res.Models)
-	}
-}
-
-func TestConnectionFallbackChat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/models") {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"choices":[{"message":{"content":"ok"}}]}`))
-	}))
-	defer srv.Close()
-	res := NewAIService().TestConnection(TestConnReq{
-		Connection: AIConnection{Protocol: "openai", BaseURL: srv.URL},
-		TestModel:  "m",
-		APIKey:     "k",
-	})
-	if !res.Ok {
-		t.Fatalf("fallback chat should pass, err=%s", res.Error)
-	}
-}
-
-func TestConnectionNoModelNoFallback(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer srv.Close()
-	res := NewAIService().TestConnection(TestConnReq{
-		Connection: AIConnection{Protocol: "openai", BaseURL: srv.URL},
-		APIKey:     "k",
-	})
-	if res.Ok {
-		t.Error("no models + no testModel -> not ok")
-	}
-	if res.Error == "" {
-		t.Error("should carry guidance error")
-	}
-}
-
-func TestConnectionUsesStoredCredentialWithoutReturningIt(t *testing.T) {
+func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	store := newFakeSecretStore()
 	secrets := NewAISecrets(store)
-	if err := secrets.Set("primary", "stored-secret"); err != nil {
+	if err := secrets.SetSlot("primary", "stored-secret"); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if got := request.Header.Get("Authorization"); got != "Bearer stored-secret" {
-			t.Errorf("Authorization = %q", got)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/v1/responses" || request.Header.Get("Authorization") != "Bearer stored-secret" {
+			t.Errorf("request = %s, authorization = %q", request.URL.Path, request.Header.Get("Authorization"))
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{
+			"id":"response-1","model":"gpt-resolved","status":"completed",
+			"output":[{"type":"message","content":[{"type":"output_text","text":"OK"}]}],
+			"usage":{"input_tokens":4,"output_tokens":1}
+		}`))
 	}))
 	defer server.Close()
-
-	service := NewAIService(secrets)
-	result := service.TestConnection(TestConnReq{Connection: AIConnection{
-		ID: "primary", Protocol: "openai", BaseURL: server.URL,
-	}})
-	if !result.Ok {
-		t.Fatalf("stored credential test failed: %s", result.Error)
+	service := newAIService(nil, secrets, func(profile ai.ModelProfile) (ai.Provider, error) {
+		return ai.NewNativeProvider(profile, ai.HTTPOptions{Endpoint: server.URL + "/v1/responses"})
+	})
+	result := service.TestProfile(TestProfileRequest{Profile: modelSettingsForTest("primary", "Primary")})
+	if !result.Ok || result.Provider != ai.ProviderOpenAIResponses || result.ResolvedModel != "gpt-resolved" || result.Finish != ai.FinishCompleted {
+		t.Fatalf("TestProfile = %#v", result)
 	}
 	status := service.SecretStatus([]string{"primary", "missing"})
 	if !status["primary"] || status["missing"] {
-		t.Fatalf("presence metadata = %#v", status)
+		t.Fatalf("SecretStatus = %#v", status)
+	}
+}
+
+func TestWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	store := newFakeSecretStore()
+	secrets := NewAISecrets(store)
+	_, _, err := app.MutateSettings(func(settings *Settings) error {
+		settings.AI.Profiles = []AIModelSettings{modelSettingsForTest("primary", "Primary")}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewAIService(app, secrets)
+	consent, err := service.GrantWorkflowUse("primary")
+	if err != nil || consent == "" || app.Settings().AI.Profiles[0].WorkflowConsent.String() != consent {
+		t.Fatalf("GrantWorkflowUse = %q, %v", consent, err)
+	}
+	settingsService := NewSettingsService(app, secrets)
+	if err := settingsService.Update(`{"ai":{"profiles":[{"slot":"primary","label":"Primary","provider":"openai-responses","model":"gpt-changed","maxOutputTokens":4096,"capabilities":{"structuredOutput":true,"toolCalling":false,"parallelTools":false,"background":false,"zeroRetention":false},"evaluation":"unverified","workflowConsent":"` + consent + `"}]}}`); err != nil {
+		t.Fatal(err)
+	}
+	if app.Settings().AI.Profiles[0].WorkflowConsent != "" {
+		t.Fatal("semantic profile edit retained prior workflow consent")
 	}
 }
