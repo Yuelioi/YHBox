@@ -381,6 +381,12 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, stat
 	if expected := topologicalOrder(graph.Nodes, adjacency, indegree); len(expected) != len(graph.Nodes) || !slices.Equal(expected, graph.DataOrder) {
 		return errors.New("program data order does not match its data graph")
 	}
+	if len(graph.Nodes) != 0 {
+		roots, _ := executionReachability(graph)
+		if len(roots) == 0 {
+			return errors.New("program graph has no execution root")
+		}
+	}
 	return nil
 }
 

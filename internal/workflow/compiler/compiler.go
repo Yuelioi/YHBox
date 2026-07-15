@@ -35,6 +35,8 @@ const (
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
 	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
+	CodeNoExecutionRoot          = "NO_EXECUTION_ROOT"
+	CodeUnreachableExecution     = "UNREACHABLE_EXECUTION"
 	CodeDataCycle                = "DATA_CYCLE"
 	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
@@ -71,7 +73,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	}
 	source, _, sourceHash, diagnostics, err := schema.CanonicalSource(request.SourceJSON)
 	result := CompileResult{Diagnostics: diagnostics}
-	if len(diagnostics) != 0 {
+	if hasErrorDiagnostics(diagnostics) {
 		return result, nil
 	}
 	if err != nil {
@@ -129,7 +131,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		return result, fmt.Errorf("seal capability plan: %w", err)
 	}
 	body.CapabilityPlan = plan.Bytes()
-	if len(result.Diagnostics) != 0 {
+	if hasErrorDiagnostics(result.Diagnostics) {
 		if len(result.Diagnostics) > schema.MaxDiagnostics {
 			result.Diagnostics = result.Diagnostics[:schema.MaxDiagnostics]
 		}
@@ -140,6 +142,10 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	if err != nil {
 		return result, err
 	}
+	if len(result.Diagnostics) > schema.MaxDiagnostics {
+		result.Diagnostics = result.Diagnostics[:schema.MaxDiagnostics]
+	}
+	sortDiagnostics(result.Diagnostics)
 	return result, nil
 }
 
@@ -424,6 +430,17 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 	compiled.DataOrder = topologicalOrder(compiled.Nodes, adjacency, indegree)
 	if len(compiled.DataOrder) != len(compiled.Nodes) {
 		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
+	} else if len(compiled.Nodes) != 0 {
+		roots, reachable := executionReachability(compiled)
+		if len(roots) == 0 {
+			diagnostics = append(diagnostics, diagnostic(CodeNoExecutionRoot, []string{"graphs", fmt.Sprint(graphIndex)}, graph.ID))
+		}
+		for nodeIndex, node := range compiled.Nodes {
+			if node.Execution.Evaluation == nodecontract.EvaluationPush && !reachable[node.ID] {
+				diagnostics = append(diagnostics, warningAtNode(CodeUnreachableExecution,
+					[]string{"graphs", fmt.Sprint(graphIndex), "nodes", fmt.Sprint(nodeIndex)}, graph.ID, node.ID))
+			}
+		}
 	}
 	return compiled, diagnostics, nil
 }
@@ -632,6 +649,21 @@ func diagnosticAtNode(code string, path []string, graphID, nodeID string) Diagno
 	diagnostic := diagnostic(code, path, graphID)
 	diagnostic.NodeID = nodeID
 	return diagnostic
+}
+
+func warningAtNode(code string, path []string, graphID, nodeID string) Diagnostic {
+	diagnostic := diagnosticAtNode(code, path, graphID, nodeID)
+	diagnostic.Severity = schema.SeverityWarning
+	return diagnostic
+}
+
+func hasErrorDiagnostics(values []Diagnostic) bool {
+	for _, value := range values {
+		if value.Severity == schema.SeverityError {
+			return true
+		}
+	}
+	return false
 }
 
 func sortDiagnostics(values []Diagnostic) {

@@ -1,0 +1,66 @@
+package nodes31
+
+import (
+	"testing"
+
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/nodecontract"
+)
+
+func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(builtins.Types) != 11 || len(builtins.Definitions()) != 69 {
+		t.Fatalf("types=%d nodes=%d", len(builtins.Types), len(builtins.Definitions()))
+	}
+	runStarted, _ := builtins.Definition(RunStartedNodeID)
+	branch, _ := builtins.Definition(BranchNodeID)
+	delay, _ := builtins.Definition(DelayNodeID)
+	end, _ := builtins.Definition(EndBranchNodeID)
+	if runStarted.Contract.Machine().Execution.Class != nodecontract.ExecutionEvent ||
+		len(runStarted.Contract.Machine().Ports.ExecInputs) != 0 ||
+		!signalIDsEqual(runStarted.Contract.Machine().Ports.ExecOutputs, []string{"started"}) {
+		t.Fatalf("run started = %#v", runStarted.Contract.Machine())
+	}
+	if branch.Contract.Machine().Execution.Class != nodecontract.ExecutionControl ||
+		!signalIDsEqual(branch.Contract.Machine().Ports.ExecOutputs, []string{"true", "false"}) ||
+		len(branch.Contract.Machine().Execution.Effects) != 0 {
+		t.Fatalf("branch = %#v", branch.Contract.Machine())
+	}
+	if delay.Contract.Machine().Execution.Class != nodecontract.ExecutionEffect ||
+		delay.Contract.Machine().Execution.Determinism != nodecontract.Recorded ||
+		len(delay.Contract.Machine().Execution.Effects) != 1 ||
+		delay.Contract.Machine().Execution.Effects[0] != DelayWaitEffectID ||
+		!signalIDsEqual(delay.Contract.Machine().Ports.ExecOutputs, []string{"done"}) {
+		t.Fatalf("delay = %#v", delay.Contract.Machine())
+	}
+	if end.Contract.Machine().Execution.Class != nodecontract.ExecutionControl || len(end.Contract.Machine().Ports.ExecOutputs) != 0 {
+		t.Fatalf("end branch = %#v", end.Contract.Machine())
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: GeneratorVersion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration, ok := projection.Type(DurationMillisecondsTypeID)
+	if !ok || duration.Control != nodeauthoring.ControlInteger || string(duration.Constraints.Minimum) != "0" ||
+		string(duration.Constraints.Maximum) != "86400000" {
+		t.Fatalf("duration authoring = %#v", duration)
+	}
+}
+
+func signalIDsEqual(ports []nodecontract.SignalPort, expected []string) bool {
+	if len(ports) != len(expected) {
+		return false
+	}
+	for index := range ports {
+		if ports[index].ID != expected[index] {
+			return false
+		}
+	}
+	return true
+}

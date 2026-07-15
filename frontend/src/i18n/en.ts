@@ -914,6 +914,12 @@ export default {
         description: 'The probability distribution used by a recorded random observation.',
       },
     },
+    time: {
+      durationMilliseconds: {
+        title: 'Duration (milliseconds)',
+        description: 'A non-negative delay up to 24 hours, measured in milliseconds.',
+      },
+    },
   },
   node: {
     text: {
@@ -985,6 +991,27 @@ export default {
         title: 'State metadata',
         description:
           'Read a state slot revision and last-change time without exposing an untyped value.',
+      },
+    },
+    event: {
+      runStarted: {
+        title: 'Run started',
+        description: 'Emit Started exactly once when this Program Run begins.',
+      },
+    },
+    control: {
+      branch: {
+        title: 'Branch',
+        description: 'Continue through exactly one of the True or False routes.',
+      },
+      delay: {
+        title: 'Delay',
+        description:
+          'Wait for a bounded duration with cooperative Run cancellation, then emit Done.',
+      },
+      endBranch: {
+        title: 'End branch',
+        description: 'Explicitly finish this control-flow branch without emitting another signal.',
       },
     },
     // ai

@@ -32,6 +32,10 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		nodes31.StateReadNodeID:     stateRead(builtins),
 		nodes31.StateWriteNodeID:    stateWrite(builtins),
 		nodes31.StateMetadataNodeID: stateMetadata(builtins),
+		nodes31.RunStartedNodeID:    runStarted(),
+		nodes31.BranchNodeID:        branch(),
+		nodes31.DelayNodeID:         delay(),
+		nodes31.EndBranchNodeID:     endBranch(),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)

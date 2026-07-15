@@ -84,6 +84,7 @@ type Invocation struct {
 	Trigger      *SignalTrigger
 	ObservedAt   time.Time
 	ReadEntropy  func([]byte) error
+	Wait         func(context.Context, time.Duration) error
 	Spawn        func(func(context.Context) error) error
 	RecordAction func(context.Context, AdapterAction) error
 	EmitStatus   func(context.Context, string, map[string]int64) error
@@ -111,6 +112,7 @@ type Executor struct {
 	catalog   nodecatalog.Snapshot
 	adapters  map[string]InstalledAdapter
 	now       func() time.Time
+	wait      func(context.Context, time.Duration) error
 	entropy   io.Reader
 	entropyMu sync.Mutex
 }
@@ -118,6 +120,7 @@ type Executor struct {
 type ExecutorOptions struct {
 	Now     func() time.Time
 	Entropy io.Reader
+	Wait    func(context.Context, time.Duration) error
 }
 
 type ownedLease struct {
@@ -136,7 +139,24 @@ func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdap
 	if options.Entropy == nil {
 		options.Entropy = cryptorand.Reader
 	}
-	return &Executor{catalog: catalog, adapters: installed, now: options.Now, entropy: options.Entropy}
+	if options.Wait == nil {
+		options.Wait = waitContext
+	}
+	return &Executor{catalog: catalog, adapters: installed, now: options.Now, wait: options.Wait, entropy: options.Entropy}
+}
+
+func waitContext(ctx context.Context, duration time.Duration) error {
+	if duration < 0 {
+		return errors.New("wait duration is negative")
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (e *Executor) readEntropy(target []byte) error {

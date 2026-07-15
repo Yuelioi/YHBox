@@ -92,14 +92,8 @@ func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
 			_ = s.cleanup()
 		}
 	}()
-	for _, nodeID := range s.graph.DataOrder {
-		node := s.nodes[nodeID]
-		switch {
-		case node.Execution.Class == nodecontract.ExecutionEvent && len(node.Ports.ExecInputs) == 0:
-			s.queue = append(s.queue, scheduledInvocation{nodeID: nodeID})
-		case node.Execution.Evaluation == nodecontract.EvaluationPull && len(node.Ports.ExecInputs) == 0 && s.dataConsumers[nodeID] == 0:
-			s.queue = append(s.queue, scheduledInvocation{nodeID: nodeID})
-		}
+	for _, nodeID := range executionRoots(*s.graph) {
+		s.queue = append(s.queue, scheduledInvocation{nodeID: nodeID})
 	}
 	if len(s.nodes) != 0 && len(s.queue) == 0 {
 		return ExecutionResult{}, errors.New("Program has no event or pull-data entry")
@@ -123,6 +117,48 @@ func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
 	removeRuntimeOutputs(s.result.NodeOutputs)
 	completed = true
 	return s.result, nil
+}
+
+func executionRoots(graph programGraph) []string {
+	consumers := make(map[string]int, len(graph.Nodes))
+	nodes := make(map[string]programNode, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		nodes[node.ID] = node
+		for _, input := range node.Inputs {
+			if input.Kind == inputEdge {
+				consumers[input.From.NodeID]++
+			}
+		}
+	}
+	result := make([]string, 0)
+	for _, nodeID := range graph.DataOrder {
+		node := nodes[nodeID]
+		if node.Execution.Class == nodecontract.ExecutionEvent && len(node.Ports.ExecInputs) == 0 ||
+			node.Execution.Evaluation == nodecontract.EvaluationPull && len(node.Ports.ExecInputs) == 0 && consumers[nodeID] == 0 {
+			result = append(result, nodeID)
+		}
+	}
+	return result
+}
+
+func executionReachability(graph programGraph) ([]string, map[string]bool) {
+	roots := executionRoots(graph)
+	reachable := make(map[string]bool, len(graph.Nodes))
+	queue := append([]string(nil), roots...)
+	for len(queue) != 0 {
+		nodeID := queue[0]
+		queue = queue[1:]
+		if reachable[nodeID] {
+			continue
+		}
+		reachable[nodeID] = true
+		for _, route := range graph.SignalRoutes {
+			if route.From.NodeID == nodeID && !reachable[route.To.NodeID] {
+				queue = append(queue, route.To.NodeID)
+			}
+		}
+	}
+	return roots, reachable
 }
 
 func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTrigger, evaluation map[string]bool) error {
@@ -193,7 +229,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
 		Trigger: cloneTrigger(trigger), ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
-		Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
+		Wait: s.executor.wait, Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
 	actionErr := actions.Close()
 	statusErr := statuses.Close()

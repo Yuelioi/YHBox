@@ -124,6 +124,30 @@ func TestSchedulerPropagatesVolatilityThroughPureDataDependencies(t *testing.T) 
 	}
 }
 
+func TestExecutionReachabilityRequiresARealRootAndFollowsSignalRoutes(t *testing.T) {
+	push := nodecontract.ExecutionSpec{Class: nodecontract.ExecutionControl, Evaluation: nodecontract.EvaluationPush}
+	event := nodecontract.ExecutionSpec{Class: nodecontract.ExecutionEvent, Evaluation: nodecontract.EvaluationPush}
+	graph := programGraph{
+		Nodes: []programNode{
+			{ID: "root", Execution: event, Ports: nodecontract.PortSet{ExecOutputs: []nodecontract.SignalPort{{ID: "started"}}}},
+			{ID: "branch", Execution: push, Ports: nodecontract.PortSet{ExecInputs: []nodecontract.SignalPort{{ID: "in"}}}},
+		},
+		SignalRoutes: []programSignalRoute{{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "root", PortID: "started"}, To: schema.Endpoint{NodeID: "branch", PortID: "in"}}},
+		DataOrder:    []string{"root", "branch"},
+	}
+	roots, reachable := executionReachability(graph)
+	if len(roots) != 1 || roots[0] != "root" || !reachable["branch"] {
+		t.Fatalf("roots=%#v reachable=%#v", roots, reachable)
+	}
+	graph.Nodes = graph.Nodes[1:]
+	graph.SignalRoutes = nil
+	graph.DataOrder = []string{"branch"}
+	roots, reachable = executionReachability(graph)
+	if len(roots) != 0 || reachable["branch"] {
+		t.Fatalf("rootless roots=%#v reachable=%#v", roots, reachable)
+	}
+}
+
 func emptyAdapter(context.Context, Invocation) (AdapterResult, error) { return AdapterResult{}, nil }
 
 func schedulerCatalogForTest(t *testing.T) (nodecatalog.Snapshot, map[string]nodecontract.Contract, map[string]nodecatalog.ImplementationLock) {
@@ -208,7 +232,7 @@ func compileSchedulerProgram(t *testing.T, catalog nodecatalog.Snapshot, contrac
 		ref("right").NodeTypeID, ref("right").SemanticDigest, ref("handler").NodeTypeID, ref("handler").SemanticDigest,
 		joinStrings(edges)))
 	compiled, err := New(testDigest(t, "scheduler-build")).CompileDraft(context.Background(), CompileRequest{SourceJSON: source, Catalog: catalog})
-	if err != nil || len(compiled.Diagnostics) != 0 {
+	if err != nil || hasErrorDiagnostics(compiled.Diagnostics) {
 		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 	program, ok := compiled.Program()

@@ -894,6 +894,12 @@ export default {
         description: 'recorded 随机观测所使用的概率分布。',
       },
     },
+    time: {
+      durationMilliseconds: {
+        title: '时长（毫秒）',
+        description: '以毫秒计、最大 24 小时的非负延迟时长。',
+      },
+    },
   },
   node: {
     text: {
@@ -959,6 +965,26 @@ export default {
       metadata: {
         title: '状态元数据',
         description: '读取状态槽的 revision 和最后修改时间，不暴露无类型值。',
+      },
+    },
+    event: {
+      runStarted: {
+        title: 'Run 开始',
+        description: '这个 Program Run 开始时，准确发出一次「已开始」。',
+      },
+    },
+    control: {
+      branch: {
+        title: '分支',
+        description: '根据条件只从「真」或「假」中的一个路径继续。',
+      },
+      delay: {
+        title: '延迟',
+        description: '等待一个有上限且可随 Run 取消的时长，然后发出「完成」。',
+      },
+      endBranch: {
+        title: '结束分支',
+        description: '显式结束当前控制流分支，不再发出信号。',
       },
     },
     // ai

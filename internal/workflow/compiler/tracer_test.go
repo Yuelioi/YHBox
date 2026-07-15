@@ -141,7 +141,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 	}
 }
 
-func TestCompilerRejectsDuplicateSignalRoutesButAllowsControlCycles(t *testing.T) {
+func TestCompilerRejectsDuplicateSignalRoutesAndRootlessControlCycles(t *testing.T) {
 	catalog, source, target := signalCatalogForTest(t)
 	duplicate := `{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`
 	compiled, err := New(testDigest(t, "duplicate-route")).CompileDraft(context.Background(), CompileRequest{
@@ -157,7 +157,7 @@ func TestCompilerRejectsDuplicateSignalRoutesButAllowsControlCycles(t *testing.T
 		`{"channel":"exec","from":{"nodeId":"target","portId":"next"},"to":{"nodeId":"source","portId":"in"}}`,
 	})
 	compiled, err = New(testDigest(t, "control-cycle")).CompileDraft(context.Background(), CompileRequest{SourceJSON: cycle, Catalog: cycleCatalog})
-	if err != nil || len(compiled.Diagnostics) != 0 {
+	if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeNoExecutionRoot) {
 		t.Fatalf("control cycle diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 }

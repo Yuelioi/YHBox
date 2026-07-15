@@ -56,25 +56,26 @@ type BuiltinDefinition struct {
 }
 
 type Builtins struct {
-	Catalog                nodecatalog.Snapshot
-	StringType             datatype.Definition
-	BinaryType             datatype.Definition
-	NumberType             datatype.Definition
-	IntegerType            datatype.Definition
-	BooleanType            datatype.Definition
-	JSONType               datatype.Definition
-	PointUnitType          datatype.Definition
-	PointType              datatype.Definition
-	RegionType             datatype.Definition
-	RandomDistributionType datatype.Definition
-	ConcatContract         nodecontract.Contract
-	BlobToStreamContract   nodecontract.Contract
-	StreamToBlobContract   nodecontract.Contract
-	Types                  []datatype.Definition
-	Contracts              []nodecontract.Contract
-	Capabilities           []capability.Definition
-	definitions            []BuiltinDefinition
-	definitionByID         map[string]BuiltinDefinition
+	Catalog                  nodecatalog.Snapshot
+	StringType               datatype.Definition
+	BinaryType               datatype.Definition
+	NumberType               datatype.Definition
+	IntegerType              datatype.Definition
+	BooleanType              datatype.Definition
+	JSONType                 datatype.Definition
+	PointUnitType            datatype.Definition
+	PointType                datatype.Definition
+	RegionType               datatype.Definition
+	RandomDistributionType   datatype.Definition
+	DurationMillisecondsType datatype.Definition
+	ConcatContract           nodecontract.Contract
+	BlobToStreamContract     nodecontract.Contract
+	StreamToBlobContract     nodecontract.Contract
+	Types                    []datatype.Definition
+	Contracts                []nodecontract.Contract
+	Capabilities             []capability.Definition
+	definitions              []BuiltinDefinition
+	definitionByID           map[string]BuiltinDefinition
 }
 
 func (b Builtins) Definitions() []BuiltinDefinition {
@@ -112,6 +113,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	randomDistributionType, err := sealRandomDistributionType()
+	if err != nil {
+		return Builtins{}, err
+	}
+	durationMillisecondsType, err := sealDurationMillisecondsType()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -184,12 +189,19 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	controlDefinitions, err := defineControlNodes(primitiveTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+	}, durationMillisecondsType.TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
 	definitions = append(definitions, extendedDefinitions...)
 	definitions = append(definitions, recordedObservationDefinitions...)
 	definitions = append(definitions, stateDefinitions...)
+	definitions = append(definitions, controlDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -202,7 +214,7 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType}
+	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType}
 	capabilities := []capability.Definition{blobRead, blobWrite, streamSession}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
@@ -212,8 +224,9 @@ func Build() (Builtins, error) {
 		Catalog: catalog, StringType: stringType, BinaryType: binaryType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
-		RandomDistributionType: randomDistributionType,
-		BlobToStreamContract:   blobToStream, StreamToBlobContract: streamToBlob,
+		RandomDistributionType:   randomDistributionType,
+		DurationMillisecondsType: durationMillisecondsType,
+		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
 		Types: types, Contracts: contracts, Capabilities: capabilities,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
