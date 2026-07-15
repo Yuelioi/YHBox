@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -36,15 +37,36 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Contains(artifacts.Catalog, []byte(`"version":"3.1"`)) ||
-		!bytes.Contains(artifacts.Presentation, []byte(`"format":"yotta.node-presentation"`)) {
+		!bytes.Contains(artifacts.Authoring, []byte(`"format":"yotta.node-authoring-projection"`)) {
 		t.Fatalf("generated artifacts are not pinned to 3.1")
 	}
 	if _, err := nodecatalog.Open(artifacts.Catalog); err != nil {
 		t.Fatalf("generated machine catalog is not a strict canonical artifact: %v", err)
 	}
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := nodeauthoring.Open(artifacts.Authoring, nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: GeneratorVersion,
+	}); err != nil {
+		t.Fatalf("generated authoring projection cannot strict-open: %v", err)
+	}
 	if !bytes.Contains(artifacts.Documentation, []byte("Exec, Error, and Status ports: none.")) ||
 		bytes.Contains(artifacts.Documentation, []byte("| exec | output | `out`")) {
 		t.Fatalf("generated docs invented an exec output:\n%s", artifacts.Documentation)
+	}
+	for _, fact := range []string{
+		"Authoring projection:",
+		"Availability: `target-required`",
+		"`mediaType` | `text` | yes | `minLength: 3, maxLength: 255",
+		"`stream` | `https://schemas.yotta.dev/types/core/binary/v1` | `durable-or-runtime` | `runtime`",
+		"target `blob-store`",
+	} {
+		if !bytes.Contains(artifacts.Documentation, []byte(fact)) {
+			t.Fatalf("generated docs omit projected fact %q:\n%s", fact, artifacts.Documentation)
+		}
 	}
 }
 

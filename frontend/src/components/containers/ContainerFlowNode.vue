@@ -45,7 +45,7 @@
             <PinLiteral
               v-if="showInlineLiteral(leftPins[i - 1])"
               class="pin-inline-input nodrag"
-              :type="leftPins[i - 1].type"
+              :type="inlinePinType(leftPins[i - 1])"
               :widget-kind="fieldFor(leftPins[i - 1].id)?.widgetKind"
               :options="fieldFor(leftPins[i - 1].id)?.options"
               :model-value="inlineLiteralValue(leftPins[i - 1].id)"
@@ -104,7 +104,7 @@
       type="target"
       :position="Position.Left"
       :style="handleStyle(p, i)"
-      :class="['handle-base', p.kind === 'exec' ? 'handle-exec' : 'handle-data']"
+      :class="['handle-base', p.kind === 'data' ? 'handle-data' : 'handle-exec']"
     />
     <Handle
       v-for="(p, i) in rightPins"
@@ -115,7 +115,7 @@
       :style="handleStyle(p, i)"
       :class="[
         'handle-base',
-        p.kind === 'exec' ? 'handle-exec' : 'handle-data',
+        p.kind === 'data' ? 'handle-data' : 'handle-exec',
         p.isError ? 'handle-exec-error' : '',
       ]"
     />
@@ -281,7 +281,9 @@ const boundSubgraphNodeCount = computed<number | null>(() => {
   return sg?.graph?.nodes?.length ?? null
 })
 
-const execOutPinsForRender = computed<{ id: string; label: string; isError: boolean }[]>(() => {
+const signalOutPinsForRender = computed<
+  { id: string; label: string; channel: 'exec' | 'error' | 'status' }[]
+>(() => {
   // 子图调用节点 (Subgraph / CollapsedNode) 的 exec-out = callee outputPins decl,
   // pin id 用 decl ID (runtime 按它路由), 显示名用 decl name.
   if (kind.value === 'Subgraph' || kind.value === 'CollapsedNode') {
@@ -289,20 +291,32 @@ const execOutPinsForRender = computed<{ id: string; label: string; isError: bool
       { config: props.data?.config as any },
       editorStore.subgraphList,
     )
-    const out = decls.map((d) => ({ id: d.id, label: d.name, isError: false }))
+    const out: { id: string; label: string; channel: 'exec' | 'error' | 'status' }[] = decls.map(
+      (d) => ({ id: d.id, label: d.name, channel: 'exec' }),
+    )
     // Spec 的静态 Fail 出口 (region 兜底) 不在子图 outputPins 里, 单独补.
     for (const id of getSpec(kind.value)?.errorOut ?? []) {
-      out.push({ id, label: t('common.fail_pin'), isError: true })
+      out.push({ id, label: t('common.fail_pin'), channel: 'error' })
     }
     return out
   }
-  // Semantic==='error' 的失败出口 (Fail) → 红引脚.
-  const errorOut = new Set(getSpec(kind.value)?.errorOut ?? [])
-  return pins.value.execOut.map((id: string) => ({
-    id,
-    label: errorOut.has(id) ? t('common.fail_pin') : pinLabel(id, 'out'),
-    isError: errorOut.has(id),
-  }))
+  return [
+    ...pins.value.execOut.map((id) => ({
+      id,
+      label: pinLabel(id, 'out'),
+      channel: 'exec' as const,
+    })),
+    ...pins.value.errorOut.map((id) => ({
+      id,
+      label: t('common.fail_pin'),
+      channel: 'error' as const,
+    })),
+    ...pins.value.statusOut.map((id) => ({
+      id,
+      label: pinLabel(id, 'out'),
+      channel: 'status' as const,
+    })),
+  ]
 })
 
 // $变量引用 — 从表达式/脚本源码正则提取 (展示用, 权威解析在后端 validator)。去重保序。
@@ -330,8 +344,10 @@ const dataTypeMap = computed<{ in: Record<string, PinType>; out: Record<string, 
 interface PinEntry {
   id: string
   label: string
-  kind: 'exec' | 'data'
-  type: PinType
+  kind: 'exec' | 'error' | 'status' | 'data'
+  legacyType?: PinType
+  nominalType?: string
+  color?: string
   dir: 'in' | 'out'
   typeHint?: string
   /** 失败出口 (Semantic==='error') — exec 引脚渲染成红色. */
@@ -340,56 +356,67 @@ interface PinEntry {
 
 const leftPins = computed<PinEntry[]>(() => [
   ...pins.value.execIn.map(
-    (p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'exec', type: 'any', dir: 'in' }),
+    (p): PinEntry => ({ id: p, label: pinLabel(p, 'in'), kind: 'exec', dir: 'in' }),
   ),
-  ...pins.value.dataIn.map(
-    (p): PinEntry => ({
+  ...pins.value.dataIn.map((p): PinEntry => {
+    const projected = contractProjection31.value?.dataInputs.find((port) => port.id === p)
+    return {
       id: p,
       label: pinLabel(p, 'in'),
       kind: 'data',
-      type: dataTypeMap.value.in[p] ?? 'any',
+      legacyType: projected ? undefined : dataTypeMap.value.in[p],
+      nominalType: projected?.type.label,
+      color: projected?.type.color,
       dir: 'in',
-      typeHint: contractProjection31.value?.dataInputs.find((port) => port.id === p)?.typeLabel,
-    }),
-  ),
+      typeHint: projected?.type.label,
+    }
+  }),
 ])
 const rightPins = computed<PinEntry[]>(() => [
-  ...execOutPinsForRender.value.map(
+  ...signalOutPinsForRender.value.map(
     (p): PinEntry => ({
       id: p.id,
       label: p.label,
-      kind: 'exec',
-      type: 'any',
+      kind: p.channel,
       dir: 'out',
-      isError: p.isError,
+      isError: p.channel === 'error',
     }),
   ),
-  ...pins.value.dataOut.map(
-    (p): PinEntry => ({
+  ...pins.value.dataOut.map((p): PinEntry => {
+    const projected = contractProjection31.value?.dataOutputs.find((port) => port.id === p)
+    return {
       id: p,
       label: pinLabel(p, 'out'),
       kind: 'data',
-      type: dataTypeMap.value.out[p] ?? 'any',
+      legacyType: projected ? undefined : dataTypeMap.value.out[p],
+      nominalType: projected?.type.label,
+      color: projected?.type.color,
       dir: 'out',
-      typeHint: contractProjection31.value?.dataOutputs.find((port) => port.id === p)?.typeLabel,
-    }),
-  ),
+      typeHint: projected?.type.label,
+    }
+  }),
 ])
+
+function inlinePinType(pin: PinEntry): PinType {
+  if (!pin.legacyType) throw new Error(`inline editor requested for nominal pin ${pin.nominalType}`)
+  return pin.legacyType
+}
 
 // label 颜色: exec 用默认色 (CSS 控), data 用 type 颜色但 alpha 调暗一档.
 function labelColor(p: PinEntry): string {
-  if (p.kind === 'exec') return ''
-  return TYPE_COLOR[p.type] ?? '#9ca3af'
+  if (p.kind !== 'data') return ''
+  if (p.color) return p.color
+  return p.legacyType ? TYPE_COLOR[p.legacyType] : '#9ca3af'
 }
 
 // Handle 样式: exec 三角形 (clip-path), data 圆形 + type 颜色.
 function handleStyle(p: PinEntry, i: number): Record<string, string> {
   const top = HEADER_H + BODY_PAD_TOP + i * ROW_H + ROW_H / 2 + 'px'
-  if (p.kind === 'exec') {
+  if (p.kind !== 'data') {
     return {
       top,
-      // 失败出口 (Fail / Semantic==='error') 用 error 红, 普通 exec 用浅灰.
-      background: p.isError ? 'var(--ui-error)' : '#e5e7eb',
+      background:
+        p.kind === 'error' ? 'var(--ui-error)' : p.kind === 'status' ? '#38bdf8' : '#e5e7eb',
       clipPath: 'polygon(0% 0%, 100% 50%, 0% 100%)',
       borderRadius: '0',
       border: 'none',
@@ -397,7 +424,7 @@ function handleStyle(p: PinEntry, i: number): Record<string, string> {
       height: '11px',
     }
   }
-  const color = TYPE_COLOR[p.type] ?? '#9ca3af'
+  const color = p.color ?? (p.legacyType ? TYPE_COLOR[p.legacyType] : '#9ca3af')
   return {
     top,
     background: color,

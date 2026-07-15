@@ -76,16 +76,17 @@ export function dataOutTypeFor(kind: string, pin: string): PinType | '' {
  * Derives edge type from (from-kind, from-pin) — never stored as edge field.
  * 须与后端 validator 推导一致.
  */
-export function edgeKindOf(fromKind: string, fromPin: string): 'data' | 'exec' | '' {
+export function edgeKindOf(
+  fromKind: string,
+  fromPin: string,
+): 'data' | 'exec' | 'error' | 'status' | '' {
   const projection = builtinNodeProjections31.get(fromKind)
   if (projection) {
     if (projection.dataOutputs.some((port) => port.id === fromPin)) return 'data'
-    if (
-      projection.execOutputs.includes(fromPin) ||
-      projection.errorOutputs.includes(fromPin) ||
-      projection.statusOutputs.includes(fromPin)
+    const signal = projection.signals.find(
+      (port) => port.direction === 'output' && port.id === fromPin,
     )
-      return 'exec'
+    if (signal) return signal.channel
     return ''
   }
   const spec = byKind[fromKind]

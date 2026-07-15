@@ -29,9 +29,10 @@ status: open
 - [定义 Node Contract 3.1 元模式](tickets/define-node-contract-metaschema.md) — NodeRef 固定 canonical semantic contract；端口通道显式分离，pure-data 不含 exec，安装实现锁由 Catalog/Program 持有，authoring/docs 不污染语义摘要。
 - [定义 Capability 与 Target Planning](tickets/define-capability-and-target-planning.md) — Compiler 冻结 attributed least-privilege plan；Run policy 另行签发绑定 Program/plan/principal/provider/target/operation/scope 的短期 grant，所有 host 均无 ambient ServiceBundle 权限。
 - [定义 Program 3.1 与 Run 语义](tickets/define-program-and-run-semantics.md) — 不可变 Program 经统一 admission 进入 generational RunRecord；Run Store CAS 持久化，Run Owner 独占临时 authority，遗留 RUNNING 只转 INTERRUPTED、不自动重放 effect。
+- [原型验证 Schema 驱动的节点编辑体验](tickets/prototype-schema-driven-authoring.md) — 采用绑定精确 Catalog 的可严格重开 Authoring Projection；UI/文档共享端口、控件、默认提示、生命周期和 capability 事实，复杂交互只由不拥有语义的内置 Editor Adapter 承担。
 
 ## Fog
 
 - 内置 137 个节点如何按新 contract 分批迁移，取决于类型、实例 contract 与 Program lowering 的最终形状。
-- 新 Source schema、画布存储格式和测试 fixture 的具体替换方式，取决于 Authoring Projection 原型。
+- 新 Source schema、画布存储格式和测试 fixture 按已封存 Authoring Projection 逐批替换，不保留旧 presentation/pin registry 兼容层。
 - debugger、局部重跑、血缘保留周期和运行历史 UI 的范围，取决于 Program 与 Run Value 设计。

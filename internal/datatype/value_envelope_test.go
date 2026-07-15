@@ -22,6 +22,7 @@ func (types valueTypes) LookupType(typeID string) (Definition, bool) {
 func TestInlineValueEnvelopeRoundTripsTypeAndCanonicalValue(t *testing.T) {
 	definition, err := SealDefinition(DefinitionDraft{
 		TypeID: "https://schemas.yotta.dev/types/test/string/v1", SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:      "https://schemas.yotta.dev/types/test/string/v1/schema",
 		SchemaBundle:    []SchemaResource{{ID: "https://schemas.yotta.dev/types/test/string/v1/schema", Schema: []byte(`{"$id":"https://schemas.yotta.dev/types/test/string/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema","type":"string"}`)}},
 		Representations: []RepresentationSpec{{Kind: RepresentationInlineJSON, Codec: CodecJCSV1}},
 	})
@@ -51,6 +52,7 @@ func TestInlineValueEnvelopeRoundTripsTypeAndCanonicalValue(t *testing.T) {
 func TestExternalValueEnvelopeCarriersRoundTripWithoutRawResources(t *testing.T) {
 	definition, err := SealDefinition(DefinitionDraft{
 		TypeID: "https://schemas.yotta.dev/types/test/external/v1", SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:   "https://schemas.yotta.dev/types/test/external/v1/schema",
 		SchemaBundle: []SchemaResource{{ID: "https://schemas.yotta.dev/types/test/external/v1/schema", Schema: []byte(`{"$id":"https://schemas.yotta.dev/types/test/external/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema"}`)}},
 		Representations: []RepresentationSpec{
 			{Kind: RepresentationBlobRef, Codec: CodecBlobRefV1},

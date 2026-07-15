@@ -287,6 +287,42 @@ func (s Snapshot) LookupCapability(capabilityID string) (capability.Definition, 
 	return definition, ok
 }
 
+func (s Snapshot) NodeRefs() []nodecontract.NodeRef {
+	if !s.Valid() {
+		return nil
+	}
+	refs := make([]nodecontract.NodeRef, 0, len(s.state.bindings))
+	for _, entry := range s.state.bindings {
+		refs = append(refs, entry.Contract.NodeRef())
+	}
+	sort.Slice(refs, func(i, j int) bool { return refs[i].NodeTypeID < refs[j].NodeTypeID })
+	return refs
+}
+
+func (s Snapshot) TypeRefs() []datatype.TypeRef {
+	if !s.Valid() {
+		return nil
+	}
+	refs := make([]datatype.TypeRef, 0, len(s.state.types))
+	for _, definition := range s.state.types {
+		refs = append(refs, definition.TypeRef())
+	}
+	sort.Slice(refs, func(i, j int) bool { return refs[i].TypeID < refs[j].TypeID })
+	return refs
+}
+
+func (s Snapshot) CapabilityRefs() []capability.Ref {
+	if !s.Valid() {
+		return nil
+	}
+	refs := make([]capability.Ref, 0, len(s.state.capabilities))
+	for _, definition := range s.state.capabilities {
+		refs = append(refs, definition.Ref())
+	}
+	sort.Slice(refs, func(i, j int) bool { return refs[i].CapabilityID < refs[j].CapabilityID })
+	return refs
+}
+
 func validateImplementation(contract nodecontract.Contract, lock ImplementationLock) error {
 	if err := validateVersionedURI(lock.PackageID); err != nil {
 		return fmt.Errorf("invalid implementation package: %w", err)

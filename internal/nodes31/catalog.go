@@ -43,6 +43,7 @@ type Builtins struct {
 	StreamToBlobContract nodecontract.Contract
 	Types                []datatype.Definition
 	Contracts            []nodecontract.Contract
+	Capabilities         []capability.Definition
 }
 
 func Build() (Builtins, error) {
@@ -97,14 +98,15 @@ func Build() (Builtins, error) {
 	}
 	types := []datatype.Definition{stringType, binaryType}
 	contracts := []nodecontract.Contract{concat, blobToStream, streamToBlob}
-	catalog, err := nodecatalog.Seal(types, []capability.Definition{blobRead, blobWrite, streamSession}, bindings, "v1")
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession}
+	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
 	}
 	return Builtins{
 		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ConcatContract: concat,
 		BlobToStreamContract: blobToStream, StreamToBlobContract: streamToBlob,
-		Types: types, Contracts: contracts,
+		Types: types, Contracts: contracts, Capabilities: capabilities,
 	}, nil
 }
 
@@ -176,7 +178,7 @@ func Concat(_ context.Context, inputs map[string]json.RawMessage) (map[string]js
 func sealStringType() (datatype.Definition, error) {
 	const schemaID = StringTypeID + "/schema"
 	return datatype.SealDefinition(datatype.DefinitionDraft{
-		TypeID: StringTypeID, SchemaDialect: datatype.JSONSchemaDialect,
+		TypeID: StringTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
 		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(`{
 			"$id":"https://schemas.yotta.dev/types/core/string/v1/schema",
 			"$schema":"https://json-schema.org/draft/2020-12/schema",
@@ -192,7 +194,7 @@ func sealStringType() (datatype.Definition, error) {
 func sealBinaryType() (datatype.Definition, error) {
 	const schemaID = BinaryTypeID + "/schema"
 	return datatype.SealDefinition(datatype.DefinitionDraft{
-		TypeID: BinaryTypeID, SchemaDialect: datatype.JSONSchemaDialect,
+		TypeID: BinaryTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
 		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(`{
 			"$id":"https://schemas.yotta.dev/types/core/binary/v1/schema",
 			"$schema":"https://json-schema.org/draft/2020-12/schema"
@@ -256,7 +258,10 @@ func sealStreamToBlob(binaryRef datatype.TypeRef, blobWrite, streamSession capab
 		NodeTypeID: StreamToBlobNodeID, ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema",
-			"type":"object","properties":{"mediaType":{"type":"string","minLength":3,"maxLength":255,
+			"type":"object","properties":{"mediaType":{"type":"string",
+			"x-yotta-title-key":"node.conversion.streamToBlob.config.mediaType.title",
+			"x-yotta-description-key":"node.conversion.streamToBlob.config.mediaType.description",
+			"examples":["application/octet-stream","image/png"],"minLength":3,"maxLength":255,
 			"pattern":"^[a-z0-9][a-z0-9!#$&^_.+-]+/[a-z0-9][a-z0-9!#$&^_.+-]+$"}},
 			"required":["mediaType"],"additionalProperties":false
 		}`, schemaID))}},

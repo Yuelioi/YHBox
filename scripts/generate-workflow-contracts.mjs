@@ -13,8 +13,9 @@ const temporary = await mkdtemp(resolve(tmpdir(), 'yotta-contracts-'))
 const temporarySchema = resolve(temporary, 'workflow-source.schema.json')
 const temporaryDiagnostic = resolve(temporary, 'diagnostic.schema.json')
 const temporaryNodeSchema = resolve(temporary, 'node-contract.schema.json')
+const temporaryAuthoringSchema = resolve(temporary, 'authoring-projection.schema.json')
 const temporaryBuiltinCatalog = resolve(temporary, 'builtin-catalog.json')
-const temporaryBuiltinPresentation = resolve(temporary, 'builtin-presentation.json')
+const temporaryBuiltinAuthoring = resolve(temporary, 'builtin-authoring.json')
 const temporaryBuiltinDocs = resolve(temporary, 'builtin-nodes.md')
 const require = createRequire(resolve(root, 'frontend/package.json'))
 const { compile } = require('json-schema-to-typescript')
@@ -37,9 +38,17 @@ try {
     '-output',
     temporaryNodeSchema,
   ])
+  await run('go', [
+    'run',
+    './cmd/yotta-contracts',
+    '-contract',
+    'authoring',
+    '-output',
+    temporaryAuthoringSchema,
+  ])
   for (const [contract, output] of [
     ['builtin-catalog', temporaryBuiltinCatalog],
-    ['builtin-presentation', temporaryBuiltinPresentation],
+    ['builtin-authoring', temporaryBuiltinAuthoring],
     ['builtin-docs', temporaryBuiltinDocs],
   ]) {
     await run('go', ['run', './cmd/yotta-contracts', '-contract', contract, '-output', output])
@@ -47,12 +56,14 @@ try {
   const schemaText = await readFile(temporarySchema, 'utf8')
   const diagnosticSchemaText = await readFile(temporaryDiagnostic, 'utf8')
   const nodeSchemaText = await readFile(temporaryNodeSchema, 'utf8')
+  const authoringSchemaText = await readFile(temporaryAuthoringSchema, 'utf8')
   const builtinCatalogText = await readFile(temporaryBuiltinCatalog, 'utf8')
-  const builtinPresentationText = await readFile(temporaryBuiltinPresentation, 'utf8')
+  const builtinAuthoringText = await readFile(temporaryBuiltinAuthoring, 'utf8')
   const builtinDocsText = await readFile(temporaryBuiltinDocs, 'utf8')
   const schema = JSON.parse(schemaText)
   const diagnosticSchema = JSON.parse(diagnosticSchemaText)
   const nodeSchema = JSON.parse(nodeSchemaText)
+  const authoringSchema = JSON.parse(authoringSchemaText)
   const options = {
     bannerComment: '/* Generated from WorkflowSource Go types. Do not edit. */',
     style: { singleQuote: true, semi: false },
@@ -67,6 +78,10 @@ try {
     ...options,
     bannerComment: '/* Generated from Node Contract 3.1 Go types. Do not edit. */',
   })
+  const authoringTypes = await compile(authoringSchema, 'NodeAuthoringProjection', {
+    ...options,
+    bannerComment: '/* Generated from Node Authoring Projection 3.1 Go types. Do not edit. */',
+  })
   const files = new Map([
     ['workflow-source.schema.json', schemaText],
     ['diagnostic.schema.json', diagnosticSchemaText],
@@ -76,8 +91,10 @@ try {
   const nodeFiles = new Map([
     ['node-contract.schema.json', nodeSchemaText],
     ['node-contract.ts', nodeTypes],
+    ['authoring-projection.schema.json', authoringSchemaText],
+    ['authoring-projection.ts', authoringTypes],
     ['builtin-catalog.json', builtinCatalogText],
-    ['builtin-presentation.json', builtinPresentationText],
+    ['builtin-authoring.json', builtinAuthoringText],
     ['builtin-nodes.md', builtinDocsText],
   ])
 

@@ -85,7 +85,7 @@ Workflow Source 中显式可见的 Data Type 转换；类型系统不得通过�
 _Avoid_: Auto-cast, runtime coercion
 
 **Authoring Projection**:
-由 Node Contract 和 Data Type schema 派生的编辑事实，包含画布端口、参数表单、校验提示、平台可用性和帮助内容。
+由精确 Catalog、Node Contract、Data Type 与 Capability Definition 派生并可严格重开的非语义编辑事实，包含画布端口、参数表单、默认值提示、校验约束、值生命周期、target/credential/risk、平台可用性和帮助内容；编辑器与文档不得重新解释 raw contract/schema。
 _Avoid_: Frontend registry, pin spec
 
 **Editor Adapter**:

@@ -13,6 +13,7 @@ func TestSealDefinitionUsesStableSemanticDigest(t *testing.T) {
 	draft := DefinitionDraft{
 		TypeID:        "https://schemas.yotta.dev/types/core/string/v1",
 		SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:    "https://schemas.yotta.dev/types/core/string/v1/schema",
 		SchemaBundle: []SchemaResource{{
 			ID: "https://schemas.yotta.dev/types/core/string/v1/schema",
 			Schema: json.RawMessage(`{
@@ -32,7 +33,7 @@ func TestSealDefinitionUsesStableSemanticDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:b72d7af7a8647481d7602af40e672b7ed1f216a96b264e956bb50aa37cf57305")
+	const want = artifact.Digest("sha256:74c21cbe095673e47d76098c609362563684e099d33fdff73a10275768ad98eb")
 	if got := definition.TypeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -85,6 +86,7 @@ func TestSealDefinitionRejectsDuplicateSchemaKeys(t *testing.T) {
 	_, err := SealDefinition(DefinitionDraft{
 		TypeID:        "https://schemas.yotta.dev/types/core/broken/v1",
 		SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:    schemaID,
 		SchemaBundle: []SchemaResource{{
 			ID: schemaID,
 			Schema: json.RawMessage(`{
@@ -148,6 +150,45 @@ func TestSealDefinitionResolvesRelativeRefAgainstNestedID(t *testing.T) {
 	}
 }
 
+func TestDefinitionPinsSchemaRootInsteadOfDependingOnBundleOrder(t *testing.T) {
+	rootID := "https://schemas.yotta.dev/types/test/rooted/v1/z-root"
+	draft := DefinitionDraft{
+		TypeID: "https://schemas.yotta.dev/types/test/rooted/v1", SchemaDialect: JSONSchemaDialect, SchemaRoot: rootID,
+		SchemaBundle: []SchemaResource{
+			{ID: "https://schemas.yotta.dev/types/test/rooted/v1/a-helper", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/rooted/v1/a-helper","$schema":"https://json-schema.org/draft/2020-12/schema","type":"number"}`)},
+			{ID: rootID, Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/rooted/v1/z-root","$schema":"https://json-schema.org/draft/2020-12/schema","type":"string"}`)},
+		},
+		Representations: []RepresentationSpec{{Kind: RepresentationInlineJSON, Codec: CodecJCSV1}},
+	}
+	definition, err := SealDefinition(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if definition.Machine().SchemaRoot != rootID {
+		t.Fatalf("schema root = %q", definition.Machine().SchemaRoot)
+	}
+	if _, err := SealInlineJSON(valueTypes{definition.TypeRef().TypeID: definition}, RefResolvedType(definition.TypeRef()), []byte(`"ok"`)); err != nil {
+		t.Fatalf("root schema rejected string: %v", err)
+	}
+	if _, err := SealInlineJSON(valueTypes{definition.TypeRef().TypeID: definition}, RefResolvedType(definition.TypeRef()), []byte(`42`)); err == nil {
+		t.Fatal("validator used the lexicographically first helper schema instead of the pinned root")
+	}
+}
+
+func TestOpenDefinitionRejectsPreSchemaRootArtifact(t *testing.T) {
+	definition, err := SealDefinition(definitionDraftForTest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := bytes.Replace(definition.Bytes(), []byte(`"schemaRoot":"https://schemas.yotta.dev/types/core/string/v1/schema",`), nil, 1)
+	if bytes.Equal(legacy, definition.Bytes()) {
+		t.Fatal("test did not construct a pre-schemaRoot artifact")
+	}
+	if _, err := OpenDefinition(legacy); err == nil {
+		t.Fatal("accepted a pre-schemaRoot Data Type artifact")
+	}
+}
+
 func TestSealDefinitionDoesNotInterpretInstanceDataAsSchema(t *testing.T) {
 	draft := definitionDraftForTest()
 	literals := strings.TrimSuffix(strings.Repeat(`"$ref",`, MaxSchemaReferences+1), ",")
@@ -181,6 +222,7 @@ func definitionDraftForTest() DefinitionDraft {
 	return DefinitionDraft{
 		TypeID:        "https://schemas.yotta.dev/types/core/string/v1",
 		SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:    schemaID,
 		SchemaBundle: []SchemaResource{{
 			ID: schemaID,
 			Schema: json.RawMessage(`{

@@ -111,12 +111,29 @@ export function rebuildPinSpecMaps(): void {
 export function pinsFor(
   kind: string,
   config?: Record<string, unknown> | null,
-): { execIn: string[]; execOut: string[]; dataIn: string[]; dataOut: string[] } {
+): {
+  execIn: string[]
+  execOut: string[]
+  errorOut: string[]
+  statusOut: string[]
+  dataIn: string[]
+  dataOut: string[]
+} {
   const projection31 = builtinNodeProjections31.get(kind)
   if (projection31) {
     return {
-      execIn: projection31.execInputs,
-      execOut: projection31.execOutputs,
+      execIn: projection31.signals
+        .filter((port) => port.channel === 'exec' && port.direction === 'input')
+        .map((port) => port.id),
+      execOut: projection31.signals
+        .filter((port) => port.channel === 'exec' && port.direction === 'output')
+        .map((port) => port.id),
+      errorOut: projection31.signals
+        .filter((port) => port.channel === 'error' && port.direction === 'output')
+        .map((port) => port.id),
+      statusOut: projection31.signals
+        .filter((port) => port.channel === 'status' && port.direction === 'output')
+        .map((port) => port.id),
       dataIn: projection31.dataInputs.map((port) => port.id),
       dataOut: projection31.dataOutputs.map((port) => port.id),
     }
@@ -131,17 +148,21 @@ export function pinsFor(
       return {
         execIn: marker.execIn,
         execOut: marker.execOut,
+        errorOut: [],
+        statusOut: [],
         dataIn: Object.keys(marker.dataIn),
         dataOut: Object.keys(marker.dataOut),
       }
     }
-    return { execIn: [], execOut: [], dataIn: [], dataOut: [] }
+    return { execIn: [], execOut: [], errorOut: [], statusOut: [], dataIn: [], dataOut: [] }
   }
   const dynDataIn = s.dataInDynamicFn ? s.dataInDynamicFn(config) : {}
   const dynDataOut = s.dataOutDynamicFn ? s.dataOutDynamicFn(config) : {}
   return {
     execIn: s.execIn,
     execOut: registryExecOutPinsFor(kind, config),
+    errorOut: s.errorOut ?? [],
+    statusOut: [],
     dataIn: [...Object.keys(s.dataIn), ...Object.keys(dynDataIn)],
     dataOut: [...Object.keys(s.dataOut), ...Object.keys(dynDataOut)],
   }
@@ -151,7 +172,10 @@ export function pinsFor(
 export const execOutPinsFor = registryExecOutPinsFor
 
 /** Edge type derived from pin (kind, fromPin). 须与后端 edge-kind 推导一致. */
-export function edgeKind(fromKind: string, fromPin: string): 'exec' | 'data' | '' {
+export function edgeKind(
+  fromKind: string,
+  fromPin: string,
+): 'exec' | 'error' | 'status' | 'data' | '' {
   return edgeKindOf(fromKind, fromPin)
 }
 

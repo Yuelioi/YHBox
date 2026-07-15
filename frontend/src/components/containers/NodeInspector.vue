@@ -118,6 +118,14 @@
       class="-mx-4 mt-5 mb-4"
     />
 
+    <NodeAuthoringPanel
+      v-if="authoringProjection"
+      :node-id="node.id"
+      :projection="authoringProjection"
+      :model-value="node.config ?? {}"
+      @update:model-value="(config) => $emit('update', config)"
+    />
+
     <!-- 并发警告 -->
     <section
       v-if="concurrencyWarning"
@@ -651,7 +659,12 @@
     </section>
 
     <p
-      v-if="dataInLiterals.length === 0 && !hasBespokeSection && !specHasDynamicInputs"
+      v-if="
+        dataInLiterals.length === 0 &&
+        !hasBespokeSection &&
+        !specHasDynamicInputs &&
+        !authoringProjection
+      "
       class="text-[12px] text-dimmed"
     >
       {{ t('inspector.no_config') }}
@@ -771,6 +784,7 @@ import { errorMessage } from '@/lib/invoke'
 import SwitchInspector from './inspector/SwitchInspector.vue'
 import DynamicInputsEditor from './inspector/DynamicInputsEditor.vue'
 import DynamicOutputsEditor from './inspector/DynamicOutputsEditor.vue'
+import NodeAuthoringPanel from './inspector/NodeAuthoringPanel.vue'
 import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
 import TemplatePickerField from './TemplatePickerField.vue'
@@ -807,6 +821,7 @@ import type { EditorExperienceMode } from '@/composables/editor/useSidebarPrefs'
 import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 import { applyAsyncOptionMeta, type AsyncOptionPayload } from './asyncOptionMeta'
+import { builtinNodeProjections31 } from '@/contracts/node31'
 
 const props = defineProps<{
   node: GraphNode | null
@@ -1083,15 +1098,22 @@ function onPatchSubgraph(patch: Record<string, any>) {
   editorStore.touchSubgraph(editorStore.activeContainerID, (boundSubgraph.value as any).id)
 }
 
-// KIND_LABEL_ZH[k] 值是 i18n key, t() 渲染. fallback 走 kind 字面 (节点未注册).
+const authoringProjection = computed(() =>
+  props.node ? builtinNodeProjections31.get(props.node.kind) : undefined,
+)
+
+// 3.1 projection is authoritative for authoring metadata. Legacy kinds use the old registry until removed.
 const label = computed(() => {
   if (!props.node) return ''
+  const authoringKey = authoringProjection.value?.titleKey
+  if (authoringKey) return te(authoringKey) ? t(authoringKey) : props.node.kind
   const key = KIND_LABEL_ZH[props.node.kind]
   return key ? t(key) : props.node.kind
 })
-// KIND_DESCRIPTION[k] 值是 i18n key, t() 渲染.
 const description = computed(() => {
   if (!props.node) return ''
+  const authoringKey = authoringProjection.value?.descriptionKey
+  if (authoringKey) return te(authoringKey) ? t(authoringKey) : ''
   const key = KIND_DESCRIPTION[props.node.kind]
   return key ? t(key) : ''
 })
@@ -1103,11 +1125,17 @@ const example = computed(() => {
 })
 const visual = computed(() =>
   props.node
-    ? (KIND_VISUAL[props.node.kind] ?? {
-        icon: 'i-tabler-circle',
-        bg: 'bg-muted',
-        border: 'border-default',
-      })
+    ? authoringProjection.value?.icon
+      ? {
+          icon: `i-tabler-${authoringProjection.value.icon}`,
+          bg: 'bg-primary/10',
+          border: 'border-primary/30',
+        }
+      : (KIND_VISUAL[props.node.kind] ?? {
+          icon: 'i-tabler-circle',
+          bg: 'bg-muted',
+          border: 'border-default',
+        })
     : { icon: '', bg: '', border: '' },
 )
 

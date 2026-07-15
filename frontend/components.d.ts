@@ -75,6 +75,7 @@ declare module 'vue' {
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
     MultiNodeContextMenu: typeof import('./src/components/containers/menus/MultiNodeContextMenu.vue')['default']
     NewVarModal: typeof import('./src/components/containers/NewVarModal.vue')['default']
+    NodeAuthoringPanel: typeof import('./src/components/containers/inspector/NodeAuthoringPanel.vue')['default']
     NodeContextMenu: typeof import('./src/components/containers/menus/NodeContextMenu.vue')['default']
     NodeInspector: typeof import('./src/components/containers/NodeInspector.vue')['default']
     NodeLibraryPanel: typeof import('./src/components/containers/dock/NodeLibraryPanel.vue')['default']

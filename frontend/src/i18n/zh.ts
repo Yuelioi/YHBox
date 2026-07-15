@@ -770,6 +770,51 @@ export default {
     example_title: '示例',
     select_var_placeholder: '选择变量',
     no_config: '此节点无可配置项。',
+    authoring: {
+      config: '契约配置',
+      capabilities: '所需能力',
+      required: '必填',
+      optional: '可选',
+      deprecated: '已弃用',
+      unset: '（未设置）',
+      default_hint: '默认值提示：{value}（编辑此字段前不会写入配置）',
+      port_default_hint: '输入默认值：{value}',
+      json_editor: '复杂值：请输入明确的 JSON，或使用节点声明的 Editor Adapter。',
+      invalid_json: 'JSON 无效，未保存此值。',
+      target: '目标槽：{slot}',
+      target_kinds: '目标类型：{kinds}',
+      scope: '权限范围：{scope}',
+      credential_required: '凭据槽 {slot} 需要绑定凭据引用。',
+      execution: {
+        'pure-data': '纯数据',
+        effect: '副作用',
+        control: '控制',
+        event: '事件',
+        region: '区域',
+        marker: '标记',
+        visual: '可视化',
+      },
+      availability: {
+        portable: '跨平台',
+        'target-required': '需要目标适配器',
+      },
+      direction: { input: '输入', output: '输出' },
+      binding: {
+        required: '必接',
+        optional: '可选',
+        'default-available': '有默认值',
+        output: '产出',
+      },
+      carrier: { durable: '持久载体', runtime: '运行时载体' },
+      lifecycle: {
+        durable: '可持久化值',
+        'runtime-only': '仅运行时值',
+        'durable-or-runtime': '持久或运行时值',
+        'resolved-at-compile': '编译时确定',
+      },
+      risk: { low: '低风险', sensitive: '敏感', dangerous: '危险' },
+      consent: { none: '无需确认', once: '首次确认', 'every-run': '每次运行确认' },
+    },
   },
   structured_input: {
     switch_to_text: '切换到 JSON 文本模式',
@@ -824,7 +869,38 @@ export default {
   // 没加 → t() fallback 返 raw key 'node.<kind>.label' (诊断价值).
   // Schema: { label, description, input?: { <pin>: { label, hint? } }, output?: { <pin>: { label, data?: { <field>: { hint? } } } } }
   // exec input pin 不出 label (它是连边不显示). DataField 只有 hint (无 label, Name 是稳定标识).
+  type: {
+    core: {
+      string: { title: '字符串', description: '可持久化的 Unicode 文本。' },
+      binary: {
+        title: '二进制',
+        description: '可表示为持久 Blob 或带租约的运行时流的二进制内容。',
+      },
+    },
+  },
   node: {
+    text: {
+      concat: {
+        title: '拼接',
+        description: '把两个字符串合成一个值。它是数据函数，不声明控制流出口。',
+      },
+    },
+    conversion: {
+      blobToStream: {
+        title: 'Blob 转流',
+        description: '把持久二进制内容打开为带租约的运行时流。',
+      },
+      streamToBlob: {
+        title: '流转 Blob',
+        description: '消费带租约的运行时流，并提交为持久二进制内容。',
+        config: {
+          mediaType: {
+            title: '媒体类型',
+            description: '写入持久 Blob 的 MIME 类型，例如 image/png。',
+          },
+        },
+      },
+    },
     // ai
     AI: {
       label: '调用 AI',

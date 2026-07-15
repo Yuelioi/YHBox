@@ -779,6 +779,55 @@ export default {
     example_title: 'Example',
     select_var_placeholder: 'Select variable',
     no_config: 'This node has no configurable fields.',
+    authoring: {
+      config: 'Contract configuration',
+      capabilities: 'Required capabilities',
+      required: 'required',
+      optional: 'optional',
+      deprecated: 'deprecated',
+      unset: '(unset)',
+      default_hint: 'Default hint: {value} (not written until you edit this field)',
+      port_default_hint: 'input default: {value}',
+      json_editor: 'Complex value: enter explicit JSON or use the node’s Editor Adapter.',
+      invalid_json: 'Invalid JSON — the value was not saved.',
+      target: 'Target slot: {slot}',
+      target_kinds: 'Target kinds: {kinds}',
+      scope: 'Scope: {scope}',
+      credential_required: 'Credential slot {slot} requires a credential reference.',
+      execution: {
+        'pure-data': 'Pure data',
+        effect: 'Effect',
+        control: 'Control',
+        event: 'Event',
+        region: 'Region',
+        marker: 'Marker',
+        visual: 'Visual',
+      },
+      availability: {
+        portable: 'Portable',
+        'target-required': 'Target required',
+      },
+      direction: { input: 'input', output: 'output' },
+      binding: {
+        required: 'required',
+        optional: 'optional',
+        'default-available': 'default available',
+        output: 'produced',
+      },
+      carrier: { durable: 'durable carrier', runtime: 'runtime carrier' },
+      lifecycle: {
+        durable: 'durable value',
+        'runtime-only': 'runtime-only value',
+        'durable-or-runtime': 'durable or runtime value',
+        'resolved-at-compile': 'resolved at compile time',
+      },
+      risk: { low: 'low risk', sensitive: 'sensitive', dangerous: 'dangerous' },
+      consent: {
+        none: 'no consent prompt',
+        once: 'consent once',
+        'every-run': 'consent every run',
+      },
+    },
   },
   structured_input: {
     switch_to_text: 'Switch to JSON text mode',
@@ -831,7 +880,39 @@ export default {
     subgraph_no_exit: 'Subgraph reached no exit',
     subgraph_recursion: 'Subgraph call nesting too deep',
   },
+  type: {
+    core: {
+      string: { title: 'String', description: 'Durable Unicode text.' },
+      binary: {
+        title: 'Binary',
+        description: 'Binary content represented by a durable blob or a leased runtime stream.',
+      },
+    },
+  },
   node: {
+    text: {
+      concat: {
+        title: 'Concatenate',
+        description:
+          'Combine two strings into one value. This is a data function and has no control-flow output.',
+      },
+    },
+    conversion: {
+      blobToStream: {
+        title: 'Blob to stream',
+        description: 'Open durable binary content as a leased runtime stream.',
+      },
+      streamToBlob: {
+        title: 'Stream to blob',
+        description: 'Consume a leased runtime stream and commit it as durable binary content.',
+        config: {
+          mediaType: {
+            title: 'Media type',
+            description: 'MIME type recorded with the durable blob, for example image/png.',
+          },
+        },
+      },
+    },
     // ai
     AI: {
       label: 'Call AI',

@@ -59,7 +59,7 @@ const (
 )
 
 type RepresentationSpec struct {
-	Kind  RepresentationKind `json:"kind"`
+	Kind  RepresentationKind `json:"kind" jsonschema:"required,enum=inline-json,enum=blob-ref,enum=stream-ref,enum=handle-ref"`
 	Codec string             `json:"codec"`
 }
 
@@ -77,6 +77,7 @@ type Authoring struct {
 type DefinitionDraft struct {
 	TypeID          string
 	SchemaDialect   string
+	SchemaRoot      string
 	SchemaBundle    []SchemaResource
 	Representations []RepresentationSpec
 	Authoring       Authoring
@@ -86,6 +87,7 @@ type DefinitionDraft struct {
 type MachineDefinition struct {
 	TypeID          string               `json:"typeId"`
 	SchemaDialect   string               `json:"schemaDialect"`
+	SchemaRoot      string               `json:"schemaRoot"`
 	SchemaBundle    []SchemaResource     `json:"schemaBundle"`
 	Representations []RepresentationSpec `json:"representations"`
 }
@@ -109,6 +111,7 @@ func SealDefinition(draft DefinitionDraft) (Definition, error) {
 	semantic, err := normalizeSemantic(MachineDefinition{
 		TypeID:          draft.TypeID,
 		SchemaDialect:   draft.SchemaDialect,
+		SchemaRoot:      draft.SchemaRoot,
 		SchemaBundle:    draft.SchemaBundle,
 		Representations: draft.Representations,
 	})
@@ -265,6 +268,21 @@ func (d Definition) Machine() MachineDefinition {
 	return machine
 }
 
+func (d Definition) Authoring() Authoring {
+	if !d.Valid() {
+		return Authoring{}
+	}
+	raw, err := json.Marshal(d.state.document.Authoring)
+	if err != nil {
+		panic("data type definition invariant: " + err.Error())
+	}
+	var authoring Authoring
+	if err := json.Unmarshal(raw, &authoring); err != nil {
+		panic("data type definition invariant: " + err.Error())
+	}
+	return authoring
+}
+
 func sealNormalized(semantic MachineDefinition, authoring Authoring) (Definition, error) {
 	canonicalSemantic, err := artifact.Marshal(semantic)
 	if err != nil {
@@ -302,6 +320,16 @@ func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 	if err != nil {
 		return MachineDefinition{}, fmt.Errorf("normalize data type schema bundle: %w", err)
 	}
+	rootFound := false
+	for _, resource := range bundle {
+		if resource.ID == source.SchemaRoot {
+			rootFound = true
+			break
+		}
+	}
+	if !rootFound {
+		return MachineDefinition{}, errors.New("data type schema root is not present in its bundle")
+	}
 
 	if len(source.Representations) == 0 || len(source.Representations) > 4 {
 		return MachineDefinition{}, errors.New("data type must declare one to four representations")
@@ -326,6 +354,7 @@ func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 	return MachineDefinition{
 		TypeID:          source.TypeID,
 		SchemaDialect:   source.SchemaDialect,
+		SchemaRoot:      source.SchemaRoot,
 		SchemaBundle:    bundle,
 		Representations: representations,
 	}, nil

@@ -231,9 +231,6 @@ func validateCarrierAgainstType(catalog ValueTypeCatalog, resolved ResolvedType,
 	if representation != RepresentationInlineJSON {
 		return nil
 	}
-	if len(machine.SchemaBundle) != 1 {
-		return errors.New("inline value type requires one explicit schema root in this generation")
-	}
 	var value any
 	decoder := json.NewDecoder(bytes.NewReader(inline))
 	decoder.UseNumber()
@@ -252,7 +249,7 @@ func validateCarrierAgainstType(catalog ValueTypeCatalog, resolved ResolvedType,
 			return err
 		}
 	}
-	validator, err := compiler.Compile(machine.SchemaBundle[0].ID)
+	validator, err := compiler.Compile(machine.SchemaRoot)
 	if err != nil {
 		return err
 	}

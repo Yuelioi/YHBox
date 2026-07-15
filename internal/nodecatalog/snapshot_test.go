@@ -177,7 +177,7 @@ func stringDefinition(t *testing.T, title string) datatype.Definition {
 	t.Helper()
 	const schemaID = "https://schemas.yotta.dev/types/core/string/v1/schema"
 	definition, err := datatype.SealDefinition(datatype.DefinitionDraft{
-		TypeID: "https://schemas.yotta.dev/types/core/string/v1", SchemaDialect: datatype.JSONSchemaDialect,
+		TypeID: "https://schemas.yotta.dev/types/core/string/v1", SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
 		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(`{
 			"$id":"https://schemas.yotta.dev/types/core/string/v1/schema",
 			"$schema":"https://json-schema.org/draft/2020-12/schema",

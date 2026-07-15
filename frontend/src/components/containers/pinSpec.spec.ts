@@ -12,6 +12,8 @@ describe('pinsFor unknown kinds', () => {
     expect(pinsFor('UnknownNode')).toEqual({
       execIn: [],
       execOut: [],
+      errorOut: [],
+      statusOut: [],
       dataIn: [],
       dataOut: [],
     })

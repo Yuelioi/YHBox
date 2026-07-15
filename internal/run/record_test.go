@@ -97,7 +97,7 @@ func stringValueCatalog(t *testing.T) (valueCatalog, datatype.Definition) {
 	t.Helper()
 	const id = "https://schemas.yotta.dev/types/test/string/v1"
 	definition, err := datatype.SealDefinition(datatype.DefinitionDraft{
-		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect,
+		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: id + "/schema",
 		SchemaBundle:    []datatype.SchemaResource{{ID: id + "/schema", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/string/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema","type":"string"}`)}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
 	})
@@ -111,7 +111,7 @@ func externalValueCatalog(t *testing.T) (valueCatalog, datatype.Definition) {
 	t.Helper()
 	const id = "https://schemas.yotta.dev/types/test/stream/v1"
 	definition, err := datatype.SealDefinition(datatype.DefinitionDraft{
-		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect,
+		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: id + "/schema",
 		SchemaBundle:    []datatype.SchemaResource{{ID: id + "/schema", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/stream/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema"}`)}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationStreamRef, Codec: datatype.CodecStreamRefV1}},
 	})
