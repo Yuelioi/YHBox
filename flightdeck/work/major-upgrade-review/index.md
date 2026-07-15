@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection 节点生产迁移，以及 random/time recorded observation 纵切面。Workflow Source 的创建、列表、revision save、draft compile、run/debug timeline、cancel、Authoring Projection 驱动的精确 data/exec/error port 与 generated config/constraint UI 已形成唯一主命令面；Schedule 只接受 workflow target，不存在 Container fallback。随机数与时间不再伪装为 pure-data：Executor 注入加密熵源和调用时间，adapter exactly-once 记录 declared effect，结果持久化进 Run。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
+Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation 与 typed Run state 纵切面。Workflow Source 变量被编译为 Program 冻结的 exact typed state slot；每个 Run 独占状态存储，节点只能取得契约声明并按 read/write 衰减的 StateBinding。Authoring Projection、生成文档与编辑器从同一状态访问契约派生，pure-data 依赖状态或观察节点时波动性会传递，避免 per-run cache 返回旧值。Schedule 只接受 workflow target，不存在 Container fallback。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
 
 ## Next
 
-继续按 state → effect → control/region → event/listener 顺序迁移内建节点；pure-data、collection、多态有效类型、显式 conversion/JSON/geometry 与 random/time recorded observation 已进入生产 Catalog。下一批把 Workflow variables 冻结为 Program typed state、由 Run 宿主独占并经显式 state effect 访问，禁止 ambient/global VarStore。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并在定向验证后独立 commit。
+继续按 effect → control/region → event/listener 顺序迁移内建节点；typed Run state 已进入生产 Catalog，ambient/global VarStore 不得接入 3.1。下一批先补齐 RunStarted 等显式事件根和 delay/retry/loop/branch 等控制语义，再迁移 AI、script、I/O、input/window/image 等副作用 adapter；每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并独立 commit。
 
 ## Read now
 
@@ -41,6 +41,7 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 ## Progress
 
 Done:
+- 完成 typed Run state 纵切面：Workflow 变量必须带 exact concrete TypeExpression 与默认值，Compiler 冻结为 Program state artifact；strict opener 双重复验 catalog type 与 initial envelope。Node Contract 新增声明式 StateAccessSpec，编译器用配置选择的 slot 解析泛型，Executor 为每个 Run 建立隔离 store 并只向 adapter 注入衰减 read/write binding。新增 StateRead/StateWrite/StateMetadata 节点、runtime adapter、状态 effect journal、跨 pure-data 依赖的 volatility 传播，以及 Editor 状态声明/选择器和生成文档；无 ambient/global VarStore 或兼容路径，提交 `45e7f125`。
 - 完成 random/time recorded observation 生产迁移：Integer Data Type 破坏性限定在 JSON safe range；新增 RandomDistribution 类型与 RandomInteger/RandomNumber/RandomBoolean/RandomChoice/ObserveTime 五个 pull-effect 节点。ExecutorOptions 注入 crypto entropy reader 与 host clock，每次 invocation 固定 ObservedAt；adapter 对 declared effect exactly-once journal，结果作为 durable Run Value 持久化。节点只有 data `result`，无通用 out、exec/error/status 伪端口；提交 `78b48e48`。
 - 完成 pure-data/collection 生产迁移：Program 冻结每个调用实例的 effective InputTypes/OutputTypes，node-local 类型变量经 data edge 统一后 strict-open/runtime 双重复验；ValueEnvelope 支持逐元素验证的 resolved list。新增 7 个 collection、35 个 strict math/text/conversion/JSON/select/geometry 节点与 JSON/PointUnit/Point/Region Data Type，Catalog 共 57 节点/9 类型；Point editor adapter 已接入 3.1 Inspector。旧 collection 包已删除；legacy purefunc 仅因待删旧 container runtime 的编译测试依赖暂存，不进入生产 Application/Catalog 且无 fallback。
 - 完成第一批基础 pure-data 节点迁移：Number/Integer/Boolean 严格名义类型；math/comparison/logic/text 共 12 个节点与 Concat 共用声明式 BuiltinDefinition 和通用 inline adapter；不允许隐式 coercion，不为 pure-data 终止错误伪造 error/out 端口；Authoring Projection 将 exact schema 约束投影为 number/integer/toggle/text/select 控件，MCP/catalog/docs 同源生成。
@@ -110,9 +111,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- production pure-data/collection/conversion/JSON/geometry/random/time 已完成；当前 frontier 是 Workflow variable → Program typed state → Run-owned state 的显式状态模型，随后迁移其余 effect、control/region、event/listener。legacy purefunc、random、variable 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
+- production pure-data/collection/conversion/JSON/geometry/random/time/typed Run state 已完成；当前 frontier 是 control/region 与 event roots，用于驱动 StateWrite 和后续 effect 节点的显式 push execution。随后迁移其余 effect 和 listener。legacy purefunc、random、variable 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
 
 Verified:
+- typed Run state 提交 `45e7f125`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3284 keys、Wails contract 15 services / 129 methods / 118 models，entry 328,721 / 350,000 bytes、editor 91,564 / 200,000 bytes；contracts strict check 与 production build 全绿。
 - recorded observation 提交 `78b48e48`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3271 keys、lint、contracts check 与 production build 全绿；Wails contract 15 services / 129 methods / 118 models，entry 328,220 / 350,000 bytes、editor 89,067 / 200,000 bytes。
 - 多态 collection 提交 `6acb1957` 与 strict pure-data families 提交 `53f5dcbc`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3259 keys、lint、contracts check 与 production build 全绿；entry 327,740 / 350,000 bytes、editor 89,061 / 200,000 bytes。
 - 基础 pure-data 节点批次提交 `b37e0016`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3247 keys、lint、contracts check 与 production build 全绿；entry 327,456 / 350,000 bytes、editor 88,765 / 200,000 bytes。
@@ -155,4 +157,5 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
+
 
