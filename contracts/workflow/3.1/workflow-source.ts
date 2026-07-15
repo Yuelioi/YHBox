@@ -25,7 +25,6 @@ export type TypeExpression =
       kind: 'variable'
       variable: string
     }
-export type Capability = string
 
 export interface YottaWorkflowSource31 {
   entryGraph: string
@@ -35,10 +34,6 @@ export interface YottaWorkflowSource31 {
    * @maxItems 256
    */
   graphs: [Graph, ...Graph[]]
-  /**
-   * @maxItems 4096
-   */
-  requestedCapabilities: Capability[]
   revision: number
   /**
    * @maxItems 4096

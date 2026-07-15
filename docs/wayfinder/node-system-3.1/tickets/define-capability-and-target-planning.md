@@ -59,3 +59,7 @@ host OS、architecture、automation target、host application、外部 effect、
 - 覆盖 Program 声明但无 grant、grant 有但 Program 未声明、operation/scope 扩大、错误 audience/target/provider、跨 Run replay、expiry/revoke、credential 缺失和 confused-deputy token passthrough。
 - 同一 Capability Plan 必须为 GUI、headless、MCP 和插件 host 生成相同 permission delta；拒绝路径在任何 adapter 代码运行前发生。
 - capability/ref/operation/scope/plan 的 Go/TS/WIT/Protobuf projection 使用同一 golden vectors，不允许各 host 自建 scope matching。
+
+## Implementation status
+
+Capability Definition、Requirement 与 sealed attributed Plan 已进入 `internal/capability`；Node Contract 使用 exact requirements，Catalog 绑定 definitions，Compiler 把 plan artifact 写入 Program identity。Source 的自由 `requestedCapabilities` 与 preview string-grant 参数已删除。Run Grant、Host Profile/Target Planner 和真实 admission 仍由 Program/Run 纵向切片实现；不得为此恢复字符串 allowlist。

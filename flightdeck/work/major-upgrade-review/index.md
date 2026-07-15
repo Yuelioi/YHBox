@@ -6,7 +6,7 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 contract kernel、首条 Concat tracer，以及 Blob/Stream/Resource kernel 已落地。ValueEnvelope 现在按 pinned Data Type 封闭为 inline/blob/stream/handle 四分支；runtime authority 无 durable artifact。资产已破坏性切换到 schema v2 typed BlobRef、严格 preload、引用完整性验证和排斥 GC 的 commit API；旧 BlobStore、string SHA 与整 Blob thumbnail RPC 已删除。Resource Broker 把 Program/plan/principal/plugin/session/Run/invocation/provider/target/operation/expiry 绑定为唯一 lease authority，并对 open/borrow/call 逐次授权。3.1 interpreter 仍是 fail-closed pure-data preview；conversion nodes、正式 Program/Run composition 与 plugin host conformance 未完成前不得接成生产 fallback。
+Yotta 3.1 contract kernel、Concat tracer、Blob/Stream/Resource kernel 和 exact Capability Plan 已落地。Source 的自由 `requestedCapabilities` 与 preview string-grant 接口已删除；Capability Definition/Requirement/Plan 由 `internal/capability` 单独 seal，Catalog 绑定 exact definition，Program 保存按 graph/node/requirement attribution 的 plan artifact。ValueEnvelope 按 pinned Data Type 封闭为 inline/blob/stream/handle 四分支，runtime authority 无 durable artifact。资产已破坏性切换到 schema v2 typed BlobRef；旧 BlobStore、string SHA 与整 Blob thumbnail RPC 已删除。3.1 interpreter 仍是 fail-closed pure-data preview；Run Grant/admission、conversion nodes 与 plugin host conformance 未完成前不得接成生产 fallback。
 
 ## Next
 
@@ -48,6 +48,8 @@ Done:
 - 资产 schema 破坏性升至 v2：删除 string SHA/旧 BlobStore/skip-corrupt reader；record/variant 只能经原子 blob-reference commit API 引入，preload 严格拒绝旧版、未知字段、重复字段、越界 JSON、意外目录项和 dangling/tampered blob。
 - 新增 Run-scoped Resource Broker 与 Stream provider：256-bit opaque token、完整 authority scope、逐次 open/borrow/call authorize、narrow lease、expiry/Run revoke/Broker close、active cancellation、exactly-once cleanup、bounded backpressure、finish drain/EOF 与 cancel wakeup。
 - ValueEnvelope 四分支进入 v2 digest preimage 并由 pinned Data Type representation/codec/schema 复验；inline 上限 1 MiB，stream/handle 只提供显式 RuntimeArtifact，Durable Artifact 恒为 nil。
+- 落地 exact Capability Definition/Requirement/Plan deep module：operation、target kind、scope schema、credential mode、risk/consent 与 provider ABI 进入 definition identity；Node Contract/Catalog/Compiler/Program 只传 exact ref 和 attributed plan。
+- 破坏性删除 Workflow Source `requestedCapabilities`、Program `requiredCapabilities: string[]` 与 preview granted-string 参数；旧 Source/Node Contract/Catalog/Program artifact 统一由 strict opener 拒绝，不保留 dual-read。
 - 删除 `ReadBlobDataURL` Wails RPC 及前端 thumbnail base64 fallback；前端只接收 typed BlobRef 元数据，bounded preview adapter 完成前使用明确 placeholder。
 - Standards/Spec 双轴复审发现的 implementation bypass、untyped output、silent control semantics、Source semantic drop、fake exec-out、canonical catalog 与 Program strict-boundary 问题均已修复并加回归测试。
 - 落地 Data Type 3.1 Contract Kernel：opaque definition seal/open、算法域 `/v1` semantic digest、版本化 TypeRef、离线 Draft 2020-12 bundle 与真实 schema 引用预算、codec/editor allowlist、Resolved Type、union/list assignability；双轴终审无剩余 P1/P2。
@@ -84,9 +86,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Blob/Stream/Resource kernel 与资产 destructive cutover 已完成并通过双轴 review；resource ticket 保持 open，明确阻塞项只剩 conversion nodes、正式 Program/Run composition、三 host conformance 和 capture/preview transport。当前代码保持 pure-data fail closed，不建立 resource/effect runtime 旁路。
+- Capability planning 的代码事实已与已关闭决议对齐；下一唯一 frontier 是 Program/Run semantics、Run Grant/admission 和 Broker composition owner，再以 blob↔stream conversion tracer 验证 effect path。当前代码保持 pure-data fail closed，不建立 resource/effect runtime 旁路。
 
 Verified:
+- Exact Capability Plan destructive cutover `task check` 通过（2026-07-15，144.3s）：全局 coverage 65.6%，frontend 97 files / 635 tests；capability/nodecontract/nodecatalog/schema/compiler 聚焦 race 与 staticcheck 全绿。
 - Blob/Stream/Resource 与 asset schema v2 批次 `task check` 通过（2026-07-15，174.4s）：全局 coverage 65.6%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models；聚焦 blob/resource/stream/asset race 全绿。
 - 3.1 Concat tracer destructive cutover 最终 `task check` 通过（2026-07-15，117s）：全局 coverage 65.2%，frontend 97 files / 635 tests，Wails contract 14 services / 119 methods / 100 models，contracts drift/staticcheck/vet/build/bundle budget 全绿。
 - `go test -race` 覆盖 artifact/datatype/nodecatalog/nodecontract/nodes31/workflow schema/compiler；ParseSource、CompileDraft、OpenProgram fuzz 各 5 秒通过（约 10.4 万、17.5 万、36.6 万 executions）。

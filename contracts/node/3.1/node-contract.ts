@@ -52,7 +52,7 @@ export interface MachineContract {
   /**
    * @maxItems 4096
    */
-  capabilities: string[]
+  capabilityRequirements: Requirement[]
   /**
    * @minItems 1
    * @maxItems 256
@@ -71,6 +71,18 @@ export interface MachineContract {
   instanceResolver?: InstanceResolver
   nodeTypeId: string
   ports: PortSet
+}
+export interface Requirement {
+  capability: Ref
+  credentialSlot?: string
+  id: string
+  operations: string[]
+  scope: any
+  targetSlot: string
+}
+export interface Ref {
+  capabilityId: string
+  semanticDigest: string
 }
 export interface Resource {
   id: string

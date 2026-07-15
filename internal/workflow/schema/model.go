@@ -4,19 +4,17 @@ package schema
 import (
 	"encoding/json"
 
-	contractjsonschema "github.com/invopop/jsonschema"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const (
-	Format                   = "yotta.workflow"
-	Version                  = "3.1"
-	MaxRevision              = 9_007_199_254_740_991
-	MaxDiagnostics           = 10_000
-	MaxVariables             = 4_096
-	MaxSecretRefs            = 4_096
-	MaxRequestedCapabilities = 4_096
+	Format         = "yotta.workflow"
+	Version        = "3.1"
+	MaxRevision    = 9_007_199_254_740_991
+	MaxDiagnostics = 10_000
+	MaxVariables   = 4_096
+	MaxSecretRefs  = 4_096
 )
 
 type GraphKind string
@@ -26,23 +24,15 @@ const (
 	GraphKindSubgraph GraphKind = "subgraph"
 )
 
-type Capability string
-
-func (Capability) JSONSchema() *contractjsonschema.Schema {
-	minimum := uint64(1)
-	return &contractjsonschema.Schema{Type: "string", MinLength: &minimum, Format: "uri"}
-}
-
 type WorkflowSource struct {
-	Format                string       `json:"format" jsonschema:"required,enum=yotta.workflow"`
-	Version               string       `json:"version" jsonschema:"required,enum=3.1"`
-	Workflow              Workflow     `json:"workflow" jsonschema:"required"`
-	Revision              int64        `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
-	EntryGraph            string       `json:"entryGraph" jsonschema:"required,minLength=1"`
-	Graphs                []Graph      `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
-	Variables             []Variable   `json:"variables" jsonschema:"required,maxItems=4096"`
-	SecretRefs            []SecretRef  `json:"secretRefs" jsonschema:"required,maxItems=4096"`
-	RequestedCapabilities []Capability `json:"requestedCapabilities" jsonschema:"required,maxItems=4096"`
+	Format     string      `json:"format" jsonschema:"required,enum=yotta.workflow"`
+	Version    string      `json:"version" jsonschema:"required,enum=3.1"`
+	Workflow   Workflow    `json:"workflow" jsonschema:"required"`
+	Revision   int64       `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
+	EntryGraph string      `json:"entryGraph" jsonschema:"required,minLength=1"`
+	Graphs     []Graph     `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
+	Variables  []Variable  `json:"variables" jsonschema:"required,maxItems=4096"`
+	SecretRefs []SecretRef `json:"secretRefs" jsonschema:"required,maxItems=4096"`
 }
 
 type Workflow struct {

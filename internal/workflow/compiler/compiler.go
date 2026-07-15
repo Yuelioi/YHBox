@@ -10,6 +10,7 @@ import (
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -30,7 +31,6 @@ const (
 	CodeInvalidBinding           = "INVALID_BINDING"
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeDataCycle                = "DATA_CYCLE"
-	CodeCapabilityMismatch       = "CAPABILITY_MISMATCH"
 	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
 
@@ -87,7 +87,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	body := programBody{
 		SourceHash: result.SourceHash, CatalogHash: request.Catalog.Hash(), CompilerBuild: c.build,
 		WorkflowID: source.Workflow.ID, Revision: source.Revision, EntryGraph: source.EntryGraph,
-		Graphs: []programGraph{}, RequiredCapabilities: []string{},
+		Graphs: []programGraph{},
 	}
 	if len(source.Variables) != 0 {
 		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"variables"}, ""))
@@ -95,7 +95,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	if len(source.SecretRefs) != 0 {
 		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
 	}
-	requiredCapabilities := map[string]bool{}
+	planEntries := make([]capability.PlanEntry, 0)
 	for graphIndex, graph := range source.Graphs {
 		if err := ctx.Err(); err != nil {
 			return CompileResult{}, err
@@ -115,23 +115,17 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		result.Diagnostics = append(result.Diagnostics, graphDiagnostics...)
 		for _, node := range compiled.Nodes {
 			entry, _ := request.Catalog.Lookup(node.NodeRef.NodeTypeID)
-			for _, capability := range entry.Contract.Machine().Capabilities {
-				requiredCapabilities[string(capability)] = true
+			for _, requirement := range entry.Contract.Machine().CapabilityRequirements {
+				planEntries = append(planEntries, capability.PlanEntry{GraphID: graph.ID, NodeID: node.ID, Requirement: requirement})
 			}
 		}
 		body.Graphs = append(body.Graphs, compiled)
 	}
-	declared := make(map[string]bool, len(source.RequestedCapabilities))
-	for _, capability := range source.RequestedCapabilities {
-		declared[string(capability)] = true
+	plan, err := capability.SealPlan(planEntries)
+	if err != nil {
+		return result, fmt.Errorf("seal capability plan: %w", err)
 	}
-	if !equalStringSets(declared, requiredCapabilities) {
-		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeCapabilityMismatch, []string{"requestedCapabilities"}, ""))
-	}
-	for capability := range requiredCapabilities {
-		body.RequiredCapabilities = append(body.RequiredCapabilities, capability)
-	}
-	sort.Strings(body.RequiredCapabilities)
+	body.CapabilityPlan = plan.Bytes()
 	if len(result.Diagnostics) != 0 {
 		if len(result.Diagnostics) > schema.MaxDiagnostics {
 			result.Diagnostics = result.Diagnostics[:schema.MaxDiagnostics]
@@ -463,16 +457,4 @@ func sortDiagnostics(values []Diagnostic) {
 		}
 		return string(left) < string(right)
 	})
-}
-
-func equalStringSets(left, right map[string]bool) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for value := range left {
-		if !right[value] {
-			return false
-		}
-	}
-	return true
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -16,13 +17,13 @@ func TestSnapshot31IsDeterministicMachineOnlyAndRoundTrips(t *testing.T) {
 	concat := concatContract(t, stringType.TypeRef(), "node.concat.title")
 	lock := builtinLock(t)
 
-	left, err := Seal([]datatype.Definition{stringType}, []Binding{{Contract: concat, Implementation: lock}}, "v1")
+	left, err := Seal([]datatype.Definition{stringType}, nil, []Binding{{Contract: concat, Implementation: lock}}, "v1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	renamedType := stringDefinition(t, "type.string.renamed")
 	renamedConcat := concatContract(t, renamedType.TypeRef(), "node.concat.renamed")
-	right, err := Seal([]datatype.Definition{renamedType}, []Binding{{Contract: renamedConcat, Implementation: lock}}, "v1")
+	right, err := Seal([]datatype.Definition{renamedType}, nil, []Binding{{Contract: renamedConcat, Implementation: lock}}, "v1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,14 +60,70 @@ func TestSnapshot31IsDeterministicMachineOnlyAndRoundTrips(t *testing.T) {
 func TestSnapshotRejectsMissingTypesAndABIMismatch(t *testing.T) {
 	stringType := stringDefinition(t, "type.string.title")
 	concat := concatContract(t, stringType.TypeRef(), "node.concat.title")
-	if _, err := Seal(nil, []Binding{{Contract: concat, Implementation: builtinLock(t)}}, "v1"); err == nil {
+	if _, err := Seal(nil, nil, []Binding{{Contract: concat, Implementation: builtinLock(t)}}, "v1"); err == nil {
 		t.Fatal("accepted binding whose port type is absent from the catalog")
 	}
 	lock := builtinLock(t)
 	lock.ABI = nodecontract.ABIRequirement{Kind: nodecontract.ABIWIT, Version: "v1"}
-	if _, err := Seal([]datatype.Definition{stringType}, []Binding{{Contract: concat, Implementation: lock}}, "v1"); err == nil {
+	if _, err := Seal([]datatype.Definition{stringType}, nil, []Binding{{Contract: concat, Implementation: lock}}, "v1"); err == nil {
 		t.Fatal("accepted implementation ABI not allowed by the node contract")
 	}
+}
+
+func TestSnapshotBindsExactCapabilityDefinitions(t *testing.T) {
+	definition := capabilityDefinition(t)
+	contract := effectContract(t, definition.Ref())
+	binding := Binding{Contract: contract, Implementation: builtinLock(t)}
+	if _, err := Seal(nil, nil, []Binding{binding}, "v1"); err == nil {
+		t.Fatal("accepted node requirement without its exact capability definition")
+	}
+	if _, err := Seal(nil, []capability.Definition{definition}, []Binding{binding}, "v1"); err != nil {
+		t.Fatalf("exact capability binding failed: %v", err)
+	}
+}
+
+func capabilityDefinition(t *testing.T) capability.Definition {
+	t.Helper()
+	const id = "https://schemas.yotta.dev/capabilities/blob/read/v1"
+	definition, err := capability.SealDefinition(capability.DefinitionDraft{
+		CapabilityID: id, Operations: []string{"read"}, TargetKinds: []string{"blob-store"},
+		ScopeSchemaRoot: id + "/scope", ScopeSchemaBundle: []datatype.SchemaResource{{
+			ID: id + "/scope", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/capabilities/blob/read/v1/scope","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`),
+		}}, Credential: capability.CredentialNone, Risk: capability.RiskLow, Consent: capability.ConsentNone,
+		ProviderABI: "https://schemas.yotta.dev/provider-abi/resource/v1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return definition
+}
+
+func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Contract {
+	t.Helper()
+	const nodeID = "https://schemas.yotta.dev/nodes/blob/read/v1"
+	contract, err := nodecontract.Seal(nodecontract.Draft{
+		NodeTypeID: nodeID, ConfigSchemaRoot: nodeID + "/config",
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/read/v1/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
+		Ports: nodecontract.PortSet{
+			DataInputs: []nodecontract.DataInputPort{}, DataOutputs: []nodecontract.DataOutputPort{},
+			ExecInputs: []nodecontract.SignalPort{{ID: "in"}}, ExecOutputs: []nodecontract.SignalPort{{ID: "done"}},
+			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}}, StatusOutputs: []nodecontract.SignalPort{},
+		},
+		Execution: nodecontract.ExecutionSpec{
+			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{"https://schemas.yotta.dev/effects/storage-read/v1"}, Determinism: nodecontract.Deterministic,
+			Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryIdempotent,
+			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
+		},
+		CapabilityRequirements: []capability.Requirement{{
+			ID: "source", Capability: capabilityRef, Operations: []string{"read"}, TargetSlot: "blob-store", Scope: json.RawMessage(`{}`),
+		}}, Errors: []nodecontract.ErrorSpec{{Code: "blob.read.failed", Category: "storage", RetryHint: true}},
+		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+		Authoring:         nodecontract.Authoring{TitleKey: "node.blob.read.title", Tags: []string{"blob"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contract
 }
 
 func stringDefinition(t *testing.T, title string) datatype.Definition {
@@ -110,7 +167,7 @@ func concatContract(t *testing.T, stringRef datatype.TypeRef, title string) node
 			Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CachePerRun, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
-		Capabilities: []nodecontract.CapabilityID{}, Errors: []nodecontract.ErrorSpec{},
+		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring:         nodecontract.Authoring{TitleKey: title, Tags: []string{"text"}},
 	})
@@ -135,7 +192,7 @@ func builtinLock(t *testing.T) ImplementationLock {
 func TestOpenRejectsTamperedCatalog(t *testing.T) {
 	typeDefinition := stringDefinition(t, "type.string.title")
 	contract := concatContract(t, typeDefinition.TypeRef(), "node.concat.title")
-	snapshot, err := Seal([]datatype.Definition{typeDefinition}, []Binding{{Contract: contract, Implementation: builtinLock(t)}}, "v1")
+	snapshot, err := Seal([]datatype.Definition{typeDefinition}, nil, []Binding{{Contract: contract, Implementation: builtinLock(t)}}, "v1")
 	if err != nil {
 		t.Fatal(err)
 	}

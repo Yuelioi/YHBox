@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -39,7 +40,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	catalog, err := nodecatalog.Seal([]datatype.Definition{stringType}, []nodecatalog.Binding{{
+	catalog, err := nodecatalog.Seal([]datatype.Definition{stringType}, nil, []nodecatalog.Binding{{
 		Contract: concat,
 		Implementation: nodecatalog.ImplementationLock{
 			PackageID: "https://schemas.yotta.dev/packages/builtin/v1", ArtifactDigest: implementationArtifact,
@@ -124,7 +125,7 @@ func sealConcat(stringRef datatype.TypeRef) (nodecontract.Contract, error) {
 			Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CachePerRun, Retry: nodecontract.RetryNever,
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},
-		Capabilities: []nodecontract.CapabilityID{}, Errors: []nodecontract.ErrorSpec{},
+		CapabilityRequirements: []capability.Requirement{}, Errors: []nodecontract.ErrorSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.text.concat.title", DescriptionKey: "node.text.concat.description", Category: "text", Tags: []string{"text", "transform"}, Icon: "function",

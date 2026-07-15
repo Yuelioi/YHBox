@@ -116,6 +116,10 @@ _Avoid_: Random cache, nondeterministic result
 Node Contract 声明的精确、版本化外部能力、操作、目标种类与 scope 需求；它只表达需求，不代表 Run 已获得授权。
 _Avoid_: Runtime service, platform target
 
+**Capability Definition**:
+Catalog 中内容寻址的能力语义，封闭定义 operation set、target kind、scope schema、credential mode、risk/consent class 与 provider ABI；改变授权语义必须发布新 `/vN`。
+_Avoid_: Capability name, permission string
+
 **Host Profile**:
 一次运行宿主不可由 workflow 伪造的平台事实与已安装 provider inventory，例如 OS、architecture 和可提供的 capability。
 _Avoid_: Environment variables, platform capability

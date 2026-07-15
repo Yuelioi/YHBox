@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 )
 
@@ -16,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:190cd3358854b3b347b9cddc89065ae9a2f22fa6d1ccd6bc89241e880c353e19")
+	const want = artifact.Digest("sha256:78f7bc5614e2131d1d7f52f23ece9e7d780bd5d27b493cc320ffbd7b87f086cd")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -153,7 +154,12 @@ func TestOpenRejectsUnknownAndOverdeepContracts(t *testing.T) {
 
 func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
 	draft := concatContractDraftForTest()
-	draft.Capabilities = []CapabilityID{"https://schemas.yotta.dev/capabilities/network/v1"}
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "network", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/network/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"read"}, TargetSlot: "network", Scope: json.RawMessage(`{}`),
+	}}
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted pure-data contract with a capability requirement")
 	}
@@ -205,9 +211,9 @@ func concatContractDraftForTest() Draft {
 			Cancellation: CancellationCooperative, Timeout: TimeoutNone,
 			Effects: []EffectID{},
 		},
-		Capabilities:      []CapabilityID{},
-		Errors:            []ErrorSpec{},
-		ImplementationABI: []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},
-		Authoring:         Authoring{TitleKey: "node.text.concat.title", Category: "text"},
+		CapabilityRequirements: []capability.Requirement{},
+		Errors:                 []ErrorSpec{},
+		ImplementationABI:      []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},
+		Authoring:              Authoring{TitleKey: "node.text.concat.title", Category: "text"},
 	}
 }

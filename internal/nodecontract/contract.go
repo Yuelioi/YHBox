@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/contractschema"
 	"github.com/yottaapp/yotta/internal/datatype"
 )
@@ -122,8 +123,6 @@ const (
 )
 
 type EffectID string
-type CapabilityID string
-
 type ExecutionSpec struct {
 	Class        ExecutionClass   `json:"class" jsonschema:"required,enum=pure-data,enum=effect,enum=control,enum=event,enum=region,enum=marker,enum=visual"`
 	Effects      []EffectID       `json:"effects" jsonschema:"required,maxItems=4096"`
@@ -170,30 +169,30 @@ type Authoring struct {
 }
 
 type Draft struct {
-	NodeTypeID         string
-	ConfigSchemaRoot   string
-	ConfigSchemaBundle []datatype.SchemaResource
-	Ports              PortSet
-	Execution          ExecutionSpec
-	Capabilities       []CapabilityID
-	Errors             []ErrorSpec
-	InstanceResolver   *InstanceResolver
-	ImplementationABI  []ABIRequirement
-	Authoring          Authoring
+	NodeTypeID             string
+	ConfigSchemaRoot       string
+	ConfigSchemaBundle     []datatype.SchemaResource
+	Ports                  PortSet
+	Execution              ExecutionSpec
+	CapabilityRequirements []capability.Requirement
+	Errors                 []ErrorSpec
+	InstanceResolver       *InstanceResolver
+	ImplementationABI      []ABIRequirement
+	Authoring              Authoring
 }
 
 // MachineContract is the normalized compiler-facing portion of a Node Contract.
 // It is safe to persist in a machine catalog because it excludes authoring data.
 type MachineContract struct {
-	NodeTypeID         string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
-	ConfigSchemaRoot   string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
-	ConfigSchemaBundle []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
-	Ports              PortSet                   `json:"ports" jsonschema:"required"`
-	Execution          ExecutionSpec             `json:"execution" jsonschema:"required"`
-	Capabilities       []CapabilityID            `json:"capabilities" jsonschema:"required,maxItems=4096"`
-	Errors             []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
-	InstanceResolver   *InstanceResolver         `json:"instanceResolver,omitempty"`
-	ImplementationABI  []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
+	NodeTypeID             string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+	ConfigSchemaRoot       string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
+	ConfigSchemaBundle     []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
+	Ports                  PortSet                   `json:"ports" jsonschema:"required"`
+	Execution              ExecutionSpec             `json:"execution" jsonschema:"required"`
+	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
+	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
+	InstanceResolver       *InstanceResolver         `json:"instanceResolver,omitempty"`
+	ImplementationABI      []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
 }
 
 type document struct {
@@ -255,15 +254,15 @@ func Open(raw []byte) (Contract, error) {
 		return Contract{}, errors.New("unsupported node contract format")
 	}
 	normalized, err := normalizeSemantic(Draft{
-		NodeTypeID:         decoded.Semantic.NodeTypeID,
-		ConfigSchemaRoot:   decoded.Semantic.ConfigSchemaRoot,
-		ConfigSchemaBundle: decoded.Semantic.ConfigSchemaBundle,
-		Ports:              decoded.Semantic.Ports,
-		Execution:          decoded.Semantic.Execution,
-		Capabilities:       decoded.Semantic.Capabilities,
-		Errors:             decoded.Semantic.Errors,
-		InstanceResolver:   decoded.Semantic.InstanceResolver,
-		ImplementationABI:  decoded.Semantic.ImplementationABI,
+		NodeTypeID:             decoded.Semantic.NodeTypeID,
+		ConfigSchemaRoot:       decoded.Semantic.ConfigSchemaRoot,
+		ConfigSchemaBundle:     decoded.Semantic.ConfigSchemaBundle,
+		Ports:                  decoded.Semantic.Ports,
+		Execution:              decoded.Semantic.Execution,
+		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
+		Errors:                 decoded.Semantic.Errors,
+		InstanceResolver:       decoded.Semantic.InstanceResolver,
+		ImplementationABI:      decoded.Semantic.ImplementationABI,
 	})
 	if err != nil {
 		return Contract{}, err
@@ -319,7 +318,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
-		Execution: semantic.Execution, Capabilities: semantic.Capabilities,
+		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements,
 		Errors: semantic.Errors, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
 	})
@@ -424,19 +423,27 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
-	capabilities, err := normalizeStringSet(draft.Capabilities, "capability")
-	if err != nil {
-		return MachineContract{}, err
-	}
-	for _, capability := range capabilities {
-		if err := validateVersionedURI(string(capability)); err != nil {
-			return MachineContract{}, fmt.Errorf("invalid capability requirement %q: %w", capability, err)
+	requirements := make([]capability.Requirement, len(draft.CapabilityRequirements))
+	seenRequirements := make(map[string]struct{}, len(requirements))
+	for index, requirement := range draft.CapabilityRequirements {
+		normalized, err := capability.NormalizeRequirementSyntax(requirement)
+		if err != nil {
+			return MachineContract{}, fmt.Errorf("invalid capability requirement: %w", err)
 		}
+		if _, duplicate := seenRequirements[normalized.ID]; duplicate {
+			return MachineContract{}, fmt.Errorf("duplicate capability requirement %q", normalized.ID)
+		}
+		seenRequirements[normalized.ID] = struct{}{}
+		requirements[index] = normalized
 	}
-	if execution.Class == ExecutionPureData && len(capabilities) != 0 {
+	sort.Slice(requirements, func(i, j int) bool { return requirements[i].ID < requirements[j].ID })
+	if requirements == nil {
+		requirements = []capability.Requirement{}
+	}
+	if execution.Class == ExecutionPureData && len(requirements) != 0 {
 		return MachineContract{}, errors.New("pure-data node must not require capabilities")
 	}
-	if execution.Class == ExecutionEffect && len(execution.Effects)+len(capabilities) == 0 {
+	if execution.Class == ExecutionEffect && len(execution.Effects)+len(requirements) == 0 {
 		return MachineContract{}, errors.New("effect node must declare an effect or capability")
 	}
 	errorsList, err := normalizeErrors(draft.Errors)
@@ -454,7 +461,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution,
-		Capabilities: capabilities, Errors: errorsList, InstanceResolver: resolver,
+		CapabilityRequirements: requirements, Errors: errorsList, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
 }

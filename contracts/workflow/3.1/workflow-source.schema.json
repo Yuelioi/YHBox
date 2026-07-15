@@ -1,10 +1,5 @@
 {
   "$defs": {
-    "Capability": {
-      "format": "uri",
-      "minLength": 1,
-      "type": "string"
-    },
     "Edge": {
       "additionalProperties": false,
       "properties": {
@@ -403,13 +398,6 @@
       "minItems": 1,
       "type": "array"
     },
-    "requestedCapabilities": {
-      "items": {
-        "$ref": "#/$defs/Capability"
-      },
-      "maxItems": 4096,
-      "type": "array"
-    },
     "revision": {
       "maximum": 9007199254740991,
       "minimum": 0,
@@ -447,8 +435,7 @@
     "entryGraph",
     "graphs",
     "variables",
-    "secretRefs",
-    "requestedCapabilities"
+    "secretRefs"
   ],
   "title": "Yotta Workflow Source 3.1",
   "type": "object"

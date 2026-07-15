@@ -23,7 +23,6 @@ type InstalledBuiltin struct {
 
 type Interpreter struct {
 	catalog  nodecatalog.Snapshot
-	grants   map[string]bool
 	builtins map[string]InstalledBuiltin
 }
 
@@ -32,16 +31,12 @@ type RunResult struct {
 	NodeOutputs map[string]map[string]json.RawMessage
 }
 
-func NewInterpreter(catalog nodecatalog.Snapshot, grantedCapabilities []string, builtins map[string]InstalledBuiltin) *Interpreter {
+func NewInterpreter(catalog nodecatalog.Snapshot, builtins map[string]InstalledBuiltin) *Interpreter {
 	installed := make(map[string]InstalledBuiltin, len(builtins))
 	for name, builtin := range builtins {
 		installed[name] = builtin
 	}
-	grants := make(map[string]bool, len(grantedCapabilities))
-	for _, capability := range grantedCapabilities {
-		grants[capability] = true
-	}
-	return &Interpreter{catalog: catalog, grants: grants, builtins: installed}
+	return &Interpreter{catalog: catalog, builtins: installed}
 }
 
 func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResult, error) {
@@ -52,10 +47,8 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 		return RunResult{}, errors.New("interpreter catalog does not match Program 3.1")
 	}
 	body := program.state.document.Body
-	for _, capability := range body.RequiredCapabilities {
-		if !i.grants[capability] {
-			return RunResult{}, fmt.Errorf("capability %q was not granted", capability)
-		}
+	if len(program.CapabilityPlan().Entries()) != 0 {
+		return RunResult{}, errors.New("pure-data preview cannot execute a capability plan")
 	}
 	var graph *programGraph
 	for index := range body.Graphs {

@@ -8,10 +8,10 @@ import (
 	"io"
 	"reflect"
 	"slices"
-	"sort"
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -59,14 +59,14 @@ type programGraph struct {
 }
 
 type programBody struct {
-	SourceHash           artifact.Digest `json:"sourceHash"`
-	CatalogHash          artifact.Digest `json:"catalogHash"`
-	CompilerBuild        artifact.Digest `json:"compilerBuild"`
-	WorkflowID           string          `json:"workflowId"`
-	Revision             int64           `json:"revision"`
-	EntryGraph           string          `json:"entryGraph"`
-	RequiredCapabilities []string        `json:"requiredCapabilities"`
-	Graphs               []programGraph  `json:"graphs"`
+	SourceHash     artifact.Digest `json:"sourceHash"`
+	CatalogHash    artifact.Digest `json:"catalogHash"`
+	CompilerBuild  artifact.Digest `json:"compilerBuild"`
+	WorkflowID     string          `json:"workflowId"`
+	Revision       int64           `json:"revision"`
+	EntryGraph     string          `json:"entryGraph"`
+	CapabilityPlan json.RawMessage `json:"capabilityPlan"`
+	Graphs         []programGraph  `json:"graphs"`
 }
 
 type programDocument struct {
@@ -156,7 +156,11 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 		document.Body.EntryGraph == "" || len(document.Body.Graphs) != 1 || document.Body.Graphs[0].ID != document.Body.EntryGraph {
 		return ProgramSnapshot{}, errors.New("program identity or entry graph is invalid")
 	}
-	requiredCapabilities := map[string]bool{}
+	plan, err := capability.OpenPlan(document.Body.CapabilityPlan)
+	if err != nil {
+		return ProgramSnapshot{}, fmt.Errorf("program capability plan: %w", err)
+	}
+	wantPlanEntries := make([]capability.PlanEntry, 0)
 	for _, graph := range document.Body.Graphs {
 		if err := validateProgramGraph(graph, trustedCatalog); err != nil {
 			return ProgramSnapshot{}, err
@@ -173,17 +177,21 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 			if machine.Execution.Class != nodecontract.ExecutionPureData {
 				return ProgramSnapshot{}, errors.New("program contains an unsupported execution class")
 			}
-			for _, capability := range machine.Capabilities {
-				requiredCapabilities[string(capability)] = true
+			for _, requirement := range machine.CapabilityRequirements {
+				definition, ok := trustedCatalog.LookupCapability(requirement.Capability.CapabilityID)
+				if !ok {
+					return ProgramSnapshot{}, errors.New("program capability definition is missing")
+				}
+				normalized, err := definition.NormalizeRequirement(requirement)
+				if err != nil || !reflect.DeepEqual(normalized, requirement) {
+					return ProgramSnapshot{}, errors.New("program capability requirement is invalid")
+				}
+				wantPlanEntries = append(wantPlanEntries, capability.PlanEntry{GraphID: graph.ID, NodeID: node.ID, Requirement: requirement})
 			}
 		}
 	}
-	wantCapabilities := make([]string, 0, len(requiredCapabilities))
-	for capability := range requiredCapabilities {
-		wantCapabilities = append(wantCapabilities, capability)
-	}
-	sort.Strings(wantCapabilities)
-	if !slices.Equal(wantCapabilities, document.Body.RequiredCapabilities) {
+	wantPlan, err := capability.SealPlan(wantPlanEntries)
+	if err != nil || wantPlan.Digest() != plan.Digest() || !bytes.Equal(wantPlan.Bytes(), plan.Bytes()) {
 		return ProgramSnapshot{}, errors.New("program capability manifest mismatch")
 	}
 	return sealed, nil
@@ -320,6 +328,17 @@ func (p ProgramSnapshot) Artifact() []byte {
 		return nil
 	}
 	return append([]byte(nil), p.state.artifact...)
+}
+
+func (p ProgramSnapshot) CapabilityPlan() capability.Plan {
+	if !p.Valid() {
+		return capability.Plan{}
+	}
+	plan, err := capability.OpenPlan(p.state.document.Body.CapabilityPlan)
+	if err != nil {
+		panic("program snapshot invariant: " + err.Error())
+	}
+	return plan
 }
 
 func (p ProgramSnapshot) Nodes() []NodeView {

@@ -8,23 +8,26 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const (
-	Format             = "yotta.catalog"
-	Version            = "3.1"
-	MaxCatalogBytes    = 16 << 20
-	MaxCatalogDepth    = 128
-	MaxCatalogNodes    = 4_096
-	MaxCatalogTypes    = 4_096
-	MaxCatalogJSONNode = 1_048_576
+	Format                 = "yotta.catalog"
+	Version                = "3.1"
+	MaxCatalogBytes        = 16 << 20
+	MaxCatalogDepth        = 128
+	MaxCatalogNodes        = 4_096
+	MaxCatalogTypes        = 4_096
+	MaxCatalogCapabilities = 4_096
+	MaxCatalogJSONNode     = 1_048_576
 
 	catalogDigestDomain = "yotta/catalog/v1"
 )
@@ -53,6 +56,11 @@ type typeRecord struct {
 	Semantic json.RawMessage  `json:"semantic"`
 }
 
+type capabilityRecord struct {
+	Ref      capability.Ref  `json:"ref"`
+	Semantic json.RawMessage `json:"semantic"`
+}
+
 type bindingRecord struct {
 	NodeRef        nodecontract.NodeRef `json:"nodeRef"`
 	Semantic       json.RawMessage      `json:"semantic"`
@@ -60,28 +68,30 @@ type bindingRecord struct {
 }
 
 type document struct {
-	Format           string          `json:"format"`
-	Version          string          `json:"version"`
-	GeneratorVersion string          `json:"generatorVersion"`
-	Types            []typeRecord    `json:"types"`
-	Nodes            []bindingRecord `json:"nodes"`
+	Format           string             `json:"format"`
+	Version          string             `json:"version"`
+	GeneratorVersion string             `json:"generatorVersion"`
+	Types            []typeRecord       `json:"types"`
+	Capabilities     []capabilityRecord `json:"capabilities"`
+	Nodes            []bindingRecord    `json:"nodes"`
 }
 
 type state struct {
-	document document
-	hash     artifact.Digest
-	bytes    []byte
-	bindings map[string]Entry
-	types    map[string]datatype.Definition
+	document     document
+	hash         artifact.Digest
+	bytes        []byte
+	bindings     map[string]Entry
+	types        map[string]datatype.Definition
+	capabilities map[string]capability.Definition
 }
 
 type Snapshot struct{ state *state }
 
-func Seal(types []datatype.Definition, bindings []Binding, generatorVersion string) (Snapshot, error) {
+func Seal(types []datatype.Definition, capabilities []capability.Definition, bindings []Binding, generatorVersion string) (Snapshot, error) {
 	if !versionPattern.MatchString(generatorVersion) {
 		return Snapshot{}, errors.New("catalog generator version must use vN form")
 	}
-	if len(types) > MaxCatalogTypes || len(bindings) > MaxCatalogNodes {
+	if len(types) > MaxCatalogTypes || len(capabilities) > MaxCatalogCapabilities || len(bindings) > MaxCatalogNodes {
 		return Snapshot{}, errors.New("catalog exceeds entry budget")
 	}
 	typeRecords := make([]typeRecord, 0, len(types))
@@ -99,6 +109,23 @@ func Seal(types []datatype.Definition, bindings []Binding, generatorVersion stri
 	}
 	sort.Slice(typeRecords, func(i, j int) bool { return typeRecords[i].TypeRef.TypeID < typeRecords[j].TypeRef.TypeID })
 
+	capabilityRecords := make([]capabilityRecord, 0, len(capabilities))
+	capabilitiesByID := make(map[string]capability.Definition, len(capabilities))
+	for _, definition := range capabilities {
+		if !definition.Valid() {
+			return Snapshot{}, errors.New("catalog contains invalid capability definition")
+		}
+		ref := definition.Ref()
+		if _, duplicate := capabilitiesByID[ref.CapabilityID]; duplicate {
+			return Snapshot{}, fmt.Errorf("catalog contains duplicate capability %q", ref.CapabilityID)
+		}
+		capabilitiesByID[ref.CapabilityID] = definition
+		capabilityRecords = append(capabilityRecords, capabilityRecord{Ref: ref, Semantic: definition.SemanticBytes()})
+	}
+	sort.Slice(capabilityRecords, func(i, j int) bool {
+		return capabilityRecords[i].Ref.CapabilityID < capabilityRecords[j].Ref.CapabilityID
+	})
+
 	bindingRecords := make([]bindingRecord, 0, len(bindings))
 	bindingsByID := make(map[string]Entry, len(bindings))
 	for _, binding := range bindings {
@@ -115,6 +142,16 @@ func Seal(types []datatype.Definition, bindings []Binding, generatorVersion stri
 		if err := validatePortTypes(binding.Contract.Machine().Ports, typesByID); err != nil {
 			return Snapshot{}, fmt.Errorf("node %q: %w", ref.NodeTypeID, err)
 		}
+		for _, requirement := range binding.Contract.Machine().CapabilityRequirements {
+			definition, ok := capabilitiesByID[requirement.Capability.CapabilityID]
+			if !ok || definition.Ref() != requirement.Capability {
+				return Snapshot{}, fmt.Errorf("node %q: unbound capability requirement %q", ref.NodeTypeID, requirement.ID)
+			}
+			normalized, err := definition.NormalizeRequirement(requirement)
+			if err != nil || !reflect.DeepEqual(normalized, requirement) {
+				return Snapshot{}, fmt.Errorf("node %q: invalid capability requirement %q", ref.NodeTypeID, requirement.ID)
+			}
+		}
 		entry := Entry(binding)
 		bindingsByID[ref.NodeTypeID] = entry
 		bindingRecords = append(bindingRecords, bindingRecord{
@@ -126,8 +163,8 @@ func Seal(types []datatype.Definition, bindings []Binding, generatorVersion stri
 	})
 	return sealDocument(document{
 		Format: Format, Version: Version, GeneratorVersion: generatorVersion,
-		Types: typeRecords, Nodes: bindingRecords,
-	}, bindingsByID, typesByID)
+		Types: typeRecords, Capabilities: capabilityRecords, Nodes: bindingRecords,
+	}, bindingsByID, typesByID, capabilitiesByID)
 }
 
 func Open(raw []byte) (Snapshot, error) {
@@ -158,8 +195,16 @@ func Open(raw []byte) (Snapshot, error) {
 	if decoded.Format != Format || decoded.Version != Version || !versionPattern.MatchString(decoded.GeneratorVersion) {
 		return Snapshot{}, errors.New("unsupported catalog format")
 	}
-	if len(decoded.Types) > MaxCatalogTypes || len(decoded.Nodes) > MaxCatalogNodes {
+	if len(decoded.Types) > MaxCatalogTypes || len(decoded.Capabilities) > MaxCatalogCapabilities || len(decoded.Nodes) > MaxCatalogNodes {
 		return Snapshot{}, errors.New("catalog exceeds entry budget")
+	}
+	capabilities := make([]capability.Definition, 0, len(decoded.Capabilities))
+	for _, record := range decoded.Capabilities {
+		definition, err := capability.OpenSemanticDefinition(record.Ref, record.Semantic)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("open catalog capability %q: %w", record.Ref.CapabilityID, err)
+		}
+		capabilities = append(capabilities, definition)
 	}
 	types := make([]datatype.Definition, 0, len(decoded.Types))
 	for _, record := range decoded.Types {
@@ -177,7 +222,7 @@ func Open(raw []byte) (Snapshot, error) {
 		}
 		bindings = append(bindings, Binding{Contract: contract, Implementation: record.Implementation})
 	}
-	sealed, err := Seal(types, bindings, decoded.GeneratorVersion)
+	sealed, err := Seal(types, capabilities, bindings, decoded.GeneratorVersion)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -187,7 +232,7 @@ func Open(raw []byte) (Snapshot, error) {
 	return sealed, nil
 }
 
-func sealDocument(doc document, bindings map[string]Entry, types map[string]datatype.Definition) (Snapshot, error) {
+func sealDocument(doc document, bindings map[string]Entry, types map[string]datatype.Definition, capabilities map[string]capability.Definition) (Snapshot, error) {
 	canonical, err := artifact.Marshal(doc)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("encode catalog: %w", err)
@@ -199,7 +244,7 @@ func sealDocument(doc document, bindings map[string]Entry, types map[string]data
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{state: &state{document: doc, hash: hash, bytes: canonical, bindings: bindings, types: types}}, nil
+	return Snapshot{state: &state{document: doc, hash: hash, bytes: canonical, bindings: bindings, types: types, capabilities: capabilities}}, nil
 }
 
 func (s Snapshot) Valid() bool { return s.state != nil && s.state.hash.Valid() }
@@ -231,6 +276,14 @@ func (s Snapshot) LookupType(typeID string) (datatype.Definition, bool) {
 		return datatype.Definition{}, false
 	}
 	definition, ok := s.state.types[typeID]
+	return definition, ok
+}
+
+func (s Snapshot) LookupCapability(capabilityID string) (capability.Definition, bool) {
+	if !s.Valid() {
+		return capability.Definition{}, false
+	}
+	definition, ok := s.state.capabilities[capabilityID]
 	return definition, ok
 }
 

@@ -24,7 +24,7 @@ Yotta 3.1 是产品版本，也是当前 Workflow/Node/Data/Catalog/Program cont
 
 `ProgramSnapshot` 零值 invalid、无 public constructor。`OpenProgram` 同时需要可信 Catalog 与 expected compiler build，并重验 canonical bytes、hash、source/catalog/build identity、entry graph、collection budget、exact node/implementation lock、effective ports/execution、config、typed input envelope、edge endpoint/type、topological order与 capability manifest。所有公开 byte/slice view 返回副本。Hash 只证明 artifact 未改变，不能代替签名、ACL、capability grant 或 provenance。
 
-Source 的 `requestedCapabilities` 是作者声明上限，Compiler 从实际 contract 推导 `requiredCapabilities`，两者必须精确相等。Interpreter 仍必须取得宿主 grant；Program 声明不能自我授权。当前 3.1 tracer 只实现 pure-data main graph/data edge/inline literal/default，其他 Source feature 必须 fail closed，不能接受后静默丢弃。
+Source 不携带自由 `requestedCapabilities`。Compiler 从 exact Node Contract requirements 生成带 graph/node/requirement attribution 的 sealed Capability Plan；Program 声明不能自我授权，Run admission 必须为 exact plan 签发 grant。当前 3.1 tracer 只实现 pure-data main graph/data edge/inline literal/default，其他 Source feature 必须 fail closed，不能接受后静默丢弃。
 
 ValueEnvelope 是 Program/host 的值边界。Program literal 保存 `literal`/`default` provenance 和 envelope artifact；host adapter 只取得验证后的 payload，返回值必须按 pinned Data Type schema 验证后再封装。单值、Program 与整次运行保留值分别有资源预算。
 

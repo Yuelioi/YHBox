@@ -173,7 +173,7 @@ func inspectSchemaValue(value any, typ reflect.Type, field reflectedFieldContrac
 		return
 	case reflect.String:
 		text, ok := value.(string)
-		if !ok || (field.minLength || typ == reflect.TypeFor[Capability]()) && text == "" || len(field.enum) > 0 && !field.enum[text] {
+		if !ok || field.minLength && text == "" || len(field.enum) > 0 && !field.enum[text] {
 			counter.add()
 		}
 	case reflect.Bool:
@@ -310,19 +310,6 @@ func validateSource(source WorkflowSource) []Diagnostic {
 			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
 		}
 		secretIDs[secret.ID] = true
-	}
-	capabilities := map[Capability]bool{}
-	for index, capability := range source.RequestedCapabilities {
-		if len(out) >= MaxDiagnostics {
-			return sortedDiagnostics(out)
-		}
-		path := []string{"requestedCapabilities", fmt.Sprint(index)}
-		if capability == "" {
-			appendDiagnostic(&out, diagnostic(CodeInvalidField, path, map[string]any{"keyword": "minLength"}))
-		} else if capabilities[capability] {
-			appendDiagnostic(&out, diagnostic(CodeDuplicateID, path, map[string]any{"id": capability}))
-		}
-		capabilities[capability] = true
 	}
 	return sortedDiagnostics(out)
 }

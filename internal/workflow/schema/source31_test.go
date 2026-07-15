@@ -14,7 +14,7 @@ func TestParseSource31PreservesExplicitBindingStateAndChannels(t *testing.T) {
 			"id":"concat-1","nodeRef":{"nodeTypeId":"https://schemas.yotta.dev/nodes/text/concat/v1","semanticDigest":"sha256:%s"},
 			"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"hello"},"b":{"kind":"default"}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, strings.Repeat("1", 64))
 	source, diagnostics := ParseSource([]byte(raw))
 	if len(diagnostics) != 0 {
@@ -27,7 +27,7 @@ func TestParseSource31PreservesExplicitBindingStateAndChannels(t *testing.T) {
 }
 
 func TestParseSource31RejectsLegacyKindAndImplicitEdgeChannel(t *testing.T) {
-	legacy := `{"format":"yotta.workflow","version":3,"workflow":{"id":"wf","name":"x"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[],"requestedCapabilities":[]}`
+	legacy := `{"format":"yotta.workflow","version":3,"workflow":{"id":"wf","name":"x"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`
 	if _, diagnostics := ParseSource([]byte(legacy)); len(diagnostics) == 0 || diagnostics[0].Code != CodeUnsupportedWorkflowFormat {
 		t.Fatalf("legacy diagnostics = %#v", diagnostics)
 	}
@@ -82,6 +82,6 @@ func validSource31ForTest() string {
 			"id":"concat-1","nodeRef":{"nodeTypeId":"https://schemas.yotta.dev/nodes/text/concat/v1","semanticDigest":"sha256:%s"},
 			"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"hello"},"b":{"kind":"default"}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, strings.Repeat("1", 64))
 }

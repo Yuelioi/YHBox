@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -31,6 +32,9 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 	if !ok {
 		t.Fatal("missing program")
 	}
+	if plan := program.CapabilityPlan(); !plan.Valid() || len(plan.Entries()) != 0 {
+		t.Fatalf("concat capability plan = %#v", plan.Entries())
+	}
 	nodes := program.Nodes()
 	if len(nodes) != 1 || len(nodes[0].Ports.DataInputs) != 2 || len(nodes[0].Ports.DataOutputs) != 1 ||
 		len(nodes[0].Ports.ExecInputs)+len(nodes[0].Ports.ExecOutputs)+len(nodes[0].Ports.ErrorOutputs)+len(nodes[0].Ports.StatusOutputs) != 0 {
@@ -41,7 +45,7 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry, _ := catalog.Lookup(nodes31.ConcatNodeID)
-	run, err := NewInterpreter(catalog, nil, map[string]InstalledBuiltin{
+	run, err := NewInterpreter(catalog, map[string]InstalledBuiltin{
 		"text.concat": {Implementation: entry.Implementation, Run: nodes31.Concat},
 	}).Run(context.Background(), opened)
 	if err != nil {
@@ -92,7 +96,7 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 			{"id":"second","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"b":{"kind":"value","value":"c"}}},
 			{"id":"first","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"first","portId":"result"},"to":{"nodeId":"second","portId":"a"}}],"inputs":[],"outputs":[]}],
-		"variables":[],"secretRefs":[],"requestedCapabilities":[]
+		"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
 	result, err := New(testDigest(t, "compiler")).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil {
@@ -166,7 +170,7 @@ func TestInterpreterRejectsUnpinnedBuiltinAndIllTypedOutput(t *testing.T) {
 	entry, _ := catalog.Lookup(nodes31.ConcatNodeID)
 	wrong := entry.Implementation
 	wrong.ArtifactDigest = testDigest(t, "wrong implementation")
-	if _, err := NewInterpreter(catalog, nil, map[string]InstalledBuiltin{
+	if _, err := NewInterpreter(catalog, map[string]InstalledBuiltin{
 		"text.concat": {Implementation: wrong, Run: nodes31.Concat},
 	}).Run(context.Background(), program); err == nil {
 		t.Fatal("interpreter dispatched a builtin that did not match the Program lock")
@@ -174,7 +178,7 @@ func TestInterpreterRejectsUnpinnedBuiltinAndIllTypedOutput(t *testing.T) {
 	badOutput := func(context.Context, map[string]json.RawMessage) (map[string]json.RawMessage, error) {
 		return map[string]json.RawMessage{"result": json.RawMessage(`1`)}, nil
 	}
-	if _, err := NewInterpreter(catalog, nil, map[string]InstalledBuiltin{
+	if _, err := NewInterpreter(catalog, map[string]InstalledBuiltin{
 		"text.concat": {Implementation: entry.Implementation, Run: badOutput},
 	}).Run(context.Background(), program); err == nil {
 		t.Fatal("interpreter accepted output outside the pinned Data Type")
@@ -214,7 +218,17 @@ func TestOpenProgramRejectsRehashedEntryAndCapabilityForgery(t *testing.T) {
 		t.Fatal("accepted missing entry graph")
 	}
 	document.Body.EntryGraph = "main"
-	document.Body.RequiredCapabilities = []string{"https://schemas.yotta.dev/capabilities/forged/v1"}
+	forgedPlan, err := capability.SealPlan([]capability.PlanEntry{{
+		GraphID: "main", NodeID: "concat-1", Requirement: capability.Requirement{
+			ID: "forged", Capability: capability.Ref{
+				CapabilityID: "https://schemas.yotta.dev/capabilities/forged/v1", SemanticDigest: testDigest(t, "forged capability"),
+			}, Operations: []string{"read"}, TargetSlot: "target", Scope: json.RawMessage(`{}`),
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	document.Body.CapabilityPlan = forgedPlan.Bytes()
 	forged, err = sealProgram(document.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +248,7 @@ func concatSourceForTest(ref nodecontract.NodeRef, a, b string, edge *string) []
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"concat-1","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}
-		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[],"requestedCapabilities":[]
+		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, a, b, edges))
 }
 
