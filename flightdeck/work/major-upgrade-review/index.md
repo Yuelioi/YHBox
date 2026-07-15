@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation 与 typed Run state 纵切面。Workflow Source 变量被编译为 Program 冻结的 exact typed state slot；每个 Run 独占状态存储，节点只能取得契约声明并按 read/write 衰减的 StateBinding。Authoring Projection、生成文档与编辑器从同一状态访问契约派生，pure-data 依赖状态或观察节点时波动性会传递，避免 per-run cache 返回旧值。Schedule 只接受 workflow target，不存在 Container fallback。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
+Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation、typed Run state，以及首个显式 event/control signal flow。RunStarted → Branch → cancellable recorded Delay → StateWrite → EndBranch 已由同一 Program/Executor 端到端执行；没有通用 `out` 伪端口。Workflow Source 变量被编译为 Program 冻结的 exact typed state slot；每个 Run 独占状态存储，节点只能取得契约声明并按 read/write 衰减的 StateBinding。Compiler 现在只用 error 阻断 Program，warning 可随 Program 进入 UI/Run；Application 使用同一 schema admission rule。旧 runtime 与未迁移节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批删除。
 
 ## Next
 
-继续按 effect → control/region → event/listener 顺序迁移内建节点；typed Run state 已进入生产 Catalog，ambient/global VarStore 不得接入 3.1。下一批先补齐 RunStarted 等显式事件根和 delay/retry/loop/branch 等控制语义，再迁移 AI、script、I/O、input/window/image 等副作用 adapter；每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并独立 commit。
+继续完成 control/region 的编译器级语义，loop/foreach/retry 不得复制 legacy kind switch 或 ambient runtime state；Program interpreter 只执行通用冻结 instruction。随后按 AI/script → I/O → input/window/image → listener 顺序迁移副作用与事件源。每批由 Node Contract/Data Type/Capability/Catalog/Runtime/Authoring Projection 单一事实源生成 catalog/docs/golden fixture，切换调用方后立即删除对应 legacy Spec/coercion/validator/dispatch 分支，并独立 commit。
 
 ## Read now
 
@@ -41,6 +41,7 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 ## Progress
 
 Done:
+- 完成首个显式 event/control signal flow：新增 RunStarted、Branch、Delay、EndBranch 与 nominal DurationMilliseconds Data Type。Executor 注入 cancellable host wait；Delay 记录 waiting status 与 declared time effect；Compiler/Program 验证真实 execution root，未连接 push 节点作为 non-blocking warning。RunStarted → Branch → Delay → StateWrite → EndBranch 端到端执行，无通用 `out`；提交 `8b567939`。随后将 diagnostic error admission 收口到 `schema.HasErrors`，修复 Application 将 warning 误当阻断错误的跨层漂移，提交 `9bab3765`。
 - 完成 typed Run state 纵切面：Workflow 变量必须带 exact concrete TypeExpression 与默认值，Compiler 冻结为 Program state artifact；strict opener 双重复验 catalog type 与 initial envelope。Node Contract 新增声明式 StateAccessSpec，编译器用配置选择的 slot 解析泛型，Executor 为每个 Run 建立隔离 store 并只向 adapter 注入衰减 read/write binding。新增 StateRead/StateWrite/StateMetadata 节点、runtime adapter、状态 effect journal、跨 pure-data 依赖的 volatility 传播，以及 Editor 状态声明/选择器和生成文档；无 ambient/global VarStore 或兼容路径，提交 `45e7f125`。
 - 完成 random/time recorded observation 生产迁移：Integer Data Type 破坏性限定在 JSON safe range；新增 RandomDistribution 类型与 RandomInteger/RandomNumber/RandomBoolean/RandomChoice/ObserveTime 五个 pull-effect 节点。ExecutorOptions 注入 crypto entropy reader 与 host clock，每次 invocation 固定 ObservedAt；adapter 对 declared effect exactly-once journal，结果作为 durable Run Value 持久化。节点只有 data `result`，无通用 out、exec/error/status 伪端口；提交 `78b48e48`。
 - 完成 pure-data/collection 生产迁移：Program 冻结每个调用实例的 effective InputTypes/OutputTypes，node-local 类型变量经 data edge 统一后 strict-open/runtime 双重复验；ValueEnvelope 支持逐元素验证的 resolved list。新增 7 个 collection、35 个 strict math/text/conversion/JSON/select/geometry 节点与 JSON/PointUnit/Point/Region Data Type，Catalog 共 57 节点/9 类型；Point editor adapter 已接入 3.1 Inspector。旧 collection 包已删除；legacy purefunc 仅因待删旧 container runtime 的编译测试依赖暂存，不进入生产 Application/Catalog 且无 fallback。
@@ -111,9 +112,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- production pure-data/collection/conversion/JSON/geometry/random/time/typed Run state 已完成；当前 frontier 是 control/region 与 event roots，用于驱动 StateWrite 和后续 effect 节点的显式 push execution。随后迁移其余 effect 和 listener。legacy purefunc、random、variable 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
+- production pure-data/collection/conversion/JSON/geometry/random/time/typed Run state 与基础 event/control signal flow 已完成；当前 frontier 是 compiler-lowered region/loop 语义，随后迁移 AI/script/I/O/input/window/image effect 与 listener。legacy purefunc、random、variable、control/event 与旧 container runtime 必须在调用方切换后同一原子阶段删除，不能留下生产 fallback。
 
 Verified:
+- explicit signal flow 提交 `8b567939`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3294 keys、Wails contract 15 services / 129 methods / 118 models，entry 329,171 / 350,000 bytes、editor 91,571 / 200,000 bytes；contracts strict check 与 production build 全绿。
 - typed Run state 提交 `45e7f125`（2026-07-15）：`go test ./...` 与 frontend `pnpm check` 全绿；frontend 100 files / 645 tests、i18n 3284 keys、Wails contract 15 services / 129 methods / 118 models，entry 328,721 / 350,000 bytes、editor 91,564 / 200,000 bytes；contracts strict check 与 production build 全绿。
 - recorded observation 提交 `78b48e48`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3271 keys、lint、contracts check 与 production build 全绿；Wails contract 15 services / 129 methods / 118 models，entry 328,220 / 350,000 bytes、editor 89,067 / 200,000 bytes。
 - 多态 collection 提交 `6acb1957` 与 strict pure-data families 提交 `53f5dcbc`（2026-07-15）：`go test ./...`、frontend 100 files / 644 tests、typecheck、i18n 3259 keys、lint、contracts check 与 production build 全绿；entry 327,740 / 350,000 bytes、editor 89,061 / 200,000 bytes。
@@ -157,5 +159,4 @@ Verified:
 - 编辑器 UI 需要结构性升级而非换皮：1640 最小宽度只是短期 containment；后续应优先做画布空间预算、面板互斥/overlay、紧凑上下文工具条、Basic/Pro 渐进披露与可恢复错误。
 - GitHub rulesets、push protection、private vulnerability reporting、immutable releases 与 release environment 审批需要 owner 在远端启用并验证。
 - editor 距最终 450 KB target 还差约 19 KB，进入后续 bundle 优化；完整 Tabler 数据已不再打包。
-
 
