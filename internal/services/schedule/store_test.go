@@ -9,7 +9,7 @@ func TestScheduleStore_SaveLoad(t *testing.T) {
 	s, _ := NewStore(dir)
 	in := &Schedule{
 		SchemaVersion: 1, ID: "id-1", Name: "n",
-		Targets: []TargetRef{{Kind: "container", ID: "c"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c"}},
 		Trigger: Trigger{Kind: "manual"},
 		OnError: "stop",
 	}
@@ -30,7 +30,7 @@ func TestScheduleStore_Save_InvalidID(t *testing.T) {
 	for _, id := range bad {
 		sc := &Schedule{
 			SchemaVersion: 1, ID: id, Name: "n",
-			Targets: []TargetRef{{Kind: "container", ID: "c"}},
+			Targets: []TargetRef{{Kind: "workflow", ID: "c"}},
 			Trigger: Trigger{Kind: "manual"},
 			OnError: "stop",
 		}
@@ -45,7 +45,7 @@ func TestScheduleStore_Delete(t *testing.T) {
 	s, _ := NewStore(dir)
 	_ = s.Save(&Schedule{
 		SchemaVersion: 1, ID: "id-1", Name: "n",
-		Targets: []TargetRef{{Kind: "container", ID: "c"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c"}},
 		Trigger: Trigger{Kind: "manual"}, OnError: "stop",
 	})
 	if err := s.Delete("id-1"); err != nil {

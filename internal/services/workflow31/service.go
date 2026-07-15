@@ -35,14 +35,45 @@ type CompileView struct {
 }
 
 type RunView struct {
-	RunID        string               `json:"runId"`
-	Status       run31.Status         `json:"status"`
-	Generation   uint64               `json:"generation"`
-	RecordDigest artifact.Digest      `json:"recordDigest"`
-	ProgramHash  artifact.Digest      `json:"programHash"`
-	QueuedAt     string               `json:"queuedAt"`
-	Failure      *run31.RunError      `json:"failure,omitempty"`
-	Timeline     []run31.JournalEntry `json:"timeline"`
+	RunID        string          `json:"runId"`
+	Status       string          `json:"status"`
+	Generation   uint64          `json:"generation"`
+	RecordDigest artifact.Digest `json:"recordDigest"`
+	ProgramHash  artifact.Digest `json:"programHash"`
+	QueuedAt     string          `json:"queuedAt"`
+	Failure      *FailureView    `json:"failure,omitempty"`
+	Timeline     []TimelineEntry `json:"timeline"`
+}
+
+type FailureView struct {
+	Code      string `json:"code"`
+	Category  string `json:"category"`
+	Retryable bool   `json:"retryable"`
+	GraphID   string `json:"graphId,omitempty"`
+	NodeID    string `json:"nodeId,omitempty"`
+	Attempt   int    `json:"attempt,omitempty"`
+}
+
+type SummaryView struct {
+	Code     string           `json:"code"`
+	Counters map[string]int64 `json:"counters"`
+}
+
+type TimelineEntry struct {
+	Sequence       uint64      `json:"sequence"`
+	Kind           string      `json:"kind"`
+	GraphPath      []string    `json:"graphPath"`
+	NodeID         string      `json:"nodeId"`
+	EffectID       string      `json:"effectId,omitempty"`
+	Attempt        int         `json:"attempt"`
+	Action         string      `json:"action,omitempty"`
+	AttemptOutcome string      `json:"attemptOutcome,omitempty"`
+	ActionOutcome  string      `json:"actionOutcome,omitempty"`
+	OccurredAt     string      `json:"occurredAt"`
+	ErrorCode      string      `json:"errorCode,omitempty"`
+	StatusCode     string      `json:"statusCode,omitempty"`
+	StatusCategory string      `json:"statusCategory,omitempty"`
+	Summary        SummaryView `json:"summary"`
 }
 
 type StartRunView struct {
@@ -124,12 +155,30 @@ func sourceView(workflowID string, revision int64, hash artifact.Digest, raw []b
 func runView(record run31.Record) RunView {
 	admission := record.Admission()
 	view := RunView{
-		RunID: admission.RunID, Status: record.Status(), Generation: record.Generation(), RecordDigest: record.Digest(),
+		RunID: admission.RunID, Status: string(record.Status()), Generation: record.Generation(), RecordDigest: record.Digest(),
 		ProgramHash: admission.ProgramHash, QueuedAt: admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
-		Timeline: record.Journal(),
+		Timeline: timelineView(record.Journal()),
 	}
 	if failure, ok := record.Failure(); ok {
-		view.Failure = &failure
+		view.Failure = &FailureView{
+			Code: failure.Code, Category: failure.Category, Retryable: failure.Retryable,
+			GraphID: failure.GraphID, NodeID: failure.NodeID, Attempt: failure.Attempt,
+		}
 	}
 	return view
+}
+
+func timelineView(entries []run31.JournalEntry) []TimelineEntry {
+	result := make([]TimelineEntry, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, TimelineEntry{
+			Sequence: entry.Sequence, Kind: string(entry.Kind), GraphPath: append([]string(nil), entry.GraphPath...),
+			NodeID: entry.NodeID, EffectID: entry.EffectID, Attempt: entry.Attempt, Action: entry.Action,
+			AttemptOutcome: string(entry.AttemptOutcome), ActionOutcome: string(entry.ActionOutcome),
+			OccurredAt: entry.OccurredAt.Format("2006-01-02T15:04:05.999999999Z07:00"), ErrorCode: entry.ErrorCode,
+			StatusCode: entry.StatusCode, StatusCategory: string(entry.StatusCategory),
+			Summary: SummaryView{Code: entry.Summary.Code, Counters: entry.Summary.Counters},
+		})
+	}
+	return result
 }

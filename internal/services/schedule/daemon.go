@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
-
-	"github.com/yottaapp/yotta/internal/services/execution"
 )
 
 // HotkeyRegistrar 由 main.go 注入 services.HotkeyRegistry 适配。
@@ -23,11 +21,15 @@ type HotkeyRegistrar interface {
 	Unregister(key string) error
 }
 
+type WorkflowRunner interface {
+	StartWorkflow(context.Context, string) error
+}
+
 // Daemon 启动期注册所有 enabled schedules 到 cron / hotkey / once，
 // trigger fire 时把 QueuedRun 扔进 execution queue。
 type Daemon struct {
 	store    *Store
-	queue    *execution.ExecutionQueue
+	runner   WorkflowRunner
 	hotkeys  HotkeyRegistrar
 	cron     *cron.Cron
 	mu       sync.Mutex
@@ -39,10 +41,10 @@ type Daemon struct {
 	stopErr  error
 }
 
-func NewDaemon(store *Store, queue *execution.ExecutionQueue, hotkeys HotkeyRegistrar) *Daemon {
+func NewDaemon(store *Store, runner WorkflowRunner, hotkeys HotkeyRegistrar) *Daemon {
 	return &Daemon{
 		store:    store,
-		queue:    queue,
+		runner:   runner,
 		hotkeys:  hotkeys,
 		cron:     cron.New(),
 		cronIDs:  map[string]cron.EntryID{},
@@ -152,7 +154,7 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		if err != nil {
 			return err
 		}
-		id, err := d.cron.AddFunc(spec, func() { d.fire(s.ID, execution.SourceSchedule) })
+		id, err := d.cron.AddFunc(spec, func() { _ = d.fire(context.Background(), s.ID) })
 		if err != nil {
 			return fmt.Errorf("cron AddFunc: %w", err)
 		}
@@ -168,13 +170,13 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 		if err := d.hotkeys.Register(key, "schedule",
 			"hotkeys.label.schedule", map[string]string{"name": s.Name},
 			s.Trigger.Hotkey, "",
-			func() { d.fire(s.ID, execution.SourceHotkey) }); err != nil {
+			func() { _ = d.fire(context.Background(), s.ID) }); err != nil {
 			return fmt.Errorf("hotkey register: %w", err)
 		}
 		d.hotkeyKs[s.ID] = key
 	case "once":
 		// 启动后立即一次。fire 异步避免持锁。
-		go d.fire(s.ID, execution.SourceSchedule)
+		go func() { _ = d.fire(context.Background(), s.ID) }()
 	case "manual":
 		// 不注册自动触发
 	default:
@@ -185,10 +187,10 @@ func (d *Daemon) registerLocked(s *Schedule) error {
 
 // FireManual UI 上手动按 ▶ 跑某 schedule。
 func (d *Daemon) FireManual(scheduleID string) error {
-	return d.fire(scheduleID, execution.SourceManual)
+	return d.fire(context.Background(), scheduleID)
 }
 
-func (d *Daemon) fire(scheduleID string, source execution.TriggerSource) error {
+func (d *Daemon) fire(ctx context.Context, scheduleID string) error {
 	d.mu.Lock()
 	stopped := d.stopped
 	d.mu.Unlock()
@@ -199,38 +201,50 @@ func (d *Daemon) fire(scheduleID string, source execution.TriggerSource) error {
 	if !ok {
 		return fmt.Errorf("schedule %s not found", scheduleID)
 	}
-	targets := make([]execution.TargetRef, len(s.Targets))
-	for i, t := range s.Targets {
-		targets[i] = execution.TargetRef{Kind: t.Kind, ID: t.ID}
+	if d.runner == nil {
+		return errors.New("workflow runner not injected")
 	}
-	var dl *time.Time
+	runCtx := ctx
+	var cancel context.CancelFunc
 	if s.TimeoutMinutes > 0 {
-		t := time.Now().Add(time.Duration(s.TimeoutMinutes) * time.Minute)
-		dl = &t
+		runCtx, cancel = context.WithTimeout(ctx, time.Duration(s.TimeoutMinutes)*time.Minute)
+		defer cancel()
 	}
-	onErr := execution.OnErrorMode(s.OnError)
-	if onErr == "" {
-		onErr = execution.OnErrorStop
+	var runErr error
+	started := 0
+	for index, target := range s.Targets {
+		if target.Kind != "workflow" {
+			err := fmt.Errorf("schedule target %d has unsupported kind %q", index, target.Kind)
+			runErr = errors.Join(runErr, err)
+			if s.OnError != "continue" {
+				break
+			}
+			continue
+		}
+		if err := d.runner.StartWorkflow(runCtx, target.ID); err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("start workflow %q: %w", target.ID, err))
+			if s.OnError != "continue" {
+				break
+			}
+			continue
+		}
+		started++
 	}
-	run := execution.QueuedRun{
-		Targets:  targets,
-		OnError:  onErr,
-		Deadline: dl,
-		Source:   source,
-	}
-	if _, ok := d.queue.Enqueue(run); !ok {
-		return errors.New("execution queue closed")
-	}
-	// 记录 fire 时间
+	// StartWorkflow returns only after the durable QUEUED Run exists, so the
+	// schedule status never claims a notification that admission did not commit.
 	now := time.Now()
 	if cur, ok := d.store.Get(scheduleID); ok {
 		cur.LastFiredAt = &now
-		cur.LastStatus = "queued"
+		if started > 0 {
+			cur.LastStatus = "queued"
+		} else {
+			cur.LastStatus = "failed"
+		}
 		if err := d.store.Save(&cur); err != nil {
-			return fmt.Errorf("persist schedule %s fired status: %w", scheduleID, err)
+			runErr = errors.Join(runErr, fmt.Errorf("persist schedule %s fired status: %w", scheduleID, err))
 		}
 	}
-	return nil
+	return runErr
 }
 
 // buildCronSpec subKind=daily + at="HH:MM" → "M H * * *"

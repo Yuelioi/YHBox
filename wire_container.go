@@ -10,18 +10,14 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/singleflight"
 
 	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/services/asset"
-	"github.com/yottaapp/yotta/internal/services/container"
-	"github.com/yottaapp/yotta/internal/services/execution"
 	"github.com/yottaapp/yotta/internal/services/expr"
 	"github.com/yottaapp/yotta/pkg/vision"
 )
@@ -448,128 +444,4 @@ func (m *templateMatcherAdapter) matchAllInROI(frame *image.RGBA, tpl *vision.Te
 		})
 	}
 	return out
-}
-
-// ---- Container Runner: ExecutionQueue + Worker → container.Runner ----
-//
-// container.Service 暴露给前端的 Run / StopAll 走这条；source=manual。
-
-type containerRunnerAdapter struct {
-	queue  *execution.ExecutionQueue
-	worker *execution.Worker
-	debug  *containerDebugManager
-}
-
-func (a *containerRunnerAdapter) RunOnce(id string) error {
-	if a.debug != nil && a.debug.IsActive() {
-		return fmt.Errorf("debug_session_busy")
-	}
-	_, ok := a.queue.Enqueue(execution.QueuedRun{
-		Targets: []execution.TargetRef{{Kind: "container", ID: id}},
-		OnError: execution.OnErrorStop,
-		Source:  execution.SourceManual,
-	})
-	if !ok {
-		return fmt.Errorf("execution queue closed")
-	}
-	return nil
-}
-
-func (a *containerRunnerAdapter) StopAll() error {
-	a.queue.CancelAll()
-	a.worker.CancelCurrent()
-	if a.debug != nil && a.debug.IsActive() {
-		_, _ = a.debug.DebugStop(a.debug.sessionID())
-	}
-	return nil
-}
-
-func (a *containerRunnerAdapter) DebugStart(id string, options container.DebugStartOptions) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugStart(id, options)
-}
-
-func (a *containerRunnerAdapter) DebugStep(sessionID string) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugStep(sessionID)
-}
-
-func (a *containerRunnerAdapter) DebugContinue(sessionID string) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugContinue(sessionID)
-}
-
-func (a *containerRunnerAdapter) DebugPause(sessionID string) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugPause(sessionID)
-}
-
-func (a *containerRunnerAdapter) DebugStop(sessionID string) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugStop(sessionID)
-}
-
-func (a *containerRunnerAdapter) DebugState(sessionID string) (container.DebugSessionState, error) {
-	if a.debug == nil {
-		return container.DebugSessionState{}, errDebugUnavailable()
-	}
-	return a.debug.DebugState(sessionID)
-}
-
-// ---- Container hotkey binder ----
-//
-// 把 container.Hotkey（用户在 ContainerEditor 底栏配的字符串）注册到 hotkey
-// registry。按下后 enqueue 单 target manual run。CRUD 后 Refresh()：
-// unregister 所有旧 entries → 重扫 container store → 注册当前列表。
-
-type containerHotkeyBinder struct {
-	store    *container.Store
-	registry *hotkey.HotkeyRegistry
-	queue    *execution.ExecutionQueue
-	mu       sync.Mutex
-	bound    map[string]string // containerID → registry key
-}
-
-func newContainerHotkeyBinder(store *container.Store, reg *hotkey.HotkeyRegistry, q *execution.ExecutionQueue) *containerHotkeyBinder {
-	return &containerHotkeyBinder{store: store, registry: reg, queue: q, bound: map[string]string{}}
-}
-
-func (b *containerHotkeyBinder) Refresh() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	for _, key := range b.bound {
-		_ = b.registry.Unregister(key)
-	}
-	b.bound = map[string]string{}
-	for _, c := range b.store.List() {
-		hk := strings.TrimSpace(c.Hotkey)
-		if hk == "" {
-			continue
-		}
-		key := "container." + c.ID
-		cid := c.ID
-		err := b.registry.Register(key, hotkey.HotkeySourceContainer,
-			"hotkeys.label.container", map[string]string{"name": c.Name},
-			hk, "",
-			func() {
-				_, _ = b.queue.Enqueue(execution.QueuedRun{
-					Targets: []execution.TargetRef{{Kind: "container", ID: cid}},
-					OnError: execution.OnErrorStop,
-					Source:  execution.SourceHotkey,
-				})
-			})
-		if err == nil {
-			b.bound[c.ID] = key
-		}
-	}
 }

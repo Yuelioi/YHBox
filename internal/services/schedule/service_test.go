@@ -33,7 +33,7 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "container", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
 	if err := svc.Save(sc); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	want := errors.New("reload failed")
 	ConfigureChangeListener(svc, func() error { return want })
 	schedule, _ := svc.Create("x")
-	schedule.Targets = []TargetRef{{Kind: "container", ID: "c1"}}
+	schedule.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
 	if err := svc.Save(schedule); !errors.Is(err, want) {
 		t.Fatalf("Save error = %v, want reload failure", err)
 	} else {
@@ -64,7 +64,7 @@ func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "container", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
 	_ = svc.Save(sc)
 	originalID := sc.ID
 
@@ -89,7 +89,7 @@ func TestScheduleService_Delete(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: "container", ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: "workflow", ID: "c1"}}
 	_ = svc.Save(sc)
 	if err := svc.Delete(sc.ID); err != nil {
 		t.Fatalf("Delete: %v", err)

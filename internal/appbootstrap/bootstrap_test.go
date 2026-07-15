@@ -59,7 +59,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		t.Fatalf("ListSources = %#v", listed)
 	}
 	started, err := service.StartRun(saved.WorkflowID)
-	if err != nil || started.Run == nil || started.Run.Status != run31.StatusQueued || started.ProgramHash != compiled.ProgramHash {
+	if err != nil || started.Run == nil || started.Run.Status != string(run31.StatusQueued) || started.ProgramHash != compiled.ProgramHash {
 		t.Fatalf("StartRun = %#v, %v", started, err)
 	}
 	deadline := time.After(5 * time.Second)
@@ -68,7 +68,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		case event := <-events:
 			if event.RunID == started.Run.RunID && event.Status == run31.StatusSucceeded {
 				timeline, err := service.GetRunTimeline(event.RunID)
-				if err != nil || timeline.Status != run31.StatusSucceeded || len(timeline.Timeline) != 2 || timeline.Failure != nil {
+				if err != nil || timeline.Status != string(run31.StatusSucceeded) || len(timeline.Timeline) != 2 || timeline.Failure != nil {
 					t.Fatalf("GetRunTimeline = %#v, %v", timeline, err)
 				}
 				if catalog := service.GetCatalog(); !strings.Contains(catalog, `"version":"3.1"`) {

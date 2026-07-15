@@ -20,8 +20,8 @@ func (s *Schedule) Validate() error {
 		return errors.New("targets 不能为空")
 	}
 	for i, t := range s.Targets {
-		if t.Kind != "container" {
-			return fmt.Errorf("targets[%d].kind 必须 \"container\"，got %q", i, t.Kind)
+		if t.Kind != "workflow" {
+			return fmt.Errorf("targets[%d].kind 必须 \"workflow\"，got %q", i, t.Kind)
 		}
 		if t.ID == "" {
 			return fmt.Errorf("targets[%d].id 不能为空", i)

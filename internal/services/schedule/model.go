@@ -6,7 +6,7 @@ import "time"
 
 const CurrentSchemaVersion = 1
 
-// TargetRef Schedule 触发后要跑的目标。v1 仅支持 kind="container"。
+// TargetRef Schedule 触发后要跑的 Workflow Source。
 type TargetRef struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`

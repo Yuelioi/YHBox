@@ -5,10 +5,26 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
-
-	"github.com/yottaapp/yotta/internal/services/execution"
 )
+
+type fakeWorkflowRunner struct {
+	mu  sync.Mutex
+	ids []string
+	err error
+}
+
+func (f *fakeWorkflowRunner) StartWorkflow(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ids = append(f.ids, id)
+	return f.err
+}
+
+func (f *fakeWorkflowRunner) started() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.ids...)
+}
 
 type fakeRegistrar struct {
 	mu            sync.Mutex
@@ -79,9 +95,9 @@ func TestDaemonHotkeyFire(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue := execution.NewExecutionQueue()
+	runner := &fakeWorkflowRunner{}
 	registrar := newFakeRegistrar()
-	daemon := NewDaemon(store, queue, registrar)
+	daemon := NewDaemon(store, runner, registrar)
 
 	// 注册一个 hotkey schedule
 	sc := &Schedule{
@@ -89,7 +105,7 @@ func TestDaemonHotkeyFire(t *testing.T) {
 		ID:            "test-1",
 		Name:          "test",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "container", ID: "C1"}},
+		Targets:       []TargetRef{{Kind: "workflow", ID: "C1"}},
 		Trigger:       Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"},
 		OnError:       "stop",
 	}
@@ -100,32 +116,23 @@ func TestDaemonHotkeyFire(t *testing.T) {
 	defer daemon.Stop()
 
 	registrar.Fire("schedule.test-1")
-	time.Sleep(50 * time.Millisecond)
-
-	snap := queue.Snapshot()
-	if len(snap) != 1 {
-		t.Fatalf("expected 1 queued run, got %d", len(snap))
-	}
-	if snap[0].Targets[0].ID != "C1" {
-		t.Errorf("wrong target: %+v", snap[0].Targets[0])
-	}
-	if snap[0].Source != execution.SourceHotkey {
-		t.Errorf("wrong source: %v", snap[0].Source)
+	if started := runner.started(); len(started) != 1 || started[0] != "C1" {
+		t.Fatalf("started workflows = %#v", started)
 	}
 }
 
 func TestDaemonFireManual(t *testing.T) {
 	tmp := t.TempDir()
 	store, _ := NewStore(tmp)
-	queue := execution.NewExecutionQueue()
-	daemon := NewDaemon(store, queue, newFakeRegistrar())
+	runner := &fakeWorkflowRunner{}
+	daemon := NewDaemon(store, runner, newFakeRegistrar())
 
 	sc := &Schedule{
 		SchemaVersion: 1,
 		ID:            "m-1",
 		Name:          "manual",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "container", ID: "X"}},
+		Targets:       []TargetRef{{Kind: "workflow", ID: "X"}},
 		Trigger:       Trigger{Kind: "manual"},
 	}
 	_ = store.Save(sc)
@@ -133,9 +140,8 @@ func TestDaemonFireManual(t *testing.T) {
 	if err := daemon.FireManual("m-1"); err != nil {
 		t.Fatal(err)
 	}
-	snap := queue.Snapshot()
-	if len(snap) != 1 || snap[0].Source != execution.SourceManual {
-		t.Errorf("manual fire bad: %+v", snap)
+	if started := runner.started(); len(started) != 1 || started[0] != "X" {
+		t.Fatalf("manual fire = %#v", started)
 	}
 }
 
@@ -144,7 +150,7 @@ func TestDaemonStartStopAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	daemon := NewDaemon(store, execution.NewExecutionQueue(), nil)
+	daemon := NewDaemon(store, &fakeWorkflowRunner{}, nil)
 
 	daemon.Start()
 	daemon.Start()
@@ -158,7 +164,7 @@ func TestDaemonStopBeforeStartPreventsLateStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	daemon := NewDaemon(store, execution.NewExecutionQueue(), nil)
+	daemon := NewDaemon(store, &fakeWorkflowRunner{}, nil)
 
 	daemon.Stop()
 	daemon.Start()
@@ -177,7 +183,7 @@ func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 	registrar := newFakeRegistrar()
-	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon := NewDaemon(store, &fakeWorkflowRunner{}, registrar)
 	daemon.Reload()
 
 	registrar.mu.Lock()
@@ -190,13 +196,13 @@ func TestDaemonReloadBeforeStartIsNoop(t *testing.T) {
 func TestDaemonReloadReportsHotkeyCleanupErrors(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
 	schedule := &Schedule{SchemaVersion: 1, ID: "reload", Name: "reload", Enabled: true,
-		Targets: []TargetRef{{Kind: "container", ID: "C1"}}, Trigger: Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"}}
+		Targets: []TargetRef{{Kind: "workflow", ID: "C1"}}, Trigger: Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"}}
 	if err := store.Save(schedule); err != nil {
 		t.Fatal(err)
 	}
 	want := errors.New("unregister failed")
 	registrar := newFakeRegistrar()
-	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon := NewDaemon(store, &fakeWorkflowRunner{}, registrar)
 	daemon.Start()
 	registrar.unregisterErr = want
 	if err := daemon.Reload(); !errors.Is(err, want) {
@@ -223,7 +229,7 @@ func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
 		ID:            "cleanup",
 		Name:          "cleanup",
 		Enabled:       true,
-		Targets:       []TargetRef{{Kind: "container", ID: "C1"}},
+		Targets:       []TargetRef{{Kind: "workflow", ID: "C1"}},
 		Trigger:       Trigger{Kind: "hotkey", Hotkey: "Ctrl+Shift+1"},
 	}
 	if err := store.Save(schedule); err != nil {
@@ -232,7 +238,7 @@ func TestDaemonStopAggregatesHotkeyCleanupErrors(t *testing.T) {
 	cleanupFailure := errors.New("unregister failed")
 	registrar := newFakeRegistrar()
 	registrar.unregisterErr = cleanupFailure
-	daemon := NewDaemon(store, execution.NewExecutionQueue(), registrar)
+	daemon := NewDaemon(store, &fakeWorkflowRunner{}, registrar)
 	daemon.Start()
 
 	if err := daemon.StopContext(context.Background()); !errors.Is(err, cleanupFailure) {

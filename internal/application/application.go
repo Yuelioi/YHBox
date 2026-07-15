@@ -282,6 +282,30 @@ func (a *Application) CancelRun(ctx context.Context, runID string) (run31.Record
 	return next, nil
 }
 
+func (a *Application) CancelAll(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("cancel all Runs context is required")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	if err := a.requireRunning(); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	runIDs := make([]string, 0, len(a.jobs))
+	for runID := range a.jobs {
+		runIDs = append(runIDs, runID)
+	}
+	a.mu.Unlock()
+	var cancelErr error
+	for _, runID := range runIDs {
+		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run31.ErrRunConflict) {
+			cancelErr = errors.Join(cancelErr, err)
+		}
+	}
+	return cancelErr
+}
+
 func (a *Application) Close(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("application close context is required")

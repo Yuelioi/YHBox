@@ -6,38 +6,34 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
+	"github.com/yottaapp/yotta/internal/appbootstrap"
+	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
-	"github.com/yottaapp/yotta/internal/runclassify"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
 	"github.com/yottaapp/yotta/internal/services/asset"
-	"github.com/yottaapp/yotta/internal/services/browsercdp"
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/codesnippet"
 	"github.com/yottaapp/yotta/internal/services/container"
-	containerruntime "github.com/yottaapp/yotta/internal/services/container/runtime"
-	"github.com/yottaapp/yotta/internal/services/execution"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
-	mcpserver "github.com/yottaapp/yotta/internal/services/mcpserver"
 	"github.com/yottaapp/yotta/internal/services/nodeoptions"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
+	"github.com/yottaapp/yotta/internal/services/workflow31"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/platform"
 	"github.com/yottaapp/yotta/pkg/screenshot"
@@ -94,7 +90,7 @@ func main() {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 14)
+	wailsServices := make([]application.Service, 0, 15)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -102,12 +98,6 @@ func main() {
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
-
-	// AI 节点用的按连接缓存 Provider 服务(进程级单例)。getter 每次读 live settings 快照,
-	// 改连接 endpoint/key 后指纹自愈重建。注入进每个 ContainerRunner。
-	aiProviderCache := services.NewAIProviderCache(func() *services.Settings {
-		return app.Settings()
-	}, aiSecrets)
 
 	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
 	dataDir := "data"
@@ -118,6 +108,37 @@ func main() {
 	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
 	if err := os.Setenv("YOTTA_DATA_DIR", dataDir); err != nil {
 		rootLog.Error().Err(err).Str("tag", "SYSTEM").Msg("set image output data directory")
+	}
+	const runGrantTTL = 5 * time.Minute
+	workflowPolicy, err := appbootstrap.NewBuiltinPolicy(time.Now, runGrantTTL)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow policy init")
+	}
+	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
+		DataRoot: dataDir,
+		Limits: appbootstrap.Limits{
+			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
+			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
+			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
+		},
+		Policy: workflowPolicy, GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
+		OnRunEvent: func(event app31.RunEvent) {
+			payload := map[string]any{
+				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
+			}
+			if event.Err != nil {
+				payload["failed"] = true
+				rootLog.Warn().Err(event.Err).Str("tag", "RUN").Str("runId", event.RunID).Msg("workflow Run completed with error")
+			}
+			app.Emit("run:changed", payload)
+		},
+	})
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow runtime init")
+	}
+	workflowSvc, err := workflow31.NewService(workflowRuntime.Application)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow service init")
 	}
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
@@ -183,9 +204,6 @@ func main() {
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
-	browserCDPSvc := browsercdp.NewService("")
-	browserCDPProvider := browsercdp.NewClientProvider(browserCDPSvc)
-
 	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
 	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
 	assetStore, err := asset.NewStore(dataDir)
@@ -247,115 +265,20 @@ func main() {
 	// 编辑器用户代码片段 (Script/Expr 放大编辑「片段」菜单): <dataDir>/snippets.json 整存整取.
 	codeSnippetSvc := codesnippet.NewService(filepath.Join(dataDir, "snippets.json"))
 
-	// ---- 运行时层：ExecutionQueue + Worker + ScheduleDaemon ----
-	//
-	// 键鼠独占：单 worker，串行消费 queue；hotkey/schedule/UI 触发都进同一 queue。
-	execQueue := execution.NewExecutionQueue()
-	inputBus := execution.NewInputBus()
-
-	// 真模板匹配 + 真颜色检测
-	// input backend 由 ContainerRunner.setupRuntime 从 Win32WindowTarget 节点解析, 不走 main.go 全局注入.
-	// 资产全局 (asset.Store): matcher 按 guid 匹配, scaleTolerance 由 VisionAdapter (有容器上下文) 传入.
-	//
-	// container:warning emit 同时 zerolog.Warn — 让 warning 进
-	// logs/yotta-*.log (LogSink) 给 post-mortem 用.
-	templateMatcher := newTemplateMatcherAdapter(assetStore, func(name string, payload map[string]any) {
-		app.Emit(name, payload)
-	})
-	// 用户在编辑器里存/删/重拍资产后, 让 matcher 丢弃解码缓存 (否则重拍换 blob 后旧图还在匹配).
-	asset.ConfigureChangeListener(assetSvc, templateMatcher.Invalidate)
-	// InputClip: 全局 clip Service (asset clip kind). 提前构造以便注入 PlayClip 节点需要的 ClipResolver.
+	// InputClip remains an authoring asset service. Runtime access moves behind
+	// explicit 3.1 capabilities as the corresponding nodes are migrated.
 	clipSvc := newClipService(assetStore)
 
-	// Worker.RunFunc：load container → 构造 ContainerRunner → Run
-	// container:warning 也走 zerolog 落盘 (跟 templateMatcher 同款).
-	emitForRuntime := func(name string, data any) {
-		app.Emit(name, data)
-	}
-	newRunnerForContainer := func(containerID string) (*containerruntime.ContainerRunner, error) {
-		c, ok := containerStore.Get(containerID)
-		if !ok {
-			return nil, fmt.Errorf("container %q not found", containerID)
-		}
-		rt := containerruntime.NewRuntimeContext(
-			&c, inputBus, templateMatcher,
-			newGameProviderAdapter(), emitForRuntime,
-			clipSvc, app.Settings().ActiveMouseCounts360(),
-		)
-		rt.ControllerFactory = containerruntime.DefaultControllerFactory{BrowserCDP: browserCDPProvider}
-		rt.SetDiagnosticsEnabled(app.DiagnosticsEnabled)
-		// 起跑时从全局池解析引用闭包 → 快照进 rt (跑中不回查 store, 编辑不影响在跑实例).
-		rt.Subgraphs = subgraphClosureFor(&c, sgStore)
-		r := containerruntime.NewContainerRunner(rt)
-		// 把 zerolog 注入到 ServiceBundle.Log, dispatch 真节点时生效.
-		r.SetLogger(rootLog.With().Str("source", "CTR").Str("containerId", containerID).Logger())
-		r.SetAIProvider(aiProviderCache)
-		return r, nil
-	}
-	runFunc := func(ctx context.Context, target execution.TargetRef) error {
-		if target.Kind != "container" {
-			return fmt.Errorf("unsupported target kind %q", target.Kind)
-		}
-		r, err := newRunnerForContainer(target.ID)
-		if err != nil {
-			return err
-		}
-		return r.Run(ctx)
-	}
-	worker := execution.NewWorker(execQueue, runFunc, func(s execution.WorkerState) {
-		app.Emit("execution:state", s)
-	}, runclassify.RunError)
-	// 给 containerSvc 注入运行入口 — 前端 ▶ 按钮走 Run，■ 走 StopAll
-	debugManager := newContainerDebugManager(newRunnerForContainer, func(name string, data any) {
-		app.Emit(name, data)
-	}, worker.IsRunning)
-	container.ConfigureRunner(containerSvc, &containerRunnerAdapter{queue: execQueue, worker: worker, debug: debugManager})
+	container.ConfigureChangeListener(containerSvc, func() { app.Emit("container:changed", map[string]any{}) })
 
-	// MCP 对外暴露 server (③): 复用执行标准件, 后台起 Streamable HTTP.
-	mcpSrv := mcpserver.NewServer(mcpserver.Deps{
-		Store:       containerStore,
-		InputBus:    inputBus,
-		Matcher:     templateMatcher,
-		Game:        newGameProviderAdapter(),
-		Clip:        clipSvc,
-		MouseCounts: func() int { return app.Settings().ActiveMouseCounts360() },
-		Armed:       func() bool { return app.Settings().MCP.Armed },
-		Busy:        worker.IsRunning,
-	})
-	mcpCore := server.NewMCPServer("yotta-mcp", "0.1.0")
-	mcpSrv.Register(mcpCore)
-	mcpMux := http.NewServeMux()
-	mcpMux.Handle("/mcp", server.NewStreamableHTTPServer(mcpCore))
-	mcpHTTP := appruntime.NewHTTPServer("127.0.0.1:8765", mcpMux)
-
-	// Container hotkey 绑定：扫所有容器，把 container.hotkey 注册到 registry。
-	// CRUD 后经 ConfigureChangeListener 重扫一次。触发后入队单 target manual run。
-	containerHotkeys := newContainerHotkeyBinder(containerStore, hotkeyRegistry, execQueue)
-	containerHotkeys.Refresh()
-	container.ConfigureChangeListener(
-		containerSvc,
-		containerChangeListener(containerHotkeys.Refresh, app.Emit),
-	)
-
-	// 容器热键在「快捷键」中心页 rebind → 回写容器四件套 (直接 store.Save, 不走 service.Update
-	// 以免 emitChange→Refresh→registry 再抢锁死锁; registry entry 已由 Update 更新, 两边一致)。
-	hotkeyRegistry.SetContainerHotkeyChange(func(containerID, newStr string) error {
-		c, ok := containerStore.Get(containerID)
-		if !ok {
-			return nil
-		}
-		c.Hotkey = newStr
-		return containerStore.Save(&c)
-	})
-
-	// ScheduleDaemon：注册 enabled schedules 到 cron/hotkey/once，触发后入 queue
+	// Schedule triggers enter the same durable Workflow Run command as GUI.
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
-	scheduleDaemon := schedule.NewDaemon(scheduleStore, execQueue, scheduleHotkeyAdapter)
+	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{application: workflowRuntime.Application}, scheduleHotkeyAdapter)
 
 	// Schedule CRUD 后重注册 cron / hotkey trigger
 	schedule.ConfigureChangeListener(scheduleSvc, scheduleDaemon.Reload)
 
-	// 全局强停热键：清 execution queue + cancel 当前 container worker run。
+	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
 	stopAllHk := strings.TrimSpace(app.Settings().UI.ActionStopHotkey)
 	if stopAllHk == "" {
@@ -364,7 +287,7 @@ func main() {
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.execution_stop", nil, stopAllHk, "",
 		func() {
-			stopAllForHotkey(containerSvc.StopAll, rootLog)
+			stopAllForHotkey(func() error { return workflowRuntime.Application.CancelAll(context.Background()) }, rootLog)
 		}); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", stopAllHk).Msg("注册全局强停热键失败")
 	}
@@ -466,25 +389,19 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
 	}
 
-	// Runtime resources are declared in dependency order and close in reverse:
-	// UI/tool activity first, then interactive hooks, producers, and the worker.
+	// Runtime resources are declared in dependency order and close in reverse.
+	// Triggers stop before the single Workflow worker and its Run Owners.
 	applicationRuntime := appruntime.New(
 		appruntime.Resource{
-			Name:  "execution-worker",
-			Start: func(context.Context) error { worker.Start(); return nil },
-			Close: worker.StopContext,
-		},
-		appruntime.Resource{
-			Name:  "debug-manager",
-			Start: func(context.Context) error { return nil },
-			Close: debugManager.CloseContext,
+			Name:  "workflow-runtime-3.1",
+			Start: workflowRuntime.Start,
+			Close: workflowRuntime.Close,
 		},
 		appruntime.Resource{
 			Name:  "hotkey-registry",
 			Start: func(context.Context) error { return nil },
 			Close: hotkeyRegistry.Shutdown,
 		},
-		mcpHTTP.Resource("mcp-http"),
 		appruntime.Resource{
 			Name:  "schedule-daemon",
 			Start: func(context.Context) error { scheduleDaemon.Start(); return nil },
@@ -514,6 +431,7 @@ func main() {
 	wailsServices = append(wailsServices,
 		application.NewService(settingsSvc),
 		application.NewService(services.NewAppInfoService()),
+		application.NewService(workflowSvc),
 		application.NewService(hotkeySvc),
 		application.NewService(assetSvc),
 		application.NewService(containerSvc),
@@ -629,13 +547,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "application runtime start failed: %v\n", err)
 		os.Exit(1)
 	}
-	go func() {
-		<-mcpHTTP.Done()
-		if err := mcpHTTP.Err(); err != nil {
-			rootLog.Warn().Err(err).Str("tag", "MCP").Msg("MCP HTTP server 退出")
-		}
-	}()
-	rootLog.Info().Str("tag", "MCP").Msg("MCP server: http://127.0.0.1:8765/mcp")
 	rootLog.Info().Str("tag", "SYSTEM").Str("version", version.Version).Msg("Yotta started")
 
 	// 阻塞直到关窗口

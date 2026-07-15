@@ -8,7 +8,7 @@ import (
 func TestValidate_OK_Cron(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 		Trigger: Trigger{Kind: "cron", SubKind: "daily", At: "05:00"},
 		OnError: "stop",
 	}
@@ -20,7 +20,7 @@ func TestValidate_OK_Cron(t *testing.T) {
 func TestValidate_OK_Manual(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 		Trigger: Trigger{Kind: "manual"},
 		OnError: "stop",
 	}
@@ -40,7 +40,7 @@ func TestValidate_EmptyTargets(t *testing.T) {
 func TestValidate_BadTriggerKind(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 		Trigger: Trigger{Kind: "weird"},
 		OnError: "stop",
 	}
@@ -55,7 +55,7 @@ func TestValidate_CronDailyBadTime(t *testing.T) {
 	for _, at := range cases {
 		s := &Schedule{
 			SchemaVersion: 1, ID: "x", Name: "ok",
-			Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+			Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 			Trigger: Trigger{Kind: "cron", SubKind: "daily", At: at},
 			OnError: "stop",
 		}
@@ -68,7 +68,7 @@ func TestValidate_CronDailyBadTime(t *testing.T) {
 func TestValidate_CronIntervalBadMinutes(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 		Trigger: Trigger{Kind: "cron", SubKind: "interval", EveryMinutes: 0},
 		OnError: "stop",
 	}
@@ -80,7 +80,7 @@ func TestValidate_CronIntervalBadMinutes(t *testing.T) {
 func TestValidate_BadOnError(t *testing.T) {
 	s := &Schedule{
 		SchemaVersion: 1, ID: "x", Name: "ok",
-		Targets: []TargetRef{{Kind: "container", ID: "c1"}},
+		Targets: []TargetRef{{Kind: "workflow", ID: "c1"}},
 		Trigger: Trigger{Kind: "manual"},
 		OnError: "weird",
 	}

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 14,
-    "methods": 118,
-    "models": 102
+    "services": 15,
+    "methods": 126,
+    "models": 112
   },
   "services": [
     {
@@ -1478,6 +1478,100 @@
           "bindingId": "3703751610",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/workflow31/service",
+      "methods": [
+        {
+          "name": "CancelRun",
+          "bindingId": "579970475",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RunView>"
+        },
+        {
+          "name": "CompileDraft",
+          "bindingId": "1136108380",
+          "parameters": [
+            {
+              "name": "sourceJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CompileView>"
+        },
+        {
+          "name": "GetCatalog",
+          "bindingId": "1728261139",
+          "parameters": [],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "GetRunTimeline",
+          "bindingId": "631286106",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RunView>"
+        },
+        {
+          "name": "GetSource",
+          "bindingId": "1833828377",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "ListSources",
+          "bindingId": "1792672122",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.SourceView[]>"
+        },
+        {
+          "name": "SaveSource",
+          "bindingId": "3628422128",
+          "parameters": [
+            {
+              "name": "sourceJSON",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRevision",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "StartRun",
+          "bindingId": "1934942441",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.StartRunView>"
         }
       ]
     }
@@ -4742,6 +4836,362 @@
               "name": "\"B\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/workflow31/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "CompileView",
+          "fields": [
+            {
+              "name": "\"sourceHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"programHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"diagnostics\"",
+              "optional": false,
+              "type": "schema$0.Diagnostic[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FailureView",
+          "fields": [
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"retryable\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"graphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"attempt\"",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RunView",
+          "fields": [
+            {
+              "name": "\"runId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"generation\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"recordDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"programHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"queuedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"failure\"",
+              "optional": true,
+              "type": "FailureView | null"
+            },
+            {
+              "name": "\"timeline\"",
+              "optional": false,
+              "type": "TimelineEntry[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SourceView",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"sourceJson\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "StartRunView",
+          "fields": [
+            {
+              "name": "\"sourceHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"programHash\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"diagnostics\"",
+              "optional": false,
+              "type": "schema$0.Diagnostic[]"
+            },
+            {
+              "name": "\"run\"",
+              "optional": true,
+              "type": "RunView | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SummaryView",
+          "fields": [
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"counters\"",
+              "optional": false,
+              "type": "{ [_ in string]?: number }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TimelineEntry",
+          "fields": [
+            {
+              "name": "\"sequence\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"effectId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"attempt\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"action\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"attemptOutcome\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"actionOutcome\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"occurredAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"errorCode\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"statusCode\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"statusCategory\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "SummaryView"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/workflow/schema/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Diagnostic",
+          "fields": [
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"severity\"",
+              "optional": false,
+              "type": "Severity"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fieldPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"params\"",
+              "optional": true,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"fix\"",
+              "optional": true,
+              "type": "DiagnosticFix | null"
+            },
+            {
+              "name": "\"message\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DiagnosticFix",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fieldPath\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"value\"",
+              "optional": true,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "Severity",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "SeverityError",
+              "value": "\"error\""
+            },
+            {
+              "name": "SeverityWarning",
+              "value": "\"warning\""
+            },
+            {
+              "name": "SeverityInfo",
+              "value": "\"info\""
             }
           ]
         }
