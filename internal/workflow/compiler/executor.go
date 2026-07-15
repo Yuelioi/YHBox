@@ -16,10 +16,54 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
 	run31 "github.com/yottaapp/yotta/internal/run"
-	"github.com/yottaapp/yotta/internal/runid"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-type Adapter func(context.Context, Invocation) (map[string]datatype.ValueEnvelope, error)
+type Adapter func(context.Context, Invocation) (AdapterResult, error)
+
+type AdapterResult struct {
+	Outputs     map[string]datatype.ValueEnvelope
+	ExecOutputs []string
+}
+
+type NodeFailure struct {
+	Code   string
+	Output string
+	Cause  error
+}
+
+func (f *NodeFailure) Error() string {
+	if f == nil {
+		return "node failure"
+	}
+	if f.Cause != nil {
+		return f.Cause.Error()
+	}
+	return f.Code
+}
+
+func (f *NodeFailure) Unwrap() error {
+	if f == nil {
+		return nil
+	}
+	return f.Cause
+}
+
+type RoutedFailure struct {
+	Code         string
+	Category     string
+	RetryHint    bool
+	SourceNodeID string
+	SourcePortID string
+	Attempt      int
+}
+
+type SignalTrigger struct {
+	Channel   schema.EdgeChannel
+	InputPort string
+	From      schema.Endpoint
+	Failure   *RoutedFailure
+}
 
 type InstalledAdapter struct {
 	Implementation nodecatalog.ImplementationLock
@@ -32,8 +76,10 @@ type Invocation struct {
 	Config       map[string]any
 	Inputs       map[string]datatype.ValueEnvelope
 	Sessions     map[string]*run31.Session
+	Trigger      *SignalTrigger
 	Spawn        func(func(context.Context) error) error
 	RecordAction func(context.Context, AdapterAction) error
+	EmitStatus   func(context.Context, string, map[string]int64) error
 }
 
 type AdapterAction struct {
@@ -51,6 +97,7 @@ type ExecutionResult struct {
 	// NodeOutputs contains only durable envelopes. Runtime authority remains an
 	// executor-local edge value and is reclaimed before Run returns.
 	NodeOutputs map[string]map[string]datatype.ValueEnvelope
+	attempts    map[string]map[string]int
 }
 
 type Executor struct {
@@ -103,13 +150,17 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run3
 	graphID := program.state.document.Body.EntryGraph
 	for nodeID, outputs := range result.NodeOutputs {
 		for portID, envelope := range outputs {
-			valueID, err := runValueID(current.Admission().RunID, graphID, nodeID, portID, 1)
+			attempt := result.attempts[nodeID][portID]
+			if attempt < 1 {
+				return ExecutionResult{}, errors.New("executor result is missing output attempt provenance")
+			}
+			valueID, err := runValueID(current.Admission().RunID, graphID, nodeID, portID, attempt)
 			if err != nil {
 				return ExecutionResult{}, fmt.Errorf("derive Run Value identity: %w", err)
 			}
 			produced = append(produced, run31.ProducedValue{
 				ValueID: valueID, GraphID: graphID,
-				NodeID: nodeID, PortID: portID, Attempt: 1, Envelope: envelope,
+				NodeID: nodeID, PortID: portID, Attempt: attempt, Envelope: envelope,
 			})
 		}
 	}
@@ -190,210 +241,39 @@ func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *
 	if graph == nil {
 		return ExecutionResult{}, errors.New("Program entry graph is missing")
 	}
-	nodes := make(map[string]programNode, len(graph.Nodes))
-	for _, node := range graph.Nodes {
-		nodes[node.ID] = node
-	}
-	result := ExecutionResult{NodeOutputs: make(map[string]map[string]datatype.ValueEnvelope)}
-	retainedBytes := 0
-	sessions := make(map[string]map[string]*run31.Session, len(graph.Nodes))
-	owned := make([]ownedLease, 0)
-	cleanup := func() error {
-		var cleanupErrors []error
-		for index := len(owned) - 1; index >= 0; index-- {
-			if err := owned[index].session.Drop(context.Background(), owned[index].handle); err != nil && !errors.Is(err, resource.ErrUnknownHandle) {
-				cleanupErrors = append(cleanupErrors, err)
-			}
-		}
-		return errors.Join(cleanupErrors...)
-	}
-	completed := false
-	defer func() {
-		if !completed {
-			_ = cleanup()
-		}
-	}()
-	for _, nodeID := range graph.DataOrder {
-		if err := ctx.Err(); err != nil {
-			return ExecutionResult{}, err
-		}
-		node, ok := nodes[nodeID]
-		if !ok {
-			return ExecutionResult{}, fmt.Errorf("Program order references missing node %q", nodeID)
-		}
-		entry, ok := e.catalog.Lookup(node.NodeRef.NodeTypeID)
-		if !ok {
-			return ExecutionResult{}, fmt.Errorf("node type %q is not installed", node.NodeRef.NodeTypeID)
-		}
-		machine := entry.Contract.Machine()
-		installed, ok := e.adapters[node.Implementation.Entrypoint]
-		if !ok || installed.Run == nil || installed.Implementation != node.Implementation {
-			return ExecutionResult{}, fmt.Errorf("adapter %q does not match the Program lock", node.Implementation.Entrypoint)
-		}
-		invocationID, err := runid.New()
-		if err != nil {
-			return ExecutionResult{}, err
-		}
-		nodeSessions := make(map[string]*run31.Session, len(machine.CapabilityRequirements))
-		for _, requirement := range machine.CapabilityRequirements {
-			session, err := owner.Session(graph.ID, node.ID, requirement.ID, invocationID)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			nodeSessions[requirement.ID] = session
-		}
-		sessions[node.ID] = nodeSessions
-		inputs := make(map[string]datatype.ValueEnvelope, len(node.Inputs))
-		for portID, input := range node.Inputs {
-			envelope, sourceNode, sourcePort, err := e.resolveInput(result, input)
-			if err != nil {
-				return ExecutionResult{}, fmt.Errorf("resolve input %s.%s: %w", node.ID, portID, err)
-			}
-			inputPort, exists := dataInputPort(node.Ports, portID)
-			if !exists {
-				return ExecutionResult{}, errors.New("Program input port is missing from its effective contract")
-			}
-			if handle, runtimeKind, ok := runtimeHandle(envelope); ok {
-				if !exists || inputPort.ResourceLease == nil || sourceNode == "" {
-					return ExecutionResult{}, errors.New("runtime authority crossed a data edge without an explicit resource lease")
-				}
-				sourcePlan := nodes[sourceNode]
-				outputPort, exists := dataOutputPort(sourcePlan.Ports, sourcePort)
-				if !exists || outputPort.ResourceLease == nil {
-					return ExecutionResult{}, errors.New("runtime authority source has no explicit resource lease")
-				}
-				if !resourceLeaseAssignable(outputPort.ResourceLease, inputPort.ResourceLease) {
-					return ExecutionResult{}, errors.New("runtime authority edge widens its source resource lease")
-				}
-				lender := sessions[sourceNode][outputPort.ResourceLease.RequirementID]
-				borrower := nodeSessions[inputPort.ResourceLease.RequirementID]
-				borrowedHandle, err := owner.Borrow(ctx, lender, handle, borrower, inputPort.ResourceLease.Operations)
-				if err != nil {
-					return ExecutionResult{}, err
-				}
-				owned = append(owned, ownedLease{session: borrower, handle: borrowedHandle})
-				switch runtimeKind {
-				case datatype.RepresentationStreamRef:
-					envelope, err = datatype.SealStreamRef(e.catalog, envelope.Type(), borrowedHandle)
-				case datatype.RepresentationHandleRef:
-					envelope, err = datatype.SealHandleRef(e.catalog, envelope.Type(), borrowedHandle)
-				}
-				if err != nil {
-					return ExecutionResult{}, err
-				}
-			} else if inputPort.ResourceLease != nil {
-				return ExecutionResult{}, errors.New("resource-leased input received a durable value")
-			}
-			inputs[portID] = envelope
-		}
-		config, err := cloneConfig(node.Config)
-		if err != nil {
-			return ExecutionResult{}, fmt.Errorf("clone config for node %q: %w", node.ID, err)
-		}
-		summary, err := run31.NewRedactedSummary("node.execute", nil)
-		if err != nil {
-			return ExecutionResult{}, err
-		}
-		started, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-			GraphPath: []string{graph.ID}, NodeID: node.ID, Attempt: 1, Outcome: run31.AttemptStarted,
-			OccurredAt: e.now().UTC(), Summary: summary,
-		})
-		if err != nil {
-			return ExecutionResult{}, err
-		}
-		if _, err := journal.Append(ctx, started); err != nil {
-			return ExecutionResult{}, fmt.Errorf("journal node %q start: %w", node.ID, err)
-		}
-		recorder := newAdapterActionRecorder(e, journal, graph.ID, node.ID, machine)
-		outputs, runErr := installed.Run(ctx, Invocation{
-			GraphID: graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
-			Sessions: nodeSessions, Spawn: owner.Go, RecordAction: recorder.Record,
-		})
-		actionErr := recorder.Close()
-		if runErr != nil {
-			if errors.Is(runErr, context.Canceled) || errors.Is(runErr, context.DeadlineExceeded) || ctx.Err() != nil {
-				journalErr := e.cancelAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, summary)
-				return ExecutionResult{}, errors.Join(fmt.Errorf("run node %q: %w", node.ID, runErr), actionErr, journalErr)
-			}
-			code := declaredErrorCode(machine, "runtime.adapter_failed")
-			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, code, summary)
-			return ExecutionResult{}, errors.Join(fmt.Errorf("run node %q: %w", node.ID, runErr), actionErr, journalErr)
-		}
-		if actionErr != nil {
-			if errors.Is(actionErr, context.Canceled) || errors.Is(actionErr, context.DeadlineExceeded) {
-				journalErr := e.cancelAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, summary)
-				return ExecutionResult{}, errors.Join(actionErr, journalErr)
-			}
-			code := "runtime.journal_failed"
-			if errors.Is(actionErr, errAdapterActionFailed) {
-				code = declaredErrorCode(machine, "runtime.adapter_failed")
-			}
-			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, code, summary)
-			return ExecutionResult{}, errors.Join(actionErr, journalErr)
-		}
-		sealed, leases, err := e.validateOutputs(node, outputs, nodeSessions)
-		if err != nil {
-			journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, "runtime.output_invalid", summary)
-			return ExecutionResult{}, errors.Join(err, journalErr)
-		}
-		for _, envelope := range sealed {
-			size := len(envelope.RuntimeArtifact())
-			if size > MaxRunRetainedValueBytes-retainedBytes {
-				journalErr := e.failAttempt(context.WithoutCancel(ctx), journal, graph.ID, node.ID, "runtime.value_budget_exceeded", summary)
-				return ExecutionResult{}, errors.Join(errors.New("run retained value budget exceeded"), journalErr)
-			}
-			retainedBytes += size
-		}
-		owned = append(owned, leases...)
-		result.NodeOutputs[node.ID] = sealed
-		finished, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-			GraphPath: []string{graph.ID}, NodeID: node.ID, Attempt: 1, Outcome: run31.AttemptSucceeded,
-			OccurredAt: e.now().UTC(), Summary: summary,
-		})
-		if err != nil {
-			return ExecutionResult{}, err
-		}
-		if _, err := journal.Append(context.WithoutCancel(ctx), finished); err != nil {
-			return ExecutionResult{}, fmt.Errorf("journal node %q success: %w", node.ID, err)
-		}
-	}
-	if err := owner.Wait(ctx); err != nil {
-		return ExecutionResult{}, err
-	}
-	if err := cleanup(); err != nil {
-		return ExecutionResult{}, err
-	}
-	removeRuntimeOutputs(result.NodeOutputs)
-	completed = true
-	return result, nil
-}
-
-func declaredErrorCode(machine nodecontract.MachineContract, fallback string) string {
-	if len(machine.Errors) > 0 {
-		return machine.Errors[0].Code
-	}
-	return fallback
+	scheduler := newScheduler(e, graph, owner, journal)
+	return scheduler.run(ctx)
 }
 
 type adapterActionRecorder struct {
-	mu         sync.Mutex
-	executor   *Executor
-	journal    *run31.JournalWriter
-	graphID    string
-	nodeID     string
-	expected   map[string]struct{}
-	recorded   map[string]struct{}
-	violation  error
-	outcomeErr error
-	closed     bool
+	mu             sync.Mutex
+	executor       *Executor
+	journal        *run31.JournalWriter
+	graphID        string
+	nodeID         string
+	attempt        int
+	expected       map[string]struct{}
+	declaredErrors map[string]struct{}
+	recorded       map[string]struct{}
+	violation      error
+	outcomeErr     error
+	failureCode    string
+	closed         bool
 }
 
-func newAdapterActionRecorder(executor *Executor, journal *run31.JournalWriter, graphID, nodeID string, machine nodecontract.MachineContract) *adapterActionRecorder {
+func newAdapterActionRecorder(executor *Executor, journal *run31.JournalWriter, graphID, nodeID string, attempt int, machine nodecontract.MachineContract) *adapterActionRecorder {
 	expected := make(map[string]struct{}, len(machine.Execution.Effects))
 	for _, effect := range machine.Execution.Effects {
 		expected[string(effect)] = struct{}{}
 	}
-	return &adapterActionRecorder{executor: executor, journal: journal, graphID: graphID, nodeID: nodeID, expected: expected, recorded: map[string]struct{}{}}
+	declaredErrors := make(map[string]struct{}, len(machine.Errors))
+	for _, declaration := range machine.Errors {
+		declaredErrors[declaration.Code] = struct{}{}
+	}
+	return &adapterActionRecorder{
+		executor: executor, journal: journal, graphID: graphID, nodeID: nodeID, attempt: attempt,
+		expected: expected, declaredErrors: declaredErrors, recorded: map[string]struct{}{},
+	}
 }
 
 func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction) error {
@@ -417,12 +297,17 @@ func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction
 	if _, duplicate := r.recorded[action.EffectID]; duplicate {
 		return reject(errors.New("adapter recorded a declared effect more than once"))
 	}
+	if action.Outcome == run31.ActionFailed {
+		if _, declared := r.declaredErrors[action.ErrorCode]; !declared {
+			return reject(errors.New("adapter action used an undeclared node error code"))
+		}
+	}
 	summary, err := run31.NewRedactedSummary(action.SummaryCode, action.Counters)
 	if err != nil {
 		return reject(err)
 	}
 	fact, err := run31.NewAdapterActionFact(run31.AdapterActionInput{
-		GraphPath: []string{r.graphID}, NodeID: r.nodeID, EffectID: action.EffectID, Attempt: 1,
+		GraphPath: []string{r.graphID}, NodeID: r.nodeID, EffectID: action.EffectID, Attempt: r.attempt,
 		Action: action.Action, Outcome: action.Outcome, OccurredAt: r.executor.now().UTC(), ErrorCode: action.ErrorCode, Summary: summary,
 	})
 	if err != nil {
@@ -435,12 +320,21 @@ func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction
 	switch action.Outcome {
 	case run31.ActionFailed:
 		r.outcomeErr = errAdapterActionFailed
+		if r.failureCode == "" {
+			r.failureCode = action.ErrorCode
+		}
 	case run31.ActionCancelled:
 		if r.outcomeErr == nil {
 			r.outcomeErr = context.Canceled
 		}
 	}
 	return nil
+}
+
+func (r *adapterActionRecorder) FailureCode() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.failureCode
 }
 
 func (r *adapterActionRecorder) Close() error {
@@ -458,9 +352,9 @@ func (r *adapterActionRecorder) Close() error {
 	return r.outcomeErr
 }
 
-func (e *Executor) failAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID, code string, summary run31.RedactedSummary) error {
+func (e *Executor) failAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID string, attempt int, code string, summary run31.RedactedSummary) error {
 	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: 1, Outcome: run31.AttemptFailed,
+		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: attempt, Outcome: run31.AttemptFailed,
 		OccurredAt: e.now().UTC(), ErrorCode: code, Summary: summary,
 	})
 	if err != nil {
@@ -470,9 +364,9 @@ func (e *Executor) failAttempt(ctx context.Context, journal *run31.JournalWriter
 	return err
 }
 
-func (e *Executor) cancelAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID string, summary run31.RedactedSummary) error {
+func (e *Executor) cancelAttempt(ctx context.Context, journal *run31.JournalWriter, graphID, nodeID string, attempt int, summary run31.RedactedSummary) error {
 	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: 1, Outcome: run31.AttemptCancelled,
+		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: attempt, Outcome: run31.AttemptCancelled,
 		OccurredAt: e.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -512,33 +406,29 @@ func (e *Executor) resolveInput(result ExecutionResult, input inputPlan) (dataty
 }
 
 func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype.ValueEnvelope, sessions map[string]*run31.Session) (map[string]datatype.ValueEnvelope, []ownedLease, error) {
-	ports := make(map[string]nodecontract.DataOutputPort, len(node.Ports.DataOutputs))
-	for _, port := range node.Ports.DataOutputs {
-		ports[port.ID] = port
-	}
-	if len(outputs) != len(ports) {
+	if len(outputs) != len(node.Ports.DataOutputs) {
 		return nil, nil, errors.New("adapter output count does not match Node Contract")
 	}
 	sealed := make(map[string]datatype.ValueEnvelope, len(outputs))
 	leases := make([]ownedLease, 0)
-	for portID, envelope := range outputs {
-		port, ok := ports[portID]
+	for _, port := range node.Ports.DataOutputs {
+		envelope, ok := outputs[port.ID]
 		if !ok || !envelope.Valid() {
-			return nil, nil, fmt.Errorf("adapter returned undeclared or invalid output %q", portID)
+			return nil, nil, fmt.Errorf("adapter omitted or returned an invalid output %q", port.ID)
 		}
 		expected, err := resolvedTypeForExactRef(port.Type, e.catalog)
 		if err != nil || !reflect.DeepEqual(envelope.Type(), expected) {
-			return nil, nil, fmt.Errorf("adapter output %q violates its pinned type", portID)
+			return nil, nil, fmt.Errorf("adapter output %q violates its pinned type", port.ID)
 		}
 		if handle, _, runtime := runtimeHandle(envelope); runtime {
 			if port.ResourceLease == nil || sessions[port.ResourceLease.RequirementID] == nil {
-				return nil, nil, fmt.Errorf("adapter output %q has unbound runtime authority", portID)
+				return nil, nil, fmt.Errorf("adapter output %q has unbound runtime authority", port.ID)
 			}
 			leases = append(leases, ownedLease{session: sessions[port.ResourceLease.RequirementID], handle: handle})
 		} else if port.ResourceLease != nil {
-			return nil, nil, fmt.Errorf("adapter output %q omitted declared runtime authority", portID)
+			return nil, nil, fmt.Errorf("adapter output %q omitted declared runtime authority", port.ID)
 		}
-		sealed[portID] = envelope
+		sealed[port.ID] = envelope
 	}
 	return sealed, leases, nil
 }

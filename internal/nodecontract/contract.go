@@ -485,6 +485,9 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	if len(ports.ErrorOutputs) != 0 && len(errorsList) == 0 {
+		return MachineContract{}, errors.New("error output requires a declared node error")
+	}
 	resolver, err := normalizeResolver(draft.InstanceResolver)
 	if err != nil {
 		return MachineContract{}, err
@@ -642,6 +645,15 @@ func normalizeExecution(source ExecutionSpec, ports PortSet, statuses []StatusEv
 			return ExecutionSpec{}, errors.New("pure-data node contains effect or control semantics")
 		}
 	}
+	if source.Class == ExecutionEffect && source.Evaluation == EvaluationPush && len(ports.ExecInputs) == 0 {
+		return ExecutionSpec{}, errors.New("push effect node requires an exec input")
+	}
+	if source.Class == ExecutionControl && (source.Evaluation != EvaluationPush || len(ports.ExecInputs) == 0) {
+		return ExecutionSpec{}, errors.New("control node requires push evaluation and an exec input")
+	}
+	if source.Class == ExecutionEvent && (source.Evaluation != EvaluationPush || len(ports.ExecInputs) != 0) {
+		return ExecutionSpec{}, errors.New("event node requires push evaluation and no exec input")
+	}
 	if source.Cache != CacheNone && (source.Determinism != Deterministic || len(effects) != 0) {
 		return ExecutionSpec{}, errors.New("only deterministic effect-free nodes may cache")
 	}
@@ -698,7 +710,7 @@ func normalizeErrors(source []ErrorSpec) ([]ErrorSpec, error) {
 	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
 	previous := ""
 	for _, item := range result {
-		if item.Code == "" || item.Category == "" || len(item.Code) > MaxIdentifierBytes || item.Code <= previous {
+		if !errorCodePattern.MatchString(item.Code) || item.Category == "" || len(item.Code) > MaxIdentifierBytes || item.Code <= previous {
 			return nil, errors.New("invalid or duplicate node error declaration")
 		}
 		previous = item.Code

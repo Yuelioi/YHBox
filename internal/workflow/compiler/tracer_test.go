@@ -473,6 +473,10 @@ func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, e
 		}
 		return result
 	}
+	class := nodecontract.ExecutionEvent
+	if len(execInputs) != 0 {
+		class = nodecontract.ExecutionControl
+	}
 	contract, err := nodecontract.Seal(nodecontract.Draft{
 		NodeTypeID: nodeID, ConfigSchemaRoot: configID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: configID, Schema: json.RawMessage(fmt.Sprintf(`{"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`, configID))}},
@@ -481,7 +485,7 @@ func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, e
 			ExecInputs: ports(execInputs), ExecOutputs: ports(execOutputs), ErrorOutputs: ports(errorOutputs),
 		},
 		Execution: nodecontract.ExecutionSpec{
-			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID("https://schemas.yotta.dev/effects/test/" + name + "/v1")},
+			Class: class, Effects: []nodecontract.EffectID{},
 			Determinism: nodecontract.Deterministic, Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone,
 			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
 		},

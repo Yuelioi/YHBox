@@ -181,6 +181,48 @@ func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
 	}
 }
 
+func TestSealEnforcesEventControlAndPushEffectEntrySemantics(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEvent
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	if _, err := Seal(draft); err != nil {
+		t.Fatalf("valid event contract: %v", err)
+	}
+	draft.Ports.ExecInputs = []SignalPort{{ID: "in"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an event with an exec input")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Execution.Class = ExecutionControl
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a control node without an exec input")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/test/push/v1"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a push effect without an exec input")
+	}
+}
+
+func TestSealRejectsErrorOutputWithoutStructuredErrorDeclaration(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEvent
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	draft.Ports.ErrorOutputs = []SignalPort{{ID: "failed"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an error output without an ErrorSpec")
+	}
+}
+
 func TestSealBindsResourcePortsToExactCapabilityOperations(t *testing.T) {
 	draft := concatContractDraftForTest()
 	draft.Execution.Class = ExecutionEffect

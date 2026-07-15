@@ -56,26 +56,26 @@ func trustedEntry(builtins nodes31.Builtins, nodeTypeID string) (nodecatalog.Ent
 }
 
 func concatAdapter(builtins nodes31.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+	return func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 		a, aOK := invocation.Inputs["a"]
 		b, bOK := invocation.Inputs["b"]
 		if !aOK || !bOK || len(a.InlineJSON()) == 0 || len(b.InlineJSON()) == 0 {
-			return nil, errors.New("concat requires inline inputs a and b")
+			return compiler.AdapterResult{}, errors.New("concat requires inline inputs a and b")
 		}
 		outputs, err := nodes31.Concat(ctx, map[string]json.RawMessage{"a": a.InlineJSON(), "b": b.InlineJSON()})
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		result, err := datatype.SealInlineJSON(builtins.Catalog, a.Type(), outputs["result"])
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
-		return map[string]datatype.ValueEnvelope{"result": result}, nil
+		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": result}}, nil
 	}
 }
 
 func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ map[string]datatype.ValueEnvelope, runErr error) {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
@@ -85,36 +85,36 @@ func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
 		}()
 		input, ok := invocation.Inputs["blob"]
 		if !ok {
-			return nil, errors.New("blob-to-stream input is missing")
+			return compiler.AdapterResult{}, errors.New("blob-to-stream input is missing")
 		}
 		ref, ok := input.BlobRef()
 		if !ok {
-			return nil, errors.New("blob-to-stream input is not a BlobRef")
+			return compiler.AdapterResult{}, errors.New("blob-to-stream input is not a BlobRef")
 		}
 		counters["bytes"] = ref.Size
 		blobSession, streamSession := invocation.Sessions["blob-read"], invocation.Sessions["stream"]
 		if blobSession == nil || streamSession == nil {
-			return nil, errors.New("blob-to-stream capability session is missing")
+			return compiler.AdapterResult{}, errors.New("blob-to-stream capability session is missing")
 		}
 		readConfig, err := artifact.Marshal(blob.ReadConfig{Blob: ref})
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		reader, err := blobSession.Open(ctx, []string{blob.OperationReadRange}, readConfig)
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		streamConfig, err := artifact.Marshal(stream.Config{Capacity: 4, MaxChunkBytes: conversionChunkBytes})
 		if err != nil {
 			_ = blobSession.Drop(context.Background(), reader)
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		streamHandle, err := streamSession.Open(ctx, []string{
 			stream.OperationCancel, stream.OperationFinish, stream.OperationReceive, stream.OperationSend,
 		}, streamConfig)
 		if err != nil {
 			_ = blobSession.Drop(context.Background(), reader)
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		if err := invocation.Spawn(func(taskCtx context.Context) (taskErr error) {
 			defer func() { taskErr = errors.Join(taskErr, blobSession.Drop(context.Background(), reader)) }()
@@ -143,18 +143,18 @@ func blobToStream(builtins nodes31.Builtins) compiler.Adapter {
 		}); err != nil {
 			_ = blobSession.Drop(context.Background(), reader)
 			_ = streamSession.Drop(context.Background(), streamHandle)
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		envelope, err := datatype.SealStreamRef(builtins.Catalog, input.Type(), streamHandle)
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
-		return map[string]datatype.ValueEnvelope{"stream": envelope}, nil
+		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"stream": envelope}}, nil
 	}
 }
 
 func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
-	return func(ctx context.Context, invocation compiler.Invocation) (_ map[string]datatype.ValueEnvelope, runErr error) {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
 		counters := map[string]int64{}
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
@@ -164,27 +164,27 @@ func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
 		}()
 		input, ok := invocation.Inputs["stream"]
 		if !ok {
-			return nil, errors.New("stream-to-blob input is missing")
+			return compiler.AdapterResult{}, errors.New("stream-to-blob input is missing")
 		}
 		streamHandle, ok := input.StreamRef()
 		if !ok {
-			return nil, errors.New("stream-to-blob input is not a StreamRef")
+			return compiler.AdapterResult{}, errors.New("stream-to-blob input is not a StreamRef")
 		}
 		mediaType, ok := invocation.Config["mediaType"].(string)
 		if !ok {
-			return nil, errors.New("stream-to-blob media type is missing")
+			return compiler.AdapterResult{}, errors.New("stream-to-blob media type is missing")
 		}
 		streamSession, blobSession := invocation.Sessions["stream"], invocation.Sessions["blob-write"]
 		if streamSession == nil || blobSession == nil {
-			return nil, errors.New("stream-to-blob capability session is missing")
+			return compiler.AdapterResult{}, errors.New("stream-to-blob capability session is missing")
 		}
 		writeConfig, err := artifact.Marshal(blob.WriteConfig{MediaType: mediaType})
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		writer, err := blobSession.Open(ctx, []string{blob.OperationAppend, blob.OperationCancel, blob.OperationCommit}, writeConfig)
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		committed := false
 		defer func() {
@@ -199,33 +199,33 @@ func streamToBlob(builtins nodes31.Builtins) compiler.Adapter {
 				break
 			}
 			if err != nil {
-				return nil, err
+				return compiler.AdapterResult{}, err
 			}
 			if len(chunk) == 0 {
 				continue
 			}
 			if _, err := blobSession.Invoke(ctx, writer, blob.OperationAppend, chunk); err != nil {
-				return nil, err
+				return compiler.AdapterResult{}, err
 			}
 		}
 		rawRef, err := blobSession.Invoke(ctx, writer, blob.OperationCommit, nil)
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
 		var ref blob.BlobRef
 		if err := json.Unmarshal(rawRef, &ref); err != nil {
-			return nil, fmt.Errorf("decode committed BlobRef: %w", err)
+			return compiler.AdapterResult{}, fmt.Errorf("decode committed BlobRef: %w", err)
 		}
 		if err := ref.Validate(); err != nil {
-			return nil, fmt.Errorf("validate committed BlobRef: %w", err)
+			return compiler.AdapterResult{}, fmt.Errorf("validate committed BlobRef: %w", err)
 		}
 		counters["bytes"] = ref.Size
 		committed = true
 		envelope, err := datatype.SealBlobRef(builtins.Catalog, input.Type(), ref)
 		if err != nil {
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}
-		return map[string]datatype.ValueEnvelope{"blob": envelope}, nil
+		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"blob": envelope}}, nil
 	}
 }
 

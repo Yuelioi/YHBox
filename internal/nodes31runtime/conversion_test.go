@@ -14,7 +14,6 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
-	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
@@ -163,7 +162,7 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 	original := adapters[entry.Implementation.Entrypoint]
 	runCtx, cancel := context.WithCancel(context.Background())
 	originalRun := original.Run
-	original.Run = func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+	original.Run = func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 		outputs, err := originalRun(ctx, invocation)
 		cancel()
 		return outputs, err
@@ -333,20 +332,20 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 		wantError  error
 		wantText   string
 	}{
-		{name: "missing action", adapter: func(context.Context, compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
-			return nil, errors.New("adapter omitted its action")
+		{name: "missing action", adapter: func(context.Context, compiler.Invocation) (compiler.AdapterResult, error) {
+			return compiler.AdapterResult{}, errors.New("adapter omitted its action")
 		}, wantStatus: run31.StatusFailed},
-		{name: "cancelled action", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+		{name: "cancelled action", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
 				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.test-action", Outcome: run31.ActionCancelled,
 				SummaryCode: "conversion.test",
 			})
-			return nil, errors.Join(context.Canceled, err)
+			return compiler.AdapterResult{}, errors.Join(context.Canceled, err)
 		}, wantStatus: run31.StatusCancelled, wantError: context.Canceled},
-		{name: "duplicate action", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+		{name: "duplicate action", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 			outputs, err := original(ctx, invocation)
 			if err != nil {
-				return nil, err
+				return compiler.AdapterResult{}, err
 			}
 			_ = invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
 				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.duplicate", Outcome: run31.ActionSucceeded,
@@ -354,12 +353,12 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 			})
 			return outputs, nil
 		}, wantStatus: run31.StatusFailed, wantText: "more than once"},
-		{name: "failed action with successful return", adapter: func(ctx context.Context, invocation compiler.Invocation) (map[string]datatype.ValueEnvelope, error) {
+		{name: "failed action with successful return", adapter: func(ctx context.Context, invocation compiler.Invocation) (compiler.AdapterResult, error) {
 			err := invocation.RecordAction(context.WithoutCancel(ctx), compiler.AdapterAction{
 				EffectID: nodes31.BlobToStreamEffectID, Action: "conversion.failed", Outcome: run31.ActionFailed,
 				ErrorCode: "conversion.blob_to_stream_failed", SummaryCode: "conversion.test",
 			})
-			return nil, err
+			return compiler.AdapterResult{}, err
 		}, wantStatus: run31.StatusFailed},
 	}
 	for _, test := range tests {
