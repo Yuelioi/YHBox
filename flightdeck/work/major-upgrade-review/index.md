@@ -1,22 +1,24 @@
 ---
 topic: major-upgrade-review
-title: "Yotta 3.1 major upgrade"
-summary: "Implement and validate the AI-native destructive Yotta 3.1 architecture and release program."
+title: Yotta 3.1 major upgrade
+summary: Implement and validate the AI-native destructive Yotta 3.1 architecture and release program.
 ---
 
 ## State
 
-Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cutover、pure-data/collection、random/time recorded observation、typed Run state、共享 typed Workflow authoring protocol，以及 activation-scoped control region。Node Contract/Authoring Projection/Program 共享 exact tagged InstructionSpec；RunStarted、Repeat、ForEach、Retry 由 host compiler lowering 执行，使用隔离 activation queue、显式 error retry、嵌套目标传播与 retained-value/invocation budget，不依赖 node kind switch、ambient loop stack 或通用 out。UI、AI、CLI/debug 与 MCP 不再提交整图 JSON。旧 runtime 与未迁移 effect 节点代码仍留在仓库但不再由主 GUI/production Application 执行，必须继续按批迁移和删除。
+Yotta 3.1 已完成 provider-native AI 纵切面：OpenAI 只走 Responses、Anthropic 只走 Messages；Model Profile、能力、预算、评估状态、provider artifact、target、credential binding 与 workflow consent 都内容寻址并在启动时安装。Generate/Extract 节点通过稳定 slot 请求 exact model，运行前由 Host Profile、Policy、Run Grant 完成准入，运行后记录脱敏 request/response identity 与 usage。设置中心只保存模型档案，密钥按 slot 进入 OS credential store；不存在 BaseURL、默认连接、模型发现、Chat/prompt fallback 或 provider cache。提交 `ab1f4cf4`、`4b630f70`、`7e9fb87c` 已通过全量 Go、前端、Wails RPC 与 Node Contract 3.1 门禁。
+
+旧 container AI/LLM、script 及其余 effect runtime 仍留在仓库供待迁移批次编译，不能成为最终兜底。下一批从脚本隔离开始，随后迁移 I/O/system、input/window/image/automation，并在每批切换调用方后删除对应 legacy 路径。
 
 ## Next
 
-剩余工作按以下阶段连续执行；每阶段先完成纵向语义与删除清单，再运行该阶段的 Go/前端/contract 门禁并独立 commit，不保留旧入口、dual-read/write 或运行时 fallback：
+按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. effect migration：按 AI/script → I/O/system → input/window/image/automation 迁移到 Capability、Run Grant、attempt/action journal。
-2. composition cutover：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，随后删除 legacy Container runtime、旧 NodeSpec/coercion/dispatch。
-3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK、conformance fixture；不加载 Go plugin 或第三方前端代码。
-4. projection/docs/cleanup：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs、golden fixture，清除残留旧类型与展示逻辑。
-5. 最终门禁：运行 task check、跨平台/安全/架构 review；只在全部修复后归档 Flightdeck。
+1. script isolation：冻结脚本语言/ABI、输入输出类型、capability imports、资源预算、取消/超时与 attempt/action journal；production Application 只执行新 adapter。
+2. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant 与 exact target/credential binding。
+3. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
+4. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
+5. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
 
 ## Read now
 
@@ -47,6 +49,7 @@ Yotta 3.1 已完成 production Program Run、Schedule 3.1、主 GUI Authoring cu
 ## Progress
 
 Done:
+- 完成 provider-native AI 安装与生产装配：Model Profile/能力/预算/评估状态内容寻址；相同 profile 共享 native provider，slot 独立绑定 target 与 OS credential；exact workflow consent 参与 Policy/Run Grant，档案变化立即使旧授权失效。删除默认连接、BaseURL、模型发现、Chat/prompt fallback 与 provider cache；设置 UI、Wails contract、生成节点和 journal 同步切换。提交 `ab1f4cf4`、`4b630f70`、`7e9fb87c`。
 - 完成 activation-scoped control region：Node Contract 新增 exact tagged InstructionSpec 与专用 host-instruction ABI；Compiler/strict Program opener 冻结并复验 run-root/counted-loop/for-each/retry，拒绝错误 signal channel、body 外控制信号和多入口 body。Scheduler 使用隔离 activation queue，支持嵌套目标传播、显式 error retry、typed ordinal/item 输出、统一 invocation/retained-value budget；RunStarted 与 region 不再安装伪 adapter。Authoring Projection、后端 patch、EditorSession、生成 Schema/TypeScript/Markdown 与 UI 提示共享同一 instruction 语义；外部 listener 决议为 lifecycle-owned trigger 提交独立 admitted Run。提交 `1f122ef3`。
 - 完成共享 typed Workflow authoring protocol 与 MCP/CLI-debug destructive cutover：新增 `internal/workflow/authoring` deep module 和 generated exact tagged-union JSON Schema/TypeScript；Application 只接受 revision-CAS domain commands，host 拥有 ID/default，整批失败不发布。Wails EditorSession 改用 ApplyPatch/CompileSource；MCP 升级为 validated structured output，只提供 bounded catalog/workflow authoring、compile、diagnostic explain 与 effect-free preview，删除 whole-document save、legacy runtime、单节点执行、窗口枚举、默认 listener 和虚假设置 UI。提交 `b4aa17aa`。
 - 完成首个显式 event/control signal flow：新增 RunStarted、Branch、Delay、EndBranch 与 nominal DurationMilliseconds Data Type。Executor 注入 cancellable host wait；Delay 记录 waiting status 与 declared time effect；Compiler/Program 验证真实 execution root，未连接 push 节点作为 non-blocking warning。RunStarted → Branch → Delay → StateWrite → EndBranch 端到端执行，无通用 `out`；提交 `8b567939`。随后将 diagnostic error admission 收口到 `schema.HasErrors`，修复 Application 将 warning 误当阻断错误的跨层漂移，提交 `9bab3765`。
