@@ -20,6 +20,7 @@ import (
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
 	"github.com/yottaapp/yotta/internal/hotkey"
+	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
@@ -88,7 +89,7 @@ func main() {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 15)
+	wailsServices := make([]application.Service, 0, 16)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -112,6 +113,10 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("AI model installation init")
 	}
+	httpInstallations, err := httpegress.Install(app.Settings().Network.InstallationDrafts())
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("HTTP origin installation init")
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("resolve script worker location")
@@ -131,7 +136,7 @@ func main() {
 			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
+		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event app31.RunEvent) {
 			payload := map[string]any{
@@ -455,6 +460,7 @@ func main() {
 		application.NewService(nodeSvc),
 		application.NewService(codeSnippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets)),
+		application.NewService(services.NewNetworkService(app)),
 	)
 	// wails3 application
 	wailsApp := application.New(application.Options{

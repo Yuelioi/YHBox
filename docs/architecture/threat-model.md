@@ -11,7 +11,8 @@
 | Surface | Main risk | Current controls |
 |---|---|---|
 | MCP command surface | 未授权整图覆盖、越权 capability、schema 放大 | 旧 HTTP/runtime tools 已删除；3.1 只提供 bounded catalog、分页 inspect、revision-CAS typed patch、compile 与无副作用 run preview，全部调用同一 Application。MCP transport 默认不装配、不监听；未来显式 transport 也不得拥有旁路执行器 |
-| Script node | 任意代码和资源滥用 | goja 隔离 JavaScript 本身，但 Script 可调用所有 `ScriptBindable` 节点，包括文件、网络和进程节点；graph/script 作者必须被视为拥有这些工作流能力，执行受 context、节点校验与显式 service registry 约束 |
+| Script node | 任意代码、宿主逃逸和资源滥用 | Script 3.1 只在一次性隔离 worker 中接收规范化 JSON；没有节点/service registry、文件、网络或进程绑定。宿主 admission 还要求精确隔离 feature，超时由宿主终止整个 worker |
+| HTTP egress | SSRF、DNS rebinding、重定向绕过、响应放大和秘密头泄露 | 只允许显式安装并授权的 exact Origin；workflow 只给相对路径与查询；禁代理/重定向/Cookie/凭据/自定义头；DNS 与拨号地址复验，默认拒绝本机/私网/特殊地址；响应有超时、字节与 UTF-8 上限，只暴露 status/body/content-type |
 | File/package import | 路径穿越、zip bomb、恶意 graph | ID/path 校验、schema/lock validation、原子提交；导入器新增时必须加 entry/size/count 上限 |
 | Fetch/network | SSRF、敏感内网访问、巨大响应 | 节点行为必须显式、超时/大小受限；未来远程分享前需要 URL policy |
 | Input/capture | 错误 target、按键残留、隐私图像 | capability/target validation、context cancel、held-input release、窗口句柄重校验 |
@@ -20,7 +21,7 @@
 
 ## 非目标
 
-Yotta 和 goja Script 都不是权限隔离边界。能编辑并运行 graph/script 的作者可以组合已授权节点执行文件、网络和进程操作；能修改本地二进制、数据目录或以同一 OS 用户执行代码的攻击者也已在信任边界内。当前 MCP protocol 不暴露 Run admission 工具；未来若增加执行工具，宿主 approval 只是防误操作闸门，不是针对恶意本地管理员的认证系统。
+Yotta 的 capability/admission/provider 边界用于约束 workflow authority；它不防御能够替换本地二进制、修改受信设置/数据目录或以同一 OS 用户注入进程的攻击者。Script worker 是缩小 guest 权限和故障域的隔离层，不是对恶意本地管理员的安全边界。当前 MCP protocol 不暴露 Run admission 工具；未来若增加执行工具，宿主 approval 只是防误操作闸门，不是本机身份认证系统。
 
 ## 复查触发
 

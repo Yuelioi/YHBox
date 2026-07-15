@@ -1,4 +1,11 @@
-export const SETTINGS_THEME_KEYS = ['general', 'hotkeys', 'input', 'launcher', 'ai'] as const
+export const SETTINGS_THEME_KEYS = [
+  'general',
+  'hotkeys',
+  'input',
+  'launcher',
+  'ai',
+  'network',
+] as const
 
 export type SettingsThemeKey = (typeof SETTINGS_THEME_KEYS)[number]
 
@@ -39,6 +46,12 @@ export const SETTINGS_THEMES: readonly SettingsThemeDefinition[] = [
     labelKey: 'settingsTab.ai',
     descriptionKey: 'settingsCenter.theme.ai',
     icon: 'i-tabler-sparkles',
+  },
+  {
+    key: 'network',
+    labelKey: 'settingsTab.network',
+    descriptionKey: 'settingsCenter.theme.network',
+    icon: 'i-tabler-shield-lock',
   },
 ]
 

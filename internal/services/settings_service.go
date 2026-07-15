@@ -6,6 +6,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/httpegress"
 )
 
 // SettingsService 是 wails3 binding 暴露给 JS 的设置 RPC 入口。
@@ -33,6 +34,10 @@ func (s *SettingsService) Update(patchJSON string) error {
 		for _, profile := range settings.AI.Profiles {
 			previous[profile.Slot] = consentState{consent: profile.WorkflowConsent, expected: expectedAIConsent(profile)}
 		}
+		previousHTTP := make(map[string]consentState, len(settings.Network.HTTPOrigins))
+		for _, origin := range settings.Network.HTTPOrigins {
+			previousHTTP[origin.Slot] = consentState{consent: origin.WorkflowConsent, expected: expectedHTTPConsent(origin)}
+		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
 		}
@@ -43,6 +48,13 @@ func (s *SettingsService) Update(patchJSON string) error {
 			old, exists := previous[profile.Slot]
 			if exists && old.consent != "" && profile.WorkflowConsent == old.consent && expectedAIConsent(*profile) != old.expected {
 				profile.WorkflowConsent = ""
+			}
+		}
+		for index := range settings.Network.HTTPOrigins {
+			origin := &settings.Network.HTTPOrigins[index]
+			old, exists := previousHTTP[origin.Slot]
+			if exists && old.consent != "" && origin.WorkflowConsent == old.consent && expectedHTTPConsent(*origin) != old.expected {
+				origin.WorkflowConsent = ""
 			}
 		}
 		return nil
@@ -83,6 +95,18 @@ func expectedAIConsent(configured AIModelSettings) artifact.Digest {
 		return ""
 	}
 	digest, err := ai.WorkflowConsentDigest(configured.Slot, profile)
+	if err != nil {
+		return ""
+	}
+	return digest
+}
+
+func expectedHTTPConsent(configured HTTPOriginSettings) artifact.Digest {
+	profile, err := httpegress.SealProfile(configured.profileDraft())
+	if err != nil {
+		return ""
+	}
+	digest, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
 	if err != nil {
 		return ""
 	}

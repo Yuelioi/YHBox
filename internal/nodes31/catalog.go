@@ -85,6 +85,7 @@ type Builtins struct {
 	FileReadTextContract     nodecontract.Contract
 	FileReadJSONContract     nodecontract.Contract
 	FileStatContract         nodecontract.Contract
+	HTTPGetContract          nodecontract.Contract
 	Types                    []datatype.Definition
 	Contracts                []nodecontract.Contract
 	Capabilities             []capability.Definition
@@ -160,6 +161,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	filesystemRead, err := sealFilesystemReadCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	httpGetCapability, err := sealHTTPGetCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -244,6 +249,12 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	httpGetDefinition, httpGetContract, err := defineHTTPGetNode(extendedTypes{
+		stringRef: stringType.TypeRef(), jsonRef: jsonType.TypeRef(),
+	}, integerType.TypeRef(), httpGetCapability)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -258,6 +269,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, aiDefinitions...)
 	definitions = append(definitions, scriptDefinition)
 	definitions = append(definitions, filesystemDefinitions...)
+	definitions = append(definitions, httpGetDefinition)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -272,7 +284,7 @@ func Build() (Builtins, error) {
 		contracts = append(contracts, definition.Contract)
 	}
 	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -288,7 +300,8 @@ func Build() (Builtins, error) {
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
 		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, ScriptExecuteContract: scriptExecute,
 		FileReadTextContract: filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
-		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
+		HTTPGetContract: httpGetContract,
+		Types:           types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }

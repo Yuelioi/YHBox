@@ -55,6 +55,7 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.FileReadTextNodeID:  fileRead(builtins, false),
 		nodes31.FileReadJSONNodeID:  fileRead(builtins, true),
 		nodes31.FileStatNodeID:      fileStat(builtins),
+		nodes31.HTTPGetNodeID:       httpGet(builtins),
 		nodes31.LogNodeID:           writeLog(dependencies.Log),
 		nodes31.ThrowNodeID:         throwFailure(),
 	}

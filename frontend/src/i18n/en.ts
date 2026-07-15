@@ -1051,6 +1051,19 @@ export default {
         },
       },
     },
+    network: {
+      httpGet: {
+        title: 'HTTP GET',
+        description:
+          'Read UTF-8 text from one explicitly installed origin using a relative path. Redirects, cookies, credentials, proxies, and arbitrary hosts are unavailable.',
+        config: {
+          slot: {
+            title: 'HTTP origin slot',
+            description: 'Select the exact installed and consented HTTP origin for this request.',
+          },
+        },
+      },
+    },
     observability: {
       log: {
         title: 'Write log',
@@ -4491,6 +4504,7 @@ export default {
     input_calibration: 'Input & calibration',
     launcher: 'Floating launcher',
     ai: 'AI connections',
+    network: 'Network capabilities',
   },
   settingsCenter: {
     eyebrow: 'YOTTA SETTINGS',
@@ -4506,6 +4520,7 @@ export default {
       input: 'Configure recorded input semantics and maintain game calibration profiles',
       launcher: 'Arrange the floating launcher content, appearance, and quick actions',
       ai: 'Manage AI service endpoints, credentials, and connection health',
+      network: 'Install exact HTTP origins and control workflow network consent',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -4672,6 +4687,55 @@ export default {
     regexp: 'Regex',
     replace_all: 'Replace all',
     close: 'Close',
+  },
+  settingsNetwork: {
+    security: {
+      title: 'Workflows never receive arbitrary network access',
+      hint: 'Each installation pins one exact scheme, host, and port. Nodes can supply only a relative path and query; redirects, proxies, cookies, credentials, and request headers are disabled.',
+    },
+    origins: {
+      title: 'Installed HTTP origins',
+      hint: 'Use a stable slot to bind workflows to an exact origin and bounded response budget.',
+      add: 'Install origin',
+      unnamed: 'Unnamed origin',
+      workflow_allowed: 'Workflow allowed',
+      consent_required: 'Consent required',
+      private_enabled: 'Private network enabled',
+      origin_missing: 'Origin not specified',
+      name_label: 'Display name',
+      name_placeholder: 'For example: Production status API',
+      slot_label: 'Installation slot',
+      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      origin_label: 'Exact origin',
+      origin_hint:
+        'Scheme, host, and optional port only. Public origins require HTTPS. Paths, query strings, fragments, and user information are rejected.',
+      byte_limit_label: 'Maximum response bytes',
+      byte_limit_hint: 'Responses larger than this limit fail before entering workflow data.',
+      timeout_label: 'Timeout (milliseconds)',
+      timeout_hint: 'Hard limit covering connection, response headers, and body reading.',
+      delete: 'Delete origin',
+      empty: 'No HTTP origins installed',
+      empty_hint:
+        'Install an exact origin before an HTTP GET node can pass admission. Installation does not grant workflow use automatically.',
+      new_label: 'New HTTP origin',
+    },
+    private: {
+      title: 'Allow private and loopback destinations',
+      hint: 'Keep disabled for public APIs. DNS results are checked again at connection time to prevent rebinding into local networks.',
+      warning:
+        'This origin may reach services on this computer or private network. Enable only for a target you control and trust.',
+    },
+    consent: {
+      title: 'Workflow network consent',
+      hint: 'Consent matches this exact slot and profile digest. Editing the origin, private-network policy, timeout, or byte limit revokes it. Restart to install the new snapshot.',
+      grant: 'Allow current origin',
+      revoke: 'Revoke consent',
+    },
+    confirm: {
+      delete_title: 'Delete “{name}”?',
+      delete_hint:
+        'The installation slot will be removed. Workflows that reference it will fail admission.',
+    },
   },
   settingsAI: {
     title: 'AI Models',

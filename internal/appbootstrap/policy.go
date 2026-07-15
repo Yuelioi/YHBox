@@ -10,6 +10,7 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
@@ -21,13 +22,14 @@ type builtinPolicy struct {
 	streamDigest        artifact.Digest
 	workspaceFileDigest artifact.Digest
 	aiTargets           map[string]ai.Installation
+	httpTargets         map[string]httpegress.Installation
 }
 
 // NewBuiltinPolicy creates the explicit local policy for code compiled into
 // Yotta. It cannot authorize third-party providers, credentials, or remote
 // targets; plugin policies enter through their own admission owner.
-func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, installations ai.Installations) (admission.Policy, error) {
-	if now == nil || ttl <= 0 || ttl > 24*time.Hour || !installations.Valid() {
+func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations ai.Installations, httpInstallations httpegress.Installations) (admission.Policy, error) {
+	if now == nil || ttl <= 0 || ttl > 24*time.Hour || !aiInstallations.Valid() || !httpInstallations.Valid() {
 		return nil, errors.New("built-in policy requires clock and bounded TTL")
 	}
 	blobDigest, err := blob.ProviderArtifactDigest()
@@ -42,14 +44,21 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, installations ai.
 	if err != nil {
 		return nil, err
 	}
-	aiTargets := make(map[string]ai.Installation, len(installations.Entries()))
-	for _, installed := range installations.Entries() {
+	aiTargets := make(map[string]ai.Installation, len(aiInstallations.Entries()))
+	for _, installed := range aiInstallations.Entries() {
 		if _, duplicate := aiTargets[installed.TargetID]; duplicate {
 			return nil, errors.New("built-in policy received duplicate AI targets")
 		}
 		aiTargets[installed.TargetID] = installed
 	}
-	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest, aiTargets: aiTargets}, nil
+	httpTargets := make(map[string]httpegress.Installation, len(httpInstallations.Entries()))
+	for _, installed := range httpInstallations.Entries() {
+		if _, duplicate := httpTargets[installed.TargetID]; duplicate {
+			return nil, errors.New("built-in policy received duplicate HTTP targets")
+		}
+		httpTargets[installed.TargetID] = installed
+	}
+	return &builtinPolicy{now: now, ttl: ttl, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest, aiTargets: aiTargets, httpTargets: httpTargets}, nil
 }
 
 func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyRequest) (admission.PolicyDecision, error) {
@@ -75,10 +84,18 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 		default:
-			installed, ok := p.aiTargets[binding.TargetID]
-			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact ||
-				binding.ProviderABI != ai.ProviderABI || binding.TargetKind != "ai-model" || binding.ResourceKind != ai.KindModelSession ||
-				binding.CredentialBindingID != installed.CredentialBindingID {
+			if installed, ok := p.aiTargets[binding.TargetID]; ok {
+				if binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != ai.ProviderABI || binding.TargetKind != "ai-model" || binding.ResourceKind != ai.KindModelSession || binding.CredentialBindingID != installed.CredentialBindingID {
+					return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
+				}
+				if installed.Consent == "" {
+					return admission.PolicyDecision{Outcome: admission.PolicyConsentRequired}, nil
+				}
+				consents[installed.Consent] = struct{}{}
+				continue
+			}
+			installed, ok := p.httpTargets[binding.TargetID]
+			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != httpegress.ProviderABI || binding.TargetKind != httpegress.TargetKind || binding.ResourceKind != httpegress.KindHTTPSession || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 			if installed.Consent == "" {

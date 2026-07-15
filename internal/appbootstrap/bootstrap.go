@@ -17,6 +17,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
@@ -46,6 +47,7 @@ type Config struct {
 	DataRoot          string
 	Limits            Limits
 	AIInstallations   ai.Installations
+	HTTPInstallations httpegress.Installations
 	ScriptRuntime     *scriptengine.Runtime
 	LogEmitter        nodes31runtime.LogEmitter
 	GrantTTL          time.Duration
@@ -59,13 +61,14 @@ type Runtime struct {
 	Builtins    nodes31.Builtins
 	BlobStore   *blob.Store
 	ai          ai.Installations
+	http        httpegress.Installations
 }
 
 func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -137,11 +140,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations)
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations, config.HTTPInstallations)
 	if err != nil {
 		return nil, err
 	}
-	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations)
+	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations, config.HTTPInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +175,15 @@ func Build(config Config) (*Runtime, error) {
 			ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, Provider: installed.Provider,
 		}
 	}
+	for _, installed := range config.HTTPInstallations.Entries() {
+		if existing, ok := providers[installed.ProviderID]; ok {
+			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != httpegress.ProviderABI || existing.Provider != installed.Provider {
+				return nil, errors.New("conflicting HTTP provider installation")
+			}
+			continue
+		}
+		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, Provider: installed.Provider}
+	}
 	application, err := app31.New(app31.Config{
 		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
@@ -185,7 +197,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations}, nil
+	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations, http: config.HTTPInstallations}, nil
 }
 
 func (r *Runtime) Start(ctx context.Context) error {
@@ -201,6 +213,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 	}
 	err := r.Application.Close(ctx)
 	r.ai.CloseIdleConnections()
+	r.http.CloseIdleConnections()
 	return err
 }
 
@@ -215,7 +228,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -240,6 +253,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 		return admission.HostProfile{}, err
 	}
 	filesystemRead, err := lookup(nodes31.FilesystemReadCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
+	httpGet, err := lookup(nodes31.HTTPGetCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
@@ -287,6 +304,18 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 		draft.CredentialSlots = append(draft.CredentialSlots, admission.CredentialSlotBinding{
 			Slot: installed.Slot, CredentialID: installed.CredentialBindingID,
 		})
+	}
+	for _, installed := range httpInstallations.Entries() {
+		if _, exists := providerIDs[installed.ProviderID]; !exists {
+			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
+				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				Capabilities: []admission.ProviderCapability{{Capability: httpGet, ResourceKind: httpegress.KindHTTPSession}},
+			})
+			providerIDs[installed.ProviderID] = struct{}{}
+		}
+		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: installed.TargetID, Kind: httpegress.TargetKind, ProviderID: installed.ProviderID})
+		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
 	}
 	return admission.SealHostProfile(draft)
 }

@@ -378,7 +378,17 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 
 func admittedExecution(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]run31.InstalledProvider, now time.Time) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
 	t.Helper()
-	profile, err := admission.SealHostProfile(executionProfile(t, builtins))
+	return admittedExecutionWithProfile(t, builtins, program, providers, now, executionProfile(t, builtins))
+}
+
+func admittedExecutionWithProfile(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]run31.InstalledProvider, now time.Time, profileDraft admission.HostProfileDraft) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
+	t.Helper()
+	return admittedExecutionWithConsent(t, builtins, program, providers, now, profileDraft, nil)
+}
+
+func admittedExecutionWithConsent(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, providers map[string]run31.InstalledProvider, now time.Time, profileDraft admission.HostProfileDraft, consentLineage []artifact.Digest) (capability.RunGrant, *run31.Owner, *run31.JournalWriter) {
+	t.Helper()
+	profile, err := admission.SealHostProfile(profileDraft)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +397,7 @@ func admittedExecution(t *testing.T, builtins nodes31.Builtins, program compiler
 		t.Fatal(err)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
-		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, nil
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute), ConsentLineage: consentLineage}, nil
 	})
 	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{Now: func() time.Time { return now }, MaxGrantTTL: 5 * time.Minute})
 	if err != nil {

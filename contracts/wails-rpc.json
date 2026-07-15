@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 15,
-    "methods": 132,
-    "models": 151
+    "services": 16,
+    "methods": 134,
+    "models": 153
   },
   "services": [
     {
@@ -1081,6 +1081,35 @@
               "name": "tags",
               "optional": false,
               "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/networkservice",
+      "methods": [
+        {
+          "name": "GrantHTTPWorkflowConsent",
+          "bindingId": "2348281941",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "RevokeHTTPWorkflowConsent",
+          "bindingId": "358233493",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
             }
           ],
           "returns": "$CancellablePromise<void>"
@@ -4420,6 +4449,47 @@
         },
         {
           "kind": "class",
+          "name": "HTTPOriginSettings",
+          "fields": [
+            {
+              "name": "\"slot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"origin\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"allowPrivateNetwork\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"responseByteLimit\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"timeoutMilliseconds\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"workflowConsent\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "LauncherBlock",
           "fields": [
             {
@@ -4615,6 +4685,17 @@
         },
         {
           "kind": "class",
+          "name": "NetworkSettings",
+          "fields": [
+            {
+              "name": "\"httpOrigins\"",
+              "optional": false,
+              "type": "HTTPOriginSettings[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Settings",
           "fields": [
             {
@@ -4636,6 +4717,11 @@
               "name": "\"ai\"",
               "optional": false,
               "type": "AISettings"
+            },
+            {
+              "name": "\"network\"",
+              "optional": false,
+              "type": "NetworkSettings"
             }
           ]
         },

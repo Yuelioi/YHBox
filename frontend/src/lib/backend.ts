@@ -15,6 +15,7 @@ import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/servi
 import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/services/container/subgraphservice.js'
 import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
+import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
   EvaluationStatus as EvaluationStatusBinding,
@@ -301,6 +302,16 @@ export interface AIProfileTestResult {
   error?: string
 }
 
+export interface HTTPOriginProfile {
+  slot: string
+  label: string
+  origin: string
+  allowPrivateNetwork: boolean
+  responseByteLimit: number
+  timeoutMilliseconds: number
+  workflowConsent?: string
+}
+
 function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBinding {
   return new AIModelSettingsBinding({
     ...profile,
@@ -328,6 +339,12 @@ export const backend = {
     grantWorkflowUse: (slot: string) =>
       invoke(AIService.GrantWorkflowUse, slot) as Promise<string | undefined>,
     revokeWorkflowUse: (slot: string) => invokeVoid(AIService.RevokeWorkflowUse, slot),
+  },
+  network: {
+    grantHTTPWorkflowConsent: (slot: string) =>
+      invoke(NetworkService.GrantHTTPWorkflowConsent, slot) as Promise<string | undefined>,
+    revokeHTTPWorkflowConsent: (slot: string) =>
+      invokeVoid(NetworkService.RevokeHTTPWorkflowConsent, slot),
   },
   containers: {
     list: () => invoke(ContainerService.List),

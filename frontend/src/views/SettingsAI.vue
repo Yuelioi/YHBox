@@ -410,7 +410,10 @@ const toggleExpanded = (slot: string) =>
   (expandedSlot.value = expandedSlot.value === slot ? '' : slot)
 
 function uniqueSlot(): string {
-  const taken = new Set(draft.value.map((profile) => profile.slot))
+  const taken = new Set([
+    ...draft.value.map((profile) => profile.slot),
+    ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
+  ])
   if (!taken.has('model')) return 'model'
   for (let index = 2; ; index++) {
     const candidate = `model-${index}`

@@ -11,6 +11,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/pkg/locale"
 )
 
@@ -31,10 +32,43 @@ type Settings struct {
 	Locale  string          `json:"locale"`  // "zh" | "en"；i18n 口子，目前默认且仅 zh
 	Capture CaptureSettings `json:"capture"` // 截屏后端选择
 	AI      AISettings      `json:"ai"`
+	Network NetworkSettings `json:"network"`
 }
 
 type AISettings struct {
 	Profiles []AIModelSettings `json:"profiles"`
+}
+
+type NetworkSettings struct {
+	HTTPOrigins []HTTPOriginSettings `json:"httpOrigins"`
+}
+
+// HTTPOriginSettings is an installed network authority. Workflows bind the
+// logical Slot and can only issue GET requests beneath the exact Origin.
+type HTTPOriginSettings struct {
+	Slot                string          `json:"slot"`
+	Label               string          `json:"label"`
+	Origin              string          `json:"origin"`
+	AllowPrivateNetwork bool            `json:"allowPrivateNetwork"`
+	ResponseByteLimit   int64           `json:"responseByteLimit"`
+	TimeoutMilliseconds int64           `json:"timeoutMilliseconds"`
+	WorkflowConsent     artifact.Digest `json:"workflowConsent,omitempty"`
+}
+
+func (origin HTTPOriginSettings) profileDraft() httpegress.ProfileDraft {
+	return httpegress.ProfileDraft{Origin: origin.Origin, AllowPrivateNetwork: origin.AllowPrivateNetwork, ResponseByteLimit: origin.ResponseByteLimit, TimeoutMilliseconds: origin.TimeoutMilliseconds}
+}
+
+func (origin HTTPOriginSettings) installationDraft() httpegress.InstallationDraft {
+	return httpegress.InstallationDraft{Slot: origin.Slot, Profile: origin.profileDraft(), Consent: origin.WorkflowConsent}
+}
+
+func (settings NetworkSettings) InstallationDrafts() []httpegress.InstallationDraft {
+	result := make([]httpegress.InstallationDraft, 0, len(settings.HTTPOrigins))
+	for _, origin := range settings.HTTPOrigins {
+		result = append(result, origin.installationDraft())
+	}
+	return result
 }
 
 // AIModelSettings is installation metadata only. Credential material lives in
@@ -205,6 +239,7 @@ func defaultSettings() *Settings {
 		// 用户嫌弃自动选的可以去设置硬切 gdi/wgc/mock。
 		Capture: CaptureSettings{Method: "auto", DumpDebug: false},
 		AI:      AISettings{Profiles: []AIModelSettings{}},
+		Network: NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 	}
 }
 
@@ -337,6 +372,19 @@ func (s *Settings) Validate() error {
 	if err := s.AI.validate(); err != nil {
 		return err
 	}
+	if err := s.Network.validate(); err != nil {
+		return err
+	}
+	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins))
+	for _, profile := range s.AI.Profiles {
+		installedSlots[profile.Slot] = "ai.profiles"
+	}
+	for _, origin := range s.Network.HTTPOrigins {
+		if owner, exists := installedSlots[origin.Slot]; exists {
+			return fmt.Errorf("installation slot %q is shared by %s and network.httpOrigins", origin.Slot, owner)
+		}
+		installedSlots[origin.Slot] = "network.httpOrigins"
+	}
 	return nil
 }
 
@@ -363,6 +411,34 @@ func (settings *AISettings) validate() error {
 			expected, err := ai.WorkflowConsentDigest(configured.Slot, profile)
 			if err != nil || configured.WorkflowConsent != expected {
 				return fmt.Errorf("ai.profiles[%s] has stale workflow consent", configured.Slot)
+			}
+		}
+	}
+	return nil
+}
+
+func (settings *NetworkSettings) validate() error {
+	if len(settings.HTTPOrigins) > 64 {
+		return errors.New("network.httpOrigins exceeds installation budget")
+	}
+	seenSlots, seenLabels := map[string]bool{}, map[string]bool{}
+	for _, configured := range settings.HTTPOrigins {
+		if configured.Label == "" || len(configured.Label) > 128 || seenLabels[configured.Label] {
+			return fmt.Errorf("network.httpOrigins has an invalid or duplicate label %q", configured.Label)
+		}
+		seenLabels[configured.Label] = true
+		if err := httpegress.ValidateInstallationSlot(configured.Slot); err != nil || seenSlots[configured.Slot] {
+			return fmt.Errorf("network.httpOrigins has an invalid or duplicate slot %q", configured.Slot)
+		}
+		seenSlots[configured.Slot] = true
+		profile, err := httpegress.SealProfile(configured.profileDraft())
+		if err != nil {
+			return fmt.Errorf("network.httpOrigins[%s]: %w", configured.Slot, err)
+		}
+		if configured.WorkflowConsent != "" {
+			expected, err := httpegress.WorkflowConsentDigest(configured.Slot, profile)
+			if err != nil || configured.WorkflowConsent != expected {
+				return fmt.Errorf("network.httpOrigins[%s] has stale workflow consent", configured.Slot)
 			}
 		}
 	}

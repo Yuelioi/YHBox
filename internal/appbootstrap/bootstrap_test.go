@@ -13,6 +13,7 @@ import (
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	run31 "github.com/yottaapp/yotta/internal/run"
@@ -27,7 +28,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
 	events := make(chan app31.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event app31.RunEvent) { events <- event },
@@ -105,7 +106,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 
 func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 
 func TestBuiltinPolicyPinsWorkspaceFilesystemProvider(t *testing.T) {
 	now := time.Date(2026, 7, 16, 11, 0, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
 		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
 	}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, withoutConsent)
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, withoutConsent, emptyHTTPInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +184,7 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	entry = installed.Entries()[0]
 	binding.ProviderID, binding.ProviderArtifactDigest = entry.ProviderID, entry.ProviderArtifact
 	binding.TargetID, binding.CredentialBindingID = entry.TargetID, entry.CredentialBindingID
-	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed)
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed, emptyHTTPInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,6 +196,52 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
 	if err != nil || decision.Outcome != admission.PolicyDenied {
 		t.Fatalf("forged decision = %#v, %v", decision, err)
+	}
+}
+
+func TestBuiltinPolicyRequiresExactHTTPInstallationConsent(t *testing.T) {
+	now := time.Date(2026, 7, 16, 17, 0, 0, 0, time.UTC)
+	profileDraft := httpegress.ProfileDraft{Origin: "https://example.com", ResponseByteLimit: 4096, TimeoutMilliseconds: 5000}
+	withoutConsent, err := httpegress.Install([]httpegress.InstallationDraft{{Slot: "http", Profile: profileDraft}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := withoutConsent.Entries()[0]
+	binding := capability.Binding{ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: httpegress.ProviderABI, TargetID: entry.TargetID, TargetKind: httpegress.TargetKind, ResourceKind: httpegress.KindHTTPSession, PluginInstanceID: "builtin"}
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), withoutConsent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyConsentRequired {
+		t.Fatalf("unconsented HTTP decision = %#v, %v", decision, err)
+	}
+	profile, err := httpegress.SealProfile(profileDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := httpegress.WorkflowConsentDigest("http", profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := httpegress.Install([]httpegress.InstallationDraft{{Slot: "http", Profile: profileDraft, Consent: consent}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry = installed.Entries()[0]
+	binding.ProviderID, binding.ProviderArtifactDigest, binding.TargetID = entry.ProviderID, entry.ProviderArtifact, entry.TargetID
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
+		t.Fatalf("consented HTTP decision = %#v, %v", decision, err)
+	}
+	binding.TargetID = "http-origin/forged"
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyDenied {
+		t.Fatalf("forged HTTP decision = %#v, %v", decision, err)
 	}
 }
 
@@ -221,6 +268,15 @@ func bootstrapScriptRuntime(t *testing.T) *scriptengine.Runtime {
 func emptyAIInstallations(t *testing.T) ai.Installations {
 	t.Helper()
 	installations, err := ai.Install(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return installations
+}
+
+func emptyHTTPInstallations(t *testing.T) httpegress.Installations {
+	t.Helper()
+	installations, err := httpegress.Install(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

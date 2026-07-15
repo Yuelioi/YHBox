@@ -1022,6 +1022,19 @@ export default {
         },
       },
     },
+    network: {
+      httpGet: {
+        title: 'HTTP GET',
+        description:
+          '使用相对路径，从一个明确安装的 Origin 读取 UTF-8 文本。节点不支持重定向、Cookie、凭据、代理或任意主机。',
+        config: {
+          slot: {
+            title: 'HTTP Origin 槽位',
+            description: '为这次请求选择已经安装并授权的精确 HTTP Origin。',
+          },
+        },
+      },
+    },
     observability: {
       log: {
         title: '写入日志',
@@ -4312,6 +4325,7 @@ export default {
     input_calibration: '输入与校准',
     launcher: '悬浮启动器',
     ai: 'AI 连接',
+    network: '网络能力',
   },
   settingsCenter: {
     eyebrow: 'YOTTA 设置中心',
@@ -4327,6 +4341,7 @@ export default {
       input: '配置录制输入语义并维护游戏校准档',
       launcher: '编排悬浮启动器的内容、外观与快捷动作',
       ai: '管理 AI 服务端点、凭据和连接状态',
+      network: '安装精确 HTTP Origin，并控制工作流网络授权',
     },
     save: {
       automatic: '自动保存到本机',
@@ -4490,6 +4505,52 @@ export default {
     regexp: '正则',
     replace_all: '全部替换',
     close: '关闭',
+  },
+  settingsNetwork: {
+    security: {
+      title: '工作流不会获得任意网络访问权',
+      hint: '每个安装项固定一个精确的协议、主机和端口。节点只能提供相对路径与查询参数；重定向、代理、Cookie、凭据和自定义请求头均被禁用。',
+    },
+    origins: {
+      title: '已安装 HTTP Origin',
+      hint: '通过稳定槽位，把工作流绑定到精确 Origin 和有上限的响应预算。',
+      add: '安装 Origin',
+      unnamed: '未命名 Origin',
+      workflow_allowed: '已允许工作流',
+      consent_required: '需要授权',
+      private_enabled: '已允许私网',
+      origin_missing: '尚未填写 Origin',
+      name_label: '显示名称',
+      name_placeholder: '例如：生产状态 API',
+      slot_label: '安装槽位',
+      slot_hint: '工作流持久引用该标识，保存后不可修改。',
+      origin_label: '精确 Origin',
+      origin_hint:
+        '只允许协议、主机和可选端口；公共 Origin 必须使用 HTTPS；路径、查询、片段和用户信息都会被拒绝。',
+      byte_limit_label: '最大响应字节数',
+      byte_limit_hint: '响应超过此上限时会失败，不会进入工作流数据。',
+      timeout_label: '超时（毫秒）',
+      timeout_hint: '覆盖连接、响应头与正文读取的硬上限。',
+      delete: '删除 Origin',
+      empty: '尚未安装 HTTP Origin',
+      empty_hint: '安装精确 Origin 后，HTTP GET 节点才能通过准入；安装不会自动授予工作流使用权。',
+      new_label: '新 HTTP Origin',
+    },
+    private: {
+      title: '允许私网与本机回环地址',
+      hint: '公共 API 应保持关闭。系统会在实际连接时再次检查 DNS 结果，阻断重绑定到本地网络。',
+      warning: '该 Origin 可能访问本机或私有网络服务。仅对你控制并信任的目标启用。',
+    },
+    consent: {
+      title: '工作流网络授权',
+      hint: '授权只匹配当前槽位与档案摘要。修改 Origin、私网策略、超时或字节上限会立即撤销；重启后安装新快照。',
+      grant: '允许当前 Origin',
+      revoke: '撤销授权',
+    },
+    confirm: {
+      delete_title: '删除“{name}”？',
+      delete_hint: '该安装槽位会被移除，引用它的工作流将无法通过准入。',
+    },
   },
   settingsAI: {
     title: 'AI 模型',
