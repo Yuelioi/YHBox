@@ -6,15 +6,15 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-remaining effects 的首个 I/O/system 批次已提交为 `3fab01e2`：新增只读 workspace filesystem provider 与 exact `workspace-files` Target/Capability/Run Grant binding，Read Text/Read JSON/Stat 只接受 Yotta 管理根内相对路径，拒绝 absolute/traversal/symlink escape，并对文件大小、编码、JSON 文档、provider artifact/ABI 和 journal payload 做严格边界。旧 File 节点的 ambient host path 语义不进入 3.1。
+network remaining-effect vertical slice 已提交为 `3f2032d1`：新增 origin-bound `internal/httpegress` provider、immutable installation/profile/consent、exact Host Profile target slot 与 sensitive ConsentOnce policy。HTTP GET 只接收相对 path 与 string-list query，公共 Origin 强制 HTTPS；默认拒绝 loopback/private/link-local/multicast/CGNAT/benchmark，显式私网档案仍拒绝 link-local/multicast/unspecified。禁用 redirect、environment proxy、Cookie、credential、自定义请求头和任意 response header，只输出 status/body/content-type，并对 timeout、UTF-8 和 256 KiB response 做硬限制。
 
-同时新增 bounded ObservabilityMessage 名义类型、recorded Log effect 和 terminal Throw control；Log 使用 `in → completed` / `failed` 并只把消息 digest/bytes/level 写入 action journal，Throw 没有成功或通用 `out`，只产生稳定 `control.thrown`。完整 `task check` 与 workspacefs/nodes31runtime/appbootstrap race 通过。当前 frontier 是 network/process/audio，再迁移 input/window/image/automation。
+Settings/Wails/Vue 已新增网络能力页，档案语义变化自动撤销 consent，AI/HTTP slot 全局去重；Catalog 现为 81 nodes / 13 types。生成 Authoring/Catalog/Markdown/Wails contract 与架构/威胁文档同步更新。最终 `task check`、httpegress/nodes31runtime/appbootstrap race 全绿。当前 frontier 是 process capability；旧 PlayClip 是 input automation，不归类为 audio，后续随 input/window/image/automation 迁移。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. remaining effects：workspace I/O/Log/Throw 已完成；下一批迁移 network/process/audio，然后按 input/window/image/automation 收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
+1. remaining effects：workspace I/O/Log/Throw 与 origin-bound HTTP GET 已完成；下一批迁移 process capability，然后按 input/window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
 2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -48,6 +48,7 @@ remaining effects 的首个 I/O/system 批次已提交为 `3fab01e2`：新增只
 ## Progress
 
 Done:
+- 完成安装式 HTTP egress 纵切面：exact Origin/Profile/slot/ConsentOnce、DNS-to-dial SSRF 防护、公共 HTTPS、禁 redirect/proxy/cookie/credential/header、UTF-8/timeout/256 KiB budget、脱敏 journal、Settings/Wails/Vue 与同源生成文档；完整 `task check` 和聚焦 race 全绿，提交 `3f2032d1`。
 - 完成 remaining effects 首个 I/O/system 纵切面：read-only workspace filesystem provider、File Metadata/Observability Message 名义类型、Read Text/Read JSON/Stat、recorded Log 与 terminal Throw；exact provider/target/scope/policy/grant/journal 全链闭合，ambient host path 与通用 `out` 不进入 3.1，提交 `3fab01e2`。
 - 完成 Script 3.1 production vertical slice：显式 signal/data 端口、strict code/JSON/timeout authoring、recorded journal、sealed runtime composition、精确 host feature requirement 与 admission fail-before-effect；Windows worker 自构建门禁使真实 LPAC 测试不再静默跳过，完整 `task check` 全绿，提交 `2ee6164b`。
 - 完成 Windows Script 3.1 fail-closed launcher：独立最小 worker、LPAC/AppContainer、atomic Job Object、显式句柄/环境 allowlist、parent/worker 双重 confinement 验证、content-addressed staging/tamper repair、取消 kill；build/sign/portable/NSIS/canonical Windows smoke 全部携带并验证 worker，提交 `c1fd1bce`。
@@ -127,9 +128,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- workspace I/O/Log/Throw 已完成；当前 frontier 是 network/process/audio，随后按 input/window/image/automation 迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
+- workspace I/O/Log/Throw 与 origin-bound HTTP GET 已完成；当前 frontier 是 process capability，随后按 input/window/image/automation（含 PlayClip）迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
 
 Verified:
+- HTTP egress 提交 `3f2032d1`（2026-07-16）：最终 `task check` 295.6s 全绿；`internal/httpegress` coverage 71.7%，frontend 100 files / 646 tests，Wails contract 16 services / 134 methods / 153 models，entry 334,121 / 350,000 bytes、editor 92,357 / 200,000 bytes；httpegress/nodes31runtime/appbootstrap race 通过。一次既有 Windows high-resolution timer 环境抖动经单测复验 400ms 后，两次完整 `task check` 连续全绿。
 - workspace I/O/system 批次提交 `3fab01e2`（2026-07-16）：完整 `task check` 233.6s 全绿；Go coverage 65.3%、root 33.6%，frontend 100 files / 646 tests，Wails contract 15 services / 132 methods / 151 models，entry 332,173 / 350,000 bytes、editor 92,355 / 200,000 bytes；workspacefs/nodes31runtime/appbootstrap race 通过。
 - Script 3.1 production vertical slice 提交 `2ee6164b`（2026-07-16）：完整 `task check` 全绿；Go coverage 65.3%，frontend 100 files / 646 tests，Wails contract、vet/staticcheck/typecheck/i18n/build 全绿，entry 331,318 / 350,000 bytes、editor 92,358 / 200,000 bytes；Windows LPAC/AppContainer/Job 真机 smoke、取消、篡改修复、聚焦 race 与 Linux/macOS core cross-compile 通过。
 - activation-scoped control region 提交 `1f122ef3`（2026-07-15）：`go test ./...`、frontend `pnpm check` 与 `task contracts:check` 全绿；frontend 100 files / 646 tests、i18n 3276 keys、Wails contract 15 services / 130 methods / 146 models，entry 329,750 / 350,000 bytes、editor 92,312 / 200,000 bytes；嵌套 region 信号传播、显式 Retry error route、多入口 body 拒绝、exact instruction union 与 host-instruction ABI 回归通过。
