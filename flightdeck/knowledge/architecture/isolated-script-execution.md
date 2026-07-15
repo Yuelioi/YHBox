@@ -20,6 +20,3 @@ The Script Node Contract declares the exact host feature `https://schemas.yotta.
 Linux and macOS may compile the GUI and test platform-neutral protocol/engine code, but script execution must return `script.isolation_unavailable` until an equivalent launcher exists. There is no in-process or weaker subprocess fallback.
 
 Only pure script computation may be replayed. Host effects must later use planned action → execute → durable receipt, and ambiguous worker death is never blindly retried. Journal stable codes, digests and counters; never persist source, input, output, credentials, or other sensitive payloads.
-
-
-
