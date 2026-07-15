@@ -26,6 +26,19 @@ func TestParseSource31PreservesExplicitBindingStateAndChannels(t *testing.T) {
 	}
 }
 
+func TestParseSource31PreservesTypedBlobBinding(t *testing.T) {
+	raw := strings.Replace(validSource31ForTest(), `"bindings":{"a":{"kind":"value","value":"hello"},"b":{"kind":"default"}}`,
+		`"bindings":{"a":{"kind":"blob","blob":{"mediaType":"application/octet-stream","digest":"sha256:`+strings.Repeat("2", 64)+`","size":4}},"b":{"kind":"default"}}`, 1)
+	source, diagnostics := ParseSource([]byte(raw))
+	if len(diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+	binding := source.Graphs[0].Nodes[0].Bindings["a"]
+	if binding.Kind != BindingBlob || binding.Blob == nil || binding.Blob.Size != 4 {
+		t.Fatalf("blob binding = %#v", binding)
+	}
+}
+
 func TestParseSource31RejectsLegacyKindAndImplicitEdgeChannel(t *testing.T) {
 	legacy := `{"format":"yotta.workflow","version":3,"workflow":{"id":"wf","name":"x"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`
 	if _, diagnostics := ParseSource([]byte(legacy)); len(diagnostics) == 0 || diagnostics[0].Code != CodeUnsupportedWorkflowFormat {
@@ -44,6 +57,7 @@ func TestParseSource31RejectsUnknownDuplicateAndMalformedBindingState(t *testing
 		{"duplicate", strings.Replace(valid, `"revision":0`, `"revision":0,"revision":1`, 1), CodeDuplicateField},
 		{"value absent", strings.Replace(valid, `{"kind":"value","value":"hello"}`, `{"kind":"value"}`, 1), CodeInvalidField},
 		{"default has value", strings.Replace(valid, `{"kind":"default"}`, `{"kind":"default","value":"x"}`, 1), CodeInvalidField},
+		{"blob absent", strings.Replace(valid, `{"kind":"value","value":"hello"}`, `{"kind":"blob"}`, 1), CodeInvalidField},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

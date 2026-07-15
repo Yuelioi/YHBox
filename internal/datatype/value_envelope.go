@@ -66,7 +66,7 @@ func SealInlineJSON(catalog ValueTypeCatalog, resolved ResolvedType, raw []byte)
 	return sealValue(resolved, RepresentationInlineJSON, CodecJCSV1, canonical)
 }
 
-func SealBlobRef(catalog ValueTypeCatalog, resolved ResolvedType, ref blob.Ref) (ValueEnvelope, error) {
+func SealBlobRef(catalog ValueTypeCatalog, resolved ResolvedType, ref blob.BlobRef) (ValueEnvelope, error) {
 	if err := ref.Validate(); err != nil {
 		return ValueEnvelope{}, fmt.Errorf("invalid blob reference: %w", err)
 	}
@@ -184,7 +184,7 @@ func resealDocument(catalog ValueTypeCatalog, document valueEnvelopeDocument) (V
 	case RepresentationInlineJSON:
 		return SealInlineJSON(catalog, document.Type, document.Value)
 	case RepresentationBlobRef:
-		var ref blob.Ref
+		var ref blob.BlobRef
 		if err := decodeCarrier(document.Value, &ref); err != nil {
 			return ValueEnvelope{}, fmt.Errorf("decode blob reference: %w", err)
 		}
@@ -304,13 +304,13 @@ func (v ValueEnvelope) Durable() bool {
 	return v.state.document.Repr == RepresentationInlineJSON || v.state.document.Repr == RepresentationBlobRef
 }
 
-func (v ValueEnvelope) BlobRef() (blob.Ref, bool) {
+func (v ValueEnvelope) BlobRef() (blob.BlobRef, bool) {
 	if !v.Valid() || v.state.document.Repr != RepresentationBlobRef {
-		return blob.Ref{}, false
+		return blob.BlobRef{}, false
 	}
-	var ref blob.Ref
+	var ref blob.BlobRef
 	if decodeCarrier(v.state.document.Value, &ref) != nil {
-		return blob.Ref{}, false
+		return blob.BlobRef{}, false
 	}
 	return ref, true
 }

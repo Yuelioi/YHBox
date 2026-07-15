@@ -72,7 +72,7 @@ func (s *Service) Save(clip *InputClip) error {
 	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
 		rec.CreatedAt = t
 	}
-	if _, err := s.store.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader(buf.Bytes()), func(ref blob.Ref) asset.AssetRecord {
+	if _, err := s.store.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader(buf.Bytes()), func(ref blob.BlobRef) asset.AssetRecord {
 		rec.Blob = &ref
 		return rec
 	}); err != nil {

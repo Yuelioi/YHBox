@@ -35,24 +35,21 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope, err := owner.Scope("main", "producer", "stream", "invoke-1")
+	session, err := owner.Session("main", "producer", "stream", "invoke-1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	config, _ := json.Marshal(stream.Config{Capacity: 1, MaxChunkBytes: 16})
-	handle, err := owner.Broker().Open(owner.Context(), resource.OpenRequest{
-		Scope: scope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
-		Operations: []string{stream.OperationSend, stream.OperationCancel}, ExpiresAt: now.Add(30 * time.Second), Config: config,
-	})
+	handle, err := session.Open(owner.Context(), []string{stream.OperationSend, stream.OperationCancel}, config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := owner.Broker().Invoke(owner.Context(), resource.Call{Scope: scope, Handle: handle, Operation: stream.OperationSend, Payload: []byte("one")}); err != nil {
+	if _, err := session.Invoke(owner.Context(), handle, stream.OperationSend, []byte("one")); err != nil {
 		t.Fatal(err)
 	}
 	blocked := make(chan error, 1)
 	go func() {
-		_, err := owner.Broker().Invoke(owner.Context(), resource.Call{Scope: scope, Handle: handle, Operation: stream.OperationSend, Payload: []byte("two")})
+		_, err := session.Invoke(owner.Context(), handle, stream.OperationSend, []byte("two"))
 		blocked <- err
 	}()
 	select {
@@ -71,10 +68,76 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Run close did not cancel active resource call")
 	}
-	if _, err := owner.Scope("main", "producer", "stream", "invoke-2"); !errors.Is(err, run31.ErrGrantDenied) {
-		t.Fatalf("Scope after Close = %v", err)
+	if _, err := owner.Session("main", "producer", "stream", "invoke-2"); !errors.Is(err, run31.ErrGrantDenied) {
+		t.Fatalf("Session after Close = %v", err)
 	}
-	if _, err := owner.Broker().Open(context.Background(), resource.OpenRequest{}); !errors.Is(err, resource.ErrBrokerClosed) {
-		t.Fatalf("Broker Open after Close = %v", err)
+	if _, err := session.Open(context.Background(), []string{stream.OperationSend}, config); !errors.Is(err, run31.ErrGrantDenied) {
+		t.Fatalf("Session Open after Close = %v", err)
 	}
+}
+
+func TestOwnerOwnsAndCancelsBackgroundTasks(t *testing.T) {
+	owner, _, _ := ownerForTest(t)
+	started := make(chan struct{})
+	if err := owner.Go(func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	if err := owner.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.Go(func(context.Context) error { return nil }); err == nil {
+		t.Fatal("closed Owner accepted a background task")
+	}
+}
+
+func TestCanceledOwnerRejectsNewSessionsAndTasks(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	owner, _, _ := ownerForParent(t, parent)
+	cancel()
+	<-owner.Context().Done()
+	if _, err := owner.Session("main", "producer", "stream", "invoke-canceled"); !errors.Is(err, run31.ErrGrantDenied) {
+		t.Fatalf("Session after parent cancellation = %v", err)
+	}
+	if err := owner.Go(func(context.Context) error { return nil }); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Go after parent cancellation = %v", err)
+	}
+	if err := owner.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func ownerForTest(t *testing.T) (*run31.Owner, time.Time, capability.RunGrant) {
+	t.Helper()
+	return ownerForParent(t, context.Background())
+}
+
+func ownerForParent(t *testing.T, parent context.Context) (*run31.Owner, time.Time, capability.RunGrant) {
+	t.Helper()
+	now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
+	definition := streamCapability(t)
+	plan := streamPlan(t, definition)
+	grant, err := capability.SealRunGrant(capability.GrantRequest{
+		ProgramHash: digest("program"), Plan: plan, RunID: testRunID, Principal: "user-1", PolicyGeneration: "policy-1",
+		IssuedAt: now, ExpiresAt: now.Add(time.Minute), Bindings: []capability.Binding{{
+			GraphID: "main", NodeID: "producer", RequirementID: "stream", ProviderID: stream.ProviderID, TargetID: "memory",
+			TargetKind: "stream-session", ResourceKind: stream.Kind, PluginInstanceID: "builtin", SessionID: "session-1",
+		}},
+	}, catalog{definition.Ref().CapabilityID: definition})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := stream.NewProvider(stream.Limits{MaxCapacity: 2, MaxChunkBytes: 32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := run31.NewOwner(parent, grant, map[string]resource.Provider{stream.ProviderID: provider}, resource.Options{Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return owner, now, grant
 }

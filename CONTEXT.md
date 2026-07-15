@@ -76,6 +76,10 @@ _Avoid_: Handle registry, service locator
 Resource Broker 中绑定 Run、invocation、kind、operation set 与 expiry 的临时 authority；borrow 只能收窄，最后一个 lease drop 才释放对象。
 _Avoid_: Resource ID, reusable token
 
+**Resource Lease Binding**:
+Node Contract 数据端口对某个 Capability Requirement 及其 operation 子集的显式绑定；只有带该绑定的 runtime-only Stream/Resource Value 才能跨 data edge 借用 authority。
+_Avoid_: Implicit handle passing, ambient resource access
+
 **Conversion**:
 Workflow Source 中显式可见的 Data Type 转换；类型系统不得通过隐式 coercion 改变连线值的语义。
 _Avoid_: Auto-cast, runtime coercion

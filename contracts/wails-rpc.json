@@ -1679,7 +1679,7 @@
       "declarations": [
         {
           "kind": "class",
-          "name": "Ref",
+          "name": "BlobRef",
           "fields": [
             {
               "name": "\"mediaType\"",
@@ -2536,7 +2536,7 @@
             {
               "name": "\"blob\"",
               "optional": true,
-              "type": "blob$0.Ref | null"
+              "type": "blob$0.BlobRef | null"
             },
             {
               "name": "\"createdAt\"",
@@ -2587,7 +2587,7 @@
             {
               "name": "\"firstBlob\"",
               "optional": true,
-              "type": "blob$0.Ref | null"
+              "type": "blob$0.BlobRef | null"
             },
             {
               "name": "\"createdAt\"",
@@ -2734,7 +2734,7 @@
             {
               "name": "\"blob\"",
               "optional": false,
-              "type": "blob$0.Ref"
+              "type": "blob$0.BlobRef"
             }
           ]
         },

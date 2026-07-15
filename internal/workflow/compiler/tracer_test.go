@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
@@ -197,6 +198,83 @@ func TestCompilerFailsClosedForDisabledNodes(t *testing.T) {
 	}
 }
 
+func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := testDigest(t, "compiler-conversion")
+	blobRef := blob.BlobRef{MediaType: "application/octet-stream", Digest: testDigest(t, "blob-value"), Size: 4}
+	result, err := New(build).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: conversionSourceForTest(builtins.BlobToStreamContract.NodeRef(), builtins.StreamToBlobContract.NodeRef(), blobRef),
+		Catalog:    builtins.Catalog,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+	program, ok := result.Program()
+	if !ok {
+		t.Fatal("missing conversion Program")
+	}
+	if entries := program.CapabilityPlan().Entries(); len(entries) != 4 {
+		t.Fatalf("capability plan = %#v", entries)
+	}
+	opened, err := OpenProgram(program.Artifact(), builtins.Catalog, build)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes := opened.Nodes()
+	if len(nodes) != 2 || nodes[0].Execution.Class != nodecontract.ExecutionEffect || nodes[1].Execution.Class != nodecontract.ExecutionEffect {
+		t.Fatalf("effect nodes = %#v", nodes)
+	}
+	if _, err := NewInterpreter(builtins.Catalog, nil).Run(context.Background(), opened); err == nil {
+		t.Fatal("pure-data preview executed an effect Program")
+	}
+}
+
+func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := builtins.StreamToBlobContract.NodeRef()
+	blobRef := blob.BlobRef{MediaType: "application/octet-stream", Digest: testDigest(t, "wrong carrier"), Size: 4}
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-invalid-carrier","name":"Invalid"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
+			"id":"to-blob","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			"config":{"mediaType":"application/octet-stream"},"bindings":{"stream":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, ref.NodeTypeID, ref.SemanticDigest, blobRef.MediaType, blobRef.Digest, blobRef.Size))
+	result, err := New(testDigest(t, "compiler-invalid-carrier")).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: source, Catalog: builtins.Catalog,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasDiagnostic(result.Diagnostics, CodeInvalidBinding) {
+		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+}
+
+func TestResourceLeaseAssignmentNeverWidensOrChangesCarrierClass(t *testing.T) {
+	lease := func(operations ...string) *nodecontract.ResourceLeaseBinding {
+		return &nodecontract.ResourceLeaseBinding{RequirementID: "stream", Operations: operations}
+	}
+	if !resourceLeaseAssignable(lease("cancel", "receive"), lease("receive")) {
+		t.Fatal("narrowed resource lease was rejected")
+	}
+	if resourceLeaseAssignable(lease("receive"), lease("receive", "send")) {
+		t.Fatal("resource lease widened across a data edge")
+	}
+	if resourceLeaseAssignable(nil, lease("receive")) || resourceLeaseAssignable(lease("receive"), nil) {
+		t.Fatal("durable/runtime carrier classes were mixed across a data edge")
+	}
+}
+
 func TestOpenProgramRejectsRehashedEntryAndCapabilityForgery(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	build := testDigest(t, "compiler")
@@ -250,6 +328,18 @@ func concatSourceForTest(ref nodecontract.NodeRef, a, b string, edge *string) []
 			"config":{},"bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}
 		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, a, b, edges))
+}
+
+func conversionSourceForTest(toStream, toBlob nodecontract.NodeRef, ref blob.BlobRef) []byte {
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-convert","name":"Convert"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{"mediaType":"application/octet-stream"},"bindings":{}},
+			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			 "bindings":{"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
+		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],
+		"variables":[],"secretRefs":[]
+	}`, toBlob.NodeTypeID, toBlob.SemanticDigest, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size))
 }
 
 func concatCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract.Contract) {

@@ -63,7 +63,7 @@ func TestExternalValueEnvelopeCarriersRoundTripWithoutRawResources(t *testing.T)
 	}
 	resolved := RefResolvedType(definition.TypeRef())
 	types := valueTypes{definition.TypeRef().TypeID: definition}
-	blobRef := blob.Ref{
+	blobRef := blob.BlobRef{
 		MediaType: "application/octet-stream",
 		Digest:    artifact.Digest("sha256:" + string(bytes.Repeat([]byte{'1'}, 64))),
 		Size:      12,

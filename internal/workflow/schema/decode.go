@@ -251,12 +251,16 @@ func validateSource(source WorkflowSource) []Diagnostic {
 				bindingPath := append(append([]string(nil), nodePath...), "bindings", portID)
 				switch binding.Kind {
 				case BindingValue:
-					if len(binding.Value) == 0 {
+					if len(binding.Value) == 0 || binding.Blob != nil {
 						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
 					}
 				case BindingDefault:
-					if len(binding.Value) != 0 {
+					if len(binding.Value) != 0 || binding.Blob != nil {
 						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
+					}
+				case BindingBlob:
+					if len(binding.Value) != 0 || binding.Blob == nil || binding.Blob.Validate() != nil {
+						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "blob"), Params: map[string]any{"keyword": "bindingState"}})
 					}
 				}
 			}

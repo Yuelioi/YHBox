@@ -54,9 +54,9 @@ blocked_by:
 
 ## Remaining implementation gate
 
-Kernel、资产 schema v2 与 strict Value Envelope carriers 已实现，但本票保持 open，直到以下纵向结果全部进入唯一运行链：
+Kernel、资产 schema v2、strict Value Envelope carriers 与 admitted blob→stream→blob tracer 已实现。该 tracer 使用显式 effect Node Contract、Capability Plan/Run Grant、端口 Resource Lease Binding、Run Session、Blob/Stream Provider 和独立可信的 built-in implementation manifest lock；adapter 不接触 Store、Broker 或原始 channel。Blob writer 在 Run Owner 存活期间 pin 已提交对象，阻止 Sweep 在 Run Value/reference commit 前制造悬空 BlobRef；Owner 关闭后 pin 与 lease 一起释放。本票保持 open，直到以下纵向结果全部进入唯一运行链：
 
-- inline↔blob、blob→stream、stream→blob/inline conversion Node Contract、capability/effect 声明和实现；
+- inline↔blob 与 stream→inline conversion Node Contract、capability/effect 声明和实现；
 - `internal/run.Owner` 已成为每个 admitted Run 的 Broker composition owner，并在终止时按 grant revoke → context cancel → Run lease revoke → permanent Broker close 收口；后续 production interpreter 只能消费该 owner，不能另建 Broker；
 - builtin、Wasm、Process 三类 provider 共用同一 conformance corpus；
 - capture/preview 的整图 Data URL Wails transport 被 bounded blob/stream adapter 替换。

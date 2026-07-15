@@ -49,11 +49,16 @@ func (a *GrantAuthorizer) Revoke() {
 }
 
 func (a *GrantAuthorizer) Scope(graphID, nodeID, requirementID, invocationID string) (resource.Scope, error) {
+	scope, _, err := a.session(graphID, nodeID, requirementID, invocationID)
+	return scope, err
+}
+
+func (a *GrantAuthorizer) session(graphID, nodeID, requirementID, invocationID string) (resource.Scope, capability.GrantEntry, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	entry, ok := a.entries[grantKey(graphID, nodeID, requirementID)]
 	if a.revoked || !a.now().Before(a.grant.ExpiresAt()) || !ok || invocationID == "" {
-		return resource.Scope{}, ErrGrantDenied
+		return resource.Scope{}, capability.GrantEntry{}, ErrGrantDenied
 	}
 	scope := resource.Scope{
 		ProgramHash: a.grant.ProgramHash(), CapabilityPlanDigest: a.grant.PlanDigest(), GrantDigest: a.grant.Digest(),
@@ -62,9 +67,9 @@ func (a *GrantAuthorizer) Scope(graphID, nodeID, requirementID, invocationID str
 		GraphID: graphID, NodeID: nodeID, RequirementID: requirementID, InvocationID: invocationID,
 	}
 	if err := scope.Validate(); err != nil {
-		return resource.Scope{}, ErrGrantDenied
+		return resource.Scope{}, capability.GrantEntry{}, ErrGrantDenied
 	}
-	return scope, nil
+	return scope, entry, nil
 }
 
 func (a *GrantAuthorizer) AuthorizeOpen(_ context.Context, request resource.OpenRequest) (resource.OpenAuthorization, error) {

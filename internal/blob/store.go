@@ -23,13 +23,13 @@ const (
 	markerContents  = "yotta/blob-store/3.1\n"
 )
 
-type Ref struct {
-	MediaType string          `json:"mediaType"`
-	Digest    artifact.Digest `json:"digest"`
-	Size      int64           `json:"size"`
+type BlobRef struct {
+	MediaType string          `json:"mediaType" jsonschema:"required,minLength=3,maxLength=255,pattern=^[a-z0-9][a-z0-9!#$&^_.+-]+/[a-z0-9][a-z0-9!#$&^_.+-]+$"`
+	Digest    artifact.Digest `json:"digest" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
+	Size      int64           `json:"size" jsonschema:"required,minimum=0"`
 }
 
-func (r Ref) Validate() error {
+func (r BlobRef) Validate() error {
 	if !r.Digest.Valid() || r.Size < 0 {
 		return errors.New("invalid blob identity")
 	}
@@ -46,11 +46,18 @@ type Limits struct {
 }
 
 type Store struct {
-	mu     sync.RWMutex
-	putMu  sync.Mutex
-	root   string
-	limits Limits
-	total  int64
+	mu        sync.RWMutex
+	putPermit chan struct{}
+	root      string
+	limits    Limits
+	total     int64
+	pins      map[string]int
+}
+
+type blobPin struct {
+	store  *Store
+	object string
+	once   sync.Once
 }
 
 func Open(root string, limits Limits) (*Store, error) {
@@ -112,22 +119,37 @@ func Open(root string, limits Limits) (*Store, error) {
 			return nil, errors.New("blob store exceeds total byte quota")
 		}
 	}
-	return &Store{root: resolved, limits: limits, total: total}, nil
+	permit := make(chan struct{}, 1)
+	permit <- struct{}{}
+	return &Store{root: resolved, limits: limits, total: total, putPermit: permit, pins: map[string]int{}}, nil
 }
 
-func (s *Store) Put(ctx context.Context, mediaType string, source io.Reader) (Ref, error) {
-	probe := Ref{MediaType: mediaType, Digest: artifact.Digest("sha256:" + strings.Repeat("0", 64)), Size: 0}
+func (s *Store) Put(ctx context.Context, mediaType string, source io.Reader) (BlobRef, error) {
+	ref, _, err := s.put(ctx, mediaType, source, false)
+	return ref, err
+}
+
+func (s *Store) putPinned(ctx context.Context, mediaType string, source io.Reader) (BlobRef, *blobPin, error) {
+	return s.put(ctx, mediaType, source, true)
+}
+
+func (s *Store) put(ctx context.Context, mediaType string, source io.Reader, pinResult bool) (BlobRef, *blobPin, error) {
+	probe := BlobRef{MediaType: mediaType, Digest: artifact.Digest("sha256:" + strings.Repeat("0", 64)), Size: 0}
 	if err := probe.Validate(); err != nil {
-		return Ref{}, err
+		return BlobRef{}, nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return Ref{}, err
+		return BlobRef{}, nil, err
 	}
-	s.putMu.Lock()
-	defer s.putMu.Unlock()
+	select {
+	case <-ctx.Done():
+		return BlobRef{}, nil, ctx.Err()
+	case <-s.putPermit:
+	}
+	defer func() { s.putPermit <- struct{}{} }()
 	tmp, err := os.CreateTemp(s.root, ".tmp-")
 	if err != nil {
-		return Ref{}, fmt.Errorf("create blob temp file: %w", err)
+		return BlobRef{}, nil, fmt.Errorf("create blob temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath)
@@ -136,57 +158,81 @@ func (s *Store) Put(ctx context.Context, mediaType string, source io.Reader) (Re
 	syncErr := tmp.Sync()
 	closeErr := tmp.Close()
 	if copyErr != nil {
-		return Ref{}, copyErr
+		return BlobRef{}, nil, copyErr
 	}
 	if syncErr != nil {
-		return Ref{}, syncErr
+		return BlobRef{}, nil, syncErr
 	}
 	if closeErr != nil {
-		return Ref{}, closeErr
+		return BlobRef{}, nil, closeErr
 	}
 	digest := artifact.Digest("sha256:" + hex.EncodeToString(hash.Sum(nil)))
-	ref := Ref{MediaType: mediaType, Digest: digest, Size: written}
+	ref := BlobRef{MediaType: mediaType, Digest: digest, Size: written}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	destination := filepath.Join(s.root, strings.TrimPrefix(digest.String(), "sha256:"))
 	if info, err := os.Lstat(destination); err == nil {
 		if !info.Mode().IsRegular() {
-			return Ref{}, errors.New("existing blob object is not a regular file")
+			return BlobRef{}, nil, errors.New("existing blob object is not a regular file")
 		}
 		if info.Size() != written {
-			return Ref{}, errors.New("existing blob size does not match its digest")
+			return BlobRef{}, nil, errors.New("existing blob size does not match its digest")
 		}
 		file, err := os.Open(destination)
 		if err != nil {
-			return Ref{}, err
+			return BlobRef{}, nil, err
 		}
 		verifyErr := verifyOpenFile(ctx, file, ref)
 		closeErr := file.Close()
 		if verifyErr != nil {
-			return Ref{}, verifyErr
+			return BlobRef{}, nil, verifyErr
 		}
 		if closeErr != nil {
-			return Ref{}, closeErr
+			return BlobRef{}, nil, closeErr
 		}
-		return ref, nil
+		return ref, s.pinLocked(ref, pinResult), nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return Ref{}, err
+		return BlobRef{}, nil, err
 	}
 	if s.total+written > s.limits.MaxTotalBytes {
-		return Ref{}, errors.New("blob store total byte quota exceeded")
+		return BlobRef{}, nil, errors.New("blob store total byte quota exceeded")
 	}
 	if err := durablefs.Replace(tmpPath, destination); err != nil {
 		if durablefs.Committed(err) {
 			s.total += written
 		}
-		return Ref{}, fmt.Errorf("commit blob: %w", err)
+		return BlobRef{}, nil, fmt.Errorf("commit blob: %w", err)
 	}
 	s.total += written
-	return ref, nil
+	return ref, s.pinLocked(ref, pinResult), nil
 }
 
-func (s *Store) ReadRange(ctx context.Context, ref Ref, offset, length int64) ([]byte, error) {
+func (s *Store) pinLocked(ref BlobRef, requested bool) *blobPin {
+	if !requested {
+		return nil
+	}
+	object := objectName(ref.Digest)
+	s.pins[object]++
+	return &blobPin{store: s, object: object}
+}
+
+func (p *blobPin) release() {
+	if p == nil || p.store == nil {
+		return
+	}
+	p.once.Do(func() {
+		p.store.mu.Lock()
+		defer p.store.mu.Unlock()
+		if p.store.pins[p.object] <= 1 {
+			delete(p.store.pins, p.object)
+			return
+		}
+		p.store.pins[p.object]--
+	})
+}
+
+func (s *Store) ReadRange(ctx context.Context, ref BlobRef, offset, length int64) ([]byte, error) {
 	if err := ref.Validate(); err != nil {
 		return nil, err
 	}
@@ -216,7 +262,7 @@ func (s *Store) ReadRange(ctx context.Context, ref Ref, offset, length int64) ([
 
 // Verify streams the full object through its size and digest checks without
 // materializing its bytes.
-func (s *Store) Verify(ctx context.Context, ref Ref) error {
+func (s *Store) Verify(ctx context.Context, ref BlobRef) error {
 	if err := ref.Validate(); err != nil {
 		return err
 	}
@@ -232,7 +278,7 @@ func (s *Store) Verify(ctx context.Context, ref Ref) error {
 
 // Sweep deletes committed objects that are not present in the complete live set.
 // The caller must provide a stop-the-world snapshot of every durable reference.
-func (s *Store) Sweep(live []Ref) (int, error) {
+func (s *Store) Sweep(live []BlobRef) (int, error) {
 	liveObjects := make(map[string]struct{}, len(live))
 	for _, ref := range live {
 		if err := ref.Validate(); err != nil {
@@ -261,6 +307,9 @@ func (s *Store) Sweep(live []Ref) (int, error) {
 		if _, ok := liveObjects[entry.Name()]; ok {
 			continue
 		}
+		if s.pins[entry.Name()] > 0 {
+			continue
+		}
 		info, err := entry.Info()
 		if err != nil {
 			return reclaimed, err
@@ -278,7 +327,7 @@ func (s *Store) Sweep(live []Ref) (int, error) {
 	return reclaimed, nil
 }
 
-func verifyOpenFile(ctx context.Context, file *os.File, ref Ref) error {
+func verifyOpenFile(ctx context.Context, file *os.File, ref BlobRef) error {
 	info, err := file.Stat()
 	if err != nil {
 		return err

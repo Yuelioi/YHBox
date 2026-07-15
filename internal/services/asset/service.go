@@ -23,15 +23,15 @@ type CaptureAdapter interface {
 
 // AssetSummary is picker metadata plus the first typed blob reference.
 type AssetSummary struct {
-	GUID         string    `json:"guid"`
-	Kind         string    `json:"kind"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description,omitempty"`
-	Category     string    `json:"category,omitempty"`
-	Tags         []string  `json:"tags,omitempty"`
-	VariantCount int       `json:"variantCount"`
-	FirstBlob    *blob.Ref `json:"firstBlob,omitempty"`
-	CreatedAt    string    `json:"createdAt,omitempty"`
+	GUID         string        `json:"guid"`
+	Kind         string        `json:"kind"`
+	Name         string        `json:"name"`
+	Description  string        `json:"description,omitempty"`
+	Category     string        `json:"category,omitempty"`
+	Tags         []string      `json:"tags,omitempty"`
+	VariantCount int           `json:"variantCount"`
+	FirstBlob    *blob.BlobRef `json:"firstBlob,omitempty"`
+	CreatedAt    string        `json:"createdAt,omitempty"`
 }
 
 // Service 全局资产 Wails RPC. 无 containerID (资产全局), guid 寻址.
@@ -94,7 +94,7 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 		Origin:    Origin{Kind: "user"},
 		CreatedAt: time.Now().UTC(),
 	}
-	if _, err := s.store.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(pngData), func(ref blob.Ref) AssetRecord {
+	if _, err := s.store.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(pngData), func(ref blob.BlobRef) AssetRecord {
 		rec.Variants = []Variant{{Resolution: recRes, BBox: bbox, Blob: ref}}
 		return rec
 	}); err != nil {

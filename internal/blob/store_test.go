@@ -50,7 +50,7 @@ func TestStoreRejectsTamperingTraversalAndQuotaAmplification(t *testing.T) {
 	if got, err := store.ReadRange(context.Background(), ref, 1, 3); err != nil || string(got) != "ell" {
 		t.Fatalf("range=%q err=%v", got, err)
 	}
-	forged := blob.Ref{MediaType: "text/plain", Digest: artifact.Digest("sha256:" + strings.Repeat(".", 64)), Size: 1}
+	forged := blob.BlobRef{MediaType: "text/plain", Digest: artifact.Digest("sha256:" + strings.Repeat(".", 64)), Size: 1}
 	if _, err := store.ReadRange(context.Background(), forged, 0, 1); err == nil {
 		t.Fatal("accepted a forged blob path")
 	}
@@ -96,7 +96,7 @@ func TestStoreSweepOwnsObjectLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reclaimed, err := store.Sweep([]blob.Ref{live})
+	reclaimed, err := store.Sweep([]blob.BlobRef{live})
 	if err != nil {
 		t.Fatal(err)
 	}

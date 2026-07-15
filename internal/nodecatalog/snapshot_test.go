@@ -82,6 +82,20 @@ func TestSnapshotBindsExactCapabilityDefinitions(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsResourceLeaseOnTypeWithoutRuntimeRepresentation(t *testing.T) {
+	definition := capabilityDefinition(t)
+	stringType := stringDefinition(t, "type.string.title")
+	contract := leasedEffectContract(t, definition.Ref(), stringType.TypeRef())
+	if _, err := Seal(
+		[]datatype.Definition{stringType},
+		[]capability.Definition{definition},
+		[]Binding{{Contract: contract, Implementation: builtinLock(t)}},
+		"v1",
+	); err == nil {
+		t.Fatal("accepted resource lease on an inline-only data type")
+	}
+}
+
 func capabilityDefinition(t *testing.T) capability.Definition {
 	t.Helper()
 	const id = "https://schemas.yotta.dev/capabilities/blob/read/v1"
@@ -119,6 +133,39 @@ func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Con
 		}}, Errors: []nodecontract.ErrorSpec{{Code: "blob.read.failed", Category: "storage", RetryHint: true}},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring:         nodecontract.Authoring{TitleKey: "node.blob.read.title", Tags: []string{"blob"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contract
+}
+
+func leasedEffectContract(t *testing.T, capabilityRef capability.Ref, typeRef datatype.TypeRef) nodecontract.Contract {
+	t.Helper()
+	const nodeID = "https://schemas.yotta.dev/nodes/blob/leased/v1"
+	contract, err := nodecontract.Seal(nodecontract.Draft{
+		NodeTypeID: nodeID, ConfigSchemaRoot: nodeID + "/config",
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/leased/v1/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
+		Ports: nodecontract.PortSet{
+			DataInputs: []nodecontract.DataInputPort{},
+			DataOutputs: []nodecontract.DataOutputPort{{
+				ID: "value", Type: datatype.RefExpression(typeRef),
+				ResourceLease: &nodecontract.ResourceLeaseBinding{RequirementID: "source", Operations: []string{"read"}},
+			}},
+			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{},
+			ErrorOutputs: []nodecontract.SignalPort{{ID: "error"}}, StatusOutputs: []nodecontract.SignalPort{},
+		},
+		Execution: nodecontract.ExecutionSpec{
+			Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{"https://schemas.yotta.dev/effects/storage-read/v1"},
+			Determinism: nodecontract.Deterministic, Evaluation: nodecontract.EvaluationPull, Cache: nodecontract.CacheNone,
+			Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone,
+		},
+		CapabilityRequirements: []capability.Requirement{{
+			ID: "source", Capability: capabilityRef, Operations: []string{"read"}, TargetSlot: "blob-store", Scope: json.RawMessage(`{}`),
+		}},
+		Errors:            []nodecontract.ErrorSpec{{Code: "blob.read.failed", Category: "storage", RetryHint: false}},
+		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+		Authoring:         nodecontract.Authoring{TitleKey: "node.blob.leased.title", Tags: []string{"blob"}},
 	})
 	if err != nil {
 		t.Fatal(err)

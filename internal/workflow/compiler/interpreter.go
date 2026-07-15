@@ -10,6 +10,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const MaxRunRetainedValueBytes = 16 << 20
@@ -74,6 +75,9 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 		node, ok := nodes[nodeID]
 		if !ok {
 			return RunResult{}, fmt.Errorf("program order references missing node %q", nodeID)
+		}
+		if node.Execution.Class != nodecontract.ExecutionPureData {
+			return RunResult{}, fmt.Errorf("pure-data preview cannot execute class %q", node.Execution.Class)
 		}
 		installed, ok := i.builtins[node.Implementation.Entrypoint]
 		if !ok || installed.Run == nil {

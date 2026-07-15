@@ -312,13 +312,35 @@ func validatePortTypes(ports nodecontract.PortSet, definitions map[string]dataty
 		if err := validateExpressionTypes(input.Type, definitions, 0); err != nil {
 			return fmt.Errorf("input %q: %w", input.ID, err)
 		}
+		if input.ResourceLease != nil && !supportsRuntimeReference(input.Type, definitions) {
+			return fmt.Errorf("input %q: resource lease requires an exact type with a runtime representation", input.ID)
+		}
 	}
 	for _, output := range ports.DataOutputs {
 		if err := validateExpressionTypes(output.Type, definitions, 0); err != nil {
 			return fmt.Errorf("output %q: %w", output.ID, err)
 		}
+		if output.ResourceLease != nil && !supportsRuntimeReference(output.Type, definitions) {
+			return fmt.Errorf("output %q: resource lease requires an exact type with a runtime representation", output.ID)
+		}
 	}
 	return nil
+}
+
+func supportsRuntimeReference(expression datatype.TypeExpression, definitions map[string]datatype.Definition) bool {
+	if expression.Kind != datatype.TypeExpressionRef || expression.Ref == nil {
+		return false
+	}
+	definition, ok := definitions[expression.Ref.TypeID]
+	if !ok || definition.TypeRef() != *expression.Ref {
+		return false
+	}
+	for _, representation := range definition.Machine().Representations {
+		if representation.Kind == datatype.RepresentationStreamRef || representation.Kind == datatype.RepresentationHandleRef {
+			return true
+		}
+	}
+	return false
 }
 
 func validateExpressionTypes(expression datatype.TypeExpression, definitions map[string]datatype.Definition, depth int) error {

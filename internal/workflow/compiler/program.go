@@ -32,6 +32,7 @@ const (
 	inputEdge          = "edge"
 	inputSourceLiteral = "literal"
 	inputSourceDefault = "default"
+	inputSourceBlob    = "blob"
 )
 
 type inputPlan struct {
@@ -174,7 +175,7 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) {
 				return ProgramSnapshot{}, errors.New("program effective contract mismatch")
 			}
-			if machine.Execution.Class != nodecontract.ExecutionPureData {
+			if machine.Execution.Class != nodecontract.ExecutionPureData && machine.Execution.Class != nodecontract.ExecutionEffect {
 				return ProgramSnapshot{}, errors.New("program contains an unsupported execution class")
 			}
 			for _, requirement := range machine.CapabilityRequirements {
@@ -218,7 +219,7 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 	}
 	for _, edge := range graph.Edges {
 		if edge.Channel != schema.EdgeData {
-			return errors.New("program preview contains an unsupported edge channel")
+			return errors.New("program contains an unsupported edge channel")
 		}
 		if _, ok := nodes[edge.From.NodeID]; !ok {
 			return errors.New("program data edge has an unknown source")
@@ -235,6 +236,11 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 		assignable, err := datatype.Assignable(*fromType, *toType)
 		if err != nil || !assignable {
 			return errors.New("program data edge has incompatible types")
+		}
+		fromPort, _ := dataOutputPort(fromNode.Ports, edge.From.PortID)
+		toPort, _ := dataInputPort(toNode.Ports, edge.To.PortID)
+		if !resourceLeaseAssignable(fromPort.ResourceLease, toPort.ResourceLease) {
+			return errors.New("program data edge has incompatible resource authority")
 		}
 		key := edge.To.NodeID + "\x00" + edge.To.PortID
 		if _, duplicate := edgesByInput[key]; duplicate {
@@ -265,10 +271,13 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 			if !exists {
 				return fmt.Errorf("program node %q has an unknown input %q", node.ID, portID)
 			}
+			if plan.Kind == inputLiteral && port.ResourceLease != nil {
+				return fmt.Errorf("program node %q has a literal for runtime authority input %q", node.ID, portID)
+			}
 			switch plan.Kind {
 			case inputLiteral:
 				if len(plan.Value) == 0 || plan.From.NodeID != "" || plan.From.PortID != "" ||
-					(plan.Provenance != inputSourceLiteral && plan.Provenance != inputSourceDefault) {
+					(plan.Provenance != inputSourceLiteral && plan.Provenance != inputSourceDefault && plan.Provenance != inputSourceBlob) {
 					return fmt.Errorf("program node %q has a malformed literal input %q", node.ID, portID)
 				}
 				envelope, err := datatype.OpenValueEnvelope(catalog, plan.Value)
@@ -279,7 +288,11 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 				if err != nil || !reflect.DeepEqual(envelope.Type(), expected) {
 					return fmt.Errorf("program node %q has a forged value type for input %q", node.ID, portID)
 				}
-				if err := validateLiteralCached(port.Type, envelope.InlineJSON(), catalog, validators); err != nil {
+				if plan.Provenance == inputSourceBlob {
+					if _, ok := envelope.BlobRef(); !ok {
+						return fmt.Errorf("program node %q has a forged blob input %q", node.ID, portID)
+					}
+				} else if err := validateLiteralCached(port.Type, envelope.InlineJSON(), catalog, validators); err != nil {
 					return fmt.Errorf("program node %q has an invalid literal input %q: %w", node.ID, portID, err)
 				}
 			case inputEdge:

@@ -95,7 +95,7 @@ func NewStore(dataRoot string) (*Store, error) {
 func (s *Store) verifyBlobReferences(ctx context.Context) error {
 	seen := make(map[artifact.Digest]int64)
 	for _, rec := range s.recs {
-		refs := make([]blob.Ref, 0, len(rec.Variants)+1)
+		refs := make([]blob.BlobRef, 0, len(rec.Variants)+1)
 		for _, variant := range rec.Variants {
 			refs = append(refs, variant.Blob)
 		}
@@ -351,43 +351,43 @@ func (s *Store) DeleteRecord(guid string) error {
 }
 
 // CommitRecordBlob is the only way to introduce a record-level blob reference.
-func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source io.Reader, build func(blob.Ref) AssetRecord) (blob.Ref, error) {
+func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source io.Reader, build func(blob.BlobRef) AssetRecord) (blob.BlobRef, error) {
 	if build == nil {
-		return blob.Ref{}, errors.New("blob record builder is required")
+		return blob.BlobRef{}, errors.New("blob record builder is required")
 	}
 	s.blobLifecycle.RLock()
 	defer s.blobLifecycle.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
-		return blob.Ref{}, err
+		return blob.BlobRef{}, err
 	}
 	if err := s.putRecord(build(ref)); err != nil {
-		return blob.Ref{}, err
+		return blob.BlobRef{}, err
 	}
 	return ref, nil
 }
 
 // CommitVariantBlob is the only way to introduce or replace a variant blob.
-func (s *Store) CommitVariantBlob(ctx context.Context, mediaType string, source io.Reader, guid string, res [2]int, bbox [4]int, regions [][4]int) (blob.Ref, error) {
+func (s *Store) CommitVariantBlob(ctx context.Context, mediaType string, source io.Reader, guid string, res [2]int, bbox [4]int, regions [][4]int) (blob.BlobRef, error) {
 	s.blobLifecycle.RLock()
 	defer s.blobLifecycle.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
-		return blob.Ref{}, err
+		return blob.BlobRef{}, err
 	}
 	if err := s.putVariant(guid, res, ref, bbox, regions); err != nil {
-		return blob.Ref{}, err
+		return blob.BlobRef{}, err
 	}
 	return ref, nil
 }
 
 // ReadBlob reads and verifies an entire asset object.
-func (s *Store) ReadBlob(ctx context.Context, ref blob.Ref) ([]byte, error) {
+func (s *Store) ReadBlob(ctx context.Context, ref blob.BlobRef) ([]byte, error) {
 	return s.blobs.ReadRange(ctx, ref, 0, ref.Size)
 }
 
 // PutVariant 锁内读记录 → 按 Resolution upsert 单条 Variant → 写回。
-func (s *Store) putVariant(guid string, res [2]int, blobRef blob.Ref, bbox [4]int, regions [][4]int) error {
+func (s *Store) putVariant(guid string, res [2]int, blobRef blob.BlobRef, bbox [4]int, regions [][4]int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rec, ok := s.recs[guid]

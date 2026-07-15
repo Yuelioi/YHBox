@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 func TestBuiltinsExposeConcatAsPureDataOnly(t *testing.T) {
@@ -43,5 +45,32 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 	if !bytes.Contains(artifacts.Documentation, []byte("Exec, Error, and Status ports: none.")) ||
 		bytes.Contains(artifacts.Documentation, []byte("| exec | output | `out`")) {
 		t.Fatalf("generated docs invented an exec output:\n%s", artifacts.Documentation)
+	}
+}
+
+func TestBuiltinsExposeExplicitBlobStreamConversions(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := builtins.BinaryType.Machine()
+	if len(binary.Representations) != 2 || binary.Representations[0].Kind != datatype.RepresentationBlobRef || binary.Representations[1].Kind != datatype.RepresentationStreamRef {
+		t.Fatalf("binary representations = %#v", binary.Representations)
+	}
+	for _, nodeID := range []string{BlobToStreamNodeID, StreamToBlobNodeID} {
+		entry, ok := builtins.Catalog.Lookup(nodeID)
+		if !ok {
+			t.Fatalf("missing conversion %s", nodeID)
+		}
+		machine := entry.Contract.Machine()
+		if machine.Execution.Class != nodecontract.ExecutionEffect || len(machine.Ports.ExecInputs)+len(machine.Ports.ExecOutputs) != 0 ||
+			len(machine.Ports.ErrorOutputs)+len(machine.Ports.StatusOutputs) != 0 || len(machine.CapabilityRequirements) != 2 {
+			t.Fatalf("conversion contract = %#v", machine)
+		}
+	}
+	outputLease := builtins.BlobToStreamContract.Machine().Ports.DataOutputs[0].ResourceLease
+	inputLease := builtins.StreamToBlobContract.Machine().Ports.DataInputs[0].ResourceLease
+	if outputLease == nil || inputLease == nil || outputLease.RequirementID != "stream" || inputLease.RequirementID != "stream" {
+		t.Fatalf("conversion leases = %#v / %#v", outputLease, inputLease)
 	}
 }

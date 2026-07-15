@@ -147,7 +147,16 @@ export interface DataInputPort {
   default?: any
   id: string
   required: boolean
+  resourceLease?: ResourceLeaseBinding
   type: TypeExpression
+}
+export interface ResourceLeaseBinding {
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  operations: [string, ...string[]]
+  requirementId: string
 }
 export interface TypeRef {
   semanticDigest: string
@@ -155,6 +164,7 @@ export interface TypeRef {
 }
 export interface DataOutputPort {
   id: string
+  resourceLease?: ResourceLeaseBinding
   type: TypeExpression
 }
 export interface SignalPort {

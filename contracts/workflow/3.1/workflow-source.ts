@@ -99,8 +99,14 @@ export interface Node {
   position: Position
 }
 export interface InputBinding {
-  kind: 'value' | 'default'
+  blob?: BlobRef
+  kind: 'value' | 'default' | 'blob'
   value?: any
+}
+export interface BlobRef {
+  digest: string
+  mediaType: string
+  size: number
 }
 export interface NodeRef {
   nodeTypeId: string

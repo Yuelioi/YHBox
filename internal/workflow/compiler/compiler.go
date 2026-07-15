@@ -26,6 +26,7 @@ const (
 	CodeUnknownPort              = "UNKNOWN_PORT"
 	CodeEdgeChannelMismatch      = "EDGE_CHANNEL_MISMATCH"
 	CodeTypeMismatch             = "TYPE_MISMATCH"
+	CodeResourceLeaseMismatch    = "RESOURCE_LEASE_MISMATCH"
 	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
 	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
 	CodeInvalidBinding           = "INVALID_BINDING"
@@ -165,7 +166,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			continue
 		}
 		machine := entry.Contract.Machine()
-		if machine.Execution.Class != nodecontract.ExecutionPureData {
+		if machine.Execution.Class != nodecontract.ExecutionPureData && machine.Execution.Class != nodecontract.ExecutionEffect {
 			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnsupportedSourceFeature, append(path, "nodeRef"), graph.ID, sourceNode.ID))
 			continue
 		}
@@ -185,6 +186,30 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			port, exists := inputs[portID]
 			if !exists {
 				diagnostics = append(diagnostics, diagnosticAtNode(CodeUnknownPort, append(path, "bindings", portID), graph.ID, sourceNode.ID))
+				continue
+			}
+			if port.ResourceLease != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+				diagnostic.Params["reason"] = "runtime authority inputs must come from an explicitly leased data edge"
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			if binding.Kind == schema.BindingBlob {
+				resolved, resolveErr := resolvedTypeForExactRef(port.Type, catalog)
+				if resolveErr != nil || binding.Blob == nil {
+					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+					diagnostic.Params["reason"] = "blob binding has no exact pinned type"
+					diagnostics = append(diagnostics, diagnostic)
+					continue
+				}
+				envelope, envelopeErr := datatype.SealBlobRef(catalog, resolved, *binding.Blob)
+				if envelopeErr != nil {
+					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+					diagnostic.Params["reason"] = envelopeErr.Error()
+					diagnostics = append(diagnostics, diagnostic)
+					continue
+				}
+				plan.Inputs[portID] = inputPlan{Kind: inputLiteral, Provenance: inputSourceBlob, Value: envelope.Artifact()}
 				continue
 			}
 			var value json.RawMessage
@@ -273,6 +298,12 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 				diagnostics = append(diagnostics, diagnostic(CodeTypeMismatch, path, graph.ID))
 				continue
 			}
+			fromPort, _ := dataOutputPort(fromMachine.Ports, edge.From.PortID)
+			toPort, _ := dataInputPort(toMachine.Ports, edge.To.PortID)
+			if !resourceLeaseAssignable(fromPort.ResourceLease, toPort.ResourceLease) {
+				diagnostics = append(diagnostics, diagnostic(CodeResourceLeaseMismatch, path, graph.ID))
+				continue
+			}
 			if _, already := toNode.Inputs[edge.To.PortID]; already {
 				diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
 				continue
@@ -296,6 +327,22 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
 	}
 	return compiled, diagnostics, nil
+}
+
+func resourceLeaseAssignable(source, target *nodecontract.ResourceLeaseBinding) bool {
+	if source == nil || target == nil {
+		return source == nil && target == nil
+	}
+	allowed := make(map[string]struct{}, len(source.Operations))
+	for _, operation := range source.Operations {
+		allowed[operation] = struct{}{}
+	}
+	for _, operation := range target.Operations {
+		if _, ok := allowed[operation]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func outputForChannel(ports nodecontract.PortSet, channel schema.EdgeChannel, id string) (*datatype.TypeExpression, bool) {

@@ -64,6 +64,9 @@
         "required": {
           "type": "boolean"
         },
+        "resourceLease": {
+          "$ref": "#/$defs/ResourceLeaseBinding"
+        },
         "type": {
           "$ref": "#/$defs/TypeExpression"
         }
@@ -81,6 +84,9 @@
         "id": {
           "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
           "type": "string"
+        },
+        "resourceLease": {
+          "$ref": "#/$defs/ResourceLeaseBinding"
         },
         "type": {
           "$ref": "#/$defs/TypeExpression"
@@ -422,6 +428,28 @@
       "required": [
         "id",
         "schema"
+      ],
+      "type": "object"
+    },
+    "ResourceLeaseBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "requirementId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId",
+        "operations"
       ],
       "type": "object"
     },

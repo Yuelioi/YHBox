@@ -7,6 +7,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 const (
@@ -41,8 +42,14 @@ func GenerateArtifacts() (GeneratedArtifacts, error) {
 	}
 	body := presentationBody{
 		GeneratorVersion: GeneratorVersion,
-		Types:            []json.RawMessage{builtins.StringType.Bytes()},
-		Nodes:            []json.RawMessage{builtins.ConcatContract.Bytes()},
+		Types:            make([]json.RawMessage, 0, len(builtins.Types)),
+		Nodes:            make([]json.RawMessage, 0, len(builtins.Contracts)),
+	}
+	for _, definition := range builtins.Types {
+		body.Types = append(body.Types, definition.Bytes())
+	}
+	for _, contract := range builtins.Contracts {
+		body.Nodes = append(body.Nodes, contract.Bytes())
 	}
 	bodyBytes, err := artifact.Marshal(body)
 	if err != nil {
@@ -63,32 +70,56 @@ func GenerateArtifacts() (GeneratedArtifacts, error) {
 	return GeneratedArtifacts{
 		Catalog:       builtins.Catalog.Bytes(),
 		Presentation:  append(presentation, '\n'),
-		Documentation: []byte(documentation),
+		Documentation: []byte(strings.TrimRight(documentation, "\n") + "\n"),
 	}, nil
 }
 
 func generateDocumentation(builtins Builtins) string {
-	machine := builtins.ConcatContract.Machine()
-	authoring := builtins.ConcatContract.Authoring()
 	var builder strings.Builder
 	builder.WriteString("# Yotta 3.1 built-in nodes\n\n")
 	builder.WriteString("Generated from sealed Data Type and Node Contract artifacts. Do not edit.\n\n")
-	fmt.Fprintf(&builder, "## `%s`\n\n", machine.NodeTypeID)
-	fmt.Fprintf(&builder, "- Title key: `%s`\n", authoring.TitleKey)
-	fmt.Fprintf(&builder, "- Execution: `%s` / `%s` / cache `%s`\n", machine.Execution.Class, machine.Execution.Determinism, machine.Execution.Cache)
-	builder.WriteString("- Capabilities: none\n\n")
-	builder.WriteString("| Channel | Direction | Port | Type | Required |\n")
-	builder.WriteString("| --- | --- | --- | --- | --- |\n")
-	for _, port := range machine.Ports.DataInputs {
-		fmt.Fprintf(&builder, "| data | input | `%s` | `%s` | %t |\n", port.ID, typeExpressionLabel(port.Type), port.Required)
-	}
-	for _, port := range machine.Ports.DataOutputs {
-		fmt.Fprintf(&builder, "| data | output | `%s` | `%s` | — |\n", port.ID, typeExpressionLabel(port.Type))
-	}
-	if len(machine.Ports.ExecInputs)+len(machine.Ports.ExecOutputs)+len(machine.Ports.ErrorOutputs)+len(machine.Ports.StatusOutputs) == 0 {
-		builder.WriteString("\nExec, Error, and Status ports: none.\n")
+	for _, contract := range builtins.Contracts {
+		machine := contract.Machine()
+		authoring := contract.Authoring()
+		fmt.Fprintf(&builder, "## `%s`\n\n", machine.NodeTypeID)
+		fmt.Fprintf(&builder, "- Title key: `%s`\n", authoring.TitleKey)
+		fmt.Fprintf(&builder, "- Execution: `%s` / `%s` / cache `%s`\n", machine.Execution.Class, machine.Execution.Determinism, machine.Execution.Cache)
+		if len(machine.CapabilityRequirements) == 0 {
+			builder.WriteString("- Capabilities: none\n\n")
+		} else {
+			builder.WriteString("- Capabilities:\n")
+			for _, requirement := range machine.CapabilityRequirements {
+				fmt.Fprintf(&builder, "  - `%s`: `%s` operations `%s`\n", requirement.ID, requirement.Capability.CapabilityID, strings.Join(requirement.Operations, "`, `"))
+			}
+			builder.WriteString("\n")
+		}
+		builder.WriteString("| Channel | Direction | Port | Type | Required | Resource lease |\n")
+		builder.WriteString("| --- | --- | --- | --- | --- | --- |\n")
+		for _, port := range machine.Ports.DataInputs {
+			fmt.Fprintf(&builder, "| data | input | `%s` | `%s` | %t | %s |\n", port.ID, typeExpressionLabel(port.Type), port.Required, leaseLabel(port.ResourceLease))
+		}
+		for _, port := range machine.Ports.DataOutputs {
+			fmt.Fprintf(&builder, "| data | output | `%s` | `%s` | — | %s |\n", port.ID, typeExpressionLabel(port.Type), leaseLabel(port.ResourceLease))
+		}
+		for _, port := range machine.Ports.ErrorOutputs {
+			fmt.Fprintf(&builder, "| error | output | `%s` | — | — | — |\n", port.ID)
+		}
+		for _, port := range machine.Ports.StatusOutputs {
+			fmt.Fprintf(&builder, "| status | output | `%s` | — | — | — |\n", port.ID)
+		}
+		if len(machine.Ports.ExecInputs)+len(machine.Ports.ExecOutputs)+len(machine.Ports.ErrorOutputs)+len(machine.Ports.StatusOutputs) == 0 {
+			builder.WriteString("\nExec, Error, and Status ports: none.\n")
+		}
+		builder.WriteString("\n")
 	}
 	return builder.String()
+}
+
+func leaseLabel(lease *nodecontract.ResourceLeaseBinding) string {
+	if lease == nil {
+		return "—"
+	}
+	return fmt.Sprintf("`%s` (`%s`)", lease.RequirementID, strings.Join(lease.Operations, "`, `"))
 }
 
 func typeExpressionLabel(expression datatype.TypeExpression) string {

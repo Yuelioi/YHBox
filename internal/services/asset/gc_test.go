@@ -15,7 +15,7 @@ func TestGCBlobs_ReclaimsOrphans(t *testing.T) {
 	s, dir := newTestStore(t)
 
 	// 写两个 blob：live（被记录引用）和 orphan（无引用）。
-	liveRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live content")), func(ref blob.Ref) AssetRecord {
+	liveRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live content")), func(ref blob.BlobRef) AssetRecord {
 		rec := makeRecord("gc1", "GC Test", KindTemplate)
 		rec.Variants = []Variant{{Resolution: [2]int{1920, 1080}, Blob: ref}}
 		return rec
@@ -47,7 +47,7 @@ func TestGCBlobs_ReclaimsOrphans(t *testing.T) {
 	}
 
 	// Case: clip 记录的 Blob 也算 live，不被回收。
-	clipRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("clip content")), func(ref blob.Ref) AssetRecord {
+	clipRef, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("clip content")), func(ref blob.BlobRef) AssetRecord {
 		clipRec := makeRecord("clip1", "Clip", KindClip)
 		clipRec.Blob = blobPtr(ref)
 		return clipRec

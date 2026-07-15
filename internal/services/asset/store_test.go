@@ -40,16 +40,16 @@ func makeRecord(guid, name, kind string) AssetRecord {
 	}
 }
 
-func testBlobRef(label string) blob.Ref {
+func testBlobRef(label string) blob.BlobRef {
 	digest := sha256.Sum256([]byte(label))
-	return blob.Ref{
+	return blob.BlobRef{
 		MediaType: "application/octet-stream",
 		Digest:    artifact.Digest(fmt.Sprintf("sha256:%x", digest)),
 		Size:      int64(len(label)),
 	}
 }
 
-func blobPtr(ref blob.Ref) *blob.Ref { return &ref }
+func blobPtr(ref blob.BlobRef) *blob.BlobRef { return &ref }
 
 // ---- Task 0.3 tests ----
 
@@ -161,7 +161,7 @@ func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := makeRecord("persist1", "Persistent", KindClip)
-	ref, err := s1.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("deadbeef")), func(ref blob.Ref) AssetRecord {
+	ref, err := s1.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("deadbeef")), func(ref blob.BlobRef) AssetRecord {
 		rec.Blob = &ref
 		return rec
 	})
@@ -246,7 +246,7 @@ func TestStore_DeleteRecord(t *testing.T) {
 
 func TestStore_CommitRecordBlob(t *testing.T) {
 	s, _ := newTestStore(t)
-	ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("blob data")), func(ref blob.Ref) AssetRecord {
+	ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("blob data")), func(ref blob.BlobRef) AssetRecord {
 		rec := makeRecord("blob", "Blob", KindClip)
 		rec.Blob = &ref
 		return rec
@@ -264,9 +264,9 @@ func TestStore_CommitRecordBlobExcludesGCThroughReferenceCommit(t *testing.T) {
 	enteredCommit := make(chan struct{})
 	releaseCommit := make(chan struct{})
 	commitDone := make(chan error, 1)
-	var committed blob.Ref
+	var committed blob.BlobRef
 	go func() {
-		ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live")), func(ref blob.Ref) AssetRecord {
+		ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live")), func(ref blob.BlobRef) AssetRecord {
 			close(enteredCommit)
 			<-releaseCommit
 			rec := makeRecord("atomic", "Atomic", KindTemplate)

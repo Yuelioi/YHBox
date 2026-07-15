@@ -31,6 +31,7 @@ var (
 	ErrOperation     = errors.New("resource operation is not granted")
 	ErrExpired       = errors.New("resource handle expired")
 	ErrBrokerClosed  = errors.New("resource broker closed")
+	ErrRunRevoked    = errors.New("resource run revoked")
 )
 
 type Scope struct {
@@ -177,6 +178,22 @@ type Broker struct {
 	closeOnce       sync.Once
 	closeDone       chan struct{}
 	closeErr        error
+	opening         map[*openAttempt]struct{}
+	openingChanged  chan struct{}
+	revokedRuns     map[string]struct{}
+	revocations     map[string]*runRevocation
+	openCleanupErrs map[string][]error
+}
+
+type openAttempt struct {
+	runID  string
+	cancel context.CancelFunc
+}
+
+type runRevocation struct {
+	done     chan struct{}
+	err      error
+	reported bool
 }
 
 type lease struct {
@@ -208,9 +225,6 @@ func New(authorizer Authorizer, providers map[string]Provider, options Options) 
 	if authorizer == nil {
 		return nil, errors.New("resource authorizer is required")
 	}
-	if len(providers) == 0 {
-		return nil, errors.New("at least one resource provider is required")
-	}
 	providerCopy := make(map[string]Provider, len(providers))
 	for id, provider := range providers {
 		if !identifierPattern.MatchString(id) || provider == nil {
@@ -233,18 +247,20 @@ func New(authorizer Authorizer, providers map[string]Provider, options Options) 
 	return &Broker{
 		authorizer: authorizer, providers: providerCopy, leases: map[string]*lease{},
 		now: options.Now, random: options.Random, maxPayloadBytes: options.MaxPayloadBytes,
-		closeDone: make(chan struct{}),
+		closeDone: make(chan struct{}), opening: map[*openAttempt]struct{}{},
+		openingChanged: make(chan struct{}), revokedRuns: map[string]struct{}{}, revocations: map[string]*runRevocation{},
+		openCleanupErrs: map[string][]error{},
 	}, nil
 }
 
 func (b *Broker) Open(ctx context.Context, request OpenRequest) (Handle, error) {
-	request = cloneOpenRequest(request)
-	b.mu.Lock()
-	if b.closed {
-		b.mu.Unlock()
-		return Handle{}, ErrBrokerClosed
+	if ctx == nil {
+		return Handle{}, errors.New("resource open context is required")
 	}
-	b.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return Handle{}, err
+	}
+	request = cloneOpenRequest(request)
 	provider, ok := b.providers[request.ProviderID]
 	if !ok {
 		return Handle{}, fmt.Errorf("unknown resource provider %q", request.ProviderID)
@@ -256,36 +272,96 @@ func (b *Broker) Open(ctx context.Context, request OpenRequest) (Handle, error) 
 	if len(request.Config) > b.maxPayloadBytes {
 		return Handle{}, errors.New("resource config exceeds byte budget")
 	}
-	authorization, err := b.authorizer.AuthorizeOpen(ctx, cloneOpenRequest(request))
+	openCtx, cancelOpen := context.WithCancel(ctx)
+	attempt := &openAttempt{runID: request.Scope.RunID, cancel: cancelOpen}
+	b.mu.Lock()
+	if terminal := b.terminalOpenErrorLocked(attempt.runID); terminal != nil {
+		b.mu.Unlock()
+		cancelOpen()
+		return Handle{}, terminal
+	}
+	b.opening[attempt] = struct{}{}
+	b.mu.Unlock()
+	defer b.finishOpen(attempt)
+	authorization, err := b.authorizer.AuthorizeOpen(openCtx, cloneOpenRequest(request))
 	if err != nil {
+		if terminal := b.terminalOpenError(attempt.runID); terminal != nil {
+			return Handle{}, terminal
+		}
 		return Handle{}, fmt.Errorf("authorize resource open: %w", err)
 	}
 	if err := validateOpenAuthorization(authorization); err != nil {
 		return Handle{}, fmt.Errorf("invalid resource authorization: %w", err)
 	}
-	value, err := provider.Open(ctx, providerOpenRequest(request, authorization))
+	value, err := provider.Open(openCtx, providerOpenRequest(request, authorization))
 	if err != nil {
+		if terminal := b.terminalOpenError(attempt.runID); terminal != nil {
+			return Handle{}, terminal
+		}
 		return Handle{}, fmt.Errorf("open resource: %w", err)
 	}
 	lifetime, cancel := context.WithCancel(context.Background())
 	object := &objectState{provider: provider, value: value, lifetime: lifetime, cancel: cancel, leases: 1, closeDone: make(chan struct{})}
 	object.cond = sync.NewCond(&object.mu)
 	b.mu.Lock()
-	if b.closed {
+	if terminal := b.terminalOpenErrorLocked(attempt.runID); terminal != nil {
 		b.mu.Unlock()
-		_ = provider.Close(context.WithoutCancel(ctx), value)
-		return Handle{}, ErrBrokerClosed
+		cleanupErr := provider.Close(context.WithoutCancel(ctx), value)
+		b.recordOpenCleanupError(attempt.runID, cleanupErr)
+		return Handle{}, errors.Join(terminal, cleanupErr)
 	}
 	token, err := b.newTokenLocked()
 	if err != nil {
 		b.mu.Unlock()
-		_ = provider.Close(context.WithoutCancel(ctx), value)
-		return Handle{}, err
+		cleanupErr := provider.Close(context.WithoutCancel(ctx), value)
+		return Handle{}, errors.Join(err, cleanupErr)
 	}
 	handle := Handle{Token: token, Kind: request.Kind, ExpiresAt: request.ExpiresAt.UTC()}
 	b.leases[token] = &lease{handle: handle, scope: request.Scope, operations: operations, providerID: request.ProviderID, targetID: request.TargetID, object: object}
 	b.mu.Unlock()
 	return handle, nil
+}
+
+func (b *Broker) finishOpen(attempt *openAttempt) {
+	attempt.cancel()
+	b.mu.Lock()
+	delete(b.opening, attempt)
+	close(b.openingChanged)
+	b.openingChanged = make(chan struct{})
+	b.mu.Unlock()
+}
+
+func (b *Broker) terminalOpenError(runID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.terminalOpenErrorLocked(runID)
+}
+
+func (b *Broker) terminalOpenErrorLocked(runID string) error {
+	if b.closed {
+		return ErrBrokerClosed
+	}
+	if _, revoked := b.revokedRuns[runID]; revoked {
+		return ErrRunRevoked
+	}
+	return nil
+}
+
+func (b *Broker) recordOpenCleanupError(runID string, err error) {
+	if err == nil {
+		return
+	}
+	b.mu.Lock()
+	b.openCleanupErrs[runID] = append(b.openCleanupErrs[runID], err)
+	b.mu.Unlock()
+}
+
+func (b *Broker) takeOpenCleanupErrors(runID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	errs := b.openCleanupErrs[runID]
+	delete(b.openCleanupErrs, runID)
+	return errors.Join(errs...)
 }
 
 func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrower Scope, operations []string, expiresAt time.Time) (Handle, error) {
@@ -309,6 +385,10 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 	}
 	now := b.now()
 	b.mu.Lock()
+	if terminal := b.terminalOpenErrorLocked(owner.RunID); terminal != nil {
+		b.mu.Unlock()
+		return Handle{}, terminal
+	}
 	parent, ok := b.leases[handle.Token]
 	if !ok || parent.handle != handle {
 		b.mu.Unlock()
@@ -341,9 +421,9 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 		return Handle{}, fmt.Errorf("authorize resource borrow: %w", err)
 	}
 	b.mu.Lock()
-	if b.closed {
+	if terminal := b.terminalOpenErrorLocked(owner.RunID); terminal != nil {
 		b.mu.Unlock()
-		return Handle{}, ErrBrokerClosed
+		return Handle{}, terminal
 	}
 	current, stillCurrent := b.leases[handle.Token]
 	if !stillCurrent || current != parent || current.handle != handle || current.scope != owner || !b.now().Before(current.handle.ExpiresAt) {
@@ -384,9 +464,9 @@ func (b *Broker) Invoke(ctx context.Context, call Call) ([]byte, error) {
 		return nil, errors.New("resource payload exceeds byte budget")
 	}
 	b.mu.Lock()
-	if b.closed {
+	if terminal := b.terminalOpenErrorLocked(call.Scope.RunID); terminal != nil {
 		b.mu.Unlock()
-		return nil, ErrBrokerClosed
+		return nil, terminal
 	}
 	current, ok := b.leases[call.Handle.Token]
 	if !ok || current.handle != call.Handle {
@@ -415,6 +495,10 @@ func (b *Broker) Invoke(ctx context.Context, call Call) ([]byte, error) {
 		return nil, fmt.Errorf("authorize resource call: %w", err)
 	}
 	b.mu.Lock()
+	if terminal := b.terminalOpenErrorLocked(call.Scope.RunID); terminal != nil {
+		b.mu.Unlock()
+		return nil, terminal
+	}
 	latest, stillCurrent := b.leases[call.Handle.Token]
 	if !stillCurrent || latest != current || latest.handle != call.Handle || latest.scope != call.Scope || !b.now().Before(latest.handle.ExpiresAt) {
 		b.mu.Unlock()
@@ -460,25 +544,46 @@ func (b *Broker) Drop(ctx context.Context, scope Scope, handle Handle) error {
 }
 
 func (b *Broker) RevokeRun(ctx context.Context, runID string) error {
+	if ctx == nil {
+		return errors.New("resource run revocation context is required")
+	}
 	if !identifierPattern.MatchString(runID) {
 		return errors.New("invalid run ID")
 	}
 	b.mu.Lock()
-	objects := make(map[*objectState]struct{})
-	for token, current := range b.leases {
-		if current.scope.RunID != runID {
-			continue
+	revocation, exists := b.revocations[runID]
+	if !exists && b.closed {
+		b.mu.Unlock()
+		return ErrBrokerClosed
+	}
+	if !exists {
+		revocation = &runRevocation{done: make(chan struct{})}
+		b.revocations[runID] = revocation
+		b.revokedRuns[runID] = struct{}{}
+		for attempt := range b.opening {
+			if attempt.runID == runID {
+				attempt.cancel()
+			}
 		}
-		delete(b.leases, token)
-		current.object.mu.Lock()
-		current.object.leases--
-		if current.object.leases == 0 {
-			current.object.closing = true
-			objects[current.object] = struct{}{}
-		}
-		current.object.mu.Unlock()
 	}
 	b.mu.Unlock()
+	if !exists {
+		go b.finishRunRevocation(runID, revocation)
+	}
+	select {
+	case <-revocation.done:
+		b.mu.Lock()
+		revocation.reported = true
+		b.mu.Unlock()
+		return revocation.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (b *Broker) finishRunRevocation(runID string, revocation *runRevocation) {
+	objects := b.takeRunObjectsAfterOpensFinish(runID)
+	openCleanupErr := b.takeOpenCleanupErrors(runID)
 	ordered := make([]*objectState, 0, len(objects))
 	for object := range objects {
 		ordered = append(ordered, object)
@@ -486,21 +591,35 @@ func (b *Broker) RevokeRun(ctx context.Context, runID string) error {
 	var closeErrors []error
 	for _, object := range ordered {
 		object.cancel()
-		if err := closeObject(ctx, object); err != nil {
+		if err := closeObject(context.Background(), object); err != nil {
 			closeErrors = append(closeErrors, err)
 		}
 	}
-	return errors.Join(closeErrors...)
+	revocation.err = errors.Join(openCleanupErr, errors.Join(closeErrors...))
+	close(revocation.done)
 }
 
-// Close permanently rejects new authority and revokes every outstanding
-// lease. It is the owner shutdown path; a closed Broker cannot be reopened.
-func (b *Broker) Close(ctx context.Context) error {
-	b.closeOnce.Do(func() {
+func (b *Broker) takeRunObjectsAfterOpensFinish(runID string) map[*objectState]struct{} {
+	for {
 		b.mu.Lock()
-		b.closed = true
+		opening := false
+		for attempt := range b.opening {
+			if attempt.runID == runID {
+				opening = true
+				break
+			}
+		}
+		if opening {
+			changed := b.openingChanged
+			b.mu.Unlock()
+			<-changed
+			continue
+		}
 		objects := make(map[*objectState]struct{})
 		for token, current := range b.leases {
+			if current.scope.RunID != runID {
+				continue
+			}
 			delete(b.leases, token)
 			current.object.mu.Lock()
 			current.object.leases--
@@ -511,7 +630,24 @@ func (b *Broker) Close(ctx context.Context) error {
 			current.object.mu.Unlock()
 		}
 		b.mu.Unlock()
+		return objects
+	}
+}
+
+// Close permanently rejects new authority and revokes every outstanding
+// lease. It is the owner shutdown path; a closed Broker cannot be reopened.
+func (b *Broker) Close(ctx context.Context) error {
+	b.closeOnce.Do(func() {
+		b.mu.Lock()
+		b.closed = true
+		for attempt := range b.opening {
+			attempt.cancel()
+		}
+		revocations := b.pendingRunRevocationsLocked()
+		b.mu.Unlock()
 		go func() {
+			objects := b.takeObjectsAfterOpensFinish()
+			openCleanupErr := b.takeCloseOwnedOpenCleanupErrors()
 			var closeErrors []error
 			for object := range objects {
 				object.cancel()
@@ -519,7 +655,13 @@ func (b *Broker) Close(ctx context.Context) error {
 					closeErrors = append(closeErrors, err)
 				}
 			}
-			b.closeErr = errors.Join(closeErrors...)
+			for _, revocation := range revocations {
+				<-revocation.done
+				if revocation.err != nil {
+					closeErrors = append(closeErrors, revocation.err)
+				}
+			}
+			b.closeErr = errors.Join(openCleanupErr, errors.Join(closeErrors...))
 			close(b.closeDone)
 		}()
 	})
@@ -529,6 +671,62 @@ func (b *Broker) Close(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (b *Broker) pendingRunRevocationsLocked() []*runRevocation {
+	revocations := make([]*runRevocation, 0, len(b.revocations))
+	for _, revocation := range b.revocations {
+		select {
+		case <-revocation.done:
+			if !revocation.reported {
+				revocations = append(revocations, revocation)
+			}
+		default:
+			revocations = append(revocations, revocation)
+		}
+	}
+	return revocations
+}
+
+func (b *Broker) takeObjectsAfterOpensFinish() map[*objectState]struct{} {
+	for {
+		b.mu.Lock()
+		if len(b.opening) == 0 {
+			objects := make(map[*objectState]struct{})
+			for token, current := range b.leases {
+				if _, revoking := b.revocations[current.scope.RunID]; revoking {
+					continue
+				}
+				delete(b.leases, token)
+				current.object.mu.Lock()
+				current.object.leases--
+				if current.object.leases == 0 {
+					current.object.closing = true
+					objects[current.object] = struct{}{}
+				}
+				current.object.mu.Unlock()
+			}
+			b.mu.Unlock()
+			return objects
+		}
+		changed := b.openingChanged
+		b.mu.Unlock()
+		<-changed
+	}
+}
+
+func (b *Broker) takeCloseOwnedOpenCleanupErrors() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var errs []error
+	for runID, runErrors := range b.openCleanupErrs {
+		if _, revoking := b.revocations[runID]; revoking {
+			continue
+		}
+		errs = append(errs, runErrors...)
+		delete(b.openCleanupErrs, runID)
+	}
+	return errors.Join(errs...)
 }
 
 func (b *Broker) release(ctx context.Context, token string, expected *Scope) error {

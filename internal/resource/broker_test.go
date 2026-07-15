@@ -47,6 +47,40 @@ type provider struct {
 	closes   int
 	invokes  int
 	lastOpen resource.ProviderOpenRequest
+	closeErr error
+}
+
+type blockingOpenProvider struct {
+	provider
+	started            chan struct{}
+	proceed            chan struct{}
+	ignoreCancellation bool
+}
+
+type blockingCloseProvider struct {
+	provider
+	started chan struct{}
+	proceed chan struct{}
+}
+
+func (p *blockingOpenProvider) Open(ctx context.Context, request resource.ProviderOpenRequest) (any, error) {
+	close(p.started)
+	if p.ignoreCancellation {
+		<-p.proceed
+	} else {
+		select {
+		case <-p.proceed:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return p.provider.Open(ctx, request)
+}
+
+func (p *blockingCloseProvider) Close(ctx context.Context, value any) error {
+	close(p.started)
+	<-p.proceed
+	return p.provider.Close(ctx, value)
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -74,7 +108,7 @@ func (p *provider) Close(context.Context, any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.closes++
-	return nil
+	return p.closeErr
 }
 
 func (p *provider) counts() (int, int, int) {
@@ -279,5 +313,204 @@ func TestBrokerCloseRevokesAllAuthorityAndIsPermanent(t *testing.T) {
 	}
 	if err := broker.Close(context.Background()); err != nil {
 		t.Fatalf("second Close = %v", err)
+	}
+}
+
+func TestBrokerCloseCancelsInflightOpenBeforeReturning(t *testing.T) {
+	p := &blockingOpenProvider{started: make(chan struct{}), proceed: make(chan struct{})}
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := resource.OpenRequest{
+		Scope: testScope("run-1", "node-1"), ProviderID: "test", TargetID: "target-1",
+		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	openDone := make(chan error, 1)
+	go func() {
+		_, err := broker.Open(context.Background(), request)
+		openDone <- err
+	}()
+	<-p.started
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- broker.Close(context.Background()) }()
+	if err := <-openDone; !errors.Is(err, resource.ErrBrokerClosed) {
+		t.Fatalf("in-flight Open after Close = %v", err)
+	}
+	if err := <-closeDone; err != nil {
+		t.Fatal(err)
+	}
+	if opens, _, closes := p.counts(); opens != 0 || closes != 0 {
+		t.Fatalf("canceled provider open/close = %d/%d, want 0/0", opens, closes)
+	}
+}
+
+func TestBrokerRunRevocationWaitsForInflightOpenAndPermanentlyRejectsRun(t *testing.T) {
+	cleanupErr := errors.New("provider cleanup failed")
+	p := &blockingOpenProvider{
+		provider: provider{closeErr: cleanupErr}, started: make(chan struct{}), proceed: make(chan struct{}), ignoreCancellation: true,
+	}
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := resource.OpenRequest{
+		Scope: testScope("run-revoked", "node-1"), ProviderID: "test", TargetID: "target-1",
+		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	openDone := make(chan error, 1)
+	go func() {
+		_, err := broker.Open(context.Background(), request)
+		openDone <- err
+	}()
+	<-p.started
+	revokeDone := make(chan error, 1)
+	go func() { revokeDone <- broker.RevokeRun(context.Background(), "run-revoked") }()
+	select {
+	case err := <-revokeDone:
+		t.Fatalf("RevokeRun returned before in-flight Open completed: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(p.proceed)
+	if err := <-openDone; !errors.Is(err, resource.ErrRunRevoked) || !errors.Is(err, cleanupErr) {
+		t.Fatalf("in-flight Open after RevokeRun = %v", err)
+	}
+	if err := <-revokeDone; !errors.Is(err, cleanupErr) {
+		t.Fatalf("RevokeRun cleanup error = %v", err)
+	}
+	if opens, _, closes := p.counts(); opens != 1 || closes != 1 {
+		t.Fatalf("revoked provider open/close = %d/%d, want 1/1", opens, closes)
+	}
+	if _, err := broker.Open(context.Background(), request); !errors.Is(err, resource.ErrRunRevoked) {
+		t.Fatalf("Open after RevokeRun = %v", err)
+	}
+	if err := broker.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBrokerRunRevocationContinuesAfterCallerTimeout(t *testing.T) {
+	normal := &provider{}
+	blocked := &blockingOpenProvider{
+		started: make(chan struct{}), proceed: make(chan struct{}), ignoreCancellation: true,
+	}
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{
+		"normal":  normal,
+		"blocked": blocked,
+	}, resource.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := testScope("run-timeout", "node-normal")
+	handle, err := broker.Open(context.Background(), resource.OpenRequest{
+		Scope: scope, ProviderID: "normal", TargetID: "target-1", Kind: "test/session",
+		Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockedRequest := resource.OpenRequest{
+		Scope: testScope("run-timeout", "node-blocked"), ProviderID: "blocked", TargetID: "target-2",
+		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	openDone := make(chan error, 1)
+	go func() {
+		_, err := broker.Open(context.Background(), blockedRequest)
+		openDone <- err
+	}()
+	<-blocked.started
+
+	revokeCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := broker.RevokeRun(revokeCtx, "run-timeout"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("timed-out RevokeRun = %v", err)
+	}
+	if _, err := broker.Invoke(context.Background(), resource.Call{
+		Scope: scope, Handle: handle, Operation: "read",
+	}); !errors.Is(err, resource.ErrRunRevoked) {
+		t.Fatalf("Invoke after timed-out RevokeRun = %v", err)
+	}
+	if _, err := broker.Borrow(
+		context.Background(), scope, handle, testScope("run-timeout", "node-borrower"),
+		[]string{"read"}, time.Now().Add(30*time.Second),
+	); !errors.Is(err, resource.ErrRunRevoked) {
+		t.Fatalf("Borrow after timed-out RevokeRun = %v", err)
+	}
+
+	close(blocked.proceed)
+	if err := <-openDone; !errors.Is(err, resource.ErrRunRevoked) {
+		t.Fatalf("in-flight Open after timed-out RevokeRun = %v", err)
+	}
+	if err := broker.RevokeRun(context.Background(), "run-timeout"); err != nil {
+		t.Fatalf("wait for background RevokeRun = %v", err)
+	}
+	if opens, invokes, closes := normal.counts(); opens != 1 || invokes != 0 || closes != 1 {
+		t.Fatalf("normal provider open/invoke/close = %d/%d/%d, want 1/0/1", opens, invokes, closes)
+	}
+	if opens, invokes, closes := blocked.counts(); opens != 1 || invokes != 0 || closes != 1 {
+		t.Fatalf("blocked provider open/invoke/close = %d/%d/%d, want 1/0/1", opens, invokes, closes)
+	}
+	if err := broker.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBrokerCloseWaitsForConcurrentRunRevocation(t *testing.T) {
+	cleanupErr := errors.New("provider close failed")
+	p := &blockingCloseProvider{
+		provider: provider{closeErr: cleanupErr}, started: make(chan struct{}), proceed: make(chan struct{}),
+	}
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := resource.OpenRequest{
+		Scope: testScope("run-closing", "node-1"), ProviderID: "test", TargetID: "target-1",
+		Kind: "test/session", Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	handle, err := broker.Open(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revokeDone := make(chan error, 1)
+	go func() { revokeDone <- broker.RevokeRun(context.Background(), "run-closing") }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		_, invokeErr := broker.Invoke(context.Background(), resource.Call{
+			Scope: request.Scope, Handle: handle, Operation: "read",
+		})
+		if errors.Is(invokeErr, resource.ErrRunRevoked) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("run revocation did not become terminal: %v", invokeErr)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- broker.Close(context.Background()) }()
+	<-p.started
+	select {
+	case err := <-revokeDone:
+		t.Fatalf("RevokeRun returned before provider cleanup: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	select {
+	case err := <-closeDone:
+		t.Fatalf("Close returned before run revocation cleanup: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(p.proceed)
+	if err := <-revokeDone; !errors.Is(err, cleanupErr) {
+		t.Fatalf("RevokeRun cleanup error = %v", err)
+	}
+	if err := <-closeDone; !errors.Is(err, cleanupErr) {
+		t.Fatalf("Close concurrent revocation error = %v", err)
+	}
+	if opens, _, closes := p.counts(); opens != 1 || closes != 1 {
+		t.Fatalf("provider open/close = %d/%d, want 1/1", opens, closes)
+	}
+	if err := broker.RevokeRun(context.Background(), "new-run"); !errors.Is(err, resource.ErrBrokerClosed) {
+		t.Fatalf("new RevokeRun after Close = %v", err)
 	}
 }

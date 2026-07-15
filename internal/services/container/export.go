@@ -185,7 +185,7 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 	if s.assetStore == nil {
 		return fmt.Errorf("asset store not configured for package export")
 	}
-	templateBlobs := map[string]blob.Ref{}
+	templateBlobs := map[string]blob.BlobRef{}
 	for _, guid := range sortedStrings(closure.Templates) {
 		rec, ok := s.assetStore.Get(guid)
 		if !ok {
@@ -208,7 +208,7 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 		}
 	}
 
-	clipBlobs := map[string]blob.Ref{}
+	clipBlobs := map[string]blob.BlobRef{}
 	for _, guid := range sortedStrings(closure.Clips) {
 		rec, ok := s.assetStore.Get(guid)
 		if !ok {
@@ -241,7 +241,7 @@ func addZipJSON(zw *zip.Writer, zipName string, value any) error {
 	return addZipBytes(zw, zipName, b)
 }
 
-func addAssetBlob(zw *zip.Writer, store *asset.Store, ref blob.Ref, zipName string) error {
+func addAssetBlob(zw *zip.Writer, store *asset.Store, ref blob.BlobRef, zipName string) error {
 	b, err := store.ReadBlob(context.Background(), ref)
 	if err != nil {
 		return err
@@ -249,7 +249,7 @@ func addAssetBlob(zw *zip.Writer, store *asset.Store, ref blob.Ref, zipName stri
 	return addZipBytes(zw, zipName, b)
 }
 
-func sortedBlobDigests(refs map[string]blob.Ref) []string {
+func sortedBlobDigests(refs map[string]blob.BlobRef) []string {
 	digests := make([]string, 0, len(refs))
 	for digest := range refs {
 		digests = append(digests, digest)
@@ -258,7 +258,7 @@ func sortedBlobDigests(refs map[string]blob.Ref) []string {
 	return digests
 }
 
-func blobObjectName(ref blob.Ref) string {
+func blobObjectName(ref blob.BlobRef) string {
 	return ref.Digest.String()[len("sha256:"):]
 }
 

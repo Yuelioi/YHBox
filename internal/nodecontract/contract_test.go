@@ -175,6 +175,32 @@ func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
 	}
 }
 
+func TestSealBindsResourcePortsToExactCapabilityOperations(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/blob/read/v1"}
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "blob", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/blob/read/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"read-range"}, TargetSlot: "workspace", Scope: json.RawMessage(`{}`),
+	}}
+	draft.Ports.DataOutputs[0].ResourceLease = &ResourceLeaseBinding{RequirementID: "blob", Operations: []string{"read-range"}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease := contract.Machine().Ports.DataOutputs[0].ResourceLease
+	if lease == nil || lease.RequirementID != "blob" || len(lease.Operations) != 1 {
+		t.Fatalf("resource lease = %#v", lease)
+	}
+	draft.Ports.DataOutputs[0].ResourceLease.Operations = []string{"delete"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a resource port that widened capability operations")
+	}
+}
+
 func concatContractDraftForTest() Draft {
 	stringRef := datatype.TypeRef{
 		TypeID:         "https://schemas.yotta.dev/types/core/string/v1",

@@ -17,7 +17,7 @@ func (s *Store) GCBlobs() (reclaimed int, err error) {
 	s.blobLifecycle.Lock()
 	defer s.blobLifecycle.Unlock()
 	s.mu.RLock()
-	live := make([]blob.Ref, 0)
+	live := make([]blob.BlobRef, 0)
 	for _, rec := range s.recs {
 		for _, v := range rec.Variants {
 			live = append(live, v.Blob)

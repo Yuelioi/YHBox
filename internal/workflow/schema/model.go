@@ -4,6 +4,7 @@ package schema
 import (
 	"encoding/json"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -61,11 +62,13 @@ type BindingKind string
 const (
 	BindingValue   BindingKind = "value"
 	BindingDefault BindingKind = "default"
+	BindingBlob    BindingKind = "blob"
 )
 
 type InputBinding struct {
-	Kind  BindingKind     `json:"kind" jsonschema:"required,enum=value,enum=default"`
+	Kind  BindingKind     `json:"kind" jsonschema:"required,enum=value,enum=default,enum=blob"`
 	Value json.RawMessage `json:"value,omitempty"`
+	Blob  *blob.BlobRef   `json:"blob,omitempty"`
 }
 
 type Node struct {

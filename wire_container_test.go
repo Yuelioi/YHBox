@@ -28,13 +28,13 @@ func patternImg(w, h int) *image.RGBA {
 }
 
 // makeTestPNGBlob 把一张图编码成 PNG 存进 store blob 池, 返回强类型引用.
-func makeTestPNGBlob(t *testing.T, s *asset.Store, img *image.RGBA, guid string, resolution [2]int) blob.Ref {
+func makeTestPNGBlob(t *testing.T, s *asset.Store, img *image.RGBA, guid string, resolution [2]int) blob.BlobRef {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		t.Fatalf("png encode: %v", err)
 	}
-	ref, err := s.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(buf.Bytes()), func(ref blob.Ref) asset.AssetRecord {
+	ref, err := s.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(buf.Bytes()), func(ref blob.BlobRef) asset.AssetRecord {
 		return asset.AssetRecord{
 			GUID: guid, Kind: asset.KindTemplate, Name: guid,
 			Variants: []asset.Variant{{Resolution: resolution, BBox: [4]int{0, 0, resolution[0], resolution[1]}, Blob: ref}},

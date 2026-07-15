@@ -40,15 +40,25 @@ type NodeRef struct {
 }
 
 type DataInputPort struct {
-	ID       string                  `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
-	Type     datatype.TypeExpression `json:"type" jsonschema:"required"`
-	Required bool                    `json:"required" jsonschema:"required"`
-	Default  *json.RawMessage        `json:"default,omitempty"`
+	ID            string                  `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	Type          datatype.TypeExpression `json:"type" jsonschema:"required"`
+	Required      bool                    `json:"required" jsonschema:"required"`
+	Default       *json.RawMessage        `json:"default,omitempty"`
+	ResourceLease *ResourceLeaseBinding   `json:"resourceLease,omitempty"`
 }
 
 type DataOutputPort struct {
-	ID   string                  `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
-	Type datatype.TypeExpression `json:"type" jsonschema:"required"`
+	ID            string                  `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	Type          datatype.TypeExpression `json:"type" jsonschema:"required"`
+	ResourceLease *ResourceLeaseBinding   `json:"resourceLease,omitempty"`
+}
+
+// ResourceLeaseBinding makes runtime authority transfer explicit at a data
+// port. The requirement owns the scope; operations are the exact subset that
+// may be used or borrowed for a runtime-only stream/resource envelope.
+type ResourceLeaseBinding struct {
+	RequirementID string   `json:"requirementId" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	Operations    []string `json:"operations" jsonschema:"required,minItems=1,maxItems=64"`
 }
 
 type SignalPort struct {
@@ -440,6 +450,9 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if requirements == nil {
 		requirements = []capability.Requirement{}
 	}
+	if err := normalizeResourceLeaseBindings(&ports, requirements); err != nil {
+		return MachineContract{}, err
+	}
 	if execution.Class == ExecutionPureData && len(requirements) != 0 {
 		return MachineContract{}, errors.New("pure-data node must not require capabilities")
 	}
@@ -505,6 +518,7 @@ func normalizePorts(source PortSet) (PortSet, error) {
 	inputIDs, outputIDs := map[string]bool{}, map[string]bool{}
 	for i := range result.DataInputs {
 		port := &result.DataInputs[i]
+		port.ResourceLease = cloneResourceLease(port.ResourceLease)
 		if err := validatePortID(port.ID, inputIDs); err != nil || port.Type.Validate() != nil {
 			return PortSet{}, fmt.Errorf("invalid data input port %q", port.ID)
 		}
@@ -517,7 +531,9 @@ func normalizePorts(source PortSet) (PortSet, error) {
 			port.Default = &copy
 		}
 	}
-	for _, port := range result.DataOutputs {
+	for index := range result.DataOutputs {
+		port := &result.DataOutputs[index]
+		port.ResourceLease = cloneResourceLease(port.ResourceLease)
 		if err := validatePortID(port.ID, outputIDs); err != nil || port.Type.Validate() != nil {
 			return PortSet{}, fmt.Errorf("invalid data output port %q", port.ID)
 		}
@@ -535,6 +551,55 @@ func normalizePorts(source PortSet) (PortSet, error) {
 		}
 	}
 	return result, nil
+}
+
+func cloneResourceLease(source *ResourceLeaseBinding) *ResourceLeaseBinding {
+	if source == nil {
+		return nil
+	}
+	return &ResourceLeaseBinding{RequirementID: source.RequirementID, Operations: append([]string(nil), source.Operations...)}
+}
+
+func normalizeResourceLeaseBindings(ports *PortSet, requirements []capability.Requirement) error {
+	byID := make(map[string]capability.Requirement, len(requirements))
+	for _, requirement := range requirements {
+		byID[requirement.ID] = requirement
+	}
+	normalize := func(portID string, lease *ResourceLeaseBinding) error {
+		if lease == nil {
+			return nil
+		}
+		requirement, ok := byID[lease.RequirementID]
+		if !ok || !portIDPattern.MatchString(lease.RequirementID) {
+			return fmt.Errorf("port %q binds an unknown capability requirement", portID)
+		}
+		operations, err := normalizeStringSet(lease.Operations, "resource lease operation")
+		if err != nil || len(operations) == 0 || len(operations) > 64 {
+			return fmt.Errorf("port %q has invalid resource lease operations", portID)
+		}
+		granted := make(map[string]struct{}, len(requirement.Operations))
+		for _, operation := range requirement.Operations {
+			granted[operation] = struct{}{}
+		}
+		for _, operation := range operations {
+			if _, ok := granted[operation]; !ok {
+				return fmt.Errorf("port %q widens capability operation %q", portID, operation)
+			}
+		}
+		lease.Operations = operations
+		return nil
+	}
+	for index := range ports.DataInputs {
+		if err := normalize(ports.DataInputs[index].ID, ports.DataInputs[index].ResourceLease); err != nil {
+			return err
+		}
+	}
+	for index := range ports.DataOutputs {
+		if err := normalize(ports.DataOutputs[index].ID, ports.DataOutputs[index].ResourceLease); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func normalizeExecution(source ExecutionSpec, ports PortSet) (ExecutionSpec, error) {

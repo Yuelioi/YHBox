@@ -1,5 +1,30 @@
 {
   "$defs": {
+    "BlobRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 255,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9!#$\u0026^_.+-]+/[a-z0-9][a-z0-9!#$\u0026^_.+-]+$",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mediaType",
+        "digest",
+        "size"
+      ],
+      "type": "object"
+    },
     "Edge": {
       "additionalProperties": false,
       "properties": {
@@ -127,10 +152,14 @@
     "InputBinding": {
       "additionalProperties": false,
       "properties": {
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
         "kind": {
           "enum": [
             "value",
-            "default"
+            "default",
+            "blob"
           ],
           "type": "string"
         },

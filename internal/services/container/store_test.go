@@ -546,7 +546,7 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	assetStore, _ := asset.NewStore(filepath.Join(dir, "assets"))
 	s.SetAssetStore(assetStore)
 
-	templateBlob, err := assetStore.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader([]byte("template-png")), func(ref blob.Ref) asset.AssetRecord {
+	templateBlob, err := assetStore.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader([]byte("template-png")), func(ref blob.BlobRef) asset.AssetRecord {
 		return asset.AssetRecord{
 			GUID:   "tpl-1",
 			Kind:   asset.KindTemplate,
@@ -562,7 +562,7 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clipBlob, err := assetStore.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader([]byte("clip-bytes")), func(ref blob.Ref) asset.AssetRecord {
+	clipBlob, err := assetStore.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader([]byte("clip-bytes")), func(ref blob.BlobRef) asset.AssetRecord {
 		return asset.AssetRecord{
 			GUID:   "clip-1",
 			Kind:   asset.KindClip,

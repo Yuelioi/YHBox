@@ -188,7 +188,7 @@ func (m *templateMatcherAdapter) Invalidate() {
 
 // loadDecodedTemplate decodes one integrity-checked PNG blob and caches it by digest.
 // 缓存在 PickVariant 之后 (变体已选定) → 不存在跨分辨率误命中; blob 不可变 → 条目永不 stale.
-func (m *templateMatcherAdapter) loadDecodedTemplate(ref blob.Ref) (*vision.Template, error) {
+func (m *templateMatcherAdapter) loadDecodedTemplate(ref blob.BlobRef) (*vision.Template, error) {
 	if ref.MediaType != "image/png" {
 		return nil, fmt.Errorf("template blob media type %q, require image/png", ref.MediaType)
 	}
