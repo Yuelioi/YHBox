@@ -31,7 +31,7 @@ func TestRunJournalPersistsAppendOnlyAttemptAndAdapterFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summary, err := run31.NewRedactedSummary("blob.stream", map[string]int64{"bytes": 4})
+	summary, err := run31.NewRedactedSummary("blob.stream", map[string]int64{"bytes": 4}, map[string]string{"request_id": "req_123"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,8 @@ func TestRunJournalPersistsAppendOnlyAttemptAndAdapterFacts(t *testing.T) {
 	}
 	journal := loaded.Journal()
 	if loaded.Status() != run31.StatusSucceeded || len(journal) != 3 || journal[0].Sequence != 1 || journal[1].Kind != run31.JournalAdapterAction ||
-		journal[2].AttemptOutcome != run31.AttemptSucceeded || journal[1].Summary.Counters["bytes"] != 4 {
+		journal[2].AttemptOutcome != run31.AttemptSucceeded || journal[1].Summary.Counters["bytes"] != 4 ||
+		journal[1].Summary.Facts["request_id"] != "req_123" {
 		t.Fatalf("journal = %#v", journal)
 	}
 }
@@ -95,7 +96,7 @@ func TestRunJournalRejectsInvalidOrderingAndMutableHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +136,7 @@ func TestRunJournalPersistsStatusDuringAttemptAndAllowsRoutedFailure(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := run31.NewRedactedSummary("node.progress", map[string]int64{"percent": 50})
+	summary, err := run31.NewRedactedSummary("node.progress", map[string]int64{"percent": 50}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestRunJournalPersistsStatusDuringAttemptAndAllowsRoutedFailure(t *testing.
 	if _, err := running.AppendJournal(status); !errors.Is(err, run31.ErrJournalOrder) {
 		t.Fatalf("status outside active attempt = %v", err)
 	}
-	startedSummary, err := run31.NewRedactedSummary("node.execute", nil)
+	startedSummary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +178,7 @@ func TestRunJournalPersistsStatusDuringAttemptAndAllowsRoutedFailure(t *testing.
 }
 
 func TestRunJournalRejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T) {
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +195,7 @@ func TestRunJournalRejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T) {
 func TestRunJournalRejectsSuccessfulTerminalsAfterFailedOrCancelledActions(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +246,7 @@ func TestRunJournalRejectsSuccessfulTerminalsAfterFailedOrCancelledActions(t *te
 
 func TestRunJournalUsesFailureWhenAnAttemptHasFailedAndCancelledActions(t *testing.T) {
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +312,7 @@ func TestJournalWriterRejectsASecondRecordOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

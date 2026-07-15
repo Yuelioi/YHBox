@@ -8,6 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -27,12 +28,17 @@ const (
 	ConcatNodeID       = "https://schemas.yotta.dev/nodes/text/concat/v1"
 	BlobToStreamNodeID = "https://schemas.yotta.dev/nodes/conversion/blob-to-stream/v1"
 	StreamToBlobNodeID = "https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1"
+	AIGenerateNodeID   = "https://schemas.yotta.dev/nodes/ai/generate/v1"
+	AIExtractNodeID    = "https://schemas.yotta.dev/nodes/ai/extract/v1"
 
-	BlobReadCapabilityID  = "https://schemas.yotta.dev/capabilities/blob/read/v1"
-	BlobWriteCapabilityID = "https://schemas.yotta.dev/capabilities/blob/write/v1"
-	StreamCapabilityID    = "https://schemas.yotta.dev/capabilities/stream/session/v1"
-	BlobToStreamEffectID  = "https://schemas.yotta.dev/effects/conversion/blob-to-stream/v1"
-	StreamToBlobEffectID  = "https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"
+	BlobReadCapabilityID     = "https://schemas.yotta.dev/capabilities/blob/read/v1"
+	BlobWriteCapabilityID    = "https://schemas.yotta.dev/capabilities/blob/write/v1"
+	StreamCapabilityID       = "https://schemas.yotta.dev/capabilities/stream/session/v1"
+	AIGenerationCapabilityID = "https://schemas.yotta.dev/capabilities/ai/generation/v1"
+	BlobToStreamEffectID     = "https://schemas.yotta.dev/effects/conversion/blob-to-stream/v1"
+	StreamToBlobEffectID     = "https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"
+	AIGenerateEffectID       = "https://schemas.yotta.dev/effects/ai/generate/v1"
+	AIExtractEffectID        = "https://schemas.yotta.dev/effects/ai/extract/v1"
 
 	concatEntrypoint                = "text.concat"
 	blobToStreamEntrypoint          = "conversion.blob-to-stream"
@@ -71,9 +77,12 @@ type Builtins struct {
 	ConcatContract           nodecontract.Contract
 	BlobToStreamContract     nodecontract.Contract
 	StreamToBlobContract     nodecontract.Contract
+	AIGenerateContract       nodecontract.Contract
+	AIExtractContract        nodecontract.Contract
 	Types                    []datatype.Definition
 	Contracts                []nodecontract.Contract
 	Capabilities             []capability.Definition
+	ConfigValidators         configvalidator.Registry
 	definitions              []BuiltinDefinition
 	definitionByID           map[string]BuiltinDefinition
 }
@@ -129,6 +138,14 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	streamSession, err := sealCapability(StreamCapabilityID, []string{stream.OperationCancel, stream.OperationFinish, stream.OperationReceive, stream.OperationSend}, "stream-session")
+	if err != nil {
+		return Builtins{}, err
+	}
+	aiGeneration, err := sealAIGenerationCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	configValidators, err := sealBuiltinConfigValidators()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -195,6 +212,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	aiDefinitions, aiGenerate, aiExtract, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration)
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
@@ -202,6 +223,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, recordedObservationDefinitions...)
 	definitions = append(definitions, stateDefinitions...)
 	definitions = append(definitions, controlDefinitions...)
+	definitions = append(definitions, aiDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -215,7 +237,7 @@ func Build() (Builtins, error) {
 		contracts = append(contracts, definition.Contract)
 	}
 	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, randomDistributionType, durationMillisecondsType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -227,7 +249,8 @@ func Build() (Builtins, error) {
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
-		Types: types, Contracts: contracts, Capabilities: capabilities,
+		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract,
+		Types: types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }

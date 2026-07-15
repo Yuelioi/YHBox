@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:12ae43fdf6684769ece3f79ed54fb04a5a77b5bf0464c43119597aecebd8d180")
+	const want = artifact.Digest("sha256:38c7e06646dcaafe28a52063f1f19155989c29515d0eff0e5134cddb7a7a05b4")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -338,6 +338,33 @@ func TestCapabilityRequirementBindingsResolveOnlyLogicalInstallationSlots(t *tes
 	}
 }
 
+func TestConfigValidatorsAreVersionedAndContentAddressed(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.ConfigValidators = []ConfigValidatorSpec{{
+		ID: "output-schema", ConfigKey: "schema",
+		ValidatorID:    "https://schemas.yotta.dev/config-validators/example/v1",
+		SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("3", 64)),
+	}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validators := contract.Machine().ConfigValidators
+	if len(validators) != 1 || validators[0].ConfigKey != "schema" {
+		t.Fatalf("config validators = %#v", validators)
+	}
+
+	draft.ConfigValidators[0].SemanticDigest = "sha256:bad"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a config validator with an invalid semantic digest")
+	}
+	draft.ConfigValidators[0].SemanticDigest = artifact.Digest("sha256:" + strings.Repeat("3", 64))
+	draft.ConfigValidators = append(draft.ConfigValidators, draft.ConfigValidators[0])
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted duplicate config validator identities")
+	}
+}
+
 func concatContractDraftForTest() Draft {
 	stringRef := datatype.TypeRef{
 		TypeID:         "https://schemas.yotta.dev/types/core/string/v1",
@@ -376,6 +403,7 @@ func concatContractDraftForTest() Draft {
 		Instruction:            Invoke(),
 		CapabilityRequirements: []capability.Requirement{},
 		RequirementBindings:    []RequirementBindingSpec{},
+		ConfigValidators:       []ConfigValidatorSpec{},
 		Errors:                 []ErrorSpec{},
 		StatusEvents:           []StatusEventSpec{},
 		ImplementationABI:      []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},

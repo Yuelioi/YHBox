@@ -17,6 +17,7 @@ const (
 	MaxStructuredDepth       = 32
 	MaxStructuredNodes       = 8192
 	structuredSchemaResource = "https://schemas.yotta.dev/runtime/ai-output/v1"
+	StrictSchemaValidatorID  = "https://schemas.yotta.dev/config-validators/ai-strict-output/v1"
 )
 
 var structuredNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -24,6 +25,18 @@ var structuredNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 type StructuredOutputSpec struct {
 	Name   string          `json:"name"`
 	Schema json.RawMessage `json:"schema"`
+}
+
+func StrictSchemaValidatorDigest() (artifact.Digest, error) {
+	manifest, err := artifact.Marshal(map[string]any{
+		"validatorId": StrictSchemaValidatorID, "schemaProfile": "yotta.ai-schema/3.1",
+		"maxBytes": MaxStructuredSchemaBytes, "maxDepth": MaxStructuredDepth, "maxNodes": MaxStructuredNodes,
+		"keywords": []string{"additionalProperties", "anyOf", "description", "enum", "items", "properties", "required", "type"},
+	})
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum("yotta/config-validator-implementation/v1", manifest)
 }
 
 func CompileStructuredOutput(name string, raw json.RawMessage) (StructuredOutputSpec, error) {

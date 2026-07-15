@@ -51,7 +51,7 @@ func TestValidSuccessorRejectsJournalHistoryMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := NewRedactedSummary("node.execute", nil)
+	summary, err := NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

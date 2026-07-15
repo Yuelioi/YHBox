@@ -15,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/resource"
@@ -34,6 +35,7 @@ type Config struct {
 	Catalog           nodecatalog.Snapshot
 	Authoring         nodeauthoring.Snapshot
 	CompilerBuild     artifact.Digest
+	ConfigValidators  configvalidator.Registry
 	Sources           *workflowstore.SourceStore
 	Programs          *workflowstore.ProgramStore
 	Runs              *run31.Store
@@ -128,7 +130,7 @@ type Application struct {
 
 func New(config Config) (*Application, error) {
 	if !config.Catalog.Valid() || !config.Authoring.Valid() || config.Authoring.CatalogHash() != config.Catalog.Hash() ||
-		!config.CompilerBuild.Valid() || config.Sources == nil || config.Programs == nil ||
+		!config.CompilerBuild.Valid() || !config.ConfigValidators.Valid() || config.Sources == nil || config.Programs == nil ||
 		config.Runs == nil || config.Admitter == nil || config.Executor == nil || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("application requires trusted contracts, stores, admission, executor, and owner timeout")
 	}
@@ -145,7 +147,7 @@ func New(config Config) (*Application, error) {
 	}
 	return &Application{
 		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
-		compiler: compiler.New(config.CompilerBuild), sources: config.Sources,
+		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), sources: config.Sources,
 		programs: config.Programs, runs: config.Runs, admitter: config.Admitter, executor: config.Executor,
 		providers: providers, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		now: config.Now, onRunEvent: config.OnRunEvent, state: stateNew, wake: make(chan struct{}, 1), jobs: make(map[string]*runJob),

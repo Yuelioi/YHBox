@@ -367,7 +367,7 @@ func TestCompilerRejectsRetrySignalsOutsideTheirActivationOrOnTheWrongChannel(t 
 		if err != nil {
 			t.Fatal(err)
 		}
-		result, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+		result, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 		if err != nil {
 			t.Fatal(err)
 		}

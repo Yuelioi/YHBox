@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -30,16 +31,17 @@ var (
 type ProgramStoreOptions struct{ MaxPrograms int }
 
 type ProgramStore struct {
-	mu       sync.RWMutex
-	root     string
-	max      int
-	catalog  nodecatalog.Snapshot
-	build    artifact.Digest
-	programs map[artifact.Digest][]byte
+	mu         sync.RWMutex
+	root       string
+	max        int
+	catalog    nodecatalog.Snapshot
+	build      artifact.Digest
+	validators configvalidator.Registry
+	programs   map[artifact.Digest][]byte
 }
 
-func OpenProgramStore(root string, catalog nodecatalog.Snapshot, build artifact.Digest, options ProgramStoreOptions) (*ProgramStore, error) {
-	if strings.TrimSpace(root) == "" || !catalog.Valid() || !build.Valid() || options.MaxPrograms <= 0 {
+func OpenProgramStore(root string, catalog nodecatalog.Snapshot, validators configvalidator.Registry, build artifact.Digest, options ProgramStoreOptions) (*ProgramStore, error) {
+	if strings.TrimSpace(root) == "" || !catalog.Valid() || !validators.Valid() || !build.Valid() || options.MaxPrograms <= 0 {
 		return nil, errors.New("program store requires root, trusted Catalog/build, and positive program limit")
 	}
 	resolved, err := filepath.Abs(root)
@@ -73,7 +75,7 @@ func OpenProgramStore(root string, catalog nodecatalog.Snapshot, build artifact.
 		if err != nil {
 			return nil, err
 		}
-		program, err := compiler.OpenProgram(raw, catalog, build)
+		program, err := compiler.OpenProgram(raw, catalog, validators, build)
 		if err != nil || program.Hash() != want {
 			return nil, fmt.Errorf("open Program %q: %w", entry.Name(), errors.Join(err, ErrProgramChanged))
 		}
@@ -82,7 +84,7 @@ func OpenProgramStore(root string, catalog nodecatalog.Snapshot, build artifact.
 			return nil, errors.New("program store exceeds program limit")
 		}
 	}
-	return &ProgramStore{root: resolved, max: options.MaxPrograms, catalog: catalog, build: build, programs: programs}, nil
+	return &ProgramStore{root: resolved, max: options.MaxPrograms, catalog: catalog, validators: validators, build: build, programs: programs}, nil
 }
 
 func (s *ProgramStore) Put(ctx context.Context, program compiler.ProgramSnapshot) error {
@@ -92,7 +94,7 @@ func (s *ProgramStore) Put(ctx context.Context, program compiler.ProgramSnapshot
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	trusted, err := compiler.OpenProgram(program.Artifact(), s.catalog, s.build)
+	trusted, err := compiler.OpenProgram(program.Artifact(), s.catalog, s.validators, s.build)
 	if err != nil || trusted.Hash() != program.Hash() {
 		return fmt.Errorf("program store rejected untrusted Program: %w", err)
 	}
@@ -137,7 +139,7 @@ func (s *ProgramStore) Load(hash artifact.Digest) (compiler.ProgramSnapshot, err
 	if err != nil {
 		return compiler.ProgramSnapshot{}, err
 	}
-	program, err := compiler.OpenProgram(raw, s.catalog, s.build)
+	program, err := compiler.OpenProgram(raw, s.catalog, s.validators, s.build)
 	if err != nil || program.Hash() != hash || !bytes.Equal(raw, expected) {
 		if err != nil {
 			return compiler.ProgramSnapshot{}, fmt.Errorf("%w: %v", ErrProgramChanged, err)

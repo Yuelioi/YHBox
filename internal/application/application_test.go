@@ -145,7 +145,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	programs, err := workflowstore.OpenProgramStore(filepath.Join(root, "programs"), builtins.Catalog, build, workflowstore.ProgramStoreOptions{MaxPrograms: 8})
+	programs, err := workflowstore.OpenProgramStore(filepath.Join(root, "programs"), builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }})
 	events := make(chan app31.RunEvent, 16)
 	application, err := app31.New(app31.Config{
-		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build,
+		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor, Providers: map[string]run31.InstalledProvider{},
 		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,

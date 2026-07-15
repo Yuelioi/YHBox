@@ -437,12 +437,16 @@ func (r Record) Journal() []JournalEntry {
 		for _, counter := range entry.Summary.Counters {
 			counters[counter.Name] = counter.Value
 		}
+		facts := make(map[string]string, len(entry.Summary.Facts))
+		for _, fact := range entry.Summary.Facts {
+			facts[fact.Name] = fact.Value
+		}
 		result = append(result, JournalEntry{
 			Sequence: entry.Sequence, Kind: entry.Kind, GraphPath: append([]string(nil), entry.GraphPath...),
 			NodeID: entry.NodeID, EffectID: entry.EffectID, Attempt: entry.Attempt, Action: entry.Action,
 			AttemptOutcome: entry.AttemptOutcome, ActionOutcome: entry.ActionOutcome, OccurredAt: entry.OccurredAt,
 			ErrorCode: entry.ErrorCode, StatusCode: entry.StatusCode, StatusCategory: entry.StatusCategory,
-			Summary: RedactedSummaryView{Code: entry.Summary.Code, Counters: counters},
+			Summary: RedactedSummaryView{Code: entry.Summary.Code, Counters: counters, Facts: facts},
 		})
 	}
 	return result

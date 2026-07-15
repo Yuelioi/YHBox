@@ -97,6 +97,7 @@ type AdapterAction struct {
 	ErrorCode   string
 	SummaryCode string
 	Counters    map[string]int64
+	Facts       map[string]string
 }
 
 var errAdapterActionFailed = errors.New("adapter recorded a failed action")
@@ -351,7 +352,7 @@ func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction
 			return reject(errors.New("adapter action used an undeclared node error code"))
 		}
 	}
-	summary, err := run31.NewRedactedSummary(action.SummaryCode, action.Counters)
+	summary, err := run31.NewRedactedSummary(action.SummaryCode, action.Counters, action.Facts)
 	if err != nil {
 		return reject(err)
 	}

@@ -23,7 +23,7 @@ import (
 func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	build := testDigest(t, "compiler")
-	result, err := New(build).CompileDraft(context.Background(), CompileRequest{
+	result, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(contract.NodeRef(), "hello", " world", nil), Catalog: catalog,
 	})
 	if err != nil {
@@ -44,7 +44,7 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 		len(nodes[0].Ports.ExecInputs)+len(nodes[0].Ports.ExecOutputs)+len(nodes[0].Ports.ErrorOutputs) != 0 {
 		t.Fatalf("program ports = %#v", nodes)
 	}
-	opened, err := OpenProgram(program.Artifact(), catalog, build)
+	opened, err := OpenProgram(program.Artifact(), catalog, testConfigValidators(), build)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestConcatTracerRejectsInventedOutAndContractMismatch(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	build := testDigest(t, "compiler")
 	outEdge := `{"channel":"exec","from":{"nodeId":"concat-1","portId":"out"},"to":{"nodeId":"concat-1","portId":"in"}}`
-	result, err := New(build).CompileDraft(context.Background(), CompileRequest{
+	result, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", &outEdge), Catalog: catalog,
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func TestConcatTracerRejectsInventedOutAndContractMismatch(t *testing.T) {
 
 	ref := contract.NodeRef()
 	ref.SemanticDigest = artifact.Digest("sha256:" + strings.Repeat("0", 64))
-	result, err = New(build).CompileDraft(context.Background(), CompileRequest{
+	result, err = New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(ref, "a", "b", nil), Catalog: catalog,
 	})
 	if err != nil {
@@ -98,7 +98,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 		`{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
 		`{"channel":"error","from":{"nodeId":"source","portId":"failed"},"to":{"nodeId":"target","portId":"in"}}`,
 	})
-	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
+	compiled, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
@@ -117,7 +117,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 	if !slices.Equal(graph.DataOrder, []string{"source", "target"}) {
 		t.Fatalf("data order = %#v", graph.DataOrder)
 	}
-	if _, err := OpenProgram(program.Artifact(), catalog, build); err != nil {
+	if _, err := OpenProgram(program.Artifact(), catalog, testConfigValidators(), build); err != nil {
 		t.Fatalf("strict-open signal Program: %v", err)
 	}
 
@@ -126,7 +126,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted a forged signal route")
 	}
 
@@ -136,7 +136,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted a forged data order")
 	}
 }
@@ -144,7 +144,7 @@ func TestCompilerLowersExecAndErrorEdgesIntoOrderedSignalRoutes(t *testing.T) {
 func TestCompilerRejectsDuplicateSignalRoutesAndRootlessControlCycles(t *testing.T) {
 	catalog, source, target := signalCatalogForTest(t)
 	duplicate := `{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`
-	compiled, err := New(testDigest(t, "duplicate-route")).CompileDraft(context.Background(), CompileRequest{
+	compiled, err := New(testDigest(t, "duplicate-route"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: signalSourceForTest(source.NodeRef(), target.NodeRef(), []string{duplicate, duplicate}), Catalog: catalog,
 	})
 	if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeDuplicateSignalRoute) {
@@ -156,7 +156,7 @@ func TestCompilerRejectsDuplicateSignalRoutesAndRootlessControlCycles(t *testing
 		`{"channel":"exec","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
 		`{"channel":"exec","from":{"nodeId":"target","portId":"next"},"to":{"nodeId":"source","portId":"in"}}`,
 	})
-	compiled, err = New(testDigest(t, "control-cycle")).CompileDraft(context.Background(), CompileRequest{SourceJSON: cycle, Catalog: cycleCatalog})
+	compiled, err = New(testDigest(t, "control-cycle"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: cycle, Catalog: cycleCatalog})
 	if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeNoExecutionRoot) {
 		t.Fatalf("control cycle diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
@@ -164,7 +164,7 @@ func TestCompilerRejectsDuplicateSignalRoutesAndRootlessControlCycles(t *testing
 
 func TestCompilerDistinguishesWrongChannelFromUnknownPort(t *testing.T) {
 	catalog, source, target := signalCatalogForTest(t)
-	compiled, err := New(testDigest(t, "channel-mismatch")).CompileDraft(context.Background(), CompileRequest{
+	compiled, err := New(testDigest(t, "channel-mismatch"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: signalSourceForTest(source.NodeRef(), target.NodeRef(), []string{
 			`{"channel":"error","from":{"nodeId":"source","portId":"next"},"to":{"nodeId":"target","portId":"in"}}`,
 		}), Catalog: catalog,
@@ -185,7 +185,7 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 		],"edges":[{"channel":"data","from":{"nodeId":"first","portId":"result"},"to":{"nodeId":"second","portId":"a"}}],"inputs":[],"outputs":[]}],
 		"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
-	result, err := New(testDigest(t, "compiler")).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
+	result, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	build := testDigest(t, "compiler")
-	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{
+	compiled, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", nil), Catalog: catalog,
 	})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -225,7 +225,7 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted rehashed program with config outside the Node Contract schema")
 	}
 
@@ -235,7 +235,7 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted rehashed program with a literal violating the pinned Data Type")
 	}
 
@@ -251,14 +251,64 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted rehashed Program with an effective type outside the Node Contract")
+	}
+}
+
+func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
+	builtins, err := nodes31.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, ok := builtins.Definition(nodes31.RunStartedNodeID)
+	if !ok {
+		t.Fatal("RunStarted definition is missing")
+	}
+	extract := builtins.AIExtractContract.NodeRef()
+	validSchema := `{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-ai-validator","name":"AI Validator"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"extract","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
+			 "config":{"slot":"default","schema":%q},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
+		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		extract.NodeTypeID, extract.SemanticDigest, validSchema))
+	build := testDigest(t, "AI config validator")
+	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: source, Catalog: builtins.Catalog,
+	})
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("missing AI Extract Program")
+	}
+	var document programDocument
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	for index := range document.Body.Graphs[0].Nodes {
+		if document.Body.Graphs[0].Nodes[index].ID == "extract" {
+			document.Body.Graphs[0].Nodes[index].Config["schema"] = `{"type":"object","properties":{},"required":[],"additionalProperties":true}`
+		}
+	}
+	forged, err := sealProgram(document.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenProgram(forged.Artifact(), builtins.Catalog, builtins.ConfigValidators, build); err == nil {
+		t.Fatal("accepted a rehashed Program whose config violates the pinned validator")
 	}
 }
 
 func TestProgramNodeViewsAreDefensive(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
-	compiled, err := New(testDigest(t, "compiler")).CompileDraft(context.Background(), CompileRequest{
+	compiled, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", nil), Catalog: catalog,
 	})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -278,7 +328,7 @@ func TestProgramNodeViewsAreDefensive(t *testing.T) {
 
 func TestInterpreterRejectsUnpinnedBuiltinAndIllTypedOutput(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
-	compiled, err := New(testDigest(t, "compiler")).CompileDraft(context.Background(), CompileRequest{
+	compiled, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", nil), Catalog: catalog,
 	})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -306,7 +356,7 @@ func TestInterpreterRejectsUnpinnedBuiltinAndIllTypedOutput(t *testing.T) {
 func TestCompilerFailsClosedForDisabledNodes(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	raw := bytes.Replace(concatSourceForTest(contract.NodeRef(), "a", "b", nil), []byte(`"config":{}`), []byte(`"config":{},"disabled":true`), 1)
-	result, err := New(testDigest(t, "compiler")).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
+	result, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +381,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, typeRef.TypeID, typeRef.SemanticDigest))
 	build := testDigest(t, "compiler-state")
-	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
+	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile=%v diagnostics=%#v", err, compiled.Diagnostics)
 	}
@@ -343,7 +393,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 	if err != nil || string(initial.InlineJSON()) != `"ready"` {
 		t.Fatalf("initial=%s err=%v", initial.InlineJSON(), err)
 	}
-	if _, err := OpenProgram(program.Artifact(), builtins.Catalog, build); err != nil {
+	if _, err := OpenProgram(program.Artifact(), builtins.Catalog, builtins.ConfigValidators, build); err != nil {
 		t.Fatalf("strict-open state Program: %v", err)
 	}
 	view := program.State()
@@ -366,7 +416,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), builtins.Catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), builtins.Catalog, builtins.ConfigValidators, build); err == nil {
 		t.Fatal("strict opener accepted a state initial value with a forged type")
 	}
 }
@@ -391,7 +441,7 @@ func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testin
 		fmt.Sprintf(`{"name":"binary","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":null}`, builtins.BinaryType.TypeRef().TypeID, builtins.BinaryType.TypeRef().SemanticDigest),
 	}
 	for index, declaration := range tests {
-		compiled, err := New(testDigest(t, fmt.Sprintf("invalid-state-%d", index))).CompileDraft(context.Background(), CompileRequest{
+		compiled, err := New(testDigest(t, fmt.Sprintf("invalid-state-%d", index)), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 			SourceJSON: []byte(fmt.Sprintf(base, declaration)), Catalog: builtins.Catalog,
 		})
 		if err != nil || !hasDiagnostic(compiled.Diagnostics, CodeInvalidStateVariable) {
@@ -407,7 +457,7 @@ func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t
 	}
 	build := testDigest(t, "compiler-conversion")
 	blobRef := blob.BlobRef{MediaType: "application/octet-stream", Digest: testDigest(t, "blob-value"), Size: 4}
-	result, err := New(build).CompileDraft(context.Background(), CompileRequest{
+	result, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: conversionSourceForTest(builtins.BlobToStreamContract.NodeRef(), builtins.StreamToBlobContract.NodeRef(), blobRef),
 		Catalog:    builtins.Catalog,
 	})
@@ -424,7 +474,7 @@ func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t
 	if entries := program.CapabilityPlan().Entries(); len(entries) != 4 {
 		t.Fatalf("capability plan = %#v", entries)
 	}
-	opened, err := OpenProgram(program.Artifact(), builtins.Catalog, build)
+	opened, err := OpenProgram(program.Artifact(), builtins.Catalog, builtins.ConfigValidators, build)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +501,7 @@ func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
 			"config":{"mediaType":"application/octet-stream"},"bindings":{"stream":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, blobRef.MediaType, blobRef.Digest, blobRef.Size))
-	result, err := New(testDigest(t, "compiler-invalid-carrier")).CompileDraft(context.Background(), CompileRequest{
+	result, err := New(testDigest(t, "compiler-invalid-carrier"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,
 	})
 	if err != nil {
@@ -480,7 +530,7 @@ func TestResourceLeaseAssignmentNeverWidensOrChangesCarrierClass(t *testing.T) {
 func TestOpenProgramRejectsRehashedEntryAndCapabilityForgery(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	build := testDigest(t, "compiler")
-	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", nil), Catalog: catalog})
+	compiled, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: concatSourceForTest(contract.NodeRef(), "a", "b", nil), Catalog: catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
@@ -494,7 +544,7 @@ func TestOpenProgramRejectsRehashedEntryAndCapabilityForgery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted missing entry graph")
 	}
 	document.Body.EntryGraph = "main"
@@ -513,7 +563,7 @@ func TestOpenProgramRejectsRehashedEntryAndCapabilityForgery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+	if _, err := OpenProgram(forged.Artifact(), catalog, testConfigValidators(), build); err == nil {
 		t.Fatal("accepted forged capability manifest")
 	}
 }

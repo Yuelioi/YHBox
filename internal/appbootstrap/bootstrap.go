@@ -89,7 +89,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	programs, err := workflowstore.OpenProgramStore(filepath.Join(workspace, "programs"), builtins.Catalog, build, workflowstore.ProgramStoreOptions{MaxPrograms: config.Limits.MaxPrograms})
+	programs, err := workflowstore.OpenProgramStore(filepath.Join(workspace, "programs"), builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: config.Limits.MaxPrograms})
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func Build(config Config) (*Runtime, error) {
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
 	application, err := app31.New(app31.Config{
-		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build,
+		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
 		Providers: map[string]run31.InstalledProvider{

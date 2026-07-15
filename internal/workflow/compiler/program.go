@@ -14,6 +14,7 @@ import (
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -146,7 +147,7 @@ func sealProgram(body programBody) (ProgramSnapshot, error) {
 	return ProgramSnapshot{state: &programState{document: document, artifact: raw}}, nil
 }
 
-func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompilerBuild artifact.Digest) (ProgramSnapshot, error) {
+func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, validators configvalidator.Registry, expectedCompilerBuild artifact.Digest) (ProgramSnapshot, error) {
 	if len(raw) == 0 || len(raw) > MaxProgramBytes {
 		return ProgramSnapshot{}, errors.New("program exceeds byte budget")
 	}
@@ -181,7 +182,7 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 	if sealed.Hash() != document.ProgramHash || !bytes.Equal(sealed.Artifact(), raw) {
 		return ProgramSnapshot{}, errors.New("program hash mismatch")
 	}
-	if !trustedCatalog.Valid() || document.Body.CatalogHash != trustedCatalog.Hash() {
+	if !trustedCatalog.Valid() || !validators.Valid() || document.Body.CatalogHash != trustedCatalog.Hash() {
 		return ProgramSnapshot{}, errors.New("program catalog hash mismatch")
 	}
 	if !expectedCompilerBuild.Valid() || document.Body.CompilerBuild != expectedCompilerBuild {
@@ -204,7 +205,7 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 		stateByName[slot.Name] = slot
 	}
 	for _, graph := range document.Body.Graphs {
-		if err := validateProgramGraph(graph, trustedCatalog, stateByName); err != nil {
+		if err := validateProgramGraph(graph, trustedCatalog, validators, stateByName); err != nil {
 			return ProgramSnapshot{}, err
 		}
 		for _, node := range graph.Nodes {
@@ -268,7 +269,7 @@ func validateProgramState(slots []programStateSlot, catalog nodecatalog.Snapshot
 	return nil
 }
 
-func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, state map[string]programStateSlot) error {
+func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot) error {
 	if graph.ID == "" || len(graph.Nodes) > 4096 || len(graph.SignalRoutes) > 16384 {
 		return errors.New("program graph exceeds structural budget")
 	}
@@ -278,7 +279,7 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, stat
 	nodes := make(map[string]programNode, len(graph.Nodes))
 	adjacency := map[string][]string{}
 	indegree := map[string]int{}
-	validators := map[string]*runtimejsonschema.Schema{}
+	schemaValidators := map[string]*runtimejsonschema.Schema{}
 	for _, node := range graph.Nodes {
 		if node.ID == "" {
 			return errors.New("program contains an empty node id")
@@ -326,8 +327,11 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, stat
 		if err := validateEffectivePortTypes(node, machine, state); err != nil {
 			return fmt.Errorf("program node %q has invalid effective types: %w", node.ID, err)
 		}
-		if err := validateJSONSchemaBundleCached(validators, "config:"+node.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, node.Config); err != nil {
+		if err := validateJSONSchemaBundleCached(schemaValidators, "config:"+node.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, node.Config); err != nil {
 			return fmt.Errorf("program node %q has invalid config: %w", node.ID, err)
+		}
+		if err := configValidators.Validate(machine, node.Config); err != nil {
+			return fmt.Errorf("program node %q has invalid config semantics: %w", node.ID, err)
 		}
 		ports := make(map[string]nodecontract.DataInputPort, len(machine.Ports.DataInputs))
 		for _, port := range machine.Ports.DataInputs {

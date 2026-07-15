@@ -54,6 +54,35 @@
       ],
       "type": "object"
     },
+    "ConfigValidatorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "configKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "validatorId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "configKey",
+        "validatorId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
     "CountedLoopInstruction": {
       "additionalProperties": false,
       "properties": {
@@ -436,6 +465,13 @@
           "format": "uri",
           "type": "string"
         },
+        "configValidators": {
+          "items": {
+            "$ref": "#/$defs/ConfigValidatorSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "errors": {
           "items": {
             "$ref": "#/$defs/ErrorSpec"
@@ -498,6 +534,7 @@
         "instruction",
         "capabilityRequirements",
         "requirementBindings",
+        "configValidators",
         "errors",
         "statusEvents",
         "stateAccesses",

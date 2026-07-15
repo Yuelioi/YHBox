@@ -325,7 +325,7 @@ func conversionProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size, toBlob.NodeTypeID, toBlob.SemanticDigest))
-	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
 	}

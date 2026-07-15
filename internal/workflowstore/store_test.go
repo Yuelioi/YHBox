@@ -78,7 +78,7 @@ func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
 		t.Fatal(err)
 	}
 	build := testDigest(t, "workflowstore compiler")
-	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: concatSource(t, 0, "a", "b"), Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: concatSource(t, 0, "a", "b"), Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, %#v", err, compiled.Diagnostics)
 	}
@@ -87,7 +87,7 @@ func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
 		t.Fatal("missing Program")
 	}
 	root := t.TempDir()
-	store, err := workflowstore.OpenProgramStore(root, builtins.Catalog, build, workflowstore.ProgramStoreOptions{MaxPrograms: 2})
+	store, err := workflowstore.OpenProgramStore(root, builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
 	if err != nil || loaded.Hash() != program.Hash() || string(loaded.Artifact()) != string(program.Artifact()) {
 		t.Fatalf("Load = %s, %v", loaded.Hash(), err)
 	}
-	reopened, err := workflowstore.OpenProgramStore(root, builtins.Catalog, build, workflowstore.ProgramStoreOptions{MaxPrograms: 2})
+	reopened, err := workflowstore.OpenProgramStore(root, builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: 2})
 	if err != nil {
 		t.Fatal(err)
 	}

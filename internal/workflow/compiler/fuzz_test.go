@@ -18,7 +18,7 @@ func FuzzCompileDraft(f *testing.F) {
 	}
 	f.Add(fuzzSource(builtins.ConcatContract.NodeRef()))
 	f.Fuzz(func(t *testing.T, raw []byte) {
-		_, _ = New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
+		_, _ = New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
 	})
 }
 
@@ -28,14 +28,14 @@ func FuzzOpenProgram(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	compiled, err := New(build).CompileDraft(context.Background(), CompileRequest{SourceJSON: fuzzSource(builtins.ConcatContract.NodeRef()), Catalog: builtins.Catalog})
+	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{SourceJSON: fuzzSource(builtins.ConcatContract.NodeRef()), Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		f.Fatalf("seed compile: diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 	program, _ := compiled.Program()
 	f.Add(program.Artifact())
 	f.Fuzz(func(t *testing.T, raw []byte) {
-		_, _ = OpenProgram(raw, builtins.Catalog, build)
+		_, _ = OpenProgram(raw, builtins.Catalog, builtins.ConfigValidators, build)
 	})
 }
 

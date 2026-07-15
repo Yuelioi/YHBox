@@ -279,7 +279,7 @@ func (s *scheduler) enqueueInstructionOutput(nodeID, output string, failure *Rou
 func (s *scheduler) beginInstruction(ctx context.Context, node programNode) (int, run31.RedactedSummary, error) {
 	s.attempts[node.ID]++
 	attempt := s.attempts[node.ID]
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		return 0, run31.RedactedSummary{}, err
 	}

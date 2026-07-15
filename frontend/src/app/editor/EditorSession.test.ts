@@ -98,9 +98,11 @@ describe('EditorSession', () => {
 
   it('uses nominal union and list assignability from the 3.1 contract', () => {
     const stringType = concat.dataInputs[0].type.expression
+    const number = authoring.body.types.find((type) => type.typeRef.typeId.endsWith('/number/v1'))!
+    const numberType: TypeExpression = { kind: 'ref', ref: number.typeRef }
     const union: TypeExpression = {
       kind: 'union',
-      members: [stringType, authoring.body.nodes[0].dataInputs[0].type.expression],
+      members: [stringType, numberType],
     }
     expect(assignable(stringType, union)).toBe(true)
     expect(assignable(union, stringType)).toBe(false)

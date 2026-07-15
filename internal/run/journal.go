@@ -49,9 +49,15 @@ type summaryCounter struct {
 	Value int64  `json:"value"`
 }
 
+type summaryFact struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type redactedSummaryDocument struct {
 	Code     string           `json:"code"`
 	Counters []summaryCounter `json:"counters"`
+	Facts    []summaryFact    `json:"facts"`
 }
 
 type RedactedSummary struct{ document redactedSummaryDocument }
@@ -59,10 +65,11 @@ type RedactedSummary struct{ document redactedSummaryDocument }
 type RedactedSummaryView struct {
 	Code     string
 	Counters map[string]int64
+	Facts    map[string]string
 }
 
-func NewRedactedSummary(code string, counters map[string]int64) (RedactedSummary, error) {
-	if !errorCodePattern.MatchString(code) || len(counters) > 64 {
+func NewRedactedSummary(code string, counters map[string]int64, facts map[string]string) (RedactedSummary, error) {
+	if !errorCodePattern.MatchString(code) || len(counters) > 64 || len(facts) > 64 {
 		return RedactedSummary{}, errors.New("invalid redacted summary")
 	}
 	names := make([]string, 0, len(counters))
@@ -73,9 +80,22 @@ func NewRedactedSummary(code string, counters map[string]int64) (RedactedSummary
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	document := redactedSummaryDocument{Code: code, Counters: make([]summaryCounter, 0, len(names))}
+	factNames := make([]string, 0, len(facts))
+	for name, value := range facts {
+		if !runFieldPattern.MatchString(name) || !validSummaryFactValue(value) {
+			return RedactedSummary{}, errors.New("invalid redacted summary fact")
+		}
+		factNames = append(factNames, name)
+	}
+	sort.Strings(factNames)
+	document := redactedSummaryDocument{
+		Code: code, Counters: make([]summaryCounter, 0, len(names)), Facts: make([]summaryFact, 0, len(factNames)),
+	}
 	for _, name := range names {
 		document.Counters = append(document.Counters, summaryCounter{Name: name, Value: counters[name]})
+	}
+	for _, name := range factNames {
+		document.Facts = append(document.Facts, summaryFact{Name: name, Value: facts[name]})
 	}
 	return RedactedSummary{document: document}, nil
 }
@@ -362,7 +382,7 @@ func validateJournal(entries []journalEntry, startedAt *time.Time, requireClosed
 }
 
 func validSummary(summary redactedSummaryDocument) bool {
-	if !errorCodePattern.MatchString(summary.Code) || len(summary.Counters) > 64 {
+	if !errorCodePattern.MatchString(summary.Code) || len(summary.Counters) > 64 || len(summary.Facts) > 64 {
 		return false
 	}
 	previous := ""
@@ -371,6 +391,25 @@ func validSummary(summary redactedSummaryDocument) bool {
 			return false
 		}
 		previous = counter.Name
+	}
+	previous = ""
+	for _, fact := range summary.Facts {
+		if !runFieldPattern.MatchString(fact.Name) || !validSummaryFactValue(fact.Value) || fact.Name <= previous {
+			return false
+		}
+		previous = fact.Name
+	}
+	return true
+}
+
+func validSummaryFactValue(value string) bool {
+	if len(value) == 0 || len(value) > 256 {
+		return false
+	}
+	for _, character := range value {
+		if character < 0x20 || character > 0x7e {
+			return false
+		}
 	}
 	return true
 }
@@ -397,5 +436,7 @@ func validStatusCategory(category nodecontract.StatusCategory) bool {
 	}
 }
 func cloneSummary(source redactedSummaryDocument) redactedSummaryDocument {
-	return redactedSummaryDocument{Code: source.Code, Counters: append([]summaryCounter(nil), source.Counters...)}
+	return redactedSummaryDocument{
+		Code: source.Code, Counters: append([]summaryCounter(nil), source.Counters...), Facts: append([]summaryFact(nil), source.Facts...),
+	}
 }

@@ -84,7 +84,7 @@ func TestUnresolvedCollectionVariableFailsAtCompileBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil {
 		t.Fatal(err)
 	}

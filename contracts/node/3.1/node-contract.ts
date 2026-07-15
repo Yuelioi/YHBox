@@ -83,6 +83,10 @@ export interface MachineContract {
   /**
    * @maxItems 4096
    */
+  configValidators: ConfigValidatorSpec[]
+  /**
+   * @maxItems 4096
+   */
   errors: ErrorSpec[]
   execution: ExecutionSpec
   /**
@@ -123,6 +127,12 @@ export interface Resource {
   schema: {
     [k: string]: any
   }
+}
+export interface ConfigValidatorSpec {
+  configKey: string
+  id: string
+  semanticDigest: string
+  validatorId: string
 }
 export interface ErrorSpec {
   category: string

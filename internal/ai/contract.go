@@ -185,6 +185,17 @@ type Outcome struct {
 	Cancellation       Cancellation `json:"cancellation"`
 }
 
+func OpenOutcome(raw []byte) (Outcome, error) {
+	var outcome Outcome
+	if err := decodeExactJSON(raw, &outcome); err != nil {
+		return Outcome{}, fmt.Errorf("decode AI outcome: %w", err)
+	}
+	if err := outcome.Validate(); err != nil {
+		return Outcome{}, err
+	}
+	return outcome, nil
+}
+
 func (o Outcome) Validate() error {
 	if o.Provider == "" || o.RequestedModel == "" || len(o.Items) > MaxOutputItems {
 		return errors.New("invalid AI outcome identity or output budget")

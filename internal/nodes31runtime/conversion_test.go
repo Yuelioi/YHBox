@@ -43,15 +43,7 @@ func TestInstalledAdaptersRejectCatalogThatSelfAssertsAnotherImplementation(t *t
 		}
 		bindings = append(bindings, nodecatalog.Binding{Contract: contract, Implementation: lock})
 	}
-	capabilities := make([]capability.Definition, 0, 3)
-	for _, id := range []string{nodes31.BlobReadCapabilityID, nodes31.BlobWriteCapabilityID, nodes31.StreamCapabilityID} {
-		definition, ok := builtins.Catalog.LookupCapability(id)
-		if !ok {
-			t.Fatalf("missing capability %q", id)
-		}
-		capabilities = append(capabilities, definition)
-	}
-	forged, err := nodecatalog.Seal(builtins.Types, capabilities, bindings, "v1")
+	forged, err := nodecatalog.Seal(builtins.Types, builtins.Capabilities, bindings, "v1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +73,7 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, graphID, graphID, nodeID, ref.NodeTypeID, ref.SemanticDigest))
-	compiled, err := compiler.New(build).CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
 	}
@@ -140,7 +132,7 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))
-	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile = %v, diagnostics %#v", err, compiled.Diagnostics)
 	}
@@ -200,7 +192,7 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	compileResult, err := compiler.New(build).CompileDraft(ctx, compiler.CompileRequest{
+	compileResult, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{
 		SourceJSON: conversionSource(builtins, inputRef), Catalog: builtins.Catalog,
 	})
 	if err != nil {
@@ -293,7 +285,7 @@ func TestExecutorFailsClosedWhenEffectAdapterJournalIsMissingOrCancelled(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiled, err := compiler.New(build).CompileDraft(ctx, compiler.CompileRequest{
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{
 		SourceJSON: conversionSource(builtins, inputRef), Catalog: builtins.Catalog,
 	})
 	if err != nil || len(compiled.Diagnostics) != 0 {

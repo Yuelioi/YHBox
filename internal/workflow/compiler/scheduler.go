@@ -201,7 +201,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return fmt.Errorf("bind state for node %q: %w", node.ID, err)
 	}
-	summary, err := run31.NewRedactedSummary("node.execute", nil)
+	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -582,7 +582,7 @@ func (e *statusEmitter) Emit(ctx context.Context, code string, counters map[stri
 	if !ok {
 		return reject(errors.New("adapter emitted an undeclared status event"))
 	}
-	summary, err := run31.NewRedactedSummary(code, counters)
+	summary, err := run31.NewRedactedSummary(code, counters, nil)
 	if err != nil {
 		return reject(err)
 	}

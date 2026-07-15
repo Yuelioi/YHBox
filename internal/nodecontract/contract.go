@@ -117,6 +117,16 @@ type RequirementBindingSpec struct {
 	CredentialSlotConfigKey string `json:"credentialSlotConfigKey,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
 }
 
+// ConfigValidatorSpec binds one static node config field to a versioned,
+// content-addressed host validator. Validators are pure compile-time checks;
+// they cannot inspect runtime values or acquire capabilities.
+type ConfigValidatorSpec struct {
+	ID             string          `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	ConfigKey      string          `json:"configKey" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	ValidatorID    string          `json:"validatorId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+	SemanticDigest artifact.Digest `json:"semanticDigest" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
+}
+
 type ExecutionClass string
 
 const (
@@ -231,6 +241,7 @@ type Draft struct {
 	Instruction            InstructionSpec
 	CapabilityRequirements []capability.Requirement
 	RequirementBindings    []RequirementBindingSpec
+	ConfigValidators       []ConfigValidatorSpec
 	Errors                 []ErrorSpec
 	StatusEvents           []StatusEventSpec
 	StateAccesses          []StateAccessSpec
@@ -250,6 +261,7 @@ type MachineContract struct {
 	Instruction            InstructionSpec           `json:"instruction" jsonschema:"required"`
 	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
 	RequirementBindings    []RequirementBindingSpec  `json:"requirementBindings" jsonschema:"required,maxItems=4096"`
+	ConfigValidators       []ConfigValidatorSpec     `json:"configValidators" jsonschema:"required,maxItems=4096"`
 	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
 	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
 	StateAccesses          []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
@@ -324,6 +336,7 @@ func Open(raw []byte) (Contract, error) {
 		Instruction:            decoded.Semantic.Instruction,
 		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
 		RequirementBindings:    decoded.Semantic.RequirementBindings,
+		ConfigValidators:       decoded.Semantic.ConfigValidators,
 		Errors:                 decoded.Semantic.Errors,
 		StatusEvents:           decoded.Semantic.StatusEvents,
 		StateAccesses:          decoded.Semantic.StateAccesses,
@@ -384,7 +397,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
-		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings,
+		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
 		Instruction: semantic.Instruction,
 		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
@@ -523,6 +536,10 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	configValidators, err := normalizeConfigValidators(draft.ConfigValidators)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	if err := normalizeResourceLeaseBindings(&ports, requirements); err != nil {
 		return MachineContract{}, err
 	}
@@ -547,7 +564,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 		return MachineContract{}, err
 	}
 	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
-		len(stateAccesses) != 0 || resolver != nil) {
+		len(stateAccesses) != 0 || len(configValidators) != 0 || resolver != nil) {
 		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, status, state, or instance resolution")
 	}
 	abis, err := normalizeABIs(draft.ImplementationABI)
@@ -566,9 +583,27 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
-		CapabilityRequirements: requirements, RequirementBindings: requirementBindings, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
+		CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
+}
+
+func normalizeConfigValidators(source []ConfigValidatorSpec) ([]ConfigValidatorSpec, error) {
+	result := append([]ConfigValidatorSpec(nil), source...)
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	if result == nil {
+		result = []ConfigValidatorSpec{}
+	}
+	previous := ""
+	for _, validator := range result {
+		if validator.ID <= previous || len(validator.ID) > MaxIdentifierBytes || !portIDPattern.MatchString(validator.ID) ||
+			len(validator.ConfigKey) > MaxIdentifierBytes || !portIDPattern.MatchString(validator.ConfigKey) ||
+			validateVersionedURI(validator.ValidatorID) != nil || !validator.SemanticDigest.Valid() {
+			return nil, errors.New("invalid or duplicate config validator declaration")
+		}
+		previous = validator.ID
+	}
+	return result, nil
 }
 
 func normalizeRequirementBindings(source []RequirementBindingSpec, requirements []capability.Requirement) ([]RequirementBindingSpec, error) {

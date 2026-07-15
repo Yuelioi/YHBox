@@ -36,6 +36,8 @@ func Installed(builtins nodes31.Builtins) (map[string]compiler.InstalledAdapter,
 		nodes31.BranchNodeID:        branch(),
 		nodes31.DelayNodeID:         delay(),
 		nodes31.EndBranchNodeID:     endBranch(),
+		nodes31.AIGenerateNodeID:    aiGenerate(builtins, false),
+		nodes31.AIExtractNodeID:     aiGenerate(builtins, true),
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)

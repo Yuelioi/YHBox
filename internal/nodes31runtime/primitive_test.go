@@ -90,7 +90,7 @@ func compilePrimitiveProgram(t *testing.T, builtins nodes31.Builtins, source []b
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiled, err := compiler.New(build).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
+	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
 		t.Fatalf("compile=%v diagnostics=%#v", err, compiled.Diagnostics)
 	}

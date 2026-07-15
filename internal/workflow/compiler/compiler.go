@@ -11,6 +11,7 @@ import (
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -59,16 +60,21 @@ type CompileResult struct {
 
 func (r CompileResult) Program() (ProgramSnapshot, bool) { return r.program, r.program.Valid() }
 
-type Compiler struct{ build artifact.Digest }
+type Compiler struct {
+	build      artifact.Digest
+	validators configvalidator.Registry
+}
 
-func New(build artifact.Digest) *Compiler { return &Compiler{build: build} }
+func New(build artifact.Digest, validators configvalidator.Registry) *Compiler {
+	return &Compiler{build: build, validators: validators}
+}
 
 func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (CompileResult, error) {
 	if err := ctx.Err(); err != nil {
 		return CompileResult{}, err
 	}
-	if !c.build.Valid() {
-		return CompileResult{}, errors.New("compiler build must be a content digest")
+	if !c.build.Valid() || !c.validators.Valid() {
+		return CompileResult{}, errors.New("compiler requires a content-addressed build and trusted config validators")
 	}
 	if len(request.SourceJSON) == 0 || len(request.SourceJSON) > MaxSourceBytes {
 		return CompileResult{}, errors.New("workflow source exceeds byte budget")
@@ -115,7 +121,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"graphs", fmt.Sprint(graphIndex), "inputs"}, graph.ID))
 			continue
 		}
-		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, stateByName)
+		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, c.validators, stateByName)
 		if compileErr != nil {
 			return CompileResult{}, compileErr
 		}
@@ -211,7 +217,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, state map[string]programStateSlot) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -243,7 +249,13 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			continue
 		}
 		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, sourceNode.Config); err != nil {
-			diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID))
+			diagnostic := diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID)
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+		} else if err := configValidators.Validate(machine, sourceNode.Config); err != nil {
+			diagnostic := diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID)
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
 		}
 		effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, sourceNode.Config)
 		if err != nil {
