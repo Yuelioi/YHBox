@@ -160,16 +160,18 @@ type SignalProjection struct {
 }
 
 type CapabilityProjection struct {
-	RequirementID  string                    `json:"requirementId"`
-	Capability     capability.Ref            `json:"capability"`
-	Operations     []string                  `json:"operations"`
-	Scope          json.RawMessage           `json:"scope"`
-	TargetSlot     string                    `json:"targetSlot"`
-	CredentialSlot string                    `json:"credentialSlot,omitempty"`
-	TargetKinds    []string                  `json:"targetKinds"`
-	Credential     capability.CredentialMode `json:"credential" jsonschema:"required,enum=none,enum=required"`
-	Risk           capability.RiskClass      `json:"risk" jsonschema:"required,enum=low,enum=sensitive,enum=dangerous"`
-	Consent        capability.ConsentClass   `json:"consent" jsonschema:"required,enum=none,enum=once,enum=every-run"`
+	RequirementID           string                    `json:"requirementId"`
+	Capability              capability.Ref            `json:"capability"`
+	Operations              []string                  `json:"operations"`
+	Scope                   json.RawMessage           `json:"scope"`
+	TargetSlot              string                    `json:"targetSlot"`
+	CredentialSlot          string                    `json:"credentialSlot,omitempty"`
+	TargetSlotConfigKey     string                    `json:"targetSlotConfigKey,omitempty"`
+	CredentialSlotConfigKey string                    `json:"credentialSlotConfigKey,omitempty"`
+	TargetKinds             []string                  `json:"targetKinds"`
+	Credential              capability.CredentialMode `json:"credential" jsonschema:"required,enum=none,enum=required"`
+	Risk                    capability.RiskClass      `json:"risk" jsonschema:"required,enum=low,enum=sensitive,enum=dangerous"`
+	Consent                 capability.ConsentClass   `json:"consent" jsonschema:"required,enum=none,enum=once,enum=every-run"`
 }
 
 type StateAccessProjection struct {
@@ -453,15 +455,21 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	}
 	addSignals("exec", "output", machine.Ports.ExecOutputs)
 	addSignals("error", "output", machine.Ports.ErrorOutputs)
+	requirementBindings := make(map[string]nodecontract.RequirementBindingSpec, len(machine.RequirementBindings))
+	for _, binding := range machine.RequirementBindings {
+		requirementBindings[binding.RequirementID] = binding
+	}
 	for _, requirement := range machine.CapabilityRequirements {
 		definition, ok := capabilities[requirement.Capability.CapabilityID]
 		if !ok || definition.Ref() != requirement.Capability {
 			return NodeProjection{}, fmt.Errorf("capability requirement %q has no presentation definition", requirement.ID)
 		}
 		capabilityMachine := definition.Machine()
+		binding := requirementBindings[requirement.ID]
 		projection.Capabilities = append(projection.Capabilities, CapabilityProjection{
 			RequirementID: requirement.ID, Capability: requirement.Capability, Operations: append([]string(nil), requirement.Operations...),
 			Scope: append(json.RawMessage(nil), requirement.Scope...), TargetSlot: requirement.TargetSlot, CredentialSlot: requirement.CredentialSlot,
+			TargetSlotConfigKey: binding.TargetSlotConfigKey, CredentialSlotConfigKey: binding.CredentialSlotConfigKey,
 			TargetKinds: append([]string(nil), capabilityMachine.TargetKinds...), Credential: capabilityMachine.Credential,
 			Risk: capabilityMachine.Risk, Consent: capabilityMachine.Consent,
 		})

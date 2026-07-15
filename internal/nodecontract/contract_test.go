@@ -17,7 +17,7 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:7c597ad4ebbe94083927f815e5ad8b86fa7324b857fbce57fa979213163057a5")
+	const want = artifact.Digest("sha256:12ae43fdf6684769ece3f79ed54fb04a5a77b5bf0464c43119597aecebd8d180")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
 	}
@@ -297,6 +297,47 @@ func TestSealBindsResourcePortsToExactCapabilityOperations(t *testing.T) {
 	}
 }
 
+func TestCapabilityRequirementBindingsResolveOnlyLogicalInstallationSlots(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/ai/generate/v1"}
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "model", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/ai/generate/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"generate"}, TargetSlot: "model", CredentialSlot: "credential", Scope: json.RawMessage(`{}`),
+	}}
+	draft.RequirementBindings = []RequirementBindingSpec{{
+		RequirementID: "model", TargetSlotConfigKey: "slot", CredentialSlotConfigKey: "slot",
+	}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{"slot": "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(requirements) != 1 || requirements[0].TargetSlot != "production" || requirements[0].CredentialSlot != "production" {
+		t.Fatalf("effective requirements = %#v", requirements)
+	}
+	if contract.Machine().CapabilityRequirements[0].TargetSlot != "model" {
+		t.Fatal("instance resolution mutated the trusted node contract")
+	}
+	if _, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{"slot": "Production"}); err == nil {
+		t.Fatal("accepted an invalid installation slot identity")
+	}
+	if _, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{}); err == nil {
+		t.Fatal("accepted a missing installation slot")
+	}
+
+	draft.RequirementBindings[0].RequirementID = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a binding for an unknown capability requirement")
+	}
+}
+
 func concatContractDraftForTest() Draft {
 	stringRef := datatype.TypeRef{
 		TypeID:         "https://schemas.yotta.dev/types/core/string/v1",
@@ -334,6 +375,7 @@ func concatContractDraftForTest() Draft {
 		},
 		Instruction:            Invoke(),
 		CapabilityRequirements: []capability.Requirement{},
+		RequirementBindings:    []RequirementBindingSpec{},
 		Errors:                 []ErrorSpec{},
 		StatusEvents:           []StatusEventSpec{},
 		ImplementationABI:      []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},

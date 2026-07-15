@@ -15,6 +15,7 @@ const hostProfileDigestDomain = "yotta/host-profile/v1"
 
 var (
 	identityPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`)
+	slotPattern     = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 	versionedURI    = regexp.MustCompile(`/v[1-9][0-9]*$`)
 )
 
@@ -46,21 +47,35 @@ type CredentialBinding struct {
 	Capability capability.Ref `json:"capability"`
 }
 
+type TargetSlotBinding struct {
+	Slot     string `json:"slot"`
+	TargetID string `json:"targetId"`
+}
+
+type CredentialSlotBinding struct {
+	Slot         string `json:"slot"`
+	CredentialID string `json:"credentialId"`
+}
+
 type HostProfileDraft struct {
-	OS                string               `json:"os"`
-	Architecture      string               `json:"architecture"`
-	HostAPIGeneration string               `json:"hostApiGeneration"`
-	Providers         []ProviderDescriptor `json:"providers"`
-	Targets           []AutomationTarget   `json:"targets"`
-	Credentials       []CredentialBinding  `json:"credentials"`
+	OS                string                  `json:"os"`
+	Architecture      string                  `json:"architecture"`
+	HostAPIGeneration string                  `json:"hostApiGeneration"`
+	Providers         []ProviderDescriptor    `json:"providers"`
+	Targets           []AutomationTarget      `json:"targets"`
+	Credentials       []CredentialBinding     `json:"credentials"`
+	TargetSlots       []TargetSlotBinding     `json:"targetSlots"`
+	CredentialSlots   []CredentialSlotBinding `json:"credentialSlots"`
 }
 
 type hostProfileState struct {
-	digest      artifact.Digest
-	document    HostProfileDraft
-	providers   map[string]ProviderDescriptor
-	targets     map[string]AutomationTarget
-	credentials map[string]CredentialBinding
+	digest          artifact.Digest
+	document        HostProfileDraft
+	providers       map[string]ProviderDescriptor
+	targets         map[string]AutomationTarget
+	credentials     map[string]CredentialBinding
+	targetSlots     map[string]string
+	credentialSlots map[string]string
 }
 
 // HostProfile is an immutable, content-addressed snapshot produced by trusted
@@ -69,7 +84,8 @@ type HostProfile struct{ state *hostProfileState }
 
 func SealHostProfile(draft HostProfileDraft) (HostProfile, error) {
 	if !identityPattern.MatchString(draft.OS) || !identityPattern.MatchString(draft.Architecture) || !identityPattern.MatchString(draft.HostAPIGeneration) ||
-		len(draft.Providers) > 1024 || len(draft.Targets) > 16384 || len(draft.Credentials) > 16384 {
+		len(draft.Providers) > 1024 || len(draft.Targets) > 16384 || len(draft.Credentials) > 16384 ||
+		len(draft.TargetSlots) > 16384 || len(draft.CredentialSlots) > 16384 {
 		return HostProfile{}, errors.New("invalid host profile identity or budget")
 	}
 	providers := append([]ProviderDescriptor(nil), draft.Providers...)
@@ -126,9 +142,39 @@ func SealHostProfile(draft HostProfileDraft) (HostProfile, error) {
 		}
 		credentialIndex[credential.ID] = credential
 	}
+	targetSlots := append([]TargetSlotBinding(nil), draft.TargetSlots...)
+	sort.Slice(targetSlots, func(i, j int) bool { return targetSlots[i].Slot < targetSlots[j].Slot })
+	if targetSlots == nil {
+		targetSlots = []TargetSlotBinding{}
+	}
+	targetSlotIndex := make(map[string]string, len(targetSlots))
+	for _, binding := range targetSlots {
+		if !slotPattern.MatchString(binding.Slot) || targetIndex[binding.TargetID].ID == "" {
+			return HostProfile{}, errors.New("invalid target slot binding")
+		}
+		if _, duplicate := targetSlotIndex[binding.Slot]; duplicate {
+			return HostProfile{}, errors.New("duplicate target slot binding")
+		}
+		targetSlotIndex[binding.Slot] = binding.TargetID
+	}
+	credentialSlots := append([]CredentialSlotBinding(nil), draft.CredentialSlots...)
+	sort.Slice(credentialSlots, func(i, j int) bool { return credentialSlots[i].Slot < credentialSlots[j].Slot })
+	if credentialSlots == nil {
+		credentialSlots = []CredentialSlotBinding{}
+	}
+	credentialSlotIndex := make(map[string]string, len(credentialSlots))
+	for _, binding := range credentialSlots {
+		if !slotPattern.MatchString(binding.Slot) || credentialIndex[binding.CredentialID].ID == "" {
+			return HostProfile{}, errors.New("invalid credential slot binding")
+		}
+		if _, duplicate := credentialSlotIndex[binding.Slot]; duplicate {
+			return HostProfile{}, errors.New("duplicate credential slot binding")
+		}
+		credentialSlotIndex[binding.Slot] = binding.CredentialID
+	}
 	document := HostProfileDraft{
 		OS: draft.OS, Architecture: draft.Architecture, HostAPIGeneration: draft.HostAPIGeneration,
-		Providers: providers, Targets: targets, Credentials: credentials,
+		Providers: providers, Targets: targets, Credentials: credentials, TargetSlots: targetSlots, CredentialSlots: credentialSlots,
 	}
 	canonical, err := artifact.Marshal(document)
 	if err != nil {
@@ -138,7 +184,10 @@ func SealHostProfile(draft HostProfileDraft) (HostProfile, error) {
 	if err != nil {
 		return HostProfile{}, err
 	}
-	return HostProfile{state: &hostProfileState{digest: digest, document: document, providers: providerIndex, targets: targetIndex, credentials: credentialIndex}}, nil
+	return HostProfile{state: &hostProfileState{
+		digest: digest, document: document, providers: providerIndex, targets: targetIndex, credentials: credentialIndex,
+		targetSlots: targetSlotIndex, credentialSlots: credentialSlotIndex,
+	}}, nil
 }
 
 func validVersionedURI(value string) bool {

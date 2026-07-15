@@ -467,6 +467,13 @@
         "ports": {
           "$ref": "#/$defs/PortSet"
         },
+        "requirementBindings": {
+          "items": {
+            "$ref": "#/$defs/RequirementBindingSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "stateAccesses": {
           "items": {
             "$ref": "#/$defs/StateAccessSpec"
@@ -490,6 +497,7 @@
         "execution",
         "instruction",
         "capabilityRequirements",
+        "requirementBindings",
         "errors",
         "statusEvents",
         "stateAccesses",
@@ -609,6 +617,27 @@
         "operations",
         "targetSlot",
         "scope"
+      ],
+      "type": "object"
+    },
+    "RequirementBindingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "credentialSlotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "requirementId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "targetSlotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId"
       ],
       "type": "object"
     },

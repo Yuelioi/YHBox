@@ -259,7 +259,11 @@ func (a *Admitter) plan(plan capability.Plan, runID string, selection Selection)
 				}
 			}
 		}
-		if selected := selection.Targets[slot]; selected != "" {
+		selected := selection.Targets[slot]
+		if selected == "" {
+			selected = a.profile.state.targetSlots[slot]
+		}
+		if selected != "" {
 			for key, candidate := range intersection {
 				if candidate.target.ID != selected {
 					delete(intersection, key)
@@ -336,7 +340,11 @@ func (a *Admitter) planCredentials(planned []plannedRequirement, chosen map[stri
 				}
 			}
 		}
-		if selected := selections[slot]; selected != "" {
+		selected := selections[slot]
+		if selected == "" {
+			selected = a.profile.state.credentialSlots[slot]
+		}
+		if selected != "" {
 			for id := range candidates {
 				if id != selected {
 					delete(candidates, id)

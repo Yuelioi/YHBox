@@ -56,6 +56,7 @@ type programNode struct {
 	Ports          nodecontract.PortSet             `json:"ports"`
 	Execution      nodecontract.ExecutionSpec       `json:"execution"`
 	Instruction    nodecontract.InstructionSpec     `json:"instruction"`
+	Capabilities   []capability.Requirement         `json:"capabilityRequirements"`
 	Implementation nodecatalog.ImplementationLock   `json:"implementation"`
 }
 
@@ -115,6 +116,7 @@ type NodeView struct {
 	OutputTypes    map[string]datatype.ResolvedType
 	Execution      nodecontract.ExecutionSpec
 	Instruction    nodecontract.InstructionSpec
+	Capabilities   []capability.Requirement
 	Implementation nodecatalog.ImplementationLock
 }
 
@@ -215,10 +217,14 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, expectedCompil
 				!reflect.DeepEqual(machine.Instruction, node.Instruction) {
 				return ProgramSnapshot{}, errors.New("program effective contract mismatch")
 			}
+			effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, node.Config)
+			if err != nil || !reflect.DeepEqual(effectiveRequirements, node.Capabilities) {
+				return ProgramSnapshot{}, errors.New("program effective capability requirements mismatch")
+			}
 			if !programExecutableClass(machine.Execution.Class) {
 				return ProgramSnapshot{}, errors.New("program contains an unsupported execution class")
 			}
-			for _, requirement := range machine.CapabilityRequirements {
+			for _, requirement := range node.Capabilities {
 				definition, ok := trustedCatalog.LookupCapability(requirement.Capability.CapabilityID)
 				if !ok {
 					return ProgramSnapshot{}, errors.New("program capability definition is missing")
@@ -485,7 +491,7 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 			view := NodeView{
 				ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
 				InputTypes: node.InputTypes, OutputTypes: node.OutputTypes,
-				Execution: node.Execution, Instruction: node.Instruction, Implementation: node.Implementation,
+				Execution: node.Execution, Instruction: node.Instruction, Capabilities: node.Capabilities, Implementation: node.Implementation,
 			}
 			raw, err := json.Marshal(view)
 			if err != nil {

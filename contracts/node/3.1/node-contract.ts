@@ -96,6 +96,10 @@ export interface MachineContract {
   /**
    * @maxItems 4096
    */
+  requirementBindings: RequirementBindingSpec[]
+  /**
+   * @maxItems 4096
+   */
   stateAccesses: StateAccessSpec[]
   /**
    * @maxItems 4096
@@ -233,6 +237,11 @@ export interface DataOutputPort {
 }
 export interface SignalPort {
   id: string
+}
+export interface RequirementBindingSpec {
+  credentialSlotConfigKey?: string
+  requirementId: string
+  targetSlotConfigKey?: string
 }
 export interface StateAccessSpec {
   id: string

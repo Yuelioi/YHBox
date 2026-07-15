@@ -181,8 +181,8 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return err
 	}
-	nodeSessions := make(map[string]*run31.Session, len(machine.CapabilityRequirements))
-	for _, requirement := range machine.CapabilityRequirements {
+	nodeSessions := make(map[string]*run31.Session, len(node.Capabilities))
+	for _, requirement := range node.Capabilities {
 		session, err := s.owner.Session(s.graph.ID, node.ID, requirement.ID, invocationID)
 		if err != nil {
 			return err

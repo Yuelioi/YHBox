@@ -107,6 +107,16 @@ type StateAccessSpec struct {
 	Mode          StateAccessMode         `json:"mode" jsonschema:"required,enum=read,enum=write"`
 }
 
+// RequirementBindingSpec declares which node config fields replace the
+// logical target and credential slots of one capability requirement. The
+// workflow selects an installation slot; only the trusted Host Profile binds
+// that slot to a concrete target or credential.
+type RequirementBindingSpec struct {
+	RequirementID           string `json:"requirementId" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	TargetSlotConfigKey     string `json:"targetSlotConfigKey,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	CredentialSlotConfigKey string `json:"credentialSlotConfigKey,omitempty" jsonschema:"pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+}
+
 type ExecutionClass string
 
 const (
@@ -220,6 +230,7 @@ type Draft struct {
 	Execution              ExecutionSpec
 	Instruction            InstructionSpec
 	CapabilityRequirements []capability.Requirement
+	RequirementBindings    []RequirementBindingSpec
 	Errors                 []ErrorSpec
 	StatusEvents           []StatusEventSpec
 	StateAccesses          []StateAccessSpec
@@ -238,6 +249,7 @@ type MachineContract struct {
 	Execution              ExecutionSpec             `json:"execution" jsonschema:"required"`
 	Instruction            InstructionSpec           `json:"instruction" jsonschema:"required"`
 	CapabilityRequirements []capability.Requirement  `json:"capabilityRequirements" jsonschema:"required,maxItems=4096"`
+	RequirementBindings    []RequirementBindingSpec  `json:"requirementBindings" jsonschema:"required,maxItems=4096"`
 	Errors                 []ErrorSpec               `json:"errors" jsonschema:"required,maxItems=4096"`
 	StatusEvents           []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
 	StateAccesses          []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
@@ -311,6 +323,7 @@ func Open(raw []byte) (Contract, error) {
 		Execution:              decoded.Semantic.Execution,
 		Instruction:            decoded.Semantic.Instruction,
 		CapabilityRequirements: decoded.Semantic.CapabilityRequirements,
+		RequirementBindings:    decoded.Semantic.RequirementBindings,
 		Errors:                 decoded.Semantic.Errors,
 		StatusEvents:           decoded.Semantic.StatusEvents,
 		StateAccesses:          decoded.Semantic.StateAccesses,
@@ -371,7 +384,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
-		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements,
+		Execution: semantic.Execution, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings,
 		Instruction: semantic.Instruction,
 		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
 		ImplementationABI: semantic.ImplementationABI,
@@ -506,6 +519,10 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if requirements == nil {
 		requirements = []capability.Requirement{}
 	}
+	requirementBindings, err := normalizeRequirementBindings(draft.RequirementBindings, requirements)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	if err := normalizeResourceLeaseBindings(&ports, requirements); err != nil {
 		return MachineContract{}, err
 	}
@@ -549,9 +566,73 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
-		CapabilityRequirements: requirements, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
+		CapabilityRequirements: requirements, RequirementBindings: requirementBindings, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
 	}, nil
+}
+
+func normalizeRequirementBindings(source []RequirementBindingSpec, requirements []capability.Requirement) ([]RequirementBindingSpec, error) {
+	result := append([]RequirementBindingSpec(nil), source...)
+	sort.Slice(result, func(i, j int) bool { return result[i].RequirementID < result[j].RequirementID })
+	if result == nil {
+		result = []RequirementBindingSpec{}
+	}
+	requirementByID := make(map[string]capability.Requirement, len(requirements))
+	for _, requirement := range requirements {
+		requirementByID[requirement.ID] = requirement
+	}
+	previous := ""
+	for _, binding := range result {
+		requirement, exists := requirementByID[binding.RequirementID]
+		if !exists || binding.RequirementID <= previous ||
+			(binding.TargetSlotConfigKey == "" && binding.CredentialSlotConfigKey == "") ||
+			(binding.TargetSlotConfigKey != "" && (len(binding.TargetSlotConfigKey) > MaxIdentifierBytes || !portIDPattern.MatchString(binding.TargetSlotConfigKey))) ||
+			(binding.CredentialSlotConfigKey != "" && (len(binding.CredentialSlotConfigKey) > MaxIdentifierBytes || !portIDPattern.MatchString(binding.CredentialSlotConfigKey))) ||
+			(binding.CredentialSlotConfigKey != "" && requirement.CredentialSlot == "") {
+			return nil, errors.New("invalid or duplicate capability requirement binding")
+		}
+		previous = binding.RequirementID
+	}
+	return result, nil
+}
+
+// ResolveCapabilityRequirements freezes the effective installation slots for
+// one node instance. It never resolves a slot to a concrete host target or
+// credential; that privileged binding belongs to admission.HostProfile.
+func ResolveCapabilityRequirements(machine MachineContract, config map[string]any) ([]capability.Requirement, error) {
+	bindings := make(map[string]RequirementBindingSpec, len(machine.RequirementBindings))
+	for _, binding := range machine.RequirementBindings {
+		bindings[binding.RequirementID] = binding
+	}
+	result := make([]capability.Requirement, 0, len(machine.CapabilityRequirements))
+	for _, requirement := range machine.CapabilityRequirements {
+		binding, dynamic := bindings[requirement.ID]
+		if dynamic {
+			if binding.TargetSlotConfigKey != "" {
+				value, ok := config[binding.TargetSlotConfigKey].(string)
+				if !ok || value == "" {
+					return nil, fmt.Errorf("capability requirement %q target slot config %q must be a non-empty string", requirement.ID, binding.TargetSlotConfigKey)
+				}
+				requirement.TargetSlot = value
+			}
+			if binding.CredentialSlotConfigKey != "" {
+				value, ok := config[binding.CredentialSlotConfigKey].(string)
+				if !ok || value == "" {
+					return nil, fmt.Errorf("capability requirement %q credential slot config %q must be a non-empty string", requirement.ID, binding.CredentialSlotConfigKey)
+				}
+				requirement.CredentialSlot = value
+			}
+		}
+		normalized, err := capability.NormalizeRequirementSyntax(requirement)
+		if err != nil {
+			return nil, fmt.Errorf("resolve capability requirement %q: %w", requirement.ID, err)
+		}
+		result = append(result, normalized)
+	}
+	if result == nil {
+		result = []capability.Requirement{}
+	}
+	return result, nil
 }
 
 func normalizeStateAccesses(source []StateAccessSpec) ([]StateAccessSpec, error) {

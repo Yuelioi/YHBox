@@ -24,6 +24,9 @@
         "credentialSlot": {
           "type": "string"
         },
+        "credentialSlotConfigKey": {
+          "type": "string"
+        },
         "operations": {
           "items": {
             "type": "string"
@@ -49,6 +52,9 @@
           "type": "array"
         },
         "targetSlot": {
+          "type": "string"
+        },
+        "targetSlotConfigKey": {
           "type": "string"
         }
       },

@@ -36,6 +36,7 @@ const (
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
 	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
+	CodeInvalidCapabilityBinding = "INVALID_CAPABILITY_BINDING"
 	CodeNoExecutionRoot          = "NO_EXECUTION_ROOT"
 	CodeUnreachableExecution     = "UNREACHABLE_EXECUTION"
 	CodeDataCycle                = "DATA_CYCLE"
@@ -120,8 +121,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		}
 		result.Diagnostics = append(result.Diagnostics, graphDiagnostics...)
 		for _, node := range compiled.Nodes {
-			entry, _ := request.Catalog.Lookup(node.NodeRef.NodeTypeID)
-			for _, requirement := range entry.Contract.Machine().CapabilityRequirements {
+			for _, requirement := range node.Capabilities {
 				planEntries = append(planEntries, capability.PlanEntry{GraphID: graph.ID, NodeID: node.ID, Requirement: requirement})
 			}
 		}
@@ -245,6 +245,13 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, sourceNode.Config); err != nil {
 			diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID))
 		}
+		effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, sourceNode.Config)
+		if err != nil {
+			diagnostic := diagnosticAtNode(CodeInvalidCapabilityBinding, append(path, "config"), graph.ID, sourceNode.ID)
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+			effectiveRequirements = append([]capability.Requirement(nil), machine.CapabilityRequirements...)
+		}
 		for _, access := range machine.StateAccesses {
 			slotName, ok := sourceNode.Config[access.SlotConfigKey].(string)
 			slot, exists := state[slotName]
@@ -269,6 +276,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
 			Inputs: map[string]inputPlan{}, InputTypes: map[string]datatype.ResolvedType{}, OutputTypes: map[string]datatype.ResolvedType{},
 			Ports: machine.Ports, Execution: machine.Execution, Instruction: machine.Instruction,
+			Capabilities:   effectiveRequirements,
 			Implementation: entry.Implementation,
 		}
 		inputs := make(map[string]nodecontract.DataInputPort, len(machine.Ports.DataInputs))

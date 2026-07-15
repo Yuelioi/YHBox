@@ -84,12 +84,14 @@ export interface CapabilityProjection {
   consent: 'none' | 'once' | 'every-run'
   credential: 'none' | 'required'
   credentialSlot?: string
+  credentialSlotConfigKey?: string
   operations: string[]
   requirementId: string
   risk: 'low' | 'sensitive' | 'dangerous'
   scope: any
   targetKinds: string[]
   targetSlot: string
+  targetSlotConfigKey?: string
 }
 export interface Ref {
   capabilityId: string

@@ -164,6 +164,49 @@ func TestAdmitterRejectsAmbiguousTargetBeforePolicyOrRunCreation(t *testing.T) {
 	}
 }
 
+func TestAdmitterUsesTrustedHostProfileSlotBindings(t *testing.T) {
+	builtins, program := conversionProgram(t)
+	now := time.Date(2026, 7, 15, 6, 0, 0, 0, time.UTC)
+	draft := builtinProfileDraft(t, builtins)
+	second := draft.Providers[0]
+	second.ID = "blob-secondary"
+	second.ArtifactDigest = testDigest(t, "blob-secondary")
+	draft.Providers = append(draft.Providers, second)
+	draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: "archive", Kind: "blob-store", ProviderID: second.ID})
+	draft.TargetSlots = []admission.TargetSlotBinding{{Slot: "blob-store", TargetID: "workspace"}}
+	profile, err := admission.SealHostProfile(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ExpiresAt: now.Add(time.Minute)}, nil
+	})
+	admitter, err := admission.New(builtins.Catalog, profile, store, policy, admission.Options{
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: 5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := admitter.Admit(context.Background(), admission.Request{Program: program, Principal: "user-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range result.Grant.Entries() {
+		if entry.Binding.TargetKind == "blob-store" && entry.Binding.TargetID != "workspace" {
+			t.Fatalf("host slot binding selected %q", entry.Binding.TargetID)
+		}
+	}
+
+	draft.TargetSlots = []admission.TargetSlotBinding{{Slot: "blob-store", TargetID: "missing"}}
+	if _, err := admission.SealHostProfile(draft); err == nil {
+		t.Fatal("accepted a host slot binding to an unknown target")
+	}
+}
+
 func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *testing.T) {
 	builtins, program := conversionProgram(t)
 	now := time.Date(2026, 7, 15, 6, 0, 0, 0, time.UTC)
