@@ -2,16 +2,20 @@
 package resource
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 )
@@ -32,21 +36,42 @@ var (
 type Scope struct {
 	ProgramHash          artifact.Digest `json:"programHash"`
 	CapabilityPlanDigest artifact.Digest `json:"capabilityPlanDigest"`
+	GrantDigest          artifact.Digest `json:"grantDigest"`
+	PolicyGeneration     string          `json:"policyGeneration"`
 	RunID                string          `json:"runID"`
 	Principal            string          `json:"principal"`
 	PluginInstanceID     string          `json:"pluginInstanceID"`
 	SessionID            string          `json:"sessionID"`
+	GraphID              string          `json:"graphID"`
+	NodeID               string          `json:"nodeID"`
+	RequirementID        string          `json:"requirementID"`
 	InvocationID         string          `json:"invocationID"`
 }
 
 func (s Scope) Validate() error {
-	if !s.ProgramHash.Valid() || !s.CapabilityPlanDigest.Valid() ||
+	if !s.ProgramHash.Valid() || !s.CapabilityPlanDigest.Valid() || !s.GrantDigest.Valid() ||
+		!identifierPattern.MatchString(s.PolicyGeneration) ||
 		!identifierPattern.MatchString(s.RunID) || !identifierPattern.MatchString(s.Principal) ||
 		!identifierPattern.MatchString(s.PluginInstanceID) || !identifierPattern.MatchString(s.SessionID) ||
+		!validAttributionID(s.GraphID) || !validAttributionID(s.NodeID) ||
+		!identifierPattern.MatchString(s.RequirementID) ||
 		!identifierPattern.MatchString(s.InvocationID) {
 		return errors.New("invalid resource scope")
 	}
 	return nil
+}
+
+func validAttributionID(value string) bool {
+	if value == "" || len(value) > 256 || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) || character == '\u061c' || character == '\u200e' || character == '\u200f' ||
+			character >= '\u202a' && character <= '\u202e' || character >= '\u2066' && character <= '\u2069' {
+			return false
+		}
+	}
+	return true
 }
 
 // Handle is the only resource value allowed to cross the workflow boundary.
@@ -83,9 +108,29 @@ type Call struct {
 }
 
 type Authorizer interface {
-	AuthorizeOpen(context.Context, OpenRequest) error
+	AuthorizeOpen(context.Context, OpenRequest) (OpenAuthorization, error)
 	AuthorizeBorrow(context.Context, BorrowRequest) error
 	AuthorizeCall(context.Context, AuthorizationCall) error
+}
+
+// OpenAuthorization is produced only by the host authorizer. Broker injects
+// it into ProviderOpenRequest so workflow code cannot forge granted scope or
+// credential metadata through OpenRequest.Config.
+type OpenAuthorization struct {
+	CapabilityScope     json.RawMessage
+	CredentialBindingID string
+}
+
+type ProviderOpenRequest struct {
+	Scope               Scope
+	ProviderID          string
+	TargetID            string
+	Kind                string
+	Operations          []string
+	ExpiresAt           time.Time
+	Config              []byte
+	CapabilityScope     json.RawMessage
+	CredentialBindingID string
 }
 
 type BorrowRequest struct {
@@ -109,7 +154,7 @@ type AuthorizationCall struct {
 // Provider is a host-side adapter. Its object is retained inside Broker and is
 // never returned to a workflow, Wasm module, or process node.
 type Provider interface {
-	Open(context.Context, OpenRequest) (any, error)
+	Open(context.Context, ProviderOpenRequest) (any, error)
 	Invoke(context.Context, any, string, []byte) ([]byte, error)
 	Close(context.Context, any) error
 }
@@ -129,6 +174,9 @@ type Broker struct {
 	random          io.Reader
 	maxPayloadBytes int
 	closed          bool
+	closeOnce       sync.Once
+	closeDone       chan struct{}
+	closeErr        error
 }
 
 type lease struct {
@@ -185,6 +233,7 @@ func New(authorizer Authorizer, providers map[string]Provider, options Options) 
 	return &Broker{
 		authorizer: authorizer, providers: providerCopy, leases: map[string]*lease{},
 		now: options.Now, random: options.Random, maxPayloadBytes: options.MaxPayloadBytes,
+		closeDone: make(chan struct{}),
 	}, nil
 }
 
@@ -207,10 +256,14 @@ func (b *Broker) Open(ctx context.Context, request OpenRequest) (Handle, error) 
 	if len(request.Config) > b.maxPayloadBytes {
 		return Handle{}, errors.New("resource config exceeds byte budget")
 	}
-	if err := b.authorizer.AuthorizeOpen(ctx, cloneOpenRequest(request)); err != nil {
+	authorization, err := b.authorizer.AuthorizeOpen(ctx, cloneOpenRequest(request))
+	if err != nil {
 		return Handle{}, fmt.Errorf("authorize resource open: %w", err)
 	}
-	value, err := provider.Open(ctx, cloneOpenRequest(request))
+	if err := validateOpenAuthorization(authorization); err != nil {
+		return Handle{}, fmt.Errorf("invalid resource authorization: %w", err)
+	}
+	value, err := provider.Open(ctx, providerOpenRequest(request, authorization))
 	if err != nil {
 		return Handle{}, fmt.Errorf("open resource: %w", err)
 	}
@@ -246,6 +299,7 @@ func (b *Broker) Borrow(ctx context.Context, owner Scope, handle Handle, borrowe
 		return Handle{}, ErrScopeMismatch
 	}
 	if owner.ProgramHash != borrower.ProgramHash || owner.CapabilityPlanDigest != borrower.CapabilityPlanDigest ||
+		owner.GrantDigest != borrower.GrantDigest || owner.PolicyGeneration != borrower.PolicyGeneration ||
 		owner.Principal != borrower.Principal || owner.PluginInstanceID != borrower.PluginInstanceID || owner.SessionID != borrower.SessionID {
 		return Handle{}, ErrScopeMismatch
 	}
@@ -442,32 +496,39 @@ func (b *Broker) RevokeRun(ctx context.Context, runID string) error {
 // Close permanently rejects new authority and revokes every outstanding
 // lease. It is the owner shutdown path; a closed Broker cannot be reopened.
 func (b *Broker) Close(ctx context.Context) error {
-	b.mu.Lock()
-	if b.closed && len(b.leases) == 0 {
+	b.closeOnce.Do(func() {
+		b.mu.Lock()
+		b.closed = true
+		objects := make(map[*objectState]struct{})
+		for token, current := range b.leases {
+			delete(b.leases, token)
+			current.object.mu.Lock()
+			current.object.leases--
+			if current.object.leases == 0 {
+				current.object.closing = true
+				objects[current.object] = struct{}{}
+			}
+			current.object.mu.Unlock()
+		}
 		b.mu.Unlock()
-		return nil
+		go func() {
+			var closeErrors []error
+			for object := range objects {
+				object.cancel()
+				if err := closeObject(context.Background(), object); err != nil {
+					closeErrors = append(closeErrors, err)
+				}
+			}
+			b.closeErr = errors.Join(closeErrors...)
+			close(b.closeDone)
+		}()
+	})
+	select {
+	case <-b.closeDone:
+		return b.closeErr
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	b.closed = true
-	objects := make(map[*objectState]struct{})
-	for token, current := range b.leases {
-		delete(b.leases, token)
-		current.object.mu.Lock()
-		current.object.leases--
-		if current.object.leases == 0 {
-			current.object.closing = true
-			objects[current.object] = struct{}{}
-		}
-		current.object.mu.Unlock()
-	}
-	b.mu.Unlock()
-	var closeErrors []error
-	for object := range objects {
-		object.cancel()
-		if err := closeObject(ctx, object); err != nil {
-			closeErrors = append(closeErrors, err)
-		}
-	}
-	return errors.Join(closeErrors...)
 }
 
 func (b *Broker) release(ctx context.Context, token string, expected *Scope) error {
@@ -584,6 +645,27 @@ func cloneOpenRequest(request OpenRequest) OpenRequest {
 	request.Operations = append([]string(nil), request.Operations...)
 	request.Config = append([]byte(nil), request.Config...)
 	return request
+}
+
+func providerOpenRequest(request OpenRequest, authorization OpenAuthorization) ProviderOpenRequest {
+	return ProviderOpenRequest{
+		Scope: request.Scope, ProviderID: request.ProviderID, TargetID: request.TargetID, Kind: request.Kind,
+		Operations: append([]string(nil), request.Operations...), ExpiresAt: request.ExpiresAt,
+		Config: append([]byte(nil), request.Config...), CapabilityScope: append([]byte(nil), authorization.CapabilityScope...),
+		CredentialBindingID: authorization.CredentialBindingID,
+	}
+}
+
+func validateOpenAuthorization(authorization OpenAuthorization) error {
+	if len(authorization.CapabilityScope) == 0 || len(authorization.CapabilityScope) > 1<<20 ||
+		authorization.CredentialBindingID != "" && !identifierPattern.MatchString(authorization.CredentialBindingID) {
+		return errors.New("invalid granted capability scope")
+	}
+	canonical, err := artifact.Canonicalize(authorization.CapabilityScope)
+	if err != nil || !bytes.Equal(canonical, authorization.CapabilityScope) {
+		return errors.New("granted capability scope is not canonical JSON")
+	}
+	return nil
 }
 
 func operationSet(operations []string) (map[string]struct{}, error) {

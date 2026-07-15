@@ -163,3 +163,19 @@ _Avoid_: ValidationError, error message
 **Run**:
 对一个 Program Snapshot 的一次有身份执行，记录 program hash 与调用绑定。
 _Avoid_: Container run, workflow execution
+
+**Run Record**:
+一次 Run 的不可变 generational durable state，绑定 Program、Catalog、Capability Plan、Run Grant、policy generation、状态、时间、稳定错误与 durable Run Value；只能通过 Run Store CAS 产生下一代。
+_Avoid_: Runtime state map, container status
+
+**Run Value**:
+RunRecord 中包裹 Value Envelope 的 provenance，记录 value ID、graph/node/port、attempt 与 envelope digest，但不改变值本身的摘要。
+_Avoid_: Output map, traced envelope
+
+**Run Owner**:
+一次 admitted Run 的临时 composition owner，独占 cancellable context、Grant Authorizer、Resource Broker 与 provider object 生命周期；终止后不可重开。
+_Avoid_: Global runtime, service bundle
+
+**Node Attempt**:
+某个 Node Instance 在一次 Run 中的一次具名执行事实；记录时间、effect、稳定错误与脱敏 lineage，重试会产生新的 attempt 而不是改写旧事实。
+_Avoid_: Retry counter, debug log

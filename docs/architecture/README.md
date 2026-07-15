@@ -8,5 +8,4 @@ Yotta 把桌面壳、应用生命周期、节点引擎、automation contract 和
 - [Storage consistency](storage.md)
 - [Threat model](threat-model.md)
 
-源码导航：`internal/appruntime` 管生命周期，`internal/node` 管节点契约，`internal/services/container/runtime` 管图执行，`internal/automation` 管 target/controller，`internal/services/*` 管应用服务，`pkg/*` 放可复用 adapter/helper。
-
+源码导航：`internal/appruntime` 管应用生命周期；3.1 内核由 `internal/datatype`、`internal/nodecontract`、`internal/nodecatalog`、`internal/capability`、`internal/workflow/*` 和 `internal/run` 组成；`internal/blob`、`internal/resource`、`internal/stream` 管 durable/ephemeral value carrier。旧 `internal/node` 与 `internal/services/container/runtime` 只服务待迁移生产路径，迁移完成后删除，不是 3.1 fallback。`internal/automation` 管 target/controller，`internal/services/*` 管应用服务，`pkg/*` 放可复用 adapter/helper。

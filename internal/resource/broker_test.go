@@ -14,13 +14,17 @@ import (
 
 type authorizer struct{ err error }
 
-func (a authorizer) AuthorizeOpen(context.Context, resource.OpenRequest) error       { return a.err }
+func (a authorizer) AuthorizeOpen(context.Context, resource.OpenRequest) (resource.OpenAuthorization, error) {
+	return resource.OpenAuthorization{CapabilityScope: []byte(`{}`)}, a.err
+}
 func (a authorizer) AuthorizeBorrow(context.Context, resource.BorrowRequest) error   { return a.err }
 func (a authorizer) AuthorizeCall(context.Context, resource.AuthorizationCall) error { return a.err }
 
 type callDenyAuthorizer struct{}
 
-func (callDenyAuthorizer) AuthorizeOpen(context.Context, resource.OpenRequest) error     { return nil }
+func (callDenyAuthorizer) AuthorizeOpen(context.Context, resource.OpenRequest) (resource.OpenAuthorization, error) {
+	return resource.OpenAuthorization{CapabilityScope: []byte(`{}`)}, nil
+}
 func (callDenyAuthorizer) AuthorizeBorrow(context.Context, resource.BorrowRequest) error { return nil }
 func (callDenyAuthorizer) AuthorizeCall(context.Context, resource.AuthorizationCall) error {
 	return errors.New("grant revoked")
@@ -30,22 +34,33 @@ func testScope(run, invocation string) resource.Scope {
 	return resource.Scope{
 		ProgramHash:          artifact.Digest("sha256:" + strings.Repeat("1", 64)),
 		CapabilityPlanDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
-		RunID:                run, Principal: "user", PluginInstanceID: "builtin", SessionID: "session-1", InvocationID: invocation,
+		GrantDigest:          artifact.Digest("sha256:" + strings.Repeat("3", 64)),
+		PolicyGeneration:     "policy-1",
+		RunID:                run, Principal: "user", PluginInstanceID: "builtin", SessionID: "session-1",
+		GraphID: "main", NodeID: invocation, RequirementID: "resource", InvocationID: invocation,
 	}
 }
 
 type provider struct {
-	mu      sync.Mutex
-	opens   int
-	closes  int
-	invokes int
+	mu       sync.Mutex
+	opens    int
+	closes   int
+	invokes  int
+	lastOpen resource.ProviderOpenRequest
 }
 
-func (p *provider) Open(context.Context, resource.OpenRequest) (any, error) {
+func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.opens++
+	p.lastOpen = request
 	return &struct{}{}, nil
+}
+
+func (p *provider) openedRequest() resource.ProviderOpenRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.lastOpen
 }
 
 func (p *provider) Invoke(_ context.Context, _ any, operation string, payload []byte) ([]byte, error) {
@@ -106,6 +121,25 @@ func TestBrokerReauthorizesEveryCallBeforeProviderSideEffects(t *testing.T) {
 	}
 	if _, invokes, _ := p.counts(); invokes != 0 {
 		t.Fatalf("provider received %d denied calls", invokes)
+	}
+}
+
+func TestBrokerInjectsGrantedScopeIntoProviderRequest(t *testing.T) {
+	p := &provider{}
+	broker, err := resource.New(authorizer{}, map[string]resource.Provider{"test": p}, resource.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := resource.OpenRequest{
+		Scope: testScope("run-1", "node-1"), ProviderID: "test", TargetID: "target-1", Kind: "test/session",
+		Operations: []string{"read"}, ExpiresAt: time.Now().Add(time.Minute), Config: []byte(`{"untrusted":true}`),
+	}
+	if _, err := broker.Open(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	opened := p.openedRequest()
+	if string(opened.CapabilityScope) != `{}` || string(opened.Config) != `{"untrusted":true}` {
+		t.Fatalf("provider authority/config = %s / %s", opened.CapabilityScope, opened.Config)
 	}
 }
 

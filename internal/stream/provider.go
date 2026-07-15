@@ -51,7 +51,7 @@ func NewProvider(limits Limits) (*Provider, error) {
 	return &Provider{limits: limits}, nil
 }
 
-func (p *Provider) Open(_ context.Context, request resource.OpenRequest) (any, error) {
+func (p *Provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
 	if request.Kind != Kind {
 		return nil, fmt.Errorf("stream provider cannot open kind %q", request.Kind)
 	}

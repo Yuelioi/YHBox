@@ -62,4 +62,4 @@ host OS、architecture、automation target、host application、外部 effect、
 
 ## Implementation status
 
-Capability Definition、Requirement 与 sealed attributed Plan 已进入 `internal/capability`；Node Contract 使用 exact requirements，Catalog 绑定 definitions，Compiler 把 plan artifact 写入 Program identity。Source 的自由 `requestedCapabilities` 与 preview string-grant 参数已删除。Run Grant、Host Profile/Target Planner 和真实 admission 仍由 Program/Run 纵向切片实现；不得为此恢复字符串 allowlist。
+Capability Definition、Requirement、sealed attributed Plan 与 Run Grant 已进入 `internal/capability`；Node Contract 使用 exact requirements，Catalog 绑定 definitions，Compiler 把 plan artifact 写入 Program identity。Source 的自由 `requestedCapabilities` 与 preview string-grant 参数已删除。`internal/run.GrantAuthorizer` 在每次 Broker open/borrow/call 核对完整 attribution，并把 canonical capability scope 与 credential binding metadata 注入 provider 请求。Host Profile/Target Planner、Policy/consent admission 与 credential provider 接线仍未实现；不得为此恢复字符串 allowlist 或 ambient service。

@@ -16,7 +16,9 @@ import (
 
 type allow struct{}
 
-func (allow) AuthorizeOpen(context.Context, resource.OpenRequest) error       { return nil }
+func (allow) AuthorizeOpen(context.Context, resource.OpenRequest) (resource.OpenAuthorization, error) {
+	return resource.OpenAuthorization{CapabilityScope: []byte(`{}`)}, nil
+}
 func (allow) AuthorizeBorrow(context.Context, resource.BorrowRequest) error   { return nil }
 func (allow) AuthorizeCall(context.Context, resource.AuthorizationCall) error { return nil }
 
@@ -24,7 +26,10 @@ func scope(run, invocation string) resource.Scope {
 	return resource.Scope{
 		ProgramHash:          artifact.Digest("sha256:" + strings.Repeat("1", 64)),
 		CapabilityPlanDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
-		RunID:                run, Principal: "user", PluginInstanceID: "builtin", SessionID: "session-1", InvocationID: invocation,
+		GrantDigest:          artifact.Digest("sha256:" + strings.Repeat("3", 64)),
+		PolicyGeneration:     "policy-1",
+		RunID:                run, Principal: "user", PluginInstanceID: "builtin", SessionID: "session-1",
+		GraphID: "main", NodeID: invocation, RequirementID: "stream", InvocationID: invocation,
 	}
 }
 

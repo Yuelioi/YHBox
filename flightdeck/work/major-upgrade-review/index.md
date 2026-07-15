@@ -6,11 +6,11 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-Yotta 3.1 contract kernel、Concat tracer、Blob/Stream/Resource kernel 和 exact Capability Plan 已落地。Source 的自由 `requestedCapabilities` 与 preview string-grant 接口已删除；Capability Definition/Requirement/Plan 由 `internal/capability` 单独 seal，Catalog 绑定 exact definition，Program 保存按 graph/node/requirement attribution 的 plan artifact。ValueEnvelope 按 pinned Data Type 封闭为 inline/blob/stream/handle 四分支，runtime authority 无 durable artifact。资产已破坏性切换到 schema v2 typed BlobRef；旧 BlobStore、string SHA 与整 Blob thumbnail RPC 已删除。3.1 interpreter 仍是 fail-closed pure-data preview；Run Grant/admission、conversion nodes 与 plugin host conformance 未完成前不得接成生产 fallback。
+Yotta 3.1 contract kernel、Concat tracer、Blob/Stream/Resource kernel、exact Capability Plan、Run Grant 与 Run fact/lifecycle kernel 已落地。Run 使用 UUIDv7，durable RunRecord 通过 generation/digest CAS 原子持久化，遗留 RUNNING 只转 INTERRUPTED；ephemeral Owner 独占 Grant Authorizer、Broker 与 provider 生命周期。Provider authority scope 由 sealed Grant 返回并经 Broker 注入，workflow config 不能自报权限。ValueEnvelope 按 pinned Data Type 封闭为 inline/blob/stream/handle 四分支，runtime authority 无 durable artifact。3.1 interpreter 仍是 fail-closed pure-data preview；Target Planner/Policy admission、NodeAttempt journal、conversion nodes 与 plugin host conformance 未完成前不得接成生产 fallback。
 
 ## Next
 
-下一纵向切片先定义 Program/Run artifact 与 composition owner，把已完成的 Broker/Stream kernel 接入真实 Run grant、终止撤销和 trace redaction；同时用一个显式 blob↔stream conversion tracer 验证 effect/capability/error contract。随后进入 Authoring Projection 和 built-in catalog 批量迁移。Program/Run 决议和 catalog-wide 编译完成前禁止把 3.1 interpreter 接成生产 fallback。
+下一纵向切片用显式 blob→stream→blob conversion tracer 验证 effect/capability/error/cancel 与 durable Run Value 边界，再补 NodeAttempt/AdapterAction journal 和 Target Planner/Policy admission。随后进入 Authoring Projection 和 built-in catalog 批量迁移。catalog-wide 编译与 production composition 完成前禁止把 3.1 interpreter 接成生产 fallback。
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -38,6 +38,10 @@ Yotta 3.1 contract kernel、Concat tracer、Blob/Stream/Resource kernel 和 exac
 ## Progress
 
 Done:
+- 关闭 Program/Run Wayfinder 决议：Program 只含编译事实；admission、generational RunRecord/RunStore、NodeAttempt journal、Run Value 与 ephemeral Run Owner 分层，旧 runtime 不得 dual-write 或 fallback。
+- 新增 canonical UUIDv7 Run ID、strict sealed RunRecord 与 durable Run Store：状态机只允许 queued/running/terminal，previous digest + generation CAS 原子替换，每次 Load 重验磁盘 canonical bytes，启动遗留 RUNNING 显式写成 INTERRUPTED。
+- 新增 sealed Run Grant 与 Grant Authorizer：绑定 Program/plan/Run/principal/policy 及逐 graph/node/requirement provider/target/resource/plugin/session/operation/scope；projection 不含 bearer secret，open/borrow/call 逐次授权。
+- Resource Authorizer 破坏性返回 canonical capability scope/credential binding metadata，由 Broker 注入 ProviderOpenRequest；调用方 config 无法伪造 grant scope。Run Owner 按 revoke/cancel/RevokeRun/Close 顺序永久收口 authority。
 - 关闭 Capability/Target Planning Wayfinder gate：Host Profile、Automation Target、Capability Definition/Requirement/Plan、Run Grant 与 Credential Binding 分离；授权同时绑定 Program plan 与 Run，不允许 ambient ServiceBundle 或 token passthrough。
 - 完成 Node Contract 3.1 opaque seal/open、generated JSON Schema/TypeScript 与 semantic/authoring digest 分离；端口按 data/exec/error/status 明确分频道。
 - 完成 Catalog 3.1 exact TypeRef/NodeRef/implementation lock snapshot，并删除旧 `internal/workflow/catalog` 投影。
@@ -86,9 +90,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- Capability planning 的代码事实已与已关闭决议对齐；下一唯一 frontier 是 Program/Run semantics、Run Grant/admission 和 Broker composition owner，再以 blob↔stream conversion tracer 验证 effect path。当前代码保持 pure-data fail closed，不建立 resource/effect runtime 旁路。
+- Capability planning 与 Program/Run lifecycle 的代码事实已与已关闭决议对齐；下一 frontier 是 blob→stream→blob conversion tracer、NodeAttempt journal 和 Target Planner/Policy admission。当前 preview 仍保持 pure-data fail closed，不建立 resource/effect runtime 旁路。
 
 Verified:
+- Run fact/lifecycle 批次最终 `task check` 通过（2026-07-15，124.1s）：全局 coverage 65.8%、`internal/run` 78.4%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models，entry 334,944 / 350,000 bytes、editor 472,084 / 650,000 bytes；run/capability/resource/stream 聚焦 race 与 staticcheck 全绿。
 - Exact Capability Plan destructive cutover `task check` 通过（2026-07-15，144.3s）：全局 coverage 65.6%，frontend 97 files / 635 tests；capability/nodecontract/nodecatalog/schema/compiler 聚焦 race 与 staticcheck 全绿。
 - Blob/Stream/Resource 与 asset schema v2 批次 `task check` 通过（2026-07-15，174.4s）：全局 coverage 65.6%，frontend 97 files / 635 tests，Wails contract 14 services / 118 methods / 102 models；聚焦 blob/resource/stream/asset race 全绿。
 - 3.1 Concat tracer destructive cutover 最终 `task check` 通过（2026-07-15，117s）：全局 coverage 65.2%，frontend 97 files / 635 tests，Wails contract 14 services / 119 methods / 100 models，contracts drift/staticcheck/vet/build/bundle budget 全绿。
@@ -112,7 +117,7 @@ Verified:
 
 ## Open questions
 
-- Program/Run 的 durable Run/trace/error artifact、Broker composition owner、外部 capability grant 生命周期和 package trust 仍由对应 Wayfinder tickets 决定；preview 必须继续 fail closed。
+- Program/Run identity、durable Record/Value、Grant 与 Broker owner 已决议并落地内核；NodeAttempt/AdapterAction journal、Target Planner/Policy admission、production composition 和 package trust 仍是实现门，preview 必须继续 fail closed。
 - OSI 许可证由权利人选择；方案默认建议 Apache-2.0。
 - canonical GitHub org/repo 是否确定为 `yottaapp/yotta`，以及如何把本地领先历史安全公开。
 - Wave 0 的法律与远端治理项应由 owner 并行处理；工程主线下一入口固定为 Wave 3。
