@@ -237,6 +237,22 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
 		t.Fatal("accepted rehashed program with a literal violating the pinned Data Type")
 	}
+
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	number, ok := catalog.LookupType(nodes31.NumberTypeID)
+	if !ok {
+		t.Fatal("number type is missing")
+	}
+	document.Body.Graphs[0].Nodes[0].OutputTypes["result"] = datatype.RefResolvedType(number.TypeRef())
+	forged, err = sealProgram(document.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenProgram(forged.Artifact(), catalog, build); err == nil {
+		t.Fatal("accepted rehashed Program with an effective type outside the Node Contract")
+	}
 }
 
 func TestProgramNodeViewsAreDefensive(t *testing.T) {
@@ -250,8 +266,12 @@ func TestProgramNodeViewsAreDefensive(t *testing.T) {
 	program, _ := compiled.Program()
 	view := program.Nodes()
 	view[0].Ports.DataInputs[0].ID = "mutated"
+	delete(view[0].InputTypes, "a")
 	if got := program.Nodes()[0].Ports.DataInputs[0].ID; got != "a" {
 		t.Fatalf("caller mutated immutable program view: %q", got)
+	}
+	if got := program.Nodes()[0].InputTypes["a"]; got.Ref == nil || got.Ref.TypeID != nodes31.StringTypeID {
+		t.Fatalf("caller mutated immutable effective type view: %#v", got)
 	}
 }
 

@@ -38,6 +38,25 @@ func TestResolvedTypeRejectsNonConcreteRuntimeTypes(t *testing.T) {
 	}
 }
 
+func TestMatchResolvedBindsOneVariableConsistentlyAcrossPorts(t *testing.T) {
+	stringRef := typeRefForTest("https://schemas.yotta.dev/types/core/string/v1", "1")
+	numberRef := typeRefForTest("https://schemas.yotta.dev/types/core/number/v1", "2")
+	variable := VariableExpression("T")
+	bindings := map[string]ResolvedType{}
+	matched, err := MatchResolved(ListExpression(variable), ListResolvedType(RefResolvedType(stringRef)), bindings)
+	if err != nil || !matched {
+		t.Fatalf("list variable did not bind: matched=%t err=%v", matched, err)
+	}
+	matched, err = MatchResolved(variable, RefResolvedType(stringRef), bindings)
+	if err != nil || !matched {
+		t.Fatalf("matching output variable rejected: matched=%t err=%v", matched, err)
+	}
+	matched, err = MatchResolved(variable, RefResolvedType(numberRef), bindings)
+	if err != nil || matched {
+		t.Fatalf("inconsistent variable accepted: matched=%t err=%v", matched, err)
+	}
+}
+
 func TestUnionExpressionFlattensAndRejectsCyclicInput(t *testing.T) {
 	stringType := RefExpression(typeRefForTest("https://schemas.yotta.dev/types/core/string/v1", "1"))
 	numberType := RefExpression(typeRefForTest("https://schemas.yotta.dev/types/core/number/v1", "2"))

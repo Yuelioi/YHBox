@@ -3,6 +3,7 @@ package datatype
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -50,6 +51,70 @@ func RefResolvedType(ref TypeRef) ResolvedType {
 func ListResolvedType(element ResolvedType) ResolvedType {
 	copy := element
 	return ResolvedType{Kind: ResolvedTypeList, Element: &copy}
+}
+
+// MatchResolved proves that one concrete runtime type satisfies a contract
+// expression. Variable bindings are scoped by the caller (normally one node
+// invocation) and must remain identical across every port in that scope.
+// The function mutates variables only on success.
+func MatchResolved(expression TypeExpression, resolved ResolvedType, variables map[string]ResolvedType) (bool, error) {
+	if err := expression.Validate(); err != nil {
+		return false, err
+	}
+	if err := resolved.Validate(); err != nil {
+		return false, err
+	}
+	if variables == nil {
+		return false, errors.New("resolved type variable map is required")
+	}
+	return matchResolvedAt(expression, resolved, variables, 0)
+}
+
+func matchResolvedAt(expression TypeExpression, resolved ResolvedType, variables map[string]ResolvedType, depth int) (bool, error) {
+	if depth > MaxTypeDepth {
+		return false, errors.New("resolved type matching exceeds depth budget")
+	}
+	switch expression.Kind {
+	case TypeExpressionRef:
+		return resolved.Kind == ResolvedTypeRef && resolved.Ref != nil && *expression.Ref == *resolved.Ref, nil
+	case TypeExpressionList:
+		if resolved.Kind != ResolvedTypeList || resolved.Element == nil {
+			return false, nil
+		}
+		return matchResolvedAt(*expression.Element, *resolved.Element, variables, depth+1)
+	case TypeExpressionVariable:
+		bound, exists := variables[expression.Variable]
+		if !exists {
+			variables[expression.Variable] = resolved
+			return true, nil
+		}
+		return reflect.DeepEqual(bound, resolved), nil
+	case TypeExpressionUnion:
+		for _, member := range expression.Members {
+			candidate := cloneResolvedBindings(variables)
+			matched, err := matchResolvedAt(member, resolved, candidate, depth+1)
+			if err != nil {
+				return false, err
+			}
+			if matched {
+				for name, binding := range candidate {
+					variables[name] = binding
+				}
+				return true, nil
+			}
+		}
+		return false, nil
+	default:
+		return false, fmt.Errorf("unknown type expression kind %q", expression.Kind)
+	}
+}
+
+func cloneResolvedBindings(source map[string]ResolvedType) map[string]ResolvedType {
+	result := make(map[string]ResolvedType, len(source))
+	for name, binding := range source {
+		result[name] = binding
+	}
+	return result
 }
 
 func (t ResolvedType) Validate() error {

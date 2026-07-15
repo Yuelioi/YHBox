@@ -86,10 +86,11 @@ func inlineAdapter(builtins nodes31.Builtins, definition nodes31.BuiltinDefiniti
 		outputs := make(map[string]datatype.ValueEnvelope, len(machine.Ports.DataOutputs))
 		for _, port := range machine.Ports.DataOutputs {
 			raw, ok := rawOutputs[port.ID]
-			if !ok || port.Type.Kind != datatype.TypeExpressionRef || port.Type.Ref == nil {
-				return compiler.AdapterResult{}, fmt.Errorf("inline output %q is missing or non-concrete", port.ID)
+			resolved, resolvedOK := invocation.OutputTypes[port.ID]
+			if !ok || !resolvedOK {
+				return compiler.AdapterResult{}, fmt.Errorf("inline output %q is missing or unresolved", port.ID)
 			}
-			sealed, err := datatype.SealInlineJSON(builtins.Catalog, datatype.RefResolvedType(*port.Type.Ref), raw)
+			sealed, err := datatype.SealInlineJSON(builtins.Catalog, resolved, raw)
 			if err != nil {
 				return compiler.AdapterResult{}, fmt.Errorf("seal inline output %q: %w", port.ID, err)
 			}

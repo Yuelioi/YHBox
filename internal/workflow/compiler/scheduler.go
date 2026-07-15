@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -172,7 +173,8 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	actions := newAdapterActionRecorder(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine)
 	statuses := newStatusEmitter(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine.StatusEvents)
 	outcome, runErr := installed.Run(ctx, Invocation{
-		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs, Sessions: nodeSessions,
+		GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
+		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions,
 		Trigger: cloneTrigger(trigger), Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
 	actionErr := actions.Close()
@@ -305,6 +307,10 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 			}
 		} else if inputPort.ResourceLease != nil {
 			return nil, errors.New("resource-leased input received a durable value")
+		}
+		expected, ok := node.InputTypes[portID]
+		if !ok || !reflect.DeepEqual(envelope.Type(), expected) {
+			return nil, fmt.Errorf("input %q violates its Program-resolved type", portID)
 		}
 		inputs[portID] = envelope
 	}

@@ -75,6 +75,8 @@ type Invocation struct {
 	NodeID       string
 	Config       map[string]any
 	Inputs       map[string]datatype.ValueEnvelope
+	InputTypes   map[string]datatype.ResolvedType
+	OutputTypes  map[string]datatype.ResolvedType
 	Sessions     map[string]*run31.Session
 	Trigger      *SignalTrigger
 	Spawn        func(func(context.Context) error) error
@@ -416,8 +418,8 @@ func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype
 		if !ok || !envelope.Valid() {
 			return nil, nil, fmt.Errorf("adapter omitted or returned an invalid output %q", port.ID)
 		}
-		expected, err := resolvedTypeForExactRef(port.Type, e.catalog)
-		if err != nil || !reflect.DeepEqual(envelope.Type(), expected) {
+		expected, ok := node.OutputTypes[port.ID]
+		if !ok || !reflect.DeepEqual(envelope.Type(), expected) {
 			return nil, nil, fmt.Errorf("adapter output %q violates its pinned type", port.ID)
 		}
 		if handle, _, runtime := runtimeHandle(envelope); runtime {
@@ -431,6 +433,14 @@ func (e *Executor) validateOutputs(node programNode, outputs map[string]datatype
 		sealed[port.ID] = envelope
 	}
 	return sealed, leases, nil
+}
+
+func cloneResolvedTypes(source map[string]datatype.ResolvedType) map[string]datatype.ResolvedType {
+	result := make(map[string]datatype.ResolvedType, len(source))
+	for portID, resolved := range source {
+		result[portID] = resolved
+	}
+	return result
 }
 
 func runtimeHandle(envelope datatype.ValueEnvelope) (resource.Handle, datatype.RepresentationKind, bool) {

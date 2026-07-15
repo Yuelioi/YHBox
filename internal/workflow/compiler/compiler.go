@@ -26,6 +26,7 @@ const (
 	CodeUnknownPort              = "UNKNOWN_PORT"
 	CodeEdgeChannelMismatch      = "EDGE_CHANNEL_MISMATCH"
 	CodeTypeMismatch             = "TYPE_MISMATCH"
+	CodeUnresolvedType           = "UNRESOLVED_TYPE"
 	CodeResourceLeaseMismatch    = "RESOURCE_LEASE_MISMATCH"
 	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
 	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
@@ -141,6 +142,8 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
 	contracts := make(map[string]nodecontract.MachineContract, len(graph.Nodes))
+	pendingBindings := make(map[string]map[string]schema.InputBinding, len(graph.Nodes))
+	types := newTypeSolver()
 	validators := map[string]*runtimejsonschema.Schema{}
 	for nodeIndex, sourceNode := range graph.Nodes {
 		if err := ctx.Err(); err != nil {
@@ -170,13 +173,15 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		}
 		plan := programNode{
 			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
-			Inputs: map[string]inputPlan{}, Ports: machine.Ports, Execution: machine.Execution,
+			Inputs: map[string]inputPlan{}, InputTypes: map[string]datatype.ResolvedType{}, OutputTypes: map[string]datatype.ResolvedType{},
+			Ports: machine.Ports, Execution: machine.Execution,
 			Implementation: entry.Implementation,
 		}
 		inputs := make(map[string]nodecontract.DataInputPort, len(machine.Ports.DataInputs))
 		for _, port := range machine.Ports.DataInputs {
 			inputs[port.ID] = port
 		}
+		pendingBindings[sourceNode.ID] = make(map[string]schema.InputBinding, len(sourceNode.Bindings))
 		for portID, binding := range sourceNode.Bindings {
 			port, exists := inputs[portID]
 			if !exists {
@@ -189,64 +194,23 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 				diagnostics = append(diagnostics, diagnostic)
 				continue
 			}
-			if binding.Kind == schema.BindingBlob {
-				resolved, resolveErr := resolvedTypeForExactRef(port.Type, catalog)
-				if resolveErr != nil || binding.Blob == nil {
-					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
-					diagnostic.Params["reason"] = "blob binding has no exact pinned type"
-					diagnostics = append(diagnostics, diagnostic)
-					continue
-				}
-				envelope, envelopeErr := datatype.SealBlobRef(catalog, resolved, *binding.Blob)
-				if envelopeErr != nil {
-					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
-					diagnostic.Params["reason"] = envelopeErr.Error()
-					diagnostics = append(diagnostics, diagnostic)
-					continue
-				}
-				plan.Inputs[portID] = inputPlan{Kind: inputLiteral, Provenance: inputSourceBlob, Value: envelope.Artifact()}
-				continue
-			}
-			var value json.RawMessage
-			provenance := inputSourceLiteral
 			switch binding.Kind {
 			case schema.BindingValue:
-				value = binding.Value
 			case schema.BindingDefault:
-				provenance = inputSourceDefault
 				if port.Default == nil {
 					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
 					continue
 				}
-				value = *port.Default
+			case schema.BindingBlob:
+				if binding.Blob == nil {
+					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
+					continue
+				}
 			default:
+				diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
 				continue
 			}
-			canonical, err := artifact.Canonicalize(value)
-			if err == nil {
-				err = validateLiteralCached(port.Type, canonical, catalog, validators)
-			}
-			if err != nil {
-				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
-				diagnostic.Params["reason"] = err.Error()
-				diagnostics = append(diagnostics, diagnostic)
-				continue
-			}
-			resolved, resolveErr := resolvedTypeForExactRef(port.Type, catalog)
-			if resolveErr != nil {
-				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
-				diagnostic.Params["reason"] = resolveErr.Error()
-				diagnostics = append(diagnostics, diagnostic)
-				continue
-			}
-			envelope, envelopeErr := datatype.SealInlineJSON(catalog, resolved, canonical)
-			if envelopeErr != nil {
-				diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
-				diagnostic.Params["reason"] = envelopeErr.Error()
-				diagnostics = append(diagnostics, diagnostic)
-				continue
-			}
-			plan.Inputs[portID] = inputPlan{Kind: inputLiteral, Provenance: provenance, Value: envelope.Artifact()}
+			pendingBindings[sourceNode.ID][portID] = binding
 		}
 		compiled.Nodes = append(compiled.Nodes, plan)
 		nodes[plan.ID] = len(compiled.Nodes) - 1
@@ -286,13 +250,16 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		}
 		if edge.Channel == schema.EdgeData {
 			key := edge.To.NodeID + "\x00" + edge.To.PortID
-			if incoming[key] {
+			_, sourceBound := pendingBindings[toNode.ID][edge.To.PortID]
+			if incoming[key] || sourceBound {
 				diagnostics = append(diagnostics, diagnostic(CodeDuplicateInputBinding, path, graph.ID))
 				continue
 			}
 			incoming[key] = true
-			assignable, err := datatype.Assignable(*fromType, *toType)
-			if err != nil || !assignable {
+			if err := types.unify(
+				scopedTypeExpression{scope: fromNode.ID, expression: *fromType},
+				scopedTypeExpression{scope: toNode.ID, expression: *toType},
+			); err != nil {
 				diagnostics = append(diagnostics, diagnostic(CodeTypeMismatch, path, graph.ID))
 				continue
 			}
@@ -319,6 +286,45 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			compiled.SignalRoutes = append(compiled.SignalRoutes, route)
 		}
 	}
+	for nodeIndex := range compiled.Nodes {
+		node := &compiled.Nodes[nodeIndex]
+		machine := contracts[node.ID]
+		for _, port := range machine.Ports.DataInputs {
+			resolved, err := types.resolve(scopedTypeExpression{scope: node.ID, expression: port.Type})
+			if err != nil {
+				diagnostic := diagnosticAtNode(CodeUnresolvedType, []string{"ports", "dataInputs", port.ID}, graph.ID, node.ID)
+				diagnostic.Params["reason"] = err.Error()
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			node.InputTypes[port.ID] = resolved
+		}
+		for _, port := range machine.Ports.DataOutputs {
+			resolved, err := types.resolve(scopedTypeExpression{scope: node.ID, expression: port.Type})
+			if err != nil {
+				diagnostic := diagnosticAtNode(CodeUnresolvedType, []string{"ports", "dataOutputs", port.ID}, graph.ID, node.ID)
+				diagnostic.Params["reason"] = err.Error()
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			node.OutputTypes[port.ID] = resolved
+		}
+		for portID, binding := range pendingBindings[node.ID] {
+			port, _ := dataInputPort(machine.Ports, portID)
+			resolved, ok := node.InputTypes[portID]
+			if !ok {
+				continue
+			}
+			plan, err := compileInputBinding(binding, port, resolved, catalog)
+			if err != nil {
+				diagnostic := diagnosticAtNode(CodeInvalidBinding, []string{"bindings", portID}, graph.ID, node.ID)
+				diagnostic.Params["reason"] = err.Error()
+				diagnostics = append(diagnostics, diagnostic)
+				continue
+			}
+			node.Inputs[portID] = plan
+		}
+	}
 	for _, node := range compiled.Nodes {
 		for _, port := range node.Ports.DataInputs {
 			if port.Required {
@@ -333,6 +339,41 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
 	}
 	return compiled, diagnostics, nil
+}
+
+func compileInputBinding(binding schema.InputBinding, port nodecontract.DataInputPort, resolved datatype.ResolvedType, catalog nodecatalog.Snapshot) (inputPlan, error) {
+	switch binding.Kind {
+	case schema.BindingBlob:
+		if binding.Blob == nil {
+			return inputPlan{}, errors.New("blob binding is missing its reference")
+		}
+		envelope, err := datatype.SealBlobRef(catalog, resolved, *binding.Blob)
+		if err != nil {
+			return inputPlan{}, err
+		}
+		return inputPlan{Kind: inputLiteral, Provenance: inputSourceBlob, Value: envelope.Artifact()}, nil
+	case schema.BindingValue, schema.BindingDefault:
+		value := binding.Value
+		provenance := inputSourceLiteral
+		if binding.Kind == schema.BindingDefault {
+			if port.Default == nil {
+				return inputPlan{}, errors.New("input has no declared default")
+			}
+			value = *port.Default
+			provenance = inputSourceDefault
+		}
+		canonical, err := artifact.Canonicalize(value)
+		if err != nil {
+			return inputPlan{}, err
+		}
+		envelope, err := datatype.SealInlineJSON(catalog, resolved, canonical)
+		if err != nil {
+			return inputPlan{}, err
+		}
+		return inputPlan{Kind: inputLiteral, Provenance: provenance, Value: envelope.Artifact()}, nil
+	default:
+		return inputPlan{}, errors.New("unknown binding kind")
+	}
 }
 
 func outputPortExists(ports nodecontract.PortSet, id string) bool {
@@ -436,38 +477,6 @@ func signalOutputs(ports nodecontract.PortSet, channel schema.EdgeChannel) []nod
 	default:
 		return nil
 	}
-}
-
-func validateLiteralCached(expression datatype.TypeExpression, raw []byte, catalog nodecatalog.Snapshot, validators map[string]*runtimejsonschema.Schema) error {
-	if expression.Kind != datatype.TypeExpressionRef || expression.Ref == nil {
-		return errors.New("literal binding currently requires an exact ref type")
-	}
-	definition, ok := catalog.LookupType(expression.Ref.TypeID)
-	if !ok || definition.TypeRef() != *expression.Ref {
-		return errors.New("literal type is not in catalog")
-	}
-	machine := definition.Machine()
-	if len(machine.SchemaBundle) != 1 {
-		return errors.New("literal schema requires one explicit root in this compiler generation")
-	}
-	var value any
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	if err := decoder.Decode(&value); err != nil {
-		return err
-	}
-	return validateJSONSchemaBundleCached(validators, "type:"+expression.Ref.SemanticDigest.String(), machine.SchemaBundle[0].ID, machine.SchemaBundle, value)
-}
-
-func resolvedTypeForExactRef(expression datatype.TypeExpression, catalog nodecatalog.Snapshot) (datatype.ResolvedType, error) {
-	if expression.Kind != datatype.TypeExpressionRef || expression.Ref == nil {
-		return datatype.ResolvedType{}, errors.New("preview runtime requires an exact ref type")
-	}
-	definition, ok := catalog.LookupType(expression.Ref.TypeID)
-	if !ok || definition.TypeRef() != *expression.Ref {
-		return datatype.ResolvedType{}, errors.New("value type is not in catalog")
-	}
-	return datatype.RefResolvedType(*expression.Ref), nil
 }
 
 func validateJSONSchemaBundleCached(cache map[string]*runtimejsonschema.Schema, key, root string, resources []datatype.SchemaResource, value any) error {

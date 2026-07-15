@@ -3,7 +3,6 @@ package all
 
 import (
 	_ "github.com/yottaapp/yotta/internal/nodes/ai"
-	_ "github.com/yottaapp/yotta/internal/nodes/collection"
 	_ "github.com/yottaapp/yotta/internal/nodes/control"
 	_ "github.com/yottaapp/yotta/internal/nodes/detect"
 	_ "github.com/yottaapp/yotta/internal/nodes/event"

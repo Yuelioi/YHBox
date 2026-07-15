@@ -142,8 +142,15 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	collectionDefinitions, err := defineCollectionNodes(primitiveTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+	})
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
+	definitions = append(definitions, collectionDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))

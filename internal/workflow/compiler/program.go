@@ -43,13 +43,15 @@ type inputPlan struct {
 }
 
 type programNode struct {
-	ID             string                         `json:"id"`
-	NodeRef        nodecontract.NodeRef           `json:"nodeRef"`
-	Config         map[string]any                 `json:"config"`
-	Inputs         map[string]inputPlan           `json:"inputs"`
-	Ports          nodecontract.PortSet           `json:"ports"`
-	Execution      nodecontract.ExecutionSpec     `json:"execution"`
-	Implementation nodecatalog.ImplementationLock `json:"implementation"`
+	ID             string                           `json:"id"`
+	NodeRef        nodecontract.NodeRef             `json:"nodeRef"`
+	Config         map[string]any                   `json:"config"`
+	Inputs         map[string]inputPlan             `json:"inputs"`
+	InputTypes     map[string]datatype.ResolvedType `json:"inputTypes"`
+	OutputTypes    map[string]datatype.ResolvedType `json:"outputTypes"`
+	Ports          nodecontract.PortSet             `json:"ports"`
+	Execution      nodecontract.ExecutionSpec       `json:"execution"`
+	Implementation nodecatalog.ImplementationLock   `json:"implementation"`
 }
 
 // programSignalRoute is an ordered control instruction. Data dependencies are
@@ -97,6 +99,8 @@ type NodeView struct {
 	ID             string
 	NodeRef        nodecontract.NodeRef
 	Ports          nodecontract.PortSet
+	InputTypes     map[string]datatype.ResolvedType
+	OutputTypes    map[string]datatype.ResolvedType
 	Execution      nodecontract.ExecutionSpec
 	Implementation nodecatalog.ImplementationLock
 }
@@ -255,6 +259,9 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 			return errors.New("program references an unknown node type")
 		}
 		machine := entry.Contract.Machine()
+		if err := validateEffectivePortTypes(node, machine); err != nil {
+			return fmt.Errorf("program node %q has invalid effective types: %w", node.ID, err)
+		}
 		if err := validateJSONSchemaBundleCached(validators, "config:"+node.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, node.Config); err != nil {
 			return fmt.Errorf("program node %q has invalid config: %w", node.ID, err)
 		}
@@ -280,16 +287,14 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 				if err != nil {
 					return fmt.Errorf("program node %q has an invalid value envelope for input %q: %w", node.ID, portID, err)
 				}
-				expected, err := resolvedTypeForExactRef(port.Type, catalog)
-				if err != nil || !reflect.DeepEqual(envelope.Type(), expected) {
+				expected, ok := node.InputTypes[portID]
+				if !ok || !reflect.DeepEqual(envelope.Type(), expected) {
 					return fmt.Errorf("program node %q has a forged value type for input %q", node.ID, portID)
 				}
 				if plan.Provenance == inputSourceBlob {
 					if _, ok := envelope.BlobRef(); !ok {
 						return fmt.Errorf("program node %q has a forged blob input %q", node.ID, portID)
 					}
-				} else if err := validateLiteralCached(port.Type, envelope.InlineJSON(), catalog, validators); err != nil {
-					return fmt.Errorf("program node %q has an invalid literal input %q: %w", node.ID, portID, err)
 				}
 			case inputEdge:
 				if len(plan.Value) != 0 || plan.Provenance != "" {
@@ -299,12 +304,13 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 				if !exists {
 					return fmt.Errorf("program node %q has an edge from an unknown node", node.ID)
 				}
-				fromType, fromExists := outputForChannel(fromNode.Ports, schema.EdgeData, plan.From.PortID)
+				_, fromExists := outputForChannel(fromNode.Ports, schema.EdgeData, plan.From.PortID)
 				if !fromExists {
 					return fmt.Errorf("program node %q has an edge from an unknown output", node.ID)
 				}
-				assignable, err := datatype.Assignable(*fromType, port.Type)
-				if err != nil || !assignable {
+				fromType, fromOK := fromNode.OutputTypes[plan.From.PortID]
+				toType, toOK := node.InputTypes[portID]
+				if !fromOK || !toOK || !reflect.DeepEqual(fromType, toType) {
 					return fmt.Errorf("program node %q has an incompatible data edge", node.ID)
 				}
 				fromPort, _ := dataOutputPort(fromNode.Ports, plan.From.PortID)
@@ -327,6 +333,35 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot) erro
 	}
 	if expected := topologicalOrder(graph.Nodes, adjacency, indegree); len(expected) != len(graph.Nodes) || !slices.Equal(expected, graph.DataOrder) {
 		return errors.New("program data order does not match its data graph")
+	}
+	return nil
+}
+
+func validateEffectivePortTypes(node programNode, machine nodecontract.MachineContract) error {
+	if node.InputTypes == nil || node.OutputTypes == nil ||
+		len(node.InputTypes) != len(machine.Ports.DataInputs) || len(node.OutputTypes) != len(machine.Ports.DataOutputs) {
+		return errors.New("effective port type maps do not match the contract")
+	}
+	variables := map[string]datatype.ResolvedType{}
+	for _, port := range machine.Ports.DataInputs {
+		resolved, ok := node.InputTypes[port.ID]
+		if !ok {
+			return fmt.Errorf("input %q has no effective type", port.ID)
+		}
+		matched, err := datatype.MatchResolved(port.Type, resolved, variables)
+		if err != nil || !matched {
+			return fmt.Errorf("input %q does not satisfy its contract type", port.ID)
+		}
+	}
+	for _, port := range machine.Ports.DataOutputs {
+		resolved, ok := node.OutputTypes[port.ID]
+		if !ok {
+			return fmt.Errorf("output %q has no effective type", port.ID)
+		}
+		matched, err := datatype.MatchResolved(port.Type, resolved, variables)
+		if err != nil || !matched {
+			return fmt.Errorf("output %q does not satisfy its contract type", port.ID)
+		}
 	}
 	return nil
 }
@@ -372,7 +407,11 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 	var result []NodeView
 	for _, graph := range p.state.document.Body.Graphs {
 		for _, node := range graph.Nodes {
-			view := NodeView{ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports, Execution: node.Execution, Implementation: node.Implementation}
+			view := NodeView{
+				ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
+				InputTypes: node.InputTypes, OutputTypes: node.OutputTypes,
+				Execution: node.Execution, Implementation: node.Implementation,
+			}
 			raw, err := json.Marshal(view)
 			if err != nil {
 				panic("program snapshot invariant: " + err.Error())

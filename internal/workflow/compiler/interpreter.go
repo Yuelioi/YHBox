@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
-	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
@@ -67,7 +67,6 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 	}
 	result := RunResult{NodeOutputs: map[string]map[string]json.RawMessage{}}
 	retainedBytes := 0
-	validators := map[string]*runtimejsonschema.Schema{}
 	for _, nodeID := range graph.DataOrder {
 		if err := ctx.Err(); err != nil {
 			return RunResult{}, err
@@ -105,16 +104,17 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 			if err != nil {
 				return RunResult{}, fmt.Errorf("open input %s.%s: %w", nodeID, portID, err)
 			}
+			expected, ok := node.InputTypes[portID]
+			if !ok || !reflect.DeepEqual(envelope.Type(), expected) {
+				return RunResult{}, fmt.Errorf("input %s.%s violates its Program-resolved type", nodeID, portID)
+			}
 			inputs[portID] = envelope.InlineJSON()
 		}
 		outputs, err := installed.Run(ctx, inputs)
 		if err != nil {
 			return RunResult{}, fmt.Errorf("run node %q: %w", nodeID, err)
 		}
-		ports := make(map[string]datatype.TypeExpression, len(node.Ports.DataOutputs))
-		for _, port := range node.Ports.DataOutputs {
-			ports[port.ID] = port.Type
-		}
+		ports := node.OutputTypes
 		sealedOutputs := make(map[string]json.RawMessage, len(outputs))
 		for portID, value := range outputs {
 			if err := ctx.Err(); err != nil {
@@ -123,18 +123,11 @@ func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResu
 			if len(value) == 0 || len(value) > datatype.MaxInlineValueBytes {
 				return RunResult{}, fmt.Errorf("builtin output %q exceeds inline value budget", portID)
 			}
-			expression, allowed := ports[portID]
+			resolved, allowed := ports[portID]
 			if !allowed {
 				return RunResult{}, fmt.Errorf("builtin returned undeclared output %q", portID)
 			}
 			canonical, err := artifact.Canonicalize(value)
-			if err != nil {
-				return RunResult{}, err
-			}
-			if err := validateLiteralCached(expression, canonical, i.catalog, validators); err != nil {
-				return RunResult{}, fmt.Errorf("builtin output %q violates its pinned data type: %w", portID, err)
-			}
-			resolved, err := resolvedTypeForExactRef(expression, i.catalog)
 			if err != nil {
 				return RunResult{}, err
 			}

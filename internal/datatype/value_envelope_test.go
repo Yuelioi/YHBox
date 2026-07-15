@@ -49,6 +49,31 @@ func TestInlineValueEnvelopeRoundTripsTypeAndCanonicalValue(t *testing.T) {
 	}
 }
 
+func TestInlineValueEnvelopeValidatesResolvedListsRecursively(t *testing.T) {
+	definition, err := SealDefinition(DefinitionDraft{
+		TypeID: "https://schemas.yotta.dev/types/test/string/v1", SchemaDialect: JSONSchemaDialect,
+		SchemaRoot:      "https://schemas.yotta.dev/types/test/string/v1/schema",
+		SchemaBundle:    []SchemaResource{{ID: "https://schemas.yotta.dev/types/test/string/v1/schema", Schema: []byte(`{"$id":"https://schemas.yotta.dev/types/test/string/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema","type":"string"}`)}},
+		Representations: []RepresentationSpec{{Kind: RepresentationInlineJSON, Codec: CodecJCSV1}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	types := valueTypes{definition.TypeRef().TypeID: definition}
+	resolved := ListResolvedType(RefResolvedType(definition.TypeRef()))
+	sealed, err := SealInlineJSON(types, resolved, []byte(`["a","节点"]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	opened, err := OpenValueEnvelope(types, sealed.Artifact())
+	if err != nil || !bytes.Equal(opened.InlineJSON(), []byte(`["a","节点"]`)) {
+		t.Fatalf("list round trip = %s, %v", opened.InlineJSON(), err)
+	}
+	if _, err := SealInlineJSON(types, resolved, []byte(`["a",2]`)); err == nil {
+		t.Fatal("resolved string list accepted a number element")
+	}
+}
+
 func TestExternalValueEnvelopeCarriersRoundTripWithoutRawResources(t *testing.T) {
 	definition, err := SealDefinition(DefinitionDraft{
 		TypeID: "https://schemas.yotta.dev/types/test/external/v1", SchemaDialect: JSONSchemaDialect,

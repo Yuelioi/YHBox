@@ -210,8 +210,23 @@ func validateCarrierAgainstType(catalog ValueTypeCatalog, resolved ResolvedType,
 	if catalog == nil {
 		return errors.New("trusted value type catalog is required")
 	}
+	if err := resolved.Validate(); err != nil {
+		return fmt.Errorf("value has an invalid resolved type: %w", err)
+	}
+	if resolved.Kind == ResolvedTypeList {
+		if representation != RepresentationInlineJSON || codec != CodecJCSV1 {
+			return errors.New("resolved list values require inline JSON representation")
+		}
+		var value any
+		decoder := json.NewDecoder(bytes.NewReader(inline))
+		decoder.UseNumber()
+		if err := decoder.Decode(&value); err != nil {
+			return err
+		}
+		return validateResolvedInline(catalog, resolved, value, 0, new(int))
+	}
 	if resolved.Kind != ResolvedTypeRef || resolved.Ref == nil {
-		return errors.New("this value envelope generation requires an exact ref type")
+		return errors.New("unsupported resolved value type")
 	}
 	definition, ok := catalog.LookupType(resolved.Ref.TypeID)
 	if !ok || definition.TypeRef() != *resolved.Ref {
@@ -237,6 +252,41 @@ func validateCarrierAgainstType(catalog ValueTypeCatalog, resolved ResolvedType,
 	if err := decoder.Decode(&value); err != nil {
 		return err
 	}
+	return validateDefinitionInline(machine, value)
+}
+
+func validateResolvedInline(catalog ValueTypeCatalog, resolved ResolvedType, value any, depth int, nodes *int) error {
+	if depth > MaxTypeDepth {
+		return errors.New("inline resolved value exceeds type depth budget")
+	}
+	(*nodes)++
+	if *nodes > MaxTypeNodes {
+		return errors.New("inline resolved value exceeds type node budget")
+	}
+	switch resolved.Kind {
+	case ResolvedTypeRef:
+		definition, ok := catalog.LookupType(resolved.Ref.TypeID)
+		if !ok || definition.TypeRef() != *resolved.Ref {
+			return errors.New("inline resolved value type is not pinned in the trusted catalog")
+		}
+		return validateDefinitionInline(definition.Machine(), value)
+	case ResolvedTypeList:
+		items, ok := value.([]any)
+		if !ok {
+			return errors.New("inline resolved list value is not an array")
+		}
+		for index, item := range items {
+			if err := validateResolvedInline(catalog, *resolved.Element, item, depth+1, nodes); err != nil {
+				return fmt.Errorf("inline resolved list item %d: %w", index, err)
+			}
+		}
+		return nil
+	default:
+		return errors.New("unsupported inline resolved value type")
+	}
+}
+
+func validateDefinitionInline(machine MachineDefinition, value any) error {
 	compiler := runtimejsonschema.NewCompiler()
 	for _, schemaResource := range machine.SchemaBundle {
 		var schemaDocument any
