@@ -6,15 +6,15 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-Yotta 3.1 已完成 provider-native AI 纵切面：OpenAI 只走 Responses、Anthropic 只走 Messages；Model Profile、能力、预算、评估状态、provider artifact、target、credential binding 与 workflow consent 都内容寻址并在启动时安装。Generate/Extract 节点通过稳定 slot 请求 exact model，运行前由 Host Profile、Policy、Run Grant 完成准入，运行后记录脱敏 request/response identity 与 usage。设置中心只保存模型档案，密钥按 slot 进入 OS credential store；不存在 BaseURL、默认连接、模型发现、Chat/prompt fallback 或 provider cache。提交 `ab1f4cf4`、`4b630f70`、`7e9fb87c` 已通过全量 Go、前端、Wails RPC 与 Node Contract 3.1 门禁。
+Yotta 3.1 已完成 provider-native AI 纵切面，并完成 Script 3.1 隔离执行的一手资料研究与边界决议。生产脚本必须是一次性 worker、typed JSON ABI、zero ambient authority；Windows 完整支持路径必须同时具备 LPAC/AppContainer、原子 Job Object 归属、CPU/内存/进程/时限配额与 kill-on-close。Linux/macOS 在等价 launcher 完成前只返回 `script.isolation_unavailable`，严禁退回 Wails 主进程 goja。
 
-旧 container AI/LLM、script 及其余 effect runtime 仍留在仓库供待迁移批次编译，不能成为最终兜底。下一批从脚本隔离开始，随后迁移 I/O/system、input/window/image/automation，并在每批切换调用方后删除对应 legacy 路径。
+研究基线已提交为 `8a9bf2cb`。下一批分两次可审查提交：先冻结脚本协议、严格帧、确定性 guest engine 与 one-shot worker；再完成 Windows hardened launcher、Script 3.1 Node Contract/runtime/Application/UI 纵切面并启用生产执行。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. script isolation：冻结脚本语言/ABI、输入输出类型、capability imports、资源预算、取消/超时与 attempt/action journal；production Application 只执行新 adapter。
+1. script isolation：先实现 typed ABI/strict protocol/one-shot worker core；再实现 Windows LPAC/AppContainer + atomic Job Object launcher，并接入 Script 3.1 contract、runtime、journal、Authoring Projection。
 2. remaining effects：按 I/O/system → input/window/image/automation 迁移到 Capability、Run Grant 与 exact target/credential binding。
 3. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 4. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
@@ -49,6 +49,7 @@ Yotta 3.1 已完成 provider-native AI 纵切面：OpenAI 只走 Responses、Ant
 ## Progress
 
 Done:
+- 完成 Script 3.1 隔离执行研究：确认 goja.Interrupt 无法中断 native binding 且无 heap quota，因此移除 ambient ScriptBindable/任意 Go object bridge；采用一次性 worker、canonical typed JSON ABI、确定性时钟/随机、attempt/action journal。Windows 生产路径要求 LPAC/AppContainer + 原子 Job Object；其他平台在等价隔离落地前 fail closed。研究提交 `8a9bf2cb`。
 - 完成 provider-native AI 安装与生产装配：Model Profile/能力/预算/评估状态内容寻址；相同 profile 共享 native provider，slot 独立绑定 target 与 OS credential；exact workflow consent 参与 Policy/Run Grant，档案变化立即使旧授权失效。删除默认连接、BaseURL、模型发现、Chat/prompt fallback 与 provider cache；设置 UI、Wails contract、生成节点和 journal 同步切换。提交 `ab1f4cf4`、`4b630f70`、`7e9fb87c`。
 - 完成 activation-scoped control region：Node Contract 新增 exact tagged InstructionSpec 与专用 host-instruction ABI；Compiler/strict Program opener 冻结并复验 run-root/counted-loop/for-each/retry，拒绝错误 signal channel、body 外控制信号和多入口 body。Scheduler 使用隔离 activation queue，支持嵌套目标传播、显式 error retry、typed ordinal/item 输出、统一 invocation/retained-value budget；RunStarted 与 region 不再安装伪 adapter。Authoring Projection、后端 patch、EditorSession、生成 Schema/TypeScript/Markdown 与 UI 提示共享同一 instruction 语义；外部 listener 决议为 lifecycle-owned trigger 提交独立 admitted Run。提交 `1f122ef3`。
 - 完成共享 typed Workflow authoring protocol 与 MCP/CLI-debug destructive cutover：新增 `internal/workflow/authoring` deep module 和 generated exact tagged-union JSON Schema/TypeScript；Application 只接受 revision-CAS domain commands，host 拥有 ID/default，整批失败不发布。Wails EditorSession 改用 ApplyPatch/CompileSource；MCP 升级为 validated structured output，只提供 bounded catalog/workflow authoring、compile、diagnostic explain 与 effect-free preview，删除 whole-document save、legacy runtime、单节点执行、窗口枚举、默认 listener 和虚假设置 UI。提交 `b4aa17aa`。
