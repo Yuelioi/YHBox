@@ -156,12 +156,14 @@
 
 目标：让画布、Inspector、AI/MCP 和文档只消费 Node Contract/Data Type 的生成投影，将巨型 Vue 协调层变成明确的编辑状态机客户端。
 
+状态：Authoring Projection、生产 Inspector、MCP/docs 同源投影已由提交 `06481351` 完成并通过完整门禁；EditorSession 与巨型组件拆分留在后续独立阶段。
+
 1. Authoring Projection 统一生成 effective ports、参数控件、类型/约束/单位/default/optional/null 提示、representation/lifecycle/security 文案、capability/platform badge、examples、errors 与 conversions。
 2. 第三方 package 不得注入 JavaScript/Vue；复杂交互只能引用 Yotta 内置 allowlist Editor Adapter。区域/坐标/颜色、代码、AE/UE 对象选择器不得拥有或改写节点语义。
 3. EditorSession 统一 draft、revision、sourceHash、compiledHash、lastRunHash、history、dirty、graph path、save conflict、validate、run/debug；SaveSource 必须带 baseRevision。
 4. 画布端口、拖线检查、加载诊断与 Compiler 使用同一 generated assignability；空 exec 集合是有效事实，任何层不得猜测或补 out。
 5. ContainerEditorView 目标 <500 行，NodeInspector <400 行；view 不直接拼 patch JSON、解析 config 生成动态端口或编排多个 store/RPC。
-6. machine catalog 与 presentation catalog 分 generation；展示注解变化不改变 Program identity，但 UI/文档能追溯 presentation digest/generator version。
+6. machine Catalog 与 Authoring Projection 分 generation；展示注解变化不改变 Program identity，但 UI/文档能追溯 projection digest/generator version。
 7. Playwright web harness 覆盖 Concat、类型不兼容、default/absent/null、动态端口、Editor Adapter、保存冲突、AI patch diff 与 run timeline；Windows smoke 覆盖真实 binding/event/window。
 
 验收：普通节点无需手写 Vue/TS pin 映射；UI 参数提示可直接由 schema 解释；前端删除 PinType/backendTypeToPinType/legacy registry 后仍能渲染并编辑全部已迁移节点。
@@ -169,7 +171,7 @@
 
 目标：把 137 个内置节点迁入可生成、可验证的产品接口，并让所有执行语义 lower 到 Program，而不是散落在 runtime kind switch。
 
-1. Node Contract 完整声明 identity/version、config schema、static/instance ports、Execution Class、determinism、effects、capabilities、errors、retry/cache/cancel/timeout、implementation lock、presentation 与文档注解。
+1. Node Contract 完整声明 identity/version、config schema、static/instance ports、Execution Class、determinism、effects、capabilities、errors、retry/cache/cancel/timeout、implementation lock、authoring 与文档注解。
 2. instance contract resolver 给定 contract + config 产生 immutable effective ports/config/dependencies/capabilities；Compiler、authoring、runtime、MCP 和 docs 只消费结果，不再各写 dynamic parser。
 3. Program interpreter 只认识通用 plan instruction 与窄 capability call；region、subgraph、listener、disabled、retry、error routing、recorded value 和 lineage 全由 Compiler lower。
 4. 按 pure-data → conversion/collection → effect → control/region → event/listener 顺序迁移。每批先生成 catalog/docs/golden fixtures，再切调用方并删除该批 legacy Spec/coercion/validator/dispatch 分支。
