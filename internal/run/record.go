@@ -447,6 +447,12 @@ func (r Record) Journal() []JournalEntry {
 	}
 	return result
 }
+func (r Record) Failure() (RunError, bool) {
+	if !r.Valid() || r.state.document.Error == nil {
+		return RunError{}, false
+	}
+	return *r.state.document.Error, true
+}
 func (r Record) Bytes() []byte {
 	if !r.Valid() {
 		return nil

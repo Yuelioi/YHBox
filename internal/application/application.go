@@ -243,6 +243,12 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 
 func (a *Application) GetRun(runID string) (run31.Record, error) { return a.runs.Load(runID) }
 
+func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot, error) {
+	return a.sources.Load(workflowID)
+}
+
+func (a *Application) ListSources() []workflowstore.SourceSnapshot { return a.sources.List() }
+
 func (a *Application) CatalogArtifact() []byte { return a.catalog.Bytes() }
 
 func (a *Application) CancelRun(ctx context.Context, runID string) (run31.Record, error) {
