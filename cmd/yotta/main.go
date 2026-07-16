@@ -88,7 +88,7 @@ func run(arguments []string, output io.Writer) error {
 			return err
 		}
 		if compileErr != nil || schema.HasErrors(result.Diagnostics) {
-			return errors.Join(errors.New("Workflow Source validation failed"), compileErr)
+			return errors.Join(errors.New("workflow source validation failed"), compileErr)
 		}
 		return nil
 	case "compile":
@@ -98,7 +98,7 @@ func run(arguments []string, output io.Writer) error {
 			return err
 		}
 		if compileErr != nil || schema.HasErrors(result.Diagnostics) {
-			return errors.Join(errors.New("Workflow compilation failed"), compileErr)
+			return errors.Join(errors.New("workflow compilation failed"), compileErr)
 		}
 		return nil
 	case "inspect":
@@ -233,7 +233,7 @@ func waitRun(ctx context.Context, encoder *json.Encoder, application *appcore.Ap
 			if err := encoder.Encode(json.RawMessage(record.Bytes())); err != nil {
 				return err
 			}
-			return fmt.Errorf("Run %s ended as %s", runID, record.Status())
+			return fmt.Errorf("run %s ended as %s", runID, record.Status())
 		}
 		select {
 		case <-ctx.Done():
