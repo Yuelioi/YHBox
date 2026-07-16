@@ -27,7 +27,7 @@ func mainWindowOptions(width, height int) application.WebviewWindowOptions {
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(9, 9, 11),
 		Frameless:        true,
-		URL:              "/#/containers",
+		URL:              "/#/workflows",
 	}
 }
 

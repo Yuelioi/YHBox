@@ -60,9 +60,20 @@ Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 c
 3. 执行最终 Standards + Spec + architecture review。
 4. 真实 Windows smoke 覆盖模板/录制、设置、悬浮启动器、工作流运行/调试和工具窗。
 
+## Latest completed slice — 启动与工作流入口可达性
+
+真实 EXE smoke 暴露的两个用户阻断问题已修复；这个切片只改启动导航与 Workflow 3.1 列表交互，没有扩大 runtime 或插件范围。
+
+根因与结果：
+
+1. 主窗口唯一启动写入方仍指向已经删除的 `/#/containers`，导致 hash router 无匹配组件、首屏只显示黑色壳；已改为 `/#/workflows` 并用 Go 回归测试锁定。
+2. Workflow 列表的固定四列网格加 `overflow-hidden` 会在窄 CSS viewport / 高 DPI 下裁掉新建和操作入口；已改为响应式 header、两列/堆叠列表，并让工作流名称成为直接编辑链接。
+3. 补齐缺失的 `sidebar.workflow_edit` 文案，编辑器标题不再显示 i18n key 字面值。
+4. 定向 Go/Vitest、全仓 Go test、前端 typecheck/lint/i18n/format 和 production `task build` 全绿；Windows production EXE 冷启动截图确认无需点击导航即显示工作流列表，创建/运行/编辑入口均可见。
+
 ## Next
 
-Wave E 下一批从 immutable manifest 向 package lifecycle 前进：先定义并实现 archive payload verification + safe extraction 的纯核心，使 manifest 中 path/digest/size/media-type lock 能在任何信任或执行前 fail closed；随后再接 trust state 与 atomic install。执行 host 仍不提前开放。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
+Wave E 从 immutable manifest 向 package lifecycle 前进：先定义并实现 archive payload verification + safe extraction 的纯核心，使 manifest 中 path/digest/size/media-type lock 能在任何信任或执行前 fail closed；随后再接 trust state 与 atomic install。执行 host 仍不提前开放。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 

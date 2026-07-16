@@ -1,6 +1,7 @@
 export default {
   sidebar: {
     workflows: 'Workflows',
+    workflow_edit: 'Edit workflow',
     schedules: 'Schedules',
     settings: 'Settings',
     about: 'About',
@@ -1210,6 +1211,7 @@ export default {
     },
     action: {
       edit: 'Edit',
+      edit_named: 'Edit workflow “{name}”',
       run: 'Run',
       debug: 'Debug',
       compile: 'Compile',

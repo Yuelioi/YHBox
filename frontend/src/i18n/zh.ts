@@ -26,6 +26,7 @@
 export default {
   sidebar: {
     workflows: '工作流',
+    workflow_edit: '编辑工作流',
     schedules: '计划',
     settings: '设置',
     about: '关于',
@@ -1072,6 +1073,7 @@ export default {
     },
     action: {
       edit: '编辑',
+      edit_named: '编辑工作流「{name}」',
       run: '运行',
       debug: '调试',
       compile: '编译',

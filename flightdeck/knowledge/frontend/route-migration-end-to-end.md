@@ -41,6 +41,8 @@ read_when: "改任何 vue route 命名 / 路径模板 / params↔query 形态 / 
 
 Subagent dispatch 时这个 trace 表必须在 prompt 里. 不在 = subagent 只做 plan 字面要求, 漏端到端 — 不是 subagent 错, 是 plan 设计错.
 
+主窗口启动 URL 还必须有一个贴近 Wails options seam 的自动化断言。仅测试 Vue Router 的 `/` redirect 不够：Wails 可以直接写入一个带正确 `/#/` 但已经被删除的 route，此时类型检查、production build 和 router 单测仍会全绿，真实 EXE 首屏则只有空 `router-view`。Yotta 在 `wails_tools_test.go` 直接断言 `mainWindowOptions(...).URL` 等于当前 canonical 首屏；删除或改名顶层产品 route 时必须同步更新该断言，并执行 production EXE 冷启动 smoke。
+
 ## 反模式 (Plan 长这样必踩)
 
 ```markdown

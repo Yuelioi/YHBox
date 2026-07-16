@@ -1,6 +1,8 @@
 <template>
   <div class="flex min-h-full flex-col bg-default">
-    <header class="flex items-end gap-6 border-b border-default px-8 py-6">
+    <header
+      class="flex flex-col gap-4 border-b border-default px-4 py-5 sm:flex-row sm:items-end sm:gap-6 sm:px-8 sm:py-6"
+    >
       <div class="min-w-0 flex-1">
         <h1 class="text-xl font-semibold tracking-tight text-highlighted">
           {{ t('workflow31.list.title') }}
@@ -9,8 +11,14 @@
           {{ t('workflow31.list.description') }}
         </p>
       </div>
-      <form class="flex items-end gap-2" @submit.prevent="createWorkflow">
-        <UFormField :label="t('workflow31.list.new_workflow')" class="w-64">
+      <form
+        class="flex w-full flex-wrap items-end gap-2 sm:w-auto"
+        @submit.prevent="createWorkflow"
+      >
+        <UFormField
+          :label="t('workflow31.list.new_workflow')"
+          class="min-w-52 flex-1 sm:w-64 sm:flex-none"
+        >
           <UInput
             v-model="newName"
             :placeholder="t('workflow31.list.name_placeholder')"
@@ -27,7 +35,7 @@
       </form>
     </header>
 
-    <main class="flex-1 px-8 py-6">
+    <main class="flex-1 px-4 py-5 sm:px-8 sm:py-6">
       <div v-if="loading" class="space-y-2" :aria-label="t('workflow31.list.loading')">
         <USkeleton v-for="index in 4" :key="index" class="h-16 w-full rounded-lg" />
       </div>
@@ -55,30 +63,38 @@
         </div>
       </div>
 
-      <div v-else class="overflow-hidden rounded-lg border border-default">
+      <div v-else class="rounded-lg border border-default">
         <div
-          class="grid grid-cols-[minmax(220px,1fr)_88px_minmax(180px,0.8fr)_170px] gap-4 bg-elevated/60 px-4 py-2 text-[11px] font-medium text-muted"
+          class="hidden grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-t-lg bg-elevated/60 px-4 py-2 text-[11px] font-medium text-muted sm:grid"
         >
           <span>{{ t('workflow31.list.name') }}</span>
-          <span>{{ t('workflow31.list.revision') }}</span>
-          <span>{{ t('workflow31.list.source_identity') }}</span>
           <span class="text-right">{{ t('workflow31.list.actions') }}</span>
         </div>
         <div class="divide-y divide-default">
           <article
             v-for="source in sources"
             :key="source.workflowId"
-            class="grid grid-cols-[minmax(220px,1fr)_88px_minmax(180px,0.8fr)_170px] items-center gap-4 px-4 py-3 transition-colors hover:bg-elevated/35"
+            class="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-elevated/35 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4"
           >
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-highlighted">{{ source.name }}</p>
-              <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">
-                {{ source.workflowId }}
-              </p>
+              <RouterLink
+                :to="`/workflows/${source.workflowId}/edit`"
+                :aria-label="t('workflow31.action.edit_named', { name: source.name })"
+                class="block truncate text-sm font-medium text-highlighted underline-offset-4 hover:text-primary hover:underline focus-visible:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {{ source.name }}
+              </RouterLink>
+              <div
+                class="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-dimmed"
+              >
+                <span class="shrink-0">
+                  {{ t('workflow31.list.revision') }} {{ source.revision }}
+                </span>
+                <span class="min-w-0 truncate">{{ source.sourceHash }}</span>
+                <span class="min-w-0 truncate">{{ source.workflowId }}</span>
+              </div>
             </div>
-            <span class="font-mono text-xs tabular-nums text-toned">{{ source.revision }}</span>
-            <span class="truncate font-mono text-[10px] text-dimmed">{{ source.sourceHash }}</span>
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-wrap justify-end gap-2">
               <UButton
                 :label="t('workflow31.action.run')"
                 icon="i-tabler-player-play"
