@@ -8,19 +8,17 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 sandbox；generic Process Node 必须绑定 content-addressed package/operation，并在 Windows 使用 LPAC、atomic Job List、exact inherited handles、单进程与资源预算，Linux/macOS 在等价隔离前不注册 provider。旧 `RunProgram(Target, Args, WorkingDir)` 与 `taskkill /IM` 不得迁移或保留兼容入口。
 
-已安装应用生命周期与 exact input 纵切面已完成：workflow 只持有安装 slot；宿主以 exact executable SHA-256、唯一 exact title/class、固定 backend 与 timeout 解析目标，并在每次输入前重验 identity。七个 Input Contract 3.1 节点、provider/runtime/journal、Settings/Wails/Vue 已闭合；图和 journal 不含 HWND/PID/path/text/key，SendInput/PostMessage 失败不再静默成功。旧输入节点与 legacy Container runtime 尚未删除，因此当前 frontier 是破坏性切除旧 input producer/validator/dispatch，再迁移 window/image/automation（含 PlayClip）。
+已安装应用生命周期与 exact input 纵切面已完成，legacy Container runtime 与旧图输入节点已删除。录制现在只生成 immutable InputClip，旧 precise/simple 分叉、自动录制子图、RecordingContext、对应 validator/dispatch/UI/RPC 字段均已切除。当前 frontier 是把 window/image/automation（含 PlayClip）迁移到 exact installed target、Capability/Grant 与 attempt/action journal，再删除其余旧节点与旧 Container 命令面。
 
 第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 input target。
-
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. remaining effects：workspace I/O/Log/Throw、origin-bound HTTP GET、installed application lifecycle 与 exact input 已完成；下一批先删除 legacy input producer/validator/dispatch，再按 window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
-2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
+1. window/image/automation：迁移 BringWindowForeground、capture/detect/template 与 PlayClip，使 operation、target、scope、host binding、Run Grant 与 attempt/action journal exact 且 fail closed；每批调用方切换后立即删除对应 legacy node/controller/validator。
+2. legacy deletion：删除旧 Container Run/Debug/调度/热键命令面、旧 LLM、旧 NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
-
 ## Read now
 
 - knowledge/agent/codex-working-agreement.md
@@ -51,6 +49,8 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 ## Progress
 
 Done:
+- 破坏性删除 legacy Container executor、execution facade 与 run classifier，共移除 124 个 runtime 文件和 20,961 行旧执行代码；旧 registry/runtime 不再可被 Go package graph 引用，提交 `34d8a9ab`。
+- 破坏性删除 9 组旧 input graph nodes 及其 validator/dispatch 测试；录制收敛为唯一 immutable InputClip 路径，删除 simple subgraph transform、precise/simple mode、Subgraph RecordingContext 及全部 UI/Wails 字段，lint debt 264→261，提交 `9a43fd3e`。
 - 完成 exact installed input 3.1 纵切面：安装目标绑定 Application executable digest、唯一 exact title/class、固定 SendInput/PostMessage backend 与 timeout；七个输入节点共用 typed provider/runtime，操作原子化并在失败/取消时释放 held state。每次调用重验 executable identity 与窗口唯一性，图/Grant/journal 不暴露 path/PID/HWND/text/key；Settings/Wails/Vue、生成契约与文档同步切换，SendInput 注入计数和 PostMessage 结果均 fail closed。提交 `a6201f55`、`4bc16120`。
 - 完成已安装应用生命周期 3.1 纵切面：exact `.exe` path + SHA-256 + fixed argv immutable profile，安装与每次调用重验 identity，危险能力显式 ConsentOnce；Launch 不泄露 PID，Terminate 只按 OS file identity 精确结束并仅返回计数，journal 排除 path/argv/PID/environment。Settings/Wails/Vue、Host Profile/Policy/Grant/provider/runtime 与同源生成文档全链落地；删除旧 `RunProgram`、Windows `StopApp`、`ShellExecuteW`/`taskkill` API，不留兼容入口，并拒绝把 Yotta 自身安装为 workflow application。提交 `d2c502e4`。
 - 完成 Process 3.1 官方资料研究并冻结边界：generic Process Node 是 content-addressed、operation-scoped 的隔离进程包，Windows 必须 LPAC + atomic Job + typed protocol；桌面 GUI 应用生命周期另建 exact dangerous capability，不与插件宿主混用，也不保留 `ShellExecute`/raw command line/taskkill 兼容面。
@@ -134,9 +134,11 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- workspace I/O/Log/Throw、origin-bound HTTP GET 与 installed application lifecycle 已完成；当前 frontier 是 input/window/image/automation（含 PlayClip）能力迁移。每批调用方切换后立即删除对应 legacy service/node/dispatch，不留生产 fallback。
+- legacy Container runtime、旧 input nodes 与录制子图分叉已删除；当前 frontier 是 window/image/automation（含 PlayClip）exact capability 迁移，随后删除旧 Container 命令面与剩余 legacy NodeSpec/dispatch。
 
 Verified:
+- legacy runtime 删除提交 `34d8a9ab`（2026-07-16）：`go test ./...` 与 `staticcheck ./...` 全绿，旧 runtime/execution/runclassify package 已从 package graph 消失。
+- legacy graph input 删除提交 `9a43fd3e`（2026-07-16）：`go test ./...`、`staticcheck ./...` 与 frontend `pnpm check` 全绿；frontend 101 files / 649 tests，i18n 3400 keys，Wails contract 18 services / 139 methods / 157 models，entry 336,142 / 350,000 bytes、editor 92,731 / 200,000 bytes。
 - installed application lifecycle 提交 `d2c502e4`（2026-07-16）：最终 `task check` 221.7s 全绿；Go coverage 65.5%、`internal/appcontrol` 71.1%，frontend 100 files / 646 tests，Wails contract 17 services / 137 methods / 156 declarations，entry 334,930 / 350,000 bytes、editor 92,733 / 200,000 bytes；appcontrol/nodes31runtime/appbootstrap 聚焦 race 通过。
 - HTTP egress 提交 `3f2032d1`（2026-07-16）：最终 `task check` 295.6s 全绿；`internal/httpegress` coverage 71.7%，frontend 100 files / 646 tests，Wails contract 16 services / 134 methods / 153 models，entry 334,121 / 350,000 bytes、editor 92,357 / 200,000 bytes；httpegress/nodes31runtime/appbootstrap race 通过。一次既有 Windows high-resolution timer 环境抖动经单测复验 400ms 后，两次完整 `task check` 连续全绿。
 - workspace I/O/system 批次提交 `3fab01e2`（2026-07-16）：完整 `task check` 233.6s 全绿；Go coverage 65.3%、root 33.6%，frontend 100 files / 646 tests，Wails contract 15 services / 132 methods / 151 models，entry 332,173 / 350,000 bytes、editor 92,355 / 200,000 bytes；workspacefs/nodes31runtime/appbootstrap race 通过。
