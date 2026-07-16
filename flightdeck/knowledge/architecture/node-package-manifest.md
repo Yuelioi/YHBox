@@ -31,8 +31,15 @@ recheck_when: "改 internal/nodepackage manifest、Node Contract implementation 
 - entry 必须是 portable regular file；重复、额外、缺失、目录、symlink/特殊文件、case-fold collision、traversal、反斜杠和 reserved path 都 fail closed。archive/expanded bytes 与 entry count 在解压前有上限。
 - 解包只写 destination 同级的 private staging directory；Process payload 才获得 executable mode。成功后一次 rename；失败、取消或 destination 已存在时不会发布最终目录并清理 staging。
 
+## Local lifecycle 已实现
+
+- 在 publisher signature/key 尚未落地前，唯一信任类型是精确绑定 manifest digest 的 `local-artifact`；它只表示本机批准这一份 artifact，不能推导 publisher namespace ownership，也不能自动信任升级。
+- `internal/nodepackage.Store` 的 immutable generation 位于 `generations/<manifest-digest>/`，canonical `registry.json` 是唯一 authority 与 commit record。generation 先 durable publish，registry-last 才使 install/update 生效；incoming/orphan bytes 不可运行且 reopen 时清理。
+- Store reopen、generation 复用和 rollback 都调用 `OpenExtracted` 重验 manifest、精确 file set、size、raw SHA-256 和 host-owned mode。损坏 generation、dangling pointer、stale trust、未知 schema/entry、symlink 或超预算 registry 会使 Store fail closed，不静默跳过。
+- local lifecycle 支持 snapshot-only list/get、install/update、enable/disable、quarantine、单步 rollback 与 uninstall。quarantine 强制禁用且不能由 Enable 绕过；rollback 只选已验证、未 quarantine generation 并保持 disabled；uninstall 先撤销 registry authority 再 best-effort 清理 inert bytes。
+
 ## 尚未实现
 
-签名与 namespace ownership、trust store、atomic install/update/disable/uninstall/rollback/quarantine、revocation、Catalog merge、Program package lock、Wasm Component/WIT host、Process protobuf host、sandbox/quota、SDK 和 conformance fixtures 都仍是后续切片。
+签名 envelope、publisher key identity/namespace ownership、revocation input、Catalog merge、Program package lock、Wasm Component/WIT host、Process protobuf host、sandbox/quota、SDK 和 conformance fixtures 都仍是后续切片。
 
 在这些能力完成前，主程序必须保持“没有第三方包时无任意代码加载面”；不要把 manifest 存在误写成插件可运行。

@@ -39,6 +39,10 @@ func TestExtractArchiveVerifiesAndPublishesExactPackage(t *testing.T) {
 	if extracted.Digest() != manifest.Digest() {
 		t.Fatalf("manifest digest = %q, want %q", extracted.Digest(), manifest.Digest())
 	}
+	reopened, err := OpenExtracted(context.Background(), destination)
+	if err != nil || reopened.Digest() != manifest.Digest() {
+		t.Fatalf("reopen extracted generation = %q, %v", reopened.Digest(), err)
+	}
 	assertFileContent(t, filepath.Join(destination, filepath.FromSlash(ArchiveManifestPath)), manifest.Bytes())
 	assertFileContent(t, filepath.Join(destination, "bin", "plugin.exe"), []byte("process"))
 	assertFileContent(t, filepath.Join(destination, "docs", "node.md"), []byte("documentation"))
@@ -50,6 +54,48 @@ func TestExtractArchiveVerifiesAndPublishesExactPackage(t *testing.T) {
 		if info.Mode().Perm() != 0o700 {
 			t.Fatalf("process payload mode = %o, want 700", info.Mode().Perm())
 		}
+	}
+}
+
+func TestOpenExtractedRejectsTamperingAndUndeclaredFiles(t *testing.T) {
+	manifest, err := Seal(testDraft(t, nodecontract.ABIWIT))
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivePath := writeArchive(t, []archiveTestEntry{
+		{name: ArchiveManifestPath, data: manifest.Bytes()},
+		{name: "bin/plugin.wasm", data: []byte("wasm")},
+	})
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*testing.T, string)
+	}{
+		{name: "payload", mutate: func(t *testing.T, root string) {
+			if err := os.WriteFile(filepath.Join(root, "bin", "plugin.wasm"), []byte("WASM"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "extra file", mutate: func(t *testing.T, root string) {
+			if err := os.WriteFile(filepath.Join(root, "extra.txt"), []byte("extra"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "extra directory", mutate: func(t *testing.T, root string) {
+			if err := os.Mkdir(filepath.Join(root, "extra"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			destination := filepath.Join(t.TempDir(), "unpacked")
+			if _, err := ExtractArchive(context.Background(), archivePath, destination); err != nil {
+				t.Fatal(err)
+			}
+			testCase.mutate(t, destination)
+			if _, err := OpenExtracted(context.Background(), destination); err == nil {
+				t.Fatal("tampered extracted generation reopened")
+			}
+		})
 	}
 }
 

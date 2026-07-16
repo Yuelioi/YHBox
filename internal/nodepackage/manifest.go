@@ -1,5 +1,5 @@
-// Package nodepackage owns the immutable manifest at the trust boundary
-// between an installed Node Package and Yotta's plugin hosts.
+// Package nodepackage owns immutable manifests, verified archives, and the
+// local lifecycle trust boundary between Node Packages and Yotta's hosts.
 package nodepackage
 
 import (
@@ -270,6 +270,12 @@ func (m Manifest) PackageID() string {
 		return ""
 	}
 	return m.state.document.PackageID
+}
+func (m Manifest) PublisherNamespace() string {
+	if !m.Valid() {
+		return ""
+	}
+	return m.state.document.PublisherNamespace
 }
 func (m Manifest) PackageVersion() string {
 	if !m.Valid() {

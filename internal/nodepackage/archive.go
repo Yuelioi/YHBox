@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -133,6 +135,171 @@ func ExtractArchive(ctx context.Context, archivePath, destination string) (Manif
 	}
 	published = true
 	return manifest, nil
+}
+
+// OpenExtracted reopens a previously extracted generation and verifies that
+// its manifest, file set, sizes, digests, types, and host-owned modes still
+// match the archive contract.
+func OpenExtracted(ctx context.Context, directory string) (Manifest, error) {
+	if ctx == nil {
+		return Manifest{}, errors.New("node package generation verification requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return Manifest{}, err
+	}
+	root, err := filepath.Abs(directory)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("resolve node package generation: %w", err)
+	}
+	root = filepath.Clean(root)
+	rootInfo, err := os.Lstat(root)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("inspect node package generation: %w", err)
+	}
+	if !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return Manifest{}, errors.New("node package generation is not a directory")
+	}
+	if runtime.GOOS != "windows" && rootInfo.Mode().Perm()&0o077 != 0 {
+		return Manifest{}, errors.New("node package generation directory has unsafe permissions")
+	}
+	manifestPath := filepath.Join(root, filepath.FromSlash(ArchiveManifestPath))
+	manifestBytes, err := readExtractedManifest(manifestPath)
+	if err != nil {
+		return Manifest{}, err
+	}
+	manifest, err := Open(manifestBytes)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("open extracted node package manifest: %w", err)
+	}
+	payloads, err := archivePayloads(manifest)
+	if err != nil {
+		return Manifest{}, err
+	}
+	expectedDirectories := archivePayloadDirectories(payloads)
+	seen := make(map[string]struct{}, len(payloads)+1)
+	err = filepath.WalkDir(root, func(current string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if current == root {
+			return nil
+		}
+		relative, err := filepath.Rel(root, current)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("node package generation entry %q is a symlink", relative)
+		}
+		if entry.IsDir() {
+			if _, expected := expectedDirectories[relative]; !expected {
+				return fmt.Errorf("node package generation contains undeclared directory %q", relative)
+			}
+			if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+				return fmt.Errorf("node package generation directory %q has unsafe permissions", relative)
+			}
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("node package generation entry %q is not a regular file", relative)
+		}
+		if relative == ArchiveManifestPath {
+			seen[relative] = struct{}{}
+			return verifyExtractedMode(relative, info.Mode(), false)
+		}
+		expected, found := payloads[relative]
+		if !found {
+			return fmt.Errorf("node package generation contains undeclared payload %q", relative)
+		}
+		if err := verifyExtractedMode(relative, info.Mode(), expected.executable); err != nil {
+			return err
+		}
+		if err := verifyExtractedPayload(ctx, current, expected.payload); err != nil {
+			return err
+		}
+		seen[relative] = struct{}{}
+		return nil
+	})
+	if err != nil {
+		return Manifest{}, fmt.Errorf("verify extracted node package: %w", err)
+	}
+	if len(seen) != len(payloads)+1 {
+		return Manifest{}, errors.New("node package generation file set does not match its manifest")
+	}
+	return manifest, nil
+}
+
+func readExtractedManifest(manifestPath string) ([]byte, error) {
+	info, err := os.Lstat(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("inspect extracted node package manifest: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() <= 0 || info.Size() > MaxBytes {
+		return nil, errors.New("extracted node package manifest is invalid or exceeds its byte budget")
+	}
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("read extracted node package manifest: %w", err)
+	}
+	return raw, nil
+}
+
+func archivePayloadDirectories(payloads map[string]archivePayload) map[string]struct{} {
+	directories := make(map[string]struct{})
+	for payloadPath := range payloads {
+		for directory := path.Dir(payloadPath); directory != "."; directory = path.Dir(directory) {
+			directories[directory] = struct{}{}
+		}
+	}
+	return directories
+}
+
+func verifyExtractedMode(payloadPath string, mode os.FileMode, executable bool) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	permissions := mode.Perm()
+	if permissions&0o077 != 0 || executable && permissions&0o100 == 0 || !executable && permissions&0o111 != 0 {
+		return fmt.Errorf("node package generation payload %q has unsafe permissions", payloadPath)
+	}
+	return nil
+}
+
+func verifyExtractedPayload(ctx context.Context, payloadPath string, expected Payload) error {
+	file, err := os.Open(payloadPath)
+	if err != nil {
+		return fmt.Errorf("open extracted payload %q: %w", expected.Path, err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect extracted payload %q: %w", expected.Path, err)
+	}
+	if info.Size() != expected.Size {
+		return fmt.Errorf("extracted payload %q size integrity check failed", expected.Path)
+	}
+	hash := sha256.New()
+	limited := &io.LimitedReader{R: &contextReader{ctx: ctx, reader: file}, N: expected.Size + 1}
+	written, err := io.CopyBuffer(hash, limited, make([]byte, 64<<10))
+	if err != nil {
+		return fmt.Errorf("verify extracted payload %q: %w", expected.Path, err)
+	}
+	if written != expected.Size {
+		return fmt.Errorf("extracted payload %q size integrity check failed", expected.Path)
+	}
+	digest := artifact.Digest("sha256:" + hex.EncodeToString(hash.Sum(nil)))
+	if digest != expected.Digest {
+		return fmt.Errorf("extracted payload %q digest integrity check failed", expected.Path)
+	}
+	return nil
 }
 
 func prepareArchiveDestination(destination string) (string, string, error) {

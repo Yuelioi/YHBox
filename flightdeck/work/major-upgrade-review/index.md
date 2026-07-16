@@ -71,7 +71,7 @@ Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 c
 3. 补齐缺失的 `sidebar.workflow_edit` 文案，编辑器标题不再显示 i18n key 字面值。
 4. 定向 Go/Vitest、全仓 Go test、前端 typecheck/lint/i18n/format 和 production `task build` 全绿；Windows production EXE 冷启动截图确认无需点击导航即显示工作流列表，创建/运行/编辑入口均可见。
 
-## Latest completed slice — Node Package archive verification
+## Recent completed slice — Node Package archive verification
 
 平台中立的 package archive 验证与安全解包核心已完成；本切片没有接 trust store、安装目录、Catalog 或执行 host。
 
@@ -81,9 +81,20 @@ Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 c
 4. 只有 Process payload 获得 executable mode；失败、取消或已存在 destination 都不会发布最终目录，private staging 会清理。
 5. 接口级测试覆盖成功 reopen/extract、tampered/missing/extra/duplicate/traversal/symlink/size/budget/cancel/existing destination；`go test`、race、vet、staticcheck、全仓 Go test、Linux amd64 与 macOS arm64 交叉编译全绿。
 
+## Latest completed slice — Node Package local lifecycle
+
+无执行面的本地 package lifecycle 已完成。签名和 publisher key 尚未落地，因此只允许用户精确批准一个 manifest digest 的 `local-artifact` trust；该决定不会扩张为 namespace ownership。
+
+1. `OpenExtracted` 在 Store 启动、rollback 和 generation 复用时重验 canonical manifest、精确 regular-file/directory set、size/raw SHA-256 与 host-owned mode；磁盘字节不会因“曾验证过”获得永久信任。
+2. `nodepackage.Store` 使用 private immutable `generations/<manifest-digest>/` 与 canonical `registry.json`；generation 先经 durable directory publish，registry-last 才赋予 authority。incoming、失败事务和 orphan generation 都不可用并在 reopen 清理。
+3. `InstallArchive` 串行执行 archive verification → exact local digest approval → durable generation → registry commit；同 package ID 更新保留单步 rollback，publisher namespace 变化被拒绝。
+4. snapshot-only `List/Get`、`Enable/Disable`、`Quarantine`、`Rollback`、`Uninstall` 已完成。quarantine 强制禁用且 Enable 不可绕过；rollback 重新验盘且默认保持 disabled；uninstall 先删 authority 再 best-effort 清理 bytes。
+5. Store open 对 root/registry/generation symlink、未知 entry、schema/canonical JSON、package/release budgets、排序/重复、dangling pointer、stale local trust 与篡改 generation 全部 fail closed；durable registry rename 已提交但 sync warning 时遵守既有 `durablefs.Committed` 语义。
+6. 测试覆盖 install/update/reopen、approval mismatch、snapshot immutability、disable/enable、quarantine、rollback、uninstall、registry pre-commit failure、tamper、并发序列化和 crash residue；test/race/vet/staticcheck、全仓 Go test、Linux amd64/macOS arm64 交叉编译全绿。
+
 ## Next
 
-下一切片设计 trust state 与 atomic install/update/disable/uninstall/rollback/quarantine 的持久状态机；仍不接 Catalog 或执行 host。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
+下一切片先定义签名 envelope、publisher key identity、namespace ownership 与 revocation/quarantine 输入，再让 Store 接受签名 trust；仍不接 Catalog 或执行 host。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 
