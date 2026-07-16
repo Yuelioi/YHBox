@@ -71,6 +71,24 @@ func OpenStore(ctx context.Context, root string) (*Store, error) {
 	return openStore(ctx, root, nil)
 }
 
+// OpenStoreIfPresent opens only an already initialized authority registry. It
+// never creates a package store or trust root as a startup side effect.
+func OpenStoreIfPresent(ctx context.Context, root string) (*Store, bool, error) {
+	registry := filepath.Join(root, registryFilename)
+	info, err := os.Lstat(registry)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, false, errors.New("node package registry is not a regular file")
+	}
+	store, err := OpenStore(ctx, root)
+	return store, err == nil, err
+}
+
 func openStore(ctx context.Context, root string, bootstrap *TrustPolicy) (*Store, error) {
 	if ctx == nil {
 		return nil, errors.New("node package store requires a context")

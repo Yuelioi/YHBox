@@ -11,6 +11,8 @@ type unavailableRunner struct{}
 
 func newPlatformRunner(Options) platformRunner { return unavailableRunner{} }
 
+func (unavailableRunner) available() bool { return false }
+
 func (unavailableRunner) start(context.Context, Request) (platformProcess, error) {
 	return nil, ErrIsolationUnavailable
 }

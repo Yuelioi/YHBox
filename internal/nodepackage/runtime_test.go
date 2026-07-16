@@ -43,6 +43,9 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 	if _, err := store.Disable(installed.PackageID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := node.Payload.Read(ctx, 1<<20); err == nil {
+		t.Fatal("previous runtime projection remained executable after disable")
+	}
 	if disabled, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64"}); err != nil || len(disabled) != 0 {
 		t.Fatalf("disabled runtime projection = %#v, %v", disabled, err)
 	}

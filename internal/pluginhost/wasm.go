@@ -16,7 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-const WasmIsolationHostFeatureID = "https://schemas.yotta.dev/host-features/plugin-wasm-isolation/lpac-appcontainer-job-wazero/v1"
+const WasmIsolationHostFeatureID = pluginprotocol.WasmIsolationHostFeatureID
 
 type WasmHostOptions struct {
 	RunnerExecutable string
@@ -69,7 +69,12 @@ func NewWasmHost(catalog nodecatalog.Snapshot, options WasmHostOptions) (*WasmHo
 	}, nil
 }
 
-func (*WasmHost) HostFeatures() []string { return []string{WasmIsolationHostFeatureID} }
+func (host *WasmHost) HostFeatures() []string {
+	if host == nil || host.runner == nil || !host.runner.Available() {
+		return []string{}
+	}
+	return []string{WasmIsolationHostFeatureID}
+}
 
 func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]compiler.InstalledAdapter, error) {
 	if host == nil || host.runner == nil || !host.catalog.Valid() {

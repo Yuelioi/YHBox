@@ -19,9 +19,9 @@ const (
 )
 
 type windowsRuntime struct {
-	sandbox *processsandbox.Runner
-	image   processsandbox.Image
-	mu      sync.Mutex
+	sandbox   *processsandbox.Runner
+	imagePath string
+	mu        sync.Mutex
 }
 
 type processResult struct {
@@ -35,10 +35,6 @@ type responseResult struct {
 }
 
 func newPlatformRuntime(options RuntimeOptions) (platformRuntime, error) {
-	image, err := processsandbox.OpenImage(options.Executable)
-	if err != nil {
-		return nil, fmt.Errorf("open script worker image: %w", err)
-	}
 	sandbox, err := processsandbox.New(processsandbox.Options{
 		ProfileName: appContainerProfileName, DisplayName: "Yotta Script Worker",
 		Description:        "Isolated zero-authority JavaScript worker",
@@ -47,7 +43,7 @@ func newPlatformRuntime(options RuntimeOptions) (platformRuntime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &windowsRuntime{sandbox: sandbox, image: image}, nil
+	return &windowsRuntime{sandbox: sandbox, imagePath: options.Executable}, nil
 }
 
 func (*windowsRuntime) HostFeatures() []string { return []string{IsolationHostFeatureID} }
@@ -80,8 +76,12 @@ func (runtime *windowsRuntime) Execute(ctx context.Context, request Request) (Re
 func (runtime *windowsRuntime) execute(parent context.Context, request Request) (Response, string, error) {
 	attemptContext, cancel := context.WithTimeout(parent, time.Duration(request.TimeoutMillis)*time.Millisecond+workerStartupAllowance)
 	defer cancel()
+	image, err := processsandbox.OpenImage(runtime.imagePath)
+	if err != nil {
+		return Response{}, CodeIsolationUnavailable, fmt.Errorf("open script worker image: %w", err)
+	}
 	process, err := runtime.sandbox.Start(attemptContext, processsandbox.Request{
-		Image: runtime.image, Args: []string{WorkerArgument},
+		Image: image, Args: []string{WorkerArgument},
 		Timeout: time.Duration(request.TimeoutMillis)*time.Millisecond + workerStartupAllowance,
 	})
 	if err != nil {

@@ -24,8 +24,11 @@ type RuntimeHost struct {
 }
 
 type RuntimePayload struct {
-	root     string
-	metadata Payload
+	store          *Store
+	packageID      string
+	manifestDigest artifact.Digest
+	root           string
+	metadata       Payload
 }
 
 type RuntimeNode struct {
@@ -106,7 +109,9 @@ func (s *Store) RuntimePackages(ctx context.Context, host RuntimeHost) ([]Runtim
 					PackageID: packageID, ArtifactDigest: manifest.Digest(), ABI: node.Implementation.ABI,
 					Entrypoint: node.Implementation.Entrypoint,
 				},
-				Payload: RuntimePayload{root: generation, metadata: node.Implementation.Payload},
+				Payload: RuntimePayload{
+					store: s, packageID: packageID, manifestDigest: manifest.Digest(), root: generation, metadata: node.Implementation.Payload,
+				},
 			})
 		}
 		if len(runtimePackage.Nodes) != 0 {
@@ -119,8 +124,11 @@ func (s *Store) RuntimePackages(ctx context.Context, host RuntimeHost) ([]Runtim
 func (p RuntimePayload) Metadata() Payload { return p.metadata }
 
 func (p RuntimePayload) Read(ctx context.Context, maxBytes int64) ([]byte, error) {
-	if ctx == nil || maxBytes <= 0 || p.root == "" {
+	if ctx == nil || maxBytes <= 0 || p.root == "" || p.store == nil || !p.manifestDigest.Valid() {
 		return nil, errors.New("runtime payload read request is invalid")
+	}
+	if !p.store.runtimeAuthorized(p.packageID, p.manifestDigest) {
+		return nil, errors.New("runtime payload generation is no longer authorized")
 	}
 	if p.metadata.Size > maxBytes {
 		return nil, fmt.Errorf("runtime payload exceeds %d byte host budget", maxBytes)
@@ -147,6 +155,24 @@ func (p RuntimePayload) Read(ctx context.Context, maxBytes int64) ([]byte, error
 		return nil, errors.New("runtime payload digest changed")
 	}
 	return raw, nil
+}
+
+func (s *Store) runtimeAuthorized(packageID string, manifestDigest artifact.Digest) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	installed, ok := s.entries[packageID]
+	if !ok || !installed.Enabled || installed.Current != manifestDigest {
+		return false
+	}
+	releaseIndex := releaseIndex(installed.Releases, manifestDigest)
+	if releaseIndex < 0 || installed.Releases[releaseIndex].QuarantineReason != "" {
+		return false
+	}
+	release := installed.Releases[releaseIndex]
+	if _, blocked := s.policy.blockReason(release.Trust.SignerKeyID, manifestDigest); blocked {
+		return false
+	}
+	return true
 }
 
 func supportsRuntimeHost(platforms PlatformSupport, host RuntimeHost) bool {

@@ -17,14 +17,15 @@ import (
 )
 
 const (
-	WorkerArgument   = "--yotta-wasm-plugin-runner-v1"
-	ImportModule     = "yotta_plugin_v1"
-	ExchangeFunction = "exchange"
-	AllocateExport   = "yotta_alloc"
-	RunExport        = "yotta_run"
-	ExitOK           = 0
-	ExitInvalid      = 40
-	ExitRuntime      = 41
+	WorkerArgument       = "--yotta-wasm-plugin-runner-v1"
+	WorkerExecutableName = "Yotta.WasmPluginRunner.exe"
+	ImportModule         = "yotta_plugin_v1"
+	ExchangeFunction     = "exchange"
+	AllocateExport       = "yotta_alloc"
+	RunExport            = "yotta_run"
+	ExitOK               = 0
+	ExitInvalid          = 40
+	ExitRuntime          = 41
 )
 
 func Run(ctx context.Context, input io.Reader, output io.Writer) error {

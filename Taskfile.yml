@@ -15,6 +15,7 @@ tasks:
     cmds:
       - task: check:supply-chain
       - task: contracts:check
+      - task: plugins:check
       - task: check:ai-eval
       - task: version:verify
       - task: wails:verify
@@ -82,6 +83,22 @@ tasks:
     deps: [common:install:frontend:deps]
     cmds:
       - node ./scripts/generate-workflow-contracts.mjs --write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  plugins:check:
+    summary: Regenerates plugin Proto, WIT, SDK contracts and conformance vectors in memory and rejects drift
+    cmds:
+      - go run ./cmd/plugin-sdk
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  plugins:update:
+    summary: Updates tracked plugin Proto, WIT, SDK contracts and conformance vectors
+    cmds:
+      - go run ./cmd/plugin-sdk --write
     env:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly

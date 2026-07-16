@@ -110,6 +110,7 @@ type Result struct {
 }
 
 type platformRunner interface {
+	available() bool
 	start(context.Context, Request) (platformProcess, error)
 }
 
@@ -173,6 +174,10 @@ func (runner *Runner) Start(ctx context.Context, request Request) (*Process, err
 	process := &Process{platform: platform}
 	process.stopCancellation = context.AfterFunc(ctx, func() { _ = process.Terminate() })
 	return process, nil
+}
+
+func (runner *Runner) Available() bool {
+	return runner != nil && runner.platform != nil && runner.platform.available()
 }
 
 type Process struct {

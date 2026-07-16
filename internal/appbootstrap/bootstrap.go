@@ -21,8 +21,11 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/pluginhost"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
@@ -52,6 +55,9 @@ type Config struct {
 	ApplicationInstallations appcontrol.Installations
 	AutomationInstallations  automationinstalled.Installations
 	ScriptRuntime            *scriptengine.Runtime
+	NodePackageStore         *nodepackage.Store
+	WasmRunnerExecutable     string
+	PluginExecution          pluginhost.ProcessHostOptions
 	LogEmitter               noderuntime.LogEmitter
 	GrantTTL                 time.Duration
 	OwnerCloseTimeout        time.Duration
@@ -87,13 +93,61 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build Catalog 3.1: %w", err)
 	}
+	catalog := builtins.Catalog
+	var runtimePackages []nodepackage.RuntimePackage
+	var processPlugins *pluginhost.ProcessHost
+	var wasmPlugins *pluginhost.WasmHost
+	pluginFeatures := []string{}
+	if config.NodePackageStore != nil {
+		runtimePackages, err = config.NodePackageStore.RuntimePackages(context.Background(), nodepackage.RuntimeHost{
+			APIGeneration: "3.1", OperatingSystem: runtime.GOOS, Architecture: runtime.GOARCH,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("project enabled node packages: %w", err)
+		}
+		if len(runtimePackages) != 0 {
+			projection, err := pluginhost.MergeCatalog(catalog, runtimePackages, nodes.GeneratorVersion)
+			if err != nil {
+				return nil, err
+			}
+			catalog = projection.Catalog
+			hasProcess, hasWasm := false, false
+			for _, runtimePackage := range runtimePackages {
+				for _, node := range runtimePackage.Nodes {
+					hasProcess = hasProcess || node.Implementation.ABI.Kind == nodecontract.ABIProcess
+					hasWasm = hasWasm || node.Implementation.ABI.Kind == nodecontract.ABIWIT
+				}
+			}
+			if hasProcess {
+				processPlugins, err = pluginhost.NewProcessHost(catalog, config.PluginExecution)
+				if err != nil {
+					return nil, err
+				}
+				pluginFeatures = append(pluginFeatures, processPlugins.HostFeatures()...)
+			}
+			if hasWasm {
+				wasmPlugins, err = pluginhost.NewWasmHost(catalog, pluginhost.WasmHostOptions{
+					RunnerExecutable: config.WasmRunnerExecutable, Execution: config.PluginExecution,
+				})
+				if err != nil {
+					return nil, err
+				}
+				pluginFeatures = append(pluginFeatures, wasmPlugins.HostFeatures()...)
+			}
+		}
+	}
 	config.AIInstallations, err = config.AIInstallations.ForEvaluationArtifacts(builtins.AIEvaluationArtifacts())
 	if err != nil {
 		return nil, err
 	}
+	bindings := catalog.Bindings()
+	contracts := make([]nodecontract.Contract, 0, len(bindings))
+	for _, binding := range bindings {
+		contracts = append(contracts, binding.Contract)
+	}
 	authoringProjection, err := nodeauthoring.Project(nodeauthoring.Input{
-		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
-		Contracts: builtins.Contracts, GeneratorVersion: nodes.GeneratorVersion,
+		Catalog: catalog, Types: catalog.Types(), Capabilities: catalog.Capabilities(),
+		Contracts: contracts, GeneratorVersion: nodes.GeneratorVersion,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build Authoring Projection 3.1: %w", err)
@@ -107,11 +161,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	programs, err := workflowstore.OpenProgramStore(filepath.Join(workspace, "programs"), builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: config.Limits.MaxPrograms})
+	programs, err := workflowstore.OpenProgramStore(filepath.Join(workspace, "programs"), catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: config.Limits.MaxPrograms})
 	if err != nil {
 		return nil, err
 	}
-	runs, err := run.OpenStore(filepath.Join(workspace, "runs"), builtins.Catalog, run.StoreOptions{MaxRecords: config.Limits.MaxRuns})
+	runs, err := run.OpenStore(filepath.Join(workspace, "runs"), catalog, run.StoreOptions{MaxRecords: config.Limits.MaxRuns})
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +198,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, pluginFeatures, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +206,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	admitter, err := admission.New(builtins.Catalog, profile, runs, policy, admission.Options{
+	admitter, err := admission.New(catalog, profile, runs, policy, admission.Options{
 		Now: config.Now, MaxGrantTTL: config.GrantTTL,
 	})
 	if err != nil {
@@ -162,7 +216,29 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
+	mergePluginAdapters := func(installed map[string]compiler.InstalledAdapter, err error) error {
+		if err != nil {
+			return err
+		}
+		for entrypoint, adapter := range installed {
+			if _, conflict := adapters[entrypoint]; conflict {
+				return fmt.Errorf("plugin adapter entrypoint %q conflicts with an installed adapter", entrypoint)
+			}
+			adapters[entrypoint] = adapter
+		}
+		return nil
+	}
+	if processPlugins != nil {
+		if err := mergePluginAdapters(processPlugins.Adapters(runtimePackages)); err != nil {
+			return nil, err
+		}
+	}
+	if wasmPlugins != nil {
+		if err := mergePluginAdapters(wasmPlugins.Adapters(runtimePackages)); err != nil {
+			return nil, err
+		}
+	}
+	executor := compiler.NewExecutor(catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
 	providers := map[string]run.InstalledProvider{
 		blob.ProviderID:        {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
 		stream.ProviderID:      {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
@@ -207,7 +283,7 @@ func Build(config Config) (*Runtime, error) {
 		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
 	}
 	application, err := appcore.New(appcore.Config{
-		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
+		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
 		Providers: providers,
@@ -249,7 +325,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, pluginFeatures []string, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -303,7 +379,7 @@ func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, works
 	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
-		Features: scriptRuntime.HostFeatures(),
+		Features: append(scriptRuntime.HostFeatures(), pluginFeatures...),
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobDigest, ABI: blob.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},

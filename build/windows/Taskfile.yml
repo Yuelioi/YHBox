@@ -40,6 +40,7 @@ tasks:
       - task: build:adb
       - task: build:capture-dll
       - task: build:script-worker
+      - task: build:wasm-plugin-runner
     cmds:
       - task: generate:syso
         vars:
@@ -65,6 +66,25 @@ tasks:
       GOOS: windows
       CGO_ENABLED: '0'
       GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:wasm-plugin-runner:
+    summary: Builds the isolated trusted WebAssembly plugin runner
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" ./cmd/yotta-wasm-plugin-runner
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  smoke:plugins:
+    summary: Runs signed Process and Wasm packages through the real Windows isolation chain
+    cmds:
+      - go run ./cmd/plugin-smoke
+    env:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
 
@@ -122,6 +142,7 @@ tasks:
     cmds:
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
     preconditions:
       - sh: '[ -n "{{.SIGN_CERTIFICATE}}" ] || [ -n "{{.SIGN_THUMBPRINT}}" ]'
         msg: "Either SIGN_CERTIFICATE or SIGN_THUMBPRINT is required. Set it in the vars section at the top of build/windows/Taskfile.yml"

@@ -17,21 +17,23 @@ import (
 )
 
 const (
-	Protocol            = "yotta.plugin/1"
-	MaxFrameBytes       = 8 << 20
-	MaxConfigBytes      = 1 << 20
-	MaxHostPayloadBytes = 4 << 20
-	MaxFailureTextBytes = 2 << 10
-	MaxPortValues       = 4_096
-	MaxExecOutputs      = 4_096
-	MaxCounters         = 256
-	MaxOperations       = 64
-	MaxHostCalls        = 4_096
-	MaxStatusEvents     = 4_096
-	MaxEntropyBytes     = 4_096
-	MaxWaitMillis       = 86_400_000
-	MaxFacts            = 256
-	MaxFactValueBytes   = 2 << 10
+	Protocol                      = "yotta.plugin/1"
+	ProcessIsolationHostFeatureID = "https://schemas.yotta.dev/host-features/plugin-process-isolation/lpac-appcontainer-job/v1"
+	WasmIsolationHostFeatureID    = "https://schemas.yotta.dev/host-features/plugin-wasm-isolation/lpac-appcontainer-job-wazero/v1"
+	MaxFrameBytes                 = 8 << 20
+	MaxConfigBytes                = 1 << 20
+	MaxHostPayloadBytes           = 4 << 20
+	MaxFailureTextBytes           = 2 << 10
+	MaxPortValues                 = 4_096
+	MaxExecOutputs                = 4_096
+	MaxCounters                   = 256
+	MaxOperations                 = 64
+	MaxHostCalls                  = 4_096
+	MaxStatusEvents               = 4_096
+	MaxEntropyBytes               = 4_096
+	MaxWaitMillis                 = 86_400_000
+	MaxFacts                      = 256
+	MaxFactValueBytes             = 2 << 10
 )
 
 var identityPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,255}$`)

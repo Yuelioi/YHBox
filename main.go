@@ -25,6 +25,7 @@ import (
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
@@ -36,6 +37,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/platform"
 	"github.com/yottaapp/yotta/pkg/screenshot"
@@ -141,6 +143,10 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("script runtime init")
 	}
+	nodePackageStore, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(dataDir, "node-packages"))
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("node package store init")
+	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: dataDir, BlobStore: sharedBlobStore,
 		Limits: appbootstrap.Limits{
@@ -148,8 +154,10 @@ func main() {
 			MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
-		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
+		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime,
+		NodePackageStore: nodePackageStore, WasmRunnerExecutable: filepath.Join(filepath.Dir(executable), wasmrunner.WorkerExecutableName),
+		LogEmitter: newWorkflowLogEmitter(rootLog),
+		GrantTTL:   runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event yottaapplication.RunEvent) {
 			payload := map[string]any{
 				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,

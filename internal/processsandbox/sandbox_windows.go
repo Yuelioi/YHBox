@@ -59,6 +59,8 @@ type windowsRunner struct {
 
 func newPlatformRunner(options Options) platformRunner { return &windowsRunner{options: options} }
 
+func (*windowsRunner) available() bool { return true }
+
 func (runner *windowsRunner) start(ctx context.Context, request Request) (platformProcess, error) {
 	runner.mu.Lock()
 	defer runner.mu.Unlock()

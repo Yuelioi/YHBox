@@ -97,20 +97,24 @@ func TestWindowsRuntimeRejectsInvalidExecutableAndStatusHelpers(t *testing.T) {
 	if err := exitCodeError(WorkerExitProtocol); err == nil {
 		t.Fatal("failing worker exit was accepted")
 	}
-	if _, err := NewRuntime(RuntimeOptions{
-		Executable: t.TempDir(), ProcessMemoryBytes: DefaultMemoryBytes, JobMemoryBytes: DefaultMemoryBytes,
-	}); err == nil {
-		t.Fatal("directory was accepted as a worker executable")
+	assertUnavailable := func(executable string) {
+		runtime, err := NewRuntime(RuntimeOptions{
+			Executable: executable, ProcessMemoryBytes: DefaultMemoryBytes, JobMemoryBytes: DefaultMemoryBytes,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := runtime.Execute(context.Background(), testRequest())
+		if err != nil || response.Failure == nil || response.Failure.Code != CodeIsolationUnavailable {
+			t.Fatalf("invalid executable response/error = %#v, %v", response, err)
+		}
 	}
+	assertUnavailable(t.TempDir())
 	empty := filepath.Join(t.TempDir(), WorkerExecutableName)
 	if err := os.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewRuntime(RuntimeOptions{
-		Executable: empty, ProcessMemoryBytes: DefaultMemoryBytes, JobMemoryBytes: DefaultMemoryBytes,
-	}); err == nil {
-		t.Fatal("empty file was accepted as a worker executable")
-	}
+	assertUnavailable(empty)
 }
 
 func TestWindowsRuntimeKillsWorkerWhenCallerCancels(t *testing.T) {

@@ -1,15 +1,19 @@
 package pluginhost
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
@@ -116,6 +120,44 @@ func TestProcessSessionChecksBudgetBeforeExecutingHostCall(t *testing.T) {
 	}
 }
 
+func TestProcessSessionReturnsCapabilityDenialWithoutGrantingAuthority(t *testing.T) {
+	hostSide, guestSide := net.Pipe()
+	defer hostSide.Close()
+	defer guestSide.Close()
+	session := processSession{
+		invocation: compiler.Invocation{Sessions: map[string]*run.Session{}},
+		reader:     hostSide, writer: hostSide, nextSequence: 2, maxHostCalls: 1, maxStatusEvents: 1,
+	}
+	guestError := make(chan error, 1)
+	go func() {
+		request := &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2,
+			Payload: &pluginprotocol.Frame_HostOpenRequest{HostOpenRequest: &pluginprotocol.HostOpenRequest{
+				RequestId: "open-1", RequirementId: "filesystem", Operations: []string{"read"}, ConfigJson: []byte(`{}`),
+			}}}
+		if err := pluginprotocol.WriteFrame(guestSide, request); err != nil {
+			guestError <- err
+			return
+		}
+		response, err := pluginprotocol.ReadFrame(guestSide)
+		if err != nil {
+			guestError <- err
+			return
+		}
+		if response.GetHostOpenResponse().GetFailure() == nil || len(response.GetHostOpenResponse().GetHandleJson()) != 0 {
+			guestError <- errors.New("capability denial returned authority")
+			return
+		}
+		guestError <- pluginprotocol.WriteFrame(guestSide, &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 4,
+			Payload: &pluginprotocol.Frame_Result{Result: &pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative"}}})
+	}()
+	if _, err := session.serve(context.Background(), &testProcessControl{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-guestError; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProcessSessionCancelsAndTerminatesUnresponsiveGuest(t *testing.T) {
 	hostSide, guestSide := net.Pipe()
 	defer hostSide.Close()
@@ -127,6 +169,35 @@ func TestProcessSessionCancelsAndTerminatesUnresponsiveGuest(t *testing.T) {
 	_, err := session.serve(ctx, control)
 	if !errors.Is(err, context.DeadlineExceeded) || atomic.LoadInt32(&control.terminated) != 1 {
 		t.Fatalf("serve error/terminated = %v/%d", err, control.terminated)
+	}
+}
+
+func TestSharedResultBoundaryRejectsSchemaViolationAndOutputOversize(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := executionHost{catalog: builtins.Catalog, options: ProcessHostOptions{MaxOutputBytes: pluginprotocol.MaxFrameBytes}}
+	invalid := &pluginprotocol.Result{
+		Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative",
+		Outputs: []*pluginprotocol.PortValue{{PortId: "result", ValueEnvelope: []byte(`{}`)}},
+	}
+	if _, err := host.openResult(invalid); err == nil {
+		t.Fatal("result boundary accepted a schema-invalid Value Envelope")
+	}
+	host.options.MaxOutputBytes = 1
+	if _, err := host.openResult(invalid); err == nil || !strings.Contains(err.Error(), "output byte budget") {
+		t.Fatalf("oversize result error = %v", err)
+	}
+}
+
+func TestSharedSessionContainsGuestCrashToCurrentInvocation(t *testing.T) {
+	session := processSession{
+		invocation: compiler.Invocation{}, reader: bytes.NewReader(nil), writer: io.Discard,
+		nextSequence: 2, maxHostCalls: 1, maxStatusEvents: 1,
+	}
+	if _, err := session.serve(context.Background(), &testProcessControl{}); err == nil || !strings.Contains(err.Error(), "read process plugin frame") {
+		t.Fatalf("guest crash error = %v", err)
 	}
 }
 

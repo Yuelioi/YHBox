@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -82,6 +83,17 @@ func TestStoreInstallUpdateReopenQuarantineRollbackAndUninstall(t *testing.T) {
 	}
 	if len(finalStore.List()) != 0 {
 		t.Fatalf("store after uninstall = %#v", finalStore.List())
+	}
+}
+
+func TestOpenStoreIfPresentDoesNotCreateAuthority(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "packages")
+	store, present, err := OpenStoreIfPresent(context.Background(), root)
+	if err != nil || present || store != nil {
+		t.Fatalf("OpenStoreIfPresent = %#v, %v, %v", store, present, err)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("absent store root was created: %v", err)
 	}
 }
 

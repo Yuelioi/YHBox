@@ -1,0 +1,14 @@
+package yotta:plugin@1.0.0;
+
+interface execution {
+  type bytes = list<u8>;
+  record invocation { frame: bytes }
+  record exchange-request { frame: bytes, response-capacity: u32 }
+  variant exchange-result { emitted, response(bytes), resize(u32), rejected }
+  exchange: func(request: exchange-request) -> exchange-result;
+}
+
+world node-plugin {
+  import execution;
+  export run: func(invocation: execution.invocation) -> result<_, string>;
+}

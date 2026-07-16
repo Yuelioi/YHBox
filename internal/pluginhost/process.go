@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	ProcessIsolationHostFeatureID = "https://schemas.yotta.dev/host-features/plugin-process-isolation/lpac-appcontainer-job/v1"
+	ProcessIsolationHostFeatureID = pluginprotocol.ProcessIsolationHostFeatureID
 	ProcessGuestArgument          = "--yotta-plugin-process-v1"
 	DefaultInvocationTimeout      = 30 * time.Second
 	MaxInvocationTimeout          = 24 * time.Hour
@@ -99,7 +99,12 @@ func normalizeExecutionOptions(options ProcessHostOptions) (ProcessHostOptions, 
 	return options, nil
 }
 
-func (*ProcessHost) HostFeatures() []string { return []string{ProcessIsolationHostFeatureID} }
+func (host *ProcessHost) HostFeatures() []string {
+	if host == nil || host.runner == nil || !host.runner.Available() {
+		return []string{}
+	}
+	return []string{ProcessIsolationHostFeatureID}
+}
 
 // Adapters projects only process-ABI nodes and pins each closure to its exact
 // runtime payload and implementation lock.
@@ -145,6 +150,15 @@ func (host *executionHost) validateRuntimeNode(runtimePackage nodepackage.Runtim
 	entry, ok := host.catalog.Lookup(node.Contract.NodeRef().NodeTypeID)
 	if !ok || entry.Contract.NodeRef() != node.Contract.NodeRef() || entry.Implementation != node.Lock {
 		return fmt.Errorf("plugin %q is not pinned by the execution Catalog", node.Lock.Entrypoint)
+	}
+	featureID := ProcessIsolationHostFeatureID
+	if kind == nodecontract.ABIWIT {
+		featureID = WasmIsolationHostFeatureID
+	}
+	if !slices.ContainsFunc(node.Contract.Machine().HostFeatureRequirements, func(requirement nodecontract.HostFeatureRequirement) bool {
+		return requirement.FeatureID == featureID
+	}) {
+		return fmt.Errorf("plugin %q does not declare its required isolation host feature", node.Lock.Entrypoint)
 	}
 	return nil
 }
