@@ -36,9 +36,15 @@ Offline evaluation 与 upgrade gate 是安装的一部分，不是 UI badge：
 
 - mandatory EvalSuite 必须固定 corpus、deterministic grader version、baseline 与 pass/safety/token/cost/latency thresholds，并以 strict canonical artifact reopen。
 - EvalReport 必须由 suite 对每个 case 精确匹配 observation 后导出；decision 与 aggregate metrics 必须可从 case results 和 thresholds 重算，unknown field、结构超限、重复 case 或 report drift 都 fail closed。
-- evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前 Generate/Extract/Agent PromptManifest、Agent ToolSet、三个 AI Node Contract semantic digest 排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
+- evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前 Generate/Extract/Agent/Authoring PromptManifest、Agent/Authoring ToolSet、三个 AI Node Contract semantic digest 排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
 - suite digest 与 exact report digest 都进入 ModelProfile；因此重新评估、report replacement、approved/rejected 变化都会改变 profile digest 并撤销旧 workflow consent。
 - Settings 可保留 unverified、rejected 或 stale profile 以便测试/重新评估，但只有 approved report 且 exact current candidate 才能进入 Host Profile。semantic profile edit 自动降级为 unverified 并清除 report、suite 与 consent。
 - canonical report 通过 ApplyEvaluation 显式导入、RevokeEvaluation 显式撤销；GrantWorkflowUse 必须再次验证 exact current candidate。task check 必须 regrade tracked corpus 并拒绝 report drift。
+
+AI authoring 仍是 typed Application client，不获得文件或 admission authority：
+
+- Authoring ToolSet 只开放 catalog search/describe、workflow inspect、pure patch proposal、compile/preview 与 diagnostic explain；模型输出只能形成 opaque PreparedPatch，不能直接保存 Source。
+- review artifact 必须绑定 base/new revision 与 exact source hash，并列出 normalized changes、diagnostics、capability/credential/target delta、risk、usage 和 redacted provenance；敏感 input 只保留 trust class/digest/size。
+- accept 必须重新验证 base revision/hash，并提交已审查的 exact candidate；revision conflict、reject 或 session close 均丢弃 proposal。权限扩大必须有额外显式确认，不能由模型或旧 approval 推导。
 
 设置测试只能对 exact profile 发起一次 provider-native generation。成功发现 endpoint 或列出模型不构成可运行性证明。

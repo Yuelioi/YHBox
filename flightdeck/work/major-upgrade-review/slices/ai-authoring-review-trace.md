@@ -1,6 +1,6 @@
 # AI authoring change review 与 redacted trace
 
-Status: current
+Status: completed (c71cc19f)
 
 ## Outcome
 
@@ -21,7 +21,11 @@ AI authoring 作为 typed Application client 在有限预算内执行 search/ins
 
 ## Verification
 
-MCP/Application typed authoring substrate、compiler diagnostics、capability preview 与 Run AdapterAction 已存在；尚无 AI authoring loop、review artifact/UI 或贯穿 prompt/tool/patch/run 的 redacted trace。先以现有 Application interface 和 MCP command implementation 为权威源盘点，禁止复制一套平行 authoring service。
+c71cc19f 建立 internal/aiauthoring bounded native tool loop、Application opaque PreparedPatch/CommitPreparedPatch boundary 与 AIService proposal lifecycle。所有 authoring tools 都是 pure proposal；accept 时验证 base revision/hash 并只提交已审查的 exact candidate。
+
+AuthoringReview 记录 normalized changes、compiler diagnostics、capability/credential/target delta、risks、usage 与 redacted trace；敏感 input 只记录 trust class/digest/size。eval candidate 已加入 Authoring PromptManifest/ToolSet，旧 evidence 自动 stale。
+
+task check 全绿：global coverage 65.8%，internal/ai 74.1%，internal/aiauthoring 62.5%，frontend 28 files / 106 tests，Wails 14 services / 95 methods / 109 models。真实 Windows Wails/WebView smoke 验证 AI review panel 可达且不遮挡 canvas。
 
 ## Out of scope
 
@@ -31,4 +35,4 @@ MCP/Application typed authoring substrate、compiler diagnostics、capability pr
 
 ## Result
 
-Current。先冻结 typed command set、review/trace artifact 与 accept-before-mutation seam，再实现 bounded loop 和 UI。
+Completed in c71cc19f。AI authoring 未经 accept 不产生 durable mutation；权限扩大需要显式用户确认；reject 与 revision conflict 均 fail closed，可从 durable source 重新提案。

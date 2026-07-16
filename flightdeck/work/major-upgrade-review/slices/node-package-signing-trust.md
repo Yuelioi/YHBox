@@ -1,6 +1,6 @@
 # Node Package 签名与 publisher trust
 
-Status: ready
+Status: current
 
 ## Outcome
 
@@ -17,11 +17,11 @@ Node Package Store 只接受可验证的签名 envelope 和明确的 publisher/n
 
 ## Blocked by
 
-restore-go-quality-gate。先恢复可信仓库门禁，再继续 Wave E trust。
+无。restore-go-quality-gate 已由 27e01b17 完成。
 
 ## Verification
 
-尚未实施。进入本 Slice 时先读取 node-package-manifest、node-package local store 与 threat-model 相关 Knowledge，并先写阶段 plan。
+现有 node-package manifest、archive verifier 与 immutable local lifecycle 已完成；签名、publisher namespace authority、revocation/quarantine 尚未实施。当前先审计 package identity、Store publish/open/update 与 registry authority seam，再冻结 trust artifact 和 fail-closed reopen contract。
 
 ## Out of scope
 
@@ -32,4 +32,4 @@ restore-go-quality-gate。先恢复可信仓库门禁，再继续 Wave E trust�
 
 ## Result
 
-Ready，未开始。
+Current。先完成 substrate/threat audit 与阶段 plan，再实现独立 signing/trust deep module 和 Store admission integration。
