@@ -1,6 +1,6 @@
 # AI prompt/tool provenance 与 trusted instruction boundary
 
-Status: current
+Status: completed (b674664c)
 
 ## Outcome
 
@@ -21,7 +21,12 @@ Status: current
 
 ## Verification
 
-当前 ModelProfile 与 strict schema 已 content-addressed；`nodes31runtime.aiRequest` 仍把 workflow config instructions 直接升格到 provider 高权限字段，仓库没有 PromptManifest/ToolSet artifact。
+- PromptManifest、ToolSet、StructuredOutput 已使用独立 versioned hash domain，canonical seal/open 严格拒绝 unknown field、非 canonical bytes、digest mismatch 与越界预算。
+- GenerateRequest 携带 RenderedPrompt；OpenAI `instructions` / Anthropic `system` 只从 strict-opened manifest 读取，workflow prompt 始终进入 typed untrusted block。
+- AI Generate/Extract Node Contract、authoring projection、frontend i18n 与 runtime 已删除任意 `instructions` config；legacy override 编译为 `INVALID_CONFIG`。
+- 内置 prompt digest 进入 implementation lock；AdapterAction 只记录 prompt/schema/toolset digest、provider、requested/resolved model、request/response identity 与 usage，不记录原始 prompt、schema、trusted instructions 或 secret。
+- 回归覆盖 prompt injection 分类、manifest/toolset strict reopen、unknown field、digest mismatch、字节/数量预算、redaction、实现锁以及 OpenAI/Anthropic wire mapping。
+- 2026-07-17 两次仓库根 `task check` 全绿；最终一次 global coverage 65.4%，frontend 27 files / 103 tests，production build 与契约检查通过。
 
 ## Out of scope
 
@@ -32,4 +37,4 @@ Status: current
 
 ## Result
 
-Current。先冻结 PromptManifest/ToolSet/rendered instruction contract，再切断 workflow config 到 provider 高权限字段的现有路径。
+b674664c 完成 trusted prompt/tool provenance：运行时不再接受 workflow 任意高权限指令，provider wire、implementation lock 与脱敏 lineage 都绑定 exact artifacts。下一步由 ai-agent-budget-runtime 消费 ToolSet seam。

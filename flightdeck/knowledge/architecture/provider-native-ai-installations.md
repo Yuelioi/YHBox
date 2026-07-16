@@ -1,9 +1,9 @@
 ---
 kind: note
-summary: "Yotta 3.1 AI 必须以内容寻址 Model Profile 安装到稳定 slot；provider/target/credential/consent 由启动时 Host Profile 冻结，运行时不得发现模型、替换别名或降级协议。"
+summary: "Yotta 3.1 AI 必须以内容寻址 Model Profile、PromptManifest 与 ToolSet 组成可信安装边界；provider/target/credential/consent 由启动时 Host Profile 冻结，运行时数据不得升格为高权限指令。"
 activation: action
-read_when: "新增或修改 AI provider、模型设置、AI 节点、workflow consent、credential binding、Host Profile、Policy/Run Grant 或 AI trace 时"
-recheck_when: "Model Profile digest、provider ABI、供应商原生 API、AI capability scope、credential store 或 workflow consent preimage 改变时"
+read_when: "新增或修改 AI provider、模型设置、PromptManifest、ToolSet、AI 节点、workflow consent、credential binding、Host Profile、Policy/Run Grant 或 AI trace 时"
+recheck_when: "Model Profile/PromptManifest/ToolSet digest、provider ABI、供应商原生 API、AI capability scope、credential store 或 workflow consent preimage 改变时"
 ---
 # Provider-native AI installation contract
 
@@ -15,5 +15,13 @@ Yotta 3.1 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型
 - workflow consent 是 slot、profile digest、provider ABI 和允许 operation 的内容摘要。档案语义变化后旧 consent 必须失效，不得自动迁移或扩大。
 - Host Profile 在应用启动时冻结 provider artifact、target、credential binding 与 consent。Policy 只能对 exact proposal seal bounded Run Grant；运行中不能热插入 ambient provider。
 - provider 结果必须保留 requested/resolved model、finish、供应商 request identity 和 usage 的脱敏事实；未知响应类型或能力不匹配要 fail closed。
+
+Trusted instruction boundary 也必须是安装时/构建时冻结的 artifact：
+
+- PromptManifest 与 ToolSet 使用独立 versioned hash domain、canonical bytes、严格 reopen、unknown-field rejection 和显式 byte/depth/count budget。
+- provider 的 system/developer 高权限字段只能来自 strict-opened PromptManifest；workflow config、用户输入、网页、OCR、检索内容和 tool result 只能进入 typed untrusted blocks。
+- Workflow Source 与 Program 只引用 prompt/profile/toolset identity，不持久化任意 system/developer 文本；旧 `instructions` override 不得保留兼容 fallback。
+- 内置 prompt digest 必须进入 implementation lock。AdapterAction 只记录 prompt/schema/toolset digest 与脱敏 model/provider facts，不记录原始 prompt、schema、trusted instructions、tool result 或 secret。
+- package-owned PromptManifest 只有在 Node Package trust 明确验证 package identity、签名与 owner namespace 后才可成为 trusted source；仅有合法 JSON 或自报 owner 不构成信任。
 
 设置测试只能对 exact profile 发起一次 provider-native generation。成功发现 endpoint 或列出模型不构成可运行性证明。

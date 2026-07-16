@@ -1,6 +1,6 @@
 # AI Agent bounded tool runtime
 
-Status: blocked
+Status: current
 
 ## Outcome
 
@@ -17,11 +17,11 @@ Status: blocked
 
 ## Blocked by
 
-ai-prompt-tool-provenance。
+无。ai-prompt-tool-provenance 已由 b674664c 完成。
 
 ## Verification
 
-Provider Outcome 已能表达 tool-call，ModelProfile 已声明 tool capability；当前 Generate/Extract runtime 把任何非 completed finish 当失败，没有 ToolSet registry、continuation loop、approval 或 Agent node。
+Provider Outcome 已能表达 tool-call，ModelProfile 已声明 tool capability；Generate/Extract runtime 当前仍把任何非 completed finish 当失败。ToolSet artifact seam 已建立，但尚无 trusted ToolSet registry、continuation loop、approval 或 Agent Node Contract。
 
 ## Out of scope
 
@@ -32,4 +32,4 @@ Provider Outcome 已能表达 tool-call，ModelProfile 已声明 tool capability
 
 ## Result
 
-Blocked。
+Current。先冻结 provider-neutral AgentTurn/ToolCall/RunBudget/ToolExecutor contract，再增加内置受限工具与 provider-native continuation mapping。
