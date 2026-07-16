@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 95,
+    "methods": 94,
     "models": 109
   },
   "services": [
@@ -59,18 +59,6 @@
           "name": "Resume",
           "bindingId": "1079478681",
           "parameters": [],
-          "returns": "$CancellablePromise<void>"
-        },
-        {
-          "name": "SetSystemDefaults",
-          "bindingId": "1137448185",
-          "parameters": [
-            {
-              "name": "d",
-              "optional": false,
-              "type": "{ [_ in string]?: string }"
-            }
-          ],
           "returns": "$CancellablePromise<void>"
         },
         {
@@ -2993,11 +2981,6 @@
               "name": "\"profile\"",
               "optional": false,
               "type": "AIModelSettings"
-            },
-            {
-              "name": "\"apiKey\"",
-              "optional": false,
-              "type": "string"
             }
           ]
         },
