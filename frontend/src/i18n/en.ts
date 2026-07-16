@@ -99,18 +99,6 @@ export default {
       title: 'Input calibration',
       intro:
         'Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turns). Recording stores the local 360° count in InputClip metadata; playback scales by the target-to-source ratio.',
-      intro_box: {
-        what_label: 'What this changes',
-        what_desc: 'Local calibration profiles. The selected "default profile" affects:',
-        item_default_source:
-          'When recording, if a container has no MouseCalibration node, the default profile value is used as the fallback source',
-        item_sync_action:
-          '"Sync default profile to all containers" button + node Inspector "FOREIGN" warning sync button writes the default profile value into all containers',
-        footnote_prefix: 'Changing this here',
-        footnote_negation: 'does NOT',
-        footnote_rest:
-          'automatically update MouseCalibration nodes inside existing containers — they hold their own value (containers are self-contained). To bulk-update, click "Sync default profile to all containers" above, or edit each container manually.',
-      },
       record: {
         title: 'Recording config',
         hint: 'Config applies on the next recording.',
@@ -151,10 +139,6 @@ export default {
         advanced_value_hint: 'Raw counts for a 360° turn',
         make_default: 'Make default',
         empty_hint: 'Once calibrated, recordings and cross-device replay use the selected default.',
-        sync_all: 'Sync default profile to all containers',
-        sync_all_hint:
-          'Overwrites MouseCalibration values in every local container main graph. Recordings are not changed.',
-        sync_action: 'Sync to all containers',
         share_hint: "You can also hand-enter counts shared from another machine's script",
       },
       howto: {
@@ -168,20 +152,10 @@ export default {
         step_stop: 'Press {hk} again to stop',
         step_save: 'Switch back to the app and click Save',
       },
-      toast: {
-        counts_not_set: 'Local counts360 not set',
-        synced_title: 'Synced {n} containers',
-        synced_skipped: 'Skipped {n} (no MouseCalibration node)',
-      },
       confirm: {
         delete_profile_title: 'Delete “{name}”?',
         delete_profile_desc:
           'This calibration profile will be removed from local settings. Recorded assets are not deleted.',
-        sync_title: 'Sync to all containers?',
-        sync_desc:
-          "Current local counts360 = {cur}.\nSyncing overwrites the value in every local container's main-graph MouseCalibration node.",
-        sync_confirm: 'Sync',
-        sync_cancel: 'Do not sync',
       },
       validation: {
         label_required: 'Enter a profile name.',
@@ -2842,7 +2816,6 @@ export default {
       system: 'System',
       recording: 'Recording',
       action: 'Action',
-      container: 'Container',
       schedule: 'Schedule',
       editor: 'Editor',
     },
@@ -2850,9 +2823,8 @@ export default {
       system: 'Affects Yotta-wide execution and system tools.',
       recording: 'Captured by the low-level keyboard hook and not forwarded to the target app.',
       action: 'Triggers an independent action directly.',
-      container: 'Runs a specific container from any window.',
       schedule: 'Provides a manual trigger for scheduled work.',
-      editor: 'Active only while the container editor has focus.',
+      editor: 'Active only while the workflow editor has focus.',
     },
     status: {
       register_failed: 'Registration failed',
@@ -2860,23 +2832,16 @@ export default {
     },
     empty: 'No matching hotkey',
     reset_system: 'Reset defaults',
-    clear_containers: 'Clear container hotkeys',
     toast: {
       bound: 'Bound to {hk}',
       cleared: 'Hotkey cleared',
       reset_done: 'Built-in hotkeys reset to defaults',
-      containers_cleared: 'Cleared {n} container hotkey(s)',
-      containers_none: 'No container has a hotkey set',
     },
     confirm: {
       reset_title: 'Reset built-in hotkeys?',
       reset_desc:
-        'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults. Container hotkeys are unaffected.',
+        'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults.',
       reset_ok: 'Reset',
-      clear_title: 'Clear all container hotkeys?',
-      clear_desc:
-        'Every container hotkey binding will be removed (containers and blueprints are kept). This cannot be undone.',
-      clear_ok: 'Clear',
     },
     label: {
       system: {
@@ -2889,7 +2854,6 @@ export default {
         stop: 'Stop recording',
         pause: 'Pause / resume recording',
       },
-      container: 'Container {name}',
       schedule: 'Schedule {name}',
       editor: {
         commandPalette: 'Command palette',
@@ -4145,7 +4109,7 @@ export default {
     no_results: 'No matching automations',
     stale_count: '{n} to clean up',
     stale_hint: '{n} entries are stale. Clean them up in Settings.',
-    stale_item: 'The linked container no longer exists',
+    stale_item: 'The linked workflow no longer exists',
     running: 'Starting',
     success: 'Run submitted',
     failed: 'Launch failed',
@@ -4153,7 +4117,7 @@ export default {
   settingsLauncher: {
     title: 'Floating launcher',
     intro:
-      'Put frequently used containers into a small launcher window and run them with one click. Open it with the show/hide hotkey or from a container page.',
+      'Put frequently used workflows into a small launcher window and run them with one click. Open it with the show/hide hotkey.',
     display_label: 'Command layout',
     appearance_title: 'Appearance & display',
     display_hint:
@@ -4163,22 +4127,21 @@ export default {
     display_text: 'Text-only list',
     health_title: 'Configuration health',
     health_hint:
-      'Checks launcher entries against containers and hotkey registration. Cleanup removes stale references only; it never deletes containers.',
+      'Checks launcher entries against stored workflows. Cleanup removes stale references only; it never deletes workflows.',
     health_available: 'Available',
     health_stale: 'Stale entries',
-    health_hotkeys: 'Hotkey conflicts',
     health_attention: 'Needs attention',
     health_normal: 'Healthy',
     health_ready: 'Launcher configuration is healthy',
     health_ready_hint:
-      'Every entry resolves to a container and there are no stale references to clean up.',
-    stale_title: '{n} stale container entries found',
+      'Every entry resolves to a workflow and there are no stale references to clean up.',
+    stale_title: '{n} stale workflow entries found',
     cleanup_scope: 'Stale entries that will be cleaned up',
     cleanup_stale: 'Clean {n}',
     undo_cleanup: 'Undo cleanup',
     layout_title: 'Command layout',
     layout_hint:
-      'Organize commands with headings and separators. Legacy vertical separators stay vertical in the compact grid and become spacing in lists. Drag to reorder.',
+      'Organize commands with headings and separators. Vertical separators stay vertical in the compact grid and become spacing in lists. Drag to reorder.',
     empty: 'Empty launcher — add blocks below.',
     pick_icon: 'Pick icon',
     clear_icon: 'Clear icon',
@@ -4188,16 +4151,15 @@ export default {
     delete_block: 'Delete this block',
     move_up: 'Move block up',
     move_down: 'Move block down',
-    from_container: 'From container: {name}',
-    add_container: '+ Container',
+    from_workflow: 'From workflow: {name}',
+    add_workflow: '+ Workflow',
     label_block: 'Text heading',
-    deleted_container: '(deleted container)',
+    deleted_workflow: '(deleted workflow)',
     library_title: 'Add content block',
     preview_title: 'Live preview',
     live_badge: 'Live',
     preview_empty: 'Add content to preview it here',
     untitled_label: 'Untitled heading',
-    hotkey_aria: 'Set the launch shortcut for “{name}”',
   },
   editorSearch: {
     find: 'Find',

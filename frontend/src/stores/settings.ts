@@ -16,13 +16,13 @@ export interface MouseProfile {
 }
 
 // LauncherBlock 悬浮窗启动器的一个块（积木式编排，跟 Go services.LauncherBlock 对齐）。
-// type: 'container'(容器按钮) | 'label'(文字标题) | 'hsep'(水平分隔符) | 'vsep'(垂直分隔符)。
+// type: 'workflow'(Workflow 3.1 按钮) | 'label'(文字标题) | 'hsep'(水平分隔符) | 'vsep'(垂直分隔符)。
 export interface LauncherBlock {
   id: string
-  type: 'container' | 'label' | 'hsep' | 'vsep'
-  containerId?: string // type=container
-  icon?: string // type=container 自定义图标（完整 tabler 名）
-  label?: string // container 自定义名 / label 标题文字
+  type: 'workflow' | 'label' | 'hsep' | 'vsep'
+  workflowId?: string // type=workflow
+  icon?: string // type=workflow 自定义图标（完整 tabler 名）
+  label?: string // workflow 自定义名 / label 标题文字
 }
 
 // 跟 Go services.Settings 对齐（v2：fish/cook/piano/battle 等 v1 游戏专属字段已删）

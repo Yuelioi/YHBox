@@ -14,7 +14,7 @@ import (
 // 设计目标：
 //   - HotkeyManager 只管 "把 mods/vk 注册到 OS"；Registry 管 "业务语义 + UI 序列化 + 持久化回调"
 //   - 用 key（稳定字符串标识，如 "battle.toggle" / "action.<uuid>"）作主键
-//   - Source 区分 system vs action，给前端 UI 分组用
+//   - Source 区分 system/action/schedule/editor/recording，给前端 UI 分组用
 //   - 持久化回调 onActionHotkeyChange / onSystemHotkeyChange 由 main.go 注入，
 //     registry 自己不知道 ActionService / config 怎么存
 //
@@ -28,7 +28,6 @@ type HotkeySource string
 const (
 	HotkeySourceSystem    HotkeySource = "system"
 	HotkeySourceAction    HotkeySource = "action"
-	HotkeySourceContainer HotkeySource = "container"
 	HotkeySourceSchedule  HotkeySource = "schedule"
 	HotkeySourceEditor    HotkeySource = "editor"
 	HotkeySourceRecording HotkeySource = "recording"
@@ -48,7 +47,7 @@ const (
 type HotkeyMechanism string
 
 const (
-	// HotkeyMechanismOSGlobal: Win32 RegisterHotKey 全局热键 (system/container/schedule)。
+	// HotkeyMechanismOSGlobal: Win32 RegisterHotKey 全局热键 (system/schedule)。
 	HotkeyMechanismOSGlobal HotkeyMechanism = "os-global"
 	// HotkeyMechanismEditorInApp: webview only, 不占 OS (editor in-app key)。
 	HotkeyMechanismEditorInApp HotkeyMechanism = "editor-inapp"
@@ -61,7 +60,7 @@ const (
 // HotkeyEntry 给前端 RPC 序列化用。Key 是稳定标识。
 // 注：Normalized 不暴露 — 前端不该依赖 canonicalization 规则。
 //
-// Label 语义: i18n key string (FE t() 渲染), 不是字面值. 动态部分 (容器名/计划名)
+// Label 语义: i18n key string (FE t() 渲染), 不是字面值. 动态部分 (计划名)
 // 走 LabelParams 插值, FE 调 t(label, labelParams) 输出最终文案. 未找到 key 时
 // vue-i18n fallback 直接返 raw key 字符串 (诊断用).
 type HotkeyEntry struct {
@@ -92,14 +91,13 @@ type HotkeyRegistry struct {
 	paused  bool // Pause 暂停所有 OS hotkey 时为 true
 
 	// 持久化回调（构造后由 SetCallbacks 注入）
-	onActionHotkeyChange    func(actionID, newStr string) error
-	onSystemHotkeyChange    func(key, newStr string) error
-	onContainerHotkeyChange func(containerID, newStr string) error
-	emitChanged             func()
-	closed                  atomic.Bool
-	shutdownOnce            sync.Once
-	shutdownDone            chan struct{}
-	shutdownErr             error
+	onActionHotkeyChange func(actionID, newStr string) error
+	onSystemHotkeyChange func(key, newStr string) error
+	emitChanged          func()
+	closed               atomic.Bool
+	shutdownOnce         sync.Once
+	shutdownDone         chan struct{}
+	shutdownErr          error
 }
 
 // NewHotkeyRegistry 构造。
@@ -124,14 +122,6 @@ func (r *HotkeyRegistry) SetCallbacks(
 	r.onActionHotkeyChange = onAction
 	r.onSystemHotkeyChange = onSystem
 	r.emitChanged = emit
-}
-
-// SetContainerHotkeyChange 注入容器热键持久化回调 (main.go 在 containerStore 就绪后调)。
-// 跟 onSystemHotkeyChange 平行 — 容器源热键 rebind 时回写 container.json。
-func (r *HotkeyRegistry) SetContainerHotkeyChange(fn func(containerID, newStr string) error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.onContainerHotkeyChange = fn
 }
 
 // Register 注册新 entry。
@@ -257,11 +247,6 @@ func (r *HotkeyRegistry) Update(key, newHotkeyStr string) error {
 		case HotkeySourceSystem, HotkeySourceRecording:
 			if r.onSystemHotkeyChange != nil {
 				persistErr = r.onSystemHotkeyChange(key, entry.spec.HotkeyStr)
-			}
-		case HotkeySourceContainer:
-			containerID := strings.TrimPrefix(key, "container.")
-			if r.onContainerHotkeyChange != nil {
-				persistErr = r.onContainerHotkeyChange(containerID, entry.spec.HotkeyStr)
 			}
 		}
 		if persistErr != nil {

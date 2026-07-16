@@ -17,27 +17,27 @@
             variant="ghost"
             class="launcher-command"
             :class="[
-              `launcher-command--${statusFor(item.containerId)}`,
+              `launcher-command--${statusFor(item.workflowId)}`,
               {
-                'launcher-command--selected': selectedId === item.containerId,
+                'launcher-command--selected': selectedId === item.workflowId,
                 'launcher-command--stale': item.stale,
                 'launcher-command--separator-before': item.separatorBefore === 'vertical',
               },
             ]"
             :title="item.label"
             :aria-label="item.stale ? `${item.label}: ${staleLabel}` : runLabel(item.label)"
-            :aria-current="selectedId === item.containerId ? 'true' : undefined"
+            :aria-current="selectedId === item.workflowId ? 'true' : undefined"
             :aria-disabled="item.stale ? 'true' : undefined"
             :tabindex="preview ? -1 : 0"
-            @mouseenter="!item.stale && emit('select', item.containerId)"
-            @focus="!item.stale && emit('select', item.containerId)"
-            @click="!preview && !item.stale && emit('run', item.containerId)"
+            @mouseenter="!item.stale && emit('select', item.workflowId)"
+            @focus="!item.stale && emit('select', item.workflowId)"
+            @click="!preview && !item.stale && emit('run', item.workflowId)"
           >
             <span v-if="display !== 'text'" class="launcher-command__icon">
               <UIcon
-                :name="statusIcon(item.containerId, item.icon)"
+                :name="statusIcon(item.workflowId, item.icon)"
                 class="size-4"
-                :class="{ 'animate-spin': statusFor(item.containerId) === 'running' }"
+                :class="{ 'animate-spin': statusFor(item.workflowId) === 'running' }"
               />
             </span>
             <span v-if="display !== 'icon'" class="launcher-command__copy">
@@ -99,22 +99,22 @@ const {
 }>()
 
 const emit = defineEmits<{
-  run: [containerId: string]
-  select: [containerId: string]
+  run: [workflowId: string]
+  select: [workflowId: string]
 }>()
 
-function statusFor(containerId: string): LauncherCommandStatus {
-  return statuses[containerId] ?? 'idle'
+function statusFor(workflowId: string): LauncherCommandStatus {
+  return statuses[workflowId] ?? 'idle'
 }
 
 function statusText(item: ResolvedLauncherItem) {
   if (item.stale) return staleLabel
-  const status = statusFor(item.containerId)
+  const status = statusFor(item.workflowId)
   return status === 'idle' ? '' : statusLabels[status]
 }
 
-function statusIcon(containerId: string, fallback: string) {
-  switch (statusFor(containerId)) {
+function statusIcon(workflowId: string, fallback: string) {
+  switch (statusFor(workflowId)) {
     case 'running':
       return 'i-tabler-loader-2'
     case 'success':

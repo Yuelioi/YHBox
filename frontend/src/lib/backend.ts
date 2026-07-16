@@ -421,11 +421,7 @@ export const backend = {
       invoke(ContainerService.DebugStop, sessionID) as Promise<DebugSessionState | undefined>,
     debugState: (sessionID: string) =>
       invoke(ContainerService.DebugState, sessionID) as Promise<DebugSessionState | undefined>,
-    syncLocalMouseCalibration: (newCounts: number) =>
-      invoke(ContainerService.SyncLocalMouseCalibration, newCounts),
     deleteMany: (ids: string[]) => ContainerService.DeleteMany(ids),
-    // 「清空容器热键」: 去掉所有容器的热键绑定 (容器/蓝图保留)。返回清掉数量。
-    clearAllHotkeys: () => invoke(ContainerService.ClearAllHotkeys) as Promise<number | undefined>,
     validate: (id: string) =>
       invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
   },

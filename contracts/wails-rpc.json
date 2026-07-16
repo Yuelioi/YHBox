@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 132,
-    "models": 149
+    "methods": 130,
+    "models": 148
   },
   "services": [
     {
@@ -625,12 +625,6 @@
           "returns": "$CancellablePromise<string>"
         },
         {
-          "name": "ClearAllHotkeys",
-          "bindingId": "2682296113",
-          "parameters": [],
-          "returns": "$CancellablePromise<number>"
-        },
-        {
           "name": "Create",
           "bindingId": "35060926",
           "parameters": [
@@ -870,18 +864,6 @@
           "bindingId": "944366057",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
-        },
-        {
-          "name": "SyncLocalMouseCalibration",
-          "bindingId": "1199746321",
-          "parameters": [
-            {
-              "name": "newCounts",
-              "optional": false,
-              "type": "number"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.SyncMouseCalibrationResult>"
         },
         {
           "name": "Update",
@@ -2385,10 +2367,6 @@
             {
               "name": "HotkeySourceAction",
               "value": "\"action\""
-            },
-            {
-              "name": "HotkeySourceContainer",
-              "value": "\"container\""
             },
             {
               "name": "HotkeySourceSchedule",
@@ -4015,27 +3993,6 @@
         },
         {
           "kind": "class",
-          "name": "SyncMouseCalibrationResult",
-          "fields": [
-            {
-              "name": "\"updated\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"skipped\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"errors\"",
-              "optional": false,
-              "type": "{ [_ in string]?: string }"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "ValidationError",
           "fields": [
             {
@@ -4539,7 +4496,7 @@
               "type": "string"
             },
             {
-              "name": "\"containerId\"",
+              "name": "\"workflowId\"",
               "optional": true,
               "type": "string"
             },

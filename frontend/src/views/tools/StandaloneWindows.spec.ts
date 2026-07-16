@@ -54,11 +54,11 @@ describe('standalone window presentation contract', () => {
     expect(surface).toContain(':aria-disabled="item.stale')
   })
 
-  it('refreshes every launcher dependency after cross-window settings changes', () => {
+  it('refreshes launcher settings and Workflow sources after cross-window settings changes', () => {
     const source = readSource('src/views/tools/FloatingLauncherView.vue')
 
     expect(source).toMatch(
-      /function refreshLauncherData[\s\S]*settingsStore\.load\(\)[\s\S]*containersStore\.reload\(\)[\s\S]*hotkeysStore\.reload\(\)/,
+      /function refreshLauncherData[\s\S]*settingsStore\.load\(\)[\s\S]*workflowTransport\.listSources\(\)/,
     )
     expect(source).toMatch(/Events\.On\([\s\S]*'settings:changed'[\s\S]*refreshLauncherData/)
   })

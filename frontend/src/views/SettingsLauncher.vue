@@ -36,12 +36,6 @@
             <strong :class="{ 'text-warning': staleCount }">{{ staleCount }}</strong>
             <span>{{ t('settingsLauncher.health_stale') }}</span>
           </div>
-          <div>
-            <strong :class="{ 'text-error': hotkeyConflictCount }">{{
-              hotkeyConflictCount
-            }}</strong>
-            <span>{{ t('settingsLauncher.health_hotkeys') }}</span>
-          </div>
         </div>
 
         <div v-if="staleCount" class="launcher-health-action">
@@ -126,7 +120,7 @@
                 name="i-tabler-grip-vertical"
                 class="drag-h size-4 shrink-0 cursor-grab text-dimmed"
               />
-              <template v-if="block.type === 'container'">
+              <template v-if="block.type === 'workflow'">
                 <UPopover :ui="{ content: 'w-[300px] p-2' }">
                   <UButton
                     size="xs"
@@ -161,7 +155,7 @@
                   <UInput
                     :model-value="block.label"
                     size="sm"
-                    :placeholder="containerName(block.containerId)"
+                    :placeholder="workflowName(block.workflowId)"
                     :aria-label="t('settingsLauncher.label_placeholder')"
                     @update:model-value="
                       (value: string | number) => setLabel(block.id, String(value))
@@ -170,20 +164,12 @@
                   />
                   <p class="mt-1 truncate text-[11px] text-dimmed">
                     {{
-                      t('settingsLauncher.from_container', {
-                        name: containerName(block.containerId),
+                      t('settingsLauncher.from_workflow', {
+                        name: workflowName(block.workflowId),
                       })
                     }}
                   </p>
                 </div>
-                <HotkeyCaptureInput
-                  class="w-32 shrink-0"
-                  :model-value="containerHotkey(block.containerId)"
-                  :aria-label="
-                    t('settingsLauncher.hotkey_aria', { name: containerName(block.containerId) })
-                  "
-                  @update:model-value="(value: string) => setHotkey(block.containerId!, value)"
-                />
               </template>
               <template v-else-if="block.type === 'label'">
                 <UIcon name="i-tabler-heading" class="size-4 shrink-0 text-dimmed" />
@@ -246,13 +232,13 @@
             </p>
             <div class="mt-2 flex flex-wrap items-center gap-2">
               <USelect
-                v-if="containerItems.length"
+                v-if="workflowItems.length"
                 :model-value="undefined"
-                :items="containerItems"
+                :items="workflowItems"
                 size="sm"
                 class="w-48"
-                :placeholder="t('settingsLauncher.add_container')"
-                @update:model-value="addContainer"
+                :placeholder="t('settingsLauncher.add_workflow')"
+                @update:model-value="addWorkflow"
               />
               <UButton
                 size="xs"
@@ -313,28 +299,22 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
-import { backend } from '@/lib/backend'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
-import { useContainersStore } from '@/stores/containers'
-import { useHotkeysStore } from '@/stores/hotkeys'
+import { workflowTransport, type SourceView } from '@/app/transport/workflow31'
 import IconPicker from '@/components/containers/inline/IconPicker.vue'
-import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import LauncherSurface from '@/components/launcher/LauncherSurface.vue'
 import {
   cleanupStaleLauncherBlocks,
-  countLauncherHotkeyConflicts,
-  containerHotkeyKey,
   normalizeLauncherDisplay,
   resolveLauncher,
   type LauncherDisplay,
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
-const containersStore = useContainersStore()
-const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
+const workflows = ref<SourceView[]>([])
 const editItems = ref<LauncherBlock[]>([])
 const cleanupBusy = ref(false)
 const dependenciesLoaded = ref(false)
@@ -352,27 +332,13 @@ const displayItems = computed(() => [
   { label: t('settingsLauncher.display_icon'), value: 'icon' },
   { label: t('settingsLauncher.display_text'), value: 'text' },
 ])
-const containerItems = computed(() =>
-  containersStore.list.map((container) => ({ label: container.name, value: container.id })),
+const workflowItems = computed(() =>
+  workflows.value.map((workflow) => ({ label: workflow.name, value: workflow.workflowId })),
 )
-const resolution = computed(() =>
-  resolveLauncher(editItems.value, containersStore.list, hotkeysStore.list),
-)
+const resolution = computed(() => resolveLauncher(editItems.value, workflows.value))
 const staleCount = computed(() => resolution.value.staleBlocks.length)
-const launcherContainerIds = computed(
-  () => new Set(resolution.value.items.map((item) => item.containerId)),
-)
-const hotkeyConflictCount = computed(() => {
-  return countLauncherHotkeyConflicts(
-    launcherContainerIds.value,
-    containersStore.list,
-    hotkeysStore.list,
-  )
-})
 const healthBadge = computed(() =>
-  staleCount.value || hotkeyConflictCount.value
-    ? t('settingsLauncher.health_attention')
-    : t('settingsLauncher.health_normal'),
+  staleCount.value ? t('settingsLauncher.health_attention') : t('settingsLauncher.health_normal'),
 )
 const statusLabels = computed(() => ({
   running: t('floatingLauncher.running'),
@@ -391,9 +357,9 @@ function moveBlock(from: number, to: number) {
   editItems.value.splice(to, 0, item)
   persist()
 }
-function addContainer(containerId: string) {
-  if (!containerId) return
-  editItems.value.push({ id: genId(), type: 'container', containerId, icon: '', label: '' })
+function addWorkflow(workflowId: string) {
+  if (!workflowId) return
+  editItems.value.push({ id: genId(), type: 'workflow', workflowId, icon: '', label: '' })
   persist()
 }
 function addLabel() {
@@ -418,7 +384,7 @@ async function cleanupStale() {
   const previousBlocks = copyItems(editItems.value)
   const cleaned = cleanupStaleLauncherBlocks(
     editItems.value,
-    new Set(containersStore.list.map((container) => container.id)),
+    new Set(workflows.value.map((workflow) => workflow.workflowId)),
   )
   editItems.value = copyItems(cleaned.blocks)
   const saved = await persist()
@@ -455,27 +421,18 @@ function setLabel(id: string, label: string) {
   const item = block(id)
   if (item) item.label = label
 }
-async function setHotkey(containerId: string, hotkey: string) {
-  await backend.hotkeys.update(containerHotkeyKey(containerId), hotkey)
-  await hotkeysStore.reload()
-}
-function containerName(id?: string) {
+function workflowName(id?: string) {
   return (
-    containersStore.list.find((container) => container.id === id)?.name ??
-    t('settingsLauncher.deleted_container')
-  )
-}
-function containerHotkey(id?: string) {
-  return (
-    hotkeysStore.list.find((item) => item.key === containerHotkeyKey(id ?? ''))?.hotkeyStr ?? ''
+    workflows.value.find((workflow) => workflow.workflowId === id)?.name ??
+    t('settingsLauncher.deleted_workflow')
   )
 }
 function staleBlockName(item: LauncherBlock) {
-  return item.label?.trim() || item.containerId || t('settingsLauncher.deleted_container')
+  return item.label?.trim() || item.workflowId || t('settingsLauncher.deleted_workflow')
 }
 
 onMounted(async () => {
-  await Promise.all([containersStore.reload(), hotkeysStore.reload()])
+  workflows.value = await workflowTransport.listSources()
   dependenciesLoaded.value = true
 })
 </script>

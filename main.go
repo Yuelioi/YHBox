@@ -181,7 +181,7 @@ func main() {
 	}
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
-	// 系统热键 (execution-stop) + container 热键全部走这条路。
+	// 系统、录制、Schedule 与 editor 热键全部走这条路。
 	// 用户可在 Settings → 快捷键 tab 改任意一条，hot reload 立即生效。
 	hotkeyRegistry := hotkey.NewHotkeyRegistry(sharedHotkeys)
 	hotkeyRegistry.SetCallbacks(

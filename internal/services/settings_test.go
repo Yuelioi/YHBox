@@ -314,9 +314,9 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 			LauncherToggleHotkey: "Ctrl+Shift+L",
 			LauncherItems: []LauncherBlock{
 				{ID: "b1", Type: "label", Label: "战斗"},
-				{ID: "b2", Type: "container", ContainerID: "c1", Icon: "i-tabler-fish"},
+				{ID: "b2", Type: "workflow", WorkflowID: "w1", Icon: "i-tabler-fish"},
 				{ID: "b3", Type: "vsep"},
-				{ID: "b4", Type: "container", ContainerID: "c2"},
+				{ID: "b4", Type: "workflow", WorkflowID: "w2"},
 			},
 		},
 	}
@@ -337,8 +337,8 @@ func TestUISettings_LauncherRoundTrip(t *testing.T) {
 	if out.UI.LauncherItems[0].Type != "label" || out.UI.LauncherItems[0].Label != "战斗" {
 		t.Errorf("block 0 (label): got %+v", out.UI.LauncherItems[0])
 	}
-	if b := out.UI.LauncherItems[1]; b.Type != "container" || b.ContainerID != "c1" || b.Icon != "i-tabler-fish" {
-		t.Errorf("block 1 (container): got %+v", b)
+	if b := out.UI.LauncherItems[1]; b.Type != "workflow" || b.WorkflowID != "w1" || b.Icon != "i-tabler-fish" {
+		t.Errorf("block 1 (workflow): got %+v", b)
 	}
 }
 

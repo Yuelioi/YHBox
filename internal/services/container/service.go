@@ -137,27 +137,6 @@ func (s *Service) Update(id string, patchJSON string) error {
 	return nil
 }
 
-// ClearAllHotkeys 清空所有容器的热键绑定（容器 / 蓝图保留，仅去掉 hotkey）。
-// 「快捷键」页「清空容器热键」用。返回清掉的数量。
-// emitChange → containerHotkeyBinder.Refresh 把这些容器热键从注册中心反注册。
-func (s *Service) ClearAllHotkeys() (int, error) {
-	n := 0
-	for _, c := range s.store.List() {
-		if strings.TrimSpace(c.Hotkey) == "" {
-			continue
-		}
-		c.Hotkey = ""
-		if err := s.store.Save(&c); err != nil {
-			return n, err
-		}
-		n++
-	}
-	if n > 0 {
-		s.emitChange()
-	}
-	return n, nil
-}
-
 func (s *Service) Delete(id string) error {
 	if err := s.store.Delete(id); err != nil {
 		return err
@@ -276,16 +255,6 @@ func (s *Service) DeleteMany(ids []string) error {
 		return fmt.Errorf("部分失败：%s", strings.Join(errs, "; "))
 	}
 	return nil
-}
-
-// SyncLocalMouseCalibration RPC 暴露给前端: 批量把所有本地容器主图的 MouseCalibration 节点
-// counts360 改成 newCounts.
-func (s *Service) SyncLocalMouseCalibration(newCounts int) (SyncMouseCalibrationResult, error) {
-	res, err := SyncLocalMouseCalibration(s.store, newCounts)
-	if err == nil || len(res.Updated) > 0 {
-		s.emitChange()
-	}
-	return res, err
 }
 
 // ResolveWindow 按 containerID 的 Win32WindowTarget 节点解析目标窗口. 制作工具(截模板/取色/HUD)用.

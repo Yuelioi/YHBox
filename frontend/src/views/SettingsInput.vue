@@ -160,25 +160,6 @@
           </div>
         </div>
       </div>
-
-      <div
-        v-if="activeCounts > 0"
-        class="flex flex-wrap items-center gap-3 border-t border-default/60 pt-4"
-      >
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium text-default">{{ t('settings.input.counts.sync_all') }}</p>
-          <p class="mt-1 text-xs text-dimmed">{{ t('settings.input.counts.sync_all_hint') }}</p>
-        </div>
-        <UButton
-          size="sm"
-          variant="outline"
-          color="neutral"
-          icon="i-tabler-refresh"
-          @click="onSyncAll"
-        >
-          {{ t('settings.input.counts.sync_action') }}
-        </UButton>
-      </div>
     </SettingsSection>
   </div>
 </template>
@@ -221,7 +202,6 @@ watch(
 )
 
 const activeLabel = computed(() => settings.value?.ui.activeMouseProfile ?? '')
-const activeCounts = computed(() => settingsStore.activeMouseCounts360)
 const mouseModeItems = computed(() => [
   { label: t('settings.input.record.mouse_mode.relative'), value: 'relative' },
   { label: t('settings.input.record.mouse_mode.absolute'), value: 'absolute' },
@@ -303,28 +283,6 @@ async function commitProfile(index: number) {
 
 function patchRecord(patch: Record<string, unknown>) {
   void settingsStore.patch({ ui: patch })
-}
-
-async function onSyncAll() {
-  const current = activeCounts.value
-  if (current <= 0) return
-  const yes = await confirm({
-    title: t('settings.input.confirm.sync_title'),
-    description: t('settings.input.confirm.sync_desc', { cur: current }),
-    confirmText: t('settings.input.confirm.sync_confirm'),
-    color: 'primary',
-  })
-  if (yes !== true) return
-  const result = await backend.containers.syncLocalMouseCalibration(current)
-  if (result) {
-    toast.add({
-      title: t('settings.input.toast.synced_title', { n: result.updated?.length ?? 0 }),
-      description: result.skipped?.length
-        ? t('settings.input.toast.synced_skipped', { n: result.skipped.length })
-        : undefined,
-      color: 'success',
-    })
-  }
 }
 
 async function openCalibratorFor(index: number) {

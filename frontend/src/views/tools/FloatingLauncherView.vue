@@ -86,9 +86,7 @@ import { useI18n } from 'vue-i18n'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
-import { useContainersStore } from '@/stores/containers'
-import { useExecutionStore } from '@/stores/execution'
-import { useHotkeysStore } from '@/stores/hotkeys'
+import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow31'
 import HudShell from '@/components/tools/HudShell.vue'
 import LauncherSurface, {
   type LauncherCommandStatus,
@@ -101,18 +99,16 @@ import {
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
-const containersStore = useContainersStore()
-const execStore = useExecutionStore()
-const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 
 const contentRef = ref<HTMLElement | null>(null)
+const workflows = ref<SourceView[]>([])
 const query = ref('')
 const selectedId = ref('')
 const requestedId = ref('')
+const requestedRunId = ref('')
 const feedback = ref<{ id: string; status: 'success' | 'error' } | null>(null)
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined
-let requestTimer: ReturnType<typeof setTimeout> | undefined
 
 const pinned = ref(true)
 function togglePin() {
@@ -124,11 +120,7 @@ const display = computed<LauncherDisplay>(() =>
   normalizeLauncherDisplay(settingsStore.data?.ui.launcherDisplay),
 )
 const resolution = computed(() =>
-  resolveLauncher(
-    settingsStore.data?.ui.launcherItems ?? [],
-    containersStore.list,
-    hotkeysStore.list,
-  ),
+  resolveLauncher(settingsStore.data?.ui.launcherItems ?? [], workflows.value),
 )
 const filteredGroups = computed(() => filterLauncherGroups(resolution.value.groups, query.value))
 const filteredItems = computed(() =>
@@ -149,28 +141,17 @@ const statuses = computed<Record<string, LauncherCommandStatus>>(() => {
   const result: Record<string, LauncherCommandStatus> = {}
   if (feedback.value) result[feedback.value.id] = feedback.value.status
   if (requestedId.value) result[requestedId.value] = 'running'
-  if (execStore.running && execStore.currentTargetID) {
-    result[execStore.currentTargetID] = 'running'
-  }
   return result
 })
 
 watch(
   filteredItems,
   (items) => {
-    if (!items.some((item) => item.containerId === selectedId.value)) {
-      selectedId.value = items[0]?.containerId ?? ''
+    if (!items.some((item) => item.workflowId === selectedId.value)) {
+      selectedId.value = items[0]?.workflowId ?? ''
     }
   },
   { immediate: true },
-)
-
-watch(
-  () => execStore.running,
-  (running, wasRunning) => {
-    if (running || !wasRunning || !requestedId.value) return
-    settleRequest(execStore.lastError ? 'error' : 'success')
-  },
 )
 
 function selectItem(id: string) {
@@ -180,32 +161,52 @@ function selectItem(id: string) {
 function moveSelection(delta: number) {
   const items = filteredItems.value
   if (!items.length) return
-  const current = items.findIndex((item) => item.containerId === selectedId.value)
+  const current = items.findIndex((item) => item.workflowId === selectedId.value)
   const next = current < 0 ? 0 : (current + delta + items.length) % items.length
-  selectedId.value = items[next]?.containerId ?? ''
+  selectedId.value = items[next]?.workflowId ?? ''
 }
 
 function settleRequest(status: 'success' | 'error') {
   if (!requestedId.value) return
   feedback.value = { id: requestedId.value, status }
   requestedId.value = ''
-  clearTimeout(requestTimer)
+  requestedRunId.value = ''
   clearTimeout(feedbackTimer)
   feedbackTimer = setTimeout(() => (feedback.value = null), 1800)
 }
 
+function settleTerminalStatus(status: string) {
+  if (status === 'succeeded') {
+    settleRequest('success')
+    return true
+  }
+  if (status === 'failed' || status === 'cancelled' || status === 'interrupted') {
+    settleRequest('error')
+    return true
+  }
+  return false
+}
+
 async function onRun(id: string) {
-  if (!id || requestedId.value || execStore.running) return
+  if (!id || requestedId.value) return
   requestedId.value = id
   feedback.value = null
-  const accepted = await backend.containers.run(id)
-  if (!accepted) {
+  try {
+    const started = await workflowTransport.startRun(id)
+    if (!started.run) {
+      settleRequest('error')
+      return
+    }
+    requestedRunId.value = started.run.runId
+    if (settleTerminalStatus(started.run.status)) return
+
+    // A short Run can finish before StartRun returns and before requestedRunId is known.
+    // Re-read the authoritative record once so the event/snapshot hand-off has no gap.
+    const current = await workflowTransport.getRunTimeline(started.run.runId)
+    settleTerminalStatus(current.status)
+  } catch {
     settleRequest('error')
-    return
   }
-  requestTimer = setTimeout(() => {
-    if (!execStore.running && requestedId.value === id) settleRequest('success')
-  }, 500)
 }
 
 function onHide() {
@@ -245,7 +246,7 @@ function onKeyDown(event: KeyboardEvent) {
     const item = resolution.value.items[Number(event.key) - 1]
     if (!item) return
     event.preventDefault()
-    void onRun(item.containerId)
+    void onRun(item.workflowId)
     return
   }
   if (!editing && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -267,7 +268,8 @@ function fitHeight() {
 watch([filteredGroups, display], () => void nextTick(fitHeight))
 
 async function refreshLauncherData() {
-  await Promise.all([settingsStore.load(), containersStore.reload(), hotkeysStore.reload()])
+  const [, listed] = await Promise.all([settingsStore.load(), workflowTransport.listSources()])
+  workflows.value = listed
   await nextTick()
   fitHeight()
 }
@@ -296,17 +298,22 @@ function onGripDown(event: PointerEvent) {
 }
 
 let offSettings: (() => void) | null = null
+let offRun: (() => void) | null = null
 onMounted(() => {
   void refreshLauncherData()
   offSettings = Events.On(
     'settings:changed',
     () => void refreshLauncherData(),
   ) as unknown as () => void
+  offRun = onRunChanged((event) => {
+    if (!requestedRunId.value || event.runId !== requestedRunId.value) return
+    settleTerminalStatus(event.status)
+  })
   window.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
   offSettings?.()
-  clearTimeout(requestTimer)
+  offRun?.()
   clearTimeout(feedbackTimer)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('pointermove', onGripMove)

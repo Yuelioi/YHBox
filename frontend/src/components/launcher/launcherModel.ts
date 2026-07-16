@@ -2,22 +2,14 @@ import type { LauncherBlock } from '@/stores/settings'
 
 export type LauncherDisplay = 'both' | 'icon' | 'text'
 
-export interface LauncherContainerSummary {
-  id: string
+export interface LauncherWorkflowSummary {
+  workflowId: string
   name: string
-  hotkey?: string
-}
-
-export interface LauncherHotkeySummary {
-  key: string
-  hotkeyStr: string
-  status?: string
-  lastError?: string
 }
 
 export interface ResolvedLauncherItem {
   id: string
-  containerId: string
+  workflowId: string
   label: string
   icon: string
   shortcut: string
@@ -40,15 +32,9 @@ export interface LauncherResolution {
 
 export function resolveLauncher(
   blocks: LauncherBlock[],
-  containers: LauncherContainerSummary[],
-  hotkeys: LauncherHotkeySummary[],
+  workflows: LauncherWorkflowSummary[],
 ): LauncherResolution {
-  const containersById = new Map(containers.map((container) => [container.id, container]))
-  const hotkeysById = new Map(
-    hotkeys
-      .map((entry) => [containerIdFromHotkeyKey(entry.key), entry.hotkeyStr] as const)
-      .filter(([containerId]) => !!containerId),
-  )
+  const workflowsById = new Map(workflows.map((workflow) => [workflow.workflowId, workflow]))
   const groups: ResolvedLauncherGroup[] = []
   const items: ResolvedLauncherItem[] = []
   const staleBlocks: LauncherBlock[] = []
@@ -80,15 +66,15 @@ export function resolveLauncher(
       continue
     }
 
-    const container = block.containerId ? containersById.get(block.containerId) : undefined
-    if (!container || !block.containerId) {
+    const workflow = block.workflowId ? workflowsById.get(block.workflowId) : undefined
+    if (!workflow || !block.workflowId) {
       staleBlocks.push(block)
       ensureGroup(`group-${block.id}`).items.push({
         id: block.id,
-        containerId: block.containerId ?? '',
-        label: block.label?.trim() || block.containerId || 'Unavailable',
+        workflowId: block.workflowId ?? '',
+        label: block.label?.trim() || block.workflowId || 'Unavailable',
         icon: block.icon || 'i-tabler-unlink',
-        shortcut: block.containerId ? hotkeysById.get(block.containerId) || '' : '',
+        shortcut: '',
         ordinal: 0,
         stale: true,
         separatorBefore: pendingVerticalSeparator ? 'vertical' : undefined,
@@ -99,10 +85,10 @@ export function resolveLauncher(
 
     const item: ResolvedLauncherItem = {
       id: block.id,
-      containerId: block.containerId,
-      label: block.label?.trim() || container.name,
+      workflowId: block.workflowId,
+      label: block.label?.trim() || workflow.name,
       icon: block.icon || 'i-tabler-player-play',
-      shortcut: hotkeysById.get(block.containerId) || '',
+      shortcut: '',
       ordinal: items.length + 1,
       separatorBefore: pendingVerticalSeparator ? 'vertical' : undefined,
     }
@@ -120,66 +106,6 @@ export function resolveLauncher(
 
 export function normalizeLauncherDisplay(value: unknown): LauncherDisplay {
   return value === 'icon' || value === 'text' ? value : 'both'
-}
-
-export function containerHotkeyKey(containerId: string) {
-  return `${CONTAINER_HOTKEY_PREFIX}${containerId}`
-}
-
-export function containerIdFromHotkeyKey(key: string) {
-  return key.startsWith(CONTAINER_HOTKEY_PREFIX) ? key.slice(CONTAINER_HOTKEY_PREFIX.length) : ''
-}
-
-const CONTAINER_HOTKEY_PREFIX = 'container.'
-
-export function countLauncherHotkeyConflicts(
-  launcherContainerIds: Set<string>,
-  containers: LauncherContainerSummary[],
-  hotkeys: LauncherHotkeySummary[],
-) {
-  const bindings = new Map(hotkeys.map((entry) => [entry.key, entry.hotkeyStr]))
-  for (const container of containers) {
-    if (container.hotkey) bindings.set(containerHotkeyKey(container.id), container.hotkey)
-  }
-
-  const normalizedCounts = new Map<string, number>()
-  for (const hotkey of bindings.values()) {
-    const normalized = normalizeHotkeyForHealth(hotkey)
-    if (normalized) normalizedCounts.set(normalized, (normalizedCounts.get(normalized) ?? 0) + 1)
-  }
-
-  return containers.filter((container) => {
-    if (!launcherContainerIds.has(container.id)) return false
-    const configured = normalizeHotkeyForHealth(container.hotkey ?? '')
-    const registryEntry = hotkeys.find((entry) => entry.key === containerHotkeyKey(container.id))
-    return (
-      (!!configured && (normalizedCounts.get(configured) ?? 0) > 1) ||
-      registryEntry?.lastError?.startsWith('[conflict]')
-    )
-  }).length
-}
-
-function normalizeHotkeyForHealth(value: string) {
-  const modifierOrder = new Map([
-    ['ctrl', 0],
-    ['control', 0],
-    ['alt', 1],
-    ['shift', 2],
-    ['win', 3],
-    ['meta', 3],
-  ])
-  const tokens = value
-    .split('+')
-    .map((token) => token.trim().toLocaleLowerCase())
-    .filter(Boolean)
-  if (!tokens.length) return ''
-  return tokens
-    .sort((left, right) => {
-      const leftOrder = modifierOrder.get(left) ?? 10
-      const rightOrder = modifierOrder.get(right) ?? 10
-      return leftOrder - rightOrder || left.localeCompare(right)
-    })
-    .join('+')
 }
 
 export function filterLauncherGroups(
@@ -202,10 +128,10 @@ export function filterLauncherGroups(
     .filter((group) => group.items.length > 0)
 }
 
-export function cleanupStaleLauncherBlocks(blocks: LauncherBlock[], containerIds: Set<string>) {
+export function cleanupStaleLauncherBlocks(blocks: LauncherBlock[], workflowIds: Set<string>) {
   const removed = blocks.filter(
     (block) =>
-      block.type === 'container' && (!block.containerId || !containerIds.has(block.containerId)),
+      block.type === 'workflow' && (!block.workflowId || !workflowIds.has(block.workflowId)),
   )
   const removedIds = new Set(removed.map((block) => block.id))
   return {

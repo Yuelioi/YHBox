@@ -246,18 +246,18 @@ type MouseProfile struct {
 }
 
 // LauncherBlock 悬浮窗启动器的一个块（积木式编排）。Type 决定形态：
-//   - "container": 一个容器按钮（ContainerID + 可选 Icon/Label）
+//   - "workflow": 一个 Workflow 3.1 按钮（WorkflowID + 可选 Icon/Label）
 //   - "label":     文字标题（Label = 标题文字），占整行
 //   - "hsep":      水平分隔符（占整行的横线，把后面的块挤到下一排）
 //   - "vsep":      垂直分隔符（同排按钮之间的竖线）
 //
-// 只存编排数据；容器名/状态/热键运行时拉。
+// 只存本机编排数据；Workflow 名称和运行状态由 Application 投影。
 type LauncherBlock struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	ContainerID string `json:"containerId,omitempty"` // type=container
-	Icon        string `json:"icon,omitempty"`        // type=container 自定义图标（完整 tabler 名）
-	Label       string `json:"label,omitempty"`       // container 自定义名 / label 标题文字
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	WorkflowID string `json:"workflowId,omitempty"` // type=workflow
+	Icon       string `json:"icon,omitempty"`       // type=workflow 自定义图标（完整 tabler 名）
+	Label      string `json:"label,omitempty"`      // workflow 自定义名 / label 标题文字
 }
 
 // ActiveMouseCounts360 返回当前生效 profile 的 counts360。

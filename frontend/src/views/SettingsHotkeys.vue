@@ -138,7 +138,6 @@ const filteredGrouped = computed(() => {
     system: [],
     recording: [],
     action: [],
-    container: [],
     schedule: [],
     editor: [],
   }
@@ -160,12 +159,6 @@ const resetMenuItems = computed(() => [
       icon: 'i-tabler-restore',
       onSelect: onResetSystem,
     },
-    {
-      label: t('hotkeys.clear_containers'),
-      icon: 'i-tabler-eraser',
-      color: 'error' as const,
-      onSelect: onClearContainers,
-    },
   ],
 ])
 
@@ -175,7 +168,6 @@ function groupIcon(source: string): string {
       system: 'i-tabler-tool',
       recording: 'i-tabler-player-record',
       action: 'i-tabler-bolt',
-      container: 'i-tabler-box',
       schedule: 'i-tabler-calendar-clock',
       editor: 'i-tabler-edit',
     }[source] ?? 'i-tabler-keyboard'
@@ -205,19 +197,6 @@ async function onResetSystem() {
   })
   if (ok !== true) return
   await backend.hotkeys.resetSystemDefaults()
-  await store.reload()
-}
-
-async function onClearContainers() {
-  const ok = await confirm({
-    title: t('hotkeys.confirm.clear_title'),
-    description: t('hotkeys.confirm.clear_desc'),
-    confirmText: t('hotkeys.confirm.clear_ok'),
-    cancelText: t('common.cancel'),
-    color: 'error',
-  })
-  if (ok !== true) return
-  await backend.containers.clearAllHotkeys()
   await store.reload()
 }
 </script>
