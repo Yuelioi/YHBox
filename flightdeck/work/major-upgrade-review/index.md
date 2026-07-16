@@ -19,6 +19,8 @@ Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/n
 
 Wave E 的 AI 收口首批已由 `99c3f5ff` 完成：零消费者的 `internal/services/llm`、通用 Chat/Mode、endpoint 猜测、structured prompt/fence fallback 与旧 provider SDK 依赖已物理删除。AI 单一路径是 `internal/ai` 的 provider-native installation/profile/resource contract，加 `internal/nodes31` / `internal/nodes31runtime` 的 capability session。
 
+Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 canonical、内容寻址、可 reopen 的 Node Package manifest v1，冻结 publisher namespace、strict SemVer、半开 host API range、exact Type/Capability/Node semantics、WIT/Process ABI 和 portable payload identity；仍未开放发现、安装或执行入口。
+
 ## Work outline
 
 ### A. 活跃入口切换（✅ 已完成：be1fc04b）
@@ -48,7 +50,7 @@ Wave E 的 AI 收口首批已由 `99c3f5ff` 完成：零消费者的 `internal/s
 ### E. AI 与插件（进行中；AI generic fallback 已删除：99c3f5ff）
 
 1. ✅ 删除旧 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。
-2. 实现 Node Package lifecycle、Wasm/Process host、SDK 和 conformance；禁止 Go plugin 和第三方前端代码。
+2. 🚧 Node Package immutable manifest 已完成；继续实现 lifecycle、Wasm/Process host、SDK 和 conformance。禁止 Go plugin 和第三方前端代码。
 3. Windows fail closed；Linux/macOS 只承诺平台中立 core 与 preview host 能力。
 
 ### F. 收尾验收
@@ -60,7 +62,7 @@ Wave E 的 AI 收口首批已由 `99c3f5ff` 完成：零消费者的 `internal/s
 
 ## Next
 
-Wave E 下一批先建立现有 plugin/package/ABI/admission/resource host 的精确映射和 deletion test，确认哪些 Node Package lifecycle、Wasm/Process host、SDK/conformance 缺口仍真实存在，再选择一个可独立提交的深模块切片。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
+Wave E 下一批从 immutable manifest 向 package lifecycle 前进：先定义并实现 archive payload verification + safe extraction 的纯核心，使 manifest 中 path/digest/size/media-type lock 能在任何信任或执行前 fail closed；随后再接 trust state 与 atomic install。执行 host 仍不提前开放。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 
@@ -79,6 +81,7 @@ Wave E 下一批先建立现有 plugin/package/ABI/admission/resource host 的�
 - knowledge/build/build.md — 开始运行构建、测试或产物验证前
 - knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Source/Catalog/Compiler/Program/Blob identity 时
 - knowledge/architecture/installed-application-vs-plugin-process.md — 修改 Process/AE/UE/plugin host 时
+- knowledge/architecture/node-package-manifest.md — 修改 package lifecycle、Catalog merge、Wasm/Process host 或插件 payload 时
 - knowledge/architecture/go-multiplatform-boundary.md — 修改跨平台支持承诺时
 - knowledge/build/wails-rpc-count-is-not-a-contract.md — 修改 Wails RPC/DTO/bindings 时
 
@@ -99,6 +102,7 @@ Completed foundations:
 - Wails 日志 DTO 已收口为 SYS/WF 与 graph/node/invocation/attempt provenance；contract 保持 14 services / 89 methods / 99 models。
 - frontend ESLint `no-explicit-any` debt 随旧产品树删除从 258 收紧到 24；生产 bundle 为 entry 259,767 bytes、editor 94,274 bytes gzip。
 - 旧 `internal/services/llm` 和 OpenAI/Anthropic Go SDK 依赖已删除；provider-native OpenAI Responses / Anthropic Messages adapter、typed outcome/failure、profile installation、resource session、credential binding 与 workflow consent 成为 AI 单一实现路径。
+- `internal/nodepackage` manifest v1 已锁定 package/publisher/host API、exact contract semantics、WIT/Process implementation 和 payload identity；当前没有第三方代码发现、安装或执行面。
 
 Latest Wave E AI verification:
 
@@ -108,6 +112,14 @@ Latest Wave E AI verification:
 - `go mod verify`
 - generic LLM/API SDK/residue scan + `git diff --check`
 - 全库 `staticcheck ./...` 唯一失败为未改动的 `internal/automation/installed/platform_windows.go:64` S1016
+
+Latest Wave E Node Package verification:
+
+- `go test -count=1 ./internal/nodepackage`
+- `go vet ./internal/nodepackage`
+- `staticcheck ./internal/nodepackage`
+- `go test -count=1 -timeout=60s ./...`
+- `git diff --check`
 
 Latest Wave D verification:
 
