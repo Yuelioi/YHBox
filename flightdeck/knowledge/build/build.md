@@ -13,6 +13,7 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 - **Wails library 与 CLI 必须同版**: 当前 Go/CLI pin 是 `v3.0.0-alpha2.117`，对应 frontend runtime 固定为 `3.0.0-alpha.97`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 Go/CLI/workflow/package/lock 多处 pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。
 
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
+- **Workflow 编辑器 WebView smoke**: `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1`。脚本只用正式 `windows:build DEV=true` 入口，在 `.task/workflow-editor-smoke/<timestamp>/` 创建独立 exe/data/WebView profile；复用已有 9245 Vite，缺失时自行启动并在退出时只清理自己拥有的进程。它通过仅 `windows && !production` 存在的 `YOTTA_WEBVIEW_DEBUG_PORT`/`YOTTA_WEBVIEW_DEBUG_PROFILE` 打开 loopback CDP，创建临时 Workflow，断言目录单击使画布 `0→1`、拖放使 `1→2`，并拒绝 `window error`、unhandled rejection 与 `console.error`。最终 PNG、stdout/stderr 和隔离数据都留在该 timestamp 目录，agent 必须用图片查看工具实际检查布局，不能只信 DOM 计数。production build 的 debug options 恒为空。
 - **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、generated Workflow 3.1 Schema/TS、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
 - **构建**: `task build` — frozen install / bindings / `vite build` 后，以 `-mod=readonly` 执行 production Go build；Rust capture DLL 使用 `cargo build --release --locked`。构建链不会运行 `go mod tidy`、重写 icon 或调用 UPX。
 - **发布候选**: `task package` — 构建前后都要求 index/worktree（含 untracked）完全干净；完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
@@ -65,5 +66,7 @@ Node Contract 3.1、Catalog/Authoring Projection、Compiler、Run、Workflow Sto
 
 ## 运行 / smoke 留意
 
+- WebView2 GPU 合成可能晚于节点 DOM 出现；截图前必须 `Page.bringToFront`、启用 focus emulation，并等待两次 `requestAnimationFrame` 加短暂 settle。否则 smoke 的节点断言会绿，但 PNG 可能只留下黑底和少量图层。
+- Wails dev 会请求可选的 `/wails/custom.js` 和 favicon；二者 404 不等于页面异常。Workflow smoke 的阻断信号是捕获到的 JS error/rejection/`console.error`、节点计数不变、CDP 不可达或截图人工检查失败。
 - **校准 / HUD 是 AlwaysOnTop**: 独占全屏游戏可能盖不住 (Windows 层限制) → 用窗口化 / 无边框全屏.
 - **通道 B（worker 事件校验失败本地化）没真机端到端 smoke**: 要造得手改磁盘 `bin/data/containers/<id>/container.json` 删 Win32WindowTarget 再走热键; 走事件通道 `d.Error` 是对象、不受 [wails-dev-fetch-transport-flattens-error.md](../wails/wails-dev-fetch-transport-flattens-error.md) 影响, 有 Go 单测背书, 按需补.
