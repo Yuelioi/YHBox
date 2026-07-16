@@ -6,24 +6,22 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-当前唯一实施主线是 Yotta 3.1 destructive upgrade。最近完成并提交的阶段：
+当前唯一实施主线是 Yotta 3.1 destructive upgrade。
 
-- `4c6b9512`：删除 legacy detect/image nodes、VisionService、template matcher wiring、模板 GUID dependency/validator、旧 template picker 特判、GUID 引用推断和不安全 asset-local Blob GC。
-- `67318e6f`：记录上述语义边界的 Flightdeck checkpoint。
-- Workflow 3.1 只持久化精确 BlobRef；素材库 GUID 仅作 authoring metadata。共享 Blob Store 没有生产 `Sweep` 调用，自动引用清理只保留结构化 SubgraphID 路径。
+Wave A“活跃入口切换”已完成并提交：
 
-当前工作停在“剩余旧 Container/RPC/UI/LLM/NodeSpec 切换”的依赖盘点，尚未修改业务代码。已确认：
+- `be1fc04b`：Launcher 设置模型从 Container 破坏性切换到 Workflow 3.1 Source/Run；悬浮启动器通过 Application presentation service 启动并跟踪 Run，包含终态事件/权威快照无缝交接。
+- 删除活跃 Container 热键来源、批量清空 RPC、本地 MouseCalibration 向旧 Container 批量同步 RPC 与 UI。
+- Wails contract 保持 18 services，methods 132→130，models 149→148；`LauncherBlock.containerId` 改为 `workflowId`，不保留旧字段或迁移 fallback。
+- 产品 router 仍只暴露 `WorkflowsView` / `WorkflowEditorView`；剩余 `backend.containers` 调用集中在不可达旧产品树，将在 Wave C 整体删除。
 
-- 产品 router 只暴露 `WorkflowsView` / `WorkflowEditorView`，旧 `ContainersView` / `ContainerEditorView` 已无路由入口。
-- 旧前端树仍存在，`SettingsLauncher`、`FloatingLauncherView` 和部分设置仍调用旧 Container store/RPC。
-- 后端 `container.Store/Service` 仍被模板截图、录制目标、tools、旧 launcher/hotkey/application adapter 使用，不能直接整包删除。
-- 3.1 的深模块 seam 是 `application.Application` + `workflow31.Service`；调用方应迁入这个 interface，而不是再给旧 Container 加转发层。
+当前进入 Wave B“平台 adapter 去 Container 化”。后端 `container.Store/Service` 仍被模板截图、录制目标、tools 和 composition wiring 使用；下一步先建立 installation/target identity 的深 interface，再删除按 containerID 解析 Win32WindowTarget 的路径，不给旧 Container 增加转发层。
 
-旧独立 feature topics 已完成或被 3.1 收编：asset workbench、settings center、recording lifecycle 将归档；未完成的真实 Windows smoke 与迁移事项统一落在本 topic。
+旧独立 feature topics 已完成或被 3.1 收编；未完成的真实 Windows smoke 与迁移事项统一保留在本 topic。
 
 ## Work outline
 
-### A. 活跃入口切换
+### A. 活跃入口切换（✅ 已完成：be1fc04b）
 
 1. 将悬浮启动器、设置中的启动器/热键、运行列表改为消费 Workflow 3.1 Source/Run。
 2. GUI、Schedule、Hotkey、Debug、headless 统一调用 Application/Program runtime。
@@ -62,7 +60,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## Next
 
-下一提交只做一个小切片：迁移仍可达的 Launcher/Settings 旧 Container 调用，或在依赖不完整时先补 Application 的最小深 interface；完成后定向测试并提交。之后再删除不可达旧前端树。
+Wave B 当前切片：把模板截图与录制目标从 `containerID -> Win32WindowTarget` 改为安装式 Automation Target / Application-owned adapter。先画清 asset capture、recording、tools 与 main wiring 的调用链，再落一个窄 interface；定向验证并提交后，在本节和执行计划中标记 Wave B 完成。
 
 ## Read now
 
@@ -93,15 +91,19 @@ Completed foundations:
 - single shared Blob Store、exact window capture、nominal InputClip/exact playback；
 - explicit MatchTemplate 与 typed multi-match/frame-diff/color/QR analysis；
 - port-level Authoring Projection + immutable template variant binding；
-- legacy Container executor、PlayClip、detect/image/VisionService/template GUID dependency 和 unsafe asset GC 删除。
+- legacy Container executor、PlayClip、detect/image/VisionService/template GUID dependency 和 unsafe asset GC 删除；
+- Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除。
 
-Latest verification:
+Latest Wave A verification:
 
-- `go test ./...`
-- affected `staticcheck`
-- `task contracts:check`
-- `pnpm -C frontend check`：100 files / 641 tests、production build、bundle budgets
+- `go test ./internal/services ./internal/services/container ./internal/hotkey`
+- Launcher Vitest：2 files / 14 tests
+- `pnpm -C frontend typecheck`
+- `pnpm -C frontend i18n:check`：3064 keys
+- regenerated Wails bindings + `pnpm -C frontend bindings:check`
 - `git diff --check`
+
+上一完整阶段门禁仍为 `go test ./...`、affected `staticcheck`、`task contracts:check`、`pnpm -C frontend check`（100 files / 641 tests、production build、bundle budgets）。全量 `task check` 只在最终阶段运行。
 
 ## Decisions
 
