@@ -7,7 +7,6 @@ import (
 
 	// blank import 真节点 — scanner 现走 nodepkg.Get(kind).Dependencies, 不再有 fake Extractor.
 	_ "github.com/yottaapp/yotta/internal/nodes/detect" // CheckTemplate / ClickTemplate / WaitTemplate
-	_ "github.com/yottaapp/yotta/internal/nodes/io"     // PlayClip
 	_ "github.com/yottaapp/yotta/internal/nodes/script" // Script (资产依赖走 Code 文本扫描)
 	_ "github.com/yottaapp/yotta/internal/nodes/system" // Subgraph / CollapsedNode
 )
@@ -16,7 +15,6 @@ func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 	nodes := map[string][]NodeInfo{
 		"sg1": {
 			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"ns.a"}}}},
-			{Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "c1"}}},
 		},
 	}
 	get := func(id string) ([]NodeInfo, error) { return nodes[id], nil }
@@ -28,7 +26,6 @@ func TestScanSubgraphDependencies_FlatDeps(t *testing.T) {
 	want := []Dependency{
 		{Kind: KindSubgraph, Key: "sg1"},
 		{Kind: KindTemplate, Key: "ns.a"},
-		{Kind: KindClip, Key: "c1"},
 	}
 	sortDeps(got)
 	sortDeps(want)
@@ -80,8 +77,7 @@ func TestScanSubgraphDependencies_ScriptNode(t *testing.T) {
 		"sg": {
 			{Kind: "Script", Config: map[string]any{"literal": map[string]any{
 				"Code": `const T = "3680b3d2-d31d-461c-b697-0d9c3e6a87ed";
-CheckTemplate({Templates:[T]});
-PlayClip({ClipID:"clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"});`,
+CheckTemplate({Templates:[T]});`,
 			}}},
 		},
 	}
@@ -90,8 +86,7 @@ PlayClip({ClipID:"clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"});`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsDep(got, Dependency{Kind: KindTemplate, Key: "3680b3d2-d31d-461c-b697-0d9c3e6a87ed"}) ||
-		!containsDep(got, Dependency{Kind: KindClip, Key: "clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"}) {
+	if !containsDep(got, Dependency{Kind: KindTemplate, Key: "3680b3d2-d31d-461c-b697-0d9c3e6a87ed"}) {
 		t.Errorf("script asset deps not scanned, got %v", got)
 	}
 }

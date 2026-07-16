@@ -1,12 +1,12 @@
 // clips store — 全局 clip 资产 (asset 库 KindClip) 元数据 + 单 clip get/save/update/delete.
 // 资产全局化后无容器级/库级两套存储: list 列全局所有 clip (ClipSummary, 无 events);
-// get 返 InputClip (events 走 binary chunk + ClipResolver, JSON RPC 仅拿 meta).
+// get returns authoring metadata plus the nominal BlobRef; events stay in the binary carrier.
 // 后端 Save/Delete/Update 均会 emit 'clip:changed' — listen() 订阅后自动 refresh 列表.
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend } from '@/lib/backend'
+import { backend, type BlobRef } from '@/lib/backend'
 
 // ClipMeta 跟 backend inputclip.ClipMeta 对齐 (model.go).
 export interface ClipMeta {
@@ -27,9 +27,10 @@ export interface ClipSummary {
   createdAt: string
   meta: ClipMeta
   eventCount: number
+  blob: BlobRef
 }
 
-// InputClip JSON RPC 拿到的元数据. events 走 binary chunk + ClipResolver, JSON 不传.
+// InputClip JSON RPC metadata. Runtime reads the carrier through blob-read authority.
 export interface InputClip {
   id: string
   label: string
@@ -39,6 +40,7 @@ export interface InputClip {
   durationUs: number
   createdAt: string
   meta: ClipMeta
+  blob: BlobRef
 }
 
 export const useClipsStore = defineStore('clips', () => {

@@ -35,7 +35,6 @@ func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
 	add([]node.RuntimeCapability{node.RuntimeCapabilityParams}, "GetParam")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityTarget}, "AndroidTarget")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityApp}, "AndroidStartApp", "AndroidStopApp")
-	add([]node.RuntimeCapability{node.RuntimeCapabilityClip}, "PlayClip")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityAI}, "AI")
 
 	for _, registered := range node.All() {

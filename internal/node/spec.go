@@ -53,7 +53,6 @@ const (
 	RuntimeCapabilityApp         RuntimeCapability = "app"
 	RuntimeCapabilityCapture     RuntimeCapability = "capture"
 	RuntimeCapabilityStopwatches RuntimeCapability = "stopwatches"
-	RuntimeCapabilityClip        RuntimeCapability = "clip"
 	RuntimeCapabilitySubgraphs   RuntimeCapability = "subgraphs"
 	RuntimeCapabilityAI          RuntimeCapability = "ai"
 	RuntimeCapabilityRegistry    RuntimeCapability = "registry"

@@ -186,6 +186,16 @@
             class="w-full font-mono text-xs"
             @change="setLiteralJSON(port.id, $event)"
           />
+          <USelect
+            v-else-if="isInputClip(port)"
+            :model-value="selectedClipId(node.bindings[port.id])"
+            :items="clipItems"
+            value-key="value"
+            label-key="label"
+            :placeholder="t('workflow31.inspector.select_clip')"
+            class="w-full"
+            @update:model-value="setClip(port.id, $event)"
+          />
           <p v-else class="text-[11px] leading-5 text-muted">
             {{ t('workflow31.inspector.reference_only', { carrier: port.carrier }) }}
           </p>
@@ -245,7 +255,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { InputBinding, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
@@ -253,6 +264,9 @@ import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-pr
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 import PointValueEditor from '@/app/editor/PointValueEditor.vue'
+import { useClipsStore } from '@/stores/clips'
+
+const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 
 const props = defineProps<{
   node: Node | null
@@ -262,6 +276,14 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
+const clipsStore = useClipsStore()
+const { clips } = storeToRefs(clipsStore)
+const clipItems = computed(() =>
+  clips.value.map((clip) => ({
+    label: clip.label || clip.id,
+    value: clip.id,
+  })),
+)
 const newVariableName = ref('')
 const newVariableTypeId = ref('')
 const stateTypes = computed(() =>
@@ -294,6 +316,8 @@ watch(
   },
   { immediate: true },
 )
+
+onMounted(() => void clipsStore.refresh())
 
 function addStateVariable(): void {
   const type = selectedStateType.value
@@ -366,6 +390,27 @@ function setLiteralJSON(portId: string, event: Event): void {
   } catch {
     return
   }
+}
+
+function setClip(portId: string, value: unknown): void {
+  if (!props.node || typeof value !== 'string') return
+  const clip = clips.value.find((candidate) => candidate.id === value)
+  if (!clip) return
+  emit('command', { kind: 'bind-blob', nodeId: props.node.id, portId, blob: { ...clip.blob } })
+}
+
+function selectedClipId(binding: InputBinding | undefined): string | undefined {
+  if (binding?.kind !== 'blob' || !binding.blob) return undefined
+  return clips.value.find(
+    (clip) =>
+      clip.blob.digest === binding.blob?.digest &&
+      clip.blob.mediaType === binding.blob.mediaType &&
+      clip.blob.size === binding.blob.size,
+  )?.id
+}
+
+function isInputClip(port: PortProjection): boolean {
+  return port.type.typeIds.includes(inputClipTypeId)
 }
 
 function acceptsInline(port: PortProjection): boolean {

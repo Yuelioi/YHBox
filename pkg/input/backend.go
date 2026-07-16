@@ -23,6 +23,8 @@ type Backend interface {
 	Click(hwnd Handle, xRatio, yRatio float64, button string, durMs int) error
 	KeyDown(hwnd Handle, vk string) error
 	KeyUp(hwnd Handle, vk string) error
+	KeyDownCode(hwnd Handle, vk uint32) error
+	KeyUpCode(hwnd Handle, vk uint32) error
 	MouseDown(hwnd Handle, xRatio, yRatio float64, button string) error
 	MouseUp(hwnd Handle, button string) error
 	MouseMoveRel(hwnd Handle, dx, dy, durMs int) error

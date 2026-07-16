@@ -133,7 +133,7 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				continue
 			}
 			installed, ok := p.automationTargets[binding.TargetID]
-			validKind := binding.ResourceKind == automationinstalled.KindInput || binding.ResourceKind == automationinstalled.KindWindow || binding.ResourceKind == automationinstalled.KindCapture
+			validKind := binding.ResourceKind == automationinstalled.KindInput || binding.ResourceKind == automationinstalled.KindWindow || binding.ResourceKind == automationinstalled.KindCapture || binding.ResourceKind == automationinstalled.KindPlayback
 			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != automationinstalled.ProviderABI || binding.TargetKind != automationinstalled.TargetKind || !validKind || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}

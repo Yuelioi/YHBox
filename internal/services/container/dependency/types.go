@@ -6,7 +6,6 @@ type Kind string
 
 const (
 	KindTemplate Kind = "template"
-	KindClip     Kind = "clip"
 	KindSubgraph Kind = "subgraph"
 	// 未来扩: KindOCRModel, KindSoundProfile, KindScript ...
 )

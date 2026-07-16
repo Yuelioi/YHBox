@@ -8,7 +8,7 @@ import (
 )
 
 // assetExistence 返回查全局 asset 库某 GUID 是否为指定 kind 的闭包.
-// 给 container.ConfigureAssetExistence 注入 (validator 存在性检查).
+// Used by legacy template validation and composition tests.
 func assetExistence(store *asset.Store, kind string) func(guid string) bool {
 	return func(guid string) bool {
 		rec, ok := store.Get(guid)

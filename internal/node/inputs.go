@@ -52,7 +52,7 @@ func NewInputsFromConfig(cfg map[string]any) Inputs {
 		present[k] = true
 	}
 	// pin 字面量正源 = config.literal[name]; 优先级镜像 dispatch newInputs (literal > 顶层 config)。
-	// 让 scanner / dependency extractor (PlayClip ClipID / Subgraph SubgraphID 等) 也读到 literal 值。
+	// 让 scanner / dependency extractor (SubgraphID 等) 也读到 literal 值。
 	if lit, ok := cfg["literal"].(map[string]any); ok {
 		for k, v := range lit {
 			merged[k] = v

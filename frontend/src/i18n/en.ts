@@ -940,6 +940,10 @@ export default {
       },
     },
     automation: {
+      inputClip: {
+        title: 'Input clip',
+        description: 'A content-addressed recording carried only as a durable nominal BlobRef.',
+      },
       pointer_button: {
         title: 'Pointer button',
         description: 'The left, right, or middle pointer button.',
@@ -1144,6 +1148,11 @@ export default {
         title: 'Capture window',
         description:
           'Reverify the exact installed window, capture it as PNG through the configured backend, and commit a durable Image BlobRef.',
+      },
+      playInputClip: {
+        title: 'Play input clip',
+        description:
+          'Read a validated InputClip BlobRef and replay every event through one exclusive exact-target playback session.',
       },
     },
     observability: {
@@ -3791,6 +3800,7 @@ export default {
       configuration: 'Configuration',
       inputs: 'Inputs',
       reference_only: 'This port accepts {carrier} references through a compatible connection.',
+      select_clip: 'Select an input clip',
       use_default: 'Use default',
       clear: 'Clear',
       capabilities: 'Capabilities',
@@ -4825,6 +4835,9 @@ export default {
       capture_backend_label: 'Fixed capture backend',
       capture_backend_hint:
         'GDI and Windows Graphics Capture are explicit contracts. An unavailable backend fails installation; runtime never falls back.',
+      mouse_counts_label: 'Mouse counts per 360°',
+      mouse_counts_hint:
+        'Hardware calibration used for exact relative-motion replay. Set 0 only when this target will never replay relative mouse events.',
       window_title_label: 'Exact window title (optional)',
       window_title_hint:
         'Case-sensitive full match. Contains, regex, and wildcard matching are not supported.',

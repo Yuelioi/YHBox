@@ -77,6 +77,55 @@ func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
 	return encoded.Bytes(), nil
 }
 
+func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.backend == nil {
+		return failure(CodeContractViolation, errors.New("automation playback driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return err
+	}
+	if d.backend.Name() == "sendinput" {
+		if err := winutil.BringToFront(window.HWND); err != nil {
+			return failure(CodePlaybackFailed, err)
+		}
+	}
+	handle := pkginput.Handle(window.HWND)
+	switch event.Kind {
+	case PlaybackKeyDown:
+		return d.backend.KeyDownCode(handle, event.KeyCode)
+	case PlaybackKeyUp:
+		return d.backend.KeyUpCode(handle, event.KeyCode)
+	case PlaybackButtonDown:
+		return d.backend.MouseDown(handle, event.Point.X, event.Point.Y, event.Button)
+	case PlaybackButtonUp:
+		return d.backend.MouseUp(handle, event.Button)
+	case PlaybackMove:
+		return d.backend.MoveTo(handle, event.Point.X, event.Point.Y)
+	case PlaybackMoveRelative:
+		return d.backend.MouseMoveRel(handle, int(event.DeltaX), int(event.DeltaY), 0)
+	case PlaybackScroll:
+		return d.backend.Scroll(handle, event.Point.X, event.Point.Y, int(event.Notches), false)
+	default:
+		return failure(CodeContractViolation, errors.New("automation playback event is unsupported"))
+	}
+}
+
+func (d *windowsDriver) ReleaseInput() error {
+	<-d.gate
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.backend == nil {
+		return nil
+	}
+	return d.backend.ReleaseAll()
+}
+
 func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) (runErr error) {
 	select {
 	case <-ctx.Done():

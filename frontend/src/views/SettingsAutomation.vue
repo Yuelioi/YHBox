@@ -170,6 +170,21 @@
               />
             </UFormField>
 
+            <UFormField
+              :label="t('settingsAutomation.targets.mouse_counts_label')"
+              :hint="t('settingsAutomation.targets.mouse_counts_hint')"
+            >
+              <UInputNumber
+                v-model="target.mouseCounts360"
+                :min="0"
+                :max="10000000"
+                :step="100"
+                size="sm"
+                class="w-full sm:w-48"
+                @change="commit"
+              />
+            </UFormField>
+
             <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
               <div class="flex flex-wrap items-start gap-3">
                 <UIcon
@@ -341,6 +356,7 @@ async function addTarget() {
     windowClass: '',
     inputBackend: 'sendinput',
     captureBackend: 'gdi',
+    mouseCounts360: 0,
     resolveTimeoutMilliseconds: 3000,
     persisted: false,
   })
@@ -356,6 +372,7 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
     windowClass: target.windowClass,
     inputBackend: target.inputBackend,
     captureBackend: target.captureBackend,
+    mouseCounts360: target.mouseCounts360,
     resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
     ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
   }

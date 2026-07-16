@@ -44,7 +44,7 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
 	}
 	settingsService := NewSettingsService(app, nil)
-	if err := settingsService.Update(`{"automation":{"win32Targets":[{"slot":"editor-input","label":"Editor input","applicationSlot":"editor","windowTitle":"Editor","windowClass":"EditorWindowV2","inputBackend":"postmessage","captureBackend":"gdi","resolveTimeoutMilliseconds":500,"workflowConsent":"` + consent + `"}]}}`); err != nil {
+	if err := settingsService.Update(`{"automation":{"win32Targets":[{"slot":"editor-input","label":"Editor input","applicationSlot":"editor","windowTitle":"Editor","windowClass":"EditorWindowV2","inputBackend":"postmessage","captureBackend":"gdi","mouseCounts360":0,"resolveTimeoutMilliseconds":500,"workflowConsent":"` + consent + `"}]}}`); err != nil {
 		t.Fatal(err)
 	}
 	if app.Settings().Automation.Win32Targets[0].WorkflowConsent != "" {

@@ -28,6 +28,7 @@ type ProfileDraft struct {
 	WindowClass                string                  `json:"windowClass"`
 	InputBackend               string                  `json:"inputBackend"`
 	CaptureBackend             string                  `json:"captureBackend"`
+	MouseCounts360             int64                   `json:"mouseCounts360"`
 	ResolveTimeoutMilliseconds int64                   `json:"resolveTimeoutMilliseconds"`
 }
 
@@ -56,6 +57,9 @@ func SealProfile(draft ProfileDraft) (Profile, error) {
 	}
 	if draft.CaptureBackend != "gdi" && draft.CaptureBackend != "wgc" {
 		return Profile{}, errors.New("automation target capture backend is invalid")
+	}
+	if draft.MouseCounts360 < 0 || draft.MouseCounts360 > 10_000_000 {
+		return Profile{}, errors.New("automation target mouse calibration is invalid")
 	}
 	if draft.ResolveTimeoutMilliseconds < 100 || draft.ResolveTimeoutMilliseconds > MaxResolveTimeoutMilliseconds {
 		return Profile{}, errors.New("automation target resolve timeout is invalid")

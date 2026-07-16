@@ -456,13 +456,13 @@ func MouseMoveRel(hwnd win.HWND, totalDx, totalDy int, duration, activateDelay t
 }
 
 // SendInputMouseRel 暴露 sendInputMouseRel 给 inputclip backends 用 (相机转向唯一路径).
-// 不调 FakeActivate / setCursorPos — caller (ClipPlayer) 已按帧调度.
+// 不调 FakeActivate / setCursorPos — playback provider owns frame scheduling.
 func SendInputMouseRel(dx, dy int32) {
 	_ = sendInputMouseRel(dx, dy)
 }
 
 // PostKeyDownVK 直接按 vk uint32 PostMessage 键盘按下到 hwnd (clip 回放用).
-// keyLParam 自带 scancode (UE InputComponent 必需). 不调 FakeActivate (ClipPlayer 控时序).
+// keyLParam 自带 scancode (UE InputComponent 必需). 不调 FakeActivate (playback provider controls timing).
 func PostKeyDownVK(hwnd win.HWND, vk uint32) {
 	postMessage(hwnd, WM_KEYDOWN, uintptr(vk), keyLParam(vk, false))
 }

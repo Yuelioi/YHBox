@@ -567,26 +567,12 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clipBlob, err := assetStore.CommitRecordBlob(context.Background(), "application/vnd.yotta.input-clip", bytes.NewReader([]byte("clip-bytes")), func(ref blob.BlobRef) asset.AssetRecord {
-		return asset.AssetRecord{
-			GUID:   "clip-1",
-			Kind:   asset.KindClip,
-			Name:   "Clip",
-			Origin: asset.Origin{Kind: "user"},
-			Blob:   &ref,
-		}
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	if err := s.Save(&Container{
 		SchemaVersion: 1, ID: "zip-assets", Name: "zip assets",
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "target", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "Game"}},
 			{ID: "check", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-1"}}}},
-			{ID: "clip", Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "clip-1"}}},
 		}},
 	}); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -608,8 +594,6 @@ func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	for _, want := range []string{
 		"assets/records/tpl-1.json",
 		"assets/blobs/" + blobObjectName(templateBlob),
-		"clips/clip-1.json",
-		"clips/blobs/" + blobObjectName(clipBlob),
 	} {
 		if !names[want] {
 			t.Fatalf("zip missing %s; names=%v", want, names)

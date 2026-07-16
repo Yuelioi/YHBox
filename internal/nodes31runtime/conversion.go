@@ -68,6 +68,7 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.TypeTextNodeID:             automationInput(nodes31.TypeTextNodeID, automationinstalled.OperationTypeText),
 		nodes31.ActivateWindowNodeID:       activateWindow(),
 		nodes31.CaptureWindowNodeID:        captureWindow(builtins),
+		nodes31.PlayInputClipNodeID:        playInputClip(),
 		nodes31.LogNodeID:                  writeLog(dependencies.Log),
 		nodes31.ThrowNodeID:                throwFailure(),
 	}

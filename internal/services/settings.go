@@ -67,6 +67,7 @@ type InstalledAutomationTargetSettings struct {
 	WindowClass                string          `json:"windowClass"`
 	InputBackend               string          `json:"inputBackend"`
 	CaptureBackend             string          `json:"captureBackend"`
+	MouseCounts360             int64           `json:"mouseCounts360"`
 	ResolveTimeoutMilliseconds int64           `json:"resolveTimeoutMilliseconds"`
 	WorkflowConsent            artifact.Digest `json:"workflowConsent,omitempty"`
 }
@@ -76,7 +77,7 @@ func (configured InstalledAutomationTargetSettings) profileDraft(application Ins
 	identity.Arguments = []string{}
 	return automationinstalled.ProfileDraft{
 		Application: identity, WindowTitle: configured.WindowTitle, WindowClass: configured.WindowClass,
-		InputBackend: configured.InputBackend, CaptureBackend: configured.CaptureBackend, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
+		InputBackend: configured.InputBackend, CaptureBackend: configured.CaptureBackend, MouseCounts360: configured.MouseCounts360, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
 	}
 }
 

@@ -1,4 +1,4 @@
-// Package io IO 节点 (Log / Toast / PlayClip).
+// Package io contains legacy IO nodes.
 package io
 
 import (

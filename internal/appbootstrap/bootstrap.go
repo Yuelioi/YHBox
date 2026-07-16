@@ -293,6 +293,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
+	automationPlayback, err := lookup(nodes31.AutomationPlaybackCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
 		Features: scriptRuntime.HostFeatures(),
@@ -371,6 +375,7 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 					{Capability: automationInput, ResourceKind: automationinstalled.KindInput},
 					{Capability: automationWindow, ResourceKind: automationinstalled.KindWindow},
 					{Capability: automationCapture, ResourceKind: automationinstalled.KindCapture},
+					{Capability: automationPlayback, ResourceKind: automationinstalled.KindPlayback},
 				},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}

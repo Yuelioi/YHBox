@@ -1,5 +1,7 @@
 package inputclip
 
+import "github.com/yottaapp/yotta/internal/blob"
+
 // EventType uint8 枚举 — 跨 Go / TS / binary 一致.
 // 不要改值, binary codec 直接存这些数字.
 type EventType uint8
@@ -37,13 +39,6 @@ func (e Event) Less(o Event) bool {
 	return e.Seq < o.Seq
 }
 
-// Range 保留区间 — 注意: keepRanges 不在 InputClip 里, 在 PlayClipNodeConfig 里.
-// 此 type 共用. fromUs inclusive, toUs exclusive.
-type Range struct {
-	FromUs uint64 `json:"fromUs"`
-	ToUs   uint64 `json:"toUs"`
-}
-
 // ClipMeta 录制环境快照.
 type ClipMeta struct {
 	MouseMode      string `json:"mouseMode"`      // 'relative' | 'absolute' | 'mixed'
@@ -52,18 +47,19 @@ type ClipMeta struct {
 	StopHotkeyVK   uint32 `json:"stopHotkeyVK"`   // 默认 0x7B (F12)
 }
 
-// InputClip immutable 资产. 一旦录完, 字段都不变.
-// keepRanges 不在这里 — 在 PlayClipNodeConfig 里 (允许不同 PlayClip 各自 trim).
+// InputClip carrier content is immutable after recording. Presentation metadata
+// lives in the asset record and does not participate in content identity.
 type InputClip struct {
-	ID          string   `json:"id"`
-	Label       string   `json:"label"`
-	Description string   `json:"description,omitempty"`
-	Category    string   `json:"category,omitempty"` // 库分组用; 同子图 Category 语义
-	Tags        []string `json:"tags,omitempty"`
-	DurationUs  uint64   `json:"durationUs"` // = Events[last].TUs (Events[0].TUs ≡ 0)
-	CreatedAt   string   `json:"createdAt"`  // RFC3339
-	Meta        ClipMeta `json:"meta"`
-	Events      []Event  `json:"-"` // 序列化走 binary chunk 上盘, 不进 JSON RPC. 前端不需要逐 event — 回放走 ClipResolver, timeline 只画 durationUs.
+	ID          string       `json:"id"`
+	Label       string       `json:"label"`
+	Description string       `json:"description,omitempty"`
+	Category    string       `json:"category,omitempty"` // 库分组用; 同子图 Category 语义
+	Tags        []string     `json:"tags,omitempty"`
+	DurationUs  uint64       `json:"durationUs"` // = Events[last].TUs (Events[0].TUs ≡ 0)
+	CreatedAt   string       `json:"createdAt"`  // RFC3339
+	Meta        ClipMeta     `json:"meta"`
+	Blob        blob.BlobRef `json:"blob"`
+	Events      []Event      `json:"-"` // binary carrier only; RPC exposes metadata and the nominal BlobRef.
 }
 
 // UpdateDuration 录制 Stop 时 / 加载校验时调.

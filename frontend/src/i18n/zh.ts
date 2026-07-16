@@ -918,6 +918,10 @@ export default {
       },
     },
     automation: {
+      inputClip: {
+        title: '输入录制片段',
+        description: '仅以持久 nominal BlobRef 传递的内容寻址输入录制。',
+      },
       pointer_button: { title: '指针按键', description: '左键、右键或中键。' },
       key_code: { title: '按键码', description: '可注入到精确安装目标的规范化键盘按键。' },
     },
@@ -1087,6 +1091,10 @@ export default {
       captureWindow: {
         title: '截取窗口',
         description: '重新验证精确安装窗口，通过配置的后端截取 PNG，并提交持久 Image BlobRef。',
+      },
+      playInputClip: {
+        title: '回放输入录制',
+        description: '读取并校验 InputClip BlobRef，在一个独占的精确目标会话中按序回放全部事件。',
       },
     },
     observability: {
@@ -3593,6 +3601,7 @@ export default {
       configuration: '配置',
       inputs: '输入',
       reference_only: '此端口只接受兼容连线传入的 {carrier} 引用。',
+      select_clip: '选择输入录制',
       use_default: '使用默认值',
       clear: '清除',
       capabilities: '能力要求',
@@ -4619,6 +4628,9 @@ export default {
       capture_backend_label: '固定截图后端',
       capture_backend_hint:
         'GDI 与 Windows Graphics Capture 是显式契约。后端不可用时安装失败，运行时绝不降级。',
+      mouse_counts_label: '鼠标转动一周计数',
+      mouse_counts_hint:
+        '精确回放相对鼠标位移所需的硬件校准值。只有目标永不回放相对位移时才可设为 0。',
       window_title_label: '精确窗口标题（可选）',
       window_title_hint: '区分大小写的完整匹配，不支持包含、正则或通配符。',
       window_class_label: '精确窗口类（可选）',

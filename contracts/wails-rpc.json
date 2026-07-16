@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 139,
+    "methods": 138,
     "models": 157
   },
   "services": [
@@ -1098,18 +1098,6 @@
           "bindingId": "2446416853",
           "parameters": [],
           "returns": "$CancellablePromise<$models.ClipSummary[]>"
-        },
-        {
-          "name": "Resolve",
-          "bindingId": "1467283783",
-          "parameters": [
-            {
-              "name": "id",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<[$models.InputClip | null, boolean]>"
         },
         {
           "name": "Save",
@@ -2899,10 +2887,6 @@
               "value": "\"stopwatches\""
             },
             {
-              "name": "RuntimeCapabilityClip",
-              "value": "\"clip\""
-            },
-            {
               "name": "RuntimeCapabilitySubgraphs",
               "value": "\"subgraphs\""
             },
@@ -4349,6 +4333,11 @@
               "name": "\"eventCount\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
             }
           ]
         },
@@ -4395,6 +4384,11 @@
               "name": "\"meta\"",
               "optional": false,
               "type": "ClipMeta"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
             }
           ]
         }
@@ -4649,6 +4643,11 @@
               "name": "\"captureBackend\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"mouseCounts360\"",
+              "optional": false,
+              "type": "number"
             },
             {
               "name": "\"resolveTimeoutMilliseconds\"",

@@ -37,7 +37,7 @@ func TestPostMessageBackend_RejectsDeadTargetWithoutTrackingState(t *testing.T) 
 		t.Fatal("KeyDown accepted a dead target")
 	}
 	b.mu.Lock()
-	_, hasW := b.heldKeys["W"]
+	_, hasW := b.heldKeys[VK("W")]
 	b.mu.Unlock()
 	if hasW {
 		t.Error("failed KeyDown must not track held state")

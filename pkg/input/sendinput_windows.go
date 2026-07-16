@@ -177,6 +177,13 @@ func (b *sendInputBackend) KeyDown(_ win.HWND, vk string) error {
 	if code == 0 {
 		return fmt.Errorf("sendinput KeyDown: unknown vk %q", vk)
 	}
+	return b.KeyDownCode(0, code)
+}
+
+func (b *sendInputBackend) KeyDownCode(_ win.HWND, code uint32) error {
+	if code == 0 || code > 255 {
+		return fmt.Errorf("sendinput KeyDown: invalid virtual key %d", code)
+	}
 	if err := sendKeyEvent(code, false); err != nil {
 		return err
 	}
@@ -190,6 +197,13 @@ func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
 	code := VK(vk)
 	if code == 0 {
 		return fmt.Errorf("sendinput KeyUp: unknown vk %q", vk)
+	}
+	return b.KeyUpCode(0, code)
+}
+
+func (b *sendInputBackend) KeyUpCode(_ win.HWND, code uint32) error {
+	if code == 0 || code > 255 {
+		return fmt.Errorf("sendinput KeyUp: invalid virtual key %d", code)
 	}
 	if err := sendKeyEvent(code, true); err != nil {
 		return err

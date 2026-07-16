@@ -35,10 +35,8 @@ type Service struct {
 	runner   Runner
 	onChange ChangeListener
 
-	// hasTemplate / hasClip: 注入式查全局 asset 库某 GUID 是否存在 (validator 存在性检查用).
-	// main.go 注入 (查 asset.Store). nil → 校验时跳过该 kind 存在性检查.
+	// hasTemplate: injected lookup for legacy template references.
 	hasTemplate func(guid string) bool
-	hasClip     func(guid string) bool
 
 	// postDelete 容器删除完成后回调 (main.go 注入: 匿名子图 GC — 锁序 Container → Subgraph).
 	postDelete func()
@@ -48,13 +46,10 @@ func NewService(store *Store) *Service {
 	return &Service{store: store}
 }
 
-// ConfigureAssetExistence 注入资产存在性查询 (main.go 用全局 asset.Store).
-// 校验时 CheckTemplate/ClickTemplate/WaitTemplate 引用的 GUID 不存在 → TEMPLATE_NOT_FOUND;
-// PlayClip 引用的 GUID 不存在 → CLIP_NOT_FOUND.
+// ConfigureTemplateExistence injects the legacy template lookup without exposing an RPC method.
 // 包级配置函数不会进入 Wails Service 的 RPC 方法集。
-func ConfigureAssetExistence(s *Service, hasTemplate, hasClip func(guid string) bool) {
+func ConfigureTemplateExistence(s *Service, hasTemplate func(guid string) bool) {
 	s.hasTemplate = hasTemplate
-	s.hasClip = hasClip
 }
 
 // ConfigureRunner 启动期 main.go 注入。Runner=nil 时 Run/Stop 返 error。
@@ -204,8 +199,8 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 		}
 	}
 	sgs := s.store.subgraphsFor(&c)
-	if s.hasTemplate != nil || s.hasClip != nil {
-		return ValidateContainerWithDepsAndRegistry(&c, sgs, s.hasTemplate, s.hasClip, s.store.registry)
+	if s.hasTemplate != nil {
+		return ValidateContainerWithDepsAndRegistry(&c, sgs, s.hasTemplate, s.store.registry)
 	}
 	return ValidateContainerWithRegistry(&c, sgs, s.store.registry)
 }

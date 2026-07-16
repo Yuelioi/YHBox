@@ -102,6 +102,7 @@ describe('settings store · patchAIProfiles', () => {
       windowClass: 'EditorWindow',
       inputBackend: 'sendinput' as const,
       captureBackend: 'gdi' as const,
+      mouseCounts360: 0,
       resolveTimeoutMilliseconds: 3000,
     }
     await store.patchAutomationTargets([target])

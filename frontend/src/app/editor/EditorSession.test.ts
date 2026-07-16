@@ -26,6 +26,10 @@ const retry = authoring.body.nodes.find((node) =>
   node.nodeRef.nodeTypeId.includes('/control/retry/'),
 )!
 
+const blobToStream = authoring.body.nodes.find((node) =>
+  node.nodeRef.nodeTypeId.includes('/blob-to-stream/'),
+)!
+
 describe('EditorSession', () => {
   it('owns revision, history, compile, save and Program Run facts', async () => {
     const source = emptySource()
@@ -70,9 +74,6 @@ describe('EditorSession', () => {
     const ids = ['blob_to_stream', 'concat']
     const session = new EditorSession(transport, () => ids.shift() ?? 'unused')
     await session.load(source.workflow.id)
-    const blobToStream = authoring.body.nodes.find((node) =>
-      node.nodeRef.nodeTypeId.includes('/blob-to-stream/'),
-    )!
     session.apply({
       kind: 'add-node',
       nodeTypeId: blobToStream.nodeRef.nodeTypeId,
@@ -94,6 +95,31 @@ describe('EditorSession', () => {
         },
       }),
     ).toThrow('not assignable')
+  })
+
+  it('persists BlobRef bindings through the authoring patch protocol', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'blob_to_stream')
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: blobToStream.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+    const blob = {
+      mediaType: 'application/octet-stream',
+      digest: `sha256:${'a'.repeat(64)}`,
+      size: 12,
+    }
+    session.apply({ kind: 'bind-blob', nodeId: 'blob_to_stream', portId: 'blob', blob })
+    expect(session.currentGraph?.nodes[0].bindings.blob).toEqual({ kind: 'blob', blob })
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(
+      source.workflow.id,
+      0,
+      expect.arrayContaining([expect.objectContaining({ kind: 'bind-blob' })]),
+    )
   })
 
   it('uses nominal union and list assignability from the 3.1 contract', () => {

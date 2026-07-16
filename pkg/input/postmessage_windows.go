@@ -22,7 +22,7 @@ import (
 // 的成熟实现. 本 struct 只加 state 跟踪 + interface 适配.
 type PostMessageBackend struct {
 	mu        sync.Mutex
-	heldKeys  map[string]win.HWND           // vk name → exact target window
+	heldKeys  map[uint32]win.HWND           // virtual key → exact target window
 	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 按下时客户区坐标
 	activated map[win.HWND]bool             // hwnd → 是否已 FakeActivate 过
 	cursor    map[win.HWND]point            // exact target client position; never moves the global cursor
@@ -30,7 +30,7 @@ type PostMessageBackend struct {
 
 func newPostMessageBackend() *PostMessageBackend {
 	return &PostMessageBackend{
-		heldKeys:  map[string]win.HWND{},
+		heldKeys:  map[uint32]win.HWND{},
 		heldBtns:  map[win.HWND]map[string]point{},
 		activated: map[win.HWND]bool{},
 		cursor:    map[win.HWND]point{},
@@ -95,16 +95,23 @@ func (b *PostMessageBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button
 }
 
 func (b *PostMessageBackend) KeyDown(hwnd win.HWND, vk string) error {
-	b.ensureActivated(hwnd)
 	code := VK(vk)
 	if code == 0 {
 		return fmt.Errorf("postmessage KeyDown: unknown vk %q", vk)
 	}
+	return b.KeyDownCode(hwnd, code)
+}
+
+func (b *PostMessageBackend) KeyDownCode(hwnd win.HWND, code uint32) error {
+	if code == 0 || code > 255 {
+		return fmt.Errorf("postmessage KeyDown: invalid virtual key %d", code)
+	}
+	b.ensureActivated(hwnd)
 	if err := postMessageChecked(hwnd, WM_KEYDOWN, uintptr(code), keyLParam(code, false)); err != nil {
 		return err
 	}
 	b.mu.Lock()
-	b.heldKeys[vk] = hwnd
+	b.heldKeys[code] = hwnd
 	b.mu.Unlock()
 	return nil
 }
@@ -114,11 +121,18 @@ func (b *PostMessageBackend) KeyUp(hwnd win.HWND, vk string) error {
 	if code == 0 {
 		return fmt.Errorf("postmessage KeyUp: unknown vk %q", vk)
 	}
+	return b.KeyUpCode(hwnd, code)
+}
+
+func (b *PostMessageBackend) KeyUpCode(hwnd win.HWND, code uint32) error {
+	if code == 0 || code > 255 {
+		return fmt.Errorf("postmessage KeyUp: invalid virtual key %d", code)
+	}
 	if err := postMessageChecked(hwnd, WM_KEYUP, uintptr(code), keyLParam(code, true)); err != nil {
 		return err
 	}
 	b.mu.Lock()
-	delete(b.heldKeys, vk)
+	delete(b.heldKeys, code)
 	b.mu.Unlock()
 	return nil
 }
@@ -272,7 +286,7 @@ func (b *PostMessageBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notch
 // ReleaseAll 放所有 held key + button. backend stateful 设计的核心.
 func (b *PostMessageBackend) ReleaseAll() error {
 	b.mu.Lock()
-	keys := make(map[string]win.HWND, len(b.heldKeys))
+	keys := make(map[uint32]win.HWND, len(b.heldKeys))
 	for key, hwnd := range b.heldKeys {
 		keys[key] = hwnd
 	}
@@ -285,12 +299,7 @@ func (b *PostMessageBackend) ReleaseAll() error {
 	b.mu.Unlock()
 	var result error
 	for key, hwnd := range keys {
-		code := VK(key)
-		if code == 0 {
-			result = errors.Join(result, fmt.Errorf("release unknown key %q", key))
-			continue
-		}
-		if err := postMessageChecked(hwnd, WM_KEYUP, uintptr(code), keyLParam(code, true)); err != nil {
+		if err := postMessageChecked(hwnd, WM_KEYUP, uintptr(key), keyLParam(key, true)); err != nil {
 			result = errors.Join(result, err)
 			continue
 		}

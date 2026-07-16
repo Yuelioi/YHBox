@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -18,11 +19,12 @@ import (
 )
 
 const (
-	ProviderABI = "https://schemas.yotta.dev/provider-abi/resource/v1"
-	TargetKind  = target.KindWin32Window
-	KindInput   = "automation/input-session"
-	KindWindow  = "automation/window-session"
-	KindCapture = "automation/capture-session"
+	ProviderABI  = "https://schemas.yotta.dev/provider-abi/resource/v1"
+	TargetKind   = target.KindWin32Window
+	KindInput    = "automation/input-session"
+	KindWindow   = "automation/window-session"
+	KindCapture  = "automation/capture-session"
+	KindPlayback = "automation/playback-session"
 
 	OperationClick        = "click"
 	OperationMove         = "move"
@@ -34,6 +36,8 @@ const (
 	OperationActivate     = "activate"
 	OperationCapture      = "capture"
 	OperationReadCapture  = "read-capture"
+	OperationPlayEvent    = "play-event"
+	OperationReleaseHeld  = "release-held"
 
 	CodeInvalidRequest    = "automation.invalid_request"
 	CodeIdentityChanged   = "automation.identity_changed"
@@ -42,6 +46,8 @@ const (
 	CodeInputFailed       = "automation.input_failed"
 	CodeWindowFailed      = "automation.window_failed"
 	CodeCaptureFailed     = "automation.capture_failed"
+	CodePlaybackFailed    = "automation.playback_failed"
+	CodePlaybackBusy      = "automation.playback_busy"
 	CodeUnsupportedHost   = "automation.unsupported_host"
 	CodeContractViolation = "automation.contract_violation"
 
@@ -57,13 +63,16 @@ var inputOperations = []string{
 }
 var windowOperations = []string{OperationActivate}
 var captureOperations = []string{OperationCapture, OperationReadCapture}
+var playbackOperations = []string{OperationPlayEvent, OperationReleaseHeld}
 
-func InputOperations() []string   { return append([]string(nil), inputOperations...) }
-func WindowOperations() []string  { return append([]string(nil), windowOperations...) }
-func CaptureOperations() []string { return append([]string(nil), captureOperations...) }
+func InputOperations() []string    { return append([]string(nil), inputOperations...) }
+func WindowOperations() []string   { return append([]string(nil), windowOperations...) }
+func CaptureOperations() []string  { return append([]string(nil), captureOperations...) }
+func PlaybackOperations() []string { return append([]string(nil), playbackOperations...) }
 func Operations() []string {
 	operations := append(InputOperations(), windowOperations...)
-	return append(operations, captureOperations...)
+	operations = append(operations, captureOperations...)
+	return append(operations, playbackOperations...)
 }
 
 func validSessionOperation(kind, operation string) bool {
@@ -146,21 +155,55 @@ type CaptureRangeRequest struct {
 	Length int64 `json:"length"`
 }
 
+const (
+	PlaybackKeyDown      = "key-down"
+	PlaybackKeyUp        = "key-up"
+	PlaybackButtonDown   = "button-down"
+	PlaybackButtonUp     = "button-up"
+	PlaybackMove         = "move"
+	PlaybackMoveRelative = "move-relative"
+	PlaybackScroll       = "scroll"
+)
+
+type PlaybackEvent struct {
+	Kind            string `json:"kind"`
+	KeyCode         uint32 `json:"keyCode,omitempty"`
+	Point           *Point `json:"point,omitempty"`
+	Button          string `json:"button,omitempty"`
+	DeltaX          int64  `json:"deltaX,omitempty"`
+	DeltaY          int64  `json:"deltaY,omitempty"`
+	SourceCounts360 int64  `json:"sourceCounts360,omitempty"`
+	Notches         int64  `json:"notches,omitempty"`
+}
+
 type driver interface {
 	Execute(context.Context, string, any) error
 	Capture(context.Context) ([]byte, error)
+	PlayEvent(context.Context, PlaybackEvent) error
+	ReleaseInput() error
 	Close() error
 }
 
 type provider struct {
-	profile   Profile
-	driver    driver
-	closeOnce sync.Once
-	closeErr  error
+	profile       Profile
+	driver        driver
+	closeOnce     sync.Once
+	closeErr      error
+	stateMu       sync.Mutex
+	inputSessions int
+	playbackOpen  bool
 }
 type session struct {
+	mu             sync.Mutex
+	operation      string
+	inputAuthority bool
+	closed         bool
+}
+type playbackSession struct {
 	mu        sync.Mutex
-	operation string
+	verified  bool
+	residualX float64
+	residualY float64
 	closed    bool
 }
 type captureSession struct {
@@ -198,6 +241,22 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 		}
 		return &captureSession{}, nil
 	}
+	if request.Kind == KindPlayback {
+		if !slices.Equal(request.Operations, playbackOperations) {
+			return nil, failure(CodeContractViolation, errors.New("playback session requires exact operations"))
+		}
+		var scope CapabilityScope
+		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != "play" {
+			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
+		}
+		p.stateMu.Lock()
+		defer p.stateMu.Unlock()
+		if p.playbackOpen || p.inputSessions != 0 {
+			return nil, failure(CodePlaybackBusy, errors.New("installed target input authority is already in use"))
+		}
+		p.playbackOpen = true
+		return &playbackSession{}, nil
+	}
 	if len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
 		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
@@ -205,17 +264,30 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
 		return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
 	}
-	return &session{operation: scope.Operation}, nil
+	inputAuthority := request.Kind == KindInput
+	if inputAuthority {
+		p.stateMu.Lock()
+		defer p.stateMu.Unlock()
+		if p.playbackOpen {
+			return nil, failure(CodePlaybackBusy, errors.New("installed target playback is active"))
+		}
+		p.inputSessions++
+	}
+	return &session{operation: scope.Operation, inputAuthority: inputAuthority}, nil
 }
 
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
 	opened, ok := object.(*session)
 	if !ok {
 		capture, captureOK := object.(*captureSession)
-		if !captureOK {
-			return nil, failure(CodeContractViolation, errors.New("automation object has the wrong type"))
+		if captureOK {
+			return p.invokeCapture(ctx, capture, operation, payload)
 		}
-		return p.invokeCapture(ctx, capture, operation, payload)
+		playback, playbackOK := object.(*playbackSession)
+		if playbackOK {
+			return p.invokePlayback(ctx, playback, operation, payload)
+		}
+		return nil, failure(CodeContractViolation, errors.New("automation object has the wrong type"))
 	}
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
@@ -244,6 +316,65 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 		return nil, failure(code, err)
 	}
 	return artifact.Marshal(struct{}{})
+}
+
+func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, operation string, payload []byte) ([]byte, error) {
+	opened.mu.Lock()
+	defer opened.mu.Unlock()
+	if opened.closed {
+		return nil, failure(CodeContractViolation, errors.New("automation playback session is closed"))
+	}
+	switch operation {
+	case OperationPlayEvent:
+		var event PlaybackEvent
+		if err := decodeExact(payload, &event, 4096); err != nil || validatePlaybackEvent(event) != nil {
+			return nil, failure(CodeInvalidRequest, errors.New("playback event is invalid"))
+		}
+		if !opened.verified {
+			if err := VerifyProfile(p.profile); err != nil {
+				return nil, failure(CodeIdentityChanged, err)
+			}
+			opened.verified = true
+		}
+		if event.Kind == PlaybackMoveRelative {
+			targetCounts := p.profile.Machine().MouseCounts360
+			if event.SourceCounts360 <= 0 || targetCounts <= 0 {
+				return nil, failure(CodePlaybackFailed, errors.New("relative playback requires source and target calibration"))
+			}
+			factor := float64(targetCounts) / float64(event.SourceCounts360)
+			scaledX := float64(event.DeltaX)*factor + opened.residualX
+			scaledY := float64(event.DeltaY)*factor + opened.residualY
+			roundedX, roundedY := math.Round(scaledX), math.Round(scaledY)
+			opened.residualX, opened.residualY = scaledX-roundedX, scaledY-roundedY
+			event.DeltaX, event.DeltaY = int64(roundedX), int64(roundedY)
+		}
+		if err := p.driver.PlayEvent(ctx, event); err != nil {
+			return nil, classifyPlaybackFailure(err)
+		}
+		return artifact.Marshal(struct{}{})
+	case OperationReleaseHeld:
+		var request struct{}
+		if err := decodeExact(payload, &request, 32); err != nil {
+			return nil, failure(CodeInvalidRequest, err)
+		}
+		if err := p.driver.ReleaseInput(); err != nil {
+			return nil, classifyPlaybackFailure(err)
+		}
+		return artifact.Marshal(struct{}{})
+	default:
+		return nil, failure(CodeContractViolation, errors.New("playback operation is not granted"))
+	}
+}
+
+func classifyPlaybackFailure(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	var classified *Failure
+	if errors.As(err, &classified) {
+		return err
+	}
+	return failure(CodePlaybackFailed, err)
 }
 
 func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, operation string, payload []byte) ([]byte, error) {
@@ -299,20 +430,52 @@ func (p *provider) Close(_ context.Context, object any) error {
 	opened, ok := object.(*session)
 	if !ok {
 		capture, captureOK := object.(*captureSession)
-		if !captureOK {
+		if captureOK {
+			capture.mu.Lock()
+			clear(capture.data)
+			capture.data = nil
+			capture.closed = true
+			capture.mu.Unlock()
+			return nil
+		}
+		playback, playbackOK := object.(*playbackSession)
+		if !playbackOK {
 			return failure(CodeContractViolation, errors.New("automation object has the wrong type"))
 		}
-		capture.mu.Lock()
-		clear(capture.data)
-		capture.data = nil
-		capture.closed = true
-		capture.mu.Unlock()
-		return nil
+		playback.mu.Lock()
+		if playback.closed {
+			playback.mu.Unlock()
+			return nil
+		}
+		playback.closed = true
+		releaseErr := p.driver.ReleaseInput()
+		playback.mu.Unlock()
+		p.stateMu.Lock()
+		p.playbackOpen = false
+		p.stateMu.Unlock()
+		return classifyPlaybackCloseFailure(releaseErr)
 	}
 	opened.mu.Lock()
+	if opened.closed {
+		opened.mu.Unlock()
+		return nil
+	}
 	opened.closed = true
+	inputAuthority := opened.inputAuthority
 	opened.mu.Unlock()
+	if inputAuthority {
+		p.stateMu.Lock()
+		p.inputSessions--
+		p.stateMu.Unlock()
+	}
 	return nil
+}
+
+func classifyPlaybackCloseFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	return classifyPlaybackFailure(err)
 }
 
 func (p *provider) CloseHost() error {
@@ -462,6 +625,39 @@ func validButton(button string) bool {
 	return button == "left" || button == "right" || button == "middle"
 }
 func validDuration(value int64) bool { return value >= 0 && value <= MaxInputDurationMs }
+
+func validatePlaybackEvent(event PlaybackEvent) error {
+	emptyPoint := event.Point == nil
+	unusedKey := event.KeyCode == 0
+	unusedButton := event.Button == ""
+	unusedDelta := event.DeltaX == 0 && event.DeltaY == 0 && event.SourceCounts360 == 0
+	unusedNotches := event.Notches == 0
+	switch event.Kind {
+	case PlaybackKeyDown, PlaybackKeyUp:
+		if !emptyPoint || !unusedButton || !unusedDelta || !unusedNotches || event.KeyCode == 0 || event.KeyCode > 255 {
+			return errors.New("invalid playback key event")
+		}
+	case PlaybackButtonDown, PlaybackButtonUp:
+		if !unusedKey || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil || !validButton(event.Button) {
+			return errors.New("invalid playback button event")
+		}
+	case PlaybackMove:
+		if !unusedKey || !unusedButton || !unusedDelta || !unusedNotches || emptyPoint || validatePoint(*event.Point) != nil {
+			return errors.New("invalid playback move event")
+		}
+	case PlaybackMoveRelative:
+		if !unusedKey || !unusedButton || !emptyPoint || !unusedNotches || event.SourceCounts360 <= 0 || event.SourceCounts360 > 10_000_000 || event.DeltaX < -1<<31 || event.DeltaX > 1<<31-1 || event.DeltaY < -1<<31 || event.DeltaY > 1<<31-1 {
+			return errors.New("invalid playback relative event")
+		}
+	case PlaybackScroll:
+		if !unusedKey || !unusedButton || !unusedDelta || emptyPoint || validatePoint(*event.Point) != nil || event.Notches == 0 || event.Notches < -100 || event.Notches > 100 {
+			return errors.New("invalid playback scroll event")
+		}
+	default:
+		return errors.New("invalid playback event kind")
+	}
+	return nil
+}
 func decodeExact(raw []byte, target any, maximum int) error {
 	if len(raw) == 0 || len(raw) > maximum {
 		return errors.New("JSON document exceeds byte budget")

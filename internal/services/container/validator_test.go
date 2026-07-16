@@ -225,29 +225,6 @@ func TestValidator_CyclicIndirect(t *testing.T) {
 	}
 }
 
-func TestValidatePlayClip_MissingClipID(t *testing.T) {
-	c := &Container{
-		Graph: Graph{
-			Nodes: []GraphNode{
-				{ID: "s", Kind: "Start"},
-				{ID: "p", Kind: "PlayClip", Config: map[string]any{}},
-				{ID: "p2", Kind: "PlayClip", Config: map[string]any{"ClipID": ""}},
-				{ID: "p3", Kind: "PlayClip", Config: map[string]any{"ClipID": "abc"}},
-			},
-		},
-	}
-	errs := ValidateContainer(c, nil)
-	found := 0
-	for _, e := range errs {
-		if e.Code == CodePlayClipNoClipID {
-			found++
-		}
-	}
-	if found != 2 {
-		t.Fatalf("期望 PLAYCLIP_NO_CLIP_ID 报 2 次, 实际 %d (errs: %+v)", found, errs)
-	}
-}
-
 func TestValidator_HappyPath(t *testing.T) {
 	c := minContainer()
 	errs := ValidateContainer(c, nil)

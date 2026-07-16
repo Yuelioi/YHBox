@@ -42,7 +42,6 @@ const (
 	CodeMultipleStarts             = "MULTIPLE_STARTS"
 	CodeNoStart                    = "NO_START"
 	CodeCyclicSubgraphDependency   = "CYCLIC_SUBGRAPH_DEPENDENCY"
-	CodePlayClipNoClipID           = "PLAYCLIP_NO_CLIP_ID"
 	CodeMissingRequiredPin         = "MISSING_REQUIRED_PIN"
 	CodeUnknownLiteralPin          = "UNKNOWN_LITERAL_PIN"
 )
@@ -124,7 +123,6 @@ const (
 
 	// Template / dependency codes (GUID 存在性校验, 无格式校验)
 	CodeTemplateNotFound = "TEMPLATE_NOT_FOUND"
-	CodeClipNotFound     = "CLIP_NOT_FOUND"
 )
 
 // ValidationError is the i18n-ready error envelope.
@@ -178,7 +176,6 @@ func ValidateContainerWithRegistry(c *Container, sgs []Subgraph, registry nodepk
 	// 引用检查
 	errs = append(errs, validateInvalidPins(registry, c, sgs)...)
 	errs = append(errs, validateMissingSubgraph(c, sgs)...)
-	errs = append(errs, validatePlayClip(c, sgs)...)
 	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateGetParamNodes(c, sgs)...)
 	errs = append(errs, validateCollapsedReferences(c, sgs)...)
@@ -399,33 +396,6 @@ func validateMissingSubgraph(c *Container, sgs []Subgraph) []ValidationError {
 					Severity: SeverityError, Code: CodeMissingSubgraph,
 					GraphPath: graphPath, NodeID: n.ID,
 					Params: map[string]any{"subgraphId": id},
-				})
-			}
-		}
-	}
-	check(c.Graph.Nodes, []string{"main"})
-	for _, sg := range sgs {
-		sgPath := []string{"main", fmt.Sprintf("subgraph-%s (%s)", sg.Label, sg.ID)}
-		check(sg.Graph.Nodes, sgPath)
-	}
-	return errs
-}
-
-// validatePlayClip 校验 PlayClip 节点必须设 ClipID (空 = 没绑录制片段, 运行时报错).
-// 不校验 ClipID 在 clip store 是否真实存在 (clip 可能在另台机器 / 还没同步过来),
-// 仅静态校验 config.ClipID != "".
-func validatePlayClip(c *Container, sgs []Subgraph) []ValidationError {
-	var errs []ValidationError
-	check := func(nodes []GraphNode, graphPath []string) {
-		for _, n := range nodes {
-			if n.Kind != "PlayClip" {
-				continue
-			}
-			id := PinString(&n, "ClipID")
-			if id == "" {
-				errs = append(errs, ValidationError{
-					Severity: SeverityError, Code: CodePlayClipNoClipID,
-					GraphPath: graphPath, NodeID: n.ID,
 				})
 			}
 		}

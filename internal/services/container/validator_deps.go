@@ -1,32 +1,28 @@
-// validator_deps.go — dependency 存在性检查 (TEMPLATE_NOT_FOUND / CLIP_NOT_FOUND).
-// 调用方注入 hasTemplate / hasClip 让 validator 查 asset 是否存在于容器.
+// validator_deps.go — template dependency existence checks for legacy containers.
 package container
 
 import nodepkg "github.com/yottaapp/yotta/internal/node"
 
 // ValidateContainerWithDeps 在 base validation 之上, 加 dependency 存在性检查.
-// hasTemplate / hasClip 任一为 nil 时跳过对应 kind 检查.
 func ValidateContainerWithDeps(
 	c *Container,
 	sgs []Subgraph,
 	hasTemplate func(key string) bool,
-	hasClip func(id string) bool,
 ) []ValidationError {
-	return ValidateContainerWithDepsAndRegistry(c, sgs, hasTemplate, hasClip, nodepkg.DefaultRegistrySnapshot())
+	return ValidateContainerWithDepsAndRegistry(c, sgs, hasTemplate, nodepkg.DefaultRegistrySnapshot())
 }
 
 func ValidateContainerWithDepsAndRegistry(
 	c *Container,
 	sgs []Subgraph,
 	hasTemplate func(key string) bool,
-	hasClip func(id string) bool,
 	registry nodepkg.RegistryReader,
 ) []ValidationError {
 	errs := ValidateContainerWithRegistry(c, sgs, registry)
-	if hasTemplate == nil && hasClip == nil {
+	if hasTemplate == nil {
 		return errs
 	}
-	// 主图 + 每个子图都扫: template/clip 节点在顶层图也是合法的, 漏扫主图会让
+	// 主图 + 每个子图都扫: template 节点在顶层图也是合法的, 漏扫主图会让
 	// "引用了不存在的 GUID" 在主图上不报错 (运行时静默 miss).
 	checkNodes := func(nodes []GraphNode, graphPath []string) {
 		for _, n := range nodes {
@@ -48,23 +44,6 @@ func ValidateContainerWithDepsAndRegistry(
 							Params:    map[string]any{"key": key},
 						})
 					}
-				}
-			case "PlayClip":
-				if hasClip == nil {
-					continue
-				}
-				id := PinString(&n, "ClipID")
-				if id == "" {
-					continue
-				}
-				if !hasClip(id) {
-					errs = append(errs, ValidationError{
-						Severity:  SeverityError,
-						Code:      CodeClipNotFound,
-						GraphPath: graphPath,
-						NodeID:    n.ID,
-						Params:    map[string]any{"id": id},
-					})
 				}
 			}
 		}

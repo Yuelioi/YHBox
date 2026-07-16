@@ -341,8 +341,6 @@ func (s ServiceBundle) runtimeCapabilityAvailable(capability RuntimeCapability) 
 		return s.Capture != nil, true
 	case RuntimeCapabilityStopwatches:
 		return s.Stopwatches != nil, true
-	case RuntimeCapabilityClip:
-		return s.Clip != nil, true
 	case RuntimeCapabilitySubgraphs:
 		return s.Subgraphs != nil, true
 	case RuntimeCapabilityAI:

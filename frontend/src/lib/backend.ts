@@ -324,6 +324,7 @@ export interface InstalledAutomationTargetProfile {
   windowClass: string
   inputBackend: 'sendinput' | 'postmessage'
   captureBackend: 'gdi' | 'wgc'
+  mouseCounts360: number
   resolveTimeoutMilliseconds: number
   workflowConsent?: string
 }
@@ -591,7 +592,7 @@ export const backend = {
     getState: () => invoke(RecordingService.GetState),
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
-  // 暴露 list/get/save/update/delete + Resolve (runtime 用, 前端基本不直接调).
+  // Exposes authoring metadata and the nominal content BlobRef; runtime does not call this RPC.
   clipsContainer: {
     list: () => invoke(ClipService.List),
     get: (id: string) => invoke(ClipService.Get, id),
@@ -599,7 +600,6 @@ export const backend = {
     update: (id: string, label: string, description: string, category: string, tags: string[]) =>
       invoke(ClipService.Update, id, label, description, category, tags),
     delete_: (id: string) => invoke(ClipService.Delete, id),
-    resolve: (id: string) => invoke(ClipService.Resolve, id),
   },
   tools: {
     mousePos: (containerID: string, nodeID = '') =>

@@ -9,10 +9,9 @@ import (
 	_ "github.com/yottaapp/yotta/internal/nodes/system"
 )
 
-func TestClosureSplitsAssetsByKind(t *testing.T) {
+func TestClosureSplitsTemplatesAndSubgraphs(t *testing.T) {
 	root := []NodeInfo{
 		{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-root"}}}},
-		{Kind: "PlayClip", Config: map[string]any{"literal": map[string]any{"ClipID": "clip-root"}}},
 		{Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": "sg-a"}}},
 	}
 	subgraphs := map[string][]NodeInfo{
@@ -32,8 +31,5 @@ func TestClosureSplitsAssetsByKind(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.Templates, []string{"tpl-root", "tpl-sub"}) {
 		t.Fatalf("templates: got %v", got.Templates)
-	}
-	if !reflect.DeepEqual(got.Clips, []string{"clip-root"}) {
-		t.Fatalf("clips: got %v", got.Clips)
 	}
 }

@@ -3,6 +3,7 @@ import type {
   Graph,
   InputBinding,
   Node,
+  BlobRef,
   YottaWorkflowSource31,
 } from '../../../../contracts/workflow/3.1/workflow-source'
 import type {
@@ -32,6 +33,7 @@ export type EditorCommand =
   | { kind: 'set-config'; nodeId: string; fieldId: string; value: unknown }
   | { kind: 'clear-config'; nodeId: string; fieldId: string }
   | { kind: 'bind-value'; nodeId: string; portId: string; value: unknown }
+  | { kind: 'bind-blob'; nodeId: string; portId: string; blob: BlobRef }
   | { kind: 'bind-default'; nodeId: string; portId: string }
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
@@ -369,6 +371,16 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             value: jsonValue(command.value),
           },
         }
+      case 'bind-blob':
+        return {
+          kind: command.kind,
+          bindBlob: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            portId: command.portId,
+            blob: clone(command.blob),
+          },
+        }
       case 'bind-default':
         return {
           kind: command.kind,
@@ -498,6 +510,23 @@ function applyCommand(
       const node = requireNode(graph, command.nodeId)
       requireDataInput(node, command.portId, projections)
       node.bindings[command.portId] = { kind: 'value', value: clone(command.value) }
+      graph.edges = graph.edges.filter(
+        (edge) =>
+          !(
+            edge.channel === 'data' &&
+            edge.to.nodeId === command.nodeId &&
+            edge.to.portId === command.portId
+          ),
+      )
+      return
+    }
+    case 'bind-blob': {
+      const node = requireNode(graph, command.nodeId)
+      const port = requireDataInput(node, command.portId, projections)
+      if (!port.type.representations.some((representation) => representation.kind === 'blob-ref'))
+        throw new Error(`port ${command.portId} does not accept BlobRef`)
+      if (!validBlob(command.blob)) throw new Error('BlobRef is invalid')
+      node.bindings[command.portId] = { kind: 'blob', blob: clone(command.blob) }
       graph.edges = graph.edges.filter(
         (edge) =>
           !(
@@ -735,6 +764,15 @@ function jsonValue(value: unknown): WorkflowJSONValue {
     return result
   }
   throw new Error('authoring value must be JSON data')
+}
+
+function validBlob(blob: BlobRef): boolean {
+  return (
+    /^[a-z0-9][a-z0-9!#$&^_.+-]+\/[a-z0-9][a-z0-9!#$&^_.+-]+$/.test(blob.mediaType) &&
+    /^sha256:[0-9a-f]{64}$/.test(blob.digest) &&
+    Number.isSafeInteger(blob.size) &&
+    blob.size >= 0
+  )
 }
 
 function errorText(error: unknown): string {

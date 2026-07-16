@@ -274,11 +274,8 @@ func main() {
 	}
 	gcAnonymousSubgraphs()
 	container.ConfigurePostDelete(containerSvc, gcAnonymousSubgraphs)
-	// validator 存在性检查: 节点引用的模板/clip GUID 必须存在于全局 asset 库.
-	container.ConfigureAssetExistence(containerSvc,
-		assetExistence(assetStore, asset.KindTemplate),
-		assetExistence(assetStore, asset.KindClip),
-	)
+	// Legacy template references still validate against the global asset library.
+	container.ConfigureTemplateExistence(containerSvc, assetExistence(assetStore, asset.KindTemplate))
 
 	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
@@ -286,7 +283,7 @@ func main() {
 	assetReferrers := scanAssetReferrers(containerStore, sgStore)
 	asset.ConfigureReferrerScanner(assetSvc, assetReferrers)
 	// 注: change listener 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
-	nodeoptions.RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
+	nodeoptions.RegisterSubgraphAsyncSource(nodeSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -297,8 +294,8 @@ func main() {
 	// 编辑器用户代码片段 (Script/Expr 放大编辑「片段」菜单): <dataDir>/snippets.json 整存整取.
 	codeSnippetSvc := codesnippet.NewService(filepath.Join(dataDir, "snippets.json"))
 
-	// InputClip remains an authoring asset service. Runtime access moves behind
-	// explicit 3.1 capabilities as the corresponding nodes are migrated.
+	// InputClip remains an authoring asset service; 3.1 playback reads the
+	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore)
 
 	container.ConfigureChangeListener(containerSvc, func() { app.Emit("container:changed", map[string]any{}) })
@@ -340,8 +337,6 @@ func main() {
 			return vk
 		},
 	)
-
-	// clipSvc 提前构造 (runFunc 注入 PlayClip 用 ClipResolver). 全局 clip 库走 wails RPC 给前端.
 
 	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
 	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)

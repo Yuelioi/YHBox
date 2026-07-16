@@ -66,6 +66,7 @@ type Builtins struct {
 	StringType                   datatype.Definition
 	BinaryType                   datatype.Definition
 	ImageType                    datatype.Definition
+	InputClipType                datatype.Definition
 	NumberType                   datatype.Definition
 	IntegerType                  datatype.Definition
 	BooleanType                  datatype.Definition
@@ -94,6 +95,7 @@ type Builtins struct {
 	AutomationInputContracts     []nodecontract.Contract
 	ActivateWindowContract       nodecontract.Contract
 	CaptureWindowContract        nodecontract.Contract
+	PlayInputClipContract        nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -121,6 +123,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	imageType, err := sealImageType()
+	if err != nil {
+		return Builtins{}, err
+	}
+	inputClipType, err := sealInputClipType()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -200,6 +206,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationPlayback, err := sealAutomationPlaybackCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
 	configValidators, err := sealBuiltinConfigValidators()
 	if err != nil {
 		return Builtins{}, err
@@ -209,6 +219,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	captureWindowDefinition, captureWindowContract, err := defineCaptureWindowNode(imageType.TypeRef(), automationCapture, blobWrite)
+	if err != nil {
+		return Builtins{}, err
+	}
+	playInputClipDefinition, playInputClipContract, err := definePlayInputClipNode(inputClipType.TypeRef(), automationPlayback, blobRead)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -325,6 +339,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, automationInputDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, captureWindowDefinition)
+	definitions = append(definitions, playInputClipDefinition)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -338,14 +353,14 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, imageType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow, automationCapture}
+	types := []datatype.Definition{stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
 	}
 	return Builtins{
-		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, NumberType: numberType,
+		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, InputClipType: inputClipType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
@@ -361,6 +376,7 @@ func Build() (Builtins, error) {
 		AutomationInputContracts: automationInputContracts,
 		ActivateWindowContract:   activateWindowContract,
 		CaptureWindowContract:    captureWindowContract,
+		PlayInputClipContract:    playInputClipContract,
 		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil

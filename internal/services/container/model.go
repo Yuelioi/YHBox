@@ -213,7 +213,6 @@ type Installation struct {
 
 type LockDependencies struct {
 	Templates   []string `json:"templates,omitempty"`
-	Clips       []string `json:"clips,omitempty"`
 	Subgraphs   []string `json:"subgraphs,omitempty"`
 	Assets      []string `json:"assets,omitempty"`
 	AISlots     []string `json:"aiSlots,omitempty"`

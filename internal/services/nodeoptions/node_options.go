@@ -5,34 +5,12 @@ import (
 	"strings"
 
 	"github.com/yottaapp/yotta/internal/node"
-	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
-const (
-	AsyncSourceClipIDs     = "clipIDs"
-	AsyncSourceSubgraphIDs = "subgraphIDs"
-)
+const AsyncSourceSubgraphIDs = "subgraphIDs"
 
-func RegisterAssetAsyncSources(nodeSvc *node.NodeService, assetSvc *asset.Service, subgraphSvc *container.SubgraphService) {
-	node.RegisterAsyncSource(nodeSvc, AsyncSourceClipIDs, func(_, _ string, _ map[string]any) ([]node.EnumOption, error) {
-		opts := []node.EnumOption{}
-		if assetSvc == nil {
-			return opts, nil
-		}
-		for _, item := range assetSvc.List() {
-			if item.Kind != asset.KindClip {
-				continue
-			}
-			opts = append(opts, node.EnumOption{
-				Value: item.GUID,
-				Label: formatAssetLabel(item.Name, item.GUID),
-				Meta:  assetMeta(item),
-			})
-		}
-		return opts, nil
-	})
-
+func RegisterSubgraphAsyncSource(nodeSvc *node.NodeService, subgraphSvc *container.SubgraphService) {
 	node.RegisterAsyncSource(nodeSvc, AsyncSourceSubgraphIDs, func(_, specKind string, _ map[string]any) ([]node.EnumOption, error) {
 		opts := []node.EnumOption{}
 		if subgraphSvc == nil {
@@ -50,28 +28,6 @@ func RegisterAssetAsyncSources(nodeSvc *node.NodeService, assetSvc *asset.Servic
 		}
 		return opts, nil
 	})
-}
-
-func formatAssetLabel(name, guid string) string {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return guid
-	}
-	return fmt.Sprintf("%s (%s)", name, guid)
-}
-
-func assetMeta(item asset.AssetSummary) map[string]any {
-	meta := map[string]any{}
-	if item.Name != "" {
-		meta["name"] = item.Name
-	}
-	if item.Category != "" {
-		meta["category"] = item.Category
-	}
-	if len(item.Tags) > 0 {
-		meta["tags"] = item.Tags
-	}
-	return meta
 }
 
 func formatSubgraphLabel(sg container.Subgraph) string {

@@ -1,49 +1,16 @@
 package nodeoptions
 
 import (
-	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
-	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
-	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container"
 )
 
-func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {
-	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assetStore, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := assetStore.PutRecord(asset.AssetRecord{
-		GUID:      "clip-1",
-		Kind:      asset.KindClip,
-		Name:      "Intro clip",
-		Category:  "demo",
-		Tags:      []string{"a"},
-		CreatedAt: time.Now().UTC(),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := assetStore.PutRecord(asset.AssetRecord{
-		GUID:      "tpl-1",
-		Kind:      asset.KindTemplate,
-		Name:      "Template",
-		CreatedAt: time.Now().UTC(),
-	}); err != nil {
-		t.Fatal(err)
-	}
-	assetSvc := asset.NewService(assetStore, nil)
-
+func TestRegisterSubgraphAsyncSourceListsSubgraphs(t *testing.T) {
 	sgStore, err := container.NewSubgraphStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -57,15 +24,7 @@ func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {
 	sgSvc := container.NewSubgraphService(sgStore)
 
 	nodeSvc := node.NewService()
-	RegisterAssetAsyncSources(nodeSvc, assetSvc, sgSvc)
-
-	clips, err := nodeSvc.AsyncOptions("", "PlayClip", AsyncSourceClipIDs, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(clips) != 1 || clips[0].Value != "clip-1" || clips[0].Label == "" {
-		t.Fatalf("clip options = %+v", clips)
-	}
+	RegisterSubgraphAsyncSource(nodeSvc, sgSvc)
 
 	visible, err := nodeSvc.AsyncOptions("", "Subgraph", AsyncSourceSubgraphIDs, nil)
 	if err != nil {
@@ -85,22 +44,13 @@ func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {
 }
 
 func TestAllDeclaredAsyncSourcesRegisteredByComposition(t *testing.T) {
-	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assetStore, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
 	sgStore, err := container.NewSubgraphStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	nodeSvc := node.NewService()
-	RegisterAssetAsyncSources(nodeSvc, asset.NewService(assetStore, nil), container.NewSubgraphService(sgStore))
+	RegisterSubgraphAsyncSource(nodeSvc, container.NewSubgraphService(sgStore))
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
 
 	registered := map[string]bool{}

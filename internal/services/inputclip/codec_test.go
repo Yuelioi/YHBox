@@ -22,8 +22,8 @@ func TestEncodeEmptyClip(t *testing.T) {
 		t.Errorf("magic = %q, want ICLP", got[:4])
 	}
 	// version 4 字节 little-endian
-	if got[4] != 1 || got[5] != 0 || got[6] != 0 || got[7] != 0 {
-		t.Errorf("version = % x, want 01 00 00 00", got[4:8])
+	if got[4] != 2 || got[5] != 0 || got[6] != 0 || got[7] != 0 {
+		t.Errorf("version = % x, want 02 00 00 00", got[4:8])
 	}
 }
 
@@ -46,14 +46,49 @@ func TestEncodeWithEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode failed: %v", err)
 	}
-	if got.ID != "t1" || got.Label != "with-events" {
-		t.Errorf("header round-trip 错: %+v", got)
+	if got.ID != "" || got.Label != "" {
+		t.Errorf("content carrier leaked mutable asset metadata: %+v", got)
 	}
 	if len(got.Events) != 2 {
 		t.Fatalf("events len = %d, want 2", len(got.Events))
 	}
 	if got.Events[0].A != 0x57 || got.Events[1].TUs != 100000 {
 		t.Errorf("events 字段错: %+v", got.Events)
+	}
+}
+
+func TestCodecContentIdentityExcludesPresentationMetadata(t *testing.T) {
+	events := []Event{{TUs: 0, Type: EventTypeKeyDown, A: 0x41}}
+	encode := func(id, label string) []byte {
+		var buffer bytes.Buffer
+		clip := &InputClip{ID: id, Label: label, Meta: ClipMeta{MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: events}
+		if err := Encode(&buffer, clip); err != nil {
+			t.Fatal(err)
+		}
+		return buffer.Bytes()
+	}
+	if first, second := encode("clip-a", "First"), encode("clip-b", "Second"); !bytes.Equal(first, second) {
+		t.Fatal("presentation metadata changed InputClip content identity")
+	}
+}
+
+func TestDecodeRejectsNonCanonicalOrCorruptCarrier(t *testing.T) {
+	clip := &InputClip{Meta: ClipMeta{MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: []Event{{TUs: 0, Type: EventTypeKeyDown, A: 0x41}}}
+	var buffer bytes.Buffer
+	if err := Encode(&buffer, clip); err != nil {
+		t.Fatal(err)
+	}
+	valid := buffer.Bytes()
+	for _, mutate := range []func([]byte){
+		func(data []byte) { data[4] = 1 },
+		func(data []byte) { data[len(data)-1] ^= 1 },
+		func(data []byte) { data[12] = ' ' },
+	} {
+		candidate := append([]byte(nil), valid...)
+		mutate(candidate)
+		if _, err := Decode(bytes.NewReader(candidate)); err == nil {
+			t.Fatal("Decode accepted a corrupt or non-canonical carrier")
+		}
 	}
 }
 

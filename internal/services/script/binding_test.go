@@ -22,10 +22,6 @@ func (c installTestCtx) Services() node.ServiceBundle        { return c.services
 func (installTestCtx) Out(string) node.OutBuilder            { return nil }
 func (installTestCtx) CaptureOutput(field string, value any) {}
 
-type bundleClip struct{}
-
-func (*bundleClip) Play(context.Context, string) error { return nil }
-
 type bundleSubgraphs struct{}
 
 func (*bundleSubgraphs) CallSubgraph(context.Context, string, map[string]any) (string, error) {
@@ -38,7 +34,6 @@ func (*bundleAI) Provider(string) (llm.Provider, error) { return nil, nil }
 
 func TestBundleFromCtx_ForwardsEveryNodeService(t *testing.T) {
 	want := node.StubServices()
-	want.Clip = &bundleClip{}
 	want.Subgraphs = &bundleSubgraphs{}
 	want.AI = &bundleAI{}
 	want.Snapshot = func(context.Context) node.Snapshot { return node.Snapshot{} }
@@ -52,7 +47,7 @@ func TestBundleFromCtx_ForwardsEveryNodeService(t *testing.T) {
 		{"Params", got.Params, want.Params}, {"Window", got.Window, want.Window},
 		{"Target", got.Target, want.Target}, {"App", got.App, want.App},
 		{"Capture", got.Capture, want.Capture}, {"Stopwatches", got.Stopwatches, want.Stopwatches},
-		{"Clip", got.Clip, want.Clip}, {"Subgraphs", got.Subgraphs, want.Subgraphs},
+		{"Subgraphs", got.Subgraphs, want.Subgraphs},
 		{"AI", got.AI, want.AI}, {"Registry", got.Registry, want.Registry},
 	}
 	for _, field := range fields {

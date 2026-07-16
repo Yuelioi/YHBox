@@ -145,7 +145,6 @@ func validatePackageLock(registry nodepkg.RegistryReader, manifest PackageManife
 
 func lockDependenciesEqual(a, b LockDependencies) bool {
 	return stringListEqual(a.Templates, b.Templates) &&
-		stringListEqual(a.Clips, b.Clips) &&
 		stringListEqual(a.Subgraphs, b.Subgraphs) &&
 		stringListEqual(a.Assets, b.Assets) &&
 		stringListEqual(a.AISlots, b.AISlots) &&
@@ -179,7 +178,7 @@ func dependencyClosureWithRegistry(registry nodepkg.RegistryReader, graph Graph,
 }
 
 func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureResult) error {
-	if len(closure.Templates) == 0 && len(closure.Clips) == 0 {
+	if len(closure.Templates) == 0 {
 		return nil
 	}
 	if s.assetStore == nil {
@@ -208,28 +207,6 @@ func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureR
 		}
 	}
 
-	clipBlobs := map[string]blob.BlobRef{}
-	for _, guid := range sortedStrings(closure.Clips) {
-		rec, ok := s.assetStore.Get(guid)
-		if !ok {
-			return fmt.Errorf("clip asset %q not found", guid)
-		}
-		if rec.Kind != asset.KindClip {
-			return fmt.Errorf("asset %q kind=%q, want %q", guid, rec.Kind, asset.KindClip)
-		}
-		if err := addZipJSON(zw, filepath.ToSlash(filepath.Join("clips", guid+".json")), rec); err != nil {
-			return err
-		}
-		if rec.Blob != nil {
-			clipBlobs[rec.Blob.Digest.String()] = *rec.Blob
-		}
-	}
-	for _, digest := range sortedBlobDigests(clipBlobs) {
-		ref := clipBlobs[digest]
-		if err := addAssetBlob(zw, s.assetStore, ref, filepath.ToSlash(filepath.Join("clips", "blobs", blobObjectName(ref)))); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

@@ -50,6 +50,7 @@ func TestProfileRejectsAmbientOrBroadTargetConfiguration(t *testing.T) {
 		func(draft *ProfileDraft) { draft.Application.Arguments = []string{"--workflow-controlled"} },
 		func(draft *ProfileDraft) { draft.InputBackend = "auto" },
 		func(draft *ProfileDraft) { draft.CaptureBackend = "auto" },
+		func(draft *ProfileDraft) { draft.MouseCounts360 = 10_000_001 },
 		func(draft *ProfileDraft) { draft.WindowTitle = " padded " },
 		func(draft *ProfileDraft) { draft.ResolveTimeoutMilliseconds = MaxResolveTimeoutMilliseconds + 1 },
 	} {

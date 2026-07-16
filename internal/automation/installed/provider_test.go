@@ -25,6 +25,14 @@ func (driver *fakeDriver) Execute(_ context.Context, operation string, request a
 func (driver *fakeDriver) Capture(_ context.Context) ([]byte, error) {
 	return append([]byte(nil), driver.capture...), driver.err
 }
+func (driver *fakeDriver) PlayEvent(_ context.Context, event PlaybackEvent) error {
+	driver.operation, driver.request = OperationPlayEvent, event
+	return driver.err
+}
+func (driver *fakeDriver) ReleaseInput() error {
+	driver.operation = OperationReleaseHeld
+	return driver.err
+}
 func (driver *fakeDriver) Close() error { driver.closed++; return driver.err }
 
 func openInputSession(t *testing.T, provider *provider, operation string) any {
@@ -53,6 +61,17 @@ func openCaptureSession(t *testing.T, provider *provider) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
 		Kind: KindCapture, Operations: CaptureOperations(), CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
+func openPlaybackSession(t *testing.T, provider *provider) any {
+	t.Helper()
+	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -119,10 +138,50 @@ func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
 		{Kind: KindInput, Operations: []string{OperationActivate}, CapabilityScope: []byte(`{"operation":"activate"}`), Config: []byte(`{}`)},
 		{Kind: KindWindow, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`)},
 		{Kind: KindCapture, Operations: []string{OperationCapture}, CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`)},
+		{Kind: KindPlayback, Operations: []string{OperationPlayEvent}, CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`)},
 	} {
 		if _, err := provider.Open(context.Background(), request); err == nil {
 			t.Fatalf("provider accepted cross-capability request %#v", request)
 		}
+	}
+}
+
+func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
+	profile, _ := testProfile(t)
+	machine := profile.Machine()
+	machine.MouseCounts360 = 800
+	profile, err := SealProfile(machine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	input := openInputSession(t, provider, OperationMove)
+	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+	}); err == nil {
+		t.Fatal("playback opened while atomic input authority was active")
+	}
+	if err := provider.Close(context.Background(), input); err != nil {
+		t.Fatal(err)
+	}
+	playback := openPlaybackSession(t, provider)
+	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindInput, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`),
+	}); err == nil {
+		t.Fatal("atomic input opened while playback authority was active")
+	}
+	payload, err := artifact.Marshal(PlaybackEvent{Kind: PlaybackMoveRelative, DeltaX: 3, DeltaY: -2, SourceCounts360: 400})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := provider.Invoke(context.Background(), playback, OperationPlayEvent, payload)
+	event, ok := driver.request.(PlaybackEvent)
+	if err != nil || OpenEffectResponse(raw) != nil || !ok || event.DeltaX != 6 || event.DeltaY != -4 {
+		t.Fatalf("playback event=%#v response=%s error=%v", driver.request, raw, err)
+	}
+	if err := provider.Close(context.Background(), playback); err != nil || driver.operation != OperationReleaseHeld {
+		t.Fatalf("close operation=%q error=%v", driver.operation, err)
 	}
 }
 

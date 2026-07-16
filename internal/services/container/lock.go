@@ -13,7 +13,6 @@ import (
 func BuildYottaLock(manifest PackageManifest, graph Graph, closure dependency.ClosureResult, generatedAt string) (YottaLock, error) {
 	deps := LockDependencies{
 		Templates:   sortedStrings(closure.Templates),
-		Clips:       sortedStrings(closure.Clips),
 		Subgraphs:   sortedStrings(closure.Subgraphs),
 		AISlots:     deriveAISlots(graph.Nodes),
 		TargetSlots: deriveTargetSlots(graph.Nodes),
