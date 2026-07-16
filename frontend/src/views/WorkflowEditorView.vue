@@ -70,6 +70,16 @@
 
         <div class="flex-1" />
         <UButton
+          data-testid="ai-workflow-review-open"
+          :label="t('workflow31.ai.open')"
+          icon="i-tabler-sparkles"
+          color="neutral"
+          :variant="aiPanelOpen ? 'soft' : 'ghost'"
+          size="xs"
+          :aria-pressed="aiPanelOpen"
+          @click="aiPanelOpen = !aiPanelOpen"
+        />
+        <UButton
           :label="t('workflow31.action.compile')"
           icon="i-tabler-file-check"
           color="neutral"
@@ -223,7 +233,16 @@
           </VueFlow>
         </div>
 
+        <AIWorkflowReviewPanel
+          v-if="aiPanelOpen"
+          :workflow-id="session.workflowId"
+          :base-revision="session.baseRevision"
+          :dirty="session.dirty"
+          @close="aiPanelOpen = false"
+          @accepted="acceptAIProposal"
+        />
         <WorkflowInspector
+          v-else
           :node="selectedNode"
           :projection="selectedProjection"
           :variables="session.source?.variables ?? []"
@@ -270,6 +289,7 @@ import { graphHandle, parseGraphHandle } from '@/app/editor/graphHandles'
 import { onRunChanged, workflowTransport } from '@/app/transport/workflow31'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
+import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 
 defineOptions({ name: 'WorkflowEditorView' })
@@ -286,6 +306,7 @@ const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const selectedNodeId = ref('')
 const nodeDragActive = ref(false)
+const aiPanelOpen = ref(false)
 const { screenToFlowCoordinate } = useVueFlow()
 let unsubscribeRun: (() => void) | undefined
 let nextPosition = 0
@@ -454,6 +475,16 @@ async function save(): Promise<void> {
     toast.add({ title: t('workflow31.toast.saved'), color: 'success' })
   } catch (error) {
     showError(t('workflow31.toast.save_failed'), error)
+  }
+}
+
+async function acceptAIProposal(): Promise<void> {
+  selectedNodeId.value = ''
+  try {
+    await session.load(session.workflowId)
+    toast.add({ title: t('workflow31.ai.accepted_toast'), color: 'success' })
+  } catch (error) {
+    showError(t('workflow31.ai.refresh_failed'), error)
   }
 }
 

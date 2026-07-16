@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/runid"
 )
@@ -19,12 +20,78 @@ type AIService struct {
 	app       *App
 	secrets   *AISecrets
 	newNative aiNativeFactory
+	authoring *aiauthoring.Manager
 }
 
-func NewAIService(app *App, secrets *AISecrets) *AIService {
-	return newAIService(app, secrets, func(profile ai.ModelProfile) (ai.Provider, error) {
+func NewAIService(app *App, secrets *AISecrets, authoring ...*aiauthoring.Manager) *AIService {
+	service := newAIService(app, secrets, func(profile ai.ModelProfile) (ai.Provider, error) {
 		return ai.NewNativeProvider(profile, ai.HTTPOptions{})
 	})
+	if len(authoring) != 0 {
+		service.authoring = authoring[0]
+	}
+	return service
+}
+
+func (s *AIService) ProposeWorkflow(slot, workflowID string, baseRevision int64, instruction string) (aiauthoring.Review, error) {
+	if s.authoring == nil || s.app == nil || s.secrets == nil {
+		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+	}
+	settings := s.app.Settings()
+	configured := findAIProfile(settings, slot)
+	if configured == nil {
+		return aiauthoring.Review{}, fmt.Errorf("AI profile slot %q is not configured", slot)
+	}
+	profile, err := ai.SealModelProfile(configured.profileDraft())
+	if err != nil {
+		return aiauthoring.Review{}, err
+	}
+	builtins, err := nodes31.Build()
+	if err != nil {
+		return aiauthoring.Review{}, err
+	}
+	if err := ai.ValidateEvaluationCandidate(profile, configured.EvaluationReport, builtins.AIEvaluationArtifacts()); err != nil {
+		return aiauthoring.Review{}, err
+	}
+	if !profile.Machine().Capabilities.ToolCalling {
+		return aiauthoring.Review{}, errors.New("AI profile does not support native tool calling")
+	}
+	credential, err := s.secrets.Get(ai.CredentialBindingID(slot))
+	if err != nil || credential == "" {
+		return aiauthoring.Review{}, errors.New("AI credential is unavailable")
+	}
+	provider, err := s.newNative(profile)
+	if err != nil {
+		return aiauthoring.Review{}, err
+	}
+	agent, ok := provider.(ai.AgentProvider)
+	if !ok {
+		return aiauthoring.Review{}, errors.New("AI provider does not support native agent continuation")
+	}
+	return s.authoring.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: agent, Credential: credential}, aiauthoring.ProposeRequest{
+		WorkflowID: workflowID, BaseRevision: baseRevision, Instruction: instruction, TrustClass: "user-authored",
+	})
+}
+
+func (s *AIService) AcceptWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
+	if s.authoring == nil {
+		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+	}
+	return s.authoring.Accept(context.Background(), reviewID)
+}
+
+func (s *AIService) RejectWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
+	if s.authoring == nil {
+		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+	}
+	return s.authoring.Reject(reviewID)
+}
+
+func (s *AIService) GetWorkflowProposal(reviewID string) (aiauthoring.Review, error) {
+	if s.authoring == nil {
+		return aiauthoring.Review{}, errors.New("AI workflow authoring is unavailable")
+	}
+	return s.authoring.Get(reviewID)
 }
 
 func newAIService(app *App, secrets *AISecrets, factory aiNativeFactory) *AIService {

@@ -74,6 +74,73 @@ type ApplyPatchResult struct {
 	GeneratedNodes []authoring.GeneratedNode
 }
 
+// PreparedPatch is an application-sealed, exact Workflow Source transition.
+// Its state is intentionally opaque: presentation and AI clients can review a
+// candidate, but only Application can create or commit one.
+type PreparedPatch struct{ state *preparedPatchState }
+
+type preparedPatchState struct {
+	workflowID    string
+	baseRevision  int64
+	baseHash      artifact.Digest
+	candidate     []byte
+	candidateHash artifact.Digest
+	generated     []authoring.GeneratedNode
+}
+
+func (p PreparedPatch) Valid() bool {
+	return p.state != nil && p.state.workflowID != "" && p.state.baseRevision >= 0 &&
+		p.state.baseHash.Valid() && p.state.candidateHash.Valid() && len(p.state.candidate) != 0
+}
+
+func (p PreparedPatch) WorkflowID() string {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.workflowID
+}
+
+func (p PreparedPatch) BaseRevision() int64 {
+	if !p.Valid() {
+		return -1
+	}
+	return p.state.baseRevision
+}
+
+func (p PreparedPatch) BaseHash() artifact.Digest {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.baseHash
+}
+
+func (p PreparedPatch) CandidateHash() artifact.Digest {
+	if !p.Valid() {
+		return ""
+	}
+	return p.state.candidateHash
+}
+
+func (p PreparedPatch) CandidateArtifact() []byte {
+	if !p.Valid() {
+		return nil
+	}
+	return append([]byte(nil), p.state.candidate...)
+}
+
+func (p PreparedPatch) GeneratedNodes() []authoring.GeneratedNode {
+	if !p.Valid() {
+		return nil
+	}
+	return append([]authoring.GeneratedNode(nil), p.state.generated...)
+}
+
+type PreparePatchResult struct {
+	Patch          PreparedPatch
+	Diagnostics    []schema.Diagnostic
+	CapabilityPlan []capability.PlanEntry
+}
+
 type RunPreview struct {
 	SourceHash     artifact.Digest        `json:"sourceHash,omitempty"`
 	ProgramHash    artifact.Digest        `json:"programHash,omitempty"`
@@ -252,6 +319,75 @@ func (a *Application) ApplyPatch(ctx context.Context, request authoring.PatchReq
 	return ApplyPatchResult{
 		Source: next, GeneratedNodes: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}, saveErr
+}
+
+// PreparePatch reduces and compiles an exact candidate without publishing it.
+// The returned opaque patch can later be committed once, provided the durable
+// base revision and hash are still unchanged.
+func (a *Application) PreparePatch(ctx context.Context, request authoring.PatchRequest) (PreparePatchResult, error) {
+	if ctx == nil {
+		return PreparePatchResult{}, errors.New("prepare Workflow patch context is required")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	if err := a.requireRunning(); err != nil {
+		return PreparePatchResult{}, err
+	}
+	snapshot, err := a.sources.Load(request.WorkflowID)
+	if err != nil {
+		return PreparePatchResult{}, err
+	}
+	if snapshot.Revision() != request.BaseRevision {
+		return PreparePatchResult{}, workflowstore.ErrSourceConflict
+	}
+	source, diagnostics := schema.ParseSource(snapshot.Artifact())
+	if len(diagnostics) != 0 {
+		return PreparePatchResult{}, errors.New("stored Workflow Source failed strict reopen")
+	}
+	applied, err := a.authoringEngine.Apply(source, request.Commands)
+	if err != nil {
+		return PreparePatchResult{}, err
+	}
+	_, _, candidateHash, candidateDiagnostics, err := schema.CanonicalSource(applied.Artifact)
+	if err != nil || len(candidateDiagnostics) != 0 {
+		return PreparePatchResult{}, errors.New("prepared Workflow Source failed strict reopen")
+	}
+	prepared := PreparedPatch{state: &preparedPatchState{
+		workflowID: request.WorkflowID, baseRevision: request.BaseRevision, baseHash: snapshot.Hash(),
+		candidate: append([]byte(nil), applied.Artifact...), candidateHash: candidateHash,
+		generated: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
+	}}
+	compiled, compileErr := a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: applied.Artifact, Catalog: a.catalog})
+	result := PreparePatchResult{Patch: prepared, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...), CapabilityPlan: []capability.PlanEntry{}}
+	if program, ok := compiled.Program(); ok {
+		result.CapabilityPlan = program.CapabilityPlan().Entries()
+	}
+	return result, compileErr
+}
+
+// CommitPreparedPatch publishes the exact artifact that was reviewed. It does
+// not replay commands, and therefore cannot silently change generated node IDs.
+func (a *Application) CommitPreparedPatch(ctx context.Context, prepared PreparedPatch) (ApplyPatchResult, error) {
+	if ctx == nil {
+		return ApplyPatchResult{}, errors.New("commit prepared Workflow patch context is required")
+	}
+	if !prepared.Valid() {
+		return ApplyPatchResult{}, errors.New("prepared Workflow patch is invalid")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	if err := a.requireRunning(); err != nil {
+		return ApplyPatchResult{}, err
+	}
+	current, err := a.sources.Load(prepared.state.workflowID)
+	if err != nil {
+		return ApplyPatchResult{}, err
+	}
+	if current.Revision() != prepared.state.baseRevision || current.Hash() != prepared.state.baseHash {
+		return ApplyPatchResult{}, workflowstore.ErrSourceConflict
+	}
+	next, saveErr := a.sources.Save(ctx, prepared.state.candidate, prepared.state.baseRevision)
+	return ApplyPatchResult{Source: next, GeneratedNodes: prepared.GeneratedNodes()}, saveErr
 }
 
 // PreviewRun performs the exact stored-source compilation used by StartRun and

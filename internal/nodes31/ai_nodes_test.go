@@ -44,6 +44,9 @@ func TestAINodesPinTrustedPromptManifestsIntoImplementationLocks(t *testing.T) {
 	if !builtins.AIAgentPrompt.Valid() || !builtins.AIAgentToolSet.Valid() {
 		t.Fatal("AI Agent artifacts are missing")
 	}
+	if !builtins.AIAuthoringPrompt.Valid() || !builtins.AIAuthoringToolSet.Valid() {
+		t.Fatal("AI authoring artifacts are missing")
+	}
 	agent, ok := builtins.Definition(AIAgentNodeID)
 	if !ok {
 		t.Fatal("AI Agent definition is missing")

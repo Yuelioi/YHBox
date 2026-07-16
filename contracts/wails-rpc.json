@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 91,
-    "models": 101
+    "methods": 95,
+    "models": 109
   },
   "services": [
     {
@@ -108,6 +108,18 @@
       "module": "internal/services/aiservice",
       "methods": [
         {
+          "name": "AcceptWorkflowProposal",
+          "bindingId": "791391079",
+          "parameters": [
+            {
+              "name": "reviewID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Review>"
+        },
+        {
           "name": "ApplyEvaluation",
           "bindingId": "1091990694",
           "parameters": [
@@ -137,6 +149,18 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "GetWorkflowProposal",
+          "bindingId": "3355843683",
+          "parameters": [
+            {
+              "name": "reviewID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Review>"
+        },
+        {
           "name": "GrantWorkflowUse",
           "bindingId": "3366715462",
           "parameters": [
@@ -147,6 +171,45 @@
             }
           ],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ProposeWorkflow",
+          "bindingId": "2791834483",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRevision",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "instruction",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Review>"
+        },
+        {
+          "name": "RejectWorkflowProposal",
+          "bindingId": "281352264",
+          "parameters": [
+            {
+              "name": "reviewID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<aiauthoring$0.Review>"
         },
         {
           "name": "RevokeEvaluation",
@@ -1165,6 +1228,47 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "BudgetUsage",
+          "fields": [
+            {
+              "name": "\"inputTokens\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"outputTokens\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"costMicrounits\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"wallTimeMillis\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"iterations\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"toolCalls\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"maxParallelism\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "EvalReportArtifact",
           "fields": [
             {
@@ -1376,6 +1480,253 @@
               "name": "\"outputMicrounitsPerMillion\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/aiauthoring/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "CapabilityChange",
+          "fields": [
+            {
+              "name": "\"capabilityId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"operations\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"targetSlot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"credentialSlot\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Change",
+          "fields": [
+            {
+              "name": "\"index\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"target\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sensitive\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputFingerprint",
+          "fields": [
+            {
+              "name": "\"trustClass\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"digest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"bytes\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PermissionDelta",
+          "fields": [
+            {
+              "name": "\"added\"",
+              "optional": false,
+              "type": "CapabilityChange[]"
+            },
+            {
+              "name": "\"removed\"",
+              "optional": false,
+              "type": "CapabilityChange[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Review",
+          "fields": [
+            {
+              "name": "\"reviewId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "ReviewStatus"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseRevision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"newRevision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"baseHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"candidateHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"input\"",
+              "optional": false,
+              "type": "InputFingerprint"
+            },
+            {
+              "name": "\"profileSubject\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"promptManifest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"toolSet\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"changes\"",
+              "optional": false,
+              "type": "Change[]"
+            },
+            {
+              "name": "\"diagnostics\"",
+              "optional": false,
+              "type": "schema$0.Diagnostic[]"
+            },
+            {
+              "name": "\"permissions\"",
+              "optional": false,
+              "type": "PermissionDelta"
+            },
+            {
+              "name": "\"risks\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"usage\"",
+              "optional": false,
+              "type": "ai$0.BudgetUsage"
+            },
+            {
+              "name": "\"trace\"",
+              "optional": false,
+              "type": "TraceEvent[]"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "ReviewStatus",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "StatusProposed",
+              "value": "\"proposed\""
+            },
+            {
+              "name": "StatusAccepted",
+              "value": "\"accepted\""
+            },
+            {
+              "name": "StatusRejected",
+              "value": "\"rejected\""
+            },
+            {
+              "name": "StatusStale",
+              "value": "\"stale\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TraceEvent",
+          "fields": [
+            {
+              "name": "\"sequence\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"occurredAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"providerRequestId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"facts\"",
+              "optional": false,
+              "type": "{ [_ in string]?: string }"
             }
           ]
         }

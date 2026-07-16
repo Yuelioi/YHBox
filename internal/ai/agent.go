@@ -231,6 +231,13 @@ type AgentContinueRequest struct {
 	Results   []ToolResult `json:"results"`
 }
 
+// AgentProvider is the provider-native continuation contract used by bounded
+// host agents. Provider remains the smaller one-shot generation interface.
+type AgentProvider interface {
+	StartAgent(context.Context, string, AgentStartRequest) (Outcome, any, error)
+	ContinueAgent(context.Context, string, any, AgentContinueRequest) (Outcome, any, error)
+}
+
 func (r AgentContinueRequest) Validate() error {
 	if !attemptIDPattern.MatchString(r.AttemptID) || len(r.Results) == 0 || len(r.Results) > MaxAgentParallelism {
 		return errors.New("invalid AI agent continuation identity or result budget")

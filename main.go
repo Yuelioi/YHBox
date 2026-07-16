@@ -16,6 +16,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
@@ -166,6 +167,10 @@ func main() {
 	workflowSvc, err := workflow31.NewService(workflowRuntime.Application)
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow service init")
+	}
+	aiAuthoring, err := aiauthoring.NewManager(workflowRuntime.Application, workflowRuntime.Builtins, time.Now)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("AI authoring init")
 	}
 
 	// ---- HotkeyRegistry：所有热键的中央 manifest ----
@@ -374,7 +379,7 @@ func main() {
 		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
-		application.NewService(services.NewAIService(app, aiSecrets)),
+		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
 		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),
 		application.NewService(services.NewAutomationService(app)),

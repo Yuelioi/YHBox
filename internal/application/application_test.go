@@ -83,6 +83,69 @@ func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	}
 }
 
+func TestPreparedPatchCommitsTheExactReviewedArtifactAndRejectsStaleBase(t *testing.T) {
+	now := time.Date(2026, 7, 17, 9, 0, 0, 0, time.UTC)
+	application, sources, _, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+	created, err := application.CreateSource(context.Background(), "Prepared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
+		Commands: []authoring.Command{{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "reviewed", Position: schema.Position{X: 10, Y: 20},
+		}}},
+	}
+	preview, err := application.PreparePatch(context.Background(), request)
+	if err != nil || !preview.Patch.Valid() || preview.Patch.BaseHash() != created.Hash() || !preview.Patch.CandidateHash().Valid() {
+		t.Fatalf("PreparePatch = %#v, %v", preview, err)
+	}
+	if current, loadErr := sources.Load(created.WorkflowID()); loadErr != nil || current.Hash() != created.Hash() {
+		t.Fatalf("PreparePatch mutated durable source = %#v, %v", current, loadErr)
+	}
+	reviewed := preview.Patch.CandidateArtifact()
+	committed, err := application.CommitPreparedPatch(context.Background(), preview.Patch)
+	if err != nil || committed.Source.Hash() != preview.Patch.CandidateHash() || string(committed.Source.Artifact()) != string(reviewed) {
+		t.Fatalf("CommitPreparedPatch = %#v, %v", committed, err)
+	}
+	if _, err := application.CommitPreparedPatch(context.Background(), preview.Patch); !errors.Is(err, workflowstore.ErrSourceConflict) {
+		t.Fatalf("second CommitPreparedPatch = %v", err)
+	}
+}
+
+func TestPreparedPatchCannotCommitAfterIndependentRevision(t *testing.T) {
+	now := time.Date(2026, 7, 17, 9, 30, 0, 0, time.UTC)
+	application, _, _, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+	created, err := application.CreateSource(context.Background(), "Conflict")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err := application.PreparePatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
+		Commands: []authoring.Command{{Kind: authoring.CommandRenameWorkflow, RenameWorkflow: &authoring.RenameWorkflowCommand{Name: "AI candidate"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
+		Commands: []authoring.Command{{Kind: authoring.CommandRenameWorkflow, RenameWorkflow: &authoring.RenameWorkflowCommand{Name: "Human edit"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := application.CommitPreparedPatch(context.Background(), preview.Patch); !errors.Is(err, workflowstore.ErrSourceConflict) {
+		t.Fatalf("CommitPreparedPatch after human edit = %v", err)
+	}
+}
+
 func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *testing.T) {
 	now := time.Date(2026, 7, 15, 11, 0, 0, 0, time.UTC)
 	invoked := make(chan struct{})

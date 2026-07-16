@@ -30,7 +30,8 @@ try {
     } catch {
         $viteOut = Join-Path $runRoot 'vite.out.log'
         $viteErr = Join-Path $runRoot 'vite.err.log'
-        $viteProcess = Start-Process -FilePath 'pnpm.cmd' -ArgumentList @('-C', 'frontend', 'dev', '--host', '127.0.0.1', '--port', $VitePort) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput $viteOut -RedirectStandardError $viteErr -PassThru
+        $pnpm = Get-Command pnpm -CommandType Application -ErrorAction Stop | Select-Object -First 1
+        $viteProcess = Start-Process -FilePath $pnpm.Source -ArgumentList @('-C', 'frontend', 'dev', '--host', '127.0.0.1', '--port', $VitePort) -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput $viteOut -RedirectStandardError $viteErr -PassThru
         for ($attempt = 0; $attempt -lt 100; $attempt++) {
             Start-Sleep -Milliseconds 100
             $listener = Get-NetTCPConnection -State Listen -LocalPort $VitePort -ErrorAction SilentlyContinue | Select-Object -First 1

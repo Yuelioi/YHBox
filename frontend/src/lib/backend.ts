@@ -148,6 +148,64 @@ export interface AIProfileTestResult {
   error?: string
 }
 
+export interface AIWorkflowChange {
+  index: number
+  kind: string
+  target: string
+  sensitive: boolean
+}
+
+export interface AIWorkflowCapabilityChange {
+  capabilityId: string
+  operations: string[]
+  targetSlot: string
+  credentialSlot?: string
+}
+
+export interface AIWorkflowTraceEvent {
+  sequence: number
+  kind: string
+  occurredAt: string
+  providerRequestId?: string
+  facts: Record<string, string>
+}
+
+export interface AIWorkflowReview {
+  reviewId: string
+  status: 'proposed' | 'accepted' | 'rejected' | 'stale'
+  workflowId: string
+  baseRevision: number
+  newRevision: number
+  baseHash: string
+  candidateHash: string
+  input: { trustClass: string; digest: string; bytes: number }
+  profileSubject: string
+  promptManifest: string
+  toolSet: string
+  summary: string
+  changes: AIWorkflowChange[]
+  diagnostics: Array<{
+    code: string
+    severity: string
+    graphId?: string
+    nodeId?: string
+    path?: string
+    message?: string
+  }>
+  permissions: { added: AIWorkflowCapabilityChange[]; removed: AIWorkflowCapabilityChange[] }
+  risks: string[]
+  usage: {
+    inputTokens: number
+    outputTokens: number
+    costMicrounits: number
+    wallTimeMillis: number
+    iterations: number
+    toolCalls: number
+    maxParallelism: number
+  }
+  trace: AIWorkflowTraceEvent[]
+}
+
 export interface HTTPOriginProfile {
   slot: string
   label: string
@@ -220,6 +278,21 @@ export const backend = {
     grantWorkflowUse: (slot: string) =>
       invoke(AIService.GrantWorkflowUse, slot) as Promise<string | undefined>,
     revokeWorkflowUse: (slot: string) => invokeVoid(AIService.RevokeWorkflowUse, slot),
+    proposeWorkflow: (
+      slot: string,
+      workflowId: string,
+      baseRevision: number,
+      instruction: string,
+    ) =>
+      invoke(AIService.ProposeWorkflow, slot, workflowId, baseRevision, instruction) as Promise<
+        AIWorkflowReview | undefined
+      >,
+    acceptWorkflowProposal: (reviewId: string) =>
+      invoke(AIService.AcceptWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
+    rejectWorkflowProposal: (reviewId: string) =>
+      invoke(AIService.RejectWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
+    getWorkflowProposal: (reviewId: string) =>
+      invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
   },
   network: {
     grantHTTPWorkflowConsent: (slot: string) =>

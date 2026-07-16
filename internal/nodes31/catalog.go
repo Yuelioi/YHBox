@@ -97,6 +97,8 @@ type Builtins struct {
 	AIExtractPrompt              ai.PromptManifest
 	AIAgentPrompt                ai.PromptManifest
 	AIAgentToolSet               ai.ToolSet
+	AIAuthoringPrompt            ai.PromptManifest
+	AIAuthoringToolSet           ai.ToolSet
 	ScriptExecuteContract        nodecontract.Contract
 	FileReadTextContract         nodecontract.Contract
 	FileReadJSONContract         nodecontract.Contract
@@ -121,6 +123,7 @@ type Builtins struct {
 func (b Builtins) AIEvaluationArtifacts() []artifact.Digest {
 	return []artifact.Digest{
 		b.AIGeneratePrompt.Digest(), b.AIExtractPrompt.Digest(), b.AIAgentPrompt.Digest(), b.AIAgentToolSet.Digest(),
+		b.AIAuthoringPrompt.Digest(), b.AIAuthoringToolSet.Digest(),
 		b.AIGenerateContract.NodeRef().SemanticDigest, b.AIExtractContract.NodeRef().SemanticDigest, b.AIAgentContract.NodeRef().SemanticDigest,
 	}
 }
@@ -422,6 +425,7 @@ func Build() (Builtins, error) {
 		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, AIAgentContract: aiAgent,
 		AIGeneratePrompt: aiArtifacts.generate, AIExtractPrompt: aiArtifacts.extract,
 		AIAgentPrompt: aiArtifacts.agent, AIAgentToolSet: aiArtifacts.agentTools,
+		AIAuthoringPrompt: aiArtifacts.authoring, AIAuthoringToolSet: aiArtifacts.authoringTools,
 		ScriptExecuteContract: scriptExecute,
 		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,

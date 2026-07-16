@@ -19,6 +19,7 @@ type pageState struct {
 	Href        string   `json:"href"`
 	Catalog     int      `json:"catalog"`
 	CanvasNodes int      `json:"canvasNodes"`
+	AIReview    bool     `json:"aiReview"`
 	Errors      []string `json:"errors"`
 }
 
@@ -125,6 +126,16 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == afterClick.CanvasNodes+1 }); err != nil {
 		return fmt.Errorf("drag catalog node: %w", err)
 	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="ai-workflow-review-open"]');
+		if (!button) throw new Error('AI workflow review button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.AIReview }); err != nil {
+		return fmt.Errorf("open AI workflow review: %w", err)
+	}
 
 	final, err := state(ctx, client)
 	if err != nil {
@@ -147,7 +158,7 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	}
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
-		"canvasNodes": final.CanvasNodes, "screenshot": screenshot,
+		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -188,6 +199,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		href: location.href,
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
 		canvasNodes: document.querySelectorAll('.vue-flow__node').length,
+		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
 		errors: window.__yottaSmokeErrors || []
 	})`, &out)
 	return out, err
@@ -201,7 +213,7 @@ func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression st
 		return err
 	}
 	if details, ok := result["exceptionDetails"].(map[string]any); ok {
-		return fmt.Errorf("WebView evaluation failed: %v", details["text"])
+		return fmt.Errorf("WebView evaluation failed: %v", details)
 	}
 	return nil
 }
@@ -215,7 +227,7 @@ func evalJSON(ctx context.Context, client *browsercdp.WebSocketClient, expressio
 		return err
 	}
 	if details, ok := result["exceptionDetails"].(map[string]any); ok {
-		return fmt.Errorf("WebView evaluation failed: %v", details["text"])
+		return fmt.Errorf("WebView evaluation failed: %v", details)
 	}
 	remote, ok := result["result"].(map[string]any)
 	if !ok {
