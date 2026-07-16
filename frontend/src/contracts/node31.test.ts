@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { builtinNodeProjections31, builtinTypeProjections31 } from './node31'
-import { edgeKindOf } from '@/components/containers/nodeRegistry/registry'
-import { pinsFor } from '@/components/containers/pinSpec'
 
 const concatID = 'https://schemas.yotta.dev/nodes/text/concat/v1'
 const stringID = 'https://schemas.yotta.dev/types/core/string/v1'
@@ -26,20 +24,14 @@ describe('generated Node Contract 3.1 authoring projection', () => {
     expect(projection!.availability).toBe('portable')
   })
 
-  it('drives the production canvas pin and edge selectors without inventing out', () => {
-    expect(pinsFor(concatID)).toEqual({
-      execIn: [],
-      execOut: [],
-      errorOut: [],
-      statusOut: [],
-      dataIn: ['a', 'b'],
-      dataOut: ['result'],
-    })
+  it('does not invent an exec out port for a pure-data node', () => {
     expect(builtinNodeProjections31.get(concatID)?.dataInputs[0].type.label).toBe(stringID)
     expect(builtinNodeProjections31.get(concatID)?.dataInputs[0].type.color).toBe('#8b5cf6')
     expect(builtinTypeProjections31.get(stringID)?.lifecycle).toBe('durable')
-    expect(edgeKindOf(concatID, 'result')).toBe('data')
-    expect(edgeKindOf(concatID, 'out')).toBe('')
+    expect(builtinNodeProjections31.get(concatID)?.dataOutputs.map((port) => port.id)).toEqual([
+      'result',
+    ])
+    expect(builtinNodeProjections31.get(concatID)?.signals).toEqual([])
   })
 
   it('keeps exec and error as distinct canvas channels while status remains run metadata', () => {
@@ -53,15 +45,10 @@ describe('generated Node Contract 3.1 authoring projection', () => {
     projection.statusEvents = [{ code: 'test.progress', category: 'progress' }]
     builtinNodeProjections31.set(syntheticID, projection)
     try {
-      expect(pinsFor(syntheticID)).toEqual(
-        expect.objectContaining({
-          execOut: ['next'],
-          errorOut: ['failed'],
-          statusOut: [],
-        }),
-      )
-      expect(edgeKindOf(syntheticID, 'next')).toBe('exec')
-      expect(edgeKindOf(syntheticID, 'failed')).toBe('error')
+      expect(builtinNodeProjections31.get(syntheticID)?.signals).toEqual([
+        { id: 'next', channel: 'exec', direction: 'output' },
+        { id: 'failed', channel: 'error', direction: 'output' },
+      ])
       expect(projection.statusEvents).toEqual([{ code: 'test.progress', category: 'progress' }])
     } finally {
       builtinNodeProjections31.delete(syntheticID)

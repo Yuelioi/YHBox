@@ -24,19 +24,13 @@ import (
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/node"
-	_ "github.com/yottaapp/yotta/internal/nodes/all"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
-	"github.com/yottaapp/yotta/internal/services/androidadb"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
-	"github.com/yottaapp/yotta/internal/services/codesnippet"
-	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
-	"github.com/yottaapp/yotta/internal/services/nodeoptions"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
@@ -66,14 +60,6 @@ func main() {
 	aiSecrets := services.NewAISecrets(securestore.New())
 	app.ConfigureLogging()
 
-	// v2 一次性数据迁移：旧 layout（actions/ + 单文件 containers/<id>.json + 全局 templates/）
-	// → 新 layout（containers/<id>/{package.json,graph.json,installation.json,yotta-lock.json} + library/）。
-	// 检测信号：bin/data/actions/ 存在 或 bin/data/templates/_index.json 存在（旧全局模板库）。
-	// 命中即 rename 整个 bin/data 到 bin/data.legacy-2026-05-16/。Best-effort，失败仅日志。
-	backupLegacyDataIfNeeded(rootLog)
-
-	ensureV2DataLayout(rootLog)
-
 	// Screenshot writer: 给 bot 异步落盘带标注 PNG 用，调试调参时打开 Capture.DumpDebug
 	// settings 在 debug/captures/<bot>/<date>/ 累积。默认关，写盘走独立 goroutine。
 	// debug/ 是 gitignored 的开发者本地目录。
@@ -92,7 +78,7 @@ func main() {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 18)
+	wailsServices := make([]application.Service, 0, 14)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -101,7 +87,7 @@ func main() {
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
-	// 数据根：<exeDir>/data/ —— Action / Container / Schedule / Template 全在这下面。
+	// 数据根：<exeDir>/data/。各 3.1 Store 只创建并管理自己的目录。
 	dataDir := "data"
 	if exe, err := os.Executable(); err == nil {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
@@ -240,45 +226,9 @@ func main() {
 		"recording.pause":         "F11",
 	})
 
-	// Container / Schedule 数据层
-
-	// Legacy node catalog remains available while the 3.1 workflow editor replaces it.
-	nodeSvc := node.NewService()
-	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
-	// 全局子图池 (2026-06-12 全局化: 容器只引用不复制): <dataDir>/subgraphs/.
-	sgStore, err := container.NewSubgraphStore(filepath.Join(dataDir, "subgraphs"))
-	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("subgraph store init")
-	}
-	sgSvc := container.NewSubgraphService(sgStore)
-
-	containerStore, err := container.NewStore(filepath.Join(dataDir, "containers"))
-	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("container store init")
-	}
-	// 校验用引用闭包解析 (单一咽喉, 见 wire_subgraph.go).
-	containerStore.SetSubgraphResolver(func(c *container.Container) []container.Subgraph {
-		return subgraphClosureFor(c, sgStore)
-	})
-	containerSvc := container.NewService(containerStore)
-	subgraphReferrers := scanSubgraphReferrers(containerStore, sgStore)
-	container.ConfigureSubgraphReferrerScanner(sgSvc, subgraphReferrers)
-
-	// 匿名子图 GC (mark-sweep, 幂等): 启动时 + 容器删除完成后. 锁序 Container → Subgraph.
-	gcAnonymousSubgraphs := func() {
-		removed, gcErr := sgStore.GCAnonymous(collectReferencedSubgraphIDs(containerStore, sgStore))
-		if gcErr != nil {
-			rootLog.Warn().Err(gcErr).Str("tag", "SUBGRAPH-GC").Msg("匿名子图 GC 失败")
-		} else if len(removed) > 0 {
-			rootLog.Info().Strs("removed", removed).Str("tag", "SUBGRAPH-GC").Msg("匿名子图回收")
-		}
-	}
-	gcAnonymousSubgraphs()
-	container.ConfigurePostDelete(containerSvc, gcAnonymousSubgraphs)
 	// Asset authoring captures exact installed targets; no Workflow or Container
 	// document can inject a native window selector.
 	assetSvc := asset.NewService(assetStore, authoringTargets)
-	nodeoptions.RegisterSubgraphAsyncSource(nodeSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -286,14 +236,9 @@ func main() {
 	}
 	scheduleSvc := schedule.NewService(scheduleStore)
 
-	// 编辑器用户代码片段 (Script/Expr 放大编辑「片段」菜单): <dataDir>/snippets.json 整存整取.
-	codeSnippetSvc := codesnippet.NewService(filepath.Join(dataDir, "snippets.json"))
-
 	// InputClip remains an authoring asset service; 3.1 playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore)
-
-	container.ConfigureChangeListener(containerSvc, func() { app.Emit("container:changed", map[string]any{}) })
 
 	// Schedule triggers enter the same durable Workflow Run command as GUI.
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
@@ -456,15 +401,11 @@ func main() {
 		application.NewService(workflowSvc),
 		application.NewService(hotkeySvc),
 		application.NewService(assetSvc),
-		application.NewService(containerSvc),
-		application.NewService(sgSvc),
 		application.NewService(scheduleSvc),
 		application.NewService(calibrationSvc),
 		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
-		application.NewService(nodeSvc),
-		application.NewService(codeSnippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets)),
 		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),
@@ -483,8 +424,7 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("attach presentation emitter")
 	}
 
-	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
+	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 InputClip 走这条)
 	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
 	inputclip.ConfigureEmitter(clipSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
@@ -554,8 +494,6 @@ func main() {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启注册表同步失败")
 	}
 
-	// 节点 registry 锁死: init() 注册完毕, RPC handler 之后只读.
-	node.Freeze()
 	if err := applicationRuntime.Start(context.Background()); err != nil {
 		rootLog.Error().Err(err).Str("tag", "STARTUP").Msg("application runtime start")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -588,16 +526,6 @@ func main() {
 	}
 }
 
-// containerChangeListener keeps runtime consumers and every webview on the same
-// committed container snapshot after CRUD. Independent tool windows own their
-// own Pinia stores, so refreshing only the hotkey binder leaves their catalogs stale.
-func containerChangeListener(refresh func(), emit func(string, any)) func() {
-	return func() {
-		refresh()
-		emit("container:changed", map[string]any{})
-	}
-}
-
 func stopAllForHotkey(stopAll func() error, log zerolog.Logger) {
 	if err := stopAll(); err != nil {
 		log.Warn().Err(err).Str("tag", "SYSTEM").Msg("全局强停失败")
@@ -624,63 +552,4 @@ func newWorkflowLogEmitter(log zerolog.Logger) nodes31runtime.LogEmitter {
 			Str("invocationId", entry.InvocationID).Int("attempt", entry.Attempt).Msg(entry.Message)
 		return nil
 	})
-}
-
-// backupLegacyDataIfNeeded 检测旧 v1 数据布局，命中则整体 rename 备份。
-// 调用点：main() 启动早期，settings/services 初始化之前。
-func backupLegacyDataIfNeeded(log zerolog.Logger) {
-	exeDir, err := os.Executable()
-	if err != nil {
-		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 legacy 数据备份")
-		return
-	}
-	dataRoot := filepath.Join(filepath.Dir(exeDir), "data")
-	actionsDir := filepath.Join(dataRoot, "actions")
-	tplIndex := filepath.Join(dataRoot, "templates", "_index.json")
-
-	needBackup := false
-	if st, err := os.Stat(actionsDir); err == nil && st.IsDir() {
-		needBackup = true
-	}
-	if _, err := os.Stat(tplIndex); err == nil {
-		needBackup = true
-	}
-	if !needBackup {
-		return
-	}
-
-	backupDir := filepath.Join(filepath.Dir(exeDir), "data.legacy-2026-05-16")
-	if _, err := os.Stat(backupDir); err == nil {
-		// 已经备份过一次就不要二次覆盖
-		log.Info().Str("tag", "MIGRATE").Str("path", backupDir).Msg("legacy 备份目录已存在，跳过")
-		return
-	}
-	if err := os.Rename(dataRoot, backupDir); err != nil {
-		log.Error().Err(err).Str("tag", "MIGRATE").Msg("rename data → data.legacy-2026-05-16 失败")
-		return
-	}
-	log.Info().Str("tag", "MIGRATE").Str("backup", backupDir).Msg("v1 数据已备份；从空 layout 重新起步")
-}
-
-// ensureV2DataLayout 保证平铺数据 layout 的顶层目录存在 (类型即目录, 2026-06-12 大整理)。
-func ensureV2DataLayout(log zerolog.Logger) {
-	exeDir, err := os.Executable()
-	if err != nil {
-		log.Warn().Err(err).Str("tag", "MIGRATE").Msg("无法定位 exe，跳过 layout 创建")
-		return
-	}
-	base := filepath.Join(filepath.Dir(exeDir), "data")
-	dirs := []string{
-		filepath.Join(base, "containers"),
-		filepath.Join(base, "subgraphs"),
-		filepath.Join(base, "templates"),
-		filepath.Join(base, "clips"),
-		filepath.Join(base, "blobs"),
-		filepath.Join(base, "schedules"),
-	}
-	for _, d := range dirs {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			log.Error().Err(err).Str("tag", "MIGRATE").Str("dir", d).Msg("mkdir 失败")
-		}
-	}
 }

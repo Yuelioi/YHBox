@@ -32,7 +32,7 @@ Grant Authorizer 是 Capability Run Grant 到 Resource Broker 的唯一 adapter�
 
 `internal/workflow/authoring` 是 UI、AI、CLI 与 MCP 共用的唯一可变 seam。`rename/add/remove/configure/bind/connect` 等命令组成 exact tagged union，批次最多 256 条；host 生成节点 ID 与 contract defaults，`$handle` 只在单批内解析。Application 对 `baseRevision` 做 CAS，整批失败不发布部分 Source。生成的 JSON Schema/TypeScript 位于 `contracts/workflow/3.1/authoring-patch.*`；前端可做 optimistic projection，但保存时必须提交同一 command contract，并以服务端返回的 canonical Source 替换本地草稿。MCP 只暴露 catalog search/describe、bounded list/inspect、typed apply-patch、compile、diagnostic explain 和 effect-free run preview；不存在 `save_container`、`run_node`、窗口枚举或默认 HTTP listener。
 
-生产 composition 已只装配 3.1 Application/Program Run worker，不再注入 `internal/services/container/runtime.ContainerRunner`、旧 debug manager 或旧 MCP HTTP server。legacy Container RPC 暂时只承载待迁移的 authoring 数据，Run/Stop/Debug 不再构成第二执行事实；EditorSession 3.1 接管 GUI 后会连同 `internal/node`、Container store/service/runtime 一并删除。迁移期间也不允许把旧 runtime 重新接回作为 fallback。
+生产 composition 只装配 3.1 Application/Program Run worker。旧 Container store/service/runtime、Subgraph/Node/CodeSnippet RPC、旧 debug manager 与旧 MCP HTTP server 已物理删除；`internal/node` 与 `internal/nodes/*` 的剩余实现库存由 Wave D 删除，任何旧 runtime 都不得回接为 fallback。
 
 所有生产入口必须收敛到 Application command surface：保存 Workflow Source、编译并持久化不可变 Program、admission 后创建 durable QUEUED Run，再由唯一 worker 执行。Schedule 的 durable target 是 Workflow Source ID，文件格式固定 `schemaVersion: "3.1"`；daemon 拥有 cron/hotkey/once/manual fire 的 context 与任务生命周期，停止时先取消再等待，不能遗留后台 goroutine。
 

@@ -72,8 +72,6 @@ tasks:
   check:fuzz:
     summary: Runs bounded fuzz smoke tests for untrusted parsers and authoring inputs
     cmds:
-      - go test ./internal/services/container -run=^$ -fuzz=^FuzzGraphRewriter$ -fuzztime={{.FUZZ_TIME}}
-      - go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}

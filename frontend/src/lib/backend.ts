@@ -4,7 +4,6 @@
 import { Dialogs, Events } from '@wailsio/runtime'
 import * as SettingsService from '@bindings/github.com/yottaapp/yotta/internal/services/settingsservice.js'
 import * as HotkeyService from '@bindings/github.com/yottaapp/yotta/internal/hotkey/hotkeyservice.js'
-import * as ContainerService from '@bindings/github.com/yottaapp/yotta/internal/services/container/service.js'
 import * as ScheduleService from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/service.js'
 import * as AssetService from '@bindings/github.com/yottaapp/yotta/internal/services/asset/service.js'
 import * as CalibrationService from '@bindings/github.com/yottaapp/yotta/internal/services/calibration/service.js'
@@ -12,8 +11,6 @@ import * as ToolsService from '@bindings/github.com/yottaapp/yotta/internal/serv
 import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/services/appinfoservice.js'
 import * as RecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/recording/service.js'
 import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/services/inputclip/service.js'
-import * as SubgraphService from '@bindings/github.com/yottaapp/yotta/internal/services/container/subgraphservice.js'
-import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/codesnippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
@@ -57,7 +54,7 @@ export interface LogBatchEvent {
 // 装 vue-i18n named interpolation (容器名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
-  source: 'system' | 'action' | 'container' | 'schedule' | 'editor' | 'recording'
+  source: 'system' | 'action' | 'schedule' | 'editor' | 'recording'
   label: string
   labelParams?: Record<string, string>
   hotkeyStr: string
@@ -65,158 +62,6 @@ export interface HotkeyEntry {
   lastError: string
   readonlyReason: string
   mechanism?: 'os-global' | 'editor-inapp' | 'll-hook'
-}
-
-// ---- 容器架构数据层类型 ----
-
-export interface VarDecl {
-  name: string
-  type: 'number' | 'bool' | 'string' | 'point' | 'list' | 'any'
-  default?: any
-}
-export interface GraphNode {
-  id: string
-  kind: string
-  label?: string // 用户可编辑的显示名 (UE/Houdini 标准, optional, 不影响逻辑)
-  x: number
-  y: number
-  config?: Record<string, any>
-  disabled?: boolean // runtime 跳过该节点 — 走 kind-aware passthrough
-  logEnabled?: boolean // 勾选 → 执行时吐通用 dump 日志到面板/文件
-  createdAt?: string
-}
-export interface GraphEdge {
-  from: string
-  to: string
-  // edge kind 由 (fromNode.kind, fromPin) 经 nodeRegistry.edgeKindOf 派生, 不存字段.
-}
-
-// Graph: id + schemaVersion
-export interface Graph {
-  id: string
-  schemaVersion: number
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-}
-
-// SubgraphOutputDecl — 父图边引用稳定 ID, UI 显示 Name (允许 rename name 不破坏 edge).
-// B2: nodeID/x/y 是子图内 virtual 出口节点 metadata, 编辑器渲染为虚拟节点.
-export interface SubgraphOutputDecl {
-  id: string
-  name: string
-  nodeID?: string
-  x?: number
-  y?: number
-}
-
-// SubgraphMarker — B2 Subgraph 入口 virtual 节点位置 + ID. Edges 引用 NodeID.
-export interface SubgraphMarker {
-  nodeID: string
-  x?: number
-  y?: number
-}
-
-// ValidationError 后端 validator 结构化错误 (validator.go ValidationError 镜像).
-// B5: Message 字段已删, FE 全走 t(`error.<code>`, params).
-export interface ValidationError {
-  severity: 'error' | 'warning'
-  code: string
-  graphPath: string[]
-  nodeId?: string
-  params?: Record<string, unknown>
-}
-
-export interface DebugStartOptions {
-  startNodeId?: string
-  graphPath?: string[]
-}
-
-export interface DebugSessionState {
-  sessionId: string
-  containerId: string
-  status: string
-  mode: string
-  startNodeId?: string
-  currentNodeId?: string
-  currentNodeKind?: string
-  runningNodeId?: string
-  runningNodeKind?: string
-  lastNodeId?: string
-  lastNodeKind?: string
-  lastExit?: string
-  lastOutput?: Record<string, unknown>
-  vars?: Record<string, unknown>
-  queue?: Array<{
-    nodeId: string
-    nodeKind: string
-    inPin: string
-    graphPath?: string[]
-    loopDepth?: number
-    execDataKeys?: string[]
-  }>
-  error?: {
-    message?: string
-    code?: string
-    params?: Record<string, unknown>
-    errors?: ValidationError[]
-  } | null
-  warnings?: Array<{
-    code: string
-    message: string
-    nodeId?: string
-    params?: Record<string, unknown>
-  }>
-}
-
-// Subgraph — 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不复制)
-export interface Subgraph {
-  id: string
-  rev: number // 单调版本号 — 保存/删除乐观锁基准 (仅单实例并发控制)
-  label: string
-  description?: string
-  graph: Graph
-  entry: SubgraphMarker // B2: 子图入口 virtual marker
-  outputPins: SubgraphOutputDecl[]
-  tags?: string[]
-  category?: string
-  // 引用的容器级 var 名字 (保存时后端派生; Type/Default 由消费方按目标容器即时现算)
-  requiredGlobals?: string[]
-  isAnonymous?: boolean // CollapsedNode 后备体 — 不进库浏览/候选列表
-  createdAt: string
-}
-
-// SubgraphReferrer 子图引用位置 — 删除前警告 + 库页"被 N 个容器使用"(按 containerID 去重).
-// 引用方在池子图内时 containerID 为空 (子图可被多容器使用, 无单一归属).
-export interface SubgraphReferrer {
-  containerID: string
-  subgraphID?: string
-  nodeID: string
-  nodeKind: string
-}
-
-export interface Container {
-  schemaVersion: number
-  id: string
-  name: string
-  description?: string
-  tags?: string[]
-  packageId?: string
-  packageName?: string
-  version?: string
-  category?: string
-  keywords?: string[]
-  author?: { name?: string; email?: string; url?: string } | string
-  hotkey?: string
-  inputBackend?: string
-  captureBackend?: string
-  scaleTolerance?: number
-  vars?: VarDecl[]
-  graph: Graph
-  // 子图已全局化 — 容器无 subgraphs 字段, 全池走 backend.subgraphs.list()
-  status?: string
-  incompatibleReason?: string
-  createdAt: string
-  updatedAt: string
 }
 
 export type Schedule = ScheduleModel
@@ -383,82 +228,6 @@ export const backend = {
       invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
     revokeWorkflowConsent: (slot: string) =>
       invokeVoid(AutomationService.RevokeWorkflowConsent, slot),
-  },
-  containers: {
-    list: () => invoke(ContainerService.List),
-    get: (id: string) => invoke(ContainerService.Get, id),
-    // 从磁盘重读单个容器 (MCP / 外部改盘后, 编辑器「重载」按钮用)。返回最新容器, 同时刷新后端 byID 缓存。
-    reload: (id: string) => invoke(ContainerService.Reload, id),
-    create: (name: string) => invoke(ContainerService.Create, name),
-    update: (id: string, patchJSON: string) => invoke(ContainerService.Update, id, patchJSON),
-    // 裸版本: 不走 invoke 自动 toast, 抛错给调用方自己 catch 定制错误提示
-    // (useEditorSave 合并进「主图保存失败」单条, 不叠两条 toast)。
-    updateSilent: (id: string, patchJSON: string) => ContainerService.Update(id, patchJSON),
-    delete_: (id: string) => invoke(ContainerService.Delete, id),
-    pickExportPath: (filename: string, title: string, buttonText: string) =>
-      Dialogs.SaveFile({
-        Filename: filename,
-        Title: title,
-        ButtonText: buttonText,
-        CanCreateDirectories: true,
-        Filters: [{ DisplayName: 'Yotta Container', Pattern: '*.yotta-container.zip' }],
-      }),
-    exportPackage: (id: string, destPath: string) =>
-      invoke(ContainerService.ExportPackage, id, destPath) as Promise<boolean | undefined>,
-    run: (id: string) => invokeVoid(ContainerService.Run, id),
-    stopAll: () => invoke(ContainerService.StopAll),
-    debugStart: (id: string, options: DebugStartOptions = {}) =>
-      invoke(ContainerService.DebugStart, id, options as any) as Promise<
-        DebugSessionState | undefined
-      >,
-    debugStep: (sessionID: string) =>
-      invoke(ContainerService.DebugStep, sessionID) as Promise<DebugSessionState | undefined>,
-    debugContinue: (sessionID: string) =>
-      invoke(ContainerService.DebugContinue, sessionID) as Promise<DebugSessionState | undefined>,
-    debugPause: (sessionID: string) =>
-      invoke(ContainerService.DebugPause, sessionID) as Promise<DebugSessionState | undefined>,
-    debugStop: (sessionID: string) =>
-      invoke(ContainerService.DebugStop, sessionID) as Promise<DebugSessionState | undefined>,
-    debugState: (sessionID: string) =>
-      invoke(ContainerService.DebugState, sessionID) as Promise<DebugSessionState | undefined>,
-    deleteMany: (ids: string[]) => ContainerService.DeleteMany(ids),
-    validate: (id: string) =>
-      invoke(ContainerService.ValidateContainerByID, id) as Promise<ValidationError[]>,
-  },
-  // 全局子图池 (2026-06-12 全局化): 无 containerID; 保存/删除带基准 rev 乐观锁.
-  subgraphs: {
-    list: () => invoke(SubgraphService.List) as Promise<Subgraph[] | undefined>,
-    get: (id: string) => invoke(SubgraphService.Get, id) as Promise<Subgraph | undefined>,
-    create: (label: string) =>
-      invoke(SubgraphService.Create, label) as Promise<Subgraph | undefined>,
-    update: (id: string, patchJSON: string, baseRev: number) =>
-      invoke(SubgraphService.Update, id, patchJSON, baseRev),
-    // 裸版本: 不走 invoke 自动 toast, useEditorSave 子图循环汇总失败 + 乐观锁拒绝走重载对话框。
-    updateSilent: (id: string, patchJSON: string, baseRev: number) =>
-      SubgraphService.Update(id, patchJSON, baseRev),
-    delete_: (id: string, baseRev: number) => invoke(SubgraphService.Delete, id, baseRev),
-    // 复制为新子图 (fork, ≈Blender Make Local): 新 ID / rev=1 / 一律具名.
-    duplicate: (id: string) =>
-      invoke(SubgraphService.Duplicate, id) as Promise<Subgraph | undefined>,
-    // 删除前警告 + 库页引用计数 ("被 N 个容器使用" = referrers 按 containerID 去重).
-    referrers: (id: string) =>
-      invoke(SubgraphService.Referrers, id) as Promise<SubgraphReferrer[] | undefined>,
-    previewCleanup: () => invoke(SubgraphService.PreviewCleanup),
-    cleanupUnused: (ids: string[]) => invoke(SubgraphService.CleanupUnused, { ids }),
-  },
-  // 编辑器用户代码片段: <dataDir>/snippets.json 整存整取 (量小改动低频, 前端持全量列表).
-  codeSnippets: {
-    list: () => invoke(CodeSnippetService.List),
-    saveAll: (
-      list: {
-        id: string
-        lang: string
-        prefix: string
-        name: string
-        description?: string
-        body: string
-      }[],
-    ) => invoke(CodeSnippetService.SaveAll, list as any),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),

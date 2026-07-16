@@ -308,7 +308,7 @@ func TestService_ValidateTarget_Guards(t *testing.T) {
 	if err := s.ValidateTarget(""); err == nil {
 		t.Fatal("empty target slot should return an error")
 	}
-	// containerGet 未注入 (newTestService 不注入) → error, 不 panic.
+	// installed target resolver 未注入 (newTestService 不注入) → error, 不 panic.
 	if err := s.ValidateTarget("cA"); err == nil {
 		t.Fatal("missing installed target resolver should return an error")
 	}
@@ -316,7 +316,7 @@ func TestService_ValidateTarget_Guards(t *testing.T) {
 
 func TestService_StopFromPaused_GuardOpens(t *testing.T) {
 	s, _ := newTestService()
-	// paused 态 Stop 守卫放开 (不必先 resume). recorder 非 active + containers nil → 内部 err,
+	// paused 态 Stop 守卫放开 (不必先 resume). recorder 非 active + resolver 未注入 → 内部 err,
 	// 但 defer 必收敛到 idle; 关键是没在守卫处提前 no-op 留在 paused.
 	s.setState(RecordingState{Phase: PhasePaused, TargetSlot: "editor"})
 	_, _ = s.Stop()

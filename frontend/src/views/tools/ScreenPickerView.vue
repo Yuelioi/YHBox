@@ -427,7 +427,7 @@ import { backend } from '@/lib/backend'
 import { rgbToHsv, rgbToHex } from '@/lib/color'
 import { usePickerViewport } from '@/composables/tools/usePickerViewport'
 import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
-import { addCreatedCategory, uniqueCategoryOptions } from '@/components/containers/categoryOptions'
+import { addCreatedCategory, uniqueCategoryOptions } from '@/lib/categoryOptions'
 import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()

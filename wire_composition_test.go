@@ -12,69 +12,10 @@ import (
 	app31 "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/hotkey"
-	"github.com/yottaapp/yotta/internal/node"
-	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/services"
-	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/tools"
 )
-
-func TestSubgraphCompositionUsesOneDependencyScannerForClosureAndReferrers(t *testing.T) {
-	subgraphs, err := container.NewSubgraphStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	target := container.Subgraph{ID: "sg-target", Label: "target"}
-	if err := subgraphs.Create(&target); err != nil {
-		t.Fatal(err)
-	}
-	caller := container.Subgraph{ID: "sg-caller", Label: "caller", Graph: container.Graph{Nodes: []container.GraphNode{{
-		ID: "call-target", Kind: "Subgraph", Config: map[string]any{"SubgraphID": target.ID},
-	}}}}
-	if err := subgraphs.Create(&caller); err != nil {
-		t.Fatal(err)
-	}
-
-	registry := node.NewRegistry()
-	registry.Register(&control.Start{})
-	containers, err := container.NewStoreWithRegistry(t.TempDir(), registry)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := containers.Save(&container.Container{SchemaVersion: 1, ID: "root", Name: "root", Graph: container.Graph{
-		Nodes: []container.GraphNode{{ID: "start", Kind: "Start"}},
-	}}); err != nil {
-		t.Fatal(err)
-	}
-
-	root := &container.Container{Graph: container.Graph{Nodes: []container.GraphNode{{
-		ID: "call-caller", Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": caller.ID}},
-	}}}}
-	closure := subgraphClosureFor(root, subgraphs)
-	if len(closure) != 2 || closure[0].ID != caller.ID || closure[1].ID != target.ID {
-		t.Fatalf("subgraph closure = %#v", closure)
-	}
-	infos := depNodeInfos(root.Graph.Nodes)
-	if len(infos) != 1 || infos[0].Kind != "Subgraph" {
-		t.Fatalf("dependency node projection = %#v", infos)
-	}
-	if dependencies := nodeSubgraphDeps(&root.Graph.Nodes[0]); len(dependencies) != 1 || dependencies[0] != caller.ID {
-		t.Fatalf("direct subgraph dependencies = %#v", dependencies)
-	}
-	if dependencies := nodeSubgraphDeps(&container.GraphNode{Kind: "unknown"}); len(dependencies) != 0 {
-		t.Fatalf("unknown node dependencies = %#v", dependencies)
-	}
-
-	refs := scanSubgraphReferrers(containers, subgraphs)(target.ID)
-	if len(refs) != 1 || refs[0].SubgraphID != caller.ID || refs[0].NodeID != "call-target" {
-		t.Fatalf("subgraph referrers = %#v", refs)
-	}
-	referenced := collectReferencedSubgraphIDs(containers, subgraphs)
-	if !referenced[target.ID] || referenced[caller.ID] {
-		t.Fatalf("referenced subgraphs = %#v", referenced)
-	}
-}
 
 func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	missing := &recordingHkAdapter{}
