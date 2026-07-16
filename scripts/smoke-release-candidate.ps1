@@ -7,7 +7,14 @@ Set-StrictMode -Version Latest
 
 function Get-Sha256 {
     param([string]$LiteralPath)
-    return (Get-FileHash -LiteralPath $LiteralPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = [System.IO.File]::OpenRead($LiteralPath)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
 }
 
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
