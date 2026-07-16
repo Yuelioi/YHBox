@@ -69,10 +69,21 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 		return aiTestFailure(err)
 	}
 	maximum := min(profile.Machine().MaxOutputTokens, int64(8))
+	manifest, err := ai.SealPromptManifest(ai.PromptManifestDraft{
+		ID: "yotta.ai.connection-test", Version: "1.0.0", Owner: "settings",
+		Instructions: "Return the requested short connection-test response without adding unrelated content.",
+	})
+	if err != nil {
+		return aiTestFailure(err)
+	}
+	prompt, err := ai.RenderPrompt(manifest, []ai.PromptBlock{{Kind: ai.PromptBlockUser, Content: "Reply with OK."}})
+	if err != nil {
+		return aiTestFailure(err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	outcome, err := provider.Generate(ctx, credential, ai.GenerateRequest{
-		AttemptID: attemptID, Prompt: "Reply with OK.", Retention: ai.RetentionNoApplicationState,
+		AttemptID: attemptID, Prompt: prompt, Retention: ai.RetentionNoApplicationState,
 		Limits: ai.GenerationLimits{MaxOutputTokens: &maximum},
 	})
 	if err != nil {

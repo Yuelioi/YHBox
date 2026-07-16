@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/configvalidator"
@@ -89,6 +90,8 @@ type Builtins struct {
 	StreamToBlobContract         nodecontract.Contract
 	AIGenerateContract           nodecontract.Contract
 	AIExtractContract            nodecontract.Contract
+	AIGeneratePrompt             ai.PromptManifest
+	AIExtractPrompt              ai.PromptManifest
 	ScriptExecuteContract        nodecontract.Contract
 	FileReadTextContract         nodecontract.Contract
 	FileReadJSONContract         nodecontract.Contract
@@ -224,6 +227,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	aiPrompts, err := sealAIPromptManifests()
+	if err != nil {
+		return Builtins{}, err
+	}
 	activateWindowDefinition, activateWindowContract, err := defineActivateWindowNode(automationWindow)
 	if err != nil {
 		return Builtins{}, err
@@ -313,7 +320,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	aiDefinitions, aiGenerate, aiExtract, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration)
+	aiDefinitions, aiGenerate, aiExtract, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration, aiPrompts)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -400,8 +407,10 @@ func Build() (Builtins, error) {
 		FileMetadataType:         fileMetadataType,
 		ObservabilityMessageType: observabilityMessageType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
-		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, ScriptExecuteContract: scriptExecute,
-		FileReadTextContract: filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
+		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract,
+		AIGeneratePrompt: aiPrompts.generate, AIExtractPrompt: aiPrompts.extract,
+		ScriptExecuteContract: scriptExecute,
+		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
 		AutomationInputContracts: automationInputContracts,

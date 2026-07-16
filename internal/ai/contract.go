@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/artifact"
 )
 
 const (
@@ -36,17 +38,23 @@ type GenerationLimits struct {
 }
 
 type GenerateRequest struct {
-	AttemptID    string                `json:"attemptId"`
-	Instructions string                `json:"instructions,omitempty"`
-	Prompt       string                `json:"prompt"`
-	Output       *StructuredOutputSpec `json:"output,omitempty"`
-	Limits       GenerationLimits      `json:"limits"`
-	Retention    RetentionRequirement  `json:"retention"`
+	AttemptID string                `json:"attemptId"`
+	Prompt    RenderedPrompt        `json:"prompt"`
+	Output    *StructuredOutputSpec `json:"output,omitempty"`
+	ToolSet   artifact.Digest       `json:"toolSet,omitempty"`
+	Limits    GenerationLimits      `json:"limits"`
+	Retention RetentionRequirement  `json:"retention"`
 }
 
 func (r GenerateRequest) Validate() error {
-	if !attemptIDPattern.MatchString(r.AttemptID) || len(r.Instructions)+len(r.Prompt) > MaxPromptBytes || r.Prompt == "" {
+	if !attemptIDPattern.MatchString(r.AttemptID) {
 		return errors.New("invalid AI generation identity or prompt budget")
+	}
+	if err := r.Prompt.Validate(); err != nil {
+		return err
+	}
+	if r.ToolSet != "" && !r.ToolSet.Valid() {
+		return errors.New("invalid AI tool set identity")
 	}
 	if r.Limits.Temperature != nil && (*r.Limits.Temperature < 0 || *r.Limits.Temperature > 2) {
 		return errors.New("AI temperature is outside the portable range")

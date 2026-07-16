@@ -18,9 +18,11 @@ import (
 func aiGenerate(builtins nodes31.Builtins, structured bool) compiler.Adapter {
 	effectID := nodes31.AIGenerateEffectID
 	operation := ai.OperationGenerate
+	promptManifest := builtins.AIGeneratePrompt
 	if structured {
 		effectID = nodes31.AIExtractEffectID
 		operation = ai.OperationGenerateStructured
+		promptManifest = builtins.AIExtractPrompt
 	}
 	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
 		action := compiler.AdapterAction{
@@ -38,10 +40,11 @@ func aiGenerate(builtins nodes31.Builtins, structured bool) compiler.Adapter {
 		if err := json.Unmarshal(promptEnvelope.InlineJSON(), &prompt); err != nil || prompt == "" {
 			return compiler.AdapterResult{}, errors.New("AI prompt input must be a non-empty string")
 		}
-		request, err := aiRequest(invocation.Config, prompt, structured)
+		request, err := aiRequest(invocation.Config, prompt, structured, promptManifest)
 		if err != nil {
 			return compiler.AdapterResult{}, err
 		}
+		addAIRequestSummary(&action, request)
 		session := invocation.Sessions["model"]
 		if session == nil {
 			return compiler.AdapterResult{}, errors.New("AI model capability session is missing")
@@ -103,15 +106,16 @@ func aiGenerate(builtins nodes31.Builtins, structured bool) compiler.Adapter {
 	}
 }
 
-func aiRequest(config map[string]any, prompt string, structured bool) (ai.GenerateRequest, error) {
+func aiRequest(config map[string]any, prompt string, structured bool, manifest ai.PromptManifest) (ai.GenerateRequest, error) {
 	attemptID, err := runid.New()
 	if err != nil {
 		return ai.GenerateRequest{}, err
 	}
-	request := ai.GenerateRequest{AttemptID: attemptID, Prompt: prompt, Retention: ai.RetentionNoApplicationState}
-	if instructions, ok := config["instructions"].(string); ok {
-		request.Instructions = instructions
+	rendered, err := ai.RenderPrompt(manifest, []ai.PromptBlock{{Kind: ai.PromptBlockUser, Content: prompt}})
+	if err != nil {
+		return ai.GenerateRequest{}, err
 	}
+	request := ai.GenerateRequest{AttemptID: attemptID, Prompt: rendered, Retention: ai.RetentionNoApplicationState}
 	if value, exists := config["temperature"]; exists {
 		temperature, err := configFloat(value)
 		if err != nil {
@@ -141,6 +145,17 @@ func aiRequest(config map[string]any, prompt string, structured bool) (ai.Genera
 		return ai.GenerateRequest{}, err
 	}
 	return request, nil
+}
+
+func addAIRequestSummary(action *compiler.AdapterAction, request ai.GenerateRequest) {
+	addFact(action.Facts, "prompt_manifest", request.Prompt.ManifestDigest.String())
+	addFact(action.Facts, "tool_set", request.ToolSet.String())
+	if request.Output != nil {
+		digest, err := request.Output.Digest()
+		if err == nil {
+			addFact(action.Facts, "output_schema", digest.String())
+		}
+	}
 }
 
 func configFloat(value any) (float64, error) {
@@ -180,6 +195,8 @@ func addAIOutcomeSummary(action *compiler.AdapterAction, outcome ai.Outcome) {
 	addCounter("output_tokens", outcome.Usage.OutputTotal)
 	addCounter("reasoning_tokens", outcome.Usage.ReasoningOutput)
 	addFact(action.Facts, "provider", string(outcome.Provider))
+	addFact(action.Facts, "requested_model", outcome.RequestedModel)
+	addFact(action.Facts, "resolved_model", outcome.ResolvedModel)
 	addFact(action.Facts, "finish", string(outcome.Finish.Kind))
 	addFact(action.Facts, "provider_request_id", outcome.ProviderRequestID)
 	addFact(action.Facts, "provider_response_id", outcome.ProviderResponseID)

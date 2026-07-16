@@ -284,11 +284,6 @@ export default {
           description:
             'References a stable installed AI model slot; ad hoc provider parameters are not accepted.',
         },
-        instructions: {
-          title: 'System instructions',
-          description:
-            'Optional model behavior constraints; workflow input is supplied through the prompt data port.',
-        },
         temperature: {
           title: 'Temperature',
           description:

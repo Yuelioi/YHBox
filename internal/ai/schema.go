@@ -18,6 +18,7 @@ const (
 	MaxStructuredNodes       = 8192
 	structuredSchemaResource = "https://schemas.yotta.dev/runtime/ai-output/v1"
 	StrictSchemaValidatorID  = "https://schemas.yotta.dev/config-validators/ai-strict-output/v1"
+	structuredOutputDomain   = "yotta/ai-structured-output/v1"
 )
 
 var structuredNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -79,6 +80,17 @@ func (s StructuredOutputSpec) Validate() error {
 		return errors.New("AI structured output schema must be canonical")
 	}
 	return nil
+}
+
+func (s StructuredOutputSpec) Digest() (artifact.Digest, error) {
+	if err := s.Validate(); err != nil {
+		return "", err
+	}
+	raw, err := artifact.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return artifact.Sum(structuredOutputDomain, raw)
 }
 
 func (s StructuredOutputSpec) ValidateValue(raw json.RawMessage) (json.RawMessage, error) {

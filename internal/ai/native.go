@@ -157,8 +157,16 @@ type providerError struct {
 }
 
 func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, request GenerateRequest, profile ModelProfileDraft) (Outcome, error) {
+	manifest, err := request.Prompt.OpenManifest()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
+	input, err := request.Prompt.ProviderInput()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
 	payload := openAIRequest{
-		Model: profile.Model, Instructions: request.Instructions, Input: request.Prompt,
+		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: input,
 		Store: request.Retention == RetentionProviderDefault, Temperature: request.Limits.Temperature,
 		MaxOutputTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
 	}
@@ -322,9 +330,17 @@ type anthropicUsage struct {
 }
 
 func (p *nativeProvider) generateAnthropic(ctx context.Context, credential string, request GenerateRequest, profile ModelProfileDraft) (Outcome, error) {
+	manifest, err := request.Prompt.OpenManifest()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
+	input, err := request.Prompt.ProviderInput()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
 	payload := anthropicRequest{
 		Model: profile.Model, MaxTokens: valueOr(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
-		System: request.Instructions, Messages: []anthropicInput{{Role: "user", Content: request.Prompt}}, Temperature: request.Limits.Temperature,
+		System: manifest.Machine().Instructions, Messages: []anthropicInput{{Role: "user", Content: input}}, Temperature: request.Limits.Temperature,
 	}
 	if request.Output != nil {
 		payload.OutputConfig = &anthropicOutputConfig{Format: anthropicFormat{Type: "json_schema", Schema: request.Output.Schema}}

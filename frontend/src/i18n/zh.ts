@@ -272,10 +272,6 @@ export default {
           title: '模型 slot',
           description: '引用设置中已安装 AI 模型的稳定 slot，不接受临时 provider 参数。',
         },
-        instructions: {
-          title: '系统指令',
-          description: '可选的模型行为约束；工作流输入通过 prompt 数据端口传入。',
-        },
         temperature: {
           title: '温度',
           description: '0 到 2 的采样温度；不填写时使用已安装模型的默认策略。',

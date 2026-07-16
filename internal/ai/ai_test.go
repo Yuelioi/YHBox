@@ -87,6 +87,9 @@ func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 		if body["model"] != "model-snapshot-1" || body["store"] != false {
 			t.Fatalf("OpenAI request = %#v", body)
 		}
+		if body["instructions"] != "Trusted test instructions." || body["input"] != "answer" {
+			t.Fatalf("OpenAI prompt boundary = %#v", body)
+		}
 		text := body["text"].(map[string]any)
 		format := text["format"].(map[string]any)
 		if format["type"] != "json_schema" || format["strict"] != true || format["name"] != "result" {
@@ -102,7 +105,7 @@ func TestOpenAIResponsesUsesNativeStructuredOutputAndExactUsage(t *testing.T) {
 	defer server.Close()
 	provider := nativeProviderForTest(t, profileForTest(t, ProviderOpenAIResponses), server.URL)
 	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
-		AttemptID: "attempt-1", Prompt: "answer", Output: &spec, Retention: RetentionNoApplicationState,
+		AttemptID: "attempt-1", Prompt: renderedPromptForTest(t, "answer"), Output: &spec, Retention: RetentionNoApplicationState,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -129,6 +132,9 @@ func TestAnthropicMessagesUsesOutputConfigAndCacheAwareUsage(t *testing.T) {
 		if _, legacy := body["output_format"]; legacy {
 			t.Fatal("Anthropic request used legacy output_format")
 		}
+		if body["system"] != "Trusted test instructions." {
+			t.Fatalf("Anthropic prompt boundary = %#v", body)
+		}
 		output := body["output_config"].(map[string]any)
 		format := output["format"].(map[string]any)
 		if format["type"] != "json_schema" {
@@ -144,7 +150,7 @@ func TestAnthropicMessagesUsesOutputConfigAndCacheAwareUsage(t *testing.T) {
 	defer server.Close()
 	provider := nativeProviderForTest(t, profile, server.URL)
 	outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{
-		AttemptID: "attempt-2", Prompt: "answer", Output: &spec, Retention: RetentionNoApplicationState,
+		AttemptID: "attempt-2", Prompt: renderedPromptForTest(t, "answer"), Output: &spec, Retention: RetentionNoApplicationState,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +171,7 @@ func TestProviderFailuresAndNonCompletedStructuredOutputFailClosed(t *testing.T)
 		}))
 		defer server.Close()
 		provider := nativeProviderForTest(t, profileForTest(t, ProviderAnthropicMessages), server.URL)
-		_, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-3", Prompt: "x", Retention: RetentionProviderDefault})
+		_, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-3", Prompt: renderedPromptForTest(t, "x"), Retention: RetentionProviderDefault})
 		var failure *ProviderFailure
 		if !errors.As(err, &failure) || failure.Class != FailureOverloaded || failure.Retry != RetryAfterHint || failure.RetryAfter == nil {
 			t.Fatalf("failure = %#v", err)
@@ -179,7 +185,7 @@ func TestProviderFailuresAndNonCompletedStructuredOutputFailClosed(t *testing.T)
 		defer server.Close()
 		provider := nativeProviderForTest(t, profileForTest(t, ProviderOpenAIResponses), server.URL)
 		spec := structuredSpecForTest(t)
-		outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-4", Prompt: "x", Output: &spec, Retention: RetentionProviderDefault})
+		outcome, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-4", Prompt: renderedPromptForTest(t, "x"), Output: &spec, Retention: RetentionProviderDefault})
 		if err != nil || outcome.Finish.Kind != FinishRefusal || outcome.Items[0].Kind != OutputRefusal {
 			t.Fatalf("refusal outcome = %#v, %v", outcome, err)
 		}
@@ -191,7 +197,7 @@ func TestProviderFailuresAndNonCompletedStructuredOutputFailClosed(t *testing.T)
 		}))
 		defer server.Close()
 		provider := nativeProviderForTest(t, profileForTest(t, ProviderOpenAIResponses), server.URL)
-		_, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-5", Prompt: "x", Retention: RetentionProviderDefault})
+		_, err := provider.Generate(context.Background(), "secret", GenerateRequest{AttemptID: "attempt-5", Prompt: renderedPromptForTest(t, "x"), Retention: RetentionProviderDefault})
 		var failure *ProviderFailure
 		if !errors.As(err, &failure) || failure.Stage != FailureContract {
 			t.Fatalf("unknown type error = %#v", err)
@@ -216,7 +222,7 @@ func TestResourceProviderEnforcesGrantedScopeAndResolvesCredentialAtCallTime(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload, _ := artifact.Marshal(GenerateRequest{AttemptID: "attempt-6", Prompt: "x", Retention: RetentionNoApplicationState})
+	payload, _ := artifact.Marshal(GenerateRequest{AttemptID: "attempt-6", Prompt: renderedPromptForTest(t, "x"), Retention: RetentionNoApplicationState})
 	raw, err := provider.Invoke(context.Background(), object, OperationGenerate, payload)
 	if err != nil || !bytes.Contains(raw, []byte(`"completed"`)) || native.credential != "secret" {
 		t.Fatalf("resource invoke = %s, %v, credential=%q", raw, err, native.credential)
@@ -271,6 +277,21 @@ func structuredSpecForTest(t *testing.T) StructuredOutputSpec {
 		t.Fatal(err)
 	}
 	return spec
+}
+
+func renderedPromptForTest(t *testing.T, content string) RenderedPrompt {
+	t.Helper()
+	manifest, err := SealPromptManifest(PromptManifestDraft{
+		ID: "yotta.test.prompt", Version: "1.0.0", Owner: "tests", Instructions: "Trusted test instructions.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt, err := RenderPrompt(manifest, []PromptBlock{{Kind: PromptBlockUser, Content: content}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return prompt
 }
 
 func nativeProviderForTest(t *testing.T, profile ModelProfile, endpoint string) Provider {
