@@ -6,182 +6,37 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-当前唯一实施主线是 Yotta 3.1 destructive upgrade。
+目标：完成并验证 AI-native、destructive 的 Yotta 3.1 架构与发布计划。
 
-已完成的大 Wave：
-
-- Wave A `be1fc04b`：Launcher/Settings/Hotkey 活跃入口切到 Workflow 3.1；旧 Container hotkey/calibration RPC 删除。
-- Wave B `d060798c`：Asset、Tools、Recording 统一按已安装 `targetSlot` 使用 host-only AuthoringTargets projection；删除按 Container 节点解析窗口、重复创建 capture backend 与录制 target platform resolver。
-- Wave C `9fce7870`：物理删除旧 Container/Subgraph/Node/CodeSnippet Wails RPC 与 Store、旧 Container editor 产品树、兼容迁移和 validate-fishing-v2；Wails contract 收敛为 14 services / 89 methods / 99 models。
-- 同一份 sealed automation installation/provider 同时服务 Run capability broker 和可信本地制作工具；Workflow 仍无法获得 native handle 或绕过 Grant。
-
-Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、旧表达式/script binding、节点 i18n registry 和对应前端/日志库存已物理删除。CLI 文档、节点文案、前端参数提示与测试只消费 3.1 Catalog/Authoring Projection；没有 adapter registry、kind switch、旧 coercion 或 compatibility type 回接。
-
-Wave E 的 AI 收口首批已由 `99c3f5ff` 完成：零消费者的 `internal/services/llm`、通用 Chat/Mode、endpoint 猜测、structured prompt/fence fallback 与旧 provider SDK 依赖已物理删除。AI 单一路径是 `internal/ai` 的 provider-native installation/profile/resource contract，加 `internal/nodes31` / `internal/nodes31runtime` 的 capability session。
-
-Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 canonical、内容寻址、可 reopen 的 Node Package manifest v1，冻结 publisher namespace、strict SemVer、半开 host API range、exact Type/Capability/Node semantics、WIT/Process ABI 和 portable payload identity；仍未开放发现、安装或执行入口。
-
-## Work outline
-
-### A. 活跃入口切换（✅ 已完成：be1fc04b）
-
-1. 将悬浮启动器、设置中的启动器/热键、运行列表改为消费 Workflow 3.1 Source/Run。
-2. GUI、Schedule、Hotkey、Debug、headless 统一调用 Application/Program runtime。
-3. 删除旧 Container run/debug/validate/save 的活跃前端调用。
-
-### B. 平台 adapter 去 Container 化（✅ 已完成：d060798c）
-
-1. 模板截图和录制目标改为安装式 Automation Target / Application-owned adapter，不再按 containerID 取 Win32WindowTarget。
-2. tools、校准、热键 binder 改用 3.1 installation/target identity。
-3. 删除 main composition root 中仅为旧 Container 服务的后置 Configure/Set wiring。
-
-### C. 删除旧产品树（✅ 已完成：9fce7870）
-
-1. 删除不可达的 `ContainersView`、`ContainerEditorView`、旧 Pin/Inspector/registry/composables/store 和对应 tests。
-2. 删除旧 Container Wails RPC、Store、validator/package/export/subgraph compatibility 路径，以及 CodeSnippet/NodeOptions 服务和旧数据迁移。
-3. 重生成 Wails bindings/contract，确认 14 services / 89 methods / 99 models；不存在旧 RPC、DTO 或 compatibility shim。
-
-### D. Node Contract 单一事实源（✅ 已完成：e29ff25d）
-
-1. 让剩余 UI、表达式/脚本 authoring、CLI 文档只消费 3.1 Authoring Projection/Catalog。
-2. 删除旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、`CanonicalPinType`、`PinTypeCompat`、`CoerceInputValue` 和按 kind validator/dispatch。
-3. 普通内置节点新增不再修改中央 switch；生成契约、参数提示、文档和 fixtures 同源。
-
-### E. AI 与插件（进行中；AI generic fallback 已删除：99c3f5ff）
-
-1. ✅ 删除旧 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。
-2. 🚧 Node Package immutable manifest 已完成；继续实现 lifecycle、Wasm/Process host、SDK 和 conformance。禁止 Go plugin 和第三方前端代码。
-3. Windows fail closed；Linux/macOS 只承诺平台中立 core 与 preview host 能力。
-
-### F. 收尾验收
-
-1. 完成 projections、reference docs、golden fixtures 与 breaking contract diff。
-2. 只在最终阶段运行完整 `task check`；日常按受影响 package/spec 做定向验证。
-3. 执行最终 Standards + Spec + architecture review。
-4. 真实 Windows smoke 覆盖模板/录制、设置、悬浮启动器、工作流运行/调试和工具窗。
-
-## Recent completed slice — 启动与工作流入口可达性
-
-真实 EXE smoke 暴露的两个用户阻断问题已修复；这个切片只改启动导航与 Workflow 3.1 列表交互，没有扩大 runtime 或插件范围。
-
-根因与结果：
-
-1. 主窗口唯一启动写入方仍指向已经删除的 `/#/containers`，导致 hash router 无匹配组件、首屏只显示黑色壳；已改为 `/#/workflows` 并用 Go 回归测试锁定。
-2. Workflow 列表的固定四列网格加 `overflow-hidden` 会在窄 CSS viewport / 高 DPI 下裁掉新建和操作入口；已改为响应式 header、两列/堆叠列表，并让工作流名称成为直接编辑链接。
-3. 补齐缺失的 `sidebar.workflow_edit` 文案，编辑器标题不再显示 i18n key 字面值。
-4. 定向 Go/Vitest、全仓 Go test、前端 typecheck/lint/i18n/format 和 production `task build` 全绿；Windows production EXE 冷启动截图确认无需点击导航即显示工作流列表，创建/运行/编辑入口均可见。
-
-## Recent completed slice — Node Package archive verification
-
-平台中立的 package archive 验证与安全解包核心已完成；本切片没有接 trust store、安装目录、Catalog 或执行 host。
-
-1. `internal/nodepackage.ExtractArchive` 把 ZIP 预算、canonical manifest、精确 entry set、raw SHA-256/size/CRC、context cancellation、安全 mode、staging 清理和最终 rename 收进一个深接口。
-2. archive 根只接受 `yotta-node-package.json` 与 manifest 精确声明的 payload；拒绝重复/额外/缺失 entry、目录、symlink/特殊文件、case-fold collision、反斜杠、reserved name 与 traversal。
-3. payload digest 已明确为 exact bytes 的 raw SHA-256，与 BlobRef identity 一致；16 GiB archive/expanded byte budget 和由 manifest 最大贡献数推导的 entry budget 在读取/分配前执行。
-4. 只有 Process payload 获得 executable mode；失败、取消或已存在 destination 都不会发布最终目录，private staging 会清理。
-5. 接口级测试覆盖成功 reopen/extract、tampered/missing/extra/duplicate/traversal/symlink/size/budget/cancel/existing destination；`go test`、race、vet、staticcheck、全仓 Go test、Linux amd64 与 macOS arm64 交叉编译全绿。
-
-## Latest completed slice — Node Package local lifecycle
-
-无执行面的本地 package lifecycle 已完成。签名和 publisher key 尚未落地，因此只允许用户精确批准一个 manifest digest 的 `local-artifact` trust；该决定不会扩张为 namespace ownership。
-
-1. `OpenExtracted` 在 Store 启动、rollback 和 generation 复用时重验 canonical manifest、精确 regular-file/directory set、size/raw SHA-256 与 host-owned mode；磁盘字节不会因“曾验证过”获得永久信任。
-2. `nodepackage.Store` 使用 private immutable `generations/<manifest-digest>/` 与 canonical `registry.json`；generation 先经 durable directory publish，registry-last 才赋予 authority。incoming、失败事务和 orphan generation 都不可用并在 reopen 清理。
-3. `InstallArchive` 串行执行 archive verification → exact local digest approval → durable generation → registry commit；同 package ID 更新保留单步 rollback，publisher namespace 变化被拒绝。
-4. snapshot-only `List/Get`、`Enable/Disable`、`Quarantine`、`Rollback`、`Uninstall` 已完成。quarantine 强制禁用且 Enable 不可绕过；rollback 重新验盘且默认保持 disabled；uninstall 先删 authority 再 best-effort 清理 bytes。
-5. Store open 对 root/registry/generation symlink、未知 entry、schema/canonical JSON、package/release budgets、排序/重复、dangling pointer、stale local trust 与篡改 generation 全部 fail closed；durable registry rename 已提交但 sync warning 时遵守既有 `durablefs.Committed` 语义。
-6. 测试覆盖 install/update/reopen、approval mismatch、snapshot immutability、disable/enable、quarantine、rollback、uninstall、registry pre-commit failure、tamper、并发序列化和 crash residue；test/race/vet/staticcheck、全仓 Go test、Linux amd64/macOS arm64 交叉编译全绿。
+当前 Slice：restore-go-quality-gate。Workflow 编辑器交互、桌面普通权限启动和 WebView 自调试已分别验证并提交；最终交付检查发现全仓 Go quality gate 在本批次之前已经漂移为红，必须先恢复可信门禁，再继续 Wave E。
 
 ## Next
 
-下一切片先定义签名 envelope、publisher key identity、namespace ownership 与 revocation/quarantine 输入，再让 Store 接受签名 trust；仍不接 Catalog 或执行 host。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
+用已建立的 coverage、go vet 和 staticcheck 红灯逐项定位并恢复 Go quality gate；不降低阈值或绕过检查，最终以完整 task check 全绿和独立 commit 收口。
 
 ## Read now
 
+- work/major-upgrade-review/slices/restore-go-quality-gate.md
 - knowledge/agent/codex-working-agreement.md
-- work/major-upgrade-review/context.md
-- work/major-upgrade-review/review.md
-- work/major-upgrade-review/design.md
-- work/major-upgrade-review/ai-native-design.md
-- work/major-upgrade-review/plan.md
-- knowledge/build/ci-documented-gates-can-be-absent.md
-- knowledge/build/wails-rpc-count-is-not-a-contract.md
-- knowledge/mcp/normalize-masks-schema-prompt-drift.md
+- knowledge/build/build.md
 
 ## Read if
 
-- knowledge/build/build.md — 开始运行构建、测试或产物验证前
-- knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Source/Catalog/Compiler/Program/Blob identity 时
-- knowledge/architecture/installed-application-vs-plugin-process.md — 修改 Process/AE/UE/plugin host 时
-- knowledge/architecture/node-package-manifest.md — 修改 package lifecycle、Catalog merge、Wasm/Process host 或插件 payload 时
-- knowledge/architecture/go-multiplatform-boundary.md — 修改跨平台支持承诺时
-- knowledge/build/wails-rpc-count-is-not-a-contract.md — 修改 Wails RPC/DTO/bindings 时
+- work/major-upgrade-review/slices/map.md — 选择下一 Slice、改变 blocker 或重排 frontier 时
+- work/major-upgrade-review/slices/ai-native-design-disposition.md — Go quality gate 恢复后审计 AI-native 设计完成度时
+- work/major-upgrade-review/ai-native-design.md — 执行 AI-native design disposition 或修改 AI 产品/架构边界时
+- work/major-upgrade-review/slices/node-package-signing-trust.md — Go quality gate 恢复后继续 Node Package trust 时
+- work/major-upgrade-review/plan.md — 调整总体阶段或最终验收边界时
+- work/major-upgrade-review/design.md — 修改 3.1 总体架构边界时
 
 ## Progress
 
-Completed foundations:
-
-- Workflow/Program/Run/Grant/Resource Broker、typed patch、MCP、EditorSession 和 Application runtime；
-- installed application lifecycle、HTTP、workspace file/log、AI、Script isolation、input/window/capture 3.1；
-- single shared Blob Store、exact window capture、nominal InputClip/exact playback；
-- explicit MatchTemplate 与 typed multi-match/frame-diff/color/QR analysis；
-- port-level Authoring Projection + immutable template variant binding；
-- legacy Container executor、PlayClip、detect/image/VisionService/template GUID dependency 和 unsafe asset GC 删除；
-- Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除；
-- Asset/Tools/Recording 已按 installed target slot 运行，Container window resolver 与重复 capture adapter 删除；
-- 旧 Container/Subgraph/Node/CodeSnippet RPC 与 Store、Container editor 产品树和兼容迁移已物理删除。
-- 旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、表达式/script binding、旧节点 i18n registry 与 Container 专用日志/UI helper 已物理删除；`cmd/node-catalog` 只导出当前构建的 3.1 catalog/authoring/docs artifacts。
-- Wails 日志 DTO 已收口为 SYS/WF 与 graph/node/invocation/attempt provenance；contract 保持 14 services / 89 methods / 99 models。
-- frontend ESLint `no-explicit-any` debt 随旧产品树删除从 258 收紧到 24；生产 bundle 为 entry 259,767 bytes、editor 94,274 bytes gzip。
-- 旧 `internal/services/llm` 和 OpenAI/Anthropic Go SDK 依赖已删除；provider-native OpenAI Responses / Anthropic Messages adapter、typed outcome/failure、profile installation、resource session、credential binding 与 workflow consent 成为 AI 单一实现路径。
-- `internal/nodepackage` manifest v1 已锁定 package/publisher/host API、exact contract semantics、WIT/Process implementation 和 payload identity；当前没有第三方代码发现、安装或执行面。
-
-Latest Wave E AI verification:
-
-- `go list ./...`
-- `go test -count=1 -timeout=60s ./...`
-- affected `staticcheck ./internal/ai ./internal/nodes31 ./internal/nodes31runtime ./internal/services ./internal/appbootstrap`
-- `go mod verify`
-- generic LLM/API SDK/residue scan + `git diff --check`
-- 全库 `staticcheck ./...` 唯一失败为未改动的 `internal/automation/installed/platform_windows.go:64` S1016
-
-Latest Wave E Node Package verification:
-
-- `go test -count=1 ./internal/nodepackage`
-- `go vet ./internal/nodepackage`
-- `staticcheck ./internal/nodepackage`
-- `go test -count=1 -timeout=60s ./...`
-- `git diff --check`
-
-Latest Wave D verification:
-
-- `go list ./...`
-- `go test -count=1 -timeout=60s ./...`（全绿；并行首次运行 LPAC worker 曾抖动一次，单测复跑两次和全仓单独复跑均通过）
-- updated CI race package group：`services/application/nodes31runtime/run/workflowstore/schedule/tools/inputclip/hotkey/winutil/capture` 均通过 race
-- `go vet ./...` 唯一失败为未改动的 `pkg/winutil/window_windows.go:385` `unsafe.Pointer` 警告；本切片 affected `staticcheck` 全绿
-- Vitest：26 files / 100 tests
-- `pnpm -C frontend lint`：0 warning / 0 error，tracked debt 24
-- `pnpm -C frontend format:check`
-- `pnpm -C frontend typecheck`
-- `pnpm -C frontend i18n:check`：1214 keys
-- `task contracts:check`
-- regenerated Wails bindings + `pnpm -C frontend bindings:check`：14 services / 89 methods / 99 models
-- `pnpm -C frontend build:dev`
-- `pnpm -C frontend build` + bundle budget
-- legacy path/import residue scan + `git diff --check`
-
-上一完整阶段门禁仍为 `go test ./...`、affected `staticcheck`、`task contracts:check`、`pnpm -C frontend check`（100 files / 641 tests、production build、bundle budgets）。全量 `task check` 只在最终阶段运行。
-
-## Decisions
-
-- 3.1 没有 legacy compatibility path、dual read/write 或 runtime fallback。
-- Application/Program runtime 是执行深模块；Wails、MCP、Schedule、Hotkey、Debug 和 headless 都是 adapter。
-- Workflow 持久化 immutable BlobRef，不持久化 mutable asset GUID。
-- Arbitrary UUID text 永远不是 dependency authority；只有结构化字段可形成依赖。
-- Shared Blob GC 必须拥有覆盖全部 durable owner 的 global live set；在此之前不提供 asset-local GC。
-- Vision analysis 是显式 pull-data evaluation；Capture、wait/repeat、analysis 和 input action 分离。
-- 插件只允许 Node Package + Wasm/Process host，不加载 Go ABI 或插件 JavaScript/Vue/DOM。
+- f3c83737 完成 EditorSession shallowReactive 边界、目录单击/加号/拖放和生产 factory 回归。
+- c3cab6e4 删除 composition root 全局提权，并加入 platform-scoped、production-closed 的 WebView debug options 与权限回归。
+- ab5b644f 固化一键 Wails/WebView smoke；最新运行断言 99 个目录节点、画布 0→1→2、无 JS error，截图人工检查完整。
+- frontend check 为 27 files / 103 tests 全绿，task build 通过；隔离 production EXE 无 UAC 冷启动并由 PrintWindow 确认首屏工作流列表正常。
+- task check 在 Go coverage 59.6% < 65% 停止；detached 53e6d8a9 同工具链为 59.8%，另有既存 go vet unsafe.Pointer 与 staticcheck S1016，均转入当前独立 Slice。
 
 ## Open questions
 
-无阻塞问题。当前非本切片 gate 风险是 `pkg/winutil/window_windows.go:385` 的 `go vet` unsafe-pointer warning，以及 `internal/automation/installed/platform_windows.go:64` 的 `staticcheck` S1016；进入最终全量门禁前需单独修复或确认工具链行为。桌面真实 smoke 统一留到最终验收，不再让已完成 feature topic 长期保持 active。
+coverage 65% 与实际 detached HEAD 59.8% 的漂移源尚待定位；修复必须区分真实测试债、coverage scope 错误和预算契约漂移，不能先假定答案。Go gate 恢复后，AI-native design disposition 与 Node Package signing trust 都是可选 ready frontier。

@@ -33,7 +33,7 @@ Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先�
 
 ## 测试基线
 
-当前基线 (2026-07-13) 是 **`task check` 全绿**。过去记录过的 runtime fixture / fishing-v2 / dependency scanner 预存红已经不再成立;如果这些测试再红,先按回归处理,不要套旧豁免。
+当前可观察基线（2026-07-17）是 **`task check` 已知红**：全仓 Go tests 通过后，全局 statement coverage 为 59.6%，低于 tracked 65% 门槛。隔离 detached HEAD `53e6d8a9` 在相同工具链下为 59.8%，新增 `cmd/workflow-editor-smoke` 的 113 条未覆盖 statement 只解释约 0.2–0.3 个百分点，因此主因早于当前编辑器批次。单独运行还确认 `go vet ./...` 命中 `pkg/winutil/window_windows.go:385` 的 unsafe.Pointer 警告，`staticcheck ./...` 命中 `internal/automation/installed/platform_windows.go:64` 的 S1016；这些都登记在 `restore-go-quality-gate` Slice。恢复前不得降低 coverage 门槛、绕过检查或把完整门禁声称为绿；当前已确认 package tests、frontend check、production build 与 Workflow WebView smoke 通过。
 
 Go 后端质量门禁同时包括：
 
