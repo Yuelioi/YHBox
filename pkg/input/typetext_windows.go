@@ -3,6 +3,9 @@
 package input
 
 import (
+	"errors"
+	"fmt"
+	"syscall"
 	"unicode/utf16"
 	"unsafe"
 
@@ -24,16 +27,34 @@ func TypeText(_ win.HWND, s string) error {
 	for _, r := range s {
 		units := utf16.Encode([]rune{r})
 		for _, u := range units {
-			down := sendInputKeyBlock{
+			inputs := [2]sendInputKeyBlock{{
 				Type: siInputKeyboard,
 				Ki:   keybdInput{WVk: 0, WScan: u, DwFlags: siKeyUnicode},
-			}
-			procSendInput.Call(1, uintptr(unsafe.Pointer(&down)), unsafe.Sizeof(down))
-			up := sendInputKeyBlock{
+			}, {
 				Type: siInputKeyboard,
 				Ki:   keybdInput{WVk: 0, WScan: u, DwFlags: siKeyUnicode | siKeyKeyUp},
+			}}
+			sent, _, errno := procSendInput.Call(2, uintptr(unsafe.Pointer(&inputs[0])), unsafe.Sizeof(inputs[0]))
+			if sent == 2 {
+				continue
 			}
-			procSendInput.Call(1, uintptr(unsafe.Pointer(&up)), unsafe.Sizeof(up))
+			var sendErr error
+			if errno != syscall.Errno(0) {
+				sendErr = fmt.Errorf("SendInput unicode failed after %d events: %w", sent, errno)
+			} else {
+				sendErr = fmt.Errorf("SendInput unicode sent %d events, want 2", sent)
+			}
+			if sent == 1 {
+				released, _, releaseErrno := procSendInput.Call(1, uintptr(unsafe.Pointer(&inputs[1])), unsafe.Sizeof(inputs[1]))
+				if released != 1 {
+					if releaseErrno != syscall.Errno(0) {
+						sendErr = errors.Join(sendErr, fmt.Errorf("release partial unicode input: %w", releaseErrno))
+					} else {
+						sendErr = errors.Join(sendErr, errors.New("release partial unicode input sent no event"))
+					}
+				}
+			}
+			return sendErr
 		}
 	}
 	return nil
@@ -49,7 +70,9 @@ func TypeText(_ win.HWND, s string) error {
 func PostText(hwnd win.HWND, s string) error {
 	for _, r := range s {
 		for _, u := range utf16.Encode([]rune{r}) {
-			postMessage(hwnd, WM_CHAR, uintptr(u), 0)
+			if err := postMessageChecked(hwnd, WM_CHAR, uintptr(u), 0); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

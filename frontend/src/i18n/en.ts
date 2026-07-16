@@ -4481,6 +4481,7 @@ export default {
     ai: 'AI connections',
     network: 'Network capabilities',
     applications: 'Application capabilities',
+    automation: 'Automation targets',
   },
   settingsCenter: {
     eyebrow: 'YOTTA SETTINGS',
@@ -4498,6 +4499,8 @@ export default {
       ai: 'Manage AI service endpoints, credentials, and connection health',
       network: 'Install exact HTTP origins and control workflow network consent',
       applications: 'Install exact desktop applications and control launch and terminate consent',
+      automation:
+        'Bind input nodes to exact installed application windows and control workflow consent',
     },
     save: {
       automatic: 'Saved automatically on this device',
@@ -4750,6 +4753,59 @@ export default {
     confirm: {
       delete_title: 'Delete “{name}”?',
       delete_hint: 'The slot will be removed. Workflows that reference it will fail admission.',
+    },
+  },
+  settingsAutomation: {
+    security: {
+      title: 'Input automation controls the real keyboard and pointer',
+      hint: 'Every target is pinned to an installed executable digest and exact window selector. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or input backend. All held input is released on cancellation or failure.',
+    },
+    targets: {
+      title: 'Installed window targets',
+      hint: 'Provide one fixed target for click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
+      add: 'Install window target',
+      workflow_allowed: 'Workflow allowed',
+      consent_required: 'Consent required',
+      name_label: 'Display name',
+      slot_label: 'Installation slot',
+      slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
+      application_label: 'Installed application',
+      application_hint:
+        'Reuses the SHA-256 executable identity from Applications. Launch arguments are not inherited.',
+      backend_label: 'Fixed input backend',
+      backend_hint:
+        'SendInput foregrounds the target. PostMessage posts only to the exact window queue. Runtime never switches automatically.',
+      window_title_label: 'Exact window title (optional)',
+      window_title_hint:
+        'Case-sensitive full match. Contains, regex, and wildcard matching are not supported.',
+      window_class_label: 'Exact window class (optional)',
+      window_class_hint:
+        'Full Win32 class-name match. When title and class are set, both must match.',
+      timeout_label: 'Resolve timeout (milliseconds)',
+      timeout_hint: 'Hard limit for waiting on one unique matching window, from 100 to 10000.',
+      delete: 'Delete target',
+      empty: 'No window targets installed',
+      empty_hint:
+        'Install a target before 3.1 input nodes can pass admission. Installation does not grant workflow use automatically.',
+      no_applications: 'Install a desktop application first',
+      no_applications_hint:
+        'A window target must reference a content-verified .exe from the Applications page.',
+      new_label: '{name} input',
+    },
+    backend: {
+      sendinput: 'SendInput · foreground system input',
+      postmessage: 'PostMessage · exact window messages',
+    },
+    consent: {
+      title: 'Workflow input consent',
+      hint: 'Consent covers all atomic input operations for this target and matches its slot, executable digest, window selector, backend, and timeout. Any edit revokes it. Restart to install the new snapshot.',
+      grant: 'Allow input control',
+      revoke: 'Revoke consent',
+    },
+    confirm: {
+      delete_title: 'Delete “{name}”?',
+      delete_hint:
+        'The target slot will be removed. Workflows that reference it will fail admission.',
     },
   },
   settingsAI: {

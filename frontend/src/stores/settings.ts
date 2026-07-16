@@ -5,6 +5,7 @@ import {
   type AIModelProfile,
   type HTTPOriginProfile,
   type InstalledApplicationProfile,
+  type InstalledAutomationTargetProfile,
 } from '@/lib/backend'
 
 // MouseProfile 命名鼠标校准档（跟 Go services.MouseProfile 对齐）。
@@ -70,6 +71,9 @@ export interface Settings {
   }
   applications: {
     profiles: InstalledApplicationProfile[]
+  }
+  automation: {
+    win32Targets: InstalledAutomationTargetProfile[]
   }
 }
 
@@ -146,6 +150,10 @@ export const useSettingsStore = defineStore('settings', () => {
     return patch({ applications: { profiles } })
   }
 
+  async function patchAutomationTargets(win32Targets: InstalledAutomationTargetProfile[]) {
+    return patch({ automation: { win32Targets } })
+  }
+
   function startSync() {
     if (syncStarted) return
     syncStarted = true
@@ -173,6 +181,7 @@ export const useSettingsStore = defineStore('settings', () => {
     patchAIProfiles,
     patchHTTPOrigins,
     patchApplicationProfiles,
+    patchAutomationTargets,
     retryLastPatch,
     startSync,
     mouseProfiles,

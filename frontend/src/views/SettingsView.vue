@@ -115,6 +115,7 @@ import SettingsLauncher from './SettingsLauncher.vue'
 import SettingsAI from './SettingsAI.vue'
 import SettingsNetwork from './SettingsNetwork.vue'
 import SettingsApplications from './SettingsApplications.vue'
+import SettingsAutomation from './SettingsAutomation.vue'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader.vue'
 import { SETTINGS_THEMES, isSettingsThemeKey, type SettingsThemeKey } from '@/settings/registry'
 
@@ -132,6 +133,7 @@ const componentByTheme = {
   ai: SettingsAI,
   network: SettingsNetwork,
   applications: SettingsApplications,
+  automation: SettingsAutomation,
 } as const
 
 function initialTheme(): SettingsThemeKey {

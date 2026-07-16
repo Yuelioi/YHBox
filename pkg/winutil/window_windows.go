@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -365,34 +366,46 @@ func VerifyExecutableWindow(handle uintptr, executable, title, class string) (Wi
 }
 
 func enumExecutableWindows(configured os.FileInfo, title, class string) []WindowHandle {
-	var matches []WindowHandle
-	callback := syscall.NewCallback(func(hwnd win.HWND, _ uintptr) uintptr {
-		if !win.IsWindowVisible(hwnd) {
-			return 1
-		}
-		windowTitle, windowClass := getWindowText(hwnd), getClassName(hwnd)
-		if title != "" && windowTitle != title || class != "" && windowClass != class {
-			return 1
-		}
-		pid := getWindowPID(hwnd)
-		processPath, err := queryProcessPath(pid)
-		if err != nil {
-			return 1
-		}
-		processFile, err := os.Stat(processPath)
-		if err != nil || !os.SameFile(configured, processFile) {
-			return 1
-		}
-		cw, ch := getClientSize(hwnd)
-		matches = append(matches, WindowHandle{
-			HWND: uintptr(hwnd), Title: windowTitle, Class: windowClass,
-			ProcessName: strings.ToLower(filepath.Base(processPath)), PID: pid, ClientW: cw, ClientH: ch,
-		})
-		return 1
-	})
-	procEnumWindows.Call(callback, 0)
-	return matches
+	query := &executableWindowQuery{configured: configured, title: title, class: class}
+	procEnumWindows.Call(enumExecutableWindowsCallback, uintptr(unsafe.Pointer(query)))
+	runtime.KeepAlive(query)
+	return query.matches
 }
+
+type executableWindowQuery struct {
+	configured os.FileInfo
+	title      string
+	class      string
+	matches    []WindowHandle
+}
+
+// A Windows callback allocation lives for the process lifetime. Reuse one
+// callback and pass per-enumeration state through the synchronous lParam.
+var enumExecutableWindowsCallback = syscall.NewCallback(func(hwnd win.HWND, state uintptr) uintptr {
+	query := (*executableWindowQuery)(unsafe.Pointer(state))
+	if !win.IsWindowVisible(hwnd) {
+		return 1
+	}
+	windowTitle, windowClass := getWindowText(hwnd), getClassName(hwnd)
+	if query.title != "" && windowTitle != query.title || query.class != "" && windowClass != query.class {
+		return 1
+	}
+	pid := getWindowPID(hwnd)
+	processPath, err := queryProcessPath(pid)
+	if err != nil {
+		return 1
+	}
+	processFile, err := os.Stat(processPath)
+	if err != nil || !os.SameFile(query.configured, processFile) {
+		return 1
+	}
+	cw, ch := getClientSize(hwnd)
+	query.matches = append(query.matches, WindowHandle{
+		HWND: uintptr(hwnd), Title: windowTitle, Class: windowClass,
+		ProcessName: strings.ToLower(filepath.Base(processPath)), PID: pid, ClientW: cw, ClientH: ch,
+	})
+	return 1
+})
 
 func getClientSize(hwnd win.HWND) (int, int) {
 	var rect win.RECT

@@ -20,6 +20,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/node"
@@ -90,7 +91,7 @@ func main() {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 17)
+	wailsServices := make([]application.Service, 0, 18)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -122,6 +123,14 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("installed application init")
 	}
+	automationDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("installed automation target settings")
+	}
+	automationInstallations, err := automationinstalled.Install(automationDrafts)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("installed automation target init")
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("resolve script worker location")
@@ -141,7 +150,7 @@ func main() {
 			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
+		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 		OnRunEvent: func(event app31.RunEvent) {
 			payload := map[string]any{
@@ -467,6 +476,7 @@ func main() {
 		application.NewService(services.NewAIService(app, aiSecrets)),
 		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),
+		application.NewService(services.NewAutomationService(app)),
 	)
 	// wails3 application
 	wailsApp := application.New(application.Options{

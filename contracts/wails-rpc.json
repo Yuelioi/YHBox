@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 17,
-    "methods": 137,
-    "models": 156
+    "services": 18,
+    "methods": 139,
+    "models": 158
   },
   "services": [
     {
@@ -540,6 +540,35 @@
               "name": "tags",
               "optional": false,
               "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/automationservice",
+      "methods": [
+        {
+          "name": "GrantWorkflowConsent",
+          "bindingId": "2035588158",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "RevokeWorkflowConsent",
+          "bindingId": "1220421584",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
             }
           ],
           "returns": "$CancellablePromise<void>"
@@ -4511,6 +4540,17 @@
         },
         {
           "kind": "class",
+          "name": "AutomationSettings",
+          "fields": [
+            {
+              "name": "\"win32Targets\"",
+              "optional": false,
+              "type": "InstalledAutomationTargetSettings[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "CaptureSettings",
           "fields": [
             {
@@ -4594,6 +4634,52 @@
               "name": "\"arguments\"",
               "optional": false,
               "type": "string[]"
+            },
+            {
+              "name": "\"workflowConsent\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InstalledAutomationTargetSettings",
+          "fields": [
+            {
+              "name": "\"slot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"applicationSlot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"windowTitle\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"windowClass\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"inputBackend\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resolveTimeoutMilliseconds\"",
+              "optional": false,
+              "type": "number"
             },
             {
               "name": "\"workflowConsent\"",
@@ -4841,6 +4927,11 @@
               "name": "\"applications\"",
               "optional": false,
               "type": "ApplicationSettings"
+            },
+            {
+              "name": "\"automation\"",
+              "optional": false,
+              "type": "AutomationSettings"
             }
           ]
         },

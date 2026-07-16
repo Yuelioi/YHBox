@@ -14,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodes31"
@@ -30,7 +31,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
 	events := make(chan app31.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		DataRoot: t.TempDir(), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event app31.RunEvent) { events <- event },
@@ -108,7 +109,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 
 func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +124,7 @@ func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 
 func TestBuiltinPolicyPinsWorkspaceFilesystemProvider(t *testing.T) {
 	now := time.Date(2026, 7, 16, 11, 0, 0, 0, time.UTC)
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +164,7 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 		TargetID: entry.TargetID, TargetKind: "ai-model", ResourceKind: ai.KindModelSession,
 		PluginInstanceID: "builtin", CredentialBindingID: entry.CredentialBindingID,
 	}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, withoutConsent, emptyHTTPInstallations(t), emptyApplicationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, withoutConsent, emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +187,7 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	entry = installed.Entries()[0]
 	binding.ProviderID, binding.ProviderArtifactDigest = entry.ProviderID, entry.ProviderArtifact
 	binding.TargetID, binding.CredentialBindingID = entry.TargetID, entry.CredentialBindingID
-	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed, emptyHTTPInstallations(t), emptyApplicationInstallations(t))
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, installed, emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +211,7 @@ func TestBuiltinPolicyRequiresExactHTTPInstallationConsent(t *testing.T) {
 	}
 	entry := withoutConsent.Entries()[0]
 	binding := capability.Binding{ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: httpegress.ProviderABI, TargetID: entry.TargetID, TargetKind: httpegress.TargetKind, ResourceKind: httpegress.KindHTTPSession, PluginInstanceID: "builtin"}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), withoutConsent, emptyApplicationInstallations(t))
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), withoutConsent, emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +233,7 @@ func TestBuiltinPolicyRequiresExactHTTPInstallationConsent(t *testing.T) {
 	}
 	entry = installed.Entries()[0]
 	binding.ProviderID, binding.ProviderArtifactDigest, binding.TargetID = entry.ProviderID, entry.ProviderArtifact, entry.TargetID
-	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), installed, emptyApplicationInstallations(t))
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), installed, emptyApplicationInstallations(t), emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +267,7 @@ func TestBuiltinPolicyRequiresExactApplicationInstallationConsent(t *testing.T) 
 	}
 	entry := withoutConsent.Entries()[0]
 	binding := capability.Binding{ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: appcontrol.ProviderABI, TargetID: entry.TargetID, TargetKind: appcontrol.TargetKind, ResourceKind: appcontrol.KindApplication, PluginInstanceID: "builtin"}
-	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), withoutConsent)
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), withoutConsent, emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +289,7 @@ func TestBuiltinPolicyRequiresExactApplicationInstallationConsent(t *testing.T) 
 	}
 	entry = installed.Entries()[0]
 	binding.ProviderID, binding.ProviderArtifactDigest, binding.TargetID = entry.ProviderID, entry.ProviderArtifact, entry.TargetID
-	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), installed)
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), installed, emptyAutomationInstallations(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,6 +301,70 @@ func TestBuiltinPolicyRequiresExactApplicationInstallationConsent(t *testing.T) 
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
 	if err != nil || decision.Outcome != admission.PolicyDenied {
 		t.Fatalf("forged decision = %#v, %v", decision, err)
+	}
+}
+
+func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
+	if !automationinstalled.PlatformSupported() {
+		t.Skip("installed automation targets are intentionally unavailable")
+	}
+	path := filepath.Join(t.TempDir(), "editor.exe")
+	if err := os.WriteFile(path, []byte("installed-automation-target"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := appcontrol.InspectExecutable(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDraft := automationinstalled.ProfileDraft{
+		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
+		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", ResolveTimeoutMilliseconds: 500,
+	}
+	withoutConsent, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: "editor-input", Profile: profileDraft}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = withoutConsent.Close() })
+	entry := withoutConsent.Entries()[0]
+	binding := capability.Binding{
+		ProviderID: entry.ProviderID, ProviderArtifactDigest: entry.ProviderArtifact, ProviderABI: automationinstalled.ProviderABI,
+		TargetID: entry.TargetID, TargetKind: automationinstalled.TargetKind, ResourceKind: automationinstalled.KindInput, PluginInstanceID: "builtin",
+	}
+	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), withoutConsent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyConsentRequired {
+		t.Fatalf("unconsented automation decision = %#v, %v", decision, err)
+	}
+	profile, err := automationinstalled.SealProfile(profileDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := automationinstalled.WorkflowConsentDigest("editor-input", profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: "editor-input", Profile: profileDraft, Consent: consent}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = installed.Close() })
+	entry = installed.Entries()[0]
+	binding.ProviderID, binding.ProviderArtifactDigest, binding.TargetID = entry.ProviderID, entry.ProviderArtifact, entry.TargetID
+	policy, err = appbootstrap.NewBuiltinPolicy(func() time.Time { return time.Now().UTC() }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
+		t.Fatalf("consented automation decision = %#v, %v", decision, err)
+	}
+	binding.TargetKind = appcontrol.TargetKind
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyDenied {
+		t.Fatalf("forged automation decision = %#v, %v", decision, err)
 	}
 }
 
@@ -344,6 +409,15 @@ func emptyHTTPInstallations(t *testing.T) httpegress.Installations {
 func emptyApplicationInstallations(t *testing.T) appcontrol.Installations {
 	t.Helper()
 	installations, err := appcontrol.Install(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return installations
+}
+
+func emptyAutomationInstallations(t *testing.T) automationinstalled.Installations {
+	t.Helper()
+	installations, err := automationinstalled.Install(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

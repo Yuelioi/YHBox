@@ -3,6 +3,7 @@
 package input
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"syscall"
@@ -90,9 +91,9 @@ func sendKeyEvent(vk uint32, keyUp bool) error {
 	return nil
 }
 
-func sendMouseBtnEvent(flags uint32) {
+func sendMouseBtnEvent(flags uint32) error {
 	in := sendInputBlock{Type: 0, Mi: mouseInput{Flags: flags}}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	return sendMouseEvent(&in, "button")
 }
 
 // ratioToAbs ratio(0-1) → 0..65535 (Win32 ABSOLUTE 约定: 整屏归一化, 与分辨率无关), clamp.
@@ -108,23 +109,34 @@ func ratioToAbs(ratio float64) int32 {
 }
 
 // sendAbsMove ratio(0-1, 相对全屏) → absolute move.
-func sendAbsMove(xRatio, yRatio float64) {
+func sendAbsMove(xRatio, yRatio float64) error {
 	in := sendInputBlock{Type: 0, Mi: mouseInput{
 		Dx:    ratioToAbs(xRatio),
 		Dy:    ratioToAbs(yRatio),
 		Flags: mouseEventFMove | siMouseAbsolute,
 	}}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	return sendMouseEvent(&in, "absolute move")
 }
 
-func sendWheel(notches int) {
+func sendWheel(notches int) error {
 	in := sendInputBlock{Type: 0, Mi: mouseInput{MouseData: uint32(int32(notches) * 120), Flags: siMouseWheel}}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	return sendMouseEvent(&in, "vertical wheel")
 }
 
-func sendHWheel(notches int) {
+func sendHWheel(notches int) error {
 	in := sendInputBlock{Type: 0, Mi: mouseInput{MouseData: uint32(int32(notches) * 120), Flags: siMouseHWheel}}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	return sendMouseEvent(&in, "horizontal wheel")
+}
+
+func sendMouseEvent(input *sendInputBlock, operation string) error {
+	sent, _, errno := procSendInput.Call(1, uintptr(unsafe.Pointer(input)), unsafe.Sizeof(*input))
+	if sent == 1 {
+		return nil
+	}
+	if errno != syscall.Errno(0) {
+		return fmt.Errorf("SendInput %s failed: %w", operation, errno)
+	}
+	return fmt.Errorf("SendInput %s sent %d events, want 1", operation, sent)
 }
 
 func siButtonFlags(button string, up bool) uint32 {
@@ -165,10 +177,13 @@ func (b *sendInputBackend) KeyDown(_ win.HWND, vk string) error {
 	if code == 0 {
 		return fmt.Errorf("sendinput KeyDown: unknown vk %q", vk)
 	}
+	if err := sendKeyEvent(code, false); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	b.heldKeys[code] = struct{}{}
 	b.mu.Unlock()
-	return sendKeyEvent(code, false)
+	return nil
 }
 
 func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
@@ -176,27 +191,36 @@ func (b *sendInputBackend) KeyUp(_ win.HWND, vk string) error {
 	if code == 0 {
 		return fmt.Errorf("sendinput KeyUp: unknown vk %q", vk)
 	}
+	if err := sendKeyEvent(code, true); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	delete(b.heldKeys, code)
 	b.mu.Unlock()
-	return sendKeyEvent(code, true)
+	return nil
 }
 
 func (b *sendInputBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
 	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
-	sendAbsMove(sx, sy)
+	if err := sendAbsMove(sx, sy); err != nil {
+		return err
+	}
+	if err := sendMouseBtnEvent(siButtonFlags(button, false)); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	b.heldBtns[siButtonVK(button)] = struct{}{}
 	b.mu.Unlock()
-	sendMouseBtnEvent(siButtonFlags(button, false))
 	return nil
 }
 
 func (b *sendInputBackend) MouseUp(_ win.HWND, button string) error {
+	if err := sendMouseBtnEvent(siButtonFlags(button, true)); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	delete(b.heldBtns, siButtonVK(button))
 	b.mu.Unlock()
-	sendMouseBtnEvent(siButtonFlags(button, true))
 	return nil
 }
 
@@ -229,22 +253,18 @@ func (b *sendInputBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Rati
 
 func (b *sendInputBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
 	sx, sy := clientRatioToScreenRatio(hwnd, xRatio, yRatio)
-	sendAbsMove(sx, sy)
-	return nil
+	return sendAbsMove(sx, sy)
 }
 
 func (b *sendInputBackend) MouseMoveRel(_ win.HWND, dx, dy, _ int) error {
-	sendInputMouseRel(int32(dx), int32(dy)) // input.go 现成原语
-	return nil
+	return sendInputMouseRel(int32(dx), int32(dy))
 }
 
 func (b *sendInputBackend) Scroll(_ win.HWND, _, _ float64, notches int, horizontal bool) error {
 	if horizontal {
-		sendHWheel(notches)
-	} else {
-		sendWheel(notches)
+		return sendHWheel(notches)
 	}
-	return nil
+	return sendWheel(notches)
 }
 
 // CursorRatio 读 OS 光标 → 相对主屏比例 (全局注入无单窗口概念, 基准取主屏).
@@ -278,16 +298,27 @@ func (b *sendInputBackend) ReleaseAll() error {
 			btns = append(btns, "left")
 		}
 	}
-	b.heldKeys = map[uint32]struct{}{}
-	b.heldBtns = map[uint32]struct{}{}
 	b.mu.Unlock()
+	var result error
 	for _, k := range keys {
-		_ = sendKeyEvent(k, true)
+		if err := sendKeyEvent(k, true); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		b.mu.Lock()
+		delete(b.heldKeys, k)
+		b.mu.Unlock()
 	}
 	for _, btn := range btns {
-		sendMouseBtnEvent(siButtonFlags(btn, true))
+		if err := sendMouseBtnEvent(siButtonFlags(btn, true)); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		b.mu.Lock()
+		delete(b.heldBtns, siButtonVK(btn))
+		b.mu.Unlock()
 	}
-	return nil
+	return result
 }
 
 func (b *sendInputBackend) Close() error { return nil }

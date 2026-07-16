@@ -9,6 +9,7 @@
 package input
 
 import (
+	"fmt"
 	"syscall"
 	"time"
 	"unsafe"
@@ -89,7 +90,7 @@ const (
 // sendInputMouseRel 单次注入相对 mouse 位移到 OS raw input。
 // 走 SendInput 而不是 mouse_event：后者已 deprecated，内部也走 SendInput。
 // 注：dx/dy 是**屏幕像素**单位，跟 SetCursorPos 一致；游戏内部按它自己的灵敏度换算转角。
-func sendInputMouseRel(dx, dy int32) {
+func sendInputMouseRel(dx, dy int32) error {
 	in := sendInputBlock{
 		Type: 0, // INPUT_MOUSE
 		Mi: mouseInput{
@@ -98,7 +99,14 @@ func sendInputMouseRel(dx, dy int32) {
 			Flags: mouseEventFMove,
 		},
 	}
-	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	sent, _, errno := procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+	if sent == 1 {
+		return nil
+	}
+	if errno != syscall.Errno(0) {
+		return fmt.Errorf("SendInput relative mouse failed: %w", errno)
+	}
+	return fmt.Errorf("SendInput relative mouse sent %d events, want 1", sent)
 }
 
 const mapVKToVSC = 0
@@ -109,6 +117,17 @@ type point struct {
 
 func postMessage(hwnd win.HWND, msg uint32, wp, lp uintptr) {
 	procPostMessageW.Call(uintptr(hwnd), uintptr(msg), wp, lp)
+}
+
+func postMessageChecked(hwnd win.HWND, msg uint32, wp, lp uintptr) error {
+	posted, _, errno := procPostMessageW.Call(uintptr(hwnd), uintptr(msg), wp, lp)
+	if posted != 0 {
+		return nil
+	}
+	if errno != syscall.Errno(0) {
+		return fmt.Errorf("PostMessageW message=0x%X failed: %w", msg, errno)
+	}
+	return fmt.Errorf("PostMessageW message=0x%X rejected the event", msg)
 }
 
 func sendMessage(hwnd win.HWND, msg uint32, wp, lp uintptr) {
@@ -423,7 +442,7 @@ func MouseMoveRel(hwnd win.HWND, totalDx, totalDy int, duration, activateDelay t
 		stepDx := targetDx - emittedDx
 		stepDy := targetDy - emittedDy
 		if stepDx != 0 || stepDy != 0 {
-			sendInputMouseRel(int32(stepDx), int32(stepDy))
+			_ = sendInputMouseRel(int32(stepDx), int32(stepDy))
 			// 每帧 SendInput 后立刻拽回锚点，cursor 视觉上不动。
 			if hasAnchor {
 				setCursorPos(anchorSx, anchorSy)
@@ -439,7 +458,7 @@ func MouseMoveRel(hwnd win.HWND, totalDx, totalDy int, duration, activateDelay t
 // SendInputMouseRel 暴露 sendInputMouseRel 给 inputclip backends 用 (相机转向唯一路径).
 // 不调 FakeActivate / setCursorPos — caller (ClipPlayer) 已按帧调度.
 func SendInputMouseRel(dx, dy int32) {
-	sendInputMouseRel(dx, dy)
+	_ = sendInputMouseRel(dx, dy)
 }
 
 // PostKeyDownVK 直接按 vk uint32 PostMessage 键盘按下到 hwnd (clip 回放用).

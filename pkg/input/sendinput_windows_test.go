@@ -36,7 +36,7 @@ func TestNewBackend_EmptyNameDefaultsToSendInput(t *testing.T) {
 
 func TestSendInputBackend_ReleaseAll_ClearsState(t *testing.T) {
 	b := newSendInputBackend()
-	// 未知 vk (0xFE/0xFF): MapVirtualKey 返 0, SendInput 静默丢 — 不真敲键盘.
+	// Unknown virtual keys keep this test from producing meaningful keyboard input.
 	b.heldKeys[0xFF] = struct{}{}
 	b.heldKeys[0xFE] = struct{}{}
 	if err := b.ReleaseAll(); err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
@@ -50,6 +51,7 @@ type Config struct {
 	AIInstallations          ai.Installations
 	HTTPInstallations        httpegress.Installations
 	ApplicationInstallations appcontrol.Installations
+	AutomationInstallations  automationinstalled.Installations
 	ScriptRuntime            *scriptengine.Runtime
 	LogEmitter               nodes31runtime.LogEmitter
 	GrantTTL                 time.Duration
@@ -65,13 +67,14 @@ type Runtime struct {
 	ai           ai.Installations
 	http         httpegress.Installations
 	applications appcontrol.Installations
+	automation   automationinstalled.Installations
 }
 
 func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -143,11 +146,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations)
+	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
 	if err != nil {
 		return nil, err
 	}
-	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations)
+	policy, err := NewBuiltinPolicy(config.Now, config.GrantTTL, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +199,15 @@ func Build(config Config) (*Runtime, error) {
 		}
 		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, Provider: installed.Provider}
 	}
+	for _, installed := range config.AutomationInstallations.Entries() {
+		if existing, ok := providers[installed.ProviderID]; ok {
+			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != automationinstalled.ProviderABI || existing.Provider != installed.Provider {
+				return nil, errors.New("conflicting automation input provider installation")
+			}
+			continue
+		}
+		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
+	}
 	application, err := app31.New(app31.Config{
 		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
@@ -209,7 +221,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations, http: config.HTTPInstallations, applications: config.ApplicationInstallations}, nil
+	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations, http: config.HTTPInstallations, applications: config.ApplicationInstallations, automation: config.AutomationInstallations}, nil
 }
 
 func (r *Runtime) Start(ctx context.Context) error {
@@ -223,7 +235,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 	if r == nil || r.Application == nil {
 		return nil
 	}
-	err := r.Application.Close(ctx)
+	err := errors.Join(r.Application.Close(ctx), r.automation.Close())
 	r.ai.CloseIdleConnections()
 	r.http.CloseIdleConnections()
 	return err
@@ -240,7 +252,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -273,6 +285,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 		return admission.HostProfile{}, err
 	}
 	applicationLifecycle, err := lookup(nodes31.ApplicationLifecycleCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
+	automationInput, err := lookup(nodes31.AutomationInputCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
@@ -343,6 +359,18 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 			providerIDs[installed.ProviderID] = struct{}{}
 		}
 		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: installed.TargetID, Kind: appcontrol.TargetKind, ProviderID: installed.ProviderID})
+		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
+	}
+	for _, installed := range automationInstallations.Entries() {
+		if _, exists := providerIDs[installed.ProviderID]; !exists {
+			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
+				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				Capabilities: []admission.ProviderCapability{{Capability: automationInput, ResourceKind: automationinstalled.KindInput}},
+			})
+			providerIDs[installed.ProviderID] = struct{}{}
+		}
+		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: installed.TargetID, Kind: automationinstalled.TargetKind, ProviderID: installed.ProviderID})
 		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
 	}
 	return admission.SealHostProfile(draft)

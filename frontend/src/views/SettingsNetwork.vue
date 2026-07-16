@@ -288,6 +288,7 @@ function uniqueSlot(): string {
     ...draft.value.map((origin) => origin.slot),
     ...(store.data?.ai.profiles ?? []).map((profile) => profile.slot),
     ...(store.data?.applications.profiles ?? []).map((profile) => profile.slot),
+    ...(store.data?.automation.win32Targets ?? []).map((target) => target.slot),
   ])
   if (!taken.has('http')) return 'http'
   for (let index = 2; ; index++) {

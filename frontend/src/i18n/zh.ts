@@ -4311,6 +4311,7 @@ export default {
     ai: 'AI 连接',
     network: '网络能力',
     applications: '应用能力',
+    automation: '自动化目标',
   },
   settingsCenter: {
     eyebrow: 'YOTTA 设置中心',
@@ -4328,6 +4329,7 @@ export default {
       ai: '管理 AI 服务端点、凭据和连接状态',
       network: '安装精确 HTTP Origin，并控制工作流网络授权',
       applications: '安装精确桌面应用，并控制启动与终止授权',
+      automation: '把输入节点绑定到精确的已安装应用窗口，并控制工作流授权',
     },
     save: {
       automatic: '自动保存到本机',
@@ -4572,6 +4574,53 @@ export default {
     confirm: {
       delete_title: '删除“{name}”？',
       delete_hint: '该槽位会被移除，引用它的工作流将无法通过准入。',
+    },
+  },
+  settingsAutomation: {
+    security: {
+      title: '输入自动化会控制真实键盘和鼠标',
+      hint: '每个目标必须绑定已安装应用的可执行文件摘要和精确窗口选择器。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或输入后端；取消或失败时会释放所有按键。',
+    },
+    targets: {
+      title: '已安装窗口目标',
+      hint: '为点击、移动、滚动、拖拽、按键和输入文本节点提供一个固定目标。多个窗口同时匹配时执行会失败，不会按 Z 序猜测。',
+      add: '安装窗口目标',
+      workflow_allowed: '已允许工作流',
+      consent_required: '需要授权',
+      name_label: '显示名称',
+      slot_label: '安装槽位',
+      slot_hint: '工作流持久引用该标识，保存后不可修改。',
+      application_label: '已安装应用',
+      application_hint: '复用应用页中经过 SHA-256 校验的可执行文件身份；不会复用启动参数。',
+      backend_label: '固定输入后端',
+      backend_hint:
+        'SendInput 会置前目标窗口；PostMessage 只向精确窗口消息队列投递。运行时不会自动切换。',
+      window_title_label: '精确窗口标题（可选）',
+      window_title_hint: '区分大小写的完整匹配，不支持包含、正则或通配符。',
+      window_class_label: '精确窗口类（可选）',
+      window_class_hint: 'Win32 class name 完整匹配；与标题同时填写时必须全部匹配。',
+      timeout_label: '解析超时（毫秒）',
+      timeout_hint: '等待唯一匹配窗口出现的硬上限，范围 100–10000。',
+      delete: '删除目标',
+      empty: '尚未安装窗口目标',
+      empty_hint: '安装目标后，3.1 输入节点才能通过准入；安装不会自动授权工作流。',
+      no_applications: '请先安装桌面应用',
+      no_applications_hint: '窗口目标必须引用应用页中经过内容摘要校验的 .exe。',
+      new_label: '{name} 输入',
+    },
+    backend: {
+      sendinput: 'SendInput · 前台系统输入',
+      postmessage: 'PostMessage · 精确窗口消息',
+    },
+    consent: {
+      title: '工作流输入授权',
+      hint: '授权覆盖当前目标的全部原子输入操作，并只匹配槽位、可执行摘要、窗口选择器、后端和超时。任意修改都会立即撤销；重启后安装新快照。',
+      grant: '允许输入控制',
+      revoke: '撤销授权',
+    },
+    confirm: {
+      delete_title: '删除“{name}”？',
+      delete_hint: '该目标槽位会被移除，引用它的工作流将无法通过准入。',
     },
   },
   settingsAI: {

@@ -17,6 +17,7 @@ import * as CodeSnippetService from '@bindings/github.com/yottaapp/yotta/interna
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
+import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
   EvaluationStatus as EvaluationStatusBinding,
@@ -322,6 +323,17 @@ export interface InstalledApplicationProfile {
   workflowConsent?: string
 }
 
+export interface InstalledAutomationTargetProfile {
+  slot: string
+  label: string
+  applicationSlot: string
+  windowTitle: string
+  windowClass: string
+  inputBackend: 'sendinput' | 'postmessage'
+  resolveTimeoutMilliseconds: number
+  workflowConsent?: string
+}
+
 export interface ExecutableInspection {
   executable: string
   digest: string
@@ -377,6 +389,12 @@ export const backend = {
       invoke(ApplicationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
     revokeWorkflowConsent: (slot: string) =>
       invokeVoid(ApplicationService.RevokeWorkflowConsent, slot),
+  },
+  automation: {
+    grantWorkflowConsent: (slot: string) =>
+      invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
+    revokeWorkflowConsent: (slot: string) =>
+      invokeVoid(AutomationService.RevokeWorkflowConsent, slot),
   },
   containers: {
     list: () => invoke(ContainerService.List),

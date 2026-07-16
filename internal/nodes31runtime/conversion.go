@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -58,6 +59,13 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.HTTPGetNodeID:              httpGet(builtins),
 		nodes31.LaunchApplicationNodeID:    launchApplication(),
 		nodes31.TerminateApplicationNodeID: terminateApplication(builtins),
+		nodes31.ClickPointerNodeID:         automationInput(nodes31.ClickPointerNodeID, automationinstalled.OperationClick),
+		nodes31.MovePointerNodeID:          automationInput(nodes31.MovePointerNodeID, automationinstalled.OperationMove),
+		nodes31.ScrollPointerNodeID:        automationInput(nodes31.ScrollPointerNodeID, automationinstalled.OperationScroll),
+		nodes31.DragPointerNodeID:          automationInput(nodes31.DragPointerNodeID, automationinstalled.OperationDrag),
+		nodes31.MovePointerRelativeNodeID:  automationInput(nodes31.MovePointerRelativeNodeID, automationinstalled.OperationMoveRelative),
+		nodes31.PressKeysNodeID:            automationInput(nodes31.PressKeysNodeID, automationinstalled.OperationPressKeys),
+		nodes31.TypeTextNodeID:             automationInput(nodes31.TypeTextNodeID, automationinstalled.OperationTypeText),
 		nodes31.LogNodeID:                  writeLog(dependencies.Log),
 		nodes31.ThrowNodeID:                throwFailure(),
 	}

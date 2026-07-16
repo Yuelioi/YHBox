@@ -271,6 +271,7 @@ function uniqueSlot(base: string): string {
     ...draft.value.map((profile) => profile.slot),
     ...(store.data?.ai.profiles ?? []).map((profile) => profile.slot),
     ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
+    ...(store.data?.automation.win32Targets ?? []).map((target) => target.slot),
   ])
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base}-${index}`)) return `${base}-${index}`

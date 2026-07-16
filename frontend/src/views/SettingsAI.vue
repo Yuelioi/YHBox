@@ -414,6 +414,7 @@ function uniqueSlot(): string {
     ...draft.value.map((profile) => profile.slot),
     ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
     ...(store.data?.applications.profiles ?? []).map((profile) => profile.slot),
+    ...(store.data?.automation.win32Targets ?? []).map((target) => target.slot),
   ])
   if (!taken.has('model')) return 'model'
   for (let index = 2; ; index++) {

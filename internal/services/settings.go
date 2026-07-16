@@ -12,6 +12,7 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/pkg/locale"
 )
@@ -35,6 +36,7 @@ type Settings struct {
 	AI           AISettings          `json:"ai"`
 	Network      NetworkSettings     `json:"network"`
 	Applications ApplicationSettings `json:"applications"`
+	Automation   AutomationSettings  `json:"automation"`
 }
 
 type AISettings struct {
@@ -47,6 +49,52 @@ type NetworkSettings struct {
 
 type ApplicationSettings struct {
 	Profiles []InstalledApplicationSettings `json:"profiles"`
+}
+
+type AutomationSettings struct {
+	Win32Targets []InstalledAutomationTargetSettings `json:"win32Targets"`
+}
+
+// InstalledAutomationTargetSettings binds workflow input to an installed
+// application identity and an exact optional top-level window selector.
+// Workflows receive only Slot; native handles, PIDs, paths, and backend choice
+// never enter graph data.
+type InstalledAutomationTargetSettings struct {
+	Slot                       string          `json:"slot"`
+	Label                      string          `json:"label"`
+	ApplicationSlot            string          `json:"applicationSlot"`
+	WindowTitle                string          `json:"windowTitle"`
+	WindowClass                string          `json:"windowClass"`
+	InputBackend               string          `json:"inputBackend"`
+	ResolveTimeoutMilliseconds int64           `json:"resolveTimeoutMilliseconds"`
+	WorkflowConsent            artifact.Digest `json:"workflowConsent,omitempty"`
+}
+
+func (configured InstalledAutomationTargetSettings) profileDraft(application InstalledApplicationSettings) automationinstalled.ProfileDraft {
+	identity := application.profileDraft()
+	identity.Arguments = []string{}
+	return automationinstalled.ProfileDraft{
+		Application: identity, WindowTitle: configured.WindowTitle, WindowClass: configured.WindowClass,
+		InputBackend: configured.InputBackend, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
+	}
+}
+
+func (settings AutomationSettings) InstallationDrafts(applications ApplicationSettings) ([]automationinstalled.InstallationDraft, error) {
+	bySlot := make(map[string]InstalledApplicationSettings, len(applications.Profiles))
+	for _, application := range applications.Profiles {
+		bySlot[application.Slot] = application
+	}
+	result := make([]automationinstalled.InstallationDraft, 0, len(settings.Win32Targets))
+	for _, configured := range settings.Win32Targets {
+		application, ok := bySlot[configured.ApplicationSlot]
+		if !ok {
+			return nil, fmt.Errorf("automation target %q references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+		}
+		result = append(result, automationinstalled.InstallationDraft{
+			Slot: configured.Slot, Profile: configured.profileDraft(application), Consent: configured.WorkflowConsent,
+		})
+	}
+	return result, nil
 }
 
 // InstalledApplicationSettings is trusted host installation metadata. A
@@ -272,6 +320,7 @@ func defaultSettings() *Settings {
 		AI:           AISettings{Profiles: []AIModelSettings{}},
 		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
+		Automation:   AutomationSettings{Win32Targets: []InstalledAutomationTargetSettings{}},
 	}
 }
 
@@ -410,7 +459,10 @@ func (s *Settings) Validate() error {
 	if err := s.Applications.validate(); err != nil {
 		return err
 	}
-	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins)+len(s.Applications.Profiles))
+	if err := s.Automation.validate(s.Applications); err != nil {
+		return err
+	}
+	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins)+len(s.Applications.Profiles)+len(s.Automation.Win32Targets))
 	for _, profile := range s.AI.Profiles {
 		installedSlots[profile.Slot] = "ai.profiles"
 	}
@@ -425,6 +477,12 @@ func (s *Settings) Validate() error {
 			return fmt.Errorf("installation slot %q is shared by %s and applications.profiles", configured.Slot, owner)
 		}
 		installedSlots[configured.Slot] = "applications.profiles"
+	}
+	for _, configured := range s.Automation.Win32Targets {
+		if owner, exists := installedSlots[configured.Slot]; exists {
+			return fmt.Errorf("installation slot %q is shared by %s and automation.win32Targets", configured.Slot, owner)
+		}
+		installedSlots[configured.Slot] = "automation.win32Targets"
 	}
 	return nil
 }
@@ -508,6 +566,42 @@ func (settings *ApplicationSettings) validate() error {
 			expected, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
 			if err != nil || configured.WorkflowConsent != expected {
 				return fmt.Errorf("applications.profiles[%s] has stale workflow consent", configured.Slot)
+			}
+		}
+	}
+	return nil
+}
+
+func (settings *AutomationSettings) validate(applications ApplicationSettings) error {
+	if len(settings.Win32Targets) > 64 {
+		return errors.New("automation.win32Targets exceeds installation budget")
+	}
+	applicationsBySlot := make(map[string]InstalledApplicationSettings, len(applications.Profiles))
+	for _, configured := range applications.Profiles {
+		applicationsBySlot[configured.Slot] = configured
+	}
+	seenSlots, seenLabels := map[string]bool{}, map[string]bool{}
+	for _, configured := range settings.Win32Targets {
+		if configured.Label == "" || len(configured.Label) > 128 || seenLabels[configured.Label] {
+			return fmt.Errorf("automation.win32Targets has an invalid or duplicate label %q", configured.Label)
+		}
+		seenLabels[configured.Label] = true
+		if err := automationinstalled.ValidateInstallationSlot(configured.Slot); err != nil || seenSlots[configured.Slot] {
+			return fmt.Errorf("automation.win32Targets has an invalid or duplicate slot %q", configured.Slot)
+		}
+		seenSlots[configured.Slot] = true
+		application, ok := applicationsBySlot[configured.ApplicationSlot]
+		if !ok {
+			return fmt.Errorf("automation.win32Targets[%s] references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+		}
+		profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
+		if err != nil {
+			return fmt.Errorf("automation.win32Targets[%s]: %w", configured.Slot, err)
+		}
+		if configured.WorkflowConsent != "" {
+			expected, err := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
+			if err != nil || configured.WorkflowConsent != expected {
+				return fmt.Errorf("automation.win32Targets[%s] has stale workflow consent", configured.Slot)
 			}
 		}
 	}

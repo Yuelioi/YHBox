@@ -3,11 +3,14 @@
 package input
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/lxn/win"
 )
@@ -19,16 +22,18 @@ import (
 // 的成熟实现. 本 struct 只加 state 跟踪 + interface 适配.
 type PostMessageBackend struct {
 	mu        sync.Mutex
-	heldKeys  map[string]struct{}           // vk name → tracked
+	heldKeys  map[string]win.HWND           // vk name → exact target window
 	heldBtns  map[win.HWND]map[string]point // hwnd → button name → 按下时客户区坐标
 	activated map[win.HWND]bool             // hwnd → 是否已 FakeActivate 过
+	cursor    map[win.HWND]point            // exact target client position; never moves the global cursor
 }
 
 func newPostMessageBackend() *PostMessageBackend {
 	return &PostMessageBackend{
-		heldKeys:  map[string]struct{}{},
+		heldKeys:  map[string]win.HWND{},
 		heldBtns:  map[win.HWND]map[string]point{},
 		activated: map[win.HWND]bool{},
+		cursor:    map[win.HWND]point{},
 	}
 }
 
@@ -78,36 +83,40 @@ func (b *PostMessageBackend) ensureActivated(hwnd win.HWND) {
 	}
 }
 
-// pixelCoords ratio → 客户区像素 (用 win.GetClientRect, 跟 input.go 同模式)
-func (b *PostMessageBackend) pixelCoords(hwnd win.HWND, xRatio, yRatio float64) (int, int) {
-	var rect win.RECT
-	win.GetClientRect(hwnd, &rect)
-	w := int(rect.Right - rect.Left)
-	h := int(rect.Bottom - rect.Top)
-	return int(float64(w) * xRatio), int(float64(h) * yRatio)
-}
-
 func (b *PostMessageBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button string, durMs int) error {
-	b.ensureActivated(hwnd)
 	if durMs <= 0 {
 		durMs = defaultClickHoldMs
 	}
-	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
-	ClickButton(hwnd, x, y, pickButton(button), time.Duration(durMs)*time.Millisecond, defaultActivateDelay, defaultCursorSettle)
-	return nil
+	if err := b.MouseDown(hwnd, xRatio, yRatio, button); err != nil {
+		return err
+	}
+	time.Sleep(time.Duration(durMs) * time.Millisecond)
+	return b.MouseUp(hwnd, button)
 }
 
 func (b *PostMessageBackend) KeyDown(hwnd win.HWND, vk string) error {
 	b.ensureActivated(hwnd)
-	KeyDown(hwnd, vk) // input.go 现有, 返 bool, 这里忽略 (按下即记录)
+	code := VK(vk)
+	if code == 0 {
+		return fmt.Errorf("postmessage KeyDown: unknown vk %q", vk)
+	}
+	if err := postMessageChecked(hwnd, WM_KEYDOWN, uintptr(code), keyLParam(code, false)); err != nil {
+		return err
+	}
 	b.mu.Lock()
-	b.heldKeys[vk] = struct{}{}
+	b.heldKeys[vk] = hwnd
 	b.mu.Unlock()
 	return nil
 }
 
 func (b *PostMessageBackend) KeyUp(hwnd win.HWND, vk string) error {
-	KeyUp(hwnd, vk)
+	code := VK(vk)
+	if code == 0 {
+		return fmt.Errorf("postmessage KeyUp: unknown vk %q", vk)
+	}
+	if err := postMessageChecked(hwnd, WM_KEYUP, uintptr(code), keyLParam(code, true)); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	delete(b.heldKeys, vk)
 	b.mu.Unlock()
@@ -116,18 +125,27 @@ func (b *PostMessageBackend) KeyUp(hwnd win.HWND, vk string) error {
 
 func (b *PostMessageBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, button string) error {
 	b.ensureActivated(hwnd)
-	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
+	pt, err := checkedClientPoint(hwnd, xRatio, yRatio)
+	if err != nil {
+		return err
+	}
 	// 跟 ClickButton 同序: 先 hover (setCursorPos + WM_MOUSEMOVE) + settle 让 Slate 在它的
 	// tick 更新 hover 元素, 再 DOWN —— 否则按下可能落不到目标控件 (跟 ClickAt 旧路径同源).
 	// 不松开 / 不复位光标 (hold 语义: 光标留在按下点直到 MouseHoldStop).
-	MoveToClient(hwnd, x, y)
+	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(pt.X, pt.Y)); err != nil {
+		return err
+	}
 	time.Sleep(defaultCursorSettle)
-	MouseBtnDown(hwnd, x, y, pickButton(button))
+	downMessage, downFlags := postMessageButton(button, false)
+	if err := postMessageChecked(hwnd, downMessage, downFlags, makeLParam(pt.X, pt.Y)); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	if b.heldBtns[hwnd] == nil {
 		b.heldBtns[hwnd] = map[string]point{}
 	}
-	b.heldBtns[hwnd][button] = point{X: int32(x), Y: int32(y)}
+	b.heldBtns[hwnd][button] = pt
+	b.cursor[hwnd] = pt
 	b.mu.Unlock()
 	return nil
 }
@@ -135,6 +153,22 @@ func (b *PostMessageBackend) MouseDown(hwnd win.HWND, xRatio, yRatio float64, bu
 func (b *PostMessageBackend) MouseUp(hwnd win.HWND, button string) error {
 	b.mu.Lock()
 	pt, ok := b.heldBtns[hwnd][button]
+	if !ok {
+		pt, ok = b.cursor[hwnd]
+	}
+	b.mu.Unlock()
+	if !ok {
+		var err error
+		pt, err = checkedClientPoint(hwnd, 0.5, 0.5)
+		if err != nil {
+			return err
+		}
+	}
+	upMessage, upFlags := postMessageButton(button, true)
+	if err := postMessageChecked(hwnd, upMessage, upFlags, makeLParam(pt.X, pt.Y)); err != nil {
+		return err
+	}
+	b.mu.Lock()
 	if set := b.heldBtns[hwnd]; set != nil {
 		delete(set, button)
 		if len(set) == 0 {
@@ -142,41 +176,65 @@ func (b *PostMessageBackend) MouseUp(hwnd win.HWND, button string) error {
 		}
 	}
 	b.mu.Unlock()
-	if !ok {
-		// 没记到按下坐标 (理论上不该发生) → 退回当前光标客户区位置, 而不是 (0,0).
-		sx, sy := getCursorPos()
-		cx, cy := screenToClient(hwnd, sx, sy)
-		pt = point{X: cx, Y: cy}
-	}
-	// 在按下坐标松键 — UE Slate 在 BUTTONUP 上判 click 且看坐标, (0,0) 会被当成控件外松手 → 不触发.
-	MouseBtnUp(hwnd, int(pt.X), int(pt.Y), pickButton(button))
 	return nil
 }
 
 func (b *PostMessageBackend) MouseMoveRel(hwnd win.HWND, dx, dy, durMs int) error {
 	b.ensureActivated(hwnd)
-	if durMs <= 0 {
-		durMs = 200
+	b.mu.Lock()
+	current, ok := b.cursor[hwnd]
+	b.mu.Unlock()
+	if !ok {
+		var err error
+		current, err = checkedClientPoint(hwnd, 0.5, 0.5)
+		if err != nil {
+			return err
+		}
 	}
-	MouseMoveRel(hwnd, dx, dy, time.Duration(durMs)*time.Millisecond, defaultActivateDelay)
+	width, height, err := checkedClientSize(hwnd)
+	if err != nil {
+		return err
+	}
+	next := point{X: min(max(current.X+int32(dx), 0), int32(width-1)), Y: min(max(current.Y+int32(dy), 0), int32(height-1))}
+	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(next.X, next.Y)); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.cursor[hwnd] = next
+	b.mu.Unlock()
 	return nil
 }
 
 func (b *PostMessageBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
-	b.ensureActivated(hwnd)
-	x1, y1 := b.pixelCoords(hwnd, x1Ratio, y1Ratio)
-	x2, y2 := b.pixelCoords(hwnd, x2Ratio, y2Ratio)
 	if durationMs <= 0 {
 		durationMs = 200
 	}
-	MouseDrag(hwnd, x1, y1, x2, y2, pickButton(button), time.Duration(durationMs)*time.Millisecond, defaultActivateDelay, defaultCursorSettle)
-	return nil
+	if err := b.MouseDown(hwnd, x1Ratio, y1Ratio, button); err != nil {
+		return err
+	}
+	steps := max(1, durationMs/16)
+	for step := 1; step <= steps; step++ {
+		progress := float64(step) / float64(steps)
+		if err := b.MoveTo(hwnd, x1Ratio+(x2Ratio-x1Ratio)*progress, y1Ratio+(y2Ratio-y1Ratio)*progress); err != nil {
+			return err
+		}
+		time.Sleep(time.Duration(durationMs/steps) * time.Millisecond)
+	}
+	return b.MouseUp(hwnd, button)
 }
 
 func (b *PostMessageBackend) MoveTo(hwnd win.HWND, xRatio, yRatio float64) error {
 	b.ensureActivated(hwnd)
-	x, y := b.pixelCoords(hwnd, xRatio, yRatio)
-	MoveToClient(hwnd, x, y) // input.go: setCursorPos + WM_MOUSEMOVE, 无 sleep
+	pt, err := checkedClientPoint(hwnd, xRatio, yRatio)
+	if err != nil {
+		return err
+	}
+	if err := postMessageChecked(hwnd, WM_MOUSEMOVE, 0, makeLParam(pt.X, pt.Y)); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.cursor[hwnd] = pt
+	b.mu.Unlock()
 	return nil
 }
 
@@ -195,22 +253,28 @@ func (b *PostMessageBackend) CursorRatio(hwnd win.HWND) (float64, float64, error
 
 func (b *PostMessageBackend) Scroll(hwnd win.HWND, xRatio, yRatio float64, notches int, horizontal bool) error {
 	b.ensureActivated(hwnd)
-	_ = xRatio
-	_ = yRatio
-	if horizontal {
-		MouseScrollH(hwnd, notches, defaultActivateDelay)
-	} else {
-		MouseScroll(hwnd, notches, defaultActivateDelay)
+	pt, err := checkedClientPoint(hwnd, xRatio, yRatio)
+	if err != nil {
+		return err
 	}
-	return nil
+	if err := checkedClientToScreen(hwnd, &pt); err != nil {
+		return err
+	}
+	delta := int16(notches * WheelDelta)
+	wp := uintptr(uint32(uint16(delta))) << 16
+	lp := makeLParam(pt.X, pt.Y)
+	if horizontal {
+		return postMessageChecked(hwnd, 0x020E, wp, lp)
+	}
+	return postMessageChecked(hwnd, WM_MOUSEWHEEL, wp, lp)
 }
 
 // ReleaseAll 放所有 held key + button. backend stateful 设计的核心.
 func (b *PostMessageBackend) ReleaseAll() error {
 	b.mu.Lock()
-	keys := make([]string, 0, len(b.heldKeys))
-	for k := range b.heldKeys {
-		keys = append(keys, k)
+	keys := make(map[string]win.HWND, len(b.heldKeys))
+	for key, hwnd := range b.heldKeys {
+		keys[key] = hwnd
 	}
 	hwndBtns := make(map[win.HWND]map[string]point, len(b.heldBtns))
 	for h, set := range b.heldBtns {
@@ -218,39 +282,38 @@ func (b *PostMessageBackend) ReleaseAll() error {
 		maps.Copy(btns, set)
 		hwndBtns[h] = btns
 	}
-	activated := make([]win.HWND, 0, len(b.activated))
-	for h := range b.activated {
-		activated = append(activated, h)
-	}
-	b.heldKeys = map[string]struct{}{}
-	b.heldBtns = map[win.HWND]map[string]point{}
 	b.mu.Unlock()
-
-	// 单 container 一个 backend = 一个 hwnd. 优先用有 mouse button held 的 hwnd,
-	// fallback 用 activated map (KeyDown 时 ensureActivated 一定写过 — 只用 KeyHold
-	// 不点鼠标的场景, 之前 anyHwnd==0 → KeyUp 不发, container stop 后游戏端按键残留).
-	var anyHwnd win.HWND
-	for h := range hwndBtns {
-		anyHwnd = h
-		break
-	}
-	if anyHwnd == 0 {
-		for _, h := range activated {
-			anyHwnd = h
-			break
+	var result error
+	for key, hwnd := range keys {
+		code := VK(key)
+		if code == 0 {
+			result = errors.Join(result, fmt.Errorf("release unknown key %q", key))
+			continue
 		}
-	}
-	if anyHwnd != 0 {
-		for _, vk := range keys {
-			KeyUp(anyHwnd, vk)
+		if err := postMessageChecked(hwnd, WM_KEYUP, uintptr(code), keyLParam(code, true)); err != nil {
+			result = errors.Join(result, err)
+			continue
 		}
+		b.mu.Lock()
+		delete(b.heldKeys, key)
+		b.mu.Unlock()
 	}
 	for h, btns := range hwndBtns {
 		for bb, pt := range btns {
-			MouseBtnUp(h, int(pt.X), int(pt.Y), pickButton(bb))
+			message, flags := postMessageButton(bb, true)
+			if err := postMessageChecked(h, message, flags, makeLParam(pt.X, pt.Y)); err != nil {
+				result = errors.Join(result, err)
+				continue
+			}
+			b.mu.Lock()
+			delete(b.heldBtns[h], bb)
+			if len(b.heldBtns[h]) == 0 {
+				delete(b.heldBtns, h)
+			}
+			b.mu.Unlock()
 		}
 	}
-	return nil
+	return result
 }
 
 func (b *PostMessageBackend) Close() error { return nil }
@@ -262,4 +325,56 @@ func (b *PostMessageBackend) Close() error { return nil }
 func (b *PostMessageBackend) TypeText(hwnd win.HWND, s string) error {
 	b.ensureActivated(hwnd)
 	return PostText(hwnd, s)
+}
+
+func checkedClientSize(hwnd win.HWND) (int, int, error) {
+	var rectangle win.RECT
+	ok, _, errno := procGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rectangle)))
+	width, height := int(rectangle.Right-rectangle.Left), int(rectangle.Bottom-rectangle.Top)
+	if ok != 0 && width > 0 && height > 0 {
+		return width, height, nil
+	}
+	if errno != syscall.Errno(0) {
+		return 0, 0, fmt.Errorf("GetClientRect failed: %w", errno)
+	}
+	return 0, 0, errors.New("GetClientRect returned an empty target")
+}
+
+func checkedClientPoint(hwnd win.HWND, xRatio, yRatio float64) (point, error) {
+	width, height, err := checkedClientSize(hwnd)
+	if err != nil {
+		return point{}, err
+	}
+	return point{X: int32(xRatio * float64(width-1)), Y: int32(yRatio * float64(height-1))}, nil
+}
+
+func checkedClientToScreen(hwnd win.HWND, value *point) error {
+	ok, _, errno := procClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(value)))
+	if ok != 0 {
+		return nil
+	}
+	if errno != syscall.Errno(0) {
+		return fmt.Errorf("ClientToScreen failed: %w", errno)
+	}
+	return errors.New("ClientToScreen rejected the target")
+}
+
+func postMessageButton(button string, up bool) (uint32, uintptr) {
+	switch button {
+	case "right":
+		if up {
+			return WM_RBUTTONUP, 0
+		}
+		return WM_RBUTTONDOWN, MK_RBUTTON
+	case "middle":
+		if up {
+			return WM_MBUTTONUP, 0
+		}
+		return WM_MBUTTONDOWN, MK_MBUTTON
+	default:
+		if up {
+			return WM_LBUTTONUP, 0
+		}
+		return WM_LBUTTONDOWN, MK_LBUTTON
+	}
 }

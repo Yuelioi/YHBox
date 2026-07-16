@@ -91,4 +91,20 @@ describe('settings store · patchAIProfiles', () => {
     const patch = updateMock.mock.calls[0][0] as { ai: { profiles: unknown[] } }
     expect(patch.ai.profiles).toEqual([profile])
   })
+
+  it('patches exact automation targets as one installation snapshot', async () => {
+    const store = useSettingsStore()
+    const target = {
+      slot: 'editor-input',
+      label: 'Editor input',
+      applicationSlot: 'editor',
+      windowTitle: 'Editor',
+      windowClass: 'EditorWindow',
+      inputBackend: 'sendinput' as const,
+      resolveTimeoutMilliseconds: 3000,
+    }
+    await store.patchAutomationTargets([target])
+    expect(updateMock).toHaveBeenCalledTimes(1)
+    expect(updateMock.mock.calls[0][0]).toEqual({ automation: { win32Targets: [target] } })
+  })
 })
