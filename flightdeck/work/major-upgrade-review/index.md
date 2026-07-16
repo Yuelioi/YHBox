@@ -8,7 +8,7 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 已完成 exact installed window capture 3.1 纵切面：安装目标新增显式 GDI/WGC capture backend，backend 不可用或 WGC 发生 fallback 时安装直接失败；automation/capture-session 只允许 capture + bounded read-capture，截图结果通过独立 blob-write authority 分块提交为 nominal Image BlobRef。legacy Capture 节点已删除，不保留 ROI/JPEG/ambient CaptureService 兼容路径。
 
-当前 frontier 是把 template/color/detection 与 PlayClip 迁移到 exact installed target、Capability/Grant、Blob/InputClip asset identity 与 attempt/action journal，再删除其余旧 node/controller/validator/Container 命令面。第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 automation target。
+authoring asset 与 Run runtime 已破坏性统一为单一共享 content-addressed Blob Store，构造边界拒绝隐式创建第二套 Store。当前 frontier 是把 PlayClip、template/color/detection 迁移到 exact installed target、Capability/Grant、Blob/InputClip asset identity 与 attempt/action journal，再删除其余旧 node/controller/validator/Container 命令面。第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 automation target。
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
@@ -47,6 +47,7 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 ## Progress
 
 Done:
+- 破坏性统一 authoring asset 与 Run runtime 的 Blob identity：`main` 只构造一个 `data/blobs` Store 并显式注入 `asset.Store` 与 `appbootstrap`，两者均拒绝隐式创建第二个 Store；删除 appbootstrap 的重复 blob quota/路径所有权，避免双写、跨 Store BlobRef 缺失与同目录多实例竞态。全量 Go、staticcheck 与 blob/asset/bootstrap race 全绿，提交 `75ef8d9b`。
 - 完成 exact installed window capture 3.1 纵切面：安装档案固定 `gdi` 或 `wgc`，显式 backend 不可用或发生 fallback 时 fail closed；独立 capture capability/resource session 只暴露一次 capture 与 64 KiB bounded read，运行时通过独立 blob-write authority 提交 `image/png`，节点只输出 nominal Image BlobRef，journal 仅记录 bytes/chunks。Settings/Wails/Vue、生成 Catalog/docs 同步更新，legacy `Capture` ROI/JPEG/ambient service 节点删除；全量 Go、focused race、vet/staticcheck、contracts/Wails、前端 101/649 与 production build 全绿，提交 `fe3e647d`。
 - 完成 exact window activation 3.1 纵切面：同一不可变安装目标以独立 automation/window capability 与 resource kind 暴露 activate，不能与 input session 互开；每次调用重验 executable/window 唯一身份，失败显式走 failed 并记录 action journal。删除旧 BringWindowForeground 的 warn-and-success 路径，补齐 exact input/window 的 UI 文案与生成文档，提交 `fc476bee`。
 - 破坏性删除 legacy Container executor、execution facade 与 run classifier，共移除 124 个 runtime 文件和 20,961 行旧执行代码；旧 registry/runtime 不再可被 Go package graph 引用，提交 `34d8a9ab`。
