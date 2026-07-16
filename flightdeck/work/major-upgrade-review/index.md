@@ -8,16 +8,14 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 当前唯一实施主线是 Yotta 3.1 destructive upgrade。
 
-Wave A“活跃入口切换”已完成并提交：
+已完成的大 Wave：
 
-- `be1fc04b`：Launcher 设置模型从 Container 破坏性切换到 Workflow 3.1 Source/Run；悬浮启动器通过 Application presentation service 启动并跟踪 Run，包含终态事件/权威快照无缝交接。
-- 删除活跃 Container 热键来源、批量清空 RPC、本地 MouseCalibration 向旧 Container 批量同步 RPC 与 UI。
-- Wails contract 保持 18 services，methods 132→130，models 149→148；`LauncherBlock.containerId` 改为 `workflowId`，不保留旧字段或迁移 fallback。
-- 产品 router 仍只暴露 `WorkflowsView` / `WorkflowEditorView`；剩余 `backend.containers` 调用集中在不可达旧产品树，将在 Wave C 整体删除。
+- Wave A `be1fc04b`：Launcher/Settings/Hotkey 活跃入口切到 Workflow 3.1；旧 Container hotkey/calibration RPC 删除。
+- Wave B `d060798c`：Asset、Tools、Recording 统一按已安装 `targetSlot` 使用 host-only AuthoringTargets projection；删除按 Container 节点解析窗口、重复创建 capture backend 与录制 target platform resolver。
+- 同一份 sealed automation installation/provider 同时服务 Run capability broker 和可信本地制作工具；Workflow 仍无法获得 native handle 或绕过 Grant。
+- Wails contract 保持 18 services / 130 methods / 148 models；Asset/Tools/Recording 的 `containerID/nodeID` 参数与 DTO 字段切为 `targetSlot`。
 
-当前进入 Wave B“平台 adapter 去 Container 化”。后端 `container.Store/Service` 仍被模板截图、录制目标、tools 和 composition wiring 使用；下一步先建立 installation/target identity 的深 interface，再删除按 containerID 解析 Win32WindowTarget 的路径，不给旧 Container 增加转发层。
-
-旧独立 feature topics 已完成或被 3.1 收编；未完成的真实 Windows smoke 与迁移事项统一保留在本 topic。
+当前进入 Wave C“删除旧产品树”。全局 typecheck 的 10 个错误已精确定位到不可达的旧 Container editor/store/composables；不会用可变参数、alias 或把 container ID 冒充 target slot 来修复，直接删除整棵旧树及其 Wails service。
 
 ## Work outline
 
@@ -27,7 +25,7 @@ Wave A“活跃入口切换”已完成并提交：
 2. GUI、Schedule、Hotkey、Debug、headless 统一调用 Application/Program runtime。
 3. 删除旧 Container run/debug/validate/save 的活跃前端调用。
 
-### B. 平台 adapter 去 Container 化
+### B. 平台 adapter 去 Container 化（✅ 已完成：d060798c）
 
 1. 模板截图和录制目标改为安装式 Automation Target / Application-owned adapter，不再按 containerID 取 Win32WindowTarget。
 2. tools、校准、热键 binder 改用 3.1 installation/target identity。
@@ -60,7 +58,7 @@ Wave A“活跃入口切换”已完成并提交：
 
 ## Next
 
-Wave B 当前切片：把模板截图与录制目标从 `containerID -> Win32WindowTarget` 改为安装式 Automation Target / Application-owned adapter。先画清 asset capture、recording、tools 与 main wiring 的调用链，再落一个窄 interface；定向验证并提交后，在本节和执行计划中标记 Wave B 完成。
+Wave C 当前切片：从 router 可达性与 import graph 出发删除 `ContainersView`、`ContainerEditorView`、旧 Container store/composables/components/tests/i18n，并从 main 移除 Container/Subgraph/Node legacy Wails services 及只为其存在的 wiring。重生成 contract 后要求全局 frontend typecheck 恢复为绿；不保留旧 RPC、DTO 或 compatibility shim。
 
 ## Read now
 
@@ -92,16 +90,17 @@ Completed foundations:
 - explicit MatchTemplate 与 typed multi-match/frame-diff/color/QR analysis；
 - port-level Authoring Projection + immutable template variant binding；
 - legacy Container executor、PlayClip、detect/image/VisionService/template GUID dependency 和 unsafe asset GC 删除；
-- Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除。
+- Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除；
+- Asset/Tools/Recording 已按 installed target slot 运行，Container window resolver 与重复 capture adapter 删除。
 
-Latest Wave A verification:
+Latest Wave B verification:
 
-- `go test ./internal/services ./internal/services/container ./internal/hotkey`
-- Launcher Vitest：2 files / 14 tests
-- `pnpm -C frontend typecheck`
+- `go test . ./internal/apperr ./internal/automation/installed ./internal/services/asset ./internal/services/tools ./internal/services/recording`
+- Recording/Standalone Vitest：2 files / 17 tests
 - `pnpm -C frontend i18n:check`：3064 keys
 - regenerated Wails bindings + `pnpm -C frontend bindings:check`
 - `git diff --check`
+- 全局 `pnpm -C frontend typecheck` 当前仅剩旧 Container tree 10 errors，作为 Wave C 删除验收清单，不做兼容修复。
 
 上一完整阶段门禁仍为 `go test ./...`、affected `staticcheck`、`task contracts:check`、`pnpm -C frontend check`（100 files / 641 tests、production build、bundle budgets）。全量 `task check` 只在最终阶段运行。
 
