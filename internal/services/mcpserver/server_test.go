@@ -15,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	app31 "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
@@ -174,12 +175,16 @@ func testApplication(t *testing.T) *app31.Application {
 	if err != nil {
 		t.Fatal(err)
 	}
+	blobStore, err := blob.Open(filepath.Join(t.TempDir(), "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(),
+		DataRoot: t.TempDir(), BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 16, MaxPrograms: 16, MaxRuns: 16,
-			MaxBlobBytes: 1 << 20, MaxTotalBlobBytes: 8 << 20, MaxResourcePayloadBytes: 2 << 20,
-			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
+			MaxResourcePayloadBytes: 2 << 20,
+			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: installations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: mcpScriptRuntime(t),
 		LogEmitter: nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),

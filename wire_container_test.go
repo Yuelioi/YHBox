@@ -49,10 +49,7 @@ func makeTestPNGBlob(t *testing.T, s *asset.Store, img *image.RGBA, guid string,
 // TestMatcher_DetectByGUID 验 matcher 经全局 asset store 按 guid 取 variant 解码匹配.
 // 未知 guid → ok-miss 不崩; 已知 guid 命中 (frame 与 template 同像素 → conf=1.0).
 func TestMatcher_DetectByGUID(t *testing.T) {
-	s, err := asset.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestAssetStore(t, t.TempDir())
 	m := newTemplateMatcherAdapter(s, nil)
 
 	// 未知 guid → miss 不崩.
@@ -90,10 +87,7 @@ func TestMatcher_DetectByGUID(t *testing.T) {
 
 // TestMatcher_DecodeCacheBySha 验解码缓存按 blob digest, Invalidate 清空.
 func TestMatcher_DecodeCacheBySha(t *testing.T) {
-	s, err := asset.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestAssetStore(t, t.TempDir())
 	m := newTemplateMatcherAdapter(s, nil)
 	sha := makeTestPNGBlob(t, s, patternImg(8, 8), "cache", [2]int{8, 8})
 

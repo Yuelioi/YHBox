@@ -19,11 +19,7 @@ import (
 	"github.com/yottaapp/yotta/internal/durablefs"
 )
 
-const (
-	maxAssetBlobBytes   = 512 << 20
-	maxAssetStoreBytes  = 16 << 30
-	maxAssetRecordBytes = 1 << 20
-)
+const maxAssetRecordBytes = 1 << 20
 
 var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 
@@ -53,9 +49,12 @@ func kindDir(kind string) string {
 
 // NewStore initializes the exact asset schema. Corrupt, mismatched, or old
 // records fail startup; there is no compatibility reader.
-func NewStore(dataRoot string) (*Store, error) {
+func NewStore(dataRoot string, blobs *blob.Store) (*Store, error) {
 	if strings.TrimSpace(dataRoot) == "" {
 		return nil, errors.New("asset store root is required")
+	}
+	if blobs == nil {
+		return nil, errors.New("asset store requires the shared content-addressed Blob Store")
 	}
 	resolvedRoot, err := filepath.Abs(dataRoot)
 	if err != nil {
@@ -68,18 +67,10 @@ func NewStore(dataRoot string) (*Store, error) {
 		}
 	}
 
-	bs, err := blob.Open(filepath.Join(dataRoot, "blobs"), blob.Limits{
-		MaxBlobBytes:  maxAssetBlobBytes,
-		MaxTotalBytes: maxAssetStoreBytes,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	s := &Store{
 		root:  dataRoot,
 		recs:  map[string]AssetRecord{},
-		blobs: bs,
+		blobs: blobs,
 	}
 	for _, kind := range []string{KindTemplate, KindClip} {
 		if err := s.preload(kind); err != nil {

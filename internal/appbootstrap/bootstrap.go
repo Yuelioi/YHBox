@@ -36,8 +36,6 @@ type Limits struct {
 	MaxSources              int
 	MaxPrograms             int
 	MaxRuns                 int
-	MaxBlobBytes            int64
-	MaxTotalBlobBytes       int64
 	MaxResourcePayloadBytes int
 	BlobChunkBytes          int
 	BlobQueueCapacity       int
@@ -47,6 +45,7 @@ type Limits struct {
 
 type Config struct {
 	DataRoot                 string
+	BlobStore                *blob.Store
 	Limits                   Limits
 	AIInstallations          ai.Installations
 	HTTPInstallations        httpegress.Installations
@@ -74,7 +73,7 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -112,12 +111,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	blobStore, err := blob.Open(filepath.Join(workspace, "blobs"), blob.Limits{
-		MaxBlobBytes: config.Limits.MaxBlobBytes, MaxTotalBytes: config.Limits.MaxTotalBlobBytes,
-	})
-	if err != nil {
-		return nil, err
-	}
+	blobStore := config.BlobStore
 	blobProvider, err := blob.NewProvider(blobStore, blob.ProviderLimits{
 		MaxChunkBytes: config.Limits.BlobChunkBytes, QueueCapacity: config.Limits.BlobQueueCapacity,
 	})
@@ -243,7 +237,6 @@ func (r *Runtime) Close(ctx context.Context) error {
 
 func validateLimits(limits Limits) error {
 	if limits.MaxSources <= 0 || limits.MaxPrograms <= 0 || limits.MaxRuns <= 0 ||
-		limits.MaxBlobBytes <= 0 || limits.MaxTotalBlobBytes < limits.MaxBlobBytes ||
 		limits.MaxResourcePayloadBytes < 2*nodes31.DefaultFileReadBytes || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
 		limits.BlobQueueCapacity <= 0 || limits.StreamCapacity <= 0 || limits.StreamChunkBytes <= 0 ||
 		limits.StreamChunkBytes > limits.MaxResourcePayloadBytes {

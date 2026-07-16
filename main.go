@@ -21,6 +21,7 @@ import (
 	app31 "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/node"
@@ -110,6 +111,14 @@ func main() {
 	if err := os.Setenv("YOTTA_DATA_DIR", dataDir); err != nil {
 		rootLog.Error().Err(err).Str("tag", "SYSTEM").Msg("set image output data directory")
 	}
+	sharedBlobStore, err := blob.Open(filepath.Join(dataDir, "blobs"), blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("shared Blob Store init")
+	}
+	assetStore, err := asset.NewStore(dataDir, sharedBlobStore)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
+	}
 	const runGrantTTL = 5 * time.Minute
 	aiInstallations, err := ai.Install(app.Settings().AI.InstallationDrafts(), aiSecrets)
 	if err != nil {
@@ -144,11 +153,11 @@ func main() {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("script runtime init")
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: dataDir,
+		DataRoot: dataDir, BlobStore: sharedBlobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
-			MaxBlobBytes: 256 << 20, MaxTotalBlobBytes: 4 << 30, MaxResourcePayloadBytes: 4 << 20,
-			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
+			MaxResourcePayloadBytes: 4 << 20,
+			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
@@ -234,13 +243,6 @@ func main() {
 	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
 	nodeSvc := node.NewService()
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
-	// 全局资产库 (template + clip 统一): <dataDir>/{templates,clips,blobs} 平铺布局.
-	// 单实例全局共享 — matcher / validator / library / asset RPC / clip resolver 都接这一个.
-	assetStore, err := asset.NewStore(dataDir)
-	if err != nil {
-		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("asset store init")
-	}
-
 	// 全局子图池 (2026-06-12 全局化: 容器只引用不复制): <dataDir>/subgraphs/.
 	sgStore, err := container.NewSubgraphStore(filepath.Join(dataDir, "subgraphs"))
 	if err != nil {

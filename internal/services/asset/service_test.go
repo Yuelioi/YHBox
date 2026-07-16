@@ -48,7 +48,7 @@ func pngDataURL(t *testing.T, w, h int) string {
 }
 
 func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	svc := NewService(s, nil)
 
 	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 32, 16), "登录按钮", "登录", []string{"按钮"}, [2]int{1920, 1080}, [4]float32{0.1, 0.2, 0.3, 0.4})
@@ -78,7 +78,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 }
 
 func TestService_SaveTemplateCapture_PersistsCategory(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	svc := NewService(s, nil)
 
 	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "确认按钮", "战斗", []string{"按钮"}, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
@@ -95,7 +95,7 @@ func TestService_SaveTemplateCapture_PersistsCategory(t *testing.T) {
 }
 
 func TestService_RenameDelete(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	svc := NewService(s, nil)
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "旧名", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 
@@ -130,7 +130,7 @@ func TestService_RenameDelete(t *testing.T) {
 }
 
 func TestService_CapturePassesNodeID(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	capture := &recordingCaptureAdapter{}
 	svc := NewService(s, capture)
 
@@ -147,7 +147,7 @@ func TestService_CapturePassesNodeID(t *testing.T) {
 }
 
 func TestService_PickVariant(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	svc := NewService(s, nil)
 	// 1280×720 建档 (Variants[0]), 再加 1920×1080 (Variants[1], 不同分辨率 → 追加).
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
@@ -173,7 +173,7 @@ func TestService_PickVariant(t *testing.T) {
 }
 
 func TestService_RemoveVariant(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	svc := NewService(s, nil)
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
@@ -201,7 +201,7 @@ func TestService_RemoveVariant(t *testing.T) {
 }
 
 func TestService_CurrentResolution(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 
 	svc := NewService(s, stubCaptureAdapter{res: [2]int{1600, 900}})
 	if r, err := svc.CurrentResolution("c1"); err != nil || r != [2]int{1600, 900} {
@@ -222,7 +222,7 @@ func TestService_CurrentResolution(t *testing.T) {
 }
 
 func TestServiceCleanupOnlyDeletesSelectedUnusedTemplates(t *testing.T) {
-	s, _ := NewStore(t.TempDir())
+	s, _ := newTestStore(t)
 	for _, rec := range []AssetRecord{
 		makeRecord("unused", "Unused", KindTemplate),
 		makeRecord("used", "Used", KindTemplate),

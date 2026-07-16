@@ -543,7 +543,12 @@ func TestContainerStore_ExportPackageZipExcludesInstallation(t *testing.T) {
 func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(filepath.Join(dir, "containers"))
-	assetStore, _ := asset.NewStore(filepath.Join(dir, "assets"))
+	assetRoot := filepath.Join(dir, "assets")
+	assetBlobs, err := blob.Open(filepath.Join(assetRoot, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetStore, _ := asset.NewStore(assetRoot, assetBlobs)
 	s.SetAssetStore(assetStore)
 
 	templateBlob, err := assetStore.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader([]byte("template-png")), func(ref blob.BlobRef) asset.AssetRecord {

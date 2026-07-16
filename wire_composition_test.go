@@ -157,10 +157,7 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 }
 
 func TestAssetAndClipCompositionShareTheGlobalAssetStore(t *testing.T) {
-	store, err := asset.NewStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := newTestAssetStore(t, t.TempDir())
 	if assetExistence(store, asset.KindTemplate)("missing") {
 		t.Fatal("missing asset reported present")
 	}

@@ -1,10 +1,12 @@
 package nodeoptions
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/node"
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 	"github.com/yottaapp/yotta/internal/services/androidadb"
@@ -13,7 +15,12 @@ import (
 )
 
 func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {
-	assetStore, err := asset.NewStore(t.TempDir())
+	root := t.TempDir()
+	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetStore, err := asset.NewStore(root, blobs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +85,12 @@ func TestRegisterAssetAsyncSourcesListsClipsAndSubgraphs(t *testing.T) {
 }
 
 func TestAllDeclaredAsyncSourcesRegisteredByComposition(t *testing.T) {
-	assetStore, err := asset.NewStore(t.TempDir())
+	root := t.TempDir()
+	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetStore, err := asset.NewStore(root, blobs)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,11 +22,26 @@ import (
 func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
-	s, err := NewStore(dir)
+	s, err := NewStore(dir, newTestBlobStore(t, dir))
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
 	return s, dir
+}
+
+func newTestBlobStore(t *testing.T, dir string) *blob.Store {
+	t.Helper()
+	store, err := blob.Open(filepath.Join(dir, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+func TestStoreRequiresSharedBlobStore(t *testing.T) {
+	if _, err := NewStore(t.TempDir(), nil); err == nil {
+		t.Fatal("NewStore accepted an implicit Blob Store")
+	}
 }
 
 func makeRecord(guid, name, kind string) AssetRecord {
@@ -72,7 +87,7 @@ func TestStore_PreloadRejectsCorrupt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := NewStore(dir); err == nil {
+	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
 		t.Fatal("NewStore accepted corrupt persisted contract data")
 	}
 }
@@ -89,14 +104,14 @@ func TestStore_PreloadRejectsOldSchema(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(recDir, "old.json"), b, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(dir); err == nil {
+	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
 		t.Fatal("NewStore accepted an old schema through a compatibility path")
 	}
 }
 
 func TestStore_PreloadRejectsDanglingBlobReference(t *testing.T) {
 	dir := t.TempDir()
-	first, err := NewStore(dir)
+	first, err := NewStore(dir, newTestBlobStore(t, dir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +121,7 @@ func TestStore_PreloadRejectsDanglingBlobReference(t *testing.T) {
 	if err := first.putRecord(rec); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(dir); err == nil {
+	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
 		t.Fatal("NewStore accepted a durable reference to a missing blob")
 	}
 }
@@ -130,7 +145,7 @@ func TestStore_PreloadRejectsUnboundedAmbiguousOrUnknownJSON(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(recordDir, "bad.json"), test.raw, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := NewStore(dir); err == nil {
+			if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
 				t.Fatalf("NewStore accepted %s record", test.name)
 			}
 		})
@@ -156,7 +171,7 @@ func TestStore_PutRecord_And_Get(t *testing.T) {
 
 func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 	dir := t.TempDir()
-	s1, err := NewStore(dir)
+	s1, err := NewStore(dir, newTestBlobStore(t, dir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +185,7 @@ func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 	}
 
 	// 新实例 preload
-	s2, err := NewStore(dir)
+	s2, err := NewStore(dir, newTestBlobStore(t, dir))
 	if err != nil {
 		t.Fatal(err)
 	}
