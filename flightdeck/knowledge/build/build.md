@@ -13,7 +13,7 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 - **Wails library 与 CLI 必须同版**: 当前 Go/CLI pin 是 `v3.0.0-alpha2.117`，对应 frontend runtime 固定为 `3.0.0-alpha.97`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 Go/CLI/workflow/package/lock 多处 pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。
 
 - **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
-- **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、generated Workflow v3 Schema/TS、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
+- **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、generated Workflow 3.1 Schema/TS、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
 - **构建**: `task build` — frozen install / bindings / `vite build` 后，以 `-mod=readonly` 执行 production Go build；Rust capture DLL 使用 `cargo build --release --locked`。构建链不会运行 `go mod tidy`、重写 icon 或调用 UPX。
 - **发布候选**: `task package` — 构建前后都要求 index/worktree（含 untracked）完全干净；完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
 - **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
@@ -26,9 +26,9 @@ Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windo
 
 `frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
 
-production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow v3 的 durable contract 不依赖 Wails：同一个 Go contract generator 同时喂给运行时 JSON Schema validator 与 `task contracts:update` 生成的 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。结构规则只写在 schema tag；Go semantic validator 只处理跨对象约束。
+production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow 3.1 的 durable contract 不依赖 Wails：同一个 Go contract generator 同时喂给运行时 JSON Schema validator 与 `task contracts:update` 生成的 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。结构规则只写在 schema tag；Go semantic validator 只处理跨对象约束。
 
-Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。统一入口 `node frontend/scripts/generate-bindings.mjs` 会拒绝非零 warning；随后 `pnpm -C frontend bindings:check` 对比 tracked `contracts/wails-rpc.json`。当前 contract 基线是 15 services / 130 methods / 146 model declarations；数量不再硬编码到 workflow。接口有意变化后审查 diff，再运行 `pnpm -C frontend bindings:update`。
+Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。统一入口 `node frontend/scripts/generate-bindings.mjs` 会拒绝非零 warning；随后 `pnpm -C frontend bindings:check` 对比 tracked `contracts/wails-rpc.json`。当前 contract 基线是 14 services / 89 methods / 99 model declarations；数量不再硬编码到 workflow。接口有意变化后审查 diff，再运行 `pnpm -C frontend bindings:update`。
 
 ## 测试基线
 
@@ -41,25 +41,25 @@ go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
 ./scripts/check-go-coverage.ps1
 go vet ./...
 staticcheck ./...
-go test -race ./internal/services ./internal/services/tools ./internal/services/container ./internal/services/container/runtime ./internal/services/execution ./internal/services/schedule ./internal/services/inputclip/runtime ./internal/hotkey ./pkg/winutil ./pkg/capture
+go test -race ./internal/services ./internal/application ./internal/nodes31runtime ./internal/run ./internal/workflowstore ./internal/services/schedule ./internal/services/tools ./internal/services/inputclip ./internal/hotkey ./pkg/winutil ./pkg/capture
 task check:fuzz
 task version:verify
 ./scripts/verify-wails-version.ps1 -CheckInstalled
 ```
 
 对应 CI 是 `.github/workflows/ci.yml`。Windows `quality-windows` 安装固定工具链后直接运行同一个 `task check`，不在 workflow 复制 Go/frontend 命令。Linux/macOS portable core 已包含 services/tools。独立 `gui-build` job 在 Ubuntu 24.04 amd64、macOS 15 arm64 和 Windows 上核对实际 Wails CLI、frozen install、生成 bindings、执行 production frontend build 并编译 production-tag GUI；Windows 的 `CGO_ENABLED=0` 产物只是 Wails/frontend compile smoke，不替代含 capture DLL、installer 和真实 WebView 启动的发布验收。三个平台直接上传二进制；首次远端运行和 GUI 宿主 smoke 仍是发布前置项。
-`pkg/platform`、input/capture/winutil、nodes/input/io、container/runtime 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32 或 Wails presentation import。
+Node Contract 3.1、Catalog/Authoring Projection、Compiler、Run、Workflow Store 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32、旧 Node/Container runtime 或 Wails presentation import。
 
 前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。lint 的 `lint` 是 check-only；只有 `lint:fix` 会改文件。既有 276 个 `no-explicit-any` 由 `lint-baseline.json` 精确 ratchet：增加或减少都会要求审查并显式更新，不能静默关闭规则。
 
-`cd frontend && pnpm build` 当前应绿且会自动执行 bundle gate。预算按 gzip level 9、十进制 bytes 计算：entry ≤350,000；editor 初始同步 JS ≤650,000，最终 target 450,000。2026-07-13 基线是 entry 308,104 bytes、editor 468,811 bytes。ELK 只在首次自动布局时加载；图标搜索只懒加载 21,825 bytes gzip 的 Tabler 名称索引，完整 `icons.json` 出现在 manifest 会直接失败。当前已知非阻塞 warning / 提示是:
+`cd frontend && pnpm build` 当前应绿且会自动执行 bundle gate。预算按 gzip level 9、十进制 bytes 计算：entry ≤350,000；editor 同步 JS ≤200,000，target 125,000。Wave D 于 2026-07-16 的生产基线是 entry 259,767 bytes、editor 94,274 bytes。ELK 只在首次自动布局时加载；图标搜索只懒加载 Tabler 名称索引，完整 `icons.json` 出现在 manifest 会直接失败。当前已知非阻塞 warning / 提示是:
 
 - `Some chunks are larger than 500 kB`: ELK 等按需 chunk 仍可能触发 Vite 通用 raw-size warning；是否阻断只以 `bundle:check` 的同步闭包预算和 forbidden checks 为准。
 - `PLUGIN_TIMINGS` 可能间歇出现: nuxt/ui 与 wails typed-events 插件耗时占比提示,按构建性能议题处理。
 
 ## 前端单测 (vitest)
 
-- 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`, 已有 useEditorSave / useVarMutations / scriptCompletions / ytConsole 等)。
+- 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`)。Wave D 删除旧 Container 产品树后，2026-07-16 定向全跑基线为 26 files / 100 tests。
 - 跑: `cd frontend && pnpm test` 或根目录 `pnpm -C frontend test`。两者当前都应绿。
 - 单文件 / 单目录可用: `cd frontend && ./node_modules/.bin/vitest run <路径>`。
 

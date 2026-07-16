@@ -15,7 +15,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 - Wave C `9fce7870`：物理删除旧 Container/Subgraph/Node/CodeSnippet Wails RPC 与 Store、旧 Container editor 产品树、兼容迁移和 validate-fishing-v2；Wails contract 收敛为 14 services / 89 methods / 99 models。
 - 同一份 sealed automation installation/provider 同时服务 Run capability broker 和可信本地制作工具；Workflow 仍无法获得 native handle 或绕过 Grant。
 
-当前进入 Wave D“Node Contract 单一事实源”。剩余旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、script binding 与节点文档/i18n 库存必须改为只消费 3.1 Catalog/Authoring Projection 后物理删除，不保留 adapter registry、kind switch 或兼容类型。
+Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、旧表达式/script binding、节点 i18n registry 和对应前端/日志库存已物理删除。CLI 文档、节点文案、前端参数提示与测试只消费 3.1 Catalog/Authoring Projection；没有 adapter registry、kind switch、旧 coercion 或 compatibility type 回接。
 
 ## Work outline
 
@@ -37,7 +37,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 2. 删除旧 Container Wails RPC、Store、validator/package/export/subgraph compatibility 路径，以及 CodeSnippet/NodeOptions 服务和旧数据迁移。
 3. 重生成 Wails bindings/contract，确认 14 services / 89 methods / 99 models；不存在旧 RPC、DTO 或 compatibility shim。
 
-### D. Node Contract 单一事实源
+### D. Node Contract 单一事实源（✅ 已完成：e29ff25d）
 
 1. 让剩余 UI、表达式/脚本 authoring、CLI 文档只消费 3.1 Authoring Projection/Catalog。
 2. 删除旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、`CanonicalPinType`、`PinTypeCompat`、`CoerceInputValue` 和按 kind validator/dispatch。
@@ -58,7 +58,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## Next
 
-Wave D 当前切片：先建立 `internal/node` / `internal/nodes/*` / `internal/catalog` / `internal/services/script` / `cmd/node-catalog` 的精确 import 与功能映射；把 CLI 文档、脚本 authoring 和剩余 UI 参数提示切到 3.1 Catalog + Authoring Projection，再一次性删除旧 registry/节点实现与旧 node i18n。定向验证优先，完整 `task check` 仍只在最终 Wave F 运行。
+Wave D 当前切片已由提交 `e29ff25d` 闭合并通过定向验证。下一步进入 Wave E：先建立 `internal/services/llm`、现有 `internal/ai`、AI Node Contract/runtime、settings/credential 与 provider adapter 的精确功能映射；删除 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。插件仍只允许 Node Package + Wasm/Process host，不引入 Go plugin 或第三方前端代码。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 
@@ -93,16 +93,25 @@ Completed foundations:
 - Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除；
 - Asset/Tools/Recording 已按 installed target slot 运行，Container window resolver 与重复 capture adapter 删除；
 - 旧 Container/Subgraph/Node/CodeSnippet RPC 与 Store、Container editor 产品树和兼容迁移已物理删除。
+- 旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、表达式/script binding、旧节点 i18n registry 与 Container 专用日志/UI helper 已物理删除；`cmd/node-catalog` 只导出当前构建的 3.1 catalog/authoring/docs artifacts。
+- Wails 日志 DTO 已收口为 SYS/WF 与 graph/node/invocation/attempt provenance；contract 保持 14 services / 89 methods / 99 models。
+- frontend ESLint `no-explicit-any` debt 随旧产品树删除从 258 收紧到 24；生产 bundle 为 entry 259,767 bytes、editor 94,274 bytes gzip。
 
-Latest Wave C verification:
+Latest Wave D verification:
 
 - `go list ./...`
-- `go test -count=1 -timeout=30s . ./cmd/node-catalog ./internal/architecture ./internal/services/recording`
-- focused Vitest：2 files / 6 tests
+- `go test -count=1 -timeout=60s ./...`（全绿；并行首次运行 LPAC worker 曾抖动一次，单测复跑两次和全仓单独复跑均通过）
+- updated CI race package group：`services/application/nodes31runtime/run/workflowstore/schedule/tools/inputclip/hotkey/winutil/capture` 均通过 race
+- `go vet ./...` 唯一失败为未改动的 `pkg/winutil/window_windows.go:385` `unsafe.Pointer` 警告；本切片 affected `staticcheck` 全绿
+- Vitest：26 files / 100 tests
+- `pnpm -C frontend lint`：0 warning / 0 error，tracked debt 24
+- `pnpm -C frontend format:check`
 - `pnpm -C frontend typecheck`
-- `pnpm -C frontend i18n:check`：3064 keys
+- `pnpm -C frontend i18n:check`：1214 keys
+- `task contracts:check`
 - regenerated Wails bindings + `pnpm -C frontend bindings:check`：14 services / 89 methods / 99 models
 - `pnpm -C frontend build:dev`
+- `pnpm -C frontend build` + bundle budget
 - legacy path/import residue scan + `git diff --check`
 
 上一完整阶段门禁仍为 `go test ./...`、affected `staticcheck`、`task contracts:check`、`pnpm -C frontend check`（100 files / 641 tests、production build、bundle budgets）。全量 `task check` 只在最终阶段运行。
@@ -119,4 +128,4 @@ Latest Wave C verification:
 
 ## Open questions
 
-无阻塞问题。桌面真实 smoke 统一留到最终验收，不再让已完成 feature topic 长期保持 active。
+无阻塞问题。当前非本切片 gate 风险是 `pkg/winutil/window_windows.go:385` 的 `go vet` unsafe-pointer warning，进入最终全量门禁前需单独修复或确认工具链行为。桌面真实 smoke 统一留到最终验收，不再让已完成 feature topic 长期保持 active。

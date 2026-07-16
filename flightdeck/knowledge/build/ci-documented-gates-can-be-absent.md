@@ -1,6 +1,6 @@
 ---
 kind: trap
-summary: "Yotta 曾在 README/CONTRIBUTING/build checklist 声明 frontend test/typecheck/i18n/format 应绿，但 ci.yml 未调用这些命令，导致 format check 已红而 CI 仍可能绿；发布就绪必须按 workflow 的实际 step 审核。"
+summary: "Yotta 曾声明 frontend gates 却未在 CI 执行；该缺口现由 quality-windows 的 canonical `task check` 修复，但发布就绪仍须审核 workflow 的实际命令和所有显式 package 路径。"
 activation: symptom
 read_when: "评估 CI、发布就绪、required checks 或声称“全套门禁已绿”时；文档列了验证命令但 GitHub Actions 结果异常少时"
 recheck_when: "`.github/workflows/ci.yml`、Taskfile 或 frontend scripts 改动后"
@@ -13,5 +13,8 @@ recheck_when: "`.github/workflows/ci.yml`、Taskfile 或 frontend scripts 改动
 3. 失败退出码未被 `continue-on-error`、管道或 shell 语义吞掉；
 4. required check 覆盖 PR 和受保护分支；
 5. 本地 clean checkout 运行同一入口得到相同结果。
+6. 显式 `go test`/race/portable package 列表可由 `go list` 解析；目录仍存在不代表其中还有 Go package。
 
 2026-07-13 审查发现：Go test/vet/staticcheck 在 CI 中，frontend production build 也在 GUI compile job 中，但 Vitest、vue-tsc、i18n、format check 都没有 CI step；本地 `pnpm -C frontend format:check` 对 188 个文件失败。这是门禁缺失，不是“已知非阻塞 warning”。
+
+2026-07-16 复查：`quality-windows` 已直接运行 canonical `task check`，上述 frontend 缺口已关闭。Wave D 删除旧 Node/Container packages 后，race/portable-core 的独立列表曾继续引用已删除 package，以及只剩空目录的 `internal/services/inputclip/runtime`；必须实际执行列表或用 `go list` 验证，不能用 `Test-Path` 判断 package 存在。
