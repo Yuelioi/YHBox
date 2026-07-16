@@ -1,6 +1,6 @@
 # AI offline eval 与 upgrade gate
 
-Status: blocked
+Status: current
 
 ## Outcome
 
@@ -17,11 +17,11 @@ Status: blocked
 
 ## Blocked by
 
-ai-prompt-tool-provenance。
+无。ai-prompt-tool-provenance 已由 b674664c 完成；Agent runtime 已由 d22b5bd5 完成，可作为 tool/budget 安全 corpus 的执行基础。
 
 ## Verification
 
-ModelProfile 只有 EvaluationStatus/EvaluationSuite metadata 和 seal-time shape validation；仓库没有 eval dataset、runner、grader、report 或 installation admission proof。
+ModelProfile 只有 EvaluationStatus/EvaluationSuite metadata 和 seal-time shape validation；仓库没有 eval dataset、runner、grader、report 或 installation admission proof。Settings 当前允许保存 unverified/rejected profile，Host Profile 装配是否 fail closed 需从 appbootstrap/installation 调用链核对。
 
 ## Out of scope
 
@@ -31,4 +31,4 @@ ModelProfile 只有 EvaluationStatus/EvaluationSuite metadata 和 seal-time shap
 
 ## Result
 
-Blocked。
+Current。先冻结 suite/report/approval identity，再用最小离线 corpus 与确定性 grader打通 CLI、Task 和 installation admission。

@@ -1,6 +1,6 @@
 # AI Agent bounded tool runtime
 
-Status: current
+Status: completed (d22b5bd5)
 
 ## Outcome
 
@@ -21,7 +21,14 @@ Status: current
 
 ## Verification
 
-Provider Outcome 已能表达 tool-call，ModelProfile 已声明 tool capability；Generate/Extract runtime 当前仍把任何非 completed finish 当失败。ToolSet artifact seam 已建立，但尚无 trusted ToolSet registry、continuation loop、approval 或 Agent Node Contract。
+- provider-neutral AgentStart/Continue、ToolResult、RunBudget、BudgetTracker 与 ToolExecutor 已冻结；全部累加器 fail closed 并防溢出。
+- OpenAI Responses 支持 stored previous_response_id 与 store:false 完整 native output replay；每轮固定 trusted instructions、exact tools 与 parallel policy。
+- Anthropic Messages 保存并原样回传 assistant content blocks（含 thinking/signature/未知扩展字段），再用一条 user message 返回全部 tool_result。
+- continuation state copy-on-write；provider/contract 失败不推进 session state，RetryAmbiguous 保留 pending call。
+- Resource scope 强制 Agent start/continue 与 Generate/Structured 隔离；ToolSet output schema 与 pending call identity 在 provider boundary 再验证。
+- Agent Node 注册 exact built-in pure text_length，无 filesystem/network/process/window ambient authority。
+- terminal action 记录 prompt/toolset digest、provider/model/finish、token/cost 与全部 budget counters，不记录 transcript、prompt、tool result 或 secret。
+- 2026-07-17 task check 全绿：global coverage 65.8%，internal/ai 74.0%，frontend 27/103，Wails 100 models。
 
 ## Out of scope
 
@@ -32,4 +39,4 @@ Provider Outcome 已能表达 tool-call，ModelProfile 已声明 tool capability
 
 ## Result
 
-Current。先冻结 provider-neutral AgentTurn/ToolCall/RunBudget/ToolExecutor contract，再增加内置受限工具与 provider-native continuation mapping。
+d22b5bd5 完成 bounded native Agent runtime、内置 Agent Node、provider continuation、budget/authority/session boundary、settings pricing 与全链路测试。
