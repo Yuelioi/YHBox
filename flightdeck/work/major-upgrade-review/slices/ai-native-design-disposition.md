@@ -1,6 +1,6 @@
 # AI-native 目标设计完成度处置
 
-Status: current
+Status: completed (b25a0c6c)
 
 ## Question
 
@@ -38,4 +38,4 @@ ai-native-design.md 的完成定义中，哪些 outcome 已被当前 3.1 代码�
 
 ## Result
 
-证据审计完成，等待独立提交与 handoff。九条完成定义中 1、2、7 已 completed；3、4、8 remaining；5 的 strict Extract completed、Agent remaining；6 的 shared typed substrate completed、AI authoring client remaining；9 的基础 diagnostics/usage trace completed、change review 与完整 provenance remaining。Session resource 按原设计保留为需求驱动的 post-3.1 选项，固定包目录布局按 obsolete implementation sketch 处置。
+完成。b25a0c6c 保存逐项证据矩阵并创建四个精确 sibling Slices。九条完成定义中 1、2、7 completed；3、4、8 remaining；5 的 strict Extract completed、Agent remaining；6 的 shared typed substrate completed、AI authoring client remaining；9 的基础 diagnostics/usage trace completed、change review 与完整 provenance remaining。Session resource 按需求驱动的 post-3.1 选项处置，固定包目录布局按 obsolete implementation sketch 处置。

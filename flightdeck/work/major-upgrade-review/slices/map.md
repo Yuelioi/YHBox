@@ -17,8 +17,8 @@
 | desktop-startup-privilege-boundary | completed (c3cab6e4) | workflow-editor-interaction-recovery | 普通桌面启动不再进程级提权，高权限能力显式 fail closed。 |
 | webview-self-debug-smoke | completed (ab5b644f) | desktop-startup-privilege-boundary | agent 可一键运行隔离 Wails/WebView 交互、错误采集与截图。 |
 | restore-go-quality-gate | completed (27e01b17) | — | 恢复 coverage、go vet、staticcheck 与完整 task check 的可信绿色基线。 |
-| ai-native-design-disposition | current | restore-go-quality-gate | 对照代码处置 AI-native 完成定义，只为真实剩余 outcome 创建 Slices。 |
-| ai-prompt-tool-provenance | blocked | ai-native-design-disposition | 版本化 Prompt/Tool artifacts，并禁止不可信值进入 system/developer。 |
+| ai-native-design-disposition | completed (b25a0c6c) | restore-go-quality-gate | 对照代码处置 AI-native 完成定义，只为真实剩余 outcome 创建 Slices。 |
+| ai-prompt-tool-provenance | current | ai-native-design-disposition | 版本化 Prompt/Tool artifacts，并禁止不可信值进入 system/developer。 |
 | ai-agent-budget-runtime | blocked | ai-prompt-tool-provenance | 建立受 ToolSet、approval 与多维预算约束的 Agent tool loop。 |
 | ai-eval-upgrade-gate | blocked | ai-prompt-tool-provenance | 以离线 corpus、确定性 grader 和阈值 gate 管理模型/prompt/tool/schema 升级。 |
 | ai-authoring-review-trace | blocked | ai-agent-budget-runtime, ai-eval-upgrade-gate | AI 只经 typed patch 闭环，并展示 diff、diagnostics、权限 delta 与脱敏 trace。 |

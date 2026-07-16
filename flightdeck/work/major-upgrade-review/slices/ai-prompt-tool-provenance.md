@@ -1,6 +1,6 @@
 # AI prompt/tool provenance 与 trusted instruction boundary
 
-Status: blocked
+Status: current
 
 ## Outcome
 
@@ -17,7 +17,7 @@ Status: blocked
 
 ## Blocked by
 
-ai-native-design-disposition。
+无。ai-native-design-disposition 已由 b25a0c6c 完成。
 
 ## Verification
 
@@ -32,4 +32,4 @@ ai-native-design-disposition。
 
 ## Result
 
-Blocked，等待 disposition handoff。
+Current。先冻结 PromptManifest/ToolSet/rendered instruction contract，再切断 workflow config 到 provider 高权限字段的现有路径。
