@@ -3,6 +3,7 @@ package pluginprotocol
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"strings"
 	"testing"
 
@@ -39,6 +40,46 @@ func TestFrameRoundTripUsesCanonicalStrictProtobuf(t *testing.T) {
 		t.Fatalf("unknown field error = %v", err)
 	}
 }
+
+func TestFrameValidationAcceptsAllHostResponses(t *testing.T) {
+	frames := []*Frame{
+		{Protocol: Protocol, Sequence: 1, Payload: &Frame_HostOpenResponse{HostOpenResponse: &HostOpenResponse{RequestId: "open", HandleJson: []byte(`{}`)}}},
+		{Protocol: Protocol, Sequence: 2, Payload: &Frame_HostInvokeResponse{HostInvokeResponse: &HostInvokeResponse{RequestId: "invoke", Payload: []byte("ok")}}},
+		{Protocol: Protocol, Sequence: 3, Payload: &Frame_HostDropResponse{HostDropResponse: &HostDropResponse{RequestId: "drop"}}},
+		{Protocol: Protocol, Sequence: 4, Payload: &Frame_HostEntropyResponse{HostEntropyResponse: &HostEntropyResponse{RequestId: "entropy", Entropy: []byte{1}}}},
+		{Protocol: Protocol, Sequence: 5, Payload: &Frame_HostWaitResponse{HostWaitResponse: &HostWaitResponse{RequestId: "wait"}}},
+		{Protocol: Protocol, Sequence: 6, Payload: &Frame_StateReadResponse{StateReadResponse: &StateReadResponse{RequestId: "read", ValueEnvelope: []byte(`{}`), Revision: 1}}},
+		{Protocol: Protocol, Sequence: 7, Payload: &Frame_StateWriteResponse{StateWriteResponse: &StateWriteResponse{RequestId: "write", ValueEnvelope: []byte(`{}`), Revision: 2}}},
+		{Protocol: Protocol, Sequence: 8, Payload: &Frame_Cancel{Cancel: &Cancel{Reason: "budget_exceeded"}}},
+		{Protocol: Protocol, Sequence: 9, Payload: &Frame_Result{Result: &Result{Outcome: Outcome_OUTCOME_FAILED, Failure: &Failure{Code: "plugin.failed", Message: "failed"}, TerminationStrength: "process_crash"}}},
+	}
+	for _, frame := range frames {
+		if err := ValidateFrame(frame); err != nil {
+			t.Fatalf("ValidateFrame(%T) error = %v", frame.Payload, err)
+		}
+	}
+}
+
+func TestFrameIORejectsMissingAndShortStreams(t *testing.T) {
+	if err := WriteFrame(nil, testInvocationFrame()); err == nil {
+		t.Fatal("WriteFrame accepted nil writer")
+	}
+	if _, err := ReadFrame(nil); err == nil {
+		t.Fatal("ReadFrame accepted nil reader")
+	}
+	if _, err := ReadFrame(bytes.NewReader([]byte{0, 0, 0, 0})); err == nil {
+		t.Fatal("ReadFrame accepted zero length")
+	}
+	if err := WriteFrame(zeroWriter{}, testInvocationFrame()); err == nil {
+		t.Fatal("WriteFrame accepted a zero-byte writer")
+	}
+}
+
+type zeroWriter struct{}
+
+func (zeroWriter) Write([]byte) (int, error) { return 0, nil }
+
+var _ io.Writer = zeroWriter{}
 
 func TestFrameValidationRejectsInvalidBudgetOrderingAndOutcome(t *testing.T) {
 	frame := testInvocationFrame()

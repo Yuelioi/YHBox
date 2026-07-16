@@ -167,7 +167,7 @@ jobs:
           go test -race
           ./internal/services
           ./internal/application
-          ./internal/nodes31runtime
+          ./internal/noderuntime
           ./internal/run
           ./internal/workflowstore
           ./internal/services/schedule
@@ -232,11 +232,18 @@ jobs:
           ./internal/nodeauthoring
           ./internal/nodecatalog
           ./internal/nodecontract
-          ./internal/nodes31
+          ./internal/nodes
+          ./internal/nodepackage
+          ./internal/pluginconformance
+          ./internal/pluginfixture
+          ./internal/pluginhost
+          ./internal/pluginprotocol
+          ./internal/processsandbox
           ./internal/run
           ./internal/services
           ./internal/services/mcpserver
-          ./internal/services/workflow31
+          ./internal/services/workflow
+          ./internal/wasmrunner
           ./internal/workflow/authoring
           ./internal/workflow/compiler
           ./internal/workflow/schema
@@ -245,6 +252,7 @@ jobs:
           ./pkg/locale
           ./pkg/runctl
           ./pkg/vision
+          ./sdk/plugin/go
 
   gui-build:
     strategy:

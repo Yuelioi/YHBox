@@ -17,20 +17,18 @@ import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection31
-const concat = authoring.body.nodes.find((node) => node.nodeRef.nodeTypeId.includes('/concat/'))!
-const stateRead = authoring.body.nodes.find((node) =>
-  node.nodeRef.nodeTypeId.includes('/state/read/'),
-)!
-const delay = authoring.body.nodes.find((node) =>
-  node.nodeRef.nodeTypeId.includes('/control/delay/'),
-)!
-const retry = authoring.body.nodes.find((node) =>
-  node.nodeRef.nodeTypeId.includes('/control/retry/'),
-)!
-
-const blobToStream = authoring.body.nodes.find((node) =>
-  node.nodeRef.nodeTypeId.includes('/blob-to-stream/'),
-)!
+const node = (nodeTypeId: string) => {
+  const projection = authoring.body.nodes.find(
+    (candidate) => candidate.nodeRef.nodeTypeId === nodeTypeId,
+  )
+  if (!projection) throw new Error(`missing builtin node projection: ${nodeTypeId}`)
+  return projection
+}
+const concat = node('https://schemas.yotta.dev/nodes/text/concat')
+const stateRead = node('https://schemas.yotta.dev/nodes/state/read')
+const delay = node('https://schemas.yotta.dev/nodes/control/delay')
+const retry = node('https://schemas.yotta.dev/nodes/control/retry')
+const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-stream')
 
 describe('EditorSession', () => {
   it('adds a catalog node when the session is consumed through Vue reactivity', async () => {

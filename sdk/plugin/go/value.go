@@ -53,7 +53,7 @@ func ReplaceInlineJSON(envelope, value []byte) ([]byte, error) {
 func openInlineEnvelope(raw []byte) (envelopeDocument, error) {
 	canonical, err := artifact.Canonicalize(raw)
 	if err != nil || !bytes.Equal(canonical, raw) {
-		return envelopeDocument{}, errors.New("Value Envelope is not canonical JSON")
+		return envelopeDocument{}, errors.New("value envelope is not canonical JSON")
 	}
 	var document envelopeDocument
 	decoder := json.NewDecoder(bytes.NewReader(raw))
@@ -62,11 +62,11 @@ func openInlineEnvelope(raw []byte) (envelopeDocument, error) {
 		return envelopeDocument{}, err
 	}
 	if document.Format != "yotta.value-envelope" || document.Version != "3.1" || document.Repr != "inline-json" || document.Codec != "yotta.jcs/v1" || !document.ValueDigest.Valid() {
-		return envelopeDocument{}, errors.New("Value Envelope is not an inline 3.1 JCS value")
+		return envelopeDocument{}, errors.New("value envelope is not an inline 3.1 JCS value")
 	}
 	digest, err := envelopeDigest(document)
 	if err != nil || digest != document.ValueDigest {
-		return envelopeDocument{}, errors.New("Value Envelope digest mismatch")
+		return envelopeDocument{}, errors.New("value envelope digest mismatch")
 	}
 	return document, nil
 }

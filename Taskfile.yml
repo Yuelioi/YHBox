@@ -53,9 +53,11 @@ tasks:
     summary: Runs Go tests, coverage, vet and static analysis
     cmds:
       - go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - powershell -NoProfile -Command "New-Item -ItemType Directory -Force .task | Out-Null"
+      - go test -count=1 -covermode=atomic "-coverpkg=./internal/pluginfixture,./internal/pluginhost,./internal/pluginprotocol,./internal/processsandbox,./internal/wasmrunner,./sdk/plugin/go" "-coverprofile=.task/plugin-conformance-coverage.out" ./internal/pluginconformance ./internal/pluginprotocol ./internal/pluginhost ./internal/processsandbox ./internal/wasmrunner ./sdk/plugin/go
       - cmd: powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-script-worker.ps1
         platforms: [windows]
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1 -AdditionalCoverageFiles .task/plugin-conformance-coverage.out
       - go vet ./...
       - staticcheck ./...
     env:

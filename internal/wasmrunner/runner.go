@@ -30,7 +30,7 @@ const (
 
 func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 	if ctx == nil || input == nil || output == nil {
-		return errors.New("Wasm runner requires context and protocol streams")
+		return errors.New("wasm runner requires context and protocol streams")
 	}
 	bootstrap, err := pluginprotocol.ReadWasmBootstrap(input)
 	if err != nil {
@@ -41,7 +41,7 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 		return fmt.Errorf("read Wasm invocation: %w", err)
 	}
 	if invocation.Sequence != 1 || invocation.GetInvocation() == nil {
-		return errors.New("Wasm runner requires invocation frame sequence 1")
+		return errors.New("wasm runner requires invocation frame sequence 1")
 	}
 	invocationPayload, err := pluginprotocol.MarshalFrame(invocation)
 	if err != nil {
@@ -73,28 +73,28 @@ func Run(ctx context.Context, input io.Reader, output io.Writer) error {
 	allocate := module.ExportedFunction(AllocateExport)
 	run := module.ExportedFunction(RunExport)
 	if module.Memory() == nil || allocate == nil || run == nil {
-		return errors.New("Wasm plugin is missing memory, yotta_alloc, or yotta_run")
+		return errors.New("wasm plugin is missing memory, yotta_alloc, or yotta_run")
 	}
 	allocated, err := allocate.Call(ctx, uint64(len(invocationPayload)))
 	if err != nil || len(allocated) != 1 || allocated[0] > math.MaxUint32 {
-		return errors.New("Wasm plugin failed to allocate invocation memory")
+		return errors.New("wasm plugin failed to allocate invocation memory")
 	}
 	pointer := uint32(allocated[0])
 	if !module.Memory().Write(pointer, invocationPayload) {
-		return errors.New("Wasm plugin invocation memory is out of bounds")
+		return errors.New("wasm plugin invocation memory is out of bounds")
 	}
 	outcome, err := run.Call(ctx, uint64(pointer), uint64(len(invocationPayload)))
 	if err != nil {
 		return fmt.Errorf("execute Wasm plugin: %w", err)
 	}
 	if len(outcome) != 1 || uint32(outcome[0]) != 0 {
-		return errors.New("Wasm plugin returned a failing runner status")
+		return errors.New("wasm plugin returned a failing runner status")
 	}
 	if err := exchange.failure(); err != nil {
 		return err
 	}
 	if !exchange.completed() {
-		return errors.New("Wasm plugin returned without emitting a result")
+		return errors.New("wasm plugin returned without emitting a result")
 	}
 	return nil
 }
@@ -113,12 +113,12 @@ func (state *exchangeState) call(_ context.Context, module api.Module, requestPo
 	state.mu.Lock()
 	defer state.mu.Unlock()
 	if state.err != nil || state.result || requestLength == 0 || requestLength > pluginprotocol.MaxFrameBytes {
-		state.fail(errors.New("Wasm plugin exchange is invalid or already complete"))
+		state.fail(errors.New("wasm plugin exchange is invalid or already complete"))
 		return math.MaxUint64
 	}
 	view, ok := module.Memory().Read(requestPointer, requestLength)
 	if !ok {
-		state.fail(errors.New("Wasm plugin exchange request escapes linear memory"))
+		state.fail(errors.New("wasm plugin exchange request escapes linear memory"))
 		return math.MaxUint64
 	}
 	requestBytes := append([]byte(nil), view...)
@@ -128,11 +128,11 @@ func (state *exchangeState) call(_ context.Context, module api.Module, requestPo
 	}
 	request, err := pluginprotocol.UnmarshalFrame(requestBytes)
 	if err != nil {
-		state.fail(fmt.Errorf("Wasm plugin emitted an invalid frame at sequence %d: %w", state.nextSequence, err))
+		state.fail(fmt.Errorf("wasm plugin emitted an invalid frame at sequence %d: %w", state.nextSequence, err))
 		return math.MaxUint64
 	}
 	if request.Sequence != state.nextSequence || !guestPayload(request) {
-		state.fail(fmt.Errorf("Wasm plugin emitted an invalid frame at sequence %d", state.nextSequence))
+		state.fail(fmt.Errorf("wasm plugin emitted an invalid frame at sequence %d", state.nextSequence))
 		return math.MaxUint64
 	}
 	state.nextSequence++
@@ -149,11 +149,11 @@ func (state *exchangeState) call(_ context.Context, module api.Module, requestPo
 	}
 	response, err := pluginprotocol.ReadFrame(state.input)
 	if err != nil {
-		state.fail(fmt.Errorf("Wasm plugin host response is invalid at sequence %d: %w", state.nextSequence, err))
+		state.fail(fmt.Errorf("wasm plugin host response is invalid at sequence %d: %w", state.nextSequence, err))
 		return math.MaxUint64
 	}
 	if response.Sequence != state.nextSequence || !matchesResponse(request, response) {
-		state.fail(fmt.Errorf("Wasm plugin host response is invalid at sequence %d", state.nextSequence))
+		state.fail(fmt.Errorf("wasm plugin host response is invalid at sequence %d", state.nextSequence))
 		return math.MaxUint64
 	}
 	state.nextSequence++
@@ -171,7 +171,7 @@ func (state *exchangeState) copyResponse(module api.Module, key [32]byte, respon
 		return uint64(-int64(len(response)))
 	}
 	if len(response) != 0 && !module.Memory().Write(pointer, response) {
-		state.fail(errors.New("Wasm plugin exchange response escapes linear memory"))
+		state.fail(errors.New("wasm plugin exchange response escapes linear memory"))
 		return math.MaxUint64
 	}
 	delete(state.responses, key)

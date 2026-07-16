@@ -155,12 +155,18 @@ func (guest *Guest) Status(code string, counters map[string]int64) error {
 	return guest.emit(&pluginprotocol.Frame{Payload: &pluginprotocol.Frame_Status{Status: &pluginprotocol.StatusEvent{Code: code, Counters: items}}})
 }
 
-func (guest *Guest) Record(action Action) error {
-	action.Counters = append([]*pluginprotocol.Counter(nil), action.Counters...)
-	action.Facts = append([]*pluginprotocol.Fact(nil), action.Facts...)
-	slices.SortFunc(action.Counters, func(left, right *pluginprotocol.Counter) int { return strings.Compare(left.Key, right.Key) })
-	slices.SortFunc(action.Facts, func(left, right *pluginprotocol.Fact) int { return strings.Compare(left.Key, right.Key) })
-	return guest.emit(&pluginprotocol.Frame{Payload: &pluginprotocol.Frame_Action{Action: &action}})
+func (guest *Guest) Record(action *Action) error {
+	if action == nil {
+		return errors.New("plugin action is required")
+	}
+	event := &pluginprotocol.ActionEvent{
+		EffectId: action.EffectId, Action: action.Action, Outcome: action.Outcome, ErrorCode: action.ErrorCode,
+		SummaryCode: action.SummaryCode, Counters: append([]*pluginprotocol.Counter(nil), action.Counters...),
+		Facts: append([]*pluginprotocol.Fact(nil), action.Facts...),
+	}
+	slices.SortFunc(event.Counters, func(left, right *pluginprotocol.Counter) int { return strings.Compare(left.Key, right.Key) })
+	slices.SortFunc(event.Facts, func(left, right *pluginprotocol.Fact) int { return strings.Compare(left.Key, right.Key) })
+	return guest.emit(&pluginprotocol.Frame{Payload: &pluginprotocol.Frame_Action{Action: event}})
 }
 
 func (guest *Guest) Succeed(outputs map[string][]byte, execOutputs []string) error {

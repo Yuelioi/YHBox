@@ -35,7 +35,7 @@ type WasmHost struct {
 
 func NewWasmHost(catalog nodecatalog.Snapshot, options WasmHostOptions) (*WasmHost, error) {
 	if !catalog.Valid() {
-		return nil, errors.New("Wasm plugin host requires a valid Catalog")
+		return nil, errors.New("wasm plugin host requires a valid Catalog")
 	}
 	execution, err := normalizeExecutionOptions(options.Execution)
 	if err != nil {
@@ -49,7 +49,7 @@ func NewWasmHost(catalog nodecatalog.Snapshot, options WasmHostOptions) (*WasmHo
 	}
 	if options.MemoryLimitPages < pluginprotocol.MinWasmMemoryPages || options.MemoryLimitPages > pluginprotocol.MaxWasmMemoryPages ||
 		options.MaxModuleBytes <= 0 || options.MaxModuleBytes > pluginprotocol.MaxWasmModuleBytes {
-		return nil, errors.New("Wasm plugin host module budgets are invalid")
+		return nil, errors.New("wasm plugin host module budgets are invalid")
 	}
 	image, err := processsandbox.OpenImage(options.RunnerExecutable)
 	if err != nil {
@@ -78,7 +78,7 @@ func (host *WasmHost) HostFeatures() []string {
 
 func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]compiler.InstalledAdapter, error) {
 	if host == nil || host.runner == nil || !host.catalog.Valid() {
-		return nil, errors.New("Wasm plugin host is not initialized")
+		return nil, errors.New("wasm plugin host is not initialized")
 	}
 	result := map[string]compiler.InstalledAdapter{}
 	for _, runtimePackage := range packages {
@@ -90,7 +90,7 @@ func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[strin
 				return nil, err
 			}
 			if node.Payload.Metadata().MediaType != "application/wasm" {
-				return nil, fmt.Errorf("Wasm plugin %q does not contain an application/wasm payload", node.Lock.Entrypoint)
+				return nil, fmt.Errorf("wasm plugin %q does not contain an application/wasm payload", node.Lock.Entrypoint)
 			}
 			if _, duplicate := result[node.Lock.Entrypoint]; duplicate {
 				return nil, fmt.Errorf("duplicate Wasm plugin entrypoint %q", node.Lock.Entrypoint)

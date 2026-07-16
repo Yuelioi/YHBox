@@ -11,10 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 func TestProcessSessionMediatesHostCallsStatusActionsAndResult(t *testing.T) {
@@ -200,6 +203,158 @@ func TestSharedSessionContainsGuestCrashToCurrentInvocation(t *testing.T) {
 		t.Fatalf("guest crash error = %v", err)
 	}
 }
+
+func TestExecutionHostHelpersFailClosedWithoutAuthority(t *testing.T) {
+	options, err := normalizeExecutionOptions(ProcessHostOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.InvocationTimeout != DefaultInvocationTimeout || options.MaxHostCalls != pluginprotocol.MaxHostCalls {
+		t.Fatalf("default options = %#v", options)
+	}
+	if _, err := normalizeExecutionOptions(ProcessHostOptions{InvocationTimeout: MaxInvocationTimeout + time.Second}); err == nil {
+		t.Fatal("normalizeExecutionOptions accepted an excessive timeout")
+	}
+
+	session := processSession{ctx: context.Background(), invocation: compiler.Invocation{Sessions: map[string]*run.Session{}, State: map[string]compiler.StateBinding{}}}
+	if response := session.open(&pluginprotocol.HostOpenRequest{RequestId: "open", RequirementId: "missing", Operations: []string{"read"}, ConfigJson: []byte(`{}`)}).GetHostOpenResponse(); response.GetFailure() == nil || len(response.GetHandleJson()) != 0 {
+		t.Fatal("open granted missing authority")
+	}
+	if response := session.invoke(&pluginprotocol.HostInvokeRequest{RequestId: "invoke", RequirementId: "missing", HandleJson: []byte(`{}`), Operation: "read"}).GetHostInvokeResponse(); response.GetFailure() == nil {
+		t.Fatal("invoke granted missing authority")
+	}
+	if response := session.drop(&pluginprotocol.HostDropRequest{RequestId: "drop", RequirementId: "missing", HandleJson: []byte(`{}`)}).GetHostDropResponse(); response.GetFailure() == nil {
+		t.Fatal("drop granted missing authority")
+	}
+	if response := session.entropy(&pluginprotocol.HostEntropyRequest{RequestId: "entropy", ByteCount: 1}).GetHostEntropyResponse(); response.GetFailure() == nil || len(response.GetEntropy()) != 0 {
+		t.Fatal("entropy succeeded without a provider")
+	}
+	if response := session.wait(context.Background(), &pluginprotocol.HostWaitRequest{RequestId: "wait", DurationMillis: 1}).GetHostWaitResponse(); response.GetFailure() == nil {
+		t.Fatal("wait succeeded without a provider")
+	}
+	if response := session.stateRead(&pluginprotocol.StateReadRequest{RequestId: "read", AccessId: "missing"}).GetStateReadResponse(); response.GetFailure() == nil {
+		t.Fatal("state read succeeded without authority")
+	}
+	if response := session.stateWrite(&pluginprotocol.StateWriteRequest{RequestId: "write", AccessId: "missing", ValueEnvelope: []byte(`{}`)}).GetStateWriteResponse(); response.GetFailure() == nil {
+		t.Fatal("state write succeeded without authority")
+	}
+}
+
+func TestExecutionHostRejectsInvalidResultsAndContractJSON(t *testing.T) {
+	host := executionHost{options: ProcessHostOptions{MaxOutputBytes: pluginprotocol.MaxFrameBytes}}
+	if _, err := host.openResult(nil); err == nil {
+		t.Fatal("openResult accepted a missing result")
+	}
+	if _, err := host.openResult(&pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_FAILED, Failure: &pluginprotocol.Failure{Code: "plugin.failed", Output: "failure", Message: "failed"}}); err == nil {
+		t.Fatal("openResult did not return a node failure")
+	}
+	if _, err := host.openResult(&pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "job_terminate"}); err == nil {
+		t.Fatal("openResult accepted a host-only termination claim")
+	}
+	opened, err := host.openResult(&pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative", ExecOutputs: []string{"next"}})
+	if err != nil || len(opened.Outputs) != 0 || len(opened.ExecOutputs) != 1 {
+		t.Fatalf("openResult success = %#v, %v", opened, err)
+	}
+	var decoded map[string]any
+	if err := decodeCanonical([]byte(`{"a":1}`), &decoded); err != nil || decoded["a"] != float64(1) {
+		t.Fatalf("decodeCanonical = %#v, %v", decoded, err)
+	}
+	if err := decodeCanonical([]byte(`{"b":2,"a":1}`), &decoded); err == nil {
+		t.Fatal("decodeCanonical accepted non-canonical JSON")
+	}
+	if cancelReason(context.DeadlineExceeded) != "deadline_exceeded" || cancelReason(context.Canceled) != "user_cancelled" {
+		t.Fatal("cancelReason did not preserve terminal cause")
+	}
+}
+
+func TestExecutionHostProjectsTriggerAndActionMetadata(t *testing.T) {
+	if trigger, err := marshalTrigger(nil); err != nil || trigger != nil {
+		t.Fatalf("marshalTrigger(nil) = %#v, %v", trigger, err)
+	}
+	trigger, err := marshalTrigger(&compiler.SignalTrigger{Channel: schema.EdgeExec, InputPort: "in", From: schema.Endpoint{NodeID: "source", PortID: "out"}, Failure: &compiler.RoutedFailure{Code: "node.failed"}})
+	if err != nil || trigger.Channel == "" || len(trigger.FailureJson) == 0 {
+		t.Fatalf("marshalTrigger = %#v, %v", trigger, err)
+	}
+	action := adapterAction(&pluginprotocol.ActionEvent{EffectId: "write", Action: "plugin.write", Outcome: "failed", ErrorCode: "plugin.failed", SummaryCode: "plugin.write_failed", Counters: []*pluginprotocol.Counter{{Key: "items", Value: 2}}, Facts: []*pluginprotocol.Fact{{Key: "target", Value: "redacted"}}})
+	if action.Counters["items"] != 2 || action.Facts["target"] != "redacted" || action.ErrorCode != "plugin.failed" {
+		t.Fatalf("adapterAction = %#v", action)
+	}
+	if features := (*ProcessHost)(nil).HostFeatures(); len(features) != 0 {
+		t.Fatalf("nil host features = %#v", features)
+	}
+	if _, err := (*ProcessHost)(nil).Adapters(nil); err == nil {
+		t.Fatal("nil host projected adapters")
+	}
+	if _, _, err := (&executionHost{}).invocationFrame(context.Background(), nodepackage.RuntimeNode{}, compiler.Invocation{}); err == nil {
+		t.Fatal("invocationFrame accepted missing identity")
+	}
+}
+
+func TestProcessSessionRejectsInvalidEventAndSequencePaths(t *testing.T) {
+	status := &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2, Payload: &pluginprotocol.Frame_Status{Status: &pluginprotocol.StatusEvent{Code: "plugin.progress"}}}
+	action := &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2, Payload: &pluginprotocol.Frame_Action{Action: &pluginprotocol.ActionEvent{EffectId: "write", Action: "plugin.write", Outcome: "succeeded", SummaryCode: "plugin.write_completed"}}}
+	cases := []struct {
+		name       string
+		frame      *pluginprotocol.Frame
+		invocation compiler.Invocation
+		maxStatus  uint32
+	}{
+		{"status budget", status, compiler.Invocation{}, 0},
+		{"missing status emitter", status, compiler.Invocation{}, 1},
+		{"status emitter failure", status, compiler.Invocation{EmitStatus: func(context.Context, string, map[string]int64) error { return errors.New("emit failed") }}, 1},
+		{"missing action recorder", action, compiler.Invocation{}, 1},
+		{"action recorder failure", action, compiler.Invocation{RecordAction: func(context.Context, compiler.AdapterAction) error { return errors.New("record failed") }}, 1},
+		{"host-only payload", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 2, Payload: &pluginprotocol.Frame_HostOpenResponse{HostOpenResponse: &pluginprotocol.HostOpenResponse{RequestId: "open", Failure: hostFailure("denied")}}}, compiler.Invocation{}, 1},
+		{"sequence mismatch", &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 3, Payload: &pluginprotocol.Frame_Result{Result: &pluginprotocol.Result{Outcome: pluginprotocol.Outcome_OUTCOME_SUCCEEDED, TerminationStrength: "cooperative"}}}, compiler.Invocation{}, 1},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			var stream bytes.Buffer
+			if err := pluginprotocol.WriteFrame(&stream, test.frame); err != nil {
+				t.Fatal(err)
+			}
+			session := processSession{invocation: test.invocation, reader: &stream, writer: io.Discard, nextSequence: 2, maxHostCalls: 1, maxStatusEvents: test.maxStatus}
+			if _, err := session.serve(context.Background(), &testProcessControl{}); err == nil {
+				t.Fatal("serve accepted invalid event path")
+			}
+		})
+	}
+}
+
+func TestProcessSessionRejectsDuplicateRequestIDAndWriterFailure(t *testing.T) {
+	session := processSession{requestIDs: map[string]struct{}{"duplicate": {}}, maxHostCalls: 2, writer: io.Discard, nextSequence: 2}
+	if err := session.hostCall("duplicate", func() *pluginprotocol.Frame { return &pluginprotocol.Frame{} }); err == nil {
+		t.Fatal("hostCall accepted a duplicate request ID")
+	}
+	session.requestIDs = map[string]struct{}{}
+	session.writer = failingWriter{}
+	if err := session.hostCall("request", func() *pluginprotocol.Frame {
+		return &pluginprotocol.Frame{Payload: &pluginprotocol.Frame_HostDropResponse{HostDropResponse: &pluginprotocol.HostDropResponse{RequestId: "request"}}}
+	}); err == nil {
+		t.Fatal("hostCall ignored a protocol write failure")
+	}
+}
+
+func TestProcessHostConstructionAdvertisesOnlyAvailableIsolation(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	host, err := NewProcessHost(builtins.Catalog, ProcessHostOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if features := host.HostFeatures(); len(features) != 1 || features[0] != ProcessIsolationHostFeatureID {
+		t.Fatalf("HostFeatures = %#v", features)
+	}
+	if _, err := NewProcessHost(nodecatalog.Snapshot{}, ProcessHostOptions{}); err == nil {
+		t.Fatal("NewProcessHost accepted an invalid Catalog")
+	}
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
 
 type testProcessControl struct{ terminated int32 }
 

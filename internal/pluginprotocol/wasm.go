@@ -26,7 +26,7 @@ type WasmBootstrap struct {
 // traffic begins. The digest detects pipe corruption and confused framing.
 func WriteWasmBootstrap(writer io.Writer, bootstrap WasmBootstrap) error {
 	if writer == nil {
-		return errors.New("Wasm bootstrap writer is required")
+		return errors.New("wasm bootstrap writer is required")
 	}
 	if err := validateWasmBootstrap(bootstrap); err != nil {
 		return err
@@ -48,19 +48,19 @@ func WriteWasmBootstrap(writer io.Writer, bootstrap WasmBootstrap) error {
 
 func ReadWasmBootstrap(reader io.Reader) (WasmBootstrap, error) {
 	if reader == nil {
-		return WasmBootstrap{}, errors.New("Wasm bootstrap reader is required")
+		return WasmBootstrap{}, errors.New("wasm bootstrap reader is required")
 	}
 	var header [48]byte
 	if _, err := io.ReadFull(reader, header[:]); err != nil {
 		return WasmBootstrap{}, fmt.Errorf("read Wasm bootstrap header: %w", err)
 	}
 	if !bytes.Equal(header[:4], wasmBootstrapMagic[:]) {
-		return WasmBootstrap{}, errors.New("Wasm bootstrap magic is invalid")
+		return WasmBootstrap{}, errors.New("wasm bootstrap magic is invalid")
 	}
 	pages := binary.BigEndian.Uint32(header[4:8])
 	size := binary.BigEndian.Uint64(header[8:16])
 	if pages < MinWasmMemoryPages || pages > MaxWasmMemoryPages || size == 0 || size > MaxWasmModuleBytes {
-		return WasmBootstrap{}, errors.New("Wasm bootstrap budget is invalid")
+		return WasmBootstrap{}, errors.New("wasm bootstrap budget is invalid")
 	}
 	module := make([]byte, int(size))
 	if _, err := io.ReadFull(reader, module); err != nil {
@@ -68,7 +68,7 @@ func ReadWasmBootstrap(reader io.Reader) (WasmBootstrap, error) {
 	}
 	digest := sha256.Sum256(module)
 	if !bytes.Equal(header[16:], digest[:]) {
-		return WasmBootstrap{}, errors.New("Wasm bootstrap digest mismatch")
+		return WasmBootstrap{}, errors.New("wasm bootstrap digest mismatch")
 	}
 	return WasmBootstrap{MemoryLimitPages: pages, Module: module}, nil
 }
@@ -76,7 +76,7 @@ func ReadWasmBootstrap(reader io.Reader) (WasmBootstrap, error) {
 func validateWasmBootstrap(bootstrap WasmBootstrap) error {
 	if bootstrap.MemoryLimitPages < MinWasmMemoryPages || bootstrap.MemoryLimitPages > MaxWasmMemoryPages ||
 		len(bootstrap.Module) == 0 || len(bootstrap.Module) > MaxWasmModuleBytes {
-		return errors.New("Wasm bootstrap budget is invalid")
+		return errors.New("wasm bootstrap budget is invalid")
 	}
 	return nil
 }

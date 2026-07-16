@@ -44,6 +44,58 @@ func TestRunExecutesNarrowExchangeABIWithoutWASI(t *testing.T) {
 	}
 }
 
+func TestExchangePayloadAndResponseMatrix(t *testing.T) {
+	pairs := [][2]*pluginprotocol.Frame{
+		{{Payload: &pluginprotocol.Frame_HostOpenRequest{HostOpenRequest: &pluginprotocol.HostOpenRequest{RequestId: "open"}}}, {Payload: &pluginprotocol.Frame_HostOpenResponse{HostOpenResponse: &pluginprotocol.HostOpenResponse{RequestId: "open"}}}},
+		{{Payload: &pluginprotocol.Frame_HostInvokeRequest{HostInvokeRequest: &pluginprotocol.HostInvokeRequest{RequestId: "invoke"}}}, {Payload: &pluginprotocol.Frame_HostInvokeResponse{HostInvokeResponse: &pluginprotocol.HostInvokeResponse{RequestId: "invoke"}}}},
+		{{Payload: &pluginprotocol.Frame_HostDropRequest{HostDropRequest: &pluginprotocol.HostDropRequest{RequestId: "drop"}}}, {Payload: &pluginprotocol.Frame_HostDropResponse{HostDropResponse: &pluginprotocol.HostDropResponse{RequestId: "drop"}}}},
+		{{Payload: &pluginprotocol.Frame_HostEntropyRequest{HostEntropyRequest: &pluginprotocol.HostEntropyRequest{RequestId: "entropy"}}}, {Payload: &pluginprotocol.Frame_HostEntropyResponse{HostEntropyResponse: &pluginprotocol.HostEntropyResponse{RequestId: "entropy"}}}},
+		{{Payload: &pluginprotocol.Frame_HostWaitRequest{HostWaitRequest: &pluginprotocol.HostWaitRequest{RequestId: "wait"}}}, {Payload: &pluginprotocol.Frame_HostWaitResponse{HostWaitResponse: &pluginprotocol.HostWaitResponse{RequestId: "wait"}}}},
+		{{Payload: &pluginprotocol.Frame_StateReadRequest{StateReadRequest: &pluginprotocol.StateReadRequest{RequestId: "read"}}}, {Payload: &pluginprotocol.Frame_StateReadResponse{StateReadResponse: &pluginprotocol.StateReadResponse{RequestId: "read"}}}},
+		{{Payload: &pluginprotocol.Frame_StateWriteRequest{StateWriteRequest: &pluginprotocol.StateWriteRequest{RequestId: "write"}}}, {Payload: &pluginprotocol.Frame_StateWriteResponse{StateWriteResponse: &pluginprotocol.StateWriteResponse{RequestId: "write"}}}},
+	}
+	for _, pair := range pairs {
+		if !guestPayload(pair[0]) || !requiresResponse(pair[0]) || !matchesResponse(pair[0], pair[1]) {
+			t.Fatalf("request/response pair was not recognized: %T", pair[0].Payload)
+		}
+	}
+	status := &pluginprotocol.Frame{Payload: &pluginprotocol.Frame_Status{Status: &pluginprotocol.StatusEvent{}}}
+	result := &pluginprotocol.Frame{Payload: &pluginprotocol.Frame_Result{Result: &pluginprotocol.Result{}}}
+	if !guestPayload(status) || requiresResponse(status) || !guestPayload(result) || requiresResponse(result) || matchesResponse(result, status) {
+		t.Fatal("one-way exchange payload classification is invalid")
+	}
+}
+
+func TestRunRejectsInvalidBootstrapInvocationAndModule(t *testing.T) {
+	if err := Run(context.Background(), nil, &bytes.Buffer{}); err == nil {
+		t.Fatal("Run accepted nil input")
+	}
+	if err := Run(context.Background(), bytes.NewReader(nil), &bytes.Buffer{}); err == nil {
+		t.Fatal("Run accepted a missing bootstrap")
+	}
+	var input bytes.Buffer
+	if err := pluginprotocol.WriteWasmBootstrap(&input, pluginprotocol.WasmBootstrap{MemoryLimitPages: 1, Module: []byte("bad wasm")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := pluginprotocol.WriteFrame(&input, &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 1, Payload: &pluginprotocol.Frame_Cancel{Cancel: &pluginprotocol.Cancel{Reason: "user_cancelled"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(context.Background(), &input, &bytes.Buffer{}); err == nil {
+		t.Fatal("Run accepted a non-invocation first frame")
+	}
+	input.Reset()
+	if err := pluginprotocol.WriteWasmBootstrap(&input, pluginprotocol.WasmBootstrap{MemoryLimitPages: 1, Module: []byte("bad wasm")}); err != nil {
+		t.Fatal(err)
+	}
+	invocation := &pluginprotocol.Frame{Protocol: pluginprotocol.Protocol, Sequence: 1, Payload: &pluginprotocol.Frame_Invocation{Invocation: &pluginprotocol.Invocation{RequestId: "r", InvocationId: "i", GraphId: "g", NodeId: "n", Attempt: 1, ObservedUnixMillis: 1, DeadlineUnixMillis: 2, NodeRefJson: []byte(`{}`), ImplementationLockJson: []byte(`{}`), ConfigJson: []byte(`{}`), Budget: &pluginprotocol.Budget{MaxFrameBytes: 1, MaxOutputBytes: 1, MaxHostCalls: 1}}}}
+	if err := pluginprotocol.WriteFrame(&input, invocation); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(context.Background(), &input, &bytes.Buffer{}); err == nil {
+		t.Fatal("Run accepted an invalid Wasm module")
+	}
+}
+
 func exchangeFixtureModule(frame []byte) []byte {
 	module := []byte{'\x00', 'a', 's', 'm', '\x01', '\x00', '\x00', '\x00'}
 	// Types: exchange, alloc, run.

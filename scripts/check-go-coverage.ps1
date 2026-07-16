@@ -3,6 +3,9 @@ param(
     [string]$CoverageFile = "coverage.out",
 
     [Parameter()]
+    [string[]]$AdditionalCoverageFiles = @(),
+
+    [Parameter()]
     [string]$BudgetFile = "scripts/go-coverage-budgets.json"
 )
 
@@ -25,8 +28,11 @@ function Assert-Coverage {
     Write-Host "$Name coverage OK: $($percentage.ToString('F1'))% (minimum $Minimum%)"
 }
 
-if (-not (Test-Path -LiteralPath $CoverageFile -PathType Leaf)) {
-    throw "coverage profile not found: $CoverageFile"
+$coverageFiles = @($CoverageFile) + @($AdditionalCoverageFiles)
+foreach ($file in $coverageFiles) {
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+        throw "coverage profile not found: $file"
+    }
 }
 if (-not (Test-Path -LiteralPath $BudgetFile -PathType Leaf)) {
     throw "coverage budget not found: $BudgetFile"
@@ -40,22 +46,47 @@ if ($budget.schemaVersion -ne 1 -or -not $budget.module -or -not $budget.package
 $modulePrefix = "$($budget.module)/"
 $packages = @{}
 $global = @{ Covered = 0; Total = 0 }
-$linePattern = '^(.+?):\d+\.\d+,\d+\.\d+\s+(\d+)\s+(\d+)$'
+$blockPattern = '^(.+?):(\d+\.\d+,\d+\.\d+)\s+(\d+)\s+(\d+)$'
+$blocks = @{}
+$generated = @{}
 
-Get-Content -LiteralPath $CoverageFile | Select-Object -Skip 1 | ForEach-Object {
-    $match = [regex]::Match($_, $linePattern)
-    if (-not $match.Success) {
-        throw "invalid coverage profile line: $_"
+foreach ($coveragePath in $coverageFiles) {
+    Get-Content -LiteralPath $coveragePath | Select-Object -Skip 1 | ForEach-Object {
+        $match = [regex]::Match($_, $blockPattern)
+        if (-not $match.Success) {
+            throw "invalid coverage profile line: $_"
+        }
+
+        $path = $match.Groups[1].Value
+        if (-not $path.StartsWith($modulePrefix, [System.StringComparison]::Ordinal)) {
+            throw "coverage path is outside module $($budget.module): $path"
+        }
+        $relativePath = $path.Substring($modulePrefix.Length)
+        if (-not $generated.ContainsKey($relativePath)) {
+            $sourcePath = Join-Path (Split-Path -Parent $PSScriptRoot) $relativePath
+            $firstLine = if (Test-Path -LiteralPath $sourcePath -PathType Leaf) { Get-Content -LiteralPath $sourcePath -TotalCount 1 } else { "" }
+            $generated[$relativePath] = $firstLine -match '^// Code generated .* DO NOT EDIT\.$'
+        }
+        if ($generated[$relativePath]) {
+            return
+        }
+
+        $statements = [int]$match.Groups[3].Value
+        $count = [int]$match.Groups[4].Value
+        $key = "$path`:$($match.Groups[2].Value)"
+        if (-not $blocks.ContainsKey($key)) {
+            $blocks[$key] = @{ Path = $relativePath; Statements = $statements; Covered = $false }
+        } elseif ($blocks[$key].Statements -ne $statements) {
+            throw "coverage profiles disagree about statement count: $key"
+        }
+        if ($count -gt 0) {
+            $blocks[$key].Covered = $true
+        }
     }
+}
 
-    $path = $match.Groups[1].Value
-    if (-not $path.StartsWith($modulePrefix, [System.StringComparison]::Ordinal)) {
-        throw "coverage path is outside module $($budget.module): $path"
-    }
-
-    $statements = [int]$match.Groups[2].Value
-    $count = [int]$match.Groups[3].Value
-    $relativePath = $path.Substring($modulePrefix.Length)
+foreach ($block in $blocks.Values) {
+    $relativePath = $block.Path
     $package = [System.IO.Path]::GetDirectoryName($relativePath).Replace('\', '/')
     if (-not $package) {
         $package = "."
@@ -64,11 +95,11 @@ Get-Content -LiteralPath $CoverageFile | Select-Object -Skip 1 | ForEach-Object 
         $packages[$package] = @{ Covered = 0; Total = 0 }
     }
 
-    $packages[$package].Total += $statements
-    $global.Total += $statements
-    if ($count -gt 0) {
-        $packages[$package].Covered += $statements
-        $global.Covered += $statements
+    $packages[$package].Total += $block.Statements
+    $global.Total += $block.Statements
+    if ($block.Covered) {
+        $packages[$package].Covered += $block.Statements
+        $global.Covered += $block.Statements
     }
 }
 

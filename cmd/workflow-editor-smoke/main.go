@@ -20,6 +20,7 @@ type pageState struct {
 	Catalog     int      `json:"catalog"`
 	CanvasNodes int      `json:"canvasNodes"`
 	AIReview    bool     `json:"aiReview"`
+	CreateInput bool     `json:"createInput"`
 	Errors      []string `json:"errors"`
 }
 
@@ -68,11 +69,13 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	})()`); err != nil {
 		return err
 	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CreateInput }); err != nil {
+		return fmt.Errorf("wait for workflow list hydration: %w", err)
+	}
 
 	nameJSON, _ := json.Marshal("Agent UI smoke " + time.Now().UTC().Format("20060102T150405Z"))
 	if err := eval(ctx, client, fmt.Sprintf(`(() => {
-		const holder = document.querySelector('[data-testid="workflow-create-name"]');
-		const input = holder?.matches('input') ? holder : holder?.querySelector('input');
+		const input = document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input');
 		if (!input) throw new Error('workflow name input not found');
 		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
 		setter.call(input, %s);
@@ -200,6 +203,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
 		canvasNodes: document.querySelectorAll('.vue-flow__node').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
+		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		errors: window.__yottaSmokeErrors || []
 	})`, &out)
 	return out, err
