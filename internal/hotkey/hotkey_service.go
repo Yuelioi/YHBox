@@ -12,13 +12,15 @@ type HotkeyService struct {
 	systemDefaults map[string]string // 内置热键出厂默认 (key→hotkeyStr)，给 ResetSystemDefaults 用
 }
 
-func NewHotkeyService(reg *HotkeyRegistry) *HotkeyService {
-	return &HotkeyService{reg: reg}
+func NewHotkeyService(reg *HotkeyRegistry, defaults ...map[string]string) *HotkeyService {
+	service := &HotkeyService{reg: reg, systemDefaults: map[string]string{}}
+	if len(defaults) != 0 {
+		for key, value := range defaults[0] {
+			service.systemDefaults[key] = value
+		}
+	}
+	return service
 }
-
-// SetSystemDefaults 注入内置热键的出厂默认值 (key→hotkeyStr)。main.go 启动期调一次。
-// 「重置默认」只覆盖这些 key — 容器 / action / schedule 是用户数据，不在内。
-func (s *HotkeyService) SetSystemDefaults(d map[string]string) { s.systemDefaults = d }
 
 // ResetSystemDefaults 把所有内置热键恢复出厂默认 (强停 / 校准 / 录制停止 / 录制暂停)。
 // 两遍：先全清再逐条设默认 —— 避免新旧默认值跟当前自定义值瞬时冲突 (e.g. 用户把两个键对调)。

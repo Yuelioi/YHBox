@@ -3,10 +3,10 @@ import type {
   FieldProjection,
   NodeProjection,
   TypeProjection,
-  YottaNodeAuthoringProjection31,
+  YottaNodeAuthoringProjection,
 } from '../../../contracts/node/3.1/authoring-projection'
 
-const document = authoring as unknown as YottaNodeAuthoringProjection31
+const document = authoring as unknown as YottaNodeAuthoringProjection
 
 if (
   document.format !== 'yotta.node-authoring-projection' ||

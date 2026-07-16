@@ -23,11 +23,11 @@ func GenerateContract(name string) ([]byte, error) {
 	case "workflow":
 		contract = reflector.Reflect(&WorkflowSource{})
 		id = workflowSchemaID
-		title = "Yotta Workflow Source 3.1"
+		title = "Yotta Workflow Source"
 	case "diagnostic":
 		contract = reflector.Reflect(&Diagnostic{})
 		id = diagnosticSchemaID
-		title = "Yotta Compiler Diagnostic 3.1"
+		title = "Yotta Compiler Diagnostic"
 	default:
 		return nil, fmt.Errorf("unknown contract %q", name)
 	}

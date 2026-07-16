@@ -604,9 +604,16 @@ async function deleteAPIKey(slot: string): Promise<void> {
 
 async function testProfile(profile: AIModelProfileDraft): Promise<void> {
   if (!(await commit())) return
+  if (profile.apiKey) {
+    const saved = await backend.ai.setAPIKey(profile.slot, profile.apiKey)
+    if (!saved) return
+    profile.apiKey = ''
+    revealed[profile.slot] = false
+    await refreshSecretStatus()
+  }
   testing[profile.slot] = true
   delete results[profile.slot]
-  const result = await backend.ai.testProfile(profileMetadata(profile), profile.apiKey)
+  const result = await backend.ai.testProfile(profileMetadata(profile))
   testing[profile.slot] = false
   if (result) results[profile.slot] = result
 }

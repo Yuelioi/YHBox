@@ -30,11 +30,15 @@ import (
 const (
 	maxInstructionBytes = 64 << 10
 	maxTraceEvents      = 256
+	maxRetainedReviews  = 128
+	activeReviewTTL     = 30 * time.Minute
+	terminalReviewTTL   = 10 * time.Minute
 )
 
 var (
 	ErrReviewNotFound = errors.New("AI authoring review not found")
 	ErrReviewTerminal = errors.New("AI authoring review is already terminal")
+	ErrReviewCapacity = errors.New("AI authoring review capacity exhausted")
 	ErrNoProposal     = errors.New("AI authoring completed without an exact patch proposal")
 )
 
@@ -115,8 +119,10 @@ type Review struct {
 }
 
 type reviewState struct {
-	review   Review
-	prepared appcore.PreparedPatch
+	review     Review
+	prepared   appcore.PreparedPatch
+	createdAt  time.Time
+	terminalAt time.Time
 }
 
 type Manager struct {
@@ -127,6 +133,7 @@ type Manager struct {
 	now         func() time.Time
 	mu          sync.RWMutex
 	reviews     map[string]*reviewState
+	inflight    int
 }
 
 func NewManager(application *appcore.Application, builtins nodes.Builtins, now func() time.Time) (*Manager, error) {
@@ -152,6 +159,10 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	if request.WorkflowID == "" || request.BaseRevision < 0 || request.Instruction == "" || len(request.Instruction) > maxInstructionBytes || request.TrustClass == "" {
 		return Review{}, errors.New("invalid AI authoring request")
 	}
+	if err := m.reserveReview(m.now()); err != nil {
+		return Review{}, err
+	}
+	defer m.releaseReviewReservation()
 	base, err := m.application.GetSource(request.WorkflowID)
 	if err != nil {
 		return Review{}, err
@@ -271,7 +282,7 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	}
 	review.Usage = tracker.Usage()
 	m.mu.Lock()
-	m.reviews[reviewID] = &reviewState{review: cloneReview(review), prepared: state.prepared}
+	m.reviews[reviewID] = &reviewState{review: cloneReview(review), prepared: state.prepared, createdAt: m.now()}
 	m.mu.Unlock()
 	return cloneReview(review), nil
 }
@@ -279,6 +290,7 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 func (m *Manager) Accept(ctx context.Context, reviewID string) (Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.pruneReviewsLocked(m.now())
 	state, ok := m.reviews[reviewID]
 	if !ok {
 		return Review{}, ErrReviewNotFound
@@ -291,18 +303,23 @@ func (m *Manager) Accept(ctx context.Context, reviewID string) (Review, error) {
 		if errors.Is(err, workflowstore.ErrSourceConflict) {
 			state.review.Status = StatusStale
 			appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "stale", "reason": "revision-conflict"})
+			state.prepared = appcore.PreparedPatch{}
+			state.terminalAt = m.now()
 		}
 		return cloneReview(state.review), err
 	}
 	state.review.Status = StatusAccepted
 	state.review.NewRevision = committed.Source.Revision()
 	appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "accepted", "source_hash": committed.Source.Hash().String()})
+	state.prepared = appcore.PreparedPatch{}
+	state.terminalAt = m.now()
 	return cloneReview(state.review), nil
 }
 
 func (m *Manager) Reject(reviewID string) (Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.pruneReviewsLocked(m.now())
 	state, ok := m.reviews[reviewID]
 	if !ok {
 		return Review{}, ErrReviewNotFound
@@ -312,17 +329,51 @@ func (m *Manager) Reject(reviewID string) (Review, error) {
 	}
 	state.review.Status = StatusRejected
 	appendTrace(&state.review.Trace, m.now(), "approval", "", map[string]string{"decision": "rejected"})
+	state.prepared = appcore.PreparedPatch{}
+	state.terminalAt = m.now()
 	return cloneReview(state.review), nil
 }
 
 func (m *Manager) Get(reviewID string) (Review, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pruneReviewsLocked(m.now())
 	state, ok := m.reviews[reviewID]
 	if !ok {
 		return Review{}, ErrReviewNotFound
 	}
 	return cloneReview(state.review), nil
+}
+
+func (m *Manager) reserveReview(now time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pruneReviewsLocked(now)
+	if len(m.reviews)+m.inflight >= maxRetainedReviews {
+		return ErrReviewCapacity
+	}
+	m.inflight++
+	return nil
+}
+
+func (m *Manager) releaseReviewReservation() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.inflight > 0 {
+		m.inflight--
+	}
+}
+
+func (m *Manager) pruneReviewsLocked(now time.Time) {
+	for reviewID, state := range m.reviews {
+		expiresAt := state.createdAt.Add(activeReviewTTL)
+		if !state.terminalAt.IsZero() {
+			expiresAt = state.terminalAt.Add(terminalReviewTTL)
+		}
+		if !now.Before(expiresAt) {
+			delete(m.reviews, reviewID)
+		}
+	}
 }
 
 type proposalState struct {

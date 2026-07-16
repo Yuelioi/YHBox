@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// IBackend per-container instance interface. 与包级 Backend enum + Frame/FrameROI 并存.
+// IBackend is a per-Run instance interface. 与包级 Backend enum + Frame/FrameROI 并存.
 //
 // impl 必须 IsWindow(hwnd) 前置 + defer recover(), invalid hwnd 返 (nil, error) 永不 panic.
 // WGC impl 额外捕 WGC Session 错误 (Direct3D11CaptureFramePool 在窗口刚关闭瞬间会抛 Closed).

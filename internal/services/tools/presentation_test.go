@@ -11,9 +11,8 @@ import (
 
 func TestShutdownClosesWindowsAndRejectsNewPresentationWork(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
-	service := NewService(nil, presenter)
 	cleanupCalls := 0
-	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
+	service := NewServiceWithOptions(nil, presenter, Options{OnCalibratorClose: func() { cleanupCalls++ }})
 	if _, err := service.OpenCalibratorHUD("request"); err != nil {
 		t.Fatal(err)
 	}
@@ -134,9 +133,8 @@ func TestOpenMouseHUDUsesPresentationPort(t *testing.T) {
 
 func TestCalibratorWindowClosingClearsStateAndRunsCleanup(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
-	service := NewService(nil, presenter)
 	cleanupCalls := 0
-	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
+	service := NewServiceWithOptions(nil, presenter, Options{OnCalibratorClose: func() { cleanupCalls++ }})
 
 	opened, err := service.OpenCalibratorHUD("request-1")
 	if err != nil || !opened {
@@ -271,9 +269,8 @@ func TestConcurrentOpenWaitersShareFirstAttemptError(t *testing.T) {
 
 func TestOldClosingCallbackCannotClearNewWindowGeneration(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
-	service := NewService(nil, presenter)
 	cleanupCalls := 0
-	ConfigureCalibratorCloseHandler(service, func() { cleanupCalls++ })
+	service := NewServiceWithOptions(nil, presenter, Options{OnCalibratorClose: func() { cleanupCalls++ }})
 
 	if _, err := service.OpenCalibratorHUD("request-1"); err != nil {
 		t.Fatal(err)
@@ -303,9 +300,8 @@ func TestClosingCalibratorWhileOpeningStillRunsCleanup(t *testing.T) {
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
 	}
-	service := NewService(nil, presenter)
 	cleanup := make(chan struct{}, 1)
-	ConfigureCalibratorCloseHandler(service, func() { cleanup <- struct{}{} })
+	service := NewServiceWithOptions(nil, presenter, Options{OnCalibratorClose: func() { cleanup <- struct{}{} }})
 	type openResult struct {
 		opened bool
 		err    error
@@ -345,16 +341,16 @@ func TestCancelledOpenCleanupCanReenterWithoutDeadlock(t *testing.T) {
 		started: make(chan struct{}, 1),
 		release: make(chan struct{}),
 	}
-	service := NewService(nil, presenter)
 	type openResult struct {
 		opened bool
 		err    error
 	}
 	reentered := make(chan openResult, 1)
-	ConfigureCalibratorCloseHandler(service, func() {
+	var service *Service
+	service = NewServiceWithOptions(nil, presenter, Options{OnCalibratorClose: func() {
 		opened, err := service.OpenCalibratorHUD("reentrant")
 		reentered <- openResult{opened: opened, err: err}
-	})
+	}})
 	initial := make(chan openResult, 1)
 	go func() {
 		opened, err := service.OpenCalibratorHUD("initial")

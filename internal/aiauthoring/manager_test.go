@@ -119,6 +119,40 @@ func TestReviewRejectAndRevisionConflictAreTerminal(t *testing.T) {
 	}
 }
 
+func TestTerminalReviewExpiresFromBoundedManagerState(t *testing.T) {
+	now := time.Date(2026, 7, 17, 11, 0, 0, 0, time.UTC)
+	runtime := testRuntime(t, now)
+	manager, err := aiauthoring.NewManager(runtime.Application, runtime.Builtins, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := ai.SealModelProfile(ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "test-model", MaxOutputTokens: 8192,
+		Capabilities: ai.ProfileCapabilities{ToolCalling: true}, Pricing: ai.TokenPricing{InputMicrounitsPerMillion: 1, OutputMicrounitsPerMillion: 1},
+		Evaluation: ai.EvaluationUnverified, ProviderMetadata: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := runtime.Application.CreateSource(context.Background(), "Expiring review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := manager.Propose(context.Background(), aiauthoring.Runtime{Profile: profile, Provider: &scriptedProvider{workflowID: created.WorkflowID()}, Credential: "secret"}, aiauthoring.ProposeRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Instruction: "Add one concat node.", TrustClass: "user-authored",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Reject(review.ReviewID); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(10 * time.Minute)
+	if _, err := manager.Get(review.ReviewID); !errors.Is(err, aiauthoring.ErrReviewNotFound) {
+		t.Fatalf("expired review Get() = %v", err)
+	}
+}
+
 type scriptedProvider struct {
 	turn       int
 	workflowID string

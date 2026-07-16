@@ -263,10 +263,9 @@ export const backend = {
     update: (patch: object) => invokeVoid(SettingsService.Update, JSON.stringify(patch)),
   },
   ai: {
-    testProfile: (profile: AIModelProfile, apiKey = '') =>
+    testProfile: (profile: AIModelProfile) =>
       invoke(AIService.TestProfile, {
         profile: toAIModelSettingsBinding(profile),
-        apiKey,
       }) as Promise<AIProfileTestResult | undefined>,
     secretStatus: (slots: string[]) =>
       invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean> | undefined>,

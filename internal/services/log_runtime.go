@@ -27,8 +27,8 @@ func (r *LogRuntime) Configure(settings LoggerSettings) {
 }
 
 // ConfigurePolicy initializes source/stream behavior without taking ownership
-// of a file configured by a test or embedding host. The desktop composition
-// root follows it with ConfigureLogging, which enables persisted output.
+// of a file configured by a test or embedding host. NewConfiguredApp promotes
+// the same settings to persisted-output ownership during construction.
 func (r *LogRuntime) ConfigurePolicy(settings LoggerSettings) {
 	r.configure(settings, false)
 }

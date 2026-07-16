@@ -60,9 +60,14 @@ func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
 	return app
 }
 
-// ConfigureLogging applies persisted output ownership. The desktop composition
-// root calls this once after NewApp; settings updates call Configure directly.
-func (a *App) ConfigureLogging() { a.logs.Configure(a.Settings().UI.Logger) }
+// NewConfiguredApp constructs the production owner and immediately applies
+// persisted file-output policy. Tests and embedding hosts can keep using
+// NewApp when they own an already-configured sink.
+func NewConfiguredApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
+	app := NewApp(settingsPath, sink, rootLog)
+	app.logs.Configure(app.Settings().UI.Logger)
+	return app
+}
 
 // AttachEmitter atomically connects the single-assignment presentation transport.
 func (a *App) AttachEmitter(emit func(name string, data any)) error {

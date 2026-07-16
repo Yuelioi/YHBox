@@ -1,6 +1,6 @@
 //go:build !windows || production
 
-package main
+package desktopapp
 
 import "github.com/wailsapp/wails/v3/pkg/application"
 

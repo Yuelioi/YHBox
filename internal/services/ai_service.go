@@ -100,7 +100,6 @@ func newAIService(app *App, secrets *AISecrets, factory aiNativeFactory) *AIServ
 
 type TestProfileRequest struct {
 	Profile AIModelSettings `json:"profile"`
-	APIKey  string          `json:"apiKey"`
 }
 
 type TestProfileResult struct {
@@ -121,12 +120,12 @@ func (s *AIService) TestProfile(request TestProfileRequest) TestProfileResult {
 	if err != nil {
 		return aiTestFailure(err)
 	}
-	credential := request.APIKey
-	if credential == "" && s.secrets != nil {
-		credential, err = s.secrets.Get(ai.CredentialBindingID(request.Profile.Slot))
-		if err != nil {
-			return aiTestFailure(errors.New("AI credential is unavailable"))
-		}
+	if s.secrets == nil {
+		return aiTestFailure(errors.New("AI credential is unavailable"))
+	}
+	credential, err := s.secrets.Get(ai.CredentialBindingID(request.Profile.Slot))
+	if err != nil || credential == "" {
+		return aiTestFailure(errors.New("AI credential is unavailable"))
 	}
 	provider, err := s.newNative(profile)
 	if err != nil {

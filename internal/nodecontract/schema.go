@@ -24,7 +24,7 @@ func GenerateSchema() ([]byte, error) {
 		return nil, err
 	}
 	schema["$id"] = SchemaID
-	schema["title"] = "Yotta Node Contract 3.1"
+	schema["title"] = "Yotta Node Contract"
 	closeObjectSchemas(schema)
 	tuneKnownDefinitions(schema)
 	formatted, err := json.MarshalIndent(schema, "", "  ")

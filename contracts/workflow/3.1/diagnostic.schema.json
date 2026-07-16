@@ -185,6 +185,6 @@
     "code",
     "severity"
   ],
-  "title": "Yotta Compiler Diagnostic 3.1",
+  "title": "Yotta Compiler Diagnostic",
   "type": "object"
 }

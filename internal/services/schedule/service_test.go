@@ -44,9 +44,8 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 
 func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
-	svc := NewService(store)
 	want := errors.New("reload failed")
-	ConfigureChangeListener(svc, func() error { return want })
+	svc := NewService(store, func() error { return want })
 	schedule, _ := svc.Create("x")
 	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
 	if err := svc.Save(schedule); !errors.Is(err, want) {

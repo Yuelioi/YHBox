@@ -4,11 +4,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"testing"
 )
 
 func TestCompositionRootDoesNotElevateTheDesktopProcess(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), "main.go", nil, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("internal", "desktopapp", "desktop.go"), nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -47,7 +47,7 @@ export type InstructionSpec =
       retry: RetryInstruction
     }
 
-export interface YottaNodeAuthoringProjection31 {
+export interface YottaNodeAuthoringProjection {
   body: Body
   format: 'yotta.node-authoring-projection'
   projectionDigest: string

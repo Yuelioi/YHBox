@@ -22,7 +22,7 @@ func GenerateSchema() ([]byte, error) {
 		return nil, err
 	}
 	schema["$id"] = SchemaID
-	schema["title"] = "Yotta Node Authoring Projection 3.1"
+	schema["title"] = "Yotta Node Authoring Projection"
 	closeProjectionObjects(schema)
 	if definitions, ok := schema["$defs"].(map[string]any); ok {
 		datatype.TuneTypeExpressionDefinitions(definitions)

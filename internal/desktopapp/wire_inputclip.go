@@ -1,4 +1,4 @@
-package main
+package desktopapp
 
 import (
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -9,6 +9,6 @@ import (
 //
 // 资产全局化后不再有 container 级 / library 级两套 clip 存储: 单个 Service 共享
 // 全局 asset.Store, 录制/回放/分享统一走 GUID + blob 池.
-func newClipService(store *asset.Store) *inputclip.Service {
-	return inputclip.NewService(store)
+func newClipService(store *asset.Store, emit ...func(name string, data any)) *inputclip.Service {
+	return inputclip.NewService(store, emit...)
 }

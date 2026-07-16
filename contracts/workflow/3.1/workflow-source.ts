@@ -26,7 +26,7 @@ export type TypeExpression =
       variable: string
     }
 
-export interface YottaWorkflowSource31 {
+export interface YottaWorkflowSource {
   entryGraph: string
   format: 'yotta.workflow'
   /**

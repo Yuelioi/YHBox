@@ -4,12 +4,12 @@ import type {
   InputBinding,
   Node,
   BlobRef,
-  YottaWorkflowSource31,
+  YottaWorkflowSource,
 } from '../../../../contracts/workflow/3.1/workflow-source'
 import type {
   NodeProjection,
   TypeExpression,
-  YottaNodeAuthoringProjection31,
+  YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
 import type {
   CompileView,
@@ -46,8 +46,8 @@ interface PendingCommand {
 
 export class EditorSession {
   phase: EditorPhase = 'empty'
-  source: YottaWorkflowSource31 | null = null
-  authoring: YottaNodeAuthoringProjection31 | null = null
+  source: YottaWorkflowSource | null = null
+  authoring: YottaNodeAuthoringProjection | null = null
   baseRevision = -1
   sourceHash = ''
   compiledHash = ''
@@ -60,8 +60,8 @@ export class EditorSession {
   failure = ''
   debugging = false
 
-  private readonly history: YottaWorkflowSource31[] = []
-  private readonly future: YottaWorkflowSource31[] = []
+  private readonly history: YottaWorkflowSource[] = []
+  private readonly future: YottaWorkflowSource[] = []
   private readonly pendingCommands: PendingCommand[] = []
   private readonly revertedCommands: PendingCommand[] = []
   private readonly projections = new Map<string, NodeProjection>()
@@ -281,7 +281,7 @@ export class EditorSession {
     this.diagnostics = []
   }
 
-  private requireSource(): YottaWorkflowSource31 {
+  private requireSource(): YottaWorkflowSource {
     if (!this.source) throw new Error('EditorSession has no Workflow Source')
     return this.source
   }
@@ -428,7 +428,7 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
 }
 
 function applyCommand(
-  source: YottaWorkflowSource31,
+  source: YottaWorkflowSource,
   graph: Graph,
   command: EditorCommand,
   projections: Map<string, NodeProjection>,
@@ -679,7 +679,7 @@ function requireDataInput(
   return port
 }
 
-function graphAt(source: YottaWorkflowSource31, path: string[]): Graph {
+function graphAt(source: YottaWorkflowSource, path: string[]): Graph {
   const graphId = path.at(-1) ?? source.entryGraph
   const graph = source.graphs.find((candidate) => candidate.id === graphId)
   if (!graph) throw new Error(`graph ${graphId} does not exist`)
@@ -717,7 +717,7 @@ function terminalStatus(status: string): boolean {
   return ['SUCCEEDED', 'FAILED', 'CANCELLED', 'INTERRUPTED'].includes(status.toUpperCase())
 }
 
-function isWorkflowSource(value: unknown): value is YottaWorkflowSource31 {
+function isWorkflowSource(value: unknown): value is YottaWorkflowSource {
   if (typeof value !== 'object' || value === null) return false
   const source = value as Record<string, unknown>
   return (
@@ -731,7 +731,7 @@ function isWorkflowSource(value: unknown): value is YottaWorkflowSource31 {
   )
 }
 
-function isAuthoringProjection(value: unknown): value is YottaNodeAuthoringProjection31 {
+function isAuthoringProjection(value: unknown): value is YottaNodeAuthoringProjection {
   if (typeof value !== 'object' || value === null) return false
   const document = value as Record<string, unknown>
   if (
@@ -779,4 +779,4 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export type { Edge, Graph, InputBinding, Node, NodeProjection, YottaWorkflowSource31 }
+export type { Edge, Graph, InputBinding, Node, NodeProjection, YottaWorkflowSource }

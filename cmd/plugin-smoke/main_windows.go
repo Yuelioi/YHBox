@@ -36,10 +36,13 @@ func run() error {
 	}
 	defer os.RemoveAll(root)
 	processExecutable := filepath.Join(root, "ProcessUppercase.exe")
-	wasmRunnerExecutable := filepath.Join(root, wasmrunner.WorkerExecutableName)
-	for output, source := range map[string]string{
-		processExecutable: "./examples/plugins/process-uppercase", wasmRunnerExecutable: "./cmd/yotta-wasm-plugin-runner",
-	} {
+	wasmRunnerExecutable := os.Getenv("YOTTA_WASM_PLUGIN_RUNNER")
+	builds := map[string]string{processExecutable: "./examples/plugins/process-uppercase"}
+	if wasmRunnerExecutable == "" {
+		wasmRunnerExecutable = filepath.Join(root, wasmrunner.WorkerExecutableName)
+		builds[wasmRunnerExecutable] = "./cmd/yotta-wasm-plugin-runner"
+	}
+	for output, source := range builds {
 		command := exec.Command("go", "build", "-mod=readonly", "-trimpath", "-buildvcs=false", "-ldflags=-w -s -H windowsgui", "-o", output, source)
 		if combined, buildErr := command.CombinedOutput(); buildErr != nil {
 			return fmt.Errorf("build %s: %w\n%s", source, buildErr, combined)

@@ -25,7 +25,7 @@ func GenerateSchema() ([]byte, error) {
 		return nil, err
 	}
 	document["$id"] = patchSchemaID
-	document["title"] = "Yotta Workflow Authoring Patch 3.1"
+	document["title"] = "Yotta Workflow Authoring Patch"
 	definitions, ok := document["$defs"].(map[string]any)
 	if !ok {
 		return nil, errors.New("authoring patch schema omitted definitions")

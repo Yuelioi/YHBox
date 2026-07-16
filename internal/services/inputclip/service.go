@@ -37,12 +37,13 @@ type Service struct {
 }
 
 // NewService 构造 asset-backed clip 服务. store = 全局 asset.Store.
-func NewService(store *asset.Store) *Service {
-	return &Service{store: store}
+func NewService(store *asset.Store, emit ...func(name string, data any)) *Service {
+	service := &Service{store: store}
+	if len(emit) != 0 {
+		service.emit = emit[0]
+	}
+	return service
 }
-
-// ConfigureEmitter injects the presentation event transport without adding an RPC method.
-func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
 func (s *Service) emitChanged() {
 	if s.emit != nil {

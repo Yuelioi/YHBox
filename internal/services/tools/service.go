@@ -53,13 +53,24 @@ type Service struct {
 	shutdownErr   error
 }
 
+type Options struct {
+	CaptureHotkey     func() (mods, vk uint32)
+	OnCalibratorClose func()
+}
+
 func NewService(resolver TargetResolver, presenter Presenter) *Service {
+	return NewServiceWithOptions(resolver, presenter, Options{})
+}
+
+func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options Options) *Service {
 	s := &Service{
-		resolver:      resolver,
-		presenter:     presenter,
-		winCache:      map[string]cachedWindow{},
-		pickerWindows: map[string]*windowSlot{},
-		shutdownDone:  make(chan struct{}),
+		resolver:          resolver,
+		presenter:         presenter,
+		captureHotkey:     options.CaptureHotkey,
+		onCalibratorClose: options.OnCalibratorClose,
+		winCache:          map[string]cachedWindow{},
+		pickerWindows:     map[string]*windowSlot{},
+		shutdownDone:      make(chan struct{}),
 	}
 	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindWin32Window: win32TargetToolAdapter{service: s},
@@ -95,14 +106,6 @@ func (s *Service) gameWindowFor(targetSlot string) (target.WindowHandle, bool) {
 	}
 	s.winCache[cacheKey] = cachedWindow{wh: wh, at: time.Now()}
 	return wh, true
-}
-
-// ConfigureCaptureHotkeyGetter main.go 注入「窗口捕获」键读取器（从 hotkey registry 读
-// tools.window-capture 当前绑定）。让捕获键统一走热键中心、可 rebind，不再硬编 F9。
-func ConfigureCaptureHotkeyGetter(s *Service, getter func() (mods, vk uint32)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.captureHotkey = getter
 }
 
 func (s *Service) windowPresenter() Presenter {
@@ -330,13 +333,6 @@ func (s *Service) SetLauncherSize(width, height int) error {
 	return nil
 }
 
-// ConfigureCalibratorCloseHandler main.go 注入: 校准 HUD 窗关闭时卸 F8 钩 + 停 session。
-func ConfigureCalibratorCloseHandler(s *Service, handler func()) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.onCalibratorClose = handler
-}
-
 // OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop)。
 // 校准测量走全局 raw-input (INPUTSINK, 不挑前台窗口), F8 走自治 LL 钩 —— 所以这里不绑任何游戏:
 // 开窗后用户自己切到想校准的游戏/软件按 F8 即可。通用框架不假设"唯一的那个游戏", 也不强制把某个
@@ -448,7 +444,7 @@ func (s *Service) ClosePicker(requestID string) error {
 //  2. emit "win32windowtarget:captured" event {title, class, processName, clientW, clientH}
 //  3. 自动反注册热键
 //
-// 键来源 = ConfigureCaptureHotkeyGetter 注入的 registry 绑定值 (mods+vk); 未注入回退 F9。
+// 键来源 = constructor-pinned registry getter (mods+vk); 未注入回退 F9。
 // 同时只能一个 capture session. 用户多次开启需要先 CancelWin32WindowTargetCapture.
 // 返 captureID 给前端用来 cancel.
 //

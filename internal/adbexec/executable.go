@@ -9,10 +9,7 @@ import (
 	"strings"
 )
 
-const (
-	EnvADBPath       = "YOTTA_ADB_PATH"
-	LegacyEnvADBPath = "YHFISH_ADB_PATH"
-)
+const EnvADBPath = "YOTTA_ADB_PATH"
 
 type ResolveOptions struct {
 	EnvPath       string
@@ -30,9 +27,6 @@ func CommandContext(ctx context.Context, args ...string) *exec.Cmd {
 
 func ExecutablePath() string {
 	envPath := cleanExplicitPath(os.Getenv(EnvADBPath))
-	if envPath == "" {
-		envPath = cleanExplicitPath(os.Getenv(LegacyEnvADBPath))
-	}
 	exeDir := ""
 	if exePath, err := os.Executable(); err == nil {
 		exeDir = filepath.Dir(exePath)

@@ -6,7 +6,7 @@
 //   - BackendMock: 从磁盘 PNG 序列伪装抓帧，给离线调参 / 回放调试用。
 //     看 mock.go 里 mockDir() 的搜索路径。游戏不需要打开。
 //
-// 调用方走 per-container IBackend (NewIBackend)；Backend enum + 常量供配置/日志用。
+// 调用方为每个 admitted Run 创建 IBackend；Backend enum + 常量供配置/日志用。
 package capture
 
 // Backend 标识截屏后端的选择。
@@ -29,4 +29,3 @@ func (b Backend) String() string {
 		return "gdi"
 	}
 }
-

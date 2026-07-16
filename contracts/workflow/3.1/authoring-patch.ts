@@ -100,7 +100,7 @@ export type TypeExpression =
       variable: string
     }
 
-export interface YottaWorkflowAuthoringPatch31 {
+export interface YottaWorkflowAuthoringPatch {
   baseRevision: number
   /**
    * @minItems 1

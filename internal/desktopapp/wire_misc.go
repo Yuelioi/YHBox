@@ -1,5 +1,5 @@
 // wire_misc.go 杂项 wiring：schedule daemon 的 hotkey registrar。
-package main
+package desktopapp
 
 import (
 	"github.com/yottaapp/yotta/internal/hotkey"

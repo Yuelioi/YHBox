@@ -128,12 +128,27 @@ tasks:
       - task: check
       - task: build
       - task: release:stage
+      - task: release:smoke
       - task: release:verify-clean
 
   release:stage:
     summary: Creates the allowlisted Windows staging tree and deterministic archive
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1
+
+  release:smoke:
+    summary: Verifies and smoke-tests the exact frozen Windows staging payload without rebuilding it
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-release-candidate.ps1
+
+  release:sign-and-stage:
+    summary: Signs the frozen payload, restages it without rebuilding, and repeats candidate smoke
+    cmds:
+      - task: release:verify-clean
+      - task: windows:sign
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1 -SigningState authenticode-signed
+      - task: release:smoke
+      - task: release:verify-clean
 
   release:verify-clean:
     summary: Rejects staged, unstaged and untracked release inputs

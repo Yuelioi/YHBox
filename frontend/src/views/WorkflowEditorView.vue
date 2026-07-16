@@ -26,100 +26,26 @@
     </div>
 
     <template v-else-if="session.source && session.authoring">
-      <header class="flex h-13 shrink-0 items-center gap-2 border-b border-default bg-default px-3">
-        <UButton
-          icon="i-tabler-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :aria-label="t('workflow.editor.back')"
-          @click="router.push('/workflows')"
-        />
-        <UInput
-          :model-value="session.source.workflow.name"
-          class="w-56"
-          :aria-label="t('workflow.editor.workflow_name')"
-          @change="renameWorkflow"
-        />
-        <span class="font-mono text-[10px] text-dimmed">
-          {{ t('workflow.editor.revision', { n: session.baseRevision }) }}
-        </span>
-        <span v-if="session.dirty" class="text-[11px] font-medium text-warning">
-          {{ t('workflow.editor.unsaved') }}
-        </span>
-
-        <div class="mx-2 h-5 w-px bg-default" />
-        <UButton
-          icon="i-tabler-arrow-back-up"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :disabled="!session.canUndo"
-          :aria-label="t('workflow.action.undo')"
-          @click="session.undo()"
-        />
-        <UButton
-          icon="i-tabler-arrow-forward-up"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :disabled="!session.canRedo"
-          :aria-label="t('workflow.action.redo')"
-          @click="session.redo()"
-        />
-
-        <div class="flex-1" />
-        <UButton
-          data-testid="ai-workflow-review-open"
-          :label="t('workflow.ai.open')"
-          icon="i-tabler-sparkles"
-          color="neutral"
-          :variant="aiPanelOpen ? 'soft' : 'ghost'"
-          size="xs"
-          :aria-pressed="aiPanelOpen"
-          @click="aiPanelOpen = !aiPanelOpen"
-        />
-        <UButton
-          :label="t('workflow.action.compile')"
-          icon="i-tabler-file-check"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          @click="compile"
-        />
-        <UButton
-          :label="t('workflow.action.debug')"
-          icon="i-tabler-bug"
-          color="neutral"
-          variant="soft"
-          size="xs"
-          @click="startDebug"
-        />
-        <UButton
-          v-if="runActive"
-          :label="t('workflow.action.stop')"
-          icon="i-tabler-square"
-          color="error"
-          variant="soft"
-          size="xs"
-          @click="cancelRun"
-        />
-        <UButton
-          v-else
-          :label="t('workflow.action.run')"
-          icon="i-tabler-player-play"
-          size="xs"
-          @click="startRun"
-        />
-        <UButton
-          :label="t('workflow.action.save')"
-          icon="i-tabler-device-floppy"
-          size="xs"
-          :loading="session.phase === 'saving'"
-          :disabled="!session.dirty"
-          @click="save"
-        />
-      </header>
+      <WorkflowEditorToolbar
+        :name="session.source.workflow.name"
+        :revision="session.baseRevision"
+        :dirty="session.dirty"
+        :can-undo="session.canUndo"
+        :can-redo="session.canRedo"
+        :ai-panel-open="aiPanelOpen"
+        :run-active="runActive"
+        :saving="session.phase === 'saving'"
+        @back="router.push('/workflows')"
+        @rename="renameWorkflow"
+        @undo="session.undo()"
+        @redo="session.redo()"
+        @toggle-ai="aiPanelOpen = !aiPanelOpen"
+        @compile="compile"
+        @debug="startDebug"
+        @run="startRun"
+        @stop="cancelRun"
+        @save="save"
+      />
 
       <div
         v-if="session.saveConflict"
@@ -291,6 +217,7 @@ import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
+import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 
 defineOptions({ name: 'WorkflowEditorView' })
 
@@ -446,8 +373,7 @@ function moveNode(event: NodeDragEvent): void {
   session.apply({ kind: 'move-node', nodeId: event.node.id, position: event.node.position })
 }
 
-function renameWorkflow(event: Event): void {
-  const name = (event.target as HTMLInputElement).value
+function renameWorkflow(name: string): void {
   if (name.trim() && name !== session.source?.workflow.name)
     session.apply({ kind: 'rename-workflow', name })
 }
@@ -560,22 +486,4 @@ function showError(title: string, error: unknown): void {
 }
 </script>
 
-<style scoped>
-.workflow-flow :deep(.vue-flow__edge-path) {
-  stroke-width: 2;
-}
-
-.workflow-flow :deep(.vue-flow__controls),
-.workflow-flow :deep(.vue-flow__minimap) {
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--ui-bg-elevated);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .workflow-flow :deep(.vue-flow__edge-path) {
-    animation: none !important;
-  }
-}
-</style>
+<style scoped src="./WorkflowEditorView.css"></style>

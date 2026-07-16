@@ -41,6 +41,7 @@ tasks:
       - task: build:capture-dll
       - task: build:script-worker
       - task: build:wasm-plugin-runner
+      - task: build:cli
     cmds:
       - task: generate:syso
         vars:
@@ -73,6 +74,17 @@ tasks:
     summary: Builds the isolated trusted WebAssembly plugin runner
     cmds:
       - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" ./cmd/yotta-wasm-plugin-runner
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:cli:
+    summary: Builds the headless Workflow 3.1 command client
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" ./cmd/yotta
     env:
       GOOS: windows
       CGO_ENABLED: '0'
@@ -132,17 +144,18 @@ tasks:
       - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
 
   sign:
-    summary: Signs the Windows executable
+    summary: Signs the already-built frozen Windows payload without rebuilding it
     desc: |
       Signs the .exe with an Authenticode certificate.
       Configure SIGN_CERTIFICATE or SIGN_THUMBPRINT in the vars section at the top of this file.
       Password is retrieved from system keychain (run: wails3 setup signing)
-    deps:
-      - task: build
     cmds:
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
       - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
     preconditions:
       - sh: '[ -n "{{.SIGN_CERTIFICATE}}" ] || [ -n "{{.SIGN_THUMBPRINT}}" ]'
         msg: "Either SIGN_CERTIFICATE or SIGN_THUMBPRINT is required. Set it in the vars section at the top of build/windows/Taskfile.yml"
+      - sh: 'powershell -NoProfile -Command "if (-not ((Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe'' -PathType Leaf))) { exit 1 }"'
+        msg: "Build and freeze the Windows payload before signing; the sign task never rebuilds"

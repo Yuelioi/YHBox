@@ -31,12 +31,13 @@ type Service struct {
 	onChange ChangeListener
 }
 
-func NewService(store *Store) *Service {
-	return &Service{store: store}
+func NewService(store *Store, listener ...ChangeListener) *Service {
+	service := &Service{store: store}
+	if len(listener) != 0 {
+		service.onChange = listener[0]
+	}
+	return service
 }
-
-// ConfigureChangeListener injects the daemon reload callback without adding an RPC method.
-func ConfigureChangeListener(s *Service, listener ChangeListener) { s.onChange = listener }
 
 func (s *Service) emitChange() error {
 	if s.onChange != nil {

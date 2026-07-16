@@ -159,12 +159,8 @@ func TestRegistry_UnregisterFailureKeepsEntry(t *testing.T) {
 
 func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 	mgr := newTestHotkeyManager()
-	r := NewHotkeyRegistry(mgr)
 	var gotID, gotStr string
-	r.SetCallbacks(
-		func(id, str string) error { gotID, gotStr = id, str; return nil },
-		nil, nil,
-	)
+	r := NewHotkeyRegistryWithCallbacks(mgr, Callbacks{OnActionChange: func(id, str string) error { gotID, gotStr = id, str; return nil }})
 	_ = r.Register("action.abc", HotkeySourceAction, "A", nil, "", "", func() {})
 	if err := r.Update("action.abc", "Ctrl+Shift+Alt+F6"); err != nil {
 		t.Fatal(err)
@@ -177,13 +173,12 @@ func TestRegistry_OnActionHotkeyChangeCallback(t *testing.T) {
 
 func TestRegistry_UpdateRollsBackBindingWhenPersistenceFails(t *testing.T) {
 	mgr := newTestHotkeyManager()
-	r := NewHotkeyRegistry(mgr)
+	wantErr := errors.New("settings save failed")
+	r := NewHotkeyRegistryWithCallbacks(mgr, Callbacks{OnActionChange: func(string, string) error { return wantErr }})
 	if err := r.Register("action.persist", HotkeySourceAction, "persist", nil,
 		"Ctrl+Shift+Alt+F6", "", func() {}); err != nil {
 		t.Fatal(err)
 	}
-	wantErr := errors.New("settings save failed")
-	r.SetCallbacks(func(string, string) error { return wantErr }, nil, nil)
 	if err := r.Update("action.persist", "Ctrl+Shift+Alt+F7"); !errors.Is(err, wantErr) {
 		t.Fatalf("Update error = %v", err)
 	}
@@ -210,7 +205,7 @@ func TestRegistry_PersistenceRollbackFailureMarksEntryFailed(t *testing.T) {
 		}
 		runTestHotkeyLoop(ctx, specs, handler, ready, done)
 	}
-	r := NewHotkeyRegistry(mgr)
+	r := NewHotkeyRegistryWithCallbacks(mgr, Callbacks{OnActionChange: func(string, string) error { return errors.New("settings save failed") }})
 	if err := r.Register("action.persist", HotkeySourceAction, "persist", nil,
 		"Ctrl+Shift+Alt+F6", "", func() {}); err != nil {
 		t.Fatal(err)
@@ -219,7 +214,6 @@ func TestRegistry_PersistenceRollbackFailureMarksEntryFailed(t *testing.T) {
 		"Ctrl+Shift+Alt+F8", "", func() {}); err != nil {
 		t.Fatal(err)
 	}
-	r.SetCallbacks(func(string, string) error { return errors.New("settings save failed") }, nil, nil)
 	if err := r.Update("action.persist", "Ctrl+Shift+Alt+F7"); err == nil {
 		t.Fatal("Update error = nil")
 	}

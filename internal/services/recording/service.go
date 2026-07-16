@@ -59,11 +59,15 @@ type Service struct {
 	shutdownDone chan struct{}
 }
 
-func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, targets TargetResolver) *Service {
-	return &Service{
+func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
+	service := &Service{
 		rec: rec, hkProv: hkProv, clipSvc: clipSvc, targets: targets,
 		state: RecordingState{Phase: PhaseIdle}, pending: map[string]pendingRecording{}, shutdownDone: make(chan struct{}),
 	}
+	if len(emit) != 0 {
+		service.emit = emit[0]
+	}
+	return service
 }
 
 // Phase 常量 — 录制生命周期的三个权威阶段.
@@ -109,10 +113,6 @@ func (s *Service) setState(st RecordingState) {
 		s.emit("recording:state", st)
 	}
 }
-
-// ConfigureEmitter injects the presentation event transport during startup.
-// It is deliberately a package function so it cannot become a Wails RPC method.
-func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
 // Shutdown cancels an in-progress recording without persisting a partial asset.
 // It is a package function so lifecycle wiring does not become a Wails RPC.

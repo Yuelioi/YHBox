@@ -25,9 +25,9 @@ task check
 - 平台中立核心不得直接 import Win32 实现；新增平台能力通过 automation controller/capability adapter。
 - 后台资源必须有明确 owner，`Start` 失败可回滚，`Close` 幂等且逆序。
 - 用户数据写入使用原子快照或可验证的 lock-last transaction。
-- 节点声明 `RuntimeCapabilities`；缺失装配在执行前返回 typed `AssemblyError`。
-- 测试使用局部 `node.NewRegistry()`；不要清空默认全局 registry。
-- 当前只承诺 in-tree 节点贡献，不承诺 Go plugin ABI。
+- 节点通过 Node Contract 声明 effect、capability、target 与 implementation lock；Compiler/admission 在执行前 fail closed。
+- 测试构造局部 Contract/Catalog snapshot；不要引入包级 mutable registry 或依赖 `init()` 的隐藏装配。
+- 内建节点在 tree 内显式装配；第三方执行只走已签名启用的 Process/Wasm Node Package，不承诺 Go plugin ABI，也不加载插件前端代码。
 
 详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)、breaking-change 说明和旧格式拒绝测试；Yotta 3.1 不新增迁移器或兼容 shim。
 

@@ -90,7 +90,7 @@ type HotkeyRegistry struct {
 	entries map[string]*registryEntry
 	paused  bool // Pause 暂停所有 OS hotkey 时为 true
 
-	// 持久化回调（构造后由 SetCallbacks 注入）
+	// 持久化与 presentation callbacks 在构造时固定。
 	onActionHotkeyChange func(actionID, newStr string) error
 	onSystemHotkeyChange func(key, newStr string) error
 	emitChanged          func()
@@ -100,29 +100,26 @@ type HotkeyRegistry struct {
 	shutdownErr          error
 }
 
+type Callbacks struct {
+	OnActionChange func(actionID, newStr string) error
+	OnSystemChange func(key, newStr string) error
+	EmitChanged    func()
+}
+
 // NewHotkeyRegistry 构造。
 func NewHotkeyRegistry(mgr *HotkeyManager) *HotkeyRegistry {
+	return NewHotkeyRegistryWithCallbacks(mgr, Callbacks{})
+}
+
+func NewHotkeyRegistryWithCallbacks(mgr *HotkeyManager, callbacks Callbacks) *HotkeyRegistry {
 	return &HotkeyRegistry{
-		manager:      mgr,
-		entries:      map[string]*registryEntry{},
-		shutdownDone: make(chan struct{}),
+		manager: mgr, entries: map[string]*registryEntry{}, shutdownDone: make(chan struct{}),
+		onActionHotkeyChange: callbacks.OnActionChange, onSystemHotkeyChange: callbacks.OnSystemChange,
+		emitChanged: callbacks.EmitChanged,
 	}
 }
 
 var ErrRegistryClosed = errors.New("hotkey registry is closed")
-
-// SetCallbacks 注入持久化 / emit 回调。main.go 启动期调一次。
-func (r *HotkeyRegistry) SetCallbacks(
-	onAction func(actionID, newStr string) error,
-	onSystem func(key, newStr string) error,
-	emit func(),
-) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.onActionHotkeyChange = onAction
-	r.onSystemHotkeyChange = onSystem
-	r.emitChanged = emit
-}
 
 // Register 注册新 entry。
 //   - duplicate key → ErrDuplicateKey

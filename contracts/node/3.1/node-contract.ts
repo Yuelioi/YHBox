@@ -47,7 +47,7 @@ export type TypeExpression =
       variable: string
     }
 
-export interface YottaNodeContract31 {
+export interface YottaNodeContract {
   authoring: Authoring
   format: 'yotta.node-contract'
   nodeRef: NodeRef

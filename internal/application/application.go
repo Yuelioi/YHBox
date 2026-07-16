@@ -288,6 +288,20 @@ func (a *Application) CompileSource(ctx context.Context, workflowID string) (com
 	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source.Artifact(), Catalog: a.catalog})
 }
 
+// CompileDraft validates and compiles an in-memory Source through the same
+// trusted Catalog/compiler path without publishing a Source or Program.
+func (a *Application) CompileDraft(ctx context.Context, sourceJSON []byte) (compiler.CompileResult, error) {
+	if ctx == nil {
+		return compiler.CompileResult{}, errors.New("compile Workflow Source context is required")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	if err := a.requireRunning(); err != nil {
+		return compiler.CompileResult{}, err
+	}
+	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: append([]byte(nil), sourceJSON...), Catalog: a.catalog})
+}
+
 // ApplyPatch is the sole external mutation path for an existing Workflow
 // Source. The command batch is reduced atomically and persisted with revision
 // CAS; a failed command never publishes a partial source.

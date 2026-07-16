@@ -1,7 +1,9 @@
 param(
     [string]$BinDirectory = "bin",
     [string]$OutputDirectory = "artifacts",
-    [string]$Target = "windows-amd64"
+    [string]$Target = "windows-amd64",
+    [ValidateSet("unsigned-candidate", "authenticode-signed")]
+    [string]$SigningState = "unsigned-candidate"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,9 +37,10 @@ if (Test-Path -LiteralPath $stageRoot) {
 [System.IO.Directory]::CreateDirectory($stageRoot) | Out-Null
 
 $payload = @(
-    @{ Source = "$BinDirectory/Yotta.exe"; Destination = "Yotta.exe"; Origin = "project-build"; Signing = "unsigned-candidate" },
-    @{ Source = "$BinDirectory/Yotta.ScriptWorker.exe"; Destination = "Yotta.ScriptWorker.exe"; Origin = "project-build"; Signing = "unsigned-candidate" },
-    @{ Source = "$BinDirectory/Yotta.WasmPluginRunner.exe"; Destination = "Yotta.WasmPluginRunner.exe"; Origin = "project-build"; Signing = "unsigned-candidate" },
+    @{ Source = "$BinDirectory/Yotta.exe"; Destination = "Yotta.exe"; Origin = "project-build"; Signing = $SigningState },
+    @{ Source = "$BinDirectory/Yotta.ScriptWorker.exe"; Destination = "Yotta.ScriptWorker.exe"; Origin = "project-build"; Signing = $SigningState },
+    @{ Source = "$BinDirectory/Yotta.WasmPluginRunner.exe"; Destination = "Yotta.WasmPluginRunner.exe"; Origin = "project-build"; Signing = $SigningState },
+    @{ Source = "$BinDirectory/Yotta.CLI.exe"; Destination = "Yotta.CLI.exe"; Origin = "project-build"; Signing = $SigningState },
     @{ Source = "$BinDirectory/capture_wgc.dll"; Destination = "capture_wgc.dll"; Origin = "project-build"; Signing = "unsigned-candidate" },
     @{ Source = "$BinDirectory/platform-tools/adb.exe"; Destination = "platform-tools/adb.exe"; Origin = "bundled-google-platform-tools"; Signing = "upstream-signed" },
     @{ Source = "$BinDirectory/platform-tools/AdbWinApi.dll"; Destination = "platform-tools/AdbWinApi.dll"; Origin = "bundled-google-platform-tools"; Signing = "upstream-signed" },

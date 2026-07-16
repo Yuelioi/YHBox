@@ -3,9 +3,9 @@ import { computed } from 'vue'
 import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
 import type {
   TypeExpression,
-  YottaNodeAuthoringProjection31,
+  YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
-import type { YottaWorkflowSource31 } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { YottaWorkflowSource } from '../../../../contracts/workflow/3.1/workflow-source'
 import type {
   CompileView,
   RunView,
@@ -16,7 +16,7 @@ import type {
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
 
-const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection31
+const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection
 const node = (nodeTypeId: string) => {
   const projection = authoring.body.nodes.find(
     (candidate) => candidate.nodeRef.nodeTypeId === nodeTypeId,
@@ -242,7 +242,7 @@ describe('EditorSession', () => {
   })
 })
 
-function emptySource(): YottaWorkflowSource31 {
+function emptySource(): YottaWorkflowSource {
   return {
     format: 'yotta.workflow',
     version: '3.1',
@@ -255,7 +255,7 @@ function emptySource(): YottaWorkflowSource31 {
   }
 }
 
-function sourceView(source: YottaWorkflowSource31): SourceView {
+function sourceView(source: YottaWorkflowSource): SourceView {
   return {
     workflowId: source.workflow.id,
     name: source.workflow.name,
@@ -284,7 +284,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     getSource: vi.fn(async () => saved),
     applyPatch: vi.fn(async (_workflowId: string, baseRevision: number) => {
       if (!saved.sourceJson) throw new Error('mock source omitted sourceJson')
-      const source = JSON.parse(saved.sourceJson) as YottaWorkflowSource31
+      const source = JSON.parse(saved.sourceJson) as YottaWorkflowSource
       source.revision = baseRevision + 1
       return { source: sourceView(source), generatedNodes: [] }
     }),

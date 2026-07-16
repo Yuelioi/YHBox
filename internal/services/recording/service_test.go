@@ -277,10 +277,9 @@ func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
 // 状态机 + 幂等性单测. 不碰真 OS hook — 只验 Service 的状态转换/幂等/事件广播逻辑.
 
 func newTestService() (*Service, *[]string) {
-	s := NewService(NewRecorder(), nil, nil, nil)
 	var mu sync.Mutex
 	var events []string
-	ConfigureEmitter(s, func(name string, _ any) {
+	s := NewService(NewRecorder(), nil, nil, nil, func(name string, _ any) {
 		mu.Lock()
 		events = append(events, name)
 		mu.Unlock()

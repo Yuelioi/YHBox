@@ -127,115 +127,16 @@
         <h3 class="text-xs font-semibold text-highlighted">
           {{ t('workflow.inspector.inputs') }}
         </h3>
-        <div
+        <WorkflowInputBindingEditor
           v-for="port in projection.dataInputs"
           :key="port.id"
-          class="space-y-2 rounded-lg bg-elevated/55 p-3"
-        >
-          <div class="flex items-center gap-2">
-            <span
-              class="size-2 rounded-full"
-              :style="{ backgroundColor: port.type.color || '#a1a1aa' }"
-              aria-hidden="true"
-            />
-            <span class="text-xs font-medium text-toned">{{ portTitle(port) }}</span>
-            <span class="ml-auto font-mono text-[10px] text-dimmed">
-              {{ typeLabel(port) }} · {{ port.binding }}
-            </span>
-          </div>
-          <p v-if="portDescription(port)" class="text-[11px] leading-5 text-muted">
-            {{ portDescription(port) }}
-          </p>
-          <PointValueEditor
-            v-if="acceptsInline(port) && port.type.editorAdapter === 'point'"
-            :model-value="literalValue(node.bindings[port.id], port.default)"
-            @update:model-value="setLiteral(port.id, $event)"
-          />
-          <ColorRangeValueEditor
-            v-else-if="acceptsInline(port) && port.type.editorAdapter === 'color-range'"
-            :model-value="literalValue(node.bindings[port.id], port.default)"
-            @update:model-value="setLiteral(port.id, $event)"
-          />
-          <USwitch
-            v-else-if="acceptsInline(port) && port.type.control === 'toggle'"
-            :model-value="literalBoolean(node.bindings[port.id], port.default)"
-            @update:model-value="setLiteral(port.id, $event)"
-          />
-          <UInputNumber
-            v-else-if="
-              acceptsInline(port) &&
-              (port.type.control === 'number' || port.type.control === 'integer')
-            "
-            :model-value="literalNumber(node.bindings[port.id], port.default)"
-            :min="numericConstraint(port.type.constraints.minimum)"
-            :max="numericConstraint(port.type.constraints.maximum)"
-            :step="port.type.control === 'integer' ? 1 : 'any'"
-            class="w-full"
-            @update:model-value="setLiteral(port.id, Number($event))"
-          />
-          <USelect
-            v-else-if="acceptsInline(port) && port.type.control === 'select'"
-            :model-value="literalValue(node.bindings[port.id], port.default)"
-            :items="port.type.constraints.enum.map((value) => ({ label: String(value), value }))"
-            class="w-full"
-            @update:model-value="setLiteral(port.id, $event)"
-          />
-          <UInput
-            v-else-if="acceptsInline(port) && port.type.control === 'text'"
-            :model-value="literalText(node.bindings[port.id])"
-            :placeholder="literalPlaceholder(port)"
-            class="w-full"
-            @change="setLiteralText(port.id, $event)"
-          />
-          <UTextarea
-            v-else-if="acceptsInline(port)"
-            :model-value="literalJSON(node.bindings[port.id], port.default)"
-            :placeholder="literalPlaceholder(port)"
-            class="w-full font-mono text-xs"
-            @change="setLiteralJSON(port.id, $event)"
-          />
-          <USelect
-            v-else-if="port.editorAdapter === 'template-image'"
-            :model-value="selectedTemplateVariantId(node.bindings[port.id])"
-            :items="templateVariantItems"
-            value-key="value"
-            label-key="label"
-            :placeholder="t('workflow.inspector.select_template')"
-            class="w-full"
-            @update:model-value="setTemplateImage(port.id, $event)"
-          />
-          <USelect
-            v-else-if="isInputClip(port)"
-            :model-value="selectedClipId(node.bindings[port.id])"
-            :items="clipItems"
-            value-key="value"
-            label-key="label"
-            :placeholder="t('workflow.inspector.select_clip')"
-            class="w-full"
-            @update:model-value="setClip(port.id, $event)"
-          />
-          <p v-else class="text-[11px] leading-5 text-muted">
-            {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
-          </p>
-          <div class="flex items-center gap-2">
-            <UButton
-              v-if="port.hasDefault"
-              :label="t('workflow.inspector.use_default')"
-              size="xs"
-              color="neutral"
-              variant="soft"
-              @click="emit('command', { kind: 'bind-default', nodeId: node.id, portId: port.id })"
-            />
-            <UButton
-              v-if="node.bindings[port.id]"
-              :label="t('workflow.inspector.clear')"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              @click="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
-            />
-          </div>
-        </div>
+          :node="node"
+          :port="port"
+          :clips="clips"
+          :clip-items="clipItems"
+          :template-variant-items="templateVariantItems"
+          @command="emit('command', $event)"
+        />
       </section>
 
       <section v-if="projection.capabilities.length" class="space-y-3">
@@ -276,17 +177,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import type { InputBinding, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
-import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
-import PointValueEditor from '@/app/editor/PointValueEditor.vue'
-import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
+import WorkflowInputBindingEditor from '@/app/editor/WorkflowInputBindingEditor.vue'
 import { useClipsStore } from '@/stores/clips'
 import { useTemplatesStore } from '@/stores/templates'
-
-const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 
 const props = defineProps<{
   node: Node | null
@@ -401,122 +298,5 @@ function setLabel(event: Event): void {
     nodeId: props.node.id,
     label: (event.target as HTMLInputElement).value,
   })
-}
-
-function setLiteral(portId: string, value: unknown): void {
-  if (!props.node) return
-  emit('command', {
-    kind: 'bind-value',
-    nodeId: props.node.id,
-    portId,
-    value,
-  })
-}
-
-function setLiteralText(portId: string, event: Event): void {
-  setLiteral(portId, (event.target as HTMLInputElement).value)
-}
-
-function setLiteralJSON(portId: string, event: Event): void {
-  const raw = (event.target as HTMLTextAreaElement).value
-  try {
-    setLiteral(portId, JSON.parse(raw))
-  } catch {
-    return
-  }
-}
-
-function setClip(portId: string, value: unknown): void {
-  if (!props.node || typeof value !== 'string') return
-  const clip = clips.value.find((candidate) => candidate.id === value)
-  if (!clip) return
-  emit('command', { kind: 'bind-blob', nodeId: props.node.id, portId, blob: { ...clip.blob } })
-}
-
-function setTemplateImage(portId: string, value: unknown): void {
-  if (!props.node || typeof value !== 'string') return
-  const variant = templateVariantItems.value.find((candidate) => candidate.value === value)
-  if (!variant) return
-  emit('command', { kind: 'bind-blob', nodeId: props.node.id, portId, blob: { ...variant.blob } })
-}
-
-function selectedTemplateVariantId(binding: InputBinding | undefined): string | undefined {
-  if (binding?.kind !== 'blob' || !binding.blob) return undefined
-  return templateVariantItems.value.find(
-    (candidate) =>
-      candidate.blob.digest === binding.blob?.digest &&
-      candidate.blob.mediaType === binding.blob.mediaType &&
-      candidate.blob.size === binding.blob.size,
-  )?.value
-}
-
-function selectedClipId(binding: InputBinding | undefined): string | undefined {
-  if (binding?.kind !== 'blob' || !binding.blob) return undefined
-  return clips.value.find(
-    (clip) =>
-      clip.blob.digest === binding.blob?.digest &&
-      clip.blob.mediaType === binding.blob.mediaType &&
-      clip.blob.size === binding.blob.size,
-  )?.id
-}
-
-function isInputClip(port: PortProjection): boolean {
-  return port.type.typeIds.includes(inputClipTypeId)
-}
-
-function portTitle(port: PortProjection): string {
-  return port.titleKey && te(port.titleKey) ? t(port.titleKey) : port.id
-}
-
-function portDescription(port: PortProjection): string {
-  return port.descriptionKey && te(port.descriptionKey) ? t(port.descriptionKey) : ''
-}
-
-function acceptsInline(port: PortProjection): boolean {
-  return port.type.representations.some((representation) => representation.kind === 'inline-json')
-}
-
-function literalText(binding: InputBinding | undefined): string {
-  return binding?.kind === 'value' && typeof binding.value === 'string' ? binding.value : ''
-}
-
-function literalValue(binding: InputBinding | undefined, defaultValue: unknown): unknown {
-  return binding?.kind === 'value' ? binding.value : defaultValue
-}
-
-function literalBoolean(binding: InputBinding | undefined, defaultValue: unknown): boolean {
-  const value = literalValue(binding, defaultValue)
-  return typeof value === 'boolean' ? value : false
-}
-
-function literalNumber(
-  binding: InputBinding | undefined,
-  defaultValue: unknown,
-): number | undefined {
-  const value = literalValue(binding, defaultValue)
-  return typeof value === 'number' ? value : undefined
-}
-
-function literalJSON(binding: InputBinding | undefined, defaultValue: unknown): string {
-  const value = literalValue(binding, defaultValue)
-  return value === undefined ? '' : JSON.stringify(value, null, 2)
-}
-
-function numericConstraint(value: unknown): number | undefined {
-  return typeof value === 'number' ? value : undefined
-}
-
-function typeLabel(port: PortProjection): string {
-  if (port.type.titleKey && te(port.type.titleKey)) return t(port.type.titleKey)
-  return port.type.typeIds.join(' | ') || port.type.label
-}
-
-function literalPlaceholder(port: PortProjection): string {
-  if (port.hasDefault && typeof port.default === 'string') return port.default
-  return t(
-    port.binding === 'required'
-      ? 'workflow.inspector.required_value'
-      : 'workflow.inspector.optional_value',
-  )
 }
 </script>
