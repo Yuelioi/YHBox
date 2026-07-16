@@ -17,6 +17,8 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、旧表达式/script binding、节点 i18n registry 和对应前端/日志库存已物理删除。CLI 文档、节点文案、前端参数提示与测试只消费 3.1 Catalog/Authoring Projection；没有 adapter registry、kind switch、旧 coercion 或 compatibility type 回接。
 
+Wave E 的 AI 收口首批已由 `99c3f5ff` 完成：零消费者的 `internal/services/llm`、通用 Chat/Mode、endpoint 猜测、structured prompt/fence fallback 与旧 provider SDK 依赖已物理删除。AI 单一路径是 `internal/ai` 的 provider-native installation/profile/resource contract，加 `internal/nodes31` / `internal/nodes31runtime` 的 capability session。
+
 ## Work outline
 
 ### A. 活跃入口切换（✅ 已完成：be1fc04b）
@@ -43,9 +45,9 @@ Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/n
 2. 删除旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、`CanonicalPinType`、`PinTypeCompat`、`CoerceInputValue` 和按 kind validator/dispatch。
 3. 普通内置节点新增不再修改中央 switch；生成契约、参数提示、文档和 fixtures 同源。
 
-### E. AI 与插件
+### E. AI 与插件（进行中；AI generic fallback 已删除：99c3f5ff）
 
-1. 删除旧 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。
+1. ✅ 删除旧 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。
 2. 实现 Node Package lifecycle、Wasm/Process host、SDK 和 conformance；禁止 Go plugin 和第三方前端代码。
 3. Windows fail closed；Linux/macOS 只承诺平台中立 core 与 preview host 能力。
 
@@ -58,7 +60,7 @@ Wave D“Node Contract 单一事实源”当前切片已完成：旧 `internal/n
 
 ## Next
 
-Wave D 当前切片已由提交 `e29ff25d` 闭合并通过定向验证。下一步进入 Wave E：先建立 `internal/services/llm`、现有 `internal/ai`、AI Node Contract/runtime、settings/credential 与 provider adapter 的精确功能映射；删除 generic Chat/structured prompt fallback，收口到 provider-native installation/profile/eval/trace。插件仍只允许 Node Package + Wasm/Process host，不引入 Go plugin 或第三方前端代码。完整 `task check` 仍只在最终 Wave F 运行。
+Wave E 下一批先建立现有 plugin/package/ABI/admission/resource host 的精确映射和 deletion test，确认哪些 Node Package lifecycle、Wasm/Process host、SDK/conformance 缺口仍真实存在，再选择一个可独立提交的深模块切片。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 
@@ -96,6 +98,16 @@ Completed foundations:
 - 旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、表达式/script binding、旧节点 i18n registry 与 Container 专用日志/UI helper 已物理删除；`cmd/node-catalog` 只导出当前构建的 3.1 catalog/authoring/docs artifacts。
 - Wails 日志 DTO 已收口为 SYS/WF 与 graph/node/invocation/attempt provenance；contract 保持 14 services / 89 methods / 99 models。
 - frontend ESLint `no-explicit-any` debt 随旧产品树删除从 258 收紧到 24；生产 bundle 为 entry 259,767 bytes、editor 94,274 bytes gzip。
+- 旧 `internal/services/llm` 和 OpenAI/Anthropic Go SDK 依赖已删除；provider-native OpenAI Responses / Anthropic Messages adapter、typed outcome/failure、profile installation、resource session、credential binding 与 workflow consent 成为 AI 单一实现路径。
+
+Latest Wave E AI verification:
+
+- `go list ./...`
+- `go test -count=1 -timeout=60s ./...`
+- affected `staticcheck ./internal/ai ./internal/nodes31 ./internal/nodes31runtime ./internal/services ./internal/appbootstrap`
+- `go mod verify`
+- generic LLM/API SDK/residue scan + `git diff --check`
+- 全库 `staticcheck ./...` 唯一失败为未改动的 `internal/automation/installed/platform_windows.go:64` S1016
 
 Latest Wave D verification:
 
@@ -128,4 +140,4 @@ Latest Wave D verification:
 
 ## Open questions
 
-无阻塞问题。当前非本切片 gate 风险是 `pkg/winutil/window_windows.go:385` 的 `go vet` unsafe-pointer warning，进入最终全量门禁前需单独修复或确认工具链行为。桌面真实 smoke 统一留到最终验收，不再让已完成 feature topic 长期保持 active。
+无阻塞问题。当前非本切片 gate 风险是 `pkg/winutil/window_windows.go:385` 的 `go vet` unsafe-pointer warning，以及 `internal/automation/installed/platform_windows.go:64` 的 `staticcheck` S1016；进入最终全量门禁前需单独修复或确认工具链行为。桌面真实 smoke 统一留到最终验收，不再让已完成 feature topic 长期保持 active。
