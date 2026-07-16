@@ -67,3 +67,19 @@ func TestResolveWindow_CtxCancelledReturnsPromptly(t *testing.T) {
 		t.Fatalf("ResolveWindow ignored ctx cancel, waited %v", time.Since(start))
 	}
 }
+
+func TestExecutableWindowQueryUsesRegistryToken(t *testing.T) {
+	want := &executableWindowQuery{title: "Editor", class: "Window"}
+	var got *executableWindowQuery
+	var state uintptr
+	withExecutableWindowQuery(want, func(token uintptr) {
+		state = token
+		got = executableWindowQueryFromState(token)
+	})
+	if got != want {
+		t.Fatalf("callback query = %p, want %p", got, want)
+	}
+	if query := executableWindowQueryFromState(state); query != nil {
+		t.Fatalf("callback query remained registered: %p", query)
+	}
+}

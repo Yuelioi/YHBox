@@ -57,3 +57,45 @@ func TestSendInputKeyboardBlockSizeMatchesWin32Input(t *testing.T) {
 		t.Fatalf("sendInputKeyBlock size = %d, want %d", got, want)
 	}
 }
+
+func TestSendInputPureMappingsAndValidation(t *testing.T) {
+	for _, test := range []struct {
+		ratio float64
+		want  int32
+	}{
+		{ratio: -1, want: 0},
+		{ratio: 0.5, want: 32767},
+		{ratio: 2, want: 65535},
+	} {
+		if got := ratioToAbs(test.ratio); got != test.want {
+			t.Fatalf("ratioToAbs(%v) = %d, want %d", test.ratio, got, test.want)
+		}
+	}
+	for _, test := range []struct {
+		button   string
+		vk       uint32
+		down, up uint32
+	}{
+		{button: "left", vk: 1, down: siMouseLeftDown, up: siMouseLeftUp},
+		{button: "right", vk: 2, down: siMouseRightDown, up: siMouseRightUp},
+		{button: "middle", vk: 4, down: siMouseMiddleDown, up: siMouseMiddleUp},
+	} {
+		if siButtonVK(test.button) != test.vk || siButtonFlags(test.button, false) != test.down || siButtonFlags(test.button, true) != test.up {
+			t.Fatalf("button mapping for %q is inconsistent", test.button)
+		}
+	}
+	b := newSendInputBackend()
+	for _, invoke := range []func() error{
+		func() error { return b.KeyDown(0, "missing") },
+		func() error { return b.KeyUp(0, "missing") },
+		func() error { return b.KeyDownCode(0, 0) },
+		func() error { return b.KeyUpCode(0, 256) },
+	} {
+		if err := invoke(); err == nil {
+			t.Fatal("invalid key operation succeeded")
+		}
+	}
+	if _, _, err := b.CursorRatio(0); err == nil {
+		t.Fatal("CursorRatio accepted an empty client rect")
+	}
+}

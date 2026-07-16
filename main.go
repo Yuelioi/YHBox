@@ -247,10 +247,7 @@ func main() {
 
 	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
-	stopAllHk := strings.TrimSpace(app.Settings().UI.ActionStopHotkey)
-	if stopAllHk == "" {
-		stopAllHk = "Ctrl+Shift+F9"
-	}
+	stopAllHk := hotkeyOrDefault(app.Settings().UI.ActionStopHotkey, "Ctrl+Shift+F9")
 	if err := hotkeyRegistry.Register("system.execution-stop", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.execution_stop", nil, stopAllHk, "",
 		func() {
@@ -264,14 +261,7 @@ func main() {
 	calibrationSvc := calibration.NewService(
 		func(name string, data any) { app.Emit(name, data) },
 		func() uint32 {
-			e, ok := hotkeyRegistry.Get("system.calibrate-toggle")
-			if !ok || e.HotkeyStr == "" {
-				return calibration.VKF8
-			}
-			_, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
-			if err != nil || vk == 0 {
-				return calibration.VKF8
-			}
+			_, vk := registryHotkey(hotkeyRegistry, "system.calibrate-toggle", calibration.VKF8)
 			return vk
 		},
 	)
@@ -290,15 +280,7 @@ func main() {
 	})
 	// 窗口捕获键走热键中心: 捕获时读 tools.window-capture 当前绑定 (mods+vk)，回退 F9。
 	tools.ConfigureCaptureHotkeyGetter(toolsSvc, func() (uint32, uint32) {
-		e, ok := hotkeyRegistry.Get("tools.window-capture")
-		if !ok || e.HotkeyStr == "" {
-			return 0, 0x78 // VK_F9
-		}
-		mods, vk, err := hotkey.ParseHotkey(e.HotkeyStr)
-		if err != nil || vk == 0 {
-			return 0, 0x78
-		}
-		return mods, vk
+		return registryHotkey(hotkeyRegistry, "tools.window-capture", 0x78)
 	})
 
 	// 悬浮窗启动器 呼出/隐藏 热键：默认未绑（空），从 settings.UI 读，rebind 经 onSystemHotkeyChange 写回。
@@ -314,10 +296,7 @@ func main() {
 	// LL-hook 机制 (值持有条目, 不占 OS RegisterHotKey — 游戏会 reserve, 切游戏后失效)。
 	// 真正装钩由 calibrationSvc 在校准窗开关时做 (StartHotkeyWatch 读上面的 vkGetter);
 	// 命中 emit 'calibration:toggle' 推进前端状态机。热键中心仍可见 + rebind + 冲突检测。
-	calibHk := strings.TrimSpace(app.Settings().UI.CalibrateHotkey)
-	if calibHk == "" {
-		calibHk = "F8"
-	}
+	calibHk := hotkeyOrDefault(app.Settings().UI.CalibrateHotkey, "F8")
 	if err := hotkeyRegistry.RegisterLLHook("system.calibrate-toggle", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.calibrate_toggle", calibHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", calibHk).Msg("注册 DPI 校准热键失败")
@@ -325,18 +304,12 @@ func main() {
 
 	// 录制热键 (LL-hook 全局拦截, 不占 OS RegisterHotKey — 游戏会 reserve)。
 	// 默认从 settings.UI 读; registry 是编辑权威, rebind 经 onSystemHotkeyChange 写回 settings.UI。
-	recStopHk := strings.TrimSpace(app.Settings().UI.RecordingStopHotkey)
-	if recStopHk == "" {
-		recStopHk = "F12"
-	}
+	recStopHk := hotkeyOrDefault(app.Settings().UI.RecordingStopHotkey, "F12")
 	if err := hotkeyRegistry.RegisterLLHook("recording.stop", hotkey.HotkeySourceRecording,
 		"hotkeys.label.recording.stop", recStopHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recStopHk).Msg("注册停录热键失败")
 	}
-	recPauseHk := strings.TrimSpace(app.Settings().UI.RecordingPauseHotkey)
-	if recPauseHk == "" {
-		recPauseHk = "F11"
-	}
+	recPauseHk := hotkeyOrDefault(app.Settings().UI.RecordingPauseHotkey, "F11")
 	if err := hotkeyRegistry.RegisterLLHook("recording.pause", hotkey.HotkeySourceRecording,
 		"hotkeys.label.recording.pause", recPauseHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recPauseHk).Msg("注册暂停录制热键失败")
@@ -345,10 +318,7 @@ func main() {
 	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。
 	// 值持有者条目 (mechanism=ll-hook, 不持久占 OS) — 进热键中心可见 + 可 rebind + 冲突检测；
 	// 真正注册由 toolsSvc 捕获时临时做 (读下方 ConfigureCaptureHotkeyGetter)。默认 F9。
-	winCapHk := strings.TrimSpace(app.Settings().UI.WindowCaptureHotkey)
-	if winCapHk == "" {
-		winCapHk = "F9"
-	}
+	winCapHk := hotkeyOrDefault(app.Settings().UI.WindowCaptureHotkey, "F9")
 	if err := hotkeyRegistry.RegisterLLHook("tools.window-capture", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.window_capture", winCapHk, ""); err != nil {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
@@ -529,6 +499,26 @@ func stopAllForHotkey(stopAll func() error, log zerolog.Logger) {
 	if err := stopAll(); err != nil {
 		log.Warn().Err(err).Str("tag", "SYSTEM").Msg("全局强停失败")
 	}
+}
+
+func hotkeyOrDefault(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func registryHotkey(registry *hotkey.HotkeyRegistry, key string, fallback uint32) (uint32, uint32) {
+	entry, ok := registry.Get(key)
+	if !ok || entry.HotkeyStr == "" {
+		return 0, fallback
+	}
+	mods, vk, err := hotkey.ParseHotkey(entry.HotkeyStr)
+	if err != nil || vk == 0 {
+		return 0, fallback
+	}
+	return mods, vk
 }
 
 func newWorkflowLogEmitter(log zerolog.Logger) nodes31runtime.LogEmitter {

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/yottaapp/yotta/internal/services/tools"
 )
 
@@ -68,5 +69,39 @@ func TestMainWindowOptionsEnforceEditorMinimumWidth(t *testing.T) {
 	}
 	if options.URL != "/#/workflows" {
 		t.Fatalf("main window URL = %q, want Workflow 3.1 list", options.URL)
+	}
+}
+
+func TestWailsToolsPresenterDelegatesWindowLifecycleBeforeNativeAttach(t *testing.T) {
+	presenter := &wailsToolsPresenter{}
+	app := application.New(application.Options{Name: "test"})
+	presenter.Attach(app)
+	if _, err := presenter.OpenWindow(tools.WindowRequest{Kind: "unknown"}); err == nil {
+		t.Fatal("OpenWindow accepted unknown kind")
+	}
+	created, err := presenter.OpenWindow(tools.WindowRequest{Kind: tools.WindowLauncher})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created == nil {
+		t.Fatal("OpenWindow returned nil")
+	}
+	window := &wailsToolsWindow{window: &application.WebviewWindow{}}
+	window.Focus()
+	window.Show()
+	window.Hide()
+	window.SetAlwaysOnTop(true)
+	window.SetSize(320, 240)
+	window.Close()
+	created.OnClosing(func() {})
+	presenter.Emit("test:event", map[string]any{"ok": true})
+	presenter.Detach()
+	if presenter.Ready() {
+		t.Fatal("detached presenter remained ready")
+	}
+
+	options := mainWindowOptions(1400, 900)
+	if options.Width != 1400 || options.Height != 900 {
+		t.Fatalf("main window options = %+v", options)
 	}
 }

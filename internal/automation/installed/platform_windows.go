@@ -61,11 +61,7 @@ func (d *windowsDriver) ResolveWindow(ctx context.Context) (target.WindowHandle,
 	if err != nil {
 		return target.WindowHandle{}, err
 	}
-	return target.WindowHandle{
-		HWND: window.HWND, Title: window.Title, Class: window.Class,
-		ProcessName: window.ProcessName, PID: window.PID,
-		ClientW: window.ClientW, ClientH: window.ClientH,
-	}, nil
+	return target.WindowHandle(window), nil
 }
 
 func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {

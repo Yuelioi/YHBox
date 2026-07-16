@@ -190,3 +190,47 @@ func TestRecorder_PauseResumeGuards(t *testing.T) {
 		t.Error("重复 Pause 不应覆盖 pauseStartUs")
 	}
 }
+
+func TestRecorderStopReturnsDrainedSnapshotAndClearsActiveState(t *testing.T) {
+	done := make(chan struct{})
+	close(done)
+	drainDone := make(chan struct{})
+	close(drainDone)
+	recorder := &Recorder{
+		active:     true,
+		tempID:     "session",
+		meta:       inputclip.ClipMeta{MouseMode: "relative"},
+		done:       done,
+		rawEvents:  make(chan HookEvent),
+		drainDone:  drainDone,
+		clipEvents: []inputclip.Event{{TUs: 10, Seq: 1}},
+		mouseCounts360Getter: func() int {
+			return 800
+		},
+	}
+	result, err := recorder.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.TempID != "session" || len(result.Events) != 1 || result.Meta.MouseCounts360 != 800 || recorder.Active() {
+		t.Fatalf("result=%+v active=%v", result, recorder.Active())
+	}
+}
+
+func TestRecorderCancelDropsDrainedEvents(t *testing.T) {
+	done := make(chan struct{})
+	close(done)
+	drainDone := make(chan struct{})
+	close(drainDone)
+	recorder := &Recorder{
+		active:     true,
+		done:       done,
+		rawEvents:  make(chan HookEvent),
+		drainDone:  drainDone,
+		clipEvents: []inputclip.Event{{TUs: 10, Seq: 1}},
+	}
+	recorder.Cancel()
+	if recorder.Active() || recorder.clipEvents != nil {
+		t.Fatalf("active=%v events=%+v", recorder.Active(), recorder.clipEvents)
+	}
+}

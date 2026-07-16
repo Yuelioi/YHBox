@@ -131,3 +131,27 @@ func TestWorkflowLogEmitterPreservesLevelAndAttribution(t *testing.T) {
 		t.Fatalf("cancelled workflow log = %v", err)
 	}
 }
+
+func TestHotkeyOrDefaultNormalizesConfiguredValues(t *testing.T) {
+	if got := hotkeyOrDefault("  F10  ", "F12"); got != "F10" {
+		t.Fatalf("configured hotkey = %q", got)
+	}
+	if got := hotkeyOrDefault("  ", "F12"); got != "F12" {
+		t.Fatalf("fallback hotkey = %q", got)
+	}
+}
+
+func TestRegistryHotkeyUsesExactBindingAndFallback(t *testing.T) {
+	registry := hotkey.NewHotkeyRegistry(nil)
+	t.Cleanup(func() { _ = registry.Shutdown(context.Background()) })
+	if mods, vk := registryHotkey(registry, "capture", 0x78); mods != 0 || vk != 0x78 {
+		t.Fatalf("missing hotkey = %#x/%#x", mods, vk)
+	}
+	if err := registry.RegisterLLHook("capture", hotkey.HotkeySourceSystem, "capture", "Ctrl+F10", ""); err != nil {
+		t.Fatal(err)
+	}
+	mods, vk := registryHotkey(registry, "capture", 0x78)
+	if mods == 0 || vk != 0x79 {
+		t.Fatalf("configured hotkey = %#x/%#x", mods, vk)
+	}
+}

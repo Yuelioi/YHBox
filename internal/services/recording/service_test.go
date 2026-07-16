@@ -2,11 +2,13 @@ package recording
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -44,14 +46,18 @@ func (*countingClipSaver) Delete(string) error           { return nil }
 type resultRecorder struct {
 	result    *StopResult
 	cancelled bool
+	hwnd      uintptr
+	meta      inputclip.ClipMeta
+	startErr  error
 }
 
 func (*resultRecorder) SetMouseCounts360Getter(func() int) {}
 func (*resultRecorder) Active() bool                       { return true }
 func (*resultRecorder) Pause()                             {}
 func (*resultRecorder) Resume()                            {}
-func (*resultRecorder) Start(uintptr, inputclip.ClipMeta) (string, error) {
-	return "session", nil
+func (r *resultRecorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) {
+	r.hwnd, r.meta = hwnd, meta
+	return "session", r.startErr
 }
 func (r *resultRecorder) Stop() (*StopResult, error) { return r.result, nil }
 func (r *resultRecorder) Cancel()                    { r.cancelled = true }
@@ -65,6 +71,28 @@ type memoryClipStore struct {
 func (s *memoryClipStore) Save(clip *inputclip.InputClip) error { s.saved = clip; return nil }
 func (s *memoryClipStore) List() []inputclip.ClipSummary        { return s.clips }
 func (s *memoryClipStore) Delete(id string) error               { s.deleted = append(s.deleted, id); return nil }
+
+type recordingTargetResolver struct {
+	window      target.WindowHandle
+	resolveErr  error
+	activateErr error
+	activated   string
+}
+
+func (r *recordingTargetResolver) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
+	return r.window, r.resolveErr
+}
+
+func (r *recordingTargetResolver) Activate(_ context.Context, slot string) error {
+	r.activated = slot
+	return r.activateErr
+}
+
+type recordingHotkeys struct{}
+
+func (recordingHotkeys) GetStopHotkeyVK() uint32  { return 0x78 }
+func (recordingHotkeys) GetPauseHotkeyVK() uint32 { return 0 }
+func (recordingHotkeys) GetMouseMode() string     { return "absolute" }
 
 func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	recorder := &resultRecorder{result: &StopResult{
@@ -108,6 +136,77 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	}
 	if !recorder.cancelled || s.GetState().Phase != PhaseIdle {
 		t.Fatalf("cancelled=%v state=%+v", recorder.cancelled, s.GetState())
+	}
+}
+
+func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
+	recorder := &resultRecorder{}
+	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, targets)
+	id, err := service.Start(StartArgs{TargetSlot: "editor"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "session" || recorder.hwnd != 42 || recorder.meta.MouseMode != "absolute" || recorder.meta.StopHotkeyVK != 0x78 || recorder.meta.BaseResolution != [2]int{1280, 720} {
+		t.Fatalf("id=%q hwnd=%d meta=%+v", id, recorder.hwnd, recorder.meta)
+	}
+	if state := service.GetState(); state.Phase != PhaseRecording || state.TargetSlot != "editor" || state.TempID != "session" {
+		t.Fatalf("recording state = %+v", state)
+	}
+	if err := service.Cancel(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		targets TargetResolver
+		want    string
+	}{
+		{name: "missing resolver", targets: nil, want: "resolver"},
+		{name: "resolution failure", targets: &recordingTargetResolver{resolveErr: errors.New("gone")}, want: "RECORDING_TARGET_UNAVAILABLE"},
+		{name: "empty client", targets: &recordingTargetResolver{window: target.WindowHandle{HWND: 42}}, want: "0x0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			service := NewService(&resultRecorder{}, nil, nil, test.targets)
+			_, err := service.Start(StartArgs{TargetSlot: "editor"})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Start() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestServiceValidateTargetActivatesExactResolvedSlot(t *testing.T) {
+	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42}}
+	service := NewService(&resultRecorder{}, nil, nil, targets)
+	if err := service.ValidateTarget("editor"); err != nil || targets.activated != "editor" {
+		t.Fatalf("ValidateTarget() error=%v activated=%q", err, targets.activated)
+	}
+	targets.activateErr = errors.New("activation denied")
+	if err := service.ValidateTarget("editor"); !errors.Is(err, targets.activateErr) {
+		t.Fatalf("ValidateTarget() error = %v", err)
+	}
+}
+
+func TestServiceFinalizeRejectsInvalidMetadataAndDiscardRemovesPending(t *testing.T) {
+	service := NewService(&resultRecorder{}, nil, &memoryClipStore{}, nil)
+	service.pending["pending"] = pendingRecording{result: &StopResult{TempID: "session"}}
+	for _, args := range []FinalizeArgs{
+		{PendingID: "pending", Label: " "},
+		{PendingID: "pending", Label: strings.Repeat("界", 81)},
+		{PendingID: "missing", Label: "Valid"},
+	} {
+		if _, err := service.Finalize(args); err == nil {
+			t.Fatalf("Finalize(%+v) succeeded", args)
+		}
+	}
+	if err := service.Discard("pending"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.pending["pending"]; ok {
+		t.Fatal("Discard retained pending recording")
 	}
 }
 

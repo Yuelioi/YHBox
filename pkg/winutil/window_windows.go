@@ -13,8 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -367,8 +368,9 @@ func VerifyExecutableWindow(handle uintptr, executable, title, class string) (Wi
 
 func enumExecutableWindows(configured os.FileInfo, title, class string) []WindowHandle {
 	query := &executableWindowQuery{configured: configured, title: title, class: class}
-	procEnumWindows.Call(enumExecutableWindowsCallback, uintptr(unsafe.Pointer(query)))
-	runtime.KeepAlive(query)
+	withExecutableWindowQuery(query, func(state uintptr) {
+		procEnumWindows.Call(enumExecutableWindowsCallback, state)
+	})
 	return query.matches
 }
 
@@ -379,10 +381,31 @@ type executableWindowQuery struct {
 	matches    []WindowHandle
 }
 
+func withExecutableWindowQuery(query *executableWindowQuery, enumerate func(uintptr)) {
+	state := nextExecutableWindowQuery.Add(1)
+	executableWindowQueries.Store(state, query)
+	defer executableWindowQueries.Delete(state)
+	enumerate(state)
+}
+
+var nextExecutableWindowQuery atomic.Uintptr
+var executableWindowQueries sync.Map
+
+func executableWindowQueryFromState(state uintptr) *executableWindowQuery {
+	query, ok := executableWindowQueries.Load(state)
+	if !ok {
+		return nil
+	}
+	return query.(*executableWindowQuery)
+}
+
 // A Windows callback allocation lives for the process lifetime. Reuse one
-// callback and pass per-enumeration state through the synchronous lParam.
+// callback and pass a temporary registry token through the synchronous lParam.
 var enumExecutableWindowsCallback = syscall.NewCallback(func(hwnd win.HWND, state uintptr) uintptr {
-	query := (*executableWindowQuery)(unsafe.Pointer(state))
+	query := executableWindowQueryFromState(state)
+	if query == nil {
+		return 0
+	}
 	if !win.IsWindowVisible(hwnd) {
 		return 1
 	}
