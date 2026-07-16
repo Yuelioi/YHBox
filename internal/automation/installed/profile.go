@@ -27,6 +27,7 @@ type ProfileDraft struct {
 	WindowTitle                string                  `json:"windowTitle"`
 	WindowClass                string                  `json:"windowClass"`
 	InputBackend               string                  `json:"inputBackend"`
+	CaptureBackend             string                  `json:"captureBackend"`
 	ResolveTimeoutMilliseconds int64                   `json:"resolveTimeoutMilliseconds"`
 }
 
@@ -52,6 +53,9 @@ func SealProfile(draft ProfileDraft) (Profile, error) {
 	}
 	if draft.InputBackend != "sendinput" && draft.InputBackend != "postmessage" {
 		return Profile{}, errors.New("automation target input backend is invalid")
+	}
+	if draft.CaptureBackend != "gdi" && draft.CaptureBackend != "wgc" {
+		return Profile{}, errors.New("automation target capture backend is invalid")
 	}
 	if draft.ResolveTimeoutMilliseconds < 100 || draft.ResolveTimeoutMilliseconds > MaxResolveTimeoutMilliseconds {
 		return Profile{}, errors.New("automation target resolve timeout is invalid")

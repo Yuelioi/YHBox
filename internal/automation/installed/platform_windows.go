@@ -3,11 +3,14 @@
 package installed
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image/png"
 	"math"
 	"time"
 
+	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
@@ -15,6 +18,7 @@ import (
 type windowsDriver struct {
 	profile Profile
 	backend pkginput.Backend
+	capture pkgcapture.IBackend
 	gate    chan struct{}
 	cached  uintptr
 	closed  bool
@@ -27,9 +31,50 @@ func newPlatformDriver(profile Profile) (driver, error) {
 	if err != nil {
 		return nil, failure(CodeUnsupportedHost, err)
 	}
+	captureBackend, warning, err := pkgcapture.NewIBackend(profile.Machine().CaptureBackend)
+	if err != nil {
+		_ = backend.Close()
+		return nil, failure(CodeUnsupportedHost, err)
+	}
+	if warning != "" {
+		_ = captureBackend.Close()
+		_ = backend.Close()
+		return nil, failure(CodeUnsupportedHost, errors.New(warning))
+	}
 	gate := make(chan struct{}, 1)
 	gate <- struct{}{}
-	return &windowsDriver{profile: profile, backend: backend, gate: gate}, nil
+	return &windowsDriver{profile: profile, backend: backend, capture: captureBackend, gate: gate}, nil
+}
+
+func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.capture == nil {
+		return nil, failure(CodeContractViolation, errors.New("automation capture driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	frame, err := d.capture.Frame(pkgcapture.Handle(window.HWND))
+	if err != nil {
+		return nil, failure(CodeCaptureFailed, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, frame); err != nil {
+		return nil, failure(CodeCaptureFailed, err)
+	}
+	if int64(encoded.Len()) > MaxCaptureBytes {
+		return nil, failure(CodeCaptureFailed, errors.New("captured PNG exceeds byte budget"))
+	}
+	return encoded.Bytes(), nil
 }
 
 func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) (runErr error) {
@@ -198,8 +243,9 @@ func (d *windowsDriver) Close() error {
 		return nil
 	}
 	d.closed = true
-	err := errors.Join(d.backend.ReleaseAll(), d.backend.Close())
+	err := errors.Join(d.backend.ReleaseAll(), d.backend.Close(), d.capture.Close())
 	d.backend = nil
+	d.capture = nil
 	return err
 }
 

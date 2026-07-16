@@ -179,5 +179,5 @@ func mapAutomationFailure(err error) error {
 }
 
 func automationFailure(code string, cause error) error {
-	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("automation input: %w", cause)}
+	return &compiler.NodeFailure{Code: code, Output: "failed", Cause: fmt.Errorf("automation: %w", cause)}
 }

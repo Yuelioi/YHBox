@@ -21,7 +21,7 @@ func testProfile(t *testing.T) (Profile, string) {
 	}
 	profile, err := SealProfile(ProfileDraft{
 		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
-		WindowTitle: "Editor", WindowClass: "ExampleWindow", InputBackend: "postmessage", ResolveTimeoutMilliseconds: 250,
+		WindowTitle: "Editor", WindowClass: "ExampleWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 250,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +49,7 @@ func TestProfileRejectsAmbientOrBroadTargetConfiguration(t *testing.T) {
 	for _, mutate := range []func(*ProfileDraft){
 		func(draft *ProfileDraft) { draft.Application.Arguments = []string{"--workflow-controlled"} },
 		func(draft *ProfileDraft) { draft.InputBackend = "auto" },
+		func(draft *ProfileDraft) { draft.CaptureBackend = "auto" },
 		func(draft *ProfileDraft) { draft.WindowTitle = " padded " },
 		func(draft *ProfileDraft) { draft.ResolveTimeoutMilliseconds = MaxResolveTimeoutMilliseconds + 1 },
 	} {

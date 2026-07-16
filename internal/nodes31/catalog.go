@@ -65,6 +65,7 @@ type Builtins struct {
 	Catalog                      nodecatalog.Snapshot
 	StringType                   datatype.Definition
 	BinaryType                   datatype.Definition
+	ImageType                    datatype.Definition
 	NumberType                   datatype.Definition
 	IntegerType                  datatype.Definition
 	BooleanType                  datatype.Definition
@@ -92,6 +93,7 @@ type Builtins struct {
 	TerminateApplicationContract nodecontract.Contract
 	AutomationInputContracts     []nodecontract.Contract
 	ActivateWindowContract       nodecontract.Contract
+	CaptureWindowContract        nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -115,6 +117,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	binaryType, err := sealBinaryType()
+	if err != nil {
+		return Builtins{}, err
+	}
+	imageType, err := sealImageType()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -190,11 +196,19 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationCapture, err := sealAutomationCaptureCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
 	configValidators, err := sealBuiltinConfigValidators()
 	if err != nil {
 		return Builtins{}, err
 	}
 	activateWindowDefinition, activateWindowContract, err := defineActivateWindowNode(automationWindow)
+	if err != nil {
+		return Builtins{}, err
+	}
+	captureWindowDefinition, captureWindowContract, err := defineCaptureWindowNode(imageType.TypeRef(), automationCapture, blobWrite)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -310,6 +324,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, applicationDefinitions...)
 	definitions = append(definitions, automationInputDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
+	definitions = append(definitions, captureWindowDefinition)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -323,14 +338,14 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow}
+	types := []datatype.Definition{stringType, binaryType, imageType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow, automationCapture}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
 	}
 	return Builtins{
-		Catalog: catalog, StringType: stringType, BinaryType: binaryType, NumberType: numberType,
+		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
@@ -345,6 +360,7 @@ func Build() (Builtins, error) {
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
 		AutomationInputContracts: automationInputContracts,
 		ActivateWindowContract:   activateWindowContract,
+		CaptureWindowContract:    captureWindowContract,
 		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil

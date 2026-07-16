@@ -318,7 +318,7 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 	}
 	profileDraft := automationinstalled.ProfileDraft{
 		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
-		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", ResolveTimeoutMilliseconds: 500,
+		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}
 	withoutConsent, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: "editor-input", Profile: profileDraft}})
 	if err != nil {
@@ -365,6 +365,11 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
 	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
 		t.Fatalf("consented window decision = %#v, %v", decision, err)
+	}
+	binding.ResourceKind = automationinstalled.KindCapture
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
+		t.Fatalf("consented capture decision = %#v, %v", decision, err)
 	}
 	binding.TargetKind = appcontrol.TargetKind
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})

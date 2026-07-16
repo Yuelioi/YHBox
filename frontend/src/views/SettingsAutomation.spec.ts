@@ -9,6 +9,8 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('applicationSlot')
     expect(source).toContain('backend.automation.grantWorkflowConsent')
     expect(source).toContain('backend.automation.revokeWorkflowConsent')
+    expect(source).toContain('captureBackend')
+    expect(source).toContain("captureBackend: 'gdi'")
     expect(source).toContain('<SettingsRestartBadge')
     expect(source).not.toMatch(/\b(?:HWND|processId|executable)\b/)
   })

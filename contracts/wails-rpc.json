@@ -4646,6 +4646,11 @@
               "type": "string"
             },
             {
+              "name": "\"captureBackend\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"resolveTimeoutMilliseconds\"",
               "optional": false,
               "type": "number"

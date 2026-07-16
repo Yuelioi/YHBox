@@ -5,12 +5,23 @@ import (
 	"context"
 	imagepkg "image"
 	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/node"
 )
+
+func tinyPNG(t *testing.T) []byte {
+	t.Helper()
+	img := imagepkg.NewRGBA(imagepkg.Rect(0, 0, 2, 2))
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
 
 func runLoadImage(t *testing.T, path string) node.RunResult {
 	t.Helper()

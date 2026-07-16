@@ -71,6 +71,9 @@
                 <UBadge size="xs" color="neutral" variant="subtle">
                   {{ t(`settingsAutomation.backend.${target.inputBackend}`) }}
                 </UBadge>
+                <UBadge size="xs" color="neutral" variant="subtle">
+                  {{ t(`settingsAutomation.captureBackend.${target.captureBackend}`) }}
+                </UBadge>
               </span>
               <span class="mt-1 block truncate text-xs text-dimmed">
                 {{ applicationLabel(target.applicationSlot) }} · <code>{{ target.slot }}</code>
@@ -121,6 +124,18 @@
                   :items="backendItems"
                   size="sm"
                   @update:model-value="(value: InputBackend) => setBackend(index, value)"
+                />
+              </UFormField>
+              <UFormField
+                :label="t('settingsAutomation.targets.capture_backend_label')"
+                :hint="t('settingsAutomation.targets.capture_backend_hint')"
+                required
+              >
+                <USelect
+                  :model-value="target.captureBackend"
+                  :items="captureBackendItems"
+                  size="sm"
+                  @update:model-value="(value: CaptureBackend) => setCaptureBackend(index, value)"
                 />
               </UFormField>
             </div>
@@ -260,6 +275,7 @@ import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 
 type InputBackend = InstalledAutomationTargetProfile['inputBackend']
+type CaptureBackend = InstalledAutomationTargetProfile['captureBackend']
 interface AutomationTargetDraft extends InstalledAutomationTargetProfile {
   persisted: boolean
 }
@@ -278,6 +294,10 @@ const applicationItems = computed(() =>
 const backendItems = computed(() => [
   { label: t('settingsAutomation.backend.sendinput'), value: 'sendinput' },
   { label: t('settingsAutomation.backend.postmessage'), value: 'postmessage' },
+])
+const captureBackendItems = computed(() => [
+  { label: t('settingsAutomation.captureBackend.gdi'), value: 'gdi' },
+  { label: t('settingsAutomation.captureBackend.wgc'), value: 'wgc' },
 ])
 
 watch(
@@ -312,7 +332,7 @@ function uniqueLabel(base: string): string {
 async function addTarget() {
   const application = applications.value[0]
   if (!application) return
-  const slot = uniqueSlot(`${application.slot}-input`)
+  const slot = uniqueSlot(`${application.slot}-window`)
   draft.value.push({
     slot,
     label: uniqueLabel(t('settingsAutomation.targets.new_label', { name: application.label })),
@@ -320,6 +340,7 @@ async function addTarget() {
     windowTitle: '',
     windowClass: '',
     inputBackend: 'sendinput',
+    captureBackend: 'gdi',
     resolveTimeoutMilliseconds: 3000,
     persisted: false,
   })
@@ -334,6 +355,7 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
     windowTitle: target.windowTitle,
     windowClass: target.windowClass,
     inputBackend: target.inputBackend,
+    captureBackend: target.captureBackend,
     resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
     ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
   }
@@ -355,6 +377,10 @@ async function setApplication(index: number, value: string) {
 }
 async function setBackend(index: number, value: InputBackend) {
   draft.value[index]!.inputBackend = value
+  await commit()
+}
+async function setCaptureBackend(index: number, value: CaptureBackend) {
+  draft.value[index]!.captureBackend = value
   await commit()
 }
 async function grant(target: AutomationTargetDraft) {

@@ -15,11 +15,15 @@ type fakeDriver struct {
 	request   any
 	err       error
 	closed    int
+	capture   []byte
 }
 
 func (driver *fakeDriver) Execute(_ context.Context, operation string, request any) error {
 	driver.operation, driver.request = operation, request
 	return driver.err
+}
+func (driver *fakeDriver) Capture(_ context.Context) ([]byte, error) {
+	return append([]byte(nil), driver.capture...), driver.err
 }
 func (driver *fakeDriver) Close() error { driver.closed++; return driver.err }
 
@@ -38,6 +42,17 @@ func openWindowSession(t *testing.T, provider *provider, operation string) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
 		Kind: KindWindow, Operations: []string{operation}, CapabilityScope: []byte(`{"operation":"` + operation + `"}`), Config: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
+func openCaptureSession(t *testing.T, provider *provider) any {
+	t.Helper()
+	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindCapture, Operations: CaptureOperations(), CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -103,10 +118,39 @@ func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
 	for _, request := range []resource.ProviderOpenRequest{
 		{Kind: KindInput, Operations: []string{OperationActivate}, CapabilityScope: []byte(`{"operation":"activate"}`), Config: []byte(`{}`)},
 		{Kind: KindWindow, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`)},
+		{Kind: KindCapture, Operations: []string{OperationCapture}, CapabilityScope: []byte(`{"operation":"capture"}`), Config: []byte(`{}`)},
 	} {
 		if _, err := provider.Open(context.Background(), request); err == nil {
 			t.Fatalf("provider accepted cross-capability request %#v", request)
 		}
+	}
+}
+
+func TestProviderCaptureIsBoundedAndRequiresCaptureBeforeRead(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{capture: []byte("png-bytes")}
+	provider := &provider{profile: profile, driver: driver}
+	object := openCaptureSession(t, provider)
+	if _, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":0,"length":1}`)); err == nil {
+		t.Fatal("capture session allowed read before capture")
+	}
+	raw, err := provider.Invoke(context.Background(), object, OperationCapture, []byte(`{}`))
+	response, decodeErr := OpenCaptureResponse(raw)
+	if err != nil || decodeErr != nil || response.Size != 9 || response.MediaType != "image/png" {
+		t.Fatalf("capture response=%s decoded=%#v error=%v decode=%v", raw, response, err, decodeErr)
+	}
+	chunk, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":4,"length":5}`))
+	if err != nil || string(chunk) != "bytes" {
+		t.Fatalf("read capture=%q error=%v", chunk, err)
+	}
+	if _, err := provider.Invoke(context.Background(), object, OperationReadCapture, []byte(`{"offset":0,"length":65537}`)); err == nil {
+		t.Fatal("capture session accepted oversized range")
+	}
+	if err := provider.Close(context.Background(), object); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Invoke(context.Background(), object, OperationCapture, []byte(`{}`)); err == nil {
+		t.Fatal("closed capture session accepted capture")
 	}
 }
 

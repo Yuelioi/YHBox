@@ -25,7 +25,7 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 	}
 	target := InstalledAutomationTargetSettings{
 		Slot: "editor-input", Label: "Editor input", ApplicationSlot: application.Slot,
-		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", ResolveTimeoutMilliseconds: 500,
+		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}
 	if _, _, err := app.MutateSettings(func(settings *Settings) error {
 		settings.Applications.Profiles = []InstalledApplicationSettings{application}
@@ -44,7 +44,7 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
 	}
 	settingsService := NewSettingsService(app, nil)
-	if err := settingsService.Update(`{"automation":{"win32Targets":[{"slot":"editor-input","label":"Editor input","applicationSlot":"editor","windowTitle":"Editor","windowClass":"EditorWindowV2","inputBackend":"postmessage","resolveTimeoutMilliseconds":500,"workflowConsent":"` + consent + `"}]}}`); err != nil {
+	if err := settingsService.Update(`{"automation":{"win32Targets":[{"slot":"editor-input","label":"Editor input","applicationSlot":"editor","windowTitle":"Editor","windowClass":"EditorWindowV2","inputBackend":"postmessage","captureBackend":"gdi","resolveTimeoutMilliseconds":500,"workflowConsent":"` + consent + `"}]}}`); err != nil {
 		t.Fatal(err)
 	}
 	if app.Settings().Automation.Win32Targets[0].WorkflowConsent != "" {
@@ -59,7 +59,7 @@ func TestSettingsRejectAutomationTargetWithUnknownApplicationOrSharedSlot(t *tes
 	settings := defaultSettings()
 	settings.Automation.Win32Targets = []InstalledAutomationTargetSettings{{
 		Slot: "input", Label: "Input", ApplicationSlot: "missing", WindowTitle: "Editor",
-		InputBackend: "sendinput", ResolveTimeoutMilliseconds: 500,
+		InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}}
 	if err := settings.Validate(); err == nil {
 		t.Fatal("accepted automation target with unknown installed application")

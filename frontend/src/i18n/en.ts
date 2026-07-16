@@ -901,6 +901,12 @@ export default {
         description: 'Binary content represented by a durable blob or a leased runtime stream.',
       },
     },
+    media: {
+      image: {
+        title: 'Image',
+        description: 'Encoded image content represented only by a durable BlobRef.',
+      },
+    },
     geometry: {
       point_unit: { title: 'Coordinate unit', description: 'A ratio or pixel coordinate unit.' },
       point: {
@@ -1133,6 +1139,11 @@ export default {
         title: 'Activate window',
         description:
           'Reverify the installed application and unique window identity, then bring it to the foreground. Failure routes through Failed.',
+      },
+      captureWindow: {
+        title: 'Capture window',
+        description:
+          'Reverify the exact installed window, capture it as PNG through the configured backend, and commit a durable Image BlobRef.',
       },
     },
     observability: {
@@ -4794,11 +4805,11 @@ export default {
   settingsAutomation: {
     security: {
       title: 'Window automation controls real windows, keyboard, and pointer',
-      hint: 'Every target is pinned to an installed executable digest and exact window selector. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or input backend. Failed activation fails the node, and all held input is released on cancellation or failure.',
+      hint: 'Every target is pinned to an installed executable digest, exact window selector, input backend, and capture backend. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or backend. Activation or capture failure fails the node, and all held input is released on cancellation or failure.',
     },
     targets: {
       title: 'Installed window targets',
-      hint: 'Provide one fixed target for activation, click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
+      hint: 'Provide one fixed target for activation, capture, click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
       add: 'Install window target',
       workflow_allowed: 'Workflow allowed',
       consent_required: 'Consent required',
@@ -4811,6 +4822,9 @@ export default {
       backend_label: 'Fixed input backend',
       backend_hint:
         'SendInput foregrounds the target. PostMessage posts only to the exact window queue. Runtime never switches automatically.',
+      capture_backend_label: 'Fixed capture backend',
+      capture_backend_hint:
+        'GDI and Windows Graphics Capture are explicit contracts. An unavailable backend fails installation; runtime never falls back.',
       window_title_label: 'Exact window title (optional)',
       window_title_hint:
         'Case-sensitive full match. Contains, regex, and wildcard matching are not supported.',
@@ -4822,20 +4836,24 @@ export default {
       delete: 'Delete target',
       empty: 'No window targets installed',
       empty_hint:
-        'Install a target before 3.1 input nodes can pass admission. Installation does not grant workflow use automatically.',
+        'Install a target before 3.1 window automation nodes can pass admission. Installation does not grant workflow use automatically.',
       no_applications: 'Install a desktop application first',
       no_applications_hint:
         'A window target must reference a content-verified .exe from the Applications page.',
-      new_label: '{name} input',
+      new_label: '{name} window',
     },
     backend: {
       sendinput: 'SendInput · foreground system input',
       postmessage: 'PostMessage · exact window messages',
     },
+    captureBackend: {
+      gdi: 'GDI · exact window pixels',
+      wgc: 'WGC · Windows Graphics Capture',
+    },
     consent: {
-      title: 'Workflow input consent',
-      hint: 'Consent covers all atomic input operations for this target and matches its slot, executable digest, window selector, backend, and timeout. Any edit revokes it. Restart to install the new snapshot.',
-      grant: 'Allow input control',
+      title: 'Workflow window automation consent',
+      hint: 'Consent covers activation, capture, and atomic input operations for this target and matches its slot, executable digest, window selector, both backends, and timeout. Any edit revokes it. Restart to install the new snapshot.',
+      grant: 'Allow window automation',
       revoke: 'Revoke consent',
     },
     confirm: {

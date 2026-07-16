@@ -296,6 +296,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
+	automationCapture, err := lookup(nodes31.AutomationCaptureCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
 		Features: scriptRuntime.HostFeatures(),
@@ -373,6 +377,7 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 				Capabilities: []admission.ProviderCapability{
 					{Capability: automationInput, ResourceKind: automationinstalled.KindInput},
 					{Capability: automationWindow, ResourceKind: automationinstalled.KindWindow},
+					{Capability: automationCapture, ResourceKind: automationinstalled.KindCapture},
 				},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}

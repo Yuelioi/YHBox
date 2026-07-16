@@ -885,6 +885,9 @@ export default {
         description: '可表示为持久 Blob 或带租约的运行时流的二进制内容。',
       },
     },
+    media: {
+      image: { title: '图像', description: '仅以持久 BlobRef 表示的编码图像内容。' },
+    },
     geometry: {
       point_unit: { title: '坐标单位', description: '比例或像素坐标单位。' },
       point: { title: '点', description: '带显式单位的二维点。' },
@@ -1080,6 +1083,10 @@ export default {
       activateWindow: {
         title: '激活窗口',
         description: '重新验证安装应用与唯一窗口身份，然后把该窗口置于前台；失败会走「失败」出口。',
+      },
+      captureWindow: {
+        title: '截取窗口',
+        description: '重新验证精确安装窗口，通过配置的后端截取 PNG，并提交持久 Image BlobRef。',
       },
     },
     observability: {
@@ -4593,11 +4600,11 @@ export default {
   settingsAutomation: {
     security: {
       title: '窗口自动化会控制真实窗口、键盘和鼠标',
-      hint: '每个目标必须绑定已安装应用的可执行文件摘要和精确窗口选择器。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或输入后端；窗口激活失败会中止该节点，取消或失败时会释放所有按键。',
+      hint: '每个目标必须绑定已安装应用的可执行文件摘要、精确窗口选择器、输入后端和截图后端。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或后端；窗口激活或截图失败会中止节点，取消或失败时会释放所有按键。',
     },
     targets: {
       title: '已安装窗口目标',
-      hint: '为窗口激活、点击、移动、滚动、拖拽、按键和输入文本节点提供一个固定目标。多个窗口同时匹配时执行会失败，不会按 Z 序猜测。',
+      hint: '为窗口激活、截图、点击、移动、滚动、拖拽、按键和输入文本节点提供一个固定目标。多个窗口同时匹配时执行会失败，不会按 Z 序猜测。',
       add: '安装窗口目标',
       workflow_allowed: '已允许工作流',
       consent_required: '需要授权',
@@ -4609,6 +4616,9 @@ export default {
       backend_label: '固定输入后端',
       backend_hint:
         'SendInput 会置前目标窗口；PostMessage 只向精确窗口消息队列投递。运行时不会自动切换。',
+      capture_backend_label: '固定截图后端',
+      capture_backend_hint:
+        'GDI 与 Windows Graphics Capture 是显式契约。后端不可用时安装失败，运行时绝不降级。',
       window_title_label: '精确窗口标题（可选）',
       window_title_hint: '区分大小写的完整匹配，不支持包含、正则或通配符。',
       window_class_label: '精确窗口类（可选）',
@@ -4617,19 +4627,23 @@ export default {
       timeout_hint: '等待唯一匹配窗口出现的硬上限，范围 100–10000。',
       delete: '删除目标',
       empty: '尚未安装窗口目标',
-      empty_hint: '安装目标后，3.1 输入节点才能通过准入；安装不会自动授权工作流。',
+      empty_hint: '安装目标后，3.1 窗口自动化节点才能通过准入；安装不会自动授权工作流。',
       no_applications: '请先安装桌面应用',
       no_applications_hint: '窗口目标必须引用应用页中经过内容摘要校验的 .exe。',
-      new_label: '{name} 输入',
+      new_label: '{name} 窗口',
     },
     backend: {
       sendinput: 'SendInput · 前台系统输入',
       postmessage: 'PostMessage · 精确窗口消息',
     },
+    captureBackend: {
+      gdi: 'GDI · 精确窗口像素',
+      wgc: 'WGC · Windows 图形捕获',
+    },
     consent: {
-      title: '工作流输入授权',
-      hint: '授权覆盖当前目标的全部原子输入操作，并只匹配槽位、可执行摘要、窗口选择器、后端和超时。任意修改都会立即撤销；重启后安装新快照。',
-      grant: '允许输入控制',
+      title: '工作流窗口自动化授权',
+      hint: '授权覆盖当前目标的激活、截图与全部原子输入操作，并只匹配槽位、可执行摘要、窗口选择器、两个后端和超时。任意修改都会立即撤销；重启后安装新快照。',
+      grant: '允许窗口自动化',
       revoke: '撤销授权',
     },
     confirm: {

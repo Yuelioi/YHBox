@@ -323,6 +323,7 @@ export interface InstalledAutomationTargetProfile {
   windowTitle: string
   windowClass: string
   inputBackend: 'sendinput' | 'postmessage'
+  captureBackend: 'gdi' | 'wgc'
   resolveTimeoutMilliseconds: number
   workflowConsent?: string
 }

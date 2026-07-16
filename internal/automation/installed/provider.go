@@ -22,6 +22,7 @@ const (
 	TargetKind  = target.KindWin32Window
 	KindInput   = "automation/input-session"
 	KindWindow  = "automation/window-session"
+	KindCapture = "automation/capture-session"
 
 	OperationClick        = "click"
 	OperationMove         = "move"
@@ -31,6 +32,8 @@ const (
 	OperationPressKeys    = "press-keys"
 	OperationTypeText     = "type-text"
 	OperationActivate     = "activate"
+	OperationCapture      = "capture"
+	OperationReadCapture  = "read-capture"
 
 	CodeInvalidRequest    = "automation.invalid_request"
 	CodeIdentityChanged   = "automation.identity_changed"
@@ -38,11 +41,14 @@ const (
 	CodeTargetAmbiguous   = "automation.target_ambiguous"
 	CodeInputFailed       = "automation.input_failed"
 	CodeWindowFailed      = "automation.window_failed"
+	CodeCaptureFailed     = "automation.capture_failed"
 	CodeUnsupportedHost   = "automation.unsupported_host"
 	CodeContractViolation = "automation.contract_violation"
 
 	providerImplementation = "exact-installed-window-automation/v1"
 	MaxInputDurationMs     = int64(60_000)
+	MaxCaptureBytes        = int64(64 << 20)
+	MaxCaptureChunkBytes   = int64(64 << 10)
 )
 
 var inputOperations = []string{
@@ -50,10 +56,15 @@ var inputOperations = []string{
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
 var windowOperations = []string{OperationActivate}
+var captureOperations = []string{OperationCapture, OperationReadCapture}
 
-func InputOperations() []string  { return append([]string(nil), inputOperations...) }
-func WindowOperations() []string { return append([]string(nil), windowOperations...) }
-func Operations() []string       { return append(InputOperations(), windowOperations...) }
+func InputOperations() []string   { return append([]string(nil), inputOperations...) }
+func WindowOperations() []string  { return append([]string(nil), windowOperations...) }
+func CaptureOperations() []string { return append([]string(nil), captureOperations...) }
+func Operations() []string {
+	operations := append(InputOperations(), windowOperations...)
+	return append(operations, captureOperations...)
+}
 
 func validSessionOperation(kind, operation string) bool {
 	switch kind {
@@ -126,9 +137,18 @@ type PressKeysRequest struct {
 type TypeTextRequest struct {
 	Text string `json:"text"`
 }
+type CaptureResponse struct {
+	MediaType string `json:"mediaType"`
+	Size      int64  `json:"size"`
+}
+type CaptureRangeRequest struct {
+	Offset int64 `json:"offset"`
+	Length int64 `json:"length"`
+}
 
 type driver interface {
 	Execute(context.Context, string, any) error
+	Capture(context.Context) ([]byte, error)
 	Close() error
 }
 
@@ -143,6 +163,11 @@ type session struct {
 	operation string
 	closed    bool
 }
+type captureSession struct {
+	mu     sync.Mutex
+	data   []byte
+	closed bool
+}
 
 func newProvider(profile Profile) (*provider, error) {
 	if !profile.Valid() {
@@ -156,12 +181,25 @@ func newProvider(profile Profile) (*provider, error) {
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.CredentialBindingID != "" || len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
+	if request.CredentialBindingID != "" {
 		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
 	var config map[string]any
 	if err := decodeExact(request.Config, &config, 1024); err != nil || len(config) != 0 {
 		return nil, failure(CodeContractViolation, errors.New("automation session config must be empty"))
+	}
+	if request.Kind == KindCapture {
+		if !slices.Equal(request.Operations, captureOperations) {
+			return nil, failure(CodeContractViolation, errors.New("capture session requires exact operations"))
+		}
+		var scope CapabilityScope
+		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != OperationCapture {
+			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
+		}
+		return &captureSession{}, nil
+	}
+	if len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
+		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
 	var scope CapabilityScope
 	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
@@ -173,7 +211,11 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
 	opened, ok := object.(*session)
 	if !ok {
-		return nil, failure(CodeContractViolation, errors.New("automation object has the wrong type"))
+		capture, captureOK := object.(*captureSession)
+		if !captureOK {
+			return nil, failure(CodeContractViolation, errors.New("automation object has the wrong type"))
+		}
+		return p.invokeCapture(ctx, capture, operation, payload)
 	}
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
@@ -204,10 +246,68 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	return artifact.Marshal(struct{}{})
 }
 
+func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, operation string, payload []byte) ([]byte, error) {
+	opened.mu.Lock()
+	defer opened.mu.Unlock()
+	if opened.closed {
+		return nil, failure(CodeContractViolation, errors.New("automation capture session is closed"))
+	}
+	switch operation {
+	case OperationCapture:
+		if err := VerifyProfile(p.profile); err != nil {
+			return nil, failure(CodeIdentityChanged, err)
+		}
+		var request struct{}
+		if err := decodeExact(payload, &request, 32); err != nil {
+			return nil, failure(CodeInvalidRequest, err)
+		}
+		data, err := p.driver.Capture(ctx)
+		if err != nil {
+			return nil, classifyCaptureFailure(err)
+		}
+		if len(data) == 0 || int64(len(data)) > MaxCaptureBytes {
+			return nil, failure(CodeCaptureFailed, errors.New("capture result exceeds byte budget"))
+		}
+		opened.data = append(opened.data[:0], data...)
+		return artifact.Marshal(CaptureResponse{MediaType: "image/png", Size: int64(len(opened.data))})
+	case OperationReadCapture:
+		if opened.data == nil {
+			return nil, failure(CodeContractViolation, errors.New("capture must complete before reading"))
+		}
+		var request CaptureRangeRequest
+		if err := decodeExact(payload, &request, 1024); err != nil || request.Offset < 0 || request.Length <= 0 || request.Length > MaxCaptureChunkBytes || request.Offset > int64(len(opened.data)) || request.Length > int64(len(opened.data))-request.Offset {
+			return nil, failure(CodeInvalidRequest, errors.New("capture range is invalid"))
+		}
+		return append([]byte(nil), opened.data[request.Offset:request.Offset+request.Length]...), nil
+	default:
+		return nil, failure(CodeContractViolation, errors.New("capture operation is not granted"))
+	}
+}
+
+func classifyCaptureFailure(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	var classified *Failure
+	if errors.As(err, &classified) {
+		return err
+	}
+	return failure(CodeCaptureFailed, err)
+}
+
 func (p *provider) Close(_ context.Context, object any) error {
 	opened, ok := object.(*session)
 	if !ok {
-		return failure(CodeContractViolation, errors.New("automation object has the wrong type"))
+		capture, captureOK := object.(*captureSession)
+		if !captureOK {
+			return failure(CodeContractViolation, errors.New("automation object has the wrong type"))
+		}
+		capture.mu.Lock()
+		clear(capture.data)
+		capture.data = nil
+		capture.closed = true
+		capture.mu.Unlock()
+		return nil
 	}
 	opened.mu.Lock()
 	opened.closed = true
@@ -241,6 +341,18 @@ func OpenEffectResponse(raw []byte) error {
 		return failure(CodeContractViolation, errors.New("automation response is not canonical"))
 	}
 	return nil
+}
+
+func OpenCaptureResponse(raw []byte) (CaptureResponse, error) {
+	var response CaptureResponse
+	if err := decodeExact(raw, &response, 1024); err != nil || response.MediaType != "image/png" || response.Size <= 0 || response.Size > MaxCaptureBytes {
+		return CaptureResponse{}, failure(CodeContractViolation, errors.New("invalid capture response"))
+	}
+	canonical, err := artifact.Marshal(response)
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return CaptureResponse{}, failure(CodeContractViolation, errors.New("capture response is not canonical"))
+	}
+	return response, nil
 }
 
 func decodeOperationRequest(operation string, raw []byte) (any, error) {
