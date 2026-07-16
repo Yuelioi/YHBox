@@ -1,6 +1,6 @@
 ---
 kind: note
-summary: "Codex 在本仓库的长期工作规范 — 源码优先、根因优先、验证优先、Git 边界"
+summary: "Codex 在本仓库的长期工作规范 — 源码优先、根因优先、阶段验收、Git 边界"
 activation: action
 read_when: "每次开始任务 / 写方案 / 修 bug / 准备提交或切分支前"
 recheck_when: "用户调整协作方式 / Flightdeck 流程变化 / Git 习惯变化 / 构建验证入口变化时"
@@ -21,6 +21,13 @@ recheck_when: "用户调整协作方式 / Flightdeck 流程变化 / Git 习惯�
 - 同一错误信号连续拒绝多个修复时，停止堆补丁，改用最小失败复现或 bisection 找第一个失败点。
 - 构建、测试、类型检查只信工具退出码；IDE 诊断、缓存面板、截断/串扰的工具输出只能当线索。
 - 注释只写不明显的 WHY；不要为显而易见的内部实现写旁白。导出 API 的文档注释按代码规范处理。
+
+## 验收节奏
+
+- 大型计划先把相邻 Slices 编入一个可交付阶段；Slice 是实现/提交边界，不是重复跑全仓门禁的验收边界。
+- Slice 内只运行能支撑继续开发的最小定向 test、compile、static check；不为每个小任务重复执行 `task check`、跨平台矩阵、生产 build 或真实 GUI smoke。
+- 阶段内各 Slice 可以独立本地 commit，便于 review/rollback；只有阶段全部实现后才统一运行 `task check`、必要的 cross-platform build、真机/WebView/plugin smoke，并报告批量验收。
+- 定向检查通过只能说明当前改动具备继续集成的条件，不得写成阶段已验收；阶段门禁失败时按根因归属回到对应 Slice 修复。
 
 ## Git 边界
 

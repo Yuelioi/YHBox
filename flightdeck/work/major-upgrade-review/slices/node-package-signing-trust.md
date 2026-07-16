@@ -1,6 +1,6 @@
 # Node Package 签名与 publisher trust
 
-Status: current
+Status: completed (ab57d572)
 
 ## Outcome
 
@@ -17,11 +17,15 @@ Node Package Store 只接受可验证的签名 envelope 和明确的 publisher/n
 
 ## Blocked by
 
-无。restore-go-quality-gate 已由 27e01b17 完成。
+无。
 
 ## Verification
 
-现有 node-package manifest、archive verifier 与 immutable local lifecycle 已完成；签名、publisher namespace authority、revocation/quarantine 尚未实施。当前先审计 package identity、Store publish/open/update 与 registry authority seam，再冻结 trust artifact 和 fail-closed reopen contract。
+ab57d572 增加 canonical TrustPolicy 与 Ed25519 SignatureEnvelope；preimage 绑定 algorithm、publisher key ID、exact namespace、package ID 与 manifest digest。CreateStore 显式建立本地 trust root，后续 policy 必须 revision+previousDigest 单调扩展且不能移除/重分配既有 publisher authority。
+
+registry v2 在同一 canonical commit 中持有 trust policy、signature evidence、revocation/quarantine 和 generation pointers。Store 只安装 signed archive；未知/撤销 key、namespace mismatch、manifest revoke/quarantine、policy rollback 与受阻 generation enable/rollback/reopen 全部 fail closed。
+
+定向 Go test/vet/staticcheck/race、Windows/Linux/macOS core compile 与 internal/nodepackage 75.1% coverage 均通过。全量门禁属于扩展平台阶段末批量验收，不作为本 Slice 独立 acceptance gate。
 
 ## Out of scope
 
@@ -32,4 +36,4 @@ Node Package Store 只接受可验证的签名 envelope 和明确的 publisher/n
 
 ## Result
 
-Current。先完成 substrate/threat audit 与阶段 plan，再实现独立 signing/trust deep module 和 Store admission integration。
+Completed in ab57d572。Store admission 已从 local exact digest approval 切到 verified publisher signature + exact namespace authority；trust update 和 package authority 共享 registry-last commit。
