@@ -20,8 +20,8 @@
 | ai-native-design-disposition | completed (b25a0c6c) | restore-go-quality-gate | 对照代码处置 AI-native 完成定义，只为真实剩余 outcome 创建 Slices。 |
 | ai-prompt-tool-provenance | completed (b674664c) | ai-native-design-disposition | 版本化 Prompt/Tool artifacts，并禁止不可信值进入 system/developer。 |
 | ai-agent-budget-runtime | completed (d22b5bd5) | ai-prompt-tool-provenance | 建立受 ToolSet、approval 与多维预算约束的 Agent tool loop。 |
-| ai-eval-upgrade-gate | current | ai-prompt-tool-provenance | 以离线 corpus、确定性 grader 和阈值 gate 管理模型/prompt/tool/schema 升级。 |
-| ai-authoring-review-trace | blocked | ai-agent-budget-runtime, ai-eval-upgrade-gate | AI 只经 typed patch 闭环，并展示 diff、diagnostics、权限 delta 与脱敏 trace。 |
+| ai-eval-upgrade-gate | completed (cfa12703) | ai-prompt-tool-provenance | 以离线 corpus、确定性 grader 和阈值 gate 管理模型/prompt/tool/schema 升级。 |
+| ai-authoring-review-trace | current | ai-agent-budget-runtime, ai-eval-upgrade-gate | AI 只经 typed patch 闭环，并展示 diff、diagnostics、权限 delta 与脱敏 trace。 |
 | node-package-signing-trust | ready | restore-go-quality-gate | 定义签名 envelope、publisher identity、namespace ownership 与 revocation/quarantine。 |
 | plugin-hosts-sdk-conformance | fog | node-package-signing-trust | Wasm/Process host、SDK 与 conformance；禁止 Go/前端插件代码。 |
 | final-contract-and-release-acceptance | fog | all implementation slices | projection/reference/golden、task check、review 与真实 Windows smoke。 |

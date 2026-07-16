@@ -1,6 +1,6 @@
 # AI authoring change review 与 redacted trace
 
-Status: blocked
+Status: current
 
 ## Outcome
 
@@ -17,11 +17,11 @@ AI authoring 作为 typed Application client 在有限预算内执行 search/ins
 
 ## Blocked by
 
-ai-agent-budget-runtime、ai-eval-upgrade-gate。
+无。Agent runtime 已由 d22b5bd5 完成；eval upgrade gate 已由 cfa12703 完成。
 
 ## Verification
 
-MCP/Application typed authoring substrate、compiler diagnostics、capability preview 与 Run AdapterAction 已存在；没有 AI loop、review artifact/UI 或贯穿 prompt/tool/patch/run 的 redacted trace。
+MCP/Application typed authoring substrate、compiler diagnostics、capability preview 与 Run AdapterAction 已存在；尚无 AI authoring loop、review artifact/UI 或贯穿 prompt/tool/patch/run 的 redacted trace。先以现有 Application interface 和 MCP command implementation 为权威源盘点，禁止复制一套平行 authoring service。
 
 ## Out of scope
 
@@ -31,4 +31,4 @@ MCP/Application typed authoring substrate、compiler diagnostics、capability pr
 
 ## Result
 
-Blocked。
+Current。先冻结 typed command set、review/trace artifact 与 accept-before-mutation seam，再实现 bounded loop 和 UI。

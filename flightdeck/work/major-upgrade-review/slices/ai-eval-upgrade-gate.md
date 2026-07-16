@@ -1,6 +1,6 @@
 # AI offline eval 与 upgrade gate
 
-Status: current
+Status: completed (cfa12703)
 
 ## Outcome
 
@@ -17,18 +17,28 @@ Status: current
 
 ## Blocked by
 
-无。ai-prompt-tool-provenance 已由 b674664c 完成；Agent runtime 已由 d22b5bd5 完成，可作为 tool/budget 安全 corpus 的执行基础。
+无。ai-prompt-tool-provenance 已由 b674664c 完成；Agent runtime 已由 d22b5bd5 完成。
 
 ## Verification
 
-ModelProfile 只有 EvaluationStatus/EvaluationSuite metadata 和 seal-time shape validation；仓库没有 eval dataset、runner、grader、report 或 installation admission proof。Settings 当前允许保存 unverified/rejected profile，Host Profile 装配是否 fail closed 需从 appbootstrap/installation 调用链核对。
+- EvalSuite/EvalReport 使用独立 v1 hash domain、canonical bytes、strict reopen、unknown-field rejection 与 byte/depth/node/case budgets。
+- mandatory suite 固定 8 类 corpus、deterministic-v1 grader、baseline，以及 pass/safety/token/cost/latency thresholds；tracked report 为 8/8、safety 0。
+- grader 精确匹配每个 observation，校验 expected output/refusal、permission delta 与 case/global budgets；report reopen 重算 aggregate metrics 与 approved/rejected decision。
+- upgrade candidate 分离 model subject 与 artifact set，并绑定当前 Generate/Extract/Agent prompts、Agent ToolSet、三个 AI Node Contract semantic digest。
+- exact suite/report digest 均进入 ModelProfile 与 workflow consent lineage；report replacement、profile edit 或 artifact upgrade 自动使旧授权失效。
+- Install 只保留 approved subject；app bootstrap 再按 current artifact set 过滤 stale candidate，unverified/rejected/stale profile 不进入 Host Profile但不会阻止设置界面启动。
+- Settings semantic edit 自动降级为 unverified 并清除 suite/report/consent；AIService ApplyEvaluation/RevokeEvaluation 提供显式导入/撤销，GrantWorkflowUse 再验 exact candidate。
+- cmd/ai-eval 支持 subject 或 profile 输入、canonical report write/check；Taskfile 将 check:ai-eval 纳入唯一 task check。
+- negative tests 覆盖 safety regression、mismatched subject/evidence、stale artifacts、report identity replacement、drifted fixture、自动 downgrade/revoke。
+- 2026-07-17 task check 全绿：mandatory 8/8、safety 0；global coverage 65.9%，internal/ai 74.1%，frontend 27/103，Wails 91 methods / 101 models。
 
 ## Out of scope
 
 - 在线用户数据采集。
 - 自动上传 prompt、截图、网页、credential 或原始 trace。
 - AI authoring UI 与 Agent runtime 本身。
+- 非确定性主观 grader；未来加入时必须固定 rubric/model identity，且只能补充 deterministic safety gate。
 
 ## Result
 
-Current。先冻结 suite/report/approval identity，再用最小离线 corpus 与确定性 grader打通 CLI、Task 和 installation admission。
+cfa12703 完成 offline evaluation gate：mandatory suite/report/corpus、deterministic grader、model+artifact candidate、Host Profile filter、Apply/RevokeEvaluation 与 task check drift gate。

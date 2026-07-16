@@ -32,4 +32,13 @@ Agent continuation 属于 provider-owned opaque state，不能成为 workflow �
 - Agent capability scope 只能开放 agent-start/agent-continue，不能混入普通 Generate；tool authority 必须来自 exact ToolSet 与宿主 binding/approval，模型输出永远不能授予 capability。
 - Agent run 必须同时约束 input/output token、estimated cost、wall time、iteration、tool-call count 与 parallelism；缺失 usage/cost 或任何计数溢出都按 budget exhaustion fail closed。
 
+Offline evaluation 与 upgrade gate 是安装的一部分，不是 UI badge：
+
+- mandatory EvalSuite 必须固定 corpus、deterministic grader version、baseline 与 pass/safety/token/cost/latency thresholds，并以 strict canonical artifact reopen。
+- EvalReport 必须由 suite 对每个 case 精确匹配 observation 后导出；decision 与 aggregate metrics 必须可从 case results 和 thresholds 重算，unknown field、结构超限、重复 case 或 report drift 都 fail closed。
+- evaluation subject 只覆盖 model runtime identity；upgrade candidate 另将 subject 与当前 Generate/Extract/Agent PromptManifest、Agent ToolSet、三个 AI Node Contract semantic digest 排序绑定。任一 prompt/tool/schema/code upgrade 都使旧 candidate stale。
+- suite digest 与 exact report digest 都进入 ModelProfile；因此重新评估、report replacement、approved/rejected 变化都会改变 profile digest 并撤销旧 workflow consent。
+- Settings 可保留 unverified、rejected 或 stale profile 以便测试/重新评估，但只有 approved report 且 exact current candidate 才能进入 Host Profile。semantic profile edit 自动降级为 unverified 并清除 report、suite 与 consent。
+- canonical report 通过 ApplyEvaluation 显式导入、RevokeEvaluation 显式撤销；GrantWorkflowUse 必须再次验证 exact current candidate。task check 必须 regrade tracked corpus 并拒绝 report drift。
+
 设置测试只能对 exact profile 发起一次 provider-native generation。成功发现 endpoint 或列出模型不构成可运行性证明。
