@@ -118,7 +118,7 @@ func run(arguments []string, output io.Writer) error {
 			_ = encoder.Encode(compileResultView(compiler.CompileResult{SourceHash: started.SourceHash, Diagnostics: started.Diagnostics}))
 			return startErr
 		}
-		return waitRun(ctx, encoder, runtime.Application, started.Record.RunID())
+		return waitRun(ctx, encoder, runtime.Application, started.Record.Admission().RunID)
 	default:
 		return fmt.Errorf("unsupported command %q", opt.command)
 	}

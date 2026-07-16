@@ -33,7 +33,6 @@ import (
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
-	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
