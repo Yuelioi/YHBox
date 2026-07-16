@@ -43,8 +43,12 @@ type ProcessHostOptions struct {
 }
 
 type ProcessHost struct {
+	executionHost
+	runner *processsandbox.Runner
+}
+
+type executionHost struct {
 	catalog nodecatalog.Snapshot
-	runner  *processsandbox.Runner
 	options ProcessHostOptions
 }
 
@@ -52,6 +56,23 @@ func NewProcessHost(catalog nodecatalog.Snapshot, options ProcessHostOptions) (*
 	if !catalog.Valid() {
 		return nil, errors.New("process plugin host requires a valid Catalog")
 	}
+	var err error
+	options, err = normalizeExecutionOptions(options)
+	if err != nil {
+		return nil, err
+	}
+	runner, err := processsandbox.New(processsandbox.Options{
+		ProfileName: "Yotta.Plugin.Process.V1", DisplayName: "Yotta Process Plugin",
+		Description:        "Isolated third-party Yotta node process",
+		ProcessMemoryBytes: options.ProcessMemoryBytes, JobMemoryBytes: options.JobMemoryBytes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ProcessHost{executionHost: executionHost{catalog: catalog, options: options}, runner: runner}, nil
+}
+
+func normalizeExecutionOptions(options ProcessHostOptions) (ProcessHostOptions, error) {
 	if options.ProcessMemoryBytes == 0 {
 		options.ProcessMemoryBytes = processsandbox.DefaultMemoryBytes
 	}
@@ -73,17 +94,9 @@ func NewProcessHost(catalog nodecatalog.Snapshot, options ProcessHostOptions) (*
 	if options.InvocationTimeout <= 0 || options.InvocationTimeout > MaxInvocationTimeout ||
 		options.MaxHostCalls > pluginprotocol.MaxHostCalls || options.MaxStatusEvents > pluginprotocol.MaxStatusEvents ||
 		options.MaxOutputBytes == 0 || options.MaxOutputBytes > pluginprotocol.MaxFrameBytes {
-		return nil, errors.New("process plugin host budgets are invalid")
+		return ProcessHostOptions{}, errors.New("plugin execution host budgets are invalid")
 	}
-	runner, err := processsandbox.New(processsandbox.Options{
-		ProfileName: "Yotta.Plugin.Process.V1", DisplayName: "Yotta Process Plugin",
-		Description:        "Isolated third-party Yotta node process",
-		ProcessMemoryBytes: options.ProcessMemoryBytes, JobMemoryBytes: options.JobMemoryBytes,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ProcessHost{catalog: catalog, runner: runner, options: options}, nil
+	return options, nil
 }
 
 func (*ProcessHost) HostFeatures() []string { return []string{ProcessIsolationHostFeatureID} }
@@ -100,11 +113,12 @@ func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[st
 			if node.Implementation.ABI.Kind != nodecontract.ABIProcess {
 				continue
 			}
-			if node.Implementation.ABI.Version != "v1" || node.Lock != (nodecatalog.ImplementationLock{
-				PackageID: runtimePackage.PackageID, ArtifactDigest: runtimePackage.ManifestDigest,
-				ABI: node.Implementation.ABI, Entrypoint: node.Implementation.Entrypoint,
-			}) {
-				return nil, fmt.Errorf("process plugin %q has an unsupported or mismatched implementation lock", node.Lock.Entrypoint)
+			if err := host.validateRuntimeNode(runtimePackage, node, nodecontract.ABIProcess); err != nil {
+				return nil, err
+			}
+			metadata := node.Payload.Metadata()
+			if metadata.MediaType != "application/vnd.microsoft.portable-executable" || !strings.EqualFold(filepath.Ext(metadata.Path), ".exe") {
+				return nil, fmt.Errorf("process plugin %q does not contain a portable executable payload", node.Lock.Entrypoint)
 			}
 			if _, duplicate := result[node.Lock.Entrypoint]; duplicate {
 				return nil, fmt.Errorf("duplicate process plugin entrypoint %q", node.Lock.Entrypoint)
@@ -119,6 +133,20 @@ func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[st
 		}
 	}
 	return result, nil
+}
+
+func (host *executionHost) validateRuntimeNode(runtimePackage nodepackage.RuntimePackage, node nodepackage.RuntimeNode, kind nodecontract.ABIKind) error {
+	if node.Implementation.ABI.Kind != kind || node.Implementation.ABI.Version != "v1" || node.Lock != (nodecatalog.ImplementationLock{
+		PackageID: runtimePackage.PackageID, ArtifactDigest: runtimePackage.ManifestDigest,
+		ABI: node.Implementation.ABI, Entrypoint: node.Implementation.Entrypoint,
+	}) {
+		return fmt.Errorf("plugin %q has an unsupported or mismatched implementation lock", node.Lock.Entrypoint)
+	}
+	entry, ok := host.catalog.Lookup(node.Contract.NodeRef().NodeTypeID)
+	if !ok || entry.Contract.NodeRef() != node.Contract.NodeRef() || entry.Implementation != node.Lock {
+		return fmt.Errorf("plugin %q is not pinned by the execution Catalog", node.Lock.Entrypoint)
+	}
+	return nil
 }
 
 func (host *ProcessHost) invoke(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (compiler.AdapterResult, error) {
@@ -136,13 +164,40 @@ func (host *ProcessHost) invoke(parent context.Context, node nodepackage.Runtime
 	}
 	executionContext, cancelExecution := context.WithDeadline(parent, deadline)
 	defer cancelExecution()
-	lifetimeContext, cancelLifetime := context.WithCancel(context.Background())
-	defer cancelLifetime()
-	process, err := host.runner.Start(lifetimeContext, processsandbox.Request{
+	session := &processSession{
+		catalog: host.catalog, invocation: invocation,
+		nextSequence: 2, maxHostCalls: host.options.MaxHostCalls, maxStatusEvents: host.options.MaxStatusEvents,
+	}
+	result, err := executeSandboxed(executionContext, host.runner, processsandbox.Request{
 		Image: image, Args: []string{ProcessGuestArgument}, Timeout: time.Until(deadline),
+	}, session, processExitOK, "process plugin", func(writer io.Writer) error {
+		return pluginprotocol.WriteFrame(writer, initial)
 	})
 	if err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("start process plugin: %w", err)
+		return compiler.AdapterResult{}, err
+	}
+	return host.openResult(result)
+}
+
+type processWait struct {
+	result processsandbox.Result
+	err    error
+}
+
+func executeSandboxed(
+	ctx context.Context,
+	runner *processsandbox.Runner,
+	request processsandbox.Request,
+	session *processSession,
+	exitOK uint32,
+	label string,
+	initialize func(io.Writer) error,
+) (*pluginprotocol.Result, error) {
+	lifetimeContext, cancelLifetime := context.WithCancel(context.Background())
+	defer cancelLifetime()
+	process, err := runner.Start(lifetimeContext, request)
+	if err != nil {
+		return nil, fmt.Errorf("start %s: %w", label, err)
 	}
 	defer process.Close()
 	stderrDone := make(chan struct{}, 1)
@@ -150,17 +205,13 @@ func (host *ProcessHost) invoke(parent context.Context, node nodepackage.Runtime
 		_, _ = io.Copy(io.Discard, process.Stderr())
 		stderrDone <- struct{}{}
 	}()
-	if err := pluginprotocol.WriteFrame(process.Stdin(), initial); err != nil {
-		return compiler.AdapterResult{}, fmt.Errorf("write process plugin invocation: %w", err)
+	if err := initialize(process.Stdin()); err != nil {
+		return nil, fmt.Errorf("initialize %s: %w", label, err)
 	}
-
-	session := processSession{
-		catalog: host.catalog, invocation: invocation, reader: process.Stdout(), writer: process.Stdin(),
-		nextSequence: 2, maxHostCalls: host.options.MaxHostCalls, maxStatusEvents: host.options.MaxStatusEvents,
-	}
-	result, err := session.serve(executionContext, process)
+	session.reader, session.writer = process.Stdout(), process.Stdin()
+	result, err := session.serve(ctx, process)
 	if err != nil {
-		return compiler.AdapterResult{}, err
+		return nil, err
 	}
 	_ = process.Stdin().Close()
 	_ = process.Stdout().Close()
@@ -171,26 +222,21 @@ func (host *ProcessHost) invoke(parent context.Context, node nodepackage.Runtime
 	}()
 	select {
 	case waited := <-waitDone:
-		if waited.err != nil || waited.result.ExitCode != processExitOK {
-			if waited.err != nil {
-				return compiler.AdapterResult{}, fmt.Errorf("process plugin exited abnormally: exit=%d: %w", waited.result.ExitCode, waited.err)
-			}
-			return compiler.AdapterResult{}, fmt.Errorf("process plugin exited abnormally: exit=%d", waited.result.ExitCode)
+		if waited.err != nil {
+			return nil, fmt.Errorf("%s exited abnormally: exit=%d: %w", label, waited.result.ExitCode, waited.err)
 		}
-	case <-executionContext.Done():
+		if waited.result.ExitCode != exitOK {
+			return nil, fmt.Errorf("%s exited abnormally: exit=%d", label, waited.result.ExitCode)
+		}
+	case <-ctx.Done():
 		_ = process.Terminate()
-		return compiler.AdapterResult{}, executionContext.Err()
+		return nil, ctx.Err()
 	}
 	select {
 	case <-stderrDone:
 	case <-time.After(cancelGrace):
 	}
-	return host.openResult(result)
-}
-
-type processWait struct {
-	result processsandbox.Result
-	err    error
+	return result, nil
 }
 
 type processControl interface {
@@ -423,7 +469,7 @@ func (session *processSession) cancel(process processControl, reason string) {
 	_ = process.Terminate()
 }
 
-func (host *ProcessHost) invocationFrame(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (*pluginprotocol.Frame, time.Time, error) {
+func (host *executionHost) invocationFrame(parent context.Context, node nodepackage.RuntimeNode, invocation compiler.Invocation) (*pluginprotocol.Frame, time.Time, error) {
 	if parent == nil || invocation.InvocationID == "" || invocation.Attempt <= 0 || invocation.ObservedAt.IsZero() {
 		return nil, time.Time{}, errors.New("process plugin invocation identity is invalid")
 	}
@@ -475,7 +521,7 @@ func (host *ProcessHost) invocationFrame(parent context.Context, node nodepackag
 	return frame, deadline, nil
 }
 
-func (host *ProcessHost) openResult(result *pluginprotocol.Result) (compiler.AdapterResult, error) {
+func (host *executionHost) openResult(result *pluginprotocol.Result) (compiler.AdapterResult, error) {
 	if result == nil {
 		return compiler.AdapterResult{}, errors.New("process plugin omitted its result")
 	}

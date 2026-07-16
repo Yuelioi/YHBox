@@ -42,15 +42,9 @@ func WriteFrame(writer io.Writer, frame *Frame) error {
 	if writer == nil {
 		return errors.New("plugin frame writer is required")
 	}
-	if err := ValidateFrame(frame); err != nil {
-		return err
-	}
-	payload, err := (proto.MarshalOptions{Deterministic: true}).Marshal(frame)
+	payload, err := MarshalFrame(frame)
 	if err != nil {
-		return fmt.Errorf("encode plugin frame: %w", err)
-	}
-	if len(payload) == 0 || len(payload) > MaxFrameBytes {
-		return fmt.Errorf("plugin frame exceeds %d bytes", MaxFrameBytes)
+		return err
 	}
 	var header [4]byte
 	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
@@ -78,6 +72,29 @@ func ReadFrame(reader io.Reader) (*Frame, error) {
 	payload := make([]byte, size)
 	if _, err := io.ReadFull(reader, payload); err != nil {
 		return nil, fmt.Errorf("read plugin frame payload: %w", err)
+	}
+	return UnmarshalFrame(payload)
+}
+
+// MarshalFrame returns the canonical payload without the stream length prefix.
+func MarshalFrame(frame *Frame) ([]byte, error) {
+	if err := ValidateFrame(frame); err != nil {
+		return nil, err
+	}
+	payload, err := (proto.MarshalOptions{Deterministic: true}).Marshal(frame)
+	if err != nil {
+		return nil, fmt.Errorf("encode plugin frame: %w", err)
+	}
+	if len(payload) == 0 || len(payload) > MaxFrameBytes {
+		return nil, fmt.Errorf("plugin frame exceeds %d bytes", MaxFrameBytes)
+	}
+	return payload, nil
+}
+
+// UnmarshalFrame opens a canonical payload without a stream length prefix.
+func UnmarshalFrame(payload []byte) (*Frame, error) {
+	if len(payload) == 0 || len(payload) > MaxFrameBytes {
+		return nil, fmt.Errorf("plugin frame payload must be within 1..%d bytes", MaxFrameBytes)
 	}
 	frame := &Frame{}
 	if err := (proto.UnmarshalOptions{DiscardUnknown: false}).Unmarshal(payload, frame); err != nil {
