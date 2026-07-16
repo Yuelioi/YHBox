@@ -18,17 +18,17 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## Read now
 
-- work/major-upgrade-review/slices/final-contract-and-release-acceptance.md
+- archive/major-upgrade-review/slices/final-contract-and-release-acceptance.md
 - knowledge/agent/codex-working-agreement.md
 - knowledge/build/build.md
 
 ## Read if
 
-- work/major-upgrade-review/plan.md — 回查完整 major upgrade 定义
-- work/major-upgrade-review/design.md — 回查目标架构
-- work/major-upgrade-review/research/oss-governance.md — 准备公开 stable
+- archive/major-upgrade-review/plan.md — 回查完整 major upgrade 定义
+- archive/major-upgrade-review/design.md — 回查目标架构
+- archive/major-upgrade-review/research/oss-governance.md — 准备公开 stable
 - knowledge/architecture/node-package-manifest.md — 修改 package/plugin contract
-- work/major-upgrade-review/slices/map.md — 回查全部 Slice frontier
+- archive/major-upgrade-review/slices/map.md — 回查全部 Slice frontier
 
 ## Progress
 

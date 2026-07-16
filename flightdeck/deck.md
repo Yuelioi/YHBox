@@ -1,7 +1,7 @@
 ---
 format: 4
 project: yotta
-focus: major-upgrade-review
+focus: null
 ---
 
 # Flightdeck
