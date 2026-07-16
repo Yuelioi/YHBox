@@ -96,6 +96,7 @@ type Builtins struct {
 	ActivateWindowContract       nodecontract.Contract
 	CaptureWindowContract        nodecontract.Contract
 	PlayInputClipContract        nodecontract.Contract
+	MatchTemplateContract        nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -226,6 +227,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	matchTemplateDefinition, matchTemplateContract, err := defineMatchTemplateNode(extendedTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+		jsonRef: jsonType.TypeRef(), pointUnitRef: pointUnitType.TypeRef(), pointRef: pointType.TypeRef(), regionRef: regionType.TypeRef(),
+	}, imageType.TypeRef(), blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
 	blobToStream, err := sealBlobToStream(binaryType.TypeRef(), blobRead, streamSession)
 	if err != nil {
 		return Builtins{}, err
@@ -340,6 +348,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, captureWindowDefinition)
 	definitions = append(definitions, playInputClipDefinition)
+	definitions = append(definitions, matchTemplateDefinition)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -377,6 +386,7 @@ func Build() (Builtins, error) {
 		ActivateWindowContract:   activateWindowContract,
 		CaptureWindowContract:    captureWindowContract,
 		PlayInputClipContract:    playInputClipContract,
+		MatchTemplateContract:    matchTemplateContract,
 		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
