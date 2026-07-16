@@ -1,6 +1,6 @@
 # 稳定代码命名与显式版本属性恢复
 
-Status: current
+Status: completed
 
 ## Outcome
 
@@ -22,9 +22,12 @@ Status: current
 
 ## Verification
 
-污染最早由 64e371ed 引入；随后 7b6dd2da 等提交扩散出 `nodes31runtime`，并存在 `workflow31`、`node31.ts`、`source31_test.go` 等结构性后缀。当前仓库没有 `internal/nodes` 或 `internal/noderuntime` 冲突目录，但仍需用双向全仓 grep 生成 exact impact map。
-
-Node Contract 当前 top-level `version: 3.1` 表示 artifact generation，Node Type identity 主要通过 `nodeTypeId` 的 `/vN` 尾段表达。必须先消除这个版本维度混淆，再做机械 rename。
+- 022bc360 将 `internal/nodes31`、`internal/nodes31runtime`、`internal/services/workflow31`、`node31.ts`、`workflow31.ts` 与 `source31_test.go` 迁移为稳定职责名，没有 alias、兼容 package 或双 import path。
+- `NodeRef`、`Draft` 与 `MachineContract` 新增必填严格 SemVer `version`；`nodeTypeId` 改为稳定 canonical URI 并拒绝 `/vN` 尾段。节点版本进入 semantic preimage，Catalog、Workflow Source、Node Package、Go/TS schema、projection、golden artifact 与 fixture 已同步。
+- `3.1` 继续只表示 Node Contract / Workflow Source artifact generation；生成的 TypeScript `YottaWorkflowSource31` 等 format-bound 类型属于允许项。
+- Wails bindings 无 warning 生成；`go test -run '^$' ./...` 暴露的稳定别名冲突已修复，受影响包 compile-only 通过；`pnpm -C frontend typecheck` 通过。
+- `go test ./internal/nodecontract ./internal/nodepackage ./internal/nodes ./internal/nodecatalog ./internal/workflow/schema` 通过；最终 Node contract 定向测试通过。
+- 按阶段制约定没有运行 `task check`、跨平台矩阵或真实 GUI/plugin smoke。
 
 ## Out of scope
 
@@ -35,4 +38,4 @@ Node Contract 当前 top-level `version: 3.1` 表示 artifact generation，Node 
 
 ## Result
 
-Current。先冻结 version taxonomy 与 NodeRef contract，再做机械 rename；只运行定向开发反馈，阶段末与 plugin hosts/SDK 一次性批量验收。
+Completed by 022bc360. 稳定代码名与显式 Node version contract 已恢复；阶段验收延后到 plugin hosts/SDK/conformance 完成后批量执行。
