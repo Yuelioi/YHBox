@@ -1,5 +1,5 @@
 // RGB↔HSV — 前端版, 跟 Go pkg/vision.RGBToHSV 同一套约定: H ∈ [0,360], S/V ∈ [0,100].
-// 截图取色器读出的值要能直接填进 DetectColor / DetectColorHSV 的阈值, 两边必须同刻度.
+// Screenshot color-pick values use the same scale as Workflow 3.1 color analysis.
 // 改这里前先看 pkg/vision/color.go, 别让前后端漂移.
 
 export interface HSV {

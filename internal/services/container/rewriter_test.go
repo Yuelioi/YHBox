@@ -11,12 +11,12 @@ func newTestGraph() Graph {
 		SchemaVersion: GraphSchemaVersion,
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start", CreatedAt: time.Now().UTC()},
-			{ID: "wait", Kind: "WaitTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}, "Threshold": "0.85"}}, CreatedAt: time.Now().UTC()},
-			{ID: "click", Kind: "ClickTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"fish/onhook"}}}, CreatedAt: time.Now().UTC()},
+			{ID: "wait", Kind: "Sleep", Config: map[string]any{"literal": map[string]any{"Duration": 100}}, CreatedAt: time.Now().UTC()},
+			{ID: "click", Kind: "Log", Config: map[string]any{"literal": map[string]any{"Message": "done"}}, CreatedAt: time.Now().UTC()},
 		},
 		Edges: []GraphEdge{
-			{From: "start.Done", To: "wait.in"},
-			{From: "wait.found", To: "click.in"},
+			{From: "start.Done", To: "wait.In"},
+			{From: "wait.Done", To: "click.In"},
 		},
 	}
 }
@@ -39,11 +39,11 @@ func TestGraphRewriter_RenameNodeID(t *testing.T) {
 	if !found {
 		t.Errorf("renamed node 'wait-new' not found")
 	}
-	if g.Edges[0].To != "wait-new.in" {
-		t.Errorf("edge[0].To = %q, want wait-new.in", g.Edges[0].To)
+	if g.Edges[0].To != "wait-new.In" {
+		t.Errorf("edge[0].To = %q, want wait-new.In", g.Edges[0].To)
 	}
-	if g.Edges[1].From != "wait-new.found" {
-		t.Errorf("edge[1].From = %q, want wait-new.found", g.Edges[1].From)
+	if g.Edges[1].From != "wait-new.Done" {
+		t.Errorf("edge[1].From = %q, want wait-new.Done", g.Edges[1].From)
 	}
 }
 

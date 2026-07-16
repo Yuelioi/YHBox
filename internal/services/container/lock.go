@@ -12,7 +12,6 @@ import (
 // BuildYottaLock generates yotta-lock.json content from the portable package files.
 func BuildYottaLock(manifest PackageManifest, graph Graph, closure dependency.ClosureResult, generatedAt string) (YottaLock, error) {
 	deps := LockDependencies{
-		Templates:   sortedStrings(closure.Templates),
 		Subgraphs:   sortedStrings(closure.Subgraphs),
 		AISlots:     deriveAISlots(graph.Nodes),
 		TargetSlots: deriveTargetSlots(graph.Nodes),

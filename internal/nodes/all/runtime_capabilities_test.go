@@ -8,7 +8,7 @@ import (
 )
 
 // TestBuiltInRuntimeCapabilityContract is the semantic guard for indirect
-// dependencies hidden behind helpers such as ResolvePoint and ClickWithMods.
+// dependencies hidden behind helpers such as ResolvePoint.
 // Adding a service call to a built-in node requires updating its Spec and this
 // reviewed matrix; otherwise a missing adapter can regress to a nil panic.
 func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
@@ -18,10 +18,6 @@ func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
 			expected[kind] = capabilities
 		}
 	}
-	add([]node.RuntimeCapability{node.RuntimeCapabilityVision},
-		"CheckTemplate", "DecodeQR", "DetectColor", "DetectColorBlobs", "DetectColorHSV",
-		"DualColorBarTrack", "FindColorSignature", "FindTemplateAll", "ROIColorScan",
-		"WaitChange", "WaitStable", "WaitTemplate", "WaitTemplateGone")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityWindow},
 		"CloseWindow", "MoveResizeWindow", "WindowState", "Win32WindowTarget")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityVars},
@@ -30,7 +26,6 @@ func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
 		"Log", "ParseJSON", "RegexExtract", "RegexMatch", "ToJSON")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityStopwatches},
 		"StopwatchRead", "StopwatchStart", "StopwatchStop")
-	add([]node.RuntimeCapability{node.RuntimeCapabilityVision, node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow}, "ClickTemplate")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityLog, node.RuntimeCapabilityParams, node.RuntimeCapabilityRegistry}, "Script")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityParams}, "GetParam")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityTarget}, "AndroidTarget")

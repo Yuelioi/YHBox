@@ -191,21 +191,6 @@ func dataInPinTypeForKind(registry nodepkg.RegistryReader, kind, pinName string)
 	return ""
 }
 
-// dataInPinSemanticForKind 返该 data-in pin 的 Semantic ("TemplateKey" 等), 无则 "".
-// literal 校验用它识别 list 型 pin (e.g. TemplateKey = 字符串列表).
-func dataInPinSemanticForKind(registry nodepkg.RegistryReader, kind, pinName string) string {
-	rn, ok := registry.Get(kind)
-	if !ok {
-		return ""
-	}
-	for _, ip := range rn.Spec.Inputs {
-		if ip.Name == pinName {
-			return ip.Semantic
-		}
-	}
-	return ""
-}
-
 // dataInPinTypeForNode cfg-aware 变种 — input descriptor 指向 config.Inputs[] 动态声明的
 // pin 走 ParseDynamicInputDecls 查.
 func dataInPinTypeForNode(registry nodepkg.RegistryReader, n *GraphNode, pinName string) string {

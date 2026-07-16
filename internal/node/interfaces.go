@@ -118,122 +118,6 @@ type OutBuilder interface {
 	Fire() Outputs
 }
 
-// VisionService — template + 颜色 + bar-track 检测. wire_container.go::templateMatcherAdapter
-// + pkg/vision.* 实现.
-//
-// 单帧 Match (CheckTemplate) / WaitMatch (WaitTemplate) / BarTrack (ColorBarTrack) +
-// 颜色: DetectColor (RGB/HSV 全 ROI 像素计数) / DetectColorHSV (HSV 比例阈值) /
-// ROIColorScan (沿 axis 找连续 cluster).
-type VisionService interface {
-	// Match 单帧多模板 OR 匹配 (按 keys 序取首个命中)。roi 零值 = 用模板 variant.BBox 快速定位;
-	// 非零 = 在该比例搜索区内找。返回 MatchHit (Found 区分命中/未命中)。
-	Match(ctx context.Context, keys []string, threshold float64, roi Geometry) (MatchHit, error)
-
-	// WaitMatch 阻塞轮询直到命中或 timeout。timeout<=0 视为单帧。语义同 Match。
-	WaitMatch(ctx context.Context, keys []string, threshold float64, roi Geometry, timeout time.Duration) (MatchHit, error)
-
-	// DualBarTrack 抓全帧后按 roi Geometry 裁子区 + 双色 HSV cluster → 算 inner 在 outer 区域里的位置.
-	// 通用双色条算法 (适用: 血条/进度条/QTE 双色条/钓鱼 cursor-target).
-	// roi 经 ResolveGeometry 解析像素区 (override-by-resolution / pct / 全帧). Found=false 即 missing.
-	// opts 零值字段走 vision 包默认 (示例默认值; 通用 case 可能要调).
-	DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (result DualColorBarResult, err error)
-
-	// DetectColor 按 roi (ratio Geometry, 享 per-resolution override) 裁区后统计落在 rng 内的像素数.
-	// Geometry 零值 = 全帧. mode = "hsv" | "rgb". rng = 6 元 [aMin,aMax,bMin,bMax,cMin,cMax].
-	// 返 count + 命中像素中心客户区比例坐标 (cx,cy). 无命中 cx/cy = 0.
-	DetectColor(roi Geometry, mode string, rng [6]int) (count int, cx, cy float64, err error)
-
-	// DetectColorHSV 按 roi (ratio Geometry) 裁子帧后统计落在 hsv 区间的像素数 + 比例.
-	// Geometry 零值 = 全帧.
-	DetectColorHSV(roi Geometry, hsv HSVRange) (count int, ratio float64, err error)
-
-	// ROIColorScan 按 roi (ratio Geometry) 裁子帧后沿 axis ("x"|"y") 扫描 HSV 命中像素,
-	// 合并为连续 cluster; 只返长度 ∈ [minPx, maxPx] 的段.
-	// maxPx<=0 → adapter 默认 = 子帧宽/3 (axis x) 或 高/3 (axis y).
-	ROIColorScan(roi Geometry, hsv HSVRange, axis string, minPx, maxPx int) (clusters []ClusterEntry, err error)
-
-	// DetectColorBlobs 在 roi 内做 8-邻域连通域标记，返回每块归一化 center/bbox/area。
-	DetectColorBlobs(roi Geometry, mode string, rng [6]int, minArea int) ([]BlobEntry, error)
-
-	// GridSignature 抓全帧后按 roi Geometry 裁子区 → box-average 降采样成
-	// gridSize×gridSize RGB 签名 (flat, 行主序, len = gridSize²×3). 每调一次抓
-	// 一张新帧 (无缓存). Geometry 零值 = 全帧; adapter 内经 ResolveGeometry 解析像素区.
-	// 给帧差节点 (WaitStable/WaitChange) 跨 poll 比对用.
-	GridSignature(roi Geometry, gridSize int) (sig []uint8, err error)
-
-	// FindColorSignature 在 roi (锚点搜索区) 找颜色签名首个完整命中, 偏移点采样整帧。
-	// defaultTol 用于 ColorPoint.Tol==nil 的点。未命中 found=false。spec §节点1。
-	FindColorSignature(roi Geometry, sig ColorSignature, defaultTol int) (found bool, pt Point, err error)
-
-	// DecodeQR 抓全帧后按 roi Geometry 裁子区, 解码区域内所有 QR 码。
-	// 定位点为全帧归一化坐标 (0..1, 原点=全帧左上角), 按 bbox min-y 再 min-x 升序排列。
-	// 解码失败 (图中无可识别 QR) → 返空 slice + nil error (节点据此走 NotFound 出口)。
-	// spec §节点3。
-	DecodeQR(roi Geometry) ([]QRResult, error)
-
-	// MatchAll 单帧多模板"全部命中": 抓一次帧, 在 roi (零值=全帧) 内各 key 各自找全
-	// (3×3 极大 + 单模板内 NMS) → 合并 → 统一跨模板 NMS。minDistance 像素 (<=0 → 各命中按
-	// 自己模板 bbox 短边/2 自动)。结果按 conf 降序。坐标全帧归一化。
-	// 注: roi 总作为显式搜索区下发 (绕开 variant.BBox 单点定位, 因找全部要搜整片)。spec §节点2。
-	MatchAll(ctx context.Context, keys []string, threshold float64, minDistance int, roi Geometry) ([]TemplateMatch, error)
-}
-
-// HSVRange HSV 阈值区间. H ∈ [0,360], S/V ∈ [0,100]. 给 DetectColorHSV / ROIColorScan 用.
-type HSVRange struct {
-	HMin int `json:"hMin"`
-	HMax int `json:"hMax"`
-	SMin int `json:"sMin"`
-	SMax int `json:"sMax"`
-	VMin int `json:"vMin"`
-	VMax int `json:"vMax"`
-}
-
-// BlobEntry DetectColorBlobs 找出的一个连通色块。坐标均为全帧绝对、归一化 0..1。
-type BlobEntry struct {
-	CenterX float64 `json:"centerX"` // 像素质心 X，归一化（全帧，原点=全帧左上角）
-	CenterY float64 `json:"centerY"` // 像素质心 Y
-	X       float64 `json:"x"`       // 外接 bbox 左上角 X，归一化
-	Y       float64 `json:"y"`       // 外接 bbox 左上角 Y
-	W       float64 `json:"w"`       // bbox 宽，归一化
-	H       float64 `json:"h"`       // bbox 高，归一化
-	Area    int     `json:"area"`    // foreground 命中像素数（不是 bbox 面积 W*H）
-}
-
-// ClusterEntry ROIColorScan 沿 axis 找出的一个连续命中段, 像素坐标 (相对 roi 起点).
-type ClusterEntry struct {
-	StartPx  int `json:"startPx"`
-	EndPx    int `json:"endPx"`
-	CenterPx int `json:"centerPx"`
-	PxCount  int `json:"pxCount"`
-}
-
-// DualColorBarResult DualBarTrack 算法单次运行结果. 跟 pkg/vision.DualColorBarResult
-// 形态一致 (重复定义避免 internal/node 反向 import pkg/vision).
-//
-// Found = true 表 inner + outer 都找到; false 表至少有一个 miss (Inner/OuterX = -1).
-// Inner/OuterPx 即使 miss 也填 HSV 命中像素总数 (调试用).
-type DualColorBarResult struct {
-	Found      bool    `json:"found"`
-	InnerX     int     `json:"innerX"`
-	OuterX     int     `json:"outerX"`
-	OuterWidth int     `json:"outerWidth"`
-	Confidence float64 `json:"confidence"`
-	InnerPx    int     `json:"innerPx"`
-	OuterPx    int     `json:"outerPx"`
-}
-
-// DualBarOptions DualBarTrack 算法可调参数. 0 值字段走 vision 默认 (示例默认值).
-// 跟 pkg/vision.DualBarOptions 形态一致.
-type DualBarOptions struct {
-	InnerMinPx      int     `json:"innerMinPx,omitempty"`
-	InnerMaxPx      int     `json:"innerMaxPx,omitempty"`
-	OuterMinPx      int     `json:"outerMinPx,omitempty"`
-	BandRatioH      float64 `json:"bandRatioH,omitempty"`
-	BandRatioInner  float64 `json:"bandRatioInner,omitempty"`
-	ConfInnerWeight float64 `json:"confInnerWeight,omitempty"`
-	ConfOuterWeight float64 `json:"confOuterWeight,omitempty"`
-}
-
 // LogService — 节点日志. 实际接 zerolog (main.go wire), 测试用 stdout stub.
 type LogService interface {
 	Debug(format string, args ...any)
@@ -358,7 +242,6 @@ type SubgraphCaller interface {
 // (StubServices 默认 nil, 测试不需要). 调用方 (runtime ContainerRunner) 负责 capture
 // tick-frozen view.
 type ServiceBundle struct {
-	Vision      VisionService
 	Log         LogService
 	Input       InputService
 	Vars        VarStore

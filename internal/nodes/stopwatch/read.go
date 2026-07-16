@@ -1,5 +1,5 @@
 // StopwatchRead — 读指定 key 的秒表 elapsed (毫秒).
-// 结果走数据出口: exec exit "Out" 带 Data 字段 elapsedMs (跟 CheckTemplate Found 带 Point/Conf 同模式).
+// 结果走数据出口: exec exit "Out" 带 Data 字段 elapsedMs.
 // 不存在 key → 0.
 package stopwatch
 

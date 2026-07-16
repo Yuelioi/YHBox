@@ -163,39 +163,6 @@
     "label": "跳出循环",
     "description": "提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。"
   },
-  "Capture": {
-    "label": "截屏",
-    "description": "抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。",
-    "example": "让 AI 看屏幕判断界面: 截屏(选 JPEG)→ 数据线接到 AI 节点的图像输入(配合紧邻 exec 边)→ AI 出判断。",
-    "input": {
-      "ROI": {
-        "label": "区域 (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "Format": {
-        "label": "格式",
-        "option": {
-          "png": "PNG",
-          "jpeg": "JPEG"
-        }
-      },
-      "Quality": {
-        "label": "JPEG 质量",
-        "hint": "1-100, 仅 JPEG 生效"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Fail": {
-        "label": "失败"
-      }
-    }
-  },
   "Ceil": {
     "label": "向上取整",
     "description": "把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。",
@@ -207,39 +174,6 @@
     "output": {
       "Result": {
         "label": "结果"
-      }
-    }
-  },
-  "CheckTemplate": {
-    "label": "检查模板",
-    "description": "只看当前这一帧画面，找你指定的图片（模板）在不在。在就走 Found 口并给出位置，不在就走 NotFound 口。它不等待、只看一眼，适合做「现在屏幕上有没有这个东西」的即时判断分流。",
-    "example": "判断现在是不是在战斗界面：模板选战斗特有的图标，Found 口接打怪逻辑，NotFound 口接赶路逻辑，脚本就能看一眼当前画面自动二选一。",
-    "input": {
-      "Templates": {
-        "label": "模板",
-        "hint": "命名空间.名 格式, e.g. fishing.hook_icon; 可选多个"
-      },
-      "Threshold": {
-        "label": "阈值",
-        "hint": "NCC 阈值"
-      },
-      "ROI": {
-        "label": "搜索区域",
-        "hint": "只在这个区域内找模板；留空=全屏"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "NotFound": {
-        "label": "未命中"
-      },
-      "Fail": {
-        "label": "失败"
       }
     }
   },
@@ -305,107 +239,6 @@
     "output": {
       "Done": {
         "label": "完成"
-      }
-    }
-  },
-  "ClickTemplate": {
-    "label": "点击模板",
-    "description": "盯着屏幕等你指定的图片（模板）出现，一出现就用鼠标点它（默认中心, 可设锚点/偏移），然后走 Done 口；到点还没出现就走 Timeout 口。等于「等待模板 + 自动点击」二合一，专门用来点会动或位置不固定的按钮。可选「最多点击次数」设 >1：点完会检查模板消失没，没消失就再点几次，专治偶尔点空；点够了还没消失也走 Timeout 口。",
-    "example": "自动点「开始钓鱼」按钮：模板选 fishing.start_fish，超时 5 秒、按键选左键，出现就自动点下去走 Done；超时没出现走 Timeout 口处理异常。",
-    "input": {
-      "Templates": {
-        "label": "模板",
-        "hint": "命名空间.名 格式, e.g. fishing.start_fish; 可选多个"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)"
-      },
-      "Threshold": {
-        "label": "阈值"
-      },
-      "ROI": {
-        "label": "搜索区域",
-        "hint": "找图搜索区 (客户区 ratio, 留空=全屏)"
-      },
-      "Anchor": {
-        "label": "锚点",
-        "hint": "点击落点取命中框的哪个位置 (九宫格), 默认中心",
-        "option": {
-          "topLeft": "左上",
-          "topCenter": "上中",
-          "topRight": "右上",
-          "midLeft": "左中",
-          "center": "中心",
-          "midRight": "右中",
-          "botLeft": "左下",
-          "botCenter": "下中",
-          "botRight": "右下"
-        }
-      },
-      "OffsetX": {
-        "label": "水平偏移",
-        "hint": "在锚点上水平偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向左。"
-      },
-      "OffsetY": {
-        "label": "垂直偏移",
-        "hint": "在锚点上垂直偏移。一值两单位: |值|≤1 = 客户区比例(1=100%), |值|>1 = 像素。负值向上。"
-      },
-      "OrderBy": {
-        "label": "多命中排序",
-        "hint": "多命中时按什么排序再取第几个",
-        "option": {
-          "score": "匹配度",
-          "horizontal": "从左到右",
-          "vertical": "从上到下",
-          "area": "面积",
-          "random": "随机"
-        }
-      },
-      "Index": {
-        "label": "取第几个",
-        "hint": "排序后取第几个命中 (从 0 起)"
-      },
-      "Button": {
-        "label": "按键",
-        "option": {
-          "left": "左键",
-          "right": "右键",
-          "middle": "中键"
-        }
-      },
-      "Keys": {
-        "label": "组合键",
-        "hint": "点击时按住的修饰键, + 分隔, 如 ctrl 或 ctrl+shift。留空=不按。仅 ctrl/shift/alt/win"
-      },
-      "ClickCount": {
-        "label": "点击次数",
-        "hint": "连点几下 (1=单击, 2=双击)"
-      },
-      "SettleMs": {
-        "label": "命中后延迟 (ms)",
-        "hint": "命中后先等这么久再点 —— 给转场/加载动画留时间, 防止\"刚出现就点、点空了\"; 等完会用新鲜帧重新定位一次。0 = 立即点 (默认)。"
-      },
-      "MaxAttempts": {
-        "label": "最多点击次数",
-        "hint": "最多点几下 (含第一下)。设 >1 时, 每点一下就检查模板还在不在, 还在就再点, 直到它消失或点够次数 —— 防偶尔点空。模板消失 = 成功走 Done; 点够了还在走 Timeout。1 = 只点一次不检查 (默认)。"
-      },
-      "RetryIntervalMs": {
-        "label": "重试间隔 (ms)",
-        "hint": "每点一下后等多久再检查模板消失没 (也是两次点击的间隔)。只在「最多点击次数」>1 时生效。给游戏留出反应时间, 太短会在画面还没更新时误判没点中。默认 500。"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Timeout": {
-        "label": "超时"
-      },
-      "Fail": {
-        "label": "失败"
       }
     }
   },
@@ -505,166 +338,6 @@
     "label": "跳过本轮",
     "description": "略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。"
   },
-  "DecodeQR": {
-    "label": "二维码解码",
-    "description": "在区域内解码二维码，返回首个二维码的文本内容、检出总数和定位点。没检出或解不出都走未找到。",
-    "input": {
-      "ROI": {
-        "label": "区域"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "找到"
-      },
-      "NotFound": {
-        "label": "未找到"
-      },
-      "Text": {
-        "label": "文本"
-      },
-      "Count": {
-        "label": "检出数"
-      },
-      "Points": {
-        "label": "定位点"
-      }
-    }
-  },
-  "DetectColor": {
-    "label": "颜色检测",
-    "description": "在你框的那块区域里数一数有多少像素落在指定颜色范围内，够多（达到最小像素数）就走 Found 口并给出命中区域的中心点，不够就走 NotFound 口。看一眼就出结果，不会反复等。颜色范围可用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）或 RGB（红绿蓝）两种方式填。",
-    "example": "判断血条是不是红的（血量够）：在血条位置框一块区域，模式选 HSV、填红色的范围，命中够多就走 Found 接正常逻辑，太少走 NotFound 接吃药/撤退。",
-    "input": {
-      "ROI": {
-        "label": "区域 (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "Mode": {
-        "label": "模式",
-        "option": {
-          "hsv": "HSV",
-          "rgb": "RGB"
-        }
-      },
-      "Range": {
-        "label": "范围",
-        "hint": "HSV: 色相 0-360 / 饱和 0-100 / 明度 0-100; RGB: 各 0-255。高级技巧: 点右上角切 JSON 直接编辑数组。"
-      },
-      "MinPixels": {
-        "label": "最小像素"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "NotFound": {
-        "label": "未命中"
-      }
-    }
-  },
-  "DetectColorBlobs": {
-    "label": "颜色块定位",
-    "description": "在区域内找出指定颜色的所有连通块，返回每块的中心/外接框/面积（归一化）。用于发光物资、血条、颜色标记目标的定位。",
-    "input": {
-      "ROI": {
-        "label": "区域 (ratio)"
-      },
-      "Mode": {
-        "label": "模式",
-        "option": {
-          "hsv": "HSV",
-          "rgb": "RGB"
-        }
-      },
-      "Range": {
-        "label": "范围"
-      },
-      "MinArea": {
-        "label": "最小像素数"
-      },
-      "MaxBlobs": {
-        "label": "最多返回块数（0=不限）"
-      },
-      "Sort": {
-        "label": "排序方式",
-        "option": {
-          "area_desc": "面积降序",
-          "dist_screen_center": "距屏幕中心近优先",
-          "dist_point": "距参考点近优先"
-        }
-      },
-      "RefPoint": {
-        "label": "参考点（归一化）"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms, 0=单次)"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "找到"
-      },
-      "NotFound": {
-        "label": "未找到"
-      },
-      "Timeout": {
-        "label": "超时"
-      }
-    }
-  },
-  "DetectColorHSV": {
-    "label": "颜色检测 (HSV)",
-    "description": "在你框的那块区域（ROI = 屏幕上框的一小块）里反复数指定颜色占的比例，达到设定比例就走 Found 口；超时还没达到走 Timeout 口。跟「颜色检测」的区别是它会按设定间隔一直等下去，颜色只用 HSV（按色相/鲜艳度/明暗描述，更耐光照变化）填。把超时设成 0 或负数就只看一眼，不达标直接走 NotFound 口。",
-    "example": "等技能冷却好（图标从灰变亮）：在技能图标上框 ROI，填亮色的 HSV 范围、最小比例 0.5，亮起来够多就走 Found 接放技能；一直没亮走 Timeout。",
-    "input": {
-      "ROI": {
-        "label": "ROI (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "HSV": {
-        "label": "HSV 范围",
-        "hint": "{'{'}\"hMin\":0,\"hMax\":360,\"sMin\":0,\"sMax\":100,\"vMin\":0,\"vMax\":100{'}'}"
-      },
-      "MinPixelRatio": {
-        "label": "最小命中比例"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)",
-        "hint": "<=0 单次扫描"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "NotFound": {
-        "label": "未命中"
-      },
-      "Timeout": {
-        "label": "超时"
-      }
-    }
-  },
   "Div": {
     "label": "除",
     "description": "用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。",
@@ -679,40 +352,6 @@
     "output": {
       "Result": {
         "label": "结果"
-      }
-    }
-  },
-  "DualColorBarTrack": {
-    "label": "双色条追踪",
-    "description": "专门追踪那种「一个滑块在一条彩色区段里来回动」的双色控件：在你框的 ROI（屏幕上框的一小块）里用颜色认出内层（滑块/光标）和外层（目标区段），算出滑块此刻在区段里的位置和它俩的宽度。两种颜色都用 HSV（按色相/鲜艳度/明暗描述）填，认到了走 Found 口给出位置，认不到走 NotFound。常用在钓鱼溜鱼、血条、进度条、QTE 这类双色条上。",
-    "example": "钓鱼溜鱼条：在溜鱼条上框 ROI，内层填光标黄、外层填目标青，Found 口拿到光标和目标位置后，判断光标偏左就按左、偏右就按右，把光标拽回目标区段里。",
-    "input": {
-      "ROI": {
-        "label": "ROI (ratio)",
-        "hint": "客户区 ratio 矩形"
-      },
-      "InnerColor": {
-        "label": "内层 HSV (默认 钓鱼光标 黄)",
-        "hint": "{'{'}\"hMin\":45,\"hMax\":70,\"sMin\":16,\"sMax\":100,\"vMin\":78,\"vMax\":100{'}'}"
-      },
-      "OuterColor": {
-        "label": "外层 HSV (默认 钓鱼目标 青)",
-        "hint": "{'{'}\"hMin\":160,\"hMax\":180,\"sMin\":55,\"sMax\":100,\"vMin\":39,\"vMax\":100{'}'}"
-      },
-      "Options": {
-        "label": "算法参数 (可选)",
-        "hint": "{'{'}\"innerMinPx\":2,\"innerMaxPx\":0,\"outerMinPx\":0,\"bandRatioH\":0.30,\"bandRatioInner\":0.85,\"confInnerWeight\":0.42,\"confOuterWeight\":0.58{'}'} (0/空字段走默认; 默认是 钓鱼 UI 实测值)"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "NotFound": {
-        "label": "未命中"
       }
     }
   },
@@ -872,81 +511,6 @@
       },
       "Fail": {
         "label": "失败"
-      }
-    }
-  },
-  "FindColorSignature": {
-    "label": "颜色签名",
-    "description": "在区域内搜索\"锚点色+若干偏移点色\"的组合，命中返回锚点位置。比单点颜色检测更稳，比模板匹配更快。签名填 JSON 数组，首项为锚点（dx=dy=0），其余项为偏移点。",
-    "input": {
-      "ROI": {
-        "label": "搜索区域"
-      },
-      "Signature": {
-        "label": "颜色签名",
-        "hint": "[{'{'}\"dx\":0,\"dy\":0,\"r\":200,\"g\":30,\"b\":30{'}'},{'{'}\"dx\":12,\"dy\":-4,\"r\":255,\"g\":255,\"b\":255,\"tol\":8{'}'}]"
-      },
-      "Tolerance": {
-        "label": "默认容差",
-        "hint": "每通道灰度绝对差 0-255；单点 tol 缺省时用此值"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "找到"
-      },
-      "NotFound": {
-        "label": "未找到"
-      },
-      "Point": {
-        "label": "命中点"
-      }
-    }
-  },
-  "FindTemplateAll": {
-    "label": "模板全部命中",
-    "description": "在区域内找出指定模板的所有匹配（NMS 去重），返回每个命中的中心/外接框/来源模板，以及命中总数和最佳命中。用于批量定位同类图标/物件。",
-    "input": {
-      "Templates": {
-        "label": "模板"
-      },
-      "ROI": {
-        "label": "搜索区域"
-      },
-      "Threshold": {
-        "label": "匹配阈值"
-      },
-      "MaxResults": {
-        "label": "最多返回数（0=不限）"
-      },
-      "MinDistance": {
-        "label": "去重最小间距（px，0=自动）"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "找到"
-      },
-      "NotFound": {
-        "label": "未找到"
-      },
-      "Matches": {
-        "label": "各命中"
-      },
-      "Count": {
-        "label": "命中数"
-      },
-      "PrimaryPoint": {
-        "label": "最佳命中点"
-      },
-      "PrimaryConf": {
-        "label": "最佳匹配度"
       }
     }
   },
@@ -1361,25 +925,6 @@
     "output": {
       "Result": {
         "label": "新列表"
-      }
-    }
-  },
-  "LoadImage": {
-    "label": "加载图像",
-    "description": "从本地文件读一张图像(仅 PNG / JPEG, 限 10MB)产出图像值, 接给 AI 节点识图等。路径限数据目录下。",
-    "example": "把外部图喂给 AI: 加载图像(填相对路径)→ 接 AI 节点图像输入。",
-    "input": {
-      "Path": {
-        "label": "路径",
-        "hint": "本地图片路径 — 绝对路径(如 C:\\...\\x.png)或数据目录下相对路径"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Fail": {
-        "label": "失败"
       }
     }
   },
@@ -1820,140 +1365,6 @@
       }
     }
   },
-  "PickBlobPoint": {
-    "label": "取色块命中点",
-    "description": "从「颜色块定位」输出的 Blobs 列表里取第 N 个色块，按锚点和偏移转换成一个坐标点。它适合把排序后的色块结果直接接到点击、拖拽或距离判断。",
-    "example": "DetectColorBlobs 按面积排序找到多个发光物体后，Index 填 0 取最大的色块中心，Result 接 ClickAt 自动点击它。",
-    "input": {
-      "Blobs": {
-        "label": "色块列表",
-        "hint": "接 DetectColorBlobs 的 Blobs 输出"
-      },
-      "Index": {
-        "label": "取第几个",
-        "hint": "从 0 开始，越界返回 (0,0)"
-      },
-      "Anchor": {
-        "label": "锚点",
-        "hint": "取色块外接框的哪个位置，默认中心",
-        "option": {
-          "topLeft": "左上",
-          "topCenter": "上中",
-          "topRight": "右上",
-          "midLeft": "左中",
-          "center": "中心",
-          "midRight": "右中",
-          "botLeft": "左下",
-          "botCenter": "下中",
-          "botRight": "右下"
-        }
-      },
-      "OffsetX": {
-        "label": "水平偏移",
-        "hint": "在锚点上增加的 ratio 偏移，负值向左"
-      },
-      "OffsetY": {
-        "label": "垂直偏移",
-        "hint": "在锚点上增加的 ratio 偏移，负值向上"
-      }
-    },
-    "output": {
-      "Result": {
-        "label": "结果"
-      }
-    }
-  },
-  "PickBlobROI": {
-    "label": "取色块命中区域",
-    "description": "从「颜色块定位」输出的 Blobs 列表里取第 N 个色块的外接框，转换成后续识别节点可用的 ROI 区域。",
-    "example": "先按颜色找到角色血条，再把血条区域外扩一点，接到 WaitStable 或模板检测做局部判断。",
-    "input": {
-      "Blobs": {
-        "label": "色块列表",
-        "hint": "接 DetectColorBlobs 的 Blobs 输出"
-      },
-      "Index": {
-        "label": "取第几个",
-        "hint": "从 0 开始，越界返回空区域"
-      },
-      "Padding": {
-        "label": "外扩",
-        "hint": "ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸"
-      }
-    },
-    "output": {
-      "Result": {
-        "label": "区域"
-      }
-    }
-  },
-  "PickMatchPoint": {
-    "label": "取模板命中点",
-    "description": "从「模板全部命中」输出的 Matches 列表里取第 N 个命中，按锚点和偏移转换成一个坐标点。它不截图、不识别，只负责把命中列表变成可接 ClickAt / Swipe 的 Point。",
-    "example": "FindTemplateAll 找到一排相同按钮后，Index 填 1 取第二个命中，Result 接到 ClickAt 的坐标，就能点击第二个按钮。",
-    "input": {
-      "Matches": {
-        "label": "命中列表",
-        "hint": "接 FindTemplateAll 的 Matches 输出"
-      },
-      "Index": {
-        "label": "取第几个",
-        "hint": "从 0 开始，越界返回 (0,0)"
-      },
-      "Anchor": {
-        "label": "锚点",
-        "hint": "取命中框的哪个位置，默认中心",
-        "option": {
-          "topLeft": "左上",
-          "topCenter": "上中",
-          "topRight": "右上",
-          "midLeft": "左中",
-          "center": "中心",
-          "midRight": "右中",
-          "botLeft": "左下",
-          "botCenter": "下中",
-          "botRight": "右下"
-        }
-      },
-      "OffsetX": {
-        "label": "水平偏移",
-        "hint": "在锚点上增加的 ratio 偏移，负值向左"
-      },
-      "OffsetY": {
-        "label": "垂直偏移",
-        "hint": "在锚点上增加的 ratio 偏移，负值向上"
-      }
-    },
-    "output": {
-      "Result": {
-        "label": "结果"
-      }
-    }
-  },
-  "PickMatchROI": {
-    "label": "取模板命中区域",
-    "description": "从「模板全部命中」输出的 Matches 列表里取第 N 个命中的外接框，转换成后续识别节点可用的 ROI 区域。",
-    "example": "先找到多个卡片图标，再把第一个命中的区域接到 DetectColorBlobs，只在这张卡片附近继续检测颜色。",
-    "input": {
-      "Matches": {
-        "label": "命中列表",
-        "hint": "接 FindTemplateAll 的 Matches 输出"
-      },
-      "Index": {
-        "label": "取第几个",
-        "hint": "从 0 开始，越界返回空区域"
-      },
-      "Padding": {
-        "label": "外扩",
-        "hint": "ratio 外扩量，0.02 表示四周各扩 2% 屏幕尺寸"
-      }
-    },
-    "output": {
-      "Result": {
-        "label": "区域"
-      }
-    }
-  },
   "PlayClip": {
     "label": "回放录像",
     "description": "把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。",
@@ -2031,59 +1442,6 @@
     "output": {
       "Result": {
         "label": "区域"
-      }
-    }
-  },
-  "ROIColorScan": {
-    "label": "ROI 颜色连续段扫描",
-    "description": "在你框的 ROI（屏幕上框的一小块）里，沿水平或垂直方向找指定颜色的「连续段」——一串连在一起、长度在你设的范围内的同色像素算一段。找到的段数够（达到最少段数）就走 Found 口，并把每段的信息带出去；不够就一直按间隔重试，超时走 Timeout。颜色用 HSV（按色相/鲜艳度/明暗）填。把超时设成 0 或负数就只扫一遍，不够直接走 NotFound。",
-    "example": "数背包里有几格亮着的物品：在背包行框 ROI，扫描轴选水平，填物品高亮的 HSV、最少段数填 1，扫到亮格就走 Found 接后续处理，一直没有走 Timeout。",
-    "input": {
-      "ROI": {
-        "label": "ROI (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "HSV": {
-        "label": "HSV 范围",
-        "hint": "{'{'}\"hMin\":0,\"hMax\":360,\"sMin\":0,\"sMax\":100,\"vMin\":0,\"vMax\":100{'}'}"
-      },
-      "Axis": {
-        "label": "扫描轴",
-        "option": {
-          "x": "水平 (x)",
-          "y": "垂直 (y)"
-        }
-      },
-      "MinClusterPx": {
-        "label": "最小段长 (px)"
-      },
-      "MaxClusterPx": {
-        "label": "最大段长 (px)",
-        "hint": "<=0 默认 ROI 大小 / 3"
-      },
-      "MinClusterCount": {
-        "label": "最少段数"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)",
-        "hint": "<=0 单次扫描"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "NotFound": {
-        "label": "未命中"
-      },
-      "Timeout": {
-        "label": "超时"
       }
     }
   },
@@ -2307,32 +1665,10 @@
       }
     }
   },
-  "SaveImage": {
-    "label": "保存图像",
-    "description": "把一张图像值写到本地的 images 目录下。扩展名按图像实际格式自动定。文件名支持时间戳/日期/uuid 占位自动区分, 避免并发覆盖。",
-    "example": "截屏后留底: 截屏 → 保存图像, 文件名用 uuid 占位。",
-    "input": {
-      "Image": {
-        "label": "图像"
-      },
-      "PathTemplate": {
-        "label": "路径模板",
-        "hint": "相对路径, 不含 .. / 盘符 / 开头斜杠"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Fail": {
-        "label": "失败"
-      }
-    }
-  },
   "Script": {
     "label": "脚本",
-    "description": "用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用其他节点（写节点名当函数，如 ClickAt、WaitTemplate）。适合连线画起来太绕的复杂流程。",
-    "example": "等图标出现然后点它，重试 3 次：写一个 for 循环调 WaitTemplate，找到就 ClickAt 并 return，找不到 sleep 一秒再试。",
+    "description": "用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用当前目录中允许绑定的节点。适合连线画起来太绕的复杂流程。",
+    "example": "需要多次重试时，写一个 for 循环调用节点函数，并用 sleep(1000) 控制重试间隔。",
     "input": {
       "Code": {
         "label": "代码",
@@ -2629,16 +1965,16 @@
   },
   "Swipe": {
     "label": "拖拽",
-    "description": "按住鼠标键，从起点匀速拖到终点再松开。时长填拖完这段距离花多少毫秒，越大越慢越像真人；留空或填 0 走默认 200ms（拖太快很多界面认不出，故设下限）。起点和终点都是坐标点 pin，可以从检测节点（如 ClickTemplate、DetectColor）的输出直接连线进来，不连默认 (0, 0)。",
-    "example": "把一个物品从格子 A 拖到格子 B：把 ClickTemplate 识别到 A 的坐标连到「起点」，识别到 B 的坐标连到「终点」，时长填 300，运行时就会从 A 拖到 B 再松手。",
+    "description": "按住鼠标键，从起点匀速拖到终点再松开。起点和终点可以连接任意 Point 数据输出。",
+    "example": "把两个 Point 值分别连接到起点和终点，时长填 300，运行时会完成一次拖拽。",
     "input": {
       "Begin": {
         "label": "起点",
-        "hint": "拖拽的起始坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来"
+        "hint": "拖拽的起始坐标点，可连接任意 Point 数据输出"
       },
       "End": {
         "label": "终点",
-        "hint": "拖拽的结束坐标点，可从检测节点（如 ClickTemplate / DetectColor）的输出连线进来"
+        "hint": "拖拽的结束坐标点，可连接任意 Point 数据输出"
       },
       "Button": {
         "label": "按键",
@@ -2801,196 +2137,6 @@
     "output": {
       "Value": {
         "label": "上次变化时间(ms)"
-      }
-    }
-  },
-  "WaitChange": {
-    "label": "等待画面变化",
-    "description": "先把你框的 ROI（屏幕上框的一小块）此刻的样子记下来当基准，然后反复跟它比，一旦变化够大就认为「画面变了」走 Changed 口；超时一直没变走 Timeout。专门用来等弹窗冒出来、加载完成、画面切换这类「等它动一下」的时机。",
-    "example": "点确认后等结果弹窗出现：在弹窗会出现的位置框 ROI，画面一变就走 Changed 接读弹窗内容；半天没动静走 Timeout 当作没反应处理。",
-    "input": {
-      "ROI": {
-        "label": "ROI (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "GridSize": {
-        "label": "降采样网格",
-        "hint": "边长 clamp [4,128]"
-      },
-      "Metric": {
-        "label": "差分度量",
-        "option": {
-          "changed_ratio": "变化格占比",
-          "mean_diff": "平均差"
-        }
-      },
-      "CellDelta": {
-        "label": "格变化阈 (0-255)",
-        "hint": "仅 changed_ratio"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)",
-        "hint": "<=0 = 无限轮询"
-      },
-      "ChangeThreshold": {
-        "label": "变化阈 (0-1)",
-        "hint": "差 >= 此视作变了"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Changed": {
-        "label": "已变化"
-      },
-      "Timeout": {
-        "label": "超时"
-      },
-      "Value": {
-        "label": "差异值"
-      }
-    }
-  },
-  "WaitStable": {
-    "label": "等待画面稳定",
-    "description": "盯着你框的 ROI（屏幕上框的一小块），反复跟上一帧比，连续好几帧几乎没变化就认为「画面稳了」走 Stable 口；超时还在动走 Timeout。专门用来等动画播完、加载转圈停下、列表刷完再往下做，避免在画面还在动时就误判。",
-    "example": "等加载界面转圈结束：在加载区域框 ROI，连续稳定帧数填 3，画面不动了走 Stable 接下一步；卡着一直转走 Timeout 处理。",
-    "input": {
-      "ROI": {
-        "label": "ROI (ratio)",
-        "hint": "客户区 ratio 矩形, 全 0 = 全屏"
-      },
-      "GridSize": {
-        "label": "降采样网格",
-        "hint": "边长 clamp [4,128]; 越大越细越慢"
-      },
-      "Metric": {
-        "label": "差分度量",
-        "option": {
-          "changed_ratio": "变化格占比",
-          "mean_diff": "平均差"
-        }
-      },
-      "CellDelta": {
-        "label": "格变化阈 (0-255)",
-        "hint": "仅 changed_ratio: 格均值通道差 > 此视作变了"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)",
-        "hint": "<=0 = 无限轮询"
-      },
-      "StableThreshold": {
-        "label": "稳定阈 (0-1)",
-        "hint": "差 <= 此视作没变"
-      },
-      "StableFrames": {
-        "label": "连续稳定帧数"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Stable": {
-        "label": "已稳定"
-      },
-      "Timeout": {
-        "label": "超时"
-      },
-      "Value": {
-        "label": "差异值"
-      }
-    }
-  },
-  "WaitTemplate": {
-    "label": "等待模板",
-    "description": "盯着屏幕反复找你指定的图片（模板），在超时时间内一出现就走 Found 口并给出它的位置；到点还没出现就走 Timeout 口。适合等某个图标/按钮加载出来再往下做。",
-    "example": "钓鱼时等「上钩」图标冒出来：模板选 fishing.hook_icon，超时设 5 秒，命中后把 Found 口接收杆动作；5 秒没上钩就走 Timeout 口重新抛竿。",
-    "input": {
-      "Templates": {
-        "label": "模板",
-        "hint": "命名空间.名 格式, e.g. fishing.hook_icon; 可选多个"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)"
-      },
-      "Threshold": {
-        "label": "阈值",
-        "hint": "NCC 阈值"
-      },
-      "ROI": {
-        "label": "搜索区域",
-        "hint": "只在这个区域内等待模板出现；留空=全屏"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)",
-        "hint": "每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。"
-      },
-      "SettleMs": {
-        "label": "命中后延迟 (ms)",
-        "hint": "命中后先等这么久再放行 —— 给转场/加载动画留时间, 让下游动作不至于太早; 等完会用新鲜帧重新定位一次 (更新输出的命中点)。0 = 立即放行 (默认)。"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Found": {
-        "label": "命中"
-      },
-      "Timeout": {
-        "label": "超时"
-      },
-      "Fail": {
-        "label": "失败"
-      }
-    }
-  },
-  "WaitTemplateGone": {
-    "label": "等待模板消失",
-    "description": "盯着屏幕反复确认你指定的图片（模板）消失没有，消失了就走 Gone 口；一直在到超时就走 Timeout 口，并带出最后一帧的匹配度。适合等某个遮罩/加载界面/弹框消失再继续。",
-    "example": "等待登录加载条消失再点下一步：模板选加载条图片，超时 10 秒，Gone 口接继续步骤；10 秒还没消失走 Timeout 口做异常处理。",
-    "input": {
-      "Templates": {
-        "label": "模板",
-        "hint": "命名空间.名 格式, e.g. ns.loading_bar; 可选多个（任一命中即视为\"还在\"）"
-      },
-      "TimeoutMs": {
-        "label": "超时 (ms)",
-        "hint": "0 = 只看当前帧一次，不在走 Gone，在走 Timeout"
-      },
-      "Threshold": {
-        "label": "阈值",
-        "hint": "NCC 阈值"
-      },
-      "ROI": {
-        "label": "搜索区域",
-        "hint": "只在这个区域内确认模板是否还在；留空=全屏"
-      },
-      "PollIntervalMs": {
-        "label": "轮询间隔 (ms)",
-        "hint": "每隔多久重看一帧。值越小反应越快，但截图/匹配压力越高。"
-      },
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Gone": {
-        "label": "已消失"
-      },
-      "Timeout": {
-        "label": "超时"
-      },
-      "Fail": {
-        "label": "失败"
       }
     }
   },

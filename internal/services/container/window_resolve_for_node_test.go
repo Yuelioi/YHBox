@@ -17,15 +17,15 @@ func (n targetPathNode) Spec() node.Spec {
 func (targetPathNode) Run(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }
 
 func TestWin32WindowTargetForNode(t *testing.T) {
-	// 构造 Start → WT_A → n1(ClickTemplate) → WT_B → n2(ClickTemplate)
+	// 构造 Start → WT_A → n1(Sleep) → WT_B → n2(Sleep)
 	// 用 exec 边 "<id>.<outpin>"→"<id>.In" 串联.
 	c := &Container{Graph: Graph{
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "wta", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "A"}},
-			{ID: "n1", Kind: "ClickTemplate"},
+			{ID: "n1", Kind: "Sleep"},
 			{ID: "wtb", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "B"}},
-			{ID: "n2", Kind: "ClickTemplate"},
+			{ID: "n2", Kind: "Sleep"},
 		},
 		Edges: []GraphEdge{
 			{From: "start.Done", To: "wta.In"},
@@ -50,9 +50,9 @@ func TestEditorTargetKindForNode(t *testing.T) {
 		Nodes: []GraphNode{
 			{ID: "start", Kind: "Start"},
 			{ID: "wt", Kind: "Win32WindowTarget"},
-			{ID: "winClick", Kind: "ClickTemplate"},
+			{ID: "winClick", Kind: "Sleep"},
 			{ID: "at", Kind: "AndroidTarget"},
-			{ID: "androidClick", Kind: "ClickTemplate"},
+			{ID: "androidClick", Kind: "Sleep"},
 		},
 		Edges: []GraphEdge{
 			{From: "start.Done", To: "wt.In"},
@@ -81,11 +81,11 @@ func TestEditorTargetKindForNode_DefaultsToWin32WhenNoTarget(t *testing.T) {
 
 func TestEditorTargetForNodeUsesExplicitRegistryAcrossCustomNode(t *testing.T) {
 	registry := node.NewRegistry()
-	for _, kind := range []string{"Start", "AndroidTarget", "CustomBridge", "ClickTemplate"} {
+	for _, kind := range []string{"Start", "AndroidTarget", "CustomBridge", "Sleep"} {
 		registry.Register(targetPathNode{kind: kind})
 	}
 	c := &Container{Graph: Graph{
-		Nodes: []GraphNode{{ID: "start", Kind: "Start"}, {ID: "target", Kind: "AndroidTarget"}, {ID: "bridge", Kind: "CustomBridge"}, {ID: "click", Kind: "ClickTemplate"}},
+		Nodes: []GraphNode{{ID: "start", Kind: "Start"}, {ID: "target", Kind: "AndroidTarget"}, {ID: "bridge", Kind: "CustomBridge"}, {ID: "click", Kind: "Sleep"}},
 		Edges: []GraphEdge{{From: "start.Done", To: "target.In"}, {From: "target.Done", To: "bridge.In"}, {From: "bridge.Done", To: "click.In"}},
 	}}
 	got, ok := editorTargetForNodeWithRegistry(registry.Snapshot(), c, "click")
@@ -104,7 +104,7 @@ func TestEditorTargetForNode_AndroidTargetConfig(t *testing.T) {
 				"Width":  1280,
 				"Height": 720,
 			}}},
-			{ID: "click", Kind: "ClickTemplate"},
+			{ID: "click", Kind: "Sleep"},
 		},
 		Edges: []GraphEdge{
 			{From: "start.Done", To: "at.In"},

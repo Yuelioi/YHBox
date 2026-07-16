@@ -90,7 +90,7 @@
     </div>
   </div>
 
-  <!-- tuple: 定长数组, 逐位置渲染带标签子项 (DetectColor.Range 等). 结构 ⇄ JSON 双模式同 object. -->
+  <!-- tuple: 定长数组, 逐位置渲染带标签子项. 结构 ⇄ JSON 双模式同 object. -->
   <div v-else-if="schema.type === 'tuple'" class="space-y-3">
     <div v-if="!noTextMode || schema.widget === 'colorRange'" class="flex items-center justify-end">
       <div class="flex items-center gap-1">

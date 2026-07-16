@@ -239,8 +239,7 @@ func main() {
 
 	// Container / Schedule 数据层
 
-	// 节点系统. 模板节点 (WaitTemplate/ClickTemplate/CheckTemplate) 的 Templates 字段 (GUID)
-	// 走 "template-picker" widget — inspector 直接用 TemplatePicker 读 assetSvc.List() (全局).
+	// Legacy node catalog remains available while the 3.1 workflow editor replaces it.
 	nodeSvc := node.NewService()
 	androidadb.RegisterNodeAsyncSource(nodeSvc, androidadb.NewService(nil))
 	// 全局子图池 (2026-06-12 全局化: 容器只引用不复制): <dataDir>/subgraphs/.
@@ -258,7 +257,6 @@ func main() {
 	containerStore.SetSubgraphResolver(func(c *container.Container) []container.Subgraph {
 		return subgraphClosureFor(c, sgStore)
 	})
-	containerStore.SetAssetStore(assetStore)
 	containerSvc := container.NewService(containerStore)
 	subgraphReferrers := scanSubgraphReferrers(containerStore, sgStore)
 	container.ConfigureSubgraphReferrerScanner(sgSvc, subgraphReferrers)
@@ -274,15 +272,8 @@ func main() {
 	}
 	gcAnonymousSubgraphs()
 	container.ConfigurePostDelete(containerSvc, gcAnonymousSubgraphs)
-	// Legacy template references still validate against the global asset library.
-	container.ConfigureTemplateExistence(containerSvc, assetExistence(assetStore, asset.KindTemplate))
-
 	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
 	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
-	// 删资产前扫全部容器+子图引用, 返 Referrer 列表 (不阻断, FE 弹"被 N 处引用"警告).
-	assetReferrers := scanAssetReferrers(containerStore, sgStore)
-	asset.ConfigureReferrerScanner(assetSvc, assetReferrers)
-	// 注: change listener 在 templateMatcher 构造后接 (见下), 让存资产立刻让 matcher 解码缓存失效.
 	nodeoptions.RegisterSubgraphAsyncSource(nodeSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
@@ -491,7 +482,6 @@ func main() {
 	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	recording.ConfigureReferenceCounter(recordingSvc, func(id string) int { return len(assetReferrers(id)) })
 	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
 	recording.ConfigureContainerGetter(recordingSvc, containerStore)
 

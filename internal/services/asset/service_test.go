@@ -113,16 +113,8 @@ func TestService_RenameDelete(t *testing.T) {
 		t.Errorf("tags update failed: %v", rec.Tags)
 	}
 
-	// 注入引用扫描 — Delete 返回引用列表 (不阻断).
-	ConfigureReferrerScanner(svc, func(g string) []Referrer {
-		return []Referrer{{ContainerID: "c1", NodeID: "n1", NodeKind: "CheckTemplate"}}
-	})
-	refs, err := svc.Delete(guid)
-	if err != nil {
+	if err := svc.Delete(guid); err != nil {
 		t.Fatal(err)
-	}
-	if len(refs) != 1 || refs[0].ContainerID != "c1" {
-		t.Errorf("referrers = %+v", refs)
 	}
 	if _, err := svc.Get(guid); err == nil {
 		t.Error("asset should be deleted")
@@ -218,53 +210,5 @@ func TestService_CurrentResolution(t *testing.T) {
 	svcNil := NewService(s, nil)
 	if _, err := svcNil.CurrentResolution("c1"); err == nil {
 		t.Error("CurrentResolution with nil adapter should error")
-	}
-}
-
-func TestServiceCleanupOnlyDeletesSelectedUnusedTemplates(t *testing.T) {
-	s, _ := newTestStore(t)
-	for _, rec := range []AssetRecord{
-		makeRecord("unused", "Unused", KindTemplate),
-		makeRecord("used", "Used", KindTemplate),
-		makeRecord("clip", "Clip", KindClip),
-	} {
-		if err := s.PutRecord(rec); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	refs := map[string]int{"used": 1}
-	svc := NewService(s, nil)
-	ConfigureReferrerScanner(svc, func(id string) []Referrer {
-		return make([]Referrer, refs[id])
-	})
-
-	preview := svc.PreviewCleanup()
-	if len(preview.Unused) != 1 || preview.Unused[0].ID != "unused" {
-		t.Fatalf("unused preview = %+v", preview.Unused)
-	}
-	if len(preview.Referenced) != 1 || preview.Referenced[0].ID != "used" {
-		t.Fatalf("referenced preview = %+v", preview.Referenced)
-	}
-
-	refs["unused"] = 1
-	result := svc.CleanupUnused(CleanupArgs{IDs: []string{"unused"}})
-	if len(result.Skipped) != 1 || result.Skipped[0].ID != "unused" {
-		t.Fatalf("cleanup should recheck references: %+v", result)
-	}
-	if _, ok := s.Get("unused"); !ok {
-		t.Fatal("newly referenced template was deleted")
-	}
-
-	refs["unused"] = 0
-	result = svc.CleanupUnused(CleanupArgs{IDs: []string{"unused"}})
-	if len(result.Deleted) != 1 || result.Deleted[0] != "unused" {
-		t.Fatalf("cleanup result = %+v", result)
-	}
-	if _, ok := s.Get("unused"); ok {
-		t.Fatal("unused template still exists")
-	}
-	if _, ok := s.Get("clip"); !ok {
-		t.Fatal("clip must not be exposed to template cleanup")
 	}
 }

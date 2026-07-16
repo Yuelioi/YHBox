@@ -1,8 +1,7 @@
-<!-- 视觉模板资产面板：共享筛选/分页/键盘模型，dock 原位钻取详情，workspace 常驻检查器。
-     pick 模式保留点选即回写；管理模式单击选中，双击或详情按钮进入编辑。 -->
+<!-- 视觉模板资产面板：共享筛选/分页/键盘模型，dock 原位钻取详情，workspace 常驻检查器。 -->
 <template>
   <div class="asset-panel relative flex h-full min-h-0 flex-col" :data-workspace="workspace">
-    <div v-if="drillIn && detailId && !workspace && !pickMode" class="flex h-full min-h-0 flex-col">
+    <div v-if="drillIn && detailId && !workspace" class="flex h-full min-h-0 flex-col">
       <div class="flex shrink-0 items-center gap-2 border-b border-default px-3 py-2">
         <UButton
           size="xs"
@@ -17,12 +16,7 @@
           tplStore.map[detailId]?.name || detailId
         }}</span>
       </div>
-      <TemplateDetailPanel
-        :guid="detailId"
-        :container-id="containerId"
-        :pick-mode="false"
-        :assigned="false"
-      />
+      <TemplateDetailPanel :guid="detailId" :container-id="containerId" />
     </div>
 
     <template v-else>
@@ -72,7 +66,6 @@
           />
 
           <AssetSelectionBar
-            v-if="!pickMode"
             :count="selected.size"
             :batch-items="batchMenuItems"
             @clear="selClear()"
@@ -132,7 +125,7 @@
                         : 'border-default hover:border-accented hover:bg-elevated/25'
                     "
                     @click="onCellClick(item.guid, $event)"
-                    @dblclick="!pickMode && openDetail(item.guid)"
+                    @dblclick="openDetail(item.guid)"
                     @focus="setActive(item.guid)"
                     @keydown="onCellKeydown(item.guid, $event)"
                   >
@@ -163,17 +156,8 @@
                       </div>
                     </div>
 
-                    <!-- pick: 已指派 ✓ 角标 -->
-                    <div
-                      v-if="pickMode && isAssigned(item.guid)"
-                      class="absolute top-1 right-1 size-5 rounded-full bg-primary text-inverted flex items-center justify-center shadow"
-                    >
-                      <UIcon name="i-tabler-check" class="size-3.5" />
-                    </div>
-
-                    <!-- 管理: ⋯ 详情 (hover); 深色半透明, 缩略图上够对比 (不用 solid 白) -->
+                    <!-- ⋯ 详情 (hover); 深色半透明, 缩略图上够对比 (不用 solid 白) -->
                     <UButton
-                      v-if="!pickMode"
                       size="xs"
                       variant="soft"
                       color="neutral"
@@ -189,15 +173,7 @@
             </template>
           </div>
 
-          <div
-            v-if="pickMode"
-            class="flex shrink-0 items-center justify-between border-t border-default pt-2 text-xs text-toned"
-          >
-            <span>{{ t('template.picker.selected_count', { n: assigned.length }) }}</span>
-            <span>{{ t('library.toolbar.total', { n: pageResult.total }) }}</span>
-          </div>
           <AssetPager
-            v-else
             v-model:page="page"
             :total="pageResult.total"
             :total-pages="pageResult.totalPages"
@@ -214,12 +190,7 @@
           "
           @close="drillIn = false"
         >
-          <TemplateDetailPanel
-            :guid="detailId"
-            :container-id="containerId"
-            :pick-mode="false"
-            :assigned="false"
-          />
+          <TemplateDetailPanel :guid="detailId" :container-id="containerId" />
         </AssetWorkspaceInspector>
       </div>
     </template>
@@ -301,32 +272,13 @@ import { useAssetBrowserPreferences } from '@/composables/editor/useAssetBrowser
 const { t } = useI18n()
 const props = defineProps<{
   containerId: string
-  pickMode?: boolean
-  modelValue?: string[]
   workspace?: boolean
   workspaceQuery?: string
 }>()
-const emit = defineEmits<{ 'update:modelValue': [v: string[]] }>()
-
-// pick 模式: 缩略图勾选=指派给节点 (按 modelValue 回显); 管理模式: 选中=批量.
-const assigned = computed<string[]>(() => props.modelValue ?? [])
-function isAssigned(guid: string) {
-  return assigned.value.includes(guid)
-}
-function toggleAssign(guid: string) {
-  emit(
-    'update:modelValue',
-    isAssigned(guid) ? assigned.value.filter((g) => g !== guid) : [...assigned.value, guid],
-  )
-}
 function cellActive(guid: string) {
-  return props.pickMode ? isAssigned(guid) : isSelected(guid)
+  return isSelected(guid)
 }
 function onCellClick(guid: string, e: MouseEvent) {
-  if (props.pickMode) {
-    toggleAssign(guid)
-    return
-  }
   detailId.value = guid
   if (props.workspace && !e.ctrlKey && !e.metaKey && !e.shiftKey) drillIn.value = true
   selClick(guid, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })
@@ -335,15 +287,14 @@ function onCellClick(guid: string, e: MouseEvent) {
 function onCellKeydown(guid: string, e: KeyboardEvent) {
   if (e.target !== e.currentTarget) return
   if (move(guid, e)) return
-  if (e.key === 'Enter' && !props.pickMode) {
+  if (e.key === 'Enter') {
     e.preventDefault()
     openDetail(guid)
     return
   }
   if (e.key !== ' ' && e.key !== 'Enter') return
   e.preventDefault()
-  if (props.pickMode) toggleAssign(guid)
-  else selClick(guid)
+  selClick(guid)
 }
 
 const tplStore = useTemplatesStore()
@@ -464,9 +415,6 @@ async function onNewTemplate() {
   const result = await waiter
   if (!result.payload?.cancelled) {
     await tplStore.reload()
-    if (props.pickMode && result.payload?.guid && !isAssigned(result.payload.guid)) {
-      emit('update:modelValue', [...assigned.value, result.payload.guid])
-    }
   }
 }
 
@@ -535,21 +483,9 @@ async function onBatchChangeCategory() {
 
 async function onBatchDelete() {
   const ids = [...selected.value]
-  const referenced: string[] = []
-  for (const guid of ids) {
-    const refs = await backend.assets.referrers(guid)
-    if ((refs?.length ?? 0) > 0) referenced.push(tplStore.map[guid]?.name || guid)
-  }
-  const desc =
-    referenced.length > 0
-      ? t('template.manager.batch_delete_confirm_referenced', {
-          n: ids.length,
-          refs: referenced.length,
-        })
-      : t('template.manager.batch_delete_confirm', { n: ids.length })
   const yes = await confirm({
     title: t('template.manager.batch_delete_title'),
-    description: desc,
+    description: t('template.manager.batch_delete_confirm', { n: ids.length }),
     color: 'error',
     confirmText: t('common.delete'),
   })

@@ -58,16 +58,9 @@ const (
 
 // node-kind config validation codes.
 const (
-	CodeInvalidHSVRange      = "INVALID_HSV_RANGE"
-	CodeInvalidScanAxis      = "INVALID_SCAN_AXIS"
-	CodeInvalidClusterRange  = "INVALID_CLUSTER_RANGE"
 	CodeInvalidVK            = "INVALID_VK"
 	CodeInvalidMouseButton   = "INVALID_MOUSE_BUTTON"
 	CodeUnsafeScreenshotPath = "UNSAFE_SCREENSHOT_PATH"
-	CodePollTooFast          = "POLL_TOO_FAST"
-	CodeInvalidColorMode     = "INVALID_COLOR_MODE"
-	CodeInvalidBlobParam     = "INVALID_BLOB_PARAM"
-	CodeInvalidSortMode      = "INVALID_SORT_MODE"
 	CodeStopwatchEmptyKey    = "STOPWATCH_EMPTY_KEY"
 	CodeStopwatchKeyMismatch = "STOPWATCH_KEY_MISMATCH"
 	CodeThrowInMainGraph     = "THROW_IN_MAIN_GRAPH"
@@ -122,7 +115,6 @@ const (
 	CodeContinueOutsideLoop = "CONTINUE_OUTSIDE_LOOP"
 
 	// Template / dependency codes (GUID 存在性校验, 无格式校验)
-	CodeTemplateNotFound = "TEMPLATE_NOT_FOUND"
 )
 
 // ValidationError is the i18n-ready error envelope.
@@ -176,7 +168,6 @@ func ValidateContainerWithRegistry(c *Container, sgs []Subgraph, registry nodepk
 	// 引用检查
 	errs = append(errs, validateInvalidPins(registry, c, sgs)...)
 	errs = append(errs, validateMissingSubgraph(c, sgs)...)
-	errs = append(errs, validateDualColorBarTrack(c)...)
 	errs = append(errs, validateGetParamNodes(c, sgs)...)
 	errs = append(errs, validateCollapsedReferences(c, sgs)...)
 	errs = append(errs, validateVarRefs(c, sgs)...)
@@ -656,12 +647,6 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 		switch n.Kind {
 		case "AI":
 			nodeErrs = validateAI(n)
-		case "DetectColorHSV":
-			nodeErrs = validateDetectColorHSV(n)
-		case "ROIColorScan":
-			nodeErrs = validateROIColorScan(n)
-		case "DetectColorBlobs":
-			nodeErrs = validateDetectColorBlobs(n)
 		case "StopwatchStart":
 			nodeErrs = validateStopwatch(n)
 			if key := PinString(n, "Key"); key != "" {
@@ -713,102 +698,6 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 		}
 	}
 
-	return errs
-}
-
-// validateDetectColorHSV checks HSV range ordering and poll interval sanity.
-// ROI 是 Geometry (ratio) — 留空 / 全帧 (w=h=0) 合法, 跟 DetectColor 一致, 不强制框选。
-func validateDetectColorHSV(n *GraphNode) []ValidationError {
-	var errs []ValidationError
-
-	if hsv := PinMap(n, "HSV"); hsv != nil {
-		get := func(k string) float64 { v, _ := hsv[k].(float64); return v }
-		if get("hMin") > get("hMax") || get("sMin") > get("sMax") || get("vMin") > get("vMax") {
-			errs = append(errs, ValidationError{
-				Severity: SeverityError,
-				NodeID:   n.ID,
-				Code:     CodeInvalidHSVRange,
-			})
-		}
-	}
-
-	if poll, _ := PinFloat(n, "PollIntervalMs"); poll > 0 && poll < 30 {
-		errs = append(errs, ValidationError{
-			Severity: SeverityWarning,
-			NodeID:   n.ID,
-			Code:     CodePollTooFast,
-			Params:   map[string]any{"actual": poll, "minMs": 30},
-		})
-	}
-
-	return errs
-}
-
-// validateDualColorBarTrack は Geometry ROI 移行後は no-op.
-// Roi (Geometry) の存在確認は framework Required pin 校验が担当;
-// literal 値の型チェックは validateLiteralTypes (geometry case) が担当.
-func validateDualColorBarTrack(_ *Container) []ValidationError {
-	return nil
-}
-
-// validateROIColorScan extends validateDetectColorHSV with axis + cluster checks.
-func validateROIColorScan(n *GraphNode) []ValidationError {
-	errs := validateDetectColorHSV(n)
-
-	axis := PinString(n, "Axis")
-	if axis != "x" && axis != "y" {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidScanAxis,
-			Params:   map[string]any{"got": axis},
-		})
-	}
-
-	minC, _ := PinFloat(n, "MinClusterPx")
-	maxC, _ := PinFloat(n, "MaxClusterPx")
-	if maxC > 0 && minC > maxC {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidClusterRange,
-			Params:   map[string]any{"min": minC, "max": maxC},
-		})
-	}
-
-	return errs
-}
-
-// validateDetectColorBlobs checks color mode / blob params / sort enum / poll sanity.
-// RefPoint 必填不在此校验 (未设运行期默认 (0,0); 避开 Point 存在性检查 footgun).
-func validateDetectColorBlobs(n *GraphNode) []ValidationError {
-	var errs []ValidationError
-
-	if mode := PinString(n, "Mode"); mode != "" && mode != "hsv" && mode != "rgb" {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidColorMode,
-			Params: map[string]any{"got": mode}})
-	}
-	if minA, ok := PinFloat(n, "MinArea"); ok && minA < 0 {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidBlobParam,
-			Params: map[string]any{"field": "MinArea", "got": minA}})
-	}
-	if maxB, ok := PinFloat(n, "MaxBlobs"); ok && maxB < 0 {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidBlobParam,
-			Params: map[string]any{"field": "MaxBlobs", "got": maxB}})
-	}
-	if s := PinString(n, "Sort"); s != "" && s != "area_desc" && s != "dist_screen_center" && s != "dist_point" {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError, NodeID: n.ID, Code: CodeInvalidSortMode,
-			Params: map[string]any{"got": s}})
-	}
-	if poll, _ := PinFloat(n, "PollIntervalMs"); poll > 0 && poll < 30 {
-		errs = append(errs, ValidationError{
-			Severity: SeverityWarning, NodeID: n.ID, Code: CodePollTooFast,
-			Params: map[string]any{"actual": poll, "minMs": 30}})
-	}
 	return errs
 }
 

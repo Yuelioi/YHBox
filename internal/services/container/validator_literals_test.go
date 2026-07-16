@@ -63,60 +63,6 @@ func TestLiteralTypeMismatch_BoolForStringPin(t *testing.T) {
 	}
 }
 
-func TestLiteralTypeMatch_TemplateKeyList(t *testing.T) {
-	// TemplateKey 语义 pin (WaitTemplate.Templates) 实为字符串列表, 数组 literal 不该报 mismatch.
-	c := &Container{
-		SchemaVersion: 4,
-		Graph: Graph{
-			ID: "g", SchemaVersion: 1,
-			Nodes: []GraphNode{
-				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "Win32WindowTarget"},
-				{ID: "w", Kind: "WaitTemplate", Config: map[string]any{
-					"literal": map[string]any{"Templates": []any{"ns.icon"}},
-				}},
-			},
-		},
-	}
-	errs := ValidateContainer(c, nil)
-	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch {
-			if pin, _ := e.Params["pin"].(string); pin == "Templates" {
-				t.Errorf("unexpected LITERAL_TYPE_MISMATCH for TemplateKey list: %+v", e)
-			}
-		}
-	}
-}
-
-func TestLiteralTypeMismatch_TemplateKeyNonString(t *testing.T) {
-	// 列表元素非 string (数字) 仍该报 mismatch — 模板 key 必须是字符串.
-	c := &Container{
-		SchemaVersion: 4,
-		Graph: Graph{
-			ID: "g", SchemaVersion: 1,
-			Nodes: []GraphNode{
-				{ID: "s", Kind: "Start"},
-				{ID: "wt", Kind: "Win32WindowTarget"},
-				{ID: "w", Kind: "WaitTemplate", Config: map[string]any{
-					"literal": map[string]any{"Templates": []any{1.1}},
-				}},
-			},
-		},
-	}
-	errs := ValidateContainer(c, nil)
-	found := false
-	for _, e := range errs {
-		if e.Code == CodeLiteralTypeMismatch {
-			if pin, _ := e.Params["pin"].(string); pin == "Templates" {
-				found = true
-			}
-		}
-	}
-	if !found {
-		t.Errorf("expected LITERAL_TYPE_MISMATCH for TemplateKey non-string element, got: %v", errs)
-	}
-}
-
 func TestLiteralTypeMatch_CorrectTypes(t *testing.T) {
 	// Sanity: correct types don't trigger the error.
 	c := &Container{

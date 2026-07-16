@@ -2,100 +2,33 @@ package script
 
 import "testing"
 
-func depKeys(code string) map[string]string {
-	out := map[string]string{}
-	for _, d := range AssetDeps(code) {
-		out[d.Key] = d.Kind
+func TestDependenciesExtractsLiteralSubgraphCalls(t *testing.T) {
+	code := `
+let first = Subgraph({SubgraphID: "press_esc"});
+let second = Subgraph({ SubgraphID: 'try_hook_F', msg: "hi" });
+Subgraph({SubgraphID: "press_esc"});
+`
+	got := Dependencies(code)
+	if len(got) != 2 {
+		t.Fatalf("dependency count = %d, want 2: %+v", len(got), got)
 	}
-	return out
+	if got[0].Kind != "subgraph" || got[0].Key != "press_esc" ||
+		got[1].Kind != "subgraph" || got[1].Key != "try_hook_F" {
+		t.Fatalf("dependencies = %+v", got)
+	}
 }
 
-func TestAssetDeps_ConstAndInline(t *testing.T) {
-	// 关键场景:GUID 放 const, 调用处引用变量 — pin-keyed 抽会漏, 全文扫覆盖。
-	code := `
-const RESULT = "3680b3d2-d31d-461c-b697-0d9c3e6a87ed";
-while (true) {
-  if (CheckTemplate({Templates:[RESULT], Threshold:0.75}).exit === "Found") break;
-  ClickTemplate({Templates:["b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"]});
+func TestDependenciesDoesNotInferAssetsFromUUIDs(t *testing.T) {
+	code := `const image = "3680b3d2-d31d-461c-b697-0d9c3e6a87ed";`
+	if got := Dependencies(code); len(got) != 0 {
+		t.Fatalf("arbitrary UUID became a dependency: %+v", got)
+	}
 }
-`
-	got := depKeys(code)
-	want := map[string]string{
-		"3680b3d2-d31d-461c-b697-0d9c3e6a87ed": "template", // const-declared
-		"b518a466-e3d4-4b9e-9bb1-895ea5b80b1d": "template", // inline literal
-	}
-	if len(got) != len(want) {
-		t.Fatalf("dep count = %d, want %d: %v", len(got), len(want), got)
-	}
-	for k, kind := range want {
-		if got[k] != kind {
-			t.Errorf("dep %q kind = %q, want %q", k, got[k], kind)
+
+func TestDependenciesEmptyOrDynamicSubgraphID(t *testing.T) {
+	for _, code := range []string{"", "Subgraph({SubgraphID: id})", "log.info('none')"} {
+		if got := Dependencies(code); len(got) != 0 {
+			t.Fatalf("Dependencies(%q) = %+v, want none", code, got)
 		}
-	}
-}
-
-func TestAssetDeps_StaleClipPrefixIsIgnored(t *testing.T) {
-	if deps := AssetDeps(`"clip-2ba73f97-2820-4090-958a-c07dd3f8f48c"`); len(deps) != 0 {
-		t.Fatalf("stale clip ID became a template dependency: %v", deps)
-	}
-}
-
-func TestAssetDeps_Dedup(t *testing.T) {
-	code := `
-const A = "3680b3d2-d31d-461c-b697-0d9c3e6a87ed";
-CheckTemplate({Templates:[A]});
-CheckTemplate({Templates:["3680b3d2-d31d-461c-b697-0d9c3e6a87ed"]});
-`
-	if n := len(AssetDeps(code)); n != 1 {
-		t.Fatalf("want 1 deduped dep, got %d", n)
-	}
-}
-
-func TestAssetDeps_EmptyAndNoGUID(t *testing.T) {
-	for _, code := range []string{"", "log.info($hp); return 1;", "let x = 'not-a-guid-1234';"} {
-		if d := AssetDeps(code); len(d) != 0 {
-			t.Errorf("code %q: want 0 deps, got %v", code, d)
-		}
-	}
-}
-
-func TestAssetDeps_SubgraphCall(t *testing.T) {
-	code := `
-let r = Subgraph({SubgraphID: "press_esc"});
-let q = Subgraph({ SubgraphID: 'try_hook_F', msg: "hi" });
-if (r.exit === "done") { log.info("ok"); }
-`
-	got := depKeys(code)
-	if got["press_esc"] != "subgraph" || got["try_hook_F"] != "subgraph" {
-		t.Errorf("want subgraph deps press_esc + try_hook_F, got %v", got)
-	}
-}
-
-func TestAssetDeps_SubgraphCall_UUIDForm(t *testing.T) {
-	// SubgraphID 是 uuid 时必须出 subgraph 依赖 (全文 uuid 扫的 template over-approx 共存无害).
-	got := depKeys(`Subgraph({SubgraphID: "2ba73f97-2820-4090-958a-c07dd3f8f48c"})`)
-	if got["2ba73f97-2820-4090-958a-c07dd3f8f48c"] != "subgraph" {
-		t.Errorf("want subgraph dep for uuid SubgraphID, got %v", got)
-	}
-}
-
-func TestAssetDeps_SubgraphCall_SgUUIDNotTemplate(t *testing.T) {
-	got := depKeys(`Subgraph({SubgraphID: "sg-2ba73f97-2820-4090-958a-c07dd3f8f48c"})`)
-	if got["sg-2ba73f97-2820-4090-958a-c07dd3f8f48c"] != "subgraph" {
-		t.Errorf("want subgraph dep for sg uuid, got %v", got)
-	}
-	if got["2ba73f97-2820-4090-958a-c07dd3f8f48c"] == "template" {
-		t.Errorf("sg uuid inner value must not be counted as template: %v", got)
-	}
-}
-
-func TestAssetDeps_MultipleInOrder(t *testing.T) {
-	code := `"3680b3d2-d31d-461c-b697-0d9c3e6a87ed" "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d"`
-	deps := AssetDeps(code)
-	if len(deps) != 2 {
-		t.Fatalf("want 2, got %d: %v", len(deps), deps)
-	}
-	if deps[0].Key != "3680b3d2-d31d-461c-b697-0d9c3e6a87ed" || deps[1].Key != "b518a466-e3d4-4b9e-9bb1-895ea5b80b1d" {
-		t.Errorf("order not preserved: %+v", deps)
 	}
 }

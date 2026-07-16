@@ -11,7 +11,6 @@ import (
 	"time"
 
 	nodepkg "github.com/yottaapp/yotta/internal/node"
-	"github.com/yottaapp/yotta/internal/services/asset"
 )
 
 var idRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -36,20 +35,13 @@ type Store struct {
 	// resolveSubgraphs 容器 → 引用闭包子图集 (全局池来源, wire 层注入; 校验用).
 	// nil → 按空闭包校验 (纯测试/工具语境). 调用时持本 store 锁 → 全局锁序 Container → Subgraph.
 	resolveSubgraphs func(c *Container) []Subgraph
-	// assetStore 导出 package bundle 时读取资产记录和 blob. nil 表示无资产闭包可导出。
-	assetStore      *asset.Store
-	registry        nodepkg.RegistrySnapshot
-	writeFileAtomic func(path string, data []byte) error
+	registry         nodepkg.RegistrySnapshot
+	writeFileAtomic  func(path string, data []byte) error
 }
 
 // SetSubgraphResolver 注入容器引用闭包解析 (main.go wire; 见 Store.resolveSubgraphs).
 func (s *Store) SetSubgraphResolver(f func(c *Container) []Subgraph) {
 	s.resolveSubgraphs = f
-}
-
-// SetAssetStore 注入全局资产库, 用于导出 package bundle 的 template/clip 闭包。
-func (s *Store) SetAssetStore(store *asset.Store) {
-	s.assetStore = store
 }
 
 // subgraphsFor 解析容器引用闭包; resolver 未注入 → nil.

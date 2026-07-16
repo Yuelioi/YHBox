@@ -40,20 +40,20 @@ func TestBuild_HasNodesAndSorted(t *testing.T) {
 	}
 }
 
-func TestBuildWithI18n_DetectColorLabeled(t *testing.T) {
+func TestBuildWithI18n_WindowStateLabeled(t *testing.T) {
 	for _, n := range BuildWithI18n() {
-		if n.Kind != "DetectColor" {
+		if n.Kind != "WindowState" {
 			continue
 		}
 		if n.Label == "" {
-			t.Error("DetectColor.Label should be non-empty")
+			t.Error("WindowState.Label should be non-empty")
 		}
 		if n.Description == "" {
-			t.Error("DetectColor.Description should be non-empty")
+			t.Error("WindowState.Description should be non-empty")
 		}
 		return
 	}
-	t.Fatal("DetectColor not found in catalog")
+	t.Fatal("WindowState not found in catalog")
 }
 
 // drift guard: zh.ts 加节点没同步 node-i18n.json (忘跑 pnpm gen:node-i18n) 即 fail。
@@ -160,11 +160,11 @@ func TestBuild_OutputDataSerialized(t *testing.T) {
 		return false
 	}
 
-	if d := outData("DetectColor", "Found"); !hasField(d, "Center", "Point") {
-		t.Errorf("DetectColor.Found 应携带 Center(Point), 实得 %+v", d)
+	if d := outData("WindowState", "Done"); !hasField(d, "Window", "Window") {
+		t.Errorf("WindowState.Done 应携带 Window(Window), 实得 %+v", d)
 	}
-	if d := outData("CheckTemplate", "Found"); !hasField(d, "Point", "Point") {
-		t.Errorf("CheckTemplate.Found 应携带 Point(Point), 实得 %+v", d)
+	if d := outData("AI", "Done"); !hasField(d, "Text", "String") {
+		t.Errorf("AI.Done 应携带 Text(String), 实得 %+v", d)
 	}
 }
 
@@ -173,7 +173,6 @@ func TestBuild_SupportedTargetsDerived(t *testing.T) {
 	for _, n := range Build() {
 		byKind[n.Kind] = n
 	}
-	assertCatalogTargets(t, byKind["DetectColor"].SupportedTargets, []string{"win32-window", "android-adb"})
 	assertCatalogTargets(t, byKind["AndroidTarget"].SupportedTargets, []string{"android-adb"})
 	assertCatalogTargets(t, byKind["Win32WindowTarget"].SupportedTargets, []string{"win32-window"})
 	assertCatalogTargets(t, byKind["Sleep"].SupportedTargets, nil)

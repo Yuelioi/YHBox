@@ -43,13 +43,13 @@ describe('AssetDockPanel information architecture', () => {
     expect(dock).toContain(':container-id="containerId"')
   })
 
-  it('offers cleanup workflows for recordings, blueprints, and templates', () => {
-    expect(maintenance).toContain("t('assetMaintenance.recordings.title')")
+  it('only offers cleanup where structured references are authoritative', () => {
     expect(maintenance).toContain("t('assetMaintenance.subgraphs.title')")
-    expect(maintenance).toContain("t('assetMaintenance.templates.title')")
-    expect(maintenance).toContain("openCleanup('recordings')")
-    expect(maintenance).toContain("openCleanup('subgraphs')")
-    expect(maintenance).toContain("openCleanup('templates')")
+    expect(maintenance).toContain('await backend.subgraphs.previewCleanup()')
+    expect(maintenance).toContain('await backend.subgraphs.cleanupUnused(ids)')
+    expect(maintenance).not.toContain('backend.assets.previewCleanup')
+    expect(maintenance).not.toContain('backend.recording.previewCleanup')
+    expect(maintenance).not.toContain('backend.assets.gcBlobs')
     expect(maintenance).not.toContain("emit('navigate'")
   })
 })

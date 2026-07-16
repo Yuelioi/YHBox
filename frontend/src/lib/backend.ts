@@ -256,14 +256,6 @@ export interface BlobRef {
   size: number
 }
 
-// Referrer 引用位置 — Delete 返回, FE 据此弹"被 N 处引用"确认.
-export interface AssetReferrer {
-  containerID: string
-  subgraphID?: string
-  nodeID: string
-  nodeKind: string
-}
-
 export type AIProviderKind = 'openai-responses' | 'anthropic-messages'
 
 export interface AIProfileCapabilities {
@@ -502,11 +494,6 @@ export const backend = {
     // Get 单条资产完整记录 (含 variants[] — 详情页看分辨率档/元信息).
     get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord | undefined>,
     delete_: (guid: string) => invoke(AssetService.Delete, guid),
-    // Referrers 只扫不删 — 删除前拿引用列表, FE 据此弹"被 N 处引用"确认.
-    referrers: (guid: string) =>
-      invoke(AssetService.Referrers, guid) as Promise<AssetReferrer[] | undefined>,
-    previewCleanup: () => invoke(AssetService.PreviewCleanup),
-    cleanupUnused: (ids: string[]) => invoke(AssetService.CleanupUnused, { ids }),
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
     updateMeta: (
       guid: string,
@@ -518,7 +505,6 @@ export const backend = {
     // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
     capture: (containerID: string, nodeID = '') =>
       invoke(AssetService.Capture, containerID, nodeID),
-    gcBlobs: () => invoke(AssetService.GCBlobs),
     // CurrentResolution 当前容器 Windows 窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
     // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
     currentResolution: async (containerID: string): Promise<[number, number] | undefined> => {
@@ -529,7 +515,7 @@ export const backend = {
         return undefined
       }
     },
-    // PickVariant 给定分辨率, 返运行时真会用的那档在 variants[] 里的下标 + 是否精确命中. 自动调用, 失败静默.
+    // PickVariant 给定分辨率, 返推荐绑定的档位在 variants[] 里的下标 + 是否精确命中. 自动调用, 失败静默.
     pickVariant: async (
       guid: string,
       w: number,
@@ -585,8 +571,6 @@ export const backend = {
       tags: string[]
     }) => invoke(RecordingService.Finalize, args as any),
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
-    previewCleanup: () => invoke(RecordingService.PreviewCleanup),
-    cleanupUnused: (ids: string[]) => invoke(RecordingService.CleanupUnused, { ids } as any),
     pause: () => invoke(RecordingService.Pause),
     resume: () => invoke(RecordingService.Resume),
     validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),

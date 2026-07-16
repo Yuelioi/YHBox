@@ -237,7 +237,7 @@ func TestValidateWin32WindowTarget_Missing(t *testing.T) {
 	// 含目标类节点但无 Win32WindowTarget → 触发 MISSING (validate-on-use).
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "s", Kind: "Start"},
-		{ID: "c", Kind: "ClickTemplate"},
+		{ID: "c", Kind: "WindowState"},
 	}}}
 	errs := validateWin32WindowTarget(c, nil)
 	if !hasCode(errs, CodeMissingWin32WindowTarget) {
@@ -259,7 +259,7 @@ func TestValidateWin32WindowTarget_WindowlessSkipped(t *testing.T) {
 }
 
 func TestValidateWin32WindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
-	// 主图窗口无关, 但子图含 ClickTemplate → 仍要求 Win32WindowTarget.
+	// 主图窗口无关, 但子图含 WindowState → 仍要求 Win32WindowTarget.
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "s", Kind: "Start"},
@@ -268,7 +268,7 @@ func TestValidateWin32WindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
 	}
 	sgs := []Subgraph{
 		{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-			{ID: "c", Kind: "ClickTemplate"},
+			{ID: "c", Kind: "WindowState"},
 		}}},
 	}
 	errs := validateWin32WindowTarget(c, sgs)

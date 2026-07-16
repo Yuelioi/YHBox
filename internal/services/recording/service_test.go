@@ -111,31 +111,6 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	}
 }
 
-func TestServiceCleanupOnlyDeletesUnusedRecordingAssets(t *testing.T) {
-	clips := &memoryClipStore{clips: []inputclip.ClipSummary{
-		{ID: "clip-unused", Label: "unused clip"},
-		{ID: "clip-used", Label: "used clip"},
-	}}
-	s := NewService(&resultRecorder{}, nil, clips)
-	ConfigureReferenceCounter(s, func(id string) int {
-		if id == "clip-used" {
-			return 2
-		}
-		return 0
-	})
-	preview := s.PreviewCleanup()
-	if len(preview.Unused) != 1 || len(preview.Referenced) != 1 {
-		t.Fatalf("preview = %+v", preview)
-	}
-	result := s.CleanupUnused(CleanupArgs{IDs: []string{"clip-unused", "clip-used"}})
-	if strings.Join(result.Deleted, ",") != "clip-unused" {
-		t.Fatalf("deleted = %v", result.Deleted)
-	}
-	if len(result.Skipped) != 1 || result.Skipped[0].ID != "clip-used" {
-		t.Fatalf("skipped = %+v", result.Skipped)
-	}
-}
-
 func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 	s, _ := newTestService()
 	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container", TempID: "partial"})

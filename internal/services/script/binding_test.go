@@ -42,7 +42,7 @@ func TestBundleFromCtx_ForwardsEveryNodeService(t *testing.T) {
 		name      string
 		got, want any
 	}{
-		{"Vision", got.Vision, want.Vision}, {"Log", got.Log, want.Log},
+		{"Log", got.Log, want.Log},
 		{"Input", got.Input, want.Input}, {"Vars", got.Vars, want.Vars},
 		{"Params", got.Params, want.Params}, {"Window", got.Window, want.Window},
 		{"Target", got.Target, want.Target}, {"App", got.App, want.App},

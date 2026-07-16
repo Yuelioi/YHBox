@@ -15,7 +15,6 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes/control"
 	"github.com/yottaapp/yotta/internal/nodes31runtime"
 	"github.com/yottaapp/yotta/internal/services"
-	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/tools"
 )
@@ -156,15 +155,8 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	}
 }
 
-func TestAssetAndClipCompositionShareTheGlobalAssetStore(t *testing.T) {
+func TestClipCompositionUsesTheGlobalAssetStore(t *testing.T) {
 	store := newTestAssetStore(t, t.TempDir())
-	if assetExistence(store, asset.KindTemplate)("missing") {
-		t.Fatal("missing asset reported present")
-	}
-	_ = makeTestPNGBlob(t, store, patternImg(4, 4), "known-template", [2]int{4, 4})
-	if !assetExistence(store, asset.KindTemplate)("known-template") || assetExistence(store, asset.KindClip)("known-template") {
-		t.Fatal("asset existence did not enforce kind")
-	}
 	if service := newClipService(store); service == nil {
 		t.Fatal("clip composition returned nil")
 	}

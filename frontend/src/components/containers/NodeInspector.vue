@@ -168,48 +168,6 @@
       </div>
     </section>
 
-    <!-- 屏幕选择工具：根据 kind 显示对应快捷 -->
-    <section
-      v-if="canPickRect"
-      class="mb-4 rounded-md bg-primary/5 border border-primary/30 p-3 space-y-2"
-    >
-      <div class="flex items-center gap-2">
-        <UIcon name="i-tabler-crosshair" class="size-3.5 text-primary" />
-        <span class="text-xs text-toned">{{ t('inspector.screen_pick_label') }}</span>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <UButton
-          v-if="canPickRect"
-          size="xs"
-          variant="soft"
-          color="primary"
-          icon="i-tabler-frame"
-          :loading="picking"
-          @click="onPickRect"
-        >
-          {{ t('inspector.screen_pick_rect') }}
-        </UButton>
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-tabler-pointer"
-          @click="onOpenHUD"
-        >
-          {{ t('inspector.screen_pick_hud') }}
-        </UButton>
-      </div>
-      <p class="text-xs leading-relaxed text-dimmed">
-        {{
-          t('inspector.screen_pick_hint', {
-            action: canPickRect
-              ? t('inspector.screen_pick_action_drag')
-              : t('inspector.screen_pick_action_click'),
-          })
-        }}
-      </p>
-    </section>
-
     <!-- Subgraph 节点：1:1 模型 — 节点 ↔ 子图 强绑定 + 外部统一编辑 -->
     <section v-if="node.kind === 'Subgraph'" class="space-y-3">
       <div class="rounded-md bg-elevated/30 border border-default/40 p-3 space-y-3">
@@ -610,14 +568,6 @@
             :kind="node!.kind"
             :node-id="node?.id ?? ''"
             @update:model-value="(v: any) => setLiteral(lit.name, v)"
-            @pick-color="onColorPick"
-          />
-          <!-- 模板字段 (WaitTemplate/ClickTemplate/CheckTemplate) → 多选缩略图拾取器 + 现截一张 -->
-          <TemplatePickerField
-            v-else-if="fieldFor(lit.name)?.widgetKind === 'template-picker'"
-            :model-value="asTemplateList(getLiteral(lit.name))"
-            :pin="lit.name"
-            @update:model-value="(v: string[]) => setLiteral(lit.name, v)"
           />
           <PinInput
             v-else
@@ -778,7 +728,6 @@ import DynamicOutputsEditor from './inspector/DynamicOutputsEditor.vue'
 import NodeAuthoringPanel from './inspector/NodeAuthoringPanel.vue'
 import { getSpec } from './nodeRegistry/registry'
 import ClipTimeline from './ClipTimeline.vue'
-import TemplatePickerField from './TemplatePickerField.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -806,10 +755,8 @@ import { useContainerEditorStore } from '@/stores/containerEditor'
 import { useEditorBusStore } from '@/stores/editorBus'
 import { useClipsStore } from '@/stores/clips'
 import { useToast } from '@nuxt/ui/composables'
-import { useScreenPick } from '@/composables/containerEditor/useScreenPick'
 import type { RemoveSwitchCaseCommand } from '@/composables/containerEditor/useGraphMutations'
 import type { EditorExperienceMode } from '@/composables/editor/useSidebarPrefs'
-import { fillColorLiteral } from '@/composables/containerEditor/colorRange'
 import { useConcurrencyWarning } from '@/composables/containerEditor/useConcurrencyWarning'
 import { applyAsyncOptionMeta, type AsyncOptionPayload } from './asyncOptionMeta'
 import { builtinNodeProjections31 } from '@/contracts/node31'
@@ -841,13 +788,6 @@ function loadProfileIntoNode(label: string) {
 const profileSelectItems = computed(() =>
   mouseProfiles.value.map((p) => ({ label: `${p.label || '?'} · ${p.counts360}`, value: p.label })),
 )
-
-// 模板字段值容错: undefined / 单 string (迁移前残留) / string[] → string[]。
-function asTemplateList(v: any): string[] {
-  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
-  if (typeof v === 'string' && v) return [v]
-  return []
-}
 
 // Inline pin literal — Inspector 版.
 // 对每个 PIN_SPECS[kind].dataIn 里没连入边的 pin, 暴露一个绑 config.literal[pinName] 的编辑器.
@@ -1218,59 +1158,6 @@ const hasOutputs = computed(
     outPins.value.exec.length > 0 ||
     readonlyData.value.length > 0,
 )
-
-// 屏幕拾取 → 回填 config.literal (PascalCase Spec.Input 名 + 正确类型):
-//   - point: XRatio/YRatio (Number pin, ClickAt/Scroll) — 存 number 不存字符串。
-//   - rect:  Region ({x,y,w,h} object, DetectColor Rect pin) — runtime buildDataWireFor coerce 成 node.Rect。
-//   - color: Range / 对应 pin (DetectColor/DetectColorHSV) — tuple 直传数组, object 映射 hsv 字段。
-
-// 按目标 pin 决定 schemaType + colorSpace (开吸管前和回填时都用).
-function colorMetaFor(fieldPath: string): {
-  schemaType: 'tuple' | 'object'
-  colorSpace: 'hsv' | 'rgb'
-} {
-  const sc = fieldFor(fieldPath)?.schema
-  const schemaType = sc?.type === 'tuple' ? 'tuple' : 'object'
-  // object schema 恒 hsv; tuple 读 config.literal.Mode (缺/空 → hsv)
-  const colorSpace =
-    schemaType === 'object' ? 'hsv' : String(getLiteral('Mode') ?? '') === 'rgb' ? 'rgb' : 'hsv'
-  return { schemaType, colorSpace }
-}
-
-const { picking, canPickRect, onPickRect, onPickColor, onOpenHUD } = useScreenPick({
-  node: toRef(props, 'node'),
-  // fieldPath 由 onPickRect(fieldPath) 透传 — DetectColor 固定走 'Region'
-  // Region 是 Geometry 类型 ({ pct, overrides }) — 回填必须写 .pct 外壳, 否则
-  // GeometryWidget 读不到 .pct 会整体回退成全 0 (不显示框选结果). overrides 原样保留。
-  applyRect: (_fieldPath, r) => {
-    const cur = (getLiteral('Region') ?? {}) as { overrides?: unknown[] }
-    setLiteral('Region', {
-      pct: { x: round3(r[0]), y: round3(r[1]), w: round3(r[2]), h: round3(r[3]) },
-      overrides: cur.overrides ?? [],
-    })
-  },
-  applyColor: (fieldPath, range, hueWrap) => {
-    const { schemaType } = colorMetaFor(fieldPath)
-    setLiteral(fieldPath, fillColorLiteral(range, schemaType))
-    if (hueWrap) {
-      toastForSync.add({
-        title: t('inspector.color_pick_huewrap_title'),
-        description: t('inspector.color_pick_huewrap_desc'),
-        color: 'warning',
-        icon: 'i-tabler-color-swatch',
-      })
-    }
-  },
-})
-
-// 吸管按钮点击 — 按 pin 决定 colorSpace 后开颜色拾取器.
-function onColorPick(fieldPath: string) {
-  const { colorSpace } = colorMetaFor(fieldPath)
-  void onPickColor(fieldPath, colorSpace)
-}
-function round3(n: number): number {
-  return Math.round(n * 1e3) / 1e3
-}
 
 // Parallel / Race 并发分支写同名变量警告
 const { concurrencyWarning } = useConcurrencyWarning({

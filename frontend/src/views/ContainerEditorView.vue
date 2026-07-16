@@ -159,9 +159,6 @@
             v-else-if="sidebarPrefs.leftDrawer === 'assets'"
             v-model:tab="sidebarPrefs.assetTab"
             :container-id="containerID"
-            :template-pick-mode="!!assetPickRequest"
-            :template-selected="assetPickRequest?.selected ?? []"
-            @update:template-selected="updateAssetPick"
             @pick-subgraph="onPickLibrarySubgraph"
             @pick-clip="onPickLibraryClip"
             @open-workspace="assetWorkspaceOpen = true"
@@ -178,9 +175,6 @@
             v-model:tab="sidebarPrefs.assetTab"
             workspace
             :container-id="containerID"
-            :template-pick-mode="!!assetPickRequest"
-            :template-selected="assetPickRequest?.selected ?? []"
-            @update:template-selected="updateAssetPick"
             @pick-subgraph="onPickLibrarySubgraph"
             @pick-clip="onPickLibraryClip"
             @close-workspace="assetWorkspaceOpen = false"
@@ -594,7 +588,6 @@ import EditorProblemsBar from '@/components/containers/EditorProblemsBar.vue'
 import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import { resolveInspectorMode } from '@/composables/editor/inspectorMode'
 import { resolveEditorWorkspaceLayout } from '@/composables/editor/workspaceLayout'
-import { useAssetPicker } from '@/composables/editor/useAssetPicker'
 import { useVarMutations } from '@/composables/containerEditor/useVarMutations'
 import SnippetsPanel from '@/components/snippets/SnippetsPanel.vue'
 import SaveSnippetDrawer from '@/components/snippets/SaveSnippetDrawer.vue'
@@ -896,15 +889,8 @@ const allLeftRail = [
   { key: 'assets' as const, icon: 'i-tabler-stack-2', title: t('editor.dock.assets') },
 ]
 const leftRail = allLeftRail
-const {
-  request: assetPickRequest,
-  updateSelection: updateAssetPick,
-  cancel: cancelAssetPick,
-} = useAssetPicker()
 function toggleDock(key: DockPanel) {
   const next = sidebarPrefs.value.leftDrawer === key ? null : key
-  // 离开资产 tab → 取消可能挂着的字段 pick 上下文
-  if (sidebarPrefs.value.leftDrawer === 'assets' && next !== 'assets') cancelAssetPick()
   sidebarPrefs.value.leftDrawer = next
 }
 function openNodeDock() {
@@ -916,17 +902,6 @@ function onRailClick(item: (typeof allLeftRail)[number]) {
 function railActive(item: (typeof allLeftRail)[number]): boolean {
   return sidebarPrefs.value.leftDrawer === item.key
 }
-// 节点字段 (TemplatePickerField) 发起选模板 → 自动开停靠区资产·模板 tab (pick 模式).
-watch(assetPickRequest, (req) => {
-  if (req) {
-    sidebarPrefs.value.leftDrawer = 'assets'
-    sidebarPrefs.value.assetTab = 'templates'
-  }
-})
-// 切/取消选中节点 → 丢弃挂着的 pick 上下文 (别把上个节点的指派写到新节点).
-watch(selectedID, () => {
-  if (assetPickRequest.value) cancelAssetPick()
-})
 const rightPane = useSplitpane('editor.splitpane.right', { default: 320, min: 200, max: 480 })
 const inspectorWidth = computed(() =>
   workspaceLayout.value === 'spacious'
@@ -1603,7 +1578,7 @@ watch(
 )
 // tplStore.containerId 是全局单指针, capture()/openScreenPicker 靠它定位本容器目标窗口。
 // keep-alive 缓存多个容器编辑器时, 切到已缓存容器只走 onActivated(onMounted 不再触发),
-// 漏掉这里指针就停在上一个容器 → WaitTemplate 截图/校验拿错容器的 Win32WindowTarget(「没有异环窗口」)。
+// 漏掉这里指针就停在上一个容器，工具窗口会拿错容器的自动化目标。
 // 故 mount + 每次激活都重指, 跟 editorStore.markActive 同构(见 incident keepalive-singleton-subgraph-store-stale)。
 onMounted(() => {
   tplStore.setContainer(containerID)
@@ -1665,15 +1640,14 @@ async function hardDeleteNodes(ids: string[]) {
     return
   }
 
-  // 统计被"本次删除之外"的节点引用数 — 引用扫描会把当前这些节点也算进去, 按 nodeID 排除自身.
+  // Only subgraphs have structured graph references. Clip definitions are immutable BlobRef
+  // authoring metadata, so deleting a clip record cannot invalidate a saved Workflow 3.1 graph.
   const deleting = new Set(ids)
   let externalRefs = 0
   for (const d of defs) {
+    if (d.kind !== 'subgraph') continue
     try {
-      const refs =
-        d.kind === 'subgraph'
-          ? await backend.subgraphs.referrers(d.defID)
-          : await backend.assets.referrers(d.defID)
+      const refs = await backend.subgraphs.referrers(d.defID)
       for (const r of refs ?? []) {
         if (!deleting.has(r.nodeID)) externalRefs++
       }

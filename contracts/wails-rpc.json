@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 138,
-    "models": 158
+    "methods": 132,
+    "models": 149
   },
   "services": [
     {
@@ -354,18 +354,6 @@
           "returns": "$CancellablePromise<string>"
         },
         {
-          "name": "CleanupUnused",
-          "bindingId": "1446127923",
-          "parameters": [
-            {
-              "name": "args",
-              "optional": false,
-              "type": "$models.CleanupArgs"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.CleanupResult>"
-        },
-        {
           "name": "CurrentResolution",
           "bindingId": "2642272974",
           "parameters": [
@@ -387,13 +375,7 @@
               "type": "string"
             }
           ],
-          "returns": "$CancellablePromise<$models.Referrer[]>"
-        },
-        {
-          "name": "GCBlobs",
-          "bindingId": "1855353883",
-          "parameters": [],
-          "returns": "$CancellablePromise<number>"
+          "returns": "$CancellablePromise<void>"
         },
         {
           "name": "Get",
@@ -434,24 +416,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.VariantPick>"
-        },
-        {
-          "name": "PreviewCleanup",
-          "bindingId": "2483312603",
-          "parameters": [],
-          "returns": "$CancellablePromise<$models.CleanupPreview>"
-        },
-        {
-          "name": "Referrers",
-          "bindingId": "9395945",
-          "parameters": [
-            {
-              "name": "guid",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.Referrer[]>"
         },
         {
           "name": "RemoveVariant",
@@ -1184,18 +1148,6 @@
           "returns": "$CancellablePromise<void>"
         },
         {
-          "name": "CleanupUnused",
-          "bindingId": "3276954340",
-          "parameters": [
-            {
-              "name": "args",
-              "optional": false,
-              "type": "$models.CleanupArgs"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.CleanupResult>"
-        },
-        {
           "name": "Discard",
           "bindingId": "968929852",
           "parameters": [
@@ -1230,12 +1182,6 @@
           "bindingId": "1900256876",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
-        },
-        {
-          "name": "PreviewCleanup",
-          "bindingId": "2399616326",
-          "parameters": [],
-          "returns": "$CancellablePromise<$models.CleanupPreview>"
         },
         {
           "name": "Resume",
@@ -2847,10 +2793,6 @@
               "value": "\"\""
             },
             {
-              "name": "RuntimeCapabilityVision",
-              "value": "\"vision\""
-            },
-            {
               "name": "RuntimeCapabilityLog",
               "value": "\"log\""
             },
@@ -3263,80 +3205,6 @@
         },
         {
           "kind": "class",
-          "name": "CleanupArgs",
-          "fields": [
-            {
-              "name": "\"ids\"",
-              "optional": false,
-              "type": "string[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupItem",
-          "fields": [
-            {
-              "name": "\"id\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"label\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"references\"",
-              "optional": false,
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupPreview",
-          "fields": [
-            {
-              "name": "\"unused\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            },
-            {
-              "name": "\"referenced\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupResult",
-          "fields": [
-            {
-              "name": "\"deleted\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"skipped\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            },
-            {
-              "name": "\"failed\"",
-              "optional": false,
-              "type": "string[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "Origin",
           "fields": [
             {
@@ -3347,32 +3215,6 @@
             {
               "name": "\"sourceID\"",
               "optional": true,
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "Referrer",
-          "fields": [
-            {
-              "name": "\"containerID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"subgraphID\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"nodeID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"nodeKind\"",
-              "optional": false,
               "type": "string"
             }
           ]
@@ -5088,80 +4930,6 @@
     {
       "module": "internal/services/recording/models",
       "declarations": [
-        {
-          "kind": "class",
-          "name": "CleanupArgs",
-          "fields": [
-            {
-              "name": "\"ids\"",
-              "optional": false,
-              "type": "string[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupItem",
-          "fields": [
-            {
-              "name": "\"id\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"label\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"references\"",
-              "optional": false,
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupPreview",
-          "fields": [
-            {
-              "name": "\"unused\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            },
-            {
-              "name": "\"referenced\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "CleanupResult",
-          "fields": [
-            {
-              "name": "\"deleted\"",
-              "optional": false,
-              "type": "string[]"
-            },
-            {
-              "name": "\"skipped\"",
-              "optional": false,
-              "type": "CleanupItem[]"
-            },
-            {
-              "name": "\"failed\"",
-              "optional": false,
-              "type": "string[]"
-            }
-          ]
-        },
         {
           "kind": "class",
           "name": "FinalizeArgs",

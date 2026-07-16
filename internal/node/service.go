@@ -17,7 +17,7 @@ type NodeService struct {
 
 // AsyncOptionsHandler 处理一个 asyncSource 的回调.
 //   - nodeID: 当前节点 instance ID (FE 传)
-//   - specKind: 节点 Kind ("CheckTemplate")
+//   - specKind: 节点 Kind ("WindowState")
 //   - params: 节点当前已填的其他字段值 (用于上下文相关 dropdown, e.g. Switch case 数)
 type AsyncOptionsHandler func(nodeID, specKind string, params map[string]any) ([]EnumOption, error)
 

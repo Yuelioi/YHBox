@@ -274,51 +274,6 @@ func TestStore_CommitRecordBlob(t *testing.T) {
 	}
 }
 
-func TestStore_CommitRecordBlobExcludesGCThroughReferenceCommit(t *testing.T) {
-	s, _ := newTestStore(t)
-	enteredCommit := make(chan struct{})
-	releaseCommit := make(chan struct{})
-	commitDone := make(chan error, 1)
-	var committed blob.BlobRef
-	go func() {
-		ref, err := s.CommitRecordBlob(context.Background(), "application/octet-stream", bytes.NewReader([]byte("live")), func(ref blob.BlobRef) AssetRecord {
-			close(enteredCommit)
-			<-releaseCommit
-			rec := makeRecord("atomic", "Atomic", KindTemplate)
-			rec.Variants = []Variant{{Resolution: [2]int{1, 1}, Blob: ref}}
-			return rec
-		})
-		committed = ref
-		commitDone <- err
-	}()
-	<-enteredCommit
-
-	gcAttempted := make(chan struct{})
-	gcDone := make(chan error, 1)
-	go func() {
-		close(gcAttempted)
-		_, err := s.GCBlobs()
-		gcDone <- err
-	}()
-	<-gcAttempted
-	select {
-	case err := <-gcDone:
-		t.Fatalf("GC crossed an in-flight reference commit: %v", err)
-	case <-time.After(50 * time.Millisecond):
-	}
-
-	close(releaseCommit)
-	if err := <-commitDone; err != nil {
-		t.Fatal(err)
-	}
-	if err := <-gcDone; err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.ReadBlob(context.Background(), committed); err != nil {
-		t.Fatalf("GC removed the atomically committed blob: %v", err)
-	}
-}
-
 // ---- Task 0.4 tests ----
 
 func TestStore_PutVariantConcurrentNoLostUpdate(t *testing.T) {

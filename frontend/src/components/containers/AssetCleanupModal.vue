@@ -109,8 +109,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
 
-type CleanupResource = 'recording' | 'subgraph' | 'template'
-
 interface CleanupItem {
   id: string
   label: string
@@ -124,7 +122,7 @@ interface CleanupPreview {
 }
 
 const props = defineProps<{
-  resource: CleanupResource
+  resource: 'subgraph'
   open: boolean
   preview: CleanupPreview
   loading: boolean
@@ -140,11 +138,7 @@ const selected = ref(new Set<string>())
 const allSelected = computed(
   () => props.preview.unused.length > 0 && selected.value.size === props.preview.unused.length,
 )
-const resourceIcon = computed(() => {
-  if (props.resource === 'subgraph') return 'i-tabler-hierarchy'
-  if (props.resource === 'template') return 'i-tabler-photo-search'
-  return 'i-tabler-database-search'
-})
+const resourceIcon = 'i-tabler-hierarchy'
 const selectionTitleId = computed(() => `${props.resource}-cleanup-selection-title`)
 
 watch(
@@ -174,15 +168,11 @@ function toggleAll() {
 
 function kindIcon(kind: string) {
   void kind
-  if (props.resource === 'subgraph') return 'i-tabler-hierarchy'
-  if (props.resource === 'template') return 'i-tabler-photo'
-  return 'i-tabler-movie'
+  return 'i-tabler-hierarchy'
 }
 
 function kindLabel(kind: string) {
   void kind
-  if (props.resource === 'subgraph') return t('subgraphCleanup.kind')
-  if (props.resource === 'template') return t('templateCleanup.kind')
-  return t('recordingSave.clip_type')
+  return t('subgraphCleanup.kind')
 }
 </script>

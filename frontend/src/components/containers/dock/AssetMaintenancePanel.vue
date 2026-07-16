@@ -12,28 +12,6 @@
 
     <div class="divide-y divide-default">
       <section class="flex items-start gap-3 px-4 py-4">
-        <UIcon name="i-tabler-player-record" class="mt-0.5 size-4 shrink-0 text-toned" />
-        <div class="min-w-0 flex-1">
-          <h3 class="text-xs font-medium text-highlighted">
-            {{ t('assetMaintenance.recordings.title') }}
-          </h3>
-          <p class="mt-1 text-xs leading-relaxed text-dimmed">
-            {{ t('assetMaintenance.recordings.description') }}
-          </p>
-        </div>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="outline"
-          icon="i-tabler-database-search"
-          class="shrink-0"
-          @click="openCleanup('recordings')"
-        >
-          {{ t('assetMaintenance.recordings.action') }}
-        </UButton>
-      </section>
-
-      <section class="flex items-start gap-3 px-4 py-4">
         <UIcon name="i-tabler-hierarchy" class="mt-0.5 size-4 shrink-0 text-toned" />
         <div class="min-w-0 flex-1">
           <h3 class="text-xs font-medium text-highlighted">
@@ -49,31 +27,9 @@
           variant="outline"
           icon="i-tabler-hierarchy"
           class="shrink-0"
-          @click="openCleanup('subgraphs')"
+          @click="openCleanup"
         >
           {{ t('assetMaintenance.subgraphs.action') }}
-        </UButton>
-      </section>
-
-      <section class="flex items-start gap-3 px-4 py-4">
-        <UIcon name="i-tabler-photo" class="mt-0.5 size-4 shrink-0 text-toned" />
-        <div class="min-w-0 flex-1">
-          <h3 class="text-xs font-medium text-highlighted">
-            {{ t('assetMaintenance.templates.title') }}
-          </h3>
-          <p class="mt-1 text-xs leading-relaxed text-dimmed">
-            {{ t('assetMaintenance.templates.description') }}
-          </p>
-        </div>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="outline"
-          icon="i-tabler-photo-search"
-          class="shrink-0"
-          @click="openCleanup('templates')"
-        >
-          {{ t('assetMaintenance.templates.action') }}
         </UButton>
       </section>
     </div>
@@ -98,8 +54,6 @@ import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import AssetCleanupModal from '@/components/containers/AssetCleanupModal.vue'
 
-type CleanupResource = 'recording' | 'subgraph' | 'template'
-
 interface CleanupPreview {
   unused: Array<{ id: string; label: string; kind: string; references: number }>
   referenced: Array<{ id: string; label: string; kind: string; references: number }>
@@ -108,25 +62,18 @@ interface CleanupPreview {
 const { t } = useI18n()
 const toast = useToast()
 const cleanupOpen = ref(false)
-const cleanupResource = ref<CleanupResource>('recording')
+const cleanupResource = 'subgraph' as const
 const cleanupLoading = ref(false)
 const cleanupBusy = ref(false)
 const cleanupError = ref('')
 const cleanupPreview = ref<CleanupPreview>({ unused: [], referenced: [] })
 
-async function openCleanup(kind: 'recordings' | 'subgraphs' | 'templates') {
-  cleanupResource.value =
-    kind === 'subgraphs' ? 'subgraph' : kind === 'templates' ? 'template' : 'recording'
+async function openCleanup() {
   cleanupOpen.value = true
   cleanupLoading.value = true
   cleanupError.value = ''
   try {
-    const preview =
-      kind === 'subgraphs'
-        ? await backend.subgraphs.previewCleanup()
-        : kind === 'templates'
-          ? await backend.assets.previewCleanup()
-          : await backend.recording.previewCleanup()
+    const preview = await backend.subgraphs.previewCleanup()
     cleanupPreview.value = (preview ?? { unused: [], referenced: [] }) as CleanupPreview
   } catch (error) {
     cleanupError.value = errorMessage(error)
@@ -138,30 +85,18 @@ async function openCleanup(kind: 'recordings' | 'subgraphs' | 'templates') {
 async function cleanup(ids: string[]) {
   cleanupBusy.value = true
   try {
-    const cleanupCall =
-      cleanupResource.value === 'subgraph'
-        ? backend.subgraphs.cleanupUnused(ids)
-        : cleanupResource.value === 'template'
-          ? backend.assets.cleanupUnused(ids)
-          : backend.recording.cleanupUnused(ids)
-    const result = (await cleanupCall) as {
+    const result = (await backend.subgraphs.cleanupUnused(ids)) as {
       deleted: string[]
       skipped: unknown[]
       failed: string[]
     }
-    const copyPrefix = `${cleanupResource.value}Cleanup`
+    const copyPrefix = 'subgraphCleanup'
     if (result.failed.length > 0) {
       toast.add({
         title: t(`${copyPrefix}.partial_failed`, { n: result.failed.length }),
         color: 'error',
       })
-      await openCleanup(
-        cleanupResource.value === 'subgraph'
-          ? 'subgraphs'
-          : cleanupResource.value === 'template'
-            ? 'templates'
-            : 'recordings',
-      )
+      await openCleanup()
       return
     }
     if (result.skipped.length > 0) {
@@ -170,13 +105,10 @@ async function cleanup(ids: string[]) {
         color: 'warning',
       })
     }
-    if (cleanupResource.value === 'template' && result.deleted.length > 0) {
-      await backend.assets.gcBlobs()
-    }
     cleanupOpen.value = false
   } catch (error) {
     toast.add({
-      title: t(`${cleanupResource.value}Cleanup.delete_failed`),
+      title: t('subgraphCleanup.delete_failed'),
       description: errorMessage(error),
       color: 'error',
     })

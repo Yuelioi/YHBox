@@ -33,7 +33,6 @@ func TestBuildYottaLockHashesAndBindingSlots(t *testing.T) {
 		},
 	}
 	closure := dependency.ClosureResult{
-		Templates: []string{"tpl-a"},
 		Subgraphs: []string{"sg-a"},
 	}
 
@@ -47,7 +46,7 @@ func TestBuildYottaLockHashesAndBindingSlots(t *testing.T) {
 	if lock.ManifestHash == "" || lock.GraphHash == "" || lock.ClosureHash == "" {
 		t.Fatalf("hashes must be populated: %+v", lock)
 	}
-	if lock.Dependencies.Templates[0] != "tpl-a" || lock.Dependencies.Subgraphs[0] != "sg-a" {
+	if lock.Dependencies.Subgraphs[0] != "sg-a" {
 		t.Fatalf("closure dependencies missing: %+v", lock.Dependencies)
 	}
 	if len(lock.Dependencies.TargetSlots) != 1 || lock.Dependencies.TargetSlots[0] != "game" {

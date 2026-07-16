@@ -36,7 +36,7 @@ import { rebuildNodeFieldSchemas } from '@/components/containers/nodeFieldSchema
 const GROUP_MAP: Record<string, NodeGroup> = {
   Control: 'control',
   Detect: 'detect',
-  Image: 'image', // Capture/SaveImage/LoadImage 专用图像分组
+  Image: 'image',
   Input: 'input',
   Target: 'target',
   System: 'system',
@@ -62,12 +62,10 @@ function visualForGroup(group: NodeGroup): { icon: string; bg: string; border: s
 
 // backend Input.Widget.Kind → FE FieldSchema.type. 1:1 直传 (11 种 widget kind).
 function widgetKindToFieldType(k: string): FieldSchema['type'] {
-  // FE FieldSchema.type 类型 union: select/text/number/bool/template-picker/key-capture.
+  // FE FieldSchema.type 类型 union: select/text/number/bool/key-capture.
   // backend Widget.Kind 是: async-dropdown/checkbox/key-capture/
   // dropdown/duration/json/number/password/rect-editor/slider/text/textarea. 映射:
   switch (k) {
-    case 'template-picker':
-      return 'template-picker'
     case 'key-capture':
       return 'key-capture'
     case 'color-preset':

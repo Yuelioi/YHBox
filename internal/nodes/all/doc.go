@@ -4,9 +4,7 @@ package all
 import (
 	_ "github.com/yottaapp/yotta/internal/nodes/ai"
 	_ "github.com/yottaapp/yotta/internal/nodes/control"
-	_ "github.com/yottaapp/yotta/internal/nodes/detect"
 	_ "github.com/yottaapp/yotta/internal/nodes/event"
-	_ "github.com/yottaapp/yotta/internal/nodes/image"
 	_ "github.com/yottaapp/yotta/internal/nodes/io"
 	_ "github.com/yottaapp/yotta/internal/nodes/purefunc"
 	_ "github.com/yottaapp/yotta/internal/nodes/random"

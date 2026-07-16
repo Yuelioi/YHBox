@@ -2,16 +2,12 @@ package container
 
 import (
 	"archive/zip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
-	"github.com/yottaapp/yotta/internal/blob"
 	nodepkg "github.com/yottaapp/yotta/internal/node"
-	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/container/dependency"
 )
 
@@ -60,10 +56,6 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 		return fmt.Errorf("decode %s: %w", lockFile, err)
 	}
 	subgraphs := s.subgraphsFor(&c)
-	closure, err := dependencyClosureWithRegistry(s.registry, graph, subgraphs)
-	if err != nil {
-		return fmt.Errorf("resolve dependency closure: %w", err)
-	}
 	if err := validatePackageLock(s.registry, manifest, graph, subgraphs, lock); err != nil {
 		return err
 	}
@@ -119,9 +111,6 @@ func (s *Store) ExportPackageZip(id, destPath string) error {
 			return err
 		}
 	}
-	if err := s.addAssetClosureToZip(zw, closure); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -144,8 +133,7 @@ func validatePackageLock(registry nodepkg.RegistryReader, manifest PackageManife
 }
 
 func lockDependenciesEqual(a, b LockDependencies) bool {
-	return stringListEqual(a.Templates, b.Templates) &&
-		stringListEqual(a.Subgraphs, b.Subgraphs) &&
+	return stringListEqual(a.Subgraphs, b.Subgraphs) &&
 		stringListEqual(a.Assets, b.Assets) &&
 		stringListEqual(a.AISlots, b.AISlots) &&
 		stringListEqual(a.TargetSlots, b.TargetSlots)
@@ -175,75 +163,4 @@ func dependencyClosureWithRegistry(registry nodepkg.RegistryReader, graph Graph,
 		}
 		return depNodeInfos(sg.Graph.Nodes), nil
 	})
-}
-
-func (s *Store) addAssetClosureToZip(zw *zip.Writer, closure dependency.ClosureResult) error {
-	if len(closure.Templates) == 0 {
-		return nil
-	}
-	if s.assetStore == nil {
-		return fmt.Errorf("asset store not configured for package export")
-	}
-	templateBlobs := map[string]blob.BlobRef{}
-	for _, guid := range sortedStrings(closure.Templates) {
-		rec, ok := s.assetStore.Get(guid)
-		if !ok {
-			return fmt.Errorf("template asset %q not found", guid)
-		}
-		if rec.Kind != asset.KindTemplate {
-			return fmt.Errorf("asset %q kind=%q, want %q", guid, rec.Kind, asset.KindTemplate)
-		}
-		if err := addZipJSON(zw, filepath.ToSlash(filepath.Join("assets", "records", guid+".json")), rec); err != nil {
-			return err
-		}
-		for _, v := range rec.Variants {
-			templateBlobs[v.Blob.Digest.String()] = v.Blob
-		}
-	}
-	for _, digest := range sortedBlobDigests(templateBlobs) {
-		ref := templateBlobs[digest]
-		if err := addAssetBlob(zw, s.assetStore, ref, filepath.ToSlash(filepath.Join("assets", "blobs", blobObjectName(ref)))); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func addZipJSON(zw *zip.Writer, zipName string, value any) error {
-	b, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return err
-	}
-	return addZipBytes(zw, zipName, b)
-}
-
-func addAssetBlob(zw *zip.Writer, store *asset.Store, ref blob.BlobRef, zipName string) error {
-	b, err := store.ReadBlob(context.Background(), ref)
-	if err != nil {
-		return err
-	}
-	return addZipBytes(zw, zipName, b)
-}
-
-func sortedBlobDigests(refs map[string]blob.BlobRef) []string {
-	digests := make([]string, 0, len(refs))
-	for digest := range refs {
-		digests = append(digests, digest)
-	}
-	sort.Strings(digests)
-	return digests
-}
-
-func blobObjectName(ref blob.BlobRef) string {
-	return ref.Digest.String()[len("sha256:"):]
-}
-
-func addZipBytes(zw *zip.Writer, zipName string, data []byte) error {
-	w, err := zw.Create(zipName)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(data)
-	return err
 }

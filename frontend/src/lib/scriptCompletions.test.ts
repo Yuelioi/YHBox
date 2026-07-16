@@ -8,9 +8,6 @@ import {
   scriptDollarRefs,
   scriptSyntaxErrors,
   SUGAR_COMPLETIONS,
-  scriptTemplateItemsForPin,
-  scriptTemplateInsertMode,
-  scriptTemplateInsertText,
   scriptAssetItemsForPin,
   scriptPinValueInsertText,
   scriptPointInsertText,
@@ -115,83 +112,6 @@ describe('scriptExitItemsForKind', () => {
   })
 })
 
-describe('scriptTemplateItemsForPin', () => {
-  it('uses TemplateGUID semantic/widget pins and displays asset names while inserting GUIDs', () => {
-    const specs = new Map<string, Spec>([
-      [
-        'ClickTemplate',
-        {
-          kind: 'ClickTemplate',
-          inputs: [
-            {
-              name: 'Templates',
-              type: 'String',
-              semantic: 'TemplateGUID',
-              widget: { kind: 'template-picker' },
-            },
-          ],
-        } as unknown as Spec,
-      ],
-    ])
-
-    const items = scriptTemplateItemsForPin('ClickTemplate', 'Templates', specs, [
-      {
-        guid: 'tpl-guid-1',
-        kind: 'template',
-        name: '开始按钮',
-        category: 'fishing',
-        tags: ['start', 'ui'],
-        variantCount: 2,
-      },
-    ])
-
-    expect(items).toEqual([
-      expect.objectContaining({
-        label: '开始按钮',
-        value: 'tpl-guid-1',
-        detail: 'fishing · start, ui · tpl-guid-1',
-        type: 'enum',
-      }),
-    ])
-  })
-
-  it('returns no items for ordinary string pins', () => {
-    const specs = new Map<string, Spec>([
-      [
-        'Log',
-        {
-          kind: 'Log',
-          inputs: [{ name: 'Message', type: 'String' }],
-        } as unknown as Spec,
-      ],
-    ])
-
-    expect(scriptTemplateItemsForPin('Log', 'Message', specs, [])).toEqual([])
-  })
-})
-
-describe('scriptTemplateInsertText', () => {
-  it('detects template insert mode from the current document shape', () => {
-    const bare = 'ClickTemplate({Templates: })'
-    expect(scriptTemplateInsertMode(bare, bare.indexOf('})'))).toBe('bare')
-
-    const array = 'ClickTemplate({Templates: []})'
-    expect(scriptTemplateInsertMode(array, array.indexOf(']'))).toBe('array')
-
-    const string = 'ClickTemplate({Templates: "tpl"})'
-    expect(scriptTemplateInsertMode(string, string.indexOf('tpl') + 2)).toBe('string')
-  })
-
-  it('inserts arrays in bare TemplateGUID value positions', () => {
-    expect(scriptTemplateInsertText('tpl-guid-1', 'bare')).toBe('["tpl-guid-1"]')
-  })
-
-  it('inserts string literals inside arrays and raw ids inside strings', () => {
-    expect(scriptTemplateInsertText('tpl-guid-1', 'array')).toBe('"tpl-guid-1"')
-    expect(scriptTemplateInsertText('tpl-guid-1', 'string')).toBe('tpl-guid-1')
-  })
-})
-
 describe('scriptAssetItemsForPin', () => {
   it('uses ClipID semantic pins and inserts clip ids as a single string literal', () => {
     const specs = new Map<string, Spec>([
@@ -232,10 +152,9 @@ describe('scriptAssetItemsForPin', () => {
         label: '开局连招',
         value: 'clip-guid-1',
         detail: 'fishing · bait · clip-guid-1',
-        insertMode: 'string',
       }),
     ])
-    expect(scriptPinValueInsertText(items[0], 'bare', false)).toBe('"clip-guid-1"')
+    expect(scriptPinValueInsertText(items[0], false)).toBe('"clip-guid-1"')
   })
 })
 
@@ -271,10 +190,9 @@ describe('scriptAIProfileItemsForPin', () => {
         label: 'OpenAI 主模型',
         value: 'openai-main',
         detail: 'openai-responses · gpt-5.4 · openai-main',
-        insertMode: 'string',
       }),
     ])
-    expect(scriptPinValueInsertText(items[0], 'bare', false)).toBe('"openai-main"')
+    expect(scriptPinValueInsertText(items[0], false)).toBe('"openai-main"')
   })
 })
 

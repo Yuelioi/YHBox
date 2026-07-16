@@ -20,22 +20,26 @@ type FieldEntry struct {
 	Required bool         `json:"required,omitempty"`
 }
 
-func ObjSchema(fields ...FieldEntry) *FieldSchema { return &FieldSchema{Type: "object", Fields: fields} }
+func ObjSchema(fields ...FieldEntry) *FieldSchema {
+	return &FieldSchema{Type: "object", Fields: fields}
+}
 
 // TupleSchema 定长数组 schema — 底层存 JSON 数组, fields[i] 按位置映射元素 i.
 // FieldEntry.Key 仅驱动 label i18n (node.<kind>.input.<path>.<key>.label), 不作 JSON key.
-// 用于「固定槽位、每槽含义不同」的数值向量 (如 DetectColor.Range 的颜色 6 元组),
+// 用于「固定槽位、每槽含义不同」的数值向量 (如 RGB/HSV 的颜色 6 元组),
 // 区别于键值 object, 也区别于同质可增删数组。前端 StructuredInput 渲染成逐项带标签输入。
-func TupleSchema(fields ...FieldEntry) *FieldSchema { return &FieldSchema{Type: "tuple", Fields: fields} }
+func TupleSchema(fields ...FieldEntry) *FieldSchema {
+	return &FieldSchema{Type: "tuple", Fields: fields}
+}
 func Field(key string, s *FieldSchema, required bool) FieldEntry {
 	return FieldEntry{Key: key, Schema: s, Required: required}
 }
-func NumberSchema() *FieldSchema { return &FieldSchema{Type: "number"} }
-func StringSchema() *FieldSchema { return &FieldSchema{Type: "string"} }
-func BoolSchema() *FieldSchema   { return &FieldSchema{Type: "bool"} }
+func NumberSchema() *FieldSchema                 { return &FieldSchema{Type: "number"} }
+func StringSchema() *FieldSchema                 { return &FieldSchema{Type: "string"} }
+func BoolSchema() *FieldSchema                   { return &FieldSchema{Type: "bool"} }
 func EnumSchema(opts ...EnumOption) *FieldSchema { return &FieldSchema{Type: "enum", Options: opts} }
-func GeometrySchema() *FieldSchema { return &FieldSchema{Type: "object", Widget: "geometry"} }
-func PointSchema() *FieldSchema   { return &FieldSchema{Type: "object", Widget: "point"} }
+func GeometrySchema() *FieldSchema               { return &FieldSchema{Type: "object", Widget: "geometry"} }
+func PointSchema() *FieldSchema                  { return &FieldSchema{Type: "object", Widget: "point"} }
 
 // ArraySchema 同质变长列表 — 底层存 JSON 数组, 每元素同一 item schema (可增删).
 // 区别于 TupleSchema (定长按位置) 与 object (键值 map). 前端 StructuredInput 渲染成

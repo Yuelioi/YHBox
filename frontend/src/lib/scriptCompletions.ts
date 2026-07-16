@@ -62,12 +62,9 @@ export interface ScriptPinValueItem {
   label?: string
   detail?: string
   type?: 'enum' | 'variable' | 'asset'
-  insertMode?: 'string' | 'template'
 }
 
-export type ScriptTemplateInsertMode = 'bare' | 'array' | 'string'
-
-export interface ScriptTemplateSummary {
+export interface ScriptAssetSummary {
   guid: string
   kind: string
   name: string
@@ -76,8 +73,6 @@ export interface ScriptTemplateSummary {
   variantCount?: number
   createdAt?: string
 }
-
-export type ScriptAssetSummary = ScriptTemplateSummary
 
 export interface ScriptAIProfileSummary {
   slot: string
@@ -220,30 +215,6 @@ export function scriptExitItemsForKind(kind: string, specs: Map<string, Spec>): 
   })
 }
 
-export function scriptTemplateItemsForPin(
-  kind: string,
-  pin: string,
-  specs: Map<string, Spec>,
-  templates: ScriptTemplateSummary[],
-): ScriptPinValueItem[] {
-  const input = specs.get(kind)?.inputs?.find((i) => i.name === pin)
-  if (input?.semantic !== 'TemplateGUID' && input?.widget?.kind !== 'template-picker') return []
-  return templates
-    .filter((t) => t.kind === 'template')
-    .slice()
-    .sort((a, b) => (a.name || a.guid).localeCompare(b.name || b.guid))
-    .map((t) => {
-      const meta = [t.category, (t.tags ?? []).join(', '), t.guid].filter(Boolean).join(' · ')
-      return {
-        value: t.guid,
-        label: t.name || t.guid,
-        detail: meta || undefined,
-        type: 'enum' as const,
-        insertMode: 'template' as const,
-      }
-    })
-}
-
 export function scriptAssetItemsForPin(
   kind: string,
   pin: string,
@@ -263,7 +234,6 @@ export function scriptAssetItemsForPin(
         label: a.name || a.guid,
         detail: meta || undefined,
         type: 'asset' as const,
-        insertMode: 'string' as const,
       }
     })
 }
@@ -286,7 +256,6 @@ export function scriptAIProfileItemsForPin(
         label: profile.label || profile.slot,
         detail: meta || undefined,
         type: 'enum' as const,
-        insertMode: 'string' as const,
       }
     })
 }
@@ -420,18 +389,7 @@ function parseSimpleStringLiteral(text: string): string | undefined {
   return body.replace(/\\'/g, "'").replace(/\\\\/g, '\\')
 }
 
-export function scriptTemplateInsertText(guid: string, mode: ScriptTemplateInsertMode): string {
-  if (mode === 'string') return guid
-  const quoted = JSON.stringify(guid)
-  return mode === 'array' ? quoted : `[${quoted}]`
-}
-
-export function scriptPinValueInsertText(
-  item: ScriptPinValueItem,
-  mode: ScriptTemplateInsertMode,
-  inString: boolean,
-): string {
-  if (item.insertMode === 'template') return scriptTemplateInsertText(item.value, mode)
+export function scriptPinValueInsertText(item: ScriptPinValueItem, inString: boolean): string {
   return inString ? item.value : JSON.stringify(item.value)
 }
 
@@ -459,7 +417,9 @@ export function scriptColorInsertText(
 }
 
 export function scriptStringInsertText(value: string, doc: string, pos: number): string {
-  return scriptTemplateInsertMode(doc, pos) === 'string' ? value : JSON.stringify(value)
+  const before = doc.slice(0, pos)
+  const quoteCount = (before.match(/(?<!\\)"/g) ?? []).length
+  return quoteCount % 2 === 1 ? value : JSON.stringify(value)
 }
 
 export function scriptColorPickTargetForPin(
@@ -497,32 +457,6 @@ export function scriptScreenPickKindForPin(
   if (input?.type === 'Point') return 'point'
   if (input?.type === 'Geometry' || input?.type === 'Rect') return 'rect'
   return null
-}
-
-export function scriptTemplateInsertMode(doc: string, pos: number): ScriptTemplateInsertMode {
-  const before = doc.slice(0, pos)
-  const quoteCount = (before.match(/(?<!\\)"/g) ?? []).length
-  if (quoteCount % 2 === 1) return 'string'
-
-  const stack: string[] = []
-  for (let i = 0; i < before.length; i++) {
-    const ch = before[i]
-    if (ch === '"' || ch === "'" || ch === '`') {
-      i++
-      while (i < before.length) {
-        if (before[i] === '\\') {
-          i += 2
-          continue
-        }
-        if (before[i] === ch) break
-        i++
-      }
-      continue
-    }
-    if (ch === '[' || ch === '{' || ch === '(') stack.push(ch)
-    else if (ch === ']' || ch === '}' || ch === ')') stack.pop()
-  }
-  return stack[stack.length - 1] === '[' ? 'array' : 'bare'
 }
 
 // labelOf: kind → i18n 人话名 (node.<Kind>.label); 纯函数保持可单测。
@@ -675,7 +609,6 @@ function scriptCompletionSource(
         const opts = pinValues(pv.kind, pv.pin)
         if (opts.length) {
           const inStr = ctx.matchBefore(/"[^"\n\r]*$/)
-          const mode = scriptTemplateInsertMode(ctx.state.doc.toString(), ctx.pos)
           return {
             from: inStr ? inStr.from + 1 : ctx.pos,
             validFor: /^[^"',\]}]*$/,
@@ -683,8 +616,8 @@ function scriptCompletionSource(
               label: o.label ?? o.value,
               type: o.type ?? 'enum',
               detail: o.detail ?? o.value,
-              // 串内: 只补值 (引号已在); 裸值位: 按 pin 语义决定字符串/模板数组。
-              apply: scriptPinValueInsertText(o, mode, !!inStr),
+              // 串内只补值；裸值位插入 JSON 字符串。
+              apply: scriptPinValueInsertText(o, !!inStr),
             })),
           }
         }

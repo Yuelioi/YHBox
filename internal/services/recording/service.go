@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -51,7 +50,6 @@ type Service struct {
 	clipSvc      clipStore
 	containerGet ContainerGetter
 	emit         func(name string, data any)
-	clipRefs     func(string) int
 
 	mu           sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
 	pending      map[string]pendingRecording
@@ -116,9 +114,6 @@ func (s *Service) setState(st RecordingState) {
 // ConfigureEmitter injects the presentation event transport during startup.
 // It is deliberately a package function so it cannot become a Wails RPC method.
 func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
-
-// ConfigureReferenceCounter injects the current clip reference count used by cleanup.
-func ConfigureReferenceCounter(s *Service, clips func(string) int) { s.clipRefs = clips }
 
 // ConfigureContainerGetter injects target lookup used when a recording starts.
 func ConfigureContainerGetter(s *Service, getter ContainerGetter) { s.containerGet = getter }
@@ -470,98 +465,6 @@ func normalizeTags(tags []string) []string {
 		out = append(out, tag)
 	}
 	return out
-}
-
-// CleanupItem describes one recording-derived asset and its current reference count.
-type CleanupItem struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Kind       string `json:"kind"`
-	References int    `json:"references"`
-}
-
-type CleanupPreview struct {
-	Unused     []CleanupItem `json:"unused"`
-	Referenced []CleanupItem `json:"referenced"`
-}
-
-type CleanupArgs struct {
-	IDs []string `json:"ids"`
-}
-
-type CleanupResult struct {
-	Deleted []string      `json:"deleted"`
-	Skipped []CleanupItem `json:"skipped"`
-	Failed  []string      `json:"failed"`
-}
-
-// PreviewCleanup lists recording-derived assets without mutating storage.
-func (s *Service) PreviewCleanup() CleanupPreview {
-	items := s.recordingAssets()
-	preview := CleanupPreview{Unused: []CleanupItem{}, Referenced: []CleanupItem{}}
-	for _, item := range items {
-		if item.References == 0 {
-			preview.Unused = append(preview.Unused, item)
-		} else {
-			preview.Referenced = append(preview.Referenced, item)
-		}
-	}
-	return preview
-}
-
-// CleanupUnused rechecks references and deletes only selected recording-derived assets that remain unused.
-func (s *Service) CleanupUnused(args CleanupArgs) CleanupResult {
-	current := s.recordingAssets()
-	byID := make(map[string]CleanupItem, len(current))
-	for _, item := range current {
-		byID[item.ID] = item
-	}
-	result := CleanupResult{Deleted: []string{}, Skipped: []CleanupItem{}, Failed: []string{}}
-	for _, id := range args.IDs {
-		item, ok := byID[id]
-		if !ok {
-			continue
-		}
-		refs := s.referenceCount(id)
-		if refs > 0 {
-			item.References = refs
-			result.Skipped = append(result.Skipped, item)
-			continue
-		}
-		err := s.clipSvc.Delete(id)
-		if err != nil {
-			result.Failed = append(result.Failed, id)
-			continue
-		}
-		result.Deleted = append(result.Deleted, id)
-	}
-	return result
-}
-
-func (s *Service) recordingAssets() []CleanupItem {
-	items := []CleanupItem{}
-	if s.clipSvc != nil {
-		for _, clip := range s.clipSvc.List() {
-			items = append(items, CleanupItem{ID: clip.ID, Label: clip.Label, Kind: "clip", References: s.referenceCount(clip.ID)})
-		}
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Kind != items[j].Kind {
-			return items[i].Kind < items[j].Kind
-		}
-		if items[i].Label != items[j].Label {
-			return items[i].Label < items[j].Label
-		}
-		return items[i].ID < items[j].ID
-	})
-	return items
-}
-
-func (s *Service) referenceCount(id string) int {
-	if s.clipRefs != nil {
-		return s.clipRefs(id)
-	}
-	return 0
 }
 
 // StopAsync 异步停录，完成后广播 pending payload 或 {error}.

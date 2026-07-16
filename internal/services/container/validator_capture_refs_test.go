@@ -2,14 +2,14 @@ package container
 
 import "testing"
 
-// DetectColor 的可绑字段 = Count, Center (Found/NotFound 出口 Data)。
+// AI 的可绑字段包括 Done.Text。
 
 func TestValidateCaptureRefs_DeclaredOK(t *testing.T) {
 	c := &Container{
-		Vars: []VarDecl{{Name: "n", Type: "number"}},
+		Vars: []VarDecl{{Name: "n", Type: "string"}},
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "d1", Kind: "DetectColor", Config: map[string]any{
-				"capture": map[string]any{"Count": "n"},
+			{ID: "d1", Kind: "AI", Config: map[string]any{
+				"capture": map[string]any{"Text": "n"},
 			}},
 		}},
 	}
@@ -21,8 +21,8 @@ func TestValidateCaptureRefs_DeclaredOK(t *testing.T) {
 func TestValidateCaptureRefs_UndeclaredVar(t *testing.T) {
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "d1", Kind: "DetectColor", Config: map[string]any{
-				"capture": map[string]any{"Count": "ghost"},
+			{ID: "d1", Kind: "AI", Config: map[string]any{
+				"capture": map[string]any{"Text": "ghost"},
 			}},
 		}},
 	}
@@ -34,10 +34,10 @@ func TestValidateCaptureRefs_UndeclaredVar(t *testing.T) {
 
 func TestValidateCaptureRefs_InvalidField(t *testing.T) {
 	c := &Container{
-		Vars: []VarDecl{{Name: "n", Type: "number"}},
+		Vars: []VarDecl{{Name: "n", Type: "string"}},
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "d1", Kind: "DetectColor", Config: map[string]any{
-				"capture": map[string]any{"Nonexistent": "n"}, // 非 DetectColor 可绑字段
+			{ID: "d1", Kind: "AI", Config: map[string]any{
+				"capture": map[string]any{"Nonexistent": "n"},
 			}},
 		}},
 	}
@@ -50,8 +50,8 @@ func TestValidateCaptureRefs_InvalidField(t *testing.T) {
 func TestValidateCaptureRefs_EmptyBindingSkipped(t *testing.T) {
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "d1", Kind: "DetectColor", Config: map[string]any{
-				"capture": map[string]any{"Count": ""}, // 空 = 未配
+			{ID: "d1", Kind: "AI", Config: map[string]any{
+				"capture": map[string]any{"Text": ""}, // 空 = 未配
 			}},
 		}},
 	}
@@ -65,8 +65,8 @@ func TestValidateCaptureRefs_SubgraphRequiredGlobalsWhitelist(t *testing.T) {
 		ID:              "sg1",
 		RequiredGlobals: []string{"shared"},
 		Graph: Graph{Nodes: []GraphNode{
-			{ID: "d1", Kind: "DetectColor", Config: map[string]any{
-				"capture": map[string]any{"Count": "shared"},
+			{ID: "d1", Kind: "AI", Config: map[string]any{
+				"capture": map[string]any{"Text": "shared"},
 			}},
 		}},
 	}}

@@ -6,7 +6,6 @@
 package node
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -158,27 +157,6 @@ func TestStubStopwatchStore_StartStopRead(t *testing.T) {
 	}
 }
 
-// ---- VisionService stub ----
-
-func TestStubVisionService_AlwaysMiss(t *testing.T) {
-	v := StubVisionService()
-	if v == nil {
-		t.Fatal("StubVisionService() returned nil")
-	}
-	hit, err := v.Match(context.Background(), []string{"any"}, 0.5, Geometry{})
-	if hit.Found || hit.Conf != 0 || err != nil {
-		t.Errorf("Match = (%v,%v), want (Found=false,0,nil)", hit, err)
-	}
-	hit2, err2 := v.WaitMatch(context.Background(), []string{"any"}, 0.5, Geometry{}, 10*time.Millisecond)
-	if hit2.Found || err2 != nil {
-		t.Errorf("WaitMatch = (%v,%v), want (Found=false,nil)", hit2, err2)
-	}
-	br, err3 := v.DualBarTrack(Geometry{Pct: Rect{W: 0.5, H: 0.5}}, HSVRange{}, HSVRange{}, DualBarOptions{})
-	if err3 != nil || br.Found {
-		t.Errorf("DualBarTrack = (%+v,%v), want zero/Found=false,nil", br, err3)
-	}
-}
-
 // ---- LogService default ----
 
 func TestDefaultLogService_NoPanic(t *testing.T) {
@@ -196,9 +174,6 @@ func TestDefaultLogService_NoPanic(t *testing.T) {
 
 func TestStubServices_AllFieldsNonNil(t *testing.T) {
 	b := StubServices()
-	if b.Vision == nil {
-		t.Error("StubServices().Vision is nil")
-	}
 	if b.Log == nil {
 		t.Error("StubServices().Log is nil")
 	}

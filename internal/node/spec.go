@@ -43,7 +43,6 @@ type DynamicPortSpec struct {
 }
 
 const (
-	RuntimeCapabilityVision      RuntimeCapability = "vision"
 	RuntimeCapabilityLog         RuntimeCapability = "log"
 	RuntimeCapabilityInput       RuntimeCapability = "input"
 	RuntimeCapabilityVars        RuntimeCapability = "vars"

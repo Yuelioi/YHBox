@@ -20,14 +20,14 @@ func TestDoExport_ProducesMachineAndHumanCatalogs(t *testing.T) {
 		if len(nodes) == 0 {
 			t.Fatal("JSON catalog is empty")
 		}
-		if !containsNodeWithText(nodes, "DetectColor") {
-			t.Fatal("DetectColor is missing its user-facing catalog text")
+		if !containsNodeWithText(nodes, "WindowState") {
+			t.Fatal("WindowState is missing its user-facing catalog text")
 		}
 	})
 
 	t.Run("markdown", func(t *testing.T) {
 		output := captureStdout(t, func() { doExport(true) })
-		for _, want := range []string{"# 节点速查表", "### DetectColor", "| pin | 类型 | 必填 | 默认 | 说明 |"} {
+		for _, want := range []string{"# 节点速查表", "### WindowState", "| pin | 类型 | 必填 | 默认 | 说明 |"} {
 			if !strings.Contains(output, want) {
 				t.Fatalf("Markdown catalog missing %q", want)
 			}

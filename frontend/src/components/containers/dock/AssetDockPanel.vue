@@ -88,11 +88,8 @@
       <TemplateAssetPanel
         v-if="tab === 'templates'"
         :container-id="containerId"
-        :pick-mode="templatePickMode"
-        :model-value="templateSelected"
         :workspace="workspace"
         :workspace-query="workspaceQuery"
-        @update:model-value="(v: string[]) => emit('update:template-selected', v)"
       />
       <LibraryAssetPanel
         v-else-if="tab === 'library'"
@@ -128,13 +125,10 @@ type AssetTab = 'templates' | 'library' | 'clips' | 'maintenance'
 defineProps<{
   tab: AssetTab
   containerId: string
-  templatePickMode: boolean
-  templateSelected: string[]
   workspace?: boolean
 }>()
 const emit = defineEmits<{
   'update:tab': [v: AssetTab]
-  'update:template-selected': [v: string[]]
   'pick-subgraph': [id: string]
   'pick-clip': [id: string]
   'open-workspace': []

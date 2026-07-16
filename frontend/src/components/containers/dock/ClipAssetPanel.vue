@@ -453,17 +453,11 @@ function ctxMenuItems(item: ClipSummary) {
   ]
 }
 
-// 单项删除: 先扫引用, 被引用则警告, 确认后删.
 async function onDelete(item: ClipSummary) {
-  const refs = await backend.assets.referrers(item.id)
   const name = item.label || t('clip.manager.untitled')
-  const desc =
-    (refs?.length ?? 0) > 0
-      ? t('clip.manager.batch_delete_confirm_referenced', { n: 1, refs: refs?.length ?? 0 })
-      : t('clip.manager.batch_delete_confirm', { n: 1 })
   const yes = await confirm({
     title: t('clip.manager.batch_delete_title'),
-    description: `${name} — ${desc}`,
+    description: `${name} — ${t('clip.manager.batch_delete_confirm', { n: 1 })}`,
     color: 'error',
     confirmText: t('common.delete'),
   })
@@ -537,21 +531,9 @@ async function onBatchChangeCategory() {
 
 async function onBatchDelete() {
   const ids = [...selected.value]
-  const referenced: string[] = []
-  for (const id of ids) {
-    const refs = await backend.assets.referrers(id)
-    if ((refs?.length ?? 0) > 0) referenced.push(byId(id)?.label || id)
-  }
-  const desc =
-    referenced.length > 0
-      ? t('clip.manager.batch_delete_confirm_referenced', {
-          n: ids.length,
-          refs: referenced.length,
-        })
-      : t('clip.manager.batch_delete_confirm', { n: ids.length })
   const yes = await confirm({
     title: t('clip.manager.batch_delete_title'),
-    description: desc,
+    description: t('clip.manager.batch_delete_confirm', { n: ids.length }),
     color: 'error',
     confirmText: t('common.delete'),
   })

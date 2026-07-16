@@ -1,6 +1,6 @@
 <!-- 模板库右栏详情 (就地编辑 + 变体管理): 名称/描述双击改, 分类/标签即改即存; 变体多分辨率档(重拍/新增/删档,
      当前窗口分辨率感知)吸纳自旧 TemplatePicker. 模板全局资产、无 rev. 变体逻辑由宿主显式传 containerId 定位窗口.
-     pick 模式额外: 顶部「用于此节点」开关 (emit toggle-assign). -->
+     变体选择由 3.1 Workflow 端口编辑器直接写入 BlobRef。 -->
 <template>
   <div class="w-full overflow-y-auto">
     <div v-if="!tpl" class="flex flex-col items-center justify-center text-center px-6 py-10">
@@ -9,18 +9,6 @@
     </div>
 
     <div v-else class="p-4 space-y-4">
-      <!-- pick 模式: 用于此节点 开关 -->
-      <UButton
-        v-if="pickMode"
-        block
-        :variant="assigned ? 'solid' : 'soft'"
-        :color="assigned ? 'primary' : 'neutral'"
-        :icon="assigned ? 'i-tabler-circle-check' : 'i-tabler-circle-plus'"
-        @click="emit('toggle-assign')"
-      >
-        {{ assigned ? t('template.picker.selected') : t('template.picker.use') }}
-      </UButton>
-
       <!-- 缩略图 (当前变体档) -->
       <div
         class="relative flex h-40 items-center justify-center overflow-hidden rounded-md border border-default bg-elevated"
@@ -270,10 +258,7 @@ const { t } = useI18n()
 const props = defineProps<{
   guid: string | null
   containerId: string
-  pickMode?: boolean
-  assigned?: boolean
 }>()
-const emit = defineEmits<{ 'toggle-assign': [] }>()
 const store = useTemplatesStore()
 const { confirm } = useConfirm()
 const toast = useToast()
@@ -505,15 +490,9 @@ async function onCopyID() {
 async function onDelete() {
   const s = tpl.value
   if (!s) return
-  const refs = await backend.assets.referrers(s.guid)
-  const n = refs?.length ?? 0
-  const description =
-    n > 0
-      ? t('template.manager.delete_confirm_referenced', { key: s.name, n })
-      : t('template.manager.delete_confirm', { key: s.name })
   const yes = await confirm({
     title: t('template.manager.delete_title'),
-    description,
+    description: t('template.manager.delete_confirm', { key: s.name }),
     color: 'error',
     confirmText: t('common.delete'),
   })

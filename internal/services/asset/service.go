@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -44,31 +43,10 @@ type AssetSummary struct {
 type Service struct {
 	store   *Store
 	capture CaptureAdapter
-
-	// scanReferrers 注入式扫全部容器+子图引用某 guid 的位置 (wire 层用 dependency BFS 填).
-	// nil → Delete 不返引用列表 (退化, 测试).
-	scanReferrers func(guid string) []Referrer
-
-	// onChange: 资产 Save/Delete/Rename 后触发. main.go 接 matcher 解码缓存失效.
-	onChange func()
 }
 
 func NewService(store *Store, capture CaptureAdapter) *Service {
 	return &Service{store: store, capture: capture}
-}
-
-// ConfigureChangeListener registers the asset change callback without adding an RPC method.
-func ConfigureChangeListener(s *Service, listener func()) { s.onChange = listener }
-
-// ConfigureReferrerScanner injects reference scanning without adding an RPC method.
-func ConfigureReferrerScanner(s *Service, scanner func(guid string) []Referrer) {
-	s.scanReferrers = scanner
-}
-
-func (s *Service) notifyChange() {
-	if s.onChange != nil {
-		s.onChange()
-	}
 }
 
 // SaveTemplateCapture 用户截模板 → 建新资产 (新 GUID) + 单变体 + blob.
@@ -106,7 +84,6 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 	}); err != nil {
 		return "", fmt.Errorf("commit template blob: %w", err)
 	}
-	s.notifyChange()
 	return guid, nil
 }
 
@@ -132,12 +109,11 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 	if _, err := s.store.CommitVariantBlob(context.Background(), "image/png", bytes.NewReader(pngData), guid, recRes, bbox, nil); err != nil {
 		return "", fmt.Errorf("commit template variant: %w", err)
 	}
-	s.notifyChange()
 	return guid, nil
 }
 
 // RemoveVariant 删指定分辨率的单个变体档 (详情页"删这一档"). 返目标 GUID 给 FE 区分成功/失败.
-// 守卫: 仅剩 1 档时拒删 (删它=废掉整个素材, 该走 Delete 整删 — 带引用警告). FE 也仅在 >1 档时给入口.
+// 守卫: 仅剩 1 档时拒删 (删它=废掉整个素材, 该走 Delete 整删). FE 也仅在 >1 档时给入口.
 func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 	rec, ok := s.store.Get(guid)
 	if !ok {
@@ -149,7 +125,6 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 	if err := s.store.RemoveVariant(guid, [2]int{w, h}); err != nil {
 		return "", err
 	}
-	s.notifyChange()
 	return guid, nil
 }
 
@@ -194,116 +169,16 @@ func (s *Service) UpdateMeta(guid, name, description, category string, tags []st
 	if err := s.store.PutRecordMeta(guid, name, description, category, tags); err != nil {
 		return err
 	}
-	s.notifyChange()
 	return nil
 }
 
-// Referrers 只扫不删 — 返回引用某资产 GUID 的全部位置, 给 FE 删除前弹"被 N 处引用"确认弹窗.
-// scanReferrers 未注入 (测试) → 返 nil.
-func (s *Service) Referrers(guid string) []Referrer {
-	if s.scanReferrers == nil {
-		return nil
-	}
-	return s.scanReferrers(guid)
-}
-
-// Delete 删资产记录. 删前扫引用返回 Referrer 列表 (不阻断, FE 据此弹"被 N 处引用"警告).
-func (s *Service) Delete(guid string) ([]Referrer, error) {
-	var refs []Referrer
-	if s.scanReferrers != nil {
-		refs = s.scanReferrers(guid)
-	}
+// Delete removes asset metadata. Workflows retain immutable BlobRefs rather
+// than asset GUIDs, so deletion never attempts graph-wide reference inference.
+func (s *Service) Delete(guid string) error {
 	if err := s.store.DeleteRecord(guid); err != nil {
-		return refs, err
+		return err
 	}
-	s.notifyChange()
-	return refs, nil
-}
-
-// CleanupItem describes one template and its current reference count.
-type CleanupItem struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Kind       string `json:"kind"`
-	References int    `json:"references"`
-}
-
-type CleanupPreview struct {
-	Unused     []CleanupItem `json:"unused"`
-	Referenced []CleanupItem `json:"referenced"`
-}
-
-type CleanupArgs struct {
-	IDs []string `json:"ids"`
-}
-
-type CleanupResult struct {
-	Deleted []string      `json:"deleted"`
-	Skipped []CleanupItem `json:"skipped"`
-	Failed  []string      `json:"failed"`
-}
-
-// PreviewCleanup lists template assets without mutating storage. Clip assets are managed separately.
-func (s *Service) PreviewCleanup() CleanupPreview {
-	preview := CleanupPreview{Unused: []CleanupItem{}, Referenced: []CleanupItem{}}
-	for _, item := range s.cleanupItems() {
-		if item.References == 0 {
-			preview.Unused = append(preview.Unused, item)
-		} else {
-			preview.Referenced = append(preview.Referenced, item)
-		}
-	}
-	return preview
-}
-
-// CleanupUnused rechecks references and deletes only selected templates that remain unused.
-func (s *Service) CleanupUnused(args CleanupArgs) CleanupResult {
-	current := s.cleanupItems()
-	byID := make(map[string]CleanupItem, len(current))
-	for _, item := range current {
-		byID[item.ID] = item
-	}
-	result := CleanupResult{Deleted: []string{}, Skipped: []CleanupItem{}, Failed: []string{}}
-	for _, id := range args.IDs {
-		item, ok := byID[id]
-		if !ok {
-			continue
-		}
-		refs := len(s.Referrers(id))
-		if refs > 0 {
-			item.References = refs
-			result.Skipped = append(result.Skipped, item)
-			continue
-		}
-		if err := s.store.DeleteRecord(id); err != nil {
-			result.Failed = append(result.Failed, id)
-			continue
-		}
-		result.Deleted = append(result.Deleted, id)
-	}
-	if len(result.Deleted) > 0 {
-		s.notifyChange()
-	}
-	return result
-}
-
-func (s *Service) cleanupItems() []CleanupItem {
-	items := []CleanupItem{}
-	for _, rec := range s.store.List() {
-		if rec.Kind != KindTemplate {
-			continue
-		}
-		items = append(items, CleanupItem{
-			ID: rec.GUID, Label: rec.Name, Kind: KindTemplate, References: len(s.Referrers(rec.GUID)),
-		})
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Label != items[j].Label {
-			return items[i].Label < items[j].Label
-		}
-		return items[i].ID < items[j].ID
-	})
-	return items
+	return nil
 }
 
 // Capture 截取指定容器目标窗口当前帧 (制作模板时取底图). 保留 containerID — 截帧需窗口上下文.
@@ -318,7 +193,7 @@ func (s *Service) Capture(containerID, nodeID string) (string, error) {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
 }
 
-// CurrentResolution 返当前容器目标窗口客户区分辨率 [宽,高]. 详情页据此挑"运行时真会用的那档"
+// CurrentResolution 返当前容器目标窗口客户区分辨率 [宽,高]. 详情页据此推荐绑定的素材档位
 // + 显示当前分辨率 + 决定"重拍/新增". 窗口没开/无容器上下文 → error (FE 静默降级, 不弹 toast).
 func (s *Service) CurrentResolution(containerID string) ([2]int, error) {
 	if s.capture == nil {
@@ -327,13 +202,13 @@ func (s *Service) CurrentResolution(containerID string) ([2]int, error) {
 	return s.capture.Resolution(containerID)
 }
 
-// VariantPick 给详情页: 当前分辨率下运行时真会用的那档在 record.Variants[] 里的下标 + 是否精确命中当前分辨率.
+// VariantPick 给详情页: 当前分辨率下推荐绑定的档位在 record.Variants[] 里的下标 + 是否精确命中当前分辨率.
 type VariantPick struct {
 	Index int  `json:"index"`
 	Exact bool `json:"exact"`
 }
 
-// PickVariant 给定帧分辨率, 返运行时真会用的那档 (store.PickVariant: 精确命中优先, 否则长边比最近)
+// PickVariant 给定帧分辨率, 返推荐绑定的档位 (store.PickVariant: 精确命中优先, 否则长边比最近)
 // 在 record.Variants[] 里的下标 + 是否精确命中该分辨率. 详情页进来据此自动切档 + 决定按钮"重拍/新增".
 // 挑档算法权威在 store.PickVariant (有单测), 此处只把选中档换算成下标, 不复刻算法.
 func (s *Service) PickVariant(guid string, w, h int) (VariantPick, error) {
@@ -351,9 +226,4 @@ func (s *Service) PickVariant(guid string, w, h int) (VariantPick, error) {
 		}
 	}
 	return VariantPick{}, fmt.Errorf("picked variant %v not in record %q", v.Resolution, guid)
-}
-
-// GCBlobs 显式触发 blob GC (回收无记录引用的孤儿字节). 返回回收数.
-func (s *Service) GCBlobs() (int, error) {
-	return s.store.GCBlobs()
 }

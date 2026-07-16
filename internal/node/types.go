@@ -97,8 +97,7 @@ type Color struct {
 	V int `json:"v"`
 }
 
-// Image 图像 pin 值 — 编码字节 + 格式。Capture 产出、SaveImage 写盘、LoadImage 读盘、
-// AI 节点 vision 多模态消费;在图里作为一等流动值(经 exec-data 直连或捕获到变量)。
+// Image is the legacy in-memory image pin consumed by the legacy AI node.
 //
 // Data is immutable; consumers MUST NOT modify the underlying byte slice —
 // 值在进程内按引用流动、不深拷, 改了会跨节点串数据。

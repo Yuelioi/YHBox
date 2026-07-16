@@ -35,21 +35,12 @@ type Service struct {
 	runner   Runner
 	onChange ChangeListener
 
-	// hasTemplate: injected lookup for legacy template references.
-	hasTemplate func(guid string) bool
-
 	// postDelete 容器删除完成后回调 (main.go 注入: 匿名子图 GC — 锁序 Container → Subgraph).
 	postDelete func()
 }
 
 func NewService(store *Store) *Service {
 	return &Service{store: store}
-}
-
-// ConfigureTemplateExistence injects the legacy template lookup without exposing an RPC method.
-// 包级配置函数不会进入 Wails Service 的 RPC 方法集。
-func ConfigureTemplateExistence(s *Service, hasTemplate func(guid string) bool) {
-	s.hasTemplate = hasTemplate
 }
 
 // ConfigureRunner 启动期 main.go 注入。Runner=nil 时 Run/Stop 返 error。
@@ -199,9 +190,6 @@ func (s *Service) ValidateContainerByID(id string) []ValidationError {
 		}
 	}
 	sgs := s.store.subgraphsFor(&c)
-	if s.hasTemplate != nil {
-		return ValidateContainerWithDepsAndRegistry(&c, sgs, s.hasTemplate, s.store.registry)
-	}
 	return ValidateContainerWithRegistry(&c, sgs, s.store.registry)
 }
 

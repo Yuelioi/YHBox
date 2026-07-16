@@ -50,7 +50,7 @@ func TestValidateReturnsValidationFailure(t *testing.T) {
 		SchemaVersion: 4,
 		Graph: Graph{
 			ID: "g", SchemaVersion: 1,
-			Nodes: []GraphNode{{ID: "n1", Kind: "ClickTemplate", Config: map[string]any{}}},
+			Nodes: []GraphNode{{ID: "n1", Kind: "WindowState", Config: map[string]any{}}},
 		},
 	}
 	err := c.Validate(nil)

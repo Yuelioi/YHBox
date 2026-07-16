@@ -139,9 +139,6 @@ import {
   scriptExitItemsForKind,
   scriptGeometryInsertText,
   scriptStringInsertText,
-  scriptTemplateInsertMode,
-  scriptTemplateInsertText,
-  scriptTemplateItemsForPin,
   scriptPointInsertText,
   scriptSyntaxErrors,
   SUGAR_COMPLETIONS,
@@ -260,18 +257,10 @@ function pinValues(
   label?: string
   detail?: string
   type?: 'enum' | 'variable' | 'asset'
-  insertMode?: 'string' | 'template'
 }[] {
   const enums = pinEnumOptions(kind, pin)
   if (enums.length) return enums.map((e) => ({ ...e, type: 'enum' as const }))
   const input = registry.specs.get(kind)?.inputs?.find((i) => i.name === pin)
-  const templateItems = scriptTemplateItemsForPin(
-    kind,
-    pin,
-    registry.specs,
-    Object.values(tplStore.map),
-  )
-  if (templateItems.length) return templateItems
   const assetItems = scriptAssetItemsForPin(kind, pin, registry.specs, assetSummaries.value)
   if (assetItems.length) return assetItems
   const aiProfileItems = scriptAIProfileItemsForPin(
@@ -404,7 +393,6 @@ function onNewVar(a: { name: string; type: VarType; default: unknown }) {
   editorModalRef.value?.insert({ label: a.name, insert: `$${a.name}`, caretBack: 0 })
 }
 
-const captureTemplateBusy = ref(false)
 const capturePointBusy = ref(false)
 const captureRectBusy = ref(false)
 const captureColorBusy = ref(false)
@@ -422,7 +410,6 @@ type AsyncCandidateItem = {
 
 const scriptInsertBusy = computed(
   () =>
-    captureTemplateBusy.value ||
     capturePointBusy.value ||
     captureRectBusy.value ||
     captureColorBusy.value ||
@@ -439,12 +426,6 @@ const scriptInsertMenuItems = computed(() => [
     },
   ],
   [
-    {
-      label: t('inspector.editor_capture_template'),
-      icon: 'i-tabler-camera-plus',
-      disabled: captureTemplateBusy.value,
-      onSelect: () => void captureTemplateForScript(),
-    },
     {
       label: t('inspector.editor_capture_point'),
       icon: 'i-tabler-crosshair',
@@ -477,10 +458,6 @@ const asyncCandidateHint = computed(() => {
   if (!ctx) return t('inspector.editor_async_candidates_hint')
   return t('inspector.editor_async_candidates_context', { kind: ctx.kind, pin: ctx.pin })
 })
-function genTemplatePickID(): string {
-  return 'script-tpl-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
-}
-
 function genScriptPickID(prefix: string): string {
   return prefix + '-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now()
 }
@@ -488,30 +465,6 @@ function genScriptPickID(prefix: string): string {
 async function reloadAssets() {
   const summaries = await backend.assets.list()
   assetSummaries.value = (summaries as AssetSummary[] | undefined) ?? []
-}
-
-async function captureTemplateForScript() {
-  if (captureTemplateBusy.value) return
-  const id = genTemplatePickID()
-  captureTemplateBusy.value = true
-  try {
-    const waiter = awaitWailsEvent<{ id: string; mode: string; payload: any }>(
-      'tools:picker-result',
-      (p) => p?.id === id,
-    )
-    await backend.tools.openScreenPicker('template_save', id, tplStore.containerId)
-    const result = await waiter
-    const guid = result.payload?.guid
-    if (result.payload?.cancelled || typeof guid !== 'string' || !guid) return
-    await tplStore.reload()
-    await reloadAssets()
-    const doc = editorModalRef.value?.currentDoc() ?? props.modelValue ?? ''
-    const pos = editorModalRef.value?.currentCursor() ?? doc.length
-    const mode = scriptTemplateInsertMode(doc, pos)
-    editorModalRef.value?.insertText(scriptTemplateInsertText(guid, mode))
-  } finally {
-    captureTemplateBusy.value = false
-  }
 }
 
 type PointPayload = { xRatio: number; yRatio: number; cancelled?: boolean }

@@ -2,8 +2,6 @@ package container
 
 import (
 	"archive/zip"
-	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,10 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/nodes/control"
-	"github.com/yottaapp/yotta/internal/services/asset"
 
 	_ "github.com/yottaapp/yotta/internal/nodes/all"
 )
@@ -30,10 +26,6 @@ func (isolatedStoreNode) Spec() node.Spec {
 }
 
 func (isolatedStoreNode) Run(node.Ctx, node.Inputs) (node.Outputs, error) { return nil, nil }
-func (isolatedStoreNode) Dependencies(node.Inputs) []node.Dependency {
-	return []node.Dependency{{Kind: "template", Key: "custom-template"}}
-}
-
 func TestContainerStoreUsesExplicitRegistryForValidationAndDependencies(t *testing.T) {
 	registry := node.NewRegistry()
 	registry.Register(&control.Start{})
@@ -49,13 +41,6 @@ func TestContainerStoreUsesExplicitRegistryForValidationAndDependencies(t *testi
 	}}
 	if err := store.Save(c); err != nil {
 		t.Fatalf("Save with explicit registry: %v", err)
-	}
-	lock, err := readJSONFile[YottaLock](filepath.Join(root, c.ID, lockFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(lock.Dependencies.Templates) != 1 || lock.Dependencies.Templates[0] != "custom-template" {
-		t.Fatalf("custom dependency was not scanned: %+v", lock.Dependencies)
 	}
 }
 
@@ -212,7 +197,7 @@ func TestContainerStore_LoadRejectsMixedOrUncommittedGeneration(t *testing.T) {
 		},
 		"closure": func(t *testing.T, dir string) {
 			updateTestLockHash(t, dir, func(lock *YottaLock) {
-				lock.Dependencies.Templates = []string{"tampered"}
+				lock.Dependencies.Subgraphs = []string{"tampered"}
 			})
 		},
 		"package": func(t *testing.T, dir string) {
@@ -537,67 +522,6 @@ func TestContainerStore_ExportPackageZipExcludesInstallation(t *testing.T) {
 	}
 	if names["installation.json"] {
 		t.Fatalf("zip must not include installation.json")
-	}
-}
-
-func TestContainerStore_ExportPackageZipIncludesAssetClosure(t *testing.T) {
-	dir := t.TempDir()
-	s, _ := NewStore(filepath.Join(dir, "containers"))
-	assetRoot := filepath.Join(dir, "assets")
-	assetBlobs, err := blob.Open(filepath.Join(assetRoot, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assetStore, _ := asset.NewStore(assetRoot, assetBlobs)
-	s.SetAssetStore(assetStore)
-
-	templateBlob, err := assetStore.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader([]byte("template-png")), func(ref blob.BlobRef) asset.AssetRecord {
-		return asset.AssetRecord{
-			GUID:   "tpl-1",
-			Kind:   asset.KindTemplate,
-			Name:   "Template",
-			Origin: asset.Origin{Kind: "user"},
-			Variants: []asset.Variant{{
-				Resolution: [2]int{1280, 720},
-				BBox:       [4]int{1, 2, 3, 4},
-				Blob:       ref,
-			}},
-		}
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Save(&Container{
-		SchemaVersion: 1, ID: "zip-assets", Name: "zip assets",
-		Graph: Graph{Nodes: []GraphNode{
-			{ID: "start", Kind: "Start"},
-			{ID: "target", Kind: "Win32WindowTarget", Config: map[string]any{"Title": "Game"}},
-			{ID: "check", Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-1"}}}},
-		}},
-	}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-
-	out := filepath.Join(t.TempDir(), "zip-assets.yotta-container.zip")
-	if err := s.ExportPackageZip("zip-assets", out); err != nil {
-		t.Fatalf("ExportPackageZip: %v", err)
-	}
-	zr, err := zip.OpenReader(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer zr.Close()
-	names := map[string]bool{}
-	for _, f := range zr.File {
-		names[f.Name] = true
-	}
-	for _, want := range []string{
-		"assets/records/tpl-1.json",
-		"assets/blobs/" + blobObjectName(templateBlob),
-	} {
-		if !names[want] {
-			t.Fatalf("zip missing %s; names=%v", want, names)
-		}
 	}
 }
 

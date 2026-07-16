@@ -60,10 +60,9 @@ var scriptEnvSkipKeys = map[string]struct{}{
 	inCode: {}, "Inputs": {}, "Window": {},
 }
 
-// Dependencies 静态抽脚本里引用的资产 GUID — 让依赖扫描器 / 资产 GC / 安全删除看见脚本引用,
-// 堵住"脚本引用的模板/clip 被 GC 误删、库里删不警告"的盲区。提取逻辑见 scriptsvc.AssetDeps。
+// Dependencies extracts explicit Subgraph calls from legacy Script source.
 func (Script) Dependencies(in node.Inputs) []node.Dependency {
-	return scriptsvc.AssetDeps(in.String(inCode))
+	return scriptsvc.Dependencies(in.String(inCode))
 }
 
 func (Script) Run(ctx node.Ctx, in node.Inputs) (node.Outputs, error) {

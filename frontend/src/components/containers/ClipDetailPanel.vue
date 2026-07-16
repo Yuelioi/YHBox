@@ -151,7 +151,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { backend } from '@/lib/backend'
 import { useClipsStore, type ClipSummary } from '@/stores/clips'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@nuxt/ui/composables'
@@ -270,15 +269,9 @@ async function onCopyID() {
 async function onDelete() {
   const c = clip.value
   if (!c) return
-  const refs = await backend.assets.referrers(c.id)
-  const n = refs?.length ?? 0
-  const description =
-    n > 0
-      ? t('clip.manager.delete_confirm_referenced', { name: c.label, n })
-      : t('clip.manager.delete_confirm', { name: c.label })
   const yes = await confirm({
     title: t('clip.manager.delete_title'),
-    description,
+    description: t('clip.manager.delete_confirm', { name: c.label }),
     color: 'error',
     confirmText: t('common.delete'),
   })

@@ -4,19 +4,16 @@ import (
 	"reflect"
 	"testing"
 
-	_ "github.com/yottaapp/yotta/internal/nodes/detect"
-	_ "github.com/yottaapp/yotta/internal/nodes/io"
 	_ "github.com/yottaapp/yotta/internal/nodes/system"
 )
 
-func TestClosureSplitsTemplatesAndSubgraphs(t *testing.T) {
+func TestClosureContainsTransitiveSubgraphs(t *testing.T) {
 	root := []NodeInfo{
-		{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-root"}}}},
 		{Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": "sg-a"}}},
 	}
 	subgraphs := map[string][]NodeInfo{
 		"sg-a": {
-			{Kind: "CheckTemplate", Config: map[string]any{"literal": map[string]any{"Templates": []any{"tpl-sub"}}}},
+			{Kind: "Subgraph", Config: map[string]any{"literal": map[string]any{"SubgraphID": "sg-b"}}},
 		},
 	}
 
@@ -26,10 +23,7 @@ func TestClosureSplitsTemplatesAndSubgraphs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got.Subgraphs, []string{"sg-a"}) {
+	if !reflect.DeepEqual(got.Subgraphs, []string{"sg-a", "sg-b"}) {
 		t.Fatalf("subgraphs: got %v", got.Subgraphs)
-	}
-	if !reflect.DeepEqual(got.Templates, []string{"tpl-root", "tpl-sub"}) {
-		t.Fatalf("templates: got %v", got.Templates)
 	}
 }

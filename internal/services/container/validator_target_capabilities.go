@@ -2,7 +2,6 @@ package container
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -115,26 +114,7 @@ func subgraphsByID(sgs []Subgraph) map[string]*Subgraph {
 
 func targetCapabilitiesForNode(n *GraphNode, base []nodepkg.TargetCapability) []nodepkg.TargetCapability {
 	caps := append([]nodepkg.TargetCapability(nil), base...)
-	switch n.Kind {
-	case "ClickTemplate":
-		if strings.TrimSpace(PinString(n, "Keys")) != "" {
-			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityKeyState)
-		}
-		switch PinString(n, "Button") {
-		case "right", "middle":
-			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityMouseButton)
-		}
-	}
 	return caps
-}
-
-func appendTargetCapability(caps []nodepkg.TargetCapability, cap nodepkg.TargetCapability) []nodepkg.TargetCapability {
-	for _, existing := range caps {
-		if existing == cap {
-			return caps
-		}
-	}
-	return append(caps, cap)
 }
 
 func graphNodeByID(g Graph) map[string]*GraphNode {

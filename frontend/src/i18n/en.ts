@@ -447,7 +447,7 @@ export default {
         },
         image: {
           label: 'Image',
-          desc: 'WaitTemplate / CheckTemplate / ClickTemplate / DetectColor — template matching & color detection',
+          desc: 'Workflow 3.1 capture, template, QR, color, and frame-difference analysis',
         },
         input: {
           label: 'Input',
@@ -1496,9 +1496,9 @@ export default {
     Script: {
       label: 'Script',
       description:
-        'Write a piece of logic in JavaScript: loops, conditions and variables all work, and you can call other nodes directly by writing the node name as a function (e.g. ClickAt, WaitTemplate). Great for complex flows that would be too tangled to wire up.',
+        'Write logic in JavaScript with loops, conditions, variables, and calls to nodes that the current catalog explicitly allows scripts to bind.',
       example:
-        'Wait for an icon and click it, retrying 3 times: write a for loop that calls WaitTemplate; when found, ClickAt and return, otherwise sleep one second and try again.',
+        'For bounded retries, use a for loop to call a node function and sleep(1000) between attempts.',
       input: {
         Code: {
           label: 'Code',
@@ -1507,628 +1507,6 @@ export default {
         Window: { label: 'Window' },
       },
       output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-    },
-    // detect
-    WaitTemplate: {
-      label: 'Wait template',
-      description:
-        'Watches the screen and keeps looking for the image (template) you picked. The moment it appears, take the Found exit with its location; if the timeout runs out first, take Timeout. Use it to wait for an icon/button to load before continuing.',
-      example:
-        'Fishing, wait for the «hook» icon to pop up: pick fishing.hook_icon, set timeout 5s, wire Found to the reel-in action; if 5s pass with no bite, take Timeout and cast again.',
-      input: {
-        Templates: {
-          label: 'Templates',
-          hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed',
-        },
-        TimeoutMs: { label: 'Timeout (ms)' },
-        Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: {
-          label: 'Search region',
-          hint: 'Only wait for the template inside this region; leave empty = full screen',
-        },
-        PollIntervalMs: {
-          label: 'Poll interval (ms)',
-          hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.',
-        },
-        SettleMs: {
-          label: 'Settle delay (ms)',
-          hint: 'After a match, wait this long before continuing — gives transition/load animations time to finish so downstream actions are not too early; re-locates with a fresh frame after waiting (updates the output hit point). 0 = continue immediately (default).',
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: {
-          label: 'Found',
-          data: { Point: { hint: 'Hit center (ratio)' }, Conf: { hint: 'Actual match score' } },
-        },
-        Timeout: {
-          label: 'Timeout',
-          data: { Conf: { hint: 'Highest match score (below threshold)' } },
-        },
-        Fail: { label: 'Fail' },
-      },
-    },
-    WaitTemplateGone: {
-      label: 'Wait template gone',
-      description:
-        'Watches the screen and keeps checking that the image (template) you picked has disappeared. Once it is gone, take the Gone exit; if it is still there when the timeout runs out, take Timeout with the last match score. Use it to wait for a loading screen, overlay, or dialog to close before continuing.',
-      example:
-        'Wait for the login progress bar to vanish before clicking next: pick the loading-bar template, set timeout 10s, wire Gone to the continue step; if it has not gone after 10s, Timeout handles the error.',
-      input: {
-        Templates: {
-          label: 'Templates',
-          hint: 'namespace.name format, e.g. ns.loading_bar; multiple allowed (any hit = still present)',
-        },
-        TimeoutMs: {
-          label: 'Timeout (ms)',
-          hint: '0 = check current frame once only — gone takes Gone, still present takes Timeout',
-        },
-        Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: {
-          label: 'Search region',
-          hint: 'Only check whether the template is still present inside this region; leave empty = full screen',
-        },
-        PollIntervalMs: {
-          label: 'Poll interval (ms)',
-          hint: 'How often to check another frame. Lower reacts faster but costs more screenshot/matching work.',
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Gone: { label: 'Gone' },
-        Timeout: {
-          label: 'Timeout',
-          data: { Conf: { hint: 'Match score on the last frame before timeout' } },
-        },
-        Fail: { label: 'Fail' },
-      },
-    },
-    CheckTemplate: {
-      label: 'Check template',
-      description:
-        'Looks at the current frame only and checks whether the image (template) you picked is on screen. If it is, take Found with its location; if not, take NotFound. It does not wait — just one glance — so it is great for an instant «is this on screen right now?» branch.',
-      example:
-        'Decide if you are in the combat screen: pick a combat-only icon, wire Found to the fighting logic and NotFound to the travel logic, and the script branches automatically from one glance at the current frame.',
-      input: {
-        Templates: {
-          label: 'Templates',
-          hint: 'namespace.name format, e.g. fishing.hook_icon; multiple allowed',
-        },
-        Threshold: { label: 'Threshold', hint: 'NCC threshold' },
-        ROI: {
-          label: 'Search region',
-          hint: 'Only search for the template inside this region; leave empty = full screen',
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: {
-          label: 'Found',
-          data: { Point: { hint: 'Hit center (ratio)' }, Conf: { hint: 'Actual match score' } },
-        },
-        NotFound: {
-          label: 'Not found',
-          data: { Conf: { hint: 'Highest match score (below threshold)' } },
-        },
-        Fail: { label: 'Fail' },
-      },
-    },
-    ClickTemplate: {
-      label: 'Click template',
-      description:
-        'Waits for the image (template) you picked to appear, then clicks it (default center, configurable with anchor/offset) and takes Done; if it never appears before the timeout, takes Timeout. It is «wait template + auto-click» in one, made for clicking buttons that move or sit in unpredictable spots. Optionally set «max click attempts» > 1: after each click it checks whether the template is gone and re-clicks a few times if not — fixes the occasional missed click; if it still has not disappeared after all attempts it also takes Timeout.',
-      example:
-        'Auto-click the «start fishing» button: pick fishing.start_fish, timeout 5s, button Left; when it shows up it gets clicked and takes Done; if it never appears, Timeout handles the error.',
-      input: {
-        Templates: {
-          label: 'Templates',
-          hint: 'namespace.name format, e.g. fishing.start_fish; multiple allowed',
-        },
-        TimeoutMs: { label: 'Timeout (ms)' },
-        Threshold: { label: 'Threshold' },
-        ROI: {
-          label: 'Search region',
-          hint: 'Search area for template matching (client-area ratio; leave empty = full screen)',
-        },
-        Anchor: {
-          label: 'Anchor',
-          hint: 'Which point of the hit bounding box to click (3×3 grid); default center',
-          option: {
-            topLeft: 'Top-left',
-            topCenter: 'Top-center',
-            topRight: 'Top-right',
-            midLeft: 'Mid-left',
-            center: 'Center',
-            midRight: 'Mid-right',
-            botLeft: 'Bottom-left',
-            botCenter: 'Bottom-center',
-            botRight: 'Bottom-right',
-          },
-        },
-        OffsetX: {
-          label: 'Offset X',
-          hint: 'Horizontal offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = left.',
-        },
-        OffsetY: {
-          label: 'Offset Y',
-          hint: 'Vertical offset from the anchor. One value, two units: |value|≤1 = client-area ratio (1=100%), |value|>1 = pixels. Negative = up.',
-        },
-        OrderBy: {
-          label: 'Order by',
-          hint: 'When multiple hits are found, sort them by this criterion and pick by index',
-          option: {
-            score: 'Match score',
-            horizontal: 'Left to right',
-            vertical: 'Top to bottom',
-            area: 'Area',
-            random: 'Random',
-          },
-        },
-        Index: { label: 'Index', hint: 'After sorting, pick the Nth hit (0-based)' },
-        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        Keys: {
-          label: 'Modifier keys',
-          hint: 'Keys to hold during the click, separated by +, e.g. ctrl or ctrl+shift. Leave empty for none. Only ctrl/shift/alt/win.',
-        },
-        ClickCount: {
-          label: 'Click count',
-          hint: 'How many times to click (1 = single-click, 2 = double-click)',
-        },
-        SettleMs: {
-          label: 'Settle delay (ms)',
-          hint: 'After a match, wait this long before clicking — gives transition/load animations time to finish so the click does not land too early; re-locates with a fresh frame after waiting. 0 = click immediately (default).',
-        },
-        MaxAttempts: {
-          label: 'Max click attempts',
-          hint: 'Most times to click (including the first). When >1, after each click it checks whether the template is gone; if still there it clicks again, until the template disappears or attempts run out — guards against an occasional missed click. Gone = success (Done); still there after all attempts = Timeout. 1 = click once without checking (default).',
-        },
-        RetryIntervalMs: {
-          label: 'Retry interval (ms)',
-          hint: 'How long to wait after each click before re-checking whether the template is gone (also the gap between clicks). Only applies when max click attempts > 1. Gives the game time to react; too short risks a false miss before the screen updates. Default 500.',
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: { Point: { hint: 'Click point (ratio)' }, Conf: { hint: 'Actual match score' } },
-        },
-        Timeout: {
-          label: 'Timeout',
-          data: { Conf: { hint: 'Match score when giving up' } },
-        },
-        Fail: { label: 'Fail' },
-      },
-    },
-    DetectColor: {
-      label: 'Detect color',
-      description:
-        'Counts how many pixels in the region you framed fall inside a color range. If there are enough (at least min pixels) it takes Found and gives the center of the matched area; otherwise NotFound. It is a single glance, no waiting. The color range can be described in HSV (hue / saturation / brightness — more robust to lighting changes) or RGB.',
-      example:
-        'Check if the health bar is red (HP is fine): frame the bar, set mode HSV with a red range; enough matched pixels takes Found for normal flow, too few takes NotFound for heal/retreat.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: {
-          label: 'Range',
-          hint: 'HSV: hue 0-360 / sat 0-100 / val 0-100; RGB: each 0-255. Advanced: click the top-right toggle to edit the raw JSON array.',
-          c1Min: { label: 'Channel 1 min (H/R)' },
-          c1Max: { label: 'Channel 1 max (H/R)' },
-          c2Min: { label: 'Channel 2 min (S/G)' },
-          c2Max: { label: 'Channel 2 max (S/G)' },
-          c3Min: { label: 'Channel 3 min (V/B)' },
-          c3Max: { label: 'Channel 3 max (V/B)' },
-        },
-        MinPixels: { label: 'Min pixels' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: {
-          label: 'Found',
-          data: { Count: { hint: 'Hit pixel count' }, Center: { hint: 'Hit center (ratio)' } },
-        },
-        NotFound: {
-          label: 'Not found',
-          data: { Count: { hint: 'Hit pixel count' } },
-        },
-      },
-    },
-    DetectColorHSV: {
-      label: 'Detect color (HSV)',
-      description:
-        'Repeatedly measures what share of the ROI (a small region you frame on screen) matches a given color, and takes Found once it reaches your target ratio; if the timeout runs out first, takes Timeout. Unlike «Detect color», it keeps polling at your interval, and the color is given only in HSV (hue / saturation / brightness — robust to lighting). Set timeout to 0 or below for a single glance that takes NotFound when short.',
-      example:
-        'Wait for a skill cooldown (icon goes from grey to bright): frame the ROI over the skill icon, give the bright HSV range and min ratio 0.5; bright enough takes Found to cast, never bright takes Timeout.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: {
-          label: 'HSV range',
-          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
-        },
-        MinPixelRatio: { label: 'Min hit ratio' },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Timeout: { label: 'Timeout' },
-      },
-    },
-    DetectColorBlobs: {
-      label: 'Color blob locate',
-      description:
-        'Find all connected regions of a target color in an area; returns each blob center/bbox/area (normalized). For glow loot, health bars, color-marked targets.',
-      input: {
-        ROI: { label: 'ROI (ratio)' },
-        Mode: { label: 'Mode', option: { hsv: 'HSV', rgb: 'RGB' } },
-        Range: {
-          label: 'Range',
-          c1Min: { label: 'Channel 1 min (H/R)' },
-          c1Max: { label: 'Channel 1 max (H/R)' },
-          c2Min: { label: 'Channel 2 min (S/G)' },
-          c2Max: { label: 'Channel 2 max (S/G)' },
-          c3Min: { label: 'Channel 3 min (V/B)' },
-          c3Max: { label: 'Channel 3 max (V/B)' },
-        },
-        MinArea: { label: 'Min pixels' },
-        MaxBlobs: { label: 'Max blobs (0=unlimited)' },
-        Sort: {
-          label: 'Sort by',
-          option: {
-            area_desc: 'Area desc',
-            dist_screen_center: 'Nearest to screen center',
-            dist_point: 'Nearest to ref point',
-          },
-        },
-        RefPoint: { label: 'Ref point (normalized)' },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        TimeoutMs: { label: 'Timeout (ms, 0=single)' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Timeout: { label: 'Timeout' },
-      },
-    },
-    FindColorSignature: {
-      label: 'Color signature',
-      description:
-        'Search an area for an anchor color combined with N offset-point colors; returns the anchor position on match. More stable than single-point color detection, cheaper than template matching. Signature is a JSON array: first item is the anchor (dx=dy=0), remaining items are offset points.',
-      input: {
-        ROI: { label: 'Search area' },
-        Signature: {
-          label: 'Color signature',
-          hint: `[{'{'}"dx":0,"dy":0,"r":200,"g":30,"b":30{'}'},{'{'}"dx":12,"dy":-4,"r":255,"g":255,"b":255,"tol":8{'}'}]`,
-          dx: { label: 'X offset' },
-          dy: { label: 'Y offset' },
-          r: { label: 'Red R' },
-          g: { label: 'Green G' },
-          b: { label: 'Blue B' },
-          tol: { label: 'Tolerance (blank = default)' },
-        },
-        Tolerance: {
-          label: 'Default tolerance',
-          hint: 'Per-channel absolute diff 0-255; used for points with no explicit tol',
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Point: { label: 'Hit point' },
-      },
-    },
-    DecodeQR: {
-      label: 'Decode QR',
-      description:
-        "Decode QR codes within the area; returns the first code's text, the total count, and locator points. No code found or undecodable both route to NotFound.",
-      input: {
-        ROI: { label: 'Area' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Text: { label: 'Text' },
-        Count: { label: 'Count' },
-        Points: { label: 'Locator points' },
-      },
-    },
-    FindTemplateAll: {
-      label: 'Find all templates',
-      description:
-        "Find every match of the given templates within the area (NMS-deduplicated); returns each hit's center/bbox/source template, plus the total count and the best hit. For locating many instances of the same icon/object.",
-      input: {
-        Templates: { label: 'Templates' },
-        ROI: { label: 'Search area' },
-        Threshold: { label: 'Match threshold' },
-        MaxResults: { label: 'Max results (0 = unlimited)' },
-        MinDistance: { label: 'Dedup min distance (px, 0 = auto)' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Matches: { label: 'Matches' },
-        Count: { label: 'Count' },
-        PrimaryPoint: { label: 'Best hit point' },
-        PrimaryConf: { label: 'Best match score' },
-      },
-    },
-    PickMatchPoint: {
-      label: 'Pick template point',
-      description:
-        'Takes the Nth item from a FindTemplateAll Matches list and turns it into a Point using an anchor and optional offset. It does not capture or detect; it only converts a hit list into a Point that can feed ClickAt or Swipe.',
-      example:
-        'After FindTemplateAll finds a row of identical buttons, set Index to 1 to pick the second hit, then wire Result into ClickAt to click that button.',
-      input: {
-        Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
-        Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
-        Anchor: {
-          label: 'Anchor',
-          hint: 'Which point of the hit box to use; default center',
-          option: {
-            topLeft: 'Top-left',
-            topCenter: 'Top-center',
-            topRight: 'Top-right',
-            midLeft: 'Mid-left',
-            center: 'Center',
-            midRight: 'Mid-right',
-            botLeft: 'Bottom-left',
-            botCenter: 'Bottom-center',
-            botRight: 'Bottom-right',
-          },
-        },
-        OffsetX: {
-          label: 'Offset X',
-          hint: 'Ratio offset added to the anchor; negative moves left',
-        },
-        OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    PickBlobPoint: {
-      label: 'Pick blob point',
-      description:
-        'Takes the Nth item from a DetectColorBlobs Blobs list and turns it into a Point using an anchor and optional offset. Useful for feeding sorted blob results directly into clicks, drags, or distance checks.',
-      example:
-        'After DetectColorBlobs sorts glowing objects by area, set Index to 0 to pick the largest blob center and wire Result into ClickAt.',
-      input: {
-        Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
-        Index: { label: 'Index', hint: '0-based; out of range returns (0,0)' },
-        Anchor: {
-          label: 'Anchor',
-          hint: 'Which point of the blob bounding box to use; default center',
-          option: {
-            topLeft: 'Top-left',
-            topCenter: 'Top-center',
-            topRight: 'Top-right',
-            midLeft: 'Mid-left',
-            center: 'Center',
-            midRight: 'Mid-right',
-            botLeft: 'Bottom-left',
-            botCenter: 'Bottom-center',
-            botRight: 'Bottom-right',
-          },
-        },
-        OffsetX: {
-          label: 'Offset X',
-          hint: 'Ratio offset added to the anchor; negative moves left',
-        },
-        OffsetY: { label: 'Offset Y', hint: 'Ratio offset added to the anchor; negative moves up' },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    PickMatchROI: {
-      label: 'Pick template ROI',
-      description:
-        'Takes the Nth item from a FindTemplateAll Matches list and converts its bounding box into an ROI for later detection nodes.',
-      example:
-        'Find several card icons, then feed the first hit ROI into DetectColorBlobs to keep color detection local to that card.',
-      input: {
-        Matches: { label: 'Matches', hint: 'Wire from FindTemplateAll.Matches' },
-        Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
-        Padding: {
-          label: 'Padding',
-          hint: 'Ratio padding; 0.02 expands each side by 2% of the screen',
-        },
-      },
-      output: { Result: { label: 'ROI' } },
-    },
-    PickBlobROI: {
-      label: 'Pick blob ROI',
-      description:
-        'Takes the Nth item from a DetectColorBlobs Blobs list and converts its bounding box into an ROI for later detection nodes.',
-      example:
-        'Find a health bar by color, expand its region slightly, then feed that ROI into WaitStable or template detection for a local check.',
-      input: {
-        Blobs: { label: 'Blobs', hint: 'Wire from DetectColorBlobs.Blobs' },
-        Index: { label: 'Index', hint: '0-based; out of range returns an empty ROI' },
-        Padding: {
-          label: 'Padding',
-          hint: 'Ratio padding; 0.02 expands each side by 2% of the screen',
-        },
-      },
-      output: { Result: { label: 'ROI' } },
-    },
-    DualColorBarTrack: {
-      label: 'Dual-color bar track',
-      description:
-        'Tracks the kind of two-color control where a marker slides back and forth inside a colored band. Inside the ROI (a small region you frame) it uses color to spot the inner part (the marker/cursor) and the outer part (the target band), then works out where the marker sits within the band, plus their widths. Both colors are given in HSV (hue / saturation / brightness). Spotted → Found with the positions; not spotted → NotFound. Common for fishing reel bars, health bars, progress bars, and QTE bars.',
-      example:
-        'Fishing reel bar: frame the ROI over the bar, set inner to the cursor yellow and outer to the target cyan; from Found read the cursor and target positions, then press left if the cursor is too far left or right if too far right to pull it back into the target band.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect' },
-        InnerColor: {
-          label: 'Inner HSV (default fishing-cursor yellow)',
-          hint: `{'{'}"hMin":45,"hMax":70,"sMin":16,"sMax":100,"vMin":78,"vMax":100{'}'}`,
-        },
-        OuterColor: {
-          label: 'Outer HSV (default fishing-target cyan)',
-          hint: `{'{'}"hMin":160,"hMax":180,"sMin":55,"sMax":100,"vMin":39,"vMax":100{'}'}`,
-        },
-        Options: {
-          label: 'Algorithm params (optional)',
-          hint: `{'{'}"innerMinPx":2,"innerMaxPx":0,"outerMinPx":0,"bandRatioH":0.30,"bandRatioInner":0.85,"confInnerWeight":0.42,"confOuterWeight":0.58{'}'} (0/empty = default; defaults are fishing-UI measured values)`,
-          innerMinPx: { label: 'Inner min px' },
-          innerMaxPx: { label: 'Inner max px (0=unlimited)' },
-          outerMinPx: { label: 'Outer min px (0=unlimited)' },
-          bandRatioH: { label: 'Band height ratio' },
-          bandRatioInner: { label: 'Inner band ratio' },
-          confInnerWeight: { label: 'Inner confidence weight' },
-          confOuterWeight: { label: 'Outer confidence weight' },
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-      },
-    },
-    ROIColorScan: {
-      label: 'ROI color cluster scan',
-      description:
-        'Inside the ROI (a small region you frame), scans horizontally or vertically for contiguous runs of a given color — a string of same-colored pixels whose length is within the range you set counts as one run. If it finds enough runs (at least your min count) it takes Found and passes out each run; otherwise it keeps retrying at your interval and takes Timeout when time runs out. Color is given in HSV (hue / saturation / brightness). Set timeout to 0 or below to scan once and take NotFound when short.',
-      example:
-        'Count how many inventory slots are lit: frame the ROI over the inventory row, axis Horizontal, give the highlight HSV and min count 1; lit slots found takes Found for follow-up, none found takes Timeout.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        HSV: {
-          label: 'HSV range',
-          hint: `{'{'}"hMin":0,"hMax":360,"sMin":0,"sMax":100,"vMin":0,"vMax":100{'}'}`,
-        },
-        Axis: { label: 'Scan axis', option: { x: 'Horizontal (x)', y: 'Vertical (y)' } },
-        MinClusterPx: { label: 'Min cluster length (px)' },
-        MaxClusterPx: { label: 'Max cluster length (px)', hint: '<=0 = default ROI size / 3' },
-        MinClusterCount: { label: 'Min cluster count' },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = single scan' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Found: { label: 'Found' },
-        NotFound: { label: 'Not found' },
-        Timeout: { label: 'Timeout' },
-      },
-    },
-    WaitStable: {
-      label: 'Wait for stable frame',
-      description:
-        'Watches the ROI (a small region you frame) and keeps comparing it to the previous frame; once several frames in a row barely change, it calls the screen «settled» and takes Stable; if it is still moving when the timeout runs out, takes Timeout. Made for waiting until an animation finishes, a loading spinner stops, or a list finishes refreshing, so you do not act while things are still moving.',
-      example:
-        'Wait for a loading screen to finish spinning: frame the ROI over the loading area, set consecutive stable frames to 3; once it stops moving take Stable for the next step, if it keeps spinning take Timeout.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        GridSize: {
-          label: 'Downsample grid',
-          hint: 'Side length, clamp [4,128]; larger = finer but slower',
-        },
-        Metric: {
-          label: 'Diff metric',
-          option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' },
-        },
-        CellDelta: {
-          label: 'Cell change threshold (0-255)',
-          hint: 'changed_ratio only: cell mean channel diff > this = changed',
-        },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
-        StableThreshold: { label: 'Stable threshold (0-1)', hint: 'diff <= this = unchanged' },
-        StableFrames: { label: 'Consecutive stable frames' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Stable: { label: 'Stable' },
-        Timeout: { label: 'Timeout' },
-        Value: { label: 'Diff value' },
-      },
-    },
-    WaitChange: {
-      label: 'Wait for frame change',
-      description:
-        'First remembers how the ROI (a small region you frame) looks right now as a baseline, then keeps comparing against it; the moment it changes enough, calls the screen «changed» and takes Changed; if nothing changes before the timeout, takes Timeout. Made for waiting on a popup to appear, a load to finish, or a screen to switch — the «wait for something to happen» case.',
-      example:
-        'After clicking confirm, wait for the result popup: frame the ROI where the popup appears; the moment it changes take Changed to read the popup; if nothing happens for a while take Timeout as no-response.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        GridSize: { label: 'Downsample grid', hint: 'Side length, clamp [4,128]' },
-        Metric: {
-          label: 'Diff metric',
-          option: { changed_ratio: 'Changed-cell ratio', mean_diff: 'Mean diff' },
-        },
-        CellDelta: { label: 'Cell change threshold (0-255)', hint: 'changed_ratio only' },
-        PollIntervalMs: { label: 'Poll interval (ms)' },
-        TimeoutMs: { label: 'Timeout (ms)', hint: '<=0 = poll forever' },
-        ChangeThreshold: { label: 'Change threshold (0-1)', hint: 'diff >= this = changed' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Changed: { label: 'Changed' },
-        Timeout: { label: 'Timeout' },
-        Value: { label: 'Diff value' },
-      },
-    },
-    // image
-    Capture: {
-      label: 'Capture',
-      description:
-        'Grab the current screen (full or a framed ROI) and produce an image value — wire it to an AI node for vision, to Save image to write it out, or to any node that needs an image. Format can be PNG (lossless) or JPEG (smaller, saves tokens and memory).',
-      example:
-        'Let AI read the screen: Capture (pick JPEG) → wire the image to the AI node image input (alongside the adjacent exec edge) → AI returns its judgment.',
-      input: {
-        ROI: { label: 'ROI (ratio)', hint: 'Client-area ratio rect; all-zero = full screen' },
-        Format: { label: 'Format', option: { png: 'PNG', jpeg: 'JPEG' } },
-        Quality: { label: 'JPEG quality', hint: '1-100, JPEG only' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Done: { label: 'Done', data: { Image: { hint: 'Produced image' } } },
-        Fail: { label: 'Failed' },
-      },
-    },
-    SaveImage: {
-      label: 'Save image',
-      description:
-        'Write an image value to the local images folder. The extension follows the actual image format. Filenames support timestamp/date/uuid placeholders to keep files apart and avoid overwriting under concurrency.',
-      example:
-        'Keep a copy after capture: Capture → Save image, using a uuid placeholder in the filename.',
-      input: {
-        Image: { label: 'Image' },
-        PathTemplate: {
-          label: 'Path template',
-          hint: 'Relative path, no .. / drive letter / leading slash',
-        },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: {
-            Path: { hint: 'Written absolute path' },
-            File: { hint: 'Written file object, ready for file readers or File info' },
-          },
-        },
-        Fail: { label: 'Failed' },
-      },
-    },
-    LoadImage: {
-      label: 'Load image',
-      description:
-        'Read an image from a local file (PNG / JPEG only, 10MB cap) and produce an image value, e.g. to feed an AI node for vision. Path is limited to the data folder.',
-      example:
-        'Feed an external image to AI: Load image (relative path) → wire to the AI node image input.',
-      input: {
-        Path: {
-          label: 'Path',
-          hint: 'Local image path — absolute, or relative to the data folder',
-        },
-      },
-      output: {
-        Done: { label: 'Done', data: { Image: { hint: 'Loaded image' } } },
-        Fail: { label: 'Failed' },
-      },
     },
     // input
     ClickAt: {
@@ -2313,17 +1691,17 @@ export default {
     Swipe: {
       label: 'Swipe',
       description:
-        'Holds a mouse button and drags from a start point to an end point, then releases. Duration controls how long the drag takes in milliseconds — higher is slower and more human-like; empty or 0 uses the 200 ms default (a too-fast drag is missed by many UIs, hence the floor). Both Begin and End are point pins — wire them from a detection node (e.g. ClickTemplate, DetectColor) output, or leave unwired for (0, 0).',
+        'Holds a mouse button, drags from a start point to an end point, then releases. Begin and End accept any Point data output.',
       example:
         'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
       input: {
         Begin: {
           label: 'Begin',
-          hint: "Start point of the drag; wire from a detection node's point output (e.g. ClickTemplate / DetectColor)",
+          hint: 'Start point of the drag; accepts any Point data output',
         },
         End: {
           label: 'End',
-          hint: "End point of the drag; wire from a detection node's point output (e.g. ClickTemplate / DetectColor)",
+          hint: 'End point of the drag; accepts any Point data output',
         },
         Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
         DurationMs: {
@@ -3813,12 +3191,8 @@ export default {
       delete_tip: 'Delete "{name}"',
       delete_title: 'Delete clip',
       delete_confirm: 'Delete clip "{name}"? This cannot be undone.',
-      delete_confirm_referenced:
-        'Clip "{name}" is referenced by {n} node(s). Deleting will break them (nodes turn red). Delete?',
       batch_delete_title: 'Delete clips',
       batch_delete_confirm: 'Delete the {n} selected clips? This cannot be undone.',
-      batch_delete_confirm_referenced:
-        'The {n} selected clips are referenced by {refs} node(s). Deleting will break them (nodes turn red). Delete?',
     },
     detail: {
       empty: 'Select a clip to view details',
@@ -4234,14 +3608,10 @@ export default {
       view_by_created: 'Sort by created time',
       delete_title: 'Delete template',
       delete_confirm: 'Delete template "{key}"? This cannot be undone.',
-      delete_confirm_referenced:
-        'Template "{key}" is referenced by {n} node(s). Deleting it will break those references (nodes turn red). Delete anyway?',
       batch_delete_title: 'Batch delete templates',
       batch_delete_confirm: 'Delete {n} selected templates? This cannot be undone.',
-      batch_delete_confirm_referenced:
-        'The {n} selected templates are referenced by {refs} node(s) in total. Deleting will break those references (nodes turn red). Delete anyway?',
       delete_template_tip: 'Delete "{key}"',
-      recapture_tip: 'Recapture "{key}" (keeps GUID, swaps image, all references follow)',
+      recapture_tip: 'Recapture the library image for "{key}"',
       copy_key: 'Copy GUID',
       preview: 'Preview',
       variant_count: 'variants',
@@ -4336,27 +3706,6 @@ export default {
     discard_confirm_hint: 'Click again to permanently discard this recording.',
     discard_failed: 'Could not discard recording',
   },
-  recordingCleanup: {
-    action: 'Clean recordings',
-    title: 'Clean unused recordings',
-    scanning: 'Checking references across all workflows…',
-    scan_failed: 'Could not check recording references',
-    empty_title: 'No recordings to clean',
-    empty_desc:
-      'Every recording is in use, or the library is already clean. {n} recording(s) are referenced.',
-    can_delete: 'Safe to delete',
-    in_use: 'Still used by workflows',
-    selected_title: 'Recordings to delete',
-    select_all: 'Select all',
-    clear_selection: 'Clear selection',
-    select_item: 'Select recording “{name}”',
-    skipped_title: '{n} recording(s) in use were skipped',
-    skipped_desc: 'These recordings are still referenced by workflows and will not be deleted.',
-    delete_count: 'Delete {n} recordings',
-    partial_failed: '{n} recording(s) could not be deleted',
-    changed_refs: '{n} recording(s) became referenced and were skipped',
-    delete_failed: 'Could not clean recordings',
-  },
   subgraphCleanup: {
     title: 'Clean unused blueprints',
     scanning: 'Checking blueprint references across all workflows and blueprints…',
@@ -4377,27 +3726,6 @@ export default {
     changed_refs: '{n} blueprint(s) became referenced and were skipped',
     delete_failed: 'Could not clean blueprints',
     kind: 'Blueprint',
-  },
-  templateCleanup: {
-    title: 'Clean unused templates',
-    scanning: 'Checking template references across all workflows and blueprints…',
-    scan_failed: 'Could not check template references',
-    empty_title: 'No templates to clean',
-    empty_desc:
-      'Every template is in use, or the library is already clean. {n} template(s) are referenced.',
-    can_delete: 'Safe to delete',
-    in_use: 'Still used by workflows or blueprints',
-    selected_title: 'Templates to delete',
-    select_all: 'Select all',
-    clear_selection: 'Clear selection',
-    select_item: 'Select template “{name}”',
-    skipped_title: '{n} template(s) in use were skipped',
-    skipped_desc: 'These templates are still referenced and will not be deleted.',
-    delete_count: 'Delete {n} templates',
-    partial_failed: '{n} template(s) could not be deleted',
-    changed_refs: '{n} template(s) became referenced and were skipped',
-    delete_failed: 'Could not clean templates',
-    kind: 'Template',
   },
   assetBrowser: {
     workspaceTitle: 'Asset workbench',
@@ -4442,24 +3770,11 @@ export default {
   },
   assetMaintenance: {
     title: 'Resource management',
-    description:
-      'Scan real references for recordings, blueprints, and templates, then preview and select what to safely remove.',
-    recordings: {
-      title: 'Unused recordings',
-      description:
-        'Scan every workflow and list only unreferenced recordings before deleting them.',
-      action: 'Scan and clean',
-    },
+    description: 'Scan structured blueprint references, then preview and select what to remove.',
     subgraphs: {
       title: 'Blueprint library',
       description:
         'Scan non-recording blueprints and list items unused by workflows or blueprints.',
-      action: 'Scan and clean',
-    },
-    templates: {
-      title: 'Template library',
-      description:
-        'Scan the template library and list templates unused by workflows or blueprints.',
       action: 'Scan and clean',
     },
   },

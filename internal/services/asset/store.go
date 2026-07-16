@@ -29,11 +29,10 @@ var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 //	<dataRoot>/clips/<guid>.json       (kind=clip)
 //	<dataRoot>/blobs/<sha256>
 type Store struct {
-	mu            sync.RWMutex
-	blobLifecycle sync.RWMutex
-	root          string
-	recs          map[string]AssetRecord
-	blobs         *blob.Store
+	mu    sync.RWMutex
+	root  string
+	recs  map[string]AssetRecord
+	blobs *blob.Store
 }
 
 // kindDir kind → 顶层目录名。未知 kind 返回 ""。
@@ -346,8 +345,6 @@ func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source i
 	if build == nil {
 		return blob.BlobRef{}, errors.New("blob record builder is required")
 	}
-	s.blobLifecycle.RLock()
-	defer s.blobLifecycle.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
 		return blob.BlobRef{}, err
@@ -360,8 +357,6 @@ func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source i
 
 // CommitVariantBlob is the only way to introduce or replace a variant blob.
 func (s *Store) CommitVariantBlob(ctx context.Context, mediaType string, source io.Reader, guid string, res [2]int, bbox [4]int, regions [][4]int) (blob.BlobRef, error) {
-	s.blobLifecycle.RLock()
-	defer s.blobLifecycle.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
 		return blob.BlobRef{}, err

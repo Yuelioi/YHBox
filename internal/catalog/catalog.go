@@ -207,8 +207,8 @@ func DetectNameSplits() []string {
 		}
 	}
 
-	// 同名不同具体类型: 按角色 (输入参数 / Data 字段) 各自查, 不跨角色 —— Loop.Count(输入) 与
-	// DetectColor.Count(数据) 是两个概念不算撞。含 `*` (通配) 的是有意泛型 pin, 跳过。
+	// 同名不同具体类型: 按角色 (输入参数 / Data 字段) 各自查, 不跨角色。
+	// 含 `*` (通配) 的是有意泛型 pin, 跳过。
 	for _, grp := range []struct {
 		label string
 		m     map[string]map[string]struct{}

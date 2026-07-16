@@ -15,7 +15,6 @@ import nodepkg "github.com/yottaapp/yotta/internal/node"
 // ClosureResult 正向闭包结果. 结构体而非裸集合 — 未来加维度 (vars/blob...) 不改签名.
 type ClosureResult struct {
 	Subgraphs []string // 传递闭包内全部子图 ID (BFS 序, 去重)
-	Templates []string // template asset GUID / key (去重)
 }
 
 // Closure 从一组根节点出发解析正向依赖闭包.
@@ -34,8 +33,6 @@ func ClosureWithRegistry(registry nodepkg.RegistryReader, rootNodes []NodeInfo, 
 		switch d.Kind {
 		case KindSubgraph:
 			out.Subgraphs = append(out.Subgraphs, d.Key)
-		case KindTemplate:
-			out.Templates = append(out.Templates, d.Key)
 		}
 	}
 	return out, nil

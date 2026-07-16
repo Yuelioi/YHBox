@@ -25,58 +25,6 @@ func (stdoutLogService) Warn(format string, args ...any)  { log.Printf("[WARN] "
 // DefaultLogService stdout-based, test 用. main.go 注入 zerolog-based 替换.
 func DefaultLogService() LogService { return stdoutLogService{} }
 
-// ---- VisionService ----
-
-// stubVisionService 测试用. 任何 key 都返 nil/0/nil (always miss).
-type stubVisionService struct{}
-
-func (stubVisionService) Match(_ context.Context, _ []string, _ float64, _ Geometry) (MatchHit, error) {
-	return MatchHit{}, nil
-}
-
-func (stubVisionService) WaitMatch(_ context.Context, _ []string, _ float64, _ Geometry, _ time.Duration) (MatchHit, error) {
-	return MatchHit{}, nil
-}
-
-func (stubVisionService) DualBarTrack(roi Geometry, inner, outer HSVRange, opts DualBarOptions) (DualColorBarResult, error) {
-	return DualColorBarResult{}, nil
-}
-
-func (stubVisionService) DetectColor(roi Geometry, mode string, rng [6]int) (int, float64, float64, error) {
-	return 0, 0, 0, nil
-}
-
-func (stubVisionService) DetectColorHSV(roi Geometry, hsv HSVRange) (int, float64, error) {
-	return 0, 0, nil
-}
-
-func (stubVisionService) ROIColorScan(roi Geometry, hsv HSVRange, axis string, minPx, maxPx int) ([]ClusterEntry, error) {
-	return nil, nil
-}
-
-func (stubVisionService) DetectColorBlobs(roi Geometry, mode string, rng [6]int, minArea int) ([]BlobEntry, error) {
-	return nil, nil
-}
-
-func (stubVisionService) GridSignature(roi Geometry, gridSize int) ([]uint8, error) {
-	return nil, nil
-}
-
-func (stubVisionService) FindColorSignature(_ Geometry, _ ColorSignature, _ int) (bool, Point, error) {
-	return false, Point{}, nil
-}
-
-func (stubVisionService) DecodeQR(_ Geometry) ([]QRResult, error) {
-	return nil, nil
-}
-
-func (stubVisionService) MatchAll(_ context.Context, _ []string, _ float64, _ int, _ Geometry) ([]TemplateMatch, error) {
-	return nil, nil
-}
-
-// StubVisionService — test 用. main.go 注入真 wire_container.go::templateMatcherAdapter.
-func StubVisionService() VisionService { return stubVisionService{} }
-
 // ---- InputService ----
 
 // stubInputService 测试用 no-op. 所有方法吞输入返 nil error.
@@ -321,8 +269,6 @@ func (s ServiceBundle) firstMissing(required []RuntimeCapability) (RuntimeCapabi
 
 func (s ServiceBundle) runtimeCapabilityAvailable(capability RuntimeCapability) (available, known bool) {
 	switch capability {
-	case RuntimeCapabilityVision:
-		return s.Vision != nil, true
 	case RuntimeCapabilityLog:
 		return s.Log != nil, true
 	case RuntimeCapabilityInput:
@@ -358,7 +304,6 @@ func (s ServiceBundle) runtimeCapabilityAvailable(capability RuntimeCapability) 
 // 测试 (Expr 等) 走 stub Vars, 不需要 snapshot 行为.
 func StubServices() ServiceBundle {
 	return ServiceBundle{
-		Vision:      StubVisionService(),
 		Log:         DefaultLogService(),
 		Input:       StubInputService(),
 		Vars:        NewStubVarStore(),
