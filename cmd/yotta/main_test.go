@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -82,5 +84,30 @@ func TestCompileResultViewAlwaysEmitsDiagnostics(t *testing.T) {
 	}
 	if string(raw) != `{"diagnostics":null}` {
 		t.Fatalf("unexpected compile view: %s", raw)
+	}
+}
+
+func TestRunValidateStrictlyRejectsLegacySource(t *testing.T) {
+	root := t.TempDir()
+	sourcePath := filepath.Join(root, "legacy.json")
+	if err := os.WriteFile(sourcePath, []byte(`{"format":"yotta.workflow","version":"3"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	err := run([]string{
+		"--data-root", filepath.Join(root, "data"),
+		"--settings", filepath.Join(root, "settings.json"),
+		"--timeout", "10s",
+		"validate", sourcePath,
+	}, &output)
+	if err == nil {
+		t.Fatal("expected legacy Workflow source to be rejected")
+	}
+	var view compileView
+	if decodeErr := json.Unmarshal(output.Bytes(), &view); decodeErr != nil {
+		t.Fatalf("decode diagnostics: %v; output=%s", decodeErr, output.String())
+	}
+	if len(view.Diagnostics) == 0 {
+		t.Fatalf("expected strict validation diagnostics, got %s", output.String())
 	}
 }
