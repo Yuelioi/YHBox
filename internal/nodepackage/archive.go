@@ -24,9 +24,10 @@ const (
 	// ArchiveManifestPath is the only manifest location accepted at the root
 	// of a Node Package archive.
 	ArchiveManifestPath     = "yotta-node-package.json"
+	ArchiveSignaturePath    = "yotta-node-package.sig.json"
 	maxArchiveBytes         = int64(16 << 30)
 	maxArchiveExpandedBytes = int64(16 << 30)
-	maxArchiveEntries       = MaxDefinitions*2 + 1
+	maxArchiveEntries       = MaxDefinitions*2 + 2
 	archiveEncryptionFlag   = 1 << 0
 	archiveStagingFileMode  = 0o600
 	archiveStagingExecMode  = 0o700
@@ -82,7 +83,17 @@ func ExtractArchive(ctx context.Context, archivePath, destination string) (Manif
 	if err != nil {
 		return Manifest{}, err
 	}
-	if err := validateArchiveEntrySet(entries, payloads); err != nil {
+	_, hasSignature := entries[ArchiveSignaturePath]
+	if hasSignature {
+		signatureBytes, err := readArchiveManifest(ctx, entries[ArchiveSignaturePath])
+		if err != nil {
+			return Manifest{}, fmt.Errorf("read node package signature envelope: %w", err)
+		}
+		if _, err := OpenSignatureEnvelope(signatureBytes); err != nil {
+			return Manifest{}, fmt.Errorf("open node package signature envelope: %w", err)
+		}
+	}
+	if err := validateArchiveEntrySet(entries, payloads, hasSignature); err != nil {
 		return Manifest{}, err
 	}
 
@@ -135,6 +146,53 @@ func ExtractArchive(ctx context.Context, archivePath, destination string) (Manif
 	}
 	published = true
 	return manifest, nil
+}
+
+func VerifyArchiveSignature(ctx context.Context, archivePath string, policy TrustPolicy) (Manifest, SignatureEnvelope, error) {
+	if ctx == nil || !policy.Valid() {
+		return Manifest{}, SignatureEnvelope{}, errors.New("node package archive signature verification input is invalid")
+	}
+	if err := ctx.Err(); err != nil {
+		return Manifest{}, SignatureEnvelope{}, err
+	}
+	archiveFile, archiveSize, err := openArchiveFile(archivePath)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, err
+	}
+	defer archiveFile.Close()
+	reader, err := zip.NewReader(archiveFile, archiveSize)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, fmt.Errorf("open node package archive: %w", err)
+	}
+	entries, err := indexArchiveEntries(reader.File)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, err
+	}
+	manifestEntry, manifestFound := entries[ArchiveManifestPath]
+	signatureEntry, signatureFound := entries[ArchiveSignaturePath]
+	if !manifestFound || !signatureFound {
+		return Manifest{}, SignatureEnvelope{}, errors.New("node package archive is missing its manifest or signature envelope")
+	}
+	manifestBytes, err := readArchiveManifest(ctx, manifestEntry)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, err
+	}
+	manifest, err := Open(manifestBytes)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, fmt.Errorf("open archived node package manifest: %w", err)
+	}
+	signatureBytes, err := readArchiveManifest(ctx, signatureEntry)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, fmt.Errorf("read node package signature envelope: %w", err)
+	}
+	envelope, err := OpenSignatureEnvelope(signatureBytes)
+	if err != nil {
+		return Manifest{}, SignatureEnvelope{}, fmt.Errorf("open node package signature envelope: %w", err)
+	}
+	if _, err := VerifySignature(manifest, envelope, policy); err != nil {
+		return Manifest{}, SignatureEnvelope{}, err
+	}
+	return manifest, envelope, nil
 }
 
 // OpenExtracted reopens a previously extracted generation and verifies that
@@ -414,8 +472,8 @@ func archivePayloads(manifest Manifest) (map[string]archivePayload, error) {
 }
 
 func mergeArchivePayload(target map[string]archivePayload, candidate archivePayload) error {
-	if candidate.payload.Path == ArchiveManifestPath {
-		return errors.New("node package payload uses the reserved archive manifest path")
+	if candidate.payload.Path == ArchiveManifestPath || candidate.payload.Path == ArchiveSignaturePath {
+		return errors.New("node package payload uses a reserved archive metadata path")
 	}
 	if existing, found := target[candidate.payload.Path]; found {
 		if existing.payload != candidate.payload {
@@ -427,8 +485,12 @@ func mergeArchivePayload(target map[string]archivePayload, candidate archivePayl
 	return nil
 }
 
-func validateArchiveEntrySet(entries map[string]*zip.File, payloads map[string]archivePayload) error {
-	if len(entries) != len(payloads)+1 {
+func validateArchiveEntrySet(entries map[string]*zip.File, payloads map[string]archivePayload, hasSignature bool) error {
+	expectedCount := len(payloads) + 1
+	if hasSignature {
+		expectedCount++
+	}
+	if len(entries) != expectedCount {
 		return errors.New("node package archive file set does not match its manifest")
 	}
 	var expanded int64
@@ -446,7 +508,7 @@ func validateArchiveEntrySet(entries map[string]*zip.File, payloads map[string]a
 		expanded += expected.payload.Size
 	}
 	for entryPath := range entries {
-		if entryPath == ArchiveManifestPath {
+		if entryPath == ArchiveManifestPath || entryPath == ArchiveSignaturePath && hasSignature {
 			continue
 		}
 		if _, found := payloads[entryPath]; !found {

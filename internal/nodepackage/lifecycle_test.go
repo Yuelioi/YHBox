@@ -2,6 +2,8 @@ package nodepackage
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,12 +16,13 @@ import (
 func TestStoreInstallUpdateReopenQuarantineRollbackAndUninstall(t *testing.T) {
 	ctx := context.Background()
 	root := filepath.Join(t.TempDir(), "packages")
-	store, err := OpenStore(ctx, root)
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, root, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstManifest, firstArchive := lifecycleArchive(t, "1.0.0", "process-v1")
-	first, err := store.InstallArchive(ctx, firstArchive, firstManifest.Digest())
+	firstManifest, firstArchive := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	first, err := store.InstallArchive(ctx, firstArchive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,8 +35,8 @@ func TestStoreInstallUpdateReopenQuarantineRollbackAndUninstall(t *testing.T) {
 		t.Fatal("Get returned mutable store state")
 	}
 
-	secondManifest, secondArchive := lifecycleArchive(t, "2.0.0", "process-v2")
-	second, err := store.InstallArchive(ctx, secondArchive, secondManifest.Digest())
+	secondManifest, secondArchive := lifecycleArchive(t, privateKey, "2.0.0", "process-v2")
+	second, err := store.InstallArchive(ctx, secondArchive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,25 +85,27 @@ func TestStoreInstallUpdateReopenQuarantineRollbackAndUninstall(t *testing.T) {
 	}
 }
 
-func TestStoreRejectsApprovalMismatchAndTamperedGeneration(t *testing.T) {
+func TestStoreRejectsUnknownPublisherAndTamperedGeneration(t *testing.T) {
 	ctx := context.Background()
 	root := filepath.Join(t.TempDir(), "packages")
-	store, err := OpenStore(ctx, root)
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, root, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, archivePath := lifecycleArchive(t, "1.0.0", "process-v1")
-	wrong, err := artifact.Sum("yotta/test/wrong-package-approval/v1", []byte("wrong"))
+	manifest, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	_, unknownPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.InstallArchive(ctx, archivePath, wrong); err == nil {
-		t.Fatal("mismatched local trust approval installed a package")
+	_, unknownArchive := lifecycleArchive(t, unknownPrivateKey, "1.0.0", "process-v1")
+	if _, err := store.InstallArchive(ctx, unknownArchive); err == nil {
+		t.Fatal("unknown publisher key installed a package")
 	}
 	if len(store.List()) != 0 {
-		t.Fatal("failed approval published registry state")
+		t.Fatal("failed signature verification published registry state")
 	}
-	if _, err := store.InstallArchive(ctx, archivePath, manifest.Digest()); err != nil {
+	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
 		t.Fatal(err)
 	}
 	payload := filepath.Join(generationPath(root, manifest.Digest()), "bin", "plugin.exe")
@@ -129,7 +134,8 @@ func TestStoreCleansInterruptedIncomingAndOrphanGeneration(t *testing.T) {
 	if err := os.Mkdir(orphan, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenStore(context.Background(), root); err != nil {
+	policy, _ := lifecyclePolicy(t)
+	if _, err := CreateStore(context.Background(), root, policy); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{incoming, orphan} {
@@ -142,15 +148,19 @@ func TestStoreCleansInterruptedIncomingAndOrphanGeneration(t *testing.T) {
 func TestStoreDoesNotPublishMemoryWhenRegistryCommitFails(t *testing.T) {
 	ctx := context.Background()
 	root := filepath.Join(t.TempDir(), "packages")
-	store, err := OpenStore(ctx, root)
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, root, policy)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, registryFilename)); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(root, registryFilename), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	manifest, archivePath := lifecycleArchive(t, "1.0.0", "process-v1")
-	if _, err := store.InstallArchive(ctx, archivePath, manifest.Digest()); err == nil {
+	_, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	if _, err := store.InstallArchive(ctx, archivePath); err == nil {
 		t.Fatal("registry commit failure installed a package")
 	}
 	if len(store.List()) != 0 {
@@ -159,7 +169,7 @@ func TestStoreDoesNotPublishMemoryWhenRegistryCommitFails(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(root, registryFilename)); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := OpenStore(ctx, root)
+	reopened, err := CreateStore(ctx, root, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,12 +180,13 @@ func TestStoreDoesNotPublishMemoryWhenRegistryCommitFails(t *testing.T) {
 
 func TestStoreSerializesConcurrentPackageUpdates(t *testing.T) {
 	ctx := context.Background()
-	store, err := OpenStore(ctx, filepath.Join(t.TempDir(), "packages"))
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, filepath.Join(t.TempDir(), "packages"), policy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstManifest, firstArchive := lifecycleArchive(t, "1.0.0", "process-v1")
-	secondManifest, secondArchive := lifecycleArchive(t, "2.0.0", "process-v2")
+	firstManifest, firstArchive := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	secondManifest, secondArchive := lifecycleArchive(t, privateKey, "2.0.0", "process-v2")
 	type request struct {
 		manifest Manifest
 		archive  string
@@ -189,7 +200,7 @@ func TestStoreSerializesConcurrentPackageUpdates(t *testing.T) {
 		go func() {
 			defer wait.Done()
 			<-start
-			_, err := store.InstallArchive(ctx, candidate.archive, candidate.manifest.Digest())
+			_, err := store.InstallArchive(ctx, candidate.archive)
 			errorsSeen <- err
 		}()
 	}
@@ -207,7 +218,7 @@ func TestStoreSerializesConcurrentPackageUpdates(t *testing.T) {
 	}
 }
 
-func lifecycleArchive(t *testing.T, version, payload string) (Manifest, string) {
+func lifecycleArchive(t *testing.T, privateKey ed25519.PrivateKey, version, payload string) (Manifest, string) {
 	t.Helper()
 	draft := testDraft(t, nodecontract.ABIProcess)
 	draft.PackageVersion = version
@@ -216,9 +227,30 @@ func lifecycleArchive(t *testing.T, version, payload string) (Manifest, string) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	envelope, err := SignManifest(manifest, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	archivePath := writeArchive(t, []archiveTestEntry{
 		{name: ArchiveManifestPath, data: manifest.Bytes()},
+		{name: ArchiveSignaturePath, data: envelope.Bytes()},
 		{name: "bin/plugin.exe", data: []byte(payload)},
 	})
 	return manifest, archivePath
+}
+
+func lifecyclePolicy(t *testing.T) (TrustPolicy, ed25519.PrivateKey) {
+	t.Helper()
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := SealTrustPolicy(TrustPolicyDraft{
+		Revision:   1,
+		Publishers: []PublisherAuthorityDraft{{Namespace: testNamespace, Keys: []ed25519.PublicKey{publicKey}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return policy, privateKey
 }

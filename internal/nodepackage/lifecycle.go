@@ -20,22 +20,15 @@ import (
 
 const (
 	registryFormat   = "yotta.node-package-registry"
-	registryVersion  = "1"
+	registryVersion  = "2"
 	registryFilename = "registry.json"
 	generationsDir   = "generations"
 	maxRegistryBytes = 16 << 20
 	maxStorePackages = 4_096
 	maxStoreReleases = 128
-
-	TrustLocalArtifact = "local-artifact"
 )
 
 var quarantineReasonPattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`)
-
-type PackageTrust struct {
-	Kind          string          `json:"kind"`
-	SubjectDigest artifact.Digest `json:"subjectDigest"`
-}
 
 type PackageRelease struct {
 	ManifestDigest   artifact.Digest `json:"manifestDigest"`
@@ -56,16 +49,29 @@ type PackageInstallation struct {
 type registryDocument struct {
 	Format   string                `json:"format"`
 	Version  string                `json:"version"`
+	Trust    json.RawMessage       `json:"trust"`
 	Packages []PackageInstallation `json:"packages"`
 }
 
 type Store struct {
 	mu      sync.RWMutex
 	root    string
+	policy  TrustPolicy
 	entries map[string]PackageInstallation
 }
 
+func CreateStore(ctx context.Context, root string, bootstrap TrustPolicy) (*Store, error) {
+	if !bootstrap.Valid() {
+		return nil, errors.New("node package store bootstrap trust policy is invalid")
+	}
+	return openStore(ctx, root, &bootstrap)
+}
+
 func OpenStore(ctx context.Context, root string) (*Store, error) {
+	return openStore(ctx, root, nil)
+}
+
+func openStore(ctx context.Context, root string, bootstrap *TrustPolicy) (*Store, error) {
 	if ctx == nil {
 		return nil, errors.New("node package store requires a context")
 	}
@@ -103,14 +109,30 @@ func OpenStore(ctx context.Context, root string) (*Store, error) {
 	if err := validateStoreRoot(root); err != nil {
 		return nil, err
 	}
-	entries, err := loadRegistry(ctx, root)
+	entries, policy, found, err := loadRegistry(ctx, root)
 	if err != nil {
 		return nil, err
+	}
+	if !found {
+		if bootstrap == nil {
+			return nil, errors.New("new node package store requires a bootstrap trust policy")
+		}
+		policy = *bootstrap
+		entries = map[string]PackageInstallation{}
+		raw, err := marshalRegistry(entries, policy)
+		if err != nil {
+			return nil, err
+		}
+		if err := durablefs.WriteFile(filepath.Join(root, registryFilename), raw, 0o600); err != nil {
+			return nil, fmt.Errorf("write initial node package registry: %w", err)
+		}
+	} else if bootstrap != nil {
+		return nil, errors.New("node package store is already initialized")
 	}
 	if err := cleanupOrphanGenerations(root, entries); err != nil {
 		return nil, err
 	}
-	return &Store{root: root, entries: entries}, nil
+	return &Store{root: root, policy: policy, entries: entries}, nil
 }
 
 func (s *Store) List() []PackageInstallation {
@@ -131,12 +153,63 @@ func (s *Store) Get(packageID string) (PackageInstallation, bool) {
 	return cloneInstallation(installed), found
 }
 
-func (s *Store) InstallArchive(ctx context.Context, archivePath string, approvedManifest artifact.Digest) (PackageInstallation, error) {
-	if ctx == nil || !approvedManifest.Valid() {
-		return PackageInstallation{}, errors.New("node package installation approval is invalid")
+func (s *Store) TrustPolicy() TrustPolicy {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.policy
+}
+
+func (s *Store) ApplyTrustPolicy(ctx context.Context, nextPolicy TrustPolicy) error {
+	if ctx == nil {
+		return errors.New("node package trust policy update requires a context")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := validateTrustTransition(s.policy, nextPolicy); err != nil {
+		return err
+	}
+	next := cloneEntries(s.entries)
+	for packageID, installed := range next {
+		for index := range installed.Releases {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			release := &installed.Releases[index]
+			manifest, err := OpenExtracted(ctx, s.generationPath(release.ManifestDigest))
+			if err != nil || manifest.Digest() != release.ManifestDigest {
+				return errors.New("node package generation failed integrity verification during trust policy update")
+			}
+			if err := nextPolicy.verifyStored(manifest, release.Trust); err != nil {
+				return err
+			}
+			if reason, blocked := nextPolicy.blockReason(release.Trust.SignerKeyID, release.ManifestDigest); blocked {
+				if release.QuarantineReason == "" {
+					release.QuarantineReason = reason
+				}
+				if installed.Current == release.ManifestDigest {
+					installed.Enabled = false
+				}
+			}
+		}
+		next[packageID] = installed
+	}
+	return s.commitLocked(next, nextPolicy)
+}
+
+func (s *Store) InstallArchive(ctx context.Context, archivePath string) (PackageInstallation, error) {
+	if ctx == nil {
+		return PackageInstallation{}, errors.New("node package installation requires a context")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	verifiedManifest, envelope, err := VerifyArchiveSignature(ctx, archivePath, s.policy)
+	if err != nil {
+		return PackageInstallation{}, err
+	}
+	trust, err := VerifySignature(verifiedManifest, envelope, s.policy)
+	if err != nil {
+		return PackageInstallation{}, err
+	}
 	incoming, err := os.MkdirTemp(s.root, ".incoming-*")
 	if err != nil {
 		return PackageInstallation{}, fmt.Errorf("create node package incoming directory: %w", err)
@@ -147,8 +220,8 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string, approved
 	if err != nil {
 		return PackageInstallation{}, err
 	}
-	if manifest.Digest() != approvedManifest {
-		return PackageInstallation{}, errors.New("node package local trust approval does not match the verified manifest")
+	if manifest.Digest() != verifiedManifest.Digest() {
+		return PackageInstallation{}, errors.New("node package archive changed between signature verification and extraction")
 	}
 	generation := s.generationPath(manifest.Digest())
 	publishCandidate := false
@@ -190,7 +263,7 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string, approved
 	}
 	release := PackageRelease{
 		ManifestDigest: manifest.Digest(), PackageVersion: manifest.PackageVersion(),
-		Trust: PackageTrust{Kind: TrustLocalArtifact, SubjectDigest: manifest.Digest()},
+		Trust: trust,
 	}
 	if index := releaseIndex(installed.Releases, manifest.Digest()); index < 0 {
 		if len(installed.Releases) >= maxStoreReleases {
@@ -209,7 +282,7 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string, approved
 	installed.Current = manifest.Digest()
 	installed.Enabled = true
 	next[installed.PackageID] = installed
-	if err := s.commitLocked(next); err != nil {
+	if err := s.commitLocked(next, s.policy); err != nil {
 		return cloneInstallation(installed), err
 	}
 	return cloneInstallation(installed), nil
@@ -227,6 +300,9 @@ func (s *Store) Enable(packageID string) (PackageInstallation, error) {
 		index := releaseIndex(installed.Releases, installed.Current)
 		if index < 0 || installed.Releases[index].QuarantineReason != "" {
 			return errors.New("quarantined node package generation cannot be enabled")
+		}
+		if reason, blocked := s.policy.blockReason(installed.Releases[index].Trust.SignerKeyID, installed.Current); blocked {
+			return fmt.Errorf("node package generation is blocked by trust policy: %s", reason)
 		}
 		installed.Enabled = true
 		return nil
@@ -262,6 +338,9 @@ func (s *Store) Rollback(ctx context.Context, packageID string) (PackageInstalla
 		if index < 0 || installed.Releases[index].QuarantineReason != "" {
 			return errors.New("node package rollback generation is unavailable or quarantined")
 		}
+		if reason, blocked := s.policy.blockReason(installed.Releases[index].Trust.SignerKeyID, installed.Rollback); blocked {
+			return fmt.Errorf("node package rollback generation is blocked by trust policy: %s", reason)
+		}
 		manifest, err := OpenExtracted(ctx, s.generationPath(installed.Rollback))
 		if err != nil || manifest.Digest() != installed.Rollback {
 			return errors.New("node package rollback generation failed integrity verification")
@@ -281,7 +360,7 @@ func (s *Store) Uninstall(packageID string) error {
 	}
 	next := cloneEntries(s.entries)
 	delete(next, packageID)
-	if err := s.commitLocked(next); err != nil {
+	if err := s.commitLocked(next, s.policy); err != nil {
 		return err
 	}
 	for _, release := range installed.Releases {
@@ -302,14 +381,14 @@ func (s *Store) mutate(packageID string, apply func(*PackageInstallation) error)
 		return PackageInstallation{}, err
 	}
 	next[packageID] = installed
-	if err := s.commitLocked(next); err != nil {
+	if err := s.commitLocked(next, s.policy); err != nil {
 		return cloneInstallation(installed), err
 	}
 	return cloneInstallation(installed), nil
 }
 
-func (s *Store) commitLocked(next map[string]PackageInstallation) error {
-	raw, err := marshalRegistry(next)
+func (s *Store) commitLocked(next map[string]PackageInstallation, policy TrustPolicy) error {
+	raw, err := marshalRegistry(next, policy)
 	if err != nil {
 		return err
 	}
@@ -318,70 +397,75 @@ func (s *Store) commitLocked(next map[string]PackageInstallation) error {
 		return fmt.Errorf("write node package registry: %w", writeErr)
 	}
 	s.entries = next
+	s.policy = policy
 	if writeErr != nil {
 		return fmt.Errorf("node package registry committed without confirmed durability: %w", writeErr)
 	}
 	return nil
 }
 
-func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallation, error) {
+func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallation, TrustPolicy, bool, error) {
 	registryPath := filepath.Join(root, registryFilename)
 	info, statErr := os.Lstat(registryPath)
 	if errors.Is(statErr, os.ErrNotExist) {
-		return map[string]PackageInstallation{}, nil
+		return nil, TrustPolicy{}, false, nil
 	}
 	if statErr != nil {
-		return nil, fmt.Errorf("inspect node package registry: %w", statErr)
+		return nil, TrustPolicy{}, false, fmt.Errorf("inspect node package registry: %w", statErr)
 	}
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() <= 0 || info.Size() > maxRegistryBytes {
-		return nil, errors.New("node package registry is invalid or exceeds its byte budget")
+		return nil, TrustPolicy{}, false, errors.New("node package registry is invalid or exceeds its byte budget")
 	}
 	raw, err := os.ReadFile(registryPath)
 	if err != nil {
-		return nil, fmt.Errorf("read node package registry: %w", err)
+		return nil, TrustPolicy{}, false, fmt.Errorf("read node package registry: %w", err)
 	}
 	if len(raw) == 0 || len(raw) > maxRegistryBytes {
-		return nil, errors.New("node package registry exceeds its byte budget")
+		return nil, TrustPolicy{}, false, errors.New("node package registry exceeds its byte budget")
 	}
 	if err := artifact.InspectJSONBudget(raw, 32, 131072, maxRegistryBytes); err != nil {
-		return nil, fmt.Errorf("inspect node package registry: %w", err)
+		return nil, TrustPolicy{}, false, fmt.Errorf("inspect node package registry: %w", err)
 	}
 	canonical, err := artifact.Canonicalize(raw)
 	if err != nil || !bytes.Equal(raw, canonical) {
-		return nil, errors.New("node package registry is not canonical JSON")
+		return nil, TrustPolicy{}, false, errors.New("node package registry is not canonical JSON")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var document registryDocument
 	if err := decoder.Decode(&document); err != nil {
-		return nil, fmt.Errorf("decode node package registry: %w", err)
+		return nil, TrustPolicy{}, false, fmt.Errorf("decode node package registry: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return nil, errors.New("node package registry contains trailing JSON values")
+		return nil, TrustPolicy{}, false, errors.New("node package registry contains trailing JSON values")
 	}
 	if document.Format != registryFormat || document.Version != registryVersion {
-		return nil, errors.New("unsupported node package registry format")
+		return nil, TrustPolicy{}, false, errors.New("unsupported node package registry format")
+	}
+	policy, err := OpenTrustPolicy(document.Trust)
+	if err != nil {
+		return nil, TrustPolicy{}, false, fmt.Errorf("open node package registry trust policy: %w", err)
 	}
 	if len(document.Packages) > maxStorePackages {
-		return nil, errors.New("node package registry package count exceeds its budget")
+		return nil, TrustPolicy{}, false, errors.New("node package registry package count exceeds its budget")
 	}
 	entries := make(map[string]PackageInstallation, len(document.Packages))
 	previous := ""
 	for _, installed := range document.Packages {
 		if installed.PackageID <= previous {
-			return nil, errors.New("node package registry package order or identity is invalid")
+			return nil, TrustPolicy{}, false, errors.New("node package registry package order or identity is invalid")
 		}
 		previous = installed.PackageID
-		if err := validateInstallation(ctx, root, installed); err != nil {
-			return nil, fmt.Errorf("validate installed node package %q: %w", installed.PackageID, err)
+		if err := validateInstallation(ctx, root, installed, policy); err != nil {
+			return nil, TrustPolicy{}, false, fmt.Errorf("validate installed node package %q: %w", installed.PackageID, err)
 		}
 		entries[installed.PackageID] = cloneInstallation(installed)
 	}
-	return entries, nil
+	return entries, policy, true, nil
 }
 
-func validateInstallation(ctx context.Context, root string, installed PackageInstallation) error {
+func validateInstallation(ctx context.Context, root string, installed PackageInstallation, policy TrustPolicy) error {
 	if installed.PackageID == "" || installed.PublisherNamespace == "" || !installed.Current.Valid() ||
 		len(installed.Releases) == 0 || len(installed.Releases) > maxStoreReleases {
 		return errors.New("node package installation identity is invalid")
@@ -389,7 +473,7 @@ func validateInstallation(ctx context.Context, root string, installed PackageIns
 	previous := artifact.Digest("")
 	foundCurrent, foundRollback := false, installed.Rollback == ""
 	for _, release := range installed.Releases {
-		if !release.ManifestDigest.Valid() || release.ManifestDigest <= previous || release.Trust.Kind != TrustLocalArtifact || release.Trust.SubjectDigest != release.ManifestDigest {
+		if !release.ManifestDigest.Valid() || release.ManifestDigest <= previous {
 			return errors.New("node package release identity or trust is invalid")
 		}
 		previous = release.ManifestDigest
@@ -400,6 +484,12 @@ func validateInstallation(ctx context.Context, root string, installed PackageIns
 		if err != nil || manifest.Digest() != release.ManifestDigest || manifest.PackageID() != installed.PackageID ||
 			manifest.PublisherNamespace() != installed.PublisherNamespace || manifest.PackageVersion() != release.PackageVersion {
 			return errors.New("node package generation does not match its registry release")
+		}
+		if err := policy.verifyStored(manifest, release.Trust); err != nil {
+			return err
+		}
+		if _, blocked := policy.blockReason(release.Trust.SignerKeyID, release.ManifestDigest); blocked && release.QuarantineReason == "" {
+			return errors.New("node package trust-blocked generation is not quarantined")
 		}
 		if release.ManifestDigest == installed.Current {
 			foundCurrent = true
@@ -417,7 +507,10 @@ func validateInstallation(ctx context.Context, root string, installed PackageIns
 	return nil
 }
 
-func marshalRegistry(entries map[string]PackageInstallation) ([]byte, error) {
+func marshalRegistry(entries map[string]PackageInstallation, policy TrustPolicy) ([]byte, error) {
+	if !policy.Valid() {
+		return nil, errors.New("node package registry trust policy is invalid")
+	}
 	if len(entries) > maxStorePackages {
 		return nil, errors.New("node package registry package count exceeds its budget")
 	}
@@ -426,7 +519,7 @@ func marshalRegistry(entries map[string]PackageInstallation) ([]byte, error) {
 		packages = append(packages, cloneInstallation(installed))
 	}
 	sort.Slice(packages, func(i, j int) bool { return packages[i].PackageID < packages[j].PackageID })
-	raw, err := artifact.Marshal(registryDocument{Format: registryFormat, Version: registryVersion, Packages: packages})
+	raw, err := artifact.Marshal(registryDocument{Format: registryFormat, Version: registryVersion, Trust: policy.Bytes(), Packages: packages})
 	if err != nil {
 		return nil, err
 	}
