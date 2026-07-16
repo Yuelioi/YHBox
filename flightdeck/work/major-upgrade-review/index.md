@@ -3,17 +3,20 @@ topic: major-upgrade-review
 title: "Yotta 3.1 major upgrade"
 summary: "Implement and validate the AI-native destructive Yotta 3.1 architecture and release program."
 ---
+
 ## State
 
 process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 sandbox；generic Process Node 必须绑定 content-addressed package/operation，并在 Windows 使用 LPAC、atomic Job List、exact inherited handles、单进程与资源预算，Linux/macOS 在等价隔离前不注册 provider。旧 `RunProgram(Target, Args, WorkingDir)` 与 `taskkill /IM` 不得迁移或保留兼容入口。
 
-已安装应用生命周期纵切面已完成：桌面自动化现在使用 dangerous、exact executable identity、固定 argv、显式 ConsentOnce 的 host target；它承认目标 GUI 应用拥有当前用户权限，只约束 workflow 能触发哪个受信应用。`RunProgram`、Windows `StopApp`、`ShellExecuteW` 与 `taskkill` 旁路已破坏性删除，Yotta 自身 executable 也不能安装为 workflow application。第三方/CLI/AE/UE adapter worker 的 Process Node 仍属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器。当前 frontier 是 input/window/image/automation（含 PlayClip）能力迁移。
+已安装应用生命周期与 exact input 纵切面已完成：workflow 只持有安装 slot；宿主以 exact executable SHA-256、唯一 exact title/class、固定 backend 与 timeout 解析目标，并在每次输入前重验 identity。七个 Input Contract 3.1 节点、provider/runtime/journal、Settings/Wails/Vue 已闭合；图和 journal 不含 HWND/PID/path/text/key，SendInput/PostMessage 失败不再静默成功。旧输入节点与 legacy Container runtime 尚未删除，因此当前 frontier 是破坏性切除旧 input producer/validator/dispatch，再迁移 window/image/automation（含 PlayClip）。
+
+第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 input target。
 
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. remaining effects：workspace I/O/Log/Throw、origin-bound HTTP GET 与 installed application lifecycle 已完成；下一批按 input/window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
+1. remaining effects：workspace I/O/Log/Throw、origin-bound HTTP GET、installed application lifecycle 与 exact input 已完成；下一批先删除 legacy input producer/validator/dispatch，再按 window/image/automation（含 PlayClip）收口 Capability、Run Grant、exact host/target/credential binding 与 attempt/action journal。
 2. legacy deletion：GUI、Schedule、Hotkey、Debug、headless 共用唯一 Application/Program runtime，删除 legacy Container runtime、旧 LLM、旧 NodeSpec/coercion/dispatch。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -48,6 +51,7 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 ## Progress
 
 Done:
+- 完成 exact installed input 3.1 纵切面：安装目标绑定 Application executable digest、唯一 exact title/class、固定 SendInput/PostMessage backend 与 timeout；七个输入节点共用 typed provider/runtime，操作原子化并在失败/取消时释放 held state。每次调用重验 executable identity 与窗口唯一性，图/Grant/journal 不暴露 path/PID/HWND/text/key；Settings/Wails/Vue、生成契约与文档同步切换，SendInput 注入计数和 PostMessage 结果均 fail closed。提交 `a6201f55`、`4bc16120`。
 - 完成已安装应用生命周期 3.1 纵切面：exact `.exe` path + SHA-256 + fixed argv immutable profile，安装与每次调用重验 identity，危险能力显式 ConsentOnce；Launch 不泄露 PID，Terminate 只按 OS file identity 精确结束并仅返回计数，journal 排除 path/argv/PID/environment。Settings/Wails/Vue、Host Profile/Policy/Grant/provider/runtime 与同源生成文档全链落地；删除旧 `RunProgram`、Windows `StopApp`、`ShellExecuteW`/`taskkill` API，不留兼容入口，并拒绝把 Yotta 自身安装为 workflow application。提交 `d2c502e4`。
 - 完成 Process 3.1 官方资料研究并冻结边界：generic Process Node 是 content-addressed、operation-scoped 的隔离进程包，Windows 必须 LPAC + atomic Job + typed protocol；桌面 GUI 应用生命周期另建 exact dangerous capability，不与插件宿主混用，也不保留 `ShellExecute`/raw command line/taskkill 兼容面。
 - 完成安装式 HTTP egress 纵切面：exact Origin/Profile/slot/ConsentOnce、DNS-to-dial SSRF 防护、公共 HTTPS、禁 redirect/proxy/cookie/credential/header、UTF-8/timeout/256 KiB budget、脱敏 journal、Settings/Wails/Vue 与同源生成文档；完整 `task check` 和聚焦 race 全绿，提交 `3f2032d1`。
