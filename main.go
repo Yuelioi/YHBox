@@ -4,6 +4,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/yottaapp/yotta/internal/desktopapp"
@@ -16,8 +17,12 @@ var assets embed.FS
 var trayIcon []byte
 
 func main() {
-	if err := desktopapp.Run(desktopapp.Config{Assets: assets, TrayIcon: trayIcon}); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Yotta startup failed: %v\n", err)
-		os.Exit(1)
+	desktopMain(desktopapp.Run, os.Stderr, os.Exit)
+}
+
+func desktopMain(start func(desktopapp.Config) error, stderr io.Writer, exit func(int)) {
+	if err := start(desktopapp.Config{Assets: assets, TrayIcon: trayIcon}); err != nil {
+		_, _ = fmt.Fprintf(stderr, "Yotta startup failed: %v\n", err)
+		exit(1)
 	}
 }
