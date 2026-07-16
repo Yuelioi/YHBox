@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package yotta.plugin.v1;
+
+option go_package = "github.com/yottaapp/yotta/internal/pluginprotocol;pluginprotocol";
+
+enum Outcome {
+  OUTCOME_UNSPECIFIED = 0;
+  OUTCOME_SUCCEEDED = 1;
+  OUTCOME_FAILED = 2;
+}
+
+message Frame {
+  string protocol = 1;
+  uint64 sequence = 2;
+  oneof payload {
+    Invocation invocation = 10;
+    HostOpenRequest host_open_request = 11;
+    HostOpenResponse host_open_response = 12;
+    HostInvokeRequest host_invoke_request = 13;
+    HostInvokeResponse host_invoke_response = 14;
+    HostDropRequest host_drop_request = 15;
+    HostDropResponse host_drop_response = 16;
+    StatusEvent status = 17;
+    Result result = 18;
+    Cancel cancel = 19;
+  }
+}
+
+message Invocation {
+  string request_id = 1;
+  string invocation_id = 2;
+  string graph_id = 3;
+  string node_id = 4;
+  uint32 attempt = 5;
+  int64 observed_unix_millis = 6;
+  int64 deadline_unix_millis = 7;
+  bytes node_ref_json = 8;
+  bytes implementation_lock_json = 9;
+  bytes config_json = 10;
+  repeated PortValue inputs = 11;
+  Trigger trigger = 12;
+  Budget budget = 13;
+}
+
+message PortValue {
+  string port_id = 1;
+  bytes value_envelope = 2;
+}
+
+message Trigger {
+  string channel = 1;
+  string input_port = 2;
+  string source_node_id = 3;
+  string source_port_id = 4;
+  bytes failure_json = 5;
+}
+
+message Budget {
+  uint64 max_frame_bytes = 1;
+  uint64 max_output_bytes = 2;
+  uint32 max_host_calls = 3;
+  uint32 max_status_events = 4;
+}
+
+message HostOpenRequest {
+  string request_id = 1;
+  string requirement_id = 2;
+  repeated string operations = 3;
+  bytes config_json = 4;
+}
+
+message HostOpenResponse {
+  string request_id = 1;
+  bytes handle_json = 2;
+  Failure failure = 3;
+}
+
+message HostInvokeRequest {
+  string request_id = 1;
+  string requirement_id = 2;
+  bytes handle_json = 3;
+  string operation = 4;
+  bytes payload = 5;
+}
+
+message HostInvokeResponse {
+  string request_id = 1;
+  bytes payload = 2;
+  Failure failure = 3;
+}
+
+message HostDropRequest {
+  string request_id = 1;
+  string requirement_id = 2;
+  bytes handle_json = 3;
+}
+
+message HostDropResponse {
+  string request_id = 1;
+  Failure failure = 2;
+}
+
+message StatusEvent {
+  string code = 1;
+  repeated Counter counters = 2;
+}
+
+message Counter {
+  string key = 1;
+  int64 value = 2;
+}
+
+message Result {
+  Outcome outcome = 1;
+  repeated PortValue outputs = 2;
+  repeated string exec_outputs = 3;
+  Failure failure = 4;
+  string termination_strength = 5;
+}
+
+message Failure {
+  string code = 1;
+  string output = 2;
+  string message = 3;
+}
+
+message Cancel {
+  string reason = 1;
+}
