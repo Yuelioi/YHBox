@@ -17,7 +17,7 @@ summary: "Complete recording asset lifecycle implementation and finish desktop i
 
 ## Read now
 
-- work/recording-asset-lifecycle/design.md
+- archive/recording-asset-lifecycle/design.md
 
 ## Read if
 
