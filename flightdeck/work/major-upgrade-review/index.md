@@ -8,29 +8,29 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 目标：完成并验证 AI-native、destructive 的 Yotta 3.1 架构与发布计划。
 
-当前 Slice：plugin-hosts-sdk-conformance。实现批次已由 310d8afd、613bc654、1483e908、623ebd44、b9871cf3 完成；现在只做阶段批量验收与集中修复。
+当前 Slice：final-contract-and-release-acceptance。全部实现 Slice 已完成；现在进入唯一的总审计阶段，不再新增未经 completion criterion 证明的功能。
 
-当前阶段验收边界：统一执行 task check、跨平台 core/GUI build、真实 Windows Process/Wasm plugin smoke 与 WebView smoke；不得把单项通过拆成独立验收。
+本阶段要明确区分：3.1 工程完成、可构建发布候选、公开 stable 发布。许可证替换、签名证书、真实维护者权限和 owner 级仓库设置是公开发布外部前置，不得伪装成已完成，也不得阻止对工程完成度作出准确结论。
 
 ## Next
 
-执行完整阶段验收矩阵，集中修复所有失败项并整体复验；通过后完成 plugin-hosts-sdk-conformance handoff，再选择 major upgrade 的下一未完成 Slice。
+对照 plan、design、Slice registry 与仓库现状完成 contract/reference/golden、架构/规范 review、跨平台 CI 与 Windows 真实运行证据审计；集中修复结论中的工程缺口，阶段末只运行一次最终批量门禁并给出 major upgrade completion verdict。
 
 ## Read now
 
-- work/major-upgrade-review/slices/plugin-hosts-sdk-conformance.md
-- knowledge/architecture/node-package-manifest.md
+- work/major-upgrade-review/slices/final-contract-and-release-acceptance.md
+- work/major-upgrade-review/plan.md
+- work/major-upgrade-review/design.md
 - knowledge/agent/codex-working-agreement.md
 - knowledge/build/build.md
 
 ## Read if
 
-- work/major-upgrade-review/slices/map.md — plugin 阶段验收通过后选择下一 Slice 时
-- work/major-upgrade-review/design.md — 验收暴露 Plugin Host seam 或 composition 问题时
-- work/major-upgrade-review/plan.md — 修改 Wave 11 completion criterion 时
-- work/major-upgrade-review/research/script-isolation-2026-07-16.md — 验收暴露 sandbox、取消或资源预算问题时
-- work/major-upgrade-review/slices/node-package-signing-trust.md — 验收暴露 signing/trust contract 问题时
-- work/major-upgrade-review/slices/stable-code-names-explicit-versions.md — 回查 Node identity contract 时
+- work/major-upgrade-review/slices/map.md — 回查完整 frontier
+- work/major-upgrade-review/review.md — 对照原始审查问题
+- work/major-upgrade-review/research/oss-governance.md — 审计公开发布、许可证、签名与治理
+- knowledge/architecture/node-package-manifest.md — 审计 package/plugin lock
+- work/major-upgrade-review/slices/plugin-hosts-sdk-conformance.md — 回查插件阶段证据
 
 ## Progress
 
@@ -38,12 +38,10 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 - AI prompt/tool provenance、bounded agent、offline eval gate 与 reviewed authoring 已完成。
 - Node Package manifest/archive/lifecycle/signing/trust 已由 a8c0cfb5、ba2efb65、53e6d8a9、ab57d572 完成。
 - 022bc360 恢复稳定代码命名，并冻结稳定 nodeTypeId + SemVer version + semanticDigest。
-- 310d8afd 完成 enabled/trusted runtime projection 与 Catalog merge。
-- 613bc654、1483e908 完成 strict Protobuf、Process host 与可复用 LPAC/AppContainer + Job sandbox。
-- 623ebd44 完成无 WASI、受内存/deadline 约束且位于隔离 runner 进程内的 Wasm host。
-- b9871cf3 完成 SDK/WIT/Proto generator、示例、共享 conformance、签名 fixtures、composition 与 Windows 双链路 smoke 入口。
-- 阶段验收正在执行；实现期定向测试不计作阶段通过。
+- 310d8afd、613bc654、1483e908、623ebd44、b9871cf3 完成 runtime projection、strict protocol、Process/Wasm host、SDK、示例、conformance 与 composition。
+- 625a1326 完成插件阶段集中修复与批量验收：task check 全绿（Go global 65.0%、frontend 28 files/106 tests）、Windows production build、真实 Process/Wasm plugin smoke、Linux/macOS portable core build、WebView smoke（100 catalog nodes、2 canvas nodes、AI review）及截图人工检查通过。
+- Linux/macOS production GUI 的权威结果仍由现有原生 CI gui-build matrix 提供；Windows 本地不能冒充两个原生宿主。
 
 ## Open questions
 
-无设计阻塞。验收若暴露问题，按根因归属集中回到相应实现批次修复，不拆成重复小验收。
+- 公开 stable 发布仍受 LICENSE、签名证书、canonical public repository/identity、真实维护者权限与 owner 级设置阻塞；最终 Slice 必须把这些外部前置与工程缺口分开列明。

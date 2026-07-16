@@ -1,6 +1,6 @@
 # Plugin hosts、SDK 与 conformance
 
-Status: current
+Status: completed (625a1326)
 
 ## Outcome
 
@@ -25,7 +25,7 @@ Status: current
 2. Process protocol、sandbox launcher、adapter：完成（613bc654、1483e908）。
 3. Wasm runner、无 ambient imports、adapter：完成（623ebd44）。
 4. SDK/generator、示例、共享 conformance、composition：完成（b9871cf3）。
-5. 阶段批量验收与 final acceptance handoff：进行中。
+5. 阶段批量验收与 final acceptance handoff：完成（625a1326）。
 
 ## Blocked by
 
@@ -33,7 +33,12 @@ Status: current
 
 ## Verification
 
-实现期定向反馈已通过，但不计作阶段验收。当前统一执行完整矩阵；失败项集中修复后整体复验。
+- task check 全绿：global Go coverage 65.0%，go vet/staticcheck 通过；frontend 28 files / 106 tests，production entry 262852 gzip bytes、editor 96843 gzip bytes。
+- task build 通过，正式 Windows production build 同时生成 Yotta.exe、ScriptWorker 与 WasmPluginRunner。
+- task windows:smoke:plugins 通过，签名 Process 与 Wasm 示例均走真实 Windows LPAC/AppContainer + Job 隔离链。
+- Linux amd64 与 macOS arm64 portable core cross-build 通过；原生 production GUI 继续由 CI gui-build matrix 验证。
+- WebView smoke 通过：100 catalog nodes、2 canvas nodes、AI review panel 可达，无 window error/rejection/console.error；截图已人工确认真实渲染。
+- 覆盖率门禁合并共享 conformance profile、按 block 去重并排除标准 Code generated 文件；65% 阈值未降低。
 
 ## Out of scope
 
@@ -45,4 +50,4 @@ Status: current
 
 ## Result
 
-实现完成，等待阶段批量验收。
+完成。已签名 package 是第三方执行的唯一来源；Process/Wasm host、SDK、示例、conformance、composition、撤销语义和阶段运行证据闭合。公开发布与跨平台 stable 承诺留给最终总审计，不扩大本 Slice。

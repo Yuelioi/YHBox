@@ -6,67 +6,36 @@ read_when: "before compiling / building / verifying production artifact / 跑 ru
 recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / bindings 生成 / 测试套件入口 / 前端测试跑法时"
 ---
 # Build checklist
-编译 / 验证产物时**前置**读这份.
 
-- **frontend 包管理只用 pnpm** (`frontend/package.json` 固定 `Node 24.18.0` / `pnpm@11.1.2`，有 pnpm-lock.yaml 与 engine-strict): `npm install` 撞 `Cannot read properties of null (reading 'matches')` — npm 的 arborist 解析不了 node_modules/.pnpm 布局, 不是网络/缓存问题, 换 `pnpm add` 即好. 安装与 CI 一律 `--frozen-lockfile`。
+编译 / 验证产物时前置读这份。
 
-- **Wails library 与 CLI 必须同版**: 当前 Go/CLI pin 是 `v3.0.0-alpha2.117`，对应 frontend runtime 固定为 `3.0.0-alpha.97`。安装用 `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117`；`./scripts/verify-wails-version.ps1` 核对 Go/CLI/workflow/package/lock 多处 pins，`-CheckInstalled` 还会验证 PATH 中实际 CLI。
+- frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
+- Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
+- 开发入口 task dev。
+- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击 0→1、拖放 1→2，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。
+- 完整本地门禁 task check：supply-chain、contracts、AI eval、版本/Wails、Go tests + global 65% + vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。
+- 正式构建只用 task build；它生成 bindings/frontend/syso，并构建 Yotta.exe、ScriptWorker、WasmPluginRunner、capture DLL 与 ADB。不要裸 go build -o Yotta.exe。
+- task package 要求前后 worktree 全干净，从已测试 staging allowlist 生成 manifest/archive；公开 stable 仍受许可证、证书、迁移与 owner 设置阻塞。
 
-- **开发**: `task dev` — vite (port 9245) + wails3 webview 热重载. 改前端实时刷, 改 Go 要重启.
-- **Workflow 编辑器 WebView smoke**: `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1`。脚本只用正式 `windows:build DEV=true` 入口，在 `.task/workflow-editor-smoke/<timestamp>/` 创建独立 exe/data/WebView profile；复用已有 9245 Vite，缺失时自行启动并在退出时只清理自己拥有的进程。它通过仅 `windows && !production` 存在的 `YOTTA_WEBVIEW_DEBUG_PORT`/`YOTTA_WEBVIEW_DEBUG_PROFILE` 打开 loopback CDP，创建临时 Workflow，断言目录单击使画布 `0→1`、拖放使 `1→2`，并拒绝 `window error`、unhandled rejection 与 `console.error`。最终 PNG、stdout/stderr 和隔离数据都留在该 timestamp 目录，agent 必须用图片查看工具实际检查布局，不能只信 DOM 计数。production build 的 debug options 恒为空。
-- **完整本地门禁**: `task check` — immutable Actions、精确工具链、第三方 artifact hashes、frozen Go/Cargo/pnpm 输入、generated Workflow 3.1 Schema/TS、版本/Wails pin、Go test + coverage floor 65% + vet + staticcheck、bindings contract、format/lint/typecheck/i18n/Vitest/production build/bundle budget。
-- **构建**: `task build` — frozen install / bindings / `vite build` 后，以 `-mod=readonly` 执行 production Go build；Rust capture DLL 使用 `cargo build --release --locked`。构建链不会运行 `go mod tidy`、重写 icon 或调用 UPX。
-- **发布候选**: `task package` — 构建前后都要求 index/worktree（含 untracked）完全干净；完整 gate 和 build 后，由 allowlist 生成 `artifacts/staging/Yotta`、artifact manifest 与固定时间戳 ZIP。公开 stable/NSIS/MSIX 已冻结；证书、用户数据迁移和 owner 级 GitHub 设置完成前只允许手动 candidate。
-- **仅语法 check**: `go build ./...` 可用 (不产 exe), 但产 exe 一定走 task.
+## bindings 与 generated contracts
 
-**永远别裸 `go build -o Yotta.exe`** — 缺 vite build → frontend/dist 旧/空 → 启动空白; 缺 `wails3 generate syso` → 没 icon + 缺 manifest (admin 提权检测不对).
+frontend/bindings 由 Wails 生成且 gitignore，不手改。node frontend/scripts/generate-bindings.mjs 固定生成 TypeScript；pnpm -C frontend bindings:check 对比 tracked contracts/wails-rpc.json。2026-07-17 基线为 14 services / 95 methods / 109 models。
 
-Taskfile: 顶层 `Taskfile.yml` → `build/Taskfile.yml` (common) + `build/windows/Taskfile.yml`. 仅留 windows + common; `build/darwin/` 空目录是为了 `wails3 generate icons` 不 fail.
-
-## bindings（gitignore 生成物）
-
-`frontend/bindings/` 是 wails 生成物、gitignore. 改 Go 导出符号 / 路由后, 下次 `task dev` / `task build` 自动 regenerate; 手动改名要同步 rename + 内容替换 (vue-tsc 过) 再 build, 否则前端引用旧名.
-
-production build 与 contract check 必须都生成 TypeScript bindings；`build/Taskfile.yml` 的 bindings 命令固定带 `-ts ./...`，否则 Wails 会用 `.js` 覆盖 `.ts`，使 package 结束后的 contract gate 失真。Workflow 3.1 的 durable contract 不依赖 Wails：同一个 Go contract generator 同时喂给运行时 JSON Schema validator 与 `task contracts:update` 生成的 tracked JSON Schema/TypeScript，`task contracts:check` 拒绝漂移。结构规则只写在 schema tag；Go semantic validator 只处理跨对象约束。
-
-Wails CLI 的 `wails3 generate bindings -dry` 在默认 `-clean=true` 下会先清空现有 bindings；只做预检时必须加 `-clean=false`，否则要立即正式 regenerate，避免 Vitest 因 gitignored import 消失而假红。统一入口 `node frontend/scripts/generate-bindings.mjs` 会拒绝非零 warning；随后 `pnpm -C frontend bindings:check` 对比 tracked `contracts/wails-rpc.json`。当前 contract 基线是 14 services / 89 methods / 99 model declarations；数量不再硬编码到 workflow。接口有意变化后审查 diff，再运行 `pnpm -C frontend bindings:update`。
+Workflow/Node durable contracts 由同一 Go generator 供 runtime validator 与 tracked JSON Schema/TypeScript；task contracts:check 拒绝漂移。plugin Proto/WIT/SDK/reference/conformance 由 task plugins:check 拒绝漂移。
 
 ## 测试基线
 
-当前可观察基线（2026-07-17）是 **`task check` 全绿**：预算脚本 global 65.2%（门槛 65%）、根包 34.7%，既有 package floors 全部通过；全仓 go vet 与 staticcheck 也通过。27e01b17 用 Node 3.1 evaluator/compiler/service/authoring、Windows adapter/input/recording、Wails composition 与 vision 算法回归恢复门禁，没有降低预算或隐藏 package。隔离 c8d8b540 同工具链为 65.3%，已确认先前 59.6% 漂移来自 destructive migration 替换高覆盖旧栈后未持续补齐新路径测试，而不是预算或聚合脚本错误。
+2026-07-17 插件阶段后的可信基线：task check 全绿；global Go coverage 65.0%（门槛 65%）、根包 34.1%，package floors、go vet、staticcheck 全部通过。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
 
-Go 后端质量门禁同时包括：
+Go 门禁由 task check 统一编排。CI 另含 race group、parser/package/MCP fuzz、Linux/macOS portable core 与三平台原生 GUI compile。race 清单使用稳定 internal/noderuntime 名称，不得恢复 nodes31 等发布号包名。
 
-```powershell
-go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
-./scripts/check-go-coverage.ps1
-go vet ./...
-staticcheck ./...
-go test -race ./internal/services ./internal/application ./internal/nodes31runtime ./internal/run ./internal/workflowstore ./internal/services/schedule ./internal/services/tools ./internal/services/inputclip ./internal/hotkey ./pkg/winutil ./pkg/capture
-task check:fuzz
-task version:verify
-./scripts/verify-wails-version.ps1 -CheckInstalled
-```
+Linux/macOS portable core 已纳入 node/package/plugin contract；没有等价 sandbox 时 Process/Wasm capability 必须 fail closed。原生 Linux/macOS production GUI 结果以 CI gui-build matrix 为准，Windows cross-compile 不能替代原生 CGo/WebKit 宿主。
 
-对应 CI 是 `.github/workflows/ci.yml`。Windows `quality-windows` 安装固定工具链后直接运行同一个 `task check`，不在 workflow 复制 Go/frontend 命令。Linux/macOS portable core 已包含 services/tools。独立 `gui-build` job 在 Ubuntu 24.04 amd64、macOS 15 arm64 和 Windows 上核对实际 Wails CLI、frozen install、生成 bindings、执行 production frontend build 并编译 production-tag GUI；Windows 的 `CGO_ENABLED=0` 产物只是 Wails/frontend compile smoke，不替代含 capture DLL、installer 和真实 WebView 启动的发布验收。三个平台直接上传二进制；首次远端运行和 GUI 宿主 smoke 仍是发布前置项。
-Node Contract 3.1、Catalog/Authoring Projection、Compiler、Run、Workflow Store 及其平台中立消费者已进入 Linux/macOS 原生测试矩阵；backend dependency graph 不得重新出现 Win32、旧 Node/Container runtime 或 Wails presentation import。
+前端基线：28 files / 106 tests；i18n 1269 keys、0 中文 residue；Wails 14/95/109；tracked no-explicit-any debt 24。production bundle entry 262852 gzip bytes（limit 350000），editor 96843（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
 
-前端 i18n 当前基线也是 **应绿**: `cd frontend && pnpm i18n:check` 应输出 parity / compile / residue 全 OK。旧的 SettingsLauncher / FloatingLauncher residue 42 处硬编码中文记录已过期。lint 的 `lint` 是 check-only；只有 `lint:fix` 会改文件。既有 276 个 `no-explicit-any` 由 `lint-baseline.json` 精确 ratchet：增加或减少都会要求审查并显式更新，不能静默关闭规则。
+## 运行 / smoke
 
-`cd frontend && pnpm build` 当前应绿且会自动执行 bundle gate。预算按 gzip level 9、十进制 bytes 计算：entry ≤350,000；editor 同步 JS ≤200,000，target 125,000。Wave D 于 2026-07-16 的生产基线是 entry 259,767 bytes、editor 94,274 bytes。ELK 只在首次自动布局时加载；图标搜索只懒加载 Tabler 名称索引，完整 `icons.json` 出现在 manifest 会直接失败。当前已知非阻塞 warning / 提示是:
-
-- `Some chunks are larger than 500 kB`: ELK 等按需 chunk 仍可能触发 Vite 通用 raw-size warning；是否阻断只以 `bundle:check` 的同步闭包预算和 forbidden checks 为准。
-- `PLUGIN_TIMINGS` 可能间歇出现: nuxt/ui 与 wails typed-events 插件耗时占比提示,按构建性能议题处理。
-
-## 前端单测 (vitest)
-
-- 前端**有 vitest 套件** (配置在 `vite.config.ts` 的 `test` 块 —— **不是**单独 `vitest.config.ts`; 测试文件 `src/**/*.{test,spec}.ts`)。Wave D 删除旧 Container 产品树后，2026-07-16 定向全跑基线为 26 files / 100 tests。
-- 跑: `cd frontend && pnpm test` 或根目录 `pnpm -C frontend test`。两者当前都应绿。
-- 单文件 / 单目录可用: `cd frontend && ./node_modules/.bin/vitest run <路径>`。
-
-## 运行 / smoke 留意
-
-- WebView2 GPU 合成可能晚于节点 DOM 出现；截图前必须 `Page.bringToFront`、启用 focus emulation，并等待两次 `requestAnimationFrame` 加短暂 settle。否则 smoke 的节点断言会绿，但 PNG 可能只留下黑底和少量图层。
-- Wails dev 会请求可选的 `/wails/custom.js` 和 favicon；二者 404 不等于页面异常。Workflow smoke 的阻断信号是捕获到的 JS error/rejection/`console.error`、节点计数不变、CDP 不可达或截图人工检查失败。
-- **校准 / HUD 是 AlwaysOnTop**: 独占全屏游戏可能盖不住 (Windows 层限制) → 用窗口化 / 无边框全屏.
-- **通道 B（worker 事件校验失败本地化）没真机端到端 smoke**: 要造得手改磁盘 `bin/data/containers/<id>/container.json` 删 Win32WindowTarget 再走热键; 走事件通道 `d.Error` 是对象、不受 [wails-dev-fetch-transport-flattens-error.md](../wails/wails-dev-fetch-transport-flattens-error.md) 影响, 有 Go 单测背书, 按需补.
+- Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
+- Workflow smoke 基线：100 catalog nodes、2 canvas nodes、AI review panel 可达；截图应显示实际顶栏、目录、画布、节点、review panel 与日志层。
+- WebView2 截图前必须 bringToFront、focus emulation、两次 requestAnimationFrame 加 settle，避免 DOM 绿但 PNG 黑屏。
+- Wails dev 的可选 custom.js/favicon 404 非阻断；阻断信号是 JS error/rejection/console.error、节点计数不变、CDP 不可达或截图实际布局不可用。

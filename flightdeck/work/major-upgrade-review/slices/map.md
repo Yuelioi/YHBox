@@ -24,5 +24,5 @@
 | ai-authoring-review-trace | completed (c71cc19f) | ai-agent-budget-runtime, ai-eval-upgrade-gate | AI 只经 typed patch 闭环，并展示 diff、diagnostics、权限 delta 与脱敏 trace。 |
 | node-package-signing-trust | completed (ab57d572) | restore-go-quality-gate | 定义签名 envelope、publisher identity、namespace ownership 与 revocation/quarantine。 |
 | stable-code-names-explicit-versions | completed (022bc360) | node-package-signing-trust | 删除 nodes31 等 release 后缀；代码名稳定，版本进入显式 contract/identity 属性。 |
-| plugin-hosts-sdk-conformance | current | stable-code-names-explicit-versions | Wasm/Process host、SDK 与 conformance；禁止 Go/前端插件代码。 |
-| final-contract-and-release-acceptance | fog | all implementation slices | projection/reference/golden、task check、review 与真实 Windows smoke。 |
+| plugin-hosts-sdk-conformance | completed (625a1326) | stable-code-names-explicit-versions | Wasm/Process host、SDK、conformance 与阶段运行验收完成。 |
+| final-contract-and-release-acceptance | current | all implementation slices | 总审计工程完成度；区分 release candidate 与受外部前置阻塞的公开 stable。 |
