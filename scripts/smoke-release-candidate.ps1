@@ -73,8 +73,15 @@ if ($LASTEXITCODE -ne 0) {
 
 $legacySource = Join-Path $smokeRoot "legacy-source.json"
 [System.IO.File]::WriteAllText($legacySource, '{"format":"yotta.workflow","version":"3"}', [System.Text.UTF8Encoding]::new($false))
-$cliOutput = & (Join-Path $smokeRoot "Yotta.CLI.exe") --data-root (Join-Path $smokeRoot "cli-data") validate $legacySource 2>$null
-if ($LASTEXITCODE -eq 0 -or ($cliOutput -join "`n") -notmatch 'diagnostics') {
+$strictPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $cliOutput = & (Join-Path $smokeRoot "Yotta.CLI.exe") --data-root (Join-Path $smokeRoot "cli-data") validate $legacySource 2>&1
+    $cliExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $strictPreference
+}
+if ($cliExitCode -eq 0 -or ($cliOutput -join "`n") -notmatch 'diagnostics') {
     throw "staged headless CLI did not strictly reject a legacy Workflow source"
 }
 
