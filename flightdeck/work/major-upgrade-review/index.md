@@ -8,14 +8,14 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 sandbox；generic Process Node 必须绑定 content-addressed package/operation，并在 Windows 使用 LPAC、atomic Job List、exact inherited handles、单进程与资源预算，Linux/macOS 在等价隔离前不注册 provider。旧 `RunProgram(Target, Args, WorkingDir)` 与 `taskkill /IM` 不得迁移或保留兼容入口。
 
-已安装应用生命周期与 exact input 纵切面已完成，legacy Container runtime 与旧图输入节点已删除。录制现在只生成 immutable InputClip，旧 precise/simple 分叉、自动录制子图、RecordingContext、对应 validator/dispatch/UI/RPC 字段均已切除。当前 frontier 是把 window/image/automation（含 PlayClip）迁移到 exact installed target、Capability/Grant 与 attempt/action journal，再删除其余旧节点与旧 Container 命令面。
+已安装应用生命周期、exact input 与 exact window activation 纵切面已完成，legacy Container runtime、旧图输入节点和 BringWindowForeground 已删除。录制现在只生成 immutable InputClip，旧 precise/simple 分叉、自动录制子图、RecordingContext、对应 validator/dispatch/UI/RPC 字段均已切除。当前 frontier 是把 capture/image/template detection 与 PlayClip 迁移到 exact installed target、Capability/Grant、Blob/InputClip asset identity 与 attempt/action journal，再删除其余旧节点与旧 Container 命令面。
 
 第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 input target。
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. window/image/automation：迁移 BringWindowForeground、capture/detect/template 与 PlayClip，使 operation、target、scope、host binding、Run Grant 与 attempt/action journal exact 且 fail closed；每批调用方切换后立即删除对应 legacy node/controller/validator。
+1. image/automation：迁移 capture/detect/template 与 PlayClip，使 operation、target、scope、host binding、Run Grant、Blob/InputClip asset identity 与 attempt/action journal exact 且 fail closed；每批调用方切换后立即删除对应 legacy node/controller/validator。
 2. legacy deletion：删除旧 Container Run/Debug/调度/热键命令面、旧 LLM、旧 NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -49,6 +49,7 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 ## Progress
 
 Done:
+- 完成 exact window activation 3.1 纵切面：同一不可变安装目标以独立 automation/window capability 与 resource kind 暴露 activate，不能与 input session 互开；每次调用重验 executable/window 唯一身份，失败显式走 failed 并记录 action journal。删除旧 BringWindowForeground 的 warn-and-success 路径，补齐 exact input/window 的 UI 文案与生成文档，提交 `fc476bee`。
 - 破坏性删除 legacy Container executor、execution facade 与 run classifier，共移除 124 个 runtime 文件和 20,961 行旧执行代码；旧 registry/runtime 不再可被 Go package graph 引用，提交 `34d8a9ab`。
 - 破坏性删除 9 组旧 input graph nodes 及其 validator/dispatch 测试；录制收敛为唯一 immutable InputClip 路径，删除 simple subgraph transform、precise/simple mode、Subgraph RecordingContext 及全部 UI/Wails 字段，lint debt 264→261，提交 `9a43fd3e`。
 - 完成 exact installed input 3.1 纵切面：安装目标绑定 Application executable digest、唯一 exact title/class、固定 SendInput/PostMessage backend 与 timeout；七个输入节点共用 typed provider/runtime，操作原子化并在失败/取消时释放 held state。每次调用重验 executable identity 与窗口唯一性，图/Grant/journal 不暴露 path/PID/HWND/text/key；Settings/Wails/Vue、生成契约与文档同步切换，SendInput 注入计数和 PostMessage 结果均 fail closed。提交 `a6201f55`、`4bc16120`。
@@ -134,9 +135,10 @@ Done:
 - 容器 Windows 输入缺省已从 PostMessage 改为 SendInput：新建容器、旧记录空字段、运行时 backend 构造与置前判断统一走前台默认；显式 PostMessage 保持不变。模板缩放容差 UI 改为最大倍率并实时解释 `[1/k,k]` 范围。
 
 Current:
-- legacy Container runtime、旧 input nodes 与录制子图分叉已删除；当前 frontier 是 window/image/automation（含 PlayClip）exact capability 迁移，随后删除旧 Container 命令面与剩余 legacy NodeSpec/dispatch。
+- exact window activation 已完成并删除旧 BringWindowForeground；当前 frontier 是 capture/image/template detection 与 PlayClip 的 exact capability/asset 迁移，随后删除旧 Container 命令面与剩余 legacy NodeSpec/dispatch。
 
 Verified:
+- exact window activation 提交 `fc476bee`（2026-07-16）：`go test ./...`、`staticcheck ./...`、`task contracts:check` 与 frontend `pnpm check` 全绿；frontend 101 files / 649 tests，i18n 3418 keys，entry 336,698 / 350,000 bytes、editor 92,736 / 200,000 bytes；automation/installed、nodes31runtime、appbootstrap 聚焦 race 通过。
 - legacy runtime 删除提交 `34d8a9ab`（2026-07-16）：`go test ./...` 与 `staticcheck ./...` 全绿，旧 runtime/execution/runclassify package 已从 package graph 消失。
 - legacy graph input 删除提交 `9a43fd3e`（2026-07-16）：`go test ./...`、`staticcheck ./...` 与 frontend `pnpm check` 全绿；frontend 101 files / 649 tests，i18n 3400 keys，Wails contract 18 services / 139 methods / 157 models，entry 336,142 / 350,000 bytes、editor 92,731 / 200,000 bytes。
 - installed application lifecycle 提交 `d2c502e4`（2026-07-16）：最终 `task check` 221.7s 全绿；Go coverage 65.5%、`internal/appcontrol` 71.1%，frontend 100 files / 646 tests，Wails contract 17 services / 137 methods / 156 declarations，entry 334,930 / 350,000 bytes、editor 92,733 / 200,000 bytes；appcontrol/nodes31runtime/appbootstrap 聚焦 race 通过。
