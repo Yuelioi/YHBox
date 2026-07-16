@@ -20,7 +20,6 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 		"internal/automation/target",
 		"internal/automation/trace",
 		"internal/node",
-		"internal/services/execution",
 		"internal/services/expr",
 		"internal/services/llm",
 		"internal/services/script",
@@ -46,7 +45,6 @@ func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 		[]string{
 			"internal/hotkey",
 			"internal/services/calibration",
-			"internal/services/container/runtime",
 			"internal/services/recording",
 			"internal/services/tools",
 		},
@@ -81,7 +79,6 @@ func TestWorkflowCompilerDoesNotImportLegacyRuntimeOrStores(t *testing.T) {
 		[]string{"internal/workflow/compiler"},
 		[]string{
 			"github.com/yottaapp/yotta/internal/services/container",
-			"github.com/yottaapp/yotta/internal/services/execution",
 		},
 	)
 }

@@ -23,7 +23,7 @@ export const TYPE_COLOR: Record<PinType, string> = {
  * Pin type compatibility — mirrors backend runtime.PinTypeCompat.
  * @returns allow=can connect, warn=allowed but coerced (UI gives hint)
  *
- * PARITY: 必须跟 `internal/services/container/runtime/pin_types.go` PinTypeCompat 一致
+ * LEGACY AUTHORING ONLY: 该类型仅服务待删除的 Container 编辑器，不参与 3.1 编译或执行。
  * — Go TestRegistryParity 跨语言 diff 抓 drift.
  */
 export function pinTypeCompat(from: PinType, to: PinType): { allow: boolean; warn: boolean } {

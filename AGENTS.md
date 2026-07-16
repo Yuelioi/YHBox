@@ -11,7 +11,7 @@
 ## 架构导航
 
 - `main.go`：桌面应用 composition root；生命周期实现位于 `internal/appruntime/`。
-- `internal/node/`：节点契约与 registry；`internal/services/container/runtime/`：工作流执行。
+- `internal/nodecontract/` 与 `internal/datatype/`：3.1 节点/数据契约；`internal/workflow/compiler/` 与 `internal/nodes31runtime/`：唯一工作流执行路径。
 - `internal/automation/`：平台中立 target/controller contract；平台能力通过 adapter 接入。
 - `internal/services/`：应用服务；`pkg/`：可复用 adapter/helper；`cmd/`：仓库工具。
 - `frontend/src/`：UI 与编辑器；`docs/architecture/README.md` 是架构文档入口。
