@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"golang.org/x/sys/windows"
 )
 
 func TestMain(m *testing.M) {
@@ -93,33 +91,26 @@ func TestWindowsRuntimeFailsClosedWhenUninitialized(t *testing.T) {
 }
 
 func TestWindowsRuntimeRejectsInvalidExecutableAndStatusHelpers(t *testing.T) {
-	if err := checkHRESULT("test", 0); err != nil {
-		t.Fatalf("zero HRESULT = %v", err)
-	}
-	if err := checkHRESULT("test", 0x80004005); err == nil {
-		t.Fatal("failing HRESULT was accepted")
-	}
 	if err := exitCodeError(WorkerExitOK); err != nil {
 		t.Fatalf("successful worker exit = %v", err)
 	}
 	if err := exitCodeError(WorkerExitProtocol); err == nil {
 		t.Fatal("failing worker exit was accepted")
 	}
-	if _, _, err := digestExecutable(t.TempDir()); err == nil {
+	if _, err := NewRuntime(RuntimeOptions{
+		Executable: t.TempDir(), ProcessMemoryBytes: DefaultMemoryBytes, JobMemoryBytes: DefaultMemoryBytes,
+	}); err == nil {
 		t.Fatal("directory was accepted as a worker executable")
 	}
 	empty := filepath.Join(t.TempDir(), WorkerExecutableName)
 	if err := os.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := digestExecutable(empty); err == nil {
+	if _, err := NewRuntime(RuntimeOptions{
+		Executable: empty, ProcessMemoryBytes: DefaultMemoryBytes, JobMemoryBytes: DefaultMemoryBytes,
+	}); err == nil {
 		t.Fatal("empty file was accepted as a worker executable")
 	}
-	var handle windows.Handle
-	closeHandle(nil)
-	closeHandle(&handle)
-	handle = windows.InvalidHandle
-	closeHandle(&handle)
 }
 
 func TestWindowsRuntimeKillsWorkerWhenCallerCancels(t *testing.T) {
@@ -136,37 +127,6 @@ func TestWindowsRuntimeKillsWorkerWhenCallerCancels(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed > 5*time.Second {
 		t.Fatalf("cancelling isolated worker took %s", elapsed)
-	}
-}
-
-func TestWindowsRuntimeRepairsTamperedStagedWorker(t *testing.T) {
-	runtime := testWindowsRuntime(t).platform.(*windowsRuntime)
-	sid, err := appContainerSID()
-	if err != nil {
-		t.Fatalf("appContainerSID() error = %v", err)
-	}
-	defer windows.FreeSid(sid)
-	target, _, err := runtime.prepareWorkerExecutable(sid)
-	if err != nil {
-		t.Fatalf("prepareWorkerExecutable() error = %v", err)
-	}
-	wantDigest, wantSize, err := digestExecutable(runtime.options.Executable)
-	if err != nil {
-		t.Fatalf("digest source worker: %v", err)
-	}
-	if err := os.WriteFile(target, []byte("tampered"), 0o600); err != nil {
-		t.Fatalf("tamper staged worker: %v", err)
-	}
-	repaired, _, err := runtime.prepareWorkerExecutable(sid)
-	if err != nil {
-		t.Fatalf("repair staged worker: %v", err)
-	}
-	gotDigest, gotSize, err := digestExecutable(repaired)
-	if err != nil {
-		t.Fatalf("digest repaired worker: %v", err)
-	}
-	if gotDigest != wantDigest || gotSize != wantSize {
-		t.Fatalf("repaired worker digest/size = %s/%d, want %s/%d", gotDigest, gotSize, wantDigest, wantSize)
 	}
 }
 

@@ -86,6 +86,15 @@ type Frame struct {
 	//	*Frame_Status
 	//	*Frame_Result
 	//	*Frame_Cancel
+	//	*Frame_HostEntropyRequest
+	//	*Frame_HostEntropyResponse
+	//	*Frame_HostWaitRequest
+	//	*Frame_HostWaitResponse
+	//	*Frame_StateReadRequest
+	//	*Frame_StateReadResponse
+	//	*Frame_StateWriteRequest
+	//	*Frame_StateWriteResponse
+	//	*Frame_Action
 	Payload       isFrame_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -232,6 +241,87 @@ func (x *Frame) GetCancel() *Cancel {
 	return nil
 }
 
+func (x *Frame) GetHostEntropyRequest() *HostEntropyRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_HostEntropyRequest); ok {
+			return x.HostEntropyRequest
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetHostEntropyResponse() *HostEntropyResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_HostEntropyResponse); ok {
+			return x.HostEntropyResponse
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetHostWaitRequest() *HostWaitRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_HostWaitRequest); ok {
+			return x.HostWaitRequest
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetHostWaitResponse() *HostWaitResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_HostWaitResponse); ok {
+			return x.HostWaitResponse
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetStateReadRequest() *StateReadRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_StateReadRequest); ok {
+			return x.StateReadRequest
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetStateReadResponse() *StateReadResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_StateReadResponse); ok {
+			return x.StateReadResponse
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetStateWriteRequest() *StateWriteRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_StateWriteRequest); ok {
+			return x.StateWriteRequest
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetStateWriteResponse() *StateWriteResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_StateWriteResponse); ok {
+			return x.StateWriteResponse
+		}
+	}
+	return nil
+}
+
+func (x *Frame) GetAction() *ActionEvent {
+	if x != nil {
+		if x, ok := x.Payload.(*Frame_Action); ok {
+			return x.Action
+		}
+	}
+	return nil
+}
+
 type isFrame_Payload interface {
 	isFrame_Payload()
 }
@@ -276,6 +366,42 @@ type Frame_Cancel struct {
 	Cancel *Cancel `protobuf:"bytes,19,opt,name=cancel,proto3,oneof"`
 }
 
+type Frame_HostEntropyRequest struct {
+	HostEntropyRequest *HostEntropyRequest `protobuf:"bytes,20,opt,name=host_entropy_request,json=hostEntropyRequest,proto3,oneof"`
+}
+
+type Frame_HostEntropyResponse struct {
+	HostEntropyResponse *HostEntropyResponse `protobuf:"bytes,21,opt,name=host_entropy_response,json=hostEntropyResponse,proto3,oneof"`
+}
+
+type Frame_HostWaitRequest struct {
+	HostWaitRequest *HostWaitRequest `protobuf:"bytes,22,opt,name=host_wait_request,json=hostWaitRequest,proto3,oneof"`
+}
+
+type Frame_HostWaitResponse struct {
+	HostWaitResponse *HostWaitResponse `protobuf:"bytes,23,opt,name=host_wait_response,json=hostWaitResponse,proto3,oneof"`
+}
+
+type Frame_StateReadRequest struct {
+	StateReadRequest *StateReadRequest `protobuf:"bytes,24,opt,name=state_read_request,json=stateReadRequest,proto3,oneof"`
+}
+
+type Frame_StateReadResponse struct {
+	StateReadResponse *StateReadResponse `protobuf:"bytes,25,opt,name=state_read_response,json=stateReadResponse,proto3,oneof"`
+}
+
+type Frame_StateWriteRequest struct {
+	StateWriteRequest *StateWriteRequest `protobuf:"bytes,26,opt,name=state_write_request,json=stateWriteRequest,proto3,oneof"`
+}
+
+type Frame_StateWriteResponse struct {
+	StateWriteResponse *StateWriteResponse `protobuf:"bytes,27,opt,name=state_write_response,json=stateWriteResponse,proto3,oneof"`
+}
+
+type Frame_Action struct {
+	Action *ActionEvent `protobuf:"bytes,28,opt,name=action,proto3,oneof"`
+}
+
 func (*Frame_Invocation) isFrame_Payload() {}
 
 func (*Frame_HostOpenRequest) isFrame_Payload() {}
@@ -295,6 +421,24 @@ func (*Frame_Status) isFrame_Payload() {}
 func (*Frame_Result) isFrame_Payload() {}
 
 func (*Frame_Cancel) isFrame_Payload() {}
+
+func (*Frame_HostEntropyRequest) isFrame_Payload() {}
+
+func (*Frame_HostEntropyResponse) isFrame_Payload() {}
+
+func (*Frame_HostWaitRequest) isFrame_Payload() {}
+
+func (*Frame_HostWaitResponse) isFrame_Payload() {}
+
+func (*Frame_StateReadRequest) isFrame_Payload() {}
+
+func (*Frame_StateReadResponse) isFrame_Payload() {}
+
+func (*Frame_StateWriteRequest) isFrame_Payload() {}
+
+func (*Frame_StateWriteResponse) isFrame_Payload() {}
+
+func (*Frame_Action) isFrame_Payload() {}
 
 type Invocation struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
@@ -1292,11 +1436,635 @@ func (x *Cancel) GetReason() string {
 	return ""
 }
 
+type HostEntropyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ByteCount     uint32                 `protobuf:"varint,2,opt,name=byte_count,json=byteCount,proto3" json:"byte_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HostEntropyRequest) Reset() {
+	*x = HostEntropyRequest{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostEntropyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostEntropyRequest) ProtoMessage() {}
+
+func (x *HostEntropyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostEntropyRequest.ProtoReflect.Descriptor instead.
+func (*HostEntropyRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *HostEntropyRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HostEntropyRequest) GetByteCount() uint32 {
+	if x != nil {
+		return x.ByteCount
+	}
+	return 0
+}
+
+type HostEntropyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Entropy       []byte                 `protobuf:"bytes,2,opt,name=entropy,proto3" json:"entropy,omitempty"`
+	Failure       *Failure               `protobuf:"bytes,3,opt,name=failure,proto3" json:"failure,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HostEntropyResponse) Reset() {
+	*x = HostEntropyResponse{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostEntropyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostEntropyResponse) ProtoMessage() {}
+
+func (x *HostEntropyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostEntropyResponse.ProtoReflect.Descriptor instead.
+func (*HostEntropyResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *HostEntropyResponse) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HostEntropyResponse) GetEntropy() []byte {
+	if x != nil {
+		return x.Entropy
+	}
+	return nil
+}
+
+func (x *HostEntropyResponse) GetFailure() *Failure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+type HostWaitRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RequestId      string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	DurationMillis uint64                 `protobuf:"varint,2,opt,name=duration_millis,json=durationMillis,proto3" json:"duration_millis,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *HostWaitRequest) Reset() {
+	*x = HostWaitRequest{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostWaitRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostWaitRequest) ProtoMessage() {}
+
+func (x *HostWaitRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostWaitRequest.ProtoReflect.Descriptor instead.
+func (*HostWaitRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *HostWaitRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HostWaitRequest) GetDurationMillis() uint64 {
+	if x != nil {
+		return x.DurationMillis
+	}
+	return 0
+}
+
+type HostWaitResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Failure       *Failure               `protobuf:"bytes,2,opt,name=failure,proto3" json:"failure,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HostWaitResponse) Reset() {
+	*x = HostWaitResponse{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostWaitResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostWaitResponse) ProtoMessage() {}
+
+func (x *HostWaitResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostWaitResponse.ProtoReflect.Descriptor instead.
+func (*HostWaitResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *HostWaitResponse) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HostWaitResponse) GetFailure() *Failure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+type StateReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	AccessId      string                 `protobuf:"bytes,2,opt,name=access_id,json=accessId,proto3" json:"access_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateReadRequest) Reset() {
+	*x = StateReadRequest{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateReadRequest) ProtoMessage() {}
+
+func (x *StateReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateReadRequest.ProtoReflect.Descriptor instead.
+func (*StateReadRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *StateReadRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *StateReadRequest) GetAccessId() string {
+	if x != nil {
+		return x.AccessId
+	}
+	return ""
+}
+
+type StateReadResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	RequestId         string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ValueEnvelope     []byte                 `protobuf:"bytes,2,opt,name=value_envelope,json=valueEnvelope,proto3" json:"value_envelope,omitempty"`
+	Revision          int64                  `protobuf:"varint,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	ChangedUnixMillis int64                  `protobuf:"varint,4,opt,name=changed_unix_millis,json=changedUnixMillis,proto3" json:"changed_unix_millis,omitempty"`
+	Failure           *Failure               `protobuf:"bytes,5,opt,name=failure,proto3" json:"failure,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *StateReadResponse) Reset() {
+	*x = StateReadResponse{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateReadResponse) ProtoMessage() {}
+
+func (x *StateReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateReadResponse.ProtoReflect.Descriptor instead.
+func (*StateReadResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *StateReadResponse) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *StateReadResponse) GetValueEnvelope() []byte {
+	if x != nil {
+		return x.ValueEnvelope
+	}
+	return nil
+}
+
+func (x *StateReadResponse) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *StateReadResponse) GetChangedUnixMillis() int64 {
+	if x != nil {
+		return x.ChangedUnixMillis
+	}
+	return 0
+}
+
+func (x *StateReadResponse) GetFailure() *Failure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+type StateWriteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	AccessId      string                 `protobuf:"bytes,2,opt,name=access_id,json=accessId,proto3" json:"access_id,omitempty"`
+	ValueEnvelope []byte                 `protobuf:"bytes,3,opt,name=value_envelope,json=valueEnvelope,proto3" json:"value_envelope,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateWriteRequest) Reset() {
+	*x = StateWriteRequest{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateWriteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateWriteRequest) ProtoMessage() {}
+
+func (x *StateWriteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateWriteRequest.ProtoReflect.Descriptor instead.
+func (*StateWriteRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *StateWriteRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *StateWriteRequest) GetAccessId() string {
+	if x != nil {
+		return x.AccessId
+	}
+	return ""
+}
+
+func (x *StateWriteRequest) GetValueEnvelope() []byte {
+	if x != nil {
+		return x.ValueEnvelope
+	}
+	return nil
+}
+
+type StateWriteResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	RequestId         string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ValueEnvelope     []byte                 `protobuf:"bytes,2,opt,name=value_envelope,json=valueEnvelope,proto3" json:"value_envelope,omitempty"`
+	Revision          int64                  `protobuf:"varint,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	ChangedUnixMillis int64                  `protobuf:"varint,4,opt,name=changed_unix_millis,json=changedUnixMillis,proto3" json:"changed_unix_millis,omitempty"`
+	Failure           *Failure               `protobuf:"bytes,5,opt,name=failure,proto3" json:"failure,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *StateWriteResponse) Reset() {
+	*x = StateWriteResponse{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateWriteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateWriteResponse) ProtoMessage() {}
+
+func (x *StateWriteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateWriteResponse.ProtoReflect.Descriptor instead.
+func (*StateWriteResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *StateWriteResponse) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *StateWriteResponse) GetValueEnvelope() []byte {
+	if x != nil {
+		return x.ValueEnvelope
+	}
+	return nil
+}
+
+func (x *StateWriteResponse) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *StateWriteResponse) GetChangedUnixMillis() int64 {
+	if x != nil {
+		return x.ChangedUnixMillis
+	}
+	return 0
+}
+
+func (x *StateWriteResponse) GetFailure() *Failure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+type ActionEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EffectId      string                 `protobuf:"bytes,1,opt,name=effect_id,json=effectId,proto3" json:"effect_id,omitempty"`
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	Outcome       string                 `protobuf:"bytes,3,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	ErrorCode     string                 `protobuf:"bytes,4,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	SummaryCode   string                 `protobuf:"bytes,5,opt,name=summary_code,json=summaryCode,proto3" json:"summary_code,omitempty"`
+	Counters      []*Counter             `protobuf:"bytes,6,rep,name=counters,proto3" json:"counters,omitempty"`
+	Facts         []*Fact                `protobuf:"bytes,7,rep,name=facts,proto3" json:"facts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActionEvent) Reset() {
+	*x = ActionEvent{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionEvent) ProtoMessage() {}
+
+func (x *ActionEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionEvent.ProtoReflect.Descriptor instead.
+func (*ActionEvent) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ActionEvent) GetEffectId() string {
+	if x != nil {
+		return x.EffectId
+	}
+	return ""
+}
+
+func (x *ActionEvent) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *ActionEvent) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *ActionEvent) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *ActionEvent) GetSummaryCode() string {
+	if x != nil {
+		return x.SummaryCode
+	}
+	return ""
+}
+
+func (x *ActionEvent) GetCounters() []*Counter {
+	if x != nil {
+		return x.Counters
+	}
+	return nil
+}
+
+func (x *ActionEvent) GetFacts() []*Fact {
+	if x != nil {
+		return x.Facts
+	}
+	return nil
+}
+
+type Fact struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Fact) Reset() {
+	*x = Fact{}
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Fact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Fact) ProtoMessage() {}
+
+func (x *Fact) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_plugin_v1_plugin_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Fact.ProtoReflect.Descriptor instead.
+func (*Fact) Descriptor() ([]byte, []int) {
+	return file_contracts_plugin_v1_plugin_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *Fact) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Fact) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
 var File_contracts_plugin_v1_plugin_proto protoreflect.FileDescriptor
 
 const file_contracts_plugin_v1_plugin_proto_rawDesc = "" +
 	"\n" +
-	" contracts/plugin/v1/plugin.proto\x12\x0fyotta.plugin.v1\"\x9c\x06\n" +
+	" contracts/plugin/v1/plugin.proto\x12\x0fyotta.plugin.v1\"\x84\f\n" +
 	"\x05Frame\x12\x1a\n" +
 	"\bprotocol\x18\x01 \x01(\tR\bprotocol\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12=\n" +
@@ -1312,7 +2080,16 @@ const file_contracts_plugin_v1_plugin_proto_rawDesc = "" +
 	"\x12host_drop_response\x18\x10 \x01(\v2!.yotta.plugin.v1.HostDropResponseH\x00R\x10hostDropResponse\x126\n" +
 	"\x06status\x18\x11 \x01(\v2\x1c.yotta.plugin.v1.StatusEventH\x00R\x06status\x121\n" +
 	"\x06result\x18\x12 \x01(\v2\x17.yotta.plugin.v1.ResultH\x00R\x06result\x121\n" +
-	"\x06cancel\x18\x13 \x01(\v2\x17.yotta.plugin.v1.CancelH\x00R\x06cancelB\t\n" +
+	"\x06cancel\x18\x13 \x01(\v2\x17.yotta.plugin.v1.CancelH\x00R\x06cancel\x12W\n" +
+	"\x14host_entropy_request\x18\x14 \x01(\v2#.yotta.plugin.v1.HostEntropyRequestH\x00R\x12hostEntropyRequest\x12Z\n" +
+	"\x15host_entropy_response\x18\x15 \x01(\v2$.yotta.plugin.v1.HostEntropyResponseH\x00R\x13hostEntropyResponse\x12N\n" +
+	"\x11host_wait_request\x18\x16 \x01(\v2 .yotta.plugin.v1.HostWaitRequestH\x00R\x0fhostWaitRequest\x12Q\n" +
+	"\x12host_wait_response\x18\x17 \x01(\v2!.yotta.plugin.v1.HostWaitResponseH\x00R\x10hostWaitResponse\x12Q\n" +
+	"\x12state_read_request\x18\x18 \x01(\v2!.yotta.plugin.v1.StateReadRequestH\x00R\x10stateReadRequest\x12T\n" +
+	"\x13state_read_response\x18\x19 \x01(\v2\".yotta.plugin.v1.StateReadResponseH\x00R\x11stateReadResponse\x12T\n" +
+	"\x13state_write_request\x18\x1a \x01(\v2\".yotta.plugin.v1.StateWriteRequestH\x00R\x11stateWriteRequest\x12W\n" +
+	"\x14state_write_response\x18\x1b \x01(\v2#.yotta.plugin.v1.StateWriteResponseH\x00R\x12stateWriteResponse\x126\n" +
+	"\x06action\x18\x1c \x01(\v2\x1c.yotta.plugin.v1.ActionEventH\x00R\x06actionB\t\n" +
 	"\apayload\"\x9a\x04\n" +
 	"\n" +
 	"Invocation\x12\x1d\n" +
@@ -1402,7 +2179,60 @@ const file_contracts_plugin_v1_plugin_proto_rawDesc = "" +
 	"\x06output\x18\x02 \x01(\tR\x06output\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\" \n" +
 	"\x06Cancel\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason*M\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"R\n" +
+	"\x12HostEntropyRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1d\n" +
+	"\n" +
+	"byte_count\x18\x02 \x01(\rR\tbyteCount\"\x82\x01\n" +
+	"\x13HostEntropyResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x18\n" +
+	"\aentropy\x18\x02 \x01(\fR\aentropy\x122\n" +
+	"\afailure\x18\x03 \x01(\v2\x18.yotta.plugin.v1.FailureR\afailure\"Y\n" +
+	"\x0fHostWaitRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12'\n" +
+	"\x0fduration_millis\x18\x02 \x01(\x04R\x0edurationMillis\"e\n" +
+	"\x10HostWaitResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x122\n" +
+	"\afailure\x18\x02 \x01(\v2\x18.yotta.plugin.v1.FailureR\afailure\"N\n" +
+	"\x10StateReadRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1b\n" +
+	"\taccess_id\x18\x02 \x01(\tR\baccessId\"\xd9\x01\n" +
+	"\x11StateReadResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12%\n" +
+	"\x0evalue_envelope\x18\x02 \x01(\fR\rvalueEnvelope\x12\x1a\n" +
+	"\brevision\x18\x03 \x01(\x03R\brevision\x12.\n" +
+	"\x13changed_unix_millis\x18\x04 \x01(\x03R\x11changedUnixMillis\x122\n" +
+	"\afailure\x18\x05 \x01(\v2\x18.yotta.plugin.v1.FailureR\afailure\"v\n" +
+	"\x11StateWriteRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1b\n" +
+	"\taccess_id\x18\x02 \x01(\tR\baccessId\x12%\n" +
+	"\x0evalue_envelope\x18\x03 \x01(\fR\rvalueEnvelope\"\xda\x01\n" +
+	"\x12StateWriteResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12%\n" +
+	"\x0evalue_envelope\x18\x02 \x01(\fR\rvalueEnvelope\x12\x1a\n" +
+	"\brevision\x18\x03 \x01(\x03R\brevision\x12.\n" +
+	"\x13changed_unix_millis\x18\x04 \x01(\x03R\x11changedUnixMillis\x122\n" +
+	"\afailure\x18\x05 \x01(\v2\x18.yotta.plugin.v1.FailureR\afailure\"\x81\x02\n" +
+	"\vActionEvent\x12\x1b\n" +
+	"\teffect_id\x18\x01 \x01(\tR\beffectId\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x18\n" +
+	"\aoutcome\x18\x03 \x01(\tR\aoutcome\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\x04 \x01(\tR\terrorCode\x12!\n" +
+	"\fsummary_code\x18\x05 \x01(\tR\vsummaryCode\x124\n" +
+	"\bcounters\x18\x06 \x03(\v2\x18.yotta.plugin.v1.CounterR\bcounters\x12+\n" +
+	"\x05facts\x18\a \x03(\v2\x15.yotta.plugin.v1.FactR\x05facts\".\n" +
+	"\x04Fact\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value*M\n" +
 	"\aOutcome\x12\x17\n" +
 	"\x13OUTCOME_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11OUTCOME_SUCCEEDED\x10\x01\x12\x12\n" +
@@ -1421,25 +2251,35 @@ func file_contracts_plugin_v1_plugin_proto_rawDescGZIP() []byte {
 }
 
 var file_contracts_plugin_v1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_contracts_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_contracts_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_contracts_plugin_v1_plugin_proto_goTypes = []any{
-	(Outcome)(0),               // 0: yotta.plugin.v1.Outcome
-	(*Frame)(nil),              // 1: yotta.plugin.v1.Frame
-	(*Invocation)(nil),         // 2: yotta.plugin.v1.Invocation
-	(*PortValue)(nil),          // 3: yotta.plugin.v1.PortValue
-	(*Trigger)(nil),            // 4: yotta.plugin.v1.Trigger
-	(*Budget)(nil),             // 5: yotta.plugin.v1.Budget
-	(*HostOpenRequest)(nil),    // 6: yotta.plugin.v1.HostOpenRequest
-	(*HostOpenResponse)(nil),   // 7: yotta.plugin.v1.HostOpenResponse
-	(*HostInvokeRequest)(nil),  // 8: yotta.plugin.v1.HostInvokeRequest
-	(*HostInvokeResponse)(nil), // 9: yotta.plugin.v1.HostInvokeResponse
-	(*HostDropRequest)(nil),    // 10: yotta.plugin.v1.HostDropRequest
-	(*HostDropResponse)(nil),   // 11: yotta.plugin.v1.HostDropResponse
-	(*StatusEvent)(nil),        // 12: yotta.plugin.v1.StatusEvent
-	(*Counter)(nil),            // 13: yotta.plugin.v1.Counter
-	(*Result)(nil),             // 14: yotta.plugin.v1.Result
-	(*Failure)(nil),            // 15: yotta.plugin.v1.Failure
-	(*Cancel)(nil),             // 16: yotta.plugin.v1.Cancel
+	(Outcome)(0),                // 0: yotta.plugin.v1.Outcome
+	(*Frame)(nil),               // 1: yotta.plugin.v1.Frame
+	(*Invocation)(nil),          // 2: yotta.plugin.v1.Invocation
+	(*PortValue)(nil),           // 3: yotta.plugin.v1.PortValue
+	(*Trigger)(nil),             // 4: yotta.plugin.v1.Trigger
+	(*Budget)(nil),              // 5: yotta.plugin.v1.Budget
+	(*HostOpenRequest)(nil),     // 6: yotta.plugin.v1.HostOpenRequest
+	(*HostOpenResponse)(nil),    // 7: yotta.plugin.v1.HostOpenResponse
+	(*HostInvokeRequest)(nil),   // 8: yotta.plugin.v1.HostInvokeRequest
+	(*HostInvokeResponse)(nil),  // 9: yotta.plugin.v1.HostInvokeResponse
+	(*HostDropRequest)(nil),     // 10: yotta.plugin.v1.HostDropRequest
+	(*HostDropResponse)(nil),    // 11: yotta.plugin.v1.HostDropResponse
+	(*StatusEvent)(nil),         // 12: yotta.plugin.v1.StatusEvent
+	(*Counter)(nil),             // 13: yotta.plugin.v1.Counter
+	(*Result)(nil),              // 14: yotta.plugin.v1.Result
+	(*Failure)(nil),             // 15: yotta.plugin.v1.Failure
+	(*Cancel)(nil),              // 16: yotta.plugin.v1.Cancel
+	(*HostEntropyRequest)(nil),  // 17: yotta.plugin.v1.HostEntropyRequest
+	(*HostEntropyResponse)(nil), // 18: yotta.plugin.v1.HostEntropyResponse
+	(*HostWaitRequest)(nil),     // 19: yotta.plugin.v1.HostWaitRequest
+	(*HostWaitResponse)(nil),    // 20: yotta.plugin.v1.HostWaitResponse
+	(*StateReadRequest)(nil),    // 21: yotta.plugin.v1.StateReadRequest
+	(*StateReadResponse)(nil),   // 22: yotta.plugin.v1.StateReadResponse
+	(*StateWriteRequest)(nil),   // 23: yotta.plugin.v1.StateWriteRequest
+	(*StateWriteResponse)(nil),  // 24: yotta.plugin.v1.StateWriteResponse
+	(*ActionEvent)(nil),         // 25: yotta.plugin.v1.ActionEvent
+	(*Fact)(nil),                // 26: yotta.plugin.v1.Fact
 }
 var file_contracts_plugin_v1_plugin_proto_depIdxs = []int32{
 	2,  // 0: yotta.plugin.v1.Frame.invocation:type_name -> yotta.plugin.v1.Invocation
@@ -1452,21 +2292,36 @@ var file_contracts_plugin_v1_plugin_proto_depIdxs = []int32{
 	12, // 7: yotta.plugin.v1.Frame.status:type_name -> yotta.plugin.v1.StatusEvent
 	14, // 8: yotta.plugin.v1.Frame.result:type_name -> yotta.plugin.v1.Result
 	16, // 9: yotta.plugin.v1.Frame.cancel:type_name -> yotta.plugin.v1.Cancel
-	3,  // 10: yotta.plugin.v1.Invocation.inputs:type_name -> yotta.plugin.v1.PortValue
-	4,  // 11: yotta.plugin.v1.Invocation.trigger:type_name -> yotta.plugin.v1.Trigger
-	5,  // 12: yotta.plugin.v1.Invocation.budget:type_name -> yotta.plugin.v1.Budget
-	15, // 13: yotta.plugin.v1.HostOpenResponse.failure:type_name -> yotta.plugin.v1.Failure
-	15, // 14: yotta.plugin.v1.HostInvokeResponse.failure:type_name -> yotta.plugin.v1.Failure
-	15, // 15: yotta.plugin.v1.HostDropResponse.failure:type_name -> yotta.plugin.v1.Failure
-	13, // 16: yotta.plugin.v1.StatusEvent.counters:type_name -> yotta.plugin.v1.Counter
-	0,  // 17: yotta.plugin.v1.Result.outcome:type_name -> yotta.plugin.v1.Outcome
-	3,  // 18: yotta.plugin.v1.Result.outputs:type_name -> yotta.plugin.v1.PortValue
-	15, // 19: yotta.plugin.v1.Result.failure:type_name -> yotta.plugin.v1.Failure
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	17, // 10: yotta.plugin.v1.Frame.host_entropy_request:type_name -> yotta.plugin.v1.HostEntropyRequest
+	18, // 11: yotta.plugin.v1.Frame.host_entropy_response:type_name -> yotta.plugin.v1.HostEntropyResponse
+	19, // 12: yotta.plugin.v1.Frame.host_wait_request:type_name -> yotta.plugin.v1.HostWaitRequest
+	20, // 13: yotta.plugin.v1.Frame.host_wait_response:type_name -> yotta.plugin.v1.HostWaitResponse
+	21, // 14: yotta.plugin.v1.Frame.state_read_request:type_name -> yotta.plugin.v1.StateReadRequest
+	22, // 15: yotta.plugin.v1.Frame.state_read_response:type_name -> yotta.plugin.v1.StateReadResponse
+	23, // 16: yotta.plugin.v1.Frame.state_write_request:type_name -> yotta.plugin.v1.StateWriteRequest
+	24, // 17: yotta.plugin.v1.Frame.state_write_response:type_name -> yotta.plugin.v1.StateWriteResponse
+	25, // 18: yotta.plugin.v1.Frame.action:type_name -> yotta.plugin.v1.ActionEvent
+	3,  // 19: yotta.plugin.v1.Invocation.inputs:type_name -> yotta.plugin.v1.PortValue
+	4,  // 20: yotta.plugin.v1.Invocation.trigger:type_name -> yotta.plugin.v1.Trigger
+	5,  // 21: yotta.plugin.v1.Invocation.budget:type_name -> yotta.plugin.v1.Budget
+	15, // 22: yotta.plugin.v1.HostOpenResponse.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 23: yotta.plugin.v1.HostInvokeResponse.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 24: yotta.plugin.v1.HostDropResponse.failure:type_name -> yotta.plugin.v1.Failure
+	13, // 25: yotta.plugin.v1.StatusEvent.counters:type_name -> yotta.plugin.v1.Counter
+	0,  // 26: yotta.plugin.v1.Result.outcome:type_name -> yotta.plugin.v1.Outcome
+	3,  // 27: yotta.plugin.v1.Result.outputs:type_name -> yotta.plugin.v1.PortValue
+	15, // 28: yotta.plugin.v1.Result.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 29: yotta.plugin.v1.HostEntropyResponse.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 30: yotta.plugin.v1.HostWaitResponse.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 31: yotta.plugin.v1.StateReadResponse.failure:type_name -> yotta.plugin.v1.Failure
+	15, // 32: yotta.plugin.v1.StateWriteResponse.failure:type_name -> yotta.plugin.v1.Failure
+	13, // 33: yotta.plugin.v1.ActionEvent.counters:type_name -> yotta.plugin.v1.Counter
+	26, // 34: yotta.plugin.v1.ActionEvent.facts:type_name -> yotta.plugin.v1.Fact
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_contracts_plugin_v1_plugin_proto_init() }
@@ -1485,6 +2340,15 @@ func file_contracts_plugin_v1_plugin_proto_init() {
 		(*Frame_Status)(nil),
 		(*Frame_Result)(nil),
 		(*Frame_Cancel)(nil),
+		(*Frame_HostEntropyRequest)(nil),
+		(*Frame_HostEntropyResponse)(nil),
+		(*Frame_HostWaitRequest)(nil),
+		(*Frame_HostWaitResponse)(nil),
+		(*Frame_StateReadRequest)(nil),
+		(*Frame_StateReadResponse)(nil),
+		(*Frame_StateWriteRequest)(nil),
+		(*Frame_StateWriteResponse)(nil),
+		(*Frame_Action)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1492,7 +2356,7 @@ func file_contracts_plugin_v1_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_plugin_v1_plugin_proto_rawDesc), len(file_contracts_plugin_v1_plugin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

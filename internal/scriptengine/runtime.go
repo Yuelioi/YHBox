@@ -43,7 +43,11 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	if options.JobMemoryBytes < options.ProcessMemoryBytes || options.JobMemoryBytes > MaxProcessMemoryBytes {
 		return nil, fmt.Errorf("script job memory must be within process memory..%d bytes", MaxProcessMemoryBytes)
 	}
-	return &Runtime{platform: newPlatformRuntime(options)}, nil
+	platform, err := newPlatformRuntime(options)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{platform: platform}, nil
 }
 
 func (runtime *Runtime) Execute(ctx context.Context, request Request) (Response, error) {

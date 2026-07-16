@@ -28,6 +28,10 @@ const (
 	MaxOperations       = 64
 	MaxHostCalls        = 4_096
 	MaxStatusEvents     = 4_096
+	MaxEntropyBytes     = 4_096
+	MaxWaitMillis       = 86_400_000
+	MaxFacts            = 256
+	MaxFactValueBytes   = 2 << 10
 )
 
 var identityPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,255}$`)
@@ -120,9 +124,110 @@ func ValidateFrame(frame *Frame) error {
 			return errors.New("plugin cancel frame is invalid")
 		}
 		return nil
+	case *Frame_HostEntropyRequest:
+		if value := payload.HostEntropyRequest; value == nil || !validIdentity(value.RequestId) || value.ByteCount == 0 || value.ByteCount > MaxEntropyBytes {
+			return errors.New("plugin host entropy request is invalid")
+		}
+		return nil
+	case *Frame_HostEntropyResponse:
+		return validateEntropyResponse(payload.HostEntropyResponse)
+	case *Frame_HostWaitRequest:
+		if value := payload.HostWaitRequest; value == nil || !validIdentity(value.RequestId) || value.DurationMillis == 0 || value.DurationMillis > MaxWaitMillis {
+			return errors.New("plugin host wait request is invalid")
+		}
+		return nil
+	case *Frame_HostWaitResponse:
+		return validateFailureOnlyResponse(payload.HostWaitResponse.GetRequestId(), payload.HostWaitResponse.GetFailure(), payload.HostWaitResponse != nil)
+	case *Frame_StateReadRequest:
+		return validateStateReadRequest(payload.StateReadRequest)
+	case *Frame_StateReadResponse:
+		return validateStateResponse(payload.StateReadResponse.GetRequestId(), payload.StateReadResponse.GetValueEnvelope(), payload.StateReadResponse.GetRevision(), payload.StateReadResponse.GetFailure(), payload.StateReadResponse != nil)
+	case *Frame_StateWriteRequest:
+		return validateStateWriteRequest(payload.StateWriteRequest)
+	case *Frame_StateWriteResponse:
+		return validateStateResponse(payload.StateWriteResponse.GetRequestId(), payload.StateWriteResponse.GetValueEnvelope(), payload.StateWriteResponse.GetRevision(), payload.StateWriteResponse.GetFailure(), payload.StateWriteResponse != nil)
+	case *Frame_Action:
+		return validateAction(payload.Action)
 	default:
 		return errors.New("plugin frame payload is missing or unsupported")
 	}
+}
+
+func validateEntropyResponse(value *HostEntropyResponse) error {
+	if value == nil || !validIdentity(value.RequestId) || (len(value.Entropy) == 0) == (value.Failure == nil) || len(value.Entropy) > MaxEntropyBytes {
+		return errors.New("plugin host entropy response is invalid")
+	}
+	if value.Failure != nil {
+		return validateFailure(value.Failure)
+	}
+	return nil
+}
+
+func validateFailureOnlyResponse(requestID string, failure *Failure, present bool) error {
+	if !present || !validIdentity(requestID) {
+		return errors.New("plugin host response is invalid")
+	}
+	if failure != nil {
+		return validateFailure(failure)
+	}
+	return nil
+}
+
+func validateStateReadRequest(value *StateReadRequest) error {
+	if value == nil || !validIdentity(value.RequestId) || !validIdentity(value.AccessId) {
+		return errors.New("plugin state read request is invalid")
+	}
+	return nil
+}
+
+func validateStateWriteRequest(value *StateWriteRequest) error {
+	if value == nil || !validIdentity(value.RequestId) || !validIdentity(value.AccessId) {
+		return errors.New("plugin state write request is invalid")
+	}
+	if err := validateCanonicalJSON(value.ValueEnvelope, datatype.MaxValueEnvelopeBytes); err != nil {
+		return fmt.Errorf("plugin state write value: %w", err)
+	}
+	return nil
+}
+
+func validateStateResponse(requestID string, envelope []byte, revision int64, failure *Failure, present bool) error {
+	if !present || !validIdentity(requestID) || revision < 0 || (len(envelope) == 0) == (failure == nil) {
+		return errors.New("plugin state response is invalid")
+	}
+	if failure != nil {
+		return validateFailure(failure)
+	}
+	return validateCanonicalJSON(envelope, datatype.MaxValueEnvelopeBytes)
+}
+
+func validateAction(value *ActionEvent) error {
+	if value == nil || !validIdentity(value.EffectId) || !operationPattern.MatchString(value.Action) ||
+		(value.Outcome != "succeeded" && value.Outcome != "failed" && value.Outcome != "cancelled") ||
+		!codePattern.MatchString(value.SummaryCode) || len(value.Counters) > MaxCounters || len(value.Facts) > MaxFacts {
+		return errors.New("plugin action event is invalid")
+	}
+	if value.Outcome == "failed" {
+		if !codePattern.MatchString(value.ErrorCode) {
+			return errors.New("failed plugin action requires an error code")
+		}
+	} else if value.ErrorCode != "" {
+		return errors.New("non-failed plugin action contains an error code")
+	}
+	previous := ""
+	for _, counter := range value.Counters {
+		if counter == nil || !validIdentity(counter.Key) || counter.Key <= previous {
+			return errors.New("plugin action counters are invalid or not strictly ordered")
+		}
+		previous = counter.Key
+	}
+	previous = ""
+	for _, fact := range value.Facts {
+		if fact == nil || !validIdentity(fact.Key) || fact.Key <= previous || len(fact.Value) > MaxFactValueBytes || !utf8.ValidString(fact.Value) {
+			return errors.New("plugin action facts are invalid or not strictly ordered")
+		}
+		previous = fact.Key
+	}
+	return nil
 }
 
 func validateInvocation(value *Invocation) error {

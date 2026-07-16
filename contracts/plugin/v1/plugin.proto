@@ -24,6 +24,15 @@ message Frame {
     StatusEvent status = 17;
     Result result = 18;
     Cancel cancel = 19;
+    HostEntropyRequest host_entropy_request = 20;
+    HostEntropyResponse host_entropy_response = 21;
+    HostWaitRequest host_wait_request = 22;
+    HostWaitResponse host_wait_response = 23;
+    StateReadRequest state_read_request = 24;
+    StateReadResponse state_read_response = 25;
+    StateWriteRequest state_write_request = 26;
+    StateWriteResponse state_write_response = 27;
+    ActionEvent action = 28;
   }
 }
 
@@ -127,4 +136,67 @@ message Failure {
 
 message Cancel {
   string reason = 1;
+}
+
+message HostEntropyRequest {
+  string request_id = 1;
+  uint32 byte_count = 2;
+}
+
+message HostEntropyResponse {
+  string request_id = 1;
+  bytes entropy = 2;
+  Failure failure = 3;
+}
+
+message HostWaitRequest {
+  string request_id = 1;
+  uint64 duration_millis = 2;
+}
+
+message HostWaitResponse {
+  string request_id = 1;
+  Failure failure = 2;
+}
+
+message StateReadRequest {
+  string request_id = 1;
+  string access_id = 2;
+}
+
+message StateReadResponse {
+  string request_id = 1;
+  bytes value_envelope = 2;
+  int64 revision = 3;
+  int64 changed_unix_millis = 4;
+  Failure failure = 5;
+}
+
+message StateWriteRequest {
+  string request_id = 1;
+  string access_id = 2;
+  bytes value_envelope = 3;
+}
+
+message StateWriteResponse {
+  string request_id = 1;
+  bytes value_envelope = 2;
+  int64 revision = 3;
+  int64 changed_unix_millis = 4;
+  Failure failure = 5;
+}
+
+message ActionEvent {
+  string effect_id = 1;
+  string action = 2;
+  string outcome = 3;
+  string error_code = 4;
+  string summary_code = 5;
+  repeated Counter counters = 6;
+  repeated Fact facts = 7;
+}
+
+message Fact {
+  string key = 1;
+  string value = 2;
 }

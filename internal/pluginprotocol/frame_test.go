@@ -61,6 +61,28 @@ func TestFrameValidationRejectsInvalidBudgetOrderingAndOutcome(t *testing.T) {
 	}
 }
 
+func TestFrameValidationCoversMediatedExecutionCalls(t *testing.T) {
+	frames := []*Frame{
+		{Protocol: Protocol, Sequence: 1, Payload: &Frame_HostEntropyRequest{HostEntropyRequest: &HostEntropyRequest{RequestId: "entropy-1", ByteCount: 32}}},
+		{Protocol: Protocol, Sequence: 2, Payload: &Frame_HostWaitRequest{HostWaitRequest: &HostWaitRequest{RequestId: "wait-1", DurationMillis: 5}}},
+		{Protocol: Protocol, Sequence: 3, Payload: &Frame_StateReadRequest{StateReadRequest: &StateReadRequest{RequestId: "state-1", AccessId: "cache"}}},
+		{Protocol: Protocol, Sequence: 4, Payload: &Frame_StateWriteRequest{StateWriteRequest: &StateWriteRequest{RequestId: "state-2", AccessId: "cache", ValueEnvelope: []byte(`{}`)}}},
+		{Protocol: Protocol, Sequence: 5, Payload: &Frame_Action{Action: &ActionEvent{
+			EffectId: "write", Action: "plugin.write", Outcome: "succeeded", SummaryCode: "plugin.write_completed",
+			Counters: []*Counter{{Key: "items", Value: 1}}, Facts: []*Fact{{Key: "target", Value: "redacted"}},
+		}}},
+	}
+	for _, frame := range frames {
+		if err := ValidateFrame(frame); err != nil {
+			t.Fatalf("ValidateFrame(%T) error = %v", frame.Payload, err)
+		}
+	}
+	frames[len(frames)-1].GetAction().Facts = []*Fact{{Key: "target"}, {Key: "target"}}
+	if err := ValidateFrame(frames[len(frames)-1]); err == nil {
+		t.Fatal("accepted duplicate action facts")
+	}
+}
+
 func testInvocationFrame() *Frame {
 	return &Frame{Protocol: Protocol, Sequence: 1, Payload: &Frame_Invocation{Invocation: &Invocation{
 		RequestId: "request-1", InvocationId: "invocation-1", GraphId: "main", NodeId: "node-1", Attempt: 1,
