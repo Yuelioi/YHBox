@@ -6,16 +6,14 @@ summary: "Implement and validate the AI-native destructive Yotta 3.1 architectur
 
 ## State
 
-process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 sandbox；generic Process Node 必须绑定 content-addressed package/operation，并在 Windows 使用 LPAC、atomic Job List、exact inherited handles、单进程与资源预算，Linux/macOS 在等价隔离前不注册 provider。旧 `RunProgram(Target, Args, WorkingDir)` 与 `taskkill /IM` 不得迁移或保留兼容入口。
+已完成 exact installed window capture 3.1 纵切面：安装目标新增显式 GDI/WGC capture backend，backend 不可用或 WGC 发生 fallback 时安装直接失败；automation/capture-session 只允许 capture + bounded read-capture，截图结果通过独立 blob-write authority 分块提交为 nominal Image BlobRef。legacy Capture 节点已删除，不保留 ROI/JPEG/ambient CaptureService 兼容路径。
 
-已安装应用生命周期、exact input 与 exact window activation 纵切面已完成，legacy Container runtime、旧图输入节点和 BringWindowForeground 已删除。录制现在只生成 immutable InputClip，旧 precise/simple 分叉、自动录制子图、RecordingContext、对应 validator/dispatch/UI/RPC 字段均已切除。当前 frontier 是把 capture/image/template detection 与 PlayClip 迁移到 exact installed target、Capability/Grant、Blob/InputClip asset identity 与 attempt/action journal，再删除其余旧节点与旧 Container 命令面。
-
-第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 input target。
+当前 frontier 是把 template/color/detection 与 PlayClip 迁移到 exact installed target、Capability/Grant、Blob/InputClip asset identity 与 attempt/action journal，再删除其余旧 node/controller/validator/Container 命令面。第三方/CLI/AE/UE adapter worker 属于后续 Plugin Host，必须走 LPAC + Job + typed protocol，不能复用桌面应用启动器或 automation target。
 ## Next
 
 按独立 commit 连续完成剩余破坏性升级，不保留 dual-read/write、兼容 shim 或运行时 fallback：
 
-1. image/automation：迁移 capture/detect/template 与 PlayClip，使 operation、target、scope、host binding、Run Grant、Blob/InputClip asset identity 与 attempt/action journal exact 且 fail closed；每批调用方切换后立即删除对应 legacy node/controller/validator。
+1. image/automation：迁移 detect/template 与 PlayClip，使 operation、target、scope、host binding、Run Grant、Blob/InputClip asset identity 与 attempt/action journal exact 且 fail closed；每批调用方切换后立即删除对应 legacy node/controller/validator。
 2. legacy deletion：删除旧 Container Run/Debug/调度/热键命令面、旧 LLM、旧 NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
 3. extension host：交付 Node Package、Wasm/Process host、生命周期、SDK 与 conformance fixture；不加载 Go plugin 或第三方前端代码。
 4. projection/docs/final：从 Data Type/Node Contract 单一事实源生成 UI 提示、catalog、docs 与 golden fixture，运行 `task check` 和最终架构 review。
@@ -49,6 +47,7 @@ process 安全研究已完成：无 shell 只消除 shell 语法解释，不是 
 ## Progress
 
 Done:
+- 完成 exact installed window capture 3.1 纵切面：安装档案固定 `gdi` 或 `wgc`，显式 backend 不可用或发生 fallback 时 fail closed；独立 capture capability/resource session 只暴露一次 capture 与 64 KiB bounded read，运行时通过独立 blob-write authority 提交 `image/png`，节点只输出 nominal Image BlobRef，journal 仅记录 bytes/chunks。Settings/Wails/Vue、生成 Catalog/docs 同步更新，legacy `Capture` ROI/JPEG/ambient service 节点删除；全量 Go、focused race、vet/staticcheck、contracts/Wails、前端 101/649 与 production build 全绿，提交 `fe3e647d`。
 - 完成 exact window activation 3.1 纵切面：同一不可变安装目标以独立 automation/window capability 与 resource kind 暴露 activate，不能与 input session 互开；每次调用重验 executable/window 唯一身份，失败显式走 failed 并记录 action journal。删除旧 BringWindowForeground 的 warn-and-success 路径，补齐 exact input/window 的 UI 文案与生成文档，提交 `fc476bee`。
 - 破坏性删除 legacy Container executor、execution facade 与 run classifier，共移除 124 个 runtime 文件和 20,961 行旧执行代码；旧 registry/runtime 不再可被 Go package graph 引用，提交 `34d8a9ab`。
 - 破坏性删除 9 组旧 input graph nodes 及其 validator/dispatch 测试；录制收敛为唯一 immutable InputClip 路径，删除 simple subgraph transform、precise/simple mode、Subgraph RecordingContext 及全部 UI/Wails 字段，lint debt 264→261，提交 `9a43fd3e`。
