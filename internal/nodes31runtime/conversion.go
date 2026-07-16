@@ -70,6 +70,11 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.CaptureWindowNodeID:        captureWindow(builtins),
 		nodes31.PlayInputClipNodeID:        playInputClip(),
 		nodes31.MatchTemplateNodeID:        matchTemplate(builtins),
+		nodes31.FindTemplateMatchesNodeID:  findTemplateMatches(builtins),
+		nodes31.CompareImagesNodeID:        compareImages(builtins),
+		nodes31.DecodeQRNodeID:             decodeQR(builtins),
+		nodes31.AnalyzeColorNodeID:         analyzeColor(builtins),
+		nodes31.FindColorBlobsNodeID:       findColorBlobs(builtins),
 		nodes31.LogNodeID:                  writeLog(dependencies.Log),
 		nodes31.ThrowNodeID:                throwFailure(),
 	}

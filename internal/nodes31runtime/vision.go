@@ -13,7 +13,6 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/pkg/vision"
@@ -117,7 +116,7 @@ func matchTemplate(builtins nodes31.Builtins) compiler.Adapter {
 		counters["template_bytes"] = templateRef.Size
 		counters["search_pixels"] = int64(searchWidth * searchHeight)
 		counters["template_pixels"] = int64(templateWidth * templateHeight)
-		return sealVisionMatchOutputs(builtins, invocation, matched, float64(score), center, bounds)
+		return sealVisionMatchOutputs(builtins, invocation, matched, boundedVisionScore(score), center, bounds)
 	}
 }
 
@@ -240,25 +239,12 @@ func uniformVisionTemplate(gray []float32) bool {
 	return maximum-minimum < 1e-6
 }
 
+func boundedVisionScore(score float32) float64 {
+	return math.Max(-1, math.Min(1, float64(score)))
+}
+
 func sealVisionMatchOutputs(builtins nodes31.Builtins, invocation compiler.Invocation, matched bool, score float64, center visionPoint, bounds visionRegion) (compiler.AdapterResult, error) {
-	values := map[string]any{"matched": matched, "score": score, "center": center, "bounds": bounds}
-	outputs := make(map[string]datatype.ValueEnvelope, len(values))
-	for id, value := range values {
-		resolved, ok := invocation.OutputTypes[id]
-		if !ok {
-			return compiler.AdapterResult{}, visionFailure(nodes31.VisionMatchFailedCode, fmt.Errorf("output type %q is unresolved", id))
-		}
-		raw, err := json.Marshal(value)
-		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes31.VisionMatchFailedCode, err)
-		}
-		envelope, err := datatype.SealInlineJSON(builtins.Catalog, resolved, raw)
-		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes31.VisionMatchFailedCode, fmt.Errorf("seal output %q: %w", id, err))
-		}
-		outputs[id] = envelope
-	}
-	return compiler.AdapterResult{Outputs: outputs}, nil
+	return sealVisionOutputs(builtins, invocation, map[string]any{"matched": matched, "score": score, "center": center, "bounds": bounds})
 }
 
 func visionFailure(code string, cause error) error {

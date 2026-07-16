@@ -74,6 +74,10 @@ type Builtins struct {
 	PointUnitType                datatype.Definition
 	PointType                    datatype.Definition
 	RegionType                   datatype.Definition
+	TemplateMatchType            datatype.Definition
+	QRCodeType                   datatype.Definition
+	ColorRangeType               datatype.Definition
+	ColorBlobType                datatype.Definition
 	PointerButtonType            datatype.Definition
 	KeyCodeType                  datatype.Definition
 	RandomDistributionType       datatype.Definition
@@ -97,6 +101,7 @@ type Builtins struct {
 	CaptureWindowContract        nodecontract.Contract
 	PlayInputClipContract        nodecontract.Contract
 	MatchTemplateContract        nodecontract.Contract
+	VisionAnalysisContracts      []nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -144,6 +149,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	jsonType, pointUnitType, pointType, regionType, err := sealExtendedTypes()
+	if err != nil {
+		return Builtins{}, err
+	}
+	visionTypes, err := sealVisionTypes()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -231,6 +240,13 @@ func Build() (Builtins, error) {
 		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
 		jsonRef: jsonType.TypeRef(), pointUnitRef: pointUnitType.TypeRef(), pointRef: pointType.TypeRef(), regionRef: regionType.TypeRef(),
 	}, imageType.TypeRef(), blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
+	visionAnalysisDefinitions, visionAnalysisContracts, err := defineVisionAnalysisNodes(extendedTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+		jsonRef: jsonType.TypeRef(), pointUnitRef: pointUnitType.TypeRef(), pointRef: pointType.TypeRef(), regionRef: regionType.TypeRef(),
+	}, visionTypes, imageType.TypeRef(), blobRead)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -349,6 +365,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, captureWindowDefinition)
 	definitions = append(definitions, playInputClipDefinition)
 	definitions = append(definitions, matchTemplateDefinition)
+	definitions = append(definitions, visionAnalysisDefinitions...)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -362,7 +379,11 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
+	types := []datatype.Definition{
+		stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
+		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
+		pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
+	}
 	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
@@ -372,6 +393,7 @@ func Build() (Builtins, error) {
 		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, InputClipType: inputClipType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
+		TemplateMatchType: visionTypes.templateMatch, QRCodeType: visionTypes.qrCode, ColorRangeType: visionTypes.colorRange, ColorBlobType: visionTypes.colorBlob,
 		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
@@ -387,6 +409,7 @@ func Build() (Builtins, error) {
 		CaptureWindowContract:    captureWindowContract,
 		PlayInputClipContract:    playInputClipContract,
 		MatchTemplateContract:    matchTemplateContract,
+		VisionAnalysisContracts:  visionAnalysisContracts,
 		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
