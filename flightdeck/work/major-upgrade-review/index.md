@@ -12,10 +12,10 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 - Wave A `be1fc04b`：Launcher/Settings/Hotkey 活跃入口切到 Workflow 3.1；旧 Container hotkey/calibration RPC 删除。
 - Wave B `d060798c`：Asset、Tools、Recording 统一按已安装 `targetSlot` 使用 host-only AuthoringTargets projection；删除按 Container 节点解析窗口、重复创建 capture backend 与录制 target platform resolver。
+- Wave C `9fce7870`：物理删除旧 Container/Subgraph/Node/CodeSnippet Wails RPC 与 Store、旧 Container editor 产品树、兼容迁移和 validate-fishing-v2；Wails contract 收敛为 14 services / 89 methods / 99 models。
 - 同一份 sealed automation installation/provider 同时服务 Run capability broker 和可信本地制作工具；Workflow 仍无法获得 native handle 或绕过 Grant。
-- Wails contract 保持 18 services / 130 methods / 148 models；Asset/Tools/Recording 的 `containerID/nodeID` 参数与 DTO 字段切为 `targetSlot`。
 
-当前进入 Wave C“删除旧产品树”。全局 typecheck 的 10 个错误已精确定位到不可达的旧 Container editor/store/composables；不会用可变参数、alias 或把 container ID 冒充 target slot 来修复，直接删除整棵旧树及其 Wails service。
+当前进入 Wave D“Node Contract 单一事实源”。剩余旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、script binding 与节点文档/i18n 库存必须改为只消费 3.1 Catalog/Authoring Projection 后物理删除，不保留 adapter registry、kind switch 或兼容类型。
 
 ## Work outline
 
@@ -31,17 +31,17 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 2. tools、校准、热键 binder 改用 3.1 installation/target identity。
 3. 删除 main composition root 中仅为旧 Container 服务的后置 Configure/Set wiring。
 
-### C. 删除旧产品树
+### C. 删除旧产品树（✅ 已完成：9fce7870）
 
-1. 删除不可达的 `ContainersView`、`ContainerEditorView`、旧 Pin/Inspector/registry/composables/store 和对应 i18n/tests。
-2. 删除旧 Container Wails RPC、Store、validator/package/export/subgraph compatibility 路径。
-3. 重生成 Wails contract，确保没有双入口或 compatibility shim。
+1. 删除不可达的 `ContainersView`、`ContainerEditorView`、旧 Pin/Inspector/registry/composables/store 和对应 tests。
+2. 删除旧 Container Wails RPC、Store、validator/package/export/subgraph compatibility 路径，以及 CodeSnippet/NodeOptions 服务和旧数据迁移。
+3. 重生成 Wails bindings/contract，确认 14 services / 89 methods / 99 models；不存在旧 RPC、DTO 或 compatibility shim。
 
 ### D. Node Contract 单一事实源
 
-1. 让剩余 UI、表达式/脚本 authoring 只消费 3.1 Authoring Projection/Catalog。
-2. 删除旧 `NodeService.GetAllNodeSpecs`、前端 adapter registry、`CanonicalPinType`、`PinTypeCompat`、`CoerceInputValue` 和按 kind validator/dispatch。
-3. 普通内置节点新增不再修改中央 switch；生成契约、文档和 fixtures 同源。
+1. 让剩余 UI、表达式/脚本 authoring、CLI 文档只消费 3.1 Authoring Projection/Catalog。
+2. 删除旧 `internal/node`、`internal/nodes/*`、`internal/catalog`、`CanonicalPinType`、`PinTypeCompat`、`CoerceInputValue` 和按 kind validator/dispatch。
+3. 普通内置节点新增不再修改中央 switch；生成契约、参数提示、文档和 fixtures 同源。
 
 ### E. AI 与插件
 
@@ -58,7 +58,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## Next
 
-Wave C 当前切片：从 router 可达性与 import graph 出发删除 `ContainersView`、`ContainerEditorView`、旧 Container store/composables/components/tests/i18n，并从 main 移除 Container/Subgraph/Node legacy Wails services 及只为其存在的 wiring。重生成 contract 后要求全局 frontend typecheck 恢复为绿；不保留旧 RPC、DTO 或 compatibility shim。
+Wave D 当前切片：先建立 `internal/node` / `internal/nodes/*` / `internal/catalog` / `internal/services/script` / `cmd/node-catalog` 的精确 import 与功能映射；把 CLI 文档、脚本 authoring 和剩余 UI 参数提示切到 3.1 Catalog + Authoring Projection，再一次性删除旧 registry/节点实现与旧 node i18n。定向验证优先，完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 
@@ -91,16 +91,19 @@ Completed foundations:
 - port-level Authoring Projection + immutable template variant binding；
 - legacy Container executor、PlayClip、detect/image/VisionService/template GUID dependency 和 unsafe asset GC 删除；
 - Launcher/Settings/Hotkey 活跃入口已切到 Workflow 3.1，旧 Container hotkey/calibration RPC 删除；
-- Asset/Tools/Recording 已按 installed target slot 运行，Container window resolver 与重复 capture adapter 删除。
+- Asset/Tools/Recording 已按 installed target slot 运行，Container window resolver 与重复 capture adapter 删除；
+- 旧 Container/Subgraph/Node/CodeSnippet RPC 与 Store、Container editor 产品树和兼容迁移已物理删除。
 
-Latest Wave B verification:
+Latest Wave C verification:
 
-- `go test . ./internal/apperr ./internal/automation/installed ./internal/services/asset ./internal/services/tools ./internal/services/recording`
-- Recording/Standalone Vitest：2 files / 17 tests
+- `go list ./...`
+- `go test -count=1 -timeout=30s . ./cmd/node-catalog ./internal/architecture ./internal/services/recording`
+- focused Vitest：2 files / 6 tests
+- `pnpm -C frontend typecheck`
 - `pnpm -C frontend i18n:check`：3064 keys
-- regenerated Wails bindings + `pnpm -C frontend bindings:check`
-- `git diff --check`
-- 全局 `pnpm -C frontend typecheck` 当前仅剩旧 Container tree 10 errors，作为 Wave C 删除验收清单，不做兼容修复。
+- regenerated Wails bindings + `pnpm -C frontend bindings:check`：14 services / 89 methods / 99 models
+- `pnpm -C frontend build:dev`
+- legacy path/import residue scan + `git diff --check`
 
 上一完整阶段门禁仍为 `go test ./...`、affected `staticcheck`、`task contracts:check`、`pnpm -C frontend check`（100 files / 641 tests、production build、bundle budgets）。全量 `task check` 只在最终阶段运行。
 
