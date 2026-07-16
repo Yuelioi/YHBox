@@ -953,8 +953,168 @@ export default {
         description: 'A canonical keyboard key injectable into an exact installed target.',
       },
     },
+    vision: {
+      templateMatch: {
+        title: 'Template match',
+        description: 'One scored template location in pixel coordinates.',
+      },
+      qrCode: { title: 'QR code', description: 'Decoded text and locator points for one QR code.' },
+      colorRange: {
+        title: 'Color range',
+        description: 'An explicit inclusive RGB or HSV channel range.',
+      },
+      colorBlob: {
+        title: 'Color blob',
+        description: 'One four-connected color component with area and geometry.',
+      },
+    },
   },
   node: {
+    vision: {
+      matchTemplate: {
+        title: 'Match template',
+        description:
+          'Find the best location of one immutable template image inside an explicit source image.',
+        input: {
+          image: {
+            title: 'Source image',
+            description: 'Image to search; connect Capture Window or bind an Image BlobRef.',
+          },
+          template: {
+            title: 'Template image',
+            description: 'Exact immutable template variant used for this workflow.',
+          },
+          region: {
+            title: 'Search region',
+            description: 'Ratio or pixel rectangle inside the source image.',
+          },
+          threshold: {
+            title: 'Match threshold',
+            description: 'Minimum normalized score from 0 to 1 considered matched.',
+          },
+        },
+        output: {
+          matched: {
+            title: 'Matched',
+            description: 'True when the best score reaches the threshold.',
+          },
+          score: { title: 'Score', description: 'Best normalized correlation score.' },
+          center: { title: 'Center', description: 'Pixel center of the best candidate.' },
+          bounds: { title: 'Bounds', description: 'Pixel bounds of the best candidate.' },
+        },
+      },
+      findTemplateMatches: {
+        title: 'Find template matches',
+        description:
+          'Return all local template matches after deterministic non-maximum suppression.',
+        input: {
+          image: { title: 'Source image', description: 'Image to search.' },
+          template: {
+            title: 'Template image',
+            description: 'Exact immutable template variant used for this workflow.',
+          },
+          region: {
+            title: 'Search region',
+            description: 'Ratio or pixel rectangle inside the source image.',
+          },
+          threshold: {
+            title: 'Match threshold',
+            description: 'Minimum normalized score from 0 to 1.',
+          },
+          'minimum-distance': {
+            title: 'Minimum distance',
+            description:
+              'Minimum pixel distance between retained match centers; 0 uses half the smaller template edge.',
+          },
+        },
+        output: {
+          matches: {
+            title: 'Matches',
+            description: 'Score-sorted list of typed template matches.',
+          },
+        },
+      },
+      compareImages: {
+        title: 'Compare images',
+        description:
+          'Measure visual difference between two explicit images on the same logical region.',
+        input: {
+          before: { title: 'Before image', description: 'Baseline image.' },
+          after: { title: 'After image', description: 'Image compared with the baseline.' },
+          region: {
+            title: 'Comparison region',
+            description: 'Same ratio or pixel region resolved independently in both images.',
+          },
+          'grid-size': {
+            title: 'Grid size',
+            description: 'Box-average grid width and height, from 1 to 256.',
+          },
+          'cell-delta': {
+            title: 'Cell delta',
+            description: 'Per-channel 8-bit difference required to count a grid cell as changed.',
+          },
+        },
+        output: {
+          'changed-ratio': {
+            title: 'Changed ratio',
+            description:
+              'Fraction of grid cells whose maximum channel delta exceeds the threshold.',
+          },
+          'mean-difference': {
+            title: 'Mean difference',
+            description: 'Mean absolute channel difference normalized to 0–1.',
+          },
+        },
+      },
+      decodeQR: {
+        title: 'Decode QR codes',
+        description: 'Decode every QR code found in an explicit image region.',
+        input: {
+          image: { title: 'Source image', description: 'Image containing QR codes.' },
+          region: { title: 'Decode region', description: 'Ratio or pixel rectangle to decode.' },
+        },
+        output: { codes: { title: 'QR codes', description: 'Decoded text and locator points.' } },
+      },
+      analyzeColor: {
+        title: 'Analyze color',
+        description: 'Count pixels inside one explicit RGB or HSV range.',
+        input: {
+          image: { title: 'Source image', description: 'Image to analyze.' },
+          range: { title: 'Color range', description: 'Inclusive RGB or HSV channel bounds.' },
+          region: { title: 'Analysis region', description: 'Ratio or pixel rectangle to scan.' },
+        },
+        output: {
+          'pixel-count': { title: 'Pixel count', description: 'Number of matching pixels.' },
+          fraction: {
+            title: 'Fraction',
+            description: 'Matching pixels divided by all pixels in the region.',
+          },
+          centroid: {
+            title: 'Centroid',
+            description: 'Pixel centroid of matching pixels; zero when none match.',
+          },
+        },
+      },
+      findColorBlobs: {
+        title: 'Find color blobs',
+        description: 'Extract deterministic four-connected components from an RGB or HSV mask.',
+        input: {
+          image: { title: 'Source image', description: 'Image to analyze.' },
+          range: { title: 'Color range', description: 'Inclusive RGB or HSV channel bounds.' },
+          region: { title: 'Analysis region', description: 'Ratio or pixel rectangle to scan.' },
+          'minimum-area': {
+            title: 'Minimum area',
+            description: 'Discard components smaller than this pixel count.',
+          },
+        },
+        output: {
+          blobs: {
+            title: 'Color blobs',
+            description: 'Components sorted by area, then vertical and horizontal position.',
+          },
+        },
+      },
+    },
     text: {
       concat: {
         title: 'Concatenate',
@@ -3801,6 +3961,17 @@ export default {
       inputs: 'Inputs',
       reference_only: 'This port accepts {carrier} references through a compatible connection.',
       select_clip: 'Select an input clip',
+      select_template: 'Select an exact template variant',
+      color_rgb: 'RGB',
+      color_hsv: 'HSV',
+      color_red: 'Red',
+      color_green: 'Green',
+      color_blue: 'Blue',
+      color_hue: 'Hue',
+      color_saturation: 'Saturation',
+      color_value: 'Value',
+      color_minimum: 'Minimum',
+      color_maximum: 'Maximum',
       use_default: 'Use default',
       clear: 'Clear',
       capabilities: 'Capabilities',

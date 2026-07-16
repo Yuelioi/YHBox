@@ -133,9 +133,12 @@ export interface PortProjection {
   binding: 'required' | 'optional' | 'default-available' | 'output'
   carrier: 'durable' | 'runtime'
   default?: any
+  descriptionKey?: string
+  editorAdapter?: string
   hasDefault: boolean
   id: string
   resourceLease?: ResourceLeaseBinding
+  titleKey?: string
   type: TypeUse
 }
 export interface ResourceLeaseBinding {

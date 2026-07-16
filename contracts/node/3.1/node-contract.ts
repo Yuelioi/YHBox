@@ -62,7 +62,17 @@ export interface Authoring {
   /**
    * @maxItems 4096
    */
+  ports: PortAuthoring[]
+  /**
+   * @maxItems 4096
+   */
   tags: string[]
+  titleKey?: string
+}
+export interface PortAuthoring {
+  descriptionKey?: string
+  editorAdapter?: string
+  id: string
   titleKey?: string
 }
 export interface NodeRef {

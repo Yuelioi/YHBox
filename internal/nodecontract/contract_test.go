@@ -63,7 +63,10 @@ func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
 	left := concatContractDraftForTest()
 	left.Authoring = Authoring{TitleKey: "node.concat.title", Tags: []string{"text"}}
 	right := concatContractDraftForTest()
-	right.Authoring = Authoring{TitleKey: "node.concat.renamed", Tags: []string{"utility"}}
+	right.Authoring = Authoring{
+		TitleKey: "node.concat.renamed", Tags: []string{"utility"},
+		Ports: []PortAuthoring{{ID: "a", TitleKey: "node.concat.input.a.title", DescriptionKey: "node.concat.input.a.description"}},
+	}
 
 	leftContract, err := Seal(left)
 	if err != nil {
@@ -83,8 +86,28 @@ func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
 	if reopened.NodeRef() != leftContract.NodeRef() || !bytes.Equal(reopened.SemanticBytes(), leftContract.SemanticBytes()) {
 		t.Fatal("semantic artifact round trip changed identity")
 	}
-	if reopened.Authoring().TitleKey != "" || len(reopened.Authoring().Tags) != 0 {
+	if reopened.Authoring().TitleKey != "" || len(reopened.Authoring().Tags) != 0 || len(reopened.Authoring().Ports) != 0 {
 		t.Fatalf("machine-only contract leaked authoring: %#v", reopened.Authoring())
+	}
+}
+
+func TestPortAuthoringIsStrictAndCannotReferenceUnknownPorts(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Authoring = Authoring{Tags: []string{}, Ports: []PortAuthoring{{ID: "a", EditorAdapter: "template-image"}}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contract.Authoring().Ports) != 1 || contract.Authoring().Ports[0].ID != "a" {
+		t.Fatalf("port authoring = %#v", contract.Authoring().Ports)
+	}
+	draft.Authoring.Ports[0].ID = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted authoring metadata for an unknown port")
+	}
+	draft.Authoring.Ports[0] = PortAuthoring{ID: "a", EditorAdapter: "plugin-javascript"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an unregistered port editor adapter")
 	}
 }
 

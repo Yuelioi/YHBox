@@ -41,7 +41,8 @@ const (
 )
 
 var builtInEditorAdapters = map[string]struct{}{
-	"point": {},
+	"color-range": {},
+	"point":       {},
 }
 
 type TypeRef struct {

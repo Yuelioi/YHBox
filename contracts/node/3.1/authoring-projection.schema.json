@@ -642,6 +642,12 @@
           "type": "string"
         },
         "default": true,
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
         "hasDefault": {
           "type": "boolean"
         },
@@ -650,6 +656,9 @@
         },
         "resourceLease": {
           "$ref": "#/$defs/ResourceLeaseBinding"
+        },
+        "titleKey": {
+          "type": "string"
         },
         "type": {
           "$ref": "#/$defs/TypeUse"

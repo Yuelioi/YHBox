@@ -231,7 +231,8 @@ export interface AssetSummary {
   category?: string
   tags?: string[]
   variantCount: number
-  firstBlob?: BlobRef
+  variants: Array<{ resolution: [number, number]; blob: BlobRef }>
+  blob?: BlobRef
   createdAt?: string
 }
 

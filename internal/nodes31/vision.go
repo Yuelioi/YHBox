@@ -23,21 +23,22 @@ func defineMatchTemplateNode(types extendedTypes, imageRef datatype.TypeRef, blo
 	const schemaID = MatchTemplateNodeID + "/config"
 	defaultRegion := json.RawMessage(`{"x":0,"y":0,"width":1,"height":1,"unit":"ratio"}`)
 	defaultThreshold := json.RawMessage(`0.8`)
+	inputs := []nodecontract.DataInputPort{
+		{ID: "image", Type: datatype.RefExpression(imageRef), Required: true},
+		{ID: "template", Type: datatype.RefExpression(imageRef), Required: true},
+		{ID: "region", Type: datatype.RefExpression(types.regionRef), Required: true, Default: &defaultRegion},
+		{ID: "threshold", Type: datatype.RefExpression(types.numberRef), Required: true, Default: &defaultThreshold},
+	}
+	outputs := []nodecontract.DataOutputPort{
+		{ID: "matched", Type: datatype.RefExpression(types.booleanRef)},
+		{ID: "score", Type: datatype.RefExpression(types.numberRef)},
+		{ID: "center", Type: datatype.RefExpression(types.pointRef)},
+		{ID: "bounds", Type: datatype.RefExpression(types.regionRef)},
+	}
 	contract, err := nodecontract.Seal(nodecontract.Draft{
 		NodeTypeID: MatchTemplateNodeID, ConfigSchemaRoot: schemaID, ConfigSchemaBundle: emptyConfigSchema(schemaID),
 		Ports: nodecontract.PortSet{
-			DataInputs: []nodecontract.DataInputPort{
-				{ID: "image", Type: datatype.RefExpression(imageRef), Required: true},
-				{ID: "template", Type: datatype.RefExpression(imageRef), Required: true},
-				{ID: "region", Type: datatype.RefExpression(types.regionRef), Required: true, Default: &defaultRegion},
-				{ID: "threshold", Type: datatype.RefExpression(types.numberRef), Required: true, Default: &defaultThreshold},
-			},
-			DataOutputs: []nodecontract.DataOutputPort{
-				{ID: "matched", Type: datatype.RefExpression(types.booleanRef)},
-				{ID: "score", Type: datatype.RefExpression(types.numberRef)},
-				{ID: "center", Type: datatype.RefExpression(types.pointRef)},
-				{ID: "bounds", Type: datatype.RefExpression(types.regionRef)},
-			},
+			DataInputs: inputs, DataOutputs: outputs,
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: conversionExecution(MatchTemplateEffectID), Instruction: nodecontract.Invoke(),
@@ -53,6 +54,7 @@ func defineMatchTemplateNode(types extendedTypes, imageRef datatype.TypeRef, blo
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.vision.matchTemplate.title", DescriptionKey: "node.vision.matchTemplate.description", Category: "vision",
 			Tags: []string{"image", "template", "vision"}, Icon: "scan",
+			Ports: visionPortHints("node.vision.matchTemplate", inputs, outputs, map[string]string{"template": "template-image"}),
 		},
 	})
 	if err != nil {

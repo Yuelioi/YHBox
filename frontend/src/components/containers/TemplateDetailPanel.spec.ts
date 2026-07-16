@@ -30,7 +30,12 @@ vi.mock('@/stores/templates', () => ({
         description: '',
         category: '',
         tags: [],
-        firstBlob: { mediaType: 'image/png', digest: `sha256:${'1'.repeat(64)}`, size: 1 },
+        variants: [
+          {
+            resolution: [1920, 1080],
+            blob: { mediaType: 'image/png', digest: `sha256:${'1'.repeat(64)}`, size: 1 },
+          },
+        ],
       },
     },
   }),

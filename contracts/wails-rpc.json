@@ -4,7 +4,7 @@
   "summary": {
     "services": 18,
     "methods": 138,
-    "models": 157
+    "models": 158
   },
   "services": [
     {
@@ -3229,7 +3229,12 @@
               "type": "number"
             },
             {
-              "name": "\"firstBlob\"",
+              "name": "\"variants\"",
+              "optional": false,
+              "type": "AssetVariantSummary[]"
+            },
+            {
+              "name": "\"blob\"",
               "optional": true,
               "type": "blob$0.BlobRef | null"
             },
@@ -3237,6 +3242,22 @@
               "name": "\"createdAt\"",
               "optional": true,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AssetVariantSummary",
+          "fields": [
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
             }
           ]
         },

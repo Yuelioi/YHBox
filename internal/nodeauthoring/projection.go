@@ -147,13 +147,16 @@ type TypeUse struct {
 }
 
 type PortProjection struct {
-	ID         string                             `json:"id"`
-	Binding    BindingState                       `json:"binding" jsonschema:"required,enum=required,enum=optional,enum=default-available,enum=output"`
-	HasDefault bool                               `json:"hasDefault"`
-	Default    json.RawMessage                    `json:"default,omitempty"`
-	Carrier    Carrier                            `json:"carrier" jsonschema:"required,enum=durable,enum=runtime"`
-	Type       TypeUse                            `json:"type"`
-	Lease      *nodecontract.ResourceLeaseBinding `json:"resourceLease,omitempty"`
+	ID             string                             `json:"id"`
+	TitleKey       string                             `json:"titleKey,omitempty"`
+	DescriptionKey string                             `json:"descriptionKey,omitempty"`
+	EditorAdapter  string                             `json:"editorAdapter,omitempty"`
+	Binding        BindingState                       `json:"binding" jsonschema:"required,enum=required,enum=optional,enum=default-available,enum=output"`
+	HasDefault     bool                               `json:"hasDefault"`
+	Default        json.RawMessage                    `json:"default,omitempty"`
+	Carrier        Carrier                            `json:"carrier" jsonschema:"required,enum=durable,enum=runtime"`
+	Type           TypeUse                            `json:"type"`
+	Lease          *nodecontract.ResourceLeaseBinding `json:"resourceLease,omitempty"`
 }
 
 type SignalProjection struct {
@@ -413,6 +416,10 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
 	}
+	portAuthoring := make(map[string]nodecontract.PortAuthoring, len(authoring.Ports))
+	for _, port := range authoring.Ports {
+		portAuthoring[port.ID] = port
+	}
 	for _, port := range machine.Ports.DataInputs {
 		use, err := projectTypeUse(port.Type, types)
 		if err != nil {
@@ -428,7 +435,11 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		if port.ResourceLease != nil {
 			carrier = CarrierRuntime
 		}
-		projectedPort := PortProjection{ID: port.ID, Binding: binding, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease)}
+		hint := portAuthoring[port.ID]
+		projectedPort := PortProjection{
+			ID: port.ID, TitleKey: hint.TitleKey, DescriptionKey: hint.DescriptionKey, EditorAdapter: hint.EditorAdapter,
+			Binding: binding, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease),
+		}
 		if port.Default != nil {
 			projectedPort.HasDefault = true
 			projectedPort.Default = append(json.RawMessage(nil), (*port.Default)...)
@@ -444,7 +455,11 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		if port.ResourceLease != nil {
 			carrier = CarrierRuntime
 		}
-		projection.DataOutputs = append(projection.DataOutputs, PortProjection{ID: port.ID, Binding: BindingOutput, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease)})
+		hint := portAuthoring[port.ID]
+		projection.DataOutputs = append(projection.DataOutputs, PortProjection{
+			ID: port.ID, TitleKey: hint.TitleKey, DescriptionKey: hint.DescriptionKey, EditorAdapter: hint.EditorAdapter,
+			Binding: BindingOutput, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease),
+		})
 	}
 	addSignals := func(channel, direction string, ports []nodecontract.SignalPort) {
 		for _, port := range ports {

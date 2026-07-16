@@ -72,7 +72,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	}
 
 	list := svc.List()
-	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || list[0].FirstBlob == nil || *list[0].FirstBlob != v.Blob {
+	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || len(list[0].Variants) != 1 || list[0].Variants[0].Blob != v.Blob {
 		t.Fatalf("List = %+v", list)
 	}
 }

@@ -38,6 +38,12 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		concat.DataInputs[0].Type.Lifecycle != nodeauthoring.LifecycleDurable {
 		t.Fatalf("concat input projection = %#v", concat.DataInputs[0])
 	}
+	matchTemplate, ok := projection.Node(nodes31.MatchTemplateNodeID)
+	if !ok || len(matchTemplate.DataInputs) < 2 || matchTemplate.DataInputs[1].ID != "template" ||
+		matchTemplate.DataInputs[1].EditorAdapter != "template-image" || matchTemplate.DataInputs[1].TitleKey == "" ||
+		matchTemplate.DataInputs[1].DescriptionKey == "" {
+		t.Fatalf("template port authoring projection = %#v", matchTemplate.DataInputs)
+	}
 	if len(concat.ConfigFields) != 0 || concat.Availability != nodeauthoring.AvailabilityPortable {
 		t.Fatalf("concat config/availability = %#v / %q", concat.ConfigFields, concat.Availability)
 	}

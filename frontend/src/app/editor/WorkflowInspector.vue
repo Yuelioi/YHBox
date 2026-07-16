@@ -138,13 +138,21 @@
               :style="{ backgroundColor: port.type.color || '#a1a1aa' }"
               aria-hidden="true"
             />
-            <span class="text-xs font-medium text-toned">{{ port.id }}</span>
+            <span class="text-xs font-medium text-toned">{{ portTitle(port) }}</span>
             <span class="ml-auto font-mono text-[10px] text-dimmed">
               {{ typeLabel(port) }} · {{ port.binding }}
             </span>
           </div>
+          <p v-if="portDescription(port)" class="text-[11px] leading-5 text-muted">
+            {{ portDescription(port) }}
+          </p>
           <PointValueEditor
             v-if="acceptsInline(port) && port.type.editorAdapter === 'point'"
+            :model-value="literalValue(node.bindings[port.id], port.default)"
+            @update:model-value="setLiteral(port.id, $event)"
+          />
+          <ColorRangeValueEditor
+            v-else-if="acceptsInline(port) && port.type.editorAdapter === 'color-range'"
             :model-value="literalValue(node.bindings[port.id], port.default)"
             @update:model-value="setLiteral(port.id, $event)"
           />
@@ -185,6 +193,16 @@
             :placeholder="literalPlaceholder(port)"
             class="w-full font-mono text-xs"
             @change="setLiteralJSON(port.id, $event)"
+          />
+          <USelect
+            v-else-if="port.editorAdapter === 'template-image'"
+            :model-value="selectedTemplateVariantId(node.bindings[port.id])"
+            :items="templateVariantItems"
+            value-key="value"
+            label-key="label"
+            :placeholder="t('workflow31.inspector.select_template')"
+            class="w-full"
+            @update:model-value="setTemplateImage(port.id, $event)"
           />
           <USelect
             v-else-if="isInputClip(port)"
@@ -264,7 +282,9 @@ import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-pr
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 import PointValueEditor from '@/app/editor/PointValueEditor.vue'
+import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
 import { useClipsStore } from '@/stores/clips'
+import { useTemplatesStore } from '@/stores/templates'
 
 const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 
@@ -278,11 +298,22 @@ const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
 const clipsStore = useClipsStore()
 const { clips } = storeToRefs(clipsStore)
+const templatesStore = useTemplatesStore()
+const { map: templates } = storeToRefs(templatesStore)
 const clipItems = computed(() =>
   clips.value.map((clip) => ({
     label: clip.label || clip.id,
     value: clip.id,
   })),
+)
+const templateVariantItems = computed(() =>
+  Object.values(templates.value).flatMap((asset) =>
+    asset.variants.map((variant, index) => ({
+      label: `${asset.name} · ${variant.resolution[0]}×${variant.resolution[1]}`,
+      value: `${asset.guid}:${index}`,
+      blob: variant.blob,
+    })),
+  ),
 )
 const newVariableName = ref('')
 const newVariableTypeId = ref('')
@@ -317,7 +348,10 @@ watch(
   { immediate: true },
 )
 
-onMounted(() => void clipsStore.refresh())
+onMounted(() => {
+  void clipsStore.refresh()
+  void templatesStore.reload()
+})
 
 function addStateVariable(): void {
   const type = selectedStateType.value
@@ -399,6 +433,23 @@ function setClip(portId: string, value: unknown): void {
   emit('command', { kind: 'bind-blob', nodeId: props.node.id, portId, blob: { ...clip.blob } })
 }
 
+function setTemplateImage(portId: string, value: unknown): void {
+  if (!props.node || typeof value !== 'string') return
+  const variant = templateVariantItems.value.find((candidate) => candidate.value === value)
+  if (!variant) return
+  emit('command', { kind: 'bind-blob', nodeId: props.node.id, portId, blob: { ...variant.blob } })
+}
+
+function selectedTemplateVariantId(binding: InputBinding | undefined): string | undefined {
+  if (binding?.kind !== 'blob' || !binding.blob) return undefined
+  return templateVariantItems.value.find(
+    (candidate) =>
+      candidate.blob.digest === binding.blob?.digest &&
+      candidate.blob.mediaType === binding.blob.mediaType &&
+      candidate.blob.size === binding.blob.size,
+  )?.value
+}
+
 function selectedClipId(binding: InputBinding | undefined): string | undefined {
   if (binding?.kind !== 'blob' || !binding.blob) return undefined
   return clips.value.find(
@@ -411,6 +462,14 @@ function selectedClipId(binding: InputBinding | undefined): string | undefined {
 
 function isInputClip(port: PortProjection): boolean {
   return port.type.typeIds.includes(inputClipTypeId)
+}
+
+function portTitle(port: PortProjection): string {
+  return port.titleKey && te(port.titleKey) ? t(port.titleKey) : port.id
+}
+
+function portDescription(port: PortProjection): string {
+  return port.descriptionKey && te(port.descriptionKey) ? t(port.descriptionKey) : ''
 }
 
 function acceptsInline(port: PortProjection): boolean {

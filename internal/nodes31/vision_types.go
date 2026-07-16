@@ -51,6 +51,7 @@ func sealVisionTypes() (visionTypeSet, error) {
 			{"type":"object","properties":{"space":{"const":"hsv"},"minimum":{"type":"array","prefixItems":[{"type":"integer","minimum":0,"maximum":360},{"type":"integer","minimum":0,"maximum":100},{"type":"integer","minimum":0,"maximum":100}],"items":false},"maximum":{"type":"array","prefixItems":[{"type":"integer","minimum":0,"maximum":360},{"type":"integer","minimum":0,"maximum":100},{"type":"integer","minimum":0,"maximum":100}],"items":false}},"required":["space","minimum","maximum"],"additionalProperties":false}
 		]`, datatype.Authoring{
 		TitleKey: "type.vision.colorRange.title", DescriptionKey: "type.vision.colorRange.description", Color: "#f43f5e", Icon: "color-swatch",
+		EditorAdapter: "color-range",
 		Examples: []json.RawMessage{
 			json.RawMessage(`{"space":"rgb","minimum":[220,0,0],"maximum":[255,80,80]}`),
 			json.RawMessage(`{"space":"hsv","minimum":[45,30,60],"maximum":[75,100,100]}`),

@@ -31,6 +31,7 @@ type visionNodeSpec struct {
 	inputs                                         []nodecontract.DataInputPort
 	outputs                                        []nodecontract.DataOutputPort
 	errors                                         []nodecontract.ErrorSpec
+	portAdapters                                   map[string]string
 }
 
 func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, imageRef datatype.TypeRef, blobRead capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
@@ -60,8 +61,9 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 				{ID: "threshold", Type: numberType, Required: true, Default: &defaultThreshold},
 				{ID: "minimum-distance", Type: integerType, Required: true, Default: &defaultMinimumDistance},
 			},
-			outputs: []nodecontract.DataOutputPort{{ID: "matches", Type: datatype.ListExpression(datatype.RefExpression(visionTypes.templateMatch.TypeRef()))}},
-			errors:  append([]nodecontract.ErrorSpec{{Code: VisionTemplateInvalidCode, Category: "vision", RetryHint: false}}, commonErrors...),
+			outputs:      []nodecontract.DataOutputPort{{ID: "matches", Type: datatype.ListExpression(datatype.RefExpression(visionTypes.templateMatch.TypeRef()))}},
+			errors:       append([]nodecontract.ErrorSpec{{Code: VisionTemplateInvalidCode, Category: "vision", RetryHint: false}}, commonErrors...),
+			portAdapters: map[string]string{"template": "template-image"},
 		},
 		{
 			id: CompareImagesNodeID, effect: CompareImagesEffectID, entrypoint: "vision.compare-images",
@@ -121,6 +123,7 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 			Authoring: nodecontract.Authoring{
 				TitleKey: spec.key + ".title", DescriptionKey: spec.key + ".description", Category: "vision",
 				Tags: []string{"analysis", "image", "vision"}, Icon: spec.icon,
+				Ports: visionPortHints(spec.key, spec.inputs, spec.outputs, spec.portAdapters),
 			},
 		})
 		if err != nil {
@@ -134,4 +137,20 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 		contracts = append(contracts, contract)
 	}
 	return definitions, contracts, nil
+}
+
+func visionPortHints(key string, inputs []nodecontract.DataInputPort, outputs []nodecontract.DataOutputPort, adapters map[string]string) []nodecontract.PortAuthoring {
+	result := make([]nodecontract.PortAuthoring, 0, len(inputs)+len(outputs))
+	for _, port := range inputs {
+		result = append(result, nodecontract.PortAuthoring{
+			ID: port.ID, TitleKey: key + ".input." + port.ID + ".title", DescriptionKey: key + ".input." + port.ID + ".description",
+			EditorAdapter: adapters[port.ID],
+		})
+	}
+	for _, port := range outputs {
+		result = append(result, nodecontract.PortAuthoring{
+			ID: port.ID, TitleKey: key + ".output." + port.ID + ".title", DescriptionKey: key + ".output." + port.ID + ".description",
+		})
+	}
+	return result
 }

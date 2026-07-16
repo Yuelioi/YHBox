@@ -925,8 +925,101 @@ export default {
       pointer_button: { title: '指针按键', description: '左键、右键或中键。' },
       key_code: { title: '按键码', description: '可注入到精确安装目标的规范化键盘按键。' },
     },
+    vision: {
+      templateMatch: { title: '模板命中', description: '一个带分数和像素坐标的模板命中。' },
+      qrCode: { title: '二维码', description: '一个二维码的解码文本与定位点。' },
+      colorRange: { title: '颜色范围', description: '显式、包含边界的 RGB 或 HSV 通道范围。' },
+      colorBlob: { title: '颜色连通域', description: '带面积与几何信息的四邻接颜色连通分量。' },
+    },
   },
   node: {
+    vision: {
+      matchTemplate: {
+        title: '匹配模板',
+        description: '在显式源图像中查找一个不可变模板图像的最佳位置。',
+        input: {
+          image: {
+            title: '源图像',
+            description: '待搜索图像；可连接“捕获窗口”或绑定 Image BlobRef。',
+          },
+          template: { title: '模板图像', description: '此工作流固定使用的精确、不可变模板变体。' },
+          region: { title: '搜索区域', description: '源图像内的比例或像素矩形。' },
+          threshold: { title: '匹配阈值', description: '0 到 1；最佳归一化分数达到它才算命中。' },
+        },
+        output: {
+          matched: { title: '是否命中', description: '最佳分数达到阈值时为 true。' },
+          score: { title: '分数', description: '最佳归一化相关分数。' },
+          center: { title: '中心点', description: '最佳候选的像素中心。' },
+          bounds: { title: '边界', description: '最佳候选的像素矩形。' },
+        },
+      },
+      findTemplateMatches: {
+        title: '查找全部模板',
+        description: '经过确定性非极大值抑制后返回全部局部模板命中。',
+        input: {
+          image: { title: '源图像', description: '待搜索图像。' },
+          template: { title: '模板图像', description: '此工作流固定使用的精确、不可变模板变体。' },
+          region: { title: '搜索区域', description: '源图像内的比例或像素矩形。' },
+          threshold: { title: '匹配阈值', description: '0 到 1 的最低归一化分数。' },
+          'minimum-distance': {
+            title: '最小距离',
+            description: '保留命中中心之间的最小像素距离；0 表示模板较短边的一半。',
+          },
+        },
+        output: { matches: { title: '命中列表', description: '按分数排序的强类型模板命中。' } },
+      },
+      compareImages: {
+        title: '比较图像',
+        description: '在同一逻辑区域上测量两张显式图像的视觉差异。',
+        input: {
+          before: { title: '之前图像', description: '基准图像。' },
+          after: { title: '之后图像', description: '与基准比较的图像。' },
+          region: { title: '比较区域', description: '在两张图中分别解析的同一比例或像素区域。' },
+          'grid-size': { title: '网格大小', description: '方框平均网格的宽和高，范围 1 到 256。' },
+          'cell-delta': { title: '单格差值', description: '某网格计为变化所需的 8 位通道差阈值。' },
+        },
+        output: {
+          'changed-ratio': { title: '变化比例', description: '最大通道差超过阈值的网格占比。' },
+          'mean-difference': { title: '平均差异', description: '归一化到 0–1 的平均绝对通道差。' },
+        },
+      },
+      decodeQR: {
+        title: '解码二维码',
+        description: '解码显式图像区域内发现的全部二维码。',
+        input: {
+          image: { title: '源图像', description: '包含二维码的图像。' },
+          region: { title: '解码区域', description: '要解码的比例或像素矩形。' },
+        },
+        output: { codes: { title: '二维码', description: '解码文本与定位点列表。' } },
+      },
+      analyzeColor: {
+        title: '分析颜色',
+        description: '统计落在显式 RGB 或 HSV 范围内的像素。',
+        input: {
+          image: { title: '源图像', description: '待分析图像。' },
+          range: { title: '颜色范围', description: '包含边界的 RGB 或 HSV 通道上下限。' },
+          region: { title: '分析区域', description: '要扫描的比例或像素矩形。' },
+        },
+        output: {
+          'pixel-count': { title: '像素数', description: '匹配像素数量。' },
+          fraction: { title: '占比', description: '匹配像素数除以区域总像素数。' },
+          centroid: { title: '质心', description: '匹配像素的像素质心；无匹配时为零点。' },
+        },
+      },
+      findColorBlobs: {
+        title: '查找颜色连通域',
+        description: '从 RGB 或 HSV 掩码提取确定性的四邻接连通分量。',
+        input: {
+          image: { title: '源图像', description: '待分析图像。' },
+          range: { title: '颜色范围', description: '包含边界的 RGB 或 HSV 通道上下限。' },
+          region: { title: '分析区域', description: '要扫描的比例或像素矩形。' },
+          'minimum-area': { title: '最小面积', description: '丢弃像素数小于此值的连通分量。' },
+        },
+        output: {
+          blobs: { title: '颜色连通域', description: '按面积、纵向位置、横向位置稳定排序。' },
+        },
+      },
+    },
     text: {
       concat: {
         title: '拼接',
@@ -3602,6 +3695,17 @@ export default {
       inputs: '输入',
       reference_only: '此端口只接受兼容连线传入的 {carrier} 引用。',
       select_clip: '选择输入录制',
+      select_template: '选择精确模板变体',
+      color_rgb: 'RGB',
+      color_hsv: 'HSV',
+      color_red: '红',
+      color_green: '绿',
+      color_blue: '蓝',
+      color_hue: '色相',
+      color_saturation: '饱和度',
+      color_value: '明度',
+      color_minimum: '下限',
+      color_maximum: '上限',
       use_default: '使用默认值',
       clear: '清除',
       capabilities: '能力要求',

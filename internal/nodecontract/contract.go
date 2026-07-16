@@ -232,12 +232,22 @@ type HostFeatureRequirement struct {
 }
 
 type Authoring struct {
-	TitleKey       string   `json:"titleKey,omitempty"`
-	DescriptionKey string   `json:"descriptionKey,omitempty"`
-	Category       string   `json:"category,omitempty"`
-	Tags           []string `json:"tags" jsonschema:"required,maxItems=4096"`
-	Icon           string   `json:"icon,omitempty"`
-	EditorAdapter  string   `json:"editorAdapter,omitempty"`
+	TitleKey       string          `json:"titleKey,omitempty"`
+	DescriptionKey string          `json:"descriptionKey,omitempty"`
+	Category       string          `json:"category,omitempty"`
+	Tags           []string        `json:"tags" jsonschema:"required,maxItems=4096"`
+	Icon           string          `json:"icon,omitempty"`
+	EditorAdapter  string          `json:"editorAdapter,omitempty"`
+	Ports          []PortAuthoring `json:"ports" jsonschema:"required,maxItems=4096"`
+}
+
+// PortAuthoring is non-semantic presentation metadata for one declared port.
+// It cannot alter type, binding, carrier, or execution behavior.
+type PortAuthoring struct {
+	ID             string `json:"id" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	TitleKey       string `json:"titleKey,omitempty"`
+	DescriptionKey string `json:"descriptionKey,omitempty"`
+	EditorAdapter  string `json:"editorAdapter,omitempty"`
 }
 
 type Draft struct {
@@ -302,7 +312,7 @@ func Seal(draft Draft) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	authoring, err := normalizeAuthoring(draft.Authoring)
+	authoring, err := normalizeAuthoring(draft.Authoring, semantic.Ports)
 	if err != nil {
 		return Contract{}, err
 	}
@@ -357,7 +367,7 @@ func Open(raw []byte) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	authoring, err := normalizeAuthoring(decoded.Authoring)
+	authoring, err := normalizeAuthoring(decoded.Authoring, normalized.Ports)
 	if err != nil {
 		return Contract{}, err
 	}
@@ -416,7 +426,11 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	sealed, err := sealNormalized(normalized, Authoring{Tags: []string{}})
+	authoring, err := normalizeAuthoring(Authoring{Tags: []string{}}, normalized.Ports)
+	if err != nil {
+		return Contract{}, err
+	}
+	sealed, err := sealNormalized(normalized, authoring)
 	if err != nil {
 		return Contract{}, err
 	}
@@ -457,6 +471,7 @@ func (c Contract) Authoring() Authoring {
 	}
 	authoring := c.state.authoring
 	authoring.Tags = append([]string(nil), authoring.Tags...)
+	authoring.Ports = append([]PortAuthoring(nil), authoring.Ports...)
 	return authoring
 }
 
@@ -979,7 +994,7 @@ func normalizeABIs(source []ABIRequirement) ([]ABIRequirement, error) {
 	return result, nil
 }
 
-func normalizeAuthoring(source Authoring) (Authoring, error) {
+func normalizeAuthoring(source Authoring, ports PortSet) (Authoring, error) {
 	for _, value := range []string{source.TitleKey, source.DescriptionKey, source.Category, source.Icon, source.EditorAdapter} {
 		if len(value) > MaxAuthoringBytes {
 			return Authoring{}, errors.New("node authoring annotation exceeds byte budget")
@@ -993,6 +1008,41 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 	if source.EditorAdapter != "" {
 		return Authoring{}, errors.New("node editor adapter is not in the built-in allowlist")
 	}
+	knownPorts := make(map[string]struct{}, len(ports.DataInputs)+len(ports.DataOutputs)+len(ports.ExecInputs)+len(ports.ExecOutputs)+len(ports.ErrorOutputs))
+	for _, port := range ports.DataInputs {
+		knownPorts[port.ID] = struct{}{}
+	}
+	for _, port := range ports.DataOutputs {
+		knownPorts[port.ID] = struct{}{}
+	}
+	for _, group := range [][]SignalPort{ports.ExecInputs, ports.ExecOutputs, ports.ErrorOutputs} {
+		for _, port := range group {
+			knownPorts[port.ID] = struct{}{}
+		}
+	}
+	result := append([]PortAuthoring(nil), source.Ports...)
+	if result == nil {
+		result = []PortAuthoring{}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	previous := ""
+	for _, port := range result {
+		if _, ok := knownPorts[port.ID]; !ok || port.ID <= previous {
+			return Authoring{}, fmt.Errorf("unknown or duplicate authoring port %q", port.ID)
+		}
+		for _, value := range []string{port.TitleKey, port.DescriptionKey, port.EditorAdapter} {
+			if len(value) > MaxAuthoringBytes {
+				return Authoring{}, errors.New("port authoring annotation exceeds byte budget")
+			}
+		}
+		switch port.EditorAdapter {
+		case "", "template-image":
+		default:
+			return Authoring{}, fmt.Errorf("unregistered port editor adapter %q", port.EditorAdapter)
+		}
+		previous = port.ID
+	}
+	source.Ports = result
 	return source, nil
 }
 

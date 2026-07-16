@@ -21,17 +21,23 @@ type CaptureAdapter interface {
 	Resolution(containerID string) ([2]int, error)
 }
 
-// AssetSummary is picker metadata plus the first typed blob reference.
+type AssetVariantSummary struct {
+	Resolution [2]int       `json:"resolution"`
+	Blob       blob.BlobRef `json:"blob"`
+}
+
+// AssetSummary is picker metadata plus every immutable content binding choice.
 type AssetSummary struct {
-	GUID         string        `json:"guid"`
-	Kind         string        `json:"kind"`
-	Name         string        `json:"name"`
-	Description  string        `json:"description,omitempty"`
-	Category     string        `json:"category,omitempty"`
-	Tags         []string      `json:"tags,omitempty"`
-	VariantCount int           `json:"variantCount"`
-	FirstBlob    *blob.BlobRef `json:"firstBlob,omitempty"`
-	CreatedAt    string        `json:"createdAt,omitempty"`
+	GUID         string                `json:"guid"`
+	Kind         string                `json:"kind"`
+	Name         string                `json:"name"`
+	Description  string                `json:"description,omitempty"`
+	Category     string                `json:"category,omitempty"`
+	Tags         []string              `json:"tags,omitempty"`
+	VariantCount int                   `json:"variantCount"`
+	Variants     []AssetVariantSummary `json:"variants"`
+	Blob         *blob.BlobRef         `json:"blob,omitempty"`
+	CreatedAt    string                `json:"createdAt,omitempty"`
 }
 
 // Service 全局资产 Wails RPC. 无 containerID (资产全局), guid 寻址.
@@ -154,18 +160,17 @@ func (s *Service) List() []AssetSummary {
 		sum := AssetSummary{
 			GUID: rec.GUID, Kind: rec.Kind, Name: rec.Name,
 			Description: rec.Description, Category: rec.Category, Tags: rec.Tags,
-			VariantCount: len(rec.Variants),
+			VariantCount: len(rec.Variants), Variants: []AssetVariantSummary{},
 		}
 		if !rec.CreatedAt.IsZero() {
 			sum.CreatedAt = rec.CreatedAt.UTC().Format(time.RFC3339)
 		}
-		switch {
-		case len(rec.Variants) > 0:
-			first := rec.Variants[0].Blob
-			sum.FirstBlob = &first
-		case rec.Blob != nil:
-			first := *rec.Blob
-			sum.FirstBlob = &first
+		for _, variant := range rec.Variants {
+			sum.Variants = append(sum.Variants, AssetVariantSummary{Resolution: variant.Resolution, Blob: variant.Blob})
+		}
+		if rec.Blob != nil {
+			ref := *rec.Blob
+			sum.Blob = &ref
 		}
 		out = append(out, sum)
 	}

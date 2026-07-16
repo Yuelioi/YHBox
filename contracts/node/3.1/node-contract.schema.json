@@ -38,6 +38,13 @@
         "icon": {
           "type": "string"
         },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/PortAuthoring"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "tags": {
           "items": {
             "type": "string"
@@ -50,7 +57,8 @@
         }
       },
       "required": [
-        "tags"
+        "tags",
+        "ports"
       ],
       "type": "object"
     },
@@ -585,6 +593,28 @@
       "required": [
         "nodeTypeId",
         "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "PortAuthoring": {
+      "additionalProperties": false,
+      "properties": {
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "titleKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
