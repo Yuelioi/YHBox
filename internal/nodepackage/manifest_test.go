@@ -2,6 +2,8 @@ package nodepackage
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -115,6 +117,19 @@ func TestManifestRejectsTraversalConflictsAndTamperedSemantics(t *testing.T) {
 	draft.Nodes[0].Implementation.Payload.Path = "bin/CON.exe"
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted a Windows reserved payload path")
+	}
+	draft = testDraft(t, nodecontract.ABIProcess)
+	draft.Nodes[0].Implementation.Payload.Path = strings.ToUpper(ArchiveManifestPath)
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted the reserved archive manifest path as a payload")
+	}
+	draft = testDraft(t, nodecontract.ABIProcess)
+	draft.Documentation = []Payload{
+		testPayload(t, "docs/Guide.md", "text/markdown", "upper"),
+		testPayload(t, "docs/guide.md", "text/markdown", "lower"),
+	}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted case-folding payload path collision")
 	}
 
 	draft = testDraft(t, nodecontract.ABIProcess)
@@ -267,9 +282,7 @@ func testImplementation(t *testing.T, kind nodecontract.ABIKind) Implementation 
 
 func testPayload(t *testing.T, path, mediaType, label string) Payload {
 	t.Helper()
-	digest, err := artifact.Sum("test/node-package-payload/v1", []byte(label))
-	if err != nil {
-		t.Fatal(err)
-	}
+	hash := sha256.Sum256([]byte(label))
+	digest := artifact.Digest("sha256:" + hex.EncodeToString(hash[:]))
 	return Payload{Path: path, Digest: digest, Size: int64(len(label)), MediaType: mediaType}
 }

@@ -24,8 +24,15 @@ recheck_when: "改 internal/nodepackage manifest、Node Contract implementation 
 - `nodecatalog.ImplementationLock` 和 Program Snapshot 已能锁 package ID、artifact digest、ABI、entrypoint；后续 Catalog merge 必须从已验证/已启用的 manifest 生成 lock，不接受 UI 或 workflow 自报。
 - `admission`、`capability` 与 `resource` 已有 plugin instance/session authority 维度；Wasm/Process host 必须消费这些既有边界，不建立本地可信旁路。
 
+## Archive verification 已实现
+
+- archive 根固定为 `yotta-node-package.json` 加 manifest 精确声明的 payload；`internal/nodepackage.ExtractArchive` 是验证和安全解包的唯一外部 seam。
+- payload digest 是 exact bytes 的 raw SHA-256，与 BlobRef identity 一致，不使用 contract 的 domain-separated hash。ZIP header size 先与 manifest 比较，流式写入时再验证实际 bytes、SHA-256、CRC 和 cancellation。
+- entry 必须是 portable regular file；重复、额外、缺失、目录、symlink/特殊文件、case-fold collision、traversal、反斜杠和 reserved path 都 fail closed。archive/expanded bytes 与 entry count 在解压前有上限。
+- 解包只写 destination 同级的 private staging directory；Process payload 才获得 executable mode。成功后一次 rename；失败、取消或 destination 已存在时不会发布最终目录并清理 staging。
+
 ## 尚未实现
 
-package archive verification/extraction、签名与 namespace ownership、trust store、atomic install/update/disable/uninstall/rollback/quarantine、revocation、Catalog merge、Program package lock、Wasm Component/WIT host、Process protobuf host、sandbox/quota、SDK 和 conformance fixtures 都仍是后续切片。
+签名与 namespace ownership、trust store、atomic install/update/disable/uninstall/rollback/quarantine、revocation、Catalog merge、Program package lock、Wasm Component/WIT host、Process protobuf host、sandbox/quota、SDK 和 conformance fixtures 都仍是后续切片。
 
 在这些能力完成前，主程序必须保持“没有第三方包时无任意代码加载面”；不要把 manifest 存在误写成插件可运行。

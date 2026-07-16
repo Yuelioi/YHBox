@@ -60,7 +60,7 @@ Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 c
 3. 执行最终 Standards + Spec + architecture review。
 4. 真实 Windows smoke 覆盖模板/录制、设置、悬浮启动器、工作流运行/调试和工具窗。
 
-## Latest completed slice — 启动与工作流入口可达性
+## Recent completed slice — 启动与工作流入口可达性
 
 真实 EXE smoke 暴露的两个用户阻断问题已修复；这个切片只改启动导航与 Workflow 3.1 列表交互，没有扩大 runtime 或插件范围。
 
@@ -71,9 +71,19 @@ Wave E 的插件首批已由 `a8c0cfb5` 完成：`internal/nodepackage` 建立 c
 3. 补齐缺失的 `sidebar.workflow_edit` 文案，编辑器标题不再显示 i18n key 字面值。
 4. 定向 Go/Vitest、全仓 Go test、前端 typecheck/lint/i18n/format 和 production `task build` 全绿；Windows production EXE 冷启动截图确认无需点击导航即显示工作流列表，创建/运行/编辑入口均可见。
 
+## Latest completed slice — Node Package archive verification
+
+平台中立的 package archive 验证与安全解包核心已完成；本切片没有接 trust store、安装目录、Catalog 或执行 host。
+
+1. `internal/nodepackage.ExtractArchive` 把 ZIP 预算、canonical manifest、精确 entry set、raw SHA-256/size/CRC、context cancellation、安全 mode、staging 清理和最终 rename 收进一个深接口。
+2. archive 根只接受 `yotta-node-package.json` 与 manifest 精确声明的 payload；拒绝重复/额外/缺失 entry、目录、symlink/特殊文件、case-fold collision、反斜杠、reserved name 与 traversal。
+3. payload digest 已明确为 exact bytes 的 raw SHA-256，与 BlobRef identity 一致；16 GiB archive/expanded byte budget 和由 manifest 最大贡献数推导的 entry budget 在读取/分配前执行。
+4. 只有 Process payload 获得 executable mode；失败、取消或已存在 destination 都不会发布最终目录，private staging 会清理。
+5. 接口级测试覆盖成功 reopen/extract、tampered/missing/extra/duplicate/traversal/symlink/size/budget/cancel/existing destination；`go test`、race、vet、staticcheck、全仓 Go test、Linux amd64 与 macOS arm64 交叉编译全绿。
+
 ## Next
 
-Wave E 从 immutable manifest 向 package lifecycle 前进：先定义并实现 archive payload verification + safe extraction 的纯核心，使 manifest 中 path/digest/size/media-type lock 能在任何信任或执行前 fail closed；随后再接 trust state 与 atomic install。执行 host 仍不提前开放。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
+下一切片设计 trust state 与 atomic install/update/disable/uninstall/rollback/quarantine 的持久状态机；仍不接 Catalog 或执行 host。边界保持：不加载 Go plugin，不执行第三方前端 JavaScript/Vue/DOM；Windows fail closed，Linux/macOS 只承诺平台中立 core 与 preview host。完整 `task check` 仍只在最终 Wave F 运行。
 
 ## Read now
 

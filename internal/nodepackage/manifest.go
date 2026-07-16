@@ -48,6 +48,8 @@ type HostAPIRange struct {
 	MaxExclusive string `json:"maxExclusive"`
 }
 
+// Payload locks one archive file. Digest is raw SHA-256 over the exact bytes,
+// matching BlobRef identity rather than a domain-separated contract hash.
 type Payload struct {
 	Path      string          `json:"path"`
 	Digest    artifact.Digest `json:"digest"`
@@ -448,7 +450,7 @@ func normalizeDocumentation(source []Payload, paths map[string]Payload) ([]Paylo
 }
 
 func normalizePayload(source Payload) (Payload, error) {
-	if !validPortablePath(source.Path) ||
+	if strings.EqualFold(source.Path, ArchiveManifestPath) || !validPortablePath(source.Path) ||
 		path.Clean(source.Path) != source.Path || strings.HasPrefix(source.Path, "/") || strings.HasPrefix(source.Path, "../") {
 		return Payload{}, errors.New("package payload path must be a clean relative slash path")
 	}
@@ -487,10 +489,16 @@ func cloneNodes(source []NodeDraft) []NodeDraft {
 }
 
 func mergePayload(paths map[string]Payload, payload Payload) error {
-	if existing, found := paths[payload.Path]; found && existing != payload {
-		return fmt.Errorf("package payload path %q has conflicting identities", payload.Path)
+	key := strings.ToLower(payload.Path)
+	if existing, found := paths[key]; found {
+		if existing.Path != payload.Path {
+			return fmt.Errorf("package payload paths %q and %q collide on case-insensitive filesystems", existing.Path, payload.Path)
+		}
+		if existing != payload {
+			return fmt.Errorf("package payload path %q has conflicting identities", payload.Path)
+		}
 	}
-	paths[payload.Path] = payload
+	paths[key] = payload
 	return nil
 }
 
