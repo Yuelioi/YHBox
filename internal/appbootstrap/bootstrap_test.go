@@ -361,6 +361,11 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
 		t.Fatalf("consented automation decision = %#v, %v", decision, err)
 	}
+	binding.ResourceKind = automationinstalled.KindWindow
+	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
+	if err != nil || decision.Outcome != admission.PolicyApproved || len(decision.ConsentLineage) != 1 || decision.ConsentLineage[0] != consent {
+		t.Fatalf("consented window decision = %#v, %v", decision, err)
+	}
 	binding.TargetKind = appcontrol.TargetKind
 	decision, err = policy.Authorize(context.Background(), admission.PolicyRequest{Bindings: []capability.Binding{binding}})
 	if err != nil || decision.Outcome != admission.PolicyDenied {

@@ -91,6 +91,7 @@ type Builtins struct {
 	LaunchApplicationContract    nodecontract.Contract
 	TerminateApplicationContract nodecontract.Contract
 	AutomationInputContracts     []nodecontract.Contract
+	ActivateWindowContract       nodecontract.Contract
 	Types                        []datatype.Definition
 	Contracts                    []nodecontract.Contract
 	Capabilities                 []capability.Definition
@@ -185,7 +186,15 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationWindow, err := sealAutomationWindowCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
 	configValidators, err := sealBuiltinConfigValidators()
+	if err != nil {
+		return Builtins{}, err
+	}
+	activateWindowDefinition, activateWindowContract, err := defineActivateWindowNode(automationWindow)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -300,6 +309,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, httpGetDefinition)
 	definitions = append(definitions, applicationDefinitions...)
 	definitions = append(definitions, automationInputDefinitions...)
+	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, systemDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -314,7 +324,7 @@ func Build() (Builtins, error) {
 		contracts = append(contracts, definition.Contract)
 	}
 	types := []datatype.Definition{stringType, binaryType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType, pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationWindow}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -334,6 +344,7 @@ func Build() (Builtins, error) {
 		HTTPGetContract:           httpGetContract,
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
 		AutomationInputContracts: automationInputContracts,
+		ActivateWindowContract:   activateWindowContract,
 		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil

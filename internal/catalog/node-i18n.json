@@ -163,20 +163,6 @@
     "label": "跳出循环",
     "description": "提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。"
   },
-  "BringWindowForeground": {
-    "label": "窗口置前台",
-    "description": "把当前 Windows 窗口提到最前面、给它焦点，让后面的 Windows 键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。Android 目标不走这个节点。",
-    "input": {
-      "Window": {
-        "label": "窗口"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      }
-    }
-  },
   "Capture": {
     "label": "截屏",
     "description": "抓当前画面(整屏或你框的区域)产出一张图像值, 接给 AI 节点识图、接保存图像存盘、或接其它要图的节点。格式可选 PNG(无损)或 JPEG(更小, 省 token 与内存)。",
@@ -2321,42 +2307,6 @@
       }
     }
   },
-  "RunProgram": {
-    "label": "运行程序",
-    "description": "用系统默认方式打开一个目标：可执行文件直接运行、网址用默认浏览器打开、文档/文件夹用关联程序打开。启动后立刻往下走，不等程序退出。",
-    "example": "想在脚本开头自动开游戏：目标填游戏 exe 完整路径；或目标填一个网址，跑到这里就用默认浏览器打开它。",
-    "input": {
-      "Target": {
-        "label": "目标",
-        "hint": "程序路径 / 网址 / 文件 / 文件夹。如 C:\\Game\\game.exe 或 https://example.com"
-      },
-      "Args": {
-        "label": "启动参数",
-        "hint": "可选。传给程序的命令行参数。"
-      },
-      "WorkingDir": {
-        "label": "工作目录",
-        "hint": "可选。程序启动的工作目录，留空用默认。"
-      },
-      "WindowState": {
-        "label": "窗口状态",
-        "option": {
-          "normal": "正常",
-          "minimized": "最小化",
-          "maximized": "最大化",
-          "hidden": "隐藏"
-        }
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Fail": {
-        "label": "失败"
-      }
-    }
-  },
   "SaveImage": {
     "label": "保存图像",
     "description": "把一张图像值写到本地的 images 目录下。扩展名按图像实际格式自动定。文件名支持时间戳/日期/uuid 占位自动区分, 避免并发覆盖。",
@@ -2562,24 +2512,6 @@
   "Stop": {
     "label": "终点",
     "description": "让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。"
-  },
-  "StopApp": {
-    "label": "关闭程序",
-    "description": "按进程名、完整 exe 路径或 PID 强制结束进程。完整路径会按文件名结束同名进程。进程不存在或无权限时走失败出口。",
-    "input": {
-      "Target": {
-        "label": "目标进程",
-        "hint": "进程名（notepad.exe）、完整 exe 路径，或纯数字 PID（1234）"
-      }
-    },
-    "output": {
-      "Done": {
-        "label": "完成"
-      },
-      "Fail": {
-        "label": "失败"
-      }
-    }
   },
   "StopwatchRead": {
     "label": "秒表 读取",

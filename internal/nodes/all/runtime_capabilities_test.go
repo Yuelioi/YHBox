@@ -31,7 +31,6 @@ func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
 	add([]node.RuntimeCapability{node.RuntimeCapabilityStopwatches},
 		"StopwatchRead", "StopwatchStart", "StopwatchStop")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityVision, node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow}, "ClickTemplate")
-	add([]node.RuntimeCapability{node.RuntimeCapabilityWindow, node.RuntimeCapabilityLog}, "BringWindowForeground")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityLog, node.RuntimeCapabilityParams, node.RuntimeCapabilityRegistry}, "Script")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityParams}, "GetParam")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityTarget}, "AndroidTarget")

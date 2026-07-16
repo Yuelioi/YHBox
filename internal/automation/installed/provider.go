@@ -21,6 +21,7 @@ const (
 	ProviderABI = "https://schemas.yotta.dev/provider-abi/resource/v1"
 	TargetKind  = target.KindWin32Window
 	KindInput   = "automation/input-session"
+	KindWindow  = "automation/window-session"
 
 	OperationClick        = "click"
 	OperationMove         = "move"
@@ -29,25 +30,41 @@ const (
 	OperationMoveRelative = "move-relative"
 	OperationPressKeys    = "press-keys"
 	OperationTypeText     = "type-text"
+	OperationActivate     = "activate"
 
 	CodeInvalidRequest    = "automation.invalid_request"
 	CodeIdentityChanged   = "automation.identity_changed"
 	CodeTargetNotFound    = "automation.target_not_found"
 	CodeTargetAmbiguous   = "automation.target_ambiguous"
 	CodeInputFailed       = "automation.input_failed"
+	CodeWindowFailed      = "automation.window_failed"
 	CodeUnsupportedHost   = "automation.unsupported_host"
 	CodeContractViolation = "automation.contract_violation"
 
-	providerImplementation = "exact-installed-window-input/v1"
+	providerImplementation = "exact-installed-window-automation/v1"
 	MaxInputDurationMs     = int64(60_000)
 )
 
-var operations = []string{
+var inputOperations = []string{
 	OperationClick, OperationDrag, OperationMove, OperationMoveRelative,
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
+var windowOperations = []string{OperationActivate}
 
-func Operations() []string { return append([]string(nil), operations...) }
+func InputOperations() []string  { return append([]string(nil), inputOperations...) }
+func WindowOperations() []string { return append([]string(nil), windowOperations...) }
+func Operations() []string       { return append(InputOperations(), windowOperations...) }
+
+func validSessionOperation(kind, operation string) bool {
+	switch kind {
+	case KindInput:
+		return slices.Contains(inputOperations, operation)
+	case KindWindow:
+		return slices.Contains(windowOperations, operation)
+	default:
+		return false
+	}
+}
 
 type Failure struct {
 	Code  string
@@ -139,16 +156,16 @@ func newProvider(profile Profile) (*provider, error) {
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
-	if request.Kind != KindInput || request.CredentialBindingID != "" || len(request.Operations) != 1 || !slices.Contains(operations, request.Operations[0]) {
-		return nil, failure(CodeContractViolation, errors.New("invalid automation input session request"))
+	if request.CredentialBindingID != "" || len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
+		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
 	var config map[string]any
 	if err := decodeExact(request.Config, &config, 1024); err != nil || len(config) != 0 {
-		return nil, failure(CodeContractViolation, errors.New("automation input session config must be empty"))
+		return nil, failure(CodeContractViolation, errors.New("automation session config must be empty"))
 	}
 	var scope CapabilityScope
 	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
-		return nil, failure(CodeContractViolation, errors.New("automation input capability scope is invalid"))
+		return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
 	}
 	return &session{operation: scope.Operation}, nil
 }
@@ -156,12 +173,12 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
 	opened, ok := object.(*session)
 	if !ok {
-		return nil, failure(CodeContractViolation, errors.New("automation input object has the wrong type"))
+		return nil, failure(CodeContractViolation, errors.New("automation object has the wrong type"))
 	}
 	opened.mu.Lock()
 	defer opened.mu.Unlock()
 	if opened.closed || operation != opened.operation {
-		return nil, failure(CodeContractViolation, errors.New("automation input session is closed or operation is not granted"))
+		return nil, failure(CodeContractViolation, errors.New("automation session is closed or operation is not granted"))
 	}
 	request, err := decodeOperationRequest(operation, payload)
 	if err != nil {
@@ -178,7 +195,11 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 		if errors.As(err, &classified) {
 			return nil, err
 		}
-		return nil, failure(CodeInputFailed, err)
+		code := CodeInputFailed
+		if operation == OperationActivate {
+			code = CodeWindowFailed
+		}
+		return nil, failure(code, err)
 	}
 	return artifact.Marshal(struct{}{})
 }
@@ -186,7 +207,7 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 func (p *provider) Close(_ context.Context, object any) error {
 	opened, ok := object.(*session)
 	if !ok {
-		return failure(CodeContractViolation, errors.New("automation input object has the wrong type"))
+		return failure(CodeContractViolation, errors.New("automation object has the wrong type"))
 	}
 	opened.mu.Lock()
 	opened.closed = true
@@ -213,21 +234,27 @@ func ProviderArtifactDigest(profile Profile) (artifact.Digest, error) {
 func OpenEffectResponse(raw []byte) error {
 	var response struct{}
 	if err := decodeExact(raw, &response, 32); err != nil {
-		return failure(CodeContractViolation, errors.New("invalid automation input response"))
+		return failure(CodeContractViolation, errors.New("invalid automation response"))
 	}
 	canonical, err := artifact.Marshal(response)
 	if err != nil || !bytes.Equal(canonical, raw) {
-		return failure(CodeContractViolation, errors.New("automation input response is not canonical"))
+		return failure(CodeContractViolation, errors.New("automation response is not canonical"))
 	}
 	return nil
 }
 
 func decodeOperationRequest(operation string, raw []byte) (any, error) {
 	if len(raw) == 0 || len(raw) > 64<<10 {
-		return nil, errors.New("automation input request exceeds byte budget")
+		return nil, errors.New("automation request exceeds byte budget")
 	}
 	decode := func(target any) error { return decodeExact(raw, target, 64<<10) }
 	switch operation {
+	case OperationActivate:
+		var request struct{}
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		return request, nil
 	case OperationClick:
 		var request ClickRequest
 		if err := decode(&request); err != nil {
@@ -300,7 +327,7 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		}
 		return request, nil
 	default:
-		return nil, errors.New("unsupported automation input operation")
+		return nil, errors.New("unsupported automation operation")
 	}
 }
 

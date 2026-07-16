@@ -46,7 +46,7 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 	if err != nil {
 		return err
 	}
-	if d.backend.Name() == "sendinput" {
+	if d.backend.Name() == "sendinput" && operation != OperationActivate {
 		if err := winutil.BringToFront(window.HWND); err != nil {
 			return failure(CodeInputFailed, err)
 		}
@@ -54,6 +54,14 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 	defer func() { runErr = errors.Join(runErr, d.backend.ReleaseAll()) }()
 	handle := pkginput.Handle(window.HWND)
 	switch request := raw.(type) {
+	case struct{}:
+		if operation != OperationActivate {
+			return failure(CodeContractViolation, errors.New("empty automation request is unsupported"))
+		}
+		if err := winutil.BringToFront(window.HWND); err != nil {
+			return failure(CodeWindowFailed, err)
+		}
+		return nil
 	case ClickRequest:
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {

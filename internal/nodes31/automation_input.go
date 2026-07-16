@@ -82,7 +82,7 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 func sealAutomationInputCapability() (capability.Definition, error) {
 	const scopeID = AutomationInputCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationInputCapabilityID, Operations: installed.Operations(), TargetKinds: []string{installed.TargetKind},
+		CapabilityID: AutomationInputCapabilityID, Operations: installed.InputOperations(), TargetKinds: []string{installed.TargetKind},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"operation":{"enum":["click","drag","move","move-relative","press-keys","scroll","type-text"]}},

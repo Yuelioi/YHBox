@@ -914,6 +914,10 @@ export default {
         description: '显式写入带工作流归属日志的有界文本。',
       },
     },
+    automation: {
+      pointer_button: { title: '指针按键', description: '左键、右键或中键。' },
+      key_code: { title: '按键码', description: '可注入到精确安装目标的规范化键盘按键。' },
+    },
   },
   node: {
     text: {
@@ -1048,6 +1052,34 @@ export default {
           title: '应用槽位',
           description: '选择已经安装、摘要验证并显式授权的桌面应用。',
         },
+      },
+    },
+    automation: {
+      config: {
+        slot: {
+          title: '窗口目标槽位',
+          description: '选择已绑定可执行文件摘要、窗口标题与窗口类并获得工作流授权的精确目标。',
+        },
+      },
+      clickPointer: { title: '点击指针', description: '在精确安装窗口内执行一次原子点击。' },
+      movePointer: { title: '移动指针', description: '把指针移动到精确安装窗口内的指定坐标。' },
+      scrollPointer: { title: '滚动指针', description: '在精确安装窗口内执行有界滚动。' },
+      dragPointer: {
+        title: '拖拽指针',
+        description: '在精确安装窗口内执行可取消的按下、移动和释放。',
+      },
+      movePointerRelative: {
+        title: '相对移动指针',
+        description: '向精确安装窗口发送有界相对位移。',
+      },
+      pressKeys: { title: '按下组合键', description: '原子按下并反向释放一组规范化按键。' },
+      typeText: {
+        title: '输入文本',
+        description: '向精确安装窗口注入有界 Unicode 文本，不使用剪贴板。',
+      },
+      activateWindow: {
+        title: '激活窗口',
+        description: '重新验证安装应用与唯一窗口身份，然后把该窗口置于前台；失败会走「失败」出口。',
       },
     },
     observability: {
@@ -1794,13 +1826,6 @@ export default {
       },
     },
     // input
-    BringWindowForeground: {
-      label: '窗口置前台',
-      description:
-        '把当前 Windows 窗口提到最前面、给它焦点，让后面的 Windows 键鼠操作能打到这个窗口上。一般在脚本开头点一下用。有些全屏独占的游戏系统不让切，这时拉不动也不会卡住，会记一条日志接着往下走。Android 目标不走这个节点。',
-      input: { Window: { label: '窗口' } },
-      output: { Done: { label: '完成' } },
-    },
     ClickAt: {
       label: '点击坐标',
       description:
@@ -4567,12 +4592,12 @@ export default {
   },
   settingsAutomation: {
     security: {
-      title: '输入自动化会控制真实键盘和鼠标',
-      hint: '每个目标必须绑定已安装应用的可执行文件摘要和精确窗口选择器。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或输入后端；取消或失败时会释放所有按键。',
+      title: '窗口自动化会控制真实窗口、键盘和鼠标',
+      hint: '每个目标必须绑定已安装应用的可执行文件摘要和精确窗口选择器。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或输入后端；窗口激活失败会中止该节点，取消或失败时会释放所有按键。',
     },
     targets: {
       title: '已安装窗口目标',
-      hint: '为点击、移动、滚动、拖拽、按键和输入文本节点提供一个固定目标。多个窗口同时匹配时执行会失败，不会按 Z 序猜测。',
+      hint: '为窗口激活、点击、移动、滚动、拖拽、按键和输入文本节点提供一个固定目标。多个窗口同时匹配时执行会失败，不会按 Z 序猜测。',
       add: '安装窗口目标',
       workflow_allowed: '已允许工作流',
       consent_required: '需要授权',

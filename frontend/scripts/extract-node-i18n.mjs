@@ -50,7 +50,9 @@ for (const [kind, v] of Object.entries(node)) {
   const outs = pinMap(v.output, false) // output pin: label only
   if (ins) e.input = ins
   if (outs) e.output = outs
-  result[kind] = e
+  // Node Contract 3.1 文案按领域嵌套在 node.* 下，由 authoring projection 直接消费；
+  // legacy kind 目录只接收真正带 label/description/pin 元数据的叶子节点。
+  if (Object.keys(e).length) result[kind] = e
 }
 
 // 稳定排序 (按 kind), 让生成物 diff 干净

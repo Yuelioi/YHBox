@@ -34,6 +34,17 @@ func openInputSession(t *testing.T, provider *provider, operation string) any {
 	return object
 }
 
+func openWindowSession(t *testing.T, provider *provider, operation string) any {
+	t.Helper()
+	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindWindow, Operations: []string{operation}, CapabilityScope: []byte(`{"operation":"` + operation + `"}`), Config: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
 func TestProviderUsesExactGrantedOperationAndCanonicalPayload(t *testing.T) {
 	profile, _ := testProfile(t)
 	driver := &fakeDriver{}
@@ -73,6 +84,28 @@ func TestProviderRejectsForgedScopeAndPayload(t *testing.T) {
 	} {
 		if _, err := provider.Invoke(context.Background(), object, OperationPressKeys, payload); err == nil {
 			t.Fatalf("provider accepted payload %s", payload)
+		}
+	}
+}
+
+func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	object := openWindowSession(t, provider, OperationActivate)
+	raw, err := provider.Invoke(context.Background(), object, OperationActivate, []byte(`{}`))
+	if err != nil || OpenEffectResponse(raw) != nil || driver.operation != OperationActivate {
+		t.Fatalf("activate operation=%q response=%s error=%v", driver.operation, raw, err)
+	}
+	if _, ok := driver.request.(struct{}); !ok {
+		t.Fatalf("activate request = %#v", driver.request)
+	}
+	for _, request := range []resource.ProviderOpenRequest{
+		{Kind: KindInput, Operations: []string{OperationActivate}, CapabilityScope: []byte(`{"operation":"activate"}`), Config: []byte(`{}`)},
+		{Kind: KindWindow, Operations: []string{OperationClick}, CapabilityScope: []byte(`{"operation":"click"}`), Config: []byte(`{}`)},
+	} {
+		if _, err := provider.Open(context.Background(), request); err == nil {
+			t.Fatalf("provider accepted cross-capability request %#v", request)
 		}
 	}
 }

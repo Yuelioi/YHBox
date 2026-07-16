@@ -933,6 +933,16 @@ export default {
         description: 'Bounded text explicitly emitted to the attributed workflow log.',
       },
     },
+    automation: {
+      pointer_button: {
+        title: 'Pointer button',
+        description: 'The left, right, or middle pointer button.',
+      },
+      key_code: {
+        title: 'Key code',
+        description: 'A canonical keyboard key injectable into an exact installed target.',
+      },
+    },
   },
   node: {
     text: {
@@ -1079,6 +1089,50 @@ export default {
           description:
             'Select an installed, digest-verified, and explicitly consented desktop application.',
         },
+      },
+    },
+    automation: {
+      config: {
+        slot: {
+          title: 'Window target slot',
+          description:
+            'Select an explicitly consented target pinned to an executable digest, window title, and window class.',
+        },
+      },
+      clickPointer: {
+        title: 'Click pointer',
+        description: 'Perform one atomic click inside the exact installed window.',
+      },
+      movePointer: {
+        title: 'Move pointer',
+        description: 'Move the pointer to a coordinate inside the exact installed window.',
+      },
+      scrollPointer: {
+        title: 'Scroll pointer',
+        description: 'Perform a bounded scroll inside the exact installed window.',
+      },
+      dragPointer: {
+        title: 'Drag pointer',
+        description:
+          'Perform a cancellable press, move, and release inside the exact installed window.',
+      },
+      movePointerRelative: {
+        title: 'Move pointer relatively',
+        description: 'Send a bounded relative pointer movement to the exact installed window.',
+      },
+      pressKeys: {
+        title: 'Press key chord',
+        description: 'Atomically press and reverse-release a canonical set of keys.',
+      },
+      typeText: {
+        title: 'Type text',
+        description:
+          'Inject bounded Unicode text into the exact installed window without using the clipboard.',
+      },
+      activateWindow: {
+        title: 'Activate window',
+        description:
+          'Reverify the installed application and unique window identity, then bring it to the foreground. Failure routes through Failed.',
       },
     },
     observability: {
@@ -1897,13 +1951,6 @@ export default {
       },
     },
     // input
-    BringWindowForeground: {
-      label: 'Bring window to foreground',
-      description:
-        'Brings the current Windows window to the front and gives it focus so later Windows key/mouse actions land on it. Usually placed at the start of a script. Some exclusive-fullscreen games will not let the OS switch focus — if it cannot pull the window up it just logs a note and keeps going. Android targets do not use this node.',
-      input: { Window: { label: 'Window' } },
-      output: { Done: { label: 'Done' } },
-    },
     ClickAt: {
       label: 'Click at',
       description:
@@ -4746,12 +4793,12 @@ export default {
   },
   settingsAutomation: {
     security: {
-      title: 'Input automation controls the real keyboard and pointer',
-      hint: 'Every target is pinned to an installed executable digest and exact window selector. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or input backend. All held input is released on cancellation or failure.',
+      title: 'Window automation controls real windows, keyboard, and pointer',
+      hint: 'Every target is pinned to an installed executable digest and exact window selector. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or input backend. Failed activation fails the node, and all held input is released on cancellation or failure.',
     },
     targets: {
       title: 'Installed window targets',
-      hint: 'Provide one fixed target for click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
+      hint: 'Provide one fixed target for activation, click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
       add: 'Install window target',
       workflow_allowed: 'Workflow allowed',
       consent_required: 'Consent required',

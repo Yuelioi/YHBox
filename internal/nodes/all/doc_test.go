@@ -119,13 +119,12 @@ func TestTargetAndWindowCategoriesStaySeparated(t *testing.T) {
 		"BrowserTarget": {},
 	}
 	windowOperations := map[string]struct{}{
-		"WaitWindow":            {},
-		"WaitWindowGone":        {},
-		"BringWindowForeground": {},
-		"GetWindow":             {},
-		"WindowState":           {},
-		"MoveResizeWindow":      {},
-		"CloseWindow":           {},
+		"WaitWindow":       {},
+		"WaitWindowGone":   {},
+		"GetWindow":        {},
+		"WindowState":      {},
+		"MoveResizeWindow": {},
+		"CloseWindow":      {},
 	}
 	nonWin32Targets := map[string]struct{}{
 		"AndroidTarget": {},

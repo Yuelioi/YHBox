@@ -72,7 +72,7 @@ func NewBuiltinPolicy(now func() time.Time, ttl time.Duration, aiInstallations a
 	automationTargets := make(map[string]automationinstalled.Installation, len(automationInstallations.Entries()))
 	for _, installed := range automationInstallations.Entries() {
 		if _, duplicate := automationTargets[installed.TargetID]; duplicate {
-			return nil, errors.New("built-in policy received duplicate automation input targets")
+			return nil, errors.New("built-in policy received duplicate installed automation targets")
 		}
 		automationTargets[installed.TargetID] = installed
 	}
@@ -133,7 +133,8 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				continue
 			}
 			installed, ok := p.automationTargets[binding.TargetID]
-			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != automationinstalled.ProviderABI || binding.TargetKind != automationinstalled.TargetKind || binding.ResourceKind != automationinstalled.KindInput || binding.CredentialBindingID != "" {
+			validKind := binding.ResourceKind == automationinstalled.KindInput || binding.ResourceKind == automationinstalled.KindWindow
+			if !ok || binding.ProviderID != installed.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != automationinstalled.ProviderABI || binding.TargetKind != automationinstalled.TargetKind || !validKind || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 			if installed.Consent == "" {

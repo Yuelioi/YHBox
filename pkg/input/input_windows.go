@@ -158,7 +158,7 @@ func screenToClient(hwnd win.HWND, x, y int32) (int32, int32) {
 }
 
 // MoveToClient 把光标移到客户区坐标 + 发一帧 WM_MOUSEMOVE (hover), 无 activate / 无 sleep.
-// 分帧滑动的「单帧」原语 —— 帧间隔与 ctx 取消由节点层控制 (见 internal/nodes/input.moveCursor),
+// 分帧滑动的「单帧」原语 —— 帧间隔与 ctx 取消由调用层控制，
 // 本函数只负责「移一帧」, 自己绝不 sleep (避免重蹈裸 time.Sleep 停不下的覆辙).
 func MoveToClient(hwnd win.HWND, clientX, clientY int) {
 	sx, sy := clientToScreen(hwnd, int32(clientX), int32(clientY))

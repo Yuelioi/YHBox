@@ -202,7 +202,7 @@ func Build(config Config) (*Runtime, error) {
 	for _, installed := range config.AutomationInstallations.Entries() {
 		if existing, ok := providers[installed.ProviderID]; ok {
 			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != automationinstalled.ProviderABI || existing.Provider != installed.Provider {
-				return nil, errors.New("conflicting automation input provider installation")
+				return nil, errors.New("conflicting installed automation provider")
 			}
 			continue
 		}
@@ -292,6 +292,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
+	automationWindow, err := lookup(nodes31.AutomationWindowCapabilityID)
+	if err != nil {
+		return admission.HostProfile{}, err
+	}
 	draft := admission.HostProfileDraft{
 		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
 		Features: scriptRuntime.HostFeatures(),
@@ -366,7 +370,10 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
 				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
-				Capabilities: []admission.ProviderCapability{{Capability: automationInput, ResourceKind: automationinstalled.KindInput}},
+				Capabilities: []admission.ProviderCapability{
+					{Capability: automationInput, ResourceKind: automationinstalled.KindInput},
+					{Capability: automationWindow, ResourceKind: automationinstalled.KindWindow},
+				},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
 		}

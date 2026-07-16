@@ -85,7 +85,7 @@ func Install(drafts []InstallationDraft) (result Installations, resultErr error)
 				return Installations{}, err
 			}
 			installed = Installation{
-				Profile: profile, ProviderID: "automation-input-" + profile.Digest().String()[7:39],
+				Profile: profile, ProviderID: "automation-" + profile.Digest().String()[7:39],
 				ProviderArtifact: providerArtifact, Provider: created,
 			}
 			shared[profile.Digest()] = installed

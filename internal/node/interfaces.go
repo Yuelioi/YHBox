@@ -287,7 +287,7 @@ type ParamStore interface {
 	Get(name string) (value any, ok bool)
 }
 
-// WindowService — BringWindowForeground 节点 + 任何节点想知道 hwnd/ClientSize.
+// WindowService — legacy Container window nodes 的 Win32 adapter seam.
 type WindowService interface {
 	BringForeground() error
 	HWND() uintptr
