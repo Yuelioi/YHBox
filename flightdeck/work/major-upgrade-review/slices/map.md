@@ -23,6 +23,6 @@
 | ai-eval-upgrade-gate | completed (cfa12703) | ai-prompt-tool-provenance | 以离线 corpus、确定性 grader 和阈值 gate 管理模型/prompt/tool/schema 升级。 |
 | ai-authoring-review-trace | completed (c71cc19f) | ai-agent-budget-runtime, ai-eval-upgrade-gate | AI 只经 typed patch 闭环，并展示 diff、diagnostics、权限 delta 与脱敏 trace。 |
 | node-package-signing-trust | completed (ab57d572) | restore-go-quality-gate | 定义签名 envelope、publisher identity、namespace ownership 与 revocation/quarantine。 |
-| stable-code-names-explicit-versions | current | node-package-signing-trust | 删除 nodes31 等 release 后缀；代码名稳定，版本进入显式 contract/identity 属性。 |
-| plugin-hosts-sdk-conformance | fog | stable-code-names-explicit-versions | Wasm/Process host、SDK 与 conformance；禁止 Go/前端插件代码。 |
+| stable-code-names-explicit-versions | completed (022bc360) | node-package-signing-trust | 删除 nodes31 等 release 后缀；代码名稳定，版本进入显式 contract/identity 属性。 |
+| plugin-hosts-sdk-conformance | current | stable-code-names-explicit-versions | Wasm/Process host、SDK 与 conformance；禁止 Go/前端插件代码。 |
 | final-contract-and-release-acceptance | fog | all implementation slices | projection/reference/golden、task check、review 与真实 Windows smoke。 |
