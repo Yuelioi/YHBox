@@ -8,41 +8,41 @@ Status: current
 
 ## Completion criterion
 
-- Node Package Store 只为当前 enabled、未撤销、未 quarantine 且重新验证通过的 generation 产生 runtime projection；路径、payload digest、manifest digest、ABI、platform 与 NodeRef 全部 host-owned。
-- Catalog merge 显式合并 built-in 与 package contributions，拒绝 Node/Data Type/Capability/entrypoint 冲突；Program implementation lock 精确绑定 package generation 与 executable payload。
-- common plugin protocol 固定 invocation、canonical Value Envelope、config、trigger、structured error/status、deadline、budget、取消与 terminal strength；所有 frame 有协议版本、byte/depth/count budget 和严格 unknown-field 拒绝。
-- Process host 使用受限、一次 attempt 一进程的 length-delimited binary protocol；崩溃/协议错版只失败当前 attempt。Windows 必须在零 ambient capability 的 LPAC/AppContainer + Job + explicit handle list 下运行；隔离不可用时 fail closed。
-- Wasm host 默认不实例化 WASI，不提供 filesystem/network/process/GUI ambient imports；限制 linear memory、wall time、frame/output 与 host-call budget，并在受限 runner 进程内执行。
-- 两种 host 都转换为 exact `compiler.InstalledAdapter`，消费现有 Run Session/Resource Broker authority，不建立本地 capability 旁路，不信任 guest 自报 implementation identity。
-- generator 输出 versioned Proto/WIT、Go/TypeScript SDK contract、Node reference、conformance vectors 与 drift gate；不生成或加载插件 Go ABI、JavaScript、Vue、DOM。
-- 提供一个 Wasm 与一个 Process 示例 package/release fixture；共享 conformance 覆盖成功、schema violation、digest mismatch、protocol mismatch、cancel、timeout、crash、oversize、capability denial 与 handle cleanup。
-- 没有第三方包时 composition 不创建任意代码加载面；安装/启用、compile/run、disable/uninstall 的可执行状态严格跟随 registry authority。
-- 全部实现完成后一次性运行 `task check`、跨平台 core/GUI build、真实 Windows 两种插件链路与 WebView smoke。
+- Store 只投影当前 enabled、未撤销、未 quarantine 且重新验证通过的 generation；runtime read 继续检查 registry authority 与 payload identity。
+- Catalog/Program lock 精确绑定 package generation、ABI、entrypoint 与 NodeRef。
+- common deterministic Protobuf 固定 canonical Value Envelope、config、trigger、resource/state/entropy/wait/action/status/result、deadline、budget、cancel 与 terminal strength，并拒绝 unknown/oversize/non-canonical frame。
+- Process host 每 attempt 一进程；Windows 只允许零 capability LPAC/AppContainer + Job + explicit handle list，隔离不可用时 fail closed。
+- Wasm 不实例化 WASI 或 ambient filesystem/network/process/GUI imports；限制 linear memory、wall time、frame/output/host-call，并继续运行在隔离 runner 进程内。
+- 两种 host 都生成 exact compiler.InstalledAdapter，只消费 Run Session/Resource Broker authority。
+- generator 输出 versioned Proto/WIT、Go/TypeScript SDK contract、Node reference、conformance vectors 与 drift gate。
+- Process/Wasm 示例、签名 fixture 和共享 conformance 覆盖成功与主要失败边界。
+- 没有第三方包时 composition 不创建 trust root、host 或任意代码加载面；disable/quarantine/rollback/uninstall 立即撤销旧 adapter 的 payload read。
+- 阶段末统一运行 task check、跨平台 core/GUI build、真实 Windows 双插件链路与 WebView smoke。
 
 ## Implementation batches
 
-1. common execution contract、Store runtime projection、Catalog merge。
-2. Process protocol、sandbox launcher、adapter。
-3. Wasm runner、无 ambient imports、adapter。
-4. SDK/generator、两个示例、共享 conformance、composition。
-5. 阶段批量验收与 final acceptance handoff。
+1. common execution contract、Store runtime projection、Catalog merge：完成（310d8afd）。
+2. Process protocol、sandbox launcher、adapter：完成（613bc654、1483e908）。
+3. Wasm runner、无 ambient imports、adapter：完成（623ebd44）。
+4. SDK/generator、示例、共享 conformance、composition：完成（b9871cf3）。
+5. 阶段批量验收与 final acceptance handoff：进行中。
 
 ## Blocked by
 
-无。stable-code-names-explicit-versions 已由 022bc360 完成。
+无。
 
 ## Verification
 
-实现期间只做能继续集成的最小 package compile/test 或生成 drift 反馈；不得把这些写成阶段验收。完整 gate 与真实 smoke 只在全部 batches 完成后运行一次。
+实现期定向反馈已通过，但不计作阶段验收。当前统一执行完整矩阵；失败项集中修复后整体复验。
 
 ## Out of scope
 
 - marketplace、远程发现或自动更新服务。
 - 第三方 Go plugin/shared library ABI。
 - 插件 JavaScript/Vue/DOM、自定义前端 bundle 或绕过内置 Editor Adapter。
-- 在缺少平台隔离能力时退回普通 subprocess 或主进程 Wasm。
-- 为旧 package/ABI/protocol 保留兼容 reader、shim 或 fallback。
+- 缺少平台隔离时退回普通 subprocess 或主进程 Wasm。
+- 旧 package/ABI/protocol 兼容 reader、shim 或 fallback。
 
 ## Result
 
-Current。先实现 common contract、Store runtime projection 与 Catalog merge。
+实现完成，等待阶段批量验收。
