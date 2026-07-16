@@ -16,7 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -39,18 +39,18 @@ func TestConcatTracerCompilesOpensAndRunsWithoutExecOut(t *testing.T) {
 	if plan := program.CapabilityPlan(); !plan.Valid() || len(plan.Entries()) != 0 {
 		t.Fatalf("concat capability plan = %#v", plan.Entries())
 	}
-	nodes := program.Nodes()
-	if len(nodes) != 1 || len(nodes[0].Ports.DataInputs) != 2 || len(nodes[0].Ports.DataOutputs) != 1 ||
-		len(nodes[0].Ports.ExecInputs)+len(nodes[0].Ports.ExecOutputs)+len(nodes[0].Ports.ErrorOutputs) != 0 {
-		t.Fatalf("program ports = %#v", nodes)
+	nodeViews := program.Nodes()
+	if len(nodeViews) != 1 || len(nodeViews[0].Ports.DataInputs) != 2 || len(nodeViews[0].Ports.DataOutputs) != 1 ||
+		len(nodeViews[0].Ports.ExecInputs)+len(nodeViews[0].Ports.ExecOutputs)+len(nodeViews[0].Ports.ErrorOutputs) != 0 {
+		t.Fatalf("program ports = %#v", nodeViews)
 	}
 	opened, err := OpenProgram(program.Artifact(), catalog, testConfigValidators(), build)
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry, _ := catalog.Lookup(nodes31.ConcatNodeID)
+	entry, _ := catalog.Lookup(nodes.ConcatNodeID)
 	run, err := NewInterpreter(catalog, map[string]InstalledBuiltin{
-		"text.concat": {Implementation: entry.Implementation, Run: nodes31.Concat},
+		"text.concat": {Implementation: entry.Implementation, Run: nodes.Concat},
 	}).Run(context.Background(), opened)
 	if err != nil {
 		t.Fatal(err)
@@ -180,8 +180,8 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 	raw := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-2","name":"Chain"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"second","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"b":{"kind":"value","value":"c"}}},
-			{"id":"first","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}}
+			{"id":"second","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"b":{"kind":"value","value":"c"}}},
+			{"id":"first","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"first","portId":"result"},"to":{"nodeId":"second","portId":"a"}}],"inputs":[],"outputs":[]}],
 		"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
@@ -242,7 +242,7 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
 		t.Fatal(err)
 	}
-	number, ok := catalog.LookupType(nodes31.NumberTypeID)
+	number, ok := catalog.LookupType(nodes.NumberTypeID)
 	if !ok {
 		t.Fatal("number type is missing")
 	}
@@ -257,11 +257,11 @@ func TestOpenProgramRevalidatesConfigAndLiteralBindings(t *testing.T) {
 }
 
 func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
-	started, ok := builtins.Definition(nodes31.RunStartedNodeID)
+	started, ok := builtins.Definition(nodes.RunStartedNodeID)
 	if !ok {
 		t.Fatal("RunStarted definition is missing")
 	}
@@ -270,8 +270,8 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-ai-validator","name":"AI Validator"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"extract","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","schema":%q},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
@@ -321,7 +321,7 @@ func TestProgramNodeViewsAreDefensive(t *testing.T) {
 	if got := program.Nodes()[0].Ports.DataInputs[0].ID; got != "a" {
 		t.Fatalf("caller mutated immutable program view: %q", got)
 	}
-	if got := program.Nodes()[0].InputTypes["a"]; got.Ref == nil || got.Ref.TypeID != nodes31.StringTypeID {
+	if got := program.Nodes()[0].InputTypes["a"]; got.Ref == nil || got.Ref.TypeID != nodes.StringTypeID {
 		t.Fatalf("caller mutated immutable effective type view: %#v", got)
 	}
 }
@@ -335,11 +335,11 @@ func TestInterpreterRejectsUnpinnedBuiltinAndIllTypedOutput(t *testing.T) {
 		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
 	}
 	program, _ := compiled.Program()
-	entry, _ := catalog.Lookup(nodes31.ConcatNodeID)
+	entry, _ := catalog.Lookup(nodes.ConcatNodeID)
 	wrong := entry.Implementation
 	wrong.ArtifactDigest = testDigest(t, "wrong implementation")
 	if _, err := NewInterpreter(catalog, map[string]InstalledBuiltin{
-		"text.concat": {Implementation: wrong, Run: nodes31.Concat},
+		"text.concat": {Implementation: wrong, Run: nodes.Concat},
 	}).Run(context.Background(), program); err == nil {
 		t.Fatal("interpreter dispatched a builtin that did not match the Program lock")
 	}
@@ -366,7 +366,7 @@ func TestCompilerFailsClosedForDisabledNodes(t *testing.T) {
 }
 
 func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 	raw := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-state","name":"State"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],
 		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"secretRefs":[]
@@ -422,7 +422,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 }
 
 func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testin
 	base := fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-state-invalid","name":"State invalid"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[%s],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, "%s")
@@ -451,7 +451,7 @@ func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testin
 }
 
 func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t
 }
 
 func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +497,7 @@ func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-invalid-carrier","name":"Invalid"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"to-blob","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{"mediaType":"application/octet-stream"},"bindings":{"stream":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, blobRef.MediaType, blobRef.Digest, blobRef.Size))
@@ -576,7 +576,7 @@ func concatSourceForTest(ref nodecontract.NodeRef, a, b string, edge *string) []
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-1","name":"Concat"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"concat-1","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			"id":"concat-1","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}
 		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, a, b, edges))
@@ -586,8 +586,8 @@ func conversionSourceForTest(toStream, toBlob nodecontract.NodeRef, ref blob.Blo
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-convert","name":"Convert"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{"mediaType":"application/octet-stream"},"bindings":{}},
-			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"mediaType":"application/octet-stream"},"bindings":{}},
+			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],
 		"variables":[],"secretRefs":[]
@@ -598,8 +598,8 @@ func signalSourceForTest(source, target nodecontract.NodeRef, edges []string) []
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-signals","name":"Signals"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"source","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"target","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
+			{"id":"source","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"target","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
 		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, source.NodeTypeID, source.SemanticDigest, target.NodeTypeID, target.SemanticDigest, strings.Join(edges, ",")))
 }
@@ -620,7 +620,7 @@ func signalCycleCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract
 
 func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, errorOutputs []string) nodecontract.Contract {
 	t.Helper()
-	nodeID := "https://schemas.yotta.dev/nodes/test/" + name + "/v1"
+	nodeID := "https://schemas.yotta.dev/nodes/test/" + name
 	configID := nodeID + "/config"
 	ports := func(values []string) []nodecontract.SignalPort {
 		result := make([]nodecontract.SignalPort, len(values))
@@ -633,7 +633,7 @@ func signalContractForTest(t *testing.T, name string, execInputs, execOutputs, e
 	if len(execInputs) != 0 {
 		class = nodecontract.ExecutionControl
 	}
-	contract, err := nodecontract.Seal(nodecontract.Draft{
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
 		NodeTypeID: nodeID, ConfigSchemaRoot: configID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: configID, Schema: json.RawMessage(fmt.Sprintf(`{"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`, configID))}},
 		Ports: nodecontract.PortSet{
@@ -676,7 +676,7 @@ func sealSignalCatalogForTest(t *testing.T, contracts ...nodecontract.Contract) 
 
 func concatCatalogForTest(t *testing.T) (nodecatalog.Snapshot, nodecontract.Contract) {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}

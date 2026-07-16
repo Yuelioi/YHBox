@@ -8,7 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	workflowauthoring "github.com/yottaapp/yotta/internal/workflow/authoring"
 	workflowschema "github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -41,7 +41,7 @@ func generate(name string) ([]byte, error) {
 		return workflowauthoring.GenerateSchema()
 	}
 	if name == "builtin-catalog" || name == "builtin-authoring" || name == "builtin-docs" {
-		artifacts, err := nodes31.GenerateArtifacts()
+		artifacts, err := nodes.GenerateArtifacts()
 		if err != nil {
 			return nil, err
 		}

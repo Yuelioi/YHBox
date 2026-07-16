@@ -15,7 +15,7 @@
           :model-value="range.minimum[index]"
           :min="0"
           :max="limits[index]"
-          :placeholder="t('workflow31.inspector.color_minimum')"
+          :placeholder="t('workflow.inspector.color_minimum')"
           class="w-full"
           @update:model-value="setChannel('minimum', index, Number($event))"
         />
@@ -23,7 +23,7 @@
           :model-value="range.maximum[index]"
           :min="0"
           :max="limits[index]"
-          :placeholder="t('workflow31.inspector.color_maximum')"
+          :placeholder="t('workflow.inspector.color_maximum')"
           class="w-full"
           @update:model-value="setChannel('maximum', index, Number($event))"
         />
@@ -51,22 +51,22 @@ const range = computed<ColorRange>(() => normalize(props.modelValue))
 const channels = computed(() =>
   range.value.space === 'hsv'
     ? [
-        t('workflow31.inspector.color_hue'),
-        t('workflow31.inspector.color_saturation'),
-        t('workflow31.inspector.color_value'),
+        t('workflow.inspector.color_hue'),
+        t('workflow.inspector.color_saturation'),
+        t('workflow.inspector.color_value'),
       ]
     : [
-        t('workflow31.inspector.color_red'),
-        t('workflow31.inspector.color_green'),
-        t('workflow31.inspector.color_blue'),
+        t('workflow.inspector.color_red'),
+        t('workflow.inspector.color_green'),
+        t('workflow.inspector.color_blue'),
       ],
 )
 const limits = computed<[number, number, number]>(() =>
   range.value.space === 'hsv' ? [360, 100, 100] : [255, 255, 255],
 )
 const spaces = computed(() => [
-  { label: t('workflow31.inspector.color_rgb'), value: 'rgb' },
-  { label: t('workflow31.inspector.color_hsv'), value: 'hsv' },
+  { label: t('workflow.inspector.color_rgb'), value: 'rgb' },
+  { label: t('workflow.inspector.color_hsv'), value: 'hsv' },
 ])
 
 function setSpace(space: ColorSpace): void {

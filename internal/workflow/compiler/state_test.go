@@ -6,11 +6,11 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 func TestRunStateIsIsolatedTypedAndOperationAttenuated(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,15 +6,15 @@
     <header class="border-b border-default px-4 py-3">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <h2 class="text-sm font-semibold text-highlighted">{{ t('workflow31.ai.title') }}</h2>
-          <p class="mt-0.5 text-[10px] leading-4 text-dimmed">{{ t('workflow31.ai.hint') }}</p>
+          <h2 class="text-sm font-semibold text-highlighted">{{ t('workflow.ai.title') }}</h2>
+          <p class="mt-0.5 text-[10px] leading-4 text-dimmed">{{ t('workflow.ai.hint') }}</p>
         </div>
         <UButton
           icon="i-tabler-x"
           color="neutral"
           variant="ghost"
           size="xs"
-          :aria-label="t('workflow31.ai.close')"
+          :aria-label="t('workflow.ai.close')"
           @click="emit('close')"
         />
       </div>
@@ -22,7 +22,7 @@
 
     <div class="flex-1 overflow-y-auto">
       <section class="space-y-3 border-b border-default p-4">
-        <UFormField :label="t('workflow31.ai.profile')">
+        <UFormField :label="t('workflow.ai.profile')">
           <USelect
             v-model="slot"
             :items="profileOptions"
@@ -31,10 +31,10 @@
             :disabled="busy || review?.status === 'proposed'"
           />
         </UFormField>
-        <UFormField :label="t('workflow31.ai.request')" :help="t('workflow31.ai.request_help')">
+        <UFormField :label="t('workflow.ai.request')" :help="t('workflow.ai.request_help')">
           <UTextarea
             v-model="instruction"
-            :placeholder="t('workflow31.ai.request_placeholder')"
+            :placeholder="t('workflow.ai.request_placeholder')"
             :rows="4"
             autoresize
             :disabled="busy || review?.status === 'proposed'"
@@ -44,17 +44,17 @@
           v-if="dirty"
           class="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-xs text-warning"
         >
-          {{ t('workflow31.ai.save_first') }}
+          {{ t('workflow.ai.save_first') }}
         </div>
         <div
           v-else-if="profileOptions.length === 0"
           class="rounded-lg border border-default bg-elevated/35 px-3 py-2 text-xs text-muted"
         >
-          {{ t('workflow31.ai.no_profile') }}
+          {{ t('workflow.ai.no_profile') }}
         </div>
         <UButton
           class="w-full justify-center"
-          :label="review ? t('workflow31.ai.retry') : t('workflow31.ai.propose')"
+          :label="review ? t('workflow.ai.retry') : t('workflow.ai.propose')"
           icon="i-tabler-sparkles"
           :loading="busy"
           :disabled="!canPropose"
@@ -73,23 +73,23 @@
       <section v-if="review" class="space-y-4 p-4" aria-live="polite">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="text-xs font-semibold text-highlighted">{{ t('workflow31.ai.review') }}</p>
+            <p class="text-xs font-semibold text-highlighted">{{ t('workflow.ai.review') }}</p>
             <p class="mt-1 text-[11px] leading-5 text-muted">{{ review.summary }}</p>
           </div>
           <UBadge :color="statusColor" variant="soft">{{
-            t(`workflow31.ai.status.${review.status}`)
+            t(`workflow.ai.status.${review.status}`)
           }}</UBadge>
         </div>
 
         <dl class="grid grid-cols-2 gap-2 text-[10px]">
           <div class="rounded-lg bg-elevated/45 p-2.5">
-            <dt class="text-dimmed">{{ t('workflow31.ai.revision') }}</dt>
+            <dt class="text-dimmed">{{ t('workflow.ai.revision') }}</dt>
             <dd class="mt-1 font-mono text-toned">
               {{ review.baseRevision }} -> {{ review.newRevision }}
             </dd>
           </div>
           <div class="rounded-lg bg-elevated/45 p-2.5">
-            <dt class="text-dimmed">{{ t('workflow31.ai.candidate') }}</dt>
+            <dt class="text-dimmed">{{ t('workflow.ai.candidate') }}</dt>
             <dd class="mt-1 truncate font-mono text-toned" :title="review.candidateHash">
               {{ shortHash(review.candidateHash) }}
             </dd>
@@ -97,7 +97,7 @@
         </dl>
 
         <section>
-          <h3 class="text-xs font-semibold text-highlighted">{{ t('workflow31.ai.changes') }}</h3>
+          <h3 class="text-xs font-semibold text-highlighted">{{ t('workflow.ai.changes') }}</h3>
           <div class="mt-2 space-y-1.5">
             <div
               v-for="change in review.changes"
@@ -110,7 +110,7 @@
                   v-if="change.sensitive"
                   name="i-tabler-eye-off"
                   class="size-3.5 text-warning"
-                  :aria-label="t('workflow31.ai.redacted')"
+                  :aria-label="t('workflow.ai.redacted')"
                 />
               </div>
               <p class="mt-1 break-all text-[10px] text-muted">{{ change.target }}</p>
@@ -121,12 +121,12 @@
         <section>
           <div class="flex items-center justify-between">
             <h3 class="text-xs font-semibold text-highlighted">
-              {{ t('workflow31.ai.diagnostics') }}
+              {{ t('workflow.ai.diagnostics') }}
             </h3>
             <span class="font-mono text-[10px] text-dimmed">{{ review.diagnostics.length }}</span>
           </div>
           <p v-if="review.diagnostics.length === 0" class="mt-2 text-[11px] text-success">
-            {{ t('workflow31.ai.no_diagnostics') }}
+            {{ t('workflow.ai.no_diagnostics') }}
           </p>
           <div v-else class="mt-2 space-y-1.5">
             <div
@@ -143,7 +143,7 @@
         <section>
           <div class="flex items-center justify-between">
             <h3 class="text-xs font-semibold text-highlighted">
-              {{ t('workflow31.ai.permissions') }}
+              {{ t('workflow.ai.permissions') }}
             </h3>
             <span
               class="font-mono text-[10px]"
@@ -157,7 +157,7 @@
             v-if="review.permissions.added.length === 0 && review.permissions.removed.length === 0"
             class="mt-2 text-[11px] text-success"
           >
-            {{ t('workflow31.ai.no_permission_change') }}
+            {{ t('workflow.ai.no_permission_change') }}
           </p>
           <div v-else class="mt-2 space-y-1.5">
             <div
@@ -185,12 +185,12 @@
 
         <details class="rounded-lg border border-default bg-elevated/20">
           <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-toned">
-            {{ t('workflow31.ai.audit') }}
+            {{ t('workflow.ai.audit') }}
           </summary>
           <div class="space-y-2 border-t border-default p-3">
             <div class="grid grid-cols-3 gap-2 text-[10px] text-muted">
-              <span>{{ review.usage.iterations }} {{ t('workflow31.ai.turns') }}</span>
-              <span>{{ review.usage.toolCalls }} {{ t('workflow31.ai.tool_calls') }}</span>
+              <span>{{ review.usage.iterations }} {{ t('workflow.ai.turns') }}</span>
+              <span>{{ review.usage.toolCalls }} {{ t('workflow.ai.tool_calls') }}</span>
               <span>{{ review.usage.wallTimeMillis }} ms</span>
             </div>
             <ol class="space-y-1.5">
@@ -204,7 +204,7 @@
               </li>
             </ol>
             <p class="text-[10px] leading-4 text-dimmed">
-              {{ t('workflow31.ai.audit_redaction') }}
+              {{ t('workflow.ai.audit_redaction') }}
             </p>
           </div>
         </details>
@@ -214,14 +214,14 @@
           class="grid grid-cols-2 gap-2 border-t border-default pt-4"
         >
           <UButton
-            :label="t('workflow31.ai.reject')"
+            :label="t('workflow.ai.reject')"
             color="neutral"
             variant="soft"
             :disabled="busy"
             @click="reject"
           />
           <UButton
-            :label="t('workflow31.ai.accept')"
+            :label="t('workflow.ai.accept')"
             icon="i-tabler-check"
             :loading="busy"
             @click="accept"
@@ -298,7 +298,7 @@ async function accept(): Promise<void> {
   if (
     review.value.permissions.added.length > 0 &&
     !window.confirm(
-      t('workflow31.ai.permission_confirm', { n: review.value.permissions.added.length }),
+      t('workflow.ai.permission_confirm', { n: review.value.permissions.added.length }),
     )
   )
     return

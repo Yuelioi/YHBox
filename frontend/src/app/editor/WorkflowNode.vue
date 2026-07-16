@@ -13,7 +13,7 @@
         v-if="node.disabled"
         name="i-tabler-ban"
         class="size-3.5 text-warning"
-        :aria-label="t('workflow31.node.disabled')"
+        :aria-label="t('workflow.node.disabled')"
       />
     </header>
 

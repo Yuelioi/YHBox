@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
@@ -102,7 +102,7 @@ type ExplainDiagnosticResult struct {
 	Repairs     []string `json:"repairs"`
 }
 
-func listWorkflows(application *app31.Application, request PageRequest) (WorkflowListResult, error) {
+func listWorkflows(application *appcore.Application, request PageRequest) (WorkflowListResult, error) {
 	offset, limit, err := boundedPage(request.Offset, request.Limit)
 	if err != nil {
 		return WorkflowListResult{}, err
@@ -123,7 +123,7 @@ func listWorkflows(application *app31.Application, request PageRequest) (Workflo
 	return result, nil
 }
 
-func createWorkflow(ctx context.Context, application *app31.Application, request WorkflowCreateRequest) (WorkflowSummary, error) {
+func createWorkflow(ctx context.Context, application *appcore.Application, request WorkflowCreateRequest) (WorkflowSummary, error) {
 	snapshot, err := application.CreateSource(ctx, request.Name)
 	if err != nil {
 		return WorkflowSummary{}, err
@@ -131,7 +131,7 @@ func createWorkflow(ctx context.Context, application *app31.Application, request
 	return summarizeSource(snapshot)
 }
 
-func inspectWorkflow(application *app31.Application, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
+func inspectWorkflow(application *appcore.Application, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
 	if request.NodeOffset < 0 || request.EdgeOffset < 0 {
 		return WorkflowInspectResult{}, errors.New("offsets must be non-negative")
 	}
@@ -175,7 +175,7 @@ func inspectWorkflow(application *app31.Application, request WorkflowInspectRequ
 	}}, nil
 }
 
-func applyWorkflowPatch(ctx context.Context, application *app31.Application, request WorkflowApplyPatchRequest) (WorkflowApplyPatchResult, error) {
+func applyWorkflowPatch(ctx context.Context, application *appcore.Application, request WorkflowApplyPatchRequest) (WorkflowApplyPatchResult, error) {
 	result, err := application.ApplyPatch(ctx, request)
 	if err != nil {
 		return WorkflowApplyPatchResult{}, err
@@ -189,7 +189,7 @@ func applyWorkflowPatch(ctx context.Context, application *app31.Application, req
 	}, nil
 }
 
-func compileWorkflow(ctx context.Context, application *app31.Application, request WorkflowIDRequest) (WorkflowCompileResult, error) {
+func compileWorkflow(ctx context.Context, application *appcore.Application, request WorkflowIDRequest) (WorkflowCompileResult, error) {
 	compiled, err := application.CompileSource(ctx, request.WorkflowID)
 	result := WorkflowCompileResult{
 		WorkflowID: request.WorkflowID, SourceHash: compiled.SourceHash,
@@ -201,7 +201,7 @@ func compileWorkflow(ctx context.Context, application *app31.Application, reques
 	return result, err
 }
 
-func previewWorkflowRun(ctx context.Context, application *app31.Application, request WorkflowIDRequest) (WorkflowRunPreviewResult, error) {
+func previewWorkflowRun(ctx context.Context, application *appcore.Application, request WorkflowIDRequest) (WorkflowRunPreviewResult, error) {
 	preview, err := application.PreviewRun(ctx, request.WorkflowID)
 	return WorkflowRunPreviewResult{
 		WorkflowID: request.WorkflowID, SourceHash: preview.SourceHash, ProgramHash: preview.ProgramHash,

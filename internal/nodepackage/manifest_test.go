@@ -220,7 +220,7 @@ func testCapability(t *testing.T) capability.Definition {
 
 func testNode(t *testing.T, typeRef datatype.TypeRef, capabilityRef capability.Ref, kind nodecontract.ABIKind) nodecontract.Contract {
 	t.Helper()
-	const id = testNamespace + "/nodes/uppercase/v1"
+	const id = testNamespace + "/nodes/uppercase"
 	return testNodeAtID(t, id, typeRef, capabilityRef, kind)
 }
 
@@ -233,7 +233,7 @@ func testNodeAtID(t *testing.T, id string, typeRef datatype.TypeRef, capabilityR
 			TargetSlot: "dictionary", Scope: json.RawMessage(`{}`),
 		})
 	}
-	contract, err := nodecontract.Seal(nodecontract.Draft{
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
 		NodeTypeID: id, ConfigSchemaRoot: id + "/config",
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: id + "/config", Schema: json.RawMessage(fmt.Sprintf(
 			`{"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`,
@@ -262,7 +262,7 @@ func testNodeAtID(t *testing.T, id string, typeRef datatype.TypeRef, capabilityR
 
 func testForeignNode(t *testing.T, typeRef datatype.TypeRef) nodecontract.Contract {
 	t.Helper()
-	return testNodeAtID(t, "https://foreign.example.test/nodes/uppercase/v1", typeRef, capability.Ref{}, nodecontract.ABIWIT)
+	return testNodeAtID(t, "https://foreign.example.test/nodes/uppercase", typeRef, capability.Ref{}, nodecontract.ABIWIT)
 }
 
 func testImplementation(t *testing.T, kind nodecontract.ABIKind) Implementation {

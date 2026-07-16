@@ -5,10 +5,10 @@
     >
       <div class="min-w-0 flex-1">
         <h1 class="text-xl font-semibold tracking-tight text-highlighted">
-          {{ t('workflow31.list.title') }}
+          {{ t('workflow.list.title') }}
         </h1>
         <p class="mt-1 max-w-2xl text-sm text-muted">
-          {{ t('workflow31.list.description') }}
+          {{ t('workflow.list.description') }}
         </p>
       </div>
       <form
@@ -16,20 +16,20 @@
         @submit.prevent="createWorkflow"
       >
         <UFormField
-          :label="t('workflow31.list.new_workflow')"
+          :label="t('workflow.list.new_workflow')"
           class="min-w-52 flex-1 sm:w-64 sm:flex-none"
         >
           <UInput
             v-model="newName"
             data-testid="workflow-create-name"
-            :placeholder="t('workflow31.list.name_placeholder')"
+            :placeholder="t('workflow.list.name_placeholder')"
             class="w-full"
           />
         </UFormField>
         <UButton
           type="submit"
           data-testid="workflow-create-submit"
-          :label="t('workflow31.list.create')"
+          :label="t('workflow.list.create')"
           icon="i-tabler-plus"
           :loading="creating"
           :disabled="!newName.trim()"
@@ -38,7 +38,7 @@
     </header>
 
     <main class="flex-1 px-4 py-5 sm:px-8 sm:py-6">
-      <div v-if="loading" class="space-y-2" :aria-label="t('workflow31.list.loading')">
+      <div v-if="loading" class="space-y-2" :aria-label="t('workflow.list.loading')">
         <USkeleton v-for="index in 4" :key="index" class="h-16 w-full rounded-lg" />
       </div>
 
@@ -57,10 +57,10 @@
         <div class="max-w-sm">
           <UIcon name="i-tabler-route" class="mx-auto mb-4 size-8 text-primary" />
           <h2 class="text-sm font-semibold text-highlighted">
-            {{ t('workflow31.list.empty_title') }}
+            {{ t('workflow.list.empty_title') }}
           </h2>
           <p class="mt-2 text-xs leading-5 text-muted">
-            {{ t('workflow31.list.empty_description') }}
+            {{ t('workflow.list.empty_description') }}
           </p>
         </div>
       </div>
@@ -69,8 +69,8 @@
         <div
           class="hidden grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-t-lg bg-elevated/60 px-4 py-2 text-[11px] font-medium text-muted sm:grid"
         >
-          <span>{{ t('workflow31.list.name') }}</span>
-          <span class="text-right">{{ t('workflow31.list.actions') }}</span>
+          <span>{{ t('workflow.list.name') }}</span>
+          <span class="text-right">{{ t('workflow.list.actions') }}</span>
         </div>
         <div class="divide-y divide-default">
           <article
@@ -81,7 +81,7 @@
             <div class="min-w-0">
               <RouterLink
                 :to="`/workflows/${source.workflowId}/edit`"
-                :aria-label="t('workflow31.action.edit_named', { name: source.name })"
+                :aria-label="t('workflow.action.edit_named', { name: source.name })"
                 class="block truncate text-sm font-medium text-highlighted underline-offset-4 hover:text-primary hover:underline focus-visible:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {{ source.name }}
@@ -90,7 +90,7 @@
                 class="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-dimmed"
               >
                 <span class="shrink-0">
-                  {{ t('workflow31.list.revision') }} {{ source.revision }}
+                  {{ t('workflow.list.revision') }} {{ source.revision }}
                 </span>
                 <span class="min-w-0 truncate">{{ source.sourceHash }}</span>
                 <span class="min-w-0 truncate">{{ source.workflowId }}</span>
@@ -98,7 +98,7 @@
             </div>
             <div class="flex flex-wrap justify-end gap-2">
               <UButton
-                :label="t('workflow31.action.run')"
+                :label="t('workflow.action.run')"
                 icon="i-tabler-player-play"
                 color="neutral"
                 variant="ghost"
@@ -106,7 +106,7 @@
                 @click="runWorkflow(source.workflowId)"
               />
               <UButton
-                :label="t('workflow31.action.edit')"
+                :label="t('workflow.action.edit')"
                 icon="i-tabler-schema"
                 size="xs"
                 @click="router.push(`/workflows/${source.workflowId}/edit`)"
@@ -124,7 +124,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import { useI18n } from 'vue-i18n'
-import { workflowTransport, type SourceView } from '@/app/transport/workflow31'
+import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 
 defineOptions({ name: 'WorkflowsView' })
 
@@ -161,7 +161,7 @@ async function createWorkflow(): Promise<void> {
     await router.push(`/workflows/${created.workflowId}/edit`)
   } catch (error) {
     toast.add({
-      title: t('workflow31.toast.create_failed'),
+      title: t('workflow.toast.create_failed'),
       description: errorText(error),
       color: 'error',
     })
@@ -175,20 +175,20 @@ async function runWorkflow(workflowId: string): Promise<void> {
     const started = await workflowTransport.startRun(workflowId)
     if (!started.run) {
       toast.add({
-        title: t('workflow31.toast.not_started'),
+        title: t('workflow.toast.not_started'),
         description: diagnosticText(started),
         color: 'warning',
       })
       return
     }
     toast.add({
-      title: t('workflow31.toast.queued'),
+      title: t('workflow.toast.queued'),
       description: started.run.runId,
       color: 'success',
     })
   } catch (error) {
     toast.add({
-      title: t('workflow31.toast.run_failed'),
+      title: t('workflow.toast.run_failed'),
       description: errorText(error),
       color: 'error',
     })
@@ -198,7 +198,7 @@ async function runWorkflow(workflowId: string): Promise<void> {
 function diagnosticText(value: { diagnostics: Array<{ code: string }> }): string {
   return (
     value.diagnostics.map((diagnostic) => diagnostic.code).join(', ') ||
-    t('workflow31.toast.no_run_created')
+    t('workflow.toast.no_run_created')
   )
 }
 

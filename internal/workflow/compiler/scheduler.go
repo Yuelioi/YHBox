@@ -11,7 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -32,8 +32,8 @@ type scheduledInvocation struct {
 type scheduler struct {
 	executor       *Executor
 	graph          *programGraph
-	owner          *run31.Owner
-	journal        *run31.JournalWriter
+	owner          *run.Owner
+	journal        *run.JournalWriter
 	state          *runState
 	nodes          map[string]programNode
 	routes         map[routeKey][]programSignalRoute
@@ -42,19 +42,19 @@ type scheduler struct {
 	queue          []scheduledInvocation
 	result         ExecutionResult
 	attempts       map[string]int
-	outputSessions map[string]map[string]*run31.Session
+	outputSessions map[string]map[string]*run.Session
 	evaluating     map[string]bool
 	owned          []ownedLease
 	retainedBytes  int
 	invocations    int
 }
 
-func newScheduler(executor *Executor, graph *programGraph, owner *run31.Owner, journal *run31.JournalWriter, state *runState) *scheduler {
+func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, journal *run.JournalWriter, state *runState) *scheduler {
 	s := &scheduler{
 		executor: executor, graph: graph, owner: owner, journal: journal, state: state,
 		nodes: make(map[string]programNode, len(graph.Nodes)), routes: make(map[routeKey][]programSignalRoute),
 		dataConsumers: make(map[string]int), volatile: make(map[string]bool), attempts: make(map[string]int),
-		outputSessions: make(map[string]map[string]*run31.Session), evaluating: make(map[string]bool),
+		outputSessions: make(map[string]map[string]*run.Session), evaluating: make(map[string]bool),
 		result: ExecutionResult{
 			NodeOutputs: make(map[string]map[string]datatype.ValueEnvelope),
 			attempts:    make(map[string]map[string]int),
@@ -181,7 +181,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return err
 	}
-	nodeSessions := make(map[string]*run31.Session, len(node.Capabilities))
+	nodeSessions := make(map[string]*run.Session, len(node.Capabilities))
 	for _, requirement := range node.Capabilities {
 		session, err := s.owner.Session(s.graph.ID, node.ID, requirement.ID, invocationID)
 		if err != nil {
@@ -201,13 +201,13 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return fmt.Errorf("bind state for node %q: %w", node.ID, err)
 	}
-	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
+	summary, err := run.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		return err
 	}
 	observedAt := s.executor.now().UTC()
-	started, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptStarted,
+	started, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptStarted,
 		OccurredAt: observedAt, Summary: summary,
 	})
 	if err != nil {
@@ -275,13 +275,13 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		s.result.attempts[node.ID][port.ID] = attempt
 		if _, _, runtimeValue := runtimeHandle(envelope); runtimeValue {
 			if s.outputSessions[node.ID] == nil {
-				s.outputSessions[node.ID] = make(map[string]*run31.Session)
+				s.outputSessions[node.ID] = make(map[string]*run.Session)
 			}
 			s.outputSessions[node.ID][port.ID] = nodeSessions[port.ResourceLease.RequirementID]
 		}
 	}
-	finished, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptSucceeded,
+	finished, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptSucceeded,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -338,7 +338,7 @@ func (s *scheduler) clearNodeResult(nodeID string) {
 	}
 }
 
-func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSessions map[string]*run31.Session, evaluation map[string]bool) (map[string]datatype.ValueEnvelope, error) {
+func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSessions map[string]*run.Session, evaluation map[string]bool) (map[string]datatype.ValueEnvelope, error) {
 	inputs := make(map[string]datatype.ValueEnvelope, len(node.Inputs))
 	portIDs := make([]string, 0, len(node.Inputs))
 	for portID := range node.Inputs {
@@ -421,7 +421,7 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation 
 	return s.dispatch(ctx, nodeID, nil, evaluation)
 }
 
-func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run31.RedactedSummary) error {
+func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run.RedactedSummary) error {
 	if len(outcome.Outputs) != 0 || len(outcome.ExecOutputs) != 0 || statusErr != nil {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("node failure returned outputs, exec signals, or invalid status"), statusErr, journalErr)
@@ -436,11 +436,11 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 		return errors.Join(errors.New("node failure does not match its adapter action"), actionErr, journalErr)
 	}
 	routes := s.routes[routeKey{channel: schema.EdgeError, nodeID: node.ID, portID: failure.Output}]
-	terminal := run31.AttemptFailed
+	terminal := run.AttemptFailed
 	if len(routes) != 0 {
-		terminal = run31.AttemptRouted
+		terminal = run.AttemptRouted
 	}
-	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
+	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
 		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: terminal,
 		OccurredAt: s.executor.now().UTC(), ErrorCode: failure.Code, Summary: summary,
 	})
@@ -546,7 +546,7 @@ func cloneRoutedFailure(source *RoutedFailure) *RoutedFailure {
 type statusEmitter struct {
 	mu           sync.Mutex
 	executor     *Executor
-	journal      *run31.JournalWriter
+	journal      *run.JournalWriter
 	graphID      string
 	nodeID       string
 	attempt      int
@@ -555,7 +555,7 @@ type statusEmitter struct {
 	closed       bool
 }
 
-func newStatusEmitter(executor *Executor, journal *run31.JournalWriter, graphID, nodeID string, attempt int, declarations []nodecontract.StatusEventSpec) *statusEmitter {
+func newStatusEmitter(executor *Executor, journal *run.JournalWriter, graphID, nodeID string, attempt int, declarations []nodecontract.StatusEventSpec) *statusEmitter {
 	byCode := make(map[string]nodecontract.StatusCategory, len(declarations))
 	for _, declaration := range declarations {
 		byCode[declaration.Code] = declaration.Category
@@ -582,11 +582,11 @@ func (e *statusEmitter) Emit(ctx context.Context, code string, counters map[stri
 	if !ok {
 		return reject(errors.New("adapter emitted an undeclared status event"))
 	}
-	summary, err := run31.NewRedactedSummary(code, counters, nil)
+	summary, err := run.NewRedactedSummary(code, counters, nil)
 	if err != nil {
 		return reject(err)
 	}
-	fact, err := run31.NewNodeStatusFact(run31.NodeStatusInput{
+	fact, err := run.NewNodeStatusFact(run.NodeStatusInput{
 		GraphPath: []string{e.graphID}, NodeID: e.nodeID, Attempt: e.attempt, Code: code, Category: category,
 		OccurredAt: e.executor.now().UTC(), Summary: summary,
 	})

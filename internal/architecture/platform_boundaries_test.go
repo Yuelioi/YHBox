@@ -25,7 +25,7 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 		"internal/nodeauthoring",
 		"internal/nodecatalog",
 		"internal/nodecontract",
-		"internal/nodes31",
+		"internal/nodes",
 		"internal/workflow/authoring",
 		"internal/workflow/compiler",
 		"internal/workflow/schema",

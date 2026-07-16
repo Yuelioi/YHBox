@@ -43,7 +43,7 @@ func TestRenderDocumentationComesFromAuthoringProjection(t *testing.T) {
 	for _, want := range []string{
 		"# Yotta 3.1 built-in nodes",
 		"Generated from the strict Node Authoring Projection",
-		"https://schemas.yotta.dev/nodes/text/concat/v1",
+		"https://schemas.yotta.dev/nodes/text/concat",
 		"| input | `a` |",
 		"| input | `b` |",
 		"| output | `result` |",

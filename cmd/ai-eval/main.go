@@ -11,7 +11,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/artifact"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 type runInput struct {
@@ -62,7 +62,7 @@ func run(observationsPath, reportPath string, write bool) error {
 			return err
 		}
 	}
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		return err
 	}

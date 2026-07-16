@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/ai"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 func modelSettingsForTest(slot, label string) AIModelSettings {
@@ -30,7 +30,7 @@ func evaluatedModelSettingsForTest(t *testing.T, slot, label string) AIModelSett
 	if err != nil {
 		t.Fatal(err)
 	}
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}

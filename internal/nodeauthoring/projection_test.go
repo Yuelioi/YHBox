@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		t.Fatalf("strict open changed projection identity: %v", err)
 	}
 
-	concat, ok := projection.Node(nodes31.ConcatNodeID)
+	concat, ok := projection.Node(nodes.ConcatNodeID)
 	if !ok || len(concat.DataInputs) != 2 || len(concat.DataOutputs) != 1 || len(concat.Signals) != 0 {
 		t.Fatalf("concat projection = %#v", concat)
 	}
@@ -38,7 +38,7 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		concat.DataInputs[0].Type.Lifecycle != nodeauthoring.LifecycleDurable {
 		t.Fatalf("concat input projection = %#v", concat.DataInputs[0])
 	}
-	matchTemplate, ok := projection.Node(nodes31.MatchTemplateNodeID)
+	matchTemplate, ok := projection.Node(nodes.MatchTemplateNodeID)
 	if !ok || len(matchTemplate.DataInputs) < 2 || matchTemplate.DataInputs[1].ID != "template" ||
 		matchTemplate.DataInputs[1].EditorAdapter != "template-image" || matchTemplate.DataInputs[1].TitleKey == "" ||
 		matchTemplate.DataInputs[1].DescriptionKey == "" {
@@ -48,7 +48,7 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		t.Fatalf("concat config/availability = %#v / %q", concat.ConfigFields, concat.Availability)
 	}
 
-	conversion, ok := projection.Node(nodes31.StreamToBlobNodeID)
+	conversion, ok := projection.Node(nodes.StreamToBlobNodeID)
 	if !ok || len(conversion.ConfigFields) != 1 || len(conversion.Capabilities) != 2 {
 		t.Fatalf("conversion projection = %#v", conversion)
 	}
@@ -65,11 +65,11 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		conversion.DataOutputs[0].Carrier != nodeauthoring.CarrierDurable {
 		t.Fatalf("conversion availability/carriers = %#v", conversion)
 	}
-	binary, ok := projection.Type(nodes31.BinaryTypeID)
+	binary, ok := projection.Type(nodes.BinaryTypeID)
 	if !ok || binary.Lifecycle != nodeauthoring.LifecycleMixed || len(binary.Representations) != 2 {
 		t.Fatalf("binary type projection = %#v", binary)
 	}
-	stateRead, ok := projection.Node(nodes31.StateReadNodeID)
+	stateRead, ok := projection.Node(nodes.StateReadNodeID)
 	if !ok || len(stateRead.StateAccesses) != 1 || stateRead.StateAccesses[0].Mode != "read" ||
 		stateRead.StateAccesses[0].SlotConfigKey != "variable" || stateRead.StateAccesses[0].Type.Label != "$T" {
 		t.Fatalf("state read projection = %#v", stateRead)
@@ -86,7 +86,7 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 }
 
 func TestProjectionRejectsIncompletePresentationAndTampering(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}

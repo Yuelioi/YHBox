@@ -3,10 +3,10 @@
     <div class="flex items-center justify-between border-b border-default px-4 py-3">
       <div class="min-w-0">
         <h2 class="truncate text-sm font-semibold text-highlighted">
-          {{ t('workflow31.inspector.title') }}
+          {{ t('workflow.inspector.title') }}
         </h2>
         <p class="truncate font-mono text-[10px] text-dimmed">
-          {{ node?.id || t('workflow31.inspector.no_selection') }}
+          {{ node?.id || t('workflow.inspector.no_selection') }}
         </p>
       </div>
       <UButton
@@ -15,7 +15,7 @@
         color="error"
         variant="ghost"
         size="xs"
-        :aria-label="t('workflow31.inspector.remove_node')"
+        :aria-label="t('workflow.inspector.remove_node')"
         @click="emit('command', { kind: 'remove-node', nodeId: node.id })"
       />
     </div>
@@ -24,10 +24,10 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-xs font-semibold text-highlighted">
-            {{ t('workflow31.inspector.state_title') }}
+            {{ t('workflow.inspector.state_title') }}
           </h3>
           <p class="mt-1 text-[10px] text-dimmed">
-            {{ t('workflow31.inspector.state_hint') }}
+            {{ t('workflow.inspector.state_hint') }}
           </p>
         </div>
         <UBadge color="neutral" variant="soft" size="sm">{{ variables.length }}</UBadge>
@@ -35,7 +35,7 @@
       <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
         <UInput
           v-model="newVariableName"
-          :placeholder="t('workflow31.inspector.state_name_placeholder')"
+          :placeholder="t('workflow.inspector.state_name_placeholder')"
           size="sm"
         />
         <USelect
@@ -50,7 +50,7 @@
           size="sm"
           color="neutral"
           :disabled="!canAddVariable"
-          :aria-label="t('workflow31.inspector.state_add')"
+          :aria-label="t('workflow.inspector.state_add')"
           @click="addStateVariable"
         />
       </div>
@@ -71,7 +71,7 @@
             color="error"
             variant="ghost"
             size="xs"
-            :aria-label="t('workflow31.inspector.state_remove', { name: variable.name })"
+            :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
             @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
           />
         </div>
@@ -84,19 +84,19 @@
     >
       <div>
         <UIcon name="i-tabler-pointer" class="mx-auto mb-3 size-6 text-dimmed" />
-        <p class="text-xs text-muted">{{ t('workflow31.inspector.select_hint') }}</p>
+        <p class="text-xs text-muted">{{ t('workflow.inspector.select_hint') }}</p>
       </div>
     </div>
 
     <div v-else class="flex-1 space-y-6 overflow-y-auto p-4">
       <section class="space-y-3">
         <label class="block text-xs font-medium text-toned" for="workflow-node-label">
-          {{ t('workflow31.inspector.label') }}
+          {{ t('workflow.inspector.label') }}
         </label>
         <UInput
           id="workflow-node-label"
           :model-value="node.label || ''"
-          :placeholder="t('workflow31.inspector.label_placeholder')"
+          :placeholder="t('workflow.inspector.label_placeholder')"
           class="w-full"
           @change="setLabel"
         />
@@ -104,7 +104,7 @@
 
       <section v-if="projection.configFields.length" class="space-y-3">
         <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow31.inspector.configuration') }}
+          {{ t('workflow.inspector.configuration') }}
         </h3>
         <GeneratedFieldEditor
           v-for="field in projection.configFields"
@@ -125,7 +125,7 @@
 
       <section v-if="projection.dataInputs.length" class="space-y-3">
         <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow31.inspector.inputs') }}
+          {{ t('workflow.inspector.inputs') }}
         </h3>
         <div
           v-for="port in projection.dataInputs"
@@ -200,7 +200,7 @@
             :items="templateVariantItems"
             value-key="value"
             label-key="label"
-            :placeholder="t('workflow31.inspector.select_template')"
+            :placeholder="t('workflow.inspector.select_template')"
             class="w-full"
             @update:model-value="setTemplateImage(port.id, $event)"
           />
@@ -210,17 +210,17 @@
             :items="clipItems"
             value-key="value"
             label-key="label"
-            :placeholder="t('workflow31.inspector.select_clip')"
+            :placeholder="t('workflow.inspector.select_clip')"
             class="w-full"
             @update:model-value="setClip(port.id, $event)"
           />
           <p v-else class="text-[11px] leading-5 text-muted">
-            {{ t('workflow31.inspector.reference_only', { carrier: port.carrier }) }}
+            {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
           </p>
           <div class="flex items-center gap-2">
             <UButton
               v-if="port.hasDefault"
-              :label="t('workflow31.inspector.use_default')"
+              :label="t('workflow.inspector.use_default')"
               size="xs"
               color="neutral"
               variant="soft"
@@ -228,7 +228,7 @@
             />
             <UButton
               v-if="node.bindings[port.id]"
-              :label="t('workflow31.inspector.clear')"
+              :label="t('workflow.inspector.clear')"
               size="xs"
               color="neutral"
               variant="ghost"
@@ -240,7 +240,7 @@
 
       <section v-if="projection.capabilities.length" class="space-y-3">
         <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow31.inspector.capabilities') }}
+          {{ t('workflow.inspector.capabilities') }}
         </h3>
         <div
           v-for="capability in projection.capabilities"
@@ -259,10 +259,10 @@
 
       <section v-if="projection.statusEvents.length" class="space-y-2">
         <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow31.inspector.observed_status') }}
+          {{ t('workflow.inspector.observed_status') }}
         </h3>
         <p class="text-[11px] leading-5 text-muted">
-          {{ t('workflow31.inspector.status_hint') }}
+          {{ t('workflow.inspector.status_hint') }}
         </p>
         <code class="block text-[10px] text-toned">{{
           projection.statusEvents.map((event) => event.code).join('\n')
@@ -515,8 +515,8 @@ function literalPlaceholder(port: PortProjection): string {
   if (port.hasDefault && typeof port.default === 'string') return port.default
   return t(
     port.binding === 'required'
-      ? 'workflow31.inspector.required_value'
-      : 'workflow31.inspector.optional_value',
+      ? 'workflow.inspector.required_value'
+      : 'workflow.inspector.optional_value',
   )
 }
 </script>

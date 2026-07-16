@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 )
 
-type workflowRunStarter struct{ application *app31.Application }
+type workflowRunStarter struct{ application *appcore.Application }
 
 func (s *workflowRunStarter) StartWorkflow(ctx context.Context, workflowID string) error {
 	if s == nil || s.application == nil {
 		return errors.New("workflow Application is unavailable")
 	}
-	_, err := s.application.StartRun(ctx, app31.StartRunRequest{WorkflowID: workflowID, Principal: "local-user"})
+	_, err := s.application.StartRun(ctx, appcore.StartRunRequest{WorkflowID: workflowID, Principal: "local-user"})
 	return err
 }

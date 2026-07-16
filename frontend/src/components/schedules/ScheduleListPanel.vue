@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Schedule } from '@/lib/backend'
-import type { SourceView } from '@/app/transport/workflow31'
+import type { SourceView } from '@/app/transport/workflow'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusPill from '@/components/common/StatusPill.vue'
 

@@ -14,17 +14,17 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -52,16 +52,16 @@ type Config struct {
 	ApplicationInstallations appcontrol.Installations
 	AutomationInstallations  automationinstalled.Installations
 	ScriptRuntime            *scriptengine.Runtime
-	LogEmitter               nodes31runtime.LogEmitter
+	LogEmitter               noderuntime.LogEmitter
 	GrantTTL                 time.Duration
 	OwnerCloseTimeout        time.Duration
 	Now                      func() time.Time
-	OnRunEvent               func(app31.RunEvent)
+	OnRunEvent               func(appcore.RunEvent)
 }
 
 type Runtime struct {
-	Application  *app31.Application
-	Builtins     nodes31.Builtins
+	Application  *appcore.Application
+	Builtins     nodes.Builtins
 	BlobStore    *blob.Store
 	ai           ai.Installations
 	http         httpegress.Installations
@@ -83,7 +83,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil || config.DataRoot == "" {
 		return nil, errors.New("app bootstrap requires a data root")
 	}
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		return nil, fmt.Errorf("build Catalog 3.1: %w", err)
 	}
@@ -93,7 +93,7 @@ func Build(config Config) (*Runtime, error) {
 	}
 	authoringProjection, err := nodeauthoring.Project(nodeauthoring.Input{
 		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
-		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes.GeneratorVersion,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build Authoring Projection 3.1: %w", err)
@@ -111,7 +111,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs, err := run31.OpenStore(filepath.Join(workspace, "runs"), builtins.Catalog, run31.StoreOptions{MaxRecords: config.Limits.MaxRuns})
+	runs, err := run.OpenStore(filepath.Join(workspace, "runs"), builtins.Catalog, run.StoreOptions{MaxRecords: config.Limits.MaxRuns})
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	workspaceFileProvider, err := workspacefs.NewProvider(filepath.Join(workspace, "files"), workspacefs.Limits{MaxReadBytes: nodes31.DefaultFileReadBytes})
+	workspaceFileProvider, err := workspacefs.NewProvider(filepath.Join(workspace, "files"), workspacefs.Limits{MaxReadBytes: nodes.DefaultFileReadBytes})
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +158,12 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{Script: config.ScriptRuntime, Log: config.LogEmitter})
+	adapters, err := noderuntime.Installed(builtins, noderuntime.Dependencies{Script: config.ScriptRuntime, Log: config.LogEmitter})
 	if err != nil {
 		return nil, err
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: config.Now})
-	providers := map[string]run31.InstalledProvider{
+	providers := map[string]run.InstalledProvider{
 		blob.ProviderID:        {ArtifactDigest: blobDigest, ABI: blob.ProviderABI, Provider: blobProvider},
 		stream.ProviderID:      {ArtifactDigest: streamDigest, ABI: stream.ProviderABI, Provider: streamProvider},
 		workspacefs.ProviderID: {ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, Provider: workspaceFileProvider},
@@ -175,7 +175,7 @@ func Build(config Config) (*Runtime, error) {
 			}
 			continue
 		}
-		providers[installed.ProviderID] = run31.InstalledProvider{
+		providers[installed.ProviderID] = run.InstalledProvider{
 			ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, Provider: installed.Provider,
 		}
 	}
@@ -186,7 +186,7 @@ func Build(config Config) (*Runtime, error) {
 			}
 			continue
 		}
-		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, Provider: installed.Provider}
+		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, Provider: installed.Provider}
 	}
 	for _, installed := range config.ApplicationInstallations.Entries() {
 		if existing, ok := providers[installed.ProviderID]; ok {
@@ -195,7 +195,7 @@ func Build(config Config) (*Runtime, error) {
 			}
 			continue
 		}
-		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, Provider: installed.Provider}
+		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, Provider: installed.Provider}
 	}
 	for _, installed := range config.AutomationInstallations.Entries() {
 		if existing, ok := providers[installed.ProviderID]; ok {
@@ -204,9 +204,9 @@ func Build(config Config) (*Runtime, error) {
 			}
 			continue
 		}
-		providers[installed.ProviderID] = run31.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
+		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
 	}
-	application, err := app31.New(app31.Config{
+	application, err := appcore.New(appcore.Config{
 		Catalog: builtins.Catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
@@ -241,7 +241,7 @@ func (r *Runtime) Close(ctx context.Context) error {
 
 func validateLimits(limits Limits) error {
 	if limits.MaxSources <= 0 || limits.MaxPrograms <= 0 || limits.MaxRuns <= 0 ||
-		limits.MaxResourcePayloadBytes < 2*nodes31.DefaultFileReadBytes || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
+		limits.MaxResourcePayloadBytes < 2*nodes.DefaultFileReadBytes || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
 		limits.BlobQueueCapacity <= 0 || limits.StreamCapacity <= 0 || limits.StreamChunkBytes <= 0 ||
 		limits.StreamChunkBytes > limits.MaxResourcePayloadBytes {
 		return errors.New("app bootstrap limits are invalid")
@@ -249,7 +249,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
+func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -257,47 +257,47 @@ func builtinHostProfile(builtins nodes31.Builtins, blobDigest, streamDigest, wor
 		}
 		return definition.Ref(), nil
 	}
-	blobRead, err := lookup(nodes31.BlobReadCapabilityID)
+	blobRead, err := lookup(nodes.BlobReadCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	blobWrite, err := lookup(nodes31.BlobWriteCapabilityID)
+	blobWrite, err := lookup(nodes.BlobWriteCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	streamSession, err := lookup(nodes31.StreamCapabilityID)
+	streamSession, err := lookup(nodes.StreamCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	aiGeneration, err := lookup(nodes31.AIGenerationCapabilityID)
+	aiGeneration, err := lookup(nodes.AIGenerationCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	filesystemRead, err := lookup(nodes31.FilesystemReadCapabilityID)
+	filesystemRead, err := lookup(nodes.FilesystemReadCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	httpGet, err := lookup(nodes31.HTTPGetCapabilityID)
+	httpGet, err := lookup(nodes.HTTPGetCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	applicationLifecycle, err := lookup(nodes31.ApplicationLifecycleCapabilityID)
+	applicationLifecycle, err := lookup(nodes.ApplicationLifecycleCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	automationInput, err := lookup(nodes31.AutomationInputCapabilityID)
+	automationInput, err := lookup(nodes.AutomationInputCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	automationWindow, err := lookup(nodes31.AutomationWindowCapabilityID)
+	automationWindow, err := lookup(nodes.AutomationWindowCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	automationCapture, err := lookup(nodes31.AutomationCaptureCapabilityID)
+	automationCapture, err := lookup(nodes.AutomationCaptureCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	automationPlayback, err := lookup(nodes31.AutomationPlaybackCapabilityID)
+	automationPlayback, err := lookup(nodes.AutomationPlaybackCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}

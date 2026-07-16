@@ -1072,7 +1072,7 @@ export default {
       isolation_unavailable: '当前平台无法提供所需脚本隔离',
     },
   },
-  workflow31: {
+  workflow: {
     list: {
       title: '工作流',
       description: '每次运行都会把已保存的 3.1 源编译成不可变的 Program 快照。',

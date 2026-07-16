@@ -8,7 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -27,10 +27,10 @@ func TestEngineAppliesAtomicTypedPatchWithHostOwnedNodeIDs(t *testing.T) {
 	source := emptySource()
 	result, err := engine.Apply(source, []authoring.Command{
 		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
-			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "left", Position: schema.Position{X: 10, Y: 20},
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "left", Position: schema.Position{X: 10, Y: 20},
 		}},
 		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
-			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "right", Position: schema.Position{X: 30, Y: 40},
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "right", Position: schema.Position{X: 30, Y: 40},
 		}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$left", PortID: "a", Value: "hello"}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$left", PortID: "b", Value: " world"}},
@@ -90,8 +90,8 @@ func TestEngineUsesInstructionSignalChannels(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := engine.Apply(emptySource(), []authoring.Command{
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.DelayNodeID, Handle: "delay"}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.RetryNodeID, Handle: "retry"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "delay"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.RetryNodeID, Handle: "retry"}},
 		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
 			Channel: schema.EdgeError,
 			From:    schema.Endpoint{NodeID: "$delay", PortID: "failed"},
@@ -140,13 +140,13 @@ func TestEngineEditsStateNodesAndDisconnectsAtomically(t *testing.T) {
 		{Kind: authoring.CommandAddStateVariable, AddStateVariable: &authoring.AddStateVariableCommand{
 			Name: "message", Type: datatype.RefExpression(builtins.StringType.TypeRef()), Default: "hello",
 		}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.StateReadNodeID, Handle: "read"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.StateReadNodeID, Handle: "read"}},
 		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$read", FieldID: "variable", Value: "message"}},
 		{Kind: authoring.CommandMoveNode, MoveNode: &authoring.MoveNodeCommand{GraphID: "main", NodeID: "$read", Position: schema.Position{X: 12, Y: 34}}},
 		{Kind: authoring.CommandSetNodeLabel, SetNodeLabel: &authoring.SetNodeLabelCommand{GraphID: "main", NodeID: "$read", Label: "Read message"}},
 		{Kind: authoring.CommandSetNodeDisabled, SetNodeDisabled: &authoring.SetNodeDisabledCommand{GraphID: "main", NodeID: "$read", Disabled: true}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "concat"}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.DelayNodeID, Handle: "delay"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "concat"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "delay"}},
 		{Kind: authoring.CommandBindDefault, BindDefault: &authoring.PortCommand{GraphID: "main", NodeID: "$delay", PortID: "duration-milliseconds"}},
 		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: edge}},
 		{Kind: authoring.CommandDisconnect, Disconnect: &authoring.EdgeCommand{GraphID: "main", Edge: edge}},
@@ -186,7 +186,7 @@ func TestEngineRejectsMutationThatBreaksStateContract(t *testing.T) {
 		{Kind: authoring.CommandAddStateVariable, AddStateVariable: &authoring.AddStateVariableCommand{
 			Name: "message", Type: datatype.RefExpression(builtins.StringType.TypeRef()), Default: "hello",
 		}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.StateReadNodeID}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.StateReadNodeID}},
 		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "node-read", FieldID: "variable", Value: "message"}},
 	})
 	if err != nil {
@@ -219,8 +219,8 @@ func TestEngineRejectsInvalidCommandBoundariesWithoutPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	base, err := engine.Apply(emptySource(), []authoring.Command{
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "left"}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "right"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "left"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "right"}},
 		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
 			Channel: schema.EdgeData, From: schema.Endpoint{NodeID: "$left", PortID: "result"}, To: schema.Endpoint{NodeID: "$right", PortID: "a"},
 		}}},
@@ -232,9 +232,9 @@ func TestEngineRejectsInvalidCommandBoundariesWithoutPublishing(t *testing.T) {
 	for _, command := range []authoring.Command{
 		{Kind: authoring.CommandRenameWorkflow, RenameWorkflow: &authoring.RenameWorkflowCommand{Name: " "}},
 		{Kind: authoring.CommandRemoveStateVariable, RemoveStateVariable: &authoring.RemoveStateVariableCommand{Name: "missing"}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "missing", NodeTypeID: nodes31.ConcatNodeID}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "missing", NodeTypeID: nodes.ConcatNodeID}},
 		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: "https://schemas.example.test/missing", Handle: "node"}},
-		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "bad handle"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "bad handle"}},
 		{Kind: authoring.CommandMoveNode, MoveNode: &authoring.MoveNodeCommand{GraphID: "main", NodeID: "left", Position: schema.Position{X: math.NaN()}}},
 		{Kind: authoring.CommandSetNodeLabel, SetNodeLabel: &authoring.SetNodeLabelCommand{GraphID: "main", NodeID: "left", Label: strings.Repeat("x", 1025)}},
 		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "left", FieldID: "missing", Value: true}},
@@ -258,15 +258,15 @@ func TestEngineRejectsInvalidCommandBoundariesWithoutPublishing(t *testing.T) {
 	}
 }
 
-func testContracts(t *testing.T) (nodes31.Builtins, nodeauthoring.Snapshot) {
+func testContracts(t *testing.T) (nodes.Builtins, nodeauthoring.Snapshot) {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
 	projection, err := nodeauthoring.Project(nodeauthoring.Input{
 		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
-		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes.GeneratorVersion,
 	})
 	if err != nil {
 		t.Fatal(err)

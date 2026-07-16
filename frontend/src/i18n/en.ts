@@ -1211,7 +1211,7 @@ export default {
       isolation_unavailable: 'Required script isolation is unavailable on this host',
     },
   },
-  workflow31: {
+  workflow: {
     list: {
       title: 'Workflows',
       description: 'Every run compiles a saved 3.1 source into an immutable Program snapshot.',

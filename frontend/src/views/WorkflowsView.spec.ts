@@ -7,7 +7,7 @@ const source = readFileSync(join(process.cwd(), 'src/views/WorkflowsView.vue'), 
 describe('WorkflowsView entry points', () => {
   it('makes each workflow name a direct editor destination', () => {
     expect(source).toContain(':to="`/workflows/${source.workflowId}/edit`"')
-    expect(source).toContain("t('workflow31.action.edit_named', { name: source.name })")
+    expect(source).toContain("t('workflow.action.edit_named', { name: source.name })")
   })
 
   it('keeps creation and row actions reachable without a fixed four-column viewport', () => {

@@ -18,7 +18,7 @@ import type {
   WorkflowJSONValue,
   WorkflowPatchCommand,
   WorkflowTransport,
-} from '@/app/transport/workflow31'
+} from '@/app/transport/workflow'
 
 export type EditorPhase = 'empty' | 'loading' | 'ready' | 'saving' | 'running' | 'failed'
 

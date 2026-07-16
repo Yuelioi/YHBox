@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/ai"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -116,11 +116,11 @@ type Review struct {
 
 type reviewState struct {
 	review   Review
-	prepared app31.PreparedPatch
+	prepared appcore.PreparedPatch
 }
 
 type Manager struct {
-	application *app31.Application
+	application *appcore.Application
 	projection  nodeauthoring.Snapshot
 	prompt      ai.PromptManifest
 	tools       ai.ToolSet
@@ -129,7 +129,7 @@ type Manager struct {
 	reviews     map[string]*reviewState
 }
 
-func NewManager(application *app31.Application, builtins nodes31.Builtins, now func() time.Time) (*Manager, error) {
+func NewManager(application *appcore.Application, builtins nodes.Builtins, now func() time.Time) (*Manager, error) {
 	if application == nil || !builtins.AIAuthoringPrompt.Valid() || !builtins.AIAuthoringToolSet.Valid() {
 		return nil, errors.New("AI authoring manager requires Application and trusted authoring artifacts")
 	}
@@ -331,7 +331,7 @@ type proposalState struct {
 	baseRevision      int64
 	basePlan          []capability.PlanEntry
 	candidatePlan     []capability.PlanEntry
-	prepared          app31.PreparedPatch
+	prepared          appcore.PreparedPatch
 	changes           []Change
 	diagnostics       []schema.Diagnostic
 	permissions       PermissionDelta

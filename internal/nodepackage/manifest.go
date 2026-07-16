@@ -388,7 +388,7 @@ func normalizeNodes(namespace *url.URL, source []NodeDraft) ([]nodeRecord, []Nod
 		if ref.NodeTypeID == previous {
 			return nil, nil, nil, fmt.Errorf("duplicate package node %q", ref.NodeTypeID)
 		}
-		if err := validateOwnedURI(namespace, ref.NodeTypeID, "node type ID"); err != nil {
+		if err := validateOwnedStableURI(namespace, ref.NodeTypeID, "node type ID"); err != nil {
 			return nil, nil, nil, err
 		}
 		implementation, err := normalizeImplementation(node.Contract, node.Implementation)
@@ -550,6 +550,19 @@ func validateOwnedURI(namespace *url.URL, value, label string) error {
 		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.RawPath != "" || path.Clean(parsed.Path) != parsed.Path ||
 		!versionedURIPattern.MatchString(parsed.Path) {
 		return fmt.Errorf("%s is not a versioned URI in the publisher namespace", label)
+	}
+	if !strings.HasPrefix(parsed.EscapedPath(), namespace.EscapedPath()+"/") {
+		return fmt.Errorf("%s is outside the publisher namespace", label)
+	}
+	return nil
+}
+
+func validateOwnedStableURI(namespace *url.URL, value, label string) error {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != namespace.Scheme || parsed.Host != namespace.Host || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.RawPath != "" || parsed.Path == "" ||
+		path.Clean(parsed.Path) != parsed.Path || strings.HasSuffix(parsed.Path, "/") || versionedURIPattern.MatchString(parsed.Path) {
+		return fmt.Errorf("%s is not a stable URI in the publisher namespace", label)
 	}
 	if !strings.HasPrefix(parsed.EscapedPath(), namespace.EscapedPath()+"/") {
 		return fmt.Errorf("%s is outside the publisher namespace", label)

@@ -13,13 +13,13 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 )
 
 type registrar struct {
-	application *app31.Application
+	application *appcore.Application
 	projection  nodeauthoring.Snapshot
 	schemas     map[string]toolSchemas
 }
@@ -32,7 +32,7 @@ type toolSchemas struct {
 // BuildProtocol creates the validated in-process MCP protocol surface. The
 // returned SDK server is transport-neutral; callers may explicitly own stdio
 // or a separately authenticated transport.
-func BuildProtocol(application *app31.Application) (*server.MCPServer, error) {
+func BuildProtocol(application *appcore.Application) (*server.MCPServer, error) {
 	registrar, err := newRegistrar(application)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func BuildProtocol(application *app31.Application) (*server.MCPServer, error) {
 	return registrar.protocol(), nil
 }
 
-func newRegistrar(application *app31.Application) (*registrar, error) {
+func newRegistrar(application *appcore.Application) (*registrar, error) {
 	if application == nil {
 		return nil, errors.New("MCP server requires Application")
 	}

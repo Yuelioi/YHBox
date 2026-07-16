@@ -17,9 +17,21 @@ func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = artifact.Digest("sha256:a3ba827ca0c186a6f53b36b2d97756c569dfd949d1fcde073ec97b8da8372b87")
+	const want = artifact.Digest("sha256:e88214ec5b6d09f16d3cfec785ce809e6b62274d3f2f136502456cdbe8972f9c")
 	if got := contract.NodeRef().SemanticDigest; got != want {
 		t.Fatalf("semantic digest = %q, want %q", got, want)
+	}
+	if got := contract.NodeRef().Version; got != "1.0.0" {
+		t.Fatalf("node version = %q, want 1.0.0", got)
+	}
+	upgraded := draft
+	upgraded.Version = "1.0.1"
+	upgradedContract, err := Seal(upgraded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgradedContract.NodeRef().SemanticDigest == contract.NodeRef().SemanticDigest {
+		t.Fatal("node version did not participate in semantic identity")
 	}
 
 	var document struct {
@@ -155,6 +167,26 @@ func TestSealRejectsPureDataControlPortsAndInvalidTypeExpressions(t *testing.T) 
 	}
 }
 
+func TestSealRequiresExplicitVersionAndStableNodeTypeID(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Version = ""
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node contract without an explicit version")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Version = "v1"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a non-SemVer node version")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.NodeTypeID += "/v1"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node type ID with an embedded version")
+	}
+}
+
 func TestSealRequiresAnExactCompilerInstructionUnion(t *testing.T) {
 	draft := concatContractDraftForTest()
 	draft.Instruction = InstructionSpec{}
@@ -181,7 +213,7 @@ func TestSealRequiresAnExactCompilerInstructionUnion(t *testing.T) {
 func TestSealEnforcesOfflineConfigSchemaClosure(t *testing.T) {
 	draft := concatContractDraftForTest()
 	draft.ConfigSchemaBundle[0].Schema = json.RawMessage(`{
-		"$id":"https://schemas.yotta.dev/nodes/text/concat/v1/config",
+		"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
 		"$schema":"https://json-schema.org/draft/2020-12/schema",
 		"$ref":"https://remote.example/missing"
 	}`)
@@ -191,7 +223,7 @@ func TestSealEnforcesOfflineConfigSchemaClosure(t *testing.T) {
 
 	draft = concatContractDraftForTest()
 	draft.ConfigSchemaBundle[0].Schema = json.RawMessage(`{
-		"$id":"https://schemas.yotta.dev/nodes/text/concat/v1/config",
+		"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
 		"$schema":"https://json-schema.org/draft/2020-12/schema",
 		"$defs":{
 			"container":{"$id":"embedded/","$ref":"value"},
@@ -418,14 +450,15 @@ func concatContractDraftForTest() Draft {
 		SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("1", 64)),
 	}
 	stringType := datatype.RefExpression(stringRef)
-	const configID = "https://schemas.yotta.dev/nodes/text/concat/v1/config"
+	const configID = "https://schemas.yotta.dev/nodes/text/concat/config"
 	return Draft{
-		NodeTypeID:       "https://schemas.yotta.dev/nodes/text/concat/v1",
+		NodeTypeID:       "https://schemas.yotta.dev/nodes/text/concat",
+		Version:          "1.0.0",
 		ConfigSchemaRoot: configID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{
 			ID: configID,
 			Schema: json.RawMessage(`{
-				"$id":"https://schemas.yotta.dev/nodes/text/concat/v1/config",
+				"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
 				"$schema":"https://json-schema.org/draft/2020-12/schema",
 				"type":"object",
 				"additionalProperties":false

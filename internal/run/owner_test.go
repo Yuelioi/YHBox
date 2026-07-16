@@ -9,7 +9,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
 )
 
@@ -32,7 +32,7 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+	owner, err := run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{stream.ProviderID: {
 		ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: provider,
 	}}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {
@@ -71,10 +71,10 @@ func TestOwnerCancelsActiveResourcesAndPermanentlyClosesBroker(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Run close did not cancel active resource call")
 	}
-	if _, err := owner.Session("main", "producer", "stream", "invoke-2"); !errors.Is(err, run31.ErrGrantDenied) {
+	if _, err := owner.Session("main", "producer", "stream", "invoke-2"); !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("Session after Close = %v", err)
 	}
-	if _, err := session.Open(context.Background(), []string{stream.OperationSend}, config); !errors.Is(err, run31.ErrGrantDenied) {
+	if _, err := session.Open(context.Background(), []string{stream.OperationSend}, config); !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("Session Open after Close = %v", err)
 	}
 }
@@ -103,7 +103,7 @@ func TestCanceledOwnerRejectsNewSessionsAndTasks(t *testing.T) {
 	owner, _, _ := ownerForParent(t, parent)
 	cancel()
 	<-owner.Context().Done()
-	if _, err := owner.Session("main", "producer", "stream", "invoke-canceled"); !errors.Is(err, run31.ErrGrantDenied) {
+	if _, err := owner.Session("main", "producer", "stream", "invoke-canceled"); !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("Session after parent cancellation = %v", err)
 	}
 	if err := owner.Go(func(context.Context) error { return nil }); !errors.Is(err, context.Canceled) {
@@ -121,20 +121,20 @@ func TestOwnerRejectsAProviderImplementationThatDoesNotMatchTheGrant(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+	_, err = run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{stream.ProviderID: {
 		ArtifactDigest: digest("different provider"), ABI: stream.ProviderABI, Provider: provider,
 	}}, resource.Options{Now: func() time.Time { return now }})
-	if !errors.Is(err, run31.ErrGrantDenied) {
+	if !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("mismatched provider implementation = %v", err)
 	}
 }
 
-func ownerForTest(t *testing.T) (*run31.Owner, time.Time, capability.RunGrant) {
+func ownerForTest(t *testing.T) (*run.Owner, time.Time, capability.RunGrant) {
 	t.Helper()
 	return ownerForParent(t, context.Background())
 }
 
-func ownerForParent(t *testing.T, parent context.Context) (*run31.Owner, time.Time, capability.RunGrant) {
+func ownerForParent(t *testing.T, parent context.Context) (*run.Owner, time.Time, capability.RunGrant) {
 	t.Helper()
 	now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	definition := streamCapability(t)
@@ -154,7 +154,7 @@ func ownerForParent(t *testing.T, parent context.Context) (*run31.Owner, time.Ti
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(parent, grant, map[string]run31.InstalledProvider{stream.ProviderID: {
+	owner, err := run.NewOwner(parent, grant, map[string]run.InstalledProvider{stream.ProviderID: {
 		ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, Provider: provider,
 	}}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {

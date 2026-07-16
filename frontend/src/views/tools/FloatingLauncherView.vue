@@ -86,7 +86,7 @@ import { useI18n } from 'vue-i18n'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
-import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow31'
+import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow'
 import HudShell from '@/components/tools/HudShell.vue'
 import LauncherSurface, {
   type LauncherCommandStatus,

@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-full min-h-0 flex-col overflow-hidden bg-default">
     <div v-if="session.phase === 'loading'" class="flex flex-1 items-center justify-center px-8">
-      <div class="w-full max-w-xl space-y-3" :aria-label="t('workflow31.editor.loading')">
+      <div class="w-full max-w-xl space-y-3" :aria-label="t('workflow.editor.loading')">
         <USkeleton class="h-10 w-2/3 rounded-lg" />
         <USkeleton class="h-72 w-full rounded-lg" />
       </div>
@@ -13,12 +13,12 @@
     >
       <div class="max-w-lg rounded-lg border border-error/35 bg-error/10 p-5" role="alert">
         <h1 class="text-sm font-semibold text-error">
-          {{ t('workflow31.editor.open_failed') }}
+          {{ t('workflow.editor.open_failed') }}
         </h1>
         <p class="mt-2 text-xs leading-5 text-muted">{{ session.failure }}</p>
         <UButton
           class="mt-4"
-          :label="t('workflow31.editor.back')"
+          :label="t('workflow.editor.back')"
           color="neutral"
           @click="router.push('/workflows')"
         />
@@ -32,20 +32,20 @@
           color="neutral"
           variant="ghost"
           size="xs"
-          :aria-label="t('workflow31.editor.back')"
+          :aria-label="t('workflow.editor.back')"
           @click="router.push('/workflows')"
         />
         <UInput
           :model-value="session.source.workflow.name"
           class="w-56"
-          :aria-label="t('workflow31.editor.workflow_name')"
+          :aria-label="t('workflow.editor.workflow_name')"
           @change="renameWorkflow"
         />
         <span class="font-mono text-[10px] text-dimmed">
-          {{ t('workflow31.editor.revision', { n: session.baseRevision }) }}
+          {{ t('workflow.editor.revision', { n: session.baseRevision }) }}
         </span>
         <span v-if="session.dirty" class="text-[11px] font-medium text-warning">
-          {{ t('workflow31.editor.unsaved') }}
+          {{ t('workflow.editor.unsaved') }}
         </span>
 
         <div class="mx-2 h-5 w-px bg-default" />
@@ -55,7 +55,7 @@
           variant="ghost"
           size="xs"
           :disabled="!session.canUndo"
-          :aria-label="t('workflow31.action.undo')"
+          :aria-label="t('workflow.action.undo')"
           @click="session.undo()"
         />
         <UButton
@@ -64,14 +64,14 @@
           variant="ghost"
           size="xs"
           :disabled="!session.canRedo"
-          :aria-label="t('workflow31.action.redo')"
+          :aria-label="t('workflow.action.redo')"
           @click="session.redo()"
         />
 
         <div class="flex-1" />
         <UButton
           data-testid="ai-workflow-review-open"
-          :label="t('workflow31.ai.open')"
+          :label="t('workflow.ai.open')"
           icon="i-tabler-sparkles"
           color="neutral"
           :variant="aiPanelOpen ? 'soft' : 'ghost'"
@@ -80,7 +80,7 @@
           @click="aiPanelOpen = !aiPanelOpen"
         />
         <UButton
-          :label="t('workflow31.action.compile')"
+          :label="t('workflow.action.compile')"
           icon="i-tabler-file-check"
           color="neutral"
           variant="ghost"
@@ -88,7 +88,7 @@
           @click="compile"
         />
         <UButton
-          :label="t('workflow31.action.debug')"
+          :label="t('workflow.action.debug')"
           icon="i-tabler-bug"
           color="neutral"
           variant="soft"
@@ -97,7 +97,7 @@
         />
         <UButton
           v-if="runActive"
-          :label="t('workflow31.action.stop')"
+          :label="t('workflow.action.stop')"
           icon="i-tabler-square"
           color="error"
           variant="soft"
@@ -106,13 +106,13 @@
         />
         <UButton
           v-else
-          :label="t('workflow31.action.run')"
+          :label="t('workflow.action.run')"
           icon="i-tabler-player-play"
           size="xs"
           @click="startRun"
         />
         <UButton
-          :label="t('workflow31.action.save')"
+          :label="t('workflow.action.save')"
           icon="i-tabler-device-floppy"
           size="xs"
           :loading="session.phase === 'saving'"
@@ -126,7 +126,7 @@
         class="border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
         role="alert"
       >
-        {{ t('workflow31.editor.save_conflict', { message: session.saveConflict }) }}
+        {{ t('workflow.editor.save_conflict', { message: session.saveConflict }) }}
       </div>
       <div
         v-else-if="session.failure"
@@ -160,10 +160,10 @@
         <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-default">
           <div class="border-b border-default px-4 py-3">
             <h2 class="text-xs font-semibold text-highlighted">
-              {{ t('workflow31.editor.node_catalog') }}
+              {{ t('workflow.editor.node_catalog') }}
             </h2>
             <p class="mt-1 text-[11px] leading-4 text-muted">
-              {{ t('workflow31.editor.catalog_description') }}
+              {{ t('workflow.editor.catalog_description') }}
             </p>
           </div>
           <div class="flex-1 space-y-1 overflow-y-auto p-2">
@@ -286,7 +286,7 @@ import { useI18n } from 'vue-i18n'
 import { type EditorCommand, type Node, type NodeProjection } from '@/app/editor/EditorSession'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle } from '@/app/editor/graphHandles'
-import { onRunChanged, workflowTransport } from '@/app/transport/workflow31'
+import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
@@ -371,7 +371,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => unsubscribeRun?.())
-onBeforeRouteLeave(() => !session.dirty || window.confirm(t('workflow31.editor.discard_confirm')))
+onBeforeRouteLeave(() => !session.dirty || window.confirm(t('workflow.editor.discard_confirm')))
 
 function applyCommand(command: EditorCommand): void {
   try {
@@ -379,7 +379,7 @@ function applyCommand(command: EditorCommand): void {
     if (command.kind === 'remove-node' && command.nodeId === selectedNodeId.value)
       selectedNodeId.value = ''
   } catch (error) {
-    showError(t('workflow31.toast.edit_rejected'), error)
+    showError(t('workflow.toast.edit_rejected'), error)
   }
 }
 
@@ -457,24 +457,24 @@ async function compile(): Promise<void> {
     const result = await session.validate()
     toast.add({
       title: result.diagnostics.length
-        ? t('workflow31.toast.compile_diagnostics')
-        : t('workflow31.toast.compile_succeeded'),
+        ? t('workflow.toast.compile_diagnostics')
+        : t('workflow.toast.compile_succeeded'),
       description: result.programHash || result.sourceHash,
       color: result.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
         ? 'warning'
         : 'success',
     })
   } catch (error) {
-    showError(t('workflow31.toast.compile_failed'), error)
+    showError(t('workflow.toast.compile_failed'), error)
   }
 }
 
 async function save(): Promise<void> {
   try {
     await session.save()
-    toast.add({ title: t('workflow31.toast.saved'), color: 'success' })
+    toast.add({ title: t('workflow.toast.saved'), color: 'success' })
   } catch (error) {
-    showError(t('workflow31.toast.save_failed'), error)
+    showError(t('workflow.toast.save_failed'), error)
   }
 }
 
@@ -482,9 +482,9 @@ async function acceptAIProposal(): Promise<void> {
   selectedNodeId.value = ''
   try {
     await session.load(session.workflowId)
-    toast.add({ title: t('workflow31.ai.accepted_toast'), color: 'success' })
+    toast.add({ title: t('workflow.ai.accepted_toast'), color: 'success' })
   } catch (error) {
-    showError(t('workflow31.ai.refresh_failed'), error)
+    showError(t('workflow.ai.refresh_failed'), error)
   }
 }
 
@@ -493,12 +493,12 @@ async function startRun(): Promise<void> {
     const run = await session.run()
     if (run)
       toast.add({
-        title: t('workflow31.toast.queued'),
+        title: t('workflow.toast.queued'),
         description: run.runId,
         color: 'success',
       })
   } catch (error) {
-    showError(t('workflow31.toast.run_failed'), error)
+    showError(t('workflow.toast.run_failed'), error)
   }
 }
 
@@ -507,12 +507,12 @@ async function startDebug(): Promise<void> {
     const run = await session.debug()
     if (run)
       toast.add({
-        title: t('workflow31.toast.debug_started'),
+        title: t('workflow.toast.debug_started'),
         description: run.runId,
         color: 'success',
       })
   } catch (error) {
-    showError(t('workflow31.toast.debug_failed'), error)
+    showError(t('workflow.toast.debug_failed'), error)
   }
 }
 
@@ -520,7 +520,7 @@ async function cancelRun(): Promise<void> {
   try {
     await session.cancelRun()
   } catch (error) {
-    showError(t('workflow31.toast.stop_failed'), error)
+    showError(t('workflow.toast.stop_failed'), error)
   }
 }
 
@@ -528,7 +528,7 @@ async function refreshRun(): Promise<void> {
   try {
     await session.refreshRun()
   } catch (error) {
-    showError(t('workflow31.toast.refresh_failed'), error)
+    showError(t('workflow.toast.refresh_failed'), error)
   }
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -34,7 +34,7 @@ type Error struct {
 	NodeID        string
 	RequirementID string
 	Slot          string
-	Commit        run31.CommitOutcome
+	Commit        run.CommitOutcome
 	Cause         error
 }
 
@@ -59,7 +59,7 @@ type Request struct {
 
 type Result struct {
 	Grant  capability.RunGrant
-	Record run31.Record
+	Record run.Record
 }
 
 type PolicyOutcome string
@@ -98,7 +98,7 @@ func (f PolicyFunc) Authorize(ctx context.Context, request PolicyRequest) (Polic
 }
 
 type recordCreator interface {
-	Create(context.Context, run31.Record) (run31.CommitOutcome, error)
+	Create(context.Context, run.Record) (run.CommitOutcome, error)
 }
 
 type Options struct {
@@ -181,7 +181,7 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 	if err != nil {
 		return Result{}, &Error{Code: CodePolicyInvalid, Cause: err}
 	}
-	record, err := run31.NewQueuedRecord(run31.QueueRequest{
+	record, err := run.NewQueuedRecord(run.QueueRequest{
 		ProgramHash: request.Program.Hash(), CatalogHash: a.catalog.Hash(), CapabilityPlanDigest: request.Program.CapabilityPlan().Digest(),
 		Grant: grant, QueuedAt: now,
 	})
@@ -190,12 +190,12 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 	}
 	commit, err := a.store.Create(ctx, record)
 	if err != nil {
-		if commit == run31.CommitPublished {
+		if commit == run.CommitPublished {
 			return Result{Grant: grant, Record: record}, &Error{Code: CodePersistenceUnconfirmed, Commit: commit, Cause: err}
 		}
 		return Result{}, &Error{Code: CodePersistenceFailed, Cause: err}
 	}
-	if commit != run31.CommitDurable {
+	if commit != run.CommitDurable {
 		return Result{}, &Error{Code: CodePersistenceFailed, Commit: commit, Cause: errors.New("run store returned an invalid commit outcome")}
 	}
 	return Result{Grant: grant, Record: record}, nil

@@ -16,7 +16,7 @@ import (
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflowstore"
@@ -142,7 +142,7 @@ func (p *scriptedProvider) ContinueAgent(_ context.Context, _ string, _ any, req
 			SourceJSON string `json:"sourceJson"`
 		}
 		_ = json.Unmarshal(request.Results[0].Value, &inspected)
-		commands := `[{"kind":"add-node","addNode":{"graphId":"main","nodeTypeId":"https://schemas.yotta.dev/nodes/text/concat/v1","handle":"concat","position":{"x":10,"y":20}}},{"kind":"bind-value","bindValue":{"graphId":"main","nodeId":"$concat","portId":"a","value":"do-not-log"}}]`
+		commands := `[{"kind":"add-node","addNode":{"graphId":"main","nodeTypeId":"https://schemas.yotta.dev/nodes/text/concat","handle":"concat","position":{"x":10,"y":20}}},{"kind":"bind-value","bindValue":{"graphId":"main","nodeId":"$concat","portId":"a","value":"do-not-log"}}]`
 		arguments, _ := json.Marshal(map[string]string{"commandsJson": commands})
 		return toolOutcome("call-2", "workflow_propose_patch", string(arguments)), p.turn, nil
 	case 3:
@@ -196,4 +196,4 @@ func testRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 
 type discardLog struct{}
 
-func (discardLog) EmitWorkflowLog(context.Context, nodes31runtime.LogEntry) error { return nil }
+func (discardLog) EmitWorkflowLog(context.Context, noderuntime.LogEntry) error { return nil }

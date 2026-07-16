@@ -13,12 +13,12 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodes31"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 )
 
@@ -81,7 +81,7 @@ func TestStructuredProtocolCreatesPatchesAndCompilesOneDurableRevision(t *testin
 		"workflowId": created.WorkflowID, "baseRevision": 0,
 		"commands": []any{
 			map[string]any{"kind": "add-node", "addNode": map[string]any{
-				"graphId": "main", "nodeTypeId": nodes31.ConcatNodeID, "handle": "concat",
+				"graphId": "main", "nodeTypeId": nodes.ConcatNodeID, "handle": "concat",
 				"position": map[string]any{"x": 0, "y": 0},
 			}},
 			map[string]any{"kind": "bind-value", "bindValue": map[string]any{
@@ -156,7 +156,7 @@ func decodeStructured(t *testing.T, result *mcp.CallToolResult, target any) {
 	}
 }
 
-func testApplication(t *testing.T) *app31.Application {
+func testApplication(t *testing.T) *appcore.Application {
 	t.Helper()
 	now := time.Date(2026, 7, 15, 15, 0, 0, 0, time.UTC)
 	installations, err := ai.Install(nil, nil)
@@ -187,7 +187,7 @@ func testApplication(t *testing.T) *app31.Application {
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: installations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: mcpScriptRuntime(t),
-		LogEmitter: nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),
+		LogEmitter: noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
 		GrantTTL:   time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})
 	if err != nil {

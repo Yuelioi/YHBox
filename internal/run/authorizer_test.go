@@ -12,7 +12,7 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
 )
 
@@ -41,7 +41,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run31.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestGrantAuthorizerDrivesBrokerAndRevokesCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	authorizer.Revoke()
-	if _, err := broker.Invoke(context.Background(), resource.Call{Scope: scope, Handle: handle, Operation: stream.OperationSend, Payload: []byte("x")}); !errors.Is(err, run31.ErrGrantDenied) {
+	if _, err := broker.Invoke(context.Background(), resource.Call{Scope: scope, Handle: handle, Operation: stream.OperationSend, Payload: []byte("x")}); !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("call after grant revoke = %v", err)
 	}
 	if err := broker.RevokeRun(context.Background(), grant.RunID()); err != nil {
@@ -89,7 +89,7 @@ func TestGrantAuthorizerRejectsWrongRequirementBeforeProviderOpen(t *testing.T) 
 		Scope: scope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
 		Operations: []string{stream.OperationSend}, ExpiresAt: now.Add(time.Second),
 	})
-	if !errors.Is(err, run31.ErrGrantDenied) {
+	if !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("forged requirement = %v", err)
 	}
 }
@@ -150,7 +150,7 @@ func TestGrantAuthorizerRejectsBorrowAcrossDifferentCanonicalScopes(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run31.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,12 +166,12 @@ func TestGrantAuthorizerRejectsBorrowAcrossDifferentCanonicalScopes(t *testing.T
 		Owner: ownerScope, Borrower: borrowerScope, ProviderID: stream.ProviderID, TargetID: "memory", Kind: stream.Kind,
 		Operations: []string{stream.OperationSend}, ExpiresAt: now.Add(30 * time.Second),
 	})
-	if !errors.Is(err, run31.ErrGrantDenied) {
+	if !errors.Is(err, run.ErrGrantDenied) {
 		t.Fatalf("cross-scope borrow = %v", err)
 	}
 }
 
-func grantAuthorizer(t *testing.T) (*run31.GrantAuthorizer, capability.RunGrant, time.Time) {
+func grantAuthorizer(t *testing.T) (*run.GrantAuthorizer, capability.RunGrant, time.Time) {
 	t.Helper()
 	now := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	definition := streamCapability(t)
@@ -187,7 +187,7 @@ func grantAuthorizer(t *testing.T) (*run31.GrantAuthorizer, capability.RunGrant,
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer, err := run31.NewGrantAuthorizer(grant, func() time.Time { return now })
+	authorizer, err := run.NewGrantAuthorizer(grant, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}

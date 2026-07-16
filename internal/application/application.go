@@ -19,7 +19,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -38,10 +38,10 @@ type Config struct {
 	ConfigValidators  configvalidator.Registry
 	Sources           *workflowstore.SourceStore
 	Programs          *workflowstore.ProgramStore
-	Runs              *run31.Store
+	Runs              *run.Store
 	Admitter          *admission.Admitter
 	Executor          *compiler.Executor
-	Providers         map[string]run31.InstalledProvider
+	Providers         map[string]run.InstalledProvider
 	ResourceOptions   resource.Options
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -50,7 +50,7 @@ type Config struct {
 
 type RunEvent struct {
 	RunID      string
-	Status     run31.Status
+	Status     run.Status
 	Generation uint64
 	Digest     artifact.Digest
 	Err        error
@@ -66,7 +66,7 @@ type StartRunResult struct {
 	SourceHash  artifact.Digest
 	ProgramHash artifact.Digest
 	Diagnostics []schema.Diagnostic
-	Record      run31.Record
+	Record      run.Record
 }
 
 type ApplyPatchResult struct {
@@ -175,10 +175,10 @@ type Application struct {
 	compiler          *compiler.Compiler
 	sources           *workflowstore.SourceStore
 	programs          *workflowstore.ProgramStore
-	runs              *run31.Store
+	runs              *run.Store
 	admitter          *admission.Admitter
 	executor          *compiler.Executor
-	providers         map[string]run31.InstalledProvider
+	providers         map[string]run.InstalledProvider
 	resourceOptions   resource.Options
 	ownerCloseTimeout time.Duration
 	now               func() time.Time
@@ -208,7 +208,7 @@ func New(config Config) (*Application, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	providers := make(map[string]run31.InstalledProvider, len(config.Providers))
+	providers := make(map[string]run.InstalledProvider, len(config.Providers))
 	for id, provider := range config.Providers {
 		providers[id] = provider
 	}
@@ -485,7 +485,7 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 	return result, nil
 }
 
-func (a *Application) GetRun(runID string) (run31.Record, error) { return a.runs.Load(runID) }
+func (a *Application) GetRun(runID string) (run.Record, error) { return a.runs.Load(runID) }
 
 func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot, error) {
 	return a.sources.Load(workflowID)
@@ -497,9 +497,9 @@ func (a *Application) CatalogArtifact() []byte { return a.catalog.Bytes() }
 
 func (a *Application) AuthoringProjection() nodeauthoring.Snapshot { return a.authoring }
 
-func (a *Application) CancelRun(ctx context.Context, runID string) (run31.Record, error) {
+func (a *Application) CancelRun(ctx context.Context, runID string) (run.Record, error) {
 	if ctx == nil {
-		return run31.Record{}, errors.New("cancel Run context is required")
+		return run.Record{}, errors.New("cancel Run context is required")
 	}
 	a.mu.Lock()
 	job := a.jobs[runID]
@@ -514,15 +514,15 @@ func (a *Application) CancelRun(ctx context.Context, runID string) (run31.Record
 	}
 	a.mu.Unlock()
 	current, err := a.runs.Load(runID)
-	if err != nil || current.Status() != run31.StatusQueued {
+	if err != nil || current.Status() != run.StatusQueued {
 		return current, err
 	}
 	next, err := current.Cancel(a.transitionTime(current.Admission().QueuedAt))
 	if err != nil {
-		return run31.Record{}, err
+		return run.Record{}, err
 	}
 	if err := a.runs.Update(ctx, current.Digest(), next); err != nil {
-		return run31.Record{}, err
+		return run.Record{}, err
 	}
 	a.emit(next, nil)
 	return next, nil
@@ -545,7 +545,7 @@ func (a *Application) CancelAll(ctx context.Context) error {
 	a.mu.Unlock()
 	var cancelErr error
 	for _, runID := range runIDs {
-		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run31.ErrRunConflict) {
+		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run.ErrRunConflict) {
 			cancelErr = errors.Join(cancelErr, err)
 		}
 	}
@@ -584,7 +584,7 @@ func (a *Application) Close(ctx context.Context) error {
 	a.commandMu.Unlock()
 	var closeErr error
 	for _, runID := range queued {
-		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run31.ErrRunConflict) {
+		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run.ErrRunConflict) {
 			closeErr = errors.Join(closeErr, err)
 		}
 	}
@@ -646,7 +646,7 @@ func (a *Application) nextJob() (string, context.Context, bool) {
 
 func (a *Application) execute(ctx context.Context, runID string) error {
 	record, err := a.runs.Load(runID)
-	if err != nil || record.Status() != run31.StatusQueued {
+	if err != nil || record.Status() != run.StatusQueued {
 		return errors.Join(err, errors.New("worker requires queued Run"))
 	}
 	program, bootstrapErr := a.programs.Load(record.Admission().ProgramHash)
@@ -677,19 +677,19 @@ func (a *Application) execute(ctx context.Context, runID string) error {
 		return errors.Join(ctx.Err(), terminalErr)
 	}
 	if bootstrapErr != nil {
-		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt), run31.RunError{
-			Code: "runtime.bootstrap_failed", Category: run31.ErrorCategoryInfrastructure,
+		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt), run.RunError{
+			Code: "runtime.bootstrap_failed", Category: run.ErrorCategoryInfrastructure,
 		})
 		return errors.Join(bootstrapErr, terminalErr)
 	}
-	owner, err := run31.NewOwner(ctx, grant, a.providers, a.resourceOptions)
+	owner, err := run.NewOwner(ctx, grant, a.providers, a.resourceOptions)
 	if err != nil {
 		if ctx.Err() != nil {
 			_, terminalErr := journal.Cancel(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt))
 			return errors.Join(ctx.Err(), err, terminalErr)
 		}
-		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt), run31.RunError{
-			Code: "runtime.owner_failed", Category: run31.ErrorCategoryInfrastructure,
+		_, terminalErr := journal.Fail(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt), run.RunError{
+			Code: "runtime.owner_failed", Category: run.ErrorCategoryInfrastructure,
 		})
 		return errors.Join(err, terminalErr)
 	}
@@ -737,7 +737,7 @@ func (a *Application) removeQueuedLocked(runID string) {
 	}
 }
 
-func (a *Application) emit(record run31.Record, err error) {
+func (a *Application) emit(record run.Record, err error) {
 	if a.onRunEvent == nil || !record.Valid() {
 		return
 	}

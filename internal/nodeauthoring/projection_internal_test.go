@@ -84,11 +84,11 @@ func TestNodeProjectionCarriesInputDefaultAnnotation(t *testing.T) {
 	const typeID = "https://schemas.yotta.dev/types/test/string/v1"
 	typeRef := datatype.TypeRef{TypeID: typeID, SemanticDigest: artifact.Digest("sha256:1111111111111111111111111111111111111111111111111111111111111111")}
 	defaultValue := json.RawMessage(`"suffix"`)
-	contract, err := nodecontract.Seal(nodecontract.Draft{
-		NodeTypeID:       "https://schemas.yotta.dev/nodes/test/default/v1",
-		ConfigSchemaRoot: "https://schemas.yotta.dev/nodes/test/default/v1/config",
-		ConfigSchemaBundle: []datatype.SchemaResource{{ID: "https://schemas.yotta.dev/nodes/test/default/v1/config", Schema: json.RawMessage(`{
-			"$id":"https://schemas.yotta.dev/nodes/test/default/v1/config",
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
+		NodeTypeID:       "https://schemas.yotta.dev/nodes/test/default",
+		ConfigSchemaRoot: "https://schemas.yotta.dev/nodes/test/default/config",
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: "https://schemas.yotta.dev/nodes/test/default/config", Schema: json.RawMessage(`{
+			"$id":"https://schemas.yotta.dev/nodes/test/default/config",
 			"$schema":"https://json-schema.org/draft/2020-12/schema",
 			"type":"object"
 		}`)}},

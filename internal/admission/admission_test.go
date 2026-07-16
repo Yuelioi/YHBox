@@ -11,7 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
@@ -61,7 +61,7 @@ func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T
 }
 
 func TestHostProfileRejectsInvalidFeatureSets(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *t
 	}
 }
 
-func builtinProfile(t *testing.T, builtins nodes31.Builtins) admission.HostProfile {
+func builtinProfile(t *testing.T, builtins nodes.Builtins) admission.HostProfile {
 	t.Helper()
 	profile, err := admission.SealHostProfile(builtinProfileDraft(t, builtins))
 	if err != nil {
@@ -337,7 +337,7 @@ func builtinProfile(t *testing.T, builtins nodes31.Builtins) admission.HostProfi
 	return profile
 }
 
-func builtinProfileDraft(t *testing.T, builtins nodes31.Builtins) admission.HostProfileDraft {
+func builtinProfileDraft(t *testing.T, builtins nodes.Builtins) admission.HostProfileDraft {
 	t.Helper()
 	lookup := func(id string) capability.Ref {
 		definition, ok := builtins.Catalog.LookupCapability(id)
@@ -351,12 +351,12 @@ func builtinProfileDraft(t *testing.T, builtins nodes31.Builtins) admission.Host
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: testDigest(t, "blob-provider"), ABI: "https://schemas.yotta.dev/provider-abi/resource/v1", PluginInstanceID: "builtin",
 				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
-					{Capability: lookup(nodes31.BlobReadCapabilityID), ResourceKind: blob.KindReader},
-					{Capability: lookup(nodes31.BlobWriteCapabilityID), ResourceKind: blob.KindWriter},
+					{Capability: lookup(nodes.BlobReadCapabilityID), ResourceKind: blob.KindReader},
+					{Capability: lookup(nodes.BlobWriteCapabilityID), ResourceKind: blob.KindWriter},
 				}},
 			{ID: stream.ProviderID, ArtifactDigest: testDigest(t, "stream-provider"), ABI: "https://schemas.yotta.dev/provider-abi/resource/v1", PluginInstanceID: "builtin",
 				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
-					{Capability: lookup(nodes31.StreamCapabilityID), ResourceKind: stream.Kind},
+					{Capability: lookup(nodes.StreamCapabilityID), ResourceKind: stream.Kind},
 				}},
 		},
 		Targets: []admission.AutomationTarget{
@@ -366,9 +366,9 @@ func builtinProfileDraft(t *testing.T, builtins nodes31.Builtins) admission.Host
 	}
 }
 
-func conversionProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot) {
+func conversionProgram(t *testing.T) (nodes.Builtins, compiler.ProgramSnapshot) {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,9 +379,9 @@ func conversionProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-admission","name":"Admission"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}},
-			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},
+			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"mediaType":"application/octet-stream"},"bindings":{}}
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],
 		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
@@ -397,14 +397,14 @@ func conversionProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot
 	return builtins, program
 }
 
-func scriptProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot) {
+func scriptProgram(t *testing.T) (nodes.Builtins, compiler.ProgramSnapshot) {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
 	ref := builtins.ScriptExecuteContract.NodeRef()
-	started, ok := builtins.Catalog.Lookup(nodes31.RunStartedNodeID)
+	started, ok := builtins.Catalog.Lookup(nodes.RunStartedNodeID)
 	if !ok {
 		t.Fatal("run-started contract is missing")
 	}
@@ -412,8 +412,8 @@ func scriptProgram(t *testing.T) (nodes31.Builtins, compiler.ProgramSnapshot) {
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-script-admission","name":"Script admission"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"start","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"script","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"script","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			 "config":{"source":"return input;","timeoutMilliseconds":1000},"bindings":{"input":{"kind":"default"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"script","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, startRef.NodeTypeID, startRef.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))

@@ -13,7 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -60,7 +60,7 @@ func TestExecutorSchedulesOnlySelectedExecRouteAndPersistsStatus(t *testing.T) {
 		t.Fatalf("adapter calls = %#v", calls)
 	}
 	facts := journal.Current().Journal()
-	if journal.Current().Status() != run31.StatusSucceeded || len(facts) != 5 || facts[1].Kind != run31.JournalNodeStatus ||
+	if journal.Current().Status() != run.StatusSucceeded || len(facts) != 5 || facts[1].Kind != run.JournalNodeStatus ||
 		facts[1].StatusCode != "test.progress" || facts[1].StatusCategory != nodecontract.StatusProgress {
 		t.Fatalf("journal = %#v", facts)
 	}
@@ -94,14 +94,14 @@ func TestExecutorRoutesStructuredNodeFailureAndFailsWhenUnhandled(t *testing.T) 
 			executor := NewExecutor(catalog, adapters, ExecutorOptions{Now: func() time.Time { return now.Add(2 * time.Second) }})
 			_, runErr := executor.Run(context.Background(), program, owner, journal)
 			if routed {
-				if runErr != nil || !handled || journal.Current().Status() != run31.StatusSucceeded {
+				if runErr != nil || !handled || journal.Current().Status() != run.StatusSucceeded {
 					t.Fatalf("routed Run: err=%v handled=%t status=%s", runErr, handled, journal.Current().Status())
 				}
 				facts := journal.Current().Journal()
-				if len(facts) != 4 || facts[1].AttemptOutcome != run31.AttemptRouted || facts[1].ErrorCode != "test.event-failed" {
+				if len(facts) != 4 || facts[1].AttemptOutcome != run.AttemptRouted || facts[1].ErrorCode != "test.event-failed" {
 					t.Fatalf("routed journal = %#v", facts)
 				}
-			} else if runErr == nil || handled || journal.Current().Status() != run31.StatusFailed {
+			} else if runErr == nil || handled || journal.Current().Status() != run.StatusFailed {
 				t.Fatalf("unhandled Run: err=%v handled=%t status=%s", runErr, handled, journal.Current().Status())
 			}
 		})
@@ -179,7 +179,7 @@ func schedulerCatalogForTest(t *testing.T) (nodecatalog.Snapshot, map[string]nod
 
 func schedulerContractForTest(t *testing.T, name string, class nodecontract.ExecutionClass, execInputs, execOutputs, errorOutputs []string, errorsList []nodecontract.ErrorSpec, statuses []nodecontract.StatusEventSpec) nodecontract.Contract {
 	t.Helper()
-	nodeID := "https://schemas.yotta.dev/nodes/scheduler-test/" + name + "/v1"
+	nodeID := "https://schemas.yotta.dev/nodes/scheduler-test/" + name
 	configID := nodeID + "/config"
 	toPorts := func(ids []string) []nodecontract.SignalPort {
 		result := make([]nodecontract.SignalPort, len(ids))
@@ -188,7 +188,7 @@ func schedulerContractForTest(t *testing.T, name string, class nodecontract.Exec
 		}
 		return result
 	}
-	contract, err := nodecontract.Seal(nodecontract.Draft{
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
 		NodeTypeID: nodeID, ConfigSchemaRoot: configID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: configID, Schema: json.RawMessage(fmt.Sprintf(`{"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`, configID))}},
 		Ports: nodecontract.PortSet{
@@ -224,10 +224,10 @@ func compileSchedulerProgram(t *testing.T, catalog nodecatalog.Snapshot, contrac
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-scheduler","name":"Scheduler"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"source","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"left","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}},
-			{"id":"right","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":1},"config":{},"bindings":{}},
-			{"id":"handler","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":2},"config":{},"bindings":{}}
+			{"id":"source","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"left","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}},
+			{"id":"right","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":1},"config":{},"bindings":{}},
+			{"id":"handler","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":2},"config":{},"bindings":{}}
 		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref("source").NodeTypeID, ref("source").SemanticDigest, ref("left").NodeTypeID, ref("left").SemanticDigest,
 		ref("right").NodeTypeID, ref("right").SemanticDigest, ref("handler").NodeTypeID, ref("handler").SemanticDigest,
@@ -243,7 +243,7 @@ func compileSchedulerProgram(t *testing.T, catalog nodecatalog.Snapshot, contrac
 	return program
 }
 
-func admittedSchedulerExecution(t *testing.T, catalog nodecatalog.Snapshot, program ProgramSnapshot, now time.Time) (*run31.Owner, *run31.JournalWriter) {
+func admittedSchedulerExecution(t *testing.T, catalog nodecatalog.Snapshot, program ProgramSnapshot, now time.Time) (*run.Owner, *run.JournalWriter) {
 	t.Helper()
 	id, err := runid.New()
 	if err != nil {
@@ -256,14 +256,14 @@ func admittedSchedulerExecution(t *testing.T, catalog nodecatalog.Snapshot, prog
 	if err != nil {
 		t.Fatal(err)
 	}
-	queued, err := run31.NewQueuedRecord(run31.QueueRequest{
+	queued, err := run.NewQueuedRecord(run.QueueRequest{
 		ProgramHash: program.Hash(), CatalogHash: catalog.Hash(), CapabilityPlanDigest: program.CapabilityPlan().Digest(),
 		Grant: grant, QueuedAt: now,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 1})
+	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func admittedSchedulerExecution(t *testing.T, catalog nodecatalog.Snapshot, prog
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{}, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -114,10 +114,10 @@ func capabilityDefinition(t *testing.T) capability.Definition {
 
 func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Contract {
 	t.Helper()
-	const nodeID = "https://schemas.yotta.dev/nodes/blob/read/v1"
-	contract, err := nodecontract.Seal(nodecontract.Draft{
+	const nodeID = "https://schemas.yotta.dev/nodes/blob/read"
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
 		NodeTypeID: nodeID, ConfigSchemaRoot: nodeID + "/config",
-		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/read/v1/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/read/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
 		Ports: nodecontract.PortSet{
 			DataInputs: []nodecontract.DataInputPort{}, DataOutputs: []nodecontract.DataOutputPort{},
 			ExecInputs: []nodecontract.SignalPort{{ID: "in"}}, ExecOutputs: []nodecontract.SignalPort{{ID: "done"}},
@@ -143,10 +143,10 @@ func effectContract(t *testing.T, capabilityRef capability.Ref) nodecontract.Con
 
 func leasedEffectContract(t *testing.T, capabilityRef capability.Ref, typeRef datatype.TypeRef) nodecontract.Contract {
 	t.Helper()
-	const nodeID = "https://schemas.yotta.dev/nodes/blob/leased/v1"
-	contract, err := nodecontract.Seal(nodecontract.Draft{
+	const nodeID = "https://schemas.yotta.dev/nodes/blob/leased"
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
 		NodeTypeID: nodeID, ConfigSchemaRoot: nodeID + "/config",
-		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/leased/v1/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
+		ConfigSchemaBundle: []datatype.SchemaResource{{ID: nodeID + "/config", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/nodes/blob/leased/config","$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false}`)}},
 		Ports: nodecontract.PortSet{
 			DataInputs: []nodecontract.DataInputPort{},
 			DataOutputs: []nodecontract.DataOutputPort{{
@@ -196,12 +196,12 @@ func stringDefinition(t *testing.T, title string) datatype.Definition {
 
 func concatContract(t *testing.T, stringRef datatype.TypeRef, title string) nodecontract.Contract {
 	t.Helper()
-	const schemaID = "https://schemas.yotta.dev/nodes/text/concat/v1/config"
+	const schemaID = "https://schemas.yotta.dev/nodes/text/concat/config"
 	stringType := datatype.RefExpression(stringRef)
-	contract, err := nodecontract.Seal(nodecontract.Draft{
-		NodeTypeID: "https://schemas.yotta.dev/nodes/text/concat/v1", ConfigSchemaRoot: schemaID,
+	contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0",
+		NodeTypeID: "https://schemas.yotta.dev/nodes/text/concat", ConfigSchemaRoot: schemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(`{
-			"$id":"https://schemas.yotta.dev/nodes/text/concat/v1/config",
+			"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
 			"$schema":"https://json-schema.org/draft/2020-12/schema",
 			"type":"object","additionalProperties":false
 		}`)}},

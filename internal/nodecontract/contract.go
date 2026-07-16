@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -32,11 +33,13 @@ const (
 )
 
 var versionSegmentPattern = regexp.MustCompile(`^v[1-9][0-9]*$`)
+var nodeVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
 var portIDPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 var errorCodePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$`)
 
 type NodeRef struct {
-	NodeTypeID     string          `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+	NodeTypeID     string          `json:"nodeTypeId" jsonschema:"required,format=uri"`
+	Version        string          `json:"version" jsonschema:"required,pattern=^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"`
 	SemanticDigest artifact.Digest `json:"semanticDigest" jsonschema:"required,pattern=^sha256:[a-f0-9]{64}$"`
 }
 
@@ -252,6 +255,7 @@ type PortAuthoring struct {
 
 type Draft struct {
 	NodeTypeID              string
+	Version                 string
 	ConfigSchemaRoot        string
 	ConfigSchemaBundle      []datatype.SchemaResource
 	Ports                   PortSet
@@ -272,7 +276,8 @@ type Draft struct {
 // MachineContract is the normalized compiler-facing portion of a Node Contract.
 // It is safe to persist in a machine catalog because it excludes authoring data.
 type MachineContract struct {
-	NodeTypeID              string                    `json:"nodeTypeId" jsonschema:"required,format=uri,pattern=/v[1-9][0-9]*$"`
+	NodeTypeID              string                    `json:"nodeTypeId" jsonschema:"required,format=uri"`
+	Version                 string                    `json:"version" jsonschema:"required,pattern=^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"`
 	ConfigSchemaRoot        string                    `json:"configSchemaRoot" jsonschema:"required,format=uri"`
 	ConfigSchemaBundle      []datatype.SchemaResource `json:"configSchemaBundle" jsonschema:"required,minItems=1,maxItems=256"`
 	Ports                   PortSet                   `json:"ports" jsonschema:"required"`
@@ -349,6 +354,7 @@ func Open(raw []byte) (Contract, error) {
 	}
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID:              decoded.Semantic.NodeTypeID,
+		Version:                 decoded.Semantic.Version,
 		ConfigSchemaRoot:        decoded.Semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle:      decoded.Semantic.ConfigSchemaBundle,
 		Ports:                   decoded.Semantic.Ports,
@@ -375,7 +381,7 @@ func Open(raw []byte) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	if decoded.NodeRef.NodeTypeID != normalized.NodeTypeID || decoded.NodeRef != sealed.NodeRef() {
+	if decoded.NodeRef.NodeTypeID != normalized.NodeTypeID || decoded.NodeRef.Version != normalized.Version || decoded.NodeRef != sealed.NodeRef() {
 		return Contract{}, errors.New("node contract semantic digest mismatch")
 	}
 	if !bytes.Equal(sealed.Bytes(), raw) {
@@ -388,7 +394,7 @@ func Open(raw []byte) (Contract, error) {
 // NodeRef. It is the Catalog boundary; presentation annotations are deliberately
 // absent and therefore cannot affect machine catalog identity.
 func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
-	if ref.NodeTypeID == "" || !ref.SemanticDigest.Valid() {
+	if validateStableNodeTypeURI(ref.NodeTypeID) != nil || !nodeVersionPattern.MatchString(ref.Version) || !ref.SemanticDigest.Valid() {
 		return Contract{}, errors.New("invalid node reference")
 	}
 	if len(raw) == 0 || len(raw) > MaxContractBytes {
@@ -416,7 +422,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 		return Contract{}, errors.New("node semantic artifact contains trailing JSON values")
 	}
 	normalized, err := normalizeSemantic(Draft{
-		NodeTypeID: semantic.NodeTypeID, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
+		NodeTypeID: semantic.NodeTypeID, Version: semantic.Version, ConfigSchemaRoot: semantic.ConfigSchemaRoot,
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
 		Execution: semantic.Execution, HostFeatureRequirements: semantic.HostFeatureRequirements, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
 		Instruction: semantic.Instruction,
@@ -499,7 +505,7 @@ func sealNormalized(semantic MachineContract, authoring Authoring) (Contract, er
 	if err != nil {
 		return Contract{}, err
 	}
-	ref := NodeRef{NodeTypeID: semantic.NodeTypeID, SemanticDigest: digest}
+	ref := NodeRef{NodeTypeID: semantic.NodeTypeID, Version: semantic.Version, SemanticDigest: digest}
 	canonical, err := artifact.Marshal(document{Format: Format, Version: Version, NodeRef: ref, Semantic: semantic, Authoring: authoring})
 	if err != nil {
 		return Contract{}, err
@@ -514,8 +520,11 @@ func sealNormalized(semantic MachineContract, authoring Authoring) (Contract, er
 }
 
 func normalizeSemantic(draft Draft) (MachineContract, error) {
-	if err := validateVersionedURI(draft.NodeTypeID); err != nil {
+	if err := validateStableNodeTypeURI(draft.NodeTypeID); err != nil {
 		return MachineContract{}, fmt.Errorf("invalid node type id: %w", err)
+	}
+	if !nodeVersionPattern.MatchString(draft.Version) {
+		return MachineContract{}, fmt.Errorf("invalid node version %q", draft.Version)
 	}
 	bundle, err := normalizeSchemaBundle(draft.ConfigSchemaRoot, draft.ConfigSchemaBundle)
 	if err != nil {
@@ -611,7 +620,7 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 		return MachineContract{}, errors.New("host-lowered instruction requires exactly one host-instruction ABI")
 	}
 	return MachineContract{
-		NodeTypeID: draft.NodeTypeID, ConfigSchemaRoot: draft.ConfigSchemaRoot,
+		NodeTypeID: draft.NodeTypeID, Version: draft.Version, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
 		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
 		ImplementationABI: abis,
@@ -1062,6 +1071,25 @@ func validateVersionedURI(value string) error {
 	segments := strings.Split(strings.Trim(parsed.EscapedPath(), "/"), "/")
 	if len(segments) == 0 || !versionSegmentPattern.MatchString(segments[len(segments)-1]) {
 		return fmt.Errorf("%q must end in /vN", value)
+	}
+	return nil
+}
+
+func validateStableNodeTypeURI(value string) error {
+	if err := validateAbsoluteURI(value); err != nil {
+		return err
+	}
+	parsed, _ := url.Parse(value)
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.RawPath != "" || parsed.Path == "" ||
+		path.Clean(parsed.Path) != parsed.Path || strings.HasSuffix(parsed.Path, "/") {
+		return fmt.Errorf("%q must be a canonical node type URI", value)
+	}
+	segments := strings.Split(strings.Trim(parsed.EscapedPath(), "/"), "/")
+	if len(segments) == 0 || segments[0] == "" {
+		return fmt.Errorf("%q must identify a node type", value)
+	}
+	if versionSegmentPattern.MatchString(segments[len(segments)-1]) {
+		return fmt.Errorf("%q must not encode the node version in its path", value)
 	}
 	return nil
 }

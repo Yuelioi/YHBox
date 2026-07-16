@@ -5,14 +5,14 @@
         <div class="flex items-center gap-2">
           <span class="size-2 rounded-full" :class="statusColor" aria-hidden="true" />
           <h2 class="text-xs font-semibold text-highlighted">
-            {{ t('workflow31.timeline.run_status', { status: run.status }) }}
+            {{ t('workflow.timeline.run_status', { status: run.status }) }}
           </h2>
         </div>
         <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">{{ run.runId }}</p>
       </div>
       <UButton
         v-if="canCancel"
-        :label="t('workflow31.action.stop')"
+        :label="t('workflow.action.stop')"
         icon="i-tabler-square"
         color="error"
         variant="soft"
@@ -20,7 +20,7 @@
         @click="emit('cancel')"
       />
       <UButton
-        :label="t('workflow31.action.refresh')"
+        :label="t('workflow.action.refresh')"
         icon="i-tabler-refresh"
         color="neutral"
         variant="ghost"
@@ -37,7 +37,7 @@
         </p>
       </div>
       <p v-if="!run.timeline.length" class="py-3 text-center text-xs text-muted">
-        {{ t('workflow31.timeline.empty') }}
+        {{ t('workflow.timeline.empty') }}
       </p>
       <ol v-else class="space-y-2">
         <li
@@ -58,7 +58,7 @@
             </p>
           </div>
           <span class="font-mono text-[10px] text-dimmed">
-            {{ t('workflow31.timeline.attempt', { n: entry.attempt }) }}
+            {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
           </span>
         </li>
       </ol>
@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { RunView } from '@/app/transport/workflow31'
+import type { RunView } from '@/app/transport/workflow'
 
 const props = defineProps<{ run: RunView }>()
 const emit = defineEmits<{ cancel: []; refresh: [] }>()

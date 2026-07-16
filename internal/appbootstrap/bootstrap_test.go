@@ -13,17 +13,17 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodes31"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
-	"github.com/yottaapp/yotta/internal/services/workflow31"
+	"github.com/yottaapp/yotta/internal/services/workflow"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workspacefs"
@@ -31,12 +31,12 @@ import (
 
 func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
-	events := make(chan app31.RunEvent, 16)
+	events := make(chan appcore.RunEvent, 16)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
-		OnRunEvent: func(event app31.RunEvent) { events <- event },
+		OnRunEvent: func(event appcore.RunEvent) { events <- event },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	service, err := workflow31.NewService(runtime.Application)
+	service, err := workflow.NewService(runtime.Application)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	}
 	patched, err := service.ApplyPatch(createdSource.WorkflowID, createdSource.Revision, []authoring.Command{
 		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
-			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "concat", Position: schema.Position{},
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "concat", Position: schema.Position{},
 		}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "a"}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: "b"}},
@@ -86,16 +86,16 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		t.Fatalf("CreateSource = %#v, %v", created, err)
 	}
 	started, err := service.StartRun(saved.WorkflowID)
-	if err != nil || started.Run == nil || started.Run.Status != string(run31.StatusQueued) || started.ProgramHash != compiled.ProgramHash {
+	if err != nil || started.Run == nil || started.Run.Status != string(run.StatusQueued) || started.ProgramHash != compiled.ProgramHash {
 		t.Fatalf("StartRun = %#v, %v", started, err)
 	}
 	deadline := time.After(5 * time.Second)
 	for {
 		select {
 		case event := <-events:
-			if event.RunID == started.Run.RunID && event.Status == run31.StatusSucceeded {
+			if event.RunID == started.Run.RunID && event.Status == run.StatusSucceeded {
 				timeline, err := service.GetRunTimeline(event.RunID)
-				if err != nil || timeline.Status != string(run31.StatusSucceeded) || len(timeline.Timeline) != 2 || timeline.Failure != nil {
+				if err != nil || timeline.Status != string(run.StatusSucceeded) || len(timeline.Timeline) != 2 || timeline.Failure != nil {
 					t.Fatalf("GetRunTimeline = %#v, %v", timeline, err)
 				}
 				if catalog := service.GetCatalog(); !strings.Contains(catalog, `"version":"3.1"`) {
@@ -387,7 +387,7 @@ func (testAICredentials) Get(string) (string, error) { return "secret", nil }
 
 type discardWorkflowLog struct{}
 
-func (discardWorkflowLog) EmitWorkflowLog(context.Context, nodes31runtime.LogEntry) error { return nil }
+func (discardWorkflowLog) EmitWorkflowLog(context.Context, noderuntime.LogEntry) error { return nil }
 
 func bootstrapScriptRuntime(t *testing.T) *scriptengine.Runtime {
 	t.Helper()

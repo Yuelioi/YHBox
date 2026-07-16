@@ -2,13 +2,13 @@
   <div class="grid grid-cols-[1fr_1fr_92px] gap-2">
     <UInputNumber
       :model-value="point.x"
-      :placeholder="t('workflow31.inspector.point_x')"
+      :placeholder="t('workflow.inspector.point_x')"
       class="w-full"
       @update:model-value="update('x', Number($event))"
     />
     <UInputNumber
       :model-value="point.y"
-      :placeholder="t('workflow31.inspector.point_y')"
+      :placeholder="t('workflow.inspector.point_y')"
       class="w-full"
       @update:model-value="update('y', Number($event))"
     />
@@ -44,8 +44,8 @@ const point = computed<PointValue>(() => {
 })
 
 const units = computed(() => [
-  { label: t('workflow31.inspector.point_ratio'), value: 'ratio' },
-  { label: t('workflow31.inspector.point_px'), value: 'px' },
+  { label: t('workflow.inspector.point_ratio'), value: 'ratio' },
+  { label: t('workflow.inspector.point_px'), value: 'px' },
 ])
 
 function update<Key extends keyof PointValue>(key: Key, value: PointValue[Key]): void {

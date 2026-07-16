@@ -9,10 +9,10 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/hotkey"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/tools"
 )
@@ -105,7 +105,7 @@ func TestClipCompositionUsesTheGlobalAssetStore(t *testing.T) {
 	if err := (&workflowRunStarter{}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter accepted a missing Application")
 	}
-	if err := (&workflowRunStarter{application: &app31.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
+	if err := (&workflowRunStarter{application: &appcore.Application{}}).StartWorkflow(context.Background(), "missing"); err == nil {
 		t.Fatal("workflow starter hid an unavailable Application")
 	}
 }
@@ -114,7 +114,7 @@ func TestWorkflowLogEmitterPreservesLevelAndAttribution(t *testing.T) {
 	var output bytes.Buffer
 	emitter := newWorkflowLogEmitter(zerolog.New(&output).Level(zerolog.DebugLevel))
 	for _, level := range []string{"debug", "info", "warn", "error"} {
-		if err := emitter.EmitWorkflowLog(context.Background(), nodes31runtime.LogEntry{
+		if err := emitter.EmitWorkflowLog(context.Background(), noderuntime.LogEntry{
 			Level: level, Message: "message-" + level, GraphID: "main", NodeID: "log", InvocationID: "invoke-1", Attempt: 2,
 		}); err != nil {
 			t.Fatal(err)
@@ -127,7 +127,7 @@ func TestWorkflowLogEmitterPreservesLevelAndAttribution(t *testing.T) {
 	}
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := emitter.EmitWorkflowLog(cancelled, nodes31runtime.LogEntry{}); !errors.Is(err, context.Canceled) {
+	if err := emitter.EmitWorkflowLog(cancelled, noderuntime.LogEntry{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled workflow log = %v", err)
 	}
 }

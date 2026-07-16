@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 const usage = "usage: node-catalog catalog | authoring | docs"
@@ -30,7 +30,7 @@ func main() {
 }
 
 func render(command string) ([]byte, error) {
-	artifacts, err := nodes31.GenerateArtifacts()
+	artifacts, err := nodes.GenerateArtifacts()
 	if err != nil {
 		return nil, fmt.Errorf("generate Node Contract 3.1 artifacts: %w", err)
 	}

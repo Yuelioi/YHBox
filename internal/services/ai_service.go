@@ -8,7 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/aiauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/runid"
 )
 
@@ -46,7 +46,7 @@ func (s *AIService) ProposeWorkflow(slot, workflowID string, baseRevision int64,
 	if err != nil {
 		return aiauthoring.Review{}, err
 	}
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		return aiauthoring.Review{}, err
 	}
@@ -200,7 +200,7 @@ func (s *AIService) GrantWorkflowUse(slot string) (string, error) {
 		if sealErr != nil {
 			return sealErr
 		}
-		builtins, buildErr := nodes31.Build()
+		builtins, buildErr := nodes.Build()
 		if buildErr != nil {
 			return buildErr
 		}
@@ -246,7 +246,7 @@ func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact)
 	if err != nil {
 		return err
 	}
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		return err
 	}

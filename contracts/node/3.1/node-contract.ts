@@ -78,6 +78,7 @@ export interface PortAuthoring {
 export interface NodeRef {
   nodeTypeId: string
   semanticDigest: string
+  version: string
 }
 export interface MachineContract {
   /**
@@ -123,6 +124,7 @@ export interface MachineContract {
    * @maxItems 4096
    */
   statusEvents: StatusEventSpec[]
+  version: string
 }
 export interface Requirement {
   capability: Ref

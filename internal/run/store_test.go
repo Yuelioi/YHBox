@@ -10,21 +10,21 @@ import (
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/stream"
 )
 
 func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	root := t.TempDir()
-	store, err := run31.OpenStore(root, catalog, run31.StoreOptions{MaxRecords: 8})
+	store, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
 	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
 	queued := queuedRecord(t, queuedAt)
 	commit, err := store.Create(context.Background(), queued)
-	if err != nil || commit != run31.CommitDurable {
+	if err != nil || commit != run.CommitDurable {
 		t.Fatalf("Create commit = %v, error = %v", commit, err)
 	}
 	running, err := queued.Start(queuedAt.Add(time.Second))
@@ -34,10 +34,10 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	if err := store.Update(context.Background(), queued.Digest(), running); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(context.Background(), queued.Digest(), running); !errors.Is(err, run31.ErrRunConflict) {
+	if err := store.Update(context.Background(), queued.Digest(), running); !errors.Is(err, run.ErrRunConflict) {
 		t.Fatalf("stale update = %v", err)
 	}
-	reopened, err := run31.OpenStore(root, catalog, run31.StoreOptions{MaxRecords: 8})
+	reopened, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	root := t.TempDir()
-	store, err := run31.OpenStore(root, catalog, run31.StoreOptions{MaxRecords: 8})
+	store, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,17 +69,17 @@ func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 	if err := os.WriteFile(path, append(running.Bytes(), '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(testRunID); !errors.Is(err, run31.ErrRunConflict) {
+	if _, err := store.Load(testRunID); !errors.Is(err, run.ErrRunConflict) {
 		t.Fatalf("tampered Load = %v", err)
 	}
-	if _, err := store.InterruptRunning(context.Background(), queued.Admission().QueuedAt.Add(2*time.Second)); !errors.Is(err, run31.ErrRunConflict) {
+	if _, err := store.InterruptRunning(context.Background(), queued.Admission().QueuedAt.Add(2*time.Second)); !errors.Is(err, run.ErrRunConflict) {
 		t.Fatalf("tampered recovery = %v", err)
 	}
 }
 
 func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) {
 	recordCatalog, definition := stringValueCatalog(t)
-	store, err := run31.OpenStore(t.TempDir(), valueCatalog{}, run31.StoreOptions{MaxRecords: 8})
+	store, err := run.OpenStore(t.TempDir(), valueCatalog{}, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	succeeded, err := running.Succeed(queuedAt.Add(2*time.Second), recordCatalog, []run31.ProducedValue{{
+	succeeded, err := running.Succeed(queuedAt.Add(2*time.Second), recordCatalog, []run.ProducedValue{{
 		ValueID: "value-1", GraphID: "main", NodeID: "node-1", PortID: "result", Attempt: 1, Envelope: envelope,
 	}})
 	if err != nil {
@@ -112,7 +112,7 @@ func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) 
 
 func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
-	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 8})
+	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	recovered, err := store.InterruptRunning(context.Background(), queuedAt.Add(2*time.Second))
-	if err != nil || len(recovered) != 1 || recovered[0].Status() != run31.StatusInterrupted {
+	if err != nil || len(recovered) != 1 || recovered[0].Status() != run.StatusInterrupted {
 		t.Fatalf("recovered = %#v, %v", recovered, err)
 	}
 	again, err := store.InterruptRunning(context.Background(), queuedAt.Add(3*time.Second))
@@ -141,20 +141,20 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 func TestRunStoreCancelsUndeliveredQueuedRecordsWithoutStartingThem(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)
-	store, err := run31.OpenStore(t.TempDir(), catalog, run31.StoreOptions{MaxRecords: 4})
+	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	queued := queuedRecord(t, queuedAt)
-	if outcome, err := store.Create(context.Background(), queued); err != nil || outcome != run31.CommitDurable {
+	if outcome, err := store.Create(context.Background(), queued); err != nil || outcome != run.CommitDurable {
 		t.Fatalf("Create = %v, %v", outcome, err)
 	}
 	cancelled, err := store.CancelQueued(context.Background(), queuedAt.Add(time.Second))
-	if err != nil || len(cancelled) != 1 || cancelled[0].Status() != run31.StatusCancelled || cancelled[0].Generation() != 2 {
+	if err != nil || len(cancelled) != 1 || cancelled[0].Status() != run.StatusCancelled || cancelled[0].Generation() != 2 {
 		t.Fatalf("CancelQueued = %#v, %v", cancelled, err)
 	}
 	loaded, err := store.Load(queued.Admission().RunID)
-	if err != nil || loaded.Status() != run31.StatusCancelled || len(loaded.Journal()) != 0 {
+	if err != nil || loaded.Status() != run.StatusCancelled || len(loaded.Journal()) != 0 {
 		t.Fatalf("Load = %#v, %v", loaded, err)
 	}
 	if again, err := store.CancelQueued(context.Background(), queuedAt.Add(2*time.Second)); err != nil || len(again) != 0 {
@@ -162,7 +162,7 @@ func TestRunStoreCancelsUndeliveredQueuedRecordsWithoutStartingThem(t *testing.T
 	}
 }
 
-func queuedRecord(t *testing.T, queuedAt time.Time) run31.Record {
+func queuedRecord(t *testing.T, queuedAt time.Time) run.Record {
 	t.Helper()
 	definition := streamCapability(t)
 	plan := streamPlan(t, definition)
@@ -177,7 +177,7 @@ func queuedRecord(t *testing.T, queuedAt time.Time) run31.Record {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record, err := run31.NewQueuedRecord(run31.QueueRequest{
+	record, err := run.NewQueuedRecord(run.QueueRequest{
 		ProgramHash: digest("program"), CatalogHash: digest("catalog"), CapabilityPlanDigest: plan.Digest(), Grant: grant, QueuedAt: queuedAt,
 	})
 	if err != nil {

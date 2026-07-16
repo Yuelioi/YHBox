@@ -1,5 +1,5 @@
 import { shallowReactive } from 'vue'
-import type { WorkflowTransport } from '@/app/transport/workflow31'
+import type { WorkflowTransport } from '@/app/transport/workflow'
 import { EditorSession } from './EditorSession'
 
 export function createEditorSession(

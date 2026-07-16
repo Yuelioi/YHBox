@@ -234,6 +234,7 @@ export interface RetryInstruction {
 export interface NodeRef {
   nodeTypeId: string
   semanticDigest: string
+  version: string
 }
 export interface SignalProjection {
   channel: 'exec' | 'error'

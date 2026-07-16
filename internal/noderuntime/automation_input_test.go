@@ -1,0 +1,124 @@
+package noderuntime_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/yottaapp/yotta/internal/admission"
+	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/resource"
+	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/workflow/compiler"
+)
+
+type automationInputProvider struct {
+	requests []automationinstalled.TypeTextRequest
+	closed   int
+}
+
+func (provider *automationInputProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
+	if request.Kind != automationinstalled.KindInput || fmt.Sprint(request.Operations) != "[type-text]" || string(request.Config) != `{}` || string(request.CapabilityScope) != `{"operation":"type-text"}` {
+		return nil, fmt.Errorf("unexpected automation input open request: %#v", request)
+	}
+	return request.Operations[0], nil
+}
+
+func (provider *automationInputProvider) Invoke(_ context.Context, object any, operation string, payload []byte) ([]byte, error) {
+	if object != automationinstalled.OperationTypeText || operation != automationinstalled.OperationTypeText {
+		return nil, errors.New("unexpected automation input operation")
+	}
+	var request automationinstalled.TypeTextRequest
+	if err := json.Unmarshal(payload, &request); err != nil {
+		return nil, err
+	}
+	provider.requests = append(provider.requests, request)
+	return []byte(`{}`), nil
+}
+
+func (provider *automationInputProvider) Close(context.Context, any) error {
+	provider.closed++
+	return nil
+}
+
+func TestAutomationInputUsesInstalledTargetAndRedactsJournal(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	providerDigest, err := artifact.Sum("yotta/test/automation-input-provider/v1", []byte("exact-installed-window"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &automationInputProvider{}
+	const providerID, targetID, slot = "automation-input-test", "automation-target/test", "automation-test"
+	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.AutomationInputCapabilityID)
+	if !ok {
+		t.Fatal("automation input capability is missing")
+	}
+	profileDraft := executionProfile(t, builtins)
+	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
+		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindInput}},
+	})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	program := compilePrimitiveProgram(t, builtins, automationInputSource(t, builtins, slot))
+	now := time.Date(2026, 7, 16, 19, 0, 0, 0, time.UTC)
+	consent, err := artifact.Sum("yotta/test/automation-input-consent/v1", []byte(slot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
+		providerID: {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: provider},
+	}, now, profileDraft, []artifact.Digest{consent})
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NodeOutputs["type"]) != 0 || len(provider.requests) != 1 || provider.requests[0].Text != "private text 节点" || provider.closed != 1 {
+		t.Fatalf("outputs=%#v requests=%#v closed=%d", result.NodeOutputs["type"], provider.requests, provider.closed)
+	}
+	actions := 0
+	for _, entry := range journal.Current().Journal() {
+		if entry.Kind != run.JournalAdapterAction {
+			continue
+		}
+		actions++
+		raw, _ := json.Marshal(entry)
+		if bytes.Contains(raw, []byte("private text")) || bytes.Contains(raw, []byte("节点")) {
+			t.Fatalf("journal leaked typed text: %s", raw)
+		}
+	}
+	if actions != 1 {
+		t.Fatalf("automation actions = %d", actions)
+	}
+}
+
+func automationInputSource(t *testing.T, builtins nodes.Builtins, slot string) []byte {
+	t.Helper()
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	typeText, _ := builtins.Definition(nodes.TypeTextNodeID)
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-input","name":"Automation Input"},"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"type","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
+			 "bindings":{"text":{"kind":"value","value":"private text 节点"}}}
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"type","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		typeText.Contract.NodeRef().NodeTypeID, typeText.Contract.NodeRef().SemanticDigest, slot))
+}

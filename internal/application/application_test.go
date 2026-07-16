@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/admission"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
-	"github.com/yottaapp/yotta/internal/nodes31"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -39,7 +39,7 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 	if saved.Source.Revision() != 1 {
 		t.Fatalf("ApplyPatch = %#v", saved)
 	}
-	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
+	started, err := application.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
 	if err != nil || !started.Record.Valid() || !started.ProgramHash.Valid() || len(started.Diagnostics) != 0 {
 		t.Fatalf("StartRun = %#v, %v", started, err)
 	}
@@ -53,9 +53,9 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 	for {
 		select {
 		case event := <-events:
-			if event.RunID == started.Record.Admission().RunID && event.Status == run31.StatusSucceeded {
+			if event.RunID == started.Record.Admission().RunID && event.Status == run.StatusSucceeded {
 				loaded, err := application.GetRun(event.RunID)
-				if err != nil || loaded.Status() != run31.StatusSucceeded || len(loaded.Journal()) != 2 {
+				if err != nil || loaded.Status() != run.StatusSucceeded || len(loaded.Journal()) != 2 {
 					t.Fatalf("terminal Run = %#v, %v", loaded, err)
 				}
 				if listed := sources.List(); len(listed) != 1 || listed[0].Hash() != saved.Source.Hash() {
@@ -72,13 +72,13 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 30, 0, 0, time.UTC)
 	application, _, _, _, _ := newTestApplication(t, now, nil)
-	if _, err := application.CreateSource(context.Background(), "before start"); err != app31.ErrNotStarted {
+	if _, err := application.CreateSource(context.Background(), "before start"); err != appcore.ErrNotStarted {
 		t.Fatalf("CreateSource before Start = %v", err)
 	}
 	if err := application.Close(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := application.Start(context.Background()); err != app31.ErrClosed {
+	if err := application.Start(context.Background()); err != appcore.ErrClosed {
 		t.Fatalf("Start after Close = %v", err)
 	}
 }
@@ -97,7 +97,7 @@ func TestPreparedPatchCommitsTheExactReviewedArtifactAndRejectsStaleBase(t *test
 	request := authoring.PatchRequest{
 		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
 		Commands: []authoring.Command{{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
-			GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "reviewed", Position: schema.Position{X: 10, Y: 20},
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "reviewed", Position: schema.Position{X: 10, Y: 20},
 		}}},
 	}
 	preview, err := application.PreparePatch(context.Background(), request)
@@ -159,7 +159,7 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 		t.Fatal(err)
 	}
 	saved := createConcatWorkflow(t, application)
-	started, err := application.StartRun(context.Background(), app31.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
+	started, err := application.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,9 +175,9 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 	for {
 		select {
 		case event := <-events:
-			if event.RunID == started.Record.Admission().RunID && event.Status == run31.StatusCancelled {
+			if event.RunID == started.Record.Admission().RunID && event.Status == run.StatusCancelled {
 				loaded, err := application.GetRun(event.RunID)
-				if err != nil || loaded.Status() != run31.StatusCancelled {
+				if err != nil || loaded.Status() != run.StatusCancelled {
 					t.Fatalf("cancelled Run = %#v, %v", loaded, err)
 				}
 				if err := application.Close(context.Background()); err != nil {
@@ -191,15 +191,15 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 	}
 }
 
-func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*app31.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes31.Builtins, chan app31.RunEvent) {
+func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent) {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
 	projection, err := nodeauthoring.Project(nodeauthoring.Input{
 		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
-		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,
+		Contracts: builtins.Contracts, GeneratorVersion: nodes.GeneratorVersion,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	runs, err := run31.OpenStore(filepath.Join(root, "runs"), builtins.Catalog, run31.StoreOptions{MaxRecords: 8})
+	runs, err := run.OpenStore(filepath.Join(root, "runs"), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,28 +233,28 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{
+	adapters, err := noderuntime.Installed(builtins, noderuntime.Dependencies{
 		Script: applicationScriptRuntime{},
-		Log:    nodes31runtime.LogEmitterFunc(func(context.Context, nodes31runtime.LogEntry) error { return nil }),
+		Log:    noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if adapterOverride != nil {
-		entry, ok := builtins.Catalog.Lookup(nodes31.ConcatNodeID)
+		entry, ok := builtins.Catalog.Lookup(nodes.ConcatNodeID)
 		if !ok {
 			t.Fatal("Concat implementation is missing")
 		}
 		adapters[entry.Implementation.Entrypoint] = compiler.InstalledAdapter{Implementation: entry.Implementation, Run: adapterOverride}
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }})
-	events := make(chan app31.RunEvent, 16)
-	application, err := app31.New(app31.Config{
+	events := make(chan appcore.RunEvent, 16)
+	application, err := appcore.New(appcore.Config{
 		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
-		Admitter: admitter, Executor: executor, Providers: map[string]run31.InstalledProvider{},
+		Admitter: admitter, Executor: executor, Providers: map[string]run.InstalledProvider{},
 		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,
-		Now: func() time.Time { return now }, OnRunEvent: func(event app31.RunEvent) { events <- event },
+		Now: func() time.Time { return now }, OnRunEvent: func(event appcore.RunEvent) { events <- event },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -268,7 +268,7 @@ func (applicationScriptRuntime) Execute(context.Context, scriptengine.Request) (
 	return scriptengine.Response{}, errors.New("unexpected script execution in application test")
 }
 
-func createConcatWorkflow(t *testing.T, application *app31.Application) app31.ApplyPatchResult {
+func createConcatWorkflow(t *testing.T, application *appcore.Application) appcore.ApplyPatchResult {
 	t.Helper()
 	created, err := application.CreateSource(context.Background(), "Application")
 	if err != nil {
@@ -278,7 +278,7 @@ func createConcatWorkflow(t *testing.T, application *app31.Application) app31.Ap
 		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(),
 		Commands: []authoring.Command{
 			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
-				GraphID: "main", NodeTypeID: nodes31.ConcatNodeID, Handle: "concat", Position: schema.Position{},
+				GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "concat", Position: schema.Position{},
 			}},
 			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "hello"}},
 			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: " world"}},

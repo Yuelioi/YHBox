@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { FieldProjection31 as FieldProjection } from '@/contracts/node31'
+import type { FieldProjection as FieldProjection } from '@/contracts/node'
 
 const props = defineProps<{
   field: FieldProjection

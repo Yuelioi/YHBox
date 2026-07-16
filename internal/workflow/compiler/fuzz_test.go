@@ -7,12 +7,12 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 )
 
 func FuzzCompileDraft(f *testing.F) {
 	build, _ := artifact.Sum("yotta/test/v1", []byte("compiler"))
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		f.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func FuzzCompileDraft(f *testing.F) {
 
 func FuzzOpenProgram(f *testing.F) {
 	build, _ := artifact.Sum("yotta/test/v1", []byte("compiler"))
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		f.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func fuzzSource(ref nodecontract.NodeRef) []byte {
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"fuzz","name":"Fuzz"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
-			"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},
+			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))

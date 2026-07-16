@@ -17,7 +17,7 @@
       }}</span>
       <UButton
         v-if="active"
-        :label="t('workflow31.action.stop_all')"
+        :label="t('workflow.action.stop_all')"
         icon="i-tabler-square"
         color="error"
         variant="ghost"
@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { onRunChanged, workflowTransport } from '@/app/transport/workflow31'
+import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
 
 const activeRunId = ref('')
 const status = ref('')
@@ -40,8 +40,8 @@ const { t } = useI18n()
 const active = computed(() => ['QUEUED', 'RUNNING'].includes(status.value.toUpperCase()))
 const label = computed(() =>
   active.value
-    ? t('workflow31.status.program', { status: status.value.toLowerCase() })
-    : t('workflow31.status.ready'),
+    ? t('workflow.status.program', { status: status.value.toLowerCase() })
+    : t('workflow.status.ready'),
 )
 const statusDot = computed(() =>
   active.value ? 'bg-primary animate-pulse motion-reduce:animate-none' : 'bg-accented',

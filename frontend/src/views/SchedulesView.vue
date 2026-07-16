@@ -104,7 +104,7 @@ import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
 import { useConfirm } from '@/composables/useConfirm'
 import type { Schedule } from '@/lib/backend'
-import { workflowTransport, type SourceView } from '@/app/transport/workflow31'
+import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 
@@ -144,7 +144,7 @@ onMounted(async () => {
     workflows.value = await workflowTransport.listSources()
   } catch (error) {
     toast.add({
-      title: t('workflow31.toast.list_failed'),
+      title: t('workflow.toast.list_failed'),
       description: error instanceof Error ? error.message : String(error),
       color: 'error',
     })

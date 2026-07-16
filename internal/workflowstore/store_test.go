@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
-	"github.com/yottaapp/yotta/internal/nodes31"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
@@ -73,7 +73,7 @@ func TestSourceStoreRejectsInvalidAndExternallyChangedSources(t *testing.T) {
 }
 
 func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
 
 func concatSource(t *testing.T, revision int, a, b string) []byte {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func concatSource(t *testing.T, revision int, a, b string) []byte {
 	return []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-store","name":"Store"},
 		"revision":%d,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"concat","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
+			{"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}}
 		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, revision, ref.NodeTypeID, ref.SemanticDigest, a, b))

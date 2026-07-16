@@ -19,13 +19,13 @@ import (
 	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
-	app31 "github.com/yottaapp/yotta/internal/application"
+	yottaapplication "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/httpegress"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
@@ -35,7 +35,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/tools"
-	"github.com/yottaapp/yotta/internal/services/workflow31"
+	"github.com/yottaapp/yotta/internal/services/workflow"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/platform"
 	"github.com/yottaapp/yotta/pkg/screenshot"
@@ -150,7 +150,7 @@ func main() {
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime, LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL: runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
-		OnRunEvent: func(event app31.RunEvent) {
+		OnRunEvent: func(event yottaapplication.RunEvent) {
 			payload := map[string]any{
 				"runId": event.RunID, "status": event.Status, "generation": event.Generation, "recordDigest": event.Digest,
 			}
@@ -164,7 +164,7 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow runtime init")
 	}
-	workflowSvc, err := workflow31.NewService(workflowRuntime.Application)
+	workflowSvc, err := workflow.NewService(workflowRuntime.Application)
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("workflow service init")
 	}
@@ -526,8 +526,8 @@ func registryHotkey(registry *hotkey.HotkeyRegistry, key string, fallback uint32
 	return mods, vk
 }
 
-func newWorkflowLogEmitter(log zerolog.Logger) nodes31runtime.LogEmitter {
-	return nodes31runtime.LogEmitterFunc(func(ctx context.Context, entry nodes31runtime.LogEntry) error {
+func newWorkflowLogEmitter(log zerolog.Logger) noderuntime.LogEmitter {
+	return noderuntime.LogEmitterFunc(func(ctx context.Context, entry noderuntime.LogEntry) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

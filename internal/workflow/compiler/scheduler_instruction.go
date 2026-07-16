@@ -8,7 +8,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -276,30 +276,30 @@ func (s *scheduler) enqueueInstructionOutput(nodeID, output string, failure *Rou
 	s.queue = append(s.queue, s.instructionRoutes(nodeID, output, failure)...)
 }
 
-func (s *scheduler) beginInstruction(ctx context.Context, node programNode) (int, run31.RedactedSummary, error) {
+func (s *scheduler) beginInstruction(ctx context.Context, node programNode) (int, run.RedactedSummary, error) {
 	s.attempts[node.ID]++
 	attempt := s.attempts[node.ID]
-	summary, err := run31.NewRedactedSummary("node.execute", nil, nil)
+	summary, err := run.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
-		return 0, run31.RedactedSummary{}, err
+		return 0, run.RedactedSummary{}, err
 	}
-	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptStarted,
+	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptStarted,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
-		return 0, run31.RedactedSummary{}, err
+		return 0, run.RedactedSummary{}, err
 	}
 	if _, err := s.journal.Append(ctx, fact); err != nil {
-		return 0, run31.RedactedSummary{}, err
+		return 0, run.RedactedSummary{}, err
 	}
 	s.clearNodeResult(node.ID)
 	return attempt, summary, nil
 }
 
-func (s *scheduler) finishInstruction(ctx context.Context, node programNode, attempt int, summary run31.RedactedSummary) error {
-	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptSucceeded,
+func (s *scheduler) finishInstruction(ctx context.Context, node programNode, attempt int, summary run.RedactedSummary) error {
+	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptSucceeded,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -309,7 +309,7 @@ func (s *scheduler) finishInstruction(ctx context.Context, node programNode, att
 	return err
 }
 
-func (s *scheduler) closeInterruptedInstruction(ctx context.Context, node programNode, attempt int, summary run31.RedactedSummary, cause error) error {
+func (s *scheduler) closeInterruptedInstruction(ctx context.Context, node programNode, attempt int, summary run.RedactedSummary, cause error) error {
 	var signal *regionSignal
 	if errors.As(cause, &signal) {
 		return s.finishInstruction(ctx, node, attempt, summary)
@@ -317,8 +317,8 @@ func (s *scheduler) closeInterruptedInstruction(ctx context.Context, node progra
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) || ctx.Err() != nil {
 		return s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, summary)
 	}
-	fact, err := run31.NewNodeAttemptFact(run31.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run31.AttemptRouted,
+	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
+		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptRouted,
 		OccurredAt: s.executor.now().UTC(), ErrorCode: "control.region_failed", Summary: summary,
 	})
 	if err != nil {

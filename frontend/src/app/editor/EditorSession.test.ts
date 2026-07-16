@@ -12,7 +12,7 @@ import type {
   SourceView,
   StartRunView,
   WorkflowTransport,
-} from '@/app/transport/workflow31'
+} from '@/app/transport/workflow'
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
 

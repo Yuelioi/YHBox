@@ -11,10 +11,10 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes31"
-	"github.com/yottaapp/yotta/internal/nodes31runtime"
+	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
-	run31 "github.com/yottaapp/yotta/internal/run"
+	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/runid"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -29,28 +29,28 @@ func TestSchedulerExecutesCountedAndCollectionRegions(t *testing.T) {
 		outputPort   string
 		want         string
 	}{
-		{name: "counted loop", nodeTypeID: nodes31.RepeatNodeID, bindingPort: "count", bindingValue: `3`, outputPort: "index", want: `2`},
-		{name: "for each", nodeTypeID: nodes31.ForEachNodeID, bindingPort: "items", bindingValue: `["a","b","c"]`, outputPort: "item", want: `"c"`},
+		{name: "counted loop", nodeTypeID: nodes.RepeatNodeID, bindingPort: "count", bindingValue: `3`, outputPort: "index", want: `2`},
+		{name: "for each", nodeTypeID: nodes.ForEachNodeID, bindingPort: "items", bindingValue: `["a","b","c"]`, outputPort: "item", want: `"c"`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			builtins := schedulerBuiltins(t)
-			started := schedulerNodeRef(t, builtins, nodes31.RunStartedNodeID)
+			started := schedulerNodeRef(t, builtins, nodes.RunStartedNodeID)
 			region := schedulerNodeRef(t, builtins, test.nodeTypeID)
-			write := schedulerNodeRef(t, builtins, nodes31.StateWriteNodeID)
-			end := schedulerNodeRef(t, builtins, nodes31.EndBranchNodeID)
+			write := schedulerNodeRef(t, builtins, nodes.StateWriteNodeID)
+			end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
 			valueType := builtins.IntegerType.TypeRef()
 			defaultValue := `0`
-			if test.nodeTypeID == nodes31.ForEachNodeID {
+			if test.nodeTypeID == nodes.ForEachNodeID {
 				valueType = builtins.StringType.TypeRef()
 				defaultValue = `""`
 			}
 			source := []byte(fmt.Sprintf(`{
 				"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-region","name":"Region"},
 				"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-					{"id":"started","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-					{"id":"region","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{%q:{"kind":"value","value":%s}}},
-					{"id":"write","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":2,"y":0},"config":{"variable":"value"},"bindings":{}},
-					{"id":"end","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":3,"y":0},"config":{},"bindings":{}}
+					{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+					{"id":"region","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{%q:{"kind":"value","value":%s}}},
+					{"id":"write","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{"variable":"value"},"bindings":{}},
+					{"id":"end","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{},"bindings":{}}
 				],"edges":[
 					{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"region","portId":"in"}},
 					{"channel":"exec","from":{"nodeId":"region","portId":"body"},"to":{"nodeId":"write","portId":"in"}},
@@ -67,7 +67,7 @@ func TestSchedulerExecutesCountedAndCollectionRegions(t *testing.T) {
 			if !got.Valid() || string(got.InlineJSON()) != test.want {
 				t.Fatalf("%s output = %s, want %s", test.outputPort, got.InlineJSON(), test.want)
 			}
-			if journal.Current().Status() != run31.StatusSucceeded {
+			if journal.Current().Status() != run.StatusSucceeded {
 				t.Fatalf("Run status = %s", journal.Current().Status())
 			}
 		})
@@ -76,17 +76,17 @@ func TestSchedulerExecutesCountedAndCollectionRegions(t *testing.T) {
 
 func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 	builtins := schedulerBuiltins(t)
-	started := schedulerNodeRef(t, builtins, nodes31.RunStartedNodeID)
-	retry := schedulerNodeRef(t, builtins, nodes31.RetryNodeID)
-	delay := schedulerNodeRef(t, builtins, nodes31.DelayNodeID)
-	end := schedulerNodeRef(t, builtins, nodes31.EndBranchNodeID)
+	started := schedulerNodeRef(t, builtins, nodes.RunStartedNodeID)
+	retry := schedulerNodeRef(t, builtins, nodes.RetryNodeID)
+	delay := schedulerNodeRef(t, builtins, nodes.DelayNodeID)
+	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
 	source := []byte(fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-retry","name":"Retry"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
-			{"id":"started","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
-			{"id":"retry","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"attempts":{"kind":"value","value":3}}},
-			{"id":"delay","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":2,"y":0},"config":{},"bindings":{"duration-milliseconds":{"kind":"value","value":1}}},
-			{"id":"end","nodeRef":{"nodeTypeId":%q,"semanticDigest":%q},"position":{"x":3,"y":0},"config":{},"bindings":{}}
+			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"retry","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"attempts":{"kind":"value","value":3}}},
+			{"id":"delay","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{},"bindings":{"duration-milliseconds":{"kind":"value","value":1}}},
+			{"id":"end","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{},"bindings":{}}
 		],"edges":[
 			{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"retry","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"body"},"to":{"nodeId":"delay","portId":"in"}},
@@ -111,7 +111,7 @@ func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 	if err := json.Unmarshal(execution.NodeOutputs["retry"]["attempt"].InlineJSON(), &attempt); err != nil || waits != 3 || attempt != 3 {
 		t.Fatalf("waits=%d attempt=%d error=%v", waits, attempt, err)
 	}
-	if journal.Current().Status() != run31.StatusSucceeded {
+	if journal.Current().Status() != run.StatusSucceeded {
 		t.Fatalf("Run status = %s", journal.Current().Status())
 	}
 }
@@ -124,20 +124,20 @@ func (schedulerUnusedScriptRuntime) Execute(context.Context, scriptengine.Reques
 
 type schedulerUnusedLogEmitter struct{}
 
-func (schedulerUnusedLogEmitter) EmitWorkflowLog(context.Context, nodes31runtime.LogEntry) error {
+func (schedulerUnusedLogEmitter) EmitWorkflowLog(context.Context, noderuntime.LogEntry) error {
 	return errors.New("unexpected log emission")
 }
 
-func schedulerBuiltins(t *testing.T) nodes31.Builtins {
+func schedulerBuiltins(t *testing.T) nodes.Builtins {
 	t.Helper()
-	builtins, err := nodes31.Build()
+	builtins, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
 	return builtins
 }
 
-func schedulerNodeRef(t *testing.T, builtins nodes31.Builtins, nodeTypeID string) nodecontract.NodeRef {
+func schedulerNodeRef(t *testing.T, builtins nodes.Builtins, nodeTypeID string) nodecontract.NodeRef {
 	t.Helper()
 	definition, ok := builtins.Definition(nodeTypeID)
 	if !ok {
@@ -146,7 +146,7 @@ func schedulerNodeRef(t *testing.T, builtins nodes31.Builtins, nodeTypeID string
 	return definition.Contract.NodeRef()
 }
 
-func compileSchedulerInstructionProgram(t *testing.T, builtins nodes31.Builtins, source []byte) compiler.ProgramSnapshot {
+func compileSchedulerInstructionProgram(t *testing.T, builtins nodes.Builtins, source []byte) compiler.ProgramSnapshot {
 	t.Helper()
 	build, err := artifact.Sum("yotta/test/compiler-build/v1", []byte(t.Name()))
 	if err != nil {
@@ -166,7 +166,7 @@ func compileSchedulerInstructionProgram(t *testing.T, builtins nodes31.Builtins,
 	return program
 }
 
-func runSchedulerInstructionProgram(t *testing.T, builtins nodes31.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions) (compiler.ExecutionResult, *run31.JournalWriter) {
+func runSchedulerInstructionProgram(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions) (compiler.ExecutionResult, *run.JournalWriter) {
 	t.Helper()
 	now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
 	id, err := runid.New()
@@ -180,14 +180,14 @@ func runSchedulerInstructionProgram(t *testing.T, builtins nodes31.Builtins, pro
 	if err != nil {
 		t.Fatal(err)
 	}
-	queued, err := run31.NewQueuedRecord(run31.QueueRequest{
+	queued, err := run.NewQueuedRecord(run.QueueRequest{
 		ProgramHash: program.Hash(), CatalogHash: builtins.Catalog.Hash(), CapabilityPlanDigest: program.CapabilityPlan().Digest(),
 		Grant: grant, QueuedAt: now,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run31.OpenStore(t.TempDir(), builtins.Catalog, run31.StoreOptions{MaxRecords: 1})
+	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,12 +205,12 @@ func runSchedulerInstructionProgram(t *testing.T, builtins nodes31.Builtins, pro
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := run31.NewOwner(context.Background(), grant, map[string]run31.InstalledProvider{}, resource.Options{Now: func() time.Time { return now }})
+	owner, err := run.NewOwner(context.Background(), grant, map[string]run.InstalledProvider{}, resource.Options{Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = owner.Close(context.Background()) })
-	adapters, err := nodes31runtime.Installed(builtins, nodes31runtime.Dependencies{
+	adapters, err := noderuntime.Installed(builtins, noderuntime.Dependencies{
 		Script: schedulerUnusedScriptRuntime{},
 		Log:    schedulerUnusedLogEmitter{},
 	})

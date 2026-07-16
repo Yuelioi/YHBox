@@ -1087,11 +1087,11 @@
       ]
     },
     {
-      "module": "internal/services/workflow31/service",
+      "module": "internal/services/workflow/service",
       "methods": [
         {
           "name": "ApplyPatch",
-          "bindingId": "153961442",
+          "bindingId": "4198428146",
           "parameters": [
             {
               "name": "workflowID",
@@ -1113,13 +1113,13 @@
         },
         {
           "name": "CancelAllRuns",
-          "bindingId": "2211038583",
+          "bindingId": "1765856103",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
         },
         {
           "name": "CancelRun",
-          "bindingId": "579970475",
+          "bindingId": "3107210619",
           "parameters": [
             {
               "name": "runID",
@@ -1131,7 +1131,7 @@
         },
         {
           "name": "CompileSource",
-          "bindingId": "2342957992",
+          "bindingId": "2577231480",
           "parameters": [
             {
               "name": "workflowID",
@@ -1143,7 +1143,7 @@
         },
         {
           "name": "CreateSource",
-          "bindingId": "2705089841",
+          "bindingId": "2502592641",
           "parameters": [
             {
               "name": "name",
@@ -1155,19 +1155,19 @@
         },
         {
           "name": "GetAuthoringProjection",
-          "bindingId": "4125171028",
+          "bindingId": "1431440996",
           "parameters": [],
           "returns": "$CancellablePromise<string>"
         },
         {
           "name": "GetCatalog",
-          "bindingId": "1728261139",
+          "bindingId": "3696866883",
           "parameters": [],
           "returns": "$CancellablePromise<string>"
         },
         {
           "name": "GetRunTimeline",
-          "bindingId": "631286106",
+          "bindingId": "3918199178",
           "parameters": [
             {
               "name": "runID",
@@ -1179,7 +1179,7 @@
         },
         {
           "name": "GetSource",
-          "bindingId": "1833828377",
+          "bindingId": "4167920233",
           "parameters": [
             {
               "name": "workflowID",
@@ -1191,13 +1191,13 @@
         },
         {
           "name": "ListSources",
-          "bindingId": "1792672122",
+          "bindingId": "857662794",
           "parameters": [],
           "returns": "$CancellablePromise<$models.SourceView[]>"
         },
         {
           "name": "PreviewRun",
-          "bindingId": "1777815441",
+          "bindingId": "1826968449",
           "parameters": [
             {
               "name": "workflowID",
@@ -1209,7 +1209,7 @@
         },
         {
           "name": "StartRun",
-          "bindingId": "1934942441",
+          "bindingId": "3018932761",
           "parameters": [
             {
               "name": "workflowID",
@@ -3647,7 +3647,7 @@
       ]
     },
     {
-      "module": "internal/services/workflow31/models",
+      "module": "internal/services/workflow/models",
       "declarations": [
         {
           "kind": "class",

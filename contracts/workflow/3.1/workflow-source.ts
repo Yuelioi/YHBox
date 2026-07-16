@@ -111,6 +111,7 @@ export interface BlobRef {
 export interface NodeRef {
   nodeTypeId: string
   semanticDigest: string
+  version: string
 }
 export interface Position {
   x: number

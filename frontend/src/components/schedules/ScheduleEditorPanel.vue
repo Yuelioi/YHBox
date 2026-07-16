@@ -231,7 +231,7 @@ import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TargetKind } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import type { Schedule } from '@/lib/backend'
-import type { SourceView } from '@/app/transport/workflow31'
+import type { SourceView } from '@/app/transport/workflow'
 import StatusPill from '@/components/common/StatusPill.vue'
 
 const { t } = useI18n()
