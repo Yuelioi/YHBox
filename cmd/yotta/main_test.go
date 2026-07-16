@@ -111,3 +111,24 @@ func TestRunValidateStrictlyRejectsLegacySource(t *testing.T) {
 		t.Fatalf("expected strict validation diagnostics, got %s", output.String())
 	}
 }
+
+func TestRunWorkflowCommandsRejectMissingWorkflow(t *testing.T) {
+	for _, command := range []string{"compile", "inspect", "run"} {
+		t.Run(command, func(t *testing.T) {
+			root := t.TempDir()
+			var output bytes.Buffer
+			err := run([]string{
+				"--data-root", filepath.Join(root, "data"),
+				"--settings", filepath.Join(root, "settings.json"),
+				"--timeout", "10s",
+				command, "missing-workflow",
+			}, &output)
+			if err == nil {
+				t.Fatalf("expected %s to reject a missing workflow", command)
+			}
+			if command != "inspect" && !strings.Contains(output.String(), "diagnostics") {
+				t.Fatalf("expected %s to emit a structured compile view, got %s", command, output.String())
+			}
+		})
+	}
+}
