@@ -52,7 +52,7 @@ var trayIcon []byte
 func main() {
 	platform.EnsureAdmin()
 
-	// 日志栈：zerolog/container diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
+	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
@@ -226,7 +226,7 @@ func main() {
 		"recording.pause":         "F11",
 	})
 
-	// Asset authoring captures exact installed targets; no Workflow or Container
+	// Asset authoring captures exact installed targets; no Workflow
 	// document can inject a native window selector.
 	assetSvc := asset.NewService(assetStore, authoringTargets)
 

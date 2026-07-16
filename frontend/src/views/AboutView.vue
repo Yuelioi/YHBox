@@ -165,10 +165,10 @@ const info = ref<AppInfo | null>(null)
 // 核心概念（从原帮助页迁来；文案走 about.concepts.* i18n）。
 // icon 色是概念分类识别色（非状态语义），配色统一时不要改成 warning/success 等状态色。
 const concepts = [
-  { key: 'container', icon: 'i-tabler-package', iconClass: 'text-primary' },
-  { key: 'subgraph', icon: 'i-tabler-schema', iconClass: 'text-fuchsia-300' },
-  { key: 'library', icon: 'i-tabler-books', iconClass: 'text-emerald-300' },
-  { key: 'schedule', icon: 'i-tabler-calendar-clock', iconClass: 'text-amber-300' },
+  { key: 'workflow', icon: 'i-tabler-route', iconClass: 'text-primary' },
+  { key: 'catalog', icon: 'i-tabler-schema', iconClass: 'text-fuchsia-300' },
+  { key: 'program_run', icon: 'i-tabler-player-play', iconClass: 'text-emerald-300' },
+  { key: 'installation', icon: 'i-tabler-plug-connected', iconClass: 'text-amber-300' },
 ]
 
 onMounted(async () => {

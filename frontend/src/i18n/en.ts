@@ -1,17 +1,9 @@
 export default {
   sidebar: {
-    automation: 'Automation',
-    tools: 'Tools',
-    actions: 'Actions',
-    tasks: 'Tasks',
-    containers: 'Containers',
     workflows: 'Workflows',
     schedules: 'Schedules',
     settings: 'Settings',
     about: 'About',
-    container_edit: 'Edit container',
-    workflow_edit: 'Edit workflow',
-    launcher: 'Floating launcher',
     primary_navigation: 'Primary navigation',
   },
   controls: {
@@ -164,40 +156,14 @@ export default {
     },
   },
   toast: {
-    autostart_on: 'Auto-start enabled',
-    autostart_off: 'Auto-start disabled',
     lang_en_warn_title: 'Language switched to English',
     lang_en_warn_desc:
       "Some scenarios' visual templates haven't been captured in English yet; related features may show as unavailable. UI strings switched.",
-    subgraph_not_set: 'Subgraph not specified on this node',
-    debug_save_first: 'Please save before debugging',
-    debug_run_busy: 'A run is already active; cannot debug at the same time',
-    validate_failed: 'Validation failed',
-    validate_call_failed: 'Validation call failed',
-    win32_window_target_added_title: 'Windows window target node added',
-    win32_window_target_added_desc:
-      'Open the node Inspector to configure the Windows window match (or click "Capture foreground window")',
-    expr_fuse_failed: 'Expr merge failed (preconditions unmet)',
-    subgraph_recording_reset_warn:
-      'Resetting recording metadata requires re-recording this subgraph (v1 hint only)',
-    delete_failed: 'Delete failed',
-    delete_partial_fail: 'Batch delete partially failed (see logs)',
-    copy_id_success: 'ID copied',
-    copy_failed: 'Copy failed',
     save_failed: 'Save failed',
     operation_failed: 'Operation failed',
-    container_not_found: 'Container not found',
     and_n_more: ' (and {n} more)',
   },
   editor: {
-    experience: {
-      basic: 'Concise',
-      pro: 'Complete',
-    },
-    header: {
-      loading: 'Loading...',
-      dirty_dot: '· Unsaved',
-    },
     window: {
       controls: 'Window controls',
       minimize: 'Minimize',
@@ -205,657 +171,6 @@ export default {
       restore: 'Restore',
       close: 'Close',
     },
-    dirty: {
-      title: 'Unsaved changes',
-      desc: 'This container has unsaved changes. Continuing will discard them.',
-      cancel: 'Cancel',
-      discard: 'Discard and close',
-      save_and_close: 'Save and close',
-    },
-    reload: {
-      title: 'Reload container',
-      desc: 'Discard unsaved local changes and reload this container from disk.',
-      confirm: 'Discard and reload',
-      failed: 'Reload failed',
-    },
-    debug: {
-      confirm_from_here_title: 'Debug from this node?',
-      confirm_from_here_desc:
-        'Execution will start at "{node}". Upstream nodes will not run first; if this node depends on variables or state produced upstream, results may differ from the full flow.',
-      confirm_from_here_action: 'Start debug',
-    },
-    canvas: {
-      hint: 'Left drag to box-select · Middle drag to pan · Ctrl+C/V copy/paste · Delete remove',
-      node_disabled_tooltip: 'This node is disabled (skipped at runtime)',
-      subgraph_no_id: '(none)',
-      context: {
-        selected: 'Selected {n}',
-        align: 'Align',
-        distribute: 'Distribute',
-        delete: 'Delete',
-      },
-    },
-    debug_panel: {
-      title: 'Node debug',
-      close_tip: 'Stop debug and close panel',
-      queue_count: 'Queue {n}',
-      focus_none: 'Current',
-      focus_next: 'Next',
-      focus_running: 'Running',
-      focus_failed: 'Failed',
-      last: 'Last',
-      output: 'Output',
-      vars: 'Vars',
-      queue: 'Queue',
-      side_effect_warning:
-        'Debug runs real automation actions. Side effects that already happened are not automatically rolled back.',
-      unknown_error: 'Debug failed',
-      status: {
-        idle: 'Idle',
-        paused: 'Paused',
-        stepping: 'Stepping',
-        running: 'Continuing',
-        pause_requested: 'Pausing',
-        finished: 'Finished',
-        failed: 'Failed',
-        stopped: 'Stopped',
-      },
-      warning: {
-        debug_skips_upstream_context:
-          'Debug from this node skips upstream nodes and may use existing variables or target state.',
-      },
-    },
-    hard_delete: {
-      title: 'Delete for good',
-      confirm:
-        'Permanently delete {n} underlying definition(s) (subgraph / clip), removing them from the library. Continue?',
-      confirm_referenced:
-        'Permanently delete {n} underlying definition(s); {refs} other reference(s) still use them and will become "not found". Continue?',
-      done: 'Permanently deleted {n} definition(s)',
-      failed: 'Failed to delete {n} definition(s)',
-    },
-    breadcrumb: {
-      root_fallback: '...',
-    },
-    dock: {
-      assets: 'Assets',
-      detail: 'Details',
-      drag_hint: 'Drag to canvas to insert · click to select · Enter or More for details',
-      select_asset: 'Select “{name}”',
-    },
-    toolbar: {
-      back_to_list: 'Back to container list',
-      node_explorer: 'Node Explorer (Tab)',
-      library_explorer: 'Subgraph Library Explorer',
-      undo: 'Undo Ctrl+Z',
-      redo: 'Redo Ctrl+Y',
-      record: 'Record',
-      stop_record: 'Stop recording',
-      stop_record_tip: 'Click here or press {hk} in game to stop',
-      recording_target_tip: 'Recording will be saved to container "{name}"',
-      cancel_countdown: 'Cancel ({n})',
-      cancel_countdown_tip: 'Click here to cancel recording countdown',
-      record_input_clip: 'Record full input event stream',
-      fold: 'Fold to subgraph',
-      fold_tip: 'Fold selected nodes into a new subgraph',
-      auto_layout: 'Auto layout',
-      layout_lr: 'Horizontal',
-      layout_tb: 'Vertical',
-      snap: 'Snap',
-      edge_style: 'Edge style',
-      edge_style_bezier: 'Curved',
-      edge_style_smoothstep: 'Rounded',
-      edge_style_step: 'Polyline',
-      running: 'Running',
-      debugging: 'Debugging',
-      stop_run: 'Stop',
-      stop_run_tip: 'Stop current run + clear queue ({hk})',
-      debug: 'Debug',
-      debug_tip: 'Start a debug session from the entry',
-      debug_side_effect_tip:
-        'Debug is real execution: clicks, typing, launching programs, file writes, and similar actions are not automatically rolled back.',
-      debug_dirty_tip: 'Please save before debugging',
-      debug_step: 'Step',
-      debug_step_tip: 'Execute one node',
-      debug_continue: 'Continue',
-      debug_continue_tip: 'Run until finished, failed, or pause is requested',
-      debug_pause: 'Pause',
-      debug_pause_tip: 'Pause after the current node finishes',
-      debug_stop_tip: 'Stop debug session',
-      validate: 'Validate',
-      validate_tip: 'Validate main graph + all subgraphs',
-      validate_dirty_tip: 'Please save first — validation reads the persisted version',
-      run_hero: 'Run',
-      try_run_tip: 'Enqueue one run',
-      try_run_dirty_tip: 'Please save before running',
-      save: 'Save',
-      saved: 'Saved',
-      reload: 'Reload',
-      reload_tip: 'Reload this container from disk (sync after MCP / external changes)',
-      open_settings: 'Container settings (Ctrl+,)',
-      more: 'More',
-      inspector_expand: 'Expand inspector panel',
-      inspector_collapse: 'Collapse inspector panel',
-    },
-    layout: {
-      auto_lr: 'Auto layout (horizontal)',
-      auto_tb: 'Auto layout (vertical)',
-      align_left: 'Align left (≥2 nodes)',
-      align_right: 'Align right',
-      align_top: 'Align top',
-      align_bottom: 'Align bottom',
-      center_h: 'Center horizontally',
-      center_v: 'Center vertically',
-      dist_h: 'Distribute horizontally (≥3)',
-      dist_v: 'Distribute vertically',
-    },
-    overview: {
-      title: 'Container Overview',
-    },
-    inspector: {
-      group_basics: 'Basics',
-      group_inputs: 'Inputs',
-      group_outputs: 'Outputs',
-      outputs_none: 'No outputs',
-      empty: {
-        title: 'No node selected',
-        stats_nodes: '{n} nodes',
-        stats_vars: '{n} vars',
-        stats_subgraphs: '{n} subgraphs',
-        hotkey_label: 'Hotkey',
-        hotkey_none: 'unset',
-        canvas_title: 'Start building your automation',
-        canvas_desc: 'Add a node, or record an action to create the first step.',
-        add_first_node: 'Add first node',
-        record_actions: 'Record actions',
-        shortcuts_label: 'You can also use shortcuts',
-        quick_start: 'Quick start:',
-        tab_explorer: 'Open Node Explorer',
-        right_click_canvas: 'Right-click canvas → add-node menu',
-        command_palette: 'Command palette',
-        open_help: 'Open help',
-      },
-    },
-    help: {
-      title: 'Help',
-      tab: {
-        getting_started: 'Getting started',
-        errorcodes: 'Error codes',
-        shortcuts: 'Shortcuts',
-        nodes: 'Nodes',
-      },
-      gs: {
-        intro:
-          'Yotta is a general-purpose game automation scripting framework. Workflow: create a container → wire a node graph → trigger it.',
-        step1: 'Click "Containers" in the sidebar → create one',
-        step2:
-          'Drag nodes / wire / configure in the editor (palette on the left, inspector on the right)',
-        step3: 'Click "Test run" to run once, or bind a hotkey / schedule under "Schedules"',
-        step4:
-          'Reusable fragments → fold into a subgraph → publish to the library, share across containers',
-        uac_title: 'Run as administrator',
-        uac: 'Injecting input into games requires running Yotta.exe as administrator (right-click → Run as administrator), otherwise clicks / keys will not register.',
-      },
-      errorcodes_hint: 'Codes a node emits from its Fail output — branch on them with Switch.',
-      errorcode_desc: {
-        launch_failed: 'The target controller could not start its configured application.',
-        capture_failed:
-          'Screenshot, color detection or template matching failed — often the automation target is unavailable, minimized, or closed.',
-        write_failed:
-          'Screenshot etc. failed to write a file — illegal path / dir not writable / disk full.',
-        not_found: 'A window/target node could not find its matching object.',
-        timeout: 'A wait operation did not get a result within the time limit.',
-        playback_failed: 'PlayClip failed to replay a recorded clip.',
-        send_failed: 'Click / key input failed to reach the current automation target.',
-        thrown: 'Default code when a Throw node has no Code set.',
-        error: 'Fallback / unclassified failure.',
-      },
-      shortcuts_hint: 'Built-in container-editor shortcuts (see Settings → Hotkeys for conflicts).',
-      nodes_hint:
-        'Nodes by category. Press Tab to open the Node Explorer to browse / search specific nodes.',
-      node_group: {
-        control: { label: 'Control', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
-        variable: {
-          label: 'Variables',
-          desc: 'SetVar / IncVar — container scope + subgraph-local scope (auto-isolated at runtime)',
-        },
-        image: {
-          label: 'Image',
-          desc: 'Workflow 3.1 capture, template, QR, color, and frame-difference analysis',
-        },
-        input: {
-          label: 'Input',
-          desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — inject input into the current automation target',
-        },
-        event: {
-          label: 'Event',
-          desc: 'EventTick — periodic background trigger, spawns a subgraph every N ms (non-blocking)',
-        },
-        subgraph: {
-          label: 'Subgraph',
-          desc: 'Subgraph call / SubgraphInput entry / SubgraphOutput exit',
-        },
-        system: {
-          label: 'System',
-          desc: 'Subgraph / Throw / MouseCalibration — system helpers, graph structure, and local calibration nodes',
-        },
-        config: {
-          label: 'Config',
-          desc: 'MouseCalibration — calibrate this machine 360° HID counts for MouseMoveRel scaling',
-        },
-        debug: { label: 'Debug', desc: 'Log / Toast' },
-      },
-    },
-    palette: {
-      search_placeholder: 'Search commands (e.g. align / undo / save)...',
-      empty: 'No matching command',
-      hint: '↑↓ navigate · Enter execute · Esc close',
-      count: '{n} commands',
-      group: {
-        edit: 'Edit',
-        view: 'View',
-        navigate: 'Navigate',
-        run: 'Run',
-        var: 'Variable',
-        help: 'Help',
-      },
-      cmd: {
-        copy: 'Copy selection',
-        paste: 'Paste',
-        delete: 'Delete selection',
-        undo: 'Undo',
-        redo: 'Redo',
-        fold: 'Fold to subgraph',
-        align_left: 'Align - Left',
-        align_right: 'Align - Right',
-        align_top: 'Align - Top',
-        align_bottom: 'Align - Bottom',
-        center_h: 'Center horizontally',
-        center_v: 'Center vertically',
-        dist_h: 'Distribute horizontally',
-        dist_v: 'Distribute vertically',
-        auto_layout_lr: 'Auto layout (horizontal)',
-        auto_layout_tb: 'Auto layout (vertical)',
-        toggle_left_sidebar: 'Toggle left sidebar',
-        toggle_inspector: 'Toggle right Inspector',
-        node_explorer: 'Open Node Explorer',
-        library: 'Open subgraph Library Explorer',
-        settings: 'Open container settings',
-        back: 'Back to main graph / up one level',
-        save: 'Save',
-        validate: 'Validate',
-        try_run: 'Try run',
-        stop: 'Stop run',
-        add_var: 'Add variable',
-        find_node: 'Find node on canvas...',
-        js_console: 'Open JS console',
-      },
-    },
-    jsConsole: {
-      title: 'JS console',
-      run: 'Run',
-      hint: 'Bulk-edit nodes in this container (incl. subgraphs). Scripts run synchronously — an infinite loop will freeze the UI, so make sure it terminates. Changes are one-step Ctrl+Z undoable; Ctrl+S to save.',
-      placeholder:
-        "e.g. yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
-      applied: 'Changed {pins} pin(s) on {nodes} node(s)',
-      rejected: '{n} rejected:',
-    },
-    search: {
-      placeholder: 'Search nodes (label / kind / id substring)...',
-      intro: 'Type a keyword to search nodes (across main graph + all subgraphs)',
-      empty: 'No match',
-      hint: '↑↓ navigate · Enter jump · Esc close',
-      count: '{n} matches',
-    },
-    menu: {
-      inline: {
-        accept_type: 'Accept {type} ({n})',
-        add_node: 'Add node ({n})',
-        empty: 'No match',
-        hint: '↑↓ Enter to pick first · Esc to close',
-      },
-      node: {
-        copy: 'Copy',
-        cut: 'Cut',
-        paste: 'Paste',
-        duplicate: 'Duplicate',
-        delete: 'Delete',
-        debug_from_here: 'Debug from this node',
-        enable: 'Enable this node',
-        disable: 'Disable this node (skip at runtime)',
-        save_as_snippet: 'Save as Snippet (with config)',
-        find_var_refs: "Find all references to '{name}'",
-        promote_to_var: 'Promote to variable',
-        enter_subgraph: 'Enter subgraph',
-        to_script: 'Convert to script',
-        hard_delete: 'Delete for good (with subgraph/clip)',
-      },
-      multi: {
-        title_selected: '{count} nodes selected',
-        copy: 'Copy',
-        duplicate: 'Duplicate',
-        delete: 'Delete',
-        disable_all: 'Disable all (skip at runtime)',
-        fold: 'Fold to subgraph',
-        align_left: 'Align - Left',
-        align_right: 'Align - Right',
-        align_top: 'Align - Top',
-        align_bottom: 'Align - Bottom',
-        center_h: 'Center horizontally',
-        center_v: 'Center vertically',
-        dist_h: 'Distribute horizontally',
-        dist_v: 'Distribute vertically',
-        auto_layout_lr: 'Auto layout (horizontal)',
-        auto_layout_tb: 'Auto layout (vertical)',
-      },
-      edge: {
-        title: 'Connection edge',
-        delete: 'Delete this edge',
-      },
-      pin: {
-        title_in: 'Input pin',
-        title_out: 'Output pin',
-        disconnect_all: 'Disconnect all ({n} edges)',
-        promote_to_var: 'Promote to variable',
-        set_literal: 'Set as literal (disconnect + default)',
-        show_schema: 'Show pin schema details',
-      },
-    },
-    snippet: {
-      panel: {
-        search_placeholder: 'Search snippet…',
-        empty_none: 'No snippets. Right-click node → Save as Snippet',
-        empty_no_match: 'No match',
-        edit_tip: 'Edit snippet',
-        delete_tip: 'Delete snippet',
-        shortcut_tip: 'Shortcut: {hk}',
-        delete_dialog_title: 'Delete Snippet',
-        delete_dialog_desc: 'Delete "{name}"?\nThis cannot be undone.',
-        delete_confirm: 'Delete',
-        delete_cancel: 'Cancel',
-      },
-      drawer: {
-        title_edit: 'Edit Snippet',
-        title_new: 'Save as Snippet',
-        subtitle_source_kind: 'Source node: {kind}',
-        close_tip: 'Close (Esc)',
-        name_label: 'Name',
-        name_placeholder: 'e.g. Fishing window',
-        desc_label: 'Description',
-        desc_placeholder: 'Optional — your own notes',
-        cat_label: 'Category (sidebar tree, empty = general)',
-        cat_placeholder: 'e.g. Fishing / Genshin / general',
-        tags_label: 'Tags (filter, Enter / Tab to add)',
-        tags_placeholder: 'e.g. fishing then press Enter...',
-        tags_suggest: 'Suggested:',
-        color_label: 'Color (visual cue)',
-        icon_label: 'Icon',
-        shortcut_label: 'Global shortcut (optional)',
-        shortcut_placeholder: 'e.g. Ctrl+Shift+F / Alt+1',
-        shortcut_record: 'Press any combo (Esc to cancel)',
-        shortcut_idle: 'Click then press combo to auto-fill',
-        delete: 'Delete',
-        cancel: 'Cancel',
-        save: 'Save',
-        err_reserved: '{key} is reserved by the system, please change',
-        err_taken: '{key} is taken by "{name}"',
-        delete_dialog_title: 'Delete Snippet',
-        delete_dialog_desc: 'Delete "{name}"?\nThis cannot be undone.',
-        delete_dialog_fallback_name: 'this snippet',
-      },
-    },
-  },
-  inspector: {
-    no_selection: 'No node selected',
-    delete_node_tooltip: 'Delete node',
-    help_tooltip: 'Node help',
-    copy_menu_tooltip: 'Copy…',
-    copy_id: 'Copy node ID',
-    copy_json: 'Copy JSON',
-    copy_script: 'Copy script call',
-    label_field_label: 'Label',
-    label_field_hint: 'Empty → uses the node type default name',
-    label_field_placeholder: '(empty)',
-    log_enabled_label: 'Log output',
-    log_enabled_hint: 'Send debug info to the log panel & log file',
-    concurrency_warn_title: 'Concurrent branches writing the same variable',
-    expr_chain_title: 'Expr chain detected',
-    expr_chain_desc:
-      "After fusion, the current node's expression inlines into the downstream Expr (as a parenthesized sub-expression); the current node is removed.",
-    expr_chain_fuse: 'Fuse into downstream Expr',
-    screen_pick_label: 'Screen pick',
-    screen_pick_point: 'Pick point',
-    screen_pick_rect: 'Pick ROI',
-    screen_pick_hud: 'Mouse HUD',
-    screen_pick_hint:
-      'Opens a window that captures the current game screen — {action} auto-fills the field.',
-    screen_pick_action_drag: 'drag a rectangle to',
-    screen_pick_action_click: 'one click to',
-    color_pick_huewrap_title: 'Hue crosses the red boundary — downgraded',
-    color_pick_huewrap_desc:
-      'The target color spans the red hue boundary and cannot be expressed as a single hue interval; S/V filled, hue left full-range. Switch to RGB mode and re-pick.',
-    dyn_inputs_title: 'Inputs',
-    dyn_outputs_title: 'Outputs',
-    dyn_outputs_hint:
-      'Declare typed output fields; the model returns matching JSON. Bind each field to a variable in the Outputs group below. Text is the raw model output and is always present.',
-    code_expand: 'Expand editor',
-    code_editor_title: 'Edit code',
-    expr_editor_title: 'Edit expression',
-    editor_ref_search: 'Search…',
-    editor_ref_empty: 'No matches',
-    editor_confirm_hint: 'Ctrl+Enter to confirm',
-    editor_ref_group_fns: 'Functions (click to insert)',
-    editor_ref_group_inputs: 'Inputs',
-    editor_ref_group_vars: 'Variables',
-    editor_undo: 'Undo (Ctrl+Z)',
-    editor_redo: 'Redo (Ctrl+Y)',
-    editor_comment: 'Toggle comment (Ctrl+/)',
-    editor_search: 'Find and replace (Ctrl+F)',
-    editor_snippets: 'Snippets',
-    editor_snippets_tip:
-      'Manage snippets — click with a selection to save it; type a prefix in the editor to insert via completion',
-    snippet_manager_title: 'Snippets',
-    snippet_manager_new: 'New snippet',
-    snippet_manager_prefix: 'Prefix',
-    snippet_manager_prefix_invalid:
-      'Prefix must look like an identifier: letters/digits/underscore, not starting with a digit',
-    snippet_manager_name: 'Name',
-    snippet_manager_description: 'Description (optional, shown in completion info)',
-    snippet_manager_body: 'Snippet body — replaces the typed prefix when picked from completion',
-    snippet_manager_empty:
-      'No snippets yet — select code and click the snippets button, or create one here',
-    editor_new_var: 'New variable',
-    editor_capture_template: 'Capture template',
-    editor_capture_template_tip:
-      'Capture the current target window as a template and insert its GUID at the cursor',
-    editor_capture_point: 'Pick point',
-    editor_capture_point_tip:
-      'Pick a point from the current target window and insert a Point object at the cursor',
-    editor_capture_rect: 'Pick region',
-    editor_capture_rect_tip:
-      'Select a region in the current target window and insert a Geometry object at the cursor',
-    editor_capture_color: 'Pick color',
-    editor_capture_color_tip:
-      'Pick a color from the current target window and insert a Range or HSV object for the current color pin',
-    editor_capture_key: 'Capture key',
-    editor_capture_key_tip: 'Capture the next key press and insert its VK string at the cursor',
-    editor_capture_key_waiting: 'Press key',
-    editor_capture_key_cancel_tip: 'Cancel key capture',
-    editor_insert: 'Insert',
-    editor_insert_tip: 'Insert candidate values, captured assets, or picked samples',
-    editor_insert_candidate: 'Insert candidate',
-    editor_async_candidates_title: 'Insert candidate',
-    editor_async_candidates_hint: 'Choose a candidate value to insert at the cursor.',
-    editor_async_candidates_context: 'Candidates for {kind}.{pin}',
-    editor_async_loading: 'Loading candidates…',
-    editor_async_empty: 'No candidates available',
-    editor_async_no_context:
-      'The cursor is not on a parameter value that supports dynamic candidates',
-    editor_async_load_failed: 'Failed to load candidates',
-    editor_params: 'Parameters',
-    editor_status_stats: '{lines} lines · {chars} chars',
-    editor_indent_tidy: 'Reindent',
-    editor_format: 'Format (Shift+Alt+F)',
-    editor_ref_toggle: 'Reference (F1)',
-    editor_fold_all: 'Fold all',
-    editor_unfold_all: 'Unfold all',
-    editor_maximize: 'Maximize',
-    editor_restore: 'Restore size',
-    editor_status_ok: 'No syntax errors',
-    editor_goto_error: 'Click to jump to the error',
-    editor_syntax_error_line:
-      'Possible syntax issue near line {line} (save-time validation is authoritative)',
-    editor_unknown_var: `{'$'}{name} is not declared — fails at runtime; declare it first or use the GetVar node function`,
-    editor_lang_expr: 'Expression',
-    dyn_inputs_hint:
-      'Inputs are data pins for wiring node outputs in; to use a variable, just write $name in the expression/script.',
-    literal_section: 'Data inputs (literal)',
-    output: {
-      bind: 'Bind variable',
-      unbind_tooltip: 'Unbind',
-      dangling_hint:
-        'Field no longer exists (declaration removed/changed) — stale binding; unbind to clear the error',
-      stale_hint:
-        'This variable updates only when this exit fires; otherwise it keeps its previous value.',
-      found_hint: 'Whether it matched (true/false) — updated every run.',
-      field: {
-        Count: 'Hit pixel count',
-        Center: 'Hit center',
-        PixelCount: 'Hit pixel count',
-        PixelRatio: 'Hit ratio',
-        Blobs: 'Blobs',
-        BlobCount: 'Blob count',
-        PrimaryCenter: 'Primary center',
-        PrimaryArea: 'Primary area',
-        Clusters: 'Clusters',
-        ClusterCount: 'Cluster count',
-        InnerX: 'Inner position',
-        OuterX: 'Outer position',
-        OuterWidth: 'Outer width',
-        Confidence: 'Confidence',
-        InnerPx: 'Inner pixel width',
-        OuterPx: 'Outer pixel width',
-        Path: 'File path',
-        Point: 'Hit point',
-        Conf: 'Match score',
-        Matched: 'Matched',
-        Index: 'Index',
-        Item: 'Item',
-        Result: 'Result',
-        ElapsedMs: 'Elapsed (ms)',
-        DeltaMs: 'Delta (ms)',
-        Error: 'Error',
-        Code: 'Code',
-      },
-    },
-    config_section: 'Config',
-    pin_input_json_invalid: 'Invalid JSON — not saved',
-    example_title: 'Example',
-    select_var_placeholder: 'Select variable',
-    no_config: 'This node has no configurable fields.',
-    authoring: {
-      config: 'Contract configuration',
-      capabilities: 'Required capabilities',
-      required: 'required',
-      optional: 'optional',
-      deprecated: 'deprecated',
-      unset: '(unset)',
-      default_hint: 'Default hint: {value} (not written until you edit this field)',
-      port_default_hint: 'input default: {value}',
-      json_editor: 'Complex value: enter explicit JSON or use the node’s Editor Adapter.',
-      invalid_json: 'Invalid JSON — the value was not saved.',
-      target: 'Target slot: {slot}',
-      target_kinds: 'Target kinds: {kinds}',
-      scope: 'Scope: {scope}',
-      credential_required: 'Credential slot {slot} requires a credential reference.',
-      execution: {
-        'pure-data': 'Pure data',
-        effect: 'Effect',
-        control: 'Control',
-        event: 'Event',
-        region: 'Region',
-        marker: 'Marker',
-        visual: 'Visual',
-      },
-      availability: {
-        portable: 'Portable',
-        'host-required': 'Host feature required',
-        'target-required': 'Target required',
-        'host-and-target-required': 'Host feature and target required',
-      },
-      host_features: 'Host features',
-      direction: { input: 'input', output: 'output' },
-      binding: {
-        required: 'required',
-        optional: 'optional',
-        'default-available': 'default available',
-        output: 'produced',
-      },
-      carrier: { durable: 'durable carrier', runtime: 'runtime carrier' },
-      lifecycle: {
-        durable: 'durable value',
-        'runtime-only': 'runtime-only value',
-        'durable-or-runtime': 'durable or runtime value',
-        'resolved-at-compile': 'resolved at compile time',
-      },
-      risk: { low: 'low risk', sensitive: 'sensitive', dangerous: 'dangerous' },
-      consent: {
-        none: 'no consent prompt',
-        once: 'consent once',
-        'every-run': 'consent every run',
-      },
-    },
-  },
-  structured_input: {
-    switch_to_text: 'Switch to JSON text mode',
-    switch_to_struct: 'Switch back to structured mode',
-    json_error_tooltip: 'JSON is invalid — fix or discard before switching back',
-    abandon_changes: 'Discard changes',
-    json_invalid: 'Invalid',
-    field_required: 'Required',
-    pick_color: 'Pick color',
-    add_item: 'Add item',
-    remove_item: 'Remove item',
-  },
-  point_widget: {
-    unit_percent: 'Percent',
-    unit_px: 'Pixels',
-    pick_point: 'Pick on screen',
-    no_window_title: 'Target not ready',
-    no_window_desc:
-      "Current target is not ready — can't convert units; open or switch target then retry",
-    hint_percent: 'Proportional: adapts to target frame size (scales with resolution)',
-    hint_px: 'Absolute pixels: fixed, does not scale with the target frame — for fixed-position UI',
-  },
-  geometry: {
-    default_region: 'Default region',
-    full_frame: '(full frame)',
-    placeholder_empty: 'leave empty',
-    pct_over_100: 'Some values exceed 100% — please verify.',
-    pick_screen_rect: 'Pick region',
-    advanced_overrides: 'Advanced: resolution overrides',
-    pick_override_rect: 'Pick region (px)',
-    pick_res_mismatch:
-      'Picked while window was {w}×{h}, differs from this resolution slot; coords mapped by slot resolution',
-    add_override_title: 'Add resolution override',
-    dup_resolution: 'Override for this resolution already exists',
-    add: 'Add',
-    preset_custom: 'Custom',
-  },
-  // Machine error codes → English labels. The 9 codes from backend errorcodes.go registry
-  // (used for Switch suggestions / node failure display).
-  errorcode: {
-    error: 'Error',
-    launch_failed: 'Launch failed',
-    capture_failed: 'Capture failed',
-    write_failed: 'Write failed',
-    not_found: 'Target not found',
-    timeout: 'Timeout',
-    playback_failed: 'Playback failed',
-    send_failed: 'Send failed',
-    thrown: 'Thrown',
-    subgraph_no_exit: 'Subgraph reached no exit',
-    subgraph_recursion: 'Subgraph call nesting too deep',
   },
   type: {
     core: {
@@ -944,6 +259,47 @@ export default {
     },
   },
   node: {
+    ai: {
+      generate: {
+        title: 'Generate AI text',
+        description:
+          'Generates text through an installed model resolved by explicit model, credential, and consent slots.',
+      },
+      extract: {
+        title: 'Extract structured AI data',
+        description:
+          'Requires an installed model to return JSON that validates against the supplied JSON Schema.',
+        config: {
+          schema: {
+            title: 'Output JSON Schema',
+            description:
+              'The strict JSON Schema document used to constrain and validate structured model output.',
+          },
+        },
+      },
+      config: {
+        slot: {
+          title: 'Model slot',
+          description:
+            'References a stable installed AI model slot; ad hoc provider parameters are not accepted.',
+        },
+        instructions: {
+          title: 'System instructions',
+          description:
+            'Optional model behavior constraints; workflow input is supplied through the prompt data port.',
+        },
+        temperature: {
+          title: 'Temperature',
+          description:
+            'Sampling temperature from 0 to 2; when omitted, the installed model policy is used.',
+        },
+        maxOutputTokens: {
+          title: 'Maximum output tokens',
+          description:
+            'Maximum tokens generated for this request; when omitted, the installation setting is used.',
+        },
+      },
+    },
     vision: {
       matchTemplate: {
         title: 'Match template',
@@ -1343,1387 +699,235 @@ export default {
           'Retry only failures explicitly routed back to this region. Completed and Exhausted are separate control results.',
       },
     },
-    // ai
-    AI: {
-      label: 'Call AI',
-      description:
-        'Send a prompt to a configured LLM and get the reply. Configure an AI connection in settings first, then pick the connection and model here; interpolate declared inputs into the prompt using double curly braces. For structured output, declare typed fields and bind each to a variable.',
-      example:
-        'Have the model read a screenshot and classify the screen: pick a local or online model, set the user prompt to ask what screen it is, read the reply from the Model text output.',
-      input: {
-        Connection: { label: 'Connection', useDefault: '(use default)' },
-        Model: { label: 'Model', hint: 'Model name, e.g. deepseek-chat, gpt-4o' },
-        System: { label: 'System prompt' },
-        User: {
-          label: 'User prompt',
-          hint: 'Interpolate declared input names with double curly braces; image inputs render as a placeholder and stay out of text',
-        },
-        Mode: {
-          label: 'Structured mode',
-          option: { auto: 'Auto (by endpoint)', native: 'Native', prompt: 'Prompt injection' },
-        },
-        Temperature: { label: 'Temperature' },
-        MaxTokens: { label: 'Max tokens' },
-      },
-      output: {
-        Done: { label: 'Done' },
-        Fail: { label: 'Failed' },
-        Text: { label: 'Model text' },
-        Error: { label: 'Error' },
-        Code: { label: 'Error code' },
-      },
-    },
-    // control
-    Start: {
-      label: 'Start',
-      description:
-        'The starting line of your script. Execution begins here and flows downward. A graph has exactly one Start.',
-      output: { Done: { label: 'Start' } },
-    },
-    Stop: {
-      label: 'Stop',
-      description:
-        'Cleanly halts the whole script right away — not treated as an error. Once it reaches here, no further steps run.',
-    },
-    Sleep: {
-      label: 'Sleep',
-      description:
-        'Pauses here for a set amount of time before moving on — handy for letting screens, animations, or loads settle. Add jitter to make each wait vary randomly around the set value, so it feels less robotic. Stopping the script interrupts the wait immediately instead of waiting it out.',
-      example:
-        'After clicking a button, wait for a dialog: set duration to 1 second with ±20% jitter, and each wait lands somewhere around 0.8–1.2 seconds, looking more human.',
-      input: {
-        Duration: { label: 'Duration' },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0 = off; e.g. 10 = duration varies within ±10% (near-normal)',
-        },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    If: {
-      label: 'If',
-      description:
-        'Splits into two paths based on a yes/no condition: when true it takes the True exit, when false the False exit. Lets the script do different things depending on the situation.',
-      example:
-        'Detected the "start battle" icon on screen → wire it into the condition, connect attack to the True exit and keep-walking to the False exit, and the script picks one automatically.',
-      input: { Condition: { label: 'Condition' } },
-      output: { True: { label: 'True' }, False: { label: 'False' } },
-    },
-    Loop: {
-      label: 'Loop',
-      description:
-        'Runs the steps in its body over and over. Pick Count mode for a fixed number of passes, or Forever to keep going until you stop it manually. Inside the body, Break ends the loop early and Continue skips the rest of the current pass to start the next one.',
-      example:
-        'To farm a dungeon 50 times: set mode to Count and count to 50, wire the enter-to-reward steps into the body, and it repeats 50 times; drop a Break in the body to bail out early when the bag is full.',
-      input: {
-        Mode: { label: 'Mode', option: { count: 'Count', forever: 'Forever' } },
-        Count: { label: 'Count (mode=count)' },
-      },
-      output: {
-        Body: { label: 'Body (per iteration)' },
-        Done: { label: 'Done' },
-        Fail: { label: 'Failed' },
-      },
-    },
-    Switch: {
-      label: 'Switch (multi-case)',
-      description:
-        'Picks one of many paths based on an input value. You list out the values you care about (each value is an exit), and at run time the input is compared against them — it takes the matching exit, or falls back to Default if none match. Cleaner than chaining a pile of If nodes.',
-      example:
-        'Route by the character state: feed "state" into the value, list cases IDLE, FIGHT, DEAD wired to idle, fight, and revive actions; any other value takes Default.',
-      input: {
-        Value: { label: 'Value' },
-      },
-      output: {
-        default: { label: 'Default' },
-      },
-      inspector: {
-        value_label: 'Value expression',
-        value_hint:
-          'At runtime this expression is matched against each case (first-match-wins); unmatched falls through to default.',
-        cases_label: 'Cases',
-        cases_count: '{n} item(s)',
-        dangling_warn:
-          '{n} edge(s) reference a deleted/renamed case pin — reconnect or disconnect manually.',
-        empty: 'No cases yet — click the button below to add',
-        case_placeholder: 'case string (e.g. IDLE)',
-        delete_case_title: 'Delete this case',
-        add_case: 'Add case',
-        footer_pre:
-          'The case name IS the output pin name. Renaming requires reconnecting existing edges.',
-        footer_post: 'exit is always present.',
-        delete_confirm_title: 'Delete case "{name}"?',
-        delete_confirm_desc:
-          'This case has {count} outgoing edge(s) — they will disconnect and need manual reconnect.',
-      },
-    },
-    Break: {
-      label: 'Break',
-      description:
-        'Ends the loop it sits in early and jumps to whatever comes after the loop. Must be used inside a loop body — using it outside a loop raises an error.',
-    },
-    Continue: {
-      label: 'Continue',
-      description:
-        'Skips the rest of the current loop pass and jumps straight to the next one. Must be used inside a loop body.',
-    },
-    Script: {
-      label: 'Script',
-      description:
-        'Write logic in JavaScript with loops, conditions, variables, and calls to nodes that the current catalog explicitly allows scripts to bind.',
-      example:
-        'For bounded retries, use a for loop to call a node function and sleep(1000) between attempts.',
-      input: {
-        Code: {
-          label: 'Code',
-          hint: 'Use return to give back a result. Read variables with $name or GetVar, write with SetVar; sleep(ms) waits.',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-    },
-    // input
-    ClickAt: {
-      label: 'Click at',
-      description:
-        'Clicks the mouse once at a spot in the current target frame. Set the position with the coordinate control — switch between ratio (0–1) or pixels, or pick a point from a screenshot. You can choose left/right/middle button, slide over first, and adjust how long the button stays down.',
-      example:
-        'Click the "Confirm" button in the bottom-right: set the coordinate to (0.9, 0.9) in ratio mode with left button, and it clicks the bottom-right of the target at runtime.',
-      input: {
-        Point: { label: 'Position' },
-        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = slide over then click' },
-        DurationMs: { label: 'Duration (ms)' },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)',
-        },
-        Keys: {
-          label: 'Modifier keys',
-          hint: 'Keys to hold while clicking, joined with +, e.g. ctrl+shift. Leave empty for a plain click. Supports ctrl / shift / alt / win.',
-        },
-        ClickCount: {
-          label: 'Click count',
-          hint: 'Number of times to click. Default 1. >1 = rapid clicks ~60 ms apart.',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    KeyHoldStart: {
-      label: 'Hold key down',
-      description:
-        'Presses a key down and keeps holding it. It only does the "press"; you pair it with a "Release key" node to let go. Anything can run between the two nodes (waits, detection, movement), so you control exactly how long the key stays held.',
-      example:
-        'Make a character keep walking forward: place "Hold key down" on W, then a "Wait" of 3 seconds, then "Release key" on W — the character moves forward for 3 seconds. Both nodes must use the same W.',
-      input: {
-        VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / shift)' },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Pressed' } },
-    },
-    KeyHoldStop: {
-      label: 'Release key',
-      description:
-        'Releases the key that an earlier "Hold key down" pressed. Both nodes must use the same key — they work as a pair.',
-      input: {
-        VK: { label: 'Key', hint: 'Virtual key name — same as the prior KeyHoldStart' },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Released' } },
-    },
-    KeyPress: {
-      label: 'Key press',
-      description:
-        'Taps a key once (press then release), like a single keystroke. Duration is how long it stays down between press and release — the default is fine. To hold a key without letting go, use "Hold key down".',
-      input: {
-        VK: { label: 'Key', hint: 'Virtual key name (e.g. A / W / F9 / space / esc)' },
-        DurationMs: { label: 'Duration (ms)' },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0 = off; e.g. 10 = press duration varies within ±10% (near-normal)',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    MouseHoldStart: {
-      label: 'Hold mouse down',
-      description:
-        'Presses a mouse button down at a spot in the current target frame and keeps holding it. The position can be a ratio (0–1) or pixel coordinate. It only does the "press"; pair it with a "Release mouse" node to let go. Anything can run in between — handy for dragging or long-press.',
-      example:
-        'Drag an item: place "Hold mouse down" with the left button at the start point, add "Mouse move to" sliding to the end point, then "Release mouse" to let go of the left button — that completes one drag.',
-      input: {
-        Point: { label: 'Position' },
-        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Pressed' } },
-    },
-    MouseHoldStop: {
-      label: 'Release mouse',
-      description:
-        'Releases the mouse button that an earlier "Hold mouse down" pressed. Pick the same button on both nodes — they work as a pair.',
-      input: {
-        Button: {
-          label: 'Button',
-          hint: 'Same button as the prior MouseHoldStart',
-          option: { left: 'Left', right: 'Right', middle: 'Middle' },
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Released' } },
-    },
-    MouseMoveRel: {
-      label: 'Mouse move relative',
-      description:
-        'Moves the cursor a certain distance in some direction from where it currently is (measured in pixels) — not to a fixed coordinate. Δx positive is right, negative is left; Δy positive is down, negative is up. Common for turning the camera or nudging the crosshair. To move straight to a fixed spot in the target frame, use "Mouse move to".',
-      example:
-        'Turn the camera right in a game: set Δx to 200 and Δy to 0, and the cursor nudges 200 pixels right from its current spot, panning the view right.',
-      input: {
-        Dx: { label: 'Δx (px)' },
-        Dy: { label: 'Δy (px)' },
-        DurationMs: { label: 'Duration (ms)' },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0=off; e.g. 10 = move distance (Dx/Dy) varies within ±10%',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    MouseMoveTo: {
-      label: 'Mouse Move To',
-      description:
-        'Moves the cursor to a fixed spot in the current target frame without clicking. The position can be given as ratios (0 to 1, where 0.5, 0.5 is center) or pixels (px), independent of target frame size. Set Move time to 0 to jump there instantly, or above 0 to slide there visibly over that time (more human-like). To nudge a distance in some direction instead of going to a fixed spot, use "Mouse move relative".',
-      example:
-        'Move to the center before clicking: use "Mouse move to" with the Point set to (0.5, 0.5), set Move time to 300 for a smooth slide, then follow with "Click at".',
-      input: {
-        Point: { label: 'Position' },
-        MoveMs: { label: 'Move (ms)', hint: '0 = teleport; >0 = visible slide' },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0=off; e.g. 10 = glide duration (MoveMs) varies within ±10%',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    EventTick: {
-      label: 'Event Tick',
-      description:
-        'Fires automatically every so often in the background, running alongside your main flow without interrupting it. The chain of nodes hanging off its "Tick" output runs over and over on that timer. Commonly used to keep watching a part of the screen and set a global variable to signal the main flow when something happens.',
-      example:
-        'Check once a second whether the health bar is empty: set the interval to 1000 and wire the Tick output to "Detect screen → if health is low → set global variable needHeal". The main flow reads that variable to decide whether to use a potion.',
-      input: {
-        IntervalMs: { label: 'Interval (ms)' },
-        MaxConcurrent: { label: 'Max concurrent' },
-        RetriggerPolicy: {
-          label: 'Retrigger policy',
-          option: { drop: 'Drop', queue: 'Queue', restart: 'Restart' },
-        },
-      },
-      output: { Out: { label: 'Tick' } },
-    },
-    Scroll: {
-      label: 'Mouse scroll',
-      description:
-        'Scrolls the mouse wheel once at a spot in the current target frame. The position is given as a Point (ratio 0–1 or px; 0.5, 0.5 is center). Delta is how many notches to scroll: positive scrolls forward, negative scrolls back. Axis selects vertical (up/down, default) or horizontal (left/right). Common for scrolling lists, zooming, or switching weapons.',
-      example:
-        'Scroll an inventory list down: set Point to the list area, Delta to -3, Axis to vertical — it scrolls down three notches. For a horizontal scroll bar: set Axis to horizontal, positive goes right, negative goes left.',
-      input: {
-        Point: { label: 'Position' },
-        Delta: {
-          label: 'Delta (notches)',
-          hint: 'Positive scrolls up/right, negative scrolls down/left',
-        },
-        JitterPct: {
-          label: 'Jitter ±%',
-          hint: '0=off; e.g. 10 = scroll amount varies within ±10%',
-        },
-        Axis: {
-          label: 'Axis',
-          hint: 'vertical = up/down (default); horizontal = left/right',
-          option: { vertical: 'Vertical', horizontal: 'Horizontal' },
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    InputText: {
-      label: 'Type text',
-      description:
-        'Injects text into the current automation target. For Windows windows this uses SendInput KEYEVENTF_UNICODE without the clipboard; browser and Android targets are handled by their own controllers.',
-      example:
-        'Send a message in a game chat box: use BringForeground first to make sure the window is focused, then wire InputText with the message you want to type — it will inject each character automatically.',
-      input: {
-        Text: { label: 'Text', hint: 'The text to type, supports all Unicode characters' },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    Swipe: {
-      label: 'Swipe',
-      description:
-        'Holds a mouse button, drags from a start point to an end point, then releases. Begin and End accept any Point data output.',
-      example:
-        'Drag a health slider from left to right: wire the start position into Begin, wire the end position into End, set Duration to 400 — it drags smoothly across and releases.',
-      input: {
-        Begin: {
-          label: 'Begin',
-          hint: 'Start point of the drag; accepts any Point data output',
-        },
-        End: {
-          label: 'End',
-          hint: 'End point of the drag; accepts any Point data output',
-        },
-        Button: { label: 'Button', option: { left: 'Left', right: 'Right', middle: 'Middle' } },
-        DurationMs: {
-          label: 'Duration (ms)',
-          hint: 'Total drag time in milliseconds; default 200, higher is slower (empty or 0 uses the default)',
-        },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    // io
-    Log: {
-      label: 'Log',
-      description:
-        'Prints a message to the run log so you can see which step the script reached and what the values were while debugging. The message input takes anything — text, numbers, points, regions — and turns it into text automatically.',
-      example:
-        'Debugging a loop and want to confirm how many times it ran: wire Log into the loop body with the iteration count as the message, and it prints each pass to the run log.',
-      input: {
-        Message: {
-          label: 'Message',
-          hint: 'Any type — string / number / Point / Rect etc., framework auto-stringifies',
-        },
-        Level: { label: 'Level', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    ReadTextFile: {
-      label: 'Read text file',
-      description:
-        'Reads text from a local file. Useful for cookies, URL lists, temporary state, or data written by external plugins. Relative paths resolve from the data directory; absolute paths are read as-is.',
-      input: {
-        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
-        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
-        Encoding: {
-          label: 'Encoding',
-          option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
-        },
-        MaxBytes: { label: 'Max bytes', hint: '0 or empty uses the default 1MB limit' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: {
-            Text: { hint: 'Read text' },
-            File: { hint: 'Read file object' },
-            Size: { hint: 'File size in bytes' },
-            ModTimeMs: { hint: 'File modified timestamp (ms)' },
-          },
-        },
-        Fail: { label: 'Failed' },
-      },
-    },
-    ReadJsonFile: {
-      label: 'Read JSON file',
-      description:
-        'Reads and parses JSON from a local file. The result can be wired into JsonPath or Fetch inputs such as headers/body. JSON may be an object, array, string, number, boolean, or null.',
-      input: {
-        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
-        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
-        Encoding: {
-          label: 'Encoding',
-          option: { auto: 'Auto', 'utf-8': 'UTF-8', gbk: 'GBK' },
-        },
-        MaxBytes: { label: 'Max bytes', hint: '0 or empty uses the default 1MB limit' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: {
-            JSON: { hint: 'Parsed JSON value' },
-            Text: { hint: 'Original text' },
-            File: { hint: 'Read file object' },
-            Size: { hint: 'File size in bytes' },
-            ModTimeMs: { hint: 'File modified timestamp (ms)' },
-          },
-        },
-        Fail: { label: 'Failed' },
-      },
-    },
-    FileInfo: {
-      label: 'File info',
-      description:
-        'Reads metadata for a local file or folder, outputting a File object plus path, name, extension, MIME, size, and modified time. Useful for turning saved screenshots, plugin-written files, or path strings into a reusable file value.',
-      input: {
-        Path: { label: 'Path', hint: 'Absolute path, or path relative to the data directory' },
-        File: { label: 'File', hint: 'Upstream file object; takes priority over Path when set' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: {
-            File: { hint: 'File object' },
-            Path: { hint: 'Absolute path' },
-            Name: { hint: 'File name' },
-            Ext: { hint: 'Extension' },
-            MIME: { hint: 'MIME type' },
-            Size: { hint: 'File size in bytes' },
-            ModTimeMs: { hint: 'File modified timestamp (ms)' },
-            IsDir: { hint: 'Whether the path is a directory' },
-          },
-        },
-        Fail: { label: 'Failed' },
-      },
-    },
-    Fetch: {
-      label: 'Fetch',
-      description:
-        'Sends an HTTP/HTTPS request. URL, headers, cookies, and body can all come from upstream nodes, so it works for scraping pages, calling APIs, or sending notifications after a workflow finishes.',
-      input: {
-        Method: {
-          label: 'Method',
-          option: {
-            GET: 'GET',
-            POST: 'POST',
-            PUT: 'PUT',
-            PATCH: 'PATCH',
-            DELETE: 'DELETE',
-            HEAD: 'HEAD',
-          },
-        },
-        URL: { label: 'URL', hint: 'Only absolute http:// or https:// URLs are supported' },
-        Headers: { label: 'Headers', hint: 'JSON object, for example Authorization = Bearer ...' },
-        Cookies: {
-          label: 'Cookie',
-          hint: 'Raw Cookie header string; ignored if Headers already contains Cookie',
-        },
-        Body: { label: 'Body' },
-        BodyMode: { label: 'Body mode', option: { none: 'None', text: 'Text', json: 'JSON' } },
-        TimeoutMs: { label: 'Timeout (ms)' },
-        FollowRedirects: { label: 'Follow redirects' },
-        FailOnStatus: { label: 'Fail on 4xx/5xx' },
-        MaxBytes: { label: 'Max response bytes', hint: '0 or empty uses the default 1MB limit' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: {
-            StatusCode: { hint: 'HTTP status code' },
-            Body: { hint: 'Response body text' },
-            JSON: { hint: 'Parsed JSON response; empty for non-JSON responses' },
-            Headers: { hint: 'Response headers as a JSON object' },
-            DurationMs: { hint: 'Request duration (ms)' },
-          },
-        },
-        Fail: { label: 'Failed' },
-      },
-    },
-    PlayClip: {
-      label: 'Play clip',
-      description:
-        'Replays a mouse-and-keyboard sequence you recorded earlier, exactly as recorded — handy for reproducing a fixed combo or form-filling routine. It takes over the mouse and keyboard during playback and only moves on once done; stopping the script mid-clip interrupts it and releases any held keys.',
-      example:
-        'You have a fixed combo in a game: record it once, then point this node at that clip, and the script replays the whole combo whenever it reaches here.',
-      input: {
-        ClipID: { label: 'Clip ID', hint: 'Filename under clips/ (no extension)' },
-        Window: { label: 'Window' },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-      inspector: {
-        clip_unset_placeholder: '(unset)',
-        clip_missing: 'clip {id} not found in the clip library. Re-record to overwrite.',
-        rerecord: 'Re-record',
-        bind_hint:
-          'A PlayClip node is bound 1:1 to a clip — to change content, re-record to overwrite. Do not switch the clip reference (avoids dangling IDs after a clip is deleted).',
-        keep_ranges_label: 'Keep ranges (keepRanges)',
-        keep_ranges_hint:
-          'Empty = play full clip. With ranges, only those segments play; gaps between segments are auto-compressed.',
-        remove_range: 'Remove range',
-        full_playback: 'None — play full clip',
-      },
-    },
-    AndroidTarget: {
-      label: 'Android Target',
-      description:
-        'Switch subsequent clicks, screenshots, and vision operations to an ADB device or emulator. Pick a serial from the dropdown; name and resolution are filled automatically and can still be overridden.',
-      example:
-        'Select emulator-5554 with Android Target, then wire a click or screenshot node; later actions operate on that emulator screen.',
-      input: {
-        Serial: { label: 'Device serial', hint: 'ADB serial, e.g. emulator-5554' },
-        Name: { label: 'Display name', hint: 'Optional. Empty uses the device serial' },
-        Width: { label: 'Width', hint: 'Screenshot width used for coordinate mapping' },
-        Height: { label: 'Height', hint: 'Screenshot height used for coordinate mapping' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    AndroidStartApp: {
-      label: 'Android Start App',
-      description:
-        'Start an app on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
-      example:
-        'Select the MuMu emulator with Android Target, then choose com.RoamingStar.BlueArchive in Android Start App to launch the game.',
-      input: {
-        Package: {
-          label: 'App',
-          hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive',
-        },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    AndroidStopApp: {
-      label: 'Android Stop App',
-      description:
-        'Stop an app process on the current Android target device. The list prioritizes the foreground app and third-party launchable apps; package names can still be entered manually.',
-      example:
-        'At the end of a flow, choose com.RoamingStar.BlueArchive and stop the game process through ADB.',
-      input: {
-        Package: {
-          label: 'App',
-          hint: 'Pick a launchable app from the current device, or type a package name such as com.RoamingStar.BlueArchive',
-        },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    // purefunc
-    Expr: {
-      label: 'Expression',
-      description: `Write a one-line formula to freely combine operations and get a result. Supports arithmetic (+ - * / %), comparisons (< <= > >= == !=), logic (&& {'||'} !), the ternary (cond ? a : b), the built-in functions abs, min, max, now, floor, ceil, round (optionally with digits), clamp, pow, sqrt, and string literals in double quotes joined with +. To reference an outside value, add an input pin to this node, then use the matching name as a variable in the formula (e.g. hp, count).`,
-      example:
-        'Add two input pins hp and max, then write hp / max * 100 to get the health percentage; or hp < max * 0.3 ? "heal up" : "safe" to give different hints based on health. Variable names are exactly the names of the input pins you added.',
-      input: {
-        Expression: {
-          label: 'Expression',
-          hint: 'Go-like expression. Dynamic Inputs[] declared input names can be referenced.',
-        },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    Add: {
-      label: 'Add',
-      description: 'Adds two numbers and gives the sum.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Sub: {
-      label: 'Subtract',
-      description: 'Subtracts B from A and gives the difference.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Mul: {
-      label: 'Multiply',
-      description: 'Multiplies two numbers and gives the product.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Div: {
-      label: 'Divide',
-      description:
-        'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Mod: {
-      label: 'Modulo',
-      description: 'Gives the remainder of A divided by B; works with decimals too.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Neg: {
-      label: 'Negate',
-      description: 'Flips the sign of a number: positive becomes negative and vice versa.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Lt: {
-      label: 'Less than',
-      description: 'Tells whether A < B, giving true/false.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    LtEq: {
-      label: 'Less or equal',
-      description: 'Tells whether A ≤ B, giving true/false.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Gt: {
-      label: 'Greater than',
-      description: 'Tells whether A > B, giving true/false.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    GtEq: {
-      label: 'Greater or equal',
-      description: 'Tells whether A ≥ B, giving true/false.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Eq: {
-      label: 'Equals',
-      description:
-        'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    NotEq: {
-      label: 'Not equals',
-      description:
-        'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    And: {
-      label: 'Logical AND',
-      description:
-        'Gives true only when both conditions are true, otherwise false. An unconnected input defaults to true so it does not affect the result.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Or: {
-      label: 'Logical OR',
-      description:
-        'Gives true when at least one condition is true, and false only when both are false.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Not: {
-      label: 'Logical NOT',
-      description: 'Flips true/false: true becomes false and false becomes true.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Concat: {
-      label: 'Concatenate',
-      description:
-        'Joins two values end to end into one piece of text. Non-text values (numbers, true/false, etc.) are turned into text first.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Contains: {
-      label: 'Contains',
-      description:
-        'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
-      example:
-        'Feed recognized text into Haystack and put "Victory" in Needle; if "Victory" shows up it gives true, which you can wire into a condition node to decide the next step. Note it is case-sensitive: a haystack of "Win" with needle "win" counts as not contained.',
-      input: { Haystack: { label: 'Haystack' }, Needle: { label: 'Needle' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Length: {
-      label: 'String length',
-      description:
-        'Counts how long a piece of text is and gives the character count. A CJK character counts as 1, matching the position semantics of Substring and Index Of.',
-      input: { S: { label: 'String' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToString: {
-      label: 'To string',
-      description:
-        'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToNumber: {
-      label: 'To number',
-      description:
-        'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToBool: {
-      label: 'To bool',
-      description:
-        'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ParseJSON: {
-      label: 'Parse JSON',
-      description:
-        'Parses JSON text into a structured value that can feed JsonPath, Fetch request bodies, or other JSON inputs.',
-      input: { Text: { label: 'Text', hint: 'Valid JSON text' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToJSON: {
-      label: 'To JSON text',
-      description: 'Serializes any value to JSON text for logging, API calls, or file output.',
-      input: { Value: { label: 'Value' } },
-      output: { Result: { label: 'Result' } },
-    },
-    JsonPath: {
-      label: 'JSON path',
-      description:
-        'Extracts fields or array items from a JSON value. Supports $, .field, [index], and [*], for example $.items[0].url or $.items[*].url.',
-      input: {
-        JSON: { label: 'JSON' },
-        Path: { label: 'Path', hint: 'For example $.user.name, $.items[0], $.items[*].url' },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    Select: {
-      label: 'Select (ternary)',
-      description:
-        'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
-      example:
-        'Wire the condition to "is health sufficient", set A to the attack target and B to the retreat point; when true it outputs the attack target, when false the retreat point, then feed the result into the following action.',
-      input: {
-        Cond: { label: 'Condition' },
-        A: { label: 'A (Cond=true)' },
-        B: { label: 'B (Cond=false)' },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    // math
-    Abs: {
-      label: 'Abs',
-      description: 'Absolute value of X (negatives become positive).',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Min: {
-      label: 'Min',
-      description: 'The smaller of two numbers.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Max: {
-      label: 'Max',
-      description: 'The larger of two numbers.',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Floor: {
-      label: 'Floor',
-      description: 'Round X down: 3.7 gives 3, -3.2 gives -4.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Ceil: {
-      label: 'Ceil',
-      description: 'Round X up: 3.2 gives 4, -3.7 gives -3.',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Round: {
-      label: 'Round',
-      description:
-        'Round X. Digits=0 rounds to integer; 2 keeps two decimals; -2 rounds to hundreds (12345 gives 12300). Digits is capped at +/-15 (beyond float precision).',
-      input: { X: { label: 'X' }, Digits: { label: 'Digits' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Clamp: {
-      label: 'Clamp',
-      description:
-        'Limit X to the Min~Max range: below Min gives Min, above Max gives Max, otherwise X. Min/Max swap automatically if reversed.',
-      input: { X: { label: 'X' }, Min: { label: 'Min' }, Max: { label: 'Max' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Pow: {
-      label: 'Pow',
-      description:
-        'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
-      input: { Base: { label: 'Base' }, Exp: { label: 'Exp' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Sqrt: {
-      label: 'Sqrt',
-      description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: 'Result' } },
-    },
-    // string
-    Replace: {
-      label: 'Replace',
-      description:
-        'Replace Old with New in the text. With "Replace all" on it replaces every occurrence, off only the first. Empty Old returns the text unchanged.',
-      input: {
-        Text: { label: 'Text' },
-        Old: { label: 'Find' },
-        New: { label: 'Replace with' },
-        All: { label: 'Replace all' },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    Substring: {
-      label: 'Substring',
-      description:
-        'Take Length characters starting at Start (a CJK character counts as 1). Length -1 (default) takes to the end, 0 gives an empty string. Out-of-range Start gives an empty string.',
-      input: { Text: { label: 'Text' }, Start: { label: 'Start' }, Length: { label: 'Length' } },
-      output: { Result: { label: 'Result' } },
-    },
-    Trim: {
-      label: 'Trim',
-      description: 'Remove spaces, newlines and tabs from both ends of the text.',
-      input: { Text: { label: 'Text' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToUpper: {
-      label: 'To Upper',
-      description: 'Convert letters to uppercase.',
-      input: { Text: { label: 'Text' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ToLower: {
-      label: 'To Lower',
-      description: 'Convert letters to lowercase.',
-      input: { Text: { label: 'Text' } },
-      output: { Result: { label: 'Result' } },
-    },
-    IndexOf: {
-      label: 'Index Of',
-      description:
-        'Position of the first occurrence of Sub in the text (counting from 0, a CJK character counts as 1). -1 when not found. To just test "contains", use the Contains node.',
-      input: { Text: { label: 'Text' }, Sub: { label: 'Find' } },
-      output: { Result: { label: 'Position' } },
-    },
-    StartsWith: {
-      label: 'Starts With',
-      description: 'Whether the text starts with Prefix. Empty Prefix is always true.',
-      input: { Text: { label: 'Text' }, Prefix: { label: 'Prefix' } },
-      output: { Result: { label: 'Result' } },
-    },
-    EndsWith: {
-      label: 'Ends With',
-      description: 'Whether the text ends with Suffix. Empty Suffix is always true.',
-      input: { Text: { label: 'Text' }, Suffix: { label: 'Suffix' } },
-      output: { Result: { label: 'Result' } },
-    },
-    RegexMatch: {
-      label: 'Regex Match',
-      description: `Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.`,
-      input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
-      output: { Result: { label: 'Result' } },
-    },
-    RegexExtract: {
-      label: 'Regex Extract',
-      description:
-        'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
-      input: { Text: { label: 'Text' }, Pattern: { label: 'Pattern' } },
-      output: { Result: { label: 'Result' } },
-    },
-    MakePoint: {
-      label: 'Make Point',
-      description:
-        'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
-      example:
-        'Use a detected health ratio as X and a fixed 0.9 as Y, then feed the resulting coordinate into a Click node.',
-      input: {
-        X: { label: 'X', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
-        Y: { label: 'Y', hint: 'Percent mode: 0-100 (e.g. 50 = 50%); pixel mode: pixel value' },
-        Unit: {
-          label: 'Unit',
-          hint: 'Percent = adapts to window; Pixels = absolute, fixed',
-          option: { percent: 'Percent (adaptive)', px: 'Pixels (absolute)' },
-        },
-      },
-      output: { Result: { label: 'Coordinate' } },
-    },
-    OffsetPoint: {
-      label: 'Offset Point',
-      description:
-        'Add horizontal and vertical offsets to a coordinate. Ratio points are clamped inside the screen; pixel points keep their pixel unit.',
-      example:
-        'Take a template center point, then offset slightly down and right before clicking a steadier spot inside the button.',
-      input: {
-        Point: { label: 'Point' },
-        OffsetX: {
-          label: 'Offset X',
-          hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets',
-        },
-        OffsetY: {
-          label: 'Offset Y',
-          hint: 'For ratio points use 0-1 offsets; for pixel points use pixel offsets',
-        },
-      },
-      output: { Result: { label: 'Point' } },
-    },
-    PointDistance: {
-      label: 'Point Distance',
-      description:
-        'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
-      input: { Begin: { label: 'Begin' }, End: { label: 'End' } },
-      output: { Result: { label: 'Distance' } },
-    },
-    ROIAroundPoint: {
-      label: 'ROI Around Point',
-      description:
-        'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
-      example:
-        'After detecting a character position, search only the surrounding 20% area for buttons or colors.',
-      input: {
-        Center: { label: 'Center', hint: 'Ratio coordinates give the clearest result' },
-        Width: { label: 'Width', hint: 'Percent; 20 means 20% of screen width' },
-        Height: { label: 'Height', hint: 'Percent; 20 means 20% of screen height' },
-      },
-      output: { Result: { label: 'ROI' } },
-    },
-    // list
-    ForEach: {
-      label: 'For Each',
-      description:
-        'Take items from the list one by one and run the Body for each. The item and index are stored into variables (declare them with type "any"); read them inside the body with Get Variable. An empty or non-list input goes straight to Done.',
-      input: { List: { label: 'List' } },
-      output: { Body: { label: 'Body' }, Done: { label: 'Done' }, Fail: { label: 'Fail' } },
-    },
-    Split: {
-      label: 'Split',
-      description:
-        'Split text into a list by a separator. Empty text gives an empty list; an empty separator splits into individual characters (CJK-safe).',
-      input: { Text: { label: 'Text' }, Separator: { label: 'Separator' } },
-      output: { Result: { label: 'List' } },
-    },
-    Join: {
-      label: 'Join',
-      description:
-        'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
-      input: { List: { label: 'List' }, Separator: { label: 'Separator' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ListLength: {
-      label: 'List Length',
-      description: 'Count the items in a list. A non-list counts as 0.',
-      input: { List: { label: 'List' } },
-      output: { Result: { label: 'Count' } },
-    },
-    ListGet: {
-      label: 'List Get',
-      description:
-        'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
-      input: { List: { label: 'List' }, Index: { label: 'Index' } },
-      output: { Result: { label: 'Item' } },
-    },
-    ListContains: {
-      label: 'List Contains',
-      description:
-        'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
-      input: { List: { label: 'List' }, Value: { label: 'Find' } },
-      output: { Result: { label: 'Result' } },
-    },
-    ListAppend: {
-      label: 'List Append',
-      description:
-        'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
-      input: { List: { label: 'List' }, Item: { label: 'Item' } },
-      output: { Result: { label: 'New list' } },
-    },
-    ListSlice: {
-      label: 'List Slice',
-      description:
-        'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
-      input: { List: { label: 'List' }, Start: { label: 'Start' }, Count: { label: 'Count' } },
-      output: { Result: { label: 'New list' } },
-    },
-    // random
-    RandomInt: {
-      label: 'Random Int',
-      description:
-        'Random integer in [Min, Max] (both ends included). Multiple references within one evaluation get the same value; different nodes get different values.',
-      input: {
-        Min: { label: 'Min' },
-        Max: { label: 'Max' },
-        Distribution: {
-          label: 'Distribution',
-          hint: 'uniform = each integer equally likely; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)',
-          option: { uniform: 'Uniform', centered: 'Centered' },
-        },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    RandomFloat: {
-      label: 'Random Float',
-      description:
-        'Random float in [Min, Max) (Min included, Max excluded). Multiple references within one evaluation get the same value; different nodes get different values.',
-      input: {
-        Min: { label: 'Min' },
-        Max: { label: 'Max' },
-        Distribution: {
-          label: 'Distribution',
-          hint: 'uniform = equal probability across the range; centered = clusters toward the midpoint (fixed 5-sample bell, spread not adjustable)',
-          option: { uniform: 'Uniform', centered: 'Centered' },
-        },
-      },
-      output: { Result: { label: 'Result' } },
-    },
-    RandomBool: {
-      label: 'Random Bool',
-      description:
-        'Random true/false by probability. 0.5 = fifty-fifty; <=0 always false, >=1 always true. Multiple references within one evaluation get the same value; different nodes get different values.',
-      input: { Prob: { label: 'True probability' } },
-      output: { Result: { label: 'Result' } },
-    },
-    RandomChoice: {
-      label: 'Random Choice',
-      description:
-        'Pick one random item from the list. Multiple references within one evaluation get the same pick. An empty list gives null (an item can itself be null — check List Length to tell them apart).',
-      input: { List: { label: 'List' } },
-      output: { Result: { label: 'Item' } },
-    },
-    // stopwatch
-    StopwatchStart: {
-      label: 'Stopwatch start',
-      description:
-        'Starts a stopwatch so you can time how long part of your flow takes. Each stopwatch is identified by a key (name), so you can run several at once without them interfering. If that key is already running, it restarts from zero.',
-      example:
-        'To time a "find image + click" section: connect StopwatchStart (key = click), run that section, then connect StopwatchRead (key = click) afterward to get the elapsed milliseconds.',
-      input: { Key: { label: 'Key', hint: 'Stopwatch key (namespace independent of $vars.*)' } },
-      output: { Done: { label: 'Done' } },
-    },
-    StopwatchRead: {
-      label: 'Stopwatch read',
-      description:
-        'Reads how many milliseconds a stopwatch has counted. If it is still running, you get "start until now"; if it was stopped, you get "start until the stop"; an unstarted key returns 0.',
-      example:
-        'Time a section: StopwatchStart (key = load) to start → run the part you want to measure → StopwatchRead (key = load) to read the milliseconds, then feed it into Log or a check to see how fast it was.',
-      input: {
-        Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: { ElapsedMs: { hint: 'elapsed milliseconds' } },
-        },
-      },
-    },
-    StopwatchStop: {
-      label: 'Stopwatch stop',
-      description:
-        'Stops a stopwatch so that reading it later gives the total time at the moment it stopped, instead of continuing to climb. Does nothing if that key was never started.',
-      input: { Key: { label: 'Key', hint: 'Same key as the prior StopwatchStart' } },
-      output: { Done: { label: 'Done' } },
-    },
-    // system
-    CollapsedNode: {
-      label: 'Collapsed subgraph',
-      description:
-        'Folds a group of selected nodes into one small box to keep the flow tidy. Double-click to edit the nodes inside; it runs exactly the same as when expanded, then continues via Done.',
-      input: {
-        SubgraphID: { label: 'Subgraph ID', hint: 'Target isAnonymous Subgraph identifier' },
-        Label: { label: 'Label' },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-    },
-    CommentBox: {
-      label: 'Comment box',
-      description:
-        'A sticky note on the canvas: a title plus body text (markdown supported) to document your script. Display only — it never runs and never connects. Double-click to edit; color, icon, and width are adjustable.',
-      input: {
-        Title: { label: 'Title' },
-        Content: { label: 'Body (markdown)' },
-        Color: { label: 'Color' },
-        Icon: { label: 'Icon' },
-        Width: { label: 'Width (px)' },
-      },
-    },
-    MouseCalibration: {
-      label: 'Mouse calibration',
-      description:
-        'Tells the script how far your mouse travels per full 360° turn on this machine; relative mouse moves (MouseMoveRel) use this value to convert angles into actual movement. Put one in the main graph (one per container); it does no action itself and just passes through.',
-      input: {
-        Counts360: {
-          label: 'Counts per 360°',
-          hint: 'Counts produced per full 360° mouse rotation. MouseMoveRel uses this to scale dx/dy.',
-        },
-      },
-      output: { Done: { label: 'Done' } },
-      inspector: {
-        counts_label: 'Local 360° HID counts',
-        calibrated: '✅ Calibrated',
-        not_calibrated: '❌ Not calibrated',
-        counts_hint:
-          'How many |dx| counts your mouse reports per 360° physical rotation — depends on hardware DPI, OS sensitivity, and in-game sensitivity.',
-        counts_warn:
-          "⚠ This value MUST be measured on your machine + this game; do not copy it from someone else's container.",
-        start_calibrate: '▶ Start calibration',
-        load_from_settings_one: '⬇ Load from settings ({label}: {n})',
-        load_from_settings_pick: '⬇ Pick a calibration profile from settings…',
-        advanced_manual: 'Advanced (manual entry)',
-      },
-    },
-    Subgraph: {
-      label: 'Call subgraph',
-      description:
-        'Packages a group of nodes into a subgraph and runs the whole thing once here, then continues via Done. Use it to reuse the same flow in several places or to split a big flow into pieces; you can also pass data in through Params.',
-      example:
-        'Your login flow is reused across several scripts: turn it into a subgraph, drop one Call subgraph in each script pointing to it, and future login changes only touch the subgraph.',
-      input: {
-        SubgraphID: { label: 'Subgraph ID' },
-        Params: {
-          label: 'Params',
-          hint: 'Call params — passed through to the runner, which injects them into the callee SubgraphInput.',
-        },
-      },
-      output: { Done: { label: 'Done' }, Fail: { label: 'Failed' } },
-      fallback_missing: '(subgraph not found)',
-      fallback_empty: '(no outputs)',
-      inspector: {
-        binding_label: 'Bound subgraph',
-        subgraph_label_field: 'Name',
-        subgraph_label_placeholder: 'Subgraph name',
-        subgraph_description_field: 'Description',
-        subgraph_description_placeholder: 'Optional · note for yourself or teammates',
-        subgraph_tags_field: 'tags',
-        subgraph_tags_placeholder: 'Add tag...',
-        enter_subgraph: 'Enter subgraph to edit nodes',
-        footer_meta_hint:
-          'Subgraph metadata (name/description/tags) is editable here — no need to enter the subgraph.',
-        footer_delete_hint:
-          'Plain delete removes this reference only; the subgraph stays in the library. Right-click the node and choose "Delete for good" to also delete the subgraph definition (with confirmation).',
-      },
-    },
-    Throw: {
-      label: 'Throw',
-      description:
-        'Deliberately raises an error and stops the current flow right away; the error text is whatever you put in Message. If an enclosing region (Loop / subgraph, etc.) has its Fail exit wired, the error is caught and routed down the Fail branch; otherwise the whole script errors out and stops. You can also set an error Code so a downstream Switch can branch on it.',
-      example:
-        'You detect HP is 0, meaning the character is dead and there is no point continuing: add a Throw with Message «character dead» so the enclosing region Fail exit catches it and runs a revive routine.',
-      input: {
-        Message: { label: 'Message' },
-        Code: { label: 'Error code (optional)' },
-      },
-    },
-    Win32WindowTarget: {
-      label: 'Windows window target',
-      description:
-        'Picks which Windows window the script operates on next — finds it by window title, class, or process name and brings it to the front. Place it before your actions; add several to operate on multiple Windows windows. Use AndroidTarget for Android devices.',
-      example:
-        'Your script needs to operate the game window: put a Windows window target at the start with the game name as the title, and later Windows clicks and key presses go to that window.',
-      input: {
-        Title: { label: 'Window title' },
-        Class: { label: 'Window class' },
-        ProcessName: { label: 'Process name' },
-        TitleMatch: {
-          label: 'Title match mode',
-          option: {
-            exact: 'Exact',
-            contains: 'Contains',
-            prefix: 'Prefix',
-            suffix: 'Suffix',
-            regex: 'Regex',
-          },
-        },
-      },
-      output: {
-        Done: { label: 'Done', data: { Window: { hint: 'The window switched to' } } },
-        Fail: { label: 'Failed' },
-      },
-      subgraph_hint:
-        'Switching windows inside a subgraph affects the caller; the window is not restored automatically on return.',
-      inspector: {
-        capture_waiting: 'Waiting for {hk} (click again to cancel)',
-        capture_start: 'Capture Windows window (press {hk})',
-        capture_hint_a:
-          'Click, then switch to the game window and press {hk} to capture title/class/processName.',
-        capture_hint_b:
-          'Key clashes with other software? Change it under Settings → Hotkeys → System → Window capture.',
-        match_section: 'Window match (match)',
-        title_label: 'Title (title)',
-        title_placeholder: 'Where Winds Meet',
-        class_label: 'Class (class)',
-        process_label: 'Process name (processName)',
-        title_match_label: 'Title match mode',
-        title_match_exact: 'Exact match (case-sensitive)',
-        title_match_regex: 'Regex RE2 (partial match)',
-      },
-    },
-    WaitWindow: {
-      label: 'Wait for window',
-      description:
-        'Poll until a Windows window appears, matched by title / class / process name. If it appears within the timeout, takes the Found exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Run program to wait for the program window to load. Note: this node only detects whether the window exists; it does not switch to it. To operate on it, follow Found with a Windows window target to lock it (it resolves instantly since the window now exists).',
-      example:
-        'After Run program launches a game, add Wait for window with the game title and a 20s timeout; on Found add Windows window target + actions, on Timeout show a message or retry.',
-      input: {
-        Title: { label: 'Window title' },
-        Class: { label: 'Window class' },
-        ProcessName: { label: 'Process name' },
-        TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
-        TimeoutMs: {
-          label: 'Timeout (ms)',
-          hint: 'Poll-wait this long for the window to appear; takes Timeout if it never shows.',
-        },
-      },
-      output: { Found: { label: 'Found' }, Timeout: { label: 'Timeout' } },
-    },
-    GetWindow: {
-      label: 'Get Window',
-      description:
-        'Resolve a window by title/class/process into a window object without changing the active window.',
-      example:
-        'Resolve a child window into a variable, then wire its Window input on later nodes to act on different windows.',
-      input: {
-        Title: { label: 'Window Title' },
-        Class: { label: 'Window Class' },
-        ProcessName: { label: 'Process Name' },
-        TitleMatch: {
-          label: 'Title Match',
-          option: {
-            exact: 'Exact',
-            contains: 'Contains',
-            prefix: 'Prefix',
-            suffix: 'Suffix',
-            regex: 'Regex',
-          },
-        },
-      },
-      output: {
-        Done: { label: 'Done', data: { Window: { hint: 'The resolved window object' } } },
-        Fail: { label: 'Fail' },
-      },
-    },
-    WindowState: {
-      label: 'Window State',
-      description:
-        'Maximize / minimize / restore / borderless-fullscreen / exit-borderless on a Windows window.',
-      example: 'Switch the game window to borderless fullscreen.',
-      input: {
-        State: {
-          label: 'State',
-          option: {
-            maximize: 'Maximize',
-            minimize: 'Minimize',
-            restore: 'Restore',
-            borderlessFullscreen: 'Borderless Fullscreen',
-            restoreBorders: 'Exit Borderless',
-          },
-        },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: { Window: { hint: 'The window re-read after the operation' } },
-        },
-      },
-    },
-    MoveResizeWindow: {
-      label: 'Move/Resize Window',
-      description: 'Move the Windows window to (X, Y) and set it to Width×Height pixels.',
-      example: 'Move the window to the top-left and set it to 1280×720.',
-      input: {
-        X: { label: 'X' },
-        Y: { label: 'Y' },
-        Width: { label: 'Width' },
-        Height: { label: 'Height' },
-        Window: { label: 'Window' },
-      },
-      output: {
-        Done: {
-          label: 'Done',
-          data: { Window: { hint: 'The window re-read after the operation' } },
-        },
-      },
-    },
-    CloseWindow: {
-      label: 'Close Window',
-      description:
-        'Send a close request to the Windows window (pair with "Wait Window Gone" to confirm it closed).',
-      example: 'Close the Notepad window then wait for it to disappear.',
-      input: { Window: { label: 'Window' } },
-      output: { Done: { label: 'Done' } },
-    },
-    WaitWindowGone: {
-      label: 'Wait window closed',
-      description:
-        'Poll until a window disappears, matched by title / class / process name. If it disappears within the timeout, takes the Gone exit; otherwise takes Timeout (no error — handy for fallback). Often placed after Stop app to confirm the window has actually closed.',
-      input: {
-        Title: { label: 'Window title' },
-        Class: { label: 'Window class' },
-        ProcessName: { label: 'Process name' },
-        TitleMatch: { label: 'Title match', option: { exact: 'Exact', regex: 'Regex' } },
-        TimeoutMs: {
-          label: 'Timeout (ms)',
-          hint: 'Poll-wait this long for the window to disappear; takes Timeout if it never closes.',
-        },
-      },
-      output: { Gone: { label: 'Gone' }, Timeout: { label: 'Timeout' } },
-    },
-    SubgraphInput: {
-      label: 'Subgraph input',
-      description:
-        'The entry point inside a subgraph — when the subgraph is called, execution starts here, and any params passed in are read here. Position is movable, but it cannot be deleted or copied.',
-    },
-    SubgraphOutput: {
-      label: 'Subgraph output',
-      description:
-        'The exit point inside a subgraph — reaching it ends the subgraph and returns to the caller to continue. One per output pin. Position is movable, but it cannot be deleted or copied.',
-    },
-    // variable
-    GetVar: {
-      label: 'Get variable',
-      description:
-        'Reads back the value of a variable you stored earlier, to feed wherever you need it. The scope decides where to look: local checks only the current subgraph, global checks the shared global store, and auto checks the current subgraph first then falls back to global.',
-      input: {
-        VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
-      },
-      output: { Value: { label: 'Value' } },
-    },
-    SetVar: {
-      label: 'Set variable',
-      description:
-        'Stores a variable with any value you like — text, number, anything — to read back later with Get variable. The scope decides where it goes: local stores it in the current subgraph (gone once you leave it), global stores it everywhere, and auto updates an existing same-name var in the current subgraph or otherwise stores it globally.',
-      example:
-        'Record a status flag: SetVar (name = done, value = true), then later read it back with GetVar to decide whether to skip a step.',
-      input: {
-        VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
-        Value: { label: 'Value', hint: 'wildcard — any type' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    IncVar: {
-      label: 'Increment variable',
-      description:
-        'Adds a delta to a variable (default +1; use a negative number to subtract) — handy as a counter. If the variable has no value yet, it starts from 0. The scope works the same as Get/Set variable: local / global / auto.',
-      example:
-        'Count loop iterations: put IncVar (name = count) inside the loop body so it adds 1 each pass, then read count with GetVar afterward for the total.',
-      input: {
-        VarName: { label: 'Variable name' },
-        Scope: { label: 'Scope', option: { auto: 'auto', local: 'local', global: 'global' } },
-        Delta: { label: 'Delta' },
-      },
-      output: { Done: { label: 'Done' } },
-    },
-    GetParam: {
-      label: 'Get subgraph param',
-      description:
-        'Reads the value of a parameter passed in when this subgraph was called, by parameter name. Only usable inside a subgraph — it is the subgraph\'s "input".',
-      input: { ParamName: { label: 'Param name' } },
-      output: { Value: { label: 'Value' } },
-    },
-    Now: {
-      label: 'Now',
-      description:
-        'Returns the current time in milliseconds (unix ms, re-read live each time). Often paired with "Variable last-change time" to compute "how long a state has stayed unchanged": Now − VarLastChange.',
-      example:
-        'Check how long HP has stayed unchanged (stuck): subtract "Variable last-change time" (name = hp) from Now; if the gap exceeds 5000 ms treat it as stuck and trigger a reconnect.',
-      output: { Value: { label: 'Now (ms)' } },
-    },
-    VarLastChange: {
-      label: 'Variable last-change time',
-      description:
-        'Returns the time a variable was last written/incremented (unix ms), or 0 if it was never changed. Paired with Now to compute "how long this value has stayed unchanged" — handy for stuck detection / watchdogs.',
-      example:
-        "Detect a stuck state: name = state, subtract this node's result from Now; a large gap means state has not updated for a long time and can trigger recovery.",
-      input: {
-        VarName: {
-          label: 'Variable name',
-          hint: 'Name of the variable whose last-change time to query',
-        },
-      },
-      output: { Value: { label: 'Last-change time (ms)' } },
+
+    builtin: {
+      'collection-append': {
+        title: 'List Append',
+        description:
+          'Add one item to the end, producing a NEW list (the original is unchanged; to accumulate, store it back with Set Variable using type "any").',
+      },
+      'collection-contains': {
+        title: 'List Contains',
+        description:
+          'Whether the list has an item equal to Value. Same rules as the Equals node: same types compare directly, different types compare as text.',
+      },
+      'collection-get': {
+        title: 'List Get',
+        description:
+          'Take the item at Index (counting from 0). Out-of-range gives null — an item can itself be null, so check List Length first to tell them apart.',
+      },
+      'collection-join': {
+        title: 'Join',
+        description:
+          'Join list items into one piece of text with a separator. Non-text items are converted automatically.',
+      },
+      'collection-length': {
+        title: 'List Length',
+        description: 'Count the items in a list. A non-list counts as 0.',
+      },
+      'collection-slice': {
+        title: 'List Slice',
+        description:
+          'Take Count items starting at Start, as a new list. Count -1 (default) takes to the end, 0 gives an empty list. Out-of-range Start gives an empty list.',
+      },
+      'collection-split': {
+        title: 'Split',
+        description:
+          'Split text into a list by a separator. Empty text gives an empty list; an empty separator splits into individual characters (CJK-safe).',
+      },
+      'comparison-equal': {
+        title: 'Equals',
+        description:
+          'Tells whether two values are equal, giving true/false. Accepts any type; same types compare directly, while different types are both turned into text first (so the number 1 and the text "1" count as equal).',
+      },
+      'comparison-greater-or-equal': {
+        title: 'Greater or equal',
+        description: 'Tells whether A ≥ B, giving true/false.',
+      },
+      'comparison-greater-than': {
+        title: 'Greater than',
+        description: 'Tells whether A > B, giving true/false.',
+      },
+      'comparison-less-or-equal': {
+        title: 'Less or equal',
+        description: 'Tells whether A ≤ B, giving true/false.',
+      },
+      'comparison-less-than': {
+        title: 'Less than',
+        description: 'Tells whether A < B, giving true/false.',
+      },
+      'comparison-not-equal': {
+        title: 'Not equals',
+        description:
+          'Tells whether two values are not equal, giving true/false. Compares the same way as Equals: same types directly, different types both turned into text first.',
+      },
+      'conversion-string-to-boolean': {
+        title: 'To bool',
+        description:
+          'Turns a value into true/false. An empty value, the number 0, and empty text count as false; everything else counts as true.',
+      },
+      'conversion-string-to-number': {
+        title: 'To number',
+        description:
+          'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
+      },
+      'conversion-to-string': {
+        title: 'To string',
+        description:
+          'Turns any value into text. Numbers, true/false, points and more all convert; an empty value becomes "null".',
+      },
+      'geometry-make-point': {
+        title: 'Make Point',
+        description:
+          'Build a coordinate value from two numbers (X, Y) and a unit. Wire it to nodes that need a coordinate such as Click or Scroll. Use it when you need to compute coordinates dynamically.',
+      },
+      'geometry-offset-point': {
+        title: 'Offset Point',
+        description:
+          'Add horizontal and vertical offsets to a coordinate. Ratio points are clamped inside the screen; pixel points keep their pixel unit.',
+      },
+      'geometry-point-distance': {
+        title: 'Point Distance',
+        description:
+          'Calculate the straight-line distance between two coordinates. Useful for checking whether a detection is close enough to a target point.',
+      },
+      'geometry-region-around-point': {
+        title: 'ROI Around Point',
+        description:
+          'Create an ROI for screenshot or detection around a center point. Width and height are percentages and the result is clamped inside the screen.',
+      },
+      'json-parse': {
+        title: 'Parse JSON',
+        description:
+          'Parses JSON text into a structured value that can feed JsonPath, Fetch request bodies, or other JSON inputs.',
+      },
+      'json-path': {
+        title: 'JSON path',
+        description:
+          'Extracts fields or array items from a JSON value. Supports $, .field, [index], and [*], for example $.items[0].url or $.items[*].url.',
+      },
+      'json-stringify': {
+        title: 'To JSON text',
+        description: 'Serializes any value to JSON text for logging, API calls, or file output.',
+      },
+      'logic-and': {
+        title: 'Logical AND',
+        description:
+          'Gives true only when both conditions are true, otherwise false. An unconnected input defaults to true so it does not affect the result.',
+      },
+      'logic-not': {
+        title: 'Logical NOT',
+        description: 'Flips true/false: true becomes false and false becomes true.',
+      },
+      'logic-or': {
+        title: 'Logical OR',
+        description:
+          'Gives true when at least one condition is true, and false only when both are false.',
+      },
+      'logic-select': {
+        title: 'Select (ternary)',
+        description:
+          'Looks at the condition and picks one of two values to output: A when the condition is true, B when it is false. A and B can be any type.',
+      },
+      'math-absolute': {
+        title: 'Abs',
+        description: 'Absolute value of X (negatives become positive).',
+      },
+      'math-add': { title: 'Add', description: 'Adds two numbers and gives the sum.' },
+      'math-ceiling': { title: 'Ceil', description: 'Round X up: 3.2 gives 4, -3.7 gives -3.' },
+      'math-clamp': {
+        title: 'Clamp',
+        description:
+          'Limit X to the Min~Max range: below Min gives Min, above Max gives Max, otherwise X. Min/Max swap automatically if reversed.',
+      },
+      'math-divide': {
+        title: 'Divide',
+        description:
+          'Divides A by B and gives the quotient. When the divisor is 0 the result is NaN (not a number).',
+      },
+      'math-floor': { title: 'Floor', description: 'Round X down: 3.7 gives 3, -3.2 gives -4.' },
+      'math-maximum': { title: 'Max', description: 'The larger of two numbers.' },
+      'math-minimum': { title: 'Min', description: 'The smaller of two numbers.' },
+      'math-modulo': {
+        title: 'Modulo',
+        description: 'Gives the remainder of A divided by B; works with decimals too.',
+      },
+      'math-multiply': {
+        title: 'Multiply',
+        description: 'Multiplies two numbers and gives the product.',
+      },
+      'math-negate': {
+        title: 'Negate',
+        description: 'Flips the sign of a number: positive becomes negative and vice versa.',
+      },
+      'math-power': {
+        title: 'Pow',
+        description:
+          'Base raised to Exp. Math conventions apply: negative base with fractional exponent gives NaN, 0 to a negative power gives Infinity, 0^0 gives 1.',
+      },
+      'math-round': {
+        title: 'Round',
+        description:
+          'Round X. Digits=0 rounds to integer; 2 keeps two decimals; -2 rounds to hundreds (12345 gives 12300). Digits is capped at +/-15 (beyond float precision).',
+      },
+      'math-square-root': {
+        title: 'Sqrt',
+        description: 'Square root of X. Negative X gives NaN (wire an Abs node first if needed).',
+      },
+      'math-subtract': {
+        title: 'Subtract',
+        description: 'Subtracts B from A and gives the difference.',
+      },
+      'text-contains': {
+        title: 'Contains',
+        description:
+          'Tells whether the needle text appears somewhere inside the haystack, giving true/false. Case-sensitive; non-text inputs are turned into text first.',
+      },
+      'text-ends-with': {
+        title: 'Ends With',
+        description: 'Whether the text ends with Suffix. Empty Suffix is always true.',
+      },
+      'text-index-of': {
+        title: 'Index Of',
+        description:
+          'Position of the first occurrence of Sub in the text (counting from 0, a CJK character counts as 1). -1 when not found. To just test "contains", use the Contains node.',
+      },
+      'text-length': {
+        title: 'String length',
+        description:
+          'Counts how long a piece of text is and gives the character count. A CJK character counts as 1, matching the position semantics of Substring and Index Of.',
+      },
+      'text-lowercase': { title: 'To Lower', description: 'Convert letters to lowercase.' },
+      'text-regex-extract': {
+        title: 'Regex Extract',
+        description:
+          'Extract the first match of the regular expression; with capture groups, group 1 is taken. No match or an invalid pattern gives an empty string (invalid patterns also log a warning).',
+      },
+      'text-regex-match': {
+        title: 'Regex Match',
+        description:
+          "Whether any part of the text matches the regular expression (search semantics: b matches abc). For a full match wrap the pattern in ^ and {'$'}. An invalid pattern always gives false and logs a warning.",
+      },
+      'text-replace': {
+        title: 'Replace',
+        description:
+          'Replace Old with New in the text. With "Replace all" on it replaces every occurrence, off only the first. Empty Old returns the text unchanged.',
+      },
+      'text-starts-with': {
+        title: 'Starts With',
+        description: 'Whether the text starts with Prefix. Empty Prefix is always true.',
+      },
+      'text-substring': {
+        title: 'Substring',
+        description:
+          'Take Length characters starting at Start (a CJK character counts as 1). Length -1 (default) takes to the end, 0 gives an empty string. Out-of-range Start gives an empty string.',
+      },
+      'text-trim': {
+        title: 'Trim',
+        description: 'Remove spaces, newlines and tabs from both ends of the text.',
+      },
+      'text-uppercase': { title: 'To Upper', description: 'Convert letters to uppercase.' },
     },
-  },
-  status: {
-    idle: 'Idle',
-    running: '▶ Running: {name}',
-    container_fallback: 'Container',
-    stop_button: 'Stop',
-    stop_tooltip: 'Stop current run + clear queue ({hk})',
   },
   log: {
     header_title: 'Log',
@@ -2742,18 +946,7 @@ export default {
     filter_label: 'Log source',
     filter_all: 'All logs',
     filter_sys: 'System logs',
-    filter_ctr: 'Container logs',
-    action_trace: {
-      open: 'Action trace',
-      title: 'Action trace',
-      count: '{n} entries',
-      empty: 'No action traces',
-      backend: 'backend',
-      duration: 'duration',
-      coords: 'coords',
-      error: 'error',
-      payload: 'payload',
-    },
+    filter_wf: 'Workflow logs',
     popover: {
       enabled: 'Logging',
       enabled_hint: 'Stops production, transport, and file writes at the backend source',
@@ -2764,7 +957,6 @@ export default {
       wrap_text: 'Wrap text',
       auto_scroll: 'Auto-scroll',
       write_file: 'Write to file',
-      show_node_enter: 'Show node-enter trace',
     },
   },
   common: {
@@ -2874,375 +1066,119 @@ export default {
   // backend ValidationError.Code → user-facing message.
   // Params: {param} placeholders use vue-i18n named-interpolation. Missing keys fall back to backend Message field.
   error: {
-    NO_START: 'Main graph has no Start node',
-    MULTIPLE_STARTS: 'Main graph has {count} Start nodes (expected exactly 1)',
-    DANGLING_EDGE: 'Edge {from} → {to} references missing node ({missing})',
-    INVALID_PIN: 'Node {nodeID} ({kind}) has no {side} pin {pin}',
-    DUPLICATE_OUTPUT_PIN: 'OutputPin Name {name} duplicated',
-    MISSING_TEMPLATE:
-      'Node {nodeID} references template {template} not found in container templates/',
-    MISSING_SUBGRAPH: 'Subgraph node references unknown subgraph {subgraphId}',
-    MISSING_MOUSE_CALIBRATION: 'Uses MouseMoveRel but container has no MouseCalibration node',
-    DUPLICATE_MOUSE_CALIBRATION:
-      'Main graph has {count} MouseCalibration nodes (expected at most 1)',
-    MOUSE_CALIBRATION_NOT_SET: 'MouseCalibration.counts360 is not set',
-    MOUSE_CALIBRATION_IN_SUBGRAPH: 'MouseCalibration node must be in main graph',
-    EMPTY_SUBGRAPH_OUTPUT: 'Subgraph has no SubgraphOutput node',
-    CYCLIC_SUBGRAPH_DEPENDENCY: 'Subgraph calls form a cycle',
-    PLAYCLIP_NO_CLIP_ID: 'PlayClip node has no clipID',
-    MISSING_REQUIRED_PIN: '{kind} is missing required input {pin}',
-    UNKNOWN_LITERAL_PIN: '{kind} contains an unused value for unknown input {pin}',
-    MISSING_WIN32_WINDOW_TARGET: 'Main graph missing a Windows window target node',
-    UNSUPPORTED_TARGET_CAPABILITY:
-      '{kind} requires target capability {capability}, but target {targetKind} does not support it',
+    UNSUPPORTED_WORKFLOW_FORMAT: 'Unsupported Workflow format or version',
+    INVALID_WORKFLOW_JSON: 'Workflow JSON is invalid',
+    DUPLICATE_FIELD: 'A field is duplicated',
+    UNKNOWN_FIELD: 'An unknown field is present',
+    MISSING_REQUIRED_FIELD: 'A required field is missing',
+    INVALID_FIELD: 'A field value is invalid',
+    DUPLICATE_ID: 'An ID is duplicated',
+    MISSING_ENTRY_GRAPH: 'The entry graph is missing',
+    UNKNOWN_NODE_KIND: 'The node kind is invalid',
+    UNSUPPORTED_NODE_CONTRACT: 'The node contract is unsupported',
+    UNSUPPORTED_GRAPH_CONTRACT: 'The graph contract is unsupported',
+    INVALID_GRAPH_ENTRY: 'The graph entry is invalid',
+    MISSING_GRAPH_OUTPUT: 'The graph is missing a declared output',
+    INVALID_GRAPH_BOUNDARY_EDGE: 'A graph-boundary edge is invalid',
+    UNKNOWN_CALLEE_GRAPH: 'The called graph does not exist',
+    INVALID_CALLEE_GRAPH_KIND: 'The called graph kind cannot be invoked',
+    SUBGRAPH_CALL_CYCLE: 'Subgraph calls form a cycle',
+    CALL_PIN_TYPE_MISMATCH: 'Graph-call port types do not match',
+    INVALID_DYNAMIC_PORT_DECLARATION: 'A dynamic-port declaration is invalid',
+    DYNAMIC_PORT_BUDGET_EXCEEDED: 'The dynamic-port budget was exceeded',
+    INPUT_CONSTRAINT_VIOLATION: 'An input constraint is not satisfied',
+    INPUT_CONSTRAINT_BUDGET_EXCEEDED: 'The input-constraint budget was exceeded',
+    DIAGNOSTIC_BUDGET_EXCEEDED: 'The diagnostic budget was exceeded',
+    MISSING_CAPABILITY_DECLARATION: 'A required capability declaration is missing',
+    UNUSED_CAPABILITY_DECLARATION: 'A capability declaration is unused',
+    INVALID_CATALOG: 'The node catalog is invalid',
+    UNKNOWN_NODE_TYPE: 'The node type is not in the catalog',
+    NODE_CONTRACT_MISMATCH: 'The node contract digest does not match',
+    UNKNOWN_PORT: 'An edge references an unknown port',
+    EDGE_CHANNEL_MISMATCH: 'Edge channel kinds do not match',
+    TYPE_MISMATCH: 'Data types do not match',
+    UNRESOLVED_TYPE: 'A data type could not be resolved',
+    RESOURCE_LEASE_MISMATCH: 'Resource leases do not match',
+    MISSING_INPUT_BINDING: 'A required input binding is missing',
+    DUPLICATE_INPUT_BINDING: 'An input is bound more than once',
+    DUPLICATE_SIGNAL_ROUTE: 'A signal route is duplicated',
+    REGION_SIGNAL_SCOPE: 'A signal crosses its region scope',
+    INVALID_BINDING: 'An input binding is invalid',
+    INVALID_CONFIG: 'Node configuration is invalid',
+    INVALID_STATE_VARIABLE: 'A state-variable declaration is invalid',
+    INVALID_STATE_ACCESS: 'State-variable access is invalid',
+    INVALID_CAPABILITY_BINDING: 'A capability binding is invalid',
+    NO_EXECUTION_ROOT: 'No execution root is available',
+    UNREACHABLE_EXECUTION: 'An execution node is unreachable',
+    DATA_CYCLE: 'Data dependencies form a cycle',
+    UNSUPPORTED_GRAPH: 'The graph structure is unsupported',
+    UNSUPPORTED_SOURCE_FEATURE: 'The Workflow uses an unsupported source feature',
+    WAILS_NOT_READY: 'The desktop runtime is not ready',
+    AUTOMATION_TARGET_SLOT_REQUIRED: 'An automation target must be selected',
+    RECORDING_TARGET_UNAVAILABLE: 'The recording target is unavailable',
     UNKNOWN_ERROR: 'An unknown error occurred',
-    TRANSPORT_TIMEOUT: 'The response timed out. Check that the target is available, then retry.',
-    TRANSPORT_UNAVAILABLE:
-      'Could not establish a connection. Check the target or network connection, then retry.',
-    WAILS_NOT_READY: 'The app is not ready yet, please retry',
-    AUTOMATION_TARGET_SLOT_REQUIRED: 'Select an installed automation target',
-    RECORDING_TARGET_UNAVAILABLE: 'The installed recording target is unavailable',
-    INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
-    INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
-    NO_ACTIVE_WINDOW: 'No active Windows target is available',
-    INVALID_HSV_RANGE: 'HSV range is invalid',
-    INVALID_SCAN_AXIS: 'scanAxis must be x or y, got {got}',
-    INVALID_CLUSTER_RANGE: 'cluster range invalid (min={min} > max={max})',
-    INVALID_VK: 'vk (virtual key code) is invalid',
-    INVALID_MOUSE_BUTTON: 'button must be left/right/middle, got {button}',
-    UNSAFE_SCREENSHOT_PATH: 'Screenshot pathTemplate is unsafe',
-    POLL_TOO_FAST: 'Poll interval too small (<{minMs}ms), will spike CPU',
-    INVALID_COLOR_MODE: 'Color mode must be hsv or rgb, got {got}',
-    INVALID_BLOB_PARAM: '{field} must not be negative, got {got}',
-    INVALID_SORT_MODE: 'Unsupported blob sorting mode: {got}',
-    STOPWATCH_EMPTY_KEY: 'Stopwatch key cannot be empty',
-    STOPWATCH_KEY_MISMATCH: '{kind} uses key {key} but no matching StopwatchStart in same graph',
-    THROW_IN_MAIN_GRAPH: 'Throw node cannot be in main graph (must be inside a subgraph)',
-    INVALID_SWITCH_CASES: 'Switch cases invalid (empty / duplicate / contains . / named default)',
-    INVALID_CRON_EXPR: 'Cron expression invalid: {expr} ({parseErr})',
-    INVALID_REGEX_PATTERN: 'Regular expression invalid: {pattern} ({parseErr})',
-    // v4 new
-    PIN_TYPE_MISMATCH: 'data pin type incompatible: {from} → {to} (edge: {edge})',
-    PIN_TYPE_COERCION_WARNING:
-      'data pin implicit coercion: {from} → {to} (suggest explicit To* node)',
-    GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar references undeclared variable {name}',
-    GETVAR_TYPE_MISMATCH: 'GetVar output type does not match downstream expectation',
-    LITERAL_TYPE_MISMATCH:
-      'inline literal type does not match pin type (pin {pin} expected {expected}, got {value})',
-    DATA_PIN_DANGLING: 'data-in pin {pin} has no edge and no literal',
-    DATA_GRAPH_CYCLE: 'data flow forms a cycle: {cycle}',
-    EXPR_PARSE_ERROR: 'Expr parse failed: {error}',
-    EXPR_UNKNOWN_INPUT: 'Expr references undeclared input {name}',
-    EXPR_TYPE_MISMATCH: 'Expr outType differs from inferred (expected {expected}, got {actual})',
-    EXPR_DUPLICATE_INPUT: 'Expr inputs has duplicate name: {name}',
-    EXPR_UNKNOWN_FUNCTION:
-      'Unknown function {name} — check spelling; see the input autocomplete for available functions',
-    EXPR_FN_ARITY: 'Function {name} expects {want} args, got {got}',
-    SCRIPT_PARSE_ERROR: 'Script syntax error: {error}',
-    SCRIPT_DUPLICATE_INPUT: 'Duplicate script input {name}',
-    EXPR_UNKNOWN_VAR:
-      'Expression references undeclared variable {name} — check spelling or declare it in the vars panel',
-    GETPARAM_UNKNOWN_PARAM: 'GetParam references undeclared input param {name}',
-    COLLAPSED_PIN_BROKEN: 'CollapsedNode external pin has no matching marker in backing Subgraph',
-    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL:
-      'Subgraph node references an isAnonymous Subgraph (it belongs to a CollapsedNode and cannot be reused across graphs)',
-    // B11/B3+ added codes
-    INVALID_VAR_REF: 'Node references undeclared container variable {varName} (scope={scope})',
-    SUBGRAPH_VAR_UNDECLARED:
-      'Subgraph {subgraphLabel} requires container variable {name}, but it is not declared',
-    // disabled nodes
-    WARN_DISABLED_BRANCH_NODE:
-      'Branch/async node {nodeID} (kind={kind}) disabled passthrough exit pin — non-deterministic, prefer delete over disable',
-    INVALID_DISABLED_TERMINAL:
-      'Container-level node {nodeID} (kind={kind}) cannot be disabled (Start/MouseCalibration/EventTick)',
-    // sentinel scope
-    BREAK_OUTSIDE_LOOP:
-      'Break node must be downstream of a Loop body (exec-reachable in same graph)',
-    CONTINUE_OUTSIDE_LOOP:
-      'Continue node must be downstream of a Loop body (exec-reachable in same graph)',
-    // template/clip key validation
-    INVALID_TEMPLATE_KEY: 'Template key {key} invalid: {error}',
-    TEMPLATE_NOT_FOUND: 'Template {key} not found in container',
-    CLIP_NOT_FOUND: 'Clip {id} not found in container',
-    // service.go fallback
-    CONTAINER_NOT_FOUND: 'Container {id} not found',
-  },
-  // Problems bar strings (EditorProblemsBar) — separate from error.* codes.
-  validation: {
-    desc_no_issues: 'No validation issues. Container can be run.',
-    bar_title: 'Problems',
-    unchecked: 'Not checked',
-    passed_short: 'No issues',
-    error_count: '{n} errors',
-    warning_count: '{n} warnings',
-    run_button: 'Pass — continue running',
-    fix_missing_win32_window_target: 'Auto-add Windows window target node',
-    jump: 'Jump',
-    fix: 'Fix',
-    clear_unused: 'Clear unused values',
-  },
-  containers: {
-    workspace: {
-      eyebrow: 'AUTOMATION WORKSPACE',
-      title: 'Container workspace',
-      description:
-        'Organize, run, and maintain executable automation. Double-click a container to edit it.',
-      summary: 'Container overview',
-      total: 'All containers',
-      running: 'Running now',
-      nodes: 'Total nodes',
-      categories: 'Categories',
-      no_description: 'No description yet. Add one in the editor to explain this container.',
-      updated: 'Updated {value}',
+    TRANSPORT_TIMEOUT: 'The request timed out; try again',
+    TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',
+    admission: {
+      target_unavailable: 'A required target is unavailable',
+      target_ambiguous: 'The target match is ambiguous',
+      provider_incompatible: 'The capability provider is incompatible',
+      unsupported_host: 'The current host does not support the required capability',
+      credential_unavailable: 'A required credential is unavailable',
+      credential_ambiguous: 'The credential match is ambiguous',
+      consent_required: 'User consent is required before execution',
+      policy_denied: 'Security policy denied this execution',
+      policy_invalid: 'The security policy is invalid',
+      persistence_failed: 'The grant record could not be saved',
+      persistence_unconfirmed: 'Grant persistence could not be confirmed',
     },
-    tab: {
-      local: 'Local',
-      online: 'Online',
+    application: {
+      invalid_request: 'The application-control request is invalid',
+      identity_changed: 'The installed application identity changed',
+      launch_failed: 'The application failed to launch',
+      terminate_failed: 'The application failed to terminate',
+      unsupported_host: 'Application control is unsupported on this host',
+      contract_violation: 'The application-control provider violated its contract',
     },
-    online: {
-      title: 'Online containers coming soon',
-      desc: 'Community-shared containers will appear here — one-click clone to local.',
+    automation: {
+      invalid_request: 'The automation request is invalid',
+      identity_changed: 'The automation target identity changed',
+      target_not_found: 'The automation target was not found',
+      target_ambiguous: 'The automation target match is ambiguous',
+      input_failed: 'The input operation failed',
+      window_failed: 'The window operation failed',
+      capture_failed: 'Capture failed',
+      playback_failed: 'Input playback failed',
+      playback_busy: 'Input playback is busy',
+      unsupported_host: 'This automation capability is unsupported on the host',
+      contract_violation: 'The automation provider violated its contract',
     },
-    search_placeholder: 'Search containers...',
-    filters: 'Filters',
-    filter_category: 'Filter category',
-    filter_category_all: 'All categories',
-    category_placeholder: 'Pick or type a category',
-    filter_tags: 'Filter tags...',
-    sort: {
-      label: 'Sort field',
-      name: 'By name',
-      created_at: 'By created date',
-      updated_at: 'By updated date',
-      nodes: 'By node count',
-      asc: 'Ascending',
-      desc: 'Descending',
+    network: {
+      invalid_request: 'The network request is invalid',
+      resolution_denied: 'The destination was denied by network policy',
+      request_failed: 'The network request failed',
+      response_too_large: 'The network response exceeds the size limit',
+      invalid_response: 'The network response is invalid',
+      contract_violation: 'The network provider violated its contract',
     },
-    view: {
-      cards: 'Cards',
-      list: 'List',
+    filesystem: {
+      invalid_path: 'The file path is invalid',
+      not_found: 'The file was not found',
+      budget_exceeded: 'The filesystem budget was exceeded',
+      is_directory: 'A file was expected, but the target is a directory',
+      read_failed: 'The file could not be read',
+      contract_violation: 'The filesystem provider violated its contract',
     },
-    pagination: {
-      empty: '0 results',
-      range: 'Showing {start}-{end} / {total}',
-      per_page: '{n} / page',
+    script: {
+      source_invalid: 'The script source is invalid',
+      guest_thrown: 'The script threw an error',
+      deadline_exceeded: 'The script exceeded its deadline',
+      stack_exceeded: 'The script exceeded its stack limit',
+      contract_violation: 'The script result violated its contract',
+      runner_protocol_violation: 'The script worker violated its protocol',
+      runner_crashed: 'The script worker crashed',
+      isolation_unavailable: 'Required script isolation is unavailable on this host',
     },
-    columns: {
-      label: 'Columns',
-      reset: 'Reset columns',
-    },
-    list: {
-      name: 'Name',
-      status: 'Status',
-      category: 'Category',
-      tags: 'Tags',
-      nodes: 'Nodes',
-      created_at: 'Created',
-      updated_at: 'Updated',
-      hotkey: 'Hotkey',
-      actions: 'Actions',
-    },
-    select: 'Select',
-    exit_select: 'Exit select',
-    delete_count: 'Delete ({n})',
-    actions: {
-      more: 'More actions',
-      more_for: 'More actions for “{name}”',
-    },
-    create: 'New container',
-    empty_title: 'No containers yet',
-    empty_desc:
-      'A container is a node-graph blueprint with variables, control flow, template detection, and Action calls.',
-    empty_cta: 'Create your first container',
-    no_match_title: 'No matching containers',
-    no_match_desc: 'The current search or tag filters have no results.',
-    reset_filters: 'Clear filters',
-    status: {
-      running: 'Running',
-      idle: 'Idle',
-    },
-    untitled: '(Untitled)',
-    node_count: '{n} nodes',
-    run: 'Run',
-    stop: 'Stop',
-    edit: 'Edit',
-    export: 'Export',
-    export_dialog_title: 'Export container package',
-    export_dialog_button: 'Export',
-    delete: {
-      title: 'Delete container?',
-      desc_prefix: 'Will delete',
-      desc_suffix: ', cannot undo.',
-      cancel: 'Cancel',
-      confirm: 'Delete',
-    },
-    batch_delete: {
-      title: 'Batch delete containers',
-      desc: 'Delete {n} containers? This cannot be undone.',
-      confirm: 'Delete',
-    },
-    batch_actions: {
-      menu: 'Batch actions',
-      selected: '{n} selected',
-      select_page: 'Select current page',
-      clear: 'Clear selection',
-      delete: 'Delete selected',
-      select_one: 'Select “{name}”',
-    },
-    toast: {
-      stop_signal: 'Stop signal sent',
-      deleted_count: 'Deleted {n}',
-      batch_partial_fail: 'Batch delete partially failed (see logs)',
-      recording_locked: 'Recording in progress, cannot delete the target container',
-      open_window_fail: 'Open window failed',
-      export_success: 'Container package exported',
-    },
-    create_default_name: 'Container {n}',
-    create_dialog: {
-      title: 'New container',
-      confirm: 'Create and edit',
-    },
-    basic_info: 'Basic info',
-    name_placeholder: 'Give the container a name',
-    hotkey_label: 'Trigger hotkey',
-    hotkey_hint: 'Press the hotkey to run this container once. Leave empty for manual trigger.',
-    description_placeholder: 'Optional · notes for yourself or teammates',
-    add_tag_placeholder: 'Add tag...',
-    tags_hint: 'Used to filter the container list; name freely (e.g. "daily", "raid", "fishing")',
-    input_backend_label: 'Input mode',
-    input_backend_postmessage: 'PostMessage — background, no focus steal',
-    input_backend_sendinput: 'SendInput — foreground injection, auto-activates window (default)',
-    input_backend_hint:
-      'PostMessage targets a Windows window by handle and runs in the background; SendInput uses OS-level global injection and needs focus, so the window is auto-brought to foreground when a Windows window target resolves.',
-    capture_backend_label: 'Capture backend',
-    scale_tolerance_label: 'Maximum template scale',
-    scale_tolerance_hint:
-      'When no exact-resolution template exists, resize the nearest variant within {min}×–{max}× before matching. Larger values cover more resolutions but increase false-match risk.',
-    variables_section: 'Variables',
-    add_var: 'Add',
-    var_declare_hint: 'After declaring, use $vars.varName in node config expressions.',
-    var_name_placeholder: 'Var name',
-    var_delete_tip: 'Delete variable {name}',
-    settings_title: 'Container settings',
-    node_and_edge_count: '{n} nodes · {m} edges',
-    empty_string_label: 'Empty string',
-    default_value_label: 'Default value',
-    listPinWireOnly: 'Provided by wire',
-  },
-  dialog: {
-    delete_confirm_title: 'Delete {item}?',
-    delete_confirm_desc: 'This cannot be undone.',
-    confirm: 'Confirm',
-    cancel: 'Cancel',
-  },
-  clip: {
-    manager: {
-      title: 'Clips',
-      search: 'Search name / id / tags...',
-      empty: 'No clips yet',
-      empty_hint: 'Record an input sequence from the toolbar to capture one.',
-      no_match: 'No clips matching "{search}"',
-      sort_asc: 'Ascending',
-      sort_desc: 'Descending',
-      view_by_name: 'By name',
-      view_by_created: 'By created',
-      view_by_duration: 'By duration',
-      events: 'events',
-      untitled: '(untitled)',
-      rename_tip: 'Double-click to rename',
-      copy_id: 'Copy ID',
-      delete_tip: 'Delete "{name}"',
-      delete_title: 'Delete clip',
-      delete_confirm: 'Delete clip "{name}"? This cannot be undone.',
-      batch_delete_title: 'Delete clips',
-      batch_delete_confirm: 'Delete the {n} selected clips? This cannot be undone.',
-    },
-    detail: {
-      empty: 'Select a clip to view details',
-    },
-  },
-  clipTimeline: {
-    hint: 'Drag on the track to add a kept range; drag blue edges to resize; hover shows × to delete',
-  },
-  nodeExplorer: {
-    title: 'Node Explorer',
-    search_placeholder: 'Search nodes (substring)...',
-    esc_tab_close: 'Esc / Tab close',
-    no_match: 'No matching nodes',
-    platform_windows: 'Win',
-    platform_android: 'Android',
-    platform_windows_only: 'Win only',
-    platform_android_only: 'Android only',
-    platform_common: 'Common',
-  },
-  contextMenu: {
-    no_literal_pin: 'This node has no literal pin to extract',
-    pin_not_data_in: 'pin {pin} is not a data-in type',
-    pin_no_literal: 'pin {pin} has no literal to extract (likely driven by edge)',
-    jump_failed: 'Jump failed',
-    node_not_in_container: 'Node {id} is not in current container',
-  },
-  editorSave: {
-    main_save_failed: 'Main graph save failed',
-    subgraph_save_failed: '{n} subgraph(s) failed to save',
-    stale_title: 'Newer version on disk',
-    stale_desc:
-      '{n} subgraph(s) were saved from another window. Reload discards your local edits to them; keep local and the next save will prompt again.',
-    stale_reload: 'Reload from disk',
-    stale_keep: 'Keep local edits',
-  },
-  folding: {
-    no_foldable: 'No foldable nodes selected (Start / MouseCalibration cannot be folded)',
-    new_subgraph_title: 'New subgraph',
-    new_subgraph_desc: 'Give the folded subgraph a name',
-    subgraph_name_label: 'Subgraph name',
-    subgraph_name_placeholder: 'e.g. Hook handler',
-    create_failed: 'Create subgraph failed',
-    multi_entry_unsupported: 'Multiple external entries not supported (v1)',
-    auto_reconnected: 'External edges auto-reconnected to subgraph call node',
-    manual_check_needed:
-      'Note: external edges between parent and subgraph not auto-reconnected, please check manually',
-  },
-  graphLayout: {
-    horizontal: 'Horizontal',
-    vertical: 'Vertical',
-    layout_failed: 'Auto-layout failed',
-  },
-  nodeClipboard: {
-    subgraph_word: 'Subgraph',
-  },
-  nodeCreation: {
-    lib_import_failed: 'Insert library subgraph failed',
-    no_graph: 'Current graph unavailable',
-    only_one_start: 'Only one Start node allowed',
-    create_subgraph_failed: 'Create subgraph failed, retry',
-    auto_added_vars: 'Auto-added {n} variable(s): {names}',
-  },
-  recordComposable: {
-    no_container_id: 'Current container has no ID, cannot record',
-    countdown_cancelled: 'Recording countdown cancelled',
-    recording_in_progress: 'Recording',
-    stop_methods: 'Press {hk} in game or click the HUD to stop',
-    replace_node_missing: 'Target node no longer exists, creating new',
-    replace_node_wrong_kind: 'Target node kind={kind} does not match this recording, creating new',
-    recording_failed: 'Recording failed',
-    no_product: 'Recording stopped but no product received',
-    default_clip_name: 'Recording clip',
-    container_mismatch:
-      'Recorded subgraph was saved to container "{target}", but "{current}" is currently open. Switch to "{target}" to see the recording.',
-    leave_title: 'Recording in progress',
-    leave_during_recording:
-      'If you leave, the result cannot auto-wire into the current view — you must go to the target container manually. Leave anyway?',
-    leave_confirm: 'Leave anyway',
-  },
-  subgraphLifecycle: {
-    default_name_prefix: 'Subgraph',
-  },
-  jsonEditor: {
-    error: 'JSON error: {msg}',
-  },
-  nodeInspector: {
-    advanced_word: 'advanced',
   },
   workflow31: {
     list: {
@@ -3458,178 +1394,6 @@ export default {
     delete_title: 'Delete schedule',
     delete_desc: 'Delete "{name}"? This cannot be undone.',
   },
-  library: {
-    loading: 'Loading...',
-    explorer: {
-      title: 'Subgraph Library',
-      search: 'Search library (name / tag / description)...',
-      esc_close: 'Esc to close',
-      empty: 'Library is empty (collapse nodes into a subgraph or save a recording to populate it)',
-      no_match: 'No matching library entries',
-      uncategorized: 'Uncategorized',
-      tab_local: 'Local',
-      tab_online: 'Online',
-      insert: 'Insert reference',
-      filter_category_all: 'All categories',
-      filter_tags: 'Filter by tags…',
-      category_placeholder: 'Pick or type a new category',
-      view_by_name: 'By name',
-      view_by_created: 'By created',
-      view_by_nodes: 'By node count',
-      sort_asc: 'Ascending',
-      sort_desc: 'Descending',
-    },
-    online: {
-      title: 'Online library coming soon',
-      desc: 'Community-shared subgraphs / templates will appear here, clonable to your machine in one click.',
-    },
-    card: {
-      duplicate: 'Duplicate as new subgraph',
-      duplicated: 'Duplicated as "{name}"',
-      copy_id: 'Copy ID',
-      delete: 'Delete',
-      delete_confirm_title: 'Delete subgraph',
-      delete_confirm_desc: 'Delete "{name}"? This cannot be undone.',
-      delete_confirm_referenced:
-        '"{name}" is used by {n} container(s); deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
-    },
-    toolbar: {
-      total: '{n} total',
-      per_page: '{n} / page',
-    },
-    batch: {
-      selected_n: '{n} subgraphs selected',
-      menu: 'Batch actions',
-      add_tags: 'Add tags',
-      delete: 'Delete selected',
-      clear: 'Clear selection',
-      change_category: 'Change category',
-      change_category_title: 'Change category',
-      change_category_placeholder: 'Pick or type target category',
-      change_category_apply: 'Apply',
-      delete_confirm_title: 'Delete subgraphs',
-      delete_confirm_desc: 'Delete the {n} selected subgraphs? This cannot be undone.',
-      delete_confirm_referenced:
-        '{m} of the {n} selected subgraphs are used by containers: {names}. Deleting will break them with "subgraph missing". Delete anyway? This cannot be undone.',
-      add_tags_title: 'Add tags to selection',
-      add_tags_placeholder: 'Pick or type tags to append…',
-      add_tags_apply: 'Add',
-      partial_failed: '{n} subgraph(s) failed (possibly modified elsewhere); list refreshed',
-    },
-    detail: {
-      empty: 'No selection',
-      empty_hint: 'Click to view details · double-click to insert',
-      nodes_and_outputs: '{n} nodes · {m} outputs',
-      description: 'Description',
-      used_by: 'Used by',
-      used_by_n: '{n} container(s)',
-      created_at: 'Created',
-      tags: 'Tags',
-      click_to_copy: 'Click to copy — ',
-      delete: 'Delete',
-      desc_empty: 'Double-click to add a description',
-      dblclick_edit: 'Double-click to edit',
-    },
-  },
-  template: {
-    capture: {
-      title: 'Capture new template',
-      desc: 'Screenshot → drag to box select → save',
-      help: 'Capture the game window; the snippet you frame becomes the template to detect.',
-      capturing: 'Capturing...',
-      action: 'Capture',
-      preview: 'Template preview',
-      clear_selection: 'Clear selection',
-      retake: 'Retake',
-      drag_hint:
-        'Drag a rectangle on the image to frame the target. No selection = save full screen.',
-      key_label: 'Key (required)',
-      key_example: 'fishing.hook_icon',
-      name_label: 'Display name (required)',
-      name_example: 'e.g. Hook icon',
-      desc_label: 'Description (optional)',
-      desc_hint: 'When does it match? Anything to note about the threshold?',
-      original_size: 'Original {w} × {h}',
-      cropped_size: 'Selection {w} × {h}',
-      recorded_res: 'Recorded resolution {res}',
-      save_cropped: 'Save template (cropped)',
-      save_full: 'Save template (full)',
-      no_game_window: 'Game window not detected',
-      invalid_key_format:
-        'Must be like fishing.hook_icon (letters/digits/underscore + at least 1 dot)',
-    },
-    manager: {
-      title: 'Template manager',
-      search: 'Search key / name / description...',
-      empty: 'Template library is empty',
-      empty_hint: 'Click "Capture new template" above to add one.',
-      no_match: 'No template matching "{search}"',
-      sort_asc: 'Ascending',
-      sort_desc: 'Descending',
-      view_by_name: 'Sort by display name',
-      view_by_res: 'Sort by resolution',
-      view_by_created: 'Sort by created time',
-      delete_title: 'Delete template',
-      delete_confirm: 'Delete template "{key}"? This cannot be undone.',
-      batch_delete_title: 'Batch delete templates',
-      batch_delete_confirm: 'Delete {n} selected templates? This cannot be undone.',
-      delete_template_tip: 'Delete "{key}"',
-      recapture_tip: 'Recapture the library image for "{key}"',
-      copy_key: 'Copy GUID',
-      preview: 'Preview',
-      variant_count: 'variants',
-      tags_label: 'Tags: ',
-      created_at: 'Created {time}',
-    },
-    detail: {
-      empty: 'Select a template to view details',
-      view_large: 'View full image',
-    },
-    picker: {
-      not_selected: 'Not selected',
-      select_placeholder: 'Select template...',
-      selected_count: '{n} selected',
-      capture_new: '＋ Capture now',
-      library_empty: 'No templates in this container yet — capture one above',
-      no_template_selected: 'No template selected — node will not run',
-      no_match: 'No matching template',
-      browser_title: 'Select template',
-      done: 'Done',
-      view: 'View',
-      select: 'Select',
-      unselect: 'Deselect',
-      back: 'Back',
-      use: 'Use',
-      selected: 'Selected',
-      name_label: 'Name',
-      tags_label: 'Tags',
-      add_tag: 'Add tag, Enter to confirm',
-      variants_label: 'Resolution variants',
-      recapture: 'Recapture',
-      zoom_hint: 'Wheel zoom · drag pan · dbl-click reset',
-      delete_selected: 'Delete selected',
-      prev: 'Previous',
-      next: 'Next',
-      current_window: 'Current window',
-      window_not_open: 'Window not open',
-      scaled_from: 'runtime scales {res}',
-      add_variant: 'Add {res}',
-      current_badge: 'current',
-      del_variant_title: 'Delete variant {res}?',
-      del_variant_desc:
-        'Only this variant is removed; other resolutions stay, and nodes using this asset match with the remaining ones.',
-    },
-  },
-  recording: {
-    launch_failed: 'Recording launch failed',
-    no_steps: 'No steps captured',
-    stop_failed: 'Recording stop failed',
-    completed: 'Recording completed',
-    completed_no_graph: 'Recording completed, but no active graph',
-    added_subgraph: 'Subgraph node added: {name}',
-    added_clip: 'PlayClip node added: {name}',
-    rerecord_overwrite: 'Re-recorded and overwritten: {name}',
-  },
   recordingHud: {
     title: 'Recording controls',
     subtitle: 'Control the active input capture',
@@ -3669,78 +1433,6 @@ export default {
     discard_confirm_hint: 'Click again to permanently discard this recording.',
     discard_failed: 'Could not discard recording',
   },
-  subgraphCleanup: {
-    title: 'Clean unused blueprints',
-    scanning: 'Checking blueprint references across all workflows and blueprints…',
-    scan_failed: 'Could not check blueprint references',
-    empty_title: 'No blueprints to clean',
-    empty_desc:
-      'Every blueprint is in use, or the library is already clean. {n} blueprint(s) are referenced.',
-    can_delete: 'Safe to delete',
-    in_use: 'Still used by workflows or blueprints',
-    selected_title: 'Blueprints to delete',
-    select_all: 'Select all',
-    clear_selection: 'Clear selection',
-    select_item: 'Select blueprint “{name}”',
-    skipped_title: '{n} blueprint(s) in use were skipped',
-    skipped_desc: 'These blueprints are still referenced and will not be deleted.',
-    delete_count: 'Delete {n} blueprints',
-    partial_failed: '{n} blueprint(s) could not be deleted',
-    changed_refs: '{n} blueprint(s) became referenced and were skipped',
-    delete_failed: 'Could not clean blueprints',
-    kind: 'Blueprint',
-  },
-  assetBrowser: {
-    workspaceTitle: 'Asset workbench',
-    workspaceSubtitle: 'Find, reuse, and maintain automation assets',
-    openWorkspace: 'Open asset workbench',
-    backToAssets: 'Back to assets',
-    searchAll: 'Search all templates, blueprints, and action clips',
-    visualTemplates: 'Visual templates',
-    automationBlueprints: 'Automation blueprints',
-    actionClips: 'Action clips',
-    templateSubtitle: 'Recognize targets from real screenshots',
-    blueprintSubtitle: 'Reuse automation structures you already trust',
-    clipSubtitle: 'Replay mouse and keyboard input segments',
-    filters: 'Filters',
-    categories: 'Categories',
-    clearFilters: 'Clear filters',
-    sortBy: 'Sort by',
-    sortAsc: 'Ascending',
-    sortDesc: 'Descending',
-    gridView: 'Grid view',
-    listView: 'List view',
-    pagination: 'Asset pages',
-    selectedCount: '{n} items selected',
-    variantCount: '{n} resolution variant(s)',
-    nodeCount: '{n} node(s)',
-    outputCount: '{n} output(s)',
-    requiredVariables: '{n} required variable(s)',
-    inputEvents: '{n} input event(s)',
-    dragToCanvas: 'Drag to canvas',
-    previewFailed: 'Preview unavailable',
-    blueprintPreview: 'Blueprint topology preview with {n} nodes',
-    emptyBlueprint: 'Empty blueprint',
-    clipPreview: 'Clip timeline, {duration}, {count} input events',
-    clipEmptyHint: 'Action clips will appear here after you finish a recording.',
-    noResolution: 'Resolution not recorded',
-    mouseMode: {
-      relative: 'Relative mouse',
-      absolute: 'Absolute coordinates',
-      mixed: 'Mixed mouse input',
-      unknown: 'Mouse input',
-    },
-  },
-  assetMaintenance: {
-    title: 'Resource management',
-    description: 'Scan structured blueprint references, then preview and select what to remove.',
-    subgraphs: {
-      title: 'Blueprint library',
-      description:
-        'Scan non-recording blueprints and list items unused by workflows or blueprints.',
-      action: 'Scan and clean',
-    },
-  },
   calibration: {
     title: 'Mouse DPI calibration',
     switch_game_hint: 'Switch to game, press',
@@ -3769,132 +1461,6 @@ export default {
       },
     },
   },
-  var: {
-    title: 'Variables',
-    add: 'Add variable',
-    insert_inc: 'Insert IncVar (delta=1)',
-    search_placeholder: 'Search (name)...',
-    empty: 'No variables. Click + to add.',
-    no_match: 'No match',
-    independent: 'Independent',
-    collapse: 'Collapse',
-    expand: 'Expand',
-    any_independent_placeholder: 'Any value (stored as text)',
-    list_placeholder: 'JSON array, e.g. [1, 2, "a"]',
-    list_invalid: 'Not a valid JSON array; not saved',
-    error: {
-      name_empty: 'Name cannot be empty',
-      invalid_name: 'Must start with letter/_, only letters/digits/underscore',
-      duplicate: 'Variable "{name}" already exists',
-    },
-    delete: {
-      title: 'Delete variable "{name}"',
-      refs_count: '{count} nodes reference this variable',
-      refs_prefix: 'Currently',
-      refs_suffix: 'node(s) reference this variable.',
-      more_count: '{n} more...',
-      choose_mode: 'Choose delete mode:',
-      mode_keep: 'Keep referencing nodes (recommended)',
-      mode_keep_desc: 'Nodes are marked INVALID_VAR_REF; graph not modified',
-      mode_keep_desc_inline: 'mark nodes red',
-      mode_remove: 'Also delete {count} nodes + edges',
-    },
-    new: {
-      modal_title: 'New global variable',
-      name_label: 'Name',
-      type_label: 'Type',
-      confirm: 'Create',
-    },
-    input: {
-      create: 'New global variable "{name}" ({type})',
-      declare_now: 'Declare as variable',
-      type_mismatch:
-        'Type mismatch: capturing {cap} into a {dst} variable (still written, converted at runtime)',
-    },
-    refs: {
-      title: 'References of variable {name}',
-      title_prefix: 'Variable',
-      title_suffix: 'references',
-      count_label: '{n} reference(s)',
-      empty: 'No referencing nodes',
-      click_to_select: 'Click to select + jump to canvas',
-      click_to_jump_hint: 'Click to jump to node',
-      read: 'read',
-      write: 'write',
-    },
-    promote: {
-      title: 'Promote to variable',
-      modal_title: 'Promote to variable',
-      desc_prefix: 'Promote',
-      desc_literal_label: 'current value',
-      desc_suffix: 'to a variable.',
-      name_label: 'Variable name',
-      name_placeholder: 'New variable name',
-      name_input_placeholder: 'New variable name',
-      scope_label: 'Scope',
-      scope_local: 'Local (subgraph)',
-      scope_global: 'Global (container)',
-      type_label: 'Type',
-      default_label: 'Initial value',
-      default_help: 'The new variable starts with the current literal value.',
-      confirm: 'Promote',
-    },
-  },
-  expression: {
-    error: {
-      paren_mismatch: 'Parenthesis mismatch',
-      string_unclosed: 'Unclosed string: missing "',
-      paren_missing: 'Parenthesis mismatch: missing {count} {char}',
-      bare_word:
-        'Looks like a bare word; for string literals wrap "{var}" in double quotes; for variables/params use a GetVar / GetParam node wired into an input pin.',
-      op_end: 'Expression ends with operator, right operand missing',
-      unknown_fn: 'Unknown function {name}',
-    },
-    fn: {
-      abs: { desc: 'Absolute value' },
-      ceil: { desc: 'Round up to integer' },
-      clamp: { desc: 'Limit x to the [min, max] range' },
-      floor: { desc: 'Round down to integer' },
-      max: { desc: 'Larger of two numbers' },
-      min: { desc: 'Smaller of two numbers' },
-      now: { desc: 'Current timestamp (ms)' },
-      pow: { desc: 'x to the power of y' },
-      rand: { desc: 'Random float 0~1' },
-      randint: { desc: 'Random integer, min and max inclusive' },
-      round: { desc: 'Round, with optional digits' },
-      sqrt: { desc: 'Square root' },
-    },
-  },
-  script: {
-    fn: {
-      Subgraph:
-        'Call a subgraph of this container and wait until it finishes. Fields other than SubgraphID are passed as input params; the returned exit is the output the subgraph actually reached (e.g. "done" / "failed").',
-      params_get: 'Read a subgraph parameter (only meaningful inside a subgraph).',
-      sleep: 'Wait for the given milliseconds. Interrupts immediately when the run stops.',
-      log_info: 'Write a log line to the run log; multiple arguments are joined with spaces.',
-      log_warn: 'Write a warning-level log line.',
-      log_debug: 'Write a debug-level log line.',
-    },
-  },
-  nodeGroup: {
-    control: 'Control flow',
-    variables: 'Variables',
-    purefunc: 'Compute',
-    detect: 'Detect',
-    image: 'Image',
-    input: 'Input',
-    target: 'Target',
-    system: 'System',
-    io: 'I/O',
-    stopwatch: 'Timer',
-    mock: 'Test',
-    test: 'Test',
-    event: 'Event',
-    random: 'Random',
-    list: 'List',
-    window: 'Window',
-    other: 'Other',
-  },
   hotkeyInput: {
     click_to_set: 'Click to set hotkey',
     clear: 'Clear hotkey',
@@ -3903,81 +1469,6 @@ export default {
     key_example: 'e.g. W / Space',
     click_to_record: 'Click to record key',
     click_to_cancel: 'Cancel recording',
-  },
-  commentBox: {
-    title_placeholder: 'Title',
-    content_placeholder: 'Write notes… markdown supported',
-  },
-  // visualRegistry color names — swatch picker tooltip.
-  palette: {
-    red: 'Red',
-    orange: 'Orange',
-    amber: 'Amber',
-    yellow: 'Yellow',
-    lime: 'Lime',
-    green: 'Green',
-    emerald: 'Emerald',
-    teal: 'Teal',
-    cyan: 'Cyan',
-    sky: 'Sky',
-    blue: 'Blue',
-    indigo: 'Indigo',
-    violet: 'Violet',
-    purple: 'Purple',
-    pink: 'Pink',
-    rose: 'Rose',
-    zinc: 'Gray',
-  },
-  editorAux: {
-    root_graph: 'Main graph',
-    subgraph_label: 'Subgraph: {name}',
-    entry_pin: 'Entry',
-    output_pin: 'Output',
-    subgraph_default_name: 'Subgraph {timestamp}',
-    error_manual_json: 'Hand-written JSON uses an isAnonymous Subgraph',
-    warning_concurrent_write: 'Concurrent writes from branches: {nodes} (non-deterministic)',
-    warning_select_two: 'Select at least 2 nodes before aligning',
-    auto_layout_done: 'Auto layout applied',
-    copied_nodes: '{n} nodes copied',
-    copy_suffix: ' (copy)',
-    copy_failed: 'Copy failed',
-    save_orphan_gc: 'GC orphan subgraphs: {n}',
-    inspector_advanced: 'Advanced ({count})',
-    inspector_advanced_show: 'Show',
-    inspector_advanced_hide: 'Hide',
-    json_error: 'JSON parse error',
-  },
-  subgraphProps: {
-    no_selection: 'No subgraph selected',
-    name: 'Name',
-    description: 'Description',
-    outputs_count: '{n} outputs',
-    click_to_copy: 'Click to copy — ',
-    to_script: 'Convert to script',
-  },
-  subgraphScript: {
-    title: 'Subgraph to script — {name}',
-    insert: 'Insert as Script node',
-    unsupported_title: 'This subgraph contains structures that cannot be converted:',
-    reason: {
-      not_bindable: 'No script function equivalent',
-      dynamic_inputs: 'Dynamic-input node — write the JS expression directly in script',
-      merge: 'Two exec branches merge into one node, not expressible in script',
-      cycle: 'Exec edges form a cycle — rewrite with native for/while',
-      fan_out: 'One exec output wired to multiple targets',
-      fail_edge: 'Fail output is wired — handle errors with try/catch in script',
-      cross_branch_data: 'Reads data from another exec branch',
-      multi_out_pure: 'Multi-output pure function, cannot address a single field',
-      disabled: 'Node is disabled, skip semantics not convertible',
-      callee_missing: 'Referenced subgraph does not exist',
-    },
-  },
-  execution: {
-    run_failed: 'Run failed',
-  },
-  snippet: {
-    general: 'General',
-    quota_unavailable: 'Quota unavailable',
   },
   settingsTab: {
     general: 'General',
@@ -4159,18 +1650,6 @@ export default {
     live_badge: 'Live',
     preview_empty: 'Add content to preview it here',
     untitled_label: 'Untitled heading',
-  },
-  editorSearch: {
-    find: 'Find',
-    replace: 'Replace',
-    next: 'Next',
-    previous: 'Previous',
-    all: 'All',
-    match_case: 'Match case',
-    by_word: 'Whole word',
-    regexp: 'Regex',
-    replace_all: 'Replace all',
-    close: 'Close',
   },
   settingsNetwork: {
     security: {
@@ -4408,21 +1887,21 @@ export default {
     tagline: 'Compose nodes. Run automatically.',
     concepts: {
       title: 'Core concepts',
-      container: {
-        name: 'Container',
-        desc: 'A self-contained executable unit. Holds a main graph (nodes + edges), its subgraphs, variables and a hotkey. Export to share the whole thing with users on other machines.',
+      workflow: {
+        name: 'Workflow',
+        desc: 'The only editable orchestration document. A Source stores typed graphs, configuration, state declarations, and exact NodeRefs, then commits a server-normalized revision.',
       },
-      subgraph: {
-        name: 'Subgraph',
-        desc: 'A reusable execution function inside a container: one entry, one or more named exits. The parent graph runs it via a Subgraph call node and branches by exit name.',
+      catalog: {
+        name: 'Node Catalog',
+        desc: 'An immutable snapshot of Node Contracts, data types, capability requirements, and implementation locks. UI, AI, CLI, and docs share its Authoring Projection.',
       },
-      library: {
-        name: 'Library',
-        desc: 'A machine-wide repository of subgraphs + templates. Dragging from the library is copy-on-use (an independent copy, isolated). You can also publish a container subgraph back to the library.',
+      program_run: {
+        name: 'Program and Run',
+        desc: 'Compilation turns a Source into a content-addressed immutable Program. Every execution is independently admitted, cancellable, and recorded as an auditable Run.',
       },
-      schedule: {
-        name: 'Schedule',
-        desc: 'Automate container runs: hotkey / timer (cron / interval) / once-at-startup / manual. Multiple containers can share one schedule and run sequentially.',
+      installation: {
+        name: 'Installation and Target',
+        desc: 'Models, applications, automation targets, and plugins install under stable slots. Workflows declare slots and capabilities without persisting native handles or bypassing consent.',
       },
     },
     section_author: 'Author · Links',

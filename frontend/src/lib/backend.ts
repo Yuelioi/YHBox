@@ -30,16 +30,14 @@ import * as E from '@/constants/events'
 export interface BackendLogEntry {
   time: string
   level: string
-  source: 'SYS' | 'CTR'
-  kind: 'system' | 'log' | 'node' | 'dump' | 'action'
+  source: 'SYS' | 'WF'
   tag?: string
   message: string
   fields?: unknown
+  graphId?: string
   nodeId?: string
-  lineKey?: string
-  count?: number
-  final?: boolean
-  trace?: unknown
+  invocationId?: string
+  attempt?: number
 }
 export interface LogBatchEvent {
   seq: number
@@ -51,7 +49,7 @@ export interface LogBatchEvent {
 // [reserved] / [invalid] 区分。
 //
 // label 是 i18n key string (FE 走 t(entry.label, entry.labelParams)). labelParams
-// 装 vue-i18n named interpolation (容器名 / 计划名等动态), backend Register 时填.
+// 装 vue-i18n named interpolation (工作流名 / 计划名等动态), backend Register 时填.
 export interface HotkeyEntry {
   key: string
   source: 'system' | 'action' | 'schedule' | 'editor' | 'recording'
@@ -238,7 +236,7 @@ export const backend = {
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
   assets: {
-    // List 全局资产列表 (template + clip), 无 containerID.
+    // List 全局资产列表 (template + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
     // SaveTemplateCapture 截图存为新模板资产, 返 GUID. tags 截图时可选设标签.
     saveTemplateCapture: (
@@ -342,7 +340,7 @@ export const backend = {
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
   // Exposes authoring metadata and the nominal content BlobRef; runtime does not call this RPC.
-  clipsContainer: {
+  clips: {
     list: () => invoke(ClipService.List),
     get: (id: string) => invoke(ClipService.Get, id),
     save: (clip: unknown) => invoke(ClipService.Save, clip as any),

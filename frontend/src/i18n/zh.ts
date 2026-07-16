@@ -25,18 +25,10 @@
 
 export default {
   sidebar: {
-    automation: 'Automation',
-    tools: 'Tools',
-    actions: '动作',
-    tasks: '任务',
-    containers: '容器',
     workflows: '工作流',
     schedules: '计划',
     settings: '设置',
     about: '关于',
-    container_edit: '编辑容器',
-    workflow_edit: '编辑工作流',
-    launcher: '悬浮启动器',
     primary_navigation: '主导航',
   },
   controls: {
@@ -178,40 +170,14 @@ export default {
     },
   },
   toast: {
-    autostart_on: '已开启开机自启',
-    autostart_off: '已关闭开机自启',
     lang_en_warn_title: 'Language switched to English',
     lang_en_warn_desc:
       '部分场景的视觉模板尚未采集英文版本, 相关功能可能显示为不可用. UI 字符串已切换.',
-    subgraph_not_set: '该节点未指定子图',
-    debug_save_first: '请先保存再调试',
-    debug_run_busy: '当前正在运行，不能同时调试',
-    validate_failed: '校验失败',
-    validate_call_failed: '校验调用失败',
-    win32_window_target_added_title: '已添加 Windows 窗口目标节点',
-    win32_window_target_added_desc:
-      '请打开节点 Inspector 配置 Windows 窗口匹配条件 (或点"捕获前台窗口")',
-    expr_fuse_failed: 'Expr 合并失败 (前置条件不满足)',
-    subgraph_recording_reset_warn: '重置录制元数据需要重新录制此子图（v1 仅提示）',
-    // 通用 toast (跨文件复用)
-    delete_failed: '删除失败',
-    delete_partial_fail: '批量删除部分失败 (详情见日志)',
-    copy_id_success: '已复制 ID',
-    copy_failed: '复制失败',
     save_failed: '保存失败',
     operation_failed: '操作失败',
-    container_not_found: '容器未找到',
     and_n_more: '，还有 {n} 个错误',
   },
   editor: {
-    experience: {
-      basic: '简洁',
-      pro: '完整',
-    },
-    header: {
-      loading: '加载中...',
-      dirty_dot: '· 未保存',
-    },
     window: {
       controls: '窗口控制',
       minimize: '最小化',
@@ -219,630 +185,6 @@ export default {
       restore: '还原',
       close: '关闭',
     },
-    dirty: {
-      title: '未保存的修改',
-      desc: '当前容器有未保存的修改。继续将丢失这些改动。',
-      cancel: '取消',
-      discard: '丢弃并关闭',
-      save_and_close: '保存并关闭',
-    },
-    reload: {
-      title: '重载容器',
-      desc: '将丢弃未保存的本地改动，从磁盘重新加载这个容器。',
-      confirm: '丢弃并重载',
-      failed: '重载失败',
-    },
-    debug: {
-      confirm_from_here_title: '从此节点开始调试？',
-      confirm_from_here_desc:
-        '将从「{node}」开始执行。上游节点不会先运行；如果它依赖上游写入的变量或状态，结果可能和完整流程不同。',
-      confirm_from_here_action: '开始调试',
-    },
-    canvas: {
-      hint: '左键拖空白框选 · 中键拖拽视图 · Ctrl+C/V 复制粘贴 · Delete 删除',
-      node_disabled_tooltip: '此节点已禁用 (运行时跳过)',
-      subgraph_no_id: '(未选)',
-      context: {
-        selected: '选中 {n}',
-        align: '对齐',
-        distribute: '分布',
-        delete: '删除',
-      },
-    },
-    debug_panel: {
-      title: '节点调试',
-      close_tip: '停止调试并关闭面板',
-      queue_count: '队列 {n}',
-      focus_none: '当前',
-      focus_next: '下一步',
-      focus_running: '执行中',
-      focus_failed: '失败',
-      last: '上一步',
-      output: '输出',
-      vars: '变量',
-      queue: '队列',
-      side_effect_warning: '调试会真实执行自动化动作，已产生的副作用不会自动回滚。',
-      unknown_error: '调试失败',
-      status: {
-        idle: '空闲',
-        paused: '暂停',
-        stepping: '单步中',
-        running: '继续中',
-        pause_requested: '等待暂停',
-        finished: '完成',
-        failed: '失败',
-        stopped: '已停止',
-      },
-      warning: {
-        debug_skips_upstream_context: '从此节点调试会跳过上游节点，可能使用已有变量或目标状态。',
-      },
-    },
-    hard_delete: {
-      title: '彻底删除',
-      confirm: '将彻底删除 {n} 个底层定义（子图 / clip），库里一并移除。确定？',
-      confirm_referenced:
-        '将彻底删除 {n} 个底层定义；其中还被其它 {refs} 处引用，删后那些引用会变「未找到」。确定？',
-      done: '已彻底删除 {n} 个定义',
-      failed: '{n} 个定义删除失败',
-    },
-    breadcrumb: {
-      root_fallback: '...',
-    },
-    dock: {
-      assets: '资产',
-      detail: '详情',
-      drag_hint: '拖到画布插入 · 单击选中 · 回车或更多查看详情',
-      select_asset: '选择“{name}”',
-    },
-    toolbar: {
-      back_to_list: '返回容器列表',
-      node_explorer: '节点 Explorer (Tab)',
-      library_explorer: '子图库 Explorer',
-      undo: '撤销 Ctrl+Z',
-      redo: '重做 Ctrl+Y',
-      record: '录制',
-      stop_record: '停止录制',
-      stop_record_tip: '点这里 或在游戏前台按 {hk} 停止',
-      recording_target_tip: '录制结果将存入容器「{name}」',
-      cancel_countdown: '取消 ({n})',
-      cancel_countdown_tip: '点这里取消录制倒计时',
-      record_input_clip: '录制完整输入事件流',
-      fold: '折叠为子图',
-      fold_tip: '折叠选中节点为新子图',
-      auto_layout: '自动布局',
-      layout_lr: '横向',
-      layout_tb: '纵向',
-      snap: '吸附对齐',
-      edge_style: '连线样式',
-      edge_style_bezier: '曲线',
-      edge_style_smoothstep: '直角',
-      edge_style_step: '折线',
-      running: '跑中',
-      debugging: '调试中',
-      stop_run: '停止',
-      stop_run_tip: '停止当前运行 + 清队列 (同 {hk})',
-      debug: '调试',
-      debug_tip: '从起点进入调试模式',
-      debug_side_effect_tip: '调试是真实执行：点击、输入、启动程序、写文件等动作不会自动回滚。',
-      debug_dirty_tip: '请先保存再调试',
-      debug_step: '下一步',
-      debug_step_tip: '执行一个节点',
-      debug_continue: '继续',
-      debug_continue_tip: '连续执行，直到结束、失败或请求暂停',
-      debug_pause: '暂停',
-      debug_pause_tip: '在当前节点结束后暂停',
-      debug_stop_tip: '停止调试会话',
-      validate: '检查',
-      validate_tip: '校验主图 + 所有子图',
-      validate_dirty_tip: '请先保存再检查（校验读持久化版本）',
-      run_hero: '运行',
-      try_run_tip: '入队运行一次',
-      try_run_dirty_tip: '请先保存再运行',
-      save: '保存',
-      saved: '已保存',
-      reload: '重载',
-      reload_tip: '从磁盘重载这个容器（MCP / 外部改动后同步）',
-      open_settings: '容器设置 (Ctrl+,)',
-      more: '更多',
-      inspector_expand: '展开属性面板',
-      inspector_collapse: '折叠属性面板',
-    },
-    layout: {
-      auto_lr: '自动布局（横向）',
-      auto_tb: '自动布局（纵向）',
-      align_left: '对齐左 (≥2 节点)',
-      align_right: '对齐右',
-      align_top: '对齐顶',
-      align_bottom: '对齐底',
-      center_h: '水平居中',
-      center_v: '垂直居中',
-      dist_h: '水平等距分布 (≥3)',
-      dist_v: '垂直等距分布',
-    },
-    overview: {
-      title: '容器概览',
-    },
-    inspector: {
-      group_basics: '基础',
-      group_inputs: '输入',
-      group_outputs: '输出',
-      outputs_none: '无出口',
-      empty: {
-        title: '未选节点',
-        stats_nodes: '{n} 节点',
-        stats_vars: '{n} 变量',
-        stats_subgraphs: '{n} 子图',
-        hotkey_label: '热键',
-        hotkey_none: '未设',
-        canvas_title: '开始搭建你的自动化',
-        canvas_desc: '添加一个节点，或录制一段操作生成第一步。',
-        add_first_node: '添加第一个节点',
-        record_actions: '录制操作',
-        shortcuts_label: '也可以使用快捷方式',
-        quick_start: '快捷开始:',
-        tab_explorer: '打开节点 Explorer',
-        right_click_canvas: '右键画布 → 添加节点菜单',
-        command_palette: '命令面板',
-        open_help: '打开帮助',
-      },
-    },
-    help: {
-      title: '帮助',
-      tab: {
-        getting_started: '快速上手',
-        errorcodes: '错误码',
-        shortcuts: '快捷键',
-        nodes: '节点速查',
-      },
-      gs: {
-        intro: 'Yotta 是通用游戏自动化脚本框架. 工作流: 建容器 → 编排节点图 → 触发执行.',
-        step1: '侧栏点「容器」→ 新建一个',
-        step2: '编辑器拖节点 / 连线 / 配置参数 (左侧 palette, 右侧 inspector)',
-        step3: '点「试运行」立即跑一次, 或在「计划」绑热键 / 定时',
-        step4: '可复用片段 → 折叠为子图 → 发布到库, 跨容器共享',
-        uac_title: '需要管理员权限',
-        uac: '注入输入到游戏需以管理员身份运行 Yotta.exe (右键 → 以管理员身份运行), 否则点击 / 按键无法注入.',
-      },
-      errorcodes_hint: '节点失败时「失败」出口带出的 Code，可用 Switch 按码分流。',
-      errorcode_desc: {
-        launch_failed: '目标控制器无法启动已配置的应用程序。',
-        capture_failed:
-          '截屏或颜色检测 / 模板匹配等视觉操作失败 —— 常见自动化目标不可用、被最小化或已关闭.',
-        write_failed: 'Screenshot 等写文件失败 —— 路径非法 / 目录不可写 / 磁盘满.',
-        not_found: '窗口/目标节点按条件找不到对应对象.',
-        timeout: '等待类操作在限定时间内没等到结果.',
-        playback_failed: 'PlayClip 回放录制片段失败.',
-        send_failed: '点击 / 按键等输入注入当前自动化目标失败.',
-        thrown: 'Throw 节点没填 Code 时的默认码.',
-        error: '兜底 / 未分类的失败.',
-      },
-      shortcuts_hint: '容器编辑器内置快捷键（在 设置 → 快捷键 可查冲突）。',
-      nodes_hint: '节点按类别速查。具体节点按 Tab 打开节点 Explorer 浏览 / 搜索。',
-      node_group: {
-        control: { label: '控制流', desc: 'Start / Sleep / Loop / If / Stop / Break / Continue' },
-        variable: {
-          label: '变量',
-          desc: 'SetVar / IncVar — 容器作用域 + 子图局部作用域 (runtime 自动隔离)',
-        },
-        image: {
-          label: '图像',
-          desc: '3.1 Workflow 的截图、模板匹配、二维码、颜色与帧差分析',
-        },
-        input: {
-          label: '输入',
-          desc: 'ClickAt / KeyPress / MouseMoveRel / Scroll — 注入输入到当前自动化目标',
-        },
-        event: {
-          label: '事件',
-          desc: 'EventTick — 定时后台触发器, 每隔 N ms spawn 子图执行 (不挡主流程)',
-        },
-        subgraph: {
-          label: '子图',
-          desc: 'Subgraph 调用 / SubgraphInput 入口 / SubgraphOutput 出口',
-        },
-        system: {
-          label: '系统',
-          desc: 'Subgraph / Throw / MouseCalibration — 系统辅助、图结构与本机标定节点',
-        },
-        config: {
-          label: '配置',
-          desc: 'MouseCalibration — 标定本机 360° HID counts, 给 MouseMoveRel 缩放用',
-        },
-        debug: { label: '调试', desc: 'Log / Toast' },
-      },
-    },
-    palette: {
-      search_placeholder: '搜命令 (e.g. 对齐 / undo / 保存)...',
-      empty: '无匹配命令',
-      hint: '↑↓ 导航 · Enter 执行 · Esc 关',
-      count: '{n} 命令',
-      group: {
-        edit: '编辑',
-        view: '视图',
-        navigate: '导航',
-        run: '运行',
-        var: '变量',
-        help: '帮助',
-      },
-      cmd: {
-        copy: '复制选中',
-        paste: '粘贴',
-        delete: '删除选中',
-        undo: '撤销',
-        redo: '重做',
-        fold: '折叠为子图',
-        align_left: '对齐 - 左',
-        align_right: '对齐 - 右',
-        align_top: '对齐 - 顶',
-        align_bottom: '对齐 - 底',
-        center_h: '水平居中',
-        center_v: '垂直居中',
-        dist_h: '水平等距分布',
-        dist_v: '垂直等距分布',
-        auto_layout_lr: '自动布局 (横向)',
-        auto_layout_tb: '自动布局 (纵向)',
-        toggle_left_sidebar: '折叠/展开 左侧栏',
-        toggle_inspector: '折叠/展开 右 Inspector',
-        node_explorer: '打开 Node Explorer',
-        library: '打开子图库 Explorer',
-        settings: '打开容器设置',
-        back: '跳到主图 / 上一层级',
-        save: '保存',
-        validate: '检查 (Validate)',
-        try_run: '试运行',
-        stop: '停止运行',
-        add_var: '添加变量',
-        find_node: '在画布找节点...',
-        js_console: '打开 JS 脚本控制台',
-      },
-    },
-    jsConsole: {
-      title: 'JS 脚本控制台',
-      run: '运行',
-      hint: '对当前容器(含子图)批量改节点。脚本同步执行——死循环会卡界面, 请确保能结束。改动可一步 Ctrl+Z 撤销, Ctrl+S 才存盘。',
-      placeholder:
-        "例: yt.nodes.filter(n => n.has('JitterPct')).forEach(n => n.set('JitterPct', 10))",
-      applied: '改了 {nodes} 个节点的 {pins} 个 pin',
-      rejected: '{n} 处被拒:',
-    },
-    search: {
-      placeholder: '搜节点 (label / kind / id substring)...',
-      intro: '输入关键词搜索节点 (跨主图 + 所有子图)',
-      empty: '无匹配',
-      hint: '↑↓ 导航 · Enter 跳转 · Esc 关',
-      count: '{n} 个匹配',
-    },
-    menu: {
-      inline: {
-        accept_type: '接受 {type} ({n})',
-        add_node: '添加节点 ({n})',
-        empty: '无匹配',
-        hint: '↑↓ Enter 选首项 · Esc 关',
-      },
-      node: {
-        copy: '复制',
-        cut: '剪切',
-        paste: '粘贴',
-        duplicate: '复刻',
-        delete: '删除',
-        debug_from_here: '从此节点调试',
-        enable: '启用此节点',
-        disable: '禁用此节点 (运行时跳过)',
-        save_as_snippet: '保存为 Snippet (带配置)',
-        find_var_refs: "查找所有引用 '{name}'",
-        promote_to_var: '提取为变量 (Promote)',
-        enter_subgraph: '进入子图',
-        to_script: '转为脚本',
-        hard_delete: '彻底删除 (连子图/clip 定义)',
-      },
-      multi: {
-        title_selected: '已选 {count} 个节点',
-        copy: '复制',
-        duplicate: '复刻',
-        delete: '删除',
-        disable_all: '禁用所有 (运行时跳过)',
-        fold: '折叠为子图',
-        align_left: '对齐 - 左',
-        align_right: '对齐 - 右',
-        align_top: '对齐 - 顶',
-        align_bottom: '对齐 - 底',
-        center_h: '水平居中',
-        center_v: '垂直居中',
-        dist_h: '水平等距分布',
-        dist_v: '垂直等距分布',
-        auto_layout_lr: '自动布局 (横向)',
-        auto_layout_tb: '自动布局 (纵向)',
-      },
-      edge: {
-        title: '连接边',
-        delete: '删除此边',
-      },
-      pin: {
-        title_in: '输入 pin',
-        title_out: '输出 pin',
-        disconnect_all: '断开所有连接 ({n} 条)',
-        promote_to_var: '提升为变量 (Promote)',
-        set_literal: '设为 literal (断开 + 默认值)',
-        show_schema: '显示 pin schema 详情',
-      },
-    },
-    snippet: {
-      panel: {
-        search_placeholder: '搜索 snippet…',
-        empty_none: '暂无 snippet. 右键节点 → 保存为 Snippet',
-        empty_no_match: '无匹配',
-        edit_tip: '编辑 snippet',
-        delete_tip: '删除 snippet',
-        shortcut_tip: '快捷键: {hk}',
-        delete_dialog_title: '删除 Snippet',
-        delete_dialog_desc: '确定删除 "{name}"?\n此操作不可撤销.',
-        delete_confirm: '删除',
-        delete_cancel: '取消',
-      },
-      drawer: {
-        title_edit: '编辑 Snippet',
-        title_new: '保存为 Snippet',
-        subtitle_source_kind: '源节点: {kind}',
-        close_tip: '关闭 (Esc)',
-        name_label: '名称',
-        name_placeholder: '例: 异环钓鱼窗口',
-        desc_label: '描述',
-        desc_placeholder: '可选 — 给自己看的说明',
-        cat_label: '分类 (sidebar 树, 空 = 通用)',
-        cat_placeholder: '例: 异环 / 原神 / 通用',
-        tags_label: '标签 (filter, 回车 / Tab 添加)',
-        tags_placeholder: '例: fishing 后按回车...',
-        tags_suggest: '建议:',
-        color_label: '颜色 (视觉记忆)',
-        icon_label: '图标',
-        shortcut_label: '全局快捷键 (可选)',
-        shortcut_placeholder: '例: Ctrl+Shift+F / Alt+1',
-        shortcut_record: '按任意组合键 (Esc 取消)',
-        shortcut_idle: '点击后按下组合键自动填',
-        delete: '删除',
-        cancel: '取消',
-        save: '保存',
-        err_reserved: '{key} 是系统保留键, 请换',
-        err_taken: '{key} 已被 "{name}" 占用',
-        delete_dialog_title: '删除 Snippet',
-        delete_dialog_desc: '确定删除 "{name}"?\n此操作不可撤销.',
-        delete_dialog_fallback_name: '此 snippet',
-      },
-    },
-  },
-  // Inspector chrome — kind-agnostic 字段 (header / label / 警告 / 屏幕拾取 / 配置 fallback 等).
-  // Kind 专属 sections (Subgraph/MouseCalibration/Win32WindowTarget/PlayClip) 走 node.<Kind>.inspector.*.
-  inspector: {
-    no_selection: '未选中节点',
-    delete_node_tooltip: '删除节点',
-    help_tooltip: '节点说明',
-    copy_menu_tooltip: '复制…',
-    copy_id: '复制节点 ID',
-    copy_json: '复制 JSON',
-    copy_script: '复制脚本信息',
-    label_field_label: '标签 (Label)',
-    label_field_hint: '留空则用节点类型的默认名',
-    label_field_placeholder: '(留空)',
-    log_enabled_label: '打印日志',
-    log_enabled_hint: '将调试信息输出到日志面板与日志文件',
-    concurrency_warn_title: '并发分支写入同一变量',
-    expr_chain_title: '检测到 Expr 链',
-    expr_chain_desc: '合并后当前节点的表达式会内联到下游 Expr (作为括号子表达式), 当前节点被删除.',
-    expr_chain_fuse: '合并到下游 Expr',
-    screen_pick_label: '屏幕拾取',
-    screen_pick_point: '截屏选点',
-    screen_pick_rect: '截屏框选 ROI',
-    screen_pick_hud: '鼠标 HUD',
-    screen_pick_hint: '打开独立窗口截当前游戏画面，{action}后自动回填字段',
-    screen_pick_action_drag: '拖矩形',
-    screen_pick_action_click: '点一下',
-    color_pick_huewrap_title: '色相跨红色边界，已降级',
-    color_pick_huewrap_desc:
-      '目标颜色横跨红色边界，色相无法用单区间表示；已填 S/V、色相留全域，建议改 RGB 模式重取。',
-    dyn_inputs_title: '输入口',
-    dyn_outputs_title: '输出口',
-    dyn_outputs_hint:
-      '声明任意带类型输出字段, 模型按结构出 JSON; 每个字段在下方「输出」组绑到变量。保留名 Text 是模型原文, 不必声明。',
-    code_expand: '放大编辑',
-    code_editor_title: '编辑代码',
-    expr_editor_title: '编辑表达式',
-    editor_ref_search: '搜索…',
-    editor_ref_empty: '没有匹配项',
-    editor_confirm_hint: 'Ctrl+Enter 确认',
-    editor_ref_group_fns: '函数 (点击插入)',
-    editor_ref_group_inputs: '输入口',
-    editor_ref_group_vars: '变量',
-    editor_undo: '撤销 (Ctrl+Z)',
-    editor_redo: '重做 (Ctrl+Y)',
-    editor_comment: '注释/取消注释 (Ctrl+/)',
-    editor_search: '查找替换 (Ctrl+F)',
-    editor_snippets: '片段',
-    editor_snippets_tip: '片段管理 — 选中代码后点击可直接存为片段; 编辑器里打触发词即可补全插入',
-    snippet_manager_title: '片段管理',
-    snippet_manager_new: '新建片段',
-    snippet_manager_prefix: '触发词',
-    snippet_manager_prefix_invalid: '触发词要像变量名: 字母/数字/下划线, 不能以数字开头',
-    snippet_manager_name: '名称',
-    snippet_manager_description: '描述 (可选, 显示在补全详情里)',
-    snippet_manager_body: '片段内容 — 编辑器里打「触发词」从补全选中后, 整段替换上屏',
-    snippet_manager_empty: '还没有片段 — 在编辑器里选中代码再点工具栏「片段」, 或这里直接新建',
-    editor_new_var: '新建变量',
-    editor_capture_template: '截图模板',
-    editor_capture_template_tip: '截当前目标窗口保存为模板，并把模板 GUID 插入当前光标位置',
-    editor_capture_point: '取点',
-    editor_capture_point_tip: '在当前目标窗口截图取点，并把 Point 对象插入当前光标位置',
-    editor_capture_rect: '框选区域',
-    editor_capture_rect_tip: '在当前目标窗口框选区域，并把 Geometry 对象插入当前光标位置',
-    editor_capture_color: '取色',
-    editor_capture_color_tip: '在当前目标窗口取色，并按当前颜色 pin 插入 Range 或 HSV 对象',
-    editor_capture_key: '录入按键',
-    editor_capture_key_tip: '捕获下一次按键，并把 VK 字符串插入当前光标位置',
-    editor_capture_key_waiting: '按键中',
-    editor_capture_key_cancel_tip: '取消按键捕获',
-    editor_insert: '插入',
-    editor_insert_tip: '插入候选值、截图资源或采样结果',
-    editor_insert_candidate: '插入候选值',
-    editor_async_candidates_title: '插入候选值',
-    editor_async_candidates_hint: '选择一个候选值插入当前光标位置。',
-    editor_async_candidates_context: '{kind}.{pin} 的候选值',
-    editor_async_loading: '正在加载候选值…',
-    editor_async_empty: '没有可用候选值',
-    editor_async_no_context: '当前光标不在支持动态候选的参数值位置',
-    editor_async_load_failed: '加载候选值失败',
-    editor_params: '参数',
-    editor_status_stats: '{lines} 行 · {chars} 字符',
-    editor_indent_tidy: '整理缩进',
-    editor_format: '格式化 (Shift+Alt+F)',
-    editor_ref_toggle: '参考 (F1)',
-    editor_fold_all: '全部折叠',
-    editor_unfold_all: '全部展开',
-    editor_maximize: '放大窗口',
-    editor_restore: '还原窗口',
-    editor_status_ok: '无语法错误',
-    editor_goto_error: '点击跳到出错处',
-    editor_syntax_error_line: '第 {line} 行附近语法有误 (以保存时校验为准)',
-    editor_unknown_var: `{'$'}{name} 未声明 — 运行时会报错; 先在变量面板声明或改用 GetVar 节点函数`,
-    editor_lang_expr: '表达式',
-    dyn_inputs_hint:
-      '输入口是连线用的数据引脚 (接别的节点输出); 想用变量, 直接在表达式/脚本里写 $变量名。',
-    literal_section: '数据输入 (literal)',
-    output: {
-      bind: '绑定变量',
-      unbind_tooltip: '解除绑定',
-      dangling_hint: '字段已不存在(声明被删/改)— 残留绑定, 解绑清除报错',
-      stale_hint: '该变量仅在此出口触发时更新, 未触发保留上次值。',
-      found_hint: '是否命中 (true/false) — 每次执行都会更新。',
-      field: {
-        Count: '命中像素数',
-        Center: '命中中心',
-        PixelCount: '命中像素数',
-        PixelRatio: '命中比例',
-        Blobs: '各色块',
-        BlobCount: '色块数',
-        PrimaryCenter: '首块中心',
-        PrimaryArea: '首块面积',
-        Clusters: '各连续段',
-        ClusterCount: '段数',
-        InnerX: '内层位置',
-        OuterX: '外层位置',
-        OuterWidth: '外层宽度',
-        Confidence: '置信度',
-        InnerPx: '内层像素宽',
-        OuterPx: '外层像素宽',
-        Path: '文件路径',
-        Point: '命中点',
-        Conf: '匹配度',
-        Matched: '是否命中',
-        Index: '序号',
-        Item: '当前元素',
-        Result: '结果',
-        ElapsedMs: '已用毫秒',
-        DeltaMs: '间隔毫秒',
-        Error: '错误信息',
-        Code: '错误码',
-      },
-    },
-    config_section: '配置',
-    pin_input_json_invalid: 'JSON 格式错误 — 未保存',
-    example_title: '示例',
-    select_var_placeholder: '选择变量',
-    no_config: '此节点无可配置项。',
-    authoring: {
-      config: '契约配置',
-      capabilities: '所需能力',
-      required: '必填',
-      optional: '可选',
-      deprecated: '已弃用',
-      unset: '（未设置）',
-      default_hint: '默认值提示：{value}（编辑此字段前不会写入配置）',
-      port_default_hint: '输入默认值：{value}',
-      json_editor: '复杂值：请输入明确的 JSON，或使用节点声明的 Editor Adapter。',
-      invalid_json: 'JSON 无效，未保存此值。',
-      target: '目标槽：{slot}',
-      target_kinds: '目标类型：{kinds}',
-      scope: '权限范围：{scope}',
-      credential_required: '凭据槽 {slot} 需要绑定凭据引用。',
-      execution: {
-        'pure-data': '纯数据',
-        effect: '副作用',
-        control: '控制',
-        event: '事件',
-        region: '区域',
-        marker: '标记',
-        visual: '可视化',
-      },
-      availability: {
-        portable: '跨平台',
-        'host-required': '需要宿主功能',
-        'target-required': '需要目标适配器',
-        'host-and-target-required': '需要宿主功能和目标适配器',
-      },
-      host_features: '宿主功能',
-      direction: { input: '输入', output: '输出' },
-      binding: {
-        required: '必接',
-        optional: '可选',
-        'default-available': '有默认值',
-        output: '产出',
-      },
-      carrier: { durable: '持久载体', runtime: '运行时载体' },
-      lifecycle: {
-        durable: '可持久化值',
-        'runtime-only': '仅运行时值',
-        'durable-or-runtime': '持久或运行时值',
-        'resolved-at-compile': '编译时确定',
-      },
-      risk: { low: '低风险', sensitive: '敏感', dangerous: '危险' },
-      consent: { none: '无需确认', once: '首次确认', 'every-run': '每次运行确认' },
-    },
-  },
-  structured_input: {
-    switch_to_text: '切换到 JSON 文本模式',
-    switch_to_struct: '切换回结构模式',
-    json_error_tooltip: 'JSON 有误，请修正或放弃后切回',
-    abandon_changes: '放弃修改',
-    json_invalid: '有误',
-    field_required: '必填',
-    pick_color: '屏幕取色',
-    add_item: '添加一项',
-    remove_item: '删除此项',
-  },
-  point_widget: {
-    unit_percent: '百分比',
-    unit_px: '像素',
-    pick_point: '截图取点',
-    no_window_title: '目标未就绪',
-    no_window_desc: '当前目标未就绪，无法换算单位；打开或切换目标后再试',
-    hint_percent: '比例：随目标画面大小自适应（换分辨率仍按比例）',
-    hint_px: '绝对像素：固定不随目标画面缩放，适合固定位置的 UI',
-  },
-  geometry: {
-    default_region: '默认区域',
-    full_frame: '(全帧)',
-    placeholder_empty: '留空',
-    pct_over_100: '部分值超过 100%，请确认是否正确',
-    pick_screen_rect: '截图框选',
-    advanced_overrides: '高级: 分辨率覆盖',
-    pick_override_rect: '截图框选 (px)',
-    pick_res_mismatch: '框选时窗口为 {w}×{h}，与该分辨率档不符，落点按档位分辨率换算',
-    add_override_title: '添加分辨率覆盖',
-    dup_resolution: '此分辨率已存在覆盖',
-    add: '添加',
-    preset_custom: '自定义',
-  },
-  // 机器错误码 → 中文标签. 后端 errorcodes.go 注册表的 9 个码 (Switch 建议 / 节点失败展示用).
-  errorcode: {
-    error: '错误',
-    launch_failed: '启动失败',
-    capture_failed: '截屏失败',
-    write_failed: '写盘失败',
-    not_found: '找不到目标',
-    timeout: '超时',
-    playback_failed: '回放失败',
-    send_failed: '发送失败',
-    thrown: '主动抛错',
-    subgraph_no_exit: '子图没走到出口',
-    subgraph_recursion: '子图调用嵌套过深',
   },
   // 节点 metadata — kind label + description + input/output 字段 i18n.
   // FE 单源, backend Spec.DisplayName/Description 不再被 FE 用. 加新节点 → 这里 + en.ts 同步.
@@ -909,6 +251,40 @@ export default {
     },
   },
   node: {
+    ai: {
+      generate: {
+        title: 'AI 生成文本',
+        description: '通过已安装模型生成文本；模型、凭据与授权均由显式 slot 解析。',
+      },
+      extract: {
+        title: 'AI 提取结构化数据',
+        description: '要求已安装模型按给定 JSON Schema 返回并校验结构化 JSON。',
+        config: {
+          schema: {
+            title: '输出 JSON Schema',
+            description: '用于约束模型结构化输出的严格 JSON Schema 文档。',
+          },
+        },
+      },
+      config: {
+        slot: {
+          title: '模型 slot',
+          description: '引用设置中已安装 AI 模型的稳定 slot，不接受临时 provider 参数。',
+        },
+        instructions: {
+          title: '系统指令',
+          description: '可选的模型行为约束；工作流输入通过 prompt 数据端口传入。',
+        },
+        temperature: {
+          title: '温度',
+          description: '0 到 2 的采样温度；不填写时使用已安装模型的默认策略。',
+        },
+        maxOutputTokens: {
+          title: '最大输出 token',
+          description: '本次请求允许生成的最大 token 数；不填写时使用安装配置。',
+        },
+      },
+    },
     vision: {
       matchTemplate: {
         title: '匹配模板',
@@ -1215,1307 +591,207 @@ export default {
         description: '只重试显式路由回该 region 的失败；「完成」和「耗尽」是两个独立的控制结果。',
       },
     },
-    // ai
-    AI: {
-      label: '调用 AI',
-      description:
-        '把提示词发给配好的大模型拿回回答。先在设置里配好 AI 连接，这里选连接和模型；提示词里用双花括号包住上面声明的输入名来插值。结构化输出可声明任意带类型字段，逐个绑到变量。',
-      example:
-        '让模型读截图判断界面：连本地或在线模型，用户提示词写「这是什么界面」，回答从「模型原文」出口拿；要分类就声明一个带类型输出字段。',
-      input: {
-        Connection: { label: '连接', useDefault: '（用默认连接）' },
-        Model: { label: '模型', hint: '填模型名，如 deepseek-chat、gpt-4o' },
-        System: { label: '系统提示词' },
-        User: {
-          label: '用户提示词',
-          hint: '用双花括号包住声明的输入名插值；图像输入会渲染成占位标记、不进文本',
-        },
-        Mode: {
-          label: '结构化模式',
-          option: { auto: '自动（按端点）', native: '原生', prompt: '提示词注入' },
-        },
-        Temperature: { label: '温度' },
-        MaxTokens: { label: '最大 token' },
-      },
-      output: {
-        Done: { label: '完成' },
-        Fail: { label: '失败' },
-        Text: { label: '模型原文' },
-        Error: { label: '错误信息' },
-        Code: { label: '错误类型' },
-      },
-    },
-    // control
-    Start: {
-      label: '起点',
-      description: '脚本的起跑线。运行时从这里开始往下跑，整张图只能有一个起点。',
-      output: { Done: { label: '开始' } },
-    },
-    Stop: {
-      label: '终点',
-      description: '让整个脚本立刻干净地停下来，不算出错。一跑到这里，后面的步骤都不再执行。',
-    },
-    Sleep: {
-      label: '等待',
-      description:
-        '停在这里等一段时间再往下走，常用来给画面留出加载、动画的缓冲。可以加「抖动」，让每次等的时长在设定值上下随机浮动，模拟人手不那么机械。脚本中途停止时会立刻打断，不会傻等满。',
-      example:
-        '点完按钮等弹窗出来：把时长设成 1 秒、抖动 ±20%，每次就会随机等 0.8 到 1.2 秒左右，看起来更像真人操作。',
-      input: {
-        Duration: { label: '时长' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 等待时长在 ±10% 内近正态波动' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    If: {
-      label: '条件分支',
-      description:
-        '按一个「是 / 否」的条件岔成两条路：条件成立走 True 口，不成立走 False 口。用来让脚本根据当时情况做不同的事。',
-      example:
-        '检测到「开始战斗」图标在屏幕上 → 条件接进来，True 口接攻击动作，False 口接继续走路，脚本就会看情况自动二选一。',
-      input: { Condition: { label: '条件' } },
-      output: { True: { label: 'True' }, False: { label: 'False' } },
-    },
-    Loop: {
-      label: '循环',
-      description:
-        '把循环体里的步骤反复跑很多遍。可以选「次数」模式跑固定遍数，或「永远」模式一直跑到你手动停。循环体里用「跳出循环」可以提前结束，用「跳过本轮」可以略过剩下的步骤直接进下一遍。',
-      example:
-        '想刷 50 次副本：模式选「次数」、次数填 50，把进副本到领奖的步骤接到循环体上，它就会自动重复 50 遍；要是检测到背包满了，循环体里接个「跳出循环」就能提前收工。',
-      input: {
-        Mode: { label: '模式', option: { count: '次数', forever: '永远' } },
-        Count: { label: '次数 (mode=count)' },
-      },
-      output: {
-        Body: { label: '循环体 (每轮触发)' },
-        Done: { label: '完成' },
-        Fail: { label: '失败' },
-      },
-    },
-    Switch: {
-      label: '分支 (多 Case)',
-      description:
-        '按一个输入值在多条路里挑一条走。你自己列好若干个值（每个值就是一个出口），运行时拿输入值跟它们逐一比对，对上哪个就走那个出口；一个都对不上就走 Default 兜底。比一堆「条件分支」串起来更清爽。',
-      example:
-        '根据角色当前状态分流：输入值接「状态」，列出 IDLE、FIGHT、DEAD 三个 case，分别接发呆、打怪、复活的动作；状态是别的值时走 Default。',
-      input: {
-        Value: { label: '输入值' },
-      },
-      output: {
-        default: { label: '默认 (兜底)' },
-      },
-      inspector: {
-        value_label: 'Value 表达式',
-        value_hint: '运行时将此表达式与 cases 逐一比对，匹配则走对应出口，无匹配走 default。',
-        cases_label: 'Cases',
-        cases_count: '{n} 项',
-        dangling_warn: '{n} 条边引用了已删除/改名的 case pin，需手动重连或断开。',
-        empty: '暂无 case — 点下方按钮添加',
-        case_placeholder: 'case 字符串 (如 IDLE)',
-        delete_case_title: '删除此 case',
-        add_case: '添加 case',
-        footer_pre: 'case 名即出口 pin 名。改名后已连接的边需手动重连。',
-        footer_post: '出口始终存在。',
-        delete_confirm_title: '删除 case "{name}"？',
-        delete_confirm_desc: '该 case 的出口边 ({count} 条) 将断开，需手动重连。',
-      },
-    },
-    Break: {
-      label: '跳出循环',
-      description:
-        '提前结束当前所在的循环，直接跳到循环后面继续。必须放在循环体里用，不在循环里会报错。',
-    },
-    Continue: {
-      label: '跳过本轮',
-      description: '略过循环体里剩下的步骤，直接开始下一遍。必须放在循环体里用。',
-    },
-    Script: {
-      label: '脚本',
-      description:
-        '用 JavaScript 写一段逻辑：循环、条件、变量都能用，还能直接调用当前目录中允许绑定的节点。适合连线画起来太绕的复杂流程。',
-      example: '需要多次重试时，写一个 for 循环调用节点函数，并用 sleep(1000) 控制重试间隔。',
-      input: {
-        Code: {
-          label: '代码',
-          hint: '脚本用 return 返回结果。变量读用 $名 或 GetVar、写用 SetVar，sleep(毫秒) 等待。',
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
-    },
-    // input
-    ClickAt: {
-      label: '点击坐标',
-      description:
-        '在当前目标画面里点一下鼠标。位置用坐标控件填，可切百分比（0-1 比例）或像素，也可截图取点。可选左/右/中键，能先滑过去再点，按下时长也能调。',
-      example:
-        '点目标画面右下角的「确认」按钮：坐标填 (0.9, 0.9) 比例模式，按键选左键，运行时就会在目标右下角点一下。',
-      input: {
-        Point: { label: '坐标' },
-        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-        MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移到点; >0=先滑过去再点' },
-        DurationMs: { label: '时长 (ms)' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
-        Keys: {
-          label: '组合键',
-          hint: '点击时按住的修饰键, 用 + 连接, 如 ctrl+shift; 留空=普通点击。支持 ctrl / shift / alt / win。',
-        },
-        ClickCount: { label: '连点次数', hint: '连续点击次数, 默认 1; >1 连点, 间隔约 60ms。' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    KeyHoldStart: {
-      label: '按住按键',
-      description:
-        '把一个键按下去就不松手，一直保持按住状态。它只负责「按下」，要配一个「松开按键」节点来放开；两个节点中间可以插任意流程（等待、检测、移动等），按住多久全由你安排。',
-      example:
-        '想让角色一直往前走：先放「按住按键」按住 W，接一个「等待」3 秒，再放「松开按键」放开 W——角色就会持续前进 3 秒。两个节点的按键要填同一个 W。',
-      input: {
-        VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / shift)' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '已按下' } },
-    },
-    KeyHoldStop: {
-      label: '松开按键',
-      description: '把之前「按住按键」按下去的那个键松开。两个节点要填同一个键，配成一对用。',
-      input: {
-        VK: { label: '按键', hint: '虚拟键名 — 跟上一个「按住按键」节点同一个' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '已松开' } },
-    },
-    KeyPress: {
-      label: '按键',
-      description:
-        '按一下某个键（按下马上松开），就像手指敲一次键盘。时长是按下到松开之间停多久，留默认就行。要长按不松手用「按住按键」。',
-      input: {
-        VK: { label: '按键', hint: '虚拟键名 (e.g. A / W / F9 / space / esc)' },
-        DurationMs: { label: '时长 (ms)' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 按住时长在 ±10% 内近正态波动' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    MouseHoldStart: {
-      label: '按住鼠标',
-      description:
-        '在当前目标画面里某个位置把鼠标键按下去就不松手。位置可以填比例（0~1）或像素坐标。它只负责「按下」，要配一个「松开鼠标」节点放开；中间可以插任意流程，常用来拖拽或长按。',
-      example:
-        '拖动物品：在起点放「按住鼠标」按下左键，接「鼠标移动到」滑到终点，再放「松开鼠标」放开左键——就完成一次拖拽。',
-      input: {
-        Point: { label: '坐标' },
-        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '已按下' } },
-    },
-    MouseHoldStop: {
-      label: '松开鼠标',
-      description: '把之前「按住鼠标」按下去的那个鼠标键松开。两个节点选同一个键，配成一对用。',
-      input: {
-        Button: {
-          label: '按键',
-          hint: '跟上一个「按住鼠标」节点同一个',
-          option: { left: '左键', right: '右键', middle: '中键' },
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '已松开' } },
-    },
-    MouseMoveRel: {
-      label: '鼠标相对移动',
-      description:
-        '从鼠标现在所在的位置，往某个方向挪一段距离（按像素算），不是挪到固定坐标。Δx 正数往右、负数往左，Δy 正数往下、负数往上。常用来转视角、微调准星。要直接移到目标画面某个固定点用「鼠标移动到」。',
-      example:
-        '游戏里向右转视角：Δx 填 200、Δy 填 0，运行时鼠标就从当前位置往右挪 200 像素，画面跟着右转。',
-      input: {
-        Dx: { label: 'Δx (px)' },
-        Dy: { label: 'Δy (px)' },
-        DurationMs: { label: '时长 (ms)' },
-        JitterPct: {
-          label: '抖动 ±%',
-          hint: '0=关; 如 10 = 移动距离 (Dx/Dy) 在 ±10% 内近正态波动',
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    MouseMoveTo: {
-      label: '鼠标移动到',
-      description:
-        '把鼠标移到当前目标画面某个固定位置，只移动不点击。坐标支持比例（0 到 1，0.5、0.5 是正中间）或像素（px），跟目标画面大小无关。滑动时长填 0 是瞬间跳过去，填大于 0 会在这段时间里看得见地滑过去（更像真人）。要往某方向挪一段而不是去固定点，用「鼠标相对移动」。',
-      example:
-        '先把鼠标移到中间再点击：用「鼠标移动到」坐标填 (0.5, 0.5)，滑动时长填 300 让它平滑滑过去，后面再接「点击坐标」。',
-      input: {
-        Point: { label: '坐标' },
-        MoveMs: { label: '滑动时长 (ms)', hint: '0=瞬移; >0=在此时长内可见地滑过去' },
-        JitterPct: {
-          label: '抖动 ±%',
-          hint: '0=关; 如 10 = 滑行时长 (MoveMs) 在 ±10% 内近正态波动',
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    EventTick: {
-      label: '定时触发',
-      description:
-        '在后台每隔一段时间自动触发一次，跟主流程并行跑、互不打扰。从它的「触发」口往后接的那串节点，会被定时反复执行。常用来定时盯着屏幕某处、发现情况就改个全局变量通知主流程。',
-      example:
-        '每秒检查一次血条是不是空了：间隔填 1000，触发口接「检测画面 → 如果血量低 → 设置全局变量 needHeal」，主流程读这个变量决定要不要嗑药。',
-      input: {
-        IntervalMs: { label: '间隔 (ms)' },
-        MaxConcurrent: { label: '并发上限' },
-        RetriggerPolicy: {
-          label: '重触发策略',
-          option: { drop: '跳过', queue: '排队', restart: '打断重来' },
-        },
-      },
-      output: { Out: { label: '触发' } },
-    },
-    Scroll: {
-      label: '鼠标滚轮',
-      description:
-        '在窗口里某个位置滚一下鼠标滚轮。位置用坐标填（比例 0~1 或像素 px，0.5、0.5 是正中间）。滚动量填几格，正数往前滚、负数往后滚。方向选"竖向"是上下翻页，选"横向"是左右平移。常用来翻列表、缩放、切武器。',
-      example:
-        '把背包列表往下翻：坐标对准列表区域，滚动量填 -3，方向选"竖向"，运行时就在那里往下滚三格。横向滚条：方向选"横向"，正数向右、负数向左。',
-      input: {
-        Point: { label: '坐标' },
-        Delta: { label: '滚动量 (notches)', hint: '正值向上/向右滚, 负值向下/向左滚' },
-        JitterPct: { label: '抖动 ±%', hint: '0=关; 如 10 = 滚动量在 ±10% 内近正态波动' },
-        Axis: {
-          label: '方向',
-          hint: '竖向=上下滚（默认）；横向=左右滚',
-          option: { vertical: '竖向', horizontal: '横向' },
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    InputText: {
-      label: '输入文字',
-      description:
-        '向当前自动化目标注入一段文字。Windows 窗口底层走 SendInput KEYEVENTF_UNICODE，不依赖剪贴板，字符逐个发送；浏览器/Android 目标后续由各自 controller 决定具体后端。',
-      example:
-        '在游戏聊天框里发一句话：把 BringForeground 接在前面确保窗口在前台，再接 InputText，文字填要发送的内容，运行时会自动逐字输入进去。',
-      input: {
-        Text: { label: '文字', hint: '要输入的文字内容，支持中文及所有 Unicode 字符' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    Swipe: {
-      label: '拖拽',
-      description: '按住鼠标键，从起点匀速拖到终点再松开。起点和终点可以连接任意 Point 数据输出。',
-      example: '把两个 Point 值分别连接到起点和终点，时长填 300，运行时会完成一次拖拽。',
-      input: {
-        Begin: {
-          label: '起点',
-          hint: '拖拽的起始坐标点，可连接任意 Point 数据输出',
-        },
-        End: {
-          label: '终点',
-          hint: '拖拽的结束坐标点，可连接任意 Point 数据输出',
-        },
-        Button: { label: '按键', option: { left: '左键', right: '右键', middle: '中键' } },
-        DurationMs: {
-          label: '时长 (ms)',
-          hint: '拖动总时长毫秒数；默认 200，越大越慢越像真人（留空或 0 走默认）',
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    // io
-    Log: {
-      label: '日志',
-      description:
-        '把一条消息打到运行日志里，方便你调试时看脚本跑到哪一步、当时的值是多少。消息口什么都能接——文字、数字、坐标、区域都行，会自动转成文本。',
-      example:
-        '调试循环时想确认跑了几次：把 Log 接进循环体，消息填「第几次」，运行日志里就会一次次打印出来。',
-      input: {
-        Message: {
-          label: '消息',
-          hint: '任意类型 — 字符串 / 数字 / Point / Rect 等, 自动转成文本',
-        },
-        Level: { label: '级别', option: { debug: 'Debug', info: 'Info', warn: 'Warn' } },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    ReadTextFile: {
-      label: '读取文本文件',
-      description:
-        '从本地文件读取文本内容，常用于读取 cookie、网址列表、临时状态或外部插件写出的数据。相对路径会从数据目录读取，绝对路径按原路径读取。',
-      input: {
-        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
-        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
-        Encoding: {
-          label: '编码',
-          option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
-        },
-        MaxBytes: { label: '最大字节数', hint: '0 或留空使用默认 1MB 上限' },
-      },
-      output: {
-        Done: {
-          label: '完成',
-          data: {
-            Text: { hint: '读取到的文本' },
-            File: { hint: '读取到的文件对象' },
-            Size: { hint: '文件字节数' },
-            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
-          },
-        },
-        Fail: { label: '失败' },
-      },
-    },
-    ReadJsonFile: {
-      label: '读取 JSON 文件',
-      description:
-        '从本地文件读取并解析 JSON，结果可以直接接给 JsonPath 或 Fetch 的 headers/body 等输入。JSON 可以是对象、数组、字符串、数字、真假或 null。',
-      input: {
-        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
-        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
-        Encoding: {
-          label: '编码',
-          option: { auto: '自动', 'utf-8': 'UTF-8', gbk: 'GBK' },
-        },
-        MaxBytes: { label: '最大字节数', hint: '0 或留空使用默认 1MB 上限' },
-      },
-      output: {
-        Done: {
-          label: '完成',
-          data: {
-            JSON: { hint: '解析后的 JSON 值' },
-            Text: { hint: '原始文本' },
-            File: { hint: '读取到的文件对象' },
-            Size: { hint: '文件字节数' },
-            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
-          },
-        },
-        Fail: { label: '失败' },
-      },
-    },
-    FileInfo: {
-      label: '文件信息',
-      description:
-        '读取本地文件或目录的元数据，输出 File 对象以及路径、文件名、扩展名、MIME、大小和修改时间。适合把截图保存、插件写出的文件、或路径字符串整理成可继续传递的文件值。',
-      input: {
-        Path: { label: '路径', hint: '绝对路径，或相对数据目录的路径' },
-        File: { label: '文件', hint: '上游传入的文件对象；有值时优先于路径' },
-      },
-      output: {
-        Done: {
-          label: '完成',
-          data: {
-            File: { hint: '文件对象' },
-            Path: { hint: '绝对路径' },
-            Name: { hint: '文件名' },
-            Ext: { hint: '扩展名' },
-            MIME: { hint: 'MIME 类型' },
-            Size: { hint: '文件字节数' },
-            ModTimeMs: { hint: '文件修改时间戳 (ms)' },
-            IsDir: { hint: '是否目录' },
-          },
-        },
-        Fail: { label: '失败' },
-      },
-    },
-    Fetch: {
-      label: '网络请求',
-      description:
-        '向 HTTP/HTTPS 地址发送请求。URL、headers、cookie 和 body 都可以来自上游节点，适合读取网页、调用接口或流程结束后发通知。',
-      input: {
-        Method: {
-          label: '方法',
-          option: {
-            GET: 'GET',
-            POST: 'POST',
-            PUT: 'PUT',
-            PATCH: 'PATCH',
-            DELETE: 'DELETE',
-            HEAD: 'HEAD',
-          },
-        },
-        URL: { label: '网址', hint: '仅支持 http:// 或 https:// 绝对地址' },
-        Headers: { label: '请求头', hint: 'JSON 对象，例如 Authorization = Bearer ...' },
-        Cookies: { label: 'Cookie', hint: '原始 Cookie 字符串；若 Headers 已有 Cookie 则不覆盖' },
-        Body: { label: '请求体' },
-        BodyMode: { label: '请求体模式', option: { none: '无', text: '文本', json: 'JSON' } },
-        TimeoutMs: { label: '超时 (ms)' },
-        FollowRedirects: { label: '跟随重定向' },
-        FailOnStatus: { label: '4xx/5xx 走失败' },
-        MaxBytes: { label: '最大响应字节数', hint: '0 或留空使用默认 1MB 上限' },
-      },
-      output: {
-        Done: {
-          label: '完成',
-          data: {
-            StatusCode: { hint: 'HTTP 状态码' },
-            Body: { hint: '响应正文文本' },
-            JSON: { hint: 'JSON 响应解析结果；非 JSON 时为空' },
-            Headers: { hint: '响应头 JSON 对象' },
-            DurationMs: { hint: '请求耗时 (ms)' },
-          },
-        },
-        Fail: { label: '失败' },
-      },
-    },
-    PlayClip: {
-      label: '回放录像',
-      description:
-        '把你之前录好的一段鼠标键盘操作原样重放一遍，常用来复刻一套固定连招或填表动作。回放期间独占鼠标键盘、放完才往下走；脚本中途停止会立刻打断并松开按住的键。',
-      example:
-        '游戏里有套固定连招：先录一段，再用本节点选中这段录像，脚本跑到这里就会自动把连招完整打一遍。',
-      input: {
-        ClipID: { label: '录像 ID', hint: 'clips/ 目录下文件名 (不含扩展名)' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
-      inspector: {
-        clip_unset_placeholder: '(未设)',
-        clip_missing: 'clip {id} 不在 clips 库. 重新录制覆盖.',
-        rerecord: '重新录制',
-        bind_hint:
-          '一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).',
-        keep_ranges_label: '裁剪段 (keepRanges)',
-        keep_ranges_hint: '不指定 = 整段播放. 加多段后只播这些段, 跨段的停顿会自动压缩.',
-        remove_range: '删除裁剪段',
-        full_playback: '无, 整段播放',
-      },
-    },
-    AndroidTarget: {
-      label: '安卓目标',
-      description:
-        '把后续点击、截图和视觉识别切到一个 ADB 设备或模拟器。序列号可从下拉列表选择, 名称和分辨率会自动填入, 也可以手动覆盖。',
-      example:
-        '先用安卓目标选择 emulator-5554, 再接点击或截图节点, 后续动作就作用在该模拟器画面上。',
-      input: {
-        Serial: { label: '设备序列号', hint: 'ADB serial, 如 emulator-5554' },
-        Name: { label: '显示名称', hint: '可选。留空时使用设备序列号' },
-        Width: { label: '宽度', hint: '设备截图宽度, 用于坐标换算' },
-        Height: { label: '高度', hint: '设备截图高度, 用于坐标换算' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    AndroidStartApp: {
-      label: '安卓启动应用',
-      description:
-        '在当前安卓目标设备上启动一个应用。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
-      example:
-        '先用安卓目标选中 MuMu 模拟器, 再用安卓启动应用选择 com.RoamingStar.BlueArchive 启动游戏。',
-      input: {
-        Package: {
-          label: '应用',
-          hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive',
-        },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    AndroidStopApp: {
-      label: '安卓停止应用',
-      description:
-        '在当前安卓目标设备上停止一个应用进程。应用列表会优先显示当前前台应用和第三方可启动应用, 找不到时也可以手动输入包名。',
-      example: '流程结束时选择 com.RoamingStar.BlueArchive, 通过 ADB 停止游戏进程。',
-      input: {
-        Package: {
-          label: '应用',
-          hint: '从当前设备可启动应用中选择；找不到时可手动填包名, 如 com.RoamingStar.BlueArchive',
-        },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    // purefunc
-    Expr: {
-      label: '表达式',
-      description: `写一行算式自由组合运算，得到结果。支持加减乘除取余 (+ - * / %)、比较 (< <= > >= == !=)、与或非 (&& {'||'} !)、三元 (条件 ? 甲 : 乙)，内置函数 abs、min、max、now、floor、ceil、round（可带位数）、clamp、pow、sqrt，字符串用双引号包起来、用 + 拼接。想引用外部值，先给节点加输入口、再在算式里用同名变量（如 hp、count）。`,
-      example:
-        '先加两个输入口 hp 和 max，算式写 hp / max * 100 算出血量百分比；或写 hp < max * 0.3 ? "快补血" : "安全" 按血量给出不同提示。变量名就是你加的输入口的名字。',
-      input: {
-        Expression: {
-          label: '表达式',
-          hint: '类 Go 表达式。给节点加的输入口名字可在表达式里引用。',
-        },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    Add: {
-      label: '加',
-      description: '把两个数字相加，给出和。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Sub: {
-      label: '减',
-      description: '用 A 减去 B，给出差。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Mul: {
-      label: '乘',
-      description: '把两个数字相乘，给出积。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Div: {
-      label: '除',
-      description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Mod: {
-      label: '取模',
-      description: '求 A 除以 B 的余数，支持小数。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Neg: {
-      label: '取负',
-      description: '把数字变号：正数变负、负数变正。',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: '结果' } },
-    },
-    Lt: {
-      label: '小于',
-      description: '判断 A 是不是 < B，给出真/假。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    LtEq: {
-      label: '小于等于',
-      description: '判断 A 是不是 ≤ B，给出真/假。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Gt: {
-      label: '大于',
-      description: '判断 A 是不是 > B，给出真/假。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    GtEq: {
-      label: '大于等于',
-      description: '判断 A 是不是 ≥ B，给出真/假。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Eq: {
-      label: '等于',
-      description:
-        '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    NotEq: {
-      label: '不等于',
-      description:
-        '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    And: {
-      label: '逻辑与',
-      description: '两个条件都为真时才给出真，否则给假。没接线的输入默认当真，不会干扰结果。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Or: {
-      label: '逻辑或',
-      description: '两个条件只要有一个为真就给出真，都为假才给假。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Not: {
-      label: '逻辑非',
-      description: '把真假反过来：真变假、假变真。',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: '结果' } },
-    },
-    Concat: {
-      label: '拼接',
-      description: '把两个值首尾接成一段文字。不是文字的（数字、真假等）会自动转成文字再接。',
-      input: { A: { label: 'A' }, B: { label: 'B' } },
-      output: { Result: { label: '结果' } },
-    },
-    Contains: {
-      label: '包含',
-      description:
-        '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
-      example:
-        '识别到的文字接进源串、子串填「胜利」，出现「胜利」就给真，可接到条件节点决定下一步。注意区分大小写：源串是「Win」、子串填「win」会判为不包含。',
-      input: { Haystack: { label: '源串' }, Needle: { label: '子串' } },
-      output: { Result: { label: '结果' } },
-    },
-    Length: {
-      label: '字符串长度',
-      description:
-        '数一段文字有多长，给出字符数。中文一个字算 1 个，与「截取文本」「查找位置」的位置口径一致。',
-      input: { S: { label: '字符串' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToString: {
-      label: '转字符串',
-      description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToNumber: {
-      label: '转数字',
-      description: '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToBool: {
-      label: '转布尔',
-      description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
-      input: { X: { label: 'X' } },
-      output: { Result: { label: '结果' } },
-    },
-    ParseJSON: {
-      label: '解析 JSON',
-      description:
-        '把一段 JSON 文本解析成结构化值，可以接给 JsonPath、Fetch 请求体或其它 JSON 输入。',
-      input: { Text: { label: '文本', hint: '合法 JSON 文本' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToJSON: {
-      label: '转 JSON 文本',
-      description: '把任意值序列化成 JSON 文本，方便写日志、传给接口或保存到文件。',
-      input: { Value: { label: '值' } },
-      output: { Result: { label: '结果' } },
-    },
-    JsonPath: {
-      label: '取 JSON 路径',
-      description:
-        '从 JSON 值里取字段或数组项。支持 $、.字段、[序号] 和 [*]，例如 $.items[0].url 或 $.items[*].url。',
-      input: {
-        JSON: { label: 'JSON' },
-        Path: { label: '路径', hint: '如 $.user.name、$.items[0]、$.items[*].url' },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    Select: {
-      label: '三元选择',
-      description:
-        '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
-      example:
-        '条件接「血量是否充足」，A 填正常攻击的目标、B 填撤退点，条件成立就输出进攻目标、不成立就输出撤退点，再把结果接到后续动作。',
-      input: {
-        Cond: { label: '条件' },
-        A: { label: 'A (Cond=true)' },
-        B: { label: 'B (Cond=false)' },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    // math
-    Abs: {
-      label: '绝对值',
-      description: '取 X 的绝对值（负变正）。',
-      input: { X: { label: '数值' } },
-      output: { Result: { label: '结果' } },
-    },
-    Min: {
-      label: '取较小',
-      description: '两个数里取较小的那个。',
-      input: { A: { label: '甲' }, B: { label: '乙' } },
-      output: { Result: { label: '结果' } },
-    },
-    Max: {
-      label: '取较大',
-      description: '两个数里取较大的那个。',
-      input: { A: { label: '甲' }, B: { label: '乙' } },
-      output: { Result: { label: '结果' } },
-    },
-    Floor: {
-      label: '向下取整',
-      description: '把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。',
-      input: { X: { label: '数值' } },
-      output: { Result: { label: '结果' } },
-    },
-    Ceil: {
-      label: '向上取整',
-      description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
-      input: { X: { label: '数值' } },
-      output: { Result: { label: '结果' } },
-    },
-    Round: {
-      label: '四舍五入',
-      description:
-        '把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。',
-      input: { X: { label: '数值' }, Digits: { label: '位数' } },
-      output: { Result: { label: '结果' } },
-    },
-    Clamp: {
-      label: '限制范围',
-      description:
-        '把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。',
-      input: { X: { label: '数值' }, Min: { label: '下限' }, Max: { label: '上限' } },
-      output: { Result: { label: '结果' } },
-    },
-    Pow: {
-      label: '乘方',
-      description:
-        '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
-      input: { Base: { label: '底数' }, Exp: { label: '指数' } },
-      output: { Result: { label: '结果' } },
-    },
-    Sqrt: {
-      label: '开平方',
-      description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
-      input: { X: { label: '数值' } },
-      output: { Result: { label: '结果' } },
-    },
-    // string
-    Replace: {
-      label: '替换文本',
-      description:
-        '把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。',
-      input: {
-        Text: { label: '文本' },
-        Old: { label: '找什么' },
-        New: { label: '换成什么' },
-        All: { label: '全部替换' },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    Substring: {
-      label: '截取文本',
-      description:
-        '从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。',
-      input: { Text: { label: '文本' }, Start: { label: '起点' }, Length: { label: '长度' } },
-      output: { Result: { label: '结果' } },
-    },
-    Trim: {
-      label: '去首尾空白',
-      description: '去掉文本开头和结尾的空格、换行、制表符。',
-      input: { Text: { label: '文本' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToUpper: {
-      label: '转大写',
-      description: '把英文字母全部转成大写。',
-      input: { Text: { label: '文本' } },
-      output: { Result: { label: '结果' } },
-    },
-    ToLower: {
-      label: '转小写',
-      description: '把英文字母全部转成小写。',
-      input: { Text: { label: '文本' } },
-      output: { Result: { label: '结果' } },
-    },
-    IndexOf: {
-      label: '查找位置',
-      description:
-        'Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断"包含吗"请用「包含」节点。',
-      input: { Text: { label: '文本' }, Sub: { label: '找什么' } },
-      output: { Result: { label: '位置' } },
-    },
-    StartsWith: {
-      label: '开头是',
-      description: '判断文本是否以 Prefix 开头。Prefix 留空恒为真。',
-      input: { Text: { label: '文本' }, Prefix: { label: '开头' } },
-      output: { Result: { label: '结果' } },
-    },
-    EndsWith: {
-      label: '结尾是',
-      description: '判断文本是否以 Suffix 结尾。Suffix 留空恒为真。',
-      input: { Text: { label: '文本' }, Suffix: { label: '结尾' } },
-      output: { Result: { label: '结果' } },
-    },
-    RegexMatch: {
-      label: '正则匹配',
-      description: `判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {'$'}。表达式写错时结果恒为否，并记一条警告日志。`,
-      input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
-      output: { Result: { label: '结果' } },
-    },
-    RegexExtract: {
-      label: '正则提取',
-      description:
-        '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
-      input: { Text: { label: '文本' }, Pattern: { label: '正则表达式' } },
-      output: { Result: { label: '结果' } },
-    },
-    MakePoint: {
-      label: '组装坐标',
-      description:
-        '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
-      example: '把检测到的血量比例当 X、固定 0.9 当 Y,组装成坐标喂给点击节点。',
-      input: {
-        X: { label: 'X', hint: '百分比模式填 0-100（如 50=50%）；像素模式填像素值' },
-        Y: { label: 'Y', hint: '百分比模式填 0-100（如 50=50%）；像素模式填像素值' },
-        Unit: {
-          label: '单位',
-          hint: '百分比=随窗口自适应；像素=绝对固定不缩放',
-          option: { percent: '百分比（自适应）', px: '像素（绝对）' },
-        },
-      },
-      output: { Result: { label: '坐标' } },
-    },
-    OffsetPoint: {
-      label: '偏移坐标',
-      description:
-        '在一个坐标上加水平/垂直偏移。百分比坐标会限制在屏幕内；像素坐标保持像素单位不缩放。',
-      example: '先取模板中心点，再向右下偏移一点，点击按钮内部更稳的位置。',
-      input: {
-        Point: { label: '坐标' },
-        OffsetX: { label: '水平偏移', hint: '百分比坐标填 0-1 的偏移量；像素坐标填像素偏移' },
-        OffsetY: { label: '垂直偏移', hint: '百分比坐标填 0-1 的偏移量；像素坐标填像素偏移' },
-      },
-      output: { Result: { label: '坐标' } },
-    },
-    PointDistance: {
-      label: '两点距离',
-      description: '计算两个坐标之间的直线距离。常用于判断检测结果是否离目标点足够近。',
-      input: { Begin: { label: '起点' }, End: { label: '终点' } },
-      output: { Result: { label: '距离' } },
-    },
-    ROIAroundPoint: {
-      label: '点周围区域',
-      description:
-        '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
-      example: '识别到角色位置后，只在角色周围 20% 区域里继续找按钮或颜色。',
-      input: {
-        Center: { label: '中心点', hint: '使用百分比坐标效果最明确' },
-        Width: { label: '宽度', hint: '百分比，20 表示屏幕宽度的 20%' },
-        Height: { label: '高度', hint: '百分比，20 表示屏幕高度的 20%' },
-      },
-      output: { Result: { label: '区域' } },
-    },
-    // list
-    ForEach: {
-      label: '遍历列表',
-      description:
-        '把列表里的元素一个个拿出来，每个都跑一遍「循环体」。把元素和序号存进变量（变量类型选 any），循环体里用「读变量」取。列表为空或不是列表就直接走「完成」。',
-      input: { List: { label: '列表' } },
-      output: { Body: { label: '循环体' }, Done: { label: '完成' }, Fail: { label: '失败' } },
-    },
-    Split: {
-      label: '拆分文本',
-      description:
-        '把文本按分隔符拆成列表。文本留空得空列表；分隔符留空则一个字一个字拆（中文安全）。',
-      input: { Text: { label: '文本' }, Separator: { label: '分隔符' } },
-      output: { Result: { label: '列表' } },
-    },
-    Join: {
-      label: '拼接列表',
-      description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
-      input: { List: { label: '列表' }, Separator: { label: '分隔符' } },
-      output: { Result: { label: '结果' } },
-    },
-    ListLength: {
-      label: '列表长度',
-      description: '数列表里有几个元素。不是列表算 0 个。',
-      input: { List: { label: '列表' } },
-      output: { Result: { label: '个数' } },
-    },
-    ListGet: {
-      label: '取列表元素',
-      description:
-        '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
-      input: { List: { label: '列表' }, Index: { label: '序号' } },
-      output: { Result: { label: '元素' } },
-    },
-    ListContains: {
-      label: '列表包含',
-      description:
-        '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
-      input: { List: { label: '列表' }, Value: { label: '找什么' } },
-      output: { Result: { label: '结果' } },
-    },
-    ListAppend: {
-      label: '追加元素',
-      description:
-        '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
-      input: { List: { label: '列表' }, Item: { label: '元素' } },
-      output: { Result: { label: '新列表' } },
-    },
-    ListSlice: {
-      label: '截取列表',
-      description:
-        '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
-      input: { List: { label: '列表' }, Start: { label: '起点' }, Count: { label: '个数' } },
-      output: { Result: { label: '新列表' } },
-    },
-    // random
-    RandomInt: {
-      label: '随机整数',
-      description:
-        '在 Min~Max 之间随机取一个整数（含两端）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
-      input: {
-        Min: { label: '最小值' },
-        Max: { label: '最大值' },
-        Distribution: {
-          label: '分布',
-          hint: '均匀=各整数等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）',
-          option: { uniform: '均匀', centered: '聚中' },
-        },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    RandomFloat: {
-      label: '随机小数',
-      description:
-        '在 Min~Max 之间随机取一个小数（含 Min、不含 Max）。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
-      input: {
-        Min: { label: '最小值' },
-        Max: { label: '最大值' },
-        Distribution: {
-          label: '分布',
-          hint: '均匀=区间内等概率；聚中=向区间中点聚集（固定 5 样本钟形，集中度不可调）',
-          option: { uniform: '均匀', centered: '聚中' },
-        },
-      },
-      output: { Result: { label: '结果' } },
-    },
-    RandomBool: {
-      label: '随机真假',
-      description:
-        '按概率随机给真/假。概率 0.5 = 一半一半；<=0 恒假、>=1 恒真。同一次求值里多处引用拿到同一个值；跨不同节点是不同值。',
-      input: { Prob: { label: '为真概率' } },
-      output: { Result: { label: '结果' } },
-    },
-    RandomChoice: {
-      label: '随机取一个',
-      description:
-        '从列表里随机挑一个元素。同一次求值里多处引用拿到同一个。列表为空得 null（元素本身也可能是 null，要区分先用「列表长度」查）。',
-      input: { List: { label: '列表' } },
-      output: { Result: { label: '元素' } },
-    },
-    // stopwatch
-    StopwatchStart: {
-      label: '秒表 启动',
-      description:
-        '按下一个秒表开始计时，用来测某段流程花了多久。每个秒表用一个 key（名字）区分，可以同时跑好几个互不干扰。如果这个 key 已经在跑，会从头重新计时。',
-      example:
-        '想测「找图 + 点击」这段花多长：先接 StopwatchStart（key 填 click），跑完那段再接 StopwatchRead（key 同样填 click），就能拿到这段的毫秒数。',
-      input: { Key: { label: '秒表名', hint: '秒表 key (命名空间独立于 $vars.*)' } },
-      output: { Done: { label: '完成' } },
-    },
-    StopwatchRead: {
-      label: '秒表 读取',
-      description:
-        '读出某个秒表到现在用了多少毫秒。秒表还在跑就返回「从开始到现在」的时间，已经停了就返回「从开始到停的那一刻」，没启动过的 key 返回 0。',
-      example:
-        '测一段流程耗时：StopwatchStart（key=load）起表 → 跑完要测的部分 → StopwatchRead（key=load）读出毫秒数，接到 Log 或判断里看快慢。',
-      input: {
-        Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' },
-      },
-      output: {
-        Done: {
-          label: '完成',
-          data: { ElapsedMs: { hint: 'elapsed 毫秒' } },
-        },
-      },
-    },
-    StopwatchStop: {
-      label: '秒表 停止',
-      description:
-        '让某个秒表停下来，之后再读它拿到的就是停的那一刻的总用时，不会再往上涨。这个 key 没启动过的话什么都不做。',
-      input: { Key: { label: '秒表名', hint: '跟之前 StopwatchStart 同一个 key' } },
-      output: { Done: { label: '完成' } },
-    },
-    // system
-    CollapsedNode: {
-      label: '折叠子图',
-      description:
-        '把画布上选中的一组节点折叠成一个小方块，让流程图看着清爽。双击进去能编辑里面的节点，运行时跟展开时一模一样，跑完走「完成」往下接。',
-      input: {
-        SubgraphID: { label: '子图 ID', hint: '目标匿名子图标识符' },
-        Label: { label: '标签' },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
-    },
-    CommentBox: {
-      label: '注释框',
-      description:
-        '画布上的一张便签，写标题加正文（支持 markdown）给脚本做说明。纯展示，不参与运行、不连线。双击就能编辑，颜色、图标、宽度都能调。',
-      input: {
-        Title: { label: '标题' },
-        Content: { label: '正文 (markdown)' },
-        Color: { label: '颜色' },
-        Icon: { label: '图标' },
-        Width: { label: '宽度 (px)' },
-      },
-    },
-    MouseCalibration: {
-      label: '鼠标校准',
-      description:
-        '告诉脚本「你这台机器鼠标转一整圈要走多少」，相对移动鼠标（MouseMoveRel）就靠这个值把角度换算成实际移动量。只放在主图、一个容器一个，本身不做动作，直接往下接。',
-      input: {
-        Counts360: {
-          label: '每圈 counts',
-          hint: '鼠标 360° 转一圈所需 counts. MouseMoveRel 用来 scale dx/dy.',
-        },
-      },
-      output: { Done: { label: '完成' } },
-      inspector: {
-        counts_label: '本机 360° HID counts',
-        calibrated: '✅ 已校准',
-        not_calibrated: '❌ 未校准',
-        counts_hint:
-          '转 360° 你的鼠标硬件累积上报多少 |dx|；跟硬件 DPI、OS 灵敏度、游戏内灵敏度都有关。',
-        counts_warn: '⚠ 这个值必须是你本机+游戏实测的，不是从别人容器导入的值。',
-        start_calibrate: '▶ 开始校准',
-        load_from_settings_one: '⬇ 从设置加载（{label}: {n}）',
-        load_from_settings_pick: '⬇ 从设置选一个校准档…',
-        advanced_manual: '高级（手动输入）',
-      },
-    },
-    Subgraph: {
-      label: '调用子图',
-      description:
-        '把一组节点打包成子图，在这里整段调用一次，跑完走「完成」往下接。同一段流程要在多处复用、或想拆分大流程时用它，还能通过「参数」把数据传进子图。',
-      example:
-        '登录流程要在好几个脚本里反复用：做成子图，每个脚本放一个「调用子图」指过去就行，以后改登录只改子图一处。',
-      input: {
-        SubgraphID: { label: '子图 ID' },
-        Params: { label: '参数', hint: '调用参数 — 传给被调子图的入口' },
-      },
-      output: { Done: { label: '完成' }, Fail: { label: '失败' } },
-      fallback_missing: '(子图未找到)',
-      fallback_empty: '(无出口)',
-      inspector: {
-        binding_label: '绑定子图',
-        subgraph_label_field: '名称',
-        subgraph_label_placeholder: '子图名称',
-        subgraph_description_field: '描述',
-        subgraph_description_placeholder: '可选 · 给自己或队友看的说明',
-        subgraph_tags_field: 'tags',
-        subgraph_tags_placeholder: '添加标签...',
-        enter_subgraph: '进入子图编辑节点内容',
-        footer_meta_hint: '子图元信息（名称/描述/tags）可在此处编辑，无需进入子图。',
-        footer_delete_hint:
-          '普通删除只移除此引用，子图定义保留在库；右键节点选「彻底删除」可连子图定义一起删（会先确认）。',
-      },
-    },
-    Throw: {
-      label: '抛错',
-      description:
-        '主动报一个错并立刻中断当前流程，错误内容就是你填的「消息」。如果外层有 Loop / 子图等区域的「失败」出口接了线，错会被接住走「失败」分支；没人接就直接让整个脚本报错停下。还能填「错误码」让下游 Switch 按码分流。',
-      example:
-        '检查到血量为 0 说明角色已死，往下没法继续：接一个「抛错」消息填「角色死亡」，让外层区域的「失败」出口接住去做复活处理。',
-      input: {
-        Message: { label: '消息' },
-        Code: { label: '错误码 (可选)' },
-      },
-    },
-    Win32WindowTarget: {
-      label: 'Windows 窗口目标',
-      description:
-        '指定脚本接下来操作哪个 Windows 窗口——按窗口标题、类名或进程名找到它并切到前台。放在动作之前用；想操作好几个 Windows 窗口就放多个，分别切到不同窗口。Android 请用对应 Target 节点。',
-      example:
-        '脚本要操作游戏窗口：开头放一个「Windows 窗口目标」，标题填游戏名，后面的 Windows 点击、按键就都打到这个窗口上。',
-      input: {
-        Title: { label: '窗口标题' },
-        Class: { label: '窗口类名' },
-        ProcessName: { label: '进程名' },
-        TitleMatch: {
-          label: '标题匹配方式',
-          option: {
-            exact: '精确',
-            contains: '包含',
-            prefix: '前缀',
-            suffix: '后缀',
-            regex: '正则',
-          },
-        },
-      },
-      output: {
-        Done: { label: '完成', data: { Window: { hint: '切到的活动窗口' } } },
-        Fail: { label: '失败' },
-      },
-      subgraph_hint: '子图内切窗口会影响调用方, 返回不自动还原',
-      inspector: {
-        capture_waiting: '等待 {hk} 按键 (再点取消)',
-        capture_start: '捕获 Windows 窗口 (按 {hk})',
-        capture_hint_a: '点开后切到游戏窗口, 按 {hk} 即可捕获 title/class/processName.',
-        capture_hint_b: '该键跟其它软件冲突? 去「设置 → 快捷键 → 系统 → 窗口捕获」改键.',
-        match_section: '窗口匹配 (match)',
-        title_label: '标题 (title)',
-        title_placeholder: '异环',
-        class_label: '类名 (class)',
-        process_label: '进程名 (processName)',
-        title_match_label: 'title 匹配方式',
-        title_match_exact: '精确匹配 (区分大小写)',
-        title_match_regex: '正则 RE2 (部分匹配)',
-      },
-    },
-    WaitWindow: {
-      label: '等待窗口',
-      description:
-        '轮询等待某个 Windows 窗口出现——按标题/类名/进程名找，在超时内出现走「出现」，到点还没出现走「超时」（不报错，方便兜底）。常接在「运行程序」后等程序窗口加载出来。注意：本节点只探测窗口在不在、不会切到该窗口；要操作它，「出现」后再接一个「Windows 窗口目标」锁定（这时窗口已存在会立刻命中）。',
-      example:
-        '「运行程序」打开游戏后接「等待窗口」，标题填游戏名、超时 20 秒；出现就接「Windows 窗口目标」+ 后续操作，超时就发提示或重试。',
-      input: {
-        Title: { label: '窗口标题' },
-        Class: { label: '窗口类名' },
-        ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
-        TimeoutMs: {
-          label: '超时 (ms)',
-          hint: '在这段时间内轮询等待窗口出现，到点还没出现走「超时」。',
-        },
-      },
-      output: { Found: { label: '出现' }, Timeout: { label: '超时' } },
-    },
-    GetWindow: {
-      label: '获取窗口',
-      description: '按标题/类名/进程名解析一个窗口为窗口对象,不改变当前活动窗口。',
-      example: '解析子窗口绑成变量,后续节点连它的「窗口」输入分别操作不同窗口。',
-      input: {
-        Title: { label: '窗口标题' },
-        Class: { label: '窗口类名' },
-        ProcessName: { label: '进程名' },
-        TitleMatch: {
-          label: '标题匹配方式',
-          option: {
-            exact: '精确',
-            contains: '包含',
-            prefix: '前缀',
-            suffix: '后缀',
-            regex: '正则',
-          },
-        },
-      },
-      output: {
-        Done: { label: '完成', data: { Window: { hint: '解析到的窗口对象' } } },
-        Fail: { label: '失败' },
-      },
-    },
-    WindowState: {
-      label: '窗口状态',
-      description: '最大化/最小化/还原/无边框全屏/退出无边框,作用于 Windows 窗口。',
-      example: '把游戏窗口切到无边框全屏。',
-      input: {
-        State: {
-          label: '状态',
-          option: {
-            maximize: '最大化',
-            minimize: '最小化',
-            restore: '还原',
-            borderlessFullscreen: '无边框全屏',
-            restoreBorders: '退出无边框',
-          },
-        },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成', data: { Window: { hint: '操作后重读的窗口' } } } },
-    },
-    MoveResizeWindow: {
-      label: '移动/缩放窗口',
-      description: '把 Windows 窗口移到 (X, Y) 并设为 Width×Height 像素。',
-      example: '把窗口移到屏幕左上角并设成 1280×720。',
-      input: {
-        X: { label: 'X 坐标' },
-        Y: { label: 'Y 坐标' },
-        Width: { label: '宽' },
-        Height: { label: '高' },
-        Window: { label: '窗口' },
-      },
-      output: { Done: { label: '完成', data: { Window: { hint: '操作后重读的窗口' } } } },
-    },
-    CloseWindow: {
-      label: '关闭窗口',
-      description: '向 Windows 窗口发送关闭请求(可接「等待窗口关闭」确认真的关掉)。',
-      example: '关闭记事本窗口后等它消失。',
-      input: { Window: { label: '窗口' } },
-      output: { Done: { label: '完成' } },
-    },
-    WaitWindowGone: {
-      label: '等待窗口关闭',
-      description:
-        '按标题/类名/进程名等某窗口从系统消失再放行——在超时内消失走「消失」，到点还没消失走「超时」（不报错，方便兜底）。常接在「关闭程序」后确认窗口真的关掉了。',
-      input: {
-        Title: { label: '窗口标题' },
-        Class: { label: '窗口类名' },
-        ProcessName: { label: '进程名' },
-        TitleMatch: { label: '标题匹配方式', option: { exact: '精确', regex: '正则' } },
-        TimeoutMs: {
-          label: '超时 (ms)',
-          hint: '在这段时间内轮询等待窗口消失，到点还没消失走「超时」。',
-        },
-      },
-      output: { Gone: { label: '消失' }, Timeout: { label: '超时' } },
-    },
-    SubgraphInput: {
-      label: '子图入口',
-      description:
-        '子图内部的入口连接点——外面调用子图时从这里开始往下跑，传进来的参数也从这里取。位置能挪，但不能删、不能复制。',
-    },
-    SubgraphOutput: {
-      label: '子图出口',
-      description:
-        '子图内部的出口连接点——子图跑到这里就算结束，回到外面的调用处往下接。每个出口对应一个出口针脚。位置能挪，但不能删、不能复制。',
-    },
-    // variable
-    GetVar: {
-      label: '读变量',
-      description:
-        '取出一个你之前存过的变量的值，接到需要它的地方用。作用域 scope 决定去哪找：local 只找当前子图里的，global 找全局共享的，auto 先找当前子图、找不到再去全局。',
-      input: {
-        VarName: { label: '变量名' },
-        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
-      },
-      output: { Value: { label: '值' } },
-    },
-    SetVar: {
-      label: '写变量',
-      description:
-        '存一个变量，值随便填——文字、数字什么都行，之后用「读变量」取出来。作用域 scope 决定存到哪：local 存进当前子图（出了子图就没了），global 存到全局（哪都能读到），auto 当前子图已有同名就改它、否则存全局。',
-      example:
-        '记录一个状态标记：SetVar（变量名 done、值 true），后面用 GetVar 读出来判断要不要跳过某步。',
-      input: {
-        VarName: { label: '变量名' },
-        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
-        Value: { label: '值', hint: '任意类型' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    IncVar: {
-      label: '变量自增',
-      description:
-        '给一个变量加上增量（默认加 1，填负数就是减），常用来当计数器。变量原来没值就当 0 起算。作用域 scope 跟读/写变量一样：local / global / auto。',
-      example:
-        '统计循环跑了几次：循环体里接 IncVar（变量名 count），每跑一圈就 +1，结束后用 GetVar 读 count 看总次数。',
-      input: {
-        VarName: { label: '变量名' },
-        Scope: { label: '作用域', option: { auto: 'auto', local: 'local', global: 'global' } },
-        Delta: { label: '增量' },
-      },
-      output: { Done: { label: '完成' } },
-    },
-    GetParam: {
-      label: '读子图参数',
-      description:
-        '读出调用这个子图时外面传进来的参数值，按参数名取。只能在子图内部用，相当于子图的「入参」。',
-      input: { ParamName: { label: '参数名' } },
-      output: { Value: { label: '值' } },
-    },
-    Now: {
-      label: '当前时间',
-      description:
-        '返回当前时间的毫秒数（unix 毫秒，每次读都是实时的最新值）。常配「变量上次变化时间」算「某状态已经多久没动了」：当前时间 − 变量上次变化时间。',
-      example:
-        '看血量多久没变（卡住了）：用「当前时间」减去「变量上次变化时间」（变量名填 hp），差值超过 5000 毫秒就当作卡住，触发重连。',
-      output: { Value: { label: '当前时间(ms)' } },
-    },
-    VarLastChange: {
-      label: '变量上次变化时间',
-      description:
-        '返回某个变量上一次被写入/自增的时间（unix 毫秒），从没被改过返回 0。配「当前时间」算「这个值有多久没变了」，常用来做卡死检测/看门狗。',
-      example:
-        '检测某状态卡死：变量名填 state，用「当前时间」减去本节点的结果，差值很大说明 state 很久没更新了，可触发恢复流程。',
-      input: { VarName: { label: '变量名', hint: '要查询上次变化时间的变量名' } },
-      output: { Value: { label: '上次变化时间(ms)' } },
+
+    builtin: {
+      'collection-append': {
+        title: '追加元素',
+        description:
+          '在列表末尾加一个元素，得到一个新列表（原列表不变；要累积请配合「写变量」存回去，变量类型选 any）。',
+      },
+      'collection-contains': {
+        title: '列表包含',
+        description:
+          '判断列表里有没有等于 Value 的元素。比较规则与「等于」节点相同：类型相同直接比，类型不同转文字比。',
+      },
+      'collection-get': {
+        title: '取列表元素',
+        description:
+          '取第 Index 个元素（从 0 数）。序号超出范围得 null——元素本身也可能是 null，要区分先用「列表长度」查。',
+      },
+      'collection-join': {
+        title: '拼接列表',
+        description: '把列表里的元素用分隔符连成一段文本。非文本元素自动转文字。',
+      },
+      'collection-length': {
+        title: '列表长度',
+        description: '数列表里有几个元素。不是列表算 0 个。',
+      },
+      'collection-slice': {
+        title: '截取列表',
+        description:
+          '从第 Start 个元素开始取 Count 个，得到新列表。Count 填 -1（默认）取到末尾，0 得空列表。起点超出范围得空列表。',
+      },
+      'collection-split': {
+        title: '拆分文本',
+        description:
+          '把文本按分隔符拆成列表。文本留空得空列表；分隔符留空则一个字一个字拆（中文安全）。',
+      },
+      'comparison-equal': {
+        title: '等于',
+        description:
+          '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
+      },
+      'comparison-greater-or-equal': {
+        title: '大于等于',
+        description: '判断 A 是不是 ≥ B，给出真/假。',
+      },
+      'comparison-greater-than': { title: '大于', description: '判断 A 是不是 > B，给出真/假。' },
+      'comparison-less-or-equal': {
+        title: '小于等于',
+        description: '判断 A 是不是 ≤ B，给出真/假。',
+      },
+      'comparison-less-than': { title: '小于', description: '判断 A 是不是 < B，给出真/假。' },
+      'comparison-not-equal': {
+        title: '不等于',
+        description:
+          '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
+      },
+      'conversion-string-to-boolean': {
+        title: '转布尔',
+        description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
+      },
+      'conversion-string-to-number': {
+        title: '转数字',
+        description:
+          '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
+      },
+      'conversion-to-string': {
+        title: '转字符串',
+        description: '把任意值转成文字。数字、真假、坐标等都能转，空值转成「null」。',
+      },
+      'geometry-make-point': {
+        title: '组装坐标',
+        description:
+          '把两个数字(X、Y)拼成一个「坐标」值,接到点击/滑动等需要坐标的节点上。可选单位:百分比(0-1,跟窗口大小无关)或像素。需要用算出来的数字当坐标时用它。',
+      },
+      'geometry-offset-point': {
+        title: '偏移坐标',
+        description:
+          '在一个坐标上加水平/垂直偏移。百分比坐标会限制在屏幕内；像素坐标保持像素单位不缩放。',
+      },
+      'geometry-point-distance': {
+        title: '两点距离',
+        description: '计算两个坐标之间的直线距离。常用于判断检测结果是否离目标点足够近。',
+      },
+      'geometry-region-around-point': {
+        title: '点周围区域',
+        description:
+          '以一个坐标为中心生成截图/识别用的 ROI 区域，宽高按百分比填写，并自动限制在屏幕内。',
+      },
+      'json-parse': {
+        title: '解析 JSON',
+        description:
+          '把一段 JSON 文本解析成结构化值，可以接给 JsonPath、Fetch 请求体或其它 JSON 输入。',
+      },
+      'json-path': {
+        title: '取 JSON 路径',
+        description:
+          '从 JSON 值里取字段或数组项。支持 $、.字段、[序号] 和 [*]，例如 $.items[0].url 或 $.items[*].url。',
+      },
+      'json-stringify': {
+        title: '转 JSON 文本',
+        description: '把任意值序列化成 JSON 文本，方便写日志、传给接口或保存到文件。',
+      },
+      'logic-and': {
+        title: '逻辑与',
+        description: '两个条件都为真时才给出真，否则给假。没接线的输入默认当真，不会干扰结果。',
+      },
+      'logic-not': { title: '逻辑非', description: '把真假反过来：真变假、假变真。' },
+      'logic-or': {
+        title: '逻辑或',
+        description: '两个条件只要有一个为真就给出真，都为假才给假。',
+      },
+      'logic-select': {
+        title: '三元选择',
+        description:
+          '看条件真假，从 A、B 两个值里挑一个输出：条件为真给 A，为假给 B。A、B 什么类型都行。',
+      },
+      'math-absolute': { title: '绝对值', description: '取 X 的绝对值（负变正）。' },
+      'math-add': { title: '加', description: '把两个数字相加，给出和。' },
+      'math-ceiling': {
+        title: '向上取整',
+        description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
+      },
+      'math-clamp': {
+        title: '限制范围',
+        description:
+          '把 X 限制在 Min~Max 里：小于 Min 出 Min，大于 Max 出 Max，否则原样出。Min 比 Max 大时自动交换。',
+      },
+      'math-divide': {
+        title: '除',
+        description: '用 A 除以 B，给出商。除数为 0 时结果是 NaN（非数字）。',
+      },
+      'math-floor': {
+        title: '向下取整',
+        description: '把 X 往小的方向取整：3.7 得 3，-3.2 得 -4。',
+      },
+      'math-maximum': { title: '取较大', description: '两个数里取较大的那个。' },
+      'math-minimum': { title: '取较小', description: '两个数里取较小的那个。' },
+      'math-modulo': { title: '取模', description: '求 A 除以 B 的余数，支持小数。' },
+      'math-multiply': { title: '乘', description: '把两个数字相乘，给出积。' },
+      'math-negate': { title: '取负', description: '把数字变号：正数变负、负数变正。' },
+      'math-power': {
+        title: '乘方',
+        description:
+          '算 Base 的 Exp 次方。特殊情况按数学惯例：负数开分数次方得 NaN、0 的负次方得 Infinity、0 的 0 次方得 1。',
+      },
+      'math-round': {
+        title: '四舍五入',
+        description:
+          '把 X 四舍五入。位数=0 取到整数；位数=2 保留 2 位小数；位数=-2 取整到百位（12345 得 12300）。位数最多 ±15（再多超出小数精度，按 ±15 算）。',
+      },
+      'math-square-root': {
+        title: '开平方',
+        description: '算 X 的平方根。X 是负数时得 NaN（需要时先接"绝对值"节点）。',
+      },
+      'math-subtract': { title: '减', description: '用 A 减去 B，给出差。' },
+      'text-contains': {
+        title: '包含',
+        description:
+          '判断源串里是否出现过子串这一段文字，给出真/假。区分大小写；非文字的输入会先转成文字再找。',
+      },
+      'text-ends-with': {
+        title: '结尾是',
+        description: '判断文本是否以 Suffix 结尾。Suffix 留空恒为真。',
+      },
+      'text-index-of': {
+        title: '查找位置',
+        description:
+          'Sub 在文本里第一次出现的位置（从 0 数，中文一个字算 1 个）。找不到得 -1。只想判断"包含吗"请用「包含」节点。',
+      },
+      'text-length': {
+        title: '字符串长度',
+        description:
+          '数一段文字有多长，给出字符数。中文一个字算 1 个，与「截取文本」「查找位置」的位置口径一致。',
+      },
+      'text-lowercase': { title: '转小写', description: '把英文字母全部转成小写。' },
+      'text-regex-extract': {
+        title: '正则提取',
+        description:
+          '从文本里提取第一段匹配正则表达式的内容；表达式带括号分组时取第 1 组。没匹配到、或表达式写错时得空串（写错另记警告日志）。',
+      },
+      'text-regex-match': {
+        title: '正则匹配',
+        description:
+          '判断文本里是否有匹配正则表达式的部分（是"包含"式：abc 用 b 也算中）。要整串完全匹配，给表达式首尾加 ^ 和 {\'$\'}。表达式写错时结果恒为否，并记一条警告日志。',
+      },
+      'text-replace': {
+        title: '替换文本',
+        description:
+          '把文本里的 Old 换成 New。「全部替换」开着换所有，关掉只换第一处。Old 留空时原样返回。',
+      },
+      'text-starts-with': {
+        title: '开头是',
+        description: '判断文本是否以 Prefix 开头。Prefix 留空恒为真。',
+      },
+      'text-substring': {
+        title: '截取文本',
+        description:
+          '从第 Start 个字符开始截 Length 个字符（中文一个字算 1 个）。Length 填 -1（默认）截到末尾，0 得空串。Start 超出范围得空串。',
+      },
+      'text-trim': { title: '去首尾空白', description: '去掉文本开头和结尾的空格、换行、制表符。' },
+      'text-uppercase': { title: '转大写', description: '把英文字母全部转成大写。' },
     },
-  },
-  status: {
-    idle: '空闲',
-    running: '▶ 跑中: {name}',
-    container_fallback: '容器',
-    stop_button: '停止',
-    stop_tooltip: '停止当前运行 + 清队列 ({hk})',
   },
   log: {
     header_title: '日志',
@@ -2534,18 +810,7 @@ export default {
     filter_label: '日志来源',
     filter_all: '全部日志',
     filter_sys: '系统日志',
-    filter_ctr: '容器日志',
-    action_trace: {
-      open: '动作 Trace',
-      title: '动作 Trace',
-      count: '{n} 条',
-      empty: '暂无动作 Trace',
-      backend: '后端',
-      duration: '耗时',
-      coords: '坐标',
-      error: '错误',
-      payload: 'payload',
-    },
+    filter_wf: '工作流日志',
     popover: {
       enabled: '日志总开关',
       enabled_hint: '关闭后从后台源头停止生成、传输和写盘',
@@ -2556,7 +821,6 @@ export default {
       wrap_text: '自动折行',
       auto_scroll: '自动滚动',
       write_file: '写入文件',
-      show_node_enter: '显示节点切换',
     },
   },
   common: {
@@ -2665,377 +929,119 @@ export default {
   // backend ValidationError.Code → user-facing message.
   // Params: {param} 占位符走 vue-i18n named-interpolation. 未匹配 → fallback 显示 raw code.
   error: {
-    NO_START: '主图没有 Start 节点',
-    MULTIPLE_STARTS: '主图有 {count} 个 Start 节点（应恰好 1 个）',
-    DANGLING_EDGE: '边 {from} → {to} 引用了不存在的节点 ({missing})',
-    INVALID_PIN: '节点 {nodeID} ({kind}) 不存在 {side} pin {pin}',
-    DUPLICATE_OUTPUT_PIN: 'OutputPin Name {name} 重复',
-    MISSING_TEMPLATE: '节点 {nodeID} 引用的模板 {template} 在容器 templates/ 里找不到',
-    MISSING_SUBGRAPH: 'Subgraph 节点引用了不存在的子图 {subgraphId}',
-    MISSING_MOUSE_CALIBRATION: '使用了 MouseMoveRel 但容器没有 MouseCalibration 节点',
-    DUPLICATE_MOUSE_CALIBRATION: '主图有 {count} 个 MouseCalibration 节点（应最多 1 个）',
-    MOUSE_CALIBRATION_NOT_SET: 'MouseCalibration 的 counts360 没设置',
-    MOUSE_CALIBRATION_IN_SUBGRAPH: 'MouseCalibration 节点必须在主图',
-    EMPTY_SUBGRAPH_OUTPUT: '子图没有任何 SubgraphOutput 节点',
-    CYCLIC_SUBGRAPH_DEPENDENCY: '子图调用形成环',
-    PLAYCLIP_NO_CLIP_ID: 'PlayClip 节点没指定 clipID',
-    MISSING_REQUIRED_PIN: '{kind} 缺少必填输入 {pin}',
-    UNKNOWN_LITERAL_PIN: '{kind} 保存了未知输入 {pin} 的无效值，可安全清理',
-    MISSING_WIN32_WINDOW_TARGET: '主图缺 Windows 窗口目标节点',
-    UNSUPPORTED_TARGET_CAPABILITY:
-      '{kind} 需要目标能力 {capability}，但当前目标 {targetKind} 不支持',
+    UNSUPPORTED_WORKFLOW_FORMAT: '不支持的工作流格式或版本',
+    INVALID_WORKFLOW_JSON: '工作流 JSON 无效',
+    DUPLICATE_FIELD: '字段重复',
+    UNKNOWN_FIELD: '存在未知字段',
+    MISSING_REQUIRED_FIELD: '缺少必填字段',
+    INVALID_FIELD: '字段值无效',
+    DUPLICATE_ID: 'ID 重复',
+    MISSING_ENTRY_GRAPH: '缺少入口图',
+    UNKNOWN_NODE_KIND: '节点种类无效',
+    UNSUPPORTED_NODE_CONTRACT: '节点契约不受支持',
+    UNSUPPORTED_GRAPH_CONTRACT: '图契约不受支持',
+    INVALID_GRAPH_ENTRY: '图入口无效',
+    MISSING_GRAPH_OUTPUT: '图缺少已声明的输出',
+    INVALID_GRAPH_BOUNDARY_EDGE: '图边界连线无效',
+    UNKNOWN_CALLEE_GRAPH: '调用的图不存在',
+    INVALID_CALLEE_GRAPH_KIND: '被调用图的种类不允许调用',
+    SUBGRAPH_CALL_CYCLE: '子图调用形成循环',
+    CALL_PIN_TYPE_MISMATCH: '图调用端口类型不匹配',
+    INVALID_DYNAMIC_PORT_DECLARATION: '动态端口声明无效',
+    DYNAMIC_PORT_BUDGET_EXCEEDED: '动态端口数量超过预算',
+    INPUT_CONSTRAINT_VIOLATION: '输入约束未满足',
+    INPUT_CONSTRAINT_BUDGET_EXCEEDED: '输入约束检查超过预算',
+    DIAGNOSTIC_BUDGET_EXCEEDED: '诊断数量超过预算',
+    MISSING_CAPABILITY_DECLARATION: '缺少所需能力声明',
+    UNUSED_CAPABILITY_DECLARATION: '存在未使用的能力声明',
+    INVALID_CATALOG: '节点目录无效',
+    UNKNOWN_NODE_TYPE: '节点类型不在目录中',
+    NODE_CONTRACT_MISMATCH: '节点契约摘要不匹配',
+    UNKNOWN_PORT: '连线引用了未知端口',
+    EDGE_CHANNEL_MISMATCH: '连线通道类型不匹配',
+    TYPE_MISMATCH: '数据类型不匹配',
+    UNRESOLVED_TYPE: '数据类型无法解析',
+    RESOURCE_LEASE_MISMATCH: '资源租约不匹配',
+    MISSING_INPUT_BINDING: '缺少必需输入绑定',
+    DUPLICATE_INPUT_BINDING: '输入被重复绑定',
+    DUPLICATE_SIGNAL_ROUTE: '信号路由重复',
+    REGION_SIGNAL_SCOPE: '信号越过了区域作用域',
+    INVALID_BINDING: '输入绑定无效',
+    INVALID_CONFIG: '节点配置无效',
+    INVALID_STATE_VARIABLE: '状态变量声明无效',
+    INVALID_STATE_ACCESS: '状态变量访问无效',
+    INVALID_CAPABILITY_BINDING: '能力绑定无效',
+    NO_EXECUTION_ROOT: '没有可执行入口',
+    UNREACHABLE_EXECUTION: '存在无法到达的执行节点',
+    DATA_CYCLE: '数据依赖形成循环',
+    UNSUPPORTED_GRAPH: '图结构不受执行器支持',
+    UNSUPPORTED_SOURCE_FEATURE: '工作流使用了尚未支持的特性',
+    WAILS_NOT_READY: '桌面运行时尚未就绪',
+    AUTOMATION_TARGET_SLOT_REQUIRED: '必须选择自动化目标',
+    RECORDING_TARGET_UNAVAILABLE: '录制目标不可用',
     UNKNOWN_ERROR: '发生未知错误',
-    TRANSPORT_TIMEOUT: '等待响应超时。请确认目标仍可用，然后重试。',
-    TRANSPORT_UNAVAILABLE: '无法建立连接。请检查目标或网络连接，然后重试。',
-    WAILS_NOT_READY: '应用尚未就绪，请稍后重试',
-    AUTOMATION_TARGET_SLOT_REQUIRED: '请选择已安装的自动化目标',
-    RECORDING_TARGET_UNAVAILABLE: '已安装的录制目标当前不可用',
-    INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows 窗口目标正则不合法: {error}',
-    INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows 窗口目标 match 不能为空',
-    NO_ACTIVE_WINDOW: '当前没有可用的 Windows 目标窗口',
-    INVALID_HSV_RANGE: 'HSV 范围不合法',
-    INVALID_SCAN_AXIS: 'scanAxis 必须是 x 或 y, 得到 {got}',
-    INVALID_CLUSTER_RANGE: 'cluster 范围不合法 (min={min} > max={max})',
-    INVALID_VK: 'vk (虚拟键码) 不合法',
-    INVALID_MOUSE_BUTTON: 'button 必须是 left/right/middle, 得到 {button}',
-    UNSAFE_SCREENSHOT_PATH: 'Screenshot pathTemplate 路径不安全',
-    POLL_TOO_FAST: '轮询间隔太小 (<{minMs}ms), 会让 CPU 飙升',
-    INVALID_COLOR_MODE: '颜色模式只能是 hsv 或 rgb，当前为 {got}',
-    INVALID_BLOB_PARAM: '{field} 不能小于 0，当前为 {got}',
-    INVALID_SORT_MODE: '不支持的色块排序方式：{got}',
-    STOPWATCH_EMPTY_KEY: 'Stopwatch key 不能为空',
-    STOPWATCH_KEY_MISMATCH: '{kind} 使用 key {key} 但同图中无对应 StopwatchStart',
-    THROW_IN_MAIN_GRAPH: 'Throw 节点不能在主图 (必须在子图内)',
-    INVALID_SWITCH_CASES: 'Switch cases 不合法 (空 / 重复 / 含 . / 名 default)',
-    INVALID_CRON_EXPR: 'Cron 表达式无效: {expr} ({parseErr})',
-    INVALID_REGEX_PATTERN: '正则表达式无效: {pattern} ({parseErr})',
-    // v4 新增
-    PIN_TYPE_MISMATCH: 'data pin 类型不兼容: {from} → {to} (edge: {edge})',
-    PIN_TYPE_COERCION_WARNING: 'data pin 隐式类型转换: {from} → {to} (建议加 To* 节点显式)',
-    GETVAR_UNKNOWN_VAR: 'GetVar/SetVar/IncVar 引用未声明的变量 {name}',
-    GETVAR_TYPE_MISMATCH: 'GetVar 出的 type 跟下游期望不符',
-    LITERAL_TYPE_MISMATCH:
-      'inline literal 类型跟 pin type 不符 (pin {pin} 期望 {expected}, 实际值 {value})',
-    DATA_PIN_DANGLING: 'data-in pin {pin} 未连边也无 literal',
-    DATA_GRAPH_CYCLE: '数据流形成环: {cycle}',
-    EXPR_PARSE_ERROR: 'Expr 解析失败: {error}',
-    EXPR_UNKNOWN_INPUT: 'Expr 引用未声明的输入 {name}',
-    EXPR_TYPE_MISMATCH: 'Expr outType 与推断不符 (期望 {expected}, 实际 {actual})',
-    EXPR_DUPLICATE_INPUT: 'Expr inputs 重复名: {name}',
-    EXPR_UNKNOWN_FUNCTION: '未知函数 {name} — 检查拼写, 可用函数见输入框补全列表',
-    EXPR_FN_ARITY: '函数 {name} 需要 {want} 个参数, 现在给了 {got} 个',
-    SCRIPT_PARSE_ERROR: '脚本语法错误: {error}',
-    SCRIPT_DUPLICATE_INPUT: '脚本输入口重名 {name}',
-    EXPR_UNKNOWN_VAR: '表达式引用了未声明的变量 {name} — 检查拼写或先在变量面板声明',
-    GETPARAM_UNKNOWN_PARAM: 'GetParam 引用未声明入参 {name}',
-    COLLAPSED_PIN_BROKEN: 'CollapsedNode 外部 pin 在后备 Subgraph 中找不到 marker',
-    COLLAPSED_REFERENCED_BY_SUBGRAPH_CALL:
-      'Subgraph 节点引用了 isAnonymous Subgraph (该子图属 CollapsedNode, 不可跨 graph 复用)',
-    // B11/B3+ 加的 code
-    INVALID_VAR_REF: '节点引用未声明的容器变量 {varName} (scope={scope})',
-    SUBGRAPH_VAR_UNDECLARED: '子图 {subgraphLabel} 需要容器变量 {name}，但当前容器未声明',
-    // 禁用节点
-    WARN_DISABLED_BRANCH_NODE:
-      '分支/异步节点 {nodeID} (kind={kind}) 禁用走 passthrough exit pin — 行为非确定, 建议删而非禁',
-    INVALID_DISABLED_TERMINAL:
-      '容器级节点 {nodeID} (kind={kind}) 不允许禁用 (Start/MouseCalibration/EventTick)',
-    // sentinel scope
-    BREAK_OUTSIDE_LOOP: 'Break 节点必须在 Loop body 下游 (同图内 exec 可达)',
-    CONTINUE_OUTSIDE_LOOP: 'Continue 节点必须在 Loop body 下游 (同图内 exec 可达)',
-    // template/clip key validation
-    INVALID_TEMPLATE_KEY: '模板 key {key} 不合法: {error}',
-    TEMPLATE_NOT_FOUND: '模板 {key} 在容器中找不到',
-    CLIP_NOT_FOUND: '剪辑 {id} 在容器中找不到',
-    // service.go 兜底
-    CONTAINER_NOT_FOUND: '容器 {id} 不存在',
-  },
-  // 校验问题条文案 (EditorProblemsBar) — 跟 error.* 错误码分开.
-  validation: {
-    desc_no_issues: '没有发现校验错误。容器可以试运行。',
-    bar_title: '问题',
-    unchecked: '未检查',
-    passed_short: '无问题',
-    error_count: '{n} 个错误',
-    warning_count: '{n} 个提醒',
-    run_button: '通过 — 继续运行',
-    fix_missing_win32_window_target: '一键添加 Windows 窗口目标节点',
-    jump: '跳转',
-    fix: '修复',
-    clear_unused: '清理无效值',
-  },
-  // ContainersView / ContainersTab / TemplatesTab 文案.
-  containers: {
-    workspace: {
-      eyebrow: 'AUTOMATION WORKSPACE',
-      title: '容器工作台',
-      description: '组织、运行和维护可执行自动化。双击容器可直接进入编辑器。',
-      summary: '容器概览',
-      total: '全部容器',
-      running: '正在运行',
-      nodes: '节点总数',
-      categories: '分类',
-      no_description: '暂无说明，进入编辑器补充这个容器的用途。',
-      updated: '更新于 {value}',
+    TRANSPORT_TIMEOUT: '请求超时，请稍后重试',
+    TRANSPORT_UNAVAILABLE: '后端连接不可用，请重启 Yotta',
+    admission: {
+      target_unavailable: '所需目标不可用',
+      target_ambiguous: '目标匹配不唯一',
+      provider_incompatible: '能力提供器与契约不兼容',
+      unsupported_host: '当前平台不支持所需能力',
+      credential_unavailable: '所需凭据不可用',
+      credential_ambiguous: '凭据匹配不唯一',
+      consent_required: '执行前需要用户授权',
+      policy_denied: '安全策略拒绝了本次执行',
+      policy_invalid: '安全策略无效',
+      persistence_failed: '授权记录保存失败',
+      persistence_unconfirmed: '授权记录未能确认落盘',
     },
-    tab: {
-      local: '本地容器',
-      online: '在线容器',
+    application: {
+      invalid_request: '应用控制请求无效',
+      identity_changed: '已安装应用身份已变化',
+      launch_failed: '应用启动失败',
+      terminate_failed: '应用终止失败',
+      unsupported_host: '当前平台不支持应用控制',
+      contract_violation: '应用控制提供器违反契约',
     },
-    online: {
-      title: '在线容器即将上线',
-      desc: '这里将展示由社区分享的整包容器, 可一键克隆到本机.',
+    automation: {
+      invalid_request: '自动化请求无效',
+      identity_changed: '自动化目标身份已变化',
+      target_not_found: '自动化目标不存在',
+      target_ambiguous: '自动化目标匹配不唯一',
+      input_failed: '输入操作失败',
+      window_failed: '窗口操作失败',
+      capture_failed: '画面采集失败',
+      playback_failed: '输入回放失败',
+      playback_busy: '输入回放正忙',
+      unsupported_host: '当前平台不支持此自动化能力',
+      contract_violation: '自动化提供器违反契约',
     },
-    search_placeholder: '搜索容器...',
-    filters: '筛选',
-    filter_category: '筛选分类',
-    filter_category_all: '全部分类',
-    category_placeholder: '选择或输入分类',
-    filter_tags: '筛选标签...',
-    sort: {
-      label: '排序字段',
-      name: '按名称',
-      created_at: '按创建日期',
-      updated_at: '按修改日期',
-      nodes: '按节点数',
-      asc: '正序',
-      desc: '倒序',
+    network: {
+      invalid_request: '网络请求无效',
+      resolution_denied: '目标地址被网络策略拒绝',
+      request_failed: '网络请求失败',
+      response_too_large: '网络响应超过大小限制',
+      invalid_response: '网络响应无效',
+      contract_violation: '网络提供器违反契约',
     },
-    view: {
-      cards: '卡片',
-      list: '列表',
+    filesystem: {
+      invalid_path: '文件路径无效',
+      not_found: '文件不存在',
+      budget_exceeded: '文件操作超过预算',
+      is_directory: '期望文件，但目标是目录',
+      read_failed: '文件读取失败',
+      contract_violation: '文件系统提供器违反契约',
     },
-    pagination: {
-      empty: '0 个结果',
-      range: '显示 {start}-{end} / {total}',
-      per_page: '每页 {n}',
+    script: {
+      source_invalid: '脚本源码无效',
+      guest_thrown: '脚本主动抛出错误',
+      deadline_exceeded: '脚本执行超时',
+      stack_exceeded: '脚本调用栈超过限制',
+      contract_violation: '脚本返回值违反契约',
+      runner_protocol_violation: '脚本工作进程违反协议',
+      runner_crashed: '脚本工作进程崩溃',
+      isolation_unavailable: '当前平台无法提供所需脚本隔离',
     },
-    columns: {
-      label: '栏目',
-      reset: '恢复默认栏目',
-    },
-    list: {
-      name: '名称',
-      status: '状态',
-      category: '分类',
-      tags: '标签',
-      nodes: '节点',
-      created_at: '创建日期',
-      updated_at: '修改日期',
-      hotkey: '热键',
-      actions: '操作',
-    },
-    select: '选择',
-    exit_select: '退出选择',
-    delete_count: '删除 ({n})',
-    actions: {
-      more: '更多操作',
-      more_for: '“{name}”的更多操作',
-    },
-    create: '新建容器',
-    empty_title: '还没有容器',
-    empty_desc: '容器是节点图蓝图, 包含变量、控制流、模板检测和 Action 调用.',
-    empty_cta: '新建第一个容器',
-    no_match_title: '没有匹配的容器',
-    no_match_desc: '当前搜索或标签筛选没有结果.',
-    reset_filters: '清空筛选',
-    status: {
-      running: '运行中',
-      idle: '空闲',
-    },
-    untitled: '(未命名)',
-    node_count: '{n} 节点',
-    run: '运行',
-    stop: '停止',
-    edit: '编辑',
-    export: '导出',
-    export_dialog_title: '导出容器包',
-    export_dialog_button: '导出',
-    delete: {
-      title: '删除容器?',
-      desc_prefix: '将删除',
-      desc_suffix: ', 无法恢复.',
-      cancel: '取消',
-      confirm: '删除',
-    },
-    batch_delete: {
-      title: '批量删除容器',
-      desc: '确认删除 {n} 个容器? 此操作不可恢复.',
-      confirm: '删除',
-    },
-    batch_actions: {
-      menu: '批量操作',
-      selected: '已选 {n}',
-      select_page: '选择当前页',
-      clear: '清空选择',
-      delete: '删除所选',
-      select_one: '选择“{name}”',
-    },
-    toast: {
-      stop_signal: '已发出停止信号',
-      deleted_count: '已删除 {n} 个',
-      batch_partial_fail: '批量删除部分失败 (详情见日志)',
-      recording_locked: '录制进行中, 无法删除目标容器',
-      open_window_fail: '打开新窗口失败',
-      export_success: '容器包已导出',
-    },
-    create_default_name: '容器 {n}',
-    create_dialog: {
-      title: '新建容器',
-      confirm: '创建并编辑',
-    },
-    // ContainerSettingsModal 表单字段
-    basic_info: '基本信息',
-    name_placeholder: '给容器起个名字',
-    hotkey_label: '触发热键',
-    hotkey_hint: '按下热键立即运行此容器一次. 留空则需手动触发.',
-    description_placeholder: '可选 · 给自己或队友看的说明',
-    add_tag_placeholder: '添加标签...',
-    tags_hint: '用于在容器列表筛选; 可自由命名 (如「日常」「副本」「钓鱼」)',
-    input_backend_label: '输入模式',
-    input_backend_postmessage: 'PostMessage — 后台直发，不抢焦点',
-    input_backend_sendinput: 'SendInput — 前台全局注入，自动拉前台（默认）',
-    input_backend_hint:
-      'PostMessage 按 Windows 窗口句柄直发、后台也能跑; SendInput 走系统全局注入需前台焦点 → 运行到 Windows 窗口目标解析窗口时自动把它拉到前台.',
-    capture_backend_label: '截图后端',
-    scale_tolerance_label: '模板最大缩放倍率',
-    scale_tolerance_hint:
-      '没有同分辨率模板时，允许把最近的模板缩放到 {min}×–{max}× 后再匹配。数值越大兼容范围越广，但误匹配风险也越高。',
-    variables_section: '变量',
-    add_var: '添加',
-    var_declare_hint: '声明变量后可在节点 config 表达式里用 $vars.变量名 引用.',
-    var_name_placeholder: '变量名',
-    var_delete_tip: '删除变量 {name}',
-    settings_title: '容器设置',
-    node_and_edge_count: '{n} 个节点 · {m} 条边',
-    empty_string_label: '空字符串',
-    default_value_label: '默认值',
-    listPinWireOnly: '由连线提供',
-  },
-  // 通用 dialog 文案.
-  dialog: {
-    delete_confirm_title: '删除 {item}?',
-    delete_confirm_desc: '此操作不可恢复.',
-    confirm: '确认',
-    cancel: '取消',
-  },
-  clip: {
-    manager: {
-      title: 'Clip 管理',
-      search: '搜索名称 / id / 标签...',
-      empty: '还没有录制片段',
-      empty_hint: '在工具栏录一段输入操作即可收录.',
-      no_match: '没有匹配「{search}」的片段',
-      sort_asc: '升序',
-      sort_desc: '降序',
-      view_by_name: '按名称排序',
-      view_by_created: '按创建时间排序',
-      view_by_duration: '按时长排序',
-      events: '个事件',
-      untitled: '(未命名)',
-      rename_tip: '双击改名',
-      copy_id: '复制 ID',
-      delete_tip: '删除「{name}」',
-      delete_title: '删除 Clip',
-      delete_confirm: '确认删除片段「{name}」? 此操作不可恢复。',
-      batch_delete_title: '批量删除 Clip',
-      batch_delete_confirm: '确认删除选中的 {n} 个片段? 此操作不可恢复。',
-    },
-    detail: {
-      empty: '选择一个片段查看详情',
-    },
-  },
-  // ClipTimeline 单 key
-  clipTimeline: {
-    hint: '在轨道上拖一段添加保留段; 拖蓝条边缘改长度; hover 显示 × 删除',
-  },
-  // NodeExplorerModal
-  nodeExplorer: {
-    title: '节点 Explorer',
-    search_placeholder: '搜节点 (substring)...',
-    esc_tab_close: 'Esc / Tab 关',
-    no_match: '没匹配的节点',
-    platform_windows: 'Win',
-    platform_android: 'Android',
-    platform_windows_only: '仅 Win',
-    platform_android_only: '仅 Android',
-    platform_common: '通用',
-  },
-  // ContextMenuRouter
-  contextMenu: {
-    no_literal_pin: '此节点无 literal pin 可提取',
-    pin_not_data_in: 'pin {pin} 不是 data-in 类型',
-    pin_no_literal: 'pin {pin} 无 literal 可提取 (可能已被边驱动)',
-    jump_failed: '跳转失败',
-    node_not_in_container: '节点 {id} 不在当前容器',
-  },
-  // EditorSave
-  editorSave: {
-    main_save_failed: '主图保存失败',
-    subgraph_save_failed: '{n} 个子图保存失败',
-    stale_title: '盘上已有更新',
-    stale_desc:
-      '有 {n} 个子图在别的窗口被保存过。重载会丢弃你本地对这些子图的修改; 保留本地则下次保存仍会提示。',
-    stale_reload: '重载盘上版本',
-    stale_keep: '保留本地修改',
-  },
-  // Folding
-  folding: {
-    no_foldable: '选中里没有可折叠的节点 (Start / MouseCalibration 不允许折叠)',
-    new_subgraph_title: '新建子图',
-    new_subgraph_desc: '为折叠出来的子图取个名字',
-    subgraph_name_label: '子图名称',
-    subgraph_name_placeholder: '例如: 上钩处理',
-    create_failed: '创建子图失败',
-    multi_entry_unsupported: '多个外部入口暂不支持折叠 (v1 限制)',
-    auto_reconnected: '外部连线已自动重连到子图调用节点',
-    manual_check_needed: '注意: 父图与子图之间的外部连线未自动重连, 请手动检查',
-  },
-  // GraphLayout
-  graphLayout: {
-    horizontal: '横向',
-    vertical: '纵向',
-    layout_failed: '自动布局失败',
-  },
-  // NodeClipboard
-  nodeClipboard: {
-    subgraph_word: '子图',
-  },
-  // NodeCreation
-  nodeCreation: {
-    lib_import_failed: '插入库子图失败',
-    no_graph: '当前层级 graph 不可用',
-    only_one_start: '只能有一个 Start 节点',
-    create_subgraph_failed: '建子图失败, 请重试',
-    auto_added_vars: '已自动补充 {n} 个变量: {names}',
-  },
-  // useRecording composable
-  recordComposable: {
-    no_container_id: '当前 container 没 ID, 无法录制',
-    countdown_cancelled: '已取消录制倒计时',
-    recording_in_progress: '正在录制',
-    stop_methods: '游戏前台按 {hk} 或点悬浮窗停止',
-    replace_node_missing: '替换目标节点已不存在, 改为新建',
-    replace_node_wrong_kind: '目标节点类型（{kind}）与本次录制产物不符, 改为新建',
-    recording_failed: '录制失败',
-    no_product: '录制结束但未拿到产物',
-    default_clip_name: '录制片段',
-    container_mismatch:
-      '录制子图已存入容器「{target}」，但当前打开的是「{current}」。请切到「{target}」查看录制结果。',
-    leave_title: '录制进行中',
-    leave_during_recording: '离开后录制结果无法自动接入当前视图, 需手动去目标容器查看。确定离开?',
-    leave_confirm: '仍然离开',
-  },
-  // SubgraphLifecycle
-  subgraphLifecycle: {
-    default_name_prefix: '子图',
-  },
-  // JsonEditorWidget
-  jsonEditor: {
-    error: 'JSON 错误: {msg}',
-  },
-  // NodeInspector
-  nodeInspector: {
-    advanced_word: '高级',
   },
   workflow31: {
     list: {
@@ -3246,178 +1252,6 @@ export default {
     delete_title: '删除计划',
     delete_desc: '确认删除「{name}」? 此操作不可恢复.',
   },
-  // 子图库 (编辑器内 LibraryExplorerModal / LibraryDetailPanel).
-  library: {
-    loading: '加载中...',
-    explorer: {
-      title: '子图库',
-      search: '搜库 (名称 / 标签 / 描述)...',
-      esc_close: 'Esc 关',
-      empty: '库为空 (画布折叠节点成子图 / 录制保存后会入库)',
-      no_match: '没匹配的库条目',
-      uncategorized: '未分类',
-      tab_local: '本地',
-      tab_online: '在线',
-      insert: '插入引用',
-      filter_category_all: '全部分类',
-      filter_tags: '按标签过滤…',
-      category_placeholder: '选择或输入新分类',
-      view_by_name: '按名称排序',
-      view_by_created: '按创建时间排序',
-      view_by_nodes: '按节点数排序',
-      sort_asc: '升序',
-      sort_desc: '降序',
-    },
-    online: {
-      title: '在线库即将上线',
-      desc: '这里将展示由社区分享的子图 / 模板, 可一键克隆到本机.',
-    },
-    card: {
-      duplicate: '复制为新子图',
-      duplicated: '已复制为 "{name}"',
-      copy_id: '复制 ID',
-      delete: '删除',
-      delete_confirm_title: '删除子图',
-      delete_confirm_desc: '确认删除 "{name}"? 此操作不可恢复.',
-      delete_confirm_referenced:
-        '"{name}" 正被 {n} 个容器使用, 删除后这些容器会报"子图缺失"。确认删除? 此操作不可恢复.',
-    },
-    toolbar: {
-      total: '共 {n} 个',
-      per_page: '{n} / 页',
-    },
-    batch: {
-      selected_n: '已选 {n} 个子图',
-      menu: '批量操作',
-      add_tags: '批量加标签',
-      delete: '批量删除',
-      clear: '取消选择',
-      change_category: '批量改分类',
-      change_category_title: '批量改分类',
-      change_category_placeholder: '选择或输入目标分类',
-      change_category_apply: '应用',
-      delete_confirm_title: '批量删除子图',
-      delete_confirm_desc: '确认删除选中的 {n} 个子图? 此操作不可恢复.',
-      delete_confirm_referenced:
-        '选中的 {n} 个子图中有 {m} 个正被容器使用: {names}。删除后这些容器会报「子图缺失」。确认删除? 此操作不可恢复.',
-      add_tags_title: '批量加标签',
-      add_tags_placeholder: '选择或输入要追加的标签…',
-      add_tags_apply: '添加',
-      partial_failed: '{n} 个子图未能完成操作 (可能已被修改), 列表已刷新',
-    },
-    detail: {
-      empty: '未选择',
-      empty_hint: '单击查看详情 · 双击插入引用',
-      nodes_and_outputs: '{n} 节点 · {m} 出口',
-      description: '描述',
-      used_by: '被使用',
-      used_by_n: '{n} 个容器',
-      created_at: '创建时间',
-      tags: '标签',
-      click_to_copy: '点击复制 — ',
-      delete: '删除',
-      desc_empty: '双击添加描述',
-      dblclick_edit: '双击编辑',
-    },
-  },
-  // 模板 (TemplateCapture / TemplateManager / TemplatePicker).
-  template: {
-    capture: {
-      title: '截图新模板',
-      desc: '截屏 → 拖拽框选目标区域 → 保存',
-      help: '截屏游戏窗口, 把要识别的目标拍下来作为模板.',
-      capturing: '正在截屏...',
-      action: '截屏',
-      preview: '模板预览',
-      clear_selection: '清除框选',
-      retake: '重新截屏',
-      drag_hint: '在图上拖一个矩形框定要识别的目标. 不框选则保存整张截图.',
-      key_label: 'Key (必填)',
-      key_example: 'fishing.hook_icon',
-      name_label: '显示名 (必填)',
-      name_example: '例: 上钩图标',
-      desc_label: '描述 (可选)',
-      desc_hint: '什么场景下匹配? 阈值有什么注意事项?',
-      original_size: '原图 {w} × {h}',
-      cropped_size: '框选 {w} × {h}',
-      recorded_res: '录制分辨率 {res}',
-      save_cropped: '保存模板 (裁剪)',
-      save_full: '保存模板 (全图)',
-      no_game_window: '未检测到游戏窗口',
-      invalid_key_format: '必须形如 fishing.hook_icon (字母数字下划线 + 至少 1 个点)',
-    },
-    manager: {
-      title: '模板管理',
-      search: '搜索 key / 名称 / 描述...',
-      empty: '模板库还是空的',
-      empty_hint: '点上面「截图新模板」开始收录.',
-      no_match: '没有匹配「{search}」的模板',
-      sort_asc: '升序',
-      sort_desc: '降序',
-      view_by_name: '按显示名排序',
-      view_by_res: '按分辨率排序',
-      view_by_created: '按创建时间排序',
-      delete_title: '删除模板',
-      delete_confirm: '确认删除模板「{key}」? 此操作不可恢复。',
-      batch_delete_title: '批量删除模板',
-      batch_delete_confirm: '确认删除选中的 {n} 个模板? 此操作不可恢复。',
-      delete_template_tip: '删除「{key}」',
-      recapture_tip: '为「{key}」重拍素材库图片',
-      copy_key: '复制 GUID',
-      preview: '预览',
-      variant_count: '个变体',
-      tags_label: '标签: ',
-      created_at: '创建于 {time}',
-    },
-    detail: {
-      empty: '选择一个模板查看详情',
-      view_large: '查看大图',
-    },
-    picker: {
-      not_selected: '未选择',
-      select_placeholder: '选择模板...',
-      selected_count: '已选 {n} 个',
-      capture_new: '＋ 现截一张',
-      library_empty: '本容器还没有模板, 点上面现截一张',
-      no_template_selected: '未选模板 — 节点跑不起来',
-      no_match: '没有匹配的模板',
-      browser_title: '选择模板',
-      done: '完成',
-      view: '查看',
-      select: '选用',
-      unselect: '取消选用',
-      back: '返回',
-      use: '选用',
-      selected: '已选',
-      name_label: '名称',
-      tags_label: '标签',
-      add_tag: '加标签，回车确认',
-      variants_label: '分辨率变体',
-      recapture: '重拍',
-      zoom_hint: '滚轮缩放·拖拽平移·双击复位',
-      delete_selected: '删除选中',
-      prev: '上一个',
-      next: '下一个',
-      current_window: '当前窗口',
-      window_not_open: '窗口未开',
-      scaled_from: '运行时用 {res} 缩放',
-      add_variant: '新增 {res}',
-      current_badge: '当前',
-      del_variant_title: '删除分辨率档 {res}?',
-      del_variant_desc: '只删这一档, 其它分辨率档保留; 引用此素材的节点会用剩下的档匹配。',
-    },
-  },
-  // 录制 (useRecording + RecordingHUD).
-  recording: {
-    launch_failed: '启动录制失败',
-    no_steps: '没录到任何步骤',
-    stop_failed: '停止录制失败',
-    completed: '录制完成',
-    completed_no_graph: '录制完成, 但当前没活跃图',
-    added_subgraph: '已添加 Subgraph 节点: {name}',
-    added_clip: '已添加 PlayClip 节点: {name}',
-    rerecord_overwrite: '已重新录制覆盖: {name}',
-  },
   recordingHud: {
     title: '录制控制',
     subtitle: '实时掌控本次输入采集',
@@ -3457,76 +1291,6 @@ export default {
     discard_confirm_hint: '再次点击将永久丢弃本次录制。',
     discard_failed: '录制丢弃失败',
   },
-  subgraphCleanup: {
-    title: '清理未使用蓝图',
-    scanning: '正在检查所有流程和蓝图中的引用…',
-    scan_failed: '无法检查蓝图引用',
-    empty_title: '没有可清理的蓝图',
-    empty_desc: '所有蓝图都正在使用，或蓝图库已经整理干净。当前有 {n} 个被引用蓝图。',
-    can_delete: '可以安全删除',
-    in_use: '仍被流程或蓝图使用',
-    selected_title: '将删除的蓝图',
-    select_all: '全选',
-    clear_selection: '清空选择',
-    select_item: '选择蓝图“{name}”',
-    skipped_title: '已跳过 {n} 个正在使用的蓝图',
-    skipped_desc: '这些蓝图仍被流程或其他蓝图引用，不会删除。',
-    delete_count: '删除 {n} 个蓝图',
-    partial_failed: '{n} 个蓝图删除失败',
-    changed_refs: '{n} 个蓝图刚刚被引用，已跳过',
-    delete_failed: '清理蓝图失败',
-    kind: '蓝图',
-  },
-  assetBrowser: {
-    workspaceTitle: '资产工作台',
-    workspaceSubtitle: '查找、复用和维护自动化素材',
-    openWorkspace: '展开资产工作台',
-    backToAssets: '返回资产浏览',
-    searchAll: '搜索全部模板、蓝图和操作片段',
-    visualTemplates: '视觉模板',
-    automationBlueprints: '自动化蓝图',
-    actionClips: '操作片段',
-    templateSubtitle: '通过真实截图快速识别目标',
-    blueprintSubtitle: '复用已经验证过的自动化结构',
-    clipSubtitle: '回放鼠标与键盘操作片段',
-    filters: '筛选',
-    categories: '分类',
-    clearFilters: '清除筛选',
-    sortBy: '排序方式',
-    sortAsc: '升序',
-    sortDesc: '降序',
-    gridView: '网格视图',
-    listView: '列表视图',
-    pagination: '资产分页',
-    selectedCount: '已选择 {n} 项',
-    variantCount: '{n} 个分辨率变体',
-    nodeCount: '{n} 个节点',
-    outputCount: '{n} 个出口',
-    requiredVariables: '{n} 个必需变量',
-    inputEvents: '{n} 个输入事件',
-    dragToCanvas: '拖入画布',
-    previewFailed: '预览不可用',
-    blueprintPreview: '蓝图拓扑预览，共 {n} 个节点',
-    emptyBlueprint: '空蓝图',
-    clipPreview: '片段时间轴，时长 {duration}，共 {count} 个输入事件',
-    clipEmptyHint: '完成一次录制后，操作片段会出现在这里。',
-    noResolution: '未记录分辨率',
-    mouseMode: {
-      relative: '相对鼠标',
-      absolute: '绝对坐标',
-      mixed: '混合鼠标',
-      unknown: '鼠标输入',
-    },
-  },
-  assetMaintenance: {
-    title: '资源管理',
-    description: '扫描蓝图之间的结构化引用，预览并勾选后再安全清理。',
-    subgraphs: {
-      title: '蓝图库',
-      description: '扫描非录制蓝图，列出没有被流程或其他蓝图引用的项目。',
-      action: '扫描并清理',
-    },
-  },
   // DPI 校准 (CalibratorModal).
   calibration: {
     title: '鼠标 DPI 校准',
@@ -3555,137 +1319,6 @@ export default {
       },
     },
   },
-  // 变量 (VarsPanel / VarRow / DeleteVarConfirmModal / PromoteToVarModal / FindReferencesModal).
-  var: {
-    title: '变量',
-    add: '添加变量',
-    insert_inc: '插入 IncVar (delta=1)',
-    search_placeholder: '搜索 (name)...',
-    empty: '暂无变量. 点 + 添加.',
-    no_match: '无匹配',
-    independent: '自负',
-    collapse: '收起',
-    expand: '展开',
-    any_independent_placeholder: '任意值 (按文本存)',
-    list_placeholder: 'JSON 数组, 如 [1, 2, "a"]',
-    list_invalid: '不是合法的 JSON 数组, 没有保存',
-    error: {
-      name_empty: '名称不能为空',
-      invalid_name: '需以字母/_ 起, 仅含字母数字下划线',
-      duplicate: '已存在 var "{name}"',
-    },
-    delete: {
-      title: '删除变量 "{name}"',
-      refs_count: '有 {count} 个节点引用此变量',
-      refs_prefix: '当前有',
-      refs_suffix: '处节点引用此变量。',
-      more_count: '还有 {n} 处...',
-      choose_mode: '选择删除方式:',
-      mode_keep: '保留引用节点 (推荐)',
-      mode_keep_desc: '节点标红 INVALID_VAR_REF, 不删 graph',
-      mode_keep_desc_inline: '节点标红',
-      mode_remove: '一并删除 {count} 个节点 + 边',
-    },
-    new: {
-      modal_title: '新建全局变量',
-      name_label: '变量名',
-      type_label: '类型',
-      confirm: '创建',
-    },
-    input: {
-      create: '新建全局变量「{name}」({type})',
-      declare_now: '声明为变量',
-      type_mismatch: '类型不符：捕获 {cap} 写入 {dst} 变量（仍会写入，运行时按值转换）',
-    },
-    refs: {
-      title: '变量 {name} 的引用',
-      title_prefix: '变量',
-      title_suffix: '的引用',
-      count_label: '{n} 处引用',
-      empty: '无引用节点',
-      click_to_select: '点击选中 + 跳到画布',
-      click_to_jump_hint: '点击跳转至节点',
-      read: '读',
-      write: '写',
-    },
-    promote: {
-      title: '提取为变量',
-      modal_title: '提取为变量',
-      desc_prefix: '将',
-      desc_literal_label: '当前值',
-      desc_suffix: '提取成变量。',
-      name_label: '变量名',
-      name_placeholder: '新变量名',
-      name_input_placeholder: '新变量名',
-      scope_label: '作用域',
-      scope_local: '局部 (子图内)',
-      scope_global: '全局 (容器级)',
-      type_label: '类型',
-      default_label: '初始值',
-      default_help: '变量创建后会用当前 literal 作为初始值。',
-      confirm: '提取',
-    },
-  },
-  // 表达式编辑器 (ExprInput): 即时校验文案 + 函数说明.
-  expression: {
-    error: {
-      paren_mismatch: '括号不匹配',
-      string_unclosed: '字符串未闭合: 缺少 "',
-      paren_missing: '括号不匹配: 缺 {count} 个 {char}',
-      bare_word:
-        '看起来是裸词; 字符串字面量请加双引号 "{var}", 要用变量/参数请改用 GetVar / GetParam 节点接到输入 pin.',
-      op_end: '表达式以运算符结尾, 缺右侧操作数',
-      unknown_fn: '未知函数 {name}',
-    },
-    fn: {
-      abs: { desc: '绝对值' },
-      ceil: { desc: '向上取整' },
-      clamp: { desc: '把 x 限制在 [min, max] 区间' },
-      floor: { desc: '向下取整' },
-      max: { desc: '两数取大' },
-      min: { desc: '两数取小' },
-      now: { desc: '当前时间戳 (毫秒)' },
-      pow: { desc: 'x 的 y 次方' },
-      rand: { desc: '随机小数 0~1' },
-      randint: { desc: '随机整数, 含 min 和 max' },
-      round: { desc: '四舍五入, 可选保留位数' },
-      sqrt: { desc: '平方根' },
-    },
-  },
-  // Script 脚本编辑器糖函数说明 (参考面板展开详情)。key 用 _ 替代 "." (vue-i18n 层级分隔)。
-  script: {
-    fn: {
-      Subgraph:
-        '调用本容器里的一个子图, 跑完才返回。除 SubgraphID 外的字段会作为入参传给子图; 返回的 exit 是子图实际走到的出口名 (如 "done" / "failed")。',
-      params_get: '读子图入参 (只在子图里运行时有值)。',
-      sleep: '等待指定毫秒。停止运行时立即中断, 不会卡住。',
-      log_info: '输出一条日志到运行日志, 多个参数用空格拼接。',
-      log_warn: '输出一条警告级日志。',
-      log_debug: '输出一条调试级日志。',
-    },
-  },
-  // 节点 group 中文名 (useNodeGroupColor / NodeExplorerModal).
-  // node.* namespace 已有 (kind label/description), 这里加 group label.
-  // 注意: 不能跟 node.<kind> 撞 — group 用 nodeGroup.* 独立 namespace.
-  nodeGroup: {
-    control: '控制流',
-    variables: '变量',
-    purefunc: '运算',
-    detect: '检测',
-    image: '图像',
-    input: '输入',
-    target: '目标',
-    system: '系统',
-    io: '输入输出',
-    stopwatch: '计时器',
-    mock: '测试用',
-    test: '测试用',
-    event: '事件',
-    random: '随机',
-    list: '列表',
-    window: '窗口',
-    other: '其它',
-  },
   // KeyCapture / 通用 hotkey 输入.
   hotkeyInput: {
     click_to_set: '点击设置热键',
@@ -3695,87 +1328,6 @@ export default {
     key_example: '如 W / Space',
     click_to_record: '点录制按键',
     click_to_cancel: '取消录制',
-  },
-  // CommentBox 注释框 UI 文案.
-  commentBox: {
-    title_placeholder: '标题',
-    content_placeholder: '写点说明… 支持 markdown',
-  },
-  // 视觉注册中心 (visualRegistry) 色名 — 色块选择器 tooltip.
-  palette: {
-    red: '红',
-    orange: '橙',
-    amber: '琥珀',
-    yellow: '黄',
-    lime: '青柠',
-    green: '绿',
-    emerald: '翠绿',
-    teal: '蓝绿',
-    cyan: '青',
-    sky: '天蓝',
-    blue: '蓝',
-    indigo: '靛蓝',
-    violet: '紫罗兰',
-    purple: '紫',
-    pink: '粉',
-    rose: '玫红',
-    zinc: '灰',
-  },
-  // 编辑器 walker / interaction 辅助 (graphWalk / useFolding / etc.).
-  editorAux: {
-    root_graph: '主图',
-    subgraph_label: '子图: {name}',
-    entry_pin: '入口',
-    output_pin: '出口',
-    subgraph_default_name: '子图 {timestamp}',
-    error_manual_json: '手写 JSON 走 isAnonymous Subgraph',
-    warning_concurrent_write: '分支同时写入: {nodes} (结果不确定)',
-    warning_select_two: '请选中至少 2 个节点再对齐',
-    auto_layout_done: '已自动布局',
-    copied_nodes: '已复制 {n} 个节点',
-    copy_suffix: ' (copy)',
-    copy_failed: '复制失败',
-    save_orphan_gc: 'GC 孤儿子图 {n} 个',
-    inspector_advanced: '高级 ({count})',
-    inspector_advanced_show: '显示',
-    inspector_advanced_hide: '隐藏',
-    json_error: 'JSON 解析错误',
-  },
-  // SubgraphPropsPanel.
-  subgraphProps: {
-    no_selection: '未选中子图',
-    name: '名称',
-    description: '描述',
-    outputs_count: '{n} 个出口',
-    click_to_copy: '点击复制 — ',
-    to_script: '转为脚本',
-  },
-  // SubgraphScriptPreviewModal — 子图一键转脚本.
-  subgraphScript: {
-    title: '子图转脚本 — {name}',
-    insert: '插入为 Script 节点',
-    unsupported_title: '这个子图里有转不了的结构, 整体未转换:',
-    reason: {
-      not_bindable: '脚本里没有对应函数',
-      dynamic_inputs: '动态输入节点转不了 — 脚本里直接写 JS 表达式',
-      merge: '两条执行分支汇进同一个节点, 脚本表达不了',
-      cycle: '执行连线成环 — 改用脚本原生 for/while 写循环',
-      fan_out: '同一个出口连了多个目标',
-      fail_edge: 'Fail 出口接了线 — 脚本里用 try/catch 自己接错误',
-      cross_branch_data: '从别的执行分支取数据, 转出来会引用没赋值的变量',
-      multi_out_pure: '多输出纯函数, 脚本侧取不到指定字段',
-      disabled: '节点已禁用, 跳过语义转不了',
-      callee_missing: '引用的子图不存在',
-    },
-  },
-  // execution store (运行时错误).
-  execution: {
-    run_failed: '运行失败',
-  },
-  // snippet store.
-  snippet: {
-    general: '通用',
-    quota_unavailable: '配额或不可用',
   },
   // settings 补充 (现 settings.* 已大量但缺 tabs 等).
   settingsTab: {
@@ -3952,18 +1504,6 @@ export default {
     live_badge: '实时',
     preview_empty: '添加内容后在这里预览',
     untitled_label: '未命名标题',
-  },
-  editorSearch: {
-    find: '查找',
-    replace: '替换',
-    next: '下一个',
-    previous: '上一个',
-    all: '全部',
-    match_case: '区分大小写',
-    by_word: '全词匹配',
-    regexp: '正则',
-    replace_all: '全部替换',
-    close: '关闭',
   },
   settingsNetwork: {
     security: {
@@ -4186,21 +1726,21 @@ export default {
     tagline: '节点编排，自动执行',
     concepts: {
       title: '核心概念',
-      container: {
-        name: '容器 (Container)',
-        desc: '自包含的可执行编排单元. 含一张主图 (节点 + 边)、所属子图集合、变量、热键. 导出后可整体分享给其他机器用户.',
+      workflow: {
+        name: '工作流 (Workflow)',
+        desc: '唯一的可编辑编排文档。Source 只保存强类型图、配置、状态声明和精确 NodeRef，保存时由服务端规范化并按 revision 提交。',
       },
-      subgraph: {
-        name: '子图 (Subgraph)',
-        desc: '容器内可复用的执行函数: 有一个入口 (Entry)、一个或多个命名出口. 父图通过 Subgraph 调用节点执行子图, 按出口名分流.',
+      catalog: {
+        name: '节点目录 (Catalog)',
+        desc: 'Node Contract、数据类型、能力需求与实现锁的不可变快照。UI、AI、CLI 和文档共同消费同一份 Authoring Projection。',
       },
-      library: {
-        name: '库 (Library)',
-        desc: '全机器共享的子图 + 模板仓库. 从库拖入容器走 copy-on-use (复制独立副本, 互不影响). 可把容器子图反向发布到库分享.',
+      program_run: {
+        name: '程序与运行 (Program / Run)',
+        desc: 'Source 经编译得到内容寻址的不可变 Program；每次执行都先做能力准入，再生成独立、可取消、可审计的 Run。',
       },
-      schedule: {
-        name: '计划任务 (Schedule)',
-        desc: '安排容器自动执行: 热键触发 / 定时 (cron / 间隔) / 一次性 / 手动. 多个容器可挂同一计划, 按顺序串行执行.',
+      installation: {
+        name: '安装与目标 (Installation / Target)',
+        desc: '模型、应用、自动化目标和插件以稳定 slot 安装。工作流只能声明 slot 与能力需求，不能持久化原生句柄或绕过授权。',
       },
     },
     section_author: '作者 · 链接',

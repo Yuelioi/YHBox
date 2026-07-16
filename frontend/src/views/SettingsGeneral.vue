@@ -5,21 +5,6 @@
       :description="t('settings.general.appearance_hint')"
       icon="i-tabler-layout-dashboard"
     >
-      <SettingsRow
-        :label="t('settings.editor_display.detail_label')"
-        :hint="t('settings.editor_display.detail_hint')"
-      >
-        <USelect
-          :model-value="sidebarPrefs.experienceMode"
-          :items="editorDetailItems"
-          class="w-40"
-          :aria-label="t('settings.editor_display.detail_label')"
-          @update:model-value="onEditorDetailChange"
-        />
-      </SettingsRow>
-
-      <div class="border-t border-default/60" />
-
       <SettingsRow :label="t('settings.language')" :hint="t('settings.language_restart_hint')">
         <template #meta><SettingsRestartBadge /></template>
         <USelect
@@ -132,7 +117,6 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSettingsStore } from '@/stores/settings'
 import { setLocale, type Locale } from '@/i18n'
-import { useSidebarPrefs } from '@/composables/editor/useSidebarPrefs'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
@@ -140,16 +124,6 @@ import SettingsSection from '@/components/settings/SettingsSection.vue'
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const toast = useToast()
-const { prefs: sidebarPrefs } = useSidebarPrefs()
-
-const editorDetailItems = computed(() => [
-  { label: t('editor.experience.basic'), value: 'basic' },
-  { label: t('editor.experience.pro'), value: 'pro' },
-])
-
-function onEditorDetailChange(value: string) {
-  if (value === 'basic' || value === 'pro') sidebarPrefs.value.experienceMode = value
-}
 
 const currentLocale = computed(() => (settingsStore.data?.locale ?? 'zh') as Locale)
 const localeItems = computed(() => [

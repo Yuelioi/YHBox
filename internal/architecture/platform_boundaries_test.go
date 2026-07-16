@@ -16,13 +16,19 @@ func TestPlatformNeutralPackagesDoNotImportWindowsAdapters(t *testing.T) {
 	repoRoot := repositoryRoot(t)
 	neutralRoots := []string{
 		"internal/apperr",
+		"internal/artifact",
 		"internal/automation/controller",
 		"internal/automation/target",
 		"internal/automation/trace",
-		"internal/node",
-		"internal/services/expr",
-		"internal/services/llm",
-		"internal/services/script",
+		"internal/capability",
+		"internal/datatype",
+		"internal/nodeauthoring",
+		"internal/nodecatalog",
+		"internal/nodecontract",
+		"internal/nodes31",
+		"internal/workflow/authoring",
+		"internal/workflow/compiler",
+		"internal/workflow/schema",
 		"pkg/imageutil",
 		"pkg/locale",
 		"pkg/runctl",
@@ -77,9 +83,7 @@ func TestWorkflowCompilerDoesNotImportLegacyRuntimeOrStores(t *testing.T) {
 		t,
 		repositoryRoot(t),
 		[]string{"internal/workflow/compiler"},
-		[]string{
-			"github.com/yottaapp/yotta/internal/services/container",
-		},
+		[]string{"github.com/yottaapp/yotta/internal/node", "github.com/yottaapp/yotta/internal/nodes"},
 	)
 }
 

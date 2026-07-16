@@ -7,23 +7,20 @@ const (
 	EventLogBatch = "log:batch"
 )
 
-// LogEntry is the normalized presentation contract shared by system logs,
-// runtime logs, node dumps, and action traces. File persistence keeps the
-// original JSONL representation; only the UI transport uses this shape.
+// LogEntry is the normalized presentation contract for process and Workflow
+// diagnostics. File persistence keeps the original JSONL representation;
+// only the UI transport uses this shape.
 type LogEntry struct {
-	Time    string `json:"time"`
-	Level   string `json:"level"`
-	Source  string `json:"source"`
-	Kind    string `json:"kind"`
-	Tag     string `json:"tag,omitempty"`
-	Message string `json:"message"`
-	Fields  any    `json:"fields,omitempty"`
-
-	NodeID  string `json:"nodeId,omitempty"`
-	LineKey string `json:"lineKey,omitempty"`
-	Count   int    `json:"count,omitempty"`
-	Final   bool   `json:"final,omitempty"`
-	Trace   any    `json:"trace,omitempty"`
+	Time         string `json:"time"`
+	Level        string `json:"level"`
+	Source       string `json:"source"`
+	Tag          string `json:"tag,omitempty"`
+	Message      string `json:"message"`
+	Fields       any    `json:"fields,omitempty"`
+	GraphID      string `json:"graphId,omitempty"`
+	NodeID       string `json:"nodeId,omitempty"`
+	InvocationID string `json:"invocationId,omitempty"`
+	Attempt      int    `json:"attempt,omitempty"`
 }
 
 // LogBatchEvent is the only backend-to-frontend diagnostic transport.

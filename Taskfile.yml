@@ -73,7 +73,6 @@ tasks:
     summary: Runs bounded fuzz smoke tests for untrusted parsers and authoring inputs
     cmds:
       - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime={{.FUZZ_TIME}}
-      - go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime={{.FUZZ_TIME}}
       - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime={{.FUZZ_TIME}}
@@ -122,14 +121,19 @@ tasks:
       - task: "windows:build:capture-dll"
 
   nodes:
-    summary: 导出节点速查表(Markdown)；要 JSON 用 `go run ./cmd/node-catalog export`
+    summary: 从 Node Contract 3.1 Authoring Projection 导出内建节点 Markdown 文档
     cmds:
-      - go run ./cmd/node-catalog export --md
+      - go run ./cmd/node-catalog docs
 
-  nodes:pins:
-    summary: 一键提取全节点 pin 名(按名合并 + 命名分裂告警, Markdown)；存文件 `task nodes:pins > pins.md`
+  nodes:catalog:
+    summary: 导出当前构建信任的 canonical Node Catalog 3.1 JSON
     cmds:
-      - go run ./cmd/node-catalog pins
+      - go run ./cmd/node-catalog catalog
+
+  nodes:authoring:
+    summary: 导出 UI、AI、CLI 与文档共用的 Node Authoring Projection 3.1 JSON
+    cmds:
+      - go run ./cmd/node-catalog authoring
 
   version:verify:
     summary: 验证所有版本元数据与 pkg/version.Version 一致

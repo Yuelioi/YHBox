@@ -1,7 +1,5 @@
 // Bidirectional sync: 父 v-model:open ↔ 内部 modelOpen ref.
-// 8 modal 重复 3 行模板 (CommandPalette / ContainerSettings / FindReferences /
-// LibraryExplorer / NodeExplorer / NodeSearch / PromoteToVar / DeleteVarConfirm)
-// 收口到这里.
+// Dialog components share this small synchronization helper.
 //
 // Usage:
 //   const props = defineProps<{ open: boolean }>()

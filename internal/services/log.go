@@ -399,7 +399,7 @@ func (s *LogSink) flushFileLocked() {
 }
 
 func parseSystemLogEntry(line string) LogEntry {
-	entry := LogEntry{Time: time.Now().Format(time.RFC3339Nano), Level: "info", Source: "SYS", Kind: "system", Message: line}
+	entry := LogEntry{Time: time.Now().Format(time.RFC3339Nano), Level: "info", Source: "SYS", Message: line}
 	var raw map[string]any
 	if err := json.Unmarshal([]byte(line), &raw); err != nil {
 		entry.Level = "error"
@@ -413,224 +413,32 @@ func parseSystemLogEntry(line string) LogEntry {
 	}
 	if value, ok := raw["tag"].(string); ok {
 		entry.Tag = value
+		if strings.EqualFold(value, "WORKFLOW") {
+			entry.Source = "WF"
+		}
 	}
 	if value, ok := raw["message"].(string); ok {
 		entry.Message = value
 	}
-	if value, ok := raw["source"].(string); ok && strings.EqualFold(value, "CTR") {
-		entry.Source = "CTR"
-		entry.Kind = "log"
+	if value, ok := raw["graphId"].(string); ok {
+		entry.GraphID = value
 	}
-	for _, key := range []string{"time", "level", "source", "tag", "message"} {
+	if value, ok := raw["nodeId"].(string); ok {
+		entry.NodeID = value
+	}
+	if value, ok := raw["invocationId"].(string); ok {
+		entry.InvocationID = value
+	}
+	if value, ok := raw["attempt"].(float64); ok {
+		entry.Attempt = int(value)
+	}
+	for _, key := range []string{"time", "level", "source", "tag", "message", "graphId", "nodeId", "invocationId", "attempt"} {
 		delete(raw, key)
 	}
 	if len(raw) > 0 {
 		entry.Fields = raw
 	}
 	return entry
-}
-
-// AppendEntries adds already-normalized runtime diagnostics to the same
-// bounded/debounced transport used by zerolog output.
-func (s *LogSink) AppendEntries(entries ...LogEntry) {
-	if len(entries) == 0 {
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed || !s.streamEnabled {
-		return
-	}
-	for _, entry := range entries {
-		if entry.Time == "" {
-			entry.Time = time.Now().Format(time.RFC3339Nano)
-		}
-		s.appendEntryLocked(entry)
-	}
-	if len(s.pending) >= maxBatchLines {
-		s.flushLocked()
-	} else if s.timer == nil && s.emit != nil {
-		s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
-	}
-}
-
-// AppendRuntimeLog preserves the legacy structured runtime log path while
-// using the same independent stream/file destinations as zerolog output.
-func (s *LogSink) AppendRuntimeLog(level, message string) {
-	entry := LogEntry{
-		Time: time.Now().Format(time.RFC3339Nano), Level: level, Source: "CTR", Kind: "log", Message: message,
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return
-	}
-	if s.streamEnabled {
-		s.appendEntryLocked(entry)
-		if len(s.pending) >= maxBatchLines {
-			s.flushLocked()
-		} else if s.timer == nil && s.emit != nil {
-			s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
-		}
-	}
-	if s.fileDir != "" {
-		encoded, _ := json.Marshal(map[string]any{
-			"time": entry.Time, "level": entry.Level, "source": entry.Source, "message": entry.Message,
-		})
-		s.appendFileLineLocked(string(encoded))
-		if level == "warn" || level == "error" || level == "fatal" {
-			s.flushFileLocked()
-		}
-	}
-}
-
-// AppendDumpLine 把一条 opt-in 节点 dump 行只写进文件 (不进 ring / 不 emit log:batch,
-// 避免与前端 container:node-dump-batch 双显). 写成 JSON 行, 与现有 file log 保持一致.
-func (s *LogSink) AppendDumpLine(line string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed || s.fileDir == "" {
-		return
-	}
-	s.openTodayFileLocked()
-	if s.fileBuf == nil {
-		return
-	}
-	obj := map[string]any{
-		"level": "info",
-		"event": "node-dump",
-		"line":  line,
-		"time":  time.Now().Format(time.RFC3339Nano),
-	}
-	b, _ := json.Marshal(obj)
-	_, _ = s.fileBuf.Write(b)
-	_ = s.fileBuf.WriteByte('\n')
-	s.scheduleFileFlushLocked()
-}
-
-// AppendActionTrace writes a redacted action trace JSON line to the file log only.
-// Raw request/result payloads and OS handles are intentionally not persisted.
-func (s *LogSink) AppendActionTrace(data any) {
-	line := sanitizeActionTrace(data)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return
-	}
-	if s.streamEnabled {
-		entry := actionTraceLogEntry(line, data)
-		s.appendEntryLocked(entry)
-		if len(s.pending) >= maxBatchLines {
-			s.flushLocked()
-		} else if s.timer == nil && s.emit != nil {
-			s.timer = time.AfterFunc(flushDebounce, s.flushAsync)
-		}
-	}
-	if s.fileDir != "" {
-		s.openTodayFileLocked()
-		if s.fileBuf != nil {
-			b, _ := json.Marshal(line)
-			_, _ = s.fileBuf.Write(b)
-			_ = s.fileBuf.WriteByte('\n')
-			s.scheduleFileFlushLocked()
-		}
-	}
-}
-
-func actionTraceLogEntry(sanitized map[string]any, raw any) LogEntry {
-	action, _ := sanitized["action"].(string)
-	status, _ := sanitized["status"].(string)
-	backend, _ := sanitized["backend"].(string)
-	errorText, _ := sanitized["error"].(string)
-	message := action
-	if status != "" {
-		message += " " + status
-	}
-	if duration, ok := sanitized["durationMs"]; ok {
-		message += fmt.Sprintf(" %vms", duration)
-	}
-	if backend != "" {
-		message += " via " + backend
-	}
-	if errorText != "" {
-		message += ": " + errorText
-	}
-	return LogEntry{
-		Time: time.Now().Format(time.RFC3339Nano), Level: "info", Source: "CTR", Kind: "action",
-		Message: message, Trace: raw,
-	}
-}
-
-func sanitizeActionTrace(data any) map[string]any {
-	raw := map[string]any{}
-	if b, err := json.Marshal(data); err == nil {
-		_ = json.Unmarshal(b, &raw)
-	}
-	out := map[string]any{
-		"level": "info",
-		"event": "action-trace",
-		"time":  time.Now().Format(time.RFC3339Nano),
-	}
-	copyStringField(out, raw, "containerId")
-	copyStringField(out, raw, "action")
-	copyStringField(out, raw, "backend")
-	copyStringField(out, raw, "status")
-	copyStringField(out, raw, "error")
-	copyStringField(out, raw, "startedAt")
-	copyStringField(out, raw, "endedAt")
-	copyAnyField(out, raw, "durationMs")
-	out["source"] = sanitizeActionTraceSource(raw["source"])
-	out["target"] = sanitizeActionTraceTarget(raw["target"])
-	out["coordinateStepCount"] = lenAnySlice(raw["coordinateSteps"])
-	return out
-}
-
-func sanitizeActionTraceSource(raw any) map[string]string {
-	m, _ := raw.(map[string]any)
-	return map[string]string{
-		"containerId": firstString(m, "containerId", "ContainerID"),
-		"nodeId":      firstString(m, "nodeId", "NodeID"),
-		"nodeKind":    firstString(m, "nodeKind", "NodeKind"),
-		"inPin":       firstString(m, "inPin", "InPin"),
-	}
-}
-
-func sanitizeActionTraceTarget(raw any) map[string]string {
-	m, _ := raw.(map[string]any)
-	return map[string]string{
-		"id":   firstString(m, "id", "ID"),
-		"kind": firstString(m, "kind", "Kind"),
-	}
-}
-
-func copyStringField(out, raw map[string]any, key string) {
-	if v, ok := raw[key].(string); ok && v != "" {
-		out[key] = v
-	}
-}
-
-func copyAnyField(out, raw map[string]any, key string) {
-	if v, ok := raw[key]; ok {
-		out[key] = v
-	}
-}
-
-func firstString(m map[string]any, keys ...string) string {
-	for _, key := range keys {
-		if v, ok := m[key].(string); ok && v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func lenAnySlice(v any) int {
-	switch xs := v.(type) {
-	case []any:
-		return len(xs)
-	default:
-		return 0
-	}
 }
 
 // Close 关闭日志文件 (shutdown 时调).

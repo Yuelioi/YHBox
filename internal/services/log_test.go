@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,80 +13,15 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestLogSink_AppendDumpLine_FileOnly(t *testing.T) {
-	dir := t.TempDir()
-	emitted := 0
-	s := NewLogSink(func(LogBatchEvent) { emitted++ })
-	s.SetFileWriter(dir)
-	s.AppendDumpLine(`CheckTemplate(n1) in{a=1} ×3`)
-	s.Flush()
-
-	files, _ := os.ReadDir(dir)
-	if len(files) == 0 {
-		t.Fatal("no log file written")
+func TestParseSystemLogEntryPromotesWorkflowAttribution(t *testing.T) {
+	entry := parseSystemLogEntry(`{"time":"2026-07-16T00:00:00Z","level":"info","tag":"WORKFLOW","message":"node completed","graphId":"g1","nodeId":"n1","invocationId":"i1","attempt":2,"durationMs":12}`)
+	if entry.Source != "WF" || entry.GraphID != "g1" || entry.NodeID != "n1" || entry.InvocationID != "i1" || entry.Attempt != 2 {
+		t.Fatalf("workflow entry = %#v", entry)
 	}
-	data, _ := os.ReadFile(filepath.Join(dir, files[0].Name()))
-	if !strings.Contains(string(data), "×3") || !strings.Contains(string(data), "node-dump") {
-		t.Fatalf("dump line not in file: %s", data)
+	fields, ok := entry.Fields.(map[string]any)
+	if !ok || fields["durationMs"] != float64(12) {
+		t.Fatalf("workflow fields = %#v", entry.Fields)
 	}
-	if emitted != 0 {
-		t.Fatalf("AppendDumpLine must not emit log:batch, emitted=%d", emitted)
-	}
-	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
-}
-
-func TestLogSink_AppendActionTrace_StreamsAndPersistsRedacted(t *testing.T) {
-	dir := t.TempDir()
-	emitted := 0
-	s := NewLogSink(func(LogBatchEvent) { emitted++ })
-	s.SetFileWriter(dir)
-	s.AppendActionTrace(map[string]any{
-		"containerId": "container-1",
-		"action":      "click",
-		"source": map[string]any{
-			"NodeID":   "click-1",
-			"NodeKind": "ClickAt",
-			"InPin":    "In",
-		},
-		"target": map[string]any{
-			"ID":   "win32:100",
-			"Kind": "win32-window",
-			"Ref":  map[string]any{"HWND": 100},
-		},
-		"backend":         "win32",
-		"status":          "success",
-		"request":         map[string]any{"secret": "raw request"},
-		"result":          map[string]any{"secret": "raw result"},
-		"coordinateSteps": []any{map[string]any{"Input": "raw coords"}},
-		"durationMs":      12,
-	})
-	s.drain()
-	s.Flush()
-
-	files, _ := filepath.Glob(filepath.Join(dir, "yotta-*.log"))
-	if len(files) != 1 {
-		t.Fatalf("expected 1 log file, got %d", len(files))
-	}
-	data, _ := os.ReadFile(files[0])
-	raw := string(data)
-	if strings.Contains(raw, "raw request") || strings.Contains(raw, "raw result") || strings.Contains(raw, "HWND") {
-		t.Fatalf("action trace log leaked raw payload: %s", raw)
-	}
-	var line map[string]any
-	if err := json.Unmarshal(data[:len(data)-1], &line); err != nil {
-		t.Fatalf("invalid action trace JSON line: %v\n%s", err, data)
-	}
-	if line["event"] != "action-trace" || line["action"] != "click" || line["coordinateStepCount"] != float64(1) {
-		t.Fatalf("unexpected action trace line: %#v", line)
-	}
-	target, _ := line["target"].(map[string]any)
-	if target["id"] != "win32:100" || target["kind"] != "win32-window" {
-		t.Fatalf("target not sanitized as expected: %#v", target)
-	}
-	if emitted != 1 {
-		t.Fatalf("AppendActionTrace must emit one normalized batch, emitted=%d", emitted)
-	}
-	s.SetFileWriter("") // Windows: release file handle so t.TempDir cleanup can delete
 }
 
 func TestLogSink_DebounceFlush(t *testing.T) {

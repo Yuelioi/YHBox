@@ -1,10 +1,10 @@
 # Yotta 3.1 built-in nodes
 
-Generated from the strict Node Authoring Projection `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`. Do not edit.
+Generated from the strict Node Authoring Projection `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`. Do not edit.
 
 ## `https://schemas.yotta.dev/nodes/text/concat/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.text.concat.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
@@ -26,7 +26,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/blob-to-stream/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.conversion.blobToStream.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -49,7 +49,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.conversion.streamToBlob.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -74,8 +74,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/add/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Add.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-add.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -96,8 +96,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/subtract/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Sub.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-subtract.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -118,8 +118,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/multiply/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Mul.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-multiply.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -140,8 +140,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/less-than/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Lt.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-less-than.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -162,8 +162,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/less-or-equal/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.LtEq.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-less-or-equal.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -184,8 +184,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/greater-than/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Gt.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-greater-than.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -206,8 +206,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/greater-or-equal/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.GtEq.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-greater-or-equal.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -228,8 +228,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/logic/and/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.And.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.logic-and.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -250,8 +250,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/logic/or/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Or.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.logic-or.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -272,8 +272,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/logic/not/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Not.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.logic-not.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -293,8 +293,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/contains/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Contains.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-contains.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -315,8 +315,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/length/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Length.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-length.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -336,8 +336,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/split/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Split.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-split.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -358,8 +358,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/join/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Join.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-join.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -380,8 +380,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/length/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ListLength.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-length.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -401,8 +401,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/get/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ListGet.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-get.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -423,8 +423,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/contains/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ListContains.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-contains.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -445,8 +445,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/append/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ListAppend.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-append.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -467,8 +467,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/collection/slice/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ListSlice.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.collection-slice.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -490,8 +490,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/divide/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Div.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-divide.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -512,8 +512,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/modulo/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Mod.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-modulo.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -534,8 +534,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/negate/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Neg.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-negate.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -555,8 +555,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/absolute/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Abs.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-absolute.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -576,8 +576,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/minimum/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Min.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-minimum.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -598,8 +598,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/maximum/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Max.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-maximum.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -620,8 +620,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/floor/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Floor.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-floor.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -641,8 +641,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/ceiling/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Ceil.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-ceiling.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -662,8 +662,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/round/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Round.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-round.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -684,8 +684,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/clamp/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Clamp.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-clamp.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -707,8 +707,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/power/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Pow.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-power.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -729,8 +729,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/math/square-root/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Sqrt.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.math-square-root.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -750,8 +750,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/equal/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Eq.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-equal.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -772,8 +772,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/comparison/not-equal/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.NotEq.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.comparison-not-equal.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -794,8 +794,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/replace/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Replace.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-replace.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -818,8 +818,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/substring/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Substring.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-substring.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -841,8 +841,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/trim/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Trim.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-trim.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -862,8 +862,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/uppercase/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToUpper.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-uppercase.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -883,8 +883,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/lowercase/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToLower.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-lowercase.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -904,8 +904,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/index-of/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.IndexOf.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-index-of.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -926,8 +926,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/starts-with/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.StartsWith.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-starts-with.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -948,8 +948,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/ends-with/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.EndsWith.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-ends-with.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -970,8 +970,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/regex-match/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.RegexMatch.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-regex-match.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -992,8 +992,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/text/regex-extract/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.RegexExtract.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.text-regex-extract.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1014,8 +1014,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/to-string/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToString.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.conversion-to-string.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1035,8 +1035,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/string-to-number/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToNumber.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.conversion-string-to-number.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1056,8 +1056,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/conversion/string-to-boolean/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToBool.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.conversion-string-to-boolean.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1077,8 +1077,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/json/parse/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ParseJSON.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.json-parse.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1098,8 +1098,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/json/stringify/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ToJSON.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.json-stringify.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1119,8 +1119,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/json/path/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.JsonPath.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.json-path.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1141,8 +1141,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/logic/select/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.Select.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.logic-select.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1164,8 +1164,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/geometry/make-point/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.MakePoint.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.geometry-make-point.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1187,8 +1187,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/geometry/offset-point/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.OffsetPoint.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.geometry-offset-point.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1210,8 +1210,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/geometry/point-distance/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.PointDistance.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.geometry-point-distance.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1232,8 +1232,8 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/geometry/region-around-point/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
-- Title key: `node.ROIAroundPoint.label`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
+- Title key: `node.builtin.geometry-region-around-point.title`
 - Availability: `portable`
 - Execution: `pure-data` / `deterministic` / cache `per-run`
 - Program instruction: `invoke` `{"kind":"invoke","invoke":{}}`
@@ -1255,7 +1255,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/random/integer/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.random.integer.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1278,7 +1278,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/random/number/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.random.number.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1301,7 +1301,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/random/boolean/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.random.boolean.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1322,7 +1322,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/random/choice/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.random.choice.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1343,7 +1343,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/time/observe/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.time.observe.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1363,7 +1363,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/state/read/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.state.read.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1386,7 +1386,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/state/write/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.state.write.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1413,7 +1413,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/state/metadata/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.state.metadata.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1437,7 +1437,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/event/run-started/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.event.runStarted.title`
 - Availability: `portable`
 - Execution: `event` / `deterministic` / cache `none`
@@ -1458,7 +1458,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/branch/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.branch.title`
 - Availability: `portable`
 - Execution: `control` / `deterministic` / cache `none`
@@ -1482,7 +1482,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/delay/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.delay.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1509,7 +1509,7 @@ Configuration fields: none.
 
 ## `https://schemas.yotta.dev/nodes/control/end-branch/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.endBranch.title`
 - Availability: `portable`
 - Execution: `control` / `deterministic` / cache `none`
@@ -1530,7 +1530,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/repeat/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.repeat.title`
 - Availability: `portable`
 - Execution: `region` / `deterministic` / cache `none`
@@ -1557,7 +1557,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/for-each/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.forEach.title`
 - Availability: `portable`
 - Execution: `region` / `deterministic` / cache `none`
@@ -1585,7 +1585,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/retry/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.retry.title`
 - Availability: `portable`
 - Execution: `region` / `deterministic` / cache `none`
@@ -1612,7 +1612,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/ai/generate/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.ai.generate.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1643,7 +1643,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/ai/extract/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.ai.extract.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1675,7 +1675,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/script/execute/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.script.execute.title`
 - Availability: `host-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1704,7 +1704,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/filesystem/read-text/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.filesystem.readText.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1734,7 +1734,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/filesystem/read-json/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.filesystem.readJSON.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1764,7 +1764,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/filesystem/stat/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.filesystem.stat.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1790,7 +1790,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/network/http-get/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.network.httpGet.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1821,7 +1821,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/application/launch/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.application.launch.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1847,7 +1847,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/application/terminate/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.application.terminate.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1874,7 +1874,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/click-pointer/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.clickPointer.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1903,7 +1903,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/move-pointer/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.movePointer.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1930,7 +1930,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/scroll-pointer/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.scrollPointer.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1959,7 +1959,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/drag-pointer/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.dragPointer.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -1989,7 +1989,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/move-pointer-relative/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.movePointerRelative.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2018,7 +2018,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/press-keys/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.pressKeys.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2046,7 +2046,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/type-text/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.typeText.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2073,7 +2073,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/activate-window/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.activateWindow.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2099,7 +2099,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/capture-window/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.captureWindow.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2127,7 +2127,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/automation/play-input-clip/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.automation.playInputClip.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2155,7 +2155,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/match-template/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.matchTemplate.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2183,7 +2183,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/find-template-matches/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.findTemplateMatches.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2209,7 +2209,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/compare-images/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.compareImages.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2236,7 +2236,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/decode-qr/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.decodeQR.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2259,7 +2259,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/analyze-color/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.analyzeColor.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2285,7 +2285,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/vision/find-color-blobs/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.vision.findColorBlobs.title`
 - Availability: `target-required`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2310,7 +2310,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/observability/log/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.observability.log.title`
 - Availability: `portable`
 - Execution: `effect` / `recorded` / cache `none`
@@ -2336,7 +2336,7 @@ Status events: none.
 
 ## `https://schemas.yotta.dev/nodes/control/throw/v1`
 
-- Authoring projection: `sha256:ecfde038128026ef3ce34c98e7b3d3a70c3f90fa6c945029789017a684bc6b22`
+- Authoring projection: `sha256:81ef9c0a01d4083173cd25a3624c5591971b9b8bd54e45c8f6916462c22374c0`
 - Title key: `node.control.throw.title`
 - Availability: `portable`
 - Execution: `control` / `deterministic` / cache `none`

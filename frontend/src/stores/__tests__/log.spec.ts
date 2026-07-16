@@ -1,99 +1,64 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useLogStore } from '../log'
 
 describe('useLogStore', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('appendSystem adds SYS-tagged lines', () => {
-    const s = useLogStore()
-    s.appendSystem(1, [
-      '{"time":"2026-05-28T10:00:00Z","level":"info","tag":"SYSTEM","message":"hello"}',
+  it('maps process and Workflow diagnostics without legacy node-log variants', () => {
+    const store = useLogStore()
+    store.appendBatch(1, [
+      { time: '', level: 'info', source: 'SYS', message: 'ready' },
+      {
+        time: '',
+        level: 'warn',
+        source: 'WF',
+        message: 'retry',
+        graphId: 'g1',
+        nodeId: 'n1',
+        invocationId: 'i1',
+        attempt: 2,
+      },
     ])
-    expect(s.lines).toHaveLength(1)
-    expect(s.lines[0].source).toBe('SYS')
+
+    expect(store.lines.map((line) => line.source)).toEqual(['SYS', 'WF'])
+    expect(store.lines[1]).toMatchObject({
+      graphId: 'g1',
+      nodeId: 'n1',
+      invocationId: 'i1',
+      attempt: 2,
+    })
+    expect(store.received).toBe(2)
   })
 
-  it('appendContainerLog adds CTR-tagged lines', () => {
-    const s = useLogStore()
-    s.appendContainerLog({ level: 'info', message: 'container log' })
-    expect(s.lines).toHaveLength(1)
-    expect(s.lines[0].source).toBe('CTR')
-    expect(s.lines[0].message).toBe('container log')
+  it('reports transport drops and sequence gaps', () => {
+    const store = useLogStore()
+    store.appendBatch(3, [{ time: '', level: 'info', source: 'SYS', message: 'a' }], 4)
+    store.appendBatch(5, [{ time: '', level: 'info', source: 'SYS', message: 'b' }])
+
+    expect(store.dropDetected).toBe(true)
+    expect(store.dropped).toBe(4)
+    expect(store.lines.some((line) => line.message.includes('sequence gap'))).toBe(true)
   })
 
-  it('appendNodeEnter batch unfolds entries', () => {
-    const s = useLogStore()
-    s.appendNodeEnter([
-      { nodeId: 'n1', nodeKind: 'Sleep', count: 3 },
-      { nodeId: 'n2', nodeKind: 'Click', count: 1 },
-    ])
-    expect(s.lines).toHaveLength(2)
-    expect(s.lines[0].message).toContain('Sleep')
-    expect(s.lines[0].message).toContain('× 3')
-    expect(s.lines[1].message).toContain('Click')
-  })
-
-  it('ring buffer caps at 1000 and reports local drops', () => {
-    const s = useLogStore()
-    for (let i = 0; i < 1200; i++) {
-      s.appendContainerLog({ level: 'info', message: `m${i}` })
-    }
-    expect(s.lines).toHaveLength(1000)
-    expect(s.lines[0].message).toBe('m200')
-    expect(s.dropped).toBe(200)
-  })
-
-  it('appends a transport batch with one sequence and dropped count', () => {
-    const s = useLogStore()
-    s.appendBatch(
-      7,
-      [
-        { time: '', level: 'info', source: 'SYS', kind: 'system', message: 'a' },
-        { time: '', level: 'warn', source: 'CTR', kind: 'log', message: 'b' },
-      ],
-      3,
+  it('bounds the local ring and clear resets transport state', () => {
+    const store = useLogStore()
+    store.appendBatch(
+      1,
+      Array.from({ length: 1200 }, (_, index) => ({
+        time: '',
+        level: 'info',
+        source: 'SYS' as const,
+        message: `m${index}`,
+      })),
     )
-    expect(s.lines.map((line) => line.message)).toEqual(['a', 'b'])
-    expect(s.received).toBe(2)
-    expect(s.dropped).toBe(3)
-  })
+    expect(store.lines).toHaveLength(1000)
+    expect(store.lines[0].message).toBe('m200')
+    expect(store.dropped).toBe(200)
 
-  it('clear empties all', () => {
-    const s = useLogStore()
-    s.appendContainerLog({ level: 'info', message: 'x' })
-    s.appendActionTrace({
-      containerId: 'c1',
-      action: 'click',
-      source: { nodeId: 'n1', nodeKind: 'ClickAt', inPin: 'In' },
-      target: { id: 'win32:42' },
-      backend: 'sendinput',
-      status: 'success',
-      durationMs: 12,
-    })
-    s.clear()
-    expect(s.lines).toHaveLength(0)
-    expect(s.actionTraces).toHaveLength(0)
-  })
-
-  it('appendActionTrace keeps structured cache and adds compact log line', () => {
-    const s = useLogStore()
-    s.appendActionTrace({
-      containerId: 'c1',
-      action: 'click',
-      source: { nodeId: 'n1', nodeKind: 'ClickAt', inPin: 'In' },
-      target: { id: 'win32:42' },
-      backend: 'sendinput',
-      status: 'success',
-      durationMs: 12,
-    })
-    expect(s.actionTraces).toHaveLength(1)
-    expect(s.actionTraces[0].action).toBe('click')
-    expect(s.lines).toHaveLength(1)
-    expect(s.lines[0].level).toBe('action')
-    expect(s.lines[0].source).toBe('CTR')
-    expect(s.lines[0].message).toContain('ClickAt(n1)')
-    expect(s.lines[0].message).toContain('click')
-    expect(s.lines[0].message).toContain('12ms')
+    store.clear()
+    expect(store.lines).toHaveLength(0)
+    expect(store.lastSeq).toBe(0)
+    expect(store.dropped).toBe(0)
   })
 })

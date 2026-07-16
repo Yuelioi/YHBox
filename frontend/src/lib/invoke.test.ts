@@ -12,18 +12,18 @@ describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
     const e = {
       message: 'X map[]',
-      cause: { Errors: [{ code: 'NO_START', params: {} }] },
+      cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH', params: {} }] },
       kind: 'RuntimeError',
     }
-    expect(normalizeError(e)).toEqual({ errors: [{ code: 'NO_START', params: {} }] })
+    expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH', params: {} }] })
   })
   it('通道A apperr: cause.code 小写', () => {
     const e = { message: 'WAILS_NOT_READY', cause: { code: 'WAILS_NOT_READY', params: { x: 1 } } }
     expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
   })
   it('通道B worker 信封 errors 小写', () => {
-    const e = { errors: [{ code: 'NO_START' }] }
-    expect(normalizeError(e)).toEqual({ errors: [{ code: 'NO_START' }] })
+    const e = { errors: [{ code: 'MISSING_ENTRY_GRAPH' }] }
+    expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH' }] })
   })
   it('通道B worker 信封 code', () => {
     const e = { code: 'WAILS_NOT_READY', params: { x: 1 } }
@@ -40,15 +40,15 @@ describe('normalizeError', () => {
   it('dev-fetch transport: 信封塞进 Error.message (validation)', () => {
     const e = new Error(
       JSON.stringify({
-        message: 'MISSING_WIN32_WINDOW_TARGET map[]',
+        message: 'UNKNOWN_NODE_TYPE map[]',
         cause: {
-          Errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }],
+          Errors: [{ severity: 'error', code: 'UNKNOWN_NODE_TYPE', graphPath: ['main'] }],
         },
         kind: 'RuntimeError',
       }),
     )
     expect(normalizeError(e)).toEqual({
-      errors: [{ severity: 'error', code: 'MISSING_WIN32_WINDOW_TARGET', graphPath: ['main'] }],
+      errors: [{ severity: 'error', code: 'UNKNOWN_NODE_TYPE', graphPath: ['main'] }],
     })
   })
   it('dev-fetch transport: 信封塞进 Error.message (apperr code)', () => {
@@ -62,16 +62,18 @@ describe('normalizeError', () => {
     expect(normalizeError(e)).toEqual({ code: 'WAILS_NOT_READY', params: { x: 1 } })
   })
   it('dev-fetch transport: e 本身是 JSON 字符串', () => {
-    const e = JSON.stringify({ cause: { Errors: [{ code: 'NO_START' }] } })
-    expect(normalizeError(e)).toEqual({ errors: [{ code: 'NO_START' }] })
+    const e = JSON.stringify({ cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH' }] } })
+    expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH' }] })
   })
 })
 
 describe('errorMessage', () => {
   it('validation 首条本地化 + 还有 N 个', () => {
-    const e = { cause: { Errors: [{ code: 'NO_START' }, { code: 'MISSING_WIN32_WINDOW_TARGET' }] } }
+    const e = {
+      cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH' }, { code: 'UNKNOWN_NODE_TYPE' }] },
+    }
     const msg = errorMessage(e)
-    expect(msg).toContain('Start')
+    expect(msg).toContain('入口图')
     expect(msg).toMatch(/1/)
   })
   it('缺 i18n key → 回落 code 字面', () => {
@@ -88,15 +90,15 @@ describe('errorMessage', () => {
   it('dev-fetch transport 信封 → 本地化, 不糊 JSON', () => {
     const e = new Error(
       JSON.stringify({
-        message: 'MISSING_WIN32_WINDOW_TARGET map[]',
-        cause: { Errors: [{ code: 'MISSING_WIN32_WINDOW_TARGET' }] },
+        message: 'UNKNOWN_NODE_TYPE map[]',
+        cause: { Errors: [{ code: 'UNKNOWN_NODE_TYPE' }] },
         kind: 'RuntimeError',
       }),
     )
     const msg = errorMessage(e)
     expect(msg).not.toContain('{') // 不再糊裸 JSON
     expect(msg).not.toContain('map[]')
-    expect(msg).toContain('Windows 窗口目标') // zh user-facing label, not raw kind
+    expect(msg).toContain('节点类型') // zh user-facing diagnostic, not raw code
   })
 })
 

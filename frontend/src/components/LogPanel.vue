@@ -56,10 +56,10 @@
           :class="enabled && writeFile ? 'bg-success' : 'bg-accented'"
         />
 
-        <!-- 双源 filter -->
+        <!-- source filter -->
         <div class="flex items-center gap-0.5" role="group" :aria-label="t('log.filter_label')">
           <button
-            v-for="opt in ['ALL', 'SYS', 'CTR'] as const"
+            v-for="opt in ['ALL', 'SYS', 'WF'] as const"
             :key="opt"
             type="button"
             class="rounded px-1.5 py-1 text-[11px] transition-colors"
@@ -71,17 +71,6 @@
             {{ opt }}
           </button>
         </div>
-
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-tabler-route"
-          :title="t('log.action_trace.open')"
-          :aria-label="t('log.action_trace.open')"
-          class="size-7 p-0"
-          @click="actionTraceOpen = true"
-        />
 
         <!-- 设置 popover (showTime/showTag/wrap/autoScroll/writeFile) -->
         <UPopover mode="click" :ui="{ content: 'w-60 p-2.5' }">
@@ -202,15 +191,6 @@
                     @update:model-value="toggleField('writeFile', $event)"
                   />
                 </div>
-                <div class="flex min-h-6 items-center justify-between gap-3 rounded px-1.5">
-                  <span>{{ t('log.popover.show_node_enter') }}</span>
-                  <USwitch
-                    size="xs"
-                    :model-value="showNodeEnter"
-                    :aria-label="t('log.popover.show_node_enter')"
-                    @update:model-value="showNodeEnter = $event"
-                  />
-                </div>
               </div>
             </div>
           </template>
@@ -288,21 +268,15 @@
           :class="levelClass(l.level)"
           >{{ l.level }}</span
         >
-        <span class="text-default break-all"
-          >{{ l.message
-          }}<span v-if="(l.count ?? 1) > 1" class="text-dimmed"> ×{{ l.count }}</span></span
-        >
+        <span class="text-default break-all">{{ l.message }}</span>
       </div>
     </div>
-
-    <ActionTraceDrawer v-model:open="actionTraceOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import ActionTraceDrawer from '@/components/ActionTraceDrawer.vue'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -310,9 +284,8 @@ const { t } = useI18n()
 const logStore = useLogStore()
 const settingsStore = useSettingsStore()
 
-const filter = ref<'ALL' | 'SYS' | 'CTR'>('ALL')
+const filter = ref<'ALL' | 'SYS' | 'WF'>('ALL')
 const bodyRef = ref<HTMLDivElement | null>(null)
-const actionTraceOpen = ref(false)
 const logLevelItems = [
   { label: 'DEBUG', value: 'debug' },
   { label: 'INFO', value: 'info' },
@@ -339,18 +312,12 @@ const level = computed(() => settingsStore.data?.ui.logger.level ?? 'info')
 const writeFile = computed(() => settingsStore.data?.ui.logger.writeFile ?? true)
 const fileDir = computed(() => settingsStore.data?.ui.logger.fileDir ?? 'logs')
 
-const showNodeEnter = computed({
-  get: () => settingsStore.data?.ui.logger.showNodeEnter ?? false,
-  set: (v: boolean) => settingsStore.patch({ ui: { logger: { showNodeEnter: v } } }),
-})
-
 function toggleField(field: string, v: boolean | string) {
   settingsStore.patch({ ui: { logger: { [field]: v } } })
 }
 
 const filteredLines = computed(() => {
   let ls = logStore.lines
-  if (!showNodeEnter.value) ls = ls.filter((l) => l.level !== 'node')
   if (filter.value !== 'ALL') ls = ls.filter((l) => l.source === filter.value)
   return ls
 })
@@ -371,15 +338,6 @@ function levelClass(level: string) {
       return 'text-warning'
     case 'debug':
       return 'text-dimmed'
-    // node/dump/log 是日志流身份色 (区分流, 非状态语义), 不走 semantic
-    case 'node':
-      return 'text-violet-300'
-    case 'dump':
-      return 'text-emerald-300'
-    case 'log':
-      return 'text-emerald-400'
-    case 'action':
-      return 'text-sky-300'
     default:
       return 'text-info'
   }

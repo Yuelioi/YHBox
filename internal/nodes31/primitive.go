@@ -74,8 +74,6 @@ type primitiveNode struct {
 	id          string
 	entrypoint  string
 	conformance string
-	titleKey    string
-	description string
 	category    string
 	tags        []string
 	icon        string
@@ -98,36 +96,36 @@ func definePrimitiveNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	result := func(ref datatype.TypeRef) primitivePort { return primitivePort{id: "result", typeRef: ref} }
 
 	specs := []primitiveNode{
-		binaryNumberSpec(AddNodeID, "math.add", "node.Add", "plus", number, result(types.numberRef), addNumbers),
-		binaryNumberSpec(SubtractNodeID, "math.subtract", "node.Sub", "minus", number, result(types.numberRef), subtractNumbers),
-		binaryNumberSpec(MultiplyNodeID, "math.multiply", "node.Mul", "x", number, result(types.numberRef), multiplyNumbers),
-		binaryComparisonSpec(LessThanNodeID, "comparison.less-than", "node.Lt", "math-lower", number, result(types.booleanRef), func(a, b float64) bool { return a < b }),
-		binaryComparisonSpec(LessOrEqualNodeID, "comparison.less-or-equal", "node.LtEq", "math-equal-lower", number, result(types.booleanRef), func(a, b float64) bool { return a <= b }),
-		binaryComparisonSpec(GreaterThanNodeID, "comparison.greater-than", "node.Gt", "math-greater", number, result(types.booleanRef), func(a, b float64) bool { return a > b }),
-		binaryComparisonSpec(GreaterOrEqualNodeID, "comparison.greater-or-equal", "node.GtEq", "math-equal-greater", number, result(types.booleanRef), func(a, b float64) bool { return a >= b }),
+		binaryNumberSpec(AddNodeID, "math.add", "plus", number, result(types.numberRef), addNumbers),
+		binaryNumberSpec(SubtractNodeID, "math.subtract", "minus", number, result(types.numberRef), subtractNumbers),
+		binaryNumberSpec(MultiplyNodeID, "math.multiply", "x", number, result(types.numberRef), multiplyNumbers),
+		binaryComparisonSpec(LessThanNodeID, "comparison.less-than", "math-lower", number, result(types.booleanRef), func(a, b float64) bool { return a < b }),
+		binaryComparisonSpec(LessOrEqualNodeID, "comparison.less-or-equal", "math-equal-lower", number, result(types.booleanRef), func(a, b float64) bool { return a <= b }),
+		binaryComparisonSpec(GreaterThanNodeID, "comparison.greater-than", "math-greater", number, result(types.booleanRef), func(a, b float64) bool { return a > b }),
+		binaryComparisonSpec(GreaterOrEqualNodeID, "comparison.greater-or-equal", "math-equal-greater", number, result(types.booleanRef), func(a, b float64) bool { return a >= b }),
 		{
-			id: AndNodeID, entrypoint: "logic.and", conformance: "strict-boolean-and/a+b/result", titleKey: "node.And",
-			description: "node.And.description", category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-and",
+			id: AndNodeID, entrypoint: "logic.and", conformance: "strict-boolean-and/a+b/result",
+			category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-and",
 			inputs: []primitivePort{boolean("a", true), boolean("b", true)}, output: result(types.booleanRef), evaluate: booleanBinary(func(a, b bool) bool { return a && b }),
 		},
 		{
-			id: OrNodeID, entrypoint: "logic.or", conformance: "strict-boolean-or/a+b/result", titleKey: "node.Or",
-			description: "node.Or.description", category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-or",
+			id: OrNodeID, entrypoint: "logic.or", conformance: "strict-boolean-or/a+b/result",
+			category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-or",
 			inputs: []primitivePort{boolean("a", false), boolean("b", false)}, output: result(types.booleanRef), evaluate: booleanBinary(func(a, b bool) bool { return a || b }),
 		},
 		{
-			id: NotNodeID, entrypoint: "logic.not", conformance: "strict-boolean-not/value/result", titleKey: "node.Not",
-			description: "node.Not.description", category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-not",
+			id: NotNodeID, entrypoint: "logic.not", conformance: "strict-boolean-not/value/result",
+			category: "logic", tags: []string{"boolean", "logic"}, icon: "logic-not",
 			inputs: []primitivePort{boolean("value", false)}, output: result(types.booleanRef), evaluate: booleanNot,
 		},
 		{
-			id: ContainsNodeID, entrypoint: "text.contains", conformance: "unicode-contains/text+search/result", titleKey: "node.Contains",
-			description: "node.Contains.description", category: "text", tags: []string{"text", "search"}, icon: "text-recognition",
+			id: ContainsNodeID, entrypoint: "text.contains", conformance: "unicode-contains/text+search/result",
+			category: "text", tags: []string{"text", "search"}, icon: "text-recognition",
 			inputs: []primitivePort{text("text"), text("search")}, output: result(types.booleanRef), evaluate: containsText,
 		},
 		{
-			id: LengthNodeID, entrypoint: "text.length", conformance: "unicode-rune-count/text/result", titleKey: "node.Length",
-			description: "node.Length.description", category: "text", tags: []string{"text", "length"}, icon: "ruler-measure",
+			id: LengthNodeID, entrypoint: "text.length", conformance: "unicode-rune-count/text/result",
+			category: "text", tags: []string{"text", "length"}, icon: "ruler-measure",
 			inputs: []primitivePort{text("text")}, output: result(types.integerRef), evaluate: textLength,
 		},
 	}
@@ -147,18 +145,18 @@ func definePrimitiveNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	return definitions, nil
 }
 
-func binaryNumberSpec(id, entrypoint, key, icon string, input func(string) primitivePort, output primitivePort, evaluate InlineEvaluator) primitiveNode {
+func binaryNumberSpec(id, entrypoint, icon string, input func(string) primitivePort, output primitivePort, evaluate InlineEvaluator) primitiveNode {
 	return primitiveNode{
-		id: id, entrypoint: entrypoint, conformance: "strict-finite-number/a+b/result", titleKey: key,
-		description: key + ".description", category: "math", tags: []string{"math", "number"}, icon: icon,
+		id: id, entrypoint: entrypoint, conformance: "strict-finite-number/a+b/result",
+		category: "math", tags: []string{"math", "number"}, icon: icon,
 		inputs: []primitivePort{input("a"), input("b")}, output: output, nonFinite: true, evaluate: evaluate,
 	}
 }
 
-func binaryComparisonSpec(id, entrypoint, key, icon string, input func(string) primitivePort, output primitivePort, compare func(float64, float64) bool) primitiveNode {
+func binaryComparisonSpec(id, entrypoint, icon string, input func(string) primitivePort, output primitivePort, compare func(float64, float64) bool) primitiveNode {
 	return primitiveNode{
-		id: id, entrypoint: entrypoint, conformance: "strict-number-comparison/a+b/result", titleKey: key,
-		description: key + ".description", category: "comparison", tags: []string{"comparison", "number"}, icon: icon,
+		id: id, entrypoint: entrypoint, conformance: "strict-number-comparison/a+b/result",
+		category: "comparison", tags: []string{"comparison", "number"}, icon: icon,
 		inputs: []primitivePort{input("a"), input("b")}, output: output, evaluate: compareNumbers(compare),
 	}
 }
@@ -188,10 +186,14 @@ func sealPrimitiveNode(spec primitiveNode) (nodecontract.Contract, error) {
 		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
-			TitleKey: spec.titleKey + ".label", DescriptionKey: spec.description, Category: spec.category,
+			TitleKey: builtinMessageKey(spec.entrypoint) + ".title", DescriptionKey: builtinMessageKey(spec.entrypoint) + ".description", Category: spec.category,
 			Tags: spec.tags, Icon: spec.icon,
 		},
 	})
+}
+
+func builtinMessageKey(entrypoint string) string {
+	return "node.builtin." + strings.ReplaceAll(entrypoint, ".", "-")
 }
 
 func sealPrimitiveType(typeID, jsonType, key, color, icon string) (datatype.Definition, error) {

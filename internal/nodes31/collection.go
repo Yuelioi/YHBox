@@ -36,7 +36,6 @@ type collectionPort struct {
 type collectionNode struct {
 	id          string
 	entrypoint  string
-	key         string
 	icon        string
 	inputs      []collectionPort
 	output      collectionPort
@@ -60,38 +59,38 @@ func defineCollectionNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	}
 	specs := []collectionNode{
 		{
-			id: SplitNodeID, entrypoint: "collection.split", key: "node.Split", icon: "separator",
+			id: SplitNodeID, entrypoint: "collection.split", icon: "separator",
 			inputs: []collectionPort{port("text", stringType, `""`), port("separator", stringType, `","`)}, output: result(stringList),
 			conformance: "unicode-string-split/text+separator/list-string", evaluate: splitCollection,
 		},
 		{
-			id: JoinNodeID, entrypoint: "collection.join", key: "node.Join", icon: "join-straight",
+			id: JoinNodeID, entrypoint: "collection.join", icon: "join-straight",
 			inputs: []collectionPort{port("list", stringList, ""), port("separator", stringType, `","`)}, output: result(stringType),
 			conformance: "strict-string-list-join/list+separator/string", evaluate: joinCollection,
 		},
 		{
-			id: ListLengthNodeID, entrypoint: "collection.length", key: "node.ListLength", icon: "list-numbers",
+			id: ListLengthNodeID, entrypoint: "collection.length", icon: "list-numbers",
 			inputs: []collectionPort{port("list", list, "")}, output: result(integerType),
 			conformance: "typed-list-length/list-T/integer", evaluate: listLength,
 		},
 		{
-			id: ListGetNodeID, entrypoint: "collection.get", key: "node.ListGet", icon: "list-details",
+			id: ListGetNodeID, entrypoint: "collection.get", icon: "list-details",
 			inputs: []collectionPort{port("list", list, ""), port("index", integerType, "0")}, output: result(element),
 			errors:      []nodecontract.ErrorSpec{{Code: collectionIndexOutOfRangeCode, Category: "evaluation", RetryHint: false}},
 			conformance: "typed-list-index/list-T+integer/T", evaluate: listGet,
 		},
 		{
-			id: ListContainsNodeID, entrypoint: "collection.contains", key: "node.ListContains", icon: "list-search",
+			id: ListContainsNodeID, entrypoint: "collection.contains", icon: "list-search",
 			inputs: []collectionPort{port("list", list, ""), port("value", element, "")}, output: result(booleanType),
 			conformance: "canonical-list-membership/list-T+T/boolean", evaluate: listContains,
 		},
 		{
-			id: ListAppendNodeID, entrypoint: "collection.append", key: "node.ListAppend", icon: "playlist-add",
+			id: ListAppendNodeID, entrypoint: "collection.append", icon: "playlist-add",
 			inputs: []collectionPort{port("list", list, ""), port("item", element, "")}, output: result(list),
 			conformance: "immutable-list-append/list-T+T/list-T", evaluate: listAppend,
 		},
 		{
-			id: ListSliceNodeID, entrypoint: "collection.slice", key: "node.ListSlice", icon: "cut",
+			id: ListSliceNodeID, entrypoint: "collection.slice", icon: "cut",
 			inputs: []collectionPort{port("list", list, ""), port("start", integerType, "0"), port("count", integerType, "-1")}, output: result(list),
 			conformance: "bounded-list-slice/list-T+start+count/list-T", evaluate: listSlice,
 		},
@@ -133,7 +132,7 @@ func sealCollectionNode(spec collectionNode) (nodecontract.Contract, error) {
 		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
-			TitleKey: spec.key + ".label", DescriptionKey: spec.key + ".description", Category: "collection",
+			TitleKey: builtinMessageKey(spec.entrypoint) + ".title", DescriptionKey: builtinMessageKey(spec.entrypoint) + ".description", Category: "collection",
 			Tags: []string{"collection", "list"}, Icon: spec.icon,
 		},
 	})

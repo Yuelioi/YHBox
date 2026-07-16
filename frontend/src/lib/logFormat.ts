@@ -11,12 +11,11 @@ export interface LogLine {
   tag?: string
   message: string
   fields?: unknown
-  source: 'SYS' | 'CTR'
-  // node dump 专用 (按节点 upsert + ×N)
+  source: 'SYS' | 'WF'
+  graphId?: string
   nodeId?: string
-  lineKey?: string
-  count?: number
-  frozen?: boolean
+  invocationId?: string
+  attempt?: number
 }
 
 export function parseLine(raw: string): LogLine {

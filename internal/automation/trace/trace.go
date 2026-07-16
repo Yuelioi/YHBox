@@ -20,16 +20,16 @@ type CoordinateStep struct {
 	Output any
 }
 
-type ActionSource struct {
-	ContainerID string
-	NodeID      string
-	NodeKind    string
-	InPin       string
+type ExecutionSource struct {
+	GraphID      string
+	NodeID       string
+	InvocationID string
+	Attempt      int
 }
 
 type ActionRecord struct {
 	Action          string
-	Source          ActionSource
+	Source          ExecutionSource
 	Target          target.Target
 	Backend         string
 	Request         any

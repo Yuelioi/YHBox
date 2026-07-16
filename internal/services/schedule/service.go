@@ -59,7 +59,7 @@ func (s *Service) Get(id string) (Schedule, error) {
 
 // Create 返一个 default Schedule，不持久化。前端拿到 default 让用户改 + 按"保存"调 Save。
 //
-// 区别于 container.Service.Create：Schedule 创建时 targets 必须非空（validate 拦），
+// Schedule 创建时 targets 必须非空（validate 拦），
 // Create 直接 Save 会 fail。所以两阶段：先 Create 拿 default，再 user 补 targets 后 Save。
 func (s *Service) Create(name string) (Schedule, error) {
 	sc := Schedule{

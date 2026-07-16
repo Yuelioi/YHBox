@@ -886,7 +886,7 @@ async function confirm() {
         }
         await emitResult({ guid: recaptureGUID.value })
       } else {
-        // SaveTemplateCapture: 无 containerID / key; 返回新分配的 guid
+        // SaveTemplateCapture allocates a new global asset guid.
         const guid = await backend.assets.saveTemplateCapture(
           png,
           tplName.value.trim(),

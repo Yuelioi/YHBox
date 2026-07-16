@@ -2398,11 +2398,6 @@
               "type": "string"
             },
             {
-              "name": "\"kind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
               "name": "\"tag\"",
               "optional": true,
               "type": "string"
@@ -2418,29 +2413,24 @@
               "type": "any"
             },
             {
+              "name": "\"graphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
               "name": "\"nodeId\"",
               "optional": true,
               "type": "string"
             },
             {
-              "name": "\"lineKey\"",
+              "name": "\"invocationId\"",
               "optional": true,
               "type": "string"
             },
             {
-              "name": "\"count\"",
+              "name": "\"attempt\"",
               "optional": true,
               "type": "number"
-            },
-            {
-              "name": "\"final\"",
-              "optional": true,
-              "type": "boolean"
-            },
-            {
-              "name": "\"trace\"",
-              "optional": true,
-              "type": "any"
             }
           ]
         },
@@ -2490,11 +2480,6 @@
             },
             {
               "name": "\"writeFile\"",
-              "optional": false,
-              "type": "boolean"
-            },
-            {
-              "name": "\"showNodeEnter\"",
               "optional": false,
               "type": "boolean"
             },

@@ -11,12 +11,11 @@ import (
 // This lets copied zerolog.Logger values stop work before field/message
 // serialization when logging is disabled or has no destination.
 type LogRuntime struct {
-	sink          *LogSink
-	enabled       atomic.Bool
-	live          atomic.Bool
-	persist       atomic.Bool
-	nodeEnterLive atomic.Bool
-	minimum       atomic.Int32
+	sink    *LogSink
+	enabled atomic.Bool
+	live    atomic.Bool
+	persist atomic.Bool
+	minimum atomic.Int32
 }
 
 func NewLogRuntime(sink *LogSink) *LogRuntime {
@@ -38,7 +37,6 @@ func (r *LogRuntime) configure(settings LoggerSettings, configureFile bool) {
 	r.enabled.Store(settings.Enabled)
 	r.live.Store(settings.Enabled && settings.LiveView)
 	r.persist.Store(settings.Enabled && settings.WriteFile)
-	r.nodeEnterLive.Store(settings.Enabled && settings.LiveView && settings.ShowNodeEnter)
 	r.minimum.Store(int32(parseLogLevel(settings.Level)))
 
 	if r.sink != nil {
@@ -69,9 +67,8 @@ func (r *LogRuntime) Enabled() bool {
 	return r.enabled.Load() && (r.live.Load() || r.persist.Load())
 }
 
-func (r *LogRuntime) LiveEnabled() bool      { return r.live.Load() }
-func (r *LogRuntime) PersistEnabled() bool   { return r.persist.Load() }
-func (r *LogRuntime) NodeEnterEnabled() bool { return r.nodeEnterLive.Load() }
+func (r *LogRuntime) LiveEnabled() bool    { return r.live.Load() }
+func (r *LogRuntime) PersistEnabled() bool { return r.persist.Load() }
 
 func (r *LogRuntime) Allows(level string) bool {
 	if !r.Enabled() {

@@ -166,12 +166,13 @@ jobs:
         run: >-
           go test -race
           ./internal/services
-          ./internal/services/container
-          ./internal/services/container/runtime
-          ./internal/services/execution
+          ./internal/application
+          ./internal/nodes31runtime
+          ./internal/run
+          ./internal/workflowstore
           ./internal/services/schedule
           ./internal/services/tools
-          ./internal/services/inputclip/runtime
+          ./internal/services/inputclip
           ./internal/hotkey
           ./pkg/winutil
           ./pkg/capture
@@ -188,17 +189,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Fuzz graph rewriting
-        run: go test ./internal/services/container -run=^$ -fuzz=^FuzzGraphRewriter$ -fuzztime=10s
-
-      - name: Fuzz package metadata
-        run: go test ./internal/services/container -run=^$ -fuzz=^FuzzPackageMetadataValidation$ -fuzztime=10s
-
       - name: Fuzz MCP node parameters
         run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime=10s
-
-      - name: Fuzz expressions
-        run: go test ./internal/services/expr -run=^$ -fuzz=^FuzzParseAndEval$ -fuzztime=10s
 
       - name: Fuzz Workflow v3 strict parser
         run: go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime=10s
@@ -231,31 +223,28 @@ jobs:
         run: >-
           go test
           ./internal/apperr
+          ./internal/artifact
+          ./internal/automation/controller
           ./internal/automation/target
           ./internal/automation/trace
-          ./internal/hotkey
-          ./internal/nodes/input
-          ./internal/nodes/io
-          ./internal/runclassify
+          ./internal/capability
+          ./internal/datatype
+          ./internal/nodeauthoring
+          ./internal/nodecatalog
+          ./internal/nodecontract
+          ./internal/nodes31
+          ./internal/run
           ./internal/services
-          ./internal/services/calibration
-          ./internal/services/container
-          ./internal/services/container/runtime
-          ./internal/services/execution
-          ./internal/services/expr
-          ./internal/services/llm
           ./internal/services/mcpserver
-          ./internal/services/nodeoptions
-          ./internal/services/recording
-          ./internal/services/tools
-          ./pkg/capture
+          ./internal/services/workflow31
+          ./internal/workflow/authoring
+          ./internal/workflow/compiler
+          ./internal/workflow/schema
+          ./internal/workflowstore
           ./pkg/imageutil
-          ./pkg/input
           ./pkg/locale
-          ./pkg/platform
           ./pkg/runctl
           ./pkg/vision
-          ./pkg/winutil
 
   gui-build:
     strategy:

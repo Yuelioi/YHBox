@@ -50,7 +50,7 @@ export const useClipsStore = defineStore('clips', () => {
   async function refresh() {
     loading.value = true
     try {
-      const list = (await backend.clipsContainer.list()) as ClipSummary[] | undefined
+      const list = (await backend.clips.list()) as ClipSummary[] | undefined
       clips.value = list ?? []
     } finally {
       loading.value = false
@@ -59,7 +59,7 @@ export const useClipsStore = defineStore('clips', () => {
 
   async function get(id: string): Promise<InputClip | null> {
     try {
-      const clip = (await backend.clipsContainer.get(id)) as InputClip | null | undefined
+      const clip = (await backend.clips.get(id)) as InputClip | null | undefined
       return clip ?? null
     } catch (e) {
       console.error('clips.get failed', e)
@@ -68,7 +68,7 @@ export const useClipsStore = defineStore('clips', () => {
   }
 
   async function save(clip: InputClip): Promise<void> {
-    await backend.clipsContainer.save(clip)
+    await backend.clips.save(clip)
     await refresh()
   }
 
@@ -76,7 +76,7 @@ export const useClipsStore = defineStore('clips', () => {
     id: string,
     patch: { label?: string; description?: string; category?: string; tags?: string[] },
   ): Promise<void> {
-    await backend.clipsContainer.update(
+    await backend.clips.update(
       id,
       patch.label ?? '',
       patch.description ?? '',
@@ -87,7 +87,7 @@ export const useClipsStore = defineStore('clips', () => {
   }
 
   async function remove(id: string): Promise<void> {
-    await backend.clipsContainer.delete_(id)
+    await backend.clips.delete_(id)
     await refresh()
   }
 

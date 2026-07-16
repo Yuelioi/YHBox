@@ -170,7 +170,6 @@ import { useI18n } from 'vue-i18n'
 import { backend } from '@/lib/backend'
 import { useSettingsStore, type MouseProfile } from '@/stores/settings'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import { useToast } from '@nuxt/ui/composables'
 import { useConfirm } from '@/composables/useConfirm'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
@@ -186,7 +185,6 @@ const { confirm } = useConfirm()
 const hotkeys = useHotkeysStore()
 const settingsStore = useSettingsStore()
 const settings = computed(() => settingsStore.data)
-const toast = useToast()
 const draftProfiles = ref<DraftMouseProfile[]>([])
 const profileErrors = reactive<Record<string, string>>({})
 

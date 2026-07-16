@@ -1,6 +1,6 @@
 // Package appbootstrap constructs the production Yotta 3.1 application with
 // immutable contracts, durable stores, installed providers, admission, and a
-// single Program worker. It contains no legacy Container runtime branch.
+// single Program worker.
 package appbootstrap
 
 import (

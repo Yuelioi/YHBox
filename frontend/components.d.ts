@@ -11,7 +11,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    ActionTraceDrawer: typeof import('./src/components/ActionTraceDrawer.vue')['default']
     AlertBox: typeof import('./src/components/common/AlertBox.vue')['default']
     AppCard: typeof import('./src/components/common/AppCard.vue')['default']
     AppStatusBar: typeof import('./src/components/AppStatusBar.vue')['default']
