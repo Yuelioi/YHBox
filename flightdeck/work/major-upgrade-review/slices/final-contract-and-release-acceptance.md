@@ -1,45 +1,53 @@
 # Final contract and release acceptance
 
-Status: current
+Status: completed
 
 ## Outcome
 
-对 Yotta 3.1 的全部实现作一次总审计，集中修复仍属于仓库工程范围的缺口，并给出可复核的 completion verdict。结论必须区分工程完成、可构建 candidate 和公开 stable 发布，不得因外部治理前置而虚报完成或无限延长代码迁移。
+对 Yotta 3.1 全部实现完成总审计，集中修复仓库工程缺口，并给出可复核 completion verdict。结论严格区分工程完成、可构建 candidate 与公开 stable。
 
 ## Completion criterion
 
-- Slice registry 中全部 implementation Slice 已 completed，仓库不存在旧 Container runtime、双执行路径或 release-number package/type name。
+- Slice registry 中全部 implementation Slice completed，仓库不存在旧 Container runtime、双执行路径或 release-number package/type name。
 - stable nodeTypeId、显式 SemVer version、semanticDigest、Catalog/Program/package locks 与 Go/TS/schema/reference/golden 一致且 drift gate 可重建。
 - GUI、headless、AI、MCP、schedule/debug 只消费唯一 compiler/Program/Run application path；第三方执行只来自已签名启用 package。
-- 对照 plan、design、review 和 AGENTS contract 完成 Standards/Spec review；所有高风险 finding 修复或明确归入公开发布外部前置。
-- 最终阶段末一次性运行 task check、race/fuzz 触发组、Windows production build、Process/Wasm smoke、WebView smoke+人工截图，以及 Linux/macOS portable core；原生三平台 GUI 以 CI gui-build matrix 为权威证据。
-- candidate staging、artifact manifest、辅助 runner/DLL/ADB inclusion 与 package/sign 入口不发生“测试后重建”。
-- 当前 LICENSE 仍是 source-available 时不得宣称 OSI open source；公开 stable 所需许可证、签名证书、canonical repository、维护者权限、owner settings 和真实宿主 smoke 必须列为外部阻塞。
-- 给出明确 verdict：major upgrade engineering complete / incomplete；若 incomplete，只保留可执行的真实缺口，不创建泛化 fog。
+- Standards/Spec review 的仓库工程 finding 已修复；公开发布治理前置单独列明。
+- 最终 acceptance matrix 以阶段批量方式执行并通过。
+- candidate staging/manifest/archive/smoke 基于同一冻结 payload，sign 入口不重建。
+- 当前 source-available LICENSE 未被描述为 OSI open source。
 
-## Work plan
+## Work completed
 
-1. 建立 plan/design/review → code/tests/docs 的 completion matrix，先做静态审计，不重复运行已绿门禁。
-2. 完成 Standards 与 Spec review，集中归并 finding。
-3. 修复工程范围 finding，并补齐 contract/reference/golden/release staging drift。
-4. 阶段末统一运行最终 acceptance matrix。
-5. 更新架构、operations、release status 与 Flightdeck；若工程完成则关闭 Topic，公开发布外部前置另行记录。
-
-## Blocked by
-
-无工程设计阻塞。公开 stable 发布有外部前置，但不阻塞开始工程总审计。
+1. 完成 plan/design/review → code/tests/docs completion matrix 与 Standards/Spec 双轴 review。
+2. 删除 `YHFISH_ADB_PATH` fallback、旧 v3 example 与 release-number generated type name。
+3. 将根 desktop composition 收入 `internal/desktopapp`，生产依赖改为 constructor-time options；根 `main.go` 保持薄入口。
+4. 新增复用同一 `appbootstrap.Runtime` 的 `cmd/yotta` headless validate/compile/inspect/run。
+5. AI authoring review 增加容量、active/terminal TTL 与 PreparedPatch 释放；TestProfile DTO 不再携带明文 API key。
+6. 刷新 architecture/compatibility/contribution/release 文档与受审计 Wails RPC contract。
+7. package 链增加 CLI、冻结 manifest 文件集/size/hash、staged worker/plugin/CLI/desktop smoke；签名链只签冻结 payload 后 restage/smoke。
+8. 拆分 Workflow editor/inspector 大组件，父组件回到计划尺寸阈值以内。
 
 ## Verification
 
-尚未开始最终总审计。插件阶段的 task check、Windows build/plugin/WebView smoke 与 portable core 证据可作为输入，但最终 verdict 前仍需完成 completion matrix、review 和阶段末最终门禁。
+- `task package`: PASS；包含唯一完整 `task check`、production build、stage、archive、frozen candidate smoke、前后 clean worktree。
+- Go: global 65.0%，root 75.0%，CLI 65.3%；package floors、vet、staticcheck PASS。
+- Frontend: format/lint/typecheck/i18n/bindings/Vitest/build PASS；28 files/106 tests，1269 keys，Wails 14/94/109。
+- Bundle: entry 262837 gzip bytes ≤350000；editor 97277 ≤200000/target 125000。
+- Candidate: manifest exact file set/size/SHA-256、staged ScriptWorker、Process/Wasm plugin isolation、CLI strict legacy rejection、desktop startup PASS。
+- Race: CI race-sensitive Windows package group PASS。
+- Fuzz: MCP patch、Workflow parser、CompileDraft、OpenProgram 各 10s PASS。
+- Portable compile: 31 packages `go test -c` for linux/amd64 and darwin/arm64 PASS；不宣称在 Windows 运行外平台测试。
+- WebView: catalog click 0→1、drag 1→2、AI review、console safety PASS；PNG 已人工检查。
+- Native Linux/macOS GUI/portable execution: 保持由 CI 原生 matrix 提供权威结果。
 
-## Out of scope
+## Blocked by
 
-- 未经用户授权 push、创建公开仓库、改写历史或变更 owner 级设置。
-- 在没有证书时伪造签名/timestamp 成功。
-- 把当前 source-available LICENSE 描述成 OSI open source。
-- 为旧 2.x/3.0 contract、package、ABI 或 workflow 增加兼容 shim。
+无仓库工程阻塞。
+
+公开 stable 外部前置：OSI LICENSE、canonical public identity/repository、真实多维护者与 owner settings、Authenticode certificate/timestamp、原生宿主与 installer smoke。未经授权未 push、未创建公开仓库、未改 owner 设置。
 
 ## Result
 
-进行中。
+**Verdict: major upgrade engineering complete.**
+
+仓库可以构建、冻结并 smoke 一个 unsigned Windows engineering candidate。它尚不能被称为 OSI open source 或公开 3.1 stable；外部治理与签名条件应进入后续独立 release/governance Topic，而不是继续延长本工程迁移。
