@@ -17,7 +17,6 @@ type SyncMouseCalibrationResult struct {
 //
 // 不变量：
 //   - 只改主图 MouseCalibration 节点的 config.counts360
-//   - 不动任何子图的 RecordingContext.MouseCounts360
 //   - 不动任何节点的 raw dx/dy
 //   - Incompatible 容器跳过
 func SyncLocalMouseCalibration(store *Store, newCounts int) (SyncMouseCalibrationResult, error) {

@@ -8,7 +8,6 @@ const { getStateMock } = vi.hoisted(() => ({
   getStateMock: vi.fn(async () => ({
     phase: 'recording',
     containerID: 'cReconciled',
-    filterMode: 'precise',
     tempID: 't1',
     startedAtMs: 123,
   })),
@@ -45,7 +44,6 @@ describe('recordStore — 后端状态机镜像', () => {
     s.applyState({
       phase: 'recording',
       containerID: 'cA',
-      filterMode: 'precise',
       tempID: 'x',
       startedAtMs: 1,
     })

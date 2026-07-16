@@ -126,18 +126,6 @@ func TestValidator_DanglingEdge(t *testing.T) {
 	}
 }
 
-func TestValidator_MissingMouseCalibration(t *testing.T) {
-	c := minContainer()
-	c.Graph.Nodes = append(c.Graph.Nodes,
-		GraphNode{ID: "m", Kind: "MouseMoveRel", Config: map[string]any{"dx": "100", "dy": "0", "durationMs": "100"}, CreatedAt: time.Now().UTC()},
-	)
-	c.Graph.Edges = []GraphEdge{{From: "start.Done", To: "m.In"}}
-	errs := ValidateContainer(c, nil)
-	if !hasCode(errs, CodeMissingMouseCalibration) {
-		t.Errorf("expected MISSING_MOUSE_CALIBRATION, got %+v", errs)
-	}
-}
-
 func TestValidator_DuplicateMouseCalibration(t *testing.T) {
 	c := minContainer()
 	c.Graph.Nodes = append(c.Graph.Nodes,
@@ -269,10 +257,10 @@ func TestValidator_HappyPath(t *testing.T) {
 }
 
 func TestValidateWin32WindowTarget_Missing(t *testing.T) {
-	// 含窗口类节点 (ClickAt, NeedsWindow) 但无 Win32WindowTarget → 触发 MISSING (validate-on-use).
+	// 含目标类节点但无 Win32WindowTarget → 触发 MISSING (validate-on-use).
 	c := &Container{Graph: Graph{Nodes: []GraphNode{
 		{ID: "s", Kind: "Start"},
-		{ID: "c", Kind: "ClickAt"},
+		{ID: "c", Kind: "ClickTemplate"},
 	}}}
 	errs := validateWin32WindowTarget(c, nil)
 	if !hasCode(errs, CodeMissingWin32WindowTarget) {
@@ -294,7 +282,7 @@ func TestValidateWin32WindowTarget_WindowlessSkipped(t *testing.T) {
 }
 
 func TestValidateWin32WindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
-	// 主图窗口无关, 但子图含 ClickAt → 仍要求 Win32WindowTarget (子图跟主图共用 hwnd).
+	// 主图窗口无关, 但子图含 ClickTemplate → 仍要求 Win32WindowTarget.
 	c := &Container{
 		Graph: Graph{Nodes: []GraphNode{
 			{ID: "s", Kind: "Start"},
@@ -303,7 +291,7 @@ func TestValidateWin32WindowTarget_SubgraphWindowNodeRequires(t *testing.T) {
 	}
 	sgs := []Subgraph{
 		{ID: "sg1", Graph: Graph{Nodes: []GraphNode{
-			{ID: "c", Kind: "ClickAt"},
+			{ID: "c", Kind: "ClickTemplate"},
 		}}},
 	}
 	errs := validateWin32WindowTarget(c, sgs)

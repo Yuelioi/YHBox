@@ -494,11 +494,7 @@ func main() {
 	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	recording.ConfigureSubgraphStore(recordingSvc, sgStore)
-	recording.ConfigureReferenceCounters(recordingSvc,
-		func(id string) int { return len(subgraphReferrers(id)) },
-		func(id string) int { return len(assetReferrers(id)) },
-	)
+	recording.ConfigureReferenceCounter(recordingSvc, func(id string) int { return len(assetReferrers(id)) })
 	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
 	recording.ConfigureContainerGetter(recordingSvc, containerStore)
 

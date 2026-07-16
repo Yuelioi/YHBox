@@ -4,7 +4,7 @@
   "summary": {
     "services": 18,
     "methods": 139,
-    "models": 158
+    "models": 157
   },
   "services": [
     {
@@ -3993,27 +3993,6 @@
         },
         {
           "kind": "class",
-          "name": "RecordingContext",
-          "fields": [
-            {
-              "name": "\"mouseCounts360\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"resolution\"",
-              "optional": false,
-              "type": "number[]"
-            },
-            {
-              "name": "\"recordedAt\"",
-              "optional": false,
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "kind": "class",
           "name": "Subgraph",
           "fields": [
             {
@@ -4075,11 +4054,6 @@
               "name": "\"requiredGlobals\"",
               "optional": true,
               "type": "string[]"
-            },
-            {
-              "name": "\"recordingContext\"",
-              "optional": true,
-              "type": "RecordingContext | null"
             },
             {
               "name": "\"isAnonymous\"",
@@ -4319,11 +4293,6 @@
               "name": "\"mouseCounts360\"",
               "optional": false,
               "type": "number"
-            },
-            {
-              "name": "\"filterMode\"",
-              "optional": false,
-              "type": "string"
             },
             {
               "name": "\"stopHotkeyVK\"",
@@ -5204,11 +5173,6 @@
           "name": "FinalizeResult",
           "fields": [
             {
-              "name": "\"subgraphID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
               "name": "\"clipID\"",
               "optional": false,
               "type": "string"
@@ -5220,11 +5184,6 @@
             },
             {
               "name": "\"label\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"filterMode\"",
               "optional": false,
               "type": "string"
             }
@@ -5241,11 +5200,6 @@
             },
             {
               "name": "\"containerID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"filterMode\"",
               "optional": false,
               "type": "string"
             },
@@ -5276,11 +5230,6 @@
           "name": "StartArgs",
           "fields": [
             {
-              "name": "\"filterMode\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
               "name": "\"containerID\"",
               "optional": false,
               "type": "string"
@@ -5298,11 +5247,6 @@
             },
             {
               "name": "\"containerID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"filterMode\"",
               "optional": false,
               "type": "string"
             },

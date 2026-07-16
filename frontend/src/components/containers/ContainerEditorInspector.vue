@@ -58,7 +58,7 @@ defineEmits<{
   'delete-selected': []
   'subgraph-update': [patch: Record<string, any>]
   'subgraph-to-script': []
-  'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
+  'request-record': [opts: { replaceNodeID: string }]
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
 </script>

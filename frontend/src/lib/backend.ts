@@ -168,12 +168,6 @@ export interface DebugSessionState {
   }>
 }
 
-export interface RecordingContext {
-  mouseCounts360: number
-  resolution: [number, number]
-  recordedAt: string
-}
-
 // Subgraph — 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不复制)
 export interface Subgraph {
   id: string
@@ -187,7 +181,6 @@ export interface Subgraph {
   category?: string
   // 引用的容器级 var 名字 (保存时后端派生; Type/Default 由消费方按目标容器即时现算)
   requiredGlobals?: string[]
-  recordingContext?: RecordingContext
   isAnonymous?: boolean // CollapsedNode 后备体 — 不进库浏览/候选列表
   createdAt: string
 }
@@ -577,8 +570,7 @@ export const backend = {
     info: () => invoke(AppInfoService.Info),
   },
   recording: {
-    start: (args: { filterMode: 'precise' | 'simple'; containerID: string }) =>
-      invoke(RecordingService.Start, args as any),
+    start: (args: { containerID: string }) => invoke(RecordingService.Start, args as any),
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
     cancel: () => invoke(RecordingService.Cancel),

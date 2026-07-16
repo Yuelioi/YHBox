@@ -24,14 +24,6 @@ type HotkeySettingsProvider interface {
 	GetMouseMode() string     // 'relative' / 'absolute'
 }
 
-// SubgraphSaver 窄接口 — 录制完落 Subgraph 到全局子图池 (2026-06-12 全局化).
-// 用接口注入避免循环 import. container.SubgraphStore 已实现这个签名 (Create).
-type SubgraphStore interface {
-	Create(sg *container.Subgraph) error
-	List() []container.Subgraph
-	Delete(id string, baseRev int64) error
-}
-
 type clipStore interface {
 	Save(clip *inputclip.InputClip) error
 	List() []inputclip.ClipSummary
@@ -47,9 +39,9 @@ type ContainerGetter interface {
 // Service wails3 RPC 入口.
 //
 // 前端流程:
-//  1. Start({filterMode, containerID}) 启动 hook.
+//  1. Start({containerID}) 启动 hook.
 //  2. Stop() 只生成 pending token，不创建库资产.
-//  3. Finalize(metadata) 按模式创建 Subgraph 或 InputClip; Discard 释放 pending 数据.
+//  3. Finalize(metadata) 创建 InputClip; Discard 释放 pending 数据.
 //
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
@@ -57,10 +49,8 @@ type Service struct {
 	rec          recorderLifecycle
 	hkProv       HotkeySettingsProvider
 	clipSvc      clipStore
-	subgraphs    SubgraphStore
 	containerGet ContainerGetter
 	emit         func(name string, data any)
-	subgraphRefs func(string) int
 	clipRefs     func(string) int
 
 	mu           sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
@@ -91,8 +81,7 @@ const (
 // (recording:state 事件 + GetState 对账), 不自己存可 desync 的 flag.
 type RecordingState struct {
 	Phase       string `json:"phase"`       // idle | recording | paused | finalizing
-	ContainerID string `json:"containerID"` // 录制目标容器 (录完子图落这)
-	FilterMode  string `json:"filterMode"`  // precise | simple
+	ContainerID string `json:"containerID"` // 录制目标容器
 	TempID      string `json:"tempID"`
 	StartedAtMs int64  `json:"startedAtMs"`
 	PausedMs    int64  `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
@@ -128,14 +117,8 @@ func (s *Service) setState(st RecordingState) {
 // It is deliberately a package function so it cannot become a Wails RPC method.
 func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
-// ConfigureSubgraphStore injects persistence used by finalization and cleanup.
-func ConfigureSubgraphStore(s *Service, store SubgraphStore) { s.subgraphs = store }
-
-// ConfigureReferenceCounters injects current graph reference counts used by cleanup.
-func ConfigureReferenceCounters(s *Service, subgraphs, clips func(string) int) {
-	s.subgraphRefs = subgraphs
-	s.clipRefs = clips
-}
+// ConfigureReferenceCounter injects the current clip reference count used by cleanup.
+func ConfigureReferenceCounter(s *Service, clips func(string) int) { s.clipRefs = clips }
 
 // ConfigureContainerGetter injects target lookup used when a recording starts.
 func ConfigureContainerGetter(s *Service, getter ContainerGetter) { s.containerGet = getter }
@@ -199,8 +182,7 @@ func (s *Service) ValidateTarget(containerID string) error {
 
 // StartArgs 前端传入的录制开关.
 type StartArgs struct {
-	FilterMode  string `json:"filterMode"`  // 'precise' | 'simple'
-	ContainerID string `json:"containerID"` // 必传; 录完 Subgraph 落到这个 container 的 subgraphs/
+	ContainerID string `json:"containerID"` // 必传；用于解析录制目标窗口
 }
 
 // Start 启动录制 (非阻塞). 返回临时录制 ID (前端订阅事件流过滤用).
@@ -244,10 +226,6 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		mouseMode = s.hkProv.GetMouseMode()
 		stopVK = s.hkProv.GetStopHotkeyVK()
 	}
-	filterMode := args.FilterMode
-	if filterMode == "" {
-		filterMode = "precise"
-	}
 	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). 取不到 (≤0) 直接
 	// 返 error 让用户重试 —— 兜底 1080p 反而让回放按错基准缩放绝对坐标, 比不缩放更糟.
 	baseW, baseH := wh.ClientW, wh.ClientH
@@ -256,7 +234,6 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 	meta := inputclip.ClipMeta{
 		MouseMode:      mouseMode,
-		FilterMode:     filterMode,
 		StopHotkeyVK:   stopVK,
 		BaseResolution: [2]int{baseW, baseH},
 	}
@@ -267,7 +244,6 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	s.setState(RecordingState{
 		Phase:       PhaseRecording,
 		ContainerID: args.ContainerID,
-		FilterMode:  filterMode,
 		TempID:      id,
 		StartedAtMs: time.Now().UnixMilli(),
 	})
@@ -339,7 +315,6 @@ func (s *Service) Resume() error {
 type StopResultPayload struct {
 	PendingID   string `json:"pendingID"`
 	ContainerID string `json:"containerID"`
-	FilterMode  string `json:"filterMode"`
 	DurationUs  uint64 `json:"durationUs"`
 	EventCount  int    `json:"eventCount"`
 }
@@ -360,11 +335,9 @@ type FinalizeArgs struct {
 
 // FinalizeResult identifies the durable asset created from a pending recording.
 type FinalizeResult struct {
-	SubgraphID  string `json:"subgraphID"`
 	ClipID      string `json:"clipID"`
 	ContainerID string `json:"containerID"`
 	Label       string `json:"label"`
-	FilterMode  string `json:"filterMode"`
 }
 
 // Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
@@ -413,14 +386,11 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	if len(res.Events) == 0 {
 		return nil, nil
 	}
-	if res.Meta.FilterMode != "precise" && res.Meta.FilterMode != "simple" {
-		return nil, fmt.Errorf("unknown filterMode %q (前端 StartArgs.FilterMode 漏传?)", res.Meta.FilterMode)
-	}
 	pendingID := "pending-" + res.TempID
 	s.pending[pendingID] = pendingRecording{result: res, containerID: containerID}
 	durationUs := res.Events[len(res.Events)-1].TUs
 	return &StopResultPayload{
-		PendingID: pendingID, ContainerID: containerID, FilterMode: res.Meta.FilterMode,
+		PendingID: pendingID, ContainerID: containerID,
 		DurationUs: durationUs, EventCount: len(res.Events),
 	}, nil
 }
@@ -461,39 +431,18 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	description := strings.TrimSpace(args.Description)
 	category := strings.TrimSpace(args.Category)
 	res := pending.result
-	result := &FinalizeResult{ContainerID: pending.containerID, Label: label, FilterMode: res.Meta.FilterMode}
-	switch res.Meta.FilterMode {
-	case "precise":
-		if s.clipSvc == nil {
-			return nil, errors.New("clip store 未注入")
-		}
-		clip := &inputclip.InputClip{
-			ID: "clip-" + res.TempID, Label: label, Description: description, Category: category,
-			Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: res.Meta, Events: res.Events,
-		}
-		clip.UpdateDuration()
-		if err := s.clipSvc.Save(clip); err != nil {
-			return nil, fmt.Errorf("save clip: %w", err)
-		}
-		result.ClipID = clip.ID
-	case "simple":
-		if s.subgraphs == nil {
-			return nil, errors.New("subgraph store 未注入")
-		}
-		sg := BuildSimpleSubgraph(res.Events, res.Meta, res.ClientW, res.ClientH, label)
-		sg.Description = description
-		sg.Category = category
-		sg.Tags = tags
-		if err := s.subgraphs.Create(&sg); err != nil {
-			return nil, fmt.Errorf("save subgraph: %w", err)
-		}
-		result.SubgraphID = sg.ID
-		if s.emit != nil {
-			s.emit("subgraph:changed", map[string]any{})
-		}
-	default:
-		return nil, fmt.Errorf("unknown filterMode %q", res.Meta.FilterMode)
+	if s.clipSvc == nil {
+		return nil, errors.New("clip store 未注入")
 	}
+	clip := &inputclip.InputClip{
+		ID: "clip-" + res.TempID, Label: label, Description: description, Category: category,
+		Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: res.Meta, Events: res.Events,
+	}
+	clip.UpdateDuration()
+	if err := s.clipSvc.Save(clip); err != nil {
+		return nil, fmt.Errorf("save clip: %w", err)
+	}
+	result := &FinalizeResult{ClipID: clip.ID, ContainerID: pending.containerID, Label: label}
 	delete(s.pending, args.PendingID)
 	return result, nil
 }
@@ -573,51 +522,27 @@ func (s *Service) CleanupUnused(args CleanupArgs) CleanupResult {
 		if !ok {
 			continue
 		}
-		refs := s.referenceCount(item.Kind, id)
+		refs := s.referenceCount(id)
 		if refs > 0 {
 			item.References = refs
 			result.Skipped = append(result.Skipped, item)
 			continue
 		}
-		var err error
-		if item.Kind == "simple" {
-			for _, sg := range s.subgraphs.List() {
-				if sg.ID == id {
-					err = s.subgraphs.Delete(id, sg.Rev)
-					break
-				}
-			}
-		} else {
-			err = s.clipSvc.Delete(id)
-		}
+		err := s.clipSvc.Delete(id)
 		if err != nil {
 			result.Failed = append(result.Failed, id)
 			continue
 		}
 		result.Deleted = append(result.Deleted, id)
 	}
-	if len(result.Deleted) > 0 && s.emit != nil {
-		s.emit("subgraph:changed", map[string]any{})
-	}
 	return result
 }
 
 func (s *Service) recordingAssets() []CleanupItem {
 	items := []CleanupItem{}
-	if s.subgraphs != nil {
-		for _, sg := range s.subgraphs.List() {
-			if sg.RecordingContext == nil || sg.IsAnonymous {
-				continue
-			}
-			items = append(items, CleanupItem{ID: sg.ID, Label: sg.Label, Kind: "simple", References: s.referenceCount("simple", sg.ID)})
-		}
-	}
 	if s.clipSvc != nil {
 		for _, clip := range s.clipSvc.List() {
-			if clip.Meta.FilterMode != "precise" {
-				continue
-			}
-			items = append(items, CleanupItem{ID: clip.ID, Label: clip.Label, Kind: "precise", References: s.referenceCount("precise", clip.ID)})
+			items = append(items, CleanupItem{ID: clip.ID, Label: clip.Label, Kind: "clip", References: s.referenceCount(clip.ID)})
 		}
 	}
 	sort.Slice(items, func(i, j int) bool {
@@ -632,11 +557,8 @@ func (s *Service) recordingAssets() []CleanupItem {
 	return items
 }
 
-func (s *Service) referenceCount(kind, id string) int {
-	if kind == "simple" && s.subgraphRefs != nil {
-		return s.subgraphRefs(id)
-	}
-	if kind == "precise" && s.clipRefs != nil {
+func (s *Service) referenceCount(id string) int {
+	if s.clipRefs != nil {
 		return s.clipRefs(id)
 	}
 	return 0
@@ -668,7 +590,6 @@ func (s *Service) StopAsync() {
 		s.emit("recording:completed", map[string]any{
 			"pendingID":   payload.PendingID,
 			"containerID": payload.ContainerID,
-			"filterMode":  payload.FilterMode,
 			"durationUs":  payload.DurationUs,
 			"eventCount":  payload.EventCount,
 		})

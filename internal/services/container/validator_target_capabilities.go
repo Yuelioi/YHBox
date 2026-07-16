@@ -116,7 +116,7 @@ func subgraphsByID(sgs []Subgraph) map[string]*Subgraph {
 func targetCapabilitiesForNode(n *GraphNode, base []nodepkg.TargetCapability) []nodepkg.TargetCapability {
 	caps := append([]nodepkg.TargetCapability(nil), base...)
 	switch n.Kind {
-	case "ClickAt", "ClickTemplate":
+	case "ClickTemplate":
 		if strings.TrimSpace(PinString(n, "Keys")) != "" {
 			caps = appendTargetCapability(caps, nodepkg.TargetCapabilityKeyState)
 		}

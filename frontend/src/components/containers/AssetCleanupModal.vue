@@ -173,14 +173,16 @@ function toggleAll() {
 }
 
 function kindIcon(kind: string) {
+  void kind
   if (props.resource === 'subgraph') return 'i-tabler-hierarchy'
   if (props.resource === 'template') return 'i-tabler-photo'
-  return kind === 'precise' ? 'i-tabler-movie' : 'i-tabler-route'
+  return 'i-tabler-movie'
 }
 
 function kindLabel(kind: string) {
+  void kind
   if (props.resource === 'subgraph') return t('subgraphCleanup.kind')
   if (props.resource === 'template') return t('templateCleanup.kind')
-  return kind === 'precise' ? t('recordingSave.mode_precise') : t('recordingSave.mode_simple')
+  return t('recordingSave.clip_type')
 }
 </script>

@@ -203,7 +203,7 @@
 
     <!-- ====== 右 · 低频工具: 录制 · 自动布局 · ⋯ ====== -->
     <div data-zone="utility" class="toolbar-zone toolbar-utility">
-      <!-- 录制 (三态紧凑单控件): 空闲=下拉选精准·简易 (neutral, 次操作); 倒计时=点取消; 录制中=红停止(目标进 tooltip)。 -->
+      <!-- 录制：空闲时开始，倒计时中可取消，录制中显示停止。 -->
       <UButton
         v-if="isRecording"
         size="sm"
@@ -233,18 +233,18 @@
           t('editor.toolbar.cancel_countdown', { n: countdownSec })
         }}</span></UButton
       >
-      <UDropdownMenu v-else :items="recordMenuItems">
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-circle-dot"
-          :title="t('editor.toolbar.record_precise') + ' / ' + t('editor.toolbar.record_simple')"
-          :aria-label="t('editor.toolbar.record')"
-        >
-          <span class="toolbar-utility-label">{{ t('editor.toolbar.record') }}</span></UButton
-        >
-      </UDropdownMenu>
+      <UButton
+        v-else
+        size="sm"
+        color="neutral"
+        variant="soft"
+        icon="i-tabler-circle-dot"
+        :title="t('editor.toolbar.record_input_clip')"
+        :aria-label="t('editor.toolbar.record')"
+        @click="$emit('record')"
+      >
+        <span class="toolbar-utility-label">{{ t('editor.toolbar.record') }}</span></UButton
+      >
 
       <div class="toolbar-divider" />
 
@@ -320,8 +320,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  // 'record' 带 mode 参数: 'precise' | 'simple'
-  record: [mode: 'precise' | 'simple']
+  record: []
   'stop-record': []
   'cancel-countdown': []
   'try-run': []
@@ -352,22 +351,6 @@ const activeNodeLabel = computed(() => {
   if (props.debugActive) return props.debugRunningNodeLabel || props.debugRunningNodeKind || ''
   return props.runningNodeLabel || props.runningNodeKind || ''
 })
-
-// 录制下拉 (空闲态): 精准 / 简易。
-const recordMenuItems = [
-  [
-    {
-      label: t('editor.toolbar.record_precise'),
-      icon: 'i-tabler-circle-dot',
-      onSelect: () => emit('record', 'precise'),
-    },
-    {
-      label: t('editor.toolbar.record_simple'),
-      icon: 'i-tabler-bolt',
-      onSelect: () => emit('record', 'simple'),
-    },
-  ],
-]
 
 // 自动布局下拉 (右区直接按钮, 出 ⋯): 横向 / 纵向。
 const layoutMenuItems = [

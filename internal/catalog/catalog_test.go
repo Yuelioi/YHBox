@@ -40,25 +40,20 @@ func TestBuild_HasNodesAndSorted(t *testing.T) {
 	}
 }
 
-func TestBuildWithI18n_KeyPressLabeled(t *testing.T) {
+func TestBuildWithI18n_DetectColorLabeled(t *testing.T) {
 	for _, n := range BuildWithI18n() {
-		if n.Kind != "KeyPress" {
+		if n.Kind != "DetectColor" {
 			continue
 		}
-		if n.Label != "按键" {
-			t.Errorf("KeyPress.Label = %q, want 按键", n.Label)
+		if n.Label == "" {
+			t.Error("DetectColor.Label should be non-empty")
 		}
 		if n.Description == "" {
-			t.Error("KeyPress.Description should be non-empty")
-		}
-		for _, p := range n.Inputs {
-			if p.Name == "VK" && p.Label == "" {
-				t.Error("KeyPress.VK should have a label")
-			}
+			t.Error("DetectColor.Description should be non-empty")
 		}
 		return
 	}
-	t.Fatal("KeyPress not found in catalog")
+	t.Fatal("DetectColor not found in catalog")
 }
 
 // drift guard: zh.ts 加节点没同步 node-i18n.json (忘跑 pnpm gen:node-i18n) 即 fail。
@@ -173,46 +168,12 @@ func TestBuild_OutputDataSerialized(t *testing.T) {
 	}
 }
 
-func TestBuild_KeyPressShape(t *testing.T) {
-	for _, n := range Build() {
-		if n.Kind != "KeyPress" {
-			continue
-		}
-		if !n.NeedsTarget {
-			t.Error("KeyPress should be needsTarget")
-		}
-		if n.NeedsWindow {
-			t.Error("KeyPress should not be needsWindow; it routes through active target")
-		}
-		if !hasCatalogCapability(n.TargetCapabilities, "key-state") {
-			t.Fatalf("KeyPress should publish key-state target capability, got %+v", n.TargetCapabilities)
-		}
-		if !hasCatalogCapability(n.RuntimeCapabilities, "input") {
-			t.Fatalf("KeyPress should publish input runtime capability, got %+v", n.RuntimeCapabilities)
-		}
-		assertCatalogTargets(t, n.SupportedTargets, []string{"win32-window"})
-		var vk *Pin
-		for i := range n.Inputs {
-			if n.Inputs[i].Name == "VK" {
-				vk = &n.Inputs[i]
-			}
-		}
-		if vk == nil || !vk.Required {
-			t.Fatalf("KeyPress.VK should exist and be required, got %+v", n.Inputs)
-		}
-		return
-	}
-	t.Fatal("KeyPress not found in catalog")
-}
-
 func TestBuild_SupportedTargetsDerived(t *testing.T) {
 	byKind := map[string]Node{}
 	for _, n := range Build() {
 		byKind[n.Kind] = n
 	}
-	assertCatalogTargets(t, byKind["ClickAt"].SupportedTargets, []string{"win32-window", "android-adb"})
 	assertCatalogTargets(t, byKind["DetectColor"].SupportedTargets, []string{"win32-window", "android-adb"})
-	assertCatalogTargets(t, byKind["MouseMoveRel"].SupportedTargets, []string{"win32-window"})
 	assertCatalogTargets(t, byKind["AndroidTarget"].SupportedTargets, []string{"android-adb"})
 	assertCatalogTargets(t, byKind["Win32WindowTarget"].SupportedTargets, []string{"win32-window"})
 	assertCatalogTargets(t, byKind["Sleep"].SupportedTargets, nil)
@@ -245,15 +206,6 @@ func assertCatalogTargets(t *testing.T, got, want []string) {
 			t.Fatalf("supportedTargets = %v, want %v", got, want)
 		}
 	}
-}
-
-func hasCatalogCapability(caps []string, want string) bool {
-	for _, cap := range caps {
-		if cap == want {
-			return true
-		}
-	}
-	return false
 }
 
 // TestNoPinNameSplit — 守卫: 全节点 pin 名不准出现命名分裂 (形近撞名 / 同名不同具体类型)。

@@ -13,7 +13,6 @@ export interface ClipMeta {
   mouseMode: string // 'relative' | 'absolute' | 'mixed'
   baseResolution: [number, number] // [w, h]
   mouseCounts360: number
-  filterMode: string // 'precise' | 'simple'
   stopHotkeyVK: number // 默认 0x7B (F12)
 }
 

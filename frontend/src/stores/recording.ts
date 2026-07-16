@@ -15,7 +15,6 @@ import { i18n } from '@/i18n'
 export interface RecordingState {
   phase: 'idle' | 'recording' | 'paused' | 'finalizing'
   containerID: string
-  filterMode: string
   tempID: string
   startedAtMs: number
   pausedMs: number // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
@@ -25,23 +24,19 @@ export interface RecordingState {
 export interface RecordingStopPayload {
   pendingID: string
   containerID: string
-  filterMode: string
   durationUs: number
   eventCount: number
 }
 
 export interface RecordingFinalizePayload {
-  subgraphID: string
   clipID: string
   containerID: string
   label: string
-  filterMode: string
 }
 
 const IDLE: RecordingState = {
   phase: 'idle',
   containerID: '',
-  filterMode: '',
   tempID: '',
   startedAtMs: 0,
   pausedMs: 0,
@@ -53,7 +48,6 @@ function normalize(st: any): RecordingState {
   return {
     phase: p === 'recording' || p === 'paused' || p === 'finalizing' ? p : 'idle',
     containerID: st?.containerID ?? '',
-    filterMode: st?.filterMode ?? '',
     tempID: st?.tempID ?? '',
     startedAtMs: st?.startedAtMs ?? 0,
     pausedMs: st?.pausedMs ?? 0,
@@ -95,12 +89,12 @@ export const useRecordingStore = defineStore('recording', () => {
     }
   }
 
-  async function start(filterMode: 'precise' | 'simple', containerID: string): Promise<void> {
+  async function start(containerID: string): Promise<void> {
     if (isRecording.value) return
     if (!containerID)
       throw new Error('recording.start: containerID ' + i18n.global.t('common.required'))
     lastResult.value = null
-    await backend.recording.start({ filterMode, containerID })
+    await backend.recording.start({ containerID })
     // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
     await reconcile()
   }

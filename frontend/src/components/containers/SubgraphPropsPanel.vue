@@ -53,62 +53,6 @@
       />
     </section>
 
-    <!-- 录制元数据 -->
-    <section
-      v-if="subgraph.recordingContext"
-      class="space-y-2 rounded-md bg-elevated/30 border border-default/40 p-3"
-    >
-      <div class="flex items-center gap-1.5">
-        <UIcon name="i-tabler-clipboard-data" class="size-3.5 text-toned" />
-        <span class="text-xs text-toned font-medium">{{ t('subgraphProps.recording_meta') }}</span>
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="neutral"
-          icon="i-tabler-refresh"
-          :title="t('subgraphProps.reset_recording_tip')"
-          class="ml-auto"
-          @click="onResetRecording"
-        />
-      </div>
-      <div class="space-y-2">
-        <div class="space-y-1">
-          <label class="text-[11px] text-dimmed">{{ t('subgraphProps.source_counts360') }}</label>
-          <UInputNumber
-            :model-value="subgraph.recordingContext.mouseCounts360"
-            size="sm"
-            :min="0"
-            @update:model-value="onPatchRecording('mouseCounts360', $event)"
-          />
-        </div>
-        <div class="space-y-1">
-          <label class="text-[11px] text-dimmed">{{ t('subgraphProps.source_resolution') }}</label>
-          <div class="flex items-center gap-1.5">
-            <UInputNumber
-              :model-value="subgraph.recordingContext.resolution?.[0] ?? 0"
-              size="sm"
-              :min="0"
-              class="w-24"
-              @update:model-value="onPatchResolution(0, $event)"
-            />
-            <span class="text-xs text-dimmed">×</span>
-            <UInputNumber
-              :model-value="subgraph.recordingContext.resolution?.[1] ?? 0"
-              size="sm"
-              :min="0"
-              class="w-24"
-              @update:model-value="onPatchResolution(1, $event)"
-            />
-          </div>
-        </div>
-        <p class="text-[10px] text-dimmed">
-          {{
-            t('subgraphProps.recorded_at', { time: subgraph.recordingContext.recordedAt || '—' })
-          }}
-        </p>
-      </div>
-    </section>
-
     <section class="space-y-2">
       <label class="text-xs text-toned">{{ t('common.category') }}</label>
       <UInputMenu
@@ -146,17 +90,11 @@ import { useToast } from '@nuxt/ui/composables'
 const { t } = useI18n()
 const toast = useToast()
 
-interface RecordingContext {
-  mouseCounts360: number
-  resolution: [number, number]
-  recordedAt: string
-}
 interface SubgraphLike {
   id: string
   label: string
   description?: string
   outputPins?: { id: string; name: string }[]
-  recordingContext?: RecordingContext
   tags?: string[]
   category?: string
 }
@@ -166,7 +104,7 @@ const props = defineProps<{
   allTags?: string[]
   allCategories?: string[]
 }>()
-const emit = defineEmits<{ update: [patch: Record<string, any>]; 'to-script': [] }>()
+defineEmits<{ update: [patch: Record<string, any>]; 'to-script': [] }>()
 
 const allTagsList = computed(() => props.allTags ?? [])
 const allCategoriesList = computed(() => props.allCategories ?? [])
@@ -185,25 +123,5 @@ async function onCopyID() {
   } catch {
     toast.add({ title: t('toast.copy_failed'), color: 'error' })
   }
-}
-
-function onPatchRecording(key: string, v: any) {
-  if (!props.subgraph?.recordingContext) return
-  emit('update', {
-    recordingContext: { ...props.subgraph.recordingContext, [key]: v },
-  })
-}
-
-function onPatchResolution(idx: 0 | 1, v: number) {
-  if (!props.subgraph?.recordingContext) return
-  const r = [...(props.subgraph.recordingContext.resolution ?? [0, 0])] as [number, number]
-  r[idx] = v
-  emit('update', {
-    recordingContext: { ...props.subgraph.recordingContext, resolution: r },
-  })
-}
-
-function onResetRecording() {
-  emit('update', { __resetRecording: true })
 }
 </script>

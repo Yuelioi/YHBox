@@ -116,7 +116,7 @@ export default {
     input: {
       title: '输入校准',
       intro:
-        '鼠标硬件 DPI 影响"相对位移"类录制(视角转动)的跨电脑回放. 录制子图时会把本机 360° counts 写入 RecordingContext 作为源; 回放时按 target/source 比例缩放 MouseMoveRel.',
+        '鼠标硬件 DPI 影响相对位移录制（视角转动）的跨电脑回放。录制时会把本机 360° counts 写入 InputClip 元数据；回放时按目标值与源值的比例缩放。',
       intro_box: {
         what_label: '这里改的是什么',
         what_desc: '本机校准档. 选中的"默认档"影响:',
@@ -330,8 +330,7 @@ export default {
       recording_target_tip: '录制结果将存入容器「{name}」',
       cancel_countdown: '取消 ({n})',
       cancel_countdown_tip: '点这里取消录制倒计时',
-      record_precise: '精准录制 — 完整事件流',
-      record_simple: '简易录制 — 仅 click/key',
+      record_input_clip: '录制完整输入事件流',
       fold: '折叠为子图',
       fold_tip: '折叠选中节点为新子图',
       auto_layout: '自动布局',
@@ -2136,8 +2135,7 @@ export default {
       inspector: {
         clip_unset_placeholder: '(未设)',
         clip_missing: 'clip {id} 不在 clips 库. 重新录制覆盖.',
-        record_precise: '重新录制 (精准)',
-        record_simple: '重录 (简易)',
+        rerecord: '重新录制',
         bind_hint:
           '一个 PlayClip 节点绑死一个 clip — 想换内容请重新录制覆盖, 不要切换 clip 引用 (避免删 clip 后这里指向不存在的 ID).',
         keep_ranges_label: '裁剪段 (keepRanges)',
@@ -3486,11 +3484,8 @@ export default {
   recordComposable: {
     no_container_id: '当前 container 没 ID, 无法录制',
     countdown_cancelled: '已取消录制倒计时',
-    recording_in_progress: '正在录制 ({mode})',
-    mode_precise: '精准',
-    mode_simple: '简易',
+    recording_in_progress: '正在录制',
     stop_methods: '游戏前台按 {hk} 或点悬浮窗停止',
-    refresh_subgraphs_failed: '刷新子图列表失败',
     replace_node_missing: '替换目标节点已不存在, 改为新建',
     replace_node_wrong_kind: '目标节点类型（{kind}）与本次录制产物不符, 改为新建',
     recording_failed: '录制失败',
@@ -3911,8 +3906,7 @@ export default {
     title: '保存录制',
     pending: '尚未入库',
     pending_hint: '保存后才会加入资产库和当前画布。',
-    mode_precise: '精准录制',
-    mode_simple: '简易录制',
+    clip_type: 'InputClip 输入录制',
     summary: '{duration} · {count} 个输入事件',
     name: '录制名称',
     name_hint: '使用能说明用途的名称，之后更容易找到。',
@@ -4268,11 +4262,6 @@ export default {
     description: '描述',
     outputs_count: '{n} 个出口',
     click_to_copy: '点击复制 — ',
-    recording_meta: '录制元数据',
-    reset_recording_tip: '重置录制元数据',
-    source_counts360: '源 360° counts',
-    source_resolution: '录制分辨率',
-    recorded_at: '录制于 {time}',
     to_script: '转为脚本',
   },
   // SubgraphScriptPreviewModal — 子图一键转脚本.

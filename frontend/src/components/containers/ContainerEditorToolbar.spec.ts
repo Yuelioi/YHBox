@@ -36,9 +36,9 @@ describe('ContainerEditorToolbar structure', () => {
     const workflow = zone('workflow')
     const utility = zone('utility')
 
-    expect(workflow).not.toContain('recordMenuItems')
+    expect(workflow).not.toContain("$emit('record')")
     expect(workflow).not.toContain('layoutMenuItems')
-    expect(utility).toContain('recordMenuItems')
+    expect(utility).toContain("$emit('record')")
     expect(utility).toContain('layoutMenuItems')
   })
 

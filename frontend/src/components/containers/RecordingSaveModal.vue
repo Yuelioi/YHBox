@@ -128,14 +128,8 @@ const nameTouched = ref(false)
 const discardArmed = ref(false)
 let discardTimer: ReturnType<typeof setTimeout> | null = null
 
-const modeLabel = computed(() =>
-  props.pending.filterMode === 'precise'
-    ? t('recordingSave.mode_precise')
-    : t('recordingSave.mode_simple'),
-)
-const modeIcon = computed(() =>
-  props.pending.filterMode === 'precise' ? 'i-tabler-movie' : 'i-tabler-route',
-)
+const modeLabel = computed(() => t('recordingSave.clip_type'))
+const modeIcon = 'i-tabler-movie'
 const durationLabel = computed(() => {
   const total = Math.max(0, Math.round(props.pending.durationUs / 1_000_000))
   const minutes = Math.floor(total / 60)

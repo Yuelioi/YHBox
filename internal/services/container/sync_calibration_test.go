@@ -42,35 +42,9 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 			CreatedAt: time.Now().UTC(),
 		},
 	)
-	c.Graph.Nodes = append(c.Graph.Nodes,
-		GraphNode{ID: "m", Kind: "MouseMoveRel", Config: map[string]any{"dx": "100"}, CreatedAt: time.Now().UTC()},
-	)
 
 	// Save container first with the new nodes
 	st.Save(&c)
-
-	// 子图现在住全局池 — RecordingContext (录制源机器 counts) 不归容器同步管.
-	sgStore, err := NewSubgraphStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	sg := Subgraph{
-		ID:    "sg-1",
-		Label: "录制",
-		Graph: Graph{
-			ID: "g-sg1", SchemaVersion: GraphSchemaVersion,
-			Nodes: []GraphNode{
-				{ID: "in", Kind: "SubgraphInput", CreatedAt: time.Now().UTC()},
-				{ID: "out", Kind: "SubgraphOutput", CreatedAt: time.Now().UTC()},
-			},
-		},
-		OutputPins:       []SubgraphOutputDecl{{ID: "d", Name: "done"}},
-		RecordingContext: &RecordingContext{MouseCounts360: 4120},
-		CreatedAt:        time.Now().UTC(),
-	}
-	if err := sgStore.Create(&sg); err != nil {
-		t.Fatal(err)
-	}
 
 	res, err := SyncLocalMouseCalibration(st, 2200)
 	if err != nil {
@@ -87,10 +61,6 @@ func TestSync_OnlyMainCalibrationNodePatched(t *testing.T) {
 				t.Errorf("main cal.counts360 = %d, want 2200", counts)
 			}
 		}
-	}
-	sg2, _ := sgStore.Get("sg-1")
-	if sg2.RecordingContext == nil || sg2.RecordingContext.MouseCounts360 != 4120 {
-		t.Errorf("subgraph RecordingContext was tampered: %+v", sg2.RecordingContext)
 	}
 }
 

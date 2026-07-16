@@ -73,7 +73,6 @@ function mountComposable(draft: Ref<Container | null>) {
           draft,
           activeGraph,
           syncFlowFromDraft: vi.fn(),
-          refreshSubgraphStore: vi.fn(async () => {}),
           saveDraft: vi.fn(async () => {}),
           dropPoint: () => ({ x: 0, y: 0 }),
           selectNode: vi.fn(),
@@ -107,7 +106,7 @@ describe('useRecording — recording:completed 归属守卫', () => {
 
     // 模拟别的窗口录完的全局广播 — 本窗 ownsRecording 仍是 false.
     await handlers['recording:completed']({
-      data: [{ subgraphID: 'sg-x', containerID: 'cOther', label: 'x', filterMode: 'precise' }],
+      data: [{ clipID: 'clip-x', containerID: 'cOther', label: 'x' }],
     })
 
     expect(toast.add).not.toHaveBeenCalled()
@@ -118,15 +117,12 @@ describe('useRecording — recording:completed 归属守卫', () => {
     backendMocks.stop.mockResolvedValueOnce({
       pendingID: 'pending-1',
       containerID: 'cMine',
-      filterMode: 'precise',
       durationUs: 1_000_000,
       eventCount: 2,
     })
     backendMocks.finalize.mockResolvedValueOnce({
       clipID: 'clip-1',
-      subgraphID: '',
       containerID: 'cMine',
-      filterMode: 'precise',
       label: '领奖前置',
     })
     const draft = ref(makeDraft())

@@ -7,7 +7,6 @@ func TestSubgraphServiceCleanupOnlyDeletesSelectedUnusedBlueprints(t *testing.T)
 	for _, sg := range []*Subgraph{
 		{ID: "unused", Label: "Unused"},
 		{ID: "used", Label: "Used"},
-		{ID: "recording", Label: "Recording", RecordingContext: &RecordingContext{}},
 		{ID: "anonymous", Label: "Anonymous", IsAnonymous: true},
 	} {
 		if err := store.Create(sg); err != nil {
@@ -46,9 +45,6 @@ func TestSubgraphServiceCleanupOnlyDeletesSelectedUnusedBlueprints(t *testing.T)
 	}
 	if _, ok := store.Get("unused"); ok {
 		t.Fatal("unused blueprint still exists")
-	}
-	if _, ok := store.Get("recording"); !ok {
-		t.Fatal("recording-derived subgraph must be handled by recording cleanup")
 	}
 	if _, ok := store.Get("anonymous"); !ok {
 		t.Fatal("anonymous implementation subgraph must not be exposed to cleanup")

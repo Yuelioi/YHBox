@@ -49,13 +49,13 @@ func TestTemplateCaptureAdapter_CaptureAndroidTargetUsesADBScreenshot(t *testing
 					"Width":  1280,
 					"Height": 720,
 				}}},
-				{ID: "click", Kind: "ClickAt"},
+				{ID: "probe", Kind: "Sleep"},
 				{ID: "stop", Kind: "Stop"},
 			},
 			Edges: []container.GraphEdge{
 				{From: "start.Done", To: "at.In"},
-				{From: "at.Done", To: "click.In"},
-				{From: "click.Done", To: "stop.In"},
+				{From: "at.Done", To: "probe.In"},
+				{From: "probe.Done", To: "stop.In"},
 			},
 		},
 	}
@@ -65,7 +65,7 @@ func TestTemplateCaptureAdapter_CaptureAndroidTargetUsesADBScreenshot(t *testing
 	adb := &templateCaptureFakeADBRunner{out: templateCaptureTinyPNG(t)}
 	adapter := &templateCaptureAdapter{containers: container.NewService(store), adbRunner: adb}
 
-	got, err := adapter.Capture("c1", "click")
+	got, err := adapter.Capture("c1", "probe")
 	if err != nil {
 		t.Fatal(err)
 	}

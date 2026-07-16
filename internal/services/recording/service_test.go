@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -28,7 +27,7 @@ func (r *blockingStopRecorder) Stop() (*StopResult, error) {
 	<-r.release
 	return &StopResult{
 		TempID: "partial",
-		Meta:   inputclip.ClipMeta{FilterMode: "precise"},
+		Meta:   inputclip.ClipMeta{},
 	}, nil
 }
 func (*blockingStopRecorder) Cancel() {}
@@ -67,22 +66,9 @@ func (s *memoryClipStore) Save(clip *inputclip.InputClip) error { s.saved = clip
 func (s *memoryClipStore) List() []inputclip.ClipSummary        { return s.clips }
 func (s *memoryClipStore) Delete(id string) error               { s.deleted = append(s.deleted, id); return nil }
 
-type memorySubgraphStore struct {
-	saved   *container.Subgraph
-	items   []container.Subgraph
-	deleted []string
-}
-
-func (s *memorySubgraphStore) Create(sg *container.Subgraph) error { s.saved = sg; return nil }
-func (s *memorySubgraphStore) List() []container.Subgraph          { return s.items }
-func (s *memorySubgraphStore) Delete(id string, _ int64) error {
-	s.deleted = append(s.deleted, id)
-	return nil
-}
-
 func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	recorder := &resultRecorder{result: &StopResult{
-		TempID: "session", Meta: inputclip.ClipMeta{FilterMode: "precise"},
+		TempID: "session", Meta: inputclip.ClipMeta{},
 		Events: []inputclip.Event{{TUs: 0}, {TUs: 250_000}},
 	}}
 	clips := &memoryClipStore{}
@@ -127,27 +113,22 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 
 func TestServiceCleanupOnlyDeletesUnusedRecordingAssets(t *testing.T) {
 	clips := &memoryClipStore{clips: []inputclip.ClipSummary{
-		{ID: "clip-unused", Label: "unused clip", Meta: inputclip.ClipMeta{FilterMode: "precise"}},
-		{ID: "clip-used", Label: "used clip", Meta: inputclip.ClipMeta{FilterMode: "precise"}},
-	}}
-	subgraphs := &memorySubgraphStore{items: []container.Subgraph{
-		{ID: "sg-unused", Rev: 2, Label: "unused sg", RecordingContext: &container.RecordingContext{}},
-		{ID: "sg-manual", Rev: 1, Label: "manual"},
+		{ID: "clip-unused", Label: "unused clip"},
+		{ID: "clip-used", Label: "used clip"},
 	}}
 	s := NewService(&resultRecorder{}, nil, clips)
-	ConfigureSubgraphStore(s, subgraphs)
-	ConfigureReferenceCounters(s, func(string) int { return 0 }, func(id string) int {
+	ConfigureReferenceCounter(s, func(id string) int {
 		if id == "clip-used" {
 			return 2
 		}
 		return 0
 	})
 	preview := s.PreviewCleanup()
-	if len(preview.Unused) != 2 || len(preview.Referenced) != 1 {
+	if len(preview.Unused) != 1 || len(preview.Referenced) != 1 {
 		t.Fatalf("preview = %+v", preview)
 	}
-	result := s.CleanupUnused(CleanupArgs{IDs: []string{"clip-unused", "clip-used", "sg-unused", "sg-manual"}})
-	if strings.Join(result.Deleted, ",") != "clip-unused,sg-unused" {
+	result := s.CleanupUnused(CleanupArgs{IDs: []string{"clip-unused", "clip-used"}})
+	if strings.Join(result.Deleted, ",") != "clip-unused" {
 		t.Fatalf("deleted = %v", result.Deleted)
 	}
 	if len(result.Skipped) != 1 || result.Skipped[0].ID != "clip-used" {
@@ -263,7 +244,7 @@ func TestService_StartWhenNotIdle_IsNoOp(t *testing.T) {
 	// 模拟已在录 (不走真 hook): 直接置 recording 态.
 	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cA", TempID: "t1"})
 	// Start 撞非 idle → 返当前 tempID, 不报错, 不重启.
-	id, err := s.Start(StartArgs{FilterMode: "precise", ContainerID: "cB"})
+	id, err := s.Start(StartArgs{ContainerID: "cB"})
 	if err != nil {
 		t.Fatalf("非 idle Start 应无错 (幂等 no-op), got %v", err)
 	}
@@ -277,9 +258,9 @@ func TestService_StartWhenNotIdle_IsNoOp(t *testing.T) {
 
 func TestService_GetStateAndEmit(t *testing.T) {
 	s, events := newTestService()
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cX", FilterMode: "simple", TempID: "tt"})
+	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cX", TempID: "tt"})
 	st := s.GetState()
-	if st.Phase != PhaseRecording || st.ContainerID != "cX" || st.FilterMode != "simple" || st.TempID != "tt" {
+	if st.Phase != PhaseRecording || st.ContainerID != "cX" || st.TempID != "tt" {
 		t.Fatalf("GetState 没反映 setState: %+v", st)
 	}
 	if len(*events) != 1 || (*events)[0] != "recording:state" {

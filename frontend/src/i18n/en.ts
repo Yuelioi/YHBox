@@ -98,7 +98,7 @@ export default {
     input: {
       title: 'Input calibration',
       intro:
-        'Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turn). When recording a subgraph, the local 360° counts are written into RecordingContext as the source; on replay, MouseMoveRel scales by target/source ratio.',
+        'Mouse hardware DPI affects cross-machine replay of relative-motion recordings (camera turns). Recording stores the local 360° count in InputClip metadata; playback scales by the target-to-source ratio.',
       intro_box: {
         what_label: 'What this changes',
         what_desc: 'Local calibration profiles. The selected "default profile" affects:',
@@ -321,8 +321,7 @@ export default {
       recording_target_tip: 'Recording will be saved to container "{name}"',
       cancel_countdown: 'Cancel ({n})',
       cancel_countdown_tip: 'Click here to cancel recording countdown',
-      record_precise: 'Precise — full event stream',
-      record_simple: 'Simple — click/key only',
+      record_input_clip: 'Record full input event stream',
       fold: 'Fold to subgraph',
       fold_tip: 'Fold selected nodes into a new subgraph',
       auto_layout: 'Auto layout',
@@ -2259,8 +2258,7 @@ export default {
       inspector: {
         clip_unset_placeholder: '(unset)',
         clip_missing: 'clip {id} not found in the clip library. Re-record to overwrite.',
-        record_precise: 'Re-record (precise)',
-        record_simple: 'Re-record (simple)',
+        rerecord: 'Re-record',
         bind_hint:
           'A PlayClip node is bound 1:1 to a clip — to change content, re-record to overwrite. Do not switch the clip reference (avoids dangling IDs after a clip is deleted).',
         keep_ranges_label: 'Keep ranges (keepRanges)',
@@ -3659,11 +3657,8 @@ export default {
   recordComposable: {
     no_container_id: 'Current container has no ID, cannot record',
     countdown_cancelled: 'Recording countdown cancelled',
-    recording_in_progress: 'Recording ({mode})',
-    mode_precise: 'precise',
-    mode_simple: 'simple',
+    recording_in_progress: 'Recording',
     stop_methods: 'Press {hk} in game or click the HUD to stop',
-    refresh_subgraphs_failed: 'Refresh subgraphs failed',
     replace_node_missing: 'Target node no longer exists, creating new',
     replace_node_wrong_kind: 'Target node kind={kind} does not match this recording, creating new',
     recording_failed: 'Recording failed',
@@ -4087,8 +4082,7 @@ export default {
     title: 'Save recording',
     pending: 'Not in library',
     pending_hint: 'The recording joins your library and canvas only after you save it.',
-    mode_precise: 'Precise recording',
-    mode_simple: 'Simple recording',
+    clip_type: 'InputClip recording',
     summary: '{duration} · {count} input events',
     name: 'Recording name',
     name_hint: 'Use a name that explains what the recording is for.',
@@ -4442,11 +4436,6 @@ export default {
     description: 'Description',
     outputs_count: '{n} outputs',
     click_to_copy: 'Click to copy — ',
-    recording_meta: 'Recording metadata',
-    reset_recording_tip: 'Reset recording metadata',
-    source_counts360: 'Source 360° counts',
-    source_resolution: 'Recording resolution',
-    recorded_at: 'Recorded at {time}',
     to_script: 'Convert to script',
   },
   subgraphScript: {

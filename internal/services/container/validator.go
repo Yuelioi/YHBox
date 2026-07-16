@@ -280,14 +280,6 @@ func validateMouseCalibration(c *Container, sgs []Subgraph) []ValidationError {
 		}
 	}
 
-	hasMouseRel := containsMouseMoveRel(c, sgs)
-	if hasMouseRel && calCount == 0 {
-		errs = append(errs, ValidationError{
-			Severity: SeverityError, Code: CodeMissingMouseCalibration,
-			GraphPath: []string{"main"},
-		})
-	}
-
 	if calNode != nil {
 		counts, _ := PinInt(calNode, "Counts360")
 		if counts == 0 {
@@ -444,22 +436,6 @@ func validatePlayClip(c *Container, sgs []Subgraph) []ValidationError {
 		check(sg.Graph.Nodes, sgPath)
 	}
 	return errs
-}
-
-func containsMouseMoveRel(c *Container, sgs []Subgraph) bool {
-	for _, n := range c.Graph.Nodes {
-		if n.Kind == "MouseMoveRel" {
-			return true
-		}
-	}
-	for _, sg := range sgs {
-		for _, n := range sg.Graph.Nodes {
-			if n.Kind == "MouseMoveRel" {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func validateSubgraph(_ *Container, sg *Subgraph) []ValidationError {
@@ -716,10 +692,6 @@ func checkGraphPerKind(nodes []GraphNode, graphPath []string, isMain bool) []Val
 			nodeErrs = validateROIColorScan(n)
 		case "DetectColorBlobs":
 			nodeErrs = validateDetectColorBlobs(n)
-		case "KeyHoldStart", "KeyHoldStop":
-			nodeErrs = validateKeyHold(n)
-		case "MouseHoldStart", "MouseHoldStop":
-			nodeErrs = validateMouseHold(n)
 		case "StopwatchStart":
 			nodeErrs = validateStopwatch(n)
 			if key := PinString(n, "Key"); key != "" {
@@ -868,35 +840,6 @@ func validateDetectColorBlobs(n *GraphNode) []ValidationError {
 			Params: map[string]any{"actual": poll, "minMs": 30}})
 	}
 	return errs
-}
-
-// validateKeyHold checks that vk is a non-empty string.
-// Runtime calls pkginput.VK(name); we do not pre-validate the name here
-// (let runtime fail loudly for unknown VK names).
-func validateKeyHold(n *GraphNode) []ValidationError {
-	vk := PinString(n, "VK")
-	if vk == "" {
-		return []ValidationError{{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidVK,
-		}}
-	}
-	return nil
-}
-
-// validateMouseHold checks that button is one of left/right/middle.
-func validateMouseHold(n *GraphNode) []ValidationError {
-	btn := PinString(n, "Button")
-	if btn != "left" && btn != "right" && btn != "middle" {
-		return []ValidationError{{
-			Severity: SeverityError,
-			NodeID:   n.ID,
-			Code:     CodeInvalidMouseButton,
-			Params:   map[string]any{"button": btn},
-		}}
-	}
-	return nil
 }
 
 // validateSwitchConfig 校验 Switch 节点 config:

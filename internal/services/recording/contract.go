@@ -56,15 +56,12 @@ type HookEvent struct {
 }
 
 // StopResult is the recorded event stream and its environment snapshot.
-// The service persists Events and Meta as an InputClip in precise mode, while
-// simple mode converts Events using ClientW and ClientH into a subgraph.
+// The service persists it as one immutable InputClip.
 type StopResult struct {
-	Events  []inputclip.Event
-	Meta    inputclip.ClipMeta
-	ClientW int
-	ClientH int
+	Events []inputclip.Event
+	Meta   inputclip.ClipMeta
 	// TempID is the stable session identifier used to derive the persistent
-	// clip-<id> or sg-<id> identifier promised to event subscribers.
+	// clip-<id> identifier promised to event subscribers.
 	TempID string
 }
 

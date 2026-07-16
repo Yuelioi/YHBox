@@ -10,7 +10,7 @@ import (
 // config.literal 无该 key、Spec 又无非 nil Default → MISSING_REQUIRED_PIN (error)。
 //
 // "无值" = config.literal map 无该 key (不看 ""/0 内容; present 即满足)。深层"非空/合法"
-// 归 runtime per-node Validate()。Required+Default 并存 (e.g. KeyPress.VK Default "W")
+// 归节点自己的 Validate()。Required+Default 并存时
 // 走"有 Default 放过"分支。
 func validateRequiredPins(c *Container, sgs []Subgraph) []ValidationError {
 	return validateRequiredPinsWithRegistry(nodepkg.DefaultRegistrySnapshot(), c, sgs)

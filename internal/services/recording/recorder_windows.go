@@ -2,7 +2,6 @@ package recording
 
 import (
 	"errors"
-	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -12,20 +11,17 @@ import (
 	"github.com/lxn/win"
 
 	"github.com/yottaapp/yotta/internal/services/inputclip"
-	"github.com/yottaapp/yotta/pkg/winutil"
 )
 
 // Recorder 录制游戏窗口内的键鼠操作。线程安全：Start/Stop/Cancel/Active 都加锁。
 type Recorder struct {
 	mu sync.Mutex
 
-	active  bool
-	tempID  string // 临时 recording ID（前端订阅事件流过滤用）
-	hwnd    win.HWND
-	clientW int
-	clientH int
+	active bool
+	tempID string // 临时 recording ID（前端订阅事件流过滤用）
+	hwnd   win.HWND
 
-	// 录制 metadata (Start 时传入, drainLoop 据此决定 filter 行为)
+	// 录制 metadata (Start 时传入)
 	meta inputclip.ClipMeta
 
 	// hook worker 线程相关
@@ -105,7 +101,7 @@ func (r *Recorder) Resume() {
 
 // Start 启动录制。返回临时 recording ID（前端订阅事件流过滤用）。
 //   - gameHwnd：游戏窗口；mouseMode=absolute 时不在它内部的鼠标事件丢弃
-//   - meta：录制环境快照 (mouseMode / filterMode / stopHotkeyVK 等)
+//   - meta：录制环境快照 (mouseMode / stopHotkeyVK 等)
 //
 // 失败时 active 仍为 false，可重试。
 func (r *Recorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) {
@@ -115,16 +111,9 @@ func (r *Recorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) 
 		return "", errors.New("recorder already active")
 	}
 	gameHwnd := win.HWND(hwnd)
-	w, h, err := winutil.ClientSize(hwnd)
-	if err != nil {
-		r.mu.Unlock()
-		return "", fmt.Errorf("ClientSize: %w", err)
-	}
 	r.active = true
 	r.tempID = uuid.NewString()
 	r.hwnd = gameHwnd
-	r.clientW = w
-	r.clientH = h
 	r.meta = meta
 	r.started = make(chan error, 1)
 	r.done = make(chan struct{})
@@ -273,11 +262,6 @@ func (r *Recorder) drainLoop() {
 			clipEv.A = int32(ev.Vk)
 
 		case ev.IsRawDelta:
-			// simple 模式不录相机转向 — 用户定义"简易 = 单击/按键 这种一次性动作".
-			// 不录 RawDelta 让简易模式无需 MouseCalibration, 也不会产生需要校准的回放路径.
-			if r.meta.FilterMode == "simple" {
-				continue
-			}
 			clipEv.Type = inputclip.EventTypeRawDelta
 			clipEv.B = int32(ev.RawDx)
 			clipEv.C = int32(ev.RawDy)
@@ -297,10 +281,6 @@ func (r *Recorder) drainLoop() {
 			clipEv.C = cy
 
 		case ev.IsMouseMove:
-			// filterMode='simple' 时丢 mouseMove
-			if r.meta.FilterMode == "simple" {
-				continue
-			}
 			if r.meta.MouseMode == "absolute" && !IsPointInsideGameWindow(r.hwnd, ev.ScreenX, ev.ScreenY) {
 				continue
 			}
@@ -343,8 +323,7 @@ func nowMicros() uint64 {
 	return uint64(time.Now().UnixMicro())
 }
 
-// Stop 停止录制, 返回 raw StopResult. Service 层根据 meta.FilterMode 决定构造路径
-// (precise → 建 InputClip 落 clipSvc, simple → BuildSimpleSubgraph).
+// Stop 停止录制并返回 raw StopResult，Service 将其持久化为 InputClip.
 // 阻塞等 worker + drain 完全退出, 防 hook leak.
 func (r *Recorder) Stop() (*StopResult, error) {
 	r.mu.Lock()
@@ -356,8 +335,6 @@ func (r *Recorder) Stop() (*StopResult, error) {
 	rawCh := r.rawEvents
 	tempID := r.tempID
 	meta := r.meta
-	clientW := r.clientW
-	clientH := r.clientH
 	getter := r.mouseCounts360Getter
 	r.mu.Unlock()
 
@@ -384,11 +361,9 @@ func (r *Recorder) Stop() (*StopResult, error) {
 	}
 
 	return &StopResult{
-		Events:  events,
-		Meta:    meta,
-		ClientW: clientW,
-		ClientH: clientH,
-		TempID:  tempID,
+		Events: events,
+		Meta:   meta,
+		TempID: tempID,
 	}, nil
 }
 

@@ -478,24 +478,15 @@
       </div>
 
       <!-- 重新录制覆盖 (一节点一 clip, 不允许下拉切换; 想换 clip 就重录) -->
-      <div class="flex items-center gap-2">
+      <div>
         <UButton
           size="xs"
           color="primary"
           variant="soft"
           icon="i-tabler-circle-dot"
           class="flex-1"
-          @click="$emit('request-record', { mode: 'precise', replaceNodeID: node.id })"
-          >{{ t('node.PlayClip.inspector.record_precise') }}</UButton
-        >
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-bolt"
-          class="flex-1"
-          @click="$emit('request-record', { mode: 'simple', replaceNodeID: node.id })"
-          >{{ t('node.PlayClip.inspector.record_simple') }}</UButton
+          @click="$emit('request-record', { replaceNodeID: node.id })"
+          >{{ t('node.PlayClip.inspector.rerecord') }}</UButton
         >
       </div>
       <p class="-mt-1 text-xs leading-relaxed text-dimmed">
@@ -836,7 +827,7 @@ const emit = defineEmits<{
   'log-enabled-update': [v: boolean]
   delete: []
   'remove-switch-case': [command: RemoveSwitchCaseCommand]
-  'request-record': [opts: { mode: 'precise' | 'simple'; replaceNodeID: string }]
+  'request-record': [opts: { replaceNodeID: string }]
   'declare-var': [args: { name: string; type: VarType; default: unknown }]
 }>()
 

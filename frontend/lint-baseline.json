@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "rules": {
-    "@typescript-eslint/no-explicit-any": 264
+    "@typescript-eslint/no-explicit-any": 261
   }
 }

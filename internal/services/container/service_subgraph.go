@@ -217,7 +217,7 @@ func (s *SubgraphService) CleanupUnused(args CleanupArgs) CleanupResult {
 func (s *SubgraphService) cleanupItems() []CleanupItem {
 	items := []CleanupItem{}
 	for _, sg := range s.store.List() {
-		if sg.IsAnonymous || sg.RecordingContext != nil {
+		if sg.IsAnonymous {
 			continue
 		}
 		items = append(items, CleanupItem{

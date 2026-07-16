@@ -1,19 +1,10 @@
 // useRecording 录制流程:
-//   1. 倒计时 → recordStore.start(filterMode, containerID)  (hook 已挂, F12 / HUD / toolbar 都能停)
+//   1. 倒计时 → recordStore.start(containerID)（hook 已挂，F12 / HUD / toolbar 都能停）
 //   2. 停录路径:
 //       - toolbar 停: stopRecording() → recordStore.stop() 同步拿 payload
-//       - F12 / HUD 停: 后端 emit 'recording:completed' {pendingID, containerID, filterMode, durationUs, eventCount} | {error}
+//       - F12 / HUD 停: 后端 emit 'recording:completed' {pendingID, containerID, durationUs, eventCount} | {error}
 //   3. Stop 只拿 pending token; 用户填写名称/分类/标签后 Finalize 才创建资产.
-//   4. simple 刷新子图池并加 Subgraph 节点; precise 加 PlayClip 节点.
-//      两路都落在当前视口中心、不自动连线、落下即选中并保存当前容器。
-//
-// 关键陷阱 (simple): container.Subgraphs 在 Go 端是 json:"-", backend.containers.get(id) 拿不到 subgraphs.
-// 子图列表走单独 RPC → 灌进 editorStore. 录完不 refresh store 的话, 用户点新 Subgraph 节点进入会拿到 null → 画布空白.
-//
-// 精准 vs 简易差别:
-//   - 录制层: simple 模式 drainLoop 丢 RawDelta/MouseMove (省内存)
-//   - 产物: simple → 多个 KeyPress/ClickAt/Sleep 节点打包成子图; precise → 一个 PlayClip 节点 (回放原始录像)
-//   - 画布: simple 是 Subgraph 调用节点 (可进入), precise 是裸 PlayClip 节点 (所见即所得)。
+//   4. 生成一个不可变 InputClip，并在当前视口中心添加 PlayClip 节点。
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Ref, ComputedRef } from 'vue'
@@ -32,8 +23,6 @@ export interface RecordOpts {
   draft: Ref<Container | null>
   activeGraph: ComputedRef<Graph | null>
   syncFlowFromDraft: () => void
-  // refreshSubgraphStore: 必传 — 录完后调一次, 否则 editorStore 没新 subgraph, 双击进入显示空白.
-  refreshSubgraphStore: () => Promise<void> | void
   saveDraft: () => Promise<unknown> | unknown
   // dropPoint: 录制产物节点的落点 = 节点左上角 (flow 坐标), 已含居中补偿 → 节点视觉落在
   // 当前视口正中 (录完出现在用户正看的地方). 实参是 useInsertPoint().viewportCenterForNode.
@@ -45,28 +34,17 @@ export interface RecordOpts {
 
 export interface StartRecordingOpts {
   // replaceNodeID: NodeInspector 点 "重新录制覆盖" 时传入. 录完不创建新节点, 而是改写目标节点的引用
-  // (simple 产物 → 目标应为 Subgraph 节点, 改 config.SubgraphID; precise 产物 → 目标应为 PlayClip,
-  // 改 config.ClipID). kind 不匹配则退化成新建. 旧子图/clip 变孤儿, 用户可手动清.
+  // 目标必须为 PlayClip，完成后改写 config.ClipID；kind 不匹配则创建新节点。
   replaceNodeID?: string
 }
 
 export function useRecording(opts: RecordOpts) {
-  const {
-    draft,
-    activeGraph,
-    syncFlowFromDraft,
-    refreshSubgraphStore,
-    saveDraft,
-    dropPoint,
-    selectNode,
-    toast,
-  } = opts
+  const { draft, activeGraph, syncFlowFromDraft, saveDraft, dropPoint, selectNode, toast } = opts
   const recordStore = useRecordingStore()
   const hotkeysStore = useHotkeysStore()
   const { t } = useI18n()
 
   const countdownSec = ref(0)
-  const filterMode = ref<'precise' | 'simple'>('precise')
   const replaceNodeID = ref<string | null>(null)
   const pendingRecording = ref<RecordingStopPayload | null>(null)
   const pendingBusy = ref(false)
@@ -75,8 +53,8 @@ export function useRecording(opts: RecordOpts) {
   // 多个容器编辑器窗口都订阅 — 非发起方窗口若也处理会误报 container_mismatch (子图存对了, 别的窗口瞎报警).
   const ownsRecording = ref(false)
 
-  // startRecording: 倒计时 → recordStore.start(mode, containerID). 倒计时中再点 = 取消.
-  async function startRecording(mode: 'precise' | 'simple', extra?: StartRecordingOpts) {
+  // startRecording: 倒计时 → recordStore.start(containerID). 倒计时中再点 = 取消.
+  async function startRecording(extra?: StartRecordingOpts) {
     replaceNodeID.value = extra?.replaceNodeID ?? null
     if (!draft.value) return
     const containerID = draft.value.id
@@ -90,8 +68,6 @@ export function useRecording(opts: RecordOpts) {
       toast.add({ title: t('recordComposable.countdown_cancelled'), color: 'neutral' })
       return
     }
-
-    filterMode.value = mode
 
     // 倒计时前预检窗口 (① 没设/找不到窗口立刻报错, 不用等录完; ④ 顺带把游戏拉到前台).
     // 失败 → 不开 HUD 不进倒计时. Start 内仍有同样校验作 race 兜底.
@@ -120,7 +96,7 @@ export function useRecording(opts: RecordOpts) {
     countdownSec.value = 3
     for (let i = 3; i >= 1; i--) {
       countdownSec.value = i
-      Events.Emit('recording:countdown', { sec: i, mode, stopKey, pauseKey })
+      Events.Emit('recording:countdown', { sec: i, stopKey, pauseKey })
       await new Promise((r) => setTimeout(r, 1000))
       if (countdownSec.value === 0) {
         try {
@@ -128,22 +104,17 @@ export function useRecording(opts: RecordOpts) {
         } catch {
           /* ignore */
         }
-        Events.Emit('recording:countdown', { sec: 0, mode, stopKey, pauseKey })
+        Events.Emit('recording:countdown', { sec: 0, stopKey, pauseKey })
         return
       }
     }
     countdownSec.value = 0
 
     try {
-      await recordStore.start(mode, containerID)
+      await recordStore.start(containerID)
       ownsRecording.value = true // 本窗发起 — 后续 recording:completed 由本窗处理
       toast.add({
-        title: t('recordComposable.recording_in_progress', {
-          mode:
-            mode === 'precise'
-              ? t('recordComposable.mode_precise')
-              : t('recordComposable.mode_simple'),
-        }),
+        title: t('recordComposable.recording_in_progress'),
         description: t('recordComposable.stop_methods', {
           hk: hotkeysStore.keyFor('recording.stop', 'F12'),
         }),
@@ -234,22 +205,12 @@ export function useRecording(opts: RecordOpts) {
   }
 
   async function attachFinalizedProduct(payload: RecordingFinalizePayload) {
-    const isPrecise = payload.filterMode === 'precise'
-
     if (!activeGraph.value || !draft.value) {
       toast.add({
         title: t('recording.completed_no_graph'),
-        description: isPrecise ? `clipID=${payload.clipID}` : `subgraphID=${payload.subgraphID}`,
+        description: `clipID=${payload.clipID}`,
         color: 'primary',
       })
-      // simple 仍刷一下 editorStore 让其他视图能看到新子图.
-      if (!isPrecise) {
-        try {
-          await refreshSubgraphStore()
-        } catch {
-          /* ignore */
-        }
-      }
       return
     }
 
@@ -273,38 +234,16 @@ export function useRecording(opts: RecordOpts) {
         color: 'warning',
         duration: 8000,
       })
-      if (!isPrecise) {
-        try {
-          await refreshSubgraphStore()
-        } catch {
-          /* ignore */
-        }
-      }
       return
     }
 
-    // 1) simple 刷新 editorStore 让 subgraphsForCurrentContainer 拿到新 subgraph (双击进入用).
-    //    precise (裸 PlayClip) 无新子图, 跳过.
-    if (!isPrecise) {
-      try {
-        await refreshSubgraphStore()
-      } catch (e: any) {
-        toast.add({
-          title: t('recordComposable.refresh_subgraphs_failed'),
-          description: errorMessage(e),
-          color: 'error',
-        })
-        return
-      }
-    }
-
-    // 2) 处理 replaceNodeID — 重新录制覆盖目标节点的引用 (simple→SubgraphID, precise→ClipID).
+    // 处理 replaceNodeID — 重新录制覆盖 PlayClip 的引用。
     const replaceID = replaceNodeID.value
     replaceNodeID.value = null
 
     if (replaceID) {
       const target = (activeGraph.value.nodes as any[]).find((n) => n.id === replaceID)
-      const wantKind = isPrecise ? 'PlayClip' : 'Subgraph'
+      const wantKind = 'PlayClip'
       if (!target) {
         toast.add({ title: t('recordComposable.replace_node_missing'), color: 'warning' })
       } else if (target.kind !== wantKind) {
@@ -314,8 +253,7 @@ export function useRecording(opts: RecordOpts) {
         })
       } else {
         if (!target.config) target.config = {}
-        if (isPrecise) target.config.ClipID = payload.clipID
-        else target.config.SubgraphID = payload.subgraphID
+        target.config.ClipID = payload.clipID
         syncFlowFromDraft()
         await maybeSave()
         toast.add({
@@ -326,15 +264,15 @@ export function useRecording(opts: RecordOpts) {
       }
     }
 
-    // 3) 新建产物节点 — 落在当前视口中心 (dropPoint 已含节点居中补偿), 不自动连线, 落下即选中.
-    const nodeId = randID(isPrecise ? 'n-clip' : 'n-sg')
+    // 新建 PlayClip 节点 — 落在当前视口中心，不自动连线，落下即选中。
+    const nodeId = randID('n-clip')
     const pt = dropPoint()
     const newNode = {
       id: nodeId,
-      kind: isPrecise ? 'PlayClip' : 'Subgraph',
+      kind: 'PlayClip',
       x: pt.x,
       y: pt.y,
-      config: isPrecise ? { ClipID: payload.clipID } : { SubgraphID: payload.subgraphID },
+      config: { ClipID: payload.clipID },
       createdAt: new Date().toISOString(),
     }
     ;(activeGraph.value.nodes as any[]).push(newNode)
@@ -342,7 +280,7 @@ export function useRecording(opts: RecordOpts) {
     await maybeSave()
     selectNode(nodeId)
     toast.add({
-      title: t(isPrecise ? 'recording.added_clip' : 'recording.added_subgraph', {
+      title: t('recording.added_clip', {
         name: payload.label,
       }),
       color: 'success',
@@ -400,7 +338,6 @@ export function useRecording(opts: RecordOpts) {
       presentPending({
         pendingID: firstArg.pendingID,
         containerID: firstArg.containerID,
-        filterMode: firstArg.filterMode ?? '',
         durationUs: Number(firstArg.durationUs ?? 0),
         eventCount: Number(firstArg.eventCount ?? 0),
       })
@@ -419,7 +356,6 @@ export function useRecording(opts: RecordOpts) {
 
   return {
     countdownSec,
-    filterMode,
     startRecording,
     stopRecording,
     pendingRecording,

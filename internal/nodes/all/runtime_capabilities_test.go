@@ -22,10 +22,6 @@ func TestBuiltInRuntimeCapabilityContract(t *testing.T) {
 		"CheckTemplate", "DecodeQR", "DetectColor", "DetectColorBlobs", "DetectColorHSV",
 		"DualColorBarTrack", "FindColorSignature", "FindTemplateAll", "ROIColorScan",
 		"WaitChange", "WaitStable", "WaitTemplate", "WaitTemplateGone")
-	add([]node.RuntimeCapability{node.RuntimeCapabilityInput},
-		"InputText", "KeyHoldStart", "KeyHoldStop", "KeyPress", "MouseHoldStop", "MouseMoveRel")
-	add([]node.RuntimeCapability{node.RuntimeCapabilityInput, node.RuntimeCapabilityWindow},
-		"ClickAt", "MouseHoldStart", "MouseMoveTo", "Scroll", "Swipe")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityWindow},
 		"CloseWindow", "MoveResizeWindow", "WindowState", "Win32WindowTarget")
 	add([]node.RuntimeCapability{node.RuntimeCapabilityVars},

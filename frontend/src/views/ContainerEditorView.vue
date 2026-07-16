@@ -73,9 +73,9 @@
         :var-count="declaredVars.length"
         :subgraph-count="editorStore.visibleSubgraphs.length"
         :overview-hotkey="draft?.hotkey ?? ''"
-        @record="(mode) => startRecording(mode)"
+        @record="startRecording()"
         @stop-record="stopRecording"
-        @cancel-countdown="startRecording('precise')"
+        @cancel-countdown="startRecording()"
         @try-run="onTryRun"
         @stop-run="onStopRun"
         @debug-start="onDebugStart"
@@ -206,7 +206,7 @@
           <CanvasEmptyState
             v-if="canvasEmpty"
             @open-nodes="openNodeDock"
-            @record="startRecording('simple')"
+            @record="startRecording()"
           />
           <ContainerDebugPanel @stop="onDebugStop" />
           <!-- 操作提示 -->
@@ -323,7 +323,7 @@
           @delete-selected="onDeleteSelected"
           @subgraph-update="onSubgraphPropsUpdate"
           @subgraph-to-script="onSubgraphPanelToScript"
-          @request-record="(e) => startRecording(e.mode, { replaceNodeID: e.replaceNodeID })"
+          @request-record="(e) => startRecording({ replaceNodeID: e.replaceNodeID })"
         />
       </div>
 
@@ -784,7 +784,6 @@ const {
   flowNodes,
   flowEdges,
   syncFlowFromDraft,
-  refreshSubgraphStore,
   applyDraftMutation,
   applyBulkMutation,
   undo,
@@ -792,6 +791,7 @@ const {
   canUndo,
   canRedo,
   reload,
+  refreshSubgraphStore,
 } = useContainerDraft(containerID)
 
 // 编辑路径 + 当前子图（useEditorPath，转发 editorStore）
@@ -1367,7 +1367,7 @@ async function selectRecordedNode(id: string) {
   addSelectedNodes([n])
 }
 
-// 录制流程: 产物落在当前视口中心、不自动连线、落下即选中 (用户自己接线). 简易产物双击可进编辑.
+// 录制流程：InputClip 产物落在当前视口中心，不自动连线，落下即选中。
 const {
   startRecording,
   stopRecording,
@@ -1381,7 +1381,6 @@ const {
   draft,
   activeGraph,
   syncFlowFromDraft,
-  refreshSubgraphStore,
   saveDraft: onSave,
   dropPoint: viewportCenterForNode,
   selectNode: selectRecordedNode,

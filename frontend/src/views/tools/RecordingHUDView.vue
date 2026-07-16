@@ -123,7 +123,6 @@ const state = ref<State>('idle')
 const { t } = useI18n()
 const countdownSec = ref(0)
 const resumeCountdown = ref(0) // >0 时显示"继续录制"倒计时 (优先于 paused 卡片)
-const mode = ref<'precise' | 'simple'>('precise')
 const stopKey = ref('F12') // 停录键标签, 由 recording:countdown 带来 (settings 配的)
 const pauseKey = ref('F11') // 暂停/继续切换键标签
 const elapsedMs = ref(0)
@@ -134,9 +133,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 const cancelArmed = ref(false)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
 
-const modeLabel = computed(() =>
-  t(mode.value === 'precise' ? 'recordingSave.mode_precise' : 'recordingSave.mode_simple'),
-)
+const modeLabel = computed(() => t('recordingSave.clip_type'))
 const windowStatus = computed(() => {
   if (resumeCountdown.value > 0 || state.value === 'countdown') return t('recordingHud.countdown')
   if (state.value === 'recording') return t('recordingHud.recording')
@@ -168,15 +165,10 @@ function startTimer() {
   }, 100)
 }
 
-function pickMode(fm: any) {
-  if (fm === 'simple' || fm === 'precise') mode.value = fm
-}
-
 // 主窗口 useRecording 倒计时广播
 const offCountdown = Events.On('recording:countdown', (e: any) => {
   const payload = e?.data?.[0] ?? e?.data ?? e
   const sec = payload?.sec ?? 0
-  if (payload?.mode) mode.value = payload.mode
   if (payload?.stopKey) stopKey.value = payload.stopKey
   if (payload?.pauseKey) pauseKey.value = payload.pauseKey
   if (sec > 0) {
@@ -194,14 +186,12 @@ const offState = Events.On('recording:state', (e: any) => {
   const st = e?.data?.[0] ?? e?.data ?? e
   const phase = st?.phase
   if (phase === 'recording') {
-    pickMode(st?.filterMode)
     startedAt = (st?.startedAtMs ?? 0) > 0 ? st.startedAtMs : Date.now()
     pausedMs = st?.pausedMs ?? 0
     state.value = 'recording'
     elapsedMs.value = Date.now() - startedAt - pausedMs
     startTimer() // 每次进 recording (含 resume) 重建 timer, 幂等
   } else if (phase === 'paused') {
-    pickMode(st?.filterMode)
     if ((st?.startedAtMs ?? 0) > 0) startedAt = st.startedAtMs
     pausedMs = st?.pausedMs ?? 0
     const pausedAt = (st?.pausedAtMs ?? 0) > 0 ? st.pausedAtMs : Date.now()

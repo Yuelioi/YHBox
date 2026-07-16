@@ -52,13 +52,13 @@ func TestRequired_EdgeSatisfies(t *testing.T) {
 	}
 }
 
-// KeyPress.VK 是 Required:true 且 Default:"W"。无 edge/literal 也不报(有 Default 兜底)。
+// Sleep.Duration 有默认值。无 edge/literal 也不报。
 func TestRequired_DefaultSuppresses(t *testing.T) {
 	c := reqContainer([]GraphNode{
-		{ID: "k", Kind: "KeyPress", Config: map[string]any{}},
+		{ID: "k", Kind: "Sleep", Config: map[string]any{}},
 	}, nil)
 	if errs := validateRequiredPins(c, nil); hasCodeForNode(errs, CodeMissingRequiredPin, "k") {
-		t.Fatalf("KeyPress.VK has Default='W', must not flag, got %+v", errs)
+		t.Fatalf("Sleep.Duration has a default and must not flag, got %+v", errs)
 	}
 }
 

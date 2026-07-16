@@ -20,14 +20,14 @@ func TestDoExport_ProducesMachineAndHumanCatalogs(t *testing.T) {
 		if len(nodes) == 0 {
 			t.Fatal("JSON catalog is empty")
 		}
-		if !containsNodeWithText(nodes, "KeyPress") {
-			t.Fatal("KeyPress is missing its user-facing catalog text")
+		if !containsNodeWithText(nodes, "DetectColor") {
+			t.Fatal("DetectColor is missing its user-facing catalog text")
 		}
 	})
 
 	t.Run("markdown", func(t *testing.T) {
 		output := captureStdout(t, func() { doExport(true) })
-		for _, want := range []string{"# 节点速查表", "### KeyPress", "| pin | 类型 | 必填 | 默认 | 说明 |"} {
+		for _, want := range []string{"# 节点速查表", "### DetectColor", "| pin | 类型 | 必填 | 默认 | 说明 |"} {
 			if !strings.Contains(output, want) {
 				t.Fatalf("Markdown catalog missing %q", want)
 			}
@@ -60,9 +60,9 @@ func TestDoPins_ProducesDeterministicNamingReference(t *testing.T) {
 
 func TestAddPin_AggregatesTypesNodesAndFirstLabel(t *testing.T) {
 	pins := newPinMap()
-	addPin(pins, "Point", "Point", "坐标", "ClickAt")
+	addPin(pins, "Point", "Point", "坐标", "DetectColor")
 	addPin(pins, "Point", "String", "later label", "DetectColor")
-	addPin(pins, "Point", "Point", "", "ClickAt")
+	addPin(pins, "Point", "Point", "", "DetectColor")
 
 	got := pins["Point"]
 	if got == nil {
@@ -74,7 +74,7 @@ func TestAddPin_AggregatesTypesNodesAndFirstLabel(t *testing.T) {
 	if !reflect.DeepEqual(sortedSet(got.types), []string{"Point", "String"}) {
 		t.Fatalf("types = %v", sortedSet(got.types))
 	}
-	if !reflect.DeepEqual(sortedSet(got.nodes), []string{"ClickAt", "DetectColor"}) {
+	if !reflect.DeepEqual(sortedSet(got.nodes), []string{"DetectColor"}) {
 		t.Fatalf("nodes = %v", sortedSet(got.nodes))
 	}
 	if !reflect.DeepEqual(sortedPinKeys(pins), []string{"Point"}) {

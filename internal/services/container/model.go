@@ -299,14 +299,6 @@ type SubgraphInputParam struct {
 	Default any    `json:"default,omitempty"` // 父图 pull 拿到 nil 时用 (literal-style fallback)
 }
 
-// RecordingContext 录制自动折叠产生的 subgraph 的元数据。
-// 手动组装的 subgraph 该字段为 nil（runtime 不缩放 raw dx/dy，原值回放）。
-type RecordingContext struct {
-	MouseCounts360 int    `json:"mouseCounts360"` // 录制时源机器 360° HID counts；runtime scale 用作分子
-	Resolution     [2]int `json:"resolution"`     // 源机器分辨率（W, H）
-	RecordedAt     string `json:"recordedAt"`     // RFC3339 时间戳
-}
-
 // SubgraphSchemaVersion 子图文件格式版本。读取契约: 磁盘上版本 > 此值 → 拒载报错;
 // 写入时统一盖当前值。
 const SubgraphSchemaVersion = 1
@@ -314,19 +306,18 @@ const SubgraphSchemaVersion = 1
 // Subgraph 全局子图池里的可执行函数 (2026-06-12 全局化: 容器只引用不拥有)。
 // 持久化路径：data/subgraphs/<id>.json
 type Subgraph struct {
-	SchemaVersion    int                  `json:"schemaVersion"` // 写盘统一盖 SubgraphSchemaVersion
-	ID               string               `json:"id"`            // sg-<完整uuid>, 铸出后终身不变
-	Rev              int64                `json:"rev"`           // 单调版本号: 每次保存 +1; 乐观锁比对用 (仅单实例并发控制, 不参与跨机真相判定)
-	Label            string               `json:"label"`
-	Description      string               `json:"description,omitempty"`
-	Graph            Graph                `json:"graph"`                 // 内部节点 + 边 (不含 SubgraphInput/Output)
-	Entry            SubgraphMarker       `json:"entry"`                 // 子图入口 virtual marker
-	OutputPins       []SubgraphOutputDecl `json:"outputPins"`            // 出口声明 + virtual marker
-	InputParams      []SubgraphInputParam `json:"inputParams,omitempty"` // 子图入参声明 (data-in pin schema on call sites)
-	Tags             []string             `json:"tags,omitempty"`
-	Category         string               `json:"category,omitempty"`         // 库分组键 (空 = 未分类)
-	RequiredGlobals  []string             `json:"requiredGlobals,omitempty"`  // 引用的容器级 var 名字 (保存时派生; 只存名字 — Type/Default 由消费方按目标容器即时现算)
-	RecordingContext *RecordingContext    `json:"recordingContext,omitempty"` // 录制自动折叠时写入；手动 nil
-	IsAnonymous      bool                 `json:"isAnonymous,omitempty"`      // CollapsedNode 后备子图, 不入库浏览/候选下拉 (实现细节, 非用户资产)
-	CreatedAt        time.Time            `json:"createdAt"`
+	SchemaVersion   int                  `json:"schemaVersion"` // 写盘统一盖 SubgraphSchemaVersion
+	ID              string               `json:"id"`            // sg-<完整uuid>, 铸出后终身不变
+	Rev             int64                `json:"rev"`           // 单调版本号: 每次保存 +1; 乐观锁比对用 (仅单实例并发控制, 不参与跨机真相判定)
+	Label           string               `json:"label"`
+	Description     string               `json:"description,omitempty"`
+	Graph           Graph                `json:"graph"`                 // 内部节点 + 边 (不含 SubgraphInput/Output)
+	Entry           SubgraphMarker       `json:"entry"`                 // 子图入口 virtual marker
+	OutputPins      []SubgraphOutputDecl `json:"outputPins"`            // 出口声明 + virtual marker
+	InputParams     []SubgraphInputParam `json:"inputParams,omitempty"` // 子图入参声明 (data-in pin schema on call sites)
+	Tags            []string             `json:"tags,omitempty"`
+	Category        string               `json:"category,omitempty"`        // 库分组键 (空 = 未分类)
+	RequiredGlobals []string             `json:"requiredGlobals,omitempty"` // 引用的容器级 var 名字 (保存时派生; 只存名字 — Type/Default 由消费方按目标容器即时现算)
+	IsAnonymous     bool                 `json:"isAnonymous,omitempty"`     // CollapsedNode 后备子图, 不入库浏览/候选下拉 (实现细节, 非用户资产)
+	CreatedAt       time.Time            `json:"createdAt"`
 }
