@@ -1,6 +1,6 @@
 # 恢复 Go quality gate
 
-Status: current
+Status: completed (27e01b17)
 
 ## Outcome
 
@@ -21,14 +21,12 @@ Status: current
 
 ## Verification
 
-当前红灯证据：
-
-- 主工作树 task check：全仓 Go tests 通过，global statement coverage 59.6% < 65%，随后停止。
-- 去掉 cmd/workflow-editor-smoke 的 113 条 statement 后约为 59.9%，不足以解释 65% 差距。
-- detached HEAD 53e6d8a9 在相同 Go 1.25.12 工具链和现有 frontend/dist 下实测 59.8% < 65%。
-- go vet ./...：pkg/winutil/window_windows.go:385:36 possible misuse of unsafe.Pointer。
-- staticcheck ./...：internal/automation/installed/platform_windows.go:64:9 S1016。
-- frontend check、task build、dev WebView smoke 和 production EXE smoke 已独立通过。
+- 初始主工作树 profile 为 12808/21495=59.6%，低于 global 65% 1164 statements；隔离 c8d8b540 在同一 Go 1.25.12 工具链并补入 frontend/dist embed 输入后为 65.3%，证明预算引入时有效。
+- 新测试覆盖 Node 3.1 extended evaluators、contract schema budgets、compiler scheduler instructions、Workflow 3.1 service lifecycle、authoring 原子 patch、recording/input/vision 与 Wails composition；没有降低阈值、隐藏 package 或加入无断言测试。
+- 最终预算脚本 global 65.2%、根包 34.7%、recording 46.4%、input 33.9%，其余 package floors 全部通过。
+- pkg/winutil callback state 使用同步 token registry，internal/automation/installed 使用同构 WindowHandle 转换；定向 tests、CGO_ENABLED=0 compile、全仓 go vet 与 staticcheck 通过。
+- task check 于 2026-07-17 完整通过：Go/frontend tests、coverage、vet/staticcheck、bindings contract、format/lint/typecheck/i18n、production build、bundle 与供应链门禁全绿。
+- coverage.out、.task/root-coverage.out 与临时 baseline worktree 均已清理；实现提交为 27e01b17。
 
 ## Out of scope
 
@@ -38,4 +36,4 @@ Status: current
 
 ## Result
 
-已建立稳定红灯和基线对照，根因修复尚未开始。下个对话从 coverage 预算/汇总历史与最小缺口归属审计开始。
+完成。coverage 漂移根因是 3.1 destructive migration 用低覆盖新栈替换旧栈后未持续守住全局预算；门槛与聚合脚本本身有效。27e01b17 通过高价值回归恢复 65.2% global coverage，同时消除 vet/staticcheck 问题并让完整 task check 回到可信绿色。

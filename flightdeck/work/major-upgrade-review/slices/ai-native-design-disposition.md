@@ -1,6 +1,6 @@
 # AI-native 目标设计完成度处置
 
-Status: ready
+Status: current
 
 ## Question
 
@@ -17,7 +17,7 @@ ai-native-design.md 的完成定义中，哪些 outcome 已被当前 3.1 代码�
 
 ## Blocked by
 
-restore-go-quality-gate。先恢复仓库可信门禁，再审计和展开新的实现 frontier。
+无。restore-go-quality-gate 已由 27e01b17 完成，完整 task check 为绿。
 
 ## Verification
 
@@ -31,4 +31,4 @@ ai-native-design.md 当前是 231 行、已提交且工作树未修改的设计 
 
 ## Result
 
-Ready，未开始。原文件继续位于 work/major-upgrade-review/ai-native-design.md，并仅在相关 AI Slice 中按条件读取。
+Current。质量门禁已恢复，下一步读取 ai-native-design.md 并逐项建立代码、测试与 commit 证据矩阵。

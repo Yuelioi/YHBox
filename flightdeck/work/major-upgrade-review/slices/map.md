@@ -16,8 +16,8 @@
 | workflow-editor-interaction-recovery | completed (f3c83737) | — | 修复 DataCloneError，并恢复节点目录单击、加号和拖放。 |
 | desktop-startup-privilege-boundary | completed (c3cab6e4) | workflow-editor-interaction-recovery | 普通桌面启动不再进程级提权，高权限能力显式 fail closed。 |
 | webview-self-debug-smoke | completed (ab5b644f) | desktop-startup-privilege-boundary | agent 可一键运行隔离 Wails/WebView 交互、错误采集与截图。 |
-| restore-go-quality-gate | current | — | 恢复 coverage、go vet、staticcheck 与完整 task check 的可信绿色基线。 |
-| ai-native-design-disposition | ready | restore-go-quality-gate | 对照代码处置 AI-native 完成定义，只为真实剩余 outcome 创建 Slices。 |
+| restore-go-quality-gate | completed (27e01b17) | — | 恢复 coverage、go vet、staticcheck 与完整 task check 的可信绿色基线。 |
+| ai-native-design-disposition | current | restore-go-quality-gate | 对照代码处置 AI-native 完成定义，只为真实剩余 outcome 创建 Slices。 |
 | node-package-signing-trust | ready | restore-go-quality-gate | 定义签名 envelope、publisher identity、namespace ownership 与 revocation/quarantine。 |
 | plugin-hosts-sdk-conformance | fog | node-package-signing-trust | Wasm/Process host、SDK 与 conformance；禁止 Go/前端插件代码。 |
 | final-contract-and-release-acceptance | fog | all implementation slices | projection/reference/golden、task check、review 与真实 Windows smoke。 |
