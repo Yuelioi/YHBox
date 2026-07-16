@@ -2,9 +2,13 @@
 
 package platform
 
-import "unsafe"
+import (
+	"syscall"
+	"unsafe"
+)
 
 var (
+	kernel32               = syscall.NewLazyDLL("kernel32.dll")
 	procGetConsoleMode     = kernel32.NewProc("GetConsoleMode")
 	procSetConsoleMode     = kernel32.NewProc("SetConsoleMode")
 	procGetStdHandle       = kernel32.NewProc("GetStdHandle")

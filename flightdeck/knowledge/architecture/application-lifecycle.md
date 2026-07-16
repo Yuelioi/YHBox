@@ -8,6 +8,7 @@ recheck_when: "application runtime 新增资源；调整 shutdown timeout；资�
 # Application runtime 生命周期
 生命周期契约：
 
+- desktop composition root 以调用用户身份启动，不做进程级 `runas`/`EnsureAdmin`。高完整性目标必须由显式 capability/provider 支持；未提供时 fail closed。全局提权既扩大攻击面，也会破坏 dev WebView 的 process-scoped 调试环境。
 - 构造函数只组装依赖，不启动 goroutine/listener；所有资源准备完成后统一 `Runtime.Start(ctx)`。
 - Start 按声明顺序执行；配置先全量验证。任一 Start 失败时，用独立的有界 rollback context 逆序关闭已启动资源，启动失败与 rollback error 用 `errors.Join` 同时返回。
 - Close 逆序尝试所有已启动资源，一个失败不能跳过其余；并发/重复 Close 观察同一最终结果。等待另一个 Start/Close 状态转换时必须响应调用方 context。

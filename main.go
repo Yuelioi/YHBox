@@ -50,8 +50,6 @@ var assets embed.FS
 var trayIcon []byte
 
 func main() {
-	platform.EnsureAdmin()
-
 	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
@@ -416,6 +414,7 @@ func main() {
 		Name:        "Yotta",
 		Description: "节点编排，自动执行",
 		Services:    wailsServices,
+		Windows:     wailsWindowsOptions(),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
