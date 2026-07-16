@@ -6,20 +6,19 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-3.1 视觉后端与契约驱动 authoring 已完成。显式 MatchTemplate（`d63431ab`）、typed image analysis primitives（`07cadde9`）和 port editor / immutable template binding（`64401a71`）均已提交。
+legacy Vision/GUID 纵切面已经完全删除并以 `4c6b9512` 提交。旧 `internal/nodes/detect`、`internal/nodes/image`、`VisionService`、template matcher wiring、模板 GUID dependency/validator、template picker 特判、录制/模板 GUID 引用推断与 asset-local Blob GC 均不再存在。
 
-Node Contract 的非语义 Authoring 现可为已声明端口提供严格 titleKey、descriptionKey 与 allowlisted editorAdapter；Projection、JSON Schema、生成 TypeScript 和文档同源。视觉端口都有中英文标题/提示，template Image 端口使用内置 `template-image` adapter，颜色范围使用 Data Type `color-range` adapter。AssetSummary 返回所有模板 variant 的 resolution + BlobRef，Workflow Source 保存精确 BlobRef，不保存 mutable asset GUID。
+Workflow 3.1 现在只持久化精确 BlobRef。模板和录制 GUID 只属于素材库 authoring metadata；删除素材记录不会改写或破坏已保存 Workflow。共享 Blob Store 没有生产 `Sweep` 调用，避免仅凭资产记录集合误删 Workflow 仍引用的内容。自动清理仅保留具有结构化 SubgraphID 边的蓝图路径。
 
-全仓 Go、staticcheck、contracts drift、Wails RPC contract、frontend format/lint/typecheck/i18n、101 files/650 tests、production build 与 bundle budgets 全绿。当前 frontier 是删除 legacy VisionService/detect/image/template matcher/GUID dependency 路径。
+Wails contract 已同步为 18 services / 132 methods / 149 models。全仓 Go、affected staticcheck、Workflow/Node 3.1 contracts、frontend format/lint/typecheck/i18n/bindings、100 files/641 tests、production build 与 bundle budgets 全绿。
 
 ## Next
 
 按独立 commit 连续推进，禁止 dual path、compatibility shim 和 runtime fallback：
 
-1. 删除 legacy detect/image nodes、VisionService、template matcher adapter、template GUID validator/dependency 与旧前端特判；Wait/Click 由 Capture + Delay/Repeat + analysis + input 组合。
-2. 删除剩余旧 Container RPC/UI/LLM/NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
-3. 实现 Node Package + Wasm/Process host、生命周期、SDK、conformance 与 Windows fail-closed 隔离；不加载 Go plugin 或第三方前端代码。
-4. 完成 projections/docs/golden fixtures，运行 `task check` 和最终双轴 architecture review。
+1. 删除剩余旧 Container RPC/UI/LLM/NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
+2. 实现 Node Package + Wasm/Process host、生命周期、SDK、conformance 与 Windows fail-closed 隔离；不加载 Go plugin 或第三方前端代码。
+3. 完成 projections/docs/golden fixtures，运行 `task check` 和最终双轴 architecture review。
 
 ## Read now
 
@@ -54,14 +53,14 @@ Done:
 - nominal InputClip/exact playback 与旧 PlayClip 删除（`fbb1712c`）；
 - explicit MatchTemplate（`d63431ab`）；
 - typed multi-match/frame-diff/color/QR analysis（`07cadde9`）；
-- port-level Authoring Projection + immutable template variant binding（`64401a71`）。
+- port-level Authoring Projection + immutable template variant binding（`64401a71`）；
+- legacy detect/image/VisionService/template GUID dependency 与不安全资产 GC 删除（`4c6b9512`）。
 
 Verification for latest batch:
 - `go test ./...`
-- `staticcheck ./internal/nodecontract ./internal/nodeauthoring ./internal/datatype ./internal/nodes31 ./internal/services/asset`
+- `staticcheck . ./internal/node ./internal/catalog ./internal/nodes/all ./internal/nodes/script ./internal/nodes/stopwatch ./internal/services/asset ./internal/services/recording ./internal/services/container/... ./internal/services/script ./pkg/vision`
 - `task contracts:check`
 - `pnpm -C frontend check`
-- `pnpm -C frontend bindings:check`
 - `git diff --check`
 
 ## Decisions
@@ -71,7 +70,10 @@ Verification for latest batch:
 - Template asset GUID/name/category/tags are library metadata. A workflow binds one exact variant BlobRef; recapture does not silently mutate compiled behavior.
 - Vision analysis is pull data evaluation with explicit Blob authority; no analysis node has exec/out.
 - Capture, wait/repeat, analysis and input action remain separate. WaitTemplate and ClickTemplate are compositions, not primitive runtime capabilities.
+- Arbitrary UUID text is never dependency authority. Subgraph dependencies come only from structured SubgraphID fields.
+- Shared Blob GC requires a global live-set across every durable owner. Asset-local GC and automatic template/recording cleanup are removed until such an authority exists.
+- Deleting template or clip metadata does not delete immutable Blob content or invalidate a Workflow 3.1 source. Only subgraphs retain reference-aware cleanup because their edges are explicit and enumerable.
 
 ## Open questions
 
-None blocking. Continue autonomously with legacy vision deletion.
+None blocking. Continue autonomously with remaining Container RPC/UI/LLM/NodeSpec removal.
