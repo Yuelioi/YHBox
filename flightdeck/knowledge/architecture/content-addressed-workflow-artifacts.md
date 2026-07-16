@@ -1,13 +1,15 @@
 ---
 kind: note
-summary: "Yotta/Workflow/Node/Data/Catalog/Program 统一为 3.1；内容摘要算法域独立版本化，strict boundary 必须用可信依赖重新验证。"
+summary: "产品 release、artifact format generation 与 Node 实体版本是独立维度；代码 package/目录/文件使用稳定职责名，版本只进入显式 contract/manifest/schema/identity 属性。"
 activation: action
-read_when: "修改 Workflow Source、Data Type、Node Contract、Catalog、Compiler、Program、ValueEnvelope、执行绑定或 implementation lock 时。"
-recheck_when: "RFC 8785 实现、hash preimage/domain、Program format、NodeContract projection、compiler build identity 或插件 implementation lock 改变时。"
+read_when: "修改 Workflow Source、Data Type、Node Contract、Catalog、Compiler、Program、ValueEnvelope、执行绑定、implementation lock，或创建带版本后缀的 Go/TypeScript 模块、目录、文件、类型、service 时。"
+recheck_when: "版本 taxonomy、NodeRef identity、artifact format/version、hash preimage/domain、Program format、NodeContract projection、compiler build identity 或插件 implementation lock 改变时。"
 ---
 # Content-addressed Workflow artifacts
 
-Yotta 3.1 是产品版本，也是当前 Workflow/Node/Data/Catalog/Program contract generation。摘要算法域不跟产品 SemVer 机械同步；只有 canonical preimage 或算法改变才升级 `/vN` domain。改变 durable DTO 时必须换 format/domain 并拒绝旧 artifact，不能在同一 domain 下改变摘要含义，也不能长期运行双 runtime。
+Yotta 3.1 是产品 release，也是当前 durable contract generation，但这不构成 Go/TypeScript 代码 namespace。代码 package、目录、文件、类型与 service 使用稳定职责名；不得从产品 SemVer 派生 `nodes31`、`workflow31` 或下一代同类名称。产品版本只由 release metadata 管理，serialized artifact generation 使用显式 `format` / `version`，单个 Node 的版本属于 Node contract identity 的显式属性。
+
+摘要算法域也不跟产品 SemVer 机械同步；只有 canonical preimage 或算法改变才升级 `/vN` domain。改变 durable DTO 时必须换 format/domain 并拒绝旧 artifact，不能在同一 domain 下改变摘要含义，也不能长期运行双 runtime。URI/path 中的版本段只能表达被定义的 durable identity 或 hash domain，不能反向决定内部代码包名。
 
 当前身份：
 
@@ -24,10 +26,10 @@ Yotta 3.1 是产品版本，也是当前 Workflow/Node/Data/Catalog/Program cont
 
 `ProgramSnapshot` 零值 invalid、无 public constructor。`OpenProgram` 同时需要可信 Catalog 与 expected compiler build，并重验 canonical bytes、hash、source/catalog/build identity、entry graph、collection budget、exact node/implementation lock、effective ports/execution、config、typed input envelope、edge endpoint/type、topological order与 capability manifest。所有公开 byte/slice view 返回副本。Hash 只证明 artifact 未改变，不能代替签名、ACL、capability grant 或 provenance。
 
-Source 不携带自由 `requestedCapabilities`。Compiler 从 exact Node Contract requirements 生成带 graph/node/requirement attribution 的 sealed Capability Plan；Program 声明不能自我授权，Run admission 必须为 exact plan 签发 grant。当前 3.1 tracer 只实现 pure-data main graph/data edge/inline literal/default，其他 Source feature 必须 fail closed，不能接受后静默丢弃。
+Source 不携带自由 `requestedCapabilities`。Compiler 从 exact Node Contract requirements 生成带 graph/node/requirement attribution 的 sealed Capability Plan；Program 声明不能自我授权，Run admission 必须为 exact plan 签发 grant。当前 contract generation 的 tracer 只实现 pure-data main graph/data edge/inline literal/default，其他 Source feature 必须 fail closed，不能接受后静默丢弃。
 
 ValueEnvelope 是 Program/host 的值边界。Program literal 保存 `literal`/`default` provenance 和 envelope artifact；host adapter 只取得验证后的 payload，返回值必须按 pinned Data Type schema 验证后再封装。单值、Program 与整次运行保留值分别有资源预算。
 
 Blob 内容身份使用原始字节的 SHA-256，不使用 JSON artifact 的 domain-separated `artifact.Sum`；Blob Reference 另含 canonical media type 与 exact size。Blob/inline envelope 可持久化，Stream/Resource envelope 是 Run-only authority，禁止进入 Program、durable trace、日志、clipboard 或 cache。Resource token 必须由 Broker 以 256-bit randomness 签发并绑定 Run/invocation/operation/expiry；内容 hash 不能充当 authority。
 
-新 Compiler 不得 import legacy container runtime/store/execution queue。旧 `ContainerRunner` 迁移前仍是独立生产路径；3.1 interpreter 不得作为 fallback。Program/Run、Capability/Resource 与 catalog-wide migration 完成后整体删除旧 runtime。
+新 Compiler 不得 import legacy container runtime/store/execution queue。旧 `ContainerRunner` 迁移前仍是独立生产路径；当前 interpreter 不得作为 fallback。Program/Run、Capability/Resource 与 catalog-wide migration 完成后整体删除旧 runtime。

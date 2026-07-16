@@ -8,11 +8,11 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 目标：完成并验证 AI-native、destructive 的 Yotta 3.1 架构与发布计划。
 
-当前 Slice：node-package-signing-trust。c71cc19f 已完成 reviewed AI authoring；现在建立内容寻址签名 envelope、publisher key/namespace authority，以及可持久化且 fail-closed 的 revocation/quarantine。
+当前 Slice：node-package-signing-trust。签名/trust 实现仍是当前未提交批次；用户指出的结构性 release-version 命名错误已拆成下一 Slice，不与当前供应链改动混写。
 
 ## Next
 
-盘点现有 Node Package manifest、archive verifier、local immutable generation/store 与 registry authority seam；读取 manifest/resource-broker threat knowledge，冻结 canonical signing preimage、publisher namespace ownership 和 trust-state reopen/rollback contract 后实现。
+完成 Node Package signing/trust 的 threat-matrix tests、staticcheck/race/cross-platform 验证和文档同步；独立提交后切换到 stable-code-names-explicit-versions。
 
 ## Read now
 
@@ -26,27 +26,22 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 ## Read if
 
 - work/major-upgrade-review/slices/map.md — 选择下一 Slice、改变 blocker 或重排 frontier 时
+- work/major-upgrade-review/slices/stable-code-names-explicit-versions.md — 当前 signing/trust 完成后进入下一任务时
 - work/major-upgrade-review/research/ai-native-disposition-2026-07-17.md — 修改 AI remaining frontier 或核对处置证据时
 - work/major-upgrade-review/ai-native-design.md — 修改 remaining frontier 或最终 acceptance 边界时
-- work/major-upgrade-review/slices/ai-authoring-review-trace.md — 修改 package-owned trusted prompt 的 authoring lineage 时
 - work/major-upgrade-review/plan.md — 调整总体阶段或最终验收边界时
 - work/major-upgrade-review/design.md — 修改 3.1 总体架构边界时
 
 ## Progress
 
-- f3c83737、c3cab6e4、ab5b644f 分别恢复 Workflow 编辑交互、普通权限桌面启动与可重复 WebView 自调试 smoke。
-- 27e01b17 恢复 global quality gate；b25a0c6c 完成 AI-native 设计处置。
-- b674664c 完成 PromptManifest/ToolSet canonical provenance 与 trusted instruction boundary。
-- d22b5bd5 完成 exact ToolSet、pure/capability authority、OpenAI/Anthropic native continuation、copy-on-write opaque state 与多维 RunBudget。
-- cfa12703 完成 strict EvalSuite/EvalReport、8-case deterministic corpus、exact upgrade candidate、CLI/Task gate 与 evaluation apply/revoke/downgrade。
-- c71cc19f 完成 bounded AI authoring：pure typed tools 生成 opaque PreparedPatch，review 后只提交 exact candidate；revision/hash 漂移 fail stale。
-- AuthoringReview 展示 normalized changes、diagnostics、capability/credential/target delta、risk、usage 与脱敏 trace；敏感输入只记录 trust class/digest/size。
-- 编辑器 AI review panel 覆盖 save-first、accept/reject/retry/audit/stale 与权限扩大确认；未经接受不产生 durable mutation。
-- authoring 后 exact eval candidate 纳入 Authoring PromptManifest/ToolSet；tracked corpus 更新为 8/8、safety 0。
-- 2026-07-17 Authoring 批次 task check 全绿：global coverage 65.8%，internal/ai 74.1%，internal/aiauthoring 62.5%，frontend 28 files / 106 tests，Wails 14 services / 95 methods / 109 models。
-- 真实 Windows Wails/WebView smoke 全绿并验证 AI review panel；截图位于 ignored .task artifact。
-- AI implementation frontier 已完成；Node Package signing trust 为当前 frontier，plugin hosts/SDK 在其后，最终 acceptance 等待所有实现 Slice。
+- Workflow 3.1 唯一执行链、桌面启动边界、WebView smoke 与 global quality gate 已完成。
+- AI prompt/tool provenance、bounded agent、offline eval gate 与 reviewed authoring 已分别由 b674664c、d22b5bd5、cfa12703、c71cc19f 完成。
+- Authoring 批次 task check 与真实 Windows Wails/WebView smoke 全绿；AI implementation frontier 已关闭。
+- Node Package signing/trust 已形成未提交实现：Ed25519 envelope、canonical trust policy、registry v2、签名安装及 revocation/quarantine/rollback/reopen tests；package test/race 曾通过，最终 staticcheck/full gate 尚待中断后重跑。
+- 2026-07-17 用户确认产品 release 3.1 不应进入 Go/TS package、目录、文件或 service 名；污染最早由 64e371ed 引入并扩散到 nodes31、nodes31runtime、workflow31 与 node31.ts。
+- stable-code-names-explicit-versions 已登记为 signing/trust 后的下一 Slice：稳定语义代码名，版本只进入显式 contract/manifest/schema/identity 属性。
+- plugin hosts/SDK 排在命名恢复之后；最终 acceptance 等待全部实现 Slice。
 
 ## Open questions
 
-Node Package 的 local exact-digest approval 只能授权该 artifact，不能推导 publisher namespace ownership。当前 Slice 必须明确 trust root/key distribution、namespace 冲突、撤销/隔离持久化，以及 rollback/reopen 的 fail-closed 语义。
+当前 signing/trust 仍需确认本地 trust root 的产品入口和 key rotation UX；实现层必须保持 namespace authority、revocation/quarantine 与 registry commit 同一权威边界。
