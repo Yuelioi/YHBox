@@ -6,21 +6,20 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## State
 
-显式视觉分析的 3.1 backend 纵切面已完成两批：`MatchTemplate`（`d63431ab`）以及 typed image analysis primitives（`07cadde9`）。Catalog 现有 MatchTemplate、FindTemplateMatches、CompareImages、DecodeQR、AnalyzeColor、FindColorBlobs；全部是 recorded pull analysis，只接 nominal Image BlobRef 与 typed 参数，只有最小 `blob-read` authority，没有 exec/out/error pin、窗口、隐式截屏、等待或输入动作。
+3.1 视觉后端与契约驱动 authoring 已完成。显式 MatchTemplate（`d63431ab`）、typed image analysis primitives（`07cadde9`）和 port editor / immutable template binding（`64401a71`）均已提交。
 
-新增 TemplateMatch、QRCode、ColorRange、ColorBlob 四个 nominal inline type。运行时统一实施严格 image/png、32 MiB compressed budget、16M pixel budget、严格 ratio/px ROI、bounded blob read、确定性排序和 4096 result budget。Catalog、Authoring Projection 与生成节点文档同步。全仓 Go、focused race/staticcheck、contract drift 与 diff checks 全绿。
+Node Contract 的非语义 Authoring 现可为已声明端口提供严格 titleKey、descriptionKey 与 allowlisted editorAdapter；Projection、JSON Schema、生成 TypeScript 和文档同源。视觉端口都有中英文标题/提示，template Image 端口使用内置 `template-image` adapter，颜色范围使用 Data Type `color-range` adapter。AssetSummary 返回所有模板 variant 的 resolution + BlobRef，Workflow Source 保存精确 BlobRef，不保存 mutable asset GUID。
 
-当前 frontier 是切换 template asset authoring 为 immutable Image BlobRef 绑定，并删除 legacy VisionService/detect/image/Template GUID 路径。
+全仓 Go、staticcheck、contracts drift、Wails RPC contract、frontend format/lint/typecheck/i18n、101 files/650 tests、production build 与 bundle budgets 全绿。当前 frontier 是删除 legacy VisionService/detect/image/template matcher/GUID dependency 路径。
 
 ## Next
 
 按独立 commit 连续推进，禁止 dual path、compatibility shim 和 runtime fallback：
 
-1. 切换 template asset authoring 为精确 variant BlobRef 绑定；工作流不保存 mutable asset GUID。
-2. 删除 legacy detect/image nodes、VisionService、template matcher adapter、template GUID validator/dependency 与旧前端特判；Wait/Click 由 Capture + Delay/Repeat + analysis + input 组合。
-3. 删除剩余旧 Container RPC/UI/LLM/NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
-4. 实现 Node Package + Wasm/Process host、生命周期、SDK、conformance 与 Windows fail-closed 隔离；不加载 Go plugin 或第三方前端代码。
-5. 完成 projections/docs/golden fixtures，运行 `task check` 和最终双轴 architecture review。
+1. 删除 legacy detect/image nodes、VisionService、template matcher adapter、template GUID validator/dependency 与旧前端特判；Wait/Click 由 Capture + Delay/Repeat + analysis + input 组合。
+2. 删除剩余旧 Container RPC/UI/LLM/NodeSpec/coercion/dispatch，使 GUI、Schedule、Hotkey、Debug、headless 只进入 Application/Program runtime。
+3. 实现 Node Package + Wasm/Process host、生命周期、SDK、conformance 与 Windows fail-closed 隔离；不加载 Go plugin 或第三方前端代码。
+4. 完成 projections/docs/golden fixtures，运行 `task check` 和最终双轴 architecture review。
 
 ## Read now
 
@@ -54,24 +53,25 @@ Done:
 - exact window capture（`fe3e647d`）；
 - nominal InputClip/exact playback 与旧 PlayClip 删除（`fbb1712c`）；
 - explicit MatchTemplate（`d63431ab`）；
-- typed multi-match/frame-diff/color/QR analysis（`07cadde9`）。
+- typed multi-match/frame-diff/color/QR analysis（`07cadde9`）；
+- port-level Authoring Projection + immutable template variant binding（`64401a71`）。
 
 Verification for latest batch:
 - `go test ./...`
-- `go test -race ./internal/nodes31runtime ./pkg/vision`
-- `staticcheck ./internal/nodes31 ./internal/nodes31runtime`
+- `staticcheck ./internal/nodecontract ./internal/nodeauthoring ./internal/datatype ./internal/nodes31 ./internal/services/asset`
 - `task contracts:check`
+- `pnpm -C frontend check`
+- `pnpm -C frontend bindings:check`
 - `git diff --check`
 
 ## Decisions
 
-- Template library records are authoring metadata; executable matching binds immutable template Image BlobRef content, not mutable asset GUID.
-- Vision analysis is pull data evaluation with explicit Blob authority; consumers pull typed results and no analysis node invents an exec/out pin.
-- Capture, wait/repeat, analysis and input action remain separate. WaitTemplate, ClickTemplate and specialized polling nodes are compositions, not primitive runtime capabilities.
-- Multi-match uses local maxima + NMS; frame comparison exposes grid-size and cell-delta; color analysis exposes explicit RGB/HSV inclusive range; connected components use 4-neighbor topology and stable area/y/x ordering.
-- Runtime image inputs are strict bounded `image/png` blobs. Unsupported media, oversized images, invalid ROI/range and uniform templates fail explicitly.
-- OpenCV's official template-matching model confirms explicit source image + template image + result localization; Unreal's official Blueprint model confirms data-only functions should not invent execution pins.
+- Port titles, descriptions and built-in editor selection are non-semantic Node Authoring facts. They are strict and generated, but cannot change NodeRef semantic identity.
+- A port editor adapter must be allowlisted by the host. Plugin JavaScript/DOM remains prohibited.
+- Template asset GUID/name/category/tags are library metadata. A workflow binds one exact variant BlobRef; recapture does not silently mutate compiled behavior.
+- Vision analysis is pull data evaluation with explicit Blob authority; no analysis node has exec/out.
+- Capture, wait/repeat, analysis and input action remain separate. WaitTemplate and ClickTemplate are compositions, not primitive runtime capabilities.
 
 ## Open questions
 
-None blocking. Continue autonomously with asset binding and legacy vision deletion.
+None blocking. Continue autonomously with legacy vision deletion.
