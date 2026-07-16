@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { computed } from 'vue'
 import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
 import type {
   TypeExpression,
@@ -13,6 +14,7 @@ import type {
   WorkflowTransport,
 } from '@/app/transport/workflow31'
 import { assignable, EditorSession } from './EditorSession'
+import { createEditorSession } from './createEditorSession'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection31
 const concat = authoring.body.nodes.find((node) => node.nodeRef.nodeTypeId.includes('/concat/'))!
@@ -31,6 +33,27 @@ const blobToStream = authoring.body.nodes.find((node) =>
 )!
 
 describe('EditorSession', () => {
+  it('adds a catalog node when the session is consumed through Vue reactivity', async () => {
+    const source = emptySource()
+    const session = createEditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'node_concat',
+    )
+
+    await session.load(source.workflow.id)
+    const before = session.currentGraph?.nodes.length ?? 0
+    const projectedNodeCount = computed(() => session.currentGraph?.nodes.length ?? 0)
+
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      position: { x: 100, y: 100 },
+    })
+
+    expect(session.currentGraph?.nodes).toHaveLength(before + 1)
+    expect(projectedNodeCount.value).toBe(before + 1)
+  })
+
   it('owns revision, history, compile, save and Program Run facts', async () => {
     const source = emptySource()
     const saved = sourceView(source)

@@ -1206,7 +1206,7 @@ export default {
       unsaved: 'Unsaved',
       save_conflict: 'Save conflict: {message}',
       node_catalog: 'Node catalog',
-      catalog_description: 'Generated from the active 3.1 projection.',
+      catalog_description: 'Click a node, or drag it onto the canvas.',
       discard_confirm: 'Discard unsaved workflow changes?',
     },
     action: {

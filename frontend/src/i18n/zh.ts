@@ -1068,7 +1068,7 @@ export default {
       unsaved: '未保存',
       save_conflict: '保存冲突：{message}',
       node_catalog: '节点目录',
-      catalog_description: '由当前 3.1 作者投影自动生成。',
+      catalog_description: '单击节点，或拖到画布中添加。',
       discard_confirm: '放弃尚未保存的工作流修改吗？',
     },
     action: {

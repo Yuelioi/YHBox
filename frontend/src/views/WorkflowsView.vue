@@ -21,12 +21,14 @@
         >
           <UInput
             v-model="newName"
+            data-testid="workflow-create-name"
             :placeholder="t('workflow31.list.name_placeholder')"
             class="w-full"
           />
         </UFormField>
         <UButton
           type="submit"
+          data-testid="workflow-create-submit"
           :label="t('workflow31.list.create')"
           icon="i-tabler-plus"
           :loading="creating"

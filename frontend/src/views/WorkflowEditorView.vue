@@ -161,8 +161,13 @@
               v-for="projection in session.authoring.body.nodes"
               :key="projection.nodeRef.nodeTypeId"
               type="button"
-              class="group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated active:translate-y-px"
+              draggable="true"
+              data-testid="node-catalog-item"
+              :data-node-type-id="projection.nodeRef.nodeTypeId"
+              class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated active:cursor-grabbing active:translate-y-px"
               @click="addNode(projection.nodeRef.nodeTypeId)"
+              @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
+              @dragend="finishNodeDrag"
             >
               <UIcon
                 :name="`i-tabler-${projection.icon || 'box'}`"
@@ -184,7 +189,14 @@
           </div>
         </aside>
 
-        <div class="relative min-w-0 flex-1 bg-elevated/15">
+        <div
+          data-testid="workflow-canvas"
+          class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
+          :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
+          @dragover="continueNodeDrag"
+          @dragleave.self="finishNodeDrag"
+          @drop="dropNode"
+        >
           <VueFlow
             :nodes="flowNodes"
             :edges="flowEdges"
@@ -231,11 +243,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import {
   VueFlow,
+  useVueFlow,
   type Connection,
   type Edge as FlowEdge,
   type EdgeMouseEvent,
@@ -251,12 +264,8 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { useI18n } from 'vue-i18n'
-import {
-  EditorSession,
-  type EditorCommand,
-  type Node,
-  type NodeProjection,
-} from '@/app/editor/EditorSession'
+import { type EditorCommand, type Node, type NodeProjection } from '@/app/editor/EditorSession'
+import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle } from '@/app/editor/graphHandles'
 import { onRunChanged, workflowTransport } from '@/app/transport/workflow31'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
@@ -274,10 +283,14 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { t, te } = useI18n()
-const session = reactive(new EditorSession(workflowTransport)) as EditorSession
+const session = createEditorSession(workflowTransport)
 const selectedNodeId = ref('')
+const nodeDragActive = ref(false)
+const { screenToFlowCoordinate } = useVueFlow()
 let unsubscribeRun: (() => void) | undefined
 let nextPosition = 0
+
+const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 
 const flowNodes = computed<FlowNode<WorkflowNodeData, Record<string, never>, 'workflow'>[]>(() =>
   (session.currentGraph?.nodes ?? []).flatMap((node) => {
@@ -349,9 +362,39 @@ function applyCommand(command: EditorCommand): void {
   }
 }
 
-function addNode(nodeTypeId: string): void {
-  const offset = nextPosition++ * 28
-  session.apply({ kind: 'add-node', nodeTypeId, position: { x: 100 + offset, y: 100 + offset } })
+function addNode(nodeTypeId: string, position?: { x: number; y: number }): void {
+  const offset = position ? 0 : nextPosition++ * 28
+  applyCommand({
+    kind: 'add-node',
+    nodeTypeId,
+    position: position ?? { x: 100 + offset, y: 100 + offset },
+  })
+}
+
+function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData(NODE_TYPE_DRAG_FORMAT, nodeTypeId)
+  nodeDragActive.value = true
+}
+
+function continueNodeDrag(event: DragEvent): void {
+  if (!event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT)) return
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'copy'
+  nodeDragActive.value = true
+}
+
+function finishNodeDrag(): void {
+  nodeDragActive.value = false
+}
+
+function dropNode(event: DragEvent): void {
+  const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
+  if (nodeTypeId) event.preventDefault()
+  finishNodeDrag()
+  if (!nodeTypeId) return
+  addNode(nodeTypeId, screenToFlowCoordinate({ x: event.clientX, y: event.clientY }))
 }
 
 function connect(connection: Connection): void {
