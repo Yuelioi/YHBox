@@ -194,6 +194,7 @@ func addAIOutcomeSummary(action *compiler.AdapterAction, outcome ai.Outcome) {
 	addCounter("cache_write_tokens", outcome.Usage.CacheWrite)
 	addCounter("output_tokens", outcome.Usage.OutputTotal)
 	addCounter("reasoning_tokens", outcome.Usage.ReasoningOutput)
+	addCounter("cost_microunits", outcome.Usage.CostMicrounits)
 	addFact(action.Facts, "provider", string(outcome.Provider))
 	addFact(action.Facts, "requested_model", outcome.RequestedModel)
 	addFact(action.Facts, "resolved_model", outcome.ResolvedModel)

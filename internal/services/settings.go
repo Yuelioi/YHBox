@@ -162,6 +162,7 @@ type AIModelSettings struct {
 	Model           string                 `json:"model"`
 	MaxOutputTokens int64                  `json:"maxOutputTokens"`
 	Capabilities    ai.ProfileCapabilities `json:"capabilities"`
+	Pricing         ai.TokenPricing        `json:"pricing"`
 	Evaluation      ai.EvaluationStatus    `json:"evaluation"`
 	EvaluationSuite artifact.Digest        `json:"evaluationSuite,omitempty"`
 	WorkflowConsent artifact.Digest        `json:"workflowConsent,omitempty"`
@@ -170,7 +171,7 @@ type AIModelSettings struct {
 func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
 	return ai.ModelProfileDraft{
 		Provider: p.Provider, Model: p.Model, Capabilities: p.Capabilities,
-		MaxOutputTokens: p.MaxOutputTokens, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite,
+		MaxOutputTokens: p.MaxOutputTokens, Pricing: p.Pricing, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite,
 		ProviderMetadata: json.RawMessage(`{}`),
 	}
 }

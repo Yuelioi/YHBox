@@ -46,6 +46,16 @@ func TestModelProfileRejectsParallelToolsWithoutToolCalling(t *testing.T) {
 	}
 }
 
+func TestModelProfileRequiresPinnedPricingForToolCalling(t *testing.T) {
+	_, err := SealModelProfile(ModelProfileDraft{
+		Provider: ProviderOpenAIResponses, Model: "model-snapshot-1", MaxOutputTokens: 4096,
+		Evaluation: EvaluationUnverified, Capabilities: ProfileCapabilities{ToolCalling: true},
+	})
+	if err == nil {
+		t.Fatal("tool-calling profile accepted without pinned pricing")
+	}
+}
+
 func TestStructuredOutputCompilerRejectsPromptOnlyAndPartialSchemas(t *testing.T) {
 	valid := json.RawMessage(`{
 		"type":"object","properties":{

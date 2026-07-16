@@ -31,6 +31,7 @@ const (
 	StreamToBlobNodeID = "https://schemas.yotta.dev/nodes/conversion/stream-to-blob/v1"
 	AIGenerateNodeID   = "https://schemas.yotta.dev/nodes/ai/generate/v1"
 	AIExtractNodeID    = "https://schemas.yotta.dev/nodes/ai/extract/v1"
+	AIAgentNodeID      = "https://schemas.yotta.dev/nodes/ai/agent/v1"
 
 	BlobReadCapabilityID     = "https://schemas.yotta.dev/capabilities/blob/read/v1"
 	BlobWriteCapabilityID    = "https://schemas.yotta.dev/capabilities/blob/write/v1"
@@ -40,6 +41,7 @@ const (
 	StreamToBlobEffectID     = "https://schemas.yotta.dev/effects/conversion/stream-to-blob/v1"
 	AIGenerateEffectID       = "https://schemas.yotta.dev/effects/ai/generate/v1"
 	AIExtractEffectID        = "https://schemas.yotta.dev/effects/ai/extract/v1"
+	AIAgentEffectID          = "https://schemas.yotta.dev/effects/ai/agent/v1"
 
 	concatEntrypoint                = "text.concat"
 	blobToStreamEntrypoint          = "conversion.blob-to-stream"
@@ -90,8 +92,11 @@ type Builtins struct {
 	StreamToBlobContract         nodecontract.Contract
 	AIGenerateContract           nodecontract.Contract
 	AIExtractContract            nodecontract.Contract
+	AIAgentContract              nodecontract.Contract
 	AIGeneratePrompt             ai.PromptManifest
 	AIExtractPrompt              ai.PromptManifest
+	AIAgentPrompt                ai.PromptManifest
+	AIAgentToolSet               ai.ToolSet
 	ScriptExecuteContract        nodecontract.Contract
 	FileReadTextContract         nodecontract.Contract
 	FileReadJSONContract         nodecontract.Contract
@@ -227,7 +232,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	aiPrompts, err := sealAIPromptManifests()
+	aiArtifacts, err := sealAIArtifacts()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -320,7 +325,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	aiDefinitions, aiGenerate, aiExtract, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration, aiPrompts)
+	aiDefinitions, aiGenerate, aiExtract, aiAgent, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration, aiArtifacts)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -407,8 +412,9 @@ func Build() (Builtins, error) {
 		FileMetadataType:         fileMetadataType,
 		ObservabilityMessageType: observabilityMessageType,
 		BlobToStreamContract:     blobToStream, StreamToBlobContract: streamToBlob,
-		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract,
-		AIGeneratePrompt: aiPrompts.generate, AIExtractPrompt: aiPrompts.extract,
+		AIGenerateContract: aiGenerate, AIExtractContract: aiExtract, AIAgentContract: aiAgent,
+		AIGeneratePrompt: aiArtifacts.generate, AIExtractPrompt: aiArtifacts.extract,
+		AIAgentPrompt: aiArtifacts.agent, AIAgentToolSet: aiArtifacts.agentTools,
 		ScriptExecuteContract: scriptExecute,
 		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,

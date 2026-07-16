@@ -39,6 +39,7 @@ type ModelProfileDraft struct {
 	Model            string              `json:"model"`
 	Capabilities     ProfileCapabilities `json:"capabilities"`
 	MaxOutputTokens  int64               `json:"maxOutputTokens"`
+	Pricing          TokenPricing        `json:"pricing"`
 	Evaluation       EvaluationStatus    `json:"evaluation"`
 	EvaluationSuite  artifact.Digest     `json:"evaluationSuite,omitempty"`
 	ProviderMetadata json.RawMessage     `json:"providerMetadata"`
@@ -61,6 +62,11 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 	}
 	if draft.Capabilities.ParallelTools && !draft.Capabilities.ToolCalling {
 		return ModelProfile{}, errors.New("parallel AI tool calls require tool calling")
+	}
+	if draft.Capabilities.ToolCalling {
+		if err := draft.Pricing.Validate(); err != nil {
+			return ModelProfile{}, err
+		}
 	}
 	switch draft.Evaluation {
 	case EvaluationUnverified:

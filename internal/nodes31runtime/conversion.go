@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
@@ -25,6 +26,7 @@ const conversionChunkBytes = 64 << 10
 type Dependencies struct {
 	Script ScriptExecutor
 	Log    LogEmitter
+	Now    func() time.Time
 }
 
 type ScriptExecutor interface {
@@ -34,6 +36,9 @@ type ScriptExecutor interface {
 func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string]compiler.InstalledAdapter, error) {
 	if dependencies.Script == nil || dependencies.Log == nil {
 		return nil, errors.New("installed built-ins require isolated script and workflow log runtimes")
+	}
+	if dependencies.Now == nil {
+		dependencies.Now = time.Now
 	}
 	installed := make(map[string]compiler.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]compiler.Adapter{
@@ -52,6 +57,7 @@ func Installed(builtins nodes31.Builtins, dependencies Dependencies) (map[string
 		nodes31.EndBranchNodeID:            endBranch(),
 		nodes31.AIGenerateNodeID:           aiGenerate(builtins, false),
 		nodes31.AIExtractNodeID:            aiGenerate(builtins, true),
+		nodes31.AIAgentNodeID:              aiAgent(builtins, dependencies.Now),
 		nodes31.ScriptExecuteNodeID:        scriptExecute(builtins, dependencies.Script),
 		nodes31.FileReadTextNodeID:         fileRead(builtins, false),
 		nodes31.FileReadJSONNodeID:         fileRead(builtins, true),

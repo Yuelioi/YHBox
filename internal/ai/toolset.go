@@ -22,9 +22,18 @@ var toolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 type ToolManifestDraft struct {
 	Name         string          `json:"name"`
 	Description  string          `json:"description"`
+	Authority    ToolAuthority   `json:"authority"`
+	Capability   artifact.Digest `json:"capability,omitempty"`
 	InputSchema  json.RawMessage `json:"inputSchema"`
 	OutputSchema json.RawMessage `json:"outputSchema"`
 }
+
+type ToolAuthority string
+
+const (
+	ToolAuthorityPure       ToolAuthority = "pure"
+	ToolAuthorityCapability ToolAuthority = "capability"
+)
 
 type ToolSetDraft struct {
 	ID      string              `json:"id"`
@@ -53,6 +62,18 @@ func SealToolSet(draft ToolSetDraft) (ToolSet, error) {
 		tool := &tools[index]
 		if !toolNamePattern.MatchString(tool.Name) || tool.Name <= previous || tool.Description == "" || len(tool.Description) > 4096 {
 			return ToolSet{}, errors.New("invalid or duplicate AI tool manifest")
+		}
+		switch tool.Authority {
+		case ToolAuthorityPure:
+			if tool.Capability != "" {
+				return ToolSet{}, errors.New("pure AI tool cannot claim capability authority")
+			}
+		case ToolAuthorityCapability:
+			if !tool.Capability.Valid() {
+				return ToolSet{}, errors.New("capability AI tool requires approved authority identity")
+			}
+		default:
+			return ToolSet{}, errors.New("invalid AI tool authority")
 		}
 		previous = tool.Name
 		input, err := CompileStructuredOutput(tool.Name+"_input", tool.InputSchema)

@@ -112,7 +112,7 @@ func TestPromptAndToolSetBudgetsFailClosed(t *testing.T) {
 	empty := json.RawMessage(`{"type":"object","properties":{},"required":[],"additionalProperties":false}`)
 	tools := make([]ToolManifestDraft, MaxToolSetTools+1)
 	for index := range tools {
-		tools[index] = ToolManifestDraft{Name: "tool", Description: "tool", InputSchema: empty, OutputSchema: empty}
+		tools[index] = ToolManifestDraft{Name: "tool", Description: "tool", Authority: ToolAuthorityPure, InputSchema: empty, OutputSchema: empty}
 	}
 	if _, err := SealToolSet(ToolSetDraft{ID: "yotta.test.too-many-tools", Version: "1.0.0", Owner: "tests", Tools: tools}); err == nil {
 		t.Fatal("accepted too many tools")
@@ -125,8 +125,8 @@ func TestToolSetIsCanonicalStrictAndSchemaBound(t *testing.T) {
 	set, err := SealToolSet(ToolSetDraft{
 		ID: "yotta.authoring.tools", Version: "1.0.0", Owner: "ai-authoring",
 		Tools: []ToolManifestDraft{
-			{Name: "workflow_inspect", Description: "Inspect one bounded workflow page.", InputSchema: empty, OutputSchema: schema},
-			{Name: "catalog_search", Description: "Search the bounded catalog.", InputSchema: schema, OutputSchema: schema},
+			{Name: "workflow_inspect", Description: "Inspect one bounded workflow page.", Authority: ToolAuthorityPure, InputSchema: empty, OutputSchema: schema},
+			{Name: "catalog_search", Description: "Search the bounded catalog.", Authority: ToolAuthorityPure, InputSchema: schema, OutputSchema: schema},
 		},
 	})
 	if err != nil {
@@ -154,7 +154,7 @@ func TestToolSetIsCanonicalStrictAndSchemaBound(t *testing.T) {
 	}
 	if _, err := SealToolSet(ToolSetDraft{
 		ID: "yotta.bad.tools", Version: "1.0.0", Owner: "tests",
-		Tools: []ToolManifestDraft{{Name: "bad", Description: "bad schema", InputSchema: json.RawMessage(`{"type":"string"}`), OutputSchema: empty}},
+		Tools: []ToolManifestDraft{{Name: "bad", Description: "bad schema", Authority: ToolAuthorityPure, InputSchema: json.RawMessage(`{"type":"string"}`), OutputSchema: empty}},
 	}); err == nil {
 		t.Fatal("accepted a tool with a non-object input schema")
 	}

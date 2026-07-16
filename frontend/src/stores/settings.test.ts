@@ -29,6 +29,11 @@ const profile = {
     background: false,
     zeroRetention: false,
   },
+  pricing: {
+    inputMicrounitsPerMillion: 0,
+    cacheReadMicrounitsPerMillion: 0,
+    outputMicrounitsPerMillion: 0,
+  },
   evaluation: 'unverified' as const,
 }
 

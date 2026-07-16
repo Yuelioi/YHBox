@@ -278,6 +278,41 @@ export default {
           },
         },
       },
+      agent: {
+        title: 'Run bounded AI agent',
+        description:
+          'Runs a provider-native tool loop with an exact ToolSet and host-enforced token, cost, time, iteration, call, and parallelism budgets.',
+        config: {
+          maxInputTokens: {
+            title: 'Total input token budget',
+            description: 'Maximum provider-reported input tokens across all turns.',
+          },
+          maxTotalOutputTokens: {
+            title: 'Total output token budget',
+            description: 'Maximum provider-reported output tokens across all turns.',
+          },
+          maxCost: {
+            title: 'Cost budget',
+            description: 'Maximum profile-priced billing microunits across all turns.',
+          },
+          maxWallTime: {
+            title: 'Wall-time budget (ms)',
+            description: 'Maximum host wall time for the complete tool loop.',
+          },
+          maxIterations: {
+            title: 'Iteration budget',
+            description: 'Maximum provider turns, including the initial turn.',
+          },
+          maxToolCalls: {
+            title: 'Tool-call budget',
+            description: 'Maximum exact ToolSet calls across the run.',
+          },
+          maxParallelism: {
+            title: 'Parallel call budget',
+            description: 'Maximum tool calls accepted from one provider turn.',
+          },
+        },
+      },
       config: {
         slot: {
           title: 'Model slot',
@@ -1864,6 +1899,13 @@ export default {
       zero_retention: 'Zero retention',
       zero_retention_hint:
         'Declare only when the provider and exact model configuration satisfy zero-retention requirements.',
+    },
+    pricing: {
+      title: 'Pinned token pricing',
+      hint: 'Required for tool calling so the host can enforce cost budgets. Enter billing microunits per one million tokens; these values enter the profile digest.',
+      input: 'Input',
+      cache_read: 'Cache read',
+      output: 'Output',
     },
     consent: {
       title: 'Workflow usage consent',

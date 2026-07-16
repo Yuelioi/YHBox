@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	OpenAIResponsesEndpoint   = "https://api.openai.com/v1/responses"
-	AnthropicMessagesEndpoint = "https://api.anthropic.com/v1/messages"
-	AnthropicAPIVersion       = "2023-06-01"
-	MaxProviderResponseBytes  = 16 << 20
+	OpenAIResponsesEndpoint    = "https://api.openai.com/v1/responses"
+	AnthropicMessagesEndpoint  = "https://api.anthropic.com/v1/messages"
+	AnthropicAPIVersion        = "2023-06-01"
+	MaxProviderResponseBytes   = 16 << 20
+	MaxAgentProviderStateBytes = 16 << 20
 )
 
 type HTTPOptions struct {
@@ -86,6 +87,11 @@ func (p *nativeProvider) Generate(ctx context.Context, credential string, reques
 	if err != nil {
 		return Outcome{}, err
 	}
+	if profile.Pricing.InputMicrounitsPerMillion != 0 || profile.Pricing.OutputMicrounitsPerMillion != 0 {
+		if err := attachEstimatedCost(profile.Pricing, &outcome); err != nil {
+			return Outcome{}, contractFailure(err.Error())
+		}
+	}
 	if err := outcome.Validate(); err != nil {
 		return Outcome{}, contractFailure(err.Error())
 	}
@@ -93,13 +99,31 @@ func (p *nativeProvider) Generate(ctx context.Context, credential string, reques
 }
 
 type openAIRequest struct {
-	Model           string            `json:"model"`
-	Instructions    string            `json:"instructions,omitempty"`
-	Input           string            `json:"input"`
-	Store           bool              `json:"store"`
-	Temperature     *float64          `json:"temperature,omitempty"`
-	MaxOutputTokens *int64            `json:"max_output_tokens,omitempty"`
-	Text            *openAITextConfig `json:"text,omitempty"`
+	Model              string            `json:"model"`
+	Instructions       string            `json:"instructions,omitempty"`
+	Input              any               `json:"input"`
+	Store              bool              `json:"store"`
+	PreviousResponseID string            `json:"previous_response_id,omitempty"`
+	Temperature        *float64          `json:"temperature,omitempty"`
+	MaxOutputTokens    *int64            `json:"max_output_tokens,omitempty"`
+	Text               *openAITextConfig `json:"text,omitempty"`
+	Tools              []openAITool      `json:"tools,omitempty"`
+	ParallelToolCalls  *bool             `json:"parallel_tool_calls,omitempty"`
+	Include            []string          `json:"include,omitempty"`
+}
+
+type openAITool struct {
+	Type        string          `json:"type"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+	Strict      bool            `json:"strict"`
+}
+
+type openAIFunctionOutput struct {
+	Type   string `json:"type"`
+	CallID string `json:"call_id"`
+	Output string `json:"output"`
 }
 
 type openAITextConfig struct {
@@ -114,23 +138,24 @@ type openAIFormat struct {
 }
 
 type openAIResponse struct {
-	ID                string         `json:"id"`
-	Model             string         `json:"model"`
-	Status            string         `json:"status"`
-	Output            []openAIOutput `json:"output"`
-	Usage             openAIUsage    `json:"usage"`
-	Error             *providerError `json:"error"`
+	ID                string            `json:"id"`
+	Model             string            `json:"model"`
+	Status            string            `json:"status"`
+	Output            []json.RawMessage `json:"output"`
+	Usage             openAIUsage       `json:"usage"`
+	Error             *providerError    `json:"error"`
 	IncompleteDetails *struct {
 		Reason string `json:"reason"`
 	} `json:"incomplete_details"`
 }
 
 type openAIOutput struct {
-	Type      string          `json:"type"`
-	Name      string          `json:"name"`
-	CallID    string          `json:"call_id"`
-	Arguments string          `json:"arguments"`
-	Content   []openAIContent `json:"content"`
+	Type             string          `json:"type"`
+	Name             string          `json:"name"`
+	CallID           string          `json:"call_id"`
+	Arguments        string          `json:"arguments"`
+	Content          []openAIContent `json:"content"`
+	EncryptedContent string          `json:"encrypted_content,omitempty"`
 }
 
 type openAIContent struct {
@@ -180,6 +205,10 @@ func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, 
 	if err != nil {
 		return Outcome{}, err
 	}
+	return openAIOutcome(profile, request.Output, requestID, raw, response)
+}
+
+func openAIOutcome(profile ModelProfileDraft, structured *StructuredOutputSpec, requestID string, raw []byte, response openAIResponse) (Outcome, error) {
 	if response.Error != nil || response.Status == "failed" {
 		code, message := "generation_failed", "provider reported generation failure"
 		if response.Error != nil {
@@ -197,8 +226,8 @@ func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, 
 		return Outcome{}, contractFailureWithRequest(err.Error(), requestID)
 	}
 	finish := openAIFinish(response.Status, response.IncompleteDetails, hasToolCall, hasRefusal)
-	if request.Output != nil {
-		items, err = sealStructuredItems(*request.Output, items, finish)
+	if structured != nil {
+		items, err = sealStructuredItems(*structured, items, finish)
 		if err != nil {
 			return Outcome{}, contractFailureWithRequest(err.Error(), requestID)
 		}
@@ -218,10 +247,208 @@ func (p *nativeProvider) generateOpenAI(ctx context.Context, credential string, 
 	}, nil
 }
 
-func openAIItems(source []openAIOutput) ([]OutputItem, bool, bool, error) {
+func attachEstimatedCost(pricing TokenPricing, outcome *Outcome) error {
+	if outcome == nil {
+		return errors.New("AI outcome is unavailable")
+	}
+	if err := pricing.Validate(); err != nil {
+		return err
+	}
+	cost, err := estimateCost(pricing, outcome.Usage)
+	if err != nil {
+		return err
+	}
+	outcome.Usage.CostMicrounits = &cost
+	return nil
+}
+
+type openAIAgentState struct {
+	start              AgentStartRequest
+	previousResponseID string
+	history            []json.RawMessage
+}
+
+func (p *nativeProvider) StartAgent(ctx context.Context, credential string, request AgentStartRequest) (Outcome, any, error) {
+	if ctx == nil || credential == "" {
+		return Outcome{}, nil, contractFailure("AI provider credential is unavailable")
+	}
+	if err := request.Validate(); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	profile := p.profile.Machine()
+	if !profile.Capabilities.ToolCalling {
+		return Outcome{}, nil, contractFailure("installed AI model does not support native tool calling")
+	}
+	if request.Limits.MaxOutputTokens != nil && *request.Limits.MaxOutputTokens > profile.MaxOutputTokens {
+		return Outcome{}, nil, contractFailure("AI request exceeds the installed model output budget")
+	}
+	if request.Retention == RetentionZeroRequired && !profile.Capabilities.ZeroRetention {
+		return Outcome{}, nil, contractFailure("installed AI connection has no verified zero-retention entitlement")
+	}
+	if request.MaxParallelism > 1 && !profile.Capabilities.ParallelTools {
+		return Outcome{}, nil, contractFailure("installed AI model does not support parallel tool calls")
+	}
+	manifest, _ := request.Prompt.OpenManifest()
+	input, _ := request.Prompt.ProviderInput()
+	tools, err := openAITools(request.ToolSet)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	if profile.Provider == ProviderAnthropicMessages {
+		return p.startAnthropicAgent(ctx, credential, request, profile)
+	}
+	payload := openAIRequest{
+		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: input, Tools: tools,
+		Store: request.Retention == RetentionProviderDefault, Temperature: request.Limits.Temperature,
+		MaxOutputTokens: boundedOutputTokens(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+	}
+	if request.Retention != RetentionProviderDefault {
+		payload.Include = []string{"reasoning.encrypted_content"}
+	}
+	parallel := request.MaxParallelism > 1
+	payload.ParallelToolCalls = &parallel
+	var response openAIResponse
+	requestID, raw, err := p.doJSON(ctx, credential, request.AttemptID, payload, &response, ProviderOpenAIResponses)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	outcome, err := openAIOutcome(profile, nil, requestID, raw, response)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	if err := attachEstimatedCost(profile.Pricing, &outcome); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	state := &openAIAgentState{start: request, previousResponseID: response.ID}
+	if request.Retention != RetentionProviderDefault {
+		userItem, marshalErr := artifact.Marshal(map[string]any{"role": "user", "content": input})
+		if marshalErr != nil {
+			return Outcome{}, nil, contractFailure(marshalErr.Error())
+		}
+		state.history, err = appendOpenAIState(nil, append([]json.RawMessage{userItem}, response.Output...)...)
+		if err != nil {
+			return Outcome{}, nil, contractFailure(err.Error())
+		}
+	}
+	return outcome, state, nil
+}
+
+func (p *nativeProvider) ContinueAgent(ctx context.Context, credential string, state any, request AgentContinueRequest) (Outcome, any, error) {
+	if ctx == nil || credential == "" {
+		return Outcome{}, nil, contractFailure("AI provider credential is unavailable")
+	}
+	if err := request.Validate(); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	if anthropic, ok := state.(*anthropicAgentState); ok {
+		return p.continueAnthropicAgent(ctx, credential, anthropic, request)
+	}
+	previous, ok := state.(*openAIAgentState)
+	if !ok || previous.previousResponseID == "" {
+		return Outcome{}, nil, contractFailure("AI provider continuation state is invalid")
+	}
+	currentValue := *previous
+	currentValue.history = append([]json.RawMessage(nil), previous.history...)
+	current := &currentValue
+	profile := p.profile.Machine()
+	manifest, err := current.start.Prompt.OpenManifest()
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	tools, err := openAITools(current.start.ToolSet)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	outputs := make([]openAIFunctionOutput, 0, len(request.Results))
+	for _, result := range request.Results {
+		outputs = append(outputs, openAIFunctionOutput{Type: "function_call_output", CallID: result.CallID, Output: string(result.Value)})
+	}
+	payload := openAIRequest{
+		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: outputs, PreviousResponseID: current.previousResponseID,
+		Store: current.start.Retention == RetentionProviderDefault, Temperature: current.start.Limits.Temperature,
+		MaxOutputTokens: boundedOutputTokens(current.start.Limits.MaxOutputTokens, profile.MaxOutputTokens), Tools: tools,
+	}
+	parallel := current.start.MaxParallelism > 1
+	payload.ParallelToolCalls = &parallel
+	if current.start.Retention != RetentionProviderDefault {
+		toolOutputItems := make([]json.RawMessage, 0, len(outputs))
+		for _, output := range outputs {
+			raw, marshalErr := artifact.Marshal(output)
+			if marshalErr != nil {
+				return Outcome{}, nil, contractFailure(marshalErr.Error())
+			}
+			toolOutputItems = append(toolOutputItems, raw)
+		}
+		history, historyErr := appendOpenAIState(current.history, toolOutputItems...)
+		if historyErr != nil {
+			return Outcome{}, nil, contractFailure(historyErr.Error())
+		}
+		payload.Input = history
+		payload.PreviousResponseID = ""
+		payload.Include = []string{"reasoning.encrypted_content"}
+	}
+	var response openAIResponse
+	requestID, raw, err := p.doJSON(ctx, credential, request.AttemptID, payload, &response, ProviderOpenAIResponses)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	outcome, err := openAIOutcome(profile, nil, requestID, raw, response)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	if err := attachEstimatedCost(profile.Pricing, &outcome); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	current.previousResponseID = response.ID
+	if current.start.Retention != RetentionProviderDefault {
+		current.history, err = appendOpenAIState(payload.Input.([]json.RawMessage), response.Output...)
+		if err != nil {
+			return Outcome{}, nil, contractFailure(err.Error())
+		}
+	}
+	return outcome, current, nil
+}
+
+func appendOpenAIState(existing []json.RawMessage, items ...json.RawMessage) ([]json.RawMessage, error) {
+	result := append([]json.RawMessage(nil), existing...)
+	total := 0
+	for _, item := range result {
+		total += len(item)
+	}
+	for _, item := range items {
+		canonical, err := artifact.Canonicalize(item)
+		if err != nil {
+			return nil, errors.New("OpenAI continuation item is invalid")
+		}
+		total += len(canonical)
+		if total > MaxAgentProviderStateBytes {
+			return nil, errors.New("OpenAI continuation state exceeds its byte budget")
+		}
+		result = append(result, canonical)
+	}
+	return result, nil
+}
+
+func openAITools(artifact ToolSetArtifact) ([]openAITool, error) {
+	toolSet, err := artifact.Open()
+	if err != nil {
+		return nil, err
+	}
+	tools := make([]openAITool, 0, len(toolSet.Machine().Tools))
+	for _, tool := range toolSet.Machine().Tools {
+		tools = append(tools, openAITool{Type: "function", Name: tool.Name, Description: tool.Description, Parameters: tool.InputSchema, Strict: true})
+	}
+	return tools, nil
+}
+
+func openAIItems(source []json.RawMessage) ([]OutputItem, bool, bool, error) {
 	items := make([]OutputItem, 0)
 	hasToolCall, hasRefusal := false, false
-	for _, output := range source {
+	for _, raw := range source {
+		var output openAIOutput
+		if err := json.Unmarshal(raw, &output); err != nil {
+			return nil, false, false, errors.New("invalid OpenAI output item")
+		}
 		switch output.Type {
 		case "message":
 			for _, content := range output.Content {
@@ -290,11 +517,30 @@ type anthropicRequest struct {
 	Messages     []anthropicInput       `json:"messages"`
 	Temperature  *float64               `json:"temperature,omitempty"`
 	OutputConfig *anthropicOutputConfig `json:"output_config,omitempty"`
+	Tools        []anthropicTool        `json:"tools,omitempty"`
+	ToolChoice   *anthropicToolChoice   `json:"tool_choice,omitempty"`
 }
 
 type anthropicInput struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
+}
+
+type anthropicTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+type anthropicToolResult struct {
+	Type      string `json:"type"`
+	ToolUseID string `json:"tool_use_id"`
+	Content   string `json:"content"`
+}
+
+type anthropicToolChoice struct {
+	Type                   string `json:"type"`
+	DisableParallelToolUse bool   `json:"disable_parallel_tool_use"`
 }
 
 type anthropicOutputConfig struct {
@@ -307,19 +553,22 @@ type anthropicFormat struct {
 }
 
 type anthropicResponse struct {
-	ID         string             `json:"id"`
-	Model      string             `json:"model"`
-	Content    []anthropicContent `json:"content"`
-	StopReason string             `json:"stop_reason"`
-	Usage      anthropicUsage     `json:"usage"`
+	ID         string            `json:"id"`
+	Model      string            `json:"model"`
+	Content    []json.RawMessage `json:"content"`
+	StopReason string            `json:"stop_reason"`
+	Usage      anthropicUsage    `json:"usage"`
 }
 
 type anthropicContent struct {
-	Type  string          `json:"type"`
-	Text  string          `json:"text"`
-	ID    string          `json:"id"`
-	Name  string          `json:"name"`
-	Input json.RawMessage `json:"input"`
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	Thinking  string          `json:"thinking,omitempty"`
+	Signature string          `json:"signature,omitempty"`
+	Data      string          `json:"data,omitempty"`
 }
 
 type anthropicUsage struct {
@@ -350,9 +599,17 @@ func (p *nativeProvider) generateAnthropic(ctx context.Context, credential strin
 	if err != nil {
 		return Outcome{}, err
 	}
+	return anthropicOutcome(profile, request.Output, requestID, response)
+}
+
+func anthropicOutcome(profile ModelProfileDraft, structured *StructuredOutputSpec, requestID string, response anthropicResponse) (Outcome, error) {
 	items := make([]OutputItem, 0, len(response.Content))
 	hasToolCall := false
-	for _, content := range response.Content {
+	for _, raw := range response.Content {
+		var content anthropicContent
+		if err := json.Unmarshal(raw, &content); err != nil {
+			return Outcome{}, contractFailureWithRequest("invalid Anthropic content block", requestID)
+		}
 		switch content.Type {
 		case "text":
 			items = append(items, OutputItem{Kind: OutputText, Text: &TextOutput{Text: content.Text}})
@@ -374,8 +631,9 @@ func (p *nativeProvider) generateAnthropic(ctx context.Context, credential strin
 		reason := joinText(items)
 		items = []OutputItem{{Kind: OutputRefusal, Refusal: &RefusalOutput{Reason: reason}}}
 	}
-	if request.Output != nil {
-		items, err = sealStructuredItems(*request.Output, items, finish)
+	if structured != nil {
+		var err error
+		items, err = sealStructuredItems(*structured, items, finish)
 		if err != nil {
 			return Outcome{}, contractFailureWithRequest(err.Error(), requestID)
 		}
@@ -388,6 +646,126 @@ func (p *nativeProvider) generateAnthropic(ctx context.Context, credential strin
 		Usage: TokenUsage{InputTotal: inputTotal, InputUncached: response.Usage.InputTokens, CacheRead: response.Usage.CacheReadInputTokens,
 			CacheWrite: response.Usage.CacheCreationInputTokens, OutputTotal: response.Usage.OutputTokens, ProviderExtras: usageRaw},
 	}, nil
+}
+
+type anthropicAgentState struct {
+	start    AgentStartRequest
+	messages []anthropicInput
+}
+
+func (p *nativeProvider) startAnthropicAgent(ctx context.Context, credential string, request AgentStartRequest, profile ModelProfileDraft) (Outcome, any, error) {
+	manifest, _ := request.Prompt.OpenManifest()
+	input, _ := request.Prompt.ProviderInput()
+	tools, err := anthropicTools(request.ToolSet)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	messages := []anthropicInput{{Role: "user", Content: input}}
+	payload := anthropicRequest{
+		Model: profile.Model, MaxTokens: valueOr(request.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+		System: manifest.Machine().Instructions, Messages: messages, Tools: tools, Temperature: request.Limits.Temperature,
+		ToolChoice: &anthropicToolChoice{Type: "auto", DisableParallelToolUse: request.MaxParallelism == 1},
+	}
+	var response anthropicResponse
+	requestID, _, err := p.doJSON(ctx, credential, request.AttemptID, payload, &response, ProviderAnthropicMessages)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	outcome, err := anthropicOutcome(profile, nil, requestID, response)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	if err := attachEstimatedCost(profile.Pricing, &outcome); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	content, err := canonicalAnthropicContent(response.Content)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	messages = append(messages, anthropicInput{Role: "assistant", Content: content})
+	if err := validateAgentProviderState("anthropic", messages); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	return outcome, &anthropicAgentState{start: request, messages: messages}, nil
+}
+
+func (p *nativeProvider) continueAnthropicAgent(ctx context.Context, credential string, current *anthropicAgentState, request AgentContinueRequest) (Outcome, any, error) {
+	if current == nil || len(current.messages) == 0 {
+		return Outcome{}, nil, contractFailure("AI provider continuation state is invalid")
+	}
+	profile := p.profile.Machine()
+	manifest, _ := current.start.Prompt.OpenManifest()
+	tools, err := anthropicTools(current.start.ToolSet)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	results := make([]anthropicToolResult, 0, len(request.Results))
+	for _, result := range request.Results {
+		results = append(results, anthropicToolResult{Type: "tool_result", ToolUseID: result.CallID, Content: string(result.Value)})
+	}
+	messages := append([]anthropicInput(nil), current.messages...)
+	messages = append(messages, anthropicInput{Role: "user", Content: results})
+	payload := anthropicRequest{
+		Model: profile.Model, MaxTokens: valueOr(current.start.Limits.MaxOutputTokens, profile.MaxOutputTokens),
+		System: manifest.Machine().Instructions, Messages: messages, Tools: tools, Temperature: current.start.Limits.Temperature,
+		ToolChoice: &anthropicToolChoice{Type: "auto", DisableParallelToolUse: current.start.MaxParallelism == 1},
+	}
+	var response anthropicResponse
+	requestID, _, err := p.doJSON(ctx, credential, request.AttemptID, payload, &response, ProviderAnthropicMessages)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	outcome, err := anthropicOutcome(profile, nil, requestID, response)
+	if err != nil {
+		return Outcome{}, nil, err
+	}
+	if err := attachEstimatedCost(profile.Pricing, &outcome); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	content, err := canonicalAnthropicContent(response.Content)
+	if err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	messages = append(messages, anthropicInput{Role: "assistant", Content: content})
+	if err := validateAgentProviderState("anthropic", messages); err != nil {
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	return outcome, &anthropicAgentState{start: current.start, messages: messages}, nil
+}
+
+func canonicalAnthropicContent(source []json.RawMessage) ([]json.RawMessage, error) {
+	result := make([]json.RawMessage, 0, len(source))
+	for _, item := range source {
+		canonical, err := artifact.Canonicalize(item)
+		if err != nil {
+			return nil, errors.New("anthropic continuation block is invalid")
+		}
+		result = append(result, canonical)
+	}
+	return result, nil
+}
+
+func validateAgentProviderState(provider string, state any) error {
+	raw, err := artifact.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("%s continuation state is invalid", provider)
+	}
+	if len(raw) > MaxAgentProviderStateBytes {
+		return fmt.Errorf("%s continuation state exceeds its byte budget", provider)
+	}
+	return nil
+}
+
+func anthropicTools(artifact ToolSetArtifact) ([]anthropicTool, error) {
+	toolSet, err := artifact.Open()
+	if err != nil {
+		return nil, err
+	}
+	tools := make([]anthropicTool, 0, len(toolSet.Machine().Tools))
+	for _, tool := range toolSet.Machine().Tools {
+		tools = append(tools, anthropicTool{Name: tool.Name, Description: tool.Description, InputSchema: tool.InputSchema})
+	}
+	return tools, nil
 }
 
 func anthropicFinish(reason string, toolCall bool) Finish {

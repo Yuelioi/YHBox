@@ -27,7 +27,7 @@ func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
 	}
 	toolSet, err := ai.SealToolSet(ai.ToolSetDraft{
 		ID: "yotta.test.tools", Version: "1.0.0", Owner: "tests",
-		Tools: []ai.ToolManifestDraft{{Name: "lookup", Description: "Look up a value.", InputSchema: schema, OutputSchema: schema}},
+		Tools: []ai.ToolManifestDraft{{Name: "lookup", Description: "Look up a value.", Authority: ai.ToolAuthorityPure, InputSchema: schema, OutputSchema: schema}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +48,20 @@ func TestAIRequestSummaryRecordsCompleteArtifactLineage(t *testing.T) {
 			if strings.Contains(value, leaked) {
 				t.Fatalf("AI request fact %q leaked raw content", name)
 			}
+		}
+	}
+}
+
+func TestAgentToolTurnRejectsPartialOrMixedProviderOutput(t *testing.T) {
+	call := ai.OutputItem{Kind: ai.OutputToolCall, ToolCall: &ai.ToolCall{CallID: "call-1", Name: "tool", Arguments: json.RawMessage(`{}`)}}
+	text := ai.OutputItem{Kind: ai.OutputText, Text: &ai.TextOutput{Text: "partial"}}
+	for _, outcome := range []ai.Outcome{
+		{Finish: ai.Finish{Kind: ai.FinishToolCalls}},
+		{Finish: ai.Finish{Kind: ai.FinishToolCalls}, Items: []ai.OutputItem{call, text}},
+		{Finish: ai.Finish{Kind: ai.FinishCompleted}, Items: []ai.OutputItem{call}},
+	} {
+		if _, err := agentToolCalls(outcome); err == nil {
+			t.Fatalf("accepted partial Agent outcome %#v", outcome)
 		}
 	}
 }

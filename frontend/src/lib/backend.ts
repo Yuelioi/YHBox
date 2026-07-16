@@ -20,6 +20,7 @@ import {
   EvaluationStatus as EvaluationStatusBinding,
   ProfileCapabilities as ProfileCapabilitiesBinding,
   ProviderKind as ProviderKindBinding,
+  TokenPricing as TokenPricingBinding,
 } from '@bindings/github.com/yottaapp/yotta/internal/ai/models.js'
 import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { invoke, invokeVoid } from './invoke'
@@ -109,6 +110,12 @@ export interface AIProfileCapabilities {
   zeroRetention: boolean
 }
 
+export interface AIProfilePricing {
+  inputMicrounitsPerMillion: number
+  cacheReadMicrounitsPerMillion: number
+  outputMicrounitsPerMillion: number
+}
+
 // AIModelProfile carries installation metadata only. Stored API keys never
 // cross the backend seam after they enter the OS credential manager.
 export interface AIModelProfile {
@@ -118,6 +125,7 @@ export interface AIModelProfile {
   model: string
   maxOutputTokens: number
   capabilities: AIProfileCapabilities
+  pricing: AIProfilePricing
   evaluation: 'unverified' | 'approved' | 'rejected'
   evaluationSuite?: string
   workflowConsent?: string
@@ -177,6 +185,7 @@ function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBindi
     provider: profile.provider as ProviderKindBinding,
     evaluation: profile.evaluation as EvaluationStatusBinding,
     capabilities: new ProfileCapabilitiesBinding(profile.capabilities),
+    pricing: new TokenPricingBinding(profile.pricing),
   })
 }
 

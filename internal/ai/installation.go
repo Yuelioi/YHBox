@@ -137,7 +137,7 @@ func WorkflowConsentDigest(slot string, profile ModelProfile) (artifact.Digest, 
 	}
 	raw, err := artifact.Marshal(map[string]any{
 		"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI,
-		"operations": []string{OperationGenerate, OperationGenerateStructured},
+		"operations": []string{OperationGenerate, OperationGenerateStructured, OperationAgentStart, OperationAgentContinue},
 	})
 	if err != nil {
 		return "", err

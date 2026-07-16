@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 89,
-    "models": 99
+    "models": 100
   },
   "services": [
     {
@@ -1312,6 +1312,27 @@
               "value": "\"anthropic-messages\""
             }
           ]
+        },
+        {
+          "kind": "class",
+          "name": "TokenPricing",
+          "fields": [
+            {
+              "name": "\"inputMicrounitsPerMillion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"cacheReadMicrounitsPerMillion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"outputMicrounitsPerMillion\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
         }
       ]
     },
@@ -2095,6 +2116,11 @@
               "name": "\"capabilities\"",
               "optional": false,
               "type": "ai$0.ProfileCapabilities"
+            },
+            {
+              "name": "\"pricing\"",
+              "optional": false,
+              "type": "ai$0.TokenPricing"
             },
             {
               "name": "\"evaluation\"",

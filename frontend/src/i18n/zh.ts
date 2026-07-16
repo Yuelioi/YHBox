@@ -267,6 +267,38 @@ export default {
           },
         },
       },
+      agent: {
+        title: '运行受限 AI Agent',
+        description:
+          '使用精确 ToolSet 运行供应商原生工具循环，并由宿主强制 Token、成本、时间、迭代、调用与并行预算。',
+        config: {
+          maxInputTokens: {
+            title: '输入 Token 总预算',
+            description: '所有轮次供应商报告的输入 Token 上限。',
+          },
+          maxTotalOutputTokens: {
+            title: '输出 Token 总预算',
+            description: '所有轮次供应商报告的输出 Token 上限。',
+          },
+          maxCost: {
+            title: '成本预算',
+            description: '按模型档案定价计算的 billing microunit 总上限。',
+          },
+          maxWallTime: {
+            title: '运行时间预算（毫秒）',
+            description: '完整工具循环允许的宿主墙钟时间。',
+          },
+          maxIterations: { title: '迭代预算', description: '包含初始轮次在内的供应商调用上限。' },
+          maxToolCalls: {
+            title: '工具调用预算',
+            description: '本次运行允许的精确 ToolSet 调用总数。',
+          },
+          maxParallelism: {
+            title: '并行调用预算',
+            description: '单个供应商轮次允许返回的最大工具调用数。',
+          },
+        },
+      },
       config: {
         slot: {
           title: '模型 slot',
@@ -1704,6 +1736,13 @@ export default {
       background_hint: '允许供应商原生异步或后台执行模式。',
       zero_retention: '零保留',
       zero_retention_hint: '仅在供应商与该模型配置确实满足零保留要求时声明。',
+    },
+    pricing: {
+      title: '固定 Token 定价',
+      hint: '启用工具调用时必须填写，宿主据此强制成本预算。单位为每一百万 Token 的 billing microunit；数值会进入档案摘要。',
+      input: '输入',
+      cache_read: '缓存读取',
+      output: '输出',
     },
     consent: {
       title: '工作流使用授权',

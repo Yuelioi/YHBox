@@ -167,6 +167,51 @@
               </div>
             </div>
 
+            <div
+              v-if="profile.capabilities.toolCalling"
+              class="rounded-lg border border-default/70 bg-elevated/35 p-3"
+            >
+              <p class="text-xs font-medium text-default">{{ t('settingsAI.pricing.title') }}</p>
+              <p class="mt-1 text-xs leading-relaxed text-dimmed">
+                {{ t('settingsAI.pricing.hint') }}
+              </p>
+              <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                <UFormField :label="t('settingsAI.pricing.input')">
+                  <UInputNumber
+                    v-model="profile.pricing.inputMicrounitsPerMillion"
+                    :min="0"
+                    :max="1000000000000"
+                    :step="1"
+                    size="sm"
+                    class="w-full"
+                    @change="commit"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAI.pricing.cache_read')">
+                  <UInputNumber
+                    v-model="profile.pricing.cacheReadMicrounitsPerMillion"
+                    :min="0"
+                    :max="1000000000000"
+                    :step="1"
+                    size="sm"
+                    class="w-full"
+                    @change="commit"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAI.pricing.output')">
+                  <UInputNumber
+                    v-model="profile.pricing.outputMicrounitsPerMillion"
+                    :min="0"
+                    :max="1000000000000"
+                    :step="1"
+                    size="sm"
+                    class="w-full"
+                    @change="commit"
+                  />
+                </UFormField>
+              </div>
+            </div>
+
             <UFormField
               :label="t('settingsAI.profiles.apikey_label')"
               :hint="t('settingsAI.profiles.apikey_hint')"
@@ -447,6 +492,11 @@ function addProfile(): void {
       background: false,
       zeroRetention: false,
     },
+    pricing: {
+      inputMicrounitsPerMillion: 0,
+      cacheReadMicrounitsPerMillion: 0,
+      outputMicrounitsPerMillion: 0,
+    },
     evaluation: 'unverified',
     apiKey: '',
     persisted: false,
@@ -497,6 +547,7 @@ function profileMetadata(profile: AIModelProfileDraft): AIModelProfile {
     model: profile.model.trim(),
     maxOutputTokens: profile.maxOutputTokens,
     capabilities: { ...profile.capabilities },
+    pricing: { ...profile.pricing },
     evaluation: profile.evaluation,
     ...(profile.evaluationSuite ? { evaluationSuite: profile.evaluationSuite } : {}),
     ...(profile.workflowConsent ? { workflowConsent: profile.workflowConsent } : {}),

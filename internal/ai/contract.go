@@ -172,6 +172,7 @@ type TokenUsage struct {
 	CacheWrite      *int64          `json:"cacheWrite,omitempty"`
 	OutputTotal     *int64          `json:"outputTotal,omitempty"`
 	ReasoningOutput *int64          `json:"reasoningOutput,omitempty"`
+	CostMicrounits  *int64          `json:"costMicrounits,omitempty"`
 	ProviderExtras  json.RawMessage `json:"providerExtras,omitempty"`
 }
 
@@ -223,7 +224,7 @@ func (o Outcome) Validate() error {
 }
 
 func validateUsage(usage TokenUsage) error {
-	for _, value := range []*int64{usage.InputTotal, usage.InputUncached, usage.CacheRead, usage.CacheWrite, usage.OutputTotal, usage.ReasoningOutput} {
+	for _, value := range []*int64{usage.InputTotal, usage.InputUncached, usage.CacheRead, usage.CacheWrite, usage.OutputTotal, usage.ReasoningOutput, usage.CostMicrounits} {
 		if value != nil && *value < 0 {
 			return errors.New("AI usage counters must be non-negative")
 		}

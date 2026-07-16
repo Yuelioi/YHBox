@@ -41,4 +41,29 @@ func TestAINodesPinTrustedPromptManifestsIntoImplementationLocks(t *testing.T) {
 			}
 		})
 	}
+	if !builtins.AIAgentPrompt.Valid() || !builtins.AIAgentToolSet.Valid() {
+		t.Fatal("AI Agent artifacts are missing")
+	}
+	agent, ok := builtins.Definition(AIAgentNodeID)
+	if !ok {
+		t.Fatal("AI Agent definition is missing")
+	}
+	expected, err := builtinImplementationDigest(
+		agent.Implementation.Entrypoint, "v1",
+		"provider-native-bounded-agent/"+builtins.AIAgentPrompt.Digest().String()+"/"+builtins.AIAgentToolSet.Digest().String(),
+		agent.Implementation.ABI,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine := agent.Contract.Machine()
+	if agent.Implementation.ArtifactDigest != expected || machine.Execution.Retry != "never" || len(machine.StatusEvents) != 2 ||
+		len(machine.CapabilityRequirements) != 1 || len(machine.CapabilityRequirements[0].Operations) != 2 {
+		t.Fatalf("AI Agent contract/lock = %#v / %#v", agent.Implementation, machine)
+	}
+	for _, resource := range machine.ConfigSchemaBundle {
+		if bytes.Contains(resource.Schema, []byte(`"instructions"`)) || bytes.Contains(resource.Schema, []byte(`"toolSet"`)) {
+			t.Fatalf("workflow config can override trusted Agent artifacts: %s", resource.Schema)
+		}
+	}
 }
