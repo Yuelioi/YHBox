@@ -9,8 +9,8 @@ import (
 
 func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 	mouse, err := wailsToolsWindowOptions(tools.WindowRequest{
-		Kind:        tools.WindowMouseHUD,
-		ContainerID: "container with spaces",
+		Kind:       tools.WindowMouseHUD,
+		TargetSlot: "target slot",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -18,7 +18,7 @@ func TestWailsToolsWindowOptionsOwnPresentationPolicy(t *testing.T) {
 	if mouse.Title != "鼠标位置" || mouse.Width != 340 || mouse.Height != 300 || mouse.MinWidth != 300 || mouse.MinHeight != 240 || !mouse.Frameless || !mouse.AlwaysOnTop {
 		t.Fatalf("mouse options = %+v", mouse)
 	}
-	if mouse.URL != "/#/tools/mouse-hud?containerID=container+with+spaces" {
+	if mouse.URL != "/#/tools/mouse-hud?targetSlot=target+slot" {
 		t.Fatalf("mouse URL = %q", mouse.URL)
 	}
 

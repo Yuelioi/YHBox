@@ -112,7 +112,7 @@ import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()
 const { t } = useI18n()
-const containerID = String(route.query.containerID ?? '')
+const targetSlot = String(route.query.targetSlot ?? '')
 
 interface MousePos {
   screenX: number
@@ -145,7 +145,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 async function poll() {
   try {
-    const r = await backend.tools.mousePos(containerID)
+    const r = await backend.tools.mousePos(targetSlot)
     if (r) pos.value = r as any
     toolError.value = ''
   } catch (error) {
@@ -175,7 +175,7 @@ interface PixelInfo {
 const pixel = ref<PixelInfo | null>(null)
 async function pickPixel() {
   try {
-    const r = await backend.tools.pixelAt(containerID)
+    const r = await backend.tools.pixelAt(targetSlot)
     if (r) pixel.value = r as any
     toolError.value = ''
   } catch (error) {

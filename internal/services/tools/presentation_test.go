@@ -113,18 +113,18 @@ func TestOpenMouseHUDUsesPresentationPort(t *testing.T) {
 	presenter := &fakePresenter{ready: true}
 	service := NewService(nil, presenter)
 
-	if err := service.OpenMouseHUD("container with spaces"); err != nil {
+	if err := service.OpenMouseHUD("target-slot"); err != nil {
 		t.Fatal(err)
 	}
 	if len(presenter.requests) != 1 {
 		t.Fatalf("window requests = %+v", presenter.requests)
 	}
 	request := presenter.requests[0]
-	if request.Kind != WindowMouseHUD || request.ContainerID != "container with spaces" {
+	if request.Kind != WindowMouseHUD || request.TargetSlot != "target-slot" {
 		t.Fatalf("window request = %+v", request)
 	}
 
-	if err := service.OpenMouseHUD("ignored"); err != nil {
+	if err := service.OpenMouseHUD("other-target"); err != nil {
 		t.Fatal(err)
 	}
 	if len(presenter.requests) != 1 || presenter.window.focusCalls != 1 {

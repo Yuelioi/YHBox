@@ -11,7 +11,6 @@ import (
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
-	"github.com/yottaapp/yotta/internal/services/container"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -29,27 +28,27 @@ type clipStore interface {
 	Delete(id string) error
 }
 
-// ContainerGetter 窄接口 — recording 拿 container 解析 Win32WindowTarget hwnd 用.
-// container.Store 已实现 Get(id) (Container, bool).
-type ContainerGetter interface {
-	Get(id string) (container.Container, bool)
+// TargetResolver provides trusted local recording access to installed targets.
+type TargetResolver interface {
+	ResolveWindow(context.Context, string) (target.WindowHandle, error)
+	Activate(context.Context, string) error
 }
 
 // Service wails3 RPC 入口.
 //
 // 前端流程:
-//  1. Start({containerID}) 启动 hook.
+//  1. Start({targetSlot}) 启动 hook.
 //  2. Stop() 只生成 pending token，不创建库资产.
 //  3. Finalize(metadata) 创建 InputClip; Discard 释放 pending 数据.
 //
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
 type Service struct {
-	rec          recorderLifecycle
-	hkProv       HotkeySettingsProvider
-	clipSvc      clipStore
-	containerGet ContainerGetter
-	emit         func(name string, data any)
+	rec     recorderLifecycle
+	hkProv  HotkeySettingsProvider
+	clipSvc clipStore
+	targets TargetResolver
+	emit    func(name string, data any)
 
 	mu           sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
 	pending      map[string]pendingRecording
@@ -60,9 +59,9 @@ type Service struct {
 	shutdownDone chan struct{}
 }
 
-func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore) *Service {
+func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, targets TargetResolver) *Service {
 	return &Service{
-		rec: rec, hkProv: hkProv, clipSvc: clipSvc,
+		rec: rec, hkProv: hkProv, clipSvc: clipSvc, targets: targets,
 		state: RecordingState{Phase: PhaseIdle}, pending: map[string]pendingRecording{}, shutdownDone: make(chan struct{}),
 	}
 }
@@ -78,8 +77,8 @@ const (
 // RecordingState 录制子系统的权威状态. 后端是唯一真相源; 前端/HUD 只镜像
 // (recording:state 事件 + GetState 对账), 不自己存可 desync 的 flag.
 type RecordingState struct {
-	Phase       string `json:"phase"`       // idle | recording | paused | finalizing
-	ContainerID string `json:"containerID"` // 录制目标容器
+	Phase       string `json:"phase"` // idle | recording | paused | finalizing
+	TargetSlot  string `json:"targetSlot"`
 	TempID      string `json:"tempID"`
 	StartedAtMs int64  `json:"startedAtMs"`
 	PausedMs    int64  `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
@@ -115,9 +114,6 @@ func (s *Service) setState(st RecordingState) {
 // It is deliberately a package function so it cannot become a Wails RPC method.
 func ConfigureEmitter(s *Service, emit func(name string, data any)) { s.emit = emit }
 
-// ConfigureContainerGetter injects target lookup used when a recording starts.
-func ConfigureContainerGetter(s *Service, getter ContainerGetter) { s.containerGet = getter }
-
 // Shutdown cancels an in-progress recording without persisting a partial asset.
 // It is a package function so lifecycle wiring does not become a Wails RPC.
 func Shutdown(ctx context.Context, s *Service) error {
@@ -148,36 +144,25 @@ func (s *Service) shutdown() {
 	close(s.shutdownDone)
 }
 
-// ValidateTarget 录制前预检 — 解析容器 Win32WindowTarget 找窗口 (找不到返 error), 并把窗口拉到前台.
+// ValidateTarget resolves and activates one installed target before countdown.
 // 前端在 3s 倒计时**之前**调: 没设/找不到窗口立刻报错 (不用等录完), 成功则游戏已置前台省去用户 Alt-Tab.
 // 纯预检 — 不装 hook 不起 recorder. Start 内仍保留同样校验作 race 兜底 (倒计时期间窗口可能消失).
-func (s *Service) ValidateTarget(containerID string) error {
-	if containerID == "" {
-		return apperr.New(apperr.CodeContainerIDRequired, nil)
+func (s *Service) ValidateTarget(targetSlot string) error {
+	if targetSlot == "" {
+		return apperr.New(apperr.CodeAutomationTargetSlotRequired, nil)
 	}
-	if s.containerGet == nil {
-		return errors.New("ContainerGetter 未注入")
+	if s.targets == nil {
+		return errors.New("installed target resolver is unavailable")
 	}
-	cont, ok := s.containerGet.Get(containerID)
-	if !ok {
-		return fmt.Errorf("container %q not found", containerID)
+	if _, err := s.targets.ResolveWindow(context.Background(), targetSlot); err != nil {
+		return apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot, "cause": err.Error()})
 	}
-	wtNode := findWin32WindowTargetNode(&cont)
-	if wtNode == nil {
-		return apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
-	}
-	spec := readMatchSpecFromConfig(wtNode)
-	window, err := resolveRecordingWindow(spec)
-	if err != nil {
-		return fmt.Errorf("窗口未找到: %w", err)
-	}
-	_ = bringRecordingWindowToFront(window.HWND)
-	return nil
+	return s.targets.Activate(context.Background(), targetSlot)
 }
 
 // StartArgs 前端传入的录制开关.
 type StartArgs struct {
-	ContainerID string `json:"containerID"` // 必传；用于解析录制目标窗口
+	TargetSlot string `json:"targetSlot"`
 }
 
 // Start 启动录制 (非阻塞). 返回临时录制 ID (前端订阅事件流过滤用).
@@ -196,24 +181,15 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		return s.GetState().TempID, nil
 	}
 
-	if args.ContainerID == "" {
-		return "", apperr.New(apperr.CodeContainerIDRequired, nil)
+	if args.TargetSlot == "" {
+		return "", apperr.New(apperr.CodeAutomationTargetSlotRequired, nil)
 	}
-	if s.containerGet == nil {
-		return "", errors.New("ContainerGetter 未注入 (main.go 启动期 ConfigureContainerGetter?)")
+	if s.targets == nil {
+		return "", errors.New("installed target resolver is unavailable")
 	}
-	cont, ok := s.containerGet.Get(args.ContainerID)
-	if !ok {
-		return "", fmt.Errorf("container %q not found", args.ContainerID)
-	}
-	wtNode := findWin32WindowTargetNode(&cont)
-	if wtNode == nil {
-		return "", apperr.New(apperr.CodeRecordingNoWin32WindowTarget, nil)
-	}
-	spec := readMatchSpecFromConfig(wtNode)
-	wh, err := resolveRecordingWindow(spec)
+	wh, err := s.targets.ResolveWindow(context.Background(), args.TargetSlot)
 	if err != nil {
-		return "", fmt.Errorf("窗口未找到: %w", err)
+		return "", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot, "cause": err.Error()})
 	}
 	mouseMode := "relative"
 	stopVK := uint32(0x7B)
@@ -238,7 +214,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 	s.setState(RecordingState{
 		Phase:       PhaseRecording,
-		ContainerID: args.ContainerID,
+		TargetSlot:  args.TargetSlot,
 		TempID:      id,
 		StartedAtMs: time.Now().UnixMilli(),
 	})
@@ -308,15 +284,15 @@ func (s *Service) Resume() error {
 
 // StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
 type StopResultPayload struct {
-	PendingID   string `json:"pendingID"`
-	ContainerID string `json:"containerID"`
-	DurationUs  uint64 `json:"durationUs"`
-	EventCount  int    `json:"eventCount"`
+	PendingID  string `json:"pendingID"`
+	TargetSlot string `json:"targetSlot"`
+	DurationUs uint64 `json:"durationUs"`
+	EventCount int    `json:"eventCount"`
 }
 
 type pendingRecording struct {
-	result      *StopResult
-	containerID string
+	result     *StopResult
+	targetSlot string
 }
 
 // FinalizeArgs supplies user-owned metadata for a pending recording.
@@ -330,9 +306,9 @@ type FinalizeArgs struct {
 
 // FinalizeResult identifies the durable asset created from a pending recording.
 type FinalizeResult struct {
-	ClipID      string `json:"clipID"`
-	ContainerID string `json:"containerID"`
-	Label       string `json:"label"`
+	ClipID     string `json:"clipID"`
+	TargetSlot string `json:"targetSlot"`
+	Label      string `json:"label"`
 }
 
 // Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
@@ -351,7 +327,7 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 		return nil, nil
 	}
 	cur := s.GetState()
-	containerID := cur.ContainerID
+	targetSlot := cur.TargetSlot
 
 	// 进 finalizing — 收尾期 GetState 反映真实阶段; 同时挡住并发 Stop (phase != recording/paused 直接 no-op).
 	finalizing := cur
@@ -382,10 +358,10 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 		return nil, nil
 	}
 	pendingID := "pending-" + res.TempID
-	s.pending[pendingID] = pendingRecording{result: res, containerID: containerID}
+	s.pending[pendingID] = pendingRecording{result: res, targetSlot: targetSlot}
 	durationUs := res.Events[len(res.Events)-1].TUs
 	return &StopResultPayload{
-		PendingID: pendingID, ContainerID: containerID,
+		PendingID: pendingID, TargetSlot: targetSlot,
 		DurationUs: durationUs, EventCount: len(res.Events),
 	}, nil
 }
@@ -437,7 +413,7 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	if err := s.clipSvc.Save(clip); err != nil {
 		return nil, fmt.Errorf("save clip: %w", err)
 	}
-	result := &FinalizeResult{ClipID: clip.ID, ContainerID: pending.containerID, Label: label}
+	result := &FinalizeResult{ClipID: clip.ID, TargetSlot: pending.targetSlot, Label: label}
 	delete(s.pending, args.PendingID)
 	return result, nil
 }
@@ -491,36 +467,8 @@ func (s *Service) StopAsync() {
 			return
 		}
 		s.emit("recording:completed", map[string]any{
-			"pendingID":   payload.PendingID,
-			"containerID": payload.ContainerID,
-			"durationUs":  payload.DurationUs,
-			"eventCount":  payload.EventCount,
+			"pendingID": payload.PendingID, "targetSlot": payload.TargetSlot,
+			"durationUs": payload.DurationUs, "eventCount": payload.EventCount,
 		})
 	}()
-}
-
-// findWin32WindowTargetNode 在 container.Graph.Nodes 里找第一个 Kind=="Win32WindowTarget" 的节点.
-// container 强制有且只有一个 Win32WindowTarget 节点, 这里假设也是 1.
-func findWin32WindowTargetNode(c *container.Container) *container.GraphNode {
-	for i := range c.Graph.Nodes {
-		if c.Graph.Nodes[i].Kind == "Win32WindowTarget" {
-			return &c.Graph.Nodes[i]
-		}
-	}
-	return nil
-}
-
-// readMatchSpecFromConfig 从 Win32WindowTarget 节点 config 顶级字段解出 target.WindowMatchSpec.
-// 字段是扁平的, 跟 Spec.Inputs 对齐.
-// config 缺字段或类型不对 → 留空字段，平台 resolver 负责校验。
-func readMatchSpecFromConfig(n *container.GraphNode) target.WindowMatchSpec {
-	if n.Config == nil {
-		return target.WindowMatchSpec{}
-	}
-	return target.WindowMatchSpec{
-		Title:       container.PinString(n, "Title"),
-		Class:       container.PinString(n, "Class"),
-		ProcessName: container.PinString(n, "ProcessName"),
-		TitleMatch:  container.PinString(n, "TitleMatch"),
-	}
 }

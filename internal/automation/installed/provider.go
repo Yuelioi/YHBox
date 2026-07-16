@@ -177,6 +177,7 @@ type PlaybackEvent struct {
 }
 
 type driver interface {
+	ResolveWindow(context.Context) (target.WindowHandle, error)
 	Execute(context.Context, string, any) error
 	Capture(context.Context) ([]byte, error)
 	PlayEvent(context.Context, PlaybackEvent) error

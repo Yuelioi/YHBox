@@ -14,17 +14,15 @@ var (
 )
 
 type PickerRequest struct {
-	Mode        string
-	RequestID   string
-	ContainerID string
-	NodeID      string
-	ColorSpace  string
-	GUID        string
+	Mode       string
+	RequestID  string
+	TargetSlot string
+	ColorSpace string
+	GUID       string
 }
 
 type PixelSampleRequest struct {
-	ContainerID string
-	NodeID      string
+	TargetSlot string
 }
 
 type TargetToolAdapter interface {
@@ -65,7 +63,7 @@ func (a win32TargetToolAdapter) OpenPicker(req PickerRequest) error {
 }
 
 func (a win32TargetToolAdapter) PixelAt(req PixelSampleRequest) (PixelInfo, error) {
-	return a.service.win32PixelAt(req.ContainerID, req.NodeID)
+	return a.service.win32PixelAt(req.TargetSlot)
 }
 
 type androidTargetToolAdapter struct {
@@ -97,13 +95,8 @@ func (s *Service) openScreenPickerWindow(req PickerRequest) error {
 	s.mu.Unlock()
 
 	w, opened, err := s.openWindow(presenter, slot, WindowRequest{
-		Kind:        WindowScreenPicker,
-		Mode:        req.Mode,
-		RequestID:   req.RequestID,
-		ContainerID: req.ContainerID,
-		NodeID:      req.NodeID,
-		ColorSpace:  req.ColorSpace,
-		GUID:        req.GUID,
+		Kind: WindowScreenPicker, Mode: req.Mode, RequestID: req.RequestID,
+		TargetSlot: req.TargetSlot, ColorSpace: req.ColorSpace, GUID: req.GUID,
 	}, func() {
 		s.mu.Lock()
 		if s.pickerWindows[req.RequestID] == slot {

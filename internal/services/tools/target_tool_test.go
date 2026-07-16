@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -19,15 +20,15 @@ type fakeTargetResolver struct {
 	err    error
 }
 
-func (r fakeTargetResolver) ResolveWindowForNode(string, string) (target.WindowHandle, error) {
+func (r fakeTargetResolver) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
 	return target.WindowHandle{}, nil
 }
 
-func (r fakeTargetResolver) ResolveEditorTargetForNode(string, string) (target.Target, error) {
+func (r fakeTargetResolver) ResolveTarget(context.Context, string) (target.Target, error) {
 	return r.target, r.err
 }
 
-func (r fakeTargetResolver) CaptureBackendFor(string) string { return "auto" }
+func (r fakeTargetResolver) CaptureBackend(string) (string, error) { return "auto", nil }
 
 func (a *recordingPickerAdapter) OpenPicker(req PickerRequest) error {
 	a.pickerCalls = append(a.pickerCalls, req)
@@ -47,7 +48,7 @@ func TestTargetToolRouter_RoutesPickerByTargetKind(t *testing.T) {
 		target.KindAndroidADB:  androidAdapter,
 	})
 
-	req := PickerRequest{Mode: "point", RequestID: "r1", ContainerID: "c1", NodeID: "n1"}
+	req := PickerRequest{Mode: "point", RequestID: "r1", TargetSlot: "editor"}
 	if err := router.OpenPicker(target.Target{Kind: target.KindAndroidADB}, req); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestTargetToolRouter_UnknownTargetKindFails(t *testing.T) {
 }
 
 func TestAndroidTargetToolAdapter_PixelAtNotImplementedBoundary(t *testing.T) {
-	_, err := androidTargetToolAdapter{}.PixelAt(PixelSampleRequest{ContainerID: "c1"})
+	_, err := androidTargetToolAdapter{}.PixelAt(PixelSampleRequest{TargetSlot: "editor"})
 	if !errors.Is(err, ErrAndroidTargetPixelNotImplemented) {
 		t.Fatalf("err = %v, want ErrAndroidTargetPixelNotImplemented", err)
 	}
@@ -91,7 +92,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 		target.KindAndroidADB: androidAdapter,
 	})
 
-	err := svc.OpenScreenPicker("rect", "req-1", "container-1", "node-1", "rgb", "asset-1")
+	err := svc.OpenScreenPicker("rect", "req-1", "editor", "rgb", "asset-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +100,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 		t.Fatalf("android adapter calls = %+v", androidAdapter.pickerCalls)
 	}
 	got := androidAdapter.pickerCalls[0]
-	if got.Mode != "rect" || got.RequestID != "req-1" || got.ContainerID != "container-1" || got.NodeID != "node-1" || got.ColorSpace != "rgb" || got.GUID != "asset-1" {
+	if got.Mode != "rect" || got.RequestID != "req-1" || got.TargetSlot != "editor" || got.ColorSpace != "rgb" || got.GUID != "asset-1" {
 		t.Fatalf("picker request = %+v", got)
 	}
 }
@@ -111,14 +112,14 @@ func TestServicePixelAt_ResolvesTargetKindAndRoutes(t *testing.T) {
 		target.KindAndroidADB: androidAdapter,
 	})
 
-	got, err := svc.PixelAt("container-1", "node-1")
+	got, err := svc.PixelAt("editor")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !got.OK || got.ClientX != 12 {
 		t.Fatalf("pixel = %+v", got)
 	}
-	if len(androidAdapter.pixelCalls) != 1 || androidAdapter.pixelCalls[0].ContainerID != "container-1" || androidAdapter.pixelCalls[0].NodeID != "node-1" {
+	if len(androidAdapter.pixelCalls) != 1 || androidAdapter.pixelCalls[0].TargetSlot != "editor" {
 		t.Fatalf("pixel calls = %+v", androidAdapter.pixelCalls)
 	}
 }

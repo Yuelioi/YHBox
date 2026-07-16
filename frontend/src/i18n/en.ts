@@ -2900,9 +2900,8 @@ export default {
     TRANSPORT_UNAVAILABLE:
       'Could not establish a connection. Check the target or network connection, then retry.',
     WAILS_NOT_READY: 'The app is not ready yet, please retry',
-    CONTAINER_ID_REQUIRED: 'Container ID is required',
-    RECORDING_NO_WIN32_WINDOW_TARGET:
-      'Container has no Windows window target node (recording needs a Windows window)',
+    AUTOMATION_TARGET_SLOT_REQUIRED: 'Select an installed automation target',
+    RECORDING_TARGET_UNAVAILABLE: 'The installed recording target is unavailable',
     INVALID_WIN32_WINDOW_TARGET_REGEX: 'Windows window target regex invalid: {error}',
     INVALID_WIN32_WINDOW_TARGET_EMPTY_MATCH: 'Windows window target match cannot be empty',
     NO_ACTIVE_WINDOW: 'No active Windows target is available',

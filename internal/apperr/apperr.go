@@ -21,7 +21,7 @@ func New(code string, params map[string]any) *Error {
 
 // 首批 code 常量 (与 FE error.* i18n 一一对应)。
 const (
-	CodeWailsNotReady           = "WAILS_NOT_READY"
-	CodeContainerIDRequired     = "CONTAINER_ID_REQUIRED"
-	CodeRecordingNoWin32WindowTarget = "RECORDING_NO_WIN32_WINDOW_TARGET"
+	CodeWailsNotReady                = "WAILS_NOT_READY"
+	CodeAutomationTargetSlotRequired = "AUTOMATION_TARGET_SLOT_REQUIRED"
+	CodeRecordingTargetUnavailable   = "RECORDING_TARGET_UNAVAILABLE"
 )

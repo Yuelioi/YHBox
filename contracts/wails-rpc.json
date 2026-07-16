@@ -341,12 +341,7 @@
           "bindingId": "423872531",
           "parameters": [
             {
-              "name": "containerID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "nodeID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -358,7 +353,7 @@
           "bindingId": "2642272974",
           "parameters": [
             {
-              "name": "containerID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -1200,7 +1195,7 @@
           "bindingId": "1330241533",
           "parameters": [
             {
-              "name": "containerID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -1375,12 +1370,7 @@
           "bindingId": "1897317081",
           "parameters": [
             {
-              "name": "containerID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "nodeID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -1410,7 +1400,7 @@
           "bindingId": "2105227542",
           "parameters": [
             {
-              "name": "containerID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -1438,12 +1428,7 @@
               "type": "string"
             },
             {
-              "name": "containerID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "nodeID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             },
@@ -1465,12 +1450,7 @@
           "bindingId": "1982941903",
           "parameters": [
             {
-              "name": "containerID",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "nodeID",
+              "name": "targetSlot",
               "optional": false,
               "type": "string"
             }
@@ -4928,7 +4908,7 @@
               "type": "string"
             },
             {
-              "name": "\"containerID\"",
+              "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
             },
@@ -4949,7 +4929,7 @@
               "type": "string"
             },
             {
-              "name": "\"containerID\"",
+              "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
             },
@@ -4980,7 +4960,7 @@
           "name": "StartArgs",
           "fields": [
             {
-              "name": "\"containerID\"",
+              "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
             }
@@ -4996,7 +4976,7 @@
               "type": "string"
             },
             {
-              "name": "\"containerID\"",
+              "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
             },

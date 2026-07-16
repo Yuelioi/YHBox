@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	app31 "github.com/yottaapp/yotta/internal/application"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/node"
 	"github.com/yottaapp/yotta/internal/nodes/control"
@@ -118,7 +119,7 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	if adapter.GetMouseMode() != "absolute" {
 		t.Fatalf("configured mouse mode = %q", adapter.GetMouseMode())
 	}
-	if service := newRecordingService(app, nil, registry); service == nil {
+	if service := newRecordingService(app, nil, registry, automationinstalled.AuthoringTargets{}); service == nil {
 		t.Fatal("recording composition returned nil")
 	}
 

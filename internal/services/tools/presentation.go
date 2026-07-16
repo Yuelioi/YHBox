@@ -16,13 +16,12 @@ const (
 // Only fields relevant to Kind are consumed; presentation policy stays in the
 // GUI adapter.
 type WindowRequest struct {
-	Kind        WindowKind
-	ContainerID string
-	RequestID   string
-	Mode        string
-	NodeID      string
-	ColorSpace  string
-	GUID        string
+	Kind       WindowKind
+	TargetSlot string
+	RequestID  string
+	Mode       string
+	ColorSpace string
+	GUID       string
 }
 
 // Window is the lifecycle surface required by the tools RPC service.

@@ -1,6 +1,9 @@
 package tools
 
-import "github.com/yottaapp/yotta/internal/automation/target"
+import (
+	"context"
+	"fmt"
+)
 
 // PixelInfo is a sampled target pixel in client coordinates.
 type PixelInfo struct {
@@ -16,17 +19,14 @@ type PixelInfo struct {
 	Hex     string `json:"hex"`
 }
 
-// PixelAt samples the active editor target through its target tool adapter.
-func (s *Service) PixelAt(containerID, nodeID string) (PixelInfo, error) {
-	tg := target.Target{Kind: target.KindWin32Window}
-	if s.resolver != nil {
-		resolved, err := s.resolver.ResolveEditorTargetForNode(containerID, nodeID)
-		if err != nil {
-			return PixelInfo{}, err
-		}
-		if resolved.Kind != "" {
-			tg = resolved
-		}
+// PixelAt samples one exact installed target through its target tool adapter.
+func (s *Service) PixelAt(targetSlot string) (PixelInfo, error) {
+	if s.resolver == nil {
+		return PixelInfo{}, fmt.Errorf("installed target resolver is unavailable")
 	}
-	return s.targetTools.PixelAt(tg, PixelSampleRequest{ContainerID: containerID, NodeID: nodeID})
+	tg, err := s.resolver.ResolveTarget(context.Background(), targetSlot)
+	if err != nil {
+		return PixelInfo{}, err
+	}
+	return s.targetTools.PixelAt(tg, PixelSampleRequest{TargetSlot: targetSlot})
 }

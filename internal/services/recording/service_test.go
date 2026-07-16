@@ -72,8 +72,8 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 		Events: []inputclip.Event{{TUs: 0}, {TUs: 250_000}},
 	}}
 	clips := &memoryClipStore{}
-	s := NewService(recorder, nil, clips)
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container"})
+	s := NewService(recorder, nil, clips, nil)
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
 
 	pending, err := s.Stop()
 	if err != nil {
@@ -101,8 +101,8 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 
 func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	recorder := &resultRecorder{}
-	s := NewService(recorder, nil, &memoryClipStore{})
-	s.setState(RecordingState{Phase: PhasePaused, ContainerID: "container"})
+	s := NewService(recorder, nil, &memoryClipStore{}, nil)
+	s.setState(RecordingState{Phase: PhasePaused, TargetSlot: "editor"})
 	if err := s.Cancel(); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 
 func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 	s, _ := newTestService()
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container", TempID: "partial"})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "partial"})
 
 	if err := Shutdown(context.Background(), s); err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 	if state := s.GetState(); state.Phase != PhaseIdle {
 		t.Fatalf("state after shutdown = %+v", state)
 	}
-	if _, err := s.Start(StartArgs{ContainerID: "container"}); err == nil ||
+	if _, err := s.Start(StartArgs{TargetSlot: "editor"}); err == nil ||
 		!strings.Contains(err.Error(), "closed") {
 		t.Fatalf("Start() after shutdown error = %v, want closed", err)
 	}
@@ -133,8 +133,8 @@ func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
 	recorder := &blockingStopRecorder{started: make(chan struct{}), release: make(chan struct{})}
 	saver := &countingClipSaver{}
-	s := NewService(recorder, nil, saver)
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "container", TempID: "partial"})
+	s := NewService(recorder, nil, saver, nil)
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "partial"})
 	stopResult := make(chan error, 1)
 	go func() {
 		_, err := s.Stop()
@@ -178,7 +178,7 @@ func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
 // 状态机 + 幂等性单测. 不碰真 OS hook — 只验 Service 的状态转换/幂等/事件广播逻辑.
 
 func newTestService() (*Service, *[]string) {
-	s := NewService(NewRecorder(), nil, nil)
+	s := NewService(NewRecorder(), nil, nil, nil)
 	var mu sync.Mutex
 	var events []string
 	ConfigureEmitter(s, func(name string, _ any) {
@@ -217,25 +217,25 @@ func TestService_StopWhenIdle_IsNoOpNoError(t *testing.T) {
 func TestService_StartWhenNotIdle_IsNoOp(t *testing.T) {
 	s, _ := newTestService()
 	// 模拟已在录 (不走真 hook): 直接置 recording 态.
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cA", TempID: "t1"})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "t1"})
 	// Start 撞非 idle → 返当前 tempID, 不报错, 不重启.
-	id, err := s.Start(StartArgs{ContainerID: "cB"})
+	id, err := s.Start(StartArgs{TargetSlot: "other"})
 	if err != nil {
 		t.Fatalf("非 idle Start 应无错 (幂等 no-op), got %v", err)
 	}
 	if id != "t1" {
 		t.Fatalf("非 idle Start 应返当前 tempID t1, got %q", id)
 	}
-	if s.GetState().ContainerID != "cA" {
-		t.Fatalf("非 idle Start 不该改容器, got %q", s.GetState().ContainerID)
+	if s.GetState().TargetSlot != "editor" {
+		t.Fatalf("non-idle Start changed target slot, got %q", s.GetState().TargetSlot)
 	}
 }
 
 func TestService_GetStateAndEmit(t *testing.T) {
 	s, events := newTestService()
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cX", TempID: "tt"})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "tt"})
 	st := s.GetState()
-	if st.Phase != PhaseRecording || st.ContainerID != "cX" || st.TempID != "tt" {
+	if st.Phase != PhaseRecording || st.TargetSlot != "editor" || st.TempID != "tt" {
 		t.Fatalf("GetState 没反映 setState: %+v", st)
 	}
 	if len(*events) != 1 || (*events)[0] != "recording:state" {
@@ -245,7 +245,7 @@ func TestService_GetStateAndEmit(t *testing.T) {
 
 func TestService_PauseFromRecording(t *testing.T) {
 	s, _ := newTestService()
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cA", StartedAtMs: 1000})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", StartedAtMs: 1000})
 	if err := s.Pause(); err != nil {
 		t.Fatalf("Pause 应无错, got %v", err)
 	}
@@ -256,8 +256,8 @@ func TestService_PauseFromRecording(t *testing.T) {
 	if st.PausedAtMs <= 0 {
 		t.Fatalf("Pause 后应记 PausedAtMs, got %d", st.PausedAtMs)
 	}
-	if st.ContainerID != "cA" {
-		t.Fatalf("Pause 不该丢容器, got %q", st.ContainerID)
+	if st.TargetSlot != "editor" {
+		t.Fatalf("Pause lost target slot, got %q", st.TargetSlot)
 	}
 }
 
@@ -265,7 +265,7 @@ func TestService_ResumeAccumulatesPausedMs(t *testing.T) {
 	s, _ := newTestService()
 	// 造已暂停 500ms 的态 (PausedMs 之前已累计 1000).
 	s.setState(RecordingState{
-		Phase: PhasePaused, ContainerID: "cA",
+		Phase: PhasePaused, TargetSlot: "editor",
 		PausedMs: 1000, PausedAtMs: time.Now().UnixMilli() - 500,
 	})
 	if err := s.Resume(); err != nil {
@@ -293,7 +293,7 @@ func TestService_PauseResumeIdempotent(t *testing.T) {
 		t.Fatalf("idle Pause 应 no-op, phase = %q", s.GetState().Phase)
 	}
 	// recording 时 Resume → no-op.
-	s.setState(RecordingState{Phase: PhaseRecording, ContainerID: "cA"})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
 	if err := s.Resume(); err != nil {
 		t.Fatalf("recording Resume 应无错, got %v", err)
 	}
@@ -304,13 +304,13 @@ func TestService_PauseResumeIdempotent(t *testing.T) {
 
 func TestService_ValidateTarget_Guards(t *testing.T) {
 	s, _ := newTestService()
-	// 空 containerID → error.
+	// Empty target slot is rejected.
 	if err := s.ValidateTarget(""); err == nil {
-		t.Fatal("空 containerID 应返 error")
+		t.Fatal("empty target slot should return an error")
 	}
 	// containerGet 未注入 (newTestService 不注入) → error, 不 panic.
 	if err := s.ValidateTarget("cA"); err == nil {
-		t.Fatal("ContainerGetter 未注入应返 error")
+		t.Fatal("missing installed target resolver should return an error")
 	}
 }
 
@@ -318,7 +318,7 @@ func TestService_StopFromPaused_GuardOpens(t *testing.T) {
 	s, _ := newTestService()
 	// paused 态 Stop 守卫放开 (不必先 resume). recorder 非 active + containers nil → 内部 err,
 	// 但 defer 必收敛到 idle; 关键是没在守卫处提前 no-op 留在 paused.
-	s.setState(RecordingState{Phase: PhasePaused, ContainerID: "cA"})
+	s.setState(RecordingState{Phase: PhasePaused, TargetSlot: "editor"})
 	_, _ = s.Stop()
 	if got := s.GetState().Phase; got != PhaseIdle {
 		t.Fatalf("paused Stop 后 phase = %q, want idle (守卫应放行 paused → finalizing → idle)", got)

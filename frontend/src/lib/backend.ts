@@ -498,14 +498,13 @@ export const backend = {
       category: string,
       tags: string[],
     ) => invoke(AssetService.UpdateMeta, guid, name, description, category, tags),
-    // Capture 截当前容器的 Windows 窗口帧 (保留 containerID — 现阶段资产截帧仍需 Win32 窗口上下文).
-    capture: (containerID: string, nodeID = '') =>
-      invoke(AssetService.Capture, containerID, nodeID),
+    // Capture one exact installed automation target for local authoring.
+    capture: (targetSlot: string) => invoke(AssetService.Capture, targetSlot),
     // CurrentResolution 当前容器 Windows 窗口客户区分辨率 [宽,高]; 窗口没开/无容器上下文 → 静默返 undefined.
     // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
-    currentResolution: async (containerID: string): Promise<[number, number] | undefined> => {
+    currentResolution: async (targetSlot: string): Promise<[number, number] | undefined> => {
       try {
-        const r = await AssetService.CurrentResolution(containerID)
+        const r = await AssetService.CurrentResolution(targetSlot)
         return Array.isArray(r) && r.length === 2 ? [r[0], r[1]] : undefined
       } catch {
         return undefined
@@ -555,7 +554,7 @@ export const backend = {
     info: () => invoke(AppInfoService.Info),
   },
   recording: {
-    start: (args: { containerID: string }) => invoke(RecordingService.Start, args as any),
+    start: (args: { targetSlot: string }) => invoke(RecordingService.Start, args as any),
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
     cancel: () => invoke(RecordingService.Cancel),
@@ -569,7 +568,7 @@ export const backend = {
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
     pause: () => invoke(RecordingService.Pause),
     resume: () => invoke(RecordingService.Resume),
-    validateTarget: (containerID: string) => invoke(RecordingService.ValidateTarget, containerID),
+    validateTarget: (targetSlot: string) => invoke(RecordingService.ValidateTarget, targetSlot),
     getState: () => invoke(RecordingService.GetState),
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
@@ -583,11 +582,9 @@ export const backend = {
     delete_: (id: string) => invoke(ClipService.Delete, id),
   },
   tools: {
-    mousePos: (containerID: string, nodeID = '') =>
-      invoke(ToolsService.MousePos, containerID, nodeID),
-    pixelAt: (containerID: string, nodeID = '') =>
-      invoke(ToolsService.PixelAt, containerID, nodeID),
-    openMouseHUD: (containerID: string) => invoke(ToolsService.OpenMouseHUD, containerID),
+    mousePos: (targetSlot: string) => invoke(ToolsService.MousePos, targetSlot),
+    pixelAt: (targetSlot: string) => invoke(ToolsService.PixelAt, targetSlot),
+    openMouseHUD: (targetSlot: string) => invoke(ToolsService.OpenMouseHUD, targetSlot),
     openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
     closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
@@ -595,11 +592,10 @@ export const backend = {
     openScreenPicker: (
       mode: 'point' | 'rect' | 'template_save' | 'template_recapture' | 'color',
       id: string,
-      containerID = '',
-      nodeID = '',
+      targetSlot = '',
       colorSpace = '',
       guid = '',
-    ) => invoke(ToolsService.OpenScreenPicker, mode, id, containerID, nodeID, colorSpace, guid),
+    ) => invoke(ToolsService.OpenScreenPicker, mode, id, targetSlot, colorSpace, guid),
     extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
       invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),

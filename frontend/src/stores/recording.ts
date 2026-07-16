@@ -14,7 +14,7 @@ import { i18n } from '@/i18n'
 
 export interface RecordingState {
   phase: 'idle' | 'recording' | 'paused' | 'finalizing'
-  containerID: string
+  targetSlot: string
   tempID: string
   startedAtMs: number
   pausedMs: number // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
@@ -23,20 +23,20 @@ export interface RecordingState {
 
 export interface RecordingStopPayload {
   pendingID: string
-  containerID: string
+  targetSlot: string
   durationUs: number
   eventCount: number
 }
 
 export interface RecordingFinalizePayload {
   clipID: string
-  containerID: string
+  targetSlot: string
   label: string
 }
 
 const IDLE: RecordingState = {
   phase: 'idle',
-  containerID: '',
+  targetSlot: '',
   tempID: '',
   startedAtMs: 0,
   pausedMs: 0,
@@ -47,7 +47,7 @@ function normalize(st: any): RecordingState {
   const p = st?.phase
   return {
     phase: p === 'recording' || p === 'paused' || p === 'finalizing' ? p : 'idle',
-    containerID: st?.containerID ?? '',
+    targetSlot: st?.targetSlot ?? '',
     tempID: st?.tempID ?? '',
     startedAtMs: st?.startedAtMs ?? 0,
     pausedMs: st?.pausedMs ?? 0,
@@ -63,9 +63,9 @@ export const useRecordingStore = defineStore('recording', () => {
   // isRecording 严格 = phase==='recording' (暂停时 false); 判"录制会话进行中"用 isRecording||isPaused.
   const isRecording = computed(() => state.value.phase === 'recording')
   const isPaused = computed(() => state.value.phase === 'paused')
-  // 录制目标容器 (A2 删除守卫 / A3 离开确认 / A4 指示器 读它). idle 时为空 (paused 仍有目标).
-  const activeTargetContainerID = computed(() =>
-    state.value.phase === 'idle' ? '' : state.value.containerID,
+  // Exact installed target slot remains present while paused/finalizing.
+  const activeTargetSlot = computed(() =>
+    state.value.phase === 'idle' ? '' : state.value.targetSlot,
   )
 
   function applyState(st: any) {
@@ -89,12 +89,12 @@ export const useRecordingStore = defineStore('recording', () => {
     }
   }
 
-  async function start(containerID: string): Promise<void> {
+  async function start(targetSlot: string): Promise<void> {
     if (isRecording.value) return
-    if (!containerID)
-      throw new Error('recording.start: containerID ' + i18n.global.t('common.required'))
+    if (!targetSlot)
+      throw new Error('recording.start: targetSlot ' + i18n.global.t('common.required'))
     lastResult.value = null
-    await backend.recording.start({ containerID })
+    await backend.recording.start({ targetSlot })
     // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
     await reconcile()
   }
@@ -150,7 +150,7 @@ export const useRecordingStore = defineStore('recording', () => {
     lastResult,
     isRecording,
     isPaused,
-    activeTargetContainerID,
+    activeTargetSlot,
     applyState,
     reconcile,
     start,

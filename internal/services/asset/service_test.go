@@ -2,35 +2,40 @@ package asset
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"image"
 	"image/color"
 	"image/png"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
-// stubCaptureAdapter 测试用: Resolution 返预设值/错误; Capture 不被这些测试触及.
+// stubCaptureAdapter 测试用: ResolveWindow 返预设值/错误; Capture 不被这些测试触及.
 type stubCaptureAdapter struct {
 	res [2]int
 	err error
 }
 
-func (s stubCaptureAdapter) Capture(string, string) ([]byte, error) { return nil, nil }
-func (s stubCaptureAdapter) Resolution(string) ([2]int, error)      { return s.res, s.err }
-
-type recordingCaptureAdapter struct {
-	containerID string
-	nodeID      string
+func (s stubCaptureAdapter) CapturePNG(context.Context, string) ([]byte, error) { return nil, nil }
+func (s stubCaptureAdapter) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
+	return target.WindowHandle{ClientW: s.res[0], ClientH: s.res[1]}, s.err
 }
 
-func (r *recordingCaptureAdapter) Capture(containerID, nodeID string) ([]byte, error) {
-	r.containerID = containerID
-	r.nodeID = nodeID
+type recordingCaptureAdapter struct {
+	targetSlot string
+}
+
+func (r *recordingCaptureAdapter) CapturePNG(_ context.Context, targetSlot string) ([]byte, error) {
+	r.targetSlot = targetSlot
 	return []byte("png"), nil
 }
 
-func (r *recordingCaptureAdapter) Resolution(string) ([2]int, error) { return [2]int{}, nil }
+func (r *recordingCaptureAdapter) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
+	return target.WindowHandle{}, nil
+}
 
 func pngDataURL(t *testing.T, w, h int) string {
 	t.Helper()
@@ -121,20 +126,20 @@ func TestService_RenameDelete(t *testing.T) {
 	}
 }
 
-func TestService_CapturePassesNodeID(t *testing.T) {
+func TestService_CaptureUsesExactTargetSlot(t *testing.T) {
 	s, _ := newTestStore(t)
 	capture := &recordingCaptureAdapter{}
 	svc := NewService(s, capture)
 
-	dataURL, err := svc.Capture("container-1", "clickat_e1lpv6")
+	dataURL, err := svc.Capture("editor")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if dataURL != "data:image/png;base64,cG5n" {
 		t.Fatalf("Capture dataURL = %q, want png data URL", dataURL)
 	}
-	if capture.containerID != "container-1" || capture.nodeID != "clickat_e1lpv6" {
-		t.Fatalf("Capture args = (%q, %q), want (container-1, clickat_e1lpv6)", capture.containerID, capture.nodeID)
+	if capture.targetSlot != "editor" {
+		t.Fatalf("Capture target slot = %q, want editor", capture.targetSlot)
 	}
 }
 

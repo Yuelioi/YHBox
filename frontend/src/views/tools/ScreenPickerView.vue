@@ -444,8 +444,7 @@ const mode = computed(
 const colorSpace = computed(() => String(route.query.colorSpace ?? 'hsv') as 'hsv' | 'rgb')
 const extracting = ref(false)
 const requestID = computed(() => String(route.query.id ?? ''))
-const containerID = computed(() => String(route.query.containerID ?? ''))
-const nodeID = computed(() => String(route.query.nodeID ?? ''))
+const targetSlot = computed(() => String(route.query.targetSlot ?? ''))
 // template_recapture: 重拍目标资产 GUID (存成同 GUID 的新分辨率档).
 const recaptureGUID = computed(() => String(route.query.guid ?? ''))
 const pickerAccent = computed<'primary' | 'success' | 'warning'>(() => {
@@ -609,7 +608,7 @@ async function capture() {
   cursorNat.value = null
   cursorColor.value = null
   try {
-    const r = await backend.assets.capture(containerID.value, nodeID.value)
+    const r = await backend.assets.capture(targetSlot.value)
     if (r) dataURL.value = r as string
   } finally {
     capturing.value = false

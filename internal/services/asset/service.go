@@ -9,15 +9,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
 )
 
-// CaptureAdapter 截取指定容器目标窗口当前帧 PNG bytes. main.go 注入 (截帧仍需窗口上下文).
+// CaptureAdapter exposes trusted local authoring access to an installed target.
 type CaptureAdapter interface {
-	Capture(containerID, nodeID string) ([]byte, error)
-	// Resolution 返目标窗口客户区分辨率 [宽,高]; 窗口没开/容器无 Win32WindowTarget → error.
-	// 走 GetClientRect, 不截帧 — 与截图帧尺寸 (recRes) 同源, 故可拿来精确匹配变体档.
-	Resolution(containerID string) ([2]int, error)
+	CapturePNG(context.Context, string) ([]byte, error)
+	ResolveWindow(context.Context, string) (target.WindowHandle, error)
 }
 
 type AssetVariantSummary struct {
@@ -39,7 +38,7 @@ type AssetSummary struct {
 	CreatedAt    string                `json:"createdAt,omitempty"`
 }
 
-// Service 全局资产 Wails RPC. 无 containerID (资产全局), guid 寻址.
+// Service owns global asset metadata and installed-target authoring capture.
 type Service struct {
 	store   *Store
 	capture CaptureAdapter
@@ -181,25 +180,31 @@ func (s *Service) Delete(guid string) error {
 	return nil
 }
 
-// Capture 截取指定容器目标窗口当前帧 (制作模板时取底图). 保留 containerID — 截帧需窗口上下文.
-func (s *Service) Capture(containerID, nodeID string) (string, error) {
+// Capture captures the exact installed target selected by targetSlot.
+func (s *Service) Capture(targetSlot string) (string, error) {
 	if s.capture == nil {
 		return "", fmt.Errorf("capture adapter 未注入")
 	}
-	pngData, err := s.capture.Capture(containerID, nodeID)
+	pngData, err := s.capture.CapturePNG(context.Background(), targetSlot)
 	if err != nil {
 		return "", err
 	}
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
 }
 
-// CurrentResolution 返当前容器目标窗口客户区分辨率 [宽,高]. 详情页据此推荐绑定的素材档位
-// + 显示当前分辨率 + 决定"重拍/新增". 窗口没开/无容器上下文 → error (FE 静默降级, 不弹 toast).
-func (s *Service) CurrentResolution(containerID string) ([2]int, error) {
+// CurrentResolution resolves the installed target's current client size.
+func (s *Service) CurrentResolution(targetSlot string) ([2]int, error) {
 	if s.capture == nil {
 		return [2]int{}, fmt.Errorf("capture adapter 未注入")
 	}
-	return s.capture.Resolution(containerID)
+	window, err := s.capture.ResolveWindow(context.Background(), targetSlot)
+	if err != nil {
+		return [2]int{}, err
+	}
+	if window.ClientW <= 0 || window.ClientH <= 0 {
+		return [2]int{}, fmt.Errorf("automation target %q has invalid client size %dx%d", targetSlot, window.ClientW, window.ClientH)
+	}
+	return [2]int{window.ClientW, window.ClientH}, nil
 }
 
 // VariantPick 给详情页: 当前分辨率下推荐绑定的档位在 record.Variants[] 里的下标 + 是否精确命中当前分辨率.

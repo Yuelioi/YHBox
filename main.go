@@ -140,6 +140,10 @@ func main() {
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("installed automation target init")
 	}
+	authoringTargets, err := automationinstalled.NewAuthoringTargets(automationInstallations)
+	if err != nil {
+		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("installed authoring target projection")
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		rootLog.Fatal().Err(err).Str("tag", "STARTUP").Msg("resolve script worker location")
@@ -227,7 +231,6 @@ func main() {
 	// 暴露 HotkeyService RPC 给前端
 	hotkeySvc := hotkey.NewHotkeyService(hotkeyRegistry)
 	// 「重置默认」用的内置热键出厂默认 (跟 services.defaultSettings 一致, 也是下方各 Register 的 fallback)。
-	// 容器热键是用户数据, 不在内 — 容器侧另给「一键清空」。
 	hotkeySvc.SetSystemDefaults(map[string]string{
 		"system.execution-stop":   "Ctrl+Shift+F9",
 		"system.calibrate-toggle": "F8",
@@ -272,8 +275,9 @@ func main() {
 	}
 	gcAnonymousSubgraphs()
 	container.ConfigurePostDelete(containerSvc, gcAnonymousSubgraphs)
-	// 资产 RPC 服务 (全局, 无 containerID). 截模板按 containerID 经 containerSvc 解析目标窗口.
-	assetSvc := asset.NewService(assetStore, &templateCaptureAdapter{containers: containerSvc})
+	// Asset authoring captures exact installed targets; no Workflow or Container
+	// document can inject a native window selector.
+	assetSvc := asset.NewService(assetStore, authoringTargets)
 	nodeoptions.RegisterSubgraphAsyncSource(nodeSvc, sgSvc)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
@@ -330,12 +334,12 @@ func main() {
 	)
 
 	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
-	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry)
+	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry, authoringTargets)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
 	toolsPresenter := &wailsToolsPresenter{}
-	toolsSvc := tools.NewService(containerSvc, toolsPresenter)
+	toolsSvc := tools.NewService(authoringTargets, toolsPresenter)
 	// 校准 HUD 窗关闭兜底: 卸 F8 钩 + 停 session (ESC/Alt+F4/崩溃都覆盖, 不依赖前端正常关)。
 	tools.ConfigureCalibratorCloseHandler(toolsSvc, func() {
 		calibrationSvc.StopHotkeyWatch()
@@ -482,9 +486,6 @@ func main() {
 	container.ConfigureSubgraphEmitter(sgSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 	// recording: emit 'recording:completed' 给前端 (Stop / F12 停录后落 Subgraph 走这条)
 	recording.ConfigureEmitter(recordingSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
-	// Start 时按 containerID 拉 container, 取 Win32WindowTarget 节点解析 hwnd
-	recording.ConfigureContainerGetter(recordingSvc, containerStore)
-
 	// inputclip: emit 'clip:changed' 给前端 (Save/Delete/Update 触发列表刷新)
 	inputclip.ConfigureEmitter(clipSvc, func(name string, data any) { wailsApp.Event.Emit(name, data) })
 

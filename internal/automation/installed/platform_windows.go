@@ -10,6 +10,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/target"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
@@ -44,6 +45,27 @@ func newPlatformDriver(profile Profile) (driver, error) {
 	gate := make(chan struct{}, 1)
 	gate <- struct{}{}
 	return &windowsDriver{profile: profile, backend: backend, capture: captureBackend, gate: gate}, nil
+}
+
+func (d *windowsDriver) ResolveWindow(ctx context.Context) (target.WindowHandle, error) {
+	select {
+	case <-ctx.Done():
+		return target.WindowHandle{}, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed {
+		return target.WindowHandle{}, failure(CodeContractViolation, errors.New("automation target driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return target.WindowHandle{}, err
+	}
+	return target.WindowHandle{
+		HWND: window.HWND, Title: window.Title, Class: window.Class,
+		ProcessName: window.ProcessName, PID: window.PID,
+		ClientW: window.ClientW, ClientH: window.ClientH,
+	}, nil
 }
 
 func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {

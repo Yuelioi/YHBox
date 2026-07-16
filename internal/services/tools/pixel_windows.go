@@ -9,13 +9,12 @@ import (
 
 // win32PixelAt 截当前帧，读光标位置的像素颜色。前端"取色"按钮按一次调一次。
 // 太频繁会拖性能（每次都 capture）。
-// nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
-func (s *Service) win32PixelAt(containerID, nodeID string) (PixelInfo, error) {
+func (s *Service) win32PixelAt(targetSlot string) (PixelInfo, error) {
 	sx, sy, err := readCursor()
 	if err != nil {
 		return PixelInfo{}, err
 	}
-	wh, hasGame := s.gameWindowFor(containerID, nodeID)
+	wh, hasGame := s.gameWindowFor(targetSlot)
 	if !hasGame {
 		return PixelInfo{}, fmt.Errorf("游戏窗口未就绪")
 	}
@@ -27,7 +26,11 @@ func (s *Service) win32PixelAt(containerID, nodeID string) (PixelInfo, error) {
 	if cx < 0 || cy < 0 || cx >= cw || cy >= ch {
 		return PixelInfo{OK: false, ClientX: cx, ClientY: cy}, nil
 	}
-	backend, _, err := capture.NewIBackend(s.resolver.CaptureBackendFor(containerID))
+	backendName, err := s.resolver.CaptureBackend(targetSlot)
+	if err != nil {
+		return PixelInfo{}, err
+	}
+	backend, _, err := capture.NewIBackend(backendName)
 	if err != nil {
 		return PixelInfo{}, fmt.Errorf("capture backend: %w", err)
 	}

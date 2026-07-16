@@ -12,12 +12,11 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/target"
 )
 
-// WindowResolver 由 main.go 注入 (concrete *container.Service)，按 containerID 解析目标窗口。
-// 本包不 import container 包以保持解耦。
-type WindowResolver interface {
-	ResolveWindowForNode(containerID, nodeID string) (target.WindowHandle, error)
-	ResolveEditorTargetForNode(containerID, nodeID string) (target.Target, error)
-	CaptureBackendFor(containerID string) string
+// TargetResolver provides trusted local tooling access to installed targets.
+type TargetResolver interface {
+	ResolveWindow(context.Context, string) (target.WindowHandle, error)
+	ResolveTarget(context.Context, string) (target.Target, error)
+	CaptureBackend(string) (string, error)
 }
 
 // cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。
@@ -29,11 +28,11 @@ type cachedWindow struct {
 
 // Service is the tools RPC entry point.
 type Service struct {
-	resolver  WindowResolver
+	resolver  TargetResolver
 	presenter Presenter
 
 	mu              sync.Mutex
-	winCache        map[string]cachedWindow // containerID → 解析结果 (2s TTL)
+	winCache        map[string]cachedWindow // target slot → resolved window (2s TTL)
 	hud             windowSlot
 	recordingHUD    windowSlot
 	calibratorHUD   windowSlot
@@ -54,7 +53,7 @@ type Service struct {
 	shutdownErr   error
 }
 
-func NewService(resolver WindowResolver, presenter Presenter) *Service {
+func NewService(resolver TargetResolver, presenter Presenter) *Service {
 	s := &Service{
 		resolver:      resolver,
 		presenter:     presenter,
@@ -69,10 +68,9 @@ func NewService(resolver WindowResolver, presenter Presenter) *Service {
 	return s
 }
 
-// gameWindowFor 按 containerID + nodeID 解析目标窗口，带 2s 缓存 (MousePos 高频 poll 不能每帧 EnumWindows)。
-// nodeID 为空时回落容器主 Win32WindowTarget。
-func (s *Service) gameWindowFor(containerID, nodeID string) (target.WindowHandle, bool) {
-	cacheKey := containerID + "|" + nodeID
+// gameWindowFor resolves an installed target with a short polling cache.
+func (s *Service) gameWindowFor(targetSlot string) (target.WindowHandle, bool) {
+	cacheKey := targetSlot
 	s.mu.Lock()
 	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
 		wh := c.wh
@@ -82,7 +80,7 @@ func (s *Service) gameWindowFor(containerID, nodeID string) (target.WindowHandle
 	s.mu.Unlock()
 
 	// 锁外调阻塞解析 (winutil.ResolveWindow 窗口没开时最长等 3s), 不持锁, 不卡其它 RPC.
-	wh, err := s.resolver.ResolveWindowForNode(containerID, nodeID)
+	wh, err := s.resolver.ResolveWindow(context.Background(), targetSlot)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -193,15 +191,14 @@ func (s *Service) shutdown() {
 	close(s.shutdownDone)
 }
 
-// MousePos 当前鼠标在 containerID 目标窗口客户区 + 屏幕的位置。HUD 高频 poll。
-// nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 解析窗口）；无节点上下文传 ""。
-func (s *Service) MousePos(containerID, nodeID string) (MousePosInfo, error) {
+// MousePos returns cursor coordinates for one exact installed target slot.
+func (s *Service) MousePos(targetSlot string) (MousePosInfo, error) {
 	sx, sy, err := readCursor()
 	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
 	if err != nil {
 		return info, err
 	}
-	wh, hasGame := s.gameWindowFor(containerID, nodeID)
+	wh, hasGame := s.gameWindowFor(targetSlot)
 	if !hasGame {
 		return info, nil
 	}
@@ -225,15 +222,15 @@ func (s *Service) MousePos(containerID, nodeID string) (MousePosInfo, error) {
 	return info, nil
 }
 
-// OpenMouseHUD 打开鼠标位置 HUD 小窗口 (按 containerID 解析目标窗口)。已开则 focus。
-func (s *Service) OpenMouseHUD(containerID string) error {
+// OpenMouseHUD opens the cursor HUD for one installed target slot.
+func (s *Service) OpenMouseHUD(targetSlot string) error {
 	presenter := s.windowPresenter()
 	if presenter == nil {
 		return apperr.New(apperr.CodeWailsNotReady, nil)
 	}
 	w, opened, err := s.openWindow(presenter, &s.hud, WindowRequest{
-		Kind:        WindowMouseHUD,
-		ContainerID: containerID,
+		Kind:       WindowMouseHUD,
+		TargetSlot: targetSlot,
 	}, nil)
 	if err != nil {
 		return err
@@ -402,34 +399,26 @@ func (s *Service) CloseRecordingHUD() {
 
 // OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" | "template_recapture" | "color"。
 // requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
-// 带上 id 给调用方匹配。containerID 仅 template_save / template_recapture 模式需要（空字符串则保存失败）。
-// nodeID 指定当前编辑节点（按最近上游 Win32WindowTarget 截图）；无节点上下文传 ""。
+// 带上 id 给调用方匹配。targetSlot 选择精确的已安装自动化目标。
 // colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
 // guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
-func (s *Service) OpenScreenPicker(mode, requestID, containerID, nodeID, colorSpace, guid string) error {
+func (s *Service) OpenScreenPicker(mode, requestID, targetSlot, colorSpace, guid string) error {
 	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "template_recapture" && mode != "color" {
 		return fmt.Errorf("unsupported mode %q", mode)
 	}
 	if requestID == "" {
 		return fmt.Errorf("requestID 不能为空")
 	}
-	tg := target.Target{Kind: target.KindWin32Window}
-	if s.resolver != nil {
-		resolved, err := s.resolver.ResolveEditorTargetForNode(containerID, nodeID)
-		if err != nil {
-			return err
-		}
-		if resolved.Kind != "" {
-			tg = resolved
-		}
+	if s.resolver == nil {
+		return errors.New("installed target resolver is unavailable")
+	}
+	tg, err := s.resolver.ResolveTarget(context.Background(), targetSlot)
+	if err != nil {
+		return err
 	}
 	return s.targetTools.OpenPicker(tg, PickerRequest{
-		Mode:        mode,
-		RequestID:   requestID,
-		ContainerID: containerID,
-		NodeID:      nodeID,
-		ColorSpace:  colorSpace,
-		GUID:        guid,
+		Mode: mode, RequestID: requestID, TargetSlot: targetSlot,
+		ColorSpace: colorSpace, GUID: guid,
 	})
 }
 

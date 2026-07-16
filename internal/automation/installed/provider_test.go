@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
@@ -16,6 +17,11 @@ type fakeDriver struct {
 	err       error
 	closed    int
 	capture   []byte
+	window    target.WindowHandle
+}
+
+func (driver *fakeDriver) ResolveWindow(context.Context) (target.WindowHandle, error) {
+	return driver.window, driver.err
 }
 
 func (driver *fakeDriver) Execute(_ context.Context, operation string, request any) error {

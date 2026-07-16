@@ -83,7 +83,7 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 
 	switch request.Kind {
 	case tools.WindowMouseHUD:
-		query.Set("containerID", request.ContainerID)
+		query.Set("targetSlot", request.TargetSlot)
 		return application.WebviewWindowOptions{
 			Title: "鼠标位置", Width: 340, Height: 300, MinWidth: 300, MinHeight: 240,
 			URL: withQuery("/#/tools/mouse-hud"), Frameless: true, AlwaysOnTop: true,
@@ -111,8 +111,7 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 	case tools.WindowScreenPicker:
 		query.Set("mode", request.Mode)
 		query.Set("id", request.RequestID)
-		query.Set("containerID", request.ContainerID)
-		query.Set("nodeID", request.NodeID)
+		query.Set("targetSlot", request.TargetSlot)
 		query.Set("colorSpace", request.ColorSpace)
 		query.Set("guid", request.GUID)
 		return application.WebviewWindowOptions{

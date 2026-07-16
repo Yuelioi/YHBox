@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
 // recordStore 是后端状态机的纯镜像. 验: applyState 镜像 / isRecording 派生 /
-// activeTargetContainerID 派生 / reconcile 走 getState 对账.
+// activeTargetSlot 派生 / reconcile 走 getState 对账.
 // vi.hoisted: vi.mock 工厂被提升到文件顶, 引用的 mock 必须也提升, 否则 ReferenceError.
 const { getStateMock } = vi.hoisted(() => ({
   getStateMock: vi.fn(async () => ({
     phase: 'recording',
-    containerID: 'cReconciled',
+    targetSlot: 'editor',
     tempID: 't1',
     startedAtMs: 123,
   })),
@@ -36,48 +36,48 @@ import { useRecordingStore } from './recording'
 describe('recordStore — 后端状态机镜像', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('applyState(recording) → isRecording 派生 true, activeTargetContainerID 派生容器', () => {
+  it('applyState(recording) mirrors the exact installed target slot', () => {
     const s = useRecordingStore()
     expect(s.isRecording).toBe(false) // 初始 idle
-    expect(s.activeTargetContainerID).toBe('')
+    expect(s.activeTargetSlot).toBe('')
 
     s.applyState({
       phase: 'recording',
-      containerID: 'cA',
+      targetSlot: 'editor',
       tempID: 'x',
       startedAtMs: 1,
     })
     expect(s.isRecording).toBe(true)
-    expect(s.activeTargetContainerID).toBe('cA')
+    expect(s.activeTargetSlot).toBe('editor')
   })
 
   it('applyState(idle) → isRecording false, target 清空 (镜像收敛)', () => {
     const s = useRecordingStore()
-    s.applyState({ phase: 'recording', containerID: 'cA' })
+    s.applyState({ phase: 'recording', targetSlot: 'editor' })
     s.applyState({ phase: 'idle' })
     expect(s.isRecording).toBe(false)
-    expect(s.activeTargetContainerID).toBe('')
+    expect(s.activeTargetSlot).toBe('')
   })
 
   it('finalizing 阶段不算 recording, 但 target 仍可见 (收尾期)', () => {
     const s = useRecordingStore()
-    s.applyState({ phase: 'finalizing', containerID: 'cA' })
+    s.applyState({ phase: 'finalizing', targetSlot: 'editor' })
     expect(s.isRecording).toBe(false)
-    expect(s.activeTargetContainerID).toBe('cA')
+    expect(s.activeTargetSlot).toBe('editor')
   })
 
   it('applyState(paused) → isPaused 派生 true, isRecording false, target 仍可见', () => {
     const s = useRecordingStore()
     s.applyState({
       phase: 'paused',
-      containerID: 'cA',
+      targetSlot: 'editor',
       startedAtMs: 1,
       pausedMs: 500,
       pausedAtMs: 2000,
     })
     expect(s.isPaused).toBe(true)
     expect(s.isRecording).toBe(false) // 暂停时严格 false (会话进行中判 isRecording||isPaused)
-    expect(s.activeTargetContainerID).toBe('cA')
+    expect(s.activeTargetSlot).toBe('editor')
     expect(s.state.pausedMs).toBe(500)
     expect(s.state.pausedAtMs).toBe(2000)
   })
@@ -85,13 +85,13 @@ describe('recordStore — 后端状态机镜像', () => {
   it('pause() 仅 recording 态调后端 RPC; resume() 仅 paused 态调', async () => {
     const s = useRecordingStore()
     // recording → pause 调 RPC; resume 此时 no-op (非 paused).
-    s.applyState({ phase: 'recording', containerID: 'cA' })
+    s.applyState({ phase: 'recording', targetSlot: 'editor' })
     await s.resume()
     expect(resumeMock).not.toHaveBeenCalled()
     await s.pause()
     expect(pauseMock).toHaveBeenCalledTimes(1)
     // paused → resume 调 RPC; pause no-op.
-    s.applyState({ phase: 'paused', containerID: 'cA' })
+    s.applyState({ phase: 'paused', targetSlot: 'editor' })
     await s.pause()
     expect(pauseMock).toHaveBeenCalledTimes(1) // 没再调
     await s.resume()
@@ -104,6 +104,6 @@ describe('recordStore — 后端状态机镜像', () => {
     await s.reconcile()
     expect(getStateMock).toHaveBeenCalled()
     expect(s.isRecording).toBe(true)
-    expect(s.activeTargetContainerID).toBe('cReconciled')
+    expect(s.activeTargetSlot).toBe('editor')
   })
 })
