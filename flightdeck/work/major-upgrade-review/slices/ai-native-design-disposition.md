@@ -21,7 +21,14 @@ ai-native-design.md 的完成定义中，哪些 outcome 已被当前 3.1 代码�
 
 ## Verification
 
-ai-native-design.md 当前是 231 行、已提交且工作树未修改的设计 artifact；包含产品判断、provider/model/prompt、AI nodes、authoring、MCP、trace/eval、agent instructions 与十项完成定义。现有 registry 已明确 ai-generic-fallback-removal completed，但尚未对其余完成定义做逐项证据处置。
+- `ab1f4cf4` 建立 OpenAI Responses / Anthropic Messages 原生 adapter、完整 Outcome/usage/request identity 与 strict JSON Schema；`99c3f5ff` 删除 generic Chat 与 prompt JSON fallback。
+- `4b630f70` 建立 slot-bound Generate/Extract 节点；`7e9fb87c` 建立 content-addressed ModelProfile、installation snapshot、OS credential binding 与 workflow consent。
+- `b4aa17aa` 建立 UI/MCP 共用 typed patch、strict Compiler、catalog search/describe、schema-validated structuredContent；desktop composition 不注册 MCP listener。
+- 当前 `internal/nodes31runtime/ai.go` 将节点 config 的任意 `instructions` 直接映射为 OpenAI `instructions` / Anthropic `system`，因此 dynamic/untrusted data 不进入高权限 block 尚未满足。
+- ModelProfile 和 strict Schema 已可 hash；仓库没有 PromptManifest、ToolManifest/ToolSet、Agent node/runtime、eval runner/gate 或 AI authoring loop。EvaluationSuite 目前只是 profile metadata。
+- Run AdapterAction 已记录 provider/request/usage 摘要，EditorSession 已显示 compiler diagnostics，MCP preview 已返回 capability plan；但没有 prompt/tool/schema lineage、AI patch diff/permission delta 审阅或完整脱敏 AI trace。
+- tracked `AGENTS.md` 已满足 contributor agent canonical contract；设计中的固定 `internal/ai/*` 目录拓扑只是实现草图，不应为目录对齐机械拆包。
+- 完整处置矩阵位于 `work/major-upgrade-review/research/ai-native-disposition-2026-07-17.md`。
 
 ## Out of scope
 
@@ -31,4 +38,4 @@ ai-native-design.md 当前是 231 行、已提交且工作树未修改的设计 
 
 ## Result
 
-Current。质量门禁已恢复，下一步读取 ai-native-design.md 并逐项建立代码、测试与 commit 证据矩阵。
+证据审计完成，等待独立提交与 handoff。九条完成定义中 1、2、7 已 completed；3、4、8 remaining；5 的 strict Extract completed、Agent remaining；6 的 shared typed substrate completed、AI authoring client remaining；9 的基础 diagnostics/usage trace completed、change review 与完整 provenance remaining。Session resource 按原设计保留为需求驱动的 post-3.1 选项，固定包目录布局按 obsolete implementation sketch 处置。

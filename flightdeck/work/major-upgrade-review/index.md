@@ -12,7 +12,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 
 ## Next
 
-逐项对照 ai-native-design.md 与当前 3.1 代码、测试和提交，把完成定义处置为 completed、remaining 或 obsolete；仅为 destination 不变且可精确验证的 remaining outcome 创建 sibling Slice。
+落账 AI-native disposition 证据矩阵与四个精确 remaining Slices，完成独立审计提交后把当前 Slice 交接给 prompt/tool provenance boundary。
 
 ## Read now
 
@@ -37,6 +37,7 @@ summary: Implement and validate the AI-native destructive Yotta 3.1 architecture
 - 27e01b17 以 3.1 contract/evaluator/scheduler/service/authoring、Windows adapter/input/recording、Wails composition 和 vision 算法回归恢复 Go quality gate；预算脚本 global 65.2%、根包 34.7%，所有 package floors 通过。
 - c8d8b540 同工具链隔离基线为 65.3%，证明 65% 门槛有效；59.6% 漂移来自后续 destructive migration 替换高覆盖旧栈时未持续补齐新路径测试。
 - unsafe.Pointer callback state 改为 CGO-independent token registry，WindowHandle 改为同构类型转换；全仓 tests、go vet、staticcheck、CGO_ENABLED=0 定向 compile 与 task check 均通过。
+- AI-native 审计确认 provider-native adapters、slot/profile、OS credential、strict Extract、typed MCP 已完成；Prompt/Tool provenance、trusted instruction boundary、Agent budget、eval gate 和 AI change review/trace 是真实剩余 outcome。
 
 ## Open questions
 
