@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -46,7 +47,7 @@ func TestWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.T) {
 	store := newFakeSecretStore()
 	secrets := NewAISecrets(store)
 	_, _, err := app.MutateSettings(func(settings *Settings) error {
-		settings.AI.Profiles = []AIModelSettings{modelSettingsForTest("primary", "Primary")}
+		settings.AI.Profiles = []AIModelSettings{evaluatedModelSettingsForTest(t, "primary", "Primary")}
 		return nil
 	})
 	if err != nil {
@@ -63,5 +64,66 @@ func TestWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.T) {
 	}
 	if app.Settings().AI.Profiles[0].WorkflowConsent != "" {
 		t.Fatal("semantic profile edit retained prior workflow consent")
+	}
+}
+
+func TestProfileEditDowngradesStaleEvaluationAndConsent(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	configured := evaluatedModelSettingsForTest(t, "primary", "Primary")
+	profile, err := ai.SealModelProfile(configured.profileDraft())
+	if err != nil {
+		t.Fatal(err)
+	}
+	configured.WorkflowConsent, err = ai.WorkflowConsentDigest(configured.Slot, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = app.MutateSettings(func(settings *Settings) error {
+		settings.AI.Profiles = []AIModelSettings{configured}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := configured
+	changed.Model = "changed-model"
+	patch, err := json.Marshal(map[string]any{"ai": map[string]any{"profiles": []AIModelSettings{changed}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := NewSettingsService(app, NewAISecrets(newFakeSecretStore())).Update(string(patch)); err != nil {
+		t.Fatal(err)
+	}
+	current := app.Settings().AI.Profiles[0]
+	if current.Evaluation != ai.EvaluationUnverified || current.EvaluationSuite != "" || !current.EvaluationReport.Empty() || current.WorkflowConsent != "" {
+		t.Fatalf("stale evaluation was not revoked: %#v", current)
+	}
+}
+
+func TestApplyAndRevokeEvaluationUsesExactCurrentArtifacts(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	configured := modelSettingsForTest("primary", "Primary")
+	_, _, err := app.MutateSettings(func(settings *Settings) error {
+		settings.AI.Profiles = []AIModelSettings{configured}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evaluated := evaluatedModelSettingsForTest(t, "primary", "Primary")
+	service := NewAIService(app, NewAISecrets(newFakeSecretStore()))
+	if err := service.ApplyEvaluation("primary", evaluated.EvaluationReport); err != nil {
+		t.Fatal(err)
+	}
+	current := app.Settings().AI.Profiles[0]
+	if current.Evaluation != ai.EvaluationApproved || current.EvaluationSuite == "" || current.EvaluationReport.Empty() {
+		t.Fatalf("evaluation was not applied: %#v", current)
+	}
+	if err := service.RevokeEvaluation("primary"); err != nil {
+		t.Fatal(err)
+	}
+	current = app.Settings().AI.Profiles[0]
+	if current.Evaluation != ai.EvaluationUnverified || current.EvaluationSuite != "" || !current.EvaluationReport.Empty() {
+		t.Fatalf("evaluation was not revoked: %#v", current)
 	}
 }

@@ -435,6 +435,8 @@ watch(
     draft.value = profiles.value.map((profile) => ({
       ...profile,
       capabilities: { ...profile.capabilities },
+      pricing: { ...profile.pricing },
+      evaluationReport: profile.evaluationReport ? { ...profile.evaluationReport } : undefined,
       apiKey: '',
       persisted: true,
     }))
@@ -550,6 +552,7 @@ function profileMetadata(profile: AIModelProfileDraft): AIModelProfile {
     pricing: { ...profile.pricing },
     evaluation: profile.evaluation,
     ...(profile.evaluationSuite ? { evaluationSuite: profile.evaluationSuite } : {}),
+    ...(profile.evaluationReport ? { evaluationReport: { ...profile.evaluationReport } } : {}),
     ...(profile.workflowConsent ? { workflowConsent: profile.workflowConsent } : {}),
   }
 }

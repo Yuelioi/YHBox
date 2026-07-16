@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 89,
-    "models": 100
+    "methods": 91,
+    "models": 101
   },
   "services": [
     {
@@ -108,6 +108,23 @@
       "module": "internal/services/aiservice",
       "methods": [
         {
+          "name": "ApplyEvaluation",
+          "bindingId": "1091990694",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "evidence",
+              "optional": false,
+              "type": "ai$0.EvalReportArtifact"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "DeleteAPIKey",
           "bindingId": "3519466312",
           "parameters": [
@@ -130,6 +147,18 @@
             }
           ],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "RevokeEvaluation",
+          "bindingId": "2685067172",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
         },
         {
           "name": "RevokeWorkflowUse",
@@ -1135,6 +1164,22 @@
       "module": "internal/ai/models",
       "declarations": [
         {
+          "kind": "class",
+          "name": "EvalReportArtifact",
+          "fields": [
+            {
+              "name": "\"digest\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"report\"",
+              "optional": true,
+              "type": "json$0.RawMessage"
+            }
+          ]
+        },
+        {
           "kind": "enum",
           "name": "EvaluationStatus",
           "members": [
@@ -2131,6 +2176,11 @@
               "name": "\"evaluationSuite\"",
               "optional": true,
               "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"evaluationReport\"",
+              "optional": true,
+              "type": "ai$0.EvalReportArtifact"
             },
             {
               "name": "\"workflowConsent\"",

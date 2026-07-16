@@ -42,6 +42,7 @@ type ModelProfileDraft struct {
 	Pricing          TokenPricing        `json:"pricing"`
 	Evaluation       EvaluationStatus    `json:"evaluation"`
 	EvaluationSuite  artifact.Digest     `json:"evaluationSuite,omitempty"`
+	EvaluationReport artifact.Digest     `json:"evaluationReport,omitempty"`
 	ProviderMetadata json.RawMessage     `json:"providerMetadata"`
 }
 
@@ -70,12 +71,12 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 	}
 	switch draft.Evaluation {
 	case EvaluationUnverified:
-		if draft.EvaluationSuite != "" {
-			return ModelProfile{}, errors.New("unverified AI profile cannot claim an evaluation suite")
+		if draft.EvaluationSuite != "" || draft.EvaluationReport != "" {
+			return ModelProfile{}, errors.New("unverified AI profile cannot claim evaluation evidence")
 		}
 	case EvaluationApproved, EvaluationRejected:
-		if !draft.EvaluationSuite.Valid() {
-			return ModelProfile{}, errors.New("evaluated AI profile requires a suite digest")
+		if !draft.EvaluationSuite.Valid() || !draft.EvaluationReport.Valid() {
+			return ModelProfile{}, errors.New("evaluated AI profile requires suite and report digests")
 		}
 	default:
 		return ModelProfile{}, errors.New("invalid AI model evaluation status")

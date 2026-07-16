@@ -87,6 +87,10 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build Catalog 3.1: %w", err)
 	}
+	config.AIInstallations, err = config.AIInstallations.ForEvaluationArtifacts(builtins.AIEvaluationArtifacts())
+	if err != nil {
+		return nil, err
+	}
 	authoringProjection, err := nodeauthoring.Project(nodeauthoring.Input{
 		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
 		Contracts: builtins.Contracts, GeneratorVersion: nodes31.GeneratorVersion,

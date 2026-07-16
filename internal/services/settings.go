@@ -156,28 +156,29 @@ func (settings NetworkSettings) InstallationDrafts() []httpegress.InstallationDr
 // AISecrets; model calls bind this logical slot through the trusted Host
 // Profile frozen at application startup.
 type AIModelSettings struct {
-	Slot            string                 `json:"slot"`
-	Label           string                 `json:"label"`
-	Provider        ai.ProviderKind        `json:"provider"`
-	Model           string                 `json:"model"`
-	MaxOutputTokens int64                  `json:"maxOutputTokens"`
-	Capabilities    ai.ProfileCapabilities `json:"capabilities"`
-	Pricing         ai.TokenPricing        `json:"pricing"`
-	Evaluation      ai.EvaluationStatus    `json:"evaluation"`
-	EvaluationSuite artifact.Digest        `json:"evaluationSuite,omitempty"`
-	WorkflowConsent artifact.Digest        `json:"workflowConsent,omitempty"`
+	Slot             string                 `json:"slot"`
+	Label            string                 `json:"label"`
+	Provider         ai.ProviderKind        `json:"provider"`
+	Model            string                 `json:"model"`
+	MaxOutputTokens  int64                  `json:"maxOutputTokens"`
+	Capabilities     ai.ProfileCapabilities `json:"capabilities"`
+	Pricing          ai.TokenPricing        `json:"pricing"`
+	Evaluation       ai.EvaluationStatus    `json:"evaluation"`
+	EvaluationSuite  artifact.Digest        `json:"evaluationSuite,omitempty"`
+	EvaluationReport ai.EvalReportArtifact  `json:"evaluationReport,omitempty"`
+	WorkflowConsent  artifact.Digest        `json:"workflowConsent,omitempty"`
 }
 
 func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
 	return ai.ModelProfileDraft{
 		Provider: p.Provider, Model: p.Model, Capabilities: p.Capabilities,
-		MaxOutputTokens: p.MaxOutputTokens, Pricing: p.Pricing, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite,
+		MaxOutputTokens: p.MaxOutputTokens, Pricing: p.Pricing, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite, EvaluationReport: p.EvaluationReport.Digest,
 		ProviderMetadata: json.RawMessage(`{}`),
 	}
 }
 
 func (p AIModelSettings) installationDraft() ai.InstallationDraft {
-	return ai.InstallationDraft{Slot: p.Slot, Profile: p.profileDraft(), Consent: p.WorkflowConsent}
+	return ai.InstallationDraft{Slot: p.Slot, Profile: p.profileDraft(), Evaluation: p.EvaluationReport, Consent: p.WorkflowConsent}
 }
 
 func (s AISettings) InstallationDrafts() []ai.InstallationDraft {
@@ -508,7 +509,14 @@ func (settings *AISettings) validate() error {
 		if err != nil {
 			return fmt.Errorf("ai.profiles[%s]: %w", configured.Slot, err)
 		}
+		evaluationErr := ai.ValidateEvaluation(profile, configured.EvaluationReport)
+		if evaluationErr != nil && !errors.Is(evaluationErr, ai.ErrEvaluationNotApproved) {
+			return fmt.Errorf("ai.profiles[%s]: %w", configured.Slot, evaluationErr)
+		}
 		if configured.WorkflowConsent != "" {
+			if evaluationErr != nil {
+				return fmt.Errorf("ai.profiles[%s] workflow consent requires an approved evaluation", configured.Slot)
+			}
 			expected, err := ai.WorkflowConsentDigest(configured.Slot, profile)
 			if err != nil || configured.WorkflowConsent != expected {
 				return fmt.Errorf("ai.profiles[%s] has stale workflow consent", configured.Slot)

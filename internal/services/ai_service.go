@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/ai"
+	"github.com/yottaapp/yotta/internal/nodes31"
 	"github.com/yottaapp/yotta/internal/runid"
 )
 
@@ -128,6 +129,17 @@ func (s *AIService) GrantWorkflowUse(slot string) (string, error) {
 		if profile == nil {
 			return fmt.Errorf("AI profile slot %q is not configured", slot)
 		}
+		sealed, sealErr := ai.SealModelProfile(profile.profileDraft())
+		if sealErr != nil {
+			return sealErr
+		}
+		builtins, buildErr := nodes31.Build()
+		if buildErr != nil {
+			return buildErr
+		}
+		if evaluationErr := ai.ValidateEvaluationCandidate(sealed, profile.EvaluationReport, builtins.AIEvaluationArtifacts()); evaluationErr != nil {
+			return evaluationErr
+		}
 		digest := expectedAIConsent(*profile)
 		if !digest.Valid() {
 			return errors.New("AI profile cannot produce workflow consent")
@@ -150,6 +162,67 @@ func (s *AIService) RevokeWorkflowUse(slot string) error {
 			return fmt.Errorf("AI profile slot %q is not configured", slot)
 		}
 		profile.WorkflowConsent = ""
+		return nil
+	})
+	if err != nil && current == nil {
+		return err
+	}
+	s.app.Emit("settings:changed", map[string]any{})
+	return err
+}
+
+func (s *AIService) ApplyEvaluation(slot string, evidence ai.EvalReportArtifact) error {
+	if s.app == nil {
+		return errors.New("settings are unavailable")
+	}
+	report, err := evidence.Open()
+	if err != nil {
+		return err
+	}
+	builtins, err := nodes31.Build()
+	if err != nil {
+		return err
+	}
+	document := report.Machine()
+	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
+		configured := findAIProfile(settings, slot)
+		if configured == nil {
+			return fmt.Errorf("AI profile slot %q is not configured", slot)
+		}
+		configured.Evaluation = document.Decision
+		configured.EvaluationSuite = document.Suite
+		configured.EvaluationReport = evidence
+		configured.WorkflowConsent = ""
+		profile, sealErr := ai.SealModelProfile(configured.profileDraft())
+		if sealErr != nil {
+			return sealErr
+		}
+		validationErr := ai.ValidateEvaluationCandidate(profile, evidence, builtins.AIEvaluationArtifacts())
+		if validationErr != nil && !(document.Decision == ai.EvaluationRejected && errors.Is(validationErr, ai.ErrEvaluationNotApproved)) {
+			return validationErr
+		}
+		return nil
+	})
+	if err != nil && current == nil {
+		return err
+	}
+	s.app.Emit("settings:changed", map[string]any{})
+	return err
+}
+
+func (s *AIService) RevokeEvaluation(slot string) error {
+	if s.app == nil {
+		return errors.New("settings are unavailable")
+	}
+	_, current, err := s.app.MutateSettings(func(settings *Settings) error {
+		configured := findAIProfile(settings, slot)
+		if configured == nil {
+			return fmt.Errorf("AI profile slot %q is not configured", slot)
+		}
+		configured.Evaluation = ai.EvaluationUnverified
+		configured.EvaluationSuite = ""
+		configured.EvaluationReport = ai.EvalReportArtifact{}
+		configured.WorkflowConsent = ""
 		return nil
 	})
 	if err != nil && current == nil {

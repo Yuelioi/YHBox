@@ -15,9 +15,10 @@ const workflowConsentDomain = "yotta/ai-workflow-consent/v1"
 var installationSlotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {
-	Slot    string
-	Profile ModelProfileDraft
-	Consent artifact.Digest
+	Slot       string
+	Profile    ModelProfileDraft
+	Evaluation EvalReportArtifact
+	Consent    artifact.Digest
 }
 
 type Installation struct {
@@ -28,6 +29,7 @@ type Installation struct {
 	TargetID            string
 	CredentialBindingID string
 	Consent             artifact.Digest
+	Evaluation          EvalReportArtifact
 	Provider            resource.Provider
 }
 
@@ -67,6 +69,12 @@ func Install(drafts []InstallationDraft, credentials CredentialStore) (Installat
 		if draft.Consent != "" && draft.Consent != consent {
 			return Installations{}, fmt.Errorf("AI installation slot %q has stale workflow consent", draft.Slot)
 		}
+		if err := ValidateEvaluation(profile, draft.Evaluation); err != nil {
+			if errors.Is(err, ErrEvaluationNotApproved) {
+				continue
+			}
+			return Installations{}, fmt.Errorf("validate AI evaluation for slot %q: %w", draft.Slot, err)
+		}
 		shared, exists := byProfile[profile.Digest()]
 		if !exists {
 			providerID, err := InstallationID("ai-provider", profile)
@@ -95,6 +103,7 @@ func Install(drafts []InstallationDraft, credentials CredentialStore) (Installat
 		shared.TargetID = TargetID(draft.Slot)
 		shared.CredentialBindingID = CredentialBindingID(draft.Slot)
 		shared.Consent = draft.Consent
+		shared.Evaluation = draft.Evaluation
 		entries = append(entries, shared)
 	}
 	return Installations{state: &installationState{entries: entries, native: nativeProviders}}, nil
@@ -107,6 +116,23 @@ func (i Installations) Entries() []Installation {
 		return nil
 	}
 	return append([]Installation(nil), i.state.entries...)
+}
+
+func (i Installations) ForEvaluationArtifacts(artifacts []artifact.Digest) (Installations, error) {
+	if !i.Valid() {
+		return Installations{}, errors.New("AI installations are unavailable")
+	}
+	entries := make([]Installation, 0, len(i.state.entries))
+	for _, installed := range i.state.entries {
+		if err := ValidateEvaluationCandidate(installed.Profile, installed.Evaluation, artifacts); err != nil {
+			if errors.Is(err, ErrEvaluationCandidateStale) {
+				continue
+			}
+			return Installations{}, fmt.Errorf("validate AI evaluation for slot %q: %w", installed.Slot, err)
+		}
+		entries = append(entries, installed)
+	}
+	return Installations{state: &installationState{entries: entries, native: append([]Provider(nil), i.state.native...)}}, nil
 }
 
 func (i Installations) CloseIdleConnections() {

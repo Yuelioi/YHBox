@@ -34,7 +34,10 @@ func (s *SettingsService) Update(patchJSON string) error {
 	_, cur, err := s.app.MutateSettings(func(settings *Settings) error {
 		previous := make(map[string]consentState, len(settings.AI.Profiles))
 		for _, profile := range settings.AI.Profiles {
-			previous[profile.Slot] = consentState{consent: profile.WorkflowConsent, expected: expectedAIConsent(profile)}
+			previous[profile.Slot] = consentState{
+				consent: profile.WorkflowConsent, expected: expectedAIConsent(profile), evaluationSubject: expectedAIEvaluationSubject(profile),
+				evaluationReport: profile.EvaluationReport.Digest, evaluated: profile.Evaluation != ai.EvaluationUnverified,
+			}
 		}
 		previousHTTP := make(map[string]consentState, len(settings.Network.HTTPOrigins))
 		for _, origin := range settings.Network.HTTPOrigins {
@@ -56,6 +59,11 @@ func (s *SettingsService) Update(patchJSON string) error {
 		for index := range settings.AI.Profiles {
 			profile := &settings.AI.Profiles[index]
 			old, exists := previous[profile.Slot]
+			if exists && old.evaluated && old.evaluationSubject != expectedAIEvaluationSubject(*profile) && profile.EvaluationReport.Digest == old.evaluationReport {
+				profile.Evaluation = ai.EvaluationUnverified
+				profile.EvaluationSuite = ""
+				profile.EvaluationReport = ai.EvalReportArtifact{}
+			}
 			if exists && old.consent != "" && profile.WorkflowConsent == old.consent && expectedAIConsent(*profile) != old.expected {
 				profile.WorkflowConsent = ""
 			}
@@ -109,8 +117,23 @@ func (s *SettingsService) Update(patchJSON string) error {
 }
 
 type consentState struct {
-	consent  artifact.Digest
-	expected artifact.Digest
+	consent           artifact.Digest
+	expected          artifact.Digest
+	evaluationSubject artifact.Digest
+	evaluationReport  artifact.Digest
+	evaluated         bool
+}
+
+func expectedAIEvaluationSubject(configured AIModelSettings) artifact.Digest {
+	profile, err := ai.SealModelProfile(configured.profileDraft())
+	if err != nil {
+		return ""
+	}
+	digest, err := ai.EvaluationSubjectDigest(profile)
+	if err != nil {
+		return ""
+	}
+	return digest
 }
 
 func expectedAIConsent(configured AIModelSettings) artifact.Digest {

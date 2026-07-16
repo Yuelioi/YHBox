@@ -15,6 +15,7 @@ tasks:
     cmds:
       - task: check:supply-chain
       - task: contracts:check
+      - task: check:ai-eval
       - task: version:verify
       - task: wails:verify
       - task: check:go
@@ -30,6 +31,22 @@ tasks:
       - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
     env:
       GOTOOLCHAIN: local
+
+  check:ai-eval:
+    summary: Regrades the mandatory offline AI corpus and rejects report drift
+    cmds:
+      - go run ./cmd/ai-eval
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  ai:eval:update:
+    summary: Updates the canonical mandatory offline AI evaluation report
+    cmds:
+      - go run ./cmd/ai-eval -write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
 
   check:go:
     summary: Runs Go tests, coverage, vet and static analysis

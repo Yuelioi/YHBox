@@ -118,6 +118,13 @@ type Builtins struct {
 	definitionByID               map[string]BuiltinDefinition
 }
 
+func (b Builtins) AIEvaluationArtifacts() []artifact.Digest {
+	return []artifact.Digest{
+		b.AIGeneratePrompt.Digest(), b.AIExtractPrompt.Digest(), b.AIAgentPrompt.Digest(), b.AIAgentToolSet.Digest(),
+		b.AIGenerateContract.NodeRef().SemanticDigest, b.AIExtractContract.NodeRef().SemanticDigest, b.AIAgentContract.NodeRef().SemanticDigest,
+	}
+}
+
 func (b Builtins) Definitions() []BuiltinDefinition {
 	return append([]BuiltinDefinition(nil), b.definitions...)
 }

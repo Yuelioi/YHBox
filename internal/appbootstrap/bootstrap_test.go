@@ -2,6 +2,7 @@ package appbootstrap_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,9 +154,10 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	now := time.Date(2026, 7, 15, 13, 0, 0, 0, time.UTC)
 	profileDraft := ai.ModelProfileDraft{
 		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
-		Capabilities: ai.ProfileCapabilities{StructuredOutput: true}, Evaluation: ai.EvaluationUnverified,
+		Capabilities: ai.ProfileCapabilities{StructuredOutput: true},
 	}
-	withoutConsent, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft}}, testAICredentials{})
+	profileDraft, evaluation := approvedAIProfile(t, profileDraft)
+	withoutConsent, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft, Evaluation: evaluation}}, testAICredentials{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +183,7 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	installed, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft, Consent: consent}}, testAICredentials{})
+	installed, err := ai.Install([]ai.InstallationDraft{{Slot: "primary", Profile: profileDraft, Evaluation: evaluation, Consent: consent}}, testAICredentials{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,4 +461,42 @@ func testDigest(t *testing.T, label string) artifact.Digest {
 		t.Fatal(err)
 	}
 	return digest
+}
+
+func approvedAIProfile(t *testing.T, draft ai.ModelProfileDraft) (ai.ModelProfileDraft, ai.EvalReportArtifact) {
+	t.Helper()
+	suite, err := ai.BuiltinEvalSuite()
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft.Evaluation = ai.EvaluationUnverified
+	draft.EvaluationSuite = ""
+	draft.EvaluationReport = ""
+	profile, err := ai.SealModelProfile(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	subject, err := ai.EvaluationSubjectDigest(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := ai.NewEvalCandidate(subject, []artifact.Digest{suite.Machine().Baseline})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observations := make([]ai.EvalObservation, 0, len(suite.Machine().Cases))
+	for _, evalCase := range suite.Machine().Cases {
+		observations = append(observations, ai.EvalObservation{
+			CaseID: evalCase.ID, Output: append(json.RawMessage(nil), evalCase.Expected...), Refused: evalCase.RequireRefusal,
+			InputTokens: 10, OutputTokens: 5, CostMicrounits: 100, LatencyMillis: 10,
+		})
+	}
+	evidence, err := ai.GradeEvalSuite(suite, candidate, observations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft.Evaluation = ai.EvaluationApproved
+	draft.EvaluationSuite = suite.Digest()
+	draft.EvaluationReport = evidence.Digest
+	return draft, evidence
 }

@@ -17,6 +17,7 @@ import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/interna
 import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
 import {
+  EvalReportArtifact as EvalReportArtifactBinding,
   EvaluationStatus as EvaluationStatusBinding,
   ProfileCapabilities as ProfileCapabilitiesBinding,
   ProviderKind as ProviderKindBinding,
@@ -116,6 +117,11 @@ export interface AIProfilePricing {
   outputMicrounitsPerMillion: number
 }
 
+export interface AIEvaluationReport {
+  digest?: string
+  report?: unknown
+}
+
 // AIModelProfile carries installation metadata only. Stored API keys never
 // cross the backend seam after they enter the OS credential manager.
 export interface AIModelProfile {
@@ -128,6 +134,7 @@ export interface AIModelProfile {
   pricing: AIProfilePricing
   evaluation: 'unverified' | 'approved' | 'rejected'
   evaluationSuite?: string
+  evaluationReport?: AIEvaluationReport
   workflowConsent?: string
 }
 
@@ -186,6 +193,9 @@ function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBindi
     evaluation: profile.evaluation as EvaluationStatusBinding,
     capabilities: new ProfileCapabilitiesBinding(profile.capabilities),
     pricing: new TokenPricingBinding(profile.pricing),
+    evaluationReport: profile.evaluationReport
+      ? new EvalReportArtifactBinding(profile.evaluationReport)
+      : undefined,
   })
 }
 
@@ -204,6 +214,9 @@ export const backend = {
       invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean> | undefined>,
     setAPIKey: (slot: string, apiKey: string) => invokeVoid(AIService.SetAPIKey, slot, apiKey),
     deleteAPIKey: (slot: string) => invokeVoid(AIService.DeleteAPIKey, slot),
+    applyEvaluation: (slot: string, evidence: AIEvaluationReport) =>
+      invokeVoid(AIService.ApplyEvaluation, slot, new EvalReportArtifactBinding(evidence)),
+    revokeEvaluation: (slot: string) => invokeVoid(AIService.RevokeEvaluation, slot),
     grantWorkflowUse: (slot: string) =>
       invoke(AIService.GrantWorkflowUse, slot) as Promise<string | undefined>,
     revokeWorkflowUse: (slot: string) => invokeVoid(AIService.RevokeWorkflowUse, slot),
