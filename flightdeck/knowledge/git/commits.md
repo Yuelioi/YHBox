@@ -1,89 +1,17 @@
 ---
 kind: checklist
-summary: "Conventions for commit messages, atomic commits, and staging."
+summary: "本仓提交特有规则：英文 Conventional Commit、原子暂存、草稿知识不碎提交、禁止 AI 署名，并检查 staged/unstaged 分裂。"
 activation: action
-read_when: "before writing a commit message, staging files, or preparing a PR"
+read_when: "准备暂存或提交本仓改动时"
 ---
-# commits checklist
-写 commit / 整理提交时**前置**读这份.
+# 本仓提交检查
 
-依据:
+通用 Git 写法无需在知识库重复；本仓只额外约束以下行为：
 
-- Conventional Commits 1.0.0 ([https://www.conventionalcommits.org/](https://www.conventionalcommits.org/))
-- Chris Beams《How to Write a Git Commit Message》([https://cbea.ms/git-commit/](https://cbea.ms/git-commit/))
-
----
-
-## 通用 (项目无关)
-
-### 1. 格式: `type(scope): subject`
-
-```
-feat(auth): add refresh-token rotation
-
-老 access token 过期后客户端被强登出. 引入 refresh token
-轮换, server 端单次使用 + 失效旧 token.
-
-BREAKING CHANGE: /login 响应去掉 token 字段, 改 accessToken + refreshToken
-```
-
-**type**(必填):
-
-| type         | 用于                  |
-| ------------ | --------------------- |
-| `feat`     | 新功能                |
-| `fix`      | 修 bug                |
-| `refactor` | 不改行为的重构        |
-| `perf`     | 性能优化              |
-| `docs`     | 仅文档                |
-| `test`     | 仅测试                |
-| `build`    | 构建系统 / 依赖       |
-| `ci`       | CI 配置               |
-| `chore`    | 杂项 (不进上述任何类) |
-| `revert`   | 回滚某 commit         |
-
-- **scope**(可选): 受影响的模块/包, e.g. `fix(parser):`. 没有明确单一模块就省略.
-- **BREAKING CHANGE**: 破坏性变更在 body 起一段 `BREAKING CHANGE: ...`, 或 type 后加 `!` (`feat!:`).
-
-### 2. Subject 行
-
-- **祈使句现在时**: "add X" / "fix Y", 不是 "added" / "adds" / "fixing". (判据: 补全成 "If applied, this commit will ___".)
-- **`type:` 后小写开头**, 句尾**不加句号**.
-- **≤50 字符** 为佳 (硬上限 72). 一句话说不完 → 改动可能不原子, 见 §4.
-
-### 3. Body (需要时才写)
-
-- 跟 subject **空一行**隔开.
-- **72 字符折行**.
-- 讲 **what & why**, 不讲 **how** —— how 看 diff 就知道, 但"为什么这么改 / 解决什么问题 / 取舍了什么"是 diff 表达不出的.
-- subject 已经说清的小改动 (typo / 显然的 fix) 不必硬写 body.
-
-### 4. 原子提交
-
-- **一个 commit = 一个逻辑改动**. 能用 "and" 描述 → 多半该拆.
-- 重构和功能改动分开提交 (review 时一眼看清哪些是行为变更).
-- 不把"顺手"的无关改动 (格式化 / 重命名 / 清理) 卷进功能 commit.
-
-### 4.1 文档 / spec / plan 不要碎提交
-
-- **探索期、讨论期、未定稿的 md / knowledge / spec / plan / deck/topic index 文案不要每改一次就提交**. 这些文件经常反复推敲，碎提交会污染 git 历史。
-- 先把草案留在工作区。文档-only 提交必须更严格：用户明确说“提交”、明确说这份文档已经定稿/落账，或文档随已完成的代码/测试/fixture 作为同一个 landed unit 一起提交。
-- 用户说“记录一下”“先写着”“停车/后期任务”“开始调研/开始执行”不等于允许提交 deck/work/spec/plan/knowledge 草案；这些仍然留在工作区，直到用户明确要求提交或明确确认定稿。
-- 代码、测试、fixture、生成物、迁移结果、可运行能力落地后仍应及时提交；文档随代码作为同一 landed unit 的配套内容一起提交。
-- 目标: commit 记录稳定决策和可交付进展，不记录每一次思路摆动。
-
-### 5. 不带 AI 署名
-
-不写 `Co-Authored-By: <AI>`, 不写 `🤖 Generated with ...`. 提交前 `git log` 扫一眼历史风格对齐.
-
-### 6. 多行 message：认清 shell 再传
-
-当环境**同时挂 Bash 和 PowerShell 工具**时, 给原生命令(`git commit` 等)传多行串前先认清当前工具是哪个 shell:
-
-- **PowerShell 工具** → here-string `@'...'@`(结束 `'@` 必须顶列零缩进).
-- **Bash 工具** → 真 heredoc(`git commit -F - <<'EOF' … EOF`)或 `-F <file>`; **别用 `@'...'@`** —— bash 没有 here-string, `@` 会当字面量混进 subject(`@ chore: …`).
-- 最稳, 跨 shell 通用: 把信息写进文件, `git commit -F <file>`.
-
-### 7. 暂存前扫 `RM`/`MM`（重命名+内容改动）
-
-`git mv` 重命名文件后再编辑内容，`git status --short` 会显示 `RM`（index 已暂存重命名、工作区内容未暂存）；`R100` = 内容改动**未暂存**（只提交了纯重命名）。**提交前扫一遍 `RM`/`MM` 行，对命中的文件再 `git add <file>` 暂存内容**，直到 `git status --short` 干净（或只剩预期的未跟踪文件）再 commit。
+- message 使用英文 `type(scope): subject`，祈使句、小写开头、无句号；正文只在需要解释动机、取舍或 breaking change 时写。
+- 一个 commit 对应一个可独立审查/回滚的逻辑单元；不要混入无关格式化、重命名或顺手清理。
+- 不跳 hook、不 force-push、不 push 远端；当前仓库默认提交到 `main`，但提交前仍确认分支和用户是否授权提交。
+- 探索中的 spec、plan、topic、knowledge 不因每次措辞变化而碎提交。只有用户明确要求提交/定稿，或文档随已落地代码构成同一交付单元时才提交。
+- 不写 AI 署名、`Co-Authored-By` 或生成器宣传。
+- 暂存前先看完整 `git status --short` 和 diff，只加入本次文件。出现 `MM`/`RM` 时说明 index 与工作树内容分裂，必须确认最终内容已暂存，不能只提交纯重命名。
+- 多行 message 使用当前 shell 的安全原生方式；不要把 Bash heredoc 与 PowerShell here-string 混用。
