@@ -1153,7 +1153,8 @@ export default {
       template_generic: '通用',
       template_windows: 'Windows 自动化',
       template_android: 'Android 自动化',
-      template_cross_target: 'Windows + Android',
+      template_browser: '浏览器自动化',
+      template_cross_target: '跨目标自动化',
       loading: '正在加载工作流',
       empty_title: '创建第一个工作流',
       empty_description: '主程序会创建严格的源文件结构，并在生成式节点编辑器中打开。',
@@ -1212,8 +1213,11 @@ export default {
       android: {
         hint: 'Android 引导模板：复用相同节点和运行时，只把支持的操作绑定到已安装的 android-device 目标。',
       },
+      browser: {
+        hint: '浏览器引导模板：复用相同 Workflow Source 和通用输入节点，绑定到已安装的 browser-cdp 页面目标。',
+      },
       'cross-target': {
-        hint: '跨目标引导模板：同一个 Workflow Source 可把不同分支分别绑定到 Windows 与 Android 槽位。',
+        hint: '跨目标引导模板：同一个 Workflow Source 可把不同分支分别绑定到 Windows、Android 与浏览器槽位。',
       },
       configure_targets: '配置目标',
     },
@@ -2035,15 +2039,16 @@ export default {
   },
   settingsAutomation: {
     security: {
-      title: '窗口自动化会控制真实窗口、键盘和鼠标',
-      hint: '每个目标必须绑定已安装应用的可执行文件摘要、精确窗口选择器、输入后端和截图后端。工作流只引用槽位，不能传入 HWND、PID、进程名、路径或后端；窗口激活或截图失败会中止节点，取消或失败时会释放所有按键。',
+      title: '自动化会控制真实桌面、设备或浏览器页面',
+      hint: '每个目标必须绑定适配器验证过的精确身份。工作流只引用槽位，不能传入原生句柄、路径、设备 serial、调试地址或后端；身份漂移、离线或操作失败都会中止节点。',
     },
     targets: {
       title: '已安装自动化目标',
-      hint: '把精确的 Windows 窗口或 Android ADB 设备身份安装到稳定槽位；每个适配器只开放自己真正支持的操作。',
+      hint: '把精确的 Windows 窗口、Android ADB 设备或 Browser CDP 页面身份安装到稳定槽位；每个适配器只开放自己真正支持的操作。',
       add: '安装窗口目标',
       add_windows: 'Windows 目标',
       add_android: 'Android 目标',
+      add_browser: '浏览器目标',
       workflow_allowed: '已允许工作流',
       consent_required: '需要授权',
       name_label: '显示名称',
@@ -2068,7 +2073,8 @@ export default {
       timeout_hint: '等待唯一匹配窗口出现的硬上限，范围 100–10000。',
       delete: '删除目标',
       empty: '尚未安装自动化目标',
-      empty_hint: '安装 Windows 或 Android 目标后自动化节点才能通过准入；安装不会自动授权工作流。',
+      empty_hint:
+        '安装 Windows、Android 或浏览器目标后自动化节点才能通过准入；安装不会自动授权工作流。',
       no_applications: '请先安装桌面应用',
       no_applications_hint: '窗口目标必须引用应用页中经过内容摘要校验的 .exe。',
       new_label: '{name} 窗口',
@@ -2091,6 +2097,23 @@ export default {
       not_checked: '尚未检查',
       check_health: '检查',
       unselected: '尚未选择设备',
+    },
+    browser: {
+      new_blank_label: '新浏览器目标',
+      discovery_hint:
+        '先用显式 remote-debugging-port 启动 Chrome 或 Edge，再从 loopback CDP endpoint 选择一个页面。Yotta 会固定 endpoint、page id 与 WebSocket 身份；浏览器重启或页面身份变化后必须重新安装。',
+      refresh: '发现页面',
+      none_found:
+        '没有发现可安装页面。请确认浏览器以显式调试端口启动，且 endpoint 使用 127.0.0.1 或 ::1。',
+      endpoint_label: 'Loopback CDP endpoint',
+      endpoint_hint: '只接受字面 loopback IP 的 HTTP origin，例如 http://127.0.0.1:9222。',
+      page_label: '精确页面',
+      page_hint: '页面 ID 和 WebSocket 地址都会进入安装身份，不按标题或 URL 模糊匹配。',
+      url_label: '发现时 URL',
+      state_label: '运行健康状态',
+      not_checked: '尚未检查',
+      check_health: '检查',
+      unselected: '尚未选择页面',
     },
     capture: {
       hint: '点击后切换到目标窗口并按 F9（或快捷键中心配置的窗口捕获键）。Yotta 会按可执行文件路径与 SHA-256 匹配已安装应用，并回填精确标题和窗口类。',
@@ -2115,9 +2138,9 @@ export default {
       wgc: 'WGC · Windows 图形捕获',
     },
     consent: {
-      title: '工作流窗口自动化授权',
-      hint: '授权覆盖当前目标的激活、截图与全部原子输入操作，并只匹配槽位、可执行摘要、窗口选择器、两个后端和超时。任意修改都会立即撤销；重启后安装新快照。',
-      grant: '允许窗口自动化',
+      title: '工作流自动化授权',
+      hint: '授权只覆盖当前适配器声明的操作，并精确匹配槽位与完整目标身份。任意修改都会立即撤销；重启后安装新快照。',
+      grant: '允许自动化',
       revoke: '撤销授权',
     },
     confirm: {

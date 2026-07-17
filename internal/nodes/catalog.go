@@ -232,6 +232,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationKeyInput, err := sealAutomationKeyInputCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
 	automationWindow, err := sealAutomationWindowCapability()
 	if err != nil {
 		return Builtins{}, err
@@ -377,7 +381,7 @@ func Build() (Builtins, error) {
 	automationInputDefinitions, automationInputContracts, err := defineAutomationInputNodes(automationInputTypes{
 		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
-	}, automationInput, automationDesktopInput)
+	}, automationInput, automationDesktopInput, automationKeyInput)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -430,7 +434,7 @@ func Build() (Builtins, error) {
 		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
 		pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
 	}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err

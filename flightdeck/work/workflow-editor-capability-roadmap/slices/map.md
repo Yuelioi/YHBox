@@ -16,8 +16,8 @@
 | [12 悬浮窗入口](../12-launcher-discoverability.md) | completed | Stage 3 | 接回主界面可发现入口和既有 launcher window。 |
 | [13 平台中立 automation seam](../13-platform-neutral-automation-installation.md) | completed | Stage 4 | 以多 Adapter 深模块替换 Win32 专用安装 Interface。 |
 | [08 Android 目标连续性](../08-android-target-continuity.md) | completed | Slice 13 | 恢复 Android exact installation、创作与 runtime。 |
-| [15 高级能力恢复](../15-advanced-capability-decisions.md) | in_progress | Stage 6 | 直到 Slices 16–19 完成才关闭 3.1 高级能力缺口。 |
+| [15 高级能力恢复](../15-advanced-capability-decisions.md) | in_progress | Stage 6 | 直到 Slice 18 完成才关闭 3.1 高级能力缺口。 |
 | [16 Workflow Source 导入导出](../16-workflow-source-portability.md) | completed | commit aaa34711 | canonical bundle、完整性验证、身份冲突与产品入口。 |
 | [17 资产规模化与安全清理](../17-asset-library-scale.md) | completed | Slice 16 | 分页、批量、variant 维护与完整 Blob root GC。 |
-| [19 Browser CDP 产品闭环](../19-browser-cdp-installation.md) | in_progress | Stage 5 | exact installation、Settings、provider/Catalog 与真机 smoke。 |
-| [18 多图创作](../18-source-native-multigraph.md) | pending | Slice 16 | subgraph 调用/创作、comment 与 presentation reroute。 |
+| [19 Browser CDP 产品闭环](../19-browser-cdp-installation.md) | completed | Stage 5 | exact installation、Settings、provider/Catalog 与 Chrome/Edge smoke。 |
+| [18 多图创作](../18-source-native-multigraph.md) | in_progress | Slice 16 | subgraph 调用/创作、comment 与 presentation reroute。 |

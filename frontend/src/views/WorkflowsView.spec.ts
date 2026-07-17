@@ -17,6 +17,12 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain('sm:grid-cols-[auto_minmax(0,1fr)_auto]')
   })
 
+  it('offers browser onboarding as a target template without changing the source model', () => {
+    expect(source).toContain("'generic' | 'windows' | 'android' | 'browser' | 'cross-target'")
+    expect(source).toContain("t('workflow.list.template_browser')")
+    expect(source).toContain("query: template === 'generic' ? {} : { template }")
+  })
+
   it('keeps queued Run feedback on the workflow row instead of a success toast', () => {
     expect(source).toContain('runFeedbackById[source.workflowId]')
     expect(source).toContain("label: t('workflow.toast.queued')")

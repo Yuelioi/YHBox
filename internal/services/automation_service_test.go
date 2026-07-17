@@ -59,7 +59,7 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 
 func TestAutomationTargetTypesExposeSemanticKindAndNativeAdapter(t *testing.T) {
 	types := NewAutomationService(nil).ListTargetTypes()
-	if len(types) != 2 || types[0].TargetKind != automationinstalled.TargetKindDesktopWindow ||
+	if len(types) != 3 || types[0].TargetKind != automationinstalled.TargetKindDesktopWindow ||
 		types[0].AdapterKind != automationinstalled.AdapterKindWin32 || len(types[0].Operations) == 0 ||
 		len(types[0].ApplicationIdentityKinds) != 1 || types[0].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindWindowsExecutable {
 		t.Fatalf("target types = %#v", types)
@@ -67,6 +67,34 @@ func TestAutomationTargetTypesExposeSemanticKindAndNativeAdapter(t *testing.T) {
 	if types[1].TargetKind != automationinstalled.TargetKindAndroidDevice || types[1].AdapterKind != automationinstalled.AdapterKindAndroidADB ||
 		len(types[1].Operations) == 0 || types[1].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindADBDevice {
 		t.Fatalf("Android target type = %#v", types[1])
+	}
+	if types[2].TargetKind != automationinstalled.TargetKindBrowserCDP || types[2].AdapterKind != automationinstalled.AdapterKindBrowserCDP ||
+		len(types[2].Operations) == 0 || types[2].ApplicationIdentityKinds[0] != automationinstalled.IdentityKindBrowserPage {
+		t.Fatalf("browser target type = %#v", types[2])
+	}
+}
+
+func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	target := InstalledAutomationTargetSettings{
+		Slot: "browser", Label: "Browser page", TargetKind: automationinstalled.TargetKindBrowserCDP, AdapterKind: automationinstalled.AdapterKindBrowserCDP,
+		BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
+		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1", BrowserTitle: "Fixture", BrowserURL: "https://example.test/",
+		ResolveTimeoutMilliseconds: 1000,
+	}
+	if _, _, err := app.MutateSettings(func(settings *Settings) error {
+		settings.Automation.Targets = []InstalledAutomationTargetSettings{target}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	drafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications)
+	if err != nil || len(drafts) != 1 || drafts[0].Profile.BrowserTargetID != target.BrowserTargetID || drafts[0].Profile.Application.Executable != "" {
+		t.Fatalf("browser drafts = %#v, %v", drafts, err)
+	}
+	consent, err := NewAutomationService(app).GrantWorkflowConsent(target.Slot)
+	if err != nil || consent == "" {
+		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
 	}
 }
 

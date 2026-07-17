@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/services/browsercdp"
+	"github.com/yottaapp/yotta/internal/automation/browsercdp"
 )
 
 type pageState struct {

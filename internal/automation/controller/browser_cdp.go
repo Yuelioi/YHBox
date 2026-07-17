@@ -211,15 +211,19 @@ func (c *BrowserCDPController) MoveRelative(context.Context, RelativeMoveRequest
 
 func (c *BrowserCDPController) KeyChord(ctx context.Context, req KeyChordRequest) error {
 	return c.recordAction("key-chord", req, func() (any, error) {
+		modifiers := 0
 		for _, key := range req.Keys {
-			if err := c.dispatchKey(ctx, "keyDown", key); err != nil {
+			modifiers |= browserModifier(key)
+			if err := c.dispatchKey(ctx, "keyDown", key, modifiers); err != nil {
 				return nil, err
 			}
 		}
 		for i := len(req.Keys) - 1; i >= 0; i-- {
-			if err := c.dispatchKey(ctx, "keyUp", req.Keys[i]); err != nil {
+			key := req.Keys[i]
+			if err := c.dispatchKey(ctx, "keyUp", key, modifiers); err != nil {
 				return nil, err
 			}
+			modifiers &^= browserModifier(key)
 		}
 		return nil, nil
 	})
@@ -227,13 +231,13 @@ func (c *BrowserCDPController) KeyChord(ctx context.Context, req KeyChordRequest
 
 func (c *BrowserCDPController) KeyDown(ctx context.Context, req KeyRequest) error {
 	return c.recordAction("key-down", req, func() (any, error) {
-		return nil, c.dispatchKey(ctx, "keyDown", req.Key)
+		return nil, c.dispatchKey(ctx, "keyDown", req.Key, browserModifier(req.Key))
 	})
 }
 
 func (c *BrowserCDPController) KeyUp(ctx context.Context, req KeyRequest) error {
 	return c.recordAction("key-up", req, func() (any, error) {
-		return nil, c.dispatchKey(ctx, "keyUp", req.Key)
+		return nil, c.dispatchKey(ctx, "keyUp", req.Key, browserModifier(req.Key))
 	})
 }
 
@@ -278,12 +282,86 @@ func (c *BrowserCDPController) dispatchMouse(ctx context.Context, typ string, x,
 	return c.call(ctx, "Input.dispatchMouseEvent", params)
 }
 
-func (c *BrowserCDPController) dispatchKey(ctx context.Context, typ string, key string) error {
+func (c *BrowserCDPController) dispatchKey(ctx context.Context, typ string, raw string, modifiers int) error {
+	key, code, virtualKey := browserKey(raw)
 	_, err := c.call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": typ,
-		"key":  key,
+		"type": typ, "key": key, "code": code, "modifiers": modifiers,
+		"windowsVirtualKeyCode": virtualKey, "nativeVirtualKeyCode": virtualKey,
 	})
 	return err
+}
+
+func browserModifier(key string) int {
+	switch key {
+	case "ALT":
+		return 1
+	case "CTRL":
+		return 2
+	case "SHIFT":
+		return 8
+	default:
+		return 0
+	}
+}
+
+func browserKey(raw string) (key, code string, virtualKey int) {
+	if len(raw) == 1 && raw[0] >= 'A' && raw[0] <= 'Z' {
+		return string(raw[0] + ('a' - 'A')), "Key" + raw, int(raw[0])
+	}
+	if len(raw) == 1 && raw[0] >= '0' && raw[0] <= '9' {
+		return raw, "Digit" + raw, int(raw[0])
+	}
+	switch raw {
+	case "CTRL":
+		return "Control", "ControlLeft", 17
+	case "ALT":
+		return "Alt", "AltLeft", 18
+	case "SHIFT":
+		return "Shift", "ShiftLeft", 16
+	case "ENTER":
+		return "Enter", "Enter", 13
+	case "ESC":
+		return "Escape", "Escape", 27
+	case "SPACE":
+		return " ", "Space", 32
+	case "TAB":
+		return "Tab", "Tab", 9
+	case "BACKSPACE":
+		return "Backspace", "Backspace", 8
+	case "DELETE":
+		return "Delete", "Delete", 46
+	case "INSERT":
+		return "Insert", "Insert", 45
+	case "HOME":
+		return "Home", "Home", 36
+	case "END":
+		return "End", "End", 35
+	case "PGUP":
+		return "PageUp", "PageUp", 33
+	case "PGDN":
+		return "PageDown", "PageDown", 34
+	case "UP":
+		return "ArrowUp", "ArrowUp", 38
+	case "DOWN":
+		return "ArrowDown", "ArrowDown", 40
+	case "LEFT":
+		return "ArrowLeft", "ArrowLeft", 37
+	case "RIGHT":
+		return "ArrowRight", "ArrowRight", 39
+	case ",":
+		return ",", "Comma", 188
+	case ".":
+		return ".", "Period", 190
+	case "CAPSLOCK":
+		return "CapsLock", "CapsLock", 20
+	}
+	if len(raw) >= 2 && raw[0] == 'F' {
+		var function int
+		if _, err := fmt.Sscanf(raw, "F%d", &function); err == nil && function >= 1 && function <= 12 {
+			return raw, raw, 111 + function
+		}
+	}
+	return raw, raw, 0
 }
 
 func (c *BrowserCDPController) recordAction(action string, request any, run func() (any, error)) error {

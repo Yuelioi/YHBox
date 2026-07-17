@@ -656,14 +656,21 @@ const nodeSearchOpen = ref(false)
 const nodeSearchQuery = ref('')
 const creationTemplate = computed(() => {
   const value = route.query.template
-  return value === 'windows' || value === 'android' || value === 'cross-target' ? value : ''
+  return value === 'windows' ||
+    value === 'android' ||
+    value === 'browser' ||
+    value === 'cross-target'
+    ? value
+    : ''
 })
 const creationTemplateIcon = computed(() =>
   creationTemplate.value === 'android'
     ? 'i-tabler-brand-android'
-    : creationTemplate.value === 'windows'
-      ? 'i-tabler-brand-windows'
-      : 'i-tabler-devices',
+    : creationTemplate.value === 'browser'
+      ? 'i-tabler-brand-chrome'
+      : creationTemplate.value === 'windows'
+        ? 'i-tabler-brand-windows'
+        : 'i-tabler-devices',
 )
 const compileSucceeded = ref(false)
 const saveSucceeded = ref(false)
@@ -788,7 +795,12 @@ const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
 function visibleForCreationTemplate(projection: NodeProjection): boolean {
   const template = creationTemplate.value
   if (!template || template === 'cross-target') return true
-  const targetKind = template === 'android' ? 'android-device' : 'desktop-window'
+  const targetKind =
+    template === 'android'
+      ? 'android-device'
+      : template === 'browser'
+        ? 'browser-cdp'
+        : 'desktop-window'
   const automationCapabilities = projection.capabilities.filter((capability) =>
     capability.capability.capabilityId.includes('/capabilities/automation/'),
   )

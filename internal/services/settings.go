@@ -79,11 +79,23 @@ type InstalledAutomationTargetSettings struct {
 	ADBModel                   string          `json:"adbModel,omitempty"`
 	ADBDevice                  string          `json:"adbDevice,omitempty"`
 	AndroidPackage             string          `json:"androidPackage,omitempty"`
+	BrowserEndpoint            string          `json:"browserEndpoint,omitempty"`
+	BrowserTargetID            string          `json:"browserTargetId,omitempty"`
+	BrowserWebSocketURL        string          `json:"browserWebSocketUrl,omitempty"`
+	BrowserTitle               string          `json:"browserTitle,omitempty"`
+	BrowserURL                 string          `json:"browserUrl,omitempty"`
 	WorkflowConsent            artifact.Digest `json:"workflowConsent,omitempty"`
 }
 
 func (configured InstalledAutomationTargetSettings) profileDraft(application InstalledApplicationSettings) automationinstalled.ProfileDraft {
-	if configured.TargetKind == automationinstalled.TargetKindAndroidDevice && configured.AdapterKind == automationinstalled.AdapterKindAndroidADB {
+	if configured.isBrowser() {
+		return automationinstalled.ProfileDraft{
+			TargetKind: configured.TargetKind, AdapterKind: configured.AdapterKind, ApplicationIdentityKind: automationinstalled.IdentityKindBrowserPage,
+			BrowserEndpoint: configured.BrowserEndpoint, BrowserTargetID: configured.BrowserTargetID, BrowserWebSocketURL: configured.BrowserWebSocketURL,
+			BrowserTitle: configured.BrowserTitle, BrowserURL: configured.BrowserURL, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
+		}
+	}
+	if configured.isAndroid() {
 		return automationinstalled.ProfileDraft{
 			TargetKind: configured.TargetKind, AdapterKind: configured.AdapterKind, ApplicationIdentityKind: automationinstalled.IdentityKindADBDevice,
 			ADBSerial: configured.ADBSerial, ADBProduct: configured.ADBProduct, ADBModel: configured.ADBModel, ADBDevice: configured.ADBDevice,
@@ -99,6 +111,18 @@ func (configured InstalledAutomationTargetSettings) profileDraft(application Ins
 	}
 }
 
+func (configured InstalledAutomationTargetSettings) isDesktop() bool {
+	return configured.TargetKind == automationinstalled.TargetKindDesktopWindow && configured.AdapterKind == automationinstalled.AdapterKindWin32
+}
+
+func (configured InstalledAutomationTargetSettings) isAndroid() bool {
+	return configured.TargetKind == automationinstalled.TargetKindAndroidDevice && configured.AdapterKind == automationinstalled.AdapterKindAndroidADB
+}
+
+func (configured InstalledAutomationTargetSettings) isBrowser() bool {
+	return configured.TargetKind == automationinstalled.TargetKindBrowserCDP && configured.AdapterKind == automationinstalled.AdapterKindBrowserCDP
+}
+
 func (settings AutomationSettings) InstallationDrafts(applications ApplicationSettings) ([]automationinstalled.InstallationDraft, error) {
 	bySlot := make(map[string]InstalledApplicationSettings, len(applications.Profiles))
 	for _, application := range applications.Profiles {
@@ -107,7 +131,7 @@ func (settings AutomationSettings) InstallationDrafts(applications ApplicationSe
 	result := make([]automationinstalled.InstallationDraft, 0, len(settings.Targets))
 	for _, configured := range settings.Targets {
 		var application InstalledApplicationSettings
-		if configured.TargetKind != automationinstalled.TargetKindAndroidDevice || configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+		if configured.isDesktop() {
 			var ok bool
 			application, ok = bySlot[configured.ApplicationSlot]
 			if !ok {
@@ -639,9 +663,8 @@ func (settings *AutomationSettings) validate(applications ApplicationSettings) e
 			return fmt.Errorf("automation.targets has an invalid or duplicate slot %q", configured.Slot)
 		}
 		seenSlots[configured.Slot] = true
-		desktop := configured.TargetKind == automationinstalled.TargetKindDesktopWindow && configured.AdapterKind == automationinstalled.AdapterKindWin32
-		android := configured.TargetKind == automationinstalled.TargetKindAndroidDevice && configured.AdapterKind == automationinstalled.AdapterKindAndroidADB
-		if !desktop && !android {
+		desktop := configured.isDesktop()
+		if !desktop && !configured.isAndroid() && !configured.isBrowser() {
 			return fmt.Errorf("automation.targets[%s] has unsupported target/adapter %q/%q", configured.Slot, configured.TargetKind, configured.AdapterKind)
 		}
 		var application InstalledApplicationSettings

@@ -270,8 +270,8 @@ export interface InstalledApplicationProfile {
 export interface InstalledAutomationTargetProfile {
   slot: string
   label: string
-  targetKind: 'desktop-window' | 'android-device'
-  adapterKind: 'win32' | 'android-adb'
+  targetKind: 'desktop-window' | 'android-device' | 'browser-cdp'
+  adapterKind: 'win32' | 'android-adb' | 'browser-cdp'
   applicationSlot: string
   windowTitle: string
   windowClass: string
@@ -284,6 +284,11 @@ export interface InstalledAutomationTargetProfile {
   adbModel?: string
   adbDevice?: string
   androidPackage?: string
+  browserEndpoint?: string
+  browserTargetId?: string
+  browserWebSocketUrl?: string
+  browserTitle?: string
+  browserUrl?: string
   workflowConsent?: string
 }
 
@@ -294,6 +299,14 @@ export interface AndroidDeviceDescriptor {
   model: string
   device: string
   transportId: string
+}
+
+export interface BrowserTargetDescriptor {
+  id: string
+  type: string
+  title: string
+  url: string
+  webSocketDebuggerUrl: string
 }
 
 export interface AutomationTargetHealth {
@@ -395,6 +408,10 @@ export const backend = {
     listTargetTypes: () => invoke(AutomationService.ListTargetTypes),
     listADBDevices: () =>
       invoke(AutomationService.ListADBDevices) as Promise<AndroidDeviceDescriptor[] | undefined>,
+    listBrowserTargets: (endpoint: string) =>
+      invoke(AutomationService.ListBrowserTargets, endpoint) as Promise<
+        BrowserTargetDescriptor[] | undefined
+      >,
     checkTargetHealth: (slot: string) =>
       invoke(AutomationService.CheckTargetHealth, slot) as Promise<
         AutomationTargetHealth | undefined

@@ -16,6 +16,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/automation/browsercdp"
 )
 
 const (
@@ -39,6 +40,11 @@ type ProfileDraft struct {
 	ADBModel                   string                  `json:"adbModel,omitempty"`
 	ADBDevice                  string                  `json:"adbDevice,omitempty"`
 	AndroidPackage             string                  `json:"androidPackage,omitempty"`
+	BrowserEndpoint            string                  `json:"browserEndpoint,omitempty"`
+	BrowserTargetID            string                  `json:"browserTargetId,omitempty"`
+	BrowserWebSocketURL        string                  `json:"browserWebSocketUrl,omitempty"`
+	BrowserTitle               string                  `json:"browserTitle,omitempty"`
+	BrowserURL                 string                  `json:"browserUrl,omitempty"`
 }
 
 type profileState struct {
@@ -58,7 +64,9 @@ func SealProfile(draft ProfileDraft) (Profile, error) {
 		draft.AdapterKind = AdapterKindWin32
 	}
 	if draft.ApplicationIdentityKind == "" {
-		if draft.AdapterKind == AdapterKindAndroidADB {
+		if draft.AdapterKind == AdapterKindBrowserCDP {
+			draft.ApplicationIdentityKind = IdentityKindBrowserPage
+		} else if draft.AdapterKind == AdapterKindAndroidADB {
 			draft.ApplicationIdentityKind = IdentityKindADBDevice
 		} else {
 			draft.ApplicationIdentityKind = IdentityKindWindowsExecutable
@@ -67,14 +75,17 @@ func SealProfile(draft ProfileDraft) (Profile, error) {
 	if draft.AdapterKind == AdapterKindAndroidADB {
 		return sealAndroidProfile(draft)
 	}
+	if draft.AdapterKind == AdapterKindBrowserCDP {
+		return sealBrowserProfile(draft)
+	}
 	if draft.TargetKind != TargetKindDesktopWindow || draft.AdapterKind != AdapterKindWin32 && draft.AdapterKind != AdapterKindTest {
 		return Profile{}, fmt.Errorf("automation adapter %q does not implement target kind %q", draft.AdapterKind, draft.TargetKind)
 	}
 	if draft.ApplicationIdentityKind != IdentityKindWindowsExecutable {
 		return Profile{}, fmt.Errorf("automation adapter %q does not implement application identity %q", draft.AdapterKind, draft.ApplicationIdentityKind)
 	}
-	if draft.ADBSerial != "" || draft.ADBProduct != "" || draft.ADBModel != "" || draft.ADBDevice != "" || draft.AndroidPackage != "" {
-		return Profile{}, errors.New("desktop automation profile contains Android identity")
+	if hasAndroidIdentity(draft) || hasBrowserIdentity(draft) {
+		return Profile{}, errors.New("desktop automation profile contains another adapter identity")
 	}
 	if len(draft.Application.Arguments) != 0 {
 		return Profile{}, errors.New("automation target application arguments must be empty")
@@ -126,8 +137,8 @@ func sealAndroidProfile(draft ProfileDraft) (Profile, error) {
 		return Profile{}, errors.New("automation target resolve timeout is invalid")
 	}
 	if draft.Application.Executable != "" || draft.Application.ExecutableDigest != "" || len(draft.Application.Arguments) != 0 ||
-		draft.WindowTitle != "" || draft.WindowClass != "" || draft.InputBackend != "" || draft.CaptureBackend != "" || draft.MouseCounts360 != 0 {
-		return Profile{}, errors.New("android automation profile contains desktop identity")
+		draft.WindowTitle != "" || draft.WindowClass != "" || draft.InputBackend != "" || draft.CaptureBackend != "" || draft.MouseCounts360 != 0 || hasBrowserIdentity(draft) {
+		return Profile{}, errors.New("android automation profile contains another adapter identity")
 	}
 	raw, err := artifact.Marshal(draft)
 	if err != nil {
@@ -138,6 +149,48 @@ func sealAndroidProfile(draft ProfileDraft) (Profile, error) {
 		return Profile{}, err
 	}
 	return Profile{state: &profileState{digest: digest, document: draft, bytes: raw}}, nil
+}
+
+func sealBrowserProfile(draft ProfileDraft) (Profile, error) {
+	if draft.TargetKind != TargetKindBrowserCDP || draft.ApplicationIdentityKind != IdentityKindBrowserPage {
+		return Profile{}, fmt.Errorf("automation adapter %q does not implement target/identity %q/%q", draft.AdapterKind, draft.TargetKind, draft.ApplicationIdentityKind)
+	}
+	if draft.ResolveTimeoutMilliseconds < 100 || draft.ResolveTimeoutMilliseconds > MaxResolveTimeoutMilliseconds {
+		return Profile{}, errors.New("automation target resolve timeout is invalid")
+	}
+	if hasAndroidIdentity(draft) || draft.Application.Executable != "" || draft.Application.ExecutableDigest != "" || len(draft.Application.Arguments) != 0 ||
+		draft.WindowTitle != "" || draft.WindowClass != "" || draft.InputBackend != "" || draft.CaptureBackend != "" || draft.MouseCounts360 != 0 {
+		return Profile{}, errors.New("browser automation profile contains another adapter identity")
+	}
+	endpoint, err := browsercdp.CanonicalEndpoint(draft.BrowserEndpoint)
+	if err != nil {
+		return Profile{}, err
+	}
+	websocketURL, err := browsercdp.ValidateWebSocketURL(draft.BrowserWebSocketURL, endpoint, draft.BrowserTargetID)
+	if err != nil {
+		return Profile{}, err
+	}
+	if !validSelector(draft.BrowserTitle) || !validSelector(draft.BrowserURL) {
+		return Profile{}, errors.New("browser automation page metadata is invalid")
+	}
+	draft.BrowserEndpoint, draft.BrowserWebSocketURL = endpoint, websocketURL
+	raw, err := artifact.Marshal(draft)
+	if err != nil {
+		return Profile{}, err
+	}
+	digest, err := artifact.Sum(profileDigestDomain, raw)
+	if err != nil {
+		return Profile{}, err
+	}
+	return Profile{state: &profileState{digest: digest, document: draft, bytes: raw}}, nil
+}
+
+func hasAndroidIdentity(draft ProfileDraft) bool {
+	return draft.ADBSerial != "" || draft.ADBProduct != "" || draft.ADBModel != "" || draft.ADBDevice != "" || draft.AndroidPackage != ""
+}
+
+func hasBrowserIdentity(draft ProfileDraft) bool {
+	return draft.BrowserEndpoint != "" || draft.BrowserTargetID != "" || draft.BrowserWebSocketURL != "" || draft.BrowserTitle != "" || draft.BrowserURL != ""
 }
 
 func OpenProfile(raw []byte, digest artifact.Digest) (Profile, error) {
@@ -211,7 +264,7 @@ func VerifyProfile(profile Profile) error {
 	if !profile.Valid() {
 		return errors.New("automation target profile is invalid")
 	}
-	if profile.AdapterKind() == AdapterKindAndroidADB {
+	if profile.AdapterKind() == AdapterKindAndroidADB || profile.AdapterKind() == AdapterKindBrowserCDP {
 		return nil
 	}
 	return appcontrol.VerifyProfile(profile.Application())

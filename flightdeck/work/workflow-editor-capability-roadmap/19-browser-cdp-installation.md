@@ -1,7 +1,7 @@
 ---
 slice: "19"
 title: Browser CDP installation 产品闭环
-status: in_progress
+status: completed
 ---
 
 # Slice 19：Browser CDP installation 产品闭环
@@ -33,4 +33,8 @@ Adapter conformance、profile/provider/service/Catalog/Settings 定向测试；S
 
 ## Result
 
-In progress。
+Completed。Browser CDP discovery/client 已下沉到 automation 深模块；生产 TargetTypes 与 runtime registry 共用单一 Adapter 注册源。Profile 固定字面 loopback HTTP origin、page id 与同 authority `/devtools/page/{id}` WebSocket，拒绝 redirect、remote authority、page/WS identity 漂移。
+
+Settings 已提供 endpoint、页面发现、精确安装、consent、健康/离线诊断；工作流新增 Browser 模板，Inspector 继续只保存 installation slot。通用点击、移动、拖拽、滚动、文本、组合键和截图对 browser-cdp 开放，应用生命周期、相对移动和录制回放保持隐藏/拒绝。组合键补齐 CDP key/code/virtual-key/modifiers 语义。
+
+阶段证据：完整 `task check`、production `task build`、正式 WebView smoke 均通过；Chrome 127.0.0.1:9337 与 Edge 127.0.0.1:9338 的真实 smoke 均完成 viewport、文本输入、指针移动和截图。WebView workflow/editor 与 assets PNG 已人工查看。

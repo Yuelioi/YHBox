@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(join(process.cwd(), 'src/views/SettingsAutomation.vue'), 'utf8')
 
 describe('SettingsAutomation', () => {
-  it('binds targets through installed application slots and explicit consent', () => {
+  it('binds adapter-specific exact targets behind slots and explicit consent', () => {
     expect(source).toContain('applicationSlot')
     expect(source).toContain('backend.automation.grantWorkflowConsent')
     expect(source).toContain('backend.automation.revokeWorkflowConsent')
@@ -29,6 +29,11 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('backend.automation.checkTargetHealth(target.slot)')
     expect(source).toContain('target.adbProduct = selected.product')
     expect(source).toContain('target.androidPackage?.trim()')
+    expect(source).toContain("addTarget('browser-page')")
+    expect(source).toContain('backend.automation.listBrowserTargets')
+    expect(source).toContain('target.browserWebSocketUrl = selected.webSocketDebuggerUrl')
+    expect(source).toContain('target.browserTargetId?.trim()')
+    expect(source).toContain('target.browserEndpoint?.trim()')
   })
 
   it('keeps expandable targets and form controls keyboard accessible', () => {

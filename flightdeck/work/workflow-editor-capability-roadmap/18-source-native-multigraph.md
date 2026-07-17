@@ -1,7 +1,7 @@
 ---
 slice: "18"
 title: Source-native subgraph、comment 与 reroute
-status: pending
+status: in_progress
 ---
 
 # Slice 18：Source-native subgraph、comment 与 reroute
@@ -33,4 +33,4 @@ schema/authoring/compiler/scheduler/debug/editor 聚合测试；Stage 10 批量�
 
 ## Result
 
-Pending。
+In progress。Stage 9 完成后已成为 3.1 发布前唯一 frontier；下一步先机械审计现有 graphs schema/compiler/scheduler/journal/editor/AI patch seam，再冻结 graph-call 与 annotation/presentation 数据模型。

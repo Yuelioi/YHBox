@@ -214,14 +214,14 @@ func TestBrowserCDPControllerKeyChordDispatchesDownAndReverseUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBrowserCDPController() error = %v", err)
 	}
-	if err := ctrl.KeyChord(context.Background(), KeyChordRequest{Keys: []string{"Control", "N"}}); err != nil {
+	if err := ctrl.KeyChord(context.Background(), KeyChordRequest{Keys: []string{"CTRL", "N"}}); err != nil {
 		t.Fatalf("KeyChord() error = %v", err)
 	}
 	want := []cdpCall{
-		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyDown", "key": "Control"}},
-		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyDown", "key": "N"}},
-		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyUp", "key": "N"}},
-		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyUp", "key": "Control"}},
+		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyDown", "key": "Control", "code": "ControlLeft", "modifiers": 2, "windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17}},
+		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyDown", "key": "n", "code": "KeyN", "modifiers": 2, "windowsVirtualKeyCode": 78, "nativeVirtualKeyCode": 78}},
+		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyUp", "key": "n", "code": "KeyN", "modifiers": 2, "windowsVirtualKeyCode": 78, "nativeVirtualKeyCode": 78}},
+		{method: "Input.dispatchKeyEvent", params: map[string]any{"type": "keyUp", "key": "Control", "code": "ControlLeft", "modifiers": 2, "windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17}},
 	}
 	if !reflect.DeepEqual(client.calls, want) {
 		t.Fatalf("cdp calls = %#v, want %#v", client.calls, want)

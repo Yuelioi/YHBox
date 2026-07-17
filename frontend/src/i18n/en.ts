@@ -1369,7 +1369,8 @@ export default {
       template_generic: 'Generic',
       template_windows: 'Windows automation',
       template_android: 'Android automation',
-      template_cross_target: 'Windows + Android',
+      template_browser: 'Browser automation',
+      template_cross_target: 'Cross-target automation',
       loading: 'Loading workflows',
       empty_title: 'Create the first workflow',
       empty_description:
@@ -1431,8 +1432,11 @@ export default {
       android: {
         hint: 'Android onboarding template: use the same nodes and runtime, binding supported operations to installed android-device targets.',
       },
+      browser: {
+        hint: 'Browser onboarding template: reuse the same Workflow Source and generic input nodes, bound to an installed browser-cdp page target.',
+      },
       'cross-target': {
-        hint: 'Cross-target onboarding template: one Workflow Source can bind separate branches to Windows and Android target slots.',
+        hint: 'Cross-target onboarding template: one Workflow Source can bind separate branches to Windows, Android, and browser target slots.',
       },
       configure_targets: 'Configure targets',
     },
@@ -2280,15 +2284,16 @@ export default {
   },
   settingsAutomation: {
     security: {
-      title: 'Window automation controls real windows, keyboard, and pointer',
-      hint: 'Every target is pinned to an installed executable digest, exact window selector, input backend, and capture backend. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or backend. Activation or capture failure fails the node, and all held input is released on cancellation or failure.',
+      title: 'Automation controls real desktops, devices, or browser pages',
+      hint: 'Every target is pinned to an adapter-verified exact identity. Workflows reference only a slot and cannot supply native handles, paths, device serials, debugger addresses, or backends. Identity drift, offline targets, and operation failures fail the node.',
     },
     targets: {
       title: 'Installed automation targets',
-      hint: 'Install exact Windows window or Android ADB identities behind stable workflow slots. Each adapter exposes only the operations it supports.',
+      hint: 'Install exact Windows window, Android ADB device, or Browser CDP page identities behind stable workflow slots. Each adapter exposes only the operations it supports.',
       add: 'Install window target',
       add_windows: 'Windows target',
       add_android: 'Android target',
+      add_browser: 'Browser target',
       workflow_allowed: 'Workflow allowed',
       consent_required: 'Consent required',
       name_label: 'Display name',
@@ -2317,7 +2322,7 @@ export default {
       delete: 'Delete target',
       empty: 'No automation targets installed',
       empty_hint:
-        'Install a Windows or Android target before automation nodes can pass admission. Installation does not grant workflow use automatically.',
+        'Install a Windows, Android, or browser target before automation nodes can pass admission. Installation does not grant workflow use automatically.',
       no_applications: 'Install a desktop application first',
       no_applications_hint:
         'A window target must reference a content-verified .exe from the Applications page.',
@@ -2345,6 +2350,25 @@ export default {
       check_health: 'Check',
       unselected: 'No device selected',
     },
+    browser: {
+      new_blank_label: 'New browser target',
+      discovery_hint:
+        'Start Chrome or Edge with an explicit remote-debugging-port, then select one page from a loopback CDP endpoint. Yotta pins the endpoint, page ID, and WebSocket identity. A browser restart or identity change requires reinstalling the page.',
+      refresh: 'Discover pages',
+      none_found:
+        'No installable pages found. Confirm the browser was started with an explicit debugging port and the endpoint uses 127.0.0.1 or ::1.',
+      endpoint_label: 'Loopback CDP endpoint',
+      endpoint_hint:
+        'Only an HTTP origin with a literal loopback IP is accepted, for example http://127.0.0.1:9222.',
+      page_label: 'Exact page',
+      page_hint:
+        'The page ID and WebSocket URL enter the installed identity. Titles and URLs are never fuzzy matched.',
+      url_label: 'URL at discovery',
+      state_label: 'Runtime health',
+      not_checked: 'Not checked',
+      check_health: 'Check',
+      unselected: 'No page selected',
+    },
     capture: {
       hint: 'Click, switch to the target window, then press F9 (or the configured window-capture shortcut). Yotta matches an installed application by executable path and SHA-256, then fills the exact title and window class.',
       start: 'Capture window',
@@ -2370,9 +2394,9 @@ export default {
       wgc: 'WGC · Windows Graphics Capture',
     },
     consent: {
-      title: 'Workflow window automation consent',
-      hint: 'Consent covers activation, capture, and atomic input operations for this target and matches its slot, executable digest, window selector, both backends, and timeout. Any edit revokes it. Restart to install the new snapshot.',
-      grant: 'Allow window automation',
+      title: 'Workflow automation consent',
+      hint: 'Consent covers only the operations declared by this adapter and exactly matches the slot and complete target identity. Any edit revokes it. Restart to install the new snapshot.',
+      grant: 'Allow automation',
       revoke: 'Revoke consent',
     },
     confirm: {

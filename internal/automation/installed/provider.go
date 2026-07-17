@@ -23,6 +23,7 @@ const (
 	ProviderABI             = "https://schemas.yotta.dev/provider-abi/resource/v1"
 	TargetKindDesktopWindow = target.KindDesktopWindow
 	TargetKindAndroidDevice = target.KindAndroidDevice
+	TargetKindBrowserCDP    = target.KindBrowserCDP
 	// TargetKind remains as a source-compatible alias while callers migrate to
 	// descriptors. It is semantic and no longer identifies Win32.
 	TargetKind   = TargetKindDesktopWindow
@@ -57,7 +58,7 @@ const (
 	CodeUnsupportedHost   = "automation.unsupported_host"
 	CodeContractViolation = "automation.contract_violation"
 
-	providerImplementation = "exact-installed-window-automation/v1"
+	providerImplementation = "installed-automation-target/v2"
 	MaxInputDurationMs     = int64(60_000)
 	MaxCaptureBytes        = int64(64 << 20)
 	MaxCaptureChunkBytes   = int64(64 << 10)

@@ -137,6 +137,8 @@ func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error
 	operations := desktopOperations()
 	if profile.AdapterKind() == AdapterKindAndroidADB {
 		operations = androidOperations()
+	} else if profile.AdapterKind() == AdapterKindBrowserCDP {
+		operations = browserOperations()
 	}
 	raw, err := artifact.Marshal(map[string]any{
 		"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI,

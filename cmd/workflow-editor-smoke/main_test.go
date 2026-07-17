@@ -96,7 +96,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	var serverURL string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
-			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/ws"
+			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/devtools/page/page-1"
 			_ = json.NewEncoder(w).Encode([]map[string]any{{
 				"id": "page-1", "type": "page", "webSocketDebuggerUrl": wsURL,
 			}})

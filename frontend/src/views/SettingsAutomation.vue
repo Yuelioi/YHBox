@@ -44,6 +44,16 @@
           >
             {{ t('settingsAutomation.targets.add_android') }}
           </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-chrome"
+            :disabled="!browserTargetType"
+            @click="addTarget('browser-page')"
+          >
+            {{ t('settingsAutomation.targets.add_browser') }}
+          </UButton>
         </div>
       </template>
 
@@ -240,7 +250,7 @@
               </UFormField>
             </template>
 
-            <template v-else>
+            <template v-else-if="isAndroid(target)">
               <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
                 <div class="flex flex-wrap items-center gap-3">
                   <UIcon name="i-tabler-brand-android" class="size-4 shrink-0 text-primary" />
@@ -309,6 +319,101 @@
                       @click="checkHealth(target)"
                     >
                       {{ t('settingsAutomation.android.check_health') }}
+                    </UButton>
+                  </div>
+                  <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
+                    {{ health[target.slot]?.message }}
+                  </p>
+                </UFormField>
+              </div>
+              <UFormField
+                :label="t('settingsAutomation.targets.timeout_label')"
+                :hint="t('settingsAutomation.targets.timeout_hint')"
+              >
+                <UInputNumber
+                  v-model="target.resolveTimeoutMilliseconds"
+                  :min="100"
+                  :max="10000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </UFormField>
+            </template>
+
+            <template v-else>
+              <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <div class="flex flex-wrap items-center gap-3">
+                  <UIcon name="i-tabler-brand-chrome" class="size-4 shrink-0 text-primary" />
+                  <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                    {{ t('settingsAutomation.browser.discovery_hint') }}
+                  </p>
+                  <UButton
+                    size="sm"
+                    variant="soft"
+                    icon="i-tabler-refresh"
+                    :loading="browserLoading"
+                    :disabled="!target.browserEndpoint?.trim()"
+                    @click="refreshBrowserTargets(target)"
+                  >
+                    {{ t('settingsAutomation.browser.refresh') }}
+                  </UButton>
+                </div>
+                <p v-if="browserError" class="mt-2 text-xs text-error" role="alert">
+                  {{ browserError }}
+                </p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField
+                  :label="t('settingsAutomation.browser.endpoint_label')"
+                  :hint="t('settingsAutomation.browser.endpoint_hint')"
+                  required
+                >
+                  <UInput
+                    v-model.trim="target.browserEndpoint"
+                    size="sm"
+                    class="font-mono"
+                    @change="browserEndpointChanged(target)"
+                  />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.browser.page_label')"
+                  :hint="t('settingsAutomation.browser.page_hint')"
+                  required
+                >
+                  <USelect
+                    :model-value="target.browserTargetId"
+                    :items="browserTargetItems"
+                    size="sm"
+                    @update:model-value="(value: string) => setBrowserTarget(index, value)"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.browser.url_label')">
+                  <UInput
+                    :model-value="target.browserUrl || '—'"
+                    size="sm"
+                    disabled
+                    class="font-mono"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.browser.state_label')">
+                  <div class="flex items-center gap-2">
+                    <UBadge
+                      :color="health[target.slot]?.ok ? 'success' : 'neutral'"
+                      size="sm"
+                      variant="subtle"
+                    >
+                      {{ health[target.slot]?.code ?? t('settingsAutomation.browser.not_checked') }}
+                    </UBadge>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      :disabled="!target.persisted"
+                      :loading="healthLoading[target.slot]"
+                      @click="checkHealth(target)"
+                    >
+                      {{ t('settingsAutomation.browser.check_health') }}
                     </UButton>
                   </div>
                   <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
@@ -445,6 +550,16 @@
           >
             {{ t('settingsAutomation.targets.add_android') }}
           </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-chrome"
+            :disabled="!browserTargetType"
+            @click="addTarget('browser-page')"
+          >
+            {{ t('settingsAutomation.targets.add_browser') }}
+          </UButton>
         </div>
       </div>
     </SettingsSection>
@@ -459,6 +574,7 @@ import {
   type AndroidDeviceDescriptor,
   type AutomationTargetHealth,
   type AutomationTargetTypeDescriptor,
+  type BrowserTargetDescriptor,
   type InstalledAutomationTargetProfile,
 } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
@@ -490,6 +606,11 @@ const androidTargetType = computed(() =>
     (candidate) => candidate.profileKind === 'android-device' && candidate.hostAvailable,
   ),
 )
+const browserTargetType = computed(() =>
+  targetTypes.value.find(
+    (candidate) => candidate.profileKind === 'browser-page' && candidate.hostAvailable,
+  ),
+)
 const draft = ref<AutomationTargetDraft[]>([])
 const expandedSlot = ref('')
 const busy = reactive<Record<string, boolean>>({})
@@ -499,6 +620,9 @@ const captureFeedback = ref<{ tone: 'success' | 'warning' | 'error'; message: st
 const adbDevices = ref<AndroidDeviceDescriptor[]>([])
 const adbLoading = ref(false)
 const adbError = ref('')
+const browserTargets = ref<BrowserTargetDescriptor[]>([])
+const browserLoading = ref(false)
+const browserError = ref('')
 const health = reactive<Record<string, AutomationTargetHealth | undefined>>({})
 const healthLoading = reactive<Record<string, boolean>>({})
 let captureTimer: ReturnType<typeof setTimeout> | undefined
@@ -522,6 +646,12 @@ const adbDeviceItems = computed(() =>
     label: `${device.model || device.serial} · ${device.serial} · ${device.state}`,
     value: device.serial,
     disabled: device.state !== 'device' || !device.product || !device.model || !device.device,
+  })),
+)
+const browserTargetItems = computed(() =>
+  browserTargets.value.map((target) => ({
+    label: `${target.title || target.url || target.id} · ${target.id}`,
+    value: target.id,
   })),
 )
 
@@ -555,10 +685,17 @@ function applicationLabel(slot: string) {
 function isDesktop(target: AutomationTargetDraft): boolean {
   return target.targetKind === 'desktop-window' && target.adapterKind === 'win32'
 }
+function isAndroid(target: AutomationTargetDraft): boolean {
+  return target.targetKind === 'android-device' && target.adapterKind === 'android-adb'
+}
+function isBrowser(target: AutomationTargetDraft): boolean {
+  return target.targetKind === 'browser-cdp' && target.adapterKind === 'browser-cdp'
+}
 function targetSummary(target: AutomationTargetDraft): string {
-  return isDesktop(target)
-    ? applicationLabel(target.applicationSlot)
-    : `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
+  if (isDesktop(target)) return applicationLabel(target.applicationSlot)
+  if (isBrowser(target))
+    return `${target.browserTitle || t('settingsAutomation.browser.unselected')} · ${target.browserUrl || '—'}`
+  return `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
 }
 function androidIdentity(target: AutomationTargetDraft): string {
   if (!target.adbSerial) return '—'
@@ -579,18 +716,26 @@ function uniqueLabel(base: string): string {
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
 }
-async function addTarget(profileKind: 'desktop-window' | 'android-device') {
-  const type = profileKind === 'desktop-window' ? desktopTargetType.value : androidTargetType.value
+async function addTarget(profileKind: 'desktop-window' | 'android-device' | 'browser-page') {
+  const type =
+    profileKind === 'desktop-window'
+      ? desktopTargetType.value
+      : profileKind === 'android-device'
+        ? androidTargetType.value
+        : browserTargetType.value
   if (!type) return
   const desktop = profileKind === 'desktop-window'
-  const slot = uniqueSlot(desktop ? 'window-target' : 'android-target')
+  const browser = profileKind === 'browser-page'
+  const slot = uniqueSlot(desktop ? 'window-target' : browser ? 'browser-target' : 'android-target')
   draft.value.push({
     slot,
     label: uniqueLabel(
       t(
         desktop
           ? 'settingsAutomation.targets.new_blank_label'
-          : 'settingsAutomation.android.new_blank_label',
+          : browser
+            ? 'settingsAutomation.browser.new_blank_label'
+            : 'settingsAutomation.android.new_blank_label',
       ),
     ),
     targetKind: type.targetKind as InstalledAutomationTargetProfile['targetKind'],
@@ -607,6 +752,11 @@ async function addTarget(profileKind: 'desktop-window' | 'android-device') {
     adbModel: '',
     adbDevice: '',
     androidPackage: '',
+    browserEndpoint: 'http://127.0.0.1:9222',
+    browserTargetId: '',
+    browserWebSocketUrl: '',
+    browserTitle: '',
+    browserUrl: '',
     persisted: false,
   })
   expandedSlot.value = slot
@@ -641,14 +791,26 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
     ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
   }
   if (isDesktop(target)) return common
-  return {
+  const adapterNeutral = {
     ...common,
     applicationSlot: '',
     windowTitle: '',
     windowClass: '',
-    inputBackend: '',
-    captureBackend: '',
+    inputBackend: '' as InputBackend,
+    captureBackend: '' as CaptureBackend,
     mouseCounts360: 0,
+  }
+  if (isBrowser(target))
+    return {
+      ...adapterNeutral,
+      browserEndpoint: target.browserEndpoint?.trim(),
+      browserTargetId: target.browserTargetId?.trim(),
+      browserWebSocketUrl: target.browserWebSocketUrl?.trim(),
+      browserTitle: target.browserTitle?.trim(),
+      browserUrl: target.browserUrl?.trim(),
+    }
+  return {
+    ...adapterNeutral,
     adbSerial: target.adbSerial?.trim(),
     adbProduct: target.adbProduct?.trim(),
     adbModel: target.adbModel?.trim(),
@@ -663,7 +825,15 @@ async function commit(): Promise<boolean> {
   return ok
 }
 function targetComplete(target: AutomationTargetDraft): boolean {
-  if (!isDesktop(target)) {
+  if (isBrowser(target)) {
+    return Boolean(
+      target.label.trim() &&
+      target.browserEndpoint?.trim() &&
+      target.browserTargetId?.trim() &&
+      target.browserWebSocketUrl?.trim(),
+    )
+  }
+  if (isAndroid(target)) {
     return Boolean(
       target.label.trim() &&
       target.adbSerial &&
@@ -680,6 +850,45 @@ function targetComplete(target: AutomationTargetDraft): boolean {
     target.windowTitle.trim() &&
     target.windowClass.trim(),
   )
+}
+
+async function refreshBrowserTargets(target: AutomationTargetDraft): Promise<void> {
+  browserLoading.value = true
+  browserError.value = ''
+  try {
+    browserTargets.value =
+      (await backend.automation.listBrowserTargets(target.browserEndpoint?.trim() || '')) ?? []
+    if (browserTargets.value.length === 0)
+      browserError.value = t('settingsAutomation.browser.none_found')
+  } catch (error) {
+    browserTargets.value = []
+    browserError.value = errorText(error)
+  } finally {
+    browserLoading.value = false
+  }
+}
+
+function browserEndpointChanged(target: AutomationTargetDraft): void {
+  target.browserTargetId = ''
+  target.browserWebSocketUrl = ''
+  target.browserTitle = ''
+  target.browserUrl = ''
+  delete target.workflowConsent
+  delete health[target.slot]
+  browserTargets.value = []
+}
+
+async function setBrowserTarget(index: number, id: string): Promise<void> {
+  const selected = browserTargets.value.find((target) => target.id === id)
+  const target = draft.value[index]
+  if (!selected || !target || !isBrowser(target)) return
+  target.browserTargetId = selected.id
+  target.browserWebSocketUrl = selected.webSocketDebuggerUrl
+  target.browserTitle = selected.title
+  target.browserUrl = selected.url
+  delete target.workflowConsent
+  delete health[target.slot]
+  await commit()
 }
 async function refreshADBDevices(): Promise<void> {
   adbLoading.value = true

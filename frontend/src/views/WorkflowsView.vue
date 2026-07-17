@@ -394,7 +394,7 @@ const exportingId = ref('')
 const replacingId = ref('')
 const batchExporting = ref(false)
 const newName = ref('')
-const newTemplate = ref<'generic' | 'windows' | 'android' | 'cross-target'>('generic')
+const newTemplate = ref<'generic' | 'windows' | 'android' | 'browser' | 'cross-target'>('generic')
 const failure = ref('')
 const deleteFeedback = ref<{
   tone: 'success' | 'warning' | 'error'
@@ -435,6 +435,7 @@ const templateItems = computed(() => [
   { label: t('workflow.list.template_generic'), value: 'generic' },
   { label: t('workflow.list.template_windows'), value: 'windows' },
   { label: t('workflow.list.template_android'), value: 'android' },
+  { label: t('workflow.list.template_browser'), value: 'browser' },
   { label: t('workflow.list.template_cross_target'), value: 'cross-target' },
 ])
 

@@ -6,29 +6,28 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-3.1 尚未发布。Stage 1–8 已完成图编辑、运行/调试、自动化创作、基础产品连续性、平台中立 automation seam、Android 产品闭环、Workflow Source portability 与资产库规模化/安全清理。原 Stage 7 对仍缺能力的错误延期已撤销，Browser CDP 与 source-native 多图创作仍在 3.1 发布前范围。
+3.1 尚未发布。Stage 1–9 已完成图编辑、运行/调试、自动化创作、基础产品连续性、平台中立 automation seam、Android 产品闭环、Workflow Source portability、资产库规模化/安全清理与 Browser CDP 产品闭环。此前把缺失能力延期到“3.1”的错误边界已撤销；当前唯一未完成的发布前 frontier 是 Stage 10 / Slice 18 的 Source-native 多图创作。
 
-Stage 8 已通过完整 `task check`。当前 frontier 是 Stage 9 / Slice 19：把已有 Browser CDP 底层 controller 接入 exact installation、Settings、Catalog、provider 与真实浏览器 smoke。
+Stage 9 已通过完整 `task check`、production `task build`、正式 Windows WebView smoke，以及真实 Chrome 和 Edge 显式调试端口 smoke。
 
 ## Next
 
-执行 Slice 19：审计现有 browsercdp 与 automation registry seam，完成 loopback exact-page profile、发现/安装/consent/健康检查、browser targetKinds 节点开放和真实 Chrome/Edge 调试端口 smoke。阶段结束再统一验收与提交。
+执行 Slice 18：定义 graph-call 深模块与 Source annotations/presentation metadata，贯通 schema、compiler、scheduler、journal、debugger、AI authoring、clipboard、portability 和编辑器多图 UX。阶段结束再统一验收与提交。
 
 ## Read now
 
-- work/workflow-editor-capability-roadmap/19-browser-cdp-installation.md
+- work/workflow-editor-capability-roadmap/18-source-native-multigraph.md
 - work/workflow-editor-capability-roadmap/upgrade-plan.md
-- knowledge/architecture/go-multiplatform-boundary.md
+- knowledge/architecture/content-addressed-workflow-artifacts.md
 - knowledge/build/code-style.md
 - knowledge/frontend/ui.md
 
 ## Read if
 
-- work/workflow-editor-capability-roadmap/slices/map.md — 调整 Stage 9–10 frontier 或 blocker
+- work/workflow-editor-capability-roadmap/slices/map.md — 调整 Stage 10 frontier 或 blocker
 - work/workflow-editor-capability-roadmap/artifacts/legacy-product-capability-diff.md — 对照旧能力事实
 - work/workflow-editor-capability-roadmap/capability-audit.md — 判断恢复范围或发布阈值
-- knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Source/bundle/hash/identity
-- knowledge/architecture/workspace-file-capability.md — 设计导入导出文件边界
+- knowledge/architecture/workspace-file-capability.md — 修改多图 bundle/file 引用边界
 - knowledge/subgraph/asset-subsystem.md — 修改资产存储、引用或清理
 
 ## Progress
@@ -39,7 +38,9 @@ Stage 8 已通过完整 `task check`。当前 frontier 是 Stage 9 / Slice 19：
 - 2026-07-17 用户纠正发布边界：尚未发布的 3.1 不能通过“post-3.1”延期来宣称完成；Source portability、资产规模化、subgraph/comment 与 Browser CDP 必须发布前实现。
 - Slice 16 已完成严格 Workflow Source bundle、copy/replace identity 与列表页 import/export。
 - Slice 17 已完成后端资产分页/筛选、跨页批量、variant 管理，以及 asset/Source/Program/Run 全 durable root 的 preview-token Blob cleanup。
-- Stage 8 完整 `task check` 通过；第一次门禁遇到 Windows 测试文件临时占用，定向重跑通过；第二次发现并修复 ST1005；最终完整门禁退出 0。
+- Stage 8 完整 `task check` 通过并提交为 `892b90f9`。
+- Slice 19 已完成单一 adapter registry、loopback exact-page profile、Settings discovery/install/consent/health、Browser capability/Catalog/Inspector/模板与组合键语义。
+- Stage 9 完整 `task check`、production build、WebView smoke、Chrome smoke 与 Edge smoke 全部通过；smoke PNG 已人工查看。
 
 ## Open questions
 

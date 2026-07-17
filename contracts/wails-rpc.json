@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 116,
-    "models": 142
+    "methods": 117,
+    "models": 143
   },
   "services": [
     {
@@ -615,6 +615,18 @@
           "bindingId": "187818553",
           "parameters": [],
           "returns": "$CancellablePromise<installed$0.AndroidDeviceDescriptor[]>"
+        },
+        {
+          "name": "ListBrowserTargets",
+          "bindingId": "3519640787",
+          "parameters": [
+            {
+              "name": "endpoint",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<browsercdp$0.TargetInfo[]>"
         },
         {
           "name": "ListTargetTypes",
@@ -2068,6 +2080,42 @@
       ]
     },
     {
+      "module": "internal/automation/browsercdp/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "TargetInfo",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"url\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"webSocketDebuggerUrl\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/automation/installed/models",
       "declarations": [
         {
@@ -3426,6 +3474,31 @@
             },
             {
               "name": "\"androidPackage\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"browserEndpoint\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"browserTargetId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"browserWebSocketUrl\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"browserTitle\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"browserUrl\"",
               "optional": true,
               "type": "string"
             },

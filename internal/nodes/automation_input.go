@@ -16,6 +16,7 @@ const (
 
 	AutomationInputCapabilityID        = "https://schemas.yotta.dev/capabilities/automation/input/v1"
 	AutomationDesktopInputCapabilityID = "https://schemas.yotta.dev/capabilities/automation/desktop-input/v1"
+	AutomationKeyInputCapabilityID     = "https://schemas.yotta.dev/capabilities/automation/key-input/v1"
 
 	ClickPointerNodeID        = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	MovePointerNodeID         = "https://schemas.yotta.dev/nodes/automation/move-pointer"
@@ -83,7 +84,7 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 func sealAutomationInputCapability() (capability.Definition, error) {
 	const scopeID = AutomationInputCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationInputCapabilityID, Operations: []string{installed.OperationClick, installed.OperationDrag, installed.OperationMove, installed.OperationScroll, installed.OperationTypeText}, TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice},
+		CapabilityID: AutomationInputCapabilityID, Operations: []string{installed.OperationClick, installed.OperationDrag, installed.OperationMove, installed.OperationScroll, installed.OperationTypeText}, TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice, installed.TargetKindBrowserCDP},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"operation":{"enum":["click","drag","move","scroll","type-text"]}},
@@ -97,10 +98,10 @@ func sealAutomationInputCapability() (capability.Definition, error) {
 func sealAutomationDesktopInputCapability() (capability.Definition, error) {
 	const scopeID = AutomationDesktopInputCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationDesktopInputCapabilityID, Operations: []string{installed.OperationMoveRelative, installed.OperationPressKeys}, TargetKinds: []string{installed.TargetKindDesktopWindow},
+		CapabilityID: AutomationDesktopInputCapabilityID, Operations: []string{installed.OperationMoveRelative}, TargetKinds: []string{installed.TargetKindDesktopWindow},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"enum":["move-relative","press-keys"]}},
+			"properties":{"operation":{"const":"move-relative"}},
 			"required":["operation"],"additionalProperties":false
 		}`, scopeID))}},
 		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
@@ -108,7 +109,21 @@ func sealAutomationDesktopInputCapability() (capability.Definition, error) {
 	})
 }
 
-func defineAutomationInputNodes(types automationInputTypes, input, desktopInput capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
+func sealAutomationKeyInputCapability() (capability.Definition, error) {
+	const scopeID = AutomationKeyInputCapabilityID + "/scope"
+	return capability.SealDefinition(capability.DefinitionDraft{
+		CapabilityID: AutomationKeyInputCapabilityID, Operations: []string{installed.OperationPressKeys}, TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindBrowserCDP},
+		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
+			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+			"properties":{"operation":{"const":"press-keys"}},
+			"required":["operation"],"additionalProperties":false
+		}`, scopeID))}},
+		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
+		ProviderABI: installed.ProviderABI,
+	})
+}
+
+func defineAutomationInputNodes(types automationInputTypes, input, desktopInput, keyInput capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
 	stringType := datatype.RefExpression(types.stringRef)
 	integerType := datatype.RefExpression(types.integerRef)
 	booleanType := datatype.RefExpression(types.booleanRef)
@@ -157,8 +172,10 @@ func defineAutomationInputNodes(types automationInputTypes, input, desktopInput 
 	contracts := make([]nodecontract.Contract, 0, len(specs))
 	for _, spec := range specs {
 		capabilityDefinition := input
-		if spec.operation == installed.OperationMoveRelative || spec.operation == installed.OperationPressKeys {
+		if spec.operation == installed.OperationMoveRelative {
 			capabilityDefinition = desktopInput
+		} else if spec.operation == installed.OperationPressKeys {
+			capabilityDefinition = keyInput
 		}
 		contract, err := sealAutomationInputNode(spec, capabilityDefinition)
 		if err != nil {

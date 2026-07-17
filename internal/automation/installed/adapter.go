@@ -9,8 +9,10 @@ import (
 const (
 	AdapterKindWin32              = "win32"
 	AdapterKindAndroidADB         = "android-adb"
+	AdapterKindBrowserCDP         = "browser-cdp"
 	IdentityKindWindowsExecutable = "windows-executable"
 	IdentityKindADBDevice         = "adb-device"
+	IdentityKindBrowserPage       = "browser-page"
 	// AdapterKindTest exists only to prove the seam with a second adapter in
 	// conformance tests. The production registry never installs it.
 	AdapterKindTest = "test"
@@ -46,17 +48,51 @@ type TargetTypeDescriptor struct {
 }
 
 func TargetTypes() []TargetTypeDescriptor {
-	return []TargetTypeDescriptor{
+	adapters := productionAdapters()
+	result := make([]TargetTypeDescriptor, 0, len(adapters))
+	for _, adapter := range adapters {
+		descriptor := adapter.targetType
+		descriptor.ResourceKinds = append([]string(nil), descriptor.ResourceKinds...)
+		descriptor.Operations = append([]string(nil), descriptor.Operations...)
+		descriptor.InputBackends = append([]string(nil), descriptor.InputBackends...)
+		descriptor.CaptureBackends = append([]string(nil), descriptor.CaptureBackends...)
+		descriptor.ApplicationIdentityKinds = append([]string(nil), descriptor.ApplicationIdentityKinds...)
+		result = append(result, descriptor)
+	}
+	return result
+}
+
+type productionAdapter struct {
+	targetType TargetTypeDescriptor
+	open       func(Profile) (driver, error)
+}
+
+func productionAdapters() []productionAdapter {
+	return []productionAdapter{
 		{
-			TargetKind: TargetKindDesktopWindow, AdapterKind: AdapterKindWin32, ProfileKind: "desktop-window", HostAvailable: PlatformSupported(),
-			ResourceKinds: []string{KindInput, KindWindow, KindCapture, KindPlayback}, Operations: desktopOperations(),
-			InputBackends: []string{"sendinput", "postmessage"}, CaptureBackends: []string{"gdi", "wgc"},
-			ApplicationIdentityKinds: []string{IdentityKindWindowsExecutable},
+			targetType: TargetTypeDescriptor{
+				TargetKind: TargetKindDesktopWindow, AdapterKind: AdapterKindWin32, ProfileKind: "desktop-window", HostAvailable: PlatformSupported(),
+				ResourceKinds: []string{KindInput, KindWindow, KindCapture, KindPlayback}, Operations: desktopOperations(),
+				InputBackends: []string{"sendinput", "postmessage"}, CaptureBackends: []string{"gdi", "wgc"},
+				ApplicationIdentityKinds: []string{IdentityKindWindowsExecutable},
+			},
+			open: newPlatformDriver,
 		},
 		{
-			TargetKind: TargetKindAndroidDevice, AdapterKind: AdapterKindAndroidADB, ProfileKind: "android-device", HostAvailable: true,
-			ResourceKinds: []string{KindInput, KindWindow, KindCapture}, Operations: androidOperations(),
-			ApplicationIdentityKinds: []string{IdentityKindADBDevice},
+			targetType: TargetTypeDescriptor{
+				TargetKind: TargetKindAndroidDevice, AdapterKind: AdapterKindAndroidADB, ProfileKind: "android-device", HostAvailable: true,
+				ResourceKinds: []string{KindInput, KindWindow, KindCapture}, Operations: androidOperations(),
+				ApplicationIdentityKinds: []string{IdentityKindADBDevice},
+			},
+			open: newAndroidDriver,
+		},
+		{
+			targetType: TargetTypeDescriptor{
+				TargetKind: TargetKindBrowserCDP, AdapterKind: AdapterKindBrowserCDP, ProfileKind: "browser-page", HostAvailable: true,
+				ResourceKinds: []string{KindInput, KindCapture}, Operations: browserOperations(),
+				ApplicationIdentityKinds: []string{IdentityKindBrowserPage},
+			},
+			open: newBrowserDriver,
 		},
 	}
 }
@@ -118,14 +154,13 @@ func (r adapterRegistry) registration(profile Profile) (adapterRegistration, err
 
 func defaultAdapterRegistry() adapterRegistry {
 	registry := newAdapterRegistry()
-	_ = registry.register(adapterDescriptor{
-		Kind: AdapterKindWin32, TargetKinds: []string{TargetKindDesktopWindow},
-		ResourceKinds: []string{KindInput, KindWindow, KindCapture, KindPlayback}, Operations: desktopOperations(),
-	}, newPlatformDriver)
-	_ = registry.register(adapterDescriptor{
-		Kind: AdapterKindAndroidADB, TargetKinds: []string{TargetKindAndroidDevice},
-		ResourceKinds: []string{KindInput, KindWindow, KindCapture}, Operations: androidOperations(),
-	}, newAndroidDriver)
+	for _, adapter := range productionAdapters() {
+		targetType := adapter.targetType
+		_ = registry.register(adapterDescriptor{
+			Kind: targetType.AdapterKind, TargetKinds: []string{targetType.TargetKind},
+			ResourceKinds: targetType.ResourceKinds, Operations: targetType.Operations,
+		}, adapter.open)
+	}
 	return registry
 }
 
@@ -144,4 +179,8 @@ func desktopOperations() []string {
 
 func androidOperations() []string {
 	return []string{OperationActivate, OperationCapture, OperationClick, OperationDrag, OperationMove, OperationReadCapture, OperationScroll, OperationStopApp, OperationTypeText}
+}
+
+func browserOperations() []string {
+	return []string{OperationCapture, OperationClick, OperationDrag, OperationMove, OperationPressKeys, OperationReadCapture, OperationScroll, OperationTypeText}
 }

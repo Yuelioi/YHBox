@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/browsercdp"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
 
@@ -31,6 +32,12 @@ func (service *AutomationService) ListADBDevices() ([]automationinstalled.Androi
 	return automationinstalled.DiscoverAndroidDevices(ctx)
 }
 
+func (service *AutomationService) ListBrowserTargets(endpoint string) ([]browsercdp.TargetInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
+}
+
 func (service *AutomationService) CheckTargetHealth(slot string) AutomationTargetHealth {
 	if service == nil || service.app == nil {
 		return AutomationTargetHealth{Code: "unavailable", Message: "automation service is unavailable"}
@@ -48,7 +55,19 @@ func (service *AutomationService) CheckTargetHealth(slot string) AutomationTarge
 		if err != nil {
 			return AutomationTargetHealth{Code: "invalid-profile", Message: err.Error()}
 		}
-		if configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+		if configured.isBrowser() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configured.ResolveTimeoutMilliseconds)*time.Millisecond)
+			probe, probeErr := automationinstalled.NewBrowserHealthProbe(profile)
+			if probeErr == nil {
+				_, probeErr = probe.Resolve(ctx)
+			}
+			cancel()
+			if probeErr != nil {
+				return automationHealthFailure(probeErr)
+			}
+			return AutomationTargetHealth{OK: true, Code: "ready", Message: "browser page identity and viewport are ready"}
+		}
+		if !configured.isAndroid() {
 			if err := automationinstalled.VerifyProfile(profile); err != nil {
 				return AutomationTargetHealth{Code: "identity-changed", Message: err.Error()}
 			}
@@ -61,16 +80,20 @@ func (service *AutomationService) CheckTargetHealth(slot string) AutomationTarge
 		}
 		cancel()
 		if err != nil {
-			var classified *automationinstalled.Failure
-			code := "unavailable"
-			if errors.As(err, &classified) {
-				code = classified.Code
-			}
-			return AutomationTargetHealth{Code: code, Message: err.Error()}
+			return automationHealthFailure(err)
 		}
 		return AutomationTargetHealth{OK: true, Code: "ready", Message: "ADB device identity and display are ready"}
 	}
 	return AutomationTargetHealth{Code: "not-found", Message: fmt.Sprintf("automation target slot %q is not installed", slot)}
+}
+
+func automationHealthFailure(err error) AutomationTargetHealth {
+	var classified *automationinstalled.Failure
+	code := "unavailable"
+	if errors.As(err, &classified) {
+		code = classified.Code
+	}
+	return AutomationTargetHealth{Code: code, Message: err.Error()}
 }
 
 func (service *AutomationService) GrantWorkflowConsent(slot string) (string, error) {
@@ -89,7 +112,7 @@ func (service *AutomationService) GrantWorkflowConsent(slot string) (string, err
 				continue
 			}
 			var application InstalledApplicationSettings
-			if configured.TargetKind != automationinstalled.TargetKindAndroidDevice || configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+			if configured.isDesktop() {
 				var ok bool
 				application, ok = applications[configured.ApplicationSlot]
 				if !ok {
