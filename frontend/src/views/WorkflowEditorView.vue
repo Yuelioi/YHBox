@@ -35,6 +35,8 @@
         :ai-panel-open="aiPanelOpen"
         :run-active="runActive"
         :saving="session.phase === 'saving'"
+        :compile-succeeded="compileSucceeded"
+        :save-succeeded="saveSucceeded"
         @back="router.push('/workflows')"
         @rename="renameWorkflow"
         @undo="session.undo()"
@@ -155,7 +157,15 @@
             </template>
             <Background :gap="20" :size="1" pattern-color="rgb(113 113 122 / 0.26)" />
             <Controls position="bottom-left" />
-            <MiniMap position="bottom-right" :pannable="true" :zoomable="true" />
+            <MiniMap
+              position="bottom-right"
+              :pannable="true"
+              :zoomable="true"
+              node-color="var(--ui-bg-accented)"
+              node-stroke-color="var(--ui-border-accented)"
+              :node-stroke-width="1"
+              mask-color="color-mix(in oklab, var(--ui-bg) 72%, transparent)"
+            />
           </VueFlow>
         </div>
 
@@ -213,6 +223,7 @@ import { type EditorCommand, type Node, type NodeProjection } from '@/app/editor
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle } from '@/app/editor/graphHandles'
 import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
+import { useConfirm } from '@/composables/useConfirm'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
@@ -229,13 +240,18 @@ interface WorkflowNodeData {
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const selectedNodeId = ref('')
 const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
+const compileSucceeded = ref(false)
+const saveSucceeded = ref(false)
 const { screenToFlowCoordinate } = useVueFlow()
 let unsubscribeRun: (() => void) | undefined
+let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
+let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let nextPosition = 0
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
@@ -297,8 +313,22 @@ onMounted(async () => {
   })
 })
 
-onBeforeUnmount(() => unsubscribeRun?.())
-onBeforeRouteLeave(() => !session.dirty || window.confirm(t('workflow.editor.discard_confirm')))
+onBeforeUnmount(() => {
+  unsubscribeRun?.()
+  clearTimeout(compileFlashTimer)
+  clearTimeout(saveFlashTimer)
+})
+onBeforeRouteLeave(async () => {
+  if (!session.dirty) return true
+  return (
+    (await confirm({
+      title: t('workflow.editor.discard_title'),
+      description: t('workflow.editor.discard_confirm'),
+      confirmText: t('workflow.editor.discard_action'),
+      color: 'warning',
+    })) === true
+  )
+})
 
 function applyCommand(command: EditorCommand): void {
   try {
@@ -379,26 +409,20 @@ function renameWorkflow(name: string): void {
 }
 
 async function compile(): Promise<void> {
+  setCompileSucceeded(false)
   try {
     const result = await session.validate()
-    toast.add({
-      title: result.diagnostics.length
-        ? t('workflow.toast.compile_diagnostics')
-        : t('workflow.toast.compile_succeeded'),
-      description: result.programHash || result.sourceHash,
-      color: result.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
-        ? 'warning'
-        : 'success',
-    })
+    if (result.diagnostics.length === 0) setCompileSucceeded(true)
   } catch (error) {
     showError(t('workflow.toast.compile_failed'), error)
   }
 }
 
 async function save(): Promise<void> {
+  setSaveSucceeded(false)
   try {
     await session.save()
-    toast.add({ title: t('workflow.toast.saved'), color: 'success' })
+    setSaveSucceeded(true)
   } catch (error) {
     showError(t('workflow.toast.save_failed'), error)
   }
@@ -408,7 +432,6 @@ async function acceptAIProposal(): Promise<void> {
   selectedNodeId.value = ''
   try {
     await session.load(session.workflowId)
-    toast.add({ title: t('workflow.ai.accepted_toast'), color: 'success' })
   } catch (error) {
     showError(t('workflow.ai.refresh_failed'), error)
   }
@@ -416,13 +439,7 @@ async function acceptAIProposal(): Promise<void> {
 
 async function startRun(): Promise<void> {
   try {
-    const run = await session.run()
-    if (run)
-      toast.add({
-        title: t('workflow.toast.queued'),
-        description: run.runId,
-        color: 'success',
-      })
+    await session.run()
   } catch (error) {
     showError(t('workflow.toast.run_failed'), error)
   }
@@ -430,13 +447,7 @@ async function startRun(): Promise<void> {
 
 async function startDebug(): Promise<void> {
   try {
-    const run = await session.debug()
-    if (run)
-      toast.add({
-        title: t('workflow.toast.debug_started'),
-        description: run.runId,
-        color: 'success',
-      })
+    await session.debug()
   } catch (error) {
     showError(t('workflow.toast.debug_failed'), error)
   }
@@ -483,6 +494,18 @@ function showError(title: string, error: unknown): void {
     description: error instanceof Error ? error.message : String(error),
     color: 'error',
   })
+}
+
+function setCompileSucceeded(value: boolean): void {
+  clearTimeout(compileFlashTimer)
+  compileSucceeded.value = value
+  if (value) compileFlashTimer = setTimeout(() => (compileSucceeded.value = false), 1600)
+}
+
+function setSaveSucceeded(value: boolean): void {
+  clearTimeout(saveFlashTimer)
+  saveSucceeded.value = value
+  if (value) saveFlashTimer = setTimeout(() => (saveSucceeded.value = false), 1600)
 }
 </script>
 

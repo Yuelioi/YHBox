@@ -1,9 +1,11 @@
 <template>
   <article
-    class="workflow-node min-w-[230px] overflow-hidden rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
+    class="workflow-node min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="selected ? 'border-primary/70 shadow-primary/10' : 'border-default'"
   >
-    <header class="flex items-center gap-2 border-b border-default bg-muted/35 px-3 py-2.5">
+    <header
+      class="flex items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5"
+    >
       <UIcon :name="iconName" class="size-4 shrink-0 text-primary" aria-hidden="true" />
       <div class="min-w-0 flex-1">
         <p class="truncate text-xs font-semibold text-highlighted">{{ title }}</p>
@@ -136,10 +138,25 @@ const rightPins = computed<PinView[]>(() => [
   border: 2px solid var(--ui-bg-elevated);
 }
 
+.workflow-node :deep(.vue-flow__handle-left) {
+  left: -0.75rem;
+}
+
+.workflow-node :deep(.vue-flow__handle-right) {
+  right: -0.75rem;
+}
+
 .workflow-node :deep(.workflow-handle-signal) {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  transform: translateY(-50%) rotate(45deg);
+}
+
+.workflow-node :deep(.workflow-handle-signal.vue-flow__handle-left) {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.workflow-node :deep(.workflow-handle-signal.vue-flow__handle-right) {
+  transform: translate(50%, -50%) rotate(45deg);
 }
 </style>

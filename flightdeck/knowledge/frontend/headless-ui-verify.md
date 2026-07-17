@@ -50,6 +50,10 @@ const browser = await puppeteer.launch({
 - 坑2: modal 打开后 `page.click('.cm-content')` 点到的是**背后小框的编辑器** (DOM 第一个) — 取 `page.$$('.cm-content')` 最后一个。
 - 截完: `pnpm remove puppeteer-core` + 删脚本/PNG/临时预览路由, 跟 main.ts 还原一起做。
 
+## 断言可靠性
+
+- 不要用正则从 `getComputedStyle(...).backgroundColor` 抽数字再当 RGB 比较；WebView/Chromium 可返回 `oklch()`、`color()` 等 CSS Color 4 语法，色相会被误判成亮度。验证 semantic surface 时创建临时 probe，令其 `background: var(--ui-bg)`，再比较浏览器解析后的 `backgroundColor`；视觉结果仍必须看 PNG。
+
 ## 局限
 
 - 后端 RPC (SetSize / 跑容器 / Events) 在纯 vite **看不到效果** —— 只验**布局/样式/组件渲染**。功能行为 (置顶、自适应尺寸、事件刷新) 留**真机 smoke**。

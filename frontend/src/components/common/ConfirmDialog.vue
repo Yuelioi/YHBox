@@ -6,7 +6,7 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
 -->
 <template>
   <BaseModal :open="open" :title="title" size="md" :show-close="false" @update:open="onUpdateOpen">
-    <div class="space-y-3">
+    <div data-testid="confirm-dialog" class="space-y-3">
       <p v-if="description" class="text-xs text-toned leading-relaxed whitespace-pre-line">
         {{ description }}
       </p>
@@ -23,9 +23,14 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
     </div>
 
     <template #footer>
-      <UButton size="sm" variant="ghost" color="neutral" @click="onCancel">{{
-        cancelTextResolved
-      }}</UButton>
+      <UButton
+        data-testid="confirm-cancel"
+        size="sm"
+        variant="ghost"
+        color="neutral"
+        @click="onCancel"
+        >{{ cancelTextResolved }}</UButton
+      >
       <UButton size="sm" :color="colorResolved" @click="onConfirm">{{
         confirmTextResolved
       }}</UButton>

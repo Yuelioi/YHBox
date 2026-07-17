@@ -68,6 +68,9 @@ try {
     }
 
     go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
+    }
 } finally {
     if ($appProcess -and -not $appProcess.HasExited) {
         Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue

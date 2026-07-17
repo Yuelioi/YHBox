@@ -12,7 +12,7 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 - frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
 - Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
 - 开发入口 task dev。
-- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击 0→1、拖放 1→2，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。
+- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击 0→1、拖放 1→2，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
 - 完整本地门禁 task check：supply-chain、contracts、AI eval、版本/Wails、Go tests + global 65% + vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。
 - 正式构建只用 task build；它生成 bindings/frontend/syso，并构建 Yotta.exe、Yotta.CLI.exe、ScriptWorker、WasmPluginRunner、capture DLL 与 ADB。不要裸 go build -o Yotta.exe。
 - task package 要求前后 worktree 全干净，依次执行 task check、production build、staging、manifest/archive 与 frozen-payload smoke；公开 stable 仍受许可证、证书、canonical identity、维护者/owner 设置和原生宿主 smoke 阻塞。
@@ -34,7 +34,7 @@ Windows 本地可用 `go test -c` 逐包生成 linux/amd64、darwin/arm64 测试
 
 Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed。
 
-前端基线：28 files / 106 tests；i18n 1269 keys、0 中文 residue；Wails 14/94/109；tracked no-explicit-any debt 24。production bundle entry 262837 gzip bytes（limit 350000），editor 97277（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
+前端基线：28 files / 106 tests；i18n 1269 keys、0 中文 residue；Wails 14/94/109；tracked no-explicit-any debt 24。production bundle entry 262848 gzip bytes（limit 350000），editor 97544（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
 
 ## 运行 / smoke
 

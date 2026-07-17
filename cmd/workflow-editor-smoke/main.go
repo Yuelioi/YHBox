@@ -16,12 +16,19 @@ import (
 )
 
 type pageState struct {
-	Href        string   `json:"href"`
-	Catalog     int      `json:"catalog"`
-	CanvasNodes int      `json:"canvasNodes"`
-	AIReview    bool     `json:"aiReview"`
-	CreateInput bool     `json:"createInput"`
-	Errors      []string `json:"errors"`
+	Href               string   `json:"href"`
+	Catalog            int      `json:"catalog"`
+	CanvasNodes        int      `json:"canvasNodes"`
+	AIReview           bool     `json:"aiReview"`
+	CreateInput        bool     `json:"createInput"`
+	GraphChromeDark    bool     `json:"graphChromeDark"`
+	HandleOverlaps     int      `json:"handleOverlaps"`
+	NativeConfirmCalls int      `json:"nativeConfirmCalls"`
+	ConfirmDialog      bool     `json:"confirmDialog"`
+	Dirty              bool     `json:"dirty"`
+	SaveInlineFeedback bool     `json:"saveInlineFeedback"`
+	SaveToast          bool     `json:"saveToast"`
+	Errors             []string `json:"errors"`
 }
 
 func main() {
@@ -101,7 +108,7 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err != nil {
 		return err
 	}
-	if err := eval(ctx, client, `document.querySelector('[data-testid="node-catalog-item"]')?.click()`); err != nil {
+	if err := eval(ctx, client, `document.querySelector('[data-node-type-id="https://schemas.yotta.dev/nodes/text/concat"]')?.click()`); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == before.CanvasNodes+1 }); err != nil {
@@ -129,6 +136,56 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == afterClick.CanvasNodes+1 }); err != nil {
 		return fmt.Errorf("drag catalog node: %w", err)
 	}
+
+	visualState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+
+	if err := eval(ctx, client, `(() => {
+		window.__yottaNativeConfirmCalls = 0;
+		window.confirm = () => {
+			window.__yottaNativeConfirmCalls++;
+			return false;
+		};
+		const button = document.querySelector('[data-testid="workflow-editor-back"]');
+		if (!button) throw new Error('workflow editor back button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.NativeConfirmCalls > 0 || current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("request discard confirmation: %w", err)
+	}
+	confirmState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if confirmState.ConfirmDialog {
+		if err := eval(ctx, client, `document.querySelector('[data-testid="confirm-cancel"]')?.click()`); err != nil {
+			return err
+		}
+	}
+
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-save"]');
+		if (!button || button.disabled) throw new Error('workflow save button is unavailable');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.Dirty && (current.SaveInlineFeedback || current.SaveToast)
+	}); err != nil {
+		return fmt.Errorf("save workflow: %w", err)
+	}
+	saveState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	uiFailures := workflowEditorUIFailures(visualState, confirmState, saveState)
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="ai-workflow-review-open"]');
 		if (!button) throw new Error('AI workflow review button not found');
@@ -146,6 +203,9 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	}
 	if len(final.Errors) != 0 {
 		return fmt.Errorf("WebView reported errors: %s", strings.Join(final.Errors, " | "))
+	}
+	if len(uiFailures) != 0 {
+		return fmt.Errorf("workflow editor UI regressions: %s", strings.Join(uiFailures, " | "))
 	}
 	if _, err := client.Call(ctx, "Page.bringToFront", nil); err != nil {
 		return err
@@ -165,6 +225,29 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
+}
+
+func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []string {
+	var failures []string
+	if !visualState.GraphChromeDark {
+		failures = append(failures, "Vue Flow controls or minimap use a light background")
+	}
+	if visualState.HandleOverlaps != 0 {
+		failures = append(failures, fmt.Sprintf("%d workflow handles overlap their labels", visualState.HandleOverlaps))
+	}
+	if confirmState.NativeConfirmCalls != 0 {
+		failures = append(failures, "workflow navigation called window.confirm")
+	}
+	if !confirmState.ConfirmDialog {
+		failures = append(failures, "workflow navigation did not open the shared confirm dialog")
+	}
+	if saveState.SaveToast {
+		failures = append(failures, "workflow save displayed a success toast")
+	}
+	if !saveState.SaveInlineFeedback {
+		failures = append(failures, "workflow save omitted inline success feedback")
+	}
+	return failures
 }
 
 func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func(pageState) bool, action func() error) error {
@@ -198,14 +281,44 @@ func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicat
 
 func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, error) {
 	var out pageState
-	err := evalJSON(ctx, client, `({
+	err := evalJSON(ctx, client, `(() => {
+		const probe = document.createElement('div');
+		probe.style.background = 'var(--ui-bg)';
+		document.body.append(probe);
+		const expectedBackground = getComputedStyle(probe).backgroundColor;
+		probe.remove();
+		const darkBackground = element => {
+			if (!element) return false;
+			return getComputedStyle(element).backgroundColor === expectedBackground;
+		};
+		const controls = document.querySelector('.vue-flow__controls');
+		const controlButtons = [...document.querySelectorAll('.vue-flow__controls-button')];
+		const minimap = document.querySelector('.vue-flow__minimap');
+		const handleOverlaps = [...document.querySelectorAll('.workflow-node .vue-flow__handle')].filter(handle => {
+			const label = handle.parentElement?.querySelector('span');
+			if (!label) return false;
+			const a = handle.getBoundingClientRect();
+			const b = label.getBoundingClientRect();
+			return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+		}).length;
+		const bodyText = document.body.innerText;
+		const saveButtonText = document.querySelector('[data-testid="workflow-save"]')?.innerText || '';
+		return {
 		href: location.href,
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
 		canvasNodes: document.querySelectorAll('.vue-flow__node').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
+		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && darkBackground(minimap),
+		handleOverlaps,
+		nativeConfirmCalls: window.__yottaNativeConfirmCalls || 0,
+		confirmDialog: Boolean(document.querySelector('[data-testid="confirm-dialog"]')),
+		dirty: Boolean(document.querySelector('[data-testid="workflow-unsaved"]')),
+		saveInlineFeedback: saveButtonText.includes('已保存') || saveButtonText.includes('Saved'),
+		saveToast: bodyText.includes('工作流已保存') || bodyText.includes('Workflow saved'),
 		errors: window.__yottaSmokeErrors || []
-	})`, &out)
+		};
+	})()`, &out)
 	return out, err
 }
 

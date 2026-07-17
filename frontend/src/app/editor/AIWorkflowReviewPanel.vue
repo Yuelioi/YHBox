@@ -237,10 +237,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type AIWorkflowReview } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
+import { useConfirm } from '@/composables/useConfirm'
 
 const props = defineProps<{ workflowId: string; baseRevision: number; dirty: boolean }>()
 const emit = defineEmits<{ close: []; accepted: [review: AIWorkflowReview] }>()
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const settings = useSettingsStore()
 const instruction = ref('')
 const slot = ref('')
@@ -297,9 +299,14 @@ async function accept(): Promise<void> {
   if (!review.value || busy.value) return
   if (
     review.value.permissions.added.length > 0 &&
-    !window.confirm(
-      t('workflow.ai.permission_confirm', { n: review.value.permissions.added.length }),
-    )
+    (await confirm({
+      title: t('workflow.ai.permission_confirm_title'),
+      description: t('workflow.ai.permission_confirm', {
+        n: review.value.permissions.added.length,
+      }),
+      confirmText: t('workflow.ai.accept'),
+      color: 'warning',
+    })) !== true
   )
     return
   busy.value = true

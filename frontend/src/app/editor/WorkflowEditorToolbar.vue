@@ -1,6 +1,7 @@
 <template>
   <header class="flex h-13 shrink-0 items-center gap-2 border-b border-default bg-default px-3">
     <UButton
+      data-testid="workflow-editor-back"
       icon="i-tabler-arrow-left"
       color="neutral"
       variant="ghost"
@@ -17,9 +18,12 @@
     <span class="font-mono text-[10px] text-dimmed">{{
       t('workflow.editor.revision', { n: revision })
     }}</span>
-    <span v-if="dirty" class="text-[11px] font-medium text-warning">{{
-      t('workflow.editor.unsaved')
-    }}</span>
+    <span
+      v-if="dirty"
+      data-testid="workflow-unsaved"
+      class="text-[11px] font-medium text-warning"
+      >{{ t('workflow.editor.unsaved') }}</span
+    >
     <div class="mx-2 h-5 w-px bg-default" />
     <UButton
       icon="i-tabler-arrow-back-up"
@@ -51,10 +55,12 @@
       @click="emit('toggle-ai')"
     />
     <UButton
-      :label="t('workflow.action.compile')"
-      icon="i-tabler-file-check"
-      color="neutral"
-      variant="ghost"
+      :label="
+        compileSucceeded ? t('workflow.action.compile_succeeded') : t('workflow.action.compile')
+      "
+      :icon="compileSucceeded ? 'i-tabler-check' : 'i-tabler-file-check'"
+      :color="compileSucceeded ? 'success' : 'neutral'"
+      :variant="compileSucceeded ? 'soft' : 'ghost'"
       size="xs"
       @click="emit('compile')"
     />
@@ -83,8 +89,10 @@
       @click="emit('run')"
     />
     <UButton
-      :label="t('workflow.action.save')"
-      icon="i-tabler-device-floppy"
+      data-testid="workflow-save"
+      :label="saveSucceeded ? t('workflow.action.saved') : t('workflow.action.save')"
+      :icon="saveSucceeded ? 'i-tabler-check' : 'i-tabler-device-floppy'"
+      :color="saveSucceeded ? 'success' : 'primary'"
       size="xs"
       :loading="saving"
       :disabled="!dirty"
@@ -105,6 +113,8 @@ defineProps<{
   aiPanelOpen: boolean
   runActive: boolean
   saving: boolean
+  compileSucceeded: boolean
+  saveSucceeded: boolean
 }>()
 const emit = defineEmits<{
   back: []
