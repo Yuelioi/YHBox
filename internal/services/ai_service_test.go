@@ -30,9 +30,12 @@ func TestProfileUsesProviderNativeGenerationAndStoredCredential(t *testing.T) {
 	}))
 	defer server.Close()
 	service := newAIService(nil, secrets, func(profile ai.ModelProfile) (ai.Provider, error) {
-		return ai.NewNativeProvider(profile, ai.HTTPOptions{Endpoint: server.URL + "/v1/responses"})
+		return ai.NewNativeProvider(profile, ai.HTTPOptions{})
 	})
-	result := service.TestProfile(TestProfileRequest{Profile: modelSettingsForTest("primary", "Primary")})
+	configured := modelSettingsForTest("primary", "Primary")
+	configured.Endpoint = server.URL + "/v1/responses"
+	configured.AllowLocalHTTP = true
+	result := service.TestProfile(TestProfileRequest{Profile: configured})
 	if !result.Ok || result.Provider != ai.ProviderOpenAIResponses || result.ResolvedModel != "gpt-resolved" || result.Finish != ai.FinishCompleted {
 		t.Fatalf("TestProfile = %#v", result)
 	}

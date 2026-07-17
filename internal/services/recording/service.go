@@ -284,10 +284,11 @@ func (s *Service) Resume() error {
 
 // StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
 type StopResultPayload struct {
-	PendingID  string `json:"pendingID"`
-	TargetSlot string `json:"targetSlot"`
-	DurationUs uint64 `json:"durationUs"`
-	EventCount int    `json:"eventCount"`
+	PendingID  string           `json:"pendingID"`
+	TargetSlot string           `json:"targetSlot"`
+	DurationUs uint64           `json:"durationUs"`
+	EventCount int              `json:"eventCount"`
+	Preview    RecordingPreview `json:"preview"`
 }
 
 type pendingRecording struct {
@@ -306,9 +307,10 @@ type FinalizeArgs struct {
 
 // FinalizeResult identifies the durable asset created from a pending recording.
 type FinalizeResult struct {
-	ClipID     string `json:"clipID"`
-	TargetSlot string `json:"targetSlot"`
-	Label      string `json:"label"`
+	ClipID     string        `json:"clipID"`
+	TargetSlot string        `json:"targetSlot"`
+	Label      string        `json:"label"`
+	Draft      WorkflowDraft `json:"draft"`
 }
 
 // Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
@@ -362,7 +364,7 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	durationUs := res.Events[len(res.Events)-1].TUs
 	return &StopResultPayload{
 		PendingID: pendingID, TargetSlot: targetSlot,
-		DurationUs: durationUs, EventCount: len(res.Events),
+		DurationUs: durationUs, EventCount: len(res.Events), Preview: recordingPreview(res),
 	}, nil
 }
 
@@ -413,7 +415,10 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	if err := s.clipSvc.Save(clip); err != nil {
 		return nil, fmt.Errorf("save clip: %w", err)
 	}
-	result := &FinalizeResult{ClipID: clip.ID, TargetSlot: pending.targetSlot, Label: label}
+	result := &FinalizeResult{
+		ClipID: clip.ID, TargetSlot: pending.targetSlot, Label: label,
+		Draft: buildWorkflowDraft(res, pending.targetSlot, clip.Blob),
+	}
 	delete(s.pending, args.PendingID)
 	return result, nil
 }
@@ -469,6 +474,7 @@ func (s *Service) StopAsync() {
 		s.emit("recording:completed", map[string]any{
 			"pendingID": payload.PendingID, "targetSlot": payload.TargetSlot,
 			"durationUs": payload.DurationUs, "eventCount": payload.EventCount,
+			"preview": payload.Preview,
 		})
 	}()
 }

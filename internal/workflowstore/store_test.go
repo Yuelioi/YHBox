@@ -72,6 +72,41 @@ func TestSourceStoreRejectsInvalidAndExternallyChangedSources(t *testing.T) {
 	}
 }
 
+func TestSourceStoreDeleteRequiresExactRevisionAndHash(t *testing.T) {
+	root := t.TempDir()
+	store, err := workflowstore.OpenSourceStore(root, workflowstore.SourceStoreOptions{MaxSources: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := store.Save(context.Background(), concatSource(t, 0, "a", "b"), -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(context.Background(), created.WorkflowID(), created.Revision()+1, created.Hash()); !errors.Is(err, workflowstore.ErrSourceConflict) {
+		t.Fatalf("stale revision delete = %v", err)
+	}
+	wrongHash, err := artifact.Sum("yotta/test/wrong-source/v1", []byte("wrong"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(context.Background(), created.WorkflowID(), created.Revision(), wrongHash); !errors.Is(err, workflowstore.ErrSourceConflict) {
+		t.Fatalf("stale hash delete = %v", err)
+	}
+	if err := store.Delete(context.Background(), created.WorkflowID(), created.Revision(), created.Hash()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Load(created.WorkflowID()); !errors.Is(err, workflowstore.ErrSourceNotFound) {
+		t.Fatalf("Load after delete = %v", err)
+	}
+	reopened, err := workflowstore.OpenSourceStore(root, workflowstore.SourceStoreOptions{MaxSources: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reopened.List()) != 0 {
+		t.Fatalf("reopened sources = %#v", reopened.List())
+	}
+}
+
 func TestProgramStorePersistsOnlyStrictContentAddressedPrograms(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {

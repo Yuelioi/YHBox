@@ -5,18 +5,29 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/png"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
+	"golang.org/x/image/draw"
+)
+
+const (
+	previewMaxSourceBytes = 16 << 20
+	previewMaxPixels      = 16 << 20
+	previewMaxEdge        = 256
+	previewMaxOutputBytes = 512 << 10
+	previewTimeout        = 750 * time.Millisecond
 )
 
 // CaptureAdapter exposes trusted local authoring access to an installed target.
 type CaptureAdapter interface {
 	CapturePNG(context.Context, string) ([]byte, error)
-	ResolveWindow(context.Context, string) (target.WindowHandle, error)
+	ResolveTarget(context.Context, string) (target.Target, error)
 }
 
 type AssetVariantSummary struct {
@@ -36,6 +47,14 @@ type AssetSummary struct {
 	Variants     []AssetVariantSummary `json:"variants"`
 	Blob         *blob.BlobRef         `json:"blob,omitempty"`
 	CreatedAt    string                `json:"createdAt,omitempty"`
+}
+
+// BlobPreview is a bounded presentation artifact, not a durable asset value.
+type BlobPreview struct {
+	MediaType string `json:"mediaType"`
+	Base64    string `json:"base64"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
 }
 
 // Service owns global asset metadata and installed-target authoring capture.
@@ -160,6 +179,65 @@ func (s *Service) Get(guid string) (AssetRecord, error) {
 	return rec, nil
 }
 
+// PreviewBlob renders a bounded PNG thumbnail for an exact immutable BlobRef.
+func (s *Service) PreviewBlob(ref blob.BlobRef) (BlobPreview, error) {
+	if ref.MediaType != "image/png" {
+		return BlobPreview{}, fmt.Errorf("preview media type %q is not supported", ref.MediaType)
+	}
+	if ref.Size <= 0 || ref.Size > previewMaxSourceBytes {
+		return BlobPreview{}, fmt.Errorf("preview source size %d exceeds budget", ref.Size)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), previewTimeout)
+	defer cancel()
+	content, err := s.store.ReadBlob(ctx, ref)
+	if err != nil {
+		return BlobPreview{}, fmt.Errorf("read preview blob: %w", err)
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(content))
+	if err != nil {
+		return BlobPreview{}, fmt.Errorf("decode preview header: %w", err)
+	}
+	if config.Width <= 0 || config.Height <= 0 || config.Width > previewMaxPixels/config.Height {
+		return BlobPreview{}, fmt.Errorf("preview dimensions %dx%d exceed budget", config.Width, config.Height)
+	}
+	if err := ctx.Err(); err != nil {
+		return BlobPreview{}, fmt.Errorf("preview deadline: %w", err)
+	}
+	source, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		return BlobPreview{}, fmt.Errorf("decode preview: %w", err)
+	}
+	width, height := previewDimensions(config.Width, config.Height)
+	thumbnail := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.CatmullRom.Scale(thumbnail, thumbnail.Bounds(), source, source.Bounds(), draw.Over, nil)
+	if err := ctx.Err(); err != nil {
+		return BlobPreview{}, fmt.Errorf("preview deadline: %w", err)
+	}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, thumbnail); err != nil {
+		return BlobPreview{}, fmt.Errorf("encode preview: %w", err)
+	}
+	if encoded.Len() > previewMaxOutputBytes {
+		return BlobPreview{}, fmt.Errorf("preview output exceeds byte budget")
+	}
+	return BlobPreview{
+		MediaType: "image/png",
+		Base64:    base64.StdEncoding.EncodeToString(encoded.Bytes()),
+		Width:     width,
+		Height:    height,
+	}, nil
+}
+
+func previewDimensions(width, height int) (int, int) {
+	if width <= previewMaxEdge && height <= previewMaxEdge {
+		return width, height
+	}
+	if width >= height {
+		return previewMaxEdge, max(1, height*previewMaxEdge/width)
+	}
+	return max(1, width*previewMaxEdge/height), previewMaxEdge
+}
+
 // UpdateMeta 改资产显示名 + 描述 + 分类 + 标签 (记录级元数据, 不动变体/blob).
 func (s *Service) UpdateMeta(guid, name, description, category string, tags []string) error {
 	if _, ok := s.store.Get(guid); !ok {
@@ -192,19 +270,19 @@ func (s *Service) Capture(targetSlot string) (string, error) {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData), nil
 }
 
-// CurrentResolution resolves the installed target's current client size.
+// CurrentResolution resolves the installed target's current automation space.
 func (s *Service) CurrentResolution(targetSlot string) ([2]int, error) {
 	if s.capture == nil {
 		return [2]int{}, fmt.Errorf("capture adapter 未注入")
 	}
-	window, err := s.capture.ResolveWindow(context.Background(), targetSlot)
+	resolved, err := s.capture.ResolveTarget(context.Background(), targetSlot)
 	if err != nil {
 		return [2]int{}, err
 	}
-	if window.ClientW <= 0 || window.ClientH <= 0 {
-		return [2]int{}, fmt.Errorf("automation target %q has invalid client size %dx%d", targetSlot, window.ClientW, window.ClientH)
+	if resolved.Resolution.W <= 0 || resolved.Resolution.H <= 0 {
+		return [2]int{}, fmt.Errorf("automation target %q has invalid resolution %dx%d", targetSlot, resolved.Resolution.W, resolved.Resolution.H)
 	}
-	return [2]int{window.ClientW, window.ClientH}, nil
+	return [2]int{resolved.Resolution.W, resolved.Resolution.H}, nil
 }
 
 // VariantPick 给详情页: 当前分辨率下推荐绑定的档位在 record.Variants[] 里的下标 + 是否精确命中当前分辨率.

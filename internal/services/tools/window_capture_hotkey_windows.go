@@ -182,13 +182,18 @@ func (s *captureSession) handleHotkey() {
 		}
 		return
 	}
+	executable, err := winutil.WindowExecutable(hwnd)
+	if err != nil {
+		if s.emit != nil {
+			s.emit("win32windowtarget:captured", map[string]any{"error": err.Error()})
+		}
+		return
+	}
 	if s.emit != nil {
 		s.emit("win32windowtarget:captured", map[string]any{
-			"title":       wh.Title,
-			"class":       wh.Class,
-			"processName": wh.ProcessName,
-			"clientW":     wh.ClientW,
-			"clientH":     wh.ClientH,
+			"title":      wh.Title,
+			"class":      wh.Class,
+			"executable": executable,
 		})
 	}
 }

@@ -31,6 +31,13 @@
     </div>
 
     <div v-else class="flex-1 space-y-6 overflow-y-auto p-4">
+      <p
+        v-if="projectionDescription"
+        class="rounded-lg border border-default bg-elevated/30 px-3 py-2 text-[11px] leading-5 text-muted"
+      >
+        {{ projectionDescription }}
+      </p>
+
       <section class="space-y-3">
         <label class="block text-xs font-medium text-toned" for="workflow-node-label">
           {{ t('workflow.inspector.label') }}
@@ -48,23 +55,39 @@
         <h3 class="text-xs font-semibold text-highlighted">
           {{ t('workflow.inspector.configuration') }}
         </h3>
-        <GeneratedFieldEditor
-          v-for="field in projection.configFields"
-          :key="field.id"
-          :field="field"
-          :model-value="node.config[field.id]"
-          :state-variables="variables.map((variable) => variable.name)"
-          :select-items="targetItems(field.id)"
-          :select-placeholder="t('workflow.inspector.select_target')"
-          @update:model-value="
-            emit('command', {
-              kind: 'set-config',
-              nodeId: node.id,
-              fieldId: field.id,
-              value: $event,
-            })
-          "
-        />
+        <div v-for="field in projection.configFields" :key="field.id" class="space-y-2">
+          <GeneratedFieldEditor
+            :field="field"
+            :model-value="node.config[field.id]"
+            :state-variables="variables.map((variable) => variable.name)"
+            :select-items="targetItems(field.id)"
+            :select-placeholder="t('workflow.inspector.select_target')"
+            @update:model-value="
+              emit('command', {
+                kind: 'set-config',
+                nodeId: node.id,
+                fieldId: field.id,
+                value: $event,
+              })
+            "
+          />
+          <div
+            v-if="isTargetField(field.id) && targetItems(field.id)?.length === 0"
+            class="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2"
+          >
+            <p class="min-w-0 flex-1 text-[11px] leading-5 text-warning">
+              {{ t('workflow.inspector.no_installed_target') }}
+            </p>
+            <UButton
+              :to="{ path: '/settings', query: { section: targetSettingsSection(field.id) } }"
+              :label="t('workflow.inspector.configure_target')"
+              icon="i-tabler-settings"
+              color="warning"
+              variant="soft"
+              size="xs"
+            />
+          </div>
+        </div>
       </section>
 
       <section v-if="projection.dataInputs.length" class="space-y-3">
@@ -151,7 +174,7 @@ const props = defineProps<{
   types: TypeProjection[]
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const clipsStore = useClipsStore()
 const { clips } = storeToRefs(clipsStore)
 const templatesStore = useTemplatesStore()
@@ -172,23 +195,31 @@ const templateVariantItems = computed(() =>
     })),
   ),
 )
+const projectionDescription = computed(() => {
+  const key = props.projection?.descriptionKey
+  return key && te(key) ? t(key) : ''
+})
 onMounted(() => {
   void clipsStore.refresh()
   void templatesStore.reload()
 })
 
 function targetItems(fieldId: string): Array<{ label: string; value: string }> | undefined {
-  const capability = props.projection?.capabilities.find(
-    (candidate) => candidate.targetSlotConfigKey === fieldId,
-  )
+  const capability = targetCapability(fieldId)
   if (!capability) return undefined
   const settings = settingsStore.data
   if (!settings) return []
-  if (capability.targetKinds.includes('win32-window'))
-    return settings.automation.win32Targets.map((target) => ({
-      label: `${target.label} · ${target.slot}`,
-      value: target.slot,
-    }))
+  if (
+    capability.targetKinds.some((kind) =>
+      settings.automation.targets.some((target) => target.targetKind === kind),
+    )
+  )
+    return settings.automation.targets
+      .filter((target) => capability.targetKinds.includes(target.targetKind))
+      .map((target) => ({
+        label: `${target.label} · ${target.slot}`,
+        value: target.slot,
+      }))
   if (capability.targetKinds.includes('installed-application'))
     return settings.applications.profiles.map((application) => ({
       label: `${application.label} · ${application.slot}`,
@@ -205,6 +236,24 @@ function targetItems(fieldId: string): Array<{ label: string; value: string }> |
       value: origin.slot,
     }))
   return []
+}
+
+function targetCapability(fieldId: string) {
+  return props.projection?.capabilities.find(
+    (candidate) => candidate.targetSlotConfigKey === fieldId,
+  )
+}
+
+function isTargetField(fieldId: string): boolean {
+  return Boolean(targetCapability(fieldId))
+}
+
+function targetSettingsSection(fieldId: string): 'automation' | 'applications' | 'ai' | 'network' {
+  const kinds = targetCapability(fieldId)?.targetKinds ?? []
+  if (kinds.includes('installed-application')) return 'applications'
+  if (kinds.includes('ai-model')) return 'ai'
+  if (kinds.includes('http-origin')) return 'network'
+  return 'automation'
 }
 
 function setLabel(event: Event): void {

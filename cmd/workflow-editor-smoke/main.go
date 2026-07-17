@@ -234,12 +234,15 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 		if (!handle || !canvas) throw new Error('connection handle or canvas not found');
 		const h = handle.getBoundingClientRect();
 		const c = canvas.getBoundingClientRect();
-		const candidates = [
-			[0.76, 0.72], [0.62, 0.78], [0.48, 0.75], [0.72, 0.5], [0.5, 0.82]
-		].map(([x, y]) => ({ x: c.left + c.width * x, y: c.top + c.height * y }));
+		const candidates = [];
+		for (const y of [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22]) {
+			for (const x of [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22]) {
+				candidates.push({ x: c.left + c.width * x, y: c.top + c.height * y });
+			}
+		}
 		const end = candidates.find(point => {
 			const element = document.elementFromPoint(point.x, point.y);
-			return element && !element.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-selection-toolbar"]');
+			return element && canvas.contains(element) && !element.closest('.vue-flow__node, .vue-flow__edge, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-selection-toolbar"]');
 		});
 		if (!end) throw new Error('blank connection drop point not found');
 		return { start: { x: h.left + h.width / 2, y: h.top + h.height / 2 }, end };

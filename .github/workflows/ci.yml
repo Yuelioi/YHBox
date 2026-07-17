@@ -225,6 +225,7 @@ jobs:
           ./internal/apperr
           ./internal/artifact
           ./internal/automation/controller
+          ./internal/automation/installed
           ./internal/automation/target
           ./internal/automation/trace
           ./internal/capability

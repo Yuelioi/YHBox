@@ -6,6 +6,7 @@ export default {
     schedules: 'Schedules',
     settings: 'Settings',
     about: 'About',
+    open_launcher: 'Open floating launcher',
     primary_navigation: 'Primary navigation',
   },
   controls: {
@@ -662,9 +663,14 @@ export default {
           'Inject bounded Unicode text into the exact installed window without using the clipboard.',
       },
       activateWindow: {
-        title: 'Activate window',
+        title: 'Activate target',
         description:
-          'Reverify the installed application and unique window identity, then bring it to the foreground. Failure routes through Failed.',
+          'Reverify the installed target, then foreground the exact desktop window or start the installed Android package. Failure routes through Failed.',
+      },
+      stopTargetApp: {
+        title: 'Stop target app',
+        description:
+          'Reverify the installed target and force-stop its exact Android package. Unsupported desktop adapters fail admission.',
       },
       captureWindow: {
         title: 'Capture window',
@@ -1275,6 +1281,7 @@ export default {
     DUPLICATE_SIGNAL_ROUTE: 'A signal route is duplicated',
     REGION_SIGNAL_SCOPE: 'A signal crosses its region scope',
     INVALID_BINDING: 'An input binding is invalid',
+    BLOB_UNAVAILABLE: 'The bound resource content is unavailable',
     INVALID_CONFIG: 'Node configuration is invalid',
     INVALID_STATE_VARIABLE: 'A state-variable declaration is invalid',
     INVALID_STATE_ACCESS: 'State-variable access is invalid',
@@ -1358,6 +1365,11 @@ export default {
       new_workflow: 'New workflow',
       name_placeholder: 'Workflow name',
       create: 'Create',
+      template_label: 'Starting template',
+      template_generic: 'Generic',
+      template_windows: 'Windows automation',
+      template_android: 'Android automation',
+      template_cross_target: 'Windows + Android',
       loading: 'Loading workflows',
       empty_title: 'Create the first workflow',
       empty_description:
@@ -1366,6 +1378,47 @@ export default {
       revision: 'Revision',
       source_identity: 'Source identity',
       actions: 'Actions',
+      search_label: 'Search workflows',
+      search_placeholder: 'Search by name or workflow ID',
+      search_action: 'Search',
+      clear_search: 'Clear search',
+      no_results_title: 'No matching workflows',
+      no_results_description: 'Try a different search term. Existing workflows are unchanged.',
+      sort_label: 'Sort',
+      sort_name_asc: 'Name A–Z',
+      sort_name_desc: 'Name Z–A',
+      sort_revision_desc: 'Highest revision first',
+      page_size_label: 'Per page',
+      page_summary: 'Page {page} of {pages}; {total} workflows',
+      previous_page: 'Previous',
+      next_page: 'Next',
+      select_page: 'Select every workflow on this page',
+      select_named: 'Select workflow “{name}”',
+      selected_count: '{n} workflows selected',
+      selection_scope_hint:
+        'Selection persists across pages; Select all affects only the current page.',
+      clear_selection: 'Clear selection',
+      delete_selected: 'Delete selected',
+      delete_title: 'Delete {n} workflows?',
+      delete_description:
+        '{deletable} unreferenced workflows will be deleted; {blocked} referenced workflows are blocked. Historical run records are retained.',
+      delete_all_blocked: 'Every selected workflow is referenced or running. Nothing was deleted.',
+      delete_result: 'Deleted {deleted}; failed {failed}; blocked by references {blocked}.',
+      reference_schedule: 'Referenced by schedule “{name}”',
+      reference_launcher: 'Referenced by launcher item “{name}”',
+      reference_active_run: 'Run “{name}” is queued or running',
+    },
+    template: {
+      windows: {
+        hint: 'Windows onboarding template: use one Workflow Source and bind automation nodes to installed desktop-window targets.',
+      },
+      android: {
+        hint: 'Android onboarding template: use the same nodes and runtime, binding supported operations to installed android-device targets.',
+      },
+      'cross-target': {
+        hint: 'Cross-target onboarding template: one Workflow Source can bind separate branches to Windows and Android target slots.',
+      },
+      configure_targets: 'Configure targets',
     },
     editor: {
       loading: 'Loading workflow editor',
@@ -1380,6 +1433,15 @@ export default {
       discard_title: 'Discard workflow changes?',
       discard_confirm: 'Discard unsaved workflow changes?',
       discard_action: 'Discard changes',
+    },
+    node_search: {
+      action: 'Find node',
+      shortcut: 'Find a canvas node (Ctrl/⌘+F)',
+      title: 'Find canvas node',
+      placeholder: 'Search node names, IDs, types, or graphs',
+      empty: 'Enter a query to search nodes in this Workflow Source.',
+      no_results: 'No matching canvas nodes',
+      result_count: '{n} results',
     },
     catalog: {
       search_placeholder: 'Search node names, types, or tags',
@@ -1504,6 +1566,8 @@ export default {
       edit: 'Edit',
       edit_named: 'Edit workflow “{name}”',
       run: 'Run',
+      run_named: 'Run workflow “{name}”',
+      delete_named: 'Delete workflow “{name}”',
       run_timeline: 'Run and inspect timeline',
       compile: 'Compile',
       compile_succeeded: 'Compiled',
@@ -1557,6 +1621,28 @@ export default {
       status_paused: 'Paused',
       status_completed: 'Completed',
     },
+    recording: {
+      start: 'Record',
+      pause: 'Pause recording',
+      resume: 'Resume recording',
+      finish: 'Finish recording',
+      start_title: 'Record workflow actions',
+      target: 'Automation target',
+      start_hint:
+        'Recording is limited to the selected installed target. Review the result before saving and inserting it into this canvas.',
+      start_failed: 'Could not start recording',
+      control_failed: 'Recording control failed',
+      preview_title: 'Review recording',
+      result_mode: 'Generated form',
+      mode_steps: 'Key and click nodes',
+      mode_trajectory: 'Full trajectory clip',
+      action_summary: 'Keys {keys} · clicks {clicks} · moves {moves} · scrolls {scrolls}',
+      trajectory_hint:
+        'This recording contains dragging, camera movement, scrolling, or input that cannot be expanded losslessly. A Play Input Clip node will preserve its full timing and trajectory.',
+      leave_title: 'End the active recording?',
+      leave_hint: 'Leaving the editor cancels the unfinished recording.',
+      leave_action: 'Cancel recording and leave',
+    },
     inspector: {
       title: 'Inspector',
       no_selection: 'No selection',
@@ -1569,8 +1655,11 @@ export default {
       reference_only: 'This port accepts {carrier} references through a compatible connection.',
       select_clip: 'Select an input clip',
       select_template: 'Select an exact template variant',
+      resource_missing: 'The library record no longer exists',
+      resource_stale: 'Unavailable',
       select_target: 'Select an installed target',
       no_installed_target: 'No compatible target is installed. Configure one in Settings first.',
+      configure_target: 'Open installation settings',
       advanced: 'Advanced information',
       color_rgb: 'RGB',
       color_hsv: 'HSV',
@@ -1751,6 +1840,7 @@ export default {
     delete_description:
       'The library record will be deleted. Immutable content references already stored in workflows remain valid.',
     delete_failed: 'Could not delete the resource',
+    preview_unavailable: 'Preview unavailable',
     recording: {
       title: 'Input recording',
       hint: 'Relative mode captures full camera turns. Absolute mode captures clicks, moves, drags, and keys.',
@@ -1974,6 +2064,7 @@ export default {
     pin: 'Pin window',
     unpin: 'Pinned · click to unpin',
     empty: 'Not configured yet — add items in Main app → Settings → Launcher',
+    configure: 'Configure now',
     run: 'Run “{name}”',
     resize: 'Drag to resize',
     search_placeholder: 'Search automations…',
@@ -1989,7 +2080,19 @@ export default {
   settingsLauncher: {
     title: 'Floating launcher',
     intro:
-      'Put frequently used workflows into a small launcher window and run them with one click. Open it with the show/hide hotkey.',
+      'Put frequent workflows into a small launcher and run them with one click. Open it from the main window, this page, or the global hotkey.',
+    access_title: 'Open & shortcut',
+    access_hint:
+      'Open the launcher now. The global hotkey is a shortcut, not the only entry point; repeated opens focus the existing window.',
+    open_now: 'Open launcher',
+    hotkey_title: 'Current global hotkey',
+    hotkey_active:
+      'The hotkey is registered and can show or hide the launcher from another foreground window.',
+    hotkey_unbound:
+      'No hotkey is bound. You can still open the launcher from the main window or this page.',
+    hotkey_failed:
+      'The hotkey failed to register or conflicts with another binding. Resolve it under Hotkeys.',
+    configure_hotkey: 'Configure hotkey',
     display_label: 'Command layout',
     appearance_title: 'Appearance & display',
     display_hint:
@@ -2107,6 +2210,9 @@ export default {
       empty: 'No desktop applications installed',
       empty_hint:
         'Select a trusted .exe and verify its digest first. Installation does not automatically grant workflow launch or terminate authority.',
+      cancelled: 'No desktop application selected',
+      cancelled_hint:
+        'The file picker was cancelled. No installation was created or changed; you can choose again when ready.',
     },
     consent: {
       title: 'Workflow application lifecycle consent',
@@ -2114,7 +2220,10 @@ export default {
       grant: 'Allow launch and terminate',
       revoke: 'Revoke consent',
     },
-    picker: { title: 'Choose a Windows application to install' },
+    picker: {
+      title: 'Choose a Windows application to install',
+      inspect_failed: 'Could not read the executable identity of the selected application.',
+    },
     confirm: {
       delete_title: 'Delete “{name}”?',
       delete_hint: 'The slot will be removed. Workflows that reference it will fail admission.',
@@ -2126,9 +2235,11 @@ export default {
       hint: 'Every target is pinned to an installed executable digest, exact window selector, input backend, and capture backend. Workflows reference only a slot and cannot supply an HWND, PID, process name, path, or backend. Activation or capture failure fails the node, and all held input is released on cancellation or failure.',
     },
     targets: {
-      title: 'Installed window targets',
-      hint: 'Provide one fixed target for activation, capture, click, move, scroll, drag, key chord, and text nodes. Multiple matching windows fail instead of selecting by Z order.',
+      title: 'Installed automation targets',
+      hint: 'Install exact Windows window or Android ADB identities behind stable workflow slots. Each adapter exposes only the operations it supports.',
       add: 'Install window target',
+      add_windows: 'Windows target',
+      add_android: 'Android target',
       workflow_allowed: 'Workflow allowed',
       consent_required: 'Consent required',
       name_label: 'Display name',
@@ -2146,22 +2257,60 @@ export default {
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
         'Hardware calibration used for exact relative-motion replay. Set 0 only when this target will never replay relative mouse events.',
-      window_title_label: 'Exact window title (optional)',
+      window_title_label: 'Exact window title',
       window_title_hint:
         'Case-sensitive full match. Contains, regex, and wildcard matching are not supported.',
-      window_class_label: 'Exact window class (optional)',
+      window_class_label: 'Exact window class',
       window_class_hint:
         'Full Win32 class-name match. When title and class are set, both must match.',
       timeout_label: 'Resolve timeout (milliseconds)',
       timeout_hint: 'Hard limit for waiting on one unique matching window, from 100 to 10000.',
       delete: 'Delete target',
-      empty: 'No window targets installed',
+      empty: 'No automation targets installed',
       empty_hint:
-        'Install a target before 3.1 window automation nodes can pass admission. Installation does not grant workflow use automatically.',
+        'Install a Windows or Android target before automation nodes can pass admission. Installation does not grant workflow use automatically.',
       no_applications: 'Install a desktop application first',
       no_applications_hint:
         'A window target must reference a content-verified .exe from the Applications page.',
       new_label: '{name} window',
+      new_blank_label: 'New window target',
+      duplicate: 'Duplicate target',
+      copy_label: '{name} copy',
+    },
+    android: {
+      new_blank_label: 'New Android target',
+      discovery_hint:
+        'Yotta discovers devices through the configured or bundled ADB. Saving pins serial, product, model, and device identity; reconnecting a different device under the same serial fails closed.',
+      refresh: 'Refresh devices',
+      none_found:
+        'No ADB devices found. Start an emulator or connect a device and authorize USB debugging.',
+      device_label: 'ADB device',
+      device_hint:
+        'Only devices in the ready “device” state with a complete identity can be installed.',
+      package_label: 'Android package',
+      package_hint:
+        'Exact package used by activate and stop-app operations, for example com.example.app.',
+      identity_label: 'Pinned device identity',
+      state_label: 'Runtime health',
+      not_checked: 'Not checked',
+      check_health: 'Check',
+      unselected: 'No device selected',
+    },
+    capture: {
+      hint: 'Click, switch to the target window, then press F9 (or the configured window-capture shortcut). Yotta matches an installed application by executable path and SHA-256, then fills the exact title and window class.',
+      start: 'Capture window',
+      start_failed: 'Could not start window capture. Try again.',
+      cancel: 'Cancel capture',
+      cancelled: 'Window capture cancelled. The target was not changed.',
+      timeout: 'Window capture timed out. Try again.',
+      incomplete: 'The capture result is missing the executable, window title, or window class.',
+      inspect_failed: 'Could not verify the captured window executable identity.',
+      application_missing:
+        'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
+      application_ambiguous:
+        'Multiple installation records match this executable. Remove the duplicate record and try again.',
+      save_failed: 'The capture result could not be saved as a complete window target.',
+      completed: 'Bound “{name}” to the exact window.',
     },
     backend: {
       sendinput: 'SendInput · foreground system input',
@@ -2209,6 +2358,15 @@ export default {
       provider_label: 'Native provider protocol',
       model_label: 'Exact model name',
       model_hint: 'No discovery or alias substitution. This exact name is sent to the provider.',
+      endpoint_label: 'Exact API endpoint',
+      endpoint_hint:
+        'The complete provider-native request URL, including the Responses or Messages path. Yotta never probes or falls back to another protocol.',
+      endpoint_reset: 'Restore official endpoint',
+      local_http_title: 'Allow a local HTTP endpoint',
+      local_http_hint:
+        'Only localhost, 127.0.0.0/8, or ::1 is allowed. Remote endpoints still require HTTPS.',
+      local_http_warning:
+        'HTTP is unencrypted. Enable it only for a local test service you control.',
       label_placeholder: 'For example: Primary reasoning model',
       model_placeholder: 'For example: gpt-5.1 or claude-opus-4-1',
       max_tokens_label: 'Maximum output tokens',
@@ -2259,7 +2417,7 @@ export default {
     },
     consent: {
       title: 'Workflow usage consent',
-      hint: 'Consent matches only the current profile contents. Changing the model, capabilities, or limit invalidates it immediately. Restart to install the new consent digest into the runtime.',
+      hint: 'Consent matches only the current profile contents. Changing the endpoint, model, capabilities, or limit invalidates it immediately. Restart to install the new consent digest into the runtime.',
       grant: 'Allow current profile',
       revoke: 'Revoke consent',
     },

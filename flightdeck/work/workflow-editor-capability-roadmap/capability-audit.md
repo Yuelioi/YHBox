@@ -1,81 +1,83 @@
-# 旧版能力审计与升级决策
+# 旧版能力与 3.1 产品连续性审计
 
-## 结论
+## 修正后的结论
 
-旧能力大多不是“准备删除”，而是在 9fce7870（remove legacy Container product stack）中随旧编辑器、服务和运行时整体移除。3.1 建立了更清晰的 Workflow Source、Authoring Projection、compiler/scheduler 和 capability/target 边界，但编辑器迁移尚未完整。
+3.1 重建了 Workflow Source、Authoring Projection、compiler/scheduler、内容寻址 Node/Data 契约、exact installation/capability admission、durable run journal 和同一调度器上的调试控制。这些是必要且有价值的底层升级。
 
-不回滚该提交，也不复制旧组件；必要能力必须在 3.1 唯一契约与执行路径上重做。
+但把当前状态称为“major upgrade 已完成”不准确。旧产品栈在 9fce7870 中整体移除后，许多用户能力没有在新架构上迁完；此前审计又过度聚焦节点编辑器。准确说法是：**底层架构升级已形成，新产品迁移尚未完成，当前 3.1 对用户存在明显能力回归。**
 
-## 证据
+旧代码虽然从当前树删除，但完整保留在 Git 历史。迁移审计现固定以 9fce7870^ 为旧基线，逐项比较路由、视图、store、Wails 调用和 runtime；详细表见 [artifacts/legacy-product-capability-diff.md](artifacts/legacy-product-capability-diff.md)。
 
-旧版曾实现：
+不回滚旧 Container 栈，不复制第二套编辑器或运行时；需要保留的能力必须接入 3.1 唯一契约与执行路径。
 
-- useInlineMenu / inlineNodeCandidates：从输入或输出 pin 拖到空白处，按 exec/data、方向和类型筛候选，创建后自动连线。
-- useGraphLayout / useElkLayout：六种对齐、水平/垂直分布、LR/TB 自动布局、实测尺寸、异步上下文保护和中心锚定。
-- 多选、框选、批量移动、clipboard、节点/边/pin/多选菜单、吸附线、节点搜索、命令面板、问题面板。
-- DebugStart/Step/Continue/Pause/Stop、从节点开始、当前节点/输出/变量/队列和副作用提示。
-- 键鼠与轨迹录制、模板/Clip 资源、WaitTemplate、WaitTemplateGone、ClickTemplate。
+## 审计口径
 
-当前 3.1：
+一项旧能力只有同时满足以下四层，才能称为“已恢复”：
 
-- WorkflowEditorView 只有基础拖拽、连线、双击断线、添加、删除、编译和运行。
-- EditorSession 的 connect 校验覆盖 TypeExpression、carrier、signal channel 和 instruction 入口。
-- Run timeline 基于 journal，但没有暂停、单步、断点和 watches。
-- nodes 是随 source/selection 重建的 computed 数组；手势实时位置在 Vue Flow 内部，只在 node-drag-stop 提交 event.node.position。这是位置漂移的最高概率竞态，但必须先仪器化确认。
-- 当前 Debug 仍走 startRun，debugging 只是展示标志，因此命名具有误导性。
+1. 可见入口：用户能发现并进入，空状态、取消和失败可恢复。
+2. 管理流程：能创建、查看、编辑、删除、批量处理和处理规模增长。
+3. 创作绑定：Workflow Source/编辑器能引用 exact installation、BlobRef 或目标 slot。
+4. 运行闭环：Catalog、compiler、admission、provider/runtime 和 journal 使用同一契约。
+
+后端函数、store、路由、build-tag 文件或 controller 单独存在，只能说明“底层仍在”，不能说明产品能力已保留。
+
+## 平台架构结论
+
+当前平台中立程度不一致：
+
+- 正确 seam：pkg/input、pkg/capture、tools hotkey 的 build-tagged Adapter，以及 internal/automation/controller 的 Controller/能力 Interface。
+- 错误 seam：生产使用的 internal/automation/installed 从 ProfileDraft 到 provider 都是 Win32 窗口模型；Settings、节点 targetKinds、appbootstrap policy 与前端又直接依赖 win32Targets/win32-window。
+- 结果：未来直接增加 macOS 会跨层重写，而不是只新增一个 Adapter。
+
+因此 Slice 13 必须先把 installed automation 深化成按 target kind 注册 Adapter 的平台中立模块，再恢复 Android；未来 macOS 只新增 bundle/window identity、input/capture Adapter 和 profile editor，不修改 Workflow Source、通用节点、compiler、scheduler 或 policy。
 
 ## 决策矩阵
 
 | 能力 | 决策 | 3.1 适配 | 优先级 |
 | --- | --- | --- | --- |
-| 点击/连线不误移节点 | 修复 | 稳定交互投影、显式 drag handle、nodrag、一次手势一条命令 | P0 |
-| 拖线到空白推荐节点并自动连接 | 恢复重做 | 共用连接兼容性服务，覆盖类型、carrier、channel、instruction/资源规则 | P0 |
-| 连线 hover 可用状态和原因 | 恢复 | 提交前反馈，最终仍走权威校验 | P0 |
-| 多选、框选、批量移动/Delete | 恢复 | Vue Flow selection 映射为原子 EditorSession 命令 | P0 |
-| 对齐、分布、LR/TB 自动布局 | 恢复适配 | 实测尺寸、ELK、异步 revision token、单次 undo | P0 |
-| clipboard、上下文菜单、吸附线 | 恢复精简版 | 统一 action registry 与明确手势边界 | P1 |
-| 画布搜索、命令面板 | 恢复精简版 | 节点定位与动作搜索分开 | P1 |
-| 结构化诊断、跳转/确定性修复 | 恢复 | compiler diagnostics 为唯一事实 | P1 |
-| 运行轨迹和节点高亮 | 增强 | journal 派生，不改变执行 | P1 |
-| 当前 Debug 名称 | 立即改名 | 真调试前称“运行并查看时间线” | P0 |
-| 暂停、单步、继续、停止、断点 | 重新设计 | 同一 Program/scheduler/Owner/journal/capability | P2 |
-| 从任意节点直接调试 | 不原样恢复 | 会跳过状态、target、资源和授权；除非 compiler 能证明前置闭包 | 不恢复 |
-| WaitTemplate / WaitTemplateGone | 恢复重做 | exact target、BlobRef、timeout/poll/result/error | P2 |
-| ClickTemplate | 恢复重做 | 匹配与点击同一 target/session 和坐标语义 | P2 |
-| 模板安全缩略图、录制联动 | 恢复 | 受限内容 API，输出 3.1 source/草稿 | P2 |
-| 注释框、reroute、subgraph 折叠、snippet | 延期 | 真实大图反馈后另定语义 | P3 |
-| JS/yt 任意脚本入口 | 暂不恢复 | 扩大不可信代码和 capability 审计面 | 不恢复 |
-| 旧 Container UI/第二运行时 | 明确删除 | 保持 3.1 唯一路径 | 不恢复 |
+| 点击/连线不误移节点 | 已恢复 | 稳定手势投影、原子命令 | 完成 |
+| 拖线推荐、hover、自动连接 | 已恢复 | 共用权威兼容规则 | 完成 |
+| 多选/Delete/clipboard/对齐/布局 | 已恢复 | 实测尺寸、ELK、单次 undo | 完成 |
+| 诊断、运行轨迹、真调试 | 已恢复 | 同一 compiler/scheduler/journal | 完成 |
+| WaitTemplate/WaitTemplateGone/ClickTemplate | 已恢复 | exact target + BlobRef | 完成 |
+| 资源缩略图、失效诊断、录制转草稿 | 已恢复 | 受限 Blob API、预览后单次 undo | 完成 |
+| 平台中立 automation installation | 恢复重构 | target-kind Adapter registry + typed profile | P0 |
+| Android/ADB 目标 | 恢复重做 | 通过通用 installation seam 接入 | P0 |
+| 桌面应用取消与 F9 | 修复/恢复 | 取消 no-op；捕获回填 exact identity | P0 |
+| 工作流删除/批量/搜索/分页 | 恢复 | service/store 查询与引用语义 | P0/P1 |
+| 工作流 import/export | 延期独立工作包 | canonical Source + exact blobs；不恢复旧 Container zip | P2 / post-3.1 |
+| 资产批量/分页/维护 | 延期独立工作包 | QueryAssets + 批量 metadata；GC 必须先有完整 BlobRef roots | P2 / post-3.1 |
+| AI API URL | 恢复为安装属性 | endpoint 属于可信 AI installation | P0 |
+| 悬浮窗启动入口 | 恢复入口 | 主壳调用既有 OpenLauncher | P0 |
+| 画布节点定位/命令面板 | 定位已恢复；palette 由现有入口替代 | Source-native 搜索/聚焦 | 完成 |
+| subgraph/comment/reroute | subgraph/comment 延期；旧 reroute 模型不恢复 | 完整调用契约/annotation/edge presentation | P3 / post-3.1 |
+| JS/yt 任意脚本入口 | 明确不恢复 | typed nodes/Node Package；未来仅 sandboxed Script Node | 不恢复 |
+| Browser CDP | 延期实验性 Adapter | controller 不等于 installation/product support | post-3.1 |
+| 旧 Container UI/第二运行时 | 明确不恢复 | 保持 3.1 唯一路径 | 不恢复 |
+
+## Stage 7 事实修正
+
+- 旧树只有 ExportPackage，没有 ImportPackage 产品闭环；因此 3.1 不接收旧 Container zip，也不把“导入缺失”误写成已丢失的旧能力。
+- 旧 Asset Maintenance 调用 previewCleanup/cleanupUnused 清理 subgraph，并非可证明安全的 Blob GC；3.1 metadata 删除不会破坏已绑定的 immutable BlobRef。
+- 当前 Source 虽包含 graphs/GraphKindSubgraph 字段，compiler/program 仍要求唯一 main entry graph；subgraph 不能因 schema 字段存在就宣称可用。
+- Browser CDP controller、discovery 与 client 只是底层构件；缺 installation/Settings/policy/provider/admission/Catalog 时不属于产品能力。
+- 画布节点定位已恢复；通用 command palette 没有独立 domain value，由可见工具栏、选择工具条、目录搜索与快捷键替代。
 
 ## 分阶段路线
 
-### Stage 1：可靠而高效的图编辑
-
-- [Slice 1：交互正确性](01-interaction-correctness.md)
-- [Slice 2：类型感知连线](02-connection-authoring.md)
-- [Slice 3：选择与布局](03-selection-layout.md)
-
-三个 Slice 完成后统一运行前端聚合测试、task check、Windows build 和真实 GUI 手势 smoke。
-
-### Stage 2：诚实的运行认知与真正调试
-
-- [Slice 4：诊断与运行轨迹](04-diagnostics-run-trace.md)
-- [Slice 5：唯一调度器上的真调试](05-true-debugger.md)
-
-两个 Slice 完成后统一验收普通运行、暂停/恢复/停止、失败、资源释放和 Windows GUI。
-
-### Stage 3：自动化领域便利能力
-
-- [Slice 6：模板复合节点](06-template-convenience-nodes.md)
-- [Slice 7：资源预览与录制联动](07-asset-authoring-integration.md)
-
-用真实模板工作流端到端批量验收，再运行 task check、build 和真机 smoke。
+- Stage 1 图编辑：完成并批量验收。
+- Stage 2 运行认知与调试：完成并批量验收。
+- Stage 3 自动化创作闭环：完成并批量验收。
+- Stage 4 基础产品可用性与桌面连续性：Slice 14 与 Slices 9–12，阶段末批量验收。
+- Stage 5 平台目标架构与 Android：先 Slice 13，再 Slice 8；用 conformance、跨平台 compile、ADB emulator 与 Windows GUI 批量验收。
+- Stage 7 高级能力决策与迁移收口：完成并批量验收。
+- macOS runtime：不在当前 Slice 实现；Slice 13 后应成为新增 Adapter，而非再次改造核心。
 
 ## 跨阶段约束
 
-- 版本只进入 version/manifest/binary metadata，不创建 nodes31 一类包名。
-- 所有批量编辑是一个原子 undo/redo。
-- 候选过滤、hover 和 connect 不维护三套规则。
+- 产品版本只进入 version/manifest/binary metadata，不创建 nodes31 一类包名。
+- 所有批量编辑必须是一个原子 undo/redo。
 - 调试不得绕过 compiler、target、capability、租约或副作用审计。
-- 保存成功等原地动作不 toast；失败才使用统一 Nuxt UI 反馈。
-- Slice 内只做继续开发必需的定向检查；阶段末批量验收。
+- 工作流只引用安装 slot；path、PID、HWND、CGWindowID、API key 和 endpoint 不进入图。
+- 原地动作成功不 toast；失败才使用 Nuxt UI，禁止浏览器 alert。
+- Slice 内只做继续开发所需的定向检查；阶段末统一批量验收。

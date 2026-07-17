@@ -11,6 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/admission"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -381,7 +382,8 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	debugEvents := make(chan appcore.DebugEvent, 32)
 	application, err := appcore.New(appcore.Config{
 		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
-		Sources: sources, Programs: programs, Runs: runs,
+		BlobVerifier: compiler.BlobVerifierFunc(func(context.Context, blob.BlobRef) error { return nil }),
+		Sources:      sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor, Providers: map[string]run.InstalledProvider{},
 		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,
 		Now: func() time.Time { return now }, OnRunEvent: func(event appcore.RunEvent) { events <- event },

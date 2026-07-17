@@ -26,4 +26,6 @@ Stage 1。
 
 ## Result
 
-Planned。timeline 保留，但不再冒充 Debug。
+Completed。移除没有暂停/单步能力的伪 Debug 入口，普通 Run 明确命名为“运行并查看时间线”。诊断按 error/warning/info 分组，显示 compiler 提供的 message、节点、字段/端口位置，只在 compiler 明确携带 fix 时展示修复声明；选择诊断会切换 graph、选中并居中节点。Run journal 的 node-attempt 事实派生节点状态与画布高亮，timeline 条目也能定位节点。诊断和 timeline 面板可关闭，并能从工具栏恢复，没有引入第二执行路径。
+
+定向验证通过：vue-tsc、ESLint、i18n、oxfmt，以及 4 个相关测试文件 16 项；源码提交 9f06e9e8。按阶段验收原则未在本 Slice 重跑完整 task check，留到 Stage 2 末统一执行。

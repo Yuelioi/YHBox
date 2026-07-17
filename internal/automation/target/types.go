@@ -3,12 +3,16 @@ package target
 import "fmt"
 
 const (
-	KindWin32Window = "win32-window"
-	KindWin32Screen = "win32-screen"
-	KindAndroidADB  = "android-adb"
-	KindBrowserCDP  = "browser-cdp"
-	KindDebugReplay = "debug-replay"
-	KindMock        = "mock"
+	// KindDesktopWindow is the stable workflow-facing automation target kind.
+	// Native window systems (Win32 today, macOS later) remain adapter details.
+	KindDesktopWindow = "desktop-window"
+	KindAndroidDevice = "android-device"
+	KindWin32Window   = "win32-window"
+	KindWin32Screen   = "win32-screen"
+	KindAndroidADB    = "android-adb"
+	KindBrowserCDP    = "browser-cdp"
+	KindDebugReplay   = "debug-replay"
+	KindMock          = "mock"
 )
 
 const (

@@ -44,10 +44,12 @@
         :run-timeline-open="runTimelineOpen"
         :has-debug="Boolean(session.debugSnapshot)"
         :debugger-open="debuggerOpen"
+        :recording-phase="recording.state.phase"
         @back="router.push('/workflows')"
         @rename="renameWorkflow"
         @undo="session.undo()"
         @redo="session.redo()"
+        @find-node="openNodeSearch"
         @toggle-ai="toggleAIReview"
         @toggle-state="toggleStatePanel"
         @compile="compile"
@@ -55,10 +57,31 @@
         @toggle-timeline="runTimelineOpen = !runTimelineOpen"
         @toggle-debugger="debuggerOpen = !debuggerOpen"
         @start-debug="startDebug"
+        @start-recording="openRecordingStart"
+        @pause-recording="pauseRecording"
+        @resume-recording="resumeRecording"
+        @stop-recording="stopRecording"
         @run="startRun"
         @stop="cancelRun"
         @save="save"
       />
+
+      <div
+        v-if="creationTemplate"
+        class="flex flex-wrap items-center gap-2 border-b border-primary/25 bg-primary/5 px-4 py-2 text-xs text-muted"
+        role="status"
+      >
+        <UIcon :name="creationTemplateIcon" class="size-4 text-primary" aria-hidden="true" />
+        <span class="min-w-0 flex-1">
+          {{ t(`workflow.template.${creationTemplate}.hint`) }}
+        </span>
+        <RouterLink
+          class="font-medium text-primary hover:underline"
+          to="/settings?section=automation"
+        >
+          {{ t('workflow.template.configure_targets') }}
+        </RouterLink>
+      </div>
 
       <div
         v-if="session.saveConflict"
@@ -174,6 +197,7 @@
             @connect-start="startConnection"
             @connect-end="endConnection"
             @node-click="selectNode"
+            @edge-click="selectEdge"
             @pane-click="handlePaneClick"
             @nodes-change="handleNodesChange"
             @node-drag-start="trackNodeDrag"
@@ -342,13 +366,200 @@
         @close="debuggerOpen = false"
       />
     </template>
+
+    <BaseModal
+      v-model:open="nodeSearchOpen"
+      :title="t('workflow.node_search.title')"
+      icon="i-tabler-search"
+      size="lg"
+    >
+      <UInput
+        v-model="nodeSearchQuery"
+        data-testid="workflow-node-search-input"
+        icon="i-tabler-search"
+        autofocus
+        :placeholder="t('workflow.node_search.placeholder')"
+        @keydown.enter.prevent="focusFirstNodeSearchResult"
+      />
+      <div class="mt-3 max-h-96 space-y-1 overflow-y-auto">
+        <button
+          v-for="result in nodeSearchResults"
+          :key="`${result.graphId}:${result.nodeId}`"
+          type="button"
+          class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          @click="selectNodeSearchResult(result)"
+        >
+          <UIcon :name="`i-tabler-${result.icon || 'box'}`" class="size-4 text-primary" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-xs font-medium text-highlighted">{{
+              result.label
+            }}</span>
+            <span class="block truncate font-mono text-[10px] text-dimmed">{{
+              result.nodeId
+            }}</span>
+          </span>
+          <span class="shrink-0 text-[10px] text-muted">{{ result.graphId }}</span>
+        </button>
+        <div v-if="!nodeSearchResults.length" class="px-3 py-8 text-center text-xs text-muted">
+          {{
+            nodeSearchQuery.trim()
+              ? t('workflow.node_search.no_results')
+              : t('workflow.node_search.empty')
+          }}
+        </div>
+      </div>
+      <template #footer>
+        <span class="mr-auto text-[11px] text-muted">
+          {{ t('workflow.node_search.result_count', { n: nodeSearchResults.length }) }}
+        </span>
+        <UButton color="neutral" variant="ghost" @click="nodeSearchOpen = false">
+          {{ t('common.close') }}
+        </UButton>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      v-model:open="recordingStartOpen"
+      :title="t('workflow.recording.start_title')"
+      icon="i-tabler-record-mail"
+      size="md"
+    >
+      <UFormField :label="t('workflow.recording.target')" required>
+        <USelect
+          v-model="recordingTargetSlot"
+          :items="recordingTargetItems"
+          value-key="value"
+          label-key="label"
+          :placeholder="t('assets.target_placeholder')"
+        />
+      </UFormField>
+      <p class="mt-3 text-xs leading-5 text-muted">{{ t('workflow.recording.start_hint') }}</p>
+      <template #footer>
+        <UButton color="neutral" variant="ghost" @click="recordingStartOpen = false">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          :disabled="!recordingTargetSlot"
+          :loading="recordingControlBusy"
+          @click="startRecording"
+        >
+          {{ t('workflow.recording.start') }}
+        </UButton>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="!!pendingRecording"
+      :title="t('workflow.recording.preview_title')"
+      icon="i-tabler-list-check"
+      size="2xl"
+      :show-close="false"
+      :dismissible="false"
+    >
+      <div v-if="pendingRecording" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
+            <p class="text-xs text-muted">{{ t('workflow.recording.result_mode') }}</p>
+            <div class="mt-1 flex items-center gap-2">
+              <UBadge
+                :color="pendingRecording.preview.mode === 'steps' ? 'primary' : 'warning'"
+                variant="soft"
+              >
+                {{ t(`workflow.recording.mode_${pendingRecording.preview.mode}`) }}
+              </UBadge>
+              <span class="text-xs text-toned">
+                {{
+                  t('recordingSave.summary', {
+                    duration: formatRecordingDuration(pendingRecording.durationUs),
+                    count: pendingRecording.eventCount,
+                  })
+                }}
+              </span>
+            </div>
+          </div>
+          <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3 text-xs text-muted">
+            {{
+              t('workflow.recording.action_summary', {
+                keys: pendingRecording.preview.keyActions,
+                clicks: pendingRecording.preview.clickActions,
+                moves: pendingRecording.preview.pointerMoves + pendingRecording.preview.rawDeltas,
+                scrolls: pendingRecording.preview.scrollActions,
+              })
+            }}
+          </div>
+        </div>
+        <div
+          v-if="pendingRecording.preview.steps.length"
+          class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-default bg-sunken p-2"
+        >
+          <div
+            v-for="(step, index) in pendingRecording.preview.steps"
+            :key="`${step.atUs}:${index}`"
+            class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted"
+          >
+            <span class="w-12 shrink-0 font-mono text-[10px] text-dimmed">
+              {{ (step.atUs / 1_000_000).toFixed(2) }}s
+            </span>
+            <UIcon
+              :name="step.kind === 'keys' ? 'i-tabler-keyboard' : 'i-tabler-pointer'"
+              class="size-4 shrink-0 text-primary"
+            />
+            <span class="truncate text-toned">
+              {{
+                step.kind === 'keys'
+                  ? step.keys?.join(' + ')
+                  : `${step.button} · ${Math.round((step.point?.x ?? 0) * 100)}%, ${Math.round((step.point?.y ?? 0) * 100)}%`
+              }}
+            </span>
+          </div>
+        </div>
+        <p
+          v-if="pendingRecording.preview.mode === 'trajectory'"
+          class="text-xs leading-5 text-muted"
+        >
+          {{ t('workflow.recording.trajectory_hint') }}
+        </p>
+        <UFormField :label="t('recordingSave.name')" required>
+          <UInput v-model="recordingDraft.name" maxlength="80" autofocus />
+        </UFormField>
+        <UFormField :label="t('common.description')" :hint="t('common.optional')">
+          <UTextarea v-model="recordingDraft.description" :rows="2" />
+        </UFormField>
+        <div class="grid grid-cols-2 gap-3">
+          <UFormField :label="t('common.category')" :hint="t('common.optional')">
+            <UInput v-model="recordingDraft.category" />
+          </UFormField>
+          <UFormField :label="t('common.tags')" :hint="t('assets.tags_hint')">
+            <UInput v-model="recordingDraft.tags" />
+          </UFormField>
+        </div>
+      </div>
+      <template #footer>
+        <UButton
+          color="error"
+          variant="ghost"
+          :disabled="recordingSaveBusy || !!finalizedRecording"
+          @click="discardPendingRecording"
+        >
+          {{ t('recordingSave.discard') }}
+        </UButton>
+        <UButton
+          :loading="recordingSaveBusy"
+          :disabled="!recordingDraft.name.trim()"
+          @click="saveAndInsertRecording"
+        >
+          {{ t('recordingSave.save_add') }}
+        </UButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
+import { backend } from '@/lib/backend'
 import {
   VueFlow,
   useVueFlow,
@@ -395,6 +606,15 @@ import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
 } from '@/app/editor/WorkflowConnectionMenu.vue'
 import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import { useWailsEvent } from '@/composables/useWailsEvent'
+import {
+  isRecordingStopPayload,
+  useRecordingStore,
+  type RecordingFinalizePayload,
+  type RecordingStopPayload,
+} from '@/stores/recording'
+import { useSettingsStore } from '@/stores/settings'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
 import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
@@ -423,12 +643,28 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
+const recording = useRecordingStore()
+const settings = useSettingsStore()
 const selectedNodeId = ref('')
 const selectedNodeIds = ref(new Set<string>())
+const selectedEdgeId = ref('')
 const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
+const nodeSearchOpen = ref(false)
+const nodeSearchQuery = ref('')
+const creationTemplate = computed(() => {
+  const value = route.query.template
+  return value === 'windows' || value === 'android' || value === 'cross-target' ? value : ''
+})
+const creationTemplateIcon = computed(() =>
+  creationTemplate.value === 'android'
+    ? 'i-tabler-brand-android'
+    : creationTemplate.value === 'windows'
+      ? 'i-tabler-brand-windows'
+      : 'i-tabler-devices',
+)
 const compileSucceeded = ref(false)
 const saveSucceeded = ref(false)
 const canvasElement = ref<HTMLElement | null>(null)
@@ -441,6 +677,13 @@ const diagnosticsOpen = ref(false)
 const runTimelineOpen = ref(false)
 const debuggerOpen = ref(false)
 const breakpointKeys = ref(new Set<string>())
+const recordingStartOpen = ref(false)
+const recordingTargetSlot = ref('')
+const recordingControlBusy = ref(false)
+const pendingRecording = ref<RecordingStopPayload | null>(null)
+const finalizedRecording = ref<RecordingFinalizePayload | null>(null)
+const recordingSaveBusy = ref(false)
+const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const {
   addSelectedNodes,
   findNode,
@@ -484,10 +727,19 @@ interface WorkflowSelectionClipboard {
   edges: Edge[]
 }
 
+interface WorkflowNodeSearchResult {
+  graphId: string
+  nodeId: string
+  label: string
+  icon: string
+  searchText: string
+}
+
 const catalogGroups = computed(() => {
   const query = catalogQuery.value.trim().toLocaleLowerCase()
   const grouped = new Map<string, NodeProjection[]>()
   for (const projection of session.authoring?.body.nodes ?? []) {
+    if (!visibleForCreationTemplate(projection)) continue
     if (query && !catalogSearchText(projection).includes(query)) continue
     const key = projection.category || 'other'
     const nodes = grouped.get(key) ?? []
@@ -505,6 +757,44 @@ const catalogGroups = computed(() => {
     }))
 })
 
+const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
+  const query = nodeSearchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return []
+  return (session.source?.graphs ?? [])
+    .flatMap((graph) =>
+      graph.nodes.map((node) => {
+        const projection = session.nodeProjection(node.nodeRef.nodeTypeId)
+        const typeTitle = projection ? projectionTitle(projection) : node.nodeRef.nodeTypeId
+        const label = node.label || typeTitle
+        return {
+          graphId: graph.id,
+          nodeId: node.id,
+          label,
+          icon: projection?.icon ?? 'box',
+          searchText: [label, typeTitle, node.id, node.nodeRef.nodeTypeId, graph.id]
+            .join(' ')
+            .toLocaleLowerCase(),
+        }
+      }),
+    )
+    .filter((result) => result.searchText.includes(query))
+    .sort(
+      (left, right) =>
+        left.graphId.localeCompare(right.graphId) || left.label.localeCompare(right.label),
+    )
+    .slice(0, 200)
+})
+
+function visibleForCreationTemplate(projection: NodeProjection): boolean {
+  const template = creationTemplate.value
+  if (!template || template === 'cross-target') return true
+  const targetKind = template === 'android' ? 'android-device' : 'desktop-window'
+  const automationCapabilities = projection.capabilities.filter((capability) =>
+    capability.capability.capabilityId.includes('/capabilities/automation/'),
+  )
+  return automationCapabilities.every((capability) => capability.targetKinds.includes(targetKind))
+}
+
 const flowNodes = computed(() =>
   projectWorkflowFlowNodes(
     session.currentGraph?.nodes ?? [],
@@ -520,6 +810,7 @@ const flowEdges = computed<FlowEdge[]>(() =>
     target: edge.to.nodeId,
     sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
     targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
+    selected: selectedEdgeId.value === edgeId(edge),
     animated: edge.channel !== 'data',
     style: {
       stroke:
@@ -580,9 +871,34 @@ const runActive = computed(() =>
 const nodeRunStatusById = computed(() =>
   nodeRunStatuses(session.activeRun, session.currentGraph?.id ?? ''),
 )
+const recordingTargetItems = computed(() =>
+  (settings.data?.automation.targets ?? [])
+    .filter((target) => target.targetKind === 'desktop-window')
+    .map((target) => ({
+      label: `${target.label} · ${target.slot}`,
+      value: target.slot,
+    })),
+)
+
+useWailsEvent<unknown>('recording:completed', (raw) => {
+  const payload = Array.isArray(raw) ? raw[0] : raw
+  const eventError =
+    typeof payload === 'object' && payload !== null
+      ? (payload as { error?: unknown }).error
+      : undefined
+  if (typeof eventError === 'string') {
+    showError(t('recordingSave.save_failed'), eventError)
+    return
+  }
+  if (isRecordingStopPayload(payload)) openRecordingPreview(payload)
+})
 
 onMounted(async () => {
   document.addEventListener('keydown', handleEditorKeydown)
+  await Promise.allSettled([
+    settings.loaded ? Promise.resolve() : settings.load(),
+    recording.reconcile(),
+  ])
   const workflowId = String(route.params.id ?? '')
   try {
     await session.load(workflowId)
@@ -610,6 +926,27 @@ onBeforeUnmount(() => {
   clearTimeout(connectionEndTimer)
 })
 onBeforeRouteLeave(async () => {
+  if (recording.state.phase === 'recording' || recording.state.phase === 'paused') {
+    const leaveRecording = await confirm({
+      title: t('workflow.recording.leave_title'),
+      description: t('workflow.recording.leave_hint'),
+      confirmText: t('workflow.recording.leave_action'),
+      color: 'warning',
+    })
+    if (leaveRecording !== true) return false
+    await recording.cancel()
+  }
+  if (pendingRecording.value && !finalizedRecording.value) {
+    const discard = await confirm({
+      title: t('recordingSave.discard'),
+      description: t('recordingSave.discard_confirm_hint'),
+      confirmText: t('common.delete'),
+      color: 'error',
+    })
+    if (discard !== true) return false
+    await recording.discard(pendingRecording.value.pendingID)
+    pendingRecording.value = null
+  }
   if (!session.dirty) return true
   return (
     (await confirm({
@@ -620,6 +957,141 @@ onBeforeRouteLeave(async () => {
     })) === true
   )
 })
+
+function openRecordingStart(): void {
+  const targets = recordingTargetItems.value
+  if (!targets.length) {
+    showError(t('workflow.recording.start_failed'), t('workflow.inspector.no_installed_target'))
+    return
+  }
+  const selectedSlot = selectedNode.value?.config.slot
+  recordingTargetSlot.value =
+    typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
+      ? selectedSlot
+      : recordingTargetSlot.value || targets[0]?.value || ''
+  recordingStartOpen.value = true
+}
+
+async function startRecording(): Promise<void> {
+  if (!recordingTargetSlot.value) return
+  recordingControlBusy.value = true
+  try {
+    await recording.start(recordingTargetSlot.value)
+    recordingStartOpen.value = false
+  } catch (error) {
+    showError(t('workflow.recording.start_failed'), error)
+    return
+  } finally {
+    recordingControlBusy.value = false
+  }
+  try {
+    await backend.tools.openRecordingHUD()
+  } catch (error) {
+    showError(t('workflow.recording.control_failed'), error)
+  }
+}
+
+async function pauseRecording(): Promise<void> {
+  try {
+    await recording.pause()
+  } catch (error) {
+    showError(t('workflow.recording.control_failed'), error)
+  }
+}
+
+async function resumeRecording(): Promise<void> {
+  try {
+    await recording.resume()
+  } catch (error) {
+    showError(t('workflow.recording.control_failed'), error)
+  }
+}
+
+async function stopRecording(): Promise<void> {
+  try {
+    const payload = await recording.stop()
+    if (payload) openRecordingPreview(payload)
+  } catch (error) {
+    showError(t('workflow.recording.control_failed'), error)
+  }
+}
+
+function openRecordingPreview(payload: RecordingStopPayload): void {
+  pendingRecording.value = payload
+  finalizedRecording.value = null
+  recordingDraft.name = ''
+  recordingDraft.description = ''
+  recordingDraft.category = ''
+  recordingDraft.tags = ''
+}
+
+async function saveAndInsertRecording(): Promise<void> {
+  const pending = pendingRecording.value
+  if (!pending || !recordingDraft.name.trim()) return
+  recordingSaveBusy.value = true
+  try {
+    const finalized =
+      finalizedRecording.value ??
+      (await recording.finalize({
+        pendingID: pending.pendingID,
+        label: recordingDraft.name.trim(),
+        description: recordingDraft.description.trim(),
+        category: recordingDraft.category.trim(),
+        tags: splitRecordingTags(recordingDraft.tags),
+      }))
+    finalizedRecording.value = finalized
+    const rect = canvasElement.value?.getBoundingClientRect()
+    const origin = rect
+      ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      : { x: 160, y: 160 }
+    const nodeIDs = session.insertLinearDraft(finalized.draft.nodes, origin)
+    selectedNodeIds.value = new Set(nodeIDs)
+    selectedNodeId.value = nodeIDs.at(-1) ?? ''
+    finalizedRecording.value = null
+    pendingRecording.value = null
+  } catch (error) {
+    showError(t('recordingSave.save_failed'), error)
+  } finally {
+    recordingSaveBusy.value = false
+  }
+}
+
+async function discardPendingRecording(): Promise<void> {
+  const pending = pendingRecording.value
+  if (!pending || finalizedRecording.value) return
+  const accepted = await confirm({
+    title: t('recordingSave.discard'),
+    description: t('recordingSave.discard_confirm_hint'),
+    confirmText: t('common.delete'),
+    color: 'error',
+  })
+  if (accepted !== true) return
+  recordingSaveBusy.value = true
+  try {
+    await recording.discard(pending.pendingID)
+    pendingRecording.value = null
+  } catch (error) {
+    showError(t('recordingSave.discard_failed'), error)
+  } finally {
+    recordingSaveBusy.value = false
+  }
+}
+
+function splitRecordingTags(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(/[,，]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    ),
+  ]
+}
+
+function formatRecordingDuration(durationUs: number): string {
+  const seconds = Math.max(0, Math.round(durationUs / 1_000_000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
 
 function applyCommand(command: EditorCommand): boolean {
   try {
@@ -657,6 +1129,21 @@ function toggleStatePanel(): void {
   if (statePanelOpen.value) aiPanelOpen.value = false
 }
 
+function openNodeSearch(): void {
+  nodeSearchQuery.value = ''
+  nodeSearchOpen.value = true
+}
+
+function focusFirstNodeSearchResult(): void {
+  const first = nodeSearchResults.value[0]
+  if (first) void selectNodeSearchResult(first)
+}
+
+async function selectNodeSearchResult(result: WorkflowNodeSearchResult): Promise<void> {
+  nodeSearchOpen.value = false
+  await focusNode([result.graphId], result.nodeId)
+}
+
 function handleEditorKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && connectionMenu.value) {
     event.preventDefault()
@@ -672,6 +1159,11 @@ function handleEditorKeydown(event: KeyboardEvent): void {
   const modifier = event.ctrlKey || event.metaKey
   if (modifier && !event.altKey) {
     const key = event.key.toLocaleLowerCase()
+    if (key === 'f') {
+      event.preventDefault()
+      openNodeSearch()
+      return
+    }
     if (key === 'c' && selectedNodeIds.value.size) {
       event.preventDefault()
       void copySelection()
@@ -695,7 +1187,7 @@ function handleEditorKeydown(event: KeyboardEvent): void {
     return
   }
   if (event.altKey || (event.key !== 'Delete' && event.key !== 'Backspace')) return
-  if (!selectedNodeIds.value.size && !selectedNodeId.value) return
+  if (!selectedNodeIds.value.size && !selectedNodeId.value && !selectedEdgeId.value) return
   event.preventDefault()
   removeSelection()
 }
@@ -813,6 +1305,7 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
 function handlePaneClick(): void {
   selectedNodeId.value = ''
   selectedNodeIds.value = new Set()
+  selectedEdgeId.value = ''
   closeConnectionMenu()
 }
 
@@ -919,7 +1412,9 @@ function removeSelection(): void {
   if (ids.length && applyCommand({ kind: 'remove-nodes', nodeIds: ids })) {
     selectedNodeId.value = ''
     selectedNodeIds.value = new Set()
+    return
   }
+  if (selectedEdgeId.value) disconnectEdge(selectedEdgeId.value)
 }
 
 function duplicateSelection(): void {
@@ -1024,11 +1519,23 @@ function eventClientPoint(event?: MouseEvent | TouchEvent): { x: number; y: numb
 }
 
 function disconnect(event: EdgeMouseEvent): void {
-  const edge = session.currentGraph?.edges.find((candidate) => edgeId(candidate) === event.edge.id)
-  if (edge) session.apply({ kind: 'disconnect', edge })
+  disconnectEdge(event.edge.id)
+}
+
+function disconnectEdge(id: string): void {
+  const edge = session.currentGraph?.edges.find((candidate) => edgeId(candidate) === id)
+  if (edge && applyCommand({ kind: 'disconnect', edge })) selectedEdgeId.value = ''
+}
+
+function selectEdge(event: EdgeMouseEvent): void {
+  removeSelectedNodes(getSelectedNodes.value)
+  selectedNodeId.value = ''
+  selectedNodeIds.value = new Set()
+  selectedEdgeId.value = event.edge.id
 }
 
 function selectNode(event: NodeMouseEvent): void {
+  selectedEdgeId.value = ''
   selectedNodeId.value = event.node.id
 }
 
@@ -1044,6 +1551,7 @@ function handleNodesChange(changes: NodeChange[]): void {
   if (changed) {
     selectedNodeIds.value = selected
     if (!selected.has(selectedNodeId.value)) selectedNodeId.value = [...selected].at(-1) ?? ''
+    if (selected.size) selectedEdgeId.value = ''
   }
 }
 
@@ -1155,7 +1663,10 @@ async function toggleBreakpoint(graphId: string, nodeId: string): Promise<void> 
 function debugBreakpoints(): DebugBreakpoint[] {
   return [...breakpointKeys.value].map((key) => {
     const separator = key.indexOf('\u0000')
-    return { graphId: key.slice(0, separator), nodeId: key.slice(separator + 1) } as DebugBreakpoint
+    return {
+      graphId: key.slice(0, separator),
+      nodeId: key.slice(separator + 1),
+    } as DebugBreakpoint
   })
 }
 

@@ -41,6 +41,9 @@ describe('standalone window presentation contract', () => {
     expect(floatingSource).toContain('<LauncherSurface')
     expect(settingsSource).toContain('<LauncherSurface')
     expect(settingsSource).not.toContain('launcher-preview__button')
+    expect(settingsSource).toContain('backend.tools.openLauncher()')
+    expect(settingsSource).toContain("entry.key === 'system.launcher-toggle'")
+    expect(floatingSource).toContain('backend.tools.openLauncherSettings()')
   })
 
   it('keeps the launcher keyboard and stale-state interaction contract', () => {

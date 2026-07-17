@@ -20,6 +20,8 @@ const profile = {
   slot: 'primary',
   label: 'Primary',
   provider: 'openai-responses' as const,
+  endpoint: 'https://api.openai.com/v1/responses',
+  allowLocalHttp: false,
   model: 'gpt-test',
   maxOutputTokens: 4096,
   capabilities: {
@@ -102,6 +104,8 @@ describe('settings store · patchAIProfiles', () => {
     const target = {
       slot: 'editor-input',
       label: 'Editor input',
+      targetKind: 'desktop-window' as const,
+      adapterKind: 'win32' as const,
       applicationSlot: 'editor',
       windowTitle: 'Editor',
       windowClass: 'EditorWindow',
@@ -112,6 +116,6 @@ describe('settings store · patchAIProfiles', () => {
     }
     await store.patchAutomationTargets([target])
     expect(updateMock).toHaveBeenCalledTimes(1)
-    expect(updateMock.mock.calls[0][0]).toEqual({ automation: { win32Targets: [target] } })
+    expect(updateMock.mock.calls[0][0]).toEqual({ automation: { targets: [target] } })
   })
 })

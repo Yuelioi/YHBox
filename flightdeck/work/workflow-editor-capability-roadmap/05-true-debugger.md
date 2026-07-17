@@ -28,4 +28,11 @@ Slice 4；先审查 loop/retry/instruction 的“一个可见节点”定义。
 
 ## Result
 
-Planned。旧 UI 心智可借鉴，旧 debug service/runner 不复活。
+Completed。实现集中在 concurrency-safe DebugController 与 scheduler 的单一 checkpoint seam；普通 Run 和 Debug Run 共用同一 executor 私有执行路径、admission worker、Program、Owner、journal、lease 与 cleanup。
+
+- 支持 breakpoint、pause-before-node、step、continue、pause request、stop 与当前节点高亮；loop/retry/instruction 的嵌套调用仍逐个经过 checkpoint。
+- application/service/desktop/Wails event/frontend session 全链路接通，陈旧 generation/run 事件被拒绝。
+- 断点是 view-local Set，只在活动调试会话下发，不写 Workflow Source。
+- 快照上限为 128 个队列/断点、256 个值元数据；inline、handle、凭据与内容摘要不暴露，BlobRef 只暴露 digest/media type/size。集合在后端边界保证非 null。
+- 定向覆盖 controller、相同 scheduler/journal、application admission/cancel、counted loop 与 retry；最终 task check、task build、真实 Windows WebView breakpoint/step/stop smoke 和截图人工检查均通过。
+- 源码提交：7f19c56c。

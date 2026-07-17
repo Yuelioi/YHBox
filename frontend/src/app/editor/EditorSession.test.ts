@@ -131,6 +131,49 @@ describe('EditorSession', () => {
     expect(session.debugSnapshot?.status).toBe('running')
   })
 
+  it('does not let a stale debug control response overwrite a newer event', async () => {
+    const source = emptySource()
+    const run = runView('RUNNING')
+    const transport = mockTransport(sourceView(source), run)
+    const paused = {
+      status: 'paused',
+      generation: 4,
+      graphId: 'main',
+      nodeId: 'run-started',
+      queue: [],
+      inputs: {},
+      outputs: {},
+      state: {},
+    } as DebugSnapshot
+    vi.mocked(transport.startDebugRun).mockResolvedValue({
+      sourceHash: 'sha256:source-next',
+      programHash: 'sha256:program',
+      diagnostics: [],
+      run,
+      debug: paused,
+    } as StartRunView)
+    let resolveControl!: (snapshot: DebugSnapshot) => void
+    vi.mocked(transport.controlDebugRun).mockImplementation(
+      () => new Promise((resolve) => (resolveControl = resolve)),
+    )
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    await session.startDebug([])
+
+    const control = session.controlDebug('step')
+    const completed = {
+      ...paused,
+      status: 'completed',
+      generation: 6,
+      nodeId: '',
+    } as DebugSnapshot
+    expect(session.acceptDebugSnapshot(run.runId, completed)).toBe(true)
+    resolveControl({ ...paused, status: 'running', generation: 5 } as DebugSnapshot)
+
+    await expect(control).resolves.toEqual(completed)
+    expect(session.debugSnapshot).toEqual(completed)
+  })
+
   it('rejects an incompatible or wrong-carrier edge before compile', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
@@ -354,6 +397,51 @@ describe('EditorSession', () => {
     expect(session.currentGraph?.edges).toHaveLength(1)
   })
 
+  it('inserts a linear recording draft as one undoable edit', async () => {
+    const source = emptySource()
+    const ids = ['recorded_a', 'recorded_b']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+
+    const inserted = session.insertLinearDraft(
+      [
+        {
+          nodeTypeID: delay.nodeRef.nodeTypeId,
+          config: {},
+          values: { 'duration-milliseconds': 100 },
+          blobs: {},
+          execInput: 'in',
+          execOutput: 'done',
+        },
+        {
+          nodeTypeID: delay.nodeRef.nodeTypeId,
+          config: {},
+          values: { 'duration-milliseconds': 250 },
+          blobs: {},
+          execInput: 'in',
+          execOutput: 'done',
+        },
+      ],
+      { x: 320, y: 180 },
+    )
+
+    expect(inserted).toEqual(['recorded_a', 'recorded_b'])
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+    expect(session.currentGraph?.edges).toEqual([
+      {
+        channel: 'exec',
+        from: { nodeId: 'recorded_a', portId: 'done' },
+        to: { nodeId: 'recorded_b', portId: 'in' },
+      },
+    ])
+    session.undo()
+    expect(session.currentGraph?.nodes).toEqual([])
+    expect(session.currentGraph?.edges).toEqual([])
+  })
+
   it('owns typed state declarations and prevents deleting referenced slots', async () => {
     const source = emptySource()
     const session = new EditorSession(
@@ -436,6 +524,9 @@ function runView(status: string): RunView {
 function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
   return {
     listSources: vi.fn(async () => [saved]),
+    querySources: vi.fn(async () => ({ items: [saved], total: 1, page: 1, pageSize: 20 })),
+    previewDeleteSources: vi.fn(async () => []),
+    deleteSources: vi.fn(async () => []),
     createSource: vi.fn(async () => saved),
     getSource: vi.fn(async () => saved),
     applyPatch: vi.fn(async (_workflowId: string, baseRevision: number) => {

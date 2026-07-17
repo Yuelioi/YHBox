@@ -31,7 +31,7 @@ vi.mock('@/i18n', () => ({ i18n: { global: { t: (k: string) => k } } }))
 // store 体内 Events.On('recording:state') 订阅后端广播 — 测试里 stub 掉, 只验镜像逻辑.
 vi.mock('@wailsio/runtime', () => ({ Events: { On: vi.fn(() => () => {}) } }))
 
-import { useRecordingStore } from './recording'
+import { isRecordingStopPayload, useRecordingStore } from './recording'
 
 describe('recordStore — 后端状态机镜像', () => {
   beforeEach(() => setActivePinia(createPinia()))
@@ -105,5 +105,35 @@ describe('recordStore — 后端状态机镜像', () => {
     expect(getStateMock).toHaveBeenCalled()
     expect(s.isRecording).toBe(true)
     expect(s.activeTargetSlot).toBe('editor')
+  })
+
+  it('accepts only completed events that include the recording preview contract', () => {
+    expect(
+      isRecordingStopPayload({
+        pendingID: 'pending-session',
+        targetSlot: 'editor',
+        durationUs: 25_000,
+        eventCount: 2,
+        preview: {
+          mode: 'steps',
+          durationUs: 25_000,
+          eventCount: 2,
+          keyActions: 1,
+          clickActions: 0,
+          pointerMoves: 0,
+          rawDeltas: 0,
+          scrollActions: 0,
+          steps: [],
+        },
+      }),
+    ).toBe(true)
+    expect(
+      isRecordingStopPayload({
+        pendingID: 'pending-session',
+        targetSlot: 'editor',
+        durationUs: 25_000,
+        eventCount: 2,
+      }),
+    ).toBe(false)
   })
 })

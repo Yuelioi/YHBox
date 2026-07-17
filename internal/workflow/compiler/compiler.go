@@ -10,6 +10,7 @@ import (
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -34,6 +35,7 @@ const (
 	CodeDuplicateSignalRoute     = "DUPLICATE_SIGNAL_ROUTE"
 	CodeRegionSignalScope        = "REGION_SIGNAL_SCOPE"
 	CodeInvalidBinding           = "INVALID_BINDING"
+	CodeBlobUnavailable          = "BLOB_UNAVAILABLE"
 	CodeInvalidConfig            = "INVALID_CONFIG"
 	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
 	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
@@ -47,9 +49,20 @@ const (
 
 type Diagnostic = schema.Diagnostic
 
+type BlobVerifier interface {
+	Verify(context.Context, blob.BlobRef) error
+}
+
+type BlobVerifierFunc func(context.Context, blob.BlobRef) error
+
+func (verify BlobVerifierFunc) Verify(ctx context.Context, ref blob.BlobRef) error {
+	return verify(ctx, ref)
+}
+
 type CompileRequest struct {
-	SourceJSON []byte
-	Catalog    nodecatalog.Snapshot
+	SourceJSON   []byte
+	Catalog      nodecatalog.Snapshot
+	BlobVerifier BlobVerifier
 }
 
 type CompileResult struct {
@@ -121,7 +134,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"graphs", fmt.Sprint(graphIndex), "inputs"}, graph.ID))
 			continue
 		}
-		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, c.validators, stateByName)
+		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, c.validators, stateByName, request.BlobVerifier)
 		if compileErr != nil {
 			return CompileResult{}, compileErr
 		}
@@ -217,7 +230,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -320,6 +333,14 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 				if binding.Blob == nil {
 					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
 					continue
+				}
+				if blobVerifier != nil {
+					if err := blobVerifier.Verify(ctx, *binding.Blob); err != nil {
+						diagnostic := diagnosticAtNode(CodeBlobUnavailable, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+						diagnostic.Params["reason"] = err.Error()
+						diagnostics = append(diagnostics, diagnostic)
+						continue
+					}
 				}
 			default:
 				diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))

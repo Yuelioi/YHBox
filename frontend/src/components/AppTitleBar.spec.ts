@@ -13,6 +13,8 @@ describe('AppTitleBar accessibility', () => {
   it('names utility destinations and native window controls', () => {
     expect(source).toContain(':aria-label="t(\'sidebar.settings\')"')
     expect(source).toContain(':aria-label="t(\'sidebar.about\')"')
+    expect(source).toContain(':aria-label="t(\'sidebar.open_launcher\')"')
+    expect(source).toContain('backend.tools.openLauncher()')
     expect(source).toContain(':aria-label="t(\'editor.window.minimize\')"')
     expect(source).toContain(':aria-label="t(\'editor.window.close\')"')
   })

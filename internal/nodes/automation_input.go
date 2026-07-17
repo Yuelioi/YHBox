@@ -14,7 +14,8 @@ const (
 	PointerButtonTypeID = "https://schemas.yotta.dev/types/automation/pointer-button/v1"
 	KeyCodeTypeID       = "https://schemas.yotta.dev/types/automation/key-code/v1"
 
-	AutomationInputCapabilityID = "https://schemas.yotta.dev/capabilities/automation/input/v1"
+	AutomationInputCapabilityID        = "https://schemas.yotta.dev/capabilities/automation/input/v1"
+	AutomationDesktopInputCapabilityID = "https://schemas.yotta.dev/capabilities/automation/desktop-input/v1"
 
 	ClickPointerNodeID        = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	MovePointerNodeID         = "https://schemas.yotta.dev/nodes/automation/move-pointer"
@@ -82,10 +83,10 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 func sealAutomationInputCapability() (capability.Definition, error) {
 	const scopeID = AutomationInputCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationInputCapabilityID, Operations: installed.InputOperations(), TargetKinds: []string{installed.TargetKind},
+		CapabilityID: AutomationInputCapabilityID, Operations: []string{installed.OperationClick, installed.OperationDrag, installed.OperationMove, installed.OperationScroll, installed.OperationTypeText}, TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"operation":{"enum":["click","drag","move","move-relative","press-keys","scroll","type-text"]}},
+			"properties":{"operation":{"enum":["click","drag","move","scroll","type-text"]}},
 			"required":["operation"],"additionalProperties":false
 		}`, scopeID))}},
 		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
@@ -93,7 +94,21 @@ func sealAutomationInputCapability() (capability.Definition, error) {
 	})
 }
 
-func defineAutomationInputNodes(types automationInputTypes, input capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
+func sealAutomationDesktopInputCapability() (capability.Definition, error) {
+	const scopeID = AutomationDesktopInputCapabilityID + "/scope"
+	return capability.SealDefinition(capability.DefinitionDraft{
+		CapabilityID: AutomationDesktopInputCapabilityID, Operations: []string{installed.OperationMoveRelative, installed.OperationPressKeys}, TargetKinds: []string{installed.TargetKindDesktopWindow},
+		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
+			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+			"properties":{"operation":{"enum":["move-relative","press-keys"]}},
+			"required":["operation"],"additionalProperties":false
+		}`, scopeID))}},
+		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
+		ProviderABI: installed.ProviderABI,
+	})
+}
+
+func defineAutomationInputNodes(types automationInputTypes, input, desktopInput capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
 	stringType := datatype.RefExpression(types.stringRef)
 	integerType := datatype.RefExpression(types.integerRef)
 	booleanType := datatype.RefExpression(types.booleanRef)
@@ -141,7 +156,11 @@ func defineAutomationInputNodes(types automationInputTypes, input capability.Def
 	definitions := make([]BuiltinDefinition, 0, len(specs))
 	contracts := make([]nodecontract.Contract, 0, len(specs))
 	for _, spec := range specs {
-		contract, err := sealAutomationInputNode(spec, input)
+		capabilityDefinition := input
+		if spec.operation == installed.OperationMoveRelative || spec.operation == installed.OperationPressKeys {
+			capabilityDefinition = desktopInput
+		}
+		contract, err := sealAutomationInputNode(spec, capabilityDefinition)
 		if err != nil {
 			return nil, nil, err
 		}

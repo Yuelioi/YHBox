@@ -20,8 +20,8 @@ type fakeDriver struct {
 	window    target.WindowHandle
 }
 
-func (driver *fakeDriver) ResolveWindow(context.Context) (target.WindowHandle, error) {
-	return driver.window, driver.err
+func (driver *fakeDriver) ResolveTarget(context.Context) (target.Target, error) {
+	return target.NewWin32WindowTarget(driver.window), driver.err
 }
 
 func (driver *fakeDriver) Execute(_ context.Context, operation string, request any) error {

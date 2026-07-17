@@ -40,5 +40,6 @@ type Window interface {
 type Presenter interface {
 	Ready() bool
 	OpenWindow(WindowRequest) (Window, error)
+	ShowMain() error
 	Emit(name string, data any)
 }

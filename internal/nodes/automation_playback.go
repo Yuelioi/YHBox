@@ -35,7 +35,7 @@ func sealInputClipType() (datatype.Definition, error) {
 func sealAutomationPlaybackCapability() (capability.Definition, error) {
 	const scopeID = AutomationPlaybackCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationPlaybackCapabilityID, Operations: installed.PlaybackOperations(), TargetKinds: []string{installed.TargetKind},
+		CapabilityID: AutomationPlaybackCapabilityID, Operations: installed.PlaybackOperations(), TargetKinds: []string{installed.TargetKindDesktopWindow},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"operation":{"const":"play"}},"required":["operation"],"additionalProperties":false

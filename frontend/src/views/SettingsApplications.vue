@@ -33,6 +33,14 @@
         </UButton>
       </template>
 
+      <div
+        v-if="pickerFailure"
+        class="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error"
+        role="alert"
+      >
+        {{ pickerFailure }}
+      </div>
+
       <div v-if="draft.length" class="space-y-3">
         <article v-for="profile in draft" :key="profile.slot" class="ai-profile">
           <button
@@ -192,13 +200,25 @@
         </article>
       </div>
 
-      <div v-else class="settings-empty-state">
+      <div v-else class="settings-empty-state" role="status">
         <UIcon name="i-tabler-apps" class="size-6 text-dimmed" />
         <p class="text-sm font-medium text-default">
-          {{ t('settingsApplications.profiles.empty') }}
+          {{
+            t(
+              pickerCancelled
+                ? 'settingsApplications.profiles.cancelled'
+                : 'settingsApplications.profiles.empty',
+            )
+          }}
         </p>
         <p class="max-w-md text-center text-xs leading-relaxed text-dimmed">
-          {{ t('settingsApplications.profiles.empty_hint') }}
+          {{
+            t(
+              pickerCancelled
+                ? 'settingsApplications.profiles.cancelled_hint'
+                : 'settingsApplications.profiles.empty_hint',
+            )
+          }}
         </p>
         <UButton
           size="sm"
@@ -218,7 +238,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { backend, type InstalledApplicationProfile } from '@/lib/backend'
+import { backend, type ExecutableInspection, type InstalledApplicationProfile } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
@@ -237,6 +257,8 @@ const draft = ref<ApplicationDraft[]>([])
 const expandedSlot = ref('')
 const busy = reactive<Record<string, boolean>>({})
 const picking = ref(false)
+const pickerCancelled = ref(false)
+const pickerFailure = ref('')
 
 watch(
   profiles,
@@ -271,7 +293,7 @@ function uniqueSlot(base: string): string {
     ...draft.value.map((profile) => profile.slot),
     ...(store.data?.ai.profiles ?? []).map((profile) => profile.slot),
     ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
-    ...(store.data?.automation.win32Targets ?? []).map((target) => target.slot),
+    ...(store.data?.automation.targets ?? []).map((target) => target.slot),
   ])
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base}-${index}`)) return `${base}-${index}`
@@ -281,29 +303,42 @@ function uniqueLabel(base: string): string {
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
 }
-async function inspectPickedExecutable() {
+async function inspectPickedExecutable(): Promise<ExecutableInspection | null> {
   const path = await backend.applications.pickExecutable(t('settingsApplications.picker.title'))
-  if (!path) return undefined
-  return backend.applications.inspectExecutable(path)
+  if (!path) {
+    pickerCancelled.value = true
+    return null
+  }
+  const inspection = await backend.applications.inspectExecutable(path)
+  if (!inspection) throw new Error(t('settingsApplications.picker.inspect_failed'))
+  return inspection
 }
 async function addApplication() {
+  if (picking.value) return
   picking.value = true
-  const inspection = await inspectPickedExecutable()
-  picking.value = false
-  if (!inspection) return
-  const name = fileName(inspection.executable).replace(/\.exe$/i, '')
-  const slot = uniqueSlot(slug(name))
-  draft.value.push({
-    slot,
-    label: uniqueLabel(name),
-    executable: inspection.executable,
-    executableDigest: inspection.digest,
-    arguments: [],
-    argumentLines: '',
-    persisted: false,
-  })
-  expandedSlot.value = slot
-  await commit()
+  pickerCancelled.value = false
+  pickerFailure.value = ''
+  try {
+    const inspection = await inspectPickedExecutable()
+    if (!inspection) return
+    const name = fileName(inspection.executable).replace(/\.exe$/i, '')
+    const slot = uniqueSlot(slug(name))
+    draft.value.push({
+      slot,
+      label: uniqueLabel(name),
+      executable: inspection.executable,
+      executableDigest: inspection.digest,
+      arguments: [],
+      argumentLines: '',
+      persisted: false,
+    })
+    expandedSlot.value = slot
+    await commit()
+  } catch (error) {
+    pickerFailure.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    picking.value = false
+  }
 }
 function metadata(profile: ApplicationDraft): InstalledApplicationProfile {
   return {
@@ -327,14 +362,22 @@ async function commit() {
   return ok
 }
 async function replaceExecutable(profile: ApplicationDraft) {
+  if (busy[profile.slot]) return
   busy[profile.slot] = true
-  const inspection = await inspectPickedExecutable()
-  if (inspection) {
-    profile.executable = inspection.executable
-    profile.executableDigest = inspection.digest
-    await commit()
+  pickerCancelled.value = false
+  pickerFailure.value = ''
+  try {
+    const inspection = await inspectPickedExecutable()
+    if (inspection) {
+      profile.executable = inspection.executable
+      profile.executableDigest = inspection.digest
+      await commit()
+    }
+  } catch (error) {
+    pickerFailure.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    busy[profile.slot] = false
   }
-  busy[profile.slot] = false
 }
 async function grant(profile: ApplicationDraft) {
   if (!(await commit())) return

@@ -89,6 +89,11 @@ func TestAISettingsPinProviderNativeProfileAndConsent(t *testing.T) {
 	if err := settings.Validate(); err == nil {
 		t.Fatal("accepted workflow consent for a different model profile")
 	}
+	settings.AI.Profiles[0] = configured
+	settings.AI.Profiles[0].Endpoint = "https://gateway.example/v1/responses"
+	if err := settings.Validate(); err == nil {
+		t.Fatal("accepted workflow consent for a different provider endpoint")
+	}
 	settings.AI.Profiles[0] = modelSettingsForTest("primary", "Model")
 	settings.AI.Profiles[0].Provider = "openai-compatible"
 	if err := settings.Validate(); err == nil {

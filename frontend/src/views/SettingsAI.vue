@@ -113,6 +113,57 @@
               </UFormField>
             </div>
 
+            <div class="rounded-lg border border-default/70 bg-elevated/35 p-3">
+              <UFormField
+                :label="t('settingsAI.profiles.endpoint_label')"
+                :hint="t('settingsAI.profiles.endpoint_hint')"
+                required
+              >
+                <div class="flex flex-col gap-2 sm:flex-row">
+                  <UInput
+                    v-model="profile.endpoint"
+                    type="url"
+                    size="sm"
+                    class="min-w-0 flex-1 font-mono"
+                    :placeholder="defaultProviderEndpoint(profile.provider)"
+                    @change="commit"
+                  />
+                  <UButton
+                    size="sm"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-tabler-restore"
+                    @click="restoreProviderEndpoint(profile)"
+                  >
+                    {{ t('settingsAI.profiles.endpoint_reset') }}
+                  </UButton>
+                </div>
+              </UFormField>
+              <div
+                v-if="profile.endpoint.trim().toLowerCase().startsWith('http://')"
+                class="mt-3 rounded-lg border border-error/30 bg-error/5 p-3"
+              >
+                <label class="flex items-start justify-between gap-3">
+                  <span class="min-w-0">
+                    <span class="block text-xs font-medium text-default">
+                      {{ t('settingsAI.profiles.local_http_title') }}
+                    </span>
+                    <span class="mt-1 block text-xs leading-relaxed text-dimmed">
+                      {{ t('settingsAI.profiles.local_http_hint') }}
+                    </span>
+                  </span>
+                  <USwitch
+                    :model-value="profile.allowLocalHttp"
+                    size="sm"
+                    @update:model-value="(value: boolean) => setLocalHTTP(index, value)"
+                  />
+                </label>
+                <p class="mt-2 text-xs leading-relaxed text-error">
+                  {{ t('settingsAI.profiles.local_http_warning') }}
+                </p>
+              </div>
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
               <UFormField
                 :label="t('settingsAI.profiles.max_tokens_label')"
@@ -434,6 +485,7 @@ watch(
   () => {
     draft.value = profiles.value.map((profile) => ({
       ...profile,
+      endpoint: profile.endpoint || defaultProviderEndpoint(profile.provider),
       capabilities: { ...profile.capabilities },
       pricing: { ...profile.pricing },
       evaluationReport: profile.evaluationReport ? { ...profile.evaluationReport } : undefined,
@@ -461,7 +513,7 @@ function uniqueSlot(): string {
     ...draft.value.map((profile) => profile.slot),
     ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
     ...(store.data?.applications.profiles ?? []).map((profile) => profile.slot),
-    ...(store.data?.automation.win32Targets ?? []).map((target) => target.slot),
+    ...(store.data?.automation.targets ?? []).map((target) => target.slot),
   ])
   if (!taken.has('model')) return 'model'
   for (let index = 2; ; index++) {
@@ -485,6 +537,8 @@ function addProfile(): void {
     slot,
     label: uniqueLabel(t('settingsAI.profiles.new_label')),
     provider: 'openai-responses',
+    endpoint: defaultProviderEndpoint('openai-responses'),
+    allowLocalHttp: false,
     model: '',
     maxOutputTokens: 4096,
     capabilities: {
@@ -509,13 +563,16 @@ function addProfile(): void {
 async function commit(): Promise<boolean> {
   if (
     draft.value.some(
-      (profile) => profile.persisted && (!profile.label.trim() || !profile.model.trim()),
+      (profile) =>
+        profile.persisted &&
+        (!profile.label.trim() || !profile.model.trim() || !profile.endpoint.trim()),
     )
   ) {
     return false
   }
   const savable = draft.value.filter(
-    (profile) => profile.slot && profile.label.trim() && profile.model.trim(),
+    (profile) =>
+      profile.slot && profile.label.trim() && profile.model.trim() && profile.endpoint.trim(),
   )
   const ok = await store.patchAIProfiles(savable.map(profileMetadata))
   if (ok) {
@@ -525,8 +582,31 @@ async function commit(): Promise<boolean> {
 }
 
 async function onProvider(index: number, provider: AIProviderKind): Promise<void> {
-  draft.value[index].provider = provider
+  const profile = draft.value[index]
+  const priorDefault = defaultProviderEndpoint(profile.provider)
+  if (!profile.endpoint.trim() || profile.endpoint.trim() === priorDefault) {
+    profile.endpoint = defaultProviderEndpoint(provider)
+    profile.allowLocalHttp = false
+  }
+  profile.provider = provider
   await commit()
+}
+
+async function setLocalHTTP(index: number, enabled: boolean): Promise<void> {
+  draft.value[index].allowLocalHttp = enabled
+  await commit()
+}
+
+async function restoreProviderEndpoint(profile: AIModelProfileDraft): Promise<void> {
+  profile.endpoint = defaultProviderEndpoint(profile.provider)
+  profile.allowLocalHttp = false
+  await commit()
+}
+
+function defaultProviderEndpoint(provider: AIProviderKind): string {
+  return provider === 'openai-responses'
+    ? 'https://api.openai.com/v1/responses'
+    : 'https://api.anthropic.com/v1/messages'
 }
 
 async function onCapability(
@@ -546,6 +626,8 @@ function profileMetadata(profile: AIModelProfileDraft): AIModelProfile {
     slot: profile.slot,
     label: profile.label.trim(),
     provider: profile.provider,
+    endpoint: profile.endpoint.trim(),
+    allowLocalHttp: profile.allowLocalHttp,
     model: profile.model.trim(),
     maxOutputTokens: profile.maxOutputTokens,
     capabilities: { ...profile.capabilities },

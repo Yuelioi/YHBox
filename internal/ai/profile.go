@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net"
+	"net/url"
+	"path"
 	"regexp"
+	"strings"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 )
 
-const profileDigestDomain = "yotta/ai-model-profile/v1"
+const profileDigestDomain = "yotta/ai-model-profile/v2"
 
 type ProviderKind string
 
@@ -36,6 +40,8 @@ type ProfileCapabilities struct {
 
 type ModelProfileDraft struct {
 	Provider         ProviderKind        `json:"provider"`
+	Endpoint         string              `json:"endpoint"`
+	AllowLocalHTTP   bool                `json:"allowLocalHttp"`
 	Model            string              `json:"model"`
 	Capabilities     ProfileCapabilities `json:"capabilities"`
 	MaxOutputTokens  int64               `json:"maxOutputTokens"`
@@ -63,6 +69,14 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 	}
 	if draft.Capabilities.ParallelTools && !draft.Capabilities.ToolCalling {
 		return ModelProfile{}, errors.New("parallel AI tool calls require tool calling")
+	}
+	endpoint, err := NormalizeProviderEndpoint(draft.Provider, draft.Endpoint, draft.AllowLocalHTTP)
+	if err != nil {
+		return ModelProfile{}, err
+	}
+	draft.Endpoint = endpoint
+	if strings.HasPrefix(endpoint, "https://") {
+		draft.AllowLocalHTTP = false
 	}
 	if draft.Capabilities.ToolCalling {
 		if err := draft.Pricing.Validate(); err != nil {
@@ -102,6 +116,56 @@ func SealModelProfile(draft ModelProfileDraft) (ModelProfile, error) {
 		return ModelProfile{}, err
 	}
 	return ModelProfile{state: &modelProfileState{digest: digest, document: draft, bytes: raw}}, nil
+}
+
+func DefaultProviderEndpoint(provider ProviderKind) string {
+	switch provider {
+	case ProviderOpenAIResponses:
+		return OpenAIResponsesEndpoint
+	case ProviderAnthropicMessages:
+		return AnthropicMessagesEndpoint
+	default:
+		return ""
+	}
+}
+
+// NormalizeProviderEndpoint seals one exact provider-native request URL. It
+// never infers a protocol from the path and permits plain HTTP only for an
+// explicitly acknowledged loopback installation.
+func NormalizeProviderEndpoint(provider ProviderKind, raw string, allowLocalHTTP bool) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		raw = DefaultProviderEndpoint(provider)
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" || parsed.Opaque != "" {
+		return "", errors.New("AI endpoint must be an absolute URL without credentials, query, or fragment")
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	if parsed.Scheme != "https" {
+		if parsed.Scheme != "http" || !allowLocalHTTP || !isLoopbackHost(parsed.Hostname()) {
+			return "", errors.New("AI endpoint requires HTTPS; HTTP is allowed only for an explicitly enabled loopback host")
+		}
+	}
+	if parsed.Path == "" || parsed.Path == "/" {
+		return "", errors.New("AI endpoint must include the exact provider-native API path")
+	}
+	cleanPath := path.Clean(parsed.Path)
+	if cleanPath == "." || strings.Contains(parsed.Path, "\\") {
+		return "", errors.New("AI endpoint path is invalid")
+	}
+	parsed.Path = cleanPath
+	parsed.RawPath = ""
+	return parsed.String(), nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func OpenModelProfile(raw []byte, digest artifact.Digest) (ModelProfile, error) {

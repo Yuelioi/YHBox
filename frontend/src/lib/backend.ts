@@ -24,6 +24,7 @@ import {
   TokenPricing as TokenPricingBinding,
 } from '@bindings/github.com/yottaapp/yotta/internal/ai/models.js'
 import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
+import { BlobRef as BlobRefBinding } from '@bindings/github.com/yottaapp/yotta/internal/blob/models.js'
 import { invoke, invokeVoid } from './invoke'
 import * as E from '@/constants/events'
 
@@ -101,6 +102,13 @@ export interface BlobRef {
   size: number
 }
 
+export interface BlobPreview {
+  mediaType: string
+  base64: string
+  width: number
+  height: number
+}
+
 export type AIProviderKind = 'openai-responses' | 'anthropic-messages'
 
 export interface AIProfileCapabilities {
@@ -128,6 +136,8 @@ export interface AIModelProfile {
   slot: string
   label: string
   provider: AIProviderKind
+  endpoint: string
+  allowLocalHttp: boolean
   model: string
   maxOutputTokens: number
   capabilities: AIProfileCapabilities
@@ -228,14 +238,48 @@ export interface InstalledApplicationProfile {
 export interface InstalledAutomationTargetProfile {
   slot: string
   label: string
+  targetKind: 'desktop-window' | 'android-device'
+  adapterKind: 'win32' | 'android-adb'
   applicationSlot: string
   windowTitle: string
   windowClass: string
-  inputBackend: 'sendinput' | 'postmessage'
-  captureBackend: 'gdi' | 'wgc'
+  inputBackend: 'sendinput' | 'postmessage' | ''
+  captureBackend: 'gdi' | 'wgc' | ''
   mouseCounts360: number
   resolveTimeoutMilliseconds: number
+  adbSerial?: string
+  adbProduct?: string
+  adbModel?: string
+  adbDevice?: string
+  androidPackage?: string
   workflowConsent?: string
+}
+
+export interface AndroidDeviceDescriptor {
+  serial: string
+  state: string
+  product: string
+  model: string
+  device: string
+  transportId: string
+}
+
+export interface AutomationTargetHealth {
+  ok: boolean
+  code: string
+  message: string
+}
+
+export interface AutomationTargetTypeDescriptor {
+  targetKind: string
+  adapterKind: string
+  profileKind: string
+  hostAvailable: boolean
+  resourceKinds: string[]
+  operations: string[]
+  inputBackends: string[]
+  captureBackends: string[]
+  applicationIdentityKinds: string[]
 }
 
 export interface ExecutableInspection {
@@ -316,6 +360,13 @@ export const backend = {
       invokeVoid(ApplicationService.RevokeWorkflowConsent, slot),
   },
   automation: {
+    listTargetTypes: () => invoke(AutomationService.ListTargetTypes),
+    listADBDevices: () =>
+      invoke(AutomationService.ListADBDevices) as Promise<AndroidDeviceDescriptor[] | undefined>,
+    checkTargetHealth: (slot: string) =>
+      invoke(AutomationService.CheckTargetHealth, slot) as Promise<
+        AutomationTargetHealth | undefined
+      >,
     grantWorkflowConsent: (slot: string) =>
       invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
     revokeWorkflowConsent: (slot: string) =>
@@ -350,6 +401,8 @@ export const backend = {
     ) => invoke(AssetService.AddTemplateVariant, guid, dataURL, recRes, region),
     // Get 单条资产完整记录 (含 variants[] — 详情页看分辨率档/元信息).
     get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord | undefined>,
+    previewBlob: (ref: BlobRef) =>
+      invoke(AssetService.PreviewBlob, new BlobRefBinding(ref)) as Promise<BlobPreview | undefined>,
     delete_: (guid: string) => invoke(AssetService.Delete, guid),
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
     updateMeta: (
@@ -467,7 +520,8 @@ export const backend = {
     startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
     cancelWin32WindowTargetCapture: (id: string) =>
       invoke(ToolsService.CancelWin32WindowTargetCapture, id),
-    openLauncher: () => invoke(ToolsService.OpenLauncher),
+    openLauncher: () => invokeVoid(ToolsService.OpenLauncher),
+    openLauncherSettings: () => invokeVoid(ToolsService.OpenLauncherSettings),
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
     hideLauncher: () => invoke(ToolsService.HideLauncher),
     setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
@@ -480,5 +534,16 @@ export const backend = {
       Events.On(E.EVENT_LOG_BATCH, (e: any) => cb(e?.data?.[0] ?? e?.data ?? e)),
     onHotkeyChanged: (cb: () => void) => Events.On('hotkey:changed', () => cb()),
     onSettingsChanged: (cb: () => void) => Events.On('settings:changed', () => cb()),
+    onMainNavigate: (cb: (target: { path: string; section?: string }) => void) =>
+      Events.On('main:navigate', (event: { data?: unknown }) => {
+        const payload = Array.isArray(event.data) ? event.data[0] : event.data
+        if (typeof payload !== 'object' || payload === null) return
+        const target = payload as Record<string, unknown>
+        if (typeof target.path !== 'string') return
+        cb({
+          path: target.path,
+          ...(typeof target.section === 'string' ? { section: target.section } : {}),
+        })
+      }),
   },
 }

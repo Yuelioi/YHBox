@@ -102,6 +102,74 @@ func TestServiceRejectsMissingOrUntrustedApplication(t *testing.T) {
 	}
 }
 
+func TestServiceQueriesAndDeletesSourcesWithCASAndReferenceBlocking(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 7, 17, 4, 0, 0, 0, time.UTC))
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application, workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
+		if strings.HasSuffix(workflowID, "blocked") {
+			return []workflow.SourceReference{{Kind: "schedule", ID: "nightly", Label: "Nightly"}}
+		}
+		return nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha, err := service.CreateSource("Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	beta, err := service.CreateSource("Beta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := service.QuerySources(workflow.SourceQuery{Search: "a", Sort: "name_desc", Page: 1, PageSize: 1})
+	if err != nil || page.Total != 2 || len(page.Items) != 1 || page.Items[0].Name != "Beta" {
+		t.Fatalf("QuerySources = %#v, %v", page, err)
+	}
+
+	blockedID := beta.WorkflowID + "-blocked"
+	previews, err := service.PreviewDeleteSources([]string{alpha.WorkflowID, blockedID})
+	if err == nil || len(previews) != 0 {
+		// Preview is strict: a missing Source aborts rather than presenting stale confirmation data.
+		t.Fatalf("PreviewDeleteSources missing source = %#v, %v", previews, err)
+	}
+	serviceWithReference, err := workflow.NewService(runtime.Application, workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
+		if workflowID == beta.WorkflowID {
+			return []workflow.SourceReference{{Kind: "schedule", ID: "nightly", Label: "Nightly"}}
+		}
+		return nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	previews, err = serviceWithReference.PreviewDeleteSources([]string{alpha.WorkflowID, beta.WorkflowID})
+	if err != nil || len(previews) != 2 || len(previews[0].References) != 0 || len(previews[1].References) != 1 {
+		t.Fatalf("PreviewDeleteSources = %#v, %v", previews, err)
+	}
+	results := serviceWithReference.DeleteSources([]workflow.DeleteSourceRequest{
+		{WorkflowID: alpha.WorkflowID, Revision: alpha.Revision, SourceHash: alpha.SourceHash},
+		{WorkflowID: beta.WorkflowID, Revision: beta.Revision, SourceHash: beta.SourceHash},
+	})
+	if len(results) != 2 || !results[0].Deleted || results[1].Deleted || len(results[1].References) != 1 {
+		t.Fatalf("DeleteSources = %#v", results)
+	}
+	if _, err := service.GetSource(alpha.WorkflowID); err == nil {
+		t.Fatal("deleted Source still loads")
+	}
+	if _, err := service.GetSource(beta.WorkflowID); err != nil {
+		t.Fatalf("referenced Source was deleted: %v", err)
+	}
+}
+
 func workflowRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 	t.Helper()
 	aiInstallations, err := ai.Install(nil, nil)

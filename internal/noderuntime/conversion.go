@@ -73,6 +73,7 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]c
 		nodes.PressKeysNodeID:            automationInput(nodes.PressKeysNodeID, automationinstalled.OperationPressKeys),
 		nodes.TypeTextNodeID:             automationInput(nodes.TypeTextNodeID, automationinstalled.OperationTypeText),
 		nodes.ActivateWindowNodeID:       activateWindow(),
+		nodes.StopTargetAppNodeID:        stopTargetApp(),
 		nodes.CaptureWindowNodeID:        captureWindow(builtins),
 		nodes.WaitTemplateNodeID:         automationTemplate(builtins, nodes.WaitTemplateNodeID),
 		nodes.WaitTemplateGoneNodeID:     automationTemplate(builtins, nodes.WaitTemplateGoneNodeID),

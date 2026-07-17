@@ -41,15 +41,18 @@ func NewNativeProvider(profile ModelProfile, options HTTPOptions) (Provider, err
 		return nil, errors.New("native AI provider requires a model profile")
 	}
 	if options.Client == nil {
-		options.Client = &http.Client{Timeout: 2 * time.Minute}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.Proxy = nil
+		options.Client = &http.Client{
+			Timeout:   2 * time.Minute,
+			Transport: transport,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
 	}
 	if options.Endpoint == "" {
-		switch profile.Machine().Provider {
-		case ProviderOpenAIResponses:
-			options.Endpoint = OpenAIResponsesEndpoint
-		case ProviderAnthropicMessages:
-			options.Endpoint = AnthropicMessagesEndpoint
-		}
+		options.Endpoint = profile.Machine().Endpoint
 	}
 	if options.Endpoint == "" {
 		return nil, errors.New("native AI provider endpoint is unavailable")

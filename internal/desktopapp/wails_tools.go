@@ -34,8 +34,9 @@ func mainWindowOptions(width, height int) application.WebviewWindowOptions {
 // wailsToolsPresenter adapts the GUI runtime to the narrow tools presentation
 // port. It exists in the executable layer so backend packages do not import Wails.
 type wailsToolsPresenter struct {
-	mu  sync.RWMutex
-	app *application.App
+	mu   sync.RWMutex
+	app  *application.App
+	main *application.WebviewWindow
 }
 
 func (p *wailsToolsPresenter) Attach(app *application.App) {
@@ -47,6 +48,13 @@ func (p *wailsToolsPresenter) Attach(app *application.App) {
 func (p *wailsToolsPresenter) Detach() {
 	p.mu.Lock()
 	p.app = nil
+	p.main = nil
+	p.mu.Unlock()
+}
+
+func (p *wailsToolsPresenter) AttachMain(window *application.WebviewWindow) {
+	p.mu.Lock()
+	p.main = window
 	p.mu.Unlock()
 }
 
@@ -69,6 +77,18 @@ func (p *wailsToolsPresenter) OpenWindow(request tools.WindowRequest) (tools.Win
 		return nil, err
 	}
 	return &wailsToolsWindow{window: app.Window.NewWithOptions(wailsOptions)}, nil
+}
+
+func (p *wailsToolsPresenter) ShowMain() error {
+	p.mu.RLock()
+	window := p.main
+	p.mu.RUnlock()
+	if window == nil {
+		return errors.New("main window is not ready")
+	}
+	window.Show()
+	window.Focus()
+	return nil
 }
 
 func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWindowOptions, error) {

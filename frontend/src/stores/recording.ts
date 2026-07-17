@@ -9,7 +9,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend } from '@/lib/backend'
+import { backend, type BlobRef } from '@/lib/backend'
 import { i18n } from '@/i18n'
 
 export interface RecordingState {
@@ -26,12 +26,87 @@ export interface RecordingStopPayload {
   targetSlot: string
   durationUs: number
   eventCount: number
+  preview: RecordingPreview
+}
+
+export interface RecordingPreview {
+  mode: 'steps' | 'trajectory'
+  durationUs: number
+  eventCount: number
+  keyActions: number
+  clickActions: number
+  pointerMoves: number
+  rawDeltas: number
+  scrollActions: number
+  steps: Array<{
+    kind: 'keys' | 'click'
+    atUs: number
+    durationUs: number
+    keys?: string[]
+    button?: string
+    point?: { x: number; y: number; unit: 'ratio' }
+  }>
+}
+
+export interface RecordingWorkflowDraftNode {
+  nodeTypeID: string
+  config: Record<string, unknown>
+  values: Record<string, unknown>
+  blobs: Record<string, BlobRef>
+  execInput: string
+  execOutput: string
+}
+
+export interface RecordingWorkflowDraft {
+  mode: 'steps' | 'trajectory'
+  nodes: RecordingWorkflowDraftNode[]
 }
 
 export interface RecordingFinalizePayload {
   clipID: string
   targetSlot: string
   label: string
+  draft: RecordingWorkflowDraft
+}
+
+export function isRecordingStopPayload(value: unknown): value is RecordingStopPayload {
+  if (!isRecord(value) || !isRecord(value.preview) || !Array.isArray(value.preview.steps))
+    return false
+  return (
+    typeof value.pendingID === 'string' &&
+    value.pendingID.length > 0 &&
+    typeof value.targetSlot === 'string' &&
+    nonnegativeNumber(value.durationUs) &&
+    nonnegativeNumber(value.eventCount) &&
+    (value.preview.mode === 'steps' || value.preview.mode === 'trajectory') &&
+    nonnegativeNumber(value.preview.durationUs) &&
+    nonnegativeNumber(value.preview.eventCount) &&
+    nonnegativeNumber(value.preview.keyActions) &&
+    nonnegativeNumber(value.preview.clickActions) &&
+    nonnegativeNumber(value.preview.pointerMoves) &&
+    nonnegativeNumber(value.preview.rawDeltas) &&
+    nonnegativeNumber(value.preview.scrollActions)
+  )
+}
+
+function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizePayload {
+  if (!isRecord(value) || !isRecord(value.draft)) return false
+  return (
+    typeof value.clipID === 'string' &&
+    value.clipID.length > 0 &&
+    typeof value.targetSlot === 'string' &&
+    typeof value.label === 'string' &&
+    (value.draft.mode === 'steps' || value.draft.mode === 'trajectory') &&
+    Array.isArray(value.draft.nodes)
+  )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function nonnegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 const IDLE: RecordingState = {
@@ -113,10 +188,13 @@ export const useRecordingStore = defineStore('recording', () => {
 
   async function stop(): Promise<RecordingStopPayload | null> {
     // 幂等: 后端不在录 → 返 null 不抛错. 拿到产物 (或 null) 后对账收敛状态.
-    const payload = (await backend.recording.stop()) as RecordingStopPayload | null | undefined
-    lastResult.value = payload ?? null
+    const result = await backend.recording.stop()
+    if (result != null && !isRecordingStopPayload(result))
+      throw new Error('recording.stop: invalid result')
+    const payload = result ?? null
+    lastResult.value = payload
     await reconcile()
-    return payload ?? null
+    return payload
   }
 
   async function cancel(): Promise<void> {
@@ -132,12 +210,9 @@ export const useRecordingStore = defineStore('recording', () => {
     category: string
     tags: string[]
   }): Promise<RecordingFinalizePayload> {
-    const payload = (await backend.recording.finalize(args)) as
-      | RecordingFinalizePayload
-      | null
-      | undefined
-    if (!payload) throw new Error('recording.finalize: empty result')
-    return payload
+    const result = await backend.recording.finalize(args)
+    if (!isRecordingFinalizePayload(result)) throw new Error('recording.finalize: invalid result')
+    return result
   }
 
   async function discard(pendingID: string): Promise<void> {

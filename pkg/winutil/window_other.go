@@ -38,3 +38,7 @@ func ForegroundWindow() uintptr { return 0 }
 func WindowMetadata(uintptr) (WindowHandle, error) {
 	return WindowHandle{}, platform.NewUnsupportedError("native window metadata")
 }
+
+func WindowExecutable(uintptr) (string, error) {
+	return "", platform.NewUnsupportedError("native window executable")
+}

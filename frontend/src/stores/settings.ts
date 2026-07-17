@@ -72,7 +72,7 @@ export interface Settings {
     profiles: InstalledApplicationProfile[]
   }
   automation: {
-    win32Targets: InstalledAutomationTargetProfile[]
+    targets: InstalledAutomationTargetProfile[]
   }
 }
 
@@ -149,8 +149,8 @@ export const useSettingsStore = defineStore('settings', () => {
     return patch({ applications: { profiles } })
   }
 
-  async function patchAutomationTargets(win32Targets: InstalledAutomationTargetProfile[]) {
-    return patch({ automation: { win32Targets } })
+  async function patchAutomationTargets(targets: InstalledAutomationTargetProfile[]) {
+    return patch({ automation: { targets } })
   }
 
   function startSync() {

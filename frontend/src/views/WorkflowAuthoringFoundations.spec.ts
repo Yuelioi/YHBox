@@ -17,7 +17,12 @@ describe('workflow authoring foundations', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     expect(source).toContain(':delete-key-code="null"')
     expect(source).toContain("event.key !== 'Delete' && event.key !== 'Backspace'")
+    expect(source).toContain(
+      'target?.matches(\'input, textarea, select, [contenteditable="true"]\')',
+    )
     expect(source).toContain("applyCommand({ kind: 'remove-nodes'")
+    expect(source).toContain("applyCommand({ kind: 'disconnect'")
+    expect(source).toContain('@edge-click="selectEdge"')
   })
 
   it('keeps workflow state outside the selected-node inspector', () => {
@@ -26,6 +31,10 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('<WorkflowStatePanel')
     expect(inspector).not.toContain("kind: 'add-state-variable'")
     expect(inspector).toContain(':select-items="targetItems(field.id)"')
+    expect(inspector).toContain(
+      "path: '/settings', query: { section: targetSettingsSection(field.id) }",
+    )
+    expect(inspector).toContain('projectionDescription')
   })
 
   it('restores a main-window library for clips, templates, and recording', () => {
@@ -56,5 +65,14 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('snapNodePosition(')
     expect(editor).toContain('autoLayoutNodePositions(')
     expect(editor).toContain('session.duplicateNodes(')
+  })
+
+  it('restores source-native node search and canvas focus', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
+    expect(toolbar).toContain('data-testid="workflow-find-node"')
+    expect(editor).toContain("if (key === 'f')")
+    expect(editor).toContain('session.source?.graphs')
+    expect(editor).toContain('await focusNode([result.graphId], result.nodeId)')
   })
 })

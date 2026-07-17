@@ -2,8 +2,13 @@ import { Events } from '@wailsio/runtime'
 import * as WorkflowService from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/service.js'
 import type {
   CompileView,
+  DeleteSourcePreview,
+  DeleteSourceRequest,
+  DeleteSourceResult,
   PatchView,
   RunView,
+  SourcePage,
+  SourceQuery,
   SourceView,
   StartRunView,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/models.js'
@@ -31,6 +36,9 @@ export interface DebugChangedEvent {
 
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
+  querySources(query: SourceQuery): Promise<SourcePage>
+  previewDeleteSources(workflowIds: string[]): Promise<DeleteSourcePreview[]>
+  deleteSources(requests: DeleteSourceRequest[]): Promise<DeleteSourceResult[]>
   createSource(name: string): Promise<SourceView>
   getSource(workflowId: string): Promise<SourceView>
   applyPatch(
@@ -52,6 +60,9 @@ export interface WorkflowTransport {
 
 export const workflowTransport: WorkflowTransport = {
   listSources: () => WorkflowService.ListSources(),
+  querySources: (query) => WorkflowService.QuerySources(query),
+  previewDeleteSources: (workflowIds) => WorkflowService.PreviewDeleteSources(workflowIds),
+  deleteSources: (requests) => WorkflowService.DeleteSources(requests),
   createSource: (name) => WorkflowService.CreateSource(name),
   getSource: (workflowId) => WorkflowService.GetSource(workflowId),
   applyPatch: (workflowId, baseRevision, commands) =>
@@ -118,8 +129,13 @@ function isDebugChangedEvent(value: unknown): value is DebugChangedEvent {
 
 export type {
   CompileView,
+  DeleteSourcePreview,
+  DeleteSourceRequest,
+  DeleteSourceResult,
   PatchView,
   RunView,
+  SourcePage,
+  SourceQuery,
   SourceView,
   StartRunView,
   WorkflowJSONValue,

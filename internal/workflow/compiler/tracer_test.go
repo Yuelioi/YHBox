@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -485,6 +486,33 @@ func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t
 	if _, err := NewInterpreter(builtins.Catalog, nil).Run(context.Background(), opened); err == nil {
 		t.Fatal("pure-data preview executed an effect Program")
 	}
+}
+
+func TestCompilerReportsUnavailableBlobAtItsNodeAndPort(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := blob.BlobRef{MediaType: "application/octet-stream", Digest: testDigest(t, "missing blob"), Size: 4}
+	result, err := New(testDigest(t, "compiler blob validation"), builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: conversionSourceForTest(builtins.BlobToStreamContract.NodeRef(), builtins.StreamToBlobContract.NodeRef(), ref),
+		Catalog:    builtins.Catalog,
+		BlobVerifier: BlobVerifierFunc(func(context.Context, blob.BlobRef) error {
+			return errors.New("object is unavailable")
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Code == CodeBlobUnavailable {
+			if diagnostic.NodeID != "to-stream" || diagnostic.FieldPath[len(diagnostic.FieldPath)-1] != "blob" {
+				t.Fatalf("diagnostic = %+v", diagnostic)
+			}
+			return
+		}
+	}
+	t.Fatalf("diagnostics = %#v", result.Diagnostics)
 }
 
 func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {

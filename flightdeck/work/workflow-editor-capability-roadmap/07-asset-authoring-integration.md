@@ -27,4 +27,12 @@ Slice 6 和现有资源/录制入口。
 
 ## Result
 
-Planned。上一阶段恢复入口，本 Slice 补齐视觉反馈和创作闭环。
+Completed。
+
+- 新增只接受 BlobRef 的受限 PNG preview RPC；前端资源库与模板绑定共用 BlobPreview，并显示缺失/失效状态，不接收任意路径。
+- compiler 对不存在的 BlobRef 形成可定位诊断；Clip、WaitTemplate、WaitTemplateGone、ClickTemplate 共用同一 BlobRef 协议。
+- 录制停止结果包含 preview，支持按键/点击 steps 与轨迹草稿；前端先预览，再 finalize 并线性批量插入，整批只产生一个 undo，不自动保存且成功不 toast。
+- 修复 recording completed event 漏发 preview、前端不安全 payload cast、HUD 打开失败被误报为录制启动失败、preview 加载永久悬挂等收口问题。
+- Stage 3 定向 Go 套件、recording/EditorSession Vitest 与 typecheck 通过；完整 task check 通过（Go global coverage 65.6%，前端 35 files / 134 tests）。
+- 最终调试 generation 回归测试后，EditorSession 定向 12 tests 与 typecheck 通过；正式 task build 生成 bin/Yotta.exe。
+- Windows WebView smoke 通过：103 catalog nodes、3 canvas nodes、AI review 与资源/录制入口可达，编辑器和资源页 PNG 已人工目检。隔离 smoke 不具备已安装 Win32 target，真实 OS 输入捕获仍按 native-target smoke 触发条件执行。

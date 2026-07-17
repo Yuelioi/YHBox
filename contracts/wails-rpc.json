@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 98,
-    "models": 119
+    "methods": 106,
+    "models": 134
   },
   "services": [
     {
@@ -425,6 +425,18 @@
           "returns": "$CancellablePromise<$models.VariantPick>"
         },
         {
+          "name": "PreviewBlob",
+          "bindingId": "3346243842",
+          "parameters": [
+            {
+              "name": "ref",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BlobPreview>"
+        },
+        {
           "name": "RemoveVariant",
           "bindingId": "1057206200",
           "parameters": [
@@ -521,6 +533,18 @@
       "module": "internal/services/automationservice",
       "methods": [
         {
+          "name": "CheckTargetHealth",
+          "bindingId": "244335372",
+          "parameters": [
+            {
+              "name": "slot",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.AutomationTargetHealth>"
+        },
+        {
           "name": "GrantWorkflowConsent",
           "bindingId": "2035588158",
           "parameters": [
@@ -531,6 +555,18 @@
             }
           ],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ListADBDevices",
+          "bindingId": "187818553",
+          "parameters": [],
+          "returns": "$CancellablePromise<installed$0.AndroidDeviceDescriptor[]>"
+        },
+        {
+          "name": "ListTargetTypes",
+          "bindingId": "1319813193",
+          "parameters": [],
+          "returns": "$CancellablePromise<installed$0.TargetTypeDescriptor[]>"
         },
         {
           "name": "RevokeWorkflowConsent",
@@ -970,6 +1006,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "OpenLauncherSettings",
+          "bindingId": "1592010023",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "OpenMouseHUD",
           "bindingId": "2105227542",
           "parameters": [
@@ -1159,6 +1201,18 @@
           "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
+          "name": "DeleteSources",
+          "bindingId": "617986103",
+          "parameters": [
+            {
+              "name": "requests",
+              "optional": false,
+              "type": "$models.DeleteSourceRequest[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DeleteSourceResult[]>"
+        },
+        {
           "name": "GetAuthoringProjection",
           "bindingId": "1431440996",
           "parameters": [],
@@ -1213,6 +1267,18 @@
           "returns": "$CancellablePromise<$models.SourceView[]>"
         },
         {
+          "name": "PreviewDeleteSources",
+          "bindingId": "2449059483",
+          "parameters": [
+            {
+              "name": "workflowIDs",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.DeleteSourcePreview[]>"
+        },
+        {
           "name": "PreviewRun",
           "bindingId": "1826968449",
           "parameters": [
@@ -1223,6 +1289,18 @@
             }
           ],
           "returns": "$CancellablePromise<application$0.RunPreview>"
+        },
+        {
+          "name": "QuerySources",
+          "bindingId": "532385366",
+          "parameters": [
+            {
+              "name": "query",
+              "optional": false,
+              "type": "$models.SourceQuery"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourcePage>"
         },
         {
           "name": "SetDebugBreakpoints",
@@ -1851,6 +1929,98 @@
       ]
     },
     {
+      "module": "internal/automation/installed/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "AndroidDeviceDescriptor",
+          "fields": [
+            {
+              "name": "\"serial\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"state\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"product\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"model\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"device\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"transportId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TargetTypeDescriptor",
+          "fields": [
+            {
+              "name": "\"targetKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"adapterKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"profileKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"hostAvailable\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"resourceKinds\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"operations\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"inputBackends\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"captureBackends\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"applicationIdentityKinds\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/blob/models",
       "declarations": [
         {
@@ -2370,6 +2540,32 @@
         },
         {
           "kind": "class",
+          "name": "BlobPreview",
+          "fields": [
+            {
+              "name": "\"mediaType\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"base64\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"width\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"height\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Origin",
           "fields": [
             {
@@ -2615,6 +2811,16 @@
               "type": "ai$0.ProviderKind"
             },
             {
+              "name": "\"endpoint\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"allowLocalHttp\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
               "name": "\"model\"",
               "optional": false,
               "type": "string"
@@ -2714,9 +2920,35 @@
           "name": "AutomationSettings",
           "fields": [
             {
-              "name": "\"win32Targets\"",
+              "name": "\"targets\"",
               "optional": false,
               "type": "InstalledAutomationTargetSettings[]"
+            },
+            {
+              "name": "\"win32Targets\"",
+              "optional": true,
+              "type": "InstalledAutomationTargetSettings[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AutomationTargetHealth",
+          "fields": [
+            {
+              "name": "\"ok\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"message\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },
@@ -2828,6 +3060,16 @@
               "type": "string"
             },
             {
+              "name": "\"targetKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"adapterKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"applicationSlot\"",
               "optional": false,
               "type": "string"
@@ -2861,6 +3103,31 @@
               "name": "\"resolveTimeoutMilliseconds\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"adbSerial\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"adbProduct\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"adbModel\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"adbDevice\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"androidPackage\"",
+              "optional": true,
+              "type": "string"
             },
             {
               "name": "\"workflowConsent\"",
@@ -3304,6 +3571,119 @@
               "name": "\"label\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"draft\"",
+              "optional": false,
+              "type": "WorkflowDraft"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Point",
+          "fields": [
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"unit\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RecordingPreview",
+          "fields": [
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"eventCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"keyActions\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"clickActions\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pointerMoves\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"rawDeltas\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"scrollActions\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"steps\"",
+              "optional": false,
+              "type": "RecordingPreviewStep[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RecordingPreviewStep",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"atUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"keys\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"button\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"point\"",
+              "optional": true,
+              "type": "Point | null"
             }
           ]
         },
@@ -3377,6 +3757,63 @@
               "name": "\"eventCount\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"preview\"",
+              "optional": false,
+              "type": "RecordingPreview"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowDraft",
+          "fields": [
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodes\"",
+              "optional": false,
+              "type": "WorkflowDraftNode[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowDraftNode",
+          "fields": [
+            {
+              "name": "\"nodeTypeID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"config\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"values\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"blobs\"",
+              "optional": false,
+              "type": "{ [_ in string]?: blob$0.BlobRef }"
+            },
+            {
+              "name": "\"execInput\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"execOutput\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         }
@@ -3783,6 +4220,74 @@
         },
         {
           "kind": "class",
+          "name": "DeleteSourcePreview",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"references\"",
+              "optional": false,
+              "type": "SourceReference[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DeleteSourceRequest",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DeleteSourceResult",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"deleted\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"references\"",
+              "optional": false,
+              "type": "SourceReference[]"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "FailureView",
           "fields": [
             {
@@ -3876,6 +4381,79 @@
               "name": "\"timeline\"",
               "optional": false,
               "type": "TimelineEntry[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SourcePage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "SourceView[]"
+            },
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"page\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pageSize\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SourceQuery",
+          "fields": [
+            {
+              "name": "\"search\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sort\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"page\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pageSize\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SourceReference",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },

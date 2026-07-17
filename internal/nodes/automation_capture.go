@@ -34,7 +34,7 @@ func sealImageType() (datatype.Definition, error) {
 func sealAutomationCaptureCapability() (capability.Definition, error) {
 	const scopeID = AutomationCaptureCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
-		CapabilityID: AutomationCaptureCapabilityID, Operations: installed.CaptureOperations(), TargetKinds: []string{installed.TargetKind},
+		CapabilityID: AutomationCaptureCapabilityID, Operations: installed.CaptureOperations(), TargetKinds: []string{installed.TargetKindDesktopWindow, installed.TargetKindAndroidDevice},
 		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
 			"properties":{"operation":{"const":"capture"}},"required":["operation"],"additionalProperties":false

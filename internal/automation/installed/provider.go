@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"slices"
@@ -13,14 +14,18 @@ import (
 	"unicode/utf8"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/resource"
-	pkginput "github.com/yottaapp/yotta/pkg/input"
 )
 
 const (
-	ProviderABI  = "https://schemas.yotta.dev/provider-abi/resource/v1"
-	TargetKind   = target.KindWin32Window
+	ProviderABI             = "https://schemas.yotta.dev/provider-abi/resource/v1"
+	TargetKindDesktopWindow = target.KindDesktopWindow
+	TargetKindAndroidDevice = target.KindAndroidDevice
+	// TargetKind remains as a source-compatible alias while callers migrate to
+	// descriptors. It is semantic and no longer identifies Win32.
+	TargetKind   = TargetKindDesktopWindow
 	KindInput    = "automation/input-session"
 	KindWindow   = "automation/window-session"
 	KindCapture  = "automation/capture-session"
@@ -34,6 +39,7 @@ const (
 	OperationPressKeys    = "press-keys"
 	OperationTypeText     = "type-text"
 	OperationActivate     = "activate"
+	OperationStopApp      = "stop-app"
 	OperationCapture      = "capture"
 	OperationReadCapture  = "read-capture"
 	OperationPlayEvent    = "play-event"
@@ -61,7 +67,7 @@ var inputOperations = []string{
 	OperationClick, OperationDrag, OperationMove, OperationMoveRelative,
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
-var windowOperations = []string{OperationActivate}
+var windowOperations = []string{OperationActivate, OperationStopApp}
 var captureOperations = []string{OperationCapture, OperationReadCapture}
 var playbackOperations = []string{OperationPlayEvent, OperationReleaseHeld}
 
@@ -177,7 +183,7 @@ type PlaybackEvent struct {
 }
 
 type driver interface {
-	ResolveWindow(context.Context) (target.WindowHandle, error)
+	ResolveTarget(context.Context) (target.Target, error)
 	Execute(context.Context, string, any) error
 	Capture(context.Context) ([]byte, error)
 	PlayEvent(context.Context, PlaybackEvent) error
@@ -188,6 +194,7 @@ type driver interface {
 type provider struct {
 	profile       Profile
 	driver        driver
+	operations    []string
 	closeOnce     sync.Once
 	closeErr      error
 	stateMu       sync.Mutex
@@ -213,15 +220,25 @@ type captureSession struct {
 	closed bool
 }
 
-func newProvider(profile Profile) (*provider, error) {
+func (p *provider) supports(operation string) bool {
+	// Direct provider fixtures predate the adapter registry. Production
+	// providers always carry an explicit operation set.
+	return len(p.operations) == 0 || slices.Contains(p.operations, operation)
+}
+
+func newProvider(profile Profile, registry adapterRegistry) (*provider, error) {
 	if !profile.Valid() {
 		return nil, errors.New("automation provider requires a profile")
 	}
-	driver, err := newPlatformDriver(profile)
+	registered, err := registry.registration(profile)
 	if err != nil {
 		return nil, err
 	}
-	return &provider{profile: profile, driver: driver}, nil
+	driver, err := registered.open(profile)
+	if err != nil {
+		return nil, err
+	}
+	return &provider{profile: profile, driver: driver, operations: append([]string(nil), registered.descriptor.Operations...)}, nil
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -233,6 +250,9 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 		return nil, failure(CodeContractViolation, errors.New("automation session config must be empty"))
 	}
 	if request.Kind == KindCapture {
+		if !p.supports(OperationCapture) || !p.supports(OperationReadCapture) {
+			return nil, failure(CodeContractViolation, errors.New("capture is unsupported by this automation adapter"))
+		}
 		if !slices.Equal(request.Operations, captureOperations) {
 			return nil, failure(CodeContractViolation, errors.New("capture session requires exact operations"))
 		}
@@ -243,6 +263,9 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 		return &captureSession{}, nil
 	}
 	if request.Kind == KindPlayback {
+		if !p.supports(OperationPlayEvent) || !p.supports(OperationReleaseHeld) {
+			return nil, failure(CodeContractViolation, errors.New("playback is unsupported by this automation adapter"))
+		}
 		if !slices.Equal(request.Operations, playbackOperations) {
 			return nil, failure(CodeContractViolation, errors.New("playback session requires exact operations"))
 		}
@@ -260,6 +283,9 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 	}
 	if len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
 		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
+	}
+	if !p.supports(request.Operations[0]) {
+		return nil, failure(CodeContractViolation, fmt.Errorf("operation %q is unsupported by this automation adapter", request.Operations[0]))
 	}
 	var scope CapabilityScope
 	if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != request.Operations[0] {
@@ -311,7 +337,7 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 			return nil, err
 		}
 		code := CodeInputFailed
-		if operation == OperationActivate {
+		if operation == OperationActivate || operation == OperationStopApp {
 			code = CodeWindowFailed
 		}
 		return nil, failure(code, err)
@@ -525,7 +551,7 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 	}
 	decode := func(target any) error { return decodeExact(raw, target, 64<<10) }
 	switch operation {
-	case OperationActivate:
+	case OperationActivate, OperationStopApp:
 		var request struct{}
 		if err := decode(&request); err != nil {
 			return nil, err
@@ -583,7 +609,7 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		}
 		seen := map[string]struct{}{}
 		for _, key := range request.Keys {
-			if strings.TrimSpace(key) != key || pkginput.VK(key) == 0 {
+			if !controller.ValidKeyName(key) {
 				return nil, errors.New("automation key request is invalid")
 			}
 			folded := strings.ToUpper(key)

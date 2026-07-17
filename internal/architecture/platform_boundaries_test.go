@@ -49,6 +49,7 @@ func TestPlatformIsolatedPackagesDoNotImportWin32Packages(t *testing.T) {
 		t,
 		repositoryRoot(t),
 		[]string{
+			"internal/automation/installed",
 			"internal/hotkey",
 			"internal/services/calibration",
 			"internal/services/recording",
@@ -146,6 +147,32 @@ func TestRootWiringDoesNotImportWin32Packages(t *testing.T) {
 			"github.com/lxn/win",
 			"golang.org/x/sys/windows",
 		})
+	}
+}
+
+func TestAutomationConsumersUseSemanticDescriptors(t *testing.T) {
+	repoRoot := repositoryRoot(t)
+	files := []string{
+		"internal/appbootstrap/bootstrap.go",
+		"internal/appbootstrap/policy.go",
+		"internal/nodes/automation_input.go",
+		"internal/nodes/automation_window.go",
+		"internal/nodes/automation_capture.go",
+		"internal/nodes/automation_playback.go",
+		"frontend/src/app/editor/WorkflowInspector.vue",
+		"frontend/src/views/AssetsView.vue",
+		"frontend/src/views/WorkflowEditorView.vue",
+	}
+	for _, relative := range files {
+		raw, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatalf("read %s: %v", relative, err)
+		}
+		for _, leaked := range []string{"win32Targets", "win32-window", "automationinstalled.TargetKind"} {
+			if strings.Contains(string(raw), leaked) {
+				t.Errorf("platform-specific automation identity %q leaked into %s", leaked, relative)
+			}
+		}
 	}
 }
 

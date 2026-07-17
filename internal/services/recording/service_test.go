@@ -127,6 +127,38 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	}
 }
 
+func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
+	recorder := &resultRecorder{result: &StopResult{
+		TempID: "session",
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: 'A'},
+			{TUs: 25_000, Type: inputclip.EventTypeKeyUp, A: 'A'},
+		},
+	}}
+	completed := make(chan map[string]any, 1)
+	service := NewService(recorder, nil, &memoryClipStore{}, nil, func(name string, data any) {
+		if name != "recording:completed" {
+			return
+		}
+		payload, ok := data.(map[string]any)
+		if ok {
+			completed <- payload
+		}
+	})
+	service.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
+	service.StopAsync()
+
+	select {
+	case payload := <-completed:
+		preview, ok := payload["preview"].(RecordingPreview)
+		if !ok || preview.Mode != "steps" || preview.KeyActions != 1 {
+			t.Fatalf("completed payload = %#v", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("StopAsync did not emit recording:completed")
+	}
+}
+
 func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	recorder := &resultRecorder{}
 	s := NewService(recorder, nil, &memoryClipStore{}, nil)

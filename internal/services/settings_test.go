@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/artifact"
+	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
 
 func TestAppSettingsReturnsDeepSnapshot(t *testing.T) {
@@ -53,6 +56,7 @@ func TestAppMutateSettingsSerializesWritersWithoutLostUpdates(t *testing.T) {
 
 func TestAppMutateSettingsSerializesCommitSideEffects(t *testing.T) {
 	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app.settingsSaver = func(string, *Settings) error { return nil }
 	firstEffectStarted := make(chan struct{})
 	releaseFirstEffect := make(chan struct{})
 	var (
@@ -376,5 +380,39 @@ func TestLoadSettings_UnmarshalIntoBase(t *testing.T) {
 	s = LoadSettings(p)
 	if s.Locale != "zh" || s.UI.Window.Width != 1100 {
 		t.Fatalf("corrupt should return fresh defaults, got locale=%q w=%d", s.Locale, s.UI.Window.Width)
+	}
+}
+
+func TestLoadSettingsMigratesWin32TargetsToSemanticAutomationTargets(t *testing.T) {
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "Editor.exe")
+	if err := os.WriteFile(executable, []byte("editor-v1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := appcontrol.InspectExecutable(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := defaultSettings()
+	settings.Applications.Profiles = []InstalledApplicationSettings{{
+		Slot: "editor", Label: "Editor", Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{},
+	}}
+	settings.Automation.Win32Targets = []InstalledAutomationTargetSettings{{
+		Slot: "editor-window", Label: "Editor window", ApplicationSlot: "editor", WindowTitle: "Editor", WindowClass: "EditorWindow",
+		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+		WorkflowConsent: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+	}}
+	path := filepath.Join(dir, "settings.json")
+	if err := SaveSettings(path, settings); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded := LoadSettings(path)
+	if len(loaded.Automation.Targets) != 1 || len(loaded.Automation.Win32Targets) != 0 {
+		t.Fatalf("automation migration = %#v", loaded.Automation)
+	}
+	target := loaded.Automation.Targets[0]
+	if target.TargetKind != automationinstalled.TargetKindDesktopWindow || target.AdapterKind != automationinstalled.AdapterKindWin32 || target.WorkflowConsent != "" {
+		t.Fatalf("migrated target = %#v", target)
 	}
 }

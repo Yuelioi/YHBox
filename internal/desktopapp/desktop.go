@@ -173,7 +173,30 @@ func Run(config Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize workflow runtime: %w", err)
 	}
-	workflowSvc, err := workflow.NewService(workflowRuntime.Application)
+	var scheduleSvc *schedule.Service
+	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
+		references := make([]workflow.SourceReference, 0)
+		if scheduleSvc != nil {
+			for _, configured := range scheduleSvc.List() {
+				for _, target := range configured.Targets {
+					if target.Kind == schedule.TargetWorkflow && target.ID == workflowID {
+						references = append(references, workflow.SourceReference{Kind: "schedule", ID: configured.ID, Label: configured.Name})
+						break
+					}
+				}
+			}
+		}
+		for _, block := range app.Settings().UI.LauncherItems {
+			if block.Type == "workflow" && block.WorkflowID == workflowID {
+				label := block.Label
+				if label == "" {
+					label = block.ID
+				}
+				references = append(references, workflow.SourceReference{Kind: "launcher", ID: block.ID, Label: label})
+			}
+		}
+		return references
+	}))
 	if err != nil {
 		return fmt.Errorf("initialize workflow service: %w", err)
 	}
@@ -244,7 +267,7 @@ func Run(config Config) error {
 	// Schedule triggers enter the same durable Workflow Run command as GUI.
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
 	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{application: workflowRuntime.Application}, scheduleHotkeyAdapter)
-	scheduleSvc := schedule.NewService(scheduleStore, scheduleDaemon.Reload)
+	scheduleSvc = schedule.NewService(scheduleStore, scheduleDaemon.Reload)
 
 	// InputClip remains an authoring asset service; 3.1 playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
@@ -413,6 +436,7 @@ func Run(config Config) error {
 	// 主窗口尺寸读 settings（用户上次拖到的尺寸），frameless 让前端自己画 title bar
 	winCfg := app.Settings().UI.Window
 	mainWin := wailsApp.Window.NewWithOptions(mainWindowOptions(winCfg.Width, winCfg.Height))
+	toolsPresenter.AttachMain(mainWin)
 
 	// 用户拖完才落盘（WindowDidResize 拖动期间会狂刷，没必要每帧写 IO）。
 	// settings.UI.Window 不走 SettingsService.Update 的 patch 流程 —— 这只是 UI 状态，

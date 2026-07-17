@@ -52,7 +52,10 @@ type ApplicationSettings struct {
 }
 
 type AutomationSettings struct {
-	Win32Targets []InstalledAutomationTargetSettings `json:"win32Targets"`
+	Targets []InstalledAutomationTargetSettings `json:"targets"`
+	// Win32Targets is a read-only migration source for pre-seam settings. It is
+	// cleared before validation and is never written back.
+	Win32Targets []InstalledAutomationTargetSettings `json:"win32Targets,omitempty"`
 }
 
 // InstalledAutomationTargetSettings binds workflow input to an installed
@@ -62,6 +65,8 @@ type AutomationSettings struct {
 type InstalledAutomationTargetSettings struct {
 	Slot                       string          `json:"slot"`
 	Label                      string          `json:"label"`
+	TargetKind                 string          `json:"targetKind"`
+	AdapterKind                string          `json:"adapterKind"`
 	ApplicationSlot            string          `json:"applicationSlot"`
 	WindowTitle                string          `json:"windowTitle"`
 	WindowClass                string          `json:"windowClass"`
@@ -69,13 +74,26 @@ type InstalledAutomationTargetSettings struct {
 	CaptureBackend             string          `json:"captureBackend"`
 	MouseCounts360             int64           `json:"mouseCounts360"`
 	ResolveTimeoutMilliseconds int64           `json:"resolveTimeoutMilliseconds"`
+	ADBSerial                  string          `json:"adbSerial,omitempty"`
+	ADBProduct                 string          `json:"adbProduct,omitempty"`
+	ADBModel                   string          `json:"adbModel,omitempty"`
+	ADBDevice                  string          `json:"adbDevice,omitempty"`
+	AndroidPackage             string          `json:"androidPackage,omitempty"`
 	WorkflowConsent            artifact.Digest `json:"workflowConsent,omitempty"`
 }
 
 func (configured InstalledAutomationTargetSettings) profileDraft(application InstalledApplicationSettings) automationinstalled.ProfileDraft {
+	if configured.TargetKind == automationinstalled.TargetKindAndroidDevice && configured.AdapterKind == automationinstalled.AdapterKindAndroidADB {
+		return automationinstalled.ProfileDraft{
+			TargetKind: configured.TargetKind, AdapterKind: configured.AdapterKind, ApplicationIdentityKind: automationinstalled.IdentityKindADBDevice,
+			ADBSerial: configured.ADBSerial, ADBProduct: configured.ADBProduct, ADBModel: configured.ADBModel, ADBDevice: configured.ADBDevice,
+			AndroidPackage: configured.AndroidPackage, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
+		}
+	}
 	identity := application.profileDraft()
 	identity.Arguments = []string{}
 	return automationinstalled.ProfileDraft{
+		TargetKind: configured.TargetKind, AdapterKind: configured.AdapterKind, ApplicationIdentityKind: automationinstalled.IdentityKindWindowsExecutable,
 		Application: identity, WindowTitle: configured.WindowTitle, WindowClass: configured.WindowClass,
 		InputBackend: configured.InputBackend, CaptureBackend: configured.CaptureBackend, MouseCounts360: configured.MouseCounts360, ResolveTimeoutMilliseconds: configured.ResolveTimeoutMilliseconds,
 	}
@@ -86,17 +104,35 @@ func (settings AutomationSettings) InstallationDrafts(applications ApplicationSe
 	for _, application := range applications.Profiles {
 		bySlot[application.Slot] = application
 	}
-	result := make([]automationinstalled.InstallationDraft, 0, len(settings.Win32Targets))
-	for _, configured := range settings.Win32Targets {
-		application, ok := bySlot[configured.ApplicationSlot]
-		if !ok {
-			return nil, fmt.Errorf("automation target %q references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+	result := make([]automationinstalled.InstallationDraft, 0, len(settings.Targets))
+	for _, configured := range settings.Targets {
+		var application InstalledApplicationSettings
+		if configured.TargetKind != automationinstalled.TargetKindAndroidDevice || configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+			var ok bool
+			application, ok = bySlot[configured.ApplicationSlot]
+			if !ok {
+				return nil, fmt.Errorf("automation target %q references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+			}
 		}
 		result = append(result, automationinstalled.InstallationDraft{
-			Slot: configured.Slot, Profile: configured.profileDraft(application), Consent: configured.WorkflowConsent,
+			Slot: configured.Slot, Label: configured.Label, Profile: configured.profileDraft(application), Consent: configured.WorkflowConsent,
 		})
 	}
 	return result, nil
+}
+
+func (settings *AutomationSettings) migrateLegacy() {
+	if len(settings.Targets) == 0 && len(settings.Win32Targets) != 0 {
+		settings.Targets = append([]InstalledAutomationTargetSettings(nil), settings.Win32Targets...)
+		for index := range settings.Targets {
+			settings.Targets[index].TargetKind = automationinstalled.TargetKindDesktopWindow
+			settings.Targets[index].AdapterKind = automationinstalled.AdapterKindWin32
+			// The v2 profile identity includes semantic kind and adapter. Requiring
+			// fresh consent prevents an old digest authorizing a different adapter.
+			settings.Targets[index].WorkflowConsent = ""
+		}
+	}
+	settings.Win32Targets = nil
 }
 
 // InstalledApplicationSettings is trusted host installation metadata. A
@@ -159,6 +195,8 @@ type AIModelSettings struct {
 	Slot             string                 `json:"slot"`
 	Label            string                 `json:"label"`
 	Provider         ai.ProviderKind        `json:"provider"`
+	Endpoint         string                 `json:"endpoint"`
+	AllowLocalHTTP   bool                   `json:"allowLocalHttp"`
 	Model            string                 `json:"model"`
 	MaxOutputTokens  int64                  `json:"maxOutputTokens"`
 	Capabilities     ai.ProfileCapabilities `json:"capabilities"`
@@ -171,7 +209,7 @@ type AIModelSettings struct {
 
 func (p AIModelSettings) profileDraft() ai.ModelProfileDraft {
 	return ai.ModelProfileDraft{
-		Provider: p.Provider, Model: p.Model, Capabilities: p.Capabilities,
+		Provider: p.Provider, Endpoint: p.Endpoint, AllowLocalHTTP: p.AllowLocalHTTP, Model: p.Model, Capabilities: p.Capabilities,
 		MaxOutputTokens: p.MaxOutputTokens, Pricing: p.Pricing, Evaluation: p.Evaluation, EvaluationSuite: p.EvaluationSuite, EvaluationReport: p.EvaluationReport.Digest,
 		ProviderMetadata: json.RawMessage(`{}`),
 	}
@@ -323,7 +361,7 @@ func defaultSettings() *Settings {
 		AI:           AISettings{Profiles: []AIModelSettings{}},
 		Network:      NetworkSettings{HTTPOrigins: []HTTPOriginSettings{}},
 		Applications: ApplicationSettings{Profiles: []InstalledApplicationSettings{}},
-		Automation:   AutomationSettings{Win32Targets: []InstalledAutomationTargetSettings{}},
+		Automation:   AutomationSettings{Targets: []InstalledAutomationTargetSettings{}},
 	}
 }
 
@@ -338,6 +376,7 @@ func LoadSettings(path string) *Settings {
 	if err := json.Unmarshal(data, s); err != nil {
 		return defaultSettings() // 损坏 → 全新默认（s 已被部分改写，不能返回）
 	}
+	s.Automation.migrateLegacy()
 	// Window 显式 0/负值会覆盖默认 → 兜底（非空值垫片，保留）
 	if s.UI.Window.Width <= 0 || s.UI.Window.Height <= 0 {
 		s.UI.Window.Width = 1100
@@ -465,7 +504,7 @@ func (s *Settings) Validate() error {
 	if err := s.Automation.validate(s.Applications); err != nil {
 		return err
 	}
-	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins)+len(s.Applications.Profiles)+len(s.Automation.Win32Targets))
+	installedSlots := make(map[string]string, len(s.AI.Profiles)+len(s.Network.HTTPOrigins)+len(s.Applications.Profiles)+len(s.Automation.Targets))
 	for _, profile := range s.AI.Profiles {
 		installedSlots[profile.Slot] = "ai.profiles"
 	}
@@ -481,11 +520,11 @@ func (s *Settings) Validate() error {
 		}
 		installedSlots[configured.Slot] = "applications.profiles"
 	}
-	for _, configured := range s.Automation.Win32Targets {
+	for _, configured := range s.Automation.Targets {
 		if owner, exists := installedSlots[configured.Slot]; exists {
-			return fmt.Errorf("installation slot %q is shared by %s and automation.win32Targets", configured.Slot, owner)
+			return fmt.Errorf("installation slot %q is shared by %s and automation.targets", configured.Slot, owner)
 		}
-		installedSlots[configured.Slot] = "automation.win32Targets"
+		installedSlots[configured.Slot] = "automation.targets"
 	}
 	return nil
 }
@@ -583,35 +622,44 @@ func (settings *ApplicationSettings) validate() error {
 }
 
 func (settings *AutomationSettings) validate(applications ApplicationSettings) error {
-	if len(settings.Win32Targets) > 64 {
-		return errors.New("automation.win32Targets exceeds installation budget")
+	if len(settings.Targets) > 64 {
+		return errors.New("automation.targets exceeds installation budget")
 	}
 	applicationsBySlot := make(map[string]InstalledApplicationSettings, len(applications.Profiles))
 	for _, configured := range applications.Profiles {
 		applicationsBySlot[configured.Slot] = configured
 	}
 	seenSlots, seenLabels := map[string]bool{}, map[string]bool{}
-	for _, configured := range settings.Win32Targets {
+	for _, configured := range settings.Targets {
 		if configured.Label == "" || len(configured.Label) > 128 || seenLabels[configured.Label] {
-			return fmt.Errorf("automation.win32Targets has an invalid or duplicate label %q", configured.Label)
+			return fmt.Errorf("automation.targets has an invalid or duplicate label %q", configured.Label)
 		}
 		seenLabels[configured.Label] = true
 		if err := automationinstalled.ValidateInstallationSlot(configured.Slot); err != nil || seenSlots[configured.Slot] {
-			return fmt.Errorf("automation.win32Targets has an invalid or duplicate slot %q", configured.Slot)
+			return fmt.Errorf("automation.targets has an invalid or duplicate slot %q", configured.Slot)
 		}
 		seenSlots[configured.Slot] = true
-		application, ok := applicationsBySlot[configured.ApplicationSlot]
-		if !ok {
-			return fmt.Errorf("automation.win32Targets[%s] references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+		desktop := configured.TargetKind == automationinstalled.TargetKindDesktopWindow && configured.AdapterKind == automationinstalled.AdapterKindWin32
+		android := configured.TargetKind == automationinstalled.TargetKindAndroidDevice && configured.AdapterKind == automationinstalled.AdapterKindAndroidADB
+		if !desktop && !android {
+			return fmt.Errorf("automation.targets[%s] has unsupported target/adapter %q/%q", configured.Slot, configured.TargetKind, configured.AdapterKind)
+		}
+		var application InstalledApplicationSettings
+		if desktop {
+			var ok bool
+			application, ok = applicationsBySlot[configured.ApplicationSlot]
+			if !ok {
+				return fmt.Errorf("automation.targets[%s] references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+			}
 		}
 		profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
 		if err != nil {
-			return fmt.Errorf("automation.win32Targets[%s]: %w", configured.Slot, err)
+			return fmt.Errorf("automation.targets[%s]: %w", configured.Slot, err)
 		}
 		if configured.WorkflowConsent != "" {
 			expected, err := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
 			if err != nil || configured.WorkflowConsent != expected {
-				return fmt.Errorf("automation.win32Targets[%s] has stale workflow consent", configured.Slot)
+				return fmt.Errorf("automation.targets[%s] has stale workflow consent", configured.Slot)
 			}
 		}
 	}
@@ -641,5 +689,6 @@ func ApplyMergePatch(s *Settings, patch json.RawMessage) error {
 	if err := dec.Decode(s); err != nil {
 		return fmt.Errorf("merged settings unmarshal failed: %w", err)
 	}
+	s.Automation.migrateLegacy()
 	return nil
 }

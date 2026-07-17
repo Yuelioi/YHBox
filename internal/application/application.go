@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ type Config struct {
 	Authoring         nodeauthoring.Snapshot
 	CompilerBuild     artifact.Digest
 	ConfigValidators  configvalidator.Registry
+	BlobVerifier      compiler.BlobVerifier
 	Sources           *workflowstore.SourceStore
 	Programs          *workflowstore.ProgramStore
 	Runs              *run.Store
@@ -173,8 +175,9 @@ const (
 )
 
 type runJob struct {
-	state  jobState
-	cancel context.CancelFunc
+	workflowID string
+	state      jobState
+	cancel     context.CancelFunc
 }
 
 type lifecycleState uint8
@@ -190,6 +193,7 @@ type Application struct {
 	authoring         nodeauthoring.Snapshot
 	authoringEngine   *authoring.Engine
 	compiler          *compiler.Compiler
+	blobVerifier      compiler.BlobVerifier
 	sources           *workflowstore.SourceStore
 	programs          *workflowstore.ProgramStore
 	runs              *run.Store
@@ -216,7 +220,7 @@ type Application struct {
 
 func New(config Config) (*Application, error) {
 	if !config.Catalog.Valid() || !config.Authoring.Valid() || config.Authoring.CatalogHash() != config.Catalog.Hash() ||
-		!config.CompilerBuild.Valid() || !config.ConfigValidators.Valid() || config.Sources == nil || config.Programs == nil ||
+		!config.CompilerBuild.Valid() || !config.ConfigValidators.Valid() || config.BlobVerifier == nil || config.Sources == nil || config.Programs == nil ||
 		config.Runs == nil || config.Admitter == nil || config.Executor == nil || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("application requires trusted contracts, stores, admission, executor, and owner timeout")
 	}
@@ -233,7 +237,7 @@ func New(config Config) (*Application, error) {
 	}
 	return &Application{
 		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
-		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), sources: config.Sources,
+		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), blobVerifier: config.BlobVerifier, sources: config.Sources,
 		programs: config.Programs, runs: config.Runs, admitter: config.Admitter, executor: config.Executor,
 		providers: providers, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		now: config.Now, onRunEvent: config.OnRunEvent, onDebugEvent: config.OnDebugEvent,
@@ -305,7 +309,7 @@ func (a *Application) CompileSource(ctx context.Context, workflowID string) (com
 	if err != nil {
 		return compiler.CompileResult{}, err
 	}
-	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source.Artifact(), Catalog: a.catalog})
+	return a.compileDraft(ctx, source.Artifact())
 }
 
 // CompileDraft validates and compiles an in-memory Source through the same
@@ -319,7 +323,13 @@ func (a *Application) CompileDraft(ctx context.Context, sourceJSON []byte) (comp
 	if err := a.requireRunning(); err != nil {
 		return compiler.CompileResult{}, err
 	}
-	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: append([]byte(nil), sourceJSON...), Catalog: a.catalog})
+	return a.compileDraft(ctx, append([]byte(nil), sourceJSON...))
+}
+
+func (a *Application) compileDraft(ctx context.Context, sourceJSON []byte) (compiler.CompileResult, error) {
+	return a.compiler.CompileDraft(ctx, compiler.CompileRequest{
+		SourceJSON: sourceJSON, Catalog: a.catalog, BlobVerifier: a.blobVerifier,
+	})
 }
 
 // ApplyPatch is the sole external mutation path for an existing Workflow
@@ -391,7 +401,7 @@ func (a *Application) PreparePatch(ctx context.Context, request authoring.PatchR
 		candidate: append([]byte(nil), applied.Artifact...), candidateHash: candidateHash,
 		generated: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}}
-	compiled, compileErr := a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: applied.Artifact, Catalog: a.catalog})
+	compiled, compileErr := a.compileDraft(ctx, applied.Artifact)
 	result := PreparePatchResult{Patch: prepared, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...), CapabilityPlan: []capability.PlanEntry{}}
 	if program, ok := compiled.Program(); ok {
 		result.CapabilityPlan = program.CapabilityPlan().Entries()
@@ -528,7 +538,7 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 	if err != nil {
 		return StartRunResult{}, err
 	}
-	compiled, err := a.compiler.CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source.Artifact(), Catalog: a.catalog})
+	compiled, err := a.compileDraft(ctx, source.Artifact())
 	result := StartRunResult{SourceHash: compiled.SourceHash, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...)}
 	if err != nil || schema.HasErrors(compiled.Diagnostics) {
 		return result, err
@@ -566,7 +576,7 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 		a.mu.Unlock()
 		return result, ErrClosed
 	}
-	a.jobs[runID] = &runJob{state: jobQueued}
+	a.jobs[runID] = &runJob{workflowID: request.WorkflowID, state: jobQueued}
 	if control != nil {
 		a.debug[runID] = control
 	}
@@ -634,6 +644,39 @@ func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot
 }
 
 func (a *Application) ListSources() []workflowstore.SourceSnapshot { return a.sources.List() }
+
+// ActiveSourceRuns returns the queued/running run IDs currently retaining one
+// Workflow Source. Historical Run records are intentionally not references:
+// they retain immutable Program and journal facts after Source deletion.
+func (a *Application) ActiveSourceRuns(workflowID string) []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	runIDs := make([]string, 0)
+	for runID, job := range a.jobs {
+		if job.workflowID == workflowID {
+			runIDs = append(runIDs, runID)
+		}
+	}
+	sort.Strings(runIDs)
+	return runIDs
+}
+
+// DeleteSource deletes only the exact revision/hash reviewed by the caller
+// and refuses while an in-process Run still retains the Source identity.
+func (a *Application) DeleteSource(ctx context.Context, workflowID string, revision int64, hash artifact.Digest) error {
+	if ctx == nil {
+		return errors.New("delete Workflow Source context is required")
+	}
+	a.commandMu.Lock()
+	defer a.commandMu.Unlock()
+	if err := a.requireRunning(); err != nil {
+		return err
+	}
+	if active := a.ActiveSourceRuns(workflowID); len(active) != 0 {
+		return fmt.Errorf("workflow source has %d active run(s)", len(active))
+	}
+	return a.sources.Delete(ctx, workflowID, revision, hash)
+}
 
 func (a *Application) CatalogArtifact() []byte { return a.catalog.Bytes() }
 

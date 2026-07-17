@@ -43,6 +43,16 @@
       :aria-label="t('workflow.action.redo')"
       @click="emit('redo')"
     />
+    <UButton
+      data-testid="workflow-find-node"
+      :label="t('workflow.node_search.action')"
+      icon="i-tabler-search"
+      color="neutral"
+      variant="ghost"
+      size="xs"
+      :title="t('workflow.node_search.shortcut')"
+      @click="emit('find-node')"
+    />
     <div class="flex-1" />
     <UButton
       data-testid="ai-workflow-review-open"
@@ -64,6 +74,41 @@
       :aria-pressed="statePanelOpen"
       @click="emit('toggle-state')"
     />
+    <UButton
+      v-if="recordingPhase === 'idle'"
+      data-testid="workflow-recording-start"
+      :label="t('workflow.recording.start')"
+      icon="i-tabler-record-mail"
+      color="neutral"
+      variant="ghost"
+      size="xs"
+      @click="emit('start-recording')"
+    />
+    <template v-else>
+      <UButton
+        :label="
+          recordingPhase === 'paused'
+            ? t('workflow.recording.resume')
+            : t('workflow.recording.pause')
+        "
+        :icon="recordingPhase === 'paused' ? 'i-tabler-player-play' : 'i-tabler-player-pause'"
+        color="warning"
+        variant="soft"
+        size="xs"
+        :disabled="recordingPhase === 'finalizing'"
+        @click="toggleRecordingPause"
+      />
+      <UButton
+        data-testid="workflow-recording-stop"
+        :label="t('workflow.recording.finish')"
+        icon="i-tabler-square"
+        color="error"
+        variant="soft"
+        size="xs"
+        :loading="recordingPhase === 'finalizing'"
+        @click="emit('stop-recording')"
+      />
+    </template>
     <UButton
       :label="
         compileSucceeded ? t('workflow.action.compile_succeeded') : t('workflow.action.compile')
@@ -147,7 +192,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-defineProps<{
+const props = defineProps<{
   name: string
   revision: number
   dirty: boolean
@@ -165,12 +210,14 @@ defineProps<{
   runTimelineOpen: boolean
   hasDebug: boolean
   debuggerOpen: boolean
+  recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing'
 }>()
 const emit = defineEmits<{
   back: []
   rename: [name: string]
   undo: []
   redo: []
+  'find-node': []
   'toggle-ai': []
   'toggle-state': []
   compile: []
@@ -178,11 +225,23 @@ const emit = defineEmits<{
   'toggle-timeline': []
   'toggle-debugger': []
   'start-debug': []
+  'start-recording': []
+  'pause-recording': []
+  'resume-recording': []
+  'stop-recording': []
   run: []
   stop: []
   save: []
 }>()
 const { t } = useI18n()
+
+function toggleRecordingPause(): void {
+  if (props.recordingPhase === 'paused') {
+    emit('resume-recording')
+    return
+  }
+  emit('pause-recording')
+}
 
 function rename(event: Event): void {
   emit('rename', (event.target as HTMLInputElement).value)

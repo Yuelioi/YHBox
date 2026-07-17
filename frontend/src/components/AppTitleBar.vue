@@ -65,6 +65,21 @@
       class="shrink-0 flex items-stretch border-l border-default"
       style="--wails-draggable: no-drag"
     >
+      <button
+        type="button"
+        class="flex w-10 items-center justify-center text-muted transition-colors duration-150 hover:bg-elevated/60 hover:text-highlighted disabled:opacity-50"
+        :title="t('sidebar.open_launcher')"
+        :aria-label="t('sidebar.open_launcher')"
+        :disabled="launcherOpening"
+        @click="openLauncher"
+      >
+        <UIcon
+          :name="launcherOpening ? 'i-tabler-loader-2' : 'i-tabler-rocket'"
+          class="size-4"
+          :class="launcherOpening ? 'animate-spin' : ''"
+          aria-hidden="true"
+        />
+      </button>
       <RouterLink
         to="/settings"
         class="w-10 flex items-center justify-center hover:bg-elevated/60 hover:text-highlighted transition-colors duration-150"
@@ -125,16 +140,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useWindowControls } from '@/composables/useWindowControls'
 import { backend } from '@/lib/backend'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate: onClose } = useWindowControls()
 const appVersion = ref('')
+const launcherOpening = ref(false)
+let stopMainNavigate: (() => void) | undefined
 const versionLabel = computed(() => (appVersion.value ? `v${appVersion.value}` : ''))
 
 const navItems = computed(() => [
@@ -185,6 +203,20 @@ const currentIcon = computed(() => {
 onMounted(async () => {
   const info = await backend.appInfo.info()
   appVersion.value = String(info?.version ?? '')
+  stopMainNavigate = backend.events.onMainNavigate((target) => {
+    void router.push({
+      path: target.path,
+      query: target.section ? { section: target.section } : {},
+    })
+  })
 })
+onUnmounted(() => stopMainNavigate?.())
+
+async function openLauncher(): Promise<void> {
+  if (launcherOpening.value) return
+  launcherOpening.value = true
+  await backend.tools.openLauncher()
+  launcherOpening.value = false
+}
 // 窗口控件 (isMaximised + onMinimise / onToggleMaximise / onClose) 全由 useWindowControls 提供
 </script>

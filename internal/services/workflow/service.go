@@ -5,6 +5,9 @@ package workflow
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -19,9 +22,18 @@ import (
 type Service struct {
 	application *appcore.Application
 	authoring   nodeauthoring.Snapshot
+	references  ReferenceResolver
 }
 
-func NewService(application *appcore.Application) (*Service, error) {
+type ReferenceResolver func(workflowID string) []SourceReference
+
+type Option func(*Service)
+
+func WithReferenceResolver(resolver ReferenceResolver) Option {
+	return func(service *Service) { service.references = resolver }
+}
+
+func NewService(application *appcore.Application, options ...Option) (*Service, error) {
 	if application == nil {
 		return nil, errors.New("workflow service requires Application")
 	}
@@ -29,7 +41,13 @@ func NewService(application *appcore.Application) (*Service, error) {
 	if !projection.Valid() {
 		return nil, errors.New("workflow service requires trusted Authoring Projection")
 	}
-	return &Service{application: application, authoring: projection}, nil
+	service := &Service{application: application, authoring: projection}
+	for _, option := range options {
+		if option != nil {
+			option(service)
+		}
+	}
+	return service, nil
 }
 
 type SourceView struct {
@@ -38,6 +56,45 @@ type SourceView struct {
 	Revision   int64           `json:"revision"`
 	SourceHash artifact.Digest `json:"sourceHash"`
 	SourceJSON string          `json:"sourceJson,omitempty"`
+}
+
+type SourceQuery struct {
+	Search   string `json:"search"`
+	Sort     string `json:"sort"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"pageSize"`
+}
+
+type SourcePage struct {
+	Items    []SourceView `json:"items"`
+	Total    int          `json:"total"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"pageSize"`
+}
+
+type SourceReference struct {
+	Kind  string `json:"kind"`
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type DeleteSourceRequest struct {
+	WorkflowID string          `json:"workflowId"`
+	Revision   int64           `json:"revision"`
+	SourceHash artifact.Digest `json:"sourceHash"`
+}
+
+type DeleteSourcePreview struct {
+	WorkflowID string            `json:"workflowId"`
+	Name       string            `json:"name"`
+	References []SourceReference `json:"references"`
+}
+
+type DeleteSourceResult struct {
+	WorkflowID string            `json:"workflowId"`
+	Deleted    bool              `json:"deleted"`
+	References []SourceReference `json:"references"`
+	Error      string            `json:"error,omitempty"`
 }
 
 type CompileView struct {
@@ -142,6 +199,117 @@ func (s *Service) ListSources() ([]SourceView, error) {
 		result = append(result, view)
 	}
 	return result, nil
+}
+
+func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
+	if query.Page <= 0 {
+		query.Page = 1
+	}
+	if query.PageSize <= 0 {
+		query.PageSize = 20
+	}
+	if query.PageSize > 100 {
+		return SourcePage{}, errors.New("workflow source page size exceeds 100")
+	}
+	search := strings.ToLower(strings.TrimSpace(query.Search))
+	views, err := s.ListSources()
+	if err != nil {
+		return SourcePage{}, err
+	}
+	filtered := views[:0]
+	for _, view := range views {
+		if search == "" || strings.Contains(strings.ToLower(view.Name), search) || strings.Contains(strings.ToLower(view.WorkflowID), search) {
+			filtered = append(filtered, view)
+		}
+	}
+	switch query.Sort {
+	case "name_desc":
+		sort.SliceStable(filtered, func(i, j int) bool { return strings.ToLower(filtered[i].Name) > strings.ToLower(filtered[j].Name) })
+	case "revision_desc":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].Revision == filtered[j].Revision {
+				return filtered[i].WorkflowID < filtered[j].WorkflowID
+			}
+			return filtered[i].Revision > filtered[j].Revision
+		})
+	case "", "name_asc":
+		sort.SliceStable(filtered, func(i, j int) bool { return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name) })
+	default:
+		return SourcePage{}, fmt.Errorf("unsupported workflow source sort %q", query.Sort)
+	}
+	total := len(filtered)
+	start := (query.Page - 1) * query.PageSize
+	if start > total {
+		start = total
+	}
+	end := min(start+query.PageSize, total)
+	items := append([]SourceView(nil), filtered[start:end]...)
+	return SourcePage{Items: items, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (s *Service) PreviewDeleteSources(workflowIDs []string) ([]DeleteSourcePreview, error) {
+	result := make([]DeleteSourcePreview, 0, len(workflowIDs))
+	seen := make(map[string]struct{}, len(workflowIDs))
+	for _, workflowID := range workflowIDs {
+		if _, duplicate := seen[workflowID]; duplicate {
+			continue
+		}
+		seen[workflowID] = struct{}{}
+		snapshot, err := s.application.GetSource(workflowID)
+		if err != nil {
+			return nil, err
+		}
+		view, err := sourceView(snapshot, false)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, DeleteSourcePreview{WorkflowID: workflowID, Name: view.Name, References: s.sourceReferences(workflowID)})
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteSources(requests []DeleteSourceRequest) []DeleteSourceResult {
+	results := make([]DeleteSourceResult, 0, len(requests))
+	seen := make(map[string]struct{}, len(requests))
+	for _, request := range requests {
+		result := DeleteSourceResult{WorkflowID: request.WorkflowID}
+		if _, duplicate := seen[request.WorkflowID]; duplicate {
+			result.Error = "duplicate workflow source delete request"
+			results = append(results, result)
+			continue
+		}
+		seen[request.WorkflowID] = struct{}{}
+		result.References = s.sourceReferences(request.WorkflowID)
+		if len(result.References) != 0 {
+			result.Error = "workflow source is referenced"
+			results = append(results, result)
+			continue
+		}
+		if err := s.application.DeleteSource(context.Background(), request.WorkflowID, request.Revision, request.SourceHash); err != nil {
+			result.Error = err.Error()
+		} else {
+			result.Deleted = true
+		}
+		results = append(results, result)
+	}
+	return results
+}
+
+func (s *Service) sourceReferences(workflowID string) []SourceReference {
+	references := make([]SourceReference, 0)
+	for _, runID := range s.application.ActiveSourceRuns(workflowID) {
+		references = append(references, SourceReference{Kind: "active_run", ID: runID, Label: runID})
+	}
+	if s.references != nil {
+		references = append(references, s.references(workflowID)...)
+	}
+	sort.SliceStable(references, func(i, j int) bool {
+		if references[i].Kind == references[j].Kind {
+			return references[i].ID < references[j].ID
+		}
+		return references[i].Kind < references[j].Kind
+	})
+	return references
 }
 
 func (s *Service) CompileSource(workflowID string) (CompileView, error) {

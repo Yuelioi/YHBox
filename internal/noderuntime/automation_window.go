@@ -11,9 +11,17 @@ import (
 )
 
 func activateWindow() compiler.Adapter {
+	return automationWindow(installed.OperationActivate, nodes.ActivateWindowEffectID, "automation.activate-window")
+}
+
+func stopTargetApp() compiler.Adapter {
+	return automationWindow(installed.OperationStopApp, nodes.StopTargetAppEffectID, "automation.stop-target-app")
+}
+
+func automationWindow(operation, effectID, actionName string) compiler.Adapter {
 	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
 		action := compiler.AdapterAction{
-			EffectID: nodes.ActivateWindowEffectID, Action: "automation.activate-window", SummaryCode: "automation.activate-window",
+			EffectID: effectID, Action: actionName, SummaryCode: actionName,
 			Counters: map[string]int64{}, Facts: map[string]string{},
 		}
 		defer func() {
@@ -24,7 +32,7 @@ func activateWindow() compiler.Adapter {
 		if session == nil {
 			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation window capability session is missing"))
 		}
-		handle, err := session.Open(ctx, []string{installed.OperationActivate}, []byte(`{}`))
+		handle, err := session.Open(ctx, []string{operation}, []byte(`{}`))
 		if err != nil {
 			return compiler.AdapterResult{}, mapAutomationFailure(err)
 		}
@@ -33,7 +41,7 @@ func activateWindow() compiler.Adapter {
 		if err != nil {
 			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
 		}
-		raw, err := session.Invoke(ctx, handle, installed.OperationActivate, payload)
+		raw, err := session.Invoke(ctx, handle, operation, payload)
 		if err != nil {
 			return compiler.AdapterResult{}, mapAutomationFailure(err)
 		}

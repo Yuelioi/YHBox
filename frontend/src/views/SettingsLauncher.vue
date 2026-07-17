@@ -1,6 +1,48 @@
 <template>
   <div class="settings-page settings-page--wide">
     <SettingsSection
+      :title="t('settingsLauncher.access_title')"
+      :description="t('settingsLauncher.access_hint')"
+      icon="i-tabler-rocket"
+    >
+      <template #actions>
+        <UButton
+          size="sm"
+          color="primary"
+          variant="soft"
+          icon="i-tabler-window"
+          :loading="launcherOpening"
+          @click="openLauncher"
+        >
+          {{ t('settingsLauncher.open_now') }}
+        </UButton>
+      </template>
+      <div
+        class="flex flex-col gap-3 rounded-lg border border-default/70 bg-elevated/35 p-3 sm:flex-row sm:items-center"
+      >
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-medium text-default">{{ t('settingsLauncher.hotkey_title') }}</p>
+          <p class="mt-1 text-xs leading-relaxed text-dimmed">
+            {{ t(`settingsLauncher.hotkey_${launcherHotkeyStatus}`) }}
+          </p>
+          <p v-if="launcherHotkey?.lastError" class="mt-1 break-all text-xs text-error">
+            {{ launcherHotkey.lastError }}
+          </p>
+        </div>
+        <UKbd v-if="launcherHotkey?.hotkeyStr" :value="launcherHotkey.hotkeyStr" />
+        <UButton
+          to="/settings?section=hotkeys"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-tabler-keyboard"
+        >
+          {{ t('settingsLauncher.configure_hotkey') }}
+        </UButton>
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
       :title="t('settingsLauncher.appearance_title')"
       :description="t('settingsLauncher.display_hint')"
       icon="i-tabler-adjustments-horizontal"
@@ -300,6 +342,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
+import { useHotkeysStore } from '@/stores/hotkeys'
+import { backend } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import IconPicker from '@/components/common/IconPicker.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
@@ -313,12 +357,18 @@ import {
 } from '@/components/launcher/launcherModel'
 
 const settingsStore = useSettingsStore()
+const hotkeysStore = useHotkeysStore()
 const { t } = useI18n()
 const workflows = ref<SourceView[]>([])
 const editItems = ref<LauncherBlock[]>([])
 const cleanupBusy = ref(false)
+const launcherOpening = ref(false)
 const dependenciesLoaded = ref(false)
 const cleanupUndo = ref<LauncherBlock[] | null>(null)
+const launcherHotkey = computed(() =>
+  hotkeysStore.list.find((entry) => entry.key === 'system.launcher-toggle'),
+)
+const launcherHotkeyStatus = computed(() => launcherHotkey.value?.status ?? 'unbound')
 const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
 const syncFromStore = () =>
   (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
@@ -431,8 +481,16 @@ function staleBlockName(item: LauncherBlock) {
   return item.label?.trim() || item.workflowId || t('settingsLauncher.deleted_workflow')
 }
 
+async function openLauncher(): Promise<void> {
+  if (launcherOpening.value) return
+  launcherOpening.value = true
+  await backend.tools.openLauncher()
+  launcherOpening.value = false
+}
+
 onMounted(async () => {
-  workflows.value = await workflowTransport.listSources()
+  const [, listed] = await Promise.all([hotkeysStore.reload(), workflowTransport.listSources()])
+  workflows.value = listed
   dependenciesLoaded.value = true
 })
 </script>

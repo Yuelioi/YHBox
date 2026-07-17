@@ -1,20 +1,45 @@
 ---
 kind: note
-summary: "Yotta backend core 已闭合 Win32/Wails seam 并进入 Windows/Linux/macOS 门禁；完整 GUI 必须按宿主 OS 使用 Wails 原生依赖单独验收。"
+summary: "3.1 installed automation 已收敛为 descriptor + target-kind Adapter seam；Win32 profile 留在 Adapter，Android/macOS 必须通过同一 Interface 接入。"
 activation: action
-read_when: "before adding Linux/macOS support, moving Win32 code, designing automation targets/controllers, or claiming the Go backend is cross-platform."
+read_when: "before adding Linux/macOS/Android support, moving Win32 code, designing automation targets/controllers/installations, or claiming the Go backend/product is cross-platform."
+recheck_when: "automation Settings schema、target taxonomy、installed provider、appbootstrap policy、application identity 或原生宿主 runtime 支持变化后"
 ---
-# Go 多平台边界与发布声明
+# Go 多平台边界与自动化安装 seam
 
 Windows 是完整支持平台；Linux/macOS 只承诺平台中立核心可测试、GUI 可编译且为 preview。compile gate 不等于 runtime support，也不能把 unsupported stub 描述成可用 fallback。
 
-- autostart、admin、console 和通用 platform seam 使用 Windows implementation 与 non-Windows typed unsupported implementation；平台中立 package 不直接 import Win32 binding。
-- input、capture、window、hotkey、calibration、recording 与 tools 通过公共 contract/factory 接入；Win32 syscall 留在 build-tagged adapter。
-- controller/target contract 位于 internal/automation，Android、Browser 与 Win32 能力由各自 adapter 显式声明；NeedsWindow 不能冒充通用 target requirement。
-- internal/architecture/platform_boundaries_test.go 守住已平台中立的 node/controller/target/execution/expr/llm/script 与工具 package，禁止重新引入 Win32/input/capture/winutil concrete dependency。
-- installed application lifecycle 只在 Windows 安装 provider；Linux/macOS 保留 authoring contract，但在等价 process identity 与 desktop lifecycle 实现存在前 fail closed。旧 RunProgram、KillProcess、ShellExecuteW 与 taskkill 平台 API 已删除，不得用 typed unsupported stub 复活。
-- untrusted Script/Process Plugin Host 是另一条边界：Windows 必须 LPAC/AppContainer + atomic Job；其他宿主缺少等价 confinement 时不注册 provider，不能降级到普通 subprocess。
-- root wiring 不直接 import Win32；Wails GUI 仍需要各宿主的原生工具链与库。Ubuntu/macOS production compile 必须在原生 runner 验证，首次运行和真实宿主 smoke 仍是独立门禁。
-- Wails library、release CLI 与 README 安装命令统一固定版本，版本同步脚本防止漂移。
+## 已成立的 seam
 
-新增跨平台能力时必须分别声明：core compile/test 状态、provider 是否安装、GUI compile 状态、真实 runtime smoke 状态和发布等级。不得用 CGO_ENABLED=0 go build ./... 代替 GUI 验收。
+- autostart、admin、console、input、capture、window、hotkey、calibration、recording 与 tools 的 syscall 实现使用 build-tagged Adapter；平台中立 package 不直接 import Win32 binding。
+- internal/automation/controller 与 target 定义 Controller、Screenshotter、PointerInput、KeyboardInput、AppLifecycle 和 target/coordinate semantics；Win32、Android、Browser 可各自声明能力。
+- internal/architecture/platform_boundaries_test.go 守住已平台中立的 node/controller/target/execution/expr/llm/script 与工具 package，禁止重新引入 Win32 concrete dependency。
+
+## 已闭合：平台中立 installed automation seam
+
+- Settings durable schema 使用 automation.targets；每项携带稳定 semantic target kind 与独立 Adapter identity。旧 win32Targets 单向迁移并撤销旧 consent。
+- Workflow、通用节点、appbootstrap 与 policy 使用 InstallationDescriptor 的 target kind、provider identity、resource kinds 与 operations，不读取 Win32 常量。
+- installed 模块的外部 Interface 只暴露 slot、descriptor、sealed profile 与 provider；内部 registry 已由 Win32 与 test Adapter 证明为真实 seam。
+- 标准输入与截图复用 internal/automation/controller；provider 继续集中处理 exact payload、权限、并发、held input、capture budget、journal 与 cleanup。
+- Win32 runtime target/HWND、executable/title/class 与 backend 只存在于 Win32 Adapter。Settings profile 显式声明 windows-executable identity；未来 macOS Adapter 可声明 bundle/code-sign identity，而无需修改 Workflow、compiler、scheduler 或 policy。
+- 非 Windows host 通过 per-Adapter availability fail closed，不再把整个 installed module 定义成 Win32-only Interface。
+
+## 新平台接入规则
+
+- 外部安装 Interface 使用稳定 slot、语义 target kind、capability/resource/operation descriptor、sealed typed profile 和 consent；不公开 native handle。
+- 内部建立 target-kind registry。Win32、Android、Browser、fake/test 与未来 macOS 是 Adapter；至少两个 Adapter 通过同一 conformance，seam 才算真实。
+- 优先让通用节点依赖语义 target kind/capability family，而不是实现名。desktop window 的 Win32/macOS 差异留在 Adapter profile。
+- 复用 controller 语义；3.1 resource provider 继续集中处理 exact payload、权限、并发、held input、capture budget、journal 和 cleanup，不能把安全逻辑散回各 Adapter。
+- appbootstrap 与 policy 从 Installation descriptor 取 target kind、provider identity 和 resource kinds，不比较全局单一 Win32 常量。
+- 通用前端从 backend descriptor 获取已安装 target 和 profile editor；禁止跨视图硬编码 win32Targets。
+- Windows HWND、Android serial、Browser target id、macOS CGWindowID/AXUIElement 只存在于 Adapter 的临时解析结果，不进入 Workflow Source 或 durable journal。
+- installed application identity 也必须允许平台 Adapter：Windows executable digest 与 macOS bundle/code-sign identity 不能强塞进同一个 Windows-only表单。
+
+完成平台中立 seam 后，新增 macOS desktop Adapter 不应修改 Workflow Source、通用节点 contract、compiler、scheduler、policy 或运行请求格式。
+
+## 其他平台边界
+
+- installed application lifecycle 只有等价 process/application identity 与 desktop lifecycle Adapter 存在时才安装 provider；其他宿主 fail closed。
+- untrusted Script/Process Plugin Host：Windows 必须 LPAC/AppContainer + atomic Job；其他宿主缺少等价 confinement 时不注册 provider。
+- root wiring 不直接 import Win32；Wails GUI 仍需各宿主原生工具链。Ubuntu/macOS production compile 必须在原生 runner 验证，首次运行和真实宿主 smoke 是独立门禁。
+- 新增跨平台能力必须分别声明 core compile/test、provider installation、GUI compile、真实 runtime smoke 和发布等级。

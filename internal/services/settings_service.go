@@ -47,8 +47,8 @@ func (s *SettingsService) Update(patchJSON string) error {
 		for _, configured := range settings.Applications.Profiles {
 			previousApplications[configured.Slot] = consentState{consent: configured.WorkflowConsent, expected: expectedApplicationConsent(configured)}
 		}
-		previousAutomation := make(map[string]consentState, len(settings.Automation.Win32Targets))
-		for _, configured := range settings.Automation.Win32Targets {
+		previousAutomation := make(map[string]consentState, len(settings.Automation.Targets))
+		for _, configured := range settings.Automation.Targets {
 			previousAutomation[configured.Slot] = consentState{consent: configured.WorkflowConsent, expected: expectedAutomationConsent(*settings, configured)}
 		}
 		if err := ApplyMergePatch(settings, patch); err != nil {
@@ -82,8 +82,8 @@ func (s *SettingsService) Update(patchJSON string) error {
 				configured.WorkflowConsent = ""
 			}
 		}
-		for index := range settings.Automation.Win32Targets {
-			configured := &settings.Automation.Win32Targets[index]
+		for index := range settings.Automation.Targets {
+			configured := &settings.Automation.Targets[index]
 			old, exists := previousAutomation[configured.Slot]
 			if exists && old.consent != "" && configured.WorkflowConsent == old.consent && expectedAutomationConsent(*settings, *configured) != old.expected {
 				configured.WorkflowConsent = ""
@@ -174,15 +174,17 @@ func expectedApplicationConsent(configured InstalledApplicationSettings) artifac
 
 func expectedAutomationConsent(settings Settings, configured InstalledAutomationTargetSettings) artifact.Digest {
 	var application InstalledApplicationSettings
-	found := false
-	for _, candidate := range settings.Applications.Profiles {
-		if candidate.Slot == configured.ApplicationSlot {
-			application, found = candidate, true
-			break
+	if configured.TargetKind != automationinstalled.TargetKindAndroidDevice || configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+		found := false
+		for _, candidate := range settings.Applications.Profiles {
+			if candidate.Slot == configured.ApplicationSlot {
+				application, found = candidate, true
+				break
+			}
 		}
-	}
-	if !found {
-		return ""
+		if !found {
+			return ""
+		}
 	}
 	profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
 	if err != nil {

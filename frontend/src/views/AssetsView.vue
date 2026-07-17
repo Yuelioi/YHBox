@@ -70,7 +70,11 @@
             v-else
             icon="i-tabler-player-record"
             :label="t('assets.recording.start')"
-            :disabled="!selectedTargetSlot || recording.state.phase === 'finalizing'"
+            :disabled="
+              !selectedTargetSlot ||
+              !selectedTargetSupportsRecording ||
+              recording.state.phase === 'finalizing'
+            "
             @click="startRecording"
           />
         </div>
@@ -131,7 +135,15 @@
             :key="item.id"
             class="flex min-w-0 items-start gap-3 rounded-xl border border-default bg-default p-4 transition-colors hover:border-accented"
           >
+            <BlobPreview
+              v-if="item.previewBlob"
+              :blob="item.previewBlob"
+              :alt="item.name"
+              class="size-16 shrink-0"
+              @state="previewStates[item.id] = $event"
+            />
             <div
+              v-else
               class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/70 text-primary"
             >
               <UIcon :name="item.icon" class="size-5" />
@@ -141,6 +153,15 @@
                 <div class="min-w-0 flex-1">
                   <h3 class="truncate text-sm font-medium text-highlighted">{{ item.name }}</h3>
                   <p class="mt-0.5 text-[11px] text-dimmed">{{ item.meta }}</p>
+                  <UBadge
+                    v-if="previewStates[item.id] === 'unavailable'"
+                    color="error"
+                    variant="soft"
+                    size="sm"
+                    class="mt-1"
+                  >
+                    {{ t('assets.preview_unavailable') }}
+                  </UBadge>
                 </div>
                 <UDropdownMenu :items="assetMenu(item)">
                   <UButton
@@ -287,15 +308,20 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
-import { backend, type AssetSummary } from '@/lib/backend'
+import { backend, type AssetSummary, type BlobRef } from '@/lib/backend'
 import { useClipsStore, type ClipSummary } from '@/stores/clips'
 import { useTemplatesStore } from '@/stores/templates'
-import { useRecordingStore, type RecordingStopPayload } from '@/stores/recording'
+import {
+  isRecordingStopPayload,
+  useRecordingStore,
+  type RecordingStopPayload,
+} from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import { awaitWailsEvent, useWailsEvent } from '@/composables/useWailsEvent'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import BlobPreview from '@/components/common/BlobPreview.vue'
 
 type AssetTab = 'clips' | 'templates'
 type AssetItem = {
@@ -307,6 +333,7 @@ type AssetItem = {
   tags: string[]
   meta: string
   icon: string
+  previewBlob?: BlobRef
   source: ClipSummary | AssetSummary
 }
 
@@ -327,12 +354,18 @@ const pendingRecording = ref<RecordingStopPayload | null>(null)
 const recordingSaveBusy = ref(false)
 const editDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
+const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
 
 const targetItems = computed(() =>
-  (settings.data?.automation.win32Targets ?? []).map((target) => ({
+  (settings.data?.automation.targets ?? []).map((target) => ({
     label: `${target.label} · ${target.slot}`,
     value: target.slot,
   })),
+)
+const selectedTargetSupportsRecording = computed(() =>
+  (settings.data?.automation.targets ?? []).some(
+    (target) => target.slot === selectedTargetSlot.value && target.targetKind === 'desktop-window',
+  ),
 )
 const items = computed<AssetItem[]>(() => {
   if (activeTab.value === 'clips')
@@ -360,6 +393,7 @@ const items = computed<AssetItem[]>(() => {
     tags: asset.tags ?? [],
     meta: t('assets.templates.meta', { count: asset.variantCount }),
     icon: 'i-tabler-photo',
+    previewBlob: asset.variants[0]?.blob,
     source: asset,
   }))
 })
@@ -391,23 +425,18 @@ const recordingHint = computed(() => {
   return t('assets.recording.hint')
 })
 
-useWailsEvent<Record<string, unknown> | Array<Record<string, unknown>>>(
-  'recording:completed',
-  (raw) => {
-    const payload = Array.isArray(raw) ? raw[0] : raw
-    if (typeof payload?.error === 'string') {
-      showError(t('recordingSave.save_failed'), payload.error)
-      return
-    }
-    if (typeof payload?.pendingID !== 'string') return
-    openRecordingSave({
-      pendingID: payload.pendingID,
-      targetSlot: String(payload.targetSlot ?? ''),
-      durationUs: Number(payload.durationUs ?? 0),
-      eventCount: Number(payload.eventCount ?? 0),
-    })
-  },
-)
+useWailsEvent<unknown>('recording:completed', (raw) => {
+  const payload = Array.isArray(raw) ? raw[0] : raw
+  const eventError =
+    typeof payload === 'object' && payload !== null
+      ? (payload as { error?: unknown }).error
+      : undefined
+  if (typeof eventError === 'string') {
+    showError(t('recordingSave.save_failed'), eventError)
+    return
+  }
+  if (isRecordingStopPayload(payload)) openRecordingSave(payload)
+})
 
 onMounted(async () => {
   selectedTargetSlot.value = targetItems.value[0]?.value ?? ''

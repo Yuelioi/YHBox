@@ -517,3 +517,13 @@ func WindowMetadata(hwnd uintptr) (WindowHandle, error) {
 		ClientH:     ch,
 	}, nil
 }
+
+// WindowExecutable returns the executable path owned by one native window.
+// It is an installation-authoring helper; callers must not persist the path in
+// a Workflow or journal.
+func WindowExecutable(hwnd uintptr) (string, error) {
+	if hwnd == 0 {
+		return "", errors.New("hwnd 0")
+	}
+	return queryProcessPath(getWindowPID(win.HWND(hwnd)))
+}

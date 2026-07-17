@@ -31,6 +31,15 @@ export { assignable } from './connectionCompatibility'
 
 export type EditorPhase = 'empty' | 'loading' | 'ready' | 'saving' | 'running' | 'failed'
 
+export interface LinearWorkflowDraftNode {
+  nodeTypeID: string
+  config: Record<string, unknown>
+  values: Record<string, unknown>
+  blobs: Record<string, BlobRef>
+  execInput: string
+  execOutput: string
+}
+
 export type EditorCommand =
   | { kind: 'rename-workflow'; name: string }
   | { kind: 'add-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
@@ -223,6 +232,45 @@ export class EditorSession {
     return nodes.map((node) => node.id)
   }
 
+  insertLinearDraft(
+    draftNodes: LinearWorkflowDraftNode[],
+    origin: { x: number; y: number },
+  ): string[] {
+    const graph = this.currentGraph
+    if (!graph || draftNodes.length === 0) return []
+    const shadow = clone(graph)
+    const nodes = draftNodes.map((draft, index): Node => {
+      const projection = this.projections.get(draft.nodeTypeID)
+      if (!projection) throw new Error(`draft node type ${draft.nodeTypeID} is unavailable`)
+      const id = uniqueNodeId(shadow, this.idFactory)
+      const bindings: Node['bindings'] = {}
+      for (const [portId, value] of Object.entries(draft.values)) {
+        bindings[portId] = { kind: 'value', value: clone(value) }
+      }
+      for (const [portId, blob] of Object.entries(draft.blobs)) {
+        bindings[portId] = { kind: 'blob', blob: clone(blob) }
+      }
+      const node: Node = {
+        id,
+        nodeRef: clone(projection.nodeRef),
+        position: { x: origin.x + index * 280, y: origin.y },
+        config: clone(draft.config),
+        bindings,
+      }
+      shadow.nodes.push(node)
+      return node
+    })
+    const edges = nodes.slice(1).map(
+      (node, index): Edge => ({
+        channel: 'exec',
+        from: { nodeId: nodes[index].id, portId: draftNodes[index].execOutput },
+        to: { nodeId: node.id, portId: draftNodes[index + 1].execInput },
+      }),
+    )
+    this.apply({ kind: 'insert-node-selection', nodes, edges })
+    return nodes.map((node) => node.id)
+  }
+
   duplicateNodes(nodeIds: string[], offset = { x: 32, y: 32 }): string[] {
     return this.insertNodeSelection(this.selectionSnapshot(nodeIds), offset)
   }
@@ -352,14 +400,18 @@ export class EditorSession {
 
   async controlDebug(action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot> {
     if (!this.activeRun || !this.debugSnapshot) throw new Error('debug Run is unavailable')
-    this.debugSnapshot = await this.transport.controlDebugRun(this.activeRun.runId, action)
-    return this.debugSnapshot
+    const runId = this.activeRun.runId
+    const snapshot = await this.transport.controlDebugRun(runId, action)
+    this.acceptDebugSnapshot(runId, snapshot)
+    return this.debugSnapshot ?? snapshot
   }
 
   async setDebugBreakpoints(breakpoints: DebugBreakpoint[]): Promise<DebugSnapshot> {
     if (!this.activeRun || !this.debugSnapshot) throw new Error('debug Run is unavailable')
-    this.debugSnapshot = await this.transport.setDebugBreakpoints(this.activeRun.runId, breakpoints)
-    return this.debugSnapshot
+    const runId = this.activeRun.runId
+    const snapshot = await this.transport.setDebugBreakpoints(runId, breakpoints)
+    this.acceptDebugSnapshot(runId, snapshot)
+    return this.debugSnapshot ?? snapshot
   }
 
   acceptDebugSnapshot(runId: string, snapshot: DebugSnapshot): boolean {

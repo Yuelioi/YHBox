@@ -11,17 +11,18 @@ import (
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/blob"
 )
 
-// stubCaptureAdapter 测试用: ResolveWindow 返预设值/错误; Capture 不被这些测试触及.
+// stubCaptureAdapter 测试用: ResolveTarget 返预设值/错误; Capture 不被这些测试触及.
 type stubCaptureAdapter struct {
 	res [2]int
 	err error
 }
 
 func (s stubCaptureAdapter) CapturePNG(context.Context, string) ([]byte, error) { return nil, nil }
-func (s stubCaptureAdapter) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
-	return target.WindowHandle{ClientW: s.res[0], ClientH: s.res[1]}, s.err
+func (s stubCaptureAdapter) ResolveTarget(context.Context, string) (target.Target, error) {
+	return target.Target{Resolution: target.Size{W: s.res[0], H: s.res[1]}}, s.err
 }
 
 type recordingCaptureAdapter struct {
@@ -33,8 +34,8 @@ func (r *recordingCaptureAdapter) CapturePNG(_ context.Context, targetSlot strin
 	return []byte("png"), nil
 }
 
-func (r *recordingCaptureAdapter) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
-	return target.WindowHandle{}, nil
+func (r *recordingCaptureAdapter) ResolveTarget(context.Context, string) (target.Target, error) {
+	return target.Target{}, nil
 }
 
 func pngDataURL(t *testing.T, w, h int) string {
@@ -79,6 +80,47 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	list := svc.List()
 	if len(list) != 1 || list[0].GUID != guid || list[0].VariantCount != 1 || len(list[0].Variants) != 1 || list[0].Variants[0].Blob != v.Blob {
 		t.Fatalf("List = %+v", list)
+	}
+}
+
+func TestServicePreviewBlobReturnsBoundedPNG(t *testing.T) {
+	s, _ := newTestStore(t)
+	svc := NewService(s, nil)
+	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 800, 400), "preview", "", nil, [2]int{800, 400}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := svc.Get(guid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err := svc.PreviewBlob(record.Variants[0].Blob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.MediaType != "image/png" || preview.Width != 256 || preview.Height != 128 {
+		t.Fatalf("preview = %+v", preview)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(preview.Base64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(decoded))
+	if err != nil || config.Width != 256 || config.Height != 128 || len(decoded) > previewMaxOutputBytes {
+		t.Fatalf("decoded preview config=%+v bytes=%d err=%v", config, len(decoded), err)
+	}
+}
+
+func TestServicePreviewBlobRejectsUntrustedShapeBeforeRead(t *testing.T) {
+	s, _ := newTestStore(t)
+	svc := NewService(s, nil)
+	for _, ref := range []blob.BlobRef{
+		{MediaType: "application/octet-stream", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: 1},
+		{MediaType: "image/png", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: previewMaxSourceBytes + 1},
+	} {
+		if _, err := svc.PreviewBlob(ref); err == nil {
+			t.Fatalf("PreviewBlob(%+v) succeeded", ref)
+		}
 	}
 }
 

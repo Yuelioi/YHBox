@@ -41,15 +41,30 @@ func (targets AuthoringTargets) ResolveWindow(ctx context.Context, slot string) 
 	if err := VerifyProfile(provider.profile); err != nil {
 		return target.WindowHandle{}, failure(CodeIdentityChanged, err)
 	}
-	return provider.driver.ResolveWindow(ctx)
+	resolved, err := provider.driver.ResolveTarget(ctx)
+	if err != nil {
+		return target.WindowHandle{}, err
+	}
+	if resolved.Ref.HWND == 0 {
+		return target.WindowHandle{}, errors.New("automation target is not a desktop window")
+	}
+	return target.WindowHandle{
+		HWND: resolved.Ref.HWND, Title: resolved.DisplayName, ClientW: resolved.Resolution.W, ClientH: resolved.Resolution.H,
+	}, nil
 }
 
 func (targets AuthoringTargets) ResolveTarget(ctx context.Context, slot string) (target.Target, error) {
-	window, err := targets.ResolveWindow(ctx, slot)
+	provider, err := targets.provider(slot)
 	if err != nil {
 		return target.Target{}, err
 	}
-	return target.NewWin32WindowTarget(window), nil
+	if ctx == nil {
+		return target.Target{}, errors.New("resolve automation target context is required")
+	}
+	if err := VerifyProfile(provider.profile); err != nil {
+		return target.Target{}, failure(CodeIdentityChanged, err)
+	}
+	return provider.driver.ResolveTarget(ctx)
 }
 
 func (targets AuthoringTargets) CapturePNG(ctx context.Context, slot string) ([]byte, error) {

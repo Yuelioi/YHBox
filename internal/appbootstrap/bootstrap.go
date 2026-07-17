@@ -285,7 +285,8 @@ func Build(config Config) (*Runtime, error) {
 	}
 	application, err := appcore.New(appcore.Config{
 		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
-		Sources: sources, Programs: programs, Runs: runs,
+		BlobVerifier: blobStore,
+		Sources:      sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
 		Providers: providers,
 		ResourceOptions: resource.Options{
@@ -449,20 +450,29 @@ func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, works
 		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
 	}
 	for _, installed := range automationInstallations.Entries() {
+		descriptor := installed.Descriptor
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
+			capabilities := make([]admission.ProviderCapability, 0, len(descriptor.ResourceKinds))
+			for _, resourceKind := range descriptor.ResourceKinds {
+				switch resourceKind {
+				case automationinstalled.KindInput:
+					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationInput, ResourceKind: resourceKind})
+				case automationinstalled.KindWindow:
+					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationWindow, ResourceKind: resourceKind})
+				case automationinstalled.KindCapture:
+					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationCapture, ResourceKind: resourceKind})
+				case automationinstalled.KindPlayback:
+					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationPlayback, ResourceKind: resourceKind})
+				}
+			}
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
-				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
+				ID: descriptor.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: descriptor.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
-				Capabilities: []admission.ProviderCapability{
-					{Capability: automationInput, ResourceKind: automationinstalled.KindInput},
-					{Capability: automationWindow, ResourceKind: automationinstalled.KindWindow},
-					{Capability: automationCapture, ResourceKind: automationinstalled.KindCapture},
-					{Capability: automationPlayback, ResourceKind: automationinstalled.KindPlayback},
-				},
+				Capabilities: capabilities,
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
 		}
-		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: installed.TargetID, Kind: automationinstalled.TargetKind, ProviderID: installed.ProviderID})
+		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: descriptor.TargetID, Kind: descriptor.TargetKind, ProviderID: descriptor.ProviderID})
 		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
 	}
 	return admission.SealHostProfile(draft)

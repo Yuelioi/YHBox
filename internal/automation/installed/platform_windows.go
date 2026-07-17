@@ -6,10 +6,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/draw"
 	"image/png"
-	"math"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/controller"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
@@ -23,6 +25,55 @@ type windowsDriver struct {
 	gate    chan struct{}
 	cached  uintptr
 	closed  bool
+}
+
+type controllerInputAdapter struct{ backend pkginput.Backend }
+
+func (a controllerInputAdapter) Click(hwnd uintptr, x, y float64, button string, duration int) error {
+	return a.backend.Click(pkginput.Handle(hwnd), x, y, button, duration)
+}
+func (a controllerInputAdapter) MouseDown(hwnd uintptr, x, y float64, button string) error {
+	return a.backend.MouseDown(pkginput.Handle(hwnd), x, y, button)
+}
+func (a controllerInputAdapter) MouseUp(hwnd uintptr, button string) error {
+	return a.backend.MouseUp(pkginput.Handle(hwnd), button)
+}
+func (a controllerInputAdapter) Drag(hwnd uintptr, x1, y1, x2, y2 float64, button string, duration int) error {
+	return a.backend.Drag(pkginput.Handle(hwnd), x1, y1, x2, y2, button, duration)
+}
+func (a controllerInputAdapter) MouseMoveRel(hwnd uintptr, dx, dy, duration int) error {
+	return a.backend.MouseMoveRel(pkginput.Handle(hwnd), dx, dy, duration)
+}
+func (a controllerInputAdapter) KeyDown(hwnd uintptr, key string) error {
+	return a.backend.KeyDown(pkginput.Handle(hwnd), key)
+}
+func (a controllerInputAdapter) KeyUp(hwnd uintptr, key string) error {
+	return a.backend.KeyUp(pkginput.Handle(hwnd), key)
+}
+func (a controllerInputAdapter) TypeText(hwnd uintptr, value string) error {
+	return a.backend.TypeText(pkginput.Handle(hwnd), value)
+}
+func (a controllerInputAdapter) MoveTo(hwnd uintptr, x, y float64) error {
+	return a.backend.MoveTo(pkginput.Handle(hwnd), x, y)
+}
+func (a controllerInputAdapter) Scroll(hwnd uintptr, x, y float64, notches int, horizontal bool) error {
+	return a.backend.Scroll(pkginput.Handle(hwnd), x, y, notches, horizontal)
+}
+func (a controllerInputAdapter) CursorRatio(hwnd uintptr) (float64, float64, error) {
+	return a.backend.CursorRatio(pkginput.Handle(hwnd))
+}
+
+type controllerCaptureAdapter struct{ backend pkgcapture.IBackend }
+
+func (a controllerCaptureAdapter) Frame(hwnd uintptr) (controller.Frame, error) {
+	frame, err := a.backend.Frame(pkgcapture.Handle(hwnd))
+	if err != nil {
+		return controller.Frame{}, err
+	}
+	bounds := frame.Bounds()
+	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, frame, bounds.Min, draw.Src)
+	return controller.Frame{Image: rgba, Space: target.SpaceWindowClient, Size: target.Size{W: bounds.Dx(), H: bounds.Dy()}}, nil
 }
 
 func PlatformSupported() bool { return true }
@@ -47,21 +98,21 @@ func newPlatformDriver(profile Profile) (driver, error) {
 	return &windowsDriver{profile: profile, backend: backend, capture: captureBackend, gate: gate}, nil
 }
 
-func (d *windowsDriver) ResolveWindow(ctx context.Context) (target.WindowHandle, error) {
+func (d *windowsDriver) ResolveTarget(ctx context.Context) (target.Target, error) {
 	select {
 	case <-ctx.Done():
-		return target.WindowHandle{}, ctx.Err()
+		return target.Target{}, ctx.Err()
 	case <-d.gate:
 	}
 	defer func() { d.gate <- struct{}{} }()
 	if d.closed {
-		return target.WindowHandle{}, failure(CodeContractViolation, errors.New("automation target driver is closed"))
+		return target.Target{}, failure(CodeContractViolation, errors.New("automation target driver is closed"))
 	}
 	window, err := d.resolve(ctx)
 	if err != nil {
-		return target.WindowHandle{}, err
+		return target.Target{}, err
 	}
-	return target.WindowHandle(window), nil
+	return target.NewWin32WindowTarget(target.WindowHandle(window)), nil
 }
 
 func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
@@ -78,7 +129,11 @@ func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	frame, err := d.capture.Frame(pkgcapture.Handle(window.HWND))
+	resolved, err := d.controller(window)
+	if err != nil {
+		return nil, failure(CodeCaptureFailed, err)
+	}
+	frame, err := resolved.Screenshot(ctx, controller.ScreenshotRequest{Space: target.SpaceWindowClient})
 	if err != nil {
 		return nil, failure(CodeCaptureFailed, err)
 	}
@@ -86,13 +141,22 @@ func (d *windowsDriver) Capture(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, frame); err != nil {
+	if err := png.Encode(&encoded, frame.Image); err != nil {
 		return nil, failure(CodeCaptureFailed, err)
 	}
 	if int64(encoded.Len()) > MaxCaptureBytes {
 		return nil, failure(CodeCaptureFailed, errors.New("captured PNG exceeds byte budget"))
 	}
 	return encoded.Bytes(), nil
+}
+
+func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win32Controller, error) {
+	return controller.NewWin32Controller(
+		target.NewWin32WindowTarget(target.WindowHandle(window)),
+		controller.Win32Deps{
+			Input: controllerInputAdapter{backend: d.backend}, Capture: controllerCaptureAdapter{backend: d.capture}, Backend: d.profile.AdapterKind(),
+		},
+	)
 }
 
 func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) error {
@@ -164,7 +228,10 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 		}
 	}
 	defer func() { runErr = errors.Join(runErr, d.backend.ReleaseAll()) }()
-	handle := pkginput.Handle(window.HWND)
+	resolved, err := d.controller(window)
+	if err != nil {
+		return failure(CodeContractViolation, err)
+	}
 	switch request := raw.(type) {
 	case struct{}:
 		if operation != OperationActivate {
@@ -179,25 +246,23 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 		if err != nil {
 			return err
 		}
-		if err := d.backend.MouseDown(handle, point.X, point.Y, request.Button); err != nil {
-			return err
-		}
-		if err := waitContext(ctx, request.DurationMilliseconds); err != nil {
-			return err
-		}
-		return d.backend.MouseUp(handle, request.Button)
+		return resolved.Click(ctx, controller.ClickRequest{
+			Point: target.NewNormalizedPoint(point.X, point.Y), Button: request.Button, DurationMs: int(request.DurationMilliseconds),
+		})
 	case MoveRequest:
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
 		}
-		return d.backend.MoveTo(handle, point.X, point.Y)
+		return resolved.Move(ctx, controller.MoveRequest{Point: target.NewNormalizedPoint(point.X, point.Y)})
 	case ScrollRequest:
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
 		}
-		return d.backend.Scroll(handle, point.X, point.Y, int(request.Notches), request.Horizontal)
+		return resolved.Scroll(ctx, controller.ScrollRequest{
+			Point: target.NewNormalizedPoint(point.X, point.Y), Notches: int(request.Notches), Horizontal: request.Horizontal,
+		})
 	case DragRequest:
 		from, err := windowPoint(request.From, window.ClientW, window.ClientH)
 		if err != nil {
@@ -207,12 +272,14 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 		if err != nil {
 			return err
 		}
-		return d.drag(ctx, handle, from, to, request.Button, request.DurationMilliseconds)
+		return resolved.Drag(ctx, controller.DragRequest{
+			From: target.NewNormalizedPoint(from.X, from.Y), To: target.NewNormalizedPoint(to.X, to.Y), Button: request.Button, DurationMs: int(request.DurationMilliseconds),
+		})
 	case RelativeMoveRequest:
-		return d.moveRelative(ctx, handle, request)
+		return resolved.MoveRelative(ctx, controller.RelativeMoveRequest{Dx: int(request.DeltaX), Dy: int(request.DeltaY), DurationMs: int(request.DurationMilliseconds)})
 	case PressKeysRequest:
 		for _, key := range request.Keys {
-			if err := d.backend.KeyDown(handle, key); err != nil {
+			if err := resolved.KeyDown(ctx, controller.KeyRequest{Key: key}); err != nil {
 				return err
 			}
 		}
@@ -220,21 +287,13 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 			return err
 		}
 		for index := len(request.Keys) - 1; index >= 0; index-- {
-			if err := d.backend.KeyUp(handle, request.Keys[index]); err != nil {
+			if err := resolved.KeyUp(ctx, controller.KeyRequest{Key: request.Keys[index]}); err != nil {
 				return err
 			}
 		}
 		return nil
 	case TypeTextRequest:
-		for _, character := range request.Text {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if err := d.backend.TypeText(handle, string(character)); err != nil {
-				return err
-			}
-		}
-		return nil
+		return resolved.Text(ctx, controller.TextRequest{Text: request.Text})
 	default:
 		return failure(CodeContractViolation, errors.New("automation input request type is unsupported"))
 	}
@@ -266,43 +325,6 @@ func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, erro
 	return window, nil
 }
 
-func (d *windowsDriver) drag(ctx context.Context, handle pkginput.Handle, from, to normalizedPoint, button string, duration int64) error {
-	if err := d.backend.MoveTo(handle, from.X, from.Y); err != nil {
-		return err
-	}
-	if err := d.backend.MouseDown(handle, from.X, from.Y, button); err != nil {
-		return err
-	}
-	steps := durationSteps(duration)
-	for step := 1; step <= steps; step++ {
-		if err := waitContext(ctx, duration/int64(steps)); err != nil {
-			return err
-		}
-		progress := float64(step) / float64(steps)
-		if err := d.backend.MoveTo(handle, from.X+(to.X-from.X)*progress, from.Y+(to.Y-from.Y)*progress); err != nil {
-			return err
-		}
-	}
-	return d.backend.MouseUp(handle, button)
-}
-
-func (d *windowsDriver) moveRelative(ctx context.Context, handle pkginput.Handle, request RelativeMoveRequest) error {
-	steps := durationSteps(request.DurationMilliseconds)
-	previousX, previousY := int64(0), int64(0)
-	for step := 1; step <= steps; step++ {
-		if err := waitContext(ctx, request.DurationMilliseconds/int64(steps)); err != nil {
-			return err
-		}
-		currentX := int64(math.Round(float64(request.DeltaX) * float64(step) / float64(steps)))
-		currentY := int64(math.Round(float64(request.DeltaY) * float64(step) / float64(steps)))
-		if err := d.backend.MouseMoveRel(handle, int(currentX-previousX), int(currentY-previousY), 0); err != nil {
-			return err
-		}
-		previousX, previousY = currentX, currentY
-	}
-	return nil
-}
-
 func (d *windowsDriver) Close() error {
 	<-d.gate
 	defer func() { d.gate <- struct{}{} }()
@@ -326,13 +348,6 @@ func windowPoint(point Point, width, height int) (normalizedPoint, error) {
 		return normalizedPoint{}, failure(CodeInvalidRequest, errors.New("pixel point is outside the installed target client area"))
 	}
 	return normalizedPoint{X: point.X / float64(width), Y: point.Y / float64(height)}, nil
-}
-
-func durationSteps(duration int64) int {
-	if duration <= 0 {
-		return 1
-	}
-	return max(1, int(math.Ceil(float64(duration)/16)))
 }
 
 func waitContext(ctx context.Context, milliseconds int64) error {

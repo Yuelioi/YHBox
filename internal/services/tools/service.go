@@ -287,6 +287,21 @@ func (s *Service) OpenLauncher() error {
 	return nil
 }
 
+// OpenLauncherSettings reveals the existing main window and asks only its
+// main-shell router to navigate. The launcher webview remains on its
+// standalone route and no editor draft is bypassed or force-reloaded.
+func (s *Service) OpenLauncherSettings() error {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	if err := presenter.ShowMain(); err != nil {
+		return err
+	}
+	presenter.Emit("main:navigate", map[string]string{"path": "/settings", "section": "launcher"})
+	return nil
+}
+
 // ToggleLauncher 呼出/隐藏（toggle 全局热键调）。可见 → 隐；否则 → 开/显示。
 func (s *Service) ToggleLauncher() error {
 	s.mu.Lock()
@@ -441,7 +456,7 @@ func (s *Service) ClosePicker(requestID string) error {
 // StartWin32WindowTargetCapture 注册「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
 // 用户按下后:
 //  1. 查前台窗口 metadata
-//  2. emit "win32windowtarget:captured" event {title, class, processName, clientW, clientH}
+//  2. emit "win32windowtarget:captured" event {title, class, executable}
 //  3. 自动反注册热键
 //
 // 键来源 = constructor-pinned registry getter (mods+vk); 未注入回退 F9。

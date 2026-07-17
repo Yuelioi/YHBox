@@ -16,6 +16,7 @@ var slotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {
 	Slot    string
+	Label   string
 	Profile ProfileDraft
 	Consent artifact.Digest
 }
@@ -28,6 +29,7 @@ type Installation struct {
 	TargetID         string
 	Consent          artifact.Digest
 	Provider         resource.Provider
+	Descriptor       InstallationDescriptor
 }
 
 type installationState struct {
@@ -37,9 +39,10 @@ type installationState struct {
 type Installations struct{ state *installationState }
 
 func Install(drafts []InstallationDraft) (result Installations, resultErr error) {
-	if len(drafts) > 0 && !PlatformSupported() {
-		return Installations{}, errors.New("installed automation targets are unavailable on this host")
-	}
+	return installWithRegistry(drafts, defaultAdapterRegistry())
+}
+
+func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (result Installations, resultErr error) {
 	ordered := append([]InstallationDraft(nil), drafts...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Slot < ordered[j].Slot })
 	entries := make([]Installation, 0, len(ordered))
@@ -75,7 +78,7 @@ func Install(drafts []InstallationDraft) (result Installations, resultErr error)
 		}
 		installed, exists := shared[profile.Digest()]
 		if !exists {
-			created, err := newProvider(profile)
+			created, err := newProvider(profile, registry)
 			if err != nil {
 				return Installations{}, err
 			}
@@ -92,6 +95,11 @@ func Install(drafts []InstallationDraft) (result Installations, resultErr error)
 			providers = append(providers, created)
 		}
 		installed.Slot, installed.TargetID, installed.Consent = draft.Slot, TargetID(draft.Slot), draft.Consent
+		registered, err := registry.registration(profile)
+		if err != nil {
+			return Installations{}, err
+		}
+		installed.Descriptor = descriptorFor(draft.Slot, draft.Label, installed.TargetID, installed.ProviderID, profile, registered.descriptor, draft.Consent != "")
 		entries = append(entries, installed)
 	}
 	return Installations{state: &installationState{entries: entries, providers: providers}}, nil
@@ -126,9 +134,13 @@ func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error
 	if !slotPattern.MatchString(slot) || !profile.Valid() {
 		return "", errors.New("automation target consent identity is invalid")
 	}
+	operations := desktopOperations()
+	if profile.AdapterKind() == AdapterKindAndroidADB {
+		operations = androidOperations()
+	}
 	raw, err := artifact.Marshal(map[string]any{
 		"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI,
-		"operations": Operations(),
+		"operations": operations,
 	})
 	if err != nil {
 		return "", err

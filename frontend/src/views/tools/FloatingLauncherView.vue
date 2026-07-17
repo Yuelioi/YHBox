@@ -44,6 +44,15 @@
           <UIcon name="i-tabler-layout-grid-add" class="size-4 text-dimmed" />
         </span>
         <p class="text-xs text-dimmed">{{ t('floatingLauncher.empty') }}</p>
+        <UButton
+          size="xs"
+          color="primary"
+          variant="soft"
+          icon="i-tabler-settings"
+          @click="openSettings"
+        >
+          {{ t('floatingLauncher.configure') }}
+        </UButton>
       </div>
 
       <LauncherSurface
@@ -211,6 +220,10 @@ async function onRun(id: string) {
 
 function onHide() {
   void backend.tools.hideLauncher()
+}
+
+async function openSettings(): Promise<void> {
+  if (await backend.tools.openLauncherSettings()) await backend.tools.hideLauncher()
 }
 
 function focusSearch() {

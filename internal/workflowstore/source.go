@@ -178,6 +178,35 @@ func (s *SourceStore) List() []SourceSnapshot {
 	return result
 }
 
+// Delete removes one exact Source revision. The revision and hash form a CAS
+// boundary so a library action cannot delete a Source edited after the user
+// reviewed the confirmation dialog.
+func (s *SourceStore) Delete(ctx context.Context, workflowID string, revision int64, hash artifact.Digest) error {
+	if ctx == nil || strings.TrimSpace(workflowID) == "" || revision < 0 || !hash.Valid() {
+		return errors.New("workflow source delete requires context and exact source identity")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, exists := s.sources[workflowID]
+	if !exists {
+		return ErrSourceNotFound
+	}
+	if current.revision != revision || current.hash != hash {
+		return ErrSourceConflict
+	}
+	if err := s.verifyLocked(current); err != nil {
+		return err
+	}
+	err := durablefs.Remove(s.sourcePath(workflowID))
+	if err == nil || durablefs.Committed(err) {
+		delete(s.sources, workflowID)
+	}
+	return err
+}
+
 func (s *SourceStore) verifyLocked(current SourceSnapshot) error {
 	raw, err := os.ReadFile(s.sourcePath(current.workflowID))
 	if err != nil {

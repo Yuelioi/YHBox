@@ -69,6 +69,38 @@
       class="w-full"
       @update:model-value="setTemplateImage"
     />
+    <div
+      v-if="port.editorAdapter === 'template-image' && binding?.kind === 'blob'"
+      class="flex items-center gap-3 rounded-lg border border-default bg-default p-2"
+    >
+      <BlobPreview
+        v-if="selectedTemplateVariant"
+        :blob="selectedTemplateVariant.blob"
+        :alt="selectedTemplateVariant.label"
+        class="size-14 shrink-0"
+        @state="templatePreviewState = $event"
+      />
+      <div
+        v-else
+        class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error"
+      >
+        <UIcon name="i-tabler-photo-off" class="size-5" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-xs font-medium text-toned">
+          {{ selectedTemplateVariant?.label || t('workflow.inspector.resource_missing') }}
+        </p>
+        <p class="truncate font-mono text-[10px] text-dimmed">{{ binding.blob?.digest }}</p>
+      </div>
+      <UBadge
+        v-if="!selectedTemplateVariant || templatePreviewState === 'unavailable'"
+        color="error"
+        variant="soft"
+        size="sm"
+      >
+        {{ t('workflow.inspector.resource_stale') }}
+      </UBadge>
+    </div>
     <USelect
       v-else-if="isInputClip"
       :model-value="selectedClipId"
@@ -79,6 +111,18 @@
       class="w-full"
       @update:model-value="setClip"
     />
+    <div
+      v-if="isInputClip && binding?.kind === 'blob'"
+      class="flex items-center gap-2 rounded-lg border border-default bg-default px-3 py-2"
+    >
+      <UIcon name="i-tabler-movie" class="size-4 shrink-0 text-primary" />
+      <span class="min-w-0 flex-1 truncate text-xs text-toned">
+        {{ selectedClip?.label || t('workflow.inspector.resource_missing') }}
+      </span>
+      <UBadge v-if="!selectedClip" color="error" variant="soft" size="sm">
+        {{ t('workflow.inspector.resource_stale') }}
+      </UBadge>
+    </div>
     <p v-else class="text-[11px] leading-5 text-muted">
       {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
     </p>
@@ -104,13 +148,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { InputBinding } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
 import PointValueEditor from '@/app/editor/PointValueEditor.vue'
 import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
+import BlobPreview from '@/components/common/BlobPreview.vue'
 
 type Blob = { mediaType: string; digest: string; size: number }
 type Clip = { id: string; label: string; blob: Blob }
@@ -127,6 +172,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
+const templatePreviewState = ref<'loading' | 'ready' | 'unavailable'>('loading')
 
 const binding = computed(() => props.node.bindings[props.port.id])
 const acceptsInline = computed(() =>
@@ -170,16 +216,17 @@ const literalPlaceholder = computed(() =>
           : 'workflow.inspector.optional_value',
       ),
 )
-const selectedTemplateVariantId = computed(
-  () => matchingBlob(binding.value, props.templateVariantItems)?.value,
+const selectedTemplateVariant = computed(() =>
+  matchingBlob(binding.value, props.templateVariantItems),
 )
-const selectedClipId = computed(
-  () =>
-    matchingBlob(
-      binding.value,
-      props.clips.map((clip) => ({ ...clip, value: clip.id })),
-    )?.value,
+const selectedTemplateVariantId = computed(() => selectedTemplateVariant.value?.value)
+const selectedClip = computed(() =>
+  matchingBlob(
+    binding.value,
+    props.clips.map((clip) => ({ ...clip, value: clip.id })),
+  ),
 )
+const selectedClipId = computed(() => selectedClip.value?.value)
 
 function numericConstraint(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined

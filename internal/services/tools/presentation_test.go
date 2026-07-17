@@ -78,6 +78,7 @@ type fakePresenter struct {
 	requests []WindowRequest
 	window   *fakeWindow
 	emitted  []string
+	showMain int
 }
 
 func (p *fakePresenter) Ready() bool { return p.ready }
@@ -91,6 +92,7 @@ func (p *fakePresenter) OpenWindow(request WindowRequest) (Window, error) {
 }
 
 func (p *fakePresenter) Emit(name string, _ any) { p.emitted = append(p.emitted, name) }
+func (p *fakePresenter) ShowMain() error         { p.showMain++; return nil }
 
 type fakeWindow struct {
 	focusCalls int
@@ -128,6 +130,26 @@ func TestOpenMouseHUDUsesPresentationPort(t *testing.T) {
 	}
 	if len(presenter.requests) != 1 || presenter.window.focusCalls != 1 {
 		t.Fatalf("open calls = %d, focus calls = %d", len(presenter.requests), presenter.window.focusCalls)
+	}
+}
+
+func TestLauncherOpenIsIdempotentAndEmptyStateCanRevealSettings(t *testing.T) {
+	presenter := &fakePresenter{ready: true}
+	service := NewService(nil, presenter)
+	if err := service.OpenLauncher(); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.OpenLauncher(); err != nil {
+		t.Fatal(err)
+	}
+	if len(presenter.requests) != 1 || presenter.window.showCalls != 1 || presenter.window.focusCalls != 1 {
+		t.Fatalf("launcher requests=%d show=%d focus=%d", len(presenter.requests), presenter.window.showCalls, presenter.window.focusCalls)
+	}
+	if err := service.OpenLauncherSettings(); err != nil {
+		t.Fatal(err)
+	}
+	if presenter.showMain != 1 || len(presenter.emitted) != 1 || presenter.emitted[0] != "main:navigate" {
+		t.Fatalf("main show=%d events=%v", presenter.showMain, presenter.emitted)
 	}
 }
 
@@ -408,3 +430,4 @@ func (p *blockingPresenter) OpenWindow(WindowRequest) (Window, error) {
 }
 
 func (*blockingPresenter) Emit(string, any) {}
+func (*blockingPresenter) ShowMain() error  { return nil }

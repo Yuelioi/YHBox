@@ -10,9 +10,9 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 编译 / 验证产物时前置读这份。
 
 - frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
-- Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
+- Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 v3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
 - 开发入口 task dev。
-- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击 0→1、拖放 1→2，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
+- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击与拖放节点数递增，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。空白连线落点必须扫描画布可用区域，不能依赖少量固定坐标。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
 - 完整本地门禁 task check：supply-chain、contracts、AI eval、版本/Wails、Go tests + global 65% + vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。
 - 正式构建只用 task build；它生成 bindings/frontend/syso，并构建 Yotta.exe、Yotta.CLI.exe、ScriptWorker、WasmPluginRunner、capture DLL 与 ADB。不要裸 go build -o Yotta.exe。
 - task package 要求前后 worktree 全干净，依次执行 task check、production build、staging、manifest/archive 与 frozen-payload smoke；公开 stable 仍受许可证、证书、canonical identity、维护者/owner 设置和原生宿主 smoke 阻塞。
@@ -20,26 +20,27 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 
 ## bindings 与 generated contracts
 
-frontend/bindings 由 Wails 生成且 gitignore，不手改。node frontend/scripts/generate-bindings.mjs 固定生成 TypeScript；pnpm -C frontend bindings:check 对比 tracked contracts/wails-rpc.json。2026-07-17 基线为 14 services / 94 methods / 109 models。
+frontend/bindings 由 Wails 生成且 gitignore，不手改。node frontend/scripts/generate-bindings.mjs 固定生成 TypeScript；pnpm -C frontend bindings:check 对比 tracked contracts/wails-rpc.json。2026-07-17 Stage 7 基线为 14 services / 106 methods / 134 models。
 
 Workflow/Node durable contracts 由同一 Go generator 供 runtime validator 与 tracked JSON Schema/TypeScript；task contracts:check 拒绝漂移。plugin Proto/WIT/SDK/reference/conformance 由 task plugins:check 拒绝漂移。
 
 ## 测试基线
 
-2026-07-17 最终 3.1 engineering baseline：task package 全绿；global Go coverage 65.0%（门槛 65%）、根包 75.0%、cmd/yotta 65.3%，package floors、go vet、staticcheck 全部通过。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
+2026-07-17 Stage 3 baseline：task check 全绿；global Go coverage 65.6%（门槛 65%）、根包 75.0%、cmd/yotta 65.3%，package floors、go vet、staticcheck 全部通过。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
 
 Go 门禁由 task check 统一编排。CI 另含 race group、parser/package/MCP fuzz、Linux/macOS portable core 与三平台原生 GUI compile。race 清单使用稳定 internal/noderuntime 名称，不得恢复 nodes31 等发布号包名。
 
-Windows 本地可用 `go test -c` 逐包生成 linux/amd64、darwin/arm64 测试二进制，只作为 portable-core 编译证据；不能直接 `GOOS=... go test` 后尝试运行外平台二进制，也不能把 wrapper 跳过执行冒充原生测试。原生 Linux/macOS portable-core 与 production GUI 结果以 CI runner 为权威；Windows cross-compile 不能替代 CGo/WebKit 宿主。
+Windows 本地可用 go test -c 逐包生成 linux/amd64、darwin/arm64 测试二进制，只作为 portable-core 编译证据；不能直接 GOOS=... go test 后尝试运行外平台二进制，也不能把 wrapper 跳过执行冒充原生测试。原生 Linux/macOS portable-core 与 production GUI 结果以 CI runner 为权威；Windows cross-compile 不能替代 CGo/WebKit 宿主。
 
 Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed。
 
-前端基线：28 files / 106 tests；i18n 1269 keys、0 中文 residue；Wails 14/94/109；tracked no-explicit-any debt 24。production bundle entry 262848 gzip bytes（limit 350000），editor 97544（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
+前端基线：38 files / 145 tests；i18n 1595 keys、0 中文 residue；Wails 14/106/134；tracked no-explicit-any debt 24。production bundle entry 275466 gzip bytes（limit 350000），editor 121372（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
 
 ## 运行 / smoke
 
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
-- Workflow smoke 基线：100 catalog nodes、2 canvas nodes、AI review panel 可达；截图应显示实际顶栏、目录、画布、节点、review panel 与日志层。
+- Workflow smoke 基线：104 catalog nodes、3 canvas nodes、AI review panel 与资源/录制入口可达；截图应显示实际顶栏、目录、画布、节点、review panel 与日志层。
+- Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`$env:YOTTA_ADB_SMOKE='1'; go test ./internal/automation/installed -run TestAndroidADBEmulatorSmoke -count=1 -v`。它必须通过 bundled/configured ADB 做 exact identity、分辨率、启动/停止、PNG 截图和通用输入操作；不得以 controller mock 替代该证据。
 - WebView2 截图前必须 bringToFront、focus emulation、两次 requestAnimationFrame 加 settle，避免 DOM 绿但 PNG 黑屏。
 - Wails dev 的可选 custom.js/favicon 404 非阻断；阻断信号是 JS error/rejection/console.error、节点计数不变、CDP 不可达或截图实际布局不可用。
