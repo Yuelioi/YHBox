@@ -232,6 +232,7 @@
             class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
             <UButton
+              data-testid="workflow-layout-lr"
               icon="i-tabler-layout-board-split"
               color="neutral"
               variant="ghost"
@@ -241,6 +242,7 @@
               @click="autoLayout('LR')"
             />
             <UButton
+              data-testid="workflow-layout-tb"
               icon="i-tabler-layout-navbar-collapse"
               color="neutral"
               variant="ghost"
@@ -803,11 +805,14 @@ function dragPositions(
 
 function sizedFlowNode(nodeId: string, position: { x: number; y: number }): SizedWorkflowNode {
   const dimensions = findNode(nodeId)?.dimensions
+  const element = [
+    ...(canvasElement.value?.querySelectorAll<HTMLElement>('.vue-flow__node') ?? []),
+  ].find((candidate) => candidate.dataset.id === nodeId)
   return {
     id: nodeId,
     position,
-    width: dimensions?.width || 230,
-    height: dimensions?.height || 90,
+    width: element?.offsetWidth || dimensions?.width || 230,
+    height: element?.offsetHeight || dimensions?.height || 90,
   }
 }
 

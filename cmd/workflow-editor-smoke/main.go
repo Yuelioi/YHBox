@@ -16,23 +16,47 @@ import (
 )
 
 type pageState struct {
-	Href               string   `json:"href"`
-	Catalog            int      `json:"catalog"`
-	CanvasNodes        int      `json:"canvasNodes"`
-	AIReview           bool     `json:"aiReview"`
-	WorkflowState      bool     `json:"workflowState"`
-	RunStarted         bool     `json:"runStarted"`
-	AssetsView         bool     `json:"assetsView"`
-	AssetsRecording    bool     `json:"assetsRecording"`
-	CreateInput        bool     `json:"createInput"`
-	GraphChromeDark    bool     `json:"graphChromeDark"`
-	HandleOverlaps     int      `json:"handleOverlaps"`
-	NativeConfirmCalls int      `json:"nativeConfirmCalls"`
-	ConfirmDialog      bool     `json:"confirmDialog"`
-	Dirty              bool     `json:"dirty"`
-	SaveInlineFeedback bool     `json:"saveInlineFeedback"`
-	SaveToast          bool     `json:"saveToast"`
-	Errors             []string `json:"errors"`
+	Href               string         `json:"href"`
+	Catalog            int            `json:"catalog"`
+	CanvasNodes        int            `json:"canvasNodes"`
+	AIReview           bool           `json:"aiReview"`
+	WorkflowState      bool           `json:"workflowState"`
+	RunStarted         bool           `json:"runStarted"`
+	AssetsView         bool           `json:"assetsView"`
+	AssetsRecording    bool           `json:"assetsRecording"`
+	CreateInput        bool           `json:"createInput"`
+	GraphChromeDark    bool           `json:"graphChromeDark"`
+	HandleOverlaps     int            `json:"handleOverlaps"`
+	NativeConfirmCalls int            `json:"nativeConfirmCalls"`
+	ConfirmDialog      bool           `json:"confirmDialog"`
+	Dirty              bool           `json:"dirty"`
+	SaveInlineFeedback bool           `json:"saveInlineFeedback"`
+	SaveToast          bool           `json:"saveToast"`
+	SelectedNodes      int            `json:"selectedNodes"`
+	SelectionToolbar   bool           `json:"selectionToolbar"`
+	ConnectionMenu     bool           `json:"connectionMenu"`
+	NodeOverlaps       int            `json:"nodeOverlaps"`
+	NodeGeometry       []nodeGeometry `json:"nodeGeometry"`
+	Errors             []string       `json:"errors"`
+}
+
+type nodeGeometry struct {
+	ID        string  `json:"id"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
+	Width     float64 `json:"width"`
+	Height    float64 `json:"height"`
+	Transform string  `json:"transform"`
+}
+
+type point struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type connectionGesture struct {
+	Start point `json:"start"`
+	End   point `json:"end"`
 }
 
 func main() {
@@ -41,7 +65,7 @@ func main() {
 	assetsScreenshot := flag.String("assets-screenshot", ".task/assets-smoke.png", "asset library PNG output path")
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -140,6 +164,87 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == afterClick.CanvasNodes+1 }); err != nil {
 		return fmt.Errorf("drag catalog node: %w", err)
+	}
+
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-layout-lr"]');
+		if (!button) throw new Error('left-to-right layout button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeOverlaps == 0 }); err != nil {
+		return fmt.Errorf("auto-layout workflow nodes: %w", err)
+	}
+
+	var selectionGesture connectionGesture
+	if err := evalJSON(ctx, client, `(() => {
+		const nodes = [...document.querySelectorAll('.vue-flow__node')].slice(0, 2);
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (nodes.length < 2 || !canvas) throw new Error('box selection needs two nodes and a canvas');
+		const rects = nodes.map(node => node.getBoundingClientRect());
+		const bounds = canvas.getBoundingClientRect();
+		return {
+			start: {
+				x: Math.max(bounds.left + 4, Math.min(...rects.map(rect => rect.left)) - 18),
+				y: Math.max(bounds.top + 4, Math.min(...rects.map(rect => rect.top)) - 18)
+			},
+			end: {
+				x: Math.min(bounds.right - 4, Math.max(...rects.map(rect => rect.right)) + 18),
+				y: Math.min(bounds.bottom - 4, Math.max(...rects.map(rect => rect.bottom)) + 18)
+			}
+		};
+	})()`, &selectionGesture); err != nil {
+		return err
+	}
+	if err := dispatchBoxSelection(ctx, client, selectionGesture); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 2 && current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("multi-select workflow nodes: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const pane = document.querySelector('.vue-flow__pane');
+		if (!pane) throw new Error('workflow pane not found');
+		pane.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 0 && !current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("clear workflow selection: %w", err)
+	}
+
+	var gesture connectionGesture
+	if err := evalJSON(ctx, client, `(() => {
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!handle || !canvas) throw new Error('connection handle or canvas not found');
+		const h = handle.getBoundingClientRect();
+		const c = canvas.getBoundingClientRect();
+		const candidates = [
+			[0.76, 0.72], [0.62, 0.78], [0.48, 0.75], [0.72, 0.5], [0.5, 0.82]
+		].map(([x, y]) => ({ x: c.left + c.width * x, y: c.top + c.height * y }));
+		const end = candidates.find(point => {
+			const element = document.elementFromPoint(point.x, point.y);
+			return element && !element.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-selection-toolbar"]');
+		});
+		if (!end) throw new Error('blank connection drop point not found');
+		return { start: { x: h.left + h.width / 2, y: h.top + h.height / 2 }, end };
+	})()`, &gesture); err != nil {
+		return err
+	}
+	if err := dispatchConnectionGesture(ctx, client, gesture); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.ConnectionMenu }); err != nil {
+		return fmt.Errorf("open compatible connection menu: %w", err)
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-connection-menu"] button[aria-label]')?.click()`); err != nil {
+		return err
 	}
 
 	visualState, err := state(ctx, client)
@@ -335,7 +440,8 @@ func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicat
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			details, _ := json.Marshal(current)
+			return fmt.Errorf("%w; last page state: %s", ctx.Err(), details)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
@@ -365,6 +471,14 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		}).length;
 		const bodyText = document.body.innerText;
 		const saveButtonText = document.querySelector('[data-testid="workflow-save"]')?.innerText || '';
+		const nodeRects = [...document.querySelectorAll('.vue-flow__node')].map(node => node.getBoundingClientRect());
+		let nodeOverlaps = 0;
+		for (let left = 0; left < nodeRects.length; left++) {
+			for (let right = left + 1; right < nodeRects.length; right++) {
+				const a = nodeRects[left], b = nodeRects[right];
+				if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) nodeOverlaps++;
+			}
+		}
 		return {
 		href: location.href,
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
@@ -382,10 +496,84 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		dirty: Boolean(document.querySelector('[data-testid="workflow-unsaved"]')),
 		saveInlineFeedback: saveButtonText.includes('已保存') || saveButtonText.includes('Saved'),
 		saveToast: bodyText.includes('工作流已保存') || bodyText.includes('Workflow saved'),
+		selectedNodes: document.querySelectorAll('.vue-flow__node.selected').length,
+		selectionToolbar: Boolean(document.querySelector('[data-testid="workflow-selection-toolbar"]')),
+		connectionMenu: Boolean(document.querySelector('[data-testid="workflow-connection-menu"]')),
+		nodeOverlaps,
+		nodeGeometry: [...document.querySelectorAll('.vue-flow__node')].map(node => {
+			const rect = node.getBoundingClientRect();
+			return { id: node.getAttribute('data-id') || '', x: rect.x, y: rect.y, width: rect.width, height: rect.height, transform: node.style.transform };
+		}),
 		errors: window.__yottaSmokeErrors || []
 		};
 	})()`, &out)
 	return out, err
+}
+
+func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	payload, _ := json.Marshal(gesture)
+	return eval(ctx, client, fmt.Sprintf(`(async () => {
+		const gesture = %s;
+		const hit = document.elementFromPoint(gesture.start.x, gesture.start.y);
+		const handle = hit?.closest('.vue-flow__handle.source');
+		if (!handle) throw new Error('connection gesture hit ' + (hit?.tagName || 'nothing') + '.' + String(hit?.className || ''));
+		const mouse = (type, point, buttons) => new MouseEvent(type, {
+			bubbles: true, cancelable: true, view: window, button: 0, buttons,
+			clientX: point.x, clientY: point.y
+		});
+		handle.dispatchEvent(mouse('mousedown', gesture.start, 1));
+		await new Promise(resolve => setTimeout(resolve, 50));
+		for (let step = 1; step <= 8; step++) {
+			const ratio = step / 8;
+			const point = {
+				x: gesture.start.x + (gesture.end.x - gesture.start.x) * ratio,
+				y: gesture.start.y + (gesture.end.y - gesture.start.y) * ratio
+			};
+			document.dispatchEvent(mouse('mousemove', point, 1));
+			await new Promise(resolve => setTimeout(resolve, 20));
+		}
+		document.dispatchEvent(mouse('mouseup', gesture.end, 0));
+	})()`, payload))
+}
+
+func dispatchBoxSelection(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "keyDown", "modifiers": 8, "key": "Shift", "code": "ShiftLeft",
+		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16,
+	}); err != nil {
+		return fmt.Errorf("press Shift for box selection: %w", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	var gestureErr error
+	for _, event := range []struct {
+		typeName string
+		at       point
+		buttons  int
+	}{
+		{typeName: "mouseMoved", at: gesture.Start},
+		{typeName: "mousePressed", at: gesture.Start, buttons: 1},
+		{typeName: "mouseMoved", at: gesture.End, buttons: 1},
+		{typeName: "mouseReleased", at: gesture.End},
+	} {
+		if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+			"type": event.typeName, "x": event.at.X, "y": event.at.Y, "button": "left",
+			"buttons": event.buttons, "clickCount": 1, "modifiers": 8,
+		}); err != nil {
+			gestureErr = fmt.Errorf("dispatch %s for box selection: %w", event.typeName, err)
+			break
+		}
+	}
+	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "keyUp", "key": "Shift", "code": "ShiftLeft",
+		"windowsVirtualKeyCode": 16, "nativeVirtualKeyCode": 16,
+	})
+	if gestureErr != nil {
+		return gestureErr
+	}
+	if releaseErr != nil {
+		return fmt.Errorf("release Shift after box selection: %w", releaseErr)
+	}
+	return nil
 }
 
 func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression string) error {

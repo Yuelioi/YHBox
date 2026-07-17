@@ -41,6 +41,7 @@
       />
     </UDropdownMenu>
     <UButton
+      data-testid="workflow-layout-lr"
       icon="i-tabler-layout-board-split"
       color="neutral"
       variant="ghost"
@@ -50,6 +51,7 @@
       @click="emit('auto-layout', 'LR')"
     />
     <UButton
+      data-testid="workflow-layout-tb"
       icon="i-tabler-layout-navbar-collapse"
       color="neutral"
       variant="ghost"
