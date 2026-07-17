@@ -38,6 +38,16 @@ type visionPoint struct {
 	Unit string  `json:"unit"`
 }
 
+type visionMatchResult struct {
+	Matched                 bool
+	Score                   float64
+	Center                  visionPoint
+	Bounds                  visionRegion
+	FrameWidth, FrameHeight int
+	SearchPixels            int64
+	TemplatePixels          int64
+}
+
 func matchTemplate(builtins nodes.Builtins) compiler.Adapter {
 	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
 		counters := map[string]int64{}
@@ -72,52 +82,61 @@ func matchTemplate(builtins nodes.Builtins) compiler.Adapter {
 		if err != nil {
 			return compiler.AdapterResult{}, visionFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read template: %w", err))
 		}
-		frame, err := decodeVisionPNG(imageBytes)
+		match, err := matchTemplateBytes(imageBytes, templateBytes, region, threshold)
 		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
-		}
-		templateImage, err := decodeVisionPNG(templateBytes)
-		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
-		}
-		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
-		if err != nil {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
-		}
-		if templateImage.Bounds().Dx() > searchRect.Dx() || templateImage.Bounds().Dy() > searchRect.Dy() {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, fmt.Errorf(
-				"template dimensions %dx%d exceed search region %dx%d",
-				templateImage.Bounds().Dx(), templateImage.Bounds().Dy(), searchRect.Dx(), searchRect.Dy(),
-			))
-		}
-
-		searchGray, searchWidth, searchHeight := vision.RGBAToGray(frame.SubImage(searchRect).(*image.RGBA))
-		templateGray, templateWidth, templateHeight := vision.RGBAToGray(templateImage)
-		if uniformVisionTemplate(templateGray) {
-			return compiler.AdapterResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
-		}
-		x, y, score := vision.MatchFast(searchGray, searchWidth, searchHeight, &vision.Template{
-			Gray: templateGray, W: templateWidth, H: templateHeight,
-		}, vision.DefaultParallel())
-
-		matched := x >= 0 && y >= 0 && score >= float32(threshold)
-		center := visionPoint{Unit: "px"}
-		bounds := visionRegion{Unit: "px"}
-		if x >= 0 && y >= 0 {
-			absoluteX, absoluteY := searchRect.Min.X+x, searchRect.Min.Y+y
-			center.X = float64(absoluteX) + float64(templateWidth)/2
-			center.Y = float64(absoluteY) + float64(templateHeight)/2
-			bounds.X, bounds.Y = float64(absoluteX), float64(absoluteY)
-			bounds.Width, bounds.Height = float64(templateWidth), float64(templateHeight)
-		} else {
-			score = -1
+			return compiler.AdapterResult{}, err
 		}
 		counters["image_bytes"] = imageRef.Size
 		counters["template_bytes"] = templateRef.Size
-		counters["search_pixels"] = int64(searchWidth * searchHeight)
-		counters["template_pixels"] = int64(templateWidth * templateHeight)
-		return sealVisionMatchOutputs(builtins, invocation, matched, boundedVisionScore(score), center, bounds)
+		counters["search_pixels"] = match.SearchPixels
+		counters["template_pixels"] = match.TemplatePixels
+		return sealVisionMatchOutputs(builtins, invocation, match.Matched, match.Score, match.Center, match.Bounds)
 	}
+}
+
+func matchTemplateBytes(imageBytes, templateBytes []byte, region visionRegion, threshold float64) (visionMatchResult, error) {
+	frame, err := decodeVisionPNG(imageBytes)
+	if err != nil {
+		return visionMatchResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+	}
+	templateImage, err := decodeVisionPNG(templateBytes)
+	if err != nil {
+		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, err)
+	}
+	searchRect, err := resolveVisionRegion(frame.Bounds(), region)
+	if err != nil {
+		return visionMatchResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+	}
+	if templateImage.Bounds().Dx() > searchRect.Dx() || templateImage.Bounds().Dy() > searchRect.Dy() {
+		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, fmt.Errorf(
+			"template dimensions %dx%d exceed search region %dx%d",
+			templateImage.Bounds().Dx(), templateImage.Bounds().Dy(), searchRect.Dx(), searchRect.Dy(),
+		))
+	}
+	searchGray, searchWidth, searchHeight := vision.RGBAToGray(frame.SubImage(searchRect).(*image.RGBA))
+	templateGray, templateWidth, templateHeight := vision.RGBAToGray(templateImage)
+	if uniformVisionTemplate(templateGray) {
+		return visionMatchResult{}, visionFailure(nodes.VisionTemplateInvalidCode, errors.New("template has no grayscale variance"))
+	}
+	x, y, score := vision.MatchFast(searchGray, searchWidth, searchHeight, &vision.Template{
+		Gray: templateGray, W: templateWidth, H: templateHeight,
+	}, vision.DefaultParallel())
+	result := visionMatchResult{
+		Matched: x >= 0 && y >= 0 && score >= float32(threshold), Score: boundedVisionScore(score),
+		Center: visionPoint{Unit: "px"}, Bounds: visionRegion{Unit: "px"},
+		FrameWidth: frame.Bounds().Dx(), FrameHeight: frame.Bounds().Dy(),
+		SearchPixels: int64(searchWidth * searchHeight), TemplatePixels: int64(templateWidth * templateHeight),
+	}
+	if x >= 0 && y >= 0 {
+		absoluteX, absoluteY := searchRect.Min.X+x, searchRect.Min.Y+y
+		result.Center.X = float64(absoluteX) + float64(templateWidth)/2
+		result.Center.Y = float64(absoluteY) + float64(templateHeight)/2
+		result.Bounds.X, result.Bounds.Y = float64(absoluteX), float64(absoluteY)
+		result.Bounds.Width, result.Bounds.Height = float64(templateWidth), float64(templateHeight)
+	} else {
+		result.Score = -1
+	}
+	return result, nil
 }
 
 func visionRegionInput(invocation compiler.Invocation) (visionRegion, error) {

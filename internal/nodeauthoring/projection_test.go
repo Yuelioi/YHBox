@@ -44,6 +44,24 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 		matchTemplate.DataInputs[1].DescriptionKey == "" {
 		t.Fatalf("template port authoring projection = %#v", matchTemplate.DataInputs)
 	}
+	clickTemplate, ok := projection.Node(nodes.ClickTemplateNodeID)
+	if !ok || len(clickTemplate.Capabilities) != 3 || len(clickTemplate.ConfigFields) != 1 ||
+		clickTemplate.ConfigFields[0].ID != "slot" || clickTemplate.DataInputs[0].ID != "template" ||
+		clickTemplate.DataInputs[0].EditorAdapter != "template-image" {
+		t.Fatalf("click template authoring projection = %#v", clickTemplate)
+	}
+	boundTargets := 0
+	for _, requirement := range clickTemplate.Capabilities {
+		if requirement.TargetSlot == "target" {
+			boundTargets++
+			if requirement.TargetSlotConfigKey != "slot" {
+				t.Fatalf("click template target binding = %#v", requirement)
+			}
+		}
+	}
+	if boundTargets != 2 {
+		t.Fatalf("click template target capabilities = %#v", clickTemplate.Capabilities)
+	}
 	if len(concat.ConfigFields) != 0 || concat.Availability != nodeauthoring.AvailabilityPortable {
 		t.Fatalf("concat config/availability = %#v / %q", concat.ConfigFields, concat.Availability)
 	}

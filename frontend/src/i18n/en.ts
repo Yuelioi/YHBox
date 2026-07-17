@@ -671,6 +671,145 @@ export default {
         description:
           'Reverify the exact installed window, capture it as PNG through the configured backend, and commit a durable Image BlobRef.',
       },
+      waitTemplate: {
+        title: 'Wait for template',
+        description:
+          'Capture fresh frames from an exact window until the template appears or time expires.',
+        input: {
+          template: { title: 'Template image', description: 'Durable template image to wait for.' },
+          region: {
+            title: 'Search region',
+            description: 'Region of the captured window to search.',
+          },
+          threshold: {
+            title: 'Match threshold',
+            description: 'Score from 0 to 1 required to report a match.',
+          },
+          timeout: {
+            title: 'Wait timeout',
+            description: 'Maximum wait in milliseconds; 0 checks one frame.',
+          },
+          'poll-interval': {
+            title: 'Poll interval',
+            description: 'Milliseconds between fresh frame checks.',
+          },
+          'settle-duration': {
+            title: 'Settle duration',
+            description: 'Milliseconds to wait and relocate after the first match.',
+          },
+        },
+        output: {
+          matched: {
+            title: 'Matched',
+            description: 'Whether the template met the threshold in the final frame.',
+          },
+          score: { title: 'Match score', description: 'Template score from the final frame.' },
+          center: {
+            title: 'Center',
+            description: 'Pixel center of the matched bounds in the capture.',
+          },
+          bounds: {
+            title: 'Matched bounds',
+            description: 'Pixel bounds of the match in the capture.',
+          },
+        },
+      },
+      clickTemplate: {
+        title: 'Click template',
+        description:
+          'Wait for a stable template match, then click its center in the same exact window.',
+        input: {
+          template: {
+            title: 'Template image',
+            description: 'Durable template image to wait for and click.',
+          },
+          region: {
+            title: 'Search region',
+            description: 'Region of the captured window to search.',
+          },
+          threshold: {
+            title: 'Match threshold',
+            description: 'Score from 0 to 1 required before clicking.',
+          },
+          timeout: {
+            title: 'Wait timeout',
+            description: 'Maximum wait in milliseconds; 0 checks one frame.',
+          },
+          'poll-interval': {
+            title: 'Poll interval',
+            description: 'Milliseconds between fresh frame checks.',
+          },
+          'settle-duration': {
+            title: 'Settle duration',
+            description: 'Milliseconds to wait and relocate after the first match.',
+          },
+          button: {
+            title: 'Pointer button',
+            description: 'Use the left, right, or middle pointer button.',
+          },
+          'hold-duration': {
+            title: 'Hold duration',
+            description: 'Milliseconds between button press and release.',
+          },
+        },
+        output: {
+          matched: {
+            title: 'Matched',
+            description: 'Whether the final frame met the threshold before clicking.',
+          },
+          score: { title: 'Match score', description: 'Final template score before clicking.' },
+          center: {
+            title: 'Click center',
+            description: 'Pixel center converted to the exact-window click position.',
+          },
+          bounds: {
+            title: 'Matched bounds',
+            description: 'Pixel bounds of the match before clicking.',
+          },
+        },
+      },
+      waitTemplateGone: {
+        title: 'Wait for template to disappear',
+        description:
+          'Capture fresh frames from an exact window until the template disappears or time expires.',
+        input: {
+          template: {
+            title: 'Template image',
+            description: 'Durable template image expected to disappear.',
+          },
+          region: {
+            title: 'Search region',
+            description: 'Region of the captured window to search.',
+          },
+          threshold: {
+            title: 'Match threshold',
+            description: 'A lower score means the template has disappeared.',
+          },
+          timeout: {
+            title: 'Wait timeout',
+            description: 'Maximum wait in milliseconds; 0 checks one frame.',
+          },
+          'poll-interval': {
+            title: 'Poll interval',
+            description: 'Milliseconds between fresh frame checks.',
+          },
+        },
+        output: {
+          matched: {
+            title: 'Still matched',
+            description: 'Whether the template still met the threshold in the final frame.',
+          },
+          score: { title: 'Match score', description: 'Template score from the final frame.' },
+          center: {
+            title: 'Last center',
+            description: 'Pixel center from the final template match.',
+          },
+          bounds: {
+            title: 'Last matched bounds',
+            description: 'Pixel bounds from the final template match.',
+          },
+        },
+      },
       playInputClip: {
         title: 'Play input clip',
         description:

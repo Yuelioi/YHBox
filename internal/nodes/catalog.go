@@ -108,6 +108,7 @@ type Builtins struct {
 	LaunchApplicationContract    nodecontract.Contract
 	TerminateApplicationContract nodecontract.Contract
 	AutomationInputContracts     []nodecontract.Contract
+	AutomationTemplateContracts  []nodecontract.Contract
 	ActivateWindowContract       nodecontract.Contract
 	CaptureWindowContract        nodecontract.Contract
 	PlayInputClipContract        nodecontract.Contract
@@ -367,6 +368,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationTemplateDefinitions, automationTemplateContracts, err := defineAutomationTemplateNodes(automationTemplateTypes{
+		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
+		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(),
+	}, automationCapture, automationInput, blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -384,6 +392,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, httpGetDefinition)
 	definitions = append(definitions, applicationDefinitions...)
 	definitions = append(definitions, automationInputDefinitions...)
+	definitions = append(definitions, automationTemplateDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, captureWindowDefinition)
 	definitions = append(definitions, playInputClipDefinition)
@@ -431,13 +440,14 @@ func Build() (Builtins, error) {
 		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
-		AutomationInputContracts: automationInputContracts,
-		ActivateWindowContract:   activateWindowContract,
-		CaptureWindowContract:    captureWindowContract,
-		PlayInputClipContract:    playInputClipContract,
-		MatchTemplateContract:    matchTemplateContract,
-		VisionAnalysisContracts:  visionAnalysisContracts,
-		Types:                    types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
+		AutomationInputContracts:    automationInputContracts,
+		AutomationTemplateContracts: automationTemplateContracts,
+		ActivateWindowContract:      activateWindowContract,
+		CaptureWindowContract:       captureWindowContract,
+		PlayInputClipContract:       playInputClipContract,
+		MatchTemplateContract:       matchTemplateContract,
+		VisionAnalysisContracts:     visionAnalysisContracts,
+		Types:                       types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }

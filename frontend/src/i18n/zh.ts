@@ -567,6 +567,67 @@ export default {
         title: '截取窗口',
         description: '重新验证精确安装窗口，通过配置的后端截取 PNG，并提交持久 Image BlobRef。',
       },
+      waitTemplate: {
+        title: '等待模板出现',
+        description: '在精确窗口中持续获取新画面，直到指定模板出现或超时。',
+        input: {
+          template: { title: '模板图片', description: '要等待的持久模板图片。' },
+          region: { title: '搜索区域', description: '在窗口画面内搜索的区域。' },
+          threshold: { title: '匹配阈值', description: '0 到 1；分数达到该值才算出现。' },
+          timeout: { title: '等待超时', description: '最长等待时间（毫秒）；0 表示只检查一次。' },
+          'poll-interval': { title: '检查间隔', description: '两次新画面检查之间的时间（毫秒）。' },
+          'settle-duration': {
+            title: '稳定等待',
+            description: '首次命中后等待并重新定位的时间（毫秒）。',
+          },
+        },
+        output: {
+          matched: { title: '已匹配', description: '模板在最后一次画面中是否达到阈值。' },
+          score: { title: '匹配分数', description: '最后一次模板匹配分数。' },
+          center: { title: '中心点', description: '命中区域在捕获画面中的像素中心。' },
+          bounds: { title: '命中区域', description: '命中区域在捕获画面中的像素边界。' },
+        },
+      },
+      clickTemplate: {
+        title: '点击模板',
+        description: '等待模板稳定出现，再在同一精确窗口的命中中心执行点击。',
+        input: {
+          template: { title: '模板图片', description: '要等待并点击的持久模板图片。' },
+          region: { title: '搜索区域', description: '在窗口画面内搜索的区域。' },
+          threshold: { title: '匹配阈值', description: '0 到 1；分数达到该值才允许点击。' },
+          timeout: { title: '等待超时', description: '最长等待时间（毫秒）；0 表示只检查一次。' },
+          'poll-interval': { title: '检查间隔', description: '两次新画面检查之间的时间（毫秒）。' },
+          'settle-duration': {
+            title: '稳定等待',
+            description: '首次命中后等待并重新定位的时间（毫秒）。',
+          },
+          button: { title: '指针按键', description: '点击时使用左键、右键或中键。' },
+          'hold-duration': { title: '按住时长', description: '按下到释放之间的时间（毫秒）。' },
+        },
+        output: {
+          matched: { title: '已匹配', description: '点击前的最终画面是否达到阈值。' },
+          score: { title: '匹配分数', description: '点击前的最终模板匹配分数。' },
+          center: { title: '点击中心', description: '用于换算窗口内点击位置的像素中心。' },
+          bounds: { title: '命中区域', description: '点击前命中区域的像素边界。' },
+        },
+      },
+      waitTemplateGone: {
+        title: '等待模板消失',
+        description: '在精确窗口中持续获取新画面，直到指定模板不再出现或超时。',
+        input: {
+          template: { title: '模板图片', description: '要等待其消失的持久模板图片。' },
+          region: { title: '搜索区域', description: '在窗口画面内搜索的区域。' },
+          threshold: { title: '匹配阈值', description: '低于该分数时认为模板已经消失。' },
+          timeout: { title: '等待超时', description: '最长等待时间（毫秒）；0 表示只检查一次。' },
+          'poll-interval': { title: '检查间隔', description: '两次新画面检查之间的时间（毫秒）。' },
+        },
+        output: {
+          matched: { title: '仍然匹配', description: '最后一次画面中模板是否仍达到阈值。' },
+          score: { title: '匹配分数', description: '最后一次模板匹配分数。' },
+          center: { title: '最后中心点', description: '最后一次匹配得到的像素中心。' },
+          bounds: { title: '最后命中区域', description: '最后一次匹配得到的像素边界。' },
+        },
+      },
       playInputClip: {
         title: '回放输入录制',
         description: '读取并校验 InputClip BlobRef，在一个独占的精确目标会话中按序回放全部事件。',
