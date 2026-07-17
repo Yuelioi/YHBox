@@ -1,62 +1,80 @@
 <template>
   <UFormField :label="label" :hint="hint" class="w-full">
     <USelect
-      v-if="field.control === 'state-variable'"
+      v-if="selectItems !== undefined"
       :model-value="modelValue"
-      :items="stateVariableItems"
+      :items="selectItems"
+      :placeholder="selectPlaceholder"
       value-key="value"
       label-key="label"
       class="w-full"
       @update:model-value="emit('update:modelValue', $event)"
     />
-    <USelect
-      v-else-if="field.control === 'select'"
-      :model-value="modelValue"
-      :items="enumItems"
-      value-key="value"
-      label-key="label"
-      class="w-full"
-      @update:model-value="emit('update:modelValue', $event)"
-    />
-    <USwitch
-      v-else-if="field.control === 'toggle'"
-      :model-value="Boolean(modelValue)"
-      @update:model-value="emit('update:modelValue', $event)"
-    />
-    <UInput
-      v-else-if="field.control === 'number' || field.control === 'integer'"
-      :model-value="numberValue"
-      type="number"
-      :step="field.control === 'integer' ? 1 : 'any'"
-      :min="numericConstraint(field.constraints.minimum)"
-      :max="numericConstraint(field.constraints.maximum)"
-      class="w-full"
-      @update:model-value="updateNumber"
-    />
-    <UTextarea
-      v-else-if="field.control === 'code'"
-      :model-value="typeof modelValue === 'string' ? modelValue : ''"
-      :rows="12"
-      :maxlength="field.constraints.maxLength"
-      spellcheck="false"
-      class="w-full font-mono text-xs leading-relaxed"
-      @update:model-value="emit('update:modelValue', $event)"
-    />
-    <UTextarea
-      v-else-if="jsonControl"
-      v-model="jsonText"
-      :rows="5"
-      class="w-full font-mono text-xs"
-      @blur="commitJson"
-    />
-    <UInput
-      v-else
-      :model-value="typeof modelValue === 'string' ? modelValue : ''"
-      :placeholder="stringDefault"
-      :maxlength="field.constraints.maxLength"
-      class="w-full"
-      @update:model-value="emit('update:modelValue', $event)"
-    />
+    <p
+      v-if="selectItems !== undefined && selectItems.length === 0"
+      class="mt-1 text-xs text-warning"
+    >
+      {{ t('workflow.inspector.no_installed_target') }}
+    </p>
+    <template v-if="selectItems === undefined">
+      <USelect
+        v-if="field.control === 'state-variable'"
+        :model-value="modelValue"
+        :items="stateVariableItems"
+        value-key="value"
+        label-key="label"
+        class="w-full"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
+      <USelect
+        v-else-if="field.control === 'select'"
+        :model-value="modelValue"
+        :items="enumItems"
+        value-key="value"
+        label-key="label"
+        class="w-full"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
+      <USwitch
+        v-else-if="field.control === 'toggle'"
+        :model-value="Boolean(modelValue)"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
+      <UInput
+        v-else-if="field.control === 'number' || field.control === 'integer'"
+        :model-value="numberValue"
+        type="number"
+        :step="field.control === 'integer' ? 1 : 'any'"
+        :min="numericConstraint(field.constraints.minimum)"
+        :max="numericConstraint(field.constraints.maximum)"
+        class="w-full"
+        @update:model-value="updateNumber"
+      />
+      <UTextarea
+        v-else-if="field.control === 'code'"
+        :model-value="typeof modelValue === 'string' ? modelValue : ''"
+        :rows="12"
+        :maxlength="field.constraints.maxLength"
+        spellcheck="false"
+        class="w-full font-mono text-xs leading-relaxed"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
+      <UTextarea
+        v-else-if="jsonControl"
+        v-model="jsonText"
+        :rows="5"
+        class="w-full font-mono text-xs"
+        @blur="commitJson"
+      />
+      <UInput
+        v-else
+        :model-value="typeof modelValue === 'string' ? modelValue : ''"
+        :placeholder="stringDefault"
+        :maxlength="field.constraints.maxLength"
+        class="w-full"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
+    </template>
     <p v-if="jsonError" class="mt-1 text-xs text-error">{{ jsonError }}</p>
   </UFormField>
 </template>
@@ -70,6 +88,8 @@ const props = defineProps<{
   field: FieldProjection
   modelValue: unknown
   stateVariables?: string[]
+  selectItems?: Array<{ label: string; value: string }>
+  selectPlaceholder?: string
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
 const { t, te } = useI18n()

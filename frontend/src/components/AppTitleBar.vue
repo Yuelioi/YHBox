@@ -146,6 +146,13 @@ const navItems = computed(() => [
     active: route.name === 'workflows' || route.name === 'workflow-edit',
   },
   {
+    key: 'assets',
+    to: '/assets',
+    icon: 'i-tabler-library',
+    label: t('sidebar.assets'),
+    active: route.name === 'assets',
+  },
+  {
     key: 'schedules',
     to: '/schedules',
     icon: 'i-tabler-clock',
@@ -158,12 +165,13 @@ const navItems = computed(() => [
 const VIEW_META: Record<string, { titleKey: string; icon: string }> = {
   workflows: { titleKey: 'sidebar.workflows', icon: 'i-tabler-route' },
   'workflow-edit': { titleKey: 'sidebar.workflow_edit', icon: 'i-tabler-schema' },
+  assets: { titleKey: 'sidebar.assets', icon: 'i-tabler-library' },
   schedules: { titleKey: 'sidebar.schedules', icon: 'i-tabler-clock' },
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }
 // 左侧主导航已高亮工作流/计划，中间不重复显示同名标题。
-const SUPPRESS_CENTER = new Set(['workflows', 'schedules'])
+const SUPPRESS_CENTER = new Set(['workflows', 'assets', 'schedules'])
 const currentTitle = computed(() => {
   if (SUPPRESS_CENTER.has(route.name as string)) return ''
   const meta = VIEW_META[route.name as string]

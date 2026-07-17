@@ -20,64 +20,6 @@
       />
     </div>
 
-    <section class="space-y-3 border-b border-default p-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-xs font-semibold text-highlighted">
-            {{ t('workflow.inspector.state_title') }}
-          </h3>
-          <p class="mt-1 text-[10px] text-dimmed">
-            {{ t('workflow.inspector.state_hint') }}
-          </p>
-        </div>
-        <UBadge color="neutral" variant="soft" size="sm">{{ variables.length }}</UBadge>
-      </div>
-      <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
-        <UInput
-          v-model="newVariableName"
-          :placeholder="t('workflow.inspector.state_name_placeholder')"
-          size="sm"
-        />
-        <USelect
-          v-model="newVariableTypeId"
-          :items="stateTypeItems"
-          value-key="value"
-          label-key="label"
-          size="sm"
-        />
-        <UButton
-          icon="i-tabler-plus"
-          size="sm"
-          color="neutral"
-          :disabled="!canAddVariable"
-          :aria-label="t('workflow.inspector.state_add')"
-          @click="addStateVariable"
-        />
-      </div>
-      <div v-if="variables.length" class="space-y-1.5">
-        <div
-          v-for="variable in variables"
-          :key="variable.name"
-          class="flex items-center gap-2 rounded-md bg-elevated/55 px-2.5 py-2"
-        >
-          <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-toned">{{
-            variable.name
-          }}</span>
-          <span class="max-w-28 truncate text-[10px] text-dimmed">{{
-            variableTypeLabel(variable)
-          }}</span>
-          <UButton
-            icon="i-tabler-trash"
-            color="error"
-            variant="ghost"
-            size="xs"
-            :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
-            @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
-          />
-        </div>
-      </div>
-    </section>
-
     <div
       v-if="!node || !projection"
       class="flex flex-1 items-center justify-center px-8 text-center"
@@ -112,6 +54,8 @@
           :field="field"
           :model-value="node.config[field.id]"
           :state-variables="variables.map((variable) => variable.name)"
+          :select-items="targetItems(field.id)"
+          :select-placeholder="t('workflow.inspector.select_target')"
           @update:model-value="
             emit('command', {
               kind: 'set-config',
@@ -139,42 +83,56 @@
         />
       </section>
 
-      <section v-if="projection.capabilities.length" class="space-y-3">
-        <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow.inspector.capabilities') }}
-        </h3>
-        <div
-          v-for="capability in projection.capabilities"
-          :key="capability.requirementId"
-          class="rounded-lg border border-default px-3 py-2.5"
-        >
-          <p class="text-xs font-medium text-toned">{{ capability.requirementId }}</p>
-          <p class="mt-1 text-[11px] text-muted">
-            {{ capability.operations.join(', ') }}
-          </p>
-          <p class="mt-1 font-mono text-[10px] text-dimmed">
-            {{ capability.risk }} / {{ capability.consent }}
-          </p>
-        </div>
-      </section>
+      <UCollapsible v-if="projection.capabilities.length || projection.statusEvents.length">
+        <UButton
+          :label="t('workflow.inspector.advanced')"
+          icon="i-tabler-adjustments-horizontal"
+          trailing-icon="i-tabler-chevron-down"
+          color="neutral"
+          variant="ghost"
+          class="w-full justify-start"
+        />
+        <template #content>
+          <div class="space-y-5 pt-3">
+            <section v-if="projection.capabilities.length" class="space-y-3">
+              <h3 class="text-xs font-semibold text-highlighted">
+                {{ t('workflow.inspector.capabilities') }}
+              </h3>
+              <div
+                v-for="capability in projection.capabilities"
+                :key="capability.requirementId"
+                class="rounded-lg border border-default px-3 py-2.5"
+              >
+                <p class="text-xs font-medium text-toned">{{ capability.requirementId }}</p>
+                <p class="mt-1 text-[11px] text-muted">
+                  {{ capability.operations.join(', ') }}
+                </p>
+                <p class="mt-1 font-mono text-[10px] text-dimmed">
+                  {{ capability.risk }} / {{ capability.consent }}
+                </p>
+              </div>
+            </section>
 
-      <section v-if="projection.statusEvents.length" class="space-y-2">
-        <h3 class="text-xs font-semibold text-highlighted">
-          {{ t('workflow.inspector.observed_status') }}
-        </h3>
-        <p class="text-[11px] leading-5 text-muted">
-          {{ t('workflow.inspector.status_hint') }}
-        </p>
-        <code class="block text-[10px] text-toned">{{
-          projection.statusEvents.map((event) => event.code).join('\n')
-        }}</code>
-      </section>
+            <section v-if="projection.statusEvents.length" class="space-y-2">
+              <h3 class="text-xs font-semibold text-highlighted">
+                {{ t('workflow.inspector.observed_status') }}
+              </h3>
+              <p class="text-[11px] leading-5 text-muted">
+                {{ t('workflow.inspector.status_hint') }}
+              </p>
+              <code class="block whitespace-pre-wrap text-[10px] text-toned">{{
+                projection.statusEvents.map((event) => event.code).join('\n')
+              }}</code>
+            </section>
+          </div>
+        </template>
+      </UCollapsible>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
@@ -184,6 +142,7 @@ import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 import WorkflowInputBindingEditor from '@/app/editor/WorkflowInputBindingEditor.vue'
 import { useClipsStore } from '@/stores/clips'
 import { useTemplatesStore } from '@/stores/templates'
+import { useSettingsStore } from '@/stores/settings'
 
 const props = defineProps<{
   node: Node | null
@@ -192,10 +151,11 @@ const props = defineProps<{
   types: TypeProjection[]
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
-const { t, te } = useI18n()
+const { t } = useI18n()
 const clipsStore = useClipsStore()
 const { clips } = storeToRefs(clipsStore)
 const templatesStore = useTemplatesStore()
+const settingsStore = useSettingsStore()
 const { map: templates } = storeToRefs(templatesStore)
 const clipItems = computed(() =>
   clips.value.map((clip) => ({
@@ -212,83 +172,39 @@ const templateVariantItems = computed(() =>
     })),
   ),
 )
-const newVariableName = ref('')
-const newVariableTypeId = ref('')
-const stateTypes = computed(() =>
-  props.types.filter((type) =>
-    type.representations.some((representation) => representation.kind === 'inline-json'),
-  ),
-)
-const stateTypeItems = computed(() =>
-  stateTypes.value.map((type) => ({
-    label:
-      type.titleKey && te(type.titleKey)
-        ? t(type.titleKey)
-        : type.typeRef.typeId.split('/').at(-2)!,
-    value: type.typeRef.typeId,
-  })),
-)
-const canAddVariable = computed(
-  () =>
-    /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(newVariableName.value) && Boolean(selectedStateType.value),
-)
-const selectedStateType = computed(() =>
-  stateTypes.value.find((type) => type.typeRef.typeId === newVariableTypeId.value),
-)
-
-watch(
-  stateTypes,
-  (values) => {
-    if (!values.some((type) => type.typeRef.typeId === newVariableTypeId.value))
-      newVariableTypeId.value = values[0]?.typeRef.typeId ?? ''
-  },
-  { immediate: true },
-)
-
 onMounted(() => {
   void clipsStore.refresh()
   void templatesStore.reload()
 })
 
-function addStateVariable(): void {
-  const type = selectedStateType.value
-  if (!type || !canAddVariable.value) return
-  emit('command', {
-    kind: 'add-state-variable',
-    name: newVariableName.value,
-    type: { kind: 'ref', ref: { ...type.typeRef } },
-    defaultValue: defaultStateValue(type),
-  })
-  newVariableName.value = ''
-}
-
-function defaultStateValue(type: TypeProjection): unknown {
-  if (type.examples.length) return structuredClone(type.examples[0])
-  switch (type.control) {
-    case 'text':
-      return ''
-    case 'number':
-    case 'integer':
-      return 0
-    case 'toggle':
-      return false
-    case 'select':
-      return type.constraints.enum[0] ?? null
-    case 'list':
-      return []
-    case 'object':
-      return {}
-    default:
-      return null
-  }
-}
-
-function variableTypeLabel(variable: Variable): string {
-  if (variable.type.kind !== 'ref') return variable.type.kind
-  const typeId = variable.type.ref.typeId
-  const type = props.types.find((candidate) => candidate.typeRef.typeId === typeId)
-  if (type?.titleKey && te(type.titleKey)) return t(type.titleKey)
-  return typeId.split('/').at(-2) ?? typeId
+function targetItems(fieldId: string): Array<{ label: string; value: string }> | undefined {
+  const capability = props.projection?.capabilities.find(
+    (candidate) => candidate.targetSlotConfigKey === fieldId,
+  )
+  if (!capability) return undefined
+  const settings = settingsStore.data
+  if (!settings) return []
+  if (capability.targetKinds.includes('win32-window'))
+    return settings.automation.win32Targets.map((target) => ({
+      label: `${target.label} · ${target.slot}`,
+      value: target.slot,
+    }))
+  if (capability.targetKinds.includes('installed-application'))
+    return settings.applications.profiles.map((application) => ({
+      label: `${application.label} · ${application.slot}`,
+      value: application.slot,
+    }))
+  if (capability.targetKinds.includes('ai-model'))
+    return settings.ai.profiles.map((profile) => ({
+      label: `${profile.label} · ${profile.slot}`,
+      value: profile.slot,
+    }))
+  if (capability.targetKinds.includes('http-origin'))
+    return settings.network.httpOrigins.map((origin) => ({
+      label: `${origin.label} · ${origin.slot}`,
+      value: origin.slot,
+    }))
+  return []
 }
 
 function setLabel(event: Event): void {

@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
@@ -423,7 +424,7 @@ func (a *Application) PreviewRun(ctx context.Context, workflowID string) (RunPre
 	return preview, nil
 }
 
-// CreateSource creates the only valid empty authoring root. IDs and structural
+// CreateSource creates the only valid authoring root. IDs and structural
 // defaults are host-owned so UI, CLI, and MCP cannot invent divergent source
 // envelopes.
 func (a *Application) CreateSource(ctx context.Context, name string) (workflowstore.SourceSnapshot, error) {
@@ -439,10 +440,21 @@ func (a *Application) CreateSource(ctx context.Context, name string) (workflowst
 	if err := a.requireRunning(); err != nil {
 		return workflowstore.SourceSnapshot{}, err
 	}
+	runStarted, ok := a.catalog.Lookup(nodes.RunStartedNodeID)
+	if !ok {
+		return workflowstore.SourceSnapshot{}, errors.New("catalog is missing the RunStarted node")
+	}
 	source := schema.WorkflowSource{
 		Format: schema.Format, Version: schema.Version,
 		Workflow: schema.Workflow{ID: uuid.NewString(), Name: name}, Revision: 0, EntryGraph: "main",
-		Graphs:    []schema.Graph{{ID: "main", Kind: schema.GraphKindMain, Nodes: []schema.Node{}, Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{}}},
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain,
+			Nodes: []schema.Node{{
+				ID: "run-started", NodeRef: runStarted.Contract.NodeRef(), Position: schema.Position{X: 120, Y: 160},
+				Config: map[string]any{}, Bindings: map[string]schema.InputBinding{},
+			}},
+			Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
 		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
 	}
 	raw, err := artifact.Marshal(source)

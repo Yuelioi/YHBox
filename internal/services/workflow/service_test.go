@@ -81,7 +81,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		if view.Status == string(run.StatusSucceeded) {
-			if len(view.Timeline) != 2 || view.Failure != nil {
+			if len(view.Timeline) != 4 || view.Failure != nil {
 				t.Fatalf("terminal Run = %#v", view)
 			}
 			break

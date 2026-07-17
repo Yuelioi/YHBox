@@ -20,6 +20,10 @@ type pageState struct {
 	Catalog            int      `json:"catalog"`
 	CanvasNodes        int      `json:"canvasNodes"`
 	AIReview           bool     `json:"aiReview"`
+	WorkflowState      bool     `json:"workflowState"`
+	RunStarted         bool     `json:"runStarted"`
+	AssetsView         bool     `json:"assetsView"`
+	AssetsRecording    bool     `json:"assetsRecording"`
 	CreateInput        bool     `json:"createInput"`
 	GraphChromeDark    bool     `json:"graphChromeDark"`
 	HandleOverlaps     int      `json:"handleOverlaps"`
@@ -34,17 +38,18 @@ type pageState struct {
 func main() {
 	endpoint := flag.String("endpoint", "http://127.0.0.1:9227", "WebView2 CDP endpoint")
 	screenshot := flag.String("screenshot", ".task/workflow-editor-smoke.png", "PNG output path")
+	assetsScreenshot := flag.String("assets-screenshot", ".task/assets-smoke.png", "asset library PNG output path")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := run(ctx, *endpoint, *screenshot); err != nil {
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, endpoint, screenshot string) error {
+func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) error {
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -141,6 +146,29 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err != nil {
 		return err
 	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-catalog-search"] input, input[data-testid="workflow-catalog-search"]');
+		if (!input) throw new Error('catalog search input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'concat');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Catalog == 1 }); err != nil {
+		return fmt.Errorf("filter node catalog: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-catalog-search"] input, input[data-testid="workflow-catalog-search"]');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, '');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Catalog > 1 }); err != nil {
+		return fmt.Errorf("clear node catalog search: %w", err)
+	}
 
 	if err := eval(ctx, client, `(() => {
 		window.__yottaNativeConfirmCalls = 0;
@@ -185,6 +213,15 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err != nil {
 		return err
 	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.WorkflowState }); err != nil {
+		return fmt.Errorf("open workflow state panel: %w", err)
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+		return err
+	}
 	uiFailures := workflowEditorUIFailures(visualState, confirmState, saveState)
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="ai-workflow-review-open"]');
@@ -219,9 +256,31 @@ func run(ctx context.Context, endpoint, screenshot string) error {
 	if err := capture(ctx, client, screenshot); err != nil {
 		return err
 	}
+	if err := eval(ctx, client, `location.hash = '#/assets'`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.AssetsView && current.AssetsRecording
+	}); err != nil {
+		return fmt.Errorf("open asset library: %w", err)
+	}
+	assetsState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if len(assetsState.Errors) != 0 {
+		return fmt.Errorf("asset library reported errors: %s", strings.Join(assetsState.Errors, " | "))
+	}
+	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, assetsScreenshot); err != nil {
+		return err
+	}
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
+		"assetsScreenshot": assetsScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -234,6 +293,9 @@ func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []
 	}
 	if visualState.HandleOverlaps != 0 {
 		failures = append(failures, fmt.Sprintf("%d workflow handles overlap their labels", visualState.HandleOverlaps))
+	}
+	if !visualState.RunStarted {
+		failures = append(failures, "new workflow omitted the RunStarted root")
 	}
 	if confirmState.NativeConfirmCalls != 0 {
 		failures = append(failures, "workflow navigation called window.confirm")
@@ -308,6 +370,10 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
 		canvasNodes: document.querySelectorAll('.vue-flow__node').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
+		workflowState: Boolean(document.querySelector('[data-testid="workflow-state-panel"]')),
+		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
+		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
+		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-controls"]')),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && darkBackground(minimap),
 		handleOverlaps,

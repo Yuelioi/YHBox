@@ -12,6 +12,7 @@ $relativeRunRoot = ".task/workflow-editor-smoke/$stamp"
 $runRoot = Join-Path $root $relativeRunRoot
 $binDir = Join-Path $runRoot 'bin'
 $screenshot = Join-Path $runRoot 'workflow-editor.png'
+$assetsScreenshot = Join-Path $runRoot 'assets.png'
 $appProcess = $null
 $viteProcess = $null
 $viteListenerPID = $null
@@ -67,7 +68,7 @@ try {
         }
     }
 
-    go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot
+    go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot -assets-screenshot $assetsScreenshot
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
     }

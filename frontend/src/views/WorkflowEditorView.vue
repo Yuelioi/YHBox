@@ -33,6 +33,7 @@
         :can-undo="session.canUndo"
         :can-redo="session.canRedo"
         :ai-panel-open="aiPanelOpen"
+        :state-panel-open="statePanelOpen"
         :run-active="runActive"
         :saving="session.phase === 'saving'"
         :compile-succeeded="compileSucceeded"
@@ -41,7 +42,8 @@
         @rename="renameWorkflow"
         @undo="session.undo()"
         @redo="session.redo()"
-        @toggle-ai="aiPanelOpen = !aiPanelOpen"
+        @toggle-ai="toggleAIReview"
+        @toggle-state="toggleStatePanel"
         @compile="compile"
         @debug="startDebug"
         @run="startRun"
@@ -93,34 +95,62 @@
             <p class="mt-1 text-[11px] leading-4 text-muted">
               {{ t('workflow.editor.catalog_description') }}
             </p>
+            <UInput
+              v-model="catalogQuery"
+              data-testid="workflow-catalog-search"
+              icon="i-tabler-search"
+              size="sm"
+              class="mt-3"
+              :placeholder="t('workflow.catalog.search_placeholder')"
+              :aria-label="t('workflow.catalog.search_placeholder')"
+            />
           </div>
-          <div class="flex-1 space-y-1 overflow-y-auto p-2">
-            <button
-              v-for="projection in session.authoring.body.nodes"
-              :key="projection.nodeRef.nodeTypeId"
-              type="button"
-              draggable="true"
-              data-testid="node-catalog-item"
-              :data-node-type-id="projection.nodeRef.nodeTypeId"
-              class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated active:cursor-grabbing active:translate-y-px"
-              @click="addNode(projection.nodeRef.nodeTypeId)"
-              @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
-              @dragend="finishNodeDrag"
-            >
-              <UIcon
-                :name="`i-tabler-${projection.icon || 'box'}`"
-                class="size-4 shrink-0 text-primary"
-              />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-xs font-medium text-toned">{{
-                  projectionTitle(projection)
-                }}</span>
-                <span class="block truncate font-mono text-[10px] text-dimmed">{{
-                  projection.execution.class
-                }}</span>
-              </span>
-              <UIcon name="i-tabler-plus" class="size-3.5 text-dimmed group-hover:text-primary" />
-            </button>
+          <div class="flex-1 overflow-y-auto p-2">
+            <div v-if="catalogGroups.length" class="space-y-3">
+              <section v-for="group in catalogGroups" :key="group.key">
+                <div class="flex items-center justify-between px-2 pb-1">
+                  <h3 class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">
+                    {{ group.label }}
+                  </h3>
+                  <span class="font-mono text-[9px] text-dimmed">{{ group.nodes.length }}</span>
+                </div>
+                <div class="space-y-1">
+                  <button
+                    v-for="projection in group.nodes"
+                    :key="projection.nodeRef.nodeTypeId"
+                    type="button"
+                    draggable="true"
+                    data-testid="node-catalog-item"
+                    :data-node-type-id="projection.nodeRef.nodeTypeId"
+                    class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing active:translate-y-px"
+                    @click="addNode(projection.nodeRef.nodeTypeId)"
+                    @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
+                    @dragend="finishNodeDrag"
+                  >
+                    <UIcon
+                      :name="`i-tabler-${projection.icon || 'box'}`"
+                      class="size-4 shrink-0 text-primary"
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-xs font-medium text-toned">{{
+                        projectionTitle(projection)
+                      }}</span>
+                      <span class="block truncate font-mono text-[10px] text-dimmed">{{
+                        projection.execution.class
+                      }}</span>
+                    </span>
+                    <UIcon
+                      name="i-tabler-plus"
+                      class="size-3.5 text-dimmed group-hover:text-primary"
+                    />
+                  </button>
+                </div>
+              </section>
+            </div>
+            <div v-else class="px-3 py-10 text-center">
+              <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
+              <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
+            </div>
           </div>
           <div class="border-t border-default px-3 py-2 font-mono text-[10px] text-dimmed">
             {{ session.authoring.projectionDigest.slice(0, 24) }}
@@ -138,6 +168,7 @@
           <VueFlow
             :nodes="flowNodes"
             :edges="flowEdges"
+            :delete-key-code="null"
             fit-view-on-init
             :min-zoom="0.2"
             :max-zoom="2"
@@ -167,6 +198,33 @@
               mask-color="color-mix(in oklab, var(--ui-bg) 72%, transparent)"
             />
           </VueFlow>
+          <div
+            v-if="flowNodes.length === 0"
+            data-testid="workflow-empty-canvas"
+            class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-8"
+          >
+            <div
+              class="pointer-events-auto max-w-sm rounded-xl border border-default bg-default/95 p-6 text-center shadow-xl"
+            >
+              <div
+                class="mx-auto mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"
+              >
+                <UIcon name="i-tabler-player-play" class="size-5" />
+              </div>
+              <h2 class="text-sm font-semibold text-highlighted">
+                {{ t('workflow.empty_canvas.title') }}
+              </h2>
+              <p class="mt-2 text-xs leading-5 text-muted">
+                {{ t('workflow.empty_canvas.description') }}
+              </p>
+              <UButton
+                class="mt-4"
+                icon="i-tabler-player-play"
+                :label="t('workflow.empty_canvas.add_start')"
+                @click="addNode(RUN_STARTED_NODE_ID, { x: 120, y: 160 })"
+              />
+            </div>
+          </div>
         </div>
 
         <AIWorkflowReviewPanel
@@ -176,6 +234,13 @@
           :dirty="session.dirty"
           @close="aiPanelOpen = false"
           @accepted="acceptAIProposal"
+        />
+        <WorkflowStatePanel
+          v-else-if="statePanelOpen"
+          :variables="session.source?.variables ?? []"
+          :types="session.authoring?.body.types ?? []"
+          @command="applyCommand"
+          @close="statePanelOpen = false"
         />
         <WorkflowInspector
           v-else
@@ -229,6 +294,7 @@ import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
+import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 
 defineOptions({ name: 'WorkflowEditorView' })
 
@@ -246,6 +312,8 @@ const session = createEditorSession(workflowTransport)
 const selectedNodeId = ref('')
 const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
+const statePanelOpen = ref(false)
+const catalogQuery = ref('')
 const compileSucceeded = ref(false)
 const saveSucceeded = ref(false)
 const { screenToFlowCoordinate } = useVueFlow()
@@ -255,6 +323,28 @@ let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let nextPosition = 0
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
+const RUN_STARTED_NODE_ID = 'https://schemas.yotta.dev/nodes/event/run-started'
+
+const catalogGroups = computed(() => {
+  const query = catalogQuery.value.trim().toLocaleLowerCase()
+  const grouped = new Map<string, NodeProjection[]>()
+  for (const projection of session.authoring?.body.nodes ?? []) {
+    if (query && !catalogSearchText(projection).includes(query)) continue
+    const key = projection.category || 'other'
+    const nodes = grouped.get(key) ?? []
+    nodes.push(projection)
+    grouped.set(key, nodes)
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => categoryLabel(left).localeCompare(categoryLabel(right)))
+    .map(([key, nodes]) => ({
+      key,
+      label: categoryLabel(key),
+      nodes: nodes.sort((left, right) =>
+        projectionTitle(left).localeCompare(projectionTitle(right)),
+      ),
+    }))
+})
 
 const flowNodes = computed<FlowNode<WorkflowNodeData, Record<string, never>, 'workflow'>[]>(() =>
   (session.currentGraph?.nodes ?? []).flatMap((node) => {
@@ -302,6 +392,7 @@ const runActive = computed(() =>
 )
 
 onMounted(async () => {
+  document.addEventListener('keydown', handleEditorKeydown)
   const workflowId = String(route.params.id ?? '')
   try {
     await session.load(workflowId)
@@ -314,6 +405,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleEditorKeydown)
   unsubscribeRun?.()
   clearTimeout(compileFlashTimer)
   clearTimeout(saveFlashTimer)
@@ -347,6 +439,29 @@ function addNode(nodeTypeId: string, position?: { x: number; y: number }): void 
     nodeTypeId,
     position: position ?? { x: 100 + offset, y: 100 + offset },
   })
+}
+
+function toggleAIReview(): void {
+  aiPanelOpen.value = !aiPanelOpen.value
+  if (aiPanelOpen.value) statePanelOpen.value = false
+}
+
+function toggleStatePanel(): void {
+  statePanelOpen.value = !statePanelOpen.value
+  if (statePanelOpen.value) aiPanelOpen.value = false
+}
+
+function handleEditorKeydown(event: KeyboardEvent): void {
+  if (!selectedNodeId.value || event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return
+  const target = event.target as HTMLElement | null
+  if (
+    target?.matches('input, textarea, select, [contenteditable="true"]') ||
+    target?.closest('[role="dialog"]')
+  )
+    return
+  event.preventDefault()
+  applyCommand({ kind: 'remove-node', nodeId: selectedNodeId.value })
 }
 
 function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
@@ -478,6 +593,27 @@ function projectionTitle(projection: NodeProjection): string {
   return (
     projection.nodeRef.nodeTypeId.split('/').filter(Boolean).at(-2) ?? projection.nodeRef.nodeTypeId
   )
+}
+
+function categoryLabel(category: string): string {
+  const key = `workflow.catalog.category.${category}`
+  return te(key) ? t(key) : category
+}
+
+function catalogSearchText(projection: NodeProjection): string {
+  const description =
+    projection.descriptionKey && te(projection.descriptionKey) ? t(projection.descriptionKey) : ''
+  return [
+    projectionTitle(projection),
+    description,
+    projection.category,
+    projection.execution.class,
+    projection.nodeRef.nodeTypeId,
+    ...projection.tags,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLocaleLowerCase()
 }
 
 function edgeId(edge: {

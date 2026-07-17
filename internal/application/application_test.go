@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -55,8 +56,8 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 		case event := <-events:
 			if event.RunID == started.Record.Admission().RunID && event.Status == run.StatusSucceeded {
 				loaded, err := application.GetRun(event.RunID)
-				if err != nil || loaded.Status() != run.StatusSucceeded || len(loaded.Journal()) != 2 {
-					t.Fatalf("terminal Run = %#v, %v", loaded, err)
+				if err != nil || loaded.Status() != run.StatusSucceeded || len(loaded.Journal()) != 4 {
+					t.Fatalf("terminal Run = %#v, journal=%d, %v", loaded, len(loaded.Journal()), err)
 				}
 				if listed := sources.List(); len(listed) != 1 || listed[0].Hash() != saved.Source.Hash() {
 					t.Fatalf("Source list = %#v", listed)
@@ -80,6 +81,63 @@ func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	}
 	if err := application.Start(context.Background()); err != appcore.ErrClosed {
 		t.Fatalf("Start after Close = %v", err)
+	}
+}
+
+func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
+	now := time.Date(2026, 7, 17, 10, 45, 0, 0, time.UTC)
+	application, _, _, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+	if _, err := application.CreateSource(context.Background(), "  "); err == nil {
+		t.Fatal("CreateSource accepted an empty workflow name")
+	}
+
+	created, err := application.CreateSource(context.Background(), "Runnable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source schema.WorkflowSource
+	if err := json.Unmarshal(created.Artifact(), &source); err != nil {
+		t.Fatal(err)
+	}
+	if len(source.Graphs) != 1 || len(source.Graphs[0].Nodes) != 1 {
+		t.Fatalf("created graph = %#v", source.Graphs)
+	}
+	root := source.Graphs[0].Nodes[0]
+	if root.ID != "run-started" || root.NodeRef.NodeTypeID != nodes.RunStartedNodeID {
+		t.Fatalf("created root = %#v", root)
+	}
+	loaded, err := application.GetSource(created.WorkflowID())
+	if err != nil || loaded.Hash() != created.Hash() {
+		t.Fatalf("GetSource = %#v, %v", loaded, err)
+	}
+	listed := application.ListSources()
+	if len(listed) != 1 || listed[0].Hash() != created.Hash() {
+		t.Fatalf("ListSources = %#v", listed)
+	}
+	if len(application.CatalogArtifact()) == 0 || !application.AuthoringProjection().Valid() {
+		t.Fatal("application omitted its trusted authoring contracts")
+	}
+	compiled, err := application.CompileSource(context.Background(), created.WorkflowID())
+	if err != nil || len(compiled.Diagnostics) != 0 {
+		t.Fatalf("CompileSource = %#v, %v", compiled, err)
+	}
+	if _, ok := compiled.Program(); !ok {
+		t.Fatal("new workflow did not compile to a runnable Program")
+	}
+	draft, err := application.CompileDraft(context.Background(), created.Artifact())
+	if err != nil || draft.SourceHash != created.Hash() {
+		t.Fatalf("CompileDraft = %#v, %v", draft, err)
+	}
+	preview, err := application.PreviewRun(context.Background(), created.WorkflowID())
+	if err != nil || !preview.ProgramHash.Valid() || len(preview.Diagnostics) != 0 {
+		t.Fatalf("PreviewRun = %#v, %v", preview, err)
+	}
+	if err := application.CancelAll(context.Background()); err != nil {
+		t.Fatalf("CancelAll = %v", err)
 	}
 }
 

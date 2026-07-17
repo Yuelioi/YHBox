@@ -95,7 +95,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		case event := <-events:
 			if event.RunID == started.Run.RunID && event.Status == run.StatusSucceeded {
 				timeline, err := service.GetRunTimeline(event.RunID)
-				if err != nil || timeline.Status != string(run.StatusSucceeded) || len(timeline.Timeline) != 2 || timeline.Failure != nil {
+				if err != nil || timeline.Status != string(run.StatusSucceeded) || len(timeline.Timeline) != 4 || timeline.Failure != nil {
 					t.Fatalf("GetRunTimeline = %#v, %v", timeline, err)
 				}
 				if catalog := service.GetCatalog(); !strings.Contains(catalog, `"version":"3.1"`) {

@@ -8,7 +8,7 @@ import (
 func TestWorkflowEditorUIFailures(t *testing.T) {
 	t.Run("accepts the dark non-overlapping Nuxt UI flow", func(t *testing.T) {
 		failures := workflowEditorUIFailures(
-			pageState{GraphChromeDark: true},
+			pageState{GraphChromeDark: true, RunStarted: true},
 			pageState{ConfirmDialog: true},
 			pageState{SaveInlineFeedback: true},
 		)
@@ -26,6 +26,7 @@ func TestWorkflowEditorUIFailures(t *testing.T) {
 		want := []string{
 			"Vue Flow controls or minimap use a light background",
 			"8 workflow handles overlap their labels",
+			"new workflow omitted the RunStarted root",
 			"workflow navigation called window.confirm",
 			"workflow navigation did not open the shared confirm dialog",
 			"workflow save displayed a success toast",

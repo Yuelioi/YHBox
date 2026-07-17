@@ -55,6 +55,16 @@
       @click="emit('toggle-ai')"
     />
     <UButton
+      data-testid="workflow-state-open"
+      :label="t('workflow.inspector.state_title')"
+      icon="i-tabler-database"
+      color="neutral"
+      :variant="statePanelOpen ? 'soft' : 'ghost'"
+      size="xs"
+      :aria-pressed="statePanelOpen"
+      @click="emit('toggle-state')"
+    />
+    <UButton
       :label="
         compileSucceeded ? t('workflow.action.compile_succeeded') : t('workflow.action.compile')
       "
@@ -111,6 +121,7 @@ defineProps<{
   canUndo: boolean
   canRedo: boolean
   aiPanelOpen: boolean
+  statePanelOpen: boolean
   runActive: boolean
   saving: boolean
   compileSucceeded: boolean
@@ -122,6 +133,7 @@ const emit = defineEmits<{
   undo: []
   redo: []
   'toggle-ai': []
+  'toggle-state': []
   compile: []
   debug: []
   run: []
