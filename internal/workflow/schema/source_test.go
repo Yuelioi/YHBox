@@ -121,6 +121,50 @@ func TestParseSource31RequiresAnExplicitVariableInitialValue(t *testing.T) {
 	}
 }
 
+func TestParseSource31RejectsSubgraphCyclesAndPreservesAuthoringProjection(t *testing.T) {
+	raw := `{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-graphs","name":"Graphs"},"revision":0,"entryGraph":"main",
+		"graphs":[
+			{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[],"annotations":[{"id":"note","text":"why","position":{"x":1,"y":2},"size":{"width":180,"height":80}}]},
+			{"id":"a","kind":"subgraph","nodes":[],"calls":[{"id":"call-b","graphId":"b","position":{"x":0,"y":0},"bindings":{}}],"edges":[],"inputs":[],"outputs":[]},
+			{"id":"b","kind":"subgraph","nodes":[],"calls":[{"id":"call-a","graphId":"a","position":{"x":0,"y":0},"bindings":{}}],"edges":[],"inputs":[],"outputs":[]}
+		],"variables":[],"secretRefs":[]}`
+	_, diagnostics := ParseSource([]byte(raw))
+	found := false
+	for _, diagnostic := range diagnostics {
+		found = found || diagnostic.Code == CodeSubgraphCallCycle
+	}
+	if !found {
+		t.Fatalf("cycle diagnostics = %#v", diagnostics)
+	}
+
+	withProjection := strings.Replace(validSource31ForTest(), `"edges":[]`, `"edges":[{"channel":"data","from":{"nodeId":"concat-1","portId":"result"},"to":{"nodeId":"concat-1","portId":"a"},"presentation":{"reroutes":[{"x":10,"y":20}]}}],"annotations":[{"id":"note","text":"why","position":{"x":1,"y":2},"size":{"width":180,"height":80}}]`, 1)
+	source, diagnostics := ParseSource([]byte(withProjection))
+	if len(diagnostics) != 0 || len(source.Graphs[0].Annotations) != 1 || len(source.Graphs[0].Edges[0].Presentation.Reroutes) != 1 {
+		t.Fatalf("projection source=%#v diagnostics=%#v", source, diagnostics)
+	}
+}
+
+func TestParseSource31RejectsEveryCallPathBeyondTheRuntimeDepthBudget(t *testing.T) {
+	graphs := make([]string, 0, MaxGraphDepth+1)
+	for depth := 0; depth <= MaxGraphDepth; depth++ {
+		id, kind := fmt.Sprintf("g%d", depth), "subgraph"
+		if depth == 0 {
+			id, kind = "main", "main"
+		}
+		calls := ""
+		if depth < MaxGraphDepth {
+			calls = fmt.Sprintf(`,"calls":[{"id":"next","graphId":"g%d","position":{"x":0,"y":0},"bindings":{}}]`, depth+1)
+		}
+		graphs = append(graphs, fmt.Sprintf(`{"id":%q,"kind":%q,"nodes":[],"edges":[],"inputs":[],"outputs":[]%s}`, id, kind, calls))
+	}
+	raw := fmt.Sprintf(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-depth","name":"Depth"},"revision":0,"entryGraph":"main","graphs":[%s],"variables":[],"secretRefs":[]}`, strings.Join(graphs, ","))
+	_, diagnostics := ParseSource([]byte(raw))
+	if !slices.ContainsFunc(diagnostics, func(diagnostic Diagnostic) bool { return diagnostic.Code == CodeSubgraphCallCycle }) {
+		t.Fatalf("depth diagnostics = %#v", diagnostics)
+	}
+}
+
 func validSource31ForTest() string {
 	return fmt.Sprintf(`{
 		"format":"yotta.workflow","version":"3.1",

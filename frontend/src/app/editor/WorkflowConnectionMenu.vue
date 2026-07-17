@@ -30,26 +30,37 @@
       <UInput
         ref="searchInput"
         v-model="query"
+        data-testid="workflow-connection-search"
         icon="i-tabler-search"
         size="sm"
         class="mt-3"
         :placeholder="t('workflow.connection.search')"
       />
+      <p
+        v-if="error"
+        data-testid="workflow-connection-error"
+        class="mt-2 text-[11px] leading-4 text-error"
+      >
+        {{ error }}
+      </p>
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-2">
       <div v-if="visibleCandidates.length" class="space-y-1">
-        <UButton
+        <button
           v-for="candidate in visibleCandidates"
           :key="candidate.key"
-          color="neutral"
-          variant="ghost"
-          class="h-auto w-full justify-start px-2.5 py-2 text-left"
-          @click="emit('select', candidate)"
+          type="button"
+          data-testid="workflow-connection-candidate"
+          :data-node-type-id="candidate.nodeTypeId"
+          :data-port-id="candidate.handle?.portId"
+          class="flex h-auto w-full items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click.stop="emit('select', candidate)"
         >
-          <template #leading>
-            <UIcon :name="`i-tabler-${candidate.icon || 'box'}`" class="size-4 text-primary" />
-          </template>
+          <UIcon
+            :name="`i-tabler-${candidate.icon || 'box'}`"
+            class="size-4 shrink-0 text-primary"
+          />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-xs font-medium text-toned">{{ candidate.title }}</span>
             <span class="block truncate font-mono text-[10px] text-dimmed">
@@ -60,7 +71,7 @@
               }}
             </span>
           </span>
-        </UButton>
+        </button>
       </div>
       <div v-else class="px-3 py-8 text-center text-xs text-muted">
         {{ t('workflow.connection.no_results') }}
@@ -101,6 +112,7 @@ const props = defineProps<{
   position: { x: number; y: number }
   compatibleCandidates: WorkflowConnectionCandidate[]
   allCandidates: WorkflowConnectionCandidate[]
+  error?: string
 }>()
 const emit = defineEmits<{
   select: [candidate: WorkflowConnectionCandidate]

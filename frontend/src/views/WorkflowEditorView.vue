@@ -66,6 +66,86 @@
         @save="save"
       />
 
+      <div class="flex items-center gap-2 border-b border-default bg-default px-3 py-1.5">
+        <div class="flex min-w-0 flex-1 items-center gap-1">
+          <template v-for="(graphId, index) in session.graphPath" :key="`${index}:${graphId}`">
+            <UIcon v-if="index" name="i-tabler-chevron-right" class="size-3 text-dimmed" />
+            <UButton
+              :data-testid="`workflow-graph-breadcrumb-${graphId}`"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :label="graphLabel(graphId)"
+              @click="openGraphAt(index)"
+            />
+          </template>
+        </div>
+        <UDropdownMenu :items="graphMenuItems">
+          <UButton
+            icon="i-tabler-folders"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :label="t('workflow.graphs.all')"
+          />
+        </UDropdownMenu>
+        <UDropdownMenu :items="callMenuItems">
+          <UButton
+            data-testid="workflow-graph-add-call"
+            icon="i-tabler-library-plus"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :label="t('workflow.graphs.add_call')"
+            :disabled="callableGraphs.length === 0"
+          />
+        </UDropdownMenu>
+        <UButton
+          data-testid="workflow-annotation-add"
+          icon="i-tabler-note"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :aria-label="t('workflow.graphs.add_comment')"
+          @click="addComment"
+        />
+        <UButton
+          v-if="session.currentGraph?.kind === 'subgraph'"
+          data-testid="workflow-graph-infer-interface"
+          icon="i-tabler-plug-connected"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :label="t('workflow.graphs.infer_interface')"
+          @click="inferGraphInterface"
+        />
+        <UButton
+          data-testid="workflow-graph-rename"
+          icon="i-tabler-pencil"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :aria-label="t('common.rename')"
+          @click="openGraphDialog('rename')"
+        />
+        <UButton
+          v-if="session.currentGraph?.kind === 'subgraph'"
+          icon="i-tabler-trash"
+          color="error"
+          variant="ghost"
+          size="xs"
+          :aria-label="t('common.delete')"
+          @click="deleteCurrentGraph"
+        />
+        <UButton
+          data-testid="workflow-graph-new"
+          icon="i-tabler-plus"
+          size="xs"
+          :label="t('workflow.graphs.new')"
+          @click="openGraphDialog('create')"
+        />
+      </div>
+
       <div
         v-if="creationTemplate"
         class="flex flex-wrap items-center gap-2 border-b border-primary/25 bg-primary/5 px-4 py-2 text-xs text-muted"
@@ -85,6 +165,7 @@
 
       <div
         v-if="session.saveConflict"
+        data-testid="workflow-save-error"
         class="border-b border-error/35 bg-error/10 px-4 py-2 text-xs text-error"
         role="alert"
       >
@@ -178,6 +259,7 @@
         <div
           ref="canvasElement"
           data-testid="workflow-canvas"
+          :data-graph-id="session.currentGraph?.id"
           class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
           :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
           @dragover="continueNodeDrag"
@@ -220,6 +302,33 @@
                 "
               />
             </template>
+            <template #node-graph-call="slotProps">
+              <WorkflowGraphCall
+                :call="slotProps.data.call"
+                :graph="slotProps.data.graph"
+                :selected="slotProps.selected"
+                @open="openCalledGraph(slotProps.data.call.graphId)"
+              />
+            </template>
+            <template #node-annotation="slotProps">
+              <WorkflowAnnotation
+                :annotation="slotProps.data.annotation"
+                :selected="slotProps.selected"
+                @update="updateAnnotation"
+              />
+            </template>
+            <template #edge-reroute="slotProps">
+              <WorkflowRerouteEdge
+                :id="slotProps.id"
+                :source-x="slotProps.sourceX"
+                :source-y="slotProps.sourceY"
+                :target-x="slotProps.targetX"
+                :target-y="slotProps.targetY"
+                :style="slotProps.style"
+                :edge="slotProps.data.edge"
+                @update="setEdgeReroutes(slotProps.data.edge, $event)"
+              />
+            </template>
             <Background :gap="20" :size="1" pattern-color="rgb(113 113 122 / 0.26)" />
             <Controls position="bottom-left" />
             <MiniMap
@@ -252,12 +361,40 @@
             @copy="copySelection"
             @cut="cutSelection"
             @duplicate="duplicateSelection"
+            @collapse="collapseSelection"
             @remove="removeSelection"
           />
           <div
             v-else
             class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
+            <template v-if="selectedEdgeId">
+              <UButton
+                data-testid="workflow-reroute-add"
+                icon="i-tabler-point"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :label="t('workflow.reroute.add')"
+                @click="addEdgeReroute"
+              />
+              <UButton
+                icon="i-tabler-eraser"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('workflow.reroute.clear')"
+                @click="clearEdgeReroutes"
+              />
+              <UButton
+                icon="i-tabler-trash"
+                color="error"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('common.delete')"
+                @click="disconnectEdge(selectedEdgeId)"
+              />
+            </template>
             <UButton
               data-testid="workflow-layout-lr"
               icon="i-tabler-layout-board-split"
@@ -291,6 +428,7 @@
             :position="connectionMenu.canvasPosition"
             :compatible-candidates="compatibleConnectionCandidates"
             :all-candidates="allConnectionCandidates"
+            :error="connectionError"
             @select="selectConnectionCandidate"
             @close="closeConnectionMenu"
           />
@@ -305,15 +443,35 @@
               <div
                 class="mx-auto mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"
               >
-                <UIcon name="i-tabler-player-play" class="size-5" />
+                <UIcon
+                  :name="
+                    session.currentGraph?.kind === 'subgraph'
+                      ? 'i-tabler-folders'
+                      : 'i-tabler-player-play'
+                  "
+                  class="size-5"
+                />
               </div>
               <h2 class="text-sm font-semibold text-highlighted">
-                {{ t('workflow.empty_canvas.title') }}
+                {{
+                  t(
+                    session.currentGraph?.kind === 'subgraph'
+                      ? 'workflow.empty_canvas.subgraph_title'
+                      : 'workflow.empty_canvas.title',
+                  )
+                }}
               </h2>
               <p class="mt-2 text-xs leading-5 text-muted">
-                {{ t('workflow.empty_canvas.description') }}
+                {{
+                  t(
+                    session.currentGraph?.kind === 'subgraph'
+                      ? 'workflow.empty_canvas.subgraph_description'
+                      : 'workflow.empty_canvas.description',
+                  )
+                }}
               </p>
               <UButton
+                v-if="session.currentGraph?.kind === 'main'"
                 class="mt-4"
                 icon="i-tabler-player-play"
                 :label="t('workflow.empty_canvas.add_start')"
@@ -337,6 +495,15 @@
           :types="session.authoring?.body.types ?? []"
           @command="applyCommand"
           @close="statePanelOpen = false"
+        />
+        <WorkflowGraphCallInspector
+          v-else-if="selectedCall && selectedCallGraph"
+          :call="selectedCall"
+          :graph="selectedCallGraph"
+          :ports="selectedCallPorts"
+          @update="applyCommand({ kind: 'update-graph-call', call: $event })"
+          @open="openCalledGraph(selectedCallGraph.id)"
+          @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
         />
         <WorkflowInspector
           v-else
@@ -365,6 +532,40 @@
         @stop="cancelRun"
         @close="debuggerOpen = false"
       />
+
+      <BaseModal
+        v-model:open="graphDialogOpen"
+        :title="
+          graphDialogMode === 'create' ? t('workflow.graphs.new') : t('workflow.graphs.rename')
+        "
+        icon="i-tabler-folders"
+        size="md"
+      >
+        <UFormField :label="t('common.name')" required>
+          <UInput
+            v-model="graphName"
+            data-testid="workflow-graph-name"
+            autofocus
+            maxlength="256"
+            @keydown.enter="commitGraphDialog"
+          />
+        </UFormField>
+        <template #footer>
+          <UButton
+            data-testid="workflow-graph-cancel"
+            color="neutral"
+            variant="ghost"
+            :label="t('common.cancel')"
+            @click="graphDialogOpen = false"
+          />
+          <UButton
+            data-testid="workflow-graph-confirm"
+            :disabled="!graphName.trim()"
+            :label="t('common.confirm')"
+            @click="commitGraphDialog"
+          />
+        </template>
+      </BaseModal>
     </template>
 
     <BaseModal
@@ -569,6 +770,7 @@ import {
   type NodeDragEvent,
   type NodeChange,
   type NodeMouseEvent,
+  type Node as FlowNode,
   type OnConnectStartParams,
 } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -585,6 +787,7 @@ import {
   type Node,
   type NodeProjection,
 } from '@/app/editor/EditorSession'
+import type { Annotation, GraphCall } from '../../../contracts/workflow/3.1/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
 import {
@@ -606,6 +809,10 @@ import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
 } from '@/app/editor/WorkflowConnectionMenu.vue'
 import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
+import WorkflowGraphCall from '@/app/editor/WorkflowGraphCall.vue'
+import WorkflowGraphCallInspector from '@/app/editor/WorkflowGraphCallInspector.vue'
+import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
+import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { useWailsEvent } from '@/composables/useWailsEvent'
 import {
@@ -652,6 +859,9 @@ const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
+const graphDialogOpen = ref(false)
+const graphDialogMode = ref<'create' | 'rename'>('create')
+const graphName = ref('')
 const nodeSearchOpen = ref(false)
 const nodeSearchQuery = ref('')
 const creationTemplate = computed(() => {
@@ -678,6 +888,7 @@ const canvasElement = ref<HTMLElement | null>(null)
 const connectionStart = ref<ConnectionAnchor | null>(null)
 const connectionMenu = ref<ConnectionMenuState | null>(null)
 const connectionHint = ref('')
+const connectionError = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
 const diagnosticsOpen = ref(false)
@@ -729,8 +940,10 @@ interface ConnectionMenuState {
 
 interface WorkflowSelectionClipboard {
   format: 'yotta.workflow-selection'
-  version: 1
+  version: 2
   nodes: Node[]
+  calls: GraphCall[]
+  annotations: Annotation[]
   edges: Edge[]
 }
 
@@ -742,10 +955,37 @@ interface WorkflowNodeSearchResult {
   searchText: string
 }
 
+const graphMenuItems = computed(() => [
+  (session.source?.graphs ?? []).map((graph) => ({
+    label: graphLabel(graph.id),
+    icon: graph.kind === 'main' ? 'i-tabler-home' : 'i-tabler-folders',
+    onSelect: () => openCalledGraph(graph.id),
+  })),
+])
+
+const callableGraphs = computed(() =>
+  (session.source?.graphs ?? []).filter(
+    (graph) =>
+      graph.kind === 'subgraph' &&
+      graph.id !== session.currentGraph?.id &&
+      !graphReaches(graph.id, session.currentGraph?.id ?? ''),
+  ),
+)
+
+const callMenuItems = computed(() => [
+  callableGraphs.value.map((graph) => ({
+    label: graphLabel(graph.id),
+    icon: 'i-tabler-folders',
+    onSelect: () => addGraphCall(graph.id),
+  })),
+])
+
 const catalogGroups = computed(() => {
   const query = catalogQuery.value.trim().toLocaleLowerCase()
   const grouped = new Map<string, NodeProjection[]>()
   for (const projection of session.authoring?.body.nodes ?? []) {
+    if (session.currentGraph?.kind === 'subgraph' && projection.instruction.kind === 'run-root')
+      continue
     if (!visibleForCreationTemplate(projection)) continue
     if (query && !catalogSearchText(projection).includes(query)) continue
     const key = projection.category || 'other'
@@ -807,13 +1047,38 @@ function visibleForCreationTemplate(projection: NodeProjection): boolean {
   return automationCapabilities.every((capability) => capability.targetKinds.includes(targetKind))
 }
 
-const flowNodes = computed(() =>
-  projectWorkflowFlowNodes(
-    session.currentGraph?.nodes ?? [],
-    session.nodeProjection.bind(session),
-    nodeGestures.positions,
-  ),
-)
+const flowNodes = computed<FlowNode[]>(() => {
+  const graph = session.currentGraph
+  if (!graph) return []
+  return [
+    ...projectWorkflowFlowNodes(
+      graph.nodes,
+      session.nodeProjection.bind(session),
+      nodeGestures.positions,
+    ),
+    ...(graph.calls ?? []).flatMap((call) => {
+      const callee = session.calleeGraph(call)
+      return callee
+        ? [
+            {
+              id: call.id,
+              type: 'graph-call',
+              position: nodeGestures.positions.get(call.id) ?? call.position,
+              data: { call, graph: callee },
+              dragHandle: '.workflow-node-drag-handle',
+            },
+          ]
+        : []
+    }),
+    ...(graph.annotations ?? []).map((annotation) => ({
+      id: annotation.id,
+      type: 'annotation',
+      position: nodeGestures.positions.get(annotation.id) ?? annotation.position,
+      data: { annotation },
+      dragHandle: '.workflow-node-drag-handle',
+    })),
+  ] as FlowNode[]
+})
 
 const flowEdges = computed<FlowEdge[]>(() =>
   (session.currentGraph?.edges ?? []).map((edge) => ({
@@ -823,6 +1088,8 @@ const flowEdges = computed<FlowEdge[]>(() =>
     sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
     targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
     selected: selectedEdgeId.value === edgeId(edge),
+    type: edge.presentation?.reroutes?.length ? 'reroute' : undefined,
+    data: { edge },
     animated: edge.channel !== 'data',
     style: {
       stroke:
@@ -869,6 +1136,18 @@ const allConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() =>
 
 const selectedNode = computed(
   () => session.currentGraph?.nodes.find((node) => node.id === selectedNodeId.value) ?? null,
+)
+const selectedCall = computed(
+  () => session.currentGraph?.calls?.find((call) => call.id === selectedNodeId.value) ?? null,
+)
+const selectedCallGraph = computed(() =>
+  selectedCall.value ? (session.calleeGraph(selectedCall.value) ?? null) : null,
+)
+const selectedCallPorts = computed(() =>
+  (selectedCallGraph.value?.inputs ?? []).flatMap((port) => {
+    const projection = session.graphInputProjection(selectedCallGraph.value!.id, port.id)
+    return projection ? [projection] : []
+  }),
 )
 const selectedProjection = computed(() =>
   selectedNode.value
@@ -1123,12 +1402,131 @@ function applyCommand(command: EditorCommand): boolean {
 }
 
 function addNode(nodeTypeId: string, position?: { x: number; y: number }): void {
+  if (
+    session.currentGraph?.kind === 'subgraph' &&
+    session.nodeProjection(nodeTypeId)?.instruction.kind === 'run-root'
+  )
+    return
   const offset = position ? 0 : nextPosition++ * 28
   applyCommand({
     kind: 'add-node',
     nodeTypeId,
     position: position ?? { x: 100 + offset, y: 100 + offset },
   })
+}
+
+function inferGraphInterface(): void {
+  try {
+    session.inferCurrentGraphInterface()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function addGraphCall(graphId: string): void {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const position = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    : { x: 160, y: 160 }
+  try {
+    const callId = session.insertGraphCall(graphId, position)
+    selectedNodeIds.value = new Set([callId])
+    selectedNodeId.value = callId
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function graphReaches(graphId: string, targetId: string, visited = new Set<string>()): boolean {
+  if (!targetId || visited.has(graphId)) return false
+  if (graphId === targetId) return true
+  visited.add(graphId)
+  const graph = session.source?.graphs.find((candidate) => candidate.id === graphId)
+  return Boolean(
+    graph?.calls?.some((call) => graphReaches(call.graphId, targetId, new Set(visited))),
+  )
+}
+
+function graphLabel(graphId: string): string {
+  const graph = session.source?.graphs.find((candidate) => candidate.id === graphId)
+  return graph?.name || (graph?.kind === 'main' ? t('workflow.graphs.main') : graphId)
+}
+
+function openCalledGraph(graphId: string): void {
+  const entry = session.source?.entryGraph
+  if (!entry) return
+  session.openGraphPath(graphId === entry ? [entry] : [entry, graphId])
+  selectedNodeId.value = ''
+  selectedNodeIds.value = new Set()
+  selectedEdgeId.value = ''
+  void nextTick(() => fitView({ padding: 0.18, duration: 180 }))
+}
+
+function openGraphAt(index: number): void {
+  session.openGraphPath(session.graphPath.slice(0, index + 1))
+}
+
+function openGraphDialog(mode: 'create' | 'rename'): void {
+  graphDialogMode.value = mode
+  graphName.value = mode === 'rename' ? graphLabel(session.currentGraph?.id ?? '') : ''
+  graphDialogOpen.value = true
+}
+
+function commitGraphDialog(): void {
+  const name = graphName.value.trim()
+  if (!name) return
+  try {
+    if (graphDialogMode.value === 'create') session.createSubgraph(name)
+    else if (session.currentGraph) session.renameGraph(session.currentGraph.id, name)
+    graphDialogOpen.value = false
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+async function deleteCurrentGraph(): Promise<void> {
+  const graph = session.currentGraph
+  if (!graph || graph.kind !== 'subgraph') return
+  const accepted = await confirm({
+    title: t('workflow.graphs.delete_title'),
+    description: t('workflow.graphs.delete_hint', { name: graphLabel(graph.id) }),
+    confirmText: t('common.delete'),
+    color: 'error',
+  })
+  if (accepted !== true) return
+  try {
+    session.removeGraph(graph.id)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function addComment(): void {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const center = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    : { x: 160, y: 160 }
+  const position = { x: center.x + 180, y: center.y - 140 }
+  const id = session.addAnnotation(position)
+  selectedNodeIds.value = new Set([id])
+  selectedNodeId.value = id
+}
+
+function updateAnnotation(annotation: Annotation): void {
+  applyCommand({ kind: 'update-annotation', annotation })
+}
+
+function collapseSelection(): void {
+  try {
+    const callId = session.collapseSelection(
+      [...selectedNodeIds.value],
+      t('workflow.graphs.default_name'),
+    )
+    selectedNodeIds.value = new Set([callId])
+    selectedNodeId.value = callId
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
 }
 
 function toggleAIReview(): void {
@@ -1286,17 +1684,21 @@ function openConnectionMenu(anchor: ConnectionAnchor, point: { x: number; y: num
     },
   }
   connectionHint.value = ''
+  connectionError.value = ''
 }
 
 function closeConnectionMenu(): void {
   connectionMenu.value = null
+  connectionError.value = ''
 }
 
 function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void {
   const menu = connectionMenu.value
   if (!menu) return
+  connectionError.value = ''
+  const position = { x: menu.flowPosition.x, y: menu.flowPosition.y }
   if (!candidate.handle) {
-    addNode(candidate.nodeTypeId, menu.flowPosition)
+    addNode(candidate.nodeTypeId, position)
     closeConnectionMenu()
     return
   }
@@ -1306,10 +1708,11 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
       menu.anchor.handle,
       candidate.nodeTypeId,
       candidate.handle,
-      menu.flowPosition,
+      position,
     )
     closeConnectionMenu()
   } catch (error) {
+    connectionError.value = error instanceof Error ? error.message : String(error)
     showError(t('workflow.toast.edit_rejected'), error)
   }
 }
@@ -1363,9 +1766,38 @@ function sizedFlowNode(nodeId: string, position: { x: number; y: number }): Size
 
 function selectedSizedNodes(): SizedWorkflowNode[] {
   return [...selectedNodeIds.value].flatMap((nodeId) => {
-    const node = session.currentGraph?.nodes.find((candidate) => candidate.id === nodeId)
-    return node ? [sizedFlowNode(nodeId, node.position)] : []
+    const graph = session.currentGraph
+    const position =
+      graph?.nodes.find((candidate) => candidate.id === nodeId)?.position ??
+      graph?.calls?.find((candidate) => candidate.id === nodeId)?.position ??
+      graph?.annotations?.find((candidate) => candidate.id === nodeId)?.position
+    return position ? [sizedFlowNode(nodeId, position)] : []
   })
+}
+
+function applyCanvasPositions(
+  positions: Array<{ nodeId: string; position: { x: number; y: number } }>,
+): boolean {
+  const graph = session.currentGraph
+  if (!graph) return false
+  let applied = false
+  const nodes = positions.filter((item) => graph.nodes.some((node) => node.id === item.nodeId))
+  if (nodes.length) applied = applyCommand({ kind: 'move-nodes', positions: nodes }) || applied
+  for (const item of positions) {
+    const call = graph.calls?.find((candidate) => candidate.id === item.nodeId)
+    if (call)
+      applied =
+        applyCommand({ kind: 'update-graph-call', call: { ...call, position: item.position } }) ||
+        applied
+    const annotation = graph.annotations?.find((candidate) => candidate.id === item.nodeId)
+    if (annotation)
+      applied =
+        applyCommand({
+          kind: 'update-annotation',
+          annotation: { ...annotation, position: item.position },
+        }) || applied
+  }
+  return applied
 }
 
 function updateSnapGuides(guideX?: number, guideY?: number): void {
@@ -1386,25 +1818,28 @@ function updateSnapGuides(guideX?: number, guideY?: number): void {
 
 function alignSelection(mode: AlignMode): void {
   const positions = alignNodePositions(selectedSizedNodes(), mode)
-  if (positions.length) applyCommand({ kind: 'move-nodes', positions })
+  if (positions.length) applyCanvasPositions(positions)
 }
 
 function distributeSelection(mode: DistributeMode): void {
   const positions = distributeNodePositions(selectedSizedNodes(), mode)
-  if (positions.length) applyCommand({ kind: 'move-nodes', positions })
+  if (positions.length) applyCanvasPositions(positions)
 }
 
 async function autoLayout(direction: 'LR' | 'TB'): Promise<void> {
   if (layouting.value) return
   const graph = session.currentGraph
   const source = session.source
-  if (!graph || !source || graph.nodes.length === 0) return
-  const nodes = graph.nodes.map((node) => sizedFlowNode(node.id, node.position))
+  if (!graph || !source || graph.nodes.length + (graph.calls?.length ?? 0) === 0) return
+  const nodes = [
+    ...graph.nodes.map((node) => sizedFlowNode(node.id, node.position)),
+    ...(graph.calls ?? []).map((call) => sizedFlowNode(call.id, call.position)),
+  ]
   layouting.value = true
   try {
     const positions = await autoLayoutNodePositions(nodes, graph.edges, direction)
     if (session.source !== source || session.currentGraph?.id !== graph.id) return
-    if (applyCommand({ kind: 'move-nodes', positions })) {
+    if (applyCanvasPositions(positions)) {
       await nextTick()
       await fitView({ padding: 0.18, duration: 180 })
     }
@@ -1421,7 +1856,17 @@ function removeSelection(): void {
     : selectedNodeId.value
       ? [selectedNodeId.value]
       : []
-  if (ids.length && applyCommand({ kind: 'remove-nodes', nodeIds: ids })) {
+  const graph = session.currentGraph
+  const nodeIds = ids.filter((id) => graph?.nodes.some((node) => node.id === id))
+  const callIds = ids.filter((id) => graph?.calls?.some((call) => call.id === id))
+  const annotationIds = ids.filter((id) =>
+    graph?.annotations?.some((annotation) => annotation.id === id),
+  )
+  if (nodeIds.length) applyCommand({ kind: 'remove-nodes', nodeIds })
+  for (const callId of callIds) applyCommand({ kind: 'remove-graph-call', callId })
+  for (const annotationId of annotationIds)
+    applyCommand({ kind: 'remove-annotation', annotationId })
+  if (ids.length) {
     selectedNodeId.value = ''
     selectedNodeIds.value = new Set()
     return
@@ -1440,10 +1885,10 @@ function duplicateSelection(): void {
 
 async function copySelection(): Promise<void> {
   const snapshot = session.selectionSnapshot([...selectedNodeIds.value])
-  if (!snapshot.nodes.length) return
+  if (!snapshot.nodes.length && !snapshot.calls.length && !snapshot.annotations.length) return
   workflowClipboard = {
     format: 'yotta.workflow-selection',
-    version: 1,
+    version: 2,
     ...snapshot,
   }
   pasteOffset = 0
@@ -1497,8 +1942,10 @@ function parseWorkflowClipboard(value: string): WorkflowSelectionClipboard {
   const parsed = JSON.parse(value) as Partial<WorkflowSelectionClipboard>
   if (
     parsed.format !== 'yotta.workflow-selection' ||
-    parsed.version !== 1 ||
+    parsed.version !== 2 ||
     !Array.isArray(parsed.nodes) ||
+    !Array.isArray(parsed.calls) ||
+    !Array.isArray(parsed.annotations) ||
     !Array.isArray(parsed.edges)
   ) {
     throw new Error('clipboard does not contain a workflow selection')
@@ -1532,6 +1979,34 @@ function eventClientPoint(event?: MouseEvent | TouchEvent): { x: number; y: numb
 
 function disconnect(event: EdgeMouseEvent): void {
   disconnectEdge(event.edge.id)
+}
+
+function setEdgeReroutes(edge: Edge, reroutes: Array<{ x: number; y: number }>): void {
+  applyCommand({ kind: 'set-edge-reroutes', edge, reroutes })
+}
+
+function selectedSourceEdge(): Edge | undefined {
+  return session.currentGraph?.edges.find((edge) => edgeId(edge) === selectedEdgeId.value)
+}
+
+function addEdgeReroute(): void {
+  const edge = selectedSourceEdge()
+  const graph = session.currentGraph
+  if (!edge || !graph) return
+  const position = (id: string) =>
+    graph.nodes.find((node) => node.id === id)?.position ??
+    graph.calls?.find((call) => call.id === id)?.position
+  const from = position(edge.from.nodeId)
+  const to = position(edge.to.nodeId)
+  if (!from || !to) return
+  const reroutes = [...(edge.presentation?.reroutes ?? [])]
+  reroutes.push({ x: (from.x + to.x) / 2 + 115, y: (from.y + to.y) / 2 + 45 })
+  setEdgeReroutes(edge, reroutes)
+}
+
+function clearEdgeReroutes(): void {
+  const edge = selectedSourceEdge()
+  if (edge) setEdgeReroutes(edge, [])
 }
 
 function disconnectEdge(id: string): void {
@@ -1578,7 +2053,7 @@ function trackNodeDrag(event: NodeDragEvent): void {
 function moveNode(event: NodeDragEvent): void {
   const positions = dragPositions(event)
   for (const item of positions) nodeGestures.track(item.nodeId, item.position)
-  applyCommand({ kind: 'move-nodes', positions })
+  applyCanvasPositions(positions)
   for (const item of positions) nodeGestures.clear(item.nodeId)
   snapGuides.value = {}
 }
@@ -1637,7 +2112,10 @@ async function startDebug(): Promise<void> {
     runTimelineOpen.value = false
     const snapshot = session.debugSnapshot
     if (snapshot?.status === 'paused' && snapshot.nodeId) {
-      await focusNode(snapshot.graphId ? [snapshot.graphId] : [], snapshot.nodeId)
+      await focusNode(
+        snapshot.graphPath ?? (snapshot.graphId ? [snapshot.graphId] : []),
+        snapshot.nodeId,
+      )
     }
   } catch (error) {
     showError(t('workflow.toast.debug_failed'), error)

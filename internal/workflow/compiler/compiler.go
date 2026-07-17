@@ -43,7 +43,6 @@ const (
 	CodeNoExecutionRoot          = "NO_EXECUTION_ROOT"
 	CodeUnreachableExecution     = "UNREACHABLE_EXECUTION"
 	CodeDataCycle                = "DATA_CYCLE"
-	CodeUnsupportedGraph         = "UNSUPPORTED_GRAPH"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
 )
 
@@ -121,31 +120,41 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	if len(source.SecretRefs) != 0 {
 		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
 	}
-	planEntries := make([]capability.PlanEntry, 0)
-	for graphIndex, graph := range source.Graphs {
-		if err := ctx.Err(); err != nil {
-			return CompileResult{}, err
-		}
-		if graph.Kind != schema.GraphKindMain || graph.ID != source.EntryGraph {
-			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedGraph, []string{"graphs", fmt.Sprint(graphIndex)}, ""))
-			continue
-		}
-		if len(graph.Inputs) != 0 || len(graph.Outputs) != 0 {
-			result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"graphs", fmt.Sprint(graphIndex), "inputs"}, graph.ID))
-			continue
-		}
-		compiled, graphDiagnostics, compileErr := compileGraph(ctx, graph, graphIndex, request.Catalog, c.validators, stateByName, request.BlobVerifier)
-		if compileErr != nil {
-			return CompileResult{}, compileErr
-		}
-		result.Diagnostics = append(result.Diagnostics, graphDiagnostics...)
-		for _, node := range compiled.Nodes {
-			for _, requirement := range node.Capabilities {
-				planEntries = append(planEntries, capability.PlanEntry{GraphID: graph.ID, NodeID: node.ID, Requirement: requirement})
-			}
-		}
-		body.Graphs = append(body.Graphs, compiled)
+	expanded, expansionDiagnostics, expandErr := expandWorkflow(source, request.Catalog)
+	if expandErr != nil {
+		return result, expandErr
 	}
+	result.Diagnostics = append(result.Diagnostics, expansionDiagnostics...)
+	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, request.Catalog, c.validators, stateByName, request.BlobVerifier)
+	if compileErr != nil {
+		return CompileResult{}, compileErr
+	}
+	for index := range compiled.Nodes {
+		location, ok := expanded.locations[compiled.Nodes[index].ID]
+		if !ok {
+			return result, errors.New("expanded node has no source location")
+		}
+		compiled.Nodes[index].GraphPath = append([]string(nil), location.GraphPath...)
+		compiled.Nodes[index].SourceNodeID = location.NodeID
+	}
+	for index := range graphDiagnostics {
+		if location, ok := expanded.locations[graphDiagnostics[index].NodeID]; ok {
+			graphDiagnostics[index].GraphPath = append([]string(nil), location.GraphPath...)
+			graphDiagnostics[index].NodeID = location.NodeID
+		}
+	}
+	result.Diagnostics = append(result.Diagnostics, graphDiagnostics...)
+	planEntries := make([]capability.PlanEntry, 0)
+	for _, node := range compiled.Nodes {
+		for _, requirement := range node.Capabilities {
+			planEntries = append(planEntries, capability.PlanEntry{GraphID: node.GraphPath[len(node.GraphPath)-1], NodeID: node.SourceNodeID, Requirement: requirement})
+		}
+	}
+	planEntries, err = deduplicatePlanEntries(planEntries)
+	if err != nil {
+		return result, err
+	}
+	body.Graphs = append(body.Graphs, compiled)
 	plan, err := capability.SealPlan(planEntries)
 	if err != nil {
 		return result, fmt.Errorf("seal capability plan: %w", err)

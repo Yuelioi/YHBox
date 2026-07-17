@@ -82,6 +82,18 @@ func GenerateSchema() ([]byte, error) {
 		{CommandClearBinding, "clearBinding"},
 		{CommandConnect, "connect"},
 		{CommandDisconnect, "disconnect"},
+		{CommandAddGraph, "addGraph"},
+		{CommandRenameGraph, "renameGraph"},
+		{CommandRemoveGraph, "removeGraph"},
+		{CommandUpdateGraphInterface, "updateGraphInterface"},
+		{CommandAddGraphCall, "addGraphCall"},
+		{CommandUpdateGraphCall, "updateGraphCall"},
+		{CommandRemoveGraphCall, "removeGraphCall"},
+		{CommandAddAnnotation, "addAnnotation"},
+		{CommandUpdateAnnotation, "updateAnnotation"},
+		{CommandRemoveAnnotation, "removeAnnotation"},
+		{CommandSetEdgeReroutes, "setEdgeReroutes"},
+		{CommandCollapseSelection, "collapseSelection"},
 	}
 	oneOf := make([]any, 0, len(variants))
 	for _, variant := range variants {

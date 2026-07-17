@@ -78,6 +78,155 @@ func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
 	}
 }
 
+func TestEngineCollapsesSelectionAndProtectsReferencedSubgraph(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"root", "delay", "end"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.RunStartedNodeID, Handle: "root"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "delay"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.EndBranchNodeID, Handle: "end"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "$root", PortID: "started"}, To: schema.Endpoint{NodeID: "$delay", PortID: "in"}}}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "$delay", PortID: "done"}, To: schema.Endpoint{NodeID: "$end", PortID: "in"}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	collapsed, err := engine.Apply(base.Source, []authoring.Command{{
+		Kind:              authoring.CommandCollapseSelection,
+		CollapseSelection: &authoring.CollapseSelectionCommand{GraphID: "main", SubgraphID: "wait", CallID: "call-wait", Name: "Wait", NodeIDs: []string{"delay"}, Position: schema.Position{X: 100, Y: 100}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	main, child := collapsed.Source.Graphs[0], collapsed.Source.Graphs[1]
+	if collapsed.Source.Revision != 2 || len(main.Calls) != 1 || len(main.Nodes) != 2 || len(main.Edges) != 2 || len(child.Nodes) != 1 || len(child.Entries) != 1 || len(child.Exits) != 1 {
+		t.Fatalf("collapsed source = %#v", collapsed.Source)
+	}
+	_, err = engine.Apply(collapsed.Source, []authoring.Command{{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "wait"}}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "REFERENCE_IN_USE" {
+		t.Fatalf("referenced delete error = %#v", err)
+	}
+}
+
+func TestEngineUpdatesCallableSubgraphInterfaceAsOneCommand(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "wait" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandAddGraph,
+		AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+			ID: "child", Kind: schema.GraphKindSubgraph,
+			Nodes: []schema.Node{},
+			Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := engine.Apply(created.Source, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "child", NodeTypeID: nodes.DelayNodeID, Handle: "wait"}},
+		{
+			Kind: authoring.CommandUpdateGraphInterface,
+			UpdateGraphInterface: &authoring.GraphInterfaceCommand{
+				GraphID: "child", Entries: []schema.Endpoint{{NodeID: "$wait", PortID: "in"}},
+				Exits:  []schema.GraphExit{{ID: "done", Channel: schema.EdgeExec, Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "done"}}},
+				Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := updated.Source.Graphs[1]
+	if len(child.Entries) != 1 || len(child.Exits) != 1 || updated.Source.Revision != 2 {
+		t.Fatalf("updated subgraph = %#v", child)
+	}
+}
+
+func TestEngineAuthorsGraphCallAnnotationAndRerouteLifecycle(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"left", "right"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge := schema.Edge{
+		Channel: schema.EdgeData,
+		From:    schema.Endpoint{NodeID: "left", PortID: "result"},
+		To:      schema.Endpoint{NodeID: "right", PortID: "a"},
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "left"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "right"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: edge}},
+		{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+			ID: "child", Name: "Child", Kind: schema.GraphKindSubgraph,
+			Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{}, Entries: []schema.Endpoint{}, Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+		}}},
+		{Kind: authoring.CommandRenameGraph, RenameGraph: &authoring.RenameGraphCommand{GraphID: "child", Name: "  Reusable child  "}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{GraphID: "main", Call: schema.GraphCall{
+			ID: "call-child", GraphID: "child", Label: "Call child", Position: schema.Position{X: 300, Y: 80}, Bindings: map[string]schema.InputBinding{},
+		}}},
+		{Kind: authoring.CommandAddAnnotation, AddAnnotation: &authoring.AnnotationCommand{GraphID: "main", Annotation: schema.Annotation{
+			ID: "note", Text: "Reusable section", Color: "amber", Position: schema.Position{X: 260, Y: 20}, Size: schema.Size{Width: 240, Height: 120},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := created.Source.Graphs[1].Name; got != "Reusable child" {
+		t.Fatalf("renamed graph = %q", got)
+	}
+
+	updatedCall := created.Source.Graphs[0].Calls[0]
+	updatedCall.Label = "Updated call"
+	updatedCall.Position = schema.Position{X: 420, Y: 160}
+	updatedNote := created.Source.Graphs[0].Annotations[0]
+	updatedNote.Text = "Updated reusable section"
+	updatedNote.Size = schema.Size{Width: 320, Height: 180}
+	updated, err := engine.Apply(created.Source, []authoring.Command{
+		{Kind: authoring.CommandUpdateGraphCall, UpdateGraphCall: &authoring.GraphCallCommand{GraphID: "main", Call: updatedCall}},
+		{Kind: authoring.CommandUpdateAnnotation, UpdateAnnotation: &authoring.AnnotationCommand{GraphID: "main", Annotation: updatedNote}},
+		{Kind: authoring.CommandSetEdgeReroutes, SetEdgeReroutes: &authoring.SetEdgeReroutesCommand{GraphID: "main", Edge: edge, Reroutes: []schema.Position{{X: 120, Y: 40}, {X: 220, Y: 60}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	main := updated.Source.Graphs[0]
+	if main.Calls[0].Label != "Updated call" || main.Annotations[0].Text != "Updated reusable section" || len(main.Edges[0].Presentation.Reroutes) != 2 {
+		t.Fatalf("updated graph elements = %#v", main)
+	}
+
+	removed, err := engine.Apply(updated.Source, []authoring.Command{
+		{Kind: authoring.CommandSetEdgeReroutes, SetEdgeReroutes: &authoring.SetEdgeReroutesCommand{GraphID: "main", Edge: edge, Reroutes: []schema.Position{}}},
+		{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{GraphID: "main", CallID: "call-child"}},
+		{Kind: authoring.CommandRemoveAnnotation, RemoveAnnotation: &authoring.AnnotationIDCommand{GraphID: "main", AnnotationID: "note"}},
+		{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "child"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed.Source.Graphs) != 1 || len(removed.Source.Graphs[0].Calls) != 0 || len(removed.Source.Graphs[0].Annotations) != 0 || len(removed.Source.Graphs[0].Edges[0].Presentation.Reroutes) != 0 {
+		t.Fatalf("removed graph elements = %#v", removed.Source)
+	}
+}
+
 func TestEngineUsesInstructionSignalChannels(t *testing.T) {
 	builtins, projection := testContracts(t)
 	ids := []string{"delay", "retry"}
@@ -246,6 +395,23 @@ func TestEngineRejectsInvalidCommandBoundariesWithoutPublishing(t *testing.T) {
 			Channel: schema.EdgeData, From: schema.Endpoint{NodeID: "left", PortID: "result"}, To: schema.Endpoint{NodeID: "right", PortID: "b"},
 		}}},
 		{Kind: authoring.CommandRemoveNode, RemoveNode: &authoring.NodeCommand{GraphID: "main", NodeID: "missing"}},
+		{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{ID: "main", Kind: schema.GraphKindSubgraph}}},
+		{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{ID: "invalid-kind", Kind: schema.GraphKindMain}}},
+		{Kind: authoring.CommandRenameGraph, RenameGraph: &authoring.RenameGraphCommand{GraphID: "missing", Name: "Missing"}},
+		{Kind: authoring.CommandRenameGraph, RenameGraph: &authoring.RenameGraphCommand{GraphID: "main", Name: strings.Repeat("x", 257)}},
+		{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "main"}},
+		{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "missing"}},
+		{Kind: authoring.CommandUpdateGraphInterface, UpdateGraphInterface: &authoring.GraphInterfaceCommand{GraphID: "missing"}},
+		{Kind: authoring.CommandUpdateGraphInterface, UpdateGraphInterface: &authoring.GraphInterfaceCommand{GraphID: "main"}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{GraphID: "missing", Call: schema.GraphCall{ID: "call", GraphID: "missing", Bindings: map[string]schema.InputBinding{}}}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{GraphID: "main", Call: schema.GraphCall{ID: "call", GraphID: "missing", Bindings: map[string]schema.InputBinding{}}}},
+		{Kind: authoring.CommandUpdateGraphCall, UpdateGraphCall: &authoring.GraphCallCommand{GraphID: "main", Call: schema.GraphCall{ID: "missing", GraphID: "missing", Bindings: map[string]schema.InputBinding{}}}},
+		{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{GraphID: "main", CallID: "missing"}},
+		{Kind: authoring.CommandAddAnnotation, AddAnnotation: &authoring.AnnotationCommand{GraphID: "missing", Annotation: schema.Annotation{ID: "note"}}},
+		{Kind: authoring.CommandUpdateAnnotation, UpdateAnnotation: &authoring.AnnotationCommand{GraphID: "main", Annotation: schema.Annotation{ID: "missing"}}},
+		{Kind: authoring.CommandRemoveAnnotation, RemoveAnnotation: &authoring.AnnotationIDCommand{GraphID: "main", AnnotationID: "missing"}},
+		{Kind: authoring.CommandSetEdgeReroutes, SetEdgeReroutes: &authoring.SetEdgeReroutesCommand{GraphID: "missing", Edge: edge}},
+		{Kind: authoring.CommandSetEdgeReroutes, SetEdgeReroutes: &authoring.SetEdgeReroutesCommand{GraphID: "main", Edge: schema.Edge{Channel: schema.EdgeData, From: schema.Endpoint{NodeID: "left", PortID: "result"}, To: schema.Endpoint{NodeID: "right", PortID: "b"}}}},
 	} {
 		_, err := engine.Apply(base.Source, []authoring.Command{command})
 		var patchErr *authoring.PatchError

@@ -50,6 +50,8 @@ type inputPlan struct {
 
 type programNode struct {
 	ID             string                                `json:"id"`
+	GraphPath      []string                              `json:"graphPath"`
+	SourceNodeID   string                                `json:"sourceNodeId"`
 	NodeRef        nodecontract.NodeRef                  `json:"nodeRef"`
 	Config         map[string]any                        `json:"config"`
 	Inputs         map[string]inputPlan                  `json:"inputs"`
@@ -113,6 +115,7 @@ type ProgramSnapshot struct{ state *programState }
 
 type NodeView struct {
 	GraphID        string
+	GraphPath      []string
 	ID             string
 	NodeRef        nodecontract.NodeRef
 	Ports          nodecontract.PortSet
@@ -239,15 +242,37 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, validators con
 				if err != nil || !reflect.DeepEqual(normalized, requirement) {
 					return ProgramSnapshot{}, errors.New("program capability requirement is invalid")
 				}
-				wantPlanEntries = append(wantPlanEntries, capability.PlanEntry{GraphID: graph.ID, NodeID: node.ID, Requirement: requirement})
+				wantPlanEntries = append(wantPlanEntries, capability.PlanEntry{GraphID: node.GraphPath[len(node.GraphPath)-1], NodeID: node.SourceNodeID, Requirement: requirement})
 			}
 		}
+	}
+	wantPlanEntries, err = deduplicatePlanEntries(wantPlanEntries)
+	if err != nil {
+		return ProgramSnapshot{}, err
 	}
 	wantPlan, err := capability.SealPlan(wantPlanEntries)
 	if err != nil || wantPlan.Digest() != plan.Digest() || !bytes.Equal(wantPlan.Bytes(), plan.Bytes()) {
 		return ProgramSnapshot{}, errors.New("program capability manifest mismatch")
 	}
 	return sealed, nil
+}
+
+func deduplicatePlanEntries(entries []capability.PlanEntry) ([]capability.PlanEntry, error) {
+	type key struct{ graphID, nodeID, requirementID string }
+	seen := make(map[key]capability.Requirement, len(entries))
+	result := make([]capability.PlanEntry, 0, len(entries))
+	for _, entry := range entries {
+		identity := key{entry.GraphID, entry.NodeID, entry.Requirement.ID}
+		if previous, exists := seen[identity]; exists {
+			if !reflect.DeepEqual(previous, entry.Requirement) {
+				return nil, errors.New("expanded source node has inconsistent capability requirements")
+			}
+			continue
+		}
+		seen[identity] = entry.Requirement
+		result = append(result, entry)
+	}
+	return result, nil
 }
 
 func validateProgramState(slots []programStateSlot, catalog nodecatalog.Snapshot) error {
@@ -286,8 +311,13 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, conf
 	indegree := map[string]int{}
 	schemaValidators := map[string]*runtimejsonschema.Schema{}
 	for _, node := range graph.Nodes {
-		if node.ID == "" {
-			return errors.New("program contains an empty node id")
+		if node.ID == "" || node.SourceNodeID == "" || len(node.GraphPath) == 0 || len(node.GraphPath) > schema.MaxGraphPath {
+			return errors.New("program contains an invalid source node location")
+		}
+		for _, graphID := range node.GraphPath {
+			if !programStateNamePattern.MatchString(graphID) {
+				return errors.New("program contains an invalid graph path")
+			}
 		}
 		if _, duplicate := nodes[node.ID]; duplicate {
 			return errors.New("program contains duplicate node ids")
@@ -498,7 +528,7 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 	for _, graph := range p.state.document.Body.Graphs {
 		for _, node := range graph.Nodes {
 			view := NodeView{
-				GraphID: graph.ID, ID: node.ID, NodeRef: node.NodeRef, Ports: node.Ports,
+				GraphID: node.GraphPath[len(node.GraphPath)-1], GraphPath: node.GraphPath, ID: node.SourceNodeID, NodeRef: node.NodeRef, Ports: node.Ports,
 				InputTypes: node.InputTypes, OutputTypes: node.OutputTypes,
 				Execution: node.Execution, Instruction: node.Instruction, HostFeatures: node.HostFeatures, Capabilities: node.Capabilities, Implementation: node.Implementation,
 			}

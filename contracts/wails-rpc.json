@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 117,
-    "models": 143
+    "models": 165
   },
   "services": [
     {
@@ -2590,6 +2590,32 @@
       ]
     },
     {
+      "module": "internal/nodecontract/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "NodeRef",
+          "fields": [
+            {
+              "name": "\"nodeTypeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"version\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semanticDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/services/asset/models",
       "declarations": [
         {
@@ -5053,6 +5079,17 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "AddGraphCommand",
+          "fields": [
+            {
+              "name": "\"graph\"",
+              "optional": false,
+              "type": "schema$0.Graph"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AddNodeCommand",
           "fields": [
             {
@@ -5095,6 +5132,38 @@
               "name": "\"default\"",
               "optional": false,
               "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AnnotationCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"annotation\"",
+              "optional": false,
+              "type": "schema$0.Annotation"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AnnotationIDCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"annotationId\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },
@@ -5147,6 +5216,58 @@
               "name": "\"value\"",
               "optional": false,
               "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CallCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"callId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CollapseSelectionCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"subgraphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"callId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeIds\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "schema$0.Position"
             }
           ]
         },
@@ -5238,6 +5359,66 @@
               "name": "\"disconnect\"",
               "optional": true,
               "type": "EdgeCommand | null"
+            },
+            {
+              "name": "\"addGraph\"",
+              "optional": true,
+              "type": "AddGraphCommand | null"
+            },
+            {
+              "name": "\"renameGraph\"",
+              "optional": true,
+              "type": "RenameGraphCommand | null"
+            },
+            {
+              "name": "\"removeGraph\"",
+              "optional": true,
+              "type": "GraphCommand | null"
+            },
+            {
+              "name": "\"updateGraphInterface\"",
+              "optional": true,
+              "type": "GraphInterfaceCommand | null"
+            },
+            {
+              "name": "\"addGraphCall\"",
+              "optional": true,
+              "type": "GraphCallCommand | null"
+            },
+            {
+              "name": "\"updateGraphCall\"",
+              "optional": true,
+              "type": "GraphCallCommand | null"
+            },
+            {
+              "name": "\"removeGraphCall\"",
+              "optional": true,
+              "type": "CallCommand | null"
+            },
+            {
+              "name": "\"addAnnotation\"",
+              "optional": true,
+              "type": "AnnotationCommand | null"
+            },
+            {
+              "name": "\"updateAnnotation\"",
+              "optional": true,
+              "type": "AnnotationCommand | null"
+            },
+            {
+              "name": "\"removeAnnotation\"",
+              "optional": true,
+              "type": "AnnotationIDCommand | null"
+            },
+            {
+              "name": "\"setEdgeReroutes\"",
+              "optional": true,
+              "type": "SetEdgeReroutesCommand | null"
+            },
+            {
+              "name": "\"collapseSelection\"",
+              "optional": true,
+              "type": "CollapseSelectionCommand | null"
             }
           ]
         },
@@ -5312,6 +5493,54 @@
             {
               "name": "CommandDisconnect",
               "value": "\"disconnect\""
+            },
+            {
+              "name": "CommandAddGraph",
+              "value": "\"add-graph\""
+            },
+            {
+              "name": "CommandRenameGraph",
+              "value": "\"rename-graph\""
+            },
+            {
+              "name": "CommandRemoveGraph",
+              "value": "\"remove-graph\""
+            },
+            {
+              "name": "CommandUpdateGraphInterface",
+              "value": "\"update-graph-interface\""
+            },
+            {
+              "name": "CommandAddGraphCall",
+              "value": "\"add-graph-call\""
+            },
+            {
+              "name": "CommandUpdateGraphCall",
+              "value": "\"update-graph-call\""
+            },
+            {
+              "name": "CommandRemoveGraphCall",
+              "value": "\"remove-graph-call\""
+            },
+            {
+              "name": "CommandAddAnnotation",
+              "value": "\"add-annotation\""
+            },
+            {
+              "name": "CommandUpdateAnnotation",
+              "value": "\"update-annotation\""
+            },
+            {
+              "name": "CommandRemoveAnnotation",
+              "value": "\"remove-annotation\""
+            },
+            {
+              "name": "CommandSetEdgeReroutes",
+              "value": "\"set-edge-reroutes\""
+            },
+            {
+              "name": "CommandCollapseSelection",
+              "value": "\"collapse-selection\""
             }
           ]
         },
@@ -5370,6 +5599,64 @@
               "name": "\"nodeId\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphCallCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"call\"",
+              "optional": false,
+              "type": "schema$0.GraphCall"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphInterfaceCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"inputs\"",
+              "optional": false,
+              "type": "schema$0.GraphPort[]"
+            },
+            {
+              "name": "\"outputs\"",
+              "optional": false,
+              "type": "schema$0.GraphPort[]"
+            },
+            {
+              "name": "\"entries\"",
+              "optional": false,
+              "type": "schema$0.Endpoint[]"
+            },
+            {
+              "name": "\"exits\"",
+              "optional": false,
+              "type": "schema$0.GraphExit[]"
             }
           ]
         },
@@ -5444,6 +5731,22 @@
         },
         {
           "kind": "class",
+          "name": "RenameGraphCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "RenameWorkflowCommand",
           "fields": [
             {
@@ -5476,6 +5779,27 @@
               "name": "\"value\"",
               "optional": false,
               "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SetEdgeReroutesCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"edge\"",
+              "optional": false,
+              "type": "schema$0.Edge"
+            },
+            {
+              "name": "\"reroutes\"",
+              "optional": false,
+              "type": "schema$0.Position[]"
             }
           ]
         },
@@ -5552,6 +5876,11 @@
           "name": "DebugBreakpoint",
           "fields": [
             {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
               "name": "\"graphId\"",
               "optional": false,
               "type": "string"
@@ -5567,6 +5896,11 @@
           "kind": "class",
           "name": "DebugQueueEntry",
           "fields": [
+            {
+              "name": "\"graphPath\"",
+              "optional": false,
+              "type": "string[]"
+            },
             {
               "name": "\"graphId\"",
               "optional": false,
@@ -5597,6 +5931,11 @@
               "name": "\"generation\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
             },
             {
               "name": "\"graphId\"",
@@ -5735,6 +6074,59 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "Annotation",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"text\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"color\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "Position"
+            },
+            {
+              "name": "\"size\"",
+              "optional": false,
+              "type": "Size"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "BindingKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "BindingValue",
+              "value": "\"value\""
+            },
+            {
+              "name": "BindingDefault",
+              "value": "\"default\""
+            },
+            {
+              "name": "BindingBlob",
+              "value": "\"blob\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Diagnostic",
           "fields": [
             {
@@ -5828,6 +6220,11 @@
               "name": "\"to\"",
               "optional": false,
               "type": "Endpoint"
+            },
+            {
+              "name": "\"presentation\"",
+              "optional": true,
+              "type": "EdgePresentation"
             }
           ]
         },
@@ -5855,6 +6252,17 @@
         },
         {
           "kind": "class",
+          "name": "EdgePresentation",
+          "fields": [
+            {
+              "name": "\"reroutes\"",
+              "optional": true,
+              "type": "Position[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Endpoint",
           "fields": [
             {
@@ -5866,6 +6274,225 @@
               "name": "\"portId\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Graph",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "GraphKind"
+            },
+            {
+              "name": "\"nodes\"",
+              "optional": false,
+              "type": "Node[]"
+            },
+            {
+              "name": "\"calls\"",
+              "optional": true,
+              "type": "GraphCall[]"
+            },
+            {
+              "name": "\"edges\"",
+              "optional": false,
+              "type": "Edge[]"
+            },
+            {
+              "name": "\"inputs\"",
+              "optional": false,
+              "type": "GraphPort[]"
+            },
+            {
+              "name": "\"outputs\"",
+              "optional": false,
+              "type": "GraphPort[]"
+            },
+            {
+              "name": "\"entries\"",
+              "optional": true,
+              "type": "Endpoint[]"
+            },
+            {
+              "name": "\"exits\"",
+              "optional": true,
+              "type": "GraphExit[]"
+            },
+            {
+              "name": "\"annotations\"",
+              "optional": true,
+              "type": "Annotation[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphCall",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "Position"
+            },
+            {
+              "name": "\"bindings\"",
+              "optional": false,
+              "type": "{ [_ in string]?: InputBinding }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphExit",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"channel\"",
+              "optional": false,
+              "type": "EdgeChannel"
+            },
+            {
+              "name": "\"endpoint\"",
+              "optional": false,
+              "type": "Endpoint"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "GraphKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "GraphKindMain",
+              "value": "\"main\""
+            },
+            {
+              "name": "GraphKindSubgraph",
+              "value": "\"subgraph\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "GraphPort",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "datatype$0.TypeExpression"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputBinding",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "BindingKind"
+            },
+            {
+              "name": "\"value\"",
+              "optional": true,
+              "type": "json$0.RawMessage"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": true,
+              "type": "blob$0.BlobRef | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Node",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeRef\"",
+              "optional": false,
+              "type": "nodecontract$0.NodeRef"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "Position"
+            },
+            {
+              "name": "\"config\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"bindings\"",
+              "optional": false,
+              "type": "{ [_ in string]?: InputBinding }"
+            },
+            {
+              "name": "\"disabled\"",
+              "optional": true,
+              "type": "boolean"
             }
           ]
         },
@@ -5904,6 +6531,22 @@
             {
               "name": "SeverityInfo",
               "value": "\"info\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Size",
+          "fields": [
+            {
+              "name": "\"width\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"height\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         }

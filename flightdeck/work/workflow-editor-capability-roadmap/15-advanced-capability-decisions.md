@@ -1,7 +1,7 @@
 ---
 slice: "15"
 title: 高级能力决策与迁移收口
-status: in_progress
+status: completed
 ---
 
 # Slice 15：高级能力决策与迁移收口
@@ -19,11 +19,11 @@ status: in_progress
 
 ## Blocked by
 
-无。Slices 16 与 17 可顺序执行；Slice 19 复用 Stage 5 Adapter seam；Slice 18 在 portability 稳定后执行。
+无。
 
 ## Verification
 
-以 Slices 16–19 各自完成标准和 Stage 8–10 批量门禁为准，最终再运行 Flightdeck check。
+以 Slices 16–19 各自完成标准和 Stage 8–10 批量门禁为准，最终运行 Flightdeck check。
 
 ## Out of scope
 
@@ -31,4 +31,4 @@ status: in_progress
 
 ## Result
 
-Reopened。之前仅完成节点定位和能力决策，却把仍在 3.1 范围内的能力标为 post-3.1 并关闭，这是错误的完成定义。当前以 commit aaa34711 为恢复基线，待 Slices 16–19 全部交付后再完成本 Slice。
+Completed。Source-native 节点定位、严格 Workflow Source portability、资产规模化/安全清理、Browser CDP 产品闭环与 Source-native 多图创作均已交付。旧 Container runtime 不进入 3.1 Source；脚本能力只允许走 capability-admitted 隔离执行。Stage 8–10 均完成批量门禁，未把本版本范围内能力擅自延期。

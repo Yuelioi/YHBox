@@ -31,6 +31,14 @@
       :aria-label="t('workflow.selection.duplicate')"
       @click="emit('duplicate')"
     />
+    <UButton
+      icon="i-tabler-folders"
+      color="neutral"
+      variant="ghost"
+      size="xs"
+      :label="t('workflow.selection.collapse')"
+      @click="emit('collapse')"
+    />
     <UDropdownMenu :items="layoutItems">
       <UButton
         icon="i-tabler-layout-align-middle"
@@ -84,6 +92,7 @@ const emit = defineEmits<{
   copy: []
   cut: []
   duplicate: []
+  collapse: []
   remove: []
 }>()
 const { t } = useI18n()

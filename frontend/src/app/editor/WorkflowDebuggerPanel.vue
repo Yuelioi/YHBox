@@ -13,7 +13,8 @@
           }}</UBadge>
         </div>
         <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">
-          {{ snapshot.graphId || '—' }} / {{ snapshot.nodeId || t('workflow.debug.waiting') }}
+          {{ snapshot.graphPath?.join(' / ') || snapshot.graphId || '—' }} /
+          {{ snapshot.nodeId || t('workflow.debug.waiting') }}
         </p>
       </div>
       <UButton
@@ -77,10 +78,10 @@
         <ol v-else class="space-y-1">
           <li
             v-for="(entry, index) in snapshot.queue"
-            :key="`${entry.graphId}:${entry.nodeId}:${index}`"
+            :key="`${entry.graphPath?.join('/') || entry.graphId}:${entry.nodeId}:${index}`"
             class="truncate rounded bg-elevated/50 px-2 py-1 font-mono text-[10px] text-toned"
           >
-            {{ entry.nodeId }}
+            {{ entry.graphPath?.join(' / ') || entry.graphId }} / {{ entry.nodeId }}
           </li>
         </ol>
       </section>

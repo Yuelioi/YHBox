@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -180,9 +181,10 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return err
 	}
+	graphID, sourceNodeID := node.GraphPath[len(node.GraphPath)-1], node.SourceNodeID
 	nodeSessions := make(map[string]*run.Session, len(node.Capabilities))
 	for _, requirement := range node.Capabilities {
-		session, err := s.owner.Session(s.graph.ID, node.ID, requirement.ID, invocationID)
+		session, err := s.owner.Session(graphID, sourceNodeID, requirement.ID, invocationID)
 		if err != nil {
 			return err
 		}
@@ -201,7 +203,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		return fmt.Errorf("bind state for node %q: %w", node.ID, err)
 	}
 	attempt := s.attempts[nodeID] + 1
-	if err := s.debugCheckpoint(ctx, node.ID, attempt, inputs); err != nil {
+	if err := s.debugCheckpoint(ctx, node, attempt, inputs); err != nil {
 		return err
 	}
 	s.attempts[nodeID] = attempt
@@ -211,7 +213,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	}
 	observedAt := s.executor.now().UTC()
 	started, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptStarted,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: sourceNodeID, Attempt: attempt, Outcome: run.AttemptStarted,
 		OccurredAt: observedAt, Summary: summary,
 	})
 	if err != nil {
@@ -221,19 +223,25 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		return fmt.Errorf("journal node %q start: %w", node.ID, err)
 	}
 	s.clearNodeResult(node.ID)
-	actions := newAdapterActionRecorder(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine)
-	statuses := newStatusEmitter(s.executor, s.journal, s.graph.ID, node.ID, attempt, machine.StatusEvents)
+	actions := newAdapterActionRecorder(s.executor, s.journal, node.GraphPath, sourceNodeID, attempt, machine)
+	statuses := newStatusEmitter(s.executor, s.journal, node.GraphPath, sourceNodeID, attempt, machine.StatusEvents)
+	adapterTrigger := cloneTrigger(trigger)
+	if adapterTrigger != nil {
+		if source, exists := s.nodes[adapterTrigger.From.NodeID]; exists {
+			adapterTrigger.From.NodeID = source.SourceNodeID
+		}
+	}
 	outcome, runErr := installed.Run(ctx, Invocation{
-		InvocationID: invocationID, Attempt: attempt, GraphID: s.graph.ID, NodeID: node.ID, Config: config, Inputs: inputs,
+		InvocationID: invocationID, Attempt: attempt, GraphID: graphID, NodeID: sourceNodeID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, State: stateBindings,
-		Trigger: cloneTrigger(trigger), ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
+		Trigger: adapterTrigger, ObservedAt: observedAt, ReadEntropy: s.executor.readEntropy,
 		Wait: s.executor.wait, Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
 	})
 	actionErr := actions.Close()
 	statusErr := statuses.Close()
 	if runErr != nil && (errors.Is(runErr, context.Canceled) || errors.Is(runErr, context.DeadlineExceeded) || ctx.Err() != nil) ||
 		errors.Is(actionErr, context.Canceled) || errors.Is(statusErr, context.Canceled) {
-		journalErr := s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, summary)
+		journalErr := s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, summary)
 		return errors.Join(wrapNodeRunError(node.ID, runErr), actionErr, statusErr, journalErr)
 	}
 	var failure *NodeFailure
@@ -249,17 +257,17 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		} else if actions.FailureCode() != "" {
 			code = actions.FailureCode()
 		}
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, code, summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, code, summary)
 		return errors.Join(wrapNodeRunError(node.ID, runErr), actionErr, statusErr, journalErr)
 	}
 	selected, err := validateExecSelection(node.Ports.ExecOutputs, outcome.ExecOutputs)
 	if err != nil {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.signal_invalid", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.signal_invalid", summary)
 		return errors.Join(err, journalErr)
 	}
 	sealed, leases, err := s.executor.validateOutputs(node, outcome.Outputs, nodeSessions)
 	if err != nil {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.output_invalid", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.output_invalid", summary)
 		return errors.Join(err, journalErr)
 	}
 	nextBytes := 0
@@ -267,7 +275,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		nextBytes += len(sealed[port.ID].RuntimeArtifact())
 	}
 	if nextBytes > MaxRunRetainedValueBytes-s.retainedBytes {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.value_budget_exceeded", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.value_budget_exceeded", summary)
 		return errors.Join(errors.New("run retained value budget exceeded"), journalErr)
 	}
 	s.retainedBytes += nextBytes
@@ -285,7 +293,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 		}
 	}
 	finished, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptSucceeded,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: sourceNodeID, Attempt: attempt, Outcome: run.AttemptSucceeded,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -298,12 +306,12 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	return nil
 }
 
-func (s *scheduler) debugCheckpoint(ctx context.Context, nodeID string, attempt int, inputs map[string]datatype.ValueEnvelope) error {
+func (s *scheduler) debugCheckpoint(ctx context.Context, node programNode, attempt int, inputs map[string]datatype.ValueEnvelope) error {
 	if s.control == nil {
 		return nil
 	}
 	snapshot := DebugSnapshot{
-		Status: DebugRunning, GraphID: s.graph.ID, NodeID: nodeID, Attempt: attempt,
+		Status: DebugRunning, GraphPath: append([]string(nil), node.GraphPath...), GraphID: node.GraphPath[len(node.GraphPath)-1], NodeID: node.SourceNodeID, Attempt: attempt,
 		Queue: []DebugQueueEntry{}, Inputs: map[string]DebugValueView{},
 		Outputs: map[string]map[string]DebugValueView{}, State: map[string]DebugStateView{},
 	}
@@ -312,7 +320,8 @@ func (s *scheduler) debugCheckpoint(ctx context.Context, nodeID string, attempt 
 			snapshot.QueueTrimmed = true
 			break
 		}
-		snapshot.Queue = append(snapshot.Queue, DebugQueueEntry{GraphID: s.graph.ID, NodeID: queued.nodeID})
+		queuedNode := s.nodes[queued.nodeID]
+		snapshot.Queue = append(snapshot.Queue, DebugQueueEntry{GraphPath: append([]string(nil), queuedNode.GraphPath...), GraphID: queuedNode.GraphPath[len(queuedNode.GraphPath)-1], NodeID: queuedNode.SourceNodeID})
 	}
 	remaining := MaxDebugValueEntries
 	inputIDs := sortedValueKeys(inputs)
@@ -340,10 +349,15 @@ func (s *scheduler) debugCheckpoint(ctx context.Context, nodeID string, attempt 
 				snapshot.ValuesTrimmed = true
 				break
 			}
-			if snapshot.Outputs[outputNodeID] == nil {
-				snapshot.Outputs[outputNodeID] = map[string]DebugValueView{}
+			outputNode := s.nodes[outputNodeID]
+			sourceOutputID := outputNode.SourceNodeID
+			if len(outputNode.GraphPath) > 1 {
+				sourceOutputID = strings.Join(outputNode.GraphPath, "/") + ":" + sourceOutputID
 			}
-			snapshot.Outputs[outputNodeID][portID] = debugValueView(outputs[portID])
+			if snapshot.Outputs[sourceOutputID] == nil {
+				snapshot.Outputs[sourceOutputID] = map[string]DebugValueView{}
+			}
+			snapshot.Outputs[sourceOutputID][portID] = debugValueView(outputs[portID])
 			remaining--
 		}
 	}
@@ -516,16 +530,16 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation 
 
 func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome AdapterResult, failure *NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run.RedactedSummary) error {
 	if len(outcome.Outputs) != 0 || len(outcome.ExecOutputs) != 0 || statusErr != nil {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.failure_invalid", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("node failure returned outputs, exec signals, or invalid status"), statusErr, journalErr)
 	}
 	spec, declared := declaredNodeError(machine.Errors, failure.Code)
 	if !declared || (failure.Output != "" && !signalPortExists(machine.Ports.ErrorOutputs, failure.Output)) {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.failure_invalid", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("adapter returned an undeclared node failure"), journalErr)
 	}
 	if actionErr != nil && (!errors.Is(actionErr, errAdapterActionFailed) || actions.FailureCode() != failure.Code) {
-		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, "runtime.failure_invalid", summary)
+		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, "runtime.failure_invalid", summary)
 		return errors.Join(errors.New("node failure does not match its adapter action"), actionErr, journalErr)
 	}
 	routes := s.routes[routeKey{channel: schema.EdgeError, nodeID: node.ID, portID: failure.Output}]
@@ -534,7 +548,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 		terminal = run.AttemptRouted
 	}
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: terminal,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt, Outcome: terminal,
 		OccurredAt: s.executor.now().UTC(), ErrorCode: failure.Code, Summary: summary,
 	})
 	if err != nil {
@@ -548,7 +562,7 @@ func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine 
 	}
 	routed := &RoutedFailure{
 		Code: failure.Code, Category: spec.Category, RetryHint: spec.RetryHint,
-		SourceNodeID: node.ID, SourcePortID: failure.Output, Attempt: attempt,
+		SourceNodeID: node.SourceNodeID, SourcePortID: failure.Output, Attempt: attempt,
 	}
 	for _, route := range routes {
 		s.queue = append(s.queue, scheduledInvocation{nodeID: route.To.NodeID, trigger: &SignalTrigger{
@@ -640,7 +654,7 @@ type statusEmitter struct {
 	mu           sync.Mutex
 	executor     *Executor
 	journal      *run.JournalWriter
-	graphID      string
+	graphPath    []string
 	nodeID       string
 	attempt      int
 	declarations map[string]nodecontract.StatusCategory
@@ -648,12 +662,12 @@ type statusEmitter struct {
 	closed       bool
 }
 
-func newStatusEmitter(executor *Executor, journal *run.JournalWriter, graphID, nodeID string, attempt int, declarations []nodecontract.StatusEventSpec) *statusEmitter {
+func newStatusEmitter(executor *Executor, journal *run.JournalWriter, graphPath []string, nodeID string, attempt int, declarations []nodecontract.StatusEventSpec) *statusEmitter {
 	byCode := make(map[string]nodecontract.StatusCategory, len(declarations))
 	for _, declaration := range declarations {
 		byCode[declaration.Code] = declaration.Category
 	}
-	return &statusEmitter{executor: executor, journal: journal, graphID: graphID, nodeID: nodeID, attempt: attempt, declarations: byCode}
+	return &statusEmitter{executor: executor, journal: journal, graphPath: append([]string(nil), graphPath...), nodeID: nodeID, attempt: attempt, declarations: byCode}
 }
 
 func (e *statusEmitter) Emit(ctx context.Context, code string, counters map[string]int64) error {
@@ -680,7 +694,7 @@ func (e *statusEmitter) Emit(ctx context.Context, code string, counters map[stri
 		return reject(err)
 	}
 	fact, err := run.NewNodeStatusFact(run.NodeStatusInput{
-		GraphPath: []string{e.graphID}, NodeID: e.nodeID, Attempt: e.attempt, Code: code, Category: category,
+		GraphPath: append([]string(nil), e.graphPath...), NodeID: e.nodeID, Attempt: e.attempt, Code: code, Category: category,
 		OccurredAt: e.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {

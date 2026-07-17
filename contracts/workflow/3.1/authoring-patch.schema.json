@@ -1,5 +1,17 @@
 {
   "$defs": {
+    "AddGraphCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graph": {
+          "$ref": "#/$defs/Graph"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    },
     "AddNodeCommand": {
       "additionalProperties": false,
       "properties": {
@@ -40,6 +52,69 @@
         "name",
         "type",
         "default"
+      ],
+      "type": "object"
+    },
+    "Annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "text": {
+          "maxLength": 16384,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "position",
+        "size"
+      ],
+      "type": "object"
+    },
+    "AnnotationCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "$ref": "#/$defs/Annotation"
+        },
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "annotation"
+      ],
+      "type": "object"
+    },
+    "AnnotationIDCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "annotationId": {
+          "type": "string"
+        },
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "annotationId"
       ],
       "type": "object"
     },
@@ -113,6 +188,57 @@
         "mediaType",
         "digest",
         "size"
+      ],
+      "type": "object"
+    },
+    "CallCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "callId": {
+          "type": "string"
+        },
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "callId"
+      ],
+      "type": "object"
+    },
+    "CollapseSelectionCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "callId": {
+          "type": "string"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nodeIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "subgraphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "subgraphId",
+        "callId",
+        "name",
+        "nodeIds",
+        "position"
       ],
       "type": "object"
     },
@@ -373,6 +499,198 @@
             "disconnect"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addGraph": {
+              "$ref": "#/$defs/AddGraphCommand"
+            },
+            "kind": {
+              "const": "add-graph"
+            }
+          },
+          "required": [
+            "kind",
+            "addGraph"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "rename-graph"
+            },
+            "renameGraph": {
+              "$ref": "#/$defs/RenameGraphCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "renameGraph"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-graph"
+            },
+            "removeGraph": {
+              "$ref": "#/$defs/GraphCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeGraph"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "update-graph-interface"
+            },
+            "updateGraphInterface": {
+              "$ref": "#/$defs/GraphInterfaceCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateGraphInterface"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addGraphCall": {
+              "$ref": "#/$defs/GraphCallCommand"
+            },
+            "kind": {
+              "const": "add-graph-call"
+            }
+          },
+          "required": [
+            "kind",
+            "addGraphCall"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "update-graph-call"
+            },
+            "updateGraphCall": {
+              "$ref": "#/$defs/GraphCallCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateGraphCall"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-graph-call"
+            },
+            "removeGraphCall": {
+              "$ref": "#/$defs/CallCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeGraphCall"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addAnnotation": {
+              "$ref": "#/$defs/AnnotationCommand"
+            },
+            "kind": {
+              "const": "add-annotation"
+            }
+          },
+          "required": [
+            "kind",
+            "addAnnotation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "update-annotation"
+            },
+            "updateAnnotation": {
+              "$ref": "#/$defs/AnnotationCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateAnnotation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-annotation"
+            },
+            "removeAnnotation": {
+              "$ref": "#/$defs/AnnotationIDCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeAnnotation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "set-edge-reroutes"
+            },
+            "setEdgeReroutes": {
+              "$ref": "#/$defs/SetEdgeReroutesCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "setEdgeReroutes"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "collapseSelection": {
+              "$ref": "#/$defs/CollapseSelectionCommand"
+            },
+            "kind": {
+              "const": "collapse-selection"
+            }
+          },
+          "required": [
+            "kind",
+            "collapseSelection"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -389,6 +707,9 @@
         },
         "from": {
           "$ref": "#/$defs/Endpoint"
+        },
+        "presentation": {
+          "$ref": "#/$defs/EdgePresentation"
         },
         "to": {
           "$ref": "#/$defs/Endpoint"
@@ -415,6 +736,19 @@
         "graphId",
         "edge"
       ],
+      "type": "object"
+    },
+    "EdgePresentation": {
+      "additionalProperties": false,
+      "properties": {
+        "reroutes": {
+          "items": {
+            "$ref": "#/$defs/Position"
+          },
+          "maxItems": 64,
+          "type": "array"
+        }
+      },
       "type": "object"
     },
     "Endpoint": {
@@ -454,6 +788,272 @@
         "graphId",
         "nodeId",
         "fieldId"
+      ],
+      "type": "object"
+    },
+    "Graph": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/GraphCall"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Edge"
+          },
+          "maxItems": 16384,
+          "type": "array"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "exits": {
+          "items": {
+            "$ref": "#/$defs/GraphExit"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "main",
+            "subgraph"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "nodes",
+        "edges",
+        "inputs",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "GraphCall": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "type": "object"
+        },
+        "graphId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "id",
+        "graphId",
+        "position",
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "GraphCallCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "call": {
+          "$ref": "#/$defs/GraphCall"
+        },
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "call"
+      ],
+      "type": "object"
+    },
+    "GraphCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId"
+      ],
+      "type": "object"
+    },
+    "GraphExit": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "exec",
+            "error"
+          ],
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/Endpoint"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "endpoint"
+      ],
+      "type": "object"
+    },
+    "GraphInterfaceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "type": "array"
+        },
+        "exits": {
+          "items": {
+            "$ref": "#/$defs/GraphExit"
+          },
+          "type": "array"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/GraphPort"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "graphId",
+        "inputs",
+        "outputs",
+        "entries",
+        "exits"
+      ],
+      "type": "object"
+    },
+    "GraphPort": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "nodeId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "portId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "nodeId",
+        "portId"
+      ],
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "kind": {
+          "enum": [
+            "value",
+            "default",
+            "blob"
+          ],
+          "type": "string"
+        },
+        "value": true
+      },
+      "required": [
+        "kind"
       ],
       "type": "object"
     },
@@ -505,6 +1105,45 @@
       ],
       "type": "object"
     },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "type": "object"
+        },
+        "config": {
+          "type": "object"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "nodeRef": {
+          "$ref": "#/$defs/NodeRef"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "id",
+        "nodeRef",
+        "position",
+        "config",
+        "bindings"
+      ],
+      "type": "object"
+    },
     "NodeCommand": {
       "additionalProperties": false,
       "properties": {
@@ -518,6 +1157,29 @@
       "required": [
         "graphId",
         "nodeId"
+      ],
+      "type": "object"
+    },
+    "NodeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeTypeId": {
+          "format": "uri",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "version",
+        "semanticDigest"
       ],
       "type": "object"
     },
@@ -569,6 +1231,22 @@
       ],
       "type": "object"
     },
+    "RenameGraphCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "graphId",
+        "name"
+      ],
+      "type": "object"
+    },
     "RenameWorkflowCommand": {
       "additionalProperties": false,
       "properties": {
@@ -602,6 +1280,29 @@
         "nodeId",
         "fieldId",
         "value"
+      ],
+      "type": "object"
+    },
+    "SetEdgeReroutesCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "edge": {
+          "$ref": "#/$defs/Edge"
+        },
+        "graphId": {
+          "type": "string"
+        },
+        "reroutes": {
+          "items": {
+            "$ref": "#/$defs/Position"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "graphId",
+        "edge",
+        "reroutes"
       ],
       "type": "object"
     },
@@ -642,6 +1343,22 @@
         "graphId",
         "nodeId",
         "label"
+      ],
+      "type": "object"
+    },
+    "Size": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
       ],
       "type": "object"
     },

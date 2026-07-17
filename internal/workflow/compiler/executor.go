@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"sync"
 	"time"
 
@@ -208,20 +209,30 @@ func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.
 		return ExecutionResult{}, errors.Join(executionErr, terminalErr)
 	}
 	produced := make([]run.ProducedValue, 0)
-	graphID := program.state.document.Body.EntryGraph
+	nodeLocations := make(map[string]programNode)
+	for _, graph := range program.state.document.Body.Graphs {
+		for _, node := range graph.Nodes {
+			nodeLocations[node.ID] = node
+		}
+	}
 	for nodeID, outputs := range result.NodeOutputs {
+		node, exists := nodeLocations[nodeID]
+		if !exists {
+			return ExecutionResult{}, errors.New("executor result references an unknown Program node")
+		}
+		graphID := node.GraphPath[len(node.GraphPath)-1]
 		for portID, envelope := range outputs {
 			attempt := result.attempts[nodeID][portID]
 			if attempt < 1 {
 				return ExecutionResult{}, errors.New("executor result is missing output attempt provenance")
 			}
-			valueID, err := runValueID(current.Admission().RunID, graphID, nodeID, portID, attempt)
+			valueID, err := runValueID(current.Admission().RunID, node.GraphPath, node.SourceNodeID, portID, attempt)
 			if err != nil {
 				return ExecutionResult{}, fmt.Errorf("derive Run Value identity: %w", err)
 			}
 			produced = append(produced, run.ProducedValue{
 				ValueID: valueID, GraphID: graphID,
-				NodeID: nodeID, PortID: portID, Attempt: attempt, Envelope: envelope,
+				NodeID: node.SourceNodeID, PortID: portID, Attempt: attempt, Envelope: envelope,
 			})
 		}
 	}
@@ -231,14 +242,14 @@ func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.
 	return result, nil
 }
 
-func runValueID(runID, graphID, nodeID, portID string, attempt int) (string, error) {
+func runValueID(runID string, graphPath []string, nodeID, portID string, attempt int) (string, error) {
 	identity, err := artifact.Marshal(struct {
-		RunID   string `json:"runId"`
-		GraphID string `json:"graphId"`
-		NodeID  string `json:"nodeId"`
-		PortID  string `json:"portId"`
-		Attempt int    `json:"attempt"`
-	}{RunID: runID, GraphID: graphID, NodeID: nodeID, PortID: portID, Attempt: attempt})
+		RunID     string   `json:"runId"`
+		GraphPath []string `json:"graphPath"`
+		NodeID    string   `json:"nodeId"`
+		PortID    string   `json:"portId"`
+		Attempt   int      `json:"attempt"`
+	}{RunID: runID, GraphPath: graphPath, NodeID: nodeID, PortID: portID, Attempt: attempt})
 	if err != nil {
 		return "", err
 	}
@@ -256,10 +267,10 @@ func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.Ru
 			category := run.ErrorCategoryNode
 			for actionIndex := index - 1; actionIndex >= 0; actionIndex-- {
 				action := journal[actionIndex]
-				if action.Kind == run.JournalNodeAttempt && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt {
+				if action.Kind == run.JournalNodeAttempt && slices.Equal(action.GraphPath, entry.GraphPath) && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt {
 					break
 				}
-				if action.Kind == run.JournalAdapterAction && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt && action.ActionOutcome == run.ActionFailed {
+				if action.Kind == run.JournalAdapterAction && slices.Equal(action.GraphPath, entry.GraphPath) && action.NodeID == entry.NodeID && action.Attempt == entry.Attempt && action.ActionOutcome == run.ActionFailed {
 					category = run.ErrorCategoryAdapter
 					break
 				}
@@ -315,7 +326,7 @@ type adapterActionRecorder struct {
 	mu             sync.Mutex
 	executor       *Executor
 	journal        *run.JournalWriter
-	graphID        string
+	graphPath      []string
 	nodeID         string
 	attempt        int
 	expected       map[string]struct{}
@@ -327,7 +338,7 @@ type adapterActionRecorder struct {
 	closed         bool
 }
 
-func newAdapterActionRecorder(executor *Executor, journal *run.JournalWriter, graphID, nodeID string, attempt int, machine nodecontract.MachineContract) *adapterActionRecorder {
+func newAdapterActionRecorder(executor *Executor, journal *run.JournalWriter, graphPath []string, nodeID string, attempt int, machine nodecontract.MachineContract) *adapterActionRecorder {
 	expected := make(map[string]struct{}, len(machine.Execution.Effects))
 	for _, effect := range machine.Execution.Effects {
 		expected[string(effect)] = struct{}{}
@@ -337,7 +348,7 @@ func newAdapterActionRecorder(executor *Executor, journal *run.JournalWriter, gr
 		declaredErrors[declaration.Code] = struct{}{}
 	}
 	return &adapterActionRecorder{
-		executor: executor, journal: journal, graphID: graphID, nodeID: nodeID, attempt: attempt,
+		executor: executor, journal: journal, graphPath: append([]string(nil), graphPath...), nodeID: nodeID, attempt: attempt,
 		expected: expected, declaredErrors: declaredErrors, recorded: map[string]struct{}{},
 	}
 }
@@ -373,7 +384,7 @@ func (r *adapterActionRecorder) Record(ctx context.Context, action AdapterAction
 		return reject(err)
 	}
 	fact, err := run.NewAdapterActionFact(run.AdapterActionInput{
-		GraphPath: []string{r.graphID}, NodeID: r.nodeID, EffectID: action.EffectID, Attempt: r.attempt,
+		GraphPath: append([]string(nil), r.graphPath...), NodeID: r.nodeID, EffectID: action.EffectID, Attempt: r.attempt,
 		Action: action.Action, Outcome: action.Outcome, OccurredAt: r.executor.now().UTC(), ErrorCode: action.ErrorCode, Summary: summary,
 	})
 	if err != nil {
@@ -418,9 +429,9 @@ func (r *adapterActionRecorder) Close() error {
 	return r.outcomeErr
 }
 
-func (e *Executor) failAttempt(ctx context.Context, journal *run.JournalWriter, graphID, nodeID string, attempt int, code string, summary run.RedactedSummary) error {
+func (e *Executor) failAttempt(ctx context.Context, journal *run.JournalWriter, graphPath []string, nodeID string, attempt int, code string, summary run.RedactedSummary) error {
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: attempt, Outcome: run.AttemptFailed,
+		GraphPath: append([]string(nil), graphPath...), NodeID: nodeID, Attempt: attempt, Outcome: run.AttemptFailed,
 		OccurredAt: e.now().UTC(), ErrorCode: code, Summary: summary,
 	})
 	if err != nil {
@@ -430,9 +441,9 @@ func (e *Executor) failAttempt(ctx context.Context, journal *run.JournalWriter, 
 	return err
 }
 
-func (e *Executor) cancelAttempt(ctx context.Context, journal *run.JournalWriter, graphID, nodeID string, attempt int, summary run.RedactedSummary) error {
+func (e *Executor) cancelAttempt(ctx context.Context, journal *run.JournalWriter, graphPath []string, nodeID string, attempt int, summary run.RedactedSummary) error {
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{graphID}, NodeID: nodeID, Attempt: attempt, Outcome: run.AttemptCancelled,
+		GraphPath: append([]string(nil), graphPath...), NodeID: nodeID, Attempt: attempt, Outcome: run.AttemptCancelled,
 		OccurredAt: e.now().UTC(), Summary: summary,
 	})
 	if err != nil {

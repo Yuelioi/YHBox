@@ -1,6 +1,8 @@
 import type {
   Edge,
   Graph,
+  GraphCall,
+  Annotation,
   InputBinding,
   Node,
   BlobRef,
@@ -8,6 +10,7 @@ import type {
 } from '../../../../contracts/workflow/3.1/workflow-source'
 import type {
   NodeProjection,
+  PortProjection,
   TypeExpression,
   YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
@@ -22,6 +25,7 @@ import type {
   DebugSnapshot,
 } from '@/app/transport/workflow'
 import {
+  assignable,
   projectedConnectionCompatibility,
   type ConnectionCompatibility,
 } from './connectionCompatibility'
@@ -61,8 +65,39 @@ export type EditorCommand =
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
   | { kind: 'disconnect'; edge: Edge }
+  | { kind: 'add-graph'; graph: Graph }
+  | { kind: 'rename-graph'; graphId: string; name: string }
+  | { kind: 'remove-graph'; graphId: string }
+  | {
+      kind: 'update-graph-interface'
+      inputs: Graph['inputs']
+      outputs: Graph['outputs']
+      entries: NonNullable<Graph['entries']>
+      exits: NonNullable<Graph['exits']>
+    }
+  | { kind: 'add-graph-call'; call: GraphCall }
+  | { kind: 'update-graph-call'; call: GraphCall }
+  | { kind: 'remove-graph-call'; callId: string }
+  | { kind: 'add-annotation'; annotation: Annotation }
+  | { kind: 'update-annotation'; annotation: Annotation }
+  | { kind: 'remove-annotation'; annotationId: string }
+  | { kind: 'set-edge-reroutes'; edge: Edge; reroutes: Array<{ x: number; y: number }> }
+  | {
+      kind: 'collapse-selection'
+      subgraphId: string
+      callId: string
+      name: string
+      nodeIds: string[]
+      position: { x: number; y: number }
+    }
   | { kind: 'remove-nodes'; nodeIds: string[] }
-  | { kind: 'insert-node-selection'; nodes: Node[]; edges: Edge[] }
+  | {
+      kind: 'insert-node-selection'
+      nodes: Node[]
+      calls: GraphCall[]
+      annotations: Annotation[]
+      edges: Edge[]
+    }
   | {
       kind: 'insert-connected-node'
       nodeTypeId: string
@@ -121,8 +156,202 @@ export class EditorSession {
     return this.source.graphs.find((graph) => graph.id === graphId) ?? null
   }
 
+  createSubgraph(name = 'Subgraph'): string {
+    const source = this.requireSource()
+    const graphId = uniqueGraphId(source, this.idFactory)
+    this.apply({
+      kind: 'add-graph',
+      graph: {
+        id: graphId,
+        name,
+        kind: 'subgraph',
+        nodes: [],
+        calls: [],
+        edges: [],
+        inputs: [],
+        outputs: [],
+        entries: [],
+        exits: [],
+        annotations: [],
+      },
+    })
+    this.enterGraph(graphId)
+    return graphId
+  }
+
+  renameGraph(graphId: string, name: string): void {
+    this.apply({ kind: 'rename-graph', graphId, name })
+  }
+
+  removeGraph(graphId: string): void {
+    this.apply({ kind: 'remove-graph', graphId })
+    this.graphPath = [this.requireSource().entryGraph]
+  }
+
+  addAnnotation(position: { x: number; y: number }): string {
+    const graph = this.currentGraph
+    if (!graph) throw new Error('workflow graph is unavailable')
+    const id = uniqueElementId(graph, this.idFactory)
+    this.apply({
+      kind: 'add-annotation',
+      annotation: { id, text: '', position, size: { width: 260, height: 140 } },
+    })
+    return id
+  }
+
+  collapseSelection(nodeIds: string[], name = 'Subgraph'): string {
+    const graph = this.currentGraph
+    if (!graph || nodeIds.length === 0) throw new Error('selection is empty')
+    const subgraphId = uniqueGraphId(this.requireSource(), this.idFactory)
+    const callId = uniqueElementId(graph, this.idFactory)
+    const selected = [
+      ...graph.nodes.filter((node) => nodeIds.includes(node.id)),
+      ...graph.calls!.filter((call) => nodeIds.includes(call.id)),
+    ]
+    if (selected.length !== nodeIds.length)
+      throw new Error('only executable nodes and graph calls can be collapsed')
+    const position = {
+      x: selected.reduce((sum, node) => sum + node.position.x, 0) / selected.length,
+      y: selected.reduce((sum, node) => sum + node.position.y, 0) / selected.length,
+    }
+    this.apply({ kind: 'collapse-selection', subgraphId, callId, name, nodeIds, position })
+    return callId
+  }
+
   nodeProjection(nodeTypeId: string): NodeProjection | undefined {
     return this.projections.get(nodeTypeId)
+  }
+
+  calleeGraph(call: GraphCall): Graph | undefined {
+    return this.source?.graphs.find((graph) => graph.id === call.graphId)
+  }
+
+  insertGraphCall(graphId: string, position: { x: number; y: number }): string {
+    const graph = this.currentGraph
+    const callee = this.source?.graphs.find(
+      (candidate) => candidate.id === graphId && candidate.kind === 'subgraph',
+    )
+    if (!graph || !callee) throw new Error(`subgraph ${graphId} does not exist`)
+    const id = uniqueElementId(graph, this.idFactory)
+    this.apply({
+      kind: 'add-graph-call',
+      call: {
+        id,
+        graphId,
+        label: callee.name || callee.id,
+        position,
+        bindings: {},
+      },
+    })
+    return id
+  }
+
+  graphInputProjection(graphId: string, portId: string): PortProjection | undefined {
+    const source = this.source
+    const graph = source?.graphs.find((candidate) => candidate.id === graphId)
+    const port = graph?.inputs.find((candidate) => candidate.id === portId)
+    if (!source || !graph || !port) return undefined
+    const projection = resolveGraphInputProjection(
+      source,
+      graph,
+      { nodeId: port.nodeId, portId: port.portId },
+      this.projections,
+      new Set(),
+    )
+    return projection ? { ...clone(projection), id: port.id } : undefined
+  }
+
+  inferCurrentGraphInterface(): void {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph') throw new Error('open a subgraph first')
+    const inputs: Graph['inputs'] = []
+    const outputs: Graph['outputs'] = []
+    const entries: NonNullable<Graph['entries']> = []
+    const exits: NonNullable<Graph['exits']> = []
+    const hasIncoming = (nodeId: string, portId: string, channel: Edge['channel']) =>
+      graph.edges.some(
+        (edge) =>
+          edge.channel === channel && edge.to.nodeId === nodeId && edge.to.portId === portId,
+      )
+    const hasOutgoing = (nodeId: string, portId: string, channel: Edge['channel']) =>
+      graph.edges.some(
+        (edge) =>
+          edge.channel === channel && edge.from.nodeId === nodeId && edge.from.portId === portId,
+      )
+    const addElement = (
+      id: string,
+      dataInputs: Array<{ id: string; type: TypeExpression }>,
+      dataOutputs: Array<{ id: string; type: TypeExpression }>,
+      signals: Array<{ id: string; channel: 'exec' | 'error'; direction: 'input' | 'output' }>,
+      bindings: Record<string, InputBinding>,
+    ) => {
+      for (const signal of signals) {
+        if (
+          signal.direction === 'input' &&
+          signal.channel === 'exec' &&
+          signal.id === 'in' &&
+          !hasIncoming(id, signal.id, 'exec')
+        )
+          entries.push({ nodeId: id, portId: signal.id })
+        if (signal.direction === 'output' && !hasOutgoing(id, signal.id, signal.channel)) {
+          exits.push({
+            id: boundaryId('exit', signal.id, exits.length + 1),
+            channel: signal.channel,
+            endpoint: { nodeId: id, portId: signal.id },
+          })
+        }
+      }
+      for (const port of dataInputs) {
+        if (!bindings[port.id] && !hasIncoming(id, port.id, 'data'))
+          inputs.push({
+            id: boundaryId('input', port.id, inputs.length + 1),
+            type: clone(port.type),
+            nodeId: id,
+            portId: port.id,
+          })
+      }
+      for (const port of dataOutputs) {
+        if (!hasOutgoing(id, port.id, 'data'))
+          outputs.push({
+            id: boundaryId('output', port.id, outputs.length + 1),
+            type: clone(port.type),
+            nodeId: id,
+            portId: port.id,
+          })
+      }
+    }
+    for (const node of graph.nodes) {
+      const projection = this.projections.get(node.nodeRef.nodeTypeId)
+      if (!projection) continue
+      addElement(
+        node.id,
+        projection.dataInputs.map((port) => ({ id: port.id, type: port.type.expression })),
+        projection.dataOutputs.map((port) => ({ id: port.id, type: port.type.expression })),
+        projection.signals,
+        node.bindings,
+      )
+    }
+    for (const call of graph.calls!) {
+      const callee = this.calleeGraph(call)
+      if (!callee) continue
+      addElement(
+        call.id,
+        callee.inputs.map((port) => ({ id: port.id, type: port.type })),
+        callee.outputs.map((port) => ({ id: port.id, type: port.type })),
+        [
+          { id: 'in', channel: 'exec', direction: 'input' },
+          ...(callee.exits ?? []).map((exit) => ({
+            id: exit.id,
+            channel: exit.channel,
+            direction: 'output' as const,
+          })),
+        ],
+        call.bindings,
+      )
+    }
+    if (!entries.length || !exits.length)
+      throw new Error('subgraph needs an unconnected “in” entry and at least one signal exit')
+    this.apply({ kind: 'update-graph-interface', inputs, outputs, entries, exits })
   }
 
   connectionCompatibility(edge: Edge): ConnectionCompatibility {
@@ -130,10 +359,49 @@ export class EditorSession {
     if (!graph) return { valid: false, issue: 'port', message: 'workflow graph is unavailable' }
     const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
     const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
-    if (!fromNode || !toNode)
+    const fromCall = graph.calls!.find((call) => call.id === edge.from.nodeId)
+    const toCall = graph.calls!.find((call) => call.id === edge.to.nodeId)
+    if ((!fromNode && !fromCall) || (!toNode && !toCall))
       return { valid: false, issue: 'port', message: 'connection node is missing' }
-    const from = this.projections.get(fromNode.nodeRef.nodeTypeId)
-    const to = this.projections.get(toNode.nodeRef.nodeTypeId)
+    if (fromCall || toCall) {
+      if (edge.channel === 'data') {
+        const fromType = fromCall
+          ? this.calleeGraph(fromCall)?.outputs.find((port) => port.id === edge.from.portId)?.type
+          : this.projections
+              .get(fromNode!.nodeRef.nodeTypeId)
+              ?.dataOutputs.find((port) => port.id === edge.from.portId)?.type.expression
+        const toType = toCall
+          ? this.calleeGraph(toCall)?.inputs.find((port) => port.id === edge.to.portId)?.type
+          : this.projections
+              .get(toNode!.nodeRef.nodeTypeId)
+              ?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
+        return fromType && toType && assignable(fromType, toType)
+          ? { valid: true }
+          : { valid: false, issue: 'type', message: 'connection types are incompatible' }
+      }
+      const fromValid = fromCall
+        ? this.calleeGraph(fromCall)?.exits?.some(
+            (exit) => exit.id === edge.from.portId && exit.channel === edge.channel,
+          )
+        : this.projections
+            .get(fromNode!.nodeRef.nodeTypeId)
+            ?.signals.some(
+              (signal) =>
+                signal.id === edge.from.portId &&
+                signal.direction === 'output' &&
+                signal.channel === edge.channel,
+            )
+      const toValid = toCall
+        ? edge.channel === 'exec' && edge.to.portId === 'in'
+        : this.projections
+            .get(toNode!.nodeRef.nodeTypeId)
+            ?.signals.some((signal) => signal.id === edge.to.portId && signal.direction === 'input')
+      return fromValid && toValid
+        ? { valid: true }
+        : { valid: false, issue: 'port', message: 'connection ports are incompatible' }
+    }
+    const from = this.projections.get(fromNode!.nodeRef.nodeTypeId)
+    const to = this.projections.get(toNode!.nodeRef.nodeTypeId)
     if (!from || !to)
       return { valid: false, issue: 'port', message: 'connection projection is missing' }
     return projectedConnectionCompatibility(
@@ -182,12 +450,19 @@ export class EditorSession {
     if (unique.length) this.apply({ kind: 'remove-nodes', nodeIds: unique })
   }
 
-  selectionSnapshot(nodeIds: string[]): { nodes: Node[]; edges: Edge[] } {
+  selectionSnapshot(nodeIds: string[]): {
+    nodes: Node[]
+    calls: GraphCall[]
+    annotations: Annotation[]
+    edges: Edge[]
+  } {
     const graph = this.currentGraph
-    if (!graph) return { nodes: [], edges: [] }
+    if (!graph) return { nodes: [], calls: [], annotations: [], edges: [] }
     const selected = new Set(nodeIds)
     return {
       nodes: clone(graph.nodes.filter((node) => selected.has(node.id))),
+      calls: clone(graph.calls!.filter((call) => selected.has(call.id))),
+      annotations: clone(graph.annotations!.filter((annotation) => selected.has(annotation.id))),
       edges: clone(
         graph.edges.filter(
           (edge) => selected.has(edge.from.nodeId) && selected.has(edge.to.nodeId),
@@ -197,11 +472,23 @@ export class EditorSession {
   }
 
   insertNodeSelection(
-    selection: { nodes: Node[]; edges: Edge[] },
+    selection: {
+      nodes: Node[]
+      calls?: GraphCall[]
+      annotations?: Annotation[]
+      edges: Edge[]
+    },
     offset: { x: number; y: number },
   ): string[] {
     const graph = this.currentGraph
-    if (!graph || selection.nodes.length === 0) return []
+    if (
+      !graph ||
+      selection.nodes.length +
+        (selection.calls?.length ?? 0) +
+        (selection.annotations?.length ?? 0) ===
+        0
+    )
+      return []
     const shadow = clone(graph)
     const ids = new Map<string, string>()
     const nodes = selection.nodes.map((node) => {
@@ -213,6 +500,30 @@ export class EditorSession {
         position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
       }
       shadow.nodes.push(inserted)
+      return inserted
+    })
+    const calls = (selection.calls ?? []).map((call) => {
+      const id = uniqueElementId(shadow, this.idFactory)
+      ids.set(call.id, id)
+      const inserted = {
+        ...clone(call),
+        id,
+        position: { x: call.position.x + offset.x, y: call.position.y + offset.y },
+      }
+      shadow.calls!.push(inserted)
+      return inserted
+    })
+    const annotations = (selection.annotations ?? []).map((annotation) => {
+      const id = uniqueElementId(shadow, this.idFactory)
+      const inserted = {
+        ...clone(annotation),
+        id,
+        position: {
+          x: annotation.position.x + offset.x,
+          y: annotation.position.y + offset.y,
+        },
+      }
+      shadow.annotations!.push(inserted)
       return inserted
     })
     const edges = selection.edges.flatMap((edge) => {
@@ -228,8 +539,12 @@ export class EditorSession {
           ]
         : []
     })
-    this.apply({ kind: 'insert-node-selection', nodes, edges })
-    return nodes.map((node) => node.id)
+    this.apply({ kind: 'insert-node-selection', nodes, calls, annotations, edges })
+    return [
+      ...nodes.map((node) => node.id),
+      ...calls.map((call) => call.id),
+      ...annotations.map((annotation) => annotation.id),
+    ]
   }
 
   insertLinearDraft(
@@ -267,7 +582,7 @@ export class EditorSession {
         to: { nodeId: node.id, portId: draftNodes[index + 1].execInput },
       }),
     )
-    this.apply({ kind: 'insert-node-selection', nodes, edges })
+    this.apply({ kind: 'insert-node-selection', nodes, calls: [], annotations: [], edges })
     return nodes.map((node) => node.id)
   }
 
@@ -342,12 +657,11 @@ export class EditorSession {
 
   openGraphPath(graphPath: readonly string[]): void {
     const source = this.requireSource()
-    const next = graphPath.length ? [...graphPath] : [source.entryGraph]
-    for (const graphId of next) {
-      if (!source.graphs.some((graph) => graph.id === graphId)) {
-        throw new Error(`graph ${graphId} does not exist`)
-      }
-    }
+    // Runtime provenance interleaves call IDs so two calls to one subgraph
+    // remain distinguishable. The editor navigation model only contains graphs.
+    const graphIds = new Set(source.graphs.map((graph) => graph.id))
+    const next = graphPath.filter((id) => graphIds.has(id))
+    if (!next.length) next.push(source.entryGraph)
     this.graphPath = next
   }
 
@@ -479,6 +793,7 @@ export class EditorSession {
     if (!isWorkflowSource(parsed) || parsed.workflow.id !== view.workflowId) {
       throw new Error('Workflow Source response has invalid identity')
     }
+    for (const graph of parsed.graphs) normalizeGraph(graph)
     this.source = parsed
     this.baseRevision = view.revision
     this.sourceHash = view.sourceHash
@@ -656,6 +971,80 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             },
           },
         }
+      case 'add-graph':
+        return { kind: command.kind, addGraph: { graph: clone(command.graph) } }
+      case 'rename-graph':
+        return {
+          kind: command.kind,
+          renameGraph: { graphId: command.graphId, name: command.name },
+        }
+      case 'remove-graph':
+        return { kind: command.kind, removeGraph: { graphId: command.graphId } }
+      case 'update-graph-interface':
+        return {
+          kind: command.kind,
+          updateGraphInterface: {
+            graphId,
+            inputs: command.inputs.map((port) => ({
+              ...clone(port),
+              nodeId: nodeRef(port.nodeId),
+            })),
+            outputs: command.outputs.map((port) => ({
+              ...clone(port),
+              nodeId: nodeRef(port.nodeId),
+            })),
+            entries: command.entries.map((entry) => ({
+              ...clone(entry),
+              nodeId: nodeRef(entry.nodeId),
+            })),
+            exits: command.exits.map((exit) => ({
+              ...clone(exit),
+              endpoint: { ...clone(exit.endpoint), nodeId: nodeRef(exit.endpoint.nodeId) },
+            })),
+          },
+        }
+      case 'add-graph-call':
+        return { kind: command.kind, addGraphCall: { graphId, call: clone(command.call) } }
+      case 'update-graph-call':
+        return { kind: command.kind, updateGraphCall: { graphId, call: clone(command.call) } }
+      case 'remove-graph-call':
+        return { kind: command.kind, removeGraphCall: { graphId, callId: command.callId } }
+      case 'add-annotation':
+        return {
+          kind: command.kind,
+          addAnnotation: { graphId, annotation: clone(command.annotation) },
+        }
+      case 'update-annotation':
+        return {
+          kind: command.kind,
+          updateAnnotation: { graphId, annotation: clone(command.annotation) },
+        }
+      case 'remove-annotation':
+        return {
+          kind: command.kind,
+          removeAnnotation: { graphId, annotationId: command.annotationId },
+        }
+      case 'set-edge-reroutes':
+        return {
+          kind: command.kind,
+          setEdgeReroutes: {
+            graphId,
+            edge: clone(command.edge),
+            reroutes: clone(command.reroutes),
+          },
+        }
+      case 'collapse-selection':
+        return {
+          kind: command.kind,
+          collapseSelection: {
+            graphId,
+            subgraphId: command.subgraphId,
+            callId: command.callId,
+            name: command.name,
+            nodeIds: [...command.nodeIds],
+            position: clone(command.position),
+          },
+        }
       case 'insert-connected-node':
         throw new Error('insert-connected-node must be expanded before persistence')
       case 'remove-nodes':
@@ -689,6 +1078,10 @@ function expandEditorCommand(command: EditorCommand): EditorCommand[] {
     case 'insert-node-selection':
       return [
         ...command.nodes.flatMap(nodeCommands),
+        ...command.calls.map((call): EditorCommand => ({ kind: 'add-graph-call', call })),
+        ...command.annotations.map(
+          (annotation): EditorCommand => ({ kind: 'add-annotation', annotation }),
+        ),
         ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
       ]
     default:
@@ -855,10 +1248,12 @@ function applyCommand(
       delete requireNode(graph, command.nodeId).bindings[command.portId]
       return
     case 'connect':
-      validateEdge(graph, command.edge, projections)
+      validateEdge(source, graph, command.edge, projections)
       if (command.edge.channel === 'data') {
-        const target = requireNode(graph, command.edge.to.nodeId)
-        delete target.bindings[command.edge.to.portId]
+        const target = graph.nodes.find((node) => node.id === command.edge.to.nodeId)
+        const targetCall = graph.calls!.find((call) => call.id === command.edge.to.nodeId)
+        if (target) delete target.bindings[command.edge.to.portId]
+        else if (targetCall) delete targetCall.bindings[command.edge.to.portId]
         graph.edges = graph.edges.filter(
           (edge) =>
             !(
@@ -872,6 +1267,112 @@ function applyCommand(
         graph.edges.push(clone(command.edge))
       }
       return
+    case 'add-graph':
+      if (source.graphs.some((candidate) => candidate.id === command.graph.id))
+        throw new Error(`duplicate graph ${command.graph.id}`)
+      source.graphs.push(normalizeGraph(clone(command.graph)))
+      return
+    case 'rename-graph': {
+      const target = source.graphs.find((candidate) => candidate.id === command.graphId)
+      if (!target) throw new Error(`graph ${command.graphId} does not exist`)
+      target.name = command.name.trim() || undefined
+      return
+    }
+    case 'remove-graph':
+      if (command.graphId === source.entryGraph) throw new Error('entry graph cannot be removed')
+      if (
+        source.graphs.some((candidate) =>
+          candidate.calls?.some((call) => call.graphId === command.graphId),
+        )
+      )
+        throw new Error(`graph ${command.graphId} is still referenced`)
+      source.graphs.splice(
+        source.graphs.findIndex((candidate) => candidate.id === command.graphId),
+        1,
+      )
+      return
+    case 'update-graph-interface':
+      if (graph.kind !== 'subgraph') throw new Error('only subgraphs have a callable interface')
+      {
+        const inputs = new Set(command.inputs.map((port) => port.id))
+        const outputs = new Set(command.outputs.map((port) => port.id))
+        const exits = new Set(command.exits.map((exit) => exit.id))
+        for (const caller of source.graphs) {
+          for (const call of caller.calls ?? []) {
+            if (call.graphId !== graph.id) continue
+            if (Object.keys(call.bindings).some((portId) => !inputs.has(portId)))
+              throw new Error('removed graph input is still bound by a call')
+            if (
+              caller.edges.some(
+                (edge) =>
+                  (edge.to.nodeId === call.id &&
+                    edge.channel === 'data' &&
+                    !inputs.has(edge.to.portId)) ||
+                  (edge.from.nodeId === call.id &&
+                    edge.channel === 'data' &&
+                    !outputs.has(edge.from.portId)) ||
+                  (edge.from.nodeId === call.id &&
+                    edge.channel !== 'data' &&
+                    !exits.has(edge.from.portId)),
+              )
+            )
+              throw new Error('removed graph port is still connected by a call')
+          }
+        }
+      }
+      graph.inputs = clone(command.inputs)
+      graph.outputs = clone(command.outputs)
+      graph.entries = clone(command.entries)
+      graph.exits = clone(command.exits)
+      return
+    case 'add-graph-call':
+      if (graphElementExists(graph, command.call.id))
+        throw new Error(`duplicate graph element ${command.call.id}`)
+      graph.calls!.push(clone(command.call))
+      return
+    case 'update-graph-call': {
+      const index = graph.calls!.findIndex((call) => call.id === command.call.id)
+      if (index < 0) throw new Error(`call ${command.call.id} does not exist`)
+      graph.calls![index] = clone(command.call)
+      return
+    }
+    case 'remove-graph-call':
+      if (!graph.calls!.some((call) => call.id === command.callId))
+        throw new Error(`call ${command.callId} does not exist`)
+      graph.calls = graph.calls!.filter((call) => call.id !== command.callId)
+      graph.edges = graph.edges.filter(
+        (edge) => edge.from.nodeId !== command.callId && edge.to.nodeId !== command.callId,
+      )
+      return
+    case 'add-annotation':
+      if (graph.annotations!.some((annotation) => annotation.id === command.annotation.id))
+        throw new Error(`annotation ${command.annotation.id} already exists`)
+      graph.annotations!.push(clone(command.annotation))
+      return
+    case 'update-annotation': {
+      const index = graph.annotations!.findIndex(
+        (annotation) => annotation.id === command.annotation.id,
+      )
+      if (index < 0) throw new Error(`annotation ${command.annotation.id} does not exist`)
+      graph.annotations![index] = clone(command.annotation)
+      return
+    }
+    case 'remove-annotation':
+      graph.annotations = graph.annotations!.filter(
+        (annotation) => annotation.id !== command.annotationId,
+      )
+      return
+    case 'set-edge-reroutes': {
+      const edge = graph.edges.find((candidate) => sameEdge(candidate, command.edge))
+      if (!edge) throw new Error('edge does not exist')
+      edge.presentation = command.reroutes.length
+        ? { reroutes: clone(command.reroutes) }
+        : undefined
+      return
+    }
+    case 'collapse-selection':
+      collapseGraphSelection(source, graph, command, projections)
+      return
     case 'insert-connected-node':
     case 'remove-nodes':
     case 'insert-node-selection':
@@ -881,9 +1382,53 @@ function applyCommand(
   }
 }
 
-function validateEdge(graph: Graph, edge: Edge, projections: Map<string, NodeProjection>): void {
-  const fromNode = requireNode(graph, edge.from.nodeId)
-  const toNode = requireNode(graph, edge.to.nodeId)
+function validateEdge(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  edge: Edge,
+  projections: Map<string, NodeProjection>,
+): void {
+  const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
+  const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
+  if (!fromNode || !toNode) {
+    const fromCall = graph.calls!.find((call) => call.id === edge.from.nodeId)
+    const toCall = graph.calls!.find((call) => call.id === edge.to.nodeId)
+    if ((!fromNode && !fromCall) || (!toNode && !toCall))
+      throw new Error('edge endpoint does not exist')
+    const callee = (call: GraphCall | undefined) =>
+      source.graphs.find((candidate) => candidate.id === call?.graphId)
+    if (edge.channel === 'data') {
+      const fromValid = fromCall
+        ? callee(fromCall)?.outputs.some((port) => port.id === edge.from.portId)
+        : requireProjection(fromNode!, projections).dataOutputs.some(
+            (port) => port.id === edge.from.portId,
+          )
+      const toValid = toCall
+        ? callee(toCall)?.inputs.some((port) => port.id === edge.to.portId)
+        : requireProjection(toNode!, projections).dataInputs.some(
+            (port) => port.id === edge.to.portId,
+          )
+      if (fromValid && toValid) return
+    } else {
+      const fromValid = fromCall
+        ? callee(fromCall)?.exits?.some(
+            (exit) => exit.id === edge.from.portId && exit.channel === edge.channel,
+          )
+        : requireProjection(fromNode!, projections).signals.some(
+            (signal) =>
+              signal.id === edge.from.portId &&
+              signal.channel === edge.channel &&
+              signal.direction === 'output',
+          )
+      const toValid = toCall
+        ? edge.channel === 'exec' && edge.to.portId === 'in'
+        : requireProjection(toNode!, projections).signals.some(
+            (signal) => signal.id === edge.to.portId && signal.direction === 'input',
+          )
+      if (fromValid && toValid) return
+    }
+    throw new Error('edge is incompatible')
+  }
   const from = requireProjection(fromNode, projections)
   const to = requireProjection(toNode, projections)
   const result = projectedConnectionCompatibility(
@@ -931,14 +1476,212 @@ function graphAt(source: YottaWorkflowSource, path: string[]): Graph {
 function uniqueNodeId(graph: Graph, idFactory: () => string): string {
   for (let attempt = 0; attempt < 32; attempt += 1) {
     const candidate = idFactory()
-    if (
-      /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(candidate) &&
-      !graph.nodes.some((node) => node.id === candidate)
-    ) {
+    if (/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(candidate) && !graphElementExists(graph, candidate)) {
       return candidate
     }
   }
   throw new Error('could not allocate a unique node ID')
+}
+
+function uniqueElementId(graph: Graph, idFactory: () => string): string {
+  return uniqueNodeId(graph, idFactory)
+}
+
+function uniqueGraphId(source: YottaWorkflowSource, idFactory: () => string): string {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const candidate = idFactory()
+    if (
+      /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(candidate) &&
+      !source.graphs.some((graph) => graph.id === candidate)
+    )
+      return candidate
+  }
+  throw new Error('could not allocate a unique graph ID')
+}
+
+function normalizeGraph(graph: Graph): Graph {
+  graph.calls ??= []
+  graph.entries ??= []
+  graph.exits ??= []
+  graph.annotations ??= []
+  return graph
+}
+
+function graphElementExists(graph: Graph, id: string): boolean {
+  return (
+    graph.nodes.some((node) => node.id === id) ||
+    graph.calls!.some((call) => call.id === id) ||
+    graph.annotations!.some((annotation) => annotation.id === id)
+  )
+}
+
+function collapseGraphSelection(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  command: Extract<EditorCommand, { kind: 'collapse-selection' }>,
+  projections: Map<string, NodeProjection>,
+): void {
+  const selected = new Set(command.nodeIds)
+  const nodes = graph.nodes.filter((node) => selected.has(node.id))
+  const calls = graph.calls!.filter((call) => selected.has(call.id))
+  if (
+    nodes.length + calls.length !== selected.size ||
+    source.graphs.some((candidate) => candidate.id === command.subgraphId) ||
+    graphElementExists(graph, command.callId)
+  )
+    throw new Error('collapse selection is invalid')
+  const subgraph: Graph = normalizeGraph({
+    id: command.subgraphId,
+    name: command.name.trim() || 'Subgraph',
+    kind: 'subgraph',
+    nodes: clone(nodes),
+    calls: clone(calls),
+    edges: [],
+    inputs: [],
+    outputs: [],
+  })
+  const parentEdges: Edge[] = []
+  const inputs = new Map<string, string>()
+  const outputs = new Map<string, string>()
+  const exits = new Map<string, string>()
+  for (const edge of graph.edges) {
+    const fromSelected = selected.has(edge.from.nodeId)
+    const toSelected = selected.has(edge.to.nodeId)
+    if (fromSelected && toSelected) {
+      subgraph.edges.push(clone(edge))
+      continue
+    }
+    if (!fromSelected && !toSelected) {
+      parentEdges.push(clone(edge))
+      continue
+    }
+    const copyEdge = clone(edge)
+    if (!fromSelected && toSelected) {
+      if (edge.channel === 'error') throw new Error('selection has an incoming error route')
+      if (edge.channel === 'exec') {
+        if (
+          subgraph.entries!.length &&
+          (subgraph.entries![0].nodeId !== edge.to.nodeId ||
+            subgraph.entries![0].portId !== edge.to.portId)
+        )
+          throw new Error('selection has multiple execution entries')
+        if (!subgraph.entries!.length) subgraph.entries!.push(clone(edge.to))
+        copyEdge.to = { nodeId: command.callId, portId: 'in' }
+      } else {
+        const key = `${edge.to.nodeId}\0${edge.to.portId}`
+        let portId = inputs.get(key)
+        if (!portId) {
+          const type = graphEndpointType(source, graph, edge.to, false, projections)
+          if (!type) throw new Error('selection input type is unavailable')
+          portId = boundaryId('input', edge.to.portId, subgraph.inputs.length + 1)
+          inputs.set(key, portId)
+          subgraph.inputs.push({
+            id: portId,
+            type: clone(type),
+            nodeId: edge.to.nodeId,
+            portId: edge.to.portId,
+          })
+        }
+        copyEdge.to = { nodeId: command.callId, portId }
+      }
+      parentEdges.push(copyEdge)
+      continue
+    }
+    if (edge.channel === 'data') {
+      const key = `${edge.from.nodeId}\0${edge.from.portId}`
+      let portId = outputs.get(key)
+      if (!portId) {
+        const type = graphEndpointType(source, graph, edge.from, true, projections)
+        if (!type) throw new Error('selection output type is unavailable')
+        portId = boundaryId('output', edge.from.portId, subgraph.outputs.length + 1)
+        outputs.set(key, portId)
+        subgraph.outputs.push({
+          id: portId,
+          type: clone(type),
+          nodeId: edge.from.nodeId,
+          portId: edge.from.portId,
+        })
+      }
+      copyEdge.from = { nodeId: command.callId, portId }
+    } else {
+      const key = `${edge.channel}\0${edge.from.nodeId}\0${edge.from.portId}`
+      let exitId = exits.get(key)
+      if (!exitId) {
+        exitId = boundaryId('exit', edge.from.portId, subgraph.exits!.length + 1)
+        exits.set(key, exitId)
+        subgraph.exits!.push({ id: exitId, channel: edge.channel, endpoint: clone(edge.from) })
+      }
+      copyEdge.from = { nodeId: command.callId, portId: exitId }
+    }
+    parentEdges.push(copyEdge)
+  }
+  if (!subgraph.entries!.length || !subgraph.exits!.length)
+    throw new Error('selection needs one execution entry and at least one signal exit')
+  graph.nodes = graph.nodes.filter((node) => !selected.has(node.id))
+  graph.calls = graph.calls!.filter((call) => !selected.has(call.id))
+  graph.edges = parentEdges
+  graph.calls!.push({
+    id: command.callId,
+    graphId: command.subgraphId,
+    label: subgraph.name,
+    position: clone(command.position),
+    bindings: {},
+  })
+  source.graphs.push(subgraph)
+}
+
+function graphEndpointType(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  endpoint: Edge['from'],
+  output: boolean,
+  projections: Map<string, NodeProjection>,
+): TypeExpression | undefined {
+  const node = graph.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+  if (node) {
+    const projection = requireProjection(node, projections)
+    const ports = output ? projection.dataOutputs : projection.dataInputs
+    return ports.find((port) => port.id === endpoint.portId)?.type.expression
+  }
+  const call = graph.calls!.find((candidate) => candidate.id === endpoint.nodeId)
+  const callee = source.graphs.find((candidate) => candidate.id === call?.graphId)
+  const ports = output ? callee?.outputs : callee?.inputs
+  return ports?.find((port) => port.id === endpoint.portId)?.type
+}
+
+function resolveGraphInputProjection(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  endpoint: Edge['to'],
+  projections: Map<string, NodeProjection>,
+  visited: Set<string>,
+): PortProjection | undefined {
+  const visitKey = `${graph.id}\0${endpoint.nodeId}\0${endpoint.portId}`
+  if (visited.has(visitKey)) return undefined
+  visited.add(visitKey)
+  const node = graph.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+  if (node) {
+    return projections
+      .get(node.nodeRef.nodeTypeId)
+      ?.dataInputs.find((port) => port.id === endpoint.portId)
+  }
+  const call = graph.calls!.find((candidate) => candidate.id === endpoint.nodeId)
+  const callee = source.graphs.find((candidate) => candidate.id === call?.graphId)
+  const port = callee?.inputs.find((candidate) => candidate.id === endpoint.portId)
+  return callee && port
+    ? resolveGraphInputProjection(
+        source,
+        callee,
+        { nodeId: port.nodeId, portId: port.portId },
+        projections,
+        visited,
+      )
+    : undefined
+}
+
+function boundaryId(prefix: string, portId: string, index: number): string {
+  const clean = portId.replace(/[^A-Za-z0-9_-]+/g, '_') || prefix
+  return `${prefix}_${clean}_${index}`
 }
 
 function defaultNodeId(): string {

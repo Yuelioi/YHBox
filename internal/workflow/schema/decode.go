@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"slices"
 	"sort"
@@ -243,6 +244,12 @@ func validateSource(source WorkflowSource) []Diagnostic {
 
 	graphIDs := map[string]bool{}
 	graphKinds := map[string]GraphKind{}
+	graphIndexes := map[string]int{}
+	callTargets := map[string][]struct {
+		graphID string
+		call    GraphCall
+		path    []string
+	}{}
 	mainGraphs := 0
 	for graphIndex, graph := range source.Graphs {
 		if len(out) >= MaxDiagnostics {
@@ -255,6 +262,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		graphIDs[graph.ID] = true
 		graphKinds[graph.ID] = graph.Kind
+		graphIndexes[graph.ID] = graphIndex
 		if graph.Kind == GraphKindMain {
 			mainGraphs++
 		}
@@ -268,6 +276,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
 			}
 			nodeIDs[node.ID] = true
+			if !finitePosition(node.Position) {
+				appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "position"), Params: map[string]any{"keyword": "finite"}})
+			}
 			for portID, binding := range node.Bindings {
 				bindingPath := append(append([]string(nil), nodePath...), "bindings", portID)
 				switch binding.Kind {
@@ -285,6 +296,25 @@ func validateSource(source WorkflowSource) []Diagnostic {
 					}
 				}
 			}
+		}
+		for callIndex, call := range graph.Calls {
+			callPath := append(append([]string(nil), base...), "calls", fmt.Sprint(callIndex))
+			if nodeIDs[call.ID] {
+				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: call.ID, FieldPath: append(callPath, "id"), Params: map[string]any{"id": call.ID}})
+			}
+			nodeIDs[call.ID] = true
+			if !finitePosition(call.Position) {
+				appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: call.ID, FieldPath: append(callPath, "position"), Params: map[string]any{"keyword": "finite"}})
+			}
+			for portID, binding := range call.Bindings {
+				bindingPath := append(append([]string(nil), callPath...), "bindings", portID)
+				validateBindingState(&out, graphPath, call.ID, bindingPath, binding)
+			}
+			callTargets[graph.ID] = append(callTargets[graph.ID], struct {
+				graphID string
+				call    GraphCall
+				path    []string
+			}{graphID: graph.ID, call: call, path: callPath})
 		}
 		validateGraphPorts := func(ports []GraphPort, field string) {
 			portIDs := map[string]bool{}
@@ -304,12 +334,90 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		validateGraphPorts(graph.Inputs, "inputs")
 		validateGraphPorts(graph.Outputs, "outputs")
+		if graph.Kind == GraphKindMain && (len(graph.Inputs) != 0 || len(graph.Outputs) != 0 || len(graph.Entries) != 0 || len(graph.Exits) != 0) {
+			appendDiagnostic(&out, diagnosticAtGraph(CodeUnsupportedGraphContract, graphPath, base, map[string]any{"kind": graph.Kind}))
+		}
+		for entryIndex, entry := range graph.Entries {
+			if !nodeIDs[entry.NodeID] {
+				appendDiagnostic(&out, diagnosticAtGraph(CodeInvalidGraphBoundaryEdge, graphPath, append(base, "entries", fmt.Sprint(entryIndex)), map[string]any{"nodeId": entry.NodeID}))
+			}
+		}
+		exitIDs := map[string]bool{}
+		for exitIndex, exit := range graph.Exits {
+			path := append(append([]string(nil), base...), "exits", fmt.Sprint(exitIndex))
+			if exitIDs[exit.ID] {
+				appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(path, "id"), map[string]any{"id": exit.ID}))
+			}
+			exitIDs[exit.ID] = true
+			if !nodeIDs[exit.Endpoint.NodeID] {
+				appendDiagnostic(&out, diagnosticAtGraph(CodeInvalidGraphBoundaryEdge, graphPath, append(path, "endpoint"), map[string]any{"nodeId": exit.Endpoint.NodeID}))
+			}
+		}
+		annotationIDs := map[string]bool{}
+		for annotationIndex, annotation := range graph.Annotations {
+			path := append(append([]string(nil), base...), "annotations", fmt.Sprint(annotationIndex))
+			if annotationIDs[annotation.ID] || nodeIDs[annotation.ID] {
+				appendDiagnostic(&out, diagnosticAtGraph(CodeDuplicateID, graphPath, append(path, "id"), map[string]any{"id": annotation.ID}))
+			}
+			annotationIDs[annotation.ID] = true
+			if !finitePosition(annotation.Position) || math.IsNaN(annotation.Size.Width) || math.IsInf(annotation.Size.Width, 0) || math.IsNaN(annotation.Size.Height) || math.IsInf(annotation.Size.Height, 0) || annotation.Size.Width < 80 || annotation.Size.Height < 48 {
+				appendDiagnostic(&out, diagnosticAtGraph(CodeInvalidField, graphPath, path, map[string]any{"keyword": "annotationGeometry"}))
+			}
+		}
+		for edgeIndex, edge := range graph.Edges {
+			for rerouteIndex, reroute := range edge.Presentation.Reroutes {
+				if !finitePosition(reroute) {
+					appendDiagnostic(&out, diagnosticAtGraph(CodeInvalidField, graphPath, append(base, "edges", fmt.Sprint(edgeIndex), "presentation", "reroutes", fmt.Sprint(rerouteIndex)), map[string]any{"keyword": "finite"}))
+				}
+			}
+		}
 		if len(out) >= MaxDiagnostics {
 			return sortedDiagnostics(out)
 		}
 	}
 	if !graphIDs[source.EntryGraph] || graphKinds[source.EntryGraph] != GraphKindMain || mainGraphs != 1 {
 		appendDiagnostic(&out, diagnostic(CodeMissingEntryGraph, []string{"entryGraph"}, map[string]any{"entryGraph": source.EntryGraph, "mainGraphs": mainGraphs}))
+	}
+	for graphID, calls := range callTargets {
+		for _, reference := range calls {
+			if !graphIDs[reference.call.GraphID] {
+				appendDiagnostic(&out, Diagnostic{Code: CodeUnknownCalleeGraph, Severity: SeverityError, GraphPath: []string{graphID}, NodeID: reference.call.ID, FieldPath: append(reference.path, "graphId"), Params: map[string]any{"graphId": reference.call.GraphID}})
+			} else if graphKinds[reference.call.GraphID] != GraphKindSubgraph {
+				appendDiagnostic(&out, Diagnostic{Code: CodeInvalidCalleeGraphKind, Severity: SeverityError, GraphPath: []string{graphID}, NodeID: reference.call.ID, FieldPath: append(reference.path, "graphId"), Params: map[string]any{"graphId": reference.call.GraphID}})
+			}
+		}
+	}
+	state := map[string]uint8{}
+	depths := map[string]int{}
+	var visitCalls func(string) int
+	visitCalls = func(graphID string) int {
+		state[graphID] = 1
+		maximumDepth := 1
+		for _, reference := range callTargets[graphID] {
+			if !graphIDs[reference.call.GraphID] || graphKinds[reference.call.GraphID] != GraphKindSubgraph {
+				continue
+			}
+			if state[reference.call.GraphID] == 1 {
+				appendDiagnostic(&out, Diagnostic{Code: CodeSubgraphCallCycle, Severity: SeverityError, GraphPath: []string{graphID}, NodeID: reference.call.ID, FieldPath: append(reference.path, "graphId"), Params: map[string]any{"graphId": reference.call.GraphID, "maximumDepth": MaxGraphDepth}})
+				continue
+			}
+			childDepth := depths[reference.call.GraphID]
+			if state[reference.call.GraphID] == 0 {
+				childDepth = visitCalls(reference.call.GraphID)
+			}
+			if childDepth+1 > MaxGraphDepth {
+				appendDiagnostic(&out, Diagnostic{Code: CodeSubgraphCallCycle, Severity: SeverityError, GraphPath: []string{graphID}, NodeID: reference.call.ID, FieldPath: append(reference.path, "graphId"), Params: map[string]any{"graphId": reference.call.GraphID, "maximumDepth": MaxGraphDepth}})
+			}
+			maximumDepth = max(maximumDepth, childDepth+1)
+		}
+		state[graphID] = 2
+		depths[graphID] = maximumDepth
+		return maximumDepth
+	}
+	for graphID := range graphIndexes {
+		if state[graphID] == 0 {
+			visitCalls(graphID)
+		}
 	}
 	variableNames := map[string]bool{}
 	for index, variable := range source.Variables {
@@ -337,6 +445,27 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		secretIDs[secret.ID] = true
 	}
 	return sortedDiagnostics(out)
+}
+
+func validateBindingState(out *[]Diagnostic, graphPath []string, nodeID string, bindingPath []string, binding InputBinding) {
+	field := "value"
+	invalid := false
+	switch binding.Kind {
+	case BindingValue:
+		invalid = len(binding.Value) == 0 || binding.Blob != nil
+	case BindingDefault:
+		invalid = len(binding.Value) != 0 || binding.Blob != nil
+	case BindingBlob:
+		field = "blob"
+		invalid = len(binding.Value) != 0 || binding.Blob == nil || binding.Blob.Validate() != nil
+	}
+	if invalid {
+		appendDiagnostic(out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: nodeID, FieldPath: append(bindingPath, field), Params: map[string]any{"keyword": "bindingState"}})
+	}
+}
+
+func finitePosition(position Position) bool {
+	return !math.IsNaN(position.X) && !math.IsInf(position.X, 0) && !math.IsNaN(position.Y) && !math.IsInf(position.Y, 0)
 }
 
 func sortedDiagnostics(values []Diagnostic) []Diagnostic {

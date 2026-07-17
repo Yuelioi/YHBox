@@ -51,7 +51,7 @@ func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigge
 	if trigger != nil || node.Instruction.RunRoot == nil {
 		return errors.New("run-root instruction received a signal or invalid payload")
 	}
-	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, nil); err != nil {
+	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, nil); err != nil {
 		return err
 	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
@@ -81,7 +81,7 @@ func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, tr
 	if err != nil {
 		return err
 	}
-	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, inputs); err != nil {
 		return err
 	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
@@ -141,7 +141,7 @@ func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigge
 	if err != nil {
 		return err
 	}
-	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, inputs); err != nil {
 		return err
 	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
@@ -211,7 +211,7 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 	if err != nil {
 		return err
 	}
-	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, inputs); err != nil {
 		return err
 	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
@@ -296,7 +296,7 @@ func (s *scheduler) beginInstruction(ctx context.Context, node programNode) (int
 		return 0, run.RedactedSummary{}, err
 	}
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptStarted,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt, Outcome: run.AttemptStarted,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -311,7 +311,7 @@ func (s *scheduler) beginInstruction(ctx context.Context, node programNode) (int
 
 func (s *scheduler) finishInstruction(ctx context.Context, node programNode, attempt int, summary run.RedactedSummary) error {
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptSucceeded,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt, Outcome: run.AttemptSucceeded,
 		OccurredAt: s.executor.now().UTC(), Summary: summary,
 	})
 	if err != nil {
@@ -327,10 +327,10 @@ func (s *scheduler) closeInterruptedInstruction(ctx context.Context, node progra
 		return s.finishInstruction(ctx, node, attempt, summary)
 	}
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) || ctx.Err() != nil {
-		return s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, s.graph.ID, node.ID, attempt, summary)
+		return s.executor.cancelAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, node.SourceNodeID, attempt, summary)
 	}
 	fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{
-		GraphPath: []string{s.graph.ID}, NodeID: node.ID, Attempt: attempt, Outcome: run.AttemptRouted,
+		GraphPath: append([]string(nil), node.GraphPath...), NodeID: node.SourceNodeID, Attempt: attempt, Outcome: run.AttemptRouted,
 		OccurredAt: s.executor.now().UTC(), ErrorCode: "control.region_failed", Summary: summary,
 	})
 	if err != nil {

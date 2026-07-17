@@ -16,6 +16,8 @@ const (
 	MaxDiagnostics = 10_000
 	MaxVariables   = 4_096
 	MaxSecretRefs  = 4_096
+	MaxGraphDepth  = 32
+	MaxGraphPath   = MaxGraphDepth*2 - 1
 )
 
 type GraphKind string
@@ -42,12 +44,17 @@ type Workflow struct {
 }
 
 type Graph struct {
-	ID      string      `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
-	Kind    GraphKind   `json:"kind" jsonschema:"required,enum=main,enum=subgraph"`
-	Nodes   []Node      `json:"nodes" jsonschema:"required,maxItems=4096"`
-	Edges   []Edge      `json:"edges" jsonschema:"required,maxItems=16384"`
-	Inputs  []GraphPort `json:"inputs" jsonschema:"required,maxItems=4096"`
-	Outputs []GraphPort `json:"outputs" jsonschema:"required,maxItems=4096"`
+	ID          string       `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Name        string       `json:"name,omitempty" jsonschema:"maxLength=256"`
+	Kind        GraphKind    `json:"kind" jsonschema:"required,enum=main,enum=subgraph"`
+	Nodes       []Node       `json:"nodes" jsonschema:"required,maxItems=4096"`
+	Calls       []GraphCall  `json:"calls,omitempty" jsonschema:"maxItems=4096"`
+	Edges       []Edge       `json:"edges" jsonschema:"required,maxItems=16384"`
+	Inputs      []GraphPort  `json:"inputs" jsonschema:"required,maxItems=4096"`
+	Outputs     []GraphPort  `json:"outputs" jsonschema:"required,maxItems=4096"`
+	Entries     []Endpoint   `json:"entries,omitempty" jsonschema:"maxItems=64"`
+	Exits       []GraphExit  `json:"exits,omitempty" jsonschema:"maxItems=64"`
+	Annotations []Annotation `json:"annotations,omitempty" jsonschema:"maxItems=4096"`
 }
 
 type GraphPort struct {
@@ -55,6 +62,33 @@ type GraphPort struct {
 	Type   datatype.TypeExpression `json:"type" jsonschema:"required"`
 	NodeID string                  `json:"nodeId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	PortID string                  `json:"portId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+}
+
+type GraphCall struct {
+	ID       string                  `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	GraphID  string                  `json:"graphId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Label    string                  `json:"label,omitempty" jsonschema:"maxLength=1024"`
+	Position Position                `json:"position" jsonschema:"required"`
+	Bindings map[string]InputBinding `json:"bindings" jsonschema:"required"`
+}
+
+type GraphExit struct {
+	ID       string      `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Channel  EdgeChannel `json:"channel" jsonschema:"required,enum=exec,enum=error"`
+	Endpoint Endpoint    `json:"endpoint" jsonschema:"required"`
+}
+
+type Annotation struct {
+	ID       string   `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Text     string   `json:"text" jsonschema:"required,maxLength=16384"`
+	Color    string   `json:"color,omitempty" jsonschema:"maxLength=32"`
+	Position Position `json:"position" jsonschema:"required"`
+	Size     Size     `json:"size" jsonschema:"required"`
+}
+
+type Size struct {
+	Width  float64 `json:"width" jsonschema:"required"`
+	Height float64 `json:"height" jsonschema:"required"`
 }
 
 type BindingKind string
@@ -100,9 +134,14 @@ type Endpoint struct {
 }
 
 type Edge struct {
-	Channel EdgeChannel `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error"`
-	From    Endpoint    `json:"from" jsonschema:"required"`
-	To      Endpoint    `json:"to" jsonschema:"required"`
+	Channel      EdgeChannel      `json:"channel" jsonschema:"required,enum=data,enum=exec,enum=error"`
+	From         Endpoint         `json:"from" jsonschema:"required"`
+	To           Endpoint         `json:"to" jsonschema:"required"`
+	Presentation EdgePresentation `json:"presentation,omitempty"`
+}
+
+type EdgePresentation struct {
+	Reroutes []Position `json:"reroutes,omitempty" jsonschema:"maxItems=64"`
 }
 
 type Variable struct {

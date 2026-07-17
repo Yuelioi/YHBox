@@ -20,7 +20,10 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-const MaxCommands = 256
+const (
+	MaxCommands        = 256
+	graphCallInputPort = "in"
+)
 
 var handlePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 
@@ -33,45 +36,69 @@ type PatchRequest struct {
 type CommandKind string
 
 const (
-	CommandRenameWorkflow      CommandKind = "rename-workflow"
-	CommandAddStateVariable    CommandKind = "add-state-variable"
-	CommandRemoveStateVariable CommandKind = "remove-state-variable"
-	CommandAddNode             CommandKind = "add-node"
-	CommandRemoveNode          CommandKind = "remove-node"
-	CommandMoveNode            CommandKind = "move-node"
-	CommandSetNodeLabel        CommandKind = "set-node-label"
-	CommandSetNodeDisabled     CommandKind = "set-node-disabled"
-	CommandSetConfig           CommandKind = "set-config"
-	CommandClearConfig         CommandKind = "clear-config"
-	CommandBindValue           CommandKind = "bind-value"
-	CommandBindDefault         CommandKind = "bind-default"
-	CommandBindBlob            CommandKind = "bind-blob"
-	CommandClearBinding        CommandKind = "clear-binding"
-	CommandConnect             CommandKind = "connect"
-	CommandDisconnect          CommandKind = "disconnect"
+	CommandRenameWorkflow       CommandKind = "rename-workflow"
+	CommandAddStateVariable     CommandKind = "add-state-variable"
+	CommandRemoveStateVariable  CommandKind = "remove-state-variable"
+	CommandAddNode              CommandKind = "add-node"
+	CommandRemoveNode           CommandKind = "remove-node"
+	CommandMoveNode             CommandKind = "move-node"
+	CommandSetNodeLabel         CommandKind = "set-node-label"
+	CommandSetNodeDisabled      CommandKind = "set-node-disabled"
+	CommandSetConfig            CommandKind = "set-config"
+	CommandClearConfig          CommandKind = "clear-config"
+	CommandBindValue            CommandKind = "bind-value"
+	CommandBindDefault          CommandKind = "bind-default"
+	CommandBindBlob             CommandKind = "bind-blob"
+	CommandClearBinding         CommandKind = "clear-binding"
+	CommandConnect              CommandKind = "connect"
+	CommandDisconnect           CommandKind = "disconnect"
+	CommandAddGraph             CommandKind = "add-graph"
+	CommandRenameGraph          CommandKind = "rename-graph"
+	CommandRemoveGraph          CommandKind = "remove-graph"
+	CommandUpdateGraphInterface CommandKind = "update-graph-interface"
+	CommandAddGraphCall         CommandKind = "add-graph-call"
+	CommandUpdateGraphCall      CommandKind = "update-graph-call"
+	CommandRemoveGraphCall      CommandKind = "remove-graph-call"
+	CommandAddAnnotation        CommandKind = "add-annotation"
+	CommandUpdateAnnotation     CommandKind = "update-annotation"
+	CommandRemoveAnnotation     CommandKind = "remove-annotation"
+	CommandSetEdgeReroutes      CommandKind = "set-edge-reroutes"
+	CommandCollapseSelection    CommandKind = "collapse-selection"
 )
 
 // Command is an explicit tagged union. Exactly one payload must be present and
 // it must match Kind; this is checked again inside Engine.Apply for every
 // caller, including Wails and MCP decoders.
 type Command struct {
-	Kind                CommandKind                 `json:"kind"`
-	RenameWorkflow      *RenameWorkflowCommand      `json:"renameWorkflow,omitempty"`
-	AddStateVariable    *AddStateVariableCommand    `json:"addStateVariable,omitempty"`
-	RemoveStateVariable *RemoveStateVariableCommand `json:"removeStateVariable,omitempty"`
-	AddNode             *AddNodeCommand             `json:"addNode,omitempty"`
-	RemoveNode          *NodeCommand                `json:"removeNode,omitempty"`
-	MoveNode            *MoveNodeCommand            `json:"moveNode,omitempty"`
-	SetNodeLabel        *SetNodeLabelCommand        `json:"setNodeLabel,omitempty"`
-	SetNodeDisabled     *SetNodeDisabledCommand     `json:"setNodeDisabled,omitempty"`
-	SetConfig           *SetConfigCommand           `json:"setConfig,omitempty"`
-	ClearConfig         *FieldCommand               `json:"clearConfig,omitempty"`
-	BindValue           *BindValueCommand           `json:"bindValue,omitempty"`
-	BindDefault         *PortCommand                `json:"bindDefault,omitempty"`
-	BindBlob            *BindBlobCommand            `json:"bindBlob,omitempty"`
-	ClearBinding        *PortCommand                `json:"clearBinding,omitempty"`
-	Connect             *EdgeCommand                `json:"connect,omitempty"`
-	Disconnect          *EdgeCommand                `json:"disconnect,omitempty"`
+	Kind                 CommandKind                 `json:"kind"`
+	RenameWorkflow       *RenameWorkflowCommand      `json:"renameWorkflow,omitempty"`
+	AddStateVariable     *AddStateVariableCommand    `json:"addStateVariable,omitempty"`
+	RemoveStateVariable  *RemoveStateVariableCommand `json:"removeStateVariable,omitempty"`
+	AddNode              *AddNodeCommand             `json:"addNode,omitempty"`
+	RemoveNode           *NodeCommand                `json:"removeNode,omitempty"`
+	MoveNode             *MoveNodeCommand            `json:"moveNode,omitempty"`
+	SetNodeLabel         *SetNodeLabelCommand        `json:"setNodeLabel,omitempty"`
+	SetNodeDisabled      *SetNodeDisabledCommand     `json:"setNodeDisabled,omitempty"`
+	SetConfig            *SetConfigCommand           `json:"setConfig,omitempty"`
+	ClearConfig          *FieldCommand               `json:"clearConfig,omitempty"`
+	BindValue            *BindValueCommand           `json:"bindValue,omitempty"`
+	BindDefault          *PortCommand                `json:"bindDefault,omitempty"`
+	BindBlob             *BindBlobCommand            `json:"bindBlob,omitempty"`
+	ClearBinding         *PortCommand                `json:"clearBinding,omitempty"`
+	Connect              *EdgeCommand                `json:"connect,omitempty"`
+	Disconnect           *EdgeCommand                `json:"disconnect,omitempty"`
+	AddGraph             *AddGraphCommand            `json:"addGraph,omitempty"`
+	RenameGraph          *RenameGraphCommand         `json:"renameGraph,omitempty"`
+	RemoveGraph          *GraphCommand               `json:"removeGraph,omitempty"`
+	UpdateGraphInterface *GraphInterfaceCommand      `json:"updateGraphInterface,omitempty"`
+	AddGraphCall         *GraphCallCommand           `json:"addGraphCall,omitempty"`
+	UpdateGraphCall      *GraphCallCommand           `json:"updateGraphCall,omitempty"`
+	RemoveGraphCall      *CallCommand                `json:"removeGraphCall,omitempty"`
+	AddAnnotation        *AnnotationCommand          `json:"addAnnotation,omitempty"`
+	UpdateAnnotation     *AnnotationCommand          `json:"updateAnnotation,omitempty"`
+	RemoveAnnotation     *AnnotationIDCommand        `json:"removeAnnotation,omitempty"`
+	SetEdgeReroutes      *SetEdgeReroutesCommand     `json:"setEdgeReroutes,omitempty"`
+	CollapseSelection    *CollapseSelectionCommand   `json:"collapseSelection,omitempty"`
 }
 
 func (c Command) Validate() error { return validateTaggedCommand(c) }
@@ -156,6 +183,62 @@ type BindBlobCommand struct {
 type EdgeCommand struct {
 	GraphID string      `json:"graphId"`
 	Edge    schema.Edge `json:"edge"`
+}
+
+type AddGraphCommand struct {
+	Graph schema.Graph `json:"graph"`
+}
+
+type RenameGraphCommand struct {
+	GraphID string `json:"graphId"`
+	Name    string `json:"name"`
+}
+
+type GraphCommand struct {
+	GraphID string `json:"graphId"`
+}
+
+type GraphInterfaceCommand struct {
+	GraphID string             `json:"graphId"`
+	Inputs  []schema.GraphPort `json:"inputs"`
+	Outputs []schema.GraphPort `json:"outputs"`
+	Entries []schema.Endpoint  `json:"entries"`
+	Exits   []schema.GraphExit `json:"exits"`
+}
+
+type GraphCallCommand struct {
+	GraphID string           `json:"graphId"`
+	Call    schema.GraphCall `json:"call"`
+}
+
+type CallCommand struct {
+	GraphID string `json:"graphId"`
+	CallID  string `json:"callId"`
+}
+
+type AnnotationCommand struct {
+	GraphID    string            `json:"graphId"`
+	Annotation schema.Annotation `json:"annotation"`
+}
+
+type AnnotationIDCommand struct {
+	GraphID      string `json:"graphId"`
+	AnnotationID string `json:"annotationId"`
+}
+
+type SetEdgeReroutesCommand struct {
+	GraphID  string            `json:"graphId"`
+	Edge     schema.Edge       `json:"edge"`
+	Reroutes []schema.Position `json:"reroutes"`
+}
+
+type CollapseSelectionCommand struct {
+	GraphID    string          `json:"graphId"`
+	SubgraphID string          `json:"subgraphId"`
+	CallID     string          `json:"callId"`
+	Name       string          `json:"name"`
+	NodeIDs    []string        `json:"nodeIds"`
+	Position   schema.Position `json:"position"`
 }
 
 type GeneratedNode struct {
@@ -448,18 +531,19 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if err != nil {
 			return patchError(index, "UNKNOWN_HANDLE", err.Error())
 		}
-		from, to := nodeByID(graph, edge.From.NodeID), nodeByID(graph, edge.To.NodeID)
-		if from == nil || to == nil {
+		if !graphElementExists(graph, edge.From.NodeID) || !graphElementExists(graph, edge.To.NodeID) {
 			return patchError(index, "UNKNOWN_NODE", "edge endpoint node does not exist")
 		}
-		if !edgePortsMatch(e.projection, *from, *to, edge) {
+		if !e.edgeMatches(source, graph, edge) {
 			return patchError(index, "INVALID_EDGE", "edge channel, direction, or port does not match the Node Contracts")
 		}
 		if edgeExists(*graph, edge) {
 			return patchError(index, "DUPLICATE_EDGE", "edge already exists")
 		}
 		if edge.Channel == schema.EdgeData {
-			delete(to.Bindings, edge.To.PortID)
+			if to := nodeByID(graph, edge.To.NodeID); to != nil {
+				delete(to.Bindings, edge.To.PortID)
+			}
 			removeIncomingData(graph, edge.To.NodeID, edge.To.PortID)
 		}
 		graph.Edges = append(graph.Edges, edge)
@@ -480,7 +564,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		}
 		found := false
 		for edgeIndex := range graph.Edges {
-			if graph.Edges[edgeIndex] == edge {
+			if sameEdge(graph.Edges[edgeIndex], edge) {
 				graph.Edges = append(graph.Edges[:edgeIndex], graph.Edges[edgeIndex+1:]...)
 				found = true
 				break
@@ -488,6 +572,195 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		}
 		if !found {
 			return patchError(index, "UNKNOWN_EDGE", "edge does not exist")
+		}
+	case CommandAddGraph:
+		graph := command.AddGraph.Graph
+		if _, err := graphByID(source, graph.ID); err == nil {
+			return patchError(index, "DUPLICATE_GRAPH", "graph already exists")
+		}
+		if graph.Kind != schema.GraphKindSubgraph {
+			return patchError(index, "INVALID_GRAPH", "only subgraphs can be added")
+		}
+		source.Graphs = append(source.Graphs, graph)
+	case CommandRenameGraph:
+		graph, err := graphByID(source, command.RenameGraph.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		name := strings.TrimSpace(command.RenameGraph.Name)
+		if len(name) > 256 {
+			return patchError(index, "INVALID_NAME", "graph name exceeds 256 bytes")
+		}
+		graph.Name = name
+	case CommandRemoveGraph:
+		graphID := command.RemoveGraph.GraphID
+		if graphID == source.EntryGraph {
+			return patchError(index, "ENTRY_GRAPH", "entry graph cannot be removed")
+		}
+		if _, err := graphByID(source, graphID); err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		for _, graph := range source.Graphs {
+			for _, call := range graph.Calls {
+				if call.GraphID == graphID {
+					return patchError(index, "REFERENCE_IN_USE", "graph is still referenced by a call")
+				}
+			}
+		}
+		for graphIndex := range source.Graphs {
+			if source.Graphs[graphIndex].ID == graphID {
+				source.Graphs = append(source.Graphs[:graphIndex], source.Graphs[graphIndex+1:]...)
+				break
+			}
+		}
+	case CommandUpdateGraphInterface:
+		payload := command.UpdateGraphInterface
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		if graph.Kind != schema.GraphKindSubgraph {
+			return patchError(index, "INVALID_GRAPH", "only subgraphs have a callable interface")
+		}
+		inputs := append([]schema.GraphPort{}, payload.Inputs...)
+		outputs := append([]schema.GraphPort{}, payload.Outputs...)
+		entries := append([]schema.Endpoint{}, payload.Entries...)
+		exits := append([]schema.GraphExit{}, payload.Exits...)
+		for portIndex := range inputs {
+			inputs[portIndex].NodeID, err = resolveNodeReference(inputs[portIndex].NodeID, handles)
+			if err != nil {
+				return patchError(index, "UNKNOWN_HANDLE", err.Error())
+			}
+		}
+		for portIndex := range outputs {
+			outputs[portIndex].NodeID, err = resolveNodeReference(outputs[portIndex].NodeID, handles)
+			if err != nil {
+				return patchError(index, "UNKNOWN_HANDLE", err.Error())
+			}
+		}
+		for entryIndex := range entries {
+			entries[entryIndex].NodeID, err = resolveNodeReference(entries[entryIndex].NodeID, handles)
+			if err != nil {
+				return patchError(index, "UNKNOWN_HANDLE", err.Error())
+			}
+		}
+		for exitIndex := range exits {
+			exits[exitIndex].Endpoint.NodeID, err = resolveNodeReference(exits[exitIndex].Endpoint.NodeID, handles)
+			if err != nil {
+				return patchError(index, "UNKNOWN_HANDLE", err.Error())
+			}
+		}
+		inputIDs, outputIDs, exitIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
+		for _, port := range inputs {
+			inputIDs[port.ID] = true
+		}
+		for _, port := range outputs {
+			outputIDs[port.ID] = true
+		}
+		for _, exit := range exits {
+			exitIDs[exit.ID] = true
+		}
+		for _, caller := range source.Graphs {
+			for _, call := range caller.Calls {
+				if call.GraphID != payload.GraphID {
+					continue
+				}
+				for portID := range call.Bindings {
+					if !inputIDs[portID] {
+						return patchError(index, "REFERENCE_IN_USE", "removed graph input is still bound by a call")
+					}
+				}
+				for _, edge := range caller.Edges {
+					if edge.To.NodeID == call.ID && edge.Channel == schema.EdgeData && !inputIDs[edge.To.PortID] ||
+						edge.From.NodeID == call.ID && edge.Channel == schema.EdgeData && !outputIDs[edge.From.PortID] ||
+						edge.From.NodeID == call.ID && edge.Channel != schema.EdgeData && !exitIDs[edge.From.PortID] {
+						return patchError(index, "REFERENCE_IN_USE", "removed graph port is still connected by a call")
+					}
+				}
+			}
+		}
+		graph.Inputs = inputs
+		graph.Outputs = outputs
+		graph.Entries = entries
+		graph.Exits = exits
+	case CommandAddGraphCall:
+		payload := command.AddGraphCall
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		callee, err := graphByID(source, payload.Call.GraphID)
+		if err != nil || callee.Kind != schema.GraphKindSubgraph {
+			return patchError(index, "UNKNOWN_CALLEE", "callee subgraph does not exist")
+		}
+		if graphElementExists(graph, payload.Call.ID) {
+			return patchError(index, "DUPLICATE_ID", "graph element already exists")
+		}
+		graph.Calls = append(graph.Calls, payload.Call)
+	case CommandUpdateGraphCall:
+		payload := command.UpdateGraphCall
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		call := graphCallByID(graph, payload.Call.ID)
+		if call == nil {
+			return patchError(index, "UNKNOWN_CALL", "graph call does not exist")
+		}
+		*call = payload.Call
+	case CommandRemoveGraphCall:
+		payload := command.RemoveGraphCall
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		if !removeGraphCall(graph, payload.CallID) {
+			return patchError(index, "UNKNOWN_CALL", "graph call does not exist")
+		}
+	case CommandAddAnnotation:
+		payload := command.AddAnnotation
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		if annotationByID(graph, payload.Annotation.ID) != nil {
+			return patchError(index, "DUPLICATE_ID", "annotation already exists")
+		}
+		graph.Annotations = append(graph.Annotations, payload.Annotation)
+	case CommandUpdateAnnotation:
+		payload := command.UpdateAnnotation
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		annotation := annotationByID(graph, payload.Annotation.ID)
+		if annotation == nil {
+			return patchError(index, "UNKNOWN_ANNOTATION", "annotation does not exist")
+		}
+		*annotation = payload.Annotation
+	case CommandRemoveAnnotation:
+		payload := command.RemoveAnnotation
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		if !removeAnnotation(graph, payload.AnnotationID) {
+			return patchError(index, "UNKNOWN_ANNOTATION", "annotation does not exist")
+		}
+	case CommandSetEdgeReroutes:
+		payload := command.SetEdgeReroutes
+		graph, err := graphByID(source, payload.GraphID)
+		if err != nil {
+			return patchError(index, "UNKNOWN_GRAPH", err.Error())
+		}
+		edge := edgeByIdentity(graph, payload.Edge)
+		if edge == nil {
+			return patchError(index, "UNKNOWN_EDGE", "edge does not exist")
+		}
+		edge.Presentation.Reroutes = append([]schema.Position(nil), payload.Reroutes...)
+	case CommandCollapseSelection:
+		if err := e.collapseSelection(source, *command.CollapseSelection); err != nil {
+			return patchError(index, "INVALID_SELECTION", err.Error())
 		}
 	default:
 		return patchError(index, "INVALID_COMMAND", "unknown command kind")
@@ -502,6 +775,11 @@ func validateTaggedCommand(command Command) error {
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
 		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.ClearBinding != nil,
 		command.Connect != nil, command.Disconnect != nil,
+		command.AddGraph != nil, command.RenameGraph != nil, command.RemoveGraph != nil, command.UpdateGraphInterface != nil,
+		command.AddGraphCall != nil, command.RemoveGraphCall != nil,
+		command.UpdateGraphCall != nil,
+		command.AddAnnotation != nil, command.UpdateAnnotation != nil, command.RemoveAnnotation != nil,
+		command.SetEdgeReroutes != nil, command.CollapseSelection != nil,
 	}
 	count := 0
 	for _, present := range payloads {
@@ -521,6 +799,13 @@ func validateTaggedCommand(command Command) error {
 		CommandBindValue: command.BindValue != nil, CommandBindDefault: command.BindDefault != nil,
 		CommandBindBlob: command.BindBlob != nil, CommandClearBinding: command.ClearBinding != nil,
 		CommandConnect: command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
+		CommandAddGraph: command.AddGraph != nil, CommandRenameGraph: command.RenameGraph != nil,
+		CommandRemoveGraph: command.RemoveGraph != nil, CommandAddGraphCall: command.AddGraphCall != nil,
+		CommandUpdateGraphInterface: command.UpdateGraphInterface != nil,
+		CommandUpdateGraphCall:      command.UpdateGraphCall != nil,
+		CommandRemoveGraphCall:      command.RemoveGraphCall != nil, CommandAddAnnotation: command.AddAnnotation != nil,
+		CommandUpdateAnnotation: command.UpdateAnnotation != nil, CommandRemoveAnnotation: command.RemoveAnnotation != nil,
+		CommandSetEdgeReroutes: command.SetEdgeReroutes != nil, CommandCollapseSelection: command.CollapseSelection != nil,
 	}
 	if !matches[command.Kind] {
 		return errors.New("command kind does not match its payload")
@@ -615,6 +900,85 @@ func nodeByID(graph *schema.Graph, nodeID string) *schema.Node {
 	return nil
 }
 
+func graphElementExists(graph *schema.Graph, id string) bool {
+	if nodeByID(graph, id) != nil {
+		return true
+	}
+	for _, call := range graph.Calls {
+		if call.ID == id {
+			return true
+		}
+	}
+	for _, annotation := range graph.Annotations {
+		if annotation.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func graphCallByID(graph *schema.Graph, id string) *schema.GraphCall {
+	for index := range graph.Calls {
+		if graph.Calls[index].ID == id {
+			return &graph.Calls[index]
+		}
+	}
+	return nil
+}
+
+func removeGraphCall(graph *schema.Graph, id string) bool {
+	for index := range graph.Calls {
+		if graph.Calls[index].ID == id {
+			graph.Calls = append(graph.Calls[:index], graph.Calls[index+1:]...)
+			graph.Edges = removeElementEdges(graph.Edges, id)
+			return true
+		}
+	}
+	return false
+}
+
+func annotationByID(graph *schema.Graph, id string) *schema.Annotation {
+	for index := range graph.Annotations {
+		if graph.Annotations[index].ID == id {
+			return &graph.Annotations[index]
+		}
+	}
+	return nil
+}
+
+func removeAnnotation(graph *schema.Graph, id string) bool {
+	for index := range graph.Annotations {
+		if graph.Annotations[index].ID == id {
+			graph.Annotations = append(graph.Annotations[:index], graph.Annotations[index+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func edgeByIdentity(graph *schema.Graph, candidate schema.Edge) *schema.Edge {
+	for index := range graph.Edges {
+		if sameEdge(graph.Edges[index], candidate) {
+			return &graph.Edges[index]
+		}
+	}
+	return nil
+}
+
+func sameEdge(left, right schema.Edge) bool {
+	return left.Channel == right.Channel && left.From == right.From && left.To == right.To
+}
+
+func removeElementEdges(edges []schema.Edge, id string) []schema.Edge {
+	result := edges[:0]
+	for _, edge := range edges {
+		if edge.From.NodeID != id && edge.To.NodeID != id {
+			result = append(result, edge)
+		}
+	}
+	return result
+}
+
 func removeNode(graph *schema.Graph, nodeID string) {
 	for index := range graph.Nodes {
 		if graph.Nodes[index].ID == nodeID {
@@ -629,6 +993,219 @@ func removeNode(graph *schema.Graph, nodeID string) {
 		}
 	}
 	graph.Edges = edges
+}
+
+func (e *Engine) collapseSelection(source *schema.WorkflowSource, command CollapseSelectionCommand) error {
+	graph, err := graphByID(source, command.GraphID)
+	if err != nil {
+		return err
+	}
+	if len(command.NodeIDs) == 0 || graphElementExists(graph, command.CallID) {
+		return errors.New("selection and unique call ID are required")
+	}
+	if _, err := graphByID(source, command.SubgraphID); err == nil {
+		return errors.New("subgraph ID already exists")
+	}
+	selected := make(map[string]bool, len(command.NodeIDs))
+	for _, id := range command.NodeIDs {
+		if selected[id] || nodeByID(graph, id) == nil && graphCallByID(graph, id) == nil {
+			return fmt.Errorf("selected graph element %q is invalid", id)
+		}
+		selected[id] = true
+	}
+	subgraph := schema.Graph{
+		ID: command.SubgraphID, Name: strings.TrimSpace(command.Name), Kind: schema.GraphKindSubgraph,
+		Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{}, Inputs: []schema.GraphPort{},
+		Outputs: []schema.GraphPort{}, Entries: []schema.Endpoint{}, Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+	}
+	for _, node := range graph.Nodes {
+		if selected[node.ID] {
+			subgraph.Nodes = append(subgraph.Nodes, node)
+		}
+	}
+	for _, call := range graph.Calls {
+		if selected[call.ID] {
+			subgraph.Calls = append(subgraph.Calls, call)
+		}
+	}
+	inputIDs, outputIDs, exitIDs := map[schema.Endpoint]string{}, map[schema.Endpoint]string{}, map[struct {
+		channel schema.EdgeChannel
+		point   schema.Endpoint
+	}]string{}
+	parentEdges := make([]schema.Edge, 0, len(graph.Edges))
+	for _, edge := range graph.Edges {
+		fromSelected, toSelected := selected[edge.From.NodeID], selected[edge.To.NodeID]
+		switch {
+		case fromSelected && toSelected:
+			subgraph.Edges = append(subgraph.Edges, edge)
+		case !fromSelected && !toSelected:
+			parentEdges = append(parentEdges, edge)
+		case !fromSelected && toSelected:
+			if edge.Channel == schema.EdgeError {
+				return errors.New("selection has an incoming error route")
+			}
+			copyEdge := edge
+			if edge.Channel == schema.EdgeExec {
+				if len(subgraph.Entries) != 0 && subgraph.Entries[0] != edge.To {
+					return errors.New("selection has multiple execution entries")
+				}
+				if len(subgraph.Entries) == 0 {
+					subgraph.Entries = append(subgraph.Entries, edge.To)
+				}
+				copyEdge.To = schema.Endpoint{NodeID: command.CallID, PortID: graphCallInputPort}
+			} else {
+				portID := inputIDs[edge.To]
+				if portID == "" {
+					portID = uniqueBoundaryID("input", edge.To.PortID, len(subgraph.Inputs)+1)
+					typ, ok := e.endpointType(source, graph, edge.To, false)
+					if !ok {
+						return errors.New("selection data input has no declared type")
+					}
+					inputIDs[edge.To] = portID
+					subgraph.Inputs = append(subgraph.Inputs, schema.GraphPort{ID: portID, Type: typ, NodeID: edge.To.NodeID, PortID: edge.To.PortID})
+				}
+				copyEdge.To = schema.Endpoint{NodeID: command.CallID, PortID: portID}
+			}
+			parentEdges = append(parentEdges, copyEdge)
+		case fromSelected && !toSelected:
+			copyEdge := edge
+			if edge.Channel == schema.EdgeData {
+				portID := outputIDs[edge.From]
+				if portID == "" {
+					portID = uniqueBoundaryID("output", edge.From.PortID, len(subgraph.Outputs)+1)
+					typ, ok := e.endpointType(source, graph, edge.From, true)
+					if !ok {
+						return errors.New("selection data output has no declared type")
+					}
+					outputIDs[edge.From] = portID
+					subgraph.Outputs = append(subgraph.Outputs, schema.GraphPort{ID: portID, Type: typ, NodeID: edge.From.NodeID, PortID: edge.From.PortID})
+				}
+				copyEdge.From = schema.Endpoint{NodeID: command.CallID, PortID: portID}
+			} else {
+				key := struct {
+					channel schema.EdgeChannel
+					point   schema.Endpoint
+				}{edge.Channel, edge.From}
+				exitID := exitIDs[key]
+				if exitID == "" {
+					exitID = uniqueBoundaryID("exit", edge.From.PortID, len(subgraph.Exits)+1)
+					exitIDs[key] = exitID
+					subgraph.Exits = append(subgraph.Exits, schema.GraphExit{ID: exitID, Channel: edge.Channel, Endpoint: edge.From})
+				}
+				copyEdge.From = schema.Endpoint{NodeID: command.CallID, PortID: exitID}
+			}
+			parentEdges = append(parentEdges, copyEdge)
+		}
+	}
+	if len(subgraph.Entries) == 0 || len(subgraph.Exits) == 0 {
+		return errors.New("selection must have one execution entry and at least one signal exit")
+	}
+	graph.Nodes = filterNodes(graph.Nodes, selected)
+	graph.Calls = filterCalls(graph.Calls, selected)
+	graph.Edges = parentEdges
+	graph.Calls = append(graph.Calls, schema.GraphCall{ID: command.CallID, GraphID: command.SubgraphID, Label: subgraph.Name, Position: command.Position, Bindings: map[string]schema.InputBinding{}})
+	source.Graphs = append(source.Graphs, subgraph)
+	return nil
+}
+
+func (e *Engine) endpointType(source *schema.WorkflowSource, graph *schema.Graph, endpoint schema.Endpoint, output bool) (datatype.TypeExpression, bool) {
+	if node := nodeByID(graph, endpoint.NodeID); node != nil {
+		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
+		if !ok || projection.NodeRef != node.NodeRef {
+			return datatype.TypeExpression{}, false
+		}
+		ports := projection.DataInputs
+		if output {
+			ports = projection.DataOutputs
+		}
+		for _, port := range ports {
+			if port.ID == endpoint.PortID {
+				return port.Type.Expression, true
+			}
+		}
+		return datatype.TypeExpression{}, false
+	}
+	call := graphCallByID(graph, endpoint.NodeID)
+	if call == nil {
+		return datatype.TypeExpression{}, false
+	}
+	callee, err := graphByID(source, call.GraphID)
+	if err != nil {
+		return datatype.TypeExpression{}, false
+	}
+	ports := callee.Inputs
+	if output {
+		ports = callee.Outputs
+	}
+	for _, port := range ports {
+		if port.ID == endpoint.PortID {
+			return port.Type, true
+		}
+	}
+	return datatype.TypeExpression{}, false
+}
+
+func (e *Engine) edgeMatches(source *schema.WorkflowSource, graph *schema.Graph, edge schema.Edge) bool {
+	if edge.Channel == schema.EdgeData {
+		_, fromOK := e.endpointType(source, graph, edge.From, true)
+		_, toOK := e.endpointType(source, graph, edge.To, false)
+		return fromOK && toOK
+	}
+	fromOK := false
+	if node := nodeByID(graph, edge.From.NodeID); node != nil {
+		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
+		if ok && projection.NodeRef == node.NodeRef {
+			for _, signal := range projection.Signals {
+				fromOK = fromOK || signal.ID == edge.From.PortID && signal.Channel == string(edge.Channel) && signal.Direction == "output"
+			}
+		}
+	} else if call := graphCallByID(graph, edge.From.NodeID); call != nil {
+		if callee, err := graphByID(source, call.GraphID); err == nil {
+			for _, exit := range callee.Exits {
+				fromOK = fromOK || exit.ID == edge.From.PortID && exit.Channel == edge.Channel
+			}
+		}
+	}
+	toOK := false
+	if node := nodeByID(graph, edge.To.NodeID); node != nil {
+		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
+		if ok && projection.NodeRef == node.NodeRef {
+			for _, signal := range projection.Signals {
+				toOK = toOK || signal.ID == edge.To.PortID && signal.Direction == "input" && projection.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID)
+			}
+		}
+	} else if graphCallByID(graph, edge.To.NodeID) != nil {
+		toOK = edge.Channel == schema.EdgeExec && edge.To.PortID == graphCallInputPort
+	}
+	return fromOK && toOK
+}
+
+func uniqueBoundaryID(prefix, portID string, index int) string {
+	clean := regexp.MustCompile(`[^A-Za-z0-9_-]+`).ReplaceAllString(portID, "_")
+	if clean == "" {
+		clean = prefix
+	}
+	return fmt.Sprintf("%s_%s_%d", prefix, clean, index)
+}
+
+func filterNodes(nodes []schema.Node, selected map[string]bool) []schema.Node {
+	result := nodes[:0]
+	for _, node := range nodes {
+		if !selected[node.ID] {
+			result = append(result, node)
+		}
+	}
+	return result
+}
+
+func filterCalls(calls []schema.GraphCall, selected map[string]bool) []schema.GraphCall {
+	result := calls[:0]
+	for _, call := range calls {
+		if !selected[call.ID] {
+			result = append(result, call)
+		}
+	}
+	return result
 }
 
 func hasStateVariable(source schema.WorkflowSource, name string) bool {
@@ -683,38 +1260,9 @@ func dataInput(projection nodeauthoring.Snapshot, node schema.Node, portID strin
 	return nodeauthoring.PortProjection{}, false
 }
 
-func edgePortsMatch(projection nodeauthoring.Snapshot, from, to schema.Node, edge schema.Edge) bool {
-	fromProjection, fromOK := projection.Node(from.NodeRef.NodeTypeID)
-	toProjection, toOK := projection.Node(to.NodeRef.NodeTypeID)
-	if !fromOK || !toOK || fromProjection.NodeRef != from.NodeRef || toProjection.NodeRef != to.NodeRef {
-		return false
-	}
-	switch edge.Channel {
-	case schema.EdgeData:
-		fromOK, toOK = false, false
-		for _, port := range fromProjection.DataOutputs {
-			fromOK = fromOK || port.ID == edge.From.PortID
-		}
-		for _, port := range toProjection.DataInputs {
-			toOK = toOK || port.ID == edge.To.PortID
-		}
-		return fromOK && toOK
-	case schema.EdgeExec, schema.EdgeError:
-		for _, signal := range fromProjection.Signals {
-			fromOK = fromOK || (signal.ID == edge.From.PortID && signal.Channel == string(edge.Channel) && signal.Direction == "output")
-		}
-		for _, signal := range toProjection.Signals {
-			toOK = toOK || (signal.ID == edge.To.PortID && signal.Direction == "input")
-		}
-		return fromOK && toOK && toProjection.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID)
-	default:
-		return false
-	}
-}
-
 func edgeExists(graph schema.Graph, candidate schema.Edge) bool {
 	for _, edge := range graph.Edges {
-		if edge == candidate {
+		if sameEdge(edge, candidate) {
 			return true
 		}
 	}

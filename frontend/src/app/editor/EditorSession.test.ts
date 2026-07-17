@@ -30,6 +30,8 @@ const stateRead = node('https://schemas.yotta.dev/nodes/state/read')
 const delay = node('https://schemas.yotta.dev/nodes/control/delay')
 const retry = node('https://schemas.yotta.dev/nodes/control/retry')
 const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-stream')
+const runStarted = node('https://schemas.yotta.dev/nodes/event/run-started')
+const endBranch = node('https://schemas.yotta.dev/nodes/control/end-branch')
 
 describe('EditorSession', () => {
   it('adds a catalog node when the session is consumed through Vue reactivity', async () => {
@@ -331,6 +333,38 @@ describe('EditorSession', () => {
     )
   })
 
+  it('inserts Delay from the RunStarted exec output', async () => {
+    const source = emptySource()
+    const ids = ['run-started', 'delay']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: runStarted.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+
+    expect(
+      session.insertConnectedNode(
+        'run-started',
+        { channel: 'exec', direction: 'output', portId: 'started' },
+        delay.nodeRef.nodeTypeId,
+        { channel: 'exec', direction: 'input', portId: 'in' },
+        { x: 220, y: 0 },
+      ),
+    ).toBe('delay')
+    expect(session.currentGraph?.edges).toEqual([
+      {
+        channel: 'exec',
+        from: { nodeId: 'run-started', portId: 'started' },
+        to: { nodeId: 'delay', portId: 'in' },
+      },
+    ])
+  })
+
   it('keeps duplicate, batch move and batch delete atomic', async () => {
     const source = emptySource()
     const ids = ['concat_a', 'concat_b', 'copy_a', 'copy_b']
@@ -440,6 +474,164 @@ describe('EditorSession', () => {
     session.undo()
     expect(session.currentGraph?.nodes).toEqual([])
     expect(session.currentGraph?.edges).toEqual([])
+  })
+
+  it('collapses a selection into a navigable graph call as one undoable edit', async () => {
+    const source = emptySource()
+    const ids = [
+      'start',
+      'delay',
+      'end',
+      'child',
+      'call_child',
+      'comment',
+      'call_copy',
+      'comment_copy',
+    ]
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => ids.shift() ?? 'unused')
+    await session.load(source.workflow.id)
+    for (const [projection, x] of [
+      [runStarted, 0],
+      [delay, 240],
+      [endBranch, 480],
+    ] as const) {
+      session.apply({
+        kind: 'add-node',
+        nodeTypeId: projection.nodeRef.nodeTypeId,
+        position: { x, y: 0 },
+      })
+    }
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'exec',
+        from: { nodeId: 'start', portId: 'started' },
+        to: { nodeId: 'delay', portId: 'in' },
+      },
+    })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'exec',
+        from: { nodeId: 'delay', portId: 'done' },
+        to: { nodeId: 'end', portId: 'in' },
+      },
+    })
+
+    expect(session.collapseSelection(['delay'], 'Reusable delay')).toBe('call_child')
+    expect(session.currentGraph?.calls).toEqual([
+      expect.objectContaining({ id: 'call_child', graphId: 'child', label: 'Reusable delay' }),
+    ])
+    expect(session.currentGraph?.edges).toEqual([
+      expect.objectContaining({ to: { nodeId: 'call_child', portId: 'in' } }),
+      expect.objectContaining({ from: { nodeId: 'call_child', portId: 'exit_done_1' } }),
+    ])
+    expect(session.source?.graphs.find((graph) => graph.id === 'child')).toMatchObject({
+      kind: 'subgraph',
+      entries: [{ nodeId: 'delay', portId: 'in' }],
+      exits: [
+        { id: 'exit_done_1', channel: 'exec', endpoint: { nodeId: 'delay', portId: 'done' } },
+      ],
+    })
+
+    session.undo()
+    expect(session.source?.graphs).toHaveLength(1)
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual([
+      'start',
+      'delay',
+      'end',
+    ])
+    session.redo()
+    session.openGraphPath(['main', 'call_child', 'child'])
+    expect(session.currentGraph?.id).toBe('child')
+    expect(session.graphPath).toEqual(['main', 'child'])
+
+    session.openGraphPath(['main'])
+    expect(session.addAnnotation({ x: 80, y: 160 })).toBe('comment')
+    const copied = session.insertNodeSelection(
+      session.selectionSnapshot(['call_child', 'comment']),
+      { x: 32, y: 32 },
+    )
+    expect(copied).toEqual(['call_copy', 'comment_copy'])
+    expect(session.currentGraph?.calls).toHaveLength(2)
+    expect(session.currentGraph?.annotations).toHaveLength(2)
+
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(
+      source.workflow.id,
+      0,
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'collapse-selection' }),
+        expect.objectContaining({ kind: 'add-graph-call' }),
+        expect.objectContaining({ kind: 'add-annotation' }),
+      ]),
+    )
+  })
+
+  it('inserts an existing subgraph call and reuses the callee input projection', async () => {
+    const source = emptySource()
+    const duration = delay.dataInputs.find((port) => port.id === 'duration-milliseconds')!
+    source.graphs.push({
+      id: 'child',
+      name: 'Child',
+      kind: 'subgraph',
+      nodes: [
+        {
+          id: 'wait',
+          nodeRef: delay.nodeRef,
+          position: { x: 0, y: 0 },
+          config: {},
+          bindings: {},
+        },
+      ],
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+    })
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'call_child',
+    )
+    await session.load(source.workflow.id)
+    session.enterGraph('child')
+    session.inferCurrentGraphInterface()
+    expect(session.currentGraph).toMatchObject({
+      entries: [{ nodeId: 'wait', portId: 'in' }],
+      inputs: [
+        {
+          id: 'input_duration-milliseconds_1',
+          nodeId: 'wait',
+          portId: 'duration-milliseconds',
+        },
+      ],
+      exits: expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'exec',
+          endpoint: { nodeId: 'wait', portId: 'done' },
+        }),
+      ]),
+    })
+    session.openGraphPath(['main'])
+
+    expect(session.graphInputProjection('child', 'input_duration-milliseconds_1')).toMatchObject({
+      id: 'input_duration-milliseconds_1',
+      type: duration.type,
+    })
+    expect(session.insertGraphCall('child', { x: 120, y: 80 })).toBe('call_child')
+    session.apply({
+      kind: 'update-graph-call',
+      call: {
+        ...session.currentGraph!.calls![0],
+        bindings: { 'input_duration-milliseconds_1': { kind: 'value', value: 250 } },
+      },
+    })
+    expect(session.currentGraph?.calls?.[0]).toMatchObject({
+      graphId: 'child',
+      bindings: { 'input_duration-milliseconds_1': { kind: 'value', value: 250 } },
+    })
   })
 
   it('owns typed state declarations and prevents deleting referenced slots', async () => {

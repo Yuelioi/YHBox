@@ -3,11 +3,13 @@ package compiler
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 const (
@@ -25,13 +27,15 @@ const (
 )
 
 type DebugBreakpoint struct {
-	GraphID string `json:"graphId"`
-	NodeID  string `json:"nodeId"`
+	GraphPath []string `json:"graphPath,omitempty"`
+	GraphID   string   `json:"graphId"`
+	NodeID    string   `json:"nodeId"`
 }
 
 type DebugQueueEntry struct {
-	GraphID string `json:"graphId"`
-	NodeID  string `json:"nodeId"`
+	GraphPath []string `json:"graphPath"`
+	GraphID   string   `json:"graphId"`
+	NodeID    string   `json:"nodeId"`
 }
 
 type DebugBlobView struct {
@@ -62,6 +66,7 @@ type DebugSnapshot struct {
 	Status        DebugStatus                          `json:"status"`
 	RunStatus     string                               `json:"runStatus,omitempty"`
 	Generation    uint64                               `json:"generation"`
+	GraphPath     []string                             `json:"graphPath,omitempty"`
 	GraphID       string                               `json:"graphId,omitempty"`
 	NodeID        string                               `json:"nodeId,omitempty"`
 	Attempt       int                                  `json:"attempt,omitempty"`
@@ -96,7 +101,7 @@ type DebugController struct {
 	mu          sync.Mutex
 	cond        *sync.Cond
 	mode        debugMode
-	breakpoints map[DebugBreakpoint]struct{}
+	breakpoints map[string]struct{}
 	snapshot    DebugSnapshot
 	onChanged   func(DebugSnapshot)
 }
@@ -104,7 +109,7 @@ type DebugController struct {
 func NewDebugController(options DebugControllerOptions) (*DebugController, error) {
 	controller := &DebugController{
 		mode:        debugModeRunning,
-		breakpoints: make(map[DebugBreakpoint]struct{}, len(options.Breakpoints)),
+		breakpoints: make(map[string]struct{}, len(options.Breakpoints)),
 		onChanged:   options.OnChanged,
 		snapshot: DebugSnapshot{
 			Status: DebugRunning, Queue: []DebugQueueEntry{}, Inputs: map[string]DebugValueView{},
@@ -208,7 +213,9 @@ func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot
 	snapshot.Status = DebugRunning
 	snapshot.RunStatus = ""
 	c.snapshot = cloneDebugSnapshot(snapshot)
-	_, breakpoint := c.breakpoints[DebugBreakpoint{GraphID: snapshot.GraphID, NodeID: snapshot.NodeID}]
+	_, exactBreakpoint := c.breakpoints[debugBreakpointKey(DebugBreakpoint{GraphPath: snapshot.GraphPath, GraphID: snapshot.GraphID, NodeID: snapshot.NodeID})]
+	_, graphBreakpoint := c.breakpoints[debugBreakpointKey(DebugBreakpoint{GraphID: snapshot.GraphID, NodeID: snapshot.NodeID})]
+	breakpoint := exactBreakpoint || graphBreakpoint
 	if c.mode == debugModeStepping || c.mode == debugModePausePending || breakpoint {
 		c.mode = debugModePaused
 	}
@@ -246,12 +253,20 @@ func (c *DebugController) replaceBreakpoints(values []DebugBreakpoint) error {
 	if len(values) > MaxDebugQueueEntries {
 		return errors.New("debug breakpoint budget exceeded")
 	}
-	next := make(map[DebugBreakpoint]struct{}, len(values))
+	next := make(map[string]struct{}, len(values))
 	for _, value := range values {
 		if value.GraphID == "" || value.NodeID == "" {
 			return errors.New("debug breakpoint requires graph and node")
 		}
-		next[value] = struct{}{}
+		if len(value.GraphPath) > schema.MaxGraphPath || len(value.GraphPath) > 0 && value.GraphPath[len(value.GraphPath)-1] != value.GraphID {
+			return errors.New("debug breakpoint has an invalid graph path")
+		}
+		for _, segment := range value.GraphPath {
+			if !programStateNamePattern.MatchString(segment) {
+				return errors.New("debug breakpoint has an invalid graph path")
+			}
+		}
+		next[debugBreakpointKey(value)] = struct{}{}
 	}
 	c.breakpoints = next
 	return nil
@@ -264,8 +279,12 @@ func (c *DebugController) changedLocked() (DebugSnapshot, func(DebugSnapshot)) {
 
 func cloneDebugSnapshot(source DebugSnapshot) DebugSnapshot {
 	clone := source
+	clone.GraphPath = append([]string(nil), source.GraphPath...)
 	clone.Queue = make([]DebugQueueEntry, len(source.Queue))
-	copy(clone.Queue, source.Queue)
+	for index, entry := range source.Queue {
+		clone.Queue[index] = entry
+		clone.Queue[index].GraphPath = append([]string(nil), entry.GraphPath...)
+	}
 	clone.Inputs = cloneDebugValues(source.Inputs)
 	clone.Outputs = make(map[string]map[string]DebugValueView, len(source.Outputs))
 	for nodeID, outputs := range source.Outputs {
@@ -277,6 +296,10 @@ func cloneDebugSnapshot(source DebugSnapshot) DebugSnapshot {
 		clone.State[name] = state
 	}
 	return clone
+}
+
+func debugBreakpointKey(value DebugBreakpoint) string {
+	return strings.Join(value.GraphPath, "\x00") + "\x01" + value.GraphID + "\x00" + value.NodeID
 }
 
 func cloneDebugValues(source map[string]DebugValueView) map[string]DebugValueView {

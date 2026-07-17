@@ -47,22 +47,47 @@ type WorkflowListResult struct {
 }
 
 type WorkflowInspectRequest struct {
-	WorkflowID string `json:"workflowId" jsonschema:"required,description=Workflow identifier"`
-	GraphID    string `json:"graphId,omitempty" jsonschema:"description=Graph identifier defaults to entry graph"`
-	NodeOffset int    `json:"nodeOffset,omitempty" jsonschema:"minimum=0"`
-	EdgeOffset int    `json:"edgeOffset,omitempty" jsonschema:"minimum=0"`
-	Limit      int    `json:"limit,omitempty" jsonschema:"minimum=1,maximum=100"`
+	WorkflowID       string `json:"workflowId" jsonschema:"required,description=Workflow identifier"`
+	GraphID          string `json:"graphId,omitempty" jsonschema:"description=Graph identifier defaults to entry graph"`
+	NodeOffset       int    `json:"nodeOffset,omitempty" jsonschema:"minimum=0"`
+	CallOffset       int    `json:"callOffset,omitempty" jsonschema:"minimum=0"`
+	EdgeOffset       int    `json:"edgeOffset,omitempty" jsonschema:"minimum=0"`
+	InputOffset      int    `json:"inputOffset,omitempty" jsonschema:"minimum=0"`
+	OutputOffset     int    `json:"outputOffset,omitempty" jsonschema:"minimum=0"`
+	EntryOffset      int    `json:"entryOffset,omitempty" jsonschema:"minimum=0"`
+	ExitOffset       int    `json:"exitOffset,omitempty" jsonschema:"minimum=0"`
+	AnnotationOffset int    `json:"annotationOffset,omitempty" jsonschema:"minimum=0"`
+	Limit            int    `json:"limit,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
 type GraphPage struct {
-	GraphID    string        `json:"graphId"`
-	Kind       string        `json:"kind"`
-	NodeOffset int           `json:"nodeOffset"`
-	EdgeOffset int           `json:"edgeOffset"`
-	NodeTotal  int           `json:"nodeTotal"`
-	EdgeTotal  int           `json:"edgeTotal"`
-	Nodes      []schema.Node `json:"nodes"`
-	Edges      []schema.Edge `json:"edges"`
+	GraphID          string              `json:"graphId"`
+	Kind             string              `json:"kind"`
+	Name             string              `json:"name,omitempty"`
+	NodeOffset       int                 `json:"nodeOffset"`
+	CallOffset       int                 `json:"callOffset"`
+	EdgeOffset       int                 `json:"edgeOffset"`
+	InputOffset      int                 `json:"inputOffset"`
+	OutputOffset     int                 `json:"outputOffset"`
+	EntryOffset      int                 `json:"entryOffset"`
+	ExitOffset       int                 `json:"exitOffset"`
+	AnnotationOffset int                 `json:"annotationOffset"`
+	NodeTotal        int                 `json:"nodeTotal"`
+	CallTotal        int                 `json:"callTotal"`
+	EdgeTotal        int                 `json:"edgeTotal"`
+	InputTotal       int                 `json:"inputTotal"`
+	OutputTotal      int                 `json:"outputTotal"`
+	EntryTotal       int                 `json:"entryTotal"`
+	ExitTotal        int                 `json:"exitTotal"`
+	AnnotationTotal  int                 `json:"annotationTotal"`
+	Nodes            []schema.Node       `json:"nodes"`
+	Calls            []schema.GraphCall  `json:"calls"`
+	Edges            []schema.Edge       `json:"edges"`
+	Inputs           []schema.GraphPort  `json:"inputs"`
+	Outputs          []schema.GraphPort  `json:"outputs"`
+	Entries          []schema.Endpoint   `json:"entries"`
+	Exits            []schema.GraphExit  `json:"exits"`
+	Annotations      []schema.Annotation `json:"annotations"`
 }
 
 type WorkflowInspectResult struct {
@@ -132,7 +157,7 @@ func createWorkflow(ctx context.Context, application *appcore.Application, reque
 }
 
 func inspectWorkflow(application *appcore.Application, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
-	if request.NodeOffset < 0 || request.EdgeOffset < 0 {
+	if request.NodeOffset < 0 || request.CallOffset < 0 || request.EdgeOffset < 0 || request.InputOffset < 0 || request.OutputOffset < 0 || request.EntryOffset < 0 || request.ExitOffset < 0 || request.AnnotationOffset < 0 {
 		return WorkflowInspectResult{}, errors.New("offsets must be non-negative")
 	}
 	limit := request.Limit
@@ -169,9 +194,10 @@ func inspectWorkflow(application *appcore.Application, request WorkflowInspectRe
 		return WorkflowInspectResult{}, err
 	}
 	return WorkflowInspectResult{Workflow: summary, Graph: GraphPage{
-		GraphID: graph.ID, Kind: string(graph.Kind), NodeOffset: request.NodeOffset, EdgeOffset: request.EdgeOffset,
-		NodeTotal: len(graph.Nodes), EdgeTotal: len(graph.Edges),
-		Nodes: page(graph.Nodes, request.NodeOffset, limit), Edges: page(graph.Edges, request.EdgeOffset, limit),
+		GraphID: graph.ID, Name: graph.Name, Kind: string(graph.Kind), NodeOffset: request.NodeOffset, CallOffset: request.CallOffset, EdgeOffset: request.EdgeOffset, InputOffset: request.InputOffset, OutputOffset: request.OutputOffset, EntryOffset: request.EntryOffset, ExitOffset: request.ExitOffset, AnnotationOffset: request.AnnotationOffset,
+		NodeTotal: len(graph.Nodes), CallTotal: len(graph.Calls), EdgeTotal: len(graph.Edges), InputTotal: len(graph.Inputs), OutputTotal: len(graph.Outputs), EntryTotal: len(graph.Entries), ExitTotal: len(graph.Exits), AnnotationTotal: len(graph.Annotations),
+		Nodes: page(graph.Nodes, request.NodeOffset, limit), Calls: page(graph.Calls, request.CallOffset, limit), Edges: page(graph.Edges, request.EdgeOffset, limit),
+		Inputs: page(graph.Inputs, request.InputOffset, limit), Outputs: page(graph.Outputs, request.OutputOffset, limit), Entries: page(graph.Entries, request.EntryOffset, limit), Exits: page(graph.Exits, request.ExitOffset, limit), Annotations: page(graph.Annotations, request.AnnotationOffset, limit),
 	}}, nil
 }
 

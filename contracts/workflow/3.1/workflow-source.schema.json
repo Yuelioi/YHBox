@@ -1,5 +1,36 @@
 {
   "$defs": {
+    "Annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "text": {
+          "maxLength": 16384,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "position",
+        "size"
+      ],
+      "type": "object"
+    },
     "BlobRef": {
       "additionalProperties": false,
       "properties": {
@@ -39,6 +70,9 @@
         "from": {
           "$ref": "#/$defs/Endpoint"
         },
+        "presentation": {
+          "$ref": "#/$defs/EdgePresentation"
+        },
         "to": {
           "$ref": "#/$defs/Endpoint"
         }
@@ -48,6 +82,19 @@
         "from",
         "to"
       ],
+      "type": "object"
+    },
+    "EdgePresentation": {
+      "additionalProperties": false,
+      "properties": {
+        "reroutes": {
+          "items": {
+            "$ref": "#/$defs/Position"
+          },
+          "maxItems": 64,
+          "type": "array"
+        }
+      },
       "type": "object"
     },
     "Endpoint": {
@@ -73,11 +120,39 @@
     "Graph": {
       "additionalProperties": false,
       "properties": {
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/GraphCall"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
         "edges": {
           "items": {
             "$ref": "#/$defs/Edge"
           },
           "maxItems": 16384,
+          "type": "array"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/Endpoint"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "exits": {
+          "items": {
+            "$ref": "#/$defs/GraphExit"
+          },
+          "maxItems": 64,
           "type": "array"
         },
         "id": {
@@ -97,6 +172,10 @@
             "main",
             "subgraph"
           ],
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
           "type": "string"
         },
         "nodes": {
@@ -121,6 +200,67 @@
         "edges",
         "inputs",
         "outputs"
+      ],
+      "type": "object"
+    },
+    "GraphCall": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "type": "object"
+        },
+        "graphId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        }
+      },
+      "required": [
+        "id",
+        "graphId",
+        "position",
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "GraphExit": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "exec",
+            "error"
+          ],
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/Endpoint"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "endpoint"
       ],
       "type": "object"
     },
@@ -269,6 +409,22 @@
       "required": [
         "id",
         "purpose"
+      ],
+      "type": "object"
+    },
+    "Size": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
       ],
       "type": "object"
     },

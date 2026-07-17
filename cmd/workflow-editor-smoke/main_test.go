@@ -52,8 +52,9 @@ func TestWorkflowEditorUIFailures(t *testing.T) {
 func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	base := pageState{
 		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
-		RunStarted: true, GraphChromeDark: true,
+		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main",
 	}
+	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 4, 1 })
 	states := []pageState{
 		{CreateInput: true},
 		{Catalog: 0},
@@ -76,21 +77,34 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		base,
 		base,
+		base,
 		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
 		base,
+		base,
 		withState(base, func(state *pageState) { state.ConnectionMenu = true }),
-		base,
-		withState(base, func(state *pageState) { state.Catalog = 1 }),
-		base,
-		withState(base, func(state *pageState) { state.ConfirmDialog = true }),
-		withState(base, func(state *pageState) { state.ConfirmDialog = true }),
-		withState(base, func(state *pageState) { state.SaveInlineFeedback = true }),
-		withState(base, func(state *pageState) { state.SaveInlineFeedback = true }),
-		withState(base, func(state *pageState) { state.WorkflowState = true }),
-		withState(base, func(state *pageState) { state.AIReview = true }),
-		withState(base, func(state *pageState) { state.AIReview = true }),
-		withState(base, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
-		withState(base, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
+		withState(base, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
+		connected,
+		connected,
+		withState(connected, func(state *pageState) { state.Catalog = 1 }),
+		connected,
+		withState(connected, func(state *pageState) { state.ConfirmDialog = true }),
+		withState(connected, func(state *pageState) { state.ConfirmDialog = true }),
+		withState(connected, func(state *pageState) { state.SaveInlineFeedback = true }),
+		withState(connected, func(state *pageState) { state.SaveInlineFeedback = true }),
+		withState(connected, func(state *pageState) { state.WorkflowState = true }),
+		withState(connected, func(state *pageState) { state.GraphNameInput = true }),
+		withState(connected, func(state *pageState) { state.CurrentGraph, state.CanvasNodes, state.CanvasEdges = "child", 0, 0 }),
+		withState(connected, func(state *pageState) { state.CurrentGraph, state.CanvasNodes, state.CanvasEdges = "child", 1, 0 }),
+		connected,
+		withState(connected, func(state *pageState) { state.Reroutes = 1 }),
+		withState(connected, func(state *pageState) { state.CallMenuOptions = 1 }),
+		withState(connected, func(state *pageState) { state.GraphCalls = 1 }),
+		withState(connected, func(state *pageState) { state.GraphCalls, state.Annotations = 1, 1 }),
+		withState(connected, func(state *pageState) { state.GraphCalls, state.Annotations, state.SaveInlineFeedback = 1, 1, true }),
+		withState(connected, func(state *pageState) { state.AIReview = true }),
+		withState(connected, func(state *pageState) { state.AIReview = true }),
+		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
+		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
 	}
 
 	var serverURL string
@@ -128,7 +142,13 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				states = states[1:]
 				result = map[string]any{"result": map[string]any{"value": string(raw)}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
-				result = map[string]any{"result": map[string]any{"value": `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`}}
+				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
+				if strings.Contains(expression, "multi-selection needs") {
+					value = `[{"x":10,"y":10},{"x":20,"y":20}]`
+				} else if strings.Contains(expression, "Delay.in connection candidate") {
+					value = `{"x":15,"y":15}`
+				}
+				result = map[string]any{"result": map[string]any{"value": value}}
 			} else if call.Method == "Page.captureScreenshot" {
 				result = map[string]any{"data": "cG5n"}
 			}

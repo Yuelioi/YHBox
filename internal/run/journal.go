@@ -14,7 +14,10 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-const MaxJournalEntries = 65536
+const (
+	MaxJournalEntries           = 65536
+	MaxJournalGraphPathSegments = 63
+)
 
 var ErrJournalOrder = errors.New("invalid Run journal order")
 
@@ -290,7 +293,10 @@ func NewNodeStatusFact(input NodeStatusInput) (JournalFact, error) {
 }
 
 func validateJournalFact(entry journalEntry) error {
-	if len(entry.GraphPath) == 0 || len(entry.GraphPath) > 32 || !attributionPattern.MatchString(entry.NodeID) || entry.Attempt < 1 || entry.OccurredAt.Location() != time.UTC || !validSummary(entry.Summary) {
+	// A source graph path interleaves graph and call IDs so repeated calls to
+	// one reusable graph retain distinct provenance. The workflow depth budget
+	// is 32 graphs, hence at most 63 attribution segments.
+	if len(entry.GraphPath) == 0 || len(entry.GraphPath) > MaxJournalGraphPathSegments || !attributionPattern.MatchString(entry.NodeID) || entry.Attempt < 1 || entry.OccurredAt.Location() != time.UTC || !validSummary(entry.Summary) {
 		return errors.New("invalid Run journal attribution")
 	}
 	for _, graphID := range entry.GraphPath {

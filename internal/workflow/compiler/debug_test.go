@@ -3,6 +3,7 @@ package compiler
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -62,6 +63,46 @@ func TestDebugControllerStepContinuePauseAndCancellation(t *testing.T) {
 	cancel()
 	if err := <-third; err == nil {
 		t.Fatal("cancelled checkpoint returned no error")
+	}
+}
+
+func TestDebugBreakpointCanTargetOneSubgraphCallPath(t *testing.T) {
+	control, err := NewDebugController(DebugControllerOptions{Breakpoints: []DebugBreakpoint{{
+		GraphPath: []string{"main", "left-call", "child"}, GraphID: "child", NodeID: "step",
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := DebugSnapshot{
+		GraphID: "child", NodeID: "step", Attempt: 1, Queue: []DebugQueueEntry{},
+		Inputs: map[string]DebugValueView{}, Outputs: map[string]map[string]DebugValueView{}, State: map[string]DebugStateView{},
+	}
+	wrong := base
+	wrong.GraphPath = []string{"main", "right-call", "child"}
+	if err := control.checkpoint(context.Background(), wrong); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		exact := base
+		exact.GraphPath = []string{"main", "left-call", "child"}
+		done <- control.checkpoint(ctx, exact)
+	}()
+	snapshot := waitDebugSnapshot(t, control, func(snapshot DebugSnapshot) bool {
+		return snapshot.Status == DebugPaused && slices.Equal(snapshot.GraphPath, []string{"main", "left-call", "child"})
+	})
+	snapshot.GraphPath[0] = "mutated"
+	if control.Snapshot().GraphPath[0] != "main" {
+		t.Fatal("debug snapshot graph path was not cloned")
+	}
+	if err := control.Continue(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -65,6 +65,54 @@ export type Command =
       disconnect: EdgeCommand
       kind: 'disconnect'
     }
+  | {
+      addGraph: AddGraphCommand
+      kind: 'add-graph'
+    }
+  | {
+      kind: 'rename-graph'
+      renameGraph: RenameGraphCommand
+    }
+  | {
+      kind: 'remove-graph'
+      removeGraph: GraphCommand
+    }
+  | {
+      kind: 'update-graph-interface'
+      updateGraphInterface: GraphInterfaceCommand
+    }
+  | {
+      addGraphCall: GraphCallCommand
+      kind: 'add-graph-call'
+    }
+  | {
+      kind: 'update-graph-call'
+      updateGraphCall: GraphCallCommand
+    }
+  | {
+      kind: 'remove-graph-call'
+      removeGraphCall: CallCommand
+    }
+  | {
+      addAnnotation: AnnotationCommand
+      kind: 'add-annotation'
+    }
+  | {
+      kind: 'update-annotation'
+      updateAnnotation: AnnotationCommand
+    }
+  | {
+      kind: 'remove-annotation'
+      removeAnnotation: AnnotationIDCommand
+    }
+  | {
+      kind: 'set-edge-reroutes'
+      setEdgeReroutes: SetEdgeReroutesCommand
+    }
+  | {
+      collapseSelection: CollapseSelectionCommand
+      kind: 'collapse-selection'
+    }
 export type JSONValue =
   | null
   | boolean
@@ -193,9 +241,153 @@ export interface EdgeCommand {
 export interface Edge {
   channel: 'data' | 'exec' | 'error'
   from: Endpoint
+  presentation?: EdgePresentation
   to: Endpoint
 }
 export interface Endpoint {
   nodeId: string
   portId: string
+}
+export interface EdgePresentation {
+  /**
+   * @maxItems 64
+   */
+  reroutes?: Position[]
+}
+export interface AddGraphCommand {
+  graph: Graph
+}
+export interface Graph {
+  /**
+   * @maxItems 4096
+   */
+  annotations?: Annotation[]
+  /**
+   * @maxItems 4096
+   */
+  calls?: GraphCall[]
+  /**
+   * @maxItems 16384
+   */
+  edges: Edge[]
+  /**
+   * @maxItems 64
+   */
+  entries?: Endpoint[]
+  /**
+   * @maxItems 64
+   */
+  exits?: GraphExit[]
+  id: string
+  /**
+   * @maxItems 4096
+   */
+  inputs: GraphPort[]
+  kind: 'main' | 'subgraph'
+  name?: string
+  /**
+   * @maxItems 4096
+   */
+  nodes: Node[]
+  /**
+   * @maxItems 4096
+   */
+  outputs: GraphPort[]
+}
+export interface Annotation {
+  color?: string
+  id: string
+  position: Position
+  size: Size
+  text: string
+}
+export interface Size {
+  height: number
+  width: number
+}
+export interface GraphCall {
+  bindings: {
+    [k: string]: InputBinding
+  }
+  graphId: string
+  id: string
+  label?: string
+  position: Position
+}
+export interface InputBinding {
+  blob?: BlobRef
+  kind: 'value' | 'default' | 'blob'
+  value?: any
+}
+export interface GraphExit {
+  channel: 'exec' | 'error'
+  endpoint: Endpoint
+  id: string
+}
+export interface GraphPort {
+  id: string
+  nodeId: string
+  portId: string
+  type: TypeExpression
+}
+export interface Node {
+  bindings: {
+    [k: string]: InputBinding
+  }
+  config: {
+    [k: string]: any
+  }
+  disabled?: boolean
+  id: string
+  label?: string
+  nodeRef: NodeRef
+  position: Position
+}
+export interface NodeRef {
+  nodeTypeId: string
+  semanticDigest: string
+  version: string
+}
+export interface RenameGraphCommand {
+  graphId: string
+  name: string
+}
+export interface GraphCommand {
+  graphId: string
+}
+export interface GraphInterfaceCommand {
+  entries: Endpoint[]
+  exits: GraphExit[]
+  graphId: string
+  inputs: GraphPort[]
+  outputs: GraphPort[]
+}
+export interface GraphCallCommand {
+  call: GraphCall
+  graphId: string
+}
+export interface CallCommand {
+  callId: string
+  graphId: string
+}
+export interface AnnotationCommand {
+  annotation: Annotation
+  graphId: string
+}
+export interface AnnotationIDCommand {
+  annotationId: string
+  graphId: string
+}
+export interface SetEdgeReroutesCommand {
+  edge: Edge
+  graphId: string
+  reroutes: Position[]
+}
+export interface CollapseSelectionCommand {
+  callId: string
+  graphId: string
+  name: string
+  nodeIds: string[]
+  position: Position
+  subgraphId: string
 }
