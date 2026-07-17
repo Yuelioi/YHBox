@@ -2,4 +2,4 @@
 // Release metadata must be updated through scripts/bump-version.ps1 so every consumer stays aligned.
 package version
 
-const Version = "2.0.0"
+const Version = "3.1.0"
