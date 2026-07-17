@@ -9,6 +9,7 @@ focus: v3.1-release-identity-finalization
 ## Conventions
 
 - 对话、spec、plan 一律使用中文。
+- 当前产品 release identity 是 3.1.0；发布号只进入 version 属性、manifest、binary metadata 与 artifact/tag，不进入 Go/TS package、type、runtime 或模块名称。
 - 大型任务先定义包含多个相邻 Slices 的可交付阶段；Slice 与本地 commit 只作为实现、恢复和回滚边界，不各自触发全量验收。
 - 阶段实施中只运行支撑继续开发所需的最小定向 test/compile/static check；除非用户明确要求或存在必须立即验证的高风险边界，不重复运行 `task check`、完整 race、跨平台矩阵、production build 或真实 GUI/plugin smoke。
 - 阶段全部实现后再批量验收一次：先运行阶段相关聚合测试，再运行 `task check`，并按触发条件运行 cross-platform build、真实 Windows WebView/plugin smoke 和人工视觉检查。
