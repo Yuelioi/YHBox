@@ -451,9 +451,9 @@ func (s *Service) ClosePicker(requestID string) error {
 	return nil
 }
 
-// --- Win32WindowTarget capture (F9 global hotkey, async via event) ---
+// --- Win32WindowTarget capture (temporary global keyboard hook, async via event) ---
 
-// StartWin32WindowTargetCapture 注册「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
+// StartWin32WindowTargetCapture 临时监听「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
 // 用户按下后:
 //  1. 查前台窗口 metadata
 //  2. emit "win32windowtarget:captured" event {title, class, executable}

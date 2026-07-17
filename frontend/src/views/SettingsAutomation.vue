@@ -132,7 +132,7 @@
             :id="`automation-target-${target.slot}`"
             class="ai-profile__details"
           >
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div data-testid="automation-target-core-fields" class="space-y-4">
               <UFormField :label="t('settingsAutomation.targets.name_label')" required>
                 <UInput v-model.trim="target.label" size="sm" @change="commit" />
               </UFormField>
@@ -214,7 +214,7 @@
                 </UButton>
               </div>
 
-              <div class="grid gap-4 sm:grid-cols-2">
+              <div data-testid="automation-target-window-fields" class="space-y-4">
                 <UFormField
                   :label="t('settingsAutomation.targets.window_title_label')"
                   :hint="t('settingsAutomation.targets.window_title_hint')"

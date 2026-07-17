@@ -571,7 +571,7 @@ export const backend = {
     extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
       invoke(ToolsService.ExtractColorRange, samples, colorSpace),
     closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
-    // Win32WindowTarget capture: 注册全局 hotkey (默认 F9 = 0x78), 用户在游戏窗口按下后
+    // Win32WindowTarget capture: 临时安装全局键盘钩子 (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'win32windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
     // — 用户在游戏前台时根本点不到 Yotta 按钮.
     // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。

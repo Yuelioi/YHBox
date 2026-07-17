@@ -2395,7 +2395,7 @@ export default {
       unselected: 'No page selected',
     },
     capture: {
-      hint: 'Click, switch to the target window, then press F9 (or the configured window-capture shortcut). Yotta matches an installed application by executable path and SHA-256, then fills the exact title and window class.',
+      hint: 'Click to temporarily enable the global window-capture key, switch to the target window, then press F9 (or the configured key). The hook is released after capture, cancellation, or timeout, and the target application does not receive the shortcut.',
       start: 'Capture window',
       start_failed: 'Could not start window capture. Try again.',
       cancel: 'Cancel capture',

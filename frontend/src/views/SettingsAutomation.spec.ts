@@ -42,4 +42,9 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('<UFormField')
     expect(source).toContain(':loading="busy[target.slot]"')
   })
+
+  it('keeps dense target identity and window selectors in a single-column flow', () => {
+    expect(source).toContain('data-testid="automation-target-core-fields" class="space-y-4"')
+    expect(source).toContain('data-testid="automation-target-window-fields" class="space-y-4"')
+  })
 })

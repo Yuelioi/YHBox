@@ -344,7 +344,7 @@ func Run(config Config) error {
 
 	// 窗口捕获键 (NodeInspector「捕获目标窗口」按下它抓前台游戏窗口)。
 	// 值持有者条目 (mechanism=ll-hook, 不持久占 OS) — 进热键中心可见 + 可 rebind + 冲突检测；
-	// 真正注册由 toolsSvc 捕获时临时读取 constructor-pinned getter。默认 F9。
+	// 真正监听由 toolsSvc 捕获时临时读取 constructor-pinned getter。默认 F9。
 	winCapHk := hotkeyOrDefault(app.Settings().UI.WindowCaptureHotkey, "F9")
 	if err := hotkeyRegistry.RegisterLLHook("tools.window-capture", hotkey.HotkeySourceSystem,
 		"hotkeys.label.system.window_capture", winCapHk, ""); err != nil {

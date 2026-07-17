@@ -1,11 +1,17 @@
 package tools
 
 import (
+	"runtime"
+	"syscall"
 	"testing"
 )
 
-// TestCancelWin32WindowTargetCapture_NoActive 没 active session 时 cancel 返 nil.
-// (避免前端 stale captureID 调 cancel 报错)
+var (
+	testUser32           = syscall.NewLazyDLL("user32.dll")
+	testRegisterHotKey   = testUser32.NewProc("RegisterHotKey")
+	testUnregisterHotKey = testUser32.NewProc("UnregisterHotKey")
+)
+
 func TestCancelWin32WindowTargetCapture_NoActive(t *testing.T) {
 	captureMu.Lock()
 	activeCapture = nil
@@ -16,8 +22,6 @@ func TestCancelWin32WindowTargetCapture_NoActive(t *testing.T) {
 	}
 }
 
-// TestCancelWin32WindowTargetCapture_WrongID id 不匹配 idempotent 返 nil.
-// (前端 captureID 跟 backend 不一致时 cancel 不要 fail)
 func TestCancelWin32WindowTargetCapture_WrongID(t *testing.T) {
 	captureMu.Lock()
 	activeCapture = &captureSession{
@@ -35,16 +39,14 @@ func TestCancelWin32WindowTargetCapture_WrongID(t *testing.T) {
 	if err := cancelWin32WindowTargetCapture("wrong-id"); err != nil {
 		t.Fatalf("expected nil error for wrong id, got %v", err)
 	}
-	// active session 应保留 (cancel 无效)
 	captureMu.Lock()
 	stillActive := activeCapture != nil
 	captureMu.Unlock()
 	if !stillActive {
-		t.Fatalf("active session was cleared by wrong-id cancel")
+		t.Fatal("active session was cleared by wrong-id cancel")
 	}
 }
 
-// TestRandID_Unique 连续生成 ID 不撞 (基本正确性, 不是 crypto 测试)
 func TestRandID_Unique(t *testing.T) {
 	seen := map[string]bool{}
 	for i := 0; i < 100; i++ {
@@ -53,5 +55,34 @@ func TestRandID_Unique(t *testing.T) {
 			t.Fatalf("randID collision after %d iterations: %q", i, id)
 		}
 		seen[id] = true
+	}
+}
+
+func TestWindowCaptureStartsWhenAnotherApplicationOwnsTheConfiguredHotkey(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	const (
+		ownerID = 0x9011
+		mods    = 0x0001 | 0x0002 | 0x0004
+		vkF10   = 0x79
+	)
+	registered, _, err := testRegisterHotKey.Call(0, ownerID, mods, vkF10)
+	if registered == 0 {
+		t.Fatalf("reserve configured hotkey: %v", err)
+	}
+	defer testUnregisterHotKey.Call(0, ownerID)
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		captureID, err := startWin32WindowTargetCapture(mods, vkF10, nil)
+		if err != nil {
+			t.Fatalf("start capture attempt %d while configured key is reserved: %v", attempt, err)
+		}
+		if captureID == "" {
+			t.Fatalf("capture ID is empty on attempt %d", attempt)
+		}
+		if err := cancelWin32WindowTargetCapture(captureID); err != nil {
+			t.Fatalf("cancel capture attempt %d: %v", attempt, err)
+		}
 	}
 }
