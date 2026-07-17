@@ -420,6 +420,8 @@ export const backend = {
       invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
     revokeWorkflowConsent: (slot: string) =>
       invokeVoid(AutomationService.RevokeWorkflowConsent, slot),
+    grantAllWorkflowConsents: () => invoke(AutomationService.GrantAllWorkflowConsents),
+    revokeAllWorkflowConsents: () => invoke(AutomationService.RevokeAllWorkflowConsents),
   },
   schedules: {
     list: () => invoke(ScheduleService.List),
@@ -578,6 +580,8 @@ export const backend = {
     startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
     cancelWin32WindowTargetCapture: (id: string) =>
       invoke(ToolsService.CancelWin32WindowTargetCapture, id),
+    isElevated: () => invoke(ToolsService.IsElevated) as Promise<boolean>,
+    restartElevated: () => invokeVoid(ToolsService.RestartElevated),
     openLauncher: () => invokeVoid(ToolsService.OpenLauncher),
     openLauncherSettings: () => invokeVoid(ToolsService.OpenLauncherSettings),
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),

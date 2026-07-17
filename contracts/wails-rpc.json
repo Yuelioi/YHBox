@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 117,
-    "models": 165
+    "methods": 121,
+    "models": 166
   },
   "services": [
     {
@@ -599,6 +599,12 @@
           "returns": "$CancellablePromise<$models.AutomationTargetHealth>"
         },
         {
+          "name": "GrantAllWorkflowConsents",
+          "bindingId": "1429352858",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.BulkWorkflowConsentResult>"
+        },
+        {
           "name": "GrantWorkflowConsent",
           "bindingId": "2035588158",
           "parameters": [
@@ -633,6 +639,12 @@
           "bindingId": "1319813193",
           "parameters": [],
           "returns": "$CancellablePromise<installed$0.TargetTypeDescriptor[]>"
+        },
+        {
+          "name": "RevokeAllWorkflowConsents",
+          "bindingId": "3714580184",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.BulkWorkflowConsentResult>"
         },
         {
           "name": "RevokeWorkflowConsent",
@@ -1042,6 +1054,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "IsElevated",
+          "bindingId": "356935288",
+          "parameters": [],
+          "returns": "$CancellablePromise<boolean>"
+        },
+        {
           "name": "MousePos",
           "bindingId": "1897317081",
           "parameters": [
@@ -1138,6 +1156,12 @@
             }
           ],
           "returns": "$CancellablePromise<$models.PixelInfo>"
+        },
+        {
+          "name": "RestartElevated",
+          "bindingId": "3705842255",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
         },
         {
           "name": "SetLauncherAlwaysOnTop",
@@ -3323,6 +3347,22 @@
               "name": "\"message\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BulkWorkflowConsentResult",
+          "fields": [
+            {
+              "name": "\"applications\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"targets\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         },

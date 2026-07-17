@@ -2401,10 +2401,25 @@ export default {
       cancel: 'Cancel capture',
       cancelled: 'Window capture cancelled. The target was not changed.',
       timeout: 'Window capture timed out. Try again.',
+      timeout_uac:
+        'The capture shortcut was not received. The target may be running as administrator while Yotta is not. Restart Yotta as administrator and capture again.',
+      timeout_elevated:
+        'Yotta is already running as administrator but did not receive the capture shortcut. Check the configured capture key and try again.',
+      restart_elevated: 'Restart as administrator',
+      restart_elevated_title: 'Restart Yotta as administrator?',
+      restart_elevated_hint:
+        'The current Yotta instance will exit after the elevated instance launches. Unsaved workflow edits are not preserved automatically.',
       incomplete: 'The capture result is missing the executable, window title, or window class.',
       inspect_failed: 'Could not verify the captured window executable identity.',
       application_missing:
         'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
+      install_title: 'Install “{name}” and bind this window?',
+      install_hint:
+        'Yotta will verify and pin the executable SHA-256 identity, then create the desktop application installation directly: {path}',
+      install_confirm: 'Install and bind',
+      install_cancelled: 'Installation cancelled. The captured identity was not saved.',
+      installed_and_completed:
+        'Installed the window application and bound “{name}” to the exact window.',
       application_ambiguous:
         'Multiple installation records match this executable. Remove the duplicate record and try again.',
       save_failed: 'The capture result could not be saved as a complete window target.',
@@ -2423,6 +2438,19 @@ export default {
       hint: 'Consent covers only the operations declared by this adapter and exactly matches the slot and complete target identity. Any edit revokes it. Restart to install the new snapshot.',
       grant: 'Allow automation',
       revoke: 'Revoke consent',
+    },
+    bulk: {
+      grant: 'Authorize all',
+      revoke: 'Revoke all',
+      grant_title: 'Authorize all current desktop automation installations?',
+      grant_hint:
+        'This authorizes every currently installed desktop application and automation target in one action. New installations or identity changes still require fresh consent and do not bypass capability, admission, or arm boundaries.',
+      revoke_title: 'Revoke all desktop automation consent?',
+      revoke_hint:
+        'Workflow consent will be cleared from every installed desktop application and automation target.',
+      granted:
+        'Authorized all current desktop applications and automation targets. New or changed items still require consent.',
+      revoked: 'Revoked all desktop application and automation target consent.',
     },
     confirm: {
       delete_title: 'Delete “{name}”?',

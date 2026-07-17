@@ -98,6 +98,51 @@ func TestBrowserAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) 
 	}
 }
 
+func TestAutomationBulkConsentGrantsAndRevokesCurrentSnapshot(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Game.exe")
+	if err := os.WriteFile(path, []byte("game-v1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := appcontrol.InspectExecutable(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app.settings.Applications.Profiles = []InstalledApplicationSettings{{
+		Slot: "game", Label: "Game", Executable: inspection.Executable, ExecutableDigest: inspection.Digest,
+	}}
+	app.settings.Automation.Targets = []InstalledAutomationTargetSettings{{
+		Slot: "game-window", Label: "Game window", TargetKind: "desktop-window", AdapterKind: "win32",
+		ApplicationSlot: "game", WindowTitle: "Game", WindowClass: "GameWindow", InputBackend: "sendinput",
+		CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 3000,
+	}}
+
+	service := NewAutomationService(app)
+	granted, err := service.GrantAllWorkflowConsents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if granted.Applications != 1 || granted.Targets != 1 {
+		t.Fatalf("unexpected grant result: %+v", granted)
+	}
+	settings := app.Settings()
+	if settings.Applications.Profiles[0].WorkflowConsent == "" || settings.Automation.Targets[0].WorkflowConsent == "" {
+		t.Fatal("bulk grant did not seal both application and automation consent")
+	}
+
+	revoked, err := service.RevokeAllWorkflowConsents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revoked.Applications != 1 || revoked.Targets != 1 {
+		t.Fatalf("unexpected revoke result: %+v", revoked)
+	}
+	settings = app.Settings()
+	if settings.Applications.Profiles[0].WorkflowConsent != "" || settings.Automation.Targets[0].WorkflowConsent != "" {
+		t.Fatal("bulk revoke left a workflow consent digest behind")
+	}
+}
+
 func TestAndroidAutomationTargetInstallsWithoutDesktopApplication(t *testing.T) {
 	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
 	target := InstalledAutomationTargetSettings{

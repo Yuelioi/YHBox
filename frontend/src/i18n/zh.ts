@@ -2146,9 +2146,22 @@ export default {
       cancel: '取消捕获',
       cancelled: '已取消窗口捕获，没有修改目标。',
       timeout: '等待窗口捕获超时，请重试。',
+      timeout_uac:
+        '没有收到捕获快捷键。目标应用可能以管理员权限运行，而 Yotta 当前是普通权限；请以管理员身份重启 Yotta 后再捕获。',
+      timeout_elevated: 'Yotta 已处于管理员模式，但仍未收到捕获快捷键。请确认捕获键配置后重试。',
+      restart_elevated: '管理员模式重启',
+      restart_elevated_title: '以管理员身份重启 Yotta？',
+      restart_elevated_hint:
+        '当前 Yotta 会在新的管理员实例成功启动后退出。未保存的工作流修改不会被自动保留。',
       incomplete: '捕获结果缺少可执行文件、窗口标题或窗口类。',
       inspect_failed: '无法验证捕获窗口的可执行文件身份。',
       application_missing: '捕获窗口所属应用尚未安装。请先在“桌面应用”中选择并安装该 .exe。',
+      install_title: '安装“{name}”并绑定窗口？',
+      install_hint:
+        'Yotta 将校验并固定该可执行文件的 SHA-256 身份，然后直接创建桌面应用安装项：{path}',
+      install_confirm: '安装并绑定',
+      install_cancelled: '已取消安装，捕获结果没有写入。',
+      installed_and_completed: '已安装窗口所属应用，并为“{name}”绑定精确窗口。',
       application_ambiguous: '多个安装记录匹配同一可执行文件，请删除重复记录后重试。',
       save_failed: '捕获结果未能保存为完整的窗口目标。',
       completed: '已为“{name}”绑定精确窗口。',
@@ -2166,6 +2179,17 @@ export default {
       hint: '授权只覆盖当前适配器声明的操作，并精确匹配槽位与完整目标身份。任意修改都会立即撤销；重启后安装新快照。',
       grant: '允许自动化',
       revoke: '撤销授权',
+    },
+    bulk: {
+      grant: '批量授权',
+      revoke: '全部撤销',
+      grant_title: '授权当前全部桌面自动化安装项？',
+      grant_hint:
+        '这会一次授权当前已安装的桌面应用和自动化目标。新增安装项或任何身份变化仍会要求重新授权，不会绕过 capability、准入或 arm 边界。',
+      revoke_title: '撤销全部桌面自动化授权？',
+      revoke_hint: '所有已安装桌面应用和自动化目标的工作流授权都会被清除。',
+      granted: '已授权当前全部桌面应用和自动化目标；新增或变更项仍需重新授权。',
+      revoked: '已撤销全部桌面应用和自动化目标授权。',
     },
     confirm: {
       delete_title: '删除“{name}”？',

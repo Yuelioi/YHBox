@@ -300,6 +300,7 @@ func Run(config Config) error {
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
 	toolsPresenter := &wailsToolsPresenter{}
+	var quitForElevatedRestart func()
 	toolsSvc := tools.NewServiceWithOptions(authoringTargets, toolsPresenter, tools.Options{
 		OnCalibratorClose: func() {
 			calibrationSvc.StopHotkeyWatch()
@@ -307,6 +308,15 @@ func Run(config Config) error {
 		},
 		CaptureHotkey: func() (uint32, uint32) {
 			return registryHotkey(hotkeyRegistry, "tools.window-capture", 0x78)
+		},
+		RestartElevated: func() error {
+			if err := launchElevated(); err != nil {
+				return err
+			}
+			if quitForElevatedRestart != nil {
+				quitForElevatedRestart()
+			}
+			return nil
 		},
 	})
 
@@ -416,6 +426,7 @@ func Run(config Config) error {
 			Handler: application.AssetFileServerFS(config.Assets),
 		},
 	})
+	quitForElevatedRestart = wailsApp.Quit
 	if err := app.AttachEmitter(func(name string, data any) { wailsApp.Event.Emit(name, data) }); err != nil {
 		return fmt.Errorf("attach presentation emitter: %w", err)
 	}

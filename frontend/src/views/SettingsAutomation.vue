@@ -25,11 +25,33 @@
       <template #actions>
         <div class="flex flex-wrap gap-2">
           <UButton
+            v-if="hasMissingConsent"
+            size="sm"
+            color="warning"
+            variant="soft"
+            icon="i-tabler-shield-check"
+            :loading="bulkConsentBusy"
+            @click="grantAllConsents"
+          >
+            {{ t('settingsAutomation.bulk.grant') }}
+          </UButton>
+          <UButton
+            v-if="hasGrantedConsent"
+            size="sm"
+            color="neutral"
+            variant="soft"
+            icon="i-tabler-shield-off"
+            :loading="bulkConsentBusy"
+            @click="revokeAllConsents"
+          >
+            {{ t('settingsAutomation.bulk.revoke') }}
+          </UButton>
+          <UButton
             size="sm"
             color="primary"
             variant="soft"
             icon="i-tabler-brand-windows"
-            :disabled="applications.length === 0 || !desktopTargetType"
+            :disabled="!desktopTargetType"
             @click="addTarget('desktop-window')"
           >
             {{ t('settingsAutomation.targets.add_windows') }}
@@ -59,7 +81,7 @@
 
       <div
         v-if="captureFeedback"
-        class="rounded-lg border px-3 py-2 text-xs"
+        class="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-xs"
         :class="
           captureFeedback.tone === 'success'
             ? 'border-success/30 bg-success/10 text-success'
@@ -69,7 +91,17 @@
         "
         :role="captureFeedback.tone === 'error' ? 'alert' : 'status'"
       >
-        {{ captureFeedback.message }}
+        <span class="min-w-0 flex-1">{{ captureFeedback.message }}</span>
+        <UButton
+          v-if="captureFeedback.elevationSuggested"
+          size="xs"
+          color="warning"
+          variant="soft"
+          icon="i-tabler-shield-lock"
+          @click="restartElevated"
+        >
+          {{ t('settingsAutomation.capture.restart_elevated') }}
+        </UButton>
       </div>
 
       <div v-if="draft.length" class="space-y-3">
@@ -535,7 +567,7 @@
             color="primary"
             variant="soft"
             icon="i-tabler-brand-windows"
-            :disabled="applications.length === 0 || !desktopTargetType"
+            :disabled="!desktopTargetType"
             @click="addTarget('desktop-window')"
           >
             {{ t('settingsAutomation.targets.add_windows') }}
@@ -616,7 +648,13 @@ const expandedSlot = ref('')
 const busy = reactive<Record<string, boolean>>({})
 const capturingSlot = ref('')
 const captureID = ref('')
-const captureFeedback = ref<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null)
+const captureFeedback = ref<{
+  tone: 'success' | 'warning' | 'error'
+  message: string
+  elevationSuggested?: boolean
+} | null>(null)
+const elevated = ref(false)
+const bulkConsentBusy = ref(false)
 const adbDevices = ref<AndroidDeviceDescriptor[]>([])
 const adbLoading = ref(false)
 const adbError = ref('')
@@ -628,6 +666,16 @@ const healthLoading = reactive<Record<string, boolean>>({})
 let captureTimer: ReturnType<typeof setTimeout> | undefined
 const applicationItems = computed(() =>
   applications.value.map((application) => ({ label: application.label, value: application.slot })),
+)
+const hasMissingConsent = computed(
+  () =>
+    applications.value.some((application) => !application.workflowConsent) ||
+    targets.value.some((target) => !target.workflowConsent),
+)
+const hasGrantedConsent = computed(
+  () =>
+    applications.value.some((application) => Boolean(application.workflowConsent)) ||
+    targets.value.some((target) => Boolean(target.workflowConsent)),
 )
 const backendItems = computed(() =>
   (desktopTargetType.value?.inputBackends ?? []).map((value) => ({
@@ -656,7 +704,12 @@ const browserTargetItems = computed(() =>
 )
 
 onMounted(async () => {
-  targetTypes.value = (await backend.automation.listTargetTypes()) ?? []
+  const [types, isElevated] = await Promise.all([
+    backend.automation.listTargetTypes(),
+    backend.tools.isElevated(),
+  ])
+  targetTypes.value = types ?? []
+  elevated.value = isElevated
 })
 
 watch(
@@ -713,6 +766,23 @@ function uniqueSlot(base: string): string {
 }
 function uniqueLabel(base: string): string {
   const taken = new Set(draft.value.map((target) => target.label))
+  if (!taken.has(base)) return base
+  for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
+}
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() || path
+}
+function slug(value: string): string {
+  return (
+    value
+      .toLocaleLowerCase()
+      .replace(/\.exe$/i, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'application'
+  )
+}
+function uniqueApplicationLabel(base: string): string {
+  const taken = new Set(applications.value.map((application) => application.label))
   if (!taken.has(base)) return base
   for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
 }
@@ -955,6 +1025,54 @@ async function revoke(target: AutomationTargetDraft) {
     busy[target.slot] = false
   }
 }
+async function grantAllConsents(): Promise<void> {
+  if (bulkConsentBusy.value) return
+  const accepted = await confirm({
+    title: t('settingsAutomation.bulk.grant_title'),
+    description: t('settingsAutomation.bulk.grant_hint'),
+    confirmText: t('settingsAutomation.bulk.grant'),
+    cancelText: t('common.cancel'),
+    color: 'warning',
+  })
+  if (accepted !== true) return
+  bulkConsentBusy.value = true
+  try {
+    await backend.automation.grantAllWorkflowConsents()
+    await store.load()
+    captureFeedback.value = {
+      tone: 'success',
+      message: t('settingsAutomation.bulk.granted'),
+    }
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
+  } finally {
+    bulkConsentBusy.value = false
+  }
+}
+async function revokeAllConsents(): Promise<void> {
+  if (bulkConsentBusy.value) return
+  const accepted = await confirm({
+    title: t('settingsAutomation.bulk.revoke_title'),
+    description: t('settingsAutomation.bulk.revoke_hint'),
+    confirmText: t('settingsAutomation.bulk.revoke'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (accepted !== true) return
+  bulkConsentBusy.value = true
+  try {
+    await backend.automation.revokeAllWorkflowConsents()
+    await store.load()
+    captureFeedback.value = {
+      tone: 'warning',
+      message: t('settingsAutomation.bulk.revoked'),
+    }
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
+  } finally {
+    bulkConsentBusy.value = false
+  }
+}
 async function removeTarget(target: AutomationTargetDraft) {
   if (capturingSlot.value === target.slot) await cancelCapture(true)
   if (!target.persisted) {
@@ -1011,7 +1129,31 @@ async function cancelCapture(silent = false): Promise<void> {
 
 async function timeoutCapture(): Promise<void> {
   await cancelCapture(true)
-  captureFeedback.value = { tone: 'warning', message: t('settingsAutomation.capture.timeout') }
+  captureFeedback.value = {
+    tone: 'warning',
+    message: t(
+      elevated.value
+        ? 'settingsAutomation.capture.timeout_elevated'
+        : 'settingsAutomation.capture.timeout_uac',
+    ),
+    elevationSuggested: !elevated.value,
+  }
+}
+
+async function restartElevated(): Promise<void> {
+  const accepted = await confirm({
+    title: t('settingsAutomation.capture.restart_elevated_title'),
+    description: t('settingsAutomation.capture.restart_elevated_hint'),
+    confirmText: t('settingsAutomation.capture.restart_elevated'),
+    cancelText: t('common.cancel'),
+    color: 'warning',
+  })
+  if (accepted !== true) return
+  try {
+    await backend.tools.restartElevated()
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
+  }
 }
 
 async function acceptCapture(raw: unknown): Promise<void> {
@@ -1041,7 +1183,49 @@ async function acceptCapture(raw: unknown): Promise<void> {
     const inspection = await backend.applications.inspectExecutable(payload.executable)
     if (!inspection) throw new Error(t('settingsAutomation.capture.inspect_failed'))
     const matches = matchingInstalledApplications(applications.value, inspection)
-    if (matches.length === 0) throw new Error(t('settingsAutomation.capture.application_missing'))
+    if (matches.length === 0) {
+      const executableName = fileName(inspection.executable).replace(/\.exe$/i, '')
+      const accepted = await confirm({
+        title: t('settingsAutomation.capture.install_title', { name: executableName }),
+        description: t('settingsAutomation.capture.install_hint', {
+          path: inspection.executable,
+        }),
+        confirmText: t('settingsAutomation.capture.install_confirm'),
+        cancelText: t('common.cancel'),
+        color: 'warning',
+      })
+      if (accepted !== true) {
+        captureFeedback.value = {
+          tone: 'warning',
+          message: t('settingsAutomation.capture.install_cancelled'),
+        }
+        return
+      }
+      const target = draft.value.find((candidate) => candidate.slot === slot)
+      if (!target) return
+      const application = {
+        slot: uniqueSlot(slug(executableName)),
+        label: uniqueApplicationLabel(executableName),
+        executable: inspection.executable,
+        executableDigest: inspection.digest,
+        arguments: [],
+      }
+      target.applicationSlot = application.slot
+      target.windowTitle = payload.title
+      target.windowClass = payload.class
+      delete target.workflowConsent
+      const ok = await store.patch({
+        applications: { profiles: [...applications.value, application] },
+        automation: { targets: draft.value.map(metadata) },
+      })
+      if (!ok) throw new Error(t('settingsAutomation.capture.save_failed'))
+      for (const candidate of draft.value) candidate.persisted = true
+      captureFeedback.value = {
+        tone: 'success',
+        message: t('settingsAutomation.capture.installed_and_completed', { name: target.label }),
+      }
+      return
+    }
     if (matches.length > 1) throw new Error(t('settingsAutomation.capture.application_ambiguous'))
     const target = draft.value.find((candidate) => candidate.slot === slot)
     if (!target) return
