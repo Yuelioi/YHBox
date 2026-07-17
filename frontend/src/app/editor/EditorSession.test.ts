@@ -528,6 +528,24 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     previewDeleteSources: vi.fn(async () => []),
     deleteSources: vi.fn(async () => []),
     createSource: vi.fn(async () => saved),
+    chooseSourceBundle: vi.fn(async () => ''),
+    chooseSourceBundleDestination: vi.fn(async () => ''),
+    chooseSourceBundleDirectory: vi.fn(async () => ''),
+    inspectSourceBundle: vi.fn(async () => ({
+      workflowId: saved.workflowId,
+      name: saved.name,
+      revision: saved.revision,
+      sourceHash: saved.sourceHash,
+      blobCount: 0,
+      blobBytes: 0,
+    })),
+    importSourceBundle: vi.fn(async () => saved),
+    replaceSourceFromBundle: vi.fn(async () => saved),
+    exportSourceBundle: vi.fn(async () => ({
+      workflowId: saved.workflowId,
+      exported: true,
+    })),
+    exportSourceBundles: vi.fn(async () => []),
     getSource: vi.fn(async () => saved),
     applyPatch: vi.fn(async (_workflowId: string, baseRevision: number) => {
       if (!saved.sourceJson) throw new Error('mock source omitted sourceJson')

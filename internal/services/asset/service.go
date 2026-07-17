@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,14 +58,49 @@ type BlobPreview struct {
 	Height    int    `json:"height"`
 }
 
-// Service owns global asset metadata and installed-target authoring capture.
-type Service struct {
-	store   *Store
-	capture CaptureAdapter
+type AssetQuery struct {
+	Search   string   `json:"search"`
+	Kind     string   `json:"kind"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
+	Sort     string   `json:"sort"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"pageSize"`
 }
 
-func NewService(store *Store, capture CaptureAdapter) *Service {
-	return &Service{store: store, capture: capture}
+type AssetPage struct {
+	Items    []AssetSummary `json:"items"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"pageSize"`
+}
+
+type BatchMetaRequest struct {
+	GUID     string   `json:"guid"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
+}
+
+type BatchResult struct {
+	GUID    string `json:"guid"`
+	Updated bool   `json:"updated,omitempty"`
+	Deleted bool   `json:"deleted,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// Service owns global asset metadata and installed-target authoring capture.
+type Service struct {
+	store      *Store
+	capture    CaptureAdapter
+	references DurableReferenceSource
+}
+
+func NewService(store *Store, capture CaptureAdapter, references ...DurableReferenceSource) *Service {
+	service := &Service{store: store, capture: capture}
+	if len(references) != 0 {
+		service.references = references[0]
+	}
+	return service
 }
 
 // SaveTemplateCapture 用户截模板 → 建新资产 (新 GUID) + 单变体 + blob.
@@ -150,24 +186,106 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 func (s *Service) List() []AssetSummary {
 	out := []AssetSummary{}
 	for _, rec := range s.store.List() {
-		sum := AssetSummary{
-			GUID: rec.GUID, Kind: rec.Kind, Name: rec.Name,
-			Description: rec.Description, Category: rec.Category, Tags: rec.Tags,
-			VariantCount: len(rec.Variants), Variants: []AssetVariantSummary{},
-		}
-		if !rec.CreatedAt.IsZero() {
-			sum.CreatedAt = rec.CreatedAt.UTC().Format(time.RFC3339)
-		}
-		for _, variant := range rec.Variants {
-			sum.Variants = append(sum.Variants, AssetVariantSummary{Resolution: variant.Resolution, Blob: variant.Blob})
-		}
-		if rec.Blob != nil {
-			ref := *rec.Blob
-			sum.Blob = &ref
-		}
-		out = append(out, sum)
+		out = append(out, assetSummary(rec))
 	}
 	return out
+}
+
+func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
+	if query.Page <= 0 {
+		query.Page = 1
+	}
+	if query.PageSize <= 0 {
+		query.PageSize = 24
+	}
+	if query.PageSize > 100 {
+		return AssetPage{}, fmt.Errorf("asset page size exceeds 100")
+	}
+	if query.Kind != "" && query.Kind != KindTemplate && query.Kind != KindClip {
+		return AssetPage{}, fmt.Errorf("unsupported asset kind %q", query.Kind)
+	}
+	search := strings.ToLower(strings.TrimSpace(query.Search))
+	category := strings.ToLower(strings.TrimSpace(query.Category))
+	wantedTags := normalizedTags(query.Tags)
+	items := make([]AssetSummary, 0)
+	for _, record := range s.store.List() {
+		if query.Kind != "" && record.Kind != query.Kind {
+			continue
+		}
+		if category != "" && strings.ToLower(record.Category) != category {
+			continue
+		}
+		if !containsEveryTag(record.Tags, wantedTags) {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(strings.Join(append([]string{record.Name, record.Description, record.Category, record.GUID}, record.Tags...), " ")), search) {
+			continue
+		}
+		items = append(items, assetSummary(record))
+	}
+	switch query.Sort {
+	case "", "name_asc":
+		sort.SliceStable(items, func(i, j int) bool { return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name) })
+	case "name_desc":
+		sort.SliceStable(items, func(i, j int) bool { return strings.ToLower(items[i].Name) > strings.ToLower(items[j].Name) })
+	case "created_desc":
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].CreatedAt == items[j].CreatedAt {
+				return items[i].GUID < items[j].GUID
+			}
+			return items[i].CreatedAt > items[j].CreatedAt
+		})
+	default:
+		return AssetPage{}, fmt.Errorf("unsupported asset sort %q", query.Sort)
+	}
+	total := len(items)
+	start := min((query.Page-1)*query.PageSize, total)
+	end := min(start+query.PageSize, total)
+	return AssetPage{Items: append([]AssetSummary(nil), items[start:end]...), Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (s *Service) BatchUpdateMeta(requests []BatchMetaRequest) []BatchResult {
+	results := make([]BatchResult, 0, len(requests))
+	seen := make(map[string]struct{}, len(requests))
+	for _, request := range requests {
+		result := BatchResult{GUID: request.GUID}
+		if _, duplicate := seen[request.GUID]; duplicate {
+			result.Error = "duplicate asset update request"
+		} else if record, ok := s.store.Get(request.GUID); !ok {
+			result.Error = "asset not found"
+		} else {
+			seen[request.GUID] = struct{}{}
+			if err := s.store.PutRecordMeta(record.GUID, record.Name, record.Description, strings.TrimSpace(request.Category), cleanTags(request.Tags)); err != nil {
+				result.Error = err.Error()
+			} else {
+				result.Updated = true
+			}
+		}
+		results = append(results, result)
+	}
+	return results
+}
+
+func (s *Service) BatchDelete(guids []string) []BatchResult {
+	results := make([]BatchResult, 0, len(guids))
+	seen := make(map[string]struct{}, len(guids))
+	for _, guid := range guids {
+		result := BatchResult{GUID: guid}
+		if _, duplicate := seen[guid]; duplicate {
+			result.Error = "duplicate asset delete request"
+		} else {
+			seen[guid] = struct{}{}
+			if _, ok := s.store.Get(guid); !ok {
+				result.Error = "asset not found"
+			} else if err := s.store.DeleteRecord(guid); err != nil {
+				result.Error = err.Error()
+			} else {
+				result.Deleted = true
+			}
+		}
+		results = append(results, result)
+	}
+	return results
 }
 
 // Get 返单条记录.
@@ -309,4 +427,64 @@ func (s *Service) PickVariant(guid string, w, h int) (VariantPick, error) {
 		}
 	}
 	return VariantPick{}, fmt.Errorf("picked variant %v not in record %q", v.Resolution, guid)
+}
+
+func assetSummary(rec AssetRecord) AssetSummary {
+	summary := AssetSummary{
+		GUID: rec.GUID, Kind: rec.Kind, Name: rec.Name,
+		Description: rec.Description, Category: rec.Category, Tags: append([]string(nil), rec.Tags...),
+		VariantCount: len(rec.Variants), Variants: []AssetVariantSummary{},
+	}
+	if !rec.CreatedAt.IsZero() {
+		summary.CreatedAt = rec.CreatedAt.UTC().Format(time.RFC3339)
+	}
+	for _, variant := range rec.Variants {
+		summary.Variants = append(summary.Variants, AssetVariantSummary{Resolution: variant.Resolution, Blob: variant.Blob})
+	}
+	if rec.Blob != nil {
+		ref := *rec.Blob
+		summary.Blob = &ref
+	}
+	return summary
+}
+
+func normalizedTags(tags []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(tags))
+	for _, tag := range tags {
+		if normalized := strings.ToLower(strings.TrimSpace(tag)); normalized != "" {
+			result[normalized] = struct{}{}
+		}
+	}
+	return result
+}
+
+func containsEveryTag(tags []string, wanted map[string]struct{}) bool {
+	if len(wanted) == 0 {
+		return true
+	}
+	available := normalizedTags(tags)
+	for tag := range wanted {
+		if _, ok := available[tag]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func cleanTags(tags []string) []string {
+	seen := make(map[string]struct{}, len(tags))
+	result := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		key := strings.ToLower(tag)
+		if tag == "" {
+			continue
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, tag)
+	}
+	return result
 }

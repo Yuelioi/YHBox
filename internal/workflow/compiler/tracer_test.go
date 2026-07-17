@@ -479,6 +479,10 @@ func TestBlobStreamConversionTracerCompilesExactEffectPlanAndStaysOutOfPreview(t
 	if err != nil {
 		t.Fatal(err)
 	}
+	refs, err := opened.BlobReferences(builtins.Catalog)
+	if err != nil || len(refs) != 1 || refs[0] != blobRef {
+		t.Fatalf("Program BlobReferences() = %#v, %v", refs, err)
+	}
 	nodes := opened.Nodes()
 	if len(nodes) != 2 || nodes[0].Execution.Class != nodecontract.ExecutionEffect || nodes[1].Execution.Class != nodecontract.ExecutionEffect {
 		t.Fatalf("effect nodes = %#v", nodes)

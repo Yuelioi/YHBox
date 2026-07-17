@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -257,5 +258,92 @@ func TestService_CurrentResolution(t *testing.T) {
 	svcNil := NewService(s, nil)
 	if _, err := svcNil.CurrentResolution("c1"); err == nil {
 		t.Error("CurrentResolution with nil adapter should error")
+	}
+}
+
+func TestServiceQueryAndBatchManagement(t *testing.T) {
+	store, _ := newTestStore(t)
+	service := NewService(store, nil)
+	alpha, err := service.SaveTemplateCapture(pngDataURL(t, 8, 8), "Alpha", "UI", []string{"button", "common"}, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	beta, err := service.SaveTemplateCapture(pngDataURL(t, 8, 8), "Beta", "Game", []string{"common"}, [2]int{1920, 1080}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := service.QueryAssets(AssetQuery{Kind: KindTemplate, Search: "a", Tags: []string{"common"}, Sort: "name_desc", Page: 1, PageSize: 1})
+	if err != nil || page.Total != 2 || len(page.Items) != 1 || page.Items[0].Name != "Beta" {
+		t.Fatalf("QueryAssets() = %#v, %v", page, err)
+	}
+	updated := service.BatchUpdateMeta([]BatchMetaRequest{
+		{GUID: alpha, Category: "Shared", Tags: []string{"updated", "Updated"}},
+		{GUID: beta, Category: "Shared", Tags: []string{"updated"}},
+	})
+	if len(updated) != 2 || !updated[0].Updated || !updated[1].Updated {
+		t.Fatalf("BatchUpdateMeta() = %#v", updated)
+	}
+	shared, err := service.QueryAssets(AssetQuery{Category: "shared", Tags: []string{"UPDATED"}, Page: 1, PageSize: 20})
+	if err != nil || shared.Total != 2 || len(shared.Items[0].Tags) != 1 {
+		t.Fatalf("updated QueryAssets() = %#v, %v", shared, err)
+	}
+	deleted := service.BatchDelete([]string{alpha, "missing", beta})
+	if len(deleted) != 3 || !deleted[0].Deleted || deleted[1].Error == "" || !deleted[2].Deleted {
+		t.Fatalf("BatchDelete() = %#v", deleted)
+	}
+}
+
+type testDurableReferences struct{ refs []blob.BlobRef }
+
+func (s *testDurableReferences) WithDurableBlobReferences(_ context.Context, visit func([]blob.BlobRef) error) error {
+	return visit(append([]blob.BlobRef(nil), s.refs...))
+}
+
+func TestServiceCleanupProtectsAllRootsAndRejectsStalePreview(t *testing.T) {
+	ctx := context.Background()
+	store, _ := newTestStore(t)
+	assetID, err := NewService(store, nil).SaveTemplateCapture(pngDataURL(t, 8, 8), "live asset", "", nil, [2]int{8, 8}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetRecord, _ := store.Get(assetID)
+	external, err := store.blobs.Put(ctx, "application/octet-stream", strings.NewReader("workflow root"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphan, err := store.blobs.Put(ctx, "application/octet-stream", strings.NewReader("orphan one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	references := &testDurableReferences{refs: []blob.BlobRef{external}}
+	service := NewService(store, nil, references)
+	preview, err := service.PreviewCleanup()
+	if err != nil || preview.CandidateCount != 1 || preview.LiveCount != 2 {
+		t.Fatalf("PreviewCleanup() = %#v, %v", preview, err)
+	}
+	secondOrphan, err := store.blobs.Put(ctx, "application/octet-stream", strings.NewReader("orphan two"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CommitCleanup(preview.Token); !errors.Is(err, ErrCleanupPreviewStale) {
+		t.Fatalf("stale CommitCleanup() error = %v", err)
+	}
+	preview, err = service.PreviewCleanup()
+	if err != nil || preview.CandidateCount != 2 {
+		t.Fatalf("second PreviewCleanup() = %#v, %v", preview, err)
+	}
+	result, err := service.CommitCleanup(preview.Token)
+	if err != nil || result.Reclaimed != 2 {
+		t.Fatalf("CommitCleanup() = %#v, %v", result, err)
+	}
+	for _, live := range []blob.BlobRef{assetRecord.Variants[0].Blob, external} {
+		if err := store.blobs.Verify(ctx, live); err != nil {
+			t.Fatalf("live blob %s was reclaimed: %v", live.Digest, err)
+		}
+	}
+	for _, dead := range []blob.BlobRef{orphan, secondOrphan} {
+		if err := store.blobs.Verify(ctx, dead); err == nil {
+			t.Fatalf("orphan blob %s was retained", dead.Digest)
+		}
 	}
 }

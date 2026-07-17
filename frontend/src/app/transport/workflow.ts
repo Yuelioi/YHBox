@@ -1,7 +1,9 @@
-import { Events } from '@wailsio/runtime'
+import { Dialogs, Events } from '@wailsio/runtime'
 import * as WorkflowService from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/service.js'
 import type {
   CompileView,
+  BundleExportResult,
+  BundleInfoView,
   DeleteSourcePreview,
   DeleteSourceRequest,
   DeleteSourceResult,
@@ -40,6 +42,19 @@ export interface WorkflowTransport {
   previewDeleteSources(workflowIds: string[]): Promise<DeleteSourcePreview[]>
   deleteSources(requests: DeleteSourceRequest[]): Promise<DeleteSourceResult[]>
   createSource(name: string): Promise<SourceView>
+  chooseSourceBundle(): Promise<string>
+  chooseSourceBundleDestination(filename: string): Promise<string>
+  chooseSourceBundleDirectory(): Promise<string>
+  inspectSourceBundle(path: string): Promise<BundleInfoView>
+  importSourceBundle(path: string): Promise<SourceView>
+  replaceSourceFromBundle(
+    path: string,
+    workflowId: string,
+    revision: number,
+    sourceHash: string,
+  ): Promise<SourceView>
+  exportSourceBundle(workflowId: string, destination: string): Promise<BundleExportResult>
+  exportSourceBundles(workflowIds: string[], directory: string): Promise<BundleExportResult[]>
   getSource(workflowId: string): Promise<SourceView>
   applyPatch(
     workflowId: string,
@@ -64,6 +79,38 @@ export const workflowTransport: WorkflowTransport = {
   previewDeleteSources: (workflowIds) => WorkflowService.PreviewDeleteSources(workflowIds),
   deleteSources: (requests) => WorkflowService.DeleteSources(requests),
   createSource: (name) => WorkflowService.CreateSource(name),
+  chooseSourceBundle: () =>
+    Dialogs.OpenFile({
+      Title: 'Import Workflow Source',
+      AllowsMultipleSelection: false,
+      CanChooseFiles: true,
+      CanChooseDirectories: false,
+      Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
+    }),
+  chooseSourceBundleDestination: (filename) =>
+    Dialogs.SaveFile({
+      Title: 'Export Workflow Source',
+      Filename: filename,
+      CanChooseFiles: true,
+      CanChooseDirectories: false,
+      Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
+    }),
+  chooseSourceBundleDirectory: () =>
+    Dialogs.OpenFile({
+      Title: 'Export Workflow Sources',
+      AllowsMultipleSelection: false,
+      CanChooseFiles: false,
+      CanChooseDirectories: true,
+      CanCreateDirectories: true,
+    }),
+  inspectSourceBundle: (path) => WorkflowService.InspectSourceBundle(path),
+  importSourceBundle: (path) => WorkflowService.ImportSourceBundle(path),
+  replaceSourceFromBundle: (path, workflowId, revision, sourceHash) =>
+    WorkflowService.ReplaceSourceFromBundle(path, workflowId, revision, sourceHash),
+  exportSourceBundle: (workflowId, destination) =>
+    WorkflowService.ExportSourceBundle(workflowId, destination),
+  exportSourceBundles: (workflowIds, directory) =>
+    WorkflowService.ExportSourceBundles(workflowIds, directory),
   getSource: (workflowId) => WorkflowService.GetSource(workflowId),
   applyPatch: (workflowId, baseRevision, commands) =>
     WorkflowService.ApplyPatch(
@@ -128,6 +175,8 @@ function isDebugChangedEvent(value: unknown): value is DebugChangedEvent {
 }
 
 export type {
+  BundleExportResult,
+  BundleInfoView,
   CompileView,
   DeleteSourcePreview,
   DeleteSourceRequest,

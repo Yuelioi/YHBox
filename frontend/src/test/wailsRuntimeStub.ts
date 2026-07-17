@@ -80,6 +80,9 @@ export const Browser = {
 }
 
 export const Dialogs = {
+  async OpenFile(_options: unknown) {
+    return ''
+  },
   async SaveFile(_options: unknown) {
     return ''
   },

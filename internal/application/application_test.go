@@ -85,6 +85,49 @@ func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	}
 }
 
+func TestApplicationInventoriesWorkflowSourceBlobReferences(t *testing.T) {
+	now := time.Date(2026, 7, 17, 10, 40, 0, 0, time.UTC)
+	application, _, _, builtins, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(ctx); err != nil {
+			t.Errorf("Close = %v", err)
+		}
+	})
+	created, err := application.CreateSource(context.Background(), "Blob inventory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := blob.BlobRef{
+		MediaType: "application/octet-stream",
+		Digest:    artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Size:      42,
+	}
+	patched, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Commands: []authoring.Command{
+			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: builtins.BlobToStreamContract.NodeRef().NodeTypeID, Handle: "reader", Position: schema.Position{}}},
+			{Kind: authoring.CommandBindBlob, BindBlob: &authoring.BindBlobCommand{GraphID: "main", NodeID: "$reader", PortID: "blob", Blob: ref}},
+		},
+	})
+	if err != nil || !patched.Source.Valid() {
+		t.Fatalf("ApplyPatch() = %#v, %v", patched, err)
+	}
+	var inventory []blob.BlobRef
+	if err := application.WithDurableBlobReferences(context.Background(), func(refs []blob.BlobRef) error {
+		inventory = append([]blob.BlobRef(nil), refs...)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(inventory) != 1 || inventory[0] != ref {
+		t.Fatalf("durable Blob inventory = %#v", inventory)
+	}
+}
+
 func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 	now := time.Date(2026, 7, 17, 10, 45, 0, 0, time.UTC)
 	application, _, _, _, _, _ := newTestApplication(t, now, nil)

@@ -45,15 +45,19 @@
 | Android/ADB 目标 | 恢复重做 | 通过通用 installation seam 接入 | P0 |
 | 桌面应用取消与 F9 | 修复/恢复 | 取消 no-op；捕获回填 exact identity | P0 |
 | 工作流删除/批量/搜索/分页 | 恢复 | service/store 查询与引用语义 | P0/P1 |
-| 工作流 import/export | 延期独立工作包 | canonical Source + exact blobs；不恢复旧 Container zip | P2 / post-3.1 |
-| 资产批量/分页/维护 | 延期独立工作包 | QueryAssets + 批量 metadata；GC 必须先有完整 BlobRef roots | P2 / post-3.1 |
+| 工作流 import/export | 3.1 发布前恢复 | canonical Source + exact blobs；不恢复旧 Container zip | P0 / Slice 16 |
+| 资产批量/分页/维护 | 3.1 发布前恢复 | QueryAssets + 批量 metadata；GC 必须先有完整 BlobRef roots | P1 / Slice 17 |
 | AI API URL | 恢复为安装属性 | endpoint 属于可信 AI installation | P0 |
 | 悬浮窗启动入口 | 恢复入口 | 主壳调用既有 OpenLauncher | P0 |
 | 画布节点定位/命令面板 | 定位已恢复；palette 由现有入口替代 | Source-native 搜索/聚焦 | 完成 |
-| subgraph/comment/reroute | subgraph/comment 延期；旧 reroute 模型不恢复 | 完整调用契约/annotation/edge presentation | P3 / post-3.1 |
+| subgraph/comment/reroute | 3.1 发布前恢复/重做 | 完整调用契约/annotation/edge presentation | P1 / Slice 18 |
 | JS/yt 任意脚本入口 | 明确不恢复 | typed nodes/Node Package；未来仅 sandboxed Script Node | 不恢复 |
-| Browser CDP | 延期实验性 Adapter | controller 不等于 installation/product support | post-3.1 |
+| Browser CDP | 3.1 发布前恢复 | exact installation Adapter；controller 不等于 product support | P1 / Slice 19 |
 | 旧 Container UI/第二运行时 | 明确不恢复 | 保持 3.1 唯一路径 | 不恢复 |
+
+## 2026-07-17 发布边界纠偏
+
+3.1 尚未发布，不能把已纳入升级范围的缺失能力改称 post-3.1 后宣称完成。Slice 15 已重新打开；Source portability、资产规模化、subgraph/comment 与 Browser CDP 分别进入 Slices 16–19。只有旧双运行时、任意宿主脚本入口等明确不符合 3.1 安全架构的能力继续不恢复。
 
 ## Stage 7 事实修正
 

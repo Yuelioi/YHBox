@@ -42,4 +42,16 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain("confirmText: t('common.delete')")
     expect(source).not.toContain("title: t('workflow.list.delete_result')")
   })
+
+  it('imports, replaces, and exports portable Workflow Source bundles without success toasts', () => {
+    expect(source).toContain('workflowTransport.inspectSourceBundle')
+    expect(source).toContain('workflowTransport.importSourceBundle')
+    expect(source).toContain('workflowTransport.replaceSourceFromBundle')
+    expect(source).toContain('source.revision')
+    expect(source).toContain('source.sourceHash')
+    expect(source).toContain('workflowTransport.exportSourceBundle')
+    expect(source).toContain('workflowTransport.exportSourceBundles')
+    expect(source).toContain('portabilityFeedback.value')
+    expect(source).not.toContain("title: t('workflow.list.export_result')")
+  })
 })

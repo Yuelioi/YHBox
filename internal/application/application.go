@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yottaapp/yotta/internal/admission"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
@@ -644,6 +645,119 @@ func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot
 }
 
 func (a *Application) ListSources() []workflowstore.SourceSnapshot { return a.sources.List() }
+
+func (a *Application) WithDurableBlobReferences(ctx context.Context, visit func([]blob.BlobRef) error) error {
+	if ctx == nil || visit == nil {
+		return errors.New("durable blob inventory requires context and visitor")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	a.commandMu.Lock()
+	defer a.commandMu.Unlock()
+	if err := a.requireRunning(); err != nil {
+		return err
+	}
+	refs := make([]blob.BlobRef, 0)
+	for _, listed := range a.sources.List() {
+		snapshot, err := a.sources.Load(listed.WorkflowID())
+		if err != nil {
+			return err
+		}
+		document, diagnostics := schema.ParseSource(snapshot.Artifact())
+		if len(diagnostics) != 0 {
+			return errors.New("stored Workflow Source failed blob inventory reopen")
+		}
+		for _, graph := range document.Graphs {
+			for _, node := range graph.Nodes {
+				for _, binding := range node.Bindings {
+					if binding.Kind == schema.BindingBlob && binding.Blob != nil {
+						refs = append(refs, *binding.Blob)
+					}
+				}
+			}
+		}
+	}
+	programs, err := a.programs.List()
+	if err != nil {
+		return err
+	}
+	for _, program := range programs {
+		programRefs, err := program.BlobReferences(a.catalog)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, programRefs...)
+	}
+	records, err := a.runs.List()
+	if err != nil {
+		return err
+	}
+	for _, record := range records {
+		runRefs, err := record.BlobReferences(a.catalog)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, runRefs...)
+	}
+	return visit(uniqueBlobReferences(refs))
+}
+
+func uniqueBlobReferences(source []blob.BlobRef) []blob.BlobRef {
+	seen := make(map[blob.BlobRef]struct{}, len(source))
+	result := make([]blob.BlobRef, 0, len(source))
+	for _, ref := range source {
+		if _, duplicate := seen[ref]; duplicate {
+			continue
+		}
+		seen[ref] = struct{}{}
+		result = append(result, ref)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Digest == result[j].Digest {
+			return result[i].MediaType < result[j].MediaType
+		}
+		return result[i].Digest < result[j].Digest
+	})
+	return result
+}
+
+func (a *Application) PublishImportedSource(ctx context.Context, raw []byte, baseRevision int64, expectedHash artifact.Digest) (workflowstore.SourceSnapshot, error) {
+	if ctx == nil {
+		return workflowstore.SourceSnapshot{}, errors.New("import Workflow Source context is required")
+	}
+	a.commandMu.Lock()
+	defer a.commandMu.Unlock()
+	if err := a.requireRunning(); err != nil {
+		return workflowstore.SourceSnapshot{}, err
+	}
+	document, diagnostics := schema.ParseSource(raw)
+	if len(diagnostics) != 0 {
+		return workflowstore.SourceSnapshot{}, errors.New("imported Workflow Source is invalid")
+	}
+	if baseRevision == -1 {
+		if expectedHash != "" || document.Revision != 0 {
+			return workflowstore.SourceSnapshot{}, errors.New("new imported Workflow Source has invalid identity")
+		}
+	} else if baseRevision >= 0 {
+		if !expectedHash.Valid() || document.Revision != baseRevision+1 {
+			return workflowstore.SourceSnapshot{}, errors.New("replacement import requires exact next revision")
+		}
+		current, err := a.sources.Load(document.Workflow.ID)
+		if err != nil {
+			return workflowstore.SourceSnapshot{}, err
+		}
+		if current.Revision() != baseRevision || current.Hash() != expectedHash {
+			return workflowstore.SourceSnapshot{}, workflowstore.ErrSourceConflict
+		}
+		if active := a.ActiveSourceRuns(document.Workflow.ID); len(active) != 0 {
+			return workflowstore.SourceSnapshot{}, fmt.Errorf("workflow source has %d active run(s)", len(active))
+		}
+	} else {
+		return workflowstore.SourceSnapshot{}, errors.New("imported Workflow Source base revision is invalid")
+	}
+	return a.sources.Save(ctx, raw, baseRevision)
+}
 
 // ActiveSourceRuns returns the queued/running run IDs currently retaining one
 // Workflow Source. Historical Run records are intentionally not references:

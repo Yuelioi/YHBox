@@ -31,6 +31,7 @@ import (
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
@@ -70,6 +71,7 @@ type Runtime struct {
 	Application  *appcore.Application
 	Builtins     nodes.Builtins
 	BlobStore    *blob.Store
+	Bundles      *workflowbundle.Manager
 	ai           ai.Installations
 	http         httpegress.Installations
 	applications appcontrol.Installations
@@ -298,7 +300,11 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, ai: config.AIInstallations, http: config.HTTPInstallations, applications: config.ApplicationInstallations, automation: config.AutomationInstallations}, nil
+	bundles, err := workflowbundle.New(application, blobStore)
+	if err != nil {
+		return nil, err
+	}
+	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles, ai: config.AIInstallations, http: config.HTTPInstallations, applications: config.ApplicationInstallations, automation: config.AutomationInstallations}, nil
 }
 
 func (r *Runtime) Start(ctx context.Context) error {

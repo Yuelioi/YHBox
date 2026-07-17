@@ -191,7 +191,7 @@ func (p *Provider) Close(ctx context.Context, object any) error {
 		state.cancel()
 		select {
 		case <-state.done:
-			state.result.pin.release()
+			state.result.pin.Release()
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()

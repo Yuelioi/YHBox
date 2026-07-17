@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -47,6 +48,34 @@ func TestRunRecordStateMachineRoundTripsDurableValues(t *testing.T) {
 	}
 	if _, err := opened.Start(queuedAt.Add(3 * time.Second)); err == nil {
 		t.Fatal("terminal RunRecord transitioned again")
+	}
+}
+
+func TestRunRecordInventoriesDurableBlobValues(t *testing.T) {
+	catalog, definition := blobValueCatalog(t)
+	queuedAt := time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC)
+	running, err := queuedRecord(t, queuedAt).Start(queuedAt.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := blob.BlobRef{
+		MediaType: "application/octet-stream",
+		Digest:    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Size:      42,
+	}
+	envelope, err := datatype.SealBlobRef(catalog, datatype.RefResolvedType(definition.TypeRef()), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	succeeded, err := running.Succeed(queuedAt.Add(2*time.Second), catalog, []run.ProducedValue{{
+		ValueID: "value-1", GraphID: "main", NodeID: "capture-1", PortID: "image", Attempt: 1, Envelope: envelope,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs, err := succeeded.BlobReferences(catalog)
+	if err != nil || len(refs) != 1 || refs[0] != ref {
+		t.Fatalf("BlobReferences() = %#v, %v", refs, err)
 	}
 }
 
@@ -114,6 +143,20 @@ func externalValueCatalog(t *testing.T) (valueCatalog, datatype.Definition) {
 		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: id + "/schema",
 		SchemaBundle:    []datatype.SchemaResource{{ID: id + "/schema", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/stream/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema"}`)}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationStreamRef, Codec: datatype.CodecStreamRefV1}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return valueCatalog{id: definition}, definition
+}
+
+func blobValueCatalog(t *testing.T) (valueCatalog, datatype.Definition) {
+	t.Helper()
+	const id = "https://schemas.yotta.dev/types/test/blob/v1"
+	definition, err := datatype.SealDefinition(datatype.DefinitionDraft{
+		TypeID: id, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: id + "/schema",
+		SchemaBundle:    []datatype.SchemaResource{{ID: id + "/schema", Schema: json.RawMessage(`{"$id":"https://schemas.yotta.dev/types/test/blob/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema"}`)}},
+		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationBlobRef, Codec: datatype.CodecBlobRefV1}},
 	})
 	if err != nil {
 		t.Fatal(err)

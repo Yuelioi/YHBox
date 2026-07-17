@@ -43,8 +43,22 @@ describe('workflow authoring foundations', () => {
     expect(router).toContain("path: '/assets'")
     expect(source).toContain('recording.start(selectedTargetSlot.value)')
     expect(source).toContain("openScreenPicker('template_save'")
-    expect(source).toContain('clipsStore.update')
-    expect(source).toContain('templatesStore.updateMeta')
+    expect(source).toContain('backend.assets.updateMeta')
+    expect(source).toContain("'template_recapture'")
+    expect(source).toContain('backend.assets.removeVariant')
+  })
+
+  it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {
+    const source = readSource('src/views/AssetsView.vue')
+    expect(source).toContain('backend.assets.query')
+    expect(source).toContain('page: page.value')
+    expect(source).toContain('pageSize: pageSize.value')
+    expect(source).toContain('toggleCurrentPage')
+    expect(source).toContain('backend.assets.batchUpdateMeta')
+    expect(source).toContain('backend.assets.batchDelete')
+    expect(source).toContain('retainFailedSelection')
+    expect(source).toContain('backend.assets.previewCleanup')
+    expect(source).toContain('backend.assets.commitCleanup(preview.token)')
   })
 
   it('offers compatible nodes when a typed connection ends on the canvas', () => {

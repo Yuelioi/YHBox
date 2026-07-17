@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/runid"
@@ -462,4 +463,25 @@ func (r Record) Bytes() []byte {
 		return nil
 	}
 	return append([]byte(nil), r.state.bytes...)
+}
+
+func (r Record) BlobReferences(catalog datatype.ValueTypeCatalog) ([]blob.BlobRef, error) {
+	if !r.Valid() || catalog == nil {
+		return nil, errors.New("run blob inventory requires record and type catalog")
+	}
+	refs := make([]blob.BlobRef, 0)
+	seen := make(map[blob.BlobRef]struct{})
+	for _, value := range r.state.document.Values {
+		envelope, err := datatype.OpenValueEnvelope(catalog, value.Envelope)
+		if err != nil {
+			return nil, fmt.Errorf("open durable Run value: %w", err)
+		}
+		if ref, ok := envelope.BlobRef(); ok {
+			if _, duplicate := seen[ref]; !duplicate {
+				seen[ref] = struct{}{}
+				refs = append(refs, ref)
+			}
+		}
+	}
+	return refs, nil
 }

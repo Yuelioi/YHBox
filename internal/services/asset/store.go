@@ -29,6 +29,7 @@ var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 //	<dataRoot>/clips/<guid>.json       (kind=clip)
 //	<dataRoot>/blobs/<sha256>
 type Store struct {
+	gcMu  sync.RWMutex
 	mu    sync.RWMutex
 	root  string
 	recs  map[string]AssetRecord
@@ -277,6 +278,8 @@ func (s *Store) List() []AssetRecord {
 
 // PutRecord 写入（新建或全量替换）一条记录。
 func (s *Store) PutRecord(rec AssetRecord) error {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	if len(rec.Variants) != 0 || rec.Blob != nil {
 		return errors.New("records with blob references require CommitRecordBlob")
 	}
@@ -300,6 +303,8 @@ func (s *Store) putRecord(rec AssetRecord) error {
 
 // PutRecordMeta 仅更新 Name 和 Tags，其余字段不变。
 func (s *Store) PutRecordMeta(guid, name, description, category string, tags []string) error {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rec, ok := s.recs[guid]
@@ -323,6 +328,8 @@ func (s *Store) PutRecordMeta(guid, name, description, category string, tags []s
 
 // DeleteRecord 删除记录（内存 + 磁盘）。
 func (s *Store) DeleteRecord(guid string) error {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if rec, ok := s.recs[guid]; ok {
@@ -342,6 +349,8 @@ func (s *Store) DeleteRecord(guid string) error {
 
 // CommitRecordBlob is the only way to introduce a record-level blob reference.
 func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source io.Reader, build func(blob.BlobRef) AssetRecord) (blob.BlobRef, error) {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	if build == nil {
 		return blob.BlobRef{}, errors.New("blob record builder is required")
 	}
@@ -357,6 +366,8 @@ func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source i
 
 // CommitVariantBlob is the only way to introduce or replace a variant blob.
 func (s *Store) CommitVariantBlob(ctx context.Context, mediaType string, source io.Reader, guid string, res [2]int, bbox [4]int, regions [][4]int) (blob.BlobRef, error) {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
 		return blob.BlobRef{}, err
@@ -416,6 +427,8 @@ func (s *Store) putVariant(guid string, res [2]int, blobRef blob.BlobRef, bbox [
 
 // RemoveVariant 锁内删除指定 Resolution 的 Variant。
 func (s *Store) RemoveVariant(guid string, res [2]int) error {
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rec, ok := s.recs[guid]

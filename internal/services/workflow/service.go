@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -16,12 +18,14 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 type Service struct {
 	application *appcore.Application
 	authoring   nodeauthoring.Snapshot
+	bundles     *workflowbundle.Manager
 	references  ReferenceResolver
 }
 
@@ -31,6 +35,10 @@ type Option func(*Service)
 
 func WithReferenceResolver(resolver ReferenceResolver) Option {
 	return func(service *Service) { service.references = resolver }
+}
+
+func WithBundleManager(manager *workflowbundle.Manager) Option {
+	return func(service *Service) { service.bundles = manager }
 }
 
 func NewService(application *appcore.Application, options ...Option) (*Service, error) {
@@ -95,6 +103,22 @@ type DeleteSourceResult struct {
 	Deleted    bool              `json:"deleted"`
 	References []SourceReference `json:"references"`
 	Error      string            `json:"error,omitempty"`
+}
+
+type BundleInfoView struct {
+	WorkflowID string          `json:"workflowId"`
+	Name       string          `json:"name"`
+	Revision   int64           `json:"revision"`
+	SourceHash artifact.Digest `json:"sourceHash"`
+	BlobCount  int             `json:"blobCount"`
+	BlobBytes  int64           `json:"blobBytes"`
+}
+
+type BundleExportResult struct {
+	WorkflowID string `json:"workflowId"`
+	Path       string `json:"path,omitempty"`
+	Exported   bool   `json:"exported"`
+	Error      string `json:"error,omitempty"`
 }
 
 type CompileView struct {
@@ -245,6 +269,83 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 	end := min(start+query.PageSize, total)
 	items := append([]SourceView(nil), filtered[start:end]...)
 	return SourcePage{Items: items, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+}
+
+func (s *Service) InspectSourceBundle(archivePath string) (BundleInfoView, error) {
+	if s.bundles == nil {
+		return BundleInfoView{}, errors.New("workflow source portability is unavailable")
+	}
+	info, err := s.bundles.Inspect(context.Background(), archivePath)
+	if err != nil {
+		return BundleInfoView{}, err
+	}
+	return bundleInfoView(info), nil
+}
+
+func (s *Service) ImportSourceBundle(archivePath string) (SourceView, error) {
+	if s.bundles == nil {
+		return SourceView{}, errors.New("workflow source portability is unavailable")
+	}
+	result, err := s.bundles.Import(context.Background(), workflowbundle.ImportRequest{Path: archivePath, Mode: workflowbundle.ImportCopy})
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(result.Source, false)
+}
+
+func (s *Service) ReplaceSourceFromBundle(archivePath, targetWorkflowID string, expectedRevision int64, expectedSourceHash artifact.Digest) (SourceView, error) {
+	if s.bundles == nil {
+		return SourceView{}, errors.New("workflow source portability is unavailable")
+	}
+	result, err := s.bundles.Import(context.Background(), workflowbundle.ImportRequest{
+		Path: archivePath, Mode: workflowbundle.ImportReplace, TargetWorkflowID: targetWorkflowID,
+		ExpectedRevision: expectedRevision, ExpectedSourceHash: expectedSourceHash,
+	})
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(result.Source, false)
+}
+
+func (s *Service) ExportSourceBundle(workflowID, destination string) (BundleExportResult, error) {
+	if s.bundles == nil {
+		return BundleExportResult{}, errors.New("workflow source portability is unavailable")
+	}
+	result, err := s.bundles.Export(context.Background(), workflowID, destination)
+	if err != nil {
+		return BundleExportResult{}, err
+	}
+	return BundleExportResult{WorkflowID: workflowID, Path: result.Path, Exported: true}, nil
+}
+
+func (s *Service) ExportSourceBundles(workflowIDs []string, directory string) []BundleExportResult {
+	results := make([]BundleExportResult, 0, len(workflowIDs))
+	seen := make(map[string]struct{}, len(workflowIDs))
+	for _, workflowID := range workflowIDs {
+		result := BundleExportResult{WorkflowID: workflowID}
+		if s.bundles == nil {
+			result.Error = "workflow source portability is unavailable"
+		} else if strings.TrimSpace(directory) == "" {
+			result.Error = "workflow source export directory is required"
+		} else if _, duplicate := seen[workflowID]; duplicate {
+			result.Error = "duplicate workflow source export request"
+		} else {
+			seen[workflowID] = struct{}{}
+			destination := filepath.Join(directory, workflowID+workflowbundle.Extension)
+			if _, err := os.Lstat(destination); err == nil {
+				result.Error = "destination already exists"
+			} else if !errors.Is(err, os.ErrNotExist) {
+				result.Error = err.Error()
+			} else if exported, err := s.bundles.Export(context.Background(), workflowID, destination); err != nil {
+				result.Error = err.Error()
+			} else {
+				result.Exported = true
+				result.Path = exported.Path
+			}
+		}
+		results = append(results, result)
+	}
+	return results
 }
 
 func (s *Service) PreviewDeleteSources(workflowIDs []string) ([]DeleteSourcePreview, error) {
@@ -403,6 +504,13 @@ func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (Sour
 		view.SourceJSON = string(snapshot.Artifact())
 	}
 	return view, nil
+}
+
+func bundleInfoView(info workflowbundle.Info) BundleInfoView {
+	return BundleInfoView{
+		WorkflowID: info.WorkflowID, Name: info.Name, Revision: info.Revision,
+		SourceHash: info.SourceHash, BlobCount: info.BlobCount, BlobBytes: info.BlobBytes,
+	}
 }
 
 func runView(record run.Record) RunView {

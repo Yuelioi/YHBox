@@ -11,6 +11,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -58,6 +59,13 @@ type blobPin struct {
 	store  *Store
 	object string
 	once   sync.Once
+}
+
+type Retention interface{ Release() }
+
+type Object struct {
+	Digest artifact.Digest `json:"digest"`
+	Size   int64           `json:"size"`
 }
 
 func Open(root string, limits Limits) (*Store, error) {
@@ -127,6 +135,10 @@ func Open(root string, limits Limits) (*Store, error) {
 func (s *Store) Put(ctx context.Context, mediaType string, source io.Reader) (BlobRef, error) {
 	ref, _, err := s.put(ctx, mediaType, source, false)
 	return ref, err
+}
+
+func (s *Store) PutRetained(ctx context.Context, mediaType string, source io.Reader) (BlobRef, Retention, error) {
+	return s.putPinned(ctx, mediaType, source)
 }
 
 func (s *Store) putPinned(ctx context.Context, mediaType string, source io.Reader) (BlobRef, *blobPin, error) {
@@ -217,7 +229,7 @@ func (s *Store) pinLocked(ref BlobRef, requested bool) *blobPin {
 	return &blobPin{store: s, object: object}
 }
 
-func (p *blobPin) release() {
+func (p *blobPin) Release() {
 	if p == nil || p.store == nil {
 		return
 	}
@@ -230,6 +242,31 @@ func (p *blobPin) release() {
 		}
 		p.store.pins[p.object]--
 	})
+}
+
+func (s *Store) Objects() ([]Object, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entries, err := os.ReadDir(s.root)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Object, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Name() == ownershipMarker || strings.HasPrefix(entry.Name(), ".tmp-") {
+			continue
+		}
+		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !validObjectName(entry.Name()) {
+			return nil, fmt.Errorf("blob store contains invalid object %q", entry.Name())
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, Object{Digest: artifact.Digest("sha256:" + entry.Name()), Size: info.Size()})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Digest < result[j].Digest })
+	return result, nil
 }
 
 func (s *Store) ReadRange(ctx context.Context, ref BlobRef, offset, length int64) ([]byte, error) {
@@ -274,6 +311,38 @@ func (s *Store) Verify(ctx context.Context, ref BlobRef) error {
 	}
 	defer file.Close()
 	return verifyOpenFile(ctx, file, ref)
+}
+
+func (s *Store) WriteTo(ctx context.Context, ref BlobRef, destination io.Writer) error {
+	if destination == nil {
+		return errors.New("blob destination is required")
+	}
+	if err := ref.Validate(); err != nil {
+		return err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	file, err := os.Open(filepath.Join(s.root, objectName(ref.Digest)))
+	if err != nil {
+		return fmt.Errorf("open blob: %w", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() != ref.Size {
+		return errors.New("blob size integrity check failed")
+	}
+	hash := sha256.New()
+	written, err := copyBounded(ctx, io.MultiWriter(destination, hash), file, ref.Size)
+	if err != nil {
+		return err
+	}
+	if written != ref.Size || "sha256:"+hex.EncodeToString(hash.Sum(nil)) != ref.Digest.String() {
+		return errors.New("blob digest integrity check failed")
+	}
+	return nil
 }
 
 // Sweep deletes committed objects that are not present in the complete live set.

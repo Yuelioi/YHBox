@@ -11,6 +11,16 @@
           {{ t('workflow.list.description') }}
         </p>
       </div>
+      <UButton
+        class="self-end"
+        color="neutral"
+        variant="soft"
+        icon="i-tabler-file-import"
+        :label="t('workflow.list.import_source')"
+        :loading="importing"
+        :disabled="portabilityBusy"
+        @click="importSourceBundle"
+      />
       <form
         class="flex w-full flex-wrap items-end gap-2 sm:w-auto"
         @submit.prevent="createWorkflow"
@@ -100,6 +110,17 @@
           </UButton>
           <UButton
             size="sm"
+            color="neutral"
+            variant="soft"
+            icon="i-tabler-file-export"
+            :loading="batchExporting"
+            :disabled="portabilityBusy"
+            @click="exportSelected"
+          >
+            {{ t('workflow.list.export_selected') }}
+          </UButton>
+          <UButton
+            size="sm"
             color="error"
             variant="soft"
             icon="i-tabler-trash"
@@ -109,6 +130,24 @@
             {{ t('workflow.list.delete_selected') }}
           </UButton>
         </div>
+      </div>
+
+      <div
+        v-if="portabilityFeedback"
+        class="mb-4 rounded-lg border px-4 py-3 text-sm"
+        :class="
+          portabilityFeedback.tone === 'success'
+            ? 'border-success/30 bg-success/10 text-success'
+            : portabilityFeedback.tone === 'warning'
+              ? 'border-warning/30 bg-warning/10 text-warning'
+              : 'border-error/30 bg-error/10 text-error'
+        "
+        :role="portabilityFeedback.tone === 'error' ? 'alert' : 'status'"
+      >
+        <p>{{ portabilityFeedback.message }}</p>
+        <ul v-if="portabilityFeedback.details.length" class="mt-2 list-disc space-y-1 pl-5 text-xs">
+          <li v-for="detail in portabilityFeedback.details" :key="detail">{{ detail }}</li>
+        </ul>
       </div>
 
       <div
@@ -230,6 +269,28 @@
             </div>
             <div class="flex flex-wrap justify-end gap-2">
               <UButton
+                :label="t('workflow.list.export_source')"
+                :aria-label="t('workflow.list.export_named', { name: source.name })"
+                icon="i-tabler-file-export"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :loading="exportingId === source.workflowId"
+                :disabled="portabilityBusy"
+                @click="exportSource(source)"
+              />
+              <UButton
+                :label="t('workflow.list.replace_source')"
+                :aria-label="t('workflow.list.replace_named', { name: source.name })"
+                icon="i-tabler-file-arrow-left"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :loading="replacingId === source.workflowId"
+                :disabled="portabilityBusy"
+                @click="replaceSource(source)"
+              />
+              <UButton
                 :label="t('workflow.action.run')"
                 :aria-label="t('workflow.action.run_named', { name: source.name })"
                 icon="i-tabler-player-play"
@@ -304,6 +365,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import {
   workflowTransport,
+  type BundleInfoView,
   type DeleteSourcePreview,
   type SourceView,
 } from '@/app/transport/workflow'
@@ -327,10 +389,19 @@ const selected = ref<Record<string, SelectedSource>>({})
 const loading = ref(true)
 const creating = ref(false)
 const deleting = ref(false)
+const importing = ref(false)
+const exportingId = ref('')
+const replacingId = ref('')
+const batchExporting = ref(false)
 const newName = ref('')
 const newTemplate = ref<'generic' | 'windows' | 'android' | 'cross-target'>('generic')
 const failure = ref('')
 const deleteFeedback = ref<{
+  tone: 'success' | 'warning' | 'error'
+  message: string
+  details: string[]
+} | null>(null)
+const portabilityFeedback = ref<{
   tone: 'success' | 'warning' | 'error'
   message: string
   details: string[]
@@ -341,6 +412,10 @@ const runFeedbackById = reactive<
 >({})
 
 const selectedRows = computed(() => Object.values(selected.value))
+const portabilityBusy = computed(
+  () =>
+    importing.value || exportingId.value !== '' || replacingId.value !== '' || batchExporting.value,
+)
 const allCurrentPageSelected = computed(
   () =>
     sources.value.length > 0 && sources.value.every((source) => selected.value[source.workflowId]),
@@ -433,6 +508,133 @@ function toggleCurrentPage(event: Event): void {
 
 function clearSelection(): void {
   selected.value = {}
+}
+
+async function importSourceBundle(): Promise<void> {
+  if (portabilityBusy.value) return
+  portabilityFeedback.value = null
+  importing.value = true
+  try {
+    const path = await workflowTransport.chooseSourceBundle()
+    if (!path) return
+    const info = await workflowTransport.inspectSourceBundle(path)
+    const accepted = await confirm({
+      title: t('workflow.list.import_title', { name: info.name }),
+      description: bundleDescription(info),
+      confirmText: t('workflow.list.import_source'),
+      cancelText: t('common.cancel'),
+    })
+    if (accepted !== true) return
+    const imported = await workflowTransport.importSourceBundle(path)
+    portabilityFeedback.value = {
+      tone: 'success',
+      message: t('workflow.list.import_result', { name: imported.name }),
+      details: [imported.workflowId],
+    }
+    await load()
+  } catch (error) {
+    portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
+  } finally {
+    importing.value = false
+  }
+}
+
+async function exportSource(source: SelectedSource): Promise<void> {
+  if (portabilityBusy.value) return
+  portabilityFeedback.value = null
+  exportingId.value = source.workflowId
+  try {
+    const destination = await workflowTransport.chooseSourceBundleDestination(
+      `${source.workflowId}.yotta-workflow`,
+    )
+    if (!destination) return
+    const result = await workflowTransport.exportSourceBundle(source.workflowId, destination)
+    portabilityFeedback.value = {
+      tone: 'success',
+      message: t('workflow.list.export_result', { n: 1 }),
+      details: result.path ? [result.path] : [],
+    }
+  } catch (error) {
+    portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
+  } finally {
+    exportingId.value = ''
+  }
+}
+
+async function exportSelected(): Promise<void> {
+  if (!selectedRows.value.length || portabilityBusy.value) return
+  portabilityFeedback.value = null
+  batchExporting.value = true
+  try {
+    const directory = await workflowTransport.chooseSourceBundleDirectory()
+    if (!directory) return
+    const results = await workflowTransport.exportSourceBundles(
+      selectedRows.value.map((source) => source.workflowId),
+      directory,
+    )
+    const failed = results.filter((result) => !result.exported)
+    const exported = results.filter((result) => result.exported)
+    portabilityFeedback.value = {
+      tone: failed.length ? 'warning' : 'success',
+      message: t('workflow.list.export_batch_result', {
+        exported: exported.length,
+        failed: failed.length,
+      }),
+      details: failed.map((result) => `${selectedName(result.workflowId)}: ${result.error ?? ''}`),
+    }
+  } catch (error) {
+    portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
+  } finally {
+    batchExporting.value = false
+  }
+}
+
+async function replaceSource(source: SelectedSource): Promise<void> {
+  if (portabilityBusy.value) return
+  portabilityFeedback.value = null
+  replacingId.value = source.workflowId
+  try {
+    const path = await workflowTransport.chooseSourceBundle()
+    if (!path) return
+    const info = await workflowTransport.inspectSourceBundle(path)
+    const accepted = await confirm({
+      title: t('workflow.list.replace_title', { name: source.name }),
+      description: `${bundleDescription(info)}\n${t('workflow.list.replace_description')}`,
+      confirmText: t('workflow.list.replace_source'),
+      cancelText: t('common.cancel'),
+      color: 'warning',
+    })
+    if (accepted !== true) return
+    const replaced = await workflowTransport.replaceSourceFromBundle(
+      path,
+      source.workflowId,
+      source.revision,
+      source.sourceHash,
+    )
+    portabilityFeedback.value = {
+      tone: 'success',
+      message: t('workflow.list.replace_result', { name: replaced.name }),
+      details: [t('workflow.list.revision') + ` ${replaced.revision}`],
+    }
+    await load()
+  } catch (error) {
+    portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
+  } finally {
+    replacingId.value = ''
+  }
+}
+
+function bundleDescription(info: BundleInfoView): string {
+  return t('workflow.list.bundle_description', {
+    name: info.name,
+    revision: info.revision,
+    blobs: info.blobCount,
+    bytes: info.blobBytes,
+  })
+}
+
+function selectedName(workflowId: string): string {
+  return selected.value[workflowId]?.name ?? workflowId
 }
 
 async function requestDelete(rows: SelectedSource[]): Promise<void> {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -147,6 +148,25 @@ func (s *ProgramStore) Load(hash artifact.Digest) (compiler.ProgramSnapshot, err
 		return compiler.ProgramSnapshot{}, ErrProgramChanged
 	}
 	return program, nil
+}
+
+func (s *ProgramStore) List() ([]compiler.ProgramSnapshot, error) {
+	s.mu.RLock()
+	hashes := make([]artifact.Digest, 0, len(s.programs))
+	for hash := range s.programs {
+		hashes = append(hashes, hash)
+	}
+	s.mu.RUnlock()
+	sort.Slice(hashes, func(i, j int) bool { return hashes[i] < hashes[j] })
+	result := make([]compiler.ProgramSnapshot, 0, len(hashes))
+	for _, hash := range hashes {
+		program, err := s.Load(hash)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, program)
+	}
+	return result, nil
 }
 
 func (s *ProgramStore) programPath(hash artifact.Digest) string {

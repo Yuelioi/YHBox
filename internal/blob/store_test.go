@@ -111,6 +111,27 @@ func TestStoreSweepOwnsObjectLifecycle(t *testing.T) {
 	}
 }
 
+func TestRetainedPutProtectsObjectUntilDurableReferencePublication(t *testing.T) {
+	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, retention, err := store.PutRetained(context.Background(), "text/plain", strings.NewReader("pending"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reclaimed, err := store.Sweep(nil); err != nil || reclaimed != 0 {
+		t.Fatalf("Sweep while retained = %d, %v", reclaimed, err)
+	}
+	if err := store.Verify(context.Background(), ref); err != nil {
+		t.Fatalf("retained object was removed: %v", err)
+	}
+	retention.Release()
+	if reclaimed, err := store.Sweep(nil); err != nil || reclaimed != 1 {
+		t.Fatalf("Sweep after release = %d, %v", reclaimed, err)
+	}
+}
+
 func TestStoreRejectsUnownedOrEmptyRoot(t *testing.T) {
 	limits := blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096}
 	if _, err := blob.Open("", limits); err == nil {

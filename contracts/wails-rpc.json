@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 106,
-    "models": 134
+    "methods": 116,
+    "models": 142
   },
   "services": [
     {
@@ -349,6 +349,30 @@
           "returns": "$CancellablePromise<string>"
         },
         {
+          "name": "BatchDelete",
+          "bindingId": "4196220562",
+          "parameters": [
+            {
+              "name": "guids",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BatchResult[]>"
+        },
+        {
+          "name": "BatchUpdateMeta",
+          "bindingId": "2857757945",
+          "parameters": [
+            {
+              "name": "requests",
+              "optional": false,
+              "type": "$models.BatchMetaRequest[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BatchResult[]>"
+        },
+        {
           "name": "Capture",
           "bindingId": "423872531",
           "parameters": [
@@ -359,6 +383,18 @@
             }
           ],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "CommitCleanup",
+          "bindingId": "4017579418",
+          "parameters": [
+            {
+              "name": "expected",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.CleanupResult>"
         },
         {
           "name": "CurrentResolution",
@@ -435,6 +471,24 @@
             }
           ],
           "returns": "$CancellablePromise<$models.BlobPreview>"
+        },
+        {
+          "name": "PreviewCleanup",
+          "bindingId": "2483312603",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.CleanupPreview>"
+        },
+        {
+          "name": "QueryAssets",
+          "bindingId": "3437306620",
+          "parameters": [
+            {
+              "name": "query",
+              "optional": false,
+              "type": "$models.AssetQuery"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.AssetPage>"
         },
         {
           "name": "RemoveVariant",
@@ -1213,6 +1267,40 @@
           "returns": "$CancellablePromise<$models.DeleteSourceResult[]>"
         },
         {
+          "name": "ExportSourceBundle",
+          "bindingId": "57269803",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "destination",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BundleExportResult>"
+        },
+        {
+          "name": "ExportSourceBundles",
+          "bindingId": "3081307272",
+          "parameters": [
+            {
+              "name": "workflowIDs",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "directory",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BundleExportResult[]>"
+        },
+        {
           "name": "GetAuthoringProjection",
           "bindingId": "1431440996",
           "parameters": [],
@@ -1261,6 +1349,30 @@
           "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
+          "name": "ImportSourceBundle",
+          "bindingId": "1615102936",
+          "parameters": [
+            {
+              "name": "archivePath",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "InspectSourceBundle",
+          "bindingId": "1351186153",
+          "parameters": [
+            {
+              "name": "archivePath",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BundleInfoView>"
+        },
+        {
           "name": "ListSources",
           "bindingId": "857662794",
           "parameters": [],
@@ -1301,6 +1413,33 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourcePage>"
+        },
+        {
+          "name": "ReplaceSourceFromBundle",
+          "bindingId": "96465661",
+          "parameters": [
+            {
+              "name": "archivePath",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "targetWorkflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "expectedRevision",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "expectedSourceHash",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
           "name": "SetDebugBreakpoints",
@@ -2407,6 +2546,73 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "AssetPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "AssetSummary[]"
+            },
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"page\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pageSize\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "AssetQuery",
+          "fields": [
+            {
+              "name": "\"search\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"sort\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"page\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"pageSize\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AssetRecord",
           "fields": [
             {
@@ -2540,6 +2746,53 @@
         },
         {
           "kind": "class",
+          "name": "BatchMetaRequest",
+          "fields": [
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BatchResult",
+          "fields": [
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updated\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"deleted\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "BlobPreview",
           "fields": [
             {
@@ -2559,6 +2812,53 @@
             },
             {
               "name": "\"height\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupPreview",
+          "fields": [
+            {
+              "name": "\"token\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"candidateCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"candidateBytes\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"liveCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"objectCount\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CleanupResult",
+          "fields": [
+            {
+              "name": "\"token\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"reclaimed\"",
               "optional": false,
               "type": "number"
             }
@@ -4197,6 +4497,68 @@
     {
       "module": "internal/services/workflow/models",
       "declarations": [
+        {
+          "kind": "class",
+          "name": "BundleExportResult",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"path\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"exported\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BundleInfoView",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"blobCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"blobBytes\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
         {
           "kind": "class",
           "name": "CompileView",

@@ -233,6 +233,25 @@ func (s *Store) Load(runID string) (Record, error) {
 	return durable, nil
 }
 
+func (s *Store) List() ([]Record, error) {
+	s.mu.RLock()
+	ids := make([]string, 0, len(s.records))
+	for id := range s.records {
+		ids = append(ids, id)
+	}
+	s.mu.RUnlock()
+	sort.Strings(ids)
+	result := make([]Record, 0, len(ids))
+	for _, id := range ids {
+		record, err := s.Load(id)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, nil
+}
+
 // InterruptRunning durably terminates every Run left running after process
 // restart. It never replays effects or silently requeues work.
 func (s *Store) InterruptRunning(ctx context.Context, at time.Time) ([]Record, error) {

@@ -13,6 +13,7 @@ import (
 
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/configvalidator"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -532,4 +533,32 @@ func (p ProgramSnapshot) State() []StateView {
 		result = append(result, StateView{Name: slot.Name, Type: clonedType, InitialArtifact: append([]byte(nil), slot.Initial...)})
 	}
 	return result
+}
+
+func (p ProgramSnapshot) BlobReferences(catalog datatype.ValueTypeCatalog) ([]blob.BlobRef, error) {
+	if !p.Valid() || catalog == nil {
+		return nil, errors.New("program blob inventory requires Program and type catalog")
+	}
+	refs := make([]blob.BlobRef, 0)
+	seen := make(map[blob.BlobRef]struct{})
+	for _, graph := range p.state.document.Body.Graphs {
+		for _, node := range graph.Nodes {
+			for _, input := range node.Inputs {
+				if input.Kind != inputLiteral {
+					continue
+				}
+				envelope, err := datatype.OpenValueEnvelope(catalog, input.Value)
+				if err != nil {
+					return nil, fmt.Errorf("open Program input value: %w", err)
+				}
+				if ref, ok := envelope.BlobRef(); ok {
+					if _, duplicate := seen[ref]; !duplicate {
+						seen[ref] = struct{}{}
+						refs = append(refs, ref)
+					}
+				}
+			}
+		}
+	}
+	return refs, nil
 }

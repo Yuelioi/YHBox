@@ -174,7 +174,7 @@ func Run(config Config) error {
 		return fmt.Errorf("initialize workflow runtime: %w", err)
 	}
 	var scheduleSvc *schedule.Service
-	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
+	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflow.WithBundleManager(workflowRuntime.Bundles), workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
 		references := make([]workflow.SourceReference, 0)
 		if scheduleSvc != nil {
 			for _, configured := range scheduleSvc.List() {
@@ -258,7 +258,7 @@ func Run(config Config) error {
 
 	// Asset authoring captures exact installed targets; no Workflow
 	// document can inject a native window selector.
-	assetSvc := asset.NewService(assetStore, authoringTargets)
+	assetSvc := asset.NewService(assetStore, authoringTargets, workflowRuntime.Application)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {

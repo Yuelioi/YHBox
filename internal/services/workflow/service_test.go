@@ -96,6 +96,54 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	}
 }
 
+func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 7, 17, 3, 30, 0, 0, time.UTC))
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application, workflow.WithBundleManager(runtime.Bundles))
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("Portable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(t.TempDir(), created.WorkflowID+".yotta-workflow")
+	exported, err := service.ExportSourceBundle(created.WorkflowID, archivePath)
+	if err != nil || !exported.Exported || exported.Path != archivePath {
+		t.Fatalf("ExportSourceBundle() = %#v, %v", exported, err)
+	}
+	info, err := service.InspectSourceBundle(archivePath)
+	if err != nil || info.WorkflowID != created.WorkflowID || info.SourceHash != created.SourceHash {
+		t.Fatalf("InspectSourceBundle() = %#v, %v", info, err)
+	}
+	imported, err := service.ImportSourceBundle(archivePath)
+	if err != nil || imported.WorkflowID == created.WorkflowID || imported.Name != created.Name || imported.Revision != 0 {
+		t.Fatalf("ImportSourceBundle() = %#v, %v", imported, err)
+	}
+	replaced, err := service.ReplaceSourceFromBundle(archivePath, imported.WorkflowID, imported.Revision, imported.SourceHash)
+	if err != nil || replaced.WorkflowID != imported.WorkflowID || replaced.Revision != 1 {
+		t.Fatalf("ReplaceSourceFromBundle() = %#v, %v", replaced, err)
+	}
+	batchDirectory := t.TempDir()
+	results := service.ExportSourceBundles([]string{created.WorkflowID, imported.WorkflowID}, batchDirectory)
+	if len(results) != 2 || !results[0].Exported || !results[1].Exported {
+		t.Fatalf("ExportSourceBundles() = %#v", results)
+	}
+	repeated := service.ExportSourceBundles([]string{created.WorkflowID}, batchDirectory)
+	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Error != "destination already exists" {
+		t.Fatalf("repeated ExportSourceBundles() = %#v", repeated)
+	}
+}
+
 func TestServiceRejectsMissingOrUntrustedApplication(t *testing.T) {
 	if _, err := workflow.NewService(nil); err == nil {
 		t.Fatal("NewService accepted nil Application")

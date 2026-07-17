@@ -96,6 +96,38 @@ export interface AssetRecord {
   createdAt: string
 }
 
+export interface AssetQuery {
+  search: string
+  kind: string
+  category: string
+  tags: string[]
+  sort: string
+  page: number
+  pageSize: number
+}
+
+export interface AssetPage {
+  items: AssetSummary[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface AssetBatchResult {
+  guid: string
+  updated?: boolean
+  deleted?: boolean
+  error?: string
+}
+
+export interface AssetCleanupPreview {
+  token: string
+  candidateCount: number
+  candidateBytes: number
+  liveCount: number
+  objectCount: number
+}
+
 export interface BlobRef {
   mediaType: string
   digest: string
@@ -383,6 +415,15 @@ export const backend = {
   assets: {
     // List 全局资产列表 (template + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
+    query: (query: AssetQuery) =>
+      invoke(AssetService.QueryAssets, query) as Promise<AssetPage | undefined>,
+    batchUpdateMeta: (requests: Array<{ guid: string; category: string; tags: string[] }>) =>
+      invoke(AssetService.BatchUpdateMeta, requests) as Promise<AssetBatchResult[] | undefined>,
+    batchDelete: (guids: string[]) =>
+      invoke(AssetService.BatchDelete, guids) as Promise<AssetBatchResult[] | undefined>,
+    previewCleanup: () =>
+      invoke(AssetService.PreviewCleanup) as Promise<AssetCleanupPreview | undefined>,
+    commitCleanup: (token: string) => invoke(AssetService.CommitCleanup, token),
     // SaveTemplateCapture 截图存为新模板资产, 返 GUID. tags 截图时可选设标签.
     saveTemplateCapture: (
       dataURL: string,
