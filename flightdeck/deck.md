@@ -1,7 +1,7 @@
 ---
 format: 4
 project: yotta
-focus: null
+focus: workflow-editor-capability-roadmap
 ---
 
 # Flightdeck
