@@ -4,7 +4,7 @@
     :class="selected ? 'border-primary/70 shadow-primary/10' : 'border-default'"
   >
     <header
-      class="flex items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5"
+      class="workflow-node-drag-handle flex cursor-grab items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5 active:cursor-grabbing"
     >
       <UIcon :name="iconName" class="size-4 shrink-0 text-primary" aria-hidden="true" />
       <div class="min-w-0 flex-1">

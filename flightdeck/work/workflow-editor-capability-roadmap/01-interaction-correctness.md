@@ -14,11 +14,11 @@
 
 ## Blocked by
 
-无；最高概率是假设中的 computed nodes 与内部 store 浅同步竞态，必须用证据确认。
+无。
 
 ## Verification
 
-只跑交互层定向测试与必要 typecheck；Stage 1 末统一完整验收。
+阶段内已运行 pnpm vitest run src/app/editor/workflowFlowProjection.spec.ts（2/2）和 pnpm typecheck。Stage 1 末统一运行完整门禁和 Windows GUI 手势矩阵。
 
 ## Out of scope
 
@@ -26,4 +26,4 @@
 
 ## Result
 
-Planned。目标结构：稳定 Vue Flow 交互投影 + EditorSession 持久位置事实源。
+Completed。真实 Vue Flow store 测试证实：外部 computed nodes 同时投影 selected 和旧 position 时，selection 变化会触发 setNodes，把内部实时位置从 (320,240) 回写为 (40,60)。修复移除外部 selected 投影，以 Vue Flow 为选择态事实源；加入 live gesture position overlay 抵御拖拽期间 Source 刷新；dragHandle 收窄为节点 header。真实红灯连续三次稳定失败，修复后 selection/source-refresh 两个用例转绿且 typecheck 通过。

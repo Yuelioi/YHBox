@@ -176,6 +176,8 @@
             @connect="connect"
             @node-click="selectNode"
             @pane-click="selectedNodeId = ''"
+            @node-drag-start="trackNodeDrag"
+            @node-drag="trackNodeDrag"
             @node-drag-stop="moveNode"
             @edge-double-click="disconnect"
           >
@@ -272,7 +274,6 @@ import {
   type Connection,
   type Edge as FlowEdge,
   type EdgeMouseEvent,
-  type Node as FlowNode,
   type NodeDragEvent,
   type NodeMouseEvent,
 } from '@vue-flow/core'
@@ -295,13 +296,12 @@ import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
+import {
+  createWorkflowNodeGestureState,
+  projectWorkflowFlowNodes,
+} from '@/app/editor/workflowFlowProjection'
 
 defineOptions({ name: 'WorkflowEditorView' })
-
-interface WorkflowNodeData {
-  node: Node
-  projection: NodeProjection
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -317,6 +317,7 @@ const catalogQuery = ref('')
 const compileSucceeded = ref(false)
 const saveSucceeded = ref(false)
 const { screenToFlowCoordinate } = useVueFlow()
+const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
 let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
@@ -346,20 +347,12 @@ const catalogGroups = computed(() => {
     }))
 })
 
-const flowNodes = computed<FlowNode<WorkflowNodeData, Record<string, never>, 'workflow'>[]>(() =>
-  (session.currentGraph?.nodes ?? []).flatMap((node) => {
-    const projection = session.nodeProjection(node.nodeRef.nodeTypeId)
-    if (!projection) return []
-    return [
-      {
-        id: node.id,
-        type: 'workflow',
-        position: node.position,
-        selected: node.id === selectedNodeId.value,
-        data: { node, projection },
-      },
-    ]
-  }),
+const flowNodes = computed(() =>
+  projectWorkflowFlowNodes(
+    session.currentGraph?.nodes ?? [],
+    session.nodeProjection.bind(session),
+    nodeGestures.positions,
+  ),
 )
 
 const flowEdges = computed<FlowEdge[]>(() =>
@@ -514,8 +507,14 @@ function selectNode(event: NodeMouseEvent): void {
   selectedNodeId.value = event.node.id
 }
 
+function trackNodeDrag(event: NodeDragEvent): void {
+  nodeGestures.track(event.node.id, event.node.position)
+}
+
 function moveNode(event: NodeDragEvent): void {
-  session.apply({ kind: 'move-node', nodeId: event.node.id, position: event.node.position })
+  nodeGestures.track(event.node.id, event.node.position)
+  applyCommand({ kind: 'move-node', nodeId: event.node.id, position: event.node.position })
+  nodeGestures.clear(event.node.id)
 }
 
 function renameWorkflow(name: string): void {
