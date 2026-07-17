@@ -18,6 +18,8 @@ import type {
   WorkflowJSONValue,
   WorkflowPatchCommand,
   WorkflowTransport,
+  DebugBreakpoint,
+  DebugSnapshot,
 } from '@/app/transport/workflow'
 import {
   projectedConnectionCompatibility,
@@ -75,6 +77,7 @@ export class EditorSession {
   lastRunHash = ''
   diagnostics: CompileView['diagnostics'] = []
   activeRun: RunView | null = null
+  debugSnapshot: DebugSnapshot | null = null
   graphPath: string[] = []
   dirty = false
   saveConflict = ''
@@ -340,7 +343,30 @@ export class EditorSession {
   }
 
   async run(): Promise<RunView | null> {
-    return this.start()
+    return this.start(false, [])
+  }
+
+  async startDebug(breakpoints: DebugBreakpoint[]): Promise<RunView | null> {
+    return this.start(true, breakpoints)
+  }
+
+  async controlDebug(action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot> {
+    if (!this.activeRun || !this.debugSnapshot) throw new Error('debug Run is unavailable')
+    this.debugSnapshot = await this.transport.controlDebugRun(this.activeRun.runId, action)
+    return this.debugSnapshot
+  }
+
+  async setDebugBreakpoints(breakpoints: DebugBreakpoint[]): Promise<DebugSnapshot> {
+    if (!this.activeRun || !this.debugSnapshot) throw new Error('debug Run is unavailable')
+    this.debugSnapshot = await this.transport.setDebugBreakpoints(this.activeRun.runId, breakpoints)
+    return this.debugSnapshot
+  }
+
+  acceptDebugSnapshot(runId: string, snapshot: DebugSnapshot): boolean {
+    if (runId !== this.activeRun?.runId || !this.debugSnapshot) return false
+    if (snapshot.generation < this.debugSnapshot.generation) return false
+    this.debugSnapshot = snapshot
+    return true
   }
 
   async refreshRun(): Promise<RunView | null> {
@@ -361,19 +387,22 @@ export class EditorSession {
     return JSON.stringify(this.requireSource())
   }
 
-  private async start(): Promise<RunView | null> {
+  private async start(debug: boolean, breakpoints: DebugBreakpoint[]): Promise<RunView | null> {
     this.failure = ''
     try {
       const compile = await this.validate()
       if (compile.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
       if (!compile.programHash) throw new Error('compiler produced no Program hash')
       this.phase = 'running'
-      const started = await this.transport.startRun(this.workflowId)
+      const started = debug
+        ? await this.transport.startDebugRun(this.workflowId, breakpoints)
+        : await this.transport.startRun(this.workflowId)
       this.diagnostics = [...started.diagnostics]
       this.sourceHash = started.sourceHash ?? this.sourceHash
       this.compiledHash = started.programHash ?? this.compiledHash
       this.lastRunHash = started.programHash ?? ''
       this.activeRun = started.run ?? null
+      this.debugSnapshot = started.debug ?? null
       if (!this.activeRun) this.phase = 'ready'
       return this.activeRun
     } catch (error) {

@@ -12,6 +12,7 @@ import type {
   SourceView,
   StartRunView,
   WorkflowTransport,
+  DebugSnapshot,
 } from '@/app/transport/workflow'
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
@@ -86,6 +87,48 @@ describe('EditorSession', () => {
       expect.arrayContaining([expect.objectContaining({ kind: 'add-node' })]),
     )
     expect(transport.startRun).toHaveBeenCalledWith(source.workflow.id)
+  })
+
+  it('starts and controls a true debug Run through the admitted Run transport', async () => {
+    const source = emptySource()
+    const run = runView('RUNNING')
+    const transport = mockTransport(sourceView(source), run)
+    const paused = {
+      status: 'paused',
+      generation: 4,
+      graphId: 'main',
+      nodeId: 'run-started',
+      queue: [],
+      inputs: {},
+      outputs: {},
+      state: {},
+    } as DebugSnapshot
+    vi.mocked(transport.startDebugRun).mockResolvedValue({
+      sourceHash: 'sha256:source-next',
+      programHash: 'sha256:program',
+      diagnostics: [],
+      run,
+      debug: paused,
+    } as StartRunView)
+    vi.mocked(transport.controlDebugRun).mockResolvedValue({
+      ...paused,
+      status: 'running',
+      generation: 5,
+    } as DebugSnapshot)
+    const session = new EditorSession(transport)
+
+    await session.load(source.workflow.id)
+    await session.startDebug([{ graphId: 'main', nodeId: 'run-started' } as never])
+
+    expect(transport.startDebugRun).toHaveBeenCalledWith(source.workflow.id, [
+      { graphId: 'main', nodeId: 'run-started' },
+    ])
+    expect(session.debugSnapshot?.nodeId).toBe('run-started')
+    expect(
+      session.acceptDebugSnapshot(run.runId, { ...paused, generation: 3 } as DebugSnapshot),
+    ).toBe(false)
+    await session.controlDebug('continue')
+    expect(session.debugSnapshot?.status).toBe('running')
   })
 
   it('rejects an incompatible or wrong-carrier edge before compile', async () => {
@@ -418,6 +461,19 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
           run,
         }) as StartRunView,
     ),
+    startDebugRun: vi.fn(
+      async () =>
+        ({
+          sourceHash: 'sha256:source-next',
+          programHash: 'sha256:program',
+          diagnostics: [],
+          run,
+          debug: null,
+        }) as StartRunView,
+    ),
+    getDebugSnapshot: vi.fn(async () => ({ status: 'paused', generation: 1 }) as never),
+    controlDebugRun: vi.fn(async () => ({ status: 'paused', generation: 2 }) as never),
+    setDebugBreakpoints: vi.fn(async () => ({ status: 'paused', generation: 2 }) as never),
     cancelRun: vi.fn(async () => runView('CANCELLED')),
     cancelAllRuns: vi.fn(async () => undefined),
     getRunTimeline: vi.fn(async () => run),

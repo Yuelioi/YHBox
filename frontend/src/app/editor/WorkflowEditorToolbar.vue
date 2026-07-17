@@ -95,6 +95,26 @@
       @click="emit('toggle-timeline')"
     />
     <UButton
+      v-if="hasDebug"
+      :label="t('workflow.debug.title')"
+      icon="i-tabler-bug"
+      color="warning"
+      :variant="debuggerOpen ? 'soft' : 'ghost'"
+      size="xs"
+      :aria-pressed="debuggerOpen"
+      @click="emit('toggle-debugger')"
+    />
+    <UButton
+      v-if="!runActive"
+      data-testid="workflow-debug-start"
+      :label="t('workflow.debug.start')"
+      icon="i-tabler-bug"
+      color="neutral"
+      variant="soft"
+      size="xs"
+      @click="emit('start-debug')"
+    />
+    <UButton
       v-if="runActive"
       :label="t('workflow.action.stop')"
       icon="i-tabler-square"
@@ -107,7 +127,7 @@
       v-else
       data-testid="workflow-run-timeline"
       :label="t('workflow.action.run_timeline')"
-      icon="i-tabler-timeline-event-play"
+      icon="i-tabler-player-play"
       size="xs"
       @click="emit('run')"
     />
@@ -143,6 +163,8 @@ defineProps<{
   diagnosticsOpen: boolean
   hasRunTimeline: boolean
   runTimelineOpen: boolean
+  hasDebug: boolean
+  debuggerOpen: boolean
 }>()
 const emit = defineEmits<{
   back: []
@@ -154,6 +176,8 @@ const emit = defineEmits<{
   compile: []
   'toggle-diagnostics': []
   'toggle-timeline': []
+  'toggle-debugger': []
+  'start-debug': []
   run: []
   stop: []
   save: []

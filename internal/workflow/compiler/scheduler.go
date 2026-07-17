@@ -47,6 +47,7 @@ type scheduler struct {
 	owned          []ownedLease
 	retainedBytes  int
 	invocations    int
+	control        *DebugController
 }
 
 func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, journal *run.JournalWriter, state *runState) *scheduler {
@@ -175,8 +176,6 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if !ok || installed.Run == nil || installed.Implementation != node.Implementation {
 		return fmt.Errorf("adapter %q does not match the Program lock", node.Implementation.Entrypoint)
 	}
-	s.attempts[nodeID]++
-	attempt := s.attempts[nodeID]
 	invocationID, err := runid.New()
 	if err != nil {
 		return err
@@ -201,6 +200,11 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if err != nil {
 		return fmt.Errorf("bind state for node %q: %w", node.ID, err)
 	}
+	attempt := s.attempts[nodeID] + 1
+	if err := s.debugCheckpoint(ctx, node.ID, attempt, inputs); err != nil {
+		return err
+	}
+	s.attempts[nodeID] = attempt
 	summary, err := run.NewRedactedSummary("node.execute", nil, nil)
 	if err != nil {
 		return err
@@ -292,6 +296,95 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	}
 	s.enqueueSelected(node.ID, selected, nil)
 	return nil
+}
+
+func (s *scheduler) debugCheckpoint(ctx context.Context, nodeID string, attempt int, inputs map[string]datatype.ValueEnvelope) error {
+	if s.control == nil {
+		return nil
+	}
+	snapshot := DebugSnapshot{
+		Status: DebugRunning, GraphID: s.graph.ID, NodeID: nodeID, Attempt: attempt,
+		Queue: []DebugQueueEntry{}, Inputs: map[string]DebugValueView{},
+		Outputs: map[string]map[string]DebugValueView{}, State: map[string]DebugStateView{},
+	}
+	for index, queued := range s.queue {
+		if index >= MaxDebugQueueEntries {
+			snapshot.QueueTrimmed = true
+			break
+		}
+		snapshot.Queue = append(snapshot.Queue, DebugQueueEntry{GraphID: s.graph.ID, NodeID: queued.nodeID})
+	}
+	remaining := MaxDebugValueEntries
+	inputIDs := sortedValueKeys(inputs)
+	for _, portID := range inputIDs {
+		if remaining == 0 {
+			snapshot.ValuesTrimmed = true
+			break
+		}
+		snapshot.Inputs[portID] = debugValueView(inputs[portID])
+		remaining--
+	}
+	nodeIDs := make([]string, 0, len(s.result.NodeOutputs))
+	for outputNodeID := range s.result.NodeOutputs {
+		nodeIDs = append(nodeIDs, outputNodeID)
+	}
+	sort.Strings(nodeIDs)
+	for _, outputNodeID := range nodeIDs {
+		if remaining == 0 {
+			snapshot.ValuesTrimmed = true
+			break
+		}
+		outputs := s.result.NodeOutputs[outputNodeID]
+		for _, portID := range sortedValueKeys(outputs) {
+			if remaining == 0 {
+				snapshot.ValuesTrimmed = true
+				break
+			}
+			if snapshot.Outputs[outputNodeID] == nil {
+				snapshot.Outputs[outputNodeID] = map[string]DebugValueView{}
+			}
+			snapshot.Outputs[outputNodeID][portID] = debugValueView(outputs[portID])
+			remaining--
+		}
+	}
+	stateNames := make([]string, 0, len(s.state.slots))
+	for name := range s.state.slots {
+		stateNames = append(stateNames, name)
+	}
+	sort.Strings(stateNames)
+	for _, name := range stateNames {
+		if remaining == 0 {
+			snapshot.ValuesTrimmed = true
+			break
+		}
+		state := s.state.slots[name].read()
+		snapshot.State[name] = DebugStateView{
+			Value: debugValueView(state.Value), Revision: state.Revision, ChangedAt: state.ChangedAt,
+		}
+		remaining--
+	}
+	return s.control.checkpoint(ctx, snapshot)
+}
+
+func sortedValueKeys(values map[string]datatype.ValueEnvelope) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func debugValueView(value datatype.ValueEnvelope) DebugValueView {
+	view := DebugValueView{
+		Type: value.Type(), Representation: value.Representation(),
+		Size: len(value.RuntimeArtifact()), Redacted: true,
+	}
+	if ref, ok := value.BlobRef(); ok {
+		view.Digest = ref.Digest
+		view.Blob = &DebugBlobView{Digest: ref.Digest, MediaType: ref.MediaType, Size: ref.Size}
+	}
+	return view
 }
 
 func onlyNodeFailure(err error, failure *NodeFailure) bool {

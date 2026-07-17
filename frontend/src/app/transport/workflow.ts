@@ -8,6 +8,10 @@ import type {
   StartRunView,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/models.js'
 import type {
+  DebugBreakpoint,
+  DebugSnapshot,
+} from '@bindings/github.com/yottaapp/yotta/internal/workflow/compiler/models.js'
+import type {
   Command as WorkflowPatchCommand,
   JSONValue as WorkflowJSONValue,
 } from '../../../../contracts/workflow/3.1/authoring-patch'
@@ -18,6 +22,11 @@ export interface RunChangedEvent {
   generation: number
   recordDigest: string
   failed?: boolean
+}
+
+export interface DebugChangedEvent {
+  runId: string
+  snapshot: DebugSnapshot
 }
 
 export interface WorkflowTransport {
@@ -31,6 +40,10 @@ export interface WorkflowTransport {
   ): Promise<PatchView>
   compileSource(workflowId: string): Promise<CompileView>
   startRun(workflowId: string): Promise<StartRunView>
+  startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<StartRunView>
+  getDebugSnapshot(runId: string): Promise<DebugSnapshot>
+  controlDebugRun(runId: string, action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot>
+  setDebugBreakpoints(runId: string, breakpoints: DebugBreakpoint[]): Promise<DebugSnapshot>
   cancelRun(runId: string): Promise<RunView>
   cancelAllRuns(): Promise<void>
   getRunTimeline(runId: string): Promise<RunView>
@@ -49,6 +62,12 @@ export const workflowTransport: WorkflowTransport = {
     ),
   compileSource: (workflowId) => WorkflowService.CompileSource(workflowId),
   startRun: (workflowId) => WorkflowService.StartRun(workflowId),
+  startDebugRun: (workflowId, breakpoints) =>
+    WorkflowService.StartDebugRun(workflowId, breakpoints),
+  getDebugSnapshot: (runId) => WorkflowService.GetDebugSnapshot(runId),
+  controlDebugRun: (runId, action) => WorkflowService.ControlDebugRun(runId, action),
+  setDebugBreakpoints: (runId, breakpoints) =>
+    WorkflowService.SetDebugBreakpoints(runId, breakpoints),
   cancelRun: (runId) => WorkflowService.CancelRun(runId),
   cancelAllRuns: () => WorkflowService.CancelAllRuns(),
   getRunTimeline: (runId) => WorkflowService.GetRunTimeline(runId),
@@ -64,6 +83,15 @@ export function onRunChanged(listener: (event: RunChangedEvent) => void): () => 
   })
 }
 
+export function onDebugChanged(listener: (event: DebugChangedEvent) => void): () => void {
+  return Events.On('debug:changed', (event: { data?: unknown }) => {
+    const payload =
+      Array.isArray(event.data) && event.data.length === 1 ? event.data[0] : event.data
+    if (!isDebugChangedEvent(payload)) return
+    listener(payload)
+  })
+}
+
 function isRunChangedEvent(value: unknown): value is RunChangedEvent {
   if (typeof value !== 'object' || value === null) return false
   const candidate = value as Record<string, unknown>
@@ -75,6 +103,19 @@ function isRunChangedEvent(value: unknown): value is RunChangedEvent {
   )
 }
 
+function isDebugChangedEvent(value: unknown): value is DebugChangedEvent {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  if (
+    typeof candidate.runId !== 'string' ||
+    typeof candidate.snapshot !== 'object' ||
+    candidate.snapshot === null
+  )
+    return false
+  const snapshot = candidate.snapshot as Record<string, unknown>
+  return typeof snapshot.status === 'string' && typeof snapshot.generation === 'number'
+}
+
 export type {
   CompileView,
   PatchView,
@@ -83,4 +124,6 @@ export type {
   StartRunView,
   WorkflowJSONValue,
   WorkflowPatchCommand,
+  DebugBreakpoint,
+  DebugSnapshot,
 }

@@ -6,6 +6,7 @@ const read = (name: string) => readFileSync(join(process.cwd(), 'src/app/editor'
 const toolbar = read('WorkflowEditorToolbar.vue')
 const diagnostics = read('WorkflowDiagnosticsPanel.vue')
 const timeline = read('RunTimelinePanel.vue')
+const debuggerPanel = read('WorkflowDebuggerPanel.vue')
 const node = read('WorkflowNode.vue')
 const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
@@ -15,6 +16,16 @@ describe('workflow runtime inspection UI', () => {
     expect(toolbar).toContain('workflow.action.run_timeline')
     expect(toolbar).toContain("emit('toggle-diagnostics')")
     expect(toolbar).toContain("emit('toggle-timeline')")
+  })
+
+  it('uses the true debug transport and keeps breakpoints outside Workflow Source', () => {
+    expect(toolbar).toContain("emit('start-debug')")
+    expect(editor).toContain('session.startDebug(debugBreakpoints())')
+    expect(editor).toContain('session.controlDebug(action)')
+    expect(editor).toContain('breakpointKeys')
+    expect(debuggerPanel).toContain("emit('step')")
+    expect(debuggerPanel).toContain("emit('continue')")
+    expect(debuggerPanel).toContain("emit('pause')")
   })
 
   it('groups compiler diagnostics and shows only compiler-declared fixes', () => {

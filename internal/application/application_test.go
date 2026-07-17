@@ -25,7 +25,7 @@ import (
 
 func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
-	application, sources, programs, _, events := newTestApplication(t, now, nil)
+	application, sources, programs, _, events, _ := newTestApplication(t, now, nil)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 
 func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 15, 10, 30, 0, 0, time.UTC)
-	application, _, _, _, _ := newTestApplication(t, now, nil)
+	application, _, _, _, _, _ := newTestApplication(t, now, nil)
 	if _, err := application.CreateSource(context.Background(), "before start"); err != appcore.ErrNotStarted {
 		t.Fatalf("CreateSource before Start = %v", err)
 	}
@@ -86,7 +86,7 @@ func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 
 func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 	now := time.Date(2026, 7, 17, 10, 45, 0, 0, time.UTC)
-	application, _, _, _, _ := newTestApplication(t, now, nil)
+	application, _, _, _, _, _ := newTestApplication(t, now, nil)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 
 func TestPreparedPatchCommitsTheExactReviewedArtifactAndRejectsStaleBase(t *testing.T) {
 	now := time.Date(2026, 7, 17, 9, 0, 0, 0, time.UTC)
-	application, sources, _, _, _ := newTestApplication(t, now, nil)
+	application, sources, _, _, _, _ := newTestApplication(t, now, nil)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestPreparedPatchCommitsTheExactReviewedArtifactAndRejectsStaleBase(t *test
 
 func TestPreparedPatchCannotCommitAfterIndependentRevision(t *testing.T) {
 	now := time.Date(2026, 7, 17, 9, 30, 0, 0, time.UTC)
-	application, _, _, _, _ := newTestApplication(t, now, nil)
+	application, _, _, _, _, _ := newTestApplication(t, now, nil)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 		<-ctx.Done()
 		return compiler.AdapterResult{}, ctx.Err()
 	}
-	application, _, _, _, events := newTestApplication(t, now, adapter)
+	application, _, _, _, events, _ := newTestApplication(t, now, adapter)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,78 @@ func TestApplicationCancellationOwnsRunningWorkerAndPersistsTerminalState(t *tes
 	}
 }
 
-func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent) {
+func TestApplicationDebugRunPausesStepsAndCancelsThroughTheOnlyWorker(t *testing.T) {
+	now := time.Date(2026, 7, 17, 13, 0, 0, 0, time.UTC)
+	application, _, _, _, events, debugEvents := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+	saved := createConcatWorkflow(t, application)
+	started, err := application.StartDebugRun(context.Background(), appcore.StartRunRequest{
+		WorkflowID: saved.Source.WorkflowID(), Principal: "user-1",
+	}, []compiler.DebugBreakpoint{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runID := started.Record.Admission().RunID
+	concatID := saved.GeneratedNodes[0].NodeID
+	first := waitApplicationDebug(t, debugEvents, runID, func(snapshot compiler.DebugSnapshot) bool {
+		return snapshot.Status == compiler.DebugPaused && snapshot.NodeID == concatID
+	})
+	if first.GraphID != "main" || first.Attempt != 1 {
+		t.Fatalf("first debug snapshot = %#v", first)
+	}
+	if len(first.Inputs) != 2 || !first.Inputs["a"].Redacted || !first.Inputs["b"].Redacted {
+		t.Fatalf("bounded debug inputs = %#v", first.Inputs)
+	}
+	if _, err := application.ControlDebugRun(context.Background(), runID, appcore.DebugStep); err != nil {
+		t.Fatal(err)
+	}
+	second := waitApplicationDebug(t, debugEvents, runID, func(snapshot compiler.DebugSnapshot) bool {
+		return snapshot.Status == compiler.DebugPaused && snapshot.NodeID == "run-started"
+	})
+	if len(second.Inputs) != 0 {
+		t.Fatalf("RunStarted debug inputs = %#v", second.Inputs)
+	}
+	if _, err := application.CancelRun(context.Background(), runID); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case event := <-events:
+			if event.RunID == runID && event.Status == run.StatusCancelled {
+				snapshot, snapshotErr := application.GetDebugSnapshot(runID)
+				if snapshotErr != nil || snapshot.Status != compiler.DebugCompleted || snapshot.RunStatus != string(run.StatusCancelled) {
+					t.Fatalf("completed debug snapshot = %#v, %v", snapshot, snapshotErr)
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("debug Run did not cancel")
+		}
+	}
+}
+
+func waitApplicationDebug(t *testing.T, events <-chan appcore.DebugEvent, runID string, matches func(compiler.DebugSnapshot) bool) compiler.DebugSnapshot {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	var last appcore.DebugEvent
+	for {
+		select {
+		case event := <-events:
+			last = event
+			if event.RunID == runID && matches(event.Snapshot) {
+				return event.Snapshot
+			}
+		case <-deadline:
+			t.Fatalf("debug event did not reach expected state; last=%#v", last)
+		}
+	}
+}
+
+func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent, chan appcore.DebugEvent) {
 	t.Helper()
 	builtins, err := nodes.Build()
 	if err != nil {
@@ -307,17 +378,19 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	}
 	executor := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }})
 	events := make(chan appcore.RunEvent, 16)
+	debugEvents := make(chan appcore.DebugEvent, 32)
 	application, err := appcore.New(appcore.Config{
 		Catalog: builtins.Catalog, Authoring: projection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		Sources: sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor, Providers: map[string]run.InstalledProvider{},
 		ResourceOptions: resource.Options{Now: func() time.Time { return now }}, OwnerCloseTimeout: time.Second,
 		Now: func() time.Time { return now }, OnRunEvent: func(event appcore.RunEvent) { events <- event },
+		OnDebugEvent: func(event appcore.DebugEvent) { debugEvents <- event },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return application, sources, programs, builtins, events
+	return application, sources, programs, builtins, events, debugEvents
 }
 
 type applicationScriptRuntime struct{}

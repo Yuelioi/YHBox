@@ -47,6 +47,7 @@ type Config struct {
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
 	OnRunEvent        func(RunEvent)
+	OnDebugEvent      func(DebugEvent)
 }
 
 type RunEvent struct {
@@ -56,6 +57,21 @@ type RunEvent struct {
 	Digest     artifact.Digest
 	Err        error
 }
+
+type DebugEvent struct {
+	RunID    string
+	Snapshot compiler.DebugSnapshot
+}
+
+type DebugAction string
+
+const (
+	DebugContinue DebugAction = "continue"
+	DebugPause    DebugAction = "pause"
+	DebugStep     DebugAction = "step"
+)
+
+const MaxDebugSessions = 128
 
 type StartRunRequest struct {
 	WorkflowID string
@@ -184,6 +200,7 @@ type Application struct {
 	ownerCloseTimeout time.Duration
 	now               func() time.Time
 	onRunEvent        func(RunEvent)
+	onDebugEvent      func(DebugEvent)
 
 	commandMu sync.RWMutex
 	mu        sync.Mutex
@@ -193,6 +210,7 @@ type Application struct {
 	wake      chan struct{}
 	queue     []string
 	jobs      map[string]*runJob
+	debug     map[string]*compiler.DebugController
 	worker    sync.WaitGroup
 }
 
@@ -218,7 +236,8 @@ func New(config Config) (*Application, error) {
 		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), sources: config.Sources,
 		programs: config.Programs, runs: config.Runs, admitter: config.Admitter, executor: config.Executor,
 		providers: providers, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
-		now: config.Now, onRunEvent: config.OnRunEvent, state: stateNew, wake: make(chan struct{}, 1), jobs: make(map[string]*runJob),
+		now: config.Now, onRunEvent: config.OnRunEvent, onDebugEvent: config.OnDebugEvent,
+		state: stateNew, wake: make(chan struct{}, 1), jobs: make(map[string]*runJob), debug: make(map[string]*compiler.DebugController),
 	}, nil
 }
 
@@ -470,6 +489,38 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 	}
 	a.commandMu.RLock()
 	defer a.commandMu.RUnlock()
+	return a.startRun(ctx, request, false, nil)
+}
+
+func (a *Application) StartDebugRun(ctx context.Context, request StartRunRequest, breakpoints []compiler.DebugBreakpoint) (StartRunResult, error) {
+	if ctx == nil {
+		return StartRunResult{}, errors.New("start debug Run context is required")
+	}
+	a.commandMu.Lock()
+	defer a.commandMu.Unlock()
+	a.mu.Lock()
+	for runID, control := range a.debug {
+		if control.Snapshot().Status == compiler.DebugCompleted {
+			delete(a.debug, runID)
+		}
+	}
+	full := len(a.debug) >= MaxDebugSessions
+	a.mu.Unlock()
+	if full {
+		return StartRunResult{}, errors.New("debug session budget exceeded")
+	}
+	if len(breakpoints) > compiler.MaxDebugQueueEntries {
+		return StartRunResult{}, errors.New("debug breakpoint budget exceeded")
+	}
+	for _, breakpoint := range breakpoints {
+		if breakpoint.GraphID == "" || breakpoint.NodeID == "" {
+			return StartRunResult{}, errors.New("debug breakpoint requires graph and node")
+		}
+	}
+	return a.startRun(ctx, request, true, breakpoints)
+}
+
+func (a *Application) startRun(ctx context.Context, request StartRunRequest, debug bool, breakpoints []compiler.DebugBreakpoint) (StartRunResult, error) {
 	if err := a.requireRunning(); err != nil {
 		return StartRunResult{}, err
 	}
@@ -498,17 +549,82 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 		return result, err
 	}
 	runID := admitted.Record.Admission().RunID
+	var control *compiler.DebugController
+	if debug {
+		control, err = compiler.NewDebugController(compiler.DebugControllerOptions{
+			StartPaused: true, Breakpoints: breakpoints,
+			OnChanged: func(snapshot compiler.DebugSnapshot) {
+				a.emitDebug(DebugEvent{RunID: runID, Snapshot: snapshot})
+			},
+		})
+		if err != nil {
+			return result, err
+		}
+	}
 	a.mu.Lock()
 	if a.state != stateRunning {
 		a.mu.Unlock()
 		return result, ErrClosed
 	}
 	a.jobs[runID] = &runJob{state: jobQueued}
+	if control != nil {
+		a.debug[runID] = control
+	}
 	a.queue = append(a.queue, runID)
 	a.mu.Unlock()
 	a.signalWorker()
 	a.emit(admitted.Record, nil)
 	return result, nil
+}
+
+func (a *Application) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {
+	a.mu.Lock()
+	control := a.debug[runID]
+	a.mu.Unlock()
+	if control == nil {
+		return compiler.DebugSnapshot{}, errors.New("debug session does not exist")
+	}
+	return control.Snapshot(), nil
+}
+
+func (a *Application) ControlDebugRun(ctx context.Context, runID string, action DebugAction) (compiler.DebugSnapshot, error) {
+	if ctx == nil {
+		return compiler.DebugSnapshot{}, errors.New("debug control context is required")
+	}
+	a.mu.Lock()
+	control := a.debug[runID]
+	a.mu.Unlock()
+	if control == nil {
+		return compiler.DebugSnapshot{}, errors.New("debug session does not exist")
+	}
+	var err error
+	switch action {
+	case DebugContinue:
+		err = control.Continue()
+	case DebugPause:
+		err = control.Pause()
+	case DebugStep:
+		err = control.Step()
+	default:
+		err = errors.New("unknown debug action")
+	}
+	return control.Snapshot(), err
+}
+
+func (a *Application) SetDebugBreakpoints(ctx context.Context, runID string, breakpoints []compiler.DebugBreakpoint) (compiler.DebugSnapshot, error) {
+	if ctx == nil {
+		return compiler.DebugSnapshot{}, errors.New("set debug breakpoints context is required")
+	}
+	a.mu.Lock()
+	control := a.debug[runID]
+	a.mu.Unlock()
+	if control == nil {
+		return compiler.DebugSnapshot{}, errors.New("debug session does not exist")
+	}
+	if err := control.SetBreakpoints(breakpoints); err != nil {
+		return compiler.DebugSnapshot{}, err
+	}
+	return control.Snapshot(), nil
 }
 
 func (a *Application) GetRun(runID string) (run.Record, error) { return a.runs.Load(runID) }
@@ -549,6 +665,12 @@ func (a *Application) CancelRun(ctx context.Context, runID string) (run.Record, 
 	}
 	if err := a.runs.Update(ctx, current.Digest(), next); err != nil {
 		return run.Record{}, err
+	}
+	a.mu.Lock()
+	control := a.debug[runID]
+	a.mu.Unlock()
+	if control != nil {
+		control.Complete(string(next.Status()))
 	}
 	a.emit(next, nil)
 	return next, nil
@@ -719,11 +841,32 @@ func (a *Application) execute(ctx context.Context, runID string) error {
 		})
 		return errors.Join(err, terminalErr)
 	}
-	_, executionErr := a.executor.Run(ctx, program, owner, journal)
+	a.mu.Lock()
+	control := a.debug[runID]
+	a.mu.Unlock()
+	var executionErr error
+	if control == nil {
+		_, executionErr = a.executor.Run(ctx, program, owner, journal)
+	} else {
+		_, executionErr = a.executor.RunDebug(ctx, program, owner, journal, control)
+	}
 	closeCtx, cancel := context.WithTimeout(context.Background(), a.ownerCloseTimeout)
 	closeErr := owner.Close(closeCtx)
 	cancel()
+	if control != nil {
+		status := "UNKNOWN"
+		if current := journal.Current(); current.Valid() {
+			status = string(current.Status())
+		}
+		control.Complete(status)
+	}
 	return errors.Join(executionErr, closeErr)
+}
+
+func (a *Application) emitDebug(event DebugEvent) {
+	if a.onDebugEvent != nil && event.RunID != "" {
+		a.onDebugEvent(event)
+	}
 }
 
 func (a *Application) transitionTime(notBefore time.Time) time.Time {

@@ -116,6 +116,134 @@ func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 	}
 }
 
+func TestDebugStepPausesInsideCountedLoopInsteadOfRunningTheRegion(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	started := schedulerNodeRef(t, builtins, nodes.RunStartedNodeID)
+	repeat := schedulerNodeRef(t, builtins, nodes.RepeatNodeID)
+	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-debug-loop","name":"Debug Loop"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"repeat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"count":{"kind":"value","value":2}}},
+			{"id":"end","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{},"bindings":{}}
+		],"edges":[
+			{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"repeat","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"repeat","portId":"body"},"to":{"nodeId":"end","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"repeat","portId":"completed"},"to":{"nodeId":"end","portId":"in"}}
+		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, started.NodeTypeID, started.SemanticDigest, repeat.NodeTypeID, repeat.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
+	program := compileSchedulerInstructionProgram(t, builtins, source)
+	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, compiler.ExecutorOptions{})
+	control, err := compiler.NewDebugController(compiler.DebugControllerOptions{StartPaused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, runErr := runtime.executor.RunDebug(context.Background(), program, runtime.owner, runtime.journal, control)
+		done <- runErr
+	}()
+	waitInstructionDebug(t, control, "started")
+	if err := control.Step(); err != nil {
+		t.Fatal(err)
+	}
+	waitInstructionDebug(t, control, "repeat")
+	if err := control.Step(); err != nil {
+		t.Fatal(err)
+	}
+	waitInstructionDebug(t, control, "end")
+	if err := control.Step(); err != nil {
+		t.Fatal(err)
+	}
+	waitInstructionDebug(t, control, "end")
+	if err := control.Continue(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("debug loop did not complete")
+	}
+}
+
+func TestDebugStepPausesForEveryRetryAttempt(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	started := schedulerNodeRef(t, builtins, nodes.RunStartedNodeID)
+	retry := schedulerNodeRef(t, builtins, nodes.RetryNodeID)
+	delay := schedulerNodeRef(t, builtins, nodes.DelayNodeID)
+	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-debug-retry","name":"Debug Retry"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"retry","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"attempts":{"kind":"value","value":3}}},
+			{"id":"delay","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":2,"y":0},"config":{},"bindings":{"duration-milliseconds":{"kind":"value","value":1}}},
+			{"id":"end","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":3,"y":0},"config":{},"bindings":{}}
+		],"edges":[
+			{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"retry","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"retry","portId":"body"},"to":{"nodeId":"delay","portId":"in"}},
+			{"channel":"error","from":{"nodeId":"delay","portId":"failed"},"to":{"nodeId":"retry","portId":"retry"}},
+			{"channel":"exec","from":{"nodeId":"retry","portId":"completed"},"to":{"nodeId":"end","portId":"in"}},
+			{"channel":"exec","from":{"nodeId":"retry","portId":"exhausted"},"to":{"nodeId":"end","portId":"in"}}
+		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, started.NodeTypeID, started.SemanticDigest, retry.NodeTypeID, retry.SemanticDigest,
+		delay.NodeTypeID, delay.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
+	program := compileSchedulerInstructionProgram(t, builtins, source)
+	waits := 0
+	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, compiler.ExecutorOptions{
+		Wait: func(context.Context, time.Duration) error {
+			waits++
+			if waits < 3 {
+				return errors.New("transient wait failure")
+			}
+			return nil
+		},
+	})
+	control, err := compiler.NewDebugController(compiler.DebugControllerOptions{StartPaused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, runErr := runtime.executor.RunDebug(context.Background(), program, runtime.owner, runtime.journal, control)
+		done <- runErr
+	}()
+	for _, nodeID := range []string{"started", "retry", "delay", "delay", "delay", "end"} {
+		waitInstructionDebug(t, control, nodeID)
+		if err := control.Step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("debug retry did not complete")
+	}
+	if waits != 3 {
+		t.Fatalf("retry attempts = %d", waits)
+	}
+}
+
+func waitInstructionDebug(t *testing.T, control *compiler.DebugController, nodeID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot := control.Snapshot()
+		if snapshot.Status == compiler.DebugPaused && snapshot.NodeID == nodeID {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("debugger did not pause at %q: %#v", nodeID, control.Snapshot())
+}
+
 type schedulerUnusedScriptRuntime struct{}
 
 func (schedulerUnusedScriptRuntime) Execute(context.Context, scriptengine.Request) (scriptengine.Response, error) {
@@ -167,6 +295,22 @@ func compileSchedulerInstructionProgram(t *testing.T, builtins nodes.Builtins, s
 }
 
 func runSchedulerInstructionProgram(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions) (compiler.ExecutionResult, *run.JournalWriter) {
+	t.Helper()
+	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, options)
+	execution, err := runtime.executor.Run(context.Background(), program, runtime.owner, runtime.journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return execution, runtime.journal
+}
+
+type schedulerInstructionRuntime struct {
+	executor *compiler.Executor
+	owner    *run.Owner
+	journal  *run.JournalWriter
+}
+
+func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions) schedulerInstructionRuntime {
 	t.Helper()
 	now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
 	id, err := runid.New()
@@ -220,9 +364,7 @@ func runSchedulerInstructionProgram(t *testing.T, builtins nodes.Builtins, progr
 	if options.Now == nil {
 		options.Now = func() time.Time { return now }
 	}
-	execution, err := compiler.NewExecutor(builtins.Catalog, adapters, options).Run(context.Background(), program, owner, journal)
-	if err != nil {
-		t.Fatal(err)
+	return schedulerInstructionRuntime{
+		executor: compiler.NewExecutor(builtins.Catalog, adapters, options), owner: owner, journal: journal,
 	}
-	return execution, journal
 }

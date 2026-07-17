@@ -51,6 +51,9 @@ func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigge
 	if trigger != nil || node.Instruction.RunRoot == nil {
 		return errors.New("run-root instruction received a signal or invalid payload")
 	}
+	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, nil); err != nil {
+		return err
+	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
 	if err != nil {
 		return err
@@ -74,6 +77,13 @@ func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, tr
 	default:
 		return fmt.Errorf("counted-loop instruction received unknown input %q", trigger.InputPort)
 	}
+	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+		return err
+	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
 	if err != nil {
 		return err
@@ -84,10 +94,6 @@ func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, tr
 			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
 		}
 	}()
-	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
-	if err != nil {
-		return err
-	}
 	count, err := decodeInstructionInteger(inputs[spec.CountInput])
 	if err != nil || count < 0 || count > int64(spec.MaxIterations) {
 		return errors.Join(errors.New("counted-loop count exceeds its frozen budget"), err)
@@ -131,6 +137,13 @@ func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigge
 	default:
 		return fmt.Errorf("for-each instruction received unknown input %q", trigger.InputPort)
 	}
+	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+		return err
+	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
 	if err != nil {
 		return err
@@ -141,10 +154,6 @@ func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigge
 			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
 		}
 	}()
-	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
-	if err != nil {
-		return err
-	}
 	var items []json.RawMessage
 	if err := json.Unmarshal(inputs[spec.ItemsInput].InlineJSON(), &items); err != nil || len(items) > spec.MaxItems {
 		return errors.Join(errors.New("for-each items exceed the frozen budget"), err)
@@ -198,6 +207,13 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 	if trigger.InputPort != spec.EntryInput {
 		return fmt.Errorf("retry instruction received unknown input %q", trigger.InputPort)
 	}
+	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	if err := s.debugCheckpoint(ctx, node.ID, s.attempts[node.ID]+1, inputs); err != nil {
+		return err
+	}
 	attempt, summary, err := s.beginInstruction(ctx, node)
 	if err != nil {
 		return err
@@ -208,10 +224,6 @@ func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger 
 			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
 		}
 	}()
-	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
-	if err != nil {
-		return err
-	}
 	limit, err := decodeInstructionInteger(inputs[spec.AttemptsInput])
 	if err != nil || limit < 1 || limit > int64(spec.MaxAttempts) {
 		return errors.Join(errors.New("retry attempts exceed the frozen budget"), err)

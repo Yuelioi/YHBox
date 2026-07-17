@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 94,
-    "models": 109
+    "methods": 98,
+    "models": 119
   },
   "services": [
     {
@@ -1130,6 +1130,23 @@
           "returns": "$CancellablePromise<$models.CompileView>"
         },
         {
+          "name": "ControlDebugRun",
+          "bindingId": "3345435821",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "action",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
+        },
+        {
           "name": "CreateSource",
           "bindingId": "2502592641",
           "parameters": [
@@ -1152,6 +1169,18 @@
           "bindingId": "3696866883",
           "parameters": [],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "GetDebugSnapshot",
+          "bindingId": "3821415547",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
         },
         {
           "name": "GetRunTimeline",
@@ -1194,6 +1223,40 @@
             }
           ],
           "returns": "$CancellablePromise<application$0.RunPreview>"
+        },
+        {
+          "name": "SetDebugBreakpoints",
+          "bindingId": "2563286973",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "breakpoints",
+              "optional": false,
+              "type": "compiler$0.DebugBreakpoint[]"
+            }
+          ],
+          "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
+        },
+        {
+          "name": "StartDebugRun",
+          "bindingId": "2797069452",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "breakpoints",
+              "optional": false,
+              "type": "compiler$0.DebugBreakpoint[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.StartRunView>"
         },
         {
           "name": "StartRun",
@@ -1894,6 +1957,71 @@
     {
       "module": "internal/datatype/models",
       "declarations": [
+        {
+          "kind": "enum",
+          "name": "RepresentationKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "RepresentationInlineJSON",
+              "value": "\"inline-json\""
+            },
+            {
+              "name": "RepresentationBlobRef",
+              "value": "\"blob-ref\""
+            },
+            {
+              "name": "RepresentationStreamRef",
+              "value": "\"stream-ref\""
+            },
+            {
+              "name": "RepresentationHandleRef",
+              "value": "\"handle-ref\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ResolvedType",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "ResolvedTypeKind"
+            },
+            {
+              "name": "\"ref\"",
+              "optional": true,
+              "type": "TypeRef | null"
+            },
+            {
+              "name": "\"element\"",
+              "optional": true,
+              "type": "ResolvedType | null"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "ResolvedTypeKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "ResolvedTypeRef",
+              "value": "\"ref\""
+            },
+            {
+              "name": "ResolvedTypeList",
+              "value": "\"list\""
+            }
+          ]
+        },
         {
           "kind": "class",
           "name": "TypeExpression",
@@ -3805,6 +3933,11 @@
               "name": "\"run\"",
               "optional": true,
               "type": "RunView | null"
+            },
+            {
+              "name": "\"debug\"",
+              "optional": true,
+              "type": "compiler$0.DebugSnapshot | null"
             }
           ]
         },
@@ -4372,6 +4505,213 @@
               "name": "\"label\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/workflow/compiler/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "DebugBlobView",
+          "fields": [
+            {
+              "name": "\"digest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"mediaType\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"size\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugBreakpoint",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugQueueEntry",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugSnapshot",
+          "fields": [
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "DebugStatus"
+            },
+            {
+              "name": "\"runStatus\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"generation\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"graphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"attempt\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"queue\"",
+              "optional": false,
+              "type": "DebugQueueEntry[]"
+            },
+            {
+              "name": "\"inputs\"",
+              "optional": false,
+              "type": "{ [_ in string]?: DebugValueView }"
+            },
+            {
+              "name": "\"outputs\"",
+              "optional": false,
+              "type": "{ [_ in string]?: { [_ in string]?: DebugValueView } }"
+            },
+            {
+              "name": "\"state\"",
+              "optional": false,
+              "type": "{ [_ in string]?: DebugStateView }"
+            },
+            {
+              "name": "\"queueTrimmed\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"valuesTrimmed\"",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugStateView",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "DebugValueView"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"changedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "DebugStatus",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "DebugRunning",
+              "value": "\"running\""
+            },
+            {
+              "name": "DebugPausePending",
+              "value": "\"pause-pending\""
+            },
+            {
+              "name": "DebugPaused",
+              "value": "\"paused\""
+            },
+            {
+              "name": "DebugCompleted",
+              "value": "\"completed\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugValueView",
+          "fields": [
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "datatype$0.ResolvedType"
+            },
+            {
+              "name": "\"representation\"",
+              "optional": false,
+              "type": "datatype$0.RepresentationKind"
+            },
+            {
+              "name": "\"digest\"",
+              "optional": true,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"size\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": true,
+              "type": "DebugBlobView | null"
+            },
+            {
+              "name": "\"redacted\"",
+              "optional": false,
+              "type": "boolean"
             }
           ]
         }

@@ -11,6 +11,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
@@ -88,10 +89,11 @@ type TimelineEntry struct {
 }
 
 type StartRunView struct {
-	SourceHash  artifact.Digest     `json:"sourceHash,omitempty"`
-	ProgramHash artifact.Digest     `json:"programHash,omitempty"`
-	Diagnostics []schema.Diagnostic `json:"diagnostics"`
-	Run         *RunView            `json:"run,omitempty"`
+	SourceHash  artifact.Digest         `json:"sourceHash,omitempty"`
+	ProgramHash artifact.Digest         `json:"programHash,omitempty"`
+	Diagnostics []schema.Diagnostic     `json:"diagnostics"`
+	Run         *RunView                `json:"run,omitempty"`
+	Debug       *compiler.DebugSnapshot `json:"debug,omitempty"`
 }
 
 type PatchView struct {
@@ -166,6 +168,34 @@ func (s *Service) StartRun(workflowID string) (StartRunView, error) {
 		view.Run = &run
 	}
 	return view, err
+}
+
+func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugBreakpoint) (StartRunView, error) {
+	result, err := s.application.StartDebugRun(context.Background(), appcore.StartRunRequest{WorkflowID: workflowID, Principal: "local-user"}, breakpoints)
+	view := StartRunView{
+		SourceHash: result.SourceHash, ProgramHash: result.ProgramHash,
+		Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...),
+	}
+	if result.Record.Valid() {
+		run := runView(result.Record)
+		view.Run = &run
+		if snapshot, snapshotErr := s.application.GetDebugSnapshot(run.RunID); snapshotErr == nil {
+			view.Debug = &snapshot
+		}
+	}
+	return view, err
+}
+
+func (s *Service) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {
+	return s.application.GetDebugSnapshot(runID)
+}
+
+func (s *Service) ControlDebugRun(runID, action string) (compiler.DebugSnapshot, error) {
+	return s.application.ControlDebugRun(context.Background(), runID, appcore.DebugAction(action))
+}
+
+func (s *Service) SetDebugBreakpoints(runID string, breakpoints []compiler.DebugBreakpoint) (compiler.DebugSnapshot, error) {
+	return s.application.SetDebugBreakpoints(context.Background(), runID, breakpoints)
 }
 
 func (s *Service) CancelRun(runID string) (RunView, error) {

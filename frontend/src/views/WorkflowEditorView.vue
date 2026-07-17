@@ -42,6 +42,8 @@
         :diagnostics-open="diagnosticsOpen"
         :has-run-timeline="Boolean(session.activeRun)"
         :run-timeline-open="runTimelineOpen"
+        :has-debug="Boolean(session.debugSnapshot)"
+        :debugger-open="debuggerOpen"
         @back="router.push('/workflows')"
         @rename="renameWorkflow"
         @undo="session.undo()"
@@ -51,6 +53,8 @@
         @compile="compile"
         @toggle-diagnostics="diagnosticsOpen = !diagnosticsOpen"
         @toggle-timeline="runTimelineOpen = !runTimelineOpen"
+        @toggle-debugger="debuggerOpen = !debuggerOpen"
+        @start-debug="startDebug"
         @run="startRun"
         @stop="cancelRun"
         @save="save"
@@ -183,6 +187,13 @@
                 :projection="slotProps.data.projection"
                 :selected="slotProps.selected"
                 :run-status="nodeRunStatusById.get(slotProps.data.node.id)"
+                :breakpoint="hasBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)"
+                :debug-current="
+                  isDebugCurrent(session.currentGraph?.id ?? '', slotProps.data.node.id)
+                "
+                @toggle-breakpoint="
+                  toggleBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)
+                "
               />
             </template>
             <Background :gap="20" :size="1" pattern-color="rgb(113 113 122 / 0.26)" />
@@ -321,6 +332,15 @@
         @focus-node="focusNode"
         @close="runTimelineOpen = false"
       />
+      <WorkflowDebuggerPanel
+        v-if="session.debugSnapshot && debuggerOpen"
+        :snapshot="session.debugSnapshot"
+        @continue="controlDebug('continue')"
+        @pause="controlDebug('pause')"
+        @step="controlDebug('step')"
+        @stop="cancelRun"
+        @close="debuggerOpen = false"
+      />
     </template>
   </div>
 </template>
@@ -356,13 +376,19 @@ import {
 } from '@/app/editor/EditorSession'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
-import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
+import {
+  onDebugChanged,
+  onRunChanged,
+  workflowTransport,
+  type DebugBreakpoint,
+} from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
+import WorkflowDebuggerPanel from '@/app/editor/WorkflowDebuggerPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
@@ -413,6 +439,8 @@ const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
 const diagnosticsOpen = ref(false)
 const runTimelineOpen = ref(false)
+const debuggerOpen = ref(false)
+const breakpointKeys = ref(new Set<string>())
 const {
   addSelectedNodes,
   findNode,
@@ -426,6 +454,7 @@ const {
 } = useVueFlow()
 const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
+let unsubscribeDebug: (() => void) | undefined
 let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let connectionEndTimer: ReturnType<typeof setTimeout> | undefined
@@ -563,11 +592,19 @@ onMounted(async () => {
   unsubscribeRun = onRunChanged((event) => {
     if (event.runId === session.activeRun?.runId) void refreshRun()
   })
+  unsubscribeDebug = onDebugChanged((event) => {
+    if (!session.acceptDebugSnapshot(event.runId, event.snapshot)) return
+    debuggerOpen.value = true
+    if (event.snapshot.status === 'paused' && event.snapshot.nodeId) {
+      void focusNode(event.snapshot.graphId ? [event.snapshot.graphId] : [], event.snapshot.nodeId)
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleEditorKeydown)
   unsubscribeRun?.()
+  unsubscribeDebug?.()
   clearTimeout(compileFlashTimer)
   clearTimeout(saveFlashTimer)
   clearTimeout(connectionEndTimer)
@@ -1069,6 +1106,70 @@ async function startRun(): Promise<void> {
   } catch (error) {
     showError(t('workflow.toast.run_failed'), error)
   }
+}
+
+async function startDebug(): Promise<void> {
+  try {
+    const run = await session.startDebug(debugBreakpoints())
+    diagnosticsOpen.value = session.diagnostics.length > 0
+    if (!run) return
+    debuggerOpen.value = true
+    runTimelineOpen.value = false
+    const snapshot = session.debugSnapshot
+    if (snapshot?.status === 'paused' && snapshot.nodeId) {
+      await focusNode(snapshot.graphId ? [snapshot.graphId] : [], snapshot.nodeId)
+    }
+  } catch (error) {
+    showError(t('workflow.toast.debug_failed'), error)
+  }
+}
+
+async function controlDebug(action: 'continue' | 'pause' | 'step'): Promise<void> {
+  try {
+    await session.controlDebug(action)
+  } catch (error) {
+    showError(t('workflow.toast.debug_failed'), error)
+  }
+}
+
+async function toggleBreakpoint(graphId: string, nodeId: string): Promise<void> {
+  if (!graphId || !nodeId) return
+  const key = breakpointKey(graphId, nodeId)
+  const hadBreakpoint = breakpointKeys.value.has(key)
+  const next = new Set(breakpointKeys.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  breakpointKeys.value = next
+  if (!session.debugSnapshot || session.debugSnapshot.status === 'completed') return
+  try {
+    await session.setDebugBreakpoints(debugBreakpoints())
+  } catch (error) {
+    const rollback = new Set(breakpointKeys.value)
+    if (hadBreakpoint) rollback.add(key)
+    else rollback.delete(key)
+    breakpointKeys.value = rollback
+    showError(t('workflow.toast.debug_failed'), error)
+  }
+}
+
+function debugBreakpoints(): DebugBreakpoint[] {
+  return [...breakpointKeys.value].map((key) => {
+    const separator = key.indexOf('\u0000')
+    return { graphId: key.slice(0, separator), nodeId: key.slice(separator + 1) } as DebugBreakpoint
+  })
+}
+
+function hasBreakpoint(graphId: string, nodeId: string): boolean {
+  return breakpointKeys.value.has(breakpointKey(graphId, nodeId))
+}
+
+function isDebugCurrent(graphId: string, nodeId: string): boolean {
+  const snapshot = session.debugSnapshot
+  return snapshot?.status === 'paused' && snapshot.graphId === graphId && snapshot.nodeId === nodeId
+}
+
+function breakpointKey(graphId: string, nodeId: string): string {
+  return `${graphId}\u0000${nodeId}`
 }
 
 async function cancelRun(): Promise<void> {

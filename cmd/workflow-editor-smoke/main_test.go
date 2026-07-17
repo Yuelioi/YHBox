@@ -58,6 +58,19 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		{CreateInput: true},
 		{Catalog: 0},
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		withState(base, func(state *pageState) { state.CanvasNodes, state.Breakpoints = 1, 1 }),
+		withState(base, func(state *pageState) {
+			state.CanvasNodes, state.Debugger, state.DebugPaused, state.DebugCurrent, state.DebugNode = 1, true, true, 1, "run-started"
+		}),
+		withState(base, func(state *pageState) {
+			state.CanvasNodes, state.Debugger, state.DebugCompleted = 1, true, true
+		}),
+		withState(base, func(state *pageState) {
+			state.CanvasNodes, state.Debugger, state.DebugPaused, state.DebugCurrent, state.DebugNode = 1, true, true, 1, "run-started"
+		}),
+		withState(base, func(state *pageState) {
+			state.CanvasNodes, state.Debugger, state.DebugCompleted = 1, true, true
+		}),
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},

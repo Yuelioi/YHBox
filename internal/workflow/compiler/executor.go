@@ -173,6 +173,19 @@ func (e *Executor) readEntropy(target []byte) error {
 }
 
 func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter) (ExecutionResult, error) {
+	return e.run(ctx, program, owner, journal, nil)
+}
+
+// RunDebug uses the same Program interpreter, Owner, journal, leases, and
+// cleanup path as Run. The controller only gates visible scheduler invocations.
+func (e *Executor) RunDebug(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
+	if control == nil {
+		return ExecutionResult{}, errors.New("debug execution requires a controller")
+	}
+	return e.run(ctx, program, owner, journal, control)
+}
+
+func (e *Executor) run(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
 	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
 		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
 	}
@@ -184,7 +197,7 @@ func (e *Executor) Run(ctx context.Context, program ProgramSnapshot, owner *run.
 	if err := owner.ValidateAdmission(current.Admission()); err != nil {
 		return ExecutionResult{}, err
 	}
-	result, executionErr := e.execute(ctx, program, owner, journal)
+	result, executionErr := e.execute(ctx, program, owner, journal, control)
 	finishedAt := e.now().UTC()
 	if executionErr != nil {
 		if errors.Is(executionErr, context.Canceled) || errors.Is(executionErr, context.DeadlineExceeded) {
@@ -260,7 +273,7 @@ func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.Ru
 	return run.RunError{Code: "runtime.execution_failed", Category: run.ErrorCategoryInfrastructure}
 }
 
-func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter) (ExecutionResult, error) {
+func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run.Owner, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {
 	if ctx == nil || !program.Valid() || !e.catalog.Valid() || owner == nil || journal == nil {
 		return ExecutionResult{}, errors.New("executor requires Program, Catalog, Run Owner, and journal")
 	}
@@ -294,6 +307,7 @@ func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *
 		return ExecutionResult{}, err
 	}
 	scheduler := newScheduler(e, graph, owner, journal, state)
+	scheduler.control = control
 	return scheduler.run(ctx)
 }
 

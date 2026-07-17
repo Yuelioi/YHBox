@@ -35,6 +35,12 @@ type pageState struct {
 	SelectedNodes      int            `json:"selectedNodes"`
 	SelectionToolbar   bool           `json:"selectionToolbar"`
 	ConnectionMenu     bool           `json:"connectionMenu"`
+	Debugger           bool           `json:"debugger"`
+	DebugPaused        bool           `json:"debugPaused"`
+	DebugCompleted     bool           `json:"debugCompleted"`
+	DebugCurrent       int            `json:"debugCurrent"`
+	DebugNode          string         `json:"debugNode"`
+	Breakpoints        int            `json:"breakpoints"`
 	NodeOverlaps       int            `json:"nodeOverlaps"`
 	NodeGeometry       []nodeGeometry `json:"nodeGeometry"`
 	Errors             []string       `json:"errors"`
@@ -131,6 +137,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	}
 	if err := waitUntil(ctx, client, func(state pageState) bool { return state.Catalog > 0 }); err != nil {
 		return fmt.Errorf("open workflow editor: %w", err)
+	}
+	if err := exerciseDebugger(ctx, client); err != nil {
+		return err
 	}
 
 	before, err := state(ctx, client)
@@ -391,6 +400,60 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	return nil
 }
 
+func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
+		if (!button) throw new Error('RunStarted breakpoint button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Breakpoints == 1 }); err != nil {
+		return fmt.Errorf("set node breakpoint: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-start"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.Debugger && current.DebugPaused && current.DebugCurrent == 1 && current.DebugNode == "run-started"
+	}); err != nil {
+		return fmt.Errorf("start paused debug Run: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-step"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugCompleted && current.DebugCurrent == 0
+	}); err != nil {
+		return fmt.Errorf("step one visible node: %w", err)
+	}
+
+	if err := clickRequired(ctx, client, "workflow-debug-start"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugPaused && current.DebugNode == "run-started"
+	}); err != nil {
+		return fmt.Errorf("restart paused debug Run: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-stop"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.DebugCompleted }); err != nil {
+		return fmt.Errorf("stop debug Run: %w", err)
+	}
+	return nil
+}
+
+func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, testID string) error {
+	testIDJSON, _ := json.Marshal(testID)
+	return eval(ctx, client, fmt.Sprintf(`(() => {
+		const button = document.querySelector('[data-testid=' + %s + ']');
+		if (!button) throw new Error(%s + ' button not found');
+		button.click();
+	})()`, testIDJSON, testIDJSON))
+}
+
 func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []string {
 	var failures []string
 	if !visualState.GraphChromeDark {
@@ -499,6 +562,12 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		selectedNodes: document.querySelectorAll('.vue-flow__node.selected').length,
 		selectionToolbar: Boolean(document.querySelector('[data-testid="workflow-selection-toolbar"]')),
 		connectionMenu: Boolean(document.querySelector('[data-testid="workflow-connection-menu"]')),
+		debugger: Boolean(document.querySelector('[data-testid="workflow-debugger"]')),
+		debugPaused: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-step"]') !== null,
+		debugCompleted: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-stop"]') === null,
+		debugCurrent: document.querySelectorAll('.vue-flow__node [class*="ring-warning"]').length,
+		debugNode: document.querySelector('.vue-flow__node [class*="ring-warning"]')?.closest('.vue-flow__node')?.getAttribute('data-id') || '',
+		breakpoints: document.querySelectorAll('[data-testid="node-breakpoint"][aria-pressed="true"]').length,
 		nodeOverlaps,
 		nodeGeometry: [...document.querySelectorAll('.vue-flow__node')].map(node => {
 			const rect = node.getBoundingClientRect();

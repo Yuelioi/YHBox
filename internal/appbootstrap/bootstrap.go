@@ -63,6 +63,7 @@ type Config struct {
 	OwnerCloseTimeout        time.Duration
 	Now                      func() time.Time
 	OnRunEvent               func(appcore.RunEvent)
+	OnDebugEvent             func(appcore.DebugEvent)
 }
 
 type Runtime struct {
@@ -290,7 +291,8 @@ func Build(config Config) (*Runtime, error) {
 		ResourceOptions: resource.Options{
 			Now: config.Now, MaxPayloadBytes: config.Limits.MaxResourcePayloadBytes,
 		},
-		OwnerCloseTimeout: config.OwnerCloseTimeout, Now: config.Now, OnRunEvent: config.OnRunEvent,
+		OwnerCloseTimeout: config.OwnerCloseTimeout, Now: config.Now,
+		OnRunEvent: config.OnRunEvent, OnDebugEvent: config.OnDebugEvent,
 	})
 	if err != nil {
 		return nil, err

@@ -17,6 +17,20 @@
         class="size-3.5 text-warning"
         :aria-label="t('workflow.node.disabled')"
       />
+      <UButton
+        data-testid="node-breakpoint"
+        class="nodrag nopan"
+        :icon="breakpoint ? 'i-tabler-circle-filled' : 'i-tabler-circle'"
+        :color="breakpoint ? 'error' : 'neutral'"
+        variant="ghost"
+        size="xs"
+        :aria-label="
+          breakpoint ? t('workflow.debug.remove_breakpoint') : t('workflow.debug.add_breakpoint')
+        "
+        :aria-pressed="breakpoint"
+        @pointerdown.stop
+        @click.stop="emit('toggle-breakpoint')"
+      />
       <span
         v-if="runStatus"
         data-testid="node-run-status"
@@ -25,6 +39,10 @@
       >
         <span class="size-1.5 rounded-full" :class="runStatusDot" aria-hidden="true" />
         {{ t(`workflow.node.run_${runStatus}`) }}
+      </span>
+      <span v-if="debugCurrent" class="flex items-center gap-1 text-[9px] font-medium text-warning">
+        <span class="size-1.5 animate-pulse rounded-full bg-warning motion-reduce:animate-none" />
+        {{ t('workflow.debug.current') }}
       </span>
     </header>
 
@@ -86,6 +104,8 @@ interface Props {
   projection: NodeProjection
   selected?: boolean
   runStatus?: NodeRunStatus
+  breakpoint?: boolean
+  debugCurrent?: boolean
 }
 
 interface PinView {
@@ -96,6 +116,7 @@ interface PinView {
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{ 'toggle-breakpoint': [] }>()
 const { t, te } = useI18n()
 
 const title = computed(() => {
@@ -114,6 +135,7 @@ const nodeClasses = computed(() => [
   props.runStatus === 'failed' && 'border-error/75 shadow-error/15',
   props.runStatus === 'cancelled' && 'border-warning/65',
   props.runStatus === 'routed' && 'border-warning/65 shadow-warning/10',
+  props.debugCurrent && 'ring-2 ring-warning/70 ring-offset-2 ring-offset-default',
 ])
 const runStatusText = computed(() => {
   if (props.runStatus === 'failed') return 'text-error'

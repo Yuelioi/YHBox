@@ -164,6 +164,11 @@ func Run(config Config) error {
 			}
 			app.Emit("run:changed", payload)
 		},
+		OnDebugEvent: func(event yottaapplication.DebugEvent) {
+			app.Emit("debug:changed", map[string]any{
+				"runId": event.RunID, "snapshot": event.Snapshot,
+			})
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize workflow runtime: %w", err)
