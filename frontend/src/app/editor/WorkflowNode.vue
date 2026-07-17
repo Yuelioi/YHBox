@@ -1,7 +1,7 @@
 <template>
   <article
     class="workflow-node min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
-    :class="selected ? 'border-primary/70 shadow-primary/10' : 'border-default'"
+    :class="nodeClasses"
   >
     <header
       class="workflow-node-drag-handle flex cursor-grab items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5 active:cursor-grabbing"
@@ -17,6 +17,15 @@
         class="size-3.5 text-warning"
         :aria-label="t('workflow.node.disabled')"
       />
+      <span
+        v-if="runStatus"
+        data-testid="node-run-status"
+        class="flex items-center gap-1 text-[9px] font-medium"
+        :class="runStatusText"
+      >
+        <span class="size-1.5 rounded-full" :class="runStatusDot" aria-hidden="true" />
+        {{ t(`workflow.node.run_${runStatus}`) }}
+      </span>
     </header>
 
     <div class="grid grid-cols-2 gap-x-6 px-3 py-2 text-[11px]">
@@ -70,11 +79,13 @@ import { Handle, Position } from '@vue-flow/core'
 import { useI18n } from 'vue-i18n'
 import type { Node, NodeProjection } from '@/app/editor/EditorSession'
 import { graphHandle, type HandleChannel } from '@/app/editor/graphHandles'
+import type { NodeRunStatus } from '@/app/editor/runTrace'
 
 interface Props {
   node: Node
   projection: NodeProjection
   selected?: boolean
+  runStatus?: NodeRunStatus
 }
 
 interface PinView {
@@ -95,6 +106,27 @@ const title = computed(() => {
 })
 
 const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)
+
+const nodeClasses = computed(() => [
+  props.selected ? 'border-primary/70 shadow-primary/10' : 'border-default',
+  props.runStatus === 'running' && 'border-primary/80 shadow-primary/15',
+  props.runStatus === 'succeeded' && 'border-success/65 shadow-success/10',
+  props.runStatus === 'failed' && 'border-error/75 shadow-error/15',
+  props.runStatus === 'cancelled' && 'border-warning/65',
+  props.runStatus === 'routed' && 'border-warning/65 shadow-warning/10',
+])
+const runStatusText = computed(() => {
+  if (props.runStatus === 'failed') return 'text-error'
+  if (props.runStatus === 'succeeded') return 'text-success'
+  if (props.runStatus === 'cancelled' || props.runStatus === 'routed') return 'text-warning'
+  return 'text-primary'
+})
+const runStatusDot = computed(() => [
+  props.runStatus === 'failed' && 'bg-error',
+  props.runStatus === 'succeeded' && 'bg-success',
+  (props.runStatus === 'cancelled' || props.runStatus === 'routed') && 'bg-warning',
+  props.runStatus === 'running' && 'bg-primary animate-pulse motion-reduce:animate-none',
+])
 
 const leftPins = computed<PinView[]>(() => [
   ...props.projection.signals

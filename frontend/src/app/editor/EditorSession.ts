@@ -79,7 +79,6 @@ export class EditorSession {
   dirty = false
   saveConflict = ''
   failure = ''
-  debugging = false
 
   private readonly history: YottaWorkflowSource[] = []
   private readonly future: YottaWorkflowSource[] = []
@@ -290,6 +289,17 @@ export class EditorSession {
     this.graphPath.push(graphId)
   }
 
+  openGraphPath(graphPath: readonly string[]): void {
+    const source = this.requireSource()
+    const next = graphPath.length ? [...graphPath] : [source.entryGraph]
+    for (const graphId of next) {
+      if (!source.graphs.some((graph) => graph.id === graphId)) {
+        throw new Error(`graph ${graphId} does not exist`)
+      }
+    }
+    this.graphPath = next
+  }
+
   leaveGraph(): void {
     this.graphPath.pop()
   }
@@ -330,13 +340,7 @@ export class EditorSession {
   }
 
   async run(): Promise<RunView | null> {
-    return this.start(false)
-  }
-
-  // Debug is the same admitted Program interpreter with timeline inspection;
-  // it never constructs a second stepping runtime.
-  async debug(): Promise<RunView | null> {
-    return this.start(true)
+    return this.start()
   }
 
   async refreshRun(): Promise<RunView | null> {
@@ -357,7 +361,7 @@ export class EditorSession {
     return JSON.stringify(this.requireSource())
   }
 
-  private async start(debugging: boolean): Promise<RunView | null> {
+  private async start(): Promise<RunView | null> {
     this.failure = ''
     try {
       const compile = await this.validate()
@@ -370,7 +374,6 @@ export class EditorSession {
       this.compiledHash = started.programHash ?? this.compiledHash
       this.lastRunHash = started.programHash ?? ''
       this.activeRun = started.run ?? null
-      this.debugging = debugging
       if (!this.activeRun) this.phase = 'ready'
       return this.activeRun
     } catch (error) {

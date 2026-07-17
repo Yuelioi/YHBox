@@ -76,9 +76,8 @@ describe('EditorSession', () => {
     session.redo()
     expect(session.currentGraph?.nodes[0].bindings.b?.value).toBe(' world')
 
-    const started = await session.debug()
+    const started = await session.run()
     expect(started?.runId).toBe(run.runId)
-    expect(session.debugging).toBe(true)
     expect(session.lastRunHash).toBe('sha256:program')
     expect(session.dirty).toBe(false)
     expect(transport.applyPatch).toHaveBeenCalledWith(

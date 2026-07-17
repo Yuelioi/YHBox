@@ -38,6 +38,10 @@
         :saving="session.phase === 'saving'"
         :compile-succeeded="compileSucceeded"
         :save-succeeded="saveSucceeded"
+        :diagnostic-count="session.diagnostics.length"
+        :diagnostics-open="diagnosticsOpen"
+        :has-run-timeline="Boolean(session.activeRun)"
+        :run-timeline-open="runTimelineOpen"
         @back="router.push('/workflows')"
         @rename="renameWorkflow"
         @undo="session.undo()"
@@ -45,7 +49,8 @@
         @toggle-ai="toggleAIReview"
         @toggle-state="toggleStatePanel"
         @compile="compile"
-        @debug="startDebug"
+        @toggle-diagnostics="diagnosticsOpen = !diagnosticsOpen"
+        @toggle-timeline="runTimelineOpen = !runTimelineOpen"
         @run="startRun"
         @stop="cancelRun"
         @save="save"
@@ -65,26 +70,12 @@
       >
         {{ session.failure }}
       </div>
-      <div
-        v-if="session.diagnostics.length"
-        class="flex max-h-28 shrink-0 gap-2 overflow-x-auto border-b border-default bg-elevated/30 px-4 py-2"
-      >
-        <button
-          v-for="(diagnostic, index) in session.diagnostics"
-          :key="`${diagnostic.code}:${index}`"
-          type="button"
-          class="shrink-0 rounded-lg border px-3 py-1.5 text-left text-[11px]"
-          :class="
-            diagnostic.severity === 'error'
-              ? 'border-error/35 bg-error/10 text-error'
-              : 'border-warning/35 bg-warning/10 text-warning'
-          "
-          @click="selectDiagnostic(diagnostic.nodeId)"
-        >
-          <span class="font-mono">{{ diagnostic.code }}</span>
-          <span v-if="diagnostic.nodeId" class="ml-2 text-muted">{{ diagnostic.nodeId }}</span>
-        </button>
-      </div>
+      <WorkflowDiagnosticsPanel
+        v-if="diagnosticsOpen && session.diagnostics.length"
+        :diagnostics="session.diagnostics"
+        @focus="focusDiagnostic"
+        @close="diagnosticsOpen = false"
+      />
 
       <div class="flex min-h-0 flex-1">
         <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-default">
@@ -191,6 +182,7 @@
                 :node="slotProps.data.node"
                 :projection="slotProps.data.projection"
                 :selected="slotProps.selected"
+                :run-status="nodeRunStatusById.get(slotProps.data.node.id)"
               />
             </template>
             <Background :gap="20" :size="1" pattern-color="rgb(113 113 122 / 0.26)" />
@@ -322,10 +314,12 @@
       </div>
 
       <RunTimelinePanel
-        v-if="session.activeRun"
+        v-if="session.activeRun && runTimelineOpen"
         :run="session.activeRun"
         @cancel="cancelRun"
         @refresh="refreshRun"
+        @focus-node="focusNode"
+        @close="runTimelineOpen = false"
       />
     </template>
   </div>
@@ -368,12 +362,15 @@ import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
+import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
 } from '@/app/editor/WorkflowConnectionMenu.vue'
 import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
+import { nodeRunStatuses } from '@/app/editor/runTrace'
+import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
   compatibleCandidatePorts,
   type ConnectionIssue,
@@ -414,6 +411,8 @@ const connectionMenu = ref<ConnectionMenuState | null>(null)
 const connectionHint = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
+const diagnosticsOpen = ref(false)
+const runTimelineOpen = ref(false)
 const {
   addSelectedNodes,
   findNode,
@@ -422,6 +421,7 @@ const {
   getSelectedNodes,
   removeSelectedNodes,
   screenToFlowCoordinate,
+  setCenter,
   updateNode,
 } = useVueFlow()
 const nodeGestures = createWorkflowNodeGestureState()
@@ -547,6 +547,9 @@ const runActive = computed(() =>
   session.activeRun
     ? ['QUEUED', 'RUNNING'].includes(session.activeRun.status.toUpperCase())
     : false,
+)
+const nodeRunStatusById = computed(() =>
+  nodeRunStatuses(session.activeRun, session.currentGraph?.id ?? ''),
 )
 
 onMounted(async () => {
@@ -1032,6 +1035,7 @@ async function compile(): Promise<void> {
   setCompileSucceeded(false)
   try {
     const result = await session.validate()
+    diagnosticsOpen.value = result.diagnostics.length > 0
     if (result.diagnostics.length === 0) setCompileSucceeded(true)
   } catch (error) {
     showError(t('workflow.toast.compile_failed'), error)
@@ -1059,17 +1063,11 @@ async function acceptAIProposal(): Promise<void> {
 
 async function startRun(): Promise<void> {
   try {
-    await session.run()
+    const run = await session.run()
+    diagnosticsOpen.value = session.diagnostics.length > 0
+    if (run) runTimelineOpen.value = true
   } catch (error) {
     showError(t('workflow.toast.run_failed'), error)
-  }
-}
-
-async function startDebug(): Promise<void> {
-  try {
-    await session.debug()
-  } catch (error) {
-    showError(t('workflow.toast.debug_failed'), error)
   }
 }
 
@@ -1089,8 +1087,31 @@ async function refreshRun(): Promise<void> {
   }
 }
 
-function selectDiagnostic(nodeId?: string): void {
-  if (nodeId) selectedNodeId.value = nodeId
+async function focusDiagnostic(diagnostic: WorkflowDiagnostic): Promise<void> {
+  if (!diagnostic.nodeId) return
+  await focusNode(diagnostic.graphPath ?? [], diagnostic.nodeId)
+}
+
+async function focusNode(graphPath: string[], nodeId: string): Promise<void> {
+  try {
+    session.openGraphPath(graphPath)
+  } catch (error) {
+    showError(t('workflow.diagnostics.locate_failed'), error)
+    return
+  }
+  await nextTick()
+  removeSelectedNodes(getSelectedNodes.value)
+  const node = findNode(nodeId)
+  if (!node) return
+  addSelectedNodes([node])
+  selectedNodeIds.value = new Set([nodeId])
+  selectedNodeId.value = nodeId
+  const width = node.dimensions.width || 230
+  const height = node.dimensions.height || 116
+  await setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+    zoom: 1,
+    duration: 180,
+  })
 }
 
 function projectionTitle(projection: NodeProjection): string {

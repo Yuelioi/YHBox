@@ -27,6 +27,14 @@
         size="xs"
         @click="emit('refresh')"
       />
+      <UButton
+        icon="i-tabler-x"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        :aria-label="t('workflow.timeline.close')"
+        @click="emit('close')"
+      />
     </header>
 
     <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -40,26 +48,32 @@
         {{ t('workflow.timeline.empty') }}
       </p>
       <ol v-else class="space-y-2">
-        <li
-          v-for="entry in run.timeline"
-          :key="entry.sequence"
-          class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-start gap-3 rounded-lg bg-elevated/45 px-3 py-2"
-        >
-          <span class="font-mono text-[10px] text-dimmed"
-            >#{{ entry.sequence }} {{ entry.kind }}</span
+        <li v-for="entry in run.timeline" :key="entry.sequence" class="rounded-lg bg-elevated/45">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            class="grid h-auto w-full grid-cols-[72px_minmax(0,1fr)_auto] items-start justify-stretch gap-3 px-3 py-2 text-left"
+            :disabled="!entry.nodeId"
+            @click="entry.nodeId && emit('focus-node', entry.graphPath, entry.nodeId)"
           >
-          <div class="min-w-0">
-            <p class="truncate text-xs text-toned">{{ entry.nodeId || entry.summary.code }}</p>
-            <p
-              v-if="entry.action || entry.statusCode || entry.errorCode"
-              class="mt-0.5 truncate font-mono text-[10px] text-muted"
+            <span class="font-mono text-[10px] text-dimmed"
+              >#{{ entry.sequence }} {{ entry.kind }}</span
             >
-              {{ entry.action || entry.statusCode || entry.errorCode }}
-            </p>
-          </div>
-          <span class="font-mono text-[10px] text-dimmed">
-            {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
-          </span>
+            <span class="min-w-0">
+              <span class="block truncate text-xs text-toned">{{
+                entry.nodeId || entry.summary.code
+              }}</span>
+              <span
+                v-if="entry.attemptOutcome || entry.action || entry.statusCode || entry.errorCode"
+                class="mt-0.5 block truncate font-mono text-[10px] text-muted"
+              >
+                {{ entry.attemptOutcome || entry.action || entry.statusCode || entry.errorCode }}
+              </span>
+            </span>
+            <span class="font-mono text-[10px] text-dimmed">
+              {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
+            </span>
+          </UButton>
         </li>
       </ol>
     </div>
@@ -72,7 +86,12 @@ import { useI18n } from 'vue-i18n'
 import type { RunView } from '@/app/transport/workflow'
 
 const props = defineProps<{ run: RunView }>()
-const emit = defineEmits<{ cancel: []; refresh: [] }>()
+const emit = defineEmits<{
+  cancel: []
+  refresh: []
+  close: []
+  'focus-node': [graphPath: string[], nodeId: string]
+}>()
 const { t } = useI18n()
 
 const canCancel = computed(() => ['QUEUED', 'RUNNING'].includes(props.run.status.toUpperCase()))
