@@ -180,6 +180,7 @@
             @connect-end="endConnection"
             @node-click="selectNode"
             @pane-click="handlePaneClick"
+            @nodes-change="handleNodesChange"
             @node-drag-start="trackNodeDrag"
             @node-drag="trackNodeDrag"
             @node-drag-stop="moveNode"
@@ -204,6 +205,51 @@
               mask-color="color-mix(in oklab, var(--ui-bg) 72%, transparent)"
             />
           </VueFlow>
+          <div
+            v-if="snapGuides.x !== undefined"
+            class="pointer-events-none absolute inset-y-0 z-10 w-px bg-primary/70"
+            :style="{ left: `${snapGuides.x}px` }"
+          />
+          <div
+            v-if="snapGuides.y !== undefined"
+            class="pointer-events-none absolute inset-x-0 z-10 h-px bg-primary/70"
+            :style="{ top: `${snapGuides.y}px` }"
+          />
+          <WorkflowSelectionToolbar
+            v-if="selectedNodeIds.size"
+            :count="selectedNodeIds.size"
+            :layouting="layouting"
+            @align="alignSelection"
+            @distribute="distributeSelection"
+            @auto-layout="autoLayout"
+            @copy="copySelection"
+            @cut="cutSelection"
+            @duplicate="duplicateSelection"
+            @remove="removeSelection"
+          />
+          <div
+            v-else
+            class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
+          >
+            <UButton
+              icon="i-tabler-layout-board-split"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :loading="layouting"
+              :aria-label="t('workflow.selection.layout_lr')"
+              @click="autoLayout('LR')"
+            />
+            <UButton
+              icon="i-tabler-layout-navbar-collapse"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :loading="layouting"
+              :aria-label="t('workflow.selection.layout_tb')"
+              @click="autoLayout('TB')"
+            />
+          </div>
           <div
             v-if="connectionHint"
             class="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-lg border border-default bg-default/95 px-3 py-1.5 text-[11px] text-muted shadow-lg"
@@ -284,7 +330,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import {
@@ -294,6 +340,7 @@ import {
   type Edge as FlowEdge,
   type EdgeMouseEvent,
   type NodeDragEvent,
+  type NodeChange,
   type NodeMouseEvent,
   type OnConnectStartParams,
 } from '@vue-flow/core'
@@ -324,6 +371,7 @@ import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
 } from '@/app/editor/WorkflowConnectionMenu.vue'
+import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
 import {
   compatibleCandidatePorts,
   type ConnectionIssue,
@@ -332,6 +380,15 @@ import {
   createWorkflowNodeGestureState,
   projectWorkflowFlowNodes,
 } from '@/app/editor/workflowFlowProjection'
+import {
+  alignNodePositions,
+  autoLayoutNodePositions,
+  distributeNodePositions,
+  snapNodePosition,
+  type AlignMode,
+  type DistributeMode,
+  type SizedWorkflowNode,
+} from '@/app/editor/workflowLayout'
 
 defineOptions({ name: 'WorkflowEditorView' })
 
@@ -342,6 +399,7 @@ const { confirm } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const selectedNodeId = ref('')
+const selectedNodeIds = ref(new Set<string>())
 const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
@@ -352,13 +410,26 @@ const canvasElement = ref<HTMLElement | null>(null)
 const connectionStart = ref<ConnectionAnchor | null>(null)
 const connectionMenu = ref<ConnectionMenuState | null>(null)
 const connectionHint = ref('')
-const { screenToFlowCoordinate } = useVueFlow()
+const snapGuides = ref<{ x?: number; y?: number }>({})
+const layouting = ref(false)
+const {
+  addSelectedNodes,
+  findNode,
+  fitView,
+  flowToScreenCoordinate,
+  getSelectedNodes,
+  removeSelectedNodes,
+  screenToFlowCoordinate,
+  updateNode,
+} = useVueFlow()
 const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
 let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let connectionEndTimer: ReturnType<typeof setTimeout> | undefined
 let connectionMadeThisGesture = false
+let workflowClipboard: WorkflowSelectionClipboard | null = null
+let pasteOffset = 0
 let nextPosition = 0
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
@@ -373,6 +444,13 @@ interface ConnectionMenuState {
   anchor: ConnectionAnchor
   flowPosition: { x: number; y: number }
   canvasPosition: { x: number; y: number }
+}
+
+interface WorkflowSelectionClipboard {
+  format: 'yotta.workflow-selection'
+  version: 1
+  nodes: Node[]
+  edges: Edge[]
 }
 
 const catalogGroups = computed(() => {
@@ -504,8 +582,13 @@ onBeforeRouteLeave(async () => {
 function applyCommand(command: EditorCommand): boolean {
   try {
     session.apply(command)
-    if (command.kind === 'remove-node' && command.nodeId === selectedNodeId.value)
-      selectedNodeId.value = ''
+    if (command.kind === 'remove-node' || command.kind === 'remove-nodes') {
+      const removed = new Set(command.kind === 'remove-node' ? [command.nodeId] : command.nodeIds)
+      selectedNodeIds.value = new Set(
+        [...selectedNodeIds.value].filter((nodeId) => !removed.has(nodeId)),
+      )
+      if (removed.has(selectedNodeId.value)) selectedNodeId.value = ''
+    }
     return true
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
@@ -538,16 +621,41 @@ function handleEditorKeydown(event: KeyboardEvent): void {
     closeConnectionMenu()
     return
   }
-  if (!selectedNodeId.value || event.ctrlKey || event.metaKey || event.altKey) return
-  if (event.key !== 'Delete' && event.key !== 'Backspace') return
   const target = event.target as HTMLElement | null
   if (
     target?.matches('input, textarea, select, [contenteditable="true"]') ||
     target?.closest('[role="dialog"]')
   )
     return
+  const modifier = event.ctrlKey || event.metaKey
+  if (modifier && !event.altKey) {
+    const key = event.key.toLocaleLowerCase()
+    if (key === 'c' && selectedNodeIds.value.size) {
+      event.preventDefault()
+      void copySelection()
+      return
+    }
+    if (key === 'x' && selectedNodeIds.value.size) {
+      event.preventDefault()
+      void cutSelection()
+      return
+    }
+    if (key === 'v') {
+      event.preventDefault()
+      void pasteSelection()
+      return
+    }
+    if (key === 'd' && selectedNodeIds.value.size) {
+      event.preventDefault()
+      duplicateSelection()
+      return
+    }
+    return
+  }
+  if (event.altKey || (event.key !== 'Delete' && event.key !== 'Backspace')) return
+  if (!selectedNodeIds.value.size && !selectedNodeId.value) return
   event.preventDefault()
-  applyCommand({ kind: 'remove-node', nodeId: selectedNodeId.value })
+  removeSelection()
 }
 
 function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
@@ -662,7 +770,188 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
 
 function handlePaneClick(): void {
   selectedNodeId.value = ''
+  selectedNodeIds.value = new Set()
   closeConnectionMenu()
+}
+
+function dragPositions(
+  event: NodeDragEvent,
+): Array<{ nodeId: string; position: { x: number; y: number } }> {
+  const dragged = event.nodes.length ? event.nodes : [event.node]
+  const draggedIds = new Set(dragged.map((node) => node.id))
+  const primary = sizedFlowNode(event.node.id, event.node.position)
+  const disableSnap = event.event instanceof MouseEvent && event.event.altKey
+  const snapped = disableSnap
+    ? { position: event.node.position }
+    : snapNodePosition(
+        primary,
+        (session.currentGraph?.nodes ?? []).flatMap((node) => {
+          if (draggedIds.has(node.id)) return []
+          return [sizedFlowNode(node.id, node.position)]
+        }),
+      )
+  const delta = {
+    x: snapped.position.x - event.node.position.x,
+    y: snapped.position.y - event.node.position.y,
+  }
+  updateSnapGuides(snapped.guideX, snapped.guideY)
+  return dragged.map((node) => ({
+    nodeId: node.id,
+    position: { x: node.position.x + delta.x, y: node.position.y + delta.y },
+  }))
+}
+
+function sizedFlowNode(nodeId: string, position: { x: number; y: number }): SizedWorkflowNode {
+  const dimensions = findNode(nodeId)?.dimensions
+  return {
+    id: nodeId,
+    position,
+    width: dimensions?.width || 230,
+    height: dimensions?.height || 90,
+  }
+}
+
+function selectedSizedNodes(): SizedWorkflowNode[] {
+  return [...selectedNodeIds.value].flatMap((nodeId) => {
+    const node = session.currentGraph?.nodes.find((candidate) => candidate.id === nodeId)
+    return node ? [sizedFlowNode(nodeId, node.position)] : []
+  })
+}
+
+function updateSnapGuides(guideX?: number, guideY?: number): void {
+  const bounds = canvasElement.value?.getBoundingClientRect()
+  if (!bounds) {
+    snapGuides.value = {}
+    return
+  }
+  snapGuides.value = {
+    x:
+      guideX === undefined
+        ? undefined
+        : flowToScreenCoordinate({ x: guideX, y: 0 }).x - bounds.left,
+    y:
+      guideY === undefined ? undefined : flowToScreenCoordinate({ x: 0, y: guideY }).y - bounds.top,
+  }
+}
+
+function alignSelection(mode: AlignMode): void {
+  const positions = alignNodePositions(selectedSizedNodes(), mode)
+  if (positions.length) applyCommand({ kind: 'move-nodes', positions })
+}
+
+function distributeSelection(mode: DistributeMode): void {
+  const positions = distributeNodePositions(selectedSizedNodes(), mode)
+  if (positions.length) applyCommand({ kind: 'move-nodes', positions })
+}
+
+async function autoLayout(direction: 'LR' | 'TB'): Promise<void> {
+  if (layouting.value) return
+  const graph = session.currentGraph
+  const source = session.source
+  if (!graph || !source || graph.nodes.length === 0) return
+  const nodes = graph.nodes.map((node) => sizedFlowNode(node.id, node.position))
+  layouting.value = true
+  try {
+    const positions = await autoLayoutNodePositions(nodes, graph.edges, direction)
+    if (session.source !== source || session.currentGraph?.id !== graph.id) return
+    if (applyCommand({ kind: 'move-nodes', positions })) {
+      await nextTick()
+      await fitView({ padding: 0.18, duration: 180 })
+    }
+  } catch (error) {
+    showError(t('workflow.selection.layout_failed'), error)
+  } finally {
+    layouting.value = false
+  }
+}
+
+function removeSelection(): void {
+  const ids = selectedNodeIds.value.size
+    ? [...selectedNodeIds.value]
+    : selectedNodeId.value
+      ? [selectedNodeId.value]
+      : []
+  if (ids.length && applyCommand({ kind: 'remove-nodes', nodeIds: ids })) {
+    selectedNodeId.value = ''
+    selectedNodeIds.value = new Set()
+  }
+}
+
+function duplicateSelection(): void {
+  try {
+    const ids = session.duplicateNodes([...selectedNodeIds.value])
+    if (ids.length) void selectInsertedNodes(ids)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+async function copySelection(): Promise<void> {
+  const snapshot = session.selectionSnapshot([...selectedNodeIds.value])
+  if (!snapshot.nodes.length) return
+  workflowClipboard = {
+    format: 'yotta.workflow-selection',
+    version: 1,
+    ...snapshot,
+  }
+  pasteOffset = 0
+  try {
+    await navigator.clipboard?.writeText(JSON.stringify(workflowClipboard))
+  } catch {
+    return
+  }
+}
+
+async function cutSelection(): Promise<void> {
+  await copySelection()
+  removeSelection()
+}
+
+async function pasteSelection(): Promise<void> {
+  let clipboard = workflowClipboard
+  try {
+    const text = await navigator.clipboard?.readText()
+    if (text) clipboard = parseWorkflowClipboard(text)
+  } catch {
+    if (!clipboard) {
+      showError(t('workflow.selection.clipboard_failed'), new Error('clipboard is unavailable'))
+      return
+    }
+  }
+  if (!clipboard) return
+  try {
+    pasteOffset += 24
+    const ids = session.insertNodeSelection(clipboard, { x: pasteOffset, y: pasteOffset })
+    if (ids.length) await selectInsertedNodes(ids)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+async function selectInsertedNodes(nodeIds: string[]): Promise<void> {
+  await nextTick()
+  removeSelectedNodes(getSelectedNodes.value)
+  const nodes = nodeIds.flatMap((nodeId) => {
+    const node = findNode(nodeId)
+    return node ? [node] : []
+  })
+  if (nodes.length) addSelectedNodes(nodes)
+  selectedNodeIds.value = new Set(nodeIds)
+  selectedNodeId.value = nodeIds.at(-1) ?? ''
+}
+
+function parseWorkflowClipboard(value: string): WorkflowSelectionClipboard {
+  if (value.length > 1_000_000) throw new Error('workflow clipboard exceeds size budget')
+  const parsed = JSON.parse(value) as Partial<WorkflowSelectionClipboard>
+  if (
+    parsed.format !== 'yotta.workflow-selection' ||
+    parsed.version !== 1 ||
+    !Array.isArray(parsed.nodes) ||
+    !Array.isArray(parsed.edges)
+  ) {
+    throw new Error('clipboard does not contain a workflow selection')
+  }
+  return parsed as WorkflowSelectionClipboard
 }
 
 function connectionEdge(connection: Connection): Edge | null {
@@ -698,14 +987,35 @@ function selectNode(event: NodeMouseEvent): void {
   selectedNodeId.value = event.node.id
 }
 
+function handleNodesChange(changes: NodeChange[]): void {
+  const selected = new Set(selectedNodeIds.value)
+  let changed = false
+  for (const change of changes) {
+    if (change.type !== 'select') continue
+    changed = true
+    if (change.selected) selected.add(change.id)
+    else selected.delete(change.id)
+  }
+  if (changed) {
+    selectedNodeIds.value = selected
+    if (!selected.has(selectedNodeId.value)) selectedNodeId.value = [...selected].at(-1) ?? ''
+  }
+}
+
 function trackNodeDrag(event: NodeDragEvent): void {
-  nodeGestures.track(event.node.id, event.node.position)
+  const positions = dragPositions(event)
+  for (const item of positions) {
+    nodeGestures.track(item.nodeId, item.position)
+    updateNode(item.nodeId, { position: item.position })
+  }
 }
 
 function moveNode(event: NodeDragEvent): void {
-  nodeGestures.track(event.node.id, event.node.position)
-  applyCommand({ kind: 'move-node', nodeId: event.node.id, position: event.node.position })
-  nodeGestures.clear(event.node.id)
+  const positions = dragPositions(event)
+  for (const item of positions) nodeGestures.track(item.nodeId, item.position)
+  applyCommand({ kind: 'move-nodes', positions })
+  for (const item of positions) nodeGestures.clear(item.nodeId)
+  snapGuides.value = {}
 }
 
 function renameWorkflow(name: string): void {

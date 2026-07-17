@@ -36,7 +36,12 @@ export type EditorCommand =
   | { kind: 'add-node'; nodeTypeId: string; position: { x: number; y: number }; nodeId?: string }
   | { kind: 'remove-node'; nodeId: string }
   | { kind: 'move-node'; nodeId: string; position: { x: number; y: number } }
+  | {
+      kind: 'move-nodes'
+      positions: Array<{ nodeId: string; position: { x: number; y: number } }>
+    }
   | { kind: 'set-node-label'; nodeId: string; label: string }
+  | { kind: 'set-node-disabled'; nodeId: string; disabled: boolean }
   | { kind: 'set-config'; nodeId: string; fieldId: string; value: unknown }
   | { kind: 'clear-config'; nodeId: string; fieldId: string }
   | { kind: 'bind-value'; nodeId: string; portId: string; value: unknown }
@@ -45,6 +50,8 @@ export type EditorCommand =
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
   | { kind: 'disconnect'; edge: Edge }
+  | { kind: 'remove-nodes'; nodeIds: string[] }
+  | { kind: 'insert-node-selection'; nodes: Node[]; edges: Edge[] }
   | {
       kind: 'insert-connected-node'
       nodeTypeId: string
@@ -153,6 +160,69 @@ export class EditorSession {
           }
     this.apply({ kind: 'insert-connected-node', nodeTypeId, nodeId, position, edge })
     return nodeId
+  }
+
+  moveNodes(positions: Array<{ nodeId: string; position: { x: number; y: number } }>): void {
+    if (positions.length) this.apply({ kind: 'move-nodes', positions })
+  }
+
+  removeNodes(nodeIds: string[]): void {
+    const unique = [...new Set(nodeIds)]
+    if (unique.length) this.apply({ kind: 'remove-nodes', nodeIds: unique })
+  }
+
+  selectionSnapshot(nodeIds: string[]): { nodes: Node[]; edges: Edge[] } {
+    const graph = this.currentGraph
+    if (!graph) return { nodes: [], edges: [] }
+    const selected = new Set(nodeIds)
+    return {
+      nodes: clone(graph.nodes.filter((node) => selected.has(node.id))),
+      edges: clone(
+        graph.edges.filter(
+          (edge) => selected.has(edge.from.nodeId) && selected.has(edge.to.nodeId),
+        ),
+      ),
+    }
+  }
+
+  insertNodeSelection(
+    selection: { nodes: Node[]; edges: Edge[] },
+    offset: { x: number; y: number },
+  ): string[] {
+    const graph = this.currentGraph
+    if (!graph || selection.nodes.length === 0) return []
+    const shadow = clone(graph)
+    const ids = new Map<string, string>()
+    const nodes = selection.nodes.map((node) => {
+      const id = uniqueNodeId(shadow, this.idFactory)
+      ids.set(node.id, id)
+      const inserted = {
+        ...clone(node),
+        id,
+        position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+      }
+      shadow.nodes.push(inserted)
+      return inserted
+    })
+    const edges = selection.edges.flatMap((edge) => {
+      const from = ids.get(edge.from.nodeId)
+      const to = ids.get(edge.to.nodeId)
+      return from && to
+        ? [
+            {
+              ...clone(edge),
+              from: { ...edge.from, nodeId: from },
+              to: { ...edge.to, nodeId: to },
+            },
+          ]
+        : []
+    })
+    this.apply({ kind: 'insert-node-selection', nodes, edges })
+    return nodes.map((node) => node.id)
+  }
+
+  duplicateNodes(nodeIds: string[], offset = { x: 32, y: 32 }): string[] {
+    return this.insertNodeSelection(this.selectionSnapshot(nodeIds), offset)
   }
 
   async load(workflowId: string): Promise<void> {
@@ -364,21 +434,12 @@ function resolveEditorCommand(
 }
 
 function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
-  const expanded = pending.flatMap(({ graphId, command }): PendingCommand[] => {
-    if (command.kind !== 'insert-connected-node') return [{ graphId, command }]
-    return [
-      {
-        graphId,
-        command: {
-          kind: 'add-node',
-          nodeTypeId: command.nodeTypeId,
-          nodeId: command.nodeId,
-          position: command.position,
-        },
-      },
-      { graphId, command: { kind: 'connect', edge: command.edge } },
-    ]
-  })
+  const expanded = pending.flatMap(({ graphId, command }) =>
+    expandEditorCommand(command).map((expandedCommand) => ({
+      graphId,
+      command: expandedCommand,
+    })),
+  )
   const generated = new Set(
     expanded.flatMap(({ command }) =>
       command.kind === 'add-node' && command.nodeId ? [command.nodeId] : [],
@@ -418,10 +479,21 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
           kind: command.kind,
           moveNode: { graphId, nodeId: nodeRef(command.nodeId), position: clone(command.position) },
         }
+      case 'move-nodes':
+        throw new Error('move-nodes must be expanded before persistence')
       case 'set-node-label':
         return {
           kind: command.kind,
           setNodeLabel: { graphId, nodeId: nodeRef(command.nodeId), label: command.label },
+        }
+      case 'set-node-disabled':
+        return {
+          kind: command.kind,
+          setNodeDisabled: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            disabled: command.disabled,
+          },
         }
       case 'set-config':
         return {
@@ -502,8 +574,70 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
         }
       case 'insert-connected-node':
         throw new Error('insert-connected-node must be expanded before persistence')
+      case 'remove-nodes':
+        throw new Error('remove-nodes must be expanded before persistence')
+      case 'insert-node-selection':
+        throw new Error('insert-node-selection must be expanded before persistence')
     }
   })
+}
+
+function expandEditorCommand(command: EditorCommand): EditorCommand[] {
+  switch (command.kind) {
+    case 'insert-connected-node':
+      return [
+        {
+          kind: 'add-node',
+          nodeTypeId: command.nodeTypeId,
+          nodeId: command.nodeId,
+          position: command.position,
+        },
+        { kind: 'connect', edge: command.edge },
+      ]
+    case 'move-nodes':
+      return command.positions.map(({ nodeId, position }) => ({
+        kind: 'move-node',
+        nodeId,
+        position,
+      }))
+    case 'remove-nodes':
+      return command.nodeIds.map((nodeId) => ({ kind: 'remove-node', nodeId }))
+    case 'insert-node-selection':
+      return [
+        ...command.nodes.flatMap(nodeCommands),
+        ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
+      ]
+    default:
+      return [command]
+  }
+}
+
+function nodeCommands(node: Node): EditorCommand[] {
+  const commands: EditorCommand[] = [
+    {
+      kind: 'add-node',
+      nodeTypeId: node.nodeRef.nodeTypeId,
+      nodeId: node.id,
+      position: node.position,
+    },
+  ]
+  if (node.label) commands.push({ kind: 'set-node-label', nodeId: node.id, label: node.label })
+  if (node.disabled) {
+    commands.push({ kind: 'set-node-disabled', nodeId: node.id, disabled: true })
+  }
+  for (const [fieldId, value] of Object.entries(node.config)) {
+    commands.push({ kind: 'set-config', nodeId: node.id, fieldId, value })
+  }
+  for (const [portId, binding] of Object.entries(node.bindings)) {
+    if (binding.kind === 'value') {
+      commands.push({ kind: 'bind-value', nodeId: node.id, portId, value: binding.value })
+    } else if (binding.kind === 'blob' && binding.blob) {
+      commands.push({ kind: 'bind-blob', nodeId: node.id, portId, blob: binding.blob })
+    } else if (binding.kind === 'default') {
+      commands.push({ kind: 'bind-default', nodeId: node.id, portId })
+    }
+  }
+  return commands
 }
 
 function applyCommand(
@@ -512,6 +646,11 @@ function applyCommand(
   command: EditorCommand,
   projections: Map<string, NodeProjection>,
 ): void {
+  const expanded = expandEditorCommand(command)
+  if (expanded.length !== 1 || expanded[0] !== command) {
+    for (const primitive of expanded) applyCommand(source, graph, primitive, projections)
+    return
+  }
   switch (command.kind) {
     case 'rename-workflow': {
       const name = command.name.trim()
@@ -572,6 +711,8 @@ function applyCommand(
     case 'move-node':
       requireNode(graph, command.nodeId).position = clone(command.position)
       return
+    case 'move-nodes':
+      throw new Error('move-nodes expansion failed')
     case 'set-node-label': {
       const node = requireNode(graph, command.nodeId)
       const label = command.label.trim()
@@ -579,6 +720,9 @@ function applyCommand(
       else delete node.label
       return
     }
+    case 'set-node-disabled':
+      requireNode(graph, command.nodeId).disabled = command.disabled || undefined
+      return
     case 'set-config':
       requireNode(graph, command.nodeId).config[command.fieldId] = clone(command.value)
       return
@@ -645,19 +789,9 @@ function applyCommand(
       }
       return
     case 'insert-connected-node':
-      applyCommand(
-        source,
-        graph,
-        {
-          kind: 'add-node',
-          nodeTypeId: command.nodeTypeId,
-          nodeId: command.nodeId,
-          position: command.position,
-        },
-        projections,
-      )
-      applyCommand(source, graph, { kind: 'connect', edge: command.edge }, projections)
-      return
+    case 'remove-nodes':
+    case 'insert-node-selection':
+      throw new Error(`${command.kind} expansion failed`)
     case 'disconnect':
       graph.edges = graph.edges.filter((edge) => !sameEdge(edge, command.edge))
   }

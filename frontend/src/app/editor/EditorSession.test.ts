@@ -246,6 +246,72 @@ describe('EditorSession', () => {
     )
   })
 
+  it('keeps duplicate, batch move and batch delete atomic', async () => {
+    const source = emptySource()
+    const ids = ['concat_a', 'concat_b', 'copy_a', 'copy_b']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      position: { x: 10, y: 20 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      position: { x: 250, y: 20 },
+    })
+    session.apply({ kind: 'set-node-label', nodeId: 'concat_a', label: 'Source' })
+    session.apply({ kind: 'bind-value', nodeId: 'concat_a', portId: 'a', value: 'hello' })
+    session.apply({ kind: 'bind-value', nodeId: 'concat_a', portId: 'b', value: ' world' })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'data',
+        from: { nodeId: 'concat_a', portId: 'result' },
+        to: { nodeId: 'concat_b', portId: 'a' },
+      },
+    })
+
+    expect(session.duplicateNodes(['concat_a', 'concat_b'])).toEqual(['copy_a', 'copy_b'])
+    expect(session.currentGraph?.nodes).toHaveLength(4)
+    expect(session.currentGraph?.nodes.find((node) => node.id === 'copy_a')).toMatchObject({
+      label: 'Source',
+      bindings: { a: { kind: 'value', value: 'hello' } },
+      position: { x: 42, y: 52 },
+    })
+    expect(session.currentGraph?.edges.at(-1)).toEqual({
+      channel: 'data',
+      from: { nodeId: 'copy_a', portId: 'result' },
+      to: { nodeId: 'copy_b', portId: 'a' },
+    })
+    session.undo()
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+
+    session.moveNodes([
+      { nodeId: 'concat_a', position: { x: 100, y: 120 } },
+      { nodeId: 'concat_b', position: { x: 340, y: 120 } },
+    ])
+    expect(session.currentGraph?.nodes.map((node) => node.position)).toEqual([
+      { x: 100, y: 120 },
+      { x: 340, y: 120 },
+    ])
+    session.undo()
+    expect(session.currentGraph?.nodes.map((node) => node.position)).toEqual([
+      { x: 10, y: 20 },
+      { x: 250, y: 20 },
+    ])
+
+    session.removeNodes(['concat_a', 'concat_b'])
+    expect(session.currentGraph?.nodes).toEqual([])
+    session.undo()
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+    expect(session.currentGraph?.edges).toHaveLength(1)
+  })
+
   it('owns typed state declarations and prevents deleting referenced slots', async () => {
     const source = emptySource()
     const session = new EditorSession(

@@ -17,7 +17,7 @@ describe('workflow authoring foundations', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     expect(source).toContain(':delete-key-code="null"')
     expect(source).toContain("event.key !== 'Delete' && event.key !== 'Backspace'")
-    expect(source).toContain("applyCommand({ kind: 'remove-node'")
+    expect(source).toContain("applyCommand({ kind: 'remove-nodes'")
   })
 
   it('keeps workflow state outside the selected-node inspector', () => {
@@ -46,5 +46,15 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('<WorkflowConnectionMenu')
     expect(editor).toContain('session.insertConnectedNode(')
     expect(editor).toContain("targetHandle: graphHandle(edge.channel, 'input'")
+  })
+
+  it('restores multi-selection, atomic batch editing, snapping, and auto-layout', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    expect(editor).toContain('@nodes-change="handleNodesChange"')
+    expect(editor).toContain('<WorkflowSelectionToolbar')
+    expect(editor).toContain("applyCommand({ kind: 'move-nodes'")
+    expect(editor).toContain('snapNodePosition(')
+    expect(editor).toContain('autoLayoutNodePositions(')
+    expect(editor).toContain('session.duplicateNodes(')
   })
 })
