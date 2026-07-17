@@ -15,11 +15,11 @@
 
 ## Blocked by
 
-Slice 1。
+Slice 1。已解除。
 
 ## Verification
 
-定向验证候选矩阵和原子 undo；Stage 1 末批量验收。
+已运行连接兼容性、EditorSession、位置投影和 UI 接线定向测试：4 个文件、18 项通过；pnpm typecheck、定向 oxlint 与 pnpm i18n:check 全部通过。Stage 1 末统一做真实 GUI 与完整门禁。
 
 ## Out of scope
 
@@ -27,4 +27,4 @@ Slice 1。
 
 ## Result
 
-Planned。保留旧交互价值，但不复制旧类型启发式。
+Completed。新增 projectedConnectionCompatibility 作为候选过滤、Vue Flow isValidConnection 和最终 EditorSession connect 的共同规则，覆盖名义类型、union/list、carrier、resource lease operation 收窄、exec/error channel 与 instruction 入口。拖线落空打开 WorkflowConnectionMenu；候选按具体端口列出，选择后由 insert-connected-node 原子命令新增并连接，undo/redo 一次完成且保存时展开为正式 add-node + connect patch。“显示全部”保留逃生口但明确只添加不兼容节点。同步修正 error edge 的 targetHandle channel。

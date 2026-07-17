@@ -37,4 +37,14 @@ describe('workflow authoring foundations', () => {
     expect(source).toContain('clipsStore.update')
     expect(source).toContain('templatesStore.updateMeta')
   })
+
+  it('offers compatible nodes when a typed connection ends on the canvas', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    expect(editor).toContain(':is-valid-connection="isValidConnection"')
+    expect(editor).toContain('@connect-start="startConnection"')
+    expect(editor).toContain('@connect-end="endConnection"')
+    expect(editor).toContain('<WorkflowConnectionMenu')
+    expect(editor).toContain('session.insertConnectedNode(')
+    expect(editor).toContain("targetHandle: graphHandle(edge.channel, 'input'")
+  })
 })

@@ -198,6 +198,54 @@ describe('EditorSession', () => {
     ).toThrow('invalid signal ports')
   })
 
+  it('inserts and connects a compatible node as one undoable edit', async () => {
+    const source = emptySource()
+    const ids = ['delay', 'retry']
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => ids.shift() ?? 'unused')
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+
+    const inserted = session.insertConnectedNode(
+      'delay',
+      { channel: 'error', direction: 'output', portId: 'failed' },
+      retry.nodeRef.nodeTypeId,
+      { channel: 'error', direction: 'input', portId: 'retry' },
+      { x: 220, y: 0 },
+    )
+
+    expect(inserted).toBe('retry')
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual(['delay', 'retry'])
+    expect(session.currentGraph?.edges).toEqual([
+      {
+        channel: 'error',
+        from: { nodeId: 'delay', portId: 'failed' },
+        to: { nodeId: 'retry', portId: 'retry' },
+      },
+    ])
+
+    session.undo()
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual(['delay'])
+    expect(session.currentGraph?.edges).toEqual([])
+    session.redo()
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+    expect(session.currentGraph?.edges).toHaveLength(1)
+
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(
+      source.workflow.id,
+      0,
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'add-node' }),
+        expect.objectContaining({ kind: 'connect' }),
+      ]),
+    )
+  })
+
   it('owns typed state declarations and prevents deleting referenced slots', async () => {
     const source = emptySource()
     const session = new EditorSession(

@@ -158,6 +158,7 @@
         </aside>
 
         <div
+          ref="canvasElement"
           data-testid="workflow-canvas"
           class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
           :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
@@ -169,13 +170,16 @@
             :nodes="flowNodes"
             :edges="flowEdges"
             :delete-key-code="null"
+            :is-valid-connection="isValidConnection"
             fit-view-on-init
             :min-zoom="0.2"
             :max-zoom="2"
             class="workflow-flow"
             @connect="connect"
+            @connect-start="startConnection"
+            @connect-end="endConnection"
             @node-click="selectNode"
-            @pane-click="selectedNodeId = ''"
+            @pane-click="handlePaneClick"
             @node-drag-start="trackNodeDrag"
             @node-drag="trackNodeDrag"
             @node-drag-stop="moveNode"
@@ -200,6 +204,21 @@
               mask-color="color-mix(in oklab, var(--ui-bg) 72%, transparent)"
             />
           </VueFlow>
+          <div
+            v-if="connectionHint"
+            class="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-lg border border-default bg-default/95 px-3 py-1.5 text-[11px] text-muted shadow-lg"
+            role="status"
+          >
+            {{ connectionHint }}
+          </div>
+          <WorkflowConnectionMenu
+            v-if="connectionMenu"
+            :position="connectionMenu.canvasPosition"
+            :compatible-candidates="compatibleConnectionCandidates"
+            :all-candidates="allConnectionCandidates"
+            @select="selectConnectionCandidate"
+            @close="closeConnectionMenu"
+          />
           <div
             v-if="flowNodes.length === 0"
             data-testid="workflow-empty-canvas"
@@ -276,6 +295,7 @@ import {
   type EdgeMouseEvent,
   type NodeDragEvent,
   type NodeMouseEvent,
+  type OnConnectStartParams,
 } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -285,9 +305,14 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { useI18n } from 'vue-i18n'
-import { type EditorCommand, type Node, type NodeProjection } from '@/app/editor/EditorSession'
+import {
+  type Edge,
+  type EditorCommand,
+  type Node,
+  type NodeProjection,
+} from '@/app/editor/EditorSession'
 import { createEditorSession } from '@/app/editor/createEditorSession'
-import { graphHandle, parseGraphHandle } from '@/app/editor/graphHandles'
+import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
 import { onRunChanged, workflowTransport } from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
@@ -296,6 +321,13 @@ import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
+import WorkflowConnectionMenu, {
+  type WorkflowConnectionCandidate,
+} from '@/app/editor/WorkflowConnectionMenu.vue'
+import {
+  compatibleCandidatePorts,
+  type ConnectionIssue,
+} from '@/app/editor/connectionCompatibility'
 import {
   createWorkflowNodeGestureState,
   projectWorkflowFlowNodes,
@@ -316,15 +348,32 @@ const statePanelOpen = ref(false)
 const catalogQuery = ref('')
 const compileSucceeded = ref(false)
 const saveSucceeded = ref(false)
+const canvasElement = ref<HTMLElement | null>(null)
+const connectionStart = ref<ConnectionAnchor | null>(null)
+const connectionMenu = ref<ConnectionMenuState | null>(null)
+const connectionHint = ref('')
 const { screenToFlowCoordinate } = useVueFlow()
 const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
 let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
+let connectionEndTimer: ReturnType<typeof setTimeout> | undefined
+let connectionMadeThisGesture = false
 let nextPosition = 0
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 const RUN_STARTED_NODE_ID = 'https://schemas.yotta.dev/nodes/event/run-started'
+
+interface ConnectionAnchor {
+  nodeId: string
+  handle: ParsedHandle
+}
+
+interface ConnectionMenuState {
+  anchor: ConnectionAnchor
+  flowPosition: { x: number; y: number }
+  canvasPosition: { x: number; y: number }
+}
 
 const catalogGroups = computed(() => {
   const query = catalogQuery.value.trim().toLocaleLowerCase()
@@ -361,13 +410,49 @@ const flowEdges = computed<FlowEdge[]>(() =>
     source: edge.from.nodeId,
     target: edge.to.nodeId,
     sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
-    targetHandle: graphHandle(edge.channel === 'data' ? 'data' : 'exec', 'input', edge.to.portId),
+    targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
     animated: edge.channel !== 'data',
     style: {
       stroke:
         edge.channel === 'error' ? '#f87171' : edge.channel === 'exec' ? '#a1a1aa' : '#10b981',
     },
   })),
+)
+
+const compatibleConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() => {
+  const menu = connectionMenu.value
+  if (!menu) return []
+  const anchorNode = session.currentGraph?.nodes.find((node) => node.id === menu.anchor.nodeId)
+  if (!anchorNode) return []
+  const anchorProjection = session.nodeProjection(anchorNode.nodeRef.nodeTypeId)
+  if (!anchorProjection) return []
+  return (session.authoring?.body.nodes ?? [])
+    .flatMap((projection) =>
+      compatibleCandidatePorts(anchorProjection, menu.anchor.handle, projection).map((port) => ({
+        key: `${projection.nodeRef.nodeTypeId}:${port.handle.channel}:${port.handle.portId}`,
+        nodeTypeId: projection.nodeRef.nodeTypeId,
+        title: projectionTitle(projection),
+        icon: projection.icon,
+        searchText: catalogSearchText(projection),
+        handle: port.handle,
+      })),
+    )
+    .sort(
+      (left, right) => left.title.localeCompare(right.title) || left.key.localeCompare(right.key),
+    )
+})
+
+const allConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() =>
+  (session.authoring?.body.nodes ?? [])
+    .filter((projection) => projection.instruction.kind !== 'run-root')
+    .map((projection) => ({
+      key: projection.nodeRef.nodeTypeId,
+      nodeTypeId: projection.nodeRef.nodeTypeId,
+      title: projectionTitle(projection),
+      icon: projection.icon,
+      searchText: catalogSearchText(projection),
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title)),
 )
 
 const selectedNode = computed(
@@ -402,6 +487,7 @@ onBeforeUnmount(() => {
   unsubscribeRun?.()
   clearTimeout(compileFlashTimer)
   clearTimeout(saveFlashTimer)
+  clearTimeout(connectionEndTimer)
 })
 onBeforeRouteLeave(async () => {
   if (!session.dirty) return true
@@ -415,13 +501,15 @@ onBeforeRouteLeave(async () => {
   )
 })
 
-function applyCommand(command: EditorCommand): void {
+function applyCommand(command: EditorCommand): boolean {
   try {
     session.apply(command)
     if (command.kind === 'remove-node' && command.nodeId === selectedNodeId.value)
       selectedNodeId.value = ''
+    return true
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
+    return false
   }
 }
 
@@ -445,6 +533,11 @@ function toggleStatePanel(): void {
 }
 
 function handleEditorKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && connectionMenu.value) {
+    event.preventDefault()
+    closeConnectionMenu()
+    return
+  }
   if (!selectedNodeId.value || event.ctrlKey || event.metaKey || event.altKey) return
   if (event.key !== 'Delete' && event.key !== 'Backspace') return
   const target = event.target as HTMLElement | null
@@ -484,18 +577,116 @@ function dropNode(event: DragEvent): void {
 }
 
 function connect(connection: Connection): void {
+  const edge = connectionEdge(connection)
+  if (!edge) return
+  const compatibility = session.connectionCompatibility(edge)
+  if (!compatibility.valid) {
+    connectionHint.value = connectionIssueText(compatibility.issue)
+    return
+  }
+  if (applyCommand({ kind: 'connect', edge })) {
+    connectionMadeThisGesture = true
+    connectionHint.value = ''
+  }
+}
+
+function isValidConnection(connection: Connection): boolean {
+  const edge = connectionEdge(connection)
+  if (!edge) return false
+  const compatibility = session.connectionCompatibility(edge)
+  connectionHint.value = compatibility.valid ? '' : connectionIssueText(compatibility.issue)
+  return compatibility.valid
+}
+
+function startConnection(params: OnConnectStartParams): void {
+  connectionMadeThisGesture = false
+  connectionHint.value = ''
+  closeConnectionMenu()
+  const handle = parseGraphHandle(params.handleId)
+  connectionStart.value = params.nodeId && handle ? { nodeId: params.nodeId, handle } : null
+}
+
+function endConnection(event?: MouseEvent | TouchEvent): void {
+  const anchor = connectionStart.value
+  connectionStart.value = null
+  const point = eventClientPoint(event)
+  clearTimeout(connectionEndTimer)
+  connectionEndTimer = setTimeout(() => {
+    if (connectionMadeThisGesture) {
+      connectionMadeThisGesture = false
+      return
+    }
+    if (anchor && point) openConnectionMenu(anchor, point)
+  }, 0)
+}
+
+function openConnectionMenu(anchor: ConnectionAnchor, point: { x: number; y: number }): void {
+  const bounds = canvasElement.value?.getBoundingClientRect()
+  if (!bounds) return
+  connectionMenu.value = {
+    anchor,
+    flowPosition: screenToFlowCoordinate(point),
+    canvasPosition: {
+      x: Math.max(8, Math.min(point.x - bounds.left, Math.max(8, bounds.width - 328))),
+      y: Math.max(8, Math.min(point.y - bounds.top, Math.max(8, bounds.height - 424))),
+    },
+  }
+  connectionHint.value = ''
+}
+
+function closeConnectionMenu(): void {
+  connectionMenu.value = null
+}
+
+function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void {
+  const menu = connectionMenu.value
+  if (!menu) return
+  if (!candidate.handle) {
+    addNode(candidate.nodeTypeId, menu.flowPosition)
+    closeConnectionMenu()
+    return
+  }
+  try {
+    selectedNodeId.value = session.insertConnectedNode(
+      menu.anchor.nodeId,
+      menu.anchor.handle,
+      candidate.nodeTypeId,
+      candidate.handle,
+      menu.flowPosition,
+    )
+    closeConnectionMenu()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function handlePaneClick(): void {
+  selectedNodeId.value = ''
+  closeConnectionMenu()
+}
+
+function connectionEdge(connection: Connection): Edge | null {
   const source = parseGraphHandle(connection.sourceHandle)
   const target = parseGraphHandle(connection.targetHandle)
-  if (!source || !target || source.direction !== 'output' || target.direction !== 'input') return
-  if (source.channel === 'data' ? target.channel !== 'data' : target.channel !== 'exec') return
-  applyCommand({
-    kind: 'connect',
-    edge: {
-      channel: source.channel,
-      from: { nodeId: connection.source, portId: source.portId },
-      to: { nodeId: connection.target, portId: target.portId },
-    },
-  })
+  if (!source || !target || source.direction !== 'output' || target.direction !== 'input')
+    return null
+  if (source.channel !== target.channel) return null
+  return {
+    channel: source.channel,
+    from: { nodeId: connection.source, portId: source.portId },
+    to: { nodeId: connection.target, portId: target.portId },
+  }
+}
+
+function connectionIssueText(issue?: ConnectionIssue): string {
+  return t(`workflow.connection.issue.${issue ?? 'port'}`)
+}
+
+function eventClientPoint(event?: MouseEvent | TouchEvent): { x: number; y: number } | null {
+  if (!event) return null
+  if (event instanceof MouseEvent) return { x: event.clientX, y: event.clientY }
+  const touch = event.changedTouches[0]
+  return touch ? { x: touch.clientX, y: touch.clientY } : null
 }
 
 function disconnect(event: EdgeMouseEvent): void {

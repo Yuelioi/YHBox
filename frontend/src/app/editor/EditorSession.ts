@@ -19,6 +19,13 @@ import type {
   WorkflowPatchCommand,
   WorkflowTransport,
 } from '@/app/transport/workflow'
+import {
+  projectedConnectionCompatibility,
+  type ConnectionCompatibility,
+} from './connectionCompatibility'
+import type { ParsedHandle } from './graphHandles'
+
+export { assignable } from './connectionCompatibility'
 
 export type EditorPhase = 'empty' | 'loading' | 'ready' | 'saving' | 'running' | 'failed'
 
@@ -38,6 +45,13 @@ export type EditorCommand =
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
   | { kind: 'disconnect'; edge: Edge }
+  | {
+      kind: 'insert-connected-node'
+      nodeTypeId: string
+      nodeId: string
+      position: { x: number; y: number }
+      edge: Edge
+    }
 
 interface PendingCommand {
   graphId: string
@@ -91,6 +105,54 @@ export class EditorSession {
 
   nodeProjection(nodeTypeId: string): NodeProjection | undefined {
     return this.projections.get(nodeTypeId)
+  }
+
+  connectionCompatibility(edge: Edge): ConnectionCompatibility {
+    const graph = this.currentGraph
+    if (!graph) return { valid: false, issue: 'port', message: 'workflow graph is unavailable' }
+    const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
+    const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
+    if (!fromNode || !toNode)
+      return { valid: false, issue: 'port', message: 'connection node is missing' }
+    const from = this.projections.get(fromNode.nodeRef.nodeTypeId)
+    const to = this.projections.get(toNode.nodeRef.nodeTypeId)
+    if (!from || !to)
+      return { valid: false, issue: 'port', message: 'connection projection is missing' }
+    return projectedConnectionCompatibility(
+      from,
+      { channel: edge.channel, direction: 'output', portId: edge.from.portId },
+      to,
+      { channel: edge.channel, direction: 'input', portId: edge.to.portId },
+    )
+  }
+
+  insertConnectedNode(
+    anchorNodeId: string,
+    anchor: ParsedHandle,
+    nodeTypeId: string,
+    candidate: ParsedHandle,
+    position: { x: number; y: number },
+  ): string {
+    if (anchor.direction === candidate.direction || anchor.channel !== candidate.channel) {
+      throw new Error('connected node ports are incompatible')
+    }
+    const graph = this.currentGraph
+    if (!graph) throw new Error('workflow graph is unavailable')
+    const nodeId = uniqueNodeId(graph, this.idFactory)
+    const edge: Edge =
+      anchor.direction === 'output'
+        ? {
+            channel: anchor.channel,
+            from: { nodeId: anchorNodeId, portId: anchor.portId },
+            to: { nodeId, portId: candidate.portId },
+          }
+        : {
+            channel: anchor.channel,
+            from: { nodeId, portId: candidate.portId },
+            to: { nodeId: anchorNodeId, portId: anchor.portId },
+          }
+    this.apply({ kind: 'insert-connected-node', nodeTypeId, nodeId, position, edge })
+    return nodeId
   }
 
   async load(workflowId: string): Promise<void> {
@@ -302,13 +364,28 @@ function resolveEditorCommand(
 }
 
 function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
+  const expanded = pending.flatMap(({ graphId, command }): PendingCommand[] => {
+    if (command.kind !== 'insert-connected-node') return [{ graphId, command }]
+    return [
+      {
+        graphId,
+        command: {
+          kind: 'add-node',
+          nodeTypeId: command.nodeTypeId,
+          nodeId: command.nodeId,
+          position: command.position,
+        },
+      },
+      { graphId, command: { kind: 'connect', edge: command.edge } },
+    ]
+  })
   const generated = new Set(
-    pending.flatMap(({ command }) =>
+    expanded.flatMap(({ command }) =>
       command.kind === 'add-node' && command.nodeId ? [command.nodeId] : [],
     ),
   )
   const nodeRef = (nodeId: string): string => (generated.has(nodeId) ? `$${nodeId}` : nodeId)
-  return pending.map(({ graphId, command }): WorkflowPatchCommand => {
+  return expanded.map(({ graphId, command }): WorkflowPatchCommand => {
     switch (command.kind) {
       case 'rename-workflow':
         return { kind: command.kind, renameWorkflow: { name: command.name } }
@@ -423,6 +500,8 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             },
           },
         }
+      case 'insert-connected-node':
+        throw new Error('insert-connected-node must be expanded before persistence')
     }
   })
 }
@@ -565,6 +644,20 @@ function applyCommand(
         graph.edges.push(clone(command.edge))
       }
       return
+    case 'insert-connected-node':
+      applyCommand(
+        source,
+        graph,
+        {
+          kind: 'add-node',
+          nodeTypeId: command.nodeTypeId,
+          nodeId: command.nodeId,
+          position: command.position,
+        },
+        projections,
+      )
+      applyCommand(source, graph, { kind: 'connect', edge: command.edge }, projections)
+      return
     case 'disconnect':
       graph.edges = graph.edges.filter((edge) => !sameEdge(edge, command.edge))
   }
@@ -575,82 +668,13 @@ function validateEdge(graph: Graph, edge: Edge, projections: Map<string, NodePro
   const toNode = requireNode(graph, edge.to.nodeId)
   const from = requireProjection(fromNode, projections)
   const to = requireProjection(toNode, projections)
-  if (edge.channel === 'data') {
-    const output = from.dataOutputs.find((port) => port.id === edge.from.portId)
-    const input = to.dataInputs.find((port) => port.id === edge.to.portId)
-    if (!output || !input || !assignable(output.type.expression, input.type.expression)) {
-      throw new Error('data edge is not assignable')
-    }
-    if (output.carrier !== input.carrier) throw new Error('data edge carrier class differs')
-    return
-  }
-  const output = from.signals.find(
-    (signal) =>
-      signal.id === edge.from.portId &&
-      signal.direction === 'output' &&
-      signal.channel === edge.channel,
+  const result = projectedConnectionCompatibility(
+    from,
+    { channel: edge.channel, direction: 'output', portId: edge.from.portId },
+    to,
+    { channel: edge.channel, direction: 'input', portId: edge.to.portId },
   )
-  const input = to.signals.find(
-    (signal) => signal.id === edge.to.portId && signal.direction === 'input',
-  )
-  if (!output || !input || !instructionAcceptsSignal(to, edge.channel, edge.to.portId)) {
-    throw new Error(`${edge.channel} edge has invalid signal ports`)
-  }
-}
-
-function instructionAcceptsSignal(
-  projection: NodeProjection,
-  channel: 'exec' | 'error',
-  inputPort: string,
-): boolean {
-  const instruction = projection.instruction
-  switch (instruction.kind) {
-    case 'invoke':
-      return channel === 'exec' || channel === 'error'
-    case 'run-root':
-      return false
-    case 'counted-loop': {
-      const value = instruction.countedLoop
-      return Boolean(
-        value &&
-        channel === 'exec' &&
-        [value.entryInput, value.breakInput, value.continueInput].includes(inputPort),
-      )
-    }
-    case 'for-each': {
-      const value = instruction.forEach
-      return Boolean(
-        value &&
-        channel === 'exec' &&
-        [value.entryInput, value.breakInput, value.continueInput].includes(inputPort),
-      )
-    }
-    case 'retry': {
-      const value = instruction.retry
-      return Boolean(
-        value &&
-        ((channel === 'exec' && inputPort === value.entryInput) ||
-          (channel === 'error' && inputPort === value.retryInput)),
-      )
-    }
-  }
-}
-
-export function assignable(output: TypeExpression, input: TypeExpression): boolean {
-  if (output.kind === 'variable' || input.kind === 'variable') return false
-  if (output.kind === 'union') return output.members.every((member) => assignable(member, input))
-  if (input.kind === 'union') return input.members.some((member) => assignable(output, member))
-  if (output.kind !== input.kind) return false
-  if (output.kind === 'ref' && input.kind === 'ref') {
-    return (
-      output.ref.typeId === input.ref.typeId &&
-      output.ref.semanticDigest === input.ref.semanticDigest
-    )
-  }
-  if (output.kind === 'list' && input.kind === 'list') {
-    return assignable(output.element, input.element)
-  }
-  return false
+  if (!result.valid) throw new Error(result.message ?? 'edge is incompatible')
 }
 
 function requireNode(graph: Graph, nodeId: string): Node {

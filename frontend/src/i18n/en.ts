@@ -1269,6 +1269,26 @@ export default {
         other: 'Other',
       },
     },
+    connection: {
+      title: 'Add and connect a node',
+      compatible_hint: 'Only nodes that can complete this connection are shown.',
+      all_hint: 'All nodes are shown. Incompatible choices are added without a connection.',
+      search: 'Search candidate nodes',
+      via_port: 'Auto-connect through {port}',
+      add_only: 'Add without connecting',
+      no_results: 'No matching compatible nodes',
+      show_all: 'Show all nodes',
+      show_compatible: 'Show compatible nodes',
+      issue: {
+        direction: 'Connections must run from an output to an input',
+        channel: 'The port channels differ',
+        port: 'The port is missing or cannot be connected',
+        type: 'The data types are incompatible',
+        carrier: 'The data carrier classes differ',
+        'resource-lease': 'The resource operations cannot be transferred safely',
+        instruction: 'The target control node does not accept this entry',
+      },
+    },
     empty_canvas: {
       title: 'Start from the run root',
       description:
