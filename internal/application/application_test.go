@@ -12,6 +12,7 @@ import (
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -182,6 +183,76 @@ func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 	}
 	if err := application.CancelAll(context.Background()); err != nil {
 		t.Fatalf("CancelAll = %v", err)
+	}
+}
+
+func TestApplicationAtomicallyGuardsReferencedStateTypeMigration(t *testing.T) {
+	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
+	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = application.Close(context.Background()) })
+	created, err := application.CreateSource(context.Background(), "State migration")
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge := schema.Edge{
+		Channel: schema.EdgeData,
+		From:    schema.Endpoint{NodeID: "$read", PortID: "result"},
+		To:      schema.Endpoint{NodeID: "$concat", PortID: "a"},
+	}
+	base, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Commands: []authoring.Command{
+			{Kind: authoring.CommandAddStateVariable, AddStateVariable: &authoring.AddStateVariableCommand{
+				Name: "message", Type: datatype.RefExpression(builtins.StringType.TypeRef()), Default: "hello",
+			}},
+			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.StateReadNodeID, Handle: "read"}},
+			{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$read", FieldID: "variable", Value: "message"}},
+			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "concat"}},
+			{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: " world"}},
+			{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: edge}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	readID, concatID := base.GeneratedNodes[0].NodeID, base.GeneratedNodes[1].NodeID
+	update := authoring.Command{Kind: authoring.CommandUpdateStateVariable, UpdateStateVariable: &authoring.UpdateStateVariableCommand{
+		Name: "message", Type: datatype.RefExpression(builtins.IntegerType.TypeRef()), Default: 0,
+	}}
+	_, err = application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: base.Source.Revision(), Commands: []authoring.Command{update},
+	})
+	var migrationErr *appcore.UnsafeStateMigrationError
+	if !errors.As(err, &migrationErr) || len(migrationErr.Diagnostics) == 0 {
+		t.Fatalf("unsafe migration error = %#v, %v", migrationErr, err)
+	}
+	stored, err := sources.Load(created.WorkflowID())
+	if err != nil || stored.Revision() != base.Source.Revision() {
+		t.Fatalf("unsafe migration changed durable source: %#v, %v", stored, err)
+	}
+	prepared, err := application.PreparePatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: base.Source.Revision(), Commands: []authoring.Command{update},
+	})
+	if err != nil || !prepared.Patch.Valid() {
+		t.Fatalf("prepare unsafe migration = %#v, %v", prepared, err)
+	}
+	if _, err := application.CommitPreparedPatch(context.Background(), prepared.Patch); !errors.As(err, &migrationErr) {
+		t.Fatalf("prepared unsafe migration commit = %v", err)
+	}
+	repairedEdge := edge
+	repairedEdge.From.NodeID = readID
+	repairedEdge.To.NodeID = concatID
+	migrated, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: created.WorkflowID(), BaseRevision: base.Source.Revision(), Commands: []authoring.Command{
+			{Kind: authoring.CommandDisconnect, Disconnect: &authoring.EdgeCommand{GraphID: "main", Edge: repairedEdge}},
+			{Kind: authoring.CommandRemoveNode, RemoveNode: &authoring.NodeCommand{GraphID: "main", NodeID: concatID}},
+			update,
+		},
+	})
+	if err != nil || migrated.Source.Revision() != base.Source.Revision()+1 {
+		t.Fatalf("repaired migration = %#v, %v", migrated, err)
 	}
 }
 

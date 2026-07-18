@@ -24,5 +24,6 @@
 | [20 桌面目标 UAC 与授权体验](20-desktop-target-uac-and-consent-ux.md) | blocked | 真实管理员游戏窗口 smoke | 默认管理员、最高权限自启、捕获安装和批量授权。 |
 | [21 权威类型系统基础](21-type-system-foundation.md) | completed | 无 | 名义关系、traits、LUB、泛型求解和 Projection parity。 |
 | [22 类型与节点能力闭包](22-type-capability-closure.md) | completed | 21 | 结构字段、Break 节点和 Type × Capability 门禁。 |
-| [23 Typed Authoring 体验](23-typed-authoring-ux.md) | in_progress | 22 | 显式转换、typed State 已落地；剩余跨图迁移与 Compiler parity。 |
+| [23 Typed Authoring 体验](23-typed-authoring-ux.md) | completed | 22 | 显式转换、typed State、跨图影响预览与 Compiler 门禁。 |
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
+| [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | in_progress | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |

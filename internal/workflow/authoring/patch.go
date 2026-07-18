@@ -355,9 +355,6 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if !hasStateVariable(*source, payload.Name) {
 			return patchError(index, "UNKNOWN_STATE", "state variable does not exist")
 		}
-		if e.stateVariableReferenced(*source, payload.Name) {
-			return patchError(index, "REFERENCE_IN_USE", "state variable type cannot change while it is referenced")
-		}
 		if err := payload.Type.Validate(); err != nil {
 			return patchError(index, "INVALID_STATE_TYPE", err.Error())
 		}

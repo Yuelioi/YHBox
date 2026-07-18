@@ -882,6 +882,75 @@ describe('EditorSession', () => {
       session.nodeInstanceProjection(session.currentGraph!.nodes[2]!)?.dataInputs[0]?.type
         .expression,
     ).toEqual({ kind: 'ref', ref: integer.typeRef })
+    const number = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/number/'),
+    )!
+    expect(
+      session.stateTypeChangeImpact('index', { kind: 'ref', ref: number.typeRef }),
+    ).toMatchObject({ references: [{ nodeId: 'read', mode: 'read' }], issues: [] })
+    expect(() =>
+      session.apply({
+        kind: 'update-state-variable',
+        name: 'index',
+        type: { kind: 'ref', ref: number.typeRef },
+        defaultValue: 0,
+      }),
+    ).not.toThrow()
+  })
+
+  it('previews every referenced state edge and blocks implicit conversion migrations', async () => {
+    const source = emptySource()
+    const ids = ['read', 'concat']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    const string = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/string/'),
+    )!
+    const integer = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/integer/'),
+    )!
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'message',
+      type: { kind: 'ref', ref: string.typeRef },
+      defaultValue: '',
+    })
+    session.insertStateReference('message', 'read', { x: 0, y: 0 })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+    session.apply({ kind: 'bind-value', nodeId: 'concat', portId: 'b', value: '' })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'data',
+        from: { nodeId: 'read', portId: 'result' },
+        to: { nodeId: 'concat', portId: 'a' },
+      },
+    })
+
+    const impact = session.stateTypeChangeImpact('message', {
+      kind: 'ref',
+      ref: integer.typeRef,
+    })
+    expect(impact.references).toEqual([{ graphId: 'main', nodeId: 'read', mode: 'read' }])
+    expect(impact.issues).toEqual([
+      expect.objectContaining({
+        graphId: 'main',
+        disposition: 'conversion',
+        conversions: expect.arrayContaining([
+          expect.objectContaining({ nodeTypeId: toString.nodeRef.nodeTypeId }),
+        ]),
+      }),
+    ])
+    expect(
+      session.stateTypeChangeImpact('message', { kind: 'ref', ref: string.typeRef }).issues,
+    ).toEqual([])
   })
 
   it('propagates instance types through a chain of generic nodes', async () => {

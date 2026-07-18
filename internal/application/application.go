@@ -94,18 +94,43 @@ type ApplyPatchResult struct {
 	GeneratedNodes []authoring.GeneratedNode
 }
 
+// UnsafeStateMigrationError reports compiler errors introduced by changing a
+// referenced state variable. The candidate is never persisted.
+type UnsafeStateMigrationError struct {
+	Diagnostics []schema.Diagnostic
+}
+
+func (e *UnsafeStateMigrationError) Error() string {
+	if e == nil || len(e.Diagnostics) == 0 {
+		return "state type migration is unsafe"
+	}
+	first := e.Diagnostics[0]
+	location := strings.Join(first.GraphPath, "/")
+	if first.NodeID != "" {
+		if location != "" {
+			location += "/"
+		}
+		location += first.NodeID
+	}
+	if location == "" {
+		return fmt.Sprintf("state type migration introduces %s", first.Code)
+	}
+	return fmt.Sprintf("state type migration introduces %s at %s", first.Code, location)
+}
+
 // PreparedPatch is an application-sealed, exact Workflow Source transition.
 // Its state is intentionally opaque: presentation and AI clients can review a
 // candidate, but only Application can create or commit one.
 type PreparedPatch struct{ state *preparedPatchState }
 
 type preparedPatchState struct {
-	workflowID    string
-	baseRevision  int64
-	baseHash      artifact.Digest
-	candidate     []byte
-	candidateHash artifact.Digest
-	generated     []authoring.GeneratedNode
+	workflowID           string
+	baseRevision         int64
+	baseHash             artifact.Digest
+	candidate            []byte
+	candidateHash        artifact.Digest
+	generated            []authoring.GeneratedNode
+	unsafeStateMigration []schema.Diagnostic
 }
 
 func (p PreparedPatch) Valid() bool {
@@ -360,10 +385,80 @@ func (a *Application) ApplyPatch(ctx context.Context, request authoring.PatchReq
 	if err != nil {
 		return ApplyPatchResult{}, err
 	}
+	if referencedStateUpdate(source, applied.Source, request.Commands) {
+		baseline, err := a.compileDraft(ctx, snapshot.Artifact())
+		if err != nil {
+			return ApplyPatchResult{}, fmt.Errorf("compile state migration baseline: %w", err)
+		}
+		candidate, err := a.compileDraft(ctx, applied.Artifact)
+		if err != nil {
+			return ApplyPatchResult{}, fmt.Errorf("compile state migration candidate: %w", err)
+		}
+		if introduced := introducedErrorDiagnostics(baseline.Diagnostics, candidate.Diagnostics); len(introduced) != 0 {
+			return ApplyPatchResult{}, &UnsafeStateMigrationError{Diagnostics: introduced}
+		}
+	}
 	next, saveErr := a.sources.Save(ctx, applied.Artifact, request.BaseRevision)
 	return ApplyPatchResult{
 		Source: next, GeneratedNodes: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}, saveErr
+}
+
+func referencedStateUpdate(before, after schema.WorkflowSource, commands []authoring.Command) bool {
+	updated := make(map[string]bool)
+	for _, command := range commands {
+		if command.Kind == authoring.CommandUpdateStateVariable && command.UpdateStateVariable != nil {
+			updated[command.UpdateStateVariable.Name] = true
+		}
+	}
+	for name := range updated {
+		if workflowReferencesState(before, name) || workflowReferencesState(after, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func workflowReferencesState(source schema.WorkflowSource, name string) bool {
+	for _, graph := range source.Graphs {
+		for _, node := range graph.Nodes {
+			if strings.Contains(node.NodeRef.NodeTypeID, "/nodes/state/") && node.Config["variable"] == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func introducedErrorDiagnostics(baseline, candidate []schema.Diagnostic) []schema.Diagnostic {
+	counts := make(map[string]int)
+	for _, diagnostic := range baseline {
+		if diagnostic.Severity == schema.SeverityError {
+			counts[diagnosticIdentity(diagnostic)]++
+		}
+	}
+	introduced := make([]schema.Diagnostic, 0)
+	for _, diagnostic := range candidate {
+		if diagnostic.Severity != schema.SeverityError {
+			continue
+		}
+		key := diagnosticIdentity(diagnostic)
+		if counts[key] > 0 {
+			counts[key]--
+			continue
+		}
+		introduced = append(introduced, diagnostic)
+	}
+	return introduced
+}
+
+func diagnosticIdentity(diagnostic schema.Diagnostic) string {
+	return strings.Join([]string{
+		diagnostic.Code,
+		strings.Join(diagnostic.GraphPath, "\x1f"),
+		diagnostic.NodeID,
+		strings.Join(diagnostic.FieldPath, "\x1f"),
+	}, "\x1e")
 }
 
 // PreparePatch reduces and compiles an exact candidate without publishing it.
@@ -403,6 +498,13 @@ func (a *Application) PreparePatch(ctx context.Context, request authoring.PatchR
 		generated: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}}
 	compiled, compileErr := a.compileDraft(ctx, applied.Artifact)
+	if referencedStateUpdate(source, applied.Source, request.Commands) {
+		baseline, err := a.compileDraft(ctx, snapshot.Artifact())
+		if err != nil {
+			return PreparePatchResult{}, fmt.Errorf("compile state migration baseline: %w", err)
+		}
+		prepared.state.unsafeStateMigration = introducedErrorDiagnostics(baseline.Diagnostics, compiled.Diagnostics)
+	}
 	result := PreparePatchResult{Patch: prepared, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...), CapabilityPlan: []capability.PlanEntry{}}
 	if program, ok := compiled.Program(); ok {
 		result.CapabilityPlan = program.CapabilityPlan().Entries()
@@ -418,6 +520,9 @@ func (a *Application) CommitPreparedPatch(ctx context.Context, prepared Prepared
 	}
 	if !prepared.Valid() {
 		return ApplyPatchResult{}, errors.New("prepared Workflow patch is invalid")
+	}
+	if len(prepared.state.unsafeStateMigration) != 0 {
+		return ApplyPatchResult{}, &UnsafeStateMigrationError{Diagnostics: append([]schema.Diagnostic(nil), prepared.state.unsafeStateMigration...)}
 	}
 	a.commandMu.RLock()
 	defer a.commandMu.RUnlock()

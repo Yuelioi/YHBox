@@ -1673,7 +1673,15 @@ export default {
       locate_references: 'Locate references to {name}; {count} total',
       remove_referenced: 'Remove or rebind every reference before deleting this state variable',
       type_change: 'Change the type of state {name}',
-      type_change_referenced: 'Locate and migrate every reference before changing this state type',
+      type_change_referenced: 'Review every reference and affected edge before changing this type',
+      type_change_impact:
+        'This change rechecks {count} Read/Write references across graphs; Yotta will not disconnect them silently.',
+      type_change_blocked:
+        'This change would break {count} existing data connections. Insert conversions or adjust those edges first.',
+      type_change_safe:
+        'Existing edges can migrate directly. The authoritative Compiler will verify the atomic save.',
+      type_change_conversion: 'Conversion required',
+      type_change_incompatible: 'Incompatible',
       show_more: 'Show {remaining} more',
       promote_title: 'Promote to Run state',
       promote_action: 'Promote to state',

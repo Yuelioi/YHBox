@@ -47,6 +47,24 @@ export interface LinearWorkflowDraftNode {
   execOutput: string
 }
 
+export interface StateReferenceLocation {
+  graphId: string
+  nodeId: string
+  mode: 'read' | 'write'
+}
+
+export interface StateTypeChangeIssue {
+  graphId: string
+  edge: Edge
+  disposition: 'conversion' | 'incompatible'
+  conversions: ConversionCandidatePlan[]
+}
+
+export interface StateTypeChangeImpact {
+  references: StateReferenceLocation[]
+  issues: StateTypeChangeIssue[]
+}
+
 export type EditorCommand =
   | { kind: 'rename-workflow'; name: string }
   | { kind: 'add-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
@@ -250,6 +268,47 @@ export class EditorSession {
     )
   }
 
+  stateTypeChangeImpact(name: string, type: TypeExpression): StateTypeChangeImpact {
+    const source = this.requireSource()
+    const variable = source.variables.find((candidate) => candidate.name === name)
+    if (!variable) throw new Error(`state variable ${name} does not exist`)
+    const references = collectStateReferences(source, name)
+    const candidate = clone(source)
+    const candidateVariable = candidate.variables.find((item) => item.name === name)!
+    candidateVariable.type = clone(type)
+    const issues: StateTypeChangeIssue[] = []
+    for (const graph of source.graphs) {
+      const candidateGraph = candidate.graphs.find((item) => item.id === graph.id)!
+      for (const edge of graph.edges) {
+        if (edge.channel !== 'data') continue
+        const before = connectionCompatibilityInGraph(
+          source,
+          graph,
+          edge,
+          this.projections,
+          this.typeProjections,
+          this.authoring?.body.nodes ?? [],
+        )
+        const after = connectionCompatibilityInGraph(
+          candidate,
+          candidateGraph,
+          edge,
+          this.projections,
+          this.typeProjections,
+          this.authoring?.body.nodes ?? [],
+        )
+        if (!before.valid || after.valid) continue
+        issues.push({
+          graphId: graph.id,
+          edge: clone(edge),
+          disposition: after.disposition === 'conversion' ? 'conversion' : 'incompatible',
+          conversions: clone(after.conversions ?? []),
+        })
+      }
+    }
+    return { references, issues }
+  }
+
   calleeGraph(call: GraphCall): Graph | undefined {
     return this.source?.graphs.find((graph) => graph.id === call.graphId)
   }
@@ -385,60 +444,13 @@ export class EditorSession {
   connectionCompatibility(edge: Edge): ConnectionCompatibility {
     const graph = this.currentGraph
     if (!graph) return { valid: false, issue: 'port', message: 'workflow graph is unavailable' }
-    const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
-    const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
-    const fromCall = graph.calls!.find((call) => call.id === edge.from.nodeId)
-    const toCall = graph.calls!.find((call) => call.id === edge.to.nodeId)
-    if ((!fromNode && !fromCall) || (!toNode && !toCall))
-      return { valid: false, issue: 'port', message: 'connection node is missing' }
-    if (fromCall || toCall) {
-      if (edge.channel === 'data') {
-        const fromType = fromCall
-          ? this.calleeGraph(fromCall)?.outputs.find((port) => port.id === edge.from.portId)?.type
-          : this.projections
-              .get(fromNode!.nodeRef.nodeTypeId)
-              ?.dataOutputs.find((port) => port.id === edge.from.portId)?.type.expression
-        const toType = toCall
-          ? this.calleeGraph(toCall)?.inputs.find((port) => port.id === edge.to.portId)?.type
-          : this.projections
-              .get(toNode!.nodeRef.nodeTypeId)
-              ?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
-        return fromType && toType && assignable(fromType, toType, this.typeProjections)
-          ? { valid: true }
-          : { valid: false, issue: 'type', message: 'connection types are incompatible' }
-      }
-      const fromValid = fromCall
-        ? this.calleeGraph(fromCall)?.exits?.some(
-            (exit) => exit.id === edge.from.portId && exit.channel === edge.channel,
-          )
-        : this.projections
-            .get(fromNode!.nodeRef.nodeTypeId)
-            ?.signals.some(
-              (signal) =>
-                signal.id === edge.from.portId &&
-                signal.direction === 'output' &&
-                signal.channel === edge.channel,
-            )
-      const toValid = toCall
-        ? edge.channel === 'exec' && edge.to.portId === 'in'
-        : this.projections
-            .get(toNode!.nodeRef.nodeTypeId)
-            ?.signals.some((signal) => signal.id === edge.to.portId && signal.direction === 'input')
-      return fromValid && toValid
-        ? { valid: true }
-        : { valid: false, issue: 'port', message: 'connection ports are incompatible' }
-    }
-    const from = this.nodeInstanceProjection(fromNode!)
-    const to = this.nodeInstanceProjection(toNode!)
-    if (!from || !to)
-      return { valid: false, issue: 'port', message: 'connection projection is missing' }
-    return projectedConnectionCompatibility(
-      from,
-      { channel: edge.channel, direction: 'output', portId: edge.from.portId },
-      to,
-      { channel: edge.channel, direction: 'input', portId: edge.to.portId },
+    return connectionCompatibilityInGraph(
+      this.requireSource(),
+      graph,
+      edge,
+      this.projections,
       this.typeProjections,
-      this.authoring?.body.nodes,
+      this.authoring?.body.nodes ?? [],
     )
   }
 
@@ -984,6 +996,101 @@ export class EditorSession {
   }
 }
 
+function collectStateReferences(
+  source: YottaWorkflowSource,
+  name: string,
+): StateReferenceLocation[] {
+  const references: StateReferenceLocation[] = []
+  for (const graph of source.graphs) {
+    for (const node of graph.nodes) {
+      if (!node.nodeRef.nodeTypeId.includes('/nodes/state/') || node.config.variable !== name)
+        continue
+      references.push({
+        graphId: graph.id,
+        nodeId: node.id,
+        mode: node.nodeRef.nodeTypeId.endsWith('/write') ? 'write' : 'read',
+      })
+    }
+  }
+  return references
+}
+
+function connectionCompatibilityInGraph(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  edge: Edge,
+  projections: ReadonlyMap<string, NodeProjection>,
+  types: ReadonlyMap<string, TypeProjection>,
+  nodes: readonly NodeProjection[],
+): ConnectionCompatibility {
+  const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
+  const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
+  const fromCall = graph.calls!.find((call) => call.id === edge.from.nodeId)
+  const toCall = graph.calls!.find((call) => call.id === edge.to.nodeId)
+  if ((!fromNode && !fromCall) || (!toNode && !toCall))
+    return { valid: false, issue: 'port', message: 'connection node is missing' }
+  if (fromCall || toCall) {
+    if (edge.channel === 'data') {
+      const fromType = fromCall
+        ? source.graphs
+            .find((candidate) => candidate.id === fromCall.graphId)
+            ?.outputs.find((port) => port.id === edge.from.portId)?.type
+        : projections
+            .get(fromNode!.nodeRef.nodeTypeId)
+            ?.dataOutputs.find((port) => port.id === edge.from.portId)?.type.expression
+      const toType = toCall
+        ? source.graphs
+            .find((candidate) => candidate.id === toCall.graphId)
+            ?.inputs.find((port) => port.id === edge.to.portId)?.type
+        : projections
+            .get(toNode!.nodeRef.nodeTypeId)
+            ?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
+      return fromType && toType && assignable(fromType, toType, types)
+        ? { valid: true, disposition: 'direct' }
+        : {
+            valid: false,
+            issue: 'type',
+            message: 'connection types are incompatible',
+            disposition: 'incompatible',
+          }
+    }
+    const fromValid = fromCall
+      ? source.graphs
+          .find((candidate) => candidate.id === fromCall.graphId)
+          ?.exits?.some((exit) => exit.id === edge.from.portId && exit.channel === edge.channel)
+      : projections
+          .get(fromNode!.nodeRef.nodeTypeId)
+          ?.signals.some(
+            (signal) =>
+              signal.id === edge.from.portId &&
+              signal.direction === 'output' &&
+              signal.channel === edge.channel,
+          )
+    const toValid = toCall
+      ? edge.channel === 'exec' && edge.to.portId === 'in'
+      : projections
+          .get(toNode!.nodeRef.nodeTypeId)
+          ?.signals.some((signal) => signal.id === edge.to.portId && signal.direction === 'input')
+    return fromValid && toValid
+      ? { valid: true }
+      : { valid: false, issue: 'port', message: 'connection ports are incompatible' }
+  }
+  const fromBase = projections.get(fromNode!.nodeRef.nodeTypeId)
+  const toBase = projections.get(toNode!.nodeRef.nodeTypeId)
+  if (!fromBase || !toBase)
+    return { valid: false, issue: 'port', message: 'connection projection is missing' }
+  const from = resolveNodeInstanceProjection(source, fromNode!, fromBase, projections, types)
+  const to = resolveNodeInstanceProjection(source, toNode!, toBase, projections, types)
+  return projectedConnectionCompatibility(
+    from,
+    { channel: edge.channel, direction: 'output', portId: edge.from.portId },
+    to,
+    { channel: edge.channel, direction: 'input', portId: edge.to.portId },
+    types,
+    nodes,
+  )
+}
+
 function resolveEditorCommand(
   command: EditorCommand,
   graph: Graph,
@@ -1346,14 +1453,6 @@ function applyCommand(
     case 'update-state-variable': {
       const variable = source.variables.find((candidate) => candidate.name === command.name)
       if (!variable) throw new Error(`state variable ${command.name} does not exist`)
-      const referenced = source.graphs.some((candidate) =>
-        candidate.nodes.some(
-          (node) =>
-            node.nodeRef.nodeTypeId.includes('/nodes/state/') &&
-            node.config.variable === command.name,
-        ),
-      )
-      if (referenced) throw new Error(`state variable ${command.name} is still referenced`)
       variable.type = clone(command.type)
       variable.default = clone(command.defaultValue)
       return

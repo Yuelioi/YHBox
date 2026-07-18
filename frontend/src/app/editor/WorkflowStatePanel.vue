@@ -119,7 +119,6 @@
               color="neutral"
               variant="ghost"
               size="xs"
-              :disabled="referenceCount(variable.name) > 0"
               :title="
                 referenceCount(variable.name)
                   ? t('workflow.state_panel.type_change_referenced')
@@ -145,29 +144,79 @@
           </div>
           <div
             v-if="editingName === variable.name"
-            class="flex items-center gap-2 border-t border-default px-3 py-2"
+            class="space-y-2 border-t border-default px-3 py-2"
           >
-            <USelect
-              v-model="editingTypeId"
-              class="min-w-0 flex-1"
-              :items="stateTypeItems"
-              value-key="value"
-              label-key="label"
-              size="sm"
-            />
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :label="t('common.cancel')"
-              @click="cancelTypeChange"
-            />
-            <UButton
-              size="xs"
-              :label="t('common.confirm')"
-              :disabled="!editingTypeId"
-              @click="commitTypeChange(variable.name)"
-            />
+            <div class="flex items-center gap-2">
+              <USelect
+                v-model="editingTypeId"
+                class="min-w-0 flex-1"
+                :items="stateTypeItems"
+                value-key="value"
+                label-key="label"
+                size="sm"
+              />
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :label="t('common.cancel')"
+                @click="cancelTypeChange"
+              />
+              <UButton
+                size="xs"
+                :label="t('common.confirm')"
+                :disabled="!editingTypeId || editingImpact.issues.length > 0"
+                @click="commitTypeChange(variable.name)"
+              />
+            </div>
+            <div v-if="referenceCount(variable.name)" class="rounded-md bg-warning/10 p-2">
+              <p class="text-[11px] leading-4 text-warning">
+                {{
+                  t('workflow.state_panel.type_change_impact', {
+                    count: referenceCount(variable.name),
+                  })
+                }}
+              </p>
+              <div class="mt-2 max-h-36 space-y-1 overflow-y-auto">
+                <UButton
+                  v-for="reference in referencesFor(variable.name)"
+                  :key="`${reference.graphId}:${reference.nodeId}`"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  class="w-full justify-start font-mono"
+                  icon="i-tabler-focus-2"
+                  :label="`${reference.graphId} / ${reference.nodeId} · ${reference.mode}`"
+                  @click="emit('locate-reference', reference.graphId, reference.nodeId)"
+                />
+              </div>
+            </div>
+            <div
+              v-if="editingImpact.issues.length"
+              class="rounded-md border border-error/30 bg-error/10 p-2"
+            >
+              <p class="text-[11px] leading-4 text-error">
+                {{
+                  t('workflow.state_panel.type_change_blocked', {
+                    count: editingImpact.issues.length,
+                  })
+                }}
+              </p>
+              <UButton
+                v-for="issue in editingImpact.issues"
+                :key="`${issue.graphId}:${issue.edge.from.nodeId}:${issue.edge.from.portId}:${issue.edge.to.nodeId}:${issue.edge.to.portId}`"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                class="mt-1 w-full justify-start font-mono"
+                icon="i-tabler-plug-connected-x"
+                :label="`${issue.graphId} · ${issue.edge.from.nodeId}.${issue.edge.from.portId} → ${issue.edge.to.nodeId}.${issue.edge.to.portId} · ${issueDispositionLabel(issue.disposition)}`"
+                @click="emit('locate-reference', issue.graphId, issue.edge.to.nodeId)"
+              />
+            </div>
+            <p v-else-if="referenceCount(variable.name)" class="text-[11px] leading-4 text-success">
+              {{ t('workflow.state_panel.type_change_safe') }}
+            </p>
           </div>
         </div>
         <UButton
@@ -204,17 +253,23 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
-import type { EditorCommand } from '@/app/editor/EditorSession'
+import type {
+  EditorCommand,
+  StateReferenceLocation,
+  StateTypeChangeImpact,
+} from '@/app/editor/EditorSession'
 
 const props = defineProps<{
   variables: Variable[]
   types: TypeProjection[]
-  references: Record<string, number>
+  references: Record<string, StateReferenceLocation[]>
+  typeChangeImpact: (name: string, typeId: string) => StateTypeChangeImpact
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
   insert: [name: string, mode: 'read' | 'write']
   locate: [name: string]
+  'locate-reference': [graphId: string, nodeId: string]
   close: []
 }>()
 const { t, te } = useI18n()
@@ -253,6 +308,11 @@ const selectedStateType = computed(() =>
 const canAddVariable = computed(
   () =>
     /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(newVariableName.value) && Boolean(selectedStateType.value),
+)
+const editingImpact = computed<StateTypeChangeImpact>(() =>
+  editingName.value && editingTypeId.value
+    ? props.typeChangeImpact(editingName.value, editingTypeId.value)
+    : { references: [], issues: [] },
 )
 
 watch(
@@ -314,11 +374,18 @@ function variableTypeLabel(variable: Variable): string {
 }
 
 function referenceCount(name: string): number {
-  return props.references[name] ?? 0
+  return props.references[name]?.length ?? 0
+}
+
+function referencesFor(name: string): StateReferenceLocation[] {
+  return props.references[name] ?? []
+}
+
+function issueDispositionLabel(disposition: 'conversion' | 'incompatible'): string {
+  return t(`workflow.state_panel.type_change_${disposition}`)
 }
 
 function beginTypeChange(variable: Variable): void {
-  if (referenceCount(variable.name)) return
   editingName.value = variable.name
   editingTypeId.value = variable.type.kind === 'ref' ? variable.type.ref.typeId : ''
 }
@@ -329,7 +396,7 @@ function cancelTypeChange(): void {
 }
 
 function commitTypeChange(name: string): void {
-  if (referenceCount(name)) return
+  if (editingImpact.value.issues.length) return
   const type = stateTypes.value.find(
     (candidate) => candidate.typeRef.typeId === editingTypeId.value,
   )

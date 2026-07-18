@@ -325,7 +325,7 @@ func TestEngineEditsStateNodesAndDisconnectsAtomically(t *testing.T) {
 	}
 }
 
-func TestEngineRejectsMutationThatBreaksStateContract(t *testing.T) {
+func TestEngineReducesReferencedStateUpdateButProtectsReferenceIntegrity(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-read" })
 	if err != nil {
@@ -341,10 +341,16 @@ func TestEngineRejectsMutationThatBreaksStateContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []authoring.Command{
-		{Kind: authoring.CommandUpdateStateVariable, UpdateStateVariable: &authoring.UpdateStateVariableCommand{
+	updated, err := engine.Apply(result.Source, []authoring.Command{{
+		Kind: authoring.CommandUpdateStateVariable,
+		UpdateStateVariable: &authoring.UpdateStateVariableCommand{
 			Name: "message", Type: datatype.RefExpression(builtins.IntegerType.TypeRef()), Default: 0,
-		}},
+		},
+	}})
+	if err != nil || updated.Source.Variables[0].Type.Ref == nil || *updated.Source.Variables[0].Type.Ref != builtins.IntegerType.TypeRef() {
+		t.Fatalf("referenced state reduction = %#v, %v", updated.Source.Variables, err)
+	}
+	for _, command := range []authoring.Command{
 		{Kind: authoring.CommandClearConfig, ClearConfig: &authoring.FieldCommand{GraphID: "main", NodeID: "node-read", FieldID: "variable"}},
 		{Kind: authoring.CommandRemoveStateVariable, RemoveStateVariable: &authoring.RemoveStateVariableCommand{Name: "message"}},
 	} {

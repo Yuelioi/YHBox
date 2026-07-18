@@ -493,10 +493,12 @@
           v-else-if="statePanelOpen"
           :variables="session.source?.variables ?? []"
           :types="session.authoring?.body.types ?? []"
-          :references="stateReferenceCounts"
+          :references="stateReferenceLocations"
+          :type-change-impact="stateTypeChangeImpact"
           @command="applyCommand"
           @insert="insertStateReferenceAtCenter"
           @locate="locateStateReference"
+          @locate-reference="locateStateReferenceAt"
           @close="statePanelOpen = false"
         />
         <WorkflowGraphCallInspector
@@ -1295,13 +1297,24 @@ const allConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() =>
 const selectedNode = computed(
   () => session.currentGraph?.nodes.find((node) => node.id === selectedNodeId.value) ?? null,
 )
-const stateReferenceCounts = computed<Record<string, number>>(() => {
-  const result: Record<string, number> = {}
+const stateReferenceLocations = computed<
+  Record<string, Array<{ graphId: string; nodeId: string; mode: 'read' | 'write' }>>
+>(() => {
+  const result: Record<
+    string,
+    Array<{ graphId: string; nodeId: string; mode: 'read' | 'write' }>
+  > = {}
   for (const graph of session.source?.graphs ?? []) {
     for (const node of graph.nodes) {
       if (!node.nodeRef.nodeTypeId.includes('/nodes/state/')) continue
       const variable = node.config.variable
-      if (typeof variable === 'string') result[variable] = (result[variable] ?? 0) + 1
+      if (typeof variable !== 'string') continue
+      const references = (result[variable] ??= [])
+      references.push({
+        graphId: graph.id,
+        nodeId: node.id,
+        mode: node.nodeRef.nodeTypeId.endsWith('/write') ? 'write' : 'read',
+      })
     }
   }
   return result
@@ -1832,16 +1845,23 @@ function insertStateReferenceAtCenter(name: string, mode: 'read' | 'write'): voi
 }
 
 async function locateStateReference(name: string): Promise<void> {
-  for (const graph of session.source?.graphs ?? []) {
-    const node = graph.nodes.find(
-      (candidate) =>
-        candidate.nodeRef.nodeTypeId.includes('/nodes/state/') &&
-        candidate.config.variable === name,
-    )
-    if (!node) continue
-    await focusNode([session.source!.entryGraph, graph.id], node.id)
-    return
-  }
+  const reference = stateReferenceLocations.value[name]?.[0]
+  if (reference) await locateStateReferenceAt(reference.graphId, reference.nodeId)
+}
+
+function stateTypeChangeImpact(name: string, typeId: string) {
+  const type = session.authoring?.body.types.find(
+    (candidate) => candidate.typeRef.typeId === typeId,
+  )
+  return type
+    ? session.stateTypeChangeImpact(name, { kind: 'ref', ref: { ...type.typeRef } })
+    : { references: [], issues: [] }
+}
+
+async function locateStateReferenceAt(graphId: string, nodeId: string): Promise<void> {
+  const source = session.source
+  if (!source?.graphs.some((graph) => graph.id === graphId)) return
+  await focusNode([source.entryGraph, graphId], nodeId)
 }
 
 function insertStateReference(
