@@ -73,11 +73,18 @@ type AssetQuery struct {
 }
 
 type AssetPage struct {
-	Items    []AssetSummary `json:"items"`
-	Total    int            `json:"total"`
-	Page     int            `json:"page"`
-	PageSize int            `json:"pageSize"`
-	Revision uint64         `json:"revision"`
+	Items      []AssetSummary `json:"items"`
+	Total      int            `json:"total"`
+	Page       int            `json:"page"`
+	PageSize   int            `json:"pageSize"`
+	Revision   uint64         `json:"revision"`
+	Categories []FacetValue   `json:"categories"`
+	Tags       []FacetValue   `json:"tags"`
+}
+
+type FacetValue struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
 }
 
 // AssetBinding is authoring-only presentation metadata for one exact BlobRef.
@@ -252,6 +259,7 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 		}
 	}
 	records, revision := s.store.ListWithRevision()
+	categories, tags := assetFacets(records, query.Kind)
 	items := make([]AssetSummary, 0)
 	for _, record := range records {
 		if query.Kind != "" && record.Kind != query.Kind {
@@ -308,7 +316,55 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 		pageItems[index].Thumbnail = &ref
 		thumbnailCount++
 	}
-	return AssetPage{Items: pageItems, Total: total, Page: query.Page, PageSize: query.PageSize, Revision: revision}, nil
+	return AssetPage{
+		Items: pageItems, Total: total, Page: query.Page, PageSize: query.PageSize, Revision: revision,
+		Categories: categories, Tags: tags,
+	}, nil
+}
+
+func assetFacets(records []AssetRecord, kind string) ([]FacetValue, []FacetValue) {
+	categoryCounts := make(map[string]int)
+	tagCounts := make(map[string]int)
+	categoryLabels := make(map[string]string)
+	tagLabels := make(map[string]string)
+	for _, record := range records {
+		if kind != "" && record.Kind != kind {
+			continue
+		}
+		if category := strings.TrimSpace(record.Category); category != "" {
+			key := strings.ToLower(category)
+			categoryCounts[key]++
+			if categoryLabels[key] == "" {
+				categoryLabels[key] = category
+			}
+		}
+		seen := make(map[string]struct{}, len(record.Tags))
+		for _, raw := range record.Tags {
+			tag := strings.TrimSpace(raw)
+			key := strings.ToLower(tag)
+			if key == "" {
+				continue
+			}
+			if _, duplicate := seen[key]; duplicate {
+				continue
+			}
+			seen[key] = struct{}{}
+			tagCounts[key]++
+			if tagLabels[key] == "" {
+				tagLabels[key] = tag
+			}
+		}
+	}
+	return sortedAssetFacetValues(categoryCounts, categoryLabels), sortedAssetFacetValues(tagCounts, tagLabels)
+}
+
+func sortedAssetFacetValues(counts map[string]int, labels map[string]string) []FacetValue {
+	values := make([]FacetValue, 0, len(counts))
+	for key, count := range counts {
+		values = append(values, FacetValue{Value: labels[key], Count: count})
+	}
+	sort.Slice(values, func(i, j int) bool { return strings.ToLower(values[i].Value) < strings.ToLower(values[j].Value) })
+	return values
 }
 
 func assetNameLess(left, right AssetSummary) bool {

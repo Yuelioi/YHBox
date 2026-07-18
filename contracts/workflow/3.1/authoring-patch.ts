@@ -6,6 +6,10 @@ export type Command =
       renameWorkflow: RenameWorkflowCommand
     }
   | {
+      kind: 'update-workflow-metadata'
+      updateWorkflowMetadata: UpdateWorkflowMetadataCommand
+    }
+  | {
       kind: 'set-target-default'
       setTargetDefault: SetTargetDefaultCommand
     }
@@ -171,6 +175,12 @@ export interface YottaWorkflowAuthoringPatch {
 }
 export interface RenameWorkflowCommand {
   name: string
+}
+export interface UpdateWorkflowMetadataCommand {
+  category: string
+  description: string
+  name: string
+  tags: string[]
 }
 export interface SetTargetDefaultCommand {
   slot: string

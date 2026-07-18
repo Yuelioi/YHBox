@@ -101,72 +101,68 @@
       </aside>
 
       <main class="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-default bg-default px-3">
-          <UInput
-            v-model="queryInput"
-            icon="i-tabler-search"
-            class="min-w-56 max-w-2xl flex-1"
-            :placeholder="t('assets.search_placeholder')"
-            :aria-label="t('assets.search_placeholder')"
-            @keyup.enter="applyQuery"
-          />
-          <UButton color="neutral" variant="soft" icon="i-tabler-search" @click="applyQuery" />
-          <UButton
-            color="neutral"
-            :variant="libraryFiltersOpen || hasLibraryFilters ? 'soft' : 'ghost'"
-            icon="i-tabler-filter"
-            :label="t('assetPicker.filters')"
-            @click="libraryFiltersOpen = !libraryFiltersOpen"
-          />
-          <USelect
-            v-model="sort"
-            :items="sortItems"
-            class="w-44"
-            @update:model-value="changeQuery"
-          />
-          <div
-            v-if="activeTab === 'templates'"
-            class="flex items-center rounded-md border border-default p-0.5"
+        <div class="shrink-0 border-b border-default bg-elevated/10">
+          <form
+            class="flex items-center gap-2 border-b border-default p-3"
+            role="search"
+            @submit.prevent="applyQuery"
           >
-            <UButton
-              size="xs"
-              color="neutral"
-              :variant="viewMode === 'list' ? 'soft' : 'ghost'"
-              icon="i-tabler-list"
-              :aria-label="t('assets.view_list')"
-              @click="viewMode = 'list'"
+            <UInput
+              v-model="queryInput"
+              icon="i-tabler-search"
+              class="min-w-56 flex-1"
+              :placeholder="t('assets.search_all_placeholder')"
+              :aria-label="t('assets.search_all_placeholder')"
             />
             <UButton
-              size="xs"
+              type="submit"
               color="neutral"
-              :variant="viewMode === 'grid' ? 'soft' : 'ghost'"
-              icon="i-tabler-layout-grid"
-              :aria-label="t('assets.view_grid')"
-              @click="viewMode = 'grid'"
+              variant="soft"
+              icon="i-tabler-search"
+              :label="t('assets.search_action')"
+            />
+          </form>
+          <div class="flex flex-wrap items-center gap-2 p-3">
+            <USelect
+              v-model="categoryFilter"
+              :items="categoryFilterItems"
+              icon="i-tabler-category"
+              class="w-48"
+              @update:model-value="changeQuery"
+            />
+            <UInputMenu
+              v-model="tagFilters"
+              :items="tagOptions"
+              multiple
+              icon="i-tabler-tags"
+              class="min-w-56 max-w-md flex-1"
+              :placeholder="t('assets.all_tags')"
+              @update:model-value="changeQuery"
+            />
+            <USelect
+              v-model="sort"
+              :items="sortItems"
+              icon="i-tabler-arrows-sort"
+              class="w-48"
+              @update:model-value="changeQuery"
+            />
+            <UButton
+              v-if="hasLibraryFilters"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-filter-x"
+              :label="t('assets.reset_filters')"
+              @click="resetLibraryFilters"
+            />
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-refresh"
+              :aria-label="t('common.refresh')"
+              :loading="loading"
+              @click="refreshAssets"
             />
           </div>
-        </div>
-
-        <div
-          v-if="libraryFiltersOpen"
-          class="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 border-b border-default bg-elevated/20 px-3 py-2"
-        >
-          <UInput
-            v-model="categoryFilter"
-            :placeholder="t('assets.category_filter')"
-            @keyup.enter="changeQuery"
-          />
-          <UInput
-            v-model="tagsFilter"
-            :placeholder="t('assets.tags_filter')"
-            @keyup.enter="changeQuery"
-          />
-          <UButton
-            color="neutral"
-            variant="soft"
-            :label="t('assets.search_action')"
-            @click="changeQuery"
-          />
         </div>
 
         <section
@@ -264,51 +260,26 @@
           <div v-if="loading" class="space-y-px p-2">
             <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
           </div>
-          <div
-            v-else-if="visibleItems.length && activeTab === 'templates' && viewMode === 'grid'"
-            class="grid grid-cols-2 gap-2 p-3 xl:grid-cols-3 2xl:grid-cols-4"
-          >
-            <article
-              v-for="item in visibleItems"
-              :key="item.id"
-              class="group min-w-0 rounded-lg border border-default bg-default p-2.5 transition-colors hover:border-accented"
-            >
-              <div class="flex items-start gap-2">
-                <UCheckbox
-                  :model-value="Boolean(selected[item.id])"
-                  :aria-label="t('assets.select_named', { name: item.name })"
-                  @update:model-value="toggleAsset(item.source, Boolean($event))"
-                />
-                <div class="min-w-0 flex-1" />
-                <UDropdownMenu :items="assetMenu(item)">
-                  <UButton icon="i-tabler-dots" color="neutral" variant="ghost" size="xs" />
-                </UDropdownMenu>
-              </div>
-              <BlobPreview
-                v-if="item.previewBlob"
-                :blob="item.previewBlob"
-                :alt="item.name"
-                class="mt-1 aspect-video w-full"
-                @state="previewStates[item.id] = $event"
-              />
-              <h3 class="mt-2 truncate text-xs font-medium text-highlighted">{{ item.name }}</h3>
-              <p class="mt-0.5 truncate text-[10px] text-dimmed">{{ item.meta }}</p>
-            </article>
-          </div>
-          <div v-else-if="visibleItems.length" class="min-w-[720px]">
+          <div v-else-if="visibleItems.length" class="min-w-[1080px]">
             <div
-              class="grid h-8 grid-cols-[2.25rem_minmax(15rem,2fr)_minmax(9rem,1fr)_9rem_2.5rem] items-center border-b border-default bg-elevated/35 px-3 text-[10px] font-medium text-dimmed"
+              class="grid h-9 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b border-default bg-elevated/35 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
             >
-              <span />
+              <UCheckbox
+                :model-value="allCurrentPageSelected"
+                :aria-label="t('assets.select_page')"
+                @update:model-value="toggleCurrentPage(Boolean($event))"
+              />
               <span>{{ t('assets.columns.asset') }}</span>
-              <span>{{ t('assets.columns.organization') }}</span>
+              <span>{{ t('common.category') }}</span>
+              <span>{{ t('common.tags') }}</span>
+              <span>{{ t('assets.columns.details') }}</span>
               <span>{{ t('assets.columns.created') }}</span>
               <span />
             </div>
             <article
               v-for="item in visibleItems"
               :key="item.id"
-              class="grid min-h-14 grid-cols-[2.25rem_minmax(15rem,2fr)_minmax(9rem,1fr)_9rem_2.5rem] items-center border-b border-default/70 px-3 hover:bg-elevated/35"
+              class="grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b border-default/70 px-3 hover:bg-elevated/35"
             >
               <UCheckbox
                 :model-value="Boolean(selected[item.id])"
@@ -336,15 +307,30 @@
                   </p>
                 </div>
               </div>
-              <div class="flex min-w-0 items-center gap-1 pr-3">
+              <div class="min-w-0">
                 <UBadge v-if="item.category" color="neutral" variant="soft" size="sm">{{
                   item.category
                 }}</UBadge>
-                <span v-if="item.tags.length" class="truncate text-[10px] text-dimmed">{{
-                  item.tags.slice(0, 3).join(' · ')
-                }}</span>
-                <span v-else-if="!item.category" class="text-[10px] text-dimmed">—</span>
+                <span v-else class="text-[10px] text-dimmed">{{ t('assets.unclassified') }}</span>
               </div>
+              <div class="flex min-w-0 items-center gap-1 overflow-hidden">
+                <UBadge
+                  v-for="tag in item.tags.slice(0, 3)"
+                  :key="tag"
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                >
+                  {{ tag }}
+                </UBadge>
+                <span v-if="!item.tags.length" class="text-[10px] text-dimmed">{{
+                  t('assets.no_tags')
+                }}</span>
+                <span v-else-if="item.tags.length > 3" class="text-[10px] text-dimmed"
+                  >+{{ item.tags.length - 3 }}</span
+                >
+              </div>
+              <span class="truncate text-[10px] text-muted">{{ item.meta }}</span>
               <span class="truncate text-[10px] text-dimmed">{{
                 formatAssetDate(item.source.createdAt)
               }}</span>
@@ -362,17 +348,28 @@
           <EmptyState
             v-else
             :icon="
-              query
+              hasLibraryFilters
                 ? 'i-tabler-search-off'
                 : activeTab === 'clips'
                   ? 'i-tabler-movie-off'
                   : 'i-tabler-photo-off'
             "
-            :title="query ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
-            :description="query ? t('assets.no_results_hint') : t(`assets.${activeTab}.empty_hint`)"
+            :title="hasLibraryFilters ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
+            :description="
+              hasLibraryFilters ? t('assets.no_results_hint') : t(`assets.${activeTab}.empty_hint`)
+            "
           >
-            <template v-if="!query && activeTab === 'templates'" #action>
+            <template #action>
               <UButton
+                v-if="hasLibraryFilters"
+                color="neutral"
+                variant="soft"
+                icon="i-tabler-filter-x"
+                :label="t('assets.reset_filters')"
+                @click="resetLibraryFilters"
+              />
+              <UButton
+                v-else-if="activeTab === 'templates'"
                 icon="i-tabler-camera-plus"
                 :label="t('assets.templates.capture')"
                 :disabled="!selectedTargetSlot"
@@ -385,29 +382,23 @@
           v-if="!loading && total > 0"
           class="flex h-11 shrink-0 items-center gap-3 border-t border-default bg-default px-3"
         >
-          <UCheckbox
-            :model-value="allCurrentPageSelected"
-            :aria-label="t('assets.select_page')"
-            @update:model-value="toggleCurrentPage(Boolean($event))"
-          />
           <span class="mr-auto text-xs text-dimmed">
-            {{ t('assets.page_summary', { page, pages: pageCount, total }) }}
+            {{ t('assets.result_range', { start: resultStart, end: resultEnd, total }) }}
           </span>
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="soft"
-            icon="i-tabler-chevron-left"
-            :disabled="page <= 1"
-            @click="goToPage(page - 1)"
+          <UPagination
+            :page="page"
+            :total="total"
+            :items-per-page="pageSize"
+            :sibling-count="1"
+            show-edges
+            @update:page="goToPage"
           />
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="soft"
-            icon="i-tabler-chevron-right"
-            :disabled="page >= pageCount"
-            @click="goToPage(page + 1)"
+          <span class="text-xs text-dimmed">{{ t('assets.per_page') }}</span>
+          <USelect
+            v-model="pageSize"
+            :items="pageSizeItems"
+            class="w-24"
+            @update:model-value="changeQuery"
           />
         </footer>
       </main>
@@ -423,10 +414,21 @@
   >
     <div class="space-y-4">
       <UFormField :label="t('common.category')">
-        <UInput v-model="batchDraft.category" />
+        <UInputMenu
+          v-model="batchDraft.category"
+          :items="metadataCategoryOptions"
+          :create-item="'always'"
+          @create="createBatchCategory"
+        />
       </UFormField>
-      <UFormField :label="t('common.tags')" :hint="t('assets.tags_hint')">
-        <UInput v-model="batchDraft.tags" />
+      <UFormField :label="t('common.tags')">
+        <UInputMenu
+          v-model="batchDraft.tags"
+          :items="metadataTagOptions"
+          :create-item="'always'"
+          multiple
+          @create="createBatchTag"
+        />
       </UFormField>
     </div>
     <template #footer>
@@ -500,10 +502,21 @@
         <UTextarea v-model="editDraft.description" :rows="3" />
       </UFormField>
       <UFormField :label="t('common.category')" :hint="t('common.optional')">
-        <UInput v-model="editDraft.category" />
+        <UInputMenu
+          v-model="editDraft.category"
+          :items="metadataCategoryOptions"
+          :create-item="'always'"
+          @create="createEditCategory"
+        />
       </UFormField>
-      <UFormField :label="t('common.tags')" :hint="t('assets.tags_hint')">
-        <UInput v-model="editDraft.tags" />
+      <UFormField :label="t('common.tags')" :hint="t('common.optional')">
+        <UInputMenu
+          v-model="editDraft.tags"
+          :items="metadataTagOptions"
+          :create-item="'always'"
+          multiple
+          @create="createEditTag"
+        />
       </UFormField>
     </div>
     <template #footer>
@@ -562,10 +575,21 @@
       </UFormField>
       <div class="grid grid-cols-2 gap-3">
         <UFormField :label="t('common.category')" :hint="t('common.optional')">
-          <UInput v-model="recordingDraft.category" />
+          <UInputMenu
+            v-model="recordingDraft.category"
+            :items="metadataCategoryOptions"
+            :create-item="'always'"
+            @create="createRecordingCategory"
+          />
         </UFormField>
-        <UFormField :label="t('common.tags')" :hint="t('assets.tags_hint')">
-          <UInput v-model="recordingDraft.tags" />
+        <UFormField :label="t('common.tags')" :hint="t('common.optional')">
+          <UInputMenu
+            v-model="recordingDraft.tags"
+            :items="metadataTagOptions"
+            :create-item="'always'"
+            multiple
+            @create="createRecordingTag"
+          />
         </UFormField>
       </div>
     </div>
@@ -624,6 +648,8 @@ type AssetItem = {
   previewBlob?: BlobRef
   source: AssetSummary
 }
+type AssetMetadataDraft = { category: string; tags: string[] }
+const allCategories = '__all__'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -635,20 +661,20 @@ const { starting: recordingStarting, start: beginRecording } = useRecordingStart
 const activeTab = ref<AssetTab>('clips')
 const queryInput = ref('')
 const query = ref('')
-const categoryFilter = ref('')
-const tagsFilter = ref('')
+const categoryFilter = ref(allCategories)
+const tagFilters = ref<string[]>([])
+const categories = ref<Array<{ value: string; count: number }>>([])
+const tags = ref<Array<{ value: string; count: number }>>([])
 const sort = ref('name_asc')
-const libraryFiltersOpen = ref(false)
-const viewMode = ref<'list' | 'grid'>('list')
 const page = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(20)
 const total = ref(0)
 const assetPage = ref<AssetSummary[]>([])
 const loading = ref(false)
 const selected = ref<Record<string, AssetSummary>>({})
 const batchEditing = ref(false)
 const batchBusy = ref(false)
-const batchDraft = reactive({ category: '', tags: '' })
+const batchDraft = reactive<AssetMetadataDraft>({ category: '', tags: [] })
 const libraryFeedback = ref<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null)
 const variantAsset = ref<AssetSummary | null>(null)
 const variantBusy = ref(false)
@@ -661,14 +687,18 @@ const editBusy = ref(false)
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const recordingSaveBusy = ref(false)
 const recordingActions = ref<RecordingAction[]>([])
-const editDraft = reactive({ name: '', description: '', category: '', tags: '' })
-const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
+const editDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
+const recordingDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
+const createdCategories = ref<string[]>([])
+const createdTags = ref<string[]>([])
 const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
 const selectedRows = computed(() => Object.values(selected.value))
 const hasLibraryFilters = computed(() =>
-  Boolean(categoryFilter.value.trim() || tagsFilter.value.trim()),
+  Boolean(query.value || categoryFilter.value !== allCategories || tagFilters.value.length),
 )
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
+const resultEnd = computed(() => Math.min(page.value * pageSize.value, total.value))
 const allCurrentPageSelected = computed(
   () => assetPage.value.length > 0 && assetPage.value.every((asset) => selected.value[asset.guid]),
 )
@@ -677,6 +707,37 @@ const sortItems = computed(() => [
   { label: t('assets.sort_name_desc'), value: 'name_desc' },
   { label: t('assets.sort_created_desc'), value: 'created_desc' },
 ])
+const pageSizeItems = [
+  { label: '20', value: 20 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+]
+const categoryFilterItems = computed(() => [
+  { label: t('assets.all_categories'), value: allCategories },
+  ...categories.value.map((item) => ({
+    label: `${item.value} (${item.count})`,
+    value: item.value,
+  })),
+])
+const tagOptions = computed(() => tags.value.map((item) => item.value))
+const metadataCategoryOptions = computed(() =>
+  uniqueStrings([
+    ...categories.value.map((item) => item.value),
+    ...createdCategories.value,
+    batchDraft.category,
+    editDraft.category,
+    recordingDraft.category,
+  ]),
+)
+const metadataTagOptions = computed(() =>
+  uniqueStrings([
+    ...tags.value.map((item) => item.value),
+    ...createdTags.value,
+    ...batchDraft.tags,
+    ...editDraft.tags,
+    ...recordingDraft.tags,
+  ]),
+)
 const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
   { label: t('recordingSave.mode_simple'), value: 'simple' },
   { label: t('recordingSave.mode_precise'), value: 'precise' },
@@ -792,8 +853,8 @@ async function refreshAssets(): Promise<void> {
     const result = await assets.query({
       search: query.value,
       kind: activeTab.value === 'clips' ? 'clip' : 'template',
-      category: categoryFilter.value.trim(),
-      tags: splitTags(tagsFilter.value),
+      category: categoryFilter.value === allCategories ? '' : categoryFilter.value.trim(),
+      tags: tagFilters.value,
       sort: sort.value,
       page: page.value,
       pageSize: pageSize.value,
@@ -802,6 +863,8 @@ async function refreshAssets(): Promise<void> {
     })
     assetPage.value = result?.items ?? []
     total.value = result?.total ?? 0
+    categories.value = result?.categories ?? []
+    tags.value = result?.tags ?? []
     if (page.value > pageCount.value) {
       page.value = pageCount.value
       await refreshAssets()
@@ -822,6 +885,14 @@ async function applyQuery(): Promise<void> {
 async function changeQuery(): Promise<void> {
   page.value = 1
   await refreshAssets()
+}
+
+async function resetLibraryFilters(): Promise<void> {
+  queryInput.value = ''
+  query.value = ''
+  categoryFilter.value = allCategories
+  tagFilters.value = []
+  await changeQuery()
 }
 
 async function goToPage(next: number): Promise<void> {
@@ -852,7 +923,7 @@ function clearSelection(): void {
 
 function openBatchEdit(): void {
   batchDraft.category = ''
-  batchDraft.tags = ''
+  batchDraft.tags = []
   batchEditing.value = true
 }
 
@@ -865,7 +936,7 @@ async function saveBatchMeta(): Promise<void> {
         selectedRows.value.map((asset) => ({
           guid: asset.guid,
           category: batchDraft.category.trim(),
-          tags: splitTags(batchDraft.tags),
+          tags: uniqueStrings(batchDraft.tags),
         })),
       )) ?? []
     retainFailedSelection(results.filter((result) => !result.updated).map((result) => result.guid))
@@ -963,7 +1034,7 @@ function openRecordingSave(payload: RecordingStopPayload): void {
   recordingDraft.name = ''
   recordingDraft.description = ''
   recordingDraft.category = ''
-  recordingDraft.tags = ''
+  recordingDraft.tags = []
 }
 
 async function saveRecording(): Promise<void> {
@@ -976,7 +1047,7 @@ async function saveRecording(): Promise<void> {
       label: recordingDraft.name.trim(),
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),
-      tags: splitTags(recordingDraft.tags),
+      tags: uniqueStrings(recordingDraft.tags),
       actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
     })
     pendingRecording.value = null
@@ -1159,7 +1230,7 @@ function openEdit(item: AssetItem): void {
   editDraft.name = item.name
   editDraft.description = item.description
   editDraft.category = item.category
-  editDraft.tags = item.tags.join(', ')
+  editDraft.tags = [...item.tags]
 }
 
 async function saveAssetMeta(): Promise<void> {
@@ -1171,7 +1242,7 @@ async function saveAssetMeta(): Promise<void> {
       label: editDraft.name.trim(),
       description: editDraft.description.trim(),
       category: editDraft.category.trim(),
-      tags: splitTags(editDraft.tags),
+      tags: uniqueStrings(editDraft.tags),
     }
     await backend.assets.updateMeta(
       item.id,
@@ -1208,15 +1279,54 @@ async function deleteAsset(item: AssetItem): Promise<void> {
   }
 }
 
-function splitTags(value: string): string[] {
-  return [
-    ...new Set(
-      value
-        .split(/[,，]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  ]
+function createAssetCategory(value: string, draft: AssetMetadataDraft): void {
+  const category = value.trim()
+  if (!category) return
+  createdCategories.value = uniqueStrings([...createdCategories.value, category])
+  draft.category = category
+}
+
+function createBatchCategory(value: string): void {
+  createAssetCategory(value, batchDraft)
+}
+
+function createEditCategory(value: string): void {
+  createAssetCategory(value, editDraft)
+}
+
+function createRecordingCategory(value: string): void {
+  createAssetCategory(value, recordingDraft)
+}
+
+function createAssetTag(value: string, draft: AssetMetadataDraft): void {
+  const tag = value.trim()
+  if (!tag) return
+  createdTags.value = uniqueStrings([...createdTags.value, tag])
+  draft.tags = uniqueStrings([...draft.tags, tag])
+}
+
+function createBatchTag(value: string): void {
+  createAssetTag(value, batchDraft)
+}
+
+function createEditTag(value: string): void {
+  createAssetTag(value, editDraft)
+}
+
+function createRecordingTag(value: string): void {
+  createAssetTag(value, recordingDraft)
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>()
+  return values
+    .map((value) => value.trim())
+    .filter((value) => {
+      const key = value.toLocaleLowerCase()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 function formatDuration(durationUs: number): string {

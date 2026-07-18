@@ -44,7 +44,14 @@ func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 		if index == 100 || index == 900 {
 			name += " Needle"
 		}
-		if _, err := service.CreateSource(name); err != nil {
+		request := workflow.CreateSourceRequest{
+			Name: name, Description: fmt.Sprintf("Fixture workflow %04d", index),
+			Category: []string{"Even", "Odd"}[index%2], Tags: []string{"common"},
+		}
+		if index == 100 || index == 900 {
+			request.Tags = append(request.Tags, "needle")
+		}
+		if _, err := service.CreateSourceWithMetadata(request); err != nil {
 			t.Fatalf("CreateSource(%d): %v", index, err)
 		}
 	}
@@ -57,6 +64,16 @@ func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 	search, err := service.QuerySources(workflow.SourceQuery{Search: "needle", Sort: "name_asc", Page: 1, PageSize: 20})
 	if err != nil || search.Total != 2 || len(search.Items) != 2 {
 		t.Fatalf("QuerySources search = %#v, %v", search, err)
+	}
+	filtered, err := service.QuerySources(workflow.SourceQuery{
+		Category: "even", Tags: []string{"NEEDLE"}, Sort: "nodes_desc", Page: 1, PageSize: 20,
+	})
+	if err != nil || filtered.Total != 2 || len(filtered.Items) != 2 || filtered.Items[0].NodeCount != 1 {
+		t.Fatalf("QuerySources facets = %#v, %v", filtered, err)
+	}
+	if len(filtered.Categories) != 2 || filtered.Categories[0].Value != "Even" || filtered.Categories[0].Count != 500 ||
+		len(filtered.Tags) != 2 || filtered.Tags[0].Value != "common" || filtered.Tags[0].Count != 1_000 {
+		t.Fatalf("QuerySources facet values = categories %#v, tags %#v", filtered.Categories, filtered.Tags)
 	}
 	if elapsed := time.Since(started); elapsed > 5*time.Second {
 		t.Fatalf("querying 1000 workflow sources took %s", elapsed)
@@ -84,6 +101,13 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	if err != nil || created.Name != "Projection" || created.SourceJSON == "" {
 		t.Fatalf("CreateSource() = %#v, %v", created, err)
 	}
+	metadata, err := service.UpdateSourceMetadata(created.WorkflowID, created.Revision, workflow.UpdateSourceMetadataRequest{
+		Name: "Projection", Description: "Service projection", Category: "Tests", Tags: []string{"workflow", "Workflow"},
+	})
+	if err != nil || metadata.Description != "Service projection" || metadata.Category != "Tests" || len(metadata.Tags) != 1 || metadata.Revision != 1 {
+		t.Fatalf("UpdateSourceMetadata() = %#v, %v", metadata, err)
+	}
+	created = metadata
 	loaded, err := service.GetSource(created.WorkflowID)
 	if err != nil || loaded.SourceHash != created.SourceHash || loaded.SourceJSON == "" {
 		t.Fatalf("GetSource() = %#v, %v", loaded, err)
@@ -93,7 +117,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "a"}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: "b"}},
 	})
-	if err != nil || len(patched.GeneratedNodes) != 1 || patched.Source.Revision != 1 {
+	if err != nil || len(patched.GeneratedNodes) != 1 || patched.Source.Revision != 2 || patched.Source.NodeCount != 2 {
 		t.Fatalf("ApplyPatch() = %#v, %v", patched, err)
 	}
 	listed, err := service.ListSources()

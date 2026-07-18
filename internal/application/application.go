@@ -616,12 +616,16 @@ func (a *Application) PreviewRun(ctx context.Context, workflowID string) (RunPre
 // defaults are host-owned so UI, CLI, and MCP cannot invent divergent source
 // envelopes.
 func (a *Application) CreateSource(ctx context.Context, name string) (workflowstore.SourceSnapshot, error) {
+	return a.CreateSourceWithMetadata(ctx, authoring.WorkflowMetadata{Name: name})
+}
+
+func (a *Application) CreateSourceWithMetadata(ctx context.Context, requested authoring.WorkflowMetadata) (workflowstore.SourceSnapshot, error) {
 	if ctx == nil {
 		return workflowstore.SourceSnapshot{}, errors.New("create Workflow Source context is required")
 	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return workflowstore.SourceSnapshot{}, errors.New("workflow name is required")
+	metadata, err := authoring.NormalizeWorkflowMetadata(requested)
+	if err != nil {
+		return workflowstore.SourceSnapshot{}, err
 	}
 	a.commandMu.RLock()
 	defer a.commandMu.RUnlock()
@@ -634,7 +638,11 @@ func (a *Application) CreateSource(ctx context.Context, name string) (workflowst
 	}
 	source := schema.WorkflowSource{
 		Format: schema.Format, Version: schema.Version,
-		Workflow: schema.Workflow{ID: uuid.NewString(), Name: name}, Revision: 0, EntryGraph: "main",
+		Workflow: schema.Workflow{
+			ID: uuid.NewString(), Name: metadata.Name, Description: metadata.Description,
+			Category: metadata.Category, Tags: metadata.Tags,
+		},
+		Revision: 0, EntryGraph: "main",
 		Graphs: []schema.Graph{{
 			ID: "main", Kind: schema.GraphKindMain,
 			Nodes: []schema.Node{{

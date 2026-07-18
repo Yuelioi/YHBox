@@ -632,7 +632,7 @@ func normalizeChanges(commands []authoring.Command) []Change {
 
 func commandTarget(command authoring.Command) string {
 	switch command.Kind {
-	case authoring.CommandRenameWorkflow:
+	case authoring.CommandRenameWorkflow, authoring.CommandUpdateWorkflowMetadata:
 		return "workflow"
 	case authoring.CommandAddStateVariable:
 		return "state:" + command.AddStateVariable.Name

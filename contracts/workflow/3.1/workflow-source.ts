@@ -184,6 +184,12 @@ export interface Variable {
   type: TypeExpression
 }
 export interface Workflow {
+  category?: string
+  description?: string
   id: string
   name: string
+  /**
+   * @maxItems 64
+   */
+  tags?: string[]
 }

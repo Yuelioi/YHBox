@@ -10,11 +10,13 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain("t('workflow.action.edit_named', { name: source.name })")
   })
 
-  it('keeps creation and row actions reachable without a fixed four-column viewport', () => {
-    expect(source).toContain('flex-col')
-    expect(source).toContain('flex-wrap')
-    expect(source).not.toContain('grid-cols-[minmax(220px,1fr)_88px_minmax(180px,0.8fr)_170px]')
-    expect(source).toContain('sm:grid-cols-[auto_minmax(0,1fr)_auto]')
+  it('uses one create modal and a configurable list without grid or hotkey columns', () => {
+    expect(source).toContain('data-testid="workflow-new-button"')
+    expect(source).toContain('v-model:open="metadataModalOpen"')
+    expect(source).toContain('<UPagination')
+    expect(source).toContain('columnMenuItems')
+    expect(source).not.toContain("viewMode === 'grid'")
+    expect(source).not.toContain("key: 'hotkey'")
   })
 
   it('offers browser onboarding as a target template without changing the source model', () => {
@@ -32,11 +34,12 @@ describe('WorkflowsView entry points', () => {
   it('queries a server-side page and preserves explicit cross-page selection', () => {
     expect(source).toContain('workflowTransport.querySources')
     expect(source).toContain('search: search.value')
+    expect(source).toContain("categoryFilter.value === allCategories ? '' : categoryFilter.value")
+    expect(source).toContain('tags: tagFilters.value')
     expect(source).toContain('page: page.value')
     expect(source).toContain('pageSize: pageSize.value')
-    expect(source).toContain('selection_scope_hint')
     expect(source).toContain('toggleCurrentPage')
-    expect(source).not.toContain('.slice(')
+    expect(source).not.toContain('sources.value.slice(')
   })
 
   it('previews references and performs CAS-protected partial batch deletion', () => {

@@ -578,14 +578,30 @@
     "Workflow": {
       "additionalProperties": false,
       "properties": {
+        "category": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4096,
+          "type": "string"
+        },
         "id": {
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "name": {
+          "maxLength": 256,
           "minLength": 1,
           "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
         }
       },
       "required": [

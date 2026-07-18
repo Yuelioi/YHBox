@@ -1149,13 +1149,22 @@ function runView(status: string): RunView {
 function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
   return {
     listSources: vi.fn(async () => [saved]),
-    querySources: vi.fn(async () => ({ items: [saved], total: 1, page: 1, pageSize: 20 })),
+    querySources: vi.fn(async () => ({
+      items: [saved],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      categories: [],
+      tags: [],
+    })),
     listSourceRecoveries: vi.fn(async () => []),
     repairSourceRecovery: vi.fn(async () => saved),
     deleteSourceRecovery: vi.fn(async () => undefined),
     previewDeleteSources: vi.fn(async () => []),
     deleteSources: vi.fn(async () => []),
     createSource: vi.fn(async () => saved),
+    createSourceWithMetadata: vi.fn(async () => saved),
+    updateSourceMetadata: vi.fn(async () => saved),
     chooseSourceBundle: vi.fn(async () => ''),
     chooseSourceBundleDestination: vi.fn(async () => ''),
     chooseSourceBundleDirectory: vi.fn(async () => ''),

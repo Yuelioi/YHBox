@@ -115,6 +115,8 @@ export interface AssetPage {
   page: number
   pageSize: number
   revision: number
+  categories: Array<{ value: string; count: number }>
+  tags: Array<{ value: string; count: number }>
 }
 
 export interface AssetBinding {
@@ -488,7 +490,8 @@ export const backend = {
   assets: {
     // List 全局资产列表 (template + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
-    query: (query: AssetQuery) => invoke(AssetService.QueryAssets, query) as Promise<AssetPage>,
+    query: (query: AssetQuery) =>
+      invoke(AssetService.QueryAssets, query) as unknown as Promise<AssetPage>,
     batchUpdateMeta: (requests: Array<{ guid: string; category: string; tags: string[] }>) =>
       invoke(AssetService.BatchUpdateMeta, requests) as Promise<AssetBatchResult[]>,
     batchDelete: (guids: string[]) =>

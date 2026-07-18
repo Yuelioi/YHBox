@@ -59,25 +59,52 @@ func NewService(application *appcore.Application, options ...Option) (*Service, 
 }
 
 type SourceView struct {
-	WorkflowID string          `json:"workflowId"`
-	Name       string          `json:"name"`
-	Revision   int64           `json:"revision"`
-	SourceHash artifact.Digest `json:"sourceHash"`
-	SourceJSON string          `json:"sourceJson,omitempty"`
+	WorkflowID  string          `json:"workflowId"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Category    string          `json:"category,omitempty"`
+	Tags        []string        `json:"tags,omitempty"`
+	NodeCount   int             `json:"nodeCount"`
+	Revision    int64           `json:"revision"`
+	SourceHash  artifact.Digest `json:"sourceHash"`
+	SourceJSON  string          `json:"sourceJson,omitempty"`
 }
 
 type SourceQuery struct {
-	Search   string `json:"search"`
-	Sort     string `json:"sort"`
-	Page     int    `json:"page"`
-	PageSize int    `json:"pageSize"`
+	Search   string   `json:"search"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
+	Sort     string   `json:"sort"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"pageSize"`
+}
+
+type FacetValue struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
 }
 
 type SourcePage struct {
-	Items    []SourceView `json:"items"`
-	Total    int          `json:"total"`
-	Page     int          `json:"page"`
-	PageSize int          `json:"pageSize"`
+	Items      []SourceView `json:"items"`
+	Total      int          `json:"total"`
+	Page       int          `json:"page"`
+	PageSize   int          `json:"pageSize"`
+	Categories []FacetValue `json:"categories"`
+	Tags       []FacetValue `json:"tags"`
+}
+
+type CreateSourceRequest struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+}
+
+type UpdateSourceMetadataRequest struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
 }
 
 type SourceRecoveryView struct {
@@ -214,6 +241,29 @@ func (s *Service) CreateSource(name string) (SourceView, error) {
 	return sourceView(snapshot, true)
 }
 
+func (s *Service) CreateSourceWithMetadata(request CreateSourceRequest) (SourceView, error) {
+	snapshot, err := s.application.CreateSourceWithMetadata(context.Background(), authoring.WorkflowMetadata{
+		Name: request.Name, Description: request.Description, Category: request.Category, Tags: request.Tags,
+	})
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(snapshot, true)
+}
+
+func (s *Service) UpdateSourceMetadata(workflowID string, baseRevision int64, request UpdateSourceMetadataRequest) (SourceView, error) {
+	patch, err := s.ApplyPatch(workflowID, baseRevision, []authoring.Command{{
+		Kind: authoring.CommandUpdateWorkflowMetadata,
+		UpdateWorkflowMetadata: &authoring.UpdateWorkflowMetadataCommand{
+			Name: request.Name, Description: request.Description, Category: request.Category, Tags: request.Tags,
+		},
+	}})
+	if err != nil {
+		return SourceView{}, err
+	}
+	return patch.Source, nil
+}
+
 func (s *Service) GetSource(workflowID string) (SourceView, error) {
 	snapshot, err := s.application.GetSource(workflowID)
 	if err != nil {
@@ -269,16 +319,31 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 	if query.PageSize > 100 {
 		return SourcePage{}, errors.New("workflow source page size exceeds 100")
 	}
+	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 128 || len(query.Tags) > 16 {
+		return SourcePage{}, errors.New("workflow source filter budget exceeded")
+	}
 	search := strings.ToLower(strings.TrimSpace(query.Search))
+	category := strings.ToLower(strings.TrimSpace(query.Category))
+	wantedTags := normalizedSourceTags(query.Tags)
 	views, err := s.ListSources()
 	if err != nil {
 		return SourcePage{}, err
 	}
-	filtered := views[:0]
+	categories, tags := sourceFacets(views)
+	filtered := make([]SourceView, 0, len(views))
 	for _, view := range views {
-		if search == "" || strings.Contains(strings.ToLower(view.Name), search) || strings.Contains(strings.ToLower(view.WorkflowID), search) {
-			filtered = append(filtered, view)
+		if category != "" && strings.ToLower(view.Category) != category {
+			continue
 		}
+		if !containsEverySourceTag(view.Tags, wantedTags) {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(strings.Join(append([]string{
+			view.Name, view.Description, view.Category, view.WorkflowID,
+		}, view.Tags...), " ")), search) {
+			continue
+		}
+		filtered = append(filtered, view)
 	}
 	switch query.Sort {
 	case "name_desc":
@@ -289,6 +354,13 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 				return filtered[i].WorkflowID < filtered[j].WorkflowID
 			}
 			return filtered[i].Revision > filtered[j].Revision
+		})
+	case "nodes_desc":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			if filtered[i].NodeCount == filtered[j].NodeCount {
+				return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name)
+			}
+			return filtered[i].NodeCount > filtered[j].NodeCount
 		})
 	case "", "name_asc":
 		sort.SliceStable(filtered, func(i, j int) bool { return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name) })
@@ -302,7 +374,85 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 	}
 	end := min(start+query.PageSize, total)
 	items := append([]SourceView(nil), filtered[start:end]...)
-	return SourcePage{Items: items, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+	return SourcePage{
+		Items: items, Total: total, Page: query.Page, PageSize: query.PageSize,
+		Categories: categories, Tags: tags,
+	}, nil
+}
+
+func sourceFacets(views []SourceView) ([]FacetValue, []FacetValue) {
+	categoryCounts := make(map[string]int)
+	tagCounts := make(map[string]int)
+	categoryLabels := make(map[string]string)
+	tagLabels := make(map[string]string)
+	for _, view := range views {
+		if category := strings.TrimSpace(view.Category); category != "" {
+			key := strings.ToLower(category)
+			categoryCounts[key]++
+			if categoryLabels[key] == "" {
+				categoryLabels[key] = category
+			}
+		}
+		seen := make(map[string]struct{}, len(view.Tags))
+		for _, raw := range view.Tags {
+			tag := strings.TrimSpace(raw)
+			key := strings.ToLower(tag)
+			if key == "" {
+				continue
+			}
+			if _, duplicate := seen[key]; duplicate {
+				continue
+			}
+			seen[key] = struct{}{}
+			tagCounts[key]++
+			if tagLabels[key] == "" {
+				tagLabels[key] = tag
+			}
+		}
+	}
+	return sortedFacetValues(categoryCounts, categoryLabels), sortedFacetValues(tagCounts, tagLabels)
+}
+
+func sortedFacetValues(counts map[string]int, labels map[string]string) []FacetValue {
+	values := make([]FacetValue, 0, len(counts))
+	for key, count := range counts {
+		values = append(values, FacetValue{Value: labels[key], Count: count})
+	}
+	sort.Slice(values, func(i, j int) bool { return strings.ToLower(values[i].Value) < strings.ToLower(values[j].Value) })
+	return values
+}
+
+func normalizedSourceTags(tags []string) []string {
+	seen := make(map[string]struct{}, len(tags))
+	result := make([]string, 0, len(tags))
+	for _, raw := range tags {
+		tag := strings.ToLower(strings.TrimSpace(raw))
+		if tag == "" {
+			continue
+		}
+		if _, duplicate := seen[tag]; duplicate {
+			continue
+		}
+		seen[tag] = struct{}{}
+		result = append(result, tag)
+	}
+	return result
+}
+
+func containsEverySourceTag(tags, wanted []string) bool {
+	if len(wanted) == 0 {
+		return true
+	}
+	available := make(map[string]struct{}, len(tags))
+	for _, tag := range tags {
+		available[strings.ToLower(strings.TrimSpace(tag))] = struct{}{}
+	}
+	for _, tag := range wanted {
+		if _, ok := available[tag]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) InspectSourceBundle(archivePath string) (BundleInfoView, error) {
@@ -540,12 +690,22 @@ func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (Sour
 	}
 	view := SourceView{
 		WorkflowID: snapshot.WorkflowID(), Name: document.Workflow.Name,
+		Description: document.Workflow.Description, Category: document.Workflow.Category,
+		Tags: append([]string(nil), document.Workflow.Tags...), NodeCount: sourceNodeCount(document),
 		Revision: snapshot.Revision(), SourceHash: snapshot.Hash(),
 	}
 	if includeSource {
 		view.SourceJSON = string(snapshot.Artifact())
 	}
 	return view, nil
+}
+
+func sourceNodeCount(source schema.WorkflowSource) int {
+	total := 0
+	for _, graph := range source.Graphs {
+		total += len(graph.Nodes) + len(graph.Calls)
+	}
+	return total
 }
 
 func bundleInfoView(info workflowbundle.Info) BundleInfoView {

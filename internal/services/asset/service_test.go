@@ -278,6 +278,10 @@ func TestServiceQueryAndBatchManagement(t *testing.T) {
 	if err != nil || page.Total != 2 || len(page.Items) != 1 || page.Items[0].Name != "Beta" {
 		t.Fatalf("QueryAssets() = %#v, %v", page, err)
 	}
+	if len(page.Categories) != 2 || page.Categories[0].Value != "Game" || page.Categories[0].Count != 1 ||
+		len(page.Tags) != 2 || page.Tags[1].Value != "common" || page.Tags[1].Count != 2 {
+		t.Fatalf("QueryAssets facets = categories %#v, tags %#v", page.Categories, page.Tags)
+	}
 	updated := service.BatchUpdateMeta([]BatchMetaRequest{
 		{GUID: alpha, Category: "Shared", Tags: []string{"updated", "Updated"}},
 		{GUID: beta, Category: "Shared", Tags: []string{"updated"}},
@@ -325,6 +329,10 @@ func TestServiceAssetPickerQueryScalesAndResolvesExactVariant(t *testing.T) {
 	}
 	if page.Total != 1_000 || len(page.Items) != 20 || page.Items[0].GUID != "asset-0900" || page.Items[1].GUID != "asset-0100" || page.Revision == 0 {
 		t.Fatalf("picker page = %#v", page)
+	}
+	if len(page.Categories) != 1 || page.Categories[0].Value != "fixture" || page.Categories[0].Count != 1_000 ||
+		len(page.Tags) != 1 || page.Tags[0].Value != "common" || page.Tags[0].Count != 1_000 {
+		t.Fatalf("picker facets = categories %#v, tags %#v", page.Categories, page.Tags)
 	}
 	for index, item := range page.Items {
 		if (index < 4) != (item.Thumbnail != nil) {

@@ -10,6 +10,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -36,81 +37,134 @@ type PatchRequest struct {
 type CommandKind string
 
 const (
-	CommandRenameWorkflow       CommandKind = "rename-workflow"
-	CommandSetTargetDefault     CommandKind = "set-target-default"
-	CommandClearTargetDefault   CommandKind = "clear-target-default"
-	CommandAddStateVariable     CommandKind = "add-state-variable"
-	CommandUpdateStateVariable  CommandKind = "update-state-variable"
-	CommandRemoveStateVariable  CommandKind = "remove-state-variable"
-	CommandAddNode              CommandKind = "add-node"
-	CommandRemoveNode           CommandKind = "remove-node"
-	CommandMoveNode             CommandKind = "move-node"
-	CommandSetNodeLabel         CommandKind = "set-node-label"
-	CommandSetNodeDisabled      CommandKind = "set-node-disabled"
-	CommandSetConfig            CommandKind = "set-config"
-	CommandClearConfig          CommandKind = "clear-config"
-	CommandBindValue            CommandKind = "bind-value"
-	CommandBindDefault          CommandKind = "bind-default"
-	CommandBindBlob             CommandKind = "bind-blob"
-	CommandClearBinding         CommandKind = "clear-binding"
-	CommandConnect              CommandKind = "connect"
-	CommandDisconnect           CommandKind = "disconnect"
-	CommandAddGraph             CommandKind = "add-graph"
-	CommandRenameGraph          CommandKind = "rename-graph"
-	CommandRemoveGraph          CommandKind = "remove-graph"
-	CommandUpdateGraphInterface CommandKind = "update-graph-interface"
-	CommandAddGraphCall         CommandKind = "add-graph-call"
-	CommandUpdateGraphCall      CommandKind = "update-graph-call"
-	CommandRemoveGraphCall      CommandKind = "remove-graph-call"
-	CommandAddAnnotation        CommandKind = "add-annotation"
-	CommandUpdateAnnotation     CommandKind = "update-annotation"
-	CommandRemoveAnnotation     CommandKind = "remove-annotation"
-	CommandSetEdgeReroutes      CommandKind = "set-edge-reroutes"
-	CommandCollapseSelection    CommandKind = "collapse-selection"
+	CommandRenameWorkflow         CommandKind = "rename-workflow"
+	CommandUpdateWorkflowMetadata CommandKind = "update-workflow-metadata"
+	CommandSetTargetDefault       CommandKind = "set-target-default"
+	CommandClearTargetDefault     CommandKind = "clear-target-default"
+	CommandAddStateVariable       CommandKind = "add-state-variable"
+	CommandUpdateStateVariable    CommandKind = "update-state-variable"
+	CommandRemoveStateVariable    CommandKind = "remove-state-variable"
+	CommandAddNode                CommandKind = "add-node"
+	CommandRemoveNode             CommandKind = "remove-node"
+	CommandMoveNode               CommandKind = "move-node"
+	CommandSetNodeLabel           CommandKind = "set-node-label"
+	CommandSetNodeDisabled        CommandKind = "set-node-disabled"
+	CommandSetConfig              CommandKind = "set-config"
+	CommandClearConfig            CommandKind = "clear-config"
+	CommandBindValue              CommandKind = "bind-value"
+	CommandBindDefault            CommandKind = "bind-default"
+	CommandBindBlob               CommandKind = "bind-blob"
+	CommandClearBinding           CommandKind = "clear-binding"
+	CommandConnect                CommandKind = "connect"
+	CommandDisconnect             CommandKind = "disconnect"
+	CommandAddGraph               CommandKind = "add-graph"
+	CommandRenameGraph            CommandKind = "rename-graph"
+	CommandRemoveGraph            CommandKind = "remove-graph"
+	CommandUpdateGraphInterface   CommandKind = "update-graph-interface"
+	CommandAddGraphCall           CommandKind = "add-graph-call"
+	CommandUpdateGraphCall        CommandKind = "update-graph-call"
+	CommandRemoveGraphCall        CommandKind = "remove-graph-call"
+	CommandAddAnnotation          CommandKind = "add-annotation"
+	CommandUpdateAnnotation       CommandKind = "update-annotation"
+	CommandRemoveAnnotation       CommandKind = "remove-annotation"
+	CommandSetEdgeReroutes        CommandKind = "set-edge-reroutes"
+	CommandCollapseSelection      CommandKind = "collapse-selection"
 )
 
 // Command is an explicit tagged union. Exactly one payload must be present and
 // it must match Kind; this is checked again inside Engine.Apply for every
 // caller, including Wails and MCP decoders.
 type Command struct {
-	Kind                 CommandKind                 `json:"kind"`
-	RenameWorkflow       *RenameWorkflowCommand      `json:"renameWorkflow,omitempty"`
-	SetTargetDefault     *SetTargetDefaultCommand    `json:"setTargetDefault,omitempty"`
-	ClearTargetDefault   *ClearTargetDefaultCommand  `json:"clearTargetDefault,omitempty"`
-	AddStateVariable     *AddStateVariableCommand    `json:"addStateVariable,omitempty"`
-	UpdateStateVariable  *UpdateStateVariableCommand `json:"updateStateVariable,omitempty"`
-	RemoveStateVariable  *RemoveStateVariableCommand `json:"removeStateVariable,omitempty"`
-	AddNode              *AddNodeCommand             `json:"addNode,omitempty"`
-	RemoveNode           *NodeCommand                `json:"removeNode,omitempty"`
-	MoveNode             *MoveNodeCommand            `json:"moveNode,omitempty"`
-	SetNodeLabel         *SetNodeLabelCommand        `json:"setNodeLabel,omitempty"`
-	SetNodeDisabled      *SetNodeDisabledCommand     `json:"setNodeDisabled,omitempty"`
-	SetConfig            *SetConfigCommand           `json:"setConfig,omitempty"`
-	ClearConfig          *FieldCommand               `json:"clearConfig,omitempty"`
-	BindValue            *BindValueCommand           `json:"bindValue,omitempty"`
-	BindDefault          *PortCommand                `json:"bindDefault,omitempty"`
-	BindBlob             *BindBlobCommand            `json:"bindBlob,omitempty"`
-	ClearBinding         *PortCommand                `json:"clearBinding,omitempty"`
-	Connect              *EdgeCommand                `json:"connect,omitempty"`
-	Disconnect           *EdgeCommand                `json:"disconnect,omitempty"`
-	AddGraph             *AddGraphCommand            `json:"addGraph,omitempty"`
-	RenameGraph          *RenameGraphCommand         `json:"renameGraph,omitempty"`
-	RemoveGraph          *GraphCommand               `json:"removeGraph,omitempty"`
-	UpdateGraphInterface *GraphInterfaceCommand      `json:"updateGraphInterface,omitempty"`
-	AddGraphCall         *GraphCallCommand           `json:"addGraphCall,omitempty"`
-	UpdateGraphCall      *GraphCallCommand           `json:"updateGraphCall,omitempty"`
-	RemoveGraphCall      *CallCommand                `json:"removeGraphCall,omitempty"`
-	AddAnnotation        *AnnotationCommand          `json:"addAnnotation,omitempty"`
-	UpdateAnnotation     *AnnotationCommand          `json:"updateAnnotation,omitempty"`
-	RemoveAnnotation     *AnnotationIDCommand        `json:"removeAnnotation,omitempty"`
-	SetEdgeReroutes      *SetEdgeReroutesCommand     `json:"setEdgeReroutes,omitempty"`
-	CollapseSelection    *CollapseSelectionCommand   `json:"collapseSelection,omitempty"`
+	Kind                   CommandKind                    `json:"kind"`
+	RenameWorkflow         *RenameWorkflowCommand         `json:"renameWorkflow,omitempty"`
+	UpdateWorkflowMetadata *UpdateWorkflowMetadataCommand `json:"updateWorkflowMetadata,omitempty"`
+	SetTargetDefault       *SetTargetDefaultCommand       `json:"setTargetDefault,omitempty"`
+	ClearTargetDefault     *ClearTargetDefaultCommand     `json:"clearTargetDefault,omitempty"`
+	AddStateVariable       *AddStateVariableCommand       `json:"addStateVariable,omitempty"`
+	UpdateStateVariable    *UpdateStateVariableCommand    `json:"updateStateVariable,omitempty"`
+	RemoveStateVariable    *RemoveStateVariableCommand    `json:"removeStateVariable,omitempty"`
+	AddNode                *AddNodeCommand                `json:"addNode,omitempty"`
+	RemoveNode             *NodeCommand                   `json:"removeNode,omitempty"`
+	MoveNode               *MoveNodeCommand               `json:"moveNode,omitempty"`
+	SetNodeLabel           *SetNodeLabelCommand           `json:"setNodeLabel,omitempty"`
+	SetNodeDisabled        *SetNodeDisabledCommand        `json:"setNodeDisabled,omitempty"`
+	SetConfig              *SetConfigCommand              `json:"setConfig,omitempty"`
+	ClearConfig            *FieldCommand                  `json:"clearConfig,omitempty"`
+	BindValue              *BindValueCommand              `json:"bindValue,omitempty"`
+	BindDefault            *PortCommand                   `json:"bindDefault,omitempty"`
+	BindBlob               *BindBlobCommand               `json:"bindBlob,omitempty"`
+	ClearBinding           *PortCommand                   `json:"clearBinding,omitempty"`
+	Connect                *EdgeCommand                   `json:"connect,omitempty"`
+	Disconnect             *EdgeCommand                   `json:"disconnect,omitempty"`
+	AddGraph               *AddGraphCommand               `json:"addGraph,omitempty"`
+	RenameGraph            *RenameGraphCommand            `json:"renameGraph,omitempty"`
+	RemoveGraph            *GraphCommand                  `json:"removeGraph,omitempty"`
+	UpdateGraphInterface   *GraphInterfaceCommand         `json:"updateGraphInterface,omitempty"`
+	AddGraphCall           *GraphCallCommand              `json:"addGraphCall,omitempty"`
+	UpdateGraphCall        *GraphCallCommand              `json:"updateGraphCall,omitempty"`
+	RemoveGraphCall        *CallCommand                   `json:"removeGraphCall,omitempty"`
+	AddAnnotation          *AnnotationCommand             `json:"addAnnotation,omitempty"`
+	UpdateAnnotation       *AnnotationCommand             `json:"updateAnnotation,omitempty"`
+	RemoveAnnotation       *AnnotationIDCommand           `json:"removeAnnotation,omitempty"`
+	SetEdgeReroutes        *SetEdgeReroutesCommand        `json:"setEdgeReroutes,omitempty"`
+	CollapseSelection      *CollapseSelectionCommand      `json:"collapseSelection,omitempty"`
 }
 
 func (c Command) Validate() error { return validateTaggedCommand(c) }
 
 type RenameWorkflowCommand struct {
 	Name string `json:"name"`
+}
+
+type WorkflowMetadata struct {
+	Name        string
+	Description string
+	Category    string
+	Tags        []string
+}
+
+type UpdateWorkflowMetadataCommand struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+}
+
+func NormalizeWorkflowMetadata(metadata WorkflowMetadata) (WorkflowMetadata, error) {
+	metadata.Name = strings.TrimSpace(metadata.Name)
+	metadata.Description = strings.TrimSpace(metadata.Description)
+	metadata.Category = strings.TrimSpace(metadata.Category)
+	if metadata.Name == "" || utf8.RuneCountInString(metadata.Name) > 256 {
+		return WorkflowMetadata{}, errors.New("workflow name must contain 1 to 256 characters")
+	}
+	if utf8.RuneCountInString(metadata.Description) > 4096 {
+		return WorkflowMetadata{}, errors.New("workflow description must contain at most 4096 characters")
+	}
+	if utf8.RuneCountInString(metadata.Category) > 128 {
+		return WorkflowMetadata{}, errors.New("workflow category must contain at most 128 characters")
+	}
+	if len(metadata.Tags) > 64 {
+		return WorkflowMetadata{}, errors.New("workflow tags must contain at most 64 items")
+	}
+	seen := make(map[string]struct{}, len(metadata.Tags))
+	tags := make([]string, 0, len(metadata.Tags))
+	for _, raw := range metadata.Tags {
+		tag := strings.TrimSpace(raw)
+		if tag == "" {
+			continue
+		}
+		if utf8.RuneCountInString(tag) > 128 {
+			return WorkflowMetadata{}, errors.New("workflow tag must contain at most 128 characters")
+		}
+		key := strings.ToLower(tag)
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		tags = append(tags, tag)
+	}
+	metadata.Tags = tags
+	return metadata, nil
 }
 
 type SetTargetDefaultCommand struct {
@@ -346,10 +400,22 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 	switch command.Kind {
 	case CommandRenameWorkflow:
 		name := strings.TrimSpace(command.RenameWorkflow.Name)
-		if name == "" || len(name) > 256 {
-			return patchError(index, "INVALID_NAME", "workflow name must contain 1 to 256 bytes")
+		if name == "" || utf8.RuneCountInString(name) > 256 {
+			return patchError(index, "INVALID_NAME", "workflow name must contain 1 to 256 characters")
 		}
 		source.Workflow.Name = name
+	case CommandUpdateWorkflowMetadata:
+		payload := command.UpdateWorkflowMetadata
+		metadata, err := NormalizeWorkflowMetadata(WorkflowMetadata{
+			Name: payload.Name, Description: payload.Description, Category: payload.Category, Tags: payload.Tags,
+		})
+		if err != nil {
+			return patchError(index, "INVALID_WORKFLOW_METADATA", err.Error())
+		}
+		source.Workflow.Name = metadata.Name
+		source.Workflow.Description = metadata.Description
+		source.Workflow.Category = metadata.Category
+		source.Workflow.Tags = metadata.Tags
 	case CommandSetTargetDefault:
 		payload := command.SetTargetDefault
 		if err := schema.SetTargetDefault(source, payload.Target, payload.Slot); err != nil {
@@ -819,7 +885,8 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 
 func validateTaggedCommand(command Command) error {
 	payloads := []bool{
-		command.RenameWorkflow != nil, command.SetTargetDefault != nil, command.ClearTargetDefault != nil,
+		command.RenameWorkflow != nil, command.UpdateWorkflowMetadata != nil,
+		command.SetTargetDefault != nil, command.ClearTargetDefault != nil,
 		command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
 		command.AddNode != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
@@ -842,7 +909,8 @@ func validateTaggedCommand(command Command) error {
 	}
 	matches := map[CommandKind]bool{
 		CommandRenameWorkflow: command.RenameWorkflow != nil, CommandAddStateVariable: command.AddStateVariable != nil,
-		CommandSetTargetDefault: command.SetTargetDefault != nil, CommandClearTargetDefault: command.ClearTargetDefault != nil,
+		CommandUpdateWorkflowMetadata: command.UpdateWorkflowMetadata != nil,
+		CommandSetTargetDefault:       command.SetTargetDefault != nil, CommandClearTargetDefault: command.ClearTargetDefault != nil,
 		CommandUpdateStateVariable: command.UpdateStateVariable != nil,
 		CommandRemoveStateVariable: command.RemoveStateVariable != nil, CommandAddNode: command.AddNode != nil,
 		CommandRemoveNode: command.RemoveNode != nil, CommandMoveNode: command.MoveNode != nil,

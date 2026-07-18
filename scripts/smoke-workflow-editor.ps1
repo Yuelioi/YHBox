@@ -2,7 +2,8 @@ param(
     [ValidateRange(1024, 65535)]
     [int]$DebugPort = 9227,
     [ValidateRange(1024, 65535)]
-    [int]$VitePort = 9245
+    [int]$VitePort = 9245,
+    [switch]$SkipLauncher
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,7 +86,19 @@ try {
         }
     }
 
-    go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot -assets-screenshot $assetsScreenshot -workflows-screenshot $workflowsScreenshot -launcher-screenshot $launcherScreenshot
+    $smokeArgs = @(
+        'run', './cmd/workflow-editor-smoke',
+        '-endpoint', "http://127.0.0.1:$DebugPort",
+        '-screenshot', $screenshot,
+        '-assets-screenshot', $assetsScreenshot,
+        '-workflows-screenshot', $workflowsScreenshot
+    )
+    if (-not $SkipLauncher) {
+        $smokeArgs += @('-launcher-screenshot', $launcherScreenshot)
+    } else {
+        $smokeArgs += '-launcher-screenshot='
+    }
+    & go @smokeArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
     }

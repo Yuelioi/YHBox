@@ -126,7 +126,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.CreateInput && current.RecoveryPanel && current.LauncherButton
+		return current.RecoveryPanel && current.LauncherButton
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
 	}
@@ -134,6 +134,16 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		if err := capture(ctx, client, workflowsScreenshot); err != nil {
 			return fmt.Errorf("capture workflow recovery surface: %w", err)
 		}
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-new-button"]');
+		if (!button) throw new Error('new workflow button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CreateInput }); err != nil {
+		return fmt.Errorf("wait for workflow creation dialog: %w", err)
 	}
 	nameJSON, _ := json.Marshal("Agent UI smoke " + time.Now().UTC().Format("20060102T150405Z"))
 	if err := eval(ctx, client, fmt.Sprintf(`(() => {

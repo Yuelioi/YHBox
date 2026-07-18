@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 125,
-    "models": 176
+    "methods": 127,
+    "models": 181
   },
   "services": [
     {
@@ -1303,6 +1303,18 @@
           "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
+          "name": "CreateSourceWithMetadata",
+          "bindingId": "75821520",
+          "parameters": [
+            {
+              "name": "request",
+              "optional": false,
+              "type": "$models.CreateSourceRequest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
           "name": "DeleteSourceRecovery",
           "bindingId": "2257666137",
           "parameters": [
@@ -1591,6 +1603,28 @@
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
+        },
+        {
+          "name": "UpdateSourceMetadata",
+          "bindingId": "724118393",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "baseRevision",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "request",
+              "optional": false,
+              "type": "$models.UpdateSourceMetadataRequest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
         }
       ]
     }
@@ -2863,6 +2897,16 @@
               "name": "\"revision\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"categories\"",
+              "optional": false,
+              "type": "FacetValue[]"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "FacetValue[]"
             }
           ]
         },
@@ -3170,6 +3214,22 @@
             },
             {
               "name": "\"reclaimed\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FacetValue",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
               "optional": false,
               "type": "number"
             }
@@ -4963,6 +5023,32 @@
         },
         {
           "kind": "class",
+          "name": "CreateSourceRequest",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "DeleteSourcePreview",
           "fields": [
             {
@@ -5026,6 +5112,22 @@
               "name": "\"error\"",
               "optional": true,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FacetValue",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         },
@@ -5165,6 +5267,16 @@
               "name": "\"pageSize\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"categories\"",
+              "optional": false,
+              "type": "FacetValue[]"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "FacetValue[]"
             }
           ]
         },
@@ -5176,6 +5288,16 @@
               "name": "\"search\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
             },
             {
               "name": "\"sort\"",
@@ -5254,6 +5376,26 @@
               "name": "\"name\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"nodeCount\"",
+              "optional": false,
+              "type": "number"
             },
             {
               "name": "\"revision\"",
@@ -5392,6 +5534,32 @@
               "name": "\"summary\"",
               "optional": false,
               "type": "SummaryView"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "UpdateSourceMetadataRequest",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         }
@@ -5620,6 +5788,11 @@
               "type": "RenameWorkflowCommand | null"
             },
             {
+              "name": "\"updateWorkflowMetadata\"",
+              "optional": true,
+              "type": "UpdateWorkflowMetadataCommand | null"
+            },
+            {
               "name": "\"setTargetDefault\"",
               "optional": true,
               "type": "SetTargetDefaultCommand | null"
@@ -5782,6 +5955,10 @@
             {
               "name": "CommandRenameWorkflow",
               "value": "\"rename-workflow\""
+            },
+            {
+              "name": "CommandUpdateWorkflowMetadata",
+              "value": "\"update-workflow-metadata\""
             },
             {
               "name": "CommandSetTargetDefault",
@@ -6240,6 +6417,32 @@
               "name": "\"default\"",
               "optional": false,
               "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "UpdateWorkflowMetadataCommand",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         }

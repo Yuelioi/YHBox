@@ -45,8 +45,11 @@ type TargetDefault struct {
 }
 
 type Workflow struct {
-	ID   string `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
-	Name string `json:"name" jsonschema:"required,minLength=1"`
+	ID          string   `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Name        string   `json:"name" jsonschema:"required,minLength=1,maxLength=256"`
+	Description string   `json:"description,omitempty" jsonschema:"maxLength=4096"`
+	Category    string   `json:"category,omitempty" jsonschema:"maxLength=128"`
+	Tags        []string `json:"tags,omitempty" jsonschema:"maxItems=64"`
 }
 
 type Graph struct {

@@ -21,7 +21,7 @@ func TestGeneratedPatchSchemaUsesExactTaggedUnion(t *testing.T) {
 	if err := json.Unmarshal(raw, &document); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(document.Definitions["Command"].OneOf); got != 31 {
+	if got := len(document.Definitions["Command"].OneOf); got != 32 {
 		t.Fatalf("command variants = %d", got)
 	}
 	if !bytes.Contains(raw, []byte(`"additionalProperties": false`)) ||

@@ -57,6 +57,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
 	states := []pageState{
+		{RecoveryPanel: true, LauncherButton: true},
 		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
 		{Catalog: 0},
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},

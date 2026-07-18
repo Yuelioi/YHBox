@@ -350,6 +350,39 @@ func TestEngineEditsStateNodesAndDisconnectsAtomically(t *testing.T) {
 	}
 }
 
+func TestEngineUpdatesWorkflowMetadataWithNormalizedTags(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandUpdateWorkflowMetadata,
+		UpdateWorkflowMetadata: &authoring.UpdateWorkflowMetadataCommand{
+			Name: "  Daily report  ", Description: "  Exports the daily report  ",
+			Category: "  Operations  ", Tags: []string{"Daily", " daily ", "Report", ""},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata := result.Source.Workflow
+	if metadata.Name != "Daily report" || metadata.Description != "Exports the daily report" ||
+		metadata.Category != "Operations" || len(metadata.Tags) != 2 || metadata.Tags[0] != "Daily" || metadata.Tags[1] != "Report" {
+		t.Fatalf("workflow metadata = %#v", metadata)
+	}
+	_, err = engine.Apply(result.Source, []authoring.Command{{
+		Kind: authoring.CommandUpdateWorkflowMetadata,
+		UpdateWorkflowMetadata: &authoring.UpdateWorkflowMetadataCommand{
+			Name: "Daily report", Tags: []string{strings.Repeat("x", 129)},
+		},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_WORKFLOW_METADATA" {
+		t.Fatalf("invalid metadata error = %#v", err)
+	}
+}
+
 func TestEngineReducesReferencedStateUpdateButProtectsReferenceIntegrity(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-read" })

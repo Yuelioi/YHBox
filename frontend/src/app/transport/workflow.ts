@@ -2,6 +2,7 @@ import { Dialogs, Events } from '@wailsio/runtime'
 import * as WorkflowService from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/service.js'
 import type {
   CompileView,
+  CreateSourceRequest,
   BundleExportResult,
   BundleInfoView,
   DeleteSourcePreview,
@@ -14,6 +15,7 @@ import type {
   SourceRecoveryView,
   SourceView,
   StartRunView,
+  UpdateSourceMetadataRequest,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/models.js'
 import type {
   DebugBreakpoint,
@@ -47,6 +49,12 @@ export interface WorkflowTransport {
   previewDeleteSources(workflowIds: string[]): Promise<DeleteSourcePreview[]>
   deleteSources(requests: DeleteSourceRequest[]): Promise<DeleteSourceResult[]>
   createSource(name: string): Promise<SourceView>
+  createSourceWithMetadata(request: CreateSourceRequest): Promise<SourceView>
+  updateSourceMetadata(
+    workflowId: string,
+    baseRevision: number,
+    request: UpdateSourceMetadataRequest,
+  ): Promise<SourceView>
   chooseSourceBundle(): Promise<string>
   chooseSourceBundleDestination(filename: string): Promise<string>
   chooseSourceBundleDirectory(): Promise<string>
@@ -89,6 +97,9 @@ export const workflowTransport: WorkflowTransport = {
   previewDeleteSources: (workflowIds) => invoke(WorkflowService.PreviewDeleteSources, workflowIds),
   deleteSources: (requests) => invoke(WorkflowService.DeleteSources, requests),
   createSource: (name) => invoke(WorkflowService.CreateSource, name),
+  createSourceWithMetadata: (request) => invoke(WorkflowService.CreateSourceWithMetadata, request),
+  updateSourceMetadata: (workflowId, baseRevision, request) =>
+    invoke(WorkflowService.UpdateSourceMetadata, workflowId, baseRevision, request),
   chooseSourceBundle: () =>
     callRPC('workflow.chooseSourceBundle', () =>
       Dialogs.OpenFile({
@@ -197,6 +208,7 @@ export type {
   BundleExportResult,
   BundleInfoView,
   CompileView,
+  CreateSourceRequest,
   DeleteSourcePreview,
   DeleteSourceRequest,
   DeleteSourceResult,
@@ -207,6 +219,7 @@ export type {
   SourceRecoveryView,
   SourceView,
   StartRunView,
+  UpdateSourceMetadataRequest,
   WorkflowJSONValue,
   WorkflowPatchCommand,
   DebugBreakpoint,

@@ -276,6 +276,22 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
+              "const": "update-workflow-metadata"
+            },
+            "updateWorkflowMetadata": {
+              "$ref": "#/$defs/UpdateWorkflowMetadataCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateWorkflowMetadata"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
               "const": "set-target-default"
             },
             "setTargetDefault": {
@@ -1560,6 +1576,33 @@
         "name",
         "type",
         "default"
+      ],
+      "type": "object"
+    },
+    "UpdateWorkflowMetadataCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "category",
+        "tags"
       ],
       "type": "object"
     }
