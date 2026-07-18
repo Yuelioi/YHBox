@@ -365,12 +365,48 @@
                   :hint="t('settingsAutomation.android.package_hint')"
                   required
                 >
-                  <UInput
-                    v-model.trim="target.androidPackage"
-                    size="sm"
-                    class="font-mono"
-                    @change="commit"
-                  />
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <USelectMenu
+                        :model-value="target.androidPackage"
+                        :items="androidAppItems(target.adbSerial)"
+                        :placeholder="t('settingsAutomation.android.app_unselected')"
+                        :search-input="{
+                          placeholder: t('settingsAutomation.android.app_search'),
+                        }"
+                        :virtualize="androidAppItems(target.adbSerial).length > 40"
+                        value-key="value"
+                        label-key="label"
+                        size="sm"
+                        class="min-w-0 flex-1"
+                        :disabled="!target.adbSerial"
+                        @update:model-value="(value: string) => setAndroidApp(index, value)"
+                      />
+                      <UButton
+                        size="sm"
+                        variant="soft"
+                        icon="i-tabler-refresh"
+                        :aria-label="t('settingsAutomation.android.refresh_apps')"
+                        :loading="adbAppsLoading.has(target.adbSerial)"
+                        :disabled="!target.adbSerial"
+                        @click="refreshADBApps(target)"
+                      />
+                    </div>
+                    <UInput
+                      v-model.trim="target.androidPackage"
+                      size="sm"
+                      class="font-mono"
+                      :placeholder="t('settingsAutomation.android.manual_package')"
+                      @change="androidPackageChanged(target)"
+                    />
+                    <p
+                      v-if="adbAppsError.get(target.adbSerial)"
+                      class="text-xs text-warning"
+                      role="status"
+                    >
+                      {{ adbAppsError.get(target.adbSerial) }}
+                    </p>
+                  </div>
                 </UFormField>
                 <UFormField :label="t('settingsAutomation.android.identity_label')">
                   <UInput
@@ -710,6 +746,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   backend,
+  type AndroidAppDescriptor,
   type AndroidAutomationTargetProfile,
   type AndroidDeviceDescriptor,
   type AutomationTargetHealth,
@@ -805,6 +842,9 @@ const bulkConsentBusy = ref(false)
 const adbDevices = ref<AndroidDeviceDescriptor[]>([])
 const adbLoading = ref(false)
 const adbError = ref('')
+const adbApps = reactive(new Map<string, AndroidAppDescriptor[]>())
+const adbAppsLoading = reactive(new Set<string>())
+const adbAppsError = reactive(new Map<string, string>())
 const browserTargets = ref<BrowserTargetDescriptor[]>([])
 const browserLoading = ref(false)
 const browserError = ref('')
@@ -855,6 +895,16 @@ const adbDeviceItems = computed(() =>
     disabled: device.state !== 'device' || !device.product || !device.model || !device.device,
   })),
 )
+function androidAppItems(serial: string) {
+  return (adbApps.get(serial) ?? []).map((app) => ({
+    label: app.foreground
+      ? t('settingsAutomation.android.foreground_app', { name: app.label, package: app.package })
+      : app.label === app.package
+        ? app.package
+        : `${app.label} · ${app.package}`,
+    value: app.package,
+  }))
+}
 const browserTargetItems = computed(() =>
   browserTargets.value.map((target) => ({
     label: `${target.title || target.url || target.id} · ${target.id}`,
@@ -1270,6 +1320,37 @@ async function setADBDevice(index: number, serial: string): Promise<void> {
   target.adbProduct = selected.product
   target.adbModel = selected.model
   target.adbDevice = selected.device
+  target.androidPackage = ''
+  delete target.workflowConsent
+  delete health[target.slot]
+  await refreshADBApps(target)
+}
+async function refreshADBApps(target: AutomationTargetDraft): Promise<void> {
+  const serial = target.adbSerial
+  if (!serial) return
+  adbAppsLoading.add(serial)
+  adbAppsError.delete(serial)
+  try {
+    const apps = (await backend.automation.listAndroidApps(serial)) ?? []
+    adbApps.set(serial, apps)
+    if (apps.length === 0) adbAppsError.set(serial, t('settingsAutomation.android.apps_none_found'))
+  } catch (error) {
+    adbApps.set(serial, [])
+    adbAppsError.set(serial, errorText(error))
+  } finally {
+    adbAppsLoading.delete(serial)
+  }
+}
+async function setAndroidApp(index: number, packageName: string): Promise<void> {
+  const target = draft.value[index]
+  if (!target || !isAndroid(target)) return
+  target.androidPackage = packageName
+  delete target.workflowConsent
+  delete health[target.slot]
+  await commit()
+}
+async function androidPackageChanged(target: AutomationTargetDraft): Promise<void> {
+  delete target.workflowConsent
   delete health[target.slot]
   await commit()
 }

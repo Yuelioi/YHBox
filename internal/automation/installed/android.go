@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"image/png"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,16 +29,154 @@ type AndroidDeviceDescriptor struct {
 	TransportID string `json:"transportId"`
 }
 
-func DiscoverAndroidDevices(ctx context.Context) ([]AndroidDeviceDescriptor, error) {
-	out, err := adbexec.CommandContext(ctx, "devices", "-l").CombinedOutput()
+// AndroidAppDescriptor is install-time discovery metadata. The durable
+// profile stores only Package; labels and foreground state are presentation.
+type AndroidAppDescriptor struct {
+	Package    string `json:"package"`
+	Label      string `json:"label"`
+	Foreground bool   `json:"foreground"`
+}
+
+type androidCommandRunner struct{}
+
+func (androidCommandRunner) Run(ctx context.Context, serial string, args ...string) ([]byte, error) {
+	command := make([]string, 0, len(args)+2)
+	if serial != "" {
+		command = append(command, "-s", serial)
+	}
+	command = append(command, args...)
+	out, err := adbexec.CommandContext(ctx, command...).CombinedOutput()
 	if err != nil {
-		message := strings.TrimSpace(string(out))
-		if message == "" {
-			message = err.Error()
+		if message := strings.TrimSpace(string(out)); message != "" {
+			return out, fmt.Errorf("%w: %s", err, message)
 		}
-		return nil, fmt.Errorf("ADB discovery failed (%s): %s", adbexec.ExecutablePath(), message)
+	}
+	return out, err
+}
+
+const defaultAndroidADBCommandTimeout = 10 * time.Second
+
+type boundedADBRunner struct {
+	runner  controller.ADBRunner
+	timeout time.Duration
+}
+
+func (runner boundedADBRunner) Run(ctx context.Context, serial string, args ...string) ([]byte, error) {
+	timeout := runner.timeout
+	if timeout <= 0 {
+		timeout = defaultAndroidADBCommandTimeout
+	}
+	commandCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return runner.runner.Run(commandCtx, serial, args...)
+}
+
+func adbCommandFailure(action string, out []byte, err error) error {
+	message := strings.TrimSpace(string(out))
+	if message == "" || strings.Contains(err.Error(), message) {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+	return fmt.Errorf("%s: %w: %s", action, err, message)
+}
+
+func DiscoverAndroidDevices(ctx context.Context) ([]AndroidDeviceDescriptor, error) {
+	return discoverAndroidDevices(ctx, boundedADBRunner{runner: androidCommandRunner{}})
+}
+
+var commonADBEmulatorAddresses = []string{
+	"127.0.0.1:16384",
+	"127.0.0.1:7555",
+	"127.0.0.1:5555",
+	"127.0.0.1:62001",
+	"127.0.0.1:21503",
+}
+
+func discoverAndroidDevices(ctx context.Context, runner controller.ADBRunner) ([]AndroidDeviceDescriptor, error) {
+	out, err := runner.Run(ctx, "", "devices", "-l")
+	if err != nil {
+		return nil, adbCommandFailure("ADB discovery failed ("+adbexec.ExecutablePath()+")", out, err)
+	}
+	devices := parseADBDevices(string(out))
+	if hasReadyAndroidDevice(devices) {
+		return devices, nil
+	}
+	for _, address := range commonADBEmulatorAddresses {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		_, _ = runner.Run(ctx, "", "connect", address)
+	}
+	out, err = runner.Run(ctx, "", "devices", "-l")
+	if err != nil {
+		return nil, adbCommandFailure("ADB discovery after emulator reconnect failed ("+adbexec.ExecutablePath()+")", out, err)
 	}
 	return parseADBDevices(string(out)), nil
+}
+
+func DiscoverAndroidApps(ctx context.Context, serial string) ([]AndroidAppDescriptor, error) {
+	return discoverAndroidApps(ctx, serial, boundedADBRunner{runner: androidCommandRunner{}})
+}
+
+func discoverAndroidApps(ctx context.Context, serial string, runner controller.ADBRunner) ([]AndroidAppDescriptor, error) {
+	serial = strings.TrimSpace(serial)
+	if !adbIdentityPattern.MatchString(serial) {
+		return nil, errors.New("ADB application discovery requires an exact device serial")
+	}
+	foregroundOutput, _ := runner.Run(ctx, serial, "shell", "dumpsys", "window")
+	foreground := parseAndroidForegroundPackage(string(foregroundOutput))
+	thirdPartyOutput, err := runner.Run(ctx, serial, "shell", "pm", "list", "packages", "-3")
+	if err != nil {
+		return nil, adbCommandFailure(fmt.Sprintf("list ADB third-party applications on %q", serial), thirdPartyOutput, err)
+	}
+	thirdParty := parseAndroidPackageList(string(thirdPartyOutput))
+	launcherOutput, launcherErr := runner.Run(ctx, serial, "shell", "cmd", "package", "query-activities", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER")
+	apps := parseAndroidLauncherApps(string(launcherOutput))
+	if launcherErr != nil || len(apps) == 0 {
+		apps = make([]AndroidAppDescriptor, 0, len(thirdParty))
+		for packageName := range thirdParty {
+			apps = append(apps, AndroidAppDescriptor{Package: packageName, Label: packageName})
+		}
+	}
+	byPackage := make(map[string]AndroidAppDescriptor, len(apps)+1)
+	for _, app := range apps {
+		if !androidPackagePattern.MatchString(app.Package) {
+			continue
+		}
+		if _, installed := thirdParty[app.Package]; !installed && app.Package != foreground {
+			continue
+		}
+		if app.Label == "" {
+			app.Label = app.Package
+		}
+		app.Foreground = app.Package == foreground
+		byPackage[app.Package] = app
+	}
+	if androidPackagePattern.MatchString(foreground) {
+		app := byPackage[foreground]
+		app.Package, app.Foreground = foreground, true
+		if app.Label == "" {
+			app.Label = foreground
+		}
+		byPackage[foreground] = app
+	}
+	result := make([]AndroidAppDescriptor, 0, len(byPackage))
+	for _, app := range byPackage {
+		result = append(result, app)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Foreground != result[j].Foreground {
+			return result[i].Foreground
+		}
+		left, right := strings.ToLower(result[i].Label), strings.ToLower(result[j].Label)
+		if left != right {
+			return left < right
+		}
+		return result[i].Package < result[j].Package
+	})
+	if len(result) > 4096 {
+		return nil, errors.New("ADB application discovery exceeds item budget")
+	}
+	return result, nil
 }
 
 func parseADBDevices(out string) []AndroidDeviceDescriptor {
@@ -68,10 +208,90 @@ func parseADBDevices(out string) []AndroidDeviceDescriptor {
 	return devices
 }
 
+func hasReadyAndroidDevice(devices []AndroidDeviceDescriptor) bool {
+	for _, device := range devices {
+		if device.State == "device" {
+			return true
+		}
+	}
+	return false
+}
+
+var androidForegroundPackagePattern = regexp.MustCompile(`\s([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)/`)
+
+func parseAndroidForegroundPackage(out string) string {
+	for _, line := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n") {
+		if !strings.Contains(line, "mCurrentFocus") && !strings.Contains(line, "mFocusedApp") {
+			continue
+		}
+		if match := androidForegroundPackagePattern.FindStringSubmatch(line); len(match) == 2 {
+			return match[1]
+		}
+	}
+	return ""
+}
+
+func parseAndroidPackageList(out string) map[string]struct{} {
+	result := map[string]struct{}{}
+	for _, line := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n") {
+		packageName, ok := strings.CutPrefix(strings.TrimSpace(line), "package:")
+		packageName = strings.TrimSpace(packageName)
+		if ok && androidPackagePattern.MatchString(packageName) {
+			result[packageName] = struct{}{}
+		}
+	}
+	return result
+}
+
+func parseAndroidLauncherApps(out string) []AndroidAppDescriptor {
+	byPackage := map[string]AndroidAppDescriptor{}
+	current := ""
+	for _, line := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Activity #") {
+			current = ""
+			continue
+		}
+		if packageName, ok := strings.CutPrefix(line, "packageName="); ok {
+			current = strings.TrimSpace(packageName)
+			if androidPackagePattern.MatchString(current) {
+				byPackage[current] = AndroidAppDescriptor{Package: current, Label: current}
+			} else {
+				current = ""
+			}
+			continue
+		}
+		if label, ok := strings.CutPrefix(line, "nonLocalizedLabel="); ok && current != "" {
+			label = strings.TrimSpace(label)
+			if label != "" && label != "null" {
+				app := byPackage[current]
+				app.Label = label
+				byPackage[current] = app
+			}
+		}
+	}
+	result := make([]AndroidAppDescriptor, 0, len(byPackage))
+	for _, app := range byPackage {
+		result = append(result, app)
+	}
+	return result
+}
+
 type androidDriver struct {
-	profile Profile
-	mu      sync.Mutex
-	closed  bool
+	profile        Profile
+	mu             sync.Mutex
+	closed         bool
+	runner         controller.ADBRunner
+	commandTimeout time.Duration
+	playback       *androidPlaybackState
+}
+
+type androidPlaybackState struct {
+	target  target.Target
+	keys    map[uint32]struct{}
+	button  string
+	started target.Point
+	current target.Point
 }
 
 // AndroidHealthProbe exposes only resolution/identity verification to the
@@ -117,7 +337,7 @@ func (d *androidDriver) resolveLocked(ctx context.Context) (target.Target, error
 	timeout := time.Duration(machine.ResolveTimeoutMilliseconds) * time.Millisecond
 	resolveCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	devices, err := DiscoverAndroidDevices(resolveCtx)
+	devices, err := discoverAndroidDevices(resolveCtx, d.adbRunner())
 	if err != nil {
 		return target.Target{}, failure(CodeTargetNotFound, err)
 	}
@@ -137,7 +357,7 @@ func (d *androidDriver) resolveLocked(ctx context.Context) (target.Target, error
 	if found.Product != machine.ADBProduct || found.Model != machine.ADBModel || found.Device != machine.ADBDevice {
 		return target.Target{}, failure(CodeIdentityChanged, fmt.Errorf("ADB device %q identity changed: expected %s/%s/%s, got %s/%s/%s", machine.ADBSerial, machine.ADBProduct, machine.ADBModel, machine.ADBDevice, found.Product, found.Model, found.Device))
 	}
-	size, err := androidDeviceSize(resolveCtx, machine.ADBSerial)
+	size, err := androidDeviceSize(resolveCtx, machine.ADBSerial, d.adbRunner())
 	if err != nil {
 		return target.Target{}, failure(CodeTargetNotFound, err)
 	}
@@ -150,10 +370,10 @@ func (d *androidDriver) resolveLocked(ctx context.Context) (target.Target, error
 
 var androidSizePattern = regexp.MustCompile(`(?m)(?:Physical|Override) size:\s*(\d+)x(\d+)`)
 
-func androidDeviceSize(ctx context.Context, serial string) (target.Size, error) {
-	out, err := adbexec.CommandContext(ctx, "-s", serial, "shell", "wm", "size").CombinedOutput()
+func androidDeviceSize(ctx context.Context, serial string, runner controller.ADBRunner) (target.Size, error) {
+	out, err := runner.Run(ctx, serial, "shell", "wm", "size")
 	if err != nil {
-		return target.Size{}, fmt.Errorf("read ADB device resolution: %s", strings.TrimSpace(string(out)))
+		return target.Size{}, adbCommandFailure("read ADB device resolution", out, err)
 	}
 	matches := androidSizePattern.FindAllStringSubmatch(string(out), -1)
 	if len(matches) == 0 {
@@ -174,7 +394,7 @@ func (d *androidDriver) Execute(ctx context.Context, operation string, raw any) 
 	if err != nil {
 		return err
 	}
-	resolved, err := controller.NewAndroidADBController(resolvedTarget, controller.AndroidADBDeps{Backend: AdapterKindAndroidADB})
+	resolved, err := controller.NewAndroidADBController(resolvedTarget, controller.AndroidADBDeps{Runner: d.adbRunner(), Backend: AdapterKindAndroidADB})
 	if err != nil {
 		return failure(CodeContractViolation, err)
 	}
@@ -225,7 +445,7 @@ func (d *androidDriver) Capture(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := controller.NewAndroidADBController(resolvedTarget, controller.AndroidADBDeps{Backend: AdapterKindAndroidADB})
+	resolved, err := controller.NewAndroidADBController(resolvedTarget, controller.AndroidADBDeps{Runner: d.adbRunner(), Backend: AdapterKindAndroidADB})
 	if err != nil {
 		return nil, failure(CodeContractViolation, err)
 	}
@@ -243,15 +463,138 @@ func (d *androidDriver) Capture(ctx context.Context) ([]byte, error) {
 	return encoded.Bytes(), nil
 }
 
-func (d *androidDriver) PlayEvent(context.Context, PlaybackEvent) error {
-	return failure(CodePlaybackFailed, errors.New("android ADB does not support low-level recording playback"))
+func (d *androidDriver) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.closed {
+		return failure(CodeContractViolation, errors.New("android ADB automation driver is closed"))
+	}
+	if d.playback == nil {
+		resolved, err := d.resolveLocked(ctx)
+		if err != nil {
+			return err
+		}
+		d.playback = &androidPlaybackState{target: resolved, keys: map[uint32]struct{}{}}
+	}
+	state := d.playback
+	control, err := controller.NewAndroidADBController(state.target, controller.AndroidADBDeps{Runner: d.adbRunner(), Backend: AdapterKindAndroidADB})
+	if err != nil {
+		return failure(CodeContractViolation, err)
+	}
+	switch event.Kind {
+	case PlaybackKeyDown:
+		if _, exists := state.keys[event.KeyCode]; exists {
+			return failure(CodePlaybackFailed, errors.New("android playback key is already down"))
+		}
+		state.keys[event.KeyCode] = struct{}{}
+		return nil
+	case PlaybackKeyUp:
+		if _, exists := state.keys[event.KeyCode]; !exists {
+			return failure(CodePlaybackFailed, errors.New("android playback key-up has no matching key-down"))
+		}
+		delete(state.keys, event.KeyCode)
+		if len(state.keys) != 0 {
+			return failure(CodePlaybackFailed, errors.New("android ADB playback does not support recorded key chords"))
+		}
+		keyCode, ok := androidPlaybackKeyCode(event.KeyCode)
+		if !ok {
+			return failure(CodePlaybackFailed, fmt.Errorf("android ADB playback cannot map virtual key 0x%X", event.KeyCode))
+		}
+		_, err := d.runADB(ctx, state.target.Ref.ADBSerial, "shell", "input", "keyevent", strconv.Itoa(keyCode))
+		if err != nil {
+			return failure(CodePlaybackFailed, err)
+		}
+		return nil
+	case PlaybackButtonDown:
+		if event.Button != "left" || state.button != "" {
+			return failure(CodePlaybackFailed, errors.New("android ADB playback supports one primary touch at a time"))
+		}
+		state.button = event.Button
+		state.started = androidPoint(*event.Point)
+		state.current = state.started
+		return nil
+	case PlaybackMove:
+		if state.button != "" {
+			state.current = androidPoint(*event.Point)
+		}
+		return nil
+	case PlaybackButtonUp:
+		if state.button == "" || event.Button != state.button {
+			return failure(CodePlaybackFailed, errors.New("android playback button-up has no matching primary touch"))
+		}
+		started := state.started
+		ended := androidPoint(*event.Point)
+		state.button = ""
+		state.started, state.current = target.Point{}, target.Point{}
+		if sameAndroidPoint(started, ended) {
+			err = control.Click(ctx, controller.ClickRequest{Point: ended, Button: "left", DurationMs: 10})
+		} else {
+			err = control.Drag(ctx, controller.DragRequest{From: started, To: ended, Button: "left", DurationMs: 100})
+		}
+	case PlaybackScroll:
+		err = control.Scroll(ctx, controller.ScrollRequest{Point: androidPoint(*event.Point), Notches: int(event.Notches)})
+	case PlaybackMoveRelative:
+		return failure(CodePlaybackFailed, errors.New("relative mouse playback is not representable on an Android touch target"))
+	default:
+		return failure(CodeContractViolation, errors.New("android playback event is unsupported"))
+	}
+	if err != nil {
+		return failure(CodePlaybackFailed, err)
+	}
+	return nil
 }
 
-func (d *androidDriver) ReleaseInput() error { return nil }
+func (d *androidDriver) ReleaseInput() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.playback = nil
+	return nil
+}
+
+func (d *androidDriver) runADB(ctx context.Context, serial string, args ...string) ([]byte, error) {
+	return d.adbRunner().Run(ctx, serial, args...)
+}
+
+func (d *androidDriver) adbRunner() controller.ADBRunner {
+	underlying := d.runner
+	if underlying == nil {
+		underlying = androidCommandRunner{}
+	}
+	timeout := d.commandTimeout
+	if timeout <= 0 {
+		timeout = defaultAndroidADBCommandTimeout
+	}
+	return boundedADBRunner{runner: underlying, timeout: timeout}
+}
+
+func sameAndroidPoint(left, right target.Point) bool {
+	return left.Space == right.Space && left.X == right.X && left.Y == right.Y
+}
+
+func androidPlaybackKeyCode(virtualKey uint32) (int, bool) {
+	if virtualKey >= 0x30 && virtualKey <= 0x39 {
+		return 7 + int(virtualKey-0x30), true
+	}
+	if virtualKey >= 0x41 && virtualKey <= 0x5A {
+		return 29 + int(virtualKey-0x41), true
+	}
+	if virtualKey >= 0x70 && virtualKey <= 0x7B {
+		return 131 + int(virtualKey-0x70), true
+	}
+	keyCodes := map[uint32]int{
+		0x08: 67, 0x09: 61, 0x0D: 66, 0x1B: 4, 0x20: 62,
+		0x21: 92, 0x22: 93, 0x23: 123, 0x24: 122,
+		0x25: 21, 0x26: 19, 0x27: 22, 0x28: 20,
+		0x2D: 124, 0x2E: 112,
+	}
+	code, ok := keyCodes[virtualKey]
+	return code, ok
+}
 
 func (d *androidDriver) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.closed = true
+	d.playback = nil
 	return nil
 }

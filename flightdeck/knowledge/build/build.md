@@ -42,6 +42,7 @@ Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed�
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
 - Workflow WebView smoke 只能证明页面/创作入口；catalog node 数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。
-- Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`$env:YOTTA_ADB_SMOKE='1'; go test ./internal/automation/installed -run TestAndroidADBEmulatorSmoke -count=1 -v`。它必须通过 bundled/configured ADB 做 exact identity、分辨率、启动/停止、PNG 截图和通用输入操作；不得以 controller mock 替代该证据。
+- Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/android-adb-smoke.ps1 -Serial <exact-serial> -Package <exact-package>`。它必须走 Source → Compiler → Admission → installed provider → journal，覆盖 exact identity、应用发现、activate、PNG capture、template click、drag、InputClip playback 与 stop-app；controller mock 或 controller-only smoke 不能替代。
+- Browser CDP smoke：Chrome 使用 `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/browser-cdp-smoke.ps1`；Edge 传 `-BrowserPath 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' -Port <free-port>`。脚本必须创建独立 profile、恢复调用前环境变量并精确清理 profile/process；测试走 Source → Compiler → Admission → provider → journal，并核对页面真实副作用。
 - WebView2 截图前必须 bringToFront、focus emulation、两次 requestAnimationFrame 加 settle，避免 DOM 绿但 PNG 黑屏。
 - Wails dev 的可选 custom.js/favicon 404 非阻断；阻断信号是 JS error/rejection/console.error、节点计数不变、CDP 不可达或截图实际布局不可用。

@@ -2846,7 +2846,14 @@ export default {
         'Only devices in the ready “device” state with a complete identity can be installed.',
       package_label: 'Android package',
       package_hint:
-        'Exact package used by activate and stop-app operations, for example com.example.app.',
+        'Search launchable apps from the selected device, or enter an exact package manually.',
+      refresh_apps: 'Refresh applications',
+      apps_none_found:
+        'No third-party launchable application was found. You can still enter an exact package manually.',
+      app_search: 'Search application name or package',
+      app_unselected: 'Select an application',
+      manual_package: 'Exact package, for example com.example.app',
+      foreground_app: 'Foreground: {name} · {package}',
       identity_label: 'Pinned device identity',
       state_label: 'Runtime health',
       not_checked: 'Not checked',

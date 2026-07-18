@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/yottaapp/yotta/internal/resource"
 )
 
 func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
@@ -31,6 +32,36 @@ func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
 	payload.BrowserEndpoint = "http://example.test:9222"
 	if _, err := SealProfile(NewBrowserProfileDraft(payload)); err == nil {
 		t.Fatal("accepted non-loopback browser discovery authority")
+	}
+}
+
+func TestBrowserEndpointOrPageChangeRotatesProfileAndConsentIdentity(t *testing.T) {
+	first, err := SealProfile(NewBrowserProfileDraft(BrowserProfilePayload{
+		BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
+		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
+		BrowserTitle:        "Fixture", BrowserURL: "https://example.test/", ResolveTimeoutMilliseconds: 1000,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := SealProfile(NewBrowserProfileDraft(BrowserProfilePayload{
+		BrowserEndpoint: "http://127.0.0.1:9333", BrowserTargetID: "page-2",
+		BrowserWebSocketURL: "ws://127.0.0.1:9333/devtools/page/page-2",
+		BrowserTitle:        "Fixture 2", BrowserURL: "https://example.test/next", ResolveTimeoutMilliseconds: 1000,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstConsent, err := WorkflowConsentDigest("browser", first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondConsent, err := WorkflowConsentDigest("browser", second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Digest() == second.Digest() || firstConsent == secondConsent {
+		t.Fatalf("browser identity did not rotate: profiles %s/%s consent %s/%s", first.Digest(), second.Digest(), firstConsent, secondConsent)
 	}
 }
 
@@ -113,5 +144,31 @@ func TestBrowserDriverResolvesExactPageAndDispatchesGenericInput(t *testing.T) {
 		if methods[index] != want[index] {
 			t.Fatalf("methods = %s", encoded)
 		}
+	}
+}
+
+func TestBrowserProviderRejectsOperationsOutsideItsManifest(t *testing.T) {
+	payload := BrowserProfilePayload{
+		BrowserEndpoint: "http://127.0.0.1:9222", BrowserTargetID: "page-1",
+		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
+		BrowserTitle:        "Fixture", ResolveTimeoutMilliseconds: 1000,
+	}
+	profile, err := SealProfile(NewBrowserProfileDraft(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := sealInstallationManifestForProfile("browser", "Browser", profile, false, defaultAdapterRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := newProvider(profile, manifest, defaultAdapterRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer provider.CloseHost()
+	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindWindow, Operations: []string{OperationActivate}, Config: []byte(`{}`), CapabilityScope: []byte(`{"operation":"activate"}`),
+	}); err == nil {
+		t.Fatal("browser provider opened undeclared window activation authority")
 	}
 }

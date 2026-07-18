@@ -35,6 +35,8 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('@click="duplicateTarget(target)"')
     expect(source).toContain("addTarget('android-device')")
     expect(source).toContain('backend.automation.listADBDevices()')
+    expect(source).toContain('backend.automation.listAndroidApps(serial)')
+    expect(source).toContain(':virtualize="androidAppItems(target.adbSerial).length > 40"')
     expect(source).toContain('backend.automation.checkTargetHealth(target.slot)')
     expect(source).toContain('target.adbProduct = selected.product')
     expect(source).toContain('target.androidPackage?.trim()')

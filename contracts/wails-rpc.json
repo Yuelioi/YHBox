@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 123,
-    "models": 172
+    "methods": 124,
+    "models": 173
   },
   "services": [
     {
@@ -633,6 +633,18 @@
           "bindingId": "187818553",
           "parameters": [],
           "returns": "$CancellablePromise<installed$0.AndroidDeviceDescriptor[]>"
+        },
+        {
+          "name": "ListAndroidApps",
+          "bindingId": "977860724",
+          "parameters": [
+            {
+              "name": "serial",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<installed$0.AndroidAppDescriptor[]>"
         },
         {
           "name": "ListBrowserTargets",
@@ -2177,6 +2189,27 @@
     {
       "module": "internal/automation/installed/models",
       "declarations": [
+        {
+          "kind": "class",
+          "name": "AndroidAppDescriptor",
+          "fields": [
+            {
+              "name": "\"package\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"foreground\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
         {
           "kind": "class",
           "name": "AndroidDeviceDescriptor",

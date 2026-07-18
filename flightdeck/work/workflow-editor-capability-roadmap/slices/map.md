@@ -39,7 +39,5 @@
 | [33 Asset Picker Query](33-asset-picker-query.md) | completed | 29–30 | 搜索分页 picker 取代全量下拉并支持 1000 assets。 |
 | [34 Windows native 闭环](34-windows-native-closure.md) | completed | 30–33 | 完成 UAC、窗口、键鼠、截图、模板和录制真实旅程。 |
 | [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | completed | 33–34 | 补齐创作 UX、搜索/转换和 P0/P1 能力族。 |
-| [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | pending | 31、34–35 | 恢复 Android/Browser，并以 macOS proof 验收 seam。 |
+| [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | completed | 31、34–35 | Android/Browser 真实纵向闭环，macOS Adapter seam 编译证明通过。 |
 | [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | pending | 29–36 | 完整发布矩阵通过后清理/归档 3.0 Knowledge。 |
-
-

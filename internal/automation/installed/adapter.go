@@ -225,6 +225,7 @@ func productionAdapters() []productionAdapter {
 					capability(CapabilityWindowID, KindWindow, OperationActivate),
 					capability(CapabilityAppLifecycleID, KindWindow, OperationStopApp),
 					capability(CapabilityCaptureID, KindCapture, OperationCapture, OperationReadCapture),
+					capability(CapabilityPlaybackID, KindPlayback, OperationPlayEvent, OperationReleaseHeld),
 				},
 				[]ProfileFieldDescriptor{
 					field("adbSerial", "string", true), field("adbProduct", "string", true), field("adbModel", "string", true),

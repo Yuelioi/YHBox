@@ -334,6 +334,12 @@ export interface AndroidDeviceDescriptor {
   transportId: string
 }
 
+export interface AndroidAppDescriptor {
+  package: string
+  label: string
+  foreground: boolean
+}
+
 export interface BrowserTargetDescriptor {
   id: string
   type: string
@@ -459,6 +465,8 @@ export const backend = {
     listTargetTypes: () => invoke(AutomationService.ListTargetTypes),
     listADBDevices: () =>
       invoke(AutomationService.ListADBDevices) as Promise<AndroidDeviceDescriptor[]>,
+    listAndroidApps: (serial: string) =>
+      invoke(AutomationService.ListAndroidApps, serial) as Promise<AndroidAppDescriptor[]>,
     listBrowserTargets: (endpoint: string) =>
       invoke(AutomationService.ListBrowserTargets, endpoint) as Promise<BrowserTargetDescriptor[]>,
     checkTargetHealth: (slot: string) =>

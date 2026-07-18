@@ -41,6 +41,12 @@ func (service *AutomationService) ListADBDevices() ([]automationinstalled.Androi
 	return automationinstalled.DiscoverAndroidDevices(ctx)
 }
 
+func (service *AutomationService) ListAndroidApps(serial string) ([]automationinstalled.AndroidAppDescriptor, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	return automationinstalled.DiscoverAndroidApps(ctx, serial)
+}
+
 func (service *AutomationService) ListBrowserTargets(endpoint string) ([]browsercdp.TargetInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

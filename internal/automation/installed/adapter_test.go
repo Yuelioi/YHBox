@@ -2,8 +2,12 @@ package installed
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"slices"
 	"testing"
+
+	"github.com/yottaapp/yotta/internal/appcontrol"
 )
 
 func TestProductionManifestsOwnCapabilityAndEditorProjection(t *testing.T) {
@@ -31,7 +35,9 @@ func TestProductionManifestsOwnCapabilityAndEditorProjection(t *testing.T) {
 		t.Fatalf("desktop manifest lost key input or selector schema: %#v", desktop)
 	}
 	android := targetTypes[1]
-	if slices.Contains(android.Operations, OperationPressKeys) || !hasCapability(android.Capabilities, CapabilityAppLifecycleID, KindWindow, OperationStopApp) {
+	if slices.Contains(android.Operations, OperationPressKeys) ||
+		!hasCapability(android.Capabilities, CapabilityAppLifecycleID, KindWindow, OperationStopApp) ||
+		!hasCapability(android.Capabilities, CapabilityPlaybackID, KindPlayback, OperationPlayEvent) {
 		t.Fatalf("android manifest authority = %#v", android)
 	}
 	browser := targetTypes[2]
@@ -114,5 +120,67 @@ func TestRegistryRejectsAdapterTargetKindMismatch(t *testing.T) {
 	}
 	if _, err := registry.open(profile); err == nil {
 		t.Fatal("registry opened an adapter for an undeclared target kind")
+	}
+}
+
+type macOSPreviewProfile struct {
+	BundleID        string `json:"bundleId"`
+	CodeRequirement string `json:"codeRequirement"`
+	ResolveMS       int64  `json:"resolveTimeoutMilliseconds"`
+}
+
+func TestMacOSNoRuntimeAdapterRegistersAndSealsWithoutCoreChanges(t *testing.T) {
+	const targetKind, adapterKind = "macos-application", "macos-preview"
+	codec := profileIntentCodec{
+		draft: func(raw json.RawMessage, _ ApplicationProfileResolver) (ProfileDraft, error) {
+			var payload macOSPreviewProfile
+			if err := decodeProfilePayload(raw, &payload); err != nil {
+				return ProfileDraft{}, err
+			}
+			return newProfileDraft(targetKind, adapterKind, payload), nil
+		},
+		applicationSlot: func(json.RawMessage) (string, error) { return "", nil },
+	}
+	seal := func(draft ProfileDraft) (Profile, error) {
+		var payload macOSPreviewProfile
+		if err := decodeProfilePayload(draft.Payload, &payload); err != nil {
+			return Profile{}, err
+		}
+		if payload.BundleID == "" || payload.CodeRequirement == "" || !validResolveTimeout(payload.ResolveMS) {
+			return Profile{}, errors.New("macOS preview identity is invalid")
+		}
+		return sealProfileDocument(draft, payload, appcontrol.Profile{}, payload.ResolveMS)
+	}
+	targetType := targetTypeDescriptor(targetKind, adapterKind, "macos-application", false,
+		[]CapabilityDescriptor{capability(CapabilityCaptureID, KindCapture, OperationCapture, OperationReadCapture)},
+		[]ProfileFieldDescriptor{field("bundleId", "string", true), field("codeRequirement", "string", true), field("resolveTimeoutMilliseconds", "duration-ms", true)},
+		[]string{"apple-code-requirement"},
+	)
+	registry := newAdapterRegistry()
+	if err := registry.register(targetType, seal, verifyPortableProfile, func(Profile) (driver, error) {
+		return nil, failure(CodeUnsupportedHost, errors.New("macOS automation runtime is preview-only"))
+	}, codec); err != nil {
+		t.Fatal(err)
+	}
+	intent, _ := json.Marshal(macOSPreviewProfile{BundleID: "dev.yotta.fixture", CodeRequirement: "anchor apple generic", ResolveMS: 1000})
+	draft, err := profileDraftFromIntentWithRegistry(targetKind, adapterKind, ProfileVersionV1, intent, nil, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := sealProfileWithRegistry(draft, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := sealInstallationManifestForProfile("mac-preview", "macOS preview", profile, false, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := manifest.Machine()
+	if document.TargetKind != targetKind || document.AdapterKind != adapterKind || document.ProfileVersion != ProfileVersionV1 ||
+		len(document.Capabilities) != 1 || document.Capabilities[0].Operations[0] != OperationCapture {
+		t.Fatalf("macOS preview manifest = %#v", document)
+	}
+	if registry.byKind[adapterKind].targetType.HostAvailable {
+		t.Fatal("preview-only macOS adapter claimed a native runtime")
 	}
 }
