@@ -95,6 +95,7 @@ export interface MachineContract {
    * @maxItems 4096
    */
   configValidators: ConfigValidatorSpec[]
+  conversion?: ConversionSpec
   /**
    * @maxItems 4096
    */
@@ -149,6 +150,14 @@ export interface ConfigValidatorSpec {
   id: string
   semanticDigest: string
   validatorId: string
+}
+export interface ConversionSpec {
+  autoInsert: boolean
+  cost: number
+  inputPort: string
+  kind: 'lossless' | 'lossy' | 'parser'
+  outputPort: string
+  total: boolean
 }
 export interface ErrorSpec {
   category: string

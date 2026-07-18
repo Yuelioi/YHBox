@@ -10,6 +10,7 @@ import {
 } from './connectionCompatibility'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection
+const types = new Map(authoring.body.types.map((type) => [type.typeRef.typeId, type]))
 const projection = (suffix: string): NodeProjection => {
   const result = authoring.body.nodes.find((node) => node.nodeRef.nodeTypeId.endsWith(suffix))
   if (!result) throw new Error(`missing projection ${suffix}`)
@@ -23,9 +24,11 @@ describe('connection compatibility', () => {
       concat,
       { channel: 'data', direction: 'output', portId: 'result' },
       concat,
+      types,
     )
     expect(ports.map((port) => port.handle.portId)).toEqual(['a', 'b'])
     expect(ports.every((port) => port.exact)).toBe(true)
+    expect(ports.every((port) => port.match === 'exact')).toBe(true)
   })
 
   it('mirrors compiler resource lease narrowing', () => {
@@ -36,6 +39,7 @@ describe('connection compatibility', () => {
       { channel: 'data', direction: 'output', portId: 'stream' },
       target,
       { channel: 'data', direction: 'input', portId: 'stream' },
+      types,
     )
     expect(valid.valid).toBe(true)
 
@@ -45,6 +49,7 @@ describe('connection compatibility', () => {
       { channel: 'data', direction: 'output', portId: 'stream' },
       target,
       { channel: 'data', direction: 'input', portId: 'stream' },
+      types,
     )
     expect(widened).toMatchObject({ valid: false, issue: 'resource-lease' })
   })
@@ -57,6 +62,7 @@ describe('connection compatibility', () => {
         delay,
         { channel: 'error', direction: 'output', portId: 'failed' },
         retry,
+        types,
       ).map((port) => port.handle),
     ).toEqual([{ channel: 'error', direction: 'input', portId: 'retry' }])
     expect(
@@ -65,7 +71,49 @@ describe('connection compatibility', () => {
         { channel: 'error', direction: 'output', portId: 'failed' },
         retry,
         { channel: 'exec', direction: 'input', portId: 'entry' },
+        types,
       ),
     ).toMatchObject({ valid: false, issue: 'channel' })
+  })
+
+  it('uses Catalog relations and generic binding for a Repeat integer index', () => {
+    const repeat = projection('/control/repeat')
+    const greater = projection('/comparison/greater-than')
+    const integerAdd = projection('/math/integer-add')
+    const log = projection('/observability/log')
+    const toString = projection('/conversion/to-string')
+    const anchor = { channel: 'data', direction: 'output', portId: 'index' } as const
+
+    expect(compatibleCandidatePorts(repeat, anchor, integerAdd, types)).toEqual([
+      { handle: { channel: 'data', direction: 'input', portId: 'a' }, exact: true, match: 'exact' },
+      { handle: { channel: 'data', direction: 'input', portId: 'b' }, exact: true, match: 'exact' },
+    ])
+
+    expect(compatibleCandidatePorts(repeat, anchor, greater, types)).toEqual([
+      {
+        handle: { channel: 'data', direction: 'input', portId: 'a' },
+        exact: false,
+        match: 'assignable',
+      },
+      {
+        handle: { channel: 'data', direction: 'input', portId: 'b' },
+        exact: false,
+        match: 'assignable',
+      },
+    ])
+    expect(compatibleCandidatePorts(repeat, anchor, toString, types)).toEqual([
+      {
+        handle: { channel: 'data', direction: 'input', portId: 'value' },
+        exact: false,
+        match: 'generic-bind',
+      },
+    ])
+    expect(compatibleCandidatePorts(repeat, anchor, log, types)).toEqual([
+      {
+        handle: { channel: 'data', direction: 'input', portId: 'message' },
+        exact: false,
+        match: 'generic-bind',
+      },
+    ])
   })
 })

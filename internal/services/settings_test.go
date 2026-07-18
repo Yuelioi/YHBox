@@ -219,6 +219,33 @@ func TestSettingsValidateRejectsUnknownLoggerLevel(t *testing.T) {
 	}
 }
 
+func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	_, _, err := app.MutateSettings(func(settings *Settings) error {
+		settings.Applications.Profiles = []InstalledApplicationSettings{{
+			Slot: "htgame", Label: "HTGame", Executable: `C:\Apps\HTGame.exe`,
+			ExecutableDigest: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), Arguments: []string{},
+		}}
+		settings.Automation.Targets = []InstalledAutomationTargetSettings{{
+			Slot: "window-target", Label: "异环", ApplicationSlot: "htgame",
+			TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
+			WindowTitle: "异环", WindowClass: "UnrealWindow", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+		}}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewSettingsService(app, nil)
+	if err := service.Update(`{"applications":{"profiles":[]}}`); err != nil {
+		t.Fatalf("remove application: %v", err)
+	}
+	got := app.Settings()
+	if len(got.Applications.Profiles) != 0 || len(got.Automation.Targets) != 0 {
+		t.Fatalf("dependent installation survived application removal: applications=%#v targets=%#v", got.Applications.Profiles, got.Automation.Targets)
+	}
+}
+
 func TestApplyMergePatch_DeepMergeUILogger(t *testing.T) {
 	s := defaultSettings()
 	patch := json.RawMessage(`{"ui":{"logger":{"panelOpen":false}}}`)

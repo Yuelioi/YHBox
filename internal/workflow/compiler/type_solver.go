@@ -22,10 +22,11 @@ type scopedTypeVariable struct {
 // types; runtime adapters never infer types from JSON values.
 type typeSolver struct {
 	bindings map[scopedTypeVariable]scopedTypeExpression
+	types    *datatype.System
 }
 
-func newTypeSolver() *typeSolver {
-	return &typeSolver{bindings: map[scopedTypeVariable]scopedTypeExpression{}}
+func newTypeSolver(types *datatype.System) *typeSolver {
+	return &typeSolver{bindings: map[scopedTypeVariable]scopedTypeExpression{}, types: types}
 }
 
 func (s *typeSolver) unify(output, input scopedTypeExpression) error {
@@ -33,15 +34,24 @@ func (s *typeSolver) unify(output, input scopedTypeExpression) error {
 	if err != nil {
 		return err
 	}
+	// Preserve the declared variable and its constraints even when it already
+	// has a binding. bind merges repeated evidence deterministically.
+	if input.expression.Kind == datatype.TypeExpressionVariable {
+		right, err := s.dereference(input, 0)
+		if err != nil {
+			return err
+		}
+		if left.expression.Kind == datatype.TypeExpressionVariable && right.expression.Kind != datatype.TypeExpressionVariable {
+			return s.bind(output, right)
+		}
+		return s.bind(input, left)
+	}
 	right, err := s.dereference(input, 0)
 	if err != nil {
 		return err
 	}
-	if left.expression.Kind == datatype.TypeExpressionVariable {
-		return s.bind(left, right)
-	}
-	if right.expression.Kind == datatype.TypeExpressionVariable {
-		return s.bind(right, left)
+	if output.expression.Kind == datatype.TypeExpressionVariable {
+		return s.bind(output, right)
 	}
 	if left.expression.Kind == datatype.TypeExpressionList && right.expression.Kind == datatype.TypeExpressionList {
 		return s.unify(
@@ -49,7 +59,10 @@ func (s *typeSolver) unify(output, input scopedTypeExpression) error {
 			scopedTypeExpression{scope: right.scope, expression: *right.expression.Element},
 		)
 	}
-	assignable, err := datatype.Assignable(left.expression, right.expression)
+	if s.types == nil {
+		return errors.New("catalog type system is unavailable")
+	}
+	assignable, err := s.types.Assignable(left.expression, right.expression)
 	if err != nil {
 		return err
 	}
@@ -90,10 +103,48 @@ func (s *typeSolver) resolveAt(value scopedTypeExpression, depth int) (datatype.
 }
 
 func (s *typeSolver) bind(variable, value scopedTypeExpression) error {
-	if len(variable.expression.Constraints) != 0 {
-		return fmt.Errorf("type variable %q uses unsupported constraints", variable.expression.Variable)
-	}
 	key := scopedTypeVariable{scope: variable.scope, name: variable.expression.Variable}
+	value, err := s.dereference(value, 0)
+	if err != nil {
+		return err
+	}
+	if existing, ok := s.bindings[key]; ok {
+		existing, err = s.dereference(existing, 0)
+		if err != nil {
+			return err
+		}
+		if existing.expression.Kind == datatype.TypeExpressionRef && value.expression.Kind == datatype.TypeExpressionRef {
+			if s.types == nil {
+				return errors.New("catalog type system is unavailable")
+			}
+			merged, err := s.types.LeastUpperBoundRef(*existing.expression.Ref, *value.expression.Ref)
+			if err != nil {
+				return fmt.Errorf("conflicting bindings for type variable %q: %w", variable.expression.Variable, err)
+			}
+			value = scopedTypeExpression{scope: variable.scope, expression: datatype.RefExpression(merged)}
+		} else {
+			existingKey, existingErr := expressionIdentity(existing.expression)
+			valueKey, valueErr := expressionIdentity(value.expression)
+			if existingErr != nil || valueErr != nil || existingKey != valueKey {
+				return fmt.Errorf("conflicting bindings for type variable %q", variable.expression.Variable)
+			}
+			value = existing
+		}
+	}
+	if len(variable.expression.Constraints) != 0 && value.expression.Kind == datatype.TypeExpressionRef {
+		if s.types == nil {
+			return errors.New("catalog type system is unavailable")
+		}
+		satisfied, err := s.types.Satisfies(*value.expression.Ref, variable.expression.Constraints)
+		if err != nil {
+			return err
+		}
+		if !satisfied {
+			return fmt.Errorf("type does not satisfy constraints for variable %q", variable.expression.Variable)
+		}
+	} else if len(variable.expression.Constraints) != 0 && value.expression.Kind != datatype.TypeExpressionVariable {
+		return fmt.Errorf("constraints for type variable %q require a concrete named type", variable.expression.Variable)
+	}
 	if value.expression.Kind == datatype.TypeExpressionVariable {
 		other := scopedTypeVariable{scope: value.scope, name: value.expression.Variable}
 		if key == other {
@@ -109,6 +160,30 @@ func (s *typeSolver) bind(variable, value scopedTypeExpression) error {
 	}
 	s.bindings[key] = value
 	return nil
+}
+
+func expressionIdentity(value datatype.TypeExpression) (string, error) {
+	switch value.Kind {
+	case datatype.TypeExpressionRef:
+		return "ref:" + value.Ref.TypeID + "@" + value.Ref.SemanticDigest.String(), nil
+	case datatype.TypeExpressionList:
+		element, err := expressionIdentity(*value.Element)
+		return "list<" + element + ">", err
+	case datatype.TypeExpressionVariable:
+		return "variable:" + value.Variable, nil
+	case datatype.TypeExpressionUnion:
+		parts := make([]string, len(value.Members))
+		for index, member := range value.Members {
+			part, err := expressionIdentity(member)
+			if err != nil {
+				return "", err
+			}
+			parts[index] = part
+		}
+		return fmt.Sprintf("union:%q", parts), nil
+	default:
+		return "", errors.New("unknown type expression")
+	}
 }
 
 func (s *typeSolver) dereference(value scopedTypeExpression, depth int) (scopedTypeExpression, error) {

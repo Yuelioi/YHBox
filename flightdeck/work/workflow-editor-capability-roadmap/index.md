@@ -6,39 +6,43 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。3.1 尚未发布；Stage 1–10 的 major upgrade 范围已完成。Stage 11 / Slice 20 已把 Windows 桌面自动化权限模型收敛为默认管理员运行，删除按需提权兼容分支，并保留捕获即安装与当前安装项批量授权；自动门禁、production build 和 exe 内嵌 manifest 验证均已通过，等待真实管理员游戏窗口 smoke 后关闭 Topic。
+In progress。3.1 尚未发布；Stage 1–11 已完成 major upgrade 和 Windows 默认管理员权限收敛。Stage 12 的权威类型系统基础批次已通过完整门禁：类型 semantic、关系图、trait/constraint、LUB 泛型求解、ConversionSpec、Integer 能力族、实例类型传播和 typed State Blackboard 已落地。结构化领域值字段消费和 Type × Capability 自动闭包门禁仍是发布前硬任务，不能把本 Topic 标记完成。
 
 ## Next
 
-使用新构建的 `bin/Yotta.exe` 完成一次真实管理员游戏窗口 smoke：确认启动出现 UAC、F9 可捕获并安装/绑定窗口目标、批量授权后工作流可执行。
+执行 Slice 22 剩余部分：把结构化类型字段变成 Catalog semantic 的显式类型契约，生成可执行 Break/field 节点与 Type × Capability matrix；禁止前端从 JSON Schema 或 TypeID 猜字段。随后完成 Slice 23 的 conversion plan/插入确认、引用计数与状态改型交互。阶段末再做一次批量验收。
 
 ## Read now
 
-- work/workflow-editor-capability-roadmap/20-desktop-target-uac-and-consent-ux.md
-- work/workflow-editor-capability-roadmap/upgrade-plan.md
+- work/workflow-editor-capability-roadmap/22-type-capability-closure.md
+- work/workflow-editor-capability-roadmap/artifacts/type-system-audit.md
+- knowledge/nodes/typed-authoring-contract.md
 
 ## Read if
 
-- work/workflow-editor-capability-roadmap/slices/map.md — 查询各 Slice 最终状态
-- work/workflow-editor-capability-roadmap/artifacts/legacy-product-capability-diff.md — 对照旧能力取舍
-- work/workflow-editor-capability-roadmap/capability-audit.md — 查询恢复范围和发布阈值
-- knowledge/architecture/content-addressed-workflow-artifacts.md — 修改 Workflow/Node durable identity
-- knowledge/build/build.md — 进入发布、打包或真机 smoke
-- knowledge/input/windows-uac-window-capture.md — 修改 Windows 权限、窗口捕获、输入注入或自启策略
+- work/workflow-editor-capability-roadmap/slices/map.md — 查询 Slice 状态
+- work/workflow-editor-capability-roadmap/21-type-system-foundation.md — 修改类型关系、约束或 solver
+- work/workflow-editor-capability-roadmap/23-typed-authoring-ux.md — 实现实例类型、拖线候选、转换插入或 Run 状态交互
+- work/workflow-editor-capability-roadmap/24-settings-reference-integrity.md — 修改 application/target 删除语义
+- work/workflow-editor-capability-roadmap/20-desktop-target-uac-and-consent-ux.md — 进入 Windows 真实宿主 smoke
+- knowledge/build/build.md — 进入阶段验收、发布、打包或真机 smoke
 
 ## Progress
 
-- Stage 1–3 恢复可靠图编辑、类型感知连线、选择/布局、诊断/真调试、模板节点、Blob 预览与键鼠/轨迹录制。
-- Stage 4 关闭暗色、端口、alert/toast、Start/Delete、桌面安装/F9、工作流库、AI endpoint 与 launcher 回归。
-- Stage 5–6 完成平台中立 Adapter seam 和 Android/ADB 安装、创作、运行闭环。
-- Stage 8–10 完成 Workflow Source portability、资产规模化/安全清理、Browser CDP exact installation 与 Source-native 多图闭环。
-- Stage 11 将 Windows manifest 固定为 `requireAdministrator`，删除 Tools/desktopapp/frontend 的按需提权 API 与 UI。
-- Windows 自启改为当前交互用户的 `ONLOGON + /IT + /RL HIGHEST` 计划任务；Yotta 启动的桌面应用按产品约定继承管理员权限。
-- Stage 11 验收：`task check` 通过（global coverage 65.2%，38 files / 152 frontend tests）；`task build` 通过，并从 `bin/Yotta.exe` 提取确认内嵌 `requireAdministrator` manifest。
+- Stage 1–10 已恢复图编辑、调试、录制、资源、桌面/Android/Browser、多图和工作流库；Stage 11 固定 requireAdministrator manifest。
+- 调研 Unreal、Unity、LabVIEW、TypeScript、GraphQL、JSON Schema 与 Go 后冻结“名义类型、显式关系、可见转换、可执行泛型、typed Blackboard”方向；见 docs/research/visual-type-system-authoring.md。
+- Data Type semantic 已加入 closed traits 和 assignable targets；Catalog 构造权威 Type System，拒绝悬空 target、关系环和未知 trait。
+- Compiler 已执行 constraint、保持节点实例 scope、做 occurs check、唯一 LUB 和顺序无关重复绑定；Integer→Number 是明确安全提升，领域类型不按底层 primitive 偷偷兼容，List 保持不变。
+- Node Contract 已加入 ConversionSpec（端口、lossless/lossy/parser、total、cost、autoInsert），seal 对照执行类别、错误和真实端口。
+- Integer 新增保持整数类型的 add/subtract/multiply/modulo/negate/absolute/minimum/maximum/clamp；溢出按 JSON safe integer 失败。String/Number→Integer 策略节点显式且可失败。
+- Log<T: Observable>、Equal<T: Equatable>、ListContains<T: Equatable>、State<T: Durable> 已执行真实约束；State declaration 拒绝非 durable 类型。
+- EditorSession 已做图级固定点实例专化；State Read/Write 从 slot 得精确类型，连接消费者不会反向改写声明。拖线候选区分精确、泛型推导、安全兼容及转换风险。
+- Run 状态支持搜索、拖出 Read、Alt 拖出 Write和显式插入操作；添加按钮使用 primary token。
+- 删除 desktop application 会原子清理引用它的 automation targets，不再留下 settings 悬空引用。
+- 2026-07-18 完整 task check 通过：Go 全量/覆盖率/vet/staticcheck、契约、AI eval、Wails bindings、i18n、155 frontend tests、production build 与 bundle budget 全绿。
 
 ## Open questions
 
-- Slice 20 仍需在真实管理员游戏窗口上确认默认提权后的 F9 捕获、捕获即安装/绑定和批量授权闭环；自动测试不能替代 UAC prompt、反作弊与目标进程完整性级别的宿主 smoke。
-- 删除工作流时，关联 schedule/launcher item 继续采用引用阻止；历史 Run journal 默认保留，除非后续产品需求明确改变。
-- 自定义 AI 地址首期保持 provider-native Responses/Messages，不静默兼容 Chat Completions。
-- 对外发布前仍需按 release 流程决定签名、安装包与许可证表述；当前 LICENSE 是 source-available，不能称 OSI open source。
+- Slice 20 的管理员游戏窗口 smoke 与 Stage 12 发布前人工验收合并。
+- 结构化字段契约必须显式表达 TypeExpression；JSON Schema 只负责值校验，不能充当跨领域类型推断器。
+- 列表保持不变性；证明只读安全并在 contract 中表达后才考虑协变。

@@ -3,6 +3,7 @@ package nodes
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -22,6 +23,15 @@ const (
 	ClampNodeID             = "https://schemas.yotta.dev/nodes/math/clamp"
 	PowerNodeID             = "https://schemas.yotta.dev/nodes/math/power"
 	SquareRootNodeID        = "https://schemas.yotta.dev/nodes/math/square-root"
+	IntegerAddNodeID        = "https://schemas.yotta.dev/nodes/math/integer-add"
+	IntegerSubtractNodeID   = "https://schemas.yotta.dev/nodes/math/integer-subtract"
+	IntegerMultiplyNodeID   = "https://schemas.yotta.dev/nodes/math/integer-multiply"
+	IntegerModuloNodeID     = "https://schemas.yotta.dev/nodes/math/integer-modulo"
+	IntegerNegateNodeID     = "https://schemas.yotta.dev/nodes/math/integer-negate"
+	IntegerAbsoluteNodeID   = "https://schemas.yotta.dev/nodes/math/integer-absolute"
+	IntegerMinimumNodeID    = "https://schemas.yotta.dev/nodes/math/integer-minimum"
+	IntegerMaximumNodeID    = "https://schemas.yotta.dev/nodes/math/integer-maximum"
+	IntegerClampNodeID      = "https://schemas.yotta.dev/nodes/math/integer-clamp"
 	EqualNodeID             = "https://schemas.yotta.dev/nodes/comparison/equal"
 	NotEqualNodeID          = "https://schemas.yotta.dev/nodes/comparison/not-equal"
 	ReplaceNodeID           = "https://schemas.yotta.dev/nodes/text/replace"
@@ -36,7 +46,12 @@ const (
 	RegexExtractNodeID      = "https://schemas.yotta.dev/nodes/text/regex-extract"
 	ToStringNodeID          = "https://schemas.yotta.dev/nodes/conversion/to-string"
 	StringToNumberNodeID    = "https://schemas.yotta.dev/nodes/conversion/string-to-number"
+	StringToIntegerNodeID   = "https://schemas.yotta.dev/nodes/conversion/string-to-integer"
 	StringToBooleanNodeID   = "https://schemas.yotta.dev/nodes/conversion/string-to-boolean"
+	TruncateToIntegerNodeID = "https://schemas.yotta.dev/nodes/conversion/truncate-to-integer"
+	FloorToIntegerNodeID    = "https://schemas.yotta.dev/nodes/conversion/floor-to-integer"
+	CeilingToIntegerNodeID  = "https://schemas.yotta.dev/nodes/conversion/ceiling-to-integer"
+	RoundToIntegerNodeID    = "https://schemas.yotta.dev/nodes/conversion/round-to-integer"
 	ParseJSONNodeID         = "https://schemas.yotta.dev/nodes/json/parse"
 	ToJSONNodeID            = "https://schemas.yotta.dev/nodes/json/stringify"
 	JSONPathNodeID          = "https://schemas.yotta.dev/nodes/json/path"
@@ -49,6 +64,7 @@ const (
 	divisionByZeroCode       = "math.division_by_zero"
 	mathDomainErrorCode      = "math.domain_error"
 	invalidNumberCode        = "conversion.invalid_number"
+	invalidIntegerCode       = "conversion.invalid_integer"
 	invalidBooleanCode       = "conversion.invalid_boolean"
 	invalidJSONCode          = "json.invalid_document"
 	invalidJSONPathCode      = "json.invalid_path"
@@ -82,6 +98,7 @@ type extendedNode struct {
 	inputs      []extendedPort
 	output      extendedPort
 	errors      []nodecontract.ErrorSpec
+	conversion  *nodecontract.ConversionSpec
 	conformance string
 	evaluate    InlineEvaluator
 }
@@ -96,6 +113,7 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 	pointType := datatype.RefExpression(types.pointRef)
 	regionType := datatype.RefExpression(types.regionRef)
 	valueType := datatype.VariableExpression("T")
+	equatableType := datatype.VariableExpression("E", string(datatype.TraitEquatable))
 	port := func(id string, typeExpr datatype.TypeExpression, defaultValue string) extendedPort {
 		return extendedPort{id: id, typeExpr: typeExpr, defaultValue: defaultValue}
 	}
@@ -135,15 +153,28 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 			conformance: "finite-power/base+exponent/result", evaluate: powerNumber,
 		},
 		mathUnary(SquareRootNodeID, "math.square-root", "square-root", number, result(numberType), append(errorSpec(mathDomainErrorCode, "evaluation"), resultErrors...), squareRoot),
+		integerMathBinary(IntegerAddNodeID, "math.integer-add", "plus", integer, result(integerType), resultErrors, addIntegers),
+		integerMathBinary(IntegerSubtractNodeID, "math.integer-subtract", "minus", integer, result(integerType), resultErrors, subtractIntegers),
+		integerMathBinary(IntegerMultiplyNodeID, "math.integer-multiply", "x", integer, result(integerType), resultErrors, multiplyIntegers),
+		integerMathBinary(IntegerModuloNodeID, "math.integer-modulo", "remainder", integer, result(integerType), errorSpec(divisionByZeroCode, "evaluation"), moduloIntegers),
+		integerMathUnary(IntegerNegateNodeID, "math.integer-negate", "plus-minus", integer, result(integerType), resultErrors, negateInteger),
+		integerMathUnary(IntegerAbsoluteNodeID, "math.integer-absolute", "math-absolute", integer, result(integerType), resultErrors, absoluteInteger),
+		integerMathBinary(IntegerMinimumNodeID, "math.integer-minimum", "math-min", integer, result(integerType), nil, minimumInteger),
+		integerMathBinary(IntegerMaximumNodeID, "math.integer-maximum", "math-max", integer, result(integerType), nil, maximumInteger),
+		{
+			id: IntegerClampNodeID, entrypoint: "math.integer-clamp", category: "math", tags: []string{"math", "integer"}, icon: "arrows-minimize",
+			inputs: []extendedPort{integer("value", "0"), integer("minimum", "0"), integer("maximum", "100")}, output: result(integerType),
+			conformance: "safe-integer-clamp/value+minimum+maximum/integer", evaluate: clampInteger,
+		},
 		{
 			id: EqualNodeID, entrypoint: "comparison.equal", category: "comparison", tags: []string{"comparison"}, icon: "equal",
-			inputs: []extendedPort{port("a", valueType, ""), port("b", valueType, "")}, output: result(booleanType),
-			conformance: "canonical-equality/T+T/boolean", evaluate: equalValues,
+			inputs: []extendedPort{port("a", equatableType, ""), port("b", equatableType, "")}, output: result(booleanType),
+			conformance: "canonical-equality/E-equatable+E-equatable/boolean", evaluate: equalValues,
 		},
 		{
 			id: NotEqualNodeID, entrypoint: "comparison.not-equal", category: "comparison", tags: []string{"comparison"}, icon: "not-equal",
-			inputs: []extendedPort{port("a", valueType, ""), port("b", valueType, "")}, output: result(booleanType),
-			conformance: "canonical-inequality/T+T/boolean", evaluate: notEqualValues,
+			inputs: []extendedPort{port("a", equatableType, ""), port("b", equatableType, "")}, output: result(booleanType),
+			conformance: "canonical-inequality/E-equatable+E-equatable/boolean", evaluate: notEqualValues,
 		},
 		textNode(ReplaceNodeID, "text.replace", "replace", []extendedPort{text("text", `""`), text("old", `""`), text("new", `""`), boolean("all", "true")}, result(stringType), nil, "unicode-replace", replaceText),
 		textNode(SubstringNodeID, "text.substring", "section", []extendedPort{text("text", `""`), integer("start", "0"), integer("length", "-1")}, result(stringType), nil, "unicode-rune-substring", substringText),
@@ -157,19 +188,27 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 		textNode(RegexExtractNodeID, "text.regex-extract", "regex", []extendedPort{text("text", `""`), text("pattern", `""`)}, result(stringType), errorSpec(invalidRegexCode, "evaluation"), "re2-first-capture", regexExtract),
 		{
 			id: ToStringNodeID, entrypoint: "conversion.to-string", category: "conversion", tags: []string{"conversion", "text"}, icon: "text-caption",
-			inputs: []extendedPort{port("value", valueType, "")}, output: result(stringType), conformance: "canonical-value-to-string", evaluate: valueToString,
+			inputs: []extendedPort{port("value", valueType, "")}, output: result(stringType), conversion: conversionSpec(nodecontract.ConversionLossy, true, 20), conformance: "canonical-value-to-string", evaluate: valueToString,
 		},
 		{
 			id: StringToNumberNodeID, entrypoint: "conversion.string-to-number", category: "conversion", tags: []string{"conversion", "number"}, icon: "numbers",
-			inputs: []extendedPort{text("text", `""`)}, output: result(numberType), errors: errorSpec(invalidNumberCode, "evaluation"), conformance: "strict-decimal-string-to-number", evaluate: stringToNumber,
+			inputs: []extendedPort{text("text", `""`)}, output: result(numberType), errors: errorSpec(invalidNumberCode, "evaluation"), conversion: conversionPorts("text", "result", nodecontract.ConversionParser, false, 30), conformance: "strict-decimal-string-to-number", evaluate: stringToNumber,
 		},
 		{
+			id: StringToIntegerNodeID, entrypoint: "conversion.string-to-integer", category: "conversion", tags: []string{"conversion", "integer"}, icon: "number-123",
+			inputs: []extendedPort{text("text", `""`)}, output: result(integerType), errors: errorSpec(invalidIntegerCode, "evaluation"), conversion: conversionPorts("text", "result", nodecontract.ConversionParser, false, 30), conformance: "strict-safe-integer-string", evaluate: stringToInteger,
+		},
+		numberToIntegerNode(TruncateToIntegerNodeID, "conversion.truncate-to-integer", "math-trunc", number, result(integerType), math.Trunc),
+		numberToIntegerNode(FloorToIntegerNodeID, "conversion.floor-to-integer", "math-function", number, result(integerType), math.Floor),
+		numberToIntegerNode(CeilingToIntegerNodeID, "conversion.ceiling-to-integer", "math-function", number, result(integerType), math.Ceil),
+		numberToIntegerNode(RoundToIntegerNodeID, "conversion.round-to-integer", "math-function", number, result(integerType), math.Round),
+		{
 			id: StringToBooleanNodeID, entrypoint: "conversion.string-to-boolean", category: "conversion", tags: []string{"conversion", "boolean"}, icon: "toggle-right",
-			inputs: []extendedPort{text("text", `"false"`)}, output: result(booleanType), errors: errorSpec(invalidBooleanCode, "evaluation"), conformance: "strict-lowercase-string-to-boolean", evaluate: stringToBoolean,
+			inputs: []extendedPort{text("text", `"false"`)}, output: result(booleanType), errors: errorSpec(invalidBooleanCode, "evaluation"), conversion: conversionPorts("text", "result", nodecontract.ConversionParser, false, 30), conformance: "strict-lowercase-string-to-boolean", evaluate: stringToBoolean,
 		},
 		{
 			id: ParseJSONNodeID, entrypoint: "json.parse", category: "json", tags: []string{"json", "conversion"}, icon: "braces",
-			inputs: []extendedPort{text("text", `"null"`)}, output: result(jsonType), errors: errorSpec(invalidJSONCode, "evaluation"), conformance: "strict-single-json-document", evaluate: parseJSONValue,
+			inputs: []extendedPort{text("text", `"null"`)}, output: result(jsonType), errors: errorSpec(invalidJSONCode, "evaluation"), conversion: conversionPorts("text", "result", nodecontract.ConversionParser, false, 40), conformance: "strict-single-json-document", evaluate: parseJSONValue,
 		},
 		{
 			id: ToJSONNodeID, entrypoint: "json.stringify", category: "json", tags: []string{"json", "conversion"}, icon: "braces",
@@ -216,10 +255,47 @@ func defineExtendedPureNodes(types extendedTypes) ([]BuiltinDefinition, error) {
 	return definitions, nil
 }
 
+func numberToIntegerNode(
+	id, entrypoint, icon string,
+	input func(string, string) extendedPort,
+	output extendedPort,
+	convert func(float64) float64,
+) extendedNode {
+	return extendedNode{
+		id: id, entrypoint: entrypoint, category: "conversion", tags: []string{"conversion", "integer", "number"}, icon: icon,
+		inputs: []extendedPort{input("value", "0")}, output: output,
+		errors:      []nodecontract.ErrorSpec{{Code: invalidIntegerCode, Category: "evaluation", RetryHint: false}},
+		conversion:  conversionSpec(nodecontract.ConversionLossy, false, 20),
+		conformance: "checked-number-to-safe-integer", evaluate: numberToInteger(convert),
+	}
+}
+
+func conversionSpec(kind nodecontract.ConversionKind, total bool, cost int) *nodecontract.ConversionSpec {
+	return conversionPorts("value", "result", kind, total, cost)
+}
+
+func conversionPorts(input, output string, kind nodecontract.ConversionKind, total bool, cost int) *nodecontract.ConversionSpec {
+	return &nodecontract.ConversionSpec{InputPort: input, OutputPort: output, Kind: kind, Total: total, Cost: cost}
+}
+
 func mathBinary(id, entrypoint, icon string, number func(string, string) extendedPort, output extendedPort, errors []nodecontract.ErrorSpec, evaluate InlineEvaluator) extendedNode {
 	return extendedNode{id: id, entrypoint: entrypoint, category: "math", tags: []string{"math", "number"}, icon: icon,
 		inputs: []extendedPort{number("a", "0"), number("b", "0")}, output: output, errors: errors,
 		conformance: "strict-finite-number-binary", evaluate: evaluate}
+}
+
+func integerMathBinary(id, entrypoint, icon string, integer func(string, string) extendedPort, output extendedPort, errors []nodecontract.ErrorSpec, evaluate InlineEvaluator) extendedNode {
+	return extendedNode{id: id, entrypoint: entrypoint, category: "math", tags: []string{"math", "integer"}, icon: icon,
+		inputs: []extendedPort{integer("a", "0"), integer("b", "0")}, output: output, errors: errors,
+		conformance: "safe-integer-binary/a+b/integer", evaluate: evaluate,
+	}
+}
+
+func integerMathUnary(id, entrypoint, icon string, integer func(string, string) extendedPort, output extendedPort, errors []nodecontract.ErrorSpec, evaluate InlineEvaluator) extendedNode {
+	return extendedNode{id: id, entrypoint: entrypoint, category: "math", tags: []string{"math", "integer"}, icon: icon,
+		inputs: []extendedPort{integer("value", "0")}, output: output, errors: errors,
+		conformance: "safe-integer-unary/value/integer", evaluate: evaluate,
+	}
 }
 
 func mathUnary(id, entrypoint, icon string, number func(string, string) extendedPort, output extendedPort, errors []nodecontract.ErrorSpec, evaluate InlineEvaluator) extendedNode {
@@ -251,6 +327,7 @@ func sealExtendedNode(spec extendedNode) (nodecontract.Contract, error) {
 			ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: []nodecontract.SignalPort{},
 		},
 		Execution: pureDataExecution(), Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{}, Errors: spec.errors,
+		Conversion:        spec.conversion,
 		StatusEvents:      []nodecontract.StatusEventSpec{},
 		ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{

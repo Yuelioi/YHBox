@@ -82,6 +82,7 @@ type state struct {
 	bytes        []byte
 	bindings     map[string]Entry
 	types        map[string]datatype.Definition
+	typeSystem   *datatype.System
 	capabilities map[string]capability.Definition
 }
 
@@ -233,6 +234,14 @@ func Open(raw []byte) (Snapshot, error) {
 }
 
 func sealDocument(doc document, bindings map[string]Entry, types map[string]datatype.Definition, capabilities map[string]capability.Definition) (Snapshot, error) {
+	definitions := make([]datatype.Definition, 0, len(types))
+	for _, definition := range types {
+		definitions = append(definitions, definition)
+	}
+	typeSystem, err := datatype.NewSystem(definitions)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("build catalog type system: %w", err)
+	}
 	canonical, err := artifact.Marshal(doc)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("encode catalog: %w", err)
@@ -244,7 +253,7 @@ func sealDocument(doc document, bindings map[string]Entry, types map[string]data
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{state: &state{document: doc, hash: hash, bytes: canonical, bindings: bindings, types: types, capabilities: capabilities}}, nil
+	return Snapshot{state: &state{document: doc, hash: hash, bytes: canonical, bindings: bindings, types: types, typeSystem: typeSystem, capabilities: capabilities}}, nil
 }
 
 func (s Snapshot) Valid() bool { return s.state != nil && s.state.hash.Valid() }
@@ -277,6 +286,14 @@ func (s Snapshot) LookupType(typeID string) (datatype.Definition, bool) {
 	}
 	definition, ok := s.state.types[typeID]
 	return definition, ok
+}
+
+// TypeSystem returns the immutable relation graph sealed with this Catalog.
+func (s Snapshot) TypeSystem() *datatype.System {
+	if !s.Valid() {
+		return nil
+	}
+	return s.state.typeSystem
 }
 
 func (s Snapshot) LookupCapability(capabilityID string) (capability.Definition, bool) {

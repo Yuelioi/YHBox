@@ -23,21 +23,25 @@ const (
 )
 
 func sealObservabilityMessageType() (datatype.Definition, error) {
-	return sealStructuredType(
-		ObservabilityMessageTypeID,
-		json.RawMessage(fmt.Sprintf(`{
+	schemaID := ObservabilityMessageTypeID + "/schema"
+	return datatype.SealDefinition(datatype.DefinitionDraft{
+		TypeID: ObservabilityMessageTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
+		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema",
 			"type":"string","maxLength":%d
-		}`, ObservabilityMessageTypeID+"/schema", MaxObservabilityMessageRunes)),
-		datatype.Authoring{
+		}`, schemaID, MaxObservabilityMessageRunes))}},
+		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Traits:          []datatype.Trait{datatype.TraitDurable, datatype.TraitEquatable, datatype.TraitObservable},
+		Authoring: datatype.Authoring{
 			TitleKey: "type.observability.message.title", DescriptionKey: "type.observability.message.description",
 			Color: "#f97316", Icon: "message-circle",
 		},
-	)
+	})
 }
 
 func defineSystemNodes(messageRef datatype.TypeRef) ([]BuiltinDefinition, error) {
 	messageType := datatype.RefExpression(messageRef)
+	observableType := datatype.VariableExpression("T", string(datatype.TraitObservable))
 	defaultMessage := json.RawMessage(`""`)
 
 	logSchemaID := LogNodeID + "/config"
@@ -51,7 +55,7 @@ func defineSystemNodes(messageRef datatype.TypeRef) ([]BuiltinDefinition, error)
 			"additionalProperties":false
 		}`, logSchemaID))}},
 		Ports: nodecontract.PortSet{
-			DataInputs: []nodecontract.DataInputPort{{ID: "message", Type: messageType, Required: true}}, DataOutputs: []nodecontract.DataOutputPort{},
+			DataInputs: []nodecontract.DataInputPort{{ID: "message", Type: observableType, Required: true}}, DataOutputs: []nodecontract.DataOutputPort{},
 			ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed"),
 		},
 		Execution: nodecontract.ExecutionSpec{
@@ -92,7 +96,7 @@ func defineSystemNodes(messageRef datatype.TypeRef) ([]BuiltinDefinition, error)
 	if err != nil {
 		return nil, err
 	}
-	logDefinition, err := defineBuiltin(logContract, "observability.log", "v1", "redacted-run-attributed-log/v1", nil)
+	logDefinition, err := defineBuiltin(logContract, "observability.log", "v1", "bounded-observable-run-log/v1", nil)
 	if err != nil {
 		return nil, err
 	}

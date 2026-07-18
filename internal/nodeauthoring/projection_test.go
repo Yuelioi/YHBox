@@ -87,6 +87,10 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	if !ok || binary.Lifecycle != nodeauthoring.LifecycleMixed || len(binary.Representations) != 2 {
 		t.Fatalf("binary type projection = %#v", binary)
 	}
+	integer, ok := projection.Type(nodes.IntegerTypeID)
+	if !ok || len(integer.AssignableTo) != 1 || integer.AssignableTo[0].TypeID != nodes.NumberTypeID || len(integer.Traits) == 0 {
+		t.Fatalf("integer type relations = %#v", integer)
+	}
 	stateRead, ok := projection.Node(nodes.StateReadNodeID)
 	if !ok || len(stateRead.StateAccesses) != 1 || stateRead.StateAccesses[0].Mode != "read" ||
 		stateRead.StateAccesses[0].SlotConfigKey != "variable" || stateRead.StateAccesses[0].Type.Label != "$T" {

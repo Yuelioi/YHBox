@@ -494,6 +494,7 @@
           :variables="session.source?.variables ?? []"
           :types="session.authoring?.body.types ?? []"
           @command="applyCommand"
+          @insert="insertStateReferenceAtCenter"
           @close="statePanelOpen = false"
         />
         <WorkflowGraphCallInspector
@@ -925,6 +926,7 @@ let pasteOffset = 0
 let nextPosition = 0
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
+const STATE_REFERENCE_DRAG_FORMAT = 'application/x-yotta-state-reference'
 const RUN_STARTED_NODE_ID = 'https://schemas.yotta.dev/nodes/event/run-started'
 
 interface ConnectionAnchor {
@@ -1053,7 +1055,7 @@ const flowNodes = computed<FlowNode[]>(() => {
   return [
     ...projectWorkflowFlowNodes(
       graph.nodes,
-      session.nodeProjection.bind(session),
+      session.nodeInstanceProjection.bind(session),
       nodeGestures.positions,
     ),
     ...(graph.calls ?? []).flatMap((call) => {
@@ -1103,23 +1105,40 @@ const compatibleConnectionCandidates = computed<WorkflowConnectionCandidate[]>((
   if (!menu) return []
   const anchorNode = session.currentGraph?.nodes.find((node) => node.id === menu.anchor.nodeId)
   if (!anchorNode) return []
-  const anchorProjection = session.nodeProjection(anchorNode.nodeRef.nodeTypeId)
+  const anchorProjection = session.nodeInstanceProjection(anchorNode)
   if (!anchorProjection) return []
   return (session.authoring?.body.nodes ?? [])
     .flatMap((projection) =>
-      compatibleCandidatePorts(anchorProjection, menu.anchor.handle, projection).map((port) => ({
+      compatibleCandidatePorts(
+        anchorProjection,
+        menu.anchor.handle,
+        projection,
+        new Map((session.authoring?.body.types ?? []).map((type) => [type.typeRef.typeId, type])),
+      ).map((port) => ({
         key: `${projection.nodeRef.nodeTypeId}:${port.handle.channel}:${port.handle.portId}`,
         nodeTypeId: projection.nodeRef.nodeTypeId,
         title: projectionTitle(projection),
         icon: projection.icon,
         searchText: catalogSearchText(projection),
         handle: port.handle,
+        match: port.match,
+        conversionKind: projection.conversion?.kind,
       })),
     )
     .sort(
-      (left, right) => left.title.localeCompare(right.title) || left.key.localeCompare(right.key),
+      (left, right) =>
+        connectionMatchRank(left.match) - connectionMatchRank(right.match) ||
+        left.title.localeCompare(right.title) ||
+        left.key.localeCompare(right.key),
     )
 })
+
+function connectionMatchRank(match: WorkflowConnectionCandidate['match']): number {
+  if (match === 'exact') return 0
+  if (match === 'generic-bind') return 1
+  if (match === 'assignable') return 2
+  return 3
+}
 
 const allConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() =>
   (session.authoring?.body.nodes ?? [])
@@ -1150,9 +1169,7 @@ const selectedCallPorts = computed(() =>
   }),
 )
 const selectedProjection = computed(() =>
-  selectedNode.value
-    ? (session.nodeProjection(selectedNode.value.nodeRef.nodeTypeId) ?? null)
-    : null,
+  selectedNode.value ? (session.nodeInstanceProjection(selectedNode.value) ?? null) : null,
 )
 const runActive = computed(() =>
   session.activeRun
@@ -1610,7 +1627,11 @@ function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
 }
 
 function continueNodeDrag(event: DragEvent): void {
-  if (!event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT)) return
+  if (
+    !event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT) &&
+    !event.dataTransfer?.types.includes(STATE_REFERENCE_DRAG_FORMAT)
+  )
+    return
   event.preventDefault()
   event.dataTransfer.dropEffect = 'copy'
   nodeDragActive.value = true
@@ -1622,10 +1643,56 @@ function finishNodeDrag(): void {
 
 function dropNode(event: DragEvent): void {
   const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
-  if (nodeTypeId) event.preventDefault()
+  const stateReference = event.dataTransfer?.getData(STATE_REFERENCE_DRAG_FORMAT)
+  if (nodeTypeId || stateReference) event.preventDefault()
   finishNodeDrag()
-  if (!nodeTypeId) return
-  addNode(nodeTypeId, screenToFlowCoordinate({ x: event.clientX, y: event.clientY }))
+  const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+  if (nodeTypeId) {
+    addNode(nodeTypeId, position)
+    return
+  }
+  if (!stateReference) return
+  const parsed = parseStateReferenceDrop(stateReference)
+  if (!isStateReferenceDrop(parsed)) return
+  insertStateReference(parsed.name, parsed.mode, position)
+}
+
+function parseStateReferenceDrop(raw: string): unknown {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function insertStateReferenceAtCenter(name: string, mode: 'read' | 'write'): void {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const position = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    : { x: 160, y: 160 }
+  insertStateReference(name, mode, position)
+}
+
+function insertStateReference(
+  name: string,
+  mode: 'read' | 'write',
+  position: { x: number; y: number },
+): void {
+  try {
+    const nodeId = session.insertStateReference(name, mode, position)
+    selectedNodeIds.value = new Set([nodeId])
+    selectedNodeId.value = nodeId
+  } catch (error) {
+    showError(t('workflow.state_panel.insert_failed'), error)
+  }
+}
+
+function isStateReferenceDrop(value: unknown): value is { name: string; mode: 'read' | 'write' } {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.name === 'string' && (candidate.mode === 'read' || candidate.mode === 'write')
+  )
 }
 
 function connect(connection: Connection): void {

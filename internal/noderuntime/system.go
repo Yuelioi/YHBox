@@ -44,8 +44,12 @@ func writeLog(emitter LogEmitter) compiler.Adapter {
 		if !ok || len(envelope.InlineJSON()) == 0 {
 			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is missing"))
 		}
+		raw := envelope.InlineJSON()
 		var message string
-		if err := json.Unmarshal(envelope.InlineJSON(), &message); err != nil || utf8.RuneCountInString(message) > nodes.MaxObservabilityMessageRunes {
+		if err := json.Unmarshal(raw, &message); err != nil {
+			message = string(raw)
+		}
+		if utf8.RuneCountInString(message) > nodes.MaxObservabilityMessageRunes {
 			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is invalid"))
 		}
 		level := "info"

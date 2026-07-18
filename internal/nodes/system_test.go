@@ -3,6 +3,7 @@ package nodes_test
 import (
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes"
 )
@@ -24,6 +25,10 @@ func TestLogAndThrowUseExplicitEffectAndTerminalFailureSemantics(t *testing.T) {
 		len(logContract.Ports.ErrorOutputs) != 1 || logContract.Ports.ErrorOutputs[0].ID != "failed" ||
 		len(logContract.CapabilityRequirements) != 0 {
 		t.Fatalf("log contract = %#v", logContract)
+	}
+	logInput := logContract.Ports.DataInputs[0].Type
+	if logInput.Kind != datatype.TypeExpressionVariable || len(logInput.Constraints) != 1 || logInput.Constraints[0] != string(datatype.TraitObservable) {
+		t.Fatalf("log input is not constrained observable: %#v", logInput)
 	}
 	throwDefinition, ok := builtins.Definition(nodes.ThrowNodeID)
 	if !ok {

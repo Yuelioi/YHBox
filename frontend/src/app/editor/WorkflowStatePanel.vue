@@ -49,7 +49,7 @@
           <UButton
             icon="i-tabler-plus"
             size="sm"
-            color="neutral"
+            color="primary"
             :disabled="!canAddVariable"
             :aria-label="t('workflow.inspector.state_add')"
             @click="addStateVariable"
@@ -57,18 +57,45 @@
         </div>
       </section>
 
-      <div v-if="variables.length" class="space-y-2">
+      <UInput
+        v-model="searchQuery"
+        icon="i-tabler-search"
+        size="sm"
+        :placeholder="t('workflow.state_panel.search')"
+      />
+
+      <div v-if="filteredVariables.length" class="space-y-2">
         <div
-          v-for="variable in variables"
+          v-for="variable in filteredVariables"
           :key="variable.name"
-          class="flex items-center gap-2 rounded-lg border border-default bg-elevated/35 px-3 py-2.5"
+          draggable="true"
+          class="flex cursor-grab items-center gap-2 rounded-lg border border-default bg-elevated/35 px-3 py-2.5 active:cursor-grabbing"
+          :title="t('workflow.state_panel.drag_hint')"
+          @dragstart="startStateDrag($event, variable.name)"
         >
+          <UIcon name="i-tabler-grip-vertical" class="size-4 shrink-0 text-dimmed" />
           <span class="min-w-0 flex-1 truncate font-mono text-xs text-toned">{{
             variable.name
           }}</span>
           <span class="max-w-28 truncate text-[10px] text-dimmed">{{
             variableTypeLabel(variable)
           }}</span>
+          <UButton
+            icon="i-tabler-database-export"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="t('workflow.state_panel.insert_read', { name: variable.name })"
+            @click="emit('insert', variable.name, 'read')"
+          />
+          <UButton
+            icon="i-tabler-database-import"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="t('workflow.state_panel.insert_write', { name: variable.name })"
+            @click="emit('insert', variable.name, 'write')"
+          />
           <UButton
             icon="i-tabler-trash"
             color="error"
@@ -82,7 +109,13 @@
 
       <div v-else class="rounded-lg border border-dashed border-default px-4 py-8 text-center">
         <UIcon name="i-tabler-database" class="mx-auto mb-2 size-6 text-dimmed" />
-        <p class="text-xs text-muted">{{ t('workflow.state_panel.empty') }}</p>
+        <p class="text-xs text-muted">
+          {{
+            variables.length
+              ? t('workflow.state_panel.no_results')
+              : t('workflow.state_panel.empty')
+          }}
+        </p>
       </div>
     </div>
   </aside>
@@ -96,15 +129,25 @@ import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-pr
 import type { EditorCommand } from '@/app/editor/EditorSession'
 
 const props = defineProps<{ variables: Variable[]; types: TypeProjection[] }>()
-const emit = defineEmits<{ command: [command: EditorCommand]; close: [] }>()
+const emit = defineEmits<{
+  command: [command: EditorCommand]
+  insert: [name: string, mode: 'read' | 'write']
+  close: []
+}>()
 const { t, te } = useI18n()
 const newVariableName = ref('')
 const newVariableTypeId = ref('')
-const stateTypes = computed(() =>
-  props.types.filter((type) =>
-    type.representations.some((representation) => representation.kind === 'inline-json'),
-  ),
-)
+const searchQuery = ref('')
+const filteredVariables = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return props.variables
+  return props.variables.filter((variable) =>
+    [variable.name, variableTypeLabel(variable)].some((value) =>
+      value.toLocaleLowerCase().includes(query),
+    ),
+  )
+})
+const stateTypes = computed(() => props.types.filter((type) => type.traits.includes('durable')))
 const stateTypeItems = computed(() =>
   stateTypes.value.map((type) => ({
     label:
@@ -170,5 +213,14 @@ function variableTypeLabel(variable: Variable): string {
   const type = props.types.find((candidate) => candidate.typeRef.typeId === typeId)
   if (type?.titleKey && te(type.titleKey)) return t(type.titleKey)
   return typeId.split('/').at(-2) ?? typeId
+}
+
+function startStateDrag(event: DragEvent, name: string): void {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData(
+    'application/x-yotta-state-reference',
+    JSON.stringify({ name, mode: event.altKey ? 'write' : 'read' }),
+  )
 }
 </script>

@@ -91,6 +91,45 @@
       ],
       "type": "object"
     },
+    "ConversionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "autoInsert": {
+          "type": "boolean"
+        },
+        "cost": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inputPort": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "lossless",
+            "lossy",
+            "parser"
+          ],
+          "type": "string"
+        },
+        "outputPort": {
+          "type": "string"
+        },
+        "total": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "inputPort",
+        "outputPort",
+        "kind",
+        "total",
+        "cost",
+        "autoInsert"
+      ],
+      "type": "object"
+    },
     "CountedLoopInstruction": {
       "additionalProperties": false,
       "properties": {
@@ -498,6 +537,9 @@
           },
           "maxItems": 4096,
           "type": "array"
+        },
+        "conversion": {
+          "$ref": "#/$defs/ConversionSpec"
         },
         "errors": {
           "items": {

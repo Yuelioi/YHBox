@@ -62,6 +62,11 @@ func sealStructuredType(typeID string, schema json.RawMessage, authoring datatyp
 		TypeID: typeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: typeID + "/schema",
 		SchemaBundle:    []datatype.SchemaResource{{ID: typeID + "/schema", Schema: schema}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Traits: []datatype.Trait{
+			datatype.TraitDurable,
+			datatype.TraitEquatable,
+			datatype.TraitObservable,
+		},
 		Authoring:       authoring,
 	})
 }

@@ -156,15 +156,15 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	numberType, err := sealPrimitiveType(NumberTypeID, "number", "type.core.number", "#38bdf8", "decimal")
+	numberType, err := sealPrimitiveType(NumberTypeID, "number", "type.core.number", "#38bdf8", "decimal", coreValueTraits(true, true))
 	if err != nil {
 		return Builtins{}, err
 	}
-	integerType, err := sealSafeIntegerType()
+	integerType, err := sealSafeIntegerType(numberType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
-	booleanType, err := sealPrimitiveType(BooleanTypeID, "boolean", "type.core.boolean", "#f59e0b", "toggle-right")
+	booleanType, err := sealPrimitiveType(BooleanTypeID, "boolean", "type.core.boolean", "#f59e0b", "toggle-right", coreValueTraits(false, false))
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -528,6 +528,7 @@ func sealStringType() (datatype.Definition, error) {
 			"type":"string"
 		}`)}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Traits:          coreValueTraits(false, true),
 		Authoring: datatype.Authoring{
 			TitleKey: "type.core.string.title", DescriptionKey: "type.core.string.description", Color: "#8b5cf6", Icon: "text",
 		},

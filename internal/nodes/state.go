@@ -22,7 +22,7 @@ const (
 )
 
 func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
-	valueType := datatype.VariableExpression("T")
+	valueType := datatype.VariableExpression("T", string(datatype.TraitDurable))
 	integerType := datatype.RefExpression(types.integerRef)
 	type stateNode struct {
 		id, entrypoint, conformance, key, icon string

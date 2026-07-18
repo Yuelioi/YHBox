@@ -444,6 +444,39 @@ func TestConfigValidatorsAreVersionedAndContentAddressed(t *testing.T) {
 	}
 }
 
+func TestConversionSpecIsPortCheckedAndAutoInsertSafe(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Conversion = &ConversionSpec{
+		InputPort: "a", OutputPort: "result", Kind: ConversionLossless,
+		Total: true, Cost: 1, AutoInsert: true,
+	}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := contract.Machine().Conversion; got == nil || got.InputPort != "a" || !got.AutoInsert {
+		t.Fatalf("conversion = %#v", got)
+	}
+
+	draft.Conversion.Kind = ConversionLossy
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted lossy auto-insert conversion")
+	}
+	draft.Conversion.AutoInsert = false
+	draft.Conversion.Total = false
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted partial conversion without a declared error")
+	}
+	draft.Errors = []ErrorSpec{{Code: "conversion.failed", Category: "evaluation"}}
+	if _, err := Seal(draft); err != nil {
+		t.Fatalf("rejected explicit fallible conversion: %v", err)
+	}
+	draft.Conversion.InputPort = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted conversion with a missing input port")
+	}
+}
+
 func concatContractDraftForTest() Draft {
 	stringRef := datatype.TypeRef{
 		TypeID:         "https://schemas.yotta.dev/types/core/string/v1",

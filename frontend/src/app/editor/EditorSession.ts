@@ -12,6 +12,8 @@ import type {
   NodeProjection,
   PortProjection,
   TypeExpression,
+  TypeProjection,
+  TypeUse,
   YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
 import type {
@@ -132,6 +134,7 @@ export class EditorSession {
   private readonly pendingCommands: PendingCommand[] = []
   private readonly revertedCommands: PendingCommand[] = []
   private readonly projections = new Map<string, NodeProjection>()
+  private readonly typeProjections = new Map<string, TypeProjection>()
 
   constructor(
     private readonly transport: WorkflowTransport,
@@ -220,6 +223,18 @@ export class EditorSession {
 
   nodeProjection(nodeTypeId: string): NodeProjection | undefined {
     return this.projections.get(nodeTypeId)
+  }
+
+  nodeInstanceProjection(node: Node): NodeProjection | undefined {
+    const base = this.projections.get(node.nodeRef.nodeTypeId)
+    if (!base || base.nodeRef.semanticDigest !== node.nodeRef.semanticDigest) return undefined
+    return resolveNodeInstanceProjection(
+      this.source,
+      node,
+      base,
+      this.projections,
+      this.typeProjections,
+    )
   }
 
   calleeGraph(call: GraphCall): Graph | undefined {
@@ -321,7 +336,7 @@ export class EditorSession {
       }
     }
     for (const node of graph.nodes) {
-      const projection = this.projections.get(node.nodeRef.nodeTypeId)
+      const projection = this.nodeInstanceProjection(node)
       if (!projection) continue
       addElement(
         node.id,
@@ -375,7 +390,7 @@ export class EditorSession {
           : this.projections
               .get(toNode!.nodeRef.nodeTypeId)
               ?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
-        return fromType && toType && assignable(fromType, toType)
+        return fromType && toType && assignable(fromType, toType, this.typeProjections)
           ? { valid: true }
           : { valid: false, issue: 'type', message: 'connection types are incompatible' }
       }
@@ -400,8 +415,8 @@ export class EditorSession {
         ? { valid: true }
         : { valid: false, issue: 'port', message: 'connection ports are incompatible' }
     }
-    const from = this.projections.get(fromNode!.nodeRef.nodeTypeId)
-    const to = this.projections.get(toNode!.nodeRef.nodeTypeId)
+    const from = this.nodeInstanceProjection(fromNode!)
+    const to = this.nodeInstanceProjection(toNode!)
     if (!from || !to)
       return { valid: false, issue: 'port', message: 'connection projection is missing' }
     return projectedConnectionCompatibility(
@@ -409,6 +424,7 @@ export class EditorSession {
       { channel: edge.channel, direction: 'output', portId: edge.from.portId },
       to,
       { channel: edge.channel, direction: 'input', portId: edge.to.portId },
+      this.typeProjections,
     )
   }
 
@@ -547,6 +563,36 @@ export class EditorSession {
     ]
   }
 
+  insertStateReference(
+    variable: string,
+    mode: 'read' | 'write',
+    position: { x: number; y: number },
+  ): string {
+    const nodeTypeId = [...this.projections.values()].find(
+      (projection) =>
+        projection.nodeRef.nodeTypeId.endsWith(`/state/${mode}`) &&
+        projection.stateAccesses.some((access) => access.mode === mode),
+    )?.nodeRef.nodeTypeId
+    if (!nodeTypeId) throw new Error(`state ${mode} node is unavailable`)
+    const projection = this.projections.get(nodeTypeId)!
+    const [nodeId] = this.insertNodeSelection(
+      {
+        nodes: [
+          {
+            id: 'state-reference',
+            nodeRef: clone(projection.nodeRef),
+            position: { x: 0, y: 0 },
+            config: { variable },
+            bindings: {},
+          },
+        ],
+        edges: [],
+      },
+      position,
+    )
+    return nodeId
+  }
+
   insertLinearDraft(
     draftNodes: LinearWorkflowDraftNode[],
     origin: { x: number; y: number },
@@ -612,7 +658,7 @@ export class EditorSession {
     const next = clone(source)
     const graph = graphAt(next, this.graphPath)
     const resolved = resolveEditorCommand(command, graph, this.idFactory)
-    applyCommand(next, graph, resolved, this.projections)
+    applyCommand(next, graph, resolved, this.projections, this.typeProjections)
     next.revision = this.baseRevision + 1
     this.history.push(clone(source))
     if (this.history.length > 100) this.history.shift()
@@ -782,8 +828,12 @@ export class EditorSession {
     if (!isAuthoringProjection(parsed)) throw new Error('unsupported node authoring projection')
     this.authoring = parsed
     this.projections.clear()
+    this.typeProjections.clear()
     for (const projection of parsed.body.nodes) {
       this.projections.set(projection.nodeRef.nodeTypeId, projection)
+    }
+    for (const projection of parsed.body.types) {
+      this.typeProjections.set(projection.typeRef.typeId, projection)
     }
   }
 
@@ -1122,10 +1172,11 @@ function applyCommand(
   graph: Graph,
   command: EditorCommand,
   projections: Map<string, NodeProjection>,
+  types: Map<string, TypeProjection>,
 ): void {
   const expanded = expandEditorCommand(command)
   if (expanded.length !== 1 || expanded[0] !== command) {
-    for (const primitive of expanded) applyCommand(source, graph, primitive, projections)
+    for (const primitive of expanded) applyCommand(source, graph, primitive, projections, types)
     return
   }
   switch (command.kind) {
@@ -1248,7 +1299,7 @@ function applyCommand(
       delete requireNode(graph, command.nodeId).bindings[command.portId]
       return
     case 'connect':
-      validateEdge(source, graph, command.edge, projections)
+      validateEdge(source, graph, command.edge, projections, types)
       if (command.edge.channel === 'data') {
         const target = graph.nodes.find((node) => node.id === command.edge.to.nodeId)
         const targetCall = graph.calls!.find((call) => call.id === command.edge.to.nodeId)
@@ -1387,6 +1438,7 @@ function validateEdge(
   graph: Graph,
   edge: Edge,
   projections: Map<string, NodeProjection>,
+  types: Map<string, TypeProjection>,
 ): void {
   const fromNode = graph.nodes.find((node) => node.id === edge.from.nodeId)
   const toNode = graph.nodes.find((node) => node.id === edge.to.nodeId)
@@ -1429,13 +1481,26 @@ function validateEdge(
     }
     throw new Error('edge is incompatible')
   }
-  const from = requireProjection(fromNode, projections)
-  const to = requireProjection(toNode, projections)
+  const from = resolveNodeInstanceProjection(
+    source,
+    fromNode,
+    requireProjection(fromNode, projections),
+    projections,
+    types,
+  )
+  const to = resolveNodeInstanceProjection(
+    source,
+    toNode,
+    requireProjection(toNode, projections),
+    projections,
+    types,
+  )
   const result = projectedConnectionCompatibility(
     from,
     { channel: edge.channel, direction: 'output', portId: edge.from.portId },
     to,
     { channel: edge.channel, direction: 'input', portId: edge.to.portId },
+    types,
   )
   if (!result.valid) throw new Error(result.message ?? 'edge is incompatible')
 }
@@ -1452,6 +1517,190 @@ function requireProjection(node: Node, projections: Map<string, NodeProjection>)
     throw new Error(`node ${node.id} has no exact authoring projection`)
   }
   return projection
+}
+
+function resolveNodeInstanceProjection(
+  source: YottaWorkflowSource | null,
+  node: Node,
+  base: NodeProjection,
+  projections: ReadonlyMap<string, NodeProjection>,
+  types: ReadonlyMap<string, TypeProjection>,
+): NodeProjection {
+  const graph = source?.graphs.find((candidate) =>
+    candidate.nodes.some((graphNode) => graphNode.id === node.id),
+  )
+  const bindings = graph
+    ? (solveGraphTypeBindings(source, graph, projections, types).get(node.id) ?? new Map())
+    : stateTypeBindings(source, node, base)
+  if (!bindings.size) return base
+  const projection = clone(base)
+  projection.dataInputs = projection.dataInputs.map((port) => ({
+    ...port,
+    type: specializeTypeUse(port.type, bindings, types),
+  }))
+  projection.dataOutputs = projection.dataOutputs.map((port) => ({
+    ...port,
+    type: specializeTypeUse(port.type, bindings, types),
+  }))
+  projection.stateAccesses = projection.stateAccesses.map((access) => ({
+    ...access,
+    type: specializeTypeUse(access.type, bindings, types),
+  }))
+  return projection
+}
+
+function solveGraphTypeBindings(
+  source: YottaWorkflowSource | null,
+  graph: Graph,
+  projections: ReadonlyMap<string, NodeProjection>,
+  types: ReadonlyMap<string, TypeProjection>,
+): Map<string, Map<string, TypeExpression>> {
+  const result = new Map<string, Map<string, TypeExpression>>()
+  for (const node of graph.nodes) {
+    const projection = projections.get(node.nodeRef.nodeTypeId)
+    result.set(node.id, projection ? stateTypeBindings(source, node, projection) : new Map())
+  }
+  const budget = Math.max(1, graph.nodes.length + graph.edges.length) * 2
+  for (let iteration = 0; iteration < budget; iteration += 1) {
+    let changed = false
+    for (const edge of graph.edges) {
+      if (edge.channel !== 'data') continue
+      const fromNode = graph.nodes.find((candidate) => candidate.id === edge.from.nodeId)
+      const toNode = graph.nodes.find((candidate) => candidate.id === edge.to.nodeId)
+      const from = fromNode ? projections.get(fromNode.nodeRef.nodeTypeId) : undefined
+      const to = toNode ? projections.get(toNode.nodeRef.nodeTypeId) : undefined
+      const output = from?.dataOutputs.find((port) => port.id === edge.from.portId)?.type.expression
+      const input = to?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
+      if (!fromNode || !toNode || !output || !input) continue
+      const fromBindings = result.get(fromNode.id)!
+      const toBindings = result.get(toNode.id)!
+      const resolvedOutput = specializeTypeExpression(output, fromBindings)
+      const resolvedInput = specializeTypeExpression(input, toBindings)
+      changed = bindTypeVariables(input, resolvedOutput, toBindings, types, true) || changed
+      changed = bindTypeVariables(output, resolvedInput, fromBindings, types, false) || changed
+    }
+    if (!changed) break
+  }
+  return result
+}
+
+function stateTypeBindings(
+  source: YottaWorkflowSource | null,
+  node: Node,
+  projection: NodeProjection,
+): Map<string, TypeExpression> {
+  const bindings = new Map<string, TypeExpression>()
+  for (const access of projection.stateAccesses) {
+    if (access.type.expression.kind !== 'variable') continue
+    const slotName = node.config[access.slotConfigKey]
+    const slot =
+      typeof slotName === 'string'
+        ? source?.variables.find((candidate) => candidate.name === slotName)
+        : undefined
+    if (slot) bindings.set(access.type.expression.variable, slot.type)
+  }
+  return bindings
+}
+
+function bindTypeVariables(
+  pattern: TypeExpression,
+  concrete: TypeExpression,
+  bindings: Map<string, TypeExpression>,
+  types: ReadonlyMap<string, TypeProjection>,
+  allowWiden: boolean,
+): boolean {
+  if (pattern.kind === 'variable') {
+    if (!isConcreteTypeExpression(concrete)) return false
+    const existing = bindings.get(pattern.variable)
+    if (!existing) {
+      bindings.set(pattern.variable, clone(concrete))
+      return true
+    }
+    if (!allowWiden) return false
+    const merged = mergeTypeEvidence(existing, concrete, types)
+    if (JSON.stringify(existing) === JSON.stringify(merged)) return false
+    bindings.set(pattern.variable, merged)
+    return true
+  }
+  if (pattern.kind === 'list' && concrete.kind === 'list') {
+    return bindTypeVariables(pattern.element, concrete.element, bindings, types, allowWiden)
+  }
+  return false
+}
+
+function isConcreteTypeExpression(expression: TypeExpression): boolean {
+  if (expression.kind === 'variable') return false
+  if (expression.kind === 'list') return isConcreteTypeExpression(expression.element)
+  if (expression.kind === 'union') return expression.members.every(isConcreteTypeExpression)
+  return true
+}
+
+function mergeTypeEvidence(
+  existing: TypeExpression,
+  incoming: TypeExpression,
+  types: ReadonlyMap<string, TypeProjection>,
+): TypeExpression {
+  if (JSON.stringify(existing) === JSON.stringify(incoming)) return existing
+  if (existing.kind !== 'ref' || incoming.kind !== 'ref') return existing
+  const existingType = types.get(existing.ref.typeId)
+  if (
+    existingType?.assignableTo.some(
+      (target) =>
+        target.typeId === incoming.ref.typeId &&
+        target.semanticDigest === incoming.ref.semanticDigest,
+    )
+  )
+    return clone(incoming)
+  return existing
+}
+
+function specializeTypeUse(
+  use: TypeUse,
+  bindings: ReadonlyMap<string, TypeExpression>,
+  types: ReadonlyMap<string, TypeProjection>,
+): TypeUse {
+  const expression = specializeTypeExpression(use.expression, bindings)
+  const result = { ...use, expression }
+  if (expression.kind !== 'ref') return result
+  const projection = types.get(expression.ref.typeId)
+  if (!projection || projection.typeRef.semanticDigest !== expression.ref.semanticDigest)
+    return result
+  return {
+    ...result,
+    label: expression.ref.typeId,
+    control: projection.control,
+    color: projection.color,
+    titleKey: projection.titleKey,
+    descriptionKey: projection.descriptionKey,
+    representations: clone(projection.representations),
+    lifecycle: projection.lifecycle,
+    constraints: clone(projection.constraints),
+    examples: clone(projection.examples),
+    editorAdapter: projection.editorAdapter,
+    typeIds: [expression.ref.typeId],
+  }
+}
+
+function specializeTypeExpression(
+  expression: TypeExpression,
+  bindings: ReadonlyMap<string, TypeExpression>,
+): TypeExpression {
+  if (expression.kind === 'variable') return clone(bindings.get(expression.variable) ?? expression)
+  if (expression.kind === 'list') {
+    return { kind: 'list', element: specializeTypeExpression(expression.element, bindings) }
+  }
+  if (expression.kind === 'union') {
+    const [first, second, ...rest] = expression.members
+    return {
+      kind: 'union',
+      members: [
+        specializeTypeExpression(first, bindings),
+        specializeTypeExpression(second, bindings),
+        ...rest.map((member) => specializeTypeExpression(member, bindings)),
+      ],
+    }
+  }
+  return clone(expression)
 }
 
 function requireDataInput(

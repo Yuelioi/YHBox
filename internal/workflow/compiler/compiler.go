@@ -222,6 +222,9 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 		if !ok || definition.TypeRef() != *expression.Ref {
 			return datatype.ResolvedType{}, errors.New("state type is not pinned by the trusted Catalog")
 		}
+		if !catalog.TypeSystem().HasTrait(*expression.Ref, datatype.TraitDurable) {
+			return datatype.ResolvedType{}, errors.New("state type is not durable")
+		}
 		return datatype.RefResolvedType(*expression.Ref), nil
 	case datatype.TypeExpressionList:
 		if expression.Element == nil {
@@ -245,7 +248,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 	nodes := make(map[string]int, len(graph.Nodes))
 	contracts := make(map[string]nodecontract.MachineContract, len(graph.Nodes))
 	pendingBindings := make(map[string]map[string]schema.InputBinding, len(graph.Nodes))
-	types := newTypeSolver()
+	types := newTypeSolver(catalog.TypeSystem())
 	validators := map[string]*runtimejsonschema.Schema{}
 	for nodeIndex, sourceNode := range graph.Nodes {
 		if err := ctx.Err(); err != nil {

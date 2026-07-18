@@ -54,6 +54,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 		if err := ApplyMergePatch(settings, patch); err != nil {
 			return fmt.Errorf("apply patch: %w", err)
 		}
+		removeTargetsForRemovedApplications(settings, previousApplications)
 		// Consent is tied to the exact slot/profile artifact. Editing semantic
 		// profile fields revokes an unchanged prior consent automatically.
 		for index := range settings.AI.Profiles {
@@ -114,6 +115,31 @@ func (s *SettingsService) Update(patchJSON string) error {
 	// 通知所有 webview（尤其独立悬浮窗这种自带 store 的窗口）设置已变 → 各自 reload。
 	s.app.Emit("settings:changed", map[string]any{})
 	return commitErr
+}
+
+func removeTargetsForRemovedApplications(settings *Settings, previous map[string]consentState) {
+	remainingApplications := make(map[string]struct{}, len(settings.Applications.Profiles))
+	for _, application := range settings.Applications.Profiles {
+		remainingApplications[application.Slot] = struct{}{}
+	}
+	removedApplications := make(map[string]struct{})
+	for slot := range previous {
+		if _, exists := remainingApplications[slot]; !exists {
+			removedApplications[slot] = struct{}{}
+		}
+	}
+	if len(removedApplications) == 0 {
+		return
+	}
+	targets := settings.Automation.Targets[:0]
+	for _, target := range settings.Automation.Targets {
+		_, removed := removedApplications[target.ApplicationSlot]
+		if target.isDesktop() && removed {
+			continue
+		}
+		targets = append(targets, target)
+	}
+	settings.Automation.Targets = targets
 }
 
 type consentState struct {

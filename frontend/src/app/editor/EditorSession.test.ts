@@ -27,6 +27,9 @@ const node = (nodeTypeId: string) => {
 }
 const concat = node('https://schemas.yotta.dev/nodes/text/concat')
 const stateRead = node('https://schemas.yotta.dev/nodes/state/read')
+const greater = node('https://schemas.yotta.dev/nodes/comparison/greater-than')
+const toString = node('https://schemas.yotta.dev/nodes/conversion/to-string')
+const select = node('https://schemas.yotta.dev/nodes/logic/select')
 const delay = node('https://schemas.yotta.dev/nodes/control/delay')
 const retry = node('https://schemas.yotta.dev/nodes/control/retry')
 const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-stream')
@@ -242,7 +245,7 @@ describe('EditorSession', () => {
     expect(assignable(union, stringType)).toBe(false)
     expect(
       assignable({ kind: 'list', element: stringType }, { kind: 'list', element: union }),
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('uses instruction semantics for exec and error input hints', async () => {
@@ -669,12 +672,121 @@ describe('EditorSession', () => {
       position: { x: 0, y: 0 },
     })
     session.apply({ kind: 'set-config', nodeId: 'read', fieldId: 'variable', value: 'message' })
+    expect(
+      session.nodeInstanceProjection(session.currentGraph!.nodes[0]!)?.dataOutputs[0]?.type
+        .expression,
+    ).toEqual({
+      kind: 'ref',
+      ref: stringType.typeRef,
+    })
     expect(() => session.apply({ kind: 'remove-state-variable', name: 'message' })).toThrow(
       'still referenced',
     )
     session.apply({ kind: 'remove-node', nodeId: 'read' })
     session.apply({ kind: 'remove-state-variable', name: 'message' })
     expect(session.source?.variables).toEqual([])
+  })
+
+  it('creates a typed state read atomically and connects Integer to Number consumers', async () => {
+    const source = emptySource()
+    const ids = ['read', 'greater', 'to-string']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    const integer = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/integer/'),
+    )!
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'index',
+      type: { kind: 'ref', ref: integer.typeRef },
+      defaultValue: 0,
+    })
+    expect(session.insertStateReference('index', 'read', { x: 0, y: 0 })).toBe('read')
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: greater.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+    expect(() =>
+      session.apply({
+        kind: 'connect',
+        edge: {
+          channel: 'data',
+          from: { nodeId: 'read', portId: 'result' },
+          to: { nodeId: 'greater', portId: 'a' },
+        },
+      }),
+    ).not.toThrow()
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: toString.nodeRef.nodeTypeId,
+      position: { x: 200, y: 100 },
+    })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'data',
+        from: { nodeId: 'read', portId: 'result' },
+        to: { nodeId: 'to-string', portId: 'value' },
+      },
+    })
+    expect(
+      session.nodeInstanceProjection(session.currentGraph!.nodes[2]!)?.dataInputs[0]?.type
+        .expression,
+    ).toEqual({ kind: 'ref', ref: integer.typeRef })
+  })
+
+  it('propagates instance types through a chain of generic nodes', async () => {
+    const source = emptySource()
+    const ids = ['read', 'select', 'to-string']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    const integer = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/integer/'),
+    )!
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'index',
+      type: { kind: 'ref', ref: integer.typeRef },
+      defaultValue: 0,
+    })
+    session.insertStateReference('index', 'read', { x: 0, y: 0 })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: select.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: toString.nodeRef.nodeTypeId,
+      position: { x: 400, y: 0 },
+    })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'data',
+        from: { nodeId: 'read', portId: 'result' },
+        to: { nodeId: 'select', portId: 'when_true' },
+      },
+    })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'data',
+        from: { nodeId: 'select', portId: 'result' },
+        to: { nodeId: 'to-string', portId: 'value' },
+      },
+    })
+    expect(
+      session.nodeInstanceProjection(session.currentGraph!.nodes[2]!)?.dataInputs[0]?.type
+        .expression,
+    ).toEqual({ kind: 'ref', ref: integer.typeRef })
   })
 })
 

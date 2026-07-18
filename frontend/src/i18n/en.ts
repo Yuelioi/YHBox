@@ -948,6 +948,29 @@ export default {
         description:
           'Turns a value into a number, e.g. the text "12.5" becomes 12.5 and true becomes 1. Anything that cannot convert (like plain letters) gives 0.',
       },
+      'conversion-string-to-integer': {
+        title: 'Text to integer',
+        description:
+          'Strictly parses a safe integer. Decimals, whitespace, and out-of-range values fail.',
+      },
+      'conversion-truncate-to-integer': {
+        title: 'Truncate to integer',
+        description:
+          'Drops the fractional part and checks the safe integer range; -1.9 becomes -1.',
+      },
+      'conversion-floor-to-integer': {
+        title: 'Floor to integer',
+        description: 'Rounds toward negative infinity and checks the safe integer range.',
+      },
+      'conversion-ceiling-to-integer': {
+        title: 'Ceil to integer',
+        description: 'Rounds toward positive infinity and checks the safe integer range.',
+      },
+      'conversion-round-to-integer': {
+        title: 'Round to integer',
+        description:
+          'Rounds to the nearest integer, ties away from zero, and checks the safe range.',
+      },
       'conversion-to-string': {
         title: 'To string',
         description:
@@ -1011,6 +1034,42 @@ export default {
         description: 'Absolute value of X (negatives become positive).',
       },
       'math-add': { title: 'Add', description: 'Adds two numbers and gives the sum.' },
+      'math-integer-add': {
+        title: 'Integer add',
+        description: 'Adds two integers and preserves the integer type; overflow fails.',
+      },
+      'math-integer-subtract': {
+        title: 'Integer subtract',
+        description: 'Subtracts integer B from A and preserves the integer type; overflow fails.',
+      },
+      'math-integer-multiply': {
+        title: 'Integer multiply',
+        description: 'Multiplies two integers and preserves the integer type; overflow fails.',
+      },
+      'math-integer-modulo': {
+        title: 'Integer modulo',
+        description: 'Computes an integer remainder; a zero divisor fails.',
+      },
+      'math-integer-negate': {
+        title: 'Integer negate',
+        description: 'Flips an integer sign while preserving its type; overflow fails.',
+      },
+      'math-integer-absolute': {
+        title: 'Integer absolute',
+        description: 'Returns an integer absolute value while preserving its type.',
+      },
+      'math-integer-minimum': {
+        title: 'Minimum integer',
+        description: 'Returns the smaller integer and preserves the integer type.',
+      },
+      'math-integer-maximum': {
+        title: 'Maximum integer',
+        description: 'Returns the larger integer and preserves the integer type.',
+      },
+      'math-integer-clamp': {
+        title: 'Clamp integer',
+        description: 'Clamps an integer between minimum and maximum while preserving its type.',
+      },
       'math-ceiling': { title: 'Ceil', description: 'Round X up: 3.2 gives 4, -3.7 gives -3.' },
       'math-clamp': {
         title: 'Clamp',
@@ -1501,6 +1560,12 @@ export default {
       no_results: 'No matching compatible nodes',
       show_all: 'Show all nodes',
       show_compatible: 'Show compatible nodes',
+      match_exact: 'Exact',
+      match_assignable: 'Compatible',
+      match_generic_bind: 'Inferred',
+      conversion_lossless: 'Lossless conversion',
+      conversion_lossy: 'Lossy conversion',
+      conversion_parser: 'May fail',
       issue: {
         direction: 'Connections must run from an output to an input',
         channel: 'The port channels differ',
@@ -1566,6 +1631,12 @@ export default {
       title: 'Workflow state',
       hint: 'This belongs to the workflow, not the selected node.',
       empty: 'No Run state variables yet. Add one only when values must persist across nodes.',
+      search: 'Search state name or type',
+      no_results: 'No matching state variables',
+      drag_hint: 'Drag to the canvas for Read; hold Alt while dragging for Write.',
+      insert_read: 'Insert a Read node for {name}',
+      insert_write: 'Insert a Write node for {name}',
+      insert_failed: 'Could not insert the state reference',
     },
     ai: {
       open: 'AI proposal',

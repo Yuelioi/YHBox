@@ -118,6 +118,8 @@ type FieldProjection struct {
 
 type TypeProjection struct {
 	TypeRef         datatype.TypeRef              `json:"typeRef"`
+	Traits          []datatype.Trait              `json:"traits"`
+	AssignableTo    []datatype.TypeRef            `json:"assignableTo"`
 	SchemaRoot      string                        `json:"schemaRoot"`
 	Control         Control                       `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json"`
 	TitleKey        string                        `json:"titleKey,omitempty"`
@@ -205,6 +207,7 @@ type NodeProjection struct {
 	ConfigFields   []FieldProjection                     `json:"configFields"`
 	Capabilities   []CapabilityProjection                `json:"capabilities"`
 	StateAccesses  []StateAccessProjection               `json:"stateAccesses"`
+	Conversion     *nodecontract.ConversionSpec          `json:"conversion,omitempty"`
 	Errors         []nodecontract.ErrorSpec              `json:"errors"`
 	StatusEvents   []nodecontract.StatusEventSpec        `json:"statusEvents"`
 }
@@ -326,6 +329,7 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 		}
 		projection := TypeProjection{
 			TypeRef: ref, SchemaRoot: machine.SchemaRoot, TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
+			Traits: append([]datatype.Trait{}, machine.Traits...), AssignableTo: projectedAssignableTargets(input.Catalog, ref, refs),
 			Color: authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 			Examples: cloneRawList(authoring.Examples), Representations: append([]datatype.RepresentationSpec(nil), machine.Representations...),
 			Lifecycle: lifecycleFor(machine.Representations), Control: controlForSchema(resolved, complete), Constraints: constraintsFor(resolved),
@@ -334,6 +338,20 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 		index[ref.TypeID] = projection
 	}
 	return result, index, nil
+}
+
+func projectedAssignableTargets(catalog nodecatalog.Snapshot, source datatype.TypeRef, candidates []datatype.TypeRef) []datatype.TypeRef {
+	result := make([]datatype.TypeRef, 0)
+	for _, target := range candidates {
+		if source == target {
+			continue
+		}
+		assignable, err := catalog.TypeSystem().AssignableRef(source, target)
+		if err == nil && assignable {
+			result = append(result, target)
+		}
+	}
+	return result
 }
 
 func indexCapabilities(input Input) (map[string]capability.Definition, error) {
@@ -414,7 +432,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable,
 		HostFeatures: append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...), DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
-		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...),
+		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...), Conversion: machine.Conversion,
 	}
 	portAuthoring := make(map[string]nodecontract.PortAuthoring, len(authoring.Ports))
 	for _, port := range authoring.Ports {

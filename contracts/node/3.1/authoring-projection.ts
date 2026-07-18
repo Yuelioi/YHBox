@@ -64,6 +64,7 @@ export interface NodeProjection {
   capabilities: CapabilityProjection[]
   category?: string
   configFields: FieldProjection[]
+  conversion?: ConversionSpec
   dataInputs: PortProjection[]
   dataOutputs: PortProjection[]
   descriptionKey?: string
@@ -128,6 +129,14 @@ export interface FieldConstraints {
   minLength?: number
   minimum?: any
   pattern?: string
+}
+export interface ConversionSpec {
+  autoInsert: boolean
+  cost: number
+  inputPort: string
+  kind: 'lossless' | 'lossy' | 'parser'
+  outputPort: string
+  total: boolean
 }
 export interface PortProjection {
   binding: 'required' | 'optional' | 'default-available' | 'output'
@@ -252,6 +261,7 @@ export interface StatusEventSpec {
   code: string
 }
 export interface TypeProjection {
+  assignableTo: TypeRef[]
   color?: string
   constraints: FieldConstraints
   control: 'text' | 'number' | 'integer' | 'toggle' | 'select' | 'object' | 'list' | 'json'
@@ -263,5 +273,6 @@ export interface TypeProjection {
   representations: RepresentationSpec[]
   schemaRoot: string
   titleKey?: string
+  traits: string[]
   typeRef: TypeRef
 }

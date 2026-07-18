@@ -49,7 +49,9 @@ func defineCollectionNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	integerType := datatype.RefExpression(types.integerRef)
 	booleanType := datatype.RefExpression(types.booleanRef)
 	element := datatype.VariableExpression("T")
+	equatableElement := datatype.VariableExpression("E", string(datatype.TraitEquatable))
 	list := datatype.ListExpression(element)
+	equatableList := datatype.ListExpression(equatableElement)
 	stringList := datatype.ListExpression(stringType)
 	port := func(id string, typeExpr datatype.TypeExpression, defaultValue string) collectionPort {
 		return collectionPort{id: id, typeExpr: typeExpr, defaultValue: defaultValue}
@@ -81,8 +83,8 @@ func defineCollectionNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 		},
 		{
 			id: ListContainsNodeID, entrypoint: "collection.contains", icon: "list-search",
-			inputs: []collectionPort{port("list", list, ""), port("value", element, "")}, output: result(booleanType),
-			conformance: "canonical-list-membership/list-T+T/boolean", evaluate: listContains,
+			inputs: []collectionPort{port("list", equatableList, ""), port("value", equatableElement, "")}, output: result(booleanType),
+			conformance: "canonical-list-membership/list-E-equatable+E-equatable/boolean", evaluate: listContains,
 		},
 		{
 			id: ListAppendNodeID, entrypoint: "collection.append", icon: "playlist-add",

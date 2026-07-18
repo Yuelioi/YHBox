@@ -30,11 +30,11 @@ export function createWorkflowNodeGestureState(): WorkflowNodeGestureState {
 
 export function projectWorkflowFlowNodes(
   nodes: readonly Node[],
-  projectionFor: (nodeTypeId: string) => NodeProjection | undefined,
+  projectionFor: (node: Node) => NodeProjection | undefined,
   livePositions: ReadonlyMap<string, Node['position']>,
 ): FlowNode<WorkflowNodeData, Record<string, never>, 'workflow'>[] {
   return nodes.flatMap((node) => {
-    const projection = projectionFor(node.nodeRef.nodeTypeId)
+    const projection = projectionFor(node)
     if (!projection) return []
     return [
       {

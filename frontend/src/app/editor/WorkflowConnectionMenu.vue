@@ -71,6 +71,12 @@
               }}
             </span>
           </span>
+          <UBadge v-if="candidate.conversionKind" color="warning" variant="soft" size="sm">
+            {{ t(`workflow.connection.conversion_${candidate.conversionKind}`) }}
+          </UBadge>
+          <UBadge v-else-if="candidate.match" color="neutral" variant="soft" size="sm">
+            {{ t(`workflow.connection.match_${candidate.match.replace('-', '_')}`) }}
+          </UBadge>
         </button>
       </div>
       <div v-else class="px-3 py-8 text-center text-xs text-muted">
@@ -106,6 +112,8 @@ export interface WorkflowConnectionCandidate {
   icon?: string
   searchText: string
   handle?: ParsedHandle
+  match?: 'exact' | 'assignable' | 'generic-bind'
+  conversionKind?: 'lossless' | 'lossy' | 'parser'
 }
 
 const props = defineProps<{

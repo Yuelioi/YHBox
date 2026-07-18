@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
@@ -61,6 +62,25 @@ func TestPrimitiveDefinitionsAreExactPortablePureData(t *testing.T) {
 	add, ok := projection.Node(AddNodeID)
 	if !ok || len(add.DataInputs) != 2 || add.DataInputs[0].Type.Control != nodeauthoring.ControlNumber || !add.DataInputs[0].HasDefault {
 		t.Fatalf("add authoring projection = %#v", add)
+	}
+}
+
+func TestCoreNumericTypesDeclareSafePromotionAndTraits(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	integer, _ := builtins.Catalog.LookupType(IntegerTypeID)
+	number, _ := builtins.Catalog.LookupType(NumberTypeID)
+	system := builtins.Catalog.TypeSystem()
+	ok, err := system.AssignableRef(integer.TypeRef(), number.TypeRef())
+	if err != nil || !ok {
+		t.Fatalf("integer -> number = %v, %v", ok, err)
+	}
+	for _, trait := range []datatype.Trait{datatype.TraitNumeric, datatype.TraitOrdered, datatype.TraitDurable, datatype.TraitObservable} {
+		if !system.HasTrait(integer.TypeRef(), trait) || !system.HasTrait(number.TypeRef(), trait) {
+			t.Fatalf("numeric core types do not share trait %q", trait)
+		}
 	}
 }
 

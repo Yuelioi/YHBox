@@ -19,13 +19,16 @@ func TestExtendedPureDefinitionsAreStrictAndGeneratedFromTheCatalog(t *testing.T
 	nodeIDs := []string{
 		DivideNodeID, ModuloNodeID, NegateNodeID, AbsoluteNodeID, MinimumNodeID, MaximumNodeID,
 		FloorNodeID, CeilingNodeID, RoundNodeID, ClampNodeID, PowerNodeID, SquareRootNodeID,
+		IntegerAddNodeID, IntegerSubtractNodeID, IntegerMultiplyNodeID, IntegerModuloNodeID,
+		IntegerNegateNodeID, IntegerAbsoluteNodeID, IntegerMinimumNodeID, IntegerMaximumNodeID, IntegerClampNodeID,
 		EqualNodeID, NotEqualNodeID, ReplaceNodeID, SubstringNodeID, TrimNodeID, UppercaseNodeID,
 		LowercaseNodeID, IndexOfNodeID, StartsWithNodeID, EndsWithNodeID, RegexMatchNodeID,
-		RegexExtractNodeID, ToStringNodeID, StringToNumberNodeID, StringToBooleanNodeID,
+		RegexExtractNodeID, ToStringNodeID, StringToNumberNodeID, StringToIntegerNodeID,
+		TruncateToIntegerNodeID, FloorToIntegerNodeID, CeilingToIntegerNodeID, RoundToIntegerNodeID, StringToBooleanNodeID,
 		ParseJSONNodeID, ToJSONNodeID, JSONPathNodeID, SelectNodeID, MakePointNodeID,
 		OffsetPointNodeID, PointDistanceNodeID, RegionAroundPointNodeID,
 	}
-	if len(nodeIDs) != 35 || len(builtins.Definitions()) != 104 {
+	if len(nodeIDs) != 49 || len(builtins.Definitions()) != 118 {
 		t.Fatalf("extended=%d total=%d", len(nodeIDs), len(builtins.Definitions()))
 	}
 	for _, nodeID := range nodeIDs {
@@ -54,6 +57,15 @@ func TestExtendedPureDefinitionsAreStrictAndGeneratedFromTheCatalog(t *testing.T
 	}
 	if point.EditorAdapter != "point" || jsonType.Control != nodeauthoring.ControlJSON {
 		t.Fatalf("point/json authoring = %#v / %#v", point, jsonType)
+	}
+	truncate, ok := projection.Node(TruncateToIntegerNodeID)
+	if !ok || truncate.Conversion == nil || truncate.Conversion.Kind != nodecontract.ConversionLossy ||
+		truncate.Conversion.Total || truncate.Conversion.InputPort != "value" || truncate.Conversion.OutputPort != "result" {
+		t.Fatalf("truncate conversion projection = %#v", truncate.Conversion)
+	}
+	parser, ok := projection.Node(StringToIntegerNodeID)
+	if !ok || parser.Conversion == nil || parser.Conversion.Kind != nodecontract.ConversionParser || parser.Conversion.Total {
+		t.Fatalf("integer parser projection = %#v", parser.Conversion)
 	}
 }
 
@@ -116,6 +128,15 @@ func TestEveryExtendedEvaluatorExecutesItsConformanceExample(t *testing.T) {
 		{ClampNodeID, rawInputs("value", `5`, "minimum", `10`, "maximum", `0`), `5`},
 		{PowerNodeID, rawInputs("base", `2`, "exponent", `3`), `8`},
 		{SquareRootNodeID, rawInputs("value", `9`), `3`},
+		{IntegerAddNodeID, rawInputs("a", `2`, "b", `3`), `5`},
+		{IntegerSubtractNodeID, rawInputs("a", `2`, "b", `3`), `-1`},
+		{IntegerMultiplyNodeID, rawInputs("a", `-2`, "b", `3`), `-6`},
+		{IntegerModuloNodeID, rawInputs("a", `7`, "b", `3`), `1`},
+		{IntegerNegateNodeID, rawInputs("value", `-3`), `3`},
+		{IntegerAbsoluteNodeID, rawInputs("value", `-3`), `3`},
+		{IntegerMinimumNodeID, rawInputs("a", `2`, "b", `3`), `2`},
+		{IntegerMaximumNodeID, rawInputs("a", `2`, "b", `3`), `3`},
+		{IntegerClampNodeID, rawInputs("value", `12`, "minimum", `10`, "maximum", `0`), `10`},
 		{EqualNodeID, rawInputs("a", `{"b":2,"a":1}`, "b", `{"a":1,"b":2}`), `true`},
 		{NotEqualNodeID, rawInputs("a", `1`, "b", `2`), `true`},
 		{ReplaceNodeID, rawInputs("text", `"a-a"`, "old", `"a"`, "new", `"x"`, "all", `false`), `"x-a"`},
@@ -129,6 +150,11 @@ func TestEveryExtendedEvaluatorExecutesItsConformanceExample(t *testing.T) {
 		{RegexMatchNodeID, rawInputs("text", `"abc12"`, "pattern", `"\\d+"`), `true`},
 		{RegexExtractNodeID, rawInputs("text", `"abc12"`, "pattern", `"([0-9]+)"`), `"12"`},
 		{ToStringNodeID, rawInputs("value", `"hello"`), `"hello"`},
+		{StringToIntegerNodeID, rawInputs("text", `"42"`), `42`},
+		{TruncateToIntegerNodeID, rawInputs("value", `-1.9`), `-1`},
+		{FloorToIntegerNodeID, rawInputs("value", `-1.1`), `-2`},
+		{CeilingToIntegerNodeID, rawInputs("value", `1.1`), `2`},
+		{RoundToIntegerNodeID, rawInputs("value", `1.5`), `2`},
 		{StringToNumberNodeID, rawInputs("text", `"12.5"`), `12.5`},
 		{StringToBooleanNodeID, rawInputs("text", `"false"`), `false`},
 		{ParseJSONNodeID, rawInputs("text", `"{\"b\":2,\"a\":1}"`), `{"a":1,"b":2}`},

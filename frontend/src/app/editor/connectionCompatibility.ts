@@ -2,6 +2,7 @@ import type {
   NodeProjection,
   ResourceLeaseBinding,
   TypeExpression,
+  TypeProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
 import type { ParsedHandle } from './graphHandles'
 
@@ -18,11 +19,13 @@ export interface ConnectionCompatibility {
   valid: boolean
   issue?: ConnectionIssue
   message?: string
+  match?: 'exact' | 'assignable' | 'generic-bind'
 }
 
 export interface CompatibleCandidatePort {
   handle: ParsedHandle
   exact: boolean
+  match?: ConnectionCompatibility['match']
 }
 
 export function projectedConnectionCompatibility(
@@ -30,6 +33,7 @@ export function projectedConnectionCompatibility(
   source: ParsedHandle,
   targetProjection: NodeProjection,
   target: ParsedHandle,
+  types?: ReadonlyMap<string, TypeProjection>,
 ): ConnectionCompatibility {
   if (source.direction !== 'output' || target.direction !== 'input') {
     return invalid('direction', 'connection must run from an output to an input')
@@ -41,8 +45,12 @@ export function projectedConnectionCompatibility(
     const output = sourceProjection.dataOutputs.find((port) => port.id === source.portId)
     const input = targetProjection.dataInputs.find((port) => port.id === target.portId)
     if (!output || !input) return invalid('port', 'data edge has invalid ports')
-    if (!assignable(output.type.expression, input.type.expression)) {
-      return invalid('type', 'data edge is not assignable')
+    const match = typeMatch(output.type.expression, input.type.expression, types)
+    if (!match) {
+      return invalid(
+        'type',
+        `data edge type ${typeLabel(output.type.expression)} is not assignable to ${typeLabel(input.type.expression)}`,
+      )
     }
     if (output.carrier !== input.carrier) {
       return invalid('carrier', 'data edge carrier class differs')
@@ -50,7 +58,7 @@ export function projectedConnectionCompatibility(
     if (!resourceLeaseAssignable(output.resourceLease, input.resourceLease)) {
       return invalid('resource-lease', 'data edge resource lease differs')
     }
-    return { valid: true }
+    return { valid: true, match }
   }
 
   const output = sourceProjection.signals.find(
@@ -76,17 +84,22 @@ export function compatibleCandidatePorts(
   anchorProjection: NodeProjection,
   anchor: ParsedHandle,
   candidate: NodeProjection,
+  types?: ReadonlyMap<string, TypeProjection>,
 ): CompatibleCandidatePort[] {
   if (candidate.instruction.kind === 'run-root') return []
   const candidateDirection = anchor.direction === 'output' ? 'input' : 'output'
   return projectionHandles(candidate, candidateDirection)
-    .map((handle) => {
+    .map<CompatibleCandidatePort | null>((handle) => {
       const compatibility =
         anchor.direction === 'output'
-          ? projectedConnectionCompatibility(anchorProjection, anchor, candidate, handle)
-          : projectedConnectionCompatibility(candidate, handle, anchorProjection, anchor)
+          ? projectedConnectionCompatibility(anchorProjection, anchor, candidate, handle, types)
+          : projectedConnectionCompatibility(candidate, handle, anchorProjection, anchor, types)
       if (!compatibility.valid) return null
-      return { handle, exact: connectionIsExact(anchorProjection, anchor, candidate, handle) }
+      return {
+        handle,
+        exact: connectionIsExact(anchorProjection, anchor, candidate, handle),
+        match: compatibility.match,
+      }
     })
     .filter((port): port is CompatibleCandidatePort => port !== null)
     .sort(
@@ -96,20 +109,75 @@ export function compatibleCandidatePorts(
     )
 }
 
-export function assignable(output: TypeExpression, input: TypeExpression): boolean {
-  if (output.kind === 'variable' || input.kind === 'variable') return false
-  if (output.kind === 'union') return output.members.every((member) => assignable(member, input))
-  if (input.kind === 'union') return input.members.some((member) => assignable(output, member))
-  if (output.kind !== input.kind) return false
+export function assignable(
+  output: TypeExpression,
+  input: TypeExpression,
+  types?: ReadonlyMap<string, TypeProjection>,
+): boolean {
+  return typeMatch(output, input, types) !== null
+}
+
+export function typeMatch(
+  output: TypeExpression,
+  input: TypeExpression,
+  types?: ReadonlyMap<string, TypeProjection>,
+): ConnectionCompatibility['match'] | null {
+  if (input.kind === 'variable') {
+    if (output.kind === 'variable') return null
+    if (!input.constraints?.length) return 'generic-bind'
+    if (output.kind !== 'ref') return null
+    const traits = new Set(types?.get(output.ref.typeId)?.traits ?? [])
+    return input.constraints.every((constraint) => traits.has(constraint)) ? 'generic-bind' : null
+  }
+  if (output.kind === 'variable') {
+    if (!output.constraints?.length) return 'generic-bind'
+    if (input.kind !== 'ref') return null
+    const traits = new Set(types?.get(input.ref.typeId)?.traits ?? [])
+    return output.constraints.every((constraint) => traits.has(constraint)) ? 'generic-bind' : null
+  }
+  if (output.kind === 'union') {
+    const matches = output.members.map((member) => typeMatch(member, input, types))
+    return matches.every(Boolean) ? weakestMatch(matches) : null
+  }
+  if (input.kind === 'union') {
+    const matches = input.members.map((member) => typeMatch(output, member, types)).filter(Boolean)
+    return matches.length ? weakestMatch(matches) : null
+  }
+  if (output.kind !== input.kind) return null
   if (output.kind === 'ref' && input.kind === 'ref') {
-    return (
+    if (
       output.ref.typeId === input.ref.typeId &&
       output.ref.semanticDigest === input.ref.semanticDigest
     )
+      return 'exact'
+    const source = types?.get(output.ref.typeId)
+    return source?.assignableTo.some(
+      (target) =>
+        target.typeId === input.ref.typeId && target.semanticDigest === input.ref.semanticDigest,
+    )
+      ? 'assignable'
+      : null
   }
-  if (output.kind === 'list' && input.kind === 'list')
-    return assignable(output.element, input.element)
-  return false
+  if (output.kind === 'list' && input.kind === 'list') {
+    return JSON.stringify(output.element) === JSON.stringify(input.element) ? 'exact' : null
+  }
+  return null
+}
+
+function weakestMatch(
+  matches: Array<ConnectionCompatibility['match'] | null>,
+): ConnectionCompatibility['match'] {
+  if (matches.includes('generic-bind')) return 'generic-bind'
+  if (matches.includes('assignable')) return 'assignable'
+  return 'exact'
+}
+
+function typeLabel(expression: TypeExpression): string {
+  if (expression.kind === 'ref')
+    return expression.ref.typeId.split('/').at(-2) ?? expression.ref.typeId
+  if (expression.kind === 'variable') return `$${expression.variable}`
+  if (expression.kind === 'list') return `List<${typeLabel(expression.element)}>`
+  return expression.members.map(typeLabel).join(' | ')
 }
 
 function projectionHandles(

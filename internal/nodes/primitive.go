@@ -196,7 +196,7 @@ func builtinMessageKey(entrypoint string) string {
 	return "node.builtin." + strings.ReplaceAll(entrypoint, ".", "-")
 }
 
-func sealPrimitiveType(typeID, jsonType, key, color, icon string) (datatype.Definition, error) {
+func sealPrimitiveType(typeID, jsonType, key, color, icon string, traits []datatype.Trait) (datatype.Definition, error) {
 	schemaID := typeID + "/schema"
 	return datatype.SealDefinition(datatype.DefinitionDraft{
 		TypeID: typeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
@@ -204,11 +204,12 @@ func sealPrimitiveType(typeID, jsonType, key, color, icon string) (datatype.Defi
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":%q
 		}`, schemaID, jsonType))}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Traits:          traits,
 		Authoring:       datatype.Authoring{TitleKey: key + ".title", DescriptionKey: key + ".description", Color: color, Icon: icon},
 	})
 }
 
-func sealSafeIntegerType() (datatype.Definition, error) {
+func sealSafeIntegerType(numberRef datatype.TypeRef) (datatype.Definition, error) {
 	const schemaID = IntegerTypeID + "/schema"
 	return datatype.SealDefinition(datatype.DefinitionDraft{
 		TypeID: IntegerTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
@@ -217,11 +218,24 @@ func sealSafeIntegerType() (datatype.Definition, error) {
 			"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991
 		}`, schemaID))}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
+		Traits:          coreValueTraits(true, true),
+		AssignableTo:    []datatype.TypeRef{numberRef},
 		Authoring: datatype.Authoring{
 			TitleKey: "type.core.integer.title", DescriptionKey: "type.core.integer.description", Color: "#06b6d4", Icon: "number-123",
 			Examples: []json.RawMessage{json.RawMessage(`0`), json.RawMessage(`42`)},
 		},
 	})
+}
+
+func coreValueTraits(numeric, ordered bool) []datatype.Trait {
+	traits := []datatype.Trait{datatype.TraitDurable, datatype.TraitEquatable, datatype.TraitObservable}
+	if numeric {
+		traits = append(traits, datatype.TraitNumeric)
+	}
+	if ordered {
+		traits = append(traits, datatype.TraitOrdered)
+	}
+	return traits
 }
 
 func pureDataExecution() nodecontract.ExecutionSpec {

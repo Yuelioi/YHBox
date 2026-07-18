@@ -725,8 +725,7 @@ export default {
       },
       'comparison-equal': {
         title: '等于',
-        description:
-          '判断两个值是否相等，给出真/假。什么类型都能接；类型一样直接比，类型不一样会都转成文字再比（比如数字 1 和文字「1」算相等）。',
+        description: '按同一精确类型的规范值判断是否相等；不会把不同类型偷偷转成文字。',
       },
       'comparison-greater-or-equal': {
         title: '大于等于',
@@ -740,17 +739,35 @@ export default {
       'comparison-less-than': { title: '小于', description: '判断 A 是不是 < B，给出真/假。' },
       'comparison-not-equal': {
         title: '不等于',
-        description:
-          '判断两个值是否不相等，给出真/假。比法跟「等于」一样：类型一样直接比，类型不一样都转成文字再比。',
+        description: '按同一精确类型的规范值判断是否不相等。',
       },
       'conversion-string-to-boolean': {
         title: '转布尔',
-        description: '把值转成真/假。空值、数字 0、空文字算假，其它都算真。',
+        description: '严格解析小写文字 true 或 false；其它内容会失败。',
       },
       'conversion-string-to-number': {
         title: '转数字',
-        description:
-          '把值转成数字，比如文字「12.5」转成 12.5、真转成 1。转不动的（如纯字母）给 0。',
+        description: '严格解析有限十进制数字；空白、纯字母或超出范围会失败。',
+      },
+      'conversion-string-to-integer': {
+        title: '文字转整数',
+        description: '严格解析安全整数；小数、空白或超出安全范围会失败。',
+      },
+      'conversion-truncate-to-integer': {
+        title: '截断为整数',
+        description: '丢弃小数部分并检查安全整数范围，例如 -1.9 变成 -1。',
+      },
+      'conversion-floor-to-integer': {
+        title: '向下取整',
+        description: '向负无穷取整并检查安全整数范围，例如 -1.1 变成 -2。',
+      },
+      'conversion-ceiling-to-integer': {
+        title: '向上取整',
+        description: '向正无穷取整并检查安全整数范围，例如 1.1 变成 2。',
+      },
+      'conversion-round-to-integer': {
+        title: '四舍五入为整数',
+        description: '取最近整数并检查安全整数范围；半数远离零取整。',
       },
       'conversion-to-string': {
         title: '转字符串',
@@ -805,6 +822,42 @@ export default {
       },
       'math-absolute': { title: '绝对值', description: '取 X 的绝对值（负变正）。' },
       'math-add': { title: '加', description: '把两个数字相加，给出和。' },
+      'math-integer-add': {
+        title: '整数加法',
+        description: '把两个整数相加，结果仍为整数；超出安全整数范围会失败。',
+      },
+      'math-integer-subtract': {
+        title: '整数减法',
+        description: '用整数 A 减去整数 B，结果仍为整数；超出安全整数范围会失败。',
+      },
+      'math-integer-multiply': {
+        title: '整数乘法',
+        description: '把两个整数相乘，结果仍为整数；超出安全整数范围会失败。',
+      },
+      'math-integer-modulo': {
+        title: '整数取模',
+        description: '计算整数余数，结果仍为整数；除数为 0 会失败。',
+      },
+      'math-integer-negate': {
+        title: '整数取负',
+        description: '改变整数符号并保持整数类型；超出安全整数范围会失败。',
+      },
+      'math-integer-absolute': {
+        title: '整数绝对值',
+        description: '取得整数绝对值并保持整数类型。',
+      },
+      'math-integer-minimum': {
+        title: '取较小整数',
+        description: '从两个整数中给出较小值，结果仍为整数。',
+      },
+      'math-integer-maximum': {
+        title: '取较大整数',
+        description: '从两个整数中给出较大值，结果仍为整数。',
+      },
+      'math-integer-clamp': {
+        title: '限制整数范围',
+        description: '把整数限制在最小值和最大值之间，结果仍为整数。',
+      },
       'math-ceiling': {
         title: '向上取整',
         description: '把 X 往大的方向取整：3.2 得 4，-3.7 得 -3。',
@@ -1281,6 +1334,12 @@ export default {
       no_results: '没有匹配的兼容节点',
       show_all: '显示全部节点',
       show_compatible: '只看兼容节点',
+      match_exact: '精确',
+      match_assignable: '兼容',
+      match_generic_bind: '推导',
+      conversion_lossless: '无损转换',
+      conversion_lossy: '有损转换',
+      conversion_parser: '可能失败',
       issue: {
         direction: '连线必须从输出端口指向输入端口',
         channel: '端口通道不一致',
@@ -1344,6 +1403,12 @@ export default {
       title: '工作流状态',
       hint: '属于整个工作流，不属于当前选中的节点。',
       empty: '还没有 Run 状态变量。只在需要跨节点保存值时添加。',
+      search: '搜索状态名称或类型',
+      no_results: '没有匹配的 Run 状态。',
+      drag_hint: '拖到画布创建读取状态；按住 Alt 拖动创建写入状态。',
+      insert_read: '创建读取状态 {name}',
+      insert_write: '创建写入状态 {name}',
+      insert_failed: '创建状态引用失败',
     },
     ai: {
       open: 'AI 提案',

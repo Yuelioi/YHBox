@@ -81,6 +81,8 @@ type DefinitionDraft struct {
 	SchemaRoot      string
 	SchemaBundle    []SchemaResource
 	Representations []RepresentationSpec
+	Traits          []Trait
+	AssignableTo    []TypeRef
 	Authoring       Authoring
 }
 
@@ -91,6 +93,8 @@ type MachineDefinition struct {
 	SchemaRoot      string               `json:"schemaRoot"`
 	SchemaBundle    []SchemaResource     `json:"schemaBundle"`
 	Representations []RepresentationSpec `json:"representations"`
+	Traits          []Trait              `json:"traits,omitempty"`
+	AssignableTo    []TypeRef            `json:"assignableTo,omitempty"`
 }
 
 type definitionDocument struct {
@@ -115,6 +119,8 @@ func SealDefinition(draft DefinitionDraft) (Definition, error) {
 		SchemaRoot:      draft.SchemaRoot,
 		SchemaBundle:    draft.SchemaBundle,
 		Representations: draft.Representations,
+		Traits:          draft.Traits,
+		AssignableTo:    draft.AssignableTo,
 	})
 	if err != nil {
 		return Definition{}, err
@@ -352,12 +358,36 @@ func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 		}
 		seenKinds[representation.Kind] = true
 	}
+	traits, err := normalizeTraits(source.Traits)
+	if err != nil {
+		return MachineDefinition{}, err
+	}
+	assignableTo := append([]TypeRef(nil), source.AssignableTo...)
+	sort.Slice(assignableTo, func(i, j int) bool {
+		if assignableTo[i].TypeID == assignableTo[j].TypeID {
+			return assignableTo[i].SemanticDigest < assignableTo[j].SemanticDigest
+		}
+		return assignableTo[i].TypeID < assignableTo[j].TypeID
+	})
+	for index, target := range assignableTo {
+		if err := target.Validate(); err != nil {
+			return MachineDefinition{}, fmt.Errorf("invalid assignable target: %w", err)
+		}
+		if target.TypeID == source.TypeID {
+			return MachineDefinition{}, errors.New("data type cannot declare itself as an assignable target")
+		}
+		if index > 0 && target == assignableTo[index-1] {
+			return MachineDefinition{}, errors.New("data type contains duplicate assignable target")
+		}
+	}
 	return MachineDefinition{
 		TypeID:          source.TypeID,
 		SchemaDialect:   source.SchemaDialect,
 		SchemaRoot:      source.SchemaRoot,
 		SchemaBundle:    bundle,
 		Representations: representations,
+		Traits:          traits,
+		AssignableTo:    assignableTo,
 	}, nil
 }
 

@@ -212,6 +212,23 @@ type InstanceResolver struct {
 	MaxPorts       int             `json:"maxPorts" jsonschema:"required,minimum=1,maximum=4096"`
 }
 
+type ConversionKind string
+
+const (
+	ConversionLossless ConversionKind = "lossless"
+	ConversionLossy    ConversionKind = "lossy"
+	ConversionParser   ConversionKind = "parser"
+)
+
+type ConversionSpec struct {
+	InputPort  string         `json:"inputPort" jsonschema:"required"`
+	OutputPort string         `json:"outputPort" jsonschema:"required"`
+	Kind       ConversionKind `json:"kind" jsonschema:"required,enum=lossless,enum=lossy,enum=parser"`
+	Total      bool           `json:"total"`
+	Cost       int            `json:"cost" jsonschema:"minimum=1,maximum=1000"`
+	AutoInsert bool           `json:"autoInsert"`
+}
+
 type ABIKind string
 
 const (
@@ -269,6 +286,7 @@ type Draft struct {
 	StatusEvents            []StatusEventSpec
 	StateAccesses           []StateAccessSpec
 	InstanceResolver        *InstanceResolver
+	Conversion              *ConversionSpec
 	ImplementationABI       []ABIRequirement
 	Authoring               Authoring
 }
@@ -291,6 +309,7 @@ type MachineContract struct {
 	StatusEvents            []StatusEventSpec         `json:"statusEvents" jsonschema:"required,maxItems=4096"`
 	StateAccesses           []StateAccessSpec         `json:"stateAccesses" jsonschema:"required,maxItems=4096"`
 	InstanceResolver        *InstanceResolver         `json:"instanceResolver,omitempty"`
+	Conversion              *ConversionSpec           `json:"conversion,omitempty"`
 	ImplementationABI       []ABIRequirement          `json:"implementationABI" jsonschema:"required,minItems=1"`
 }
 
@@ -368,6 +387,7 @@ func Open(raw []byte) (Contract, error) {
 		StatusEvents:            decoded.Semantic.StatusEvents,
 		StateAccesses:           decoded.Semantic.StateAccesses,
 		InstanceResolver:        decoded.Semantic.InstanceResolver,
+		Conversion:              decoded.Semantic.Conversion,
 		ImplementationABI:       decoded.Semantic.ImplementationABI,
 	})
 	if err != nil {
@@ -426,7 +446,7 @@ func OpenSemantic(ref NodeRef, raw []byte) (Contract, error) {
 		ConfigSchemaBundle: semantic.ConfigSchemaBundle, Ports: semantic.Ports,
 		Execution: semantic.Execution, HostFeatureRequirements: semantic.HostFeatureRequirements, CapabilityRequirements: semantic.CapabilityRequirements, RequirementBindings: semantic.RequirementBindings, ConfigValidators: semantic.ConfigValidators,
 		Instruction: semantic.Instruction,
-		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver,
+		Errors:      semantic.Errors, StatusEvents: semantic.StatusEvents, StateAccesses: semantic.StateAccesses, InstanceResolver: semantic.InstanceResolver, Conversion: semantic.Conversion,
 		ImplementationABI: semantic.ImplementationABI,
 	})
 	if err != nil {
@@ -602,8 +622,12 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	if err != nil {
 		return MachineContract{}, err
 	}
+	conversion, err := normalizeConversion(draft.Conversion, ports, execution, errorsList)
+	if err != nil {
+		return MachineContract{}, err
+	}
 	if instruction.Kind != InstructionInvoke && (len(requirements) != 0 || len(errorsList) != 0 || len(statusEvents) != 0 ||
-		len(stateAccesses) != 0 || len(configValidators) != 0 || resolver != nil) {
+		len(stateAccesses) != 0 || len(configValidators) != 0 || resolver != nil || conversion != nil) {
 		return MachineContract{}, errors.New("host-lowered instruction cannot declare adapter capabilities, errors, status, state, or instance resolution")
 	}
 	abis, err := normalizeABIs(draft.ImplementationABI)
@@ -622,9 +646,38 @@ func normalizeSemantic(draft Draft) (MachineContract, error) {
 	return MachineContract{
 		NodeTypeID: draft.NodeTypeID, Version: draft.Version, ConfigSchemaRoot: draft.ConfigSchemaRoot,
 		ConfigSchemaBundle: bundle, Ports: ports, Execution: execution, Instruction: instruction,
-		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver,
+		HostFeatureRequirements: hostFeatures, CapabilityRequirements: requirements, RequirementBindings: requirementBindings, ConfigValidators: configValidators, Errors: errorsList, StatusEvents: statusEvents, StateAccesses: stateAccesses, InstanceResolver: resolver, Conversion: conversion,
 		ImplementationABI: abis,
 	}, nil
+}
+
+func normalizeConversion(source *ConversionSpec, ports PortSet, execution ExecutionSpec, errorsList []ErrorSpec) (*ConversionSpec, error) {
+	if source == nil {
+		return nil, nil
+	}
+	if execution.Class != ExecutionPureData || execution.Determinism != Deterministic {
+		return nil, errors.New("conversion must be deterministic pure data")
+	}
+	if source.Cost < 1 || source.Cost > 1000 {
+		return nil, errors.New("conversion cost is outside the supported range")
+	}
+	if source.Kind != ConversionLossless && source.Kind != ConversionLossy && source.Kind != ConversionParser {
+		return nil, errors.New("conversion kind is invalid")
+	}
+	if _, ok := inputType(ports, source.InputPort); !ok {
+		return nil, errors.New("conversion input port is missing")
+	}
+	if _, ok := outputType(ports, source.OutputPort); !ok {
+		return nil, errors.New("conversion output port is missing")
+	}
+	if source.AutoInsert && (source.Kind != ConversionLossless || !source.Total || len(errorsList) != 0) {
+		return nil, errors.New("auto-insert conversion must be total, lossless, and error-free")
+	}
+	if !source.Total && len(errorsList) == 0 {
+		return nil, errors.New("partial conversion must declare a stable error")
+	}
+	copy := *source
+	return &copy, nil
 }
 
 func normalizeHostFeatureRequirements(source []HostFeatureRequirement) ([]HostFeatureRequirement, error) {

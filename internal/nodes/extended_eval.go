@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -132,6 +134,117 @@ func squareRoot(_ context.Context, inputs map[string]json.RawMessage, _ map[stri
 		return nil, &InlineFailure{Code: mathDomainErrorCode, Cause: errors.New("square root is outside the real-number domain")}
 	}
 	return finiteNumberResult(math.Sqrt(value))
+}
+
+var safeIntegerLimit = func() *big.Int {
+	value, _ := new(big.Int).SetString("9007199254740991", 10)
+	return value
+}()
+
+func checkedIntegerBinary(operation func(*big.Int, *big.Int) *big.Int) InlineEvaluator {
+	return func(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+		a, err := decodeSafeIntegerBig(inputs["a"])
+		if err != nil {
+			return nil, err
+		}
+		b, err := decodeSafeIntegerBig(inputs["b"])
+		if err != nil {
+			return nil, err
+		}
+		return checkedIntegerResult(operation(a, b))
+	}
+}
+
+var (
+	addIntegers      = checkedIntegerBinary(func(a, b *big.Int) *big.Int { return new(big.Int).Add(a, b) })
+	subtractIntegers = checkedIntegerBinary(func(a, b *big.Int) *big.Int { return new(big.Int).Sub(a, b) })
+	multiplyIntegers = checkedIntegerBinary(func(a, b *big.Int) *big.Int { return new(big.Int).Mul(a, b) })
+	minimumInteger   = checkedIntegerBinary(func(a, b *big.Int) *big.Int {
+		if a.Cmp(b) <= 0 {
+			return new(big.Int).Set(a)
+		}
+		return new(big.Int).Set(b)
+	})
+	maximumInteger = checkedIntegerBinary(func(a, b *big.Int) *big.Int {
+		if a.Cmp(b) >= 0 {
+			return new(big.Int).Set(a)
+		}
+		return new(big.Int).Set(b)
+	})
+)
+
+func moduloIntegers(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+	a, err := decodeSafeIntegerBig(inputs["a"])
+	if err != nil {
+		return nil, err
+	}
+	b, err := decodeSafeIntegerBig(inputs["b"])
+	if err != nil {
+		return nil, err
+	}
+	if b.Sign() == 0 {
+		return nil, &InlineFailure{Code: divisionByZeroCode, Cause: errors.New("integer modulo by zero")}
+	}
+	return checkedIntegerResult(new(big.Int).Rem(a, b))
+}
+
+func negateInteger(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+	value, err := decodeSafeIntegerBig(inputs["value"])
+	if err != nil {
+		return nil, err
+	}
+	return checkedIntegerResult(new(big.Int).Neg(value))
+}
+
+func absoluteInteger(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+	value, err := decodeSafeIntegerBig(inputs["value"])
+	if err != nil {
+		return nil, err
+	}
+	return checkedIntegerResult(new(big.Int).Abs(value))
+}
+
+func clampInteger(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+	value, err := decodeSafeIntegerBig(inputs["value"])
+	if err != nil {
+		return nil, err
+	}
+	minimum, err := decodeSafeIntegerBig(inputs["minimum"])
+	if err != nil {
+		return nil, err
+	}
+	maximum, err := decodeSafeIntegerBig(inputs["maximum"])
+	if err != nil {
+		return nil, err
+	}
+	if minimum.Cmp(maximum) > 0 {
+		minimum, maximum = maximum, minimum
+	}
+	if value.Cmp(minimum) < 0 {
+		value = minimum
+	} else if value.Cmp(maximum) > 0 {
+		value = maximum
+	}
+	return checkedIntegerResult(value)
+}
+
+func decodeSafeIntegerBig(raw json.RawMessage) (*big.Int, error) {
+	var value json.Number
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode integer: %w", err)
+	}
+	result, ok := new(big.Int).SetString(value.String(), 10)
+	if !ok || new(big.Int).Abs(new(big.Int).Set(result)).Cmp(safeIntegerLimit) > 0 {
+		return nil, errors.New("integer is outside the JSON safe range")
+	}
+	return result, nil
+}
+
+func checkedIntegerResult(value *big.Int) (map[string]json.RawMessage, error) {
+	if new(big.Int).Abs(new(big.Int).Set(value)).Cmp(safeIntegerLimit) > 0 {
+		return nil, &InlineFailure{Code: unrepresentableResultCode, Cause: errors.New("integer result is outside the JSON safe range")}
+	}
+	return map[string]json.RawMessage{"result": json.RawMessage(value.String())}, nil
 }
 
 func equalValues(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
@@ -325,6 +438,35 @@ func stringToNumber(_ context.Context, inputs map[string]json.RawMessage, _ map[
 		return nil, &InlineFailure{Code: invalidNumberCode, Cause: errors.New("number string is outside the interoperable range")}
 	}
 	return result, nil
+}
+
+func stringToInteger(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+	text, err := decodeString(inputs["text"])
+	if err != nil {
+		return nil, err
+	}
+	if text == "" || text != strings.TrimSpace(text) || strings.HasPrefix(text, "+") {
+		return nil, &InlineFailure{Code: invalidIntegerCode, Cause: errors.New("integer string is not canonical")}
+	}
+	value, err := strconv.ParseInt(text, 10, 64)
+	if err != nil || value < -9_007_199_254_740_991 || value > 9_007_199_254_740_991 {
+		return nil, &InlineFailure{Code: invalidIntegerCode, Cause: errors.New("integer string is outside the safe range")}
+	}
+	return jsonResult(value)
+}
+
+func numberToInteger(convert func(float64) float64) InlineEvaluator {
+	return func(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
+		value, err := decodeFiniteNumber(inputs["value"])
+		if err != nil {
+			return nil, &InlineFailure{Code: invalidIntegerCode, Cause: err}
+		}
+		converted := convert(value)
+		if converted < -9_007_199_254_740_991 || converted > 9_007_199_254_740_991 {
+			return nil, &InlineFailure{Code: invalidIntegerCode, Cause: errors.New("converted integer is outside the safe range")}
+		}
+		return jsonResult(int64(converted))
+	}
 }
 
 func stringToBoolean(_ context.Context, inputs map[string]json.RawMessage, _ map[string]any) (map[string]json.RawMessage, error) {
