@@ -54,10 +54,12 @@ func (s *typeSolver) unify(output, input scopedTypeExpression) error {
 		return s.bind(output, right)
 	}
 	if left.expression.Kind == datatype.TypeExpressionList && right.expression.Kind == datatype.TypeExpressionList {
-		return s.unify(
-			scopedTypeExpression{scope: left.scope, expression: *left.expression.Element},
-			scopedTypeExpression{scope: right.scope, expression: *right.expression.Element},
-		)
+		if containsTypeVariable(left.expression) || containsTypeVariable(right.expression) {
+			return s.unify(
+				scopedTypeExpression{scope: left.scope, expression: *left.expression.Element},
+				scopedTypeExpression{scope: right.scope, expression: *right.expression.Element},
+			)
+		}
 	}
 	if s.types == nil {
 		return errors.New("catalog type system is unavailable")
@@ -70,6 +72,22 @@ func (s *typeSolver) unify(output, input scopedTypeExpression) error {
 		return errors.New("type expressions are not assignable")
 	}
 	return nil
+}
+
+func containsTypeVariable(expression datatype.TypeExpression) bool {
+	switch expression.Kind {
+	case datatype.TypeExpressionVariable:
+		return true
+	case datatype.TypeExpressionList:
+		return expression.Element != nil && containsTypeVariable(*expression.Element)
+	case datatype.TypeExpressionUnion:
+		for _, member := range expression.Members {
+			if containsTypeVariable(member) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *typeSolver) resolve(value scopedTypeExpression) (datatype.ResolvedType, error) {

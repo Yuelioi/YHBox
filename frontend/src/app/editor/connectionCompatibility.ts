@@ -233,9 +233,22 @@ export function typeMatch(
       : null
   }
   if (output.kind === 'list' && input.kind === 'list') {
-    return JSON.stringify(output.element) === JSON.stringify(input.element) ? 'exact' : null
+    if (JSON.stringify(output.element) === JSON.stringify(input.element)) return 'exact'
+    if (!containsTypeVariable(output.element) && !containsTypeVariable(input.element)) return null
+    const element = typeMatch(output.element, input.element, types)
+    // Mutable Lists remain invariant for concrete types. A nested generic is
+    // still bindable because the resulting List element is one exact frozen
+    // type, not a covariant view.
+    return element === 'generic-bind' ? element : null
   }
   return null
+}
+
+function containsTypeVariable(expression: TypeExpression): boolean {
+  if (expression.kind === 'variable') return true
+  if (expression.kind === 'list') return containsTypeVariable(expression.element)
+  if (expression.kind === 'union') return expression.members.some(containsTypeVariable)
+  return false
 }
 
 function weakestMatch(

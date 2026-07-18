@@ -6,16 +6,16 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。3.1 尚未发布；Stage 1–12 已完成 major upgrade、Windows 默认管理员权限收敛、权威类型系统、Type × Capability 闭包、Typed Authoring 与引用状态安全迁移。剩余 Projection 连接计划/Compiler 固定 fixture parity，以及 Slice 20 的管理员游戏窗口人工 smoke。
+In progress。3.1 尚未发布；Stage 1–12 已完成 major upgrade、Windows 默认管理员权限收敛、权威类型系统、Type × Capability 闭包、Typed Authoring、引用状态安全迁移和 Projection/Compiler parity。代码阶段已闭环；唯一剩余项是 Slice 20 的管理员游戏窗口人工 smoke。
 
 ## Next
 
-继续 Slice 25：建立同一份固定 fixture，让 TypeScript Projection 连接计划与 Go Compiler 对 direct/invalid 类型边界给出一致结论。阶段末批量验收并提交。
+进入 Slice 20：使用管理员构建在真实管理员游戏窗口完成捕获、安装、输入与截图 smoke；通过后完成 Topic，失败则记录具体 adapter/UIPI 证据后修复。该步骤需要真实宿主，不能用单元测试替代。
 
 ## Read now
 
-- work/workflow-editor-capability-roadmap/slices/25-connection-plan-compiler-parity.md
-- work/workflow-editor-capability-roadmap/artifacts/type-system-audit.md
+- work/workflow-editor-capability-roadmap/slices/20-desktop-target-uac-and-consent-ux.md
+- knowledge/build/build.md
 - knowledge/nodes/typed-authoring-contract.md
 
 ## Read if
@@ -24,8 +24,8 @@ In progress。3.1 尚未发布；Stage 1–12 已完成 major upgrade、Windows 
 - work/workflow-editor-capability-roadmap/slices/21-type-system-foundation.md — 修改类型关系、约束或 solver
 - work/workflow-editor-capability-roadmap/slices/22-type-capability-closure.md — 修改结构字段、Break 节点或能力闭包门禁
 - work/workflow-editor-capability-roadmap/slices/23-typed-authoring-ux.md — 修改连接计划、State 或转换交互
+- work/workflow-editor-capability-roadmap/slices/25-connection-plan-compiler-parity.md — 修改 TS/Go 直接连接边界
 - work/workflow-editor-capability-roadmap/slices/24-settings-reference-integrity.md — 修改 application/target 删除语义
-- work/workflow-editor-capability-roadmap/slices/20-desktop-target-uac-and-consent-ux.md — 进入 Windows 真实宿主 smoke
 - knowledge/build/build.md — 进入阶段验收、发布、打包或真机 smoke
 
 ## Progress
@@ -40,11 +40,12 @@ In progress。3.1 尚未发布；Stage 1–12 已完成 major upgrade、Windows 
 - durable 精确输出支持 Promote to State：原子创建同类型状态、插入 State Write 并连线，一次 Undo。
 - 引用状态改型会模拟目标类型并列出受影响数据边；需要转换或不兼容时 UI 阻止静默迁移。
 - Application 对引用状态改型执行正式 Compiler 基线/候选诊断差分；只有无新增错误的原子候选可保存，PreparedPatch 也不能绕过。
+- TypeScript 与 Go 读取同一份 12-case 固定 fixture，覆盖 exact、nominal promotion、generic trait、union、List 不变性和 semantic digest。
+- parity 阶段修复了 Compiler 对具体 List 的隐式协变；只有包含类型变量的 List 才递归绑定，具体 List 必须元素表达式完全相同。
 - 状态列表和连接候选使用分段结果预算，搜索/模式变化会重置预算，避免一次渲染全部大集合。
-- 最新完整 `task check` 于 2026-07-18 通过：Go 全量/vet/staticcheck、Workflow/Node contracts、AI eval、Wails bindings、前端测试、i18n、production build 与 bundle budget。
+- 最新完整 `task check` 于 2026-07-18 通过：162 frontend tests、Go 65.5% coverage/vet/staticcheck、Workflow/Node contracts、AI eval、Wails 167 models、i18n、production build 与 bundle budget。
 
 ## Open questions
 
-- Slice 20 的管理员游戏窗口 smoke 与最终发布前人工验收合并。
-- 交互热路径解释 sealed Projection 以保持同步反馈；Compiler 是最终权威，Slice 25 用固定 fixture 防止跨语言漂移。
+- Slice 20 的管理员游戏窗口 capture/install/input/screenshot smoke 需要真实宿主完成。
 - 列表保持不变性；证明只读安全并在 contract 中表达后才考虑协变。

@@ -26,4 +26,4 @@
 | [22 类型与节点能力闭包](22-type-capability-closure.md) | completed | 21 | 结构字段、Break 节点和 Type × Capability 门禁。 |
 | [23 Typed Authoring 体验](23-typed-authoring-ux.md) | completed | 22 | 显式转换、typed State、跨图影响预览与 Compiler 门禁。 |
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
-| [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | in_progress | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |
+| [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | completed | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |

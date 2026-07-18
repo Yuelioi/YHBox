@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
+import parityDocument from '../../../../internal/workflow/compiler/testdata/connection_plan_parity.json'
 import type {
   NodeProjection,
+  TypeExpression,
   YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/3.1/authoring-projection'
 import {
   compatibleCandidatePorts,
   projectedConnectionCompatibility,
+  typeMatch,
 } from './connectionCompatibility'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection
@@ -175,4 +178,60 @@ describe('connection compatibility', () => {
       },
     ])
   })
+
+  it('matches the Compiler direct-connection fixture', () => {
+    expect(parityDocument.version).toBe(1)
+    expect(parityDocument.cases.length).toBeGreaterThan(0)
+    expect(parityDocument.cases.length).toBeLessThanOrEqual(64)
+    for (const test of parityDocument.cases) {
+      const output = resolveParityExpression(test.output)
+      const input = resolveParityExpression(test.input)
+      expect(typeMatch(output, input, types) ?? 'invalid', test.id).toBe(test.expected)
+    }
+  })
 })
+
+interface ParityExpression {
+  kind: string
+  name?: string
+  variable?: string
+  constraints?: string[]
+  staleDigest?: boolean
+  element?: ParityExpression
+  members?: ParityExpression[]
+}
+
+function resolveParityExpression(source: ParityExpression, depth = 0): TypeExpression {
+  if (depth > 16) throw new Error('connection parity fixture exceeds type depth budget')
+  switch (source.kind) {
+    case 'named': {
+      const projection = authoring.body.types.find((type) =>
+        type.typeRef.typeId.includes(`/core/${source.name}/`),
+      )
+      if (!projection) throw new Error(`unknown fixture type ${source.name}`)
+      const ref = structuredClone(projection.typeRef)
+      if (source.staleDigest)
+        ref.semanticDigest =
+          'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+      return { kind: 'ref', ref }
+    }
+    case 'variable':
+      if (!source.variable) throw new Error('fixture variable omitted its name')
+      return { kind: 'variable', variable: source.variable, constraints: source.constraints ?? [] }
+    case 'list':
+      if (!source.element) throw new Error('fixture list omitted its element')
+      return { kind: 'list', element: resolveParityExpression(source.element, depth + 1) }
+    case 'union': {
+      const members = (source.members ?? []).map((member) =>
+        resolveParityExpression(member, depth + 1),
+      )
+      if (members.length < 2) throw new Error('fixture union requires two members')
+      return {
+        kind: 'union',
+        members: members as [TypeExpression, TypeExpression, ...TypeExpression[]],
+      }
+    }
+    default:
+      throw new Error(`unknown fixture expression kind ${source.kind}`)
+  }
+}
