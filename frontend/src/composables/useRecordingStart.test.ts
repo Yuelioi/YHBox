@@ -63,12 +63,12 @@ describe('useRecordingStart', () => {
   it('validates, opens the HUD, counts down, then starts the selected explicit mode', async () => {
     const scope = effectScope()
     const controller = scope.run(() => useRecordingStart())!
-    const result = controller.start('precise', 'game')
+    const result = controller.start('precise', 'game', 'editor')
     await vi.runAllTimersAsync()
 
     await expect(result).resolves.toBe(true)
     expect(mocks.order).toEqual(['validate', 'open-hud', 'reload-hotkeys', 'start-recording'])
-    expect(mocks.startRecording).toHaveBeenCalledWith('precise', 'game')
+    expect(mocks.startRecording).toHaveBeenCalledWith('precise', 'game', 'editor')
     expect(mocks.emit.mock.calls).toEqual([
       ['recording:countdown', { sec: 3, mode: 'precise', stopKey: 'F12', pauseKey: 'F11' }],
       ['recording:countdown', { sec: 2, mode: 'precise', stopKey: 'F12', pauseKey: 'F11' }],
@@ -82,7 +82,7 @@ describe('useRecordingStart', () => {
     const scope = effectScope()
     const controller = scope.run(() => useRecordingStart())!
 
-    await expect(controller.start('simple', 'game')).rejects.toThrow('unavailable')
+    await expect(controller.start('simple', 'game', 'library')).rejects.toThrow('unavailable')
     expect(mocks.openHUD).not.toHaveBeenCalled()
     expect(mocks.startRecording).not.toHaveBeenCalled()
     expect(mocks.closeHUD).toHaveBeenCalledTimes(1)

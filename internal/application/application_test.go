@@ -471,6 +471,9 @@ func TestApplicationDebugRunPausesStepsAndCancelsThroughTheOnlyWorker(t *testing
 	if len(second.Inputs) != 0 {
 		t.Fatalf("RunStarted debug inputs = %#v", second.Inputs)
 	}
+	if second.PreviousNodeID != concatID || second.PreviousGraphID != "main" {
+		t.Fatalf("previous debug node = %#v", second)
+	}
 	if _, err := application.CancelRun(context.Background(), runID); err != nil {
 		t.Fatal(err)
 	}

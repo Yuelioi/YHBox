@@ -37,7 +37,7 @@ try {
 
     # A single malformed user Source must be isolated without preventing the
     # real desktop host from starting or hiding the rest of the workflow list.
-    $workflowStore = Join-Path $binDir 'data/workspace-3.1/workflows'
+    $workflowStore = Join-Path $binDir 'data/workspace/workflows'
     New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/3.1`n", $utf8NoBom)

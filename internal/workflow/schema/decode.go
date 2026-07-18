@@ -241,6 +241,9 @@ func reflectedContract(typ reflect.Type) reflectedStructContract {
 
 func validateSource(source WorkflowSource) []Diagnostic {
 	var out []Diagnostic
+	if err := validateTargetDefaults(source.TargetDefaults); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetDefaults", "reason": err.Error()}))
+	}
 
 	graphIDs := map[string]bool{}
 	graphKinds := map[string]GraphKind{}

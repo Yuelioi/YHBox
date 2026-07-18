@@ -37,6 +37,8 @@ type CommandKind string
 
 const (
 	CommandRenameWorkflow       CommandKind = "rename-workflow"
+	CommandSetTargetDefault     CommandKind = "set-target-default"
+	CommandClearTargetDefault   CommandKind = "clear-target-default"
 	CommandAddStateVariable     CommandKind = "add-state-variable"
 	CommandUpdateStateVariable  CommandKind = "update-state-variable"
 	CommandRemoveStateVariable  CommandKind = "remove-state-variable"
@@ -73,6 +75,8 @@ const (
 type Command struct {
 	Kind                 CommandKind                 `json:"kind"`
 	RenameWorkflow       *RenameWorkflowCommand      `json:"renameWorkflow,omitempty"`
+	SetTargetDefault     *SetTargetDefaultCommand    `json:"setTargetDefault,omitempty"`
+	ClearTargetDefault   *ClearTargetDefaultCommand  `json:"clearTargetDefault,omitempty"`
 	AddStateVariable     *AddStateVariableCommand    `json:"addStateVariable,omitempty"`
 	UpdateStateVariable  *UpdateStateVariableCommand `json:"updateStateVariable,omitempty"`
 	RemoveStateVariable  *RemoveStateVariableCommand `json:"removeStateVariable,omitempty"`
@@ -107,6 +111,15 @@ func (c Command) Validate() error { return validateTaggedCommand(c) }
 
 type RenameWorkflowCommand struct {
 	Name string `json:"name"`
+}
+
+type SetTargetDefaultCommand struct {
+	Target string `json:"target"`
+	Slot   string `json:"slot"`
+}
+
+type ClearTargetDefaultCommand struct {
+	Target string `json:"target"`
 }
 
 type AddStateVariableCommand struct {
@@ -337,6 +350,15 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 			return patchError(index, "INVALID_NAME", "workflow name must contain 1 to 256 bytes")
 		}
 		source.Workflow.Name = name
+	case CommandSetTargetDefault:
+		payload := command.SetTargetDefault
+		if err := schema.SetTargetDefault(source, payload.Target, payload.Slot); err != nil {
+			return patchError(index, "INVALID_TARGET_DEFAULT", err.Error())
+		}
+	case CommandClearTargetDefault:
+		if err := schema.ClearTargetDefault(source, command.ClearTargetDefault.Target); err != nil {
+			return patchError(index, "INVALID_TARGET_DEFAULT", err.Error())
+		}
 	case CommandAddStateVariable:
 		payload := command.AddStateVariable
 		if hasStateVariable(*source, payload.Name) {
@@ -797,7 +819,8 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 
 func validateTaggedCommand(command Command) error {
 	payloads := []bool{
-		command.RenameWorkflow != nil, command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
+		command.RenameWorkflow != nil, command.SetTargetDefault != nil, command.ClearTargetDefault != nil,
+		command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
 		command.AddNode != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
 		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.ClearBinding != nil,
@@ -819,6 +842,7 @@ func validateTaggedCommand(command Command) error {
 	}
 	matches := map[CommandKind]bool{
 		CommandRenameWorkflow: command.RenameWorkflow != nil, CommandAddStateVariable: command.AddStateVariable != nil,
+		CommandSetTargetDefault: command.SetTargetDefault != nil, CommandClearTargetDefault: command.ClearTargetDefault != nil,
 		CommandUpdateStateVariable: command.UpdateStateVariable != nil,
 		CommandRemoveStateVariable: command.RemoveStateVariable != nil, CommandAddNode: command.AddNode != nil,
 		CommandRemoveNode: command.RemoveNode != nil, CommandMoveNode: command.MoveNode != nil,

@@ -1,5 +1,8 @@
 <template>
-  <section class="flex max-h-64 shrink-0 flex-col border-t border-default bg-default">
+  <section
+    class="flex shrink-0 flex-col bg-default"
+    :class="embedded ? 'h-full max-h-none border-0' : 'max-h-64 border-t border-default'"
+  >
     <header class="flex items-center gap-3 border-b border-default px-4 py-2.5">
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
@@ -28,6 +31,7 @@
         @click="emit('refresh')"
       />
       <UButton
+        v-if="!embedded"
         icon="i-tabler-x"
         color="neutral"
         variant="ghost"
@@ -43,6 +47,35 @@
         <p class="mt-1 text-[11px] text-muted">
           {{ run.failure.category }}{{ run.failure.nodeId ? ` / ${run.failure.nodeId}` : '' }}
         </p>
+      </div>
+      <div v-if="run.timelineTotal > run.timeline.length" class="mb-3 flex items-center gap-2">
+        <span class="mr-auto text-[11px] text-muted">
+          {{
+            t('workflow.timeline.page', {
+              page: run.timelinePage,
+              pages: run.timelinePages,
+              total: run.timelineTotal,
+            })
+          }}
+        </span>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-tabler-chevron-left"
+          :disabled="run.timelinePage >= run.timelinePages"
+          :label="t('workflow.timeline.older')"
+          @click="emit('page', run.timelinePage + 1)"
+        />
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          trailing-icon="i-tabler-chevron-right"
+          :disabled="run.timelinePage <= 1"
+          :label="t('workflow.timeline.newer')"
+          @click="emit('page', run.timelinePage - 1)"
+        />
       </div>
       <p v-if="!run.timeline.length" class="py-3 text-center text-xs text-muted">
         {{ t('workflow.timeline.empty') }}
@@ -85,12 +118,13 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RunView } from '@/app/transport/workflow'
 
-const props = defineProps<{ run: RunView }>()
+const props = defineProps<{ run: RunView; embedded?: boolean }>()
 const emit = defineEmits<{
   cancel: []
   refresh: []
   close: []
   'focus-node': [graphPath: string[], nodeId: string]
+  page: [page: number]
 }>()
 const { t, te } = useI18n()
 

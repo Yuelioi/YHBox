@@ -20,16 +20,17 @@ func TestCanonicalizeSimpleRecordingUsesExplicitPolicyAndBalancesInput(t *testin
 			{TUs: 600, Seq: 3, Type: inputclip.EventTypeMouseBtnDown, A: int32(HookBtnLeft), B: 640, C: 360},
 			{TUs: 200, Seq: 1, Type: inputclip.EventTypeKeyUp, A: 'B'},
 			{TUs: 500, Seq: 1, Type: inputclip.EventTypeKeyDown, A: 'A'},
+			{TUs: 550, Seq: 2, Type: inputclip.EventTypeScroll, A: -2, B: 640, C: 360},
 		},
 	}
 	if err := canonicalizeStopResult(result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Events) != 4 {
+	if len(result.Events) != 5 {
 		t.Fatalf("canonical events = %#v", result.Events)
 	}
 	wantTypes := []inputclip.EventType{
-		inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp,
+		inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp, inputclip.EventTypeScroll,
 		inputclip.EventTypeMouseBtnDown, inputclip.EventTypeMouseBtnUp,
 	}
 	for index, event := range result.Events {
@@ -37,7 +38,7 @@ func TestCanonicalizeSimpleRecordingUsesExplicitPolicyAndBalancesInput(t *testin
 			t.Fatalf("event %d = %#v", index, event)
 		}
 	}
-	if result.Events[0].TUs != 0 || result.Events[1].TUs != 20 || result.Events[2].TUs != 100 || result.Events[3].TUs != 100 {
+	if result.Events[0].TUs != 0 || result.Events[1].TUs != 20 || result.Events[2].TUs != 50 || result.Events[3].TUs != 100 || result.Events[4].TUs != 100 {
 		t.Fatalf("normalized times = %#v", result.Events)
 	}
 }
@@ -62,7 +63,7 @@ func TestCanonicalizePreciseRecordingRetainsTrajectoryWithoutInferringMode(t *te
 		t.Fatalf("canonical precise events = %#v", result.Events)
 	}
 	preview := recordingPreview(result)
-	if preview.Mode != "precise" || preview.PointerMoves != 1 || preview.RawDeltas != 1 {
+	if preview.Mode != "precise" || preview.PointerMoves != 1 || preview.RawDeltas != 1 || len(preview.Steps) != 2 || preview.Steps[1].Kind != "move-path" || preview.Steps[1].Samples != 2 {
 		t.Fatalf("preview = %#v", preview)
 	}
 }

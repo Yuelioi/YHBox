@@ -135,14 +135,17 @@ type CompileView struct {
 }
 
 type RunView struct {
-	RunID        string          `json:"runId"`
-	Status       string          `json:"status"`
-	Generation   uint64          `json:"generation"`
-	RecordDigest artifact.Digest `json:"recordDigest"`
-	ProgramHash  artifact.Digest `json:"programHash"`
-	QueuedAt     string          `json:"queuedAt"`
-	Failure      *FailureView    `json:"failure,omitempty"`
-	Timeline     []TimelineEntry `json:"timeline"`
+	RunID         string          `json:"runId"`
+	Status        string          `json:"status"`
+	Generation    uint64          `json:"generation"`
+	RecordDigest  artifact.Digest `json:"recordDigest"`
+	ProgramHash   artifact.Digest `json:"programHash"`
+	QueuedAt      string          `json:"queuedAt"`
+	Failure       *FailureView    `json:"failure,omitempty"`
+	Timeline      []TimelineEntry `json:"timeline"`
+	TimelinePage  int             `json:"timelinePage"`
+	TimelinePages int             `json:"timelinePages"`
+	TimelineTotal int             `json:"timelineTotal"`
 }
 
 type FailureView struct {
@@ -518,6 +521,14 @@ func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 	return runView(record), nil
 }
 
+func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView, error) {
+	record, err := s.application.GetRun(runID)
+	if err != nil {
+		return RunView{}, err
+	}
+	return runViewPage(record, page, pageSize), nil
+}
+
 func (s *Service) GetCatalog() string { return string(s.application.CatalogArtifact()) }
 
 func (s *Service) GetAuthoringProjection() string { return string(s.authoring.Bytes()) }
@@ -545,11 +556,17 @@ func bundleInfoView(info workflowbundle.Info) BundleInfoView {
 }
 
 func runView(record run.Record) RunView {
+	return runViewPage(record, 1, 200)
+}
+
+func runViewPage(record run.Record, page, pageSize int) RunView {
 	admission := record.Admission()
+	entries := record.Journal()
+	pageEntries, currentPage, pages := timelinePage(entries, page, pageSize)
 	view := RunView{
 		RunID: admission.RunID, Status: string(record.Status()), Generation: record.Generation(), RecordDigest: record.Digest(),
 		ProgramHash: admission.ProgramHash, QueuedAt: admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
-		Timeline: timelineView(record.Journal()),
+		Timeline: timelineView(pageEntries), TimelinePage: currentPage, TimelinePages: pages, TimelineTotal: len(entries),
 	}
 	if failure, ok := record.Failure(); ok {
 		view.Failure = &FailureView{
@@ -558,6 +575,34 @@ func runView(record run.Record) RunView {
 		}
 	}
 	return view
+}
+
+func timelinePage(entries []run.JournalEntry, page, pageSize int) ([]run.JournalEntry, int, int) {
+	if pageSize <= 0 {
+		pageSize = 200
+	}
+	if pageSize > 500 {
+		pageSize = 500
+	}
+	pages := (len(entries) + pageSize - 1) / pageSize
+	if pages == 0 {
+		pages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > pages {
+		page = pages
+	}
+	end := len(entries) - (page-1)*pageSize
+	if end < 0 {
+		end = 0
+	}
+	start := end - pageSize
+	if start < 0 {
+		start = 0
+	}
+	return entries[start:end], page, pages
 }
 
 func timelineView(entries []run.JournalEntry) []TimelineEntry {

@@ -149,7 +149,7 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 		t.Fatal(err)
 	}
 	closeRuntime(first)
-	path := filepath.Join(dataRoot, "workspace-3.1", "workflows", created.WorkflowID+".json")
+	path := filepath.Join(dataRoot, "workspace", "workflows", created.WorkflowID+".json")
 	if err := os.WriteFile(path, []byte(`{"format":"yotta.workflow","version":"3.1",`), 0o600); err != nil {
 		t.Fatal(err)
 	}

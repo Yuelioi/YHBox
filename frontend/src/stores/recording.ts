@@ -13,6 +13,7 @@ import { backend, type BlobRef } from '@/lib/backend'
 import { i18n } from '@/i18n'
 
 export type RecordingMode = 'simple' | 'precise'
+export type RecordingInvocation = 'library' | 'editor'
 
 export interface RecordingState {
   revision: number
@@ -33,6 +34,17 @@ export interface RecordingStopPayload {
   durationUs: number
   eventCount: number
   preview: RecordingPreview
+  actions?: RecordingAction[]
+}
+
+export interface RecordingAction {
+  kind: 'keys' | 'click' | 'scroll'
+  delayUs: number
+  durationUs: number
+  keys?: string[]
+  button?: 'left' | 'middle' | 'right'
+  point?: { x: number; y: number; unit: 'ratio' }
+  notches?: number
 }
 
 export interface RecordingPreview {
@@ -45,12 +57,14 @@ export interface RecordingPreview {
   rawDeltas: number
   scrollActions: number
   steps: Array<{
-    kind: 'keys' | 'click'
+    kind: 'keys' | 'click' | 'scroll' | 'move-path'
     atUs: number
     durationUs: number
     keys?: string[]
     button?: string
     point?: { x: number; y: number; unit: 'ratio' }
+    notches?: number
+    samples?: number
   }>
 }
 
@@ -78,6 +92,7 @@ export interface RecordingFinalizePayload {
 export function isRecordingStopPayload(value: unknown): value is RecordingStopPayload {
   if (!isRecord(value) || !isRecord(value.preview) || !Array.isArray(value.preview.steps))
     return false
+  const actions = value.actions
   return (
     typeof value.pendingID === 'string' &&
     value.pendingID.length > 0 &&
@@ -92,8 +107,20 @@ export function isRecordingStopPayload(value: unknown): value is RecordingStopPa
     nonnegativeNumber(value.preview.clickActions) &&
     nonnegativeNumber(value.preview.pointerMoves) &&
     nonnegativeNumber(value.preview.rawDeltas) &&
-    nonnegativeNumber(value.preview.scrollActions)
+    nonnegativeNumber(value.preview.scrollActions) &&
+    (actions === undefined || (Array.isArray(actions) && actions.every(isRecordingAction)))
   )
+}
+
+function isRecordingAction(value: unknown): value is RecordingAction {
+  if (!isRecord(value) || !['keys', 'click', 'scroll'].includes(String(value.kind))) return false
+  if (!nonnegativeNumber(value.delayUs) || !nonnegativeNumber(value.durationUs)) return false
+  if (value.kind === 'keys')
+    return Array.isArray(value.keys) && value.keys.every((key) => typeof key === 'string')
+  if (!isRecord(value.point) || value.point.unit !== 'ratio') return false
+  if (!nonnegativeNumber(value.point.x) || !nonnegativeNumber(value.point.y)) return false
+  if (value.kind === 'click') return ['left', 'middle', 'right'].includes(String(value.button))
+  return typeof value.notches === 'number' && Number.isInteger(value.notches) && value.notches !== 0
 }
 
 function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizePayload {
@@ -110,6 +137,12 @@ function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizeP
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function eventPayload(event: unknown): unknown {
+  if (!isRecord(event)) return event
+  const data = event.data
+  return Array.isArray(data) && data.length === 1 ? data[0] : (data ?? event)
 }
 
 function nonnegativeNumber(value: unknown): value is number {
@@ -148,6 +181,8 @@ function normalize(st: any): RecordingState {
 export const useRecordingStore = defineStore('recording', () => {
   const state = ref<RecordingState>({ ...IDLE })
   const lastResult = ref<RecordingStopPayload | null>(null)
+  const invocation = ref<RecordingInvocation | null>(null)
+  const completionFailure = ref<{ revision: number; message: string } | null>(null)
 
   // 派生值 — 无独立 flag, 不可能跟后端 desync.
   // isRecording 严格 = phase==='recording' (暂停时 false); 判"录制会话进行中"用 isRecording||isPaused.
@@ -167,13 +202,26 @@ export const useRecordingStore = defineStore('recording', () => {
     if (next.revision < state.value.revision) return
     state.value = next
     if (next.pending) lastResult.value = next.pending
-    else if (next.phase === 'idle') lastResult.value = null
+    else if (next.phase === 'idle') {
+      lastResult.value = null
+      invocation.value = null
+    }
   }
 
   // 后端权威状态广播 — 镜像入口. store 实例化时注册一次 (每窗口一份, 长生命周期不退订).
   Events.On('recording:state', (e: any) => {
     const st = e?.data?.[0] ?? e?.data ?? e
     if (st && typeof st === 'object') applyState(st)
+  })
+
+  Events.On('recording:completed', (event: unknown) => {
+    const payload = eventPayload(event)
+    const message = isRecord(payload) ? payload.error : undefined
+    if (typeof message !== 'string' || !message) return
+    completionFailure.value = {
+      revision: (completionFailure.value?.revision ?? 0) + 1,
+      message,
+    }
   })
 
   // reconcile 主动跟后端对账. 窗口聚焦 / 编辑器挂载时调 — 任何 recording:state 事件丢失,
@@ -187,12 +235,23 @@ export const useRecordingStore = defineStore('recording', () => {
     }
   }
 
-  async function start(mode: RecordingMode, targetSlot: string): Promise<void> {
+  async function start(
+    mode: RecordingMode,
+    targetSlot: string,
+    origin: RecordingInvocation,
+  ): Promise<void> {
     if (state.value.phase !== 'idle') return
     if (!targetSlot)
       throw new Error('recording.start: targetSlot ' + i18n.global.t('common.required'))
     lastResult.value = null
-    await backend.recording.start({ targetSlot, mode })
+    completionFailure.value = null
+    invocation.value = origin
+    try {
+      await backend.recording.start({ targetSlot, mode })
+    } catch (error) {
+      invocation.value = null
+      throw error
+    }
     // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
     await reconcile()
   }
@@ -232,6 +291,7 @@ export const useRecordingStore = defineStore('recording', () => {
     description: string
     category: string
     tags: string[]
+    actions?: RecordingAction[]
   }): Promise<RecordingFinalizePayload> {
     const result = await backend.recording.finalize(args)
     if (!isRecordingFinalizePayload(result)) throw new Error('recording.finalize: invalid result')
@@ -245,9 +305,15 @@ export const useRecordingStore = defineStore('recording', () => {
     await reconcile()
   }
 
+  function claimInvocation(origin: RecordingInvocation): void {
+    if (state.value.phase === 'pending' && invocation.value == null) invocation.value = origin
+  }
+
   return {
     state,
     lastResult,
+    invocation,
+    completionFailure,
     isRecording,
     isPaused,
     activeTargetSlot,
@@ -260,5 +326,6 @@ export const useRecordingStore = defineStore('recording', () => {
     cancel,
     finalize,
     discard,
+    claimInvocation,
   }
 })

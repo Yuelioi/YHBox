@@ -48,9 +48,14 @@ func nativeFixtureWindowProc(hwnd win.HWND, message uint32, wParam, lParam uintp
 	switch message {
 	case win.WM_KEYDOWN, win.WM_KEYUP, win.WM_CHAR,
 		win.WM_MOUSEMOVE, win.WM_LBUTTONDOWN, win.WM_LBUTTONUP, win.WM_MOUSEWHEEL:
+		// Publish the observation only after default handling completes. Otherwise
+		// the test can inject a release while the fixture is still processing the
+		// corresponding button-down message.
+		result := win.DefWindowProc(hwnd, message, wParam, lParam)
 		nativeFixtureState.Lock()
 		nativeFixtureState.events = append(nativeFixtureState.events, nativeFixtureEvent{message: message, wParam: wParam})
 		nativeFixtureState.Unlock()
+		return result
 	case win.WM_CLOSE:
 		win.DestroyWindow(hwnd)
 		return 0
@@ -170,16 +175,18 @@ func nativeFixtureMark() int {
 func waitNativeFixtureEvents(t *testing.T, mark int, predicate func([]nativeFixtureEvent) bool) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
+	var observed []nativeFixtureEvent
 	for time.Now().Before(deadline) {
 		nativeFixtureState.Lock()
 		events := append([]nativeFixtureEvent(nil), nativeFixtureState.events[mark:]...)
 		nativeFixtureState.Unlock()
+		observed = events
 		if predicate(events) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("native fixture did not receive the expected input events")
+	t.Fatalf("native fixture did not receive the expected input events; observed=%+v", observed)
 }
 
 func hasNativeFixtureEvent(events []nativeFixtureEvent, message uint32, wParam uintptr) bool {

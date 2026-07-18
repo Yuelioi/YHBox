@@ -18,6 +18,7 @@ recheck_when: "类型关系、转换自动插入、constraint registry、节点�
 - 领域类型不因表示是 integer/string 就自动成为基础类型；列表默认不变。
 - StateRead/Write 由 slot declaration 专化，连接不能反向改变声明。
 - 新 TypeRef 必须通过适用的 literal/state/observe/equality/operation/collection/conversion/serialization/debug 覆盖或 waiver。
+- Node default/config builder 每次返回新的深拷贝值；实例插入 Source command 后由该 revision 独占，禁止多个节点或 revision 共享可变默认对象。
 
 ## 修改顺序
 

@@ -2,7 +2,7 @@ import { onScopeDispose, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import { useRecordingStore, type RecordingMode } from '@/stores/recording'
+import { useRecordingStore, type RecordingInvocation, type RecordingMode } from '@/stores/recording'
 
 export function useRecordingStart() {
   const recording = useRecordingStore()
@@ -11,7 +11,11 @@ export function useRecordingStart() {
   const starting = ref(false)
   let generation = 0
 
-  async function start(mode: RecordingMode, targetSlot: string): Promise<boolean> {
+  async function start(
+    mode: RecordingMode,
+    targetSlot: string,
+    origin: RecordingInvocation,
+  ): Promise<boolean> {
     if (starting.value || recording.state.phase !== 'idle') return false
     const current = ++generation
     starting.value = true
@@ -35,7 +39,7 @@ export function useRecordingStart() {
       }
       if (current !== generation) return false
       countdown.value = 0
-      await recording.start(mode, targetSlot)
+      await recording.start(mode, targetSlot, origin)
       return true
     } catch (error) {
       await backend.tools.closeRecordingHUD().catch(() => undefined)

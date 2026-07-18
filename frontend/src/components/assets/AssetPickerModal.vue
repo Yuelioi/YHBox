@@ -59,7 +59,13 @@
             v-for="asset in items"
             :key="asset.guid"
             class="flex min-w-0 gap-3 rounded-xl border bg-elevated/25 p-3"
-            :class="assetContainsSelection(asset) ? 'border-primary/50' : 'border-default'"
+            :class="
+              candidateContainsSelection(asset)
+                ? 'border-primary'
+                : assetContainsSelection(asset)
+                  ? 'border-primary/50'
+                  : 'border-default'
+            "
           >
             <BlobPreview
               v-if="asset.thumbnail"
@@ -89,8 +95,16 @@
                   </p>
                 </div>
                 <UBadge
-                  v-if="assetContainsSelection(asset)"
+                  v-if="candidateContainsSelection(asset)"
                   color="primary"
+                  variant="soft"
+                  size="sm"
+                >
+                  {{ t('assetPicker.selected') }}
+                </UBadge>
+                <UBadge
+                  v-else-if="assetContainsSelection(asset)"
+                  color="neutral"
                   variant="soft"
                   size="sm"
                 >
@@ -119,8 +133,8 @@
                   :key="`${variant.resolution[0]}x${variant.resolution[1]}:${variant.blob.digest}`"
                   size="xs"
                   color="neutral"
-                  :variant="sameBlob(variant.blob, selectedBlob) ? 'solid' : 'soft'"
-                  @click="choose(asset, variant.blob, variant.resolution)"
+                  :variant="sameBlob(variant.blob, candidate?.blob) ? 'solid' : 'soft'"
+                  @click="selectCandidate(asset, variant.blob, variant.resolution)"
                 >
                   {{ variant.resolution[0] }}×{{ variant.resolution[1] }}
                 </UButton>
@@ -131,7 +145,7 @@
                 size="xs"
                 :label="t('assetPicker.select_clip')"
                 icon="i-tabler-check"
-                @click="choose(asset, asset.blob)"
+                @click="selectCandidate(asset, asset.blob)"
               />
             </div>
           </article>
@@ -144,11 +158,17 @@
         />
       </div>
 
-      <div v-if="total > 0" class="flex shrink-0 items-center border-t border-default pt-3">
-        <span class="mr-auto text-xs text-dimmed">
-          {{ t('assets.page_summary', { page, pages: pageCount, total }) }}
+      <div class="flex shrink-0 items-center gap-3 border-t border-default pt-3">
+        <span class="min-w-0 flex-1 truncate text-xs text-dimmed">
+          {{
+            candidate
+              ? t('assetPicker.selected_asset', { name: candidate.name })
+              : total > 0
+                ? t('assets.page_summary', { page, pages: pageCount, total })
+                : t('assetPicker.select_hint')
+          }}
         </span>
-        <div class="flex gap-2">
+        <div v-if="total > 0" class="flex gap-2">
           <UButton
             color="neutral"
             variant="soft"
@@ -166,6 +186,9 @@
             @click="goToPage(page + 1)"
           />
         </div>
+        <UButton icon="i-tabler-check" :disabled="!candidate" @click="confirmSelection">
+          {{ t(kind === 'template' ? 'assetPicker.use_template' : 'assetPicker.use_clip') }}
+        </UButton>
       </div>
     </div>
   </BaseModal>
@@ -203,6 +226,7 @@ const total = ref(0)
 const items = ref<AssetSummary[]>([])
 const loading = ref(false)
 const failure = ref('')
+const candidate = ref<AssetPickerSelection | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let requestGeneration = 0
 
@@ -217,6 +241,7 @@ watch(
   () => [props.open, props.kind] as const,
   ([open]) => {
     if (!open) return
+    candidate.value = null
     page.value = 1
     void loadPage()
   },
@@ -290,16 +315,27 @@ function goToPage(next: number): void {
   void loadPage()
 }
 
-function choose(asset: AssetSummary, blob: BlobRef, resolution?: [number, number]): void {
-  assets.markUsed(asset.guid)
-  emit('select', {
+function selectCandidate(asset: AssetSummary, blob: BlobRef, resolution?: [number, number]): void {
+  candidate.value = {
     guid: asset.guid,
     kind: asset.kind,
     name: asset.name,
     resolution: resolution ? [resolution[0], resolution[1]] : undefined,
     blob: { ...blob },
-  })
+  }
+}
+
+function confirmSelection(): void {
+  if (!candidate.value) return
+  const selection = candidate.value
+  candidate.value = null
+  assets.markUsed(selection.guid)
+  emit('select', selection)
   emit('update:open', false)
+}
+
+function candidateContainsSelection(asset: AssetSummary): boolean {
+  return candidate.value?.guid === asset.guid
 }
 
 function assetContainsSelection(asset: AssetSummary): boolean {

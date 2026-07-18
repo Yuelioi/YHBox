@@ -29,8 +29,7 @@
         </main>
       </div>
 
-      <!-- Log panel: 全局始终渲染, 折叠/展开由 LogPanel 内部读 settings.UI.Logger.PanelOpen 自管 -->
-      <LogPanel />
+      <LogPanel v-if="showGlobalLogPanel" />
 
       <!-- Global status bar -->
       <AppStatusBar />
@@ -72,6 +71,7 @@ function onConfirmDialogUpdateOpen(v: boolean) {
 
 // 独立工具窗模式（不包主壳）: MouseHUD / ScreenPicker / RecordingHUD 等 meta.standalone 路由
 const isStandalone = computed(() => !!route.meta.standalone)
+const showGlobalLogPanel = computed(() => route.name !== 'workflow-edit')
 
 watch(
   () => settingsStore.data?.locale,

@@ -58,7 +58,7 @@
         <div v-for="field in projection.configFields" :key="field.id" class="space-y-2">
           <GeneratedFieldEditor
             :field="field"
-            :model-value="node.config[field.id]"
+            :model-value="effectiveConfigValue(field.id)"
             :state-variables="variables.map((variable) => variable.name)"
             :select-items="targetItems(field.id)"
             :select-placeholder="t('workflow.inspector.select_target')"
@@ -71,6 +71,44 @@
               })
             "
           />
+          <div v-if="isTargetField(field.id)" class="flex items-center gap-2 text-[11px]">
+            <UBadge
+              :color="
+                hasNodeOverride(field.id)
+                  ? 'warning'
+                  : inheritedTarget(field.id)
+                    ? 'primary'
+                    : 'error'
+              "
+              variant="soft"
+              size="sm"
+            >
+              {{
+                t(
+                  hasNodeOverride(field.id)
+                    ? 'workflow.inspector.target_overridden'
+                    : inheritedTarget(field.id)
+                      ? 'workflow.inspector.target_inherited'
+                      : 'workflow.inspector.target_missing',
+                )
+              }}
+            </UBadge>
+            <span
+              v-if="inheritedTarget(field.id) && !hasNodeOverride(field.id)"
+              class="truncate text-muted"
+            >
+              {{ inheritedTarget(field.id) }}
+            </span>
+            <UButton
+              v-if="hasNodeOverride(field.id) && inheritedTarget(field.id)"
+              class="ml-auto"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :label="t('workflow.inspector.restore_inherited')"
+              @click="emit('command', { kind: 'clear-config', nodeId: node.id, fieldId: field.id })"
+            />
+          </div>
           <div
             v-if="isTargetField(field.id) && targetItems(field.id)?.length === 0"
             class="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2"
@@ -154,7 +192,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { TargetDefault, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
@@ -165,6 +203,7 @@ const props = defineProps<{
   node: Node | null
   projection: NodeProjection | null
   variables: Variable[]
+  targetDefaults: TargetDefault[]
   types: TypeProjection[]
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
@@ -212,6 +251,20 @@ function targetCapability(fieldId: string) {
   return props.projection?.capabilities.find(
     (candidate) => candidate.targetSlotConfigKey === fieldId,
   )
+}
+
+function inheritedTarget(fieldId: string): string {
+  const target = targetCapability(fieldId)?.targetSlot
+  return props.targetDefaults.find((candidate) => candidate.target === target)?.slot ?? ''
+}
+
+function hasNodeOverride(fieldId: string): boolean {
+  return Boolean(props.node && Object.prototype.hasOwnProperty.call(props.node.config, fieldId))
+}
+
+function effectiveConfigValue(fieldId: string): unknown {
+  if (hasNodeOverride(fieldId)) return props.node?.config[fieldId]
+  return inheritedTarget(fieldId) || undefined
 }
 
 function isTargetField(fieldId: string): boolean {

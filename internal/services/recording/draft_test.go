@@ -60,6 +60,48 @@ func TestRecordingDraftRetainsPreciseRecordingAsInputClip(t *testing.T) {
 	assertDraftContracts(t, draft)
 }
 
+func TestEditedSimpleActionsRoundTripKeysClickAndScroll(t *testing.T) {
+	result := &StopResult{
+		Meta:   inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{1000, 500}},
+		TempID: "edited",
+	}
+	actions := []RecordingAction{
+		{Kind: "keys", DelayUs: 0, DurationUs: 20_000, Keys: []string{"Ctrl", "A"}},
+		{Kind: "click", DelayUs: 30_000, DurationUs: 40_000, Button: "right", Point: &Point{X: 0.25, Y: 0.75, Unit: "ratio"}},
+		{Kind: "scroll", DelayUs: 50_000, Notches: -3, Point: &Point{X: 0.5, Y: 0.5, Unit: "ratio"}},
+	}
+	if err := applyEditedActions(result, actions); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Events) != 7 || result.Events[0].TUs != 0 || result.Events[6].Type != inputclip.EventTypeScroll {
+		t.Fatalf("events = %+v", result.Events)
+	}
+	projected := editableRecordingActions(result)
+	if len(projected) != 3 || projected[1].DelayUs != 30_000 || projected[2].Notches != -3 {
+		t.Fatalf("projected = %+v", projected)
+	}
+	draft := buildWorkflowDraft(result, "game", blob.BlobRef{})
+	if len(draft.Nodes) != 5 || draft.Nodes[4].NodeTypeID != scrollPointerNodeID {
+		t.Fatalf("draft = %+v", draft)
+	}
+	assertDraftContracts(t, draft)
+}
+
+func TestEditedSimpleActionsRejectInvalidPayload(t *testing.T) {
+	result := &StopResult{Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{100, 100}}}
+	for _, actions := range [][]RecordingAction{
+		{},
+		{{Kind: "keys", DelayUs: 1, Keys: []string{"A"}}},
+		{{Kind: "keys", Keys: []string{"unsupported"}}},
+		{{Kind: "scroll", Notches: 0, Point: &Point{X: 0.5, Y: 0.5, Unit: "ratio"}}},
+		{{Kind: "click", Button: "left", Point: &Point{X: 2, Y: 0.5, Unit: "ratio"}}},
+	} {
+		if err := applyEditedActions(result, actions); err == nil {
+			t.Fatalf("applyEditedActions(%+v) succeeded", actions)
+		}
+	}
+}
+
 func assertDraftContracts(t *testing.T, draft WorkflowDraft) {
 	t.Helper()
 	builtins, err := nodes.Build()

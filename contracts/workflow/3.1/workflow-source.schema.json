@@ -428,6 +428,26 @@
       ],
       "type": "object"
     },
+    "TargetDefault": {
+      "additionalProperties": false,
+      "properties": {
+        "slot": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "slot"
+      ],
+      "type": "object"
+    },
     "TypeExpression": {
       "oneOf": [
         {
@@ -608,6 +628,13 @@
         "$ref": "#/$defs/SecretRef"
       },
       "maxItems": 4096,
+      "type": "array"
+    },
+    "targetDefaults": {
+      "items": {
+        "$ref": "#/$defs/TargetDefault"
+      },
+      "maxItems": 64,
       "type": "array"
     },
     "variables": {

@@ -133,6 +133,14 @@ func cloneRecordingState(state RecordingState) RecordingState {
 			pending.Preview.Steps[index].Point = &copyOfPoint
 		}
 	}
+	pending.Actions = append([]RecordingAction(nil), pending.Actions...)
+	for index := range pending.Actions {
+		pending.Actions[index].Keys = append([]string(nil), pending.Actions[index].Keys...)
+		if point := pending.Actions[index].Point; point != nil {
+			copyOfPoint := *point
+			pending.Actions[index].Point = &copyOfPoint
+		}
+	}
 	state.Pending = &pending
 	return state
 }
@@ -344,6 +352,7 @@ type StopResultPayload struct {
 	DurationUs uint64                  `json:"durationUs"`
 	EventCount int                     `json:"eventCount"`
 	Preview    RecordingPreview        `json:"preview"`
+	Actions    []RecordingAction       `json:"actions,omitempty"`
 }
 
 type pendingRecording struct {
@@ -353,11 +362,12 @@ type pendingRecording struct {
 
 // FinalizeArgs supplies user-owned metadata for a pending recording.
 type FinalizeArgs struct {
-	PendingID   string   `json:"pendingID"`
-	Label       string   `json:"label"`
-	Description string   `json:"description"`
-	Category    string   `json:"category"`
-	Tags        []string `json:"tags"`
+	PendingID   string             `json:"pendingID"`
+	Label       string             `json:"label"`
+	Description string             `json:"description"`
+	Category    string             `json:"category"`
+	Tags        []string           `json:"tags"`
+	Actions     *[]RecordingAction `json:"actions,omitempty"`
 }
 
 // FinalizeResult identifies the durable asset created from a pending recording.
@@ -427,6 +437,9 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 		PendingID: pendingID, TargetSlot: targetSlot,
 		Mode: res.Meta.RecordingMode, DurationUs: durationUs, EventCount: len(res.Events), Preview: recordingPreview(res),
 	}
+	if res.Meta.RecordingMode == inputclip.RecordingModeSimple {
+		payload.Actions = editableRecordingActions(res)
+	}
 	s.pending = &pendingRecording{result: res, targetSlot: targetSlot}
 	s.setState(RecordingState{
 		Phase: PhasePending, Mode: res.Meta.RecordingMode, TargetSlot: targetSlot,
@@ -479,6 +492,12 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	description := strings.TrimSpace(args.Description)
 	category := strings.TrimSpace(args.Category)
 	res := pending.result
+	if args.Actions != nil {
+		res = &StopResult{Meta: pending.result.Meta, TempID: pending.result.TempID}
+		if err := applyEditedActions(res, *args.Actions); err != nil {
+			return nil, fmt.Errorf("edit recording: %w", err)
+		}
+	}
 	if s.clipSvc == nil {
 		return nil, errors.New("clip store 未注入")
 	}

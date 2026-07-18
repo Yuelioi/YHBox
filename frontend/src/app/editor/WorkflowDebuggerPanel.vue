@@ -1,6 +1,7 @@
 <template>
   <section
-    class="flex max-h-80 shrink-0 flex-col border-t border-default bg-default"
+    class="flex shrink-0 flex-col bg-default"
+    :class="embedded ? 'h-full max-h-none border-0' : 'max-h-80 border-t border-default'"
     data-testid="workflow-debugger"
   >
     <header class="flex items-center gap-3 border-b border-default px-4 py-2.5">
@@ -23,6 +24,8 @@
         :label="t('workflow.debug.step')"
         icon="i-tabler-player-track-next"
         size="xs"
+        :loading="busy"
+        :disabled="busy"
         @click="emit('step')"
       />
       <UButton
@@ -33,6 +36,7 @@
         color="neutral"
         variant="soft"
         size="xs"
+        :disabled="busy"
         @click="emit('continue')"
       />
       <UButton
@@ -43,6 +47,7 @@
         color="neutral"
         variant="soft"
         size="xs"
+        :disabled="busy"
         @click="emit('pause')"
       />
       <UButton
@@ -53,9 +58,11 @@
         color="error"
         variant="soft"
         size="xs"
+        :disabled="busy"
         @click="emit('stop')"
       />
       <UButton
+        v-if="!embedded"
         icon="i-tabler-x"
         color="neutral"
         variant="ghost"
@@ -65,46 +72,82 @@
       />
     </header>
 
-    <div class="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-3 lg:grid-cols-4">
-      <DebugFactList :title="t('workflow.debug.inputs')" :values="snapshot.inputs" />
-      <DebugFactList :title="t('workflow.debug.state')" :values="stateValues" />
-      <section class="min-w-0">
-        <h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
-          {{ t('workflow.debug.queue') }}
-        </h3>
-        <p v-if="!snapshot.queue.length" class="text-[11px] text-muted">
-          {{ t('workflow.debug.empty') }}
-        </p>
-        <ol v-else class="space-y-1">
-          <li
-            v-for="(entry, index) in snapshot.queue"
-            :key="`${entry.graphPath?.join('/') || entry.graphId}:${entry.nodeId}:${index}`"
-            class="truncate rounded bg-elevated/50 px-2 py-1 font-mono text-[10px] text-toned"
-          >
-            {{ entry.graphPath?.join(' / ') || entry.graphId }} / {{ entry.nodeId }}
-          </li>
-        </ol>
-      </section>
-      <section class="min-w-0">
-        <h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
-          {{ t('workflow.debug.outputs') }}
-        </h3>
-        <p v-if="!outputFacts.length" class="text-[11px] text-muted">
-          {{ t('workflow.debug.empty') }}
-        </p>
-        <div v-else class="space-y-1">
-          <div
-            v-for="fact in outputFacts"
-            :key="fact.key"
-            class="rounded bg-elevated/50 px-2 py-1.5"
-          >
-            <p class="truncate font-mono text-[10px] text-toned">{{ fact.key }}</p>
-            <p class="truncate text-[9px] text-dimmed">
-              {{ fact.value.representation }} · {{ fact.value.size }} B
-            </p>
+    <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div class="mb-3 grid gap-2 lg:grid-cols-2">
+        <UButton
+          color="neutral"
+          variant="soft"
+          class="h-auto min-w-0 justify-start px-3 py-2 text-left"
+          :disabled="!snapshot.nodeId"
+          @click="focusCurrent"
+        >
+          <span class="min-w-0">
+            <span class="block text-[10px] font-semibold uppercase tracking-wide text-warning">
+              {{ t('workflow.debug.will_execute') }}
+            </span>
+            <span class="block truncate font-mono text-[11px] text-toned">
+              {{ nodeTitle(snapshot.nodeId) }}
+            </span>
+          </span>
+        </UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          class="h-auto min-w-0 justify-start px-3 py-2 text-left"
+          :disabled="!snapshot.previousNodeId"
+          @click="focusPrevious"
+        >
+          <span class="min-w-0">
+            <span class="block text-[10px] font-semibold uppercase tracking-wide text-success">
+              {{ t('workflow.debug.just_executed') }}
+            </span>
+            <span class="block truncate font-mono text-[11px] text-toned">
+              {{ nodeTitle(snapshot.previousNodeId) }}
+            </span>
+          </span>
+        </UButton>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-4">
+        <DebugFactList :title="t('workflow.debug.inputs')" :values="snapshot.inputs" />
+        <DebugFactList :title="t('workflow.debug.state')" :values="stateValues" />
+        <section class="min-w-0">
+          <h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
+            {{ t('workflow.debug.queue') }}
+          </h3>
+          <p v-if="!snapshot.queue.length" class="text-[11px] text-muted">
+            {{ t('workflow.debug.empty') }}
+          </p>
+          <ol v-else class="space-y-1">
+            <li
+              v-for="(entry, index) in snapshot.queue"
+              :key="`${entry.graphPath?.join('/') || entry.graphId}:${entry.nodeId}:${index}`"
+              class="truncate rounded bg-elevated/50 px-2 py-1 font-mono text-[10px] text-toned"
+            >
+              {{ entry.graphPath?.join(' / ') || entry.graphId }} / {{ entry.nodeId }}
+            </li>
+          </ol>
+        </section>
+        <section class="min-w-0">
+          <h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
+            {{ t('workflow.debug.outputs') }}
+          </h3>
+          <p v-if="!outputFacts.length" class="text-[11px] text-muted">
+            {{ t('workflow.debug.empty') }}
+          </p>
+          <div v-else class="space-y-1">
+            <div
+              v-for="fact in outputFacts"
+              :key="fact.key"
+              class="rounded bg-elevated/50 px-2 py-1.5"
+            >
+              <p class="truncate font-mono text-[10px] text-toned">{{ fact.key }}</p>
+              <p class="truncate text-[9px] text-dimmed">
+                {{ fact.value.representation }} · {{ fact.value.size }} B
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </section>
 </template>
@@ -115,8 +158,20 @@ import { useI18n } from 'vue-i18n'
 import type { DebugSnapshot } from '@/app/transport/workflow'
 import type { DebugValueView } from '@bindings/github.com/yottaapp/yotta/internal/workflow/compiler/models.js'
 
-const props = defineProps<{ snapshot: DebugSnapshot }>()
-const emit = defineEmits<{ continue: []; pause: []; step: []; stop: []; close: [] }>()
+const props = defineProps<{
+  snapshot: DebugSnapshot
+  embedded?: boolean
+  busy?: boolean
+  nodeLabels?: Record<string, string>
+}>()
+const emit = defineEmits<{
+  continue: []
+  pause: []
+  step: []
+  stop: []
+  close: []
+  'focus-node': [graphPath: string[], nodeId: string]
+}>()
 const { t } = useI18n()
 
 const paused = computed(() => props.snapshot.status === 'paused')
@@ -140,6 +195,30 @@ const outputFacts = computed(() =>
     ),
   ),
 )
+
+function nodeTitle(nodeId?: string): string {
+  if (!nodeId) return t('workflow.debug.waiting')
+  return props.nodeLabels?.[nodeId] ?? nodeId
+}
+
+function focusCurrent(): void {
+  if (!props.snapshot.nodeId) return
+  emit(
+    'focus-node',
+    props.snapshot.graphPath ?? (props.snapshot.graphId ? [props.snapshot.graphId] : []),
+    props.snapshot.nodeId,
+  )
+}
+
+function focusPrevious(): void {
+  if (!props.snapshot.previousNodeId) return
+  emit(
+    'focus-node',
+    props.snapshot.previousGraphPath ??
+      (props.snapshot.previousGraphId ? [props.snapshot.previousGraphId] : []),
+    props.snapshot.previousNodeId,
+  )
+}
 
 const DebugFactList = defineComponent({
   props: {

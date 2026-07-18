@@ -2,7 +2,7 @@
 kind: trap
 summary: "历史 3.0 Container/Subgraph Store 跨写缓存案例；3.1 复用其‘Store 单一 owner/原子 publish’原则。"
 activation: symptom
-read_when: "审查 3.0 import/cache 故障，或设计 3.1 跨 Store commit 是否绕过单一 owner 时"
+read_when: "仅在恢复 archived Topic recording-asset-lifecycle，或审查 3.0 import/cache 故障与单一 Store owner 原则时"
 ---
 # ⚠ 导入子图绕过容器 Store 内存缓存致"子图未找到"
 

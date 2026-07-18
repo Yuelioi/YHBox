@@ -1,34 +1,22 @@
 ---
 kind: trap
-summary: "vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport."
+summary: "Vue Flow 只有一个活动相机；3.1 每个 Source graph 必须拥有独立、非语义的 viewport 状态。"
 activation: symptom
-read_when: "改容器编辑器视口/相机/切主图↔子图层级行为前; 撞「切图后相机跑飞 / 视口不对 / 首次进入看不到内容」"
+read_when: "修改工作流编辑器视口、切换 main graph/subgraph、GraphCall 导航，或遇到切图后相机跑飞、首次进入看不到内容时"
 ---
-# ⚠ vue-flow 全程单相机, 切逻辑图层级要自己存取 viewport
-## Signature
-- symptom: 在内容很远的子图 pan 走(如 19000,1000), 切回主图相机还停在那 → 主图内容(3000 区域)看不见, 像"跑飞"
-- error_type: —  (UI/视口, 非异常)
-- where: `ContainerEditorView` 的 vue-flow 相机; `<VueFlow fit-view-on-init>` 只首次挂载 fit 一次
-- trigger: 切逻辑图层级 (push/pop `editorPath`) 不存/取 viewport
+# Vue Flow 单相机与 Source-native graph viewport
 
-## 症状/复现
+Vue Flow 实例只有一个活动 viewport；切换 Workflow Source 中的 graph 只是替换当前 nodes/edges，不会自动恢复目标 graph 的相机。若不显式保存，用户从远处 subgraph 返回 main graph 时会继续停在旧坐标，看起来像内容丢失。
 
-主图 → 进子图 → 在子图里 pan/zoom 到远处 → 切回主图: 相机停在子图那个远坐标, 主图内容不在视野。
+## 现行规则
 
-## 根因
+- viewport 是 presentation state，不进入 Workflow Source、Program 或 graph semantic digest。
+- 以稳定的 `sourceId + graphId` 保存 viewport；离开 graph 前读取当前 viewport，进入目标 graph 后恢复。
+- 目标 graph 没有缓存时，优先聚焦其 Run Start 或 graph interface anchor；都不存在才 `fitView`。
+- Source 关闭/删除时清理对应 presentation state；不能用进程级“当前 graph”单例。
+- 异步 layout、fit 或导航结果必须绑定 editor session、source revision 与 graph ID；上下文已变化时丢弃，不回写新 graph 的相机。
+- GraphCall、typed interface、annotation 与 reroute 都使用 Source-native graph identity；不得恢复 Container、virtual marker 或旧 subgraph store。
 
-vue-flow 全程**只有一个相机**。`fit-view-on-init` 只在首次挂载 fit; 之后切图层级只 `syncFlowFromDraft`
-重渲染节点, **完全不动相机**。所以主图/各子图共享同一个 viewport, 切层级时相机原地不动 → 看着乱/飞。
-逻辑上的"多张图"在 vue-flow 眼里是同一块画布换了 nodes。
+## 验证
 
-## 修法
-
-per-(容器, 图层级) 缓存 viewport (`viewportByContainer`, 视图态按容器隔离, 跟 `editorPathByContainer` 同规矩,
-`dropContainer` 一起清)。切层级时: 同步存旧层级 `getViewport()`, 取目标层级缓存 → `setViewport` 恢复;
-**首次进入(无缓存)→ 聚焦起始节点**(子图=入口 marker `sg.entry` / 主图=唯一 `Start` 节点, `centerOnNode` zoom 1),
-找不到才 `fitView` 兜底 (内容很大的图 fitView 会缩成一小团, 落在入口更可用)。层级 key = sgID 或 `MAIN_GRAPH_KEY`。
-
-同属"子图是 virtual / 全图操作要单独处理"族, 见 [autolayout-skips-subgraph-virtual-markers.md](../subgraph/autolayout-skips-subgraph-virtual-markers.md)。
-
-## Cases
-- 2026-06-13 首次: 切子图后切回主图相机跑飞。修: per-层级 viewport 缓存 + 首次进入聚焦入口。
+main graph 与两个 subgraph 分别 pan/zoom 后往返，三者 viewport 独立；首次进入能看到起始锚点；切换过程中完成的旧 layout 不会移动当前 graph。

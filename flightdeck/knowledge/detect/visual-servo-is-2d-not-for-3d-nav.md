@@ -34,5 +34,5 @@ read_when: "想用 颜色检测/找图 + 按屏幕偏移转视角 做 3D 场景�
 
 ## 关联
 
-- 数据流当前规则见 [node-data-flow.md](../nodes/node-data-flow.md) 和 [held-exec-outputs.md](../nodes/held-exec-outputs.md)。
+- 数据流当前规则见 [node-data-flow.md](../nodes/node-data-flow.md)。
 - 历史材料在 cold archive `2026-06-05-turn-to-target-node` / `2026-06-05-aim-yaw-visual-servo`;本知识不依赖它们。

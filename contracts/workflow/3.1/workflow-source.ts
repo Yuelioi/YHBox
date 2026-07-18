@@ -40,6 +40,10 @@ export interface YottaWorkflowSource {
    */
   secretRefs: SecretRef[]
   /**
+   * @maxItems 64
+   */
+  targetDefaults?: TargetDefault[]
+  /**
    * @maxItems 4096
    */
   variables: Variable[]
@@ -169,6 +173,10 @@ export interface NodeRef {
 export interface SecretRef {
   id: string
   purpose: string
+}
+export interface TargetDefault {
+  slot: string
+  target: string
 }
 export interface Variable {
   default: any

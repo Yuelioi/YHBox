@@ -207,6 +207,18 @@
       ],
       "type": "object"
     },
+    "ClearTargetDefaultCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
     "CollapseSelectionCommand": {
       "additionalProperties": false,
       "properties": {
@@ -257,6 +269,38 @@
           "required": [
             "kind",
             "renameWorkflow"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "set-target-default"
+            },
+            "setTargetDefault": {
+              "$ref": "#/$defs/SetTargetDefaultCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "setTargetDefault"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "clearTargetDefault": {
+              "$ref": "#/$defs/ClearTargetDefaultCommand"
+            },
+            "kind": {
+              "const": "clear-target-default"
+            }
+          },
+          "required": [
+            "kind",
+            "clearTargetDefault"
           ],
           "type": "object"
         },
@@ -1359,6 +1403,22 @@
         "graphId",
         "nodeId",
         "label"
+      ],
+      "type": "object"
+    },
+    "SetTargetDefaultCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "slot": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "slot"
       ],
       "type": "object"
     },

@@ -49,6 +49,7 @@ type scheduler struct {
 	retainedBytes  int
 	invocations    int
 	control        *DebugController
+	debugPrevious  *DebugQueueEntry
 }
 
 func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, journal *run.JournalWriter, state *runState) *scheduler {
@@ -246,7 +247,11 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	}
 	var failure *NodeFailure
 	if errors.As(runErr, &failure) && onlyNodeFailure(runErr, failure) {
-		return s.routeFailure(ctx, node, machine, attempt, outcome, failure, actions, actionErr, statusErr, summary)
+		err := s.routeFailure(ctx, node, machine, attempt, outcome, failure, actions, actionErr, statusErr, summary)
+		if err == nil {
+			s.markDebugExecuted(node)
+		}
+		return err
 	}
 	if runErr != nil || actionErr != nil || statusErr != nil {
 		code := "runtime.adapter_failed"
@@ -302,6 +307,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *SignalTr
 	if _, err := s.journal.Append(context.WithoutCancel(ctx), finished); err != nil {
 		return fmt.Errorf("journal node %q success: %w", node.ID, err)
 	}
+	s.markDebugExecuted(node)
 	s.enqueueSelected(node.ID, selected, nil)
 	return nil
 }
@@ -314,6 +320,11 @@ func (s *scheduler) debugCheckpoint(ctx context.Context, node programNode, attem
 		Status: DebugRunning, GraphPath: append([]string(nil), node.GraphPath...), GraphID: node.GraphPath[len(node.GraphPath)-1], NodeID: node.SourceNodeID, Attempt: attempt,
 		Queue: []DebugQueueEntry{}, Inputs: map[string]DebugValueView{},
 		Outputs: map[string]map[string]DebugValueView{}, State: map[string]DebugStateView{},
+	}
+	if s.debugPrevious != nil {
+		snapshot.PreviousGraphPath = append([]string(nil), s.debugPrevious.GraphPath...)
+		snapshot.PreviousGraphID = s.debugPrevious.GraphID
+		snapshot.PreviousNodeID = s.debugPrevious.NodeID
 	}
 	for index, queued := range s.queue {
 		if index >= MaxDebugQueueEntries {
@@ -378,6 +389,20 @@ func (s *scheduler) debugCheckpoint(ctx context.Context, node programNode, attem
 		remaining--
 	}
 	return s.control.checkpoint(ctx, snapshot)
+}
+
+func (s *scheduler) markDebugExecuted(node programNode) {
+	if s.control == nil {
+		return
+	}
+	graphID := ""
+	if len(node.GraphPath) != 0 {
+		graphID = node.GraphPath[len(node.GraphPath)-1]
+	}
+	s.debugPrevious = &DebugQueueEntry{
+		GraphPath: append([]string(nil), node.GraphPath...),
+		GraphID:   graphID, NodeID: node.SourceNodeID,
+	}
 }
 
 func sortedValueKeys(values map[string]datatype.ValueEnvelope) []string {

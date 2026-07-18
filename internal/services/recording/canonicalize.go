@@ -135,7 +135,8 @@ func canonicalizeStopResult(result *StopResult) error {
 
 func simpleEvent(eventType inputclip.EventType) bool {
 	return eventType == inputclip.EventTypeKeyDown || eventType == inputclip.EventTypeKeyUp ||
-		eventType == inputclip.EventTypeMouseBtnDown || eventType == inputclip.EventTypeMouseBtnUp
+		eventType == inputclip.EventTypeMouseBtnDown || eventType == inputclip.EventTypeMouseBtnUp ||
+		eventType == inputclip.EventTypeScroll
 }
 
 func validRecordedButton(button int32) bool {

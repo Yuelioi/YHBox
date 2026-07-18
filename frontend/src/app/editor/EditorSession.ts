@@ -69,6 +69,8 @@ export interface StateTypeChangeImpact {
 
 export type EditorCommand =
   | { kind: 'rename-workflow'; name: string }
+  | { kind: 'set-target-default'; target: string; slot: string }
+  | { kind: 'clear-target-default'; target: string }
   | { kind: 'add-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
   | { kind: 'update-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
   | { kind: 'remove-state-variable'; name: string }
@@ -217,6 +219,11 @@ export class EditorSession {
 
   renameGraph(graphId: string, name: string): void {
     this.apply({ kind: 'rename-graph', graphId, name })
+  }
+
+  setTargetDefault(target: string, slot: string): void {
+    if (slot) this.apply({ kind: 'set-target-default', target, slot })
+    else this.apply({ kind: 'clear-target-default', target })
   }
 
   removeGraph(graphId: string): void {
@@ -726,6 +733,9 @@ export class EditorSession {
     const graph = this.currentGraph
     if (!graph || draftNodes.length === 0) return []
     const shadow = clone(graph)
+    const defaultTargetSlot = this.source?.targetDefaults?.find(
+      (item) => item.target === 'target',
+    )?.slot
     const nodes = draftNodes.map((draft, index): Node => {
       const projection = this.projections.get(draft.nodeTypeID)
       if (!projection) throw new Error(`draft node type ${draft.nodeTypeID} is unavailable`)
@@ -737,11 +747,13 @@ export class EditorSession {
       for (const [portId, blob] of Object.entries(draft.blobs)) {
         bindings[portId] = { kind: 'blob', blob: clone(blob) }
       }
+      const config = clone(draft.config)
+      if (defaultTargetSlot && config.slot === defaultTargetSlot) delete config.slot
       const node: Node = {
         id,
         nodeRef: clone(projection.nodeRef),
         position: { x: origin.x + index * 280, y: origin.y },
-        config: clone(draft.config),
+        config,
         bindings,
       }
       shadow.nodes.push(node)
@@ -911,6 +923,12 @@ export class EditorSession {
     if (!this.activeRun) return null
     this.activeRun = await this.transport.getRunTimeline(this.activeRun.runId)
     if (terminalStatus(this.activeRun.status)) this.phase = 'ready'
+    return this.activeRun
+  }
+
+  async loadTimelinePage(page: number): Promise<RunView | null> {
+    if (!this.activeRun) return null
+    this.activeRun = await this.transport.getRunTimelinePage(this.activeRun.runId, page, 200)
     return this.activeRun
   }
 
@@ -1124,6 +1142,13 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
     switch (command.kind) {
       case 'rename-workflow':
         return { kind: command.kind, renameWorkflow: { name: command.name } }
+      case 'set-target-default':
+        return {
+          kind: command.kind,
+          setTargetDefault: { target: command.target, slot: command.slot },
+        }
+      case 'clear-target-default':
+        return { kind: command.kind, clearTargetDefault: { target: command.target } }
       case 'add-state-variable':
         return {
           kind: command.kind,
@@ -1443,6 +1468,26 @@ function applyCommand(
       source.workflow.name = name
       return
     }
+    case 'set-target-default': {
+      const target = command.target.trim()
+      const slot = command.slot.trim()
+      if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(target))
+        throw new Error('target default name is invalid')
+      if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(slot))
+        throw new Error('target default slot is invalid')
+      const defaults = (source.targetDefaults ??= [])
+      const existing = defaults.find((candidate) => candidate.target === target)
+      if (existing) existing.slot = slot
+      else defaults.push({ target, slot })
+      defaults.sort((left, right) => left.target.localeCompare(right.target))
+      return
+    }
+    case 'clear-target-default':
+      source.targetDefaults = source.targetDefaults?.filter(
+        (candidate) => candidate.target !== command.target,
+      )
+      if (!source.targetDefaults?.length) delete source.targetDefaults
+      return
     case 'add-state-variable': {
       const name = command.name.trim()
       if (!/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(name) || name.length > 128)

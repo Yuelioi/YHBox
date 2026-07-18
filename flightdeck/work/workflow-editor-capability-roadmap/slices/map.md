@@ -1,6 +1,6 @@
 # Slice registry
 
-> 2026-07-18 架构审计撤销了既有 3.1 发布完成判定。Slices 1–26 的状态保留为历史实现记录；涉及真实产品闭环的完成项必须通过 Slice 27 capability ledger 和纵向旅程重新验收，不能直接作为发布证据。
+> 2026-07-18 架构审计撤销了既有 3.1 发布完成判定。Slices 1–26 的状态保留为历史实现记录；真实产品闭环必须通过 Slice 27 capability ledger 和纵向旅程重新验收。
 
 | Slice | 状态 | Blocked by | Outcome |
 | --- | --- | --- | --- |
@@ -29,15 +29,20 @@
 | [23 Typed Authoring 体验](23-typed-authoring-ux.md) | completed | 22 | 显式转换、typed State、跨图影响预览与 Compiler 门禁。 |
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
 | [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | completed | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |
-| [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | completed | 20 | 同进程原子激活目标、授权与多窗口选择，不再依赖重启。 |
-| [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | in_progress | 架构审计 | 恢复 umbrella；执行已拆入 Slices 29–37。 |
+| [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | completed | 20 | 同进程原子激活目标、授权与多窗口选择。 |
+| [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | in_progress | 架构审计 | R5 真机验收打回，纳入 Slices 38–42 后再判定。 |
 | [28 旧版 Knowledge 与架构文档复查](28-legacy-knowledge-reconciliation.md) | completed | 无 | 纠正现行知识漂移，保留并隔离 3.0 行为证据。 |
-| [29 恢复事实基线与发布账本](29-fact-baseline.md) | completed | 无 | 固定 oracle、ledger、golden journeys、dirty ownership 与历史知识退役表。 |
-| [30 Typed RPC 错误边界](30-typed-rpc-error-boundary.md) | completed | 29 | 结构化错误只在 domain action 决定反馈，消除吞错和假成功。 |
+| [29 恢复事实基线与发布账本](29-fact-baseline.md) | completed | 无 | 固定 oracle、ledger、golden journeys、dirty ownership 与退役表。 |
+| [30 Typed RPC 错误边界](30-typed-rpc-error-boundary.md) | completed | 29 | 结构化错误只在 domain action 决定反馈。 |
 | [31 Installation Manifest 与 Target Runtime](31-installation-manifest-target-runtime.md) | completed | 29–30 | 单一 manifest 与 generation owner 统一 authoring/admission/provider/policy。 |
-| [32 Recording Session](32-recording-session.md) | completed | 30–31 | 统一录制状态、规范化、保存、资源与回放 round-trip。 |
-| [33 Asset Picker Query](33-asset-picker-query.md) | completed | 29–30 | 搜索分页 picker 取代全量下拉并支持 1000 assets。 |
-| [34 Windows native 闭环](34-windows-native-closure.md) | completed | 30–33 | 完成 UAC、窗口、键鼠、截图、模板和录制真实旅程。 |
-| [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | completed | 33–34 | 补齐创作 UX、搜索/转换和 P0/P1 能力族。 |
-| [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | completed | 31、34–35 | Android/Browser 真实纵向闭环，macOS Adapter seam 编译证明通过。 |
-| [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | pending | 29–36 | 完整发布矩阵通过后清理/归档 3.0 Knowledge。 |
+| [32 Recording Session](32-recording-session.md) | completed | 30–31 | 基础 round-trip 完成；跨页面 owner 与创作闭环缺口由 39 接管。 |
+| [33 Asset Picker Query](33-asset-picker-query.md) | completed | 29–30 | 搜索分页完成；模板显式选择缺口由 39 接管。 |
+| [34 Windows native 闭环](34-windows-native-closure.md) | completed | 30–33 | Windows 基础能力可用；录制/调试产品闭环由 39、41 接管。 |
+| [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | completed | 33–34 | typed authoring 基础完成；target 继承与运行工作台由 40–41 接管。 |
+| [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | completed | 31、34–35 | Android/Browser 纵向闭环，macOS Adapter seam proof。 |
+| [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | in_progress | 29–36、38–42 | 自动矩阵完成；用户真机验收打回，等待四项闭环重验。 |
+| [38 用户真机测试 1 解决方案](38-user-device-test-1.md) | completed | 源码/真机审计 | 固定根因、研究、架构边界、验收矩阵与实施拆分。 |
+| [39 录制与资产创作闭环](39-recording-authoring-closure.md) | completed | 38 | 单 owner、可编辑 InputClip、双调用语义、模板确认。 |
+| [40 Effective Target 继承](40-effective-target-inheritance.md) | completed | 38 | workflow default + node override，经 Compiler 解析。 |
+| [41 运行工作台与调试反馈](41-runtime-workbench-debug.md) | completed | 38 | 分投影、分页边界、previous/current 单步语义。 |
+| [42 稳定 Workspace 根目录](42-stable-workspace-root.md) | completed | 38 | workspace-3.1 迁移到稳定 workspace。 |

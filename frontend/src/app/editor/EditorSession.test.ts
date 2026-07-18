@@ -35,8 +35,26 @@ const retry = node('https://schemas.yotta.dev/nodes/control/retry')
 const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-stream')
 const runStarted = node('https://schemas.yotta.dev/nodes/event/run-started')
 const endBranch = node('https://schemas.yotta.dev/nodes/control/end-branch')
+const clickPointer = node('https://schemas.yotta.dev/nodes/automation/click-pointer')
 
 describe('EditorSession', () => {
+  it('persists workflow target defaults without copying them into node config', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+
+    session.setTargetDefault('target', 'window-target')
+    expect(session.source?.targetDefaults).toEqual([{ target: 'target', slot: 'window-target' }])
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(source.workflow.id, 0, [
+      {
+        kind: 'set-target-default',
+        setTargetDefault: { target: 'target', slot: 'window-target' },
+      },
+    ])
+  })
+
   it('adds a catalog node when the session is consumed through Vue reactivity', async () => {
     const source = emptySource()
     const session = createEditorSession(
@@ -624,6 +642,36 @@ describe('EditorSession', () => {
     expect(session.currentGraph?.edges).toEqual([])
   })
 
+  it('lets recorded target nodes inherit the matching workflow default', async () => {
+    const source = emptySource()
+    source.targetDefaults = [{ target: 'target', slot: 'window-target' }]
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'recorded_click',
+    )
+    await session.load(source.workflow.id)
+
+    session.insertLinearDraft(
+      [
+        {
+          nodeTypeID: clickPointer.nodeRef.nodeTypeId,
+          config: { slot: 'window-target' },
+          values: {
+            point: { x: 0.5, y: 0.5, unit: 'ratio' },
+            button: 'left',
+            'hold-duration': 0,
+          },
+          blobs: {},
+          execInput: 'in',
+          execOutput: 'completed',
+        },
+      ],
+      { x: 100, y: 100 },
+    )
+
+    expect(session.currentGraph?.nodes[0]?.config).toEqual({})
+  })
+
   it('collapses a selection into a navigable graph call as one undoable edit', async () => {
     const source = emptySource()
     const ids = [
@@ -1051,6 +1099,9 @@ function runView(status: string): RunView {
     programHash: 'sha256:program',
     queuedAt: '2026-07-15T00:00:00Z',
     timeline: [],
+    timelinePage: 1,
+    timelinePages: 1,
+    timelineTotal: 0,
   } as RunView
 }
 
@@ -1122,6 +1173,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     cancelRun: vi.fn(async () => runView('CANCELLED')),
     cancelAllRuns: vi.fn(async () => undefined),
     getRunTimeline: vi.fn(async () => run),
+    getRunTimelinePage: vi.fn(async () => run),
     getAuthoringProjection: vi.fn(async () => JSON.stringify(authoring)),
   }
 }

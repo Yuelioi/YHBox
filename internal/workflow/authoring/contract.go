@@ -67,6 +67,8 @@ func GenerateSchema() ([]byte, error) {
 		payload string
 	}{
 		{CommandRenameWorkflow, "renameWorkflow"},
+		{CommandSetTargetDefault, "setTargetDefault"},
+		{CommandClearTargetDefault, "clearTargetDefault"},
 		{CommandAddStateVariable, "addStateVariable"},
 		{CommandUpdateStateVariable, "updateStateVariable"},
 		{CommandRemoveStateVariable, "removeStateVariable"},

@@ -6,6 +6,14 @@ export type Command =
       renameWorkflow: RenameWorkflowCommand
     }
   | {
+      kind: 'set-target-default'
+      setTargetDefault: SetTargetDefaultCommand
+    }
+  | {
+      clearTargetDefault: ClearTargetDefaultCommand
+      kind: 'clear-target-default'
+    }
+  | {
       addStateVariable: AddStateVariableCommand
       kind: 'add-state-variable'
     }
@@ -163,6 +171,13 @@ export interface YottaWorkflowAuthoringPatch {
 }
 export interface RenameWorkflowCommand {
   name: string
+}
+export interface SetTargetDefaultCommand {
+  slot: string
+  target: string
+}
+export interface ClearTargetDefaultCommand {
+  target: string
 }
 export interface AddStateVariableCommand {
   default: JSONValue

@@ -595,6 +595,15 @@ export const backend = {
       description: string
       category: string
       tags: string[]
+      actions?: Array<{
+        kind: 'keys' | 'click' | 'scroll'
+        delayUs: number
+        durationUs: number
+        keys?: string[]
+        button?: 'left' | 'middle' | 'right'
+        point?: { x: number; y: number; unit: 'ratio' }
+        notches?: number
+      }>
     }) => invoke(RecordingService.Finalize, args as any),
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
     pause: () => invoke(RecordingService.Pause),

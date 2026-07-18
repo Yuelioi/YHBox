@@ -2,7 +2,7 @@
 kind: note
 summary: "历史 3.0 Container lock-last 持久化协议；现行 3.1 已删除 Container，仅在旧基线/归档取证时读取。"
 activation: action
-read_when: "仅在审查 8316d590 附近的 3.0 Container 行为、归档迁移记录或解释旧 yotta-lock 数据时"
+read_when: "仅在恢复 archived Topic go-backend-architecture-review，或审查 8316d590 附近的 3.0 Container 行为、归档迁移记录时"
 recheck_when: "新增权威容器文件；改变 lock schema/hash；引入 import；实现 generation directory/current pointer；改变外部改盘或 MCP 写入契约"
 ---
 # Container lock-last commit 与恢复语义

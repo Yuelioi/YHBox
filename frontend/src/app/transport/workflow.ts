@@ -75,6 +75,7 @@ export interface WorkflowTransport {
   cancelRun(runId: string): Promise<RunView>
   cancelAllRuns(): Promise<void>
   getRunTimeline(runId: string): Promise<RunView>
+  getRunTimelinePage(runId: string, page: number, pageSize: number): Promise<RunView>
   getAuthoringProjection(): Promise<string>
 }
 
@@ -145,6 +146,8 @@ export const workflowTransport: WorkflowTransport = {
   cancelRun: (runId) => invoke(WorkflowService.CancelRun, runId),
   cancelAllRuns: () => invoke(WorkflowService.CancelAllRuns),
   getRunTimeline: (runId) => invoke(WorkflowService.GetRunTimeline, runId),
+  getRunTimelinePage: (runId, page, pageSize) =>
+    invoke(WorkflowService.GetRunTimelinePage, runId, page, pageSize),
   getAuthoringProjection: () => invoke(WorkflowService.GetAuthoringProjection),
 }
 

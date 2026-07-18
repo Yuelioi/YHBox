@@ -474,6 +474,19 @@
           }}
         </p>
       </div>
+      <RecordingActionEditor
+        v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
+        v-model="recordingActions"
+      />
+      <p v-else class="rounded-lg border border-default bg-sunken px-3 py-2 text-xs text-muted">
+        {{
+          t(
+            pendingRecording.mode === 'precise'
+              ? 'recordingEditor.precise_hint'
+              : 'recordingEditor.editing_unavailable',
+          )
+        }}
+      </p>
       <UFormField :label="t('recordingSave.name')" required>
         <UInput v-model="recordingDraft.name" autofocus maxlength="80" />
       </UFormField>
@@ -516,19 +529,20 @@ import { useToast } from '@nuxt/ui/composables'
 import { backend, type AssetSummary, type BlobRef } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import {
-  isRecordingStopPayload,
   useRecordingStore,
+  type RecordingAction,
   type RecordingMode,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore } from '@/stores/assets'
 import { useConfirm } from '@/composables/useConfirm'
-import { awaitWailsEvent, useWailsEvent } from '@/composables/useWailsEvent'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { useRecordingStart } from '@/composables/useRecordingStart'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
+import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
 
 type AssetTab = 'clips' | 'templates'
 type AssetItem = {
@@ -577,6 +591,7 @@ const editingItem = ref<AssetItem | null>(null)
 const editBusy = ref(false)
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const recordingSaveBusy = ref(false)
+const recordingActions = ref<RecordingAction[]>([])
 const editDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
@@ -655,19 +670,6 @@ const recordingHint = computed(() => {
   return t('assets.recording.hint')
 })
 
-useWailsEvent<unknown>('recording:completed', (raw) => {
-  const payload = Array.isArray(raw) ? raw[0] : raw
-  const eventError =
-    typeof payload === 'object' && payload !== null
-      ? (payload as { error?: unknown }).error
-      : undefined
-  if (typeof eventError === 'string') {
-    showError(t('recordingSave.save_failed'), eventError)
-    return
-  }
-  if (isRecordingStopPayload(payload)) openRecordingSave(payload)
-})
-
 onMounted(async () => {
   selectedTargetSlot.value = targetItems.value[0]?.value ?? ''
   await Promise.all([refreshAssets(), recording.reconcile()])
@@ -681,7 +683,18 @@ watch(activeTab, async () => {
 watch(
   () => recording.state.pending,
   (pending) => {
-    if (pending) openRecordingSave(pending)
+    if (!pending || (recording.invocation && recording.invocation !== 'library')) return
+    recording.claimInvocation('library')
+    openRecordingSave(pending)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => recording.completionFailure,
+  (failure) => {
+    if (failure && recording.invocation === 'library')
+      showError(t('recordingSave.save_failed'), failure.message)
   },
 )
 
@@ -824,7 +837,7 @@ function retainFailedSelection(guids: string[]): void {
 
 async function startRecording(): Promise<void> {
   try {
-    await beginRecording(recordingMode.value, selectedTargetSlot.value)
+    await beginRecording(recordingMode.value, selectedTargetSlot.value, 'library')
   } catch (error) {
     showError(t('assets.recording.start_failed'), error)
   }
@@ -858,6 +871,7 @@ async function stopRecording(): Promise<void> {
 function openRecordingSave(payload: RecordingStopPayload): void {
   if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
+  recordingActions.value = cloneRecordingActions(payload.actions ?? [])
   recordingDraft.name = ''
   recordingDraft.description = ''
   recordingDraft.category = ''
@@ -875,6 +889,7 @@ async function saveRecording(): Promise<void> {
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),
       tags: splitTags(recordingDraft.tags),
+      actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
     })
     pendingRecording.value = null
     await refreshAssets()
@@ -904,6 +919,14 @@ async function discardRecording(): Promise<void> {
   } finally {
     recordingSaveBusy.value = false
   }
+}
+
+function cloneRecordingActions(actions: RecordingAction[]): RecordingAction[] {
+  return actions.map((action) => ({
+    ...action,
+    keys: action.keys ? [...action.keys] : undefined,
+    point: action.point ? { ...action.point } : undefined,
+  }))
 }
 
 async function captureTemplate(): Promise<void> {

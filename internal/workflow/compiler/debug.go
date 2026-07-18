@@ -63,19 +63,22 @@ type DebugStateView struct {
 }
 
 type DebugSnapshot struct {
-	Status        DebugStatus                          `json:"status"`
-	RunStatus     string                               `json:"runStatus,omitempty"`
-	Generation    uint64                               `json:"generation"`
-	GraphPath     []string                             `json:"graphPath,omitempty"`
-	GraphID       string                               `json:"graphId,omitempty"`
-	NodeID        string                               `json:"nodeId,omitempty"`
-	Attempt       int                                  `json:"attempt,omitempty"`
-	Queue         []DebugQueueEntry                    `json:"queue"`
-	Inputs        map[string]DebugValueView            `json:"inputs"`
-	Outputs       map[string]map[string]DebugValueView `json:"outputs"`
-	State         map[string]DebugStateView            `json:"state"`
-	QueueTrimmed  bool                                 `json:"queueTrimmed,omitempty"`
-	ValuesTrimmed bool                                 `json:"valuesTrimmed,omitempty"`
+	Status            DebugStatus                          `json:"status"`
+	RunStatus         string                               `json:"runStatus,omitempty"`
+	Generation        uint64                               `json:"generation"`
+	GraphPath         []string                             `json:"graphPath,omitempty"`
+	GraphID           string                               `json:"graphId,omitempty"`
+	NodeID            string                               `json:"nodeId,omitempty"`
+	PreviousGraphPath []string                             `json:"previousGraphPath,omitempty"`
+	PreviousGraphID   string                               `json:"previousGraphId,omitempty"`
+	PreviousNodeID    string                               `json:"previousNodeId,omitempty"`
+	Attempt           int                                  `json:"attempt,omitempty"`
+	Queue             []DebugQueueEntry                    `json:"queue"`
+	Inputs            map[string]DebugValueView            `json:"inputs"`
+	Outputs           map[string]map[string]DebugValueView `json:"outputs"`
+	State             map[string]DebugStateView            `json:"state"`
+	QueueTrimmed      bool                                 `json:"queueTrimmed,omitempty"`
+	ValuesTrimmed     bool                                 `json:"valuesTrimmed,omitempty"`
 }
 
 type DebugControllerOptions struct {
@@ -280,6 +283,7 @@ func (c *DebugController) changedLocked() (DebugSnapshot, func(DebugSnapshot)) {
 func cloneDebugSnapshot(source DebugSnapshot) DebugSnapshot {
 	clone := source
 	clone.GraphPath = append([]string(nil), source.GraphPath...)
+	clone.PreviousGraphPath = append([]string(nil), source.PreviousGraphPath...)
 	clone.Queue = make([]DebugQueueEntry, len(source.Queue))
 	for index, entry := range source.Queue {
 		clone.Queue[index] = entry

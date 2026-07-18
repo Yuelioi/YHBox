@@ -78,6 +78,31 @@ func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
 	}
 }
 
+func TestEngineSetsAndClearsWorkflowTargetDefault(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "unused" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind:             authoring.CommandSetTargetDefault,
+		SetTargetDefault: &authoring.SetTargetDefaultCommand{Target: "target", Slot: "window-target"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slot, ok := schema.TargetDefaultSlot(set.Source, "target"); !ok || slot != "window-target" {
+		t.Fatalf("target defaults = %+v", set.Source.TargetDefaults)
+	}
+	cleared, err := engine.Apply(set.Source, []authoring.Command{{
+		Kind:               authoring.CommandClearTargetDefault,
+		ClearTargetDefault: &authoring.ClearTargetDefaultCommand{Target: "target"},
+	}})
+	if err != nil || len(cleared.Source.TargetDefaults) != 0 {
+		t.Fatalf("cleared=%+v err=%v", cleared.Source.TargetDefaults, err)
+	}
+}
+
 func TestEngineCollapsesSelectionAndProtectsReferencedSubgraph(t *testing.T) {
 	builtins, projection := testContracts(t)
 	ids := []string{"root", "delay", "end"}

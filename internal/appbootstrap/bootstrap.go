@@ -158,7 +158,10 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build compiler identity: %w", err)
 	}
-	workspace := filepath.Join(root, "workspace-3.1")
+	workspace, err := resolveWorkspaceRoot(root)
+	if err != nil {
+		return nil, err
+	}
 	sources, err := workflowstore.OpenSourceStore(filepath.Join(workspace, "workflows"), workflowstore.SourceStoreOptions{MaxSources: config.Limits.MaxSources})
 	if err != nil {
 		return nil, err

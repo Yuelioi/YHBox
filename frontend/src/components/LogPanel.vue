@@ -1,7 +1,8 @@
 <template>
   <div
     class="flex shrink-0 flex-col border-t border-default bg-default"
-    :style="{ height: collapsed ? '32px' : 'clamp(180px, 28vh, 320px)' }"
+    :class="embedded ? 'h-full border-0' : ''"
+    :style="embedded ? undefined : { height: collapsed ? '32px' : 'clamp(180px, 28vh, 320px)' }"
   >
     <!-- header -->
     <div class="flex h-8 shrink-0 select-none items-center border-b border-default px-2">
@@ -10,9 +11,11 @@
         class="flex h-full min-w-0 flex-1 items-center gap-2 rounded px-1 text-left hover:bg-elevated/40"
         :aria-expanded="!collapsed"
         aria-controls="app-log-panel-body"
+        :disabled="embedded"
         @click="togglePanel"
       >
         <UIcon
+          v-if="!embedded"
           :name="collapsed ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
           class="size-3.5 shrink-0 text-dimmed"
         />
@@ -280,6 +283,7 @@ import { useI18n } from 'vue-i18n'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
 
+const props = defineProps<{ embedded?: boolean }>()
 const { t } = useI18n()
 const logStore = useLogStore()
 const settingsStore = useSettingsStore()
@@ -294,8 +298,10 @@ const logLevelItems = [
 ]
 
 const collapsed = computed({
-  get: () => !(settingsStore.data?.ui.logger.panelOpen ?? true),
-  set: (v) => settingsStore.patch({ ui: { logger: { panelOpen: !v } } }),
+  get: () => (props.embedded ? false : !(settingsStore.data?.ui.logger.panelOpen ?? true)),
+  set: (v) => {
+    if (!props.embedded) settingsStore.patch({ ui: { logger: { panelOpen: !v } } })
+  },
 })
 
 function togglePanel() {

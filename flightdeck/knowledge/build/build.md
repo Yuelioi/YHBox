@@ -38,7 +38,7 @@ Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed�
 
 ## 运行 / smoke
 
-- Windows automation native smoke：`task windows:smoke:automation`。修改 `pkg/input`、`pkg/winutil`、Windows adapter、窗口捕获或 recorder native path 后，在阶段末批量运行。
+- Windows automation native smoke：`task windows:smoke:automation`。修改 `pkg/input`、`pkg/winutil`、Windows adapter、窗口捕获或 recorder native path 后，在阶段末批量运行。该 smoke 使用全局 SendInput、foreground 与 native hook，必须串行且占用独立桌面；不要与其它 UI smoke 并行或中途强杀。当前前台若是更高完整性进程，应以与 production 相同的管理员完整性运行 smoke，不得靠反复重试刷绿；中断后先清理精确测试进程并确认输入状态。
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
 - Workflow WebView smoke 只能证明页面/创作入口；catalog node 数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。

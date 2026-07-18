@@ -7,7 +7,7 @@ read_when: "撞 ClickTemplate/WaitTemplate「检测到了/走了 Done 但游戏�
 # ⚠ 模板点击「认第一次命中就点 → 转场时太早 → 点空」+ SettleMs 修法
 **Date**: 2026-06-13（用户报 ClickTemplate 自动跑「点了不生效」, 手动单跑/前面垫 Sleep 就好）
 
-相关前案: [slate-click-up-coords-and-hold-lifecycle.md](../input/slate-click-up-coords-and-hold-lifecycle.md)、[node-timed-input-loses-backend-activate.md](../input/node-timed-input-loses-backend-activate.md)（都是输入落点/时序; 本案是**检测时序**, 不是落点也不是激活)。
+相关前案: [slate-click-up-coords-and-hold-lifecycle.md](../input/slate-click-up-coords-and-hold-lifecycle.md)、[installed-input-authority.md](../architecture/installed-input-authority.md)（都是输入落点/时序; 本案是**检测时序**, 不是落点也不是激活)。
 
 ## 根因（用户实测钉死, 排除了"未就绪/未激活"）
 

@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 124,
-    "models": 173
+    "methods": 125,
+    "models": 176
   },
   "services": [
     {
@@ -1392,6 +1392,28 @@
               "name": "runID",
               "optional": false,
               "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RunView>"
+        },
+        {
+          "name": "GetRunTimelinePage",
+          "bindingId": "2375378609",
+          "parameters": [
+            {
+              "name": "runID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "page",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "pageSize",
+              "optional": false,
+              "type": "number"
             }
           ],
           "returns": "$CancellablePromise<$models.RunView>"
@@ -4123,6 +4145,11 @@
               "name": "\"tags\"",
               "optional": false,
               "type": "string[]"
+            },
+            {
+              "name": "\"actions\"",
+              "optional": true,
+              "type": "RecordingAction[] | null"
             }
           ]
         },
@@ -4170,6 +4197,47 @@
               "name": "\"unit\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RecordingAction",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"delayUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"keys\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"button\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"point\"",
+              "optional": true,
+              "type": "Point | null"
+            },
+            {
+              "name": "\"notches\"",
+              "optional": true,
+              "type": "number"
             }
           ]
         },
@@ -4257,6 +4325,16 @@
               "name": "\"point\"",
               "optional": true,
               "type": "Point | null"
+            },
+            {
+              "name": "\"notches\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"samples\"",
+              "optional": true,
+              "type": "number"
             }
           ]
         },
@@ -4360,6 +4438,11 @@
               "name": "\"preview\"",
               "optional": false,
               "type": "RecordingPreview"
+            },
+            {
+              "name": "\"actions\"",
+              "optional": true,
+              "type": "RecordingAction[]"
             }
           ]
         },
@@ -5041,6 +5124,21 @@
               "name": "\"timeline\"",
               "optional": false,
               "type": "TimelineEntry[]"
+            },
+            {
+              "name": "\"timelinePage\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"timelinePages\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"timelineTotal\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         },
@@ -5462,6 +5560,17 @@
         },
         {
           "kind": "class",
+          "name": "ClearTargetDefaultCommand",
+          "fields": [
+            {
+              "name": "\"target\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "CollapseSelectionCommand",
           "fields": [
             {
@@ -5509,6 +5618,16 @@
               "name": "\"renameWorkflow\"",
               "optional": true,
               "type": "RenameWorkflowCommand | null"
+            },
+            {
+              "name": "\"setTargetDefault\"",
+              "optional": true,
+              "type": "SetTargetDefaultCommand | null"
+            },
+            {
+              "name": "\"clearTargetDefault\"",
+              "optional": true,
+              "type": "ClearTargetDefaultCommand | null"
             },
             {
               "name": "\"addStateVariable\"",
@@ -5663,6 +5782,14 @@
             {
               "name": "CommandRenameWorkflow",
               "value": "\"rename-workflow\""
+            },
+            {
+              "name": "CommandSetTargetDefault",
+              "value": "\"set-target-default\""
+            },
+            {
+              "name": "CommandClearTargetDefault",
+              "value": "\"clear-target-default\""
             },
             {
               "name": "CommandAddStateVariable",
@@ -6081,6 +6208,22 @@
         },
         {
           "kind": "class",
+          "name": "SetTargetDefaultCommand",
+          "fields": [
+            {
+              "name": "\"target\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"slot\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "UpdateStateVariableCommand",
           "fields": [
             {
@@ -6199,6 +6342,21 @@
             },
             {
               "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"previousGraphPath\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"previousGraphId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"previousNodeId\"",
               "optional": true,
               "type": "string"
             },

@@ -125,7 +125,7 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 		return result, expandErr
 	}
 	result.Diagnostics = append(result.Diagnostics, expansionDiagnostics...)
-	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, request.Catalog, c.validators, stateByName, request.BlobVerifier)
+	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, source.TargetDefaults, request.Catalog, c.validators, stateByName, request.BlobVerifier)
 	if compileErr != nil {
 		return CompileResult{}, compileErr
 	}
@@ -242,7 +242,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, targetDefaults []schema.TargetDefault, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -273,16 +273,23 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			diagnostics = append(diagnostics, diagnosticAtNode(CodeUnsupportedSourceFeature, append(path, "nodeRef"), graph.ID, sourceNode.ID))
 			continue
 		}
-		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, sourceNode.Config); err != nil {
+		effectiveConfig, err := effectiveNodeConfig(targetDefaults, sourceNode, machine)
+		if err != nil {
+			diagnostic := diagnosticAtNode(CodeInvalidCapabilityBinding, append(path, "config"), graph.ID, sourceNode.ID)
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+			effectiveConfig = sourceNode.Config
+		}
+		if err := validateJSONSchemaBundleCached(validators, "config:"+sourceNode.NodeRef.SemanticDigest.String(), machine.ConfigSchemaRoot, machine.ConfigSchemaBundle, effectiveConfig); err != nil {
 			diagnostic := diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID)
 			diagnostic.Params["reason"] = err.Error()
 			diagnostics = append(diagnostics, diagnostic)
-		} else if err := configValidators.Validate(machine, sourceNode.Config); err != nil {
+		} else if err := configValidators.Validate(machine, effectiveConfig); err != nil {
 			diagnostic := diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID)
 			diagnostic.Params["reason"] = err.Error()
 			diagnostics = append(diagnostics, diagnostic)
 		}
-		effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, sourceNode.Config)
+		effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, effectiveConfig)
 		if err != nil {
 			diagnostic := diagnosticAtNode(CodeInvalidCapabilityBinding, append(path, "config"), graph.ID, sourceNode.ID)
 			diagnostic.Params["reason"] = err.Error()
@@ -290,7 +297,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			effectiveRequirements = append([]capability.Requirement(nil), machine.CapabilityRequirements...)
 		}
 		for _, access := range machine.StateAccesses {
-			slotName, ok := sourceNode.Config[access.SlotConfigKey].(string)
+			slotName, ok := effectiveConfig[access.SlotConfigKey].(string)
 			slot, exists := state[slotName]
 			if !ok || !exists {
 				diagnostic := diagnosticAtNode(CodeInvalidStateAccess, append(path, "config", access.SlotConfigKey), graph.ID, sourceNode.ID)
@@ -310,7 +317,7 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, catal
 			}
 		}
 		plan := programNode{
-			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: sourceNode.Config,
+			ID: sourceNode.ID, NodeRef: sourceNode.NodeRef, Config: effectiveConfig,
 			Inputs: map[string]inputPlan{}, InputTypes: map[string]datatype.ResolvedType{}, OutputTypes: map[string]datatype.ResolvedType{},
 			Ports: machine.Ports, Execution: machine.Execution, Instruction: machine.Instruction,
 			HostFeatures:   append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...),

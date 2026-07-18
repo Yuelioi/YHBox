@@ -32,6 +32,7 @@ declare module 'vue' {
     ListRow: typeof import('./src/components/common/ListRow.vue')['default']
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
     PickerMagnifier: typeof import('./src/components/tools/PickerMagnifier.vue')['default']
+    RecordingActionEditor: typeof import('./src/components/recording/RecordingActionEditor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScheduleEditorPanel: typeof import('./src/components/schedules/ScheduleEditorPanel.vue')['default']

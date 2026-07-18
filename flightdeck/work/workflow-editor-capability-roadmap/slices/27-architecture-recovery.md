@@ -171,4 +171,4 @@ R0–R5 已按独立 outcome 拆为可执行 Slices；本文件保留为恢复 u
 
 ## Result
 
-In progress。架构审计与旧 Knowledge/docs 复查已完成；R0 的 reference worktree、账本、黄金旅程、退役 registry 与工作树归属已建立，后续动作以 Slices 29–37 为准。
+In progress。R0–R4 已完成；R5 自动矩阵、frozen candidate 与 3.0 Knowledge 退役已完成。仅等待最终 UAC 用户接受验收。

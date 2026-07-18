@@ -2,7 +2,7 @@
 kind: trap
 summary: "历史 3.0 keep-alive/全局子图 store 串上下文案例；3.1 异步/多编辑器结果仍必须绑定 source ID、revision 与 graph ID。"
 activation: symptom
-read_when: "审查 3.0 keep-alive 子图故障，或排查 3.1 多编辑器/异步结果写入错误 source revision/graph context 时"
+read_when: "仅在恢复 archived Topic asset-workbench-upgrade，或取证 3.0 keep-alive 子图故障时；现行异步规则读 node-system-architecture"
 ---
 # ⚠ keep-alive 缓存编辑器共享全局单例子图 store 致跨容器"(子图未找到)"
 

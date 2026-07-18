@@ -46,42 +46,48 @@ func (r testSourceRepository) PublishImportedSource(ctx context.Context, raw []b
 
 func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	ctx := context.Background()
-	sources := openTestSources(t)
-	blobs := openTestBlobs(t)
-	ref, err := blobs.Put(ctx, "application/octet-stream", strings.NewReader("portable payload"))
+	sourceStore := openTestSources(t)
+	sourceBlobs := openTestBlobs(t)
+	ref, err := sourceBlobs.Put(ctx, "application/octet-stream", strings.NewReader("portable payload"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := testSource("source_workflow", "Portable source", ref)
-	original, err := sources.Save(ctx, source, -1)
+	original, err := sourceStore.Save(ctx, source, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager, err := New(testSourceRepository{sources}, blobs)
+	sourceManager, err := New(testSourceRepository{sourceStore}, sourceBlobs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager.newID = func() string { return "imported_workflow" }
 	destination := filepath.Join(t.TempDir(), "portable"+Extension)
-	exported, err := manager.Export(ctx, original.WorkflowID(), destination)
+	exported, err := sourceManager.Export(ctx, original.WorkflowID(), destination)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if exported.Info.SourceHash != original.Hash() || exported.Info.BlobCount != 1 || exported.Info.BlobBytes != ref.Size {
 		t.Fatalf("export info = %#v", exported.Info)
 	}
-	inspected, err := manager.Inspect(ctx, destination)
+	inspected, err := sourceManager.Inspect(ctx, destination)
 	if err != nil || inspected.WorkflowID != original.WorkflowID() {
 		t.Fatalf("Inspect() = %#v, %v", inspected, err)
 	}
-	imported, err := manager.Import(ctx, ImportRequest{Path: destination, Mode: ImportCopy})
+	targetStore := openTestSources(t)
+	targetBlobs := openTestBlobs(t)
+	targetManager, err := New(testSourceRepository{targetStore}, targetBlobs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetManager.newID = func() string { return "imported_workflow" }
+	imported, err := targetManager.Import(ctx, ImportRequest{Path: destination, Mode: ImportCopy})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if imported.Source.WorkflowID() != "imported_workflow" || imported.Source.Revision() != 0 || imported.Source.Hash() == original.Hash() {
 		t.Fatalf("imported source = id %q revision %d hash %q", imported.Source.WorkflowID(), imported.Source.Revision(), imported.Source.Hash())
 	}
-	if err := blobs.Verify(ctx, ref); err != nil {
+	if err := targetBlobs.Verify(ctx, ref); err != nil {
 		t.Fatalf("imported blob failed verification: %v", err)
 	}
 }

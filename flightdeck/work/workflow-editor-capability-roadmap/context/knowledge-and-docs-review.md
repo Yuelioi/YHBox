@@ -34,21 +34,17 @@
 
 ## 新旧架构差异
 
-| 3.0 概念 | 3.1 接受替代 | 当前状态 |
+| 3.0 | 3.1 | R5 |
 | --- | --- | --- |
-| `nodepkg.Spec` + init Registry + kind dispatch | versioned Node Contract + sealed Catalog + implementation lock | 内核已成立 |
-| Runnable/RegionRunner/Evaluator | ExecutionSpec + host instruction + installed adapter | 已成立 |
-| Container graph/runtime/vars | Workflow Source → Compiler → Program → Executor + typed Run State | 已成立；外围旅程待复验 |
-| exec DataField + global held-output cache | Program data plan + activation-scoped push output | 已成立 |
-| local/global/auto VarStore、GetVar/SetVar | typed State declaration + StateRead/Write/Metadata | 已成立，创作体验需要继续验证 |
-| goja Script 节点函数、yt console、Expr | one-shot isolated JSON Script；typed authoring patch；显式节点/转换 | 安全边界已成立，旧便捷性不机械恢复 |
-| Win32 target 节点/临时 HWND | installation slot + application identity + exact/regex selector | 部分成立；profile/lifecycle seam 需重构 |
-| 节点/target capability 多处分支 | 单一 installation manifest 派生 projection/admission/providers | 目标设计；当前仍有二次投影 |
-| 启动时安装快照 | atomic generation + Run lease + idle reclaim | 目标设计；当前过渡实现未闭合 |
-| 旧资源 picker/dock | paged AssetPickerQuery → exact BlobRef | 管理页部分成立，节点 picker 未闭合 |
-| 旧录制 player/session | Recording Session → canonical inputclip → asset → playback | contract/组件存在，真实 round-trip 失败过 |
-| 旧 debug runtime/region step | 同一 Executor scheduler + DebugController | 内核已成立 |
-| Android/Browser 专用链 | adapter-owned profile/manifest/runtime | runtime registry 有基础，完整 profile/UI seam 未成立 |
+| Spec/init dispatch | versioned Contract + sealed Catalog | verified |
+| Container runtime/vars | Source → Compiler → Program → Executor + typed State | verified |
+| yt/Expr | isolated Script + typed authoring | remove |
+| HWND target | installation slot + exact/regex resolver | verified native/UAC |
+| capability 分支/启动快照 | Manifest + generation/lease/reclaim | verified |
+| 旧 picker | paged Query/Picker + exact BlobRef | verified 1000×2 |
+| 分裂录制 | Session → clip → asset → playback | verified native |
+| Android/Browser 专链 | adapter-owned profile/manifest/runtime | verified |
+| virtual subgraph | Source-native graph/interface/GraphCall | verified |
 
 ## 本次纠正的高风险漂移
 
@@ -69,12 +65,9 @@
 - node architecture、add-node、reference、contract style、data flow、typed State、isolated Script、error/validation、debug/recording/conformance traps。
 - build 基线去除易漂移的测试/RPC/bundle硬编码数量。
 
-### 保留但收窄为历史 3.0
+### R5 已退役的 3.0 主动 Knowledge
 
-- Container durability、old PinLiteral/Geometry、yt console、Container LogMerger、Normalize/MCP、Expr/Ctx/held-output/PinValue。
-- 旧 virtual Subgraph marker、draft/editorStore、cross-store cache、keep-alive singleton、mergePool 等 trap。
-
-这些条目仍被 archived Topics 引用，因此没有删除；其 `read_when` 已限制到旧基线/归档取证，并加入不得回接 3.1 的说明。
+15 条无依赖旧知识已删除；3 条 archived Topic 固定引用的历史证据因 Flightdeck 归档不可变约束保留原路径，并严格收窄 `read_when`。主动路由不再把旧实现当现行规则。
 
 ### 仍需按触发条件复验
 
@@ -84,27 +77,6 @@
 
 ## 框架健康结论
 
-“当前框架没啥大问题，只是不够完善”只对 **执行内核** 成立，对整个产品架构不成立。
+2026-07-18 审计准确：当时内核健康、外围未闭合。R1–R4 已重建 Typed RPC、Installation Manifest/Target Runtime、Recording Session、Asset Query/Picker 与 adapter-owned profiles，并用 Windows/Android/Browser 纵向复验。
 
-### 没有根本方向问题、应保留
-
-- versioned Data Type / Node Contract / Catalog；
-- Workflow Source → Compiler → Program → Executor 唯一路径；
-- strict types、explicit conversions、typed State；
-- capability/admission/Run Grant、resource lease；
-- durable Run journal 与同 scheduler debugger；
-- Source-native GraphCall/authoring command。
-
-### 不只是功能缺失、必须结构性修复
-
-- adapter descriptor → Host Profile capability 的第二事实源；
-- target/settings/authoring/admission/provider 的 generation lifecycle 分裂；
-- platform Adapter 没拥有 profile/schema/editor 全链；
-- recording 没有形成单一 Session/invariant owner；
-- Asset library 和 node picker 两条查询/身份链；
-- frontend RPC transport 吞错并制造二次错误；
-- 巨型 UI/application modules 使用户流程缺少 locality；
-- Stage acceptance 以组件/数量/页面可见代替黄金旅程。
-
-所以准确说法是：**内核架构健康且可继续投资；外围架构存在可定位、可重构的边界问题；产品能力还不完整。无需推翻重写，但也不能只补齐几个节点和 UI 就发布。**
-
+R5 结论：**内核与外围架构均可继续投资，无需推翻重写；自动发布矩阵已闭合，等待最终用户验收。** 新平台仍只新增 Adapter/runtime，不修改 Source、Compiler、scheduler 或中央 ProfileDraft。

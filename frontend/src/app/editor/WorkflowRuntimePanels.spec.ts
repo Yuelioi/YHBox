@@ -7,6 +7,7 @@ const toolbar = read('WorkflowEditorToolbar.vue')
 const diagnostics = read('WorkflowDiagnosticsPanel.vue')
 const timeline = read('RunTimelinePanel.vue')
 const debuggerPanel = read('WorkflowDebuggerPanel.vue')
+const workbench = read('WorkflowRuntimeWorkbench.vue')
 const node = read('WorkflowNode.vue')
 const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
@@ -26,6 +27,30 @@ describe('workflow runtime inspection UI', () => {
     expect(debuggerPanel).toContain("emit('step')")
     expect(debuggerPanel).toContain("emit('continue')")
     expect(debuggerPanel).toContain("emit('pause')")
+    expect(debuggerPanel).toContain('workflow.debug.will_execute')
+    expect(debuggerPanel).toContain('snapshot.previousNodeId')
+  })
+
+  it('keeps normal runs quiet and unifies logs, timeline, and debug in one workbench', () => {
+    const startRun = editor.slice(
+      editor.indexOf('async function startRun'),
+      editor.indexOf('async function startDebug'),
+    )
+    expect(startRun).not.toContain("openRuntimeWorkbench('timeline')")
+    expect(workbench).toContain("activate('logs')")
+    expect(workbench).toContain("activate('timeline')")
+    expect(workbench).toContain("activate('debug')")
+    expect(workbench).toContain('<LogPanel v-if=')
+    expect(editor).toContain("if (run?.failure) openRuntimeWorkbench('logs')")
+    expect(editor).toContain(
+      "if (event.snapshot.status === 'paused') openRuntimeWorkbench('debug')",
+    )
+  })
+
+  it('represents an unset target through the placeholder instead of an invalid empty select item', () => {
+    expect(editor).toContain('workflow.target_default.placeholder')
+    expect(editor).toContain('workflow.target_default.clear')
+    expect(editor).not.toContain("label: t('workflow.target_default.none'), value: ''")
   })
 
   it('groups compiler diagnostics and shows only compiler-declared fixes', () => {
@@ -40,6 +65,7 @@ describe('workflow runtime inspection UI', () => {
     expect(editor).toContain('session.openGraphPath(graphPath)')
     expect(editor).toContain('await setCenter(')
     expect(node).toContain('data-testid="node-run-status"')
+    expect(timeline).toContain("emit('page', run.timelinePage + 1)")
   })
 
   it('renders structured run and RPC failures as localized messages', () => {

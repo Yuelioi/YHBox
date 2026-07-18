@@ -11,7 +11,7 @@
 - Browser CDP 在 installation、Settings、policy、provider/admission、Catalog 和健康诊断完整后声明支持。
 - 所有阶段按批量验收原则留下可信 build、test 与宿主 smoke 证据。
 
-2026-07-18 架构审计确认以上定义**尚未满足**；此前完成判定已撤销。执行内核升级已形成，但产品连续性、外围模块边界和真实宿主纵向验收仍需按 Slice 27 恢复。
+2026-07-18 审计撤销此前完成判定；R1–R5 已重建外围并完成自动发布矩阵。当前只等待最终用户验收，不存在 post-3.1 延期项。
 
 ## 执行原则
 
@@ -34,7 +34,7 @@
 | R4 平台连续性 | 36 | Android/ADB、Browser CDP、macOS seam proof | G16/G17 + emulator/browser smoke + cross-platform compile；一个 commit |
 | R5 发布 | 37 | 全矩阵、规模、生命周期、workspace 恢复与 3.0 Knowledge 退役 | G01–G17、完整 `task check`/build/native matrix、用户验收 |
 
-当前阶段：R1 已于 2026-07-18 完成并形成统一 `task check` 证据；下一阶段是 R2 / Slice 34，不能用 R1 contract 结果替代 Windows native smoke。
+当前阶段：R1–R4 已形成阶段 commit；R5 完整矩阵与 Knowledge 退役完成，等待用户验收后形成 R5 stage commit。
 
 具体 completion、blocked-by、verification 和 out-of-scope 只在对应 Slice 维护；[Slice 27](slices/27-architecture-recovery.md) 是恢复设计 umbrella，[Slice registry](slices/map.md) 是完整状态表。
 
@@ -44,5 +44,4 @@ Slices 1–26 只证明相应组件和历史批次曾实现，不能直接作为
 
 ## 发布阈值
 
-本计划定义的 3.1 major upgrade 发布阈值**尚未满足**。后续以 capability ledger、G01–G17 和 Slice 37 的真实宿主矩阵为唯一完成依据；签名、安装包和 license 表述仍属于发布工程，但不得替代产品能力验收。
-
+R5 自动发布阈值已满足；最终“3.1 major upgrade 完成”声明只等待用户在真实 1920/UAC 桌面接受 candidate。签名、安装包和许可证仍是独立发布工程。

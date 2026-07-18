@@ -34,6 +34,14 @@
 | `knowledge/subgraph/merge-pool-preserves-created-empty-shell.md` | 旧 mergePool；含原子 authoring 原则 | delete-after-promotion |
 | `knowledge/subgraph/subgraph-marker-pin-convention.md` | 旧 marker pin；含单一 contract 派生原则 | delete-after-promotion |
 
+## R5 retirement result
+
+- 15 条无 recovery dependency 的旧知识删除。
+- 3 条 archived Topic 固定引用的旧知识保留原路径并收窄 `read_when`；Flightdeck 禁止修改 archived Topic，不能手改绕过后物理移动。
+- 4 条主动 Knowledge 的旧链接修复；Vue Flow 相机改为 Source-native graph viewport。
+- 现行 Knowledge 吸收 defaults、strict fixture、Source/revision ownership 与 native smoke 完整性规则。
+- R5 checkpoints exact knowledgeCount = 1 + 10 + 15 = 26。
+
 ## R5 retirement gate
 
 1. 对每个路径运行 active/archived Topic 反向引用扫描。

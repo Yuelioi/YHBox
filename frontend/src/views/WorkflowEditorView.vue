@@ -54,8 +54,8 @@
         @toggle-state="toggleStatePanel"
         @compile="compile"
         @toggle-diagnostics="diagnosticsOpen = !diagnosticsOpen"
-        @toggle-timeline="runTimelineOpen = !runTimelineOpen"
-        @toggle-debugger="debuggerOpen = !debuggerOpen"
+        @toggle-timeline="toggleRuntimeWorkbench('timeline')"
+        @toggle-debugger="toggleRuntimeWorkbench('debug')"
         @start-debug="startDebug"
         @start-recording="openRecordingStart"
         @pause-recording="pauseRecording"
@@ -79,6 +79,29 @@
               @click="openGraphAt(index)"
             />
           </template>
+        </div>
+        <div class="flex items-center gap-2 border-l border-default pl-3">
+          <span class="hidden text-xs text-muted xl:inline">{{
+            t('workflow.target_default.label')
+          }}</span>
+          <USelect
+            :model-value="workflowDefaultTargetSlot"
+            :items="workflowAutomationTargetItems"
+            value-key="value"
+            label-key="label"
+            class="w-56"
+            :placeholder="t('workflow.target_default.placeholder')"
+            @update:model-value="setWorkflowDefaultTarget"
+          />
+          <UButton
+            v-if="workflowDefaultTargetSlot"
+            icon="i-tabler-x"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="t('workflow.target_default.clear')"
+            @click="session.setTargetDefault('target', '')"
+          />
         </div>
         <UDropdownMenu :items="graphMenuItems">
           <UButton
@@ -515,27 +538,26 @@
           :node="selectedNode"
           :projection="selectedProjection"
           :variables="session.source?.variables ?? []"
+          :target-defaults="session.source?.targetDefaults ?? []"
           :types="session.authoring?.body.types ?? []"
           @command="applyCommand"
         />
       </div>
 
-      <RunTimelinePanel
-        v-if="session.activeRun && runTimelineOpen"
+      <WorkflowRuntimeWorkbench
+        v-model:open="runtimeWorkbenchOpen"
+        v-model:tab="runtimeWorkbenchTab"
         :run="session.activeRun"
+        :snapshot="session.debugSnapshot"
+        :debug-busy="debugControlBusy"
+        :node-labels="debugNodeLabels"
         @cancel="cancelRun"
         @refresh="refreshRun"
+        @page="loadTimelinePage"
         @focus-node="focusNode"
-        @close="runTimelineOpen = false"
-      />
-      <WorkflowDebuggerPanel
-        v-if="session.debugSnapshot && debuggerOpen"
-        :snapshot="session.debugSnapshot"
         @continue="controlDebug('continue')"
         @pause="controlDebug('pause')"
         @step="controlDebug('step')"
-        @stop="cancelRun"
-        @close="debuggerOpen = false"
       />
 
       <BaseModal
@@ -822,6 +844,16 @@
         <p v-if="pendingRecording.preview.mode === 'precise'" class="text-xs leading-5 text-muted">
           {{ t('workflow.recording.trajectory_hint') }}
         </p>
+        <RecordingActionEditor
+          v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
+          v-model="recordingActions"
+        />
+        <p
+          v-else-if="pendingRecording.mode === 'simple'"
+          class="rounded-lg border border-default bg-sunken px-3 py-2 text-xs text-muted"
+        >
+          {{ t('recordingEditor.editing_unavailable') }}
+        </p>
         <UFormField :label="t('recordingSave.name')" required>
           <UInput v-model="recordingDraft.name" maxlength="80" autofocus />
         </UFormField>
@@ -903,10 +935,9 @@ import { useRecordingStart } from '@/composables/useRecordingStart'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
-import RunTimelinePanel from '@/app/editor/RunTimelinePanel.vue'
 import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
-import WorkflowDebuggerPanel from '@/app/editor/WorkflowDebuggerPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
+import WorkflowRuntimeWorkbench from '@/app/editor/WorkflowRuntimeWorkbench.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
@@ -917,10 +948,10 @@ import WorkflowGraphCallInspector from '@/app/editor/WorkflowGraphCallInspector.
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { useWailsEvent } from '@/composables/useWailsEvent'
+import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
 import {
-  isRecordingStopPayload,
   useRecordingStore,
+  type RecordingAction,
   type RecordingFinalizePayload,
   type RecordingMode,
   type RecordingStopPayload,
@@ -1002,8 +1033,16 @@ const connectionError = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
 const diagnosticsOpen = ref(false)
-const runTimelineOpen = ref(false)
-const debuggerOpen = ref(false)
+type RuntimeWorkbenchTab = 'logs' | 'timeline' | 'debug'
+const runtimeWorkbenchOpen = ref(false)
+const runtimeWorkbenchTab = ref<RuntimeWorkbenchTab>('logs')
+const debugControlBusy = ref(false)
+const runTimelineOpen = computed(
+  () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'timeline',
+)
+const debuggerOpen = computed(
+  () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'debug',
+)
 const breakpointKeys = ref(new Set<string>())
 const recordingStartOpen = ref(false)
 const recordingTargetSlot = ref('')
@@ -1012,6 +1051,7 @@ const recordingControlBusy = ref(false)
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const finalizedRecording = ref<RecordingFinalizePayload | null>(null)
 const recordingSaveBusy = ref(false)
+const recordingActions = ref<RecordingAction[]>([])
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
   { label: t('recordingSave.mode_simple'), value: 'simple' },
@@ -1366,6 +1406,16 @@ const runActive = computed(() =>
 const nodeRunStatusById = computed(() =>
   nodeRunStatuses(session.activeRun, session.currentGraph?.id ?? ''),
 )
+const debugNodeLabels = computed<Record<string, string>>(() =>
+  Object.fromEntries(
+    (session.source?.graphs ?? []).flatMap((graph) =>
+      graph.nodes.map((node) => {
+        const projection = session.nodeProjection(node.nodeRef.nodeTypeId)
+        return [node.id, node.label || (projection ? projectionTitle(projection) : node.id)]
+      }),
+    ),
+  ),
+)
 const recordingTargetItems = computed(() =>
   (settings.data?.automation.targets ?? [])
     .filter((target) => target.targetKind === 'desktop-window')
@@ -1374,24 +1424,40 @@ const recordingTargetItems = computed(() =>
       value: target.slot,
     })),
 )
+const workflowDefaultTargetSlot = computed(
+  () => session.source?.targetDefaults?.find((item) => item.target === 'target')?.slot ?? '',
+)
+const workflowAutomationTargetItems = computed(() =>
+  (settings.data?.automation.targets ?? []).map((target) => ({
+    label: `${target.label} · ${target.slot}`,
+    value: target.slot,
+  })),
+)
 
-useWailsEvent<unknown>('recording:completed', (raw) => {
-  const payload = Array.isArray(raw) ? raw[0] : raw
-  const eventError =
-    typeof payload === 'object' && payload !== null
-      ? (payload as { error?: unknown }).error
-      : undefined
-  if (typeof eventError === 'string') {
-    showError(t('recordingSave.save_failed'), eventError)
-    return
-  }
-  if (isRecordingStopPayload(payload)) openRecordingPreview(payload)
-})
+function setWorkflowDefaultTarget(value: unknown): void {
+  session.setTargetDefault('target', typeof value === 'string' ? value : '')
+}
 
 watch(
   () => recording.state.pending,
   (pending) => {
-    if (pending) openRecordingPreview(pending)
+    if (
+      !pending ||
+      route.name !== 'workflow-edit' ||
+      (recording.invocation && recording.invocation !== 'editor')
+    )
+      return
+    recording.claimInvocation('editor')
+    openRecordingPreview(pending)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => recording.completionFailure,
+  (failure) => {
+    if (failure && recording.invocation === 'editor')
+      showError(t('recordingSave.save_failed'), failure.message)
   },
 )
 
@@ -1412,7 +1478,7 @@ onMounted(async () => {
   })
   unsubscribeDebug = onDebugChanged((event) => {
     if (!session.acceptDebugSnapshot(event.runId, event.snapshot)) return
-    debuggerOpen.value = true
+    if (event.snapshot.status === 'paused') openRuntimeWorkbench('debug')
     if (event.snapshot.status === 'paused' && event.snapshot.nodeId) {
       void focusNode(event.snapshot.graphId ? [event.snapshot.graphId] : [], event.snapshot.nodeId)
     }
@@ -1482,7 +1548,7 @@ async function startRecording(): Promise<void> {
   if (!recordingTargetSlot.value) return
   recordingControlBusy.value = true
   try {
-    if (await beginRecording(recordingMode.value, recordingTargetSlot.value)) {
+    if (await beginRecording(recordingMode.value, recordingTargetSlot.value, 'editor')) {
       recordingStartOpen.value = false
     }
   } catch (error) {
@@ -1521,6 +1587,7 @@ async function stopRecording(): Promise<void> {
 function openRecordingPreview(payload: RecordingStopPayload): void {
   if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
+  recordingActions.value = cloneRecordingActions(payload.actions ?? [])
   finalizedRecording.value = null
   recordingDraft.name = ''
   recordingDraft.description = ''
@@ -1541,6 +1608,7 @@ async function saveAndInsertRecording(): Promise<void> {
         description: recordingDraft.description.trim(),
         category: recordingDraft.category.trim(),
         tags: splitRecordingTags(recordingDraft.tags),
+        actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
       }))
     finalizedRecording.value = finalized
     const rect = canvasElement.value?.getBoundingClientRect()
@@ -1578,6 +1646,14 @@ async function discardPendingRecording(): Promise<void> {
   } finally {
     recordingSaveBusy.value = false
   }
+}
+
+function cloneRecordingActions(actions: RecordingAction[]): RecordingAction[] {
+  return actions.map((action) => ({
+    ...action,
+    keys: action.keys ? [...action.keys] : undefined,
+    point: action.point ? { ...action.point } : undefined,
+  }))
 }
 
 function splitRecordingTags(value: string): string[] {
@@ -2488,9 +2564,8 @@ async function acceptAIProposal(): Promise<void> {
 
 async function startRun(): Promise<void> {
   try {
-    const run = await session.run()
+    await session.run()
     diagnosticsOpen.value = session.diagnostics.length > 0
-    if (run) runTimelineOpen.value = true
   } catch (error) {
     showError(t('workflow.toast.run_failed'), error)
   }
@@ -2501,8 +2576,7 @@ async function startDebug(): Promise<void> {
     const run = await session.startDebug(debugBreakpoints())
     diagnosticsOpen.value = session.diagnostics.length > 0
     if (!run) return
-    debuggerOpen.value = true
-    runTimelineOpen.value = false
+    openRuntimeWorkbench('debug')
     const snapshot = session.debugSnapshot
     if (snapshot?.status === 'paused' && snapshot.nodeId) {
       await focusNode(
@@ -2516,10 +2590,14 @@ async function startDebug(): Promise<void> {
 }
 
 async function controlDebug(action: 'continue' | 'pause' | 'step'): Promise<void> {
+  if (debugControlBusy.value) return
+  debugControlBusy.value = true
   try {
     await session.controlDebug(action)
   } catch (error) {
     showError(t('workflow.toast.debug_failed'), error)
+  } finally {
+    debugControlBusy.value = false
   }
 }
 
@@ -2576,10 +2654,32 @@ async function cancelRun(): Promise<void> {
 
 async function refreshRun(): Promise<void> {
   try {
-    await session.refreshRun()
+    const run = await session.refreshRun()
+    if (run?.failure) openRuntimeWorkbench('logs')
   } catch (error) {
     showError(t('workflow.toast.refresh_failed'), error)
   }
+}
+
+async function loadTimelinePage(page: number): Promise<void> {
+  try {
+    await session.loadTimelinePage(page)
+  } catch (error) {
+    showError(t('workflow.toast.refresh_failed'), error)
+  }
+}
+
+function openRuntimeWorkbench(tab: RuntimeWorkbenchTab): void {
+  runtimeWorkbenchTab.value = tab
+  runtimeWorkbenchOpen.value = true
+}
+
+function toggleRuntimeWorkbench(tab: RuntimeWorkbenchTab): void {
+  if (runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === tab) {
+    runtimeWorkbenchOpen.value = false
+    return
+  }
+  openRuntimeWorkbench(tab)
 }
 
 async function focusDiagnostic(diagnostic: WorkflowDiagnostic): Promise<void> {

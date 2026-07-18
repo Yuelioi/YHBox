@@ -45,7 +45,9 @@ describe('workflow authoring foundations', () => {
     const source = readSource('src/views/AssetsView.vue')
     const router = readSource('src/router/index.ts')
     expect(router).toContain("path: '/assets'")
-    expect(source).toContain('beginRecording(recordingMode.value, selectedTargetSlot.value)')
+    expect(source).toContain(
+      "beginRecording(recordingMode.value, selectedTargetSlot.value, 'library')",
+    )
     expect(source).toContain("openScreenPicker('template_save'")
     expect(source).toContain('backend.assets.updateMeta')
     expect(source).toContain("'template_recapture'")
@@ -72,6 +74,8 @@ describe('workflow authoring foundations', () => {
     const picker = readSource('src/components/assets/AssetPickerModal.vue')
 
     expect(inputEditor).toContain('<AssetPickerModal')
+    expect(picker).toContain('confirmSelection')
+    expect(picker).toContain("'assetPicker.use_template'")
     expect(picker).toContain('assets.query')
     expect(picker).toContain('thumbnailBudget: 12')
     expect(inspector).not.toContain('clipsStore.refresh')

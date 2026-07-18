@@ -32,6 +32,12 @@ Authoring Projection          Workflow Source → Compiler → Program
 - `internal/noderuntime`：按 implementation entrypoint 安装 adapter，并在调用时只取得 typed inputs、trigger、窄 capability session、action recorder 和 state binding。
 - `internal/workflow/compiler`：唯一编译、scheduler、region instruction、error route、state 和 debug 路径。
 
+## Authoring ownership
+
+Workflow Source snapshot 是唯一创作事实。创建 graph、插入复合节点、修改 interface/edge 或应用 AI patch 必须作为一个 Source command 产生一个 revision；不能先写临时 store 再补第二次提交。异步 layout、picker、AI 或编译结果必须绑定 source identity、revision 和 graph context，过期即丢弃。
+
+Graph interface、edge validation、Authoring Projection 与 compiler lowering 必须从同一 Node/Data Type contract 派生。Runtime invocation 只接收 typed inputs、trigger、窄 capability session、action recorder 和 state binding，不暴露 service bundle、当前 Source 或 ambient editor state。
+
 ## 执行分类
 
 Node Contract 显式声明 execution class、pull/push evaluation、determinism、cache、retry、cancellation、timeout 和 effects。普通节点使用 `invoke`；Run root、counted loop、for-each、retry 等由 host instruction lower。纯数据没有 exec port；status event 不可连线；error 与 exec 是独立 channel。

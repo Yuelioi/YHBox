@@ -28,14 +28,20 @@ const (
 )
 
 type WorkflowSource struct {
-	Format     string      `json:"format" jsonschema:"required,enum=yotta.workflow"`
-	Version    string      `json:"version" jsonschema:"required,enum=3.1"`
-	Workflow   Workflow    `json:"workflow" jsonschema:"required"`
-	Revision   int64       `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
-	EntryGraph string      `json:"entryGraph" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
-	Graphs     []Graph     `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
-	Variables  []Variable  `json:"variables" jsonschema:"required,maxItems=4096"`
-	SecretRefs []SecretRef `json:"secretRefs" jsonschema:"required,maxItems=4096"`
+	Format         string          `json:"format" jsonschema:"required,enum=yotta.workflow"`
+	Version        string          `json:"version" jsonschema:"required,enum=3.1"`
+	Workflow       Workflow        `json:"workflow" jsonschema:"required"`
+	Revision       int64           `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
+	EntryGraph     string          `json:"entryGraph" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Graphs         []Graph         `json:"graphs" jsonschema:"required,minItems=1,maxItems=256"`
+	TargetDefaults []TargetDefault `json:"targetDefaults,omitempty" jsonschema:"maxItems=64"`
+	Variables      []Variable      `json:"variables" jsonschema:"required,maxItems=4096"`
+	SecretRefs     []SecretRef     `json:"secretRefs" jsonschema:"required,maxItems=4096"`
+}
+
+type TargetDefault struct {
+	Target string `json:"target" jsonschema:"required,maxLength=128,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
+	Slot   string `json:"slot" jsonschema:"required,maxLength=128,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
 }
 
 type Workflow struct {
