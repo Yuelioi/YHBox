@@ -437,6 +437,50 @@ describe('EditorSession', () => {
     expect(session.currentGraph?.nodes).toHaveLength(2)
   })
 
+  it('changes an unreferenced state type and default atomically', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'unused')
+    await session.load(source.workflow.id)
+    const stringType = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/string/'),
+    )!
+    const integerType = authoring.body.types.find((type) =>
+      type.typeRef.typeId.includes('/core/integer/'),
+    )!
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'value',
+      type: { kind: 'ref', ref: stringType.typeRef },
+      defaultValue: '',
+    })
+    session.apply({
+      kind: 'update-state-variable',
+      name: 'value',
+      type: { kind: 'ref', ref: integerType.typeRef },
+      defaultValue: 0,
+    })
+    expect(session.source?.variables[0]).toEqual({
+      name: 'value',
+      type: { kind: 'ref', ref: integerType.typeRef },
+      default: 0,
+    })
+    session.undo()
+    expect(session.source?.variables[0]?.type).toEqual({ kind: 'ref', ref: stringType.typeRef })
+    session.redo()
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(
+      source.workflow.id,
+      0,
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'update-state-variable',
+          updateStateVariable: expect.objectContaining({ name: 'value', default: 0 }),
+        }),
+      ]),
+    )
+  })
+
   it('inserts Delay from the RunStarted exec output', async () => {
     const source = emptySource()
     const ids = ['run-started', 'delay']

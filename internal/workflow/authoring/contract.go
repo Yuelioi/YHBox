@@ -68,6 +68,7 @@ func GenerateSchema() ([]byte, error) {
 	}{
 		{CommandRenameWorkflow, "renameWorkflow"},
 		{CommandAddStateVariable, "addStateVariable"},
+		{CommandUpdateStateVariable, "updateStateVariable"},
 		{CommandRemoveStateVariable, "removeStateVariable"},
 		{CommandAddNode, "addNode"},
 		{CommandRemoveNode, "removeNode"},

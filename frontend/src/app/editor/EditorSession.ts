@@ -50,6 +50,7 @@ export interface LinearWorkflowDraftNode {
 export type EditorCommand =
   | { kind: 'rename-workflow'; name: string }
   | { kind: 'add-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
+  | { kind: 'update-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
   | { kind: 'remove-state-variable'; name: string }
   | { kind: 'add-node'; nodeTypeId: string; position: { x: number; y: number }; nodeId?: string }
   | { kind: 'remove-node'; nodeId: string }
@@ -1018,6 +1019,15 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             default: jsonValue(command.defaultValue),
           },
         }
+      case 'update-state-variable':
+        return {
+          kind: command.kind,
+          updateStateVariable: {
+            name: command.name,
+            type: clone(command.type),
+            default: clone(command.defaultValue) as WorkflowJSONValue,
+          },
+        }
       case 'remove-state-variable':
         return { kind: command.kind, removeStateVariable: { name: command.name } }
       case 'add-node':
@@ -1331,6 +1341,21 @@ function applyCommand(
         type: clone(command.type),
         default: clone(command.defaultValue),
       })
+      return
+    }
+    case 'update-state-variable': {
+      const variable = source.variables.find((candidate) => candidate.name === command.name)
+      if (!variable) throw new Error(`state variable ${command.name} does not exist`)
+      const referenced = source.graphs.some((candidate) =>
+        candidate.nodes.some(
+          (node) =>
+            node.nodeRef.nodeTypeId.includes('/nodes/state/') &&
+            node.config.variable === command.name,
+        ),
+      )
+      if (referenced) throw new Error(`state variable ${command.name} is still referenced`)
+      variable.type = clone(command.type)
+      variable.default = clone(command.defaultValue)
       return
     }
     case 'remove-state-variable': {

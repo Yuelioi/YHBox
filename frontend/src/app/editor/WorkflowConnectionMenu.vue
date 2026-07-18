@@ -84,6 +84,19 @@
       <div v-else class="px-3 py-8 text-center text-xs text-muted">
         {{ t('workflow.connection.no_results') }}
       </div>
+      <UButton
+        v-if="visibleCandidates.length < matchingCandidates.length"
+        color="neutral"
+        variant="soft"
+        size="sm"
+        class="mt-2 w-full justify-center"
+        :label="
+          t('workflow.connection.show_more', {
+            remaining: matchingCandidates.length - visibleCandidates.length,
+          })
+        "
+        @click="visibleLimit += CANDIDATE_PAGE_SIZE"
+      />
     </div>
 
     <div class="border-t border-default p-2">
@@ -103,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ParsedHandle } from './graphHandles'
 
@@ -133,14 +146,21 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const query = ref('')
 const showAll = ref(false)
+const CANDIDATE_PAGE_SIZE = 80
+const visibleLimit = ref(CANDIDATE_PAGE_SIZE)
 const searchInput = ref<{ inputRef?: HTMLInputElement } | null>(null)
 
-const visibleCandidates = computed(() => {
+const matchingCandidates = computed(() => {
   const normalized = query.value.trim().toLocaleLowerCase()
   const candidates = showAll.value ? props.allCandidates : props.compatibleCandidates
   return normalized
     ? candidates.filter((candidate) => candidate.searchText.includes(normalized))
     : candidates
+})
+const visibleCandidates = computed(() => matchingCandidates.value.slice(0, visibleLimit.value))
+
+watch([query, showAll], () => {
+  visibleLimit.value = CANDIDATE_PAGE_SIZE
 })
 
 onMounted(() => {

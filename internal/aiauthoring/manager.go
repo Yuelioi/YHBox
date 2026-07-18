@@ -636,6 +636,8 @@ func commandTarget(command authoring.Command) string {
 		return "workflow"
 	case authoring.CommandAddStateVariable:
 		return "state:" + command.AddStateVariable.Name
+	case authoring.CommandUpdateStateVariable:
+		return "state:" + command.UpdateStateVariable.Name
 	case authoring.CommandRemoveStateVariable:
 		return "state:" + command.RemoveStateVariable.Name
 	case authoring.CommandAddNode:

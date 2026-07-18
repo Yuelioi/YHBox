@@ -38,6 +38,7 @@ type CommandKind string
 const (
 	CommandRenameWorkflow       CommandKind = "rename-workflow"
 	CommandAddStateVariable     CommandKind = "add-state-variable"
+	CommandUpdateStateVariable  CommandKind = "update-state-variable"
 	CommandRemoveStateVariable  CommandKind = "remove-state-variable"
 	CommandAddNode              CommandKind = "add-node"
 	CommandRemoveNode           CommandKind = "remove-node"
@@ -73,6 +74,7 @@ type Command struct {
 	Kind                 CommandKind                 `json:"kind"`
 	RenameWorkflow       *RenameWorkflowCommand      `json:"renameWorkflow,omitempty"`
 	AddStateVariable     *AddStateVariableCommand    `json:"addStateVariable,omitempty"`
+	UpdateStateVariable  *UpdateStateVariableCommand `json:"updateStateVariable,omitempty"`
 	RemoveStateVariable  *RemoveStateVariableCommand `json:"removeStateVariable,omitempty"`
 	AddNode              *AddNodeCommand             `json:"addNode,omitempty"`
 	RemoveNode           *NodeCommand                `json:"removeNode,omitempty"`
@@ -108,6 +110,12 @@ type RenameWorkflowCommand struct {
 }
 
 type AddStateVariableCommand struct {
+	Name    string                  `json:"name"`
+	Type    datatype.TypeExpression `json:"type"`
+	Default any                     `json:"default"`
+}
+
+type UpdateStateVariableCommand struct {
 	Name    string                  `json:"name"`
 	Type    datatype.TypeExpression `json:"type"`
 	Default any                     `json:"default"`
@@ -342,6 +350,28 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 			return patchError(index, "INVALID_STATE_DEFAULT", err.Error())
 		}
 		source.Variables = append(source.Variables, schema.Variable{Name: payload.Name, Type: payload.Type, Default: value})
+	case CommandUpdateStateVariable:
+		payload := command.UpdateStateVariable
+		if !hasStateVariable(*source, payload.Name) {
+			return patchError(index, "UNKNOWN_STATE", "state variable does not exist")
+		}
+		if e.stateVariableReferenced(*source, payload.Name) {
+			return patchError(index, "REFERENCE_IN_USE", "state variable type cannot change while it is referenced")
+		}
+		if err := payload.Type.Validate(); err != nil {
+			return patchError(index, "INVALID_STATE_TYPE", err.Error())
+		}
+		value, err := rawValue(payload.Default)
+		if err != nil {
+			return patchError(index, "INVALID_STATE_DEFAULT", err.Error())
+		}
+		for variableIndex := range source.Variables {
+			if source.Variables[variableIndex].Name == payload.Name {
+				source.Variables[variableIndex].Type = payload.Type
+				source.Variables[variableIndex].Default = value
+				break
+			}
+		}
 	case CommandRemoveStateVariable:
 		name := command.RemoveStateVariable.Name
 		if !hasStateVariable(*source, name) {
@@ -770,7 +800,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 
 func validateTaggedCommand(command Command) error {
 	payloads := []bool{
-		command.RenameWorkflow != nil, command.AddStateVariable != nil, command.RemoveStateVariable != nil,
+		command.RenameWorkflow != nil, command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
 		command.AddNode != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
 		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.ClearBinding != nil,
@@ -792,6 +822,7 @@ func validateTaggedCommand(command Command) error {
 	}
 	matches := map[CommandKind]bool{
 		CommandRenameWorkflow: command.RenameWorkflow != nil, CommandAddStateVariable: command.AddStateVariable != nil,
+		CommandUpdateStateVariable: command.UpdateStateVariable != nil,
 		CommandRemoveStateVariable: command.RemoveStateVariable != nil, CommandAddNode: command.AddNode != nil,
 		CommandRemoveNode: command.RemoveNode != nil, CommandMoveNode: command.MoveNode != nil,
 		CommandSetNodeLabel: command.SetNodeLabel != nil, CommandSetNodeDisabled: command.SetNodeDisabled != nil,

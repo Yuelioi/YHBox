@@ -4,7 +4,7 @@
   "summary": {
     "services": 14,
     "methods": 119,
-    "models": 166
+    "models": 167
   },
   "services": [
     {
@@ -5319,6 +5319,11 @@
               "type": "AddStateVariableCommand | null"
             },
             {
+              "name": "\"updateStateVariable\"",
+              "optional": true,
+              "type": "UpdateStateVariableCommand | null"
+            },
+            {
               "name": "\"removeStateVariable\"",
               "optional": true,
               "type": "RemoveStateVariableCommand | null"
@@ -5465,6 +5470,10 @@
             {
               "name": "CommandAddStateVariable",
               "value": "\"add-state-variable\""
+            },
+            {
+              "name": "CommandUpdateStateVariable",
+              "value": "\"update-state-variable\""
             },
             {
               "name": "CommandRemoveStateVariable",
@@ -5870,6 +5879,27 @@
               "name": "\"label\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "UpdateStateVariableCommand",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "datatype$0.TypeExpression"
+            },
+            {
+              "name": "\"default\"",
+              "optional": false,
+              "type": "any"
             }
           ]
         }

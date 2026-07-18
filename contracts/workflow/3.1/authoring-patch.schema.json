@@ -280,6 +280,22 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
+              "const": "update-state-variable"
+            },
+            "updateStateVariable": {
+              "$ref": "#/$defs/UpdateStateVariableCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateStateVariable"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
               "const": "remove-state-variable"
             },
             "removeStateVariable": {
@@ -1466,6 +1482,24 @@
       "required": [
         "typeId",
         "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "UpdateStateVariableCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "default": true,
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default"
       ],
       "type": "object"
     }

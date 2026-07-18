@@ -10,6 +10,10 @@ export type Command =
       kind: 'add-state-variable'
     }
   | {
+      kind: 'update-state-variable'
+      updateStateVariable: UpdateStateVariableCommand
+    }
+  | {
       kind: 'remove-state-variable'
       removeStateVariable: RemoveStateVariableCommand
     }
@@ -168,6 +172,11 @@ export interface AddStateVariableCommand {
 export interface TypeRef {
   semanticDigest: string
   typeId: string
+}
+export interface UpdateStateVariableCommand {
+  default: any
+  name: string
+  type: TypeExpression
 }
 export interface RemoveStateVariableCommand {
   name: string

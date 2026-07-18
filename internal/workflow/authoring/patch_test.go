@@ -342,6 +342,9 @@ func TestEngineRejectsMutationThatBreaksStateContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, command := range []authoring.Command{
+		{Kind: authoring.CommandUpdateStateVariable, UpdateStateVariable: &authoring.UpdateStateVariableCommand{
+			Name: "message", Type: datatype.RefExpression(builtins.IntegerType.TypeRef()), Default: 0,
+		}},
 		{Kind: authoring.CommandClearConfig, ClearConfig: &authoring.FieldCommand{GraphID: "main", NodeID: "node-read", FieldID: "variable"}},
 		{Kind: authoring.CommandRemoveStateVariable, RemoveStateVariable: &authoring.RemoveStateVariableCommand{Name: "message"}},
 	} {
@@ -353,6 +356,36 @@ func TestEngineRejectsMutationThatBreaksStateContract(t *testing.T) {
 	}
 	if result.Source.Revision != 1 || len(result.Source.Variables) != 1 {
 		t.Fatalf("failed mutations changed source = %#v", result.Source)
+	}
+}
+
+func TestEngineUpdatesUnreferencedStateTypeAndDefault(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandAddStateVariable,
+		AddStateVariable: &authoring.AddStateVariableCommand{
+			Name: "value", Type: datatype.RefExpression(builtins.StringType.TypeRef()), Default: "",
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := engine.Apply(created.Source, []authoring.Command{{
+		Kind: authoring.CommandUpdateStateVariable,
+		UpdateStateVariable: &authoring.UpdateStateVariableCommand{
+			Name: "value", Type: datatype.RefExpression(builtins.IntegerType.TypeRef()), Default: 0,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	variable := updated.Source.Variables[0]
+	if variable.Type.Ref == nil || *variable.Type.Ref != builtins.IntegerType.TypeRef() || string(variable.Default) != "0" {
+		t.Fatalf("updated state = %#v", variable)
 	}
 }
 

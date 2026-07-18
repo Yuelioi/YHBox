@@ -66,66 +66,123 @@
 
       <div v-if="filteredVariables.length" class="space-y-2">
         <div
-          v-for="variable in filteredVariables"
+          v-for="variable in visibleVariables"
           :key="variable.name"
-          draggable="true"
-          class="flex cursor-grab items-center gap-2 rounded-lg border border-default bg-elevated/35 px-3 py-2.5 active:cursor-grabbing"
-          :title="t('workflow.state_panel.drag_hint')"
-          @dragstart="startStateDrag($event, variable.name)"
+          class="rounded-lg border border-default bg-elevated/35"
         >
-          <UIcon name="i-tabler-grip-vertical" class="size-4 shrink-0 text-dimmed" />
-          <span class="min-w-0 flex-1 truncate font-mono text-xs text-toned">{{
-            variable.name
-          }}</span>
-          <span class="max-w-28 truncate text-[10px] text-dimmed">{{
-            variableTypeLabel(variable)
-          }}</span>
-          <UButton
-            v-if="referenceCount(variable.name)"
-            icon="i-tabler-focus-2"
-            color="neutral"
-            variant="soft"
-            size="xs"
-            :label="String(referenceCount(variable.name))"
-            :aria-label="
-              t('workflow.state_panel.locate_references', {
-                name: variable.name,
-                count: referenceCount(variable.name),
-              })
-            "
-            @click="emit('locate', variable.name)"
-          />
-          <UButton
-            icon="i-tabler-database-export"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="t('workflow.state_panel.insert_read', { name: variable.name })"
-            @click="emit('insert', variable.name, 'read')"
-          />
-          <UButton
-            icon="i-tabler-database-import"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :aria-label="t('workflow.state_panel.insert_write', { name: variable.name })"
-            @click="emit('insert', variable.name, 'write')"
-          />
-          <UButton
-            icon="i-tabler-trash"
-            color="error"
-            variant="ghost"
-            size="xs"
-            :disabled="referenceCount(variable.name) > 0"
-            :title="
-              referenceCount(variable.name)
-                ? t('workflow.state_panel.remove_referenced')
-                : undefined
-            "
-            :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
-            @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
-          />
+          <div
+            draggable="true"
+            class="flex cursor-grab items-center gap-2 px-3 py-2.5 active:cursor-grabbing"
+            :title="t('workflow.state_panel.drag_hint')"
+            @dragstart="startStateDrag($event, variable.name)"
+          >
+            <UIcon name="i-tabler-grip-vertical" class="size-4 shrink-0 text-dimmed" />
+            <span class="min-w-0 flex-1 truncate font-mono text-xs text-toned">{{
+              variable.name
+            }}</span>
+            <span class="max-w-28 truncate text-[10px] text-dimmed">{{
+              variableTypeLabel(variable)
+            }}</span>
+            <UButton
+              v-if="referenceCount(variable.name)"
+              icon="i-tabler-focus-2"
+              color="neutral"
+              variant="soft"
+              size="xs"
+              :label="String(referenceCount(variable.name))"
+              :aria-label="
+                t('workflow.state_panel.locate_references', {
+                  name: variable.name,
+                  count: referenceCount(variable.name),
+                })
+              "
+              @click="emit('locate', variable.name)"
+            />
+            <UButton
+              icon="i-tabler-database-export"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="t('workflow.state_panel.insert_read', { name: variable.name })"
+              @click="emit('insert', variable.name, 'read')"
+            />
+            <UButton
+              icon="i-tabler-database-import"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :aria-label="t('workflow.state_panel.insert_write', { name: variable.name })"
+              @click="emit('insert', variable.name, 'write')"
+            />
+            <UButton
+              icon="i-tabler-edit"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :disabled="referenceCount(variable.name) > 0"
+              :title="
+                referenceCount(variable.name)
+                  ? t('workflow.state_panel.type_change_referenced')
+                  : undefined
+              "
+              :aria-label="t('workflow.state_panel.type_change', { name: variable.name })"
+              @click="beginTypeChange(variable)"
+            />
+            <UButton
+              icon="i-tabler-trash"
+              color="error"
+              variant="ghost"
+              size="xs"
+              :disabled="referenceCount(variable.name) > 0"
+              :title="
+                referenceCount(variable.name)
+                  ? t('workflow.state_panel.remove_referenced')
+                  : undefined
+              "
+              :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
+              @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
+            />
+          </div>
+          <div
+            v-if="editingName === variable.name"
+            class="flex items-center gap-2 border-t border-default px-3 py-2"
+          >
+            <USelect
+              v-model="editingTypeId"
+              class="min-w-0 flex-1"
+              :items="stateTypeItems"
+              value-key="value"
+              label-key="label"
+              size="sm"
+            />
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :label="t('common.cancel')"
+              @click="cancelTypeChange"
+            />
+            <UButton
+              size="xs"
+              :label="t('common.confirm')"
+              :disabled="!editingTypeId"
+              @click="commitTypeChange(variable.name)"
+            />
+          </div>
         </div>
+        <UButton
+          v-if="visibleVariables.length < filteredVariables.length"
+          color="neutral"
+          variant="soft"
+          size="sm"
+          class="w-full justify-center"
+          :label="
+            t('workflow.state_panel.show_more', {
+              remaining: filteredVariables.length - visibleVariables.length,
+            })
+          "
+          @click="visibleLimit += STATE_PAGE_SIZE"
+        />
       </div>
 
       <div v-else class="rounded-lg border border-dashed border-default px-4 py-8 text-center">
@@ -164,6 +221,10 @@ const { t, te } = useI18n()
 const newVariableName = ref('')
 const newVariableTypeId = ref('')
 const searchQuery = ref('')
+const editingName = ref('')
+const editingTypeId = ref('')
+const STATE_PAGE_SIZE = 100
+const visibleLimit = ref(STATE_PAGE_SIZE)
 const filteredVariables = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   if (!query) return props.variables
@@ -173,6 +234,7 @@ const filteredVariables = computed(() => {
     ),
   )
 })
+const visibleVariables = computed(() => filteredVariables.value.slice(0, visibleLimit.value))
 const stateTypes = computed(() =>
   props.types.filter((type) => type.traits.includes('durable') && hasValidDefault(type)),
 )
@@ -201,6 +263,10 @@ watch(
   },
   { immediate: true },
 )
+
+watch(searchQuery, () => {
+  visibleLimit.value = STATE_PAGE_SIZE
+})
 
 function addStateVariable(): void {
   const type = selectedStateType.value
@@ -249,6 +315,32 @@ function variableTypeLabel(variable: Variable): string {
 
 function referenceCount(name: string): number {
   return props.references[name] ?? 0
+}
+
+function beginTypeChange(variable: Variable): void {
+  if (referenceCount(variable.name)) return
+  editingName.value = variable.name
+  editingTypeId.value = variable.type.kind === 'ref' ? variable.type.ref.typeId : ''
+}
+
+function cancelTypeChange(): void {
+  editingName.value = ''
+  editingTypeId.value = ''
+}
+
+function commitTypeChange(name: string): void {
+  if (referenceCount(name)) return
+  const type = stateTypes.value.find(
+    (candidate) => candidate.typeRef.typeId === editingTypeId.value,
+  )
+  if (!type) return
+  emit('command', {
+    kind: 'update-state-variable',
+    name,
+    type: { kind: 'ref', ref: { ...type.typeRef } },
+    defaultValue: defaultStateValue(type),
+  })
+  cancelTypeChange()
 }
 
 function startStateDrag(event: DragEvent, name: string): void {

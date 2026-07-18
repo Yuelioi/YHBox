@@ -1586,6 +1586,7 @@ export default {
       no_results: 'No matching compatible nodes',
       show_all: 'Show all nodes',
       show_compatible: 'Show compatible nodes',
+      show_more: 'Show {remaining} more',
       match_exact: 'Exact',
       match_assignable: 'Compatible',
       match_generic_bind: 'Inferred',
@@ -1671,6 +1672,9 @@ export default {
       insert_failed: 'Could not insert the state reference',
       locate_references: 'Locate references to {name}; {count} total',
       remove_referenced: 'Remove or rebind every reference before deleting this state variable',
+      type_change: 'Change the type of state {name}',
+      type_change_referenced: 'Locate and migrate every reference before changing this state type',
+      show_more: 'Show {remaining} more',
       promote_title: 'Promote to Run state',
       promote_action: 'Promote to state',
       promote_hint:
