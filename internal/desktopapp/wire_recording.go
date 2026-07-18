@@ -54,8 +54,5 @@ func (a *recordingHkAdapter) GetMouseMode() string {
 // registry 取 (recording.stop/pause, ll-hook 机制), 不再读 settings raw 字段。
 func newRecordingService(app *services.App, clipSvc *inputclip.Service, reg *hotkey.HotkeyRegistry, targets automationinstalled.AuthoringTargets, emit ...func(name string, data any)) *recording.Service {
 	rec := recording.NewRecorder()
-	rec.SetMouseCounts360Getter(func() int {
-		return app.Settings().ActiveMouseCounts360()
-	})
 	return recording.NewService(rec, &recordingHkAdapter{app: app, reg: reg}, clipSvc, targets, emit...)
 }

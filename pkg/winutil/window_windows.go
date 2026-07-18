@@ -301,24 +301,39 @@ func queryProcessPath(pid uint32) (string, error) {
 }
 
 // ResolveUniqueExecutableWindow resolves one visible top-level window owned by
-// the exact installed executable. Title and class are optional exact selectors;
-// multiple matches fail instead of silently selecting by Z order.
-func ResolveUniqueExecutableWindow(ctx context.Context, executable, title, class string, timeout, interval time.Duration) (WindowHandle, error) {
+// the exact installed executable. The title uses the explicitly installed
+// exact/regex mode; class remains exact. Multiple matches fail instead of
+// silently selecting by Z order.
+func ResolveUniqueExecutableWindow(ctx context.Context, executable string, spec MatchSpec, timeout, interval time.Duration) (WindowHandle, error) {
+	return ResolveExecutableWindow(ctx, executable, spec, "unique", timeout, interval)
+}
+
+// ResolveExecutableWindow applies an explicit multi-match policy. "unique"
+// fails on ambiguity; "topmost" deterministically follows current Win32
+// Z-order and is intended for dynamic multi-window applications.
+func ResolveExecutableWindow(ctx context.Context, executable string, spec MatchSpec, selection string, timeout, interval time.Duration) (WindowHandle, error) {
 	if ctx == nil || executable == "" || !filepath.IsAbs(executable) || timeout <= 0 || interval <= 0 {
 		return WindowHandle{}, errors.New("invalid exact executable window selector")
+	}
+	if selection != "unique" && selection != "topmost" {
+		return WindowHandle{}, errors.New("invalid executable window selection policy")
+	}
+	query, err := newExecutableWindowQuery(spec)
+	if err != nil {
+		return WindowHandle{}, err
 	}
 	configured, err := os.Stat(executable)
 	if err != nil || !configured.Mode().IsRegular() {
 		return WindowHandle{}, errors.Join(err, errors.New("installed executable is unavailable"))
 	}
 	deadline := time.Now().Add(timeout)
+	query.configured = configured
 	for {
-		matches := enumExecutableWindows(configured, title, class)
-		switch len(matches) {
-		case 1:
+		matches := enumExecutableWindows(query)
+		if len(matches) == 1 || selection == "topmost" && len(matches) > 0 {
 			return matches[0], nil
-		case 0:
-		default:
+		}
+		if len(matches) > 1 {
 			return WindowHandle{}, ErrWindowAmbiguous
 		}
 		if err := ctx.Err(); err != nil {
@@ -342,13 +357,17 @@ func ResolveUniqueExecutableWindow(ctx context.Context, executable, title, class
 }
 
 // VerifyExecutableWindow revalidates a cached HWND against the exact installed
-// executable and optional exact selectors before each automation operation.
-func VerifyExecutableWindow(handle uintptr, executable, title, class string) (WindowHandle, error) {
+// executable and the installed title/class selector before each operation.
+func VerifyExecutableWindow(handle uintptr, executable string, spec MatchSpec) (WindowHandle, error) {
 	if handle == 0 || executable == "" || !filepath.IsAbs(executable) || !win.IsWindowVisible(win.HWND(handle)) {
 		return WindowHandle{}, ErrWindowNotFound
 	}
+	query, err := newExecutableWindowQuery(spec)
+	if err != nil {
+		return WindowHandle{}, err
+	}
 	metadata, err := WindowMetadata(handle)
-	if err != nil || title != "" && metadata.Title != title || class != "" && metadata.Class != class {
+	if err != nil || !query.matchesTitle(metadata.Title) || spec.Class != "" && metadata.Class != spec.Class {
 		return WindowHandle{}, ErrWindowNotFound
 	}
 	configured, err := os.Stat(executable)
@@ -366,8 +385,8 @@ func VerifyExecutableWindow(handle uintptr, executable, title, class string) (Wi
 	return metadata, nil
 }
 
-func enumExecutableWindows(configured os.FileInfo, title, class string) []WindowHandle {
-	query := &executableWindowQuery{configured: configured, title: title, class: class}
+func enumExecutableWindows(query *executableWindowQuery) []WindowHandle {
+	query.matches = query.matches[:0]
 	withExecutableWindowQuery(query, func(state uintptr) {
 		procEnumWindows.Call(enumExecutableWindowsCallback, state)
 	})
@@ -377,8 +396,39 @@ func enumExecutableWindows(configured os.FileInfo, title, class string) []Window
 type executableWindowQuery struct {
 	configured os.FileInfo
 	title      string
+	titleMatch string
+	titleRegex *regexp.Regexp
 	class      string
 	matches    []WindowHandle
+}
+
+func newExecutableWindowQuery(spec MatchSpec) (*executableWindowQuery, error) {
+	mode := spec.TitleMatch
+	if mode == "" {
+		mode = "exact"
+	}
+	if mode != "exact" && mode != "regex" {
+		return nil, errors.New("invalid executable window title match mode")
+	}
+	var titleRegex *regexp.Regexp
+	var err error
+	if mode == "regex" && spec.Title != "" {
+		titleRegex, err = regexp.Compile(spec.Title)
+		if err != nil {
+			return nil, fmt.Errorf("compile executable window title regex: %w", err)
+		}
+	}
+	return &executableWindowQuery{title: spec.Title, titleMatch: mode, titleRegex: titleRegex, class: spec.Class}, nil
+}
+
+func (query *executableWindowQuery) matchesTitle(title string) bool {
+	if query.title == "" {
+		return true
+	}
+	if query.titleMatch == "regex" {
+		return query.titleRegex != nil && query.titleRegex.MatchString(title)
+	}
+	return title == query.title
 }
 
 func withExecutableWindowQuery(query *executableWindowQuery, enumerate func(uintptr)) {
@@ -410,7 +460,7 @@ var enumExecutableWindowsCallback = syscall.NewCallback(func(hwnd win.HWND, stat
 		return 1
 	}
 	windowTitle, windowClass := getWindowText(hwnd), getClassName(hwnd)
-	if query.title != "" && windowTitle != query.title || query.class != "" && windowClass != query.class {
+	if !query.matchesTitle(windowTitle) || query.class != "" && windowClass != query.class {
 		return 1
 	}
 	pid := getWindowPID(hwnd)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -68,6 +69,78 @@ func TestApplicationRunsPersistedSourceThroughTheOnlyProgramWorker(t *testing.T)
 			}
 		case <-deadline:
 			t.Fatal("Run did not reach succeeded")
+		}
+	}
+}
+
+func TestRunKeepsExactProviderGenerationLeaseAcrossHotReplacement(t *testing.T) {
+	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
+	entered, unblock := make(chan struct{}), make(chan struct{})
+	var unblockOnce sync.Once
+	releaseRun := func() { unblockOnce.Do(func() { close(unblock) }) }
+	application, _, _, _, events, _ := newTestApplication(t, now, func(ctx context.Context, _ compiler.Invocation) (compiler.AdapterResult, error) {
+		close(entered)
+		select {
+		case <-unblock:
+			return compiler.AdapterResult{}, errors.New("fixture completed")
+		case <-ctx.Done():
+			return compiler.AdapterResult{}, ctx.Err()
+		}
+	})
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		releaseRun()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = application.Close(ctx)
+	})
+	profile, err := admission.SealHostProfile(admission.HostProfileDraft{OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "lease-test", ExpiresAt: now.Add(time.Minute)}, nil
+	})
+	leased, released := make(chan struct{}), make(chan struct{})
+	if err := application.ReplaceExecutionEnvironment(profile, policy, map[string]run.InstalledProvider{}, func() (func(), error) {
+		close(leased)
+		var once sync.Once
+		return func() { once.Do(func() { close(released) }) }, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	saved := createConcatWorkflow(t, application)
+	started, err := application.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: saved.Source.WorkflowID(), Principal: "user-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-leased
+	<-entered
+	if err := application.ReplaceExecutionEnvironment(profile, policy, map[string]run.InstalledProvider{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-released:
+		t.Fatal("hot replacement released the provider generation of an active Run")
+	default:
+	}
+	releaseRun()
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case event := <-events:
+			if event.RunID == started.Record.Admission().RunID && event.Status == run.StatusFailed {
+				select {
+				case <-released:
+					return
+				case <-time.After(time.Second):
+					t.Fatal("terminal Run did not release its provider generation")
+				}
+			}
+		case <-deadline:
+			t.Fatal("leased Run did not become terminal")
 		}
 	}
 }

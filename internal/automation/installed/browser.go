@@ -59,7 +59,10 @@ func (driver *browserDriver) resolveLocked(ctx context.Context) (target.Target, 
 	if driver.closed {
 		return target.Target{}, nil, failure(CodeContractViolation, errors.New("browser CDP automation driver is closed"))
 	}
-	machine := driver.profile.Machine()
+	machine, ok := BrowserProfile(driver.profile)
+	if !ok {
+		return target.Target{}, nil, failure(CodeContractViolation, errors.New("browser driver received another adapter profile"))
+	}
 	resolveCtx, cancel := context.WithTimeout(ctx, time.Duration(machine.ResolveTimeoutMilliseconds)*time.Millisecond)
 	defer cancel()
 	info, ok, err := browsercdp.NewService(machine.BrowserEndpoint).TargetByID(resolveCtx, machine.BrowserEndpoint, machine.BrowserTargetID)

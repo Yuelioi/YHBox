@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "判定 pin 有没有值必须镜像 PinValue 的两级回退(literal 优先+顶层 fallback)，只看一级会对历史容器误报"
+summary: "历史 3.0 PinValue 两级 fallback 陷阱；3.1 strict Source/config schema 不允许该兼容读取。"
 activation: symptom
-read_when: "写/改任何读或判定节点 pin 值的容器侧逻辑(validator / 扫描器 / 迁移 / 导出);加\"必填缺失/未设值\"类静态校验;撞\"validator 报某 pin 没值但 runtime 明明能跑\""
+read_when: "仅在审查 3.0 Container PinValue 兼容行为或解释旧数据时"
 ---
 # ⚠ pin 值的存在性判定必须镜像 PinValue 的两级回退
+
+> 历史知识：3.1 不接受 literal/top-level 双读 fallback；Source binding、config schema 和 Compiler 必须对同一 canonical 形状 fail closed。
 **现象**: 给容器加 `MISSING_REQUIRED_PIN` 静态校验时,只查了 `config["literal"][pin]`。结果对真实 fishing-v2 容器的**每个** Subgraph 调用节点误报 —— 它们把 `SubgraphID` 存在**顶层** `config["SubgraphID"]`(不是 `config.literal` 下)。validator 说"没值",但 runtime 跑得好好的,两者对 pin 是否有值的判定不一致。
 
 **根因**: pin 值的正源读取走 `container.PinValue(n, name)`(`pin_value.go`),它是**两级**的:先 `config["literal"][name]`,**取不到再回退顶层 `config[name]`**。runtime 的 `pullDataPin`、`PinString`/`PinFloat`/`PinStringList`、editor 全走这条。任何只看其中一级的"有没有值"判定都会跟正源脱节 → 对用另一级存值的容器误报/漏判。

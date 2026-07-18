@@ -1,11 +1,13 @@
 ---
 kind: note
-summary: "Container 的 package/graph/installation/yotta-lock 采用固定 lock-last commit；lock v2 覆盖本机 installation hash，load 对 schema、身份、三文件 hash 与 closure 自一致性做验证，任何混合代都隔离为 incompatible。"
+summary: "历史 3.0 Container lock-last 持久化协议；现行 3.1 已删除 Container，仅在旧基线/归档取证时读取。"
 activation: action
-read_when: "修改 Container Store、package/installation/lock schema、导出 bundle、容器恢复/迁移或持久化故障处理"
+read_when: "仅在审查 8316d590 附近的 3.0 Container 行为、归档迁移记录或解释旧 yotta-lock 数据时"
 recheck_when: "新增权威容器文件；改变 lock schema/hash；引入 import；实现 generation directory/current pointer；改变外部改盘或 MCP 写入契约"
 ---
 # Container lock-last commit 与恢复语义
+
+> 历史知识：3.1 已物理删除 Container Store/runtime，不得把本文协议恢复成现行持久化或兼容层。当前 Workflow/Program/Run/Blob/NodePackage 持久化见 `docs/architecture/storage.md`。
 ## 权威提交协议
 
 - `Store.Save` 先 deep clone caller，再 validate；持 store writer lock 固定写 `package.json` → `graph.json` → `installation.json` → `yotta-lock.json`。

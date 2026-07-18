@@ -8,15 +8,12 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
   const list = ref<HotkeyEntry[]>([])
 
   async function reload() {
-    const r = await backend.hotkeys.list()
-    if (r !== undefined) list.value = r as unknown as HotkeyEntry[]
+    list.value = (await backend.hotkeys.list()) as unknown as HotkeyEntry[]
   }
 
   async function update(key: string, hotkeyStr: string) {
-    const r = await backend.hotkeys.update(key, hotkeyStr)
-    if (r === undefined) return false
+    await backend.hotkeys.update(key, hotkeyStr)
     await reload()
-    return true
   }
 
   // keyFor 按 registry key 取当前绑定的热键串 (响应式, 跟 list 走). 未找到/未绑定回退 fallback.

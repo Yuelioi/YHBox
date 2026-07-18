@@ -108,6 +108,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()
@@ -149,7 +150,7 @@ async function poll() {
     if (r) pos.value = r as any
     toolError.value = ''
   } catch (error) {
-    toolError.value = error instanceof Error ? error.message : String(error)
+    toolError.value = errorMessage(error)
   }
 }
 
@@ -179,7 +180,7 @@ async function pickPixel() {
     if (r) pixel.value = r as any
     toolError.value = ''
   } catch (error) {
-    toolError.value = error instanceof Error ? error.message : String(error)
+    toolError.value = errorMessage(error)
   }
 }
 async function copyHex() {

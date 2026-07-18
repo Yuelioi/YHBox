@@ -112,10 +112,11 @@ describe('recordStore — 后端状态机镜像', () => {
       isRecordingStopPayload({
         pendingID: 'pending-session',
         targetSlot: 'editor',
+        mode: 'simple',
         durationUs: 25_000,
         eventCount: 2,
         preview: {
-          mode: 'steps',
+          mode: 'simple',
           durationUs: 25_000,
           eventCount: 2,
           keyActions: 1,
@@ -135,5 +136,31 @@ describe('recordStore — 后端状态机镜像', () => {
         eventCount: 2,
       }),
     ).toBe(false)
+  })
+
+  it('ignores stale snapshots and restores an authoritative pending result', () => {
+    const s = useRecordingStore()
+    const pending = {
+      pendingID: 'pending-session',
+      targetSlot: 'editor',
+      mode: 'precise' as const,
+      durationUs: 25_000,
+      eventCount: 2,
+      preview: {
+        mode: 'precise' as const,
+        durationUs: 25_000,
+        eventCount: 2,
+        keyActions: 0,
+        clickActions: 0,
+        pointerMoves: 1,
+        rawDeltas: 0,
+        scrollActions: 0,
+        steps: [],
+      },
+    }
+    s.applyState({ revision: 7, phase: 'pending', mode: 'precise', pending })
+    s.applyState({ revision: 6, phase: 'idle' })
+    expect(s.state.phase).toBe('pending')
+    expect(s.lastResult?.pendingID).toBe('pending-session')
   })
 })

@@ -1,12 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import {
-  normalizeError,
-  errorMessage,
-  friendlyRawErrorMessage,
-  setupInvoker,
-  toastError,
-  invokeVoid,
-} from './invoke'
+import { describe, it, expect } from 'vitest'
+import { normalizeError, errorMessage, friendlyRawErrorMessage, invoke, RPCError } from './invoke'
 
 describe('normalizeError', () => {
   it('通道A validation: cause.Errors 大写', () => {
@@ -65,6 +58,29 @@ describe('normalizeError', () => {
     const e = JSON.stringify({ cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH' }] } })
     expect(normalizeError(e)).toEqual({ errors: [{ code: 'MISSING_ENTRY_GRAPH' }] })
   })
+  it('typed envelope: preserves category, details, correlation and retryability', () => {
+    const e = {
+      cause: {
+        code: 'recording.finalize_failed',
+        category: 'domain',
+        message: 'finalize failed',
+        details: { pendingId: 'p1' },
+        operationId: 'backend-1',
+        runId: 'run-1',
+        retryable: true,
+      },
+    }
+    expect(normalizeError(e)).toEqual({
+      code: 'recording.finalize_failed',
+      category: 'domain',
+      params: { pendingId: 'p1' },
+      message: 'finalize failed',
+      details: { pendingId: 'p1' },
+      operationId: 'backend-1',
+      runId: 'run-1',
+      retryable: true,
+    })
+  })
 })
 
 describe('errorMessage', () => {
@@ -113,27 +129,26 @@ describe('friendlyRawErrorMessage', () => {
   it('keeps unknown technical messages intact for diagnosis', () => {
     expect(friendlyRawErrorMessage('boom')).toBe('boom')
   })
-
-  it('offers retry while preserving the technical detail for copy', () => {
-    const retry = vi.fn()
-    let toast: Record<string, unknown> | undefined
-    setupInvoker((options) => {
-      toast = options
-    })
-
-    toastError(new Error('context deadline exceeded'), '加载设备失败', retry)
-
-    const actions = toast?.actions as Array<{ onClick: () => void }> | undefined
-    expect(String(toast?.description)).toContain('超时')
-    expect(actions).toHaveLength(2)
-    actions?.[0]?.onClick()
-    expect(retry).toHaveBeenCalledOnce()
-  })
 })
 
-describe('invokeVoid', () => {
-  it('distinguishes a successful void RPC from failure', async () => {
-    await expect(invokeVoid(async () => undefined)).resolves.toBe(true)
-    await expect(invokeVoid(async () => Promise.reject(new Error('boom')))).resolves.toBe(false)
+describe('invoke', () => {
+  it('returns only on success and rethrows a typed RPCError without automatic toast', async () => {
+    await expect(invoke(async () => undefined)).resolves.toBeUndefined()
+    const rejected = invoke(async function SaveSettings() {
+      throw { cause: { code: 'settings.save_failed', category: 'domain', message: 'save failed' } }
+    })
+    await expect(rejected).rejects.toMatchObject({
+      name: 'RPCError',
+      code: 'settings.save_failed',
+      category: 'domain',
+      operation: 'SaveSettings',
+    })
+  })
+
+  it('value RPCs do not turn failure into undefined success', async () => {
+    const rejected = invoke(async function FinalizeRecording() {
+      throw new Error('encode failed')
+    })
+    await expect(rejected).rejects.toBeInstanceOf(RPCError)
   })
 })

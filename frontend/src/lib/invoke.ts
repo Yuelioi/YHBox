@@ -1,25 +1,44 @@
-// invoke wrapper：统一处理 RPC 调用的 toast / error normalize。
-// useToast() 在异步 await 后 Vue injection context 会丢，所以在模块顶层装配 toast 函数。
-//
-// ToastOpts 只列我们用得到的字段——参数最终传给 NuxtUI useToast().add，那边接受任何
-// 兼容的对象。用宽松对象类型避免跟 @nuxt/ui 内部类型耦合，免去 main.ts 那个 as any。
+// Wails transport seam：统一解码并抛出 typed RPCError。
+// 这里不决定 UI 反馈；调用方按 domain action 选择 inline、modal 或 failure toast。
 import { i18n } from '@/i18n'
-
-type ToastOpts = Record<string, unknown> & { title: string }
-type ToastAdd = (opts: ToastOpts) => void
-
-let _toastAdd: ToastAdd | null = null
-
-export function setupInvoker(toastAdd: ToastAdd) {
-  _toastAdd = toastAdd
-}
 
 export type NormalizedError = {
   errors?: Array<{ code: string; params?: Record<string, unknown> }>
   code?: string
+  category?: string
   params?: Record<string, unknown>
   message?: string
+  details?: unknown
+  operationId?: string
+  runId?: string
+  retryable?: boolean
 }
+
+export class RPCError extends Error {
+  readonly code: string
+  readonly category: string
+  readonly details?: unknown
+  readonly operation: string
+  readonly operationId: string
+  readonly runId?: string
+  readonly retryable: boolean
+  readonly source: unknown
+
+  constructor(error: NormalizedError, operation: string, operationId: string, source: unknown) {
+    super(error.message || error.code || 'RPC call failed', { cause: source })
+    this.name = 'RPCError'
+    this.code = error.code || 'rpc.unclassified'
+    this.category = error.category || 'infrastructure'
+    this.details = error.details ?? error.params ?? error.errors
+    this.operation = operation
+    this.operationId = error.operationId || operationId
+    this.runId = error.runId
+    this.retryable = error.retryable === true
+    this.source = source
+  }
+}
+
+let operationSequence = 0
 
 /** 把两条投递通道(wails RPC .cause / worker 事件信封)规整成统一形态。 */
 export function normalizeError(e: unknown): NormalizedError {
@@ -39,13 +58,38 @@ export function normalizeError(e: unknown): NormalizedError {
   }
   // 通道A: wails 包了一层 .cause; 通道B: e 本身就是 RunError 对象。两者都从 src 取。
   const src = (obj.cause ?? obj) as Record<string, unknown>
-  // validation 数组: 通道A 是大写 Errors (无 json tag), 通道B 是小写 errors。
-  const errs = (src.Errors ?? src.errors) as unknown
+  const details = src.details
+  const detailObject =
+    details && typeof details === 'object' ? (details as Record<string, unknown>) : {}
+  // validation 数组: 历史通道是大写 Errors/小写 errors；typed envelope 放 details。
+  const errs = (src.Errors ?? src.errors ?? detailObject.Errors ?? detailObject.errors) as unknown
   if (Array.isArray(errs) && errs.length > 0) {
-    return { errors: errs as NormalizedError['errors'] }
+    const result: NormalizedError = { errors: errs as NormalizedError['errors'] }
+    if (typeof src.code === 'string') result.code = src.code
+    if (typeof src.category === 'string') result.category = src.category
+    if (typeof src.message === 'string') result.message = src.message
+    if (details !== undefined) result.details = details
+    if (typeof src.operationId === 'string') result.operationId = src.operationId
+    if (typeof src.runId === 'string') result.runId = src.runId
+    if (typeof src.retryable === 'boolean') result.retryable = src.retryable
+    return result
   }
   if (typeof src.code === 'string' && src.code) {
-    return { code: src.code, params: src.params as Record<string, unknown> | undefined }
+    const params =
+      src.params && typeof src.params === 'object'
+        ? (src.params as Record<string, unknown>)
+        : details && typeof details === 'object' && !Array.isArray(details)
+          ? (details as Record<string, unknown>)
+          : undefined
+    const result: NormalizedError = { code: src.code }
+    if (typeof src.category === 'string') result.category = src.category
+    if (params !== undefined) result.params = params
+    if (typeof src.message === 'string') result.message = src.message
+    if (details !== undefined) result.details = details
+    if (typeof src.operationId === 'string') result.operationId = src.operationId
+    if (typeof src.runId === 'string') result.runId = src.runId
+    if (typeof src.retryable === 'boolean') result.retryable = src.retryable
+    return result
   }
   // obj.message 优先: 信封已解包时这是人类可读的那行, 不是整坨 JSON。
   if (typeof obj.message === 'string' && obj.message) return { message: obj.message }
@@ -68,7 +112,9 @@ export function errorMessage(e: unknown): string {
   }
   if (n.code) {
     const key = `error.${n.code}`
-    return te(key) ? t(key, (n.params ?? {}) as Record<string, unknown>) : n.code
+    if (te(key)) return t(key, (n.params ?? {}) as Record<string, unknown>)
+    if (n.code === 'rpc.unclassified' && n.message) return friendlyRawErrorMessage(n.message)
+    return n.code
   }
   if (n.message) return friendlyRawErrorMessage(n.message)
   return t('error.UNKNOWN_ERROR')
@@ -93,92 +139,24 @@ export function friendlyRawErrorMessage(message: string): string {
   return message
 }
 
-function copyText(s: string) {
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(s).catch(() => fallbackCopy(s))
-  } else {
-    fallbackCopy(s)
-  }
+export function toRPCError(error: unknown, operation = 'rpc.call'): RPCError {
+  if (error instanceof RPCError) return error
+  const normalized = normalizeError(error)
+  const operationId = `${operation}:${++operationSequence}`
+  return new RPCError(normalized, operation, operationId, error)
 }
 
-function fallbackCopy(s: string) {
-  const ta = document.createElement('textarea')
-  ta.value = s
-  ta.style.position = 'fixed'
-  ta.style.opacity = '0'
-  document.body.appendChild(ta)
-  ta.select()
+export async function callRPC<R>(operation: string, call: () => Promise<R>): Promise<R> {
   try {
-    document.execCommand('copy')
-  } catch {}
-  document.body.removeChild(ta)
-}
-
-export function toastError(error: unknown, title?: string, retry?: () => void | Promise<void>) {
-  const t = i18n.global.t
-  const msg = typeof error === 'string' ? friendlyRawErrorMessage(error) : errorMessage(error)
-  const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : msg
-  const actions: Array<{
-    label: string
-    icon: string
-    color: string
-    onClick: () => void
-  }> = []
-  if (retry) {
-    actions.push({
-      label: t('common.retry'),
-      icon: 'i-tabler-refresh',
-      color: 'primary',
-      onClick: () => {
-        void retry()
-      },
-    })
+    return await call()
+  } catch (error) {
+    throw toRPCError(error, operation)
   }
-  actions.push({
-    label: t('common.copy'),
-    icon: 'i-tabler-copy',
-    color: 'neutral',
-    onClick: () => copyText(detail),
-  })
-  _toastAdd?.({
-    title: title ?? t('toast.operation_failed'),
-    description: msg,
-    color: 'error',
-    duration: 6000,
-    actions,
-  })
-}
-
-/** 信息/成功类 toast (走模块级 toast, 可在 store / 异步后安全调用). */
-export function toastInfo(title: string, description?: string) {
-  _toastAdd?.({ title, description, color: 'success', icon: 'i-tabler-check', duration: 4000 })
 }
 
 export async function invoke<R, A extends any[]>(
   fn: (...args: A) => Promise<R>,
   ...args: A
-): Promise<R | undefined> {
-  try {
-    return await fn(...args)
-  } catch (e) {
-    toastError(e)
-    return undefined
-  }
-}
-
-/**
- * Void RPCs cannot use `undefined` as both their success value and invoke's
- * failure sentinel. Convert the transport outcome into an explicit boolean.
- */
-export async function invokeVoid<A extends any[]>(
-  fn: (...args: A) => Promise<void>,
-  ...args: A
-): Promise<boolean> {
-  try {
-    await fn(...args)
-    return true
-  } catch (e) {
-    toastError(e)
-    return false
-  }
+): Promise<R> {
+  return callRPC(fn.name || 'rpc.call', () => fn(...args))
 }

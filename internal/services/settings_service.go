@@ -133,8 +133,8 @@ func removeTargetsForRemovedApplications(settings *Settings, previous map[string
 	}
 	targets := settings.Automation.Targets[:0]
 	for _, target := range settings.Automation.Targets {
-		_, removed := removedApplications[target.ApplicationSlot]
-		if target.isDesktop() && removed {
+		_, removed := removedApplications[target.applicationSlot()]
+		if target.requiresApplication() && removed {
 			continue
 		}
 		targets = append(targets, target)
@@ -200,10 +200,10 @@ func expectedApplicationConsent(configured InstalledApplicationSettings) artifac
 
 func expectedAutomationConsent(settings Settings, configured InstalledAutomationTargetSettings) artifact.Digest {
 	var application InstalledApplicationSettings
-	if configured.TargetKind != automationinstalled.TargetKindAndroidDevice || configured.AdapterKind != automationinstalled.AdapterKindAndroidADB {
+	if configured.requiresApplication() {
 		found := false
 		for _, candidate := range settings.Applications.Profiles {
-			if candidate.Slot == configured.ApplicationSlot {
+			if candidate.Slot == configured.applicationSlot() {
 				application, found = candidate, true
 				break
 			}
@@ -212,7 +212,11 @@ func expectedAutomationConsent(settings Settings, configured InstalledAutomation
 			return ""
 		}
 	}
-	profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
+	draft, err := configured.profileDraft(application)
+	if err != nil {
+		return ""
+	}
+	profile, err := automationinstalled.SealProfile(draft)
 	if err != nil {
 		return ""
 	}

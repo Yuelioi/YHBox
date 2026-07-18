@@ -32,4 +32,4 @@ ValueEnvelope 是 Program/host 的值边界。Program literal 保存 `literal`/`
 
 Blob 内容身份使用原始字节的 SHA-256，不使用 JSON artifact 的 domain-separated `artifact.Sum`；Blob Reference 另含 canonical media type 与 exact size。Blob/inline envelope 可持久化，Stream/Resource envelope 是 Run-only authority，禁止进入 Program、durable trace、日志、clipboard 或 cache。Resource token 必须由 Broker 以 256-bit randomness 签发并绑定 Run/invocation/operation/expiry；内容 hash 不能充当 authority。
 
-新 Compiler 不得 import legacy container runtime/store/execution queue。旧 `ContainerRunner` 迁移前仍是独立生产路径；当前 interpreter 不得作为 fallback。Program/Run、Capability/Resource 与 catalog-wide migration 完成后整体删除旧 runtime。
+新 Compiler 不得 import legacy Container runtime/store/execution queue。旧 `ContainerRunner` 已物理删除；任何 interpreter、migration helper 或历史知识都不得把它回接为 fallback。3.0 行为只可在固定 Git worktree 中作为产品 oracle，不成为 3.1 可执行依赖。

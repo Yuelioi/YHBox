@@ -14,9 +14,9 @@ const (
 	PointerButtonTypeID = "https://schemas.yotta.dev/types/automation/pointer-button/v1"
 	KeyCodeTypeID       = "https://schemas.yotta.dev/types/automation/key-code/v1"
 
-	AutomationInputCapabilityID        = "https://schemas.yotta.dev/capabilities/automation/input/v1"
-	AutomationDesktopInputCapabilityID = "https://schemas.yotta.dev/capabilities/automation/desktop-input/v1"
-	AutomationKeyInputCapabilityID     = "https://schemas.yotta.dev/capabilities/automation/key-input/v1"
+	AutomationInputCapabilityID        = installed.CapabilityInputID
+	AutomationDesktopInputCapabilityID = installed.CapabilityDesktopInputID
+	AutomationKeyInputCapabilityID     = installed.CapabilityKeyInputID
 
 	ClickPointerNodeID        = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	MovePointerNodeID         = "https://schemas.yotta.dev/nodes/automation/move-pointer"

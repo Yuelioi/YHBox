@@ -92,8 +92,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@nuxt/ui/composables'
 import { Events } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useSettingsStore } from '@/stores/settings'
 import { onRunChanged, workflowTransport, type SourceView } from '@/app/transport/workflow'
 import HudShell from '@/components/tools/HudShell.vue'
@@ -109,6 +111,7 @@ import {
 
 const settingsStore = useSettingsStore()
 const { t } = useI18n()
+const toast = useToast()
 
 const contentRef = ref<HTMLElement | null>(null)
 const workflows = ref<SourceView[]>([])
@@ -122,7 +125,7 @@ let feedbackTimer: ReturnType<typeof setTimeout> | undefined
 const pinned = ref(true)
 function togglePin() {
   pinned.value = !pinned.value
-  void backend.tools.setLauncherAlwaysOnTop(pinned.value)
+  void backend.tools.setLauncherAlwaysOnTop(pinned.value).catch(showLauncherError)
 }
 
 const display = computed<LauncherDisplay>(() =>
@@ -219,11 +222,20 @@ async function onRun(id: string) {
 }
 
 function onHide() {
-  void backend.tools.hideLauncher()
+  void backend.tools.hideLauncher().catch(showLauncherError)
 }
 
 async function openSettings(): Promise<void> {
-  if (await backend.tools.openLauncherSettings()) await backend.tools.hideLauncher()
+  try {
+    await backend.tools.openLauncherSettings()
+    await backend.tools.hideLauncher()
+  } catch (error) {
+    toast.add({
+      title: t('toast.operation_failed'),
+      description: errorMessage(error),
+      color: 'error',
+    })
+  }
 }
 
 function focusSearch() {
@@ -276,7 +288,9 @@ function fitHeight() {
   const element = contentRef.value
   if (!element) return
   const height = Math.min(720, Math.max(MIN_H, Math.ceil(element.scrollHeight) + CHROME_H))
-  void backend.tools.setLauncherSize(Math.max(MIN_W, Math.round(window.innerWidth)), height)
+  void backend.tools
+    .setLauncherSize(Math.max(MIN_W, Math.round(window.innerWidth)), height)
+    .catch(() => undefined)
 }
 watch([filteredGroups, display], () => void nextTick(fitHeight))
 
@@ -294,7 +308,15 @@ let startH = 0
 function onGripMove(event: PointerEvent) {
   const width = Math.max(MIN_W, startW + (event.clientX - startX))
   const height = Math.max(MIN_H, startH + (event.clientY - startY))
-  void backend.tools.setLauncherSize(Math.round(width), Math.round(height))
+  void backend.tools.setLauncherSize(Math.round(width), Math.round(height)).catch(() => undefined)
+}
+
+function showLauncherError(error: unknown): void {
+  toast.add({
+    title: t('toast.operation_failed'),
+    description: errorMessage(error),
+    color: 'error',
+  })
 }
 function onGripUp() {
   window.removeEventListener('pointermove', onGripMove)

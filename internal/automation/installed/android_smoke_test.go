@@ -29,11 +29,10 @@ func TestAndroidADBEmulatorSmoke(t *testing.T) {
 	if selected == nil {
 		t.Fatal("no ready ADB device with complete identity")
 	}
-	profile, err := SealProfile(ProfileDraft{
-		TargetKind: TargetKindAndroidDevice, AdapterKind: AdapterKindAndroidADB, ApplicationIdentityKind: IdentityKindADBDevice,
+	profile, err := SealProfile(NewAndroidProfileDraft(AndroidProfilePayload{
 		ADBSerial: selected.Serial, ADBProduct: selected.Product, ADBModel: selected.Model, ADBDevice: selected.Device,
 		AndroidPackage: "com.android.settings", ResolveTimeoutMilliseconds: 5000,
-	})
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}

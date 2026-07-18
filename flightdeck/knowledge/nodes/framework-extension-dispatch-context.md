@@ -1,11 +1,13 @@
 ---
 kind: note
-summary: "节点行为随 dispatch context 变时怎么扩 —— 优先在 dispatch 入口 wrap 服务，别加宽 Ctx 接口"
+summary: "历史 3.0 Container Ctx/ServiceBundle 扩展模式；3.1 adapter 只能使用 Invocation 的窄 session/trigger/state/action 接口。"
 activation: action
-read_when: "设计 framework / DI 容器扩展 / 节点 Ctx 加新方法前 / \"这种节点该看到不同的 X\" 类需求"
+read_when: "仅在审查 3.0 Ctx/ServiceBundle，或对比 3.1 Invocation 最小权限接口时"
 recheck_when: "改 Ctx 接口 / ServiceBundle 组成 / DI 容器装配 / 给节点 Ctx 加新方法 / 改 dispatch 入口适配层时"
 ---
 # Framework extension when behavior varies by dispatch context
+
+> 历史知识：旧 Ctx/ServiceBundle 已删除。3.1 扩展点位于 Node Contract、Compiler Invocation、capability session 和 installed adapter，不得恢复 ambient service bundle。
 ## 决策原则
 
 **新需求**: "某类节点 (PureData / Cron / Async / 等) 看到的 X 服务行为应该跟普通节点不同" (X = Vars / time / Stop 信号 / etc.)

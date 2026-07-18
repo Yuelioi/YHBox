@@ -1379,12 +1379,19 @@ export default {
     UNSUPPORTED_SOURCE_FEATURE: 'The Workflow uses an unsupported source feature',
     WAILS_NOT_READY: 'The desktop runtime is not ready',
     AUTOMATION_TARGET_SLOT_REQUIRED: 'An automation target must be selected',
-    RECORDING_TARGET_UNAVAILABLE: 'The recording target is unavailable',
+    RECORDING_TARGET_UNAVAILABLE:
+      'The recording target is unavailable. Check that the target window is running and still matches its selector.',
+    RECORDING_MODE_REQUIRED: 'Choose simple or precise recording',
+    RECORDING_CALIBRATION_REQUIRED:
+      'Precise relative recording requires mouse calibration on the selected automation target',
+    RECORDING_SESSION_BUSY: 'Finish or discard the current recording before starting another one',
+    ASSET_QUERY_INVALID: 'The asset query is invalid; try again',
     UNKNOWN_ERROR: 'An unknown error occurred',
     TRANSPORT_TIMEOUT: 'The request timed out; try again',
     TRANSPORT_UNAVAILABLE: 'The backend connection is unavailable; restart Yotta',
     admission: {
-      target_unavailable: 'A required target is unavailable',
+      target_unavailable:
+        'A required target is unavailable. Check that it is installed, authorized, and currently matches.',
       target_ambiguous: 'The target match is ambiguous',
       provider_incompatible: 'The capability provider is incompatible',
       unsupported_host: 'The current host does not support the required capability',
@@ -1797,6 +1804,7 @@ export default {
       resume: 'Resume recording',
       finish: 'Finish recording',
       start_title: 'Record workflow actions',
+      mode: 'Recording mode',
       target: 'Automation target',
       start_hint:
         'Recording is limited to the selected installed target. Review the result before saving and inserting it into this canvas.',
@@ -1804,11 +1812,11 @@ export default {
       control_failed: 'Recording control failed',
       preview_title: 'Review recording',
       result_mode: 'Generated form',
-      mode_steps: 'Key and click nodes',
-      mode_trajectory: 'Full trajectory clip',
+      mode_simple: 'Simple · key and click nodes',
+      mode_precise: 'Precise · full trajectory clip',
       action_summary: 'Keys {keys} · clicks {clicks} · moves {moves} · scrolls {scrolls}',
       trajectory_hint:
-        'This recording contains dragging, camera movement, scrolling, or input that cannot be expanded losslessly. A Play Input Clip node will preserve its full timing and trajectory.',
+        'Precise recording always stores a complete InputClip and inserts a Play Input Clip node to preserve timing and trajectory.',
       leave_title: 'End the active recording?',
       leave_hint: 'Leaving the editor cancels the unfinished recording.',
       leave_action: 'Cancel recording and leave',
@@ -1843,6 +1851,10 @@ export default {
       color_maximum: 'Maximum',
       use_default: 'Use default',
       clear: 'Clear',
+      record_key_chord: 'Click to record a key chord',
+      record_key_chord_active: 'Press the key chord…',
+      record_key_chord_hint:
+        'Click, then press the key or chord to send. Yotta presses the keys in order and releases them in reverse.',
       capabilities: 'Capabilities',
       observed_status: 'Observed status',
       status_hint:
@@ -2037,7 +2049,8 @@ export default {
     preview_unavailable: 'Preview unavailable',
     recording: {
       title: 'Input recording',
-      hint: 'Relative mode captures full camera turns. Absolute mode captures clicks, moves, drags, and keys.',
+      hint: 'Simple recording generates key and click nodes. Precise recording stores full timing, movement, dragging, and mouse turning.',
+      mode: 'Recording mode',
       active_hint: 'Capturing target {target}. Pause or finish here or in the floating controls.',
       start: 'Start recording',
       ready: 'Ready',
@@ -2069,6 +2082,20 @@ export default {
         'The final variant cannot be removed alone. Delete the whole asset if it is no longer needed.',
     },
   },
+  assetPicker: {
+    template_title: 'Select visual template',
+    clip_title: 'Select input recording',
+    search_placeholder: 'Search name, description, category, tags, or ID',
+    category_placeholder: 'Category',
+    tags_placeholder: 'Tags (comma separated)',
+    sort_recent: 'Recently used',
+    result_count: '{count} assets',
+    current: 'Current binding',
+    select_clip: 'Select recording',
+    replace: 'Replace resource',
+    empty: 'No matching resources',
+    empty_hint: 'Adjust the filters. Newly created resources appear immediately in this process.',
+  },
   recordingHud: {
     title: 'Recording controls',
     subtitle: 'Control the active input capture',
@@ -2084,7 +2111,7 @@ export default {
     pause: 'Pause',
     resume: 'Resume',
     stop: 'Finish',
-    stop_hint: 'Stop and save this recording ({key})',
+    stop_hint: 'Stop and review this recording ({key})',
     cancel: 'Cancel',
     cancel_confirm: 'Discard recording',
     shortcut_hint: '{stop} finish · {pause} pause/resume',
@@ -2094,6 +2121,8 @@ export default {
     pending: 'Not in library',
     pending_hint: 'The recording joins your library and canvas only after you save it.',
     clip_type: 'InputClip recording',
+    mode_simple: 'Simple recording',
+    mode_precise: 'Precise recording',
     summary: '{duration} · {count} input events',
     name: 'Recording name',
     name_hint: 'Use a name that explains what the recording is for.',
@@ -2419,7 +2448,7 @@ export default {
     },
     consent: {
       title: 'Workflow application lifecycle consent',
-      hint: 'Consent matches this exact slot, executable digest, and fixed arguments. Any edit revokes it immediately. Restart to install the new snapshot.',
+      hint: 'Consent matches this exact slot, executable digest, and fixed arguments. Any edit revokes it immediately; reauthorization applies in the current process.',
       grant: 'Allow launch and terminate',
       revoke: 'Revoke consent',
     },
@@ -2461,9 +2490,20 @@ export default {
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
         'Hardware calibration used for exact relative-motion replay. Set 0 only when this target will never replay relative mouse events.',
-      window_title_label: 'Exact window title',
+      window_title_match_label: 'Window title match mode',
+      window_title_match_hint:
+        'Captured windows use exact matching and preserve the title verbatim, including surrounding spaces. Explicitly select regex for dynamic titles.',
+      window_title_match_exact: 'Exact match',
+      window_title_match_regex: 'Regex match',
+      window_selection_label: 'When multiple windows match',
+      window_selection_hint:
+        'Require a unique fixed window for safety, or explicitly follow the current topmost match for dynamic multi-window apps.',
+      window_selection_unique: 'Require a unique match',
+      window_selection_topmost: 'Use the current topmost match',
+      preview_matches: 'Check current window matches',
+      window_title_label: 'Window title',
       window_title_hint:
-        'Case-sensitive full match. Contains, regex, and wildcard matching are not supported.',
+        'Exact mode is case-sensitive and character-for-character. Regex mode uses RE2 syntax.',
       window_class_label: 'Exact window class',
       window_class_hint:
         'Full Win32 class-name match. When title and class are set, both must match.',
@@ -2520,8 +2560,8 @@ export default {
       unselected: 'No page selected',
     },
     capture: {
-      hint: 'Click to temporarily enable the global window-capture key, switch to the target window, then press F9 (or the configured key). The hook is released after capture, cancellation, or timeout, and the target application does not receive the shortcut.',
-      start: 'Capture window',
+      hint: 'Temporarily enable the global capture key, switch to the target window, then press F9 (or the configured key). A successful capture binds and immediately authorizes that exact identity; the key is then released without reaching the target app.',
+      start: 'Capture and enable window',
       start_failed: 'Could not start window capture. Try again.',
       cancel: 'Cancel capture',
       cancelled: 'Window capture cancelled. The target was not changed.',
@@ -2530,17 +2570,17 @@ export default {
       inspect_failed: 'Could not verify the captured window executable identity.',
       application_missing:
         'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
-      install_title: 'Install “{name}” and bind this window?',
+      install_title: 'Install “{name}”, bind this window, and allow automation?',
       install_hint:
-        'Yotta will verify and pin the executable SHA-256 identity, then create the desktop application installation directly: {path}',
-      install_confirm: 'Install and bind',
+        'Yotta will verify and pin the executable SHA-256 identity, create the window target, and authorize workflow automation only for this exact identity: {path}',
+      install_confirm: 'Install, bind, and allow',
       install_cancelled: 'Installation cancelled. The captured identity was not saved.',
       installed_and_completed:
-        'Installed the window application and bound “{name}” to the exact window.',
+        'Installed the window application, bound “{name}” to the exact window, and enabled it immediately.',
       application_ambiguous:
         'Multiple installation records match this executable. Remove the duplicate record and try again.',
       save_failed: 'The capture result could not be saved as a complete window target.',
-      completed: 'Bound “{name}” to the exact window.',
+      completed: 'Bound “{name}” to the exact window and enabled it immediately.',
     },
     backend: {
       sendinput: 'SendInput · foreground system input',
@@ -2552,7 +2592,7 @@ export default {
     },
     consent: {
       title: 'Workflow automation consent',
-      hint: 'Consent covers only the operations declared by this adapter and exactly matches the slot and complete target identity. Any edit revokes it. Restart to install the new snapshot.',
+      hint: 'Consent covers only the operations declared by this adapter and exactly matches the slot and complete target identity. Any edit revokes it; reauthorization applies in the current process.',
       grant: 'Allow automation',
       revoke: 'Revoke consent',
     },

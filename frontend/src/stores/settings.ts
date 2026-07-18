@@ -7,6 +7,7 @@ import {
   type InstalledApplicationProfile,
   type InstalledAutomationTargetProfile,
 } from '@/lib/backend'
+import { RPCError, toRPCError } from '@/lib/invoke'
 
 // MouseProfile 命名鼠标校准档（跟 Go services.MouseProfile 对齐）。
 // counts360 = 原地转 360° 鼠标硬件累积 |dx|；同机不同游戏内灵敏度不同 → 多 profile。
@@ -85,6 +86,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const pendingWrites = ref(0)
   const lastSavedAt = ref<number | null>(null)
   const lastFailedPatch = ref<object | null>(null)
+  const lastError = ref<RPCError | null>(null)
   let patchTail: Promise<unknown> = Promise.resolve()
   let syncStarted = false
 
@@ -114,15 +116,20 @@ export const useSettingsStore = defineStore('settings', () => {
     saveState.value = 'saving'
 
     const run = async () => {
-      const ok = await backend.settings.update(p)
-      if (ok && data.value) {
-        deepMerge(data.value, p)
-      }
-      lastFailedPatch.value = ok ? null : p
-      pendingWrites.value--
-      if (pendingWrites.value === 0) {
-        saveState.value = ok ? 'saved' : 'error'
-        if (ok) lastSavedAt.value = Date.now()
+      let ok = false
+      try {
+        await backend.settings.update(p)
+        if (data.value) deepMerge(data.value, p)
+        lastFailedPatch.value = null
+        lastError.value = null
+        lastSavedAt.value = Date.now()
+        ok = true
+      } catch (error) {
+        lastFailedPatch.value = p
+        lastError.value = error instanceof RPCError ? error : toRPCError(error, 'settings.update')
+      } finally {
+        pendingWrites.value--
+        if (pendingWrites.value === 0) saveState.value = ok ? 'saved' : 'error'
       }
       return ok
     }
@@ -175,6 +182,7 @@ export const useSettingsStore = defineStore('settings', () => {
     saveState,
     pendingWrites,
     lastSavedAt,
+    lastError,
     load,
     patch,
     patchAIProfiles,

@@ -79,7 +79,7 @@ func TestRecorderAppendOrdering(t *testing.T) {
 	r := &Recorder{
 		tStartUs:   uint64(time.Now().UnixMicro()),
 		seqCounter: 0,
-		meta:       inputclip.ClipMeta{MouseMode: "relative"},
+		meta:       inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "relative"},
 		rawEvents:  make(chan HookEvent, 200),
 		drainDone:  make(chan struct{}),
 	}
@@ -108,7 +108,7 @@ func TestRecorderAppendOrdering(t *testing.T) {
 func TestRecorder_PausedDropsEvents(t *testing.T) {
 	r := &Recorder{
 		tStartUs:  uint64(time.Now().UnixMicro()),
-		meta:      inputclip.ClipMeta{MouseMode: "relative"},
+		meta:      inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "relative"},
 		rawEvents: make(chan HookEvent, 10),
 		drainDone: make(chan struct{}),
 	}
@@ -131,7 +131,7 @@ func TestRecorder_PausedDropsEvents(t *testing.T) {
 func TestRecorder_TimestampSubtractsPausedAccum(t *testing.T) {
 	r := &Recorder{
 		tStartUs:  uint64(time.Now().UnixMicro()) - 100_000, // 录制开始于 100ms 前
-		meta:      inputclip.ClipMeta{MouseMode: "relative"},
+		meta:      inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "relative"},
 		rawEvents: make(chan HookEvent, 2),
 		drainDone: make(chan struct{}),
 	}
@@ -199,14 +199,11 @@ func TestRecorderStopReturnsDrainedSnapshotAndClearsActiveState(t *testing.T) {
 	recorder := &Recorder{
 		active:     true,
 		tempID:     "session",
-		meta:       inputclip.ClipMeta{MouseMode: "relative"},
+		meta:       inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "relative", MouseCounts360: 800},
 		done:       done,
 		rawEvents:  make(chan HookEvent),
 		drainDone:  drainDone,
 		clipEvents: []inputclip.Event{{TUs: 10, Seq: 1}},
-		mouseCounts360Getter: func() int {
-			return 800
-		},
 	}
 	result, err := recorder.Stop()
 	if err != nil {

@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 119,
-    "models": 167
+    "methods": 120,
+    "models": 171
   },
   "services": [
     {
@@ -511,6 +511,18 @@
             }
           ],
           "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "ResolveBinding",
+          "bindingId": "849515170",
+          "parameters": [
+            {
+              "name": "ref",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.AssetBinding>"
         },
         {
           "name": "SaveTemplateCapture",
@@ -2168,6 +2180,53 @@
         },
         {
           "kind": "class",
+          "name": "CapabilityDescriptor",
+          "fields": [
+            {
+              "name": "\"capabilityId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resourceKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"operations\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ProfileFieldDescriptor",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"required\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"options\"",
+              "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "TargetTypeDescriptor",
           "fields": [
             {
@@ -2186,9 +2245,19 @@
               "type": "string"
             },
             {
+              "name": "\"profileVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"hostAvailable\"",
               "optional": false,
               "type": "boolean"
+            },
+            {
+              "name": "\"capabilities\"",
+              "optional": false,
+              "type": "CapabilityDescriptor[]"
             },
             {
               "name": "\"resourceKinds\"",
@@ -2199,6 +2268,11 @@
               "name": "\"operations\"",
               "optional": false,
               "type": "string[]"
+            },
+            {
+              "name": "\"fields\"",
+              "optional": false,
+              "type": "ProfileFieldDescriptor[]"
             },
             {
               "name": "\"inputBackends\"",
@@ -2632,6 +2706,47 @@
       "declarations": [
         {
           "kind": "class",
+          "name": "AssetBinding",
+          "fields": [
+            {
+              "name": "\"found\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            },
+            {
+              "name": "\"matchCount\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AssetPage",
           "fields": [
             {
@@ -2651,6 +2766,11 @@
             },
             {
               "name": "\"pageSize\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"revision\"",
               "optional": false,
               "type": "number"
             }
@@ -2694,6 +2814,16 @@
               "name": "\"pageSize\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"thumbnailBudget\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"recentGUIDs\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         },
@@ -2804,6 +2934,11 @@
             },
             {
               "name": "\"blob\"",
+              "optional": true,
+              "type": "blob$0.BlobRef | null"
+            },
+            {
+              "name": "\"thumbnail\"",
               "optional": true,
               "type": "blob$0.BlobRef | null"
             },
@@ -3044,6 +3179,11 @@
           "name": "ClipMeta",
           "fields": [
             {
+              "name": "\"recordingMode\"",
+              "optional": false,
+              "type": "RecordingMode"
+            },
+            {
               "name": "\"mouseMode\"",
               "optional": false,
               "type": "string"
@@ -3169,6 +3309,24 @@
               "name": "\"blob\"",
               "optional": false,
               "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "RecordingMode",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "RecordingModeSimple",
+              "value": "\"simple\""
+            },
+            {
+              "name": "RecordingModePrecise",
+              "value": "\"precise\""
             }
           ]
         }
@@ -3308,11 +3466,6 @@
             {
               "name": "\"targets\"",
               "optional": false,
-              "type": "InstalledAutomationTargetSettings[]"
-            },
-            {
-              "name": "\"win32Targets\"",
-              "optional": true,
               "type": "InstalledAutomationTargetSettings[]"
             }
           ]
@@ -3472,89 +3625,14 @@
               "type": "string"
             },
             {
-              "name": "\"applicationSlot\"",
+              "name": "\"profileVersion\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"windowTitle\"",
+              "name": "\"profile\"",
               "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"windowClass\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"inputBackend\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"captureBackend\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"mouseCounts360\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"resolveTimeoutMilliseconds\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"adbSerial\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"adbProduct\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"adbModel\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"adbDevice\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"androidPackage\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"browserEndpoint\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"browserTargetId\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"browserWebSocketUrl\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"browserTitle\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"browserUrl\"",
-              "optional": true,
-              "type": "string"
+              "type": "json$0.RawMessage"
             },
             {
               "name": "\"workflowConsent\"",
@@ -4119,9 +4197,19 @@
           "name": "RecordingState",
           "fields": [
             {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
               "name": "\"phase\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "inputclip$0.RecordingMode"
             },
             {
               "name": "\"targetSlot\"",
@@ -4147,6 +4235,11 @@
               "name": "\"pausedAtMs\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"pending\"",
+              "optional": true,
+              "type": "StopResultPayload | null"
             }
           ]
         },
@@ -4158,6 +4251,11 @@
               "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "inputclip$0.RecordingMode"
             }
           ]
         },
@@ -4174,6 +4272,11 @@
               "name": "\"targetSlot\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"mode\"",
+              "optional": false,
+              "type": "inputclip$0.RecordingMode"
             },
             {
               "name": "\"durationUs\"",
@@ -4199,7 +4302,7 @@
             {
               "name": "\"mode\"",
               "optional": false,
-              "type": "string"
+              "type": "inputclip$0.RecordingMode"
             },
             {
               "name": "\"nodes\"",

@@ -239,6 +239,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { backend, type ExecutableInspection, type InstalledApplicationProfile } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
@@ -335,7 +336,7 @@ async function addApplication() {
     expandedSlot.value = slot
     await commit()
   } catch (error) {
-    pickerFailure.value = error instanceof Error ? error.message : String(error)
+    pickerFailure.value = errorMessage(error)
   } finally {
     picking.value = false
   }
@@ -374,7 +375,7 @@ async function replaceExecutable(profile: ApplicationDraft) {
       await commit()
     }
   } catch (error) {
-    pickerFailure.value = error instanceof Error ? error.message : String(error)
+    pickerFailure.value = errorMessage(error)
   } finally {
     busy[profile.slot] = false
   }
@@ -382,13 +383,25 @@ async function replaceExecutable(profile: ApplicationDraft) {
 async function grant(profile: ApplicationDraft) {
   if (!(await commit())) return
   busy[profile.slot] = true
-  await backend.applications.grantWorkflowConsent(profile.slot)
-  busy[profile.slot] = false
+  pickerFailure.value = ''
+  try {
+    await backend.applications.grantWorkflowConsent(profile.slot)
+  } catch (error) {
+    pickerFailure.value = errorMessage(error)
+  } finally {
+    busy[profile.slot] = false
+  }
 }
 async function revoke(profile: ApplicationDraft) {
   busy[profile.slot] = true
-  await backend.applications.revokeWorkflowConsent(profile.slot)
-  busy[profile.slot] = false
+  pickerFailure.value = ''
+  try {
+    await backend.applications.revokeWorkflowConsent(profile.slot)
+  } catch (error) {
+    pickerFailure.value = errorMessage(error)
+  } finally {
+    busy[profile.slot] = false
+  }
 }
 async function removeApplication(profile: ApplicationDraft) {
   const accepted = await confirm({

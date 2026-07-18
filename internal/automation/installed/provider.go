@@ -195,6 +195,7 @@ type driver interface {
 type provider struct {
 	profile       Profile
 	driver        driver
+	verify        func(Profile) error
 	operations    []string
 	closeOnce     sync.Once
 	closeErr      error
@@ -227,9 +228,19 @@ func (p *provider) supports(operation string) bool {
 	return len(p.operations) == 0 || slices.Contains(p.operations, operation)
 }
 
-func newProvider(profile Profile, registry adapterRegistry) (*provider, error) {
-	if !profile.Valid() {
-		return nil, errors.New("automation provider requires a profile")
+func (p *provider) verifyProfile() error {
+	if p.verify != nil {
+		return p.verify(p.profile)
+	}
+	return VerifyProfile(p.profile)
+}
+
+func newProvider(profile Profile, manifest InstallationManifest, registry adapterRegistry) (*provider, error) {
+	document := manifest.Machine()
+	if !profile.Valid() || !manifest.Valid() || document.ProfileDigest != profile.Digest() ||
+		document.TargetKind != profile.TargetKind() || document.AdapterKind != profile.AdapterKind() ||
+		document.ProfileVersion != profile.Machine().ProfileVersion || document.ProviderABI != ProviderABI {
+		return nil, errors.New("automation provider requires a matching installation manifest")
 	}
 	registered, err := registry.registration(profile)
 	if err != nil {
@@ -239,7 +250,7 @@ func newProvider(profile Profile, registry adapterRegistry) (*provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &provider{profile: profile, driver: driver, operations: append([]string(nil), registered.descriptor.Operations...)}, nil
+	return &provider{profile: profile, driver: driver, verify: registered.verify, operations: operations(document.Capabilities)}, nil
 }
 
 func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -326,7 +337,7 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	if err != nil {
 		return nil, failure(CodeInvalidRequest, err)
 	}
-	if err := VerifyProfile(p.profile); err != nil {
+	if err := p.verifyProfile(); err != nil {
 		return nil, failure(CodeIdentityChanged, err)
 	}
 	if err := p.driver.Execute(ctx, operation, request); err != nil {
@@ -359,13 +370,17 @@ func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, 
 			return nil, failure(CodeInvalidRequest, errors.New("playback event is invalid"))
 		}
 		if !opened.verified {
-			if err := VerifyProfile(p.profile); err != nil {
+			if err := p.verifyProfile(); err != nil {
 				return nil, failure(CodeIdentityChanged, err)
 			}
 			opened.verified = true
 		}
 		if event.Kind == PlaybackMoveRelative {
-			targetCounts := p.profile.Machine().MouseCounts360
+			desktop, ok := DesktopProfile(p.profile)
+			if !ok {
+				return nil, failure(CodeContractViolation, errors.New("relative playback requires a desktop profile"))
+			}
+			targetCounts := desktop.MouseCounts360
 			if event.SourceCounts360 <= 0 || targetCounts <= 0 {
 				return nil, failure(CodePlaybackFailed, errors.New("relative playback requires source and target calibration"))
 			}
@@ -413,7 +428,7 @@ func (p *provider) invokeCapture(ctx context.Context, opened *captureSession, op
 	}
 	switch operation {
 	case OperationCapture:
-		if err := VerifyProfile(p.profile); err != nil {
+		if err := p.verifyProfile(); err != nil {
 			return nil, failure(CodeIdentityChanged, err)
 		}
 		var request struct{}

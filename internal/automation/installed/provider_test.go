@@ -154,9 +154,9 @@ func TestProviderSeparatesWindowAuthorityFromInputAuthority(t *testing.T) {
 
 func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 	profile, _ := testProfile(t)
-	machine := profile.Machine()
-	machine.MouseCounts360 = 800
-	profile, err := SealProfile(machine)
+	desktopProfile := desktopPayload(t, profile)
+	desktopProfile.MouseCounts360 = 800
+	profile, err := SealProfile(NewDesktopProfileDraft(desktopProfile))
 	if err != nil {
 		t.Fatal(err)
 	}

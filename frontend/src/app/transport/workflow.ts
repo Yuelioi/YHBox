@@ -22,6 +22,7 @@ import type {
   Command as WorkflowPatchCommand,
   JSONValue as WorkflowJSONValue,
 } from '../../../../contracts/workflow/3.1/authoring-patch'
+import { callRPC, invoke } from '@/lib/invoke'
 
 export interface RunChangedEvent {
   runId: string
@@ -74,62 +75,69 @@ export interface WorkflowTransport {
 }
 
 export const workflowTransport: WorkflowTransport = {
-  listSources: () => WorkflowService.ListSources(),
-  querySources: (query) => WorkflowService.QuerySources(query),
-  previewDeleteSources: (workflowIds) => WorkflowService.PreviewDeleteSources(workflowIds),
-  deleteSources: (requests) => WorkflowService.DeleteSources(requests),
-  createSource: (name) => WorkflowService.CreateSource(name),
+  listSources: () => invoke(WorkflowService.ListSources),
+  querySources: (query) => invoke(WorkflowService.QuerySources, query),
+  previewDeleteSources: (workflowIds) => invoke(WorkflowService.PreviewDeleteSources, workflowIds),
+  deleteSources: (requests) => invoke(WorkflowService.DeleteSources, requests),
+  createSource: (name) => invoke(WorkflowService.CreateSource, name),
   chooseSourceBundle: () =>
-    Dialogs.OpenFile({
-      Title: 'Import Workflow Source',
-      AllowsMultipleSelection: false,
-      CanChooseFiles: true,
-      CanChooseDirectories: false,
-      Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
-    }),
+    callRPC('workflow.chooseSourceBundle', () =>
+      Dialogs.OpenFile({
+        Title: 'Import Workflow Source',
+        AllowsMultipleSelection: false,
+        CanChooseFiles: true,
+        CanChooseDirectories: false,
+        Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
+      }),
+    ),
   chooseSourceBundleDestination: (filename) =>
-    Dialogs.SaveFile({
-      Title: 'Export Workflow Source',
-      Filename: filename,
-      CanChooseFiles: true,
-      CanChooseDirectories: false,
-      Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
-    }),
+    callRPC('workflow.chooseSourceBundleDestination', () =>
+      Dialogs.SaveFile({
+        Title: 'Export Workflow Source',
+        Filename: filename,
+        CanChooseFiles: true,
+        CanChooseDirectories: false,
+        Filters: [{ DisplayName: 'Yotta Workflow Source', Pattern: '*.yotta-workflow' }],
+      }),
+    ),
   chooseSourceBundleDirectory: () =>
-    Dialogs.OpenFile({
-      Title: 'Export Workflow Sources',
-      AllowsMultipleSelection: false,
-      CanChooseFiles: false,
-      CanChooseDirectories: true,
-      CanCreateDirectories: true,
-    }),
-  inspectSourceBundle: (path) => WorkflowService.InspectSourceBundle(path),
-  importSourceBundle: (path) => WorkflowService.ImportSourceBundle(path),
+    callRPC('workflow.chooseSourceBundleDirectory', () =>
+      Dialogs.OpenFile({
+        Title: 'Export Workflow Sources',
+        AllowsMultipleSelection: false,
+        CanChooseFiles: false,
+        CanChooseDirectories: true,
+        CanCreateDirectories: true,
+      }),
+    ),
+  inspectSourceBundle: (path) => invoke(WorkflowService.InspectSourceBundle, path),
+  importSourceBundle: (path) => invoke(WorkflowService.ImportSourceBundle, path),
   replaceSourceFromBundle: (path, workflowId, revision, sourceHash) =>
-    WorkflowService.ReplaceSourceFromBundle(path, workflowId, revision, sourceHash),
+    invoke(WorkflowService.ReplaceSourceFromBundle, path, workflowId, revision, sourceHash),
   exportSourceBundle: (workflowId, destination) =>
-    WorkflowService.ExportSourceBundle(workflowId, destination),
+    invoke(WorkflowService.ExportSourceBundle, workflowId, destination),
   exportSourceBundles: (workflowIds, directory) =>
-    WorkflowService.ExportSourceBundles(workflowIds, directory),
-  getSource: (workflowId) => WorkflowService.GetSource(workflowId),
+    invoke(WorkflowService.ExportSourceBundles, workflowIds, directory),
+  getSource: (workflowId) => invoke(WorkflowService.GetSource, workflowId),
   applyPatch: (workflowId, baseRevision, commands) =>
-    WorkflowService.ApplyPatch(
+    invoke(
+      WorkflowService.ApplyPatch,
       workflowId,
       baseRevision,
       commands as Parameters<typeof WorkflowService.ApplyPatch>[2],
     ),
-  compileSource: (workflowId) => WorkflowService.CompileSource(workflowId),
-  startRun: (workflowId) => WorkflowService.StartRun(workflowId),
+  compileSource: (workflowId) => invoke(WorkflowService.CompileSource, workflowId),
+  startRun: (workflowId) => invoke(WorkflowService.StartRun, workflowId),
   startDebugRun: (workflowId, breakpoints) =>
-    WorkflowService.StartDebugRun(workflowId, breakpoints),
-  getDebugSnapshot: (runId) => WorkflowService.GetDebugSnapshot(runId),
-  controlDebugRun: (runId, action) => WorkflowService.ControlDebugRun(runId, action),
+    invoke(WorkflowService.StartDebugRun, workflowId, breakpoints),
+  getDebugSnapshot: (runId) => invoke(WorkflowService.GetDebugSnapshot, runId),
+  controlDebugRun: (runId, action) => invoke(WorkflowService.ControlDebugRun, runId, action),
   setDebugBreakpoints: (runId, breakpoints) =>
-    WorkflowService.SetDebugBreakpoints(runId, breakpoints),
-  cancelRun: (runId) => WorkflowService.CancelRun(runId),
-  cancelAllRuns: () => WorkflowService.CancelAllRuns(),
-  getRunTimeline: (runId) => WorkflowService.GetRunTimeline(runId),
-  getAuthoringProjection: () => WorkflowService.GetAuthoringProjection(),
+    invoke(WorkflowService.SetDebugBreakpoints, runId, breakpoints),
+  cancelRun: (runId) => invoke(WorkflowService.CancelRun, runId),
+  cancelAllRuns: () => invoke(WorkflowService.CancelAllRuns),
+  getRunTimeline: (runId) => invoke(WorkflowService.GetRunTimeline, runId),
+  getAuthoringProjection: () => invoke(WorkflowService.GetAuthoringProjection),
 }
 
 export function onRunChanged(listener: (event: RunChangedEvent) => void): () => void {

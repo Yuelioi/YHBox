@@ -42,6 +42,15 @@
           <p class="mt-1 text-xs leading-5 text-muted">{{ recordingHint }}</p>
         </div>
         <div class="flex shrink-0 items-center gap-2">
+          <USelect
+            v-if="recording.state.phase === 'idle'"
+            v-model="recordingMode"
+            :items="recordingModeItems"
+            value-key="value"
+            label-key="label"
+            class="w-44"
+            :aria-label="t('assets.recording.mode')"
+          />
           <UButton
             v-if="recording.state.phase === 'recording'"
             color="neutral"
@@ -73,8 +82,10 @@
             :disabled="
               !selectedTargetSlot ||
               !selectedTargetSupportsRecording ||
-              recording.state.phase === 'finalizing'
+              recording.state.phase !== 'idle' ||
+              recordingStarting
             "
+            :loading="recordingStarting"
             @click="startRecording"
           />
         </div>
@@ -448,7 +459,12 @@
   >
     <div v-if="pendingRecording" class="space-y-4">
       <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
-        <p class="text-sm font-medium text-highlighted">{{ t('recordingSave.clip_type') }}</p>
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm font-medium text-highlighted">{{ t('recordingSave.clip_type') }}</p>
+          <UBadge color="neutral" variant="soft">
+            {{ t(`recordingSave.mode_${pendingRecording.mode}`) }}
+          </UBadge>
+        </div>
         <p class="mt-1 text-xs text-muted">
           {{
             t('recordingSave.summary', {
@@ -498,14 +514,18 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { backend, type AssetSummary, type BlobRef } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import {
   isRecordingStopPayload,
   useRecordingStore,
+  type RecordingMode,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
+import { useAssetsStore } from '@/stores/assets'
 import { useConfirm } from '@/composables/useConfirm'
 import { awaitWailsEvent, useWailsEvent } from '@/composables/useWailsEvent'
+import { useRecordingStart } from '@/composables/useRecordingStart'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
@@ -528,7 +548,9 @@ const { t } = useI18n()
 const toast = useToast()
 const { confirm } = useConfirm()
 const settings = useSettingsStore()
+const assets = useAssetsStore()
 const recording = useRecordingStore()
+const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
 const activeTab = ref<AssetTab>('clips')
 const queryInput = ref('')
 const query = ref('')
@@ -549,6 +571,7 @@ const variantAsset = ref<AssetSummary | null>(null)
 const variantBusy = ref(false)
 const cleanupBusy = ref(false)
 const selectedTargetSlot = ref('')
+const recordingMode = ref<RecordingMode>('simple')
 const captureBusy = ref(false)
 const editingItem = ref<AssetItem | null>(null)
 const editBusy = ref(false)
@@ -566,6 +589,10 @@ const sortItems = computed(() => [
   { label: t('assets.sort_name_asc'), value: 'name_asc' },
   { label: t('assets.sort_name_desc'), value: 'name_desc' },
   { label: t('assets.sort_created_desc'), value: 'created_desc' },
+])
+const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
+  { label: t('recordingSave.mode_simple'), value: 'simple' },
+  { label: t('recordingSave.mode_precise'), value: 'precise' },
 ])
 
 const targetItems = computed(() =>
@@ -602,7 +629,7 @@ const items = computed<AssetItem[]>(() => {
       tags: asset.tags ?? [],
       meta: t('assets.templates.meta', { count: asset.variantCount }),
       icon: 'i-tabler-photo',
-      previewBlob: asset.variants[0]?.blob,
+      previewBlob: asset.thumbnail,
       source: asset,
     }
   })
@@ -616,6 +643,8 @@ const recordingBadge = computed(() => {
       return { label: t('recordingHud.paused'), color: 'warning' as const }
     case 'finalizing':
       return { label: t('assets.recording.finalizing'), color: 'warning' as const }
+    case 'pending':
+      return { label: t('recordingSave.pending'), color: 'warning' as const }
     default:
       return { label: t('assets.recording.ready'), color: 'neutral' as const }
   }
@@ -649,10 +678,17 @@ watch(activeTab, async () => {
   await refreshAssets()
 })
 
+watch(
+  () => recording.state.pending,
+  (pending) => {
+    if (pending) openRecordingSave(pending)
+  },
+)
+
 async function refreshAssets(): Promise<void> {
   loading.value = true
   try {
-    const result = await backend.assets.query({
+    const result = await assets.query({
       search: query.value,
       kind: activeTab.value === 'clips' ? 'clip' : 'template',
       category: categoryFilter.value.trim(),
@@ -660,6 +696,8 @@ async function refreshAssets(): Promise<void> {
       sort: sort.value,
       page: page.value,
       pageSize: pageSize.value,
+      thumbnailBudget: pageSize.value,
+      recentGUIDs: [],
     })
     assetPage.value = result?.items ?? []
     total.value = result?.total ?? 0
@@ -786,8 +824,7 @@ function retainFailedSelection(guids: string[]): void {
 
 async function startRecording(): Promise<void> {
   try {
-    await recording.start(selectedTargetSlot.value)
-    await backend.tools.openRecordingHUD()
+    await beginRecording(recordingMode.value, selectedTargetSlot.value)
   } catch (error) {
     showError(t('assets.recording.start_failed'), error)
   }
@@ -819,6 +856,7 @@ async function stopRecording(): Promise<void> {
 }
 
 function openRecordingSave(payload: RecordingStopPayload): void {
+  if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
   recordingDraft.name = ''
   recordingDraft.description = ''
@@ -1078,7 +1116,7 @@ function formatDuration(durationUs: number): string {
 function showError(title: string, error: unknown): void {
   toast.add({
     title,
-    description: error instanceof Error ? error.message : String(error),
+    description: errorMessage(error),
     color: 'error',
   })
 }

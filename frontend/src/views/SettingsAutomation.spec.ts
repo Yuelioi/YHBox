@@ -11,9 +11,13 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('backend.automation.revokeWorkflowConsent')
     expect(source).toContain('captureBackend')
     expect(source).toContain('backend.automation.listTargetTypes()')
-    expect(source).toContain("captureBackend: (type.captureBackends[0] ?? '')")
+    expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'captureBackend')")
+    expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'inputBackend')")
+    expect(source).toContain(
+      "captureBackend: (profileFieldOptions(type, 'captureBackend')[0] ?? '')",
+    )
     expect(source).toContain('targetKind: type.targetKind')
-    expect(source).toContain('<SettingsRestartBadge')
+    expect(source).not.toContain('<SettingsRestartBadge')
     expect(source).not.toMatch(/\b(?:HWND|processId)\b/)
     expect(source).toContain("applicationSlot: ''")
     expect(source).not.toContain('applications.value[0]')
@@ -39,6 +43,22 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('target.browserWebSocketUrl = selected.webSocketDebuggerUrl')
     expect(source).toContain('target.browserTargetId?.trim()')
     expect(source).toContain('target.browserEndpoint?.trim()')
+    expect(source).toContain('genericTargetTypes')
+    expect(source).toContain('v-for="field in targetFields(target)"')
+    expect(source).toContain('profile: { ...target.profile }')
+  })
+
+  it('preserves the exact captured Win32 title and class identity', () => {
+    expect(source).toContain('windowTitle: target.windowTitle,')
+    expect(source).toContain('windowClass: target.windowClass,')
+    expect(source).not.toContain('windowTitle: target.windowTitle.trim(),')
+    expect(source).not.toContain('windowClass: target.windowClass.trim(),')
+    expect(source).toContain("target.windowTitleMatch = 'exact'")
+    expect(source).toContain('v-model="target.windowTitleMatch"')
+    expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'windowTitleMatch')")
+    expect(source).toContain('v-model="target.windowSelection"')
+    expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'windowSelection')")
+    expect(source).toContain('settingsAutomation.targets.preview_matches')
   })
 
   it('keeps expandable targets and form controls keyboard accessible', () => {
@@ -51,5 +71,11 @@ describe('SettingsAutomation', () => {
   it('keeps dense target identity and window selectors in a single-column flow', () => {
     expect(source).toContain('data-testid="automation-target-core-fields" class="space-y-4"')
     expect(source).toContain('data-testid="automation-target-window-fields" class="space-y-4"')
+  })
+
+  it('activates and authorizes a captured target in the same process', () => {
+    expect(source).toContain('await backend.automation.grantWorkflowConsent(target.slot)')
+    expect(source).not.toContain('captureFeedback.activationRequired')
+    expect(source).not.toContain('settingsAutomation.capture.runtime_activation_required')
   })
 })

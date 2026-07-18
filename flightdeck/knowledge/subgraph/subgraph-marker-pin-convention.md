@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "子图 virtual marker 的 exec pin 名必须在存的边/渲染 handle/runtime 播种三层一致"
+summary: "历史 3.0 virtual marker pin 三层漂移案例；3.1 GraphCall interface/edge/Program lowering 必须由同一 Source contract 派生。"
 activation: symptom
-read_when: "改子图折叠 (useFolding) / virtual marker (SubgraphInput·Output) 接线 / 改 pinsFor / 改子图调用出口 (decl ID) / 撞「子图入口出口线掉节点底部」「子图调用下游不触发」或 INVALID_PIN Subgraph 不存在 in pin"
+read_when: "仅在审查 3.0 virtual marker，或排查 3.1 GraphCall interface/edge/lowering identity 漂移时"
 ---
 # ⚠ 子图 virtual marker 的 pin 名必须三层一致 (渲染 / 边 / runtime)
+
+> 历史案例：3.1 不使用旧 marker kind/pin。可复用原则是 callable interface port ID、Source edge endpoint、Projection handle 与 Compiler lowering 必须来自同一 canonical Source。
 **Symptom**: 折叠选中节点为子图后, ① 主图保存失败 `节点 n-call_xxx (Subgraph) 不存在 in pin in, 还有 2 个错误`; 修了边 pin 名后 ② 子图入口/出口的线**不从 handle 出来、掉到节点底部**。
 
 **Root cause** (I assumed pin 名随便取 / 改 `PIN_SPECS` 就能改渲染, 实际三层各有约定且渲染根本不读 PIN_SPECS):

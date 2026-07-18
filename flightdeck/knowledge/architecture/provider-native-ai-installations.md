@@ -1,19 +1,19 @@
 ---
 kind: note
-summary: "Yotta 3.1 AI 必须以内容寻址 Model Profile、PromptManifest 与 ToolSet 组成可信安装边界；provider/target/credential/consent 由启动时 Host Profile 冻结，运行时数据不得升格为高权限指令。"
+summary: "Yotta 3.1 AI 以内容寻址 Model Profile、PromptManifest 与 ToolSet 组成可信安装边界；安装通过原子 generation 发布，运行时数据不得升格为高权限指令。"
 activation: action
 read_when: "新增或修改 AI provider、模型设置、PromptManifest、ToolSet、AI 节点、workflow consent、credential binding、Host Profile、Policy/Run Grant 或 AI trace 时"
 recheck_when: "Model Profile/PromptManifest/ToolSet digest、provider ABI、供应商原生 API、AI capability scope、credential store 或 workflow consent preimage 改变时"
 ---
 # Provider-native AI installation contract
 
-Yotta 3.1 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，启动装配为以下锁定关系：
+Yotta 3.1 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact endpoint/model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：
 
 - 相同 Model Profile 可共享一个 native provider 实例，但每个 slot 必须有独立 target 与 credential binding。
 - OpenAI adapter 只走 Responses API，Anthropic adapter 只走 Messages API。不得通过 Chat、prompt JSON、模型列表或 endpoint 猜测做兼容回退。
 - API key 只按 slot 存入 OS credential store；settings、RPC 返回、日志和 trace 不得含明文 secret。
 - workflow consent 是 slot、profile digest、provider ABI 和允许 operation 的内容摘要。档案语义变化后旧 consent 必须失效，不得自动迁移或扩大。
-- Host Profile 在应用启动时冻结 provider artifact、target、credential binding 与 consent。Policy 只能对 exact proposal seal bounded Run Grant；运行中不能热插入 ambient provider。
+- 同一 sealed generation 原子投影 provider artifact、target、credential binding、Host Profile 与 consent；正在运行的 Run 持有其 generation lease，新 Run 只能看到已发布的新代。配置变化不得靠 ambient provider 热插入，也不应要求正常重启应用。
 - provider 结果必须保留 requested/resolved model、finish、供应商 request identity、token usage 与按 profile pricing 估算的 cost；未知响应类型、缺失 usage 或能力不匹配要 fail closed。
 
 Trusted instruction boundary 也必须是安装时/构建时冻结的 artifact：

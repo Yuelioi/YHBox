@@ -84,7 +84,7 @@
       size="xs"
       @click="emit('start-recording')"
     />
-    <template v-else>
+    <template v-else-if="recordingPhase !== 'pending'">
       <UButton
         :label="
           recordingPhase === 'paused'
@@ -109,6 +109,15 @@
         @click="emit('stop-recording')"
       />
     </template>
+    <UButton
+      v-else
+      :label="t('recordingSave.pending')"
+      icon="i-tabler-clock-edit"
+      color="warning"
+      variant="soft"
+      size="xs"
+      disabled
+    />
     <UButton
       :label="
         compileSucceeded ? t('workflow.action.compile_succeeded') : t('workflow.action.compile')
@@ -210,7 +219,7 @@ const props = defineProps<{
   runTimelineOpen: boolean
   hasDebug: boolean
   debuggerOpen: boolean
-  recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing'
+  recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
 }>()
 const emit = defineEmits<{
   back: []

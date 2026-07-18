@@ -11,8 +11,9 @@ import (
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
 
-// AutomationService owns explicit workflow consent for exact installed window
-// targets. It exposes no input execution RPC.
+// AutomationService owns explicit workflow consent for exact installed targets.
+// Granting a desktop target also covers its pinned application identity in the
+// same settings transaction; it exposes no input execution RPC.
 type AutomationService struct{ app *App }
 
 type AutomationTargetHealth struct {
@@ -59,38 +60,25 @@ func (service *AutomationService) CheckTargetHealth(slot string) AutomationTarge
 		if configured.Slot != slot {
 			continue
 		}
-		profile, err := automationinstalled.SealProfile(configured.profileDraft(applications[configured.ApplicationSlot]))
+		draft, err := configured.profileDraft(applications[configured.applicationSlot()])
 		if err != nil {
 			return AutomationTargetHealth{Code: "invalid-profile", Message: err.Error()}
 		}
-		if configured.isBrowser() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configured.ResolveTimeoutMilliseconds)*time.Millisecond)
-			probe, probeErr := automationinstalled.NewBrowserHealthProbe(profile)
-			if probeErr == nil {
-				_, probeErr = probe.Resolve(ctx)
-			}
-			cancel()
-			if probeErr != nil {
-				return automationHealthFailure(probeErr)
-			}
-			return AutomationTargetHealth{OK: true, Code: "ready", Message: "browser page identity and viewport are ready"}
+		installations, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{
+			Slot: configured.Slot, Label: configured.Label, Profile: draft,
+		}})
+		if err != nil {
+			return AutomationTargetHealth{Code: "invalid-profile", Message: err.Error()}
 		}
-		if !configured.isAndroid() {
-			if err := automationinstalled.VerifyProfile(profile); err != nil {
-				return AutomationTargetHealth{Code: "identity-changed", Message: err.Error()}
-			}
-			return AutomationTargetHealth{OK: true, Code: "ready", Message: "desktop target profile is valid"}
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(configured.ResolveTimeoutMilliseconds)*time.Millisecond)
-		driver, err := automationinstalled.NewAndroidHealthProbe(profile)
-		if err == nil {
-			_, err = driver.Resolve(ctx)
-		}
+		defer installations.Close()
+		installed := installations.Entries()[0]
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(installed.Profile.ResolveTimeoutMilliseconds())*time.Millisecond)
+		err = automationinstalled.CheckInstallationHealth(ctx, installed)
 		cancel()
 		if err != nil {
 			return automationHealthFailure(err)
 		}
-		return AutomationTargetHealth{OK: true, Code: "ready", Message: "ADB device identity and display are ready"}
+		return AutomationTargetHealth{OK: true, Code: "ready", Message: "target identity and adapter runtime are ready"}
 	}
 	return AutomationTargetHealth{Code: "not-found", Message: fmt.Sprintf("automation target slot %q is not installed", slot)}
 }
@@ -110,9 +98,9 @@ func (service *AutomationService) GrantWorkflowConsent(slot string) (string, err
 	}
 	var granted string
 	_, _, err := service.app.MutateSettings(func(settings *Settings) error {
-		applications := make(map[string]InstalledApplicationSettings, len(settings.Applications.Profiles))
-		for _, configured := range settings.Applications.Profiles {
-			applications[configured.Slot] = configured
+		applications := make(map[string]int, len(settings.Applications.Profiles))
+		for index, configured := range settings.Applications.Profiles {
+			applications[configured.Slot] = index
 		}
 		for index := range settings.Automation.Targets {
 			configured := &settings.Automation.Targets[index]
@@ -120,14 +108,36 @@ func (service *AutomationService) GrantWorkflowConsent(slot string) (string, err
 				continue
 			}
 			var application InstalledApplicationSettings
-			if configured.isDesktop() {
+			if configured.requiresApplication() {
 				var ok bool
-				application, ok = applications[configured.ApplicationSlot]
-				if !ok {
-					return fmt.Errorf("automation target %q references unknown application slot %q", slot, configured.ApplicationSlot)
+				applicationSlot := configured.applicationSlot()
+				applicationIndex, found := applications[applicationSlot]
+				if found {
+					application = settings.Applications.Profiles[applicationIndex]
 				}
+				ok = found
+				if !ok {
+					return fmt.Errorf("automation target %q references unknown application slot %q", slot, applicationSlot)
+				}
+				applicationProfile, err := appcontrol.SealProfile(application.profileDraft())
+				if err != nil {
+					return err
+				}
+				if err := appcontrol.VerifyProfile(applicationProfile); err != nil {
+					return err
+				}
+				applicationConsent, err := appcontrol.WorkflowConsentDigest(application.Slot, applicationProfile)
+				if err != nil {
+					return err
+				}
+				settings.Applications.Profiles[applicationIndex].WorkflowConsent = applicationConsent
+				application.WorkflowConsent = applicationConsent
 			}
-			profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
+			draft, err := configured.profileDraft(application)
+			if err != nil {
+				return err
+			}
+			profile, err := automationinstalled.SealProfile(draft)
 			if err != nil {
 				return err
 			}
@@ -201,14 +211,19 @@ func (service *AutomationService) GrantAllWorkflowConsents() (BulkWorkflowConsen
 		for index := range settings.Automation.Targets {
 			configured := &settings.Automation.Targets[index]
 			var application InstalledApplicationSettings
-			if configured.isDesktop() {
+			if configured.requiresApplication() {
 				var ok bool
-				application, ok = applications[configured.ApplicationSlot]
+				applicationSlot := configured.applicationSlot()
+				application, ok = applications[applicationSlot]
 				if !ok {
-					return fmt.Errorf("automation target %q references unknown application slot %q", configured.Slot, configured.ApplicationSlot)
+					return fmt.Errorf("automation target %q references unknown application slot %q", configured.Slot, applicationSlot)
 				}
 			}
-			profile, err := automationinstalled.SealProfile(configured.profileDraft(application))
+			draft, err := configured.profileDraft(application)
+			if err != nil {
+				return err
+			}
+			profile, err := automationinstalled.SealProfile(draft)
 			if err != nil {
 				return err
 			}

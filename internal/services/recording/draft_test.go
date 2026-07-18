@@ -11,7 +11,7 @@ import (
 
 func TestRecordingPreviewAndDraftExpandSimpleKeysAndClick(t *testing.T) {
 	result := &StopResult{
-		Meta: inputclip.ClipMeta{BaseResolution: [2]int{1280, 720}},
+		Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{1280, 720}},
 		Events: []inputclip.Event{
 			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: int32(VK_CONTROL)},
 			{TUs: 10_000, Type: inputclip.EventTypeKeyDown, A: 'C'},
@@ -22,11 +22,11 @@ func TestRecordingPreviewAndDraftExpandSimpleKeysAndClick(t *testing.T) {
 		},
 	}
 	preview := recordingPreview(result)
-	if preview.Mode != "steps" || preview.KeyActions != 1 || preview.ClickActions != 1 || len(preview.Steps) != 2 {
+	if preview.Mode != "simple" || preview.KeyActions != 1 || preview.ClickActions != 1 || len(preview.Steps) != 2 {
 		t.Fatalf("preview = %+v", preview)
 	}
 	draft := buildWorkflowDraft(result, "editor", blob.BlobRef{})
-	if draft.Mode != "steps" || len(draft.Nodes) != 3 {
+	if draft.Mode != inputclip.RecordingModeSimple || len(draft.Nodes) != 3 {
 		t.Fatalf("draft = %+v", draft)
 	}
 	keys, ok := draft.Nodes[0].Values["keys"].([]string)
@@ -43,18 +43,18 @@ func TestRecordingPreviewAndDraftExpandSimpleKeysAndClick(t *testing.T) {
 	assertDraftContracts(t, draft)
 }
 
-func TestRecordingDraftRetainsTrajectoryAsInputClip(t *testing.T) {
-	result := &StopResult{Events: []inputclip.Event{
+func TestRecordingDraftRetainsPreciseRecordingAsInputClip(t *testing.T) {
+	result := &StopResult{Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise}, Events: []inputclip.Event{
 		{TUs: 0, Type: inputclip.EventTypeRawDelta, B: 12, C: -4},
 		{TUs: 25_000, Type: inputclip.EventTypeRawDelta, B: 8, C: 2},
 	}}
 	preview := recordingPreview(result)
-	if preview.Mode != "trajectory" || preview.RawDeltas != 2 {
+	if preview.Mode != "precise" || preview.RawDeltas != 2 {
 		t.Fatalf("preview = %+v", preview)
 	}
 	ref := blob.BlobRef{MediaType: inputclip.MediaType, Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: 64}
 	draft := buildWorkflowDraft(result, "game", ref)
-	if draft.Mode != "trajectory" || len(draft.Nodes) != 1 || draft.Nodes[0].Blobs["clip"] != ref {
+	if draft.Mode != inputclip.RecordingModePrecise || len(draft.Nodes) != 1 || draft.Nodes[0].Blobs["clip"] != ref {
 		t.Fatalf("draft = %+v", draft)
 	}
 	assertDraftContracts(t, draft)

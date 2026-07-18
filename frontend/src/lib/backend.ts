@@ -25,7 +25,7 @@ import {
 } from '@bindings/github.com/yottaapp/yotta/internal/ai/models.js'
 import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import { BlobRef as BlobRefBinding } from '@bindings/github.com/yottaapp/yotta/internal/blob/models.js'
-import { invoke, invokeVoid } from './invoke'
+import { callRPC, invoke } from './invoke'
 import * as E from '@/constants/events'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
@@ -71,7 +71,7 @@ export type Schedule = ScheduleModel
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
 export interface AssetSummary {
   guid: string
-  kind: string // "template" | "clip"
+  kind: 'template' | 'clip'
   name: string
   description?: string
   category?: string
@@ -79,6 +79,7 @@ export interface AssetSummary {
   variantCount: number
   variants: Array<{ resolution: [number, number]; blob: BlobRef }>
   blob?: BlobRef
+  thumbnail?: BlobRef
   createdAt?: string
 }
 
@@ -104,6 +105,8 @@ export interface AssetQuery {
   sort: string
   page: number
   pageSize: number
+  thumbnailBudget: number
+  recentGUIDs: string[]
 }
 
 export interface AssetPage {
@@ -111,6 +114,17 @@ export interface AssetPage {
   total: number
   page: number
   pageSize: number
+  revision: number
+}
+
+export interface AssetBinding {
+  found: boolean
+  guid: string
+  kind: 'template' | 'clip' | ''
+  name: string
+  resolution: [number, number]
+  blob: BlobRef
+  matchCount: number
 }
 
 export interface AssetBatchResult {
@@ -267,28 +281,47 @@ export interface InstalledApplicationProfile {
   workflowConsent?: string
 }
 
+export interface DesktopAutomationTargetProfile {
+  applicationSlot: string
+  windowTitle: string
+  windowTitleMatch: 'exact' | 'regex'
+  windowSelection: 'unique' | 'topmost'
+  windowClass: string
+  inputBackend: 'sendinput' | 'postmessage'
+  captureBackend: 'gdi' | 'wgc'
+  mouseCounts360: number
+  resolveTimeoutMilliseconds: number
+}
+
+export interface AndroidAutomationTargetProfile {
+  adbSerial: string
+  adbProduct: string
+  adbModel: string
+  adbDevice: string
+  androidPackage: string
+  resolveTimeoutMilliseconds: number
+}
+
+export interface BrowserAutomationTargetProfile {
+  browserEndpoint: string
+  browserTargetId: string
+  browserWebSocketUrl: string
+  browserTitle: string
+  browserUrl: string
+  resolveTimeoutMilliseconds: number
+}
+
 export interface InstalledAutomationTargetProfile {
   slot: string
   label: string
-  targetKind: 'desktop-window' | 'android-device' | 'browser-cdp'
-  adapterKind: 'win32' | 'android-adb' | 'browser-cdp'
-  applicationSlot: string
-  windowTitle: string
-  windowClass: string
-  inputBackend: 'sendinput' | 'postmessage' | ''
-  captureBackend: 'gdi' | 'wgc' | ''
-  mouseCounts360: number
-  resolveTimeoutMilliseconds: number
-  adbSerial?: string
-  adbProduct?: string
-  adbModel?: string
-  adbDevice?: string
-  androidPackage?: string
-  browserEndpoint?: string
-  browserTargetId?: string
-  browserWebSocketUrl?: string
-  browserTitle?: string
-  browserUrl?: string
+  targetKind: string
+  adapterKind: string
+  profileVersion: string
+  profile:
+    | DesktopAutomationTargetProfile
+    | AndroidAutomationTargetProfile
+    | BrowserAutomationTargetProfile
+    | Record<string, unknown>
   workflowConsent?: string
 }
 
@@ -315,13 +348,29 @@ export interface AutomationTargetHealth {
   message: string
 }
 
+export interface AutomationCapabilityDescriptor {
+  capabilityId: string
+  resourceKind: string
+  operations: string[]
+}
+
+export interface AutomationProfileFieldDescriptor {
+  id: string
+  kind: string
+  required: boolean
+  options?: string[]
+}
+
 export interface AutomationTargetTypeDescriptor {
   targetKind: string
   adapterKind: string
   profileKind: string
+  profileVersion: string
   hostAvailable: boolean
+  capabilities: AutomationCapabilityDescriptor[]
   resourceKinds: string[]
   operations: string[]
+  fields: AutomationProfileFieldDescriptor[]
   inputBackends: string[]
   captureBackends: string[]
   applicationIdentityKinds: string[]
@@ -349,77 +398,74 @@ function toAIModelSettingsBinding(profile: AIModelProfile): AIModelSettingsBindi
 export const backend = {
   settings: {
     get: () => invoke(SettingsService.Get),
-    update: (patch: object) => invokeVoid(SettingsService.Update, JSON.stringify(patch)),
+    update: (patch: object) => invoke(SettingsService.Update, JSON.stringify(patch)),
   },
   ai: {
     testProfile: (profile: AIModelProfile) =>
       invoke(AIService.TestProfile, {
         profile: toAIModelSettingsBinding(profile),
-      }) as Promise<AIProfileTestResult | undefined>,
+      }) as Promise<AIProfileTestResult>,
     secretStatus: (slots: string[]) =>
-      invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean> | undefined>,
-    setAPIKey: (slot: string, apiKey: string) => invokeVoid(AIService.SetAPIKey, slot, apiKey),
-    deleteAPIKey: (slot: string) => invokeVoid(AIService.DeleteAPIKey, slot),
+      invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean>>,
+    setAPIKey: (slot: string, apiKey: string) => invoke(AIService.SetAPIKey, slot, apiKey),
+    deleteAPIKey: (slot: string) => invoke(AIService.DeleteAPIKey, slot),
     applyEvaluation: (slot: string, evidence: AIEvaluationReport) =>
-      invokeVoid(AIService.ApplyEvaluation, slot, new EvalReportArtifactBinding(evidence)),
-    revokeEvaluation: (slot: string) => invokeVoid(AIService.RevokeEvaluation, slot),
-    grantWorkflowUse: (slot: string) =>
-      invoke(AIService.GrantWorkflowUse, slot) as Promise<string | undefined>,
-    revokeWorkflowUse: (slot: string) => invokeVoid(AIService.RevokeWorkflowUse, slot),
+      invoke(AIService.ApplyEvaluation, slot, new EvalReportArtifactBinding(evidence)),
+    revokeEvaluation: (slot: string) => invoke(AIService.RevokeEvaluation, slot),
+    grantWorkflowUse: (slot: string) => invoke(AIService.GrantWorkflowUse, slot) as Promise<string>,
+    revokeWorkflowUse: (slot: string) => invoke(AIService.RevokeWorkflowUse, slot),
     proposeWorkflow: (
       slot: string,
       workflowId: string,
       baseRevision: number,
       instruction: string,
     ) =>
-      invoke(AIService.ProposeWorkflow, slot, workflowId, baseRevision, instruction) as Promise<
-        AIWorkflowReview | undefined
-      >,
+      invoke(
+        AIService.ProposeWorkflow,
+        slot,
+        workflowId,
+        baseRevision,
+        instruction,
+      ) as Promise<AIWorkflowReview>,
     acceptWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.AcceptWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
+      invoke(AIService.AcceptWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
     rejectWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.RejectWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
+      invoke(AIService.RejectWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
     getWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview | undefined>,
+      invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
   },
   network: {
     grantHTTPWorkflowConsent: (slot: string) =>
-      invoke(NetworkService.GrantHTTPWorkflowConsent, slot) as Promise<string | undefined>,
+      invoke(NetworkService.GrantHTTPWorkflowConsent, slot) as Promise<string>,
     revokeHTTPWorkflowConsent: (slot: string) =>
-      invokeVoid(NetworkService.RevokeHTTPWorkflowConsent, slot),
+      invoke(NetworkService.RevokeHTTPWorkflowConsent, slot),
   },
   applications: {
     pickExecutable: (title: string) =>
-      Dialogs.OpenFile({
-        Title: title,
-        AllowsMultipleSelection: false,
-        Filters: [{ DisplayName: 'Windows Application', Pattern: '*.exe' }],
-      }) as Promise<string>,
+      callRPC('applications.pickExecutable', () =>
+        Dialogs.OpenFile({
+          Title: title,
+          AllowsMultipleSelection: false,
+          Filters: [{ DisplayName: 'Windows Application', Pattern: '*.exe' }],
+        }),
+      ) as Promise<string>,
     inspectExecutable: (path: string) =>
-      invoke(ApplicationService.InspectExecutable, path) as Promise<
-        ExecutableInspection | undefined
-      >,
+      invoke(ApplicationService.InspectExecutable, path) as Promise<ExecutableInspection>,
     grantWorkflowConsent: (slot: string) =>
-      invoke(ApplicationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
-    revokeWorkflowConsent: (slot: string) =>
-      invokeVoid(ApplicationService.RevokeWorkflowConsent, slot),
+      invoke(ApplicationService.GrantWorkflowConsent, slot) as Promise<string>,
+    revokeWorkflowConsent: (slot: string) => invoke(ApplicationService.RevokeWorkflowConsent, slot),
   },
   automation: {
     listTargetTypes: () => invoke(AutomationService.ListTargetTypes),
     listADBDevices: () =>
-      invoke(AutomationService.ListADBDevices) as Promise<AndroidDeviceDescriptor[] | undefined>,
+      invoke(AutomationService.ListADBDevices) as Promise<AndroidDeviceDescriptor[]>,
     listBrowserTargets: (endpoint: string) =>
-      invoke(AutomationService.ListBrowserTargets, endpoint) as Promise<
-        BrowserTargetDescriptor[] | undefined
-      >,
+      invoke(AutomationService.ListBrowserTargets, endpoint) as Promise<BrowserTargetDescriptor[]>,
     checkTargetHealth: (slot: string) =>
-      invoke(AutomationService.CheckTargetHealth, slot) as Promise<
-        AutomationTargetHealth | undefined
-      >,
+      invoke(AutomationService.CheckTargetHealth, slot) as Promise<AutomationTargetHealth>,
     grantWorkflowConsent: (slot: string) =>
-      invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string | undefined>,
-    revokeWorkflowConsent: (slot: string) =>
-      invokeVoid(AutomationService.RevokeWorkflowConsent, slot),
+      invoke(AutomationService.GrantWorkflowConsent, slot) as Promise<string>,
+    revokeWorkflowConsent: (slot: string) => invoke(AutomationService.RevokeWorkflowConsent, slot),
     grantAllWorkflowConsents: () => invoke(AutomationService.GrantAllWorkflowConsents),
     revokeAllWorkflowConsents: () => invoke(AutomationService.RevokeAllWorkflowConsents),
   },
@@ -434,14 +480,12 @@ export const backend = {
   assets: {
     // List 全局资产列表 (template + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
-    query: (query: AssetQuery) =>
-      invoke(AssetService.QueryAssets, query) as Promise<AssetPage | undefined>,
+    query: (query: AssetQuery) => invoke(AssetService.QueryAssets, query) as Promise<AssetPage>,
     batchUpdateMeta: (requests: Array<{ guid: string; category: string; tags: string[] }>) =>
-      invoke(AssetService.BatchUpdateMeta, requests) as Promise<AssetBatchResult[] | undefined>,
+      invoke(AssetService.BatchUpdateMeta, requests) as Promise<AssetBatchResult[]>,
     batchDelete: (guids: string[]) =>
-      invoke(AssetService.BatchDelete, guids) as Promise<AssetBatchResult[] | undefined>,
-    previewCleanup: () =>
-      invoke(AssetService.PreviewCleanup) as Promise<AssetCleanupPreview | undefined>,
+      invoke(AssetService.BatchDelete, guids) as Promise<AssetBatchResult[]>,
+    previewCleanup: () => invoke(AssetService.PreviewCleanup) as Promise<AssetCleanupPreview>,
     commitCleanup: (token: string) => invoke(AssetService.CommitCleanup, token),
     // SaveTemplateCapture 截图存为新模板资产, 返 GUID. tags 截图时可选设标签.
     saveTemplateCapture: (
@@ -460,9 +504,11 @@ export const backend = {
       region: [number, number, number, number],
     ) => invoke(AssetService.AddTemplateVariant, guid, dataURL, recRes, region),
     // Get 单条资产完整记录 (含 variants[] — 详情页看分辨率档/元信息).
-    get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord | undefined>,
+    get: (guid: string) => invoke(AssetService.Get, guid) as Promise<AssetRecord>,
+    resolveBinding: (ref: BlobRef) =>
+      invoke(AssetService.ResolveBinding, new BlobRefBinding(ref)) as Promise<AssetBinding>,
     previewBlob: (ref: BlobRef) =>
-      invoke(AssetService.PreviewBlob, new BlobRefBinding(ref)) as Promise<BlobPreview | undefined>,
+      invoke(AssetService.PreviewBlob, new BlobRefBinding(ref)) as Promise<BlobPreview>,
     delete_: (guid: string) => invoke(AssetService.Delete, guid),
     // UpdateMeta 改显示名 + 标签 (记录级元数据).
     updateMeta: (
@@ -478,7 +524,9 @@ export const backend = {
     // 不走 invoke: 浏览态窗口没开属正常, 不该弹 error toast.
     currentResolution: async (targetSlot: string): Promise<[number, number] | undefined> => {
       try {
-        const r = await AssetService.CurrentResolution(targetSlot)
+        const r = await callRPC('assets.currentResolution', () =>
+          AssetService.CurrentResolution(targetSlot),
+        )
         return Array.isArray(r) && r.length === 2 ? [r[0], r[1]] : undefined
       } catch {
         return undefined
@@ -491,13 +539,13 @@ export const backend = {
       h: number,
     ): Promise<{ index: number; exact: boolean } | undefined> => {
       try {
-        const r = await AssetService.PickVariant(guid, w, h)
+        const r = await callRPC('assets.pickVariant', () => AssetService.PickVariant(guid, w, h))
         return { index: r.index, exact: r.exact }
       } catch {
         return undefined
       }
     },
-    // RemoveVariant 删指定分辨率的单个变体档. 返目标 GUID (成功) / undefined (失败已 toast).
+    // RemoveVariant 删指定分辨率的单个变体档；失败抛 typed RPCError，由调用场景决定反馈。
     removeVariant: (guid: string, w: number, h: number) =>
       invoke(AssetService.RemoveVariant, guid, w, h),
   },
@@ -528,7 +576,8 @@ export const backend = {
     info: () => invoke(AppInfoService.Info),
   },
   recording: {
-    start: (args: { targetSlot: string }) => invoke(RecordingService.Start, args as any),
+    start: (args: { targetSlot: string; mode: 'simple' | 'precise' }) =>
+      invoke(RecordingService.Start, args as any),
     stop: () => invoke(RecordingService.Stop),
     stopAsync: () => invoke(RecordingService.StopAsync),
     cancel: () => invoke(RecordingService.Cancel),
@@ -580,8 +629,8 @@ export const backend = {
     startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
     cancelWin32WindowTargetCapture: (id: string) =>
       invoke(ToolsService.CancelWin32WindowTargetCapture, id),
-    openLauncher: () => invokeVoid(ToolsService.OpenLauncher),
-    openLauncherSettings: () => invokeVoid(ToolsService.OpenLauncherSettings),
+    openLauncher: () => invoke(ToolsService.OpenLauncher),
+    openLauncherSettings: () => invoke(ToolsService.OpenLauncherSettings),
     toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
     hideLauncher: () => invoke(ToolsService.HideLauncher),
     setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),

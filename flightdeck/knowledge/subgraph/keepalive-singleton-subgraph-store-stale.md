@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "keep-alive 多实例共享全局单例子图 store, 切回容器时单例被兄弟实例污染致 \"(子图未找到)\""
+summary: "历史 3.0 keep-alive/全局子图 store 串上下文案例；3.1 异步/多编辑器结果仍必须绑定 source ID、revision 与 graph ID。"
 activation: symptom
-read_when: "撞容器编辑器里 Subgraph 节点渲染 \"(子图未找到)\" 但子图磁盘上/后端 ListSubgraphs 明明有; 在多个容器编辑器间切换后某容器独有的子图节点失效 / 拿错容器的 Win32WindowTarget(\"没有异环窗口\") / 模板截图定位错容器 / 莫名其妙的孤儿边; 改 useContainerEditorStore (subgraphsForCurrentContainer / activeContainerID / editorPath) 或 tplStore.containerId 等任何\"当前/前台容器\"全局指针前; 给 <keep-alive> 缓存的编辑器加状态前; 加任何新的\"前台容器\"全局指针时(必须 onMounted+onActivated 都设)"
+read_when: "审查 3.0 keep-alive 子图故障，或排查 3.1 多编辑器/异步结果写入错误 source revision/graph context 时"
 ---
 # ⚠ keep-alive 缓存编辑器共享全局单例子图 store 致跨容器"(子图未找到)"
+
+> 历史案例：具体 store 已删除。现行可复用原则是异步结果和 picker/capture 回调必须携带发起时的 source ID、base revision、graph ID 与 target slot，不能读取全局“当前项”。
 ## Signature
 - symptom: `Subgraph 节点出口渲染成 "(子图未找到)" (node.Subgraph.fallback_missing); 子图在该容器磁盘 + 后端 ListSubgraphs 都有`
 - error_type: —  (前端状态/单例污染, 非 exception)

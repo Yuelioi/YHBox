@@ -421,9 +421,11 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@nuxt/ui/composables'
 import { Window, Events } from '@wailsio/runtime'
 import { useLocalStorage } from '@vueuse/core'
 import { backend } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { rgbToHsv, rgbToHex } from '@/lib/color'
 import { usePickerViewport } from '@/composables/tools/usePickerViewport'
 import PickerMagnifier from '@/components/tools/PickerMagnifier.vue'
@@ -432,6 +434,7 @@ import HudShell from '@/components/tools/HudShell.vue'
 
 const route = useRoute()
 const { t } = useI18n()
+const toast = useToast()
 const mode = computed(
   () =>
     String(route.query.mode ?? 'point') as
@@ -874,16 +877,12 @@ async function confirm() {
         : [0, 0, 1, 1]
       if (mode.value === 'template_recapture') {
         // 重拍: 存成同 GUID 的新分辨率变体, 所有引用自动跟随新图.
-        const r = await backend.assets.addTemplateVariant(
+        await backend.assets.addTemplateVariant(
           recaptureGUID.value,
           png,
           [natW.value, natH.value],
           region,
         )
-        if (r === undefined) {
-          saving.value = false
-          return
-        }
         await emitResult({ guid: recaptureGUID.value })
       } else {
         // SaveTemplateCapture allocates a new global asset guid.
@@ -895,10 +894,6 @@ async function confirm() {
           [natW.value, natH.value],
           region,
         )
-        if (!guid) {
-          saving.value = false
-          return
-        }
         lastTplCategory.value = tplCategory.value.trim()
         await emitResult({ guid: guid as string })
       }
@@ -924,6 +919,12 @@ async function confirm() {
       })
     }
     await closeWindow()
+  } catch (error) {
+    toast.add({
+      title: t('toast.operation_failed'),
+      description: errorMessage(error),
+      color: 'error',
+    })
   } finally {
     saving.value = false
   }

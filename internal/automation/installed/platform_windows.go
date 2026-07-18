@@ -79,11 +79,15 @@ func (a controllerCaptureAdapter) Frame(hwnd uintptr) (controller.Frame, error) 
 func PlatformSupported() bool { return true }
 
 func newPlatformDriver(profile Profile) (driver, error) {
-	backend, err := pkginput.NewBackend(profile.Machine().InputBackend)
+	machine, ok := DesktopProfile(profile)
+	if !ok {
+		return nil, failure(CodeContractViolation, errors.New("Win32 driver received another adapter profile"))
+	}
+	backend, err := pkginput.NewBackend(machine.InputBackend)
 	if err != nil {
 		return nil, failure(CodeUnsupportedHost, err)
 	}
-	captureBackend, warning, err := pkgcapture.NewIBackend(profile.Machine().CaptureBackend)
+	captureBackend, warning, err := pkgcapture.NewIBackend(machine.CaptureBackend)
 	if err != nil {
 		_ = backend.Close()
 		return nil, failure(CodeUnsupportedHost, err)
@@ -300,17 +304,21 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 }
 
 func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, error) {
-	machine := d.profile.Machine()
+	machine, ok := DesktopProfile(d.profile)
+	if !ok {
+		return winutil.WindowHandle{}, failure(CodeContractViolation, errors.New("Win32 driver received another adapter profile"))
+	}
 	executable := machine.Application.Executable
-	if d.cached != 0 {
-		window, err := winutil.VerifyExecutableWindow(d.cached, executable, machine.WindowTitle, machine.WindowClass)
+	selector := winutil.MatchSpec{Title: machine.WindowTitle, TitleMatch: machine.WindowTitleMatch, Class: machine.WindowClass}
+	if machine.WindowSelection == "unique" && d.cached != 0 {
+		window, err := winutil.VerifyExecutableWindow(d.cached, executable, selector)
 		if err == nil {
 			return window, nil
 		}
 		d.cached = 0
 	}
 	timeout := time.Duration(machine.ResolveTimeoutMilliseconds) * time.Millisecond
-	window, err := winutil.ResolveUniqueExecutableWindow(ctx, executable, machine.WindowTitle, machine.WindowClass, timeout, min(100*time.Millisecond, timeout))
+	window, err := winutil.ResolveExecutableWindow(ctx, executable, selector, machine.WindowSelection, timeout, min(100*time.Millisecond, timeout))
 	if err != nil {
 		switch {
 		case errors.Is(err, winutil.ErrWindowAmbiguous):
@@ -321,7 +329,9 @@ func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, erro
 			return winutil.WindowHandle{}, err
 		}
 	}
-	d.cached = window.HWND
+	if machine.WindowSelection == "unique" {
+		d.cached = window.HWND
+	}
 	return window, nil
 }
 

@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "跨 store 写盘(import 子图)没同步属主 store 内存缓存, 致前端节点 \"(子图未找到)\""
+summary: "历史 3.0 Container/Subgraph Store 跨写缓存案例；3.1 复用其‘Store 单一 owner/原子 publish’原则。"
 activation: symptom
-read_when: "写\"一个服务直接写另一个 store 拥有的磁盘文件\"类逻辑(library import/export / 录制落盘 / 外部工具改盘)前; 撞\"刚导入/刚生成的东西后端 List 查不到但磁盘明明有\" / 前端节点 \"(子图未找到)\" 但文件存在; review 跨 store 写盘是否同步属主内存"
+read_when: "审查 3.0 import/cache 故障，或设计 3.1 跨 Store commit 是否绕过单一 owner 时"
 ---
 # ⚠ 导入子图绕过容器 Store 内存缓存致"子图未找到"
+
+> 历史案例：具体 Container Store 已删除。可复用原则是任何持久化对象只能由所属 Store 原子 publish 并更新 snapshot，外部服务不得直接写其磁盘布局。
 ## Signature
 - symptom: `前端 Subgraph 节点出口渲染成 "(子图未找到)" (node.Subgraph.fallback_missing); 磁盘上 containers/<id>/subgraphs/<sgID>.json 明明存在`
 - error_type: —  (数据/缓存一致性, 非 exception/错误码)

@@ -60,6 +60,47 @@ func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T
 	}
 }
 
+func TestAdmitterReplacementUsesOneNewEnvironmentGeneration(t *testing.T) {
+	builtins, program := scriptProgram(t)
+	draft := builtinProfileDraft(t, builtins)
+	oldProfile, err := admission.SealHostProfile(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 7, 18, 8, 0, 0, 0, time.UTC)
+	deny := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
+		return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
+	})
+	admitter, err := admission.New(builtins.Catalog, oldProfile, store, deny, admission.Options{
+		Now: func() time.Time { return now }, NewRunID: func() (string, error) { return admissionRunID, nil }, MaxGrantTTL: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft.Features = []string{scriptengine.IsolationHostFeatureID}
+	newProfile, err := admission.SealHostProfile(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved := admission.PolicyFunc(func(_ context.Context, request admission.PolicyRequest) (admission.PolicyDecision, error) {
+		if request.HostProfile != newProfile.Digest() {
+			t.Fatalf("policy saw profile %q, want %q", request.HostProfile, newProfile.Digest())
+		}
+		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "live-generation", ExpiresAt: now.Add(time.Minute)}, nil
+	})
+	if err := admitter.ReplaceEnvironment(newProfile, approved); err != nil {
+		t.Fatal(err)
+	}
+	result, err := admitter.Admit(context.Background(), admission.Request{Program: program, Principal: "user-1"})
+	if err != nil || !result.Grant.Valid() || !result.Record.Valid() {
+		t.Fatalf("Admit after replacement = %+v, %v", result, err)
+	}
+}
+
 func TestHostProfileRejectsInvalidFeatureSets(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {

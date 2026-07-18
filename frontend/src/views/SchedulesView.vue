@@ -103,6 +103,7 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
 import { useConfirm } from '@/composables/useConfirm'
+import { errorMessage } from '@/lib/invoke'
 import type { Schedule } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
@@ -139,33 +140,40 @@ const filteredSchedules = computed(() => {
 })
 
 onMounted(async () => {
-  void store.reload()
   try {
-    workflows.value = await workflowTransport.listSources()
+    const [, sources] = await Promise.all([store.reload(), workflowTransport.listSources()])
+    workflows.value = sources
   } catch (error) {
-    toast.add({
-      title: t('workflow.toast.list_failed'),
-      description: error instanceof Error ? error.message : String(error),
-      color: 'error',
-    })
+    showError(t('workflow.toast.list_failed'), error)
   }
 })
 
 async function onCreate() {
-  const draft = await store.createDraft(
-    t('schedule.create_default_name', { n: store.list.length + 1 }),
-  )
-  if (draft) editing.value = draft
+  try {
+    editing.value = await store.createDraft(
+      t('schedule.create_default_name', { n: store.list.length + 1 }),
+    )
+  } catch (error) {
+    showError(t('toast.operation_failed'), error)
+  }
 }
 function onEdit(schedule: Schedule) {
   editing.value = structuredClone(schedule)
 }
 async function onSaveEdit(schedule: Schedule) {
-  if (await store.save(schedule)) editing.value = null
-  else toast.add({ title: t('toast.save_failed'), color: 'error', icon: 'i-tabler-x' })
+  try {
+    await store.save(schedule)
+    editing.value = null
+  } catch (error) {
+    showError(t('toast.save_failed'), error)
+  }
 }
 async function onToggle(schedule: Schedule, enabled: boolean) {
-  await store.update(schedule.id, { enabled })
+  try {
+    await store.update(schedule.id, { enabled })
+  } catch (error) {
+    showError(t('toast.operation_failed'), error)
+  }
 }
 async function onDelete(schedule: Schedule) {
   const yes = await confirm({
@@ -174,6 +182,15 @@ async function onDelete(schedule: Schedule) {
     color: 'error',
     confirmText: t('common.delete'),
   })
-  if (yes === true) await store.remove(schedule.id)
+  if (yes !== true) return
+  try {
+    await store.remove(schedule.id)
+  } catch (error) {
+    showError(t('toast.operation_failed'), error)
+  }
+}
+
+function showError(title: string, error: unknown): void {
+  toast.add({ title, description: errorMessage(error), color: 'error' })
 }
 </script>

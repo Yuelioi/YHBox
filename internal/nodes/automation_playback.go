@@ -12,7 +12,7 @@ import (
 
 const (
 	InputClipTypeID                = "https://schemas.yotta.dev/types/automation/input-clip/v1"
-	AutomationPlaybackCapabilityID = "https://schemas.yotta.dev/capabilities/automation/playback/v1"
+	AutomationPlaybackCapabilityID = installed.CapabilityPlaybackID
 	PlayInputClipNodeID            = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
 	PlayInputClipEffectID          = "https://schemas.yotta.dev/effects/automation/play-input-clip/v1"
 	InputClipInvalidCode           = "inputclip.invalid"

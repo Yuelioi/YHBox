@@ -13,9 +13,6 @@ type Recorder struct{}
 // NewRecorder creates an inactive recorder adapter.
 func NewRecorder() *Recorder { return &Recorder{} }
 
-// SetMouseCounts360Getter is a no-op because this host cannot start recording.
-func (*Recorder) SetMouseCounts360Getter(func() int) {}
-
 // Active reports whether this adapter has an active recording.
 func (*Recorder) Active() bool { return false }
 

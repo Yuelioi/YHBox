@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "画布(ContainerFlowNode→PinLiteral)只渲染 scalar(number/bool/text/dropdown), 结构化值落 else 分支 String(obj)→\"[object Object]\"; 结构化类型(Point/Geometry/object)手填在 NodeInspector 走 StructuredInput→专用 Widget。给结构化类型加手填别动画布 inlineLiteralPins。"
+summary: "历史 3.0 ContainerFlowNode/PinLiteral 结构化输入陷阱；现行 3.1 仅在旧 UI 取证时读取。"
 activation: symptom
-read_when: "给某结构化 pin 类型(Point/Geometry/新 object)加手填控件 / 改 ContainerFlowNode inlineLiteralPins / 排查「某 pin 在画布显示 [object Object]」/ pin 字面量在画布 vs Inspector 渲染不一致"
+read_when: "仅在审查 3.0 ContainerFlowNode/PinLiteral/StructuredInput 旧实现或旧截图行为时"
 ---
 # ⚠ 画布内联 literal 只认 scalar; 结构化类型(point/geometry)手填走 Inspector
+
+> 历史知识：相关组件和旧 Pin 类型已删除。3.1 控件由 Data Type/Authoring Projection 与 Editor Adapter 决定，不能据本文修改现行 UI。
 **Date**: 2026-06-24 (Phase 4 Point 手填实测踩坑)
 
 前端 pin 字面量编辑有**两套渲染路径**, 别混:

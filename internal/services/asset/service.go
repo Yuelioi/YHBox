@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
 	"golang.org/x/image/draw"
@@ -47,6 +48,7 @@ type AssetSummary struct {
 	VariantCount int                   `json:"variantCount"`
 	Variants     []AssetVariantSummary `json:"variants"`
 	Blob         *blob.BlobRef         `json:"blob,omitempty"`
+	Thumbnail    *blob.BlobRef         `json:"thumbnail,omitempty"`
 	CreatedAt    string                `json:"createdAt,omitempty"`
 }
 
@@ -59,13 +61,15 @@ type BlobPreview struct {
 }
 
 type AssetQuery struct {
-	Search   string   `json:"search"`
-	Kind     string   `json:"kind"`
-	Category string   `json:"category"`
-	Tags     []string `json:"tags"`
-	Sort     string   `json:"sort"`
-	Page     int      `json:"page"`
-	PageSize int      `json:"pageSize"`
+	Search          string   `json:"search"`
+	Kind            string   `json:"kind"`
+	Category        string   `json:"category"`
+	Tags            []string `json:"tags"`
+	Sort            string   `json:"sort"`
+	Page            int      `json:"page"`
+	PageSize        int      `json:"pageSize"`
+	ThumbnailBudget int      `json:"thumbnailBudget"`
+	RecentGUIDs     []string `json:"recentGUIDs"`
 }
 
 type AssetPage struct {
@@ -73,6 +77,19 @@ type AssetPage struct {
 	Total    int            `json:"total"`
 	Page     int            `json:"page"`
 	PageSize int            `json:"pageSize"`
+	Revision uint64         `json:"revision"`
+}
+
+// AssetBinding is authoring-only presentation metadata for one exact BlobRef.
+// Workflow Source persists only Blob; GUID and name remain mutable library identity.
+type AssetBinding struct {
+	Found      bool         `json:"found"`
+	GUID       string       `json:"guid"`
+	Kind       string       `json:"kind"`
+	Name       string       `json:"name"`
+	Resolution [2]int       `json:"resolution"`
+	Blob       blob.BlobRef `json:"blob"`
+	MatchCount int          `json:"matchCount"`
 }
 
 type BatchMetaRequest struct {
@@ -93,14 +110,23 @@ type Service struct {
 	store      *Store
 	capture    CaptureAdapter
 	references DurableReferenceSource
+	emit       func(name string, data any)
 }
 
-func NewService(store *Store, capture CaptureAdapter, references ...DurableReferenceSource) *Service {
-	service := &Service{store: store, capture: capture}
-	if len(references) != 0 {
-		service.references = references[0]
+func NewService(store *Store, capture CaptureAdapter, references DurableReferenceSource, emit ...func(name string, data any)) *Service {
+	service := &Service{store: store, capture: capture, references: references}
+	if len(emit) != 0 {
+		service.emit = emit[0]
 	}
 	return service
+}
+
+func (s *Service) emitChangedSince(before uint64, guids ...string) {
+	revision := s.store.Revision()
+	if revision == before || s.emit == nil {
+		return
+	}
+	s.emit("asset:changed", map[string]any{"revision": revision, "guids": append([]string(nil), guids...)})
 }
 
 // SaveTemplateCapture 用户截模板 → 建新资产 (新 GUID) + 单变体 + blob.
@@ -123,6 +149,7 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 		int((region[1] + region[3]) * float32(recRes[1])),
 	}
 	guid := uuid.NewString()
+	before := s.store.Revision()
 	rec := AssetRecord{
 		GUID:      guid,
 		Kind:      KindTemplate,
@@ -132,10 +159,12 @@ func (s *Service) SaveTemplateCapture(dataURL, name, category string, tags []str
 		Origin:    Origin{Kind: "user"},
 		CreatedAt: time.Now().UTC(),
 	}
-	if _, err := s.store.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(pngData), func(ref blob.BlobRef) AssetRecord {
+	_, err = s.store.CommitRecordBlob(context.Background(), "image/png", bytes.NewReader(pngData), func(ref blob.BlobRef) AssetRecord {
 		rec.Variants = []Variant{{Resolution: recRes, BBox: bbox, Blob: ref}}
 		return rec
-	}); err != nil {
+	})
+	s.emitChangedSince(before, guid)
+	if err != nil {
 		return "", fmt.Errorf("commit template blob: %w", err)
 	}
 	return guid, nil
@@ -160,7 +189,10 @@ func (s *Service) AddTemplateVariant(guid, dataURL string, recRes [2]int, region
 		int((region[0] + region[2]) * float32(recRes[0])),
 		int((region[1] + region[3]) * float32(recRes[1])),
 	}
-	if _, err := s.store.CommitVariantBlob(context.Background(), "image/png", bytes.NewReader(pngData), guid, recRes, bbox, nil); err != nil {
+	before := s.store.Revision()
+	_, err = s.store.CommitVariantBlob(context.Background(), "image/png", bytes.NewReader(pngData), guid, recRes, bbox, nil)
+	s.emitChangedSince(before, guid)
+	if err != nil {
 		return "", fmt.Errorf("commit template variant: %w", err)
 	}
 	return guid, nil
@@ -176,7 +208,10 @@ func (s *Service) RemoveVariant(guid string, w, h int) (string, error) {
 	if len(rec.Variants) <= 1 {
 		return "", fmt.Errorf("asset %q 仅剩 1 个分辨率档, 删它请用删除整个素材", guid)
 	}
-	if err := s.store.RemoveVariant(guid, [2]int{w, h}); err != nil {
+	before := s.store.Revision()
+	err := s.store.RemoveVariant(guid, [2]int{w, h})
+	s.emitChangedSince(before, guid)
+	if err != nil {
 		return "", err
 	}
 	return guid, nil
@@ -198,17 +233,27 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	if query.PageSize <= 0 {
 		query.PageSize = 24
 	}
-	if query.PageSize > 100 {
-		return AssetPage{}, fmt.Errorf("asset page size exceeds 100")
+	if query.Page > 1_000_000 || query.PageSize > 100 || query.ThumbnailBudget < 0 || query.ThumbnailBudget > query.PageSize {
+		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "pagination or thumbnail budget"})
 	}
 	if query.Kind != "" && query.Kind != KindTemplate && query.Kind != KindClip {
-		return AssetPage{}, fmt.Errorf("unsupported asset kind %q", query.Kind)
+		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "kind"})
+	}
+	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 || len(query.Tags) > 16 || len(query.RecentGUIDs) > 64 {
+		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "filter budget"})
 	}
 	search := strings.ToLower(strings.TrimSpace(query.Search))
 	category := strings.ToLower(strings.TrimSpace(query.Category))
 	wantedTags := normalizedTags(query.Tags)
+	recentRank := make(map[string]int, len(query.RecentGUIDs))
+	for index, guid := range query.RecentGUIDs {
+		if _, exists := recentRank[guid]; !exists {
+			recentRank[guid] = index
+		}
+	}
+	records, revision := s.store.ListWithRevision()
 	items := make([]AssetSummary, 0)
-	for _, record := range s.store.List() {
+	for _, record := range records {
 		if query.Kind != "" && record.Kind != query.Kind {
 			continue
 		}
@@ -225,9 +270,9 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	}
 	switch query.Sort {
 	case "", "name_asc":
-		sort.SliceStable(items, func(i, j int) bool { return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name) })
+		sort.SliceStable(items, func(i, j int) bool { return assetNameLess(items[i], items[j]) })
 	case "name_desc":
-		sort.SliceStable(items, func(i, j int) bool { return strings.ToLower(items[i].Name) > strings.ToLower(items[j].Name) })
+		sort.SliceStable(items, func(i, j int) bool { return assetNameLess(items[j], items[i]) })
 	case "created_desc":
 		sort.SliceStable(items, func(i, j int) bool {
 			if items[i].CreatedAt == items[j].CreatedAt {
@@ -235,16 +280,72 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 			}
 			return items[i].CreatedAt > items[j].CreatedAt
 		})
+	case "recent_desc":
+		sort.SliceStable(items, func(i, j int) bool {
+			left, leftRecent := recentRank[items[i].GUID]
+			right, rightRecent := recentRank[items[j].GUID]
+			if leftRecent != rightRecent {
+				return leftRecent
+			}
+			if leftRecent && left != right {
+				return left < right
+			}
+			return assetNameLess(items[i], items[j])
+		})
 	default:
-		return AssetPage{}, fmt.Errorf("unsupported asset sort %q", query.Sort)
+		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "sort"})
 	}
 	total := len(items)
 	start := min((query.Page-1)*query.PageSize, total)
 	end := min(start+query.PageSize, total)
-	return AssetPage{Items: append([]AssetSummary(nil), items[start:end]...), Total: total, Page: query.Page, PageSize: query.PageSize}, nil
+	pageItems := append([]AssetSummary(nil), items[start:end]...)
+	thumbnailCount := 0
+	for index := range pageItems {
+		if thumbnailCount >= query.ThumbnailBudget || pageItems[index].Kind != KindTemplate || len(pageItems[index].Variants) == 0 {
+			continue
+		}
+		ref := pageItems[index].Variants[0].Blob
+		pageItems[index].Thumbnail = &ref
+		thumbnailCount++
+	}
+	return AssetPage{Items: pageItems, Total: total, Page: query.Page, PageSize: query.PageSize, Revision: revision}, nil
+}
+
+func assetNameLess(left, right AssetSummary) bool {
+	leftName, rightName := strings.ToLower(left.Name), strings.ToLower(right.Name)
+	if leftName == rightName {
+		return left.GUID < right.GUID
+	}
+	return leftName < rightName
+}
+
+// ResolveBinding maps one durable BlobRef back to optional mutable library
+// presentation. Duplicate assets may intentionally share the same content.
+func (s *Service) ResolveBinding(ref blob.BlobRef) (AssetBinding, error) {
+	if err := ref.Validate(); err != nil {
+		return AssetBinding{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "blob reference"})
+	}
+	matches := make([]AssetBinding, 0, 1)
+	for _, record := range s.store.List() {
+		if record.Blob != nil && *record.Blob == ref {
+			matches = append(matches, AssetBinding{Found: true, GUID: record.GUID, Kind: record.Kind, Name: record.Name, Blob: ref})
+		}
+		for _, variant := range record.Variants {
+			if variant.Blob == ref {
+				matches = append(matches, AssetBinding{Found: true, GUID: record.GUID, Kind: record.Kind, Name: record.Name, Resolution: variant.Resolution, Blob: ref})
+			}
+		}
+	}
+	if len(matches) == 0 {
+		return AssetBinding{Blob: ref}, nil
+	}
+	sort.Slice(matches, func(i, j int) bool { return matches[i].GUID < matches[j].GUID })
+	matches[0].MatchCount = len(matches)
+	return matches[0], nil
 }
 
 func (s *Service) BatchUpdateMeta(requests []BatchMetaRequest) []BatchResult {
+	before := s.store.Revision()
 	results := make([]BatchResult, 0, len(requests))
 	seen := make(map[string]struct{}, len(requests))
 	for _, request := range requests {
@@ -263,10 +364,12 @@ func (s *Service) BatchUpdateMeta(requests []BatchMetaRequest) []BatchResult {
 		}
 		results = append(results, result)
 	}
+	s.emitChangedSince(before)
 	return results
 }
 
 func (s *Service) BatchDelete(guids []string) []BatchResult {
+	before := s.store.Revision()
 	results := make([]BatchResult, 0, len(guids))
 	seen := make(map[string]struct{}, len(guids))
 	for _, guid := range guids {
@@ -285,6 +388,7 @@ func (s *Service) BatchDelete(guids []string) []BatchResult {
 		}
 		results = append(results, result)
 	}
+	s.emitChangedSince(before, guids...)
 	return results
 }
 
@@ -361,19 +465,19 @@ func (s *Service) UpdateMeta(guid, name, description, category string, tags []st
 	if _, ok := s.store.Get(guid); !ok {
 		return fmt.Errorf("asset %q not found", guid)
 	}
-	if err := s.store.PutRecordMeta(guid, name, description, category, tags); err != nil {
-		return err
-	}
-	return nil
+	before := s.store.Revision()
+	err := s.store.PutRecordMeta(guid, name, description, category, tags)
+	s.emitChangedSince(before, guid)
+	return err
 }
 
 // Delete removes asset metadata. Workflows retain immutable BlobRefs rather
 // than asset GUIDs, so deletion never attempts graph-wide reference inference.
 func (s *Service) Delete(guid string) error {
-	if err := s.store.DeleteRecord(guid); err != nil {
-		return err
-	}
-	return nil
+	before := s.store.Revision()
+	err := s.store.DeleteRecord(guid)
+	s.emitChangedSince(before, guid)
+	return err
 }
 
 // Capture captures the exact installed target selected by targetSlot.

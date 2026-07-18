@@ -64,7 +64,7 @@ func TestPlayInputClipReadsNominalBlobAndUsesExclusivePlaybackSession(t *testing
 		t.Fatal(err)
 	}
 	clip := &inputclip.InputClip{
-		Meta: inputclip.ClipMeta{MouseMode: "mixed", BaseResolution: [2]int{1920, 1080}, MouseCounts360: 400},
+		Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "mixed", BaseResolution: [2]int{1920, 1080}, MouseCounts360: 400},
 		Events: []inputclip.Event{
 			{TUs: 0, Seq: 0, Type: inputclip.EventTypeKeyDown, A: 0x41},
 			{TUs: 1000, Seq: 0, Type: inputclip.EventTypeRawDelta, B: 3, C: -2},

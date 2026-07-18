@@ -6,34 +6,26 @@ export const useSchedulesStore = defineStore('schedules', () => {
   const list = ref<Schedule[]>([])
 
   async function reload() {
-    const r = await backend.schedules.list()
-    if (r !== undefined) list.value = r
+    list.value = await backend.schedules.list()
   }
 
-  async function createDraft(name: string): Promise<Schedule | null> {
-    const r = await backend.schedules.create(name)
-    return r === undefined ? null : r
+  async function createDraft(name: string): Promise<Schedule> {
+    return backend.schedules.create(name)
   }
 
-  async function save(sc: Schedule): Promise<boolean> {
-    const r = await backend.schedules.save(sc)
-    if (r === undefined) return false
+  async function save(sc: Schedule): Promise<void> {
+    await backend.schedules.save(sc)
     await reload()
-    return true
   }
 
-  async function update(id: string, patch: Partial<Schedule>): Promise<boolean> {
-    const r = await backend.schedules.update(id, JSON.stringify(patch))
-    if (r === undefined) return false
+  async function update(id: string, patch: Partial<Schedule>): Promise<void> {
+    await backend.schedules.update(id, JSON.stringify(patch))
     await reload()
-    return true
   }
 
-  async function remove(id: string): Promise<boolean> {
-    const r = await backend.schedules.delete_(id)
-    if (r === undefined) return false
+  async function remove(id: string): Promise<void> {
+    await backend.schedules.delete_(id)
     await reload()
-    return true
   }
 
   return { list, reload, createDraft, save, update, remove }

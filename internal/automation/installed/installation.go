@@ -24,6 +24,7 @@ type InstallationDraft struct {
 type Installation struct {
 	Slot             string
 	Profile          Profile
+	Manifest         InstallationManifest
 	ProviderID       string
 	ProviderArtifact artifact.Digest
 	TargetID         string
@@ -62,14 +63,18 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 			return Installations{}, errors.New("invalid or duplicate automation target installation slot")
 		}
 		previous = draft.Slot
-		profile, err := SealProfile(draft.Profile)
+		profile, err := sealProfileWithRegistry(draft.Profile, registry)
 		if err != nil {
 			return Installations{}, fmt.Errorf("seal automation target profile for slot %q: %w", draft.Slot, err)
 		}
-		if err := VerifyProfile(profile); err != nil {
+		if err := verifyProfileWithRegistry(profile, registry); err != nil {
 			return Installations{}, fmt.Errorf("verify automation target profile for slot %q: %w", draft.Slot, err)
 		}
-		expected, err := WorkflowConsentDigest(draft.Slot, profile)
+		manifest, err := sealInstallationManifestForProfile(draft.Slot, draft.Label, profile, draft.Consent != "", registry)
+		if err != nil {
+			return Installations{}, err
+		}
+		expected, err := workflowConsentDigest(manifest)
 		if err != nil {
 			return Installations{}, err
 		}
@@ -78,28 +83,21 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 		}
 		installed, exists := shared[profile.Digest()]
 		if !exists {
-			created, err := newProvider(profile, registry)
+			created, err := newProvider(profile, manifest, registry)
 			if err != nil {
 				return Installations{}, err
 			}
-			providerArtifact, err := ProviderArtifactDigest(profile)
-			if err != nil {
-				_ = created.CloseHost()
-				return Installations{}, err
-			}
+			document := manifest.Machine()
 			installed = Installation{
-				Profile: profile, ProviderID: "automation-" + profile.Digest().String()[7:39],
-				ProviderArtifact: providerArtifact, Provider: created,
+				Profile: profile, ProviderID: document.ProviderID,
+				ProviderArtifact: document.ProviderArtifact, Provider: created,
 			}
 			shared[profile.Digest()] = installed
 			providers = append(providers, created)
 		}
 		installed.Slot, installed.TargetID, installed.Consent = draft.Slot, TargetID(draft.Slot), draft.Consent
-		registered, err := registry.registration(profile)
-		if err != nil {
-			return Installations{}, err
-		}
-		installed.Descriptor = descriptorFor(draft.Slot, draft.Label, installed.TargetID, installed.ProviderID, profile, registered.descriptor, draft.Consent != "")
+		installed.Manifest = manifest
+		installed.Descriptor = manifest.Descriptor()
 		entries = append(entries, installed)
 	}
 	return Installations{state: &installationState{entries: entries, providers: providers}}, nil
@@ -131,18 +129,43 @@ func ValidateInstallationSlot(slot string) error {
 	return nil
 }
 func WorkflowConsentDigest(slot string, profile Profile) (artifact.Digest, error) {
+	manifest, err := sealInstallationManifestForProfile(slot, "", profile, false, defaultAdapterRegistry())
+	if err != nil {
+		return "", err
+	}
+	return workflowConsentDigest(manifest)
+}
+
+func sealInstallationManifestForProfile(slot, label string, profile Profile, consented bool, registry adapterRegistry) (InstallationManifest, error) {
 	if !slotPattern.MatchString(slot) || !profile.Valid() {
-		return "", errors.New("automation target consent identity is invalid")
+		return InstallationManifest{}, errors.New("automation target consent identity is invalid")
 	}
-	operations := desktopOperations()
-	if profile.AdapterKind() == AdapterKindAndroidADB {
-		operations = androidOperations()
-	} else if profile.AdapterKind() == AdapterKindBrowserCDP {
-		operations = browserOperations()
+	registered, err := registry.registration(profile)
+	if err != nil {
+		return InstallationManifest{}, err
 	}
+	providerArtifact, err := ProviderArtifactDigest(profile)
+	if err != nil {
+		return InstallationManifest{}, err
+	}
+	manifest, err := sealInstallationManifest(
+		slot, label, TargetID(slot), "automation-"+profile.Digest().String()[7:39],
+		providerArtifact, profile, registered, consented,
+	)
+	if err != nil {
+		return InstallationManifest{}, fmt.Errorf("seal automation target manifest for slot %q: %w", slot, err)
+	}
+	return manifest, nil
+}
+
+func workflowConsentDigest(manifest InstallationManifest) (artifact.Digest, error) {
+	if !manifest.Valid() {
+		return "", errors.New("automation target consent manifest is invalid")
+	}
+	document := manifest.Machine()
 	raw, err := artifact.Marshal(map[string]any{
-		"slot": slot, "profileDigest": profile.Digest(), "providerAbi": ProviderABI,
-		"operations": operations,
+		"slot": document.Slot, "profileDigest": document.ProfileDigest, "providerAbi": document.ProviderABI,
+		"capabilities": document.Capabilities,
 	})
 	if err != nil {
 		return "", err

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/yottaapp/yotta/internal/aiauthoring"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/apperr"
 	yottaapplication "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
@@ -123,10 +125,6 @@ func Run(config Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize installed automation targets: %w", err)
 	}
-	authoringTargets, err := automationinstalled.NewAuthoringTargets(automationInstallations)
-	if err != nil {
-		return fmt.Errorf("project installed authoring targets: %w", err)
-	}
 	executable, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolve script worker location: %w", err)
@@ -172,6 +170,26 @@ func Run(config Config) error {
 	})
 	if err != nil {
 		return fmt.Errorf("initialize workflow runtime: %w", err)
+	}
+	authoringTargets := workflowRuntime.AuthoringTargets()
+	if err := app.AttachSettingsActivator(func(before, after *services.Settings) (*services.SettingsActivationPlan, error) {
+		if reflect.DeepEqual(before.Applications, after.Applications) && reflect.DeepEqual(before.Automation, after.Automation) {
+			return nil, nil
+		}
+		drafts, err := after.Automation.InstallationDrafts(after.Applications)
+		if err != nil {
+			return nil, fmt.Errorf("prepare automation targets: %w", err)
+		}
+		prepared, err := workflowRuntime.PrepareAutomation(after.Applications.InstallationDrafts(), drafts)
+		if err != nil {
+			return nil, err
+		}
+		return &services.SettingsActivationPlan{
+			Commit: prepared.Commit,
+			Abort:  prepared.Abort,
+		}, nil
+	}); err != nil {
+		return fmt.Errorf("attach live automation settings: %w", err)
 	}
 	var scheduleSvc *schedule.Service
 	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflow.WithBundleManager(workflowRuntime.Bundles), workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
@@ -258,7 +276,7 @@ func Run(config Config) error {
 
 	// Asset authoring captures exact installed targets; no Workflow
 	// document can inject a native window selector.
-	assetSvc := asset.NewService(assetStore, authoringTargets, workflowRuntime.Application)
+	assetSvc := asset.NewService(assetStore, authoringTargets, workflowRuntime.Application, app.Emit)
 
 	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
 	if err != nil {
@@ -408,10 +426,11 @@ func Run(config Config) error {
 	)
 	// wails3 application
 	wailsApp := application.New(application.Options{
-		Name:        "Yotta",
-		Description: "节点编排，自动执行",
-		Services:    wailsServices,
-		Windows:     wailsWindowsOptions(),
+		Name:         "Yotta",
+		Description:  "节点编排，自动执行",
+		Services:     wailsServices,
+		MarshalError: apperr.Marshal,
+		Windows:      wailsWindowsOptions(),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(config.Assets),
 		},

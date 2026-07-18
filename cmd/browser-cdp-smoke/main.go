@@ -35,11 +35,10 @@ func run(ctx context.Context, endpoint string) error {
 		return fmt.Errorf("no debuggable page target found")
 	}
 	info := targets[0]
-	profile, err := installed.SealProfile(installed.ProfileDraft{
-		TargetKind: installed.TargetKindBrowserCDP, AdapterKind: installed.AdapterKindBrowserCDP,
+	profile, err := installed.SealProfile(installed.NewBrowserProfileDraft(installed.BrowserProfilePayload{
 		BrowserEndpoint: endpoint, BrowserTargetID: info.ID, BrowserWebSocketURL: info.WebSocketDebuggerURL,
 		BrowserTitle: info.Title, BrowserURL: info.URL, ResolveTimeoutMilliseconds: 5000,
-	})
+	}))
 	if err != nil {
 		return err
 	}
@@ -84,8 +83,9 @@ func run(ctx context.Context, endpoint string) error {
 	if err != nil {
 		return err
 	}
+	sealedProfile, _ := installed.BrowserProfile(profile)
 	result := map[string]any{
-		"endpoint": profile.Machine().BrowserEndpoint, "pageId": info.ID, "title": info.Title,
+		"endpoint": sealedProfile.BrowserEndpoint, "pageId": info.ID, "title": info.Title,
 		"viewport": []int{resolved.Resolution.W, resolved.Resolution.H},
 		"capture":  []int{frame.Size.W, frame.Size.H},
 	}

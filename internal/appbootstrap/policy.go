@@ -3,7 +3,6 @@ package appbootstrap
 import (
 	"context"
 	"errors"
-	"slices"
 	"sort"
 	"time"
 
@@ -134,8 +133,9 @@ func (p *builtinPolicy) Authorize(_ context.Context, request admission.PolicyReq
 				continue
 			}
 			installed, ok := p.automationTargets[binding.TargetID]
-			validKind := ok && slices.Contains(installed.Descriptor.ResourceKinds, binding.ResourceKind)
-			if !ok || binding.ProviderID != installed.Descriptor.ProviderID || binding.ProviderArtifactDigest != installed.ProviderArtifact || binding.ProviderABI != installed.Descriptor.ProviderABI || binding.TargetKind != installed.Descriptor.TargetKind || !validKind || binding.CredentialBindingID != "" {
+			manifest := installed.Manifest.Machine()
+			validKind := ok && installed.Manifest.SupportsResourceKind(binding.ResourceKind)
+			if !ok || binding.ProviderID != manifest.ProviderID || binding.ProviderArtifactDigest != manifest.ProviderArtifact || binding.ProviderABI != manifest.ProviderABI || binding.TargetKind != manifest.TargetKind || !validKind || binding.CredentialBindingID != "" {
 				return admission.PolicyDecision{Outcome: admission.PolicyDenied}, nil
 			}
 			if installed.Consent == "" {

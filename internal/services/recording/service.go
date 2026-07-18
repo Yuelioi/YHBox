@@ -30,8 +30,7 @@ type clipStore interface {
 
 // TargetResolver provides trusted local recording access to installed targets.
 type TargetResolver interface {
-	ResolveWindow(context.Context, string) (target.WindowHandle, error)
-	Activate(context.Context, string) error
+	AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error)
 }
 
 // Service wails3 RPC 入口.
@@ -50,19 +49,20 @@ type Service struct {
 	targets TargetResolver
 	emit    func(name string, data any)
 
-	mu           sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
-	pending      map[string]pendingRecording
-	stateMu      sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
-	state        RecordingState
-	closed       atomic.Bool
-	shutdownOnce sync.Once
-	shutdownDone chan struct{}
+	mu            sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
+	pending       *pendingRecording
+	activeRelease func()
+	stateMu       sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
+	state         RecordingState
+	closed        atomic.Bool
+	shutdownOnce  sync.Once
+	shutdownDone  chan struct{}
 }
 
 func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
 	service := &Service{
 		rec: rec, hkProv: hkProv, clipSvc: clipSvc, targets: targets,
-		state: RecordingState{Phase: PhaseIdle}, pending: map[string]pendingRecording{}, shutdownDone: make(chan struct{}),
+		state: RecordingState{Phase: PhaseIdle}, shutdownDone: make(chan struct{}),
 	}
 	if len(emit) != 0 {
 		service.emit = emit[0]
@@ -76,17 +76,21 @@ const (
 	PhaseRecording  = "recording"
 	PhasePaused     = "paused"
 	PhaseFinalizing = "finalizing"
+	PhasePending    = "pending"
 )
 
 // RecordingState 录制子系统的权威状态. 后端是唯一真相源; 前端/HUD 只镜像
 // (recording:state 事件 + GetState 对账), 不自己存可 desync 的 flag.
 type RecordingState struct {
-	Phase       string `json:"phase"` // idle | recording | paused | finalizing
-	TargetSlot  string `json:"targetSlot"`
-	TempID      string `json:"tempID"`
-	StartedAtMs int64  `json:"startedAtMs"`
-	PausedMs    int64  `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
-	PausedAtMs  int64  `json:"pausedAtMs"` // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
+	Revision    uint64                  `json:"revision"`
+	Phase       string                  `json:"phase"` // idle | recording | paused | finalizing | pending
+	Mode        inputclip.RecordingMode `json:"mode"`
+	TargetSlot  string                  `json:"targetSlot"`
+	TempID      string                  `json:"tempID"`
+	StartedAtMs int64                   `json:"startedAtMs"`
+	PausedMs    int64                   `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
+	PausedAtMs  int64                   `json:"pausedAtMs"` // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
+	Pending     *StopResultPayload      `json:"pending,omitempty"`
 }
 
 // GetState 返回当前权威状态快照. RPC — 前端任何时候可查 (reconcile 对账用).
@@ -94,7 +98,7 @@ type RecordingState struct {
 func (s *Service) GetState() RecordingState {
 	s.stateMu.RLock()
 	defer s.stateMu.RUnlock()
-	return s.state
+	return cloneRecordingState(s.state)
 }
 
 // phase 读当前 phase (命令幂等判定用).
@@ -107,11 +111,30 @@ func (s *Service) phase() string {
 // setState 写状态快照 + 广播 recording:state (全量). 不持 stateMu emit, 防 re-entry / 慢 emit 卡转换.
 func (s *Service) setState(st RecordingState) {
 	s.stateMu.Lock()
-	s.state = st
+	st.Revision = s.state.Revision + 1
+	s.state = cloneRecordingState(st)
+	snapshot := cloneRecordingState(s.state)
 	s.stateMu.Unlock()
 	if s.emit != nil {
-		s.emit("recording:state", st)
+		s.emit("recording:state", snapshot)
 	}
+}
+
+func cloneRecordingState(state RecordingState) RecordingState {
+	if state.Pending == nil {
+		return state
+	}
+	pending := *state.Pending
+	pending.Preview.Steps = append([]RecordingPreviewStep(nil), pending.Preview.Steps...)
+	for index := range pending.Preview.Steps {
+		pending.Preview.Steps[index].Keys = append([]string(nil), pending.Preview.Steps[index].Keys...)
+		if point := pending.Preview.Steps[index].Point; point != nil {
+			copyOfPoint := *point
+			pending.Preview.Steps[index].Point = &copyOfPoint
+		}
+	}
+	state.Pending = &pending
+	return state
 }
 
 // Shutdown cancels an in-progress recording without persisting a partial asset.
@@ -131,14 +154,17 @@ func Shutdown(ctx context.Context, s *Service) error {
 
 func (s *Service) shutdown() {
 	s.mu.Lock()
-	wasActive := s.phase() != PhaseIdle
-	if wasActive {
+	phase := s.phase()
+	wasOpen := phase != PhaseIdle
+	if (phase == PhaseRecording || phase == PhasePaused || phase == PhaseFinalizing) && s.rec.Active() {
 		s.rec.Cancel()
 		setActiveStopHotkey(0, nil)
 		setActivePauseHotkey(0, nil)
 	}
+	s.releaseActiveLocked()
+	s.pending = nil
 	s.mu.Unlock()
-	if wasActive {
+	if wasOpen {
 		s.setState(RecordingState{Phase: PhaseIdle})
 	}
 	close(s.shutdownDone)
@@ -154,15 +180,21 @@ func (s *Service) ValidateTarget(targetSlot string) error {
 	if s.targets == nil {
 		return errors.New("installed target resolver is unavailable")
 	}
-	if _, err := s.targets.ResolveWindow(context.Background(), targetSlot); err != nil {
+	_, _, release, err := s.targets.AcquireRecordingTarget(context.Background(), targetSlot)
+	if err != nil {
 		return apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot, "cause": err.Error()})
 	}
-	return s.targets.Activate(context.Background(), targetSlot)
+	if release == nil {
+		return errors.New("installed target resolver returned no recording lease")
+	}
+	release()
+	return nil
 }
 
 // StartArgs 前端传入的录制开关.
 type StartArgs struct {
-	TargetSlot string `json:"targetSlot"`
+	TargetSlot string                  `json:"targetSlot"`
+	Mode       inputclip.RecordingMode `json:"mode"`
 }
 
 // Start 启动录制 (非阻塞). 返回临时录制 ID (前端订阅事件流过滤用).
@@ -176,21 +208,35 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		return "", errors.New("recording service is closed")
 	}
 
-	// 幂等: 已经在录 (或正在收尾) → 不重复启动, 返当前 tempID. 前端误触/重入无害.
-	if s.phase() != PhaseIdle {
-		return s.GetState().TempID, nil
+	if current := s.GetState(); current.Phase != PhaseIdle {
+		if (current.Phase == PhaseRecording || current.Phase == PhasePaused) && current.TargetSlot == args.TargetSlot && current.Mode == args.Mode {
+			return current.TempID, nil
+		}
+		return "", apperr.New(apperr.CodeRecordingSessionBusy, map[string]any{"phase": current.Phase})
 	}
 
 	if args.TargetSlot == "" {
 		return "", apperr.New(apperr.CodeAutomationTargetSlotRequired, nil)
 	}
+	if !args.Mode.Valid() {
+		return "", apperr.New(apperr.CodeRecordingModeRequired, nil)
+	}
 	if s.targets == nil {
 		return "", errors.New("installed target resolver is unavailable")
 	}
-	wh, err := s.targets.ResolveWindow(context.Background(), args.TargetSlot)
+	wh, targetCounts360, release, err := s.targets.AcquireRecordingTarget(context.Background(), args.TargetSlot)
 	if err != nil {
 		return "", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot, "cause": err.Error()})
 	}
+	if release == nil {
+		return "", errors.New("installed target resolver returned no recording lease")
+	}
+	releaseOnFailure := true
+	defer func() {
+		if releaseOnFailure {
+			release()
+		}
+	}()
 	mouseMode := "relative"
 	stopVK := uint32(0x7B)
 	if s.hkProv != nil {
@@ -203,8 +249,13 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if baseW <= 0 || baseH <= 0 {
 		return "", fmt.Errorf("无法读取目标窗口客户区尺寸 (得 %dx%d), 请确认窗口已正常显示后重试", baseW, baseH)
 	}
+	if args.Mode == inputclip.RecordingModePrecise && mouseMode == "relative" && targetCounts360 <= 0 {
+		return "", apperr.New(apperr.CodeRecordingCalibrationRequired, map[string]any{"targetSlot": args.TargetSlot})
+	}
 	meta := inputclip.ClipMeta{
+		RecordingMode:  args.Mode,
 		MouseMode:      mouseMode,
+		MouseCounts360: targetCounts360,
 		StopHotkeyVK:   stopVK,
 		BaseResolution: [2]int{baseW, baseH},
 	}
@@ -212,8 +263,11 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	if recErr != nil {
 		return "", fmt.Errorf("recorder.Start: %w", recErr)
 	}
+	s.activeRelease = release
+	releaseOnFailure = false
 	s.setState(RecordingState{
 		Phase:       PhaseRecording,
+		Mode:        args.Mode,
 		TargetSlot:  args.TargetSlot,
 		TempID:      id,
 		StartedAtMs: time.Now().UnixMilli(),
@@ -284,11 +338,12 @@ func (s *Service) Resume() error {
 
 // StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
 type StopResultPayload struct {
-	PendingID  string           `json:"pendingID"`
-	TargetSlot string           `json:"targetSlot"`
-	DurationUs uint64           `json:"durationUs"`
-	EventCount int              `json:"eventCount"`
-	Preview    RecordingPreview `json:"preview"`
+	PendingID  string                  `json:"pendingID"`
+	TargetSlot string                  `json:"targetSlot"`
+	Mode       inputclip.RecordingMode `json:"mode"`
+	DurationUs uint64                  `json:"durationUs"`
+	EventCount int                     `json:"eventCount"`
+	Preview    RecordingPreview        `json:"preview"`
 }
 
 type pendingRecording struct {
@@ -336,36 +391,55 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	finalizing.Phase = PhaseFinalizing
 	finalizing.PausedAtMs = 0
 	s.setState(finalizing)
-	// 无论成败回 idle (前端镜像始终收敛).
-	defer s.setState(RecordingState{Phase: PhaseIdle})
 
 	res, err := s.rec.Stop()
 	// 不管成败都清停录 + 暂停热键, 避免悬挂 callback 引发误触
 	setActiveStopHotkey(0, nil)
 	setActivePauseHotkey(0, nil)
+	s.releaseActiveLocked()
 	if err != nil {
 		// recorder 自己已不活跃 (理论上 phase 守卫挡住, 防御性): 当 no-op, 不抛伪错误.
 		if errors.Is(err, ErrRecorderNotActive) {
+			s.setState(RecordingState{Phase: PhaseIdle})
 			return nil, nil
 		}
+		s.setState(RecordingState{Phase: PhaseIdle})
 		return nil, err
 	}
 	// Shutdown owns cancellation, not persistence. If it arrived while native
 	// Stop was draining, discard the result before creating any durable asset.
 	if s.closed.Load() {
+		s.setState(RecordingState{Phase: PhaseIdle})
 		return nil, nil
 	}
 
+	if err := canonicalizeStopResult(res); err != nil {
+		s.setState(RecordingState{Phase: PhaseIdle})
+		return nil, fmt.Errorf("canonicalize recording: %w", err)
+	}
 	if len(res.Events) == 0 {
+		s.setState(RecordingState{Phase: PhaseIdle})
 		return nil, nil
 	}
 	pendingID := "pending-" + res.TempID
-	s.pending[pendingID] = pendingRecording{result: res, targetSlot: targetSlot}
 	durationUs := res.Events[len(res.Events)-1].TUs
-	return &StopResultPayload{
+	payload := &StopResultPayload{
 		PendingID: pendingID, TargetSlot: targetSlot,
-		DurationUs: durationUs, EventCount: len(res.Events), Preview: recordingPreview(res),
-	}, nil
+		Mode: res.Meta.RecordingMode, DurationUs: durationUs, EventCount: len(res.Events), Preview: recordingPreview(res),
+	}
+	s.pending = &pendingRecording{result: res, targetSlot: targetSlot}
+	s.setState(RecordingState{
+		Phase: PhasePending, Mode: res.Meta.RecordingMode, TargetSlot: targetSlot,
+		TempID: res.TempID, StartedAtMs: cur.StartedAtMs, PausedMs: cur.PausedMs, Pending: payload,
+	})
+	return cloneStopResultPayload(payload), nil
+}
+
+func cloneStopResultPayload(payload *StopResultPayload) *StopResultPayload {
+	if payload == nil {
+		return nil
+	}
+	return cloneRecordingState(RecordingState{Pending: payload}).Pending
 }
 
 // Cancel stops the active recording and discards all captured events.
@@ -378,6 +452,7 @@ func (s *Service) Cancel() error {
 	s.rec.Cancel()
 	setActiveStopHotkey(0, nil)
 	setActivePauseHotkey(0, nil)
+	s.releaseActiveLocked()
 	s.setState(RecordingState{Phase: PhaseIdle})
 	if s.emit != nil {
 		s.emit("recording:cancelled", map[string]any{})
@@ -396,10 +471,10 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	if len([]rune(label)) > 80 {
 		return nil, errors.New("录制名称不能超过 80 个字符")
 	}
-	pending, ok := s.pending[args.PendingID]
-	if !ok {
+	if s.pending == nil || "pending-"+s.pending.result.TempID != args.PendingID {
 		return nil, fmt.Errorf("pending recording %q not found", args.PendingID)
 	}
+	pending := *s.pending
 	tags := normalizeTags(args.Tags)
 	description := strings.TrimSpace(args.Description)
 	category := strings.TrimSpace(args.Category)
@@ -407,19 +482,25 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	if s.clipSvc == nil {
 		return nil, errors.New("clip store 未注入")
 	}
+	pendingState := s.GetState()
+	finalizing := pendingState
+	finalizing.Phase = PhaseFinalizing
+	s.setState(finalizing)
 	clip := &inputclip.InputClip{
 		ID: "clip-" + res.TempID, Label: label, Description: description, Category: category,
 		Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: res.Meta, Events: res.Events,
 	}
 	clip.UpdateDuration()
 	if err := s.clipSvc.Save(clip); err != nil {
+		s.setState(pendingState)
 		return nil, fmt.Errorf("save clip: %w", err)
 	}
 	result := &FinalizeResult{
 		ClipID: clip.ID, TargetSlot: pending.targetSlot, Label: label,
 		Draft: buildWorkflowDraft(res, pending.targetSlot, clip.Blob),
 	}
-	delete(s.pending, args.PendingID)
+	s.pending = nil
+	s.setState(RecordingState{Phase: PhaseIdle})
 	return result, nil
 }
 
@@ -427,8 +508,23 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 func (s *Service) Discard(pendingID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.pending, pendingID)
+	if s.pending == nil {
+		return nil
+	}
+	if "pending-"+s.pending.result.TempID != pendingID {
+		return fmt.Errorf("pending recording %q not found", pendingID)
+	}
+	s.pending = nil
+	s.setState(RecordingState{Phase: PhaseIdle})
 	return nil
+}
+
+func (s *Service) releaseActiveLocked() {
+	if s.activeRelease == nil {
+		return
+	}
+	s.activeRelease()
+	s.activeRelease = nil
 }
 
 func normalizeTags(tags []string) []string {
@@ -473,6 +569,7 @@ func (s *Service) StopAsync() {
 		}
 		s.emit("recording:completed", map[string]any{
 			"pendingID": payload.PendingID, "targetSlot": payload.TargetSlot,
+			"mode":       payload.Mode,
 			"durationUs": payload.DurationUs, "eventCount": payload.EventCount,
 			"preview": payload.Preview,
 		})

@@ -13,7 +13,7 @@ import (
 
 const (
 	MediaType                = "application/vnd.yotta.input-clip"
-	formatVersion            = uint32(2)
+	formatVersion            = uint32(3)
 	MaxEncodedInputClipBytes = 40 << 20
 	MaxInputClipEvents       = 1_000_000
 	MaxInputClipDurationUs   = uint64(24 * 60 * 60 * 1_000_000)
@@ -31,7 +31,7 @@ type headerJSON struct {
 	ChunkCount uint32   `json:"chunkCount"`
 }
 
-// Encode writes the canonical InputClip v2 carrier. Presentation metadata and
+// Encode writes the canonical InputClip v3 carrier. Presentation metadata and
 // the mutable asset GUID stay in the asset record, so identical event streams
 // have one content identity regardless of label or library placement.
 func Encode(w io.Writer, clip *InputClip) error {
@@ -160,6 +160,9 @@ func validateClip(clip *InputClip) error {
 	if clip.DurationUs > MaxInputClipDurationUs || len(clip.Events) > MaxInputClipEvents {
 		return errors.New("input clip exceeds duration or event budget")
 	}
+	if !clip.Meta.RecordingMode.Valid() {
+		return errors.New("input clip recording mode is invalid")
+	}
 	if clip.Meta.MouseMode != "absolute" && clip.Meta.MouseMode != "relative" && clip.Meta.MouseMode != "mixed" {
 		return errors.New("input clip mouse mode is invalid")
 	}
@@ -173,6 +176,8 @@ func validateClip(clip *InputClip) error {
 		}
 		return nil
 	}
+	activeKeys := map[int32]struct{}{}
+	activeButtons := map[int32]struct{}{}
 	for index, event := range clip.Events {
 		if event.TUs > MaxInputClipDurationUs || index == 0 && event.TUs != 0 || index > 0 && !clip.Events[index-1].Less(event) {
 			return fmt.Errorf("input clip event %d ordering is invalid", index)
@@ -180,6 +185,31 @@ func validateClip(clip *InputClip) error {
 		if err := validateEvent(event, clip.Meta); err != nil {
 			return fmt.Errorf("input clip event %d: %w", index, err)
 		}
+		switch event.Type {
+		case EventTypeKeyDown:
+			if _, exists := activeKeys[event.A]; exists {
+				return fmt.Errorf("input clip event %d repeats an active key", index)
+			}
+			activeKeys[event.A] = struct{}{}
+		case EventTypeKeyUp:
+			if _, exists := activeKeys[event.A]; !exists {
+				return fmt.Errorf("input clip event %d releases an inactive key", index)
+			}
+			delete(activeKeys, event.A)
+		case EventTypeMouseBtnDown:
+			if _, exists := activeButtons[event.A]; exists {
+				return fmt.Errorf("input clip event %d repeats an active mouse button", index)
+			}
+			activeButtons[event.A] = struct{}{}
+		case EventTypeMouseBtnUp:
+			if _, exists := activeButtons[event.A]; !exists {
+				return fmt.Errorf("input clip event %d releases an inactive mouse button", index)
+			}
+			delete(activeButtons, event.A)
+		}
+	}
+	if len(activeKeys) != 0 || len(activeButtons) != 0 {
+		return errors.New("input clip leaves held input state")
 	}
 	if clip.DurationUs != clip.Events[len(clip.Events)-1].TUs {
 		return errors.New("input clip duration does not match its final event")

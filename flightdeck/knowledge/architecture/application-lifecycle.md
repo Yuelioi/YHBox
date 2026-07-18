@@ -1,6 +1,6 @@
 ---
 kind: note
-summary: "后台资源必须由 internal/appruntime 单一 owner 在全部构造完成后顺序 Start，失败逆序 rollback，退出逆序 Close；当前顺序为 Worker → debug manager → hotkey → MCP HTTP → ScheduleDaemon → recording → calibration → tools，关闭反向执行后才有界 drain application/log。"
+summary: "后台资源由 internal/appruntime 单一 owner 顺序 Start、失败逆序 rollback、退出逆序 Close；Windows production 进程按产品契约从 manifest 以管理员完整性启动。"
 activation: action
 read_when: "新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏"
 recheck_when: "application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变"
@@ -8,7 +8,7 @@ recheck_when: "application runtime 新增资源；调整 shutdown timeout；资�
 # Application runtime 生命周期
 生命周期契约：
 
-- desktop composition root 以调用用户身份启动，不做进程级 `runas`/`EnsureAdmin`。高完整性目标必须由显式 capability/provider 支持；未提供时 fail closed。全局提权既扩大攻击面，也会破坏 dev WebView 的 process-scoped 调试环境。
+- Windows production manifest 固定 `requireAdministrator`；UAC 在进程创建前决定完整性级别，代码不再维护 `asInvoker`、按需 `runas`、双运行级别或静默降级。这个产品决定扩大了主进程受损后的影响面，因此脚本/插件仍必须隔离，workflow effect 仍必须经过 capability/admission，前端和解析边界不能因主进程已管理员而获得 ambient authority。
 - 构造函数只组装依赖，不启动 goroutine/listener；所有资源准备完成后统一 `Runtime.Start(ctx)`。
 - Start 按声明顺序执行；配置先全量验证。任一 Start 失败时，用独立的有界 rollback context 逆序关闭已启动资源，启动失败与 rollback error 用 `errors.Join` 同时返回。
 - Close 逆序尝试所有已启动资源，一个失败不能跳过其余；并发/重复 Close 观察同一最终结果。等待另一个 Start/Close 状态转换时必须响应调用方 context。
@@ -18,7 +18,7 @@ recheck_when: "application runtime 新增资源；调整 shutdown timeout；资�
 - hotkey/recording/calibration/tools 是按需启动 native 资源的 service，因此 runtime 的 Start 仅声明 ownership，Close 才执行真正的 shutdown。关闭后必须永久拒绝新 binding、hook、录制和窗口。
 - tools 先取消临时捕获热键，同时关闭现有窗口并让 in-flight open 观察 generation cancellation；两条清理路径不能互相阻塞。校准 HUD 的兜底回调先卸 LL hook/停 raw input，随后 calibration Shutdown 再做幂等确认。
 - recording 退出使用 Cancel，不把未完成事件持久化成 clip/subgraph；若 shutdown 在 native Stop drain 期间到达，Stop 必须在持久化前丢弃结果。hotkey 的部分注销失败保留 binding ownership，Shutdown 必须重试所有残留 binding 并报告最终错误。
-- debug session 不属于 Worker，必须作为独立 resource 关闭：拒绝新 session，cancel starting/active step，等待 `StopRuntime` 完成后才算释放 held input/capture。所有外部 cleanup 均在 manager mutex 外执行，多个 Close 各自遵守 context 并观察同一 barrier。
+- debug session 使用同一 Application/Executor，但 session control 与 Run worker lifecycle 仍需独立关闭：拒绝新 session，取消 active Run，等待资源 lease/held input/capture 释放。所有外部 cleanup 均在 manager mutex 外执行，多个 Close 各自遵守 context 并观察同一 barrier。
 - Wails Run 无论成功或失败，都先关闭 application runtime，再以独立 deadline 调 `App.ShutdownContext`。App 同步 detach presentation/停止 node-enter timer，LogMerger 不再向已退出 GUI emit；LogSink 先关闭文件再等待旧 delivery，callback 卡住时 caller 可超时且文件句柄已释放。
 
-声明顺序决定依赖，实际关闭顺序为 tools → calibration → recording → ScheduleDaemon → MCP HTTP → hotkey → debug manager → Worker。Schedule 注销时 registry 仍然存活；hotkey 先拒绝新触发，debug/Worker 随后释放各自 runtime。`wailsToolsPresenter` 在 tools 清理后 detach；App/LogSink 由 executable application owner 在 runtime 全部关闭后统一有界 drain。
+资源清单和顺序以 `internal/desktopapp/desktop.go` 的 `appruntime.Resource` 组装为准，不在 Knowledge 固定易漂移的完整列表。当前约束是依赖者先关闭：tools/calibration/recording/schedule 在 hotkey registry 与 Application worker 之前释放，presentation detach 后才有界 drain App/LogSink。

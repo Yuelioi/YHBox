@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "子图先 create 空壳再 update 内容时，changed 事件可能让空壳先进入前端池；mergePool 对同 ID 保留内存对象，普通 refresh 无法带回已写入的节点。"
+summary: "历史 3.0 create→update 空子图/mergePool 案例；3.1 复用其‘复合 authoring 必须单 revision 原子发布’原则。"
 activation: symptom
-read_when: "新增或修改子图 create→update 流程；折叠/导入/生成子图后后端已有内容但编辑器进入后为空；使用 mergePool 刷新刚创建的子图时。"
+read_when: "审查 3.0 mergePool 故障，或设计 3.1 collapse/create GraphCall 是否拆成多个可见 revision 时"
 ---
 # ⚠ 子图 create→update 时 mergePool 会保留先入池的空壳
+
+> 历史案例：3.1 collapse/GraphCall authoring 必须以一个 CAS patch 原子发布完整候选，不允许先发布空壳再补内容。
 ## 症状与根因
 
 “折叠为子图”先调用 `subgraphs.create` 建空子图，再调用 `subgraphs.update` 写入选中节点。create 会触发 changed 同步，空壳可能在 update 完成前进入 `containerEditor` store。

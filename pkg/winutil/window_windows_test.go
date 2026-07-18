@@ -2,6 +2,7 @@ package winutil
 
 import (
 	"context"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -81,5 +82,20 @@ func TestExecutableWindowQueryUsesRegistryToken(t *testing.T) {
 	}
 	if query := executableWindowQueryFromState(state); query != nil {
 		t.Fatalf("callback query remained registered: %p", query)
+	}
+}
+
+func TestExecutableWindowTitleMatcherSupportsExactAndRegex(t *testing.T) {
+	exact := &executableWindowQuery{title: "异环  ", titleMatch: "exact"}
+	if !exact.matchesTitle("异环  ") || exact.matchesTitle("异环") {
+		t.Fatal("exact title mode did not preserve raw Win32 whitespace")
+	}
+	pattern, err := regexp.Compile(`^异环\s*$`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	regex := &executableWindowQuery{title: `^异环\s*$`, titleMatch: "regex", titleRegex: pattern}
+	if !regex.matchesTitle("异环  ") || regex.matchesTitle("异环 - 登录") {
+		t.Fatal("regex title mode did not use the installed expression")
 	}
 }

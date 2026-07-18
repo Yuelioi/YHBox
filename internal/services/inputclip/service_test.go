@@ -21,8 +21,11 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	service := NewService(assets)
 	clip := &InputClip{
 		ID: "clip-test", Label: "Before", Description: "old", Category: "demo", Tags: []string{"a"},
-		Meta: ClipMeta{MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}},
-		Events: []Event{{TUs: 0, Type: EventTypeKeyDown, A: 0x41}},
+		Meta: ClipMeta{RecordingMode: RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}},
+		Events: []Event{
+			{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+			{TUs: 1, Seq: 1, Type: EventTypeKeyUp, A: 0x41},
+		},
 	}
 	clip.UpdateDuration()
 	if err := service.Save(clip); err != nil {
@@ -42,5 +45,34 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	list := service.List()
 	if len(list) != 1 || list[0].Blob != wantRef {
 		t.Fatalf("clip summaries = %#v", list)
+	}
+}
+
+func TestServiceEmitsUnifiedAssetInvalidation(t *testing.T) {
+	root := t.TempDir()
+	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets, err := asset.NewStore(root, blobs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := make([]string, 0)
+	service := NewService(assets, func(name string, _ any) { events = append(events, name) })
+	clip := &InputClip{
+		ID: "clip-events", Label: "Events",
+		Meta: ClipMeta{RecordingMode: RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1280, 720}},
+		Events: []Event{
+			{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+			{TUs: 1, Seq: 1, Type: EventTypeKeyUp, A: 0x41},
+		},
+	}
+	clip.UpdateDuration()
+	if err := service.Save(clip); err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 || events[0] != "asset:changed" || events[1] != "clip:changed" {
+		t.Fatalf("events = %v", events)
 	}
 }

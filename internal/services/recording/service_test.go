@@ -3,12 +3,15 @@ package recording
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
 
@@ -17,10 +20,9 @@ type blockingStopRecorder struct {
 	release chan struct{}
 }
 
-func (*blockingStopRecorder) SetMouseCounts360Getter(func() int) {}
-func (*blockingStopRecorder) Active() bool                       { return true }
-func (*blockingStopRecorder) Pause()                             {}
-func (*blockingStopRecorder) Resume()                            {}
+func (*blockingStopRecorder) Active() bool { return true }
+func (*blockingStopRecorder) Pause()       {}
+func (*blockingStopRecorder) Resume()      {}
 func (*blockingStopRecorder) Start(uintptr, inputclip.ClipMeta) (string, error) {
 	return "", nil
 }
@@ -51,10 +53,9 @@ type resultRecorder struct {
 	startErr  error
 }
 
-func (*resultRecorder) SetMouseCounts360Getter(func() int) {}
-func (*resultRecorder) Active() bool                       { return true }
-func (*resultRecorder) Pause()                             {}
-func (*resultRecorder) Resume()                            {}
+func (*resultRecorder) Active() bool { return true }
+func (*resultRecorder) Pause()       {}
+func (*resultRecorder) Resume()      {}
 func (r *resultRecorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) {
 	r.hwnd, r.meta = hwnd, meta
 	return "session", r.startErr
@@ -73,19 +74,17 @@ func (s *memoryClipStore) List() []inputclip.ClipSummary        { return s.clips
 func (s *memoryClipStore) Delete(id string) error               { s.deleted = append(s.deleted, id); return nil }
 
 type recordingTargetResolver struct {
-	window      target.WindowHandle
-	resolveErr  error
-	activateErr error
-	activated   string
+	window     target.WindowHandle
+	resolveErr error
+	counts360  int
+	released   int
 }
 
-func (r *recordingTargetResolver) ResolveWindow(context.Context, string) (target.WindowHandle, error) {
-	return r.window, r.resolveErr
-}
-
-func (r *recordingTargetResolver) Activate(_ context.Context, slot string) error {
-	r.activated = slot
-	return r.activateErr
+func (r *recordingTargetResolver) AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error) {
+	if r.resolveErr != nil {
+		return target.WindowHandle{}, 0, nil, r.resolveErr
+	}
+	return r.window, r.counts360, func() { r.released++ }, nil
 }
 
 type recordingHotkeys struct{}
@@ -96,8 +95,11 @@ func (recordingHotkeys) GetMouseMode() string     { return "absolute" }
 
 func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	recorder := &resultRecorder{result: &StopResult{
-		TempID: "session", Meta: inputclip.ClipMeta{},
-		Events: []inputclip.Event{{TUs: 0}, {TUs: 250_000}},
+		TempID: "session", Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1280, 720}},
+		Events: []inputclip.Event{
+			{TUs: 100, Type: inputclip.EventTypeKeyDown, A: 'A'},
+			{TUs: 250_100, Type: inputclip.EventTypeKeyUp, A: 'A'},
+		},
 	}}
 	clips := &memoryClipStore{}
 	s := NewService(recorder, nil, clips, nil)
@@ -130,6 +132,7 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 	recorder := &resultRecorder{result: &StopResult{
 		TempID: "session",
+		Meta:   inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1280, 720}},
 		Events: []inputclip.Event{
 			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: 'A'},
 			{TUs: 25_000, Type: inputclip.EventTypeKeyUp, A: 'A'},
@@ -151,7 +154,7 @@ func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 	select {
 	case payload := <-completed:
 		preview, ok := payload["preview"].(RecordingPreview)
-		if !ok || preview.Mode != "steps" || preview.KeyActions != 1 {
+		if !ok || preview.Mode != "simple" || preview.KeyActions != 1 || payload["mode"] != inputclip.RecordingModeSimple {
 			t.Fatalf("completed payload = %#v", payload)
 		}
 	case <-time.After(time.Second):
@@ -175,11 +178,11 @@ func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
 	recorder := &resultRecorder{}
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
 	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, targets)
-	id, err := service.Start(StartArgs{TargetSlot: "editor"})
+	id, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != "session" || recorder.hwnd != 42 || recorder.meta.MouseMode != "absolute" || recorder.meta.StopHotkeyVK != 0x78 || recorder.meta.BaseResolution != [2]int{1280, 720} {
+	if id != "session" || recorder.hwnd != 42 || recorder.meta.RecordingMode != inputclip.RecordingModeSimple || recorder.meta.MouseMode != "absolute" || recorder.meta.StopHotkeyVK != 0x78 || recorder.meta.BaseResolution != [2]int{1280, 720} {
 		t.Fatalf("id=%q hwnd=%d meta=%+v", id, recorder.hwnd, recorder.meta)
 	}
 	if state := service.GetState(); state.Phase != PhaseRecording || state.TargetSlot != "editor" || state.TempID != "session" {
@@ -187,6 +190,85 @@ func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
 	}
 	if err := service.Cancel(); err != nil {
 		t.Fatal(err)
+	}
+	if targets.released != 1 {
+		t.Fatalf("recording target releases = %d, want 1", targets.released)
+	}
+}
+
+func TestServiceStopReleasesExactRecordingTarget(t *testing.T) {
+	recorder := &resultRecorder{result: &StopResult{
+		TempID: "session",
+		Meta: inputclip.ClipMeta{
+			RecordingMode: inputclip.RecordingModeSimple,
+			MouseMode:     "absolute", BaseResolution: [2]int{1280, 720},
+		},
+		Events: []inputclip.Event{
+			{TUs: 10, Type: inputclip.EventTypeKeyDown, A: 'A'},
+			{TUs: 20, Seq: 1, Type: inputclip.EventTypeKeyUp, A: 'A'},
+		},
+	}}
+	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, targets)
+	if _, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple}); err != nil {
+		t.Fatal(err)
+	}
+	if targets.released != 0 {
+		t.Fatalf("recording target released before Stop: %d", targets.released)
+	}
+	if _, err := service.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if targets.released != 1 || service.GetState().Phase != PhasePending {
+		t.Fatalf("released=%d state=%+v", targets.released, service.GetState())
+	}
+}
+
+func TestRecordingSessionPersistsCanonicalCarrierAndReloadsDraftReference(t *testing.T) {
+	root := t.TempDir()
+	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets, err := asset.NewStore(root, blobs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clips := inputclip.NewService(assets)
+	recorder := &resultRecorder{result: &StopResult{
+		TempID: "roundtrip",
+		Meta: inputclip.ClipMeta{
+			RecordingMode: inputclip.RecordingModePrecise,
+			MouseMode:     "mixed", BaseResolution: [2]int{1280, 720}, MouseCounts360: 800,
+		},
+		Events: []inputclip.Event{
+			{TUs: 800, Type: inputclip.EventTypeKeyDown, A: 'W'},
+			{TUs: 1_800, Seq: 1, Type: inputclip.EventTypeRawDelta, B: 12, C: -4},
+			{TUs: 2_800, Seq: 2, Type: inputclip.EventTypeKeyUp, A: 'W'},
+		},
+	}}
+	service := NewService(recorder, nil, clips, nil)
+	service.setState(RecordingState{Phase: PhaseRecording, Mode: inputclip.RecordingModePrecise, TargetSlot: "editor"})
+	pending, err := service.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending == nil || pending.Mode != inputclip.RecordingModePrecise || service.GetState().Pending == nil {
+		t.Fatalf("pending=%+v state=%+v", pending, service.GetState())
+	}
+	finalized, err := service.Finalize(FinalizeArgs{PendingID: pending.PendingID, Label: "Round trip"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := clips.Get(finalized.ClipID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Meta.RecordingMode != inputclip.RecordingModePrecise || len(loaded.Events) != 3 || loaded.Events[0].TUs != 0 || loaded.Events[2].TUs != 2_000 {
+		t.Fatalf("loaded clip = %+v events=%+v", loaded, loaded.Events)
+	}
+	if len(finalized.Draft.Nodes) != 1 || finalized.Draft.Nodes[0].Blobs["clip"] != loaded.Blob {
+		t.Fatalf("draft=%+v blob=%+v", finalized.Draft, loaded.Blob)
 	}
 }
 
@@ -202,7 +284,7 @@ func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service := NewService(&resultRecorder{}, nil, nil, test.targets)
-			_, err := service.Start(StartArgs{TargetSlot: "editor"})
+			_, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Start() error = %v, want %q", err, test.want)
 			}
@@ -210,34 +292,34 @@ func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
 	}
 }
 
-func TestServiceValidateTargetActivatesExactResolvedSlot(t *testing.T) {
+func TestServiceValidateTargetAcquiresAndReleasesExactTarget(t *testing.T) {
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42}}
 	service := NewService(&resultRecorder{}, nil, nil, targets)
-	if err := service.ValidateTarget("editor"); err != nil || targets.activated != "editor" {
-		t.Fatalf("ValidateTarget() error=%v activated=%q", err, targets.activated)
+	if err := service.ValidateTarget("editor"); err != nil || targets.released != 1 {
+		t.Fatalf("ValidateTarget() error=%v released=%d", err, targets.released)
 	}
-	targets.activateErr = errors.New("activation denied")
-	if err := service.ValidateTarget("editor"); !errors.Is(err, targets.activateErr) {
+	targets.resolveErr = errors.New("activation denied")
+	if err := service.ValidateTarget("editor"); err == nil || !strings.Contains(err.Error(), "RECORDING_TARGET_UNAVAILABLE") {
 		t.Fatalf("ValidateTarget() error = %v", err)
 	}
 }
 
 func TestServiceFinalizeRejectsInvalidMetadataAndDiscardRemovesPending(t *testing.T) {
 	service := NewService(&resultRecorder{}, nil, &memoryClipStore{}, nil)
-	service.pending["pending"] = pendingRecording{result: &StopResult{TempID: "session"}}
+	service.pending = &pendingRecording{result: &StopResult{TempID: "session", Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple}}}
 	for _, args := range []FinalizeArgs{
-		{PendingID: "pending", Label: " "},
-		{PendingID: "pending", Label: strings.Repeat("界", 81)},
+		{PendingID: "pending-session", Label: " "},
+		{PendingID: "pending-session", Label: strings.Repeat("界", 81)},
 		{PendingID: "missing", Label: "Valid"},
 	} {
 		if _, err := service.Finalize(args); err == nil {
 			t.Fatalf("Finalize(%+v) succeeded", args)
 		}
 	}
-	if err := service.Discard("pending"); err != nil {
+	if err := service.Discard("pending-session"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := service.pending["pending"]; ok {
+	if service.pending != nil {
 		t.Fatal("Discard retained pending recording")
 	}
 }
@@ -255,7 +337,7 @@ func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 	if state := s.GetState(); state.Phase != PhaseIdle {
 		t.Fatalf("state after shutdown = %+v", state)
 	}
-	if _, err := s.Start(StartArgs{TargetSlot: "editor"}); err == nil ||
+	if _, err := s.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple}); err == nil ||
 		!strings.Contains(err.Error(), "closed") {
 		t.Fatalf("Start() after shutdown error = %v, want closed", err)
 	}
@@ -344,12 +426,12 @@ func TestService_StopWhenIdle_IsNoOpNoError(t *testing.T) {
 	}
 }
 
-func TestService_StartWhenNotIdle_IsNoOp(t *testing.T) {
+func TestService_StartWhenSameSessionIsIdempotent(t *testing.T) {
 	s, _ := newTestService()
 	// 模拟已在录 (不走真 hook): 直接置 recording 态.
-	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "t1"})
+	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", Mode: inputclip.RecordingModeSimple, TempID: "t1"})
 	// Start 撞非 idle → 返当前 tempID, 不报错, 不重启.
-	id, err := s.Start(StartArgs{TargetSlot: "other"})
+	id, err := s.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 	if err != nil {
 		t.Fatalf("非 idle Start 应无错 (幂等 no-op), got %v", err)
 	}
@@ -358,6 +440,9 @@ func TestService_StartWhenNotIdle_IsNoOp(t *testing.T) {
 	}
 	if s.GetState().TargetSlot != "editor" {
 		t.Fatalf("non-idle Start changed target slot, got %q", s.GetState().TargetSlot)
+	}
+	if _, err := s.Start(StartArgs{TargetSlot: "other", Mode: inputclip.RecordingModeSimple}); err == nil || !strings.Contains(err.Error(), "RECORDING_SESSION_BUSY") {
+		t.Fatalf("different active session error = %v", err)
 	}
 }
 

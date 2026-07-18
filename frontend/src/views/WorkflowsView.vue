@@ -361,6 +361,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
+import { errorMessage } from '@/lib/invoke'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import {
@@ -783,6 +784,6 @@ function diagnosticText(value: { diagnostics: Array<{ code: string }> }): string
 }
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
 }
 </script>

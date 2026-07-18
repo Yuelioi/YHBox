@@ -99,9 +99,6 @@
           :key="port.id"
           :node="node"
           :port="port"
-          :clips="clips"
-          :clip-items="clipItems"
-          :template-variant-items="templateVariantItems"
           @command="emit('command', $event)"
         />
       </section>
@@ -155,16 +152,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import GeneratedFieldEditor from '@/app/editor/GeneratedFieldEditor.vue'
 import WorkflowInputBindingEditor from '@/app/editor/WorkflowInputBindingEditor.vue'
-import { useClipsStore } from '@/stores/clips'
-import { useTemplatesStore } from '@/stores/templates'
 import { useSettingsStore } from '@/stores/settings'
 
 const props = defineProps<{
@@ -175,35 +169,11 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
-const clipsStore = useClipsStore()
-const { clips } = storeToRefs(clipsStore)
-const templatesStore = useTemplatesStore()
 const settingsStore = useSettingsStore()
-const { map: templates } = storeToRefs(templatesStore)
-const clipItems = computed(() =>
-  clips.value.map((clip) => ({
-    label: clip.label || clip.id,
-    value: clip.id,
-  })),
-)
-const templateVariantItems = computed(() =>
-  Object.values(templates.value).flatMap((asset) =>
-    asset.variants.map((variant, index) => ({
-      label: `${asset.name} · ${variant.resolution[0]}×${variant.resolution[1]}`,
-      value: `${asset.guid}:${index}`,
-      blob: variant.blob,
-    })),
-  ),
-)
 const projectionDescription = computed(() => {
   const key = props.projection?.descriptionKey
   return key && te(key) ? t(key) : ''
 })
-onMounted(() => {
-  void clipsStore.refresh()
-  void templatesStore.reload()
-})
-
 function targetItems(fieldId: string): Array<{ label: string; value: string }> | undefined {
   const capability = targetCapability(fieldId)
   if (!capability) return undefined

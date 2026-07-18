@@ -75,4 +75,12 @@ describe('standalone window presentation contract', () => {
       expect(source).not.toContain('class="mt-auto flex items-center')
     }
   })
+
+  it('reconciles the recording HUD from a monotonic backend snapshot after late mount', () => {
+    const source = readSource('src/views/tools/RecordingHUDView.vue')
+
+    expect(source).toContain('applySnapshot(await backend.recording.getState())')
+    expect(source).toContain('if (nextRevision < revision) return')
+    expect(source).toContain("st?.mode === 'simple' || st?.mode === 'precise'")
+  })
 })

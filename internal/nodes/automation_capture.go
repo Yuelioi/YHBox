@@ -12,7 +12,7 @@ import (
 
 const (
 	ImageTypeID                   = "https://schemas.yotta.dev/types/media/image/v1"
-	AutomationCaptureCapabilityID = "https://schemas.yotta.dev/capabilities/automation/capture/v1"
+	AutomationCaptureCapabilityID = installed.CapabilityCaptureID
 	CaptureWindowNodeID           = "https://schemas.yotta.dev/nodes/automation/capture-window"
 	CaptureWindowEffectID         = "https://schemas.yotta.dev/effects/automation/capture-window/v1"
 )

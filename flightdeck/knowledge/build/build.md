@@ -20,13 +20,13 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 
 ## bindings 与 generated contracts
 
-frontend/bindings 由 Wails 生成且 gitignore，不手改。node frontend/scripts/generate-bindings.mjs 固定生成 TypeScript；pnpm -C frontend bindings:check 对比 tracked contracts/wails-rpc.json。2026-07-17 Stage 7 基线为 14 services / 106 methods / 134 models。
+frontend/bindings 由 Wails 生成且 gitignore，不手改。node frontend/scripts/generate-bindings.mjs 固定生成 TypeScript；pnpm -C frontend bindings:check 对比 tracked contracts/wails-rpc.json。service/method/model 数量只作诊断信息；tracked RPC schema 与签名 diff 才是契约，不能把某次计数硬编码成长期门禁。
 
 Workflow/Node durable contracts 由同一 Go generator 供 runtime validator 与 tracked JSON Schema/TypeScript；task contracts:check 拒绝漂移。plugin Proto/WIT/SDK/reference/conformance 由 task plugins:check 拒绝漂移。
 
 ## 测试基线
 
-2026-07-17 Stage 3 baseline：task check 全绿；global Go coverage 65.6%（门槛 65%）、根包 75.0%、cmd/yotta 65.3%，package floors、go vet、staticcheck 全部通过。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
+覆盖率、前端测试数、RPC 数量和 bundle 字节数会随实现变化，不在 Knowledge 固定某次运行快照。权威门槛位于 Task/CI/config；阶段结果写入对应 Topic/Slice。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
 
 Go 门禁由 task check 统一编排。CI 另含 race group、parser/package/MCP fuzz、Linux/macOS portable core 与三平台原生 GUI compile。race 清单使用稳定 internal/noderuntime 名称，不得恢复 nodes31 等发布号包名。
 
@@ -34,13 +34,13 @@ Windows 本地可用 go test -c 逐包生成 linux/amd64、darwin/arm64 测试�
 
 Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed。
 
-前端基线：38 files / 145 tests；i18n 1595 keys、0 中文 residue；Wails 14/106/134；tracked no-explicit-any debt 24。production bundle entry 275466 gzip bytes（limit 350000），editor 121372（limit 200000，target 125000）。raw chunk 超过 500 kB 的 Vite 通用 warning 非阻断，以 bundle:check 为准。
+前端测试、i18n、no-explicit-any debt 与 bundle budgets 由 `task check` 中的具体 gate 管理。raw chunk 超过 500 kB 的 Vite 通用 warning 本身非阻断，以 repository bundle budget gate 为准。
 
 ## 运行 / smoke
 
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
-- Workflow smoke 基线：104 catalog nodes、3 canvas nodes、AI review panel 与资源/录制入口可达；截图应显示实际顶栏、目录、画布、节点、review panel 与日志层。
+- Workflow WebView smoke 只能证明页面/创作入口；catalog node 数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。
 - Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`$env:YOTTA_ADB_SMOKE='1'; go test ./internal/automation/installed -run TestAndroidADBEmulatorSmoke -count=1 -v`。它必须通过 bundled/configured ADB 做 exact identity、分辨率、启动/停止、PNG 截图和通用输入操作；不得以 controller mock 替代该证据。
 - WebView2 截图前必须 bringToFront、focus emulation、两次 requestAnimationFrame 加 settle，避免 DOM 绿但 PNG 黑屏。
 - Wails dev 的可选 custom.js/favicon 404 非阻断；阻断信号是 JS error/rejection/console.error、节点计数不变、CDP 不可达或截图实际布局不可用。

@@ -22,6 +22,11 @@
       :model-value="literalValue"
       @update:model-value="setLiteral"
     />
+    <KeyChordValueEditor
+      v-else-if="acceptsInline && isKeyChordType(port.type.expression)"
+      :model-value="literalKeyChord"
+      @update:model-value="setLiteral"
+    />
     <USwitch
       v-else-if="acceptsInline && port.type.control === 'toggle'"
       :model-value="literalBoolean"
@@ -59,24 +64,24 @@
       class="w-full font-mono text-xs"
       @change="setLiteralJSON"
     />
-    <USelect
-      v-else-if="port.editorAdapter === 'template-image'"
-      :model-value="selectedTemplateVariantId"
-      :items="templateVariantItems"
-      value-key="value"
-      label-key="label"
-      :placeholder="t('workflow.inspector.select_template')"
-      class="w-full"
-      @update:model-value="setTemplateImage"
+    <UButton
+      v-else-if="usesAssetPicker"
+      class="w-full justify-start"
+      color="neutral"
+      variant="outline"
+      :icon="assetKind === 'template' ? 'i-tabler-photo-search' : 'i-tabler-movie'"
+      :label="bindingBlob ? t('assetPicker.replace') : pickerPlaceholder"
+      trailing-icon="i-tabler-chevron-right"
+      @click="pickerOpen = true"
     />
     <div
       v-if="port.editorAdapter === 'template-image' && binding?.kind === 'blob'"
       class="flex items-center gap-3 rounded-lg border border-default bg-default p-2"
     >
       <BlobPreview
-        v-if="selectedTemplateVariant"
-        :blob="selectedTemplateVariant.blob"
-        :alt="selectedTemplateVariant.label"
+        v-if="binding.blob"
+        :blob="binding.blob"
+        :alt="resourceLabel"
         class="size-14 shrink-0"
         @state="templatePreviewState = $event"
       />
@@ -88,12 +93,12 @@
       </div>
       <div class="min-w-0 flex-1">
         <p class="truncate text-xs font-medium text-toned">
-          {{ selectedTemplateVariant?.label || t('workflow.inspector.resource_missing') }}
+          {{ resourceLabel }}
         </p>
         <p class="truncate font-mono text-[10px] text-dimmed">{{ binding.blob?.digest }}</p>
       </div>
       <UBadge
-        v-if="!selectedTemplateVariant || templatePreviewState === 'unavailable'"
+        v-if="resourceStale || templatePreviewState === 'unavailable'"
         color="error"
         variant="soft"
         size="sm"
@@ -101,29 +106,19 @@
         {{ t('workflow.inspector.resource_stale') }}
       </UBadge>
     </div>
-    <USelect
-      v-else-if="isInputClip"
-      :model-value="selectedClipId"
-      :items="clipItems"
-      value-key="value"
-      label-key="label"
-      :placeholder="t('workflow.inspector.select_clip')"
-      class="w-full"
-      @update:model-value="setClip"
-    />
     <div
       v-if="isInputClip && binding?.kind === 'blob'"
       class="flex items-center gap-2 rounded-lg border border-default bg-default px-3 py-2"
     >
       <UIcon name="i-tabler-movie" class="size-4 shrink-0 text-primary" />
       <span class="min-w-0 flex-1 truncate text-xs text-toned">
-        {{ selectedClip?.label || t('workflow.inspector.resource_missing') }}
+        {{ resourceLabel }}
       </span>
-      <UBadge v-if="!selectedClip" color="error" variant="soft" size="sm">
+      <UBadge v-if="resourceStale" color="error" variant="soft" size="sm">
         {{ t('workflow.inspector.resource_stale') }}
       </UBadge>
     </div>
-    <p v-else class="text-[11px] leading-5 text-muted">
+    <p v-if="!usesAssetPicker" class="text-[11px] leading-5 text-muted">
       {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
     </p>
     <div class="flex items-center gap-2">
@@ -144,41 +139,79 @@
         @click="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
       />
     </div>
+    <AssetPickerModal
+      v-if="assetKind"
+      v-model:open="pickerOpen"
+      :kind="assetKind"
+      :selected-blob="bindingBlob"
+      @select="setAsset"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { InputBinding } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
 import PointValueEditor from '@/app/editor/PointValueEditor.vue'
 import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
+import KeyChordValueEditor from '@/app/editor/KeyChordValueEditor.vue'
+import { isKeyChordType } from '@/app/editor/keyChord'
 import BlobPreview from '@/components/common/BlobPreview.vue'
-
-type Blob = { mediaType: string; digest: string; size: number }
-type Clip = { id: string; label: string; blob: Blob }
-type Item = { label: string; value: string }
-type TemplateItem = Item & { blob: Blob }
+import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
+import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
+import type { AssetBinding } from '@/lib/backend'
 
 const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 const props = defineProps<{
   node: Node
   port: PortProjection
-  clips: Clip[]
-  clipItems: Item[]
-  templateVariantItems: TemplateItem[]
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
+const assets = useAssetsStore()
 const templatePreviewState = ref<'loading' | 'ready' | 'unavailable'>('loading')
+const pickerOpen = ref(false)
+const resolvedBinding = ref<AssetBinding | null>(null)
+const bindingResolved = ref(false)
+const immediateSelection = ref<AssetPickerSelection | null>(null)
+let resolveGeneration = 0
 
 const binding = computed(() => props.node.bindings[props.port.id])
 const acceptsInline = computed(() =>
   props.port.type.representations.some((item) => item.kind === 'inline-json'),
 )
 const isInputClip = computed(() => props.port.type.typeIds.includes(inputClipTypeId))
+const assetKind = computed<'template' | 'clip' | null>(() => {
+  if (props.port.editorAdapter === 'template-image') return 'template'
+  if (isInputClip.value) return 'clip'
+  return null
+})
+const usesAssetPicker = computed(() => assetKind.value !== null)
+const bindingBlob = computed(() =>
+  binding.value?.kind === 'blob' ? binding.value.blob : undefined,
+)
+const pickerPlaceholder = computed(() =>
+  t(
+    assetKind.value === 'template'
+      ? 'workflow.inspector.select_template'
+      : 'workflow.inspector.select_clip',
+  ),
+)
+const resourceLabel = computed(() => {
+  const selection = immediateSelection.value
+  if (selection && sameBlob(selection.blob, bindingBlob.value)) return selectionLabel(selection)
+  const resolved = resolvedBinding.value
+  if (!resolved?.found) return t('workflow.inspector.resource_missing')
+  if (resolved.kind === 'template' && resolved.resolution[0] > 0) {
+    return `${resolved.name} · ${resolved.resolution[0]}×${resolved.resolution[1]}`
+  }
+  return resolved.name
+})
+const resourceStale = computed(() =>
+  Boolean(bindingBlob.value && bindingResolved.value && !resolvedBinding.value?.found),
+)
 const portTitle = computed(() =>
   props.port.titleKey && te(props.port.titleKey) ? t(props.port.titleKey) : props.port.id,
 )
@@ -204,6 +237,11 @@ const literalText = computed(() =>
     ? binding.value.value
     : '',
 )
+const literalKeyChord = computed(() =>
+  Array.isArray(literalValue.value)
+    ? literalValue.value.filter((value): value is string => typeof value === 'string')
+    : [],
+)
 const literalJSON = computed(() =>
   literalValue.value === undefined ? '' : JSON.stringify(literalValue.value, null, 2),
 )
@@ -216,17 +254,17 @@ const literalPlaceholder = computed(() =>
           : 'workflow.inspector.optional_value',
       ),
 )
-const selectedTemplateVariant = computed(() =>
-  matchingBlob(binding.value, props.templateVariantItems),
+watch(
+  () =>
+    [
+      bindingBlob.value?.mediaType,
+      bindingBlob.value?.digest,
+      bindingBlob.value?.size,
+      assets.epoch,
+    ] as const,
+  () => void resolveCurrentBinding(),
+  { immediate: true },
 )
-const selectedTemplateVariantId = computed(() => selectedTemplateVariant.value?.value)
-const selectedClip = computed(() =>
-  matchingBlob(
-    binding.value,
-    props.clips.map((clip) => ({ ...clip, value: clip.id })),
-  ),
-)
-const selectedClipId = computed(() => selectedClip.value?.value)
 
 function numericConstraint(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined
@@ -244,39 +282,51 @@ function setLiteralJSON(event: Event): void {
     return
   }
 }
-function setClip(value: unknown): void {
-  const clip = typeof value === 'string' ? props.clips.find((item) => item.id === value) : undefined
-  if (clip)
-    emit('command', {
-      kind: 'bind-blob',
-      nodeId: props.node.id,
-      portId: props.port.id,
-      blob: { ...clip.blob },
-    })
+function setAsset(selection: AssetPickerSelection): void {
+  immediateSelection.value = selection
+  emit('command', {
+    kind: 'bind-blob',
+    nodeId: props.node.id,
+    portId: props.port.id,
+    blob: { ...selection.blob },
+  })
 }
-function setTemplateImage(value: unknown): void {
-  const variant =
-    typeof value === 'string'
-      ? props.templateVariantItems.find((item) => item.value === value)
-      : undefined
-  if (variant)
-    emit('command', {
-      kind: 'bind-blob',
-      nodeId: props.node.id,
-      portId: props.port.id,
-      blob: { ...variant.blob },
-    })
+
+async function resolveCurrentBinding(): Promise<void> {
+  const generation = ++resolveGeneration
+  const blob = bindingBlob.value
+  resolvedBinding.value = null
+  bindingResolved.value = !blob
+  if (!blob) {
+    immediateSelection.value = null
+    return
+  }
+  try {
+    const resolved = await assets.resolveBinding(blob)
+    if (generation !== resolveGeneration) return
+    resolvedBinding.value = resolved
+    bindingResolved.value = true
+  } catch {
+    if (generation === resolveGeneration) bindingResolved.value = false
+  }
 }
-function matchingBlob<T extends { blob: Blob }>(
-  value: InputBinding | undefined,
-  items: T[],
-): T | undefined {
-  if (value?.kind !== 'blob' || !value.blob) return undefined
-  return items.find(
-    (item) =>
-      item.blob.digest === value.blob?.digest &&
-      item.blob.mediaType === value.blob.mediaType &&
-      item.blob.size === value.blob.size,
+
+function sameBlob(
+  left: { mediaType: string; digest: string; size: number } | undefined,
+  right: { mediaType: string; digest: string; size: number } | undefined,
+): boolean {
+  return Boolean(
+    left &&
+    right &&
+    left.mediaType === right.mediaType &&
+    left.digest === right.digest &&
+    left.size === right.size,
   )
+}
+
+function selectionLabel(selection: AssetPickerSelection): string {
+  return selection.resolution
+    ? `${selection.name} · ${selection.resolution[0]}×${selection.resolution[1]}`
+    : selection.name
 }
 </script>

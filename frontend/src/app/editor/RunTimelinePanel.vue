@@ -39,7 +39,7 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <div v-if="run.failure" class="mb-3 rounded-lg border border-error/35 bg-error/10 px-3 py-2">
-        <p class="text-xs font-medium text-error">{{ run.failure.code }}</p>
+        <p class="text-xs font-medium text-error">{{ failureMessage }}</p>
         <p class="mt-1 text-[11px] text-muted">
           {{ run.failure.category }}{{ run.failure.nodeId ? ` / ${run.failure.nodeId}` : '' }}
         </p>
@@ -92,9 +92,14 @@ const emit = defineEmits<{
   close: []
   'focus-node': [graphPath: string[], nodeId: string]
 }>()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const canCancel = computed(() => ['QUEUED', 'RUNNING'].includes(props.run.status.toUpperCase()))
+const failureMessage = computed(() => {
+  if (!props.run.failure) return ''
+  const key = `error.${props.run.failure.code}`
+  return te(key) ? t(key) : props.run.failure.code
+})
 const statusColor = computed(() => {
   switch (props.run.status.toUpperCase()) {
     case 'SUCCEEDED':

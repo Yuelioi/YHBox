@@ -13,7 +13,6 @@ const (
 	clickPointerNodeID = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	playClipNodeID     = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
 	delayNodeID        = "https://schemas.yotta.dev/nodes/control/delay"
-	maxSimpleActions   = 128
 	maxPreviewSteps    = 32
 	minimumDelayUs     = 50_000
 )
@@ -46,8 +45,8 @@ type Point struct {
 }
 
 type WorkflowDraft struct {
-	Mode  string              `json:"mode"`
-	Nodes []WorkflowDraftNode `json:"nodes"`
+	Mode  inputclip.RecordingMode `json:"mode"`
+	Nodes []WorkflowDraftNode     `json:"nodes"`
 }
 
 type WorkflowDraftNode struct {
@@ -69,13 +68,9 @@ type recordedAction struct {
 }
 
 func recordingPreview(result *StopResult) RecordingPreview {
-	actions, simple, counts := analyzeRecording(result)
-	mode := "steps"
-	if !simple {
-		mode = "trajectory"
-	}
+	actions, counts := analyzeRecording(result)
 	preview := RecordingPreview{
-		Mode: mode, EventCount: len(result.Events), KeyActions: counts.keyActions,
+		Mode: string(result.Meta.RecordingMode), EventCount: len(result.Events), KeyActions: counts.keyActions,
 		ClickActions: counts.clickActions, PointerMoves: counts.pointerMoves,
 		RawDeltas: counts.rawDeltas, ScrollActions: counts.scrollActions,
 		Steps: []RecordingPreviewStep{},
@@ -101,9 +96,9 @@ func recordingPreview(result *StopResult) RecordingPreview {
 }
 
 func buildWorkflowDraft(result *StopResult, targetSlot string, clip blob.BlobRef) WorkflowDraft {
-	actions, simple, _ := analyzeRecording(result)
-	if !simple {
-		return WorkflowDraft{Mode: "trajectory", Nodes: []WorkflowDraftNode{{
+	actions, _ := analyzeRecording(result)
+	if result.Meta.RecordingMode == inputclip.RecordingModePrecise {
+		return WorkflowDraft{Mode: inputclip.RecordingModePrecise, Nodes: []WorkflowDraftNode{{
 			NodeTypeID: playClipNodeID,
 			Config:     map[string]any{"slot": targetSlot},
 			Values:     map[string]any{},
@@ -138,27 +133,25 @@ func buildWorkflowDraft(result *StopResult, targetSlot string, clip blob.BlobRef
 		}
 		previousEnd = action.endUs
 	}
-	return WorkflowDraft{Mode: "steps", Nodes: nodes}
+	return WorkflowDraft{Mode: inputclip.RecordingModeSimple, Nodes: nodes}
 }
 
 type recordingCounts struct {
 	keyActions, clickActions, pointerMoves, rawDeltas, scrollActions int
 }
 
-func analyzeRecording(result *StopResult) ([]recordedAction, bool, recordingCounts) {
+func analyzeRecording(result *StopResult) ([]recordedAction, recordingCounts) {
 	counts := recordingCounts{}
 	actions := make([]recordedAction, 0)
 	activeKeys := map[int32]struct{}{}
 	keyOrder := make([]string, 0)
 	var keyStart uint64
 	activeButtons := map[int32]inputclip.Event{}
-	simple := true
 	for _, event := range result.Events {
 		switch event.Type {
 		case inputclip.EventTypeKeyDown:
 			name := workflowKeyName(uint32(event.A))
 			if name == "" {
-				simple = false
 				continue
 			}
 			if len(activeKeys) == 0 {
@@ -171,7 +164,6 @@ func analyzeRecording(result *StopResult) ([]recordedAction, bool, recordingCoun
 			}
 		case inputclip.EventTypeKeyUp:
 			if _, exists := activeKeys[event.A]; !exists {
-				simple = false
 				continue
 			}
 			delete(activeKeys, event.A)
@@ -180,15 +172,11 @@ func analyzeRecording(result *StopResult) ([]recordedAction, bool, recordingCoun
 				counts.keyActions++
 			}
 		case inputclip.EventTypeMouseBtnDown:
-			if _, exists := activeButtons[event.A]; exists {
-				simple = false
-			}
 			activeButtons[event.A] = event
 		case inputclip.EventTypeMouseBtnUp:
 			down, exists := activeButtons[event.A]
 			button := pointerButton(event.A)
 			if !exists || button == "" {
-				simple = false
 				continue
 			}
 			delete(activeButtons, event.A)
@@ -199,22 +187,14 @@ func analyzeRecording(result *StopResult) ([]recordedAction, bool, recordingCoun
 			counts.clickActions++
 		case inputclip.EventTypeMouseMove:
 			counts.pointerMoves++
-			simple = false
 		case inputclip.EventTypeRawDelta:
 			counts.rawDeltas++
-			simple = false
 		case inputclip.EventTypeScroll:
 			counts.scrollActions++
-			simple = false
-		default:
-			simple = false
 		}
 	}
-	if len(activeKeys) != 0 || len(activeButtons) != 0 || len(actions) == 0 || len(actions) > maxSimpleActions {
-		simple = false
-	}
 	sort.SliceStable(actions, func(i, j int) bool { return actions[i].startUs < actions[j].startUs })
-	return actions, simple, counts
+	return actions, counts
 }
 
 func workflowKeyName(vk uint32) string {

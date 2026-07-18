@@ -45,10 +45,14 @@ func NewService(store *asset.Store, emit ...func(name string, data any)) *Servic
 	return service
 }
 
-func (s *Service) emitChanged() {
-	if s.emit != nil {
-		s.emit("clip:changed", map[string]any{})
+func (s *Service) emitChangedSince(before uint64) {
+	revision := s.store.Revision()
+	if s.emit == nil || revision == before {
+		return
 	}
+	payload := map[string]any{"revision": revision}
+	s.emit("asset:changed", payload)
+	s.emit("clip:changed", payload)
 }
 
 // Save 写盘 (新建或覆盖). clip.ID = GUID. 字节走 blob 池去重, 元数据进记录.
@@ -56,9 +60,14 @@ func (s *Service) Save(clip *InputClip) error {
 	if clip.ID == "" {
 		return fmt.Errorf("clip id 不能为空")
 	}
+	before := s.store.Revision()
+	defer s.emitChangedSince(before)
 	var buf bytes.Buffer
 	if err := Encode(&buf, clip); err != nil {
 		return fmt.Errorf("encode clip: %w", err)
+	}
+	if _, err := Decode(bytes.NewReader(buf.Bytes())); err != nil {
+		return fmt.Errorf("verify encoded clip: %w", err)
 	}
 	createdAt := clip.CreatedAt
 	if createdAt == "" {
@@ -84,7 +93,6 @@ func (s *Service) Save(clip *InputClip) error {
 		return fmt.Errorf("commit clip blob: %w", err)
 	}
 	clip.Blob = ref
-	s.emitChanged()
 	return nil
 }
 
@@ -137,18 +145,20 @@ func (s *Service) List() []ClipSummary {
 
 // Delete 删 clip 记录 (blob 由 GC 回收孤儿字节).
 func (s *Service) Delete(id string) error {
+	before := s.store.Revision()
+	defer s.emitChangedSince(before)
 	if err := s.store.DeleteRecord(id); err != nil {
 		return err
 	}
-	s.emitChanged()
 	return nil
 }
 
 // Update only changes presentation metadata; the content-addressed carrier remains stable.
 func (s *Service) Update(id string, label, description, category string, tags []string) error {
+	before := s.store.Revision()
+	defer s.emitChangedSince(before)
 	if err := s.store.PutRecordMeta(id, label, description, category, tags); err != nil {
 		return err
 	}
-	s.emitChanged()
 	return nil
 }

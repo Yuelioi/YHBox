@@ -1,5 +1,7 @@
 # Slice registry
 
+> 2026-07-18 架构审计撤销了既有 3.1 发布完成判定。Slices 1–26 的状态保留为历史实现记录；涉及真实产品闭环的完成项必须通过 Slice 27 capability ledger 和纵向旅程重新验收，不能直接作为发布证据。
+
 | Slice | 状态 | Blocked by | Outcome |
 | --- | --- | --- | --- |
 | [01 交互正确性](01-interaction-correctness.md) | completed | 无 | 节点选择、拖拽和位置同步稳定。 |
@@ -27,3 +29,16 @@
 | [23 Typed Authoring 体验](23-typed-authoring-ux.md) | completed | 22 | 显式转换、typed State、跨图影响预览与 Compiler 门禁。 |
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
 | [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | completed | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |
+| [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | in_progress | 20 | 同进程原子激活目标、授权与多窗口选择，不再依赖重启。 |
+| [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | in_progress | 架构审计 | 恢复 umbrella；执行已拆入 Slices 29–37。 |
+| [28 旧版 Knowledge 与架构文档复查](28-legacy-knowledge-reconciliation.md) | completed | 无 | 纠正现行知识漂移，保留并隔离 3.0 行为证据。 |
+| [29 恢复事实基线与发布账本](29-fact-baseline.md) | completed | 无 | 固定 oracle、ledger、golden journeys、dirty ownership 与历史知识退役表。 |
+| [30 Typed RPC 错误边界](30-typed-rpc-error-boundary.md) | completed | 29 | 结构化错误只在 domain action 决定反馈，消除吞错和假成功。 |
+| [31 Installation Manifest 与 Target Runtime](31-installation-manifest-target-runtime.md) | completed | 29–30 | 单一 manifest 与 generation owner 统一 authoring/admission/provider/policy。 |
+| [32 Recording Session](32-recording-session.md) | completed | 30–31 | 统一录制状态、规范化、保存、资源与回放 round-trip。 |
+| [33 Asset Picker Query](33-asset-picker-query.md) | completed | 29–30 | 搜索分页 picker 取代全量下拉并支持 1000 assets。 |
+| [34 Windows native 闭环](34-windows-native-closure.md) | pending | 30–33 | 完成 UAC、窗口、键鼠、截图、模板和录制真实旅程。 |
+| [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | pending | 33–34 | 补齐创作 UX、搜索/转换和 P0/P1 能力族。 |
+| [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | pending | 31、34–35 | 恢复 Android/Browser，并以 macOS proof 验收 seam。 |
+| [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | pending | 29–36 | 完整发布矩阵通过后清理/归档 3.0 Knowledge。 |
+

@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "把带时长输入拆成节点层 down/up 丢了 backend 自带的 FakeActivate + settle 激活时序"
+summary: "历史 3.0 节点层拆 timed input 丢失 backend 激活/settle 的案例；3.1 原子输入语义应归 installed provider 并做真机验证。"
 activation: symptom
-read_when: "把 backend 带时长输入操作拆成节点层 down/up / 改 PostMessage 激活逻辑 / 失焦窗口「第一次」按键或点击在游戏里没生效 / review 输入节点 ctx 化改动是否丢了激活时序"
+read_when: "修改 3.1 input provider 的 press/click/held timing、PostMessage activation，或失焦窗口首次输入不生效时"
 ---
 # ⚠ 拆 timed-input 到节点层时丢了 backend 的激活时序
+
+> 历史实现路径已删除；可复用结论是 activation、settle、down/up 和 cancel cleanup 必须由 installed provider 作为一个原子操作契约拥有，节点/adapter 单测之外还要验证真实后台/UAC窗口首击。
 **Date**: 2026-05-31（input-editor-optimizations #4 实施中发现）
 
 ## 背景

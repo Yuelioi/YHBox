@@ -29,11 +29,12 @@ var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 //	<dataRoot>/clips/<guid>.json       (kind=clip)
 //	<dataRoot>/blobs/<sha256>
 type Store struct {
-	gcMu  sync.RWMutex
-	mu    sync.RWMutex
-	root  string
-	recs  map[string]AssetRecord
-	blobs *blob.Store
+	gcMu     sync.RWMutex
+	mu       sync.RWMutex
+	root     string
+	recs     map[string]AssetRecord
+	blobs    *blob.Store
+	revision uint64
 }
 
 // kindDir kind → 顶层目录名。未知 kind 返回 ""。
@@ -68,9 +69,7 @@ func NewStore(dataRoot string, blobs *blob.Store) (*Store, error) {
 	}
 
 	s := &Store{
-		root:  dataRoot,
-		recs:  map[string]AssetRecord{},
-		blobs: blobs,
+		root: dataRoot, recs: map[string]AssetRecord{}, blobs: blobs, revision: 1,
 	}
 	for _, kind := range []string{KindTemplate, KindClip} {
 		if err := s.preload(kind); err != nil {
@@ -265,15 +264,27 @@ func (s *Store) Get(guid string) (AssetRecord, bool) {
 	return cloneRecord(rec), ok
 }
 
-// List 返回所有记录的快照切片。
-func (s *Store) List() []AssetRecord {
+// ListWithRevision returns one atomic metadata snapshot and its invalidation revision.
+func (s *Store) ListWithRevision() ([]AssetRecord, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]AssetRecord, 0, len(s.recs))
 	for _, r := range s.recs {
 		out = append(out, cloneRecord(r))
 	}
-	return out
+	return out, s.revision
+}
+
+// List 返回所有记录的快照切片。
+func (s *Store) List() []AssetRecord {
+	records, _ := s.ListWithRevision()
+	return records
+}
+
+func (s *Store) Revision() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.revision
 }
 
 // PutRecord 写入（新建或全量替换）一条记录。
@@ -295,6 +306,7 @@ func (s *Store) putRecord(rec AssetRecord) error {
 	}
 	rec.SchemaVersion = RecordSchemaVersion
 	s.recs[rec.GUID] = cloneRecord(rec)
+	s.revision++
 	if writeErr != nil {
 		return fmt.Errorf("PutRecord write committed without confirmed durability: %w", writeErr)
 	}
@@ -320,6 +332,7 @@ func (s *Store) PutRecordMeta(guid, name, description, category string, tags []s
 		return fmt.Errorf("PutRecordMeta write: %w", writeErr)
 	}
 	s.recs[guid] = rec
+	s.revision++
 	if writeErr != nil {
 		return fmt.Errorf("PutRecordMeta write committed without confirmed durability: %w", writeErr)
 	}
@@ -338,6 +351,7 @@ func (s *Store) DeleteRecord(guid string) error {
 			return fmt.Errorf("DeleteRecord rm: %w", removeErr)
 		}
 		delete(s.recs, guid)
+		s.revision++
 		if removeErr != nil && durablefs.Committed(removeErr) {
 			return fmt.Errorf("DeleteRecord committed without confirmed durability: %w", removeErr)
 		}
@@ -419,6 +433,7 @@ func (s *Store) putVariant(guid string, res [2]int, blobRef blob.BlobRef, bbox [
 		return fmt.Errorf("PutVariant write: %w", writeErr)
 	}
 	s.recs[guid] = rec
+	s.revision++
 	if writeErr != nil {
 		return fmt.Errorf("PutVariant write committed without confirmed durability: %w", writeErr)
 	}
@@ -448,6 +463,7 @@ func (s *Store) RemoveVariant(guid string, res [2]int) error {
 		return fmt.Errorf("RemoveVariant write: %w", writeErr)
 	}
 	s.recs[guid] = rec
+	s.revision++
 	if writeErr != nil {
 		return fmt.Errorf("RemoveVariant write committed without confirmed durability: %w", writeErr)
 	}

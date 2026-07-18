@@ -76,6 +76,17 @@
           >
             {{ t('settingsAutomation.targets.add_browser') }}
           </UButton>
+          <UButton
+            v-for="type in genericTargetTypes"
+            :key="`${type.targetKind}:${type.adapterKind}`"
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-pointer-cog"
+            @click="addTargetType(type)"
+          >
+            {{ type.profileKind }}
+          </UButton>
         </div>
       </template>
 
@@ -238,10 +249,32 @@
 
               <div data-testid="automation-target-window-fields" class="space-y-4">
                 <UFormField
+                  :label="t('settingsAutomation.targets.window_title_match_label')"
+                  :hint="t('settingsAutomation.targets.window_title_match_hint')"
+                >
+                  <USelect
+                    v-model="target.windowTitleMatch"
+                    :items="windowTitleMatchItems"
+                    class="w-full sm:w-56"
+                    @update:model-value="commit"
+                  />
+                </UFormField>
+                <UFormField
                   :label="t('settingsAutomation.targets.window_title_label')"
                   :hint="t('settingsAutomation.targets.window_title_hint')"
                 >
                   <UInput v-model="target.windowTitle" size="sm" @change="commit" />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.targets.window_selection_label')"
+                  :hint="t('settingsAutomation.targets.window_selection_hint')"
+                >
+                  <USelect
+                    v-model="target.windowSelection"
+                    :items="windowSelectionItems"
+                    class="w-full sm:w-72"
+                    @update:model-value="commit"
+                  />
                 </UFormField>
                 <UFormField
                   :label="t('settingsAutomation.targets.window_class_label')"
@@ -270,6 +303,29 @@
                   @change="commit"
                 />
               </UFormField>
+              <div class="flex flex-wrap items-center gap-2 rounded-lg border border-default p-3">
+                <UButton
+                  size="sm"
+                  variant="soft"
+                  icon="i-tabler-radar"
+                  :loading="healthLoading[target.slot]"
+                  :disabled="!target.persisted"
+                  @click="checkHealth(target)"
+                >
+                  {{ t('settingsAutomation.targets.preview_matches') }}
+                </UButton>
+                <UBadge
+                  v-if="health[target.slot]"
+                  :color="health[target.slot]?.ok ? 'success' : 'error'"
+                  size="sm"
+                  variant="subtle"
+                >
+                  {{ health[target.slot]?.code }}
+                </UBadge>
+                <p v-if="health[target.slot]?.message" class="min-w-0 flex-1 text-xs text-dimmed">
+                  {{ health[target.slot]?.message }}
+                </p>
+              </div>
             </template>
 
             <template v-else-if="isAndroid(target)">
@@ -364,7 +420,7 @@
               </UFormField>
             </template>
 
-            <template v-else>
+            <template v-else-if="isBrowser(target)">
               <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
                 <div class="flex flex-wrap items-center gap-3">
                   <UIcon name="i-tabler-brand-chrome" class="size-4 shrink-0 text-primary" />
@@ -459,6 +515,57 @@
               </UFormField>
             </template>
 
+            <template v-else>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField
+                  v-for="field in targetFields(target)"
+                  :key="field.id"
+                  :label="field.id"
+                  :hint="field.kind"
+                  :required="field.required"
+                >
+                  <USelect
+                    v-if="field.kind === 'installation-slot'"
+                    :model-value="stringProfileValue(target, field.id)"
+                    :items="applicationItems"
+                    size="sm"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value)
+                    "
+                  />
+                  <USelect
+                    v-else-if="field.options?.length"
+                    :model-value="stringProfileValue(target, field.id)"
+                    :items="field.options"
+                    size="sm"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value)
+                    "
+                  />
+                  <UInputNumber
+                    v-else-if="field.kind === 'integer' || field.kind === 'duration-ms'"
+                    :model-value="numberProfileValue(target, field.id)"
+                    :min="field.kind === 'duration-ms' ? 100 : 0"
+                    size="sm"
+                    class="w-full sm:w-48"
+                    @update:model-value="
+                      (value: number) => setProfileValue(target, field.id, value, false)
+                    "
+                    @change="commit"
+                  />
+                  <UInput
+                    v-else
+                    :model-value="stringProfileValue(target, field.id)"
+                    size="sm"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value, false)
+                    "
+                    @change="commit"
+                  />
+                </UFormField>
+              </div>
+            </template>
+
             <UFormField
               v-if="isDesktop(target)"
               :label="t('settingsAutomation.targets.mouse_counts_label')"
@@ -487,7 +594,6 @@
                     <p class="text-xs font-medium text-default">
                       {{ t('settingsAutomation.consent.title') }}
                     </p>
-                    <SettingsRestartBadge />
                   </div>
                   <p class="mt-1 text-xs leading-relaxed text-dimmed">
                     {{ t('settingsAutomation.consent.hint') }}
@@ -582,6 +688,17 @@
           >
             {{ t('settingsAutomation.targets.add_browser') }}
           </UButton>
+          <UButton
+            v-for="type in genericTargetTypes"
+            :key="`${type.targetKind}:${type.adapterKind}`"
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-pointer-cog"
+            @click="addTargetType(type)"
+          >
+            {{ type.profileKind }}
+          </UButton>
         </div>
       </div>
     </SettingsSection>
@@ -593,22 +710,53 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   backend,
+  type AndroidAutomationTargetProfile,
   type AndroidDeviceDescriptor,
   type AutomationTargetHealth,
   type AutomationTargetTypeDescriptor,
   type BrowserTargetDescriptor,
+  type BrowserAutomationTargetProfile,
+  type DesktopAutomationTargetProfile,
   type InstalledAutomationTargetProfile,
 } from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
-import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { useWailsEvent } from '@/composables/useWailsEvent'
 import { matchingInstalledApplications } from '@/settings/windowTargetCapture'
 
-type InputBackend = InstalledAutomationTargetProfile['inputBackend']
-type CaptureBackend = InstalledAutomationTargetProfile['captureBackend']
-interface AutomationTargetDraft extends InstalledAutomationTargetProfile {
+type InputBackend = DesktopAutomationTargetProfile['inputBackend'] | ''
+type CaptureBackend = DesktopAutomationTargetProfile['captureBackend'] | ''
+type WindowTitleMatch = DesktopAutomationTargetProfile['windowTitleMatch']
+type WindowSelection = DesktopAutomationTargetProfile['windowSelection']
+interface AutomationTargetDraft {
+  slot: string
+  label: string
+  targetKind: InstalledAutomationTargetProfile['targetKind']
+  adapterKind: InstalledAutomationTargetProfile['adapterKind']
+  profileVersion: string
+  applicationSlot: string
+  windowTitle: string
+  windowTitleMatch: WindowTitleMatch
+  windowSelection: WindowSelection
+  windowClass: string
+  inputBackend: InputBackend
+  captureBackend: CaptureBackend
+  mouseCounts360: number
+  resolveTimeoutMilliseconds: number
+  adbSerial: string
+  adbProduct: string
+  adbModel: string
+  adbDevice: string
+  androidPackage: string
+  browserEndpoint: string
+  browserTargetId: string
+  browserWebSocketUrl: string
+  browserTitle: string
+  browserUrl: string
+  profile: Record<string, string | number>
+  workflowConsent?: string
   persisted: boolean
 }
 
@@ -631,6 +779,17 @@ const androidTargetType = computed(() =>
 const browserTargetType = computed(() =>
   targetTypes.value.find(
     (candidate) => candidate.profileKind === 'browser-page' && candidate.hostAvailable,
+  ),
+)
+const genericTargetTypes = computed(() =>
+  targetTypes.value.filter(
+    (candidate) =>
+      candidate.hostAvailable &&
+      !(
+        (candidate.targetKind === 'desktop-window' && candidate.adapterKind === 'win32') ||
+        (candidate.targetKind === 'android-device' && candidate.adapterKind === 'android-adb') ||
+        (candidate.targetKind === 'browser-cdp' && candidate.adapterKind === 'browser-cdp')
+      ),
   ),
 )
 const draft = ref<AutomationTargetDraft[]>([])
@@ -666,15 +825,27 @@ const hasGrantedConsent = computed(
     targets.value.some((target) => Boolean(target.workflowConsent)),
 )
 const backendItems = computed(() =>
-  (desktopTargetType.value?.inputBackends ?? []).map((value) => ({
+  profileFieldOptions(desktopTargetType.value, 'inputBackend').map((value) => ({
     label: t(`settingsAutomation.backend.${value}`),
     value,
   })),
 )
 const captureBackendItems = computed(() =>
-  (desktopTargetType.value?.captureBackends ?? []).map((value) => ({
+  profileFieldOptions(desktopTargetType.value, 'captureBackend').map((value) => ({
     label: t(`settingsAutomation.captureBackend.${value}`),
     value,
+  })),
+)
+const windowTitleMatchItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'windowTitleMatch').map((value) => ({
+    label: t(`settingsAutomation.targets.window_title_match_${value}`),
+    value: value as WindowTitleMatch,
+  })),
+)
+const windowSelectionItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'windowSelection').map((value) => ({
+    label: t(`settingsAutomation.targets.window_selection_${value}`),
+    value: value as WindowSelection,
   })),
 )
 const adbDeviceItems = computed(() =>
@@ -698,7 +869,7 @@ onMounted(async () => {
 watch(
   targets,
   () => {
-    draft.value = targets.value.map((target) => ({ ...target, persisted: true }))
+    draft.value = targets.value.map(draftFromProfile)
   },
   { immediate: true },
 )
@@ -714,6 +885,46 @@ onBeforeUnmount(() => {
 
 function toggleExpanded(slot: string) {
   expandedSlot.value = expandedSlot.value === slot ? '' : slot
+}
+function profileFieldOptions(
+  targetType: AutomationTargetTypeDescriptor | undefined,
+  fieldID: string,
+): string[] {
+  return targetType?.fields.find((field) => field.id === fieldID)?.options ?? []
+}
+function draftFromProfile(target: InstalledAutomationTargetProfile): AutomationTargetDraft {
+  const profile = target.profile as Partial<
+    DesktopAutomationTargetProfile & AndroidAutomationTargetProfile & BrowserAutomationTargetProfile
+  >
+  return {
+    slot: target.slot,
+    label: target.label,
+    targetKind: target.targetKind,
+    adapterKind: target.adapterKind,
+    profileVersion: target.profileVersion,
+    applicationSlot: profile.applicationSlot ?? '',
+    windowTitle: profile.windowTitle ?? '',
+    windowTitleMatch: profile.windowTitleMatch ?? 'exact',
+    windowSelection: profile.windowSelection ?? 'unique',
+    windowClass: profile.windowClass ?? '',
+    inputBackend: profile.inputBackend ?? '',
+    captureBackend: profile.captureBackend ?? '',
+    mouseCounts360: profile.mouseCounts360 ?? 0,
+    resolveTimeoutMilliseconds: profile.resolveTimeoutMilliseconds ?? 3000,
+    adbSerial: profile.adbSerial ?? '',
+    adbProduct: profile.adbProduct ?? '',
+    adbModel: profile.adbModel ?? '',
+    adbDevice: profile.adbDevice ?? '',
+    androidPackage: profile.androidPackage ?? '',
+    browserEndpoint: profile.browserEndpoint ?? '',
+    browserTargetId: profile.browserTargetId ?? '',
+    browserWebSocketUrl: profile.browserWebSocketUrl ?? '',
+    browserTitle: profile.browserTitle ?? '',
+    browserUrl: profile.browserUrl ?? '',
+    profile: editableProfile(profile),
+    ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
+    persisted: true,
+  }
 }
 function applicationLabel(slot: string) {
   return applications.value.find((application) => application.slot === slot)?.label ?? slot
@@ -731,7 +942,43 @@ function targetSummary(target: AutomationTargetDraft): string {
   if (isDesktop(target)) return applicationLabel(target.applicationSlot)
   if (isBrowser(target))
     return `${target.browserTitle || t('settingsAutomation.browser.unselected')} · ${target.browserUrl || '—'}`
-  return `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
+  if (isAndroid(target))
+    return `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
+  return targetTypeFor(target)?.profileKind ?? `${target.targetKind} · ${target.adapterKind}`
+}
+function editableProfile(source: Record<string, unknown>): Record<string, string | number> {
+  return Object.fromEntries(
+    Object.entries(source).filter((entry): entry is [string, string | number] => {
+      const value = entry[1]
+      return typeof value === 'string' || typeof value === 'number'
+    }),
+  )
+}
+function targetTypeFor(target: AutomationTargetDraft): AutomationTargetTypeDescriptor | undefined {
+  return targetTypes.value.find(
+    (candidate) =>
+      candidate.targetKind === target.targetKind && candidate.adapterKind === target.adapterKind,
+  )
+}
+function targetFields(target: AutomationTargetDraft) {
+  return targetTypeFor(target)?.fields ?? []
+}
+function stringProfileValue(target: AutomationTargetDraft, fieldID: string): string {
+  const value = target.profile[fieldID]
+  return typeof value === 'string' ? value : value == null ? '' : String(value)
+}
+function numberProfileValue(target: AutomationTargetDraft, fieldID: string): number {
+  const value = target.profile[fieldID]
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+function setProfileValue(
+  target: AutomationTargetDraft,
+  fieldID: string,
+  value: string | number,
+  save = true,
+): void {
+  target.profile[fieldID] = value
+  if (save) void commit()
 }
 function androidIdentity(target: AutomationTargetDraft): string {
   if (!target.adbSerial) return '—'
@@ -777,9 +1024,22 @@ async function addTarget(profileKind: 'desktop-window' | 'android-device' | 'bro
         ? androidTargetType.value
         : browserTargetType.value
   if (!type) return
+  await addTargetType(type)
+}
+async function addTargetType(type: AutomationTargetTypeDescriptor) {
+  const profileKind = type.profileKind
   const desktop = profileKind === 'desktop-window'
   const browser = profileKind === 'browser-page'
-  const slot = uniqueSlot(desktop ? 'window-target' : browser ? 'browser-target' : 'android-target')
+  const android = profileKind === 'android-device'
+  const slot = uniqueSlot(
+    desktop
+      ? 'window-target'
+      : browser
+        ? 'browser-target'
+        : android
+          ? 'android-target'
+          : 'automation-target',
+  )
   draft.value.push({
     slot,
     label: uniqueLabel(
@@ -788,16 +1048,21 @@ async function addTarget(profileKind: 'desktop-window' | 'android-device' | 'bro
           ? 'settingsAutomation.targets.new_blank_label'
           : browser
             ? 'settingsAutomation.browser.new_blank_label'
-            : 'settingsAutomation.android.new_blank_label',
+            : android
+              ? 'settingsAutomation.android.new_blank_label'
+              : 'settingsAutomation.targets.new_blank_label',
       ),
     ),
     targetKind: type.targetKind as InstalledAutomationTargetProfile['targetKind'],
     adapterKind: type.adapterKind as InstalledAutomationTargetProfile['adapterKind'],
+    profileVersion: type.profileVersion,
     applicationSlot: '',
     windowTitle: '',
+    windowTitleMatch: 'exact',
+    windowSelection: 'unique',
     windowClass: '',
-    inputBackend: (type.inputBackends[0] ?? '') as InputBackend,
-    captureBackend: (type.captureBackends[0] ?? '') as CaptureBackend,
+    inputBackend: (profileFieldOptions(type, 'inputBackend')[0] ?? '') as InputBackend,
+    captureBackend: (profileFieldOptions(type, 'captureBackend')[0] ?? '') as CaptureBackend,
     mouseCounts360: 0,
     resolveTimeoutMilliseconds: 3000,
     adbSerial: '',
@@ -810,6 +1075,7 @@ async function addTarget(profileKind: 'desktop-window' | 'android-device' | 'bro
     browserWebSocketUrl: '',
     browserTitle: '',
     browserUrl: '',
+    profile: defaultProfile(type),
     persisted: false,
   })
   expandedSlot.value = slot
@@ -819,6 +1085,7 @@ async function duplicateTarget(source: AutomationTargetDraft) {
   const slot = uniqueSlot(`${source.slot}-copy`)
   const duplicate: AutomationTargetDraft = {
     ...source,
+    profile: { ...source.profile },
     slot,
     label: uniqueLabel(t('settingsAutomation.targets.copy_label', { name: source.label })),
     persisted: false,
@@ -834,41 +1101,51 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
     label: target.label.trim(),
     targetKind: target.targetKind,
     adapterKind: target.adapterKind,
-    applicationSlot: target.applicationSlot,
-    windowTitle: target.windowTitle.trim(),
-    windowClass: target.windowClass.trim(),
-    inputBackend: target.inputBackend,
-    captureBackend: target.captureBackend,
-    mouseCounts360: target.mouseCounts360,
-    resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+    profileVersion: target.profileVersion,
     ...(target.workflowConsent ? { workflowConsent: target.workflowConsent } : {}),
   }
-  if (isDesktop(target)) return common
-  const adapterNeutral = {
-    ...common,
-    applicationSlot: '',
-    windowTitle: '',
-    windowClass: '',
-    inputBackend: '' as InputBackend,
-    captureBackend: '' as CaptureBackend,
-    mouseCounts360: 0,
-  }
+  if (isDesktop(target))
+    return {
+      ...common,
+      profile: {
+        applicationSlot: target.applicationSlot,
+        windowTitle: target.windowTitle,
+        windowTitleMatch: target.windowTitleMatch,
+        windowSelection: target.windowSelection,
+        windowClass: target.windowClass,
+        inputBackend: target.inputBackend as DesktopAutomationTargetProfile['inputBackend'],
+        captureBackend: target.captureBackend as DesktopAutomationTargetProfile['captureBackend'],
+        mouseCounts360: target.mouseCounts360,
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
+    }
   if (isBrowser(target))
     return {
-      ...adapterNeutral,
-      browserEndpoint: target.browserEndpoint?.trim(),
-      browserTargetId: target.browserTargetId?.trim(),
-      browserWebSocketUrl: target.browserWebSocketUrl?.trim(),
-      browserTitle: target.browserTitle?.trim(),
-      browserUrl: target.browserUrl?.trim(),
+      ...common,
+      profile: {
+        browserEndpoint: target.browserEndpoint.trim(),
+        browserTargetId: target.browserTargetId.trim(),
+        browserWebSocketUrl: target.browserWebSocketUrl.trim(),
+        browserTitle: target.browserTitle.trim(),
+        browserUrl: target.browserUrl.trim(),
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
+    }
+  if (isAndroid(target))
+    return {
+      ...common,
+      profile: {
+        adbSerial: target.adbSerial.trim(),
+        adbProduct: target.adbProduct.trim(),
+        adbModel: target.adbModel.trim(),
+        adbDevice: target.adbDevice.trim(),
+        androidPackage: target.androidPackage.trim(),
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
     }
   return {
-    ...adapterNeutral,
-    adbSerial: target.adbSerial?.trim(),
-    adbProduct: target.adbProduct?.trim(),
-    adbModel: target.adbModel?.trim(),
-    adbDevice: target.adbDevice?.trim(),
-    androidPackage: target.androidPackage?.trim(),
+    ...common,
+    profile: { ...target.profile },
   }
 }
 async function commit(): Promise<boolean> {
@@ -896,12 +1173,40 @@ function targetComplete(target: AutomationTargetDraft): boolean {
       target.androidPackage?.trim(),
     )
   }
+  if (!isDesktop(target)) {
+    const type = targetTypeFor(target)
+    return Boolean(
+      target.label.trim() &&
+      type &&
+      type.fields
+        .filter((field) => field.required)
+        .every((field) => {
+          const value = target.profile[field.id]
+          if (field.kind === 'installation-slot')
+            return (
+              typeof value === 'string' &&
+              applications.value.some((application) => application.slot === value)
+            )
+          return typeof value === 'number' ? Number.isFinite(value) : Boolean(value?.trim())
+        }),
+    )
+  }
   return Boolean(
     target.label.trim() &&
     target.applicationSlot &&
     applications.value.some((application) => application.slot === target.applicationSlot) &&
     target.windowTitle.trim() &&
     target.windowClass.trim(),
+  )
+}
+
+function defaultProfile(type: AutomationTargetTypeDescriptor): Record<string, string | number> {
+  return Object.fromEntries(
+    type.fields.map((field) => [
+      field.id,
+      field.options?.[0] ??
+        (field.kind === 'duration-ms' ? 3000 : field.kind === 'integer' ? 0 : ''),
+    ]),
   )
 }
 
@@ -996,6 +1301,8 @@ async function grant(target: AutomationTargetDraft) {
   busy[target.slot] = true
   try {
     await backend.automation.grantWorkflowConsent(target.slot)
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
   } finally {
     busy[target.slot] = false
   }
@@ -1004,6 +1311,8 @@ async function revoke(target: AutomationTargetDraft) {
   busy[target.slot] = true
   try {
     await backend.automation.revokeWorkflowConsent(target.slot)
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
   } finally {
     busy[target.slot] = false
   }
@@ -1174,6 +1483,8 @@ async function acceptCapture(raw: unknown): Promise<void> {
       }
       target.applicationSlot = application.slot
       target.windowTitle = payload.title
+      target.windowTitleMatch = 'exact'
+      target.windowSelection = 'unique'
       target.windowClass = payload.class
       delete target.workflowConsent
       const ok = await store.patch({
@@ -1182,6 +1493,8 @@ async function acceptCapture(raw: unknown): Promise<void> {
       })
       if (!ok) throw new Error(t('settingsAutomation.capture.save_failed'))
       for (const candidate of draft.value) candidate.persisted = true
+      await backend.automation.grantWorkflowConsent(target.slot)
+      await store.load()
       captureFeedback.value = {
         tone: 'success',
         message: t('settingsAutomation.capture.installed_and_completed', { name: target.label }),
@@ -1193,8 +1506,12 @@ async function acceptCapture(raw: unknown): Promise<void> {
     if (!target) return
     target.applicationSlot = matches[0]!.slot
     target.windowTitle = payload.title
+    target.windowTitleMatch = 'exact'
+    target.windowSelection = 'unique'
     target.windowClass = payload.class
     if (!(await commit())) throw new Error(t('settingsAutomation.capture.save_failed'))
+    await backend.automation.grantWorkflowConsent(target.slot)
+    await store.load()
     captureFeedback.value = {
       tone: 'success',
       message: t('settingsAutomation.capture.completed', { name: target.label }),
@@ -1212,6 +1529,6 @@ function resetCapture(): void {
 }
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
 }
 </script>

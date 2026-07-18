@@ -9,11 +9,10 @@ import (
 )
 
 func androidProfileDraft() ProfileDraft {
-	return ProfileDraft{
-		TargetKind: TargetKindAndroidDevice, AdapterKind: AdapterKindAndroidADB, ApplicationIdentityKind: IdentityKindADBDevice,
+	return NewAndroidProfileDraft(AndroidProfilePayload{
 		ADBSerial: "emulator-5554", ADBProduct: "sdk_gphone64_x86_64", ADBModel: "sdk_gphone64_x86_64", ADBDevice: "emu64xa",
 		AndroidPackage: "dev.yotta.fixture", ResolveTimeoutMilliseconds: 1000,
-	}
+	})
 }
 
 func TestParseADBDevicesPreservesStateAndExactIdentity(t *testing.T) {
@@ -28,11 +27,12 @@ func TestAndroidProfilePinsDeviceAndPackageWithoutDesktopIdentity(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.TargetKind() != TargetKindAndroidDevice || profile.AdapterKind() != AdapterKindAndroidADB || profile.Machine().AndroidPackage != "dev.yotta.fixture" {
+	payload, ok := AndroidProfile(profile)
+	if profile.TargetKind() != TargetKindAndroidDevice || profile.AdapterKind() != AdapterKindAndroidADB || !ok || payload.AndroidPackage != "dev.yotta.fixture" {
 		t.Fatalf("profile = %#v", profile.Machine())
 	}
 	draft := androidProfileDraft()
-	draft.WindowTitle = "forged desktop identity"
+	draft.Payload = append(draft.Payload[:len(draft.Payload)-1], []byte(`,"windowTitle":"forged"}`)...)
 	if _, err := SealProfile(draft); err == nil {
 		t.Fatal("accepted Android profile with desktop identity")
 	}
@@ -44,13 +44,14 @@ func TestAndroidProviderRejectsUnsupportedLowLevelInputAtOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	registry := newAdapterRegistry()
-	if err := registry.register(adapterDescriptor{
-		Kind: AdapterKindAndroidADB, TargetKinds: []string{TargetKindAndroidDevice},
-		ResourceKinds: []string{KindInput, KindWindow, KindCapture}, Operations: androidOperations(),
-	}, func(Profile) (driver, error) { return &fakeDriver{}, nil }); err != nil {
+	if err := registry.register(productionAdapters()[1].targetType, sealAndroidProfile, verifyPortableProfile, func(Profile) (driver, error) { return &fakeDriver{}, nil }, androidProfileIntentCodec()); err != nil {
 		t.Fatal(err)
 	}
-	provider, err := newProvider(profile, registry)
+	manifest, err := sealInstallationManifestForProfile("android", "Android", profile, false, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := newProvider(profile, manifest, registry)
 	if err != nil {
 		t.Fatal(err)
 	}

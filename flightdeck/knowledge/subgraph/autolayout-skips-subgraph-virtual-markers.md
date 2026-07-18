@@ -1,11 +1,13 @@
 ---
 kind: trap
-summary: "子图入口/出口不在 graph.nodes；全图操作必须合入 marker，异步结果还必须绑定发起时的 editor context"
+summary: "历史 3.0 virtual Subgraph marker/activeGraph 布局陷阱；3.1 GraphCall/annotation/reroute 使用 Source-native 模型。"
 activation: symptom
-read_when: "写任何遍历子图 graph.nodes 的全图操作(自动布局/导出/转脚本/遍历/分析)，或让异步工作读取 activeGraph/editorPath 后再写回时"
+read_when: "仅在审查 3.0 virtual marker 布局，或对比 3.1 Source-native GraphCall 多图上下文时"
 recheck_when: "activeGraph/editorPath 的容器隔离方式、ELK 加载/worker 边界或 applyDraftMutation 历史语义改变时"
 ---
 # ⚠ 全图操作漏掉子图 virtual marker (入口/出口不在 graph.nodes)
+
+> 历史知识：旧 virtual marker/Container editor 已删除。3.1 全图操作遍历 Workflow Source graph/interface/call/annotation/edge presentation，并把异步结果绑定 base revision 与 graph ID。
 ## Signature
 - symptom: 子图里运行自动布局, 入口/出口 marker 不跟着排版(留在原地)、body 布局还变乱
 - error_type: —  (数据遗漏/布局错, 非异常)

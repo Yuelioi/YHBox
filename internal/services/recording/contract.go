@@ -69,7 +69,6 @@ type StopResult struct {
 // build variants. Platform adapters may implement unsupported operations as
 // typed errors or idempotent no-ops, but they must preserve this lifecycle.
 type recorderLifecycle interface {
-	SetMouseCounts360Getter(func() int)
 	Active() bool
 	Pause()
 	Resume()

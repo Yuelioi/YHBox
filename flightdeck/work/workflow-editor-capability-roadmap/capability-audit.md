@@ -1,5 +1,7 @@
 # 旧版能力与 3.1 产品连续性审计
 
+> 2026-07-18：本文以 `9fce7870^` 为基线的结论已被用户指定基线 `8316d590dbc8429b783b99982ff30d15e650c59a` 的架构健康审计取代。本文仅保留历史过程；当前结论与发布路线以 [`architecture-health-audit.md`](architecture-health-audit.md) 和 [`slices/27-architecture-recovery.md`](slices/27-architecture-recovery.md) 为准。
+
 ## 修正后的结论
 
 3.1 重建了 Workflow Source、Authoring Projection、compiler/scheduler、内容寻址 Node/Data 契约、exact installation/capability admission、durable run journal 和同一调度器上的调试控制。这些是必要且有价值的底层升级。

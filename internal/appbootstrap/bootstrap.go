@@ -68,14 +68,13 @@ type Config struct {
 }
 
 type Runtime struct {
-	Application  *appcore.Application
-	Builtins     nodes.Builtins
-	BlobStore    *blob.Store
-	Bundles      *workflowbundle.Manager
-	ai           ai.Installations
-	http         httpegress.Installations
-	applications appcontrol.Installations
-	automation   automationinstalled.Installations
+	Application       *appcore.Application
+	Builtins          nodes.Builtins
+	BlobStore         *blob.Store
+	Bundles           *workflowbundle.Manager
+	ai                ai.Installations
+	http              httpegress.Installations
+	automationTargets *AutomationTargetRuntime
 }
 
 func Build(config Config) (*Runtime, error) {
@@ -201,7 +200,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	profile, err := builtinHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, pluginFeatures, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
+	profile, err := buildHostProfile(builtins, blobDigest, streamDigest, workspaceFileDigest, config.ScriptRuntime, pluginFeatures, config.AIInstallations, config.HTTPInstallations, config.ApplicationInstallations, config.AutomationInstallations)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +266,7 @@ func Build(config Config) (*Runtime, error) {
 		}
 		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, Provider: installed.Provider}
 	}
+	baseProviders := cloneProviders(providers)
 	for _, installed := range config.ApplicationInstallations.Entries() {
 		if existing, ok := providers[installed.ProviderID]; ok {
 			if existing.ArtifactDigest != installed.ProviderArtifact || existing.ABI != appcontrol.ProviderABI || existing.Provider != installed.Provider {
@@ -285,12 +285,22 @@ func Build(config Config) (*Runtime, error) {
 		}
 		providers[installed.ProviderID] = run.InstalledProvider{ArtifactDigest: installed.ProviderArtifact, ABI: automationinstalled.ProviderABI, Provider: installed.Provider}
 	}
+	automationGeneration, err := automationinstalled.NewGeneration(config.AutomationInstallations)
+	if err != nil {
+		return nil, err
+	}
+	generationOwned := false
+	defer func() {
+		if !generationOwned {
+			_ = automationGeneration.Retire()
+		}
+	}()
 	application, err := appcore.New(appcore.Config{
 		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		BlobVerifier: blobStore,
 		Sources:      sources, Programs: programs, Runs: runs,
 		Admitter: admitter, Executor: executor,
-		Providers: providers,
+		Providers: providers, ProviderLease: providerLease(automationGeneration),
 		ResourceOptions: resource.Options{
 			Now: config.Now, MaxPayloadBytes: config.Limits.MaxResourcePayloadBytes,
 		},
@@ -300,28 +310,28 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	authoringTargets, err := automationinstalled.NewAuthoringTargets(automationGeneration)
+	if err != nil {
+		return nil, err
+	}
 	bundles, err := workflowbundle.New(application, blobStore)
 	if err != nil {
 		return nil, err
 	}
-	return &Runtime{Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles, ai: config.AIInstallations, http: config.HTTPInstallations, applications: config.ApplicationInstallations, automation: config.AutomationInstallations}, nil
-}
-
-func (r *Runtime) Start(ctx context.Context) error {
-	if r == nil || r.Application == nil {
-		return errors.New("app runtime is unavailable")
+	generationOwned = true
+	automationTargets := &AutomationTargetRuntime{
+		application: application, ai: config.AIInstallations, http: config.HTTPInstallations,
+		current: automationGeneration, authoring: authoringTargets,
+		environment: automationEnvironmentConfig{
+			builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest,
+			scriptRuntime: config.ScriptRuntime, pluginFeatures: append([]string(nil), pluginFeatures...), now: config.Now,
+			grantTTL: config.GrantTTL, baseProviders: baseProviders,
+		},
 	}
-	return r.Application.Start(ctx)
-}
-
-func (r *Runtime) Close(ctx context.Context) error {
-	if r == nil || r.Application == nil {
-		return nil
-	}
-	err := errors.Join(r.Application.Close(ctx), r.automation.Close())
-	r.ai.CloseIdleConnections()
-	r.http.CloseIdleConnections()
-	return err
+	return &Runtime{
+		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles,
+		ai: config.AIInstallations, http: config.HTTPInstallations, automationTargets: automationTargets,
+	}, nil
 }
 
 func validateLimits(limits Limits) error {
@@ -334,7 +344,7 @@ func validateLimits(limits Limits) error {
 	return nil
 }
 
-func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, pluginFeatures []string, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
+func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspaceFileDigest artifact.Digest, scriptRuntime *scriptengine.Runtime, pluginFeatures []string, aiInstallations ai.Installations, httpInstallations httpegress.Installations, applicationInstallations appcontrol.Installations, automationInstallations automationinstalled.Installations) (admission.HostProfile, error) {
 	lookup := func(id string) (capability.Ref, error) {
 		definition, ok := builtins.Catalog.LookupCapability(id)
 		if !ok {
@@ -367,22 +377,6 @@ func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, works
 		return admission.HostProfile{}, err
 	}
 	applicationLifecycle, err := lookup(nodes.ApplicationLifecycleCapabilityID)
-	if err != nil {
-		return admission.HostProfile{}, err
-	}
-	automationInput, err := lookup(nodes.AutomationInputCapabilityID)
-	if err != nil {
-		return admission.HostProfile{}, err
-	}
-	automationWindow, err := lookup(nodes.AutomationWindowCapabilityID)
-	if err != nil {
-		return admission.HostProfile{}, err
-	}
-	automationCapture, err := lookup(nodes.AutomationCaptureCapabilityID)
-	if err != nil {
-		return admission.HostProfile{}, err
-	}
-	automationPlayback, err := lookup(nodes.AutomationPlaybackCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
@@ -456,30 +450,28 @@ func builtinHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, works
 		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
 	}
 	for _, installed := range automationInstallations.Entries() {
-		descriptor := installed.Descriptor
+		manifest := installed.Manifest.Machine()
+		if !installed.Manifest.Valid() {
+			return admission.HostProfile{}, fmt.Errorf("automation target slot %q has no sealed installation manifest", installed.Slot)
+		}
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
-			capabilities := make([]admission.ProviderCapability, 0, len(descriptor.ResourceKinds))
-			for _, resourceKind := range descriptor.ResourceKinds {
-				switch resourceKind {
-				case automationinstalled.KindInput:
-					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationInput, ResourceKind: resourceKind})
-				case automationinstalled.KindWindow:
-					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationWindow, ResourceKind: resourceKind})
-				case automationinstalled.KindCapture:
-					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationCapture, ResourceKind: resourceKind})
-				case automationinstalled.KindPlayback:
-					capabilities = append(capabilities, admission.ProviderCapability{Capability: automationPlayback, ResourceKind: resourceKind})
+			capabilities := make([]admission.ProviderCapability, 0, len(manifest.Capabilities))
+			for _, projected := range manifest.Capabilities {
+				capabilityRef, err := lookup(projected.CapabilityID)
+				if err != nil {
+					return admission.HostProfile{}, fmt.Errorf("project automation manifest for slot %q: %w", manifest.Slot, err)
 				}
+				capabilities = append(capabilities, admission.ProviderCapability{Capability: capabilityRef, ResourceKind: projected.ResourceKind})
 			}
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
-				ID: descriptor.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: descriptor.ProviderABI, PluginInstanceID: "builtin",
+				ID: manifest.ProviderID, ArtifactDigest: manifest.ProviderArtifact, ABI: manifest.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
 				Capabilities: capabilities,
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
 		}
-		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: descriptor.TargetID, Kind: descriptor.TargetKind, ProviderID: descriptor.ProviderID})
-		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: installed.Slot, TargetID: installed.TargetID})
+		draft.Targets = append(draft.Targets, admission.AutomationTarget{ID: manifest.TargetID, Kind: manifest.TargetKind, ProviderID: manifest.ProviderID})
+		draft.TargetSlots = append(draft.TargetSlots, admission.TargetSlotBinding{Slot: manifest.Slot, TargetID: manifest.TargetID})
 	}
 	return admission.SealHostProfile(draft)
 }

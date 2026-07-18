@@ -106,13 +106,18 @@ describe('settings store · patchAIProfiles', () => {
       label: 'Editor input',
       targetKind: 'desktop-window' as const,
       adapterKind: 'win32' as const,
-      applicationSlot: 'editor',
-      windowTitle: 'Editor',
-      windowClass: 'EditorWindow',
-      inputBackend: 'sendinput' as const,
-      captureBackend: 'gdi' as const,
-      mouseCounts360: 0,
-      resolveTimeoutMilliseconds: 3000,
+      profileVersion: '1',
+      profile: {
+        applicationSlot: 'editor',
+        windowTitle: 'Editor',
+        windowTitleMatch: 'exact' as const,
+        windowSelection: 'unique' as const,
+        windowClass: 'EditorWindow',
+        inputBackend: 'sendinput' as const,
+        captureBackend: 'gdi' as const,
+        mouseCounts360: 0,
+        resolveTimeoutMilliseconds: 3000,
+      },
     }
     await store.patchAutomationTargets([target])
     expect(updateMock).toHaveBeenCalledTimes(1)

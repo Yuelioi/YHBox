@@ -46,6 +46,7 @@ type Config struct {
 	Admitter          *admission.Admitter
 	Executor          *compiler.Executor
 	Providers         map[string]run.InstalledProvider
+	ProviderLease     func() (func(), error)
 	ResourceOptions   resource.Options
 	OwnerCloseTimeout time.Duration
 	Now               func() time.Time
@@ -204,6 +205,8 @@ type runJob struct {
 	workflowID string
 	state      jobState
 	cancel     context.CancelFunc
+	providers  map[string]run.InstalledProvider
+	release    func()
 }
 
 type lifecycleState uint8
@@ -226,6 +229,7 @@ type Application struct {
 	admitter          *admission.Admitter
 	executor          *compiler.Executor
 	providers         map[string]run.InstalledProvider
+	providerLease     func() (func(), error)
 	resourceOptions   resource.Options
 	ownerCloseTimeout time.Duration
 	now               func() time.Time
@@ -242,6 +246,55 @@ type Application struct {
 	jobs      map[string]*runJob
 	debug     map[string]*compiler.DebugController
 	worker    sync.WaitGroup
+}
+
+// ReplaceExecutionEnvironment atomically switches admission and the provider
+// generation used by future Runs. Already queued/running jobs keep the exact
+// provider snapshot and lease acquired with their admission generation.
+func (a *Application) ReplaceExecutionEnvironment(profile admission.HostProfile, policy admission.Policy, providers map[string]run.InstalledProvider, providerLease func() (func(), error)) error {
+	if a == nil || !profile.Valid() || policy == nil || providers == nil {
+		return errors.New("replacement execution environment is invalid")
+	}
+	next := make(map[string]run.InstalledProvider, len(providers))
+	for id, provider := range providers {
+		if id == "" || !provider.ArtifactDigest.Valid() || provider.ABI == "" || provider.Provider == nil {
+			return errors.New("replacement execution environment contains an invalid provider")
+		}
+		next[id] = provider
+	}
+	a.commandMu.Lock()
+	defer a.commandMu.Unlock()
+	a.mu.Lock()
+	closed := a.state == stateClosed
+	a.mu.Unlock()
+	if closed {
+		return ErrClosed
+	}
+	if err := a.admitter.ReplaceEnvironment(profile, policy); err != nil {
+		return err
+	}
+	a.providers = next
+	a.providerLease = providerLease
+	return nil
+}
+
+func (a *Application) acquireProviderSnapshot() (map[string]run.InstalledProvider, func(), error) {
+	release := func() {}
+	if a.providerLease != nil {
+		var err error
+		release, err = a.providerLease()
+		if err != nil {
+			return nil, nil, err
+		}
+		if release == nil {
+			return nil, nil, errors.New("execution environment returned an invalid provider lease")
+		}
+	}
+	providers := make(map[string]run.InstalledProvider, len(a.providers))
+	for id, provider := range a.providers {
+		providers[id] = provider
+	}
+	return providers, release, nil
 }
 
 func New(config Config) (*Application, error) {
@@ -265,7 +318,7 @@ func New(config Config) (*Application, error) {
 		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
 		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), blobVerifier: config.BlobVerifier, sources: config.Sources,
 		programs: config.Programs, runs: config.Runs, admitter: config.Admitter, executor: config.Executor,
-		providers: providers, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
+		providers: providers, providerLease: config.ProviderLease, resourceOptions: config.ResourceOptions, ownerCloseTimeout: config.OwnerCloseTimeout,
 		now: config.Now, onRunEvent: config.OnRunEvent, onDebugEvent: config.OnDebugEvent,
 		state: stateNew, wake: make(chan struct{}, 1), jobs: make(map[string]*runJob), debug: make(map[string]*compiler.DebugController),
 	}, nil
@@ -657,6 +710,16 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 	if err := a.programs.Put(ctx, program); err != nil {
 		return result, fmt.Errorf("persist Program before admission: %w", err)
 	}
+	providers, releaseProviders, err := a.acquireProviderSnapshot()
+	if err != nil {
+		return result, fmt.Errorf("lease execution environment: %w", err)
+	}
+	leasePublished := false
+	defer func() {
+		if !leasePublished {
+			releaseProviders()
+		}
+	}()
 	admitted, err := a.admitter.Admit(ctx, admission.Request{
 		Program: program, Principal: request.Principal, Selection: request.Selection,
 	})
@@ -682,12 +745,16 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 		a.mu.Unlock()
 		return result, ErrClosed
 	}
-	a.jobs[runID] = &runJob{workflowID: request.WorkflowID, state: jobQueued}
+	a.jobs[runID] = &runJob{
+		workflowID: request.WorkflowID, state: jobQueued,
+		providers: providers, release: releaseProviders,
+	}
 	if control != nil {
 		a.debug[runID] = control
 	}
 	a.queue = append(a.queue, runID)
 	a.mu.Unlock()
+	leasePublished = true
 	a.signalWorker()
 	a.emit(admitted.Record, nil)
 	return result, nil
@@ -912,11 +979,16 @@ func (a *Application) CancelRun(ctx context.Context, runID string) (run.Record, 
 		a.mu.Unlock()
 		return a.runs.Load(runID)
 	}
+	var releaseProviders func()
 	if job != nil {
+		releaseProviders = job.release
 		delete(a.jobs, runID)
 		a.removeQueuedLocked(runID)
 	}
 	a.mu.Unlock()
+	if releaseProviders != nil {
+		releaseProviders()
+	}
 	current, err := a.runs.Load(runID)
 	if err != nil || current.Status() != run.StatusQueued {
 		return current, err
@@ -981,17 +1053,24 @@ func (a *Application) Close(ctx context.Context) error {
 	}
 	a.state = stateClosed
 	queued := append([]string(nil), a.queue...)
+	queuedReleases := make([]func(), 0, len(queued))
 	a.queue = nil
 	for runID, job := range a.jobs {
 		if job.state == jobRunning && job.cancel != nil {
 			job.cancel()
 		} else {
+			if job.release != nil {
+				queuedReleases = append(queuedReleases, job.release)
+			}
 			delete(a.jobs, runID)
 		}
 	}
 	a.cancel()
 	a.mu.Unlock()
 	a.commandMu.Unlock()
+	for _, release := range queuedReleases {
+		release()
+	}
 	var closeErr error
 	for _, runID := range queued {
 		if _, err := a.CancelRun(ctx, runID); err != nil && !errors.Is(err, run.ErrRunConflict) {
@@ -1017,8 +1096,12 @@ func (a *Application) workerLoop() {
 		}
 		err := a.execute(ctx, runID)
 		a.mu.Lock()
+		job := a.jobs[runID]
 		delete(a.jobs, runID)
 		a.mu.Unlock()
+		if job != nil && job.release != nil {
+			job.release()
+		}
 		record, loadErr := a.runs.Load(runID)
 		if loadErr == nil {
 			a.emit(record, err)
@@ -1055,6 +1138,12 @@ func (a *Application) nextJob() (string, context.Context, bool) {
 }
 
 func (a *Application) execute(ctx context.Context, runID string) error {
+	a.mu.Lock()
+	job := a.jobs[runID]
+	a.mu.Unlock()
+	if job == nil || job.providers == nil {
+		return errors.New("run has no leased execution environment")
+	}
 	record, err := a.runs.Load(runID)
 	if err != nil || record.Status() != run.StatusQueued {
 		return errors.Join(err, errors.New("worker requires queued Run"))
@@ -1092,7 +1181,7 @@ func (a *Application) execute(ctx context.Context, runID string) error {
 		})
 		return errors.Join(bootstrapErr, terminalErr)
 	}
-	owner, err := run.NewOwner(ctx, grant, a.providers, a.resourceOptions)
+	owner, err := run.NewOwner(ctx, grant, job.providers, a.resourceOptions)
 	if err != nil {
 		if ctx.Err() != nil {
 			_, terminalErr := journal.Cancel(context.WithoutCancel(ctx), a.transitionTime(running.Admission().QueuedAt))

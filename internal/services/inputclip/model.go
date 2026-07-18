@@ -2,6 +2,19 @@ package inputclip
 
 import "github.com/yottaapp/yotta/internal/blob"
 
+// RecordingMode identifies the user-selected capture policy persisted with a
+// clip. It is never inferred from whichever native events happened to arrive.
+type RecordingMode string
+
+const (
+	RecordingModeSimple  RecordingMode = "simple"
+	RecordingModePrecise RecordingMode = "precise"
+)
+
+func (mode RecordingMode) Valid() bool {
+	return mode == RecordingModeSimple || mode == RecordingModePrecise
+}
+
 // EventType uint8 枚举 — 跨 Go / TS / binary 一致.
 // 不要改值, binary codec 直接存这些数字.
 type EventType uint8
@@ -41,10 +54,11 @@ func (e Event) Less(o Event) bool {
 
 // ClipMeta 录制环境快照.
 type ClipMeta struct {
-	MouseMode      string `json:"mouseMode"`      // 'relative' | 'absolute' | 'mixed'
-	BaseResolution [2]int `json:"baseResolution"` // [w, h]
-	MouseCounts360 int    `json:"mouseCounts360"` // 相机转向缩放分母
-	StopHotkeyVK   uint32 `json:"stopHotkeyVK"`   // 默认 0x7B (F12)
+	RecordingMode  RecordingMode `json:"recordingMode"`  // 'simple' | 'precise'
+	MouseMode      string        `json:"mouseMode"`      // 'relative' | 'absolute' | 'mixed'
+	BaseResolution [2]int        `json:"baseResolution"` // [w, h]
+	MouseCounts360 int           `json:"mouseCounts360"` // 相机转向缩放分母
+	StopHotkeyVK   uint32        `json:"stopHotkeyVK"`   // 默认 0x7B (F12)
 }
 
 // InputClip carrier content is immutable after recording. Presentation metadata

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
@@ -154,6 +153,49 @@ func TestAppMutateSettingsPublishesPostCommitSyncFailure(t *testing.T) {
 	}
 }
 
+func TestAppMutateSettingsPreparesAndCommitsRuntimeActivation(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	prepared, committed, aborted := 0, 0, 0
+	if err := app.AttachSettingsActivator(func(before, after *Settings) (*SettingsActivationPlan, error) {
+		prepared++
+		if before.Locale == after.Locale {
+			return nil, nil
+		}
+		return &SettingsActivationPlan{
+			Commit: func() error { committed++; return nil },
+			Abort:  func() { aborted++ },
+		}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := app.MutateSettings(func(settings *Settings) error { settings.Locale = "en"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if prepared != 1 || committed != 1 || aborted != 0 {
+		t.Fatalf("activation lifecycle = prepared %d committed %d aborted %d", prepared, committed, aborted)
+	}
+}
+
+func TestAppMutateSettingsAbortsPreparedRuntimeOnSaveFailure(t *testing.T) {
+	app := NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
+	app.settingsSaver = func(string, *Settings) error { return errors.New("disk unavailable") }
+	committed, aborted := 0, 0
+	if err := app.AttachSettingsActivator(func(*Settings, *Settings) (*SettingsActivationPlan, error) {
+		return &SettingsActivationPlan{
+			Commit: func() error { committed++; return nil },
+			Abort:  func() { aborted++ },
+		}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, after, err := app.MutateSettings(func(settings *Settings) error { settings.Locale = "en"; return nil }); err == nil || after != nil {
+		t.Fatalf("save failure = after %+v, err %v", after, err)
+	}
+	if committed != 0 || aborted != 1 || app.Settings().Locale == "en" {
+		t.Fatalf("activation lifecycle = committed %d aborted %d locale %q", committed, aborted, app.Settings().Locale)
+	}
+}
+
 func TestUpdateWindowSizeLogsPersistenceFailure(t *testing.T) {
 	sink := NewLogSink(nil)
 	logger := zerolog.New(sink)
@@ -227,9 +269,13 @@ func TestSettingsServiceRemovingApplicationAlsoRemovesDependentTargets(t *testin
 			ExecutableDigest: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), Arguments: []string{},
 		}}
 		settings.Automation.Targets = []InstalledAutomationTargetSettings{{
-			Slot: "window-target", Label: "异环", ApplicationSlot: "htgame",
+			Slot: "window-target", Label: "异环",
 			TargetKind: automationinstalled.TargetKindDesktopWindow, AdapterKind: automationinstalled.AdapterKindWin32,
-			WindowTitle: "异环", WindowClass: "UnrealWindow", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+			ProfileVersion: automationinstalled.ProfileVersionV1,
+			Profile: automationTargetProfile(DesktopAutomationTargetSettings{
+				ApplicationSlot: "htgame", WindowTitle: "异环", WindowTitleMatch: "exact", WindowSelection: "unique",
+				WindowClass: "UnrealWindow", InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+			}),
 		}}
 		return nil
 	})
@@ -407,39 +453,5 @@ func TestLoadSettings_UnmarshalIntoBase(t *testing.T) {
 	s = LoadSettings(p)
 	if s.Locale != "zh" || s.UI.Window.Width != 1100 {
 		t.Fatalf("corrupt should return fresh defaults, got locale=%q w=%d", s.Locale, s.UI.Window.Width)
-	}
-}
-
-func TestLoadSettingsMigratesWin32TargetsToSemanticAutomationTargets(t *testing.T) {
-	dir := t.TempDir()
-	executable := filepath.Join(dir, "Editor.exe")
-	if err := os.WriteFile(executable, []byte("editor-v1"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := appcontrol.InspectExecutable(executable)
-	if err != nil {
-		t.Fatal(err)
-	}
-	settings := defaultSettings()
-	settings.Applications.Profiles = []InstalledApplicationSettings{{
-		Slot: "editor", Label: "Editor", Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{},
-	}}
-	settings.Automation.Win32Targets = []InstalledAutomationTargetSettings{{
-		Slot: "editor-window", Label: "Editor window", ApplicationSlot: "editor", WindowTitle: "Editor", WindowClass: "EditorWindow",
-		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
-		WorkflowConsent: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-	}}
-	path := filepath.Join(dir, "settings.json")
-	if err := SaveSettings(path, settings); err != nil {
-		t.Fatal(err)
-	}
-
-	loaded := LoadSettings(path)
-	if len(loaded.Automation.Targets) != 1 || len(loaded.Automation.Win32Targets) != 0 {
-		t.Fatalf("automation migration = %#v", loaded.Automation)
-	}
-	target := loaded.Automation.Targets[0]
-	if target.TargetKind != automationinstalled.TargetKindDesktopWindow || target.AdapterKind != automationinstalled.AdapterKindWin32 || target.WorkflowConsent != "" {
-		t.Fatalf("migrated target = %#v", target)
 	}
 }

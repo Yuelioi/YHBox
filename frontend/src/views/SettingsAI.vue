@@ -416,6 +416,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@nuxt/ui/composables'
 import {
   backend,
   type AIModelProfile,
@@ -427,6 +428,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import { errorMessage } from '@/lib/invoke'
 
 interface AIModelProfileDraft extends AIModelProfile {
   apiKey: string
@@ -436,6 +438,7 @@ interface AIModelProfileDraft extends AIModelProfile {
 type CapabilityKey = keyof AIProfileCapabilities
 
 const { t } = useI18n()
+const toast = useToast()
 const { confirm } = useConfirm()
 const store = useSettingsStore()
 const profiles = computed<AIModelProfile[]>(() => store.data?.ai.profiles ?? [])
@@ -658,19 +661,26 @@ async function removeProfile(profile: AIModelProfileDraft): Promise<void> {
 }
 
 async function refreshSecretStatus(): Promise<void> {
-  const slots = profiles.value.map((profile) => profile.slot)
-  const status = (await backend.ai.secretStatus(slots)) ?? {}
-  for (const key of Object.keys(secretStatus)) delete secretStatus[key]
-  Object.assign(secretStatus, status)
+  try {
+    const slots = profiles.value.map((profile) => profile.slot)
+    const status = (await backend.ai.secretStatus(slots)) ?? {}
+    for (const key of Object.keys(secretStatus)) delete secretStatus[key]
+    Object.assign(secretStatus, status)
+  } catch (error) {
+    showActionError(error)
+  }
 }
 
 async function saveAPIKey(profile: AIModelProfileDraft): Promise<void> {
   if (!profile.apiKey || !(await commit())) return
-  const ok = await backend.ai.setAPIKey(profile.slot, profile.apiKey)
-  if (!ok) return
-  profile.apiKey = ''
-  revealed[profile.slot] = false
-  await refreshSecretStatus()
+  try {
+    await backend.ai.setAPIKey(profile.slot, profile.apiKey)
+    profile.apiKey = ''
+    revealed[profile.slot] = false
+    await refreshSecretStatus()
+  } catch (error) {
+    showActionError(error)
+  }
 }
 
 async function deleteAPIKey(slot: string): Promise<void> {
@@ -681,31 +691,62 @@ async function deleteAPIKey(slot: string): Promise<void> {
     cancelText: t('common.cancel'),
     color: 'error',
   })
-  if (ok === true && (await backend.ai.deleteAPIKey(slot))) await refreshSecretStatus()
+  if (ok !== true) return
+  try {
+    await backend.ai.deleteAPIKey(slot)
+    await refreshSecretStatus()
+  } catch (error) {
+    showActionError(error)
+  }
 }
 
 async function testProfile(profile: AIModelProfileDraft): Promise<void> {
   if (!(await commit())) return
   if (profile.apiKey) {
-    const saved = await backend.ai.setAPIKey(profile.slot, profile.apiKey)
-    if (!saved) return
-    profile.apiKey = ''
-    revealed[profile.slot] = false
-    await refreshSecretStatus()
+    try {
+      await backend.ai.setAPIKey(profile.slot, profile.apiKey)
+      profile.apiKey = ''
+      revealed[profile.slot] = false
+      await refreshSecretStatus()
+    } catch (error) {
+      showActionError(error)
+      return
+    }
   }
   testing[profile.slot] = true
   delete results[profile.slot]
-  const result = await backend.ai.testProfile(profileMetadata(profile))
-  testing[profile.slot] = false
-  if (result) results[profile.slot] = result
+  try {
+    const result = await backend.ai.testProfile(profileMetadata(profile))
+    if (result) results[profile.slot] = result
+  } catch (error) {
+    showActionError(error)
+  } finally {
+    testing[profile.slot] = false
+  }
 }
 
 async function grantWorkflowUse(profile: AIModelProfileDraft): Promise<void> {
   if (!(await commit())) return
-  await backend.ai.grantWorkflowUse(profile.slot)
+  try {
+    await backend.ai.grantWorkflowUse(profile.slot)
+  } catch (error) {
+    showActionError(error)
+  }
 }
 
 async function revokeWorkflowUse(profile: AIModelProfileDraft): Promise<void> {
-  await backend.ai.revokeWorkflowUse(profile.slot)
+  try {
+    await backend.ai.revokeWorkflowUse(profile.slot)
+  } catch (error) {
+    showActionError(error)
+  }
+}
+
+function showActionError(error: unknown): void {
+  toast.add({
+    title: t('toast.operation_failed'),
+    description: errorMessage(error),
+    color: 'error',
+  })
 }
 </script>

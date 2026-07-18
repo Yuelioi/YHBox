@@ -15,21 +15,21 @@ import (
 )
 
 func TestBrowserProfilePinsExactLoopbackPageIdentity(t *testing.T) {
-	draft := ProfileDraft{
-		TargetKind: TargetKindBrowserCDP, AdapterKind: AdapterKindBrowserCDP,
+	payload := BrowserProfilePayload{
 		BrowserEndpoint: "127.0.0.1:9222", BrowserTargetID: "page-1",
 		BrowserWebSocketURL: "ws://127.0.0.1:9222/devtools/page/page-1",
 		BrowserTitle:        "Fixture", BrowserURL: "https://example.test/", ResolveTimeoutMilliseconds: 1000,
 	}
-	profile, err := SealProfile(draft)
+	profile, err := SealProfile(NewBrowserProfileDraft(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.Machine().BrowserEndpoint != "http://127.0.0.1:9222" || profile.Machine().ApplicationIdentityKind != IdentityKindBrowserPage {
+	sealed, ok := BrowserProfile(profile)
+	if !ok || sealed.BrowserEndpoint != "http://127.0.0.1:9222" {
 		t.Fatalf("profile = %#v", profile.Machine())
 	}
-	draft.BrowserEndpoint = "http://example.test:9222"
-	if _, err := SealProfile(draft); err == nil {
+	payload.BrowserEndpoint = "http://example.test:9222"
+	if _, err := SealProfile(NewBrowserProfileDraft(payload)); err == nil {
 		t.Fatal("accepted non-loopback browser discovery authority")
 	}
 }
@@ -85,11 +85,10 @@ func TestBrowserDriverResolvesExactPageAndDispatchesGenericInput(t *testing.T) {
 	defer server.Close()
 
 	ws := "ws" + strings.TrimPrefix(server.URL, "http") + "/devtools/page/page-1"
-	profile, err := SealProfile(ProfileDraft{
-		TargetKind: TargetKindBrowserCDP, AdapterKind: AdapterKindBrowserCDP,
+	profile, err := SealProfile(NewBrowserProfileDraft(BrowserProfilePayload{
 		BrowserEndpoint: server.URL, BrowserTargetID: "page-1", BrowserWebSocketURL: ws,
 		BrowserTitle: "Fixture", ResolveTimeoutMilliseconds: 3000,
-	})
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}

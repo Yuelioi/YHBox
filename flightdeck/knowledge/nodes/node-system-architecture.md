@@ -1,136 +1,50 @@
 ---
 kind: note
-summary: "节点怎么被定义·注册·派发 —— 声明式 Spec + 运行时注册表 + 三条 capability 路线（Runnable/RegionRunner/Evaluator）"
+summary: "3.1 节点由版本化 Node Contract、Catalog implementation lock、Authoring Projection 和唯一 Program runtime 组成；旧 Spec/Registry/Container dispatch 已删除。"
 activation: action
-read_when: "第一次碰节点系统 / 设计新节点前想搞懂\"节点怎么被定义·注册·派发\" / 不确定一个节点该实现哪种 capability / 改 framework dispatch 或 validator 前"
-recheck_when: "改节点注册流程 / capability 分类 / dispatch 派发逻辑 / RegionRunner / Evaluator / validator 管线结构时"
+read_when: "第一次进入节点系统、设计节点/类型/能力、修改 Catalog/Compiler/adapter，或需要判断旧节点知识是否仍适用时"
+recheck_when: "Node Contract、Catalog、Authoring Projection、Compiler instruction、noderuntime installation 或 Node Package ABI 改动后"
 ---
-# 节点系统架构
-Yotta 的节点系统 = **声明式 Spec + 运行时注册表 + 能力派发（capability dispatch）**。这篇讲"节点怎么被定义、注册、跑起来"的整体架构；具体类型表 / Ctx 服务 / 节点目录见 [node-system-reference.md](node-system-reference.md)；动手加节点的全链路步骤见 [add-node.md](add-node.md)；pin 命名/Default 约定见 [node-spec-style.md](node-spec-style.md)。
+# 3.1 节点系统架构
 
-源码：`internal/node/`（框架核心）+ `internal/nodes/<category>/`（节点实现；数量用 `go run ./cmd/node-catalog export` 查当前值）。
+现行链路只有一条：
 
-## 1. 心智模型
+```text
+Data Type + Capability Definition
+        ↓
+versioned Node Contract → sealed Catalog + implementation lock
+        ↓                              ↓
+Authoring Projection          Workflow Source → Compiler → Program
+                                                ↓
+                                     admitted installed adapter
+```
 
-- **节点只声明"我是什么"，不写"我怎么被调度"**。`Node` 接口最小化 —— 只有一个 `Spec() Spec` 方法（`interfaces.go`）。执行语义靠**另外三个 capability 接口**（Runnable / RegionRunner / Evaluator）表达。
-- **后端只出结构，前端负责渲染**。Spec 里只有 kind / pin name / type / widget / enum value 这些**结构**。所有**展示文本**（节点名、描述、pin label、hint、enum 选项名）单源在前端 i18n `frontend/src/i18n/zh.ts` 的 `node.<kind>.*`（`spec.go` 头注释）。画布上的普通节点由 `ContainerFlowNode` 按 Spec 自动渲染，**新增普通节点不用写 Vue 组件**。
-- **Inspector-first**：节点的输入面板从 Spec 的 `Inputs[]` 自动派生（widget / 默认值 / 可见条件 `VisibleWhen` / 结构化 schema）。
+旧 `internal/node`、`nodepkg.Spec`、包级 `init/Register`、Runnable/RegionRunner/Evaluator、Container dispatch、`config.capture`、旧 Expr/Var/Script binding 和第二 debugger runtime 均已删除，不得作为新增节点范式。
 
-## 2. 节点解剖 — Spec
+## 模块所有权
 
-`Spec`（`spec.go`）：
+- `internal/datatype`：TypeRef、schema、representation、carrier、traits 和显式类型关系。
+- `internal/capability`：capability definition、requirement、scope、target/credential slot 和 sealed plan。
+- `internal/nodecontract`：端口、execution、instruction、errors/status、state access、config validator、ABI 和 NodeRef。
+- `internal/nodes`：显式组装内建 Data Type、Capability、Node Contract、implementation lock 和 conformance metadata。
+- `internal/nodecatalog`：精确 NodeRef ↔ implementation binding 的不可变 snapshot。
+- `internal/nodeauthoring`：从 sealed Catalog 派生类型、控件、端口、availability 和 target binding；前端不解释 raw contract。
+- `internal/noderuntime`：按 implementation entrypoint 安装 adapter，并在调用时只取得 typed inputs、trigger、窄 capability session、action recorder 和 state binding。
+- `internal/workflow/compiler`：唯一编译、scheduler、region instruction、error route、state 和 debug 路径。
 
-| 字段 | 含义 |
-|---|---|
-| `Kind` | 唯一标识（PascalCase）。**是 graph JSON 的序列化 key —— 改名 = 迁移所有已存容器**，不能随便动 |
-| `Category` | 前端 palette 分组（Control / Detect / Input / …，见 reference 目录） |
-| `Inputs []InputSpec` | 输入 pin（exec + data） |
-| `Outputs []OutputSpec` | 输出 pin（exec 出口可带 `Data []DataField`，即"出口携带的数据"，如 `CheckTemplate.Found` 带 `Point`） |
-| `RuntimeCapabilities` | 节点执行需要的 `ServiceBundle` port（vision/input/window/vars/…）。framework 在进入节点代码前校验，缺失返回 typed `AssemblyError` |
-| `TargetCapabilities` | active automation controller 必须支持的动作能力（screenshot/click/key-state/…），与 runtime service 装配是两层独立契约 |
+## 执行分类
 
-**标志位**（都是 `Spec` 上的 bool，决定派发/校验行为）：
+Node Contract 显式声明 execution class、pull/push evaluation、determinism、cache、retry、cancellation、timeout 和 effects。普通节点使用 `invoke`；Run root、counted loop、for-each、retry 等由 host instruction lower。纯数据没有 exec port；status event 不可连线；error 与 exec 是独立 channel。
 
-| 标志 | 作用 |
-|---|---|
-| `NeedsTarget` | 节点 Run 依赖当前自动化目标能力（`ctx.Input/Capture/Vision` 等 target-aware 服务）。当前用户可选 target selection 是 Win32WindowTarget / AndroidTarget；底层 Browser CDP controller 可作为内部能力保留，但不要恢复为普通用户节点。没有任何 target selection 时按 Windows 默认报 `MISSING_WIN32_WINDOW_TARGET`，方便一键补 `Win32WindowTarget` |
-| `NeedsWindow` | 节点 Run 直接依赖 Win32 HWND / `WindowService`（窗口置前、状态、移动、关闭、Win32 clip/script 保守路径）。它不是通用自动化目标标志；Android target 不得用它 |
-| `IsPureData` | 纯数据节点（无副作用、求一个值）。**必须实现 Evaluator**（Register 强制） |
-| `IsVisualOnly` | 纯渲染节点（如 CommentBox）。允许零 capability |
-| `IsGraphMarker` | 图结构标记节点。允许零 capability（框架为 SubgraphInput/Output 预留；**当前没有后端节点用它**，子图入口/出口标记是前端 virtual 的） |
-| `DynamicPorts` | 声明动态端口的 role、config key、shape、固定类型/父出口与数量预算。Switch 使用 `output + names + cases + Exec`；Expr/Script 使用 `input + nameTypeRecords + Inputs`；AI 的输出字段使用 `outputData + nameTypeRecords + Outputs + Done`；Subgraph/CollapsedNode 的 legacy graph-interface shape 只服务旧 runtime。消费者按 descriptor role/shape 工作，不按 kind 猜 config。 |
-| `IsNonDeterministic` | Evaluate 非确定（随机 / now）。框架在 per-dispatch eval 缓存里**只记忆化带此标志的节点**（`runtime/data_pull.go::evalPureDataCached` 的 `caching` gate），保证同一次派发内多路径引用同一节点拿同一个值。仅对 `IsPureData` 节点有意义 |
+Adapter 不拥有调度。它必须匹配 Catalog implementation lock，返回已声明类型的 outputs 和显式 signal selection；effect 还要记录真实 AdapterAction。没有旧 kind dispatch fallback。
 
-`InputSpec` 关键字段：`Type`（类型 tag，见 reference）、`Required`、`Advanced`、`Default`（**Number 类用 `json.Number` 保精度**）、`Widget`（UI 控件，跟 Type 解耦）、`VisibleWhen`（条件显隐）、`Schema`（结构化输入递归 schema，非 nil → 前端 StructuredInput，如 Geometry/HSV）。
+## 版本与身份
 
-## 3. 三条能力路线（the routes）—— 节点必须**恰好实现一种**
+`nodeTypeId` 是不含产品发布号的稳定 URI；节点版本是独立 SemVer，语义摘要与 type ID/version 共同构成精确 NodeRef。`3.1` 只表示 artifact format generation，不进入 package、目录或类型名。
 
-这是"节点路线"的核心：一个节点的执行语义由它实现哪个 capability 接口决定。Register 时框架**用 type assertion 探测一次**并缓存成函数指针（`registry.go`），引擎派发只走缓存指针、**绝不再 runtime assert**。
+## 正确性边界
 
-| 路线 | 接口（`interfaces.go`） | framework 入口（`engine.go`） | 用于 | 例子 |
-|---|---|---|---|---|
-| **Runnable** | `Run(ctx, in) (Outputs, error)` | `RunNode` | 普通 exec 节点，框架同步调一次 | KeyPress、Sleep、SetVar、CheckTemplate、Script（内嵌 JS） |
-| **RegionRunner** | `RunRegion(ctx, in, body func(Ctx) (string, error)) (Outputs, error)` | `RunNodeAsRegion` | 控制流 / 包子图 body —— body 回调由 dispatch 构造，**节点自己决定调几次**；body 第一返回值 = region 内部到达的出口 | **恰好 4 个**：Loop（调 N 次/forever）、ForEach（遍历 List 逐项调）、Subgraph、CollapsedNode |
-| **Evaluator** | `Evaluate(ctx, in) (any, error)` | `EvaluatePureData` | 纯数据求值，返一个标量给 data-edge 下游，**无 exec 出口** | 41 个 PureFunc（Add/Eq/Select…）+ Expr、List 类（Join/ListGet…）、Random×4、GetVar/GetParam/Now/VarLastChange（PureData 全集计数见 [reference §6](node-system-reference.md)，别在这写死数字） |
-
-**两个例外**（允许零 capability）：`IsVisualOnly`（CommentBox）、`IsGraphMarker`（结构标记）。
-
-### RegionRunner 的 body 回调
-
-`body func(Ctx) (string, error)` 是"执行 region 内部下游"的回调，第一返回值 = **region 内部到达的出口**（Subgraph/CollapsedNode：callee OutputPins 的 decl ID；Loop/ForEach 单轮迭代无出口语义，忽略它）。Subgraph/CollapsedNode 把 body 回报的出口原样 `ctx.Out(exit)` fire（Spec 声明 graph-interface dynamic output descriptor，父图边 pin = decl ID）；`""` = 没到达任何出口 → 不 fire。节点对返回的 error 做语义翻译：Loop/ForEach 截获 `errBreakRequested`（跳完成出口）/ `errContinueRequested`（下一轮），其余 error 直接 propagate，由该 RegionRunner 的 **`Fail` 出口**（`Semantic: error`；四个 RegionRunner 都声明了）接住（`loop.go` / `foreach.go`）。`Throw` 节点（Runnable，`internal/nodes/system/throw.go`）就是借这条 propagate 通道把错误抛给最近一层 RegionRunner 的 Fail。这就是 Break/Continue/Throw 这些 sentinel 节点能工作的机制 —— **没有 Try 节点**（旧文档误记，截获是靠 RegionRunner 的 Fail 出口，不是一个专门节点）。
-
-### 子图调用的出口路由（2026-06-11 起）
-
-子图调用（Subgraph / CollapsedNode 节点，或脚本 `Subgraph()` 函数）统一走 runtime 共享核心 `runSubgraphCall`（`runtime/subgraph_call.go`）：push frame + seed params + 切 dispatch 表到 callee + 从 entry 播种跑到出口 marker。**出口 key 单一来源 = callee OutputPins 的 decl ID**（父图边 / 前端 handle / runtime fire 三层一致；decl rename 只改 Name 不动 ID，父图无感）。出口裁决：到达 marker → 该 decl；跑干没到 marker → 单出口视同唯一出口，多出口 → `subgraph_no_exit` Coded 错误（可被 Fail 接）。嵌套深度上限 32（`subgraph_recursion`，防脚本动态递归）。脚本侧拿到的是 decl **Name**（人读名），图层路由用 decl **ID**。
-
-### Evaluator 看到的是 tick-frozen Vars 快照
-
-PureData 节点 Evaluate 内看到的 `Vars` 是**当前 tick 冻结的快照**，不是 live state（`engine.go::EvaluatePureData` 入口 `services.Snapshot` wrap）。这保证同一 tick 内多个 data 节点读到一致的全局变量状态。为什么用 wrap 而不是给 Ctx 加方法，见 [framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)。
-
-依赖 runtime state 的 PureData 节点同样实现 Evaluator，并从 tick-frozen Services view 读取一致状态。**没有 GetSys 节点，也没有 `ctx.Sys()` 服务**；旧 `$sys` live 值已由 `Now` / `VarLastChange` 等显式节点取代。
-
-### 选哪条路线（决策树）
-
-1. 节点要**产出一个值给别的节点的 data 入口**、无副作用 → **Evaluator**（+ `IsPureData: true`）。
-2. 节点要**包住一段子流程、控制它跑几次/截获其结果** → **RegionRunner**。
-3. 其余有副作用的"做一件事然后往下走" → **Runnable**。
-4. 只为画布展示、不参与执行 → `IsVisualOnly`，零 capability。
-
-## 4. 节点要求（注册契约）
-
-一个节点能被系统认到，必须：
-
-1. **`func init() { node.Register(&X{}) }`**（节点文件里）。这个包级函数只是在生产启动期写入默认 Registry 的兼容入口；测试、嵌入方和自定义节点集合应使用 `node.NewRegistry()`。
-2. **包被 blank-import**：新 `internal/nodes/<category>` 包要在 `main.go` + `internal/services/container/runtime/dispatch_v5_test.go` 里有 `_ "github.com/yottaapp/yotta/internal/nodes/<category>"`，否则 `init` 不跑、节点不存在（已有 category 包加节点则无需动）。
-3. **满足 capability invariant**（`registry.go` Register 时校验，违反直接 panic、init-time 立刻暴露）：
-   - 非 marker/visual 节点 **恰好一种** capability（0 个 → panic "zero capabilities"；>1 个 → panic "multiple capabilities"）。
-   - `IsPureData: true` 必须实现 Evaluator，否则 panic。
-   - `RuntimeCapabilities` 只能使用已知值且不能重复；共享 helper 的间接依赖（例如 `ResolvePoint` 的 Window）也必须声明。完整内建 registry 的语义矩阵由 `internal/nodes/all/runtime_capabilities_test.go` 守卫。
-4. 默认注册表在 Wails OnStartup 末尾 `Freeze()`，之后再 Register 会 panic（注册只能在 init 期）。
-
-### Registry 的所有权与快照
-
-`Registry` 是可实例化、并发安全的构建器；`RegistrySnapshot` 是运行时消费的时间点视图。注册时和读取时都会防御性复制 Spec/Defaults，且保持 `node.Point`、widget props 等具名 Go 类型，调用方不能通过修改返回值污染下一次读取。
-
-生产内建节点继续通过 `init + node.Register` 组装默认实例，但 catalog、Container Store/validation/dependency scan、runtime compiler/runner、Script binding、MCP authoring 和 NodeService 都能显式接收同一个 `RegistryReader`。一次运行应先捕获 snapshot，并把它贯穿整条链路；不要在中途回退到包级 `node.Get/All`，否则自定义 registry 会出现“能保存但不能运行”或“脚本看不到节点”的分裂代际。
-
-测试必须创建局部 `node.NewRegistry()`，不再清空默认全局实例。这样测试可并行运行，也不会删除其他包由 `init` 注册的生产节点。
-
-可选扩展接口（type assertion 探测，实现即生效）：`Validator`（节点自身静态校验）、`Dependencer`（子图分享/library import 时 BFS 抽外部资产引用）。
-
-## 5. 校验双管线（最容易踩的坑）
-
-节点校验有**两条独立管线**，写错地方会"加了校验但编辑期不报 / 重复报"（见 [node-validation-pipeline-bifurcation.md](node-validation-pipeline-bifurcation.md)）：
-
-| 管线 | 在哪 | 何时跑 | 写什么 |
-|---|---|---|---|
-| **编辑期** | `internal/services/container/validator.go` 的 `checkGraphPerKind` → `validateXxx(n)` | NodeInspector 实时（编辑器红错） | 图级/容器级 per-kind 静态校验（断边、缺 target/Win32WindowTarget、必填 pin 缺失 `MISSING_REQUIRED_PIN`、未知 literal pin、RegexMatch/RegexExtract 的 `INVALID_REGEX_PATTERN` 等） |
-| **运行期** | 框架 `prepareExec`：`validateRequired`（`REQUIRED_FIELD_MISSING`）+ 节点的 `Validate()`（Validator 接口） | engine 真跑该节点时 | 节点自身输入合法性（HSV min>max 之类） |
-
-**编辑期校验写在 `checkGraphPerKind`，不是节点的 `Validate()` 方法**（后者只在 runtime 跑，编辑器看不到）。静态必填校验为什么要镜像 `PinValue` 的两级回退（literal + 顶层 config），见 [pin-presence-check-must-mirror-pinvalue.md](pin-presence-check-must-mirror-pinvalue.md)。
-
-## 6. 错误分类（RunResult）
-
-框架 `RunNode` 把单节点结果分三类（`engine.go` 头注释）：
-
-- **Validation**：user graph 写错（Required 缺值 / Validator 返错）→ 节点变红，**不是 panic**。
-- **Error**：runtime fail（Run 返 error）→ 节点变红。
-- **AssemblyError**：Spec 声明的 runtime service 未装配。输入/节点验证通过后、节点代码执行前返回 typed error，不进入 `Run`/`Evaluate`，不依赖 nil panic。
-- **Panic**：framework invariant 被破（double Fire / `Out(unknown)` / 不可能状态）→ `runWithRecover` recover + stack 进 log；panic 路径会清空 ExitName/OutputData 防止 half-baked result 被当合法路由。
-
-未在 Spec 声明却直接访问 nil service 属于节点契约 bug；内建节点由完整 registry capability matrix 防回退。真正可选的 service 必须 nil-safe，不得靠 recover 表达正常装配缺失。
-
-## 7. 值与类型 helper（框架级，常被新节点漏用）
-
-- **`node.FormatValue(v any) string`**（`value_helpers.go`）：任意值软转字符串（nil→`"null"`、bool→`"true"/"false"`、数字/字符串直转、其余 `fmt.Sprintf("%v")`）。日志 / 比较 / 字符串节点统一走它，别各写一份。
-- **`node.LooseEqual(a, b any) bool`**（同文件）：宽松等值 —— 同类型可比较的直比，否则 `FormatValue` 串比（slice 这类不可比较的也安全降级到串比）。Eq/NotEq/Contains 等 PureFunc 跨类型比较的统一口径。
-- **`List` pin 类型 + `in.List(name) []any`**（`inputs.go`）：List 型 pin（异构列表）取值 helper，容忍 `[]any` 原样 / `[]string` 转换，nil 及其它类型 → nil 不 panic；**不把裸 string 当一元列表**（与 `StringList` 区别）。List 类型表/颜色见 [reference §1](node-system-reference.md)。
-- **字符串位置语义按 rune**：`Length` 用 `utf8.RuneCountInString`（CJK 一字算 1，非 byte），与 `Substring`/`IndexOf` 的位置语义统一。
-
-## 8. 相关
-
-- 加节点全链路 checklist：[add-node.md](add-node.md)
-- pin 命名 / Default / exec exit 约定：[node-spec-style.md](node-spec-style.md)
-- 节点间数据怎么连（pin wiring / held output / exec 出口 Data）：[node-data-flow.md](node-data-flow.md)
-- 类型表 / Ctx 服务 / pin 值解析 / 节点目录：[node-system-reference.md](node-system-reference.md)
-- framework 扩展（行为随 dispatch context 变时该怎么扩）：[framework-extension-dispatch-context.md](framework-extension-dispatch-context.md)
+- Compiler 是图类型、端口、state、instruction 和 capability plan 的最终权威。
+- Projection 与 Compiler 来自同一 sealed Catalog；前端不得维护第二套 assignability/capability 表。
+- effect authority 只来自 Admission sealed Run Grant；node config、prompt 和 adapter 返回值不能扩大它。
+- Source-native GraphCall、debug、schedule 和 MCP authoring 都进入同一 Compiler/Application seam。

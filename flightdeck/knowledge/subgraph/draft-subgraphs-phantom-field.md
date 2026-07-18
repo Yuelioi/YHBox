@@ -1,10 +1,12 @@
 ---
 kind: trap
-summary: "`draft.value.subgraphs` 是 type-only 占位恒空, 子图完整内容唯一源是 editorStore.subgraphsFor(cid)"
+summary: "历史 3.0 draft.subgraphs/editorStore 双事实源案例；3.1 Source snapshot 是多图唯一创作事实。"
 activation: symptom
-read_when: "写任何\"需要子图完整内容(graph/entry/outputPins)\"的前端功能前(转脚本 / 导出 / 分享 / 子图内容分析 / 跨子图遍历); 撞\"明明磁盘有子图、editorStore 有、但我从 draft 里读出来是空 / undefined\"; 给 Subgraph 节点加右键或面板动作要拿被引用子图时; review 任何 `draft.value.subgraphs` 读取"
+read_when: "仅在审查 3.0 draft/editorStore 子图行为或旧归档问题时"
 ---
 # ⚠ `draft.value.subgraphs` 是永远空的幽灵字段 —— 子图完整内容只在 editorStore
+
+> 历史知识：相关 store/字段已删除。3.1 EditorSession 必须以 canonical Workflow Source snapshot + revision 为唯一多图事实。
 ## Signature
 - symptom: `子图转脚本右键报「该节点未指定子图」(toast.subgraph_not_set); 面板入口静默无反应; 但子图磁盘上/editorStore 里都在`
 - error_type: — (前端取数取到恒空字段, 非 exception)

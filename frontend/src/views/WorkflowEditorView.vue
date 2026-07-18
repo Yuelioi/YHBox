@@ -720,15 +720,25 @@
       icon="i-tabler-record-mail"
       size="md"
     >
-      <UFormField :label="t('workflow.recording.target')" required>
-        <USelect
-          v-model="recordingTargetSlot"
-          :items="recordingTargetItems"
-          value-key="value"
-          label-key="label"
-          :placeholder="t('assets.target_placeholder')"
-        />
-      </UFormField>
+      <div class="space-y-3">
+        <UFormField :label="t('workflow.recording.mode')" required>
+          <USelect
+            v-model="recordingMode"
+            :items="recordingModeItems"
+            value-key="value"
+            label-key="label"
+          />
+        </UFormField>
+        <UFormField :label="t('workflow.recording.target')" required>
+          <USelect
+            v-model="recordingTargetSlot"
+            :items="recordingTargetItems"
+            value-key="value"
+            label-key="label"
+            :placeholder="t('assets.target_placeholder')"
+          />
+        </UFormField>
+      </div>
       <p class="mt-3 text-xs leading-5 text-muted">{{ t('workflow.recording.start_hint') }}</p>
       <template #footer>
         <UButton color="neutral" variant="ghost" @click="recordingStartOpen = false">
@@ -758,7 +768,7 @@
             <p class="text-xs text-muted">{{ t('workflow.recording.result_mode') }}</p>
             <div class="mt-1 flex items-center gap-2">
               <UBadge
-                :color="pendingRecording.preview.mode === 'steps' ? 'primary' : 'warning'"
+                :color="pendingRecording.preview.mode === 'simple' ? 'primary' : 'warning'"
                 variant="soft"
               >
                 {{ t(`workflow.recording.mode_${pendingRecording.preview.mode}`) }}
@@ -809,10 +819,7 @@
             </span>
           </div>
         </div>
-        <p
-          v-if="pendingRecording.preview.mode === 'trajectory'"
-          class="text-xs leading-5 text-muted"
-        >
+        <p v-if="pendingRecording.preview.mode === 'precise'" class="text-xs leading-5 text-muted">
           {{ t('workflow.recording.trajectory_hint') }}
         </p>
         <UFormField :label="t('recordingSave.name')" required>
@@ -852,10 +859,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
-import { backend } from '@/lib/backend'
 import {
   VueFlow,
   useVueFlow,
@@ -892,6 +898,7 @@ import {
   type DebugBreakpoint,
 } from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
+import { useRecordingStart } from '@/composables/useRecordingStart'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
@@ -914,9 +921,11 @@ import {
   isRecordingStopPayload,
   useRecordingStore,
   type RecordingFinalizePayload,
+  type RecordingMode,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
+import { errorMessage } from '@/lib/invoke'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
 import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
@@ -947,6 +956,7 @@ const { confirm } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const recording = useRecordingStore()
+const { start: beginRecording } = useRecordingStart()
 const settings = useSettingsStore()
 const selectedNodeId = ref('')
 const selectedNodeIds = ref(new Set<string>())
@@ -996,11 +1006,16 @@ const debuggerOpen = ref(false)
 const breakpointKeys = ref(new Set<string>())
 const recordingStartOpen = ref(false)
 const recordingTargetSlot = ref('')
+const recordingMode = ref<RecordingMode>('simple')
 const recordingControlBusy = ref(false)
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const finalizedRecording = ref<RecordingFinalizePayload | null>(null)
 const recordingSaveBusy = ref(false)
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
+const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
+  { label: t('recordingSave.mode_simple'), value: 'simple' },
+  { label: t('recordingSave.mode_precise'), value: 'precise' },
+])
 const {
   addSelectedNodes,
   findNode,
@@ -1372,6 +1387,13 @@ useWailsEvent<unknown>('recording:completed', (raw) => {
   if (isRecordingStopPayload(payload)) openRecordingPreview(payload)
 })
 
+watch(
+  () => recording.state.pending,
+  (pending) => {
+    if (pending) openRecordingPreview(pending)
+  },
+)
+
 onMounted(async () => {
   document.addEventListener('keydown', handleEditorKeydown)
   await Promise.allSettled([
@@ -1438,6 +1460,10 @@ onBeforeRouteLeave(async () => {
 })
 
 function openRecordingStart(): void {
+  if (recording.state.phase !== 'idle') {
+    if (recording.state.pending) openRecordingPreview(recording.state.pending)
+    return
+  }
   const targets = recordingTargetItems.value
   if (!targets.length) {
     showError(t('workflow.recording.start_failed'), t('workflow.inspector.no_installed_target'))
@@ -1455,18 +1481,14 @@ async function startRecording(): Promise<void> {
   if (!recordingTargetSlot.value) return
   recordingControlBusy.value = true
   try {
-    await recording.start(recordingTargetSlot.value)
-    recordingStartOpen.value = false
+    if (await beginRecording(recordingMode.value, recordingTargetSlot.value)) {
+      recordingStartOpen.value = false
+    }
   } catch (error) {
     showError(t('workflow.recording.start_failed'), error)
     return
   } finally {
     recordingControlBusy.value = false
-  }
-  try {
-    await backend.tools.openRecordingHUD()
-  } catch (error) {
-    showError(t('workflow.recording.control_failed'), error)
   }
 }
 
@@ -1496,6 +1518,7 @@ async function stopRecording(): Promise<void> {
 }
 
 function openRecordingPreview(payload: RecordingStopPayload): void {
+  if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
   finalizedRecording.value = null
   recordingDraft.name = ''
@@ -2624,7 +2647,7 @@ function edgeId(edge: {
 function showError(title: string, error: unknown): void {
   toast.add({
     title,
-    description: error instanceof Error ? error.message : String(error),
+    description: errorMessage(error),
     color: 'error',
   })
 }

@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/blob"
@@ -56,7 +58,7 @@ func pngDataURL(t *testing.T, w, h int) string {
 
 func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 
 	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 32, 16), "登录按钮", "登录", []string{"按钮"}, [2]int{1920, 1080}, [4]float32{0.1, 0.2, 0.3, 0.4})
 	if err != nil {
@@ -86,7 +88,7 @@ func TestService_SaveTemplateCapture_ListGet(t *testing.T) {
 
 func TestServicePreviewBlobReturnsBoundedPNG(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 800, 400), "preview", "", nil, [2]int{800, 400}, [4]float32{0, 0, 1, 1})
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +116,7 @@ func TestServicePreviewBlobReturnsBoundedPNG(t *testing.T) {
 
 func TestServicePreviewBlobRejectsUntrustedShapeBeforeRead(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	for _, ref := range []blob.BlobRef{
 		{MediaType: "application/octet-stream", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: 1},
 		{MediaType: "image/png", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: previewMaxSourceBytes + 1},
@@ -127,7 +129,7 @@ func TestServicePreviewBlobRejectsUntrustedShapeBeforeRead(t *testing.T) {
 
 func TestService_SaveTemplateCapture_PersistsCategory(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 
 	guid, err := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "确认按钮", "战斗", []string{"按钮"}, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if err != nil {
@@ -144,7 +146,7 @@ func TestService_SaveTemplateCapture_PersistsCategory(t *testing.T) {
 
 func TestService_RenameDelete(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "旧名", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 
 	if err := svc.UpdateMeta(guid, "新名", "测试描述", "采集", []string{"物品", "背包"}); err != nil {
@@ -172,7 +174,7 @@ func TestService_RenameDelete(t *testing.T) {
 func TestService_CaptureUsesExactTargetSlot(t *testing.T) {
 	s, _ := newTestStore(t)
 	capture := &recordingCaptureAdapter{}
-	svc := NewService(s, capture)
+	svc := NewService(s, capture, nil)
 
 	dataURL, err := svc.Capture("editor")
 	if err != nil {
@@ -188,7 +190,7 @@ func TestService_CaptureUsesExactTargetSlot(t *testing.T) {
 
 func TestService_PickVariant(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	// 1280×720 建档 (Variants[0]), 再加 1920×1080 (Variants[1], 不同分辨率 → 追加).
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
@@ -214,7 +216,7 @@ func TestService_PickVariant(t *testing.T) {
 
 func TestService_RemoveVariant(t *testing.T) {
 	s, _ := newTestStore(t)
-	svc := NewService(s, nil)
+	svc := NewService(s, nil, nil)
 	guid, _ := svc.SaveTemplateCapture(pngDataURL(t, 8, 8), "x", "", nil, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if _, err := svc.AddTemplateVariant(guid, pngDataURL(t, 8, 8), [2]int{1920, 1080}, [4]float32{0, 0, 1, 1}); err != nil {
 		t.Fatal(err)
@@ -243,19 +245,19 @@ func TestService_RemoveVariant(t *testing.T) {
 func TestService_CurrentResolution(t *testing.T) {
 	s, _ := newTestStore(t)
 
-	svc := NewService(s, stubCaptureAdapter{res: [2]int{1600, 900}})
+	svc := NewService(s, stubCaptureAdapter{res: [2]int{1600, 900}}, nil)
 	if r, err := svc.CurrentResolution("c1"); err != nil || r != [2]int{1600, 900} {
 		t.Errorf("CurrentResolution = %v, err %v; want [1600 900]", r, err)
 	}
 
 	// 窗口没开 → 透传 error.
-	svcErr := NewService(s, stubCaptureAdapter{err: errors.New("窗口没开")})
+	svcErr := NewService(s, stubCaptureAdapter{err: errors.New("窗口没开")}, nil)
 	if _, err := svcErr.CurrentResolution("c1"); err == nil {
 		t.Error("CurrentResolution should propagate adapter error")
 	}
 
 	// 未注入 adapter → error (不 panic).
-	svcNil := NewService(s, nil)
+	svcNil := NewService(s, nil, nil)
 	if _, err := svcNil.CurrentResolution("c1"); err == nil {
 		t.Error("CurrentResolution with nil adapter should error")
 	}
@@ -263,7 +265,7 @@ func TestService_CurrentResolution(t *testing.T) {
 
 func TestServiceQueryAndBatchManagement(t *testing.T) {
 	store, _ := newTestStore(t)
-	service := NewService(store, nil)
+	service := NewService(store, nil, nil)
 	alpha, err := service.SaveTemplateCapture(pngDataURL(t, 8, 8), "Alpha", "UI", []string{"button", "common"}, [2]int{1280, 720}, [4]float32{0, 0, 1, 1})
 	if err != nil {
 		t.Fatal(err)
@@ -293,6 +295,83 @@ func TestServiceQueryAndBatchManagement(t *testing.T) {
 	}
 }
 
+func TestServiceAssetPickerQueryScalesAndResolvesExactVariant(t *testing.T) {
+	store, _ := newTestStore(t)
+	store.mu.Lock()
+	for index := 0; index < 1_000; index++ {
+		guid := fmt.Sprintf("asset-%04d", index)
+		first := testBlobRef(guid + "-720")
+		second := testBlobRef(guid + "-1080")
+		store.recs[guid] = AssetRecord{
+			SchemaVersion: RecordSchemaVersion, GUID: guid, Kind: KindTemplate,
+			Name: fmt.Sprintf("Asset %04d", index), Category: "fixture", Tags: []string{"common"},
+			Origin: Origin{Kind: "user"}, CreatedAt: time.Unix(int64(index), 0).UTC(),
+			Variants: []Variant{
+				{Resolution: [2]int{1280, 720}, Blob: first},
+				{Resolution: [2]int{1920, 1080}, Blob: second},
+			},
+		}
+	}
+	store.revision++
+	store.mu.Unlock()
+
+	service := NewService(store, nil, nil)
+	page, err := service.QueryAssets(AssetQuery{
+		Kind: KindTemplate, Category: "fixture", Tags: []string{"COMMON"}, Sort: "recent_desc",
+		Page: 1, PageSize: 20, ThumbnailBudget: 4, RecentGUIDs: []string{"asset-0900", "asset-0100"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1_000 || len(page.Items) != 20 || page.Items[0].GUID != "asset-0900" || page.Items[1].GUID != "asset-0100" || page.Revision == 0 {
+		t.Fatalf("picker page = %#v", page)
+	}
+	for index, item := range page.Items {
+		if (index < 4) != (item.Thumbnail != nil) {
+			t.Fatalf("thumbnail budget at item %d = %#v", index, item.Thumbnail)
+		}
+	}
+	binding, err := service.ResolveBinding(page.Items[0].Variants[1].Blob)
+	if err != nil || !binding.Found || binding.GUID != "asset-0900" || binding.Resolution != [2]int{1920, 1080} || binding.MatchCount != 1 {
+		t.Fatalf("ResolveBinding() = %#v, %v", binding, err)
+	}
+	if err := store.DeleteRecord(binding.GUID); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := service.ResolveBinding(binding.Blob)
+	if err != nil || stale.Found {
+		t.Fatalf("stale ResolveBinding() = %#v, %v", stale, err)
+	}
+}
+
+func TestServiceEmitsOneRevisionedAssetInvalidationPerMutation(t *testing.T) {
+	store, _ := newTestStore(t)
+	revisions := make([]uint64, 0)
+	service := NewService(store, nil, nil, func(name string, data any) {
+		if name != "asset:changed" {
+			t.Fatalf("event name = %q", name)
+		}
+		payload, ok := data.(map[string]any)
+		if !ok {
+			t.Fatalf("event payload = %#v", data)
+		}
+		revisions = append(revisions, payload["revision"].(uint64))
+	})
+	guid, err := service.SaveTemplateCapture(pngDataURL(t, 8, 8), "Asset", "", nil, [2]int{8, 8}, [4]float32{0, 0, 1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.UpdateMeta(guid, "Renamed", "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Delete(guid); err != nil {
+		t.Fatal(err)
+	}
+	if len(revisions) != 3 || revisions[0] >= revisions[1] || revisions[1] >= revisions[2] {
+		t.Fatalf("asset revisions = %v", revisions)
+	}
+}
+
 type testDurableReferences struct{ refs []blob.BlobRef }
 
 func (s *testDurableReferences) WithDurableBlobReferences(_ context.Context, visit func([]blob.BlobRef) error) error {
@@ -302,7 +381,7 @@ func (s *testDurableReferences) WithDurableBlobReferences(_ context.Context, vis
 func TestServiceCleanupProtectsAllRootsAndRejectsStalePreview(t *testing.T) {
 	ctx := context.Background()
 	store, _ := newTestStore(t)
-	assetID, err := NewService(store, nil).SaveTemplateCapture(pngDataURL(t, 8, 8), "live asset", "", nil, [2]int{8, 8}, [4]float32{0, 0, 1, 1})
+	assetID, err := NewService(store, nil, nil).SaveTemplateCapture(pngDataURL(t, 8, 8), "live asset", "", nil, [2]int{8, 8}, [4]float32{0, 0, 1, 1})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,6 +15,7 @@ declare module 'vue' {
     AppCard: typeof import('./src/components/common/AppCard.vue')['default']
     AppStatusBar: typeof import('./src/components/AppStatusBar.vue')['default']
     AppTitleBar: typeof import('./src/components/AppTitleBar.vue')['default']
+    AssetPickerModal: typeof import('./src/components/assets/AssetPickerModal.vue')['default']
     BaseModal: typeof import('./src/components/common/BaseModal.vue')['default']
     BlobPreview: typeof import('./src/components/common/BlobPreview.vue')['default']
     BotControls: typeof import('./src/components/BotControls.vue')['default']

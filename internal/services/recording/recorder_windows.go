@@ -38,7 +38,9 @@ type Recorder struct {
 	eventMu    sync.Mutex
 
 	// 时间基准 (Start 时设, drain 用来计算每个 Event.TUs 相对 0 的微秒偏移)
-	tStartUs uint64
+	tStartUs      uint64
+	eventStartMs  uint32
+	eventClockSet bool
 
 	// 暂停 (切除间隔语义): 暂停期 drainLoop 丢事件, 时间戳扣除累计暂停时长 → 回放无空档.
 	//   - paused: drainLoop 无锁高频读 → atomic.
@@ -50,22 +52,11 @@ type Recorder struct {
 
 	// seq 单调递增, 同 TUs 内 tie-break
 	seqCounter uint32
-
-	// mouseCounts360Getter Stop() 时调用快照当前 settings 的 360° HID counts。
-	// nil 或返 0 = 录制 metadata 里不写（回放也就不缩放）。
-	mouseCounts360Getter func() int
 }
 
 // NewRecorder 构造 Recorder。
 func NewRecorder() *Recorder {
 	return &Recorder{}
-}
-
-// SetMouseCounts360Getter 注入 settings 取值函数。main.go 启动时调一次。
-func (r *Recorder) SetMouseCounts360Getter(f func() int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.mouseCounts360Getter = f
 }
 
 // Active 当前是否在录。
@@ -122,6 +113,8 @@ func (r *Recorder) Start(hwnd uintptr, meta inputclip.ClipMeta) (string, error) 
 	r.clipEvents = nil
 	r.seqCounter = 0
 	r.tStartUs = nowMicros()
+	r.eventStartMs = 0
+	r.eventClockSet = false
 	r.paused.Store(false)
 	r.pausedAccumUs.Store(0)
 	r.pauseStartUs = 0
@@ -247,8 +240,21 @@ func (r *Recorder) drainLoop() {
 			continue
 		}
 		var clipEv inputclip.Event
-		// 扣除累计暂停时长 → 暂停前后事件时间戳无缝拼接, 回放无空档.
-		clipEv.TUs = nowMicros() - r.tStartUs - r.pausedAccumUs.Load()
+		// Use the native event clock when available so hook-to-drain scheduling
+		// jitter cannot change playback timing. Canonicalization later rebases the
+		// first retained event to zero.
+		elapsedUs := nowMicros() - r.tStartUs
+		if ev.TimestampMs != 0 {
+			if !r.eventClockSet {
+				r.eventStartMs = ev.TimestampMs
+				r.eventClockSet = true
+			}
+			elapsedUs = uint64(ev.TimestampMs-r.eventStartMs) * 1000
+		}
+		pausedUs := r.pausedAccumUs.Load()
+		if elapsedUs > pausedUs {
+			clipEv.TUs = elapsedUs - pausedUs
+		}
 		clipEv.Seq = r.seqCounter
 		r.seqCounter++
 
@@ -262,6 +268,9 @@ func (r *Recorder) drainLoop() {
 			clipEv.A = int32(ev.Vk)
 
 		case ev.IsRawDelta:
+			if r.meta.RecordingMode == inputclip.RecordingModeSimple || r.meta.MouseMode == "absolute" {
+				continue
+			}
 			clipEv.Type = inputclip.EventTypeRawDelta
 			clipEv.B = int32(ev.RawDx)
 			clipEv.C = int32(ev.RawDy)
@@ -281,6 +290,9 @@ func (r *Recorder) drainLoop() {
 			clipEv.C = cy
 
 		case ev.IsMouseMove:
+			if r.meta.RecordingMode == inputclip.RecordingModeSimple || r.meta.MouseMode == "relative" {
+				continue
+			}
 			if r.meta.MouseMode == "absolute" && !IsPointInsideGameWindow(r.hwnd, ev.ScreenX, ev.ScreenY) {
 				continue
 			}
@@ -335,7 +347,6 @@ func (r *Recorder) Stop() (*StopResult, error) {
 	rawCh := r.rawEvents
 	tempID := r.tempID
 	meta := r.meta
-	getter := r.mouseCounts360Getter
 	r.mu.Unlock()
 
 	// 1) 让 worker 退出 (PostQuit → GetMessage 返回 → Uninstall → close(done))
@@ -355,10 +366,6 @@ func (r *Recorder) Stop() (*StopResult, error) {
 	r.mu.Lock()
 	r.active = false
 	r.mu.Unlock()
-
-	if meta.MouseCounts360 == 0 && getter != nil {
-		meta.MouseCounts360 = getter()
-	}
 
 	return &StopResult{
 		Events: events,

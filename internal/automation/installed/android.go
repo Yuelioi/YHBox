@@ -110,7 +110,10 @@ func (d *androidDriver) resolveLocked(ctx context.Context) (target.Target, error
 	if d.closed {
 		return target.Target{}, failure(CodeContractViolation, errors.New("android ADB automation driver is closed"))
 	}
-	machine := d.profile.Machine()
+	machine, ok := AndroidProfile(d.profile)
+	if !ok {
+		return target.Target{}, failure(CodeContractViolation, errors.New("android driver received another adapter profile"))
+	}
 	timeout := time.Duration(machine.ResolveTimeoutMilliseconds) * time.Millisecond
 	resolveCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -177,7 +180,11 @@ func (d *androidDriver) Execute(ctx context.Context, operation string, raw any) 
 	}
 	switch request := raw.(type) {
 	case struct{}:
-		intent := d.profile.Machine().AndroidPackage
+		profile, ok := AndroidProfile(d.profile)
+		if !ok {
+			return failure(CodeContractViolation, errors.New("android driver received another adapter profile"))
+		}
+		intent := profile.AndroidPackage
 		if operation == OperationActivate {
 			return resolved.StartApp(ctx, controller.StartAppRequest{Intent: intent})
 		}

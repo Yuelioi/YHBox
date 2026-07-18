@@ -46,7 +46,7 @@ export function useCalibrationSession() {
     countdown.value = 3
     status.value = { active: false, absDx: 0, absDy: 0 }
     clearCountdown()
-    void backend.calibration.stop() // 已开着的后端 session 先停
+    void backend.calibration.stop().catch(() => undefined) // reset 是本地 no-op；显式忽略不存在的后端 session
     clearPoll()
   }
 
@@ -95,8 +95,9 @@ export function useCalibrationSession() {
   async function finishCountdown() {
     clearCountdown()
     stage.value = 'accumulating'
-    const ok = await backend.calibration.start()
-    if (ok === undefined) {
+    try {
+      await backend.calibration.start()
+    } catch {
       hotkeyWarn.value = 'service_failed'
       stage.value = 'waiting'
       return
@@ -105,8 +106,13 @@ export function useCalibrationSession() {
   }
 
   async function pollStatus() {
-    const s = await backend.calibration.status()
-    if (s) status.value = s as any
+    try {
+      const s = await backend.calibration.status()
+      if (s) status.value = s as any
+    } catch {
+      hotkeyWarn.value = 'service_failed'
+      clearPoll()
+    }
   }
 
   async function stopAccumulating() {
@@ -120,7 +126,7 @@ export function useCalibrationSession() {
     clearCountdown()
     clearPoll()
     await backend.calibration.stop()
-    void backend.calibration.stopHotkeyWatch()
+    void backend.calibration.stopHotkeyWatch().catch(() => undefined)
     if (unsubToggle) {
       unsubToggle()
       unsubToggle = null

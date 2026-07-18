@@ -1,27 +1,17 @@
 ---
-kind: trap
-summary: "节点校验分容器/编辑期(validator.go switch)与节点级 Validator 接口(运行期)两条管线，别混"
-activation: symptom
-read_when: "写\"给节点加校验 / 加 Validate\"类 spec 或代码前; 撞\"我加了 Validate 但编辑期没报/重复报\""
+kind: note
+summary: "3.1 校验按 Source/schema、Compiler、Admission、Executor/adapter 分层，但语义均来自 sealed Contract/Catalog；不能在前端或 runtime 建第二套规则。"
+activation: action
+read_when: "新增配置校验、类型/端口诊断、target/capability 检查或 runtime contract check 时"
+recheck_when: "ConfigValidator、Compiler diagnostic、Admission、Projection 或 adapter validation 改变后"
 ---
-# ⚠ 节点校验有两条管线，别把它们当一条
-**坑**: P1-1 §D 立项说"DetectColorHSV 没 Validate，HSV 倒置只能 Run 时报"，于是给节点加了个 `Validate()` 方法。真相是**编辑期 HSV 校验早就有**——只是在另一条管线里。§D 漏核 `validator.go` 直接基于"没有"的幻觉立项，加出来的是重复死码（头号铁律反面教材）。
+# 3.1 validation layers
 
-**两条管线**（写校验前必须先认清要进哪条）:
+- **Parse/schema**：严格格式、unknown field、budget、config schema 和稳定引用。
+- **Compiler**：exact NodeRef、端口/channel、类型、state、GraphCall、instruction、capability plan 和 implementation lock。
+- **Admission**：host feature、provider/target/credential candidate、policy/consent 和 durable QUEUED Run。
+- **Executor/adapter**：Program/Grant/implementation 复验、runtime value reseal、真实宿主请求与 action journal。
 
-1. **容器/编辑期校验** = `internal/services/container/validator.go`。
-   - `checkGraphPerKind` 里**按 `n.Kind` 写死 switch** 分发到手写的 `validateXxx(n)` 函数。
-   - 这是用户在 NodeInspector 看到的红错来源。
-   - **它不调节点自己的 `Validate()`**。要加编辑期校验 → 改这里的 switch / 对应 `validateXxx`。
+这些层负责不同时间点，但 machine semantics 必须来自同一 sealed Data Type/Node Contract/Catalog。前端可展示 Projection 和预检结果，不能发明独立 assignability、required、capability 或 error-route 规则。
 
-2. **节点级 `Validator` 接口** = 节点实现 `Validate(in node.Inputs) []node.ValidationError`。
-   - 只在 `internal/node/engine.go`（`rn.Validate != nil` → Run 前跑）触发，即**运行期**。
-   - 注册见 `registry.go`（`impl.(Validator)` → `rn.Validate`）。
-   - 编辑器**不**走这条。
-
-**怎么做**:
-- 要"编辑期就报" → 进 `validator.go` 的 switch，**别**只加节点 `Validate()`（那只在 runtime 跑）。
-- 加之前先 grep `validator.go` 里有没有同 kind 的 `validateXxx` 已经在校验同一字段——别重复。
-- 写 spec 现状段时，"某节点有没有 Validate"要**两条都查**，不能只看节点结构体有没有 `Validate` 方法。
-
-相关: [geometry-pin-value-pct-shape.md](geometry-pin-value-pct-shape.md)（同次 smoke 挖出的另一个 pin 形状坑）。
+新增规则时先决定它能否仅依赖 Source/Contract；能则放 Compiler/ConfigValidator并生成稳定 diagnostic。需要已安装目标时放 Admission；需要真实宿主状态时放 adapter。不要用 runtime fallback 修复编译期错误，也不要把 target unavailable 报成数据类型错误。

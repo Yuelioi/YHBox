@@ -1,11 +1,13 @@
 ---
 kind: note
-summary: "yt 脚本控制台 — 编辑器内对当前容器节点批量改 config 的 JS 控制台."
+summary: "历史 3.0 yt/Container JS 批量编辑控制台；3.1 明确不恢复，仅供旧行为取证。"
 activation: action
-read_when: "改 yt 脚本控制台 / 加或改 yt.* API / 写控制台批量改节点的脚本 / 碰\"编辑器内批量改节点 + 撤销\"机制 / 给控制台加补全前"
+read_when: "仅在审查 3.0 yt 控制台行为、旧快捷键或解释为何 3.1 不恢复 ambient JS 编辑权限时"
 recheck_when: "改 yt.* API 形态 / 执行(overlay·归一)或撤销机制 / 补全分流规则 / 控制台入口或 UI 时"
 ---
 # yt 脚本控制台 (JS bulk-edit console)
+
+> 历史知识：3.1 已删除该入口和 ambient `yt.*` API。批量编辑必须使用 `internal/workflow/authoring` typed command/patch；不得从本文恢复 JS/Wails/DOM 旁路。
 编辑器内的 **JS 控制台**, 对**当前容器**(主图 + 所有子图)的节点**批量改 config**。命名空间根 `yt` (对标 blender `bpy`)。入口: 工具栏 **⋯ 更多 →「打开 JS 脚本控制台」** 或 **Ctrl+K** 命令面板搜"脚本"。
 
 ## yt.* API (注入给脚本的全局)

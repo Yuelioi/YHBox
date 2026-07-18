@@ -12,25 +12,31 @@ import { Events } from '@wailsio/runtime'
 import { backend, type BlobRef } from '@/lib/backend'
 import { i18n } from '@/i18n'
 
+export type RecordingMode = 'simple' | 'precise'
+
 export interface RecordingState {
-  phase: 'idle' | 'recording' | 'paused' | 'finalizing'
+  revision: number
+  phase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
+  mode: RecordingMode | ''
   targetSlot: string
   tempID: string
   startedAtMs: number
   pausedMs: number // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
   pausedAtMs: number // 本次暂停起点 (>0 即暂停态, HUD 冻结计时); recording 态为 0
+  pending: RecordingStopPayload | null
 }
 
 export interface RecordingStopPayload {
   pendingID: string
   targetSlot: string
+  mode: RecordingMode
   durationUs: number
   eventCount: number
   preview: RecordingPreview
 }
 
 export interface RecordingPreview {
-  mode: 'steps' | 'trajectory'
+  mode: RecordingMode
   durationUs: number
   eventCount: number
   keyActions: number
@@ -58,7 +64,7 @@ export interface RecordingWorkflowDraftNode {
 }
 
 export interface RecordingWorkflowDraft {
-  mode: 'steps' | 'trajectory'
+  mode: RecordingMode
   nodes: RecordingWorkflowDraftNode[]
 }
 
@@ -76,9 +82,10 @@ export function isRecordingStopPayload(value: unknown): value is RecordingStopPa
     typeof value.pendingID === 'string' &&
     value.pendingID.length > 0 &&
     typeof value.targetSlot === 'string' &&
+    (value.mode === 'simple' || value.mode === 'precise') &&
     nonnegativeNumber(value.durationUs) &&
     nonnegativeNumber(value.eventCount) &&
-    (value.preview.mode === 'steps' || value.preview.mode === 'trajectory') &&
+    value.preview.mode === value.mode &&
     nonnegativeNumber(value.preview.durationUs) &&
     nonnegativeNumber(value.preview.eventCount) &&
     nonnegativeNumber(value.preview.keyActions) &&
@@ -96,7 +103,7 @@ function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizeP
     value.clipID.length > 0 &&
     typeof value.targetSlot === 'string' &&
     typeof value.label === 'string' &&
-    (value.draft.mode === 'steps' || value.draft.mode === 'trajectory') &&
+    (value.draft.mode === 'simple' || value.draft.mode === 'precise') &&
     Array.isArray(value.draft.nodes)
   )
 }
@@ -110,23 +117,31 @@ function nonnegativeNumber(value: unknown): value is number {
 }
 
 const IDLE: RecordingState = {
+  revision: 0,
   phase: 'idle',
+  mode: '',
   targetSlot: '',
   tempID: '',
   startedAtMs: 0,
   pausedMs: 0,
   pausedAtMs: 0,
+  pending: null,
 }
 
 function normalize(st: any): RecordingState {
   const p = st?.phase
+  const pending = isRecordingStopPayload(st?.pending) ? st.pending : null
   return {
-    phase: p === 'recording' || p === 'paused' || p === 'finalizing' ? p : 'idle',
+    revision: nonnegativeNumber(st?.revision) ? st.revision : 0,
+    phase:
+      p === 'recording' || p === 'paused' || p === 'finalizing' || p === 'pending' ? p : 'idle',
+    mode: st?.mode === 'simple' || st?.mode === 'precise' ? st.mode : '',
     targetSlot: st?.targetSlot ?? '',
     tempID: st?.tempID ?? '',
     startedAtMs: st?.startedAtMs ?? 0,
     pausedMs: st?.pausedMs ?? 0,
     pausedAtMs: st?.pausedAtMs ?? 0,
+    pending,
   }
 }
 
@@ -140,11 +155,19 @@ export const useRecordingStore = defineStore('recording', () => {
   const isPaused = computed(() => state.value.phase === 'paused')
   // Exact installed target slot remains present while paused/finalizing.
   const activeTargetSlot = computed(() =>
-    state.value.phase === 'idle' ? '' : state.value.targetSlot,
+    state.value.phase === 'recording' ||
+    state.value.phase === 'paused' ||
+    state.value.phase === 'finalizing'
+      ? state.value.targetSlot
+      : '',
   )
 
   function applyState(st: any) {
-    state.value = normalize(st)
+    const next = normalize(st)
+    if (next.revision < state.value.revision) return
+    state.value = next
+    if (next.pending) lastResult.value = next.pending
+    else if (next.phase === 'idle') lastResult.value = null
   }
 
   // 后端权威状态广播 — 镜像入口. store 实例化时注册一次 (每窗口一份, 长生命周期不退订).
@@ -164,12 +187,12 @@ export const useRecordingStore = defineStore('recording', () => {
     }
   }
 
-  async function start(targetSlot: string): Promise<void> {
-    if (isRecording.value) return
+  async function start(mode: RecordingMode, targetSlot: string): Promise<void> {
+    if (state.value.phase !== 'idle') return
     if (!targetSlot)
       throw new Error('recording.start: targetSlot ' + i18n.global.t('common.required'))
     lastResult.value = null
-    await backend.recording.start({ targetSlot })
+    await backend.recording.start({ targetSlot, mode })
     // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
     await reconcile()
   }
@@ -212,12 +235,14 @@ export const useRecordingStore = defineStore('recording', () => {
   }): Promise<RecordingFinalizePayload> {
     const result = await backend.recording.finalize(args)
     if (!isRecordingFinalizePayload(result)) throw new Error('recording.finalize: invalid result')
+    await reconcile()
     return result
   }
 
   async function discard(pendingID: string): Promise<void> {
     await backend.recording.discard(pendingID)
     lastResult.value = null
+    await reconcile()
   }
 
   return {

@@ -13,9 +13,13 @@ export function wireEvents() {
     useLogStore().appendBatch(batch.seq, batch.entries ?? [], batch.dropped ?? 0),
   )
 
-  void useHotkeysStore().reload()
+  void useHotkeysStore()
+    .reload()
+    .catch((error) => console.error('hotkey reload failed', error))
   const offHotkeys = backend.events.onHotkeyChanged(() => {
-    void useHotkeysStore().reload()
+    void useHotkeysStore()
+      .reload()
+      .catch((error) => console.error('hotkey reload failed', error))
   })
 
   disposeCurrent = () => {

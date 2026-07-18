@@ -10,6 +10,7 @@ import { backend, type BlobRef } from '@/lib/backend'
 
 // ClipMeta 跟 backend inputclip.ClipMeta 对齐 (model.go).
 export interface ClipMeta {
+  recordingMode: 'simple' | 'precise'
   mouseMode: string // 'relative' | 'absolute' | 'mixed'
   baseResolution: [number, number] // [w, h]
   mouseCounts360: number
@@ -50,21 +51,19 @@ export const useClipsStore = defineStore('clips', () => {
   async function refresh() {
     loading.value = true
     try {
-      const list = (await backend.clips.list()) as ClipSummary[] | undefined
-      clips.value = list ?? []
+      clips.value = (await backend.clips.list()).map((clip) => ({
+        ...clip,
+        meta: normalizeClipMeta(clip.meta),
+      }))
     } finally {
       loading.value = false
     }
   }
 
   async function get(id: string): Promise<InputClip | null> {
-    try {
-      const clip = (await backend.clips.get(id)) as InputClip | null | undefined
-      return clip ?? null
-    } catch (e) {
-      console.error('clips.get failed', e)
-      return null
-    }
+    const clip = await backend.clips.get(id)
+    if (!clip) return null
+    return { ...clip, meta: normalizeClipMeta(clip.meta) }
   }
 
   async function save(clip: InputClip): Promise<void> {
@@ -108,3 +107,28 @@ export const useClipsStore = defineStore('clips', () => {
 
   return { clips, loading, refresh, get, save, update, remove, listen, unlisten }
 })
+
+function normalizeClipMeta(meta: {
+  recordingMode: string
+  mouseMode: string
+  baseResolution: number[]
+  mouseCounts360: number
+  stopHotkeyVK: number
+}): ClipMeta {
+  const [width, height] = meta.baseResolution
+  if (
+    (meta.recordingMode !== 'simple' && meta.recordingMode !== 'precise') ||
+    meta.baseResolution.length !== 2 ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    throw new Error('clip metadata is invalid')
+  }
+  return {
+    recordingMode: meta.recordingMode,
+    mouseMode: meta.mouseMode,
+    baseResolution: [width!, height!],
+    mouseCounts360: meta.mouseCounts360,
+    stopHotkeyVK: meta.stopHotkeyVK,
+  }
+}

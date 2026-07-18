@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Events, Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
@@ -125,7 +125,9 @@ const countdownSec = ref(0)
 const resumeCountdown = ref(0) // >0 时显示"继续录制"倒计时 (优先于 paused 卡片)
 const stopKey = ref('F12') // 停录键标签, 由 recording:countdown 带来 (settings 配的)
 const pauseKey = ref('F11') // 暂停/继续切换键标签
+const mode = ref<'simple' | 'precise'>('simple')
 const elapsedMs = ref(0)
+let revision = 0
 // 计时基准: 录制时长 = now - startedAt - pausedMs (扣除累计暂停); 暂停态冻结值另算.
 let startedAt = 0
 let pausedMs = 0
@@ -133,7 +135,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 const cancelArmed = ref(false)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
 
-const modeLabel = computed(() => t('recordingSave.clip_type'))
+const modeLabel = computed(() => t(`recordingSave.mode_${mode.value}`))
 const windowStatus = computed(() => {
   if (resumeCountdown.value > 0 || state.value === 'countdown') return t('recordingHud.countdown')
   if (state.value === 'recording') return t('recordingHud.recording')
@@ -169,6 +171,7 @@ function startTimer() {
 const offCountdown = Events.On('recording:countdown', (e: any) => {
   const payload = e?.data?.[0] ?? e?.data ?? e
   const sec = payload?.sec ?? 0
+  if (payload?.mode === 'simple' || payload?.mode === 'precise') mode.value = payload.mode
   if (payload?.stopKey) stopKey.value = payload.stopKey
   if (payload?.pauseKey) pauseKey.value = payload.pauseKey
   if (sec > 0) {
@@ -184,7 +187,15 @@ const offCountdown = Events.On('recording:countdown', (e: any) => {
 // 即使主窗口没调 closeRecordingHUD (F12/异常停录), HUD 也不会残留.
 const offState = Events.On('recording:state', (e: any) => {
   const st = e?.data?.[0] ?? e?.data ?? e
+  applySnapshot(st)
+}) as unknown as () => void
+
+function applySnapshot(st: any) {
+  const nextRevision = typeof st?.revision === 'number' ? st.revision : 0
+  if (nextRevision < revision) return
+  revision = nextRevision
   const phase = st?.phase
+  if (st?.mode === 'simple' || st?.mode === 'precise') mode.value = st.mode
   if (phase === 'recording') {
     startedAt = (st?.startedAtMs ?? 0) > 0 ? st.startedAtMs : Date.now()
     pausedMs = st?.pausedMs ?? 0
@@ -203,7 +214,15 @@ const offState = Events.On('recording:state', (e: any) => {
     stopTimer()
     Window.Close()
   }
-}) as unknown as () => void
+}
+
+onMounted(async () => {
+  try {
+    applySnapshot(await backend.recording.getState())
+  } catch (error) {
+    console.warn('recording HUD reconcile failed', error)
+  }
+})
 
 // 暂停热键命中(后端)且当前 paused → emit 'recording:resume-hotkey' → HUD 走继续倒计时.
 const offResumeHotkey = Events.On('recording:resume-hotkey', () => {

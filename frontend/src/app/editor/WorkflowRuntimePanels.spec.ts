@@ -41,4 +41,10 @@ describe('workflow runtime inspection UI', () => {
     expect(editor).toContain('await setCenter(')
     expect(node).toContain('data-testid="node-run-status"')
   })
+
+  it('renders structured run and RPC failures as localized messages', () => {
+    expect(timeline).toContain('failureMessage')
+    expect(timeline).toContain('`error.${props.run.failure.code}`')
+    expect(editor).toContain('errorMessage(error)')
+  })
 })

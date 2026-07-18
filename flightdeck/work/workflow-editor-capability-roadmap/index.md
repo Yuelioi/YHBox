@@ -6,46 +6,52 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。3.1 尚未发布；Stage 1–12 已完成 major upgrade、Windows 默认管理员权限收敛、权威类型系统、Type × Capability 闭包、Typed Authoring、引用状态安全迁移和 Projection/Compiler parity。代码阶段已闭环；唯一剩余项是 Slice 20 的管理员游戏窗口人工 smoke。
+In progress。3.1 尚未发布；执行内核保留，产品外围按 Slices 29–37 纵向恢复。R1 外围深模块已完成并通过整仓门禁，开始 R2 Windows 原生闭环；历史 Slices 1–26 不能直接作为发布证据。
 
 ## Next
 
-进入 Slice 20：使用管理员构建在真实管理员游戏窗口完成捕获、安装、输入与截图 smoke；通过后完成 Topic，失败则记录具体 adapter/UIPI 证据后修复。该步骤需要真实宿主，不能用单元测试替代。
+执行 Slice 34：以真实 Windows 管理员宿主完成 UAC、F9、exact/regex、多窗口、键鼠、截图、模板、录制与回放纵向旅程；先审计现有 adapter/native 路径，再集中实现并做 R2 native stage gate。
 
 ## Read now
 
-- work/workflow-editor-capability-roadmap/slices/20-desktop-target-uac-and-consent-ux.md
+- work/workflow-editor-capability-roadmap/slices/34-windows-native-closure.md
+- work/workflow-editor-capability-roadmap/artifacts/capability-ledger.md
+- work/workflow-editor-capability-roadmap/artifacts/golden-journeys.md
+- work/workflow-editor-capability-roadmap/context/r0-worktree-ownership.md
+- knowledge/architecture/feature-continuity-across-product-stack.md
+- knowledge/subgraph/asset-subsystem.md
+- knowledge/architecture/content-addressed-workflow-artifacts.md
+- knowledge/architecture/installed-input-authority.md
 - knowledge/build/build.md
-- knowledge/nodes/typed-authoring-contract.md
 
 ## Read if
 
-- work/workflow-editor-capability-roadmap/slices/map.md — 查询 Slice 状态
-- work/workflow-editor-capability-roadmap/slices/21-type-system-foundation.md — 修改类型关系、约束或 solver
-- work/workflow-editor-capability-roadmap/slices/22-type-capability-closure.md — 修改结构字段、Break 节点或能力闭包门禁
-- work/workflow-editor-capability-roadmap/slices/23-typed-authoring-ux.md — 修改连接计划、State 或转换交互
-- work/workflow-editor-capability-roadmap/slices/25-connection-plan-compiler-parity.md — 修改 TS/Go 直接连接边界
-- work/workflow-editor-capability-roadmap/slices/24-settings-reference-integrity.md — 修改 application/target 删除语义
-- knowledge/build/build.md — 进入阶段验收、发布、打包或真机 smoke
+- work/workflow-editor-capability-roadmap/slices/map.md — 查询/调整完整 Slice registry
+- work/workflow-editor-capability-roadmap/slices/27-architecture-recovery.md — 查看 R0–R5 恢复设计和架构理由
+- work/workflow-editor-capability-roadmap/context/r0-worktree-ownership.md — 开始修改现有 dirty 路径前确认归属
+- work/workflow-editor-capability-roadmap/slices/28-legacy-knowledge-reconciliation.md — 复查旧 Knowledge/docs 的范围和结果
+- knowledge/architecture/go-multiplatform-boundary.md — 修改 target/profile/Adapter seam
+- knowledge/architecture/installed-input-authority.md — 修改窗口选择、输入或 consent
+- knowledge/nodes/node-system-architecture.md — 修改节点契约、Catalog、Compiler 或 adapter
+- knowledge/nodes/recording-schema-cascade.md — 修改录制/finalize/codec/playback
+- knowledge/build/build.md — 进入阶段验收、打包或真实宿主 smoke
 
 ## Progress
 
-- Stage 1–10 已恢复图编辑、调试、录制、资源、桌面/Android/Browser、多图和工作流库；Stage 11 固定 requireAdministrator manifest。
-- 类型方向调研见 docs/research/visual-type-system-authoring.md；3.1 使用名义类型、显式关系、可见转换、可执行泛型和 typed Blackboard。
-- Data Type semantic 已有 closed traits、assignable targets、StructureSpec；Catalog 拒绝悬空关系、未知 trait、结构字段漂移和能力缺口。
-- Compiler 已执行 constraint、实例 scope、occurs check、唯一 LUB 和顺序无关绑定；Integer→Number 是显式安全提升，List 保持不变。
-- Integer 运算、泛型 Log/Equal/ListContains/State、6 类结构化 Break 节点和 Type × Capability matrix 已闭环。
-- EditorSession 做图级实例专化；Run 状态支持搜索、拖出 Read/Write、跨图引用定位与改型影响预览。
-- 连接计划区分 direct/conversion/incompatible；有损/parser 显式选择后插入真实转换桥，整次一次 Undo。
-- durable 精确输出支持 Promote to State：原子创建同类型状态、插入 State Write 并连线，一次 Undo。
-- 引用状态改型会模拟目标类型并列出受影响数据边；需要转换或不兼容时 UI 阻止静默迁移。
-- Application 对引用状态改型执行正式 Compiler 基线/候选诊断差分；只有无新增错误的原子候选可保存，PreparedPatch 也不能绕过。
-- TypeScript 与 Go 读取同一份 12-case 固定 fixture，覆盖 exact、nominal promotion、generic trait、union、List 不变性和 semantic digest。
-- parity 阶段修复了 Compiler 对具体 List 的隐式协变；只有包含类型变量的 List 才递归绑定，具体 List 必须元素表达式完全相同。
-- 状态列表和连接候选使用分段结果预算，搜索/模式变化会重置预算，避免一次渲染全部大集合。
-- 最新完整 `task check` 于 2026-07-18 通过：162 frontend tests、Go 65.5% coverage/vet/staticcheck、Workflow/Node contracts、AI eval、Wails 167 models、i18n、production build 与 bundle budget。
+- 3.0 reference worktree、capability ledger、G01–G17、dirty ownership 与 18 条历史 Knowledge 退役 registry 已固定。
+- Slice 29 已完成恢复事实基线；Slice 30 已完成 Typed RPC，Stage R1 全门禁统一延后到 Slices 30–33 完成后执行。
+- Slice 31 已完成 adapter-owned profile intent/payload、versioned Installation Manifest 与 descriptor-driven Settings fallback；中央 Settings 和 composition root 不再理解平台 payload/capability switch。
+- Host Profile、provider operations、Policy/consent、health 与 authoring 均消费同一 manifest/adapter registration；自定义 Adapter 的 verifier 不再回落默认 registry。
+- AutomationTargetRuntime 已集中 prepare/publish/rollback/lease/reclaim/shutdown；同进程 target/consent mutation 与 old-Run exact generation lease 有聚合测试。
+- Slice 31 聚合验收通过：相关 Go packages、vue-tsc、3 个 Vitest 文件 13 tests、oxfmt 与定向 diff check；Windows/ADB native 旅程留在 R2/R4。
+- Slice 32 已完成单一 Recording Session：显式 simple/precise、exact generation lease、native clock canonicalization、monotonic snapshot/pending、InputClip v3 自校验与 asset reload/draft round-trip。
+- Slice 32 定向实现检验通过：5 个 Go packages、vue-tsc、5 个前端文件 35 tests、Wails contract、i18n 与相关格式检查；其后已纳入 R1 整仓门禁。
+- Slice 33 已完成共享 Asset Query/Picker：服务端分页搜索、recent/thumbnail budget、revision invalidation、exact BlobRef 反查与 stale binding；Inspector 不再全量加载资产或展开 variants。
+- R1 阶段门禁 `task check` 已通过：Go 全仓、vet/staticcheck/coverage、43 个前端测试文件 183 tests、类型/i18n/Wails contract、production build 与 bundle budget 全绿。
 
 ## Open questions
 
-- Slice 20 的管理员游戏窗口 capture/install/input/screenshot smoke 需要真实宿主完成。
-- 列表保持不变性；证明只读安全并在 contract 中表达后才考虑协变。
+- specialized vision、EventTick 按旧真实 workflow 证据决定恢复、复合替代或删除；不阻塞已确定的 P0 恢复。
+- Windows recording/mouse/key/screenshot 的 native 旅程与 Android emulator 尚无可信纵向验收；Asset Picker 的 1000×2 contract fixture 已通过，人工 UX/响应预算仍留在 R3。
+- 现有 dirty business diff 的每一处实现仍需由对应 Slice 审查，不能按路径归属直接认定正确。
+

@@ -1,11 +1,13 @@
 ---
 kind: trap
-summary: "从 `spec.defaults` / `KIND_DEFAULTS` 创建节点时不能只浅拷贝，嵌套 `config.literal` 会被多个新节点共享引用，表现为改一个节点另一个同步变化。"
+summary: "历史 3.0 KIND_DEFAULTS 浅拷贝串台案例；3.1 仍保留‘默认 artifact 必须深复制/不可变’的一般教训。"
 activation: symptom
-read_when: "新增或修改前端节点创建路径；排查“两个新建节点的配置互相同步/串台”；给节点默认值增加嵌套对象或数组时。"
+read_when: "排查 3.1 EditorSession 新建节点配置串台，或审查 3.0 KIND_DEFAULTS 旧实现时"
 recheck_when: "`useNodeCreation` / `useInlineMenu` / `KIND_DEFAULTS` / node registry defaults 生成逻辑变化时。"
 ---
 # ⚠ 新增节点默认 config 浅拷贝会共享嵌套 literal
+
+> 历史案例使用的 `KIND_DEFAULTS/spec.defaults` 已删除；现行原则是 Authoring Projection/default artifact 与 EditorSession snapshot 不可共享可变嵌套引用。
 根因：`config: { ...defaults }` 只复制顶层对象，`defaults.literal` 仍是同一个引用。连续新增两个 `Win32WindowTarget` 后，Inspector 直接 mutate 当前节点 `config.literal`，两个节点实际指向同一个 literal，于是保存后两个节点落盘成同一套 Title/Class/ProcessName。
 
 处理原则：

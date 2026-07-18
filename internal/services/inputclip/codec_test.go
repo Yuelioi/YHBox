@@ -8,7 +8,7 @@ import (
 func TestEncodeEmptyClip(t *testing.T) {
 	clip := &InputClip{
 		ID: "test", Label: "empty",
-		Meta: ClipMeta{MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
+		Meta: ClipMeta{RecordingMode: RecordingModePrecise, MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
 	}
 	var buf bytes.Buffer
 	if err := Encode(&buf, clip); err != nil {
@@ -22,15 +22,15 @@ func TestEncodeEmptyClip(t *testing.T) {
 		t.Errorf("magic = %q, want ICLP", got[:4])
 	}
 	// version 4 字节 little-endian
-	if got[4] != 2 || got[5] != 0 || got[6] != 0 || got[7] != 0 {
-		t.Errorf("version = % x, want 02 00 00 00", got[4:8])
+	if got[4] != 3 || got[5] != 0 || got[6] != 0 || got[7] != 0 {
+		t.Errorf("version = % x, want 03 00 00 00", got[4:8])
 	}
 }
 
 func TestEncodeWithEvents(t *testing.T) {
 	clip := &InputClip{
 		ID: "t1", Label: "with-events",
-		Meta: ClipMeta{MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
+		Meta: ClipMeta{RecordingMode: RecordingModePrecise, MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
 		Events: []Event{
 			{TUs: 0, Seq: 0, Type: EventTypeKeyDown, A: 0x57},
 			{TUs: 100000, Seq: 1, Type: EventTypeKeyUp, A: 0x57},
@@ -58,10 +58,14 @@ func TestEncodeWithEvents(t *testing.T) {
 }
 
 func TestCodecContentIdentityExcludesPresentationMetadata(t *testing.T) {
-	events := []Event{{TUs: 0, Type: EventTypeKeyDown, A: 0x41}}
+	events := []Event{
+		{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+		{TUs: 1, Seq: 1, Type: EventTypeKeyUp, A: 0x41},
+	}
 	encode := func(id, label string) []byte {
 		var buffer bytes.Buffer
-		clip := &InputClip{ID: id, Label: label, Meta: ClipMeta{MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: events}
+		clip := &InputClip{ID: id, Label: label, Meta: ClipMeta{RecordingMode: RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: events}
+		clip.UpdateDuration()
 		if err := Encode(&buffer, clip); err != nil {
 			t.Fatal(err)
 		}
@@ -73,7 +77,11 @@ func TestCodecContentIdentityExcludesPresentationMetadata(t *testing.T) {
 }
 
 func TestDecodeRejectsNonCanonicalOrCorruptCarrier(t *testing.T) {
-	clip := &InputClip{Meta: ClipMeta{MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: []Event{{TUs: 0, Type: EventTypeKeyDown, A: 0x41}}}
+	clip := &InputClip{Meta: ClipMeta{RecordingMode: RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}}, Events: []Event{
+		{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+		{TUs: 1, Seq: 1, Type: EventTypeKeyUp, A: 0x41},
+	}}
+	clip.UpdateDuration()
 	var buffer bytes.Buffer
 	if err := Encode(&buffer, clip); err != nil {
 		t.Fatal(err)
@@ -96,11 +104,15 @@ func TestCodecFooterOffsets(t *testing.T) {
 	// 200 events → 2 chunks (127 + 73)
 	events := make([]Event, 200)
 	for i := range events {
-		events[i] = Event{TUs: uint64(i * 1000), Seq: uint32(i), Type: EventTypeKeyDown, A: 0x57}
+		eventType := EventTypeKeyDown
+		if i%2 == 1 {
+			eventType = EventTypeKeyUp
+		}
+		events[i] = Event{TUs: uint64(i * 1000), Seq: uint32(i), Type: eventType, A: 0x57}
 	}
 	clip := &InputClip{
 		ID: "f", Label: "footer-test",
-		Meta:   ClipMeta{MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
+		Meta:   ClipMeta{RecordingMode: RecordingModePrecise, MouseMode: "relative", BaseResolution: [2]int{1920, 1080}},
 		Events: events,
 	}
 	clip.UpdateDuration()
@@ -119,5 +131,32 @@ func TestCodecFooterOffsets(t *testing.T) {
 		if got.Events[i].TUs != uint64(i*1000) {
 			t.Fatalf("event[%d].TUs = %d, want %d", i, got.Events[i].TUs, i*1000)
 		}
+	}
+}
+
+func TestCodecRejectsIllegalInputState(t *testing.T) {
+	for name, events := range map[string][]Event{
+		"held key": {
+			{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+		},
+		"orphan release": {
+			{TUs: 0, Type: EventTypeKeyUp, A: 0x41},
+		},
+		"duplicate press": {
+			{TUs: 0, Type: EventTypeKeyDown, A: 0x41},
+			{TUs: 1, Seq: 1, Type: EventTypeKeyDown, A: 0x41},
+			{TUs: 2, Seq: 2, Type: EventTypeKeyUp, A: 0x41},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			clip := &InputClip{
+				Meta:   ClipMeta{RecordingMode: RecordingModeSimple, MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}},
+				Events: events,
+			}
+			clip.UpdateDuration()
+			if err := Encode(&bytes.Buffer{}, clip); err == nil {
+				t.Fatal("Encode accepted illegal input state")
+			}
+		})
 	}
 }

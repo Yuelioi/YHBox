@@ -11,7 +11,7 @@
 - Browser CDP 在 installation、Settings、policy、provider/admission、Catalog 和健康诊断完整后声明支持。
 - 所有阶段按批量验收原则留下可信 build、test 与宿主 smoke 证据。
 
-以上定义已满足；3.1 产品能力升级范围完成，但产品尚未对外发布。
+2026-07-18 架构审计确认以上定义**尚未满足**；此前完成判定已撤销。执行内核升级已形成，但产品连续性、外围模块边界和真实宿主纵向验收仍需按 Slice 27 恢复。
 
 ## 执行原则
 
@@ -21,29 +21,28 @@
 - 保存等原地动作成功不 toast；失败使用统一 Nuxt UI。
 - 不恢复旧 Container runtime，不创建第二套 Workflow Source/compiler/runtime。
 - 不恢复任意宿主 JS/Wails/yt console；脚本只能走 capability-admitted 隔离执行。
+- 3.0 历史 Knowledge 在恢复期间保留并明确标记，R5 通过后统一 promotion、归档或删除，不长期混在主动 Knowledge 中。
 
-## 已完成阶段
+## 当前执行路线
 
-- Stage 0：旧版能力审计与架构纠偏。
-- Stage 1：交互正确性、类型感知连线、选择/布局。
-- Stage 2：结构化诊断、运行轨迹、同 scheduler 真调试。
-- Stage 3：模板复合节点、资源预览、键鼠/轨迹录制。
-- Stage 4：基础 UX、桌面目标/F9、工作流库、AI endpoint、launcher。
-- Stage 5：平台中立 automation installation Adapter seam。
-- Stage 6：Android/ADB installation、创作、运行与 emulator smoke。
-- Stage 7：高级能力恢复 umbrella（Slices 15–19 全部完成）。
-- Stage 8：Workflow Source portability、资产规模化管理与安全 Blob cleanup。
-- Stage 9：Browser CDP exact installation、Settings、provider/Catalog 与 Chrome/Edge smoke。
-- Stage 10：Source-native 多图创作、graph-call、comment、reroute 和跨图 debug/authoring。
+| Recovery Stage | Slices | 交付边界 | Stage gate |
+| --- | --- | --- | --- |
+| R0 事实重置 | 29 | 固定 3.0 oracle、capability ledger、G01–G17、dirty ownership、历史 Knowledge 退役 registry | 文档/链接/Flightdeck 校验；不跑产品门禁 |
+| R1 外围深模块 | 30–33 | Typed RPC、Installation Manifest/Target Runtime、Recording Session、Asset Picker Query | contract/conformance + 相关聚合测试 + `task check`；形成一个阶段 commit |
+| R2 Windows 闭环 | 34 | UAC、F9、exact/regex、多窗口、键鼠、窗口、截图、模板、录制/回放 | G02–G08/G11/G13/G15 + production build + Windows native smoke；一个 commit |
+| R3 创作能力 | 35 | 搜索式 picker、typed State/转换、编辑器基础旅程、P0/P1 节点族 | G01/G06/G09–G12 + editor/integration + 人工 UX；一个 commit |
+| R4 平台连续性 | 36 | Android/ADB、Browser CDP、macOS seam proof | G16/G17 + emulator/browser smoke + cross-platform compile；一个 commit |
+| R5 发布 | 37 | 全矩阵、规模、生命周期、workspace 恢复与 3.0 Knowledge 退役 | G01–G17、完整 `task check`/build/native matrix、用户验收 |
 
-## Stage 10 交付结果
+当前阶段：R1 已于 2026-07-18 完成并形成统一 `task check` 证据；下一阶段是 R2 / Slice 34，不能用 R1 contract 结果替代 Windows native smoke。
 
-- typed graph interface、GraphCall、递归/深度预算及 compiler/program/scheduler/journal graph path 已完成。
-- 编辑器可创建、进入、返回、重命名、删除 subgraph；可插入调用、推断接口、折叠选择、编辑 typed bindings。
-- comment 是 authoring-only annotation；reroute 是 edge presentation metadata，均不进入 scheduler/capability。
-- 调试断点、单步、诊断、节点定位、clipboard、布局、AI/MCP authoring 与 portability 支持多 graph。
-- 阶段门禁已通过：`task check`、production `task build`、Windows WebView 多图 authoring/debug/assets smoke 和人工截图检查。
+具体 completion、blocked-by、verification 和 out-of-scope 只在对应 Slice 维护；[Slice 27](slices/27-architecture-recovery.md) 是恢复设计 umbrella，[Slice registry](slices/map.md) 是完整状态表。
+
+## 历史实现证据
+
+Slices 1–26 只证明相应组件和历史批次曾实现，不能直接作为 3.1 发布证据。它们的可复用实现必须重新映射到 [capability ledger](artifacts/capability-ledger.md)，并通过对应 [golden journeys](artifacts/golden-journeys.md)。
 
 ## 发布阈值
 
-本计划定义的 3.1 major upgrade 发布阈值已经满足。后续发布准备不得重新阉割这些能力；签名、安装包、license 表述与最终真机矩阵属于发布工程，不改变本计划的完成状态。
+本计划定义的 3.1 major upgrade 发布阈值**尚未满足**。后续以 capability ledger、G01–G17 和 Slice 37 的真实宿主矩阵为唯一完成依据；签名、安装包和 license 表述仍属于发布工程，但不得替代产品能力验收。
+

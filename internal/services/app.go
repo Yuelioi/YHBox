@@ -17,11 +17,12 @@ type App struct {
 	emitter          func(name string, data any)
 	presentationLife presentationLifecycle
 
-	settingsPath     string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
-	settings         *Settings
-	settingsMu       sync.RWMutex
-	settingsUpdateMu sync.Mutex
-	settingsSaver    func(string, *Settings) error
+	settingsPath      string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
+	settings          *Settings
+	settingsMu        sync.RWMutex
+	settingsUpdateMu  sync.Mutex
+	settingsSaver     func(string, *Settings) error
+	settingsActivator SettingsActivationPreparer
 
 	logSink *LogSink
 	logs    *LogRuntime
@@ -30,6 +31,31 @@ type App struct {
 	shutdownOnce sync.Once
 	shutdownDone chan struct{}
 	shutdownErr  error
+}
+
+// SettingsActivationPlan is prepared from a validated candidate before it is
+// persisted. Commit publishes the matching runtime generation after the disk
+// commit; Abort releases an unpublished candidate.
+type SettingsActivationPlan struct {
+	Commit func() error
+	Abort  func()
+}
+
+type SettingsActivationPreparer func(before, after *Settings) (*SettingsActivationPlan, error)
+
+// AttachSettingsActivator installs the composition-owned runtime activation
+// seam. It must be attached once during startup before presentation commands.
+func (a *App) AttachSettingsActivator(preparer SettingsActivationPreparer) error {
+	if a == nil || preparer == nil {
+		return errors.New("settings activator is required")
+	}
+	a.settingsUpdateMu.Lock()
+	defer a.settingsUpdateMu.Unlock()
+	if a.settingsActivator != nil {
+		return errors.New("settings activator is already attached")
+	}
+	a.settingsActivator = preparer
+	return nil
 }
 
 type presentationLifecycle uint8
@@ -132,13 +158,28 @@ func (a *App) MutateSettings(
 	if err := after.Validate(); err != nil {
 		return before, nil, fmt.Errorf("validate settings: %w", err)
 	}
+	var activation *SettingsActivationPlan
+	if a.settingsActivator != nil {
+		activation, err = a.settingsActivator(before.Clone(), after.Clone())
+		if err != nil {
+			return before, nil, fmt.Errorf("prepare settings activation: %w", err)
+		}
+	}
 	saveErr := a.settingsSaver(a.settingsPath, after)
 	if saveErr != nil && !settingsSaveCommitted(saveErr) {
+		if activation != nil && activation.Abort != nil {
+			activation.Abort()
+		}
 		return before, nil, fmt.Errorf("save settings: %w", saveErr)
 	}
 	a.settingsMu.Lock()
 	a.settings = after.Clone()
 	a.settingsMu.Unlock()
+	if activation != nil && activation.Commit != nil {
+		if activationErr := activation.Commit(); activationErr != nil {
+			return before, after.Clone(), &settingsCommittedError{err: fmt.Errorf("activate settings: %w", activationErr)}
+		}
+	}
 	for _, sideEffect := range sideEffects {
 		if sideEffect != nil {
 			sideEffect(before.Clone(), after.Clone())

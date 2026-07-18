@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
@@ -45,6 +47,38 @@ func (e *Error) Error() string {
 	return e.Code
 }
 func (e *Error) Unwrap() error { return e.Cause }
+
+func (e *Error) RPCErrorEnvelope() apperr.Envelope {
+	if e == nil {
+		return apperr.Envelope{Code: apperr.CodeUnclassified, Category: apperr.CategoryInfrastructure, Message: "unknown admission error"}
+	}
+	details := map[string]any{}
+	if e.GraphID != "" {
+		details["graphId"] = e.GraphID
+	}
+	if e.NodeID != "" {
+		details["nodeId"] = e.NodeID
+	}
+	if e.RequirementID != "" {
+		details["requirementId"] = e.RequirementID
+	}
+	if e.Slot != "" {
+		details["slot"] = e.Slot
+	}
+	if e.Commit != 0 {
+		details["commit"] = e.Commit
+	}
+	category := apperr.CategoryAdapter
+	retryable := false
+	switch e.Code {
+	case CodeConsentRequired, CodePolicyDenied, CodePolicyInvalid:
+		category = apperr.CategoryPolicy
+	case CodePersistenceFailed, CodePersistenceUnconfirmed:
+		category = apperr.CategoryInfrastructure
+		retryable = true
+	}
+	return apperr.Envelope{Code: e.Code, Category: category, Message: e.Code, Details: details, Retryable: retryable}
+}
 
 type Selection struct {
 	Targets     map[string]string
@@ -109,12 +143,17 @@ type Options struct {
 
 type Admitter struct {
 	catalog nodecatalog.Snapshot
-	profile HostProfile
 	store   recordCreator
-	policy  Policy
 	now     func() time.Time
 	newID   func() (string, error)
 	maxTTL  time.Duration
+	envMu   sync.RWMutex
+	env     admissionEnvironment
+}
+
+type admissionEnvironment struct {
+	profile HostProfile
+	policy  Policy
 }
 
 func New(catalog nodecatalog.Snapshot, profile HostProfile, store recordCreator, policy Policy, options Options) (*Admitter, error) {
@@ -130,7 +169,26 @@ func New(catalog nodecatalog.Snapshot, profile HostProfile, store recordCreator,
 	if options.MaxGrantTTL <= 0 || options.MaxGrantTTL > 24*time.Hour {
 		return nil, errors.New("admitter requires a bounded grant TTL")
 	}
-	return &Admitter{catalog: catalog, profile: profile, store: store, policy: policy, now: options.Now, newID: options.NewRunID, maxTTL: options.MaxGrantTTL}, nil
+	return &Admitter{catalog: catalog, store: store, now: options.Now, newID: options.NewRunID, maxTTL: options.MaxGrantTTL, env: admissionEnvironment{profile: profile, policy: policy}}, nil
+}
+
+// ReplaceEnvironment atomically publishes a matching Host Profile and Policy.
+// One admission always uses exactly one immutable environment generation.
+func (a *Admitter) ReplaceEnvironment(profile HostProfile, policy Policy) error {
+	if a == nil || !profile.Valid() || policy == nil {
+		return errors.New("admission environment requires a trusted Host Profile and Policy")
+	}
+	a.envMu.Lock()
+	a.env = admissionEnvironment{profile: profile, policy: policy}
+	a.envMu.Unlock()
+	return nil
+}
+
+func (a *Admitter) environment() admissionEnvironment {
+	a.envMu.RLock()
+	env := a.env
+	a.envMu.RUnlock()
+	return env
 }
 
 func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
@@ -140,23 +198,24 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 	if request.Program.CatalogHash() != a.catalog.Hash() {
 		return Result{}, &Error{Code: CodeProviderIncompatible}
 	}
-	if err := a.requireHostFeatures(request.Program.Nodes()); err != nil {
+	env := a.environment()
+	if err := requireHostFeatures(env.profile, request.Program.Nodes()); err != nil {
 		return Result{}, err
 	}
 	runID, err := a.newID()
 	if err != nil || runid.Validate(runID) != nil {
 		return Result{}, &Error{Code: CodePolicyInvalid, Cause: err}
 	}
-	bindings, err := a.plan(request.Program.CapabilityPlan(), runID, request.Selection)
+	bindings, err := a.plan(env.profile, request.Program.CapabilityPlan(), runID, request.Selection)
 	if err != nil {
 		return Result{}, err
 	}
 	policyRequest := PolicyRequest{
 		ProgramHash: request.Program.Hash(), PlanDigest: request.Program.CapabilityPlan().Digest(), RunID: runID,
-		Principal: request.Principal, HostProfile: a.profile.Digest(), Bindings: append([]capability.Binding(nil), bindings...),
+		Principal: request.Principal, HostProfile: env.profile.Digest(), Bindings: append([]capability.Binding(nil), bindings...),
 		Requirements: request.Program.CapabilityPlan().Entries(),
 	}
-	decision, err := a.policy.Authorize(ctx, policyRequest)
+	decision, err := env.policy.Authorize(ctx, policyRequest)
 	if err != nil {
 		return Result{}, &Error{Code: CodePolicyDenied, Cause: err}
 	}
@@ -201,9 +260,9 @@ func (a *Admitter) Admit(ctx context.Context, request Request) (Result, error) {
 	return Result{Grant: grant, Record: record}, nil
 }
 
-func (a *Admitter) requireHostFeatures(nodes []compiler.NodeView) error {
-	available := make(map[string]struct{}, len(a.profile.state.document.Features))
-	for _, feature := range a.profile.state.document.Features {
+func requireHostFeatures(profile HostProfile, nodes []compiler.NodeView) error {
+	available := make(map[string]struct{}, len(profile.state.document.Features))
+	for _, feature := range profile.state.document.Features {
 		available[feature] = struct{}{}
 	}
 	for _, node := range nodes {
@@ -232,7 +291,7 @@ type plannedRequirement struct {
 	unsupported bool
 }
 
-func (a *Admitter) plan(plan capability.Plan, runID string, selection Selection) ([]capability.Binding, error) {
+func (a *Admitter) plan(profile HostProfile, plan capability.Plan, runID string, selection Selection) ([]capability.Binding, error) {
 	entries := plan.Entries()
 	planned := make([]plannedRequirement, 0, len(entries))
 	bySlot := map[string][]int{}
@@ -242,14 +301,14 @@ func (a *Admitter) plan(plan capability.Plan, runID string, selection Selection)
 			return nil, admissionError(CodeProviderIncompatible, entry, entry.Requirement.TargetSlot)
 		}
 		item := plannedRequirement{entry: entry, definition: definition, candidates: map[string]targetCandidate{}}
-		for _, target := range a.profile.state.document.Targets {
-			provider := a.profile.state.providers[target.ProviderID]
+		for _, target := range profile.state.document.Targets {
+			provider := profile.state.providers[target.ProviderID]
 			provided, exact, related := providerCapability(provider, entry.Requirement.Capability)
 			if related && (!exact || provider.ABI != definition.Machine().ProviderABI) {
 				item.mismatch = true
 				continue
 			}
-			if exact && provider.ABI == definition.Machine().ProviderABI && !providerSupportsHost(provider, a.profile.state.document) {
+			if exact && provider.ABI == definition.Machine().ProviderABI && !providerSupportsHost(provider, profile.state.document) {
 				item.unsupported = true
 				continue
 			}
@@ -282,7 +341,7 @@ func (a *Admitter) plan(plan capability.Plan, runID string, selection Selection)
 		}
 		selected := selection.Targets[slot]
 		if selected == "" {
-			selected = a.profile.state.targetSlots[slot]
+			selected = profile.state.targetSlots[slot]
 		}
 		if selected != "" {
 			for key, candidate := range intersection {
@@ -312,7 +371,7 @@ func (a *Admitter) plan(plan capability.Plan, runID string, selection Selection)
 			return nil, &Error{Code: CodeTargetUnavailable, Slot: slot}
 		}
 	}
-	credentialBySlot, err := a.planCredentials(planned, chosen, selection.Credentials)
+	credentialBySlot, err := planCredentials(profile, planned, chosen, selection.Credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +398,7 @@ func providerSupportsHost(provider ProviderDescriptor, profile HostProfileDraft)
 	return contains(provider.OperatingSystems, profile.OS) && contains(provider.Architectures, profile.Architecture) && contains(provider.HostAPIs, profile.HostAPIGeneration)
 }
 
-func (a *Admitter) planCredentials(planned []plannedRequirement, chosen map[string]targetCandidate, selections map[string]string) (map[string]string, error) {
+func planCredentials(profile HostProfile, planned []plannedRequirement, chosen map[string]targetCandidate, selections map[string]string) (map[string]string, error) {
 	bySlot := map[string][]plannedRequirement{}
 	for _, item := range planned {
 		if item.entry.Requirement.CredentialSlot != "" {
@@ -349,13 +408,13 @@ func (a *Admitter) planCredentials(planned []plannedRequirement, chosen map[stri
 	result := map[string]string{}
 	for slot, items := range bySlot {
 		candidates := map[string]struct{}{}
-		for id := range a.profile.state.credentials {
+		for id := range profile.state.credentials {
 			candidates[id] = struct{}{}
 		}
 		for _, item := range items {
 			provider := chosen[item.entry.Requirement.TargetSlot].provider
 			for id := range candidates {
-				credential := a.profile.state.credentials[id]
+				credential := profile.state.credentials[id]
 				if credential.ProviderID != provider.ID || credential.Capability != item.entry.Requirement.Capability {
 					delete(candidates, id)
 				}
@@ -363,7 +422,7 @@ func (a *Admitter) planCredentials(planned []plannedRequirement, chosen map[stri
 		}
 		selected := selections[slot]
 		if selected == "" {
-			selected = a.profile.state.credentialSlots[slot]
+			selected = profile.state.credentialSlots[slot]
 		}
 		if selected != "" {
 			for id := range candidates {

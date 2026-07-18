@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	AutomationWindowCapabilityID       = "https://schemas.yotta.dev/capabilities/automation/window/v1"
-	AutomationAppLifecycleCapabilityID = "https://schemas.yotta.dev/capabilities/automation/app-lifecycle/v1"
+	AutomationWindowCapabilityID       = installed.CapabilityWindowID
+	AutomationAppLifecycleCapabilityID = installed.CapabilityAppLifecycleID
 	ActivateWindowNodeID               = "https://schemas.yotta.dev/nodes/automation/activate-window"
 	ActivateWindowEffectID             = "https://schemas.yotta.dev/effects/automation/activate-window/v1"
 	StopTargetAppNodeID                = "https://schemas.yotta.dev/nodes/automation/stop-target-app"

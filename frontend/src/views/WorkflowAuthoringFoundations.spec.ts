@@ -41,7 +41,7 @@ describe('workflow authoring foundations', () => {
     const source = readSource('src/views/AssetsView.vue')
     const router = readSource('src/router/index.ts')
     expect(router).toContain("path: '/assets'")
-    expect(source).toContain('recording.start(selectedTargetSlot.value)')
+    expect(source).toContain('beginRecording(recordingMode.value, selectedTargetSlot.value)')
     expect(source).toContain("openScreenPicker('template_save'")
     expect(source).toContain('backend.assets.updateMeta')
     expect(source).toContain("'template_recapture'")
@@ -50,7 +50,7 @@ describe('workflow authoring foundations', () => {
 
   it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {
     const source = readSource('src/views/AssetsView.vue')
-    expect(source).toContain('backend.assets.query')
+    expect(source).toContain('assets.query')
     expect(source).toContain('page: page.value')
     expect(source).toContain('pageSize: pageSize.value')
     expect(source).toContain('toggleCurrentPage')
@@ -59,6 +59,20 @@ describe('workflow authoring foundations', () => {
     expect(source).toContain('retainFailedSelection')
     expect(source).toContain('backend.assets.previewCleanup')
     expect(source).toContain('backend.assets.commitCleanup(preview.token)')
+  })
+
+  it('uses one paged asset picker boundary for node and graph-call BlobRef bindings', () => {
+    const inputEditor = readSource('src/app/editor/WorkflowInputBindingEditor.vue')
+    const inspector = readSource('src/app/editor/WorkflowInspector.vue')
+    const graphCallInspector = readSource('src/app/editor/WorkflowGraphCallInspector.vue')
+    const picker = readSource('src/components/assets/AssetPickerModal.vue')
+
+    expect(inputEditor).toContain('<AssetPickerModal')
+    expect(picker).toContain('assets.query')
+    expect(picker).toContain('thumbnailBudget: 12')
+    expect(inspector).not.toContain('clipsStore.refresh')
+    expect(inspector).not.toContain('templatesStore.reload')
+    expect(graphCallInspector).not.toContain('clipsStore.refresh')
   })
 
   it('offers compatible nodes when a typed connection ends on the canvas', () => {

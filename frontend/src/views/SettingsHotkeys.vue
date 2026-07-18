@@ -99,7 +99,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@nuxt/ui/composables'
 import { useHotkeysStore } from '@/stores/hotkeys'
+import { errorMessage } from '@/lib/invoke'
 import { useConfirm } from '@/composables/useConfirm'
 import { backend } from '@/lib/backend'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
@@ -108,12 +110,13 @@ import SettingsSection from '@/components/settings/SettingsSection.vue'
 type StatusFilter = 'all' | 'failed' | 'unbound'
 
 const { t } = useI18n()
+const toast = useToast()
 const store = useHotkeysStore()
 const { confirm } = useConfirm()
 const searchText = ref('')
 const statusFilter = ref<StatusFilter>('all')
 
-onMounted(() => void store.reload())
+onMounted(() => void store.reload().catch(showError))
 
 const failedCount = computed(() => store.list.filter((entry) => entry.status === 'failed').length)
 const unboundCount = computed(() => store.list.filter((entry) => entry.status === 'unbound').length)
@@ -184,7 +187,11 @@ function clearFilters() {
 }
 
 async function onUpdate(key: string, hotkeyStr: string) {
-  await store.update(key, hotkeyStr)
+  try {
+    await store.update(key, hotkeyStr)
+  } catch (error) {
+    showError(error)
+  }
 }
 
 async function onResetSystem() {
@@ -196,7 +203,19 @@ async function onResetSystem() {
     color: 'warning',
   })
   if (ok !== true) return
-  await backend.hotkeys.resetSystemDefaults()
-  await store.reload()
+  try {
+    await backend.hotkeys.resetSystemDefaults()
+    await store.reload()
+  } catch (error) {
+    showError(error)
+  }
+}
+
+function showError(error: unknown): void {
+  toast.add({
+    title: t('toast.operation_failed'),
+    description: errorMessage(error),
+    color: 'error',
+  })
 }
 </script>

@@ -109,6 +109,141 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	}
 }
 
+func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testing.T) {
+	if !automationinstalled.PlatformSupported() {
+		t.Skip("installed automation targets are intentionally unavailable")
+	}
+	runtime, err := appbootstrap.Build(appbootstrap.Config{
+		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(),
+		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
+		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
+		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
+		OwnerCloseTimeout: time.Second, Now: time.Now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close = %v", err)
+		}
+	})
+	path := filepath.Join(t.TempDir(), "editor.exe")
+	if err := os.WriteFile(path, []byte("live-automation-target"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := appcontrol.InspectExecutable(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applicationDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}}
+	automationProfile := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
+		Application: applicationDraft, WindowTitle: "Editor.*", WindowTitleMatch: "regex", WindowSelection: "topmost",
+		WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+	})
+	sealedAutomation, err := automationinstalled.SealProfile(automationProfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	automationConsent, err := automationinstalled.WorkflowConsentDigest("editor-window", sealedAutomation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := runtime.PrepareAutomation([]appcontrol.InstallationDraft{{Slot: "editor", Profile: applicationDraft}}, []automationinstalled.InstallationDraft{{
+		Slot: "editor-window", Profile: automationProfile, Consent: automationConsent,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepared.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := prepared.Commit(); err == nil {
+		t.Fatal("prepared automation generation committed twice")
+	}
+	aborted, err := runtime.PrepareAutomation(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aborted.Abort()
+	if err := aborted.Commit(); err == nil {
+		t.Fatal("aborted automation generation committed")
+	}
+	if backend, err := runtime.AuthoringTargets().CaptureBackend("editor-window"); err != nil || backend != "gdi" {
+		t.Fatalf("live authoring target = %q, %v", backend, err)
+	}
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := service.CreateSource("Live target admission")
+	if err != nil {
+		t.Fatal(err)
+	}
+	patched, err := service.ApplyPatch(source.WorkflowID, source.Revision, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.PressKeysNodeID, Handle: "keys", Position: schema.Position{X: 400, Y: 160}}},
+		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$keys", FieldID: "slot", Value: "editor-window"}},
+		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$keys", PortID: "keys", Value: []string{"F9"}}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "run-started", PortID: "started"}, To: schema.Endpoint{NodeID: "$keys", PortID: "in"}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := service.StartRun(patched.Source.WorkflowID)
+	if err != nil || started.Run == nil || started.Run.RunID == "" {
+		t.Fatalf("same-process target admission = %#v, %v", started, err)
+	}
+	if err := runtime.ReplaceAutomation(emptyApplicationInstallations(t), emptyAutomationInstallations(t)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.AuthoringTargets().CaptureBackend("editor-window"); err == nil {
+		t.Fatal("removed target remained visible through the live authoring handle")
+	}
+	rollback, err := runtime.PrepareAutomation([]appcontrol.InstallationDraft{{Slot: "editor", Profile: applicationDraft}}, []automationinstalled.InstallationDraft{{
+		Slot: "editor-window", Profile: automationProfile, Consent: automationConsent,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeCtx, cancelClose := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelClose()
+	if err := runtime.Application.Close(closeCtx); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback.Commit(); err == nil {
+		t.Fatal("published automation generation after Application closed")
+	}
+	if _, err := runtime.AuthoringTargets().CaptureBackend("editor-window"); err == nil {
+		t.Fatal("failed publication changed the authoring generation")
+	}
+}
+
+func TestCompositionRootDoesNotReinferAutomationCapabilities(t *testing.T) {
+	source, err := os.ReadFile("bootstrap.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	for _, forbidden := range []string{
+		"switch resourceKind",
+		"automationinstalled.OperationPressKeys",
+		"nodes.AutomationKeyInputCapabilityID",
+		"nodes.AutomationDesktopInputCapabilityID",
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("composition root contains a second automation capability fact source: %s", forbidden)
+		}
+	}
+	if !strings.Contains(text, "manifest.Capabilities") {
+		t.Fatal("composition root does not project the sealed automation manifest")
+	}
+}
+
 func TestBuiltinPolicyRejectsUninstalledProviderIdentity(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)
 	policy, err := appbootstrap.NewBuiltinPolicy(func() time.Time { return now }, time.Minute, emptyAIInstallations(t), emptyHTTPInstallations(t), emptyApplicationInstallations(t), emptyAutomationInstallations(t))
@@ -319,10 +454,11 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profileDraft := automationinstalled.ProfileDraft{
+	profileDraft := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
 		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
-		WindowTitle: "Editor", WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
-	}
+		WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "EditorWindow",
+		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
+	})
 	withoutConsent, err := automationinstalled.Install([]automationinstalled.InstallationDraft{{Slot: "editor-input", Profile: profileDraft}})
 	if err != nil {
 		t.Fatal(err)

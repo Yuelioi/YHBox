@@ -1,11 +1,13 @@
 ---
 kind: trap
-summary: "MCP `get_graph_schema` 曾把真实的 `graph.schemaVersion` 写成 `graph.version`；示例测试在校验前调用 `Container.Normalize()` 自动补 version/id，导致错误的 LLM-facing contract 仍然绿。"
+summary: "历史 3.0 Container.Normalize 掩盖 MCP schema 漂移案例；3.1 只保留其‘严格验证前不可自愈’教训。"
 activation: symptom
-read_when: "修改 MCP graph schema、LLM 示例、container Normalize、严格 JSON decode 或声称“生成示例已通过 validator”时"
+read_when: "仅在审查 3.0 MCP/Container 示例，或设计 3.1 schema fixture 是否被 normalize/default 掩盖时"
 recheck_when: "Yotta v3 删除 Normalize self-heal、MCP 改用生成 JSON Schema 或 authoring tools 改版后"
 ---
 # ⚠ Normalize 会掩盖 MCP schema 与示例的 contract 漂移
+
+> 历史案例：具体 API/字段已删除。可复用结论是 fixture 必须先按 strict schema 验证，不能先 normalize/default 后再宣称 contract 正确。
 `internal/services/mcpserver/schema.go` 的说明和两个示例曾使用：
 
 ```json

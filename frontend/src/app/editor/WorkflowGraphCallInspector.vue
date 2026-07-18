@@ -49,9 +49,6 @@
           :key="port.id"
           :node="editorNode"
           :port="port"
-          :clips="clips"
-          :clip-items="clipItems"
-          :template-variant-items="templateVariantItems"
           @command="applyBindingCommand"
         />
       </section>
@@ -63,15 +60,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Graph, GraphCall, Node } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand } from './EditorSession'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
-import { useClipsStore } from '@/stores/clips'
-import { useTemplatesStore } from '@/stores/templates'
 
 const props = defineProps<{
   call: GraphCall
@@ -80,22 +74,6 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ update: [call: GraphCall]; open: []; remove: [] }>()
 const { t } = useI18n()
-const clipsStore = useClipsStore()
-const { clips } = storeToRefs(clipsStore)
-const templatesStore = useTemplatesStore()
-const { map: templates } = storeToRefs(templatesStore)
-const clipItems = computed(() =>
-  clips.value.map((clip) => ({ label: clip.label || clip.id, value: clip.id })),
-)
-const templateVariantItems = computed(() =>
-  Object.values(templates.value).flatMap((asset) =>
-    asset.variants.map((variant, index) => ({
-      label: `${asset.name} · ${variant.resolution[0]}×${variant.resolution[1]}`,
-      value: `${asset.guid}:${index}`,
-      blob: variant.blob,
-    })),
-  ),
-)
 
 const editorNode = computed<Node>(() => ({
   id: props.call.id,
@@ -108,11 +86,6 @@ const editorNode = computed<Node>(() => ({
   config: {},
   bindings: props.call.bindings,
 }))
-
-onMounted(() => {
-  void clipsStore.refresh()
-  void templatesStore.reload()
-})
 
 function setLabel(event: Event): void {
   emit('update', { ...props.call, label: (event.target as HTMLInputElement).value })
