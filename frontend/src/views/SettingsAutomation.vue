@@ -92,16 +92,6 @@
         :role="captureFeedback.tone === 'error' ? 'alert' : 'status'"
       >
         <span class="min-w-0 flex-1">{{ captureFeedback.message }}</span>
-        <UButton
-          v-if="captureFeedback.elevationSuggested"
-          size="xs"
-          color="warning"
-          variant="soft"
-          icon="i-tabler-shield-lock"
-          @click="restartElevated"
-        >
-          {{ t('settingsAutomation.capture.restart_elevated') }}
-        </UButton>
       </div>
 
       <div v-if="draft.length" class="space-y-3">
@@ -651,9 +641,7 @@ const captureID = ref('')
 const captureFeedback = ref<{
   tone: 'success' | 'warning' | 'error'
   message: string
-  elevationSuggested?: boolean
 } | null>(null)
-const elevated = ref(false)
 const bulkConsentBusy = ref(false)
 const adbDevices = ref<AndroidDeviceDescriptor[]>([])
 const adbLoading = ref(false)
@@ -704,12 +692,7 @@ const browserTargetItems = computed(() =>
 )
 
 onMounted(async () => {
-  const [types, isElevated] = await Promise.all([
-    backend.automation.listTargetTypes(),
-    backend.tools.isElevated(),
-  ])
-  targetTypes.value = types ?? []
-  elevated.value = isElevated
+  targetTypes.value = (await backend.automation.listTargetTypes()) ?? []
 })
 
 watch(
@@ -1131,28 +1114,7 @@ async function timeoutCapture(): Promise<void> {
   await cancelCapture(true)
   captureFeedback.value = {
     tone: 'warning',
-    message: t(
-      elevated.value
-        ? 'settingsAutomation.capture.timeout_elevated'
-        : 'settingsAutomation.capture.timeout_uac',
-    ),
-    elevationSuggested: !elevated.value,
-  }
-}
-
-async function restartElevated(): Promise<void> {
-  const accepted = await confirm({
-    title: t('settingsAutomation.capture.restart_elevated_title'),
-    description: t('settingsAutomation.capture.restart_elevated_hint'),
-    confirmText: t('settingsAutomation.capture.restart_elevated'),
-    cancelText: t('common.cancel'),
-    color: 'warning',
-  })
-  if (accepted !== true) return
-  try {
-    await backend.tools.restartElevated()
-  } catch (error) {
-    captureFeedback.value = { tone: 'error', message: errorText(error) }
+    message: t('settingsAutomation.capture.timeout'),
   }
 }
 

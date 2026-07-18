@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 121,
+    "methods": 119,
     "models": 166
   },
   "services": [
@@ -1054,12 +1054,6 @@
           "returns": "$CancellablePromise<void>"
         },
         {
-          "name": "IsElevated",
-          "bindingId": "356935288",
-          "parameters": [],
-          "returns": "$CancellablePromise<boolean>"
-        },
-        {
           "name": "MousePos",
           "bindingId": "1897317081",
           "parameters": [
@@ -1156,12 +1150,6 @@
             }
           ],
           "returns": "$CancellablePromise<$models.PixelInfo>"
-        },
-        {
-          "name": "RestartElevated",
-          "bindingId": "3705842255",
-          "parameters": [],
-          "returns": "$CancellablePromise<void>"
         },
         {
           "name": "SetLauncherAlwaysOnTop",

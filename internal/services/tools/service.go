@@ -46,18 +46,16 @@ type Service struct {
 	targetTools   targetToolRouter
 	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
 	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
-	captureHotkey   func() (mods, vk uint32)
-	restartElevated func() error
-	closed          atomic.Bool
-	shutdownOnce    sync.Once
-	shutdownDone    chan struct{}
-	shutdownErr     error
+	captureHotkey func() (mods, vk uint32)
+	closed        atomic.Bool
+	shutdownOnce  sync.Once
+	shutdownDone  chan struct{}
+	shutdownErr   error
 }
 
 type Options struct {
 	CaptureHotkey     func() (mods, vk uint32)
 	OnCalibratorClose func()
-	RestartElevated   func() error
 }
 
 func NewService(resolver TargetResolver, presenter Presenter) *Service {
@@ -69,7 +67,6 @@ func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options
 		resolver:          resolver,
 		presenter:         presenter,
 		captureHotkey:     options.CaptureHotkey,
-		restartElevated:   options.RestartElevated,
 		onCalibratorClose: options.OnCalibratorClose,
 		winCache:          map[string]cachedWindow{},
 		pickerWindows:     map[string]*windowSlot{},
@@ -80,23 +77,6 @@ func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options
 		target.KindAndroidADB:  androidTargetToolAdapter{service: s},
 	})
 	return s
-}
-
-// IsElevated reports whether Yotta currently runs with an elevated Windows token.
-// Other platforms return false because elevation-assisted desktop capture is a
-// Windows-only authoring concern.
-func (s *Service) IsElevated() bool { return processIsElevated() }
-
-// RestartElevated launches the same desktop executable through the Windows
-// "runas" verb, then asks the current GUI instance to quit gracefully.
-func (s *Service) RestartElevated() error {
-	if s == nil || s.restartElevated == nil {
-		return errors.New("elevated restart is unavailable")
-	}
-	if processIsElevated() {
-		return nil
-	}
-	return s.restartElevated()
 }
 
 // gameWindowFor resolves an installed target with a short polling cache.

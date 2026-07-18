@@ -3,35 +3,20 @@ package main
 import (
 	"bytes"
 	"errors"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"path/filepath"
+	"os"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/desktopapp"
 )
 
-func TestCompositionRootDoesNotElevateTheDesktopProcess(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("internal", "desktopapp", "desktop.go"), nil, 0)
+func TestDesktopManifestRequiresAdministrator(t *testing.T) {
+	manifest, err := os.ReadFile("build/windows/wails.exe.manifest")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	ast.Inspect(file, func(node ast.Node) bool {
-		call, ok := node.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		if selector.Sel.Name == "EnsureAdmin" || selector.Sel.Name == "RelaunchAsAdmin" {
-			t.Errorf("desktop composition root must not call %s; elevated effects belong behind explicit capability providers", selector.Sel.Name)
-		}
-		return true
-	})
+	if !bytes.Contains(manifest, []byte(`requestedExecutionLevel level="requireAdministrator" uiAccess="false"`)) {
+		t.Fatal("desktop manifest must require administrator privileges")
+	}
 }
 
 func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testing.T) {

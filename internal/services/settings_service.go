@@ -98,7 +98,7 @@ func (s *SettingsService) Update(patchJSON string) error {
 				log := s.app.RootLogger()
 				log.Warn().Err(err).Str("tag", "SYSTEM").
 					Bool("enabled", cur.UI.Autostart).
-					Msg("自启注册表更新失败（settings 仍已保存）")
+					Msg("自启计划任务更新失败（settings 仍已保存）")
 			}
 		}
 		if s.app.logs != nil {

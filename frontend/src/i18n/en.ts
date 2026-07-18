@@ -47,7 +47,7 @@ export default {
       section_title: 'Startup & Close',
       autostart_label: 'Auto-start on login',
       autostart_hint:
-        'Start Yotta after Windows login. Writes registry HKCU\\...\\Run\\Yotta, no admin needed.',
+        'Start Yotta after Windows login through a highest-privilege scheduled task without another UAC prompt.',
       tray_label: 'Close minimizes to tray',
       tray_hint:
         'Clicking close (×) hides to system tray instead of exiting. Right-click tray icon to force quit.',
@@ -2265,7 +2265,7 @@ export default {
   },
   settingsApplications: {
     security: {
-      title: 'Desktop applications run with your current user authority',
+      title: 'Desktop applications inherit Yotta administrator privileges',
       hint: 'This capability is not a process sandbox. Install only a GUI application you explicitly selected, trust, and verified by digest. Workflows reference only its slot and cannot supply an executable, command line, environment, working directory, or PID.',
     },
     profiles: {
@@ -2401,14 +2401,6 @@ export default {
       cancel: 'Cancel capture',
       cancelled: 'Window capture cancelled. The target was not changed.',
       timeout: 'Window capture timed out. Try again.',
-      timeout_uac:
-        'The capture shortcut was not received. The target may be running as administrator while Yotta is not. Restart Yotta as administrator and capture again.',
-      timeout_elevated:
-        'Yotta is already running as administrator but did not receive the capture shortcut. Check the configured capture key and try again.',
-      restart_elevated: 'Restart as administrator',
-      restart_elevated_title: 'Restart Yotta as administrator?',
-      restart_elevated_hint:
-        'The current Yotta instance will exit after the elevated instance launches. Unsaved workflow edits are not preserved automatically.',
       incomplete: 'The capture result is missing the executable, window title, or window class.',
       inspect_failed: 'Could not verify the captured window executable identity.',
       application_missing:

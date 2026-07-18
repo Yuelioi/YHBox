@@ -300,7 +300,6 @@ func Run(config Config) error {
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
 	toolsPresenter := &wailsToolsPresenter{}
-	var quitForElevatedRestart func()
 	toolsSvc := tools.NewServiceWithOptions(authoringTargets, toolsPresenter, tools.Options{
 		OnCalibratorClose: func() {
 			calibrationSvc.StopHotkeyWatch()
@@ -308,15 +307,6 @@ func Run(config Config) error {
 		},
 		CaptureHotkey: func() (uint32, uint32) {
 			return registryHotkey(hotkeyRegistry, "tools.window-capture", 0x78)
-		},
-		RestartElevated: func() error {
-			if err := launchElevated(); err != nil {
-				return err
-			}
-			if quitForElevatedRestart != nil {
-				quitForElevatedRestart()
-			}
-			return nil
 		},
 	})
 
@@ -426,7 +416,6 @@ func Run(config Config) error {
 			Handler: application.AssetFileServerFS(config.Assets),
 		},
 	})
-	quitForElevatedRestart = wailsApp.Quit
 	if err := app.AttachEmitter(func(name string, data any) { wailsApp.Event.Emit(name, data) }); err != nil {
 		return fmt.Errorf("attach presentation emitter: %w", err)
 	}
@@ -491,10 +480,9 @@ func Run(config Config) error {
 		mainWin.Hide()
 	})
 
-	// 启动期同步注册表：用户上次设了 autostart=true，但 exe 可能被移动过，
-	// 注册表里的路径已失效。每次启动都按当前 exe 路径重写一遍。
+	// 每次启动都刷新计划任务中的绝对路径，避免 exe 移动后自启动指向旧位置。
 	if err := services.ApplyAutostart(app.Settings().UI.Autostart); err != nil {
-		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启注册表同步失败")
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Msg("启动期自启计划任务同步失败")
 	}
 
 	if err := applicationRuntime.Start(context.Background()); err != nil {

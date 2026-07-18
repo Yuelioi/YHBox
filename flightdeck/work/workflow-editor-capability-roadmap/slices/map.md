@@ -21,4 +21,4 @@
 | [17 资产规模化与安全清理](../17-asset-library-scale.md) | completed | Slice 16 | 分页、批量、variant 维护与完整 Blob root GC。 |
 | [19 Browser CDP 产品闭环](../19-browser-cdp-installation.md) | completed | Stage 5 | exact installation、Settings、provider/Catalog 与 Chrome/Edge smoke。 |
 | [18 多图创作](../18-source-native-multigraph.md) | completed | Slice 16 | subgraph 调用/创作、comment 与 presentation reroute。 |
-| [20 桌面目标 UAC 与授权体验](../20-desktop-target-uac-and-consent-ux.md) | in_progress | 真实管理员游戏窗口 smoke | 按需提权、捕获即安装/绑定和当前安装项原子批量授权。 |
+| [20 桌面目标 UAC 与授权体验](../20-desktop-target-uac-and-consent-ux.md) | in_progress | 真实管理员游戏窗口 smoke | 默认管理员运行、交互式最高权限自启、捕获即安装/绑定和当前安装项原子批量授权。 |

@@ -23,7 +23,6 @@ describe('SettingsAutomation', () => {
     expect(source).not.toContain(':disabled="applications.length === 0 || !desktopTargetType"')
     expect(source).toContain('startWin32WindowTargetCapture')
     expect(source).toContain('cancelWin32WindowTargetCapture')
-    expect(source).toContain('backend.tools.restartElevated()')
     expect(source).toContain('backend.automation.grantAllWorkflowConsents()')
     expect(source).toContain('backend.automation.revokeAllWorkflowConsents()')
     expect(source).toContain("useWailsEvent<unknown>('win32windowtarget:captured'")

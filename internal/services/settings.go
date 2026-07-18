@@ -267,7 +267,7 @@ type CaptureSettings struct {
 type UISettings struct {
 	Logger         LoggerSettings `json:"logger"`
 	Window         WindowSettings `json:"window"`
-	Autostart      bool           `json:"autostart"`      // 开机自启（HKCU Run 注册表）
+	Autostart      bool           `json:"autostart"`      // 登录后通过最高权限计划任务启动
 	MinimizeToTray bool           `json:"minimizeToTray"` // 关闭按钮 → 隐藏到托盘
 	// ActionStopHotkey 全局打断动作热键（默认 "Ctrl+Shift+F9"）。
 	// 改动需重启生效（main.go 启动期注册一次，不监听 settings 变化）。

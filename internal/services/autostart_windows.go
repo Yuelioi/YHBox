@@ -2,56 +2,82 @@
 
 package services
 
-// autostart.go 把 exe 自启写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run。
-// 用 HKCU（而非 HKLM）的两点理由：
-//  1. 不需要管理员权限就能改
-//  2. 多用户机器上每个用户独立配置
-//
-// 注意：用户手动改注册表 / 杀毒软件拦截写入失败时，setting 仍然保存为 true 但
-// 实际不会自启。SettingsService.Update 把 ApplyAutostart 错误降级为 warning。
-
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
-
-	"golang.org/x/sys/windows/registry"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
-const (
-	autostartRegPath = `Software\Microsoft\Windows\CurrentVersion\Run`
-	autostartRegName = "Yotta"
-)
+const autostartTaskName = "Yotta"
 
-// ApplyAutostart 写或删 HKCU Run 表项。
-//   - enabled=true：写入当前 exe 的绝对路径（外加 "" 包起来，路径带空格也安全）
-//   - enabled=false：删除 Yotta 子键（不存在也不报错）
+type autostartExecutable func() (string, error)
+type autostartTaskRunner func(args ...string) ([]byte, error)
+
 func ApplyAutostart(enabled bool) error {
+	return applyAutostart(enabled, os.Executable, runAutostartTask)
+}
+
+func applyAutostart(enabled bool, executable autostartExecutable, run autostartTaskRunner) error {
 	if !enabled {
-		k, err := registry.OpenKey(registry.CURRENT_USER, autostartRegPath, registry.SET_VALUE)
-		if err != nil {
-			if err == registry.ErrNotExist {
-				return nil
-			}
-			return fmt.Errorf("open Run key: %w", err)
+		if _, err := run("/Query", "/TN", autostartTaskName); err != nil {
+			return nil
 		}
-		defer k.Close()
-		if err := k.DeleteValue(autostartRegName); err != nil && err != registry.ErrNotExist {
-			return fmt.Errorf("delete %q: %w", autostartRegName, err)
+		output, err := run("/Delete", "/TN", autostartTaskName, "/F")
+		if err != nil {
+			return taskCommandError("delete", output, err)
 		}
 		return nil
 	}
 
-	exe, err := os.Executable()
+	path, err := executable()
 	if err != nil {
-		return fmt.Errorf("locate exe: %w", err)
+		return fmt.Errorf("locate Yotta executable: %w", err)
 	}
-	// 注册表 Run 项约定路径自带双引号包裹，避免路径带空格被 cmd 切断
-	value := `"` + exe + `"`
+	if strings.ContainsAny(path, "\"\r\n") {
+		return errors.New("yotta executable path contains unsupported characters")
+	}
+	output, err := run(
+		"/Create",
+		"/TN", autostartTaskName,
+		"/TR", `"`+path+`"`,
+		"/SC", "ONLOGON",
+		"/IT",
+		"/RL", "HIGHEST",
+		"/F",
+	)
+	if err != nil {
+		return taskCommandError("create", output, err)
+	}
+	return nil
+}
 
-	k, _, err := registry.CreateKey(registry.CURRENT_USER, autostartRegPath, registry.SET_VALUE)
-	if err != nil {
-		return fmt.Errorf("open/create Run key: %w", err)
+func runAutostartTask(args ...string) ([]byte, error) {
+	windowsRoot := os.Getenv("SystemRoot")
+	if windowsRoot == "" {
+		windowsRoot = os.Getenv("WINDIR")
 	}
-	defer k.Close()
-	return k.SetStringValue(autostartRegName, value)
+	if windowsRoot == "" {
+		return nil, errors.New("windows directory is unavailable")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, filepath.Join(windowsRoot, "System32", "schtasks.exe"), args...)
+	output, err := command.CombinedOutput()
+	if ctx.Err() != nil {
+		return output, fmt.Errorf("schtasks timed out: %w", ctx.Err())
+	}
+	return output, err
+}
+
+func taskCommandError(operation string, output []byte, err error) error {
+	detail := strings.TrimSpace(string(output))
+	if detail == "" {
+		return fmt.Errorf("%s Yotta startup task: %w", operation, err)
+	}
+	return fmt.Errorf("%s Yotta startup task: %w: %s", operation, err, detail)
 }

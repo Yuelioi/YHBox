@@ -44,7 +44,7 @@ export interface Settings {
       width: number
       height: number
     }
-    autostart: boolean // 开机自启（写 HKCU Run 注册表）
+    autostart: boolean // 登录后通过最高权限计划任务启动
     minimizeToTray: boolean // 关闭按钮 → 隐藏到托盘
     actionStopHotkey: string // 全局强停热键（默认 "Ctrl+Shift+F9"），改完即时生效（热键中心 rebind）
     calibrateHotkey: string // DPI 校准启动/停止热键（默认 "F8"），改完即时生效

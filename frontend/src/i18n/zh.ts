@@ -68,8 +68,7 @@ export default {
     startup: {
       section_title: '启动与关闭',
       autostart_label: '开机自启',
-      autostart_hint:
-        '登录 Windows 后自动启动 Yotta. 写入注册表 HKCU\\...\\Run\\Yotta, 不需要管理员权限.',
+      autostart_hint: '登录 Windows 后通过最高权限计划任务自动启动 Yotta，不再重复显示 UAC 确认。',
       tray_label: '关闭最小化到托盘',
       tray_hint: '点关闭按钮(×)时不退出, 而是收到右下角系统托盘. 右键托盘图标可强制退出.',
     },
@@ -2022,7 +2021,7 @@ export default {
   },
   settingsApplications: {
     security: {
-      title: '桌面应用会以当前用户权限运行',
+      title: '桌面应用会继承 Yotta 的管理员权限',
       hint: '此能力不是进程沙箱。只有你明确选择、摘要匹配且信任的 GUI 应用才能安装；工作流只引用槽位，不能提供可执行文件、命令行、环境、工作目录或 PID。',
     },
     profiles: {
@@ -2146,13 +2145,6 @@ export default {
       cancel: '取消捕获',
       cancelled: '已取消窗口捕获，没有修改目标。',
       timeout: '等待窗口捕获超时，请重试。',
-      timeout_uac:
-        '没有收到捕获快捷键。目标应用可能以管理员权限运行，而 Yotta 当前是普通权限；请以管理员身份重启 Yotta 后再捕获。',
-      timeout_elevated: 'Yotta 已处于管理员模式，但仍未收到捕获快捷键。请确认捕获键配置后重试。',
-      restart_elevated: '管理员模式重启',
-      restart_elevated_title: '以管理员身份重启 Yotta？',
-      restart_elevated_hint:
-        '当前 Yotta 会在新的管理员实例成功启动后退出。未保存的工作流修改不会被自动保留。',
       incomplete: '捕获结果缺少可执行文件、窗口标题或窗口类。',
       inspect_failed: '无法验证捕获窗口的可执行文件身份。',
       application_missing: '捕获窗口所属应用尚未安装。请先在“桌面应用”中选择并安装该 .exe。',
