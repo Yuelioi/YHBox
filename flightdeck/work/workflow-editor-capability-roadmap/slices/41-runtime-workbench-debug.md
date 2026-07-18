@@ -1,41 +1,38 @@
 ---
 slice: "41"
 title: 运行工作台与调试反馈
-status: completed
+status: in_progress
 ---
 
 # Slice 41：运行工作台与调试反馈
 
 ## Outcome / Question
 
-把 Logs、Timeline、Debug 变成同一 Run Event 事实的独立有界投影，取消普通运行抢焦点，并让单步状态无需猜测。
+让 Debug Start、Step、Continue、Pause 与 Stop 在 RPC/event 任意到达顺序下保持单调一致，并将调试器改成以“当前状态与下一步动作”为核心的桌面工作台。
 
 ## Completion criterion
 
-- 编辑器只有一个可折叠/可调高度底部工作台，含 Logs/Timeline/Debug tabs。
-- 普通 Run 不自动打开；失败开 Logs；pause/break 开 Debug；Timeline 手动或显式偏好打开。
-- Timeline RPC 使用有界 page/range 与 total/page/pages；默认只取最新 200 条，单页硬上限 500。
-- Debug snapshot 含 runID/sequence、previous/executed、current/will-execute、pause reason；显示产品标签。
-- Step 在新 pause snapshot 前 busy；旧 run/sequence 不覆盖新状态。
-- 画布区分 current/previous，三节点 fixture 连续单步不再被误解为卡死。
+- Debug Start 期间到达的同 runID 新 generation snapshot 不会因 activeRun 尚未赋值而丢失；旧 RPC 响应不能覆盖新 event。
+- 启动调试稳定显示 paused 和 Step/Continue；Step busy 直到同 runID 更高 generation；旧 run/旧 generation 被拒绝。
+- paused 首层明确“将在执行哪个节点前暂停”、pause reason 和主要控制动作；previous/current/next 使用产品标签。
+- running、paused、completed、canceled/failed 的文案和内容结构分别正确；终态不显示“即将执行（尚未执行）”。
+- Inputs/Outputs/Run State/Queue 只在有内容时显示数量和内容，通过 tabs/折叠渐进披露，不平铺四列“无”。
+- 内部 graph path、run ID、digest 退到详情/复制层，不抢占主任务。
+- Logs、Timeline、Debug 继续共享一个可折叠底部工作台；普通 Run 不抢焦点，Timeline 继续有界分页。
 
 ## Verification
 
-- panel opening state machine 组件测试。
-- timeline paging/bounds 服务与大 run 测试。
-- debug snapshot、monotonic merge 与 exact 三节点 workflow 测试。
-- 普通 run、失败、连续 step、长运行真机验收。
+- EditorSession RPC-before-event、event-before-RPC、旧 generation、旧 run 回归测试。
+- WorkflowDebuggerPanel paused/running/terminal、空数据、Step 控制和 node focus 组件测试。
+- exact 三节点 workflow 连续 Start/Step/Continue/Stop WebView smoke。
+- 阶段末与 Slice 39 一起执行 task check、production build、人工截图和提权真机验收。
 
 ## Out of scope
 
 - 不做完整任意 dock、多屏同步或独立 Trace Server。
-- 不复制三份底层事件。
+- 不复制 Logs/Timeline/Debug 底层事件。
+- 不把 backend snapshot 直接作为最终 UI 信息架构。
 
 ## Result
 
-Completed。
-
-- WorkflowRuntimeWorkbench 将 Logs/Timeline/Debug 收到一个可折叠底部面板；普通 Run 保持关闭，运行失败打开 Logs，调试暂停打开 Debug，Timeline 仅手动进入。
-- Timeline 服务与前端改为分页读取，默认最新 200 条且单页上限 500，避免把完整 journal 一次渲染到 DOM。
-- DebugSnapshot 新增 previous graph/node；UI 明确显示“刚执行”和“即将执行（尚未执行）”，Step 在新 snapshot 前保持 busy。
-- exact 三节点 workflow 的 WebView smoke 已验证 debug start/step/restart/stop；服务、session、panel 测试和 task check 通过。
+Implementation complete; awaiting user acceptance。EditorSession 在 StartDebugRun RPC 返回前缓存同 runID 的早到 snapshot，并按 generation 单调合并；精确红测已覆盖 event-before-RPC，不再由旧 RPC running 响应覆盖 paused event。Debugger 首层现在按 paused/running/terminal 提供正确状态、控制和真实执行位置；空快照渐进披露，内部路径退到技术详情，终态不再显示“即将执行”或空 previous/next 占位。真实组件测试、`task check`、production build、WebView smoke 与人工终态截图检查均通过；尚需用户用原三节点 workflow 验收 Start/Step/Continue。

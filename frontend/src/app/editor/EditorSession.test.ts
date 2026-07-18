@@ -154,6 +154,47 @@ describe('EditorSession', () => {
     expect(session.debugSnapshot?.status).toBe('running')
   })
 
+  it('keeps the first paused event when it arrives before StartDebugRun returns', async () => {
+    const source = emptySource()
+    const run = runView('RUNNING')
+    const transport = mockTransport(sourceView(source), run)
+    let resolveStart!: (view: StartRunView) => void
+    vi.mocked(transport.startDebugRun).mockImplementation(
+      () => new Promise((resolve) => (resolveStart = resolve)),
+    )
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+
+    const starting = session.startDebug([])
+    const paused = {
+      status: 'paused',
+      generation: 2,
+      graphId: 'main',
+      graphPath: ['main'],
+      nodeId: 'run-started',
+      queue: [],
+      inputs: {},
+      outputs: {},
+      state: {},
+    } as DebugSnapshot
+    await vi.waitFor(() => expect(resolveStart).toBeTypeOf('function'))
+    session.acceptDebugSnapshot(run.runId, paused)
+    resolveStart({
+      sourceHash: 'sha256:source-next',
+      programHash: 'sha256:program',
+      diagnostics: [],
+      run,
+      debug: { ...paused, status: 'running', generation: 1 },
+    } as StartRunView)
+
+    await starting
+    expect(session.debugSnapshot).toMatchObject({
+      status: 'paused',
+      generation: 2,
+      nodeId: 'run-started',
+    })
+  })
+
   it('does not let a stale debug control response overwrite a newer event', async () => {
     const source = emptySource()
     const run = runView('RUNNING')

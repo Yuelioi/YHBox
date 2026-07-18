@@ -170,6 +170,8 @@ export class EditorSession {
   private readonly revertedCommands: PendingCommand[] = []
   private readonly projections = new Map<string, NodeProjection>()
   private readonly typeProjections = new Map<string, TypeProjection>()
+  private readonly pendingDebugSnapshots = new Map<string, DebugSnapshot>()
+  private debugStartPending = false
 
   constructor(
     private readonly transport: WorkflowTransport,
@@ -913,7 +915,15 @@ export class EditorSession {
   }
 
   acceptDebugSnapshot(runId: string, snapshot: DebugSnapshot): boolean {
-    if (runId !== this.activeRun?.runId || !this.debugSnapshot) return false
+    if (runId !== this.activeRun?.runId || !this.debugSnapshot) {
+      if (this.debugStartPending) {
+        const pending = this.pendingDebugSnapshots.get(runId)
+        if (!pending || snapshot.generation >= pending.generation) {
+          this.pendingDebugSnapshots.set(runId, snapshot)
+        }
+      }
+      return false
+    }
     if (snapshot.generation < this.debugSnapshot.generation) return false
     this.debugSnapshot = snapshot
     return true
@@ -950,6 +960,10 @@ export class EditorSession {
       if (compile.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return null
       if (!compile.programHash) throw new Error('compiler produced no Program hash')
       this.phase = 'running'
+      if (debug) {
+        this.debugStartPending = true
+        this.pendingDebugSnapshots.clear()
+      }
       const started = debug
         ? await this.transport.startDebugRun(this.workflowId, breakpoints)
         : await this.transport.startRun(this.workflowId)
@@ -959,9 +973,22 @@ export class EditorSession {
       this.lastRunHash = started.programHash ?? ''
       this.activeRun = started.run ?? null
       this.debugSnapshot = started.debug ?? null
+      if (debug && this.activeRun) {
+        const pending = this.pendingDebugSnapshots.get(this.activeRun.runId)
+        if (
+          pending &&
+          (!this.debugSnapshot || pending.generation >= this.debugSnapshot.generation)
+        ) {
+          this.debugSnapshot = pending
+        }
+      }
+      this.debugStartPending = false
+      this.pendingDebugSnapshots.clear()
       if (!this.activeRun) this.phase = 'ready'
       return this.activeRun
     } catch (error) {
+      this.debugStartPending = false
+      this.pendingDebugSnapshots.clear()
       this.fail(error)
       throw error
     }

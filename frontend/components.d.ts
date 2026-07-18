@@ -50,6 +50,7 @@ declare module 'vue' {
     UApp: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/App.vue')['default']
     UBadge: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Badge.vue')['default']
     UButton: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Button.vue')['default']
+    UCheckbox: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Checkbox.vue')['default']
     UCollapsible: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/Collapsible.vue')['default']
     UDropdownMenu: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/DropdownMenu.vue')['default']
     UFormField: typeof import('./node_modules/.pnpm/@nuxt+ui@4.7.1_@internation_a2c6100c66aa5f3ef89ec46e30405138/node_modules/@nuxt/ui/dist/runtime/components/FormField.vue')['default']

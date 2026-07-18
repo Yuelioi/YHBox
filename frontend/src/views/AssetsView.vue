@@ -1,58 +1,192 @@
 <template>
-  <div
-    data-testid="assets-view"
-    class="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col px-6 py-5"
-  >
-    <header class="flex shrink-0 items-start justify-between gap-6 border-b border-default pb-5">
-      <div>
-        <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-          {{ t('assets.eyebrow') }}
-        </p>
-        <h1 class="mt-1 text-xl font-semibold text-highlighted">{{ t('assets.title') }}</h1>
-        <p class="mt-1 max-w-2xl text-sm leading-6 text-muted">{{ t('assets.description') }}</p>
+  <div data-testid="assets-view" class="flex h-full min-h-0 w-full flex-col bg-default">
+    <header class="flex h-14 shrink-0 items-center gap-3 border-b border-default px-4">
+      <div class="flex min-w-0 flex-1 items-center gap-2.5">
+        <div
+          class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+        >
+          <UIcon name="i-tabler-library" class="size-4" />
+        </div>
+        <div class="min-w-0">
+          <h1 class="truncate text-sm font-semibold text-highlighted">{{ t('assets.title') }}</h1>
+          <p class="truncate text-[10px] text-dimmed">
+            {{ t(`assets.tabs.${activeTab}`) }} · {{ total }}
+          </p>
+        </div>
       </div>
       <USelect
         v-model="selectedTargetSlot"
         :items="targetItems"
         value-key="value"
         label-key="label"
-        class="w-64 shrink-0"
+        class="w-60 shrink-0"
         :placeholder="t('assets.target_placeholder')"
         :aria-label="t('assets.target_placeholder')"
       />
+      <template v-if="activeTab === 'clips' && recording.state.phase === 'idle'">
+        <USelect
+          v-model="recordingMode"
+          :items="recordingModeItems"
+          value-key="value"
+          label-key="label"
+          class="w-36 shrink-0"
+          :aria-label="t('assets.recording.mode')"
+        />
+        <UButton
+          data-testid="assets-recording-start"
+          icon="i-tabler-player-record"
+          :label="t('assets.recording.start')"
+          :disabled="!selectedTargetSlot || !selectedTargetSupportsRecording || recordingStarting"
+          :loading="recordingStarting"
+          @click="startRecording"
+        />
+      </template>
+      <UButton
+        v-else-if="activeTab === 'templates'"
+        icon="i-tabler-camera-plus"
+        :label="t('assets.templates.capture')"
+        :disabled="!selectedTargetSlot"
+        :loading="captureBusy"
+        @click="captureTemplate"
+      />
+      <UDropdownMenu :items="libraryMenuItems">
+        <UButton
+          icon="i-tabler-dots-vertical"
+          color="neutral"
+          variant="ghost"
+          :aria-label="t('assets.library_actions')"
+        />
+      </UDropdownMenu>
     </header>
 
-    <section class="mt-5 shrink-0 rounded-xl border border-default bg-default p-4">
-      <span data-testid="assets-recording-controls" class="sr-only">{{
-        t('assets.recording.title')
-      }}</span>
-      <div class="flex items-center gap-4">
-        <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-          <UIcon name="i-tabler-player-record" class="size-5 text-primary" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <h2 class="text-sm font-semibold text-highlighted">
-              {{ t('assets.recording.title') }}
-            </h2>
-            <UBadge :color="recordingBadge.color" variant="soft" size="sm">
-              {{ recordingBadge.label }}
-            </UBadge>
-          </div>
-          <p class="mt-1 text-xs leading-5 text-muted">{{ recordingHint }}</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
+    <div class="flex min-h-0 flex-1">
+      <aside class="flex w-52 shrink-0 flex-col border-r border-default bg-elevated/15 p-2">
+        <p class="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-dimmed">
+          {{ t('assets.asset_types') }}
+        </p>
+        <UButton
+          color="neutral"
+          :variant="activeTab === 'clips' ? 'soft' : 'ghost'"
+          icon="i-tabler-movie"
+          class="h-auto w-full justify-start px-2.5 py-2 text-left"
+          @click="activeTab = 'clips'"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium">{{ t('assets.tabs.clips') }}</span>
+            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
+              t('assets.clips.nav_hint')
+            }}</span>
+          </span>
+          <UBadge v-if="activeTab === 'clips'" color="neutral" variant="soft" size="xs">{{
+            total
+          }}</UBadge>
+        </UButton>
+        <UButton
+          color="neutral"
+          :variant="activeTab === 'templates' ? 'soft' : 'ghost'"
+          icon="i-tabler-photo"
+          class="mt-1 h-auto w-full justify-start px-2.5 py-2 text-left"
+          @click="activeTab = 'templates'"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium">{{ t('assets.tabs.templates') }}</span>
+            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
+              t('assets.templates.nav_hint')
+            }}</span>
+          </span>
+          <UBadge v-if="activeTab === 'templates'" color="neutral" variant="soft" size="xs">{{
+            total
+          }}</UBadge>
+        </UButton>
+      </aside>
+
+      <main class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-default bg-default px-3">
+          <UInput
+            v-model="queryInput"
+            icon="i-tabler-search"
+            class="min-w-56 max-w-2xl flex-1"
+            :placeholder="t('assets.search_placeholder')"
+            :aria-label="t('assets.search_placeholder')"
+            @keyup.enter="applyQuery"
+          />
+          <UButton color="neutral" variant="soft" icon="i-tabler-search" @click="applyQuery" />
+          <UButton
+            color="neutral"
+            :variant="libraryFiltersOpen || hasLibraryFilters ? 'soft' : 'ghost'"
+            icon="i-tabler-filter"
+            :label="t('assetPicker.filters')"
+            @click="libraryFiltersOpen = !libraryFiltersOpen"
+          />
           <USelect
-            v-if="recording.state.phase === 'idle'"
-            v-model="recordingMode"
-            :items="recordingModeItems"
-            value-key="value"
-            label-key="label"
+            v-model="sort"
+            :items="sortItems"
             class="w-44"
-            :aria-label="t('assets.recording.mode')"
+            @update:model-value="changeQuery"
+          />
+          <div
+            v-if="activeTab === 'templates'"
+            class="flex items-center rounded-md border border-default p-0.5"
+          >
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="viewMode === 'list' ? 'soft' : 'ghost'"
+              icon="i-tabler-list"
+              :aria-label="t('assets.view_list')"
+              @click="viewMode = 'list'"
+            />
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="viewMode === 'grid' ? 'soft' : 'ghost'"
+              icon="i-tabler-layout-grid"
+              :aria-label="t('assets.view_grid')"
+              @click="viewMode = 'grid'"
+            />
+          </div>
+        </div>
+
+        <div
+          v-if="libraryFiltersOpen"
+          class="grid shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 border-b border-default bg-elevated/20 px-3 py-2"
+        >
+          <UInput
+            v-model="categoryFilter"
+            :placeholder="t('assets.category_filter')"
+            @keyup.enter="changeQuery"
+          />
+          <UInput
+            v-model="tagsFilter"
+            :placeholder="t('assets.tags_filter')"
+            @keyup.enter="changeQuery"
           />
           <UButton
+            color="neutral"
+            variant="soft"
+            :label="t('assets.search_action')"
+            @click="changeQuery"
+          />
+        </div>
+
+        <section
+          v-if="activeTab === 'clips' && recording.state.phase !== 'idle'"
+          data-testid="assets-recording-controls"
+          class="flex shrink-0 items-center gap-3 border-b border-default bg-primary/5 px-3 py-2"
+        >
+          <span class="size-2 rounded-full bg-error" aria-hidden="true" />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="text-xs font-medium text-highlighted">{{ t('assets.recording.title') }}</p>
+              <UBadge :color="recordingBadge.color" variant="soft" size="xs">{{
+                recordingBadge.label
+              }}</UBadge>
+            </div>
+            <p class="truncate text-[10px] text-dimmed">{{ recordingHint }}</p>
+          </div>
+          <UButton
             v-if="recording.state.phase === 'recording'"
+            size="xs"
             color="neutral"
             variant="soft"
             icon="i-tabler-player-pause"
@@ -61,6 +195,7 @@
           />
           <UButton
             v-if="recording.state.phase === 'paused'"
+            size="xs"
             color="neutral"
             variant="soft"
             icon="i-tabler-player-play"
@@ -69,281 +204,213 @@
           />
           <UButton
             v-if="recording.state.phase === 'recording' || recording.state.phase === 'paused'"
+            size="xs"
             color="error"
             variant="soft"
             icon="i-tabler-square"
             :label="t('recordingHud.stop')"
             @click="stopRecording"
           />
-          <UButton
-            v-else
-            icon="i-tabler-player-record"
-            :label="t('assets.recording.start')"
-            :disabled="
-              !selectedTargetSlot ||
-              !selectedTargetSupportsRecording ||
-              recording.state.phase !== 'idle' ||
-              recordingStarting
-            "
-            :loading="recordingStarting"
-            @click="startRecording"
-          />
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <div class="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-default">
-      <div
-        class="flex shrink-0 flex-wrap items-center gap-2 border-b border-default bg-default px-4 py-3"
-      >
-        <UButton
-          :label="t('assets.tabs.clips')"
-          icon="i-tabler-movie"
-          color="neutral"
-          :variant="activeTab === 'clips' ? 'soft' : 'ghost'"
-          @click="activeTab = 'clips'"
-        />
-        <UButton
-          :label="t('assets.tabs.templates')"
-          icon="i-tabler-photo"
-          color="neutral"
-          :variant="activeTab === 'templates' ? 'soft' : 'ghost'"
-          @click="activeTab = 'templates'"
-        />
-        <div class="mx-2 h-6 w-px bg-default" />
-        <UInput
-          v-model="queryInput"
-          icon="i-tabler-search"
-          class="min-w-48 flex-1"
-          :placeholder="t('assets.search_placeholder')"
-          :aria-label="t('assets.search_placeholder')"
-          @keyup.enter="applyQuery"
-        />
-        <UInput
-          v-model="categoryFilter"
-          class="w-36"
-          :placeholder="t('assets.category_filter')"
-          @keyup.enter="changeQuery"
-        />
-        <UInput
-          v-model="tagsFilter"
-          class="w-40"
-          :placeholder="t('assets.tags_filter')"
-          @keyup.enter="changeQuery"
-        />
-        <USelect v-model="sort" :items="sortItems" class="w-44" @update:model-value="changeQuery" />
-        <UButton
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-search"
-          :label="t('assets.search_action')"
-          @click="applyQuery"
-        />
-        <UButton
-          v-if="activeTab === 'templates'"
-          color="primary"
-          variant="soft"
-          icon="i-tabler-camera-plus"
-          :label="t('assets.templates.capture')"
-          :disabled="!selectedTargetSlot"
-          :loading="captureBusy"
-          @click="captureTemplate"
-        />
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-recycle"
-          :label="t('assets.cleanup_action')"
-          :loading="cleanupBusy"
-          @click="cleanupLibrary"
-        />
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-refresh"
-          :aria-label="t('common.refresh')"
-          @click="refreshAssets"
-        />
-      </div>
-
-      <div
-        v-if="selectedRows.length"
-        class="flex shrink-0 flex-wrap items-center gap-2 border-b border-default bg-primary/5 px-4 py-3"
-      >
-        <span class="mr-auto text-sm font-medium text-default">
-          {{ t('assets.selected_count', { n: selectedRows.length }) }}
-        </span>
-        <UButton size="sm" color="neutral" variant="ghost" @click="clearSelection">
-          {{ t('assets.clear_selection') }}
-        </UButton>
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-tags"
-          :disabled="batchBusy"
-          @click="openBatchEdit"
-        >
-          {{ t('assets.batch_edit') }}
-        </UButton>
-        <UButton
-          size="sm"
-          color="error"
-          variant="soft"
-          icon="i-tabler-trash"
-          :loading="batchBusy"
-          @click="deleteSelected"
-        >
-          {{ t('assets.batch_delete') }}
-        </UButton>
-      </div>
-
-      <div
-        v-if="libraryFeedback"
-        class="shrink-0 border-b px-4 py-2 text-sm"
-        :class="
-          libraryFeedback.tone === 'success'
-            ? 'border-success/30 bg-success/10 text-success'
-            : libraryFeedback.tone === 'warning'
-              ? 'border-warning/30 bg-warning/10 text-warning'
-              : 'border-error/30 bg-error/10 text-error'
-        "
-        role="status"
-      >
-        {{ libraryFeedback.message }}
-      </div>
-
-      <div class="min-h-0 flex-1 overflow-y-auto bg-elevated/15 p-4">
-        <div v-if="loading" class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          <USkeleton v-for="index in 6" :key="index" class="h-32 rounded-xl" />
-        </div>
         <div
-          v-else-if="visibleItems.length"
-          class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3"
+          v-if="selectedRows.length"
+          class="flex h-11 shrink-0 items-center gap-2 border-b border-default bg-primary/5 px-3"
         >
-          <article
-            v-for="item in visibleItems"
-            :key="item.id"
-            class="flex min-w-0 items-start gap-3 rounded-xl border border-default bg-default p-4 transition-colors hover:border-accented"
+          <span class="mr-auto text-sm font-medium text-default">
+            {{ t('assets.selected_count', { n: selectedRows.length }) }}
+          </span>
+          <UButton size="sm" color="neutral" variant="ghost" @click="clearSelection">
+            {{ t('assets.clear_selection') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="soft"
+            icon="i-tabler-tags"
+            :disabled="batchBusy"
+            @click="openBatchEdit"
           >
-            <input
-              type="checkbox"
-              class="mt-1 size-4 shrink-0 accent-primary"
-              :checked="Boolean(selected[item.id])"
-              :aria-label="t('assets.select_named', { name: item.name })"
-              @change="toggleAsset(item.source, $event)"
-            />
-            <BlobPreview
-              v-if="item.previewBlob"
-              :blob="item.previewBlob"
-              :alt="item.name"
-              class="size-16 shrink-0"
-              @state="previewStates[item.id] = $event"
-            />
-            <div
-              v-else
-              class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-elevated/70 text-primary"
+            {{ t('assets.batch_edit') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="error"
+            variant="soft"
+            icon="i-tabler-trash"
+            :loading="batchBusy"
+            @click="deleteSelected"
+          >
+            {{ t('assets.batch_delete') }}
+          </UButton>
+        </div>
+
+        <div
+          v-if="libraryFeedback"
+          class="shrink-0 border-b px-4 py-2 text-sm"
+          :class="
+            libraryFeedback.tone === 'success'
+              ? 'border-success/30 bg-success/10 text-success'
+              : libraryFeedback.tone === 'warning'
+                ? 'border-warning/30 bg-warning/10 text-warning'
+                : 'border-error/30 bg-error/10 text-error'
+          "
+          role="status"
+        >
+          {{ libraryFeedback.message }}
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto bg-elevated/10">
+          <div v-if="loading" class="space-y-px p-2">
+            <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
+          </div>
+          <div
+            v-else-if="visibleItems.length && activeTab === 'templates' && viewMode === 'grid'"
+            class="grid grid-cols-2 gap-2 p-3 xl:grid-cols-3 2xl:grid-cols-4"
+          >
+            <article
+              v-for="item in visibleItems"
+              :key="item.id"
+              class="group min-w-0 rounded-lg border border-default bg-default p-2.5 transition-colors hover:border-accented"
             >
-              <UIcon :name="item.icon" class="size-5" />
-            </div>
-            <div class="min-w-0 flex-1">
               <div class="flex items-start gap-2">
-                <div class="min-w-0 flex-1">
-                  <h3 class="truncate text-sm font-medium text-highlighted">{{ item.name }}</h3>
-                  <p class="mt-0.5 text-[11px] text-dimmed">{{ item.meta }}</p>
-                  <UBadge
-                    v-if="previewStates[item.id] === 'unavailable'"
-                    color="error"
-                    variant="soft"
-                    size="sm"
-                    class="mt-1"
-                  >
-                    {{ t('assets.preview_unavailable') }}
-                  </UBadge>
-                </div>
+                <UCheckbox
+                  :model-value="Boolean(selected[item.id])"
+                  :aria-label="t('assets.select_named', { name: item.name })"
+                  @update:model-value="toggleAsset(item.source, Boolean($event))"
+                />
+                <div class="min-w-0 flex-1" />
                 <UDropdownMenu :items="assetMenu(item)">
-                  <UButton
-                    icon="i-tabler-dots"
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    :aria-label="t('assets.asset_actions', { name: item.name })"
-                  />
+                  <UButton icon="i-tabler-dots" color="neutral" variant="ghost" size="xs" />
                 </UDropdownMenu>
               </div>
-              <p v-if="item.description" class="mt-2 line-clamp-2 text-xs leading-5 text-muted">
-                {{ item.description }}
-              </p>
-              <div v-if="item.category || item.tags.length" class="mt-3 flex flex-wrap gap-1.5">
-                <UBadge v-if="item.category" color="neutral" variant="soft" size="sm">
-                  {{ item.category }}
-                </UBadge>
-                <UBadge
-                  v-for="tag in item.tags"
-                  :key="tag"
-                  color="primary"
-                  variant="subtle"
-                  size="sm"
-                >
-                  {{ tag }}
-                </UBadge>
-              </div>
+              <BlobPreview
+                v-if="item.previewBlob"
+                :blob="item.previewBlob"
+                :alt="item.name"
+                class="mt-1 aspect-video w-full"
+                @state="previewStates[item.id] = $event"
+              />
+              <h3 class="mt-2 truncate text-xs font-medium text-highlighted">{{ item.name }}</h3>
+              <p class="mt-0.5 truncate text-[10px] text-dimmed">{{ item.meta }}</p>
+            </article>
+          </div>
+          <div v-else-if="visibleItems.length" class="min-w-[720px]">
+            <div
+              class="grid h-8 grid-cols-[2.25rem_minmax(15rem,2fr)_minmax(9rem,1fr)_9rem_2.5rem] items-center border-b border-default bg-elevated/35 px-3 text-[10px] font-medium text-dimmed"
+            >
+              <span />
+              <span>{{ t('assets.columns.asset') }}</span>
+              <span>{{ t('assets.columns.organization') }}</span>
+              <span>{{ t('assets.columns.created') }}</span>
+              <span />
             </div>
-          </article>
+            <article
+              v-for="item in visibleItems"
+              :key="item.id"
+              class="grid min-h-14 grid-cols-[2.25rem_minmax(15rem,2fr)_minmax(9rem,1fr)_9rem_2.5rem] items-center border-b border-default/70 px-3 hover:bg-elevated/35"
+            >
+              <UCheckbox
+                :model-value="Boolean(selected[item.id])"
+                :aria-label="t('assets.select_named', { name: item.name })"
+                @update:model-value="toggleAsset(item.source, Boolean($event))"
+              />
+              <div class="flex min-w-0 items-center gap-2.5 py-1.5">
+                <BlobPreview
+                  v-if="item.previewBlob"
+                  :blob="item.previewBlob"
+                  :alt="item.name"
+                  class="size-10 shrink-0"
+                  @state="previewStates[item.id] = $event"
+                />
+                <div
+                  v-else
+                  class="flex size-9 shrink-0 items-center justify-center rounded-md bg-elevated text-primary"
+                >
+                  <UIcon :name="item.icon" class="size-4" />
+                </div>
+                <div class="min-w-0">
+                  <h3 class="truncate text-xs font-medium text-highlighted">{{ item.name }}</h3>
+                  <p class="mt-0.5 truncate text-[10px] text-dimmed">
+                    {{ item.description || item.meta }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex min-w-0 items-center gap-1 pr-3">
+                <UBadge v-if="item.category" color="neutral" variant="soft" size="sm">{{
+                  item.category
+                }}</UBadge>
+                <span v-if="item.tags.length" class="truncate text-[10px] text-dimmed">{{
+                  item.tags.slice(0, 3).join(' · ')
+                }}</span>
+                <span v-else-if="!item.category" class="text-[10px] text-dimmed">—</span>
+              </div>
+              <span class="truncate text-[10px] text-dimmed">{{
+                formatAssetDate(item.source.createdAt)
+              }}</span>
+              <UDropdownMenu :items="assetMenu(item)">
+                <UButton
+                  icon="i-tabler-dots"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="t('assets.asset_actions', { name: item.name })"
+                />
+              </UDropdownMenu>
+            </article>
+          </div>
+          <EmptyState
+            v-else
+            :icon="
+              query
+                ? 'i-tabler-search-off'
+                : activeTab === 'clips'
+                  ? 'i-tabler-movie-off'
+                  : 'i-tabler-photo-off'
+            "
+            :title="query ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
+            :description="query ? t('assets.no_results_hint') : t(`assets.${activeTab}.empty_hint`)"
+          >
+            <template v-if="!query && activeTab === 'templates'" #action>
+              <UButton
+                icon="i-tabler-camera-plus"
+                :label="t('assets.templates.capture')"
+                :disabled="!selectedTargetSlot"
+                @click="captureTemplate"
+              />
+            </template>
+          </EmptyState>
         </div>
-        <EmptyState
-          v-else
-          :icon="
-            query
-              ? 'i-tabler-search-off'
-              : activeTab === 'clips'
-                ? 'i-tabler-movie-off'
-                : 'i-tabler-photo-off'
-          "
-          :title="query ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
-          :description="query ? t('assets.no_results_hint') : t(`assets.${activeTab}.empty_hint`)"
+        <footer
+          v-if="!loading && total > 0"
+          class="flex h-11 shrink-0 items-center gap-3 border-t border-default bg-default px-3"
         >
-          <template v-if="!query && activeTab === 'templates'" #action>
-            <UButton
-              icon="i-tabler-camera-plus"
-              :label="t('assets.templates.capture')"
-              :disabled="!selectedTargetSlot"
-              @click="captureTemplate"
-            />
-          </template>
-        </EmptyState>
-      </div>
-      <footer
-        v-if="!loading && total > 0"
-        class="flex shrink-0 items-center gap-3 border-t border-default bg-default px-4 py-3"
-      >
-        <input
-          type="checkbox"
-          class="size-4 accent-primary"
-          :checked="allCurrentPageSelected"
-          :aria-label="t('assets.select_page')"
-          @change="toggleCurrentPage"
-        />
-        <span class="mr-auto text-xs text-dimmed">
-          {{ t('assets.page_summary', { page, pages: pageCount, total }) }}
-        </span>
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-chevron-left"
-          :disabled="page <= 1"
-          @click="goToPage(page - 1)"
-        />
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-chevron-right"
-          :disabled="page >= pageCount"
-          @click="goToPage(page + 1)"
-        />
-      </footer>
+          <UCheckbox
+            :model-value="allCurrentPageSelected"
+            :aria-label="t('assets.select_page')"
+            @update:model-value="toggleCurrentPage(Boolean($event))"
+          />
+          <span class="mr-auto text-xs text-dimmed">
+            {{ t('assets.page_summary', { page, pages: pageCount, total }) }}
+          </span>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="soft"
+            icon="i-tabler-chevron-left"
+            :disabled="page <= 1"
+            @click="goToPage(page - 1)"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="soft"
+            icon="i-tabler-chevron-right"
+            :disabled="page >= pageCount"
+            @click="goToPage(page + 1)"
+          />
+        </footer>
+      </main>
     </div>
   </div>
 
@@ -571,8 +638,10 @@ const query = ref('')
 const categoryFilter = ref('')
 const tagsFilter = ref('')
 const sort = ref('name_asc')
+const libraryFiltersOpen = ref(false)
+const viewMode = ref<'list' | 'grid'>('list')
 const page = ref(1)
-const pageSize = ref(24)
+const pageSize = ref(50)
 const total = ref(0)
 const assetPage = ref<AssetSummary[]>([])
 const loading = ref(false)
@@ -596,6 +665,9 @@ const editDraft = reactive({ name: '', description: '', category: '', tags: '' }
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
 const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
 const selectedRows = computed(() => Object.values(selected.value))
+const hasLibraryFilters = computed(() =>
+  Boolean(categoryFilter.value.trim() || tagsFilter.value.trim()),
+)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const allCurrentPageSelected = computed(
   () => assetPage.value.length > 0 && assetPage.value.every((asset) => selected.value[asset.guid]),
@@ -608,6 +680,21 @@ const sortItems = computed(() => [
 const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
   { label: t('recordingSave.mode_simple'), value: 'simple' },
   { label: t('recordingSave.mode_precise'), value: 'precise' },
+])
+const libraryMenuItems = computed(() => [
+  [
+    {
+      label: t('common.refresh'),
+      icon: 'i-tabler-refresh',
+      onSelect: () => void refreshAssets(),
+    },
+    {
+      label: t('assets.cleanup_action'),
+      icon: 'i-tabler-recycle',
+      disabled: cleanupBusy.value,
+      onSelect: () => void cleanupLibrary(),
+    },
+  ],
 ])
 
 const targetItems = computed(() =>
@@ -676,6 +763,7 @@ onMounted(async () => {
 })
 
 watch(activeTab, async () => {
+  clearSelection()
   page.value = 1
   await refreshAssets()
 })
@@ -742,17 +830,17 @@ async function goToPage(next: number): Promise<void> {
   await refreshAssets()
 }
 
-function toggleAsset(asset: AssetSummary, event: Event): void {
+function toggleAsset(asset: AssetSummary, checked: boolean): void {
   const next = { ...selected.value }
-  if ((event.target as HTMLInputElement).checked) next[asset.guid] = asset
+  if (checked) next[asset.guid] = asset
   else delete next[asset.guid]
   selected.value = next
 }
 
-function toggleCurrentPage(event: Event): void {
+function toggleCurrentPage(checked: boolean): void {
   const next = { ...selected.value }
   for (const asset of assetPage.value) {
-    if ((event.target as HTMLInputElement).checked) next[asset.guid] = asset
+    if (checked) next[asset.guid] = asset
     else delete next[asset.guid]
   }
   selected.value = next
@@ -1134,6 +1222,17 @@ function splitTags(value: string): string[] {
 function formatDuration(durationUs: number): string {
   const seconds = Math.max(0, Math.round(durationUs / 1_000_000))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+function formatAssetDate(value?: string): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
 }
 
 function showError(title: string, error: unknown): void {

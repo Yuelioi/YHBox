@@ -64,60 +64,17 @@
       class="w-full font-mono text-xs"
       @change="setLiteralJSON"
     />
-    <UButton
+    <AssetReferenceField
       v-else-if="usesAssetPicker"
-      class="w-full justify-start"
-      color="neutral"
-      variant="outline"
-      :icon="assetKind === 'template' ? 'i-tabler-photo-search' : 'i-tabler-movie'"
-      :label="bindingBlob ? t('assetPicker.replace') : pickerPlaceholder"
-      trailing-icon="i-tabler-chevron-right"
-      @click="pickerOpen = true"
+      :kind="assetKind ?? 'clip'"
+      :bound="binding?.kind === 'blob'"
+      :blob="bindingBlob"
+      :label="resourceLabel"
+      :placeholder="pickerPlaceholder"
+      :stale="resourceStale"
+      @change="pickerOpen = true"
+      @clear="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
     />
-    <div
-      v-if="port.editorAdapter === 'template-image' && binding?.kind === 'blob'"
-      class="flex items-center gap-3 rounded-lg border border-default bg-default p-2"
-    >
-      <BlobPreview
-        v-if="binding.blob"
-        :blob="binding.blob"
-        :alt="resourceLabel"
-        class="size-14 shrink-0"
-        @state="templatePreviewState = $event"
-      />
-      <div
-        v-else
-        class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error"
-      >
-        <UIcon name="i-tabler-photo-off" class="size-5" />
-      </div>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-xs font-medium text-toned">
-          {{ resourceLabel }}
-        </p>
-        <p class="truncate font-mono text-[10px] text-dimmed">{{ binding.blob?.digest }}</p>
-      </div>
-      <UBadge
-        v-if="resourceStale || templatePreviewState === 'unavailable'"
-        color="error"
-        variant="soft"
-        size="sm"
-      >
-        {{ t('workflow.inspector.resource_stale') }}
-      </UBadge>
-    </div>
-    <div
-      v-if="isInputClip && binding?.kind === 'blob'"
-      class="flex items-center gap-2 rounded-lg border border-default bg-default px-3 py-2"
-    >
-      <UIcon name="i-tabler-movie" class="size-4 shrink-0 text-primary" />
-      <span class="min-w-0 flex-1 truncate text-xs text-toned">
-        {{ resourceLabel }}
-      </span>
-      <UBadge v-if="resourceStale" color="error" variant="soft" size="sm">
-        {{ t('workflow.inspector.resource_stale') }}
-      </UBadge>
-    </div>
     <p v-if="!usesAssetPicker" class="text-[11px] leading-5 text-muted">
       {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
     </p>
@@ -131,7 +88,7 @@
         @click="emit('command', { kind: 'bind-default', nodeId: node.id, portId: port.id })"
       />
       <UButton
-        v-if="binding"
+        v-if="binding && !usesAssetPicker"
         :label="t('workflow.inspector.clear')"
         size="xs"
         color="neutral"
@@ -158,7 +115,7 @@ import PointValueEditor from '@/app/editor/PointValueEditor.vue'
 import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
 import KeyChordValueEditor from '@/app/editor/KeyChordValueEditor.vue'
 import { isKeyChordType } from '@/app/editor/keyChord'
-import BlobPreview from '@/components/common/BlobPreview.vue'
+import AssetReferenceField from '@/app/editor/AssetReferenceField.vue'
 import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import type { AssetBinding } from '@/lib/backend'
@@ -171,7 +128,6 @@ const props = defineProps<{
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
 const assets = useAssetsStore()
-const templatePreviewState = ref<'loading' | 'ready' | 'unavailable'>('loading')
 const pickerOpen = ref(false)
 const resolvedBinding = ref<AssetBinding | null>(null)
 const bindingResolved = ref(false)
