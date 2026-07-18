@@ -65,9 +65,11 @@
             <span class="block truncate text-xs font-medium text-toned">{{ candidate.title }}</span>
             <span class="block truncate font-mono text-[10px] text-dimmed">
               {{
-                candidate.handle
-                  ? t('workflow.connection.via_port', { port: candidate.handle.portId })
-                  : t('workflow.connection.add_only')
+                candidate.actionHint
+                  ? candidate.actionHint
+                  : candidate.handle
+                    ? t('workflow.connection.via_port', { port: candidate.handle.portId })
+                    : t('workflow.connection.add_only')
               }}
             </span>
           </span>
@@ -114,6 +116,8 @@ export interface WorkflowConnectionCandidate {
   handle?: ParsedHandle
   match?: 'exact' | 'assignable' | 'generic-bind'
   conversionKind?: 'lossless' | 'lossy' | 'parser'
+  promoteState?: boolean
+  actionHint?: string
 }
 
 const props = defineProps<{

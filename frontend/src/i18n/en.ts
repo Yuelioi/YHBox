@@ -1592,6 +1592,11 @@ export default {
       conversion_lossless: 'Lossless conversion',
       conversion_lossy: 'Lossy conversion',
       conversion_parser: 'May fail',
+      conversion_title: 'Choose an explicit conversion',
+      conversion_hint:
+        '{source} cannot connect directly to {target}. Choosing a strategy inserts a visible node into the graph.',
+      conversion_cost: 'Conversion cost {cost}',
+      conversion_failed: 'Could not insert the conversion node',
       issue: {
         direction: 'Connections must run from an output to an input',
         channel: 'The port channels differ',
@@ -1666,6 +1671,14 @@ export default {
       insert_failed: 'Could not insert the state reference',
       locate_references: 'Locate references to {name}; {count} total',
       remove_referenced: 'Remove or rebind every reference before deleting this state variable',
+      promote_title: 'Promote to Run state',
+      promote_action: 'Promote to state',
+      promote_hint:
+        'Create a {type} state and insert a connected write node. The whole edit can be undone once.',
+      promote_candidate_hint: 'Create same-type state and connect a write node',
+      promote_invalid_name: 'The state name is invalid',
+      promote_duplicate_name: 'A state with this name already exists',
+      promote_failed: 'Could not promote the output to state',
     },
     ai: {
       open: 'AI proposal',

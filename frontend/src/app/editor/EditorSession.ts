@@ -29,6 +29,7 @@ import type {
 import {
   assignable,
   projectedConnectionCompatibility,
+  type ConversionCandidatePlan,
   type ConnectionCompatibility,
 } from './connectionCompatibility'
 import type { ParsedHandle } from './graphHandles'
@@ -104,6 +105,17 @@ export type EditorCommand =
       kind: 'insert-connected-node'
       nodeTypeId: string
       nodeId: string
+      position: { x: number; y: number }
+      edge: Edge
+    }
+  | {
+      kind: 'promote-output-to-state'
+      name: string
+      type: TypeExpression
+      defaultValue: unknown
+      nodeTypeId: string
+      nodeId: string
+      stateConfigKey: string
       position: { x: number; y: number }
       edge: Edge
     }
@@ -425,7 +437,105 @@ export class EditorSession {
       to,
       { channel: edge.channel, direction: 'input', portId: edge.to.portId },
       this.typeProjections,
+      this.authoring?.body.nodes,
     )
+  }
+
+  insertConversionBridge(
+    edge: Edge,
+    conversion: ConversionCandidatePlan,
+    position: { x: number; y: number },
+  ): string {
+    if (edge.channel !== 'data') throw new Error('conversion bridge requires a data edge')
+    const plan = this.connectionCompatibility(edge)
+    const allowed = plan.conversions?.find(
+      (candidate) =>
+        candidate.nodeTypeId === conversion.nodeTypeId &&
+        candidate.inputPort === conversion.inputPort &&
+        candidate.outputPort === conversion.outputPort,
+    )
+    if (!allowed) throw new Error('conversion is not valid for this connection')
+    const graph = this.currentGraph
+    const projection = this.projections.get(allowed.nodeTypeId)
+    if (!graph || !projection) throw new Error('conversion projection is unavailable')
+    const nodeId = uniqueNodeId(graph, this.idFactory)
+    this.apply({
+      kind: 'insert-node-selection',
+      nodes: [
+        {
+          id: nodeId,
+          nodeRef: clone(projection.nodeRef),
+          position: clone(position),
+          config: {},
+          bindings: {},
+        },
+      ],
+      calls: [],
+      annotations: [],
+      edges: [
+        {
+          channel: 'data',
+          from: clone(edge.from),
+          to: { nodeId, portId: allowed.inputPort },
+        },
+        {
+          channel: 'data',
+          from: { nodeId, portId: allowed.outputPort },
+          to: clone(edge.to),
+        },
+      ],
+    })
+    return nodeId
+  }
+
+  promoteOutputToState(
+    nodeId: string,
+    portId: string,
+    name: string,
+    position: { x: number; y: number },
+  ): string {
+    const graph = this.currentGraph
+    const sourceNode = graph?.nodes.find((node) => node.id === nodeId)
+    const sourceProjection = sourceNode ? this.nodeInstanceProjection(sourceNode) : undefined
+    const output = sourceProjection?.dataOutputs.find((port) => port.id === portId)
+    if (
+      !graph ||
+      !output ||
+      output.carrier !== 'durable' ||
+      output.type.expression.kind !== 'ref'
+    ) {
+      throw new Error('output cannot be promoted to durable state')
+    }
+    const type = this.typeProjections.get(output.type.expression.ref.typeId)
+    if (!type || !type.traits.includes('durable') || !stateTypeHasDefault(type)) {
+      throw new Error('output type cannot be initialized as durable state')
+    }
+    const stateWrite = [...this.projections.values()].find(
+      (projection) =>
+        projection.nodeRef.nodeTypeId.endsWith('/state/write') &&
+        projection.stateAccesses.some((access) => access.mode === 'write'),
+    )
+    if (!stateWrite) throw new Error('state write node is unavailable')
+    const inputPort = stateWrite.stateAccesses.find((access) => access.mode === 'write')
+    const valuePort = stateWrite.dataInputs.find((port) => port.type.expression.kind === 'variable')
+    if (!inputPort || !valuePort) throw new Error('state write contract is incomplete')
+    const stateNodeId = uniqueNodeId(graph, this.idFactory)
+    this.apply({
+      kind: 'promote-output-to-state',
+      name,
+      type: clone(output.type.expression),
+      defaultValue: defaultStateValue(type),
+      nodeTypeId: stateWrite.nodeRef.nodeTypeId,
+      nodeId: stateNodeId,
+      stateConfigKey: inputPort.slotConfigKey,
+      position: clone(position),
+      edge: {
+        channel: 'data',
+        from: { nodeId, portId },
+        to: { nodeId: stateNodeId, portId: valuePort.id },
+      },
+    })
+    return stateNodeId
   }
 
   insertConnectedNode(
@@ -1096,7 +1206,8 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
           },
         }
       case 'insert-connected-node':
-        throw new Error('insert-connected-node must be expanded before persistence')
+      case 'promote-output-to-state':
+        throw new Error(`${command.kind} must be expanded before persistence`)
       case 'remove-nodes':
         throw new Error('remove-nodes must be expanded before persistence')
       case 'insert-node-selection':
@@ -1116,6 +1227,28 @@ function expandEditorCommand(command: EditorCommand): EditorCommand[] {
           position: command.position,
         },
         { kind: 'connect', edge: command.edge },
+      ]
+    case 'promote-output-to-state':
+      return [
+        {
+          kind: 'add-state-variable',
+          name: command.name,
+          type: clone(command.type),
+          defaultValue: clone(command.defaultValue),
+        },
+        {
+          kind: 'add-node',
+          nodeTypeId: command.nodeTypeId,
+          nodeId: command.nodeId,
+          position: clone(command.position),
+        },
+        {
+          kind: 'set-config',
+          nodeId: command.nodeId,
+          fieldId: command.stateConfigKey,
+          value: command.name,
+        },
+        { kind: 'connect', edge: clone(command.edge) },
       ]
     case 'move-nodes':
       return command.positions.map(({ nodeId, position }) => ({
@@ -1425,11 +1558,37 @@ function applyCommand(
       collapseGraphSelection(source, graph, command, projections)
       return
     case 'insert-connected-node':
+    case 'promote-output-to-state':
     case 'remove-nodes':
     case 'insert-node-selection':
       throw new Error(`${command.kind} expansion failed`)
     case 'disconnect':
       graph.edges = graph.edges.filter((edge) => !sameEdge(edge, command.edge))
+  }
+}
+
+function stateTypeHasDefault(type: TypeProjection): boolean {
+  return type.examples.length > 0 || type.control !== 'object'
+}
+
+function defaultStateValue(type: TypeProjection): unknown {
+  if (type.examples.length) return clone(type.examples[0])
+  switch (type.control) {
+    case 'text':
+      return ''
+    case 'number':
+    case 'integer':
+      return 0
+    case 'toggle':
+      return false
+    case 'select':
+      return type.constraints.enum[0] ?? null
+    case 'list':
+      return []
+    case 'object':
+      return {}
+    default:
+      return null
   }
 }
 

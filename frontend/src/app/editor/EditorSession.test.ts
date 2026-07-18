@@ -336,6 +336,107 @@ describe('EditorSession', () => {
     )
   })
 
+  it('inserts a visible conversion bridge as one undoable edit', async () => {
+    const source = emptySource()
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'string-to-number',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      nodeId: 'concat',
+      position: { x: 0, y: 0 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: greater.nodeRef.nodeTypeId,
+      nodeId: 'greater',
+      position: { x: 440, y: 0 },
+    })
+    const edge = {
+      channel: 'data' as const,
+      from: { nodeId: 'concat', portId: 'result' },
+      to: { nodeId: 'greater', portId: 'a' },
+    }
+    const plan = session.connectionCompatibility(edge)
+    expect(plan).toMatchObject({ valid: false, disposition: 'conversion' })
+    const conversion = plan.conversions?.[0]
+    if (!conversion) throw new Error('missing conversion plan')
+
+    const inserted = session.insertConversionBridge(edge, conversion, { x: 220, y: 0 })
+
+    expect(inserted).toBe('string-to-number')
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual([
+      'concat',
+      'greater',
+      'string-to-number',
+    ])
+    expect(session.currentGraph?.edges).toEqual([
+      {
+        channel: 'data',
+        from: { nodeId: 'concat', portId: 'result' },
+        to: { nodeId: 'string-to-number', portId: 'text' },
+      },
+      {
+        channel: 'data',
+        from: { nodeId: 'string-to-number', portId: 'result' },
+        to: { nodeId: 'greater', portId: 'a' },
+      },
+    ])
+
+    session.undo()
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual([
+      'concat',
+      'greater',
+    ])
+    expect(session.currentGraph?.edges).toEqual([])
+    session.redo()
+    expect(session.currentGraph?.nodes).toHaveLength(3)
+    expect(session.currentGraph?.edges).toHaveLength(2)
+  })
+
+  it('promotes a durable output to typed state as one undoable edit', async () => {
+    const source = emptySource()
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'state-write',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: concat.nodeRef.nodeTypeId,
+      nodeId: 'concat',
+      position: { x: 0, y: 0 },
+    })
+
+    const stateNodeId = session.promoteOutputToState('concat', 'result', 'message', {
+      x: 220,
+      y: 0,
+    })
+
+    expect(stateNodeId).toBe('state-write')
+    expect(session.source?.variables).toEqual([
+      expect.objectContaining({ name: 'message', type: concat.dataOutputs[0]!.type.expression }),
+    ])
+    expect(session.currentGraph?.nodes.find((candidate) => candidate.id === 'state-write')).toEqual(
+      expect.objectContaining({ config: { variable: 'message' } }),
+    )
+    expect(session.currentGraph?.edges).toContainEqual({
+      channel: 'data',
+      from: { nodeId: 'concat', portId: 'result' },
+      to: { nodeId: 'state-write', portId: 'value' },
+    })
+
+    session.undo()
+    expect(session.source?.variables).toEqual([])
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual(['concat'])
+    session.redo()
+    expect(session.source?.variables[0]?.name).toBe('message')
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+  })
+
   it('inserts Delay from the RunStarted exec output', async () => {
     const source = emptySource()
     const ids = ['run-started', 'delay']

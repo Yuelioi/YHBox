@@ -1,5 +1,6 @@
 import type {
   NodeProjection,
+  PortProjection,
   ResourceLeaseBinding,
   TypeExpression,
   TypeProjection,
@@ -22,6 +23,21 @@ export interface ConnectionCompatibility {
   match?: 'exact' | 'assignable' | 'generic-bind'
   sourceType?: string
   targetType?: string
+  disposition?: 'direct' | 'conversion' | 'incompatible'
+  reason?: 'exact' | 'assignable' | 'generic-bind' | 'conversion-required' | 'incompatible'
+  conversions?: ConversionCandidatePlan[]
+}
+
+export interface ConversionCandidatePlan {
+  nodeTypeId: string
+  inputPort: string
+  outputPort: string
+  kind: 'lossless' | 'lossy' | 'parser'
+  total: boolean
+  autoInsert: boolean
+  cost: number
+  titleKey?: string
+  descriptionKey?: string
 }
 
 export interface CompatibleCandidatePort {
@@ -36,6 +52,7 @@ export function projectedConnectionCompatibility(
   targetProjection: NodeProjection,
   target: ParsedHandle,
   types?: ReadonlyMap<string, TypeProjection>,
+  nodes?: readonly NodeProjection[],
 ): ConnectionCompatibility {
   if (source.direction !== 'output' || target.direction !== 'input') {
     return invalid('direction', 'connection must run from an output to an input')
@@ -51,10 +68,14 @@ export function projectedConnectionCompatibility(
     if (!match) {
       const sourceType = typeLabel(output.type.expression)
       const targetType = typeLabel(input.type.expression)
+      const conversions = conversionCandidates(output, input, nodes ?? [], types)
       return {
         ...invalid('type', `data edge type ${sourceType} is not assignable to ${targetType}`),
         sourceType,
         targetType,
+        disposition: conversions.length ? 'conversion' : 'incompatible',
+        reason: conversions.length ? 'conversion-required' : 'incompatible',
+        conversions,
       }
     }
     if (output.carrier !== input.carrier) {
@@ -63,7 +84,7 @@ export function projectedConnectionCompatibility(
     if (!resourceLeaseAssignable(output.resourceLease, input.resourceLease)) {
       return invalid('resource-lease', 'data edge resource lease differs')
     }
-    return { valid: true, match }
+    return { valid: true, match, disposition: 'direct', reason: match }
   }
 
   const output = sourceProjection.signals.find(
@@ -83,6 +104,54 @@ export function projectedConnectionCompatibility(
     return invalid('instruction', `${target.channel} edge is not accepted by the instruction`)
   }
   return { valid: true }
+}
+
+export function conversionCandidates(
+  source: PortProjection,
+  target: PortProjection,
+  nodes: readonly NodeProjection[],
+  types?: ReadonlyMap<string, TypeProjection>,
+): ConversionCandidatePlan[] {
+  return nodes
+    .flatMap((node): ConversionCandidatePlan[] => {
+      const conversion = node.conversion
+      if (!conversion) return []
+      const input = node.dataInputs.find((port) => port.id === conversion.inputPort)
+      const output = node.dataOutputs.find((port) => port.id === conversion.outputPort)
+      if (!input || !output) return []
+      if (
+        source.carrier !== input.carrier ||
+        output.carrier !== target.carrier ||
+        !resourceLeaseAssignable(source.resourceLease, input.resourceLease) ||
+        !resourceLeaseAssignable(output.resourceLease, target.resourceLease)
+      )
+        return []
+      const bindings = new Map<string, TypeExpression>()
+      if (!bindType(source.type.expression, input.type.expression, types, bindings)) return []
+      const resolvedOutput = substituteType(output.type.expression, bindings)
+      if (!resolvedOutput || !typeMatch(resolvedOutput, target.type.expression, types)) return []
+      return [
+        {
+          nodeTypeId: node.nodeRef.nodeTypeId,
+          inputPort: conversion.inputPort,
+          outputPort: conversion.outputPort,
+          kind: conversion.kind,
+          total: conversion.total,
+          autoInsert: conversion.autoInsert,
+          cost: conversion.cost,
+          titleKey: node.titleKey,
+          descriptionKey: node.descriptionKey,
+        },
+      ]
+    })
+    .sort(
+      (left, right) =>
+        Number(right.autoInsert) - Number(left.autoInsert) ||
+        conversionRisk(left.kind) - conversionRisk(right.kind) ||
+        Number(right.total) - Number(left.total) ||
+        left.cost - right.cost ||
+        left.nodeTypeId.localeCompare(right.nodeTypeId),
+    )
 }
 
 export function compatibleCandidatePorts(
@@ -177,6 +246,66 @@ function weakestMatch(
   return 'exact'
 }
 
+function bindType(
+  actual: TypeExpression,
+  expected: TypeExpression,
+  types: ReadonlyMap<string, TypeProjection> | undefined,
+  bindings: Map<string, TypeExpression>,
+): boolean {
+  if (expected.kind === 'variable') {
+    if (!typeSatisfiesConstraints(actual, expected.constraints ?? [], types)) return false
+    const existing = bindings.get(expected.variable)
+    if (existing) return JSON.stringify(existing) === JSON.stringify(actual)
+    bindings.set(expected.variable, structuredClone(actual))
+    return true
+  }
+  if (actual.kind === 'list' && expected.kind === 'list') {
+    return bindType(actual.element, expected.element, types, bindings)
+  }
+  return typeMatch(actual, expected, types) !== null
+}
+
+function substituteType(
+  expression: TypeExpression,
+  bindings: ReadonlyMap<string, TypeExpression>,
+): TypeExpression | null {
+  if (expression.kind === 'variable') {
+    const bound = bindings.get(expression.variable)
+    return bound ? structuredClone(bound) : null
+  }
+  if (expression.kind === 'list') {
+    const element = substituteType(expression.element, bindings)
+    return element ? { kind: 'list', element } : null
+  }
+  if (expression.kind === 'union') {
+    const members = expression.members.map((member) => substituteType(member, bindings))
+    if (!members.every((member): member is TypeExpression => member !== null)) return null
+    if (members.length < 2) return null
+    return {
+      kind: 'union',
+      members: members as [TypeExpression, TypeExpression, ...TypeExpression[]],
+    }
+  }
+  return structuredClone(expression)
+}
+
+function typeSatisfiesConstraints(
+  expression: TypeExpression,
+  constraints: readonly string[],
+  types?: ReadonlyMap<string, TypeProjection>,
+): boolean {
+  if (!constraints.length) return expression.kind !== 'variable'
+  if (expression.kind !== 'ref') return false
+  const traits = new Set(types?.get(expression.ref.typeId)?.traits ?? [])
+  return constraints.every((constraint) => traits.has(constraint))
+}
+
+function conversionRisk(kind: ConversionCandidatePlan['kind']): number {
+  if (kind === 'lossless') return 0
+  if (kind === 'lossy') return 1
+  return 2
+}
+
 function typeLabel(expression: TypeExpression): string {
   if (expression.kind === 'ref')
     return expression.ref.typeId.split('/').at(-2) ?? expression.ref.typeId
@@ -267,5 +396,5 @@ function instructionAcceptsSignal(
 }
 
 function invalid(issue: ConnectionIssue, message: string): ConnectionCompatibility {
-  return { valid: false, issue, message }
+  return { valid: false, issue, message, disposition: 'incompatible', reason: 'incompatible' }
 }

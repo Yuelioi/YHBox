@@ -572,6 +572,96 @@
     </template>
 
     <BaseModal
+      :open="Boolean(pendingConversion)"
+      :title="t('workflow.connection.conversion_title')"
+      icon="i-tabler-arrows-transfer-down"
+      size="md"
+      @update:open="(open) => !open && cancelConversion()"
+    >
+      <p class="text-xs leading-5 text-muted">
+        {{
+          t('workflow.connection.conversion_hint', {
+            source: pendingConversion?.sourceType,
+            target: pendingConversion?.targetType,
+          })
+        }}
+      </p>
+      <div class="mt-3 space-y-2">
+        <button
+          v-for="candidate in pendingConversion?.candidates ?? []"
+          :key="candidate.nodeTypeId"
+          type="button"
+          data-testid="workflow-conversion-candidate"
+          class="flex w-full items-center gap-3 rounded-lg border border-default px-3 py-3 text-left hover:border-primary/50 hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          @click="applyConversion(candidate)"
+        >
+          <UIcon name="i-tabler-arrows-transfer-down" class="size-4 shrink-0 text-primary" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-xs font-semibold text-highlighted">
+              {{ conversionTitle(candidate) }}
+            </span>
+            <span class="mt-0.5 block text-[10px] text-muted">
+              {{ t('workflow.connection.conversion_cost', { cost: candidate.cost }) }}
+            </span>
+          </span>
+          <UBadge color="warning" variant="soft" size="sm">
+            {{ t(`workflow.connection.conversion_${candidate.kind}`) }}
+          </UBadge>
+        </button>
+      </div>
+      <template #footer>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :label="t('common.cancel')"
+          @click="cancelConversion"
+        />
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="Boolean(pendingStatePromotion)"
+      :title="t('workflow.state_panel.promote_title')"
+      icon="i-tabler-database-plus"
+      size="md"
+      @update:open="(open) => !open && cancelStatePromotion()"
+    >
+      <p class="text-xs leading-5 text-muted">
+        {{
+          t('workflow.state_panel.promote_hint', {
+            type: pendingStatePromotion?.typeLabel,
+          })
+        }}
+      </p>
+      <UFormField class="mt-3" :label="t('workflow.inspector.state_name_placeholder')" required>
+        <UInput
+          v-model="statePromotionName"
+          data-testid="workflow-state-promotion-name"
+          autofocus
+          maxlength="128"
+          @keydown.enter.prevent="commitStatePromotion"
+        />
+      </UFormField>
+      <p v-if="statePromotionError" class="mt-2 text-[11px] text-error">
+        {{ statePromotionError }}
+      </p>
+      <template #footer>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :label="t('common.cancel')"
+          @click="cancelStatePromotion"
+        />
+        <UButton
+          data-testid="workflow-state-promotion-confirm"
+          :disabled="Boolean(statePromotionError)"
+          :label="t('workflow.state_panel.promote_action')"
+          @click="commitStatePromotion"
+        />
+      </template>
+    </BaseModal>
+
+    <BaseModal
       v-model:open="nodeSearchOpen"
       :title="t('workflow.node_search.title')"
       icon="i-tabler-search"
@@ -829,6 +919,7 @@ import { nodeRunStatuses } from '@/app/editor/runTrace'
 import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
   compatibleCandidatePorts,
+  type ConversionCandidatePlan,
   type ConnectionIssue,
 } from '@/app/editor/connectionCompatibility'
 import {
@@ -890,6 +981,9 @@ const saveSucceeded = ref(false)
 const canvasElement = ref<HTMLElement | null>(null)
 const connectionStart = ref<ConnectionAnchor | null>(null)
 const connectionMenu = ref<ConnectionMenuState | null>(null)
+const pendingConversion = ref<PendingConversion | null>(null)
+const pendingStatePromotion = ref<PendingStatePromotion | null>(null)
+const statePromotionName = ref('')
 const connectionHint = ref('')
 const connectionError = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
@@ -940,6 +1034,21 @@ interface ConnectionMenuState {
   anchor: ConnectionAnchor
   flowPosition: { x: number; y: number }
   canvasPosition: { x: number; y: number }
+}
+
+interface PendingConversion {
+  edge: Edge
+  candidates: ConversionCandidatePlan[]
+  sourceType: string
+  targetType: string
+  position: { x: number; y: number }
+}
+
+interface PendingStatePromotion {
+  nodeId: string
+  portId: string
+  position: { x: number; y: number }
+  typeLabel: string
 }
 
 interface WorkflowSelectionClipboard {
@@ -1109,7 +1218,7 @@ const compatibleConnectionCandidates = computed<WorkflowConnectionCandidate[]>((
   if (!anchorNode) return []
   const anchorProjection = session.nodeInstanceProjection(anchorNode)
   if (!anchorProjection) return []
-  return (session.authoring?.body.nodes ?? [])
+  const candidates: WorkflowConnectionCandidate[] = (session.authoring?.body.nodes ?? [])
     .flatMap((projection) =>
       compatibleCandidatePorts(
         anchorProjection,
@@ -1133,6 +1242,34 @@ const compatibleConnectionCandidates = computed<WorkflowConnectionCandidate[]>((
         left.title.localeCompare(right.title) ||
         left.key.localeCompare(right.key),
     )
+  const output =
+    menu.anchor.handle.direction === 'output' && menu.anchor.handle.channel === 'data'
+      ? anchorProjection.dataOutputs.find((port) => port.id === menu.anchor.handle.portId)
+      : undefined
+  const outputExpression = output?.type.expression
+  const stateType =
+    output?.carrier === 'durable' && outputExpression?.kind === 'ref'
+      ? session.authoring?.body.types.find(
+          (type) =>
+            type.typeRef.typeId === outputExpression.ref.typeId &&
+            type.typeRef.semanticDigest === outputExpression.ref.semanticDigest &&
+            type.traits.includes('durable') &&
+            (type.examples.length > 0 || type.control !== 'object'),
+        )
+      : undefined
+  if (stateType) {
+    candidates.unshift({
+      key: '__promote-output-to-state__',
+      nodeTypeId: '__promote-output-to-state__',
+      title: t('workflow.state_panel.promote_action'),
+      icon: 'database-plus',
+      searchText:
+        `${t('workflow.state_panel.promote_action')} ${stateType.titleKey && te(stateType.titleKey) ? t(stateType.titleKey) : stateType.typeRef.typeId}`.toLocaleLowerCase(),
+      promoteState: true,
+      actionHint: t('workflow.state_panel.promote_candidate_hint'),
+    })
+  }
+  return candidates
 })
 
 function connectionMatchRank(match: WorkflowConnectionCandidate['match']): number {
@@ -1168,6 +1305,14 @@ const stateReferenceCounts = computed<Record<string, number>>(() => {
     }
   }
   return result
+})
+const statePromotionError = computed(() => {
+  const name = statePromotionName.value.trim()
+  if (!/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(name))
+    return t('workflow.state_panel.promote_invalid_name')
+  if (session.source?.variables.some((variable) => variable.name === name))
+    return t('workflow.state_panel.promote_duplicate_name')
+  return ''
 })
 const selectedCall = computed(
   () => session.currentGraph?.calls?.find((call) => call.id === selectedNodeId.value) ?? null,
@@ -1726,6 +1871,18 @@ function connect(connection: Connection): void {
   if (!edge) return
   const compatibility = session.connectionCompatibility(edge)
   if (!compatibility.valid) {
+    if (compatibility.conversions?.length && compatibility.sourceType && compatibility.targetType) {
+      pendingConversion.value = {
+        edge,
+        candidates: compatibility.conversions,
+        sourceType: compatibility.sourceType,
+        targetType: compatibility.targetType,
+        position: conversionNodePosition(edge),
+      }
+      connectionMadeThisGesture = true
+      connectionHint.value = ''
+      return
+    }
     connectionHint.value = connectionIssueText(compatibility)
     return
   }
@@ -1739,8 +1896,44 @@ function isValidConnection(connection: Connection): boolean {
   const edge = connectionEdge(connection)
   if (!edge) return false
   const compatibility = session.connectionCompatibility(edge)
-  connectionHint.value = compatibility.valid ? '' : connectionIssueText(compatibility)
-  return compatibility.valid
+  const conversionAvailable = Boolean(compatibility.conversions?.length)
+  connectionHint.value =
+    compatibility.valid || conversionAvailable ? '' : connectionIssueText(compatibility)
+  return compatibility.valid || conversionAvailable
+}
+
+function conversionNodePosition(edge: Edge): { x: number; y: number } {
+  const graph = session.currentGraph
+  const position = (nodeId: string) =>
+    graph?.nodes.find((node) => node.id === nodeId)?.position ??
+    graph?.calls?.find((call) => call.id === nodeId)?.position
+  const source = position(edge.from.nodeId)
+  const target = position(edge.to.nodeId)
+  if (!source || !target) return { x: 160, y: 160 }
+  return { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 }
+}
+
+function conversionTitle(candidate: ConversionCandidatePlan): string {
+  if (candidate.titleKey && te(candidate.titleKey)) return t(candidate.titleKey)
+  return candidate.nodeTypeId.split('/').at(-1) ?? candidate.nodeTypeId
+}
+
+function applyConversion(candidate: ConversionCandidatePlan): void {
+  const pending = pendingConversion.value
+  if (!pending) return
+  try {
+    const nodeId = session.insertConversionBridge(pending.edge, candidate, pending.position)
+    selectedNodeIds.value = new Set([nodeId])
+    selectedNodeId.value = nodeId
+    pendingConversion.value = null
+    connectionMadeThisGesture = true
+  } catch (error) {
+    showError(t('workflow.connection.conversion_failed'), error)
+  }
+}
+
+function cancelConversion(): void {
+  pendingConversion.value = null
 }
 
 function startConnection(params: OnConnectStartParams): void {
@@ -1790,6 +1983,23 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
   if (!menu) return
   connectionError.value = ''
   const position = { x: menu.flowPosition.x, y: menu.flowPosition.y }
+  if (candidate.promoteState) {
+    const anchorNode = session.currentGraph?.nodes.find((node) => node.id === menu.anchor.nodeId)
+    const projection = anchorNode ? session.nodeInstanceProjection(anchorNode) : undefined
+    const output = projection?.dataOutputs.find(
+      (port) => menu.anchor.handle.channel === 'data' && port.id === menu.anchor.handle.portId,
+    )
+    if (!output) return
+    pendingStatePromotion.value = {
+      nodeId: menu.anchor.nodeId,
+      portId: menu.anchor.handle.portId,
+      position,
+      typeLabel: output.type.label,
+    }
+    statePromotionName.value = uniqueStateName(menu.anchor.handle.portId)
+    closeConnectionMenu()
+    return
+  }
   if (!candidate.handle) {
     addNode(candidate.nodeTypeId, position)
     closeConnectionMenu()
@@ -1808,6 +2018,42 @@ function selectConnectionCandidate(candidate: WorkflowConnectionCandidate): void
     connectionError.value = error instanceof Error ? error.message : String(error)
     showError(t('workflow.toast.edit_rejected'), error)
   }
+}
+
+function uniqueStateName(base: string): string {
+  const normalized = base.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^[^A-Za-z0-9_]+/, '')
+  const prefix = normalized || 'value'
+  const existing = new Set((session.source?.variables ?? []).map((variable) => variable.name))
+  if (!existing.has(prefix)) return prefix
+  for (let index = 2; index <= 4096; index++) {
+    const candidate = `${prefix}_${index}`
+    if (!existing.has(candidate)) return candidate
+  }
+  return `${prefix}_${Date.now()}`
+}
+
+function commitStatePromotion(): void {
+  const pending = pendingStatePromotion.value
+  if (!pending || statePromotionError.value) return
+  try {
+    const nodeId = session.promoteOutputToState(
+      pending.nodeId,
+      pending.portId,
+      statePromotionName.value.trim(),
+      pending.position,
+    )
+    selectedNodeIds.value = new Set([nodeId])
+    selectedNodeId.value = nodeId
+    statePanelOpen.value = true
+    cancelStatePromotion()
+  } catch (error) {
+    showError(t('workflow.state_panel.promote_failed'), error)
+  }
+}
+
+function cancelStatePromotion(): void {
+  pendingStatePromotion.value = null
+  statePromotionName.value = ''
 }
 
 function handlePaneClick(): void {

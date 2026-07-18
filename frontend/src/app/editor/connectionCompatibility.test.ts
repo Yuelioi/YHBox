@@ -64,8 +64,34 @@ describe('connection compatibility', () => {
         greater,
         { channel: 'data', direction: 'input', portId: 'a' },
         types,
+        authoring.body.nodes,
       ),
-    ).toMatchObject({ valid: false, issue: 'type', sourceType: 'string', targetType: 'number' })
+    ).toMatchObject({
+      valid: false,
+      issue: 'type',
+      sourceType: 'string',
+      targetType: 'number',
+      disposition: 'conversion',
+      reason: 'conversion-required',
+      conversions: [
+        expect.objectContaining({
+          nodeTypeId: expect.stringMatching(/\/conversion\/string-to-integer$/),
+          inputPort: 'text',
+          outputPort: 'result',
+          kind: 'parser',
+          total: false,
+          autoInsert: false,
+        }),
+        expect.objectContaining({
+          nodeTypeId: expect.stringMatching(/\/conversion\/string-to-number$/),
+          inputPort: 'text',
+          outputPort: 'result',
+          kind: 'parser',
+          total: false,
+          autoInsert: false,
+        }),
+      ],
+    })
   })
 
   it('keeps exec and error channels distinct and instruction-aware', () => {
