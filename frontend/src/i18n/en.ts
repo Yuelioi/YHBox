@@ -532,6 +532,44 @@ export default {
         description:
           'Capture the host-provided invocation time as Unix milliseconds and persist it in the Run record.',
       },
+      stopwatchStart: {
+        title: 'Start stopwatch',
+        description: 'Record this invocation as an explicit typed start instant.',
+        output: {
+          'started-at': {
+            title: 'Started at',
+            description: 'Unix millisecond instant recorded by this start.',
+          },
+        },
+      },
+      stopwatchRead: {
+        title: 'Read stopwatch',
+        description:
+          'Read elapsed milliseconds from an explicit start instant without ambient process timers.',
+        input: {
+          'started-at': {
+            title: 'Started at',
+            description: 'Connect the instant from Start stopwatch.',
+          },
+        },
+        output: {
+          elapsed: { title: 'Elapsed', description: 'Milliseconds elapsed since the start.' },
+        },
+      },
+      stopwatchStop: {
+        title: 'Stop stopwatch',
+        description:
+          'Record final elapsed milliseconds from an explicit start instant, then continue.',
+        input: {
+          'started-at': {
+            title: 'Started at',
+            description: 'Connect the instant from Start stopwatch.',
+          },
+        },
+        output: {
+          elapsed: { title: 'Final elapsed', description: 'Total milliseconds recorded at stop.' },
+        },
+      },
     },
     state: {
       variable: {
@@ -542,16 +580,69 @@ export default {
         title: 'Read state',
         description:
           'Read the current value of a typed Run-local state slot. This is a recorded data effect with no control-flow output.',
+        output: {
+          result: {
+            title: 'Current value',
+            description: 'Current value with the exact state type.',
+          },
+        },
       },
       write: {
         title: 'Write state',
         description:
           'Write one exactly typed value to a Run-local state slot, then continue through Done.',
+        input: {
+          value: { title: 'New value', description: 'Same-type value to write to the state slot.' },
+        },
+        output: {
+          result: {
+            title: 'Written value',
+            description: 'State value after the successful write.',
+          },
+        },
       },
       metadata: {
         title: 'State metadata',
         description:
           'Read a state slot revision and last-change time without exposing an untyped value.',
+        output: {
+          revision: {
+            title: 'Revision',
+            description: 'Revision incremented after each successful change.',
+          },
+          'changed-at': {
+            title: 'Last changed',
+            description: 'Unix millisecond time of the last change.',
+          },
+        },
+      },
+      lastChange: {
+        title: 'State last change',
+        description:
+          'Read the Unix-millisecond instant of the state slot’s last successful update.',
+        output: {
+          'changed-at': {
+            title: 'Last changed',
+            description: 'Unix millisecond time of the last change.',
+          },
+        },
+      },
+      increment: {
+        title: 'Increment state',
+        description:
+          'Atomically add to an Integer or Number while holding the Run State slot lock.',
+        input: {
+          delta: {
+            title: 'Delta',
+            description: 'Same-type numeric value to add to current state.',
+          },
+        },
+        output: {
+          result: {
+            title: 'Updated value',
+            description: 'State value after the atomic increment.',
+          },
+        },
       },
     },
     script: {
@@ -585,6 +676,49 @@ export default {
       stat: {
         title: 'Inspect workspace file',
         description: 'Read canonical metadata without exposing an ambient host filesystem path.',
+      },
+      loadImage: {
+        title: 'Load workspace image',
+        description:
+          'Read a PNG in chunks from managed workflow files and commit a durable Image BlobRef.',
+        input: {
+          path: {
+            title: 'Relative path',
+            description: 'PNG path relative to managed workflow files.',
+          },
+        },
+        output: {
+          image: { title: 'Image', description: 'Validated and durable Image BlobRef.' },
+          metadata: {
+            title: 'File metadata',
+            description: 'Canonical metadata for the loaded file.',
+          },
+        },
+      },
+      saveImage: {
+        title: 'Save image to workspace',
+        description:
+          'Write a durable Image BlobRef in chunks to the managed workflow file workspace.',
+        input: {
+          image: { title: 'Image', description: 'Durable Image BlobRef to write.' },
+          path: {
+            title: 'Relative path',
+            description: 'PNG path relative to managed workflow files.',
+          },
+        },
+        output: {
+          metadata: {
+            title: 'File metadata',
+            description: 'Canonical metadata for the written file.',
+          },
+        },
+        config: {
+          overwrite: {
+            title: 'Overwrite existing file',
+            description:
+              'Replace an existing regular workflow file without following symbolic links.',
+          },
+        },
       },
       config: {
         encoding: {
@@ -873,6 +1007,92 @@ export default {
           },
         },
       },
+      waitStable: {
+        title: 'Wait for stable frame',
+        description:
+          'Capture the exact target until a region stays below the change threshold for the stable duration.',
+        input: {
+          region: {
+            title: 'Observation region',
+            description: 'Region of the exact target frame to compare.',
+          },
+          threshold: {
+            title: 'Change threshold',
+            description: 'A changed-cell ratio at or below this value is stable.',
+          },
+          timeout: {
+            title: 'Wait timeout',
+            description: 'Maximum milliseconds to wait for stability.',
+          },
+          'poll-interval': {
+            title: 'Poll interval',
+            description: 'Milliseconds between fresh captures.',
+          },
+          'grid-size': {
+            title: 'Sample grid',
+            description: 'Bounded downsample cell count on each axis.',
+          },
+          'cell-delta': {
+            title: 'Cell delta',
+            description: 'Color difference that marks one grid cell changed.',
+          },
+          'stable-duration': {
+            title: 'Stable duration',
+            description: 'Milliseconds the region must remain stable.',
+          },
+        },
+        output: {
+          'changed-ratio': {
+            title: 'Changed ratio',
+            description: 'Ratio of changed cells in the final frame pair.',
+          },
+          'mean-difference': {
+            title: 'Mean difference',
+            description: 'Mean grid color difference in the final frame pair.',
+          },
+        },
+      },
+      waitChange: {
+        title: 'Wait for frame change',
+        description:
+          'Capture the exact target until a region changes from its baseline by the requested threshold.',
+        input: {
+          region: {
+            title: 'Observation region',
+            description: 'Region of the exact target frame to compare.',
+          },
+          threshold: {
+            title: 'Change threshold',
+            description: 'Report changed when the changed-cell ratio reaches this value.',
+          },
+          timeout: {
+            title: 'Wait timeout',
+            description: 'Maximum milliseconds to wait for a change.',
+          },
+          'poll-interval': {
+            title: 'Poll interval',
+            description: 'Milliseconds between fresh captures.',
+          },
+          'grid-size': {
+            title: 'Sample grid',
+            description: 'Bounded downsample cell count on each axis.',
+          },
+          'cell-delta': {
+            title: 'Cell delta',
+            description: 'Color difference that marks one grid cell changed.',
+          },
+        },
+        output: {
+          'changed-ratio': {
+            title: 'Changed ratio',
+            description: 'Ratio of cells changed from the baseline frame.',
+          },
+          'mean-difference': {
+            title: 'Mean difference',
+            description: 'Mean grid color difference from the baseline frame.',
+          },
+        },
+      },
       playInputClip: {
         title: 'Play input clip',
         description:
@@ -931,6 +1151,25 @@ export default {
         title: 'Retry region',
         description:
           'Retry only failures explicitly routed back to this region. Completed and Exhausted are separate control results.',
+      },
+      switch: {
+        title: 'Typed switch',
+        description:
+          'Compare up to eight same-typed cases in order and emit the first matching route or Default.',
+        input: {
+          value: {
+            title: 'Match value',
+            description: 'Typed value that selects the control-flow output.',
+          },
+          'case-1': { title: 'Case 1', description: 'First optional value of the same type.' },
+          'case-2': { title: 'Case 2', description: 'Second optional value of the same type.' },
+          'case-3': { title: 'Case 3', description: 'Third optional value of the same type.' },
+          'case-4': { title: 'Case 4', description: 'Fourth optional value of the same type.' },
+          'case-5': { title: 'Case 5', description: 'Fifth optional value of the same type.' },
+          'case-6': { title: 'Case 6', description: 'Sixth optional value of the same type.' },
+          'case-7': { title: 'Case 7', description: 'Seventh optional value of the same type.' },
+          'case-8': { title: 'Case 8', description: 'Eighth optional value of the same type.' },
+        },
       },
     },
 
@@ -1746,6 +1985,9 @@ export default {
       drag_hint: 'Drag to the canvas for Read; hold Alt while dragging for Write.',
       insert_read: 'Insert a Read node for {name}',
       insert_write: 'Insert a Write node for {name}',
+      insert_last_change: 'Insert Last change for {name}',
+      insert_increment: 'Insert atomic Increment for {name}',
+      actions: 'More actions for state {name}',
       insert_failed: 'Could not insert the state reference',
       locate_references: 'Locate references to {name}; {count} total',
       remove_referenced: 'Remove or rebind every reference before deleting this state variable',
@@ -1906,6 +2148,7 @@ export default {
       resource_missing: 'The library record no longer exists',
       resource_stale: 'Unavailable',
       select_target: 'Select an installed target',
+      search_target: 'Search installed targets',
       no_installed_target: 'No compatible target is installed. Configure one in Settings first.',
       configure_target: 'Open installation settings',
       advanced: 'Advanced information',

@@ -54,7 +54,7 @@ func defineMatchTemplateNode(types extendedTypes, imageRef datatype.TypeRef, blo
 		Authoring: nodecontract.Authoring{
 			TitleKey: "node.vision.matchTemplate.title", DescriptionKey: "node.vision.matchTemplate.description", Category: "vision",
 			Tags: []string{"image", "template", "vision"}, Icon: "scan",
-			Ports: visionPortHints("node.vision.matchTemplate", inputs, outputs, map[string]string{"template": "template-image"}),
+			Ports: dataPortHints("node.vision.matchTemplate", inputs, outputs, map[string]string{"template": "template-image"}),
 		},
 	})
 	if err != nil {

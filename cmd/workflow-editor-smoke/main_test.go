@@ -54,7 +54,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
 		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main",
 	}
-	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 4, 1 })
+	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
+	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
 	states := []pageState{
 		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
 		{Catalog: 0},
@@ -79,10 +80,11 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		base,
 		base,
 		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
-		base,
-		base,
-		withState(base, func(state *pageState) { state.ConnectionMenu = true }),
-		withState(base, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
+		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
+		postDelete,
+		postDelete,
+		withState(postDelete, func(state *pageState) { state.ConnectionMenu = true }),
+		withState(postDelete, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
 		connected,
 		connected,
 		withState(connected, func(state *pageState) { state.Catalog = 1 }),

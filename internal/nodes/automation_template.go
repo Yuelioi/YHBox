@@ -23,6 +23,7 @@ const (
 type automationTemplateTypes struct {
 	imageRef    datatype.TypeRef
 	numberRef   datatype.TypeRef
+	integerRef  datatype.TypeRef
 	booleanRef  datatype.TypeRef
 	pointRef    datatype.TypeRef
 	regionRef   datatype.TypeRef
@@ -109,7 +110,7 @@ func sealAutomationTemplateNode(spec automationTemplateNode, types automationTem
 		Authoring: nodecontract.Authoring{
 			TitleKey: spec.titleKey + ".title", DescriptionKey: spec.titleKey + ".description", Category: "automation",
 			Tags: []string{"automation", "template", "vision", spec.kind}, Icon: spec.icon,
-			Ports: visionPortHints(spec.titleKey, inputs, outputs, map[string]string{"template": "template-image"}),
+			Ports: dataPortHints(spec.titleKey, inputs, outputs, map[string]string{"template": "template-image"}),
 		},
 	})
 }

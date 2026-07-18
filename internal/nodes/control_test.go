@@ -12,7 +12,7 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(builtins.Types) != 22 || len(builtins.Definitions()) != 135 {
+	if len(builtins.Types) != 22 || len(builtins.Definitions()) != 145 {
 		t.Fatalf("types=%d nodes=%d", len(builtins.Types), len(builtins.Definitions()))
 	}
 	runStarted, _ := builtins.Definition(RunStartedNodeID)
@@ -78,6 +78,22 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	if !foundRetryInput {
 		t.Fatalf("retry signal projection = %#v", retryProjection.Signals)
 	}
+	repeatProjection, _ := projection.Node(RepeatNodeID)
+	delayProjection, _ := projection.Node(DelayNodeID)
+	colorProjection, _ := projection.Node(FindColorBlobsNodeID)
+	if !containsString(repeatProjection.Tags, "eventtick") || !containsString(delayProjection.Tags, "polling") ||
+		!containsString(colorProjection.Tags, "dualcolorbartrack") || !containsString(colorProjection.Tags, "roicolorscan") {
+		t.Fatalf("replacement discovery tags = repeat:%v delay:%v color:%v", repeatProjection.Tags, delayProjection.Tags, colorProjection.Tags)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func signalIDsEqual(ports []nodecontract.SignalPort, expected []string) bool {

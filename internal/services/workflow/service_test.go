@@ -2,6 +2,7 @@ package workflow_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,6 +22,46 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
+
+func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 7, 18, 13, 0, 0, 0, time.UTC), 1_000)
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 1_000; index++ {
+		name := fmt.Sprintf("Workflow %04d", index)
+		if index == 100 || index == 900 {
+			name += " Needle"
+		}
+		if _, err := service.CreateSource(name); err != nil {
+			t.Fatalf("CreateSource(%d): %v", index, err)
+		}
+	}
+
+	started := time.Now()
+	page, err := service.QuerySources(workflow.SourceQuery{Sort: "name_asc", Page: 10, PageSize: 100})
+	if err != nil || page.Total != 1_000 || len(page.Items) != 100 || page.Items[0].Name != "Workflow 0900 Needle" {
+		t.Fatalf("QuerySources page = %#v, %v", page, err)
+	}
+	search, err := service.QuerySources(workflow.SourceQuery{Search: "needle", Sort: "name_asc", Page: 1, PageSize: 20})
+	if err != nil || search.Total != 2 || len(search.Items) != 2 {
+		t.Fatalf("QuerySources search = %#v, %v", search, err)
+	}
+	if elapsed := time.Since(started); elapsed > 5*time.Second {
+		t.Fatalf("querying 1000 workflow sources took %s", elapsed)
+	}
+}
 
 func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 17, 3, 0, 0, 0, time.UTC)
@@ -218,8 +259,12 @@ func TestServiceQueriesAndDeletesSourcesWithCASAndReferenceBlocking(t *testing.T
 	}
 }
 
-func workflowRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
+func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstrap.Runtime {
 	t.Helper()
+	sourceLimit := 8
+	if len(maxSources) != 0 {
+		sourceLimit = maxSources[0]
+	}
 	aiInstallations, err := ai.Install(nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -251,7 +296,7 @@ func workflowRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: t.TempDir(), BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
-			MaxSources: 8, MaxPrograms: 8, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20,
+			MaxSources: sourceLimit, MaxPrograms: 8, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,

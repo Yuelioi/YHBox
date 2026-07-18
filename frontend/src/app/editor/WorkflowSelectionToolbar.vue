@@ -69,6 +69,7 @@
       @click="emit('auto-layout', 'TB')"
     />
     <UButton
+      data-testid="workflow-selection-remove"
       icon="i-tabler-trash"
       color="error"
       variant="ghost"

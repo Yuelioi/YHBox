@@ -1,4 +1,4 @@
-// Package workspacefs exposes a read-only, Run-scoped filesystem rooted in
+// Package workspacefs exposes a bounded, Run-scoped filesystem rooted in
 // Yotta-managed workflow storage. It never accepts absolute host paths.
 package workspacefs
 
@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/resource"
 )
 
@@ -27,8 +28,12 @@ const (
 	TargetKind  = "workspace-filesystem"
 	Kind        = "workspace-files/session"
 
-	OperationStat = "stat"
-	OperationRead = "read"
+	OperationStat        = "stat"
+	OperationRead        = "read"
+	OperationReadRange   = "read-range"
+	OperationWriteAppend = "write-append"
+	OperationWriteCommit = "write-commit"
+	OperationWriteCancel = "write-cancel"
 
 	ScopeRoot = "workflow-files"
 
@@ -37,6 +42,7 @@ const (
 	CodeBudgetExceeded    = "filesystem.budget_exceeded"
 	CodeIsDirectory       = "filesystem.is_directory"
 	CodeReadFailed        = "filesystem.read_failed"
+	CodeWriteFailed       = "filesystem.write_failed"
 	CodeContractViolation = "filesystem.contract_violation"
 
 	maxSafeInteger = int64(9_007_199_254_740_991)
@@ -62,7 +68,9 @@ func (f *Failure) Unwrap() error {
 }
 
 type Limits struct {
-	MaxReadBytes int
+	MaxReadBytes  int
+	MaxWriteBytes int
+	MaxChunkBytes int
 }
 
 type Scope struct {
@@ -72,6 +80,17 @@ type Scope struct {
 type ReadRequest struct {
 	Path     string `json:"path"`
 	MaxBytes int    `json:"maxBytes"`
+}
+
+type ReadRangeRequest struct {
+	Path   string `json:"path"`
+	Offset int64  `json:"offset"`
+	Length int64  `json:"length"`
+}
+
+type WriteConfig struct {
+	Path      string `json:"path"`
+	Overwrite bool   `json:"overwrite"`
 }
 
 type StatRequest struct {
@@ -137,12 +156,25 @@ type Provider struct {
 type session struct {
 	root   string
 	limits Limits
+	writer *writerState
+}
+
+type writerState struct {
+	file      *os.File
+	temporary string
+	target    string
+	relative  string
+	written   int
+	overwrite bool
+	committed bool
 }
 
 func ProviderArtifactDigest() (artifact.Digest, error) {
 	manifest, err := artifact.Marshal(map[string]any{
-		"providerId": ProviderID, "providerAbi": ProviderABI, "implementationVersion": "v1",
-		"resourceKinds": []string{Kind}, "operations": []string{OperationRead, OperationStat},
+		"providerId": ProviderID, "providerAbi": ProviderABI, "implementationVersion": "v2",
+		"resourceKinds": []string{Kind}, "operations": []string{
+			OperationRead, OperationReadRange, OperationStat, OperationWriteAppend, OperationWriteCancel, OperationWriteCommit,
+		},
 	})
 	if err != nil {
 		return "", err
@@ -153,6 +185,15 @@ func ProviderArtifactDigest() (artifact.Digest, error) {
 func NewProvider(root string, limits Limits) (*Provider, error) {
 	if strings.TrimSpace(root) == "" || limits.MaxReadBytes <= 0 {
 		return nil, errors.New("workspace filesystem requires a root and positive read budget")
+	}
+	if limits.MaxWriteBytes <= 0 {
+		limits.MaxWriteBytes = limits.MaxReadBytes
+	}
+	if limits.MaxChunkBytes <= 0 {
+		limits.MaxChunkBytes = 64 << 10
+	}
+	if limits.MaxWriteBytes <= 0 || limits.MaxChunkBytes <= 0 || limits.MaxChunkBytes > 4<<20 {
+		return nil, errors.New("workspace filesystem write and chunk budgets are invalid")
 	}
 	abs, err := filepath.Abs(root)
 	if err != nil {
@@ -175,15 +216,28 @@ func (p *Provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 	if err := requireOperations(request.Operations); err != nil {
 		return nil, err
 	}
-	var config struct{}
-	if err := decodeExact(request.Config, &config); err != nil {
-		return nil, errors.New("workspace filesystem config must be an empty object")
-	}
 	var scope Scope
 	if err := decodeExact(request.CapabilityScope, &scope); err != nil || scope.Root != ScopeRoot {
 		return nil, errors.New("workspace filesystem capability scope is invalid")
 	}
-	return &session{root: p.root, limits: p.limits}, nil
+	result := &session{root: p.root, limits: p.limits}
+	if writeOperations(request.Operations) {
+		var config WriteConfig
+		if err := decodeExact(request.Config, &config); err != nil {
+			return nil, errors.New("workspace filesystem write config is invalid")
+		}
+		writer, err := openWriter(p.root, config)
+		if err != nil {
+			return nil, err
+		}
+		result.writer = writer
+	} else {
+		var config struct{}
+		if err := decodeExact(request.Config, &config); err != nil {
+			return nil, errors.New("workspace filesystem config must be an empty object")
+		}
+	}
+	return result, nil
 }
 
 func (p *Provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
@@ -233,14 +287,66 @@ func (p *Provider) Invoke(ctx context.Context, object any, operation string, pay
 			return nil, failure(CodeBudgetExceeded, errors.New("workspace filesystem file exceeds the read budget"))
 		}
 		return artifact.Marshal(ReadResponse{Data: data, Metadata: metadata(relative, info)})
+	case OperationReadRange:
+		var request ReadRangeRequest
+		if err := decodeExact(payload, &request); err != nil || request.Offset < 0 || request.Length <= 0 || request.Length > int64(state.limits.MaxChunkBytes) {
+			return nil, errors.New("invalid workspace filesystem range request")
+		}
+		resolved, _, info, err := resolveExisting(state.root, request.Path)
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() {
+			return nil, failure(CodeIsDirectory, errors.New("workspace filesystem cannot read a directory"))
+		}
+		if info.Size() < 0 || info.Size() > int64(state.limits.MaxReadBytes) || request.Offset > info.Size() || request.Length > info.Size()-request.Offset {
+			return nil, failure(CodeBudgetExceeded, errors.New("workspace filesystem range exceeds the read budget"))
+		}
+		file, err := os.Open(resolved)
+		if err != nil {
+			return nil, failure(CodeReadFailed, fmt.Errorf("open workspace file range: %w", err))
+		}
+		defer file.Close()
+		result := make([]byte, int(request.Length))
+		if _, err := file.ReadAt(result, request.Offset); err != nil && !errors.Is(err, io.EOF) {
+			return nil, failure(CodeReadFailed, fmt.Errorf("read workspace file range: %w", err))
+		}
+		return result, nil
+	case OperationWriteAppend:
+		if state.writer == nil || len(payload) == 0 || len(payload) > state.limits.MaxChunkBytes || state.writer.written > state.limits.MaxWriteBytes-len(payload) {
+			return nil, failure(CodeBudgetExceeded, errors.New("workspace filesystem write exceeds its budget"))
+		}
+		if _, err := state.writer.file.Write(payload); err != nil {
+			return nil, failure(CodeWriteFailed, fmt.Errorf("append workspace file: %w", err))
+		}
+		state.writer.written += len(payload)
+		return nil, nil
+	case OperationWriteCommit:
+		if state.writer == nil || len(payload) != 0 {
+			return nil, errors.New("invalid workspace filesystem write commit")
+		}
+		result, err := state.writer.commit()
+		if err != nil {
+			return nil, err
+		}
+		return artifact.Marshal(result)
+	case OperationWriteCancel:
+		if state.writer == nil || len(payload) != 0 {
+			return nil, errors.New("invalid workspace filesystem write cancel")
+		}
+		return nil, state.writer.cancel()
 	default:
 		return nil, fmt.Errorf("workspace filesystem operation %q is unsupported", operation)
 	}
 }
 
 func (p *Provider) Close(_ context.Context, object any) error {
-	if _, ok := object.(*session); !ok {
+	state, ok := object.(*session)
+	if !ok {
 		return errors.New("invalid workspace filesystem session")
+	}
+	if state.writer != nil && !state.writer.committed {
+		return state.writer.cancel()
 	}
 	return nil
 }
@@ -248,24 +354,131 @@ func (p *Provider) Close(_ context.Context, object any) error {
 func requireOperations(operations []string) error {
 	copyOf := append([]string(nil), operations...)
 	sort.Strings(copyOf)
-	if len(copyOf) == 0 || len(copyOf) > 2 {
-		return errors.New("workspace filesystem requires read or stat operations")
+	if len(copyOf) == 0 || len(copyOf) > 3 {
+		return errors.New("workspace filesystem requires bounded file operations")
+	}
+	if writeOperations(copyOf) {
+		return nil
 	}
 	for index, operation := range copyOf {
-		if operation != OperationRead && operation != OperationStat || index > 0 && copyOf[index-1] == operation {
+		if operation != OperationRead && operation != OperationReadRange && operation != OperationStat || index > 0 && copyOf[index-1] == operation {
 			return errors.New("workspace filesystem operation set is invalid")
 		}
 	}
 	return nil
 }
 
-func resolveExisting(root, path string) (string, string, os.FileInfo, error) {
+func writeOperations(operations []string) bool {
+	copyOf := append([]string(nil), operations...)
+	sort.Strings(copyOf)
+	want := []string{OperationWriteAppend, OperationWriteCancel, OperationWriteCommit}
+	for index := range want {
+		if index >= len(copyOf) || copyOf[index] != want[index] {
+			return false
+		}
+	}
+	return len(copyOf) == len(want)
+}
+
+func openWriter(root string, config WriteConfig) (*writerState, error) {
+	clean, err := cleanRelativePath(config.Path)
+	if err != nil {
+		return nil, err
+	}
+	parent := filepath.Join(root, filepath.Dir(clean))
+	resolvedParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return nil, failure(CodeInvalidPath, fmt.Errorf("resolve workspace file parent: %w", err))
+	}
+	relativeParent, err := filepath.Rel(root, resolvedParent)
+	if err != nil || relativeParent == ".." || strings.HasPrefix(relativeParent, ".."+string(filepath.Separator)) || filepath.IsAbs(relativeParent) {
+		return nil, failure(CodeInvalidPath, errors.New("workspace file parent escapes its root"))
+	}
+	info, err := os.Stat(resolvedParent)
+	if err != nil || !info.IsDir() {
+		return nil, failure(CodeInvalidPath, errors.Join(errors.New("workspace file parent must be an existing directory"), err))
+	}
+	target := filepath.Join(resolvedParent, filepath.Base(clean))
+	if existing, err := os.Lstat(target); err == nil {
+		if existing.IsDir() || existing.Mode()&os.ModeSymlink != 0 || !config.Overwrite {
+			return nil, failure(CodeWriteFailed, errors.New("workspace file already exists or is not replaceable"))
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, failure(CodeWriteFailed, fmt.Errorf("inspect workspace file destination: %w", err))
+	}
+	temporary, err := os.CreateTemp(resolvedParent, ".yotta-write-*")
+	if err != nil {
+		return nil, failure(CodeWriteFailed, fmt.Errorf("create workspace file temporary: %w", err))
+	}
+	relative, err := filepath.Rel(root, target)
+	if err != nil {
+		_ = temporary.Close()
+		_ = os.Remove(temporary.Name())
+		return nil, failure(CodeInvalidPath, err)
+	}
+	return &writerState{file: temporary, temporary: temporary.Name(), target: target, relative: filepath.ToSlash(relative), overwrite: config.Overwrite}, nil
+}
+
+func (w *writerState) commit() (Metadata, error) {
+	if w.committed || w.file == nil {
+		return Metadata{}, failure(CodeWriteFailed, errors.New("workspace file writer is already closed"))
+	}
+	if err := w.file.Sync(); err != nil {
+		return Metadata{}, failure(CodeWriteFailed, fmt.Errorf("sync workspace file: %w", err))
+	}
+	if err := w.file.Close(); err != nil {
+		return Metadata{}, failure(CodeWriteFailed, fmt.Errorf("close workspace file: %w", err))
+	}
+	w.file = nil
+	publish := durablefs.PublishNew
+	if w.overwrite {
+		publish = durablefs.Replace
+	}
+	if err := publish(w.temporary, w.target); err != nil {
+		if durablefs.Committed(err) {
+			w.committed = true
+		}
+		return Metadata{}, failure(CodeWriteFailed, fmt.Errorf("publish workspace file: %w", err))
+	}
+	w.committed = true
+	info, err := os.Stat(w.target)
+	if err != nil {
+		return Metadata{}, failure(CodeWriteFailed, fmt.Errorf("stat written workspace file: %w", err))
+	}
+	return metadata(w.relative, info), nil
+}
+
+func (w *writerState) cancel() error {
+	if w.committed {
+		return nil
+	}
+	var closeErr error
+	if w.file != nil {
+		closeErr = w.file.Close()
+		w.file = nil
+	}
+	removeErr := os.Remove(w.temporary)
+	if os.IsNotExist(removeErr) {
+		removeErr = nil
+	}
+	return errors.Join(closeErr, removeErr)
+}
+
+func cleanRelativePath(path string) (string, error) {
 	if path == "" || strings.TrimSpace(path) != path || !utf8.ValidString(path) || strings.ContainsRune(path, 0) || filepath.IsAbs(path) || filepath.VolumeName(path) != "" {
-		return "", "", nil, failure(CodeInvalidPath, errors.New("workspace file path must be a non-empty relative path"))
+		return "", failure(CodeInvalidPath, errors.New("workspace file path must be a non-empty relative path"))
 	}
 	clean := filepath.Clean(filepath.FromSlash(path))
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", "", nil, failure(CodeInvalidPath, errors.New("workspace file path escapes its root"))
+		return "", failure(CodeInvalidPath, errors.New("workspace file path escapes its root"))
+	}
+	return clean, nil
+}
+
+func resolveExisting(root, path string) (string, string, os.FileInfo, error) {
+	clean, err := cleanRelativePath(path)
+	if err != nil {
+		return "", "", nil, err
 	}
 	candidate := filepath.Join(root, clean)
 	resolved, err := filepath.EvalSymlinks(candidate)

@@ -24,9 +24,10 @@ import (
 )
 
 type templateAutomationProvider struct {
-	frame  []byte
-	clicks []automationinstalled.ClickRequest
-	closed int
+	frame    []byte
+	clicks   []automationinstalled.ClickRequest
+	closed   int
+	captures int
 }
 
 func (provider *templateAutomationProvider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
@@ -51,6 +52,7 @@ func (provider *templateAutomationProvider) Invoke(_ context.Context, object any
 	case automationinstalled.KindCapture:
 		switch operation {
 		case automationinstalled.OperationCapture:
+			provider.captures++
 			return artifact.Marshal(automationinstalled.CaptureResponse{MediaType: "image/png", Size: int64(len(provider.frame))})
 		case automationinstalled.OperationReadCapture:
 			var request automationinstalled.CaptureRangeRequest

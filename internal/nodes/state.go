@@ -10,19 +10,23 @@ import (
 )
 
 const (
-	StateReadNodeID     = "https://schemas.yotta.dev/nodes/state/read"
-	StateWriteNodeID    = "https://schemas.yotta.dev/nodes/state/write"
-	StateMetadataNodeID = "https://schemas.yotta.dev/nodes/state/metadata"
+	StateReadNodeID       = "https://schemas.yotta.dev/nodes/state/read"
+	StateWriteNodeID      = "https://schemas.yotta.dev/nodes/state/write"
+	StateMetadataNodeID   = "https://schemas.yotta.dev/nodes/state/metadata"
+	StateIncrementNodeID  = "https://schemas.yotta.dev/nodes/state/increment"
+	StateLastChangeNodeID = "https://schemas.yotta.dev/nodes/state/last-change"
 
 	StateReadEffectID  = "https://schemas.yotta.dev/effects/state/read/v1"
 	StateWriteEffectID = "https://schemas.yotta.dev/effects/state/write/v1"
 
-	StateReadFailedCode  = "state.read_failed"
-	StateWriteFailedCode = "state.write_failed"
+	StateReadFailedCode   = "state.read_failed"
+	StateWriteFailedCode  = "state.write_failed"
+	StateUpdateFailedCode = "state.update_failed"
 )
 
 func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	valueType := datatype.VariableExpression("T", string(datatype.TraitDurable))
+	numericType := datatype.VariableExpression("N", string(datatype.TraitDurable), string(datatype.TraitNumeric))
 	integerType := datatype.RefExpression(types.integerRef)
 	type stateNode struct {
 		id, entrypoint, conformance, key, icon string
@@ -34,6 +38,7 @@ func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 	readAccess := nodecontract.StateAccessSpec{ID: "state", SlotConfigKey: "variable", Type: valueType, Mode: nodecontract.StateRead}
 	writeAccess := readAccess
 	writeAccess.Mode = nodecontract.StateWrite
+	incrementAccess := nodecontract.StateAccessSpec{ID: "state", SlotConfigKey: "variable", Type: numericType, Mode: nodecontract.StateWrite}
 	readExecution := stateExecution(StateReadEffectID, nodecontract.EvaluationPull)
 	writeExecution := stateExecution(StateWriteEffectID, nodecontract.EvaluationPush)
 	specs := []stateNode{
@@ -70,6 +75,27 @@ func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 			execution: readExecution, access: readAccess,
 			errors: []nodecontract.ErrorSpec{{Code: StateReadFailedCode, Category: "state", RetryHint: false}},
 		},
+		{
+			id: StateLastChangeNodeID, entrypoint: "state.last-change", conformance: "run-owned-state-last-change/v1",
+			key: "node.state.lastChange", icon: "history",
+			ports: nodecontract.PortSet{
+				DataInputs: []nodecontract.DataInputPort{}, DataOutputs: []nodecontract.DataOutputPort{{ID: "changed-at", Type: integerType}},
+				ExecInputs: []nodecontract.SignalPort{}, ExecOutputs: []nodecontract.SignalPort{}, ErrorOutputs: []nodecontract.SignalPort{},
+			},
+			execution: readExecution, access: readAccess,
+			errors: []nodecontract.ErrorSpec{{Code: StateReadFailedCode, Category: "state", RetryHint: false}},
+		},
+		{
+			id: StateIncrementNodeID, entrypoint: "state.increment", conformance: "run-owned-atomic-numeric-update/v1",
+			key: "node.state.increment", icon: "database-plus",
+			ports: nodecontract.PortSet{
+				DataInputs:  []nodecontract.DataInputPort{{ID: "delta", Type: numericType, Required: true}},
+				DataOutputs: []nodecontract.DataOutputPort{{ID: "result", Type: numericType}},
+				ExecInputs:  signalList("in"), ExecOutputs: signalList("done"), ErrorOutputs: signalList("failed"),
+			},
+			execution: writeExecution, access: incrementAccess,
+			errors: []nodecontract.ErrorSpec{{Code: StateUpdateFailedCode, Category: "state", RetryHint: false}},
+		},
 	}
 	definitions := make([]BuiltinDefinition, 0, len(specs))
 	for _, spec := range specs {
@@ -89,6 +115,7 @@ func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
 			Authoring: nodecontract.Authoring{
 				TitleKey: spec.key + ".title", DescriptionKey: spec.key + ".description", Category: "state",
 				Tags: []string{"state", "variable", "recorded"}, Icon: spec.icon,
+				Ports: dataPortHints(spec.key, spec.ports.DataInputs, spec.ports.DataOutputs, nil),
 			},
 		})
 		if err != nil {

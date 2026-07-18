@@ -53,6 +53,8 @@ export interface StateReferenceLocation {
   mode: 'read' | 'write'
 }
 
+export type StateReferenceMode = 'read' | 'write' | 'last-change' | 'increment'
+
 export interface StateTypeChangeIssue {
   graphId: string
   edge: Edge
@@ -688,13 +690,14 @@ export class EditorSession {
 
   insertStateReference(
     variable: string,
-    mode: 'read' | 'write',
+    mode: StateReferenceMode,
     position: { x: number; y: number },
   ): string {
+    const accessMode = mode === 'read' || mode === 'last-change' ? 'read' : 'write'
     const nodeTypeId = [...this.projections.values()].find(
       (projection) =>
         projection.nodeRef.nodeTypeId.endsWith(`/state/${mode}`) &&
-        projection.stateAccesses.some((access) => access.mode === mode),
+        projection.stateAccesses.some((access) => access.mode === accessMode),
     )?.nodeRef.nodeTypeId
     if (!nodeTypeId) throw new Error(`state ${mode} node is unavailable`)
     const projection = this.projections.get(nodeTypeId)!
@@ -1008,7 +1011,11 @@ function collectStateReferences(
       references.push({
         graphId: graph.id,
         nodeId: node.id,
-        mode: node.nodeRef.nodeTypeId.endsWith('/write') ? 'write' : 'read',
+        mode:
+          node.nodeRef.nodeTypeId.endsWith('/write') ||
+          node.nodeRef.nodeTypeId.endsWith('/increment')
+            ? 'write'
+            : 'read',
       })
     }
   }

@@ -14,13 +14,16 @@ func TestFilesystemNodesUseExactWorkspaceCapabilityAndExplicitSignals(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.FilesystemReadCapabilityID)
+	capabilityDefinition, ok := builtins.Catalog.LookupCapability(nodes.FilesystemCapabilityID)
 	if !ok {
 		t.Fatal("filesystem capability is missing")
 	}
 	machineCapability := capabilityDefinition.Machine()
 	if machineCapability.ProviderABI != workspacefs.ProviderABI || machineCapability.Risk != capability.RiskLow || machineCapability.Consent != capability.ConsentNone {
 		t.Fatalf("filesystem capability = %#v", machineCapability)
+	}
+	if len(machineCapability.Operations) != 6 {
+		t.Fatalf("filesystem operations = %#v", machineCapability.Operations)
 	}
 
 	for _, nodeID := range []string{nodes.FileReadTextNodeID, nodes.FileReadJSONNodeID, nodes.FileStatNodeID} {
@@ -40,6 +43,26 @@ func TestFilesystemNodesUseExactWorkspaceCapabilityAndExplicitSignals(t *testing
 		requirement := machine.CapabilityRequirements[0]
 		if requirement.ID != "workspace-files" || requirement.Capability != capabilityDefinition.Ref() || requirement.TargetSlot != "workspace-files" || string(requirement.Scope) != `{"root":"workflow-files"}` {
 			t.Fatalf("filesystem requirement %q = %#v", nodeID, requirement)
+		}
+	}
+	for _, nodeID := range []string{nodes.FileLoadImageNodeID, nodes.FileSaveImageNodeID} {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("image filesystem node %q is missing", nodeID)
+		}
+		machine := definition.Contract.Machine()
+		if machine.Execution.Class != nodecontract.ExecutionEffect || len(machine.CapabilityRequirements) != 2 ||
+			len(machine.Ports.ExecInputs) != 1 || len(machine.Ports.ExecOutputs) != 1 || len(machine.Ports.ErrorOutputs) != 1 {
+			t.Fatalf("image filesystem contract %q = %#v", nodeID, machine)
+		}
+		foundWorkspace := false
+		for _, requirement := range machine.CapabilityRequirements {
+			if requirement.ID == "workspace-files" && requirement.Capability == capabilityDefinition.Ref() {
+				foundWorkspace = true
+			}
+		}
+		if !foundWorkspace {
+			t.Fatalf("image filesystem node %q omitted workspace authority", nodeID)
 		}
 	}
 

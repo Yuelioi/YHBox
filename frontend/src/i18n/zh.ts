@@ -451,6 +451,29 @@ export default {
         title: '观测时间',
         description: '捕获宿主提供的调用时间（Unix 毫秒），并持久化到 Run 记录。',
       },
+      stopwatchStart: {
+        title: '启动秒表',
+        description: '记录本次调用的开始时间，并输出可显式连接的强类型时间点。',
+        output: {
+          'started-at': { title: '开始时间', description: '本次启动时记录的 Unix 毫秒时间点。' },
+        },
+      },
+      stopwatchRead: {
+        title: '读取秒表',
+        description: '根据开始时间读取当前经过的毫秒数，不访问进程全局计时器。',
+        input: {
+          'started-at': { title: '开始时间', description: '连接「启动秒表」输出的开始时间。' },
+        },
+        output: { elapsed: { title: '已用时间', description: '从开始至今经过的毫秒数。' } },
+      },
+      stopwatchStop: {
+        title: '停止秒表',
+        description: '根据开始时间记录最终经过的毫秒数，然后从「完成」继续。',
+        input: {
+          'started-at': { title: '开始时间', description: '连接「启动秒表」输出的开始时间。' },
+        },
+        output: { elapsed: { title: '最终用时', description: '停止时记录的总毫秒数。' } },
+      },
     },
     state: {
       variable: {
@@ -461,14 +484,34 @@ export default {
         title: '读取状态',
         description:
           '读取 Run 本地强类型状态槽的当前值。它是 recorded 数据 effect，没有控制流出口。',
+        output: { result: { title: '当前值', description: '状态槽中类型完全一致的当前值。' } },
       },
       write: {
         title: '写入状态',
         description: '向 Run 本地状态槽写入类型完全一致的值，然后从「完成」继续。',
+        input: { value: { title: '新值', description: '要写入状态槽的同类型值。' } },
+        output: { result: { title: '已写入值', description: '成功写入后的状态值。' } },
       },
       metadata: {
         title: '状态元数据',
         description: '读取状态槽的 revision 和最后修改时间，不暴露无类型值。',
+        output: {
+          revision: { title: '修订号', description: '每次成功修改后递增的状态修订号。' },
+          'changed-at': { title: '最后变化', description: '最后一次修改的 Unix 毫秒时间。' },
+        },
+      },
+      lastChange: {
+        title: '状态最后变化',
+        description: '直接读取状态槽最后一次成功修改的 Unix 毫秒时间。',
+        output: {
+          'changed-at': { title: '最后变化', description: '最后一次修改的 Unix 毫秒时间。' },
+        },
+      },
+      increment: {
+        title: '增加状态',
+        description: '在 Run State 锁内原子增加 Integer 或 Number，避免读取后写入的竞态。',
+        input: { delta: { title: '增量', description: '加到状态当前值上的同类型数值。' } },
+        output: { result: { title: '更新后值', description: '原子增加后的状态值。' } },
       },
     },
     script: {
@@ -499,6 +542,30 @@ export default {
       stat: {
         title: '检查工作区文件',
         description: '读取规范化元数据，不暴露宿主文件系统的任意路径权限。',
+      },
+      loadImage: {
+        title: '加载工作区图片',
+        description: '从 Yotta 管理的工作流文件区分块读取 PNG，并提交为持久 Image BlobRef。',
+        input: { path: { title: '相对路径', description: '工作流文件区内的 PNG 相对路径。' } },
+        output: {
+          image: { title: '图片', description: '已验证并持久化的 Image BlobRef。' },
+          metadata: { title: '文件信息', description: '加载文件的规范化元数据。' },
+        },
+      },
+      saveImage: {
+        title: '保存图片到工作区',
+        description: '把持久 Image BlobRef 分块写入 Yotta 管理的工作流文件区。',
+        input: {
+          image: { title: '图片', description: '要写入的持久 Image BlobRef。' },
+          path: { title: '相对路径', description: '工作流文件区内的 PNG 相对路径。' },
+        },
+        output: { metadata: { title: '文件信息', description: '已写入文件的规范化元数据。' } },
+        config: {
+          overwrite: {
+            title: '覆盖现有文件',
+            description: '允许替换工作流文件区中同名的普通文件；不会跟随符号链接。',
+          },
+        },
       },
       config: {
         encoding: {
@@ -673,6 +740,39 @@ export default {
           bounds: { title: '最后命中区域', description: '最后一次匹配得到的像素边界。' },
         },
       },
+      waitStable: {
+        title: '等待画面稳定',
+        description: '持续捕获精确目标，直到指定区域在稳定时长内保持低于变化阈值。',
+        input: {
+          region: { title: '观察区域', description: '精确目标画面内要比较的区域。' },
+          threshold: { title: '变化阈值', description: '变化格比例不高于该值时认为稳定。' },
+          timeout: { title: '等待超时', description: '等待稳定的最长毫秒数。' },
+          'poll-interval': { title: '采样间隔', description: '两次画面捕获之间的毫秒数。' },
+          'grid-size': { title: '采样网格', description: '每个方向的有界降采样格数。' },
+          'cell-delta': { title: '单格差值', description: '把单个网格视为已变化的颜色差阈值。' },
+          'stable-duration': { title: '稳定时长', description: '连续保持稳定所需的毫秒数。' },
+        },
+        output: {
+          'changed-ratio': { title: '变化比例', description: '最后两帧发生明显变化的网格比例。' },
+          'mean-difference': { title: '平均差值', description: '最后两帧网格颜色的平均绝对差。' },
+        },
+      },
+      waitChange: {
+        title: '等待画面变化',
+        description: '持续捕获精确目标，直到指定区域相对基准画面的变化达到阈值。',
+        input: {
+          region: { title: '观察区域', description: '精确目标画面内要比较的区域。' },
+          threshold: { title: '变化阈值', description: '变化格比例达到该值时报告变化。' },
+          timeout: { title: '等待超时', description: '等待变化的最长毫秒数。' },
+          'poll-interval': { title: '采样间隔', description: '两次画面捕获之间的毫秒数。' },
+          'grid-size': { title: '采样网格', description: '每个方向的有界降采样格数。' },
+          'cell-delta': { title: '单格差值', description: '把单个网格视为已变化的颜色差阈值。' },
+        },
+        output: {
+          'changed-ratio': { title: '变化比例', description: '相对基准帧发生明显变化的网格比例。' },
+          'mean-difference': { title: '平均差值', description: '相对基准帧网格颜色的平均绝对差。' },
+        },
+      },
       playInputClip: {
         title: '回放输入录制',
         description: '读取并校验 InputClip BlobRef，在一个独占的精确目标会话中按序回放全部事件。',
@@ -725,6 +825,21 @@ export default {
       retry: {
         title: '重试区域',
         description: '只重试显式路由回该 region 的失败；「完成」和「耗尽」是两个独立的控制结果。',
+      },
+      switch: {
+        title: '强类型 Switch',
+        description: '按顺序比较最多八个同类型 case，并只触发首个匹配出口或默认出口。',
+        input: {
+          value: { title: '待匹配值', description: '决定控制流出口的强类型值。' },
+          'case-1': { title: '分支 1', description: '第一个可选同类型匹配值。' },
+          'case-2': { title: '分支 2', description: '第二个可选同类型匹配值。' },
+          'case-3': { title: '分支 3', description: '第三个可选同类型匹配值。' },
+          'case-4': { title: '分支 4', description: '第四个可选同类型匹配值。' },
+          'case-5': { title: '分支 5', description: '第五个可选同类型匹配值。' },
+          'case-6': { title: '分支 6', description: '第六个可选同类型匹配值。' },
+          'case-7': { title: '分支 7', description: '第七个可选同类型匹配值。' },
+          'case-8': { title: '分支 8', description: '第八个可选同类型匹配值。' },
+        },
       },
     },
 
@@ -1484,6 +1599,9 @@ export default {
       drag_hint: '拖到画布创建读取状态；按住 Alt 拖动创建写入状态。',
       insert_read: '创建读取状态 {name}',
       insert_write: '创建写入状态 {name}',
+      insert_last_change: '创建状态最后变化 {name}',
+      insert_increment: '创建原子增加状态 {name}',
+      actions: '状态 {name} 的更多操作',
       insert_failed: '创建状态引用失败',
       locate_references: '定位 {name} 的引用，共 {count} 个',
       remove_referenced: '先删除或改绑所有引用，再删除这个状态',
@@ -1637,6 +1755,7 @@ export default {
       resource_missing: '资源记录已不存在',
       resource_stale: '资源失效',
       select_target: '选择已安装目标',
+      search_target: '搜索已安装目标',
       no_installed_target: '尚未安装可用目标，请先到设置中心配置。',
       configure_target: '打开安装设置',
       advanced: '高级信息',

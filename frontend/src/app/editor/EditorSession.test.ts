@@ -834,7 +834,7 @@ describe('EditorSession', () => {
 
   it('creates a typed state read atomically and connects Integer to Number consumers', async () => {
     const source = emptySource()
-    const ids = ['read', 'greater', 'to-string']
+    const ids = ['read', 'greater', 'to-string', 'last-change', 'increment']
     const session = new EditorSession(
       mockTransport(sourceView(source), runView('QUEUED')),
       () => ids.shift() ?? 'unused',
@@ -870,6 +870,14 @@ describe('EditorSession', () => {
       nodeTypeId: toString.nodeRef.nodeTypeId,
       position: { x: 200, y: 100 },
     })
+
+    expect(session.insertStateReference('index', 'last-change', { x: 0, y: 200 })).toBe(
+      'last-change',
+    )
+    expect(session.insertStateReference('index', 'increment', { x: 0, y: 300 })).toBe('increment')
+    expect(
+      session.currentGraph?.nodes.find((candidate) => candidate.id === 'increment')?.config,
+    ).toEqual({ variable: 'index' })
     session.apply({
       kind: 'connect',
       edge: {
@@ -887,7 +895,14 @@ describe('EditorSession', () => {
     )!
     expect(
       session.stateTypeChangeImpact('index', { kind: 'ref', ref: number.typeRef }),
-    ).toMatchObject({ references: [{ nodeId: 'read', mode: 'read' }], issues: [] })
+    ).toMatchObject({
+      references: [
+        { nodeId: 'read', mode: 'read' },
+        { nodeId: 'last-change', mode: 'read' },
+        { nodeId: 'increment', mode: 'write' },
+      ],
+      issues: [],
+    })
     expect(() =>
       session.apply({
         kind: 'update-state-variable',

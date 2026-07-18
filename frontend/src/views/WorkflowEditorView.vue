@@ -887,6 +887,7 @@ import {
   type EditorCommand,
   type Node,
   type NodeProjection,
+  type StateReferenceMode,
 } from '@/app/editor/EditorSession'
 import type { Annotation, GraphCall } from '../../../contracts/workflow/3.1/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
@@ -1859,7 +1860,7 @@ function parseStateReferenceDrop(raw: string): unknown {
   }
 }
 
-function insertStateReferenceAtCenter(name: string, mode: 'read' | 'write'): void {
+function insertStateReferenceAtCenter(name: string, mode: StateReferenceMode): void {
   const rect = canvasElement.value?.getBoundingClientRect()
   const position = rect
     ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
@@ -1889,7 +1890,7 @@ async function locateStateReferenceAt(graphId: string, nodeId: string): Promise<
 
 function insertStateReference(
   name: string,
-  mode: 'read' | 'write',
+  mode: StateReferenceMode,
   position: { x: number; y: number },
 ): void {
   try {

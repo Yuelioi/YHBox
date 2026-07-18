@@ -32,6 +32,7 @@ type visionNodeSpec struct {
 	outputs                                        []nodecontract.DataOutputPort
 	errors                                         []nodecontract.ErrorSpec
 	portAdapters                                   map[string]string
+	tags                                           []string
 }
 
 func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, imageRef datatype.TypeRef, blobRead capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
@@ -104,6 +105,7 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 			},
 			outputs: []nodecontract.DataOutputPort{{ID: "blobs", Type: datatype.ListExpression(datatype.RefExpression(visionTypes.colorBlob.TypeRef()))}},
 			errors:  append([]nodecontract.ErrorSpec{{Code: VisionColorRangeInvalidCode, Category: "vision", RetryHint: false}}, commonErrors...),
+			tags:    []string{"dualcolorbartrack", "roicolorscan", "findcolorsignature", "color-bar", "color-signature"},
 		},
 	}
 	definitions := make([]BuiltinDefinition, 0, len(specs))
@@ -122,8 +124,8 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: spec.key + ".title", DescriptionKey: spec.key + ".description", Category: "vision",
-				Tags: []string{"analysis", "image", "vision"}, Icon: spec.icon,
-				Ports: visionPortHints(spec.key, spec.inputs, spec.outputs, spec.portAdapters),
+				Tags: append([]string{"analysis", "image", "vision"}, spec.tags...), Icon: spec.icon,
+				Ports: dataPortHints(spec.key, spec.inputs, spec.outputs, spec.portAdapters),
 			},
 		})
 		if err != nil {
@@ -139,7 +141,7 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 	return definitions, contracts, nil
 }
 
-func visionPortHints(key string, inputs []nodecontract.DataInputPort, outputs []nodecontract.DataOutputPort, adapters map[string]string) []nodecontract.PortAuthoring {
+func dataPortHints(key string, inputs []nodecontract.DataInputPort, outputs []nodecontract.DataOutputPort, adapters map[string]string) []nodecontract.PortAuthoring {
 	result := make([]nodecontract.PortAuthoring, 0, len(inputs)+len(outputs))
 	for _, port := range inputs {
 		result = append(result, nodecontract.PortAuthoring{

@@ -108,39 +108,21 @@
             />
             <UButton
               icon="i-tabler-database-import"
-              color="neutral"
+              color="primary"
               variant="ghost"
               size="xs"
               :aria-label="t('workflow.state_panel.insert_write', { name: variable.name })"
               @click="emit('insert', variable.name, 'write')"
             />
-            <UButton
-              icon="i-tabler-edit"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              :title="
-                referenceCount(variable.name)
-                  ? t('workflow.state_panel.type_change_referenced')
-                  : undefined
-              "
-              :aria-label="t('workflow.state_panel.type_change', { name: variable.name })"
-              @click="beginTypeChange(variable)"
-            />
-            <UButton
-              icon="i-tabler-trash"
-              color="error"
-              variant="ghost"
-              size="xs"
-              :disabled="referenceCount(variable.name) > 0"
-              :title="
-                referenceCount(variable.name)
-                  ? t('workflow.state_panel.remove_referenced')
-                  : undefined
-              "
-              :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
-              @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
-            />
+            <UDropdownMenu :items="variableActions(variable)">
+              <UButton
+                icon="i-tabler-dots-vertical"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('workflow.state_panel.actions', { name: variable.name })"
+              />
+            </UDropdownMenu>
           </div>
           <div
             v-if="editingName === variable.name"
@@ -230,7 +212,7 @@
               remaining: filteredVariables.length - visibleVariables.length,
             })
           "
-          @click="visibleLimit += STATE_PAGE_SIZE"
+          @click="visibleLimit += STATE_VARIABLE_PAGE_SIZE"
         />
       </div>
 
@@ -255,9 +237,11 @@ import type { Variable } from '../../../../contracts/workflow/3.1/workflow-sourc
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type {
   EditorCommand,
+  StateReferenceMode,
   StateReferenceLocation,
   StateTypeChangeImpact,
 } from '@/app/editor/EditorSession'
+import { filterStateVariables, STATE_VARIABLE_PAGE_SIZE } from '@/app/editor/stateVariableQuery'
 
 const props = defineProps<{
   variables: Variable[]
@@ -267,7 +251,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
-  insert: [name: string, mode: 'read' | 'write']
+  insert: [name: string, mode: StateReferenceMode]
   locate: [name: string]
   'locate-reference': [graphId: string, nodeId: string]
   close: []
@@ -278,17 +262,10 @@ const newVariableTypeId = ref('')
 const searchQuery = ref('')
 const editingName = ref('')
 const editingTypeId = ref('')
-const STATE_PAGE_SIZE = 100
-const visibleLimit = ref(STATE_PAGE_SIZE)
-const filteredVariables = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase()
-  if (!query) return props.variables
-  return props.variables.filter((variable) =>
-    [variable.name, variableTypeLabel(variable)].some((value) =>
-      value.toLocaleLowerCase().includes(query),
-    ),
-  )
-})
+const visibleLimit = ref(STATE_VARIABLE_PAGE_SIZE)
+const filteredVariables = computed(() =>
+  filterStateVariables(props.variables, searchQuery.value, variableTypeLabel),
+)
 const visibleVariables = computed(() => filteredVariables.value.slice(0, visibleLimit.value))
 const stateTypes = computed(() =>
   props.types.filter((type) => type.traits.includes('durable') && hasValidDefault(type)),
@@ -325,7 +302,7 @@ watch(
 )
 
 watch(searchQuery, () => {
-  visibleLimit.value = STATE_PAGE_SIZE
+  visibleLimit.value = STATE_VARIABLE_PAGE_SIZE
 })
 
 function addStateVariable(): void {
@@ -375,6 +352,52 @@ function variableTypeLabel(variable: Variable): string {
 
 function referenceCount(name: string): number {
   return props.references[name]?.length ?? 0
+}
+
+function isNumericState(variable: Variable): boolean {
+  if (variable.type.kind !== 'ref') return false
+  const typeId = variable.type.ref.typeId
+  return Boolean(
+    props.types
+      .find((candidate) => candidate.typeRef.typeId === typeId)
+      ?.traits.includes('numeric'),
+  )
+}
+
+function variableActions(variable: Variable) {
+  const insertions = [
+    {
+      label: t('workflow.state_panel.insert_last_change', { name: variable.name }),
+      icon: 'i-tabler-history',
+      onSelect: () => emit('insert', variable.name, 'last-change'),
+    },
+    ...(isNumericState(variable)
+      ? [
+          {
+            label: t('workflow.state_panel.insert_increment', { name: variable.name }),
+            icon: 'i-tabler-database-plus',
+            onSelect: () => emit('insert', variable.name, 'increment'),
+          },
+        ]
+      : []),
+  ]
+  return [
+    insertions,
+    [
+      {
+        label: t('workflow.state_panel.type_change', { name: variable.name }),
+        icon: 'i-tabler-edit',
+        onSelect: () => beginTypeChange(variable),
+      },
+      {
+        label: t('workflow.inspector.state_remove', { name: variable.name }),
+        icon: 'i-tabler-trash',
+        color: 'error' as const,
+        disabled: referenceCount(variable.name) > 0,
+        onSelect: () => emit('command', { kind: 'remove-state-variable', name: variable.name }),
+      },
+    ],
+  ]
 }
 
 function referencesFor(name: string): StateReferenceLocation[] {

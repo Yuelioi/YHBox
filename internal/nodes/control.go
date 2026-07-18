@@ -151,7 +151,7 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: instructionABI(item.instruction), Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: item.category,
-				Tags: []string{item.category, "execution"}, Icon: item.icon,
+				Tags: controlAuthoringTags(item.id, item.category), Icon: item.icon,
 			},
 		})
 		if err != nil {
@@ -164,6 +164,17 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 		definitions = append(definitions, definition)
 	}
 	return definitions, nil
+}
+
+func controlAuthoringTags(nodeID, category string) []string {
+	tags := []string{category, "execution"}
+	if nodeID == DelayNodeID || nodeID == RepeatNodeID {
+		// EventTick was an unsafe ambient background sub-runner in 3.0. Keep its
+		// authoring intent discoverable through the explicit, cancellable loop
+		// primitives that replace it in 3.1.
+		tags = append(tags, "eventtick", "tick", "timer", "polling")
+	}
+	return tags
 }
 
 func instructionABI(instruction nodecontract.InstructionSpec) nodecontract.ABIKind {

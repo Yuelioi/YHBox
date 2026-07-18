@@ -40,6 +40,54 @@ func TestInstalledAdaptersExcludeHostLoweredInstructions(t *testing.T) {
 	}
 }
 
+func TestTypedSwitchAndExplicitStopwatchUseTypedDataflow(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := func(nodeTypeID string) compiler.Adapter {
+		definition, ok := builtins.Definition(nodeTypeID)
+		if !ok {
+			t.Fatalf("definition %s is missing", nodeTypeID)
+		}
+		return installed[definition.Implementation.Entrypoint].Run
+	}
+	stringType := datatype.RefResolvedType(builtins.StringType.TypeRef())
+	value, err := datatype.SealInlineJSON(builtins.Catalog, stringType, []byte(`"beta"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha, _ := datatype.SealInlineJSON(builtins.Catalog, stringType, []byte(`"alpha"`))
+	beta, _ := datatype.SealInlineJSON(builtins.Catalog, stringType, []byte(`"beta"`))
+	switched, err := adapter(nodes.SwitchNodeID)(context.Background(), compiler.Invocation{Inputs: map[string]datatype.ValueEnvelope{
+		"value": value, "case-1": alpha, "case-2": beta,
+	}})
+	if err != nil || len(switched.ExecOutputs) != 1 || switched.ExecOutputs[0] != "case-2" {
+		t.Fatalf("switch=%#v err=%v", switched, err)
+	}
+
+	integerType := datatype.RefResolvedType(builtins.IntegerType.TypeRef())
+	record := func(context.Context, compiler.AdapterAction) error { return nil }
+	startedAt := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	started, err := adapter(nodes.StopwatchStartNodeID)(context.Background(), compiler.Invocation{
+		ObservedAt: startedAt, OutputTypes: map[string]datatype.ResolvedType{"started-at": integerType}, RecordAction: record,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	read, err := adapter(nodes.StopwatchReadNodeID)(context.Background(), compiler.Invocation{
+		ObservedAt: startedAt.Add(125 * time.Millisecond), Inputs: map[string]datatype.ValueEnvelope{"started-at": started.Outputs["started-at"]},
+		OutputTypes: map[string]datatype.ResolvedType{"elapsed": integerType}, RecordAction: record,
+	})
+	if err != nil || string(read.Outputs["elapsed"].InlineJSON()) != "125" {
+		t.Fatalf("stopwatch=%s err=%v", read.Outputs["elapsed"].InlineJSON(), err)
+	}
+}
+
 func TestRunStartedBranchDelayAndStateWriteFormOneExplicitSignalFlow(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {

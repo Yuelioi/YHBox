@@ -219,7 +219,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	filesystemRead, err := sealFilesystemReadCapability()
+	filesystem, err := sealFilesystemCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -365,6 +365,12 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	controlCapabilityDefinitions, err := defineControlCapabilityNodes(primitiveTypes{
+		stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(),
+	})
+	if err != nil {
+		return Builtins{}, err
+	}
 	aiDefinitions, aiGenerate, aiExtract, aiAgent, err := defineAINodes(stringType.TypeRef(), jsonType.TypeRef(), aiGeneration, aiArtifacts)
 	if err != nil {
 		return Builtins{}, err
@@ -375,7 +381,7 @@ func Build() (Builtins, error) {
 	}
 	filesystemDefinitions, filesystemContracts, err := defineFilesystemNodes(extendedTypes{
 		stringRef: stringType.TypeRef(), jsonRef: jsonType.TypeRef(),
-	}, fileMetadataType.TypeRef(), filesystemRead)
+	}, fileMetadataType.TypeRef(), imageType.TypeRef(), filesystem, blobRead, blobWrite)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -414,6 +420,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationObservationDefinitions, err := defineAutomationObservationNodes(automationTemplateTypes{
+		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
+		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(),
+	}, automationCapture)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -434,6 +447,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, recordedObservationDefinitions...)
 	definitions = append(definitions, stateDefinitions...)
 	definitions = append(definitions, controlDefinitions...)
+	definitions = append(definitions, controlCapabilityDefinitions...)
 	definitions = append(definitions, aiDefinitions...)
 	definitions = append(definitions, scriptDefinition)
 	definitions = append(definitions, filesystemDefinitions...)
@@ -443,6 +457,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, automationHeldInputDefinitions...)
 	definitions = append(definitions, automationWindowDefinitions...)
 	definitions = append(definitions, automationTemplateDefinitions...)
+	definitions = append(definitions, automationObservationDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, stopTargetAppDefinition)
 	definitions = append(definitions, captureWindowDefinition)
@@ -466,7 +481,7 @@ func Build() (Builtins, error) {
 	if _, err := validateTypeCapabilityClosure(types, contracts); err != nil {
 		return Builtins{}, fmt.Errorf("validate built-in type capability closure: %w", err)
 	}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationHeldInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystem, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationHeldInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err

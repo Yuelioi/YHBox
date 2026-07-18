@@ -124,6 +124,76 @@ func TestProviderRejectsSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestProviderStreamsBoundedRangesAndAtomicallyPublishesWrites(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "source.png"), []byte("0123456789"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	provider, err := NewProvider(root, Limits{MaxReadBytes: 32, MaxWriteBytes: 32, MaxChunkBytes: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := openTestSession(t, provider, []string{OperationReadRange, OperationStat})
+	payload, err := artifact.Marshal(ReadRangeRequest{Path: "source.png", Offset: 3, Length: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk, err := provider.Invoke(context.Background(), reader, OperationReadRange, payload)
+	if err != nil || string(chunk) != "3456" {
+		t.Fatalf("range=%q err=%v", chunk, err)
+	}
+	if err := provider.Close(context.Background(), reader); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := artifact.Marshal(WriteConfig{Path: "saved.png"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		ProviderID: ProviderID, TargetID: TargetID, Kind: Kind,
+		Operations: []string{OperationWriteAppend, OperationWriteCancel, OperationWriteCommit},
+		Config:     config, CapabilityScope: mustScope(t),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, part := range [][]byte{[]byte("abcd"), []byte("ef")} {
+		if _, err := provider.Invoke(context.Background(), writer, OperationWriteAppend, part); err != nil {
+			t.Fatal(err)
+		}
+	}
+	raw, err := provider.Invoke(context.Background(), writer, OperationWriteCommit, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := OpenMetadata(raw)
+	if err != nil || metadata.Path != "saved.png" || metadata.Size != 6 {
+		t.Fatalf("metadata=%#v err=%v", metadata, err)
+	}
+	if err := provider.Close(context.Background(), writer); err != nil {
+		t.Fatal(err)
+	}
+	written, err := os.ReadFile(filepath.Join(root, "saved.png"))
+	if err != nil || string(written) != "abcdef" {
+		t.Fatalf("written=%q err=%v", written, err)
+	}
+
+	for _, bad := range []WriteConfig{{Path: "../escape.png"}, {Path: "saved.png"}} {
+		config, marshalErr := artifact.Marshal(bad)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if _, openErr := provider.Open(context.Background(), resource.ProviderOpenRequest{
+			ProviderID: ProviderID, TargetID: TargetID, Kind: Kind,
+			Operations: []string{OperationWriteAppend, OperationWriteCancel, OperationWriteCommit},
+			Config:     config, CapabilityScope: mustScope(t),
+		}); openErr == nil {
+			t.Fatalf("writer accepted forbidden config %#v", bad)
+		}
+	}
+}
+
 func openTestSession(t *testing.T, provider *Provider, operations []string) any {
 	t.Helper()
 	state, err := provider.Open(context.Background(), resource.ProviderOpenRequest{

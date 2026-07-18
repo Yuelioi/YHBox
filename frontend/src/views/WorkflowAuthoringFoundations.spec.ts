@@ -28,6 +28,7 @@ describe('workflow authoring foundations', () => {
   it('keeps workflow state outside the selected-node inspector', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const inspector = readSource('src/app/editor/WorkflowInspector.vue')
+    const generatedField = readSource('src/app/editor/GeneratedFieldEditor.vue')
     expect(editor).toContain('<WorkflowStatePanel')
     expect(inspector).not.toContain("kind: 'add-state-variable'")
     expect(inspector).toContain(':select-items="targetItems(field.id)"')
@@ -35,6 +36,9 @@ describe('workflow authoring foundations', () => {
       "path: '/settings', query: { section: targetSettingsSection(field.id) }",
     )
     expect(inspector).toContain('projectionDescription')
+    expect(generatedField).toContain('<USelectMenu')
+    expect(generatedField).toContain("t('workflow.inspector.search_target')")
+    expect(generatedField).toContain(':virtualize="selectItems.length > 40"')
   })
 
   it('restores a main-window library for clips, templates, and recording', () => {

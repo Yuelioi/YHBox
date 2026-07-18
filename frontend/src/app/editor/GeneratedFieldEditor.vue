@@ -1,10 +1,12 @@
 <template>
   <UFormField :label="label" :hint="hint" class="w-full">
-    <USelect
+    <USelectMenu
       v-if="selectItems !== undefined"
       :model-value="modelValue"
       :items="selectItems"
       :placeholder="selectPlaceholder"
+      :search-input="{ placeholder: t('workflow.inspector.search_target') }"
+      :virtualize="selectItems.length > 40"
       value-key="value"
       label-key="label"
       class="w-full"
@@ -17,10 +19,12 @@
       {{ t('workflow.inspector.no_installed_target') }}
     </p>
     <template v-if="selectItems === undefined">
-      <USelect
+      <USelectMenu
         v-if="field.control === 'state-variable'"
         :model-value="modelValue"
         :items="stateVariableItems"
+        :search-input="{ placeholder: t('workflow.state_panel.search') }"
+        :virtualize="stateVariableItems.length > 40"
         value-key="value"
         label-key="label"
         class="w-full"

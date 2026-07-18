@@ -449,7 +449,7 @@ func executionProfile(t *testing.T, builtins nodes.Builtins) admission.HostProfi
 				}},
 			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFSProviderDigest(t), ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
-					{Capability: capabilityRef(nodes.FilesystemReadCapabilityID), ResourceKind: workspacefs.Kind},
+					{Capability: capabilityRef(nodes.FilesystemCapabilityID), ResourceKind: workspacefs.Kind},
 				}},
 		},
 		Targets: []admission.AutomationTarget{

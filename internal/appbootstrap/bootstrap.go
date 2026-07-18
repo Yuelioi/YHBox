@@ -184,7 +184,9 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	workspaceFileProvider, err := workspacefs.NewProvider(filepath.Join(workspace, "files"), workspacefs.Limits{MaxReadBytes: nodes.DefaultFileReadBytes})
+	workspaceFileProvider, err := workspacefs.NewProvider(filepath.Join(workspace, "files"), workspacefs.Limits{
+		MaxReadBytes: nodes.DefaultImageFileBytes, MaxWriteBytes: nodes.DefaultImageFileBytes, MaxChunkBytes: 64 << 10,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +370,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
-	filesystemRead, err := lookup(nodes.FilesystemReadCapabilityID)
+	filesystem, err := lookup(nodes.FilesystemCapabilityID)
 	if err != nil {
 		return admission.HostProfile{}, err
 	}
@@ -395,7 +397,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 				Capabilities: []admission.ProviderCapability{{Capability: streamSession, ResourceKind: stream.Kind}}},
 			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
 				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
-				Capabilities: []admission.ProviderCapability{{Capability: filesystemRead, ResourceKind: workspacefs.Kind}}},
+				Capabilities: []admission.ProviderCapability{{Capability: filesystem, ResourceKind: workspacefs.Kind}}},
 		},
 		Targets: []admission.AutomationTarget{
 			{ID: "workspace", Kind: "blob-store", ProviderID: blob.ProviderID},

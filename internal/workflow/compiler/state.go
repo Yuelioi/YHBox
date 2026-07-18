@@ -40,6 +40,20 @@ func (b StateBinding) Write(value datatype.ValueEnvelope) (StateSnapshot, error)
 	return b.slot.write(value)
 }
 
+// Update performs one read-modify-write transaction while the slot is
+// exclusively locked. It deliberately shares the existing write authority:
+// contracts do not gain a second, subtly different state permission, while
+// built-in convenience nodes avoid a racy Read followed by Write sequence.
+func (b StateBinding) Update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (StateSnapshot, error) {
+	if b.slot == nil || b.mode != nodecontract.StateWrite {
+		return StateSnapshot{}, errors.New("state binding does not grant write access")
+	}
+	if transform == nil {
+		return StateSnapshot{}, errors.New("state update transform is missing")
+	}
+	return b.slot.update(transform)
+}
+
 type runState struct {
 	slots map[string]*runStateSlot
 }
@@ -94,11 +108,25 @@ func (s *runStateSlot) read() StateSnapshot {
 }
 
 func (s *runStateSlot) write(value datatype.ValueEnvelope) (StateSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeLocked(value)
+}
+
+func (s *runStateSlot) update(transform func(datatype.ValueEnvelope) (datatype.ValueEnvelope, error)) (StateSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	value, err := transform(s.value)
+	if err != nil {
+		return StateSnapshot{}, err
+	}
+	return s.writeLocked(value)
+}
+
+func (s *runStateSlot) writeLocked(value datatype.ValueEnvelope) (StateSnapshot, error) {
 	if !value.Valid() || !value.Durable() || value.Representation() != datatype.RepresentationInlineJSON || !reflect.DeepEqual(value.Type(), s.typeRef) {
 		return StateSnapshot{}, errors.New("state write value violates the frozen slot type")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.revision >= schema.MaxRevision {
 		return StateSnapshot{}, errors.New("state revision budget exceeded")
 	}

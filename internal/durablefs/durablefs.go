@@ -33,6 +33,18 @@ func Replace(stagedPath, destinationPath string) error {
 	return nil
 }
 
+// PublishNew atomically publishes stagedPath only when destinationPath does
+// not exist. It is the no-clobber counterpart to Replace.
+func PublishNew(stagedPath, destinationPath string) error {
+	if err := publishNewFile(stagedPath, destinationPath); err != nil {
+		return err
+	}
+	if err := syncDir(filepath.Dir(destinationPath)); err != nil {
+		return &committedError{err: fmt.Errorf("sync destination directory: %w", err)}
+	}
+	return nil
+}
+
 // Remove durably removes path. A missing path is reported by the platform.
 func Remove(path string) error {
 	return removeFile(path)

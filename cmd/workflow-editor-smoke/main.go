@@ -245,17 +245,17 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}); err != nil {
 		return fmt.Errorf("multi-select workflow nodes: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const pane = document.querySelector('.vue-flow__pane');
-		if (!pane) throw new Error('workflow pane not found');
-		pane.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-	})()`); err != nil {
+	beforeDelete, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-selection-remove"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.SelectedNodes == 0 && !current.SelectionToolbar
+		return current.CanvasNodes == beforeDelete.CanvasNodes-2 && current.SelectedNodes == 0 && !current.SelectionToolbar
 	}); err != nil {
-		return fmt.Errorf("clear workflow selection: %w", err)
+		return fmt.Errorf("delete selected workflow nodes: %w", err)
 	}
 	beforeConnection, err := state(ctx, client)
 	if err != nil {

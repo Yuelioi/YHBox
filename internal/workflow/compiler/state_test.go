@@ -1,6 +1,9 @@
 package compiler
 
 import (
+	"encoding/json"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,5 +56,53 @@ func TestRunStateIsIsolatedTypedAndOperationAttenuated(t *testing.T) {
 	}
 	if _, err := write.Write(wrong); err == nil {
 		t.Fatal("state slot accepted a value outside its frozen type")
+	}
+}
+
+func TestStateBindingUpdateIsOneAtomicWriteTransaction(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	typeRef := datatype.RefResolvedType(builtins.IntegerType.TypeRef())
+	initial, err := datatype.SealInlineJSON(builtins.Catalog, typeRef, []byte("0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := newRunState([]programStateSlot{{Name: "count", Type: typeRef, Initial: initial.Artifact()}}, builtins.Catalog, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write := StateBinding{mode: nodecontract.StateWrite, slot: state.slots["count"]}
+	read := StateBinding{mode: nodecontract.StateRead, slot: state.slots["count"]}
+	if _, err := read.Update(func(value datatype.ValueEnvelope) (datatype.ValueEnvelope, error) { return value, nil }); err == nil {
+		t.Fatal("read binding widened itself to atomic update")
+	}
+	var group sync.WaitGroup
+	errorsSeen := make(chan error, 100)
+	for range 100 {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			_, err := write.Update(func(current datatype.ValueEnvelope) (datatype.ValueEnvelope, error) {
+				var value int64
+				if err := json.Unmarshal(current.InlineJSON(), &value); err != nil {
+					return datatype.ValueEnvelope{}, err
+				}
+				return datatype.SealInlineJSON(builtins.Catalog, typeRef, []byte(fmt.Sprint(value+1)))
+			})
+			if err != nil {
+				errorsSeen <- err
+			}
+		}()
+	}
+	group.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		t.Fatal(err)
+	}
+	got := state.slots["count"].read()
+	if string(got.Value.InlineJSON()) != "100" || got.Revision != 100 {
+		t.Fatalf("atomic state=%s revision=%d", got.Value.InlineJSON(), got.Revision)
 	}
 }
