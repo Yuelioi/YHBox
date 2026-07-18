@@ -109,6 +109,70 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	}
 }
 
+func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing.T) {
+	dataRoot := t.TempDir()
+	blobStore, err := blob.Open(filepath.Join(dataRoot, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := func() *appbootstrap.Runtime {
+		runtime, err := appbootstrap.Build(appbootstrap.Config{
+			DataRoot: dataRoot, BlobStore: blobStore, Limits: testLimits(),
+			AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
+			ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
+			ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
+			GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: time.Now,
+		})
+		if err != nil {
+			t.Fatalf("Build = %v", err)
+		}
+		if err := runtime.Start(context.Background()); err != nil {
+			t.Fatalf("Start = %v", err)
+		}
+		return runtime
+	}
+	closeRuntime := func(runtime *appbootstrap.Runtime) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Fatalf("Close = %v", err)
+		}
+	}
+
+	first := build()
+	service, err := workflow.NewService(first.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("Recoverable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeRuntime(first)
+	path := filepath.Join(dataRoot, "workspace-3.1", "workflows", created.WorkflowID+".json")
+	if err := os.WriteFile(path, []byte(`{"format":"yotta.workflow","version":"3.1",`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	second := build()
+	t.Cleanup(func() { closeRuntime(second) })
+	recoveryService, err := workflow.NewService(second.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listed, err := recoveryService.ListSources(); err != nil || len(listed) != 0 {
+		t.Fatalf("healthy Sources after isolation = %#v, %v", listed, err)
+	}
+	recoveries := recoveryService.ListSourceRecoveries()
+	if len(recoveries) != 1 || recoveries[0].OriginalName != created.WorkflowID+".json" {
+		t.Fatalf("recoveries = %#v", recoveries)
+	}
+	repaired, err := recoveryService.RepairSourceRecovery(recoveries[0].RecoveryID, created.SourceJSON)
+	if err != nil || repaired.WorkflowID != created.WorkflowID || len(recoveryService.ListSourceRecoveries()) != 0 {
+		t.Fatalf("RepairSourceRecovery = %#v, %v", repaired, err)
+	}
+}
+
 func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testing.T) {
 	if !automationinstalled.PlatformSupported() {
 		t.Skip("installed automation targets are intentionally unavailable")

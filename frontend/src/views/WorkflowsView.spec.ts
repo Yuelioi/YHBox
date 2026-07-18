@@ -60,4 +60,13 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain('portabilityFeedback.value')
     expect(source).not.toContain("title: t('workflow.list.export_result')")
   })
+
+  it('keeps a corrupt source isolated while exposing bounded repair and delete actions', () => {
+    expect(source).toContain('workflowTransport.listSourceRecoveries')
+    expect(source).toContain('data-testid="workflow-recovery-panel"')
+    expect(source).toContain('workflowTransport.repairSourceRecovery')
+    expect(source).toContain('workflowTransport.deleteSourceRecovery')
+    expect(source).toContain("confirmText: t('common.delete')")
+    expect(source).not.toContain('delete data')
+  })
 })

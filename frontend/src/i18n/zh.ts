@@ -244,6 +244,10 @@ export default {
       },
       pointer_button: { title: '指针按键', description: '左键、右键或中键。' },
       key_code: { title: '按键码', description: '可注入到精确安装目标的规范化键盘按键。' },
+      held_input: {
+        title: '按住输入租约',
+        description: '仅在当前 Run 内有效；释放节点、取消或异常结束都会清理按住状态。',
+      },
     },
     vision: {
       templateMatch: { title: '模板命中', description: '一个带分数和像素坐标的模板命中。' },
@@ -555,6 +559,18 @@ export default {
         description: '向精确安装窗口发送有界相对位移。',
       },
       pressKeys: { title: '按下组合键', description: '原子按下并反向释放一组规范化按键。' },
+      holdKeys: {
+        title: '按住按键',
+        description: '按下规范化按键并输出 Run 级租约；必须连接释放节点，异常结束也会自动释放。',
+      },
+      holdPointerButton: {
+        title: '按住指针按键',
+        description: '在目标坐标按住鼠标键并输出 Run 级租约；异常结束时自动释放。',
+      },
+      releaseHeldInput: {
+        title: '释放按住输入',
+        description: '消费按住输入租约并立即释放该租约拥有的所有按键或鼠标键。',
+      },
       typeText: {
         title: '输入文本',
         description: '向精确安装窗口注入有界 Unicode 文本，不使用剪贴板。',
@@ -563,6 +579,29 @@ export default {
         title: '激活目标',
         description:
           '重新验证已安装目标，然后置前精确桌面窗口或启动 Android 包；失败会走「失败」出口。',
+      },
+      closeWindow: {
+        title: '关闭窗口',
+        description: '重新解析精确安装目标并向该窗口发送关闭请求。',
+      },
+      moveResizeWindow: {
+        title: '移动并调整窗口',
+        description: '重新解析精确安装目标，并按屏幕像素设置窗口位置与尺寸。',
+      },
+      maximizeWindow: { title: '最大化窗口', description: '重新解析精确安装目标并最大化窗口。' },
+      minimizeWindow: { title: '最小化窗口', description: '重新解析精确安装目标并最小化窗口。' },
+      restoreWindow: { title: '还原窗口', description: '重新解析精确安装目标并还原窗口。' },
+      getWindowState: {
+        title: '读取窗口状态',
+        description: '读取精确安装目标当前的窗口状态、前台标记、屏幕位置与尺寸。',
+      },
+      waitWindow: {
+        title: '等待窗口出现',
+        description: '在给定时限内按安装目标的可执行文件身份和窗口选择器等待窗口出现。',
+      },
+      waitWindowGone: {
+        title: '等待窗口消失',
+        description: '在给定时限内等待安装目标的匹配窗口全部消失。',
       },
       stopTargetApp: {
         title: '停止目标应用',
@@ -1277,6 +1316,18 @@ export default {
       reference_schedule: '被计划「{name}」引用',
       reference_launcher: '被悬浮启动器「{name}」引用',
       reference_active_run: '运行「{name}」正在排队或执行',
+      recovery_title: '已隔离 {n} 个损坏的工作流源码',
+      recovery_description:
+        '其余工作区可以正常使用。你可以修复单个源码，或只删除这个损坏对象；无需删除整个 data。',
+      recovery_repair: '修复',
+      recovery_delete: '删除损坏对象',
+      recovery_repair_title: '修复工作流源码',
+      recovery_repair_description:
+        '编辑原始 JSON 后提交。Yotta 会按当前 3.1 契约完整校验，校验通过前不会放回工作流库。',
+      recovery_source_json: '待修复的工作流源码 JSON',
+      recovery_validate_repair: '校验并修复',
+      recovery_delete_title: '删除损坏对象「{name}」？',
+      recovery_delete_description: '只删除已隔离的损坏源码，不影响其他工作流、资源或运行记录。',
     },
     template: {
       windows: {

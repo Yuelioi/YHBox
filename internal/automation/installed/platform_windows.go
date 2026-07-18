@@ -6,9 +6,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
@@ -23,7 +26,13 @@ type windowsDriver struct {
 	backend pkginput.Backend
 	capture pkgcapture.IBackend
 	gate    chan struct{}
-	cached  uintptr
+	closed  bool
+}
+
+type windowsHeldInput struct {
+	parent  *windowsDriver
+	backend pkginput.Backend
+	mu      sync.Mutex
 	closed  bool
 }
 
@@ -212,6 +221,77 @@ func (d *windowsDriver) ReleaseInput() error {
 	return d.backend.ReleaseAll()
 }
 
+func (d *windowsDriver) OpenHeldInput() (heldInputDriver, error) {
+	machine, ok := DesktopProfile(d.profile)
+	if !ok {
+		return nil, failure(CodeContractViolation, errors.New("Win32 driver received another adapter profile"))
+	}
+	backend, err := pkginput.NewBackend(machine.InputBackend)
+	if err != nil {
+		return nil, failure(CodeUnsupportedHost, err)
+	}
+	return &windowsHeldInput{parent: d, backend: backend}, nil
+}
+
+func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw any) (runErr error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || h.backend == nil {
+		return failure(CodeContractViolation, errors.New("held input driver is closed"))
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-h.parent.gate:
+	}
+	defer func() { h.parent.gate <- struct{}{} }()
+	if h.parent.closed {
+		return failure(CodeContractViolation, errors.New("automation target driver is closed"))
+	}
+	window, err := h.parent.resolve(ctx)
+	if err != nil {
+		return err
+	}
+	if h.backend.Name() == "sendinput" {
+		if err := winutil.BringToFront(window.HWND); err != nil {
+			return failure(CodeInputFailed, err)
+		}
+	}
+	handle := pkginput.Handle(window.HWND)
+	switch request := raw.(type) {
+	case HoldKeysRequest:
+		for _, key := range request.Keys {
+			if err := h.backend.KeyDown(handle, key); err != nil {
+				return errors.Join(err, h.backend.ReleaseAll())
+			}
+		}
+		return nil
+	case HoldButtonRequest:
+		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
+		if err != nil {
+			return err
+		}
+		if err := h.backend.MouseDown(handle, point.X, point.Y, request.Button); err != nil {
+			return errors.Join(err, h.backend.ReleaseAll())
+		}
+		return nil
+	default:
+		return failure(CodeContractViolation, fmt.Errorf("held input operation %q is unsupported", operation))
+	}
+}
+
+func (h *windowsHeldInput) Close() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return nil
+	}
+	h.closed = true
+	err := errors.Join(h.backend.ReleaseAll(), h.backend.Close())
+	h.backend = nil
+	return err
+}
+
 func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) (runErr error) {
 	select {
 	case <-ctx.Done():
@@ -226,26 +306,55 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 	if err != nil {
 		return err
 	}
-	if d.backend.Name() == "sendinput" && operation != OperationActivate {
+	inputOperation := slices.Contains(inputOperations, operation)
+	if d.backend.Name() == "sendinput" && inputOperation {
 		if err := winutil.BringToFront(window.HWND); err != nil {
 			return failure(CodeInputFailed, err)
 		}
 	}
-	defer func() { runErr = errors.Join(runErr, d.backend.ReleaseAll()) }()
-	resolved, err := d.controller(window)
-	if err != nil {
-		return failure(CodeContractViolation, err)
+	if inputOperation {
+		defer func() { runErr = errors.Join(runErr, d.backend.ReleaseAll()) }()
 	}
 	switch request := raw.(type) {
 	case struct{}:
-		if operation != OperationActivate {
+		switch operation {
+		case OperationActivate:
+			if err := winutil.BringToFront(window.HWND); err != nil {
+				return failure(CodeWindowFailed, err)
+			}
+			return nil
+		case OperationCloseWindow:
+			if err := winutil.CloseWindow(window.HWND); err != nil {
+				return failure(CodeWindowFailed, err)
+			}
+			return nil
+		default:
 			return failure(CodeContractViolation, errors.New("empty automation request is unsupported"))
 		}
-		if err := winutil.BringToFront(window.HWND); err != nil {
+	case MoveResizeWindowRequest:
+		if err := winutil.MoveResize(window.HWND, int(request.X), int(request.Y), int(request.Width), int(request.Height)); err != nil {
+			return failure(CodeWindowFailed, err)
+		}
+		return nil
+	case SetWindowStateRequest:
+		var err error
+		switch request.State {
+		case "maximize":
+			err = winutil.Maximize(window.HWND)
+		case "minimize":
+			err = winutil.Minimize(window.HWND)
+		case "restore":
+			err = winutil.Restore(window.HWND)
+		}
+		if err != nil {
 			return failure(CodeWindowFailed, err)
 		}
 		return nil
 	case ClickRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
@@ -254,12 +363,20 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 			Point: target.NewNormalizedPoint(point.X, point.Y), Button: request.Button, DurationMs: int(request.DurationMilliseconds),
 		})
 	case MoveRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
 		}
 		return resolved.Move(ctx, controller.MoveRequest{Point: target.NewNormalizedPoint(point.X, point.Y)})
 	case ScrollRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		point, err := windowPoint(request.Point, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
@@ -268,6 +385,10 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 			Point: target.NewNormalizedPoint(point.X, point.Y), Notches: int(request.Notches), Horizontal: request.Horizontal,
 		})
 	case DragRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		from, err := windowPoint(request.From, window.ClientW, window.ClientH)
 		if err != nil {
 			return err
@@ -280,8 +401,16 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 			From: target.NewNormalizedPoint(from.X, from.Y), To: target.NewNormalizedPoint(to.X, to.Y), Button: request.Button, DurationMs: int(request.DurationMilliseconds),
 		})
 	case RelativeMoveRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		return resolved.MoveRelative(ctx, controller.RelativeMoveRequest{Dx: int(request.DeltaX), Dy: int(request.DeltaY), DurationMs: int(request.DurationMilliseconds)})
 	case PressKeysRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		for _, key := range request.Keys {
 			if err := resolved.KeyDown(ctx, controller.KeyRequest{Key: key}); err != nil {
 				return err
@@ -297,10 +426,75 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 		}
 		return nil
 	case TypeTextRequest:
+		resolved, err := d.controller(window)
+		if err != nil {
+			return failure(CodeContractViolation, err)
+		}
 		return resolved.Text(ctx, controller.TextRequest{Text: request.Text})
 	default:
 		return failure(CodeContractViolation, errors.New("automation input request type is unsupported"))
 	}
+}
+
+func (d *windowsDriver) WaitWindow(ctx context.Context, present bool, timeout time.Duration) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed {
+		return false, failure(CodeContractViolation, errors.New("automation target driver is closed"))
+	}
+	machine, ok := DesktopProfile(d.profile)
+	if !ok {
+		return false, failure(CodeContractViolation, errors.New("Win32 driver received another adapter profile"))
+	}
+	selector := winutil.MatchSpec{Title: machine.WindowTitle, TitleMatch: machine.WindowTitleMatch, Class: machine.WindowClass}
+	deadline := time.Now().Add(timeout)
+	for {
+		probeTimeout := min(25*time.Millisecond, max(time.Millisecond, time.Until(deadline)))
+		_, err := winutil.ResolveExecutableWindow(ctx, machine.Application.Executable, selector, machine.WindowSelection, probeTimeout, probeTimeout)
+		found := err == nil || errors.Is(err, winutil.ErrWindowAmbiguous)
+		if (present && found) || (!present && !found && errors.Is(err, winutil.ErrWindowNotFound)) {
+			return true, nil
+		}
+		if err != nil && !errors.Is(err, winutil.ErrWindowNotFound) && !errors.Is(err, winutil.ErrWindowAmbiguous) {
+			return false, err
+		}
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(min(100*time.Millisecond, max(time.Millisecond, time.Until(deadline)))):
+		}
+	}
+}
+
+func (d *windowsDriver) WindowState(ctx context.Context) (WindowStateResponse, error) {
+	select {
+	case <-ctx.Done():
+		return WindowStateResponse{}, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed {
+		return WindowStateResponse{}, failure(CodeContractViolation, errors.New("automation target driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return WindowStateResponse{}, err
+	}
+	state, err := winutil.InspectWindowState(window.HWND)
+	if err != nil {
+		return WindowStateResponse{}, failure(CodeWindowFailed, err)
+	}
+	return WindowStateResponse{
+		State: state.State, Foreground: state.Foreground,
+		X: int64(state.X), Y: int64(state.Y), Width: int64(state.Width), Height: int64(state.Height),
+	}, nil
 }
 
 func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, error) {
@@ -310,13 +504,6 @@ func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, erro
 	}
 	executable := machine.Application.Executable
 	selector := winutil.MatchSpec{Title: machine.WindowTitle, TitleMatch: machine.WindowTitleMatch, Class: machine.WindowClass}
-	if machine.WindowSelection == "unique" && d.cached != 0 {
-		window, err := winutil.VerifyExecutableWindow(d.cached, executable, selector)
-		if err == nil {
-			return window, nil
-		}
-		d.cached = 0
-	}
 	timeout := time.Duration(machine.ResolveTimeoutMilliseconds) * time.Millisecond
 	window, err := winutil.ResolveExecutableWindow(ctx, executable, selector, machine.WindowSelection, timeout, min(100*time.Millisecond, timeout))
 	if err != nil {
@@ -328,9 +515,6 @@ func (d *windowsDriver) resolve(ctx context.Context) (winutil.WindowHandle, erro
 		default:
 			return winutil.WindowHandle{}, err
 		}
-	}
-	if machine.WindowSelection == "unique" {
-		d.cached = window.HWND
 	}
 	return window, nil
 }

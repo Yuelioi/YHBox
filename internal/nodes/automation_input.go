@@ -13,10 +13,12 @@ import (
 const (
 	PointerButtonTypeID = "https://schemas.yotta.dev/types/automation/pointer-button/v1"
 	KeyCodeTypeID       = "https://schemas.yotta.dev/types/automation/key-code/v1"
+	HeldInputTypeID     = "https://schemas.yotta.dev/types/automation/held-input/v1"
 
 	AutomationInputCapabilityID        = installed.CapabilityInputID
 	AutomationDesktopInputCapabilityID = installed.CapabilityDesktopInputID
 	AutomationKeyInputCapabilityID     = installed.CapabilityKeyInputID
+	AutomationHeldInputCapabilityID    = installed.CapabilityHeldInputID
 
 	ClickPointerNodeID        = "https://schemas.yotta.dev/nodes/automation/click-pointer"
 	MovePointerNodeID         = "https://schemas.yotta.dev/nodes/automation/move-pointer"
@@ -25,6 +27,9 @@ const (
 	MovePointerRelativeNodeID = "https://schemas.yotta.dev/nodes/automation/move-pointer-relative"
 	PressKeysNodeID           = "https://schemas.yotta.dev/nodes/automation/press-keys"
 	TypeTextNodeID            = "https://schemas.yotta.dev/nodes/automation/type-text"
+	HoldKeysNodeID            = "https://schemas.yotta.dev/nodes/automation/hold-keys"
+	HoldPointerButtonNodeID   = "https://schemas.yotta.dev/nodes/automation/hold-pointer-button"
+	ReleaseHeldInputNodeID    = "https://schemas.yotta.dev/nodes/automation/release-held-input"
 
 	ClickPointerEffectID        = "https://schemas.yotta.dev/effects/automation/click-pointer/v1"
 	MovePointerEffectID         = "https://schemas.yotta.dev/effects/automation/move-pointer/v1"
@@ -33,6 +38,9 @@ const (
 	MovePointerRelativeEffectID = "https://schemas.yotta.dev/effects/automation/move-pointer-relative/v1"
 	PressKeysEffectID           = "https://schemas.yotta.dev/effects/automation/press-keys/v1"
 	TypeTextEffectID            = "https://schemas.yotta.dev/effects/automation/type-text/v1"
+	HoldKeysEffectID            = "https://schemas.yotta.dev/effects/automation/hold-keys/v1"
+	HoldPointerButtonEffectID   = "https://schemas.yotta.dev/effects/automation/hold-pointer-button/v1"
+	ReleaseHeldInputEffectID    = "https://schemas.yotta.dev/effects/automation/release-held-input/v1"
 )
 
 type automationInputTypes struct {
@@ -81,6 +89,20 @@ func sealAutomationInputTypes() (datatype.Definition, datatype.Definition, error
 	return button, keyCode, err
 }
 
+func sealHeldInputType() (datatype.Definition, error) {
+	const schemaID = HeldInputTypeID + "/schema"
+	return datatype.SealDefinition(datatype.DefinitionDraft{
+		TypeID: HeldInputTypeID, SchemaDialect: datatype.JSONSchemaDialect, SchemaRoot: schemaID,
+		SchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
+			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"string","const":"runtime-held-input"
+		}`, schemaID))}},
+		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationHandleRef, Codec: datatype.CodecHandleRefV1}},
+		Authoring: datatype.Authoring{
+			TitleKey: "type.automation.held_input.title", DescriptionKey: "type.automation.held_input.description", Color: "#f97316", Icon: "hand-stop",
+		},
+	})
+}
+
 func sealAutomationInputCapability() (capability.Definition, error) {
 	const scopeID = AutomationInputCapabilityID + "/scope"
 	return capability.SealDefinition(capability.DefinitionDraft{
@@ -121,6 +143,105 @@ func sealAutomationKeyInputCapability() (capability.Definition, error) {
 		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
 		ProviderABI: installed.ProviderABI,
 	})
+}
+
+func sealAutomationHeldInputCapability() (capability.Definition, error) {
+	const scopeID = AutomationHeldInputCapabilityID + "/scope"
+	return capability.SealDefinition(capability.DefinitionDraft{
+		CapabilityID:    AutomationHeldInputCapabilityID,
+		Operations:      []string{installed.OperationHoldKeys, installed.OperationHoldButton, installed.OperationReleaseHeld},
+		TargetKinds:     []string{installed.TargetKindDesktopWindow},
+		ScopeSchemaRoot: scopeID, ScopeSchemaBundle: []datatype.SchemaResource{{ID: scopeID, Schema: json.RawMessage(fmt.Sprintf(`{
+			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+			"properties":{"operation":{"const":"held-input"}},"required":["operation"],"additionalProperties":false
+		}`, scopeID))}},
+		Credential: capability.CredentialNone, Risk: capability.RiskDangerous, Consent: capability.ConsentOnce,
+		ProviderABI: installed.ProviderABI,
+	})
+}
+
+func defineAutomationHeldInputNodes(types automationInputTypes, heldType datatype.TypeRef, held capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {
+	heldExpression := datatype.RefExpression(heldType)
+	keyListType := datatype.ListExpression(datatype.RefExpression(types.keyCodeRef))
+	start := func(id, effectID, entrypoint, titleKey, icon, operation, conformance string, inputs []nodecontract.DataInputPort) (BuiltinDefinition, nodecontract.Contract, error) {
+		schemaID := id + "/config"
+		contract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+			NodeTypeID: id, ConfigSchemaRoot: schemaID, ConfigSchemaBundle: automationSlotSchema(schemaID),
+			Ports: nodecontract.PortSet{
+				DataInputs:  inputs,
+				DataOutputs: []nodecontract.DataOutputPort{{ID: "held", Type: heldExpression, ResourceLease: &nodecontract.ResourceLeaseBinding{RequirementID: "target", Operations: []string{installed.OperationReleaseHeld}}}},
+				ExecInputs:  signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed"),
+			},
+			Execution: automationEffectExecution(effectID), Instruction: nodecontract.Invoke(),
+			CapabilityRequirements: []capability.Requirement{{
+				ID: "target", Capability: held.Ref(), Operations: installed.HeldInputOperations(), TargetSlot: "target", Scope: json.RawMessage(`{"operation":"held-input"}`),
+			}},
+			RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+			Errors:              automationInputErrors(), ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+			Authoring: nodecontract.Authoring{TitleKey: titleKey + ".title", DescriptionKey: titleKey + ".description", Category: "automation", Tags: []string{"automation", "input", "held", operation}, Icon: icon},
+		})
+		if err != nil {
+			return BuiltinDefinition{}, nodecontract.Contract{}, err
+		}
+		definition, err := defineBuiltin(contract, entrypoint, "v1", conformance, nil)
+		return definition, contract, err
+	}
+	holdKeys, holdKeysContract, err := start(
+		HoldKeysNodeID, HoldKeysEffectID, "automation.hold-keys", "node.automation.holdKeys", "keyboard",
+		installed.OperationHoldKeys, "exact-target/run-owned-held-keys/v1",
+		[]nodecontract.DataInputPort{{ID: "keys", Type: keyListType, Required: true}},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	holdButton, holdButtonContract, err := start(
+		HoldPointerButtonNodeID, HoldPointerButtonEffectID, "automation.hold-pointer-button", "node.automation.holdPointerButton", "hand-click",
+		installed.OperationHoldButton, "exact-target/run-owned-held-button/v1",
+		[]nodecontract.DataInputPort{{ID: "point", Type: datatype.RefExpression(types.pointRef), Required: true}, {ID: "button", Type: datatype.RefExpression(types.buttonRef), Required: true, Default: rawDefault(`"left"`)}},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	releaseSchemaID := ReleaseHeldInputNodeID + "/config"
+	releaseContract, err := nodecontract.Seal(nodecontract.Draft{Version: BuiltinNodeVersion,
+		NodeTypeID: ReleaseHeldInputNodeID, ConfigSchemaRoot: releaseSchemaID, ConfigSchemaBundle: automationSlotSchema(releaseSchemaID),
+		Ports: nodecontract.PortSet{
+			DataInputs: []nodecontract.DataInputPort{{ID: "held", Type: heldExpression, Required: true, ResourceLease: &nodecontract.ResourceLeaseBinding{RequirementID: "target", Operations: []string{installed.OperationReleaseHeld}}}},
+			ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed"),
+		},
+		Execution: automationEffectExecution(ReleaseHeldInputEffectID), Instruction: nodecontract.Invoke(),
+		CapabilityRequirements: []capability.Requirement{{
+			ID: "target", Capability: held.Ref(), Operations: []string{installed.OperationReleaseHeld}, TargetSlot: "target", Scope: json.RawMessage(`{"operation":"held-input"}`),
+		}},
+		RequirementBindings: []nodecontract.RequirementBindingSpec{{RequirementID: "target", TargetSlotConfigKey: "slot"}},
+		Errors:              automationInputErrors(), ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+		Authoring: nodecontract.Authoring{TitleKey: "node.automation.releaseHeldInput.title", DescriptionKey: "node.automation.releaseHeldInput.description", Category: "automation", Tags: []string{"automation", "input", "held", "release"}, Icon: "hand-stop"},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	release, err := defineBuiltin(releaseContract, "automation.release-held-input", "v1", "run-owned-held-input/release/v1", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return []BuiltinDefinition{holdKeys, holdButton, release}, []nodecontract.Contract{holdKeysContract, holdButtonContract, releaseContract}, nil
+}
+
+func automationSlotSchema(schemaID string) []datatype.SchemaResource {
+	return []datatype.SchemaResource{{ID: schemaID, Schema: json.RawMessage(fmt.Sprintf(`{
+		"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+		"properties":{"slot":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+			"x-yotta-title-key":"node.automation.config.slot.title","x-yotta-description-key":"node.automation.config.slot.description"}},
+		"required":["slot"],"additionalProperties":false
+	}`, schemaID))}}
+}
+
+func automationEffectExecution(effectID string) nodecontract.ExecutionSpec {
+	return nodecontract.ExecutionSpec{
+		Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID(effectID)}, Determinism: nodecontract.Recorded,
+		Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever,
+		Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
+	}
 }
 
 func defineAutomationInputNodes(types automationInputTypes, input, desktopInput, keyInput capability.Definition) ([]BuiltinDefinition, []nodecontract.Contract, error) {

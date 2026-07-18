@@ -1,6 +1,6 @@
 ---
 kind: trap
-summary: "UE Slate 点击点歪/点不到的三根因(坐标变换/松键落点/hover-settle)+ hold 图保活留尾"
+summary: "UE Slate 点击坐标/松键/hover-settle 前案；3.1 held input 已改为 Run-owned lease，不再要求用 Sleep 让图保活。"
 activation: symptom
 read_when: "改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMessageBackend.Mouse* / sendinput 坐标); UE 里点击点歪或点不到或「按住变单击」; 给 ClickAt 加可取消长按; review MouseDown/MouseUp 落点坐标或 hover 时序; 排查「held 按键莫名被松」类问题"
 ---
@@ -34,3 +34,8 @@ read_when: "改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostM
 排查 detour: 用户只摆一个 `MouseHoldStart` → 图跑完立刻结束 → `runner.go:375 teardownRuntime defer ReleaseAll` 发 MouseUp → 按钮被激活进菜单 → 看起来「按住变单击」。**`ReleaseAll` 是容器 stop/panic/cancel 的防卡键兜底，不是每 tick 调**——但「图跑完 = stop」，所以单节点 hold 必塌。
 - 判据: 凡 `MouseHoldStart`（或任何 down-不-up 的 held 操作），**Start 和松手之间图必须保活**（垫 Sleep/Wait/后续节点）到你想松手为止。
 - 调试教训: 我一度因为「ReleaseAll 只在 stop 调」就把它从嫌疑里排除——漏了「单节点图的 stop 是立即的」。held 按键莫名被松，第一个怀疑对象就是 teardown 的 ReleaseAll。
+
+
+## 3.1 R2 lifecycle update
+
+坐标、松键落点和 hover-settle 仍是排障知识；“图靠 Sleep 保活”不再是 3.1 contract。Hold Keys / Hold Pointer Button 返回 durable HandleRef，由 Run owner 持有；显式 Release Held Input 或 Run cancel/failure/teardown 释放。提前消失应检查 HandleRef owner/close path，不能指导用户添加无业务意义的等待节点。

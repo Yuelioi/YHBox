@@ -67,6 +67,7 @@
     >
       <button
         type="button"
+        data-testid="open-launcher"
         class="flex w-10 items-center justify-center text-muted transition-colors duration-150 hover:bg-elevated/60 hover:text-highlighted disabled:opacity-50"
         :title="t('sidebar.open_launcher')"
         :aria-label="t('sidebar.open_launcher')"

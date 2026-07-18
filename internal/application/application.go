@@ -818,6 +818,18 @@ func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot
 
 func (a *Application) ListSources() []workflowstore.SourceSnapshot { return a.sources.List() }
 
+func (a *Application) ListSourceRecoveries() []workflowstore.SourceRecovery {
+	return a.sources.ListRecoveries()
+}
+
+func (a *Application) RepairSourceRecovery(ctx context.Context, recoveryID artifact.Digest, raw []byte) (workflowstore.SourceSnapshot, error) {
+	return a.sources.RepairRecovery(ctx, recoveryID, raw)
+}
+
+func (a *Application) DeleteSourceRecovery(ctx context.Context, recoveryID artifact.Digest) error {
+	return a.sources.DeleteRecovery(ctx, recoveryID)
+}
+
 func (a *Application) WithDurableBlobReferences(ctx context.Context, visit func([]blob.BlobRef) error) error {
 	if ctx == nil || visit == nil {
 		return errors.New("durable blob inventory requires context and visitor")

@@ -29,3 +29,8 @@ simple/precise 是用户可见且写入 carrier 的录制策略：simple 过滤 
 相对鼠标校准属于 exact installed target profile，不属于独立全局 Settings snapshot。Session 从 Start 到 Stop/Cancel 必须持有同一 target generation lease，否则设置热更新会让一次录制跨两个 identity/calibration/backend。取消、暂停、继续、F11/F12、held key/button cleanup 和 pending/finalize/discard 都属于同一 Session 生命周期。
 
 完成证据必须包含真实输入 → 保存 clip → 资源库可见 → workflow picker → playback；只通过 codec、store、页面或 hook 单测不能称录制能力完成。
+
+
+## Native gate
+
+Windows 阶段证据由 `task windows:smoke:automation` 提供：真实 hook 收到 SendInput，原始结果直接经过 canonicalize、InputClip v3、Blob/Asset save/reload，再投递并 ReleaseAll。修改 hook clock、ordering、codec、asset commit 或 playback 时必须保持这条反馈环。

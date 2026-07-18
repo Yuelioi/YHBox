@@ -93,6 +93,8 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('snapNodePosition(')
     expect(editor).toContain('autoLayoutNodePositions(')
     expect(editor).toContain('session.duplicateNodes(')
+    const selectionToolbar = readSource('src/app/editor/WorkflowSelectionToolbar.vue')
+    expect(selectionToolbar).toContain('shrink-0 whitespace-nowrap')
   })
 
   it('restores source-native node search and canvas focus', () => {

@@ -17,6 +17,8 @@ var (
 	procGetWindowPlacement = user32.NewProc("GetWindowPlacement")
 	procSetWindowPlacement = user32.NewProc("SetWindowPlacement")
 	procPostMessage        = user32.NewProc("PostMessageW")
+	procGetWindowRect      = user32.NewProc("GetWindowRect")
+	procIsZoomed           = user32.NewProc("IsZoomed")
 )
 
 // gwlStyleIdx is stored as a var (not const) so uintptr(gwlStyleIdx) compiles:
@@ -73,8 +75,41 @@ func CloseWindow(hwnd uintptr) error {
 	if hwnd == 0 {
 		return fmt.Errorf("hwnd 0")
 	}
-	procPostMessage.Call(hwnd, wmClose, 0, 0) // 发送即返, 不等关闭
+	result, _, callErr := procPostMessage.Call(hwnd, wmClose, 0, 0) // 发送即返, 不等关闭
+	if result == 0 {
+		return fmt.Errorf("PostMessageW(WM_CLOSE): %v", callErr)
+	}
 	return nil
+}
+
+type WindowState struct {
+	State      string
+	Foreground bool
+	X          int
+	Y          int
+	Width      int
+	Height     int
+}
+
+func InspectWindowState(hwnd uintptr) (WindowState, error) {
+	if hwnd == 0 || !IsWindow(hwnd) {
+		return WindowState{}, fmt.Errorf("invalid hwnd")
+	}
+	var rect win.RECT
+	result, _, callErr := procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rect)))
+	if result == 0 {
+		return WindowState{}, fmt.Errorf("GetWindowRect: %v", callErr)
+	}
+	state := "normal"
+	if iconic, _, _ := procIsIconic.Call(hwnd); iconic != 0 {
+		state = "minimized"
+	} else if zoomed, _, _ := procIsZoomed.Call(hwnd); zoomed != 0 {
+		state = "maximized"
+	}
+	return WindowState{
+		State: state, Foreground: ForegroundWindow() == hwnd,
+		X: int(rect.Left), Y: int(rect.Top), Width: int(rect.Right - rect.Left), Height: int(rect.Bottom - rect.Top),
+	}, nil
 }
 
 // SavedWindow — borderless 进入前快照, 供 ExitBorderless 还原。

@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -52,13 +54,15 @@ const (
 // BringToFront — 把窗口置前台 (recording 用).
 // ---------------------------------------------------------------------------
 
-// BringToFront 把目标窗口拉到前台并恢复（如最小化）。Windows 限制：当前进程
-// 不持有 fg 锁时直接 SetForegroundWindow 会被忽略，这里用 AttachThreadInput 借
-// 当前前台线程的输入队列把限制绕过。失败返 false 不抛错——非关键路径。
+// BringToFront 把目标窗口拉到前台并恢复（如最小化）。AttachThreadInput 和
+// GetCurrentThreadId 必须在同一个 OS thread 上成对执行；Go goroutine 如果在调用
+// 之间迁移，前台队列租约会挂在错误的线程上并导致 SetForegroundWindow 被拒绝。
 func BringToFront(hwnd uintptr) error {
 	if hwnd == 0 {
 		return errors.New("hwnd 0")
 	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	// 最小化的话先 restore
 	iconic, _, _ := procIsIconic.Call(uintptr(hwnd))
 	if iconic != 0 {
@@ -66,15 +70,24 @@ func BringToFront(hwnd uintptr) error {
 	}
 	curTid, _, _ := procGetCurrentThreadId.Call()
 	fgHwnd, _, _ := procGetForegroundWindow.Call()
+	if fgHwnd == hwnd {
+		return nil
+	}
 	fgTid, _, _ := procGetWindowThreadProcId.Call(fgHwnd, 0)
-	attached := false
-	if fgTid != 0 && fgTid != curTid {
-		ret, _, _ := procAttachThreadInput.Call(curTid, fgTid, 1)
-		attached = ret != 0
+	targetTid, _, _ := procGetWindowThreadProcId.Call(hwnd, 0)
+	attached := make([]uintptr, 0, 2)
+	for _, tid := range []uintptr{fgTid, targetTid} {
+		if tid == 0 || tid == curTid || slices.Contains(attached, tid) {
+			continue
+		}
+		ret, _, _ := procAttachThreadInput.Call(curTid, tid, 1)
+		if ret != 0 {
+			attached = append(attached, tid)
+		}
 	}
 	defer func() {
-		if attached {
-			procAttachThreadInput.Call(curTid, fgTid, 0)
+		for index := len(attached) - 1; index >= 0; index-- {
+			procAttachThreadInput.Call(curTid, attached[index], 0)
 		}
 	}()
 	ret, _, _ := procSetForegroundWindow.Call(uintptr(hwnd))

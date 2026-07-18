@@ -11,6 +11,7 @@ import type {
   RunView,
   SourcePage,
   SourceQuery,
+  SourceRecoveryView,
   SourceView,
   StartRunView,
 } from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/models.js'
@@ -40,6 +41,9 @@ export interface DebugChangedEvent {
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   querySources(query: SourceQuery): Promise<SourcePage>
+  listSourceRecoveries(): Promise<SourceRecoveryView[]>
+  repairSourceRecovery(recoveryId: string, sourceJson: string): Promise<SourceView>
+  deleteSourceRecovery(recoveryId: string): Promise<void>
   previewDeleteSources(workflowIds: string[]): Promise<DeleteSourcePreview[]>
   deleteSources(requests: DeleteSourceRequest[]): Promise<DeleteSourceResult[]>
   createSource(name: string): Promise<SourceView>
@@ -77,6 +81,10 @@ export interface WorkflowTransport {
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),
+  listSourceRecoveries: () => invoke(WorkflowService.ListSourceRecoveries),
+  repairSourceRecovery: (recoveryId, sourceJson) =>
+    invoke(WorkflowService.RepairSourceRecovery, recoveryId, sourceJson),
+  deleteSourceRecovery: (recoveryId) => invoke(WorkflowService.DeleteSourceRecovery, recoveryId),
   previewDeleteSources: (workflowIds) => invoke(WorkflowService.PreviewDeleteSources, workflowIds),
   deleteSources: (requests) => invoke(WorkflowService.DeleteSources, requests),
   createSource: (name) => invoke(WorkflowService.CreateSource, name),
@@ -193,6 +201,7 @@ export type {
   RunView,
   SourcePage,
   SourceQuery,
+  SourceRecoveryView,
   SourceView,
   StartRunView,
   WorkflowJSONValue,

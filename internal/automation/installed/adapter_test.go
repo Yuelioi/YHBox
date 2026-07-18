@@ -81,12 +81,12 @@ func TestInstallationInterfaceUsesRegisteredAdapterDescriptor(t *testing.T) {
 	}
 	descriptor := entries[0].Descriptor
 	if descriptor.TargetKind != TargetKindDesktopWindow || descriptor.AdapterKind != AdapterKindTest ||
-		descriptor.ProviderABI != ProviderABI || len(descriptor.ResourceKinds) != 4 || len(descriptor.Operations) == 0 {
+		descriptor.ProviderABI != ProviderABI || len(descriptor.ResourceKinds) != 5 || len(descriptor.Operations) == 0 {
 		t.Fatalf("descriptor = %#v", descriptor)
 	}
 	manifest := entries[0].Manifest.Machine()
 	if manifest.Format != InstallationManifestFormat || manifest.Version != InstallationManifestVersion ||
-		manifest.ProfileVersion != ProfileVersionV1 || manifest.ProviderID != descriptor.ProviderID || len(manifest.Capabilities) != 6 {
+		manifest.ProfileVersion != ProfileVersionV1 || manifest.ProviderID != descriptor.ProviderID || len(manifest.Capabilities) != 7 {
 		t.Fatalf("manifest = %#v", manifest)
 	}
 	provider, ok := entries[0].Provider.(*provider)

@@ -80,6 +80,13 @@ type SourcePage struct {
 	PageSize int          `json:"pageSize"`
 }
 
+type SourceRecoveryView struct {
+	RecoveryID   artifact.Digest `json:"recoveryId"`
+	OriginalName string          `json:"originalName"`
+	Reason       string          `json:"reason"`
+	SourceJSON   string          `json:"sourceJson"`
+}
+
 type SourceReference struct {
 	Kind  string `json:"kind"`
 	ID    string `json:"id"`
@@ -223,6 +230,30 @@ func (s *Service) ListSources() ([]SourceView, error) {
 		result = append(result, view)
 	}
 	return result, nil
+}
+
+func (s *Service) ListSourceRecoveries() []SourceRecoveryView {
+	recoveries := s.application.ListSourceRecoveries()
+	result := make([]SourceRecoveryView, 0, len(recoveries))
+	for _, recovery := range recoveries {
+		result = append(result, SourceRecoveryView{
+			RecoveryID: recovery.ID, OriginalName: recovery.OriginalName,
+			Reason: recovery.Reason, SourceJSON: string(recovery.Artifact()),
+		})
+	}
+	return result
+}
+
+func (s *Service) RepairSourceRecovery(recoveryID artifact.Digest, sourceJSON string) (SourceView, error) {
+	snapshot, err := s.application.RepairSourceRecovery(context.Background(), recoveryID, []byte(sourceJSON))
+	if err != nil {
+		return SourceView{}, err
+	}
+	return sourceView(snapshot, false)
+}
+
+func (s *Service) DeleteSourceRecovery(recoveryID artifact.Digest) error {
+	return s.application.DeleteSourceRecovery(context.Background(), recoveryID)
 }
 
 func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {

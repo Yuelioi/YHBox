@@ -56,7 +56,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	}
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 4, 1 })
 	states := []pageState{
-		{CreateInput: true},
+		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
 		{Catalog: 0},
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
 		withState(base, func(state *pageState) { state.CanvasNodes, state.Breakpoints = 1, 1 }),
@@ -167,7 +167,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	assetsScreenshot := filepath.Join(dir, "assets.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := run(ctx, server.URL, screenshot, assetsScreenshot); err != nil {
+	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(states) != 0 {

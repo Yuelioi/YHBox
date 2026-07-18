@@ -12,7 +12,7 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 - frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
 - Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 v3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
 - 开发入口 task dev。
-- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言目录点击与拖放节点数递增，拒绝 JS error/rejection/console.error，并必须实际查看 PNG。空白连线落点必须扫描画布可用区域，不能依赖少量固定坐标。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
+- Workflow WebView smoke：powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言损坏 Source 恢复面、launcher workflow 执行/隐藏复用、目录点击与拖放节点数递增，拒绝 JS error/rejection/console.error，并必须实际查看四张 PNG。production manifest 需要 UAC，因此隐藏 CDP 旅程使用同编译输入的无 manifest smoke host；它不能替代 `task build` 和 manifest 检查。空白连线落点必须扫描画布可用区域，不能依赖少量固定坐标。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
 - 完整本地门禁 task check：supply-chain、contracts、AI eval、版本/Wails、Go tests + global 65% + vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。
 - 正式构建只用 task build；它生成 bindings/frontend/syso，并构建 Yotta.exe、Yotta.CLI.exe、ScriptWorker、WasmPluginRunner、capture DLL 与 ADB。不要裸 go build -o Yotta.exe。
 - task package 要求前后 worktree 全干净，依次执行 task check、production build、staging、manifest/archive 与 frozen-payload smoke；公开 stable 仍受许可证、证书、canonical identity、维护者/owner 设置和原生宿主 smoke 阻塞。
@@ -38,6 +38,7 @@ Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed�
 
 ## 运行 / smoke
 
+- Windows automation native smoke：`task windows:smoke:automation`。修改 `pkg/input`、`pkg/winutil`、Windows adapter、窗口捕获或 recorder native path 后，在阶段末批量运行。
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
 - Workflow WebView smoke 只能证明页面/创作入口；catalog node 数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。

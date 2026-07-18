@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/installed"
@@ -42,6 +43,37 @@ func TestActivateWindowUsesDedicatedExactCapability(t *testing.T) {
 	for _, operation := range inputCapability.Machine().Operations {
 		if operation == installed.OperationActivate {
 			t.Fatal("input capability incorrectly grants window activation")
+		}
+	}
+}
+
+func TestDesktopWindowOperationsRemainTargetBoundAndTyped(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wants := map[string]struct {
+		operation string
+		exec      []string
+	}{
+		CloseWindowNodeID:      {installed.OperationCloseWindow, []string{"completed"}},
+		MoveResizeWindowNodeID: {installed.OperationMoveResizeWindow, []string{"completed"}},
+		MaximizeWindowNodeID:   {installed.OperationSetWindowState, []string{"completed"}},
+		MinimizeWindowNodeID:   {installed.OperationSetWindowState, []string{"completed"}},
+		RestoreWindowNodeID:    {installed.OperationSetWindowState, []string{"completed"}},
+		GetWindowStateNodeID:   {installed.OperationGetWindowState, []string{"completed"}},
+		WaitWindowNodeID:       {installed.OperationWaitWindow, []string{"found", "timeout"}},
+		WaitWindowGoneNodeID:   {installed.OperationWaitWindowGone, []string{"gone", "timeout"}},
+	}
+	for nodeID, want := range wants {
+		definition, ok := builtins.Definition(nodeID)
+		if !ok {
+			t.Fatalf("window definition %q is missing", nodeID)
+		}
+		machine := definition.Contract.Machine()
+		if len(machine.CapabilityRequirements) != 1 || machine.CapabilityRequirements[0].Capability.CapabilityID != AutomationWindowCapabilityID ||
+			!slices.Equal(machine.CapabilityRequirements[0].Operations, []string{want.operation}) || !signalIDsEqual(machine.Ports.ExecOutputs, want.exec) {
+			t.Fatalf("window contract %q = %#v", nodeID, machine)
 		}
 	}
 }

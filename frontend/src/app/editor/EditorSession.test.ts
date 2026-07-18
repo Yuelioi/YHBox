@@ -1043,6 +1043,9 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
   return {
     listSources: vi.fn(async () => [saved]),
     querySources: vi.fn(async () => ({ items: [saved], total: 1, page: 1, pageSize: 20 })),
+    listSourceRecoveries: vi.fn(async () => []),
+    repairSourceRecovery: vi.fn(async () => saved),
+    deleteSourceRecovery: vi.fn(async () => undefined),
     previewDeleteSources: vi.fn(async () => []),
     deleteSources: vi.fn(async () => []),
     createSource: vi.fn(async () => saved),

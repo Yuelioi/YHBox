@@ -359,6 +359,34 @@ func TestLoadSettings_CorruptedFileReturnsDefault(t *testing.T) {
 	}
 }
 
+func TestLoadSettingsRevokesStaleConsentWithoutDiscardingInstallation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	stale, err := artifact.Sum("yotta/test/stale-settings-consent/v1", []byte("stale"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := defaultSettings()
+	settings.Locale = "en"
+	settings.Network.HTTPOrigins = []HTTPOriginSettings{{
+		Slot: "status-api", Label: "Status API", Origin: "https://example.test/",
+		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000, WorkflowConsent: stale,
+	}}
+	if err := SaveSettings(path, settings); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded := LoadSettings(path)
+	if loaded.Locale != "en" || len(loaded.Network.HTTPOrigins) != 1 {
+		t.Fatalf("installation was discarded: %#v", loaded)
+	}
+	if loaded.Network.HTTPOrigins[0].WorkflowConsent != "" {
+		t.Fatalf("stale consent was retained: %#v", loaded.Network.HTTPOrigins[0])
+	}
+	if err := loaded.Validate(); err != nil {
+		t.Fatalf("revoked settings are invalid: %v", err)
+	}
+}
+
 func TestLoadSettings_EmptyFileDirFallsToDefault(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")

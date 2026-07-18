@@ -1,7 +1,7 @@
 ---
 slice: "34"
 title: Windows 自动化真实纵向闭环
-status: pending
+status: completed
 ---
 
 # Slice 34：Windows 自动化真实纵向闭环
@@ -37,4 +37,14 @@ Slices 30–33。
 
 ## Result
 
-Pending。Slice 20/26 的实现和 smoke 记录由本 Slice 重新验收后关闭。
+Completed（2026-07-18）。
+
+- adapter/runtime：held key/button 改为 Run-owned deep lease，并提供显式 Release Held Input；窗口 activate/close/move-resize/state/wait-present/wait-gone 共享 exact installation lease；`unique` 不再缓存陈旧 HWND。
+- Win32：SendInput drag 全程使用 native injection；所有原语检查注入数量；`BringToFront` 固定 goroutine OS thread 并成对 AttachThreadInput。
+- workspace：坏 Source 隔离到 store-owned recovery，支持修复/删除；Program 作为派生缓存遇到 catalog/compiler 漂移会丢弃重编；stale consent 仅撤销授权，不丢安装。
+- native gate：`task windows:smoke:automation` 通过 exact 尾空格、regex 动态标题、多窗口 ambiguity、键盘/文本/点击/移动/相对移动/滚轮/原生 drag、held cleanup、playback、窗口状态/关闭、PNG capture、F9 生命周期和真实 recorder→codec→asset→reload。
+- Unreal evidence：隔离 3.1 profile 精确绑定 `HTGame.exe / UnrealWindow / 异环··`，现有 `Run Start → ESC` Source 成功；Run `019f7556-279d-711a-9b98-db9bd616bf94`，record `sha256:a3dfebe52e35404c3afa73e9f14633cbe06a24e2070fd39ae52e3d6541f289f6`。
+- UI/G13/G15：真实 Wails WebView 旅程隔离损坏 Source、执行 launcher workflow、隐藏后复用同一 target，并覆盖编辑器/调试/子图/AI/资源库；人工查看四张 PNG 后修复 selection toolbar 窄画布压缩。
+- stage gate：`task check`（237.1s）、`task build`、相关 Linux/Darwin cross-compile 与 `requireAdministrator` manifest 检查通过；production SHA-256 `7652263517690B0A527DAE2F40810E456FB97AF60BA09B79A75E49536FAB136D`。
+
+不恢复旧扁平 target schema；secure desktop、UIPI 更高完整性与反作弊仍按明确 unsupported/failure 边界处理。

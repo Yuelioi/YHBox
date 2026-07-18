@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 120,
-    "models": 171
+    "methods": 123,
+    "models": 172
   },
   "services": [
     {
@@ -1291,6 +1291,18 @@
           "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
+          "name": "DeleteSourceRecovery",
+          "bindingId": "2257666137",
+          "parameters": [
+            {
+              "name": "recoveryID",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "DeleteSources",
           "bindingId": "617986103",
           "parameters": [
@@ -1409,6 +1421,12 @@
           "returns": "$CancellablePromise<$models.BundleInfoView>"
         },
         {
+          "name": "ListSourceRecoveries",
+          "bindingId": "544341126",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.SourceRecoveryView[]>"
+        },
+        {
           "name": "ListSources",
           "bindingId": "857662794",
           "parameters": [],
@@ -1449,6 +1467,23 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourcePage>"
+        },
+        {
+          "name": "RepairSourceRecovery",
+          "bindingId": "4160012847",
+          "parameters": [
+            {
+              "name": "recoveryID",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "sourceJSON",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
           "name": "ReplaceSourceFromBundle",
@@ -5025,6 +5060,32 @@
               "name": "\"pageSize\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SourceRecoveryView",
+          "fields": [
+            {
+              "name": "\"recoveryId\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"originalName\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"reason\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceJson\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },

@@ -78,7 +78,15 @@ func OpenProgramStore(root string, catalog nodecatalog.Snapshot, validators conf
 		}
 		program, err := compiler.OpenProgram(raw, catalog, validators, build)
 		if err != nil || program.Hash() != want {
-			return nil, fmt.Errorf("open Program %q: %w", entry.Name(), errors.Join(err, ErrProgramChanged))
+			// Program artifacts are derived caches. A Catalog/compiler upgrade or
+			// a corrupt cache entry must never make healthy Workflow Sources
+			// unavailable; remove the stale artifact and let the next compile
+			// repopulate the content-addressed store.
+			removeErr := durablefs.Remove(path)
+			if removeErr != nil && !durablefs.Committed(removeErr) {
+				return nil, fmt.Errorf("remove stale Program %q: %w", entry.Name(), removeErr)
+			}
+			continue
 		}
 		programs[want] = append([]byte(nil), raw...)
 		if len(programs) > options.MaxPrograms {

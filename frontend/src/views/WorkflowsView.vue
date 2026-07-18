@@ -51,6 +51,54 @@
     </header>
 
     <main class="flex-1 px-4 py-5 sm:px-8 sm:py-6">
+      <section
+        v-if="recoveries.length"
+        class="mb-5 rounded-lg border border-warning/35 bg-warning/10 p-4"
+        role="alert"
+        data-testid="workflow-recovery-panel"
+      >
+        <div class="flex items-start gap-3">
+          <UIcon name="i-tabler-first-aid-kit" class="mt-0.5 size-5 shrink-0 text-warning" />
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm font-semibold text-highlighted">
+              {{ t('workflow.list.recovery_title', { n: recoveries.length }) }}
+            </h2>
+            <p class="mt-1 text-xs text-muted">{{ t('workflow.list.recovery_description') }}</p>
+          </div>
+        </div>
+        <ul class="mt-3 space-y-2">
+          <li
+            v-for="recovery in recoveries"
+            :key="recovery.recoveryId"
+            class="flex flex-col gap-3 rounded-md border border-default bg-default/70 px-3 py-3 sm:flex-row sm:items-center"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-default">{{ recovery.originalName }}</p>
+              <p class="mt-0.5 break-words text-xs text-dimmed">{{ recovery.reason }}</p>
+            </div>
+            <div class="flex shrink-0 gap-2">
+              <UButton
+                size="sm"
+                color="neutral"
+                variant="soft"
+                icon="i-tabler-tool"
+                :label="t('workflow.list.recovery_repair')"
+                @click="openRecoveryRepair(recovery)"
+              />
+              <UButton
+                size="sm"
+                color="error"
+                variant="soft"
+                icon="i-tabler-trash"
+                :label="t('workflow.list.recovery_delete')"
+                :loading="recoveryBusyId === recovery.recoveryId"
+                @click="deleteRecovery(recovery)"
+              />
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end">
         <form class="min-w-0 flex-1" role="search" @submit.prevent="applySearch">
           <UFormField :label="t('workflow.list.search_label')">
@@ -354,6 +402,48 @@
         </div>
       </footer>
     </main>
+
+    <BaseModal
+      v-model:open="recoveryRepairOpen"
+      :title="t('workflow.list.recovery_repair_title')"
+      icon="i-tabler-first-aid-kit"
+      icon-color="warning"
+      size="3xl"
+      :dismissible="!recoveryBusyId"
+    >
+      <div class="space-y-3">
+        <p class="text-sm text-muted">{{ t('workflow.list.recovery_repair_description') }}</p>
+        <p v-if="activeRecovery" class="text-xs text-dimmed">{{ activeRecovery.originalName }}</p>
+        <UTextarea
+          v-model="recoveryDraft"
+          :rows="18"
+          autoresize
+          class="w-full font-mono text-xs"
+          :disabled="Boolean(recoveryBusyId)"
+          :aria-label="t('workflow.list.recovery_source_json')"
+        />
+        <p v-if="recoveryFailure" class="text-sm text-error" role="alert">
+          {{ recoveryFailure }}
+        </p>
+      </div>
+      <template #footer>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :label="t('common.cancel')"
+          :disabled="Boolean(recoveryBusyId)"
+          @click="recoveryRepairOpen = false"
+        />
+        <UButton
+          color="warning"
+          icon="i-tabler-tool"
+          :label="t('workflow.list.recovery_validate_repair')"
+          :loading="Boolean(recoveryBusyId)"
+          :disabled="!activeRecovery || !recoveryDraft.trim()"
+          @click="repairRecovery"
+        />
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -368,6 +458,7 @@ import {
   workflowTransport,
   type BundleInfoView,
   type DeleteSourcePreview,
+  type SourceRecoveryView,
   type SourceView,
 } from '@/app/transport/workflow'
 
@@ -380,6 +471,7 @@ const toast = useToast()
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const sources = ref<SourceView[]>([])
+const recoveries = ref<SourceRecoveryView[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
@@ -397,6 +489,11 @@ const batchExporting = ref(false)
 const newName = ref('')
 const newTemplate = ref<'generic' | 'windows' | 'android' | 'browser' | 'cross-target'>('generic')
 const failure = ref('')
+const recoveryRepairOpen = ref(false)
+const recoveryDraft = ref('')
+const recoveryFailure = ref('')
+const recoveryBusyId = ref('')
+const activeRecovery = ref<SourceRecoveryView | null>(null)
 const deleteFeedback = ref<{
   tone: 'success' | 'warning' | 'error'
   message: string
@@ -446,13 +543,17 @@ async function load(): Promise<void> {
   loading.value = true
   failure.value = ''
   try {
-    const result = await workflowTransport.querySources({
-      search: search.value,
-      sort: sort.value,
-      page: page.value,
-      pageSize: pageSize.value,
-    })
+    const [result, isolated] = await Promise.all([
+      workflowTransport.querySources({
+        search: search.value,
+        sort: sort.value,
+        page: page.value,
+        pageSize: pageSize.value,
+      }),
+      workflowTransport.listSourceRecoveries(),
+    ])
     sources.value = result.items
+    recoveries.value = isolated
     total.value = result.total
     if (page.value > pageCount.value) {
       page.value = pageCount.value
@@ -462,6 +563,52 @@ async function load(): Promise<void> {
     failure.value = errorText(error)
   } finally {
     loading.value = false
+  }
+}
+
+function openRecoveryRepair(recovery: SourceRecoveryView): void {
+  activeRecovery.value = recovery
+  recoveryDraft.value = recovery.sourceJson
+  recoveryFailure.value = ''
+  recoveryRepairOpen.value = true
+}
+
+async function repairRecovery(): Promise<void> {
+  const recovery = activeRecovery.value
+  if (!recovery || recoveryBusyId.value || !recoveryDraft.value.trim()) return
+  recoveryBusyId.value = recovery.recoveryId
+  recoveryFailure.value = ''
+  try {
+    await workflowTransport.repairSourceRecovery(recovery.recoveryId, recoveryDraft.value)
+    recoveryRepairOpen.value = false
+    activeRecovery.value = null
+    recoveryDraft.value = ''
+    await load()
+  } catch (error) {
+    recoveryFailure.value = errorText(error)
+  } finally {
+    recoveryBusyId.value = ''
+  }
+}
+
+async function deleteRecovery(recovery: SourceRecoveryView): Promise<void> {
+  if (recoveryBusyId.value) return
+  const accepted = await confirm({
+    title: t('workflow.list.recovery_delete_title', { name: recovery.originalName }),
+    description: t('workflow.list.recovery_delete_description'),
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (accepted !== true) return
+  recoveryBusyId.value = recovery.recoveryId
+  try {
+    await workflowTransport.deleteSourceRecovery(recovery.recoveryId)
+    await load()
+  } catch (error) {
+    failure.value = errorText(error)
+  } finally {
+    recoveryBusyId.value = ''
   }
 }
 

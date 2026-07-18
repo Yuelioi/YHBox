@@ -23,13 +23,13 @@
 | [17 资产库规模](17-asset-library-scale.md) | completed | 07 | 资产搜索、分页与批量管理补齐。 |
 | [18 Source-native 多图](18-source-native-multigraph.md) | completed | 16 | 多图、子图调用和导航落地。 |
 | [19 Browser CDP 安装](19-browser-cdp-installation.md) | completed | 13 | Browser/CDP 目标安装与执行闭环。 |
-| [20 桌面目标 UAC 与授权体验](20-desktop-target-uac-and-consent-ux.md) | blocked | 真实管理员游戏窗口 smoke | 默认管理员、最高权限自启、捕获安装和批量授权。 |
+| [20 桌面目标 UAC 与授权体验](20-desktop-target-uac-and-consent-ux.md) | completed | 真实管理员游戏窗口 smoke | 默认管理员、最高权限自启、捕获安装和批量授权。 |
 | [21 权威类型系统基础](21-type-system-foundation.md) | completed | 无 | 名义关系、traits、LUB、泛型求解和 Projection parity。 |
 | [22 类型与节点能力闭包](22-type-capability-closure.md) | completed | 21 | 结构字段、Break 节点和 Type × Capability 门禁。 |
 | [23 Typed Authoring 体验](23-typed-authoring-ux.md) | completed | 22 | 显式转换、typed State、跨图影响预览与 Compiler 门禁。 |
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
 | [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | completed | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |
-| [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | in_progress | 20 | 同进程原子激活目标、授权与多窗口选择，不再依赖重启。 |
+| [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | completed | 20 | 同进程原子激活目标、授权与多窗口选择，不再依赖重启。 |
 | [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | in_progress | 架构审计 | 恢复 umbrella；执行已拆入 Slices 29–37。 |
 | [28 旧版 Knowledge 与架构文档复查](28-legacy-knowledge-reconciliation.md) | completed | 无 | 纠正现行知识漂移，保留并隔离 3.0 行为证据。 |
 | [29 恢复事实基线与发布账本](29-fact-baseline.md) | completed | 无 | 固定 oracle、ledger、golden journeys、dirty ownership 与历史知识退役表。 |
@@ -37,8 +37,8 @@
 | [31 Installation Manifest 与 Target Runtime](31-installation-manifest-target-runtime.md) | completed | 29–30 | 单一 manifest 与 generation owner 统一 authoring/admission/provider/policy。 |
 | [32 Recording Session](32-recording-session.md) | completed | 30–31 | 统一录制状态、规范化、保存、资源与回放 round-trip。 |
 | [33 Asset Picker Query](33-asset-picker-query.md) | completed | 29–30 | 搜索分页 picker 取代全量下拉并支持 1000 assets。 |
-| [34 Windows native 闭环](34-windows-native-closure.md) | pending | 30–33 | 完成 UAC、窗口、键鼠、截图、模板和录制真实旅程。 |
-| [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | pending | 33–34 | 补齐创作 UX、搜索/转换和 P0/P1 能力族。 |
+| [34 Windows native 闭环](34-windows-native-closure.md) | completed | 30–33 | 完成 UAC、窗口、键鼠、截图、模板和录制真实旅程。 |
+| [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | in_progress | 33–34 | 补齐创作 UX、搜索/转换和 P0/P1 能力族。 |
 | [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | pending | 31、34–35 | 恢复 Android/Browser，并以 macOS proof 验收 seam。 |
 | [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | pending | 29–36 | 完整发布矩阵通过后清理/归档 3.0 Knowledge。 |
 

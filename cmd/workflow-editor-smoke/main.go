@@ -26,6 +26,8 @@ type pageState struct {
 	AssetsView           bool           `json:"assetsView"`
 	AssetsRecording      bool           `json:"assetsRecording"`
 	CreateInput          bool           `json:"createInput"`
+	RecoveryPanel        bool           `json:"recoveryPanel"`
+	LauncherButton       bool           `json:"launcherButton"`
 	GraphChromeDark      bool           `json:"graphChromeDark"`
 	HandleOverlaps       int            `json:"handleOverlaps"`
 	NativeConfirmCalls   int            `json:"nativeConfirmCalls"`
@@ -79,17 +81,19 @@ func main() {
 	endpoint := flag.String("endpoint", "http://127.0.0.1:9227", "WebView2 CDP endpoint")
 	screenshot := flag.String("screenshot", ".task/workflow-editor-smoke.png", "PNG output path")
 	assetsScreenshot := flag.String("assets-screenshot", ".task/assets-smoke.png", "asset library PNG output path")
+	workflowsScreenshot := flag.String("workflows-screenshot", ".task/workflows-smoke.png", "workflow recovery PNG output path")
+	launcherScreenshot := flag.String("launcher-screenshot", ".task/launcher-smoke.png", "floating launcher PNG output path")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
-	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot); err != nil {
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) error {
+func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot string) error {
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -121,10 +125,16 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	})()`); err != nil {
 		return err
 	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CreateInput }); err != nil {
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CreateInput && current.RecoveryPanel && current.LauncherButton
+	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
 	}
-
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, workflowsScreenshot); err != nil {
+			return fmt.Errorf("capture workflow recovery surface: %w", err)
+		}
+	}
 	nameJSON, _ := json.Marshal("Agent UI smoke " + time.Now().UTC().Format("20060102T150405Z"))
 	if err := eval(ctx, client, fmt.Sprintf(`(() => {
 		const input = document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input');
@@ -147,6 +157,14 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	}
 	if err := waitUntil(ctx, client, func(state pageState) bool { return state.Catalog > 0 }); err != nil {
 		return fmt.Errorf("open workflow editor: %w", err)
+	}
+	if launcherScreenshot != "" {
+		if err := configureLauncherWorkflow(ctx, client); err != nil {
+			return err
+		}
+		if err := exerciseLauncher(ctx, endpoint, targets[0].ID, client, launcherScreenshot); err != nil {
+			return err
+		}
 	}
 	if err := exerciseDebugger(ctx, client); err != nil {
 		return err
@@ -442,7 +460,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot string) err
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
-		"assetsScreenshot": assetsScreenshot,
+		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -681,6 +699,155 @@ func waitForSave(ctx context.Context, client *browsercdp.WebSocketClient) error 
 	}
 }
 
+func exerciseLauncher(ctx context.Context, endpoint, mainTargetID string, mainClient *browsercdp.WebSocketClient, screenshot string) error {
+	discovery := browsercdp.NewService(endpoint)
+	var launcherTargetID string
+	for cycle := 0; cycle < 2; cycle++ {
+		if err := eval(ctx, mainClient, `(() => {
+			const button = document.querySelector('[data-testid="open-launcher"]');
+			if (!button || button.disabled) throw new Error('launcher button is unavailable');
+			button.click();
+		})()`); err != nil {
+			return fmt.Errorf("open floating launcher: %w", err)
+		}
+		var launcher browsercdp.TargetInfo
+		for !launcherTargetValid(launcher) {
+			targets, err := discovery.ListTargets(ctx, endpoint)
+			if err != nil {
+				return fmt.Errorf("discover floating launcher: %w", err)
+			}
+			launcherTargets := targetsExcept(targets, mainTargetID)
+			if len(launcherTargets) > 1 {
+				return fmt.Errorf("floating launcher opened duplicate targets: %d", len(launcherTargets))
+			}
+			if len(launcherTargets) == 1 {
+				launcher = launcherTargets[0]
+			}
+			if launcherTargetValid(launcher) {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("wait for floating launcher: %w", ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+		if launcherTargetID == "" {
+			launcherTargetID = launcher.ID
+		} else if launcher.ID != launcherTargetID {
+			return fmt.Errorf("floating launcher did not reuse its window: first target %q, next target %q", launcherTargetID, launcher.ID)
+		}
+		launcherClient, err := browsercdp.DialWebSocketClient(ctx, launcher.WebSocketDebuggerURL)
+		if err != nil {
+			return fmt.Errorf("connect floating launcher: %w", err)
+		}
+		if _, err := launcherClient.Call(ctx, "Runtime.enable", nil); err != nil {
+			launcherClient.Close()
+			return err
+		}
+		if _, err := launcherClient.Call(ctx, "Page.enable", nil); err != nil {
+			launcherClient.Close()
+			return err
+		}
+		for {
+			var ready bool
+			if err := evalJSON(ctx, launcherClient, `Boolean(document.querySelector('.launcher-content .launcher-command'))`, &ready); err == nil && ready {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				launcherClient.Close()
+				return fmt.Errorf("wait for floating launcher content: %w", ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+		if cycle == 0 {
+			if err := eval(ctx, launcherClient, `(() => {
+				const command = document.querySelector('.launcher-command');
+				if (!command || command.disabled) throw new Error('launcher workflow command is unavailable');
+				command.click();
+			})()`); err != nil {
+				launcherClient.Close()
+				return fmt.Errorf("execute workflow from floating launcher: %w", err)
+			}
+			for {
+				var succeeded bool
+				if err := evalJSON(ctx, launcherClient, `Boolean(document.querySelector('.launcher-command--success'))`, &succeeded); err == nil && succeeded {
+					break
+				}
+				select {
+				case <-ctx.Done():
+					launcherClient.Close()
+					return fmt.Errorf("wait for floating launcher workflow success: %w", ctx.Err())
+				case <-time.After(100 * time.Millisecond):
+				}
+			}
+			if err := capture(ctx, launcherClient, screenshot); err != nil {
+				launcherClient.Close()
+				return fmt.Errorf("capture floating launcher: %w", err)
+			}
+		}
+		if err := eval(ctx, launcherClient, `(() => {
+			const buttons = [...document.querySelectorAll('.hud-shell__actions button')];
+			const close = buttons.at(-1);
+			if (!close || close.disabled) throw new Error('launcher hide button is unavailable');
+			close.click();
+		})()`); err != nil {
+			launcherClient.Close()
+			return fmt.Errorf("hide floating launcher: %w", err)
+		}
+		launcherClient.Close()
+
+		// HideLauncher deliberately retains the WebView so query, selection and
+		// window geometry survive the next invocation. Give the async click
+		// handler a moment to cross the Wails bridge, then require exactly that
+		// one retained target; the next cycle proves it is reused.
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for floating launcher hide: %w", ctx.Err())
+		case <-time.After(250 * time.Millisecond):
+		}
+		targets, err := discovery.ListTargets(ctx, endpoint)
+		if err != nil {
+			return fmt.Errorf("check floating launcher retention: %w", err)
+		}
+		launcherTargets := targetsExcept(targets, mainTargetID)
+		if len(launcherTargets) != 1 || launcherTargets[0].ID != launcherTargetID {
+			return fmt.Errorf("floating launcher retention drifted: targets=%v", launcherTargets)
+		}
+	}
+	return nil
+}
+
+func configureLauncherWorkflow(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(async () => {
+		const match = location.hash.match(/\/workflows\/([^/]+)\/edit/);
+		if (!match) throw new Error('created workflow identity is unavailable');
+		const { backend } = await import('/src/lib/backend.ts');
+		await backend.settings.update({ ui: { launcherItems: [{
+			id: 'workflow-editor-smoke', type: 'workflow', workflowId: match[1],
+			icon: 'i-tabler-player-play', label: 'Smoke workflow'
+		}] } });
+	})()`); err != nil {
+		return fmt.Errorf("configure floating launcher workflow: %w", err)
+	}
+	return nil
+}
+
+func targetsExcept(targets []browsercdp.TargetInfo, excludedID string) []browsercdp.TargetInfo {
+	out := make([]browsercdp.TargetInfo, 0, len(targets))
+	for _, target := range targets {
+		if target.ID != excludedID {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+func launcherTargetValid(target browsercdp.TargetInfo) bool {
+	return target.ID != "" && target.WebSocketDebuggerURL != ""
+}
+
 func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, error) {
 	var out pageState
 	err := evalJSON(ctx, client, `(() => {
@@ -724,6 +891,8 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-controls"]')),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
+		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
+		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && darkBackground(minimap),
 		handleOverlaps,
 		nativeConfirmCalls: window.__yottaNativeConfirmCalls || 0,

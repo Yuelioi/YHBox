@@ -20,6 +20,7 @@ const (
 	CapabilityInputID        = "https://schemas.yotta.dev/capabilities/automation/input/v1"
 	CapabilityDesktopInputID = "https://schemas.yotta.dev/capabilities/automation/desktop-input/v1"
 	CapabilityKeyInputID     = "https://schemas.yotta.dev/capabilities/automation/key-input/v1"
+	CapabilityHeldInputID    = "https://schemas.yotta.dev/capabilities/automation/held-input/v1"
 	CapabilityWindowID       = "https://schemas.yotta.dev/capabilities/automation/window/v1"
 	CapabilityAppLifecycleID = "https://schemas.yotta.dev/capabilities/automation/app-lifecycle/v1"
 	CapabilityCaptureID      = "https://schemas.yotta.dev/capabilities/automation/capture/v1"
@@ -199,7 +200,8 @@ func productionAdapters() []productionAdapter {
 					capability(CapabilityInputID, KindInput, OperationClick, OperationDrag, OperationMove, OperationScroll, OperationTypeText),
 					capability(CapabilityDesktopInputID, KindInput, OperationMoveRelative),
 					capability(CapabilityKeyInputID, KindInput, OperationPressKeys),
-					capability(CapabilityWindowID, KindWindow, OperationActivate),
+					capability(CapabilityHeldInputID, KindHeldInput, OperationHoldKeys, OperationHoldButton, OperationReleaseHeld),
+					capability(CapabilityWindowID, KindWindow, OperationActivate, OperationCloseWindow, OperationGetWindowState, OperationMoveResizeWindow, OperationSetWindowState, OperationWaitWindow, OperationWaitWindowGone),
 					capability(CapabilityCaptureID, KindCapture, OperationCapture, OperationReadCapture),
 					capability(CapabilityPlaybackID, KindPlayback, OperationPlayEvent, OperationReleaseHeld),
 				},

@@ -348,7 +348,8 @@ func defaultSettings() *Settings {
 	}
 }
 
-// LoadSettings 从 path 读 JSON。文件不存在/损坏/Validate 失败都用默认值（不报错）。
+// LoadSettings 从 path 读 JSON。文件不存在、损坏或结构无效时用默认值；
+// capability/profile 演进导致的过期 workflow consent 只撤销授权，保留安装配置。
 // 直接 unmarshal 进 defaultSettings() 基底：缺失字段天然保留默认，无需逐字段空值回落。
 func LoadSettings(path string) *Settings {
 	data, err := os.ReadFile(path)
@@ -368,10 +369,70 @@ func LoadSettings(path string) *Settings {
 	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
 		s.UI.RecordingMouseMode = "relative"
 	}
+	s.revokeStaleWorkflowConsents()
 	if err := s.Validate(); err != nil {
 		return defaultSettings()
 	}
 	return s
+}
+
+// revokeStaleWorkflowConsents turns persisted grants into explicit
+// unconsented installations when their current sealed profile/manifest digest
+// changes. It never repairs malformed profiles and never grants new authority.
+func (s *Settings) revokeStaleWorkflowConsents() {
+	for index := range s.AI.Profiles {
+		configured := &s.AI.Profiles[index]
+		if configured.WorkflowConsent == "" {
+			continue
+		}
+		profile, err := ai.SealModelProfile(configured.profileDraft())
+		expected, digestErr := ai.WorkflowConsentDigest(configured.Slot, profile)
+		if err != nil || digestErr != nil || ai.ValidateEvaluation(profile, configured.EvaluationReport) != nil || configured.WorkflowConsent != expected {
+			configured.WorkflowConsent = ""
+		}
+	}
+	for index := range s.Network.HTTPOrigins {
+		configured := &s.Network.HTTPOrigins[index]
+		if configured.WorkflowConsent == "" {
+			continue
+		}
+		profile, err := httpegress.SealProfile(configured.profileDraft())
+		expected, digestErr := httpegress.WorkflowConsentDigest(configured.Slot, profile)
+		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
+			configured.WorkflowConsent = ""
+		}
+	}
+	for index := range s.Applications.Profiles {
+		configured := &s.Applications.Profiles[index]
+		if configured.WorkflowConsent == "" {
+			continue
+		}
+		profile, err := appcontrol.SealProfile(configured.profileDraft())
+		expected, digestErr := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
+		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
+			configured.WorkflowConsent = ""
+		}
+	}
+	applications := make(map[string]InstalledApplicationSettings, len(s.Applications.Profiles))
+	for _, configured := range s.Applications.Profiles {
+		applications[configured.Slot] = configured
+	}
+	for index := range s.Automation.Targets {
+		configured := &s.Automation.Targets[index]
+		if configured.WorkflowConsent == "" {
+			continue
+		}
+		var application InstalledApplicationSettings
+		if configured.requiresApplication() {
+			application = applications[configured.applicationSlot()]
+		}
+		draft, err := configured.profileDraft(application)
+		profile, sealErr := automationinstalled.SealProfile(draft)
+		expected, digestErr := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
+		if err != nil || sealErr != nil || digestErr != nil || configured.WorkflowConsent != expected {
+			configured.WorkflowConsent = ""
+		}
+	}
 }
 
 // SaveSettings writes a complete snapshot through a same-directory temporary

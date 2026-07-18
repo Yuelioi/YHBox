@@ -5,6 +5,7 @@ package workflowstore
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -21,6 +22,8 @@ import (
 const (
 	sourceMarker         = ".yotta-workflow-source-store"
 	sourceMarkerContents = "yotta/workflow-source-store/3.1\n"
+	sourceRecoveryDir    = ".recovery"
+	sourceRecoverySchema = 1
 )
 
 var (
@@ -34,6 +37,26 @@ type InvalidSourceError struct{ Diagnostics []schema.Diagnostic }
 func (e *InvalidSourceError) Error() string { return "workflow source is invalid" }
 
 type SourceStoreOptions struct{ MaxSources int }
+
+// SourceRecovery is an invalid Workflow Source isolated from the active
+// store. The Store keeps the original bytes so a user can repair or delete one
+// bad object without deleting the workspace.
+type SourceRecovery struct {
+	ID           artifact.Digest
+	OriginalName string
+	Reason       string
+	raw          []byte
+}
+
+func (r SourceRecovery) Artifact() []byte { return append([]byte(nil), r.raw...) }
+
+type sourceRecoveryEnvelope struct {
+	SchemaVersion int             `json:"schemaVersion"`
+	ID            artifact.Digest `json:"id"`
+	OriginalName  string          `json:"originalName"`
+	Reason        string          `json:"reason"`
+	Artifact      []byte          `json:"artifact"`
+}
 
 type SourceSnapshot struct {
 	workflowID string
@@ -51,10 +74,11 @@ func (s SourceSnapshot) Hash() artifact.Digest { return s.hash }
 func (s SourceSnapshot) Artifact() []byte      { return append([]byte(nil), s.raw...) }
 
 type SourceStore struct {
-	mu      sync.RWMutex
-	root    string
-	max     int
-	sources map[string]SourceSnapshot
+	mu         sync.RWMutex
+	root       string
+	max        int
+	sources    map[string]SourceSnapshot
+	recoveries map[artifact.Digest]SourceRecovery
 }
 
 func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, error) {
@@ -72,9 +96,13 @@ func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, err
 	if err != nil {
 		return nil, err
 	}
+	recoveries, err := openSourceRecoveries(resolved)
+	if err != nil {
+		return nil, err
+	}
 	sources := make(map[string]SourceSnapshot)
 	for _, entry := range entries {
-		if entry.Name() == sourceMarker {
+		if entry.Name() == sourceMarker || entry.Name() == sourceRecoveryDir {
 			continue
 		}
 		path := filepath.Join(resolved, entry.Name())
@@ -93,17 +121,103 @@ func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, err
 		}
 		snapshot, err := openSourceArtifact(raw, true)
 		if err != nil {
-			return nil, fmt.Errorf("open Workflow Source %q: %w", entry.Name(), err)
+			recovery, quarantineErr := quarantineSource(resolved, entry.Name(), raw, err)
+			if quarantineErr != nil {
+				return nil, fmt.Errorf("quarantine Workflow Source %q: %w", entry.Name(), quarantineErr)
+			}
+			recoveries[recovery.ID] = recovery
+			continue
 		}
 		if entry.Name() != snapshot.workflowID+".json" {
-			return nil, fmt.Errorf("workflow source %q has mismatched identity", entry.Name())
+			recovery, quarantineErr := quarantineSource(resolved, entry.Name(), raw, errors.New("workflow source filename does not match its identity"))
+			if quarantineErr != nil {
+				return nil, fmt.Errorf("quarantine Workflow Source %q: %w", entry.Name(), quarantineErr)
+			}
+			recoveries[recovery.ID] = recovery
+			continue
 		}
 		sources[snapshot.workflowID] = snapshot
 		if len(sources) > options.MaxSources {
 			return nil, errors.New("workflow source store exceeds source limit")
 		}
 	}
-	return &SourceStore{root: resolved, max: options.MaxSources, sources: sources}, nil
+	return &SourceStore{root: resolved, max: options.MaxSources, sources: sources, recoveries: recoveries}, nil
+}
+
+// ListRecoveries returns the isolated invalid Sources in stable order.
+func (s *SourceStore) ListRecoveries() []SourceRecovery {
+	s.mu.RLock()
+	result := make([]SourceRecovery, 0, len(s.recoveries))
+	for _, recovery := range s.recoveries {
+		recovery.raw = append([]byte(nil), recovery.raw...)
+		result = append(result, recovery)
+	}
+	s.mu.RUnlock()
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	return result
+}
+
+// RepairRecovery validates replacement bytes against the current 3.1 Source
+// contract before atomically returning the object to the active store.
+func (s *SourceStore) RepairRecovery(ctx context.Context, recoveryID artifact.Digest, raw []byte) (SourceSnapshot, error) {
+	if ctx == nil || !recoveryID.Valid() {
+		return SourceSnapshot{}, errors.New("workflow source recovery requires context and recovery identity")
+	}
+	if err := ctx.Err(); err != nil {
+		return SourceSnapshot{}, err
+	}
+	next, err := openSourceArtifact(raw, false)
+	if err != nil {
+		return SourceSnapshot{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.recoveries[recoveryID]; !exists {
+		return SourceSnapshot{}, errors.New("workflow source recovery not found")
+	}
+	if _, exists := s.sources[next.workflowID]; exists || len(s.sources) >= s.max {
+		return SourceSnapshot{}, ErrSourceConflict
+	}
+	if _, statErr := os.Lstat(s.sourcePath(next.workflowID)); statErr == nil || !os.IsNotExist(statErr) {
+		return SourceSnapshot{}, fmt.Errorf("%w: recovery destination exists", ErrSourceChanged)
+	}
+	writeErr := durablefs.WriteFile(s.sourcePath(next.workflowID), next.raw, 0o600)
+	if writeErr != nil && !durablefs.Committed(writeErr) {
+		return SourceSnapshot{}, writeErr
+	}
+	s.sources[next.workflowID] = next
+	removeErr := durablefs.Remove(s.recoveryPath(recoveryID))
+	if removeErr == nil || durablefs.Committed(removeErr) {
+		delete(s.recoveries, recoveryID)
+	}
+	if writeErr != nil {
+		return cloneSource(next), fmt.Errorf("workflow source repair committed without confirmed durability: %w", writeErr)
+	}
+	if removeErr != nil {
+		return cloneSource(next), fmt.Errorf("remove repaired recovery object: %w", removeErr)
+	}
+	return cloneSource(next), nil
+}
+
+// DeleteRecovery removes one exact isolated object. It never touches healthy
+// Sources or other workspace stores.
+func (s *SourceStore) DeleteRecovery(ctx context.Context, recoveryID artifact.Digest) error {
+	if ctx == nil || !recoveryID.Valid() {
+		return errors.New("workflow source recovery delete requires context and recovery identity")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.recoveries[recoveryID]; !exists {
+		return errors.New("workflow source recovery not found")
+	}
+	err := durablefs.Remove(s.recoveryPath(recoveryID))
+	if err == nil || durablefs.Committed(err) {
+		delete(s.recoveries, recoveryID)
+	}
+	return err
 }
 
 // Save applies one explicit revision transition. Creation requires
@@ -221,6 +335,128 @@ func (s *SourceStore) verifyLocked(current SourceSnapshot) error {
 
 func (s *SourceStore) sourcePath(workflowID string) string {
 	return filepath.Join(s.root, workflowID+".json")
+}
+
+func (s *SourceStore) recoveryPath(recoveryID artifact.Digest) string {
+	return filepath.Join(s.root, sourceRecoveryDir, strings.TrimPrefix(recoveryID.String(), "sha256:")+".json")
+}
+
+func openSourceRecoveries(root string) (map[artifact.Digest]SourceRecovery, error) {
+	result := make(map[artifact.Digest]SourceRecovery)
+	directory := filepath.Join(root, sourceRecoveryDir)
+	info, err := os.Lstat(directory)
+	if errors.Is(err, os.ErrNotExist) {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, errors.New("workflow source recovery path is not a directory")
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || filepath.Ext(entry.Name()) != ".json" {
+			return nil, fmt.Errorf("workflow source recovery contains invalid entry %q", entry.Name())
+		}
+		raw, err := os.ReadFile(filepath.Join(directory, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		var envelope sourceRecoveryEnvelope
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&envelope); err != nil {
+			return nil, fmt.Errorf("open Workflow Source recovery %q: %w", entry.Name(), err)
+		}
+		canonical, err := artifact.Marshal(envelope)
+		if err != nil || !bytes.Equal(raw, canonical) {
+			return nil, fmt.Errorf("open Workflow Source recovery %q: recovery envelope is not canonical", entry.Name())
+		}
+		if err := validateRecoveryEnvelope(entry.Name(), envelope); err != nil {
+			return nil, fmt.Errorf("open Workflow Source recovery %q: %w", entry.Name(), err)
+		}
+		result[envelope.ID] = SourceRecovery{
+			ID: envelope.ID, OriginalName: envelope.OriginalName,
+			Reason: envelope.Reason, raw: append([]byte(nil), envelope.Artifact...),
+		}
+	}
+	return result, nil
+}
+
+func quarantineSource(root, originalName string, raw []byte, cause error) (SourceRecovery, error) {
+	identityInput := make([]byte, 0, len(originalName)+1+len(raw))
+	identityInput = append(identityInput, originalName...)
+	identityInput = append(identityInput, 0)
+	identityInput = append(identityInput, raw...)
+	id, err := artifact.Sum("yotta/workflow-source-recovery/v1", identityInput)
+	if err != nil {
+		return SourceRecovery{}, err
+	}
+	recovery := SourceRecovery{ID: id, OriginalName: originalName, Reason: cause.Error(), raw: append([]byte(nil), raw...)}
+	envelope := sourceRecoveryEnvelope{
+		SchemaVersion: sourceRecoverySchema, ID: id, OriginalName: originalName,
+		Reason: recovery.Reason, Artifact: recovery.raw,
+	}
+	encoded, err := artifact.Marshal(envelope)
+	if err != nil {
+		return SourceRecovery{}, err
+	}
+	directory := filepath.Join(root, sourceRecoveryDir)
+	if err := ensureRecoveryDirectory(directory); err != nil {
+		return SourceRecovery{}, err
+	}
+	destination := filepath.Join(directory, strings.TrimPrefix(id.String(), "sha256:")+".json")
+	if existing, readErr := os.ReadFile(destination); readErr == nil {
+		if !bytes.Equal(existing, encoded) {
+			return SourceRecovery{}, errors.New("workflow source recovery identity collision")
+		}
+	} else if !errors.Is(readErr, os.ErrNotExist) {
+		return SourceRecovery{}, readErr
+	} else if err := durablefs.WriteFile(destination, encoded, 0o600); err != nil {
+		return SourceRecovery{}, err
+	}
+	if err := durablefs.Remove(filepath.Join(root, originalName)); err != nil {
+		return SourceRecovery{}, err
+	}
+	return recovery, nil
+}
+
+func ensureRecoveryDirectory(directory string) error {
+	info, err := os.Lstat(directory)
+	if errors.Is(err, os.ErrNotExist) {
+		return os.Mkdir(directory, 0o700)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("workflow source recovery path is not a directory")
+	}
+	return nil
+}
+
+func validateRecoveryEnvelope(filename string, envelope sourceRecoveryEnvelope) error {
+	if envelope.SchemaVersion != sourceRecoverySchema || !envelope.ID.Valid() ||
+		strings.TrimSpace(envelope.OriginalName) == "" || envelope.OriginalName != filepath.Base(envelope.OriginalName) ||
+		strings.TrimSpace(envelope.Reason) == "" || len(envelope.Artifact) == 0 {
+		return errors.New("workflow source recovery envelope is invalid")
+	}
+	if filename != strings.TrimPrefix(envelope.ID.String(), "sha256:")+".json" {
+		return errors.New("workflow source recovery filename does not match identity")
+	}
+	identityInput := make([]byte, 0, len(envelope.OriginalName)+1+len(envelope.Artifact))
+	identityInput = append(identityInput, envelope.OriginalName...)
+	identityInput = append(identityInput, 0)
+	identityInput = append(identityInput, envelope.Artifact...)
+	want, err := artifact.Sum("yotta/workflow-source-recovery/v1", identityInput)
+	if err != nil || want != envelope.ID {
+		return errors.New("workflow source recovery content identity is invalid")
+	}
+	return nil
 }
 
 func openSourceArtifact(raw []byte, requireCanonical bool) (SourceSnapshot, error) {

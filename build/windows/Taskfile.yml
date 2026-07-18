@@ -100,6 +100,11 @@ tasks:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
 
+  smoke:automation:
+    summary: Runs the explicit Windows input, capture, recording, and window-operation stage smoke
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-windows-automation.ps1
+
   build:capture-dll:
     summary: |
       Builds the Rust WGC capture DLL (Windows Graphics Capture backend).

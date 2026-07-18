@@ -9,6 +9,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -151,8 +152,109 @@ func automationInputRequest(invocation compiler.Invocation, operation string) (a
 		counters["text_bytes"] = int64(len(value))
 		counters["text_runes"] = int64(utf8.RuneCountInString(value))
 		return installed.TypeTextRequest{Text: value}, counters, nil
+	case installed.OperationHoldKeys:
+		var keys []string
+		if err := decodeAutomationInput(invocation, "keys", &keys); err != nil {
+			return nil, nil, err
+		}
+		counters["key_count"] = int64(len(keys))
+		return installed.HoldKeysRequest{Keys: keys}, counters, nil
+	case installed.OperationHoldButton:
+		var point installed.Point
+		var button string
+		if err := decodeAutomationInput(invocation, "point", &point); err != nil {
+			return nil, nil, err
+		}
+		if err := decodeAutomationInput(invocation, "button", &button); err != nil {
+			return nil, nil, err
+		}
+		return installed.HoldButtonRequest{Point: point, Button: button}, counters, nil
 	default:
 		return nil, nil, errors.New("automation input operation is not installed")
+	}
+}
+
+func holdInput(catalog datatype.ValueTypeCatalog, operation, effectID, actionName string) compiler.Adapter {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+		action := compiler.AdapterAction{EffectID: effectID, Action: actionName, SummaryCode: actionName, Counters: map[string]int64{}, Facts: map[string]string{}}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeInputFailed, runErr))
+		}()
+		request, counters, err := automationInputRequest(invocation, operation)
+		if err != nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, err)
+		}
+		for key, value := range counters {
+			action.Counters[key] = value
+		}
+		payload, err := artifact.Marshal(request)
+		if err != nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+		}
+		session := invocation.Sessions["target"]
+		if session == nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
+		}
+		handle, err := session.Open(ctx, installed.HeldInputOperations(), []byte(`{}`))
+		if err != nil {
+			return compiler.AdapterResult{}, mapAutomationFailure(err)
+		}
+		owned := true
+		defer func() {
+			if owned {
+				runErr = errors.Join(runErr, session.Drop(context.WithoutCancel(ctx), handle))
+			}
+		}()
+		raw, err := session.Invoke(ctx, handle, operation, payload)
+		if err != nil {
+			return compiler.AdapterResult{}, mapAutomationFailure(err)
+		}
+		if err := installed.OpenEffectResponse(raw); err != nil {
+			return compiler.AdapterResult{}, mapAutomationFailure(err)
+		}
+		resolved, ok := invocation.OutputTypes["held"]
+		if !ok {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input output type is missing"))
+		}
+		envelope, err := datatype.SealHandleRef(catalog, resolved, handle)
+		if err != nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+		}
+		owned = false
+		return compiler.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"held": envelope}, ExecOutputs: []string{"completed"}}, nil
+	}
+}
+
+func releaseHeldInput() compiler.Adapter {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+		action := compiler.AdapterAction{EffectID: nodes.ReleaseHeldInputEffectID, Action: "automation.release-held-input", SummaryCode: "automation.release-held-input", Counters: map[string]int64{}, Facts: map[string]string{}}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, installed.CodeInputFailed, runErr))
+		}()
+		input, ok := invocation.Inputs["held"]
+		if !ok {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is missing"))
+		}
+		handle, ok := input.HandleRef()
+		if !ok || handle.Kind != installed.KindHeldInput {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeInvalidRequest, errors.New("held input lease is invalid"))
+		}
+		session := invocation.Sessions["target"]
+		if session == nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("held input capability session is missing"))
+		}
+		payload, err := artifact.Marshal(struct{}{})
+		if err != nil {
+			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+		}
+		raw, err := session.Invoke(ctx, handle, installed.OperationReleaseHeld, payload)
+		if err != nil {
+			return compiler.AdapterResult{}, mapAutomationFailure(err)
+		}
+		if err := installed.OpenEffectResponse(raw); err != nil {
+			return compiler.AdapterResult{}, mapAutomationFailure(err)
+		}
+		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 

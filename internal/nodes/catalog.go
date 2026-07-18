@@ -84,6 +84,7 @@ type Builtins struct {
 	ColorBlobType                datatype.Definition
 	PointerButtonType            datatype.Definition
 	KeyCodeType                  datatype.Definition
+	HeldInputType                datatype.Definition
 	RandomDistributionType       datatype.Definition
 	DurationMillisecondsType     datatype.Definition
 	FileMetadataType             datatype.Definition
@@ -108,8 +109,10 @@ type Builtins struct {
 	LaunchApplicationContract    nodecontract.Contract
 	TerminateApplicationContract nodecontract.Contract
 	AutomationInputContracts     []nodecontract.Contract
+	AutomationHeldInputContracts []nodecontract.Contract
 	AutomationTemplateContracts  []nodecontract.Contract
 	ActivateWindowContract       nodecontract.Contract
+	AutomationWindowContracts    []nodecontract.Contract
 	CaptureWindowContract        nodecontract.Contract
 	PlayInputClipContract        nodecontract.Contract
 	MatchTemplateContract        nodecontract.Contract
@@ -180,6 +183,10 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	heldInputType, err := sealHeldInputType()
+	if err != nil {
+		return Builtins{}, err
+	}
 	randomDistributionType, err := sealRandomDistributionType()
 	if err != nil {
 		return Builtins{}, err
@@ -233,6 +240,10 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	automationKeyInput, err := sealAutomationKeyInputCapability()
+	if err != nil {
+		return Builtins{}, err
+	}
+	automationHeldInput, err := sealAutomationHeldInputCapability()
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -385,6 +396,17 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	automationHeldInputDefinitions, automationHeldInputContracts, err := defineAutomationHeldInputNodes(automationInputTypes{
+		stringRef: stringType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
+		durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(), keyCodeRef: keyCodeType.TypeRef(),
+	}, heldInputType.TypeRef(), automationHeldInput)
+	if err != nil {
+		return Builtins{}, err
+	}
+	automationWindowDefinitions, automationWindowContracts, err := defineDesktopWindowOperationNodes(stringType.TypeRef(), integerType.TypeRef(), booleanType.TypeRef(), durationMillisecondsType.TypeRef(), automationWindow)
+	if err != nil {
+		return Builtins{}, err
+	}
 	automationTemplateDefinitions, automationTemplateContracts, err := defineAutomationTemplateNodes(automationTemplateTypes{
 		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(), buttonRef: pointerButtonType.TypeRef(),
@@ -399,7 +421,7 @@ func Build() (Builtins, error) {
 	types := []datatype.Definition{
 		stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
 		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
-		pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
+		pointerButtonType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
 	}
 	structureDefinitions, err := defineStructureNodes(types)
 	if err != nil {
@@ -418,6 +440,8 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, httpGetDefinition)
 	definitions = append(definitions, applicationDefinitions...)
 	definitions = append(definitions, automationInputDefinitions...)
+	definitions = append(definitions, automationHeldInputDefinitions...)
+	definitions = append(definitions, automationWindowDefinitions...)
 	definitions = append(definitions, automationTemplateDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, stopTargetAppDefinition)
@@ -442,7 +466,7 @@ func Build() (Builtins, error) {
 	if _, err := validateTypeCapabilityClosure(types, contracts); err != nil {
 		return Builtins{}, fmt.Errorf("validate built-in type capability closure: %w", err)
 	}
-	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
+	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationHeldInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
 	if err != nil {
 		return Builtins{}, err
@@ -453,6 +477,7 @@ func Build() (Builtins, error) {
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		TemplateMatchType: visionTypes.templateMatch, QRCodeType: visionTypes.qrCode, ColorRangeType: visionTypes.colorRange, ColorBlobType: visionTypes.colorBlob,
 		PointerButtonType: pointerButtonType, KeyCodeType: keyCodeType,
+		HeldInputType:            heldInputType,
 		RandomDistributionType:   randomDistributionType,
 		DurationMillisecondsType: durationMillisecondsType,
 		FileMetadataType:         fileMetadataType,
@@ -466,14 +491,16 @@ func Build() (Builtins, error) {
 		FileReadTextContract:  filesystemContracts[0], FileReadJSONContract: filesystemContracts[1], FileStatContract: filesystemContracts[2],
 		HTTPGetContract:           httpGetContract,
 		LaunchApplicationContract: applicationContracts[0], TerminateApplicationContract: applicationContracts[1],
-		AutomationInputContracts:    automationInputContracts,
-		AutomationTemplateContracts: automationTemplateContracts,
-		ActivateWindowContract:      activateWindowContract,
-		CaptureWindowContract:       captureWindowContract,
-		PlayInputClipContract:       playInputClipContract,
-		MatchTemplateContract:       matchTemplateContract,
-		VisionAnalysisContracts:     visionAnalysisContracts,
-		Types:                       types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
+		AutomationInputContracts:     automationInputContracts,
+		AutomationHeldInputContracts: automationHeldInputContracts,
+		AutomationTemplateContracts:  automationTemplateContracts,
+		ActivateWindowContract:       activateWindowContract,
+		AutomationWindowContracts:    automationWindowContracts,
+		CaptureWindowContract:        captureWindowContract,
+		PlayInputClipContract:        playInputClipContract,
+		MatchTemplateContract:        matchTemplateContract,
+		VisionAnalysisContracts:      visionAnalysisContracts,
+		Types:                        types, Contracts: contracts, Capabilities: capabilities, ConfigValidators: configValidators,
 		definitions: definitions, definitionByID: definitionByID,
 	}, nil
 }

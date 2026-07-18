@@ -13,6 +13,8 @@ $runRoot = Join-Path $root $relativeRunRoot
 $binDir = Join-Path $runRoot 'bin'
 $screenshot = Join-Path $runRoot 'workflow-editor.png'
 $assetsScreenshot = Join-Path $runRoot 'assets.png'
+$workflowsScreenshot = Join-Path $runRoot 'workflows.png'
+$launcherScreenshot = Join-Path $runRoot 'launcher.png'
 $appProcess = $null
 $viteProcess = $null
 $viteListenerPID = $null
@@ -25,6 +27,21 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Wails DEV build failed with exit code $LASTEXITCODE"
     }
+    # The production host intentionally embeds requireAdministrator. CDP UI
+    # smoke runs hidden and cannot answer UAC, so compile an unmanifested
+    # development-only host against the same freshly built frontend/assets.
+    go build -mod=readonly -buildvcs=false -gcflags='all=-l' -o (Join-Path $binDir 'Yotta.SmokeHost.exe') .
+    if ($LASTEXITCODE -ne 0) {
+        throw "Wails smoke host build failed with exit code $LASTEXITCODE"
+    }
+
+    # A single malformed user Source must be isolated without preventing the
+    # real desktop host from starting or hiding the rest of the workflow list.
+    $workflowStore = Join-Path $binDir 'data/workspace-3.1/workflows'
+    New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/3.1`n", $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $workflowStore 'damaged-workflow.json'), '{"format":"yotta.workflow","version":"3.1",', $utf8NoBom)
 
     try {
         Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$VitePort" -TimeoutSec 1 | Out-Null
@@ -51,7 +68,7 @@ try {
     $env:FRONTEND_DEVSERVER_URL = "http://127.0.0.1:$VitePort"
     $appOut = Join-Path $runRoot 'yotta.out.log'
     $appErr = Join-Path $runRoot 'yotta.err.log'
-    $appProcess = Start-Process -FilePath (Join-Path $binDir 'Yotta.exe') -WorkingDirectory $binDir -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
+    $appProcess = Start-Process -FilePath (Join-Path $binDir 'Yotta.SmokeHost.exe') -WorkingDirectory $binDir -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
 
     for ($attempt = 0; $attempt -lt 100; $attempt++) {
         Start-Sleep -Milliseconds 100
@@ -68,7 +85,7 @@ try {
         }
     }
 
-    go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot -assets-screenshot $assetsScreenshot
+    go run ./cmd/workflow-editor-smoke -endpoint "http://127.0.0.1:$DebugPort" -screenshot $screenshot -assets-screenshot $assetsScreenshot -workflows-screenshot $workflowsScreenshot -launcher-screenshot $launcherScreenshot
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
     }

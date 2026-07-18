@@ -15,3 +15,16 @@ func MoveResize(uintptr, int, int, int, int) error {
 }
 
 func CloseWindow(uintptr) error { return platform.NewUnsupportedError("close native window") }
+
+type WindowState struct {
+	State      string
+	Foreground bool
+	X          int
+	Y          int
+	Width      int
+	Height     int
+}
+
+func InspectWindowState(uintptr) (WindowState, error) {
+	return WindowState{}, platform.NewUnsupportedError("inspect native window")
+}

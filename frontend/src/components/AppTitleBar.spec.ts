@@ -14,6 +14,7 @@ describe('AppTitleBar accessibility', () => {
     expect(source).toContain(':aria-label="t(\'sidebar.settings\')"')
     expect(source).toContain(':aria-label="t(\'sidebar.about\')"')
     expect(source).toContain(':aria-label="t(\'sidebar.open_launcher\')"')
+    expect(source).toContain('data-testid="open-launcher"')
     expect(source).toContain('backend.tools.openLauncher()')
     expect(source).toContain(':aria-label="t(\'editor.window.minimize\')"')
     expect(source).toContain(':aria-label="t(\'editor.window.close\')"')

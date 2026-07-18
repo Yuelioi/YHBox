@@ -145,6 +145,18 @@ func TestLauncherOpenIsIdempotentAndEmptyStateCanRevealSettings(t *testing.T) {
 	if len(presenter.requests) != 1 || presenter.window.showCalls != 1 || presenter.window.focusCalls != 1 {
 		t.Fatalf("launcher requests=%d show=%d focus=%d", len(presenter.requests), presenter.window.showCalls, presenter.window.focusCalls)
 	}
+	if err := service.HideLauncher(); err != nil {
+		t.Fatal(err)
+	}
+	if presenter.window.hideCalls != 1 {
+		t.Fatalf("launcher hide calls=%d", presenter.window.hideCalls)
+	}
+	if err := service.OpenLauncher(); err != nil {
+		t.Fatal(err)
+	}
+	if len(presenter.requests) != 1 || presenter.window.showCalls != 2 || presenter.window.focusCalls != 2 {
+		t.Fatalf("launcher was not reused after hide: requests=%d show=%d focus=%d", len(presenter.requests), presenter.window.showCalls, presenter.window.focusCalls)
+	}
 	if err := service.OpenLauncherSettings(); err != nil {
 		t.Fatal(err)
 	}

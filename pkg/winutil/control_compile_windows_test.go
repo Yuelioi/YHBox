@@ -15,6 +15,9 @@ func TestControlPrimitives_ZeroHandleSafe(t *testing.T) {
 	if err := CloseWindow(0); err == nil {
 		t.Fatal("0 句柄应报错")
 	}
+	if _, err := InspectWindowState(0); err == nil {
+		t.Fatal("0 句柄读取状态应报错")
+	}
 	if _, err := EnterBorderless(0); err == nil {
 		t.Fatal("0 句柄应报错")
 	}

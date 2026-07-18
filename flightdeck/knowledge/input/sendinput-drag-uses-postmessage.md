@@ -1,11 +1,13 @@
 ---
 kind: trap
-summary: "sendInputBackend.Drag 调共享原语 pkg/input.MouseDrag, 而 MouseDrag 是 PostMessage(WM_MOUSEMOVE/BUTTONDOWN/UP) 实现 — 选 sendinput 后端跑 Swipe 时走的是窗口消息而非 SendInput 全局注入, 读 RawInput/DirectInput 的游戏收不到拖拽, 且无报错"
+summary: "已解决：3.1 R2 的 sendInputBackend.Drag 全程使用 SendInput 移动/down/插值/up，并由真实 hook smoke 防止回退。"
 activation: symptom
 read_when: "改 Swipe/拖拽 / 选 sendinput 后端跑拖拽 / 排查「拖拽在某游戏不生效但点击生效」/ 给 sendinput 后端补原生 Drag"
 ---
-# ⚠ Swipe 在 sendinput 后端走 PostMessage, Raw-Input 游戏收不到
+# ✅ 已解决：SendInput drag 不再走 PostMessage
 **Date**: 2026-06-24 (Phase 3 detect/click 整支终审发现)
+
+**Resolved**: 2026-07-18，3.1 R2。现在全程原生 SendInput，native recorder hook 证明 down/up；以下保留为历史根因。
 
 sendinput 后端存在的全部理由 = 读 RawInput/DirectInput 的游戏收不到 PostMessage 的窗口消息, 所以它的 Click/MouseDown 走 SendInput 真实注入 (sendAbsMove / sendMouseBtnEvent)。
 
@@ -13,4 +15,4 @@ sendinput 后端存在的全部理由 = 读 RawInput/DirectInput 的游戏收不
 
 **注意**: MouseDrag 是 Phase 3 之前就有的共享原语, 两个后端 (postmessage / sendinput) 都这么调, **非 Phase 3 回归** — Phase 3 只是把它经 Swipe 暴露出来。
 
-**修复方向 (未做, 等 demand)**: 给 sendinput 加原生 Drag — `sendAbsMove` 到起点 → `sendMouseBtnEvent` 按住 → 分帧 `sendAbsMove` 插值 → `sendMouseBtnEvent` 松开, 全程 SendInput。需要在「读 RawInput 的游戏里拖拽」时再做 (二号铁律 YAGNI: 无 user demand 不预先加)。
+**已采用修复**: `sendAbsMove` → button down → 分帧插值 → button up，全程 SendInput；失败沿 backend/provider/node 返回。

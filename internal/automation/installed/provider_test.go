@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -18,6 +19,15 @@ type fakeDriver struct {
 	closed    int
 	capture   []byte
 	window    target.WindowHandle
+	held      *fakeHeldInput
+	waited    bool
+}
+
+type fakeHeldInput struct {
+	operation string
+	request   any
+	closed    int
+	err       error
 }
 
 func (driver *fakeDriver) ResolveTarget(context.Context) (target.Target, error) {
@@ -40,6 +50,27 @@ func (driver *fakeDriver) ReleaseInput() error {
 	return driver.err
 }
 func (driver *fakeDriver) Close() error { driver.closed++; return driver.err }
+func (driver *fakeDriver) OpenHeldInput() (heldInputDriver, error) {
+	if driver.held == nil {
+		driver.held = &fakeHeldInput{}
+	}
+	return driver.held, driver.err
+}
+func (driver *fakeDriver) WaitWindow(_ context.Context, present bool, _ time.Duration) (bool, error) {
+	driver.waited = present
+	return present, driver.err
+}
+func (driver *fakeDriver) WindowState(context.Context) (WindowStateResponse, error) {
+	return WindowStateResponse{State: "normal", Foreground: true, X: 10, Y: 20, Width: 800, Height: 600}, driver.err
+}
+func (driver *fakeHeldInput) Execute(_ context.Context, operation string, request any) error {
+	driver.operation, driver.request = operation, request
+	return driver.err
+}
+func (driver *fakeHeldInput) Close() error {
+	driver.closed++
+	return driver.err
+}
 
 func openInputSession(t *testing.T, provider *provider, operation string) any {
 	t.Helper()
@@ -78,6 +109,17 @@ func openPlaybackSession(t *testing.T, provider *provider) any {
 	t.Helper()
 	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
 		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
+func openHeldInputSession(t *testing.T, provider *provider) any {
+	t.Helper()
+	object, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindHeldInput, Operations: HeldInputOperations(), CapabilityScope: []byte(`{"operation":"held-input"}`), Config: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -188,6 +230,70 @@ func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 	}
 	if err := provider.Close(context.Background(), playback); err != nil || driver.operation != OperationReleaseHeld {
 		t.Fatalf("close operation=%q error=%v", driver.operation, err)
+	}
+}
+
+func TestProviderHeldInputOwnsASeparateLeaseAndFailsSafeOnRelease(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	held := openHeldInputSession(t, provider)
+	payload, err := artifact.Marshal(HoldKeysRequest{Keys: []string{"CTRL", "A"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := provider.Invoke(context.Background(), held, OperationHoldKeys, payload)
+	request, ok := driver.held.request.(HoldKeysRequest)
+	if err != nil || OpenEffectResponse(raw) != nil || !ok || len(request.Keys) != 2 {
+		t.Fatalf("held request=%#v response=%s error=%v", driver.held.request, raw, err)
+	}
+	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
+		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
+	}); err == nil {
+		t.Fatal("playback opened while held input authority was active")
+	}
+	raw, err = provider.Invoke(context.Background(), held, OperationReleaseHeld, []byte(`{}`))
+	if err != nil || OpenEffectResponse(raw) != nil || driver.held.closed != 1 {
+		t.Fatalf("release response=%s closed=%d error=%v", raw, driver.held.closed, err)
+	}
+	playback := openPlaybackSession(t, provider)
+	if err := provider.Close(context.Background(), playback); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Close(context.Background(), held); err != nil || driver.held.closed != 1 {
+		t.Fatalf("idempotent close count=%d error=%v", driver.held.closed, err)
+	}
+
+	driver.held = nil
+	leaked := openHeldInputSession(t, provider)
+	if _, err := provider.Invoke(context.Background(), leaked, OperationHoldButton, []byte(`{"point":{"x":0.5,"y":0.5,"unit":"ratio"},"button":"left"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Close(context.Background(), leaked); err != nil || driver.held.closed != 1 {
+		t.Fatalf("run cleanup closed=%d error=%v", driver.held.closed, err)
+	}
+}
+
+func TestProviderWindowWaitReturnsAControlResult(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	object := openWindowSession(t, provider, OperationWaitWindow)
+	raw, err := provider.Invoke(context.Background(), object, OperationWaitWindow, []byte(`{"timeoutMilliseconds":25}`))
+	response, decodeErr := OpenWaitWindowResponse(raw)
+	if err != nil || decodeErr != nil || !response.Matched || !driver.waited {
+		t.Fatalf("wait response=%s decoded=%#v error=%v decode=%v", raw, response, err, decodeErr)
+	}
+}
+
+func TestProviderWindowStateReturnsAValidatedObservation(t *testing.T) {
+	profile, _ := testProfile(t)
+	provider := &provider{profile: profile, driver: &fakeDriver{}}
+	object := openWindowSession(t, provider, OperationGetWindowState)
+	raw, err := provider.Invoke(context.Background(), object, OperationGetWindowState, []byte(`{}`))
+	response, decodeErr := OpenWindowStateResponse(raw)
+	if err != nil || decodeErr != nil || response.State != "normal" || !response.Foreground || response.Width != 800 {
+		t.Fatalf("state response=%s decoded=%#v error=%v decode=%v", raw, response, err, decodeErr)
 	}
 }
 

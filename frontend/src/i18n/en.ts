@@ -244,6 +244,11 @@ export default {
         title: 'Key code',
         description: 'A canonical keyboard key injectable into an exact installed target.',
       },
+      held_input: {
+        title: 'Held input lease',
+        description:
+          'Valid only for the current Run; release, cancellation, and failure all clean up held state.',
+      },
     },
     vision: {
       templateMatch: {
@@ -657,6 +662,21 @@ export default {
         title: 'Press key chord',
         description: 'Atomically press and reverse-release a canonical set of keys.',
       },
+      holdKeys: {
+        title: 'Hold keys',
+        description:
+          'Press canonical keys and return a Run-owned lease. Connect a release node; terminal cleanup also releases it.',
+      },
+      holdPointerButton: {
+        title: 'Hold pointer button',
+        description:
+          'Hold a pointer button at the target coordinate and return a Run-owned lease with fail-safe cleanup.',
+      },
+      releaseHeldInput: {
+        title: 'Release held input',
+        description:
+          'Consume a held-input lease and release every key or pointer button owned by it.',
+      },
       typeText: {
         title: 'Type text',
         description:
@@ -666,6 +686,43 @@ export default {
         title: 'Activate target',
         description:
           'Reverify the installed target, then foreground the exact desktop window or start the installed Android package. Failure routes through Failed.',
+      },
+      closeWindow: {
+        title: 'Close window',
+        description:
+          'Resolve the exact installed target again and send a close request to that window.',
+      },
+      moveResizeWindow: {
+        title: 'Move and resize window',
+        description:
+          'Resolve the exact installed target again and set its screen-pixel position and size.',
+      },
+      maximizeWindow: {
+        title: 'Maximize window',
+        description: 'Resolve the exact installed target again and maximize its window.',
+      },
+      minimizeWindow: {
+        title: 'Minimize window',
+        description: 'Resolve the exact installed target again and minimize its window.',
+      },
+      restoreWindow: {
+        title: 'Restore window',
+        description: 'Resolve the exact installed target again and restore its window.',
+      },
+      getWindowState: {
+        title: 'Read window state',
+        description:
+          'Read the exact installed target window state, foreground flag, screen position, and size.',
+      },
+      waitWindow: {
+        title: 'Wait for window',
+        description:
+          'Wait up to the supplied timeout for the installed executable identity and window selector to match.',
+      },
+      waitWindowGone: {
+        title: 'Wait for window to disappear',
+        description:
+          'Wait up to the supplied timeout for every matching installed-target window to disappear.',
       },
       stopTargetApp: {
         title: 'Stop target app',
@@ -1517,6 +1574,19 @@ export default {
       reference_schedule: 'Referenced by schedule “{name}”',
       reference_launcher: 'Referenced by launcher item “{name}”',
       reference_active_run: 'Run “{name}” is queued or running',
+      recovery_title: '{n} corrupt workflow sources were isolated',
+      recovery_description:
+        'The rest of the workspace remains available. Repair or delete only the affected object; the whole data directory is not involved.',
+      recovery_repair: 'Repair',
+      recovery_delete: 'Delete corrupt object',
+      recovery_repair_title: 'Repair workflow source',
+      recovery_repair_description:
+        'Edit the original JSON and submit it. Yotta validates the complete current 3.1 contract before returning it to the workflow library.',
+      recovery_source_json: 'Workflow Source JSON to repair',
+      recovery_validate_repair: 'Validate and repair',
+      recovery_delete_title: 'Delete corrupt object “{name}”?',
+      recovery_delete_description:
+        'Only the isolated corrupt source is deleted. Other workflows, assets, and run records are unchanged.',
     },
     template: {
       windows: {

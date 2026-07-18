@@ -249,19 +249,37 @@ func (b *sendInputBackend) Click(hwnd win.HWND, xRatio, yRatio float64, button s
 	return b.MouseUp(hwnd, button)
 }
 
-func (b *sendInputBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) error {
-	var rect win.RECT
-	win.GetClientRect(hwnd, &rect)
-	w := int(rect.Right - rect.Left)
-	h := int(rect.Bottom - rect.Top)
-	x1 := int(x1Ratio * float64(w))
-	y1 := int(y1Ratio * float64(h))
-	x2 := int(x2Ratio * float64(w))
-	y2 := int(y2Ratio * float64(h))
+func (b *sendInputBackend) Drag(hwnd win.HWND, x1Ratio, y1Ratio, x2Ratio, y2Ratio float64, button string, durationMs int) (result error) {
+	if err := b.MouseDown(hwnd, x1Ratio, y1Ratio, button); err != nil {
+		return err
+	}
+	released := false
+	defer func() {
+		if !released {
+			result = errors.Join(result, b.MouseUp(hwnd, button))
+		}
+	}()
 	if durationMs <= 0 {
 		durationMs = 200
 	}
-	MouseDrag(hwnd, x1, y1, x2, y2, pickButton(button), time.Duration(durationMs)*time.Millisecond, 0, 0)
+	frames := max(1, durationMs/16)
+	frameDuration := time.Duration(durationMs) * time.Millisecond / time.Duration(frames)
+	for frame := 1; frame <= frames; frame++ {
+		progress := float64(frame) / float64(frames)
+		x := x1Ratio + progress*(x2Ratio-x1Ratio)
+		y := y1Ratio + progress*(y2Ratio-y1Ratio)
+		sx, sy := clientRatioToScreenRatio(hwnd, x, y)
+		if err := sendAbsMove(sx, sy); err != nil {
+			return err
+		}
+		if frame < frames {
+			time.Sleep(frameDuration)
+		}
+	}
+	if err := b.MouseUp(hwnd, button); err != nil {
+		return err
+	}
+	released = true
 	return nil
 }
 

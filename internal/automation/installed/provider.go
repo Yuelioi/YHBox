@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -26,25 +27,34 @@ const (
 	TargetKindBrowserCDP    = target.KindBrowserCDP
 	// TargetKind remains as a source-compatible alias while callers migrate to
 	// descriptors. It is semantic and no longer identifies Win32.
-	TargetKind   = TargetKindDesktopWindow
-	KindInput    = "automation/input-session"
-	KindWindow   = "automation/window-session"
-	KindCapture  = "automation/capture-session"
-	KindPlayback = "automation/playback-session"
+	TargetKind    = TargetKindDesktopWindow
+	KindInput     = "automation/input-session"
+	KindHeldInput = "automation/held-input-session"
+	KindWindow    = "automation/window-session"
+	KindCapture   = "automation/capture-session"
+	KindPlayback  = "automation/playback-session"
 
-	OperationClick        = "click"
-	OperationMove         = "move"
-	OperationScroll       = "scroll"
-	OperationDrag         = "drag"
-	OperationMoveRelative = "move-relative"
-	OperationPressKeys    = "press-keys"
-	OperationTypeText     = "type-text"
-	OperationActivate     = "activate"
-	OperationStopApp      = "stop-app"
-	OperationCapture      = "capture"
-	OperationReadCapture  = "read-capture"
-	OperationPlayEvent    = "play-event"
-	OperationReleaseHeld  = "release-held"
+	OperationClick            = "click"
+	OperationMove             = "move"
+	OperationScroll           = "scroll"
+	OperationDrag             = "drag"
+	OperationMoveRelative     = "move-relative"
+	OperationPressKeys        = "press-keys"
+	OperationTypeText         = "type-text"
+	OperationHoldKeys         = "hold-keys"
+	OperationHoldButton       = "hold-button"
+	OperationActivate         = "activate"
+	OperationCloseWindow      = "close-window"
+	OperationMoveResizeWindow = "move-resize-window"
+	OperationSetWindowState   = "set-window-state"
+	OperationGetWindowState   = "get-window-state"
+	OperationWaitWindow       = "wait-window"
+	OperationWaitWindowGone   = "wait-window-gone"
+	OperationStopApp          = "stop-app"
+	OperationCapture          = "capture"
+	OperationReadCapture      = "read-capture"
+	OperationPlayEvent        = "play-event"
+	OperationReleaseHeld      = "release-held"
 
 	CodeInvalidRequest    = "automation.invalid_request"
 	CodeIdentityChanged   = "automation.identity_changed"
@@ -68,16 +78,22 @@ var inputOperations = []string{
 	OperationClick, OperationDrag, OperationMove, OperationMoveRelative,
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
-var windowOperations = []string{OperationActivate, OperationStopApp}
+var heldInputOperations = []string{OperationHoldButton, OperationHoldKeys, OperationReleaseHeld}
+var windowOperations = []string{
+	OperationActivate, OperationCloseWindow, OperationMoveResizeWindow, OperationSetWindowState,
+	OperationGetWindowState, OperationStopApp, OperationWaitWindow, OperationWaitWindowGone,
+}
 var captureOperations = []string{OperationCapture, OperationReadCapture}
 var playbackOperations = []string{OperationPlayEvent, OperationReleaseHeld}
 
-func InputOperations() []string    { return append([]string(nil), inputOperations...) }
-func WindowOperations() []string   { return append([]string(nil), windowOperations...) }
-func CaptureOperations() []string  { return append([]string(nil), captureOperations...) }
-func PlaybackOperations() []string { return append([]string(nil), playbackOperations...) }
+func InputOperations() []string     { return append([]string(nil), inputOperations...) }
+func HeldInputOperations() []string { return append([]string(nil), heldInputOperations...) }
+func WindowOperations() []string    { return append([]string(nil), windowOperations...) }
+func CaptureOperations() []string   { return append([]string(nil), captureOperations...) }
+func PlaybackOperations() []string  { return append([]string(nil), playbackOperations...) }
 func Operations() []string {
-	operations := append(InputOperations(), windowOperations...)
+	operations := append(InputOperations(), heldInputOperations...)
+	operations = append(operations, windowOperations...)
 	operations = append(operations, captureOperations...)
 	return append(operations, playbackOperations...)
 }
@@ -150,6 +166,36 @@ type PressKeysRequest struct {
 	Keys                 []string `json:"keys"`
 	DurationMilliseconds int64    `json:"durationMilliseconds"`
 }
+type HoldKeysRequest struct {
+	Keys []string `json:"keys"`
+}
+type HoldButtonRequest struct {
+	Point  Point  `json:"point"`
+	Button string `json:"button"`
+}
+type MoveResizeWindowRequest struct {
+	X      int64 `json:"x"`
+	Y      int64 `json:"y"`
+	Width  int64 `json:"width"`
+	Height int64 `json:"height"`
+}
+type SetWindowStateRequest struct {
+	State string `json:"state"`
+}
+type WaitWindowRequest struct {
+	TimeoutMilliseconds int64 `json:"timeoutMilliseconds"`
+}
+type WaitWindowResponse struct {
+	Matched bool `json:"matched"`
+}
+type WindowStateResponse struct {
+	State      string `json:"state"`
+	Foreground bool   `json:"foreground"`
+	X          int64  `json:"x"`
+	Y          int64  `json:"y"`
+	Width      int64  `json:"width"`
+	Height     int64  `json:"height"`
+}
 type TypeTextRequest struct {
 	Text string `json:"text"`
 }
@@ -208,6 +254,27 @@ type session struct {
 	operation      string
 	inputAuthority bool
 	closed         bool
+}
+type heldInputDriver interface {
+	Execute(context.Context, string, any) error
+	Close() error
+}
+type heldInputOpener interface {
+	OpenHeldInput() (heldInputDriver, error)
+}
+type windowWaiter interface {
+	WaitWindow(context.Context, bool, time.Duration) (bool, error)
+}
+type windowStateReader interface {
+	WindowState(context.Context) (WindowStateResponse, error)
+}
+type heldInputSession struct {
+	mu         sync.Mutex
+	driver     heldInputDriver
+	operations []string
+	active     bool
+	engaged    bool
+	closed     bool
 }
 type playbackSession struct {
 	mu        sync.Mutex
@@ -293,6 +360,35 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 		p.playbackOpen = true
 		return &playbackSession{}, nil
 	}
+	if request.Kind == KindHeldInput {
+		if !slices.Equal(request.Operations, heldInputOperations) ||
+			!p.supports(OperationHoldKeys) || !p.supports(OperationHoldButton) || !p.supports(OperationReleaseHeld) {
+			return nil, failure(CodeContractViolation, errors.New("held input session requires exact operations"))
+		}
+		var scope CapabilityScope
+		if err := decodeExact(request.CapabilityScope, &scope, 1024); err != nil || scope.Operation != "held-input" {
+			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
+		}
+		opener, ok := p.driver.(heldInputOpener)
+		if !ok {
+			return nil, failure(CodeUnsupportedHost, errors.New("held input is unsupported by this automation adapter"))
+		}
+		p.stateMu.Lock()
+		if p.playbackOpen {
+			p.stateMu.Unlock()
+			return nil, failure(CodePlaybackBusy, errors.New("installed target playback is active"))
+		}
+		p.inputSessions++
+		p.stateMu.Unlock()
+		driver, err := opener.OpenHeldInput()
+		if err != nil {
+			p.stateMu.Lock()
+			p.inputSessions--
+			p.stateMu.Unlock()
+			return nil, err
+		}
+		return &heldInputSession{driver: driver, operations: HeldInputOperations(), active: true}, nil
+	}
 	if len(request.Operations) != 1 || !validSessionOperation(request.Kind, request.Operations[0]) {
 		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
@@ -318,6 +414,10 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 func (p *provider) Invoke(ctx context.Context, object any, operation string, payload []byte) ([]byte, error) {
 	opened, ok := object.(*session)
 	if !ok {
+		held, heldOK := object.(*heldInputSession)
+		if heldOK {
+			return p.invokeHeldInput(ctx, held, operation, payload)
+		}
 		capture, captureOK := object.(*captureSession)
 		if captureOK {
 			return p.invokeCapture(ctx, capture, operation, payload)
@@ -340,6 +440,35 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 	if err := p.verifyProfile(); err != nil {
 		return nil, failure(CodeIdentityChanged, err)
 	}
+	if operation == OperationWaitWindow || operation == OperationWaitWindowGone {
+		waiter, ok := p.driver.(windowWaiter)
+		if !ok {
+			return nil, failure(CodeUnsupportedHost, errors.New("window waiting is unsupported by this automation adapter"))
+		}
+		waitRequest := request.(WaitWindowRequest)
+		matched, err := waiter.WaitWindow(ctx, operation == OperationWaitWindow, time.Duration(waitRequest.TimeoutMilliseconds)*time.Millisecond)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			return nil, failure(CodeWindowFailed, err)
+		}
+		return artifact.Marshal(WaitWindowResponse{Matched: matched})
+	}
+	if operation == OperationGetWindowState {
+		reader, ok := p.driver.(windowStateReader)
+		if !ok {
+			return nil, failure(CodeUnsupportedHost, errors.New("window state is unsupported by this automation adapter"))
+		}
+		response, err := reader.WindowState(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			return nil, failure(CodeWindowFailed, err)
+		}
+		return artifact.Marshal(response)
+	}
 	if err := p.driver.Execute(ctx, operation, request); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, err
@@ -349,12 +478,58 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 			return nil, err
 		}
 		code := CodeInputFailed
-		if operation == OperationActivate || operation == OperationStopApp {
+		if slices.Contains(windowOperations, operation) {
 			code = CodeWindowFailed
 		}
 		return nil, failure(code, err)
 	}
 	return artifact.Marshal(struct{}{})
+}
+
+func (p *provider) invokeHeldInput(ctx context.Context, opened *heldInputSession, operation string, payload []byte) ([]byte, error) {
+	opened.mu.Lock()
+	defer opened.mu.Unlock()
+	if opened.closed || !opened.active || !slices.Contains(opened.operations, operation) {
+		return nil, failure(CodeContractViolation, errors.New("held input session is closed or operation is not granted"))
+	}
+	request, err := decodeOperationRequest(operation, payload)
+	if err != nil {
+		return nil, failure(CodeInvalidRequest, err)
+	}
+	if err := p.verifyProfile(); err != nil {
+		return nil, failure(CodeIdentityChanged, err)
+	}
+	if operation == OperationReleaseHeld {
+		closeErr := opened.driver.Close()
+		opened.closed = true
+		opened.active = false
+		p.releaseInputAuthority()
+		if closeErr != nil {
+			return nil, failure(CodeInputFailed, closeErr)
+		}
+		return artifact.Marshal(struct{}{})
+	}
+	if opened.engaged {
+		return nil, failure(CodeContractViolation, errors.New("held input session already owns input state"))
+	}
+	if err := opened.driver.Execute(ctx, operation, request); err != nil {
+		closeErr := opened.driver.Close()
+		opened.closed = true
+		opened.active = false
+		p.releaseInputAuthority()
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, errors.Join(err, closeErr)
+		}
+		return nil, failure(CodeInputFailed, errors.Join(err, closeErr))
+	}
+	opened.engaged = true
+	return artifact.Marshal(struct{}{})
+}
+
+func (p *provider) releaseInputAuthority() {
+	p.stateMu.Lock()
+	p.inputSessions--
+	p.stateMu.Unlock()
 }
 
 func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, operation string, payload []byte) ([]byte, error) {
@@ -472,6 +647,26 @@ func classifyCaptureFailure(err error) error {
 func (p *provider) Close(_ context.Context, object any) error {
 	opened, ok := object.(*session)
 	if !ok {
+		held, heldOK := object.(*heldInputSession)
+		if heldOK {
+			held.mu.Lock()
+			if held.closed {
+				held.mu.Unlock()
+				return nil
+			}
+			held.closed = true
+			wasActive := held.active
+			held.active = false
+			closeErr := held.driver.Close()
+			held.mu.Unlock()
+			if wasActive {
+				p.releaseInputAuthority()
+			}
+			if closeErr != nil {
+				return failure(CodeInputFailed, closeErr)
+			}
+			return nil
+		}
 		capture, captureOK := object.(*captureSession)
 		if captureOK {
 			capture.mu.Lock()
@@ -561,16 +756,88 @@ func OpenCaptureResponse(raw []byte) (CaptureResponse, error) {
 	return response, nil
 }
 
+func OpenWaitWindowResponse(raw []byte) (WaitWindowResponse, error) {
+	var response WaitWindowResponse
+	if err := decodeExact(raw, &response, 128); err != nil {
+		return WaitWindowResponse{}, failure(CodeContractViolation, errors.New("invalid window wait response"))
+	}
+	canonical, err := artifact.Marshal(response)
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return WaitWindowResponse{}, failure(CodeContractViolation, errors.New("window wait response is not canonical"))
+	}
+	return response, nil
+}
+
+func OpenWindowStateResponse(raw []byte) (WindowStateResponse, error) {
+	var response WindowStateResponse
+	if err := decodeExact(raw, &response, 1024); err != nil ||
+		(response.State != "normal" && response.State != "minimized" && response.State != "maximized") ||
+		response.Width <= 0 || response.Height <= 0 {
+		return WindowStateResponse{}, failure(CodeContractViolation, errors.New("invalid window state response"))
+	}
+	canonical, err := artifact.Marshal(response)
+	if err != nil || !bytes.Equal(canonical, raw) {
+		return WindowStateResponse{}, failure(CodeContractViolation, errors.New("window state response is not canonical"))
+	}
+	return response, nil
+}
+
 func decodeOperationRequest(operation string, raw []byte) (any, error) {
 	if len(raw) == 0 || len(raw) > 64<<10 {
 		return nil, errors.New("automation request exceeds byte budget")
 	}
 	decode := func(target any) error { return decodeExact(raw, target, 64<<10) }
 	switch operation {
-	case OperationActivate, OperationStopApp:
+	case OperationActivate, OperationCloseWindow, OperationGetWindowState, OperationStopApp, OperationReleaseHeld:
 		var request struct{}
 		if err := decode(&request); err != nil {
 			return nil, err
+		}
+		return request, nil
+	case OperationHoldKeys:
+		var request HoldKeysRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if err := validateKeys(request.Keys); err != nil {
+			return nil, err
+		}
+		return request, nil
+	case OperationHoldButton:
+		var request HoldButtonRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if err := validatePoint(request.Point); err != nil || !validButton(request.Button) {
+			return nil, errors.New("automation held button request is invalid")
+		}
+		return request, nil
+	case OperationMoveResizeWindow:
+		var request MoveResizeWindowRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if request.X < -1_000_000 || request.X > 1_000_000 || request.Y < -1_000_000 || request.Y > 1_000_000 ||
+			request.Width < 1 || request.Width > 1_000_000 || request.Height < 1 || request.Height > 1_000_000 {
+			return nil, errors.New("automation move/resize window request is invalid")
+		}
+		return request, nil
+	case OperationSetWindowState:
+		var request SetWindowStateRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if request.State != "maximize" && request.State != "minimize" && request.State != "restore" {
+			return nil, errors.New("automation window state request is invalid")
+		}
+		return request, nil
+	case OperationWaitWindow, OperationWaitWindowGone:
+		var request WaitWindowRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if request.TimeoutMilliseconds < 0 || request.TimeoutMilliseconds > MaxInputDurationMs {
+			return nil, errors.New("automation window wait request is invalid")
 		}
 		return request, nil
 	case OperationClick:
@@ -620,19 +887,11 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		if err := decode(&request); err != nil {
 			return nil, err
 		}
-		if len(request.Keys) == 0 || len(request.Keys) > 16 || !validDuration(request.DurationMilliseconds) {
+		if !validDuration(request.DurationMilliseconds) {
 			return nil, errors.New("automation key request is invalid")
 		}
-		seen := map[string]struct{}{}
-		for _, key := range request.Keys {
-			if !controller.ValidKeyName(key) {
-				return nil, errors.New("automation key request is invalid")
-			}
-			folded := strings.ToUpper(key)
-			if _, exists := seen[folded]; exists {
-				return nil, errors.New("automation key request contains duplicates")
-			}
-			seen[folded] = struct{}{}
+		if err := validateKeys(request.Keys); err != nil {
+			return nil, err
 		}
 		return request, nil
 	case OperationTypeText:
@@ -647,6 +906,24 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 	default:
 		return nil, errors.New("unsupported automation operation")
 	}
+}
+
+func validateKeys(keys []string) error {
+	if len(keys) == 0 || len(keys) > 16 {
+		return errors.New("automation key request is invalid")
+	}
+	seen := map[string]struct{}{}
+	for _, key := range keys {
+		if !controller.ValidKeyName(key) {
+			return errors.New("automation key request is invalid")
+		}
+		folded := strings.ToUpper(key)
+		if _, exists := seen[folded]; exists {
+			return errors.New("automation key request contains duplicates")
+		}
+		seen[folded] = struct{}{}
+	}
+	return nil
 }
 
 func validateClick(request ClickRequest) error {
