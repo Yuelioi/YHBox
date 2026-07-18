@@ -81,6 +81,21 @@
             variableTypeLabel(variable)
           }}</span>
           <UButton
+            v-if="referenceCount(variable.name)"
+            icon="i-tabler-focus-2"
+            color="neutral"
+            variant="soft"
+            size="xs"
+            :label="String(referenceCount(variable.name))"
+            :aria-label="
+              t('workflow.state_panel.locate_references', {
+                name: variable.name,
+                count: referenceCount(variable.name),
+              })
+            "
+            @click="emit('locate', variable.name)"
+          />
+          <UButton
             icon="i-tabler-database-export"
             color="neutral"
             variant="ghost"
@@ -101,6 +116,12 @@
             color="error"
             variant="ghost"
             size="xs"
+            :disabled="referenceCount(variable.name) > 0"
+            :title="
+              referenceCount(variable.name)
+                ? t('workflow.state_panel.remove_referenced')
+                : undefined
+            "
             :aria-label="t('workflow.inspector.state_remove', { name: variable.name })"
             @click="emit('command', { kind: 'remove-state-variable', name: variable.name })"
           />
@@ -128,10 +149,15 @@ import type { Variable } from '../../../../contracts/workflow/3.1/workflow-sourc
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand } from '@/app/editor/EditorSession'
 
-const props = defineProps<{ variables: Variable[]; types: TypeProjection[] }>()
+const props = defineProps<{
+  variables: Variable[]
+  types: TypeProjection[]
+  references: Record<string, number>
+}>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
   insert: [name: string, mode: 'read' | 'write']
+  locate: [name: string]
   close: []
 }>()
 const { t, te } = useI18n()
@@ -147,7 +173,9 @@ const filteredVariables = computed(() => {
     ),
   )
 })
-const stateTypes = computed(() => props.types.filter((type) => type.traits.includes('durable')))
+const stateTypes = computed(() =>
+  props.types.filter((type) => type.traits.includes('durable') && hasValidDefault(type)),
+)
 const stateTypeItems = computed(() =>
   stateTypes.value.map((type) => ({
     label:
@@ -207,12 +235,20 @@ function defaultStateValue(type: TypeProjection): unknown {
   }
 }
 
+function hasValidDefault(type: TypeProjection): boolean {
+  return type.examples.length > 0 || type.control !== 'object'
+}
+
 function variableTypeLabel(variable: Variable): string {
   if (variable.type.kind !== 'ref') return variable.type.kind
   const typeId = variable.type.ref.typeId
   const type = props.types.find((candidate) => candidate.typeRef.typeId === typeId)
   if (type?.titleKey && te(type.titleKey)) return t(type.titleKey)
   return typeId.split('/').at(-2) ?? typeId
+}
+
+function referenceCount(name: string): number {
+  return props.references[name] ?? 0
 }
 
 function startStateDrag(event: DragEvent, name: string): void {

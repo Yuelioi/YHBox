@@ -493,8 +493,10 @@
           v-else-if="statePanelOpen"
           :variables="session.source?.variables ?? []"
           :types="session.authoring?.body.types ?? []"
+          :references="stateReferenceCounts"
           @command="applyCommand"
           @insert="insertStateReferenceAtCenter"
+          @locate="locateStateReference"
           @close="statePanelOpen = false"
         />
         <WorkflowGraphCallInspector
@@ -1156,6 +1158,17 @@ const allConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() =>
 const selectedNode = computed(
   () => session.currentGraph?.nodes.find((node) => node.id === selectedNodeId.value) ?? null,
 )
+const stateReferenceCounts = computed<Record<string, number>>(() => {
+  const result: Record<string, number> = {}
+  for (const graph of session.source?.graphs ?? []) {
+    for (const node of graph.nodes) {
+      if (!node.nodeRef.nodeTypeId.includes('/nodes/state/')) continue
+      const variable = node.config.variable
+      if (typeof variable === 'string') result[variable] = (result[variable] ?? 0) + 1
+    }
+  }
+  return result
+})
 const selectedCall = computed(
   () => session.currentGraph?.calls?.find((call) => call.id === selectedNodeId.value) ?? null,
 )
@@ -1673,6 +1686,19 @@ function insertStateReferenceAtCenter(name: string, mode: 'read' | 'write'): voi
   insertStateReference(name, mode, position)
 }
 
+async function locateStateReference(name: string): Promise<void> {
+  for (const graph of session.source?.graphs ?? []) {
+    const node = graph.nodes.find(
+      (candidate) =>
+        candidate.nodeRef.nodeTypeId.includes('/nodes/state/') &&
+        candidate.config.variable === name,
+    )
+    if (!node) continue
+    await focusNode([session.source!.entryGraph, graph.id], node.id)
+    return
+  }
+}
+
 function insertStateReference(
   name: string,
   mode: 'read' | 'write',
@@ -1700,7 +1726,7 @@ function connect(connection: Connection): void {
   if (!edge) return
   const compatibility = session.connectionCompatibility(edge)
   if (!compatibility.valid) {
-    connectionHint.value = connectionIssueText(compatibility.issue)
+    connectionHint.value = connectionIssueText(compatibility)
     return
   }
   if (applyCommand({ kind: 'connect', edge })) {
@@ -1713,7 +1739,7 @@ function isValidConnection(connection: Connection): boolean {
   const edge = connectionEdge(connection)
   if (!edge) return false
   const compatibility = session.connectionCompatibility(edge)
-  connectionHint.value = compatibility.valid ? '' : connectionIssueText(compatibility.issue)
+  connectionHint.value = compatibility.valid ? '' : connectionIssueText(compatibility)
   return compatibility.valid
 }
 
@@ -2033,8 +2059,18 @@ function connectionEdge(connection: Connection): Edge | null {
   }
 }
 
-function connectionIssueText(issue?: ConnectionIssue): string {
-  return t(`workflow.connection.issue.${issue ?? 'port'}`)
+function connectionIssueText(compatibility: {
+  issue?: ConnectionIssue
+  sourceType?: string
+  targetType?: string
+}): string {
+  if (compatibility.issue === 'type' && compatibility.sourceType && compatibility.targetType) {
+    return t('workflow.connection.issue.type_detail', {
+      source: compatibility.sourceType,
+      target: compatibility.targetType,
+    })
+  }
+  return t(`workflow.connection.issue.${compatibility.issue ?? 'port'}`)
 }
 
 function eventClientPoint(event?: MouseEvent | TouchEvent): { x: number; y: number } | null {

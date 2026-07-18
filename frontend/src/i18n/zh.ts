@@ -689,6 +689,20 @@ export default {
       },
     },
 
+    structure: {
+      breakPoint: { title: '拆分坐标', description: '把坐标拆成 X、Y 和单位三个强类型输出。' },
+      breakRegion: { title: '拆分区域', description: '把区域拆成位置、宽高和单位强类型输出。' },
+      breakTemplateMatch: {
+        title: '拆分模板匹配',
+        description: '取得模板匹配的分数、中心点和命中区域。',
+      },
+      breakQRCode: { title: '拆分二维码', description: '取得二维码文字和定位点列表。' },
+      breakColorBlob: { title: '拆分颜色块', description: '取得颜色块面积、中心点和边界区域。' },
+      breakFileMetadata: {
+        title: '拆分文件信息',
+        description: '取得路径、名称、类型、大小、修改时间和目录标记。',
+      },
+    },
     builtin: {
       'collection-append': {
         title: '追加元素',
@@ -1345,6 +1359,7 @@ export default {
         channel: '端口通道不一致',
         port: '端口不存在或不可连接',
         type: '数据类型不兼容',
+        type_detail: '{source} 不能连接到 {target}',
         carrier: '数据载体类型不一致',
         'resource-lease': '资源操作权限不能安全传递',
         instruction: '目标控制节点不接受这个入口',
@@ -1409,6 +1424,8 @@ export default {
       insert_read: '创建读取状态 {name}',
       insert_write: '创建写入状态 {name}',
       insert_failed: '创建状态引用失败',
+      locate_references: '定位 {name} 的引用，共 {count} 个',
+      remove_referenced: '先删除或改绑所有引用，再删除这个状态',
     },
     ai: {
       open: 'AI 提案',

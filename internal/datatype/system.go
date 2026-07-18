@@ -61,6 +61,13 @@ func NewSystem(definitions []Definition) (*System, error) {
 				return nil, fmt.Errorf("type %q references unknown assignable target %q", definition.TypeRef().TypeID, target.TypeID)
 			}
 		}
+		if structure := definition.Machine().Structure; structure != nil {
+			for _, field := range structure.Fields {
+				if err := validateCatalogExpression(field.Type, byID, 0); err != nil {
+					return nil, fmt.Errorf("type %q structure field %q: %w", definition.TypeRef().TypeID, field.ID, err)
+				}
+			}
+		}
 	}
 	system := &System{definitions: byID}
 	for _, definition := range definitions {
@@ -69,6 +76,30 @@ func NewSystem(definitions []Definition) (*System, error) {
 		}
 	}
 	return system, nil
+}
+
+func validateCatalogExpression(expression TypeExpression, definitions map[string]Definition, depth int) error {
+	if depth > MaxTypeDepth {
+		return errors.New("type expression exceeds depth budget")
+	}
+	switch expression.Kind {
+	case TypeExpressionRef:
+		definition, ok := definitions[expression.Ref.TypeID]
+		if !ok || definition.TypeRef() != *expression.Ref {
+			return fmt.Errorf("references unknown type %q", expression.Ref.TypeID)
+		}
+	case TypeExpressionList:
+		return validateCatalogExpression(*expression.Element, definitions, depth+1)
+	case TypeExpressionUnion:
+		for _, member := range expression.Members {
+			if err := validateCatalogExpression(member, definitions, depth+1); err != nil {
+				return err
+			}
+		}
+	case TypeExpressionVariable:
+		return errors.New("contains an unresolved variable")
+	}
+	return nil
 }
 
 func (s *System) HasTrait(ref TypeRef, trait Trait) bool {

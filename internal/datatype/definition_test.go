@@ -202,6 +202,34 @@ func TestSealDefinitionDoesNotInterpretInstanceDataAsSchema(t *testing.T) {
 	}
 }
 
+func TestSealDefinitionPinsTypedStructureToRequiredSchemaKeys(t *testing.T) {
+	fieldType := TypeRef{TypeID: "https://schemas.yotta.dev/types/test/field/v1", SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("1", 64))}
+	const typeID = "https://schemas.yotta.dev/types/test/structured/v1"
+	draft := DefinitionDraft{
+		TypeID: typeID, SchemaDialect: JSONSchemaDialect, SchemaRoot: typeID + "/schema",
+		SchemaBundle: []SchemaResource{{ID: typeID + "/schema", Schema: json.RawMessage(`{
+			"$id":"https://schemas.yotta.dev/types/test/structured/v1/schema",
+			"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
+			"properties":{"displayName":{"type":"string"}},"required":["displayName"],"additionalProperties":false
+		}`)}},
+		Representations: []RepresentationSpec{{Kind: RepresentationInlineJSON, Codec: CodecJCSV1}},
+		Structure: &StructureSpec{BreakNodeTypeID: "https://schemas.yotta.dev/nodes/structure/break-test", Fields: []StructureField{{
+			ID: "display-name", JSONKey: "displayName", Type: RefExpression(fieldType),
+		}}},
+	}
+	definition, err := SealDefinition(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := definition.Machine().Structure.Fields[0]; got.ID != "display-name" || got.JSONKey != "displayName" {
+		t.Fatalf("structure field = %#v", got)
+	}
+	draft.Structure.Fields[0].JSONKey = "missing"
+	if _, err := SealDefinition(draft); err == nil {
+		t.Fatal("accepted a structure field that is not a required schema property")
+	}
+}
+
 func FuzzOpenDefinitionNeverPanics(f *testing.F) {
 	definition, err := SealDefinition(definitionDraftForTest())
 	if err != nil {

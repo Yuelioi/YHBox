@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	FileMetadataTypeID = "https://schemas.yotta.dev/types/filesystem/metadata/v1"
+	FileMetadataTypeID      = "https://schemas.yotta.dev/types/filesystem/metadata/v1"
+	BreakFileMetadataNodeID = "https://schemas.yotta.dev/nodes/structure/break-file-metadata"
 
 	FileReadTextNodeID = "https://schemas.yotta.dev/nodes/filesystem/read-text"
 	FileReadJSONNodeID = "https://schemas.yotta.dev/nodes/filesystem/read-json"
@@ -24,8 +25,8 @@ const (
 	DefaultFileReadBytes = 1 << 20
 )
 
-func sealFileMetadataType() (datatype.Definition, error) {
-	return sealStructuredType(
+func sealFileMetadataType(stringRef, integerRef, booleanRef datatype.TypeRef) (datatype.Definition, error) {
+	return sealStructuredTypeWithStructure(
 		FileMetadataTypeID,
 		json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
@@ -44,7 +45,18 @@ func sealFileMetadataType() (datatype.Definition, error) {
 		datatype.Authoring{
 			TitleKey: "type.filesystem.metadata.title", DescriptionKey: "type.filesystem.metadata.description",
 			Color: "#06b6d4", Icon: "file-info",
+			BreakTitleKey: "node.structure.breakFileMetadata.title", BreakDescriptionKey: "node.structure.breakFileMetadata.description",
+			Examples: []json.RawMessage{json.RawMessage(`{"path":".","name":".","extension":"","mediaType":"application/octet-stream","size":0,"modifiedUnixMillis":0,"isDirectory":false}`)},
 		},
+		&datatype.StructureSpec{BreakNodeTypeID: BreakFileMetadataNodeID, Fields: []datatype.StructureField{
+			{ID: "extension", Type: datatype.RefExpression(stringRef)},
+			{ID: "is-directory", JSONKey: "isDirectory", Type: datatype.RefExpression(booleanRef)},
+			{ID: "media-type", JSONKey: "mediaType", Type: datatype.RefExpression(stringRef)},
+			{ID: "modified-unix-millis", JSONKey: "modifiedUnixMillis", Type: datatype.RefExpression(integerRef)},
+			{ID: "name", Type: datatype.RefExpression(stringRef)},
+			{ID: "path", Type: datatype.RefExpression(stringRef)},
+			{ID: "size", Type: datatype.RefExpression(integerRef)},
+		}},
 	)
 }
 

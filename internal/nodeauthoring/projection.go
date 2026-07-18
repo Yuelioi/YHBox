@@ -120,6 +120,7 @@ type TypeProjection struct {
 	TypeRef         datatype.TypeRef              `json:"typeRef"`
 	Traits          []datatype.Trait              `json:"traits"`
 	AssignableTo    []datatype.TypeRef            `json:"assignableTo"`
+	Structure       *datatype.StructureSpec       `json:"structure,omitempty"`
 	SchemaRoot      string                        `json:"schemaRoot"`
 	Control         Control                       `json:"control" jsonschema:"required,enum=text,enum=number,enum=integer,enum=toggle,enum=select,enum=object,enum=list,enum=json"`
 	TitleKey        string                        `json:"titleKey,omitempty"`
@@ -330,7 +331,8 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 		projection := TypeProjection{
 			TypeRef: ref, SchemaRoot: machine.SchemaRoot, TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 			Traits: append([]datatype.Trait{}, machine.Traits...), AssignableTo: projectedAssignableTargets(input.Catalog, ref, refs),
-			Color: authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
+			Structure: machine.Structure,
+			Color:     authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 			Examples: cloneRawList(authoring.Examples), Representations: append([]datatype.RepresentationSpec(nil), machine.Representations...),
 			Lifecycle: lifecycleFor(machine.Representations), Control: controlForSchema(resolved, complete), Constraints: constraintsFor(resolved),
 		}

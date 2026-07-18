@@ -20,6 +20,8 @@ export interface ConnectionCompatibility {
   issue?: ConnectionIssue
   message?: string
   match?: 'exact' | 'assignable' | 'generic-bind'
+  sourceType?: string
+  targetType?: string
 }
 
 export interface CompatibleCandidatePort {
@@ -47,10 +49,13 @@ export function projectedConnectionCompatibility(
     if (!output || !input) return invalid('port', 'data edge has invalid ports')
     const match = typeMatch(output.type.expression, input.type.expression, types)
     if (!match) {
-      return invalid(
-        'type',
-        `data edge type ${typeLabel(output.type.expression)} is not assignable to ${typeLabel(input.type.expression)}`,
-      )
+      const sourceType = typeLabel(output.type.expression)
+      const targetType = typeLabel(input.type.expression)
+      return {
+        ...invalid('type', `data edge type ${sourceType} is not assignable to ${targetType}`),
+        sourceType,
+        targetType,
+      }
     }
     if (output.carrier !== input.carrier) {
       return invalid('carrier', 'data edge carrier class differs')

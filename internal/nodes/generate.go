@@ -46,6 +46,11 @@ func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) 
 	var builder strings.Builder
 	builder.WriteString("# Yotta 3.1 built-in nodes\n\n")
 	fmt.Fprintf(&builder, "Generated from the strict Node Authoring Projection `%s`. Do not edit.\n\n", authoring.Digest())
+	rows, err := validateTypeCapabilityClosure(builtins.Types, builtins.Contracts)
+	if err != nil {
+		return "", err
+	}
+	builder.WriteString(renderTypeCapabilityMatrix(rows))
 	for _, contract := range builtins.Contracts {
 		projected, ok := authoring.Node(contract.NodeRef().NodeTypeID)
 		if !ok {

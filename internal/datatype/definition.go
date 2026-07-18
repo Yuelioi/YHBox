@@ -33,6 +33,7 @@ const (
 	MaxExampleBytes        = 64 << 10
 	MaxAuthoringBytes      = 256 << 10
 	MaxAnnotationBytes     = 4 << 10
+	MaxStructureFields     = 256
 
 	CodecJCSV1       = "yotta.jcs/v1"
 	CodecBlobRefV1   = "yotta.blob-ref/v1"
@@ -67,12 +68,28 @@ type RepresentationSpec struct {
 type SchemaResource = contractschema.Resource
 
 type Authoring struct {
-	TitleKey       string            `json:"titleKey,omitempty"`
-	DescriptionKey string            `json:"descriptionKey,omitempty"`
-	Color          string            `json:"color,omitempty"`
-	Icon           string            `json:"icon,omitempty"`
-	EditorAdapter  string            `json:"editorAdapter,omitempty"`
-	Examples       []json.RawMessage `json:"examples,omitempty"`
+	TitleKey            string            `json:"titleKey,omitempty"`
+	DescriptionKey      string            `json:"descriptionKey,omitempty"`
+	Color               string            `json:"color,omitempty"`
+	Icon                string            `json:"icon,omitempty"`
+	EditorAdapter       string            `json:"editorAdapter,omitempty"`
+	Examples            []json.RawMessage `json:"examples,omitempty"`
+	BreakTitleKey       string            `json:"breakTitleKey,omitempty"`
+	BreakDescriptionKey string            `json:"breakDescriptionKey,omitempty"`
+}
+
+// StructureSpec is the semantic, typed decomposition contract for an object
+// data type. JSON Schema validates values; this contract names the exact
+// TypeExpression of each field and the stable node used to expose it.
+type StructureSpec struct {
+	BreakNodeTypeID string           `json:"breakNodeTypeId"`
+	Fields          []StructureField `json:"fields"`
+}
+
+type StructureField struct {
+	ID      string         `json:"id"`
+	JSONKey string         `json:"jsonKey"`
+	Type    TypeExpression `json:"type"`
 }
 
 type DefinitionDraft struct {
@@ -83,6 +100,7 @@ type DefinitionDraft struct {
 	Representations []RepresentationSpec
 	Traits          []Trait
 	AssignableTo    []TypeRef
+	Structure       *StructureSpec
 	Authoring       Authoring
 }
 
@@ -95,6 +113,7 @@ type MachineDefinition struct {
 	Representations []RepresentationSpec `json:"representations"`
 	Traits          []Trait              `json:"traits,omitempty"`
 	AssignableTo    []TypeRef            `json:"assignableTo,omitempty"`
+	Structure       *StructureSpec       `json:"structure,omitempty"`
 }
 
 type definitionDocument struct {
@@ -121,6 +140,7 @@ func SealDefinition(draft DefinitionDraft) (Definition, error) {
 		Representations: draft.Representations,
 		Traits:          draft.Traits,
 		AssignableTo:    draft.AssignableTo,
+		Structure:       draft.Structure,
 	})
 	if err != nil {
 		return Definition{}, err
@@ -380,6 +400,10 @@ func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 			return MachineDefinition{}, errors.New("data type contains duplicate assignable target")
 		}
 	}
+	structure, err := normalizeStructure(source.Structure, bundle, source.SchemaRoot)
+	if err != nil {
+		return MachineDefinition{}, err
+	}
 	return MachineDefinition{
 		TypeID:          source.TypeID,
 		SchemaDialect:   source.SchemaDialect,
@@ -388,14 +412,118 @@ func normalizeSemantic(source MachineDefinition) (MachineDefinition, error) {
 		Representations: representations,
 		Traits:          traits,
 		AssignableTo:    assignableTo,
+		Structure:       structure,
 	}, nil
+}
+
+func normalizeStructure(source *StructureSpec, bundle []SchemaResource, rootID string) (*StructureSpec, error) {
+	if source == nil {
+		return nil, nil
+	}
+	if err := validateAbsoluteURI(source.BreakNodeTypeID); err != nil {
+		return nil, fmt.Errorf("invalid structure break node id: %w", err)
+	}
+	if len(source.Fields) == 0 || len(source.Fields) > MaxStructureFields {
+		return nil, errors.New("data type structure field count is outside the supported range")
+	}
+	fields := append([]StructureField(nil), source.Fields...)
+	sort.Slice(fields, func(i, j int) bool { return fields[i].ID < fields[j].ID })
+	for index, field := range fields {
+		if !validStructureFieldID(field.ID) {
+			return nil, fmt.Errorf("invalid structure field id %q", field.ID)
+		}
+		if index > 0 && fields[index-1].ID == field.ID {
+			return nil, fmt.Errorf("duplicate structure field %q", field.ID)
+		}
+		if field.JSONKey == "" {
+			fields[index].JSONKey = field.ID
+		} else if strings.TrimSpace(field.JSONKey) != field.JSONKey || len(field.JSONKey) > 256 {
+			return nil, fmt.Errorf("invalid JSON key for structure field %q", field.ID)
+		}
+		if err := field.Type.Validate(); err != nil {
+			return nil, fmt.Errorf("structure field %q has invalid type: %w", field.ID, err)
+		}
+		if expressionContainsVariable(field.Type) {
+			return nil, fmt.Errorf("structure field %q must have a concrete type", field.ID)
+		}
+	}
+	var root json.RawMessage
+	for _, resource := range bundle {
+		if resource.ID == rootID {
+			root = resource.Schema
+			break
+		}
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(root, &schema); err != nil {
+		return nil, errors.New("decode structured data type schema root")
+	}
+	if schema["type"] != "object" {
+		return nil, errors.New("structured data type schema root must be an object")
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return nil, errors.New("structured data type schema must declare properties")
+	}
+	required := map[string]bool{}
+	if values, ok := schema["required"].([]any); ok {
+		for _, value := range values {
+			if id, ok := value.(string); ok {
+				required[id] = true
+			}
+		}
+	}
+	if len(properties) != len(fields) || len(required) != len(fields) {
+		return nil, errors.New("structure fields must exactly cover required schema properties")
+	}
+	seenJSONKeys := map[string]bool{}
+	for _, field := range fields {
+		if seenJSONKeys[field.JSONKey] {
+			return nil, fmt.Errorf("duplicate structure JSON key %q", field.JSONKey)
+		}
+		seenJSONKeys[field.JSONKey] = true
+		if _, ok := properties[field.JSONKey]; !ok || !required[field.JSONKey] {
+			return nil, fmt.Errorf("structure field %q JSON key %q is not a required schema property", field.ID, field.JSONKey)
+		}
+	}
+	return &StructureSpec{BreakNodeTypeID: source.BreakNodeTypeID, Fields: fields}, nil
+}
+
+func expressionContainsVariable(expression TypeExpression) bool {
+	switch expression.Kind {
+	case TypeExpressionVariable:
+		return true
+	case TypeExpressionList:
+		return expressionContainsVariable(*expression.Element)
+	case TypeExpressionUnion:
+		for _, member := range expression.Members {
+			if expressionContainsVariable(member) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func validStructureFieldID(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for index, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char == '_' ||
+			(index > 0 && ((char >= '0' && char <= '9') || char == '-' || char == '.')) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func normalizeAuthoring(source Authoring) (Authoring, error) {
 	if len(source.Examples) > MaxAuthoringExamples {
 		return Authoring{}, errors.New("data type authoring exceeds example budget")
 	}
-	for _, value := range []string{source.TitleKey, source.DescriptionKey, source.Color, source.Icon, source.EditorAdapter} {
+	for _, value := range []string{source.TitleKey, source.DescriptionKey, source.Color, source.Icon, source.EditorAdapter, source.BreakTitleKey, source.BreakDescriptionKey} {
 		if len(value) > MaxAnnotationBytes {
 			return Authoring{}, errors.New("data type authoring annotation exceeds byte budget")
 		}
@@ -424,7 +552,7 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 	return Authoring{
 		TitleKey: source.TitleKey, DescriptionKey: source.DescriptionKey,
 		Color: source.Color, Icon: source.Icon, EditorAdapter: source.EditorAdapter,
-		Examples: examples,
+		Examples: examples, BreakTitleKey: source.BreakTitleKey, BreakDescriptionKey: source.BreakDescriptionKey,
 	}, nil
 }
 

@@ -168,11 +168,11 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	jsonType, pointUnitType, pointType, regionType, err := sealExtendedTypes()
+	jsonType, pointUnitType, pointType, regionType, err := sealExtendedTypes(numberType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
-	visionTypes, err := sealVisionTypes()
+	visionTypes, err := sealVisionTypes(stringType.TypeRef(), numberType.TypeRef(), integerType.TypeRef(), pointType.TypeRef(), regionType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -188,7 +188,7 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
-	fileMetadataType, err := sealFileMetadataType()
+	fileMetadataType, err := sealFileMetadataType(stringType.TypeRef(), integerType.TypeRef(), booleanType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -396,6 +396,15 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	types := []datatype.Definition{
+		stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
+		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
+		pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
+	}
+	structureDefinitions, err := defineStructureNodes(types)
+	if err != nil {
+		return Builtins{}, err
+	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
@@ -417,6 +426,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, matchTemplateDefinition)
 	definitions = append(definitions, visionAnalysisDefinitions...)
 	definitions = append(definitions, systemDefinitions...)
+	definitions = append(definitions, structureDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
 	definitionByID := make(map[string]BuiltinDefinition, len(definitions))
@@ -429,10 +439,8 @@ func Build() (Builtins, error) {
 		bindings = append(bindings, nodecatalog.Binding{Contract: definition.Contract, Implementation: definition.Implementation})
 		contracts = append(contracts, definition.Contract)
 	}
-	types := []datatype.Definition{
-		stringType, binaryType, imageType, inputClipType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
-		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
-		pointerButtonType, keyCodeType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
+	if _, err := validateTypeCapabilityClosure(types, contracts); err != nil {
+		return Builtins{}, fmt.Errorf("validate built-in type capability closure: %w", err)
 	}
 	capabilities := []capability.Definition{blobRead, blobWrite, streamSession, aiGeneration, filesystemRead, httpGetCapability, applicationLifecycle, automationInput, automationDesktopInput, automationKeyInput, automationWindow, automationAppLifecycle, automationCapture, automationPlayback}
 	catalog, err := nodecatalog.Seal(types, capabilities, bindings, "v1")
@@ -528,7 +536,7 @@ func sealStringType() (datatype.Definition, error) {
 			"type":"string"
 		}`)}},
 		Representations: []datatype.RepresentationSpec{{Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1}},
-		Traits:          coreValueTraits(false, true),
+		Traits:          coreValueTraits(false, false),
 		Authoring: datatype.Authoring{
 			TitleKey: "type.core.string.title", DescriptionKey: "type.core.string.description", Color: "#8b5cf6", Icon: "text",
 		},

@@ -877,6 +877,32 @@ export default {
       },
     },
 
+    structure: {
+      breakPoint: {
+        title: 'Break point',
+        description: 'Exposes typed X, Y, and unit outputs from a point.',
+      },
+      breakRegion: {
+        title: 'Break region',
+        description: 'Exposes typed position, size, and unit outputs from a region.',
+      },
+      breakTemplateMatch: {
+        title: 'Break template match',
+        description: 'Exposes score, center, and bounds from a template match.',
+      },
+      breakQRCode: {
+        title: 'Break QR code',
+        description: 'Exposes decoded text and the list of location points.',
+      },
+      breakColorBlob: {
+        title: 'Break color blob',
+        description: 'Exposes area, center, and bounds from a color blob.',
+      },
+      breakFileMetadata: {
+        title: 'Break file metadata',
+        description: 'Exposes path, name, media type, size, modified time, and directory flag.',
+      },
+    },
     builtin: {
       'collection-append': {
         title: 'List Append',
@@ -1571,6 +1597,7 @@ export default {
         channel: 'The port channels differ',
         port: 'The port is missing or cannot be connected',
         type: 'The data types are incompatible',
+        type_detail: '{source} cannot connect to {target}',
         carrier: 'The data carrier classes differ',
         'resource-lease': 'The resource operations cannot be transferred safely',
         instruction: 'The target control node does not accept this entry',
@@ -1637,6 +1664,8 @@ export default {
       insert_read: 'Insert a Read node for {name}',
       insert_write: 'Insert a Write node for {name}',
       insert_failed: 'Could not insert the state reference',
+      locate_references: 'Locate references to {name}; {count} total',
+      remove_referenced: 'Remove or rebind every reference before deleting this state variable',
     },
     ai: {
       open: 'AI proposal',

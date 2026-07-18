@@ -272,7 +272,17 @@ export interface TypeProjection {
   lifecycle: 'durable' | 'runtime-only' | 'durable-or-runtime' | 'resolved-at-compile'
   representations: RepresentationSpec[]
   schemaRoot: string
+  structure?: StructureSpec
   titleKey?: string
   traits: string[]
   typeRef: TypeRef
+}
+export interface StructureSpec {
+  breakNodeTypeId: string
+  fields: StructureField[]
+}
+export interface StructureField {
+  id: string
+  jsonKey: string
+  type: TypeExpression
 }

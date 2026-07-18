@@ -54,6 +54,20 @@ describe('connection compatibility', () => {
     expect(widened).toMatchObject({ valid: false, issue: 'resource-lease' })
   })
 
+  it('returns concrete source and target types for an incompatible drop', () => {
+    const concat = projection('/text/concat')
+    const greater = projection('/comparison/greater-than')
+    expect(
+      projectedConnectionCompatibility(
+        concat,
+        { channel: 'data', direction: 'output', portId: 'result' },
+        greater,
+        { channel: 'data', direction: 'input', portId: 'a' },
+        types,
+      ),
+    ).toMatchObject({ valid: false, issue: 'type', sourceType: 'string', targetType: 'number' })
+  })
+
   it('keeps exec and error channels distinct and instruction-aware', () => {
     const delay = projection('/control/delay')
     const retry = projection('/control/retry')
@@ -113,6 +127,25 @@ describe('connection compatibility', () => {
         handle: { channel: 'data', direction: 'input', portId: 'message' },
         exact: false,
         match: 'generic-bind',
+      },
+    ])
+  })
+
+  it('offers Catalog-generated break nodes for structured values', () => {
+    const makePoint = projection('/geometry/make-point')
+    const breakPoint = projection('/structure/break-point')
+    expect(
+      compatibleCandidatePorts(
+        makePoint,
+        { channel: 'data', direction: 'output', portId: 'result' },
+        breakPoint,
+        types,
+      ),
+    ).toEqual([
+      {
+        handle: { channel: 'data', direction: 'input', portId: 'value' },
+        exact: true,
+        match: 'exact',
       },
     ])
   })

@@ -71,6 +71,31 @@ func TestSystemRejectsAmbiguousLeastUpperBound(t *testing.T) {
 	}
 }
 
+func TestSystemRejectsUnknownStructuredFieldType(t *testing.T) {
+	field := testSystemDefinition(t, "field", nil, nil)
+	const typeID = "https://schemas.yotta.dev/types/test/record/v1"
+	record, err := SealDefinition(DefinitionDraft{
+		TypeID: typeID, SchemaDialect: JSONSchemaDialect, SchemaRoot: typeID + "/schema",
+		SchemaBundle: []SchemaResource{{ID: typeID + "/schema", Schema: json.RawMessage(`{
+			"$id":"https://schemas.yotta.dev/types/test/record/v1/schema","$schema":"https://json-schema.org/draft/2020-12/schema",
+			"type":"object","properties":{"value":{"type":"number"}},"required":["value"],"additionalProperties":false
+		}`)}},
+		Representations: []RepresentationSpec{{Kind: RepresentationInlineJSON, Codec: CodecJCSV1}},
+		Structure: &StructureSpec{BreakNodeTypeID: "https://schemas.yotta.dev/nodes/structure/break-record", Fields: []StructureField{{
+			ID: "value", Type: RefExpression(field.TypeRef()),
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewSystem([]Definition{record}); err == nil {
+		t.Fatal("accepted a structure field type outside the Catalog")
+	}
+	if _, err := NewSystem([]Definition{record, field}); err != nil {
+		t.Fatalf("rejected a complete structured type system: %v", err)
+	}
+}
+
 func testSystemDefinition(t *testing.T, name string, targets []TypeRef, traits []Trait) Definition {
 	t.Helper()
 	id := "https://schemas.yotta.dev/types/test/" + name + "/v1"
