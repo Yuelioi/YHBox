@@ -14,17 +14,17 @@ In progress。3.1 尚未发布；Stage 1–11 已完成 major upgrade 和 Window
 
 ## Read now
 
-- work/workflow-editor-capability-roadmap/23-typed-authoring-ux.md
+- work/workflow-editor-capability-roadmap/slices/23-typed-authoring-ux.md
 - work/workflow-editor-capability-roadmap/artifacts/type-system-audit.md
 - knowledge/nodes/typed-authoring-contract.md
 
 ## Read if
 
 - work/workflow-editor-capability-roadmap/slices/map.md — 查询 Slice 状态
-- work/workflow-editor-capability-roadmap/21-type-system-foundation.md — 修改类型关系、约束或 solver
-- work/workflow-editor-capability-roadmap/22-type-capability-closure.md — 修改结构字段、Break 节点或能力闭包门禁
-- work/workflow-editor-capability-roadmap/24-settings-reference-integrity.md — 修改 application/target 删除语义
-- work/workflow-editor-capability-roadmap/20-desktop-target-uac-and-consent-ux.md — 进入 Windows 真实宿主 smoke
+- work/workflow-editor-capability-roadmap/slices/21-type-system-foundation.md — 修改类型关系、约束或 solver
+- work/workflow-editor-capability-roadmap/slices/22-type-capability-closure.md — 修改结构字段、Break 节点或能力闭包门禁
+- work/workflow-editor-capability-roadmap/slices/24-settings-reference-integrity.md — 修改 application/target 删除语义
+- work/workflow-editor-capability-roadmap/slices/20-desktop-target-uac-and-consent-ux.md — 进入 Windows 真实宿主 smoke
 - knowledge/build/build.md — 进入阶段验收、发布、打包或真机 smoke
 
 ## Progress
