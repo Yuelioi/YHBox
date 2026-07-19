@@ -72,6 +72,32 @@ describe('workflow authoring foundations', () => {
     expect(toolbar).not.toContain('workflow-macro-recording-start')
   })
 
+  it('uses a full node context menu and keeps visual templates inside the editor flow', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const node = readSource('src/app/editor/WorkflowNode.vue')
+    const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+
+    expect(node).toContain('<UDropdownMenu')
+    expect(node).toContain('@contextmenu.prevent.stop="openNodeContextMenu"')
+    expect(node).not.toContain('@contextmenu.prevent.stop="emit(\'save-snippet\')"')
+    expect(node).toContain('workflow-node-menu-copy')
+    expect(node).toContain('workflow-node-menu-toggle-disabled')
+    expect(node).toContain('workflow-node-menu-toggle-breakpoint')
+    expect(node).toContain('workflow-node-menu-collapse')
+    expect(node).toContain('workflow-node-menu-save-snippet')
+    expect(node).toContain('workflow-node-menu-remove')
+    expect(node).toContain("color: 'error'")
+    expect(node).toContain('workflow-node-menu-choose-template')
+    expect(node).toContain('workflow-node-menu-capture-template')
+    expect(editor).toContain('@context-open="selectNodeForContextMenu')
+    expect(editor).toContain('@open-template-resources="openTemplateResources')
+    expect(editor).toContain('@capture-template="captureTemplateForNode')
+    expect(editor).toContain("workspaceResourceKind.value = 'template'")
+    expect(editor).toContain('v-model:kind="workspaceResourceKind"')
+    expect(dock).toContain("defineModel<ResourceKind>('kind'")
+    expect(dock).toContain(':aria-pressed="kind === item.value"')
+  })
+
   it('asks for an automation target only when a library creation action starts', () => {
     const source = readSource('src/views/AssetsView.vue')
     const header = source.slice(source.indexOf('<header'), source.indexOf('</header>'))

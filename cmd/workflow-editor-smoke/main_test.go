@@ -148,6 +148,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		withState(connected, func(state *pageState) { state.AIReview = true }),
 		withState(connected, func(state *pageState) { state.AIReview = true }),
 		withState(connected, func(state *pageState) { state.AIReview = true }),
+		withState(connected, func(state *pageState) { state.NodeContextMenu = true }),
 		withState(connected, func(state *pageState) { state.SnippetModal = true }),
 		withState(connected, func(state *pageState) { state.SnippetDock, state.SnippetItems = true, 1 }),
 		withState(connected, func(state *pageState) { state.SnippetDock, state.SnippetItems = true, 1 }),
@@ -162,6 +163,13 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.SnippetDock, state.SnippetItems, state.ConfirmDialog = true, 1, true
 		}),
 		withState(connected, func(state *pageState) { state.SnippetDock = true }),
+		withState(connected, func(state *pageState) { state.NodeContextMenu = true }),
+		withState(connected, func(state *pageState) {
+			state.NodeContextMenu, state.TemplateMenuActions = true, 2
+		}),
+		withState(connected, func(state *pageState) {
+			state.ResourceDock, state.TemplateResourceOpen = true, true
+		}),
 		withState(connected, func(state *pageState) {
 			state.AIReview, state.ResourceDock, state.ResourceCreate, state.ResourceTabs = true, true, true, 3
 		}),
@@ -245,6 +253,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	dir := t.TempDir()
 	screenshot := filepath.Join(dir, "workflow.png")
 	assetsScreenshot := filepath.Join(dir, "assets.png")
+	nodeMenuScreenshot := filepath.Join(dir, "node-context-menu.png")
+	templateMenuScreenshot := filepath.Join(dir, "node-template-menu.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", "", ""); err != nil {
@@ -253,7 +263,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	if len(states) != 0 {
 		t.Fatalf("unconsumed page states: %d", len(states))
 	}
-	for _, path := range []string{screenshot, assetsScreenshot} {
+	for _, path := range []string{screenshot, assetsScreenshot, nodeMenuScreenshot, templateMenuScreenshot} {
 		if raw, err := os.ReadFile(path); err != nil || string(raw) != "png" {
 			t.Fatalf("screenshot %s = %q, %v", path, raw, err)
 		}

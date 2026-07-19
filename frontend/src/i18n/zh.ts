@@ -1792,6 +1792,14 @@ export default {
       run_cancelled: '已取消',
       run_routed: '已转向',
     },
+    node_menu: {
+      title: '节点操作',
+      enable: '启用节点',
+      disable: '禁用节点',
+      visual_template: '视觉模板',
+      choose_template: '从资源库选择',
+      capture_template: '截图新模板',
+    },
     diagnostics: {
       title: '编译诊断',
       summary: '共 {n} 项，选择一项可定位到节点',

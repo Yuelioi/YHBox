@@ -2187,6 +2187,14 @@ export default {
       run_cancelled: 'Cancelled',
       run_routed: 'Routed',
     },
+    node_menu: {
+      title: 'Node actions',
+      enable: 'Enable node',
+      disable: 'Disable node',
+      visual_template: 'Visual template',
+      choose_template: 'Choose from library',
+      capture_template: 'Capture new template',
+    },
     diagnostics: {
       title: 'Compiler diagnostics',
       summary: '{n} items; select one to locate its node',

@@ -29,6 +29,9 @@ type pageState struct {
 	SnippetDock          bool           `json:"snippetDock"`
 	SnippetItems         int            `json:"snippetItems"`
 	SnippetModal         bool           `json:"snippetModal"`
+	NodeContextMenu      bool           `json:"nodeContextMenu"`
+	TemplateMenuActions  int            `json:"templateMenuActions"`
+	TemplateResourceOpen bool           `json:"templateResourceOpen"`
 	RunStarted           bool           `json:"runStarted"`
 	AssetsView           bool           `json:"assetsView"`
 	AssetsRecording      bool           `json:"assetsRecording"`
@@ -194,6 +197,8 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 }
 
 func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
+	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
+	templateMenuScreenshot := siblingScreenshot(screenshot, "node-template-menu.png")
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -560,7 +565,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 500))))`); err != nil {
 		return err
 	}
-	if err := exerciseSnippets(ctx, client); err != nil {
+	if err := exerciseSnippets(ctx, client, nodeMenuScreenshot, templateMenuScreenshot); err != nil {
 		return err
 	}
 	if err := clickRequired(ctx, client, "workflow-workspace-resources"); err != nil {
@@ -666,8 +671,10 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
-		"schedulesScreenshot": schedulesScreenshot,
-		"subgraphScreenshot":  subgraphScreenshot,
+		"schedulesScreenshot":    schedulesScreenshot,
+		"subgraphScreenshot":     subgraphScreenshot,
+		"nodeMenuScreenshot":     nodeMenuScreenshot,
+		"templateMenuScreenshot": templateMenuScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -942,7 +949,7 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	return nil
 }
 
-func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient) error {
+func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot, templateMenuScreenshot string) error {
 	before, err := state(ctx, client)
 	if err != nil {
 		return err
@@ -954,6 +961,21 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient) e
 		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
 		if (!node) throw new Error('configured Delay node not found for snippet save');
 		node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.NodeContextMenu && !current.SnippetModal
+	}); err != nil {
+		return fmt.Errorf("open node context menu without executing snippet action: %w", err)
+	}
+	if err := capture(ctx, client, nodeMenuScreenshot); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const action = document.querySelector('[data-testid="workflow-node-menu-save-snippet"]');
+		if (!action) throw new Error('save snippet context action not found');
+		action.click();
 	})()`); err != nil {
 		return err
 	}
@@ -1027,6 +1049,43 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return current.SnippetItems == saved.SnippetItems-1 && !current.ConfirmDialog
 	}); err != nil {
 		return fmt.Errorf("delete snippet: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
+		if (!node) throw new Error('configured Delay node not found for template workflow');
+		node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeContextMenu }); err != nil {
+		return fmt.Errorf("reopen node context menu for visual template: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const action = document.querySelector('[data-testid="workflow-node-menu-visual-template"]');
+		if (!action) throw new Error('visual template submenu not found');
+		action.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.TemplateMenuActions == 2
+	}); err != nil {
+		return fmt.Errorf("open visual template submenu: %w", err)
+	}
+	if err := capture(ctx, client, templateMenuScreenshot); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const action = document.querySelector('[data-testid="workflow-node-menu-choose-template"]');
+		if (!action) throw new Error('choose visual template action not found');
+		action.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.TemplateResourceOpen && strings.Contains(current.Href, "/workflows/")
+	}); err != nil {
+		return fmt.Errorf("open visual templates inside workflow editor: %w", err)
 	}
 	return nil
 }
@@ -1420,6 +1479,9 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		snippetDock: Boolean(document.querySelector('[data-testid="workflow-snippet-dock"]')),
 		snippetItems: document.querySelectorAll('[data-testid="workflow-snippet-item"]').length,
 		snippetModal: Boolean(document.querySelector('[data-testid="workflow-snippet-name"]')),
+		nodeContextMenu: Boolean(document.querySelector('[data-testid="workflow-node-context-menu"]')),
+		templateMenuActions: document.querySelectorAll('[data-testid="workflow-node-menu-choose-template"], [data-testid="workflow-node-menu-capture-template"]').length,
+		templateResourceOpen: document.querySelector('[data-testid="workflow-resource-tab-template"]')?.getAttribute('aria-pressed') === 'true',
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),

@@ -3,8 +3,31 @@
     class="workflow-node group/node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="visualState.surfaceClasses"
     :data-node-type-id="projection.nodeRef.nodeTypeId"
-    @contextmenu.prevent.stop="emit('save-snippet')"
+    @contextmenu.prevent.stop="openNodeContextMenu"
   >
+    <UDropdownMenu
+      v-model:open="contextMenuOpen"
+      :items="contextMenuItems"
+      :content="{ side: 'bottom', align: 'start', sideOffset: 0, collisionPadding: 12 }"
+      :ui="{ content: 'min-w-60' }"
+    >
+      <UButton
+        class="nodrag nopan pointer-events-none absolute size-px -translate-x-1/2 -translate-y-1/2 opacity-0"
+        :style="{ left: `${contextMenuPosition.x}px`, top: `${contextMenuPosition.y}px` }"
+        color="neutral"
+        variant="ghost"
+        tabindex="-1"
+        aria-hidden="true"
+      />
+      <template #content-top>
+        <span data-testid="workflow-node-context-menu" class="sr-only">
+          {{ t('workflow.node_menu.title') }}
+        </span>
+      </template>
+      <template #item-label="{ item }">
+        <span :data-testid="item.testId">{{ item.label }}</span>
+      </template>
+    </UDropdownMenu>
     <span
       v-if="visualState.executionTone"
       data-testid="node-execution-stripe"
@@ -151,8 +174,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { useI18n } from 'vue-i18n'
 import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
@@ -177,6 +201,7 @@ interface Props {
   diagnosticSeverity?: DiagnosticSeverity
   connectedInputIds?: ReadonlySet<string>
   targetSlot?: string
+  selectionCount?: number
 }
 
 interface PinView {
@@ -188,8 +213,17 @@ interface PinView {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
+  'context-open': []
+  copy: []
+  cut: []
+  duplicate: []
+  collapse: []
+  'toggle-disabled': []
   'toggle-breakpoint': []
+  'open-template-resources': []
+  'capture-template': []
   'save-snippet': []
+  remove: []
   command: [command: EditorCommand]
 }>()
 const { t, te } = useI18n()
@@ -205,6 +239,102 @@ const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)
 const breakpointLabel = computed(() =>
   props.breakpoint ? t('workflow.debug.remove_breakpoint') : t('workflow.debug.add_breakpoint'),
 )
+const contextMenuOpen = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: t('workflow.selection.copy'),
+      icon: 'i-tabler-copy',
+      kbds: ['Ctrl', 'C'],
+      testId: 'workflow-node-menu-copy',
+      onSelect: () => emit('copy'),
+    },
+    {
+      label: t('workflow.selection.cut'),
+      icon: 'i-tabler-cut',
+      kbds: ['Ctrl', 'X'],
+      testId: 'workflow-node-menu-cut',
+      onSelect: () => emit('cut'),
+    },
+    {
+      label: t('workflow.selection.duplicate'),
+      icon: 'i-tabler-copy-plus',
+      kbds: ['Ctrl', 'D'],
+      testId: 'workflow-node-menu-duplicate',
+      onSelect: () => emit('duplicate'),
+    },
+  ],
+  [
+    {
+      label: props.node.disabled ? t('workflow.node_menu.enable') : t('workflow.node_menu.disable'),
+      icon: props.node.disabled ? 'i-tabler-player-play' : 'i-tabler-ban',
+      testId: 'workflow-node-menu-toggle-disabled',
+      onSelect: () => emit('toggle-disabled'),
+    },
+    {
+      label: breakpointLabel.value,
+      icon: props.breakpoint ? 'i-tabler-circle-filled' : 'i-tabler-circle',
+      testId: 'workflow-node-menu-toggle-breakpoint',
+      onSelect: () => emit('toggle-breakpoint'),
+    },
+    {
+      label: t('workflow.selection.collapse'),
+      icon: 'i-tabler-folders',
+      disabled: (props.selectionCount ?? 0) === 0,
+      testId: 'workflow-node-menu-collapse',
+      onSelect: () => emit('collapse'),
+    },
+  ],
+  [
+    {
+      label: t('workflow.node_menu.visual_template'),
+      icon: 'i-tabler-photo-search',
+      testId: 'workflow-node-menu-visual-template',
+      children: [
+        {
+          label: t('workflow.node_menu.choose_template'),
+          icon: 'i-tabler-photo-search',
+          testId: 'workflow-node-menu-choose-template',
+          onSelect: () => emit('open-template-resources'),
+        },
+        {
+          label: t('workflow.node_menu.capture_template'),
+          icon: 'i-tabler-camera-plus',
+          testId: 'workflow-node-menu-capture-template',
+          onSelect: () => emit('capture-template'),
+        },
+      ],
+    },
+    {
+      label: t('workflow.snippets.create_title'),
+      icon: 'i-tabler-bookmark',
+      testId: 'workflow-node-menu-save-snippet',
+      onSelect: () => emit('save-snippet'),
+    },
+  ],
+  [
+    {
+      label: t('workflow.selection.remove'),
+      icon: 'i-tabler-trash',
+      color: 'error',
+      kbds: ['Delete'],
+      testId: 'workflow-node-menu-remove',
+      onSelect: () => emit('remove'),
+    },
+  ],
+])
+
+async function openNodeContextMenu(event: MouseEvent): Promise<void> {
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  contextMenuPosition.value = { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+  emit('context-open')
+  if (contextMenuOpen.value) {
+    contextMenuOpen.value = false
+    await nextTick()
+  }
+  contextMenuOpen.value = true
+}
 
 const visualState = computed(() => workflowNodeVisualState(props))
 const surface = computed(() =>

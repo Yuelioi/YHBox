@@ -29,6 +29,7 @@
           :variant="kind === item.value ? 'soft' : 'ghost'"
           size="xs"
           class="min-w-0 justify-center"
+          :aria-pressed="kind === item.value"
           @click="kind = item.value"
         />
       </div>
@@ -200,6 +201,7 @@ type ResourceKind = 'macro' | 'clip' | 'template'
 defineProps<{
   recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
 }>()
+const kind = defineModel<ResourceKind>('kind', { default: 'macro' })
 const emit = defineEmits<{
   'start-recording': [mode: 'simple' | 'precise']
   'capture-template': []
@@ -209,7 +211,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const assets = useAssetsStore()
 const allCategoriesValue = '__yotta_all_categories__'
-const kind = ref<ResourceKind>('macro')
 const searchInput = ref('')
 const search = ref('')
 const category = ref(allCategoriesValue)

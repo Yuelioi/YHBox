@@ -322,6 +322,7 @@
           </template>
           <WorkflowResourceDock
             v-else-if="workspacePanel === 'resources'"
+            v-model:kind="workspaceResourceKind"
             :recording-phase="recording.state.phase"
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
@@ -390,11 +391,27 @@
                 "
                 :connected-input-ids="connectedInputIDs(slotProps.data.node.id)"
                 :target-slot="targetSlotForNode(slotProps.data.node, slotProps.data.projection)"
+                :selection-count="selectedNodeIds.size"
                 @command="applyCommand"
+                @context-open="selectNodeForContextMenu(slotProps.data.node.id)"
+                @copy="copySelection"
+                @cut="cutSelection"
+                @duplicate="duplicateSelection"
+                @collapse="collapseSelection"
+                @toggle-disabled="
+                  applyCommand({
+                    kind: 'set-node-disabled',
+                    nodeId: slotProps.data.node.id,
+                    disabled: !slotProps.data.node.disabled,
+                  })
+                "
                 @toggle-breakpoint="
                   toggleBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
+                @open-template-resources="openTemplateResources(slotProps.data.node.id)"
+                @capture-template="captureTemplateForNode(slotProps.data.node.id)"
                 @save-snippet="openSnippetForNode(slotProps.data.node)"
+                @remove="removeSelection"
               />
             </template>
             <template #node-graph-call="slotProps">
@@ -1251,6 +1268,7 @@ const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
 const workspacePanel = ref<'nodes' | 'resources' | 'snippets'>('nodes')
+const workspaceResourceKind = ref<'macro' | 'clip' | 'template'>('macro')
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
 const graphName = ref('')
@@ -1951,6 +1969,17 @@ function openTemplateCapture(): void {
       ? selectedSlot
       : workflowDefaultTargetSlot.value || captureTargetSlot.value || targets[0]?.value || ''
   templateCaptureOpen.value = true
+}
+
+function openTemplateResources(nodeId: string): void {
+  selectNodeForContextMenu(nodeId)
+  workspaceResourceKind.value = 'template'
+  workspacePanel.value = 'resources'
+}
+
+function captureTemplateForNode(nodeId: string): void {
+  selectNodeForContextMenu(nodeId)
+  openTemplateCapture()
 }
 
 async function captureWorkspaceTemplate(): Promise<void> {
@@ -3156,6 +3185,16 @@ function selectNode(event: NodeMouseEvent): void {
   if (!source?.shiftKey && !source?.ctrlKey && !source?.metaKey) {
     selectedNodeIds.value = new Set([event.node.id])
   }
+}
+
+function selectNodeForContextMenu(nodeId: string): void {
+  selectedEdgeId.value = ''
+  selectedNodeId.value = nodeId
+  if (selectedNodeIds.value.has(nodeId)) return
+  removeSelectedNodes(getSelectedNodes.value)
+  const node = findNode(nodeId)
+  if (node) addSelectedNodes([node])
+  selectedNodeIds.value = new Set([nodeId])
 }
 
 function handleNodesChange(changes: NodeChange[]): void {
