@@ -114,6 +114,14 @@ type FieldProjection struct {
 	Constraints    FieldConstraints  `json:"constraints"`
 	Properties     []FieldProjection `json:"properties"`
 	Items          *FieldProjection  `json:"items,omitempty"`
+	Group          string            `json:"group,omitempty"`
+	Order          int               `json:"order,omitempty"`
+	Importance     string            `json:"importance,omitempty"`
+	Unit           string            `json:"unit,omitempty"`
+	InlinePriority int               `json:"inlinePriority,omitempty"`
+	Preset         string            `json:"preset,omitempty"`
+	HelpKey        string            `json:"helpKey,omitempty"`
+	EditorAdapter  string            `json:"editorAdapter,omitempty"`
 }
 
 type TypeProjection struct {
@@ -128,6 +136,11 @@ type TypeProjection struct {
 	Color           string                        `json:"color,omitempty"`
 	Icon            string                        `json:"icon,omitempty"`
 	EditorAdapter   string                        `json:"editorAdapter,omitempty"`
+	Unit            string                        `json:"unit,omitempty"`
+	HelpKey         string                        `json:"helpKey,omitempty"`
+	Importance      string                        `json:"importance,omitempty"`
+	InlinePriority  int                           `json:"inlinePriority,omitempty"`
+	Preset          string                        `json:"preset,omitempty"`
 	Examples        []json.RawMessage             `json:"examples"`
 	Representations []datatype.RepresentationSpec `json:"representations"`
 	Lifecycle       Lifecycle                     `json:"lifecycle" jsonschema:"required,enum=durable,enum=runtime-only,enum=durable-or-runtime,enum=resolved-at-compile"`
@@ -147,6 +160,11 @@ type TypeUse struct {
 	Constraints     FieldConstraints              `json:"constraints"`
 	Examples        []json.RawMessage             `json:"examples"`
 	EditorAdapter   string                        `json:"editorAdapter,omitempty"`
+	Unit            string                        `json:"unit,omitempty"`
+	HelpKey         string                        `json:"helpKey,omitempty"`
+	Importance      string                        `json:"importance,omitempty"`
+	InlinePriority  int                           `json:"inlinePriority,omitempty"`
+	Preset          string                        `json:"preset,omitempty"`
 }
 
 type PortProjection struct {
@@ -154,6 +172,13 @@ type PortProjection struct {
 	TitleKey       string                             `json:"titleKey,omitempty"`
 	DescriptionKey string                             `json:"descriptionKey,omitempty"`
 	EditorAdapter  string                             `json:"editorAdapter,omitempty"`
+	Group          string                             `json:"group,omitempty"`
+	Order          int                                `json:"order,omitempty"`
+	Importance     string                             `json:"importance,omitempty"`
+	Unit           string                             `json:"unit,omitempty"`
+	InlinePriority int                                `json:"inlinePriority,omitempty"`
+	Preset         string                             `json:"preset,omitempty"`
+	HelpKey        string                             `json:"helpKey,omitempty"`
 	Binding        BindingState                       `json:"binding" jsonschema:"required,enum=required,enum=optional,enum=default-available,enum=output"`
 	HasDefault     bool                               `json:"hasDefault"`
 	Default        json.RawMessage                    `json:"default,omitempty"`
@@ -332,7 +357,8 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 			TypeRef: ref, SchemaRoot: machine.SchemaRoot, TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
 			Traits: append([]datatype.Trait{}, machine.Traits...), AssignableTo: projectedAssignableTargets(input.Catalog, ref, refs),
 			Structure: machine.Structure,
-			Color:     authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
+			Color:     authoring.Color, Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter, Unit: authoring.Unit,
+			HelpKey: authoring.HelpKey, Importance: authoring.Importance, InlinePriority: authoring.InlinePriority, Preset: authoring.Preset,
 			Examples: cloneRawList(authoring.Examples), Representations: append([]datatype.RepresentationSpec(nil), machine.Representations...),
 			Lifecycle: lifecycleFor(machine.Representations), Control: controlForSchema(resolved, complete), Constraints: constraintsFor(resolved),
 		}
@@ -440,7 +466,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	for _, port := range authoring.Ports {
 		portAuthoring[port.ID] = port
 	}
-	for _, port := range machine.Ports.DataInputs {
+	for index, port := range machine.Ports.DataInputs {
 		use, err := projectTypeUse(port.Type, types)
 		if err != nil {
 			return NodeProjection{}, fmt.Errorf("input %q: %w", port.ID, err)
@@ -456,8 +482,36 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			carrier = CarrierRuntime
 		}
 		hint := portAuthoring[port.ID]
+		order := index + 1
+		if hint.Order > 0 {
+			order = hint.Order
+		}
+		importance := hint.Importance
+		if importance == "" {
+			importance = use.Importance
+		}
+		if importance == "" && binding == BindingRequired {
+			importance = "primary"
+		}
+		unit := hint.Unit
+		if unit == "" {
+			unit = use.Unit
+		}
+		inlinePriority := hint.InlinePriority
+		if inlinePriority == 0 {
+			inlinePriority = use.InlinePriority
+		}
+		preset := hint.Preset
+		if preset == "" {
+			preset = use.Preset
+		}
+		helpKey := hint.HelpKey
+		if helpKey == "" {
+			helpKey = use.HelpKey
+		}
 		projectedPort := PortProjection{
 			ID: port.ID, TitleKey: hint.TitleKey, DescriptionKey: hint.DescriptionKey, EditorAdapter: hint.EditorAdapter,
+			Group: hint.Group, Order: order, Importance: importance, Unit: unit, InlinePriority: inlinePriority, Preset: preset, HelpKey: helpKey,
 			Binding: binding, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease),
 		}
 		if port.Default != nil {
@@ -466,7 +520,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		}
 		projection.DataInputs = append(projection.DataInputs, projectedPort)
 	}
-	for _, port := range machine.Ports.DataOutputs {
+	for index, port := range machine.Ports.DataOutputs {
 		use, err := projectTypeUse(port.Type, types)
 		if err != nil {
 			return NodeProjection{}, fmt.Errorf("output %q: %w", port.ID, err)
@@ -476,8 +530,29 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 			carrier = CarrierRuntime
 		}
 		hint := portAuthoring[port.ID]
+		order := index + 1
+		if hint.Order > 0 {
+			order = hint.Order
+		}
+		importance := hint.Importance
+		if importance == "" {
+			importance = use.Importance
+		}
+		unit := hint.Unit
+		if unit == "" {
+			unit = use.Unit
+		}
+		preset := hint.Preset
+		if preset == "" {
+			preset = use.Preset
+		}
+		helpKey := hint.HelpKey
+		if helpKey == "" {
+			helpKey = use.HelpKey
+		}
 		projection.DataOutputs = append(projection.DataOutputs, PortProjection{
 			ID: port.ID, TitleKey: hint.TitleKey, DescriptionKey: hint.DescriptionKey, EditorAdapter: hint.EditorAdapter,
+			Group: "output", Order: order, Importance: importance, Unit: unit, Preset: preset, HelpKey: helpKey,
 			Binding: BindingOutput, Carrier: carrier, Type: use, Lease: cloneLease(port.ResourceLease),
 		})
 	}
@@ -590,6 +665,8 @@ func projectTypeUse(expression datatype.TypeExpression, types map[string]TypePro
 		projection := types[use.TypeIDs[0]]
 		use.Color, use.Control, use.Constraints = projection.Color, projection.Control, cloneConstraints(projection.Constraints)
 		use.Examples, use.EditorAdapter = cloneRawList(projection.Examples), projection.EditorAdapter
+		use.Unit, use.HelpKey, use.Importance = projection.Unit, projection.HelpKey, projection.Importance
+		use.InlinePriority, use.Preset = projection.InlinePriority, projection.Preset
 	}
 	if expression.Kind != datatype.TypeExpressionRef {
 		use.Control, use.Constraints, use.Examples, use.EditorAdapter = ControlJSON, FieldConstraints{Enum: []json.RawMessage{}}, []json.RawMessage{}, ""
@@ -672,6 +749,10 @@ func projectField(id string, schema map[string]any, required bool, bundle []data
 		TitleKey: stringValue(resolved["x-yotta-title-key"]), DescriptionKey: stringValue(resolved["x-yotta-description-key"]), Required: required,
 		Examples: rawList(resolved["examples"]), Deprecated: boolValue(resolved["deprecated"]), ReadOnly: boolValue(resolved["readOnly"]),
 		Constraints: constraintsFor(resolved), Properties: []FieldProjection{},
+		Group: stringValue(resolved["x-yotta-group"]), Order: intValue(resolved["x-yotta-order"]),
+		Importance: stringValue(resolved["x-yotta-importance"]), Unit: stringValue(resolved["x-yotta-unit"]),
+		InlinePriority: intValue(resolved["x-yotta-inline-priority"]), Preset: stringValue(resolved["x-yotta-preset"]),
+		HelpKey: stringValue(resolved["x-yotta-help-key"]), EditorAdapter: stringValue(resolved["x-yotta-editor-adapter"]),
 	}
 	if value, ok := resolved["default"]; ok {
 		field.HasDefault = true
@@ -1008,6 +1089,14 @@ func intPointer(value any) *int {
 	}
 	result := int(parsed)
 	return &result
+}
+
+func intValue(value any) int {
+	result := intPointer(value)
+	if result == nil {
+		return 0
+	}
+	return *result
 }
 
 func schemaType(schema map[string]any) string {

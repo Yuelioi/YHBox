@@ -64,6 +64,33 @@ func TestConfigProjectionUsesExplicitCodeControlOnlyForStrings(t *testing.T) {
 	}
 }
 
+func TestConfigProjectionCarriesAuthoringSurfaceMetadata(t *testing.T) {
+	const root = "https://schemas.yotta.dev/test/config"
+	fields, err := projectConfigFields([]datatype.SchemaResource{{ID: root, Schema: json.RawMessage(`{
+		"$id":"https://schemas.yotta.dev/test/config",
+		"type":"object",
+		"properties":{"timeout":{
+			"type":"integer",
+			"x-yotta-group":"advanced",
+			"x-yotta-order":12,
+			"x-yotta-importance":"advanced",
+			"x-yotta-unit":"ms",
+			"x-yotta-inline-priority":30,
+			"x-yotta-preset":"polling",
+			"x-yotta-help-key":"node.test.timeout.help",
+			"x-yotta-editor-adapter":"duration"
+		}}
+	}`)}}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 1 || fields[0].Group != "advanced" || fields[0].Order != 12 || fields[0].Importance != "advanced" ||
+		fields[0].Unit != "ms" || fields[0].InlinePriority != 30 || fields[0].Preset != "polling" ||
+		fields[0].HelpKey != "node.test.timeout.help" || fields[0].EditorAdapter != "duration" {
+		t.Fatalf("authoring surface field = %#v", fields)
+	}
+}
+
 func TestConfigProjectionBoundsReferenceDAGExpansion(t *testing.T) {
 	const root = "https://schemas.yotta.dev/test/config"
 	defs := []string{`"leaf":{"type":"string"}`}

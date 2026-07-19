@@ -29,7 +29,7 @@ export function useWailsEvent<T = unknown>(name: string, handler: (payload: T) =
 }
 
 // awaitWailsEvent 订阅一次，等到 match 函数返 true 的 payload 就 resolve 并自动 unsub。
-// match 返 false 的 payload 继续等。永不超时——调用方自己负责挂 abort。
+// match 返 false 的 payload 继续等。默认永不超时；调用方可传 AbortSignal 取消等待。
 //
 // 典型用法（屏幕选择器）：
 //   const r = await awaitWailsEvent<PickerResult>(
@@ -39,15 +39,39 @@ export function useWailsEvent<T = unknown>(name: string, handler: (payload: T) =
 export function awaitWailsEvent<T = unknown>(
   name: string,
   match: (payload: T) => boolean,
+  signal?: AbortSignal,
 ): Promise<T> {
-  return new Promise<T>((resolve) => {
-    const off = Events.On(name, (e: any) => {
+  return new Promise<T>((resolve, reject) => {
+    let off: AnyFn | undefined
+    let settled = false
+
+    const cleanup = () => {
+      off?.()
+      signal?.removeEventListener('abort', handleAbort)
+    }
+    const handleAbort = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(signal?.reason ?? new DOMException('The operation was aborted', 'AbortError'))
+    }
+
+    if (signal?.aborted) {
+      handleAbort()
+      return
+    }
+
+    const subscription = Events.On(name, (e: any) => {
       const payload: T = (e?.data ?? e) as T
       if (!match(payload)) return
-      if (typeof (off as unknown as AnyFn) === 'function') {
-        ;(off as unknown as AnyFn)()
-      }
+      if (settled) return
+      settled = true
+      cleanup()
       resolve(payload)
     })
+    if (typeof (subscription as unknown as AnyFn) === 'function') {
+      off = subscription as unknown as AnyFn
+    }
+    signal?.addEventListener('abort', handleAbort, { once: true })
   })
 }

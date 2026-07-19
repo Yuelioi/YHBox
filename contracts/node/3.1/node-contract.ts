@@ -72,8 +72,15 @@ export interface Authoring {
 export interface PortAuthoring {
   descriptionKey?: string
   editorAdapter?: string
+  group?: 'required' | 'common' | 'advanced' | 'output'
+  helpKey?: string
   id: string
+  importance?: string
+  inlinePriority?: number
+  order?: number
+  preset?: string
   titleKey?: string
+  unit?: string
 }
 export interface NodeRef {
   nodeTypeId: string

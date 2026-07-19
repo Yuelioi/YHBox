@@ -323,18 +323,39 @@
         "descriptionKey": {
           "type": "string"
         },
+        "editorAdapter": {
+          "type": "string"
+        },
         "examples": {
           "items": true,
           "type": "array"
         },
+        "group": {
+          "type": "string"
+        },
         "hasDefault": {
           "type": "boolean"
+        },
+        "helpKey": {
+          "type": "string"
         },
         "id": {
           "type": "string"
         },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
         "items": {
           "$ref": "#/$defs/FieldProjection"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
+          "type": "string"
         },
         "properties": {
           "items": {
@@ -352,6 +373,9 @@
           "type": "string"
         },
         "titleKey": {
+          "type": "string"
+        },
+        "unit": {
           "type": "string"
         }
       },
@@ -694,10 +718,28 @@
         "editorAdapter": {
           "type": "string"
         },
+        "group": {
+          "type": "string"
+        },
         "hasDefault": {
           "type": "boolean"
         },
+        "helpKey": {
+          "type": "string"
+        },
         "id": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
           "type": "string"
         },
         "resourceLease": {
@@ -708,6 +750,9 @@
         },
         "type": {
           "$ref": "#/$defs/TypeUse"
+        },
+        "unit": {
+          "type": "string"
         }
       },
       "required": [
@@ -1082,8 +1127,17 @@
           "items": true,
           "type": "array"
         },
+        "helpKey": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
         },
         "lifecycle": {
           "enum": [
@@ -1092,6 +1146,9 @@
             "durable-or-runtime",
             "resolved-at-compile"
           ],
+          "type": "string"
+        },
+        "preset": {
           "type": "string"
         },
         "representations": {
@@ -1117,6 +1174,9 @@
         },
         "typeRef": {
           "$ref": "#/$defs/TypeRef"
+        },
+        "unit": {
+          "type": "string"
         }
       },
       "required": [
@@ -1185,6 +1245,15 @@
         "expression": {
           "$ref": "#/$defs/TypeExpression"
         },
+        "helpKey": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
         "label": {
           "type": "string"
         },
@@ -1195,6 +1264,9 @@
             "durable-or-runtime",
             "resolved-at-compile"
           ],
+          "type": "string"
+        },
+        "preset": {
           "type": "string"
         },
         "representations": {
@@ -1211,6 +1283,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "unit": {
+          "type": "string"
         }
       },
       "required": [

@@ -17,6 +17,13 @@ func TestVisionAnalysisCatalogUsesTypedDataAndOneReadAuthority(t *testing.T) {
 		if !ok || len(definition.Machine().Representations) != 1 || definition.Machine().Representations[0].Kind != datatype.RepresentationInlineJSON {
 			t.Fatalf("vision type %q = %#v", typeID, definition)
 		}
+		if typeID == ColorRangeTypeID {
+			authoring := definition.Authoring()
+			if authoring.EditorAdapter != "color-range" || authoring.Importance != "primary" ||
+				authoring.InlinePriority != 100 || authoring.Preset != "sample-target" {
+				t.Fatalf("color range authoring = %#v", authoring)
+			}
+		}
 	}
 	nodes := []struct {
 		id     string

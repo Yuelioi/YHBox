@@ -1,56 +1,147 @@
 <template>
-  <div class="grid grid-cols-[1fr_1fr_92px] gap-2">
-    <UInputNumber
-      :model-value="point.x"
-      :placeholder="t('workflow.inspector.point_x')"
-      class="w-full"
-      @update:model-value="update('x', Number($event))"
-    />
-    <UInputNumber
-      :model-value="point.y"
-      :placeholder="t('workflow.inspector.point_y')"
-      class="w-full"
-      @update:model-value="update('y', Number($event))"
-    />
-    <AdaptiveSelect
-      :model-value="point.unit"
-      :items="units"
-      class="w-full"
-      width-mode="fill"
-      @update:model-value="update('unit', $event === 'px' ? 'px' : 'ratio')"
-    />
+  <div class="space-y-2">
+    <div class="flex items-center justify-between gap-2">
+      <div class="inline-flex rounded-md bg-muted p-0.5 text-[10px]">
+        <button
+          v-for="candidate in units"
+          :key="candidate.value"
+          type="button"
+          class="rounded px-2 py-1"
+          :class="point.unit === candidate.value ? 'bg-primary text-inverted' : 'text-muted'"
+          @click="void setUnit(candidate.value)"
+        >
+          {{ candidate.label }}
+        </button>
+      </div>
+      <UButton
+        icon="i-tabler-pointer"
+        :label="compact ? undefined : t('workflow.inspector.pick_point')"
+        color="primary"
+        variant="soft"
+        size="xs"
+        :disabled="!targetSlot"
+        :loading="picking"
+        @click="pickPoint"
+      />
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <UFormField :label="`${t('workflow.inspector.point_x')} ${unitLabel}`">
+        <UInputNumber
+          :model-value="displayX"
+          :min="0"
+          :max="point.unit === 'ratio' ? 100 : undefined"
+          :step="point.unit === 'ratio' ? 0.1 : 1"
+          class="w-full"
+          @update:model-value="update('x', Number($event))"
+        />
+      </UFormField>
+      <UFormField :label="`${t('workflow.inspector.point_y')} ${unitLabel}`">
+        <UInputNumber
+          :model-value="displayY"
+          :min="0"
+          :max="point.unit === 'ratio' ? 100 : undefined"
+          :step="point.unit === 'ratio' ? 0.1 : 1"
+          class="w-full"
+          @update:model-value="update('y', Number($event))"
+        />
+      </UFormField>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import { useToast } from '@nuxt/ui/composables'
+import { pickTargetValue, targetDimensions, type TargetPoint } from './useTargetPicker'
+import {
+  pointValueFromTarget,
+  type CoordinateUnit as Unit,
+  type PointValue,
+} from './targetValueMapping'
 
-type PointValue = { x: number; y: number; unit: 'ratio' | 'px' }
-
-const props = defineProps<{ modelValue: unknown }>()
+const props = defineProps<{ modelValue: unknown; targetSlot?: string; compact?: boolean }>()
 const emit = defineEmits<{ 'update:model-value': [value: PointValue] }>()
 const { t } = useI18n()
+const toast = useToast()
+const picking = ref(false)
+const targetSlot = computed(() => props.targetSlot ?? '')
+const point = computed<PointValue>(() => normalize(props.modelValue))
+const displayX = computed(() => point.value.x * (point.value.unit === 'ratio' ? 100 : 1))
+const displayY = computed(() => point.value.y * (point.value.unit === 'ratio' ? 100 : 1))
+const unitLabel = computed(() => (point.value.unit === 'ratio' ? '%' : 'px'))
+const units: Array<{ label: string; value: Unit }> = [
+  { label: '%', value: 'ratio' },
+  { label: 'px', value: 'px' },
+]
 
-const point = computed<PointValue>(() => {
-  if (!props.modelValue || typeof props.modelValue !== 'object') {
-    return { x: 0, y: 0, unit: 'ratio' }
+function update(key: 'x' | 'y', display: number): void {
+  if (!Number.isFinite(display)) return
+  emit('update:model-value', {
+    ...point.value,
+    [key]: Math.max(0, display) / (point.value.unit === 'ratio' ? 100 : 1),
+  })
+}
+
+async function setUnit(unit: Unit): Promise<void> {
+  if (unit === point.value.unit) return
+  if (point.value.x === 0 && point.value.y === 0) {
+    emit('update:model-value', { ...point.value, unit })
+    return
   }
-  const value = props.modelValue as Record<string, unknown>
+  try {
+    const dimensions = await targetDimensions(targetSlot.value)
+    emit(
+      'update:model-value',
+      point.value.unit === 'ratio'
+        ? {
+            x: Math.round(point.value.x * dimensions.width),
+            y: Math.round(point.value.y * dimensions.height),
+            unit: 'px',
+          }
+        : {
+            x: point.value.x / dimensions.width,
+            y: point.value.y / dimensions.height,
+            unit: 'ratio',
+          },
+    )
+  } catch (error) {
+    showPickerError(error)
+  }
+}
+
+async function pickPoint(): Promise<void> {
+  if (!targetSlot.value || picking.value) return
+  picking.value = true
+  try {
+    const picked = await pickTargetValue<TargetPoint>('point', targetSlot.value)
+    if (!picked) return
+    emit('update:model-value', pointValueFromTarget(picked, point.value.unit))
+  } catch (error) {
+    showPickerError(error)
+  } finally {
+    picking.value = false
+  }
+}
+
+function showPickerError(error: unknown): void {
+  toast.add({
+    title: t('workflow.inspector.pick_failed'),
+    description: error instanceof Error ? error.message : String(error),
+    color: 'error',
+  })
+}
+
+function normalize(value: unknown): PointValue {
+  const candidate = value && typeof value === 'object' ? (value as Partial<PointValue>) : {}
   return {
-    x: typeof value.x === 'number' ? value.x : 0,
-    y: typeof value.y === 'number' ? value.y : 0,
-    unit: value.unit === 'px' ? 'px' : 'ratio',
+    x: finite(candidate.x),
+    y: finite(candidate.y),
+    unit: candidate.unit === 'px' ? 'px' : 'ratio',
   }
-})
+}
 
-const units = computed(() => [
-  { label: t('workflow.inspector.point_ratio'), value: 'ratio' },
-  { label: t('workflow.inspector.point_px'), value: 'px' },
-])
-
-function update<Key extends keyof PointValue>(key: Key, value: PointValue[Key]): void {
-  emit('update:model-value', { ...point.value, [key]: value })
+function finite(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 </script>

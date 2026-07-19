@@ -31,9 +31,9 @@ describe('workflow authoring foundations', () => {
     const generatedField = readSource('src/app/editor/GeneratedFieldEditor.vue')
     expect(editor).toContain('<WorkflowStatePanel')
     expect(inspector).not.toContain("kind: 'add-state-variable'")
-    expect(inspector).toContain(':select-items="targetItems(field.id)"')
-    expect(inspector).toContain(
-      "path: '/settings', query: { section: targetSettingsSection(field.id) }",
+    expect(inspector).toContain('<WorkflowAuthoringSurfaceItem')
+    expect(readSource('src/app/editor/WorkflowAuthoringSurfaceItem.vue')).toContain(
+      "path: '/settings', query: { section: targetSettingsSection }",
     )
     expect(inspector).toContain('projectionDescription')
     expect(generatedField).toContain('<USelectMenu')

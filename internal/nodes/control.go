@@ -37,7 +37,8 @@ func sealDurationMillisecondsType() (datatype.Definition, error) {
 		}`, DurationMillisecondsTypeID+"/schema", MaxDelayMilliseconds)),
 		datatype.Authoring{
 			TitleKey: "type.time.durationMilliseconds.title", DescriptionKey: "type.time.durationMilliseconds.description",
-			Color: "#a78bfa", Icon: "clock-hour-4", Examples: []json.RawMessage{json.RawMessage("1000")},
+			Color: "#a78bfa", Icon: "clock-hour-4", EditorAdapter: "duration", Unit: "ms", Importance: "common", InlinePriority: 30,
+			Examples: []json.RawMessage{json.RawMessage("1000")},
 		},
 	)
 }

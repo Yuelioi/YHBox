@@ -111,6 +111,18 @@ func TestSealDefinitionRejectsUnregisteredPresentationAndCodec(t *testing.T) {
 	}
 
 	draft = definitionDraftForTest()
+	draft.Authoring.Importance = "plugin-important"
+	if _, err := SealDefinition(draft); err == nil {
+		t.Fatal("accepted unregistered authoring importance")
+	}
+
+	draft = definitionDraftForTest()
+	draft.Authoring.InlinePriority = 1001
+	if _, err := SealDefinition(draft); err == nil {
+		t.Fatal("accepted out-of-range inline priority")
+	}
+
+	draft = definitionDraftForTest()
 	draft.Representations[0].Codec = " yotta.jcs/v1 "
 	if _, err := SealDefinition(draft); err == nil {
 		t.Fatal("accepted non-canonical codec identity")

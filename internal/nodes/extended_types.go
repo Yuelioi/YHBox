@@ -38,6 +38,7 @@ func sealExtendedTypes(numberRef datatype.TypeRef) (datatype.Definition, datatyp
 		}`, PointTypeID+"/schema")),
 		datatype.Authoring{
 			TitleKey: "type.geometry.point.title", DescriptionKey: "type.geometry.point.description", Color: "#22c55e", Icon: "map-pin", EditorAdapter: "point",
+			Importance: "primary", InlinePriority: 100,
 			Examples:      []json.RawMessage{json.RawMessage(`{"x":0.5,"y":0.5,"unit":"ratio"}`), json.RawMessage(`{"x":640,"y":360,"unit":"px"}`)},
 			BreakTitleKey: "node.structure.breakPoint.title", BreakDescriptionKey: "node.structure.breakPoint.description",
 		},
@@ -58,7 +59,8 @@ func sealExtendedTypes(numberRef datatype.TypeRef) (datatype.Definition, datatyp
 			"required":["x","y","width","height","unit"],"additionalProperties":false
 		}`, RegionTypeID+"/schema")),
 		datatype.Authoring{
-			TitleKey: "type.geometry.region.title", DescriptionKey: "type.geometry.region.description", Color: "#84cc16", Icon: "crop",
+			TitleKey: "type.geometry.region.title", DescriptionKey: "type.geometry.region.description", Color: "#84cc16", Icon: "crop", EditorAdapter: "region",
+			Importance: "primary", InlinePriority: 80,
 			Examples:      []json.RawMessage{json.RawMessage(`{"x":0.25,"y":0.25,"width":0.5,"height":0.5,"unit":"ratio"}`)},
 			BreakTitleKey: "node.structure.breakRegion.title", BreakDescriptionKey: "node.structure.breakRegion.description",
 		},

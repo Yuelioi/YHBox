@@ -655,11 +655,38 @@
         "editorAdapter": {
           "type": "string"
         },
+        "group": {
+          "enum": [
+            "required",
+            "common",
+            "advanced",
+            "output"
+          ],
+          "type": "string"
+        },
+        "helpKey": {
+          "type": "string"
+        },
         "id": {
           "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
           "type": "string"
         },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
+          "type": "string"
+        },
         "titleKey": {
+          "type": "string"
+        },
+        "unit": {
           "type": "string"
         }
       },

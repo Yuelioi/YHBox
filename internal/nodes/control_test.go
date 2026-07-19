@@ -62,7 +62,8 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	}
 	duration, ok := projection.Type(DurationMillisecondsTypeID)
 	if !ok || duration.Control != nodeauthoring.ControlInteger || string(duration.Constraints.Minimum) != "0" ||
-		string(duration.Constraints.Maximum) != "86400000" {
+		string(duration.Constraints.Maximum) != "86400000" || duration.EditorAdapter != "duration" ||
+		duration.Unit != "ms" || duration.Importance != "common" || duration.InlinePriority != 30 {
 		t.Fatalf("duration authoring = %#v", duration)
 	}
 	retryProjection, ok := projection.Node(RetryNodeID)

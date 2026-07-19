@@ -121,6 +121,10 @@ func TestPortAuthoringIsStrictAndCannotReferenceUnknownPorts(t *testing.T) {
 	if _, err := Seal(draft); err == nil {
 		t.Fatal("accepted an unregistered port editor adapter")
 	}
+	draft.Authoring.Ports[0] = PortAuthoring{ID: "a", Group: "plugin-section"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an unregistered authoring group")
+	}
 }
 
 func TestSealNormalizesAndValidatesHostFeatureRequirements(t *testing.T) {

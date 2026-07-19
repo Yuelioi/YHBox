@@ -1,6 +1,6 @@
 ---
 kind: checklist
-summary: "3.1 强类型创作统一契约：名义类型、显式关系、可执行泛型约束、可见转换和 Catalog 驱动候选形成闭环"
+summary: "3.1 强类型创作统一契约：名义类型、显式关系、非语义 Authoring Surface、可见转换和 Catalog 驱动候选形成闭环"
 activation: action
 read_when: "修改 Data Type、TypeExpression、泛型节点、转换节点、端口连线、Run 状态类型、拖线候选或结构化值字段时"
 recheck_when: "类型关系、转换自动插入、constraint registry、节点能力覆盖或 Authoring Projection 改变时"
@@ -19,6 +19,10 @@ recheck_when: "类型关系、转换自动插入、constraint registry、节点�
 - StateRead/Write 由 slot declaration 专化，连接不能反向改变声明。
 - 新 TypeRef 必须通过适用的 literal/state/observe/equality/operation/collection/conversion/serialization/debug 覆盖或 waiver。
 - Node default/config builder 每次返回新的深拷贝值；实例插入 Source command 后由该 revision 独占，禁止多个节点或 revision 共享可变默认对象。
+- group、order、importance、unit、inlinePriority、preset、help 与 editorAdapter 只属于非语义 Authoring Projection；不得改变 type、binding、carrier、capability 或 execution，也不得进入 semantic digest。
+- Inspector 与节点卡片必须消费同一 Authoring Surface 投影；页面不得按 nodeTypeId/kind 分支复杂字段。Point、Region、Duration、KeyChord、Asset、Target 等差异由类型级 Editor Adapter 隐藏，未知 adapter 安全退回通用 typed editor。
+- 节点卡片只可内联最多三个高优先级、未连线且具 inline-json 表示的输入；端口仍保留连接能力。复杂编辑器按需加载，不得为了改善创作体验突破编辑器初始 bundle 预算。
+- Point/Region 的 ratio/px 切换是用户发起的显式坐标转换，必须依赖当前有效 target 尺寸换算；无 target 时不得只改 unit 字段造成静默语义变化。ScreenPicker 只返回 typed value，不能持有 target authority 或执行工作流。
 
 ## 修改顺序
 

@@ -268,6 +268,13 @@ type PortAuthoring struct {
 	TitleKey       string `json:"titleKey,omitempty"`
 	DescriptionKey string `json:"descriptionKey,omitempty"`
 	EditorAdapter  string `json:"editorAdapter,omitempty"`
+	Group          string `json:"group,omitempty" jsonschema:"enum=required,enum=common,enum=advanced,enum=output"`
+	Order          int    `json:"order,omitempty"`
+	Importance     string `json:"importance,omitempty"`
+	Unit           string `json:"unit,omitempty"`
+	InlinePriority int    `json:"inlinePriority,omitempty"`
+	Preset         string `json:"preset,omitempty"`
+	HelpKey        string `json:"helpKey,omitempty"`
 }
 
 type Draft struct {
@@ -1092,7 +1099,7 @@ func normalizeAuthoring(source Authoring, ports PortSet) (Authoring, error) {
 		if _, ok := knownPorts[port.ID]; !ok || port.ID <= previous {
 			return Authoring{}, fmt.Errorf("unknown or duplicate authoring port %q", port.ID)
 		}
-		for _, value := range []string{port.TitleKey, port.DescriptionKey, port.EditorAdapter} {
+		for _, value := range []string{port.TitleKey, port.DescriptionKey, port.EditorAdapter, port.Group, port.Importance, port.Unit, port.Preset, port.HelpKey} {
 			if len(value) > MaxAuthoringBytes {
 				return Authoring{}, errors.New("port authoring annotation exceeds byte budget")
 			}
@@ -1101,6 +1108,15 @@ func normalizeAuthoring(source Authoring, ports PortSet) (Authoring, error) {
 		case "", "template-image":
 		default:
 			return Authoring{}, fmt.Errorf("unregistered port editor adapter %q", port.EditorAdapter)
+		}
+		if port.Importance != "" && port.Importance != "primary" && port.Importance != "common" && port.Importance != "advanced" {
+			return Authoring{}, fmt.Errorf("invalid port authoring importance %q", port.Importance)
+		}
+		if port.Group != "" && port.Group != "required" && port.Group != "common" && port.Group != "advanced" && port.Group != "output" {
+			return Authoring{}, fmt.Errorf("invalid port authoring group %q", port.Group)
+		}
+		if port.Order < 0 || port.Order > 100000 || port.InlinePriority < 0 || port.InlinePriority > 1000 {
+			return Authoring{}, fmt.Errorf("invalid port authoring order or inline priority for %q", port.ID)
 		}
 		previous = port.ID
 	}

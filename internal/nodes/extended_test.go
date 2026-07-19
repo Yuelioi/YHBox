@@ -51,12 +51,15 @@ func TestExtendedPureDefinitionsAreStrictAndGeneratedFromTheCatalog(t *testing.T
 	}
 	unit, _ := projection.Type(PointUnitTypeID)
 	point, _ := projection.Type(PointTypeID)
+	region, _ := projection.Type(RegionTypeID)
 	jsonType, _ := projection.Type(JSONTypeID)
 	if unit.Control != nodeauthoring.ControlSelect || len(unit.Constraints.Enum) != 2 {
 		t.Fatalf("point unit authoring = %#v", unit)
 	}
-	if point.EditorAdapter != "point" || jsonType.Control != nodeauthoring.ControlJSON {
-		t.Fatalf("point/json authoring = %#v / %#v", point, jsonType)
+	if point.EditorAdapter != "point" || point.Importance != "primary" || point.InlinePriority != 100 ||
+		region.EditorAdapter != "region" || region.Importance != "primary" || region.InlinePriority != 80 ||
+		jsonType.Control != nodeauthoring.ControlJSON {
+		t.Fatalf("point/region/json authoring = %#v / %#v / %#v", point, region, jsonType)
 	}
 	truncate, ok := projection.Node(TruncateToIntegerNodeID)
 	if !ok || truncate.Conversion == nil || truncate.Conversion.Kind != nodecontract.ConversionLossy ||

@@ -98,6 +98,34 @@
       </div>
     </div>
 
+    <div
+      v-if="surface.inlineInputs.length"
+      class="nodrag nopan space-y-2 border-t border-default bg-muted/15 px-3 py-2.5"
+      @pointerdown.stop
+    >
+      <div v-for="item in surface.inlineInputs" :key="item.key" class="space-y-1">
+        <div class="flex items-center gap-2 text-[10px]">
+          <span class="font-medium text-toned">{{ portTitle(item.port) }}</span>
+          <span v-if="item.port.unit" class="ml-auto text-dimmed">{{ item.port.unit }}</span>
+        </div>
+        <WorkflowValueEditor
+          :adapter="item.editorAdapter"
+          :port="item.port"
+          :model-value="inputValue(item.port)"
+          :target-slot="targetSlot"
+          compact
+          @update:model-value="
+            emit('command', {
+              kind: 'bind-value',
+              nodeId: node.id,
+              portId: item.port.id,
+              value: $event,
+            })
+          "
+        />
+      </div>
+    </div>
+
     <footer
       v-if="projection.statusEvents.length"
       class="flex items-center gap-1.5 border-t border-default px-3 py-1.5 text-[10px] text-dimmed"
@@ -111,14 +139,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { useI18n } from 'vue-i18n'
-import type { Node, NodeProjection } from '@/app/editor/EditorSession'
+import type { EditorCommand, Node, NodeProjection } from '@/app/editor/EditorSession'
+import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import { graphHandle, type HandleChannel } from '@/app/editor/graphHandles'
 import type { NodeRunStatus } from '@/app/editor/runTrace'
 import type { DiagnosticSeverity } from '@/app/editor/workflowDiagnostics'
 import { workflowNodeVisualState } from '@/app/editor/workflowNodeVisualState'
+import { projectAuthoringSurface } from '@/app/editor/authoringSurface'
+
+const WorkflowValueEditor = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowValueEditor.vue'),
+)
 
 interface Props {
   node: Node
@@ -128,6 +162,8 @@ interface Props {
   breakpoint?: boolean
   debugCurrent?: boolean
   diagnosticSeverity?: DiagnosticSeverity
+  connectedInputIds?: ReadonlySet<string>
+  targetSlot?: string
 }
 
 interface PinView {
@@ -138,7 +174,10 @@ interface PinView {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ 'toggle-breakpoint': [] }>()
+const emit = defineEmits<{
+  'toggle-breakpoint': []
+  command: [command: EditorCommand]
+}>()
 const { t, te } = useI18n()
 
 const title = computed(() => {
@@ -151,6 +190,9 @@ const title = computed(() => {
 const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)
 
 const visualState = computed(() => workflowNodeVisualState(props))
+const surface = computed(() =>
+  projectAuthoringSurface(props.projection, props.node, props.connectedInputIds ?? new Set()),
+)
 const diagnosticIcon = computed(() =>
   visualState.value.diagnosticTone === 'error'
     ? 'i-tabler-alert-circle-filled'
@@ -207,6 +249,15 @@ const rightPins = computed<PinView[]>(() => [
     color: port.type.color || '#a1a1aa',
   })),
 ])
+
+function inputValue(port: PortProjection): unknown {
+  const binding = props.node.bindings[port.id]
+  return binding?.kind === 'value' ? binding.value : port.default
+}
+
+function portTitle(port: PortProjection): string {
+  return port.titleKey && te(port.titleKey) ? t(port.titleKey) : port.id
+}
 </script>
 
 <style scoped>

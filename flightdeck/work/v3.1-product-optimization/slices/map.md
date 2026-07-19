@@ -9,6 +9,6 @@
 | 05 精准录制工作台 | completed | 04 的共享输入基础 | 独立 InputClip 工作台、裁剪和诊断 |
 | 10 工作区资源与运行态恢复 | completed | 04、05 的现有实现 | pending 保存、编辑器资源工作区、运行态和工具栏层级 |
 | 06 真实调试链路和运行工作台 | completed | 10 的稳定编辑器交互 | generation 单调且多节点 Step/Stop 闭环 |
-| 07 Authoring Surface 深模块 | pending | 06 | 通用投影与类型级 Editor Adapter |
-| 08 视觉分析与配方闭环 | pending | 07 | 取样、区域、预览和任务配方 |
+| 07 Authoring Surface 深模块 | completed | 06 | 通用投影与类型级 Editor Adapter |
+| 08 视觉分析与配方闭环 | completed | 07 | 取样、区域、预览和任务配方 |
 | 09 工作区一致性与黄金路径 | pending | 08 | 商业交付收口与完整能力连续性验收 |

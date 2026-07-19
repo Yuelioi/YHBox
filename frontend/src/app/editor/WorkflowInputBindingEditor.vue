@@ -12,58 +12,19 @@
       >
     </div>
     <p v-if="portDescription" class="text-[11px] leading-5 text-muted">{{ portDescription }}</p>
-    <PointValueEditor
-      v-if="acceptsInline && port.type.editorAdapter === 'point'"
+    <p
+      v-if="missingRequired"
+      class="rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[11px] text-warning"
+    >
+      {{ t('workflow.inspector.required_value') }}
+    </p>
+    <WorkflowValueEditor
+      v-if="acceptsInline"
+      :adapter="editorAdapter"
+      :port="port"
       :model-value="literalValue"
+      :target-slot="targetSlot"
       @update:model-value="setLiteral"
-    />
-    <ColorRangeValueEditor
-      v-else-if="acceptsInline && port.type.editorAdapter === 'color-range'"
-      :model-value="literalValue"
-      @update:model-value="setLiteral"
-    />
-    <KeyChordValueEditor
-      v-else-if="acceptsInline && isKeyChordType(port.type.expression)"
-      :model-value="literalKeyChord"
-      @update:model-value="setLiteral"
-    />
-    <USwitch
-      v-else-if="acceptsInline && port.type.control === 'toggle'"
-      :model-value="literalBoolean"
-      @update:model-value="setLiteral"
-    />
-    <UInputNumber
-      v-else-if="
-        acceptsInline && (port.type.control === 'number' || port.type.control === 'integer')
-      "
-      :model-value="literalNumber"
-      :min="numericConstraint(port.type.constraints.minimum)"
-      :max="numericConstraint(port.type.constraints.maximum)"
-      :step="port.type.control === 'integer' ? 1 : 'any'"
-      class="w-full"
-      @update:model-value="setLiteral(Number($event))"
-    />
-    <AdaptiveSelect
-      v-else-if="acceptsInline && port.type.control === 'select'"
-      :model-value="literalValue"
-      :items="port.type.constraints.enum.map((value) => ({ label: String(value), value }))"
-      width-mode="fill"
-      class="w-full"
-      @update:model-value="setLiteral"
-    />
-    <UInput
-      v-else-if="acceptsInline && port.type.control === 'text'"
-      :model-value="literalText"
-      :placeholder="literalPlaceholder"
-      class="w-full"
-      @change="setLiteralText"
-    />
-    <UTextarea
-      v-else-if="acceptsInline"
-      :model-value="literalJSON"
-      :placeholder="literalPlaceholder"
-      class="w-full font-mono text-xs"
-      @change="setLiteralJSON"
     />
     <AssetReferenceField
       v-else-if="usesAssetPicker"
@@ -76,7 +37,10 @@
       @change="pickerOpen = true"
       @clear="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
     />
-    <p v-if="!usesAssetPicker" class="text-[11px] leading-5 text-muted">
+    <p v-if="needsPickerTarget" class="text-[11px] leading-5 text-warning">
+      {{ t('workflow.inspector.picker_target_required') }}
+    </p>
+    <p v-if="!acceptsInline && !usesAssetPicker" class="text-[11px] leading-5 text-muted">
       {{ t('workflow.inspector.reference_only', { carrier: port.carrier }) }}
     </p>
     <div class="flex items-center gap-2">
@@ -108,25 +72,27 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
-import PointValueEditor from '@/app/editor/PointValueEditor.vue'
-import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
-import KeyChordValueEditor from '@/app/editor/KeyChordValueEditor.vue'
-import { isKeyChordType } from '@/app/editor/keyChord'
+import { resolvePortAdapter } from '@/app/editor/authoringSurface'
 import AssetReferenceField from '@/app/editor/AssetReferenceField.vue'
-import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import type { AssetBinding } from '@/lib/backend'
+
+const WorkflowValueEditor = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowValueEditor.vue'),
+)
 
 const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 const macroTypeId = 'https://schemas.yotta.dev/types/automation/macro/v1'
 const props = defineProps<{
   node: Node
   port: PortProjection
+  targetSlot?: string
+  connected?: boolean
 }>()
 const emit = defineEmits<{ command: [command: EditorCommand] }>()
 const { t, te } = useI18n()
@@ -141,6 +107,7 @@ const binding = computed(() => props.node.bindings[props.port.id])
 const acceptsInline = computed(() =>
   props.port.type.representations.some((item) => item.kind === 'inline-json'),
 )
+const editorAdapter = computed(() => resolvePortAdapter(props.port))
 const isInputClip = computed(() => props.port.type.typeIds.includes(inputClipTypeId))
 const isMacro = computed(() => props.port.type.typeIds.includes(macroTypeId))
 const assetKind = computed<'template' | 'macro' | 'clip' | null>(() => {
@@ -150,6 +117,16 @@ const assetKind = computed<'template' | 'macro' | 'clip' | null>(() => {
   return null
 })
 const usesAssetPicker = computed(() => assetKind.value !== null)
+const missingRequired = computed(
+  () =>
+    props.port.binding === 'required' &&
+    !props.connected &&
+    !binding.value &&
+    !props.port.hasDefault,
+)
+const needsPickerTarget = computed(
+  () => !props.targetSlot && ['point', 'region', 'color-range'].includes(editorAdapter.value),
+)
 const bindingBlob = computed(() =>
   binding.value?.kind === 'blob' ? binding.value.blob : undefined,
 )
@@ -189,34 +166,6 @@ const typeLabel = computed(() =>
 const literalValue = computed(() =>
   binding.value?.kind === 'value' ? binding.value.value : props.port.default,
 )
-const literalBoolean = computed(() =>
-  typeof literalValue.value === 'boolean' ? literalValue.value : false,
-)
-const literalNumber = computed(() =>
-  typeof literalValue.value === 'number' ? literalValue.value : undefined,
-)
-const literalText = computed(() =>
-  binding.value?.kind === 'value' && typeof binding.value.value === 'string'
-    ? binding.value.value
-    : '',
-)
-const literalKeyChord = computed(() =>
-  Array.isArray(literalValue.value)
-    ? literalValue.value.filter((value): value is string => typeof value === 'string')
-    : [],
-)
-const literalJSON = computed(() =>
-  literalValue.value === undefined ? '' : JSON.stringify(literalValue.value, null, 2),
-)
-const literalPlaceholder = computed(() =>
-  props.port.hasDefault && typeof props.port.default === 'string'
-    ? props.port.default
-    : t(
-        props.port.binding === 'required'
-          ? 'workflow.inspector.required_value'
-          : 'workflow.inspector.optional_value',
-      ),
-)
 watch(
   () =>
     [
@@ -229,21 +178,8 @@ watch(
   { immediate: true },
 )
 
-function numericConstraint(value: unknown): number | undefined {
-  return typeof value === 'number' ? value : undefined
-}
 function setLiteral(value: unknown): void {
   emit('command', { kind: 'bind-value', nodeId: props.node.id, portId: props.port.id, value })
-}
-function setLiteralText(event: Event): void {
-  setLiteral((event.target as HTMLInputElement).value)
-}
-function setLiteralJSON(event: Event): void {
-  try {
-    setLiteral(JSON.parse((event.target as HTMLTextAreaElement).value))
-  } catch {
-    return
-  }
 }
 function setAsset(selection: AssetPickerSelection): void {
   immediateSelection.value = selection

@@ -260,6 +260,38 @@
               />
             </div>
             <div class="flex-1 overflow-y-auto p-2">
+              <section
+                v-if="workflowRecipeResults.length"
+                class="mb-3 rounded-lg border border-primary/20 bg-primary/5 p-2"
+              >
+                <div class="flex items-center justify-between px-1 pb-1.5">
+                  <h3 class="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    {{ t('workflow.recipes.title') }}
+                  </h3>
+                  <span class="font-mono text-[9px] text-dimmed">
+                    {{ workflowRecipeResults.length }}
+                  </span>
+                </div>
+                <button
+                  v-for="recipe in workflowRecipeResults"
+                  :key="recipe.id"
+                  type="button"
+                  data-testid="workflow-recipe-item"
+                  class="group flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  @click="addRecipe(recipe.id)"
+                >
+                  <UIcon :name="`i-tabler-${recipe.icon}`" class="mt-0.5 size-4 text-primary" />
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-xs font-medium text-toned">{{
+                      t(recipe.titleKey)
+                    }}</span>
+                    <span class="mt-0.5 block text-[10px] leading-4 text-muted">{{
+                      t(recipe.descriptionKey)
+                    }}</span>
+                  </span>
+                  <UIcon name="i-tabler-wand" class="mt-0.5 size-3.5 text-dimmed" />
+                </button>
+              </section>
               <div v-if="catalogGroups.length" class="space-y-3">
                 <section v-for="group in catalogGroups" :key="group.key">
                   <div class="flex items-center justify-between px-2 pb-1">
@@ -301,7 +333,10 @@
                   </div>
                 </section>
               </div>
-              <div v-else class="px-3 py-10 text-center">
+              <div
+                v-if="!catalogGroups.length && !workflowRecipeResults.length"
+                class="px-3 py-10 text-center"
+              >
                 <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
                 <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
               </div>
@@ -369,6 +404,9 @@
                 :debug-current="
                   isDebugCurrent(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
+                :connected-input-ids="connectedInputIDs(slotProps.data.node.id)"
+                :target-slot="targetSlotForNode(slotProps.data.node, slotProps.data.projection)"
+                @command="applyCommand"
                 @toggle-breakpoint="
                   toggleBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
@@ -651,6 +689,7 @@
           :variables="session.source?.variables ?? []"
           :target-defaults="session.source?.targetDefaults ?? []"
           :types="session.authoring?.body.types ?? []"
+          :connected-input-ids="selectedConnectedInputIDs"
           @command="applyCommand"
         />
       </div>
@@ -1122,6 +1161,12 @@ import {
 import { useConfirm } from '@/composables/useConfirm'
 import { useRecordingStart } from '@/composables/useRecordingStart'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
+import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
+import {
+  insertWorkflowRecipe,
+  workflowRecipes,
+  type WorkflowRecipeID,
+} from '@/app/editor/workflowRecipes'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
@@ -1390,6 +1435,15 @@ const catalogGroups = computed(() => {
         projectionTitle(left).localeCompare(projectionTitle(right)),
       ),
     }))
+})
+const workflowRecipeResults = computed(() => {
+  const query = catalogQuery.value.trim().toLocaleLowerCase()
+  return workflowRecipes.filter((recipe) => {
+    const search = [t(recipe.titleKey), t(recipe.descriptionKey), recipe.search]
+      .join(' ')
+      .toLocaleLowerCase()
+    return !query || search.includes(query)
+  })
 })
 
 const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
@@ -1668,6 +1722,22 @@ const workflowAutomationTargetItems = computed(() =>
     value: target.slot,
   })),
 )
+
+function connectedInputIDs(nodeID: string): ReadonlySet<string> {
+  return new Set(
+    (session.currentGraph?.edges ?? [])
+      .filter((edge) => edge.to.nodeId === nodeID && edge.channel === 'data')
+      .map((edge) => edge.to.portId),
+  )
+}
+
+const selectedConnectedInputIDs = computed<ReadonlySet<string>>(() =>
+  selectedNode.value ? connectedInputIDs(selectedNode.value.id) : new Set(),
+)
+
+function targetSlotForNode(node: Node, projection: NodeProjection): string {
+  return effectiveTargetSlot(projection, node, session.source?.targetDefaults ?? [])
+}
 
 function setWorkflowDefaultTarget(value: unknown): void {
   session.setTargetDefault('target', typeof value === 'string' ? value : '')
@@ -2046,6 +2116,21 @@ function addNode(nodeTypeId: string, position?: { x: number; y: number }): void 
     nodeTypeId,
     position: position ?? { x: 100 + offset, y: 100 + offset },
   })
+}
+
+function addRecipe(recipeID: WorkflowRecipeID): void {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const position = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2 - 300, y: rect.top + rect.height / 2 })
+    : { x: 120, y: 160 }
+  try {
+    const ids = insertWorkflowRecipe(session, recipeID, position)
+    selectedNodeIds.value = new Set(ids)
+    selectedNodeId.value = ids.at(-1) ?? ''
+    void nextTick(() => fitView({ padding: 0.18, duration: 180 }))
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
 }
 
 function inferGraphInterface(): void {

@@ -9,8 +9,8 @@ const source = readFileSync(
 
 describe('WorkflowInputBindingEditor', () => {
   it('authors List<KeyCode> as a recorded chord instead of raw JSON', () => {
-    expect(source).toContain('<KeyChordValueEditor')
-    expect(source).toContain('isKeyChordType(port.type.expression)')
+    expect(source).toContain('<WorkflowValueEditor')
+    expect(source).toContain('resolvePortAdapter(props.port)')
   })
 
   it('opens the shared paged asset picker instead of expanding the full library', () => {

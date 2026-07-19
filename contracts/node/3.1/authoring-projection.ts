@@ -110,15 +110,23 @@ export interface FieldProjection {
   deprecated: boolean
   description?: string
   descriptionKey?: string
+  editorAdapter?: string
   examples: any[]
+  group?: string
   hasDefault: boolean
+  helpKey?: string
   id: string
+  importance?: string
+  inlinePriority?: number
   items?: FieldProjection
+  order?: number
+  preset?: string
   properties: FieldProjection[]
   readOnly: boolean
   required: boolean
   title?: string
   titleKey?: string
+  unit?: string
 }
 export interface FieldConstraints {
   enum: any[]
@@ -144,11 +152,18 @@ export interface PortProjection {
   default?: any
   descriptionKey?: string
   editorAdapter?: string
+  group?: string
   hasDefault: boolean
+  helpKey?: string
   id: string
+  importance?: string
+  inlinePriority?: number
+  order?: number
+  preset?: string
   resourceLease?: ResourceLeaseBinding
   titleKey?: string
   type: TypeUse
+  unit?: string
 }
 export interface ResourceLeaseBinding {
   /**
@@ -166,11 +181,16 @@ export interface TypeUse {
   editorAdapter?: string
   examples: any[]
   expression: TypeExpression
+  helpKey?: string
+  importance?: string
+  inlinePriority?: number
   label: string
   lifecycle: 'durable' | 'runtime-only' | 'durable-or-runtime' | 'resolved-at-compile'
+  preset?: string
   representations: RepresentationSpec[]
   titleKey?: string
   typeIds: string[]
+  unit?: string
 }
 export interface TypeRef {
   semanticDigest: string
@@ -268,14 +288,19 @@ export interface TypeProjection {
   descriptionKey?: string
   editorAdapter?: string
   examples: any[]
+  helpKey?: string
   icon?: string
+  importance?: string
+  inlinePriority?: number
   lifecycle: 'durable' | 'runtime-only' | 'durable-or-runtime' | 'resolved-at-compile'
+  preset?: string
   representations: RepresentationSpec[]
   schemaRoot: string
   structure?: StructureSpec
   titleKey?: string
   traits: string[]
   typeRef: TypeRef
+  unit?: string
 }
 export interface StructureSpec {
   breakNodeTypeId: string

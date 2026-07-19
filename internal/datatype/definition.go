@@ -43,7 +43,9 @@ const (
 
 var builtInEditorAdapters = map[string]struct{}{
 	"color-range": {},
+	"duration":    {},
 	"point":       {},
+	"region":      {},
 }
 
 type TypeRef struct {
@@ -73,6 +75,11 @@ type Authoring struct {
 	Color               string            `json:"color,omitempty"`
 	Icon                string            `json:"icon,omitempty"`
 	EditorAdapter       string            `json:"editorAdapter,omitempty"`
+	Unit                string            `json:"unit,omitempty"`
+	HelpKey             string            `json:"helpKey,omitempty"`
+	Importance          string            `json:"importance,omitempty"`
+	InlinePriority      int               `json:"inlinePriority,omitempty"`
+	Preset              string            `json:"preset,omitempty"`
 	Examples            []json.RawMessage `json:"examples,omitempty"`
 	BreakTitleKey       string            `json:"breakTitleKey,omitempty"`
 	BreakDescriptionKey string            `json:"breakDescriptionKey,omitempty"`
@@ -523,7 +530,7 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 	if len(source.Examples) > MaxAuthoringExamples {
 		return Authoring{}, errors.New("data type authoring exceeds example budget")
 	}
-	for _, value := range []string{source.TitleKey, source.DescriptionKey, source.Color, source.Icon, source.EditorAdapter, source.BreakTitleKey, source.BreakDescriptionKey} {
+	for _, value := range []string{source.TitleKey, source.DescriptionKey, source.Color, source.Icon, source.EditorAdapter, source.Unit, source.HelpKey, source.Importance, source.Preset, source.BreakTitleKey, source.BreakDescriptionKey} {
 		if len(value) > MaxAnnotationBytes {
 			return Authoring{}, errors.New("data type authoring annotation exceeds byte budget")
 		}
@@ -532,6 +539,12 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 		if _, ok := builtInEditorAdapters[source.EditorAdapter]; !ok {
 			return Authoring{}, fmt.Errorf("unregistered data type editor adapter %q", source.EditorAdapter)
 		}
+	}
+	if source.Importance != "" && source.Importance != "primary" && source.Importance != "common" && source.Importance != "advanced" {
+		return Authoring{}, fmt.Errorf("invalid data type authoring importance %q", source.Importance)
+	}
+	if source.InlinePriority < 0 || source.InlinePriority > 1000 {
+		return Authoring{}, errors.New("data type inline priority must be between 0 and 1000")
 	}
 	examples := make([]json.RawMessage, len(source.Examples))
 	totalExampleBytes := 0
@@ -551,7 +564,8 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 	}
 	return Authoring{
 		TitleKey: source.TitleKey, DescriptionKey: source.DescriptionKey,
-		Color: source.Color, Icon: source.Icon, EditorAdapter: source.EditorAdapter,
+		Color: source.Color, Icon: source.Icon, EditorAdapter: source.EditorAdapter, Unit: source.Unit,
+		HelpKey: source.HelpKey, Importance: source.Importance, InlinePriority: source.InlinePriority, Preset: source.Preset,
 		Examples: examples, BreakTitleKey: source.BreakTitleKey, BreakDescriptionKey: source.BreakDescriptionKey,
 	}, nil
 }

@@ -16,6 +16,7 @@ import type {
 } from '@/app/transport/workflow'
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
+import { insertWorkflowRecipe } from './workflowRecipes'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection
 const node = (nodeTypeId: string) => {
@@ -87,6 +88,38 @@ describe('EditorSession', () => {
 
     expect(session.currentGraph?.nodes).toHaveLength(before + 1)
     expect(projectedNodeCount.value).toBe(before + 1)
+  })
+
+  it('inserts visual recipes as an editable ordinary-node graph', async () => {
+    const source = emptySource()
+    const generatedIDs = ['run', 'capture', 'analyze', 'compare', 'branch']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => generatedIDs.shift() ?? 'unexpected',
+    )
+    await session.load(source.workflow.id)
+
+    const inserted = insertWorkflowRecipe(session, 'analyze-color', { x: 100, y: 200 })
+
+    expect(inserted).toEqual(['run', 'capture', 'analyze', 'compare', 'branch'])
+    expect(session.currentGraph?.nodes).toHaveLength(5)
+    expect(session.currentGraph?.edges).toEqual(
+      expect.arrayContaining([
+        {
+          channel: 'exec',
+          from: { nodeId: 'run', portId: 'started' },
+          to: { nodeId: 'capture', portId: 'in' },
+        },
+        {
+          channel: 'data',
+          from: { nodeId: 'analyze', portId: 'fraction' },
+          to: { nodeId: 'compare', portId: 'a' },
+        },
+      ]),
+    )
+    expect(
+      session.currentGraph?.nodes.find((candidate) => candidate.id === 'analyze')?.bindings,
+    ).toMatchObject({ range: { kind: 'value' } })
   })
 
   it('owns revision, history, compile, save and Program Run facts', async () => {
