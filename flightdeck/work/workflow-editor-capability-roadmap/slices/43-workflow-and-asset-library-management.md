@@ -19,6 +19,7 @@ status: in_progress
 - 资源库的录制与视觉模板仍为互斥上下文，但统一使用高密度列表；名称、描述、分类、标签和类型特有信息分列展示。
 - 资源查询提供明确 facet 选项、多维筛选、排序、底部数字分页、每页数量、整行选择和选择后 batch actions；500/1000 条数据时单页 DOM 有界。
 - 创建、编辑、选择输入录制和选择视觉模板使用一致的复合字段与可搜索 picker；不以大卡片墙或不可搜索下拉承担大规模选择。
+- 行选择进入统一上下文工具栏；批量分类/标签只修改用户明确选择的字段，普通动作和危险删除视觉分组。
 - 关键行为由真实服务/组件测试覆盖，并通过阶段批量门禁与 WebView/UAC 真机视觉接受。
 
 ## Blocked by
@@ -27,10 +28,11 @@ Workflow Source / authoring contract、Asset query projection，以及用户对�
 
 ## Verification
 
-- Schema 与 authoring 回归：旧 Source、完整元数据、trim/dedupe、长度边界、CAS 更新。
+- Schema 与 authoring回归：旧 Source、完整元数据、trim/dedupe、长度边界、CAS 更新。
 - Workflow service：多维搜索、category、all-tags、node count、facet、数字分页，至少 500 条 fixture。
 - Asset service：kind 上下文下的 category/tag facet、组合筛选、数字分页，至少 1000 条 fixture。
 - WorkflowsView 与 AssetsView 真实组件测试：创建/编辑 Modal、筛选、列选择、选择/batch、分页、类型上下文隔离。
+- 批量元数据单元测试：分类保持/设置/清空，标签保持/添加/移除/替换/清空，大小写不敏感去重和空操作拒绝。
 - 阶段末统一执行前端聚合测试、task check、task build、WebView smoke；人工检查 1920×1080 与较窄窗口截图。
 - 启动 UAC production build，以真实 workspace 检查工作流与资源的创建、编辑、筛选、分页和选择器闭环。
 
@@ -44,4 +46,4 @@ Workflow Source / authoring contract、Asset query projection，以及用户对�
 
 ## Result
 
-Implementation complete; awaiting user acceptance。Workflow Source 已恢复 description/category/tags 耐久契约和 CAS 更新；工作流首页、资源库均改为纯列表、多维 facet、批量选择与底部数字分页，未恢复 grid 或工作流快捷键。1000 条服务 fixture、真实 Nuxt UI 组件测试、task check 与 task build 均通过；跳过独立 Launcher 子旅程后的 WebView 主旅程通过并产出截图。完整 smoke 仍在 Launcher 执行新建空工作流时超时，作为发布前独立问题保留。Slice 43 需经 UAC production build 和真实 workspace 接受后才能标记 completed。
+Implementation complete; awaiting user acceptance。Workflow Source 已恢复 description/category/tags 耐久契约和 CAS 更新；工作流首页、资源库均改为纯列表、多维 facet、底部数字分页与统一上下文选择工具栏，未恢复 grid 或工作流快捷键。工作流和资源均支持独立批量修改分类/标签；未明确选择的字段保持原值，工作流批量更新继续受 revision/CAS 保护。1000 条服务 fixture、真实 Nuxt UI 组件测试、task check（48 个前端测试文件、200 项测试）与 task build 均通过；跳过独立 Launcher 子旅程后的 WebView 主旅程通过并产出截图。完整 smoke 仍在 Launcher 执行新建空工作流时超时，作为发布前独立问题保留。Slice 43 需经 UAC production build 和真实 workspace 接受后才能标记 completed。

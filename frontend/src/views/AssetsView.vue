@@ -122,7 +122,37 @@
               :label="t('assets.search_action')"
             />
           </form>
-          <div class="flex flex-wrap items-center gap-2 p-3">
+          <LibrarySelectionToolbar
+            v-if="selectedRows.length"
+            :label="t('assets.selected_count', { n: selectedRows.length })"
+            :hint="t('batchMetadata.selection_hint')"
+            :clear-label="t('assets.clear_selection')"
+            @clear="clearSelection"
+          >
+            <UButton
+              data-testid="asset-batch-metadata"
+              size="sm"
+              variant="soft"
+              icon="i-tabler-category-plus"
+              :disabled="batchBusy"
+              @click="openBatchEdit"
+            >
+              {{ t('assets.batch_edit') }}
+            </UButton>
+            <template #destructive>
+              <UButton
+                size="sm"
+                color="error"
+                variant="ghost"
+                icon="i-tabler-trash"
+                :loading="batchBusy"
+                @click="deleteSelected"
+              >
+                {{ t('assets.batch_delete') }}
+              </UButton>
+            </template>
+          </LibrarySelectionToolbar>
+          <div v-else class="flex flex-wrap items-center gap-2 p-3">
             <USelect
               v-model="categoryFilter"
               :items="categoryFilterItems"
@@ -208,38 +238,6 @@
             @click="stopRecording"
           />
         </section>
-
-        <div
-          v-if="selectedRows.length"
-          class="flex h-11 shrink-0 items-center gap-2 border-b border-default bg-primary/5 px-3"
-        >
-          <span class="mr-auto text-sm font-medium text-default">
-            {{ t('assets.selected_count', { n: selectedRows.length }) }}
-          </span>
-          <UButton size="sm" color="neutral" variant="ghost" @click="clearSelection">
-            {{ t('assets.clear_selection') }}
-          </UButton>
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="soft"
-            icon="i-tabler-tags"
-            :disabled="batchBusy"
-            @click="openBatchEdit"
-          >
-            {{ t('assets.batch_edit') }}
-          </UButton>
-          <UButton
-            size="sm"
-            color="error"
-            variant="soft"
-            icon="i-tabler-trash"
-            :loading="batchBusy"
-            @click="deleteSelected"
-          >
-            {{ t('assets.batch_delete') }}
-          </UButton>
-        </div>
 
         <div
           v-if="libraryFeedback"
@@ -412,30 +410,53 @@
     size="lg"
     @update:open="(open) => (batchEditing = open)"
   >
-    <div class="space-y-4">
+    <div class="space-y-5">
+      <p class="text-sm text-muted">{{ t('batchMetadata.description') }}</p>
       <UFormField :label="t('common.category')">
-        <UInputMenu
-          v-model="batchDraft.category"
-          :items="metadataCategoryOptions"
-          :create-item="'always'"
-          @create="createBatchCategory"
-        />
+        <div class="flex items-center gap-2">
+          <USelect
+            v-model="batchDraft.categoryMode"
+            :items="categoryModeItems"
+            class="w-36 shrink-0"
+          />
+          <UInputMenu
+            v-if="batchDraft.categoryMode === 'set'"
+            v-model="batchDraft.category"
+            :items="batchCategoryOptions"
+            :create-item="'always'"
+            class="min-w-0 flex-1"
+            @create="createBatchCategory"
+          />
+          <span v-else class="text-xs text-dimmed">{{ categoryModeHint }}</span>
+        </div>
       </UFormField>
       <UFormField :label="t('common.tags')">
-        <UInputMenu
-          v-model="batchDraft.tags"
-          :items="metadataTagOptions"
-          :create-item="'always'"
-          multiple
-          @create="createBatchTag"
-        />
+        <div class="flex items-start gap-2">
+          <USelect v-model="batchDraft.tagMode" :items="tagModeItems" class="w-36 shrink-0" />
+          <UInputMenu
+            v-if="tagModeNeedsValues"
+            v-model="batchDraft.tags"
+            :items="batchTagOptions"
+            :create-item="'always'"
+            multiple
+            class="min-w-0 flex-1"
+            @create="createBatchTag"
+          />
+          <span v-else class="pt-2 text-xs text-dimmed">{{ tagModeHint }}</span>
+        </div>
       </UFormField>
     </div>
     <template #footer>
       <UButton color="neutral" variant="ghost" @click="batchEditing = false">
         {{ t('common.cancel') }}
       </UButton>
-      <UButton :loading="batchBusy" @click="saveBatchMeta">{{ t('common.save') }}</UButton>
+      <UButton
+        icon="i-tabler-check"
+        :label="t('batchMetadata.apply')"
+        :loading="batchBusy"
+        :disabled="!batchDraftValid"
+        @click="saveBatchMeta"
+      />
     </template>
   </BaseModal>
 
@@ -620,6 +641,11 @@ import { useToast } from '@nuxt/ui/composables'
 import { backend, type AssetSummary, type BlobRef } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import {
+  applyBatchMetadata,
+  createBatchMetadataDraft,
+  hasBatchMetadataChange,
+} from '@/lib/batchMetadata'
+import {
   useRecordingStore,
   type RecordingAction,
   type RecordingMode,
@@ -634,6 +660,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
+import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 
 type AssetTab = 'clips' | 'templates'
 type AssetItem = {
@@ -674,7 +701,7 @@ const loading = ref(false)
 const selected = ref<Record<string, AssetSummary>>({})
 const batchEditing = ref(false)
 const batchBusy = ref(false)
-const batchDraft = reactive<AssetMetadataDraft>({ category: '', tags: [] })
+const batchDraft = reactive(createBatchMetadataDraft())
 const libraryFeedback = ref<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null)
 const variantAsset = ref<AssetSummary | null>(null)
 const variantBusy = ref(false)
@@ -724,7 +751,6 @@ const metadataCategoryOptions = computed(() =>
   uniqueStrings([
     ...categories.value.map((item) => item.value),
     ...createdCategories.value,
-    batchDraft.category,
     editDraft.category,
     recordingDraft.category,
   ]),
@@ -733,10 +759,47 @@ const metadataTagOptions = computed(() =>
   uniqueStrings([
     ...tags.value.map((item) => item.value),
     ...createdTags.value,
-    ...batchDraft.tags,
     ...editDraft.tags,
     ...recordingDraft.tags,
   ]),
+)
+const batchCategoryOptions = computed(() =>
+  uniqueStrings([
+    ...categories.value.map((item) => item.value),
+    ...createdCategories.value,
+    batchDraft.category,
+  ]),
+)
+const batchTagOptions = computed(() =>
+  uniqueStrings([
+    ...tags.value.map((item) => item.value),
+    ...createdTags.value,
+    ...batchDraft.tags,
+  ]),
+)
+const categoryModeItems = computed(() => [
+  { label: t('batchMetadata.keep'), value: 'keep' },
+  { label: t('batchMetadata.set'), value: 'set' },
+  { label: t('batchMetadata.clear'), value: 'clear' },
+])
+const tagModeItems = computed(() => [
+  { label: t('batchMetadata.keep'), value: 'keep' },
+  { label: t('batchMetadata.add'), value: 'add' },
+  { label: t('batchMetadata.remove'), value: 'remove' },
+  { label: t('batchMetadata.replace'), value: 'replace' },
+  { label: t('batchMetadata.clear'), value: 'clear' },
+])
+const tagModeNeedsValues = computed(() => ['add', 'remove', 'replace'].includes(batchDraft.tagMode))
+const batchDraftValid = computed(() => hasBatchMetadataChange(batchDraft))
+const categoryModeHint = computed(() =>
+  t(
+    batchDraft.categoryMode === 'clear'
+      ? 'batchMetadata.category_clear_hint'
+      : 'batchMetadata.keep_hint',
+  ),
+)
+const tagModeHint = computed(() =>
+  t(batchDraft.tagMode === 'clear' ? 'batchMetadata.tags_clear_hint' : 'batchMetadata.keep_hint'),
 )
 const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
   { label: t('recordingSave.mode_simple'), value: 'simple' },
@@ -922,22 +985,23 @@ function clearSelection(): void {
 }
 
 function openBatchEdit(): void {
-  batchDraft.category = ''
-  batchDraft.tags = []
+  Object.assign(batchDraft, createBatchMetadataDraft())
   batchEditing.value = true
 }
 
 async function saveBatchMeta(): Promise<void> {
-  if (!selectedRows.value.length) return
+  if (!selectedRows.value.length || !batchDraftValid.value) return
   batchBusy.value = true
   try {
     const results =
       (await backend.assets.batchUpdateMeta(
-        selectedRows.value.map((asset) => ({
-          guid: asset.guid,
-          category: batchDraft.category.trim(),
-          tags: uniqueStrings(batchDraft.tags),
-        })),
+        selectedRows.value.map((asset) => {
+          const metadata = applyBatchMetadata(
+            { category: asset.category ?? '', tags: asset.tags ?? [] },
+            batchDraft,
+          )
+          return { guid: asset.guid, category: metadata.category, tags: metadata.tags }
+        }),
       )) ?? []
     retainFailedSelection(results.filter((result) => !result.updated).map((result) => result.guid))
     libraryFeedback.value = {

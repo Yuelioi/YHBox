@@ -1,6 +1,8 @@
 import { Dialogs, Events } from '@wailsio/runtime'
 import * as WorkflowService from '@bindings/github.com/yottaapp/yotta/internal/services/workflow/service.js'
 import type {
+  BatchUpdateSourceMetadataRequest,
+  BatchUpdateSourceMetadataResult,
   CompileView,
   CreateSourceRequest,
   BundleExportResult,
@@ -55,6 +57,9 @@ export interface WorkflowTransport {
     baseRevision: number,
     request: UpdateSourceMetadataRequest,
   ): Promise<SourceView>
+  batchUpdateSourceMetadata(
+    requests: BatchUpdateSourceMetadataRequest[],
+  ): Promise<BatchUpdateSourceMetadataResult[]>
   chooseSourceBundle(): Promise<string>
   chooseSourceBundleDestination(filename: string): Promise<string>
   chooseSourceBundleDirectory(): Promise<string>
@@ -100,6 +105,8 @@ export const workflowTransport: WorkflowTransport = {
   createSourceWithMetadata: (request) => invoke(WorkflowService.CreateSourceWithMetadata, request),
   updateSourceMetadata: (workflowId, baseRevision, request) =>
     invoke(WorkflowService.UpdateSourceMetadata, workflowId, baseRevision, request),
+  batchUpdateSourceMetadata: (requests) =>
+    invoke(WorkflowService.BatchUpdateSourceMetadata, requests),
   chooseSourceBundle: () =>
     callRPC('workflow.chooseSourceBundle', () =>
       Dialogs.OpenFile({
@@ -205,6 +212,8 @@ function isDebugChangedEvent(value: unknown): value is DebugChangedEvent {
 }
 
 export type {
+  BatchUpdateSourceMetadataRequest,
+  BatchUpdateSourceMetadataResult,
   BundleExportResult,
   BundleInfoView,
   CompileView,

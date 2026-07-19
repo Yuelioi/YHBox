@@ -107,7 +107,16 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	if err != nil || metadata.Description != "Service projection" || metadata.Category != "Tests" || len(metadata.Tags) != 1 || metadata.Revision != 1 {
 		t.Fatalf("UpdateSourceMetadata() = %#v, %v", metadata, err)
 	}
-	created = metadata
+	batch := service.BatchUpdateSourceMetadata([]workflow.BatchUpdateSourceMetadataRequest{
+		{WorkflowID: created.WorkflowID, BaseRevision: metadata.Revision, Category: "Batch", Tags: []string{"reviewed"}},
+	})
+	if len(batch) != 1 || !batch[0].Updated || batch[0].Error != "" {
+		t.Fatalf("BatchUpdateSourceMetadata() = %#v", batch)
+	}
+	created, err = service.GetSource(created.WorkflowID)
+	if err != nil || created.Name != "Projection" || created.Description != "Service projection" || created.Category != "Batch" || len(created.Tags) != 1 || created.Tags[0] != "reviewed" {
+		t.Fatalf("batch metadata source = %#v, %v", created, err)
+	}
 	loaded, err := service.GetSource(created.WorkflowID)
 	if err != nil || loaded.SourceHash != created.SourceHash || loaded.SourceJSON == "" {
 		t.Fatalf("GetSource() = %#v, %v", loaded, err)
@@ -117,7 +126,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "a", Value: "a"}},
 		{Kind: authoring.CommandBindValue, BindValue: &authoring.BindValueCommand{GraphID: "main", NodeID: "$concat", PortID: "b", Value: "b"}},
 	})
-	if err != nil || len(patched.GeneratedNodes) != 1 || patched.Source.Revision != 2 || patched.Source.NodeCount != 2 {
+	if err != nil || len(patched.GeneratedNodes) != 1 || patched.Source.Revision != 3 || patched.Source.NodeCount != 2 {
 		t.Fatalf("ApplyPatch() = %#v, %v", patched, err)
 	}
 	listed, err := service.ListSources()

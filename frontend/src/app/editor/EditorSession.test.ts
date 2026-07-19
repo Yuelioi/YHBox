@@ -1165,6 +1165,7 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     createSource: vi.fn(async () => saved),
     createSourceWithMetadata: vi.fn(async () => saved),
     updateSourceMetadata: vi.fn(async () => saved),
+    batchUpdateSourceMetadata: vi.fn(async () => []),
     chooseSourceBundle: vi.fn(async () => ''),
     chooseSourceBundleDestination: vi.fn(async () => ''),
     chooseSourceBundleDirectory: vi.fn(async () => ''),

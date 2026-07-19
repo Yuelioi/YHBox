@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 14,
-    "methods": 127,
-    "models": 181
+    "methods": 128,
+    "models": 183
   },
   "services": [
     {
@@ -1242,6 +1242,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.PatchView>"
+        },
+        {
+          "name": "BatchUpdateSourceMetadata",
+          "bindingId": "615549073",
+          "parameters": [
+            {
+              "name": "requests",
+              "optional": false,
+              "type": "$models.BatchUpdateSourceMetadataRequest[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BatchUpdateSourceMetadataResult[]>"
         },
         {
           "name": "CancelAllRuns",
@@ -4938,6 +4950,53 @@
     {
       "module": "internal/services/workflow/models",
       "declarations": [
+        {
+          "kind": "class",
+          "name": "BatchUpdateSourceMetadataRequest",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseRevision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BatchUpdateSourceMetadataResult",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updated\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"error\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
         {
           "kind": "class",
           "name": "BundleExportResult",

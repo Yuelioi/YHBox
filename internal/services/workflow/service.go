@@ -107,6 +107,19 @@ type UpdateSourceMetadataRequest struct {
 	Tags        []string `json:"tags"`
 }
 
+type BatchUpdateSourceMetadataRequest struct {
+	WorkflowID   string   `json:"workflowId"`
+	BaseRevision int64    `json:"baseRevision"`
+	Category     string   `json:"category"`
+	Tags         []string `json:"tags"`
+}
+
+type BatchUpdateSourceMetadataResult struct {
+	WorkflowID string `json:"workflowId"`
+	Updated    bool   `json:"updated"`
+	Error      string `json:"error,omitempty"`
+}
+
 type SourceRecoveryView struct {
 	RecoveryID   artifact.Digest `json:"recoveryId"`
 	OriginalName string          `json:"originalName"`
@@ -262,6 +275,36 @@ func (s *Service) UpdateSourceMetadata(workflowID string, baseRevision int64, re
 		return SourceView{}, err
 	}
 	return patch.Source, nil
+}
+
+func (s *Service) BatchUpdateSourceMetadata(requests []BatchUpdateSourceMetadataRequest) []BatchUpdateSourceMetadataResult {
+	results := make([]BatchUpdateSourceMetadataResult, 0, len(requests))
+	seen := make(map[string]struct{}, len(requests))
+	for _, request := range requests {
+		result := BatchUpdateSourceMetadataResult{WorkflowID: request.WorkflowID}
+		if _, duplicate := seen[request.WorkflowID]; duplicate {
+			result.Error = "duplicate workflow source metadata request"
+			results = append(results, result)
+			continue
+		}
+		seen[request.WorkflowID] = struct{}{}
+		current, err := s.GetSource(request.WorkflowID)
+		if err == nil {
+			_, err = s.UpdateSourceMetadata(request.WorkflowID, request.BaseRevision, UpdateSourceMetadataRequest{
+				Name:        current.Name,
+				Description: current.Description,
+				Category:    request.Category,
+				Tags:        request.Tags,
+			})
+		}
+		if err != nil {
+			result.Error = err.Error()
+		} else {
+			result.Updated = true
+		}
+		results = append(results, result)
+	}
+	return results
 }
 
 func (s *Service) GetSource(workflowID string) (SourceView, error) {

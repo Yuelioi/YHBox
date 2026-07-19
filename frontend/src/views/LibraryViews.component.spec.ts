@@ -1,7 +1,14 @@
 import { createApp, defineComponent, h, nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { push, querySources, createSourceWithMetadata, queryAssets } = vi.hoisted(() => ({
+const {
+  push,
+  querySources,
+  createSourceWithMetadata,
+  batchUpdateSourceMetadata,
+  queryAssets,
+  batchUpdateAssetMeta,
+} = vi.hoisted(() => ({
   push: vi.fn(),
   querySources: vi.fn(async (query: { page: number }) => ({
     items: [
@@ -34,6 +41,9 @@ const { push, querySources, createSourceWithMetadata, queryAssets } = vi.hoisted
     sourceHash: 'sha256:created',
     sourceJson: '',
   })),
+  batchUpdateSourceMetadata: vi.fn(async (requests: Array<{ workflowId: string }>) =>
+    requests.map((request) => ({ workflowId: request.workflowId, updated: true, error: '' })),
+  ),
   queryAssets: vi.fn(async (query: { kind: string; page: number }) => ({
     items: [
       query.kind === 'clip'
@@ -78,6 +88,9 @@ const { push, querySources, createSourceWithMetadata, queryAssets } = vi.hoisted
     categories: [{ value: 'Account', count: 40 }],
     tags: [{ value: 'Login', count: 40 }],
   })),
+  batchUpdateAssetMeta: vi.fn(async (requests: Array<{ guid: string }>) =>
+    requests.map((request) => ({ guid: request.guid, updated: true, error: '' })),
+  ),
 }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -113,6 +126,7 @@ vi.mock('@/app/transport/workflow', () => ({
     querySources,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
+    batchUpdateSourceMetadata,
     updateSourceMetadata: vi.fn(),
     startRun: vi.fn(),
   },
@@ -138,7 +152,7 @@ vi.mock('@/composables/useRecordingStart', () => ({
 vi.mock('@/lib/backend', () => ({
   backend: {
     assets: {
-      batchUpdateMeta: vi.fn(),
+      batchUpdateMeta: batchUpdateAssetMeta,
       batchDelete: vi.fn(),
       previewCleanup: vi.fn(),
       commitCleanup: vi.fn(),
@@ -187,7 +201,9 @@ afterEach(() => {
   push.mockClear()
   querySources.mockClear()
   createSourceWithMetadata.mockClear()
+  batchUpdateSourceMetadata.mockClear()
   queryAssets.mockClear()
+  batchUpdateAssetMeta.mockClear()
 })
 
 describe('library management views', () => {
@@ -249,6 +265,38 @@ describe('library management views', () => {
       expect.objectContaining({ kind: 'template', page: 2, pageSize: 20 }),
     )
   })
+
+  it('replaces workflow filters with a contextual batch toolbar', async () => {
+    const root = await mountView(WorkflowsView)
+
+    rowCheckbox(root).click()
+    await flushView()
+
+    expect(root.querySelector('[data-testid="library-selection-toolbar"]')).toBeTruthy()
+    const batchButton = root.querySelector(
+      '[data-testid="workflow-batch-metadata"]',
+    ) as HTMLButtonElement
+    expect(batchButton).toBeTruthy()
+    batchButton.click()
+    await flushView()
+    expect(root.textContent).toContain('batchMetadata.description')
+  })
+
+  it('uses the same contextual batch toolbar for assets', async () => {
+    const root = await mountView(AssetsView)
+
+    rowCheckbox(root).click()
+    await flushView()
+
+    expect(root.querySelector('[data-testid="library-selection-toolbar"]')).toBeTruthy()
+    const batchButton = root.querySelector(
+      '[data-testid="asset-batch-metadata"]',
+    ) as HTMLButtonElement
+    expect(batchButton).toBeTruthy()
+    batchButton.click()
+    await flushView()
+    expect(root.textContent).toContain('batchMetadata.description')
+  })
 })
 
 async function mountView(
@@ -276,6 +324,12 @@ function buttonByText(root: HTMLElement, value: string): HTMLButtonElement {
   )
   if (!button) throw new Error(`button ${value} not found`)
   return button
+}
+
+function rowCheckbox(root: HTMLElement): HTMLButtonElement {
+  const checkbox = root.querySelectorAll<HTMLButtonElement>('button[role="checkbox"]')[1]
+  if (!checkbox) throw new Error('row checkbox not found')
+  return checkbox
 }
 
 function registerUI(app: ReturnType<typeof createApp>): void {
@@ -317,7 +371,21 @@ function registerUI(app: ReturnType<typeof createApp>): void {
   app.component('USelect', defineComponent({ setup: () => () => h('select') }))
   app.component(
     'UCheckbox',
-    defineComponent({ setup: () => () => h('input', { type: 'checkbox' }) }),
+    defineComponent({
+      inheritAttrs: false,
+      props: { modelValue: Boolean },
+      emits: ['update:modelValue'],
+      setup(props, { attrs, emit }) {
+        return () =>
+          h('input', {
+            ...attrs,
+            type: 'checkbox',
+            checked: props.modelValue,
+            onChange: (event: Event) =>
+              emit('update:modelValue', (event.target as HTMLInputElement).checked),
+          })
+      },
+    }),
   )
   app.component(
     'UDropdownMenu',

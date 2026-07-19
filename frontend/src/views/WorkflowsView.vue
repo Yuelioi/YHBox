@@ -86,7 +86,48 @@
             {{ t('workflow.list.search_action') }}
           </UButton>
         </form>
-        <div class="flex flex-wrap items-center gap-2 p-3">
+        <LibrarySelectionToolbar
+          v-if="selectedRows.length"
+          :label="t('workflow.list.selected_count', { n: selectedRows.length })"
+          :hint="t('batchMetadata.selection_hint')"
+          :clear-label="t('workflow.list.clear_selection')"
+          @clear="clearSelection"
+        >
+          <UButton
+            data-testid="workflow-batch-metadata"
+            size="sm"
+            variant="soft"
+            icon="i-tabler-category-plus"
+            :disabled="batchBusy"
+            @click="openBatchEdit"
+          >
+            {{ t('workflow.list.batch_edit') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-file-export"
+            :loading="batchExporting"
+            :disabled="portabilityBusy"
+            @click="exportSelected"
+          >
+            {{ t('workflow.list.export_selected') }}
+          </UButton>
+          <template #destructive>
+            <UButton
+              size="sm"
+              color="error"
+              variant="ghost"
+              icon="i-tabler-trash"
+              :loading="deleting"
+              @click="requestDelete(selectedRows)"
+            >
+              {{ t('workflow.list.delete_selected') }}
+            </UButton>
+          </template>
+        </LibrarySelectionToolbar>
+        <div v-else class="flex flex-wrap items-center gap-2 p-3">
           <USelect
             v-model="categoryFilter"
             :items="categoryFilterItems"
@@ -137,40 +178,6 @@
           />
         </div>
       </section>
-
-      <div
-        v-if="selectedRows.length"
-        class="flex h-12 shrink-0 items-center gap-2 border-x border-b border-primary/30 bg-primary/5 px-3"
-        role="status"
-      >
-        <span class="mr-auto text-sm font-medium text-default">
-          {{ t('workflow.list.selected_count', { n: selectedRows.length }) }}
-        </span>
-        <UButton size="sm" color="neutral" variant="ghost" @click="clearSelection">
-          {{ t('workflow.list.clear_selection') }}
-        </UButton>
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-tabler-file-export"
-          :loading="batchExporting"
-          :disabled="portabilityBusy"
-          @click="exportSelected"
-        >
-          {{ t('workflow.list.export_selected') }}
-        </UButton>
-        <UButton
-          size="sm"
-          color="error"
-          variant="soft"
-          icon="i-tabler-trash"
-          :loading="deleting"
-          @click="requestDelete(selectedRows)"
-        >
-          {{ t('workflow.list.delete_selected') }}
-        </UButton>
-      </div>
 
       <div
         v-if="portabilityFeedback || deleteFeedback"
@@ -376,6 +383,70 @@
     </main>
 
     <BaseModal
+      v-model:open="batchEditing"
+      :title="t('workflow.list.batch_edit_title', { n: selectedRows.length })"
+      icon="i-tabler-category-plus"
+      size="lg"
+      :dismissible="!batchBusy"
+    >
+      <div class="space-y-5">
+        <p class="text-sm text-muted">{{ t('batchMetadata.description') }}</p>
+        <UFormField :label="t('common.category')">
+          <div class="flex items-center gap-2">
+            <USelect
+              v-model="batchDraft.categoryMode"
+              :items="categoryModeItems"
+              class="w-36 shrink-0"
+            />
+            <UInputMenu
+              v-if="batchDraft.categoryMode === 'set'"
+              v-model="batchDraft.category"
+              :items="batchCategoryOptions"
+              :create-item="'always'"
+              :placeholder="t('workflow.list.category_placeholder')"
+              class="min-w-0 flex-1"
+              @create="createBatchCategory"
+            />
+            <span v-else class="text-xs text-dimmed">{{ categoryModeHint }}</span>
+          </div>
+        </UFormField>
+        <UFormField :label="t('common.tags')">
+          <div class="flex items-start gap-2">
+            <USelect v-model="batchDraft.tagMode" :items="tagModeItems" class="w-36 shrink-0" />
+            <UInputMenu
+              v-if="tagModeNeedsValues"
+              v-model="batchDraft.tags"
+              :items="batchTagOptions"
+              :create-item="'always'"
+              multiple
+              :placeholder="t('workflow.list.tags_placeholder')"
+              class="min-w-0 flex-1"
+              @create="createBatchTag"
+            />
+            <span v-else class="pt-2 text-xs text-dimmed">{{ tagModeHint }}</span>
+          </div>
+        </UFormField>
+      </div>
+      <template #footer>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :disabled="batchBusy"
+          @click="batchEditing = false"
+        >
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          icon="i-tabler-check"
+          :label="t('batchMetadata.apply')"
+          :loading="batchBusy"
+          :disabled="!batchDraftValid"
+          @click="saveBatchMetadata"
+        />
+      </template>
+    </BaseModal>
+
+    <BaseModal
       v-model:open="metadataModalOpen"
       :title="t(editingSource ? 'workflow.list.edit_metadata_title' : 'workflow.list.create_title')"
       :icon="editingSource ? 'i-tabler-edit' : 'i-tabler-plus'"
@@ -501,12 +572,22 @@ import {
 } from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
 import { errorMessage } from '@/lib/invoke'
+import {
+  applyBatchMetadata,
+  createBatchMetadataDraft,
+  hasBatchMetadataChange,
+  uniqueMetadataValues,
+} from '@/lib/batchMetadata'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 
 defineOptions({ name: 'WorkflowsView' })
 
-type SelectedSource = Pick<SourceView, 'workflowId' | 'name' | 'revision' | 'sourceHash'>
+type SelectedSource = Pick<
+  SourceView,
+  'workflowId' | 'name' | 'revision' | 'sourceHash' | 'category' | 'tags'
+>
 type WorkflowColumn = 'category' | 'tags' | 'nodes' | 'revision'
 type Feedback = { tone: 'success' | 'warning' | 'error'; message: string; details: string[] }
 
@@ -536,6 +617,9 @@ const importing = ref(false)
 const exportingId = ref('')
 const replacingId = ref('')
 const batchExporting = ref(false)
+const batchEditing = ref(false)
+const batchBusy = ref(false)
+const batchDraft = reactive(createBatchMetadataDraft())
 const failure = ref('')
 const recoveryRepairOpen = ref(false)
 const recoveryDraft = ref('')
@@ -568,7 +652,8 @@ const portabilityBusy = computed(
     importing.value ||
     Boolean(exportingId.value) ||
     Boolean(replacingId.value) ||
-    batchExporting.value,
+    batchExporting.value ||
+    batchBusy.value,
 )
 const allCurrentPageSelected = computed(
   () =>
@@ -608,6 +693,44 @@ const metadataTagOptions = computed(() =>
     ...createdTags.value,
     ...metadataDraft.tags,
   ]),
+)
+const batchCategoryOptions = computed(() =>
+  uniqueStrings([
+    ...categories.value.map((item) => item.value),
+    ...createdCategories.value,
+    batchDraft.category,
+  ]),
+)
+const batchTagOptions = computed(() =>
+  uniqueStrings([
+    ...tags.value.map((item) => item.value),
+    ...createdTags.value,
+    ...batchDraft.tags,
+  ]),
+)
+const categoryModeItems = computed(() => [
+  { label: t('batchMetadata.keep'), value: 'keep' },
+  { label: t('batchMetadata.set'), value: 'set' },
+  { label: t('batchMetadata.clear'), value: 'clear' },
+])
+const tagModeItems = computed(() => [
+  { label: t('batchMetadata.keep'), value: 'keep' },
+  { label: t('batchMetadata.add'), value: 'add' },
+  { label: t('batchMetadata.remove'), value: 'remove' },
+  { label: t('batchMetadata.replace'), value: 'replace' },
+  { label: t('batchMetadata.clear'), value: 'clear' },
+])
+const tagModeNeedsValues = computed(() => ['add', 'remove', 'replace'].includes(batchDraft.tagMode))
+const batchDraftValid = computed(() => hasBatchMetadataChange(batchDraft))
+const categoryModeHint = computed(() =>
+  t(
+    batchDraft.categoryMode === 'clear'
+      ? 'batchMetadata.category_clear_hint'
+      : 'batchMetadata.keep_hint',
+  ),
+)
+const tagModeHint = computed(() =>
+  t(batchDraft.tagMode === 'clear' ? 'batchMetadata.tags_clear_hint' : 'batchMetadata.keep_hint'),
 )
 const sortItems = computed(() => [
   { label: t('workflow.list.sort_name_asc'), value: 'name_asc' },
@@ -754,6 +877,58 @@ function clearSelection(): void {
   selected.value = {}
 }
 
+function openBatchEdit(): void {
+  Object.assign(batchDraft, createBatchMetadataDraft())
+  batchEditing.value = true
+}
+
+async function saveBatchMetadata(): Promise<void> {
+  if (!selectedRows.value.length || !batchDraftValid.value || batchBusy.value) return
+  batchBusy.value = true
+  portabilityFeedback.value = null
+  try {
+    const results = await workflowTransport.batchUpdateSourceMetadata(
+      selectedRows.value.map((source) => {
+        const metadata = applyBatchMetadata(
+          { category: source.category ?? '', tags: source.tags ?? [] },
+          batchDraft,
+        )
+        return {
+          workflowId: source.workflowId,
+          baseRevision: source.revision,
+          category: metadata.category,
+          tags: metadata.tags,
+        }
+      }),
+    )
+    const failed = results.filter((result) => !result.updated)
+    retainFailedWorkflowSelection(failed.map((result) => result.workflowId))
+    portabilityFeedback.value = {
+      tone: failed.length ? 'warning' : 'success',
+      message: t('workflow.list.batch_update_result', {
+        updated: results.length - failed.length,
+        failed: failed.length,
+      }),
+      details: failed.map((result) => `${selectedName(result.workflowId)}: ${result.error ?? ''}`),
+    }
+    batchEditing.value = false
+    await load()
+  } catch (error) {
+    portabilityFeedback.value = { tone: 'error', message: errorText(error), details: [] }
+  } finally {
+    batchBusy.value = false
+  }
+}
+
+function retainFailedWorkflowSelection(workflowIDs: string[]): void {
+  const failed = new Set(workflowIDs)
+  selected.value = Object.fromEntries(
+    selectedRows.value
+      .filter((source) => failed.has(source.workflowId))
+      .map((source) => [source.workflowId, source]),
+  )
+}
+
 function isColumnVisible(key: WorkflowColumn): boolean {
   return visibleColumnSet.value.has(key)
 }
@@ -848,6 +1023,20 @@ function createMetadataTag(value: string): void {
   if (!tag) return
   createdTags.value = uniqueStrings([...createdTags.value, tag])
   metadataDraft.tags = uniqueStrings([...metadataDraft.tags, tag])
+}
+
+function createBatchCategory(value: string): void {
+  const category = value.trim()
+  if (!category) return
+  createdCategories.value = uniqueStrings([...createdCategories.value, category])
+  batchDraft.category = category
+}
+
+function createBatchTag(value: string): void {
+  const tag = value.trim()
+  if (!tag) return
+  createdTags.value = uniqueStrings([...createdTags.value, tag])
+  batchDraft.tags = uniqueMetadataValues([...batchDraft.tags, tag])
 }
 
 function uniqueStrings(values: string[]): string[] {

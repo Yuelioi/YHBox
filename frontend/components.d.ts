@@ -29,6 +29,7 @@ declare module 'vue' {
     IconBadge: typeof import('./src/components/common/IconBadge.vue')['default']
     IconPicker: typeof import('./src/components/common/IconPicker.vue')['default']
     LauncherSurface: typeof import('./src/components/launcher/LauncherSurface.vue')['default']
+    LibrarySelectionToolbar: typeof import('./src/components/library/LibrarySelectionToolbar.vue')['default']
     ListRow: typeof import('./src/components/common/ListRow.vue')['default']
     LogPanel: typeof import('./src/components/LogPanel.vue')['default']
     PickerMagnifier: typeof import('./src/components/tools/PickerMagnifier.vue')['default']
