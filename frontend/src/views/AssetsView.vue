@@ -338,6 +338,7 @@
           </div>
           <EmptyState
             v-else
+            inset
             :icon="
               hasLibraryFilters
                 ? 'i-tabler-search-off'

@@ -220,6 +220,7 @@
         </div>
         <EmptyState
           v-else-if="sources.length === 0"
+          inset
           :icon="hasFilters ? 'i-tabler-filter-off' : 'i-tabler-route-off'"
           :title="t(hasFilters ? 'workflow.list.no_results_title' : 'workflow.list.empty_title')"
           :description="

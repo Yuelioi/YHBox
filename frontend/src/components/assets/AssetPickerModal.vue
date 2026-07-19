@@ -180,6 +180,7 @@
         </div>
         <EmptyState
           v-else
+          inset
           icon="i-tabler-search-off"
           :title="t('assetPicker.empty')"
           :description="t('assetPicker.empty_hint')"
