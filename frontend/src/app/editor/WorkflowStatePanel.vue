@@ -39,12 +39,13 @@
             :placeholder="t('workflow.inspector.state_name_placeholder')"
             size="sm"
           />
-          <USelect
+          <AdaptiveSelect
             v-model="newVariableTypeId"
             :items="stateTypeItems"
             value-key="value"
             label-key="label"
             size="sm"
+            :max-width="28"
           />
           <UButton
             icon="i-tabler-plus"
@@ -129,9 +130,10 @@
             class="space-y-2 border-t border-default px-3 py-2"
           >
             <div class="flex items-center gap-2">
-              <USelect
+              <AdaptiveSelect
                 v-model="editingTypeId"
                 class="min-w-0 flex-1"
+                width-mode="fill"
                 :items="stateTypeItems"
                 value-key="value"
                 label-key="label"
@@ -242,6 +244,7 @@ import type {
   StateTypeChangeImpact,
 } from '@/app/editor/EditorSession'
 import { filterStateVariables, STATE_VARIABLE_PAGE_SIZE } from '@/app/editor/stateVariableQuery'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{
   variables: Variable[]

@@ -1,11 +1,12 @@
 <template>
   <div class="space-y-2">
-    <USelect
+    <AdaptiveSelect
       :model-value="range.space"
       :items="spaces"
       value-key="value"
       label-key="label"
       class="w-full"
+      width-mode="fill"
       @update:model-value="setSpace($event === 'hsv' ? 'hsv' : 'rgb')"
     />
     <div class="grid grid-cols-3 gap-2">
@@ -35,6 +36,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 type ColorSpace = 'rgb' | 'hsv'
 type ColorRange = {

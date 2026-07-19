@@ -124,9 +124,10 @@
                   :class="{ 'opacity-50': !enabled }"
                 >
                   <span>{{ t('log.popover.level') }}</span>
-                  <USelect
+                  <AdaptiveSelect
                     size="xs"
                     class="w-22"
+                    width-mode="fixed"
                     :ui="{ base: 'text-[11px]' }"
                     :model-value="level"
                     :items="logLevelItems"
@@ -282,6 +283,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '@/stores/log'
 import { useSettingsStore } from '@/stores/settings'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{ embedded?: boolean }>()
 const { t } = useI18n()

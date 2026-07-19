@@ -438,12 +438,16 @@ func (a *Application) ApplyPatch(ctx context.Context, request authoring.PatchReq
 	if err != nil {
 		return ApplyPatchResult{}, err
 	}
-	if referencedStateUpdate(source, applied.Source, request.Commands) {
+	candidateSource, candidateArtifact, err := stampWorkflowUpdate(applied.Source, a.now())
+	if err != nil {
+		return ApplyPatchResult{}, err
+	}
+	if referencedStateUpdate(source, candidateSource, request.Commands) {
 		baseline, err := a.compileDraft(ctx, snapshot.Artifact())
 		if err != nil {
 			return ApplyPatchResult{}, fmt.Errorf("compile state migration baseline: %w", err)
 		}
-		candidate, err := a.compileDraft(ctx, applied.Artifact)
+		candidate, err := a.compileDraft(ctx, candidateArtifact)
 		if err != nil {
 			return ApplyPatchResult{}, fmt.Errorf("compile state migration candidate: %w", err)
 		}
@@ -451,7 +455,7 @@ func (a *Application) ApplyPatch(ctx context.Context, request authoring.PatchReq
 			return ApplyPatchResult{}, &UnsafeStateMigrationError{Diagnostics: introduced}
 		}
 	}
-	next, saveErr := a.sources.Save(ctx, applied.Artifact, request.BaseRevision)
+	next, saveErr := a.sources.Save(ctx, candidateArtifact, request.BaseRevision)
 	return ApplyPatchResult{
 		Source: next, GeneratedNodes: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}, saveErr
@@ -541,17 +545,21 @@ func (a *Application) PreparePatch(ctx context.Context, request authoring.PatchR
 	if err != nil {
 		return PreparePatchResult{}, err
 	}
-	_, _, candidateHash, candidateDiagnostics, err := schema.CanonicalSource(applied.Artifact)
+	candidateSource, candidateArtifact, err := stampWorkflowUpdate(applied.Source, a.now())
+	if err != nil {
+		return PreparePatchResult{}, err
+	}
+	_, _, candidateHash, candidateDiagnostics, err := schema.CanonicalSource(candidateArtifact)
 	if err != nil || len(candidateDiagnostics) != 0 {
 		return PreparePatchResult{}, errors.New("prepared Workflow Source failed strict reopen")
 	}
 	prepared := PreparedPatch{state: &preparedPatchState{
 		workflowID: request.WorkflowID, baseRevision: request.BaseRevision, baseHash: snapshot.Hash(),
-		candidate: append([]byte(nil), applied.Artifact...), candidateHash: candidateHash,
+		candidate: append([]byte(nil), candidateArtifact...), candidateHash: candidateHash,
 		generated: append([]authoring.GeneratedNode(nil), applied.GeneratedNodes...),
 	}}
-	compiled, compileErr := a.compileDraft(ctx, applied.Artifact)
-	if referencedStateUpdate(source, applied.Source, request.Commands) {
+	compiled, compileErr := a.compileDraft(ctx, candidateArtifact)
+	if referencedStateUpdate(source, candidateSource, request.Commands) {
 		baseline, err := a.compileDraft(ctx, snapshot.Artifact())
 		if err != nil {
 			return PreparePatchResult{}, fmt.Errorf("compile state migration baseline: %w", err)
@@ -653,6 +661,9 @@ func (a *Application) CreateSourceWithMetadata(ctx context.Context, requested au
 		}},
 		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
 	}
+	timestamp := formatWorkflowTimestamp(a.now())
+	source.Workflow.CreatedAt = timestamp
+	source.Workflow.UpdatedAt = timestamp
 	raw, err := artifact.Marshal(source)
 	if err != nil {
 		return workflowstore.SourceSnapshot{}, err
@@ -931,6 +942,9 @@ func (a *Application) PublishImportedSource(ctx context.Context, raw []byte, bas
 		if expectedHash != "" || document.Revision != 0 {
 			return workflowstore.SourceSnapshot{}, errors.New("new imported Workflow Source has invalid identity")
 		}
+		timestamp := formatWorkflowTimestamp(a.now())
+		document.Workflow.CreatedAt = timestamp
+		document.Workflow.UpdatedAt = timestamp
 	} else if baseRevision >= 0 {
 		if !expectedHash.Valid() || document.Revision != baseRevision+1 {
 			return workflowstore.SourceSnapshot{}, errors.New("replacement import requires exact next revision")
@@ -942,13 +956,54 @@ func (a *Application) PublishImportedSource(ctx context.Context, raw []byte, bas
 		if current.Revision() != baseRevision || current.Hash() != expectedHash {
 			return workflowstore.SourceSnapshot{}, workflowstore.ErrSourceConflict
 		}
+		currentDocument, currentDiagnostics := schema.ParseSource(current.Artifact())
+		if len(currentDiagnostics) != 0 {
+			return workflowstore.SourceSnapshot{}, errors.New("stored Workflow Source failed strict reopen")
+		}
+		document.Workflow.CreatedAt = currentDocument.Workflow.CreatedAt
+		document.Workflow.UpdatedAt = currentDocument.Workflow.UpdatedAt
+		updatedDocument, _, err := stampWorkflowUpdate(document, a.now())
+		if err != nil {
+			return workflowstore.SourceSnapshot{}, err
+		}
+		document = updatedDocument
 		if active := a.ActiveSourceRuns(document.Workflow.ID); len(active) != 0 {
 			return workflowstore.SourceSnapshot{}, fmt.Errorf("workflow source has %d active run(s)", len(active))
 		}
 	} else {
 		return workflowstore.SourceSnapshot{}, errors.New("imported Workflow Source base revision is invalid")
 	}
-	return a.sources.Save(ctx, raw, baseRevision)
+	canonical, err := artifact.Marshal(document)
+	if err != nil {
+		return workflowstore.SourceSnapshot{}, err
+	}
+	return a.sources.Save(ctx, canonical, baseRevision)
+}
+
+func stampWorkflowUpdate(source schema.WorkflowSource, now time.Time) (schema.WorkflowSource, []byte, error) {
+	updatedAt := now.UTC()
+	for _, value := range []string{source.Workflow.CreatedAt, source.Workflow.UpdatedAt} {
+		if value == "" {
+			continue
+		}
+		parsed, err := time.Parse(time.RFC3339Nano, value)
+		if err != nil {
+			return schema.WorkflowSource{}, nil, fmt.Errorf("stamp Workflow Source timestamp: %w", err)
+		}
+		if parsed.After(updatedAt) {
+			updatedAt = parsed
+		}
+	}
+	source.Workflow.UpdatedAt = formatWorkflowTimestamp(updatedAt)
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		return schema.WorkflowSource{}, nil, err
+	}
+	return source, raw, nil
+}
+
+func formatWorkflowTimestamp(value time.Time) string {
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 // ActiveSourceRuns returns the queued/running run IDs currently retaining one

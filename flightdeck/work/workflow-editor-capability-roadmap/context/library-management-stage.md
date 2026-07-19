@@ -21,9 +21,17 @@
 5. 行选择后，第二行原位切换为统一上下文工具栏。选择数量和清除选择在左，普通批量动作在右，危险删除以分隔线独立。
 6. 批量元数据使用显式 operation。分类支持保持、设置、清空；标签支持保持、添加、移除、替换、清空。未选择的字段逐项保留当前值。
 7. 分页器与列表底边相连，显示结果范围、数字页码、边缘页和每页数量。初始 20 行，支持 20/50/100。
-8. column selector 参考旧版，但不包含快捷键。创建/修改日期待 durable 来源明确后再恢复，不从文件时间伪造产品历史。
+8. column selector 参考旧版，但不包含快捷键。创建/修改日期来自 Workflow Source durable metadata；旧记录未知，不从文件时间伪造产品历史。
 9. 资源录制与视觉模板是互斥内容上下文；无论类型都不恢复 grid。
 10. Picker 与 Inspector 保持整项选择和复合资源字段，搜索/筛选/分页适配大规模库。
+
+## Durable time and enum selection
+
+- `schema.Workflow.createdAt/updatedAt` 是可选 RFC 3339 字段，保证旧 Source 继续合法；同时存在时 updatedAt 不得早于 createdAt。
+- Application 是时间戳唯一 owner：新建与复制导入设置二者，普通/预备 patch 保留 createdAt 并推进 updatedAt，替换导入保留目标创建时间并记录本次修改时间。时钟回拨时保持时间单调。
+- 工作流查询支持 createdSince/updatedSince、created_desc/updated_desc；缺少真实时间的旧记录不会命中日期筛选，UI 显示未知。
+- Nuxt UI Select 4.7.1 的 content 默认等于 trigger width。AdaptiveSelect 根据最长可见 label（含中日韩双宽字符）计算稳定宽度，提供 min/max 和 content/fill/fixed 三种模式；普通枚举选择优先使用该组件。
+- AdaptiveSelect 不替代实体 picker。资源、工作流、状态等可能达到数百条的实体引用继续使用搜索、虚拟化和分页选择器。
 
 ## Batch metadata architecture
 
@@ -46,16 +54,18 @@
 
 ## Implemented batch
 
-- Durable contract：Workflow Source 增加 description/category/tags；authoring 增加 tagged metadata command、Unicode 长度校验、trim 与大小写不敏感标签去重。
+- Durable contract：Workflow Source 增加 description/category/tags/createdAt/updatedAt；authoring 增加 tagged metadata command、Unicode 长度校验、trim 与大小写不敏感标签去重；Application 统一时间戳语义。
 - Query projection：工作流全文搜索覆盖名称、描述、分类、标签和 ID，支持精确分类、all-tags、节点数排序、category/tag facets 与有界分页；资产 facets 按当前 kind 统计。
 - Workflows UI：新建/编辑复用 Modal，分类和标签可搜索并可创建；列表支持列控制、本地列偏好、批量导出/删除和数字分页。
 - Assets UI：录制与视觉模板使用互斥左侧上下文；去掉 grid，复合元数据分列，筛选与创建/编辑字段统一为可搜索组件。
 - Batch UI：工作流与资源库共用选择态工具栏；批量分类和标签使用显式 operation，普通操作和危险操作分区，跨页选择继续保留。
 - Scale proof：服务测试覆盖 1000 条工作流或资产，前端真实组件测试验证第 2 页服务查询。
+- Select consistency：共享 AdaptiveSelect 已覆盖 48 个普通枚举选择器；最长选项宽度估算、双宽字符和 min/max 由单元测试固定。
 
 ## Verification result
 
-- `task check` passed：Go 全包、契约、静态检查、48 个前端测试文件与 200 项测试、production frontend build 和 bundle budget 全部通过。
+- `task check` passed：Go 全包、66.0% 全局覆盖率、契约、静态检查、49 个前端测试文件与 204 项测试、production frontend build 和 bundle budget 全部通过。
 - `task build` passed：生成最新 `bin/Yotta.exe` 及伴随 worker/CLI。
 - `smoke-workflow-editor.ps1 -SkipLauncher` passed：新建工作流、编辑器主旅程和资源库导航完成。
+- 本批浏览器自动视觉运行时没有可用实例；日期列密度、筛选换行和创建 Modal 模板宽度留给 UAC production build 真机接受，不将源码检查冒充视觉通过。
 - 默认完整 smoke 尚未通过：悬浮启动器执行新建的仅 Run 开始工作流时等待 success 超时，该问题仍属于发布前开放项。

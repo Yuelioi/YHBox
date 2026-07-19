@@ -34,7 +34,7 @@
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <UFormField :label="t('schedule.trigger_kind_label')">
-            <USelect
+            <AdaptiveSelect
               v-model="draft.trigger.kind"
               :items="triggerKinds"
               :aria-label="t('schedule.trigger_kind_label')"
@@ -98,10 +98,11 @@
             class="schedule-target"
           >
             <span class="schedule-target__order">{{ index + 1 }}</span>
-            <USelect
+            <AdaptiveSelect
               v-model="target.id"
               :items="workflowItems"
               class="min-w-0 flex-1"
+              width-mode="fill"
               :aria-label="t('schedule.target_n', { n: index + 1 })"
             />
             <UButton
@@ -159,7 +160,7 @@
             />
           </UFormField>
           <UFormField :label="t('schedule.on_error_label')">
-            <USelect
+            <AdaptiveSelect
               v-model="draft.onError"
               :items="onErrorOptions"
               :aria-label="t('schedule.on_error_label')"
@@ -233,6 +234,7 @@ import { TargetKind } from '@bindings/github.com/yottaapp/yotta/internal/service
 import type { Schedule } from '@/lib/backend'
 import type { SourceView } from '@/app/transport/workflow'
 import StatusPill from '@/components/common/StatusPill.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const { t } = useI18n()
 const { schedule, workflows } = defineProps<{ schedule: Schedule; workflows: SourceView[] }>()

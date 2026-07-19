@@ -15,6 +15,8 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain('v-model:open="metadataModalOpen"')
     expect(source).toContain('<UPagination')
     expect(source).toContain('columnMenuItems')
+    expect(source).toContain("key: 'createdAt'")
+    expect(source).toContain("key: 'updatedAt'")
     expect(source).not.toContain("viewMode === 'grid'")
     expect(source).not.toContain("key: 'hotkey'")
   })
@@ -36,10 +38,18 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain('search: search.value')
     expect(source).toContain("categoryFilter.value === allCategories ? '' : categoryFilter.value")
     expect(source).toContain('tags: tagFilters.value')
+    expect(source).toContain('createdSince: rangeStart(createdRange.value)')
+    expect(source).toContain('updatedSince: rangeStart(updatedRange.value)')
     expect(source).toContain('page: page.value')
     expect(source).toContain('pageSize: pageSize.value')
     expect(source).toContain('toggleCurrentPage')
     expect(source).not.toContain('sources.value.slice(')
+  })
+
+  it('uses content-aware selects for templates and list controls', () => {
+    expect(source).toContain("import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'")
+    expect(source).toContain('v-model="metadataDraft.template"')
+    expect(source).toContain(':items="templateItems"')
   })
 
   it('previews references and performs CAS-protected partial batch deletion', () => {

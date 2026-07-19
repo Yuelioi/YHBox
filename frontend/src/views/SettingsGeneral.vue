@@ -7,10 +7,9 @@
     >
       <SettingsRow :label="t('settings.language')" :hint="t('settings.language_restart_hint')">
         <template #meta><SettingsRestartBadge /></template>
-        <USelect
+        <AdaptiveSelect
           :model-value="currentLocale"
           :items="localeItems"
-          class="w-40"
           :aria-label="t('settings.language')"
           @update:model-value="onLocaleChange"
         />
@@ -54,10 +53,9 @@
     >
       <SettingsRow :label="t('settings.capture.section_title')" :hint="captureMethodHint">
         <template #meta><SettingsRestartBadge /></template>
-        <USelect
+        <AdaptiveSelect
           :model-value="currentCapture"
           :items="captureItems"
-          class="w-40"
           :aria-label="t('settings.capture.section_title')"
           @update:model-value="onCaptureChange"
         />
@@ -89,10 +87,9 @@
       <div class="border-t border-default/60" />
 
       <SettingsRow :label="t('settings.log.level_label')" :hint="t('settings.log.level_hint')">
-        <USelect
+        <AdaptiveSelect
           :model-value="loggerLevel"
           :items="logLevelItems"
-          class="w-40"
           :aria-label="t('settings.log.level_label')"
           @update:model-value="(value: string) => patchLogger('level', value)"
         />
@@ -120,6 +117,7 @@ import { setLocale, type Locale } from '@/i18n'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()

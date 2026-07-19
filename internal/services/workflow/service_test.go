@@ -71,6 +71,24 @@ func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
 	if err != nil || filtered.Total != 2 || len(filtered.Items) != 2 || filtered.Items[0].NodeCount != 1 {
 		t.Fatalf("QuerySources facets = %#v, %v", filtered, err)
 	}
+	recent, err := service.QuerySources(workflow.SourceQuery{
+		CreatedSince: time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		UpdatedSince: time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		Sort:         "updated_desc", Page: 1, PageSize: 20,
+	})
+	if err != nil || recent.Total != 1_000 || recent.Items[0].CreatedAt == "" || recent.Items[0].UpdatedAt == "" {
+		t.Fatalf("QuerySources date filters = %#v, %v", recent, err)
+	}
+	future, err := service.QuerySources(workflow.SourceQuery{
+		CreatedSince: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		Sort:         "created_desc", Page: 1, PageSize: 20,
+	})
+	if err != nil || future.Total != 0 {
+		t.Fatalf("QuerySources future date filter = %#v, %v", future, err)
+	}
+	if _, err := service.QuerySources(workflow.SourceQuery{CreatedSince: "invalid", Page: 1}); err == nil {
+		t.Fatal("QuerySources accepted an invalid date filter")
+	}
 	if len(filtered.Categories) != 2 || filtered.Categories[0].Value != "Even" || filtered.Categories[0].Count != 500 ||
 		len(filtered.Tags) != 2 || filtered.Tags[0].Value != "common" || filtered.Tags[0].Count != 1_000 {
 		t.Fatalf("QuerySources facet values = categories %#v, tags %#v", filtered.Categories, filtered.Tags)
@@ -98,7 +116,8 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	created, err := service.CreateSource(" Projection ")
-	if err != nil || created.Name != "Projection" || created.SourceJSON == "" {
+	if err != nil || created.Name != "Projection" || created.SourceJSON == "" ||
+		created.CreatedAt != now.Format(time.RFC3339Nano) || created.UpdatedAt != created.CreatedAt {
 		t.Fatalf("CreateSource() = %#v, %v", created, err)
 	}
 	metadata, err := service.UpdateSourceMetadata(created.WorkflowID, created.Revision, workflow.UpdateSourceMetadataRequest{

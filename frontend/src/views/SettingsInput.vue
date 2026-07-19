@@ -7,10 +7,9 @@
     >
       <SettingsRow :label="t('settings.input.record.mouse_mode_label')" :hint="mouseModeHint">
         <template #meta><SettingsRestartBadge /></template>
-        <USelect
+        <AdaptiveSelect
           :model-value="settings?.ui.recordingMouseMode ?? 'relative'"
           :items="mouseModeItems"
-          class="w-56"
           :aria-label="t('settings.input.record.mouse_mode_label')"
           @update:model-value="(value: string) => patchRecord({ recordingMouseMode: value })"
         />
@@ -174,6 +173,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 
 interface DraftMouseProfile extends MouseProfile {

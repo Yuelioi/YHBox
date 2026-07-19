@@ -24,12 +24,12 @@
           :label="t('assetPicker.filters')"
           @click="filtersOpen = !filtersOpen"
         />
-        <USelect
+        <AdaptiveSelect
           v-model="sort"
           :items="sortItems"
           value-key="value"
           label-key="label"
-          class="w-44 shrink-0"
+          class="shrink-0"
           @update:model-value="applyFilters"
         />
       </div>
@@ -231,6 +231,7 @@ import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{
   open: boolean

@@ -92,7 +92,7 @@
                 <UInput :model-value="profile.slot" size="sm" disabled class="font-mono" />
               </UFormField>
               <UFormField :label="t('settingsAI.profiles.provider_label')" required>
-                <USelect
+                <AdaptiveSelect
                   :model-value="profile.provider"
                   :items="providerItems"
                   size="sm"
@@ -428,6 +428,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
 import SettingsRestartBadge from '@/components/settings/SettingsRestartBadge.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import { errorMessage } from '@/lib/invoke'
 
 interface AIModelProfileDraft extends AIModelProfile {

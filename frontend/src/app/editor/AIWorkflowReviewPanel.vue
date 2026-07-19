@@ -23,11 +23,12 @@
     <div class="flex-1 overflow-y-auto">
       <section class="space-y-3 border-b border-default p-4">
         <UFormField :label="t('workflow.ai.profile')">
-          <USelect
+          <AdaptiveSelect
             v-model="slot"
             :items="profileOptions"
             value-key="value"
             label-key="label"
+            width-mode="fill"
             :disabled="busy || review?.status === 'proposed'"
           />
         </UFormField>
@@ -238,6 +239,7 @@ import { useI18n } from 'vue-i18n'
 import { backend, type AIWorkflowReview } from '@/lib/backend'
 import { useSettingsStore } from '@/stores/settings'
 import { useConfirm } from '@/composables/useConfirm'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{ workflowId: string; baseRevision: number; dirty: boolean }>()
 const emit = defineEmits<{ close: []; accepted: [review: AIWorkflowReview] }>()

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -64,6 +65,8 @@ type SourceView struct {
 	Description string          `json:"description,omitempty"`
 	Category    string          `json:"category,omitempty"`
 	Tags        []string        `json:"tags,omitempty"`
+	CreatedAt   string          `json:"createdAt,omitempty"`
+	UpdatedAt   string          `json:"updatedAt,omitempty"`
 	NodeCount   int             `json:"nodeCount"`
 	Revision    int64           `json:"revision"`
 	SourceHash  artifact.Digest `json:"sourceHash"`
@@ -71,12 +74,14 @@ type SourceView struct {
 }
 
 type SourceQuery struct {
-	Search   string   `json:"search"`
-	Category string   `json:"category"`
-	Tags     []string `json:"tags"`
-	Sort     string   `json:"sort"`
-	Page     int      `json:"page"`
-	PageSize int      `json:"pageSize"`
+	Search       string   `json:"search"`
+	Category     string   `json:"category"`
+	Tags         []string `json:"tags"`
+	CreatedSince string   `json:"createdSince"`
+	UpdatedSince string   `json:"updatedSince"`
+	Sort         string   `json:"sort"`
+	Page         int      `json:"page"`
+	PageSize     int      `json:"pageSize"`
 }
 
 type FacetValue struct {
@@ -362,8 +367,17 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 	if query.PageSize > 100 {
 		return SourcePage{}, errors.New("workflow source page size exceeds 100")
 	}
-	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 128 || len(query.Tags) > 16 {
+	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 128 || len(query.Tags) > 16 ||
+		len(query.CreatedSince) > 64 || len(query.UpdatedSince) > 64 {
 		return SourcePage{}, errors.New("workflow source filter budget exceeded")
+	}
+	createdSince, err := parseSourceFilterTime("createdSince", query.CreatedSince)
+	if err != nil {
+		return SourcePage{}, err
+	}
+	updatedSince, err := parseSourceFilterTime("updatedSince", query.UpdatedSince)
+	if err != nil {
+		return SourcePage{}, err
 	}
 	search := strings.ToLower(strings.TrimSpace(query.Search))
 	category := strings.ToLower(strings.TrimSpace(query.Category))
@@ -379,6 +393,9 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 			continue
 		}
 		if !containsEverySourceTag(view.Tags, wantedTags) {
+			continue
+		}
+		if !sourceTimeMatches(view.CreatedAt, createdSince) || !sourceTimeMatches(view.UpdatedAt, updatedSince) {
 			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(strings.Join(append([]string{
@@ -405,6 +422,10 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 			}
 			return filtered[i].NodeCount > filtered[j].NodeCount
 		})
+	case "created_desc":
+		sortSourceViewsByTime(filtered, func(view SourceView) string { return view.CreatedAt })
+	case "updated_desc":
+		sortSourceViewsByTime(filtered, func(view SourceView) string { return view.UpdatedAt })
 	case "", "name_asc":
 		sort.SliceStable(filtered, func(i, j int) bool { return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name) })
 	default:
@@ -421,6 +442,42 @@ func (s *Service) QuerySources(query SourceQuery) (SourcePage, error) {
 		Items: items, Total: total, Page: query.Page, PageSize: query.PageSize,
 		Categories: categories, Tags: tags,
 	}, nil
+}
+
+func parseSourceFilterTime(field, value string) (time.Time, error) {
+	if value == "" {
+		return time.Time{}, nil
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid workflow source %s filter", field)
+	}
+	return parsed, nil
+}
+
+func sourceTimeMatches(value string, since time.Time) bool {
+	if since.IsZero() {
+		return true
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	return err == nil && !parsed.Before(since)
+}
+
+func sortSourceViewsByTime(views []SourceView, value func(SourceView) string) {
+	sort.SliceStable(views, func(i, j int) bool {
+		left, leftErr := time.Parse(time.RFC3339Nano, value(views[i]))
+		right, rightErr := time.Parse(time.RFC3339Nano, value(views[j]))
+		if leftErr != nil || rightErr != nil {
+			if leftErr != nil && rightErr != nil {
+				return strings.ToLower(views[i].Name) < strings.ToLower(views[j].Name)
+			}
+			return leftErr == nil
+		}
+		if left.Equal(right) {
+			return strings.ToLower(views[i].Name) < strings.ToLower(views[j].Name)
+		}
+		return left.After(right)
+	})
 }
 
 func sourceFacets(views []SourceView) ([]FacetValue, []FacetValue) {
@@ -734,7 +791,8 @@ func sourceView(snapshot workflowstore.SourceSnapshot, includeSource bool) (Sour
 	view := SourceView{
 		WorkflowID: snapshot.WorkflowID(), Name: document.Workflow.Name,
 		Description: document.Workflow.Description, Category: document.Workflow.Category,
-		Tags: append([]string(nil), document.Workflow.Tags...), NodeCount: sourceNodeCount(document),
+		Tags: append([]string(nil), document.Workflow.Tags...), CreatedAt: document.Workflow.CreatedAt,
+		UpdatedAt: document.Workflow.UpdatedAt, NodeCount: sourceNodeCount(document),
 		Revision: snapshot.Revision(), SourceHash: snapshot.Hash(),
 	}
 	if includeSource {

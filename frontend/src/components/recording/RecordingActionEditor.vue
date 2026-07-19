@@ -110,7 +110,7 @@
             />
           </UFormField>
           <UFormField v-if="action.kind === 'click'" :label="t('recordingEditor.button')">
-            <USelect
+            <AdaptiveSelect
               :model-value="action.button ?? 'left'"
               :items="buttonItems"
               value-key="value"
@@ -187,6 +187,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RecordingAction } from '@/stores/recording'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{ modelValue: RecordingAction[] }>()
 const emit = defineEmits<{ 'update:modelValue': [value: RecordingAction[]] }>()

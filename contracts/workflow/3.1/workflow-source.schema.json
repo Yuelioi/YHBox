@@ -582,6 +582,10 @@
           "maxLength": 128,
           "type": "string"
         },
+        "createdAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
         "description": {
           "maxLength": 4096,
           "type": "string"
@@ -602,6 +606,10 @@
           },
           "maxItems": 64,
           "type": "array"
+        },
+        "updatedAt": {
+          "maxLength": 64,
+          "type": "string"
         }
       },
       "required": [

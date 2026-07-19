@@ -84,12 +84,11 @@
           <span class="hidden text-xs text-muted xl:inline">{{
             t('workflow.target_default.label')
           }}</span>
-          <USelect
+          <AdaptiveSelect
             :model-value="workflowDefaultTargetSlot"
             :items="workflowAutomationTargetItems"
             value-key="value"
             label-key="label"
-            class="w-56"
             :placeholder="t('workflow.target_default.placeholder')"
             @update:model-value="setWorkflowDefaultTarget"
           />
@@ -744,7 +743,7 @@
     >
       <div class="space-y-3">
         <UFormField :label="t('workflow.recording.mode')" required>
-          <USelect
+          <AdaptiveSelect
             v-model="recordingMode"
             :items="recordingModeItems"
             value-key="value"
@@ -752,7 +751,7 @@
           />
         </UFormField>
         <UFormField :label="t('workflow.recording.target')" required>
-          <USelect
+          <AdaptiveSelect
             v-model="recordingTargetSlot"
             :items="recordingTargetItems"
             value-key="value"
@@ -911,6 +910,7 @@ import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { useI18n } from 'vue-i18n'

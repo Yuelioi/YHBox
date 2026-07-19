@@ -3,6 +3,8 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -50,6 +52,34 @@ type Workflow struct {
 	Description string   `json:"description,omitempty" jsonschema:"maxLength=4096"`
 	Category    string   `json:"category,omitempty" jsonschema:"maxLength=128"`
 	Tags        []string `json:"tags,omitempty" jsonschema:"maxItems=64"`
+	CreatedAt   string   `json:"createdAt,omitempty" jsonschema:"maxLength=64"`
+	UpdatedAt   string   `json:"updatedAt,omitempty" jsonschema:"maxLength=64"`
+}
+
+func (w Workflow) validateTimestamps() error {
+	createdAt, created, err := parseWorkflowTimestamp("createdAt", w.CreatedAt)
+	if err != nil {
+		return err
+	}
+	updatedAt, updated, err := parseWorkflowTimestamp("updatedAt", w.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if created && updated && updatedAt.Before(createdAt) {
+		return fmt.Errorf("updatedAt must not be before createdAt")
+	}
+	return nil
+}
+
+func parseWorkflowTimestamp(field, value string) (time.Time, bool, error) {
+	if value == "" {
+		return time.Time{}, false, nil
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("%s must be RFC 3339: %w", field, err)
+	}
+	return parsed, true, nil
 }
 
 type Graph struct {

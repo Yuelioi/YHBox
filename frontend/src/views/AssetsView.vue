@@ -14,22 +14,22 @@
           </p>
         </div>
       </div>
-      <USelect
+      <AdaptiveSelect
         v-model="selectedTargetSlot"
         :items="targetItems"
         value-key="value"
         label-key="label"
-        class="w-60 shrink-0"
+        class="shrink-0"
         :placeholder="t('assets.target_placeholder')"
         :aria-label="t('assets.target_placeholder')"
       />
       <template v-if="activeTab === 'clips' && recording.state.phase === 'idle'">
-        <USelect
+        <AdaptiveSelect
           v-model="recordingMode"
           :items="recordingModeItems"
           value-key="value"
           label-key="label"
-          class="w-36 shrink-0"
+          class="shrink-0"
           :aria-label="t('assets.recording.mode')"
         />
         <UButton
@@ -153,11 +153,10 @@
             </template>
           </LibrarySelectionToolbar>
           <div v-else class="flex flex-wrap items-center gap-2 p-3">
-            <USelect
+            <AdaptiveSelect
               v-model="categoryFilter"
               :items="categoryFilterItems"
               icon="i-tabler-category"
-              class="w-48"
               @update:model-value="changeQuery"
             />
             <UInputMenu
@@ -169,11 +168,10 @@
               :placeholder="t('assets.all_tags')"
               @update:model-value="changeQuery"
             />
-            <USelect
+            <AdaptiveSelect
               v-model="sort"
               :items="sortItems"
               icon="i-tabler-arrows-sort"
-              class="w-48"
               @update:model-value="changeQuery"
             />
             <UButton
@@ -392,10 +390,11 @@
             @update:page="goToPage"
           />
           <span class="text-xs text-dimmed">{{ t('assets.per_page') }}</span>
-          <USelect
+          <AdaptiveSelect
             v-model="pageSize"
             :items="pageSizeItems"
             class="w-24"
+            width-mode="fixed"
             @update:model-value="changeQuery"
           />
         </footer>
@@ -414,10 +413,10 @@
       <p class="text-sm text-muted">{{ t('batchMetadata.description') }}</p>
       <UFormField :label="t('common.category')">
         <div class="flex items-center gap-2">
-          <USelect
+          <AdaptiveSelect
             v-model="batchDraft.categoryMode"
             :items="categoryModeItems"
-            class="w-36 shrink-0"
+            class="shrink-0"
           />
           <UInputMenu
             v-if="batchDraft.categoryMode === 'set'"
@@ -432,7 +431,7 @@
       </UFormField>
       <UFormField :label="t('common.tags')">
         <div class="flex items-start gap-2">
-          <USelect v-model="batchDraft.tagMode" :items="tagModeItems" class="w-36 shrink-0" />
+          <AdaptiveSelect v-model="batchDraft.tagMode" :items="tagModeItems" class="shrink-0" />
           <UInputMenu
             v-if="tagModeNeedsValues"
             v-model="batchDraft.tags"
@@ -659,6 +658,7 @@ import { useRecordingStart } from '@/composables/useRecordingStart'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 

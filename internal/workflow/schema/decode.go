@@ -241,6 +241,9 @@ func reflectedContract(typ reflect.Type) reflectedStructContract {
 
 func validateSource(source WorkflowSource) []Diagnostic {
 	var out []Diagnostic
+	if err := source.Workflow.validateTimestamps(); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"workflow"}, map[string]any{"keyword": "timestamps", "reason": err.Error()}))
+	}
 	if err := validateTargetDefaults(source.TargetDefaults); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetDefaults", "reason": err.Error()}))
 	}

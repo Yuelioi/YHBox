@@ -128,10 +128,11 @@
           </template>
         </LibrarySelectionToolbar>
         <div v-else class="flex flex-wrap items-center gap-2 p-3">
-          <USelect
+          <AdaptiveSelect
             v-model="categoryFilter"
             :items="categoryFilterItems"
             class="w-48"
+            width-mode="fixed"
             icon="i-tabler-category"
             @update:model-value="queryChanged"
           />
@@ -144,10 +145,27 @@
             :placeholder="t('workflow.list.all_tags')"
             @update:model-value="queryChanged"
           />
-          <USelect
+          <AdaptiveSelect
+            v-model="createdRange"
+            :items="createdRangeItems"
+            class="w-44"
+            width-mode="fixed"
+            icon="i-tabler-calendar-plus"
+            @update:model-value="queryChanged"
+          />
+          <AdaptiveSelect
+            v-model="updatedRange"
+            :items="updatedRangeItems"
+            class="w-44"
+            width-mode="fixed"
+            icon="i-tabler-calendar-stats"
+            @update:model-value="queryChanged"
+          />
+          <AdaptiveSelect
             v-model="sort"
             :items="sortItems"
             class="w-48"
+            width-mode="fixed"
             icon="i-tabler-arrows-sort"
             @update:model-value="queryChanged"
           />
@@ -234,7 +252,7 @@
             />
           </template>
         </EmptyState>
-        <div v-else class="min-w-[900px]">
+        <div v-else class="min-w-[1100px]">
           <div
             class="grid h-9 items-center gap-3 border-b border-default bg-elevated/40 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
@@ -253,6 +271,8 @@
             <span v-if="isColumnVisible('revision')" class="text-right">{{
               t('workflow.list.revision')
             }}</span>
+            <span v-if="isColumnVisible('createdAt')">{{ t('workflow.list.created_at') }}</span>
+            <span v-if="isColumnVisible('updatedAt')">{{ t('workflow.list.updated_at') }}</span>
             <span class="text-right">{{ t('workflow.list.actions') }}</span>
           </div>
           <article
@@ -326,6 +346,22 @@
               class="text-right font-mono text-xs text-muted"
               >{{ source.revision }}</span
             >
+            <time
+              v-if="isColumnVisible('createdAt')"
+              :datetime="source.createdAt || undefined"
+              class="text-xs text-muted"
+              :title="source.createdAt ? formatExactDate(source.createdAt) : undefined"
+            >
+              {{ formatListDate(source.createdAt) }}
+            </time>
+            <time
+              v-if="isColumnVisible('updatedAt')"
+              :datetime="source.updatedAt || undefined"
+              class="text-xs text-muted"
+              :title="source.updatedAt ? formatExactDate(source.updatedAt) : undefined"
+            >
+              {{ formatListDate(source.updatedAt) }}
+            </time>
             <div class="flex justify-end gap-1">
               <UButton
                 icon="i-tabler-player-play"
@@ -373,10 +409,11 @@
           @update:page="goToPage"
         />
         <span class="text-xs text-dimmed">{{ t('workflow.list.per_page') }}</span>
-        <USelect
+        <AdaptiveSelect
           v-model="pageSize"
           :items="pageSizeItems"
           class="w-24"
+          width-mode="fixed"
           @update:model-value="queryChanged"
         />
       </footer>
@@ -393,10 +430,11 @@
         <p class="text-sm text-muted">{{ t('batchMetadata.description') }}</p>
         <UFormField :label="t('common.category')">
           <div class="flex items-center gap-2">
-            <USelect
+            <AdaptiveSelect
               v-model="batchDraft.categoryMode"
               :items="categoryModeItems"
               class="w-36 shrink-0"
+              width-mode="fixed"
             />
             <UInputMenu
               v-if="batchDraft.categoryMode === 'set'"
@@ -412,7 +450,12 @@
         </UFormField>
         <UFormField :label="t('common.tags')">
           <div class="flex items-start gap-2">
-            <USelect v-model="batchDraft.tagMode" :items="tagModeItems" class="w-36 shrink-0" />
+            <AdaptiveSelect
+              v-model="batchDraft.tagMode"
+              :items="tagModeItems"
+              class="w-36 shrink-0"
+              width-mode="fixed"
+            />
             <UInputMenu
               v-if="tagModeNeedsValues"
               v-model="batchDraft.tags"
@@ -463,7 +506,7 @@
           />
         </UFormField>
         <UFormField v-if="!editingSource" :label="t('workflow.list.template_label')">
-          <USelect v-model="metadataDraft.template" :items="templateItems" />
+          <AdaptiveSelect v-model="metadataDraft.template" :items="templateItems" :max-width="32" />
         </UFormField>
         <UFormField :label="t('workflow.list.description_label')">
           <UTextarea
@@ -579,6 +622,7 @@ import {
   uniqueMetadataValues,
 } from '@/lib/batchMetadata'
 import BaseModal from '@/components/common/BaseModal.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 
@@ -588,25 +632,28 @@ type SelectedSource = Pick<
   SourceView,
   'workflowId' | 'name' | 'revision' | 'sourceHash' | 'category' | 'tags'
 >
-type WorkflowColumn = 'category' | 'tags' | 'nodes' | 'revision'
+type WorkflowColumn = 'category' | 'tags' | 'nodes' | 'revision' | 'createdAt' | 'updatedAt'
+type DateRange = 'all' | 'today' | '7d' | '30d' | '90d'
 type Feedback = { tone: 'success' | 'warning' | 'error'; message: string; details: string[] }
 
-const defaultColumns: WorkflowColumn[] = ['category', 'tags', 'nodes']
+const defaultColumns: WorkflowColumn[] = ['category', 'tags', 'nodes', 'createdAt', 'updatedAt']
 const allCategories = '__all__'
 const router = useRouter()
 const toast = useToast()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const sources = ref<SourceView[]>([])
 const recoveries = ref<SourceRecoveryView[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
-const sort = ref('name_asc')
+const sort = ref('updated_desc')
 const searchInput = ref('')
 const search = ref('')
 const categoryFilter = ref(allCategories)
 const tagFilters = ref<string[]>([])
+const createdRange = ref<DateRange>('all')
+const updatedRange = ref<DateRange>('all')
 const categories = ref<Array<{ value: string; count: number }>>([])
 const tags = ref<Array<{ value: string; count: number }>>([])
 const visibleColumns = ref<WorkflowColumn[]>(loadColumns())
@@ -663,7 +710,13 @@ const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.va
 const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
 const resultEnd = computed(() => Math.min(page.value * pageSize.value, total.value))
 const hasFilters = computed(() =>
-  Boolean(search.value || categoryFilter.value !== allCategories || tagFilters.value.length),
+  Boolean(
+    search.value ||
+    categoryFilter.value !== allCategories ||
+    tagFilters.value.length ||
+    createdRange.value !== 'all' ||
+    updatedRange.value !== 'all',
+  ),
 )
 const activeFeedback = computed(() => portabilityFeedback.value ?? deleteFeedback.value)
 const feedbackClass = computed(() => {
@@ -680,6 +733,8 @@ const categoryFilterItems = computed(() => [
   })),
 ])
 const tagOptions = computed(() => tags.value.map((item) => item.value))
+const createdRangeItems = computed(() => dateRangeItems('created'))
+const updatedRangeItems = computed(() => dateRangeItems('updated'))
 const metadataCategoryOptions = computed(() =>
   uniqueStrings([
     ...categories.value.map((item) => item.value),
@@ -737,6 +792,8 @@ const sortItems = computed(() => [
   { label: t('workflow.list.sort_name_desc'), value: 'name_desc' },
   { label: t('workflow.list.sort_nodes_desc'), value: 'nodes_desc' },
   { label: t('workflow.list.sort_revision_desc'), value: 'revision_desc' },
+  { label: t('workflow.list.sort_created_desc'), value: 'created_desc' },
+  { label: t('workflow.list.sort_updated_desc'), value: 'updated_desc' },
 ])
 const pageSizeItems = [
   { label: '20', value: 20 },
@@ -755,6 +812,8 @@ const columnOptions = computed<Array<{ key: WorkflowColumn; label: string }>>(()
   { key: 'tags', label: t('workflow.list.tags') },
   { key: 'nodes', label: t('workflow.list.nodes') },
   { key: 'revision', label: t('workflow.list.revision') },
+  { key: 'createdAt', label: t('workflow.list.created_at') },
+  { key: 'updatedAt', label: t('workflow.list.updated_at') },
 ])
 const visibleColumnSet = computed(() => new Set(visibleColumns.value))
 const columnMenuItems = computed(() => [
@@ -780,6 +839,8 @@ const workflowGridTemplate = computed(() => {
   if (isColumnVisible('tags')) columns.push('minmax(12rem, 1.2fr)')
   if (isColumnVisible('nodes')) columns.push('5rem')
   if (isColumnVisible('revision')) columns.push('5rem')
+  if (isColumnVisible('createdAt')) columns.push('8.5rem')
+  if (isColumnVisible('updatedAt')) columns.push('8.5rem')
   columns.push('8.5rem')
   return columns.join(' ')
 })
@@ -811,6 +872,8 @@ async function load(): Promise<void> {
         search: search.value,
         category: categoryFilter.value === allCategories ? '' : categoryFilter.value,
         tags: tagFilters.value,
+        createdSince: rangeStart(createdRange.value),
+        updatedSince: rangeStart(updatedRange.value),
         sort: sort.value,
         page: page.value,
         pageSize: pageSize.value,
@@ -848,6 +911,8 @@ async function resetFilters(): Promise<void> {
   search.value = ''
   categoryFilter.value = allCategories
   tagFilters.value = []
+  createdRange.value = 'all'
+  updatedRange.value = 'all'
   await queryChanged()
 }
 
@@ -946,7 +1011,14 @@ function loadColumns(): WorkflowColumn[] {
   try {
     const raw = JSON.parse(localStorage.getItem('yotta.workflow.columns') ?? '[]') as unknown
     if (!Array.isArray(raw)) return [...defaultColumns]
-    const allowed = new Set<WorkflowColumn>(['category', 'tags', 'nodes', 'revision'])
+    const allowed = new Set<WorkflowColumn>([
+      'category',
+      'tags',
+      'nodes',
+      'revision',
+      'createdAt',
+      'updatedAt',
+    ])
     const values = raw.filter(
       (value): value is WorkflowColumn =>
         typeof value === 'string' && allowed.has(value as WorkflowColumn),
@@ -1037,6 +1109,44 @@ function createBatchTag(value: string): void {
   if (!tag) return
   createdTags.value = uniqueStrings([...createdTags.value, tag])
   batchDraft.tags = uniqueMetadataValues([...batchDraft.tags, tag])
+}
+
+function dateRangeItems(kind: 'created' | 'updated') {
+  const prefix = kind === 'created' ? 'created' : 'updated'
+  return [
+    { label: t(`workflow.list.${prefix}_any`), value: 'all' },
+    { label: t(`workflow.list.${prefix}_today`), value: 'today' },
+    { label: t(`workflow.list.${prefix}_days`, { n: 7 }), value: '7d' },
+    { label: t(`workflow.list.${prefix}_days`, { n: 30 }), value: '30d' },
+    { label: t(`workflow.list.${prefix}_days`, { n: 90 }), value: '90d' },
+  ]
+}
+
+function rangeStart(range: DateRange): string {
+  if (range === 'all') return ''
+  const start = new Date()
+  if (range === 'today') {
+    start.setHours(0, 0, 0, 0)
+  } else {
+    start.setDate(start.getDate() - Number.parseInt(range, 10))
+  }
+  return start.toISOString()
+}
+
+function formatListDate(value?: string): string {
+  if (!value) return '—'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '—'
+  return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(parsed)
+}
+
+function formatExactDate(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat(locale.value, {
+    dateStyle: 'long',
+    timeStyle: 'medium',
+  }).format(parsed)
 }
 
 function uniqueStrings(values: string[]): string[] {

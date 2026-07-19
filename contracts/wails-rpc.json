@@ -5359,6 +5359,16 @@
               "type": "string[]"
             },
             {
+              "name": "\"createdSince\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedSince\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"sort\"",
               "optional": false,
               "type": "string"
@@ -5450,6 +5460,16 @@
               "name": "\"tags\"",
               "optional": true,
               "type": "string[]"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": true,
+              "type": "string"
             },
             {
               "name": "\"nodeCount\"",

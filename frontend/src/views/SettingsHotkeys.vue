@@ -8,10 +8,10 @@
         class="min-w-0 flex-1"
         :aria-label="t('hotkeys.search_placeholder')"
       />
-      <USelect
+      <AdaptiveSelect
         v-model="statusFilter"
         :items="filterItems"
-        class="w-36 shrink-0"
+        class="shrink-0"
         :aria-label="t('hotkeys.filter_label')"
       />
       <UDropdownMenu :items="resetMenuItems">
@@ -106,6 +106,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { backend } from '@/lib/backend'
 import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 type StatusFilter = 'all' | 'failed' | 'unbound'
 

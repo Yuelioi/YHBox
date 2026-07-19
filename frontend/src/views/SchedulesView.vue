@@ -65,11 +65,11 @@
             :placeholder="t('schedule.search_placeholder')"
             class="min-w-0 flex-1 sm:max-w-sm"
           />
-          <USelect
+          <AdaptiveSelect
             v-model="statusFilter"
             :items="statusItems"
             icon="i-tabler-adjustments-horizontal"
-            class="w-40"
+            class="shrink-0"
             :aria-label="t('schedule.status_filter')"
           />
           <span class="text-xs text-dimmed">{{
@@ -107,6 +107,7 @@ import { errorMessage } from '@/lib/invoke'
 import type { Schedule } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 
 const { t } = useI18n()

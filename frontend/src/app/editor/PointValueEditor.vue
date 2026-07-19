@@ -12,10 +12,11 @@
       class="w-full"
       @update:model-value="update('y', Number($event))"
     />
-    <USelect
+    <AdaptiveSelect
       :model-value="point.unit"
       :items="units"
       class="w-full"
+      width-mode="fill"
       @update:model-value="update('unit', $event === 'px' ? 'px' : 'ratio')"
     />
   </div>
@@ -24,6 +25,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 type PointValue = { x: number; y: number; unit: 'ratio' | 'px' }
 

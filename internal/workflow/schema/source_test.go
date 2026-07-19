@@ -40,6 +40,28 @@ func TestParseSource31PreservesTypedBlobBinding(t *testing.T) {
 	}
 }
 
+func TestParseSource31ValidatesOptionalWorkflowTimestamps(t *testing.T) {
+	valid := strings.Replace(
+		validSource31ForTest(),
+		`"name":"Concat"`,
+		`"name":"Concat","createdAt":"2026-07-19T10:00:00+08:00","updatedAt":"2026-07-19T11:00:00+08:00"`,
+		1,
+	)
+	source, diagnostics := ParseSource([]byte(valid))
+	if len(diagnostics) != 0 || source.Workflow.CreatedAt == "" || source.Workflow.UpdatedAt == "" {
+		t.Fatalf("timestamped source = %#v, diagnostics = %#v", source.Workflow, diagnostics)
+	}
+
+	for _, raw := range []string{
+		strings.Replace(valid, `"createdAt":"2026-07-19T10:00:00+08:00"`, `"createdAt":"not-a-time"`, 1),
+		strings.Replace(valid, `"updatedAt":"2026-07-19T11:00:00+08:00"`, `"updatedAt":"2026-07-19T09:00:00+08:00"`, 1),
+	} {
+		if _, diagnostics := ParseSource([]byte(raw)); len(diagnostics) == 0 || diagnostics[0].Code != CodeInvalidField {
+			t.Fatalf("invalid timestamp diagnostics = %#v", diagnostics)
+		}
+	}
+}
+
 func TestParseSource31RejectsLegacyKindAndImplicitEdgeChannel(t *testing.T) {
 	legacy := `{"format":"yotta.workflow","version":3,"workflow":{"id":"wf","name":"x"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`
 	if _, diagnostics := ParseSource([]byte(legacy)); len(diagnostics) == 0 || diagnostics[0].Code != CodeUnsupportedWorkflowFormat {

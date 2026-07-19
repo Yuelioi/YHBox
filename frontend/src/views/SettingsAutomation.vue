@@ -181,10 +181,11 @@
                 :hint="t('settingsAutomation.targets.application_hint')"
                 required
               >
-                <USelect
+                <AdaptiveSelect
                   :model-value="target.applicationSlot"
                   :items="applicationItems"
                   size="sm"
+                  width-mode="fill"
                   @update:model-value="(value: string) => setApplication(index, value)"
                 />
               </UFormField>
@@ -194,10 +195,11 @@
                 :hint="t('settingsAutomation.targets.backend_hint')"
                 required
               >
-                <USelect
+                <AdaptiveSelect
                   :model-value="target.inputBackend"
                   :items="backendItems"
                   size="sm"
+                  width-mode="fill"
                   @update:model-value="(value: InputBackend) => setBackend(index, value)"
                 />
               </UFormField>
@@ -207,10 +209,11 @@
                 :hint="t('settingsAutomation.targets.capture_backend_hint')"
                 required
               >
-                <USelect
+                <AdaptiveSelect
                   :model-value="target.captureBackend"
                   :items="captureBackendItems"
                   size="sm"
+                  width-mode="fill"
                   @update:model-value="(value: CaptureBackend) => setCaptureBackend(index, value)"
                 />
               </UFormField>
@@ -252,10 +255,11 @@
                   :label="t('settingsAutomation.targets.window_title_match_label')"
                   :hint="t('settingsAutomation.targets.window_title_match_hint')"
                 >
-                  <USelect
+                  <AdaptiveSelect
                     v-model="target.windowTitleMatch"
                     :items="windowTitleMatchItems"
                     class="w-full sm:w-56"
+                    width-mode="fixed"
                     @update:model-value="commit"
                   />
                 </UFormField>
@@ -269,10 +273,11 @@
                   :label="t('settingsAutomation.targets.window_selection_label')"
                   :hint="t('settingsAutomation.targets.window_selection_hint')"
                 >
-                  <USelect
+                  <AdaptiveSelect
                     v-model="target.windowSelection"
                     :items="windowSelectionItems"
                     class="w-full sm:w-72"
+                    width-mode="fixed"
                     @update:model-value="commit"
                   />
                 </UFormField>
@@ -353,10 +358,11 @@
                   :hint="t('settingsAutomation.android.device_hint')"
                   required
                 >
-                  <USelect
+                  <AdaptiveSelect
                     :model-value="target.adbSerial"
                     :items="adbDeviceItems"
                     size="sm"
+                    width-mode="fill"
                     @update:model-value="(value: string) => setADBDevice(index, value)"
                   />
                 </UFormField>
@@ -496,10 +502,11 @@
                   :hint="t('settingsAutomation.browser.page_hint')"
                   required
                 >
-                  <USelect
+                  <AdaptiveSelect
                     :model-value="target.browserTargetId"
                     :items="browserTargetItems"
                     size="sm"
+                    width-mode="fill"
                     @update:model-value="(value: string) => setBrowserTarget(index, value)"
                   />
                 </UFormField>
@@ -560,20 +567,22 @@
                   :hint="field.kind"
                   :required="field.required"
                 >
-                  <USelect
+                  <AdaptiveSelect
                     v-if="field.kind === 'installation-slot'"
                     :model-value="stringProfileValue(target, field.id)"
                     :items="applicationItems"
                     size="sm"
+                    width-mode="fill"
                     @update:model-value="
                       (value: string) => setProfileValue(target, field.id, value)
                     "
                   />
-                  <USelect
+                  <AdaptiveSelect
                     v-else-if="field.options?.length"
                     :model-value="stringProfileValue(target, field.id)"
                     :items="field.options"
                     size="sm"
+                    width-mode="fill"
                     @update:model-value="
                       (value: string) => setProfileValue(target, field.id, value)
                     "
@@ -762,6 +771,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { useWailsEvent } from '@/composables/useWailsEvent'
 import { matchingInstalledApplications } from '@/settings/windowTargetCapture'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 type InputBackend = DesktopAutomationTargetProfile['inputBackend'] | ''
 type CaptureBackend = DesktopAutomationTargetProfile['captureBackend'] | ''

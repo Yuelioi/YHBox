@@ -48,10 +48,9 @@
       icon="i-tabler-adjustments-horizontal"
     >
       <SettingsRow :label="t('settingsLauncher.display_label')">
-        <USelect
+        <AdaptiveSelect
           :model-value="display"
           :items="displayItems"
-          class="w-44"
           :aria-label="t('settingsLauncher.display_label')"
           @update:model-value="setDisplay"
         />
@@ -273,12 +272,12 @@
               {{ t('settingsLauncher.library_title') }}
             </p>
             <div class="mt-2 flex flex-wrap items-center gap-2">
-              <USelect
+              <AdaptiveSelect
                 v-if="workflowItems.length"
-                :model-value="undefined"
+                model-value=""
                 :items="workflowItems"
                 size="sm"
-                class="w-48"
+                :max-width="32"
                 :placeholder="t('settingsLauncher.add_workflow')"
                 @update:model-value="addWorkflow"
               />
@@ -346,6 +345,7 @@ import { useHotkeysStore } from '@/stores/hotkeys'
 import { backend } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import IconPicker from '@/components/common/IconPicker.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import LauncherSurface from '@/components/launcher/LauncherSurface.vue'

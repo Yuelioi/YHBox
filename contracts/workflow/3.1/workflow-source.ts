@@ -185,6 +185,7 @@ export interface Variable {
 }
 export interface Workflow {
   category?: string
+  createdAt?: string
   description?: string
   id: string
   name: string
@@ -192,4 +193,5 @@ export interface Workflow {
    * @maxItems 64
    */
   tags?: string[]
+  updatedAt?: string
 }

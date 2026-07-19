@@ -43,10 +43,11 @@
       class="w-full"
       @update:model-value="setLiteral(Number($event))"
     />
-    <USelect
+    <AdaptiveSelect
       v-else-if="acceptsInline && port.type.control === 'select'"
       :model-value="literalValue"
       :items="port.type.constraints.enum.map((value) => ({ label: String(value), value }))"
+      width-mode="fill"
       class="w-full"
       @update:model-value="setLiteral"
     />
@@ -116,6 +117,7 @@ import ColorRangeValueEditor from '@/app/editor/ColorRangeValueEditor.vue'
 import KeyChordValueEditor from '@/app/editor/KeyChordValueEditor.vue'
 import { isKeyChordType } from '@/app/editor/keyChord'
 import AssetReferenceField from '@/app/editor/AssetReferenceField.vue'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import type { AssetBinding } from '@/lib/backend'
