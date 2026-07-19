@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(join(process.cwd(), 'src/views/WorkflowsView.vue'), 'utf8')
+const assetsSource = readFileSync(join(process.cwd(), 'src/views/AssetsView.vue'), 'utf8')
 
 describe('WorkflowsView entry points', () => {
   it('makes each workflow name a direct editor destination', () => {
@@ -50,6 +51,14 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain("import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'")
     expect(source).toContain('v-model="metadataDraft.template"')
     expect(source).toContain(':items="templateItems"')
+    const filterStart = source.indexOf('v-model="categoryFilter"')
+    const filterEnd = source.indexOf('</section>', filterStart)
+    expect(source.slice(filterStart, filterEnd)).not.toContain('width-mode="fixed"')
+  })
+
+  it('keeps refresh in the library overflow menu instead of duplicating it in filters', () => {
+    expect(source.match(/i-tabler-refresh/g)).toHaveLength(1)
+    expect(assetsSource.match(/i-tabler-refresh/g)).toHaveLength(1)
   })
 
   it('previews references and performs CAS-protected partial batch deletion', () => {

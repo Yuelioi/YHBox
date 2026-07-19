@@ -196,6 +196,7 @@ import WorkflowsView from './WorkflowsView.vue'
 const mounted: Array<ReturnType<typeof createApp>> = []
 
 afterEach(() => {
+  vi.useRealTimers()
   for (const app of mounted.splice(0)) app.unmount()
   document.body.innerHTML = ''
   push.mockClear()
@@ -296,6 +297,21 @@ describe('library management views', () => {
     batchButton.click()
     await flushView()
     expect(root.textContent).toContain('batchMetadata.description')
+  })
+
+  it('automatically dismisses successful library operation feedback', async () => {
+    vi.useFakeTimers()
+    const root = await mountView(AssetsView)
+
+    rowCheckbox(root).click()
+    await flushView()
+    buttonByText(root, 'assets.batch_delete').click()
+    await flushView()
+
+    expect(root.textContent).toContain('assets.batch_delete_result')
+    vi.advanceTimersByTime(4_001)
+    await flushView()
+    expect(root.textContent).not.toContain('assets.batch_delete_result')
   })
 })
 

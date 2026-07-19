@@ -131,8 +131,7 @@
           <AdaptiveSelect
             v-model="categoryFilter"
             :items="categoryFilterItems"
-            class="w-48"
-            width-mode="fixed"
+            class="shrink-0"
             icon="i-tabler-category"
             @update:model-value="queryChanged"
           />
@@ -148,24 +147,21 @@
           <AdaptiveSelect
             v-model="createdRange"
             :items="createdRangeItems"
-            class="w-44"
-            width-mode="fixed"
+            class="shrink-0"
             icon="i-tabler-calendar-plus"
             @update:model-value="queryChanged"
           />
           <AdaptiveSelect
             v-model="updatedRange"
             :items="updatedRangeItems"
-            class="w-44"
-            width-mode="fixed"
+            class="shrink-0"
             icon="i-tabler-calendar-stats"
             @update:model-value="queryChanged"
           />
           <AdaptiveSelect
             v-model="sort"
             :items="sortItems"
-            class="w-48"
-            width-mode="fixed"
+            class="shrink-0"
             icon="i-tabler-arrows-sort"
             @update:model-value="queryChanged"
           />
@@ -185,14 +181,6 @@
             icon="i-tabler-filter-x"
             :label="t('workflow.list.reset_filters')"
             @click="resetFilters"
-          />
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-refresh"
-            :aria-label="t('common.refresh')"
-            :loading="loading"
-            @click="load"
           />
         </div>
       </section>
@@ -614,6 +602,7 @@ import {
   type SourceView,
 } from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
 import { errorMessage } from '@/lib/invoke'
 import {
   applyBatchMetadata,
@@ -675,6 +664,8 @@ const recoveryBusyId = ref('')
 const activeRecovery = ref<SourceRecoveryView | null>(null)
 const deleteFeedback = ref<Feedback | null>(null)
 const portabilityFeedback = ref<Feedback | null>(null)
+useAutoDismissFeedback(deleteFeedback)
+useAutoDismissFeedback(portabilityFeedback)
 const runStartingId = ref('')
 const runFeedbackById = reactive<
   Record<string, { tone: 'success' | 'warning'; label: string; detail: string }>

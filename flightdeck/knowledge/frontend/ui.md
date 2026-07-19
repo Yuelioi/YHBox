@@ -134,6 +134,12 @@ style.css 全局把含 input/textarea 的 NuxtUI 包装层默认 `width: 100%` (
 
 范例: `SwitchInspector.vue` (`:create-item="'always'"` + `@create`)。2026-06-13 全仓 13 处 `creatable` 全是坏的 (分类/标签建不了新项), 已统一修 (含 ContainerSettings 一处有 create-item 但漏 @create 同样建不出)。
 
+### 普通枚举 Select 宽度要同时计算 label 与控件 chrome
+
+Nuxt UI 的 Select 弹层默认跟随 trigger 宽度。基于最长选项做自适应时，不能只算文字：leading icon、gap、左右 padding 和 trailing chevron 都占固定空间；中日韩文字还要按双宽估算。项目普通枚举统一使用 `AdaptiveSelect`，最长 label 之外预留共享 chrome 余量并设置最大宽度。
+
+页面不要再给需要自适应的筛选器叠加 `w-*` + `width-mode="fixed"`，否则共享计算会被直接绕过。只有每页数量、紧凑日志级别或明确受表单栅格约束且已验证完整显示的控件才使用 fixed；数百条实体选择仍走可搜索 picker，不用 Select。
+
 ### 反馈方式: 成功内联在触发点, toast 只留错误/后台事件
 
 用户明确不喜欢成功类 toast (顶上弹出干扰视线、和操作点割裂)。**新代码不加成功 toast** —— 按这棵决策树:

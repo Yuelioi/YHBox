@@ -13,7 +13,9 @@ export function adaptiveSelectWidth(
 ): number {
   const lower = Math.max(1, Math.min(minimum, maximum))
   const upper = Math.max(lower, maximum)
-  return Math.min(upper, Math.max(lower, selectLabelWidth(items, labelKey) + 5))
+  // Nuxt UI's trigger also contains leading content, gaps, padding, and a trailing chevron.
+  // Reserve enough space for that fixed chrome after measuring the longest option label.
+  return Math.min(upper, Math.max(lower, selectLabelWidth(items, labelKey) + 9))
 }
 
 function flattenSelectLabels(items: readonly unknown[], labelKey: string): string[] {

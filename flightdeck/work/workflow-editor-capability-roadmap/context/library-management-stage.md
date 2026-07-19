@@ -62,10 +62,18 @@
 - Scale proof：服务测试覆盖 1000 条工作流或资产，前端真实组件测试验证第 2 页服务查询。
 - Select consistency：共享 AdaptiveSelect 已覆盖 48 个普通枚举选择器；最长选项宽度估算、双宽字符和 min/max 由单元测试固定。
 
+## True-device regression closure
+
+- 第一次真实 workspace 接受证明“代码已迁移到 AdaptiveSelect”不等于视觉接受：Nuxt UI trigger 除 label 外还有 leading icon、gap、padding 与 trailing chevron；仅增加少量字符宽度仍会在“全部分类”“名称 A-Z”等短枚举上截断。
+- 共享宽度算法现在按最长可见 label 计算后再预留 9ch 控件 chrome，并继续受 max width 约束；工作流主筛选移除页面级 fixed width。每页数量、日志级别和有明确布局约束的表单仍可显式 fixed。
+- 工作流和资源库的刷新入口只保留顶部 overflow；筛选区不再重复承担相同动作。
+- 批量操作的成功汇总使用共享生命周期，4 秒后自动退出；warning/error 不自动隐藏，避免需要处理的失败细节消失。
+- 回归测试先稳定复现三项问题，再验证成功反馈退出、两个页面各只有一个刷新 icon、宽字符最长项包含控件余量且工作流筛选不再 fixed。
+
 ## Verification result
 
-- `task check` passed：Go 全包、66.0% 全局覆盖率、契约、静态检查、49 个前端测试文件与 204 项测试、production frontend build 和 bundle budget 全部通过。
-- `task build` passed：生成最新 `bin/Yotta.exe` 及伴随 worker/CLI。
+- `task check` passed：Go 全包、66.0% 全局覆盖率、契约、静态检查、49 个前端测试文件与 206 项测试、production frontend build 和 bundle budget 全部通过。
+- `task build` passed：三项真机回归修复后重新生成最新 `bin/Yotta.exe` 及伴随 worker/CLI。
 - `smoke-workflow-editor.ps1 -SkipLauncher` passed：新建工作流、编辑器主旅程和资源库导航完成。
 - 本批浏览器自动视觉运行时没有可用实例；日期列密度、筛选换行和创建 Modal 模板宽度留给 UAC production build 真机接受，不将源码检查冒充视觉通过。
 - 默认完整 smoke 尚未通过：悬浮启动器执行新建的仅 Run 开始工作流时等待 success 超时，该问题仍属于发布前开放项。

@@ -9,7 +9,7 @@ describe('adaptiveSelectWidth', () => {
     ]
 
     expect(selectLabelWidth(items)).toBe(12)
-    expect(adaptiveSelectWidth(items)).toBe(17)
+    expect(adaptiveSelectWidth(items)).toBe(21)
   })
 
   it('supports custom label keys and nested groups', () => {

@@ -182,14 +182,6 @@
               :label="t('assets.reset_filters')"
               @click="resetLibraryFilters"
             />
-            <UButton
-              color="neutral"
-              variant="ghost"
-              icon="i-tabler-refresh"
-              :aria-label="t('common.refresh')"
-              :loading="loading"
-              @click="refreshAssets"
-            />
           </div>
         </div>
 
@@ -653,6 +645,7 @@ import {
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore } from '@/stores/assets'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { useRecordingStart } from '@/composables/useRecordingStart'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -703,6 +696,7 @@ const batchEditing = ref(false)
 const batchBusy = ref(false)
 const batchDraft = reactive(createBatchMetadataDraft())
 const libraryFeedback = ref<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null)
+useAutoDismissFeedback(libraryFeedback)
 const variantAsset = ref<AssetSummary | null>(null)
 const variantBusy = ref(false)
 const cleanupBusy = ref(false)
