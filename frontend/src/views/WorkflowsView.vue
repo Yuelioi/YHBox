@@ -1,29 +1,39 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col bg-default">
-    <header class="flex h-16 shrink-0 items-center gap-4 border-b border-default px-6">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <h1 class="text-lg font-semibold tracking-tight text-highlighted">
-            {{ t('workflow.list.title') }}
-          </h1>
-          <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
+  <div class="workspace-page">
+    <header class="workspace-page__header">
+      <div class="min-w-0">
+        <div class="flex items-center gap-3">
+          <span class="workspace-page__mark">
+            <UIcon name="i-tabler-route" class="size-5" />
+          </span>
+          <div class="min-w-0">
+            <p class="workspace-page__eyebrow">{{ t('workflow.list.eyebrow') }}</p>
+            <div class="flex min-w-0 items-center gap-2">
+              <h1 class="workspace-page__title truncate">{{ t('workflow.list.title') }}</h1>
+              <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
+            </div>
+          </div>
         </div>
-        <p class="truncate text-xs text-muted">{{ t('workflow.list.management_description') }}</p>
+        <p class="workspace-page__description">
+          {{ t('workflow.list.management_description') }}
+        </p>
       </div>
-      <UButton
-        data-testid="workflow-new-button"
-        icon="i-tabler-plus"
-        :label="t('workflow.list.new_workflow')"
-        @click="openCreateModal"
-      />
-      <UDropdownMenu :items="libraryMenuItems">
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-dots-vertical"
-          :aria-label="t('workflow.list.library_actions')"
+          data-testid="workflow-new-button"
+          icon="i-tabler-plus"
+          :label="t('workflow.list.new_workflow')"
+          @click="openCreateModal"
         />
-      </UDropdownMenu>
+        <UDropdownMenu :items="libraryMenuItems">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-dots-vertical"
+            :aria-label="t('workflow.list.library_actions')"
+          />
+        </UDropdownMenu>
+      </div>
     </header>
 
     <main class="flex min-h-0 flex-1 flex-col px-6 py-4">

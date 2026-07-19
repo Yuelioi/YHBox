@@ -1749,6 +1749,7 @@ export default {
   },
   workflow: {
     list: {
+      eyebrow: 'WORKFLOW SOURCES',
       title: 'Workflows',
       description: 'Every run compiles a saved 3.1 source into an immutable Program snapshot.',
       management_description: 'Search, filter, and manage Workflow Sources in bulk.',

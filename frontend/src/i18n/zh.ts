@@ -1370,6 +1370,7 @@ export default {
   },
   workflow: {
     list: {
+      eyebrow: 'WORKFLOW SOURCES',
       title: '工作流',
       description: '每次运行都会把已保存的 3.1 源编译成不可变的 Program 快照。',
       management_description: '搜索、筛选并批量管理工作流源码。',

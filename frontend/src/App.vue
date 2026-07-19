@@ -29,8 +29,6 @@
         </main>
       </div>
 
-      <LogPanel v-if="showGlobalLogPanel" />
-
       <!-- Global status bar -->
       <AppStatusBar />
     </div>
@@ -50,7 +48,6 @@
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTitleBar from './components/AppTitleBar.vue'
-import LogPanel from './components/LogPanel.vue'
 import AppStatusBar from './components/AppStatusBar.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { useConfirm } from './composables/useConfirm'
@@ -71,7 +68,6 @@ function onConfirmDialogUpdateOpen(v: boolean) {
 
 // 独立工具窗模式（不包主壳）: MouseHUD / ScreenPicker / RecordingHUD 等 meta.standalone 路由
 const isStandalone = computed(() => !!route.meta.standalone)
-const showGlobalLogPanel = computed(() => route.name !== 'workflow-edit')
 
 watch(
   () => settingsStore.data?.locale,

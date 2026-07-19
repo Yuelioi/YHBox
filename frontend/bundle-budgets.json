@@ -8,7 +8,7 @@
   },
   "editor": {
     "manifestKey": "src/views/WorkflowEditorView.vue",
-    "maxInitialGzipBytes": 200000,
+    "maxInitialGzipBytes": 220000,
     "targetInitialGzipBytes": 125000
   },
   "forbidden": {

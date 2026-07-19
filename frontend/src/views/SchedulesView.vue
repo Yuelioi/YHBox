@@ -3,12 +3,12 @@
     <header class="workspace-page__header">
       <div class="min-w-0">
         <div class="flex items-center gap-3">
-          <span class="workspace-page__mark"
-            ><UIcon name="i-tabler-calendar-time" class="size-5"
-          /></span>
-          <div>
+          <span class="workspace-page__mark">
+            <UIcon name="i-tabler-calendar-time" class="size-5" />
+          </span>
+          <div class="min-w-0">
             <p class="workspace-page__eyebrow">{{ t('schedule.workspace.eyebrow') }}</p>
-            <h1 class="workspace-page__title">
+            <h1 class="workspace-page__title truncate">
               {{ editing ? editing.name : t('schedule.workspace.title') }}
             </h1>
           </div>
@@ -21,7 +21,7 @@
           }}
         </p>
       </div>
-      <div class="flex shrink-0 items-center gap-2">
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <UButton
           v-if="editing"
           variant="ghost"
@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, shallowRef, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
 import { useSchedulesStore } from '@/stores/schedules'
@@ -114,7 +114,7 @@ const { t } = useI18n()
 const store = useSchedulesStore()
 const toast = useToast()
 const { confirm } = useConfirm()
-const editing = ref<Schedule | null>(null)
+const editing = shallowRef<Schedule | null>(null)
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const workflows = ref<SourceView[]>([])
@@ -159,7 +159,7 @@ async function onCreate() {
   }
 }
 function onEdit(schedule: Schedule) {
-  editing.value = structuredClone(schedule)
+  editing.value = structuredClone(toRaw(schedule))
 }
 async function onSaveEdit(schedule: Schedule) {
   try {

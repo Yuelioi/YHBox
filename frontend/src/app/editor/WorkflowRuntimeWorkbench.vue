@@ -80,14 +80,15 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DebugSnapshot, RunView } from '@/app/transport/workflow'
-import LogPanel from '@/components/LogPanel.vue'
 import RunTimelinePanel from './RunTimelinePanel.vue'
 import WorkflowDebuggerPanel from './WorkflowDebuggerPanel.vue'
 
 type WorkbenchTab = 'logs' | 'timeline' | 'debug'
 
+const LogPanel = defineAsyncComponent(() => import('@/components/LogPanel.vue'))
 const props = defineProps<{
   open: boolean
   tab: WorkbenchTab

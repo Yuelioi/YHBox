@@ -228,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TargetKind } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import type { Schedule } from '@/lib/backend'
@@ -239,11 +239,15 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 const { t } = useI18n()
 const { schedule, workflows } = defineProps<{ schedule: Schedule; workflows: SourceView[] }>()
 defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
-const draft = reactive<Schedule>(structuredClone(schedule))
+const draft = reactive<Schedule>(cloneSchedule(schedule))
 watch(
   () => schedule,
-  (value) => Object.assign(draft, structuredClone(value)),
+  (value) => Object.assign(draft, cloneSchedule(value)),
 )
+
+function cloneSchedule(value: Schedule): Schedule {
+  return structuredClone(toRaw(value))
+}
 
 const workflowItems = computed(() =>
   workflows.map((workflow) => ({

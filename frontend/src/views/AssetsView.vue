@@ -1,62 +1,66 @@
 <template>
-  <div data-testid="assets-view" class="flex h-full min-h-0 w-full flex-col bg-default">
-    <header class="flex h-14 shrink-0 items-center gap-3 border-b border-default px-4">
-      <div class="flex min-w-0 flex-1 items-center gap-2.5">
-        <div
-          class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-        >
-          <UIcon name="i-tabler-library" class="size-4" />
+  <div data-testid="assets-view" class="workspace-page">
+    <header class="workspace-page__header">
+      <div class="min-w-0">
+        <div class="flex items-center gap-3">
+          <span class="workspace-page__mark">
+            <UIcon name="i-tabler-library" class="size-5" />
+          </span>
+          <div class="min-w-0">
+            <p class="workspace-page__eyebrow">{{ t('assets.eyebrow') }}</p>
+            <div class="flex min-w-0 items-center gap-2">
+              <h1 class="workspace-page__title truncate">{{ t('assets.title') }}</h1>
+              <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
+            </div>
+          </div>
         </div>
-        <div class="min-w-0">
-          <h1 class="truncate text-sm font-semibold text-highlighted">{{ t('assets.title') }}</h1>
-          <p class="truncate text-[10px] text-dimmed">
-            {{ t(`assets.tabs.${activeTab}`) }} · {{ total }}
-          </p>
-        </div>
+        <p class="workspace-page__description">{{ t('assets.description') }}</p>
       </div>
-      <AdaptiveSelect
-        v-model="selectedTargetSlot"
-        :items="targetItems"
-        value-key="value"
-        label-key="label"
-        class="shrink-0"
-        :placeholder="t('assets.target_placeholder')"
-        :aria-label="t('assets.target_placeholder')"
-      />
-      <template v-if="activeTab === 'clips' && recording.state.phase === 'idle'">
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <AdaptiveSelect
-          v-model="recordingMode"
-          :items="recordingModeItems"
+          v-model="selectedTargetSlot"
+          :items="targetItems"
           value-key="value"
           label-key="label"
           class="shrink-0"
-          :aria-label="t('assets.recording.mode')"
+          :placeholder="t('assets.target_placeholder')"
+          :aria-label="t('assets.target_placeholder')"
         />
+        <template v-if="activeTab === 'clips' && recording.state.phase === 'idle'">
+          <AdaptiveSelect
+            v-model="recordingMode"
+            :items="recordingModeItems"
+            value-key="value"
+            label-key="label"
+            class="shrink-0"
+            :aria-label="t('assets.recording.mode')"
+          />
+          <UButton
+            data-testid="assets-recording-start"
+            icon="i-tabler-player-record"
+            :label="t('assets.recording.start')"
+            :disabled="!selectedTargetSlot || !selectedTargetSupportsRecording || recordingStarting"
+            :loading="recordingStarting"
+            @click="startRecording"
+          />
+        </template>
         <UButton
-          data-testid="assets-recording-start"
-          icon="i-tabler-player-record"
-          :label="t('assets.recording.start')"
-          :disabled="!selectedTargetSlot || !selectedTargetSupportsRecording || recordingStarting"
-          :loading="recordingStarting"
-          @click="startRecording"
+          v-else-if="activeTab === 'templates'"
+          icon="i-tabler-camera-plus"
+          :label="t('assets.templates.capture')"
+          :disabled="!selectedTargetSlot"
+          :loading="captureBusy"
+          @click="captureTemplate"
         />
-      </template>
-      <UButton
-        v-else-if="activeTab === 'templates'"
-        icon="i-tabler-camera-plus"
-        :label="t('assets.templates.capture')"
-        :disabled="!selectedTargetSlot"
-        :loading="captureBusy"
-        @click="captureTemplate"
-      />
-      <UDropdownMenu :items="libraryMenuItems">
-        <UButton
-          icon="i-tabler-dots-vertical"
-          color="neutral"
-          variant="ghost"
-          :aria-label="t('assets.library_actions')"
-        />
-      </UDropdownMenu>
+        <UDropdownMenu :items="libraryMenuItems">
+          <UButton
+            icon="i-tabler-dots-vertical"
+            color="neutral"
+            variant="ghost"
+            :aria-label="t('assets.library_actions')"
+          />
+        </UDropdownMenu>
+      </div>
     </header>
 
     <div class="flex min-h-0 flex-1">
