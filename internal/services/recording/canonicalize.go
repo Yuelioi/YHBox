@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 )
 
 // canonicalizeStopResult is the single boundary between lossy native delivery
@@ -57,7 +58,7 @@ func canonicalizeStopResult(result *StopResult) error {
 			if event.A <= 0 || event.A > 255 {
 				continue
 			}
-			if result.Meta.RecordingMode == inputclip.RecordingModeSimple && workflowKeyName(uint32(event.A)) == "" {
+			if result.Meta.RecordingMode == inputclip.RecordingModeSimple && macro.KeyName(uint32(event.A)) == "" {
 				continue
 			}
 			if _, exists := activeKeys[event.A]; exists {

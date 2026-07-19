@@ -80,8 +80,8 @@
             />
           </template>
         </div>
-        <div class="flex items-center gap-2 border-l border-default pl-3">
-          <span class="hidden text-xs text-muted xl:inline">{{
+        <div class="flex shrink-0 items-center gap-2 border-l border-default pl-3">
+          <span class="hidden whitespace-nowrap text-xs text-muted xl:inline">{{
             t('workflow.target_default.label')
           }}</span>
           <AdaptiveSelect
@@ -89,6 +89,7 @@
             :items="workflowAutomationTargetItems"
             value-key="value"
             label-key="label"
+            class="min-w-64"
             :placeholder="t('workflow.target_default.placeholder')"
             @update:model-value="setWorkflowDefaultTarget"
           />
@@ -162,6 +163,8 @@
         <UButton
           data-testid="workflow-graph-new"
           icon="i-tabler-plus"
+          color="neutral"
+          variant="soft"
           size="xs"
           :label="t('workflow.graphs.new')"
           @click="openGraphDialog('create')"
@@ -208,74 +211,113 @@
       />
 
       <div class="flex min-h-0 flex-1">
-        <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-default">
-          <div class="border-b border-default px-4 py-3">
-            <h2 class="text-xs font-semibold text-highlighted">
-              {{ t('workflow.editor.node_catalog') }}
-            </h2>
-            <p class="mt-1 text-[11px] leading-4 text-muted">
-              {{ t('workflow.editor.catalog_description') }}
-            </p>
-            <UInput
-              v-model="catalogQuery"
-              data-testid="workflow-catalog-search"
-              icon="i-tabler-search"
-              size="sm"
-              class="mt-3"
-              :placeholder="t('workflow.catalog.search_placeholder')"
-              :aria-label="t('workflow.catalog.search_placeholder')"
-            />
-          </div>
-          <div class="flex-1 overflow-y-auto p-2">
-            <div v-if="catalogGroups.length" class="space-y-3">
-              <section v-for="group in catalogGroups" :key="group.key">
-                <div class="flex items-center justify-between px-2 pb-1">
-                  <h3 class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">
-                    {{ group.label }}
-                  </h3>
-                  <span class="font-mono text-[9px] text-dimmed">{{ group.nodes.length }}</span>
-                </div>
-                <div class="space-y-1">
-                  <button
-                    v-for="projection in group.nodes"
-                    :key="projection.nodeRef.nodeTypeId"
-                    type="button"
-                    draggable="true"
-                    data-testid="node-catalog-item"
-                    :data-node-type-id="projection.nodeRef.nodeTypeId"
-                    class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing active:translate-y-px"
-                    @click="addNode(projection.nodeRef.nodeTypeId)"
-                    @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
-                    @dragend="finishNodeDrag"
-                  >
-                    <UIcon
-                      :name="`i-tabler-${projection.icon || 'box'}`"
-                      class="size-4 shrink-0 text-primary"
-                    />
-                    <span class="min-w-0 flex-1">
-                      <span class="block truncate text-xs font-medium text-toned">{{
-                        projectionTitle(projection)
-                      }}</span>
-                      <span class="block truncate font-mono text-[10px] text-dimmed">{{
-                        projection.execution.class
-                      }}</span>
-                    </span>
-                    <UIcon
-                      name="i-tabler-plus"
-                      class="size-3.5 text-dimmed group-hover:text-primary"
-                    />
-                  </button>
-                </div>
-              </section>
+        <nav
+          class="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-default bg-elevated/20 py-2"
+          :aria-label="t('workflow.workspace_tools')"
+        >
+          <UButton
+            data-testid="workflow-workspace-nodes"
+            icon="i-tabler-topology-star-3"
+            color="neutral"
+            :variant="workspacePanel === 'nodes' ? 'soft' : 'ghost'"
+            size="sm"
+            :aria-label="t('workflow.editor.node_catalog')"
+            :aria-pressed="workspacePanel === 'nodes'"
+            @click="workspacePanel = 'nodes'"
+          />
+          <UButton
+            data-testid="workflow-workspace-resources"
+            icon="i-tabler-library"
+            color="neutral"
+            :variant="workspacePanel === 'resources' ? 'soft' : 'ghost'"
+            size="sm"
+            :aria-label="t('workflow.resources.title')"
+            :aria-pressed="workspacePanel === 'resources'"
+            @click="workspacePanel = 'resources'"
+          />
+        </nav>
+
+        <aside
+          class="flex shrink-0 flex-col border-r border-default bg-default"
+          :class="workspacePanel === 'resources' ? 'w-80' : 'w-56'"
+        >
+          <template v-if="workspacePanel === 'nodes'">
+            <div class="border-b border-default px-4 py-3">
+              <h2 class="text-xs font-semibold text-highlighted">
+                {{ t('workflow.editor.node_catalog') }}
+              </h2>
+              <p class="mt-1 text-[11px] leading-4 text-muted">
+                {{ t('workflow.editor.catalog_description') }}
+              </p>
+              <UInput
+                v-model="catalogQuery"
+                data-testid="workflow-catalog-search"
+                icon="i-tabler-search"
+                size="sm"
+                class="mt-3"
+                :placeholder="t('workflow.catalog.search_placeholder')"
+                :aria-label="t('workflow.catalog.search_placeholder')"
+              />
             </div>
-            <div v-else class="px-3 py-10 text-center">
-              <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
-              <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
+            <div class="flex-1 overflow-y-auto p-2">
+              <div v-if="catalogGroups.length" class="space-y-3">
+                <section v-for="group in catalogGroups" :key="group.key">
+                  <div class="flex items-center justify-between px-2 pb-1">
+                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">
+                      {{ group.label }}
+                    </h3>
+                    <span class="font-mono text-[9px] text-dimmed">{{ group.nodes.length }}</span>
+                  </div>
+                  <div class="space-y-1">
+                    <button
+                      v-for="projection in group.nodes"
+                      :key="projection.nodeRef.nodeTypeId"
+                      type="button"
+                      draggable="true"
+                      data-testid="node-catalog-item"
+                      :data-node-type-id="projection.nodeRef.nodeTypeId"
+                      class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing active:translate-y-px"
+                      @click="addNode(projection.nodeRef.nodeTypeId)"
+                      @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
+                      @dragend="finishNodeDrag"
+                    >
+                      <UIcon
+                        :name="`i-tabler-${projection.icon || 'box'}`"
+                        class="size-4 shrink-0 text-primary"
+                      />
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate text-xs font-medium text-toned">{{
+                          projectionTitle(projection)
+                        }}</span>
+                        <span class="block truncate font-mono text-[10px] text-dimmed">{{
+                          projection.execution.class
+                        }}</span>
+                      </span>
+                      <UIcon
+                        name="i-tabler-plus"
+                        class="size-3.5 text-dimmed group-hover:text-primary"
+                      />
+                    </button>
+                  </div>
+                </section>
+              </div>
+              <div v-else class="px-3 py-10 text-center">
+                <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
+                <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
+              </div>
             </div>
-          </div>
-          <div class="border-t border-default px-3 py-2 font-mono text-[10px] text-dimmed">
-            {{ session.authoring.projectionDigest.slice(0, 24) }}
-          </div>
+            <div class="border-t border-default px-3 py-2 font-mono text-[10px] text-dimmed">
+              {{ session.authoring.projectionDigest.slice(0, 24) }}
+            </div>
+          </template>
+          <WorkflowResourceDock
+            v-else
+            :recording-phase="recording.state.phase"
+            @start-recording="openRecordingStart"
+            @capture-template="openTemplateCapture"
+            @open-library="router.push('/assets')"
+            @use="useWorkspaceResource"
+          />
         </aside>
 
         <div
@@ -807,19 +849,32 @@
 
     <BaseModal
       v-model:open="recordingStartOpen"
-      :title="t('workflow.recording.start_title')"
-      icon="i-tabler-record-mail"
+      :title="
+        t(
+          recordingMode === 'simple'
+            ? 'workflow.recording.macro_title'
+            : 'workflow.recording.precise_title',
+        )
+      "
+      :icon="recordingMode === 'simple' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
       size="md"
     >
       <div class="space-y-3">
-        <UFormField :label="t('workflow.recording.mode')" required>
-          <AdaptiveSelect
-            v-model="recordingMode"
-            :items="recordingModeItems"
-            value-key="value"
-            label-key="label"
+        <div class="flex items-start gap-3 rounded-lg border border-default bg-elevated/30 p-3">
+          <UIcon
+            :name="recordingMode === 'simple' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
+            class="mt-0.5 size-5 shrink-0 text-primary"
           />
-        </UFormField>
+          <p class="text-xs leading-5 text-muted">
+            {{
+              t(
+                recordingMode === 'simple'
+                  ? 'workflow.recording.macro_hint'
+                  : 'workflow.recording.precise_hint',
+              )
+            }}
+          </p>
+        </div>
         <UFormField :label="t('workflow.recording.target')" required>
           <AdaptiveSelect
             v-model="recordingTargetSlot"
@@ -846,10 +901,44 @@
     </BaseModal>
 
     <BaseModal
+      v-model:open="templateCaptureOpen"
+      :title="t('assets.templates.capture')"
+      icon="i-tabler-camera-plus"
+      size="md"
+    >
+      <div class="space-y-3">
+        <p class="text-xs leading-5 text-muted">{{ t('workflow.resources.capture_hint') }}</p>
+        <UFormField :label="t('workflow.recording.target')" required>
+          <AdaptiveSelect
+            v-model="captureTargetSlot"
+            :items="recordingTargetItems"
+            value-key="value"
+            label-key="label"
+            :placeholder="t('assets.target_placeholder')"
+          />
+        </UFormField>
+      </div>
+      <template #footer>
+        <UButton color="neutral" variant="ghost" @click="templateCaptureOpen = false">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          icon="i-tabler-camera-plus"
+          :disabled="!captureTargetSlot"
+          :loading="templateCaptureBusy"
+          @click="captureWorkspaceTemplate"
+        >
+          {{ t('assets.templates.capture') }}
+        </UButton>
+      </template>
+    </BaseModal>
+
+    <BaseModal
       :open="!!pendingRecording"
       :title="t('workflow.recording.preview_title')"
       icon="i-tabler-list-check"
-      size="2xl"
+      size="5xl"
+      tall
       :show-close="false"
       :dismissible="false"
     >
@@ -886,7 +975,7 @@
           </div>
         </div>
         <div
-          v-if="pendingRecording.preview.steps.length"
+          v-if="pendingRecording.mode === 'simple' && pendingRecording.preview.steps.length"
           class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-default bg-sunken p-2"
         >
           <div
@@ -898,24 +987,42 @@
               {{ (step.atUs / 1_000_000).toFixed(2) }}s
             </span>
             <UIcon
-              :name="step.kind === 'keys' ? 'i-tabler-keyboard' : 'i-tabler-pointer'"
+              :name="
+                step.kind.startsWith('key-')
+                  ? 'i-tabler-keyboard'
+                  : step.kind === 'sleep'
+                    ? 'i-tabler-clock-pause'
+                    : 'i-tabler-pointer'
+              "
               class="size-4 shrink-0 text-primary"
             />
             <span class="truncate text-toned">
               {{
-                step.kind === 'keys'
-                  ? step.keys?.join(' + ')
-                  : `${step.button} · ${Math.round((step.point?.x ?? 0) * 100)}%, ${Math.round((step.point?.y ?? 0) * 100)}%`
+                step.kind.startsWith('key-')
+                  ? `${step.kind === 'key-down' ? '↓' : '↑'} ${step.key}`
+                  : step.kind === 'sleep'
+                    ? `${Math.round(step.durationUs / 1000)} ms`
+                    : `${step.button ?? step.kind} · ${Math.round((step.point?.x ?? 0) * 100)}%, ${Math.round((step.point?.y ?? 0) * 100)}%`
               }}
             </span>
           </div>
         </div>
-        <p v-if="pendingRecording.preview.mode === 'precise'" class="text-xs leading-5 text-muted">
-          {{ t('workflow.recording.trajectory_hint') }}
-        </p>
-        <RecordingActionEditor
+        <PreciseRecordingWorkbench
+          v-if="pendingRecording.mode === 'precise'"
+          :preview="pendingRecording.preview"
+          :environment="pendingRecording.environment"
+          :duration-us="pendingRecording.durationUs"
+          :trim-start-us="recordingTrimStartUs"
+          :trim-end-us="recordingTrimEndUs"
+          :pending-id="pendingRecording.pendingID"
+          editable-trim
+          @update:trim-start-us="recordingTrimStartUs = $event"
+          @update:trim-end-us="recordingTrimEndUs = $event"
+        />
+        <MacroActionEditor
           v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
           v-model="recordingActions"
+          @validity="recordingActionsValid = $event"
         />
         <p
           v-else-if="pendingRecording.mode === 'simple'"
@@ -942,17 +1049,20 @@
         <UButton
           color="error"
           variant="ghost"
-          :disabled="recordingSaveBusy || !!finalizedRecording"
+          :disabled="recordingSaveBusy"
           @click="discardPendingRecording"
         >
           {{ t('recordingSave.discard') }}
         </UButton>
         <UButton
           :loading="recordingSaveBusy"
-          :disabled="!recordingDraft.name.trim()"
-          @click="saveAndInsertRecording"
+          :disabled="
+            !recordingDraft.name.trim() ||
+            (pendingRecording?.mode === 'simple' && !recordingActionsValid)
+          "
+          @click="saveRecordingResource"
         >
-          {{ t('recordingSave.save_add') }}
+          {{ t('assets.recording.save_to_library') }}
         </UButton>
       </template>
     </BaseModal>
@@ -960,7 +1070,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useToast } from '@nuxt/ui/composables'
 import {
@@ -1007,6 +1126,7 @@ import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
+import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
 import WorkflowRuntimeWorkbench from '@/app/editor/WorkflowRuntimeWorkbench.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
@@ -1020,16 +1140,17 @@ import WorkflowGraphInterfacePanel from '@/app/editor/WorkflowGraphInterfacePane
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
 import {
   useRecordingStore,
-  type RecordingAction,
-  type RecordingFinalizePayload,
+  type MacroAction,
   type RecordingMode,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
+import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
+import { backend } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
+import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
 import { nodeDiagnosticSeverities, type WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
@@ -1065,6 +1186,13 @@ import {
 
 defineOptions({ name: 'WorkflowEditorView' })
 
+const MacroActionEditor = defineAsyncComponent(
+  () => import('@/components/recording/MacroActionEditor.vue'),
+)
+const PreciseRecordingWorkbench = defineAsyncComponent(
+  () => import('@/components/recording/PreciseRecordingWorkbench.vue'),
+)
+
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
@@ -1074,6 +1202,7 @@ const session = createEditorSession(workflowTransport)
 const recording = useRecordingStore()
 const { start: beginRecording } = useRecordingStart()
 const settings = useSettingsStore()
+const assets = useAssetsStore()
 const selectedNodeId = ref('')
 const selectedNodeIds = ref(new Set<string>())
 const selectedEdgeId = ref('')
@@ -1081,6 +1210,7 @@ const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
+const workspacePanel = ref<'nodes' | 'resources'>('nodes')
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
 const graphName = ref('')
@@ -1134,14 +1264,15 @@ const recordingTargetSlot = ref('')
 const recordingMode = ref<RecordingMode>('simple')
 const recordingControlBusy = ref(false)
 const pendingRecording = ref<RecordingStopPayload | null>(null)
-const finalizedRecording = ref<RecordingFinalizePayload | null>(null)
 const recordingSaveBusy = ref(false)
-const recordingActions = ref<RecordingAction[]>([])
+const recordingActions = ref<MacroAction[]>([])
+const recordingActionsValid = ref(true)
+const recordingTrimStartUs = ref(0)
+const recordingTrimEndUs = ref(0)
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
-const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
-  { label: t('recordingSave.mode_simple'), value: 'simple' },
-  { label: t('recordingSave.mode_precise'), value: 'precise' },
-])
+const templateCaptureOpen = ref(false)
+const captureTargetSlot = ref('')
+const templateCaptureBusy = ref(false)
 const {
   addSelectedNodes,
   findNode,
@@ -1608,7 +1739,7 @@ onBeforeRouteLeave(async () => {
     if (leaveRecording !== true) return false
     await recording.cancel()
   }
-  if (pendingRecording.value && !finalizedRecording.value) {
+  if (pendingRecording.value) {
     const discard = await confirm({
       title: t('recordingSave.discard'),
       description: t('recordingSave.discard_confirm_hint'),
@@ -1630,7 +1761,7 @@ onBeforeRouteLeave(async () => {
   )
 })
 
-function openRecordingStart(): void {
+function openRecordingStart(mode: RecordingMode): void {
   if (recording.state.phase !== 'idle') {
     if (recording.state.pending) openRecordingPreview(recording.state.pending)
     return
@@ -1641,6 +1772,7 @@ function openRecordingStart(): void {
     return
   }
   const selectedSlot = selectedNode.value?.config.slot
+  recordingMode.value = mode
   recordingTargetSlot.value =
     typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
       ? selectedSlot
@@ -1692,38 +1824,38 @@ function openRecordingPreview(payload: RecordingStopPayload): void {
   if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
   recordingActions.value = cloneRecordingActions(payload.actions ?? [])
-  finalizedRecording.value = null
+  recordingActionsValid.value = true
+  recordingTrimStartUs.value = 0
+  recordingTrimEndUs.value = payload.durationUs
   recordingDraft.name = ''
   recordingDraft.description = ''
   recordingDraft.category = ''
   recordingDraft.tags = ''
 }
 
-async function saveAndInsertRecording(): Promise<void> {
+async function saveRecordingResource(): Promise<void> {
   const pending = pendingRecording.value
   if (!pending || !recordingDraft.name.trim()) return
   recordingSaveBusy.value = true
   try {
-    const finalized =
-      finalizedRecording.value ??
-      (await recording.finalize({
-        pendingID: pending.pendingID,
-        label: recordingDraft.name.trim(),
-        description: recordingDraft.description.trim(),
-        category: recordingDraft.category.trim(),
-        tags: splitRecordingTags(recordingDraft.tags),
-        actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
-      }))
-    finalizedRecording.value = finalized
-    const rect = canvasElement.value?.getBoundingClientRect()
-    const origin = rect
-      ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-      : { x: 160, y: 160 }
-    const nodeIDs = session.insertLinearDraft(finalized.draft.nodes, origin)
-    selectedNodeIds.value = new Set(nodeIDs)
-    selectedNodeId.value = nodeIDs.at(-1) ?? ''
-    finalizedRecording.value = null
+    const saved = await recording.finalize({
+      pendingID: pending.pendingID,
+      label: recordingDraft.name.trim(),
+      description: recordingDraft.description.trim(),
+      category: recordingDraft.category.trim(),
+      tags: splitRecordingTags(recordingDraft.tags),
+      actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
+      trimStartUs: pending.mode === 'precise' ? recordingTrimStartUs.value : undefined,
+      trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
+    })
     pendingRecording.value = null
+    useWorkspaceResource({
+      guid: saved.assetID,
+      kind: saved.assetKind,
+      name: saved.label,
+      blob: { ...saved.blob },
+    })
+    assets.invalidate()
   } catch (error) {
     showError(t('recordingSave.save_failed'), error)
   } finally {
@@ -1731,9 +1863,119 @@ async function saveAndInsertRecording(): Promise<void> {
   }
 }
 
+function openTemplateCapture(): void {
+  const targets = recordingTargetItems.value
+  if (!targets.length) {
+    showError(t('assets.templates.capture_failed'), t('workflow.inspector.no_installed_target'))
+    return
+  }
+  const selectedSlot = selectedNode.value?.config.slot
+  captureTargetSlot.value =
+    typeof selectedSlot === 'string' && targets.some((item) => item.value === selectedSlot)
+      ? selectedSlot
+      : workflowDefaultTargetSlot.value || captureTargetSlot.value || targets[0]?.value || ''
+  templateCaptureOpen.value = true
+}
+
+async function captureWorkspaceTemplate(): Promise<void> {
+  if (!captureTargetSlot.value) return
+  templateCaptureBusy.value = true
+  const id = `workflow-template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  try {
+    const resultPromise = awaitWailsEvent<{
+      id: string
+      payload?: { cancelled?: boolean; guid?: string }
+    }>('tools:picker-result', (payload) => payload?.id === id)
+    await backend.tools.openScreenPicker('template_save', id, captureTargetSlot.value)
+    templateCaptureOpen.value = false
+    const result = await resultPromise
+    const guid = result.payload?.guid
+    if (!guid || result.payload?.cancelled) return
+    assets.invalidate()
+    const asset = await backend.assets.get(guid)
+    const variant = asset.variants?.[0]
+    if (!variant) return
+    useWorkspaceResource({
+      guid,
+      kind: 'template',
+      name: asset.name,
+      resolution:
+        variant.resolution.length === 2
+          ? [variant.resolution[0], variant.resolution[1]]
+          : undefined,
+      blob: { ...variant.blob },
+    })
+  } catch (error) {
+    showError(t('assets.templates.capture_failed'), error)
+  } finally {
+    templateCaptureBusy.value = false
+  }
+}
+
+function useWorkspaceResource(selection: AssetPickerSelection): void {
+  const portId =
+    selection.kind === 'macro' ? 'macro' : selection.kind === 'clip' ? 'clip' : 'template'
+  const current = selectedNode.value
+  const projection = current ? session.nodeProjection(current.nodeRef.nodeTypeId) : undefined
+  if (
+    current &&
+    projection?.dataInputs.some(
+      (port) =>
+        port.id === portId &&
+        port.type.representations.some((representation) => representation.kind === 'blob-ref'),
+    ) &&
+    applyCommand({
+      kind: 'bind-blob',
+      nodeId: current.id,
+      portId,
+      blob: { ...selection.blob },
+    })
+  ) {
+    assets.markUsed(selection.guid)
+    return
+  }
+
+  const nodeTypeId =
+    selection.kind === 'macro'
+      ? 'https://schemas.yotta.dev/nodes/automation/play-macro'
+      : selection.kind === 'clip'
+        ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
+        : 'https://schemas.yotta.dev/nodes/automation/click-template'
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const position = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    : { x: 160, y: 160 }
+  const targetSlot =
+    workflowDefaultTargetSlot.value ||
+    recordingTargetSlot.value ||
+    captureTargetSlot.value ||
+    recordingTargetItems.value[0]?.value ||
+    ''
+  try {
+    const ids = session.insertLinearDraft(
+      [
+        {
+          nodeTypeID: nodeTypeId,
+          config: targetSlot ? { slot: targetSlot } : {},
+          values: {},
+          blobs: { [portId]: { ...selection.blob } },
+          execInput: 'in',
+          execOutput: 'completed',
+        },
+      ],
+      position,
+    )
+    selectedNodeIds.value = new Set(ids)
+    selectedNodeId.value = ids[0] ?? ''
+    assets.markUsed(selection.guid)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
 async function discardPendingRecording(): Promise<void> {
   const pending = pendingRecording.value
-  if (!pending || finalizedRecording.value) return
+  if (!pending) return
   const accepted = await confirm({
     title: t('recordingSave.discard'),
     description: t('recordingSave.discard_confirm_hint'),
@@ -1752,10 +1994,9 @@ async function discardPendingRecording(): Promise<void> {
   }
 }
 
-function cloneRecordingActions(actions: RecordingAction[]): RecordingAction[] {
+function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
   return actions.map((action) => ({
     ...action,
-    keys: action.keys ? [...action.keys] : undefined,
     point: action.point ? { ...action.point } : undefined,
   }))
 }
@@ -2699,6 +2940,10 @@ function selectEdge(event: EdgeMouseEvent): void {
 function selectNode(event: NodeMouseEvent): void {
   selectedEdgeId.value = ''
   selectedNodeId.value = event.node.id
+  const source = event.event as MouseEvent | undefined
+  if (!source?.shiftKey && !source?.ctrlKey && !source?.metaKey) {
+    selectedNodeIds.value = new Set([event.node.id])
+  }
 }
 
 function handleNodesChange(changes: NodeChange[]): void {

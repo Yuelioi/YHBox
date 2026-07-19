@@ -27,6 +27,7 @@ var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 //
 //	<dataRoot>/templates/<guid>.json   (kind=template)
 //	<dataRoot>/clips/<guid>.json       (kind=clip)
+//	<dataRoot>/macros/<guid>.json      (kind=macro)
 //	<dataRoot>/blobs/<sha256>
 type Store struct {
 	gcMu     sync.RWMutex
@@ -44,6 +45,8 @@ func kindDir(kind string) string {
 		return "templates"
 	case KindClip:
 		return "clips"
+	case KindMacro:
+		return "macros"
 	}
 	return ""
 }
@@ -62,7 +65,7 @@ func NewStore(dataRoot string, blobs *blob.Store) (*Store, error) {
 		return nil, fmt.Errorf("resolve asset store root: %w", err)
 	}
 	dataRoot = resolvedRoot
-	for _, d := range []string{"templates", "clips"} {
+	for _, d := range []string{"templates", "clips", "macros"} {
 		if err := os.MkdirAll(filepath.Join(dataRoot, d), 0o755); err != nil {
 			return nil, fmt.Errorf("asset mkdir %s: %w", d, err)
 		}
@@ -71,7 +74,7 @@ func NewStore(dataRoot string, blobs *blob.Store) (*Store, error) {
 	s := &Store{
 		root: dataRoot, recs: map[string]AssetRecord{}, blobs: blobs, revision: 1,
 	}
-	for _, kind := range []string{KindTemplate, KindClip} {
+	for _, kind := range []string{KindTemplate, KindClip, KindMacro} {
 		if err := s.preload(kind); err != nil {
 			return nil, fmt.Errorf("asset preload %s: %w", kindDir(kind), err)
 		}

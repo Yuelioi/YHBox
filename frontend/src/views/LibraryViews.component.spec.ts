@@ -46,10 +46,10 @@ const {
   ),
   queryAssets: vi.fn(async (query: { kind: string; page: number }) => ({
     items: [
-      query.kind === 'clip'
+      query.kind === 'macro'
         ? {
-            guid: `clip-${query.page}`,
-            kind: 'clip',
+            guid: `macro-${query.page}`,
+            kind: 'macro',
             name: 'Login macro',
             description: 'Opens the login dialog',
             category: 'Account',
@@ -57,29 +57,46 @@ const {
             variantCount: 0,
             variants: [],
             blob: {
-              digest: 'sha256:clip',
+              digest: 'sha256:macro',
               mediaType: 'application/octet-stream',
               size: 256,
             },
             createdAt: '2026-07-19T00:00:00Z',
           }
-        : {
-            guid: `template-${query.page}`,
-            kind: 'template',
-            name: 'Login button',
-            description: 'Primary login button',
-            category: 'Account',
-            tags: ['Login'],
-            variantCount: 1,
-            variants: [
-              {
-                resolution: [1280, 720],
-                blob: { digest: 'sha256:template', mediaType: 'image/png', size: 128 },
+        : query.kind === 'clip'
+          ? {
+              guid: `clip-${query.page}`,
+              kind: 'clip',
+              name: 'Full camera turn',
+              description: 'Preserves the raw trajectory',
+              category: 'Combat',
+              tags: ['Precise'],
+              variantCount: 0,
+              variants: [],
+              blob: {
+                digest: 'sha256:clip',
+                mediaType: 'application/octet-stream',
+                size: 512,
               },
-            ],
-            thumbnail: { digest: 'sha256:template', mediaType: 'image/png', size: 128 },
-            createdAt: '2026-07-19T00:00:00Z',
-          },
+              createdAt: '2026-07-19T00:00:00Z',
+            }
+          : {
+              guid: `template-${query.page}`,
+              kind: 'template',
+              name: 'Login button',
+              description: 'Primary login button',
+              category: 'Account',
+              tags: ['Login'],
+              variantCount: 1,
+              variants: [
+                {
+                  resolution: [1280, 720],
+                  blob: { digest: 'sha256:template', mediaType: 'image/png', size: 128 },
+                },
+              ],
+              thumbnail: { digest: 'sha256:template', mediaType: 'image/png', size: 128 },
+              createdAt: '2026-07-19T00:00:00Z',
+            },
     ],
     total: 40,
     page: query.page,
@@ -186,7 +203,7 @@ vi.mock('@/components/common/EmptyState.vue', () => ({
         h('div', slots.action?.()),
   }),
 }))
-vi.mock('@/components/recording/RecordingActionEditor.vue', () => ({
+vi.mock('@/components/recording/MacroActionEditor.vue', () => ({
   default: defineComponent({ setup: () => () => h('div') }),
 }))
 
@@ -242,7 +259,7 @@ describe('library management views', () => {
     )
   })
 
-  it('keeps clip and template contexts exclusive in one dense resource list', async () => {
+  it('keeps macro, precise recording, and template contexts exclusive in one dense resource list', async () => {
     const root = await mountView(AssetsView)
 
     expect(root.textContent).toContain('Login macro')
@@ -250,6 +267,14 @@ describe('library management views', () => {
     expect(root.textContent).toContain('Account')
     expect(root.textContent).toContain('Stable')
     expect(root.querySelector('[data-testid="grid-view"]')).toBeNull()
+
+    buttonByText(root, 'assets.tabs.clips').click()
+    await flushView()
+    expect(queryAssets).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'clip', page: 1, pageSize: 20 }),
+    )
+    expect(root.textContent).toContain('Full camera turn')
+    expect(root.textContent).not.toContain('Login macro')
 
     buttonByText(root, 'assets.tabs.templates').click()
     await flushView()

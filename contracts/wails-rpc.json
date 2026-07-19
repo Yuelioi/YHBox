@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 14,
-    "methods": 128,
-    "models": 183
+    "services": 15,
+    "methods": 136,
+    "models": 195
   },
   "services": [
     {
@@ -735,6 +735,28 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "Events",
+          "bindingId": "2400748080",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "offset",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "limit",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.EventPage>"
+        },
+        {
           "name": "Get",
           "bindingId": "3715024267",
           "parameters": [
@@ -763,6 +785,18 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Summary",
+          "bindingId": "222054375",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.ClipSummary>"
         },
         {
           "name": "Update",
@@ -795,6 +829,65 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/macro/service",
+      "methods": [
+        {
+          "name": "Analyze",
+          "bindingId": "2242898797",
+          "parameters": [
+            {
+              "name": "document",
+              "optional": false,
+              "type": "$models.Document"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Analysis>"
+        },
+        {
+          "name": "Delete",
+          "bindingId": "1620161888",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "335166925",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Macro | null>"
+        },
+        {
+          "name": "List",
+          "bindingId": "717411915",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.Summary[]>"
+        },
+        {
+          "name": "Save",
+          "bindingId": "3326441694",
+          "parameters": [
+            {
+              "name": "value",
+              "optional": false,
+              "type": "$models.Macro | null"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Macro | null>"
         }
       ]
     },
@@ -871,6 +964,28 @@
           "bindingId": "1900256876",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "PendingEvents",
+          "bindingId": "118394156",
+          "parameters": [
+            {
+              "name": "pendingID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "offset",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "limit",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.PendingEventPage>"
         },
         {
           "name": "Resume",
@@ -3420,6 +3535,141 @@
               "name": "\"blob\"",
               "optional": false,
               "type": "blob$0.BlobRef"
+            },
+            {
+              "name": "\"tracks\"",
+              "optional": false,
+              "type": "EventTrack[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Event",
+          "fields": [
+            {
+              "name": "\"tUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"seq\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"type\"",
+              "optional": false,
+              "type": "EventType"
+            },
+            {
+              "name": "\"a\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"b\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"c\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "EventPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "Event[]"
+            },
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"offset\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"limit\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "EventTrack",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"firstUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"lastUs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "EventType",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "0"
+            },
+            {
+              "name": "EventTypeNone",
+              "value": "0"
+            },
+            {
+              "name": "EventTypeKeyDown",
+              "value": "1"
+            },
+            {
+              "name": "EventTypeKeyUp",
+              "value": "2"
+            },
+            {
+              "name": "EventTypeMouseBtnDown",
+              "value": "3"
+            },
+            {
+              "name": "EventTypeMouseBtnUp",
+              "value": "4"
+            },
+            {
+              "name": "EventTypeMouseMove",
+              "value": "5"
+            },
+            {
+              "name": "EventTypeRawDelta",
+              "value": "6"
+            },
+            {
+              "name": "EventTypeScroll",
+              "value": "7"
             }
           ]
         },
@@ -3489,6 +3739,287 @@
             {
               "name": "RecordingModePrecise",
               "value": "\"precise\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/macro/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Action",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "ActionKind"
+            },
+            {
+              "name": "\"key\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"button\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"point\"",
+              "optional": true,
+              "type": "Point | null"
+            },
+            {
+              "name": "\"notches\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "enum",
+          "name": "ActionKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "ActionKeyDown",
+              "value": "\"key-down\""
+            },
+            {
+              "name": "ActionKeyUp",
+              "value": "\"key-up\""
+            },
+            {
+              "name": "ActionMouseDown",
+              "value": "\"mouse-down\""
+            },
+            {
+              "name": "ActionMouseUp",
+              "value": "\"mouse-up\""
+            },
+            {
+              "name": "ActionClick",
+              "value": "\"click\""
+            },
+            {
+              "name": "ActionScroll",
+              "value": "\"scroll\""
+            },
+            {
+              "name": "ActionSleep",
+              "value": "\"sleep\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Analysis",
+          "fields": [
+            {
+              "name": "\"issues\"",
+              "optional": false,
+              "type": "Issue[]"
+            },
+            {
+              "name": "\"heldAfter\"",
+              "optional": false,
+              "type": "HeldState[]"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Document",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"actions\"",
+              "optional": false,
+              "type": "Action[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "HeldState",
+          "fields": [
+            {
+              "name": "\"keys\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"buttons\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Issue",
+          "fields": [
+            {
+              "name": "\"index\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"code\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"message\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Macro",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"document\"",
+              "optional": false,
+              "type": "Document"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Point",
+          "fields": [
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"unit\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Summary",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"actionCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
             }
           ]
         }
@@ -4221,7 +4752,17 @@
             {
               "name": "\"actions\"",
               "optional": true,
-              "type": "RecordingAction[] | null"
+              "type": "macro$0.Action[] | null"
+            },
+            {
+              "name": "\"trimStartUs\"",
+              "optional": true,
+              "type": "number | null"
+            },
+            {
+              "name": "\"trimEndUs\"",
+              "optional": true,
+              "type": "number | null"
             }
           ]
         },
@@ -4230,7 +4771,12 @@
           "name": "FinalizeResult",
           "fields": [
             {
-              "name": "\"clipID\"",
+              "name": "\"assetID\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"assetKind\"",
               "optional": false,
               "type": "string"
             },
@@ -4245,70 +4791,55 @@
               "type": "string"
             },
             {
-              "name": "\"draft\"",
+              "name": "\"blob\"",
               "optional": false,
-              "type": "WorkflowDraft"
+              "type": "blob$0.BlobRef"
             }
           ]
         },
         {
           "kind": "class",
-          "name": "Point",
+          "name": "PendingEventPage",
           "fields": [
             {
-              "name": "\"x\"",
+              "name": "\"items\"",
+              "optional": false,
+              "type": "inputclip$0.Event[]"
+            },
+            {
+              "name": "\"total\"",
               "optional": false,
               "type": "number"
             },
             {
-              "name": "\"y\"",
+              "name": "\"offset\"",
               "optional": false,
               "type": "number"
             },
             {
-              "name": "\"unit\"",
+              "name": "\"limit\"",
               "optional": false,
-              "type": "string"
+              "type": "number"
             }
           ]
         },
         {
           "kind": "class",
-          "name": "RecordingAction",
+          "name": "RecordingEnvironment",
           "fields": [
             {
-              "name": "\"kind\"",
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"mouseMode\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"delayUs\"",
+              "name": "\"mouseCounts360\"",
               "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"durationUs\"",
-              "optional": false,
-              "type": "number"
-            },
-            {
-              "name": "\"keys\"",
-              "optional": true,
-              "type": "string[]"
-            },
-            {
-              "name": "\"button\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"point\"",
-              "optional": true,
-              "type": "Point | null"
-            },
-            {
-              "name": "\"notches\"",
-              "optional": true,
               "type": "number"
             }
           ]
@@ -4361,6 +4892,11 @@
               "name": "\"steps\"",
               "optional": false,
               "type": "RecordingPreviewStep[]"
+            },
+            {
+              "name": "\"tracks\"",
+              "optional": false,
+              "type": "RecordingTrack[]"
             }
           ]
         },
@@ -4384,9 +4920,9 @@
               "type": "number"
             },
             {
-              "name": "\"keys\"",
+              "name": "\"key\"",
               "optional": true,
-              "type": "string[]"
+              "type": "string"
             },
             {
               "name": "\"button\"",
@@ -4396,7 +4932,7 @@
             {
               "name": "\"point\"",
               "optional": true,
-              "type": "Point | null"
+              "type": "macro$0.Point | null"
             },
             {
               "name": "\"notches\"",
@@ -4463,6 +4999,32 @@
         },
         {
           "kind": "class",
+          "name": "RecordingTrack",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"firstUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"lastUs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "StartArgs",
           "fields": [
             {
@@ -4514,59 +5076,12 @@
             {
               "name": "\"actions\"",
               "optional": true,
-              "type": "RecordingAction[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "WorkflowDraft",
-          "fields": [
-            {
-              "name": "\"mode\"",
-              "optional": false,
-              "type": "inputclip$0.RecordingMode"
+              "type": "macro$0.Action[]"
             },
             {
-              "name": "\"nodes\"",
+              "name": "\"environment\"",
               "optional": false,
-              "type": "WorkflowDraftNode[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "WorkflowDraftNode",
-          "fields": [
-            {
-              "name": "\"nodeTypeID\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"config\"",
-              "optional": false,
-              "type": "{ [_ in string]?: any }"
-            },
-            {
-              "name": "\"values\"",
-              "optional": false,
-              "type": "{ [_ in string]?: any }"
-            },
-            {
-              "name": "\"blobs\"",
-              "optional": false,
-              "type": "{ [_ in string]?: blob$0.BlobRef }"
-            },
-            {
-              "name": "\"execInput\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"execOutput\"",
-              "optional": false,
-              "type": "string"
+              "type": "RecordingEnvironment"
             }
           ]
         }

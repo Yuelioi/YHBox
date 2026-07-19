@@ -123,6 +123,7 @@ import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
 import type { AssetBinding } from '@/lib/backend'
 
 const inputClipTypeId = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
+const macroTypeId = 'https://schemas.yotta.dev/types/automation/macro/v1'
 const props = defineProps<{
   node: Node
   port: PortProjection
@@ -141,8 +142,10 @@ const acceptsInline = computed(() =>
   props.port.type.representations.some((item) => item.kind === 'inline-json'),
 )
 const isInputClip = computed(() => props.port.type.typeIds.includes(inputClipTypeId))
-const assetKind = computed<'template' | 'clip' | null>(() => {
+const isMacro = computed(() => props.port.type.typeIds.includes(macroTypeId))
+const assetKind = computed<'template' | 'macro' | 'clip' | null>(() => {
   if (props.port.editorAdapter === 'template-image') return 'template'
+  if (isMacro.value) return 'macro'
   if (isInputClip.value) return 'clip'
   return null
 })
@@ -154,7 +157,9 @@ const pickerPlaceholder = computed(() =>
   t(
     assetKind.value === 'template'
       ? 'workflow.inspector.select_template'
-      : 'workflow.inspector.select_clip',
+      : assetKind.value === 'macro'
+        ? 'workflow.inspector.select_macro'
+        : 'workflow.inspector.select_clip',
   ),
 )
 const resourceLabel = computed(() => {

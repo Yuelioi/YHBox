@@ -43,7 +43,7 @@ func TestTypeCapabilityMatrixDocumentsWaiversAndStructures(t *testing.T) {
 		t.Fatal(err)
 	}
 	matrix := renderTypeCapabilityMatrix(rows)
-	for _, required := range []string{InputClipTypeID, "recording asset library", PointTypeID, "Structure break"} {
+	for _, required := range []string{InputClipTypeID, "recording asset library", MacroTypeID, "macro asset library", PointTypeID, "Structure break"} {
 		if !strings.Contains(matrix, required) {
 			t.Fatalf("type capability matrix is missing %q", required)
 		}

@@ -63,7 +63,7 @@ func TestCanonicalizePreciseRecordingRetainsTrajectoryWithoutInferringMode(t *te
 		t.Fatalf("canonical precise events = %#v", result.Events)
 	}
 	preview := recordingPreview(result)
-	if preview.Mode != "precise" || preview.PointerMoves != 1 || preview.RawDeltas != 1 || len(preview.Steps) != 2 || preview.Steps[1].Kind != "move-path" || preview.Steps[1].Samples != 2 {
+	if preview.Mode != "precise" || preview.KeyActions != 2 || preview.PointerMoves != 1 || preview.RawDeltas != 1 || len(preview.Steps) != 1 || preview.Steps[0].Kind != "move-path" || preview.Steps[0].Samples != 2 {
 		t.Fatalf("preview = %#v", preview)
 	}
 }

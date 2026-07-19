@@ -125,6 +125,12 @@ describe('recordStore — 后端状态机镜像', () => {
           rawDeltas: 0,
           scrollActions: 0,
           steps: [],
+          tracks: [],
+        },
+        environment: {
+          baseResolution: [1280, 720],
+          mouseMode: 'absolute',
+          mouseCounts360: 0,
         },
       }),
     ).toBe(true)
@@ -156,11 +162,55 @@ describe('recordStore — 后端状态机镜像', () => {
         rawDeltas: 0,
         scrollActions: 0,
         steps: [],
+        tracks: [{ kind: 'absolute-motion' as const, count: 1, firstUs: 0, lastUs: 25_000 }],
+      },
+      environment: {
+        baseResolution: [1280, 720] as [number, number],
+        mouseMode: 'absolute',
+        mouseCounts360: 0,
       },
     }
     s.applyState({ revision: 7, phase: 'pending', mode: 'precise', pending })
     s.applyState({ revision: 6, phase: 'idle' })
     expect(s.state.phase).toBe('pending')
     expect(s.lastResult?.pendingID).toBe('pending-session')
+  })
+
+  it('normalizes nullable preview collections from a native pending snapshot', () => {
+    const s = useRecordingStore()
+    s.applyState({
+      revision: 8,
+      phase: 'pending',
+      mode: 'simple',
+      pending: {
+        pendingID: 'pending-native-session',
+        targetSlot: 'window-target',
+        mode: 'simple',
+        durationUs: 390_000,
+        eventCount: 6,
+        preview: {
+          mode: 'simple',
+          durationUs: 390_000,
+          eventCount: 6,
+          keyActions: 6,
+          clickActions: 0,
+          pointerMoves: 0,
+          rawDeltas: 0,
+          scrollActions: 0,
+          steps: [],
+          tracks: null,
+        },
+        actions: [{ id: 'action-1', kind: 'key-down', key: 'W' }],
+        environment: {
+          baseResolution: [1280, 720],
+          mouseMode: 'relative',
+          mouseCounts360: 0,
+        },
+      },
+    })
+
+    expect(s.state.phase).toBe('pending')
+    expect(s.lastResult?.pendingID).toBe('pending-native-session')
+    expect(s.lastResult?.preview.tracks).toEqual([])
   })
 })

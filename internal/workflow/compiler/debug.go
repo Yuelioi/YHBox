@@ -213,6 +213,11 @@ func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot
 		return errors.New("debug checkpoint requires context")
 	}
 	c.mu.Lock()
+	// Scheduler checkpoints are freshly projected snapshots and therefore
+	// arrive with Generation zero. Preserve the controller-owned monotonic
+	// sequence before replacing the payload; clients correctly reject any
+	// snapshot that moves backwards.
+	snapshot.Generation = c.snapshot.Generation
 	snapshot.Status = DebugRunning
 	snapshot.RunStatus = ""
 	c.snapshot = cloneDebugSnapshot(snapshot)

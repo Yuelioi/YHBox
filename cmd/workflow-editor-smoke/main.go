@@ -22,6 +22,9 @@ type pageState struct {
 	CanvasEdges          int            `json:"canvasEdges"`
 	AIReview             bool           `json:"aiReview"`
 	WorkflowState        bool           `json:"workflowState"`
+	ResourceDock         bool           `json:"resourceDock"`
+	ResourceTabs         int            `json:"resourceTabs"`
+	ResourceCreate       bool           `json:"resourceCreate"`
 	RunStarted           bool           `json:"runStarted"`
 	AssetsView           bool           `json:"assetsView"`
 	AssetsRecording      bool           `json:"assetsRecording"`
@@ -250,10 +253,6 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 			return err
 		}
 	}
-	if err := exerciseDebugger(ctx, client); err != nil {
-		return err
-	}
-
 	before, err := state(ctx, client)
 	if err != nil {
 		return err
@@ -465,6 +464,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err != nil {
 		return err
 	}
+	if err := exerciseDebugger(ctx, client); err != nil {
+		return err
+	}
 	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
 		return err
 	}
@@ -513,6 +515,14 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}
 	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 500))))`); err != nil {
 		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-resources"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceTabs == 3 && current.ResourceCreate
+	}); err != nil {
+		return fmt.Errorf("open workflow resource workspace: %w", err)
 	}
 	if err := capture(ctx, client, screenshot); err != nil {
 		return err
@@ -692,9 +702,17 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugPaused && current.DebugCurrent == 1 && current.DebugNode != "run-started"
+	}); err != nil {
+		return fmt.Errorf("step from Run start to next visible node: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-step"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.DebugCompleted && current.DebugCurrent == 0
 	}); err != nil {
-		return fmt.Errorf("step one visible node: %w", err)
+		return fmt.Errorf("step next visible node to completion: %w", err)
 	}
 
 	if err := clickRequired(ctx, client, "workflow-debug-start"); err != nil {
@@ -1034,6 +1052,9 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		canvasEdges: document.querySelectorAll('.vue-flow__edge').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
 		workflowState: Boolean(document.querySelector('[data-testid="workflow-state-panel"]')),
+		resourceDock: Boolean(document.querySelector('[data-testid="workflow-resource-dock"]')),
+		resourceTabs: document.querySelectorAll('[data-testid^="workflow-resource-tab-"]').length,
+		resourceCreate: Boolean(document.querySelector('[data-testid="workflow-resource-create"]')),
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
@@ -1088,20 +1109,21 @@ func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocket
 	payload, _ := json.Marshal(gesture)
 	return eval(ctx, client, fmt.Sprintf(`(async () => {
 		const gesture = %s;
-		const hit = document.elementFromPoint(gesture.start.x, gesture.start.y);
-		const handle = hit?.closest('.vue-flow__handle.source');
-		if (!handle) throw new Error('connection gesture hit ' + (hit?.tagName || 'nothing') + '.' + String(hit?.className || ''));
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		if (!handle) throw new Error('RunStarted connection handle not found');
+		const handleRect = handle.getBoundingClientRect();
+		const start = { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 };
 		const mouse = (type, point, buttons) => new MouseEvent(type, {
 			bubbles: true, cancelable: true, view: window, button: 0, buttons,
 			clientX: point.x, clientY: point.y
 		});
-		handle.dispatchEvent(mouse('mousedown', gesture.start, 1));
+		handle.dispatchEvent(mouse('mousedown', start, 1));
 		await new Promise(resolve => setTimeout(resolve, 50));
 		for (let step = 1; step <= 8; step++) {
 			const ratio = step / 8;
 			const point = {
-				x: gesture.start.x + (gesture.end.x - gesture.start.x) * ratio,
-				y: gesture.start.y + (gesture.end.y - gesture.start.y) * ratio
+				x: start.x + (gesture.end.x - start.x) * ratio,
+				y: start.y + (gesture.end.y - start.y) * ratio
 			};
 			document.dispatchEvent(mouse('mousemove', point, 1));
 			await new Promise(resolve => setTimeout(resolve, 20));

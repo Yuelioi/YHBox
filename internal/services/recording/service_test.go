@@ -13,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 )
 
 type blockingStopRecorder struct {
@@ -73,6 +74,20 @@ func (s *memoryClipStore) Save(clip *inputclip.InputClip) error { s.saved = clip
 func (s *memoryClipStore) List() []inputclip.ClipSummary        { return s.clips }
 func (s *memoryClipStore) Delete(id string) error               { s.deleted = append(s.deleted, id); return nil }
 
+type memoryMacroStore struct {
+	saved *macro.Macro
+}
+
+func (s *memoryMacroStore) Save(value *macro.Macro) (*macro.Macro, error) {
+	s.saved = value
+	value.Blob = blob.BlobRef{
+		MediaType: macro.MediaType,
+		Digest:    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Size:      128,
+	}
+	return value, nil
+}
+
 type recordingTargetResolver struct {
 	window     target.WindowHandle
 	resolveErr error
@@ -101,8 +116,8 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 			{TUs: 250_100, Type: inputclip.EventTypeKeyUp, A: 'A'},
 		},
 	}}
-	clips := &memoryClipStore{}
-	s := NewService(recorder, nil, clips, nil)
+	macros := &memoryMacroStore{}
+	s := NewService(recorder, nil, nil, macros, nil)
 	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor"})
 
 	pending, err := s.Stop()
@@ -112,8 +127,8 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	if pending == nil || pending.PendingID != "pending-session" || pending.DurationUs != 250_000 {
 		t.Fatalf("pending = %+v", pending)
 	}
-	if clips.saved != nil {
-		t.Fatal("Stop persisted a clip before user confirmation")
+	if macros.saved != nil {
+		t.Fatal("Stop persisted a macro before user confirmation")
 	}
 	result, err := s.Finalize(FinalizeArgs{
 		PendingID: pending.PendingID, Label: "  Boss 战  ", Category: " 战斗 ", Tags: []string{"循环", "循环", " "},
@@ -121,11 +136,14 @@ func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.ClipID != "clip-session" || clips.saved == nil {
-		t.Fatalf("result=%+v saved=%+v", result, clips.saved)
+	if result.AssetID != "macro-session" || result.AssetKind != asset.KindMacro || macros.saved == nil {
+		t.Fatalf("result=%+v saved=%+v", result, macros.saved)
 	}
-	if clips.saved.Label != "Boss 战" || clips.saved.Category != "战斗" || len(clips.saved.Tags) != 1 {
-		t.Fatalf("saved metadata = %+v", clips.saved)
+	if macros.saved.Label != "Boss 战" || macros.saved.Category != "战斗" || len(macros.saved.Tags) != 1 {
+		t.Fatalf("saved metadata = %+v", macros.saved)
+	}
+	if len(macros.saved.Document.Actions) != 3 || macros.saved.Document.Actions[0].Kind != macro.ActionKeyDown || macros.saved.Document.Actions[1].Kind != macro.ActionSleep || macros.saved.Document.Actions[2].Kind != macro.ActionKeyUp {
+		t.Fatalf("saved atomic macro = %+v", macros.saved.Document.Actions)
 	}
 }
 
@@ -139,7 +157,7 @@ func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 		},
 	}}
 	completed := make(chan map[string]any, 1)
-	service := NewService(recorder, nil, &memoryClipStore{}, nil, func(name string, data any) {
+	service := NewService(recorder, nil, &memoryClipStore{}, nil, nil, func(name string, data any) {
 		if name != "recording:completed" {
 			return
 		}
@@ -154,7 +172,7 @@ func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 	select {
 	case payload := <-completed:
 		preview, ok := payload["preview"].(RecordingPreview)
-		if !ok || preview.Mode != "simple" || preview.KeyActions != 1 || payload["mode"] != inputclip.RecordingModeSimple {
+		if !ok || preview.Mode != "simple" || preview.KeyActions != 2 || payload["mode"] != inputclip.RecordingModeSimple {
 			t.Fatalf("completed payload = %#v", payload)
 		}
 	case <-time.After(time.Second):
@@ -164,7 +182,7 @@ func TestServiceStopAsyncEmitsCompletePreviewPayload(t *testing.T) {
 
 func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	recorder := &resultRecorder{}
-	s := NewService(recorder, nil, &memoryClipStore{}, nil)
+	s := NewService(recorder, nil, &memoryClipStore{}, nil, nil)
 	s.setState(RecordingState{Phase: PhasePaused, TargetSlot: "editor"})
 	if err := s.Cancel(); err != nil {
 		t.Fatal(err)
@@ -177,7 +195,7 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
 	recorder := &resultRecorder{}
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
-	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, targets)
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, targets)
 	id, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 	if err != nil {
 		t.Fatal(err)
@@ -209,7 +227,7 @@ func TestServiceStopReleasesExactRecordingTarget(t *testing.T) {
 		},
 	}}
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
-	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, targets)
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, targets)
 	if _, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple}); err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +265,7 @@ func TestRecordingSessionPersistsCanonicalCarrierAndReloadsDraftReference(t *tes
 			{TUs: 2_800, Seq: 2, Type: inputclip.EventTypeKeyUp, A: 'W'},
 		},
 	}}
-	service := NewService(recorder, nil, clips, nil)
+	service := NewService(recorder, nil, clips, nil, nil)
 	service.setState(RecordingState{Phase: PhaseRecording, Mode: inputclip.RecordingModePrecise, TargetSlot: "editor"})
 	pending, err := service.Stop()
 	if err != nil {
@@ -260,15 +278,15 @@ func TestRecordingSessionPersistsCanonicalCarrierAndReloadsDraftReference(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := clips.Get(finalized.ClipID)
+	loaded, err := clips.Get(finalized.AssetID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if loaded.Meta.RecordingMode != inputclip.RecordingModePrecise || len(loaded.Events) != 3 || loaded.Events[0].TUs != 0 || loaded.Events[2].TUs != 2_000 {
 		t.Fatalf("loaded clip = %+v events=%+v", loaded, loaded.Events)
 	}
-	if len(finalized.Draft.Nodes) != 1 || finalized.Draft.Nodes[0].Blobs["clip"] != loaded.Blob {
-		t.Fatalf("draft=%+v blob=%+v", finalized.Draft, loaded.Blob)
+	if finalized.AssetKind != asset.KindClip || finalized.Blob != loaded.Blob {
+		t.Fatalf("finalized=%+v blob=%+v", finalized, loaded.Blob)
 	}
 }
 
@@ -283,7 +301,7 @@ func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
 		{name: "empty client", targets: &recordingTargetResolver{window: target.WindowHandle{HWND: 42}}, want: "0x0"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			service := NewService(&resultRecorder{}, nil, nil, test.targets)
+			service := NewService(&resultRecorder{}, nil, nil, nil, test.targets)
 			_, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Start() error = %v, want %q", err, test.want)
@@ -294,7 +312,7 @@ func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
 
 func TestServiceValidateTargetAcquiresAndReleasesExactTarget(t *testing.T) {
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42}}
-	service := NewService(&resultRecorder{}, nil, nil, targets)
+	service := NewService(&resultRecorder{}, nil, nil, nil, targets)
 	if err := service.ValidateTarget("editor"); err != nil || targets.released != 1 {
 		t.Fatalf("ValidateTarget() error=%v released=%d", err, targets.released)
 	}
@@ -305,7 +323,7 @@ func TestServiceValidateTargetAcquiresAndReleasesExactTarget(t *testing.T) {
 }
 
 func TestServiceFinalizeRejectsInvalidMetadataAndDiscardRemovesPending(t *testing.T) {
-	service := NewService(&resultRecorder{}, nil, &memoryClipStore{}, nil)
+	service := NewService(&resultRecorder{}, nil, &memoryClipStore{}, nil, nil)
 	service.pending = &pendingRecording{result: &StopResult{TempID: "session", Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple}}}
 	for _, args := range []FinalizeArgs{
 		{PendingID: "pending-session", Label: " "},
@@ -346,7 +364,7 @@ func TestServiceShutdownCancelsWithoutPersistingAndRejectsStart(t *testing.T) {
 func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
 	recorder := &blockingStopRecorder{started: make(chan struct{}), release: make(chan struct{})}
 	saver := &countingClipSaver{}
-	s := NewService(recorder, nil, saver, nil)
+	s := NewService(recorder, nil, saver, nil, nil)
 	s.setState(RecordingState{Phase: PhaseRecording, TargetSlot: "editor", TempID: "partial"})
 	stopResult := make(chan error, 1)
 	go func() {
@@ -393,7 +411,7 @@ func TestShutdownDuringFinalizingDiscardsRecorderResult(t *testing.T) {
 func newTestService() (*Service, *[]string) {
 	var mu sync.Mutex
 	var events []string
-	s := NewService(NewRecorder(), nil, nil, nil, func(name string, _ any) {
+	s := NewService(NewRecorder(), nil, nil, nil, nil, func(name string, _ any) {
 		mu.Lock()
 		events = append(events, name)
 		mu.Unlock()

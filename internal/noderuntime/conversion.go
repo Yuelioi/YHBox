@@ -100,6 +100,7 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]c
 		nodes.WaitStableNodeID:           automationObservation(builtins, nodes.WaitStableNodeID),
 		nodes.WaitChangeNodeID:           automationObservation(builtins, nodes.WaitChangeNodeID),
 		nodes.PlayInputClipNodeID:        playInputClip(),
+		nodes.PlayMacroNodeID:            playMacro(),
 		nodes.MatchTemplateNodeID:        matchTemplate(builtins),
 		nodes.FindTemplateMatchesNodeID:  findTemplateMatches(builtins),
 		nodes.CompareImagesNodeID:        compareImages(builtins),

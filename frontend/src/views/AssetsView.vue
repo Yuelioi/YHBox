@@ -15,42 +15,7 @@
           </div>
         </div>
       </div>
-      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <AdaptiveSelect
-          v-model="selectedTargetSlot"
-          :items="targetItems"
-          value-key="value"
-          label-key="label"
-          class="shrink-0"
-          :placeholder="t('assets.target_placeholder')"
-          :aria-label="t('assets.target_placeholder')"
-        />
-        <template v-if="activeTab === 'clips' && recording.state.phase === 'idle'">
-          <AdaptiveSelect
-            v-model="recordingMode"
-            :items="recordingModeItems"
-            value-key="value"
-            label-key="label"
-            class="shrink-0"
-            :aria-label="t('assets.recording.mode')"
-          />
-          <UButton
-            data-testid="assets-recording-start"
-            icon="i-tabler-player-record"
-            :label="t('assets.recording.start')"
-            :disabled="!selectedTargetSlot || !selectedTargetSupportsRecording || recordingStarting"
-            :loading="recordingStarting"
-            @click="startRecording"
-          />
-        </template>
-        <UButton
-          v-else-if="activeTab === 'templates'"
-          icon="i-tabler-camera-plus"
-          :label="t('assets.templates.capture')"
-          :disabled="!selectedTargetSlot"
-          :loading="captureBusy"
-          @click="captureTemplate"
-        />
+      <div class="flex shrink-0 items-center justify-end">
         <UDropdownMenu :items="libraryMenuItems">
           <UButton
             icon="i-tabler-dots-vertical"
@@ -69,9 +34,26 @@
         </p>
         <UButton
           color="neutral"
-          :variant="activeTab === 'clips' ? 'soft' : 'ghost'"
-          icon="i-tabler-movie"
+          :variant="activeTab === 'macros' ? 'soft' : 'ghost'"
+          icon="i-tabler-list-details"
           class="h-auto w-full justify-start px-2.5 py-2 text-left"
+          @click="activeTab = 'macros'"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-medium">{{ t('assets.tabs.macros') }}</span>
+            <span class="mt-0.5 block truncate text-[10px] text-dimmed">{{
+              t('assets.macros.nav_hint')
+            }}</span>
+          </span>
+          <UBadge v-if="activeTab === 'macros'" color="neutral" variant="soft" size="xs">{{
+            total
+          }}</UBadge>
+        </UButton>
+        <UButton
+          color="neutral"
+          :variant="activeTab === 'clips' ? 'soft' : 'ghost'"
+          icon="i-tabler-route-alt-left"
+          class="mt-1 h-auto w-full justify-start px-2.5 py-2 text-left"
           @click="activeTab = 'clips'"
         >
           <span class="min-w-0 flex-1">
@@ -105,6 +87,50 @@
 
       <main class="flex min-h-0 min-w-0 flex-1 flex-col">
         <div class="shrink-0 border-b border-default bg-elevated/10">
+          <div class="flex min-h-14 items-center gap-3 border-b border-default px-3 py-2">
+            <span
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+            >
+              <UIcon :name="activeResourceIcon" class="size-4" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-xs font-semibold text-highlighted">{{ activeResourceTitle }}</h2>
+              <p class="mt-0.5 truncate text-[10px] text-dimmed">{{ activeResourceHint }}</p>
+            </div>
+            <template
+              v-if="
+                (activeTab === 'macros' || activeTab === 'clips') &&
+                recording.state.phase === 'idle'
+              "
+            >
+              <UButton
+                data-testid="assets-recording-start"
+                :icon="activeTab === 'macros' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
+                :label="
+                  activeTab === 'macros'
+                    ? t('assets.recording.record_macro')
+                    : t('assets.recording.record_precise')
+                "
+                :loading="recordingStarting"
+                @click="openResourceAction(activeTab === 'macros' ? 'macro' : 'precise')"
+              />
+              <UButton
+                v-if="activeTab === 'macros'"
+                color="neutral"
+                variant="soft"
+                icon="i-tabler-file-plus"
+                :label="t('assets.macros.create_blank')"
+                @click="openResourceAction('blank-macro')"
+              />
+            </template>
+            <UButton
+              v-else-if="activeTab === 'templates'"
+              icon="i-tabler-camera-plus"
+              :label="t('assets.templates.capture')"
+              :loading="captureBusy"
+              @click="openResourceAction('template')"
+            />
+          </div>
           <form
             class="flex items-center gap-2 border-b border-default p-3"
             role="search"
@@ -189,7 +215,7 @@
         </div>
 
         <section
-          v-if="activeTab === 'clips' && recording.state.phase !== 'idle'"
+          v-if="recording.state.phase !== 'idle' && recordingTab === activeTab"
           data-testid="assets-recording-controls"
           class="flex shrink-0 items-center gap-3 border-b border-default bg-primary/5 px-3 py-2"
         >
@@ -342,9 +368,11 @@
             :icon="
               hasLibraryFilters
                 ? 'i-tabler-search-off'
-                : activeTab === 'clips'
-                  ? 'i-tabler-movie-off'
-                  : 'i-tabler-photo-off'
+                : activeTab === 'macros'
+                  ? 'i-tabler-list-details'
+                  : activeTab === 'clips'
+                    ? 'i-tabler-route-alt-left'
+                    : 'i-tabler-photo-off'
             "
             :title="hasLibraryFilters ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
             :description="
@@ -364,8 +392,7 @@
                 v-else-if="activeTab === 'templates'"
                 icon="i-tabler-camera-plus"
                 :label="t('assets.templates.capture')"
-                :disabled="!selectedTargetSlot"
-                @click="captureTemplate"
+                @click="openResourceAction('template')"
               />
             </template>
           </EmptyState>
@@ -397,6 +424,39 @@
       </main>
     </div>
   </div>
+
+  <BaseModal
+    v-model:open="resourceActionOpen"
+    :title="resourceActionTitle"
+    :icon="resourceActionIcon"
+    size="md"
+  >
+    <div class="space-y-3">
+      <p class="text-xs leading-5 text-muted">{{ t('assets.action_target_hint') }}</p>
+      <UFormField :label="t('workflow.recording.target')" required>
+        <AdaptiveSelect
+          v-model="selectedTargetSlot"
+          :items="targetItems"
+          value-key="value"
+          label-key="label"
+          :placeholder="t('assets.target_placeholder')"
+        />
+      </UFormField>
+    </div>
+    <template #footer>
+      <UButton color="neutral" variant="ghost" @click="resourceActionOpen = false">
+        {{ t('common.cancel') }}
+      </UButton>
+      <UButton
+        :icon="resourceActionIcon"
+        :disabled="!selectedTargetSlot || !selectedTargetSupportsRecording"
+        :loading="recordingStarting || captureBusy"
+        @click="confirmResourceAction"
+      >
+        {{ t('common.continue') }}
+      </UButton>
+    </template>
+  </BaseModal>
 
   <BaseModal
     :open="batchEditing"
@@ -452,6 +512,122 @@
         :disabled="!batchDraftValid"
         @click="saveBatchMeta"
       />
+    </template>
+  </BaseModal>
+
+  <BaseModal
+    :open="!!preciseViewing"
+    :title="preciseViewing?.label ?? t('preciseWorkbench.title')"
+    icon="i-tabler-route-alt-left"
+    size="5xl"
+    tall
+    @update:open="(open) => !open && (preciseViewing = null)"
+  >
+    <PreciseRecordingWorkbench
+      v-if="preciseViewing && preciseViewingPreview"
+      :preview="preciseViewingPreview"
+      :environment="{
+        baseResolution: preciseViewing.meta.baseResolution,
+        mouseMode: preciseViewing.meta.mouseMode,
+        mouseCounts360: preciseViewing.meta.mouseCounts360,
+      }"
+      :duration-us="preciseViewing.durationUs"
+      :trim-start-us="0"
+      :trim-end-us="preciseViewing.durationUs"
+      :clip-id="preciseViewing.id"
+    />
+    <template #footer>
+      <UButton color="neutral" variant="ghost" @click="preciseViewing = null">{{
+        t('common.close')
+      }}</UButton>
+    </template>
+  </BaseModal>
+
+  <BaseModal
+    v-model:open="macroCreateOpen"
+    :title="t('assets.macros.create_title')"
+    icon="i-tabler-file-plus"
+    size="lg"
+  >
+    <div class="space-y-4">
+      <p class="text-sm leading-6 text-muted">{{ t('assets.macros.create_hint') }}</p>
+      <UFormField :label="t('common.name')" required>
+        <UInput v-model="macroCreateDraft.name" autofocus maxlength="80" />
+      </UFormField>
+      <UFormField :label="t('common.description')" :hint="t('common.optional')">
+        <UTextarea v-model="macroCreateDraft.description" :rows="2" />
+      </UFormField>
+      <div class="grid grid-cols-2 gap-3">
+        <UFormField :label="t('common.category')" :hint="t('common.optional')">
+          <UInputMenu
+            v-model="macroCreateDraft.category"
+            :items="metadataCategoryOptions"
+            :create-item="'always'"
+          />
+        </UFormField>
+        <UFormField :label="t('common.tags')" :hint="t('common.optional')">
+          <UInputMenu
+            v-model="macroCreateDraft.tags"
+            :items="metadataTagOptions"
+            :create-item="'always'"
+            multiple
+          />
+        </UFormField>
+      </div>
+    </div>
+    <template #footer>
+      <UButton color="neutral" variant="ghost" @click="macroCreateOpen = false">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton
+        icon="i-tabler-check"
+        :loading="macroCreateBusy"
+        :disabled="!macroCreateDraft.name.trim()"
+        @click="createBlankMacro"
+      >
+        {{ t('common.create') }}
+      </UButton>
+    </template>
+  </BaseModal>
+
+  <BaseModal
+    :open="!!macroEditing"
+    :title="macroEditing?.label ?? t('macroEditor.title')"
+    icon="i-tabler-list-details"
+    size="5xl"
+    tall
+    @update:open="(open) => !open && (macroEditing = null)"
+  >
+    <div v-if="macroEditing" class="flex h-full min-h-0 flex-col gap-3">
+      <div
+        class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
+      >
+        <span>{{ t('assets.macros.base_resolution') }}</span>
+        <strong class="font-mono text-toned"
+          >{{ macroEditing.document.baseResolution[0] }}×{{
+            macroEditing.document.baseResolution[1]
+          }}</strong
+        >
+        <span class="ml-auto font-mono text-[10px] text-dimmed">{{ macroEditing.id }}</span>
+      </div>
+      <MacroActionEditor
+        v-model="macroEditing.document.actions"
+        class="min-h-0 flex-1"
+        @validity="macroEditValid = $event"
+      />
+    </div>
+    <template #footer>
+      <UButton color="neutral" variant="ghost" @click="macroEditing = null">{{
+        t('common.cancel')
+      }}</UButton>
+      <UButton
+        icon="i-tabler-device-floppy"
+        :loading="macroEditBusy"
+        :disabled="!macroEditValid"
+        @click="saveMacro"
+      >
+        {{ t('common.save') }}
+      </UButton>
     </template>
   </BaseModal>
 
@@ -556,7 +732,13 @@
     <div v-if="pendingRecording" class="space-y-4">
       <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
         <div class="flex items-center justify-between gap-3">
-          <p class="text-sm font-medium text-highlighted">{{ t('recordingSave.clip_type') }}</p>
+          <p class="text-sm font-medium text-highlighted">
+            {{
+              pendingRecording.mode === 'simple'
+                ? t('recordingSave.macro_type')
+                : t('recordingSave.clip_type')
+            }}
+          </p>
           <UBadge color="neutral" variant="soft">
             {{ t(`recordingSave.mode_${pendingRecording.mode}`) }}
           </UBadge>
@@ -570,18 +752,25 @@
           }}
         </p>
       </div>
-      <RecordingActionEditor
+      <MacroActionEditor
         v-if="pendingRecording.mode === 'simple' && pendingRecording.actions"
         v-model="recordingActions"
+        @validity="recordingActionsValid = $event"
+      />
+      <PreciseRecordingWorkbench
+        v-else-if="pendingRecording.mode === 'precise'"
+        :preview="pendingRecording.preview"
+        :environment="pendingRecording.environment"
+        :duration-us="pendingRecording.durationUs"
+        :trim-start-us="recordingTrimStartUs"
+        :trim-end-us="recordingTrimEndUs"
+        :pending-id="pendingRecording.pendingID"
+        editable-trim
+        @update:trim-start-us="recordingTrimStartUs = $event"
+        @update:trim-end-us="recordingTrimEndUs = $event"
       />
       <p v-else class="rounded-lg border border-default bg-sunken px-3 py-2 text-xs text-muted">
-        {{
-          t(
-            pendingRecording.mode === 'precise'
-              ? 'recordingEditor.precise_hint'
-              : 'recordingEditor.editing_unavailable',
-          )
-        }}
+        {{ t('recordingEditor.editing_unavailable') }}
       </p>
       <UFormField :label="t('recordingSave.name')" required>
         <UInput v-model="recordingDraft.name" autofocus maxlength="80" />
@@ -620,7 +809,10 @@
       </UButton>
       <UButton
         :loading="recordingSaveBusy"
-        :disabled="!recordingDraft.name.trim()"
+        :disabled="
+          !recordingDraft.name.trim() ||
+          (pendingRecording?.mode === 'simple' && !recordingActionsValid)
+        "
         @click="saveRecording"
       >
         {{ t('assets.recording.save_to_library') }}
@@ -633,7 +825,13 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/composables'
-import { backend, type AssetSummary, type BlobRef } from '@/lib/backend'
+import {
+  backend,
+  type AssetSummary,
+  type BlobRef,
+  type InputClipSummary,
+  type MacroAsset,
+} from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import {
   applyBatchMetadata,
@@ -642,8 +840,9 @@ import {
 } from '@/lib/batchMetadata'
 import {
   useRecordingStore,
-  type RecordingAction,
+  type MacroAction,
   type RecordingMode,
+  type RecordingPreview,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
@@ -656,10 +855,12 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
-import RecordingActionEditor from '@/components/recording/RecordingActionEditor.vue'
+import MacroActionEditor from '@/components/recording/MacroActionEditor.vue'
+import PreciseRecordingWorkbench from '@/components/recording/PreciseRecordingWorkbench.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 
-type AssetTab = 'clips' | 'templates'
+type AssetTab = 'macros' | 'clips' | 'templates'
+type ResourceAction = 'macro' | 'precise' | 'template' | 'blank-macro' | 'recapture'
 type AssetItem = {
   id: string
   kind: AssetTab
@@ -682,7 +883,7 @@ const settings = useSettingsStore()
 const assets = useAssetsStore()
 const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
-const activeTab = ref<AssetTab>('clips')
+const activeTab = ref<AssetTab>('macros')
 const queryInput = ref('')
 const query = ref('')
 const categoryFilter = ref(allCategories)
@@ -705,13 +906,41 @@ const variantAsset = ref<AssetSummary | null>(null)
 const variantBusy = ref(false)
 const cleanupBusy = ref(false)
 const selectedTargetSlot = ref('')
-const recordingMode = ref<RecordingMode>('simple')
+const resourceActionOpen = ref(false)
+const resourceAction = ref<ResourceAction>('macro')
 const captureBusy = ref(false)
 const editingItem = ref<AssetItem | null>(null)
 const editBusy = ref(false)
+const macroEditing = ref<MacroAsset | null>(null)
+const macroEditBusy = ref(false)
+const macroEditValid = ref(true)
+const macroCreateOpen = ref(false)
+const macroCreateBusy = ref(false)
+const macroCreateDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
+const preciseViewing = ref<InputClipSummary | null>(null)
+const preciseViewingPreview = computed<RecordingPreview | null>(() => {
+  const clip = preciseViewing.value
+  if (!clip) return null
+  const counts = Object.fromEntries(clip.tracks.map((track) => [track.kind, track.count]))
+  return {
+    mode: 'precise',
+    durationUs: clip.durationUs,
+    eventCount: clip.eventCount,
+    keyActions: counts.keyboard ?? 0,
+    clickActions: counts['mouse-buttons'] ?? 0,
+    pointerMoves: counts['absolute-motion'] ?? 0,
+    rawDeltas: counts['relative-motion'] ?? 0,
+    scrollActions: counts.scroll ?? 0,
+    steps: [],
+    tracks: clip.tracks,
+  }
+})
 const pendingRecording = ref<RecordingStopPayload | null>(null)
 const recordingSaveBusy = ref(false)
-const recordingActions = ref<RecordingAction[]>([])
+const recordingActions = ref<MacroAction[]>([])
+const recordingActionsValid = ref(true)
+const recordingTrimStartUs = ref(0)
+const recordingTrimEndUs = ref(0)
 const editDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
 const createdCategories = ref<string[]>([])
@@ -799,10 +1028,6 @@ const categoryModeHint = computed(() =>
 const tagModeHint = computed(() =>
   t(batchDraft.tagMode === 'clear' ? 'batchMetadata.tags_clear_hint' : 'batchMetadata.keep_hint'),
 )
-const recordingModeItems = computed<Array<{ label: string; value: RecordingMode }>>(() => [
-  { label: t('recordingSave.mode_simple'), value: 'simple' },
-  { label: t('recordingSave.mode_precise'), value: 'precise' },
-])
 const libraryMenuItems = computed(() => [
   [
     {
@@ -825,13 +1050,51 @@ const targetItems = computed(() =>
     value: target.slot,
   })),
 )
+const activeResourceIcon = computed(() =>
+  activeTab.value === 'macros'
+    ? 'i-tabler-list-details'
+    : activeTab.value === 'clips'
+      ? 'i-tabler-route-alt-left'
+      : 'i-tabler-photo',
+)
+const activeResourceTitle = computed(() => t(`assets.tabs.${activeTab.value}`))
+const activeResourceHint = computed(() => t(`assets.${activeTab.value}.nav_hint`))
+const resourceActionTitle = computed(() => {
+  if (resourceAction.value === 'macro') return t('assets.recording.record_macro')
+  if (resourceAction.value === 'precise') return t('assets.recording.record_precise')
+  if (resourceAction.value === 'template') return t('assets.templates.capture')
+  if (resourceAction.value === 'recapture') return t('assets.templates.recapture')
+  return t('assets.macros.create_blank')
+})
+const resourceActionIcon = computed(() => {
+  if (resourceAction.value === 'macro') return 'i-tabler-list-details'
+  if (resourceAction.value === 'precise') return 'i-tabler-route-alt-left'
+  if (resourceAction.value === 'template' || resourceAction.value === 'recapture')
+    return 'i-tabler-camera-plus'
+  return 'i-tabler-file-plus'
+})
 const selectedTargetSupportsRecording = computed(() =>
   (settings.data?.automation.targets ?? []).some(
     (target) => target.slot === selectedTargetSlot.value && target.targetKind === 'desktop-window',
   ),
 )
+const recordingTab = computed<AssetTab>(() =>
+  recording.state.mode === 'precise' ? 'clips' : 'macros',
+)
 const items = computed<AssetItem[]>(() => {
   return assetPage.value.map((asset) => {
+    if (asset.kind === 'macro')
+      return {
+        id: asset.guid,
+        kind: 'macros',
+        name: asset.name || asset.guid,
+        description: asset.description ?? '',
+        category: asset.category ?? '',
+        tags: asset.tags ?? [],
+        meta: t('assets.macros.library_meta', { bytes: asset.blob?.size ?? 0 }),
+        icon: 'i-tabler-list-details',
+        source: asset,
+      }
     if (asset.kind === 'clip')
       return {
         id: asset.guid,
@@ -913,7 +1176,8 @@ async function refreshAssets(): Promise<void> {
   try {
     const result = await assets.query({
       search: query.value,
-      kind: activeTab.value === 'clips' ? 'clip' : 'template',
+      kind:
+        activeTab.value === 'macros' ? 'macro' : activeTab.value === 'clips' ? 'clip' : 'template',
       category: categoryFilter.value === allCategories ? '' : categoryFilter.value.trim(),
       tags: tagFilters.value,
       sort: sort.value,
@@ -1056,12 +1320,40 @@ function retainFailedSelection(guids: string[]): void {
   )
 }
 
-async function startRecording(): Promise<void> {
+async function startRecording(mode: RecordingMode): Promise<void> {
   try {
-    await beginRecording(recordingMode.value, selectedTargetSlot.value, 'library')
+    await beginRecording(mode, selectedTargetSlot.value, 'library')
   } catch (error) {
     showError(t('assets.recording.start_failed'), error)
   }
+}
+
+function openResourceAction(action: ResourceAction): void {
+  resourceAction.value = action
+  if (!selectedTargetSlot.value) selectedTargetSlot.value = targetItems.value[0]?.value ?? ''
+  resourceActionOpen.value = true
+}
+
+async function confirmResourceAction(): Promise<void> {
+  if (!selectedTargetSlot.value || !selectedTargetSupportsRecording.value) return
+  resourceActionOpen.value = false
+  if (resourceAction.value === 'macro') {
+    await startRecording('simple')
+    return
+  }
+  if (resourceAction.value === 'precise') {
+    await startRecording('precise')
+    return
+  }
+  if (resourceAction.value === 'template') {
+    await captureTemplate()
+    return
+  }
+  if (resourceAction.value === 'recapture') {
+    await performRecaptureVariant()
+    return
+  }
+  openBlankMacro()
 }
 
 async function pauseRecording(): Promise<void> {
@@ -1093,6 +1385,9 @@ function openRecordingSave(payload: RecordingStopPayload): void {
   if (pendingRecording.value?.pendingID === payload.pendingID) return
   pendingRecording.value = payload
   recordingActions.value = cloneRecordingActions(payload.actions ?? [])
+  recordingActionsValid.value = true
+  recordingTrimStartUs.value = 0
+  recordingTrimEndUs.value = payload.durationUs
   recordingDraft.name = ''
   recordingDraft.description = ''
   recordingDraft.category = ''
@@ -1111,6 +1406,8 @@ async function saveRecording(): Promise<void> {
       category: recordingDraft.category.trim(),
       tags: uniqueStrings(recordingDraft.tags),
       actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
+      trimStartUs: pending.mode === 'precise' ? recordingTrimStartUs.value : undefined,
+      trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
     })
     pendingRecording.value = null
     await refreshAssets()
@@ -1142,10 +1439,9 @@ async function discardRecording(): Promise<void> {
   }
 }
 
-function cloneRecordingActions(actions: RecordingAction[]): RecordingAction[] {
+function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
   return actions.map((action) => ({
     ...action,
-    keys: action.keys ? [...action.keys] : undefined,
     point: action.point ? { ...action.point } : undefined,
   }))
 }
@@ -1179,7 +1475,23 @@ function assetMenu(item: AssetItem) {
             onSelect: () => (variantAsset.value = item.source),
           },
         ]
-      : []
+      : item.kind === 'macros'
+        ? [
+            {
+              label: t('assets.macros.edit_actions'),
+              icon: 'i-tabler-list-details',
+              onSelect: () => void openMacroEditor(item.source),
+            },
+          ]
+        : item.kind === 'clips'
+          ? [
+              {
+                label: t('assets.clips.open_workbench'),
+                icon: 'i-tabler-route-alt-left',
+                onSelect: () => void openPreciseWorkbench(item.source),
+              },
+            ]
+          : []
   return [
     [
       ...details,
@@ -1200,7 +1512,102 @@ function assetMenu(item: AssetItem) {
   ]
 }
 
-async function recaptureVariant(): Promise<void> {
+async function openPreciseWorkbench(asset: AssetSummary): Promise<void> {
+  try {
+    preciseViewing.value = await backend.clips.summary(asset.guid)
+  } catch (error) {
+    showError(t('assets.clips.load_failed'), error)
+  }
+}
+
+function openBlankMacro(): void {
+  macroCreateDraft.name = ''
+  macroCreateDraft.description = ''
+  macroCreateDraft.category = ''
+  macroCreateDraft.tags = []
+  macroCreateOpen.value = true
+}
+
+async function createBlankMacro(): Promise<void> {
+  if (!macroCreateDraft.name.trim() || !selectedTargetSlot.value) return
+  macroCreateBusy.value = true
+  try {
+    const resolution = await backend.assets.currentResolution(selectedTargetSlot.value)
+    if (!resolution) throw new Error(t('assets.macros.resolution_unavailable'))
+    const saved = await backend.macros.save({
+      label: macroCreateDraft.name.trim(),
+      description: macroCreateDraft.description.trim(),
+      category: macroCreateDraft.category.trim(),
+      tags: uniqueStrings(macroCreateDraft.tags),
+      document: { schemaVersion: 1, baseResolution: resolution, actions: [] },
+    })
+    macroCreateOpen.value = false
+    await refreshAssets()
+    await openMacroEditor({
+      guid: saved.id,
+      kind: 'macro',
+      name: saved.label,
+      description: saved.description,
+      category: saved.category,
+      tags: saved.tags,
+      variantCount: 0,
+      variants: [],
+      blob: saved.blob,
+      createdAt: saved.createdAt,
+    })
+  } catch (error) {
+    showError(t('assets.macros.save_failed'), error)
+  } finally {
+    macroCreateBusy.value = false
+  }
+}
+
+async function openMacroEditor(asset: AssetSummary): Promise<void> {
+  try {
+    const value = await backend.macros.get(asset.guid)
+    if (!value) throw new Error(`macro ${asset.guid} not found`)
+    macroEditing.value = {
+      ...value,
+      tags: [...(value.tags ?? [])],
+      document: {
+        ...value.document,
+        baseResolution: [...value.document.baseResolution] as [number, number],
+        actions: cloneRecordingActions(value.document.actions),
+      },
+      blob: { ...value.blob },
+    }
+    macroEditValid.value = true
+  } catch (error) {
+    showError(t('assets.macros.load_failed'), error)
+  }
+}
+
+async function saveMacro(): Promise<void> {
+  if (!macroEditing.value || !macroEditValid.value) return
+  macroEditBusy.value = true
+  try {
+    await backend.macros.save({
+      ...macroEditing.value,
+      document: {
+        ...macroEditing.value.document,
+        actions: cloneRecordingActions(macroEditing.value.document.actions),
+      },
+    })
+    macroEditing.value = null
+    await refreshAssets()
+  } catch (error) {
+    showError(t('assets.macros.save_failed'), error)
+  } finally {
+    macroEditBusy.value = false
+  }
+}
+
+function recaptureVariant(): void {
+  if (!variantAsset.value) return
+  openResourceAction('recapture')
+}
+
+async function performRecaptureVariant(): Promise<void> {
   const asset = variantAsset.value
   if (!asset || !selectedTargetSlot.value || variantBusy.value) return
   variantBusy.value = true

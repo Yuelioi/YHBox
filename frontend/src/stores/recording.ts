@@ -9,7 +9,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { backend, type BlobRef } from '@/lib/backend'
+import { backend, type BlobRef, type MacroAction, type MacroActionKind } from '@/lib/backend'
 import { i18n } from '@/i18n'
 
 export type RecordingMode = 'simple' | 'precise'
@@ -34,18 +34,17 @@ export interface RecordingStopPayload {
   durationUs: number
   eventCount: number
   preview: RecordingPreview
-  actions?: RecordingAction[]
+  actions?: MacroAction[]
+  environment: RecordingEnvironment
 }
 
-export interface RecordingAction {
-  kind: 'keys' | 'click' | 'scroll'
-  delayUs: number
-  durationUs: number
-  keys?: string[]
-  button?: 'left' | 'middle' | 'right'
-  point?: { x: number; y: number; unit: 'ratio' }
-  notches?: number
+export interface RecordingEnvironment {
+  baseResolution: [number, number]
+  mouseMode: string
+  mouseCounts360: number
 }
+
+export type { MacroAction, MacroActionKind }
 
 export interface RecordingPreview {
   mode: RecordingMode
@@ -57,36 +56,29 @@ export interface RecordingPreview {
   rawDeltas: number
   scrollActions: number
   steps: Array<{
-    kind: 'keys' | 'click' | 'scroll' | 'move-path'
+    kind: MacroActionKind | 'move-path'
     atUs: number
     durationUs: number
-    keys?: string[]
+    key?: string
     button?: string
     point?: { x: number; y: number; unit: 'ratio' }
     notches?: number
     samples?: number
   }>
-}
-
-export interface RecordingWorkflowDraftNode {
-  nodeTypeID: string
-  config: Record<string, unknown>
-  values: Record<string, unknown>
-  blobs: Record<string, BlobRef>
-  execInput: string
-  execOutput: string
-}
-
-export interface RecordingWorkflowDraft {
-  mode: RecordingMode
-  nodes: RecordingWorkflowDraftNode[]
+  tracks: Array<{
+    kind: 'keyboard' | 'mouse-buttons' | 'absolute-motion' | 'relative-motion' | 'scroll'
+    count: number
+    firstUs: number
+    lastUs: number
+  }>
 }
 
 export interface RecordingFinalizePayload {
-  clipID: string
+  assetID: string
+  assetKind: 'macro' | 'clip'
   targetSlot: string
   label: string
-  draft: RecordingWorkflowDraft
+  blob: BlobRef
 }
 
 export function isRecordingStopPayload(value: unknown): value is RecordingStopPayload {
@@ -108,30 +100,71 @@ export function isRecordingStopPayload(value: unknown): value is RecordingStopPa
     nonnegativeNumber(value.preview.pointerMoves) &&
     nonnegativeNumber(value.preview.rawDeltas) &&
     nonnegativeNumber(value.preview.scrollActions) &&
-    (actions === undefined || (Array.isArray(actions) && actions.every(isRecordingAction)))
+    Array.isArray(value.preview.tracks) &&
+    isRecordingEnvironment(value.environment) &&
+    (actions === undefined || (Array.isArray(actions) && actions.every(isMacroAction)))
   )
 }
 
-function isRecordingAction(value: unknown): value is RecordingAction {
-  if (!isRecord(value) || !['keys', 'click', 'scroll'].includes(String(value.kind))) return false
-  if (!nonnegativeNumber(value.delayUs) || !nonnegativeNumber(value.durationUs)) return false
-  if (value.kind === 'keys')
-    return Array.isArray(value.keys) && value.keys.every((key) => typeof key === 'string')
+function normalizeRecordingStopPayload(value: unknown): RecordingStopPayload | null {
+  if (!isRecord(value) || !isRecord(value.preview)) return null
+  const preview = value.preview
+  const normalized = {
+    ...value,
+    preview: {
+      ...preview,
+      // Older native snapshots and empty Go slices may arrive as null. Empty
+      // means no rows, not an invalid recording envelope.
+      steps: preview.steps == null ? [] : preview.steps,
+      tracks: preview.tracks == null ? [] : preview.tracks,
+    },
+  }
+  return isRecordingStopPayload(normalized) ? normalized : null
+}
+
+function isRecordingEnvironment(value: unknown): value is RecordingEnvironment {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.baseResolution) &&
+    value.baseResolution.length === 2 &&
+    value.baseResolution.every(positiveNumber) &&
+    typeof value.mouseMode === 'string' &&
+    nonnegativeNumber(value.mouseCounts360)
+  )
+}
+
+function isMacroAction(value: unknown): value is MacroAction {
+  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
+  if (
+    !['key-down', 'key-up', 'mouse-down', 'mouse-up', 'click', 'scroll', 'sleep'].includes(
+      String(value.kind),
+    )
+  )
+    return false
+  if (value.kind === 'key-down' || value.kind === 'key-up')
+    return typeof value.key === 'string' && value.key.length > 0
+  if (value.kind === 'sleep') return positiveNumber(value.durationUs)
   if (!isRecord(value.point) || value.point.unit !== 'ratio') return false
   if (!nonnegativeNumber(value.point.x) || !nonnegativeNumber(value.point.y)) return false
-  if (value.kind === 'click') return ['left', 'middle', 'right'].includes(String(value.button))
-  return typeof value.notches === 'number' && Number.isInteger(value.notches) && value.notches !== 0
+  if (value.kind === 'scroll')
+    return (
+      typeof value.notches === 'number' && Number.isInteger(value.notches) && value.notches !== 0
+    )
+  if (!['left', 'middle', 'right'].includes(String(value.button))) return false
+  return value.kind !== 'click' || positiveNumber(value.durationUs)
 }
 
 function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizePayload {
-  if (!isRecord(value) || !isRecord(value.draft)) return false
+  if (!isRecord(value) || !isRecord(value.blob)) return false
   return (
-    typeof value.clipID === 'string' &&
-    value.clipID.length > 0 &&
+    typeof value.assetID === 'string' &&
+    value.assetID.length > 0 &&
+    (value.assetKind === 'macro' || value.assetKind === 'clip') &&
     typeof value.targetSlot === 'string' &&
     typeof value.label === 'string' &&
-    (value.draft.mode === 'simple' || value.draft.mode === 'precise') &&
-    Array.isArray(value.draft.nodes)
+    typeof value.blob.mediaType === 'string' &&
+    typeof value.blob.digest === 'string' &&
+    nonnegativeNumber(value.blob.size)
   )
 }
 
@@ -149,6 +182,10 @@ function nonnegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
+function positiveNumber(value: unknown): value is number {
+  return nonnegativeNumber(value) && value > 0
+}
+
 const IDLE: RecordingState = {
   revision: 0,
   phase: 'idle',
@@ -163,7 +200,7 @@ const IDLE: RecordingState = {
 
 function normalize(st: any): RecordingState {
   const p = st?.phase
-  const pending = isRecordingStopPayload(st?.pending) ? st.pending : null
+  const pending = normalizeRecordingStopPayload(st?.pending)
   return {
     revision: nonnegativeNumber(st?.revision) ? st.revision : 0,
     phase:
@@ -271,9 +308,8 @@ export const useRecordingStore = defineStore('recording', () => {
   async function stop(): Promise<RecordingStopPayload | null> {
     // 幂等: 后端不在录 → 返 null 不抛错. 拿到产物 (或 null) 后对账收敛状态.
     const result = await backend.recording.stop()
-    if (result != null && !isRecordingStopPayload(result))
-      throw new Error('recording.stop: invalid result')
-    const payload = result ?? null
+    const payload = result == null ? null : normalizeRecordingStopPayload(result)
+    if (result != null && !payload) throw new Error('recording.stop: invalid result')
     lastResult.value = payload
     await reconcile()
     return payload
@@ -291,7 +327,9 @@ export const useRecordingStore = defineStore('recording', () => {
     description: string
     category: string
     tags: string[]
-    actions?: RecordingAction[]
+    actions?: MacroAction[]
+    trimStartUs?: number
+    trimEndUs?: number
   }): Promise<RecordingFinalizePayload> {
     const result = await backend.recording.finalize(args)
     if (!isRecordingFinalizePayload(result)) throw new Error('recording.finalize: invalid result')

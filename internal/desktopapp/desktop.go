@@ -290,6 +290,7 @@ func Run(config Config) error {
 	// InputClip remains an authoring asset service; 3.1 playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
+	macroSvc := newMacroService(assetStore, app.Emit)
 
 	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
@@ -312,8 +313,9 @@ func Run(config Config) error {
 		},
 	)
 
-	// recording Service 集成 clipSvc — Stop 落盘 InputClip + emit 'recording:completed'.
-	recordingSvc := newRecordingService(app, clipSvc, hotkeyRegistry, authoringTargets, app.Emit)
+	// 简易录制落原子 Macro；精准录制落 InputClip。两条产品路径共享原生采集器，
+	// 但不再共享持久化模型或“保存后加到画布”副作用。
+	recordingSvc := newRecordingService(app, clipSvc, macroSvc, hotkeyRegistry, authoringTargets, app.Emit)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
@@ -419,6 +421,7 @@ func Run(config Config) error {
 		application.NewService(recordingSvc),
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
+		application.NewService(macroSvc),
 		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
 		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),

@@ -32,20 +32,27 @@ func TestDebugControllerStepContinuePauseAndCancellation(t *testing.T) {
 	defer cancel()
 
 	first := checkpointAsync(control, ctx, "first")
-	waitDebugSnapshot(t, control, func(snapshot DebugSnapshot) bool {
+	firstPaused := waitDebugSnapshot(t, control, func(snapshot DebugSnapshot) bool {
 		return snapshot.Status == DebugPaused && snapshot.NodeID == "first"
 	})
 	if err := control.Step(); err != nil {
 		t.Fatal(err)
+	}
+	stepping := control.Snapshot()
+	if stepping.Generation <= firstPaused.Generation {
+		t.Fatalf("step generation = %d, want > paused generation %d", stepping.Generation, firstPaused.Generation)
 	}
 	if err := <-first; err != nil {
 		t.Fatal(err)
 	}
 
 	second := checkpointAsync(control, ctx, "second")
-	waitDebugSnapshot(t, control, func(snapshot DebugSnapshot) bool {
+	secondPaused := waitDebugSnapshot(t, control, func(snapshot DebugSnapshot) bool {
 		return snapshot.Status == DebugPaused && snapshot.NodeID == "second"
 	})
+	if secondPaused.Generation <= stepping.Generation {
+		t.Fatalf("next pause generation = %d, want > step generation %d", secondPaused.Generation, stepping.Generation)
+	}
 	if err := control.Continue(); err != nil {
 		t.Fatal(err)
 	}

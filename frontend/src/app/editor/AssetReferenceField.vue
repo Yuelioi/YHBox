@@ -4,7 +4,13 @@
     class="h-auto w-full justify-start rounded-lg border border-dashed border-default px-3 py-3 text-left"
     color="neutral"
     variant="ghost"
-    :icon="kind === 'template' ? 'i-tabler-photo-search' : 'i-tabler-movie'"
+    :icon="
+      kind === 'template'
+        ? 'i-tabler-photo-search'
+        : kind === 'macro'
+          ? 'i-tabler-list-details'
+          : 'i-tabler-route-alt-left'
+    "
     trailing-icon="i-tabler-chevron-right"
     @click="emit('change')"
   >
@@ -30,7 +36,16 @@
       v-else
       class="flex size-9 shrink-0 items-center justify-center rounded-md bg-elevated text-primary"
     >
-      <UIcon :name="kind === 'template' ? 'i-tabler-photo' : 'i-tabler-movie'" class="size-4" />
+      <UIcon
+        :name="
+          kind === 'template'
+            ? 'i-tabler-photo'
+            : kind === 'macro'
+              ? 'i-tabler-list-details'
+              : 'i-tabler-route-alt-left'
+        "
+        class="size-4"
+      />
     </div>
 
     <div class="min-w-0 flex-1">
@@ -67,7 +82,7 @@ import type { BlobRef } from '@/lib/backend'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 
 const props = defineProps<{
-  kind: 'template' | 'clip'
+  kind: 'template' | 'macro' | 'clip'
   bound: boolean
   blob?: BlobRef
   label: string
@@ -86,6 +101,7 @@ const unavailable = computed(() =>
 const metadata = computed(() => {
   if (!props.blob) return t('workflow.inspector.resource_missing')
   if (props.kind === 'template') return props.blob.digest.slice(0, 18)
+  if (props.kind === 'macro') return t('assetPicker.macro_size', { size: props.blob.size })
   return t('assetPicker.clip_size', { size: props.blob.size })
 })
 </script>

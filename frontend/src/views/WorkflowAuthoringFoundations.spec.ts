@@ -41,17 +41,44 @@ describe('workflow authoring foundations', () => {
     expect(generatedField).toContain(':virtualize="selectItems.length > 40"')
   })
 
-  it('restores a main-window library for clips, templates, and recording', () => {
+  it('separates editable macros, precise clips, templates, and recording entry points', () => {
     const source = readSource('src/views/AssetsView.vue')
     const router = readSource('src/router/index.ts')
     expect(router).toContain("path: '/assets'")
-    expect(source).toContain(
-      "beginRecording(recordingMode.value, selectedTargetSlot.value, 'library')",
-    )
+    expect(source).toContain("openResourceAction(activeTab === 'macros' ? 'macro' : 'precise')")
+    expect(source).toContain("activeTab.value === 'macros' ? 'macro'")
+    expect(source).toContain('<MacroActionEditor')
     expect(source).toContain("openScreenPicker('template_save'")
     expect(source).toContain('backend.assets.updateMeta')
     expect(source).toContain("'template_recapture'")
     expect(source).toContain('backend.assets.removeVariant')
+  })
+
+  it('keeps recording and resource binding inside the workflow workspace', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+    const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
+
+    expect(editor).toContain('<WorkflowResourceDock')
+    expect(editor).toContain('@capture-template="openTemplateCapture"')
+    expect(editor).toContain('@use="useWorkspaceResource"')
+    expect(editor).toContain('session.insertLinearDraft(')
+    expect(editor).toContain("kind: 'bind-blob'")
+    expect(dock).toContain('pageSize = 20')
+    expect(dock).toContain('assets.query(')
+    expect(dock).toContain("emit('start-recording'")
+    expect(dock).toContain("allCategoriesValue = '__yotta_all_categories__'")
+    expect(dock).not.toContain("value: ''")
+    expect(toolbar).not.toContain('workflow-macro-recording-start')
+  })
+
+  it('asks for an automation target only when a library creation action starts', () => {
+    const source = readSource('src/views/AssetsView.vue')
+    const header = source.slice(source.indexOf('<header'), source.indexOf('</header>'))
+
+    expect(header).not.toContain('selectedTargetSlot')
+    expect(source).toContain('v-model:open="resourceActionOpen"')
+    expect(source).toContain('openResourceAction')
   })
 
   it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {

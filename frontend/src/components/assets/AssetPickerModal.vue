@@ -1,8 +1,14 @@
 <template>
   <BaseModal
     :open="open"
-    :title="t(kind === 'template' ? 'assetPicker.template_title' : 'assetPicker.clip_title')"
-    :icon="kind === 'template' ? 'i-tabler-photo-search' : 'i-tabler-movie'"
+    :title="pickerTitle"
+    :icon="
+      kind === 'template'
+        ? 'i-tabler-photo-search'
+        : kind === 'macro'
+          ? 'i-tabler-list-details'
+          : 'i-tabler-route-alt-left'
+    "
     size="5xl"
     tall
     @update:open="emit('update:open', $event)"
@@ -85,9 +91,7 @@
         <div
           v-else-if="items.length"
           role="listbox"
-          :aria-label="
-            t(kind === 'template' ? 'assetPicker.template_title' : 'assetPicker.clip_title')
-          "
+          :aria-label="pickerTitle"
           class="grid grid-cols-1 gap-2"
           :class="kind === 'template' ? 'sm:grid-cols-2 xl:grid-cols-3' : ''"
         >
@@ -122,7 +126,13 @@
                 class="flex size-10 shrink-0 items-center justify-center rounded-md bg-elevated text-primary"
               >
                 <UIcon
-                  :name="asset.kind === 'template' ? 'i-tabler-photo' : 'i-tabler-movie'"
+                  :name="
+                    asset.kind === 'template'
+                      ? 'i-tabler-photo'
+                      : asset.kind === 'macro'
+                        ? 'i-tabler-list-details'
+                        : 'i-tabler-route-alt-left'
+                  "
                   class="size-5"
                 />
               </div>
@@ -216,7 +226,7 @@
           />
         </div>
         <UButton icon="i-tabler-check" :disabled="!candidate" @click="confirmSelection()">
-          {{ t(kind === 'template' ? 'assetPicker.use_template' : 'assetPicker.use_clip') }}
+          {{ confirmLabel }}
         </UButton>
       </div>
     </div>
@@ -236,7 +246,7 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const props = defineProps<{
   open: boolean
-  kind: 'template' | 'clip'
+  kind: 'template' | 'macro' | 'clip'
   selectedBlob?: BlobRef
 }>()
 const emit = defineEmits<{
@@ -245,6 +255,24 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 const assets = useAssetsStore()
+const pickerTitle = computed(() =>
+  t(
+    props.kind === 'template'
+      ? 'assetPicker.template_title'
+      : props.kind === 'macro'
+        ? 'assetPicker.macro_title'
+        : 'assetPicker.clip_title',
+  ),
+)
+const confirmLabel = computed(() =>
+  t(
+    props.kind === 'template'
+      ? 'assetPicker.use_template'
+      : props.kind === 'macro'
+        ? 'assetPicker.use_macro'
+        : 'assetPicker.use_clip',
+  ),
+)
 const searchInput = ref('')
 const search = ref('')
 const category = ref('')
@@ -369,7 +397,7 @@ function activateAsset(asset: AssetSummary, confirm = false): void {
 }
 
 function selectionForAsset(asset: AssetSummary): AssetPickerSelection | null {
-  if (asset.kind === 'clip') {
+  if (asset.kind === 'clip' || asset.kind === 'macro') {
     return asset.blob
       ? {
           guid: asset.guid,
@@ -403,6 +431,8 @@ function assetMeta(asset: AssetSummary): string {
   if (asset.kind === 'template') {
     return t('assets.templates.meta', { count: asset.variantCount })
   }
+  if (asset.kind === 'macro')
+    return t('assets.macros.library_meta', { bytes: asset.blob?.size ?? 0 })
   return t('assets.clips.library_meta', { bytes: asset.blob?.size ?? 0 })
 }
 

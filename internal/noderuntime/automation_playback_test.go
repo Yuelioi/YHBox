@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
@@ -147,6 +148,99 @@ func TestPlayInputClipReadsNominalBlobAndUsesExclusivePlaybackSession(t *testing
 	}
 }
 
+func TestPlayMacroPreservesOverlappingKeysAndReleasesSession(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := macro.Document{SchemaVersion: macro.SchemaVersion, BaseResolution: [2]int{1280, 720}, Actions: []macro.Action{
+		{ID: "w-down", Kind: macro.ActionKeyDown, Key: "W"},
+		{ID: "wait-1", Kind: macro.ActionSleep, DurationUs: 50_000},
+		{ID: "d-down", Kind: macro.ActionKeyDown, Key: "D"},
+		{ID: "wait-2", Kind: macro.ActionSleep, DurationUs: 450_000},
+		{ID: "w-up", Kind: macro.ActionKeyUp, Key: "W"},
+		{ID: "wait-3", Kind: macro.ActionSleep, DurationUs: 100_000},
+		{ID: "d-up", Kind: macro.ActionKeyUp, Key: "D"},
+	}}
+	var carrier bytes.Buffer
+	if err := macro.Encode(&carrier, document); err != nil {
+		t.Fatal(err)
+	}
+	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := store.Put(context.Background(), macro.MediaType, bytes.NewReader(carrier.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobProvider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	playbackProvider := &automationPlaybackProvider{}
+	providerDigest, err := artifact.Sum("yotta/test/automation-playback-provider/v1", []byte("atomic-macro-playback"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const providerID, targetID, slot = "automation-macro-test", "automation-target/macro-test", "macro-test"
+	playbackCapability, ok := builtins.Catalog.LookupCapability(nodes.AutomationPlaybackCapabilityID)
+	if !ok {
+		t.Fatal("automation playback capability is missing")
+	}
+	profileDraft := executionProfile(t, builtins)
+	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
+		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		Capabilities: []admission.ProviderCapability{{Capability: playbackCapability.Ref(), ResourceKind: automationinstalled.KindPlayback}},
+	})
+	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
+	profileDraft.TargetSlots = append(profileDraft.TargetSlots, admission.TargetSlotBinding{Slot: slot, TargetID: targetID})
+	program := compilePrimitiveProgram(t, builtins, automationMacroSource(builtins, slot, ref))
+	now := time.Date(2026, 7, 19, 16, 0, 0, 0, time.UTC)
+	consent, err := artifact.Sum("yotta/test/automation-playback-consent/v1", []byte(slot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, owner, journal := admittedExecutionWithConsent(t, builtins, program, map[string]run.InstalledProvider{
+		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: blobProvider},
+		providerID:      {ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, Provider: playbackProvider},
+	}, now, profileDraft, []artifact.Digest{consent})
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).Run(context.Background(), program, owner, journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(playbackProvider.events) != 4 {
+		t.Fatalf("playback events = %#v", playbackProvider.events)
+	}
+	want := []struct {
+		kind string
+		key  uint32
+	}{{automationinstalled.PlaybackKeyDown, 'W'}, {automationinstalled.PlaybackKeyDown, 'D'}, {automationinstalled.PlaybackKeyUp, 'W'}, {automationinstalled.PlaybackKeyUp, 'D'}}
+	for index, expected := range want {
+		if playbackProvider.events[index].Kind != expected.kind || playbackProvider.events[index].KeyCode != expected.key {
+			t.Fatalf("event %d = %#v", index, playbackProvider.events[index])
+		}
+	}
+	if playbackProvider.releases != 1 || playbackProvider.closed != 1 {
+		t.Fatalf("releases=%d closed=%d", playbackProvider.releases, playbackProvider.closed)
+	}
+	for _, entry := range journal.Current().Journal() {
+		if entry.Kind == run.JournalAdapterAction && entry.Action == "automation.play-macro" {
+			if entry.ActionOutcome != run.ActionSucceeded || entry.Summary.Counters["actions"] != 7 || entry.Summary.Counters["duration_ms"] != 600 {
+				t.Fatalf("macro action = %#v", entry)
+			}
+			return
+		}
+	}
+	t.Fatal("macro adapter action was not journaled")
+}
+
 func automationPlaybackSource(builtins nodes.Builtins, slot string, ref blob.BlobRef) []byte {
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	playback, _ := builtins.Definition(nodes.PlayInputClipNodeID)
@@ -156,6 +250,20 @@ func automationPlaybackSource(builtins nodes.Builtins, slot string, ref blob.Blo
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"clip":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().SemanticDigest, slot, ref.MediaType, ref.Digest, ref.Size))
+}
+
+func automationMacroSource(builtins nodes.Builtins, slot string, ref blob.BlobRef) []byte {
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	playback, _ := builtins.Definition(nodes.PlayMacroNodeID)
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-macro","name":"Automation Macro"},"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
+			 "bindings":{"macro":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().SemanticDigest, slot, ref.MediaType, ref.Digest, ref.Size))

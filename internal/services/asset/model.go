@@ -11,6 +11,7 @@ import (
 const (
 	KindTemplate = "template"
 	KindClip     = "clip"
+	KindMacro    = "macro"
 )
 
 // RecordSchemaVersion is an exact persisted contract. Other versions are
@@ -35,14 +36,14 @@ type Variant struct {
 type AssetRecord struct {
 	SchemaVersion int           `json:"schemaVersion"` // 写入时由 store 统一盖 RecordSchemaVersion
 	GUID          string        `json:"guid"`
-	Kind          string        `json:"kind"`                  // KindTemplate | KindClip
+	Kind          string        `json:"kind"`                  // KindTemplate | KindClip | KindMacro
 	Name          string        `json:"name"`                  // 可变显示标签, 可重名
 	Description   string        `json:"description,omitempty"` // 库管理用; 创建侧填值留后续
 	Category      string        `json:"category,omitempty"`    // 库分组用; 同子图 Category 语义
 	Tags          []string      `json:"tags,omitempty"`
 	Origin        Origin        `json:"origin"`
 	Variants      []Variant     `json:"variants,omitempty"` // 仅 template; 按 Resolution 唯一
-	Blob          *blob.BlobRef `json:"blob,omitempty"`     // 仅 clip
+	Blob          *blob.BlobRef `json:"blob,omitempty"`     // clip / macro
 	CreatedAt     time.Time     `json:"createdAt"`
 }
 

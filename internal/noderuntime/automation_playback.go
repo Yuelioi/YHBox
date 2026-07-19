@@ -15,7 +15,12 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
-const inputClipReadChunkBytes = int64(64 << 10)
+const playbackReadChunkBytes = int64(64 << 10)
+
+type playbackCommands struct {
+	Wait func(time.Duration) error
+	Play func(installed.PlaybackEvent) error
+}
 
 func playInputClip() compiler.Adapter {
 	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
@@ -34,78 +39,115 @@ func playInputClip() compiler.Adapter {
 		counters["events"] = int64(len(clip.Events))
 		counters["duration_ms"] = int64(clip.DurationUs / 1000)
 
-		targetSession := invocation.Sessions["target"]
-		if targetSession == nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("automation playback capability session is missing"))
-		}
-		handle, err := targetSession.Open(ctx, installed.PlaybackOperations(), []byte(`{}`))
-		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
-		}
-		released := false
-		defer func() {
-			cleanupCtx := context.WithoutCancel(ctx)
-			if !released {
-				payload, marshalErr := artifact.Marshal(struct{}{})
-				if marshalErr == nil {
-					_, _ = targetSession.Invoke(cleanupCtx, handle, installed.OperationReleaseHeld, payload)
-				}
-			}
-			runErr = errors.Join(runErr, targetSession.Drop(cleanupCtx, handle))
-		}()
-
 		var previousUs uint64
-		for _, event := range clip.Events {
-			if event.TUs > previousUs {
-				if invocation.Wait == nil {
-					return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, errors.New("playback scheduler is missing"))
+		err = runPlaybackSession(ctx, invocation, func(commands playbackCommands) error {
+			for _, event := range clip.Events {
+				if event.TUs > previousUs {
+					if err := commands.Wait(time.Duration(event.TUs-previousUs) * time.Microsecond); err != nil {
+						return err
+					}
 				}
-				if err := invocation.Wait(ctx, time.Duration(event.TUs-previousUs)*time.Microsecond); err != nil {
-					return compiler.AdapterResult{}, err
+				previousUs = event.TUs
+				if err := commands.Play(playbackEvent(event, clip.Meta)); err != nil {
+					return err
 				}
 			}
-			previousUs = event.TUs
-			payload, err := artifact.Marshal(playbackEvent(event, clip.Meta))
-			if err != nil {
-				return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
-			}
-			raw, err := targetSession.Invoke(ctx, handle, installed.OperationPlayEvent, payload)
-			if err != nil {
-				return compiler.AdapterResult{}, mapAutomationFailure(err)
-			}
-			if err := installed.OpenEffectResponse(raw); err != nil {
-				return compiler.AdapterResult{}, mapAutomationFailure(err)
-			}
-		}
-
-		releasePayload, err := artifact.Marshal(struct{}{})
+			return nil
+		})
 		if err != nil {
-			return compiler.AdapterResult{}, automationFailure(installed.CodeContractViolation, err)
+			return compiler.AdapterResult{}, err
 		}
-		raw, err := targetSession.Invoke(ctx, handle, installed.OperationReleaseHeld, releasePayload)
-		if err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
-		}
-		if err := installed.OpenEffectResponse(raw); err != nil {
-			return compiler.AdapterResult{}, mapAutomationFailure(err)
-		}
-		released = true
 		return compiler.AdapterResult{ExecOutputs: []string{"completed"}}, nil
 	}
 }
 
+func runPlaybackSession(ctx context.Context, invocation compiler.Invocation, sequence func(playbackCommands) error) (runErr error) {
+	targetSession := invocation.Sessions["target"]
+	if targetSession == nil {
+		return automationFailure(installed.CodeContractViolation, errors.New("automation playback capability session is missing"))
+	}
+	handle, err := targetSession.Open(ctx, installed.PlaybackOperations(), []byte(`{}`))
+	if err != nil {
+		return mapAutomationFailure(err)
+	}
+	released := false
+	defer func() {
+		cleanupCtx := context.WithoutCancel(ctx)
+		if !released {
+			payload, marshalErr := artifact.Marshal(struct{}{})
+			if marshalErr == nil {
+				_, _ = targetSession.Invoke(cleanupCtx, handle, installed.OperationReleaseHeld, payload)
+			}
+		}
+		runErr = errors.Join(runErr, targetSession.Drop(cleanupCtx, handle))
+	}()
+	commands := playbackCommands{
+		Wait: func(duration time.Duration) error {
+			if duration <= 0 {
+				return nil
+			}
+			if invocation.Wait == nil {
+				return automationFailure(installed.CodeContractViolation, errors.New("playback scheduler is missing"))
+			}
+			return invocation.Wait(ctx, duration)
+		},
+		Play: func(event installed.PlaybackEvent) error {
+			payload, err := artifact.Marshal(event)
+			if err != nil {
+				return automationFailure(installed.CodeContractViolation, err)
+			}
+			raw, err := targetSession.Invoke(ctx, handle, installed.OperationPlayEvent, payload)
+			if err != nil {
+				return mapAutomationFailure(err)
+			}
+			if err := installed.OpenEffectResponse(raw); err != nil {
+				return mapAutomationFailure(err)
+			}
+			return nil
+		},
+	}
+	if err := sequence(commands); err != nil {
+		return err
+	}
+	releasePayload, err := artifact.Marshal(struct{}{})
+	if err != nil {
+		return automationFailure(installed.CodeContractViolation, err)
+	}
+	raw, err := targetSession.Invoke(ctx, handle, installed.OperationReleaseHeld, releasePayload)
+	if err != nil {
+		return mapAutomationFailure(err)
+	}
+	if err := installed.OpenEffectResponse(raw); err != nil {
+		return mapAutomationFailure(err)
+	}
+	released = true
+	return nil
+}
+
 func readInputClip(ctx context.Context, invocation compiler.Invocation) (*inputclip.InputClip, blob.BlobRef, error) {
-	input, ok := invocation.Inputs["clip"]
+	carrier, ref, err := readPlaybackBlob(ctx, invocation, "clip", inputclip.MediaType, inputclip.MaxEncodedInputClipBytes)
+	if err != nil {
+		return nil, blob.BlobRef{}, err
+	}
+	clip, err := inputclip.Decode(bytes.NewReader(carrier))
+	if err != nil {
+		return nil, blob.BlobRef{}, fmt.Errorf("decode input clip: %w", err)
+	}
+	return clip, ref, nil
+}
+
+func readPlaybackBlob(ctx context.Context, invocation compiler.Invocation, inputID, mediaType string, maxBytes int) ([]byte, blob.BlobRef, error) {
+	input, ok := invocation.Inputs[inputID]
 	if !ok {
-		return nil, blob.BlobRef{}, errors.New("input clip is missing")
+		return nil, blob.BlobRef{}, fmt.Errorf("%s is missing", inputID)
 	}
 	ref, ok := input.BlobRef()
-	if !ok || ref.Validate() != nil || ref.MediaType != inputclip.MediaType || ref.Size <= 0 || ref.Size > inputclip.MaxEncodedInputClipBytes {
-		return nil, blob.BlobRef{}, errors.New("input clip BlobRef is invalid")
+	if !ok || ref.Validate() != nil || ref.MediaType != mediaType || ref.Size <= 0 || ref.Size > int64(maxBytes) {
+		return nil, blob.BlobRef{}, fmt.Errorf("%s BlobRef is invalid", inputID)
 	}
 	session := invocation.Sessions["blob-read"]
 	if session == nil {
-		return nil, blob.BlobRef{}, errors.New("input clip blob-read capability session is missing")
+		return nil, blob.BlobRef{}, fmt.Errorf("%s blob-read capability session is missing", inputID)
 	}
 	config, err := artifact.Marshal(blob.ReadConfig{Blob: ref})
 	if err != nil {
@@ -120,7 +162,7 @@ func readInputClip(ctx context.Context, invocation compiler.Invocation) (*inputc
 	var carrier bytes.Buffer
 	carrier.Grow(int(ref.Size))
 	for offset := int64(0); offset < ref.Size; {
-		length := min(inputClipReadChunkBytes, ref.Size-offset)
+		length := min(playbackReadChunkBytes, ref.Size-offset)
 		payload, err := artifact.Marshal(blob.RangeRequest{Offset: offset, Length: length})
 		if err != nil {
 			return nil, blob.BlobRef{}, err
@@ -130,16 +172,12 @@ func readInputClip(ctx context.Context, invocation compiler.Invocation) (*inputc
 			return nil, blob.BlobRef{}, err
 		}
 		if int64(len(chunk)) != length {
-			return nil, blob.BlobRef{}, errors.New("blob provider returned an invalid input clip chunk length")
+			return nil, blob.BlobRef{}, fmt.Errorf("blob provider returned an invalid %s chunk length", inputID)
 		}
 		_, _ = carrier.Write(chunk)
 		offset += length
 	}
-	clip, err := inputclip.Decode(bytes.NewReader(carrier.Bytes()))
-	if err != nil {
-		return nil, blob.BlobRef{}, fmt.Errorf("decode input clip: %w", err)
-	}
-	return clip, ref, nil
+	return carrier.Bytes(), ref, nil
 }
 
 func playbackEvent(event inputclip.Event, meta inputclip.ClipMeta) installed.PlaybackEvent {

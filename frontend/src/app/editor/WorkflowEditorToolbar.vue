@@ -1,5 +1,7 @@
 <template>
-  <header class="flex h-13 shrink-0 items-center gap-2 border-b border-default bg-default px-3">
+  <header
+    class="flex h-13 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-default bg-default px-3"
+  >
     <UButton
       data-testid="workflow-editor-back"
       icon="i-tabler-arrow-left"
@@ -74,17 +76,7 @@
       :aria-pressed="statePanelOpen"
       @click="emit('toggle-state')"
     />
-    <UButton
-      v-if="recordingPhase === 'idle'"
-      data-testid="workflow-recording-start"
-      :label="t('workflow.recording.start')"
-      icon="i-tabler-record-mail"
-      color="neutral"
-      variant="ghost"
-      size="xs"
-      @click="emit('start-recording')"
-    />
-    <template v-else-if="recordingPhase !== 'pending'">
+    <template v-if="recordingPhase !== 'idle' && recordingPhase !== 'pending'">
       <UButton
         :label="
           recordingPhase === 'paused'
@@ -110,7 +102,7 @@
       />
     </template>
     <UButton
-      v-else
+      v-else-if="recordingPhase === 'pending'"
       :label="t('recordingSave.pending')"
       icon="i-tabler-clock-edit"
       color="warning"
@@ -189,7 +181,8 @@
       data-testid="workflow-save"
       :label="saveSucceeded ? t('workflow.action.saved') : t('workflow.action.save')"
       :icon="saveSucceeded ? 'i-tabler-check' : 'i-tabler-device-floppy'"
-      :color="saveSucceeded ? 'success' : 'primary'"
+      :color="saveSucceeded ? 'success' : 'neutral'"
+      variant="soft"
       size="xs"
       :loading="saving"
       :disabled="!dirty"
@@ -234,7 +227,7 @@ const emit = defineEmits<{
   'toggle-timeline': []
   'toggle-debugger': []
   'start-debug': []
-  'start-recording': []
+  'start-recording': [mode: 'simple' | 'precise']
   'pause-recording': []
   'resume-recording': []
   'stop-recording': []

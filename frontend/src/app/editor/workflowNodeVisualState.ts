@@ -10,8 +10,9 @@ export interface WorkflowNodeVisualStateInput {
 
 export interface WorkflowNodeVisualState {
   surfaceClasses: string
-  executionTone: 'primary' | 'success' | 'error' | 'warning' | null
+  executionTone: 'primary' | 'error' | 'warning' | null
   executionStripeClasses: string
+  showRunStatus: boolean
   debugCurrent: boolean
   diagnosticTone: DiagnosticSeverity | null
 }
@@ -30,13 +31,13 @@ export function workflowNodeVisualState(
       .join(' '),
     executionTone,
     executionStripeClasses: runStripe(input.runStatus),
+    showRunStatus: Boolean(input.runStatus && input.runStatus !== 'succeeded'),
     debugCurrent: Boolean(input.debugCurrent),
     diagnosticTone: input.diagnosticSeverity ?? null,
   }
 }
 
 function runStripe(status?: NodeRunStatus): string {
-  if (status === 'succeeded') return 'bg-success'
   if (status === 'failed') return 'bg-error'
   if (status === 'cancelled' || status === 'routed') return 'bg-warning'
   if (status === 'running') return 'bg-primary'
@@ -44,7 +45,6 @@ function runStripe(status?: NodeRunStatus): string {
 }
 
 function runTone(status?: NodeRunStatus): WorkflowNodeVisualState['executionTone'] {
-  if (status === 'succeeded') return 'success'
   if (status === 'failed') return 'error'
   if (status === 'cancelled' || status === 'routed') return 'warning'
   if (status === 'running') return 'primary'

@@ -243,7 +243,7 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	if query.Page > 1_000_000 || query.PageSize > 100 || query.ThumbnailBudget < 0 || query.ThumbnailBudget > query.PageSize {
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "pagination or thumbnail budget"})
 	}
-	if query.Kind != "" && query.Kind != KindTemplate && query.Kind != KindClip {
+	if query.Kind != "" && query.Kind != KindTemplate && query.Kind != KindClip && query.Kind != KindMacro {
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "kind"})
 	}
 	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 || len(query.Tags) > 16 || len(query.RecentGUIDs) > 64 {

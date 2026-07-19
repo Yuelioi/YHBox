@@ -11,7 +11,10 @@ import (
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/automation/target"
+	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 )
 
 // HotkeySettingsProvider 给 Service 拿停录热键 VK + mouseMode.
@@ -24,8 +27,10 @@ type HotkeySettingsProvider interface {
 
 type clipStore interface {
 	Save(clip *inputclip.InputClip) error
-	List() []inputclip.ClipSummary
-	Delete(id string) error
+}
+
+type macroStore interface {
+	Save(value *macro.Macro) (*macro.Macro, error)
 }
 
 // TargetResolver provides trusted local recording access to installed targets.
@@ -43,11 +48,12 @@ type TargetResolver interface {
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
 type Service struct {
-	rec     recorderLifecycle
-	hkProv  HotkeySettingsProvider
-	clipSvc clipStore
-	targets TargetResolver
-	emit    func(name string, data any)
+	rec      recorderLifecycle
+	hkProv   HotkeySettingsProvider
+	clipSvc  clipStore
+	macroSvc macroStore
+	targets  TargetResolver
+	emit     func(name string, data any)
 
 	mu            sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
 	pending       *pendingRecording
@@ -59,9 +65,9 @@ type Service struct {
 	shutdownDone  chan struct{}
 }
 
-func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
+func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, macroSvc macroStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
 	service := &Service{
-		rec: rec, hkProv: hkProv, clipSvc: clipSvc, targets: targets,
+		rec: rec, hkProv: hkProv, clipSvc: clipSvc, macroSvc: macroSvc, targets: targets,
 		state: RecordingState{Phase: PhaseIdle}, shutdownDone: make(chan struct{}),
 	}
 	if len(emit) != 0 {
@@ -125,17 +131,21 @@ func cloneRecordingState(state RecordingState) RecordingState {
 		return state
 	}
 	pending := *state.Pending
-	pending.Preview.Steps = append([]RecordingPreviewStep(nil), pending.Preview.Steps...)
+	// These collections are part of the RPC contract. Cloning an empty slice
+	// into a nil destination turns [] into JSON null and makes otherwise valid
+	// pending recordings disappear at strict clients.
+	pending.Preview.Steps = append([]RecordingPreviewStep{}, pending.Preview.Steps...)
+	pending.Preview.Tracks = append([]RecordingTrack{}, pending.Preview.Tracks...)
 	for index := range pending.Preview.Steps {
-		pending.Preview.Steps[index].Keys = append([]string(nil), pending.Preview.Steps[index].Keys...)
 		if point := pending.Preview.Steps[index].Point; point != nil {
 			copyOfPoint := *point
 			pending.Preview.Steps[index].Point = &copyOfPoint
 		}
 	}
-	pending.Actions = append([]RecordingAction(nil), pending.Actions...)
+	if pending.Actions != nil {
+		pending.Actions = append([]macro.Action{}, pending.Actions...)
+	}
 	for index := range pending.Actions {
-		pending.Actions[index].Keys = append([]string(nil), pending.Actions[index].Keys...)
 		if point := pending.Actions[index].Point; point != nil {
 			copyOfPoint := *point
 			pending.Actions[index].Point = &copyOfPoint
@@ -346,13 +356,20 @@ func (s *Service) Resume() error {
 
 // StopResultPayload 描述尚未入库的录制结果，供前端打开命名表单.
 type StopResultPayload struct {
-	PendingID  string                  `json:"pendingID"`
-	TargetSlot string                  `json:"targetSlot"`
-	Mode       inputclip.RecordingMode `json:"mode"`
-	DurationUs uint64                  `json:"durationUs"`
-	EventCount int                     `json:"eventCount"`
-	Preview    RecordingPreview        `json:"preview"`
-	Actions    []RecordingAction       `json:"actions,omitempty"`
+	PendingID   string                  `json:"pendingID"`
+	TargetSlot  string                  `json:"targetSlot"`
+	Mode        inputclip.RecordingMode `json:"mode"`
+	DurationUs  uint64                  `json:"durationUs"`
+	EventCount  int                     `json:"eventCount"`
+	Preview     RecordingPreview        `json:"preview"`
+	Actions     []macro.Action          `json:"actions,omitempty"`
+	Environment RecordingEnvironment    `json:"environment"`
+}
+
+type RecordingEnvironment struct {
+	BaseResolution [2]int `json:"baseResolution"`
+	MouseMode      string `json:"mouseMode"`
+	MouseCounts360 int    `json:"mouseCounts360"`
 }
 
 type pendingRecording struct {
@@ -362,20 +379,23 @@ type pendingRecording struct {
 
 // FinalizeArgs supplies user-owned metadata for a pending recording.
 type FinalizeArgs struct {
-	PendingID   string             `json:"pendingID"`
-	Label       string             `json:"label"`
-	Description string             `json:"description"`
-	Category    string             `json:"category"`
-	Tags        []string           `json:"tags"`
-	Actions     *[]RecordingAction `json:"actions,omitempty"`
+	PendingID   string          `json:"pendingID"`
+	Label       string          `json:"label"`
+	Description string          `json:"description"`
+	Category    string          `json:"category"`
+	Tags        []string        `json:"tags"`
+	Actions     *[]macro.Action `json:"actions,omitempty"`
+	TrimStartUs *uint64         `json:"trimStartUs,omitempty"`
+	TrimEndUs   *uint64         `json:"trimEndUs,omitempty"`
 }
 
 // FinalizeResult identifies the durable asset created from a pending recording.
 type FinalizeResult struct {
-	ClipID     string        `json:"clipID"`
-	TargetSlot string        `json:"targetSlot"`
-	Label      string        `json:"label"`
-	Draft      WorkflowDraft `json:"draft"`
+	AssetID    string       `json:"assetID"`
+	AssetKind  string       `json:"assetKind"`
+	TargetSlot string       `json:"targetSlot"`
+	Label      string       `json:"label"`
+	Blob       blob.BlobRef `json:"blob"`
 }
 
 // Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
@@ -436,9 +456,15 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	payload := &StopResultPayload{
 		PendingID: pendingID, TargetSlot: targetSlot,
 		Mode: res.Meta.RecordingMode, DurationUs: durationUs, EventCount: len(res.Events), Preview: recordingPreview(res),
+		Environment: RecordingEnvironment{BaseResolution: res.Meta.BaseResolution, MouseMode: res.Meta.MouseMode, MouseCounts360: res.Meta.MouseCounts360},
 	}
 	if res.Meta.RecordingMode == inputclip.RecordingModeSimple {
-		payload.Actions = editableRecordingActions(res)
+		document, documentErr := buildMacroDocument(res)
+		if documentErr != nil {
+			s.setState(RecordingState{Phase: PhaseIdle})
+			return nil, fmt.Errorf("build macro recording: %w", documentErr)
+		}
+		payload.Actions = document.Actions
 	}
 	s.pending = &pendingRecording{result: res, targetSlot: targetSlot}
 	s.setState(RecordingState{
@@ -491,36 +517,93 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	tags := normalizeTags(args.Tags)
 	description := strings.TrimSpace(args.Description)
 	category := strings.TrimSpace(args.Category)
-	res := pending.result
-	if args.Actions != nil {
-		res = &StopResult{Meta: pending.result.Meta, TempID: pending.result.TempID}
-		if err := applyEditedActions(res, *args.Actions); err != nil {
-			return nil, fmt.Errorf("edit recording: %w", err)
-		}
-	}
-	if s.clipSvc == nil {
-		return nil, errors.New("clip store 未注入")
-	}
 	pendingState := s.GetState()
 	finalizing := pendingState
 	finalizing.Phase = PhaseFinalizing
 	s.setState(finalizing)
-	clip := &inputclip.InputClip{
-		ID: "clip-" + res.TempID, Label: label, Description: description, Category: category,
-		Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: res.Meta, Events: res.Events,
-	}
-	clip.UpdateDuration()
-	if err := s.clipSvc.Save(clip); err != nil {
+	result, err := s.finalizePending(pending, label, description, category, tags, args.Actions, args.TrimStartUs, args.TrimEndUs)
+	if err != nil {
 		s.setState(pendingState)
-		return nil, fmt.Errorf("save clip: %w", err)
-	}
-	result := &FinalizeResult{
-		ClipID: clip.ID, TargetSlot: pending.targetSlot, Label: label,
-		Draft: buildWorkflowDraft(res, pending.targetSlot, clip.Blob),
+		return nil, err
 	}
 	s.pending = nil
 	s.setState(RecordingState{Phase: PhaseIdle})
 	return result, nil
+}
+
+func (s *Service) finalizePending(pending pendingRecording, label, description, category string, tags []string, editedActions *[]macro.Action, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
+	result := pending.result
+	if result.Meta.RecordingMode == inputclip.RecordingModeSimple {
+		if trimStartUs != nil || trimEndUs != nil {
+			return nil, errors.New("macros do not accept precise trim boundaries")
+		}
+		if s.macroSvc == nil {
+			return nil, errors.New("macro store is unavailable")
+		}
+		document, err := buildMacroDocument(result)
+		if err != nil {
+			return nil, fmt.Errorf("build macro: %w", err)
+		}
+		if editedActions != nil {
+			document.Actions = cloneMacroActions(*editedActions)
+		}
+		if err := macro.Validate(document); err != nil {
+			return nil, fmt.Errorf("validate macro: %w", err)
+		}
+		saved, err := s.macroSvc.Save(&macro.Macro{
+			ID: "macro-" + result.TempID, Label: label, Description: description, Category: category,
+			Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Document: document,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("save macro: %w", err)
+		}
+		return &FinalizeResult{
+			AssetID: saved.ID, AssetKind: asset.KindMacro, TargetSlot: pending.targetSlot, Label: saved.Label, Blob: saved.Blob,
+		}, nil
+	}
+	if editedActions != nil {
+		return nil, errors.New("precise recordings do not accept macro actions")
+	}
+	if trimStartUs != nil || trimEndUs != nil {
+		start := uint64(0)
+		end := result.Events[len(result.Events)-1].TUs
+		if trimStartUs != nil {
+			start = *trimStartUs
+		}
+		if trimEndUs != nil {
+			end = *trimEndUs
+		}
+		trimmed, err := trimPreciseEvents(result.Events, start, end)
+		if err != nil {
+			return nil, fmt.Errorf("trim precise recording: %w", err)
+		}
+		result = &StopResult{TempID: result.TempID, Meta: result.Meta, Events: trimmed}
+	}
+	if s.clipSvc == nil {
+		return nil, errors.New("clip store is unavailable")
+	}
+	clip := &inputclip.InputClip{
+		ID: "clip-" + result.TempID, Label: label, Description: description, Category: category,
+		Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: result.Meta, Events: result.Events,
+	}
+	clip.UpdateDuration()
+	if err := s.clipSvc.Save(clip); err != nil {
+		return nil, fmt.Errorf("save clip: %w", err)
+	}
+	return &FinalizeResult{
+		AssetID: clip.ID, AssetKind: asset.KindClip, TargetSlot: pending.targetSlot, Label: clip.Label, Blob: clip.Blob,
+	}, nil
+}
+
+func cloneMacroActions(actions []macro.Action) []macro.Action {
+	cloned := append([]macro.Action(nil), actions...)
+	for index := range cloned {
+		if cloned[index].Point != nil {
+			point := *cloned[index].Point
+			cloned[index].Point = &point
+		}
+	}
+	return cloned
 }
 
 // Discard releases a pending recording without creating an asset.
@@ -590,7 +673,7 @@ func (s *Service) StopAsync() {
 			"pendingID": payload.PendingID, "targetSlot": payload.TargetSlot,
 			"mode":       payload.Mode,
 			"durationUs": payload.DurationUs, "eventCount": payload.EventCount,
-			"preview": payload.Preview,
+			"preview": payload.Preview, "actions": payload.Actions, "environment": payload.Environment,
 		})
 	}()
 }

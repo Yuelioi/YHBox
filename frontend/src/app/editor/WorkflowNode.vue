@@ -47,7 +47,7 @@
         @click.stop="emit('toggle-breakpoint')"
       />
       <span
-        v-if="runStatus"
+        v-if="visualState.showRunStatus"
         data-testid="node-run-status"
         class="flex items-center gap-1 text-[9px] font-medium"
         :class="runStatusText"
@@ -165,13 +165,11 @@ const diagnosticClass = computed(() => {
 })
 const runStatusText = computed(() => {
   if (props.runStatus === 'failed') return 'text-error'
-  if (props.runStatus === 'succeeded') return 'text-success'
   if (props.runStatus === 'cancelled' || props.runStatus === 'routed') return 'text-warning'
   return 'text-primary'
 })
 const runStatusDot = computed(() => [
   props.runStatus === 'failed' && 'bg-error',
-  props.runStatus === 'succeeded' && 'bg-success',
   (props.runStatus === 'cancelled' || props.runStatus === 'routed') && 'bg-warning',
   props.runStatus === 'running' && 'bg-primary animate-pulse motion-reduce:animate-none',
 ])

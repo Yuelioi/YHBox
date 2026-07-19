@@ -46,6 +46,23 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	if len(list) != 1 || list[0].Blob != wantRef {
 		t.Fatalf("clip summaries = %#v", list)
 	}
+	summary, err := service.Summary(clip.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.Tracks) != 1 || summary.Tracks[0].Kind != "keyboard" || summary.Tracks[0].Count != 2 {
+		t.Fatalf("summary tracks = %#v", summary.Tracks)
+	}
+	page, err := service.Events(clip.ID, 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || len(page.Items) != 1 || page.Items[0].Type != EventTypeKeyUp {
+		t.Fatalf("event page = %#v", page)
+	}
+	if _, err := service.Events(clip.ID, 0, maxEventPageSize+1); err == nil {
+		t.Fatal("oversized event page succeeded")
+	}
 }
 
 func TestServiceEmitsUnifiedAssetInvalidation(t *testing.T) {

@@ -11,6 +11,7 @@ import * as ToolsService from '@bindings/github.com/yottaapp/yotta/internal/serv
 import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/services/appinfoservice.js'
 import * as RecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/recording/service.js'
 import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/services/inputclip/service.js'
+import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
@@ -71,7 +72,7 @@ export type Schedule = ScheduleModel
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
 export interface AssetSummary {
   guid: string
-  kind: 'template' | 'clip'
+  kind: 'template' | 'macro' | 'clip'
   name: string
   description?: string
   category?: string
@@ -122,7 +123,7 @@ export interface AssetPage {
 export interface AssetBinding {
   found: boolean
   guid: string
-  kind: 'template' | 'clip' | ''
+  kind: 'template' | 'macro' | 'clip' | ''
   name: string
   resolution: [number, number]
   blob: BlobRef
@@ -148,6 +149,89 @@ export interface BlobRef {
   mediaType: string
   digest: string
   size: number
+}
+
+export type MacroActionKind =
+  | 'key-down'
+  | 'key-up'
+  | 'mouse-down'
+  | 'mouse-up'
+  | 'click'
+  | 'scroll'
+  | 'sleep'
+
+export interface MacroAction {
+  id: string
+  kind: MacroActionKind
+  key?: string
+  button?: 'left' | 'middle' | 'right'
+  point?: { x: number; y: number; unit: 'ratio' }
+  notches?: number
+  durationUs?: number
+}
+
+export interface MacroDocument {
+  schemaVersion: number
+  baseResolution: [number, number]
+  actions: MacroAction[]
+}
+
+export interface MacroAsset {
+  id: string
+  label: string
+  description?: string
+  category?: string
+  tags?: string[]
+  createdAt: string
+  document: MacroDocument
+  blob: BlobRef
+}
+
+export interface InputEvent {
+  tUs: number
+  seq: number
+  type: number
+  a: number
+  b: number
+  c: number
+}
+
+export interface InputEventPage {
+  items: InputEvent[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface InputClipSummary {
+  id: string
+  label: string
+  description?: string
+  category?: string
+  tags?: string[]
+  durationUs: number
+  createdAt: string
+  meta: {
+    recordingMode: 'simple' | 'precise'
+    mouseMode: string
+    baseResolution: [number, number]
+    mouseCounts360: number
+    stopHotkeyVK: number
+  }
+  eventCount: number
+  blob: BlobRef
+  tracks: Array<{
+    kind: 'keyboard' | 'mouse-buttons' | 'absolute-motion' | 'relative-motion' | 'scroll'
+    count: number
+    firstUs: number
+    lastUs: number
+  }>
+}
+
+export type MacroSaveInput = Omit<MacroAsset, 'id' | 'createdAt' | 'blob'> & {
+  id?: string
+  createdAt?: string
+  blob?: BlobRef
 }
 
 export interface BlobPreview {
@@ -488,7 +572,7 @@ export const backend = {
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
   assets: {
-    // List 全局资产列表 (template + clip), 无工作流级存储分支.
+    // List 全局资产列表 (template + macro + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
     query: (query: AssetQuery) =>
       invoke(AssetService.QueryAssets, query) as unknown as Promise<AssetPage>,
@@ -598,14 +682,16 @@ export const backend = {
       description: string
       category: string
       tags: string[]
+      trimStartUs?: number
+      trimEndUs?: number
       actions?: Array<{
-        kind: 'keys' | 'click' | 'scroll'
-        delayUs: number
-        durationUs: number
-        keys?: string[]
+        id: string
+        kind: 'key-down' | 'key-up' | 'mouse-down' | 'mouse-up' | 'click' | 'scroll' | 'sleep'
+        key?: string
         button?: 'left' | 'middle' | 'right'
         point?: { x: number; y: number; unit: 'ratio' }
         notches?: number
+        durationUs?: number
       }>
     }) => invoke(RecordingService.Finalize, args as any),
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
@@ -613,16 +699,35 @@ export const backend = {
     resume: () => invoke(RecordingService.Resume),
     validateTarget: (targetSlot: string) => invoke(RecordingService.ValidateTarget, targetSlot),
     getState: () => invoke(RecordingService.GetState),
+    pendingEvents: (pendingID: string, offset: number, limit: number) =>
+      invoke(RecordingService.PendingEvents, pendingID, offset, limit) as Promise<InputEventPage>,
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
   // Exposes authoring metadata and the nominal content BlobRef; runtime does not call this RPC.
   clips: {
     list: () => invoke(ClipService.List),
     get: (id: string) => invoke(ClipService.Get, id),
+    summary: (id: string) => invoke(ClipService.Summary, id) as Promise<InputClipSummary>,
+    events: (id: string, offset: number, limit: number) =>
+      invoke(ClipService.Events, id, offset, limit) as Promise<InputEventPage>,
     save: (clip: unknown) => invoke(ClipService.Save, clip as any),
     update: (id: string, label: string, description: string, category: string, tags: string[]) =>
       invoke(ClipService.Update, id, label, description, category, tags),
     delete_: (id: string) => invoke(ClipService.Delete, id),
+  },
+  macros: {
+    get: (id: string) => invoke(MacroService.Get, id) as Promise<MacroAsset | null>,
+    save: (value: MacroSaveInput) =>
+      invoke(
+        MacroService.Save,
+        value as unknown as Parameters<typeof MacroService.Save>[0],
+      ) as Promise<MacroAsset>,
+    analyze: (document: MacroDocument) =>
+      invoke(
+        MacroService.Analyze,
+        document as unknown as Parameters<typeof MacroService.Analyze>[0],
+      ),
+    delete_: (id: string) => invoke(MacroService.Delete, id),
   },
   tools: {
     mousePos: (targetSlot: string) => invoke(ToolsService.MousePos, targetSlot),

@@ -1,153 +1,96 @@
 package recording
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
-	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/nodecontract"
-	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 )
 
-func TestRecordingPreviewAndDraftExpandSimpleKeysAndClick(t *testing.T) {
-	result := &StopResult{
-		Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{1280, 720}},
-		Events: []inputclip.Event{
-			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: int32(VK_CONTROL)},
-			{TUs: 10_000, Type: inputclip.EventTypeKeyDown, A: 'C'},
-			{TUs: 40_000, Type: inputclip.EventTypeKeyUp, A: 'C'},
-			{TUs: 50_000, Type: inputclip.EventTypeKeyUp, A: int32(VK_CONTROL)},
-			{TUs: 200_000, Type: inputclip.EventTypeMouseBtnDown, A: int32(HookBtnLeft), B: 640, C: 360},
-			{TUs: 250_000, Type: inputclip.EventTypeMouseBtnUp, A: int32(HookBtnLeft), B: 640, C: 360},
+func TestRecordingStateCloneKeepsPreviewCollectionsAsArrays(t *testing.T) {
+	state := cloneRecordingState(RecordingState{Pending: &StopResultPayload{
+		PendingID: "pending-session",
+		Preview: RecordingPreview{
+			Steps:  []RecordingPreviewStep{},
+			Tracks: []RecordingTrack{},
 		},
-	}
-	preview := recordingPreview(result)
-	if preview.Mode != "simple" || preview.KeyActions != 1 || preview.ClickActions != 1 || len(preview.Steps) != 2 {
-		t.Fatalf("preview = %+v", preview)
-	}
-	draft := buildWorkflowDraft(result, "editor", blob.BlobRef{})
-	if draft.Mode != inputclip.RecordingModeSimple || len(draft.Nodes) != 3 {
-		t.Fatalf("draft = %+v", draft)
-	}
-	keys, ok := draft.Nodes[0].Values["keys"].([]string)
-	if !ok || len(keys) != 2 || keys[0] != "CTRL" || keys[1] != "C" {
-		t.Fatalf("keys = %#v", draft.Nodes[0].Values["keys"])
-	}
-	if draft.Nodes[1].NodeTypeID != delayNodeID || draft.Nodes[1].Values["duration-milliseconds"] != int64(150) {
-		t.Fatalf("delay = %+v", draft.Nodes[1])
-	}
-	point, ok := draft.Nodes[2].Values["point"].(Point)
-	if !ok || point.X != 0.5 || point.Y != 0.5 || point.Unit != "ratio" {
-		t.Fatalf("point = %#v", draft.Nodes[2].Values["point"])
-	}
-	assertDraftContracts(t, draft)
-}
-
-func TestRecordingDraftRetainsPreciseRecordingAsInputClip(t *testing.T) {
-	result := &StopResult{Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise}, Events: []inputclip.Event{
-		{TUs: 0, Type: inputclip.EventTypeRawDelta, B: 12, C: -4},
-		{TUs: 25_000, Type: inputclip.EventTypeRawDelta, B: 8, C: 2},
-	}}
-	preview := recordingPreview(result)
-	if preview.Mode != "precise" || preview.RawDeltas != 2 {
-		t.Fatalf("preview = %+v", preview)
-	}
-	ref := blob.BlobRef{MediaType: inputclip.MediaType, Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Size: 64}
-	draft := buildWorkflowDraft(result, "game", ref)
-	if draft.Mode != inputclip.RecordingModePrecise || len(draft.Nodes) != 1 || draft.Nodes[0].Blobs["clip"] != ref {
-		t.Fatalf("draft = %+v", draft)
-	}
-	assertDraftContracts(t, draft)
-}
-
-func TestEditedSimpleActionsRoundTripKeysClickAndScroll(t *testing.T) {
-	result := &StopResult{
-		Meta:   inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{1000, 500}},
-		TempID: "edited",
-	}
-	actions := []RecordingAction{
-		{Kind: "keys", DelayUs: 0, DurationUs: 20_000, Keys: []string{"Ctrl", "A"}},
-		{Kind: "click", DelayUs: 30_000, DurationUs: 40_000, Button: "right", Point: &Point{X: 0.25, Y: 0.75, Unit: "ratio"}},
-		{Kind: "scroll", DelayUs: 50_000, Notches: -3, Point: &Point{X: 0.5, Y: 0.5, Unit: "ratio"}},
-	}
-	if err := applyEditedActions(result, actions); err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Events) != 7 || result.Events[0].TUs != 0 || result.Events[6].Type != inputclip.EventTypeScroll {
-		t.Fatalf("events = %+v", result.Events)
-	}
-	projected := editableRecordingActions(result)
-	if len(projected) != 3 || projected[1].DelayUs != 30_000 || projected[2].Notches != -3 {
-		t.Fatalf("projected = %+v", projected)
-	}
-	draft := buildWorkflowDraft(result, "game", blob.BlobRef{})
-	if len(draft.Nodes) != 5 || draft.Nodes[4].NodeTypeID != scrollPointerNodeID {
-		t.Fatalf("draft = %+v", draft)
-	}
-	assertDraftContracts(t, draft)
-}
-
-func TestEditedSimpleActionsRejectInvalidPayload(t *testing.T) {
-	result := &StopResult{Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{100, 100}}}
-	for _, actions := range [][]RecordingAction{
-		{},
-		{{Kind: "keys", DelayUs: 1, Keys: []string{"A"}}},
-		{{Kind: "keys", Keys: []string{"unsupported"}}},
-		{{Kind: "scroll", Notches: 0, Point: &Point{X: 0.5, Y: 0.5, Unit: "ratio"}}},
-		{{Kind: "click", Button: "left", Point: &Point{X: 2, Y: 0.5, Unit: "ratio"}}},
-	} {
-		if err := applyEditedActions(result, actions); err == nil {
-			t.Fatalf("applyEditedActions(%+v) succeeded", actions)
-		}
-	}
-}
-
-func assertDraftContracts(t *testing.T, draft WorkflowDraft) {
-	t.Helper()
-	builtins, err := nodes.Build()
+	}})
+	raw, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, draftNode := range draft.Nodes {
-		entry, ok := builtins.Catalog.Lookup(draftNode.NodeTypeID)
-		if !ok {
-			t.Fatalf("draft node %q is not in the Catalog", draftNode.NodeTypeID)
-		}
-		machine := entry.Contract.Machine()
-		if !hasSignalInput(machine.Ports.ExecInputs, draftNode.ExecInput) || !hasSignalOutput(machine.Ports.ExecOutputs, draftNode.ExecOutput) {
-			t.Fatalf("draft signal ports do not match %q", draftNode.NodeTypeID)
-		}
-		for portID := range draftNode.Values {
-			if !hasDataInput(machine.Ports.DataInputs, portID) {
-				t.Fatalf("draft value port %q is not on %q", portID, draftNode.NodeTypeID)
-			}
-		}
-		for portID := range draftNode.Blobs {
-			if !hasDataInput(machine.Ports.DataInputs, portID) {
-				t.Fatalf("draft blob port %q is not on %q", portID, draftNode.NodeTypeID)
-			}
+	for _, nullable := range []string{`"steps":null`, `"tracks":null`} {
+		if strings.Contains(string(raw), nullable) {
+			t.Fatalf("recording state leaked nullable collection %s: %s", nullable, raw)
 		}
 	}
 }
 
-func hasSignalInput(ports []nodecontract.SignalPort, id string) bool {
-	for _, port := range ports {
-		if port.ID == id {
-			return true
+func TestSimpleRecordingBuildsAtomicOverlappingMacro(t *testing.T) {
+	result := &StopResult{
+		Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModeSimple, BaseResolution: [2]int{1280, 720}},
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: 'W'},
+			{TUs: 50_000, Type: inputclip.EventTypeKeyDown, A: 'D'},
+			{TUs: 150_000, Type: inputclip.EventTypeKeyUp, A: 'W'},
+			{TUs: 200_000, Type: inputclip.EventTypeKeyUp, A: 'D'},
+		},
+	}
+	document, err := buildMacroDocument(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []macro.ActionKind{
+		macro.ActionKeyDown, macro.ActionSleep, macro.ActionKeyDown,
+		macro.ActionSleep, macro.ActionKeyUp, macro.ActionSleep, macro.ActionKeyUp,
+	}
+	if len(document.Actions) != len(want) {
+		t.Fatalf("actions = %+v", document.Actions)
+	}
+	for index, kind := range want {
+		if document.Actions[index].Kind != kind {
+			t.Fatalf("action %d = %s, want %s", index, document.Actions[index].Kind, kind)
 		}
 	}
-	return false
-}
-
-func hasSignalOutput(ports []nodecontract.SignalPort, id string) bool {
-	return hasSignalInput(ports, id)
-}
-
-func hasDataInput(ports []nodecontract.DataInputPort, id string) bool {
-	for _, port := range ports {
-		if port.ID == id {
-			return true
-		}
+	if document.Actions[0].Key != "W" || document.Actions[2].Key != "D" || document.Actions[4].Key != "W" || document.Actions[6].Key != "D" {
+		t.Fatalf("overlapping key order = %+v", document.Actions)
 	}
-	return false
+	if document.Actions[1].DurationUs != 50_000 || document.Actions[3].DurationUs != 100_000 || document.Actions[5].DurationUs != 50_000 {
+		t.Fatalf("explicit sleeps = %+v", document.Actions)
+	}
+	if err := macro.Validate(document); err != nil {
+		t.Fatalf("macro validation = %v", err)
+	}
+
+	preview := recordingPreview(result)
+	if preview.Mode != "simple" || preview.KeyActions != 4 || len(preview.Steps) != len(want) {
+		t.Fatalf("preview = %+v", preview)
+	}
+}
+
+func TestPreciseRecordingPreviewRetainsMotionSummaryWithoutMacroProjection(t *testing.T) {
+	result := &StopResult{
+		Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, BaseResolution: [2]int{1280, 720}},
+		Events: []inputclip.Event{
+			{TUs: 0, Type: inputclip.EventTypeKeyDown, A: 'W'},
+			{TUs: 25_000, Type: inputclip.EventTypeRawDelta, B: 12, C: -4},
+			{TUs: 50_000, Type: inputclip.EventTypeMouseMove, B: 640, C: 360},
+			{TUs: 75_000, Type: inputclip.EventTypeKeyUp, A: 'W'},
+		},
+	}
+	preview := recordingPreview(result)
+	if preview.Mode != "precise" || preview.KeyActions != 2 || preview.RawDeltas != 1 || preview.PointerMoves != 1 {
+		t.Fatalf("preview = %+v", preview)
+	}
+	if len(preview.Steps) != 1 || preview.Steps[0].Kind != "move-path" || preview.Steps[0].Samples != 2 {
+		t.Fatalf("motion summary = %+v", preview.Steps)
+	}
+	if len(preview.Tracks) != 3 || preview.Tracks[0].Kind != "keyboard" || preview.Tracks[1].Kind != "absolute-motion" || preview.Tracks[2].Kind != "relative-motion" {
+		t.Fatalf("tracks = %+v", preview.Tracks)
+	}
+	if _, err := buildMacroDocument(result); err == nil {
+		t.Fatal("precise recording unexpectedly projected into a macro")
+	}
 }
