@@ -147,6 +147,21 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		withState(connected, func(state *pageState) { state.GraphCalls, state.Annotations, state.SaveInlineFeedback = 1, 1, true }),
 		withState(connected, func(state *pageState) { state.AIReview = true }),
 		withState(connected, func(state *pageState) { state.AIReview = true }),
+		withState(connected, func(state *pageState) { state.AIReview = true }),
+		withState(connected, func(state *pageState) { state.SnippetModal = true }),
+		withState(connected, func(state *pageState) { state.SnippetDock, state.SnippetItems = true, 1 }),
+		withState(connected, func(state *pageState) { state.SnippetDock, state.SnippetItems = true, 1 }),
+		withState(connected, func(state *pageState) {
+			state.SnippetDock, state.SnippetItems, state.CanvasNodes, state.SelectedNodes = true, 1, connected.CanvasNodes+1, 1
+		}),
+		withState(connected, func(state *pageState) { state.SnippetDock, state.SnippetItems = true, 1 }),
+		withState(connected, func(state *pageState) {
+			state.SnippetDock, state.SnippetItems, state.SaveInlineFeedback = true, 1, true
+		}),
+		withState(connected, func(state *pageState) {
+			state.SnippetDock, state.SnippetItems, state.ConfirmDialog = true, 1, true
+		}),
+		withState(connected, func(state *pageState) { state.SnippetDock = true }),
 		withState(connected, func(state *pageState) {
 			state.AIReview, state.ResourceDock, state.ResourceCreate, state.ResourceTabs = true, true, true, 3
 		}),
@@ -199,10 +214,12 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "Analyze Color node ergonomics probe") {
 				probeReads++
 				zoom := 2.0
-				if probeReads > 1 {
+				if probeReads == 3 {
 					zoom = 1.5
+				} else if probeReads > 3 {
+					zoom = 1
 				}
-				value := fmt.Sprintf(`{"centerX":100,"centerY":100,"width":320,"height":240,"zoom":%v}`, zoom)
+				value := fmt.Sprintf(`{"centerX":100,"centerY":100,"blankX":300,"blankY":300,"width":320,"height":240,"zoom":%v}`, zoom)
 				result = map[string]any{"result": map[string]any{"value": value}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`

@@ -31,7 +31,7 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
         @click="onCancel"
         >{{ cancelTextResolved }}</UButton
       >
-      <UButton size="sm" :color="colorResolved" @click="onConfirm">{{
+      <UButton data-testid="confirm-accept" size="sm" :color="colorResolved" @click="onConfirm">{{
         confirmTextResolved
       }}</UButton>
     </template>

@@ -12,6 +12,7 @@ import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/se
 import * as RecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/recording/service.js'
 import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/services/inputclip/service.js'
 import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
+import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
 import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as NetworkService from '@bindings/github.com/yottaapp/yotta/internal/services/networkservice.js'
 import * as ApplicationService from '@bindings/github.com/yottaapp/yotta/internal/services/applicationservice.js'
@@ -232,6 +233,50 @@ export type MacroSaveInput = Omit<MacroAsset, 'id' | 'createdAt' | 'blob'> & {
   id?: string
   createdAt?: string
   blob?: BlobRef
+}
+
+export interface SnippetNodeTemplate {
+  nodeRef: {
+    nodeTypeId: string
+    version: string
+    semanticDigest: string
+  }
+  label?: string
+  config: Record<string, unknown>
+  bindings: Record<string, unknown>
+  disabled?: boolean
+}
+
+export interface WorkflowSnippet {
+  schemaVersion: string
+  id: string
+  name: string
+  description?: string
+  category?: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+  usageCount: number
+  lastUsedAt?: string
+  payload: SnippetNodeTemplate
+}
+
+export interface WorkflowSnippetSummary {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+  usageCount: number
+  lastUsedAt?: string
+  nodeTypeId: string
+}
+
+export interface WorkflowSnippetListResult {
+  items: WorkflowSnippetSummary[]
+  warnings: Array<{ file: string; error: string }>
 }
 
 export interface BlobPreview {
@@ -728,6 +773,17 @@ export const backend = {
         document as unknown as Parameters<typeof MacroService.Analyze>[0],
       ),
     delete_: (id: string) => invoke(MacroService.Delete, id),
+  },
+  snippets: {
+    list: () => invoke(SnippetService.List) as Promise<WorkflowSnippetListResult>,
+    get: (id: string) => invoke(SnippetService.Get, id) as Promise<WorkflowSnippet>,
+    save: (value: WorkflowSnippet) =>
+      invoke(
+        SnippetService.Save,
+        value as unknown as Parameters<typeof SnippetService.Save>[0],
+      ) as Promise<WorkflowSnippet>,
+    delete_: (id: string) => invoke(SnippetService.Delete, id),
+    markUsed: (id: string) => invoke(SnippetService.MarkUsed, id) as Promise<WorkflowSnippet>,
   },
   tools: {
     mousePos: (targetSlot: string) => invoke(ToolsService.MousePos, targetSlot),

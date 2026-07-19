@@ -52,3 +52,15 @@ status: completed
 - `task webview:smoke`：通过，146 个目录节点、4 个画布节点；结果目录 `.task/workflow-editor-smoke/20260719-223048`，`analyze-color.png` 已人工检查为紧凑节点。
 - `task build`：通过，正式 `bin/Yotta.exe` 已生成。
 - `task webview:smoke:full`：Analyze Color 与编辑器旅程已通过，最后在既有悬浮启动器等待 workflow success 时超时；该 launcher 故障与本 Slice 代码路径独立，未伪报为本 Slice 通过。
+
+## Recovery
+
+用户真机确认：鼠标位于空白画布时滚轮不缩放，必须先选择节点后才表现为可用。上一次 WebView smoke 在插入 Analyze Color 后直接对新节点发送 wheel，而新节点自动处于选中态，因此只覆盖了最有利路径，不能证明全画布交互。
+
+恢复后的红灯必须先清空全部选择，再分别向空白画布和未选中节点发送 CDP trusted mouseWheel，并逐段断言 viewport zoom 改变；任何一段依赖先选中节点都判失败。
+
+恢复验收结果：
+
+- 旧实现的 outer capture handler 对非 `.vue-flow__node` 直接 return，空白画布被交给 WebView 中未生效的 Vue Flow 默认链路；节点与空白形成两套 wheel ownership。
+- 新 smoke 先用 trusted click 清空选择，再分别在空白画布与未选中 Analyze Color 节点发送 CDP mouseWheel；修复前稳定复现 `blank-canvas wheel did not zoom: 2.000 -> 2.000`。
+- handler 现对整个 `workflow-canvas` 使用同一光标锚定 viewport 算法。原样 WebView 旅程通过，结果目录 `.task/workflow-editor-smoke/20260719-225739`。

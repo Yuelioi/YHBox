@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 15,
-    "methods": 136,
-    "models": 195
+    "services": 16,
+    "methods": 141,
+    "models": 200
   },
   "services": [
     {
@@ -1127,6 +1127,65 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/snippet/service",
+      "methods": [
+        {
+          "name": "Delete",
+          "bindingId": "1464417203",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Get",
+          "bindingId": "2927570964",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Snippet | null>"
+        },
+        {
+          "name": "List",
+          "bindingId": "3322397040",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.ListResult>"
+        },
+        {
+          "name": "MarkUsed",
+          "bindingId": "361998028",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Snippet | null>"
+        },
+        {
+          "name": "Save",
+          "bindingId": "1982335877",
+          "parameters": [
+            {
+              "name": "value",
+              "optional": false,
+              "type": "$models.Snippet | null"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Snippet | null>"
         }
       ]
     },
@@ -5308,6 +5367,191 @@
             {
               "name": "TriggerManual",
               "value": "\"manual\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/snippet/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "ListResult",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "Summary[]"
+            },
+            {
+              "name": "\"warnings\"",
+              "optional": false,
+              "type": "LoadWarning[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "LoadWarning",
+          "fields": [
+            {
+              "name": "\"file\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"error\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "NodeTemplate",
+          "fields": [
+            {
+              "name": "\"nodeRef\"",
+              "optional": false,
+              "type": "nodecontract$0.NodeRef"
+            },
+            {
+              "name": "\"label\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"config\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"bindings\"",
+              "optional": false,
+              "type": "{ [_ in string]?: schema$0.InputBinding }"
+            },
+            {
+              "name": "\"disabled\"",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Snippet",
+          "fields": [
+            {
+              "name": "\"schemaVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"usageCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"lastUsedAt\"",
+              "optional": true,
+              "type": "string | null"
+            },
+            {
+              "name": "\"payload\"",
+              "optional": false,
+              "type": "NodeTemplate"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Summary",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"usageCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"lastUsedAt\"",
+              "optional": true,
+              "type": "string | null"
+            },
+            {
+              "name": "\"nodeTypeId\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         }

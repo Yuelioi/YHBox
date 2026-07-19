@@ -17,7 +17,7 @@ recheck_when: "Authoring Surface 内联契约、Vue Flow 版本或 WebView 输�
 - 测节点布局尺寸时使用 `offsetWidth` / `offsetHeight` 或按 Vue Flow viewport zoom 归一后的尺寸；直接用 `getBoundingClientRect()` 会把相机缩放误判成节点变大。
 - 浏览器脚本构造的 `WheelEvent` 不是 d3/Vue Flow 在 WebView 中的可信输入证据。使用 CDP `Input.dispatchMouseEvent` 的 `mouseWheel`，并断言 viewport zoom 实际改变。
 - wheel 缩放要保持光标下的图坐标不漂移，并对最小/最大 zoom 做单元测试。
-- 真机 fixture 应使用最高复杂度节点（当前为 Analyze Color），同时断言节点尺寸、复合 inline adapter 数量、滚轮缩放和后续选择/连接/保存旅程。
+- 真机 fixture 应使用最高复杂度节点（当前为 Analyze Color），同时断言节点尺寸、复合 inline adapter 数量和后续选择/连接/保存旅程。wheel 必须在清空全部选择后分别覆盖空白画布、未选中节点和已选中节点，不能让“新插入节点自动选中”制造假绿。
 
 ## 当前契约
 

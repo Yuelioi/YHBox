@@ -37,6 +37,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/schedule"
+	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
@@ -77,7 +78,7 @@ func Run(config Config) error {
 	}
 	_ = loc // locale 保留给后续 Locale 设置项使用
 
-	wailsServices := make([]application.Service, 0, 14)
+	wailsServices := make([]application.Service, 0, 16)
 
 	// 共享 HotkeyManager。Win32 RegisterHotKey 是 process-wide unique（hWnd=NULL 时
 	// 跟线程绑定），全 app 必须共享同一个实例 —— action / recorder 都注册到这里。
@@ -103,6 +104,10 @@ func Run(config Config) error {
 	assetStore, err := asset.NewStore(dataDir, sharedBlobStore)
 	if err != nil {
 		return fmt.Errorf("initialize asset store: %w", err)
+	}
+	snippetStore, err := snippet.NewStore(filepath.Join(dataDir, "snippets"))
+	if err != nil {
+		return fmt.Errorf("initialize snippet store: %w", err)
 	}
 	const runGrantTTL = 5 * time.Minute
 	aiInstallations, err := ai.Install(app.Settings().AI.InstallationDrafts(), aiSecrets)
@@ -291,6 +296,7 @@ func Run(config Config) error {
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
 	macroSvc := newMacroService(assetStore, app.Emit)
+	snippetSvc := snippet.NewService(snippetStore, app.Emit)
 
 	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
 	// 设置面板里 UI.ActionStopHotkey 改这一条；空 → 默认 Ctrl+Shift+F9。
@@ -422,6 +428,7 @@ func Run(config Config) error {
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
 		application.NewService(macroSvc),
+		application.NewService(snippetSvc),
 		application.NewService(services.NewAIService(app, aiSecrets, aiAuthoring)),
 		application.NewService(services.NewNetworkService(app)),
 		application.NewService(services.NewApplicationService(app)),

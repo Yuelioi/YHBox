@@ -235,11 +235,21 @@
             :aria-pressed="workspacePanel === 'resources'"
             @click="workspacePanel = 'resources'"
           />
+          <UButton
+            data-testid="workflow-workspace-snippets"
+            icon="i-tabler-bookmarks"
+            color="neutral"
+            :variant="workspacePanel === 'snippets' ? 'soft' : 'ghost'"
+            size="sm"
+            :aria-label="t('workflow.snippets.title')"
+            :aria-pressed="workspacePanel === 'snippets'"
+            @click="workspacePanel = 'snippets'"
+          />
         </nav>
 
         <aside
           class="flex shrink-0 flex-col border-r border-default bg-default"
-          :class="workspacePanel === 'resources' ? 'w-80' : 'w-56'"
+          :class="workspacePanel === 'nodes' ? 'w-56' : 'w-80'"
         >
           <template v-if="workspacePanel === 'nodes'">
             <div class="border-b border-default px-4 py-3">
@@ -260,38 +270,6 @@
               />
             </div>
             <div class="flex-1 overflow-y-auto p-2">
-              <section
-                v-if="workflowRecipeResults.length"
-                class="mb-3 rounded-lg border border-primary/20 bg-primary/5 p-2"
-              >
-                <div class="flex items-center justify-between px-1 pb-1.5">
-                  <h3 class="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                    {{ t('workflow.recipes.title') }}
-                  </h3>
-                  <span class="font-mono text-[9px] text-dimmed">
-                    {{ workflowRecipeResults.length }}
-                  </span>
-                </div>
-                <button
-                  v-for="recipe in workflowRecipeResults"
-                  :key="recipe.id"
-                  type="button"
-                  data-testid="workflow-recipe-item"
-                  class="group flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  @click="addRecipe(recipe.id)"
-                >
-                  <UIcon :name="`i-tabler-${recipe.icon}`" class="mt-0.5 size-4 text-primary" />
-                  <span class="min-w-0 flex-1">
-                    <span class="block text-xs font-medium text-toned">{{
-                      t(recipe.titleKey)
-                    }}</span>
-                    <span class="mt-0.5 block text-[10px] leading-4 text-muted">{{
-                      t(recipe.descriptionKey)
-                    }}</span>
-                  </span>
-                  <UIcon name="i-tabler-wand" class="mt-0.5 size-3.5 text-dimmed" />
-                </button>
-              </section>
               <div v-if="catalogGroups.length" class="space-y-3">
                 <section v-for="group in catalogGroups" :key="group.key">
                   <div class="flex items-center justify-between px-2 pb-1">
@@ -333,10 +311,7 @@
                   </div>
                 </section>
               </div>
-              <div
-                v-if="!catalogGroups.length && !workflowRecipeResults.length"
-                class="px-3 py-10 text-center"
-              >
+              <div v-if="!catalogGroups.length" class="px-3 py-10 text-center">
                 <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
                 <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
               </div>
@@ -346,12 +321,19 @@
             </div>
           </template>
           <WorkflowResourceDock
-            v-else
+            v-else-if="workspacePanel === 'resources'"
             :recording-phase="recording.state.phase"
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
             @open-library="router.push('/assets')"
             @use="useWorkspaceResource"
+          />
+          <WorkflowSnippetDock
+            v-else
+            :drag-format="SNIPPET_DRAG_FORMAT"
+            @use="useSnippet"
+            @edit="editSnippet"
+            @delete="deleteSnippet"
           />
         </aside>
 
@@ -411,6 +393,7 @@
                 @toggle-breakpoint="
                   toggleBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
+                @save-snippet="openSnippetForNode(slotProps.data.node)"
               />
             </template>
             <template #node-graph-call="slotProps">
@@ -1106,6 +1089,15 @@
         </UButton>
       </template>
     </BaseModal>
+    <WorkflowSnippetModal
+      :open="snippetModalOpen"
+      :snippet-id="snippetDraft?.id ?? ''"
+      :node-type-id="snippetDraft?.payload.nodeRef.nodeTypeId ?? ''"
+      :initial="snippetModalInitial"
+      :busy="snippetSaveBusy"
+      @update:open="snippetModalOpen = $event"
+      @save="saveSnippet"
+    />
   </div>
 </template>
 
@@ -1163,16 +1155,13 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useRecordingStart } from '@/composables/useRecordingStart'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
-import {
-  insertWorkflowRecipe,
-  workflowRecipes,
-  type WorkflowRecipeID,
-} from '@/app/editor/workflowRecipes'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
 import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
+import WorkflowSnippetDock from '@/app/editor/WorkflowSnippetDock.vue'
+import WorkflowSnippetModal from '@/app/editor/WorkflowSnippetModal.vue'
 import WorkflowRuntimeWorkbench from '@/app/editor/WorkflowRuntimeWorkbench.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
@@ -1194,7 +1183,8 @@ import {
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
-import { backend } from '@/lib/backend'
+import { backend, type WorkflowSnippet } from '@/lib/backend'
+import { useSnippetsStore } from '@/stores/snippets'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
@@ -1250,6 +1240,7 @@ const recording = useRecordingStore()
 const { start: beginRecording } = useRecordingStart()
 const settings = useSettingsStore()
 const assets = useAssetsStore()
+const snippets = useSnippetsStore()
 const selectedNodeId = ref('')
 const selectedNodeIds = ref(new Set<string>())
 const selectedEdgeId = ref('')
@@ -1257,7 +1248,7 @@ const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
-const workspacePanel = ref<'nodes' | 'resources'>('nodes')
+const workspacePanel = ref<'nodes' | 'resources' | 'snippets'>('nodes')
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
 const graphName = ref('')
@@ -1320,6 +1311,19 @@ const recordingDraft = reactive({ name: '', description: '', category: '', tags:
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
+const snippetModalOpen = ref(false)
+const snippetSaveBusy = ref(false)
+const snippetDraft = ref<WorkflowSnippet | null>(null)
+const snippetModalInitial = computed(() =>
+  snippetDraft.value
+    ? {
+        name: snippetDraft.value.name,
+        description: snippetDraft.value.description,
+        category: snippetDraft.value.category,
+        tags: snippetDraft.value.tags,
+      }
+    : undefined,
+)
 const {
   addSelectedNodes,
   findNode,
@@ -1347,6 +1351,7 @@ let marqueeSelectionBase = new Set<string>()
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 const STATE_REFERENCE_DRAG_FORMAT = 'application/x-yotta-state-reference'
+const SNIPPET_DRAG_FORMAT = 'application/x-yotta-snippet'
 const RUN_STARTED_NODE_ID = 'https://schemas.yotta.dev/nodes/event/run-started'
 
 interface ConnectionAnchor {
@@ -1440,16 +1445,6 @@ const catalogGroups = computed(() => {
       ),
     }))
 })
-const workflowRecipeResults = computed(() => {
-  const query = catalogQuery.value.trim().toLocaleLowerCase()
-  return workflowRecipes.filter((recipe) => {
-    const search = [t(recipe.titleKey), t(recipe.descriptionKey), recipe.search]
-      .join(' ')
-      .toLocaleLowerCase()
-    return !query || search.includes(query)
-  })
-})
-
 const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
   const query = nodeSearchQuery.value.trim().toLocaleLowerCase()
   if (!query) return []
@@ -2047,6 +2042,120 @@ function useWorkspaceResource(selection: AssetPickerSelection): void {
   }
 }
 
+function openSnippetForNode(node: Node): void {
+  const projection = session.nodeProjection(node.nodeRef.nodeTypeId)
+  snippetDraft.value = {
+    schemaVersion: '1',
+    id: '',
+    name: node.label || (projection ? projectionTitle(projection) : node.nodeRef.nodeTypeId),
+    description: '',
+    category: projection?.category ?? '',
+    tags: [],
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+    usageCount: 0,
+    payload: {
+      nodeRef: plainCopy(node.nodeRef),
+      label: node.label,
+      config: plainCopy(node.config),
+      bindings: plainCopy(node.bindings),
+      disabled: node.disabled,
+    },
+  }
+  snippetModalOpen.value = true
+}
+
+async function editSnippet(id: string): Promise<void> {
+  try {
+    snippetDraft.value = await snippets.get(id)
+    snippetModalOpen.value = true
+  } catch (error) {
+    showError(t('workflow.snippets.load_failed'), error)
+  }
+}
+
+async function saveSnippet(metadata: {
+  name: string
+  description: string
+  category: string
+  tags: string[]
+}): Promise<void> {
+  if (!snippetDraft.value || snippetSaveBusy.value) return
+  snippetSaveBusy.value = true
+  try {
+    await snippets.save({ ...plainCopy(snippetDraft.value), ...metadata })
+    snippetModalOpen.value = false
+    workspacePanel.value = 'snippets'
+  } catch (error) {
+    showError(t('workflow.snippets.save_failed'), error)
+  } finally {
+    snippetSaveBusy.value = false
+  }
+}
+
+async function deleteSnippet(id: string): Promise<void> {
+  const item = snippets.items.find((candidate) => candidate.id === id)
+  const accepted = await confirm({
+    title: t('workflow.snippets.delete_title'),
+    description: t('workflow.snippets.delete_hint', { name: item?.name ?? id }),
+    confirmText: t('workflow.snippets.delete'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (!accepted) return
+  try {
+    await snippets.remove(id)
+  } catch (error) {
+    showError(t('workflow.snippets.delete_failed'), error)
+  }
+}
+
+async function useSnippet(id: string, position?: { x: number; y: number }): Promise<void> {
+  try {
+    const snippet = await snippets.get(id)
+    const current = session.nodeProjection(snippet.payload.nodeRef.nodeTypeId)
+    if (!current) throw new Error(t('workflow.snippets.node_unavailable'))
+    if (
+      current.nodeRef.semanticDigest !== snippet.payload.nodeRef.semanticDigest ||
+      current.nodeRef.version !== snippet.payload.nodeRef.version
+    ) {
+      throw new Error(t('workflow.snippets.contract_changed'))
+    }
+    const rect = canvasElement.value?.getBoundingClientRect()
+    const origin =
+      position ??
+      (rect
+        ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+        : { x: 160, y: 160 })
+    const [nodeID] = session.insertNodeSelection(
+      {
+        nodes: [
+          {
+            id: 'snippet-template',
+            nodeRef: plainCopy(snippet.payload.nodeRef),
+            label: snippet.payload.label,
+            position: { x: 0, y: 0 },
+            config: plainCopy(snippet.payload.config),
+            bindings: plainCopy(snippet.payload.bindings) as Node['bindings'],
+            disabled: snippet.payload.disabled,
+          },
+        ],
+        edges: [],
+      },
+      origin,
+    )
+    if (!nodeID) return
+    await selectInsertedNodes([nodeID])
+    try {
+      await snippets.markUsed(id)
+    } catch (error) {
+      showError(t('workflow.snippets.usage_failed'), error)
+    }
+  } catch (error) {
+    showError(t('workflow.snippets.insert_failed'), error)
+  }
+}
+
 async function discardPendingRecording(): Promise<void> {
   const pending = pendingRecording.value
   if (!pending) return
@@ -2120,21 +2229,6 @@ function addNode(nodeTypeId: string, position?: { x: number; y: number }): void 
     nodeTypeId,
     position: position ?? { x: 100 + offset, y: 100 + offset },
   })
-}
-
-function addRecipe(recipeID: WorkflowRecipeID): void {
-  const rect = canvasElement.value?.getBoundingClientRect()
-  const position = rect
-    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2 - 300, y: rect.top + rect.height / 2 })
-    : { x: 120, y: 160 }
-  try {
-    const ids = insertWorkflowRecipe(session, recipeID, position)
-    selectedNodeIds.value = new Set(ids)
-    selectedNodeId.value = ids.at(-1) ?? ''
-    void nextTick(() => fitView({ padding: 0.18, duration: 180 }))
-  } catch (error) {
-    showError(t('workflow.toast.edit_rejected'), error)
-  }
 }
 
 function inferGraphInterface(): void {
@@ -2361,7 +2455,8 @@ function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
 function continueNodeDrag(event: DragEvent): void {
   if (
     !event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT) &&
-    !event.dataTransfer?.types.includes(STATE_REFERENCE_DRAG_FORMAT)
+    !event.dataTransfer?.types.includes(STATE_REFERENCE_DRAG_FORMAT) &&
+    !event.dataTransfer?.types.includes(SNIPPET_DRAG_FORMAT)
   )
     return
   event.preventDefault()
@@ -2376,11 +2471,16 @@ function finishNodeDrag(): void {
 function dropNode(event: DragEvent): void {
   const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
   const stateReference = event.dataTransfer?.getData(STATE_REFERENCE_DRAG_FORMAT)
-  if (nodeTypeId || stateReference) event.preventDefault()
+  const snippetID = event.dataTransfer?.getData(SNIPPET_DRAG_FORMAT)
+  if (nodeTypeId || stateReference || snippetID) event.preventDefault()
   finishNodeDrag()
   const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
   if (nodeTypeId) {
     addNode(nodeTypeId, position)
+    return
+  }
+  if (snippetID) {
+    void useSnippet(snippetID, position)
     return
   }
   if (!stateReference) return
@@ -2675,9 +2775,8 @@ function captureMarqueeSelection(event: PointerEvent): void {
 }
 
 function handleCanvasWheel(event: WheelEvent): void {
-  const target = event.target
   const canvas = canvasElement.value
-  if (!(target instanceof Element) || !target.closest('.vue-flow__node') || !canvas) return
+  if (!canvas) return
   const rect = canvas.getBoundingClientRect()
   const next = zoomViewportAtPoint(
     getViewport(),
@@ -3308,6 +3407,10 @@ function showError(title: string, error: unknown): void {
     description: errorMessage(error),
     color: 'error',
   })
+}
+
+function plainCopy<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function setCompileSucceeded(value: boolean): void {

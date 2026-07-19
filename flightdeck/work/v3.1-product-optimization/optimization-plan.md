@@ -1,6 +1,6 @@
 # 3.1 产品优化总方案
 
-状态：已完成。阶段 A–F 均已交付；阶段 F 修正复杂节点卡片尺寸与画布滚轮缩放，并补上真实 WebView 回归契约。
+状态：Stage G 已完成。Stage F 的节点密度修复保留；Stage G 已修正完整 wheel ownership，并删除硬编码配方、恢复 durable Snippets。
 
 ## 1. 为什么单独开 Topic
 
@@ -281,3 +281,13 @@ Slice 08：视觉分析与配方闭环
 - 以“分析颜色”作为高复杂度回归 fixture，锁定合理节点尺寸、命中测试、连接与缩放行为。
 - 定向前端测试与真实 WebView 视觉检查通过后，在阶段末统一执行聚合门禁并提交。
 - 结果：画布仅内联轻量 editor adapter，复合 typed editor 留在 Inspector；节点上的滚轮按光标锚点缩放画布。Analyze Color 真机截图、受信任滚轮输入、`task check`、编辑器 smoke 和 production build 已通过。
+
+### 阶段 G：完整画布缩放与 Snippets 恢复
+
+包含 Slice 11（恢复）和 Slice 12。
+
+- Slice 11：在无预选节点的前提下，空白画布、未选中节点和已选中节点上的滚轮均由同一画布相机契约处理；下拉、弹层和明确独立滚动区除外。
+- Slice 12：删除硬编码“常用配方”入口与实现；按 3.0 的用户自定义 Snippets 心智模型，在 3.1 Source/Node Contract 上恢复带配置节点模板、元数据、搜索、管理和插入画布闭环。
+- 3.0 的 localStorage、Container runtime 和旧 kind 分发只作为行为取证，不直接复制；3.1 使用 durable application service 和精确 NodeRef。
+- 阶段完成后统一运行聚合测试、`task check`、真实 WebView smoke 与 production build。
+- 结果：空白画布、未选中节点和已选中节点上的滚轮缩放使用同一相机契约；硬编码 recipes 已移除，Snippets 以 application service、精确节点快照、元数据管理、点击/拖放插入和真实 WebView 用户旅程完成闭环。

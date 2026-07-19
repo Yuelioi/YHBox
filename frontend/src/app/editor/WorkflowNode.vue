@@ -3,6 +3,7 @@
     class="workflow-node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="visualState.surfaceClasses"
     :data-node-type-id="projection.nodeRef.nodeTypeId"
+    @contextmenu.prevent.stop="emit('save-snippet')"
   >
     <span
       v-if="visualState.executionTone"
@@ -182,6 +183,7 @@ interface PinView {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'toggle-breakpoint': []
+  'save-snippet': []
   command: [command: EditorCommand]
 }>()
 const { t, te } = useI18n()

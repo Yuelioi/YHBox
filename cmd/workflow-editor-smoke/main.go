@@ -25,6 +25,10 @@ type pageState struct {
 	ResourceDock         bool           `json:"resourceDock"`
 	ResourceTabs         int            `json:"resourceTabs"`
 	ResourceCreate       bool           `json:"resourceCreate"`
+	RecipeItems          int            `json:"recipeItems"`
+	SnippetDock          bool           `json:"snippetDock"`
+	SnippetItems         int            `json:"snippetItems"`
+	SnippetModal         bool           `json:"snippetModal"`
 	RunStarted           bool           `json:"runStarted"`
 	AssetsView           bool           `json:"assetsView"`
 	AssetsRecording      bool           `json:"assetsRecording"`
@@ -76,9 +80,12 @@ type pageState struct {
 type canvasNodeErgonomics struct {
 	CenterX                float64 `json:"centerX"`
 	CenterY                float64 `json:"centerY"`
+	BlankX                 float64 `json:"blankX"`
+	BlankY                 float64 `json:"blankY"`
 	Width                  float64 `json:"width"`
 	Height                 float64 `json:"height"`
 	Zoom                   float64 `json:"zoom"`
+	Selected               bool    `json:"selected"`
 	CompositeInlineEditors int     `json:"compositeInlineEditors"`
 }
 
@@ -532,6 +539,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 500))))`); err != nil {
 		return err
 	}
+	if err := exerciseSnippets(ctx, client); err != nil {
+		return err
+	}
 	if err := clickRequired(ctx, client, "workflow-workspace-resources"); err != nil {
 		return err
 	}
@@ -846,14 +856,11 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 			return fmt.Errorf("capture Analyze Color node: %w", err)
 		}
 	}
-	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
-		"type": "mouseWheel", "x": probe.CenterX, "y": probe.CenterY,
-		"deltaX": 0, "deltaY": 320,
-	}); err != nil {
+	if err := dispatchMouseClick(ctx, client, probe.BlankX, probe.BlankY); err != nil {
 		return err
 	}
-	time.Sleep(300 * time.Millisecond)
-	afterWheel, err := readCanvasNodeErgonomics(ctx, client)
+	time.Sleep(200 * time.Millisecond)
+	unselected, err := readCanvasNodeErgonomics(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -864,8 +871,30 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	if probe.CompositeInlineEditors != 0 {
 		failures = append(failures, fmt.Sprintf("contains %d composite inline editors", probe.CompositeInlineEditors))
 	}
-	if afterWheel.Zoom >= probe.Zoom-0.001 {
-		failures = append(failures, fmt.Sprintf("wheel did not zoom canvas: %.3f -> %.3f", probe.Zoom, afterWheel.Zoom))
+	if unselected.Selected {
+		failures = append(failures, "blank-canvas click did not clear node selection")
+	}
+	if err := dispatchMouseWheel(ctx, client, unselected.BlankX, unselected.BlankY, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	afterBlankWheel, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if afterBlankWheel.Zoom >= unselected.Zoom-0.001 {
+		failures = append(failures, fmt.Sprintf("blank-canvas wheel did not zoom: %.3f -> %.3f", unselected.Zoom, afterBlankWheel.Zoom))
+	}
+	if err := dispatchMouseWheel(ctx, client, afterBlankWheel.CenterX, afterBlankWheel.CenterY, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	afterNodeWheel, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if afterNodeWheel.Zoom >= afterBlankWheel.Zoom-0.001 {
+		failures = append(failures, fmt.Sprintf("unselected-node wheel did not zoom: %.3f -> %.3f", afterBlankWheel.Zoom, afterNodeWheel.Zoom))
 	}
 	if len(failures) > 0 {
 		return fmt.Errorf("analyze color canvas node %s", strings.Join(failures, "; "))
@@ -884,11 +913,121 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	return nil
 }
 
+func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if before.RecipeItems != 0 {
+		return fmt.Errorf("node catalog still exposes %d hardcoded recipes", before.RecipeItems)
+	}
+	if err := eval(ctx, client, `(() => {
+		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
+		if (!node) throw new Error('configured Delay node not found for snippet save');
+		node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.SnippetModal }); err != nil {
+		return fmt.Errorf("open save-as-snippet dialog: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-snippet-name"] input, input[data-testid="workflow-snippet-name"]');
+		if (!input) throw new Error('snippet name input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'Smoke configured delay');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		const save = document.querySelector('[data-testid="workflow-snippet-save"]');
+		if (!save || save.disabled) throw new Error('snippet save button unavailable');
+		save.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.SnippetModal && current.SnippetDock && current.SnippetItems > 0
+	}); err != nil {
+		return fmt.Errorf("persist snippet and open snippet dock: %w", err)
+	}
+	saved, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const item = [...document.querySelectorAll('[data-testid="workflow-snippet-item"]')]
+			.find(candidate => candidate.textContent.includes('Smoke configured delay'));
+		if (!item) throw new Error('saved snippet not found');
+		item.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == saved.CanvasNodes+1 && current.SelectedNodes == 1
+	}); err != nil {
+		return fmt.Errorf("insert snippet at viewport center: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == saved.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove inserted snippet node: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-save"); err != nil {
+		return err
+	}
+	if err := waitForSave(ctx, client); err != nil {
+		return fmt.Errorf("save workflow after snippet journey: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const item = [...document.querySelectorAll('[data-testid="workflow-snippet-item"]')]
+			.find(candidate => candidate.textContent.includes('Smoke configured delay'));
+		const remove = item?.querySelector('[data-testid="workflow-snippet-delete"]');
+		if (!remove) throw new Error('saved snippet delete action not found');
+		remove.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.ConfirmDialog }); err != nil {
+		return fmt.Errorf("confirm snippet deletion: %w", err)
+	}
+	if err := clickRequired(ctx, client, "confirm-accept"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SnippetItems == saved.SnippetItems-1 && !current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("delete snippet: %w", err)
+	}
+	return nil
+}
+
 func siblingScreenshot(path, name string) string {
 	if path == "" {
 		return ""
 	}
 	return filepath.Join(filepath.Dir(path), name)
+}
+
+func dispatchMouseWheel(ctx context.Context, client *browsercdp.WebSocketClient, x, y, deltaY float64) error {
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseWheel", "x": x, "y": y, "deltaX": 0, "deltaY": deltaY,
+	})
+	return err
+}
+
+func dispatchMouseClick(ctx context.Context, client *browsercdp.WebSocketClient, x, y float64) error {
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mousePressed", "x": x, "y": y,
+		"button": "left", "buttons": 1, "clickCount": 1,
+	}); err != nil {
+		return err
+	}
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseReleased", "x": x, "y": y,
+		"button": "left", "buttons": 0, "clickCount": 1,
+	})
+	return err
 }
 
 func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient) (canvasNodeErgonomics, error) {
@@ -897,12 +1036,27 @@ func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketC
 		const marker = 'Analyze Color node ergonomics probe';
 		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]');
 		const viewport = document.querySelector('.vue-flow__transformationpane');
-		if (!node || !viewport) throw new Error(marker + ' unavailable');
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!node || !viewport || !canvas) throw new Error(marker + ' unavailable');
 		const rect = node.getBoundingClientRect();
+		const canvasRect = canvas.getBoundingClientRect();
+		let blank = null;
+		for (let row = 1; row < 9 && !blank; row++) {
+			for (let column = 1; column < 9; column++) {
+				const x = canvasRect.left + canvasRect.width * column / 9;
+				const y = canvasRect.top + canvasRect.height * row / 9;
+				const hit = document.elementFromPoint(x, y);
+				if (hit && canvas.contains(hit) && !hit.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap')) {
+					blank = { x, y };
+					break;
+				}
+			}
+		}
+		if (!blank) throw new Error(marker + ' blank point unavailable');
 		const transform = getComputedStyle(viewport).transform;
 		const zoom = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1;
 		const compositeInlineEditors = node.querySelectorAll('[data-inline-adapter="color-range"], [data-inline-adapter="point"], [data-inline-adapter="region"], [data-inline-adapter="json"]').length;
-		return { centerX: rect.left + rect.width / 2, centerY: rect.top + rect.height / 2, width: node.offsetWidth, height: node.offsetHeight, zoom, compositeInlineEditors };
+		return { centerX: rect.left + rect.width / 2, centerY: rect.top + rect.height / 2, blankX: blank.x, blankY: blank.y, width: node.offsetWidth, height: node.offsetHeight, zoom, selected: Boolean(node.closest('.vue-flow__node')?.classList.contains('selected')), compositeInlineEditors };
 	})()`, &probe)
 	if err != nil {
 		return canvasNodeErgonomics{}, fmt.Errorf("inspect Analyze Color node ergonomics: %w", err)
@@ -1216,6 +1370,10 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		resourceDock: Boolean(document.querySelector('[data-testid="workflow-resource-dock"]')),
 		resourceTabs: document.querySelectorAll('[data-testid^="workflow-resource-tab-"]').length,
 		resourceCreate: Boolean(document.querySelector('[data-testid="workflow-resource-create"]')),
+		recipeItems: document.querySelectorAll('[data-testid="workflow-recipe-item"]').length,
+		snippetDock: Boolean(document.querySelector('[data-testid="workflow-snippet-dock"]')),
+		snippetItems: document.querySelectorAll('[data-testid="workflow-snippet-item"]').length,
+		snippetModal: Boolean(document.querySelector('[data-testid="workflow-snippet-name"]')),
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
