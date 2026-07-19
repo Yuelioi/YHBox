@@ -254,6 +254,7 @@ export interface WorkflowSnippet {
   description?: string
   category?: string
   tags: string[]
+  shortcut?: string
   createdAt: string
   updatedAt: string
   usageCount: number
@@ -267,6 +268,7 @@ export interface WorkflowSnippetSummary {
   description?: string
   category?: string
   tags: string[]
+  shortcut?: string
   createdAt: string
   updatedAt: string
   usageCount: number

@@ -327,6 +327,7 @@
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
             @open-library="router.push('/assets')"
+            @edit="openMacroEditor"
             @use="useWorkspaceResource"
           />
           <WorkflowSnippetDock
@@ -345,6 +346,9 @@
           class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
           :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
           @pointerdown.capture="captureMarqueeSelection"
+          @pointerenter="canvasPointerInside = true"
+          @pointerleave="canvasPointerInside = false"
+          @pointermove.capture="trackCanvasPointer"
           @wheel.capture="handleCanvasWheel"
           @dragover="continueNodeDrag"
           @dragleave.self="finishNodeDrag"
@@ -710,6 +714,12 @@
         @continue="controlDebug('continue')"
         @pause="controlDebug('pause')"
         @step="controlDebug('step')"
+      />
+
+      <WorkflowQuickAddMenu
+        v-model:open="quickAddOpen"
+        :items="quickAddItems"
+        @choose="selectQuickAddItem"
       />
 
       <BaseModal
@@ -1107,11 +1117,54 @@
         </UButton>
       </template>
     </BaseModal>
+    <BaseModal
+      :open="!!macroEditing"
+      :title="macroEditing?.label ?? t('macroEditor.title')"
+      icon="i-tabler-list-details"
+      size="5xl"
+      tall
+      @update:open="(open) => !open && (macroEditing = null)"
+    >
+      <div v-if="macroEditing" class="flex h-full min-h-0 flex-col gap-3">
+        <div
+          class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
+        >
+          <span>{{ t('assets.macros.base_resolution') }}</span>
+          <strong class="font-mono text-toned">
+            {{ macroEditing.document.baseResolution[0] }}×{{
+              macroEditing.document.baseResolution[1]
+            }}
+          </strong>
+          <span class="ml-auto truncate font-mono text-[10px] text-dimmed">{{
+            macroEditing.id
+          }}</span>
+        </div>
+        <MacroActionEditor
+          v-model="macroEditing.document.actions"
+          class="min-h-0 flex-1"
+          @validity="macroEditValid = $event"
+        />
+      </div>
+      <template #footer>
+        <UButton color="neutral" variant="ghost" @click="macroEditing = null">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          icon="i-tabler-device-floppy"
+          :loading="macroEditBusy"
+          :disabled="!macroEditValid"
+          @click="saveMacro"
+        >
+          {{ t('common.save') }}
+        </UButton>
+      </template>
+    </BaseModal>
     <WorkflowSnippetModal
       :open="snippetModalOpen"
       :snippet-id="snippetDraft?.id ?? ''"
       :node-type-id="snippetDraft?.payload.nodeRef.nodeTypeId ?? ''"
       :initial="snippetModalInitial"
+      :existing="snippets.items"
       :busy="snippetSaveBusy"
       @update:open="snippetModalOpen = $event"
       @save="saveSnippet"
@@ -1179,7 +1232,6 @@ import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
 import WorkflowSnippetDock from '@/app/editor/WorkflowSnippetDock.vue'
-import WorkflowSnippetModal from '@/app/editor/WorkflowSnippetModal.vue'
 import WorkflowRuntimeWorkbench from '@/app/editor/WorkflowRuntimeWorkbench.vue'
 import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
@@ -1201,8 +1253,10 @@ import {
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
-import { backend, type WorkflowSnippet } from '@/lib/backend'
+import { backend, type AssetSummary, type MacroAsset, type WorkflowSnippet } from '@/lib/backend'
 import { useSnippetsStore } from '@/stores/snippets'
+import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
+import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
@@ -1245,6 +1299,12 @@ defineOptions({ name: 'WorkflowEditorView' })
 const MacroActionEditor = defineAsyncComponent(
   () => import('@/components/recording/MacroActionEditor.vue'),
 )
+const WorkflowSnippetModal = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowSnippetModal.vue'),
+)
+const WorkflowQuickAddMenu = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowQuickAddMenu.vue'),
+)
 const PreciseRecordingWorkbench = defineAsyncComponent(
   () => import('@/components/recording/PreciseRecordingWorkbench.vue'),
 )
@@ -1267,6 +1327,10 @@ const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
 const catalogQuery = ref('')
+const quickAddOpen = ref(false)
+const quickAddPosition = ref({ x: 160, y: 160 })
+const canvasPointerInside = ref(false)
+const lastCanvasPointer = ref<{ x: number; y: number } | null>(null)
 const workspacePanel = ref<'nodes' | 'resources' | 'snippets'>('nodes')
 const workspaceResourceKind = ref<'macro' | 'clip' | 'template'>('macro')
 const graphDialogOpen = ref(false)
@@ -1333,6 +1397,9 @@ const recordingActionsValid = ref(true)
 const recordingTrimStartUs = ref(0)
 const recordingTrimEndUs = ref(0)
 const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
+const macroEditing = ref<MacroAsset | null>(null)
+const macroEditBusy = ref(false)
+const macroEditValid = ref(true)
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
@@ -1346,6 +1413,7 @@ const snippetModalInitial = computed(() =>
         description: snippetDraft.value.description,
         category: snippetDraft.value.category,
         tags: snippetDraft.value.tags,
+        shortcut: snippetDraft.value.shortcut,
       }
     : undefined,
 )
@@ -1447,13 +1515,17 @@ const callMenuItems = computed(() => [
   })),
 ])
 
+const catalogNodes = computed(() =>
+  (session.authoring?.body.nodes ?? []).filter((projection) => {
+    if (session.currentGraph?.kind === 'subgraph' && projection.instruction.kind === 'run-root')
+      return false
+    return visibleForCreationTemplate(projection)
+  }),
+)
 const catalogGroups = computed(() => {
   const query = catalogQuery.value.trim().toLocaleLowerCase()
   const grouped = new Map<string, NodeProjection[]>()
-  for (const projection of session.authoring?.body.nodes ?? []) {
-    if (session.currentGraph?.kind === 'subgraph' && projection.instruction.kind === 'run-root')
-      continue
-    if (!visibleForCreationTemplate(projection)) continue
+  for (const projection of catalogNodes.value) {
     if (query && !catalogSearchText(projection).includes(query)) continue
     const key = projection.category || 'other'
     const nodes = grouped.get(key) ?? []
@@ -1470,6 +1542,46 @@ const catalogGroups = computed(() => {
       ),
     }))
 })
+const quickAddItems = computed<WorkflowQuickAddItem[]>(() => [
+  ...catalogNodes.value.map((projection) => {
+    const description =
+      projection.descriptionKey && te(projection.descriptionKey)
+        ? t(projection.descriptionKey)
+        : projection.nodeRef.nodeTypeId
+    const category = `node:${projection.category || 'other'}`
+    return {
+      id: projection.nodeRef.nodeTypeId,
+      kind: 'node' as const,
+      title: projectionTitle(projection),
+      description,
+      category,
+      categoryLabel: categoryLabel(projection.category || 'other'),
+      icon: `i-tabler-${projection.icon || 'box'}`,
+      searchText: catalogSearchText(projection),
+    }
+  }),
+  ...snippets.items.map((snippet) => ({
+    id: snippet.id,
+    kind: 'snippet' as const,
+    title: snippet.name,
+    description: snippet.description || snippet.nodeTypeId,
+    category: 'snippet:all',
+    categoryLabel: t('workflow.snippets.title'),
+    icon: 'i-tabler-bookmark',
+    shortcut: snippet.shortcut,
+    searchText: [
+      snippet.name,
+      snippet.description,
+      snippet.category,
+      snippet.tags.join(' '),
+      snippet.nodeTypeId,
+      snippet.shortcut,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase(),
+  })),
+])
 const nodeSearchResults = computed<WorkflowNodeSearchResult[]>(() => {
   const query = nodeSearchQuery.value.trim().toLocaleLowerCase()
   if (!query) return []
@@ -1795,6 +1907,7 @@ onMounted(async () => {
   await Promise.allSettled([
     settings.loaded ? Promise.resolve() : settings.load(),
     recording.reconcile(),
+    snippets.load(),
   ])
   const workflowId = String(route.params.id ?? '')
   try {
@@ -1845,14 +1958,17 @@ onBeforeRouteLeave(async () => {
     pendingRecording.value = null
   }
   if (!session.dirty) return true
-  return (
-    (await confirm({
-      title: t('workflow.editor.discard_title'),
-      description: t('workflow.editor.discard_confirm'),
-      confirmText: t('workflow.editor.discard_action'),
-      color: 'warning',
-    })) === true
-  )
+  const decision = await confirm({
+    title: t('workflow.editor.leave_title'),
+    description: t('workflow.editor.leave_confirm'),
+    confirmText: t('workflow.editor.save_and_exit'),
+    color: 'primary',
+    alternateText: t('workflow.editor.discard_action'),
+    alternateValue: 'discard',
+    alternateColor: 'error',
+  })
+  if (decision === true) return save()
+  return decision === 'discard'
 })
 
 function openRecordingStart(mode: RecordingMode): void {
@@ -2115,6 +2231,7 @@ async function saveSnippet(metadata: {
   description: string
   category: string
   tags: string[]
+  shortcut: string
 }): Promise<void> {
   if (!snippetDraft.value || snippetSaveBusy.value) return
   snippetSaveBusy.value = true
@@ -2218,6 +2335,46 @@ function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
     ...action,
     point: action.point ? { ...action.point } : undefined,
   }))
+}
+
+async function openMacroEditor(asset: AssetSummary): Promise<void> {
+  try {
+    const value = await backend.macros.get(asset.guid)
+    if (!value) throw new Error(`macro ${asset.guid} not found`)
+    macroEditing.value = {
+      ...value,
+      tags: [...(value.tags ?? [])],
+      document: {
+        ...value.document,
+        baseResolution: [...value.document.baseResolution] as [number, number],
+        actions: cloneRecordingActions(value.document.actions),
+      },
+      blob: { ...value.blob },
+    }
+    macroEditValid.value = true
+  } catch (error) {
+    showError(t('assets.macros.load_failed'), error)
+  }
+}
+
+async function saveMacro(): Promise<void> {
+  if (!macroEditing.value || !macroEditValid.value) return
+  macroEditBusy.value = true
+  try {
+    await backend.macros.save({
+      ...macroEditing.value,
+      document: {
+        ...macroEditing.value.document,
+        actions: cloneRecordingActions(macroEditing.value.document.actions),
+      },
+    })
+    macroEditing.value = null
+    assets.invalidate()
+  } catch (error) {
+    showError(t('assets.macros.save_failed'), error)
+  } finally {
+    macroEditBusy.value = false
+  }
 }
 
 function splitRecordingTags(value: string): string[] {
@@ -2432,12 +2589,36 @@ function handleEditorKeydown(event: KeyboardEvent): void {
     closeConnectionMenu()
     return
   }
-  const target = event.target as HTMLElement | null
+  const target = event.target instanceof Element ? event.target : null
   if (
     target?.matches('input, textarea, select, [contenteditable="true"]') ||
     target?.closest('[role="dialog"]')
   )
     return
+  if (
+    event.key === 'Tab' &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !event.shiftKey &&
+    canvasPointerInside.value
+  ) {
+    event.preventDefault()
+    openQuickAdd()
+    return
+  }
+  const snippetShortcut = shortcutFromKeyboardEvent(event)
+  const snippet =
+    canvasPointerInside.value && snippetShortcut
+      ? snippets.items.find(
+          (item) => item.shortcut?.toLocaleLowerCase() === snippetShortcut.toLocaleLowerCase(),
+        )
+      : undefined
+  if (snippet) {
+    event.preventDefault()
+    void useSnippet(snippet.id, canvasInsertionPosition())
+    return
+  }
   if (event.key === 'Escape') {
     if (selectedNodeIds.value.size || selectedNodeId.value || selectedEdgeId.value) {
       event.preventDefault()
@@ -2800,6 +2981,37 @@ function cancelStatePromotion(): void {
 function handlePaneClick(): void {
   clearEditorSelection()
   closeConnectionMenu()
+}
+
+function trackCanvasPointer(event: PointerEvent): void {
+  lastCanvasPointer.value = { x: event.clientX, y: event.clientY }
+}
+
+function canvasInsertionPosition(): { x: number; y: number } {
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const viewport = getViewport()
+  const zoom = Number.isFinite(viewport.zoom) && viewport.zoom > 0 ? viewport.zoom : 1
+  const point = lastCanvasPointer.value
+  const clientX = Number.isFinite(point?.x)
+    ? (point?.x ?? 0)
+    : (rect?.left ?? 0) + (rect?.width ?? 320) / 2
+  const clientY = Number.isFinite(point?.y)
+    ? (point?.y ?? 0)
+    : (rect?.top ?? 0) + (rect?.height ?? 320) / 2
+  const x = (clientX - (rect?.left ?? 0) - viewport.x) / zoom
+  const y = (clientY - (rect?.top ?? 0) - viewport.y) / zoom
+  return { x: Number.isFinite(x) ? x : 160, y: Number.isFinite(y) ? y : 160 }
+}
+
+function openQuickAdd(): void {
+  quickAddPosition.value = canvasInsertionPosition()
+  quickAddOpen.value = true
+}
+
+function selectQuickAddItem(item: WorkflowQuickAddItem): void {
+  const position = { x: quickAddPosition.value.x, y: quickAddPosition.value.y }
+  if (item.kind === 'node') addNode(item.id, position)
+  else void useSnippet(item.id, position)
 }
 
 function captureMarqueeSelection(event: PointerEvent): void {
@@ -3245,13 +3457,15 @@ async function compile(): Promise<void> {
   }
 }
 
-async function save(): Promise<void> {
+async function save(): Promise<boolean> {
   setSaveSucceeded(false)
   try {
     await session.save()
     setSaveSucceeded(true)
+    return true
   } catch (error) {
     showError(t('workflow.toast.save_failed'), error)
+    return false
   }
 }
 

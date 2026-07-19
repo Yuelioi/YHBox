@@ -67,9 +67,20 @@ describe('workflow authoring foundations', () => {
     expect(dock).toContain('pageSize = 20')
     expect(dock).toContain('assets.query(')
     expect(dock).toContain("emit('start-recording'")
+    expect(dock).toContain("emit('edit', asset)")
+    expect(editor).toContain('@edit="openMacroEditor"')
+    expect(editor).toContain('backend.macros.get(asset.guid)')
     expect(dock).toContain("allCategoriesValue = '__yotta_all_categories__'")
     expect(dock).not.toContain("value: ''")
     expect(toolbar).not.toContain('workflow-macro-recording-start')
+  })
+
+  it('offers save, discard, and cancel when leaving a dirty workflow', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const dialog = readSource('src/components/common/ConfirmDialog.vue')
+    expect(editor).toContain("alternateValue: 'discard'")
+    expect(editor).toContain('if (decision === true) return save()')
+    expect(dialog).toContain('data-testid="confirm-alternate"')
   })
 
   it('uses a full node context menu and keeps visual templates inside the editor flow', () => {
@@ -179,5 +190,19 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain("if (key === 'f')")
     expect(editor).toContain('session.source?.graphs')
     expect(editor).toContain('await focusNode([result.graphId], result.nodeId)')
+  })
+
+  it('opens contextual quick add from Tab and inserts snippets through safe shortcuts', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const quickAdd = readSource('src/app/editor/WorkflowQuickAddMenu.vue')
+    const snippetModal = readSource('src/app/editor/WorkflowSnippetModal.vue')
+    expect(editor).toContain('<WorkflowQuickAddMenu')
+    expect(editor).toContain("event.key === 'Tab'")
+    expect(editor).toContain('@pointermove.capture="trackCanvasPointer"')
+    expect(editor).toContain('shortcutFromKeyboardEvent(event)')
+    expect(editor).toContain('useSnippet(snippet.id, canvasInsertionPosition())')
+    expect(quickAdd).toContain('workflow-quick-add-search')
+    expect(quickAdd).toContain('@keydown.down.prevent="move(1)"')
+    expect(snippetModal).toContain('<HotkeyCaptureInput')
   })
 })

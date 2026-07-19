@@ -31,6 +31,16 @@ ConfirmDialog 通用确认对话框（基于 NuxtUI UModal）。
         @click="onCancel"
         >{{ cancelTextResolved }}</UButton
       >
+      <UButton
+        v-if="alternateText"
+        data-testid="confirm-alternate"
+        size="sm"
+        variant="soft"
+        :color="alternateColor ?? 'neutral'"
+        @click="onAlternate"
+      >
+        {{ alternateText }}
+      </UButton>
       <UButton data-testid="confirm-accept" size="sm" :color="colorResolved" @click="onConfirm">{{
         confirmTextResolved
       }}</UButton>
@@ -53,6 +63,9 @@ const props = defineProps<{
   confirmText?: string
   cancelText?: string
   color?: 'primary' | 'error' | 'warning' | 'neutral'
+  alternateText?: string
+  alternateValue?: string
+  alternateColor?: 'primary' | 'error' | 'warning' | 'neutral'
   inputDefault?: string
   inputLabel?: string
   inputPlaceholder?: string
@@ -88,6 +101,10 @@ function onConfirm() {
 }
 function onCancel() {
   emit('resolve', hasInput.value ? '' : false)
+  emit('update:open', false)
+}
+function onAlternate() {
+  emit('resolve', props.alternateValue ?? 'alternate')
   emit('update:open', false)
 }
 function onUpdateOpen(v: boolean) {

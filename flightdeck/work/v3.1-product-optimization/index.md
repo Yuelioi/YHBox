@@ -6,34 +6,48 @@ summary: 在稳定的 3.1 架构上修正编辑器状态表达，恢复专业级
 
 ## State
 
-Stage H completed。Slice 13 已把节点右键升级为标准命令菜单，并把视觉模板选择、截图入口和 typed Asset binding 纳入当前工作流内的连续任务流。
+Stage I complete。四个 Slice 均已实现并通过阶段聚合验收：紧凑节点投影、工作流内 Macro 编辑与三路退出、Tab 快速添加与 Snippet 快捷键、计划 Modal。
 
 ## Next
 
-由用户在普通 UAC 开发构建中复核节点菜单手感，并用真实自动化目标从“视觉模板 → 截图新模板”完成一次宿主截图；继续产品优化前选择并登记新的 Slice。
+等待下一轮真机反馈或新的 Stage 范围；不要把已完成的 Stage I 再拆回零散补丁。
 
 ## Read now
 
-- work/v3.1-product-optimization/slices/13-node-context-menu-and-template-flow.md
-- knowledge/architecture/feature-continuity-across-product-stack.md
+- knowledge/build/build.md
+- work/v3.1-product-optimization/slices/14-node-density-and-optional-pins.md
+- work/v3.1-product-optimization/slices/15-workflow-resource-edit-and-safe-exit.md
+- work/v3.1-product-optimization/slices/16-tab-menu-and-snippet-shortcuts.md
+- work/v3.1-product-optimization/slices/17-schedule-modal-flow.md
+- work/v3.1-product-optimization/context/editor-discovery-and-modal-decisions.md
+- knowledge/frontend/canvas-node-authoring-boundary.md
+- knowledge/frontend/ui.md
 
 ## Read if
 
-- work/v3.1-product-optimization/slices/map.md — 检查完整实施前沿或选择下一 Slice
-- work/v3.1-product-optimization/slices/12-snippets-restoration.md — 复查 Snippet payload、持久化和插入契约
-- work/v3.1-product-optimization/context/current-vs-3.0-editor-audit.md — 复查 3.0 编辑器经验
-- knowledge/frontend/ui.md — 修改菜单、资源工作区或模板 UI
-- knowledge/build/code-style.md — Go/TypeScript 实现与生成契约
+- work/v3.1-product-optimization/slices/map.md — 检查 Stage I 全部 Slice 与依赖
+- work/v3.1-product-optimization/slices/14-node-density-and-optional-pins.md — 已完成节点低密度投影
+- work/v3.1-product-optimization/slices/15-workflow-resource-edit-and-safe-exit.md — 已完成编辑器内宏编辑与保存退出
+- work/v3.1-product-optimization/slices/16-tab-menu-and-snippet-shortcuts.md — 已完成 Tab 快速添加与 Snippet 快捷键
+- work/v3.1-product-optimization/slices/17-schedule-modal-flow.md — 已完成计划 Modal
+- work/v3.1-product-optimization/context/current-vs-3.0-editor-audit.md — 复查 3.0 能力连续性
+- knowledge/build/code-style.md — 修改 Go/TypeScript/Vue
+- knowledge/architecture/feature-continuity-across-product-stack.md — Stage I 黄金旅程验收
 
 ## Progress
 
-- Stage A–C 已恢复专业画布选择、Source-native 子图、Macro/InputClip、编辑器资源工作区和真实调试链路。
-- Stage D–E 已建立 typed Authoring Surface、复杂 Editor Adapter、视觉能力和黄金旅程。
-- Stage F–G 已修复节点密度、完整画布 wheel ownership，并删除硬编码配方、恢复 durable Snippets。
-- Slice 13 已以受控 Nuxt UI 菜单恢复复制、剪切、复制节点、启停、断点、折叠子图、视觉模板、Snippet 和删除；右键选择语义兼容多选。
-- 视觉模板可从节点菜单直接打开编辑器内模板资源分页或发起截图；兼容节点绑定 BlobRef，不兼容节点沿既有契约插入 click-template。
-- Stage H 的真实 WebView 旅程与最终前端聚合门禁通过；完整 `task check` 仅被已知高负载 timer 上限 flaky 阻断，定向测试通过。
+- Stage A–H 已恢复专业画布、Source-native 子图、Macro/InputClip、资源工作区、真实调试、typed Authoring Surface、黄金旅程、Snippets 与节点上下文菜单。
+- 源码确认点击模板的 timeout、poll interval、settle duration 属于 common 调优参数，却因类型级 inlinePriority 同时进入节点卡片。
+- 3.0 已存在 Houdini 式 Tab Explorer 和 Snippet 快捷键；3.1 的缺失属于能力回归，不需要复制旧 runtime/store。
+- 成熟编辑器对照支持“上下文 Tab 搜索 + 分类 + 键盘”和“参数独立面板”；饼菜单只适合少量固定熟练动作，不用于可增长节点全集。
+- 工作流宏编辑器与计划编辑器均已有可复用实现；缺口是入口与容器形态，不另造第二套数据模型。
+- Slice 14 已固定节点宽度、折叠非关键可选输入，并将多个 common inline candidate 退回 Inspector。
+- Slice 15 已恢复工作流内 Macro 编辑，并将脏工作流退出改为取消、放弃、保存并退出三路决策。
+- Slice 16 已恢复画布 Tab 分类/搜索快速添加和持久 Snippet 快捷键，服务端拒绝保留与冲突组合。
+- Slice 17 已将计划创建/编辑改为覆盖列表上下文的 BaseModal，保存仍通过唯一 ScheduleStore。
+- Stage I WebView smoke `20260720-043007` 已真实覆盖 Tab 搜索/添加、Snippet 快捷键保存与调用、节点上下文菜单、资源工作区、子图、调试和计划 Modal；无 WebView JS 错误。
+- Stage I 最终 `task check` 通过：全仓 Go 测试与静态检查、全局覆盖率 65.6%、前端测试/契约/生产构建全部通过，编辑器 gzip 219922/220000 bytes。
 
 ## Open questions
 
-- 无。
+- 无。饼菜单明确不纳入本阶段。

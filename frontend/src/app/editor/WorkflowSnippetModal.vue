@@ -28,6 +28,13 @@
           <UInput v-model="tags" :placeholder="t('workflow.snippets.tags_placeholder')" />
         </UFormField>
       </div>
+      <UFormField
+        :label="t('workflow.snippets.shortcut')"
+        :hint="t('workflow.snippets.shortcut_hint')"
+        :error="shortcutIssue ? t(`workflow.snippets.shortcut_${shortcutIssue}`) : undefined"
+      >
+        <HotkeyCaptureInput v-model="shortcut" data-testid="workflow-snippet-shortcut" />
+      </UFormField>
       <div class="rounded-lg border border-default bg-elevated/25 px-3 py-2.5">
         <p class="text-[10px] font-medium text-toned">{{ t('workflow.snippets.payload') }}</p>
         <p class="mt-1 truncate font-mono text-[10px] text-dimmed">{{ nodeTypeId }}</p>
@@ -47,7 +54,7 @@
         data-testid="workflow-snippet-save"
         icon="i-tabler-device-floppy"
         :loading="busy"
-        :disabled="!name.trim()"
+        :disabled="!name.trim() || Boolean(shortcutIssue)"
         :label="t('common.save')"
         @click="submit"
       />
@@ -56,26 +63,48 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/BaseModal.vue'
+import HotkeyCaptureInput from '@/components/hotkeys/HotkeyCaptureInput.vue'
+import type { WorkflowSnippetSummary } from '@/lib/backend'
+import { snippetShortcutIssue } from '@/app/editor/snippetShortcut'
 
 const props = defineProps<{
   open: boolean
   snippetId: string
   nodeTypeId: string
-  initial?: { name: string; description?: string; category?: string; tags: string[] }
+  initial?: {
+    name: string
+    description?: string
+    category?: string
+    tags: string[]
+    shortcut?: string
+  }
+  existing: WorkflowSnippetSummary[]
   busy?: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [open: boolean]
-  save: [value: { name: string; description: string; category: string; tags: string[] }]
+  save: [
+    value: {
+      name: string
+      description: string
+      category: string
+      tags: string[]
+      shortcut: string
+    },
+  ]
 }>()
 const { t } = useI18n()
 const name = ref('')
 const description = ref('')
 const category = ref('')
 const tags = ref('')
+const shortcut = ref('')
+const shortcutIssue = computed(() =>
+  snippetShortcutIssue(shortcut.value, props.snippetId, props.existing),
+)
 
 watch(
   () => [props.open, props.initial] as const,
@@ -85,6 +114,7 @@ watch(
     description.value = props.initial?.description ?? ''
     category.value = props.initial?.category ?? ''
     tags.value = props.initial?.tags.join(', ') ?? ''
+    shortcut.value = props.initial?.shortcut ?? ''
   },
   { immediate: true },
 )
@@ -95,6 +125,7 @@ function submit(): void {
     name: name.value.trim(),
     description: description.value.trim(),
     category: category.value.trim(),
+    shortcut: shortcut.value.trim(),
     tags: [
       ...new Set(
         tags.value

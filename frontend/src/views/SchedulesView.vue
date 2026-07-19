@@ -8,24 +8,12 @@
           </span>
           <div class="min-w-0">
             <p class="workspace-page__eyebrow">{{ t('schedule.workspace.eyebrow') }}</p>
-            <h1 class="workspace-page__title truncate">
-              {{ editing ? editing.name : t('schedule.workspace.title') }}
-            </h1>
+            <h1 class="workspace-page__title truncate">{{ t('schedule.workspace.title') }}</h1>
           </div>
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <UButton
-          v-if="editing"
-          variant="ghost"
-          color="neutral"
-          icon="i-tabler-arrow-left"
-          @click="editing = null"
-        >
-          {{ t('schedule.back_to_list') }}
-        </UButton>
-        <UButton
-          v-else
           color="primary"
           icon="i-tabler-plus"
           data-testid="schedule-create"
@@ -36,62 +24,69 @@
     </header>
 
     <main class="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8">
-      <template v-if="!editing">
-        <section class="workspace-metrics mb-4" :aria-label="t('schedule.workspace.summary')">
-          <div class="workspace-metric workspace-metric--primary">
-            <span>{{ t('schedule.workspace.total') }}</span
-            ><strong>{{ store.list.length }}</strong>
-          </div>
-          <div class="workspace-metric">
-            <span>{{ t('schedule.workspace.enabled') }}</span
-            ><strong>{{ enabledCount }}</strong>
-          </div>
-          <div class="workspace-metric">
-            <span>{{ t('schedule.workspace.automatic') }}</span
-            ><strong>{{ automaticCount }}</strong>
-          </div>
-          <div class="workspace-metric">
-            <span>{{ t('schedule.workspace.targets') }}</span
-            ><strong>{{ targetCount }}</strong>
-          </div>
-        </section>
-
-        <div class="schedule-toolbar">
-          <UInput
-            v-model="search"
-            icon="i-tabler-search"
-            :placeholder="t('schedule.search_placeholder')"
-            class="min-w-0 flex-1 sm:max-w-sm"
-          />
-          <AdaptiveSelect
-            v-model="statusFilter"
-            :items="statusItems"
-            icon="i-tabler-adjustments-horizontal"
-            class="shrink-0"
-            :aria-label="t('schedule.status_filter')"
-          />
-          <span class="text-xs text-dimmed">{{
-            t('schedule.workspace.showing', { n: filteredSchedules.length })
-          }}</span>
+      <section class="workspace-metrics mb-4" :aria-label="t('schedule.workspace.summary')">
+        <div class="workspace-metric workspace-metric--primary">
+          <span>{{ t('schedule.workspace.total') }}</span
+          ><strong>{{ store.list.length }}</strong>
         </div>
+        <div class="workspace-metric">
+          <span>{{ t('schedule.workspace.enabled') }}</span
+          ><strong>{{ enabledCount }}</strong>
+        </div>
+        <div class="workspace-metric">
+          <span>{{ t('schedule.workspace.automatic') }}</span
+          ><strong>{{ automaticCount }}</strong>
+        </div>
+        <div class="workspace-metric">
+          <span>{{ t('schedule.workspace.targets') }}</span
+          ><strong>{{ targetCount }}</strong>
+        </div>
+      </section>
 
-        <ScheduleListPanel
-          :list="filteredSchedules"
-          :workflows="workflows"
-          @edit="onEdit"
-          @delete="onDelete"
-          @toggle="onToggle"
+      <div class="schedule-toolbar">
+        <UInput
+          v-model="search"
+          icon="i-tabler-search"
+          :placeholder="t('schedule.search_placeholder')"
+          class="min-w-0 flex-1 sm:max-w-sm"
         />
-      </template>
+        <AdaptiveSelect
+          v-model="statusFilter"
+          :items="statusItems"
+          icon="i-tabler-adjustments-horizontal"
+          class="shrink-0"
+          :aria-label="t('schedule.status_filter')"
+        />
+        <span class="text-xs text-dimmed">{{
+          t('schedule.workspace.showing', { n: filteredSchedules.length })
+        }}</span>
+      </div>
 
+      <ScheduleListPanel
+        :list="filteredSchedules"
+        :workflows="workflows"
+        @edit="onEdit"
+        @delete="onDelete"
+        @toggle="onToggle"
+      />
+    </main>
+
+    <BaseModal
+      :open="!!editing"
+      :title="editing?.name ?? t('schedule.create')"
+      icon="i-tabler-calendar-time"
+      size="4xl"
+      tall
+      @update:open="(open) => !open && (editing = null)"
+    >
       <ScheduleEditorPanel
-        v-else
+        v-if="editing"
         :schedule="editing"
         :workflows="workflows"
         @save="onSaveEdit"
         @cancel="editing = null"
       />
-    </main>
+    </BaseModal>
   </div>
 </template>
 
@@ -107,6 +102,7 @@ import { workflowTransport, type SourceView } from '@/app/transport/workflow'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const { t } = useI18n()
 const store = useSchedulesStore()

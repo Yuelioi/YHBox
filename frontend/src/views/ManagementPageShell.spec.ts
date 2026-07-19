@@ -17,4 +17,12 @@ describe('management page shell', () => {
       expect(source).not.toContain('class="workspace-page__description"')
     }
   })
+
+  it('keeps schedule creation and editing in a modal over the management list', () => {
+    const source = viewSources[2] ?? ''
+    expect(source).toContain('<BaseModal')
+    expect(source).toContain(':open="!!editing"')
+    expect(source).toContain('<ScheduleListPanel')
+    expect(source).not.toContain('<template v-if="!editing">')
+  })
 })

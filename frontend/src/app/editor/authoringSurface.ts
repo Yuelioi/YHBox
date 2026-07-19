@@ -145,7 +145,7 @@ export function projectAuthoringSurface(
   result.inlineInputs.sort(
     (left, right) => right.inlinePriority - left.inlinePriority || compareSurfaceItems(left, right),
   )
-  result.inlineInputs = result.inlineInputs.slice(0, 3)
+  if (result.inlineInputs.length !== 1) result.inlineInputs = []
 
   return result
 }

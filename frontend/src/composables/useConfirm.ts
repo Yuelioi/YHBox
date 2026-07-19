@@ -9,6 +9,9 @@ export interface ConfirmOpts {
   confirmText?: string
   cancelText?: string
   color?: 'primary' | 'error' | 'warning' | 'neutral'
+  alternateText?: string
+  alternateValue?: string
+  alternateColor?: 'primary' | 'error' | 'warning' | 'neutral'
   /** 若设了 inputDefault，对话框显示 UInput，confirm 返回输入字符串；否则返 boolean */
   inputDefault?: string
   inputLabel?: string

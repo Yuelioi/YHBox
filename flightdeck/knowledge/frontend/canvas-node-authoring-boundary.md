@@ -10,7 +10,7 @@ recheck_when: "Authoring Surface 内联契约、Vue Flow 版本或 WebView 输�
 
 ## 陷阱
 
-`inlinePriority` 只表达业务重要性，不代表控件适合放进画布节点。ColorRange、Point、Region、Asset、JSON 等复合 editor 即使优先级高，也会把完整表单、滚动和拾取交互带进节点，造成节点尺寸失控并争夺 wheel。画布节点只内联轻量、单行、无独立滚动面的 adapter；完整 typed value 编辑留在 Inspector 或明确弹层。
+`inlinePriority` 只表达业务重要性，不代表控件适合放进画布节点。ColorRange、Point、Region、Asset、JSON 等复合 editor 即使优先级高，也会把完整表单、滚动和拾取交互带进节点，造成节点尺寸失控并争夺 wheel。画布节点只内联轻量、单行、无独立滚动面的 adapter，而且一个节点必须恰好只有一个合格候选才内联；多个 common 候选同时出现时全部退回 Inspector，不能擅自取前三个或取最高项。
 
 ## 验收方式
 
@@ -22,3 +22,5 @@ recheck_when: "Authoring Surface 内联契约、Vue Flow 版本或 WebView 输�
 ## 当前契约
 
 允许内联的 adapter 为 `duration`、`key-chord`、`number`、`select`、`text`、`toggle`。新增 adapter 若包含多字段布局、画布拾取、资源浏览或独立滚动区域，默认进入 Inspector，不得仅凭 `inlinePriority` 投影到节点卡片。
+
+节点卡片应使用稳定固定宽度。signal、required、primary 和已连接输入始终显示；其余 default/optional 输入默认收起并显示隐藏数量，用户展开后仍可正常连接。这样“画布负责识别与连线、Inspector 负责完整参数”的边界不依赖具体节点数量。

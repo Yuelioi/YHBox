@@ -61,7 +61,7 @@ function projection(inputs: PortProjection[]): NodeProjection {
 }
 
 describe('authoring surface', () => {
-  it('resolves adapters by type and excludes connected inputs from the three inline slots', () => {
+  it('keeps inline editing for a single lightweight candidate instead of expanding complex nodes', () => {
     expect(resolvePortAdapter(pointPort)).toBe('point')
     const inputs: PortProjection[] = [0, 1, 2, 3].map(
       (index) =>
@@ -75,11 +75,7 @@ describe('authoring surface', () => {
         }) as PortProjection,
     )
     const surface = projectAuthoringSurface(projection(inputs), undefined, new Set(['point-0']))
-    expect(surface.inlineInputs.map((item) => item.port.id)).toEqual([
-      'point-1',
-      'point-2',
-      'point-3',
-    ])
+    expect(surface.inlineInputs).toEqual([])
     expect(surface.groups.common).toHaveLength(4)
   })
 

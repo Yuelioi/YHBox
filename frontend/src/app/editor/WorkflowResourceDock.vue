@@ -139,6 +139,15 @@
             </span>
           </span>
           <UButton
+            v-if="asset.kind === 'macro'"
+            icon="i-tabler-pencil"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :aria-label="t('workflow.resources.edit', { name: asset.name })"
+            @click.stop="emit('edit', asset)"
+          />
+          <UButton
             icon="i-tabler-plus"
             color="neutral"
             variant="ghost"
@@ -206,6 +215,7 @@ const emit = defineEmits<{
   'start-recording': [mode: 'simple' | 'precise']
   'capture-template': []
   'open-library': []
+  edit: [asset: AssetSummary]
   use: [selection: AssetPickerSelection]
 }>()
 const { t } = useI18n()

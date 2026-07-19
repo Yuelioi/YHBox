@@ -199,6 +199,7 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
 	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
 	templateMenuScreenshot := siblingScreenshot(screenshot, "node-template-menu.png")
+	quickAddScreenshot := siblingScreenshot(screenshot, "quick-add.png")
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -277,6 +278,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := exerciseCanvasNodeErgonomics(ctx, client, siblingScreenshot(screenshot, "analyze-color.png")); err != nil {
+		return err
+	}
+	if err := exerciseQuickAdd(ctx, client, quickAddScreenshot); err != nil {
 		return err
 	}
 	if launcherScreenshot != "" {
@@ -675,6 +679,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		"subgraphScreenshot":     subgraphScreenshot,
 		"nodeMenuScreenshot":     nodeMenuScreenshot,
 		"templateMenuScreenshot": templateMenuScreenshot,
+		"quickAddScreenshot":     quickAddScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -949,6 +954,89 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	return nil
 }
 
+func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, screenshot string) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(async () => {
+		const wait = async predicate => {
+			const deadline = performance.now() + 5000;
+			while (performance.now() < deadline) {
+				const value = predicate();
+				if (value) return value;
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+			throw new Error('quick add did not become ready');
+		};
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!canvas) throw new Error('workflow canvas not found for quick add');
+		const rect = canvas.getBoundingClientRect();
+		const point = { clientX: rect.left + rect.width * 0.58, clientY: rect.top + rect.height * 0.48 };
+		canvas.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse', ...point }));
+		canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', ...point }));
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true, cancelable: true }));
+		await wait(() => document.querySelector('[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'));
+		const input = document.querySelector('[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'click-template');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		await wait(() => [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.find(item => item.textContent.includes('点击模板') || item.textContent.includes('Click Template')));
+	})()`); err != nil {
+		return fmt.Errorf("open and search workflow quick add: %w", err)
+	}
+	if screenshot != "" {
+		if err := capture(ctx, client, screenshot); err != nil {
+			return fmt.Errorf("capture workflow quick add: %w", err)
+		}
+	}
+	if err := dispatchKeyPress(ctx, client, "Enter", "Enter", 13); err != nil {
+		return fmt.Errorf("choose quick-add result: %w", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if screenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(screenshot, "quick-add-result.png")); err != nil {
+			return fmt.Errorf("capture selected quick-add result: %w", err)
+		}
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes+1
+	}); err != nil {
+		return fmt.Errorf("insert quick-add node: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
+		if (!inserted) throw new Error('quick-added click template node not found');
+	})()`); err != nil {
+		return err
+	}
+	var point struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	}
+	if err := evalJSON(ctx, client, `(() => {
+		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
+		if (!inserted) throw new Error('quick-added click template node not found for cleanup');
+		const rect = inserted.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	})()`, &point); err != nil {
+		return fmt.Errorf("locate quick-added node: %w", err)
+	}
+	if err := dispatchMouseClick(ctx, client, point.X, point.Y); err != nil {
+		return fmt.Errorf("select quick-added node: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return fmt.Errorf("delete quick-added node: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove quick-added node: %w", err)
+	}
+	return nil
+}
+
 func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot, templateMenuScreenshot string) error {
 	before, err := state(ctx, client)
 	if err != nil {
@@ -983,6 +1071,38 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, n
 		return fmt.Errorf("open save-as-snippet dialog: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
+		const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+		if (!capture) throw new Error('snippet shortcut capture not found');
+		capture.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(async () => {
+		const deadline = performance.now() + 5000;
+		while (performance.now() < deadline) {
+			const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+			if (capture && document.activeElement === capture) return;
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		throw new Error('snippet shortcut capture did not receive focus');
+	})()`); err != nil {
+		return err
+	}
+	if err := dispatchModifiedKeyPress(ctx, client, "K", "KeyK", 75, 2|8); err != nil {
+		return fmt.Errorf("capture snippet shortcut: %w", err)
+	}
+	if err := eval(ctx, client, `(async () => {
+		const deadline = performance.now() + 5000;
+		while (performance.now() < deadline) {
+			const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+			if (capture?.textContent?.includes('Ctrl+Shift+K')) return;
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		throw new Error('snippet shortcut capture did not persist the chord');
+	})()`); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
 		const input = document.querySelector('[data-testid="workflow-snippet-name"] input, input[data-testid="workflow-snippet-name"]');
 		if (!input) throw new Error('snippet name input not found');
 		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -1004,12 +1124,17 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, n
 		return err
 	}
 	if err := eval(ctx, client, `(() => {
-		const item = [...document.querySelectorAll('[data-testid="workflow-snippet-item"]')]
-			.find(candidate => candidate.textContent.includes('Smoke configured delay'));
-		if (!item) throw new Error('saved snippet not found');
-		item.click();
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!canvas) throw new Error('workflow canvas not found for snippet shortcut');
+		const rect = canvas.getBoundingClientRect();
+		const point = { clientX: rect.left + rect.width * 0.55, clientY: rect.top + rect.height * 0.45 };
+		canvas.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse', ...point }));
+		canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', ...point }));
 	})()`); err != nil {
 		return err
+	}
+	if err := dispatchModifiedKeyPress(ctx, client, "K", "KeyK", 75, 2|8); err != nil {
+		return fmt.Errorf("insert snippet with shortcut: %w", err)
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.CanvasNodes == saved.CanvasNodes+1 && current.SelectedNodes == 1
@@ -1221,8 +1346,10 @@ func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func
 }
 
 func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicate func(pageState) bool) error {
+	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	for {
-		current, err := state(ctx, client)
+		current, err := state(waitCtx, client)
 		if err != nil {
 			return err
 		}
@@ -1230,9 +1357,9 @@ func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicat
 			return nil
 		}
 		select {
-		case <-ctx.Done():
+		case <-waitCtx.Done():
 			details, _ := json.Marshal(current)
-			return fmt.Errorf("%w; last page state: %s", ctx.Err(), details)
+			return fmt.Errorf("%w; last page state: %s", waitCtx.Err(), details)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
@@ -1566,8 +1693,13 @@ func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocket
 }
 
 func dispatchKeyPress(ctx context.Context, client *browsercdp.WebSocketClient, key, code string, virtualKey int) error {
+	return dispatchModifiedKeyPress(ctx, client, key, code, virtualKey, 0)
+}
+
+func dispatchModifiedKeyPress(ctx context.Context, client *browsercdp.WebSocketClient, key, code string, virtualKey, modifiers int) error {
 	params := map[string]any{
 		"key": key, "code": code, "windowsVirtualKeyCode": virtualKey, "nativeVirtualKeyCode": virtualKey,
+		"modifiers": modifiers,
 	}
 	params["type"] = "keyDown"
 	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", params); err != nil {

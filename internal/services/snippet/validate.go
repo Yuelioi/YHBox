@@ -4,8 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var functionKeyPattern = regexp.MustCompile(`^F([1-9]|1[0-2])$`)
+
+var reservedShortcuts = map[string]struct{}{
+	"Ctrl+A": {}, "Ctrl+C": {}, "Ctrl+D": {}, "Ctrl+F": {}, "Ctrl+S": {},
+	"Ctrl+V": {}, "Ctrl+X": {}, "Ctrl+Y": {}, "Ctrl+Z": {}, "Ctrl+Shift+Z": {},
+}
 
 var forbiddenPayloadKeys = map[string]struct{}{
 	"grant": {}, "grants": {}, "secret": {}, "secrets": {}, "credential": {}, "credentials": {},
@@ -30,6 +38,9 @@ func validate(value Snippet) error {
 	}
 	if len(value.Tags) > 32 {
 		return errors.New("snippet has more than 32 tags")
+	}
+	if _, err := normalizeShortcut(value.Shortcut); err != nil {
+		return err
 	}
 	if value.UsageCount < 0 {
 		return errors.New("snippet usage count cannot be negative")
@@ -63,6 +74,104 @@ func validate(value Snippet) error {
 		}
 	}
 	return nil
+}
+
+func normalizeShortcut(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if len([]rune(value)) > 64 {
+		return "", errors.New("snippet shortcut exceeds 64 characters")
+	}
+	modifiers := map[string]bool{}
+	key := ""
+	for _, raw := range strings.Split(value, "+") {
+		part := strings.TrimSpace(raw)
+		switch strings.ToLower(part) {
+		case "ctrl", "control":
+			modifiers["Ctrl"] = true
+		case "shift":
+			modifiers["Shift"] = true
+		case "alt":
+			modifiers["Alt"] = true
+		case "meta", "cmd", "command":
+			modifiers["Meta"] = true
+		default:
+			if part == "" || key != "" {
+				return "", errors.New("snippet shortcut must contain exactly one key")
+			}
+			key = canonicalShortcutKey(part)
+		}
+	}
+	if key == "" {
+		return "", errors.New("snippet shortcut requires a key")
+	}
+	if !validShortcutKey(key) {
+		return "", fmt.Errorf("snippet shortcut key %q is unsupported", key)
+	}
+	if len(modifiers) == 0 && !functionKeyPattern.MatchString(key) {
+		return "", errors.New("snippet shortcut requires a modifier or an F1-F12 key")
+	}
+	parts := make([]string, 0, len(modifiers)+1)
+	for _, modifier := range []string{"Ctrl", "Shift", "Alt", "Meta"} {
+		if modifiers[modifier] {
+			parts = append(parts, modifier)
+		}
+	}
+	parts = append(parts, key)
+	result := strings.Join(parts, "+")
+	if _, reserved := reservedShortcuts[result]; reserved {
+		return "", fmt.Errorf("snippet shortcut %q is reserved by the editor", result)
+	}
+	return result, nil
+}
+
+func validShortcutKey(value string) bool {
+	if len(value) == 1 {
+		return (value[0] >= 'A' && value[0] <= 'Z') ||
+			(value[0] >= '0' && value[0] <= '9') || value == "." || value == ","
+	}
+	if functionKeyPattern.MatchString(value) {
+		return true
+	}
+	switch value {
+	case "Space", "Enter", "Tab", "Delete", "Insert", "Home", "End", "PgUp", "PgDn", "Up", "Down", "Left", "Right":
+		return true
+	default:
+		return false
+	}
+}
+
+func canonicalShortcutKey(value string) string {
+	upper := strings.ToUpper(strings.TrimSpace(value))
+	if len([]rune(upper)) == 1 || functionKeyPattern.MatchString(upper) {
+		return upper
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "pgup", "pageup":
+		return "PgUp"
+	case "pgdn", "pagedown":
+		return "PgDn"
+	case "space":
+		return "Space"
+	case "enter":
+		return "Enter"
+	case "tab":
+		return "Tab"
+	case "delete":
+		return "Delete"
+	case "insert":
+		return "Insert"
+	case "home":
+		return "Home"
+	case "end":
+		return "End"
+	case "up", "down", "left", "right":
+		return strings.ToUpper(value[:1]) + strings.ToLower(value[1:])
+	default:
+		return strings.TrimSpace(value)
+	}
 }
 
 func findForbiddenKey(value any) (string, bool) {

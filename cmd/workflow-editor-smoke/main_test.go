@@ -91,6 +91,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		base,
 		base,
@@ -255,6 +258,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	assetsScreenshot := filepath.Join(dir, "assets.png")
 	nodeMenuScreenshot := filepath.Join(dir, "node-context-menu.png")
 	templateMenuScreenshot := filepath.Join(dir, "node-template-menu.png")
+	quickAddScreenshot := filepath.Join(dir, "quick-add.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", "", ""); err != nil {
@@ -263,7 +267,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	if len(states) != 0 {
 		t.Fatalf("unconsumed page states: %d", len(states))
 	}
-	for _, path := range []string{screenshot, assetsScreenshot, nodeMenuScreenshot, templateMenuScreenshot} {
+	for _, path := range []string{screenshot, assetsScreenshot, nodeMenuScreenshot, templateMenuScreenshot, quickAddScreenshot} {
 		if raw, err := os.ReadFile(path); err != nil || string(raw) != "png" {
 			t.Fatalf("screenshot %s = %q, %v", path, raw, err)
 		}

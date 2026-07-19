@@ -25,6 +25,7 @@ type Snippet struct {
 	Description   string       `json:"description,omitempty"`
 	Category      string       `json:"category,omitempty"`
 	Tags          []string     `json:"tags"`
+	Shortcut      string       `json:"shortcut,omitempty"`
 	CreatedAt     time.Time    `json:"createdAt"`
 	UpdatedAt     time.Time    `json:"updatedAt"`
 	UsageCount    int          `json:"usageCount"`
@@ -38,6 +39,7 @@ type Summary struct {
 	Description string     `json:"description,omitempty"`
 	Category    string     `json:"category,omitempty"`
 	Tags        []string   `json:"tags"`
+	Shortcut    string     `json:"shortcut,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
 	UsageCount  int        `json:"usageCount"`
@@ -58,7 +60,7 @@ type ListResult struct {
 func summary(value Snippet) Summary {
 	return Summary{
 		ID: value.ID, Name: value.Name, Description: value.Description, Category: value.Category,
-		Tags: append([]string(nil), value.Tags...), CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
+		Tags: append([]string(nil), value.Tags...), Shortcut: value.Shortcut, CreatedAt: value.CreatedAt, UpdatedAt: value.UpdatedAt,
 		UsageCount: value.UsageCount, LastUsedAt: cloneTime(value.LastUsedAt),
 		NodeTypeID: value.Payload.NodeRef.NodeTypeID,
 	}

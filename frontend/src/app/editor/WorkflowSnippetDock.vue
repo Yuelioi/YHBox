@@ -76,6 +76,7 @@
               </UBadge>
               <span class="truncate text-[9px] text-dimmed">{{ snippet.tags.join(' · ') }}</span>
             </span>
+            <UKbd v-if="snippet.shortcut" size="xs" class="mt-1">{{ snippet.shortcut }}</UKbd>
           </span>
           <UButton
             data-testid="workflow-snippet-edit"

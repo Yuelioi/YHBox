@@ -104,6 +104,38 @@ func TestServiceRejectsSensitiveRuntimeFields(t *testing.T) {
 	}
 }
 
+func TestServiceNormalizesAndRejectsUnsafeSnippetShortcuts(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(store)
+	base := func(name, shortcut string) *Snippet {
+		return &Snippet{
+			Name: name, Shortcut: shortcut,
+			Payload: NodeTemplate{
+				NodeRef: nodecontract.NodeRef{NodeTypeID: "https://example.com/node", Version: "1.0.0", SemanticDigest: artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")},
+				Config:  map[string]any{}, Bindings: map[string]schema.InputBinding{},
+			},
+		}
+	}
+	first, err := service.Save(base("First", " shift + ctrl + k "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Shortcut != "Ctrl+Shift+K" || service.List().Items[0].Shortcut != "Ctrl+Shift+K" {
+		t.Fatalf("shortcut was not normalized: %+v", first)
+	}
+	if _, err := service.Save(base("Duplicate", "ctrl+shift+k")); err == nil {
+		t.Fatal("expected duplicate shortcut rejection")
+	}
+	for _, shortcut := range []string{"Ctrl+C", "K", "Ctrl+Shift"} {
+		if _, err := service.Save(base("Unsafe", shortcut)); err == nil {
+			t.Fatalf("expected %q to be rejected", shortcut)
+		}
+	}
+}
+
 func stringContains(value, fragment string) bool {
 	for index := 0; index+len(fragment) <= len(value); index++ {
 		if value[index:index+len(fragment)] == fragment {

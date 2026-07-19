@@ -1,6 +1,6 @@
 <template>
   <article
-    class="workflow-node group/node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
+    class="workflow-node group/node relative w-[260px] min-w-[260px] max-w-[260px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="visualState.surfaceClasses"
     :data-node-type-id="projection.nodeRef.nodeTypeId"
     @contextmenu.prevent.stop="openNodeContextMenu"
@@ -105,7 +105,7 @@
             :class="pin.channel === 'data' ? 'workflow-handle-data' : 'workflow-handle-signal'"
             :style="{ backgroundColor: pin.color }"
           />
-          <span class="truncate text-toned">{{ pin.id }}</span>
+          <span class="truncate text-toned" :title="pin.label">{{ pin.label }}</span>
         </div>
       </div>
       <div class="space-y-1.5 text-right">
@@ -114,8 +114,12 @@
           :key="pin.key"
           class="relative flex h-5 items-center justify-end"
         >
-          <span class="truncate" :class="pin.channel === 'error' ? 'text-error' : 'text-toned'">
-            {{ pin.id }}
+          <span
+            class="truncate"
+            :class="pin.channel === 'error' ? 'text-error' : 'text-toned'"
+            :title="pin.label"
+          >
+            {{ pin.label }}
           </span>
           <Handle
             :id="graphHandle(pin.channel, 'output', pin.id)"
@@ -127,6 +131,26 @@
         </div>
       </div>
     </div>
+
+    <button
+      v-if="optionalInputCount"
+      type="button"
+      class="nodrag nopan flex w-full items-center gap-1.5 border-t border-default px-3 py-1.5 text-left text-[10px] text-dimmed transition-colors hover:bg-muted/30 hover:text-toned focus-visible:outline-2 focus-visible:outline-primary"
+      :aria-expanded="optionalInputsExpanded"
+      @pointerdown.stop
+      @click.stop="optionalInputsExpanded = !optionalInputsExpanded"
+    >
+      <UIcon
+        :name="optionalInputsExpanded ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+        class="size-3"
+        aria-hidden="true"
+      />
+      {{
+        optionalInputsExpanded
+          ? t('workflow.node.hide_optional_inputs')
+          : t('workflow.node.show_optional_inputs', { n: optionalInputCount })
+      }}
+    </button>
 
     <div
       v-if="surface.inlineInputs.length"
@@ -207,6 +231,7 @@ interface Props {
 interface PinView {
   key: string
   id: string
+  label: string
   channel: HandleChannel
   color: string
 }
@@ -241,6 +266,7 @@ const breakpointLabel = computed(() =>
 )
 const contextMenuOpen = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
+const optionalInputsExpanded = ref(false)
 const contextMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
@@ -369,16 +395,27 @@ const leftPins = computed<PinView[]>(() => [
     .map((signal) => ({
       key: `signal:${signal.channel}:${signal.id}`,
       id: signal.id,
+      label: signal.id,
       channel: signal.channel,
       color: signal.channel === 'error' ? '#f87171' : '#a1a1aa',
     })),
-  ...props.projection.dataInputs.map((port) => ({
-    key: `data:${port.id}`,
-    id: port.id,
-    channel: 'data' as const,
-    color: port.type.color || '#a1a1aa',
-  })),
+  ...visibleDataInputs.value.map(pinFromDataInput),
 ])
+
+const optionalDataInputs = computed(() =>
+  props.projection.dataInputs.filter(
+    (port) =>
+      port.binding !== 'required' &&
+      port.importance !== 'primary' &&
+      !props.connectedInputIds?.has(port.id),
+  ),
+)
+const optionalInputCount = computed(() => optionalDataInputs.value.length)
+const visibleDataInputs = computed(() =>
+  optionalInputsExpanded.value
+    ? props.projection.dataInputs
+    : props.projection.dataInputs.filter((port) => !optionalDataInputs.value.includes(port)),
+)
 
 const rightPins = computed<PinView[]>(() => [
   ...props.projection.signals
@@ -386,16 +423,28 @@ const rightPins = computed<PinView[]>(() => [
     .map((signal) => ({
       key: `signal:${signal.channel}:${signal.id}`,
       id: signal.id,
+      label: signal.id,
       channel: signal.channel,
       color: signal.channel === 'error' ? '#f87171' : '#a1a1aa',
     })),
   ...props.projection.dataOutputs.map((port) => ({
     key: `data:${port.id}`,
     id: port.id,
+    label: portTitle(port),
     channel: 'data' as const,
     color: port.type.color || '#a1a1aa',
   })),
 ])
+
+function pinFromDataInput(port: PortProjection): PinView {
+  return {
+    key: `data:${port.id}`,
+    id: port.id,
+    label: portTitle(port),
+    channel: 'data',
+    color: port.type.color || '#a1a1aa',
+  }
+}
 
 function inputValue(port: PortProjection): unknown {
   const binding = props.node.bindings[port.id]

@@ -5473,6 +5473,11 @@
               "type": "string[]"
             },
             {
+              "name": "\"shortcut\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
               "name": "\"createdAt\"",
               "optional": false,
               "type": "string"
@@ -5527,6 +5532,11 @@
               "name": "\"tags\"",
               "optional": false,
               "type": "string[]"
+            },
+            {
+              "name": "\"shortcut\"",
+              "optional": true,
+              "type": "string"
             },
             {
               "name": "\"createdAt\"",

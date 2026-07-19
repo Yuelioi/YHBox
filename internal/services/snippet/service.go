@@ -50,6 +50,18 @@ func (s *Service) Save(value *Snippet) (*Snippet, error) {
 	result.Description = strings.TrimSpace(result.Description)
 	result.Category = strings.TrimSpace(result.Category)
 	result.Tags = normalizeTags(result.Tags)
+	shortcut, err := normalizeShortcut(result.Shortcut)
+	if err != nil {
+		return nil, err
+	}
+	result.Shortcut = shortcut
+	if shortcut != "" {
+		for _, item := range s.store.List().Items {
+			if item.ID != result.ID && strings.EqualFold(item.Shortcut, shortcut) {
+				return nil, fmt.Errorf("snippet shortcut %q is already used by %q", shortcut, item.Name)
+			}
+		}
+	}
 	now := time.Now().UTC()
 	if strings.TrimSpace(result.ID) == "" {
 		result.ID = "snippet-" + uuid.NewString()
