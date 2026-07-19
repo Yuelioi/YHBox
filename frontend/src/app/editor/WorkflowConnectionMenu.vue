@@ -1,10 +1,11 @@
 <template>
   <div
     data-testid="workflow-connection-menu"
-    class="absolute z-30 flex w-80 max-h-[26rem] flex-col overflow-hidden rounded-xl border border-default bg-default shadow-2xl"
+    class="nowheel nodrag nopan absolute z-30 flex w-80 max-h-[26rem] flex-col overflow-hidden rounded-xl border border-default bg-default shadow-2xl"
     :style="{ left: `${position.x}px`, top: `${position.y}px` }"
     @mousedown.stop
     @click.stop
+    @wheel.stop
   >
     <div class="border-b border-default px-3 py-3">
       <div class="flex items-start gap-2">

@@ -384,6 +384,7 @@
                 :run-status="nodeRunStatusById.get(slotProps.data.node.id)"
                 :diagnostic-severity="nodeDiagnosticSeverityById.get(slotProps.data.node.id)"
                 :breakpoint="hasBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)"
+                :debug-mode="debugModeActive"
                 :debug-current="
                   isDebugCurrent(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
@@ -1199,6 +1200,7 @@ import {
   projectWorkflowFlowNodes,
 } from '@/app/editor/workflowFlowProjection'
 import {
+  canvasOwnsWheelTarget,
   mergeMarqueeSelection,
   WORKFLOW_CANVAS_INTERACTION,
   zoomViewportAtPoint,
@@ -1295,6 +1297,11 @@ const runTimelineOpen = computed(
 )
 const debuggerOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'debug',
+)
+const debugModeActive = computed(
+  () =>
+    debuggerOpen.value ||
+    Boolean(session.debugSnapshot && session.debugSnapshot.status !== 'completed'),
 )
 const breakpointKeys = ref(new Set<string>())
 const recordingStartOpen = ref(false)
@@ -2776,7 +2783,7 @@ function captureMarqueeSelection(event: PointerEvent): void {
 
 function handleCanvasWheel(event: WheelEvent): void {
   const canvas = canvasElement.value
-  if (!canvas) return
+  if (!canvas || !canvasOwnsWheelTarget(event.target)) return
   const rect = canvas.getBoundingClientRect()
   const next = zoomViewportAtPoint(
     getViewport(),

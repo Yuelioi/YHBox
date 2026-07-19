@@ -12,6 +12,11 @@ export interface CanvasViewport {
   zoom: number
 }
 
+export function canvasOwnsWheelTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return true
+  return target.closest('.nowheel, [data-canvas-wheel-boundary]') === null
+}
+
 export function zoomViewportAtPoint(
   viewport: CanvasViewport,
   point: { x: number; y: number },

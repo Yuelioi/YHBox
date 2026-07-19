@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canvasOwnsWheelTarget,
   mergeMarqueeSelection,
   WORKFLOW_CANVAS_INTERACTION,
   zoomViewportAtPoint,
@@ -41,5 +42,16 @@ describe('workflow canvas interaction contract', () => {
   it('clamps node wheel zoom to the workflow canvas limits', () => {
     expect(zoomViewportAtPoint({ x: 0, y: 0, zoom: 0.2 }, { x: 0, y: 0 }, 320, 0).zoom).toBe(0.2)
     expect(zoomViewportAtPoint({ x: 0, y: 0, zoom: 2 }, { x: 0, y: 0 }, -320, 0).zoom).toBe(2)
+  })
+
+  it('leaves wheel input inside an independent overlay instead of zooming the canvas', () => {
+    const canvasNode = document.createElement('article')
+    const connectionMenu = document.createElement('div')
+    const menuCandidate = document.createElement('button')
+    connectionMenu.classList.add('nowheel')
+    connectionMenu.append(menuCandidate)
+
+    expect(canvasOwnsWheelTarget(canvasNode)).toBe(true)
+    expect(canvasOwnsWheelTarget(menuCandidate)).toBe(false)
   })
 })

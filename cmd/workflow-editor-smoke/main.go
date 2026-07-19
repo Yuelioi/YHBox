@@ -89,6 +89,12 @@ type canvasNodeErgonomics struct {
 	CompositeInlineEditors int     `json:"compositeInlineEditors"`
 }
 
+type wheelOwnershipProbe struct {
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
+	Zoom float64 `json:"zoom"`
+}
+
 type nodeGeometry struct {
 	ID        string  `json:"id"`
 	X         float64 `json:"x"`
@@ -392,6 +398,21 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.ConnectionMenu }); err != nil {
 		return fmt.Errorf("open compatible connection menu: %w", err)
+	}
+	wheelBefore, err := readConnectionMenuWheelProbe(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := dispatchMouseWheel(ctx, client, wheelBefore.X, wheelBefore.Y, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	wheelAfter, err := readConnectionMenuWheelProbe(ctx, client)
+	if err != nil {
+		return err
+	}
+	if wheelAfter.Zoom < wheelBefore.Zoom-0.001 || wheelAfter.Zoom > wheelBefore.Zoom+0.001 {
+		return fmt.Errorf("connection candidate wheel zoomed canvas: %.3f -> %.3f", wheelBefore.Zoom, wheelAfter.Zoom)
 	}
 	if err := eval(ctx, client, `(() => {
 		const input = document.querySelector('[data-testid="workflow-connection-search"] input, input[data-testid="workflow-connection-search"]');
@@ -767,6 +788,14 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
 		if (!button) throw new Error('RunStarted breakpoint button not found');
+		if (Number(getComputedStyle(button).opacity) > 0.01) throw new Error('inactive breakpoint control is visible outside debug context');
+		if (!document.querySelector('[data-testid="workflow-debug-start"]')) throw new Error('debug start button unavailable before setting breakpoint');
+	})()`); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
+		if (!button) throw new Error('RunStarted breakpoint button not found');
 		button.click();
 	})()`); err != nil {
 		return err
@@ -1060,6 +1089,23 @@ func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketC
 	})()`, &probe)
 	if err != nil {
 		return canvasNodeErgonomics{}, fmt.Errorf("inspect Analyze Color node ergonomics: %w", err)
+	}
+	return probe, nil
+}
+
+func readConnectionMenuWheelProbe(ctx context.Context, client *browsercdp.WebSocketClient) (wheelOwnershipProbe, error) {
+	var probe wheelOwnershipProbe
+	err := evalJSON(ctx, client, `(() => {
+		const menu = document.querySelector('[data-testid="workflow-connection-menu"]');
+		const viewport = document.querySelector('.vue-flow__transformationpane');
+		if (!menu || !viewport) throw new Error('connection menu wheel probe unavailable');
+		const rect = menu.getBoundingClientRect();
+		const transform = getComputedStyle(viewport).transform;
+		const zoom = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1;
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, zoom };
+	})()`, &probe)
+	if err != nil {
+		return wheelOwnershipProbe{}, fmt.Errorf("inspect connection menu wheel ownership: %w", err)
 	}
 	return probe, nil
 }

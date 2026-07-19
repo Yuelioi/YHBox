@@ -31,6 +31,13 @@ describe('workflow runtime inspection UI', () => {
     expect(debuggerPanel).toContain('snapshot.previousNodeId')
   })
 
+  it('explains breakpoints and keeps the inactive control out of the resting node chrome', () => {
+    expect(node).toContain('<UTooltip')
+    expect(node).toContain(':text="breakpointLabel"')
+    expect(node).toContain("'opacity-0 group-hover/node:opacity-100 focus-within:opacity-100'")
+    expect(node).toContain('debugMode || breakpoint')
+  })
+
   it('keeps normal runs quiet and unifies logs, timeline, and debug in one workbench', () => {
     const startRun = editor.slice(
       editor.indexOf('async function startRun'),

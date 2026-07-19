@@ -1,6 +1,6 @@
 <template>
   <article
-    class="workflow-node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
+    class="workflow-node group/node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="visualState.surfaceClasses"
     :data-node-type-id="projection.nodeRef.nodeTypeId"
     @contextmenu.prevent.stop="emit('save-snippet')"
@@ -34,20 +34,25 @@
         :class="diagnosticClass"
         :aria-label="t(`workflow.diagnostics.${visualState.diagnosticTone}`)"
       />
-      <UButton
-        data-testid="node-breakpoint"
-        class="nodrag nopan"
-        :icon="breakpoint ? 'i-tabler-circle-filled' : 'i-tabler-circle'"
-        :color="breakpoint ? 'error' : 'neutral'"
-        variant="ghost"
-        size="xs"
-        :aria-label="
-          breakpoint ? t('workflow.debug.remove_breakpoint') : t('workflow.debug.add_breakpoint')
-        "
-        :aria-pressed="breakpoint"
-        @pointerdown.stop
-        @click.stop="emit('toggle-breakpoint')"
-      />
+      <UTooltip :text="breakpointLabel" :content="{ side: 'top' }">
+        <UButton
+          data-testid="node-breakpoint"
+          class="nodrag nopan transition-opacity"
+          :class="
+            debugMode || breakpoint
+              ? 'opacity-100'
+              : 'opacity-0 group-hover/node:opacity-100 focus-within:opacity-100'
+          "
+          :icon="breakpoint ? 'i-tabler-circle-filled' : 'i-tabler-circle'"
+          :color="breakpoint ? 'error' : 'neutral'"
+          variant="ghost"
+          size="xs"
+          :aria-label="breakpointLabel"
+          :aria-pressed="breakpoint"
+          @pointerdown.stop
+          @click.stop="emit('toggle-breakpoint')"
+        />
+      </UTooltip>
       <span
         v-if="visualState.showRunStatus"
         data-testid="node-run-status"
@@ -167,6 +172,7 @@ interface Props {
   selected?: boolean
   runStatus?: NodeRunStatus
   breakpoint?: boolean
+  debugMode?: boolean
   debugCurrent?: boolean
   diagnosticSeverity?: DiagnosticSeverity
   connectedInputIds?: ReadonlySet<string>
@@ -196,6 +202,9 @@ const title = computed(() => {
 })
 
 const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)
+const breakpointLabel = computed(() =>
+  props.breakpoint ? t('workflow.debug.remove_breakpoint') : t('workflow.debug.add_breakpoint'),
+)
 
 const visualState = computed(() => workflowNodeVisualState(props))
 const surface = computed(() =>
