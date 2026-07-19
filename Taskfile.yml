@@ -165,6 +165,32 @@ tasks:
     deps: [wails:verify]
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+    env:
+      YOTTA_WEBVIEW_DEBUG_PORT: '{{.WEBVIEW_DEBUG_PORT | default "9227"}}'
+
+  webview:screenshot:
+    summary: Captures the current page from a running development WebView over loopback CDP
+    vars:
+      DEBUG_PORT: '{{.WEBVIEW_DEBUG_PORT | default "9227"}}'
+      SCREENSHOT: '{{.SCREENSHOT | default ".task/webview/current.png"}}'
+      URL_CONTAINS: '{{.URL_CONTAINS | default "wails.localhost"}}'
+    cmds:
+      - >-
+        go run ./cmd/workflow-editor-smoke
+        -capture-only
+        -endpoint "http://127.0.0.1:{{.DEBUG_PORT}}"
+        -url-contains "{{.URL_CONTAINS}}"
+        -screenshot "{{.SCREENSHOT}}"
+
+  webview:smoke:
+    summary: Runs the isolated Wails WebView CDP journey and captures the primary management surfaces
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1 -SkipLauncher
+
+  webview:smoke:full:
+    summary: Runs the isolated Wails WebView CDP journey including the floating launcher
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1
 
   dll:
     summary: 单独打包 Rust WGC capture DLL → bin/capture_wgc.dll (改 .rs 后跑)

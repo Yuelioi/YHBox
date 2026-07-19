@@ -25,6 +25,8 @@ type pageState struct {
 	RunStarted           bool           `json:"runStarted"`
 	AssetsView           bool           `json:"assetsView"`
 	AssetsRecording      bool           `json:"assetsRecording"`
+	SchedulesView        bool           `json:"schedulesView"`
+	ScheduleEditor       bool           `json:"scheduleEditor"`
 	CreateInput          bool           `json:"createInput"`
 	RecoveryPanel        bool           `json:"recoveryPanel"`
 	LauncherButton       bool           `json:"launcherButton"`
@@ -83,17 +85,79 @@ func main() {
 	assetsScreenshot := flag.String("assets-screenshot", ".task/assets-smoke.png", "asset library PNG output path")
 	workflowsScreenshot := flag.String("workflows-screenshot", ".task/workflows-smoke.png", "workflow recovery PNG output path")
 	launcherScreenshot := flag.String("launcher-screenshot", ".task/launcher-smoke.png", "floating launcher PNG output path")
+	schedulesScreenshot := flag.String("schedules-screenshot", ".task/schedules-smoke.png", "schedule editor PNG output path")
+	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
+	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
-	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot); err != nil {
+	if *captureOnly {
+		if err := captureCurrent(ctx, *endpoint, *urlContains, *screenshot); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot string) error {
+func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot string) error {
+	if strings.TrimSpace(screenshot) == "" {
+		return errors.New("screenshot output path is required")
+	}
+	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("discover Wails WebView: %w", err)
+	}
+	var selected *browsercdp.TargetInfo
+	for index := range targets {
+		if urlContains != "" && !strings.Contains(targets[index].URL, urlContains) {
+			continue
+		}
+		if selected != nil {
+			return fmt.Errorf("multiple WebView pages matched %q; use -url-contains to select one", urlContains)
+		}
+		selected = &targets[index]
+	}
+	if selected == nil {
+		return fmt.Errorf("no WebView page matched %q", urlContains)
+	}
+	client, err := browsercdp.DialWebSocketClient(ctx, selected.WebSocketDebuggerURL)
+	if err != nil {
+		return fmt.Errorf("connect Wails WebView: %w", err)
+	}
+	defer client.Close()
+	for _, call := range []struct {
+		method string
+		params map[string]any
+	}{
+		{method: "Runtime.enable"},
+		{method: "Page.enable"},
+		{method: "Page.bringToFront"},
+		{method: "Emulation.setFocusEmulationEnabled", params: map[string]any{"enabled": true}},
+	} {
+		if _, err := client.Call(ctx, call.method, call.params); err != nil {
+			return err
+		}
+	}
+	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, screenshot); err != nil {
+		return err
+	}
+	result, _ := json.MarshalIndent(map[string]any{
+		"status": "captured", "title": selected.Title, "url": selected.URL, "screenshot": screenshot,
+	}, "", "  ")
+	fmt.Println(string(result))
+	return nil
+}
+
+func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot string) error {
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -467,10 +531,37 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := capture(ctx, client, assetsScreenshot); err != nil {
 		return err
 	}
+	if schedulesScreenshot != "" {
+		if err := eval(ctx, client, `location.hash = '#/schedules'`); err != nil {
+			return err
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.SchedulesView && !current.ScheduleEditor
+		}); err != nil {
+			return fmt.Errorf("open schedules view: %w", err)
+		}
+		if err := eval(ctx, client, `(() => {
+			const button = document.querySelector('[data-testid="schedule-create"]');
+			if (!button) throw new Error('new schedule button not found');
+			button.click();
+		})()`); err != nil {
+			return err
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool { return current.ScheduleEditor }); err != nil {
+			return fmt.Errorf("open schedule editor: %w", err)
+		}
+		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+			return err
+		}
+		if err := capture(ctx, client, schedulesScreenshot); err != nil {
+			return err
+		}
+	}
 	result, _ := json.MarshalIndent(map[string]any{
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
+		"schedulesScreenshot": schedulesScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -900,6 +991,8 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
+		schedulesView: Boolean(document.querySelector('[data-testid="schedules-view"]')),
+		scheduleEditor: Boolean(document.querySelector('[data-testid="schedule-editor"]')),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),

@@ -15,6 +15,7 @@ $binDir = Join-Path $runRoot 'bin'
 $screenshot = Join-Path $runRoot 'workflow-editor.png'
 $assetsScreenshot = Join-Path $runRoot 'assets.png'
 $workflowsScreenshot = Join-Path $runRoot 'workflows.png'
+$schedulesScreenshot = Join-Path $runRoot 'schedules.png'
 $launcherScreenshot = Join-Path $runRoot 'launcher.png'
 $appProcess = $null
 $viteProcess = $null
@@ -91,7 +92,8 @@ try {
         '-endpoint', "http://127.0.0.1:$DebugPort",
         '-screenshot', $screenshot,
         '-assets-screenshot', $assetsScreenshot,
-        '-workflows-screenshot', $workflowsScreenshot
+        '-workflows-screenshot', $workflowsScreenshot,
+        '-schedules-screenshot', $schedulesScreenshot
     )
     if (-not $SkipLauncher) {
         $smokeArgs += @('-launcher-screenshot', $launcherScreenshot)

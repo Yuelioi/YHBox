@@ -1,5 +1,5 @@
 <template>
-  <div class="schedule-editor">
+  <div class="schedule-editor" data-testid="schedule-editor">
     <div class="schedule-editor__form">
       <section class="schedule-editor__section">
         <div class="schedule-editor__section-heading">

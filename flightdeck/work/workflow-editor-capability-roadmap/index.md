@@ -6,7 +6,7 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。Slice 44 已按真机反馈继续收口：三个管理页移除标题下重复介绍；计划编辑器删除右侧行为预览，恢复居中的单栏分组表单，并统一使用 AdaptiveSelect。interval 默认 `30` 过去只显示、未写入草稿，导致保存时后端收到 `0`；现已在 UI 状态边界初始化真实默认值并增加就地校验。Go 全量门禁、前端完整门禁（52 个测试文件、210 项测试）与最新 production `task build` 通过，等待用户用最新 EXE 真机接受。Slice 43 的成功反馈退出、刷新去重和 AdaptiveSelect 宽度修复仍一并等待复查；Slice 39/41 仍等待提权真机接受，Slice 37 保持发布阻断。
+In progress。Slice 44 已按真机反馈继续收口：三个管理页移除标题下重复介绍；计划编辑器删除右侧行为预览，恢复居中的单栏分组表单，并统一使用 AdaptiveSelect。interval 默认 `30` 过去只显示、未写入草稿，导致保存时后端收到 `0`；现已在 UI 状态边界初始化真实默认值并增加就地校验。WebView2 调试现有正式 Task 入口、开发 DevTools 快捷键、当前页截图和计划页 smoke 截图；执行者已实际查看最新计划页 PNG，production 继续禁用调试。完整 `task check`、WebView smoke 与 production `task build` 通过，等待用户用最新 EXE 真机接受。Slice 43 的成功反馈退出、刷新去重和 AdaptiveSelect 宽度修复仍一并等待复查；Slice 39/41 仍等待提权真机接受，Slice 37 保持发布阻断。
 
 ## Next
 

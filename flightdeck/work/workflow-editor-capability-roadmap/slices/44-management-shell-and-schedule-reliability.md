@@ -25,9 +25,10 @@ status: in_progress
 - `AppShell.spec.ts` 断言全局壳层不再导入/渲染 LogPanel，运行工作台仍保留日志页签。
 - `ManagementPageShell.spec.ts` 断言三个管理页使用同一组 `workspace-page__*` 视觉契约。
 - `ScheduleEditorPanel.component.spec.ts` 断言 interval 控件未发生用户输入时，界面默认值 `30` 仍会真实进入保存 payload。
+- `task webview:smoke` 使用隔离 DEV host 与 loopback CDP，进入计划编辑器并生成 `schedules.png`；截图必须由执行者实际查看。`task dev` 支持 `Ctrl+Shift+I` DevTools，`task webview:screenshot` 可捕获正在运行的开发 WebView。
 - `task check`：Go 全量门禁、覆盖率和架构契约通过；随后前端完整门禁 52 个测试文件、210 项测试、类型检查、i18n、lint 与 bundle budget 通过。
 - `task build`：生成最新 `bin/Yotta.exe` 及辅助进程。
 
 ## Result
 
-Implementation complete; awaiting user acceptance。App 全局日志面板已移除，编辑器日志改为打开日志页签时异步加载；工作流、资源库、计划标题统一视觉层级并移除标题下重复说明。计划编辑状态在 UI 边界解开外层 Proxy；编辑页按旧版产品节奏重构为居中的单栏分组表单，删除右侧行为预览，枚举统一使用 `AdaptiveSelect`。修复了 interval `30` 只显示但未写入数据导致后端收到 `0` 的根因，并把 daily/interval 等默认值初始化为真实草稿值、增加就地校验。日志归属变化把原本由入口承担的 UI 共享依赖计入 editor closure，因此硬上限按实际归属从 200 KB 校准为 220 KB，125 KB 长期目标不变；当前 editor 为 211.1 KB。Go 门禁、前端完整门禁（210 项测试）与最新 production `task build` 通过，等待真实 WebView 视觉与计划交互接受。
+Implementation complete; awaiting user acceptance。App 全局日志面板已移除，编辑器日志改为打开日志页签时异步加载；工作流、资源库、计划标题统一视觉层级并移除标题下重复说明。计划编辑状态在 UI 边界解开外层 Proxy；编辑页按旧版产品节奏重构为居中的单栏分组表单，删除右侧行为预览，枚举统一使用 `AdaptiveSelect`。修复了 interval `30` 只显示但未写入数据导致后端收到 `0` 的根因，并把 daily/interval 等默认值初始化为真实草稿值、增加就地校验。WebView 调试能力不再藏在单一脚本：开发任务固定 loopback CDP、`Ctrl+Shift+I` 打开 DevTools、可单独截图当前页面，并将计划编辑器加入隔离 smoke 截图；执行者已实际查看最新 `schedules.png`，确认单栏布局、对齐和滚动正常。production build 继续禁用 DevTools/CDP。日志归属变化把原本由入口承担的 UI 共享依赖计入 editor closure，因此硬上限按实际归属从 200 KB 校准为 220 KB，125 KB 长期目标不变；当前 editor 为 211.1 KB。完整 `task check`、WebView smoke 与最新 production `task build` 通过，等待用户用真实数据完成计划交互接受。

@@ -28,6 +28,7 @@ func mainWindowOptions(width, height int) application.WebviewWindowOptions {
 		BackgroundColour: application.NewRGB(9, 9, 11),
 		Frameless:        true,
 		URL:              "/#/workflows",
+		KeyBindings:      webviewDebugKeyBindings(),
 	}
 }
 

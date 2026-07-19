@@ -1,5 +1,5 @@
 <template>
-  <div class="workspace-page">
+  <div class="workspace-page" data-testid="schedules-view">
     <header class="workspace-page__header">
       <div class="min-w-0">
         <div class="flex items-center gap-3">
@@ -24,9 +24,14 @@
         >
           {{ t('schedule.back_to_list') }}
         </UButton>
-        <UButton v-else color="primary" icon="i-tabler-plus" @click="onCreate">{{
-          t('schedule.create')
-        }}</UButton>
+        <UButton
+          v-else
+          color="primary"
+          icon="i-tabler-plus"
+          data-testid="schedule-create"
+          @click="onCreate"
+          >{{ t('schedule.create') }}</UButton
+        >
       </div>
     </header>
 

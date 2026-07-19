@@ -170,7 +170,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	assetsScreenshot := filepath.Join(dir, "assets.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", ""); err != nil {
+	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(states) != 0 {
@@ -180,6 +180,13 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		if raw, err := os.ReadFile(path); err != nil || string(raw) != "png" {
 			t.Fatalf("screenshot %s = %q, %v", path, raw, err)
 		}
+	}
+	currentScreenshot := filepath.Join(dir, "current.png")
+	if err := captureCurrent(ctx, server.URL, "", currentScreenshot); err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := os.ReadFile(currentScreenshot); err != nil || string(raw) != "png" {
+		t.Fatalf("current screenshot = %q, %v", raw, err)
 	}
 }
 
