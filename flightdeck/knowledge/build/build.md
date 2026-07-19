@@ -9,6 +9,8 @@ recheck_when: "改构建命令 (task dev/build) / wails 配置 / vite 配置 / b
 
 编译 / 验证产物时前置读这份。
 
+脚本职责、正式 Task/CI 入口与副作用索引见 `scripts/README.md`；完整门禁仍只由 `task check` 定义。
+
 - frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
 - Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 v3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
 - 开发入口 task dev。

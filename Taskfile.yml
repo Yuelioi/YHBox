@@ -225,7 +225,7 @@ tasks:
   version:bump:
     summary: 更新版本文件、提交并创建 vX.Y.Z tag
     desc: |
-      用法: task version:bump VERSION=2.0.1
+      用法: task version:bump VERSION=3.1.1
       脚本会要求工作区干净，更新所有版本文件，提交 chore(release)，再创建 tag。
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.VERSION}}

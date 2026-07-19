@@ -14,7 +14,7 @@ function Fail($Message) {
 }
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-    Fail "Version must be numeric semver, for example 2.0.1"
+    Fail "Version must be numeric semver, for example 3.1.1"
 }
 
 $repo = (& git rev-parse --show-toplevel 2>$null)
