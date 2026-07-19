@@ -6,11 +6,11 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。Slice 44 已实现管理页壳层和计划编辑可靠性修复：工作流、资源库、计划统一使用计划页的 `workspace-page__*` 标题层级；全局壳层不再挂运行日志，日志只在编辑器运行工作台按需加载；计划创建/编辑不再让 Vue Proxy 直接跨越 `structuredClone`。完整 `task check`（52 个前端测试文件、209 项测试）与 `task build` 通过，等待用户用最新 production build 真机接受。Slice 43 的成功反馈退出、刷新去重和 AdaptiveSelect 宽度修复仍一并等待复查；Slice 39/41 仍等待提权真机接受，Slice 37 保持发布阻断。
+In progress。Slice 44 已按真机反馈继续收口：三个管理页移除标题下重复介绍；计划编辑器删除右侧行为预览，恢复居中的单栏分组表单，并统一使用 AdaptiveSelect。interval 默认 `30` 过去只显示、未写入草稿，导致保存时后端收到 `0`；现已在 UI 状态边界初始化真实默认值并增加就地校验。Go 全量门禁、前端完整门禁（52 个测试文件、210 项测试）与最新 production `task build` 通过，等待用户用最新 EXE 真机接受。Slice 43 的成功反馈退出、刷新去重和 AdaptiveSelect 宽度修复仍一并等待复查；Slice 39/41 仍等待提权真机接受，Slice 37 保持发布阻断。
 
 ## Next
 
-使用最新 UAC production build 和真实 workspace 接受 Slice 44：确认工作流、资源库、计划标题风格一致，三个管理首页没有全局日志，计划新建与编辑既有计划不再黑屏；同时复查 Slice 43 的成功状态条退出、刷新去重和普通枚举最长选项显示。
+使用最新 UAC production build 和真实 workspace 接受 Slice 44：确认三个管理页紧凑标题、计划单栏编辑布局、全部下拉展开与 daily/interval/hotkey 保存；确认 interval 未手动修改时会以 30 分钟成功保存。同时复查 Slice 43 的成功状态条退出、刷新去重和普通枚举最长选项显示。
 
 ## Read now
 

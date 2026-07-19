@@ -14,7 +14,7 @@ describe('management page shell', () => {
       expect(source).toContain('class="workspace-page__mark"')
       expect(source).toContain('class="workspace-page__eyebrow"')
       expect(source).toContain('class="workspace-page__title')
-      expect(source).toContain('class="workspace-page__description"')
+      expect(source).not.toContain('class="workspace-page__description"')
     }
   })
 })

@@ -1,4 +1,4 @@
-import { createApp, reactive } from 'vue'
+import { createApp, nextTick, reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Schedule } from '@/lib/backend'
 import ScheduleEditorPanel from './ScheduleEditorPanel.vue'
@@ -37,5 +37,42 @@ describe('ScheduleEditorPanel', () => {
 
     expect(() => app.mount(root)).not.toThrow()
     expect(root.querySelector('.schedule-editor')).toBeTruthy()
+    expect(root.querySelector('.schedule-editor__summary')).toBeNull()
+  })
+
+  it('persists the visible interval default when the number field is untouched', async () => {
+    const schedule = {
+      schemaVersion: '3.1',
+      id: 'schedule-2',
+      name: 'Interval run',
+      enabled: true,
+      targets: [{ kind: 'workflow', id: 'workflow-1' }],
+      trigger: { kind: 'cron', subKind: 'interval' },
+      timeoutMinutes: 0,
+      onError: 'stop',
+      createdAt: '2026-07-19T00:00:00Z',
+      updatedAt: '2026-07-19T00:00:00Z',
+    } as unknown as Schedule
+    const save = vi.fn()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const app = createApp(ScheduleEditorPanel, {
+      schedule,
+      workflows: [{ workflowId: 'workflow-1', name: 'Workflow 1' }],
+      onSave: save,
+    })
+    app.config.warnHandler = () => undefined
+    mounted.push(app)
+    app.mount(root)
+
+    const saveButton = [...root.querySelectorAll('button, ubutton')].find((button) =>
+      button.textContent?.includes('common.save'),
+    )
+    expect(saveButton).toBeTruthy()
+    saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+
+    expect(save).toHaveBeenCalledOnce()
+    expect(save.mock.calls[0]?.[0].trigger.everyMinutes).toBe(30)
   })
 })

@@ -13,13 +13,6 @@
             </h1>
           </div>
         </div>
-        <p class="workspace-page__description">
-          {{
-            editing
-              ? t('schedule.workspace.editor_description')
-              : t('schedule.workspace.description')
-          }}
-        </p>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <UButton
@@ -37,7 +30,7 @@
       </div>
     </header>
 
-    <main class="min-h-0 flex-1 overflow-y-auto px-6 pb-6 sm:px-8">
+    <main class="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8">
       <template v-if="!editing">
         <section class="workspace-metrics mb-4" :aria-label="t('schedule.workspace.summary')">
           <div class="workspace-metric workspace-metric--primary">

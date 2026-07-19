@@ -14,7 +14,6 @@
             </div>
           </div>
         </div>
-        <p class="workspace-page__description">{{ t('assets.description') }}</p>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <AdaptiveSelect

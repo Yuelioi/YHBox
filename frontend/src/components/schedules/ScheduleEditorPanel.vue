@@ -4,90 +4,37 @@
       <section class="schedule-editor__section">
         <div class="schedule-editor__section-heading">
           <span><UIcon name="i-tabler-adjustments" class="size-4" /></span>
-          <div>
-            <h2>{{ t('schedule.basics_section') }}</h2>
-            <p>{{ t('schedule.workspace.basics_hint') }}</p>
-          </div>
+          <h2>{{ t('schedule.basics_section') }}</h2>
         </div>
-        <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <UFormField :label="t('schedule.name_label')" required>
-            <UInput v-model="draft.name" :aria-label="t('schedule.name_label')" />
-          </UFormField>
-          <UFormField :label="t('schedule.enabled_label')">
-            <div class="flex h-8 items-center gap-2">
-              <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
-              <span class="text-xs text-toned">{{
-                draft.enabled ? t('schedule.enable') : t('schedule.disable')
-              }}</span>
-            </div>
-          </UFormField>
-        </div>
-      </section>
 
-      <section class="schedule-editor__section">
-        <div class="schedule-editor__section-heading">
-          <span><UIcon name="i-tabler-bolt" class="size-4" /></span>
-          <div>
-            <h2>{{ t('schedule.trigger_section') }}</h2>
-            <p>{{ t('schedule.workspace.trigger_hint') }}</p>
-          </div>
+        <div class="schedule-editor__row">
+          <label class="schedule-editor__label" for="schedule-name">
+            {{ t('schedule.name_label') }} <span aria-hidden="true">*</span>
+          </label>
+          <UInput
+            id="schedule-name"
+            v-model="draft.name"
+            class="schedule-editor__control"
+            :aria-label="t('schedule.name_label')"
+          />
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField :label="t('schedule.trigger_kind_label')">
-            <AdaptiveSelect
-              v-model="draft.trigger.kind"
-              :items="triggerKinds"
-              :aria-label="t('schedule.trigger_kind_label')"
-            />
-          </UFormField>
-          <UFormField
-            v-if="draft.trigger.kind === 'cron'"
-            :label="t('schedule.cron_subkind_label')"
-          >
-            <USelect
-              v-model="draft.trigger.subKind"
-              :items="cronSubKinds"
-              :aria-label="t('schedule.cron_subkind_label')"
-            />
-          </UFormField>
-          <UFormField
-            v-if="draft.trigger.kind === 'cron' && draft.trigger.subKind === 'daily'"
-            :label="t('schedule.daily_at_label')"
-          >
-            <UInput
-              v-model="draft.trigger.at"
-              placeholder="05:00"
-              :aria-label="t('schedule.daily_at_label')"
-            />
-          </UFormField>
-          <UFormField
-            v-if="draft.trigger.kind === 'cron' && draft.trigger.subKind === 'interval'"
-            :label="t('schedule.interval_label')"
-          >
-            <UInputNumber
-              :model-value="draft.trigger.everyMinutes ?? 30"
-              :min="1"
-              :aria-label="t('schedule.interval_label')"
-              @update:model-value="draft.trigger.everyMinutes = Number($event)"
-            />
-          </UFormField>
-          <UFormField v-if="draft.trigger.kind === 'hotkey'" :label="t('schedule.hotkey_label')">
-            <UInput
-              v-model="draft.trigger.hotkey"
-              placeholder="Ctrl+Shift+2"
-              :aria-label="t('schedule.hotkey_label')"
-            />
-          </UFormField>
+        <p v-if="showValidation && nameError" class="schedule-editor__validation" role="alert">
+          {{ nameError }}
+        </p>
+
+        <div class="schedule-editor__row">
+          <span class="schedule-editor__label">{{ t('schedule.enabled_label') }}</span>
+          <div class="schedule-editor__control schedule-editor__switch">
+            <USwitch v-model="draft.enabled" :aria-label="t('schedule.enabled_label')" />
+            <span>{{ draft.enabled ? t('schedule.enable') : t('schedule.disable') }}</span>
+          </div>
         </div>
       </section>
 
       <section class="schedule-editor__section">
         <div class="schedule-editor__section-heading">
           <span><UIcon name="i-tabler-stack-2" class="size-4" /></span>
-          <div class="min-w-0 flex-1">
-            <h2>{{ t('schedule.targets_section') }}</h2>
-            <p>{{ t('schedule.targets_hint') }}</p>
-          </div>
+          <h2>{{ t('schedule.targets_section') }}</h2>
           <UBadge size="xs" color="neutral" variant="subtle">{{ draft.targets.length }}</UBadge>
         </div>
 
@@ -137,116 +84,182 @@
           <UIcon name="i-tabler-box-off" class="size-5 text-dimmed" />
           <span>{{ t('schedule.workspace.no_targets_hint') }}</span>
         </div>
-        <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">{{
-          t('schedule.add_workflow')
-        }}</UButton>
+        <p v-if="showValidation && targetsError" class="schedule-editor__validation" role="alert">
+          {{ targetsError }}
+        </p>
+        <div>
+          <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">
+            {{ t('schedule.add_workflow') }}
+          </UButton>
+        </div>
+      </section>
+
+      <section class="schedule-editor__section">
+        <div class="schedule-editor__section-heading">
+          <span><UIcon name="i-tabler-bolt" class="size-4" /></span>
+          <h2>{{ t('schedule.trigger_section') }}</h2>
+        </div>
+
+        <div class="schedule-editor__row">
+          <span class="schedule-editor__label">{{ t('schedule.trigger_kind_label') }}</span>
+          <AdaptiveSelect
+            v-model="draft.trigger.kind"
+            :items="triggerKinds"
+            class="schedule-editor__control"
+            width-mode="fill"
+            :aria-label="t('schedule.trigger_kind_label')"
+          />
+        </div>
+
+        <template v-if="draft.trigger.kind === 'cron'">
+          <div class="schedule-editor__row">
+            <span class="schedule-editor__label">{{ t('schedule.cron_subkind_label') }}</span>
+            <AdaptiveSelect
+              v-model="cronSubKindModel"
+              :items="cronSubKinds"
+              class="schedule-editor__control"
+              width-mode="fill"
+              :aria-label="t('schedule.cron_subkind_label')"
+            />
+          </div>
+          <div v-if="draft.trigger.subKind === 'daily'" class="schedule-editor__row">
+            <span class="schedule-editor__label">{{ t('schedule.daily_at_label') }}</span>
+            <UInput
+              v-model="draft.trigger.at"
+              class="schedule-editor__control"
+              placeholder="05:00"
+              :aria-label="t('schedule.daily_at_label')"
+            />
+          </div>
+          <div v-else-if="draft.trigger.subKind === 'interval'" class="schedule-editor__row">
+            <span class="schedule-editor__label">{{ t('schedule.interval_label') }}</span>
+            <UInputNumber
+              :model-value="draft.trigger.everyMinutes"
+              :min="1"
+              class="schedule-editor__control"
+              :aria-label="t('schedule.interval_label')"
+              @update:model-value="draft.trigger.everyMinutes = Number($event)"
+            />
+          </div>
+        </template>
+
+        <div v-if="draft.trigger.kind === 'hotkey'" class="schedule-editor__row">
+          <span class="schedule-editor__label">{{ t('schedule.hotkey_label') }}</span>
+          <UInput
+            v-model="draft.trigger.hotkey"
+            class="schedule-editor__control"
+            placeholder="Ctrl+Shift+2"
+            :aria-label="t('schedule.hotkey_label')"
+          />
+        </div>
+        <p v-if="showValidation && triggerError" class="schedule-editor__validation" role="alert">
+          {{ triggerError }}
+        </p>
       </section>
 
       <section class="schedule-editor__section">
         <div class="schedule-editor__section-heading">
           <span><UIcon name="i-tabler-shield-half" class="size-4" /></span>
-          <div>
-            <h2>{{ t('schedule.limit_label') }}</h2>
-            <p>{{ t('schedule.workspace.policy_hint') }}</p>
-          </div>
+          <h2>{{ t('schedule.limit_label') }}</h2>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField :label="t('schedule.timeout_label')" :hint="t('schedule.timeout_hint')">
-            <UInputNumber
-              :model-value="draft.timeoutMinutes"
-              :min="0"
-              :aria-label="t('schedule.timeout_label')"
-              @update:model-value="draft.timeoutMinutes = Number($event)"
-            />
-          </UFormField>
-          <UFormField :label="t('schedule.on_error_label')">
-            <AdaptiveSelect
-              v-model="draft.onError"
-              :items="onErrorOptions"
-              :aria-label="t('schedule.on_error_label')"
-            />
-          </UFormField>
+
+        <div class="schedule-editor__row">
+          <span class="schedule-editor__label">
+            {{ t('schedule.timeout_label') }}
+            <small>{{ t('schedule.timeout_hint') }}</small>
+          </span>
+          <UInputNumber
+            :model-value="draft.timeoutMinutes"
+            :min="0"
+            class="schedule-editor__control"
+            :aria-label="t('schedule.timeout_label')"
+            @update:model-value="draft.timeoutMinutes = Math.max(0, Number($event))"
+          />
+        </div>
+
+        <div class="schedule-editor__row">
+          <span class="schedule-editor__label">{{ t('schedule.on_error_label') }}</span>
+          <AdaptiveSelect
+            v-model="draft.onError"
+            :items="onErrorOptions"
+            class="schedule-editor__control"
+            width-mode="fill"
+            :aria-label="t('schedule.on_error_label')"
+          />
         </div>
       </section>
 
       <footer class="schedule-editor__actions">
-        <UButton variant="ghost" color="neutral" @click="$emit('cancel')">{{
-          t('common.cancel')
-        }}</UButton>
-        <UButton
-          color="primary"
-          icon="i-tabler-check"
-          :disabled="!draft.name.trim()"
-          @click="$emit('save', draft)"
-          >{{ t('common.save') }}</UButton
-        >
+        <UButton variant="ghost" color="neutral" @click="emit('cancel')">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton color="primary" icon="i-tabler-check" @click="submit">
+          {{ t('common.save') }}
+        </UButton>
       </footer>
     </div>
-
-    <aside class="schedule-editor__summary">
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-xs font-semibold text-default">{{ t('schedule.workspace.preview') }}</p>
-        <StatusPill
-          :status="draft.enabled ? 'online' : 'paused'"
-          :label="draft.enabled ? t('schedule.enable') : t('schedule.disable')"
-          :dot="draft.enabled"
-        />
-      </div>
-      <div class="schedule-preview__trigger">
-        <span><UIcon :name="previewIcon" class="size-6" /></span>
-        <div>
-          <p>{{ triggerPreview }}</p>
-          <small>{{ t('schedule.workspace.trigger_preview_hint') }}</small>
-        </div>
-      </div>
-      <div>
-        <p class="schedule-preview__label">{{ t('schedule.targets_section') }}</p>
-        <ol v-if="previewTargets.length" class="mt-2 space-y-2">
-          <li
-            v-for="(name, index) in previewTargets"
-            :key="`${name}-${index}`"
-            class="schedule-preview__target"
-          >
-            <span>{{ index + 1 }}</span
-            ><strong>{{ name }}</strong>
-          </li>
-        </ol>
-        <p v-else class="mt-2 text-xs text-dimmed">{{ t('schedule.workspace.no_targets') }}</p>
-      </div>
-      <dl class="schedule-preview__facts">
-        <div>
-          <dt>{{ t('schedule.timeout_label') }}</dt>
-          <dd>{{ timeoutPreview }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('schedule.on_error_label') }}</dt>
-          <dd>{{ t(`schedule.error_mode.${draft.onError}`) }}</dd>
-        </div>
-      </dl>
-    </aside>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, toRaw, watch } from 'vue'
+import { computed, reactive, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { TargetKind } from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
+import {
+  CronSubKind,
+  OnErrorMode,
+  TargetKind,
+  TriggerKind,
+} from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/models.js'
 import type { Schedule } from '@/lib/backend'
 import type { SourceView } from '@/app/transport/workflow'
-import StatusPill from '@/components/common/StatusPill.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const { t } = useI18n()
 const { schedule, workflows } = defineProps<{ schedule: Schedule; workflows: SourceView[] }>()
-defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
+const emit = defineEmits<{ save: [schedule: Schedule]; cancel: [] }>()
 const draft = reactive<Schedule>(cloneSchedule(schedule))
+const showValidation = ref(false)
+
 watch(
   () => schedule,
-  (value) => Object.assign(draft, cloneSchedule(value)),
+  (value) => {
+    Object.assign(draft, cloneSchedule(value))
+    showValidation.value = false
+  },
+)
+watch(
+  () => [draft.trigger.kind, draft.trigger.subKind] as const,
+  () => normalizeTrigger(draft),
+  { immediate: true },
 )
 
 function cloneSchedule(value: Schedule): Schedule {
-  return structuredClone(toRaw(value))
+  const clone = structuredClone(toRaw(value))
+  clone.targets ??= []
+  normalizeSchedule(clone)
+  return clone
+}
+
+function normalizeSchedule(value: Schedule): void {
+  value.trigger ??= { kind: TriggerKind.TriggerManual }
+  if (!value.trigger.kind) value.trigger.kind = TriggerKind.TriggerManual
+  if (!value.onError) value.onError = OnErrorMode.OnErrorStop
+  if (!Number.isFinite(value.timeoutMinutes) || value.timeoutMinutes < 0) value.timeoutMinutes = 0
+  normalizeTrigger(value)
+}
+
+function normalizeTrigger(value: Schedule): void {
+  if (value.trigger.kind !== TriggerKind.TriggerCron) return
+  if (!value.trigger.subKind) value.trigger.subKind = CronSubKind.CronDaily
+  if (value.trigger.subKind === CronSubKind.CronDaily && !value.trigger.at?.trim()) {
+    value.trigger.at = '05:00'
+  }
+  if (
+    value.trigger.subKind === CronSubKind.CronInterval &&
+    (!Number.isFinite(value.trigger.everyMinutes) || (value.trigger.everyMinutes ?? 0) <= 0)
+  ) {
+    value.trigger.everyMinutes = 30
+  }
 }
 
 const workflowItems = computed(() =>
@@ -256,48 +269,48 @@ const workflowItems = computed(() =>
   })),
 )
 const triggerKinds = computed(() => [
-  { label: t('schedule.workflow_unbound'), value: 'manual' },
-  { label: t('schedule.trigger.cron'), value: 'cron' },
-  { label: t('schedule.trigger.once'), value: 'once' },
-  { label: t('schedule.trigger.hotkey'), value: 'hotkey' },
+  { label: t('schedule.workflow_unbound'), value: TriggerKind.TriggerManual },
+  { label: t('schedule.trigger.cron'), value: TriggerKind.TriggerCron },
+  { label: t('schedule.trigger.once'), value: TriggerKind.TriggerOnce },
+  { label: t('schedule.trigger.hotkey'), value: TriggerKind.TriggerHotkey },
 ])
 const cronSubKinds = computed(() => [
-  { label: t('schedule.trigger.daily'), value: 'daily' },
-  { label: t('schedule.trigger.interval'), value: 'interval' },
+  { label: t('schedule.trigger.daily'), value: CronSubKind.CronDaily },
+  { label: t('schedule.trigger.interval'), value: CronSubKind.CronInterval },
 ])
 const onErrorOptions = computed(() => [
-  { label: t('schedule.error_mode.stop'), value: 'stop' },
-  { label: t('schedule.error_mode.continue'), value: 'continue' },
+  { label: t('schedule.error_mode.stop'), value: OnErrorMode.OnErrorStop },
+  { label: t('schedule.error_mode.continue'), value: OnErrorMode.OnErrorContinue },
 ])
-const previewTargets = computed(() =>
-  draft.targets.map(
-    (target) =>
-      workflows.find((workflow) => workflow.workflowId === target.id)?.name ??
-      t('schedule.workflow_unnamed'),
-  ),
-)
-const previewIcon = computed(() => {
-  if (draft.trigger.kind === 'hotkey') return 'i-tabler-keyboard'
-  if (draft.trigger.kind === 'once') return 'i-tabler-rocket'
-  if (draft.trigger.kind === 'manual') return 'i-tabler-hand-click'
-  return draft.trigger.subKind === 'daily' ? 'i-tabler-sun' : 'i-tabler-repeat'
+const cronSubKindModel = computed<CronSubKind>({
+  get: () => draft.trigger.subKind ?? CronSubKind.CronDaily,
+  set: (value) => {
+    draft.trigger.subKind = value
+  },
 })
-const triggerPreview = computed(() => {
-  if (draft.trigger.kind === 'cron' && draft.trigger.subKind === 'daily')
-    return t('schedule.display.daily', { at: draft.trigger.at ?? '--:--' })
-  if (draft.trigger.kind === 'cron' && draft.trigger.subKind === 'interval')
-    return t('schedule.display.interval', { mins: draft.trigger.everyMinutes ?? 30 })
-  if (draft.trigger.kind === 'hotkey')
-    return t('schedule.display.hotkey', {
-      key: draft.trigger.hotkey || t('schedule.workflow_unbound'),
-    })
-  return t(`schedule.trigger.${draft.trigger.kind}`)
+
+const nameError = computed(() => (!draft.name.trim() ? t('schedule.validation.name') : ''))
+const targetsError = computed(() => {
+  if (!draft.targets.length) return t('schedule.validation.targets')
+  if (draft.targets.some((target) => !target.id)) return t('schedule.validation.target')
+  return ''
 })
-const timeoutPreview = computed(() =>
-  draft.timeoutMinutes > 0
-    ? t('schedule.workspace.timeout_minutes', { n: draft.timeoutMinutes })
-    : t('schedule.workspace.no_timeout'),
-)
+const triggerError = computed(() => {
+  if (draft.trigger.kind === TriggerKind.TriggerCron) {
+    if (draft.trigger.subKind === CronSubKind.CronDaily) {
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(draft.trigger.at ?? '')
+        ? ''
+        : t('schedule.validation.daily')
+    }
+    if (draft.trigger.subKind === CronSubKind.CronInterval) {
+      return (draft.trigger.everyMinutes ?? 0) > 0 ? '' : t('schedule.validation.interval')
+    }
+  }
+  if (draft.trigger.kind === TriggerKind.TriggerHotkey && !draft.trigger.hotkey?.trim()) {
+    return t('schedule.validation.hotkey')
+  }
+  return ''
+})
 
 function addTarget() {
   draft.targets.push({ kind: TargetKind.TargetWorkflow, id: workflows[0]?.workflowId ?? '' })
@@ -306,5 +319,11 @@ function moveTarget(from: number, to: number) {
   if (to < 0 || to >= draft.targets.length) return
   const [target] = draft.targets.splice(from, 1)
   if (target) draft.targets.splice(to, 0, target)
+}
+function submit(): void {
+  normalizeSchedule(draft)
+  showValidation.value = true
+  if (nameError.value || targetsError.value || triggerError.value) return
+  emit('save', cloneSchedule(draft))
 }
 </script>
