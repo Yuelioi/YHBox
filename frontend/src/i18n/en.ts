@@ -1985,6 +1985,23 @@ export default {
       layout_failed: 'Auto-layout failed',
       clipboard_failed: 'Could not read the workflow clipboard',
       collapse: 'Collapse to subgraph',
+      collapse_rejected: 'Cannot collapse this selection',
+      collapse_multiple_entry:
+        'The selection has {count} distinct entries. Merge them into one execution entry first; a conflicting edge is selected.',
+      collapse_incoming_error:
+        'An error channel cannot enter a subgraph. Handle it outside or reshape the control flow first; the conflicting edge is selected.',
+    },
+    canvas: {
+      help: 'Canvas gestures',
+      marquee_key: 'Left drag',
+      marquee: 'Marquee-select nodes',
+      add_selection: 'Add a marquee selection',
+      toggle_selection: 'Toggle one node',
+      pan: 'Pan the canvas',
+      delete_clear: 'Delete selection / clear selection',
+      clear_run_trace: 'Clear the latest run trace',
+      show_minimap: 'Show minimap',
+      hide_minimap: 'Hide minimap',
     },
     graphs: {
       all: 'Graphs',
@@ -1997,6 +2014,14 @@ export default {
       no_call_inputs: 'This subgraph has no data inputs.',
       open: 'Open subgraph',
       infer_interface: 'Refresh interface',
+      boundary_entry: 'Subgraph entry',
+      boundary_exit: 'Subgraph exit',
+      boundary_output: 'Subgraph data outputs',
+      boundary_authoring: 'Interface projection',
+      interface_title: 'Subgraph interface',
+      interface_hint:
+        'Canvas boundaries, call nodes, and the compiler read the same Source interface. Drag a boundary connection to rebind it.',
+      interface_empty: 'There are no data ports or named exits yet.',
       add_comment: 'Add comment',
       default_name: 'Subgraph',
       delete_title: 'Delete subgraph?',

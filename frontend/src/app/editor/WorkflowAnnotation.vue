@@ -3,7 +3,11 @@
     data-testid="workflow-annotation"
     ref="surface"
     class="min-w-48 resize overflow-auto rounded-lg border bg-warning/10 shadow-sm"
-    :class="selected ? 'border-warning' : 'border-warning/45'"
+    :class="
+      selected
+        ? 'border-warning/45 ring-2 ring-primary/80 ring-offset-2 ring-offset-default'
+        : 'border-warning/45'
+    "
     :style="{ width: `${annotation.size.width}px`, height: `${annotation.size.height}px` }"
     @pointerup="commitSize"
   >

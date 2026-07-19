@@ -16,6 +16,7 @@ $screenshot = Join-Path $runRoot 'workflow-editor.png'
 $assetsScreenshot = Join-Path $runRoot 'assets.png'
 $workflowsScreenshot = Join-Path $runRoot 'workflows.png'
 $schedulesScreenshot = Join-Path $runRoot 'schedules.png'
+$subgraphScreenshot = Join-Path $runRoot 'subgraph.png'
 $launcherScreenshot = Join-Path $runRoot 'launcher.png'
 $appProcess = $null
 $viteProcess = $null
@@ -93,7 +94,8 @@ try {
         '-screenshot', $screenshot,
         '-assets-screenshot', $assetsScreenshot,
         '-workflows-screenshot', $workflowsScreenshot,
-        '-schedules-screenshot', $schedulesScreenshot
+        '-schedules-screenshot', $schedulesScreenshot,
+        '-subgraph-screenshot', $subgraphScreenshot
     )
     if (-not $SkipLauncher) {
         $smokeArgs += @('-launcher-screenshot', $launcherScreenshot)

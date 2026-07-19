@@ -33,6 +33,7 @@ import {
   type ConnectionCompatibility,
 } from './connectionCompatibility'
 import type { ParsedHandle } from './graphHandles'
+import type { GraphBoundaryBinding, GraphBoundaryKey } from './workflowGraphBoundary'
 
 export { assignable } from './connectionCompatibility'
 
@@ -447,9 +448,115 @@ export class EditorSession {
         call.bindings,
       )
     }
+    if (entries.length > 1) throw new Error('subgraph has multiple unconnected execution entries')
     if (!entries.length || !exits.length)
       throw new Error('subgraph needs an unconnected “in” entry and at least one signal exit')
     this.apply({ kind: 'update-graph-interface', inputs, outputs, entries, exits })
+  }
+
+  graphBoundaryCompatibility(binding: GraphBoundaryBinding): ConnectionCompatibility {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph')
+      return { valid: false, issue: 'port', message: 'open a subgraph first' }
+    if (binding.kind === 'entry') {
+      return graphSignalEndpointValid(
+        this.requireSource(),
+        graph,
+        binding.endpoint,
+        false,
+        'exec',
+        this.projections,
+      )
+        ? { valid: true, disposition: 'direct' }
+        : { valid: false, issue: 'port', message: 'subgraph entry requires an execution input' }
+    }
+    if (binding.kind === 'exit') {
+      const exit = graph.exits?.find((candidate) => candidate.id === binding.boundaryId)
+      return exit &&
+        graphSignalEndpointValid(
+          this.requireSource(),
+          graph,
+          binding.endpoint,
+          true,
+          exit.channel,
+          this.projections,
+        )
+        ? { valid: true, disposition: 'direct' }
+        : {
+            valid: false,
+            issue: 'port',
+            message: 'subgraph exit requires a matching signal output',
+          }
+    }
+    const port = (binding.kind === 'input' ? graph.inputs : graph.outputs).find(
+      (candidate) => candidate.id === binding.boundaryId,
+    )
+    if (!port) return { valid: false, issue: 'port', message: 'subgraph interface port is missing' }
+    const endpointType = graphEndpointType(
+      this.requireSource(),
+      graph,
+      binding.endpoint,
+      binding.kind === 'output',
+      this.projections,
+    )
+    const compatible =
+      endpointType &&
+      (binding.kind === 'input'
+        ? assignable(port.type, endpointType, this.typeProjections)
+        : assignable(endpointType, port.type, this.typeProjections))
+    return compatible
+      ? { valid: true, disposition: 'direct' }
+      : {
+          valid: false,
+          issue: 'type',
+          message: 'subgraph interface and endpoint types are incompatible',
+          disposition: 'incompatible',
+        }
+  }
+
+  bindGraphBoundary(binding: GraphBoundaryBinding): void {
+    const compatibility = this.graphBoundaryCompatibility(binding)
+    if (!compatibility.valid) throw new Error(compatibility.message ?? 'invalid subgraph binding')
+    const graph = this.currentGraph!
+    const inputs = clone(graph.inputs)
+    const outputs = clone(graph.outputs)
+    const entries = clone(graph.entries ?? [])
+    const exits = clone(graph.exits ?? [])
+    if (binding.kind === 'entry') entries.splice(0, entries.length, clone(binding.endpoint))
+    if (binding.kind === 'input') {
+      const port = inputs.find((candidate) => candidate.id === binding.boundaryId)!
+      Object.assign(port, clone(binding.endpoint))
+    }
+    if (binding.kind === 'output') {
+      const port = outputs.find((candidate) => candidate.id === binding.boundaryId)!
+      Object.assign(port, clone(binding.endpoint))
+    }
+    if (binding.kind === 'exit') {
+      const exit = exits.find((candidate) => candidate.id === binding.boundaryId)!
+      exit.endpoint = clone(binding.endpoint)
+    }
+    this.apply({ kind: 'update-graph-interface', inputs, outputs, entries, exits })
+  }
+
+  unbindGraphBoundary(key: GraphBoundaryKey): void {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph') throw new Error('open a subgraph first')
+    this.apply({
+      kind: 'update-graph-interface',
+      inputs:
+        key.kind === 'input'
+          ? graph.inputs.filter((port) => port.id !== key.boundaryId)
+          : clone(graph.inputs),
+      outputs:
+        key.kind === 'output'
+          ? graph.outputs.filter((port) => port.id !== key.boundaryId)
+          : clone(graph.outputs),
+      entries: key.kind === 'entry' ? [] : clone(graph.entries ?? []),
+      exits:
+        key.kind === 'exit'
+          ? (graph.exits ?? []).filter((exit) => exit.id !== key.boundaryId)
+          : clone(graph.exits ?? []),
+    })
   }
 
   connectionCompatibility(edge: Edge): ConnectionCompatibility {
@@ -947,6 +1054,14 @@ export class EditorSession {
     this.activeRun = await this.transport.cancelRun(this.activeRun.runId)
     this.phase = 'ready'
     return this.activeRun
+  }
+
+  clearRunTrace(): boolean {
+    if (!this.activeRun || !terminalStatus(this.activeRun.status)) return false
+    this.activeRun = null
+    this.debugSnapshot = null
+    this.pendingDebugSnapshots.clear()
+    return true
   }
 
   serialize(): string {
@@ -2258,6 +2373,36 @@ function graphEndpointType(
   const callee = source.graphs.find((candidate) => candidate.id === call?.graphId)
   const ports = output ? callee?.outputs : callee?.inputs
   return ports?.find((port) => port.id === endpoint.portId)?.type
+}
+
+function graphSignalEndpointValid(
+  source: YottaWorkflowSource,
+  graph: Graph,
+  endpoint: Edge['from'],
+  output: boolean,
+  channel: 'exec' | 'error',
+  projections: Map<string, NodeProjection>,
+): boolean {
+  const node = graph.nodes.find((candidate) => candidate.id === endpoint.nodeId)
+  if (node) {
+    return Boolean(
+      projections
+        .get(node.nodeRef.nodeTypeId)
+        ?.signals.some(
+          (signal) =>
+            signal.id === endpoint.portId &&
+            signal.direction === (output ? 'output' : 'input') &&
+            signal.channel === channel,
+        ),
+    )
+  }
+  const call = graph.calls!.find((candidate) => candidate.id === endpoint.nodeId)
+  const callee = source.graphs.find((candidate) => candidate.id === call?.graphId)
+  return output
+    ? Boolean(
+        callee?.exits?.some((exit) => exit.id === endpoint.portId && exit.channel === channel),
+      )
+    : Boolean(call && endpoint.portId === 'in' && channel === 'exec')
 }
 
 function resolveGraphInputProjection(

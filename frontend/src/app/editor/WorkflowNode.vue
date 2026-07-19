@@ -1,8 +1,15 @@
 <template>
   <article
-    class="workflow-node min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
-    :class="nodeClasses"
+    class="workflow-node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
+    :class="visualState.surfaceClasses"
   >
+    <span
+      v-if="visualState.executionTone"
+      data-testid="node-execution-stripe"
+      class="pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-r-full"
+      :class="visualState.executionStripeClasses"
+      aria-hidden="true"
+    />
     <header
       class="workflow-node-drag-handle flex cursor-grab items-center gap-2 rounded-t-lg border-b border-default bg-muted/35 px-3 py-2.5 active:cursor-grabbing"
     >
@@ -16,6 +23,14 @@
         name="i-tabler-ban"
         class="size-3.5 text-warning"
         :aria-label="t('workflow.node.disabled')"
+      />
+      <UIcon
+        v-if="visualState.diagnosticTone"
+        data-testid="node-diagnostic-status"
+        :name="diagnosticIcon"
+        class="size-3.5"
+        :class="diagnosticClass"
+        :aria-label="t(`workflow.diagnostics.${visualState.diagnosticTone}`)"
       />
       <UButton
         data-testid="node-breakpoint"
@@ -40,7 +55,11 @@
         <span class="size-1.5 rounded-full" :class="runStatusDot" aria-hidden="true" />
         {{ t(`workflow.node.run_${runStatus}`) }}
       </span>
-      <span v-if="debugCurrent" class="flex items-center gap-1 text-[9px] font-medium text-warning">
+      <span
+        v-if="debugCurrent"
+        data-testid="node-debug-current"
+        class="flex items-center gap-1 text-[9px] font-medium text-warning"
+      >
         <span class="size-1.5 animate-pulse rounded-full bg-warning motion-reduce:animate-none" />
         {{ t('workflow.debug.current') }}
       </span>
@@ -98,6 +117,8 @@ import { useI18n } from 'vue-i18n'
 import type { Node, NodeProjection } from '@/app/editor/EditorSession'
 import { graphHandle, type HandleChannel } from '@/app/editor/graphHandles'
 import type { NodeRunStatus } from '@/app/editor/runTrace'
+import type { DiagnosticSeverity } from '@/app/editor/workflowDiagnostics'
+import { workflowNodeVisualState } from '@/app/editor/workflowNodeVisualState'
 
 interface Props {
   node: Node
@@ -106,6 +127,7 @@ interface Props {
   runStatus?: NodeRunStatus
   breakpoint?: boolean
   debugCurrent?: boolean
+  diagnosticSeverity?: DiagnosticSeverity
 }
 
 interface PinView {
@@ -128,15 +150,19 @@ const title = computed(() => {
 
 const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)
 
-const nodeClasses = computed(() => [
-  props.selected ? 'border-primary/70 shadow-primary/10' : 'border-default',
-  props.runStatus === 'running' && 'border-primary/80 shadow-primary/15',
-  props.runStatus === 'succeeded' && 'border-success/65 shadow-success/10',
-  props.runStatus === 'failed' && 'border-error/75 shadow-error/15',
-  props.runStatus === 'cancelled' && 'border-warning/65',
-  props.runStatus === 'routed' && 'border-warning/65 shadow-warning/10',
-  props.debugCurrent && 'ring-2 ring-warning/70 ring-offset-2 ring-offset-default',
-])
+const visualState = computed(() => workflowNodeVisualState(props))
+const diagnosticIcon = computed(() =>
+  visualState.value.diagnosticTone === 'error'
+    ? 'i-tabler-alert-circle-filled'
+    : visualState.value.diagnosticTone === 'warning'
+      ? 'i-tabler-alert-triangle-filled'
+      : 'i-tabler-info-circle-filled',
+)
+const diagnosticClass = computed(() => {
+  if (visualState.value.diagnosticTone === 'error') return 'text-error'
+  if (visualState.value.diagnosticTone === 'warning') return 'text-warning'
+  return 'text-info'
+})
 const runStatusText = computed(() => {
   if (props.runStatus === 'failed') return 'text-error'
   if (props.runStatus === 'succeeded') return 'text-success'

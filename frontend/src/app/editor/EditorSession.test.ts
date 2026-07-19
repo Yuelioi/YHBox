@@ -38,6 +38,19 @@ const endBranch = node('https://schemas.yotta.dev/nodes/control/end-branch')
 const clickPointer = node('https://schemas.yotta.dev/nodes/automation/click-pointer')
 
 describe('EditorSession', () => {
+  it('clears only a terminal run trace without mutating the workflow', () => {
+    const session = new EditorSession(mockTransport(sourceView(emptySource()), runView('RUNNING')))
+    session.activeRun = runView('RUNNING')
+
+    expect(session.clearRunTrace()).toBe(false)
+    expect(session.activeRun?.status).toBe('RUNNING')
+
+    session.activeRun = runView('SUCCEEDED')
+    expect(session.clearRunTrace()).toBe(true)
+    expect(session.activeRun).toBeNull()
+    expect(session.dirty).toBe(false)
+  })
+
   it('persists workflow target defaults without copying them into node config', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
@@ -869,6 +882,86 @@ describe('EditorSession', () => {
       graphId: 'child',
       bindings: { 'input_duration-milliseconds_1': { kind: 'value', value: 250 } },
     })
+  })
+
+  it('binds visible subgraph boundaries back into the canonical graph interface', async () => {
+    const source = emptySource()
+    const duration = delay.dataInputs.find((port) => port.id === 'duration-milliseconds')!
+    source.graphs.push({
+      id: 'child',
+      name: 'Child',
+      kind: 'subgraph',
+      nodes: [
+        {
+          id: 'wait',
+          nodeRef: delay.nodeRef,
+          position: { x: 0, y: 0 },
+          config: {},
+          bindings: {},
+        },
+      ],
+      edges: [],
+      inputs: [
+        {
+          id: 'duration',
+          type: duration.type.expression,
+          nodeId: 'wait',
+          portId: 'duration-milliseconds',
+        },
+      ],
+      outputs: [],
+      entries: [],
+      exits: [{ id: 'done', channel: 'exec', endpoint: { nodeId: 'wait', portId: 'done' } }],
+    })
+    const session = new EditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+    await session.load(source.workflow.id)
+    session.enterGraph('child')
+
+    expect(
+      session.graphBoundaryCompatibility({
+        kind: 'input',
+        boundaryId: 'duration',
+        endpoint: { nodeId: 'wait', portId: 'duration-milliseconds' },
+      }),
+    ).toMatchObject({ valid: true })
+    session.bindGraphBoundary({
+      kind: 'entry',
+      endpoint: { nodeId: 'wait', portId: 'in' },
+    })
+    expect(session.currentGraph?.entries).toEqual([{ nodeId: 'wait', portId: 'in' }])
+
+    session.unbindGraphBoundary({ kind: 'entry' })
+    expect(session.currentGraph?.entries).toEqual([])
+    session.unbindGraphBoundary({ kind: 'input', boundaryId: 'duration' })
+    expect(session.currentGraph?.inputs).toEqual([])
+  })
+
+  it('rejects automatic subgraph inference when it finds multiple execution entries', async () => {
+    const source = emptySource()
+    source.graphs.push({
+      id: 'child',
+      name: 'Child',
+      kind: 'subgraph',
+      nodes: ['first', 'second'].map((id, index) => ({
+        id,
+        nodeRef: delay.nodeRef,
+        position: { x: index * 240, y: 0 },
+        config: {},
+        bindings: {},
+      })),
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+    })
+    const session = new EditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+    await session.load(source.workflow.id)
+    session.enterGraph('child')
+
+    expect(() => session.inferCurrentGraphInterface()).toThrow(
+      'subgraph has multiple unconnected execution entries',
+    )
   })
 
   it('owns typed state declarations and prevents deleting referenced slots', async () => {

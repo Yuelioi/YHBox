@@ -284,6 +284,7 @@
           :data-graph-id="session.currentGraph?.id"
           class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
           :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
+          @pointerdown.capture="captureMarqueeSelection"
           @dragover="continueNodeDrag"
           @dragleave.self="finishNodeDrag"
           @drop="dropNode"
@@ -292,6 +293,11 @@
             :nodes="flowNodes"
             :edges="flowEdges"
             :delete-key-code="null"
+            :selection-key-code="WORKFLOW_CANVAS_INTERACTION.selectionKeyCode"
+            :multi-selection-key-code="WORKFLOW_CANVAS_INTERACTION.multiSelectionKeyCode"
+            :pan-activation-key-code="WORKFLOW_CANVAS_INTERACTION.panActivationKeyCode"
+            :pan-on-drag="WORKFLOW_CANVAS_INTERACTION.panOnDrag"
+            :select-nodes-on-drag="WORKFLOW_CANVAS_INTERACTION.selectNodesOnDrag"
             :is-valid-connection="isValidConnection"
             fit-view-on-init
             :min-zoom="0.2"
@@ -303,6 +309,7 @@
             @node-click="selectNode"
             @edge-click="selectEdge"
             @pane-click="handlePaneClick"
+            @selection-end="finishMarqueeSelection"
             @nodes-change="handleNodesChange"
             @node-drag-start="trackNodeDrag"
             @node-drag="trackNodeDrag"
@@ -315,6 +322,7 @@
                 :projection="slotProps.data.projection"
                 :selected="slotProps.selected"
                 :run-status="nodeRunStatusById.get(slotProps.data.node.id)"
+                :diagnostic-severity="nodeDiagnosticSeverityById.get(slotProps.data.node.id)"
                 :breakpoint="hasBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)"
                 :debug-current="
                   isDebugCurrent(session.currentGraph?.id ?? '', slotProps.data.node.id)
@@ -331,6 +339,9 @@
                 :selected="slotProps.selected"
                 @open="openCalledGraph(slotProps.data.call.graphId)"
               />
+            </template>
+            <template #node-graph-boundary="slotProps">
+              <WorkflowGraphBoundary :boundary="slotProps.data" />
             </template>
             <template #node-annotation="slotProps">
               <WorkflowAnnotation
@@ -354,6 +365,7 @@
             <Background :gap="20" :size="1" pattern-color="rgb(113 113 122 / 0.26)" />
             <Controls position="bottom-left" />
             <MiniMap
+              v-if="minimapOpen"
               position="bottom-right"
               :pannable="true"
               :zoomable="true"
@@ -387,27 +399,28 @@
             @remove="removeSelection"
           />
           <div
-            v-else
             class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
-            <template v-if="selectedEdgeId">
-              <UButton
-                data-testid="workflow-reroute-add"
-                icon="i-tabler-point"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :label="t('workflow.reroute.add')"
-                @click="addEdgeReroute"
-              />
-              <UButton
-                icon="i-tabler-eraser"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :aria-label="t('workflow.reroute.clear')"
-                @click="clearEdgeReroutes"
-              />
+            <template v-if="!selectedNodeIds.size && selectedEdgeId">
+              <template v-if="selectedSourceEdge()">
+                <UButton
+                  data-testid="workflow-reroute-add"
+                  icon="i-tabler-point"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :label="t('workflow.reroute.add')"
+                  @click="addEdgeReroute"
+                />
+                <UButton
+                  icon="i-tabler-eraser"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="t('workflow.reroute.clear')"
+                  @click="clearEdgeReroutes"
+                />
+              </template>
               <UButton
                 icon="i-tabler-trash"
                 color="error"
@@ -417,26 +430,78 @@
                 @click="disconnectEdge(selectedEdgeId)"
               />
             </template>
+            <template v-if="!selectedNodeIds.size">
+              <UButton
+                data-testid="workflow-layout-lr"
+                icon="i-tabler-layout-board-split"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :loading="layouting"
+                :aria-label="t('workflow.selection.layout_lr')"
+                @click="autoLayout('LR')"
+              />
+              <UButton
+                data-testid="workflow-layout-tb"
+                icon="i-tabler-layout-navbar-collapse"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :loading="layouting"
+                :aria-label="t('workflow.selection.layout_tb')"
+                @click="autoLayout('TB')"
+              />
+            </template>
             <UButton
-              data-testid="workflow-layout-lr"
-              icon="i-tabler-layout-board-split"
+              v-if="session.activeRun"
+              data-testid="workflow-clear-run-trace"
+              icon="i-tabler-route-off"
               color="neutral"
               variant="ghost"
               size="xs"
-              :loading="layouting"
-              :aria-label="t('workflow.selection.layout_lr')"
-              @click="autoLayout('LR')"
+              :disabled="runActive"
+              :aria-label="t('workflow.canvas.clear_run_trace')"
+              @click="clearRunTrace"
             />
             <UButton
-              data-testid="workflow-layout-tb"
-              icon="i-tabler-layout-navbar-collapse"
+              data-testid="workflow-minimap-toggle"
+              icon="i-tabler-map-2"
               color="neutral"
-              variant="ghost"
+              :variant="minimapOpen ? 'soft' : 'ghost'"
               size="xs"
-              :loading="layouting"
-              :aria-label="t('workflow.selection.layout_tb')"
-              @click="autoLayout('TB')"
+              :aria-label="
+                t(minimapOpen ? 'workflow.canvas.hide_minimap' : 'workflow.canvas.show_minimap')
+              "
+              :aria-pressed="minimapOpen"
+              @click="minimapOpen = !minimapOpen"
             />
+            <UPopover mode="click" :ui="{ content: 'w-72 p-3' }">
+              <UButton
+                data-testid="workflow-canvas-help"
+                icon="i-tabler-help-circle"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('workflow.canvas.help')"
+              />
+              <template #content>
+                <div class="space-y-2 text-xs">
+                  <p class="font-medium text-highlighted">{{ t('workflow.canvas.help') }}</p>
+                  <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-muted">
+                    <dt class="font-mono text-toned">{{ t('workflow.canvas.marquee_key') }}</dt>
+                    <dd>{{ t('workflow.canvas.marquee') }}</dd>
+                    <dt class="font-mono text-toned">Shift</dt>
+                    <dd>{{ t('workflow.canvas.add_selection') }}</dd>
+                    <dt class="font-mono text-toned">Ctrl</dt>
+                    <dd>{{ t('workflow.canvas.toggle_selection') }}</dd>
+                    <dt class="font-mono text-toned">Space / MMB</dt>
+                    <dd>{{ t('workflow.canvas.pan') }}</dd>
+                    <dt class="font-mono text-toned">Delete / Esc</dt>
+                    <dd>{{ t('workflow.canvas.delete_clear') }}</dd>
+                  </dl>
+                </div>
+              </template>
+            </UPopover>
           </div>
           <div
             v-if="connectionHint"
@@ -455,7 +520,7 @@
             @close="closeConnectionMenu"
           />
           <div
-            v-if="flowNodes.length === 0"
+            v-if="currentGraphElementCount === 0"
             data-testid="workflow-empty-canvas"
             class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-8"
           >
@@ -531,6 +596,11 @@
           @update="applyCommand({ kind: 'update-graph-call', call: $event })"
           @open="openCalledGraph(selectedCallGraph.id)"
           @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
+        />
+        <WorkflowGraphInterfacePanel
+          v-else-if="session.currentGraph?.kind === 'subgraph' && !selectedNodeId"
+          :graph="session.currentGraph"
+          @infer="inferGraphInterface"
         />
         <WorkflowInspector
           v-else
@@ -945,6 +1015,8 @@ import WorkflowConnectionMenu, {
 import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
 import WorkflowGraphCall from '@/app/editor/WorkflowGraphCall.vue'
 import WorkflowGraphCallInspector from '@/app/editor/WorkflowGraphCallInspector.vue'
+import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
+import WorkflowGraphInterfacePanel from '@/app/editor/WorkflowGraphInterfacePanel.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -959,7 +1031,7 @@ import {
 import { useSettingsStore } from '@/stores/settings'
 import { errorMessage } from '@/lib/invoke'
 import { nodeRunStatuses } from '@/app/editor/runTrace'
-import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
+import { nodeDiagnosticSeverities, type WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
   compatibleCandidatePorts,
   type ConversionCandidatePlan,
@@ -969,6 +1041,18 @@ import {
   createWorkflowNodeGestureState,
   projectWorkflowFlowNodes,
 } from '@/app/editor/workflowFlowProjection'
+import {
+  mergeMarqueeSelection,
+  WORKFLOW_CANVAS_INTERACTION,
+} from '@/app/editor/workflowCanvasInteraction'
+import { workflowEdgeVisualState } from '@/app/editor/workflowEdgeVisualState'
+import {
+  analyzeCollapseBoundary,
+  graphBoundaryBindingFromConnection,
+  graphBoundaryKeyFromEdge,
+  isGraphBoundaryNodeId,
+  projectGraphBoundaries,
+} from '@/app/editor/workflowGraphBoundary'
 import {
   alignNodePositions,
   autoLayoutNodePositions,
@@ -1032,6 +1116,7 @@ const connectionHint = ref('')
 const connectionError = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
+const minimapOpen = ref(false)
 const diagnosticsOpen = ref(false)
 type RuntimeWorkbenchTab = 'logs' | 'timeline' | 'debug'
 const runtimeWorkbenchOpen = ref(false)
@@ -1078,6 +1163,7 @@ let connectionMadeThisGesture = false
 let workflowClipboard: WorkflowSelectionClipboard | null = null
 let pasteOffset = 0
 let nextPosition = 0
+let marqueeSelectionBase = new Set<string>()
 
 const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
 const STATE_REFERENCE_DRAG_FORMAT = 'application/x-yotta-state-reference'
@@ -1248,26 +1334,41 @@ const flowNodes = computed<FlowNode[]>(() => {
       data: { annotation },
       dragHandle: '.workflow-node-drag-handle',
     })),
+    ...projectGraphBoundaries(graph).nodes,
   ] as FlowNode[]
 })
 
-const flowEdges = computed<FlowEdge[]>(() =>
-  (session.currentGraph?.edges ?? []).map((edge) => ({
-    id: edgeId(edge),
-    source: edge.from.nodeId,
-    target: edge.to.nodeId,
-    sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
-    targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
-    selected: selectedEdgeId.value === edgeId(edge),
-    type: edge.presentation?.reroutes?.length ? 'reroute' : undefined,
-    data: { edge },
-    animated: edge.channel !== 'data',
-    style: {
-      stroke:
-        edge.channel === 'error' ? '#f87171' : edge.channel === 'exec' ? '#a1a1aa' : '#10b981',
-    },
-  })),
+const graphBoundaryProjection = computed(() =>
+  session.currentGraph ? projectGraphBoundaries(session.currentGraph) : { nodes: [], edges: [] },
 )
+const currentGraphElementCount = computed(() => {
+  const graph = session.currentGraph
+  return graph
+    ? graph.nodes.length + (graph.calls?.length ?? 0) + (graph.annotations?.length ?? 0)
+    : 0
+})
+
+const flowEdges = computed<FlowEdge[]>(() => [
+  ...(session.currentGraph?.edges ?? []).map((edge) => {
+    const visual = workflowEdgeVisualState(edge, nodeRunStatusById.value)
+    return {
+      id: edgeId(edge),
+      source: edge.from.nodeId,
+      target: edge.to.nodeId,
+      sourceHandle: graphHandle(edge.channel, 'output', edge.from.portId),
+      targetHandle: graphHandle(edge.channel, 'input', edge.to.portId),
+      selected: selectedEdgeId.value === edgeId(edge),
+      type: edge.presentation?.reroutes?.length ? 'reroute' : undefined,
+      data: { edge },
+      animated: visual.animated,
+      style: { stroke: visual.stroke, strokeWidth: visual.strokeWidth },
+    }
+  }),
+  ...graphBoundaryProjection.value.edges.map((edge) => ({
+    ...edge,
+    selected: selectedEdgeId.value === edge.id,
+  })),
+])
 
 const compatibleConnectionCandidates = computed<WorkflowConnectionCandidate[]>(() => {
   const menu = connectionMenu.value
@@ -1405,6 +1506,9 @@ const runActive = computed(() =>
 )
 const nodeRunStatusById = computed(() =>
   nodeRunStatuses(session.activeRun, session.currentGraph?.id ?? ''),
+)
+const nodeDiagnosticSeverityById = computed(() =>
+  nodeDiagnosticSeverities(session.diagnostics, session.currentGraph?.id ?? ''),
 )
 const debugNodeLabels = computed<Record<string, string>>(() =>
   Object.fromEntries(
@@ -1706,6 +1810,7 @@ function addNode(nodeTypeId: string, position?: { x: number; y: number }): void 
 function inferGraphInterface(): void {
   try {
     session.inferCurrentGraphInterface()
+    void fitCurrentGraph()
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
   }
@@ -1744,14 +1849,14 @@ function openCalledGraph(graphId: string): void {
   const entry = session.source?.entryGraph
   if (!entry) return
   session.openGraphPath(graphId === entry ? [entry] : [entry, graphId])
-  selectedNodeId.value = ''
-  selectedNodeIds.value = new Set()
-  selectedEdgeId.value = ''
-  void nextTick(() => fitView({ padding: 0.18, duration: 180 }))
+  clearEditorSelection()
+  void fitCurrentGraph()
 }
 
 function openGraphAt(index: number): void {
   session.openGraphPath(session.graphPath.slice(0, index + 1))
+  clearEditorSelection()
+  void fitCurrentGraph()
 }
 
 function openGraphDialog(mode: 'create' | 'rename'): void {
@@ -1764,8 +1869,11 @@ function commitGraphDialog(): void {
   const name = graphName.value.trim()
   if (!name) return
   try {
-    if (graphDialogMode.value === 'create') session.createSubgraph(name)
-    else if (session.currentGraph) session.renameGraph(session.currentGraph.id, name)
+    if (graphDialogMode.value === 'create') {
+      session.createSubgraph(name)
+      clearEditorSelection()
+      void fitCurrentGraph()
+    } else if (session.currentGraph) session.renameGraph(session.currentGraph.id, name)
     graphDialogOpen.value = false
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
@@ -1784,6 +1892,8 @@ async function deleteCurrentGraph(): Promise<void> {
   if (accepted !== true) return
   try {
     session.removeGraph(graph.id)
+    clearEditorSelection()
+    void fitCurrentGraph()
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
   }
@@ -1805,6 +1915,20 @@ function updateAnnotation(annotation: Annotation): void {
 }
 
 function collapseSelection(): void {
+  const graph = session.currentGraph
+  if (graph) {
+    const issue = analyzeCollapseBoundary(graph, selectedNodeIds.value)
+    if (issue) {
+      const edge =
+        issue.kind === 'multiple-entry' ? (issue.edges[1] ?? issue.edges[0]) : issue.edges[0]
+      if (edge) selectedEdgeId.value = edgeId(edge)
+      const message = t(`workflow.selection.collapse_${issue.kind.replace('-', '_')}`, {
+        count: issue.edges.length,
+      })
+      showError(t('workflow.selection.collapse_rejected'), new Error(message))
+      return
+    }
+  }
   try {
     const callId = session.collapseSelection(
       [...selectedNodeIds.value],
@@ -1854,6 +1978,13 @@ function handleEditorKeydown(event: KeyboardEvent): void {
     target?.closest('[role="dialog"]')
   )
     return
+  if (event.key === 'Escape') {
+    if (selectedNodeIds.value.size || selectedNodeId.value || selectedEdgeId.value) {
+      event.preventDefault()
+      clearEditorSelection()
+    }
+    return
+  }
   const modifier = event.ctrlKey || event.metaKey
   if (modifier && !event.altKey) {
     const key = event.key.toLocaleLowerCase()
@@ -1987,6 +2118,23 @@ function isStateReferenceDrop(value: unknown): value is { name: string; mode: 'r
 }
 
 function connect(connection: Connection): void {
+  const graph = session.currentGraph
+  const boundary = graph ? graphBoundaryBindingFromConnection(connection, graph) : null
+  if (boundary) {
+    const compatibility = session.graphBoundaryCompatibility(boundary)
+    if (!compatibility.valid) {
+      connectionHint.value = connectionIssueText(compatibility)
+      return
+    }
+    try {
+      session.bindGraphBoundary(boundary)
+      connectionMadeThisGesture = true
+      connectionHint.value = ''
+    } catch (error) {
+      showError(t('workflow.toast.edit_rejected'), error)
+    }
+    return
+  }
   const edge = connectionEdge(connection)
   if (!edge) return
   const compatibility = session.connectionCompatibility(edge)
@@ -2013,6 +2161,13 @@ function connect(connection: Connection): void {
 }
 
 function isValidConnection(connection: Connection): boolean {
+  const graph = session.currentGraph
+  const boundary = graph ? graphBoundaryBindingFromConnection(connection, graph) : null
+  if (boundary) {
+    const compatibility = session.graphBoundaryCompatibility(boundary)
+    connectionHint.value = compatibility.valid ? '' : connectionIssueText(compatibility)
+    return compatibility.valid
+  }
   const edge = connectionEdge(connection)
   if (!edge) return false
   const compatibility = session.connectionCompatibility(edge)
@@ -2074,7 +2229,7 @@ function endConnection(event?: MouseEvent | TouchEvent): void {
       connectionMadeThisGesture = false
       return
     }
-    if (anchor && point) openConnectionMenu(anchor, point)
+    if (anchor && point && !isGraphBoundaryNodeId(anchor.nodeId)) openConnectionMenu(anchor, point)
   }, 0)
 }
 
@@ -2177,10 +2332,51 @@ function cancelStatePromotion(): void {
 }
 
 function handlePaneClick(): void {
+  clearEditorSelection()
+  closeConnectionMenu()
+}
+
+function captureMarqueeSelection(event: PointerEvent): void {
+  const target = event.target as HTMLElement | null
+  marqueeSelectionBase =
+    event.button === 0 && event.shiftKey && target?.classList.contains('vue-flow__pane')
+      ? new Set(selectedNodeIds.value)
+      : new Set()
+}
+
+async function finishMarqueeSelection(): Promise<void> {
+  if (!marqueeSelectionBase.size) return
+  await nextTick()
+  const merged = mergeMarqueeSelection(marqueeSelectionBase, selectedNodeIds.value)
+  marqueeSelectionBase = new Set()
+  const nodes = [...merged].flatMap((nodeId) => {
+    const node = findNode(nodeId)
+    return node ? [node] : []
+  })
+  if (nodes.length) addSelectedNodes(nodes)
+  selectedNodeIds.value = merged
+  selectedNodeId.value = [...merged].at(-1) ?? ''
+  selectedEdgeId.value = ''
+}
+
+function clearEditorSelection(): void {
+  removeSelectedNodes(getSelectedNodes.value)
   selectedNodeId.value = ''
   selectedNodeIds.value = new Set()
   selectedEdgeId.value = ''
-  closeConnectionMenu()
+  marqueeSelectionBase = new Set()
+}
+
+function clearRunTrace(): void {
+  session.clearRunTrace()
+}
+
+async function fitCurrentGraph(): Promise<void> {
+  await nextTick()
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50))),
+  )
+  await fitView({ padding: 0.24, duration: 180 })
 }
 
 function dragPositions(
@@ -2299,8 +2495,7 @@ async function autoLayout(direction: 'LR' | 'TB'): Promise<void> {
     const positions = await autoLayoutNodePositions(nodes, graph.edges, direction)
     if (session.source !== source || session.currentGraph?.id !== graph.id) return
     if (applyCanvasPositions(positions)) {
-      await nextTick()
-      await fitView({ padding: 0.18, duration: 180 })
+      await fitCurrentGraph()
     }
   } catch (error) {
     showError(t('workflow.selection.layout_failed'), error)
@@ -2479,6 +2674,17 @@ function clearEdgeReroutes(): void {
 }
 
 function disconnectEdge(id: string): void {
+  const projected = graphBoundaryProjection.value.edges.find((edge) => edge.id === id)
+  const boundary = projected ? graphBoundaryKeyFromEdge(projected) : null
+  if (boundary) {
+    try {
+      session.unbindGraphBoundary(boundary)
+      selectedEdgeId.value = ''
+    } catch (error) {
+      showError(t('workflow.toast.edit_rejected'), error)
+    }
+    return
+  }
   const edge = session.currentGraph?.edges.find((candidate) => edgeId(candidate) === id)
   if (edge && applyCommand({ kind: 'disconnect', edge })) selectedEdgeId.value = ''
 }

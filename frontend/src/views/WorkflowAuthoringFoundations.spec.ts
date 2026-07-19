@@ -105,6 +105,20 @@ describe('workflow authoring foundations', () => {
     expect(selectionToolbar).toContain('shrink-0 whitespace-nowrap')
   })
 
+  it('projects subgraph boundaries from the canonical Source interface', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const boundary = readSource('src/app/editor/workflowGraphBoundary.ts')
+    const panel = readSource('src/app/editor/WorkflowGraphInterfacePanel.vue')
+
+    expect(editor).toContain('<WorkflowGraphBoundary')
+    expect(editor).toContain('<WorkflowGraphInterfacePanel')
+    expect(editor).toContain('session.bindGraphBoundary(boundary)')
+    expect(boundary).toContain("type: 'graph-boundary'")
+    expect(boundary).not.toContain("kind: 'add-node'")
+    expect(panel).toContain('graph.entries')
+    expect(panel).toContain('graph.exits')
+  })
+
   it('restores source-native node search and canvas focus', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')

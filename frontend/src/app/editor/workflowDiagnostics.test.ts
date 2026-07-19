@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   diagnosticFieldLocation,
   groupDiagnostics,
+  nodeDiagnosticSeverities,
   type WorkflowDiagnostic,
 } from './workflowDiagnostics'
 
@@ -31,8 +32,37 @@ describe('workflow diagnostics', () => {
       }),
     ).toBe('bindings › target')
   })
+
+  it('projects the strongest diagnostic severity onto nodes in the active graph', () => {
+    const severities = nodeDiagnosticSeverities(
+      [
+        diagnostic('warning', 'W-1', 'child', 'warned'),
+        diagnostic('info', 'I-1', 'child', 'warned'),
+        diagnostic('error', 'E-1', 'child', 'broken'),
+        diagnostic('error', 'E-2', 'main', 'outside'),
+      ],
+      'child',
+    )
+
+    expect(severities).toEqual(
+      new Map([
+        ['warned', 'warning'],
+        ['broken', 'error'],
+      ]),
+    )
+  })
 })
 
-function diagnostic(severity: 'error' | 'warning' | 'info', code: string): WorkflowDiagnostic {
-  return { severity, code } as WorkflowDiagnostic
+function diagnostic(
+  severity: 'error' | 'warning' | 'info',
+  code: string,
+  graphId = '',
+  nodeId = '',
+): WorkflowDiagnostic {
+  return {
+    severity,
+    code,
+    graphPath: graphId ? [graphId] : [],
+    nodeId,
+  } as WorkflowDiagnostic
 }

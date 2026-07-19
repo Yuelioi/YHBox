@@ -2,7 +2,11 @@
   <article
     data-testid="workflow-graph-call"
     class="min-w-[230px] overflow-visible rounded-lg border bg-default shadow-sm"
-    :class="selected ? 'border-primary/70' : 'border-default'"
+    :class="
+      selected
+        ? 'border-default ring-2 ring-primary/80 ring-offset-2 ring-offset-default'
+        : 'border-default'
+    "
     @dblclick.stop="emit('open')"
   >
     <header

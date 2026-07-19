@@ -51,6 +51,12 @@ type pageState struct {
 	Breakpoints          int            `json:"breakpoints"`
 	CurrentGraph         string         `json:"currentGraph"`
 	GraphCalls           int            `json:"graphCalls"`
+	GraphBoundaries      int            `json:"graphBoundaries"`
+	GraphInterface       bool           `json:"graphInterface"`
+	BoundaryClipped      int            `json:"boundaryClipped"`
+	BoundaryObscured     int            `json:"boundaryObscured"`
+	MinimapToggle        bool           `json:"minimapToggle"`
+	MinimapOpen          bool           `json:"minimapOpen"`
 	Annotations          int            `json:"annotations"`
 	GraphNameInput       bool           `json:"graphNameInput"`
 	CallMenuOptions      int            `json:"callMenuOptions"`
@@ -86,6 +92,7 @@ func main() {
 	workflowsScreenshot := flag.String("workflows-screenshot", ".task/workflows-smoke.png", "workflow recovery PNG output path")
 	launcherScreenshot := flag.String("launcher-screenshot", ".task/launcher-smoke.png", "floating launcher PNG output path")
 	schedulesScreenshot := flag.String("schedules-screenshot", ".task/schedules-smoke.png", "schedule editor PNG output path")
+	subgraphScreenshot := flag.String("subgraph-screenshot", ".task/subgraph-smoke.png", "subgraph authoring PNG output path")
 	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
 	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
 	flag.Parse()
@@ -99,7 +106,7 @@ func main() {
 		}
 		return
 	}
-	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot); err != nil {
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot, *subgraphScreenshot); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -157,7 +164,7 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 	return nil
 }
 
-func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot string) error {
+func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -232,6 +239,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := waitUntil(ctx, client, func(state pageState) bool { return state.Catalog > 0 }); err != nil {
 		return fmt.Errorf("open workflow editor: %w", err)
 	}
+	if err := exerciseMinimap(ctx, client); err != nil {
+		return err
+	}
 	if launcherScreenshot != "" {
 		if err := configureLauncherWorkflow(ctx, client); err != nil {
 			return err
@@ -287,11 +297,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeOverlaps == 0 }); err != nil {
 		return fmt.Errorf("auto-layout workflow nodes: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const pane = document.querySelector('.vue-flow__pane');
-		if (!pane) throw new Error('workflow pane not found');
-		pane.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-	})()`); err != nil {
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -300,18 +306,19 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return fmt.Errorf("clear workflow selection before box select: %w", err)
 	}
 
-	var selectionPoints []point
+	var selectionGesture connectionGesture
 	if err := evalJSON(ctx, client, `(() => {
-		const nodes = [...document.querySelectorAll('.vue-flow__node')].slice(-2);
+		const nodes = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')].slice(-2);
 		if (nodes.length < 2) throw new Error('multi-selection needs two workflow nodes');
-		return nodes.map(node => {
-			const rect = node.getBoundingClientRect();
-			return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-		});
-	})()`, &selectionPoints); err != nil {
+		const rects = nodes.map(node => node.getBoundingClientRect());
+		return {
+			start: { x: Math.min(...rects.map(rect => rect.left)) - 8, y: Math.min(...rects.map(rect => rect.top)) - 4 },
+			end: { x: Math.max(...rects.map(rect => rect.right)) + 8, y: Math.max(...rects.map(rect => rect.bottom)) + 4 }
+		};
+	})()`, &selectionGesture); err != nil {
 		return err
 	}
-	if err := dispatchMultiSelectClicks(ctx, client, selectionPoints); err != nil {
+	if err := dispatchMarqueeGesture(ctx, client, selectionGesture); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -467,7 +474,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
 		return err
 	}
-	if err := exerciseMultigraph(ctx, client); err != nil {
+	if err := exerciseMultigraph(ctx, client, subgraphScreenshot); err != nil {
 		return err
 	}
 	if err := clickRequired(ctx, client, "workflow-save"); err != nil {
@@ -562,12 +569,13 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
 		"schedulesScreenshot": schedulesScreenshot,
+		"subgraphScreenshot":  subgraphScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
 }
 
-func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient) error {
+func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient, subgraphScreenshot string) error {
 	if err := clickRequired(ctx, client, "workflow-graph-new"); err != nil {
 		return err
 	}
@@ -587,7 +595,7 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient)
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.CurrentGraph != "" && current.CurrentGraph != "main" && current.CanvasNodes == 0
+		return current.CurrentGraph != "" && current.CurrentGraph != "main" && current.CanvasNodes == 0 && current.GraphBoundaries == 1
 	}); err != nil {
 		return fmt.Errorf("enter new subgraph: %w", err)
 	}
@@ -603,6 +611,19 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient)
 	}
 	if err := clickRequired(ctx, client, "workflow-graph-infer-interface"); err != nil {
 		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.GraphBoundaries >= 2 && current.GraphInterface && current.BoundaryClipped == 0 && current.BoundaryObscured == 0
+	}); err != nil {
+		return fmt.Errorf("project inferred subgraph interface: %w", err)
+	}
+	if subgraphScreenshot != "" {
+		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+			return err
+		}
+		if err := capture(ctx, client, subgraphScreenshot); err != nil {
+			return fmt.Errorf("capture subgraph authoring surface: %w", err)
+		}
 	}
 	if err := clickRequired(ctx, client, "workflow-graph-breadcrumb-main"); err != nil {
 		return err
@@ -693,6 +714,24 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 	return nil
 }
 
+func exerciseMinimap(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := clickRequired(ctx, client, "workflow-minimap-toggle"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.MinimapOpen && current.GraphChromeDark
+	}); err != nil {
+		return fmt.Errorf("open dark workflow minimap: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-minimap-toggle"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return !current.MinimapOpen }); err != nil {
+		return fmt.Errorf("close workflow minimap: %w", err)
+	}
+	return nil
+}
+
 func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, testID string) error {
 	testIDJSON, _ := json.Marshal(testID)
 	return eval(ctx, client, fmt.Sprintf(`(() => {
@@ -706,6 +745,9 @@ func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []
 	var failures []string
 	if !visualState.GraphChromeDark {
 		failures = append(failures, "Vue Flow controls or minimap use a light background")
+	}
+	if !visualState.MinimapToggle {
+		failures = append(failures, "workflow canvas omitted the minimap toggle")
 	}
 	if visualState.HandleOverlaps != 0 {
 		failures = append(failures, fmt.Sprintf("%d workflow handles overlap their labels", visualState.HandleOverlaps))
@@ -974,6 +1016,10 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		const bodyText = document.body.innerText;
 		const saveButtonText = document.querySelector('[data-testid="workflow-save"]')?.innerText || '';
 		const nodeRects = [...document.querySelectorAll('.vue-flow__node')].map(node => node.getBoundingClientRect());
+		const canvasRect = document.querySelector('[data-testid="workflow-canvas"]')?.getBoundingClientRect();
+		const boundaryRects = [...document.querySelectorAll('[data-testid="workflow-graph-boundary"]')].map(node => node.closest('.vue-flow__node')?.getBoundingClientRect()).filter(Boolean);
+		const chromeRects = [controls, minimap].filter(Boolean).map(element => element.getBoundingClientRect());
+		const intersects = (left, right) => left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top;
 		let nodeOverlaps = 0;
 		for (let left = 0; left < nodeRects.length; left++) {
 			for (let right = left + 1; right < nodeRects.length; right++) {
@@ -984,7 +1030,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		return {
 		href: location.href,
 		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
-		canvasNodes: document.querySelectorAll('.vue-flow__node').length,
+		canvasNodes: document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)').length,
 		canvasEdges: document.querySelectorAll('.vue-flow__edge').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
 		workflowState: Boolean(document.querySelector('[data-testid="workflow-state-panel"]')),
@@ -996,7 +1042,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
-		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && darkBackground(minimap),
+		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
 		handleOverlaps,
 		nativeConfirmCalls: window.__yottaNativeConfirmCalls || 0,
 		confirmDialog: Boolean(document.querySelector('[data-testid="confirm-dialog"]')),
@@ -1012,11 +1058,17 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		debugger: Boolean(document.querySelector('[data-testid="workflow-debugger"]')),
 		debugPaused: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-step"]') !== null,
 		debugCompleted: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-stop"]') === null,
-		debugCurrent: document.querySelectorAll('.vue-flow__node [class*="ring-warning"]').length,
-		debugNode: document.querySelector('.vue-flow__node [class*="ring-warning"]')?.closest('.vue-flow__node')?.getAttribute('data-id') || '',
+		debugCurrent: document.querySelectorAll('.vue-flow__node [data-testid="node-debug-current"]').length,
+		debugNode: document.querySelector('.vue-flow__node [data-testid="node-debug-current"]')?.closest('.vue-flow__node')?.getAttribute('data-id') || '',
 		breakpoints: document.querySelectorAll('[data-testid="node-breakpoint"][aria-pressed="true"]').length,
 		currentGraph: document.querySelector('[data-testid="workflow-canvas"]')?.getAttribute('data-graph-id') || '',
 		graphCalls: document.querySelectorAll('[data-testid="workflow-graph-call"]').length,
+		graphBoundaries: document.querySelectorAll('[data-testid="workflow-graph-boundary"]').length,
+		graphInterface: Boolean(document.querySelector('[data-testid="workflow-graph-interface"]')),
+		boundaryClipped: canvasRect ? boundaryRects.filter(rect => rect.left < canvasRect.left || rect.right > canvasRect.right || rect.top < canvasRect.top || rect.bottom > canvasRect.bottom).length : 0,
+		boundaryObscured: boundaryRects.filter(rect => chromeRects.some(chrome => intersects(rect, chrome))).length,
+		minimapToggle: Boolean(document.querySelector('[data-testid="workflow-minimap-toggle"]')),
+		minimapOpen: Boolean(minimap),
 		annotations: document.querySelectorAll('[data-testid="workflow-annotation"]').length,
 		graphNameInput: Boolean(document.querySelector('[data-testid="workflow-graph-name"] input, input[data-testid="workflow-graph-name"]')),
 		callMenuOptions: document.querySelectorAll('[role="menu"] [role="menuitem"]').length,
@@ -1058,34 +1110,47 @@ func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocket
 	})()`, payload))
 }
 
-func dispatchMultiSelectClicks(ctx context.Context, client *browsercdp.WebSocketClient, _ []point) error {
-	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "keyDown", "modifiers": 2, "key": "Control", "code": "ControlLeft",
-		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17,
+func dispatchKeyPress(ctx context.Context, client *browsercdp.WebSocketClient, key, code string, virtualKey int) error {
+	params := map[string]any{
+		"key": key, "code": code, "windowsVirtualKeyCode": virtualKey, "nativeVirtualKeyCode": virtualKey,
+	}
+	params["type"] = "keyDown"
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", params); err != nil {
+		return err
+	}
+	params["type"] = "keyUp"
+	_, err := client.Call(ctx, "Input.dispatchKeyEvent", params)
+	return err
+}
+
+func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y,
 	}); err != nil {
-		return fmt.Errorf("press Control for multi-selection: %w", err)
+		return err
 	}
-	time.Sleep(50 * time.Millisecond)
-	gestureErr := eval(ctx, client, `(() => {
-		const nodes = [...document.querySelectorAll('.vue-flow__node')].slice(-2);
-		if (nodes.length < 2) throw new Error('multi-selection needs two workflow nodes');
-		for (const node of nodes) {
-			node.dispatchEvent(new MouseEvent('click', {
-				bubbles: true, cancelable: true, view: window, button: 0, ctrlKey: true
-			}));
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
+		"button": "left", "buttons": 1, "clickCount": 1,
+	}); err != nil {
+		return err
+	}
+	for step := 1; step <= 8; step++ {
+		ratio := float64(step) / 8
+		if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+			"type":   "mouseMoved",
+			"x":      gesture.Start.X + (gesture.End.X-gesture.Start.X)*ratio,
+			"y":      gesture.Start.Y + (gesture.End.Y-gesture.Start.Y)*ratio,
+			"button": "left", "buttons": 1,
+		}); err != nil {
+			return err
 		}
-	})()`)
-	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
-		"type": "keyUp", "key": "Control", "code": "ControlLeft",
-		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17,
+	}
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
+		"button": "left", "buttons": 0, "clickCount": 1,
 	})
-	if gestureErr != nil {
-		return fmt.Errorf("dispatch workflow node clicks for multi-selection: %w", gestureErr)
-	}
-	if releaseErr != nil {
-		return fmt.Errorf("release Control after multi-selection: %w", releaseErr)
-	}
-	return nil
+	return err
 }
 
 func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression string) error {

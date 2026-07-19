@@ -19,7 +19,7 @@ import (
 func TestWorkflowEditorUIFailures(t *testing.T) {
 	t.Run("accepts the dark non-overlapping Nuxt UI flow", func(t *testing.T) {
 		failures := workflowEditorUIFailures(
-			pageState{GraphChromeDark: true, RunStarted: true},
+			pageState{GraphChromeDark: true, RunStarted: true, MinimapToggle: true},
 			pageState{ConfirmDialog: true},
 			pageState{SaveInlineFeedback: true},
 		)
@@ -36,6 +36,7 @@ func TestWorkflowEditorUIFailures(t *testing.T) {
 		)
 		want := []string{
 			"Vue Flow controls or minimap use a light background",
+			"workflow canvas omitted the minimap toggle",
 			"8 workflow handles overlap their labels",
 			"new workflow omitted the RunStarted root",
 			"workflow navigation called window.confirm",
@@ -52,7 +53,7 @@ func TestWorkflowEditorUIFailures(t *testing.T) {
 func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	base := pageState{
 		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
-		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main",
+		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main", MinimapToggle: true,
 	}
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
@@ -61,6 +62,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
 		{Catalog: 0},
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		withState(base, func(state *pageState) { state.CanvasNodes, state.MinimapOpen = 1, true }),
+		withState(base, func(state *pageState) { state.CanvasNodes = 1 }),
 		withState(base, func(state *pageState) { state.CanvasNodes, state.Breakpoints = 1, 1 }),
 		withState(base, func(state *pageState) {
 			state.CanvasNodes, state.Debugger, state.DebugPaused, state.DebugCurrent, state.DebugNode = 1, true, true, 1, "run-started"
@@ -96,8 +99,15 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		withState(connected, func(state *pageState) { state.SaveInlineFeedback = true }),
 		withState(connected, func(state *pageState) { state.WorkflowState = true }),
 		withState(connected, func(state *pageState) { state.GraphNameInput = true }),
-		withState(connected, func(state *pageState) { state.CurrentGraph, state.CanvasNodes, state.CanvasEdges = "child", 0, 0 }),
-		withState(connected, func(state *pageState) { state.CurrentGraph, state.CanvasNodes, state.CanvasEdges = "child", 1, 0 }),
+		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 0, 0, 1
+		}),
+		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 1, 0, 1
+		}),
+		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries, state.GraphInterface = "child", 1, 0, 3, true
+		}),
 		connected,
 		withState(connected, func(state *pageState) { state.Reroutes = 1 }),
 		withState(connected, func(state *pageState) { state.CallMenuOptions = 1 }),
@@ -147,7 +157,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				if strings.Contains(expression, "multi-selection needs") {
-					value = `[{"x":10,"y":10},{"x":20,"y":20}]`
+					value = `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				} else if strings.Contains(expression, "Delay.in connection candidate") {
 					value = `{"x":15,"y":15}`
 				}
@@ -170,7 +180,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	assetsScreenshot := filepath.Join(dir, "assets.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", ""); err != nil {
+	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(states) != 0 {
