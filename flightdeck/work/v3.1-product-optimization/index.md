@@ -6,11 +6,11 @@ summary: 在稳定的 3.1 架构上修正编辑器状态表达，恢复专业级
 
 ## State
 
-Stage A 至 Stage D 已完成。Authoring Surface 深模块、复杂类型 Editor Adapter 与第一条视觉分析配方闭环已落地，当前进入最终 Slice 09 工作区一致性与黄金路径收口。
+Completed。Stage A–E 全部完成：专业画布与 Source-native 子图、宏/精准录制、真实调试链路、Authoring Surface 与视觉配方，以及最终跨页面黄金路径均已闭合。
 
 ## Next
 
-启动 Slice 09：以工作流创建、目标绑定、资源创建/选择、编译运行、调试和计划执行为连续黄金路径，完成 3.1 发布前的一致性与商业交付收口。
+本 Topic 无剩余实施项。后续若真机反馈出现新问题，按独立 Topic 从唯一责任层重新诊断，不再重开已完成迁移 Slice。
 
 ## Read now
 
@@ -36,6 +36,8 @@ Stage A 至 Stage D 已完成。Authoring Surface 深模块、复杂类型 Edito
 - Stage D 已把 presentation metadata、统一 Authoring Surface、Point/Region/Duration/KeyChord/Asset/Target adapter、渐进 Inspector 和节点内联高频输入落地。
 - ColorRange 现支持色样摘要、RGB/HSV 高级通道与目标取色；视觉配方只生成普通 Capture/Vision/Comparison/Collection/Branch 节点与 typed edges。
 - 阶段验收通过 `task check`、production `task build` 与隔离 WebView2 CDP smoke；复杂编辑器按需加载后初始 editor gzip 212,537 bytes，低于 220,000 上限。
+- Slice 09 将隔离 WebView 旅程扩展到保存重开和计划引用；修复 Debug Step busy 竞态与 native smoke 跨包桌面争用。最终 `task check` 为 64 个前端测试文件、250 项测试，editor gzip 212,554 bytes。
+- 完整 WebView、Windows native smoke、production build 与 UAC 启动通过；稳定 workspace、Android/Browser Adapter 证据和管理页产品语言完成发布前收口。
 
 ## Open questions
 

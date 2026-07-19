@@ -50,6 +50,27 @@ func TestWorkflowEditorUIFailures(t *testing.T) {
 	})
 }
 
+func TestWorkflowEditorHash(t *testing.T) {
+	t.Run("extracts the durable editor route", func(t *testing.T) {
+		got, err := workflowEditorHash("http://wails.localhost/#/workflows/workflow-1/edit")
+		if err != nil || got != "#/workflows/workflow-1/edit" {
+			t.Fatalf("workflowEditorHash() = %q, %v", got, err)
+		}
+	})
+
+	t.Run("rejects unrelated and incomplete routes", func(t *testing.T) {
+		for _, href := range []string{
+			"http://wails.localhost/#/assets",
+			"http://wails.localhost/#/workflows//edit",
+			"http://wails.localhost/#/workflows/workflow-1",
+		} {
+			if _, err := workflowEditorHash(href); err == nil {
+				t.Fatalf("workflowEditorHash(%q) succeeded", href)
+			}
+		}
+	})
+}
+
 func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	base := pageState{
 		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
@@ -89,6 +110,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.Debugger, state.DebugPaused, state.DebugCurrent, state.DebugNode = true, true, 1, "run-started"
 		}),
 		withState(connected, func(state *pageState) {
+			state.Debugger, state.DebugPaused, state.DebugBusy, state.DebugCurrent, state.DebugNode = true, true, true, 1, "inserted-delay"
+		}),
+		withState(connected, func(state *pageState) {
 			state.Debugger, state.DebugPaused, state.DebugCurrent, state.DebugNode = true, true, 1, "inserted-delay"
 		}),
 		withState(connected, func(state *pageState) {
@@ -124,9 +148,13 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		}),
 		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
 		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
+		withState(connected, func(state *pageState) {
+			state.Catalog, state.CurrentGraph, state.GraphCalls, state.Annotations = 0, "main", 1, 1
+		}),
 	}
 
 	var serverURL string
+	var lastState pageState
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
 			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/devtools/page/page-1"
@@ -157,9 +185,12 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 					t.Errorf("unexpected extra page state request")
 					return
 				}
-				raw, _ := json.Marshal(states[0])
+				lastState = states[0]
+				raw, _ := json.Marshal(lastState)
 				states = states[1:]
 				result = map[string]any{"result": map[string]any{"value": string(raw)}}
+			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "workflow-debug-step") && lastState.DebugBusy {
+				t.Errorf("debug Step was clicked before the previous control request settled")
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				if strings.Contains(expression, "multi-selection needs") {

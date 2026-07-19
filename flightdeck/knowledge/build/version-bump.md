@@ -10,13 +10,13 @@ read_when: "before changing app version, release metadata, installer version, gi
 发布 bump 用：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 2.0.1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 3.1.1
 ```
 
 或：
 
 ```powershell
-task version:bump VERSION=2.0.1
+task version:bump VERSION=3.1.1
 ```
 
 脚本要求工作区干净，然后更新：
@@ -41,5 +41,5 @@ release 额外传 `-ExpectedVersion <tag 去掉 v>`，tag 与任一版本元数�
 检查脚本行为但不写文件：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 2.0.1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 3.1.1 -DryRun
 ```

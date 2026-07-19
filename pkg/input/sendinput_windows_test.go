@@ -36,11 +36,28 @@ func TestNewBackend_EmptyNameDefaultsToSendInput(t *testing.T) {
 
 func TestSendInputBackend_ReleaseAll_ClearsState(t *testing.T) {
 	b := newSendInputBackend()
-	// Unknown virtual keys keep this test from producing meaningful keyboard input.
 	b.heldKeys[0xFF] = struct{}{}
 	b.heldKeys[0xFE] = struct{}{}
-	if err := b.ReleaseAll(); err != nil {
-		t.Fatalf("ReleaseAll: %v", err)
+	b.heldBtns[1] = struct{}{}
+	releasedKeys := map[uint32]bool{}
+	var releasedMouseFlags []uint32
+	if err := b.releaseAllWith(
+		func(key uint32, keyUp bool) error {
+			releasedKeys[key] = keyUp
+			return nil
+		},
+		func(flags uint32) error {
+			releasedMouseFlags = append(releasedMouseFlags, flags)
+			return nil
+		},
+	); err != nil {
+		t.Fatalf("releaseAllWith: %v", err)
+	}
+	if !releasedKeys[0xFE] || !releasedKeys[0xFF] {
+		t.Errorf("released keys = %v", releasedKeys)
+	}
+	if len(releasedMouseFlags) != 1 || releasedMouseFlags[0] != siMouseLeftUp {
+		t.Errorf("released mouse flags = %v", releasedMouseFlags)
 	}
 	if len(b.heldKeys) != 0 {
 		t.Errorf("heldKeys not cleared: %v", b.heldKeys)

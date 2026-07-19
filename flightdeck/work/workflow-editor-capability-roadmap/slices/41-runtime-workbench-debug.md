@@ -1,7 +1,7 @@
 ---
 slice: "41"
 title: 运行工作台与调试反馈
-status: in_progress
+status: completed
 ---
 
 # Slice 41：运行工作台与调试反馈
@@ -35,4 +35,4 @@ status: in_progress
 
 ## Result
 
-Implementation complete; awaiting user acceptance。EditorSession 在 StartDebugRun RPC 返回前缓存同 runID 的早到 snapshot，并按 generation 单调合并；精确红测已覆盖 event-before-RPC，不再由旧 RPC running 响应覆盖 paused event。Debugger 首层现在按 paused/running/terminal 提供正确状态、控制和真实执行位置；空快照渐进披露，内部路径退到技术详情，终态不再显示“即将执行”或空 previous/next 占位。真实组件测试、`task check`、production build、WebView smoke 与人工终态截图检查均通过；尚需用户用原三节点 workflow 验收 Start/Step/Continue。
+Completed。EditorSession 按 runID/generation 单调合并 RPC 与事件，Debugger 按 paused/running/terminal 表达真实执行位置。最终完整 Wails WebView 旅程稳定通过 Start、连续 Step、完成、重启与 Stop；最后一个偶发卡住点被定位为事件先到而按钮仍 busy，验收现在等待控制请求结算且拒绝点击 disabled 控件。

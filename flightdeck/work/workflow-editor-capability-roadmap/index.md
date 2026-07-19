@@ -6,11 +6,11 @@ summary: 审计旧产品能力与 3.1 现状，按唯一新架构、用户体验
 
 ## State
 
-In progress。Slice 44 已按真机反馈继续收口：三个管理页移除标题下重复介绍；计划编辑器删除右侧行为预览，恢复居中的单栏分组表单，并统一使用 AdaptiveSelect。interval 默认 `30` 过去只显示、未写入草稿，导致保存时后端收到 `0`；现已在 UI 状态边界初始化真实默认值并增加就地校验。WebView2 调试现有正式 Task 入口、开发 DevTools 快捷键、当前页截图和计划页 smoke 截图；执行者已实际查看最新计划页 PNG，production 继续禁用调试。完整 `task check`、WebView smoke 与 production `task build` 通过，等待用户用最新 EXE 真机接受。Slice 43 的成功反馈退出、刷新去重和 AdaptiveSelect 宽度修复仍一并等待复查；Slice 39/41 仍等待提权真机接受，Slice 37 保持发布阻断。
+Completed。R0–R5 与 Slices 38–44 全部完成；capability ledger 的 P0/P1 项均为 verified、明确替代或明确删除。最终完整 WebView 旅程闭合 Debug、Launcher、资源工作区、保存重开和计划引用，Windows native smoke、`task check`、production build 与 UAC production 启动通过。
 
 ## Next
 
-使用最新 UAC production build 和真实 workspace 接受 Slice 44：确认三个管理页紧凑标题、计划单栏编辑布局、全部下拉展开与 daily/interval/hotkey 保存；确认 interval 未手动修改时会以 30 分钟成功保存。同时复查 Slice 43 的成功状态条退出、刷新去重和普通枚举最长选项显示。
+本 Topic 作为 3.0→3.1 升级历史保留，不再承载新的体验扩张。后续产品问题进入 `v3.1-product-optimization` 的后继 Topic 或独立修复 Topic。
 
 ## Read now
 
@@ -46,10 +46,8 @@ In progress。Slice 44 已按真机反馈继续收口：三个管理页移除标
 - 工作流、资源库、计划统一使用 `workspace-page__*` 管理页标题契约；App 全局壳层不再挂 LogPanel，编辑器日志面板改为按需加载。
 - 计划编辑使用 `shallowRef` 保存外来 DTO，并在 UI clone 边界解开 Vue Proxy；reactive Schedule 回归直接覆盖新建/编辑黑屏根因。
 - 最新 `task check` 通过：52 个前端测试文件、209 项测试；bundle budget 与 `task build` 通过并生成最新 production Yotta.exe。
-- 跳过 Launcher 子旅程后的 WebView 主旅程通过；完整 smoke 仍在 Launcher 执行新建空工作流时等待成功超时，该独立问题仍需发布前定位。
+- Launcher 子旅程已恢复并纳入完整 WebView smoke；保存重开与计划引用也成为正式验收路径。
 
 ## Open questions
 
-- Slice 43/44 与 Slice 39/41 仍需使用 UAC production build 和真实 workspace 真机接受；接受前不得声明 3.1 major upgrade 完成。
-- 完整 WebView smoke 的 Launcher 子旅程为何无法观察到新建空工作流成功，需要按独立运行/启动器问题排查，不能通过永久跳过降低发布门禁。
-- 旧 Workflow Source 的历史创建时间无法可靠恢复，UI 显示未知；不得改用文件时间回填。代码签名、公开仓库和 OSI 许可证替换仍属独立发布工程。
+- 无产品能力恢复开放问题。旧 Workflow Source 的历史创建时间仍保持未知，不使用文件时间伪造；代码签名、公开仓库和 OSI 许可证替换属于独立发布工程。

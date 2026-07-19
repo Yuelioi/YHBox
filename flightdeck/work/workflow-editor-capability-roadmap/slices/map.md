@@ -30,7 +30,7 @@
 | [24 Settings 引用完整性](24-settings-reference-integrity.md) | completed | 无 | 删除 application 与依赖 target 成为原子操作。 |
 | [25 连接计划/Compiler parity](25-connection-plan-compiler-parity.md) | completed | 21、23 | 同一固定 fixture 防止 TypeScript/Go 类型边界漂移。 |
 | [26 自动化目标热更新运行时](26-live-automation-target-runtime.md) | completed | 20 | 同进程原子激活目标、授权与多窗口选择。 |
-| [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | in_progress | 架构审计 | R5 真机验收打回，纳入 Slices 38–44 后再判定。 |
+| [27 架构恢复与产品纵向闭环](27-architecture-recovery.md) | completed | 架构审计 | R0–R5 与 Slices 38–44 最终纵向旅程完成。 |
 | [28 旧版 Knowledge 与架构文档复查](28-legacy-knowledge-reconciliation.md) | completed | 无 | 纠正现行知识漂移，保留并隔离 3.0 行为证据。 |
 | [29 恢复事实基线与发布账本](29-fact-baseline.md) | completed | 无 | 固定 oracle、ledger、golden journeys、dirty ownership 与退役表。 |
 | [30 Typed RPC 错误边界](30-typed-rpc-error-boundary.md) | completed | 29 | 结构化错误只在 domain action 决定反馈。 |
@@ -40,11 +40,11 @@
 | [34 Windows native 闭环](34-windows-native-closure.md) | completed | 30–33 | Windows 基础能力可用；录制/调试产品闭环由 39、41 接管。 |
 | [35 编辑器与节点能力恢复](35-editor-capability-recovery.md) | completed | 33–34 | typed authoring 基础完成；target 继承与运行工作台由 40–41 接管。 |
 | [36 平台 Adapter 连续性](36-platform-adapter-continuity.md) | completed | 31、34–35 | Android/Browser 纵向闭环，macOS Adapter seam proof。 |
-| [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | in_progress | 29–36、38–44 | 自动矩阵完成；等待工作台重构与真机接受。 |
+| [37 发布门禁与知识退役](37-release-gate-knowledge-retirement.md) | completed | 29–36、38–44 | 全矩阵、UAC 启动、黄金路径与知识退役完成。 |
 | [38 用户真机测试 1 解决方案](38-user-device-test-1.md) | completed | 源码/真机审计 | 固定根因、研究、架构边界、验收矩阵与实施拆分。 |
-| [39 录制与资产创作闭环](39-recording-authoring-closure.md) | in_progress | 38 | 实现完成，等待录制、模板与资产管理真机接受。 |
+| [39 录制与资产创作闭环](39-recording-authoring-closure.md) | completed | 38 | 录制、模板、资源管理与 native round-trip 完成。 |
 | [40 Effective Target 继承](40-effective-target-inheritance.md) | completed | 38 | workflow default + node override，经 Compiler 解析。 |
-| [41 运行工作台与调试反馈](41-runtime-workbench-debug.md) | in_progress | 38 | 实现完成，等待 Debug Start/Step/Continue 真机接受。 |
+| [41 运行工作台与调试反馈](41-runtime-workbench-debug.md) | completed | 38 | 多节点 Debug 与 RPC/event 竞态闭环。 |
 | [42 稳定 Workspace 根目录](42-stable-workspace-root.md) | completed | 38 | workspace-3.1 迁移到稳定 workspace。 |
-| [43 工作流与资源库管理工作台](43-workflow-and-asset-library-management.md) | in_progress | UAC 真实 workspace 接受 | 实现与自动门禁完成；等待工作流/资源管理真机接受。 |
-| [44 管理页壳层与计划编辑可靠性](44-management-shell-and-schedule-reliability.md) | in_progress | 真实 WebView 接受 | 实现与自动门禁完成；等待三页标题和计划创建/编辑真机接受。 |
+| [43 工作流与资源库管理工作台](43-workflow-and-asset-library-management.md) | completed | UAC 真实 workspace 接受 | 规模化管理、选择器与完整 Launcher smoke 完成。 |
+| [44 管理页壳层与计划编辑可靠性](44-management-shell-and-schedule-reliability.md) | completed | 真实 WebView 接受 | 三页壳层与计划保存重开旅程完成。 |

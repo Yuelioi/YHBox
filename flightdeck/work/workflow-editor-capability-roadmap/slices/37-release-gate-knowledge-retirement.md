@@ -1,7 +1,7 @@
 ---
 slice: "37"
 title: 3.1 发布门禁与历史 Knowledge 退役
-status: in_progress
+status: completed
 ---
 
 # Slice 37：3.1 发布门禁与历史 Knowledge 退役
@@ -21,7 +21,7 @@ status: in_progress
 
 ## Blocked by
 
-Slices 29–36、38–42；其中 Slice 39 与 Slice 41 的实现和自动门禁已完成，但仍等待用户真机接受。
+Slices 29–36、38–44，均已完成。
 
 ## Verification
 
@@ -42,4 +42,4 @@ Slices 29–36、38–42；其中 Slice 39 与 Slice 41 的实现和自动门禁
 
 ## Result
 
-In progress。2026-07-19 用户真机测试 2 的整改阶段已完成并通过 `task check`、production build、WebView smoke 和人工截图检查；Slice 39/41 仍等待用户使用 UAC production build 与真实 workspace 完成接受。核心 Source/Compiler/Adapter/Asset Store/Run Journal 架构继续保留，Slice 37 在接受完成前不解除发布阻断。
+Completed。Capability ledger 的 P0/P1 项已全部为 verified、明确替代或明确删除；G16 Android、G17 Browser 与跨平台 compile proof 保留可信证据。最终完整 WebView 旅程闭合 Debug、Launcher、资源工作区、保存重开和计划引用，Windows native smoke 与 UAC production 启动通过；`task check`、production build、人工截图和 Knowledge retirement 全绿。3.1 能力恢复发布阻断解除；代码签名、公开仓库和 OSI 许可证仍是独立发布工程。

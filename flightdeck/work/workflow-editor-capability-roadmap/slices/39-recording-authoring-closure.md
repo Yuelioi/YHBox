@@ -1,7 +1,7 @@
 ---
 slice: "39"
 title: 录制与资产创作闭环
-status: in_progress
+status: completed
 ---
 
 # Slice 39：录制与资产创作闭环
@@ -38,4 +38,4 @@ status: in_progress
 
 ## Result
 
-Implementation complete; awaiting user acceptance。AssetPickerModal 已支持整项点击、双击、Enter/Space、明确选中态与固定确认 footer；variant 变为选中模板后的次级选项。Inspector 已改为单一复合资源字段。AssetsView 已改为互斥类型上下文和 50 行服务端分页的高密度列表，含搜索、筛选、排序、多选 batch bar、行内菜单与模板网格切换。真实组件回归测试、1000 模板服务规模测试、`task check`、production build、WebView smoke 和人工截图检查均通过；尚需用户用真实资产完成模板整卡绑定与资源管理接受。
+Completed。AssetPickerModal、Inspector 复合资源字段、互斥资源上下文、服务端分页与批量管理已完成；1000 模板规模测试、真实组件测试和编辑器资源工作区旅程通过。Windows native recorder 进一步验证 precise hook、canonical codec、asset/blob save/reload 与回放，宏/精准录制的 session owner 和安全释放由聚合门禁固定。

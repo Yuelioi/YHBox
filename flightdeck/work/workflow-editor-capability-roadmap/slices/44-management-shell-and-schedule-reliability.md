@@ -1,7 +1,7 @@
 ---
 slice: "44"
 title: 管理页壳层与计划编辑可靠性
-status: in_progress
+status: completed
 ---
 
 # Slice 44：管理页壳层与计划编辑可靠性
@@ -31,4 +31,4 @@ status: in_progress
 
 ## Result
 
-Implementation complete; awaiting user acceptance。App 全局日志面板已移除，编辑器日志改为打开日志页签时异步加载；工作流、资源库、计划标题统一视觉层级并移除标题下重复说明。计划编辑状态在 UI 边界解开外层 Proxy；编辑页按旧版产品节奏重构为居中的单栏分组表单，删除右侧行为预览，枚举统一使用 `AdaptiveSelect`。修复了 interval `30` 只显示但未写入数据导致后端收到 `0` 的根因，并把 daily/interval 等默认值初始化为真实草稿值、增加就地校验。WebView 调试能力不再藏在单一脚本：开发任务固定 loopback CDP、`Ctrl+Shift+I` 打开 DevTools、可单独截图当前页面，并将计划编辑器加入隔离 smoke 截图；执行者已实际查看最新 `schedules.png`，确认单栏布局、对齐和滚动正常。production build 继续禁用 DevTools/CDP。日志归属变化把原本由入口承担的 UI 共享依赖计入 editor closure，因此硬上限按实际归属从 200 KB 校准为 220 KB，125 KB 长期目标不变；当前 editor 为 211.1 KB。完整 `task check`、WebView smoke 与最新 production `task build` 通过，等待用户用真实数据完成计划交互接受。
+Completed。管理页壳层、日志归属、计划 reactive clone、单栏表单、AdaptiveSelect 与真实默认值均完成。最终 WebView 旅程不只截图计划页，还创建计划、绑定刚创建的工作流、保存、返回列表并再次打开验证引用；最新 `schedules.png` 已人工检查，`task check` 和 production build 通过。

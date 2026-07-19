@@ -23,7 +23,7 @@
 | `smoke-release-candidate.ps1` | `task release:smoke` | 将冻结 payload 复制到 `.task/`，运行 worker/plugin/CLI/桌面启动 smoke，并控制测试进程。 |
 | `write-release-checksums.ps1` | `.github/workflows/release.yml` | Release CI 专用；为指定发布产物写 `SHA256SUMS`。 |
 | `smoke-workflow-editor.ps1` | `task webview:smoke` / `task webview:smoke:full` | 构建隔离 DEV host、启动 Vite/WebView2 CDP、执行 UI 旅程并在 `.task/` 保存截图和日志。 |
-| `smoke-windows-automation.ps1` | `task windows:smoke:automation` | **占用真实 Windows 桌面输入**；验证窗口、截图、录制与 SendInput 路径，应在阶段末串行运行。 |
+| `smoke-windows-automation.ps1` | `task windows:smoke:automation` | **占用真实 Windows 桌面输入**；验证窗口、截图、录制与 SendInput 路径，脚本以 `-p 1` 串行执行会争用全局桌面的 Go package。 |
 | `android-adb-smoke.ps1` | 手工真机 smoke | **操作已授权 Android 设备/模拟器**；验证 ADB provider 的完整 Workflow 纵向路径。参数和触发条件见 build knowledge。 |
 | `browser-cdp-smoke.ps1` | 手工浏览器 smoke | 启动带隔离 profile 的 Chrome/Edge，验证 Browser CDP provider，并精确清理对应进程/profile。 |
 

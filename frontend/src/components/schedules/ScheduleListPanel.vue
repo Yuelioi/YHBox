@@ -13,6 +13,9 @@
       class="schedule-row"
       :class="schedule.enabled ? '' : 'schedule-row--disabled'"
       role="listitem"
+      data-testid="schedule-row"
+      :data-schedule-id="schedule.id"
+      :data-target-ids="schedule.targets.map((target) => target.id).join(',')"
       @dblclick="$emit('edit', schedule)"
     >
       <span class="schedule-row__trigger">
@@ -66,6 +69,7 @@
           variant="ghost"
           color="neutral"
           icon="i-tabler-edit"
+          data-testid="schedule-edit"
           :title="t('schedule.edit_action', { name: schedule.name })"
           :aria-label="t('schedule.edit_action', { name: schedule.name })"
           @click="$emit('edit', schedule)"

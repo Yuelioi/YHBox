@@ -43,6 +43,8 @@
             v-for="(target, index) in draft.targets"
             :key="`${target.id}-${index}`"
             class="schedule-target"
+            data-testid="schedule-target"
+            :data-workflow-id="target.id"
           >
             <span class="schedule-target__order">{{ index + 1 }}</span>
             <AdaptiveSelect
@@ -88,7 +90,14 @@
           {{ targetsError }}
         </p>
         <div>
-          <UButton size="sm" variant="soft" color="neutral" icon="i-tabler-plus" @click="addTarget">
+          <UButton
+            size="sm"
+            variant="soft"
+            color="neutral"
+            icon="i-tabler-plus"
+            data-testid="schedule-add-target"
+            @click="addTarget"
+          >
             {{ t('schedule.add_workflow') }}
           </UButton>
         </div>
@@ -193,7 +202,7 @@
         <UButton variant="ghost" color="neutral" @click="emit('cancel')">
           {{ t('common.cancel') }}
         </UButton>
-        <UButton color="primary" icon="i-tabler-check" @click="submit">
+        <UButton color="primary" icon="i-tabler-check" data-testid="schedule-save" @click="submit">
           {{ t('common.save') }}
         </UButton>
       </footer>

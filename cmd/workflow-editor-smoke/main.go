@@ -30,6 +30,9 @@ type pageState struct {
 	AssetsRecording      bool           `json:"assetsRecording"`
 	SchedulesView        bool           `json:"schedulesView"`
 	ScheduleEditor       bool           `json:"scheduleEditor"`
+	ScheduleRows         int            `json:"scheduleRows"`
+	ScheduleRowTargets   []string       `json:"scheduleRowTargets"`
+	ScheduleEditTargets  []string       `json:"scheduleEditTargets"`
 	CreateInput          bool           `json:"createInput"`
 	RecoveryPanel        bool           `json:"recoveryPanel"`
 	LauncherButton       bool           `json:"launcherButton"`
@@ -48,6 +51,7 @@ type pageState struct {
 	ConnectionError      string         `json:"connectionError"`
 	Debugger             bool           `json:"debugger"`
 	DebugPaused          bool           `json:"debugPaused"`
+	DebugBusy            bool           `json:"debugBusy"`
 	DebugCompleted       bool           `json:"debugCompleted"`
 	DebugCurrent         int            `json:"debugCurrent"`
 	DebugNode            string         `json:"debugNode"`
@@ -548,6 +552,20 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := capture(ctx, client, assetsScreenshot); err != nil {
 		return err
 	}
+	workflowHash, err := workflowEditorHash(final.Href)
+	if err != nil {
+		return err
+	}
+	workflowHashJSON, _ := json.Marshal(workflowHash)
+	if err := eval(ctx, client, fmt.Sprintf(`location.hash = %s`, workflowHashJSON)); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.RunStarted && current.CanvasNodes > 0 && current.CurrentGraph == "main" &&
+			current.GraphCalls == 1 && current.Annotations == 1
+	}); err != nil {
+		return fmt.Errorf("reopen saved workflow: %w", err)
+	}
 	if schedulesScreenshot != "" {
 		if err := eval(ctx, client, `location.hash = '#/schedules'`); err != nil {
 			return err
@@ -567,6 +585,33 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		if err := waitUntil(ctx, client, func(current pageState) bool { return current.ScheduleEditor }); err != nil {
 			return fmt.Errorf("open schedule editor: %w", err)
 		}
+		if err := clickRequired(ctx, client, "schedule-add-target"); err != nil {
+			return fmt.Errorf("add workflow to schedule: %w", err)
+		}
+		workflowID := strings.Split(strings.TrimPrefix(workflowHash, "#/"), "/")[1]
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("bind created workflow to schedule: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-save"); err != nil {
+			return fmt.Errorf("save schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.SchedulesView && !current.ScheduleEditor && current.ScheduleRows == 1 &&
+				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("persist schedule workflow reference: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
+			return fmt.Errorf("reopen saved schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.ScheduleEditor && len(current.ScheduleEditTargets) == 1 &&
+				current.ScheduleEditTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("verify reopened schedule reference: %w", err)
+		}
 		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
 			return err
 		}
@@ -583,6 +628,23 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
+}
+
+func workflowEditorHash(href string) (string, error) {
+	const marker = "#/workflows/"
+	start := strings.Index(href, marker)
+	if start < 0 {
+		return "", fmt.Errorf("created workflow identity is unavailable in %q", href)
+	}
+	hash := href[start+1:]
+	if !strings.HasSuffix(hash, "/edit") {
+		return "", fmt.Errorf("created workflow editor route is invalid: %q", hash)
+	}
+	parts := strings.Split(strings.Trim(hash, "/"), "/")
+	if len(parts) != 3 || parts[0] != "workflows" || strings.TrimSpace(parts[1]) == "" || parts[2] != "edit" {
+		return "", fmt.Errorf("created workflow editor route is invalid: %q", hash)
+	}
+	return "#" + hash, nil
 }
 
 func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient, subgraphScreenshot string) error {
@@ -702,7 +764,7 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.DebugPaused && current.DebugCurrent == 1 && current.DebugNode != "run-started"
+		return current.DebugPaused && !current.DebugBusy && current.DebugCurrent == 1 && current.DebugNode != "run-started"
 	}); err != nil {
 		return fmt.Errorf("step from Run start to next visible node: %w", err)
 	}
@@ -755,8 +817,9 @@ func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, test
 	return eval(ctx, client, fmt.Sprintf(`(() => {
 		const button = document.querySelector('[data-testid=' + %s + ']');
 		if (!button) throw new Error(%s + ' button not found');
+		if (button.disabled) throw new Error(%s + ' button is disabled');
 		button.click();
-	})()`, testIDJSON, testIDJSON))
+	})()`, testIDJSON, testIDJSON, testIDJSON))
 }
 
 func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []string {
@@ -1060,6 +1123,11 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
 		schedulesView: Boolean(document.querySelector('[data-testid="schedules-view"]')),
 		scheduleEditor: Boolean(document.querySelector('[data-testid="schedule-editor"]')),
+		scheduleRows: document.querySelectorAll('[data-testid="schedule-row"]').length,
+		scheduleRowTargets: [...document.querySelectorAll('[data-testid="schedule-row"]')]
+			.flatMap(row => (row.getAttribute('data-target-ids') || '').split(',').filter(Boolean)),
+		scheduleEditTargets: [...document.querySelectorAll('[data-testid="schedule-target"]')]
+			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
@@ -1078,6 +1146,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		connectionError: document.querySelector('[data-testid="workflow-connection-error"]')?.textContent?.trim() || '',
 		debugger: Boolean(document.querySelector('[data-testid="workflow-debugger"]')),
 		debugPaused: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-step"]') !== null,
+		debugBusy: Boolean(document.querySelector('[data-testid="workflow-debug-step"]')?.disabled),
 		debugCompleted: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-stop"]') === null,
 		debugCurrent: document.querySelectorAll('.vue-flow__node [data-testid="node-debug-current"]').length,
 		debugNode: document.querySelector('.vue-flow__node [data-testid="node-debug-current"]')?.closest('.vue-flow__node')?.getAttribute('data-id') || '',

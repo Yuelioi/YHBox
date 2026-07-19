@@ -314,6 +314,13 @@ func (b *sendInputBackend) CursorRatio(hwnd win.HWND) (float64, float64, error) 
 }
 
 func (b *sendInputBackend) ReleaseAll() error {
+	return b.releaseAllWith(sendKeyEvent, sendMouseBtnEvent)
+}
+
+func (b *sendInputBackend) releaseAllWith(
+	releaseKey func(uint32, bool) error,
+	releaseMouseButton func(uint32) error,
+) error {
 	b.mu.Lock()
 	keys := make([]uint32, 0, len(b.heldKeys))
 	for k := range b.heldKeys {
@@ -333,7 +340,7 @@ func (b *sendInputBackend) ReleaseAll() error {
 	b.mu.Unlock()
 	var result error
 	for _, k := range keys {
-		if err := sendKeyEvent(k, true); err != nil {
+		if err := releaseKey(k, true); err != nil {
 			result = errors.Join(result, err)
 			continue
 		}
@@ -342,7 +349,7 @@ func (b *sendInputBackend) ReleaseAll() error {
 		b.mu.Unlock()
 	}
 	for _, btn := range btns {
-		if err := sendMouseBtnEvent(siButtonFlags(btn, true)); err != nil {
+		if err := releaseMouseButton(siButtonFlags(btn, true)); err != nil {
 			result = errors.Join(result, err)
 			continue
 		}

@@ -12,6 +12,7 @@ try {
         ./internal/services/recording `
         ./internal/services/tools `
         ./pkg/winutil `
+        -p 1 `
         -run '^(TestNativeWindowsDriverEndToEnd|TestNativeRecorderProducesCanonicalEncodableInput|TestWindowCaptureReturnsExactForegroundMetadata|TestCaptureKeyboardProcQueuesExactForegroundWindow|TestInspectForegroundWindowState)$' `
         -count=1 `
         -v

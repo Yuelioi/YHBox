@@ -1,7 +1,7 @@
 ---
 slice: "27"
 title: 3.1 架构恢复与产品纵向闭环
-status: in_progress
+status: completed
 ---
 
 # Slice 27：3.1 架构恢复与产品纵向闭环
@@ -171,4 +171,4 @@ R0–R5 已按独立 outcome 拆为可执行 Slices；本文件保留为恢复 u
 
 ## Result
 
-In progress。R0–R4 已完成；R5 自动矩阵、frozen candidate 与 3.0 Knowledge 退役已完成。仅等待最终 UAC 用户接受验收。
+Completed。R0–R5、Slices 38–44 与后续 v3.1-product-optimization 全部完成。最终证据包含 G01–G17、完整 WebView 保存重开/计划引用旅程、Windows native smoke、`task check`、production build 与 UAC production 启动。

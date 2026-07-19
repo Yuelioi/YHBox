@@ -1,7 +1,7 @@
 ---
 slice: "43"
 title: 工作流与资源库管理工作台
-status: in_progress
+status: completed
 ---
 
 # Slice 43：工作流与资源库管理工作台
@@ -47,4 +47,4 @@ Workflow Source / authoring contract、Asset query projection，以及用户对�
 
 ## Result
 
-Implementation complete; awaiting final user acceptance。Workflow Source 已恢复 description/category/tags/createdAt/updatedAt 耐久契约和 CAS 更新；工作流首页、资源库均改为纯列表、多维 facet、底部数字分页与统一上下文选择工具栏，工作流增加日期列、最近日期筛选和时间排序，未恢复 grid 或工作流快捷键。工作流和资源均支持独立批量修改分类/标签；未明确选择的字段保持原值。新增 AdaptiveSelect 并迁移 48 个普通枚举选择器。首次真实 workspace 接受确认管理流程可用，同时暴露并已修复三项回归：批量成功汇总现在 4 秒自动收起而警告/错误保留，筛选区不再重复显示刷新，选择器宽度同时计入最长 label 与 Nuxt UI 控件 chrome，工作流主筛选不再用 fixed width 抵消自适应。1000 条服务 fixture、49 个前端测试文件/206 项测试、task check 与 task build 均通过，最新 production Yotta.exe 已生成。仍需用户在新 build 上复查三项视觉行为后才能标记 completed；完整 smoke 的 Launcher 超时仍作为发布前独立问题保留。
+Completed。Workflow Source 元数据/CAS、工作流与资源纯列表、多维 facet、数字分页、统一选择工具栏、批量分类/标签和 AdaptiveSelect 均完成。Launcher 独立问题已修复并进入 `task webview:smoke:full`；最终完整旅程、1000 条服务 fixture、管理页截图、`task check` 与 production build 全部通过。
