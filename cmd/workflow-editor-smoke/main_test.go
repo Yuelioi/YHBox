@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -87,6 +88,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		withState(base, func(state *pageState) { state.CanvasNodes = 1 }),
 		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
 		base,
 		base,
@@ -155,6 +159,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 
 	var serverURL string
 	var lastState pageState
+	probeReads := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
 			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/devtools/page/page-1"
@@ -191,6 +196,14 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				result = map[string]any{"result": map[string]any{"value": string(raw)}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "workflow-debug-step") && lastState.DebugBusy {
 				t.Errorf("debug Step was clicked before the previous control request settled")
+			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "Analyze Color node ergonomics probe") {
+				probeReads++
+				zoom := 2.0
+				if probeReads > 1 {
+					zoom = 1.5
+				}
+				value := fmt.Sprintf(`{"centerX":100,"centerY":100,"width":320,"height":240,"zoom":%v}`, zoom)
+				result = map[string]any{"result": map[string]any{"value": value}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				if strings.Contains(expression, "multi-selection needs") {

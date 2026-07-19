@@ -61,6 +61,14 @@ export interface AuthoringSurface {
 const groups: AuthoringGroup[] = ['required', 'common', 'advanced', 'output']
 const inputClipTypeID = 'https://schemas.yotta.dev/types/automation/input-clip/v1'
 const macroTypeID = 'https://schemas.yotta.dev/types/automation/macro/v1'
+const compactInlineAdapters = new Set<ValueEditorAdapter>([
+  'duration',
+  'key-chord',
+  'number',
+  'select',
+  'text',
+  'toggle',
+])
 
 export function projectAuthoringSurface(
   projection: NodeProjection,
@@ -110,7 +118,7 @@ export function projectAuthoringSurface(
     result.groups[item.group].push(item)
     if (
       item.inlinePriority > 0 &&
-      item.editorAdapter !== 'asset' &&
+      compactInlineAdapters.has(item.editorAdapter) &&
       !connectedInputIDs.has(port.id) &&
       port.type.representations.some((representation) => representation.kind === 'inline-json')
     ) {

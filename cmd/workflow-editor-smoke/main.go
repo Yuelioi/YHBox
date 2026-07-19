@@ -73,6 +73,15 @@ type pageState struct {
 	Errors               []string       `json:"errors"`
 }
 
+type canvasNodeErgonomics struct {
+	CenterX                float64 `json:"centerX"`
+	CenterY                float64 `json:"centerY"`
+	Width                  float64 `json:"width"`
+	Height                 float64 `json:"height"`
+	Zoom                   float64 `json:"zoom"`
+	CompositeInlineEditors int     `json:"compositeInlineEditors"`
+}
+
 type nodeGeometry struct {
 	ID        string  `json:"id"`
 	X         float64 `json:"x"`
@@ -247,6 +256,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return fmt.Errorf("open workflow editor: %w", err)
 	}
 	if err := exerciseMinimap(ctx, client); err != nil {
+		return err
+	}
+	if err := exerciseCanvasNodeErgonomics(ctx, client, siblingScreenshot(screenshot, "analyze-color.png")); err != nil {
 		return err
 	}
 	if launcherScreenshot != "" {
@@ -810,6 +822,92 @@ func exerciseMinimap(ctx context.Context, client *browsercdp.WebSocketClient) er
 		return fmt.Errorf("close workflow minimap: %w", err)
 	}
 	return nil
+}
+
+func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient, screenshot string) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes+1
+	}); err != nil {
+		return fmt.Errorf("insert Analyze Color node: %w", err)
+	}
+	probe, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if screenshot != "" {
+		if err := capture(ctx, client, screenshot); err != nil {
+			return fmt.Errorf("capture Analyze Color node: %w", err)
+		}
+	}
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseWheel", "x": probe.CenterX, "y": probe.CenterY,
+		"deltaX": 0, "deltaY": 320,
+	}); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	afterWheel, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	var failures []string
+	if probe.Width > 320 || probe.Height > 360 {
+		failures = append(failures, fmt.Sprintf("oversized: %.0fx%.0f", probe.Width, probe.Height))
+	}
+	if probe.CompositeInlineEditors != 0 {
+		failures = append(failures, fmt.Sprintf("contains %d composite inline editors", probe.CompositeInlineEditors))
+	}
+	if afterWheel.Zoom >= probe.Zoom-0.001 {
+		failures = append(failures, fmt.Sprintf("wheel did not zoom canvas: %.3f -> %.3f", probe.Zoom, afterWheel.Zoom))
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("analyze color canvas node %s", strings.Join(failures, "; "))
+	}
+	if err := eval(ctx, client, `document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]')?.click()`); err != nil {
+		return err
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove Analyze Color smoke node: %w", err)
+	}
+	return nil
+}
+
+func siblingScreenshot(path, name string) string {
+	if path == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(path), name)
+}
+
+func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient) (canvasNodeErgonomics, error) {
+	var probe canvasNodeErgonomics
+	err := evalJSON(ctx, client, `(() => {
+		const marker = 'Analyze Color node ergonomics probe';
+		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]');
+		const viewport = document.querySelector('.vue-flow__transformationpane');
+		if (!node || !viewport) throw new Error(marker + ' unavailable');
+		const rect = node.getBoundingClientRect();
+		const transform = getComputedStyle(viewport).transform;
+		const zoom = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1;
+		const compositeInlineEditors = node.querySelectorAll('[data-inline-adapter="color-range"], [data-inline-adapter="point"], [data-inline-adapter="region"], [data-inline-adapter="json"]').length;
+		return { centerX: rect.left + rect.width / 2, centerY: rect.top + rect.height / 2, width: node.offsetWidth, height: node.offsetHeight, zoom, compositeInlineEditors };
+	})()`, &probe)
+	if err != nil {
+		return canvasNodeErgonomics{}, fmt.Errorf("inspect Analyze Color node ergonomics: %w", err)
+	}
+	return probe, nil
 }
 
 func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, testID string) error {

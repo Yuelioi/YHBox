@@ -2,6 +2,7 @@
   <article
     class="workflow-node relative min-w-[230px] overflow-visible rounded-lg border bg-elevated shadow-sm transition-[border-color,box-shadow] duration-150"
     :class="visualState.surfaceClasses"
+    :data-node-type-id="projection.nodeRef.nodeTypeId"
   >
     <span
       v-if="visualState.executionTone"
@@ -103,7 +104,12 @@
       class="nodrag nopan space-y-2 border-t border-default bg-muted/15 px-3 py-2.5"
       @pointerdown.stop
     >
-      <div v-for="item in surface.inlineInputs" :key="item.key" class="space-y-1">
+      <div
+        v-for="item in surface.inlineInputs"
+        :key="item.key"
+        class="space-y-1"
+        :data-inline-adapter="item.editorAdapter"
+      >
         <div class="flex items-center gap-2 text-[10px]">
           <span class="font-medium text-toned">{{ portTitle(item.port) }}</span>
           <span v-if="item.port.unit" class="ml-auto text-dimmed">{{ item.port.unit }}</span>

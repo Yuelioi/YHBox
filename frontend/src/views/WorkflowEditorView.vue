@@ -362,6 +362,7 @@
           class="relative min-w-0 flex-1 bg-elevated/15 transition-shadow"
           :class="nodeDragActive ? 'ring-1 ring-inset ring-primary/60' : ''"
           @pointerdown.capture="captureMarqueeSelection"
+          @wheel.capture="handleCanvasWheel"
           @dragover="continueNodeDrag"
           @dragleave.self="finishNodeDrag"
           @drop="dropNode"
@@ -1210,6 +1211,7 @@ import {
 import {
   mergeMarqueeSelection,
   WORKFLOW_CANVAS_INTERACTION,
+  zoomViewportAtPoint,
 } from '@/app/editor/workflowCanvasInteraction'
 import { workflowEdgeVisualState } from '@/app/editor/workflowEdgeVisualState'
 import {
@@ -1323,10 +1325,12 @@ const {
   findNode,
   fitView,
   flowToScreenCoordinate,
+  getViewport,
   getSelectedNodes,
   removeSelectedNodes,
   screenToFlowCoordinate,
   setCenter,
+  setViewport,
   updateNode,
 } = useVueFlow()
 const nodeGestures = createWorkflowNodeGestureState()
@@ -2668,6 +2672,23 @@ function captureMarqueeSelection(event: PointerEvent): void {
     event.button === 0 && event.shiftKey && target?.classList.contains('vue-flow__pane')
       ? new Set(selectedNodeIds.value)
       : new Set()
+}
+
+function handleCanvasWheel(event: WheelEvent): void {
+  const target = event.target
+  const canvas = canvasElement.value
+  if (!(target instanceof Element) || !target.closest('.vue-flow__node') || !canvas) return
+  const rect = canvas.getBoundingClientRect()
+  const next = zoomViewportAtPoint(
+    getViewport(),
+    { x: event.clientX - rect.left, y: event.clientY - rect.top },
+    event.deltaY,
+    event.deltaMode,
+  )
+  if (next.zoom === getViewport().zoom) return
+  event.preventDefault()
+  event.stopPropagation()
+  void setViewport(next)
 }
 
 async function finishMarqueeSelection(): Promise<void> {

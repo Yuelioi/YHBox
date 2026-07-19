@@ -12,3 +12,4 @@
 | 07 Authoring Surface 深模块 | completed | 06 | 通用投影与类型级 Editor Adapter |
 | 08 视觉分析与配方闭环 | completed | 07 | 取样、区域、预览和任务配方 |
 | 09 工作区一致性与黄金路径 | completed | 08 | 商业交付收口与完整能力连续性验收 |
+| 11 画布节点密度与滚轮缩放 | completed | 08、用户真机证据 | 复杂节点保持紧凑，节点上滚轮仍控制画布缩放 |

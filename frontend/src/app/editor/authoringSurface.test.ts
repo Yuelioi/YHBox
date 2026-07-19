@@ -63,12 +63,17 @@ function projection(inputs: PortProjection[]): NodeProjection {
 describe('authoring surface', () => {
   it('resolves adapters by type and excludes connected inputs from the three inline slots', () => {
     expect(resolvePortAdapter(pointPort)).toBe('point')
-    const inputs = [0, 1, 2, 3].map((index) => ({
-      ...pointPort,
-      id: `point-${index}`,
-      order: index + 1,
-      inlinePriority: 100 - index,
-    }))
+    const inputs: PortProjection[] = [0, 1, 2, 3].map(
+      (index) =>
+        ({
+          ...pointPort,
+          id: `point-${index}`,
+          order: index + 1,
+          inlinePriority: 100 - index,
+          editorAdapter: 'number',
+          type: { ...pointPort.type, editorAdapter: 'number', control: 'number' },
+        }) as PortProjection,
+    )
     const surface = projectAuthoringSurface(projection(inputs), undefined, new Set(['point-0']))
     expect(surface.inlineInputs.map((item) => item.port.id)).toEqual([
       'point-1',
@@ -76,6 +81,33 @@ describe('authoring surface', () => {
       'point-3',
     ])
     expect(surface.groups.common).toHaveLength(4)
+  })
+
+  it('keeps composite task editors out of the compact canvas node surface', () => {
+    const compositeInputs = (['color-range', 'point', 'region'] as const).map(
+      (editorAdapter, index) =>
+        ({
+          ...pointPort,
+          id: editorAdapter,
+          inlinePriority: 100 - index,
+          editorAdapter,
+          type: { ...pointPort.type, editorAdapter },
+        }) as PortProjection,
+    )
+    const scalarInput = {
+      ...pointPort,
+      id: 'threshold',
+      inlinePriority: 50,
+      editorAdapter: 'number',
+      type: { ...pointPort.type, editorAdapter: 'number', control: 'number' },
+    } as PortProjection
+
+    const surface = projectAuthoringSurface(projection([...compositeInputs, scalarInput]))
+
+    expect(surface.inlineInputs.map((item) => item.port.id)).toEqual(['threshold'])
+    expect(
+      surface.groups.common.flatMap((item) => (item.kind === 'input' ? [item.port.id] : [])),
+    ).toEqual(['color-range', 'point', 'region', 'threshold'])
   })
 
   it('puts missing required fields before common and advanced fields', () => {

@@ -6,16 +6,17 @@ summary: 在稳定的 3.1 架构上修正编辑器状态表达，恢复专业级
 
 ## State
 
-Completed。Stage A–E 全部完成：专业画布与 Source-native 子图、宏/精准录制、真实调试链路、Authoring Surface 与视觉配方，以及最终跨页面黄金路径均已闭合。
+Completed。Stage A–F 均已完成；Slice 11 已恢复复杂节点画布密度与节点上滚轮缩放，并通过聚合门禁、真实 WebView 编辑器旅程和 production build。
 
 ## Next
 
-本 Topic 无剩余实施项。后续若真机反馈出现新问题，按独立 Topic 从唯一责任层重新诊断，不再重开已完成迁移 Slice。
+当前 Topic 无剩余实施项。悬浮启动器 full smoke 的独立超时不属于本 Slice，后续应以单独故障任务复现和处理。
 
 ## Read now
 
 - work/v3.1-product-optimization/optimization-plan.md
-- work/v3.1-product-optimization/slices/09-workspace-consistency-golden-path.md
+- work/v3.1-product-optimization/slices/11-canvas-node-density-and-wheel-zoom.md
+- knowledge/frontend/canvas-node-authoring-boundary.md
 
 ## Read if
 
@@ -38,6 +39,9 @@ Completed。Stage A–E 全部完成：专业画布与 Source-native 子图、�
 - 阶段验收通过 `task check`、production `task build` 与隔离 WebView2 CDP smoke；复杂编辑器按需加载后初始 editor gzip 212,537 bytes，低于 220,000 上限。
 - Slice 09 将隔离 WebView 旅程扩展到保存重开和计划引用；修复 Debug Step busy 竞态与 native smoke 跨包桌面争用。最终 `task check` 为 64 个前端测试文件、250 项测试，editor gzip 212,554 bytes。
 - 完整 WebView、Windows native smoke、production build 与 UAC 启动通过；稳定 workspace、Android/Browser Adapter 证据和管理页产品语言完成发布前收口。
+- 用户真机截图显示“分析颜色”将完整 Authoring Surface 铺进画布，节点几乎占满可视区；鼠标位于节点上时滚轮无法缩放画布。此前 smoke 只证明复杂编辑器可加载，未锁定节点卡片尺寸和 wheel ownership，Slice 11 已恢复为当前前沿。
+- Slice 11 已限定节点内联 adapter 为 duration/key-chord/number/select/text/toggle；ColorRange、Point、Region、Asset、JSON 等复合编辑器保留在 Inspector。节点上的 wheel 由画布捕获并按光标锚点更新 viewport。
+- Analyze Color 红灯、viewport 数学测试、`task check`、真实 WebView 编辑器 smoke 与 production `task build` 均通过；最新 smoke 覆盖 146 个目录节点、4 个画布节点并保存紧凑节点截图。`task webview:smoke:full` 的编辑器段通过，但既有悬浮启动器最终等待工作流成功超时，已与本 Slice 结果分离记录。
 
 ## Open questions
 
