@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "改存储约定/config schema 前必须 exhaustive grep 全消费者，外部 reviewer 结构上 catch 不到漏掉的读取点"
-activation: symptom
-read_when: "写\"统一存储约定 / 改 config schema / 改 pin 值读写法\"类 spec 前; impl 第一步就撞\"还有一堆地方在直接读这个 key\"; 评估改 config key 的真实影响面"
----
 # ⚠ Incident — 统一存储约定时漏审消费者, scope 翻倍
 **Date**: 2026-05-29
 **Context**: input-editing-unification (pin 值 顶层 config ↔ config.literal 双轨统一)

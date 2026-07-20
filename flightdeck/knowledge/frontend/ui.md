@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "前端 UI 基线 — 写/改 .vue 或 Tailwind class 前的 NuxtUI 用色/组件/反馈约定."
-activation: action
-read_when: "before writing / editing .vue components or Tailwind classes"
-recheck_when: "改前端 UI 基线 (nuxtui 版本/约定 / Tailwind 配置 / 公共组件风格) 时"
----
 # UI (NuxtUI 偏好) checklist
 写/改 `.vue` 组件 / Tailwind class 时**前置**读这份.
 

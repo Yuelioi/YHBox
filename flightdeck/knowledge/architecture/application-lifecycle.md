@@ -1,10 +1,3 @@
----
-kind: note
-summary: "后台资源由 internal/appruntime 单一 owner 顺序 Start、失败逆序 rollback、退出逆序 Close；Windows production 进程按产品契约从 manifest 以管理员完整性启动。"
-activation: action
-read_when: "新增后台 goroutine、HTTP server、cron、hotkey/hook、worker；修改 main 启动/退出；实现 Start/Close/Shutdown；排查端口占用、退出卡住、held input 或 goroutine 泄漏"
-recheck_when: "application runtime 新增资源；调整 shutdown timeout；资源 Close 不再遵守 context；Wails lifecycle API 改变"
----
 # Application runtime 生命周期
 生命周期契约：
 

@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Yotta 3.1 leased data edge 的 authority、carrier 与 operation narrowing 规则"
-activation: action
-read_when: "新增或修改 runtime stream/handle data port、ResourceLeaseBinding、Compiler/Program edge validation 或 Executor borrow 时"
-recheck_when: "Node Contract、Catalog、Compiler、Program opener、Executor 或 ValueEnvelope carrier 规则变化时"
----
 # Resource lease edge authority
 
 ## 核心规则

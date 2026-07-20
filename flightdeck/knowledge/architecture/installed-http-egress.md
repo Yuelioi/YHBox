@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Workflow HTTP access is an installed exact-origin capability; nodes never receive an ambient URL client."
-activation: action
-read_when: "modifying HTTP/network nodes, egress providers, SSRF controls, network settings, target slots, consent policy, response budgets, or network-related plugin imports"
-recheck_when: "adding methods, credentials, request bodies/headers, binary/streaming responses, proxies, redirects, WebSockets, or live installation reload"
----
 # Workflow HTTP is installed origin authority
 
 HTTP GET binds capability `https://schemas.yotta.dev/capabilities/network/http-get/v1` to a logical slot whose production target is one immutable `httpegress.Profile`. The profile digest includes exact scheme/authority, private-network policy, timeout and response-byte budget. Workflow data supplies only an absolute relative-path form and a canonical string-list query object; it cannot select a scheme, host, port, proxy, redirect, credential, Cookie or request header.

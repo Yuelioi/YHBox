@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "新加一个前端可调的 Go 服务的五步全链路, 漏一步前端就调不到"
-activation: action
-read_when: "新增一个 wails 后端 service (前端要新 RPC) 前; 改服务注册 / bindings 生成链路时"
-recheck_when: "服务注册方式 / bindings 生成命令 / backend.ts 门面约定变化时"
----
 # 新增后端 Service 全链路 checklist
 新加一个前端可调的 Go 服务, 五步, 漏一步前端就调不到:
 

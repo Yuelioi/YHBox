@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "UE Slate 点击坐标/松键/hover-settle 前案；3.1 held input 已改为 Run-owned lease，不再要求用 Sleep 让图保活。"
-activation: symptom
-read_when: "改鼠标点击/按住路径 (ClickAt / MouseHoldStart·Stop / PostMessageBackend.Mouse* / sendinput 坐标); UE 里点击点歪或点不到或「按住变单击」; 给 ClickAt 加可取消长按; review MouseDown/MouseUp 落点坐标或 hover 时序; 排查「held 按键莫名被松」类问题"
----
 # ⚠ UE Slate 点击落点三根因 + hold 生命周期留尾
 **Date**: 2026-06-08（用户报 ClickAt 在 UE 里点歪/点不到 → 一路查到 MouseHold「按住变单击」）
 

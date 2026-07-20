@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "设置中心统一使用共享壳层、连续内容流、显式保存状态与渐进披露；禁止各主题复制卡片骨架。"
-activation: action
-read_when: "写/改 SettingsView 或任一设置主题；新增设置项、设置主题、保存状态、危险权限或设置响应式布局前"
-recheck_when: "SettingsView 信息架构、Nuxt UI 版本、设置持久化契约或 Settings* 公共组件变化时"
----
 # 设置中心设计与实现约定
 
 ## 共享结构

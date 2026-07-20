@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Yotta 曾声明 frontend gates 却未在 CI 执行；该缺口现由 quality-windows 的 canonical `task check` 修复，但发布就绪仍须审核 workflow 的实际命令和所有显式 package 路径。"
-activation: symptom
-read_when: "评估 CI、发布就绪、required checks 或声称“全套门禁已绿”时；文档列了验证命令但 GitHub Actions 结果异常少时"
-recheck_when: "`.github/workflows/ci.yml`、Taskfile 或 frontend scripts 改动后"
----
 # ⚠ 文档列出的验证命令可能根本没有进入 CI
 不要从 README、CONTRIBUTING 或 checklist 推断某项检查已被 CI 执行。必须同时确认：
 

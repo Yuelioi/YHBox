@@ -1,6 +1,6 @@
 # 旧版能力与 3.1 产品连续性审计
 
-> 2026-07-18：本文以 `9fce7870^` 为基线的结论已被用户指定基线 `8316d590dbc8429b783b99982ff30d15e650c59a` 的架构健康审计取代。本文仅保留历史过程；当前结论与发布路线以 [`architecture-health-audit.md`](architecture-health-audit.md) 和 [`slices/27-architecture-recovery.md`](slices/27-architecture-recovery.md) 为准。
+> 2026-07-18：本文以 `9fce7870^` 为基线的结论已被用户指定基线 `8316d590dbc8429b783b99982ff30d15e650c59a` 的架构健康审计取代。本文仅保留历史过程；当前结论与发布路线以 [`architecture-health-audit.md`](architecture-health-audit.md) 和 [`references/27-architecture-recovery.md`](references/27-architecture-recovery.md) 为准。
 
 ## 修正后的结论
 
@@ -8,7 +8,7 @@
 
 但把当前状态称为“major upgrade 已完成”不准确。旧产品栈在 9fce7870 中整体移除后，许多用户能力没有在新架构上迁完；此前审计又过度聚焦节点编辑器。准确说法是：**底层架构升级已形成，新产品迁移尚未完成，当前 3.1 对用户存在明显能力回归。**
 
-旧代码虽然从当前树删除，但完整保留在 Git 历史。迁移审计现固定以 9fce7870^ 为旧基线，逐项比较路由、视图、store、Wails 调用和 runtime；详细表见 [artifacts/legacy-product-capability-diff.md](artifacts/legacy-product-capability-diff.md)。
+旧代码虽然从当前树删除，但完整保留在 Git 历史。迁移审计现固定以 9fce7870^ 为旧基线，逐项比较路由、视图、store、Wails 调用和 runtime；详细表见 [references/legacy-product-capability-diff.md](references/legacy-product-capability-diff.md)。
 
 不回滚旧 Container 栈，不复制第二套编辑器或运行时；需要保留的能力必须接入 3.1 唯一契约与执行路径。
 

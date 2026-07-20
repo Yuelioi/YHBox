@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "dev fetch transport 把 wails 错误信封塞进 Error.message 字符串, e.cause 是 undefined 读不到结构化字段"
-activation: symptom
-read_when: "设计\"FE 读 wails RPC 抛错的结构化字段 (cause / errors / code)\"类方案前; 或撞 toast / 错误显示糊出整坨 wails JSON 信封 (`{\"message\":...,\"cause\":...,\"kind\":\"RuntimeError\"}`)"
----
 # ⚠ wails dev fetch transport 把错误信封拍平进 Error.message, 读不到 cause
 ## 症状
 

@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "已解决：3.1 R2 的 sendInputBackend.Drag 全程使用 SendInput 移动/down/插值/up，并由真实 hook smoke 防止回退。"
-activation: symptom
-read_when: "改 Swipe/拖拽 / 选 sendinput 后端跑拖拽 / 排查「拖拽在某游戏不生效但点击生效」/ 给 sendinput 后端补原生 Drag"
----
 # ✅ 已解决：SendInput drag 不再走 PostMessage
 **Date**: 2026-06-24 (Phase 3 detect/click 整支终审发现)
 

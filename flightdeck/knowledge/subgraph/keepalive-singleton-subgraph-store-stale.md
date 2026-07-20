@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "历史 3.0 keep-alive/全局子图 store 串上下文案例；3.1 异步/多编辑器结果仍必须绑定 source ID、revision 与 graph ID。"
-activation: symptom
-read_when: "仅在恢复 archived Topic asset-workbench-upgrade，或取证 3.0 keep-alive 子图故障时；现行异步规则读 node-system-architecture"
----
 # ⚠ keep-alive 缓存编辑器共享全局单例子图 store 致跨容器"(子图未找到)"
 
 > 历史案例：具体 store 已删除。现行可复用原则是异步结果和 picker/capture 回调必须携带发起时的 source ID、base revision、graph ID 与 target slot，不能读取全局“当前项”。

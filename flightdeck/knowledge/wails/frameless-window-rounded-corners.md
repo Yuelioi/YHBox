@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Wails alpha2.117 已解除 Windows 透明窗默认鼠标穿透限制；Win10 可重新验证 CSS 圆角透明路径，但仍没有 Windows 原生 CornerRadius API。"
-activation: action
-read_when: "想给 frameless 独立窗（录制/校准/截图/鼠标检测/悬浮窗 HUD）加圆角、透明或毛玻璃前；升级 Wails 后检查窗口外观能力时"
-recheck_when: "升级 Wails；修改 BackgroundType / IgnoreMouseEvents / WebView2CompositionHosting；完成 Win10/Win11 真机 smoke 后"
----
 # Frameless 工具窗圆角与透明背景
 ## 当前结论（v3.0.0-alpha2.117）
 

@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "离屏渲染前端视图做视觉自检 (vite + Playwright MCP), 不开完整 app 也能亲眼核样式."
-activation: action
-read_when: "改了前端视图/样式想\"亲眼\"看渲染对不对又不想开完整 app 时; 用 Playwright MCP 离屏渲染 wails 前端做视觉自检; 给独立窗口/设置页调样式后自检前"
-recheck_when: "改离屏视觉自检流程 (Playwright MCP / vite 离屏渲染入口 / pinia mock 方式) 时"
----
 # 离屏渲染前端视图做视觉自检 (vite + Playwright MCP) checklist
 **为什么**：纯 typecheck/lint 过 ≠ 长得对。本会话多次"我觉得对"翻车 (步进器全宽、布局臃肿)，**截图一看就抓到**。wails app 是桌面 webview 不好直接截，但前端是 vite 服务，可在浏览器里渲染 + 注入 mock 数据看布局/样式。
 

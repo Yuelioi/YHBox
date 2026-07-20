@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 校验按 Source/schema、Compiler、Admission、Executor/adapter 分层，但语义均来自 sealed Contract/Catalog；不能在前端或 runtime 建第二套规则。"
-activation: action
-read_when: "新增配置校验、类型/端口诊断、target/capability 检查或 runtime contract check 时"
-recheck_when: "ConfigValidator、Compiler diagnostic、Admission、Projection 或 adapter validation 改变后"
----
 # 3.1 validation layers
 
 - **Parse/schema**：严格格式、unknown field、budget、config schema 和稳定引用。

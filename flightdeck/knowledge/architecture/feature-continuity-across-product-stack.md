@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "替换编辑器或产品栈时，能力连续性必须同时验证入口、管理、创作绑定、运行闭环和真实用户旅程。"
-activation: action
-read_when: "删除或替换编辑器、产品栈、工作流格式，判断旧能力是否被新架构保留，或准备把一个能力标记 completed 时"
-recheck_when: "主导航、Authoring Projection、录制/资产服务、runtime Catalog、Stage acceptance gate 或真实宿主能力改变后"
----
 # 跨产品栈验证能力连续性
 
 后端 service、store、节点契约、页面入口或单元测试存在，都不能单独证明用户能力已经保留。一次产品栈迁移必须逐项验证五层：

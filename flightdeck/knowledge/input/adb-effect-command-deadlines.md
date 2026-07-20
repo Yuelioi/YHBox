@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "ADB target 解析有超时不代表 effect 有超时；每条 input/capture/app 子进程必须由 Adapter 叠加 bounded context，副作用不得自动重试。"
-activation: symptom
-read_when: "修改 Android ADB runner、input/capture/application/playback，或 emulator workflow 偶发长期停在 RUNNING 时"
-recheck_when: "ADB runner 生命周期、operation deadline、Run cancellation 或 effect retry policy 改变后"
----
 # ADB effect command 必须有 Adapter-owned deadline
 
 Workflow Run 的 context 可能没有 deadline。target resolver 自己的超时只覆盖设备发现和 identity/size 解析；如果后续 `adb shell input`、`exec-out screencap`、`monkey`、`am force-stop` 等 effect 直接继承 Run context，ADB server、transport 或设备卡住时，节点和整次 Run 都可能永久停在 RUNNING。

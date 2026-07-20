@@ -1,9 +1,3 @@
----
-kind: checklist
-summary: "Always bump Yotta releases through scripts/bump-version.ps1 so pkg/version, build metadata, frontend package metadata, installer metadata, commit, and tag stay aligned."
-activation: action
-read_when: "before changing app version, release metadata, installer version, git release tag, about/titlebar version display, or version sync tasks."
----
 # Version bump checklist
 版本号唯一来源是 `pkg/version/version.go` 的 `version.Version`。Go 运行时窗口标题、托盘和 `AppInfoService` 都必须读这个常量；前端通过 `backend.appInfo.info()` 获取版本，不能硬编码。
 

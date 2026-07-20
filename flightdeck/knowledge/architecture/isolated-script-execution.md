@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Script 3.1 executes only in a one-shot, zero-ambient-authority worker; Windows requires LPAC/AppContainer plus atomic Job Object containment, and unsupported platforms fail closed."
-activation: action
-read_when: "modifying script nodes, guest runtimes, worker launchers, script ABI, script permissions, replay/retry, or cross-platform execution claims"
-recheck_when: "the guest engine, Windows sandbox APIs, runner protocol, or supported-platform policy changes"
----
 # Script execution is an isolated typed effect
 
 Production code must never evaluate user scripts inside the Wails process. Each attempt launches one worker using protocol `yotta.script.worker/3.1`: a single big-endian length-delimited RFC 8785 frame in each direction and exact typed JSON input/output. Frames reject unknown fields, non-canonical JSON, trailing bytes and budget overruns.

@@ -1,10 +1,3 @@
----
-kind: note
-summary: "产品 release、artifact format generation 与 Node 实体版本是独立维度；代码 package/目录/文件使用稳定职责名，版本只进入显式 contract/manifest/schema/identity 属性。"
-activation: action
-read_when: "修改 Workflow Source、Data Type、Node Contract、Catalog、Compiler、Program、ValueEnvelope、执行绑定、implementation lock，或创建带版本后缀的 Go/TypeScript 模块、目录、文件、类型、service 时。"
-recheck_when: "版本 taxonomy、NodeRef identity、artifact format/version、hash preimage/domain、Program format、NodeContract projection、compiler build identity 或插件 implementation lock 改变时。"
----
 # Content-addressed Workflow artifacts
 
 Yotta 3.1 是产品 release，也是当前 durable contract generation，但这不构成 Go/TypeScript 代码 namespace。代码 package、目录、文件、类型与 service 使用稳定职责名；不得从产品 SemVer 派生 `nodes31`、`workflow31` 或下一代同类名称。产品版本只由 release metadata 管理，serialized artifact generation 使用显式 `format` / `version`，单个 Node 的版本属于 Node contract identity 的显式属性。

@@ -1,9 +1,3 @@
----
-kind: checklist
-summary: "本仓提交特有规则：英文 Conventional Commit、原子暂存、草稿知识不碎提交、禁止 AI 署名，并检查 staged/unstaged 分裂。"
-activation: action
-read_when: "准备暂存或提交本仓改动时"
----
 # 本仓提交检查
 
 通用 Git 写法无需在知识库重复；本仓只额外约束以下行为：

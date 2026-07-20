@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Yotta automation installation 已由 Adapter 拥有 profile intent/payload、manifest、verifier 与 runtime；新增 target 不改中央 Settings、Policy 或 composition-root capability switch。"
-activation: action
-read_when: "添加 Linux/macOS/Android/Browser 支持，设计 automation target/controller/installation，修改 Settings automation schema，或声称新增平台只需 Adapter 时"
-recheck_when: "Profile intent/payload、Adapter descriptor、Settings fallback editor、installation manifest、Target Runtime generation 或原生宿主支持变化后"
----
 # 多平台边界：installation 全链属于 Adapter
 
 Windows 是完整支持 host；Linux/macOS 当前只承诺平台中立核心测试和预览级 GUI compile。Android ADB 与 Browser CDP 是 target，不是 host。compile、stub、controller 单测或 Adapter conformance 都不能提升产品支持等级。

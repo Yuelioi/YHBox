@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "已解决：3.1 R2 的 SendInput 键盘、Unicode、按钮、绝对/相对移动与滚轮统一检查注入数，失败沿 provider/node 返回。"
-activation: symptom
-read_when: "给 pkg/input 后端方法加错误处理 / 排查「输入静默失败但节点走 Done」/ 评估 InputText 等输入节点 error 路径的生产可靠性"
----
 # ✅ 已解决：SendInput 原语统一验证注入数
 **Date**: 2026-06-24 (Phase 3 InputText 终审定夺)
 

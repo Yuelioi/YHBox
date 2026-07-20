@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Yotta 的 CI 曾硬编码 `14 Services, 107 Methods`，但 Recording 增加 5 个 RPC 后真实生成面已是 14/112；数量断言只会报“变了”，也抓不到同数量的重命名、签名或 DTO 字段变化。"
-activation: symptom
-read_when: "修改 Wails bound service、Go RPC request/response、frontend bindings 生成、CI gui-build 或准备更新 RPC 基线时"
-recheck_when: "Wails generator 输出格式变化、`contracts/wails-rpc.json` schema 升级或 v3 presentation contract 取代当前 bindings 后"
----
 # ⚠ Wails service/method 数量不是可审查的 RPC contract
 统一流程是：
 

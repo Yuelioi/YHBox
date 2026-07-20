@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "新增 3.1 节点的全链路：类型/能力 → Node Contract → implementation lock/adapter → Projection → Compiler/admission → 用户旅程。"
-activation: action
-read_when: "新增或修改一个 3.1 node kind、端口、配置、错误、状态、类型、capability 或 runtime adapter 前"
-recheck_when: "Node Contract、internal/nodes 组装、noderuntime installation、Projection、frontend catalog 或验证入口变化后"
----
 # 新增 3.1 节点 checklist
 
 ## 1. 先证明类型与能力闭包

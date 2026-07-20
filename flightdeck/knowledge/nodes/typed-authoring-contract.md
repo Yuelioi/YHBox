@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "3.1 强类型创作统一契约：名义类型、显式关系、非语义 Authoring Surface、可见转换和 Catalog 驱动候选形成闭环"
-activation: action
-read_when: "修改 Data Type、TypeExpression、泛型节点、转换节点、端口连线、Run 状态类型、拖线候选或结构化值字段时"
-recheck_when: "类型关系、转换自动插入、constraint registry、节点能力覆盖或 Authoring Projection 改变时"
----
 # Typed authoring contract
 
 ## 不变量

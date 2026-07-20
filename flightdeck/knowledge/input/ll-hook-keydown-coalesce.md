@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "LL keyboard hook 停录热键 auto-repeat 重复 fire, 用 atomic.Swap 一次性消费去抖"
-activation: symptom
-read_when: "写 LL keyboard / mouse hook 接全局热键; callback 里跑业务逻辑而不只是消费事件; 停录 / 全局快捷键看到\"第一次成功但 toast 是 error\""
----
 # ⚠ LL keyboard hook 停录热键去抖 — atomic.Swap 一次性消费
 ## 教训 (3 条)
 

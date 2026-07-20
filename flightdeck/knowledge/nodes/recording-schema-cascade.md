@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "录制必须把 recorder event、session state、canonicalization、codec、asset 与 playback 当成一个契约；手写合法 fixture 会掩盖真实事件不变量。"
-activation: symptom
-read_when: "修改录制事件/状态/finalize/codec/clip asset/playback，或出现 HUD 卡住、保存 ordering invalid、录制成功但回放失败时"
-recheck_when: "Recording Session、inputclip event schema、HUD state merge、asset commit 或 playback adapter 改变后"
----
 # Recording contract cascade
 
 录制不是 recorder、HUD、codec、Asset Store 和 playback 五个独立功能。正确链路是：

@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Yotta 3.1 AI 以内容寻址 Model Profile、PromptManifest 与 ToolSet 组成可信安装边界；安装通过原子 generation 发布，运行时数据不得升格为高权限指令。"
-activation: action
-read_when: "新增或修改 AI provider、模型设置、PromptManifest、ToolSet、AI 节点、workflow consent、credential binding、Host Profile、Policy/Run Grant 或 AI trace 时"
-recheck_when: "Model Profile/PromptManifest/ToolSet digest、provider ABI、供应商原生 API、AI capability scope、credential store 或 workflow consent preimage 改变时"
----
 # Provider-native AI installation contract
 
 Yotta 3.1 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact endpoint/model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：

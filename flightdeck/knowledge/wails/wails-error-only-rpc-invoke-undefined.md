@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Wails void RPC 成功可 resolve undefined，但失败必须 reject typed RPCError；禁止 transport toast 后返回 undefined/false，也不要为补偿坏 wrapper 把 Go error-only 方法改成 bool。"
-activation: action
-read_when: "新增或修改 Wails RPC、frontend transport、error marshaling、void command、await event 流程或任何把 RPC 失败转成 undefined/false 的 helper 时"
-recheck_when: "Wails MarshalError、runtime error envelope、frontend invoke/callRPC、RPC feedback policy 或绑定生成方式变化后"
----
 # Wails void RPC 必须用 Promise 状态区分成功和失败
 
 ## Contract

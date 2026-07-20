@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "WaitMatch 认第一次命中就动作, 转场帧太早点空; SettleMs(点前等稳)+ MaxAttempts(点后验证)两旋钮"
-activation: symptom
-read_when: "撞 ClickTemplate/WaitTemplate「检测到了/走了 Done 但游戏没反应」「点空」「点了不生效」; 怀疑模板在转场帧上误命中或点早了; 想让 ClickTemplate 点不中时自动重点(MaxAttempts); 设计任何「检测到模板→立刻点击/动作」类节点前; 想搞清 WaitMatch 轮询/帧缓存/超时的真实机制"
----
 # ⚠ 模板点击「认第一次命中就点 → 转场时太早 → 点空」+ SettleMs 修法
 **Date**: 2026-06-13（用户报 ClickTemplate 自动跑「点了不生效」, 手动单跑/前面垫 Sleep 就好）
 

@@ -1,9 +1,3 @@
----
-kind: checklist
-summary: "Win32 callback / native DLL uintptr must not be cast directly to Go pointers: copy native memory through winutil helpers, and carry Go callback state through a temporary registry token."
-activation: action
-read_when: "before decoding Win32 callback lParam, reading a native DLL C string, passing Go state through a Windows callback, fixing possible misuse of unsafe.Pointer, or adding a Windows ABI adapter."
----
 # Windows ABI 裸地址与 callback state checklist
 Win32 callback 和 syscall.LazyProc.Call 的 uintptr 有两种不同来源，必须分别处理。
 

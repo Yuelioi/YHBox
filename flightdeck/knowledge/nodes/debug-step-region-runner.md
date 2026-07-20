@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Repeat/ForEach/Retry/GraphCall 调试必须经过同一 Executor scheduler 控制点；Step 不能把 host-lowered region 当一次黑盒执行。"
-activation: symptom
-read_when: "修改 DebugStep、scheduler instruction、Repeat/ForEach/Retry/GraphCall，或单步一次越过整段循环/子图时"
-recheck_when: "DebugController control point、host instruction lowering、nested activation queue 或 graph provenance 改变后"
----
 # Debug step and host-lowered regions
 
 3.1 不再有 RegionRunner/第二 debug runtime。Repeat、ForEach、Retry 和 GraphCall 被 Compiler lower 为 Program instruction/展开图，但其中的可见节点仍由同一个 Executor scheduler 调用。

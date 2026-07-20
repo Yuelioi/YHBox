@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Vue reactive Proxy 不能直接跨 structuredClone 边界；class session 用 shallowReactive，外来 DTO 编辑状态用 shallowRef 并在 UI clone seam 解开外层 Proxy。"
-activation: symptom
-read_when: "Vue/Wails 编辑器或表单打开后黑屏；structuredClone 收到 Proxy；给 class/session/store/DTO 加 reactive；画布命令执行但节点不出现"
-recheck_when: "EditorSession 改为原地深层 mutation；createEditorSession 或 DTO 编辑状态的响应式策略改变；structuredClone 边界改变"
----
 # Vue 深代理不能跨 structuredClone 边界
 
 `reactive(new EditorSession(...))` 会在读取 `session.source`、Catalog projection 和内部集合时返回 Vue Proxy。`EditorSession.apply()` 先对 Source 调 `structuredClone`，浏览器不能克隆 Proxy，因此目录点击在任何 Source mutation 前抛 `DataCloneError`；Vue Flow 没有机会收到新节点。普通 Wails DTO 也有同一边界：把 Schedule 放进深 `ref` 后再在子表单 `structuredClone(props.schedule)`，会在组件 setup 阶段直接抛错，表现为点击“新建计划”后内容黑屏。

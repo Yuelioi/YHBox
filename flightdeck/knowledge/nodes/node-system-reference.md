@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 节点系统源码与生成入口速查；结构以 sealed Catalog/Authoring Projection 为准，不信旧静态节点表。"
-activation: action
-read_when: "查询当前节点、类型、端口、capability、runtime adapter、State 或生成文档入口时"
-recheck_when: "节点目录、Task 生成入口、Node Contract、Catalog、Projection 或 runtime package 变化后"
----
 # 3.1 节点系统速查
 
 ## 源码

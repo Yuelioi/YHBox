@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "Vue prop 名禁连续大写 — kebab/camel 转换不对称导致 prop 永远 undefined."
-activation: symptom
-read_when: "写 Vue 组件 prop / template 传 prop 用 :attr-name= / 撞 prop 在子组件永远 undefined 但 parent 明明传了"
----
 # ⚠ Vue prop 名禁连续大写 — kebab/camel 转换不对称
 ## 教训
 

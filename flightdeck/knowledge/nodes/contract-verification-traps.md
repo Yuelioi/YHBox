@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "节点全集不变式要遍历 sealed Catalog/Projection；adapter stub 绿不证明真实 provider；产品完成还必须走 Source→Run 的黄金旅程。"
-activation: symptom
-read_when: "批量修改节点/类型/capability，局部测试全绿但真实工作流失败，或准备声明一组节点能力完成时"
-recheck_when: "Catalog build、type capability matrix、adapter conformance 或 Stage acceptance 改变后"
----
 # 节点契约验证的三种假绿
 
 1. **文本 grep 假绿**：空格、helper、生成式定义和关联类型会漏项。全集规则必须遍历 `nodes.Build()` 得到的 sealed Catalog/Projection，例如“每个 durable TypeRef 都有 state/observe/equality coverage”“每个 requirement 都有可安装 capability manifest”。

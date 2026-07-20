@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 AI Generate/Extract/Agent 使用精确 Node Contract、provider-native installation slot、credential binding、PromptManifest/ToolSet 和 admitted runtime。"
-activation: action
-read_when: "修改 AI Generate/Extract/Agent、模型 profile/endpoint、provider adapter、credential、PromptManifest/ToolSet、consent 或 AI trace 时"
-recheck_when: "AI Node Contract、provider ABI、ModelProfile digest、installation runtime、credential binding、retention 或 agent budget 改变后"
----
 # AI nodes and provider-native runtime
 
 当前单一路径是 `internal/nodes` contracts → `internal/noderuntime` adapters → `internal/ai` provider。旧 `internal/nodes31`/`nodes31runtime` 名称不存在，也不得恢复产品版本后缀 package。

@@ -1,10 +1,3 @@
----
-kind: note
-summary: "输入自动化只引用安装 slot；窗口 selector 可 exact 或显式 regex，但必须绑定可信应用身份、确定性消歧和原子 capability/consent/runtime generation。"
-activation: action
-read_when: "新增或修改 input node、自动化 target、窗口 selector、SendInput/PostMessage backend、input consent、provider runtime 或 action journal 时"
-recheck_when: "target profile、selector/多窗口策略、installation manifest、backend failure、held-state cleanup 或 input capability/grant 改动后"
----
 # Installed input authority
 
 Workflow 只引用 installation slot。安装记录绑定可信 application identity；Windows 当前使用 executable SHA-256，未来平台使用各自 adapter-owned identity。PID、HWND、前台窗口、运行时路径和 native handle 不能成为 Workflow Source 或 Grant 的身份。

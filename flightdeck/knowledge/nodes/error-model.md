@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 节点失败由 Contract ErrorSpec + 独立 error channel + NodeFailure 精确路由；未声明/未接错误终止 Run，journal 保留真实 attempt/action。"
-activation: action
-read_when: "给节点/adapter 加失败处理、错误码、error port、Retry，或排查失败未路由/被误报成功时"
-recheck_when: "ErrorSpec、NodeFailure、scheduler routeFailure、Retry instruction、AdapterAction 或 frontend error presentation 改变后"
----
 # 3.1 节点错误模型
 
 Node Contract 显式声明允许的 `ErrorSpec{code, category, retryHint}` 和 error output。Adapter 对可路由业务/外部失败返回 `compiler.NodeFailure{Code, Output, Cause}`；Code 与 Output 必须同时匹配 Contract。

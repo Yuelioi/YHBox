@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "可选 JSON object 若用值类型 struct，即使带 omitempty 也会输出 `{}`；对 package manifest 等受 schema 校验的文件应使用指针表达缺失。"
-activation: symptom
-read_when: "设计或修改可选 JSON object；package.json 出现空对象并报 Incorrect type / Expected string；期望 omitempty 省略 struct 字段时。"
----
 # ⚠ Go JSON 的 omitempty 不会省略空值 struct
 Go `encoding/json` 对值类型 struct 不会按“所有字段为零”将其视为空，因此 `PackageLink` 这类字段写成 `PackageLink json:"...,omitempty"` 时，零值仍序列化为 `{}`。文件虽然是合法 JSON，但 `package.json` 的编辑器 schema 会把空 `repository`、`bugs` 等对象判为类型或结构错误。
 

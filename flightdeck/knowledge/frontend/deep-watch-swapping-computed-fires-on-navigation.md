@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "deep watch 一个会换引用的 computed, 导航换引用也触发, 会被误判成编辑."
-activation: symptom
-read_when: "写 deep watch 监听一个「会切换指向不同对象」的 computed 前 (activeGraph / 当前选中项 之类); 撞「只是切换/导航、没编辑, 却被标 dirty / 触发了 onChange」"
----
 # ⚠ deep watch 一个会换引用的 computed: 导航换引用也会触发 (误判成编辑)
 ## Signature
 - symptom: 只是进子图、什么都没改, 编辑器就变「未保存」

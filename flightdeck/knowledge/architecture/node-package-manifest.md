@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Node Package manifest v1、Ed25519 trust、registry authority 与 Process/Wasm runtime projection"
-activation: action
-read_when: "实现/修改 Node Package 安装、信任、升级、Catalog merge、Wasm/Process host、SDK/conformance 或插件 payload 解包前"
-recheck_when: "改 internal/nodepackage、internal/pluginhost、internal/pluginprotocol、Node Contract ABI、publisher namespace、host API generation 或 payload path/digest 规则时"
----
 # Node Package manifest, trust and runtime authority
 
 当前 Node Package 的 manifest、archive、signature/trust、local lifecycle 与 runtime projection 位于 internal/nodepackage；Catalog merge 与隔离执行宿主位于 internal/pluginhost。

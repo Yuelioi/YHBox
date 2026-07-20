@@ -1,9 +1,3 @@
----
-kind: checklist
-summary: "Always use `github.com/yottaapp/yotta` as the canonical Go module/import path; Wails bindings mirror this path under `frontend/bindings/github.com/yottaapp/yotta`."
-activation: action
-read_when: "before changing go.mod module identity, Go imports, Wails binding imports, repository ownership/name, or generating bindings after a module move."
----
 # Go module identity checklist
 Yotta 的 canonical repository URL 是 `https://github.com/yottaapp/yotta`，Go module path 是精确小写的 `github.com/yottaapp/yotta`。内部 Go imports 使用完整 module path，不得恢复临时的 `yotta/...` 或旧 owner/case。
 

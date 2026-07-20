@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Resource Broker 的 Open、Run revocation 与 Close 必须共享单一线性化和清理所有权"
-activation: symptom
-read_when: "修改 Broker Open/RevokeRun/Close、provider cleanup、Run Owner shutdown，或遇到 authority 撤销后仍可调用、关闭提前返回、资源泄漏时"
-recheck_when: "Provider ABI、Broker lease ownership、Run Owner 关闭顺序或 context/cancellation 语义变化时"
----
 # Resource Broker Open and revocation linearization
 
 ## 为什么容易出错

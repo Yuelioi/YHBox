@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "defer recover() 清 partial state 的测试必须走「写了部分 result 后才 panic」路径，否则 vacuous"
-activation: symptom
-read_when: "写 panic recover + 清 partial state 的测试 / 加 defer recover() 后想验 cleanup 起效 / review panic hygiene 测试时"
----
 # ⚠ Defensive-cleanup test must exercise the populated-then-panic path
 ## 教训
 

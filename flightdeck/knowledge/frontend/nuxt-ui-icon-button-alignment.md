@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Nuxt UI 固定宽高 icon-only 按钮需要全局 justify-center；图标名还必须存在于已安装 Iconify 集合，否则会静默渲染为空。"
-activation: symptom
-read_when: "新增或修改 icon-only UButton；看到按钮背景正确但图标水平偏左、不居中或完全不显示；给 UButton 强制 size-*、w-*、h-*、p-0 或新的 i-tabler-* 名称前。"
-recheck_when: "升级 @nuxt/ui、@iconify-json/tabler；修改 vite.config.ts 的 ui.button 主题；全局扫描图标按钮时。"
----
 # Nuxt UI 固定尺寸图标按钮居中
 
 ## 症状与根因

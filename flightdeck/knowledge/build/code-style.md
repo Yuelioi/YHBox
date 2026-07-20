@@ -1,9 +1,3 @@
----
-kind: checklist
-summary: "写/改源码前的前置约定 — 注释规范 + 删疑似死代码/符号前的双向全仓 grep"
-activation: action
-read_when: "before writing / editing / deleting source code (.go / .ts / .vue) — including comments / 删疑似死代码或符号前"
----
 # Code Style checklist
 写/改源码 (`.go` / `.ts` / `.vue`) 时**前置**读这份.
 
@@ -15,4 +9,4 @@ read_when: "before writing / editing / deleting source code (.go / .ts / .vue) �
 
 ### 删 / 改"疑似死代码" / 符号 / 节点前
 
-跨 Go + 前端**双向** grep, 且用 `git grep '<符号>'` 扫**整个 tracked 仓**, 别只 scoped `internal/` + `frontend/src/`. burn 例: `_capturedAtResolution` 被只 grep 前端误判成死字段 (实际 `runner.go` 在用); 删 `OnEvent` 时 scoped grep 漏了根 `main.go` / `cmd/` / `wire_container.go` (reviewer 才抓到); 删 `vars.*` 脚本糖时只删了前端补全单源, 后端 `binding.go` 的实现体漏了整整一天后才撞见 (2026-06-12 补删) — **删"一个 API"时它的实现/绑定/文档/生成物 (node-i18n.json 这类) 是一串, 全列出来逐个删**. 文件 / spec 的移删另见 [move-delete-update-referrers.md](../flightdeck/move-delete-update-referrers.md).
+跨 Go + 前端**双向** grep, 且用 `git grep '<符号>'` 扫**整个 tracked 仓**, 别只 scoped `internal/` + `frontend/src/`. burn 例: `_capturedAtResolution` 被只 grep 前端误判成死字段 (实际 `runner.go` 在用); 删 `OnEvent` 时 scoped grep 漏了根 `main.go` / `cmd/` / `wire_container.go` (reviewer 才抓到); 删 `vars.*` 脚本糖时只删了前端补全单源, 后端 `binding.go` 的实现体漏了整整一天后才撞见 (2026-06-12 补删) — **删"一个 API"时它的实现/绑定/文档/生成物 (node-i18n.json 这类) 是一串, 全列出来逐个删**. 文件 / spec 的移删另见 [update referrers with document moves](../flightdeck/update-referrers-with-document-moves.md).

@@ -1,11 +1,3 @@
----
-kind: trap
-summary: "画布节点只能内联轻量编辑器；复合 typed editor 留在 Inspector，几何与滚轮必须用真实 viewport/WebView 契约验收。"
-activation: symptom
-read_when: "复杂节点异常膨胀、节点上滚轮不能缩放，或准备修改 Authoring Surface inlinePriority/editorAdapter 与 WebView 画布 smoke 时"
-recheck_when: "Authoring Surface 内联契约、Vue Flow 版本或 WebView 输入栈变化时"
----
-
 # 画布节点 Authoring 边界
 
 ## 陷阱

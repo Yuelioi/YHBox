@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "view 从独立窗改嵌入主壳后不能再用 h-screen, 改 h-full min-h-0 overflow-hidden."
-activation: symptom
-read_when: "改 view 从 standalone window 改嵌入主 router-view / 看到内嵌 view 出现奇怪纵向滚动条 / fixed bottom-right 元素 (如 MiniMap) 显不全 / 调 flex 父子高度链"
----
 # ⚠ 嵌入主壳的 view 不能用 h-screen
 ## 教训
 

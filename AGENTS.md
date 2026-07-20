@@ -40,6 +40,13 @@ task check
 
 ## Flightdeck
 
-- 显式启用 Flightdeck 时，调用 `/flightdeck:preflight`，从 `flightdeck/deck.md` 读取稳定约定，再选择对应 `flightdeck/work/<topic>/index.md` 恢复。
-- `flightdeck/knowledge/` 按严格 frontmatter 的 `activation`、`read_when` 与可选 `recheck_when` 路由；不要整库加载，也不要把任务进度写入常驻指令。
-- 任务设计、计划、状态和开放问题写入对应 topic；稳定项目约定写入 `flightdeck/deck.md`，不要追加到本文件。
+- 恢复长期工作时先读 `flightdeck/deck.md` 的 Focus，再完整读取对应 Work 的 `index.md`、
+  `context.md` 和可选 `plan.md`，并核对实时 Git 状态。
+- `deck.md` 只保存 Open Work 列表和稳定项目链接；存在 Open Work 时必须且只能标记一个 Focus。
+  Work 的 Goal、Status、Current、Next 与最近 Progress 写入 `flightdeck/work/<id>/index.md`，稳定
+  目标上下文写入同目录 `context.md`。
+- `Next` 只直接列出当前动作所需的最多三个本地链接；其余资料按需从 References 读取，不创建
+  单独的 `Read now` 路由区块。
+- `flightdeck/knowledge/` 是按主题组织的普通 Markdown 指南，不使用 frontmatter、路由字段、
+  revision、陷阱分类或复查账本；只有当前任务确实需要时才按主题搜索。
+- 保存进度是重写可见 handoff，不自动 commit。完成 Work 时原地改为 `Finished`，不移动目录。

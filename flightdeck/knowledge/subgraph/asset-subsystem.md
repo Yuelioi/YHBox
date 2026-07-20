@@ -1,10 +1,3 @@
----
-kind: note
-summary: "模板与 clip 使用稳定资产 ID + immutable BlobRef；Asset Store 管元数据，Blob Store 管对象，节点选择必须走可搜索分页 picker 而非全量下拉。"
-activation: action
-read_when: "改模板/clip 存储、模板匹配、资产 RPC、Blob preview、GC 或 package export 时。"
-recheck_when: "改 asset schema、Blob Reference、CommitRecordBlob/CommitVariantBlob、PickVariant、preview adapter 或 import/export 时。"
----
 # 资产子系统 — stable asset identity + immutable BlobRef
 
 模板与 clip 是全局资产；每条记录使用稳定 GUID，显示名可变。记录 schema 精确为 v2，旧版、坏 JSON、kind/文件名不一致全部 fail startup，不跳过、不兼容读取。

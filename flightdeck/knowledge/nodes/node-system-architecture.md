@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 节点由版本化 Node Contract、Catalog implementation lock、Authoring Projection 和唯一 Program runtime 组成；旧 Spec/Registry/Container dispatch 已删除。"
-activation: action
-read_when: "第一次进入节点系统、设计节点/类型/能力、修改 Catalog/Compiler/adapter，或需要判断旧节点知识是否仍适用时"
-recheck_when: "Node Contract、Catalog、Authoring Projection、Compiler instruction、noderuntime installation 或 Node Package ABI 改动后"
----
 # 3.1 节点系统架构
 
 现行链路只有一条：

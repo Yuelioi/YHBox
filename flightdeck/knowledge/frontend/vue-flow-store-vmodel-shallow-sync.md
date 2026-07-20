@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "Vue Flow nodes/store 双向同步是 shallow：拖拽坐标读 event.node.position，外部 nodes 重建还会用旧 position 覆盖内部实时位置。"
-activation: symptom
-read_when: "写 Vue Flow drag/position/selection handler，修改 nodes/v-model/store 同步，或遇到点击、连线、Source 刷新后节点位置回跳"
-recheck_when: "升级 @vue-flow/core，或改变 WorkflowEditorView 的节点投影与 selection 所有权时"
----
 # Vue Flow nodes 与内部 store 的浅同步陷阱
 
 ## 教训

@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "历史 3.0 Container/Subgraph Store 跨写缓存案例；3.1 复用其‘Store 单一 owner/原子 publish’原则。"
-activation: symptom
-read_when: "仅在恢复 archived Topic recording-asset-lifecycle，或审查 3.0 import/cache 故障与单一 Store owner 原则时"
----
 # ⚠ 导入子图绕过容器 Store 内存缓存致"子图未找到"
 
 > 历史案例：具体 Container Store 已删除。可复用原则是任何持久化对象只能由所属 Store 原子 publish 并更新 snapshot，外部服务不得直接写其磁盘布局。

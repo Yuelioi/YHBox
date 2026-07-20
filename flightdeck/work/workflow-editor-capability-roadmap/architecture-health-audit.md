@@ -196,7 +196,7 @@ Transport 层只能完成：错误解码、结构化、关联 operation/run id�
 
 ## 发布前恢复路线
 
-详细执行顺序见 [`slices/27-architecture-recovery.md`](slices/27-architecture-recovery.md)。高层阶段如下：
+详细执行顺序见 [`references/27-architecture-recovery.md`](references/27-architecture-recovery.md)。高层阶段如下：
 
 1. **R0 重置事实与门禁**：冻结新增 feature；建立旧/新双 worktree 行为 oracle、能力 ledger 和黄金旅程；撤销不可信完成状态。
 2. **R1 重建基础边界**：Typed RPC Error、Automation Target Runtime generation、单一 Installation Manifest、Recording Session、Asset Picker Query。

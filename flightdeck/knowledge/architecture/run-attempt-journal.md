@@ -1,9 +1,3 @@
----
-kind: note
-summary: "Yotta 3.1 的 NodeAttempt/AdapterAction 必须与 RunRecord 共用 generation CAS；真实 effect 由 adapter 主动记录，durable validator 独立强制终态一致。"
-activation: action
-read_when: "新增或修改 Executor、effect adapter、重试、Run terminal、Run Value provenance 或调试/审计事件时"
----
 # Run attempt journal 是 RunRecord 本身，不是旁路日志
 
 NodeAttempt 与 AdapterAction 进入同一个 immutable RunRecord generation，由每个 Run 唯一的 JournalWriter 做 previous-digest CAS。不要建立 sidecar event log、内存 fallback 或与旧 runtime dual-write；否则 terminal 与 effect 事实会失去原子顺序。

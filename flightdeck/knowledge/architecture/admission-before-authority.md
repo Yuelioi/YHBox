@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Yotta 3.1 admission 必须先用可信 Host Profile 规划 exact target/credential binding，再由 Policy seal bounded Grant 并 durable create QUEUED；published-unconfirmed 不能重试或执行。"
-activation: action
-read_when: "新增 provider、Automation Target、credential binding、Policy/consent、Run queue、Worker recovery 或 production execution composition 时"
-recheck_when: "Host Profile、Run Grant、Run Store create outcome、Worker notification 或 provider installation lock 改动后"
----
 # Admission precedes runtime authority
 
 唯一顺序是 strict-open Program → 按 target slot 对全部 attributed requirements 求 Host Profile 候选交集 → 显式消歧 target/credential → Policy 对 exact proposal 做 allow/deny/consent-required → seal short-lived Run Grant → durable create QUEUED RunRecord → notify Worker。

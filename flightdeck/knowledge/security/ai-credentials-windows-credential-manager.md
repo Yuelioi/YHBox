@@ -1,10 +1,3 @@
----
-kind: note
-summary: "AI 连接元数据与密钥分离：Windows Credential Manager 保存 Yotta/AI/<connectionID>，设置与状态 RPC 不回传密钥；旧明文仅在全部安全写入成功后清除。"
-activation: action
-read_when: "修改 AI 连接设置、Provider 缓存、测试连接、Settings schema/RPC、凭据迁移或删除连接时"
-recheck_when: "支持新的桌面平台凭据库；改变 connection ID；迁移 settings 格式；新增导入导出、日志或诊断包中的 AI 连接信息时"
----
 # AI 凭据存储与迁移边界
 
 ## 权威分层

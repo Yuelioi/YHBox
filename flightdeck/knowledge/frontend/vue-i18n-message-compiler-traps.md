@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "vue-i18n message 特殊字符 { } | @ $ 必须 escape, 漏一个炸整个组件子树."
-activation: action
-read_when: "写 / 改 zh.ts / en.ts 翻译 (尤其含 `{` `}` `|` `@` `$` / JSON literal / 管道符 / 邮箱样例); 派 subagent 批量写 i18n 前; 改 vite.config 的 unplugin-vue-i18n 配置; UI 显示 `{n}` 字面 placeholder 没替换 / 弹 SyntaxError 整个组件挂掉"
-recheck_when: "改 vite.config 的 unplugin-vue-i18n 配置 / 升级 vue-i18n / message-compiler 行为变化时"
----
 # vue-i18n message 特殊字符转义 checklist
 写 / 改任何 `zh.ts` / `en.ts` 翻译前**前置**读这份。这坑复发过几次 (见文末复发记录)，blast radius 不是一行而是整个组件子树，且 parity / typecheck 都抓不到，跑起来才炸。
 

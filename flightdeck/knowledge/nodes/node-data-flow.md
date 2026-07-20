@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "3.1 数据流由 typed data edge、独立 exec/error signal route、activation-scoped push output、pull evaluation 和显式 typed State 组成。"
-activation: action
-read_when: "设计节点输入输出、连接 data/exec/error edge、跨图传值、State 复用或排查数据连不上/值过期时"
-recheck_when: "Compiler data plan、scheduler activation、GraphCall interface、StateAccess 或 ResourceLeaseBinding 改变后"
----
 # 3.1 节点数据流
 
 ## 五种不同语义

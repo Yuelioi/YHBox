@@ -1,10 +1,3 @@
----
-kind: note
-summary: "3.1 变量是 Workflow 声明的 typed Run State；StateRead/Write/Metadata 由 slot 专化，每个 Run 隔离，不再有 Container local/global/auto VarStore。"
-activation: action
-read_when: "修改 Run 状态、StateRead/Write、Blackboard、状态拖拽、状态改型、跨图引用或需要命名复用值时"
-recheck_when: "Workflow state schema、StateAccessSpec、Compiler runState、Blackboard UX 或 durable state policy 改变后"
----
 # Typed Run State
 
 Workflow Source 声明状态 slot 的稳定名称、精确 TypeRef 和 initial value。Compiler 把声明冻结进 Program；Executor 为每个 Run 创建独立 state，两个 Run 不共享值。3.0 的 Container local/global/auto scope、GetVar/SetVar/IncVar、`$name` 和 ambient VarStore 已删除。

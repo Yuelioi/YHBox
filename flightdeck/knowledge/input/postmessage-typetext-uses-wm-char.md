@@ -1,10 +1,3 @@
----
-kind: trap
-summary: "PostMessageBackend.TypeText 旧实现直接调 pkg/input.TypeText (全局 SendInput KEYEVENTF_UNICODE), 注入到真实前台焦点窗口 — 但 postmessage 模式面向后台、目标窗口不持焦, 字符全进错窗口; 同窗口 KeyPress 走 targeted WM_KEYDOWN 却能打字. 已修: 改走 PostText (PostMessage WM_CHAR, targeted hwnd)"
-activation: symptom
-read_when: "改 InputText/TypeText / 排查「文本输入节点在后台窗口没生效但按键/点击生效」/ 给后端补文本输入 / review TypeText 走哪条路"
-recheck_when: "TypeText 实现改动 / 默认后端从 postmessage 换走 / WM_CHAR 对某类窗口 (Chromium/Slate) 真机表现有新发现"
----
 # ⚠ InputText 在 postmessage 后端旧实现走全局 SendInput, 后台目标窗口收不到
 **Date**: 2026-06-25 (detect-click 真机 smoke 发现: 记事本/vscode InputText 不输入, 同窗口 KeyPress 能输入)
 

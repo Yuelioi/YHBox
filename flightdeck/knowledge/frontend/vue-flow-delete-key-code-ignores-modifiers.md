@@ -1,9 +1,3 @@
----
-kind: trap
-summary: "vue-flow 删除键只认键不认修饰键, 带修饰键/需确认的删除走右键菜单别抢键盘."
-activation: symptom
-read_when: "想在 vue-flow 画布加「带 Ctrl/修饰键的删除」类快捷键; 撞 Ctrl+Delete 把节点/边删了却没走自己的处理逻辑; 想用 delete-key-code 传 filter 函数排除修饰键但没生效; 用捕获阶段 stopImmediatePropagation 拦 vue-flow 键盘删除仍不稳"
----
 # ⚠ vue-flow 删除键无视修饰键
 ## Signature
 - symptom: 按 Ctrl+Delete 想走自己的「彻底删除」逻辑(带确认框),结果 vue-flow 照常把节点引用删了、确认框根本没弹;底层定义没删。

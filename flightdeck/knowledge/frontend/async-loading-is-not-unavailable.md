@@ -1,10 +1,3 @@
----
-kind: trap
-summary: 异步 pending 不能复用“不可用”终态；不同延迟的数据源应独立加载；Vue immediate watcher 还会在 setup 声明顺序中同步执行，访问后声明的 const/ref 会触发 TDZ。
-activation: symptom
-read_when: 详情打开时闪“未找到/未打开”、已有数据被慢 RPC 挡住、组件 setup 报 Cannot access before initialization、或修改 immediate watcher 时
-recheck_when: 前端异步状态管理、Vue watch immediate 语义、Suspense 使用方式或后端请求取消与错误契约变化时
----
 # 异步加载与 immediate watcher 初始化陷阱
 
 当一个视图依赖多个异步数据源时，必须分别表达每条请求的 pending、success 和 unavailable/error 状态。初始化值为 null 只说明结果尚未到达，不能直接渲染成“窗口未开”“未找到”或“不可用”。

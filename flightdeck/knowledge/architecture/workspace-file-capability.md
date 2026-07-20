@@ -1,10 +1,3 @@
----
-kind: note
-summary: "Workflow file effects use only the operation-scoped workspace-files capability and exact managed target; bounded reads and staged writes never accept an ambient or absolute host filesystem path."
-activation: action
-read_when: "modifying file nodes, workspace imports, filesystem providers, path validation, Host Profile targets, file permission UX, or file-related plugin imports"
-recheck_when: "workspace storage layout, filesystem provider ABI, write capability, import/export flow, or supported-platform path policy changes"
----
 # Workflow files are target-bound, not ambient paths
 
 Node Contract 3.1 file nodes bind capability `https://schemas.yotta.dev/capabilities/filesystem/workspace/v1` to target slot `workspace-files` and scope `{"root":"workflow-files"}`. The production Host Profile pins that slot to the built-in `yotta.workspace-files` provider, its exact artifact digest, ABI, resource kind and Yotta-managed `workspace/files` root. Policy must reject any changed provider, target, kind, credential or artifact. Each node requests only its exact operation subset; declaring the capability does not grant every file operation.

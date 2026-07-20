@@ -1,10 +1,3 @@
----
-kind: checklist
-summary: "3.1 Node Contract 风格：稳定 URI/SemVer、lowercase port ID、严格 schema、分离 data/exec/error/status、完整 execution/capability 语义。"
-activation: action
-read_when: "编写或修改 internal/nodes 中的 Data Type、Capability Definition、Node Contract、端口、config schema 或 authoring metadata 前"
-recheck_when: "nodecontract Draft/normalization、port ID 规则、ExecutionSpec、Capability Requirement 或 Authoring Projection 改变后"
----
 # 3.1 Node Contract style
 
 ## 身份
