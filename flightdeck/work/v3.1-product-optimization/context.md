@@ -16,6 +16,10 @@ Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Com
 - 离开脏工作流必须提供取消、放弃、保存并退出三路选择，保存失败不得继续导航。
 - 单对象短流程使用 Modal 保留列表上下文；长生命周期、多页面任务才使用独立路由。
 - Stage 内运行最小定向门禁，Stage 完成后再统一执行 `task check` 和触发的真实宿主 smoke。
+- 精准 InputClip 固化录制源 `counts/360`，回放目标从本机自动化目标/活动校准解析目标
+  `counts/360` 并自动换算；不得用工作流倍率参数近似补偿。
+- 可下载工作流携带精确 NodeRef、Workflow Source 和内容寻址 Blob；本机 target、credential 与校准
+  不进入可移植资源，导入后必须经过兼容性预检和本机重绑定。
 
 ## Terms
 
