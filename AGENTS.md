@@ -18,13 +18,15 @@
 
 ## 验证入口
 
-交付前从仓库根目录运行唯一完整本地门禁：
+交付前从仓库根目录运行按 Git 变更范围选择的本地门禁：
 
 ```powershell
 task check
 ```
 
-不要在其他文档维护平行的全量命令清单。race、跨平台 GUI build、打包和真机 smoke 的触发条件见 `flightdeck/knowledge/build/build.md`。
+`task check:full` 是 CI、发布和明确要求完整验收时的全量门禁，不作为普通修改的默认收尾。不要在其他
+文档维护平行的命令清单；增量路由、full、race、跨平台 GUI build、打包和真机 smoke 的触发条件见
+`flightdeck/knowledge/build/build.md`。
 
 ## 生成物与修改边界
 

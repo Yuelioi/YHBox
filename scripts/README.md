@@ -1,6 +1,7 @@
 # scripts
 
-这里存放仓库级自动化的底层实现。日常开发优先从仓库根目录运行 `task` 中的正式入口，不要绕过 Taskfile 复制一套并行命令；完整本地门禁始终只有 `task check`。
+这里存放仓库级自动化的底层实现。日常开发优先从仓库根目录运行 `task` 中的正式入口，不要绕过
+Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task check:full` 是 CI/发布完整门禁。
 
 脚本默认从仓库根目录调用。带写入、进程控制或真机操作的脚本会在下表明确标注，调用前先确认对应前置条件。
 
@@ -9,13 +10,14 @@
 | 文件 | 正式入口 | 用途与副作用 |
 | --- | --- | --- |
 | `assert-clean-worktree.ps1` | `task release:verify-clean` | 只读；拒绝包含 staged、unstaged 或 untracked 文件的发布工作区。 |
-| `check-actions-pinned.ps1` | `task check:supply-chain` | 只读；检查第三方 GitHub Actions 是否固定到完整 commit SHA。 |
-| `verify-toolchains.ps1` | `task check:supply-chain` | 只读；校验工具链清单、源码/CI pin、固定 runner 与本机工具版本。 |
-| `verify-third-party-artifacts.ps1` | `task check:supply-chain` | 只读；校验随仓库分发的第三方二进制、来源元数据与 SHA-256。 |
+| `check-changed.mjs` / `check-go-changed.mjs` | `task check` | 只读；按 Git 变更选择相关门禁，Go 包包含反向依赖。 |
+| `check-actions-pinned.ps1` | `task check:supply-chain:actions` / `task check:full` | 只读；检查第三方 GitHub Actions 是否固定到完整 commit SHA。 |
+| `verify-toolchains.ps1` | `task check:supply-chain:toolchains` / `task check:full` | 只读；校验工具链清单、源码/CI pin、固定 runner 与本机工具版本。 |
+| `verify-third-party-artifacts.ps1` | `task check:supply-chain:artifacts` / `task check:full` | 只读；校验随仓库分发的第三方二进制、来源元数据与 SHA-256。 |
 | `generate-workflow-contracts.mjs` | `task contracts:check` / `task contracts:update` | 默认只比较生成结果；`contracts:update` 会重写 tracked Workflow/Node contract。 |
-| `check-go-coverage.ps1` | `task check:go` | 只读；合并 Go coverage profile 并按 `go-coverage-budgets.json` 执行门槛。 |
-| `go-coverage-budgets.json` | `task check:go` | `check-go-coverage.ps1` 的版本化预算数据，不是可执行脚本。 |
-| `test-script-worker.ps1` | `task check:go` | 在 `.task/` 构建临时 ScriptWorker，并运行隔离 worker smoke。 |
+| `check-go-coverage.ps1` | `task check:go:full` | 只读；合并 Go coverage profile 并按 `go-coverage-budgets.json` 执行门槛。 |
+| `go-coverage-budgets.json` | `task check:go:full` | `check-go-coverage.ps1` 的版本化预算数据，不是可执行脚本。 |
+| `test-script-worker.ps1` | `task check:go:full` | 在 `.task/` 构建临时 ScriptWorker，并运行隔离 worker smoke。 |
 | `verify-version.ps1` | `task version:verify` | 只读；校验 Go、前端、Wails/Windows 资源中的产品版本一致。 |
 | `verify-wails-version.ps1` | `task wails:verify` | 只读；校验 Wails Go/CLI/runtime pin 与已安装 CLI。 |
 | `bump-version.ps1` | `task version:bump VERSION=<x.y.z>` | **会修改并提交**版本文件，然后创建 Git tag；要求干净工作区。`-DryRun` 只报告。 |

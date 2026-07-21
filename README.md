@@ -23,6 +23,8 @@ Yotta 是一个可视化自动化工作流平台。它用类型化节点图编�
 task check
 ```
 
+该命令按当前 Git 变更运行相关快速门禁；CI/发布的完整门禁为 `task check:full`。
+
 Windows 开发与打包：
 
 ```powershell

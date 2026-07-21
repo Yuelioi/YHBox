@@ -15,6 +15,7 @@
     "type-check": "vue-tsc --noEmit",
     "i18n:check": "node src/i18n/check.cjs",
     "check": "run-s format:check lint typecheck i18n:check bindings:check test build",
+    "check:quick": "run-s format:check lint typecheck i18n:check test",
     "lint": "run-s lint:oxlint lint:eslint",
     "lint:oxlint": "oxlint . --deny-warnings",
     "lint:eslint": "node scripts/check-eslint.mjs",

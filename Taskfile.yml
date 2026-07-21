@@ -11,7 +11,12 @@ vars:
 
 tasks:
   check:
-    summary: Runs the canonical local quality gate
+    summary: Runs checks relevant to the current Git change set
+    cmds:
+      - node ./scripts/check-changed.mjs
+
+  check:full:
+    summary: Runs the complete CI and release quality gate
     cmds:
       - task: check:supply-chain
       - task: contracts:check
@@ -19,17 +24,18 @@ tasks:
       - task: check:ai-eval
       - task: version:verify
       - task: wails:verify
-      - task: check:go
-      - task: check:frontend
+      - task: check:go:full
+      - task: check:frontend:full
 
   check:supply-chain:
     summary: Verifies immutable Actions, exact toolchains and frozen dependency inputs
     cmds:
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-actions-pinned.ps1
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-toolchains.ps1 -CheckInstalled
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-third-party-artifacts.ps1
-      - go mod verify
-      - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
+      - task: check:supply-chain:actions
+      - task: check:supply-chain:toolchains
+      - task: check:supply-chain:artifacts
+      - task: check:supply-chain:go
+      - task: check:supply-chain:frontend
+      - task: check:rust
     env:
       GOTOOLCHAIN: local
 
@@ -49,7 +55,47 @@ tasks:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
 
-  check:go:
+  check:supply-chain:actions:
+    summary: Verifies immutable GitHub Actions references
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-actions-pinned.ps1
+
+  check:supply-chain:toolchains:
+    summary: Verifies pinned and installed toolchains
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-toolchains.ps1 -CheckInstalled
+
+  check:supply-chain:artifacts:
+    summary: Verifies tracked third-party artifacts
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-third-party-artifacts.ps1
+
+  check:supply-chain:go:
+    summary: Verifies the Go module cache against go.sum
+    cmds:
+      - go mod verify
+
+  check:supply-chain:frontend:
+    summary: Verifies the frozen frontend dependency graph
+    cmds:
+      - pnpm -C frontend install --frozen-lockfile
+
+  check:rust:
+    summary: Verifies the Rust capture crate metadata and lockfile
+    cmds:
+      - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
+
+  check:changed:self:
+    summary: Tests the changed-file quality-gate router
+    cmds:
+      - node --test ./scripts/check-changed.test.mjs
+
+  check:go:changed:
+    summary: Tests and vets changed Go packages plus their reverse dependencies
+    cmds:
+      - node ./scripts/check-go-changed.mjs
+
+  check:go:full:
     summary: Runs Go tests, coverage, vet and static analysis
     cmds:
       - go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
@@ -64,7 +110,18 @@ tasks:
       GOTOOLCHAIN: local
       GOFLAGS: -mod=readonly
 
-  check:frontend:
+  check:bindings:
+    summary: Regenerates and verifies Wails RPC bindings contracts
+    cmds:
+      - node frontend/scripts/generate-bindings.mjs
+      - pnpm -C frontend bindings:check
+
+  check:frontend:quick:
+    summary: Runs frontend source checks without dependency install or production bundle
+    cmds:
+      - pnpm -C frontend check:quick
+
+  check:frontend:full:
     summary: Generates bindings and runs the complete frontend gate
     cmds:
       - pnpm -C frontend install --frozen-lockfile
@@ -125,7 +182,7 @@ tasks:
     summary: Builds a frozen, auditable portable release candidate
     cmds:
       - task: release:verify-clean
-      - task: check
+      - task: check:full
       - task: build
       - task: release:stage
       - task: release:smoke

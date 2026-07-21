@@ -16,7 +16,11 @@ gofmt -w <changed-go-files>
 task check
 ```
 
-`task check` 会执行 frozen frontend install、Wails contract 生成/校验、前端 format/lint/typecheck/i18n/test/build/bundle budget，以及 Go test/coverage/vet/staticcheck。自动修复必须显式运行 `pnpm -C frontend lint:fix` 或 `pnpm -C frontend format`；CI 永不修改源码。
+`task check` 根据当前 Git 变更选择相关门禁：Go 改动测试并 vet 受影响包及其反向依赖，前端改动运行
+format/lint/typecheck/i18n/test，契约、bindings、依赖与 Rust 只在相关文件变化时检查。设置
+`CHECK_BASE=<ref>` 可把已提交但尚未合并的 diff 纳入选择。CI、发布或明确要求完整验收时运行
+`task check:full`，其中包含全仓 coverage/staticcheck、production bundle 和全部供应链检查。自动修复
+必须显式运行 `pnpm -C frontend lint:fix` 或 `pnpm -C frontend format`；CI 永不修改源码。
 
 并发、生命周期或持久化改动还应对受影响包运行 `go test -race`。Parser、导入和非可信 JSON 边界应补 seed corpus 或 fuzz test。
 

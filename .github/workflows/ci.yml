@@ -123,7 +123,7 @@ jobs:
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
 
       - name: Run canonical quality gate
-        run: task check
+        run: task check:full
 
       - name: Verify module identity
         shell: pwsh

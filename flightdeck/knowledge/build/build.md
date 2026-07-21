@@ -2,16 +2,22 @@
 
 编译 / 验证产物时前置读这份。
 
-脚本职责、正式 Task/CI 入口与副作用索引见 `scripts/README.md`；完整门禁仍只由 `task check` 定义。
+脚本职责、正式 Task/CI 入口与副作用索引见 `scripts/README.md`。日常门禁由增量 `task check` 定义；
+CI/发布完整门禁由 `task check:full` 定义。
 
 - frontend 包管理只用 pnpm（Node 24.18.0 / pnpm 11.1.2，engine-strict）；安装与 CI 一律 frozen lockfile。
 - Wails Go/CLI 固定 v3.0.0-alpha2.117，frontend runtime 固定 v3.0.0-alpha.97；scripts/verify-wails-version.ps1 -CheckInstalled 验证实际 CLI。
 - 开发入口 task dev。
 - Workflow WebView smoke：日常运行 `task webview:smoke`，需要悬浮启动器纵向旅程时运行 `task webview:smoke:full`；底层入口是 `scripts/smoke-workflow-editor.ps1`。使用正式 Windows DEV build、独立 exe/data/profile 与 loopback CDP；断言损坏 Source 恢复面、目录点击与拖放节点数递增，拒绝 JS error/rejection/console.error，并必须实际查看工作流列表、编辑器、资源库与计划编辑器 PNG；full 额外检查 launcher workflow 执行/隐藏复用。production manifest 需要 UAC，因此隐藏 CDP 旅程使用同编译输入的无 manifest smoke host；它不能替代 `task build` 和 manifest 检查。空白连线落点必须扫描画布可用区域，不能依赖少量固定坐标。PowerShell wrapper 调用 go run/其它探针后必须立即检查 `$LASTEXITCODE` 并转成失败；不要让 finally/清理命令覆盖子进程退出码造成假绿。
 - 交互式 WebView 调试：`task dev` 在 loopback `9227` 开放 CDP（可用 `WEBVIEW_DEBUG_PORT=<port>` 覆盖），开发窗口按 `Ctrl+Shift+I` 打开 Wails/WebView2 DevTools。对运行中的开发 WebView 执行 `task webview:screenshot` 可生成 `.task/webview/current.png`；多窗口时用 `URL_CONTAINS=<substring>` 精确选择。调试入口只在非 production build 存在；production 不启用快捷键，也不接受仓库自定义 CDP 环境变量。
-- 完整本地门禁 task check：supply-chain、contracts、AI eval、版本/Wails、Go tests + global 65% + vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。
+- 日常 `task check` 读取相对 HEAD 的 staged、unstaged、untracked 文件；设置 `CHECK_BASE=<ref>` 时还纳入
+  `<ref>...HEAD`。它先打印计划，再只运行相关门禁：Go 包及反向依赖 test/vet、前端快速检查，以及按路径
+  触发的 contracts、bindings、依赖、版本、Wails、插件、AI 或 Rust 检查。
+- `task check:full` 才运行 supply-chain、contracts、AI eval、版本/Wails、Go 全仓 tests + global 65% +
+  vet/staticcheck、bindings、format/lint/typecheck/i18n/Vitest/production bundle。CI、`task package`、发布候选或
+  用户明确要求完整验收时使用；普通代码修改不得无条件使用。
 - 正式构建只用 task build；它生成 bindings/frontend/syso，并构建 Yotta.exe、Yotta.CLI.exe、ScriptWorker、WasmPluginRunner、capture DLL 与 ADB。不要裸 go build -o Yotta.exe。
-- task package 要求前后 worktree 全干净，依次执行 task check、production build、staging、manifest/archive 与 frozen-payload smoke；公开 stable 仍受许可证、证书、canonical identity、维护者/owner 设置和原生宿主 smoke 阻塞。
+- task package 要求前后 worktree 全干净，依次执行 task check:full、production build、staging、manifest/archive 与 frozen-payload smoke；公开 stable 仍受许可证、证书、canonical identity、维护者/owner 设置和原生宿主 smoke 阻塞。
 - task release:sign-and-stage 只签已经冻结的 payload，签名后 restage 并重复 candidate smoke；不得以 sign task 隐式 rebuild。
 
 ## bindings 与 generated contracts
@@ -24,13 +30,15 @@ Workflow/Node durable contracts 由同一 Go generator 供 runtime validator 与
 
 覆盖率、前端测试数、RPC 数量和 bundle 字节数会随实现变化，不在 Knowledge 固定某次运行快照。权威门槛位于 Task/CI/config；阶段结果写入对应 Topic/Slice。覆盖统计合并 plugin shared conformance profile、按 source block 去重，并排除带标准 Code generated ... DO NOT EDIT 标记的生成文件；不降低阈值，也不把 protoc getter 当人工代码。
 
-Go 门禁由 task check 统一编排。CI 另含 race group、parser/package/MCP fuzz、Linux/macOS portable core 与三平台原生 GUI compile。race 清单使用稳定 internal/noderuntime 名称，不得恢复 nodes31 等发布号包名。
+Go 日常门禁由 task check 选择受影响包及其反向依赖；全仓 coverage/staticcheck 由 task check:full 编排。
+CI 另含 race group、parser/package/MCP fuzz、Linux/macOS portable core 与三平台原生 GUI compile。race 清单使用稳定 internal/noderuntime 名称，不得恢复 nodes31 等发布号包名。
 
 Windows 本地可用 go test -c 逐包生成 linux/amd64、darwin/arm64 测试二进制，只作为 portable-core 编译证据；不能直接 GOOS=... go test 后尝试运行外平台二进制，也不能把 wrapper 跳过执行冒充原生测试。原生 Linux/macOS portable-core 与 production GUI 结果以 CI runner 为权威；Windows cross-compile 不能替代 CGo/WebKit 宿主。
 
 Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed。
 
-前端测试、i18n、no-explicit-any debt 与 bundle budgets 由 `task check` 中的具体 gate 管理。raw chunk 超过 500 kB 的 Vite 通用 warning 本身非阻断，以 repository bundle budget gate 为准。
+前端测试、i18n 和 no-explicit-any debt 进入增量前端门禁；production build 与 bundle budgets 由
+`task check:full` 管理。raw chunk 超过 500 kB 的 Vite 通用 warning 本身非阻断，以 repository bundle budget gate 为准。
 
 ## 运行 / smoke
 
