@@ -246,8 +246,8 @@ export default {
         description: 'The left, right, or middle pointer button.',
       },
       key_code: {
-        title: 'Key code',
-        description: 'A canonical keyboard key injectable into an exact installed target.',
+        title: 'Single key code',
+        description: 'One canonical keyboard key; use the Key chord state type for combinations.',
       },
       held_input: {
         title: 'Held input lease',
@@ -1115,6 +1115,11 @@ export default {
         description:
           'Write one bounded, Run-attributed message and record only its digest in the action journal.',
         config: {
+          message: {
+            title: 'Message',
+            description:
+              'Set the message in the Inspector; a connected input overrides this value.',
+          },
           level: {
             title: 'Log level',
             description: 'Select debug, info, warning, or error severity.',
@@ -1165,7 +1170,14 @@ export default {
       switch: {
         title: 'Typed switch',
         description:
-          'Compare up to eight same-typed cases in order and emit the first matching route or Default.',
+          'Compare a configurable number of same-typed cases in order and emit the first matching route or Default.',
+        config: {
+          caseCount: {
+            title: 'Case count',
+            description:
+              'Creates 1–32 stable case inputs and matching execution routes; reducing the count removes out-of-range connections.',
+          },
+        },
         input: {
           value: {
             title: 'Match value',
@@ -1528,6 +1540,8 @@ export default {
     },
   },
   common: {
+    more: 'More',
+    search_options: 'Search options',
     cancel: 'Cancel',
     continue: 'Continue',
     confirm: 'Confirm',
@@ -1603,7 +1617,7 @@ export default {
     confirm: {
       reset_title: 'Reset built-in hotkeys?',
       reset_desc:
-        'Strong-stop / calibrate / recording stop / recording pause will return to factory defaults.',
+        'Strong-stop / calibrate / recording start / recording stop / recording pause will return to factory defaults.',
       reset_ok: 'Reset',
     },
     label: {
@@ -1614,6 +1628,7 @@ export default {
         launcher_toggle: 'Show/hide launcher window',
       },
       recording: {
+        start: 'Start recording',
         stop: 'Stop recording',
         pause: 'Pause / resume recording',
       },
@@ -1761,6 +1776,12 @@ export default {
   },
   workflow: {
     workspace_tools: 'Workspace tools',
+    sidebar: {
+      resize_workspace: 'Resize workspace sidebar',
+      resize_inspector: 'Resize properties sidebar',
+      hide_inspector: 'Hide properties sidebar',
+      show_inspector: 'Show properties sidebar',
+    },
     list: {
       eyebrow: 'WORKFLOW SOURCES',
       title: 'Workflows',
@@ -1899,6 +1920,8 @@ export default {
       open_failed: 'Workflow could not be opened',
       back: 'Back to workflows',
       workflow_name: 'Workflow name',
+      settings: 'Workflow settings',
+      tags_hint: 'Separate tags with commas',
       revision: 'rev {n}',
       unsaved: 'Unsaved',
       save_conflict: 'Save conflict: {message}',
@@ -2105,6 +2128,9 @@ export default {
         'Add action nodes and connect them, then refresh the callable interface from the graph toolbar.',
     },
     state_panel: {
+      key_chord_type: 'Key chord',
+      initial_value: 'Initial value',
+      initial_value_hint: 'This value initializes the state at the start of every Run.',
       title: 'Workflow state',
       hint: 'This belongs to the workflow, not the selected node.',
       empty: 'No Run state variables yet. Add one only when values must persist across nodes.',
@@ -2201,6 +2227,7 @@ export default {
       show_optional_inputs: 'Show {n} optional inputs',
       hide_optional_inputs: 'Hide optional inputs',
       run_running: 'Running',
+      run_waiting: 'Waiting',
       run_succeeded: 'Succeeded',
       run_failed: 'Failed',
       run_cancelled: 'Cancelled',
@@ -2284,7 +2311,7 @@ export default {
       mode: 'Recording mode',
       target: 'Automation target',
       start_hint:
-        'Macros and precise recordings are separate resources. Recording from the editor saves the resource and creates its playback node.',
+        'The target is armed first. Switch to it and press the start shortcut; input capture begins after a 3-second countdown. The recording is saved as a resource and creates its playback node.',
       macro_title: 'Record editable macro',
       macro_hint:
         'Record atomic key down, key up, click, and sleep actions for keyboard and pointer macros.',
@@ -2292,6 +2319,7 @@ export default {
       precise_hint:
         'Preserve motion, dragging, raw mouse deltas, and complete timing as an InputClip.',
       start_failed: 'Could not start recording',
+      open_calibration: 'Open input calibration',
       control_failed: 'Recording control failed',
       preview_title: 'Review recording',
       result_mode: 'Generated form',
@@ -2377,6 +2405,17 @@ export default {
       state_name_placeholder: 'State name',
       state_add: 'Add state variable',
       state_remove: 'Remove state variable {name}',
+      playback_calibration: 'Playback turn calibration',
+      playback_source_counts: 'Recorded counts/360',
+      playback_source_recorded: 'Fixed in the InputClip',
+      playback_target_counts: 'Target counts/360',
+      playback_target_custom: 'Target override',
+      playback_target_active: 'Active calibration profile',
+      playback_target_missing: 'Target calibration missing',
+      playback_target_unsupported: 'Target does not support relative turns',
+      playback_calibration_formula:
+        'Relative mouse motion is converted automatically from the recorded to the local target counts/360; local calibration is not stored in the workflow.',
+      playback_metadata_unavailable: 'The InputClip recording calibration could not be read.',
     },
     target_default: {
       label: 'Default automation target',
@@ -2393,8 +2432,18 @@ export default {
       page: 'Page {page} of {pages} · {total} entries',
       older: 'Older',
       newer: 'Newer',
+      active_attempt: 'Current node',
+      executing: 'Executing',
+      timeout_budget: 'timeout {value}',
+      unhandled_route: 'The “{route}” output is not connected; this Run ends here',
+      status: {
+        'automation.template.waiting': 'Waiting for a template match',
+        'automation.template.matched': 'Template matched',
+        'automation.template.timeout': 'Template wait timed out',
+      },
     },
     workbench: {
+      diagnostics: 'Diagnostics',
       logs: 'Logs',
       timeline: 'Timeline',
       debug: 'Debug',
@@ -2619,6 +2668,9 @@ export default {
       hint: 'Keyboard macros and precise trajectories are separate resources.',
       mode: 'Recording mode',
       active_hint: 'Capturing target {target}. Pause or finish here or in the floating controls.',
+      waiting_hint:
+        'The target is ready. Switch to it and press the start shortcut, or start from the floating controls.',
+      countdown_hint: 'Input capture begins after the 3-second countdown.',
       start: 'Start recording',
       record_macro: 'Record keyboard macro',
       record_precise: 'Record precise trajectory',
@@ -2688,6 +2740,7 @@ export default {
     select_hint: 'Select a resource or template variant first',
     select_clip: 'Select recording',
     use_template: 'Use this template',
+    capture_template: 'Capture new template',
     use_macro: 'Use this macro',
     use_clip: 'Use this recording',
     replace: 'Replace resource',
@@ -2701,9 +2754,13 @@ export default {
   recordingHud: {
     title: 'Recording controls',
     subtitle: 'Control the active input capture',
-    close_hint: 'Close and handle the active recording',
+    close_hint: 'Close controls; this cancels preparation but only hides an active recording',
     preparing: 'Preparing',
     preparing_hint: 'Connecting to the recording service',
+    waiting: 'Waiting to start',
+    waiting_hint: 'Switch to the target window, then press {key} to begin a 3-second countdown',
+    start_countdown: 'Start countdown',
+    cancel_countdown: 'Cancel countdown',
     countdown: 'Countdown',
     countdown_hint: 'Recording starts when the countdown ends',
     recording: 'Recording',
@@ -2716,7 +2773,7 @@ export default {
     stop_hint: 'Stop and review this recording ({key})',
     cancel: 'Cancel',
     cancel_confirm: 'Discard recording',
-    shortcut_hint: '{stop} finish · {pause} pause/resume',
+    shortcut_hint: '{start} start · {pause} pause/resume · {stop} finish',
   },
   recordingEditor: {
     title: 'Edit recorded actions',
@@ -2785,14 +2842,23 @@ export default {
     error_held_end: 'A key or mouse button is still held when the macro ends.',
   },
   preciseWorkbench: {
-    title: 'Precise recording workbench',
-    summary: '{duration} · {count} raw input events',
+    title: 'Trim precise recording',
+    summary: '{duration} · {count} input events',
+    recording_details: 'Recording details',
+    timeline_title: 'Event timeline',
+    timeline_hint:
+      'This shows event distribution only and does not control the target. Click to move the nearest trim boundary.',
+    timeline_aria: 'Click to choose the nearest trim boundary',
     play_preview: 'Preview timeline',
     pause_preview: 'Pause preview',
     raw_events: 'Raw events',
+    raw_events_hint: 'Diagnostic data only; individual events are not editable here.',
+    raw_previous: 'Previous raw event page',
+    raw_next: 'Next raw event page',
     resolution: 'Capture resolution',
     mouse_mode: 'Mouse mode',
     counts_360: '360° counts',
+    source_counts_360: 'Recorded counts/360',
     track_count: 'Active tracks',
     calibration_warning:
       'This recording contains relative mouse motion without valid counts360. Cross-device replay may be inaccurate.',
@@ -2806,7 +2872,7 @@ export default {
     trim_end: 'Trim end',
     milliseconds: 'milliseconds',
     trim_hint:
-      'A trim boundary cannot split a held key or mouse-button interval. Saving validates again and rebases time to zero.',
+      'Trim at any time. Held keys and mouse buttons are completed automatically at the boundaries to prevent stuck input.',
     event_none: 'Unknown',
     event_key_down: 'KeyDown',
     event_key_up: 'KeyUp',
@@ -2831,6 +2897,9 @@ export default {
     name_placeholder: 'e.g. Daily reward setup',
     name_required: 'Enter a recording name',
     description_placeholder: 'Add usage notes or important details',
+    category_placeholder: 'Select a category or type to create one',
+    tags_placeholder: 'Select tags or type to create them',
+    tags_hint: 'Multiple tags supported',
     save_add: 'Save and add to canvas',
     save_replace: 'Save and replace',
     save_failed: 'Could not save recording',
@@ -3191,7 +3260,14 @@ export default {
         'GDI and Windows Graphics Capture are explicit contracts. An unavailable backend fails installation; runtime never falls back.',
       mouse_counts_label: 'Mouse counts per 360°',
       mouse_counts_hint:
-        'Hardware calibration used for exact relative-motion replay. Set 0 only when this target will never replay relative mouse events.',
+        'Precise recording follows the active Input & calibration profile. A target override takes priority and supplies relative-mouse playback scaling.',
+      mouse_counts_use_active: 'Follow active mouse calibration',
+      mouse_counts_custom: 'Use a custom value for this target',
+      mouse_counts_following:
+        'Following “{name}”: {n} counts/360°. Switching or recalibrating the active profile applies to the next recording.',
+      mouse_counts_missing:
+        'There is no valid active mouse calibration. Precise relative recording will remain unavailable.',
+      open_calibration: 'Manage calibration profiles',
       window_title_match_label: 'Window title match mode',
       window_title_match_hint:
         'Captured windows use exact matching and preserve the title verbatim, including surrounding spaces. Explicitly select regex for dynamic titles.',

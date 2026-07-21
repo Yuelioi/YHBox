@@ -259,6 +259,78 @@ func TestCreateSourceSeedsRunStartedRoot(t *testing.T) {
 	}
 }
 
+func TestApplicationRetractsPlaybackScaleContractBeforeCompile(t *testing.T) {
+	now := time.Date(2026, 7, 21, 13, 0, 0, 0, time.UTC)
+	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = application.Close(ctx)
+	})
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	playback, _ := builtins.Definition(nodes.PlayInputClipNodeID)
+	stalePlaybackRef := playback.Contract.NodeRef()
+	stalePlaybackRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
+	source := schema.WorkflowSource{
+		Format: schema.Format, Version: schema.Version,
+		Workflow: schema.Workflow{ID: "playback-contract-retraction", Name: "Playback contract retraction"},
+		Revision: 0, EntryGraph: "main",
+		Graphs: []schema.Graph{{
+			ID: "main", Kind: schema.GraphKindMain,
+			Nodes: []schema.Node{
+				{ID: "start", NodeRef: started.Contract.NodeRef(), Position: schema.Position{}, Config: map[string]any{}, Bindings: map[string]schema.InputBinding{}},
+				{ID: "playback", NodeRef: stalePlaybackRef, Position: schema.Position{}, Config: map[string]any{"slot": "window-target"}, Bindings: map[string]schema.InputBinding{
+					"clip": {Kind: schema.BindingDefault}, "turn-scale": {Kind: schema.BindingDefault},
+				}},
+			},
+			Edges:  []schema.Edge{{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "start", PortID: "started"}, To: schema.Endpoint{NodeID: "playback", PortID: "in"}}},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+	}
+	raw, err := artifact.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sources.Save(context.Background(), raw, -1); err != nil {
+		t.Fatal(err)
+	}
+	hasCode := func(diagnostics []schema.Diagnostic, code string) bool {
+		for _, diagnostic := range diagnostics {
+			if diagnostic.Code == code {
+				return true
+			}
+		}
+		return false
+	}
+	before, err := application.CompileSource(context.Background(), source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCode(before.Diagnostics, compiler.CodeNodeContractMismatch) || !hasCode(before.Diagnostics, compiler.CodeUnknownPort) {
+		t.Fatalf("stale diagnostics = %#v", before.Diagnostics)
+	}
+	if _, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
+		WorkflowID: source.Workflow.ID, BaseRevision: 0,
+		Commands: []authoring.Command{{
+			Kind:                authoring.CommandUpgradeNodeContract,
+			UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "playback"},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := application.CompileSource(context.Background(), source.Workflow.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasCode(after.Diagnostics, compiler.CodeNodeContractMismatch) || hasCode(after.Diagnostics, compiler.CodeUnknownPort) {
+		t.Fatalf("migrated diagnostics = %#v", after.Diagnostics)
+	}
+}
+
 func TestApplicationAtomicallyGuardsReferencedStateTypeMigration(t *testing.T) {
 	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
 	application, sources, _, builtins, _, _ := newTestApplication(t, now, nil)

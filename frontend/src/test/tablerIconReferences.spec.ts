@@ -37,4 +37,25 @@ describe('literal Tabler icon references', () => {
 
     expect(missing).toEqual([])
   })
+
+  it('only publishes Catalog node icons included in the installed collection', () => {
+    const collection = JSON.parse(
+      readFileSync(join(process.cwd(), 'node_modules/@iconify-json/tabler/icons.json'), 'utf8'),
+    ) as IconifyCollection
+    const available = new Set([
+      ...Object.keys(collection.icons),
+      ...Object.keys(collection.aliases ?? {}),
+    ])
+    const authoring = JSON.parse(
+      readFileSync(join(process.cwd(), '../contracts/node/3.1/builtin-authoring.json'), 'utf8'),
+    ) as {
+      body: { nodes: Array<{ nodeRef: { nodeTypeId: string }; icon?: string }> }
+    }
+
+    expect(
+      authoring.body.nodes
+        .filter((node) => node.icon && !available.has(node.icon))
+        .map((node) => `${node.nodeRef.nodeTypeId}: ${node.icon}`),
+    ).toEqual([])
+  })
 })

@@ -69,6 +69,10 @@ func TestAutomationWorkflowConsentIsExplicitAndTargetEditsRevokeIt(t *testing.T)
 	if err != nil || len(drafts) != 1 {
 		t.Fatalf("automation drafts = %#v, %v", drafts, err)
 	}
+	runtimeDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications, 4134)
+	if err != nil || len(runtimeDrafts) != 1 || runtimeDrafts[0].RuntimeMouseCounts360 != 4134 {
+		t.Fatalf("runtime calibration drafts = %#v, %v", runtimeDrafts, err)
+	}
 	sealed, err := automationinstalled.SealProfile(drafts[0].Profile)
 	desktop, ok := automationinstalled.DesktopProfile(sealed)
 	if err != nil || !ok || len(desktop.Application.Arguments) != 0 || desktop.WindowTitleMatch != "regex" {

@@ -23,24 +23,32 @@ func TestTrimPreciseEventsRebasesTimeAndPreservesSameTimestampSequence(t *testin
 	if len(trimmed) != 5 || trimmed[0].TUs != 0 || trimmed[4].TUs != 200 {
 		t.Fatalf("trimmed = %+v", trimmed)
 	}
-	for index, seq := range []uint32{1, 2, 3, 4, 5} {
-		if trimmed[index].Seq != seq {
-			t.Fatalf("event %d seq = %d, want %d", index, trimmed[index].Seq, seq)
+	for index := range trimmed {
+		if trimmed[index].Seq != uint32(index) {
+			t.Fatalf("event %d seq = %d, want %d", index, trimmed[index].Seq, index)
 		}
 	}
 }
 
-func TestTrimPreciseEventsRejectsBoundariesInsideHeldInput(t *testing.T) {
+func TestTrimPreciseEventsSynthesizesHeldInputAtArbitraryBoundaries(t *testing.T) {
 	events := []inputclip.Event{
 		{TUs: 0, Seq: 0, Type: inputclip.EventTypeKeyDown, A: 'W'},
 		{TUs: 100, Seq: 1, Type: inputclip.EventTypeRawDelta, B: 2},
 		{TUs: 200, Seq: 2, Type: inputclip.EventTypeKeyUp, A: 'W'},
 	}
-	if _, err := trimPreciseEvents(events, 100, 200); err == nil {
-		t.Fatal("trim beginning inside held key succeeded")
+	trimmed, err := trimPreciseEvents(events, 100, 150)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := trimPreciseEvents(events, 0, 100); err == nil {
-		t.Fatal("trim ending inside held key succeeded")
+	if len(trimmed) != 3 || trimmed[0].Type != inputclip.EventTypeKeyDown || trimmed[0].TUs != 0 ||
+		trimmed[1].Type != inputclip.EventTypeRawDelta || trimmed[1].TUs != 0 ||
+		trimmed[2].Type != inputclip.EventTypeKeyUp || trimmed[2].TUs != 50 {
+		t.Fatalf("trimmed = %+v", trimmed)
+	}
+	for index, event := range trimmed {
+		if event.Seq != uint32(index) {
+			t.Fatalf("event %d seq = %d", index, event.Seq)
+		}
 	}
 }
 

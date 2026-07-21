@@ -97,7 +97,7 @@ func defineRecordedObservationNodes(types primitiveTypes, distribution datatype.
 		},
 		{
 			id: RandomChoiceNodeID, entrypoint: "random.choice", conformance: "recorded-unbiased-list-element-sample/v1",
-			key: "node.random.choice", category: "random", icon: "list-random",
+			key: "node.random.choice", category: "random", icon: "arrows-random",
 			inputs: []nodecontract.DataInputPort{{ID: "list", Type: listType, Required: true}},
 			output: elementType, effect: RandomSampleEffectID,
 			errors: []nodecontract.ErrorSpec{errorSpec(RandomEntropyUnavailableCode), errorSpec(RandomEmptyChoiceCode)},

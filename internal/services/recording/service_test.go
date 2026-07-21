@@ -104,9 +104,18 @@ func (r *recordingTargetResolver) AcquireRecordingTarget(context.Context, string
 
 type recordingHotkeys struct{}
 
+func (recordingHotkeys) GetStartHotkeyVK() uint32 { return 0x79 }
 func (recordingHotkeys) GetStopHotkeyVK() uint32  { return 0x78 }
 func (recordingHotkeys) GetPauseHotkeyVK() uint32 { return 0 }
 func (recordingHotkeys) GetMouseMode() string     { return "absolute" }
+
+type fakeStartHotkeyWatch struct {
+	callback func()
+	stopped  bool
+}
+
+func (*fakeStartHotkeyWatch) Start() error { return nil }
+func (watch *fakeStartHotkeyWatch) Stop()  { watch.stopped = true }
 
 func TestServiceStopCreatesPendingThenFinalizePersistsMetadata(t *testing.T) {
 	recorder := &resultRecorder{result: &StopResult{
@@ -192,18 +201,34 @@ func TestServiceCancelDiscardsActiveSession(t *testing.T) {
 	}
 }
 
-func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
+func TestServiceStartArmsThenCountsDownBeforeRecorderCapture(t *testing.T) {
 	recorder := &resultRecorder{}
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
 	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, targets)
+	var watch *fakeStartHotkeyWatch
+	service.startHotkeyFactory = func(_ uint32, callback func()) startHotkeyWatch {
+		watch = &fakeStartHotkeyWatch{callback: callback}
+		return watch
+	}
 	id, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != "session" || recorder.hwnd != 42 || recorder.meta.RecordingMode != inputclip.RecordingModeSimple || recorder.meta.MouseMode != "absolute" || recorder.meta.StopHotkeyVK != 0x78 || recorder.meta.BaseResolution != [2]int{1280, 720} {
-		t.Fatalf("id=%q hwnd=%d meta=%+v", id, recorder.hwnd, recorder.meta)
+	if id != "" || recorder.hwnd != 0 || watch == nil {
+		t.Fatalf("armed id=%q hwnd=%d watch=%+v", id, recorder.hwnd, watch)
 	}
-	if state := service.GetState(); state.Phase != PhaseRecording || state.TargetSlot != "editor" || state.TempID != "session" {
+	if state := service.GetState(); state.Phase != PhaseArmed || state.TargetSlot != "editor" || state.CountdownEndsAtMs != 0 {
+		t.Fatalf("armed state = %+v", state)
+	}
+	watch.callback()
+	if state := service.GetState(); state.Phase != PhaseCountdown || state.CountdownEndsAtMs <= time.Now().UnixMilli() {
+		t.Fatalf("countdown state = %+v", state)
+	}
+	service.finishCountdown(service.countdownGeneration.Load())
+	if recorder.hwnd != 42 || recorder.meta.RecordingMode != inputclip.RecordingModeSimple || recorder.meta.MouseMode != "absolute" || recorder.meta.StopHotkeyVK != 0x78 || recorder.meta.BaseResolution != [2]int{1280, 720} {
+		t.Fatalf("recording hwnd=%d meta=%+v", recorder.hwnd, recorder.meta)
+	}
+	if state := service.GetState(); state.Phase != PhaseRecording || state.TargetSlot != "editor" || state.TempID != "session" || state.StartedAtMs <= 0 {
 		t.Fatalf("recording state = %+v", state)
 	}
 	if err := service.Cancel(); err != nil {
@@ -211,6 +236,29 @@ func TestServiceStartUsesResolvedWindowAndSettingsSnapshot(t *testing.T) {
 	}
 	if targets.released != 1 {
 		t.Fatalf("recording target releases = %d, want 1", targets.released)
+	}
+}
+
+func TestServiceCancelDuringCountdownNeverStartsRecorder(t *testing.T) {
+	recorder := &resultRecorder{}
+	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
+	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, targets)
+	var watch *fakeStartHotkeyWatch
+	service.startHotkeyFactory = func(_ uint32, callback func()) startHotkeyWatch {
+		watch = &fakeStartHotkeyWatch{callback: callback}
+		return watch
+	}
+	if _, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModePrecise}); err != nil {
+		t.Fatal(err)
+	}
+	watch.callback()
+	generation := service.countdownGeneration.Load()
+	if err := service.Cancel(); err != nil {
+		t.Fatal(err)
+	}
+	service.finishCountdown(generation)
+	if recorder.hwnd != 0 || targets.released != 1 || service.GetState().Phase != PhaseIdle {
+		t.Fatalf("hwnd=%d released=%d state=%+v", recorder.hwnd, targets.released, service.GetState())
 	}
 }
 
@@ -228,9 +276,16 @@ func TestServiceStopReleasesExactRecordingTarget(t *testing.T) {
 	}}
 	targets := &recordingTargetResolver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
 	service := NewService(recorder, recordingHotkeys{}, &memoryClipStore{}, nil, targets)
+	service.startHotkeyFactory = func(_ uint32, callback func()) startHotkeyWatch {
+		return &fakeStartHotkeyWatch{callback: callback}
+	}
 	if _, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple}); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.BeginCountdown(); err != nil {
+		t.Fatal(err)
+	}
+	service.finishCountdown(service.countdownGeneration.Load())
 	if targets.released != 0 {
 		t.Fatalf("recording target released before Stop: %d", targets.released)
 	}

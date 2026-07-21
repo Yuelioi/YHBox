@@ -12,6 +12,6 @@ describe('application shell', () => {
   it('keeps logs in the workflow runtime workbench instead of management pages', () => {
     expect(appSource).not.toContain('<LogPanel')
     expect(appSource).not.toContain("import LogPanel from './components/LogPanel.vue'")
-    expect(runtimeWorkbenchSource).toContain('<LogPanel v-if="tab === \'logs\'" embedded />')
+    expect(runtimeWorkbenchSource).toContain('<LogPanel v-else-if="tab === \'logs\'" embedded />')
   })
 })

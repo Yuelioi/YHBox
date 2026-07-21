@@ -11,12 +11,7 @@
       :aria-label="t('workflow.editor.back')"
       @click="emit('back')"
     />
-    <UInput
-      :model-value="name"
-      class="w-56"
-      :aria-label="t('workflow.editor.workflow_name')"
-      @change="rename"
-    />
+    <span class="max-w-56 truncate text-sm font-medium text-highlighted">{{ name }}</span>
     <span class="font-mono text-[10px] text-dimmed">{{
       t('workflow.editor.revision', { n: revision })
     }}</span>
@@ -76,7 +71,43 @@
       :aria-pressed="statePanelOpen"
       @click="emit('toggle-state')"
     />
-    <template v-if="recordingPhase !== 'idle' && recordingPhase !== 'pending'">
+    <UButton
+      data-testid="workflow-inspector-toggle"
+      :icon="
+        inspectorOpen
+          ? 'i-tabler-layout-sidebar-right-collapse'
+          : 'i-tabler-layout-sidebar-right-expand'
+      "
+      color="neutral"
+      :variant="inspectorOpen ? 'soft' : 'ghost'"
+      size="xs"
+      :aria-label="
+        t(inspectorOpen ? 'workflow.sidebar.hide_inspector' : 'workflow.sidebar.show_inspector')
+      "
+      :aria-pressed="inspectorOpen"
+      @click="emit('toggle-inspector')"
+    />
+    <template v-if="recordingPhase === 'armed' || recordingPhase === 'countdown'">
+      <UBadge color="primary" variant="soft" size="sm">
+        {{ recordingPhase === 'armed' ? t('recordingHud.waiting') : t('recordingHud.countdown') }}
+      </UBadge>
+      <UButton
+        data-testid="workflow-recording-cancel-preparation"
+        :label="t('common.cancel')"
+        icon="i-tabler-x"
+        color="error"
+        variant="ghost"
+        size="xs"
+        @click="emit('stop-recording')"
+      />
+    </template>
+    <template
+      v-else-if="
+        recordingPhase === 'recording' ||
+        recordingPhase === 'paused' ||
+        recordingPhase === 'finalizing'
+      "
+    >
       <UButton
         :label="
           recordingPhase === 'paused'
@@ -188,10 +219,30 @@
       :disabled="!dirty"
       @click="emit('save')"
     />
+    <UButton
+      data-testid="workflow-settings"
+      icon="i-tabler-settings"
+      color="neutral"
+      variant="ghost"
+      size="xs"
+      :aria-label="t('workflow.editor.settings')"
+      @click="emit('settings')"
+    />
+    <UDropdownMenu :items="moreItems">
+      <UButton
+        data-testid="workflow-more"
+        icon="i-tabler-dots"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        :aria-label="t('common.more')"
+      />
+    </UDropdownMenu>
   </header>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -202,6 +253,7 @@ const props = defineProps<{
   canRedo: boolean
   aiPanelOpen: boolean
   statePanelOpen: boolean
+  inspectorOpen: boolean
   runActive: boolean
   saving: boolean
   compileSucceeded: boolean
@@ -212,7 +264,7 @@ const props = defineProps<{
   runTimelineOpen: boolean
   hasDebug: boolean
   debuggerOpen: boolean
-  recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
+  recordingPhase: 'idle' | 'armed' | 'countdown' | 'recording' | 'paused' | 'finalizing' | 'pending'
 }>()
 const emit = defineEmits<{
   back: []
@@ -222,6 +274,7 @@ const emit = defineEmits<{
   'find-node': []
   'toggle-ai': []
   'toggle-state': []
+  'toggle-inspector': []
   compile: []
   'toggle-diagnostics': []
   'toggle-timeline': []
@@ -234,8 +287,17 @@ const emit = defineEmits<{
   run: []
   stop: []
   save: []
+  settings: []
+  reload: []
 }>()
 const { t } = useI18n()
+const moreItems = computed(() => [
+  {
+    label: t('common.refresh'),
+    icon: 'i-tabler-refresh',
+    onSelect: () => emit('reload'),
+  },
+])
 
 function toggleRecordingPause(): void {
   if (props.recordingPhase === 'paused') {
@@ -243,9 +305,5 @@ function toggleRecordingPause(): void {
     return
   }
   emit('pause-recording')
-}
-
-function rename(event: Event): void {
-  emit('rename', (event.target as HTMLInputElement).value)
 }
 </script>

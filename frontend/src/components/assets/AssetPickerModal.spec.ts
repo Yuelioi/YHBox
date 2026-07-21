@@ -130,4 +130,61 @@ describe('AssetPickerModal', () => {
     expect(confirm).toBeTruthy()
     expect(confirm?.disabled).toBe(false)
   })
+
+  it('offers in-context template capture and closes before handing control back', async () => {
+    const root = document.createElement('div')
+    document.body.append(root)
+    const onCapture = vi.fn()
+    const onUpdateOpen = vi.fn()
+    const app = createApp(AssetPickerModal, {
+      open: true,
+      kind: 'template',
+      onCapture,
+      'onUpdate:open': onUpdateOpen,
+    })
+    app.component(
+      'UButton',
+      defineComponent({
+        inheritAttrs: false,
+        props: { disabled: Boolean, label: String },
+        emits: ['click'],
+        setup(props, { attrs, emit, slots }) {
+          return () =>
+            h(
+              'button',
+              { ...attrs, disabled: props.disabled, onClick: () => emit('click') },
+              slots.default?.() ?? props.label,
+            )
+        },
+      }),
+    )
+    for (const name of ['UInput', 'USelect']) {
+      app.component(name, defineComponent({ setup: () => () => h('input') }))
+    }
+    for (const name of ['UBadge', 'UIcon', 'USkeleton']) {
+      app.component(
+        name,
+        defineComponent({
+          setup:
+            (_, { slots }) =>
+            () =>
+              h('span', slots.default?.()),
+        }),
+      )
+    }
+    mounted.push(app)
+    app.mount(root)
+    await Promise.resolve()
+    await nextTick()
+
+    const capture = [...root.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('assetPicker.capture_template'),
+    )
+    expect(capture).toBeTruthy()
+    capture?.click()
+    await nextTick()
+
+    expect(onUpdateOpen).toHaveBeenCalledWith(false)
+    expect(onCapture).toHaveBeenCalledTimes(1)
+  })
 })

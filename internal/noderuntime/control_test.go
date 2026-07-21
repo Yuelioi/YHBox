@@ -69,6 +69,13 @@ func TestTypedSwitchAndExplicitStopwatchUseTypedDataflow(t *testing.T) {
 	if err != nil || len(switched.ExecOutputs) != 1 || switched.ExecOutputs[0] != "case-2" {
 		t.Fatalf("switch=%#v err=%v", switched, err)
 	}
+	outside, err := adapter(nodes.SwitchNodeID)(context.Background(), compiler.Invocation{
+		Config: map[string]any{"caseCount": 1},
+		Inputs: map[string]datatype.ValueEnvelope{"value": value, "case-2": beta},
+	})
+	if err != nil || len(outside.ExecOutputs) != 1 || outside.ExecOutputs[0] != "default" {
+		t.Fatalf("configured switch=%#v err=%v", outside, err)
+	}
 
 	integerType := datatype.RefResolvedType(builtins.IntegerType.TypeRef())
 	record := func(context.Context, compiler.AdapterAction) error { return nil }

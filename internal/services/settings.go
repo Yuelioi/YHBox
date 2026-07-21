@@ -91,7 +91,11 @@ func (configured InstalledAutomationTargetSettings) applicationSlot() string {
 	return slot
 }
 
-func (settings AutomationSettings) InstallationDrafts(applications ApplicationSettings) ([]automationinstalled.InstallationDraft, error) {
+func (settings AutomationSettings) InstallationDrafts(applications ApplicationSettings, activeMouseCounts360 ...int) ([]automationinstalled.InstallationDraft, error) {
+	runtimeMouseCounts360 := 0
+	if len(activeMouseCounts360) > 0 && activeMouseCounts360[0] > 0 {
+		runtimeMouseCounts360 = activeMouseCounts360[0]
+	}
 	bySlot := make(map[string]InstalledApplicationSettings, len(applications.Profiles))
 	for _, application := range applications.Profiles {
 		bySlot[application.Slot] = application
@@ -113,6 +117,7 @@ func (settings AutomationSettings) InstallationDrafts(applications ApplicationSe
 		}
 		result = append(result, automationinstalled.InstallationDraft{
 			Slot: configured.Slot, Label: configured.Label, Profile: profile, Consent: configured.WorkflowConsent,
+			RuntimeMouseCounts360: int64(runtimeMouseCounts360),
 		})
 	}
 	return result, nil
@@ -238,8 +243,9 @@ type UISettings struct {
 	// registry 值持有者条目 (tools.window-capture)，「快捷键」页可 rebind；捕获时临时 OS 注册它。
 	WindowCaptureHotkey string `json:"windowCaptureHotkey"`
 	// RecordingStopHotkey 录制停止热键 (LL hook 拦截, 不透传游戏). 默认 "F12".
-	// 改动需重启生效 (Service 注入 adapter 启动期读一次).
 	RecordingStopHotkey string `json:"recordingStopHotkey"`
+	// RecordingStartHotkey 进入录制准备态后的启动热键. 默认 "F10".
+	RecordingStartHotkey string `json:"recordingStartHotkey"`
 	// RecordingPauseHotkey 录制暂停/继续切换热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F11".
 	// 录制中按 → 暂停; 暂停中按 → 走 3s 倒计时后继续. 走热键避免点 HUD 按钮的点击被录进 clip.
 	RecordingPauseHotkey string `json:"recordingPauseHotkey"`
@@ -334,6 +340,7 @@ func defaultSettings() *Settings {
 			CalibrateHotkey:      "F8",
 			WindowCaptureHotkey:  "F9",
 			RecordingStopHotkey:  "F12",
+			RecordingStartHotkey: "F10",
 			RecordingPauseHotkey: "F11",
 			RecordingMouseMode:   "relative",
 		},

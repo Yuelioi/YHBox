@@ -544,6 +544,17 @@ func (d *androidDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 	return nil
 }
 
+func (d *androidDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	resolved, err := d.resolveLocked(ctx)
+	if err != nil {
+		return nil, err
+	}
+	d.playback = &androidPlaybackState{target: resolved, keys: map[uint32]struct{}{}}
+	return d, nil
+}
+
 func (d *androidDriver) ReleaseInput() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()

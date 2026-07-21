@@ -5,6 +5,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 )
 
 func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
@@ -85,6 +86,39 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	if !containsString(repeatProjection.Tags, "eventtick") || !containsString(delayProjection.Tags, "polling") ||
 		!containsString(colorProjection.Tags, "dualcolorbartrack") || !containsString(colorProjection.Tags, "roicolorscan") {
 		t.Fatalf("replacement discovery tags = repeat:%v delay:%v color:%v", repeatProjection.Tags, delayProjection.Tags, colorProjection.Tags)
+	}
+}
+
+func TestSwitchDeclaresAConfigResolvedTopology(t *testing.T) {
+	builtins, err := Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, ok := builtins.Definition(SwitchNodeID)
+	if !ok {
+		t.Fatal("switch definition is missing")
+	}
+	machine := definition.Contract.Machine()
+	wantResolver := nodeinstance.SwitchResolver()
+	if machine.InstanceResolver == nil || *machine.InstanceResolver != wantResolver {
+		t.Fatalf("resolver = %#v", machine.InstanceResolver)
+	}
+	if len(machine.Ports.DataInputs) != 1 || machine.Ports.DataInputs[0].ID != "value" ||
+		!signalIDsEqual(machine.Ports.ExecOutputs, []string{"default"}) {
+		t.Fatalf("static switch ports = %#v", machine.Ports)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: builtins.Catalog, Types: builtins.Types, Capabilities: builtins.Capabilities,
+		Contracts: builtins.Contracts, GeneratorVersion: GeneratorVersion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, _ := projection.Node(SwitchNodeID)
+	effective, err := nodeauthoring.ResolveInstance(base, map[string]any{"caseCount": 2})
+	if err != nil || len(effective.DataInputs) != 3 || effective.DataInputs[2].ID != "case-2" ||
+		len(effective.Signals) != 5 {
+		t.Fatalf("effective authoring = %#v err=%v", effective, err)
 	}
 }
 

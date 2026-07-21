@@ -17,13 +17,21 @@ import (
 	"github.com/yottaapp/yotta/internal/services/macro"
 )
 
-// HotkeySettingsProvider 给 Service 拿停录热键 VK + mouseMode.
-// nil = 默认 F12 + relative.
+// HotkeySettingsProvider 给 Service 拿录制热键 VK + mouseMode.
+// nil = 默认 F10/F11/F12 + relative.
 type HotkeySettingsProvider interface {
+	GetStartHotkeyVK() uint32 // 0x79 = F10 默认
 	GetStopHotkeyVK() uint32  // 0x7B = F12 默认
 	GetPauseHotkeyVK() uint32 // 0x7A = F11 默认 (暂停/继续切换); 0 = 不启用
 	GetMouseMode() string     // 'relative' / 'absolute'
 }
+
+type startHotkeyWatch interface {
+	Start() error
+	Stop()
+}
+
+type startHotkeyFactory func(vk uint32, callback func()) startHotkeyWatch
 
 type clipStore interface {
 	Save(clip *inputclip.InputClip) error
@@ -41,9 +49,10 @@ type TargetResolver interface {
 // Service wails3 RPC 入口.
 //
 // 前端流程:
-//  1. Start({targetSlot}) 启动 hook.
-//  2. Stop() 只生成 pending token，不创建库资产.
-//  3. Finalize(metadata) 创建 InputClip; Discard 释放 pending 数据.
+//  1. Start({targetSlot}) 锁定目标并进入 armed，不采集输入.
+//  2. F10 / BeginCountdown() 触发 3 秒倒计时，结束后才启动 recorder.
+//  3. Stop() 只生成 pending token，不创建库资产.
+//  4. Finalize(metadata) 创建 InputClip; Discard 释放 pending 数据.
 //
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
@@ -55,20 +64,25 @@ type Service struct {
 	targets  TargetResolver
 	emit     func(name string, data any)
 
-	mu            sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
-	pending       *pendingRecording
-	activeRelease func()
-	stateMu       sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
-	state         RecordingState
-	closed        atomic.Bool
-	shutdownOnce  sync.Once
-	shutdownDone  chan struct{}
+	mu                  sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
+	pending             *pendingRecording
+	activeRelease       func()
+	armed               *armedRecording
+	startHotkey         startHotkeyWatch
+	startHotkeyFactory  startHotkeyFactory
+	countdownGeneration atomic.Uint64
+	stateMu             sync.RWMutex // 保护 state 快照 — 跟 mu 分离, GetState 读路径不被慢的 rec.Stop 阻塞
+	state               RecordingState
+	closed              atomic.Bool
+	shutdownOnce        sync.Once
+	shutdownDone        chan struct{}
 }
 
 func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, macroSvc macroStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
 	service := &Service{
 		rec: rec, hkProv: hkProv, clipSvc: clipSvc, macroSvc: macroSvc, targets: targets,
 		state: RecordingState{Phase: PhaseIdle}, shutdownDone: make(chan struct{}),
+		startHotkeyFactory: newStartHotkeyWatch,
 	}
 	if len(emit) != 0 {
 		service.emit = emit[0]
@@ -76,9 +90,11 @@ func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc cl
 	return service
 }
 
-// Phase 常量 — 录制生命周期的三个权威阶段.
+// Phase 常量 — 录制生命周期的权威阶段.
 const (
 	PhaseIdle       = "idle"
+	PhaseArmed      = "armed"
+	PhaseCountdown  = "countdown"
 	PhaseRecording  = "recording"
 	PhasePaused     = "paused"
 	PhaseFinalizing = "finalizing"
@@ -88,15 +104,16 @@ const (
 // RecordingState 录制子系统的权威状态. 后端是唯一真相源; 前端/HUD 只镜像
 // (recording:state 事件 + GetState 对账), 不自己存可 desync 的 flag.
 type RecordingState struct {
-	Revision    uint64                  `json:"revision"`
-	Phase       string                  `json:"phase"` // idle | recording | paused | finalizing | pending
-	Mode        inputclip.RecordingMode `json:"mode"`
-	TargetSlot  string                  `json:"targetSlot"`
-	TempID      string                  `json:"tempID"`
-	StartedAtMs int64                   `json:"startedAtMs"`
-	PausedMs    int64                   `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
-	PausedAtMs  int64                   `json:"pausedAtMs"` // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
-	Pending     *StopResultPayload      `json:"pending,omitempty"`
+	Revision          uint64                  `json:"revision"`
+	Phase             string                  `json:"phase"` // idle | armed | countdown | recording | paused | finalizing | pending
+	Mode              inputclip.RecordingMode `json:"mode"`
+	TargetSlot        string                  `json:"targetSlot"`
+	TempID            string                  `json:"tempID"`
+	StartedAtMs       int64                   `json:"startedAtMs"`
+	PausedMs          int64                   `json:"pausedMs"`   // 累计已暂停毫秒, HUD 算录制时长 = now-startedAt-pausedMs
+	PausedAtMs        int64                   `json:"pausedAtMs"` // 本次暂停起点 wall time (>0 即处于暂停, HUD 冻结计时); recording 态为 0
+	CountdownEndsAtMs int64                   `json:"countdownEndsAtMs"`
+	Pending           *StopResultPayload      `json:"pending,omitempty"`
 }
 
 // GetState 返回当前权威状态快照. RPC — 前端任何时候可查 (reconcile 对账用).
@@ -179,7 +196,10 @@ func (s *Service) shutdown() {
 		setActiveStopHotkey(0, nil)
 		setActivePauseHotkey(0, nil)
 	}
+	s.countdownGeneration.Add(1)
+	s.stopStartHotkeyLocked()
 	s.releaseActiveLocked()
+	s.armed = nil
 	s.pending = nil
 	s.mu.Unlock()
 	if wasOpen {
@@ -215,10 +235,15 @@ type StartArgs struct {
 	Mode       inputclip.RecordingMode `json:"mode"`
 }
 
-// Start 启动录制 (非阻塞). 返回临时录制 ID (前端订阅事件流过滤用).
+type armedRecording struct {
+	window  target.WindowHandle
+	meta    inputclip.ClipMeta
+	pauseVK uint32
+}
+
+// Start 准备录制 (非阻塞). 只校验并锁定目标、监听开始热键，不采集任何输入。
 //
-// Start 后会 atomic 设 LL hook 的 stopHotkeyVK + callback — 用户在游戏前台按 F12 时,
-// hook 直接拦截 (不透传游戏) 并异步触发 StopAsync.
+// 倒计时结束、recorder 真正启动后才设置 F11/F12 hook；准备阶段仅监听 F10.
 func (s *Service) Start(args StartArgs) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -227,7 +252,7 @@ func (s *Service) Start(args StartArgs) (string, error) {
 	}
 
 	if current := s.GetState(); current.Phase != PhaseIdle {
-		if (current.Phase == PhaseRecording || current.Phase == PhasePaused) && current.TargetSlot == args.TargetSlot && current.Mode == args.Mode {
+		if (current.Phase == PhaseArmed || current.Phase == PhaseCountdown || current.Phase == PhaseRecording || current.Phase == PhasePaused) && current.TargetSlot == args.TargetSlot && current.Mode == args.Mode {
 			return current.TempID, nil
 		}
 		return "", apperr.New(apperr.CodeRecordingSessionBusy, map[string]any{"phase": current.Phase})
@@ -256,10 +281,14 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		}
 	}()
 	mouseMode := "relative"
+	startVK := uint32(0x79)
 	stopVK := uint32(0x7B)
+	pauseVK := uint32(0x7A)
 	if s.hkProv != nil {
 		mouseMode = s.hkProv.GetMouseMode()
+		startVK = s.hkProv.GetStartHotkeyVK()
 		stopVK = s.hkProv.GetStopHotkeyVK()
+		pauseVK = s.hkProv.GetPauseHotkeyVK()
 	}
 	// 录制基准分辨率取目标窗口客户区实际尺寸 (回放跨分辨率缩放用). 取不到 (≤0) 直接
 	// 返 error 让用户重试 —— 兜底 1080p 反而让回放按错基准缩放绝对坐标, 比不缩放更糟.
@@ -277,29 +306,80 @@ func (s *Service) Start(args StartArgs) (string, error) {
 		StopHotkeyVK:   stopVK,
 		BaseResolution: [2]int{baseW, baseH},
 	}
-	id, recErr := s.rec.Start(wh.HWND, meta)
-	if recErr != nil {
-		return "", fmt.Errorf("recorder.Start: %w", recErr)
+	if startVK == 0 || s.startHotkeyFactory == nil {
+		return "", errors.New("recording start hotkey is unavailable")
 	}
+	watch := s.startHotkeyFactory(startVK, func() { _ = s.BeginCountdown() })
+	if watch == nil {
+		return "", errors.New("recording start hotkey watcher is unavailable")
+	}
+	if err := watch.Start(); err != nil {
+		return "", fmt.Errorf("start recording hotkey watch: %w", err)
+	}
+	s.startHotkey = watch
+	s.armed = &armedRecording{window: wh, meta: meta, pauseVK: pauseVK}
 	s.activeRelease = release
 	releaseOnFailure = false
 	s.setState(RecordingState{
-		Phase:       PhaseRecording,
-		Mode:        args.Mode,
-		TargetSlot:  args.TargetSlot,
-		TempID:      id,
-		StartedAtMs: time.Now().UnixMilli(),
+		Phase:      PhaseArmed,
+		Mode:       args.Mode,
+		TargetSlot: args.TargetSlot,
 	})
-	setActiveStopHotkey(stopVK, func() {
+	return "", nil
+}
+
+// BeginCountdown starts the authoritative three-second preparation window.
+// Both the configured global start key and the visible HUD button call this method.
+func (s *Service) BeginCountdown() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed.Load() || s.phase() != PhaseArmed {
+		return nil
+	}
+	s.stopStartHotkeyLocked()
+	generation := s.countdownGeneration.Add(1)
+	cur := s.GetState()
+	cur.Phase = PhaseCountdown
+	cur.CountdownEndsAtMs = time.Now().Add(3 * time.Second).UnixMilli()
+	s.setState(cur)
+	go func() {
+		timer := time.NewTimer(3 * time.Second)
+		defer timer.Stop()
+		<-timer.C
+		s.finishCountdown(generation)
+	}()
+	return nil
+}
+
+func (s *Service) finishCountdown(generation uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed.Load() || generation != s.countdownGeneration.Load() || s.phase() != PhaseCountdown || s.armed == nil {
+		return
+	}
+	prepared := s.armed
+	id, err := s.rec.Start(prepared.window.HWND, prepared.meta)
+	if err != nil {
+		s.armed = nil
+		s.releaseActiveLocked()
+		s.setState(RecordingState{Phase: PhaseIdle})
+		if s.emit != nil {
+			s.emit("recording:completed", map[string]any{"error": fmt.Errorf("recorder.Start: %w", err).Error()})
+		}
+		return
+	}
+	s.armed = nil
+	cur := s.GetState()
+	cur.Phase = PhaseRecording
+	cur.TempID = id
+	cur.StartedAtMs = time.Now().UnixMilli()
+	cur.CountdownEndsAtMs = 0
+	s.setState(cur)
+	setActiveStopHotkey(prepared.meta.StopHotkeyVK, func() {
 		s.StopAsync()
 	})
-	// 暂停/继续切换热键 (可选). 录制中按 → 暂停; 暂停中按 → emit resume-hotkey 让 HUD 走 3s 倒计时再继续.
-	var pauseVK uint32
-	if s.hkProv != nil {
-		pauseVK = s.hkProv.GetPauseHotkeyVK()
-	}
-	if pauseVK != 0 {
-		setActivePauseHotkey(pauseVK, func() {
+	if prepared.pauseVK != 0 {
+		setActivePauseHotkey(prepared.pauseVK, func() {
 			switch s.phase() {
 			case PhaseRecording:
 				_ = s.Pause()
@@ -310,7 +390,6 @@ func (s *Service) Start(args StartArgs) (string, error) {
 			}
 		})
 	}
-	return id, nil
 }
 
 // Pause 暂停录制 (HUD 按钮触发). 切除间隔语义: 暂停期不录, 时间戳扣除该段 → 回放无空档.
@@ -407,6 +486,14 @@ func (s *Service) Stop() (*StopResultPayload, error) {
 	if s.closed.Load() {
 		return nil, nil
 	}
+	if phase := s.phase(); phase == PhaseArmed || phase == PhaseCountdown {
+		s.cancelPreparationLocked()
+		s.setState(RecordingState{Phase: PhaseIdle})
+		if s.emit != nil {
+			s.emit("recording:cancelled", map[string]any{})
+		}
+		return nil, nil
+	}
 
 	// 幂等: 仅 recording / paused 可停 (paused 直接停, 不必先 resume); idle / 已 finalizing → no-op.
 	// 杀掉 ErrRecorderNotActive 这个伪错误 — 陈旧/重复 stop 点击对前端无害.
@@ -485,7 +572,16 @@ func cloneStopResultPayload(payload *StopResultPayload) *StopResultPayload {
 func (s *Service) Cancel() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if p := s.phase(); p != PhaseRecording && p != PhasePaused {
+	p := s.phase()
+	if p == PhaseArmed || p == PhaseCountdown {
+		s.cancelPreparationLocked()
+		s.setState(RecordingState{Phase: PhaseIdle})
+		if s.emit != nil {
+			s.emit("recording:cancelled", map[string]any{})
+		}
+		return nil
+	}
+	if p != PhaseRecording && p != PhasePaused {
 		return nil
 	}
 	s.rec.Cancel()
@@ -627,6 +723,21 @@ func (s *Service) releaseActiveLocked() {
 	}
 	s.activeRelease()
 	s.activeRelease = nil
+}
+
+func (s *Service) stopStartHotkeyLocked() {
+	if s.startHotkey == nil {
+		return
+	}
+	s.startHotkey.Stop()
+	s.startHotkey = nil
+}
+
+func (s *Service) cancelPreparationLocked() {
+	s.countdownGeneration.Add(1)
+	s.stopStartHotkeyLocked()
+	s.armed = nil
+	s.releaseActiveLocked()
 }
 
 func normalizeTags(tags []string) []string {

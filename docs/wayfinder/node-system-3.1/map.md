@@ -18,7 +18,7 @@ status: open
 - 图严格区分 Data、Exec 与 Error；Status 是 Run event 而不是连线。pure-data 节点没有 Exec，任何层不得猜测或补端口。
 - Execution Class、determinism 与 Capability Requirement 是独立维度。
 - 每次工作先读 [领域语言](../../../CONTEXT.md)、[ADR-0001](../../adr/0001-compile-source-into-content-addressed-programs.md) 与[主流实践研究](../../research/node-system-mainstream-practices.md)。
-- 实现与交付遵守仓库根 `AGENTS.md`，完整门禁只有 `task check`。
+- 实现与交付遵守仓库根 `AGENTS.md`；日常使用增量 `task check`，CI/发布使用 `task check:full`。
 - 实施波次与发布门统一维护在 [Yotta 3.1 破坏性升级实施方案](../../../flightdeck/work/major-upgrade-review/plan.md)；本 map 只保存尚待解决的节点系统决策及其依赖。
 
 ## Decisions so far

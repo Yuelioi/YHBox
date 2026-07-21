@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 141,
+    "methods": 142,
     "models": 200
   },
   "services": [
@@ -923,6 +923,12 @@
     {
       "module": "internal/services/recording/service",
       "methods": [
+        {
+          "name": "BeginCountdown",
+          "bindingId": "631052062",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
         {
           "name": "Cancel",
           "bindingId": "3588210472",
@@ -4722,6 +4728,11 @@
               "type": "string"
             },
             {
+              "name": "\"recordingStartHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"recordingPauseHotkey\"",
               "optional": false,
               "type": "string"
@@ -5046,6 +5057,11 @@
             },
             {
               "name": "\"pausedAtMs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"countdownEndsAtMs\"",
               "optional": false,
               "type": "number"
             },
@@ -6671,6 +6687,11 @@
               "type": "AddNodeCommand | null"
             },
             {
+              "name": "\"upgradeNodeContract\"",
+              "optional": true,
+              "type": "NodeCommand | null"
+            },
+            {
               "name": "\"removeNode\"",
               "optional": true,
               "type": "NodeCommand | null"
@@ -6831,6 +6852,10 @@
             {
               "name": "CommandAddNode",
               "value": "\"add-node\""
+            },
+            {
+              "name": "CommandUpgradeNodeContract",
+              "value": "\"upgrade-node-contract\""
             },
             {
               "name": "CommandRemoveNode",

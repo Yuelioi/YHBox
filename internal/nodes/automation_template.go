@@ -18,6 +18,10 @@ const (
 	WaitTemplateEffectID     = "https://schemas.yotta.dev/effects/automation/wait-template/v1"
 	WaitTemplateGoneEffectID = "https://schemas.yotta.dev/effects/automation/wait-template-gone/v1"
 	ClickTemplateEffectID    = "https://schemas.yotta.dev/effects/automation/click-template/v1"
+
+	AutomationTemplateWaitingStatus = "automation.template.waiting"
+	AutomationTemplateMatchedStatus = "automation.template.matched"
+	AutomationTemplateTimeoutStatus = "automation.template.timeout"
 )
 
 type automationTemplateTypes struct {
@@ -106,7 +110,11 @@ func sealAutomationTemplateNode(spec automationTemplateNode, types automationTem
 			Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutRequired,
 		},
 		Instruction: nodecontract.Invoke(), CapabilityRequirements: requirements, RequirementBindings: bindings,
-		Errors: automationTemplateErrors(spec.kind == "click"), ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
+		Errors: automationTemplateErrors(spec.kind == "click"), StatusEvents: []nodecontract.StatusEventSpec{
+			{Code: AutomationTemplateWaitingStatus, Category: nodecontract.StatusWaiting},
+			{Code: AutomationTemplateMatchedStatus, Category: nodecontract.StatusProgress},
+			{Code: AutomationTemplateTimeoutStatus, Category: nodecontract.StatusProgress},
+		}, ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 		Authoring: nodecontract.Authoring{
 			TitleKey: spec.titleKey + ".title", DescriptionKey: spec.titleKey + ".description", Category: "automation",
 			Tags: []string{"automation", "template", "vision", spec.kind}, Icon: spec.icon,

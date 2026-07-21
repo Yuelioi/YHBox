@@ -36,8 +36,73 @@ const blobToStream = node('https://schemas.yotta.dev/nodes/conversion/blob-to-st
 const runStarted = node('https://schemas.yotta.dev/nodes/event/run-started')
 const endBranch = node('https://schemas.yotta.dev/nodes/control/end-branch')
 const clickPointer = node('https://schemas.yotta.dev/nodes/automation/click-pointer')
+const pressKeys = node('https://schemas.yotta.dev/nodes/automation/press-keys')
+const typedSwitch = node('https://schemas.yotta.dev/nodes/control/switch')
+const playInputClip = node('https://schemas.yotta.dev/nodes/automation/play-input-clip')
 
 describe('EditorSession', () => {
+  it('retracts the temporary turn-scale contract on load', async () => {
+    const source = emptySource()
+    source.graphs[0]!.nodes.push({
+      id: 'playback_old',
+      nodeRef: {
+        ...playInputClip.nodeRef,
+        semanticDigest: 'sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b',
+      },
+      position: { x: 0, y: 0 },
+      config: {},
+      bindings: {
+        clip: {
+          kind: 'blob',
+          blob: {
+            mediaType: 'application/vnd.yotta.input-clip+cbor',
+            digest: `sha256:${'a'.repeat(64)}`,
+            size: 1024,
+          },
+        },
+        'turn-scale': { kind: 'value', value: 1 },
+      },
+    })
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+
+    await session.load(source.workflow.id)
+
+    const upgraded = session.currentGraph!.nodes[0]!
+    expect(upgraded.nodeRef).toEqual(playInputClip.nodeRef)
+    expect(upgraded.bindings['turn-scale']).toBeUndefined()
+    expect(session.nodeInstanceProjection(upgraded)).toBeDefined()
+    expect(session.dirty).toBe(true)
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(source.workflow.id, 0, [
+      {
+        kind: 'upgrade-node-contract',
+        upgradeNodeContract: { graphId: 'main', nodeId: 'playback_old' },
+      },
+    ])
+  })
+
+  it('does not auto-upgrade an unregistered stale node contract', async () => {
+    const source = emptySource()
+    const staleDigest = `sha256:${'b'.repeat(64)}`
+    source.graphs[0]!.nodes.push({
+      id: 'concat_old',
+      nodeRef: { ...concat.nodeRef, semanticDigest: staleDigest },
+      position: { x: 0, y: 0 },
+      config: {},
+      bindings: {
+        a: { kind: 'value', value: 'hello' },
+        b: { kind: 'value', value: ' world' },
+      },
+    })
+    const session = new EditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+
+    await session.load(source.workflow.id)
+
+    expect(session.currentGraph!.nodes[0]!.nodeRef.semanticDigest).toBe(staleDigest)
+    expect(session.dirty).toBe(false)
+  })
+
   it('clears only a terminal run trace without mutating the workflow', () => {
     const session = new EditorSession(mockTransport(sourceView(emptySource()), runView('RUNNING')))
     session.activeRun = runView('RUNNING')
@@ -87,6 +152,42 @@ describe('EditorSession', () => {
 
     expect(session.currentGraph?.nodes).toHaveLength(before + 1)
     expect(projectedNodeCount.value).toBe(before + 1)
+  })
+
+  it('resolves switch case ports from instance config instead of a fixed catalog shape', async () => {
+    const source = emptySource()
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'node_switch',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: typedSwitch.nodeRef.nodeTypeId,
+      position: { x: 0, y: 0 },
+    })
+
+    const switchNode = session.currentGraph!.nodes[0]!
+    expect(switchNode.config.caseCount).toBe(3)
+    expect(
+      session
+        .nodeInstanceProjection(switchNode)
+        ?.signals.filter((signal) => signal.direction === 'output')
+        .map((signal) => signal.id),
+    ).toEqual(['default', 'failed', 'case-1', 'case-2', 'case-3'])
+
+    session.apply({ kind: 'set-config', nodeId: switchNode.id, fieldId: 'caseCount', value: 2 })
+    const updatedSwitch = session.currentGraph!.nodes[0]!
+    expect(
+      session.nodeInstanceProjection(updatedSwitch)?.dataInputs.map((port) => port.id),
+    ).toEqual(['value', 'case-1', 'case-2'])
+    expect(
+      session.nodeInstanceProjection(updatedSwitch)?.dataInputs.map((port) => port.titleKey),
+    ).toEqual([
+      'node.control.switch.input.value.title',
+      'node.control.switch.input.case-1.title',
+      'node.control.switch.input.case-2.title',
+    ])
   })
 
   it('owns revision, history, compile, save and Program Run facts', async () => {
@@ -1091,6 +1192,45 @@ describe('EditorSession', () => {
         name: 'index',
         type: { kind: 'ref', ref: number.typeRef },
         defaultValue: 0,
+      }),
+    ).not.toThrow()
+  })
+
+  it('connects a key-chord state read directly to Press Keys', async () => {
+    const source = emptySource()
+    const ids = ['read-keys', 'press-keys']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    const keyCode = authoring.body.types.find((type) =>
+      type.typeRef.typeId.endsWith('/automation/key-code/v1'),
+    )!
+    session.apply({
+      kind: 'add-state-variable',
+      name: 'shortcut',
+      type: {
+        kind: 'list',
+        element: { kind: 'ref', ref: keyCode.typeRef },
+      },
+      defaultValue: ['CTRL', 'K'],
+    })
+    session.insertStateReference('shortcut', 'read', { x: 0, y: 0 })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: pressKeys.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+
+    expect(() =>
+      session.apply({
+        kind: 'connect',
+        edge: {
+          channel: 'data',
+          from: { nodeId: 'read-keys', portId: 'result' },
+          to: { nodeId: 'press-keys', portId: 'keys' },
+        },
       }),
     ).not.toThrow()
   })

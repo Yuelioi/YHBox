@@ -69,6 +69,7 @@
     :target-slot="targetSlot"
     :connected="connectedInputIds?.has(item.port.id)"
     @command="emit('command', $event)"
+    @capture-template="emit('capture-template')"
   />
 
   <div
@@ -107,7 +108,10 @@ const props = defineProps<{
   targetSlot?: string
   connectedInputIds?: ReadonlySet<string>
 }>()
-const emit = defineEmits<{ command: [command: EditorCommand] }>()
+const emit = defineEmits<{
+  command: [command: EditorCommand]
+  'capture-template': []
+}>()
 const { t, te } = useI18n()
 const settingsStore = useSettingsStore()
 const configFieldID = computed(() => (props.item.kind === 'config' ? props.item.field.id : ''))

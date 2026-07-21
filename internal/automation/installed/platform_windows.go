@@ -36,6 +36,11 @@ type windowsHeldInput struct {
 	closed  bool
 }
 
+type windowsPlayback struct {
+	parent *windowsDriver
+	window winutil.WindowHandle
+}
+
 type controllerInputAdapter struct{ backend pkginput.Backend }
 
 func (a controllerInputAdapter) Click(hwnd uintptr, x, y float64, button string, duration int) error {
@@ -173,6 +178,37 @@ func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win
 }
 
 func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	opened, err := d.OpenPlayback(ctx)
+	if err != nil {
+		return err
+	}
+	return opened.PlayEvent(ctx, event)
+}
+
+func (d *windowsDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-d.gate:
+	}
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed || d.backend == nil {
+		return nil, failure(CodeContractViolation, errors.New("automation playback driver is closed"))
+	}
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if d.backend.Name() == "sendinput" {
+		if err := winutil.BringToFront(window.HWND); err != nil {
+			return nil, failure(CodePlaybackFailed, err)
+		}
+	}
+	return &windowsPlayback{parent: d, window: window}, nil
+}
+
+func (playback *windowsPlayback) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	d := playback.parent
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -182,15 +218,7 @@ func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 	if d.closed || d.backend == nil {
 		return failure(CodeContractViolation, errors.New("automation playback driver is closed"))
 	}
-	window, err := d.resolve(ctx)
-	if err != nil {
-		return err
-	}
-	if d.backend.Name() == "sendinput" {
-		if err := winutil.BringToFront(window.HWND); err != nil {
-			return failure(CodePlaybackFailed, err)
-		}
-	}
+	window := playback.window
 	handle := pkginput.Handle(window.HWND)
 	switch event.Kind {
 	case PlaybackKeyDown:
@@ -211,6 +239,8 @@ func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) erro
 		return failure(CodeContractViolation, errors.New("automation playback event is unsupported"))
 	}
 }
+
+func (playback *windowsPlayback) ReleaseInput() error { return playback.parent.ReleaseInput() }
 
 func (d *windowsDriver) ReleaseInput() error {
 	<-d.gate

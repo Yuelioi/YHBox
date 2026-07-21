@@ -1,11 +1,13 @@
 package nodes
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 )
 
 const (
@@ -18,7 +20,6 @@ const (
 	StopwatchFailedCode     = "time.stopwatch_failed"
 	SwitchFailedCode        = "control.switch_failed"
 	StopwatchMaximumElapsed = int64(9_007_199_254_740_991)
-	SwitchCaseCount         = 8
 )
 
 // defineControlCapabilityNodes restores legacy control conveniences as
@@ -30,17 +31,31 @@ func defineControlCapabilityNodes(types primitiveTypes) ([]BuiltinDefinition, er
 	equatableType := datatype.VariableExpression("T", string(datatype.TraitDurable), string(datatype.TraitEquatable))
 
 	switchInputs := []nodecontract.DataInputPort{{ID: "value", Type: equatableType, Required: true}}
-	switchOutputs := make([]nodecontract.SignalPort, 0, SwitchCaseCount+1)
-	for index := 1; index <= SwitchCaseCount; index++ {
-		id := fmt.Sprintf("case-%d", index)
-		switchInputs = append(switchInputs, nodecontract.DataInputPort{ID: id, Type: equatableType})
-		switchOutputs = append(switchOutputs, nodecontract.SignalPort{ID: id})
-	}
-	switchOutputs = append(switchOutputs, nodecontract.SignalPort{ID: "default"})
+	switchOutputs := []nodecontract.SignalPort{{ID: "default"}}
+	switchResolver := nodeinstance.SwitchResolver()
+	switchSchemaID := SwitchNodeID + "/config"
+	switchSchema := []datatype.SchemaResource{{ID: switchSchemaID, Schema: json.RawMessage(fmt.Sprintf(`{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":%q,
+  "type":"object",
+  "additionalProperties":false,
+  "properties":{
+    "caseCount":{
+      "type":"integer",
+      "minimum":%d,
+      "maximum":%d,
+      "default":%d,
+      "x-yotta-title-key":"node.control.switch.config.caseCount.title",
+      "x-yotta-description-key":"node.control.switch.config.caseCount.description"
+    }
+  }
+}`, switchSchemaID, nodeinstance.SwitchMinimumCaseCount, nodeinstance.SwitchMaximumCaseCount, nodeinstance.SwitchDefaultCaseCount))}}
 
 	type spec struct {
 		id, entrypoint, conformance, key, icon string
 		ports                                  nodecontract.PortSet
+		config                                 []datatype.SchemaResource
+		resolver                               *nodecontract.InstanceResolver
 		execution                              nodecontract.ExecutionSpec
 		errors                                 []nodecontract.ErrorSpec
 	}
@@ -54,9 +69,10 @@ func defineControlCapabilityNodes(types primitiveTypes) ([]BuiltinDefinition, er
 	stopwatchError := []nodecontract.ErrorSpec{{Code: StopwatchFailedCode, Category: "time", RetryHint: false}}
 	specs := []spec{
 		{
-			id: SwitchNodeID, entrypoint: "control.switch", conformance: "typed-first-match-eight-cases/v1",
+			id: SwitchNodeID, entrypoint: "control.switch", conformance: "typed-first-match-dynamic-cases/v1",
 			key: "node.control.switch", icon: "switch-3",
-			ports:     nodecontract.PortSet{DataInputs: switchInputs, DataOutputs: []nodecontract.DataOutputPort{}, ExecInputs: signalList("in"), ExecOutputs: switchOutputs, ErrorOutputs: signalList("failed")},
+			ports:  nodecontract.PortSet{DataInputs: switchInputs, DataOutputs: []nodecontract.DataOutputPort{}, ExecInputs: signalList("in"), ExecOutputs: switchOutputs, ErrorOutputs: signalList("failed")},
+			config: switchSchema, resolver: &switchResolver,
 			execution: controlExecution(), errors: []nodecontract.ErrorSpec{{Code: SwitchFailedCode, Category: "control", RetryHint: false}},
 		},
 		{
@@ -82,10 +98,15 @@ func defineControlCapabilityNodes(types primitiveTypes) ([]BuiltinDefinition, er
 	definitions := make([]BuiltinDefinition, 0, len(specs))
 	for _, item := range specs {
 		configID := item.id + "/config"
+		config := item.config
+		if len(config) == 0 {
+			config = emptyConfigSchema(configID)
+		}
 		contract, err := nodecontract.Seal(nodecontract.Draft{
-			Version: BuiltinNodeVersion, NodeTypeID: item.id, ConfigSchemaRoot: configID, ConfigSchemaBundle: emptyConfigSchema(configID),
+			Version: BuiltinNodeVersion, NodeTypeID: item.id, ConfigSchemaRoot: configID, ConfigSchemaBundle: config,
 			Ports: item.ports, Execution: item.execution, Instruction: nodecontract.Invoke(), CapabilityRequirements: []capability.Requirement{},
 			Errors: item.errors, StatusEvents: []nodecontract.StatusEventSpec{},
+			InstanceResolver:  item.resolver,
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring: nodecontract.Authoring{
 				TitleKey: item.key + ".title", DescriptionKey: item.key + ".description", Category: chooseControlCategory(item.id),

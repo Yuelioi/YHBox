@@ -21,6 +21,15 @@
         />
 
         <HudStatePanel
+          v-else-if="state === 'armed'"
+          tone="primary"
+          icon="i-tabler-keyboard"
+          :eyebrow="modeLabel"
+          :value="startKey"
+          :hint="t('recordingHud.waiting_hint', { key: startKey })"
+        />
+
+        <HudStatePanel
           v-else-if="state === 'countdown'"
           tone="primary"
           icon="i-tabler-hourglass-high"
@@ -57,7 +66,40 @@
       </div>
 
       <div class="flex shrink-0 items-center gap-2 border-t border-default pt-3">
-        <template v-if="state === 'recording' || state === 'paused'">
+        <template v-if="state === 'armed'">
+          <UButton
+            size="sm"
+            color="primary"
+            icon="i-tabler-player-play-filled"
+            class="flex-1"
+            @click="onStartCountdown"
+          >
+            {{ t('recordingHud.start_countdown') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="error"
+            variant="ghost"
+            icon="i-tabler-x"
+            class="flex-1"
+            @click="cancelPreparation"
+          >
+            {{ t('common.cancel') }}
+          </UButton>
+        </template>
+        <template v-else-if="state === 'countdown'">
+          <UButton
+            size="sm"
+            color="error"
+            variant="ghost"
+            icon="i-tabler-x"
+            class="flex-1"
+            @click="cancelPreparation"
+          >
+            {{ t('recordingHud.cancel_countdown') }}
+          </UButton>
+        </template>
+        <template v-else-if="state === 'recording' || state === 'paused'">
           <UButton
             v-if="state === 'recording'"
             size="sm"
@@ -102,7 +144,7 @@
           </UButton>
         </template>
         <span v-else class="mx-auto text-xs text-dimmed">
-          {{ t('recordingHud.shortcut_hint', { stop: stopKey, pause: pauseKey }) }}
+          {{ t('recordingHud.preparing_hint') }}
         </span>
       </div>
     </div>
@@ -114,17 +156,21 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Events, Window } from '@wailsio/runtime'
 import { backend } from '@/lib/backend'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import HudShell from '@/components/tools/HudShell.vue'
 import HudStatePanel from '@/components/tools/HudStatePanel.vue'
 
-type State = 'idle' | 'countdown' | 'recording' | 'paused'
+type State = 'idle' | 'armed' | 'countdown' | 'recording' | 'paused'
 
 const state = ref<State>('idle')
 const { t } = useI18n()
 const countdownSec = ref(0)
+const countdownEndsAt = ref(0)
 const resumeCountdown = ref(0) // >0 时显示"继续录制"倒计时 (优先于 paused 卡片)
-const stopKey = ref('F12') // 停录键标签, 由 recording:countdown 带来 (settings 配的)
+const startKey = ref('F10')
+const stopKey = ref('F12')
 const pauseKey = ref('F11') // 暂停/继续切换键标签
+const hotkeys = useHotkeysStore()
 const mode = ref<'simple' | 'precise'>('simple')
 const elapsedMs = ref(0)
 let revision = 0
@@ -132,11 +178,13 @@ let revision = 0
 let startedAt = 0
 let pausedMs = 0
 let timer: ReturnType<typeof setInterval> | null = null
+let countdownTimer: ReturnType<typeof setInterval> | null = null
 const cancelArmed = ref(false)
 let cancelTimer: ReturnType<typeof setTimeout> | null = null
 
 const modeLabel = computed(() => t(`recordingSave.mode_${mode.value}`))
 const windowStatus = computed(() => {
+  if (state.value === 'armed') return t('recordingHud.waiting')
   if (resumeCountdown.value > 0 || state.value === 'countdown') return t('recordingHud.countdown')
   if (state.value === 'recording') return t('recordingHud.recording')
   if (state.value === 'paused') return t('recordingHud.paused')
@@ -156,6 +204,21 @@ function stopTimer() {
     timer = null
   }
 }
+function stopCountdownTimer() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+}
+function refreshCountdown() {
+  countdownSec.value = Math.max(0, Math.ceil((countdownEndsAt.value - Date.now()) / 1000))
+  if (countdownSec.value <= 0) stopCountdownTimer()
+}
+function startCountdownTimer() {
+  stopCountdownTimer()
+  refreshCountdown()
+  countdownTimer = setInterval(refreshCountdown, 100)
+}
 function clearCancelTimer() {
   if (cancelTimer) clearTimeout(cancelTimer)
   cancelTimer = null
@@ -167,23 +230,8 @@ function startTimer() {
   }, 100)
 }
 
-// 主窗口 useRecording 倒计时广播
-const offCountdown = Events.On('recording:countdown', (e: any) => {
-  const payload = e?.data?.[0] ?? e?.data ?? e
-  const sec = payload?.sec ?? 0
-  if (payload?.mode === 'simple' || payload?.mode === 'precise') mode.value = payload.mode
-  if (payload?.stopKey) stopKey.value = payload.stopKey
-  if (payload?.pauseKey) pauseKey.value = payload.pauseKey
-  if (sec > 0) {
-    state.value = 'countdown'
-    countdownSec.value = sec
-  } else if (state.value === 'countdown') {
-    // 倒计时取消 (主窗口在循环里设 sec=0 退出) — HUD 自己关
-    Window.Close()
-  }
-}) as unknown as () => void
-
-// 后端权威状态机镜像. recording → 计时; paused → 冻结计时; idle/finalizing (且之前在 session) → 自关.
+// 后端权威状态机镜像. armed/countdown → 等待开始; recording → 计时; paused → 冻结计时;
+// idle/finalizing (且之前在 session) → 自关.
 // 即使主窗口没调 closeRecordingHUD (F12/异常停录), HUD 也不会残留.
 const offState = Events.On('recording:state', (e: any) => {
   const st = e?.data?.[0] ?? e?.data ?? e
@@ -196,7 +244,17 @@ function applySnapshot(st: any) {
   revision = nextRevision
   const phase = st?.phase
   if (st?.mode === 'simple' || st?.mode === 'precise') mode.value = st.mode
-  if (phase === 'recording') {
+  if (phase === 'armed') {
+    stopTimer()
+    stopCountdownTimer()
+    state.value = 'armed'
+  } else if (phase === 'countdown') {
+    stopTimer()
+    state.value = 'countdown'
+    countdownEndsAt.value = st?.countdownEndsAtMs ?? Date.now()
+    startCountdownTimer()
+  } else if (phase === 'recording') {
+    stopCountdownTimer()
     startedAt = (st?.startedAtMs ?? 0) > 0 ? st.startedAtMs : Date.now()
     pausedMs = st?.pausedMs ?? 0
     state.value = 'recording'
@@ -209,15 +267,24 @@ function applySnapshot(st: any) {
     state.value = 'paused'
     elapsedMs.value = pausedAt - startedAt - pausedMs // 冻结在暂停时刻
     stopTimer()
-  } else if (state.value === 'recording' || state.value === 'paused') {
-    // idle / finalizing 且之前在 session → 录制结束, 关 HUD.
+  } else if (
+    state.value === 'armed' ||
+    state.value === 'countdown' ||
+    state.value === 'recording' ||
+    state.value === 'paused'
+  ) {
     stopTimer()
+    stopCountdownTimer()
     Window.Close()
   }
 }
 
 onMounted(async () => {
   try {
+    await hotkeys.reload()
+    startKey.value = hotkeyLabel('recording.start', 'F10')
+    pauseKey.value = hotkeyLabel('recording.pause', 'F11')
+    stopKey.value = hotkeyLabel('recording.stop', 'F12')
     applySnapshot(await backend.recording.getState())
   } catch (error) {
     console.warn('recording HUD reconcile failed', error)
@@ -262,12 +329,34 @@ async function startResumeCountdown() {
 
 onUnmounted(() => {
   stopTimer()
+  stopCountdownTimer()
   clearResumeTimer()
   clearCancelTimer()
-  offCountdown?.()
   offState?.()
   offResumeHotkey?.()
 })
+
+function hotkeyLabel(key: string, fallback: string): string {
+  return hotkeys.list.find((entry) => entry.key === key)?.hotkeyStr || fallback
+}
+
+async function onStartCountdown() {
+  try {
+    await backend.recording.beginCountdown()
+  } catch (e) {
+    console.warn('开始录制倒计时失败', e)
+  }
+}
+
+async function cancelPreparation() {
+  try {
+    await backend.recording.cancel()
+  } catch (e) {
+    console.warn('取消录制准备失败', e)
+  } finally {
+    Window.Close()
+  }
+}
 
 async function onPause() {
   try {
@@ -309,6 +398,10 @@ async function armOrCancel() {
 
 // 关 HUD 悬浮窗 (录制不停, 仍可按热键停). 录制结束时 recording:state 监听会自动关。
 function onCloseHud() {
+  if (state.value === 'armed' || state.value === 'countdown') {
+    void cancelPreparation()
+    return
+  }
   Window.Close()
 }
 </script>

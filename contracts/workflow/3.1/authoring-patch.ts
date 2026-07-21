@@ -34,6 +34,10 @@ export type Command =
       kind: 'add-node'
     }
   | {
+      kind: 'upgrade-node-contract'
+      upgradeNodeContract: NodeCommand
+    }
+  | {
       kind: 'remove-node'
       removeNode: NodeCommand
     }

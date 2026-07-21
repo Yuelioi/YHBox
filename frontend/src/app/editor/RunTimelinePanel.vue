@@ -42,6 +42,31 @@
     </header>
 
     <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <UButton
+        v-if="activeAttempt"
+        data-testid="run-active-attempt"
+        color="neutral"
+        variant="soft"
+        class="mb-3 grid h-auto w-full grid-cols-[minmax(0,1fr)_auto] items-start justify-stretch gap-3 border border-primary/25 px-3 py-2.5 text-left"
+        @click="emit('focus-node', activeAttempt.graphPath, activeAttempt.nodeId)"
+      >
+        <span class="min-w-0">
+          <span class="flex items-center gap-2 text-xs font-medium text-highlighted">
+            <span class="size-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
+            {{ t('workflow.timeline.active_attempt') }} ·
+            {{ nodeLabels?.[activeAttempt.nodeId] || activeAttempt.nodeId }}
+          </span>
+          <span class="mt-1 block truncate font-mono text-[10px] text-muted">
+            {{ activeAttemptStatus }}
+          </span>
+        </span>
+        <span class="text-right font-mono text-[10px] text-dimmed">
+          <span class="block">{{ activeAttemptElapsed }}</span>
+          <span v-if="activeAttemptTimeout" class="mt-1 block">
+            {{ t('workflow.timeline.timeout_budget', { value: activeAttemptTimeout }) }}
+          </span>
+        </span>
+      </UButton>
       <div v-if="run.failure" class="mb-3 rounded-lg border border-error/35 bg-error/10 px-3 py-2">
         <p class="text-xs font-medium text-error">{{ failureMessage }}</p>
         <p class="mt-1 text-[11px] text-muted">
@@ -102,6 +127,12 @@
               >
                 {{ entry.attemptOutcome || entry.action || entry.statusCode || entry.errorCode }}
               </span>
+              <span
+                v-if="isUnhandledRoute(entry)"
+                class="mt-1 block text-[10px] font-medium text-warning"
+              >
+                {{ t('workflow.timeline.unhandled_route', { route: 'timeout' }) }}
+              </span>
             </span>
             <span class="font-mono text-[10px] text-dimmed">
               {{ t('workflow.timeline.attempt', { n: entry.attempt }) }}
@@ -115,10 +146,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useNow } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { RunView } from '@/app/transport/workflow'
+import { activeRunAttempt, runRouteKey, statusRoutePort } from './runTrace'
 
-const props = defineProps<{ run: RunView; embedded?: boolean }>()
+const props = defineProps<{
+  run: RunView
+  embedded?: boolean
+  nodeLabels?: Record<string, string>
+  unhandledRoutes?: string[]
+}>()
 const emit = defineEmits<{
   cancel: []
   refresh: []
@@ -127,6 +165,24 @@ const emit = defineEmits<{
   page: [page: number]
 }>()
 const { t, te } = useI18n()
+const now = useNow({ interval: 1000 })
+const unhandledRouteSet = computed(() => new Set(props.unhandledRoutes ?? []))
+const activeAttempt = computed(() => activeRunAttempt(props.run))
+const activeAttemptElapsed = computed(() => {
+  const startedAt = Date.parse(activeAttempt.value?.startedAt ?? '')
+  if (!Number.isFinite(startedAt)) return '—'
+  return formatElapsed(now.value.getTime() - startedAt)
+})
+const activeAttemptTimeout = computed(() => {
+  const timeout = activeAttempt.value?.counters.timeout_ms
+  return typeof timeout === 'number' && timeout > 0 ? formatElapsed(timeout) : ''
+})
+const activeAttemptStatus = computed(() => {
+  const code = activeAttempt.value?.statusCode
+  if (!code) return t('workflow.timeline.executing')
+  const key = `workflow.timeline.status.${code}`
+  return te(key) ? t(key) : code
+})
 
 const canCancel = computed(() => ['QUEUED', 'RUNNING'].includes(props.run.status.toUpperCase()))
 const failureMessage = computed(() => {
@@ -147,4 +203,19 @@ const statusColor = computed(() => {
       return 'bg-primary animate-pulse motion-reduce:animate-none'
   }
 })
+
+function formatElapsed(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000))
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+}
+
+function isUnhandledRoute(entry: RunView['timeline'][number]): boolean {
+  const port = statusRoutePort(entry.statusCode)
+  return Boolean(
+    port &&
+    entry.nodeId &&
+    unhandledRouteSet.value.has(runRouteKey(entry.graphPath, entry.nodeId, port)),
+  )
+}
 </script>

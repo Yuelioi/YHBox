@@ -57,6 +57,7 @@
       {{ t('workflow.inspector.resource_stale') }}
     </UBadge>
     <UButton
+      v-if="clearable"
       color="neutral"
       variant="ghost"
       size="xs"
@@ -88,6 +89,7 @@ const props = defineProps<{
   label: string
   placeholder: string
   stale?: boolean
+  clearable?: boolean
 }>()
 const emit = defineEmits<{
   change: []

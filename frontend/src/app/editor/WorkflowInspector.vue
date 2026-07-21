@@ -1,5 +1,5 @@
 <template>
-  <aside class="flex h-full w-[360px] shrink-0 flex-col border-l border-default bg-default">
+  <aside class="flex h-full w-full min-w-0 flex-col border-l border-default bg-default">
     <div class="flex items-center justify-between border-b border-default px-4 py-3">
       <div class="min-w-0">
         <h2 class="truncate text-sm font-semibold text-highlighted">
@@ -38,6 +38,8 @@
         {{ projectionDescription }}
       </p>
 
+      <PlaybackCalibrationPanel v-if="isInputClipPlayback" :node="node" :target-slot="targetSlot" />
+
       <section class="space-y-2">
         <label class="block text-xs font-medium text-toned" for="workflow-node-label">
           {{ t('workflow.inspector.label') }}
@@ -74,6 +76,7 @@
           :target-slot="targetSlot"
           :connected-input-ids="connectedInputIds"
           @command="emit('command', $event)"
+          @capture-template="emit('capture-template')"
         />
       </section>
 
@@ -106,6 +109,7 @@
               :target-slot="targetSlot"
               :connected-input-ids="connectedInputIds"
               @command="emit('command', $event)"
+              @capture-template="emit('capture-template')"
             />
 
             <section v-if="projection.capabilities.length" class="space-y-2">
@@ -160,6 +164,7 @@
           :target-slot="targetSlot"
           :connected-input-ids="connectedInputIds"
           @command="emit('command', $event)"
+          @capture-template="emit('capture-template')"
         />
       </section>
     </div>
@@ -167,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TargetDefault, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
@@ -179,6 +184,10 @@ import {
   type AuthoringGroup,
 } from './authoringSurface'
 
+const PlaybackCalibrationPanel = defineAsyncComponent(
+  () => import('./PlaybackCalibrationPanel.vue'),
+)
+
 const props = defineProps<{
   node: Node | null
   projection: NodeProjection | null
@@ -187,7 +196,10 @@ const props = defineProps<{
   types: TypeProjection[]
   connectedInputIds?: ReadonlySet<string>
 }>()
-const emit = defineEmits<{ command: [command: EditorCommand] }>()
+const emit = defineEmits<{
+  command: [command: EditorCommand]
+  'capture-template': []
+}>()
 const { t, te } = useI18n()
 const advancedOpen = ref(false)
 const primaryGroups: AuthoringGroup[] = ['required', 'common']
@@ -195,6 +207,11 @@ const projectionDescription = computed(() => {
   const key = props.projection?.descriptionKey
   return key && te(key) ? t(key) : ''
 })
+const isInputClipPlayback = computed(
+  () =>
+    props.projection?.nodeRef.nodeTypeId ===
+    'https://schemas.yotta.dev/nodes/automation/play-input-clip',
+)
 const surface = computed(() =>
   props.projection && props.node ? projectAuthoringSurface(props.projection, props.node) : null,
 )

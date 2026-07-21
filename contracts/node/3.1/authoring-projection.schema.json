@@ -461,6 +461,31 @@
       ],
       "type": "object"
     },
+    "InstanceResolver": {
+      "additionalProperties": false,
+      "properties": {
+        "maxPorts": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "resolverId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resolverId",
+        "semanticDigest",
+        "maxPorts"
+      ],
+      "type": "object"
+    },
     "InstructionSpec": {
       "oneOf": [
         {
@@ -616,6 +641,9 @@
         },
         "icon": {
           "type": "string"
+        },
+        "instanceResolver": {
+          "$ref": "#/$defs/InstanceResolver"
         },
         "instruction": {
           "$ref": "#/$defs/InstructionSpec"

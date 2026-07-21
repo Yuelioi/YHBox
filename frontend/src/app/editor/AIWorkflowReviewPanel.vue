@@ -1,7 +1,7 @@
 <template>
   <aside
     data-testid="ai-workflow-review-panel"
-    class="flex h-full w-[380px] shrink-0 flex-col border-l border-default bg-default"
+    class="flex h-full w-full min-w-0 flex-col border-l border-default bg-default"
   >
     <header class="border-b border-default px-4 py-3">
       <div class="flex items-center justify-between gap-3">

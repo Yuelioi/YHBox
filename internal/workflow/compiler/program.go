@@ -19,6 +19,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -359,6 +360,10 @@ func validateProgramGraph(graph programGraph, catalog nodecatalog.Snapshot, conf
 			return errors.New("program references an unknown node type")
 		}
 		machine := entry.Contract.Machine()
+		machine, err = nodeinstance.Resolve(machine, node.Config)
+		if err != nil {
+			return fmt.Errorf("program node %q has an invalid effective contract: %w", node.ID, err)
+		}
 		if err := validateEffectivePortTypes(node, machine, state); err != nil {
 			return fmt.Errorf("program node %q has invalid effective types: %w", node.ID, err)
 		}

@@ -24,13 +24,14 @@
         @click="pickRegion"
       />
     </div>
-    <div class="grid grid-cols-4 gap-1.5">
+    <div class="grid grid-cols-2 gap-2">
       <UFormField v-for="field in fields" :key="field.key" :label="field.label">
         <UInputNumber
           :model-value="displayValue(field.key)"
           :min="0"
           :max="region.unit === 'ratio' ? 100 : undefined"
           :step="region.unit === 'ratio' ? 0.1 : 1"
+          :size="compact ? 'xs' : 'sm'"
           class="w-full"
           @update:model-value="update(field.key, Number($event))"
         />

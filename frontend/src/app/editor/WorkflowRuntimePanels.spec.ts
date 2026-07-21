@@ -17,6 +17,7 @@ describe('workflow runtime inspection UI', () => {
     expect(toolbar).toContain('workflow.action.run_timeline')
     expect(toolbar).toContain("emit('toggle-diagnostics')")
     expect(toolbar).toContain("emit('toggle-timeline')")
+    expect(workbench).toContain("activate('diagnostics')")
   })
 
   it('uses the true debug transport and keeps breakpoints outside Workflow Source', () => {
@@ -38,17 +39,19 @@ describe('workflow runtime inspection UI', () => {
     expect(node).toContain('debugMode || breakpoint')
   })
 
-  it('keeps normal runs quiet and unifies logs, timeline, and debug in one workbench', () => {
+  it('opens normal runs for inspection and unifies diagnostics, logs, timeline, and debug', () => {
     const startRun = editor.slice(
       editor.indexOf('async function startRun'),
       editor.indexOf('async function startDebug'),
     )
-    expect(startRun).not.toContain("openRuntimeWorkbench('timeline')")
+    expect(startRun).toContain("openRuntimeWorkbench('timeline')")
     expect(workbench).toContain("activate('logs')")
+    expect(workbench).toContain("activate('diagnostics')")
     expect(workbench).toContain("activate('timeline')")
     expect(workbench).toContain("activate('debug')")
-    expect(workbench).toContain('<LogPanel v-if=')
-    expect(editor).toContain("if (run?.failure) openRuntimeWorkbench('logs')")
+    expect(workbench).toContain('<WorkflowDiagnosticsPanel')
+    expect(workbench).toContain('<LogPanel v-else-if=')
+    expect(editor).toContain("if (run?.failure) openRuntimeWorkbench('timeline')")
     expect(editor).toContain(
       "if (event.snapshot.status === 'paused') openRuntimeWorkbench('debug')",
     )
@@ -65,6 +68,9 @@ describe('workflow runtime inspection UI', () => {
     expect(diagnostics).toContain('diagnostic.fix')
     expect(diagnostics).not.toContain('suggestedFix')
     expect(editor).toContain('@focus="focusDiagnostic"')
+    expect(editor).not.toContain(
+      '<WorkflowDiagnosticsPanel\n        v-if="diagnosticsOpen && session.diagnostics.length"',
+    )
   })
 
   it('locates timeline facts and projects journal-derived status onto nodes', () => {
@@ -73,6 +79,13 @@ describe('workflow runtime inspection UI', () => {
     expect(editor).toContain('await setCenter(')
     expect(node).toContain('data-testid="node-run-status"')
     expect(timeline).toContain("emit('page', run.timelinePage + 1)")
+    expect(timeline).toContain('activeRunAttempt(props.run)')
+    expect(timeline).toContain('activeAttemptElapsed')
+    expect(timeline).toContain('activeAttemptTimeout')
+    expect(workbench).toContain(':node-labels="nodeLabels"')
+    expect(workbench).toContain(':unhandled-routes="unhandledRoutes"')
+    expect(timeline).toContain('workflow.timeline.unhandled_route')
+    expect(editor).toContain("openRuntimeWorkbench('timeline')")
   })
 
   it('renders structured run and RPC failures as localized messages', () => {

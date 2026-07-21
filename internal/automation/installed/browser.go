@@ -171,6 +171,10 @@ func (driver *browserDriver) PlayEvent(context.Context, PlaybackEvent) error {
 	return failure(CodePlaybackFailed, errors.New("browser CDP does not support low-level recording playback"))
 }
 
+func (driver *browserDriver) OpenPlayback(context.Context) (playbackSessionDriver, error) {
+	return nil, failure(CodePlaybackFailed, errors.New("browser CDP does not support low-level recording playback"))
+}
+
 func (driver *browserDriver) ReleaseInput() error { return nil }
 
 func (driver *browserDriver) Close() error {

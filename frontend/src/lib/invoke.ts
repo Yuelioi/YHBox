@@ -122,7 +122,10 @@ export function errorMessage(e: unknown): string {
 
 /** 把底层 transport 文案收敛为用户知道下一步该做什么的提示。 */
 export function friendlyRawErrorMessage(message: string): string {
-  const normalized = message.trim().toLowerCase()
+  const raw = message.trim()
+  const errorKey = `error.${raw}`
+  if (/^[A-Z][A-Z0-9_]+$/.test(raw) && i18n.global.te(errorKey)) return i18n.global.t(errorKey)
+  const normalized = raw.toLowerCase()
   if (
     normalized.includes('context deadline exceeded') ||
     normalized.includes('deadline exceeded') ||

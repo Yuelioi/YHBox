@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
+	"strconv"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
@@ -18,8 +19,12 @@ func typedSwitch() compiler.Adapter {
 		if !ok || len(value.InlineJSON()) == 0 {
 			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.SwitchFailedCode, Output: "failed", Cause: errors.New("switch value is missing")}
 		}
-		for index := 1; index <= nodes.SwitchCaseCount; index++ {
-			id := fmt.Sprintf("case-%d", index)
+		caseCount, err := nodeinstance.SwitchCaseCount(invocation.Config)
+		if err != nil {
+			return compiler.AdapterResult{}, &compiler.NodeFailure{Code: nodes.SwitchFailedCode, Output: "failed", Cause: err}
+		}
+		for index := 1; index <= caseCount; index++ {
+			id := "case-" + strconv.Itoa(index)
 			candidate, exists := invocation.Inputs[id]
 			if !exists {
 				continue

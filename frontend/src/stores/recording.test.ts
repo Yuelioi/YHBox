@@ -59,6 +59,18 @@ describe('recordStore — 后端状态机镜像', () => {
     expect(s.activeTargetSlot).toBe('')
   })
 
+  it('armed/countdown keep the target visible without claiming capture has started', () => {
+    const s = useRecordingStore()
+    s.applyState({ phase: 'armed', targetSlot: 'editor' })
+    expect(s.isRecording).toBe(false)
+    expect(s.activeTargetSlot).toBe('editor')
+
+    s.applyState({ phase: 'countdown', targetSlot: 'editor', countdownEndsAtMs: 4_000 })
+    expect(s.isRecording).toBe(false)
+    expect(s.activeTargetSlot).toBe('editor')
+    expect(s.state.countdownEndsAtMs).toBe(4_000)
+  })
+
   it('finalizing 阶段不算 recording, 但 target 仍可见 (收尾期)', () => {
     const s = useRecordingStore()
     s.applyState({ phase: 'finalizing', targetSlot: 'editor' })

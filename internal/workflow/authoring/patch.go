@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -27,6 +28,12 @@ const (
 )
 
 var handlePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
+
+const (
+	playInputClipNodeTypeID           = "https://schemas.yotta.dev/nodes/automation/play-input-clip"
+	playInputClipStableDigest         = "sha256:5c353fb0725ca6a841a7ef5e9adcca12bb10e2d6362fed4d7d38449a58608e02"
+	playInputClipRetractedScaleDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
+)
 
 type PatchRequest struct {
 	WorkflowID   string    `json:"workflowId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
@@ -45,6 +52,7 @@ const (
 	CommandUpdateStateVariable    CommandKind = "update-state-variable"
 	CommandRemoveStateVariable    CommandKind = "remove-state-variable"
 	CommandAddNode                CommandKind = "add-node"
+	CommandUpgradeNodeContract    CommandKind = "upgrade-node-contract"
 	CommandRemoveNode             CommandKind = "remove-node"
 	CommandMoveNode               CommandKind = "move-node"
 	CommandSetNodeLabel           CommandKind = "set-node-label"
@@ -84,6 +92,7 @@ type Command struct {
 	UpdateStateVariable    *UpdateStateVariableCommand    `json:"updateStateVariable,omitempty"`
 	RemoveStateVariable    *RemoveStateVariableCommand    `json:"removeStateVariable,omitempty"`
 	AddNode                *AddNodeCommand                `json:"addNode,omitempty"`
+	UpgradeNodeContract    *NodeCommand                   `json:"upgradeNodeContract,omitempty"`
 	RemoveNode             *NodeCommand                   `json:"removeNode,omitempty"`
 	MoveNode               *MoveNodeCommand               `json:"moveNode,omitempty"`
 	SetNodeLabel           *SetNodeLabelCommand           `json:"setNodeLabel,omitempty"`
@@ -519,6 +528,25 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 			handles[payload.Handle] = nodeID
 		}
 		*generated = append(*generated, GeneratedNode{CommandIndex: index, Handle: payload.Handle, NodeID: nodeID})
+	case CommandUpgradeNodeContract:
+		graph, node, err := resolveNode(source, command.UpgradeNodeContract.GraphID, command.UpgradeNodeContract.NodeID, handles)
+		if err != nil {
+			return patchError(index, "UNKNOWN_NODE", err.Error())
+		}
+		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
+		if !ok {
+			return patchError(index, "UNKNOWN_NODE_TYPE", "node type is not in the admitted Catalog")
+		}
+		if projection.NodeRef == node.NodeRef {
+			break
+		}
+		if !admittedNodeContractUpgrade(node.NodeRef, projection.NodeRef) {
+			return patchError(index, "INCOMPATIBLE_NODE_UPGRADE", "node contract migration is not admitted")
+		}
+		prepareAdmittedNodeContractUpgrade(node)
+		if err := applyCompatibleNodeUpgrade(source, graph, node, projection); err != nil {
+			return patchError(index, "INCOMPATIBLE_NODE_UPGRADE", err.Error())
+		}
 	case CommandRemoveNode:
 		graph, node, err := resolveNode(source, command.RemoveNode.GraphID, command.RemoveNode.NodeID, handles)
 		if err != nil {
@@ -550,7 +578,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		}
 		node.Disabled = command.SetNodeDisabled.Disabled
 	case CommandSetConfig:
-		_, node, err := resolveNode(source, command.SetConfig.GraphID, command.SetConfig.NodeID, handles)
+		graph, node, err := resolveNode(source, command.SetConfig.GraphID, command.SetConfig.NodeID, handles)
 		if err != nil {
 			return patchError(index, "UNKNOWN_NODE", err.Error())
 		}
@@ -562,8 +590,9 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 			return patchError(index, "INVALID_CONFIG_VALUE", err.Error())
 		}
 		node.Config[command.SetConfig.FieldID] = value
+		pruneInvalidNodeTopology(source, graph, node, e.projection)
 	case CommandClearConfig:
-		_, node, err := resolveNode(source, command.ClearConfig.GraphID, command.ClearConfig.NodeID, handles)
+		graph, node, err := resolveNode(source, command.ClearConfig.GraphID, command.ClearConfig.NodeID, handles)
 		if err != nil {
 			return patchError(index, "UNKNOWN_NODE", err.Error())
 		}
@@ -583,6 +612,7 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		} else {
 			delete(node.Config, field.ID)
 		}
+		pruneInvalidNodeTopology(source, graph, node, e.projection)
 	case CommandBindValue:
 		graph, node, err := resolveNode(source, command.BindValue.GraphID, command.BindValue.NodeID, handles)
 		if err != nil {
@@ -888,7 +918,7 @@ func validateTaggedCommand(command Command) error {
 		command.RenameWorkflow != nil, command.UpdateWorkflowMetadata != nil,
 		command.SetTargetDefault != nil, command.ClearTargetDefault != nil,
 		command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
-		command.AddNode != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
+		command.AddNode != nil, command.UpgradeNodeContract != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
 		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.ClearBinding != nil,
 		command.Connect != nil, command.Disconnect != nil,
@@ -913,7 +943,8 @@ func validateTaggedCommand(command Command) error {
 		CommandSetTargetDefault:       command.SetTargetDefault != nil, CommandClearTargetDefault: command.ClearTargetDefault != nil,
 		CommandUpdateStateVariable: command.UpdateStateVariable != nil,
 		CommandRemoveStateVariable: command.RemoveStateVariable != nil, CommandAddNode: command.AddNode != nil,
-		CommandRemoveNode: command.RemoveNode != nil, CommandMoveNode: command.MoveNode != nil,
+		CommandUpgradeNodeContract: command.UpgradeNodeContract != nil,
+		CommandRemoveNode:          command.RemoveNode != nil, CommandMoveNode: command.MoveNode != nil,
 		CommandSetNodeLabel: command.SetNodeLabel != nil, CommandSetNodeDisabled: command.SetNodeDisabled != nil,
 		CommandSetConfig: command.SetConfig != nil, CommandClearConfig: command.ClearConfig != nil,
 		CommandBindValue: command.BindValue != nil, CommandBindDefault: command.BindDefault != nil,
@@ -1230,8 +1261,8 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 
 func (e *Engine) endpointType(source *schema.WorkflowSource, graph *schema.Graph, endpoint schema.Endpoint, output bool) (datatype.TypeExpression, bool) {
 	if node := nodeByID(graph, endpoint.NodeID); node != nil {
-		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
-		if !ok || projection.NodeRef != node.NodeRef {
+		projection, ok := instanceProjection(e.projection, *node)
+		if !ok {
 			return datatype.TypeExpression{}, false
 		}
 		ports := projection.DataInputs
@@ -1273,8 +1304,8 @@ func (e *Engine) edgeMatches(source *schema.WorkflowSource, graph *schema.Graph,
 	}
 	fromOK := false
 	if node := nodeByID(graph, edge.From.NodeID); node != nil {
-		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
-		if ok && projection.NodeRef == node.NodeRef {
+		projection, ok := instanceProjection(e.projection, *node)
+		if ok {
 			for _, signal := range projection.Signals {
 				fromOK = fromOK || signal.ID == edge.From.PortID && signal.Channel == string(edge.Channel) && signal.Direction == "output"
 			}
@@ -1288,8 +1319,8 @@ func (e *Engine) edgeMatches(source *schema.WorkflowSource, graph *schema.Graph,
 	}
 	toOK := false
 	if node := nodeByID(graph, edge.To.NodeID); node != nil {
-		projection, ok := e.projection.Node(node.NodeRef.NodeTypeID)
-		if ok && projection.NodeRef == node.NodeRef {
+		projection, ok := instanceProjection(e.projection, *node)
+		if ok {
 			for _, signal := range projection.Signals {
 				toOK = toOK || signal.ID == edge.To.PortID && signal.Direction == "input" && projection.Instruction.AcceptsSignalInput(string(edge.Channel), edge.To.PortID)
 			}
@@ -1368,8 +1399,8 @@ func configField(projection nodeauthoring.Snapshot, node schema.Node, fieldID st
 }
 
 func dataInput(projection nodeauthoring.Snapshot, node schema.Node, portID string) (nodeauthoring.PortProjection, bool) {
-	projected, ok := projection.Node(node.NodeRef.NodeTypeID)
-	if !ok || projected.NodeRef != node.NodeRef {
+	projected, ok := instanceProjection(projection, node)
+	if !ok {
 		return nodeauthoring.PortProjection{}, false
 	}
 	for _, port := range projected.DataInputs {
@@ -1378,6 +1409,171 @@ func dataInput(projection nodeauthoring.Snapshot, node schema.Node, portID strin
 		}
 	}
 	return nodeauthoring.PortProjection{}, false
+}
+
+func instanceProjection(snapshot nodeauthoring.Snapshot, node schema.Node) (nodeauthoring.NodeProjection, bool) {
+	base, ok := snapshot.Node(node.NodeRef.NodeTypeID)
+	if !ok || base.NodeRef != node.NodeRef {
+		return nodeauthoring.NodeProjection{}, false
+	}
+	resolved, err := nodeauthoring.ResolveInstance(base, node.Config)
+	return resolved, err == nil
+}
+
+func admittedNodeContractUpgrade(from, to nodecontract.NodeRef) bool {
+	return from.NodeTypeID == playInputClipNodeTypeID &&
+		to.NodeTypeID == playInputClipNodeTypeID &&
+		string(from.SemanticDigest) == playInputClipRetractedScaleDigest &&
+		string(to.SemanticDigest) == playInputClipStableDigest
+}
+
+func prepareAdmittedNodeContractUpgrade(node *schema.Node) {
+	if string(node.NodeRef.SemanticDigest) == playInputClipRetractedScaleDigest {
+		delete(node.Bindings, "turn-scale")
+	}
+}
+
+// applyCompatibleNodeUpgrade advances a stale node reference only when the
+// current authoring projection is an additive-compatible replacement. It
+// never drops user config, bindings, or topology to make an upgrade fit.
+func applyCompatibleNodeUpgrade(_ *schema.WorkflowSource, graph *schema.Graph, node *schema.Node, base nodeauthoring.NodeProjection) error {
+	fields := make(map[string]nodeauthoring.FieldProjection, len(base.ConfigFields))
+	for _, field := range base.ConfigFields {
+		fields[field.ID] = field
+	}
+	for fieldID := range node.Config {
+		if _, ok := fields[fieldID]; !ok {
+			return fmt.Errorf("config field %q is unavailable in the current contract", fieldID)
+		}
+	}
+	for _, field := range base.ConfigFields {
+		if _, exists := node.Config[field.ID]; exists {
+			continue
+		}
+		if field.HasDefault {
+			value, err := decodeRaw(field.Default)
+			if err != nil {
+				return fmt.Errorf("decode catalog default for config field %q: %w", field.ID, err)
+			}
+			node.Config[field.ID] = value
+			continue
+		}
+	}
+
+	projection, err := nodeauthoring.ResolveInstance(base, node.Config)
+	if err != nil {
+		return fmt.Errorf("resolve current node projection: %w", err)
+	}
+	inputs := make(map[string]nodeauthoring.PortProjection, len(projection.DataInputs))
+	for _, port := range projection.DataInputs {
+		inputs[port.ID] = port
+	}
+	for portID := range node.Bindings {
+		if _, ok := inputs[portID]; !ok {
+			return fmt.Errorf("bound input %q is unavailable in the current contract", portID)
+		}
+	}
+
+	incoming := make(map[string]bool)
+	for _, edge := range graph.Edges {
+		if edge.From.NodeID == node.ID && !projectedEndpointExists(projection, edge.From.PortID, edge.Channel, true) {
+			return fmt.Errorf("outgoing %s port %q is unavailable in the current contract", edge.Channel, edge.From.PortID)
+		}
+		if edge.To.NodeID == node.ID {
+			if !projectedEndpointExists(projection, edge.To.PortID, edge.Channel, false) {
+				return fmt.Errorf("incoming %s port %q is unavailable in the current contract", edge.Channel, edge.To.PortID)
+			}
+			if edge.Channel == schema.EdgeData {
+				incoming[edge.To.PortID] = true
+			}
+		}
+	}
+	for _, port := range graph.Inputs {
+		if port.NodeID == node.ID {
+			if !projectedEndpointExists(projection, port.PortID, schema.EdgeData, false) {
+				return fmt.Errorf("graph input port %q is unavailable in the current contract", port.PortID)
+			}
+			incoming[port.PortID] = true
+		}
+	}
+	for _, port := range graph.Outputs {
+		if port.NodeID == node.ID && !projectedEndpointExists(projection, port.PortID, schema.EdgeData, true) {
+			return fmt.Errorf("graph output port %q is unavailable in the current contract", port.PortID)
+		}
+	}
+	for _, entry := range graph.Entries {
+		if entry.NodeID == node.ID && !projectedEndpointExists(projection, entry.PortID, schema.EdgeExec, false) {
+			return fmt.Errorf("graph entry port %q is unavailable in the current contract", entry.PortID)
+		}
+	}
+	for _, exit := range graph.Exits {
+		if exit.Endpoint.NodeID == node.ID && !projectedEndpointExists(projection, exit.Endpoint.PortID, exit.Channel, true) {
+			return fmt.Errorf("graph exit port %q is unavailable in the current contract", exit.Endpoint.PortID)
+		}
+	}
+
+	for _, port := range projection.DataInputs {
+		if _, bound := node.Bindings[port.ID]; bound || incoming[port.ID] {
+			continue
+		}
+		if port.HasDefault {
+			node.Bindings[port.ID] = schema.InputBinding{Kind: schema.BindingDefault}
+			continue
+		}
+		if port.Binding == nodeauthoring.BindingRequired {
+			return fmt.Errorf("required input %q has no compatible default", port.ID)
+		}
+	}
+	node.NodeRef = projection.NodeRef
+	return nil
+}
+
+func projectedEndpointExists(projection nodeauthoring.NodeProjection, portID string, channel schema.EdgeChannel, output bool) bool {
+	if channel == schema.EdgeData {
+		ports := projection.DataInputs
+		if output {
+			ports = projection.DataOutputs
+		}
+		for _, port := range ports {
+			if port.ID == portID {
+				return true
+			}
+		}
+		return false
+	}
+	direction := "input"
+	if output {
+		direction = "output"
+	}
+	for _, signal := range projection.Signals {
+		if signal.ID == portID && signal.Channel == string(channel) && signal.Direction == direction {
+			return true
+		}
+	}
+	return false
+}
+
+func pruneInvalidNodeTopology(source *schema.WorkflowSource, graph *schema.Graph, node *schema.Node, snapshot nodeauthoring.Snapshot) {
+	projection, ok := instanceProjection(snapshot, *node)
+	if !ok || projection.InstanceResolver == nil {
+		return
+	}
+	inputs := make(map[string]bool, len(projection.DataInputs))
+	for _, port := range projection.DataInputs {
+		inputs[port.ID] = true
+	}
+	for portID := range node.Bindings {
+		if !inputs[portID] {
+			delete(node.Bindings, portID)
+		}
+	}
+	edges := graph.Edges[:0]
+	for _, edge := range graph.Edges {
+		if edge.From.NodeID != node.ID && edge.To.NodeID != node.ID || (&Engine{projection: snapshot}).edgeMatches(source, graph, edge) {
+			edges = append(edges, edge)
+		}
+	}
+	graph.Edges = edges
 }
 
 func edgeExists(graph schema.Graph, candidate schema.Edge) bool {

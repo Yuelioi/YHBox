@@ -173,7 +173,7 @@ func buildRuntime(opt options) (*appbootstrap.Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	automationDrafts, err := settingsApp.Settings().Automation.InstallationDrafts(settingsApp.Settings().Applications)
+	automationDrafts, err := settingsApp.Settings().Automation.InstallationDrafts(settingsApp.Settings().Applications, settingsApp.Settings().ActiveMouseCounts360())
 	if err != nil {
 		return nil, err
 	}

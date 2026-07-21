@@ -122,7 +122,7 @@ func Run(config Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize installed applications: %w", err)
 	}
-	automationDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications)
+	automationDrafts, err := app.Settings().Automation.InstallationDrafts(app.Settings().Applications, app.Settings().ActiveMouseCounts360())
 	if err != nil {
 		return fmt.Errorf("read installed automation target settings: %w", err)
 	}
@@ -178,10 +178,10 @@ func Run(config Config) error {
 	}
 	authoringTargets := workflowRuntime.AuthoringTargets()
 	if err := app.AttachSettingsActivator(func(before, after *services.Settings) (*services.SettingsActivationPlan, error) {
-		if reflect.DeepEqual(before.Applications, after.Applications) && reflect.DeepEqual(before.Automation, after.Automation) {
+		if reflect.DeepEqual(before.Applications, after.Applications) && reflect.DeepEqual(before.Automation, after.Automation) && before.ActiveMouseCounts360() == after.ActiveMouseCounts360() {
 			return nil, nil
 		}
-		drafts, err := after.Automation.InstallationDrafts(after.Applications)
+		drafts, err := after.Automation.InstallationDrafts(after.Applications, after.ActiveMouseCounts360())
 		if err != nil {
 			return nil, fmt.Errorf("prepare automation targets: %w", err)
 		}
@@ -235,7 +235,7 @@ func Run(config Config) error {
 		// OnSystemChange 写回 settings.UI 的 exact binding。
 		OnSystemChange: func(key, newStr string) error {
 			switch key {
-			case "system.execution-stop", "recording.stop", "recording.pause",
+			case "system.execution-stop", "recording.start", "recording.stop", "recording.pause",
 				"system.calibrate-toggle", "system.launcher-toggle", "tools.window-capture":
 			default:
 				return nil
@@ -246,6 +246,8 @@ func Run(config Config) error {
 					cur.UI.ActionStopHotkey = newStr
 				case "recording.stop":
 					cur.UI.RecordingStopHotkey = newStr
+				case "recording.start":
+					cur.UI.RecordingStartHotkey = newStr
 				case "recording.pause":
 					cur.UI.RecordingPauseHotkey = newStr
 				case "system.calibrate-toggle":
@@ -275,6 +277,7 @@ func Run(config Config) error {
 		"system.calibrate-toggle": "F8",
 		"system.launcher-toggle":  "",
 		"tools.window-capture":    "F9",
+		"recording.start":         "F10",
 		"recording.stop":          "F12",
 		"recording.pause":         "F11",
 	})
@@ -357,6 +360,11 @@ func Run(config Config) error {
 
 	// 录制热键 (LL-hook 全局拦截, 不占 OS RegisterHotKey — 游戏会 reserve)。
 	// 默认从 settings.UI 读; registry 是编辑权威, rebind 经 onSystemHotkeyChange 写回 settings.UI。
+	recStartHk := hotkeyOrDefault(app.Settings().UI.RecordingStartHotkey, "F10")
+	if err := hotkeyRegistry.RegisterLLHook("recording.start", hotkey.HotkeySourceRecording,
+		"hotkeys.label.recording.start", recStartHk, ""); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", recStartHk).Msg("注册开始录制热键失败")
+	}
 	recStopHk := hotkeyOrDefault(app.Settings().UI.RecordingStopHotkey, "F12")
 	if err := hotkeyRegistry.RegisterLLHook("recording.stop", hotkey.HotkeySourceRecording,
 		"hotkeys.label.recording.stop", recStopHk, ""); err != nil {

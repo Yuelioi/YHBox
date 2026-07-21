@@ -34,6 +34,7 @@
         :can-redo="session.canRedo"
         :ai-panel-open="aiPanelOpen"
         :state-panel-open="statePanelOpen"
+        :inspector-open="inspectorSidebarOpen"
         :run-active="runActive"
         :saving="session.phase === 'saving'"
         :compile-succeeded="compileSucceeded"
@@ -46,14 +47,14 @@
         :debugger-open="debuggerOpen"
         :recording-phase="recording.state.phase"
         @back="router.push('/workflows')"
-        @rename="renameWorkflow"
         @undo="session.undo()"
         @redo="session.redo()"
         @find-node="openNodeSearch"
         @toggle-ai="toggleAIReview"
         @toggle-state="toggleStatePanel"
+        @toggle-inspector="setInspectorVisibility(!inspectorAutoOpen)"
         @compile="compile"
-        @toggle-diagnostics="diagnosticsOpen = !diagnosticsOpen"
+        @toggle-diagnostics="toggleRuntimeWorkbench('diagnostics')"
         @toggle-timeline="toggleRuntimeWorkbench('timeline')"
         @toggle-debugger="toggleRuntimeWorkbench('debug')"
         @start-debug="startDebug"
@@ -64,6 +65,19 @@
         @run="startRun"
         @stop="cancelRun"
         @save="save"
+        @settings="openWorkflowSettings"
+        @reload="reloadWorkflow"
+      />
+
+      <WorkflowMetadataDialog
+        v-model:open="workflowSettingsOpen"
+        :name="workflowMetadata.name"
+        :description="workflowMetadata.description"
+        :category="workflowMetadata.category"
+        :tags="workflowMetadata.tags"
+        :busy="workflowSettingsBusy"
+        :error="workflowSettingsError"
+        @submit="saveWorkflowSettings"
       />
 
       <div class="flex items-center gap-2 border-b border-default bg-default px-3 py-1.5">
@@ -140,6 +154,8 @@
           variant="ghost"
           size="xs"
           :label="t('workflow.graphs.infer_interface')"
+          :disabled="!canInferGraphInterface.valid"
+          :title="canInferGraphInterface.valid ? undefined : canInferGraphInterface.message"
           @click="inferGraphInterface"
         />
         <UButton
@@ -203,13 +219,6 @@
       >
         {{ session.failure }}
       </div>
-      <WorkflowDiagnosticsPanel
-        v-if="diagnosticsOpen && session.diagnostics.length"
-        :diagnostics="session.diagnostics"
-        @focus="focusDiagnostic"
-        @close="diagnosticsOpen = false"
-      />
-
       <div class="flex min-h-0 flex-1">
         <nav
           class="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-default bg-elevated/20 py-2"
@@ -219,38 +228,54 @@
             data-testid="workflow-workspace-nodes"
             icon="i-tabler-topology-star-3"
             color="neutral"
-            :variant="workspacePanel === 'nodes' ? 'soft' : 'ghost'"
+            :variant="workspaceSidebarOpen && workspacePanel === 'nodes' ? 'soft' : 'ghost'"
             size="sm"
             :aria-label="t('workflow.editor.node_catalog')"
-            :aria-pressed="workspacePanel === 'nodes'"
-            @click="workspacePanel = 'nodes'"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'nodes'"
+            @click="toggleWorkspacePanel('nodes')"
           />
           <UButton
             data-testid="workflow-workspace-resources"
             icon="i-tabler-library"
             color="neutral"
-            :variant="workspacePanel === 'resources' ? 'soft' : 'ghost'"
+            :variant="workspaceSidebarOpen && workspacePanel === 'resources' ? 'soft' : 'ghost'"
             size="sm"
             :aria-label="t('workflow.resources.title')"
-            :aria-pressed="workspacePanel === 'resources'"
-            @click="workspacePanel = 'resources'"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'resources'"
+            @click="toggleWorkspacePanel('resources')"
           />
           <UButton
             data-testid="workflow-workspace-snippets"
             icon="i-tabler-bookmarks"
             color="neutral"
-            :variant="workspacePanel === 'snippets' ? 'soft' : 'ghost'"
+            :variant="workspaceSidebarOpen && workspacePanel === 'snippets' ? 'soft' : 'ghost'"
             size="sm"
             :aria-label="t('workflow.snippets.title')"
-            :aria-pressed="workspacePanel === 'snippets'"
-            @click="workspacePanel = 'snippets'"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'snippets'"
+            @click="toggleWorkspacePanel('snippets')"
           />
         </nav>
 
         <aside
-          class="flex shrink-0 flex-col border-r border-default bg-default"
-          :class="workspacePanel === 'nodes' ? 'w-56' : 'w-80'"
+          v-if="workspaceSidebarOpen"
+          data-testid="workflow-workspace-sidebar"
+          class="relative flex shrink-0 flex-col border-r border-default bg-default"
+          :style="{ width: `${workspaceSidebarWidth}px` }"
         >
+          <div
+            role="separator"
+            tabindex="0"
+            :aria-label="t('workflow.sidebar.resize_workspace')"
+            aria-orientation="vertical"
+            class="absolute inset-y-0 right-0 z-30 w-1 cursor-col-resize transition-colors hover:bg-primary/50 focus-visible:bg-primary/70 focus-visible:outline-none"
+            @pointerdown="startSidebarResize('workspace', $event)"
+            @keydown.left.prevent="
+              workspaceSidebarWidth = resizeWorkspaceSidebar(workspaceSidebarWidth, -16)
+            "
+            @keydown.right.prevent="
+              workspaceSidebarWidth = resizeWorkspaceSidebar(workspaceSidebarWidth, 16)
+            "
+          />
           <template v-if="workspacePanel === 'nodes'">
             <div class="border-b border-default px-4 py-3">
               <h2 class="text-xs font-semibold text-highlighted">
@@ -412,8 +437,6 @@
                 @toggle-breakpoint="
                   toggleBreakpoint(session.currentGraph?.id ?? '', slotProps.data.node.id)
                 "
-                @open-template-resources="openTemplateResources(slotProps.data.node.id)"
-                @capture-template="captureTemplateForNode(slotProps.data.node.id)"
                 @save-snippet="openSnippetForNode(slotProps.data.node)"
                 @remove="removeSelection"
               />
@@ -605,99 +628,111 @@
             @select="selectConnectionCandidate"
             @close="closeConnectionMenu"
           />
-          <div
-            v-if="currentGraphElementCount === 0"
-            data-testid="workflow-empty-canvas"
-            class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-8"
-          >
+          <template v-if="session.currentGraph?.kind === 'main'">
             <div
-              class="pointer-events-auto max-w-sm rounded-xl border border-default bg-default/95 p-6 text-center shadow-xl"
+              v-if="currentGraphElementCount === 0"
+              data-testid="workflow-empty-canvas"
+              class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-8"
             >
               <div
-                class="mx-auto mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                class="pointer-events-auto max-w-sm rounded-xl border border-default bg-default/95 p-6 text-center shadow-xl"
               >
-                <UIcon
-                  :name="
-                    session.currentGraph?.kind === 'subgraph'
-                      ? 'i-tabler-folders'
-                      : 'i-tabler-player-play'
-                  "
-                  class="size-5"
+                <div
+                  class="mx-auto mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                >
+                  <UIcon name="i-tabler-player-play" class="size-5" />
+                </div>
+                <h2 class="text-sm font-semibold text-highlighted">
+                  {{ t('workflow.empty_canvas.title') }}
+                </h2>
+                <p class="mt-2 text-xs leading-5 text-muted">
+                  {{ t('workflow.empty_canvas.description') }}
+                </p>
+                <UButton
+                  class="mt-4"
+                  icon="i-tabler-player-play"
+                  :label="t('workflow.empty_canvas.add_start')"
+                  @click="addNode(RUN_STARTED_NODE_ID, { x: 120, y: 160 })"
                 />
               </div>
-              <h2 class="text-sm font-semibold text-highlighted">
-                {{
-                  t(
-                    session.currentGraph?.kind === 'subgraph'
-                      ? 'workflow.empty_canvas.subgraph_title'
-                      : 'workflow.empty_canvas.title',
-                  )
-                }}
-              </h2>
-              <p class="mt-2 text-xs leading-5 text-muted">
-                {{
-                  t(
-                    session.currentGraph?.kind === 'subgraph'
-                      ? 'workflow.empty_canvas.subgraph_description'
-                      : 'workflow.empty_canvas.description',
-                  )
-                }}
-              </p>
-              <UButton
-                v-if="session.currentGraph?.kind === 'main'"
-                class="mt-4"
-                icon="i-tabler-player-play"
-                :label="t('workflow.empty_canvas.add_start')"
-                @click="addNode(RUN_STARTED_NODE_ID, { x: 120, y: 160 })"
-              />
             </div>
+          </template>
+          <div
+            v-if="currentGraphElementCount === 0 && session.currentGraph?.kind === 'subgraph'"
+            data-testid="workflow-subgraph-empty-hint"
+            class="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-default bg-default/90 px-3 py-2 text-center text-[11px] text-muted shadow-sm"
+            role="status"
+          >
+            {{ t('workflow.empty_canvas.subgraph_description') }}
           </div>
         </div>
 
-        <AIWorkflowReviewPanel
-          v-if="aiPanelOpen"
-          :workflow-id="session.workflowId"
-          :base-revision="session.baseRevision"
-          :dirty="session.dirty"
-          @close="aiPanelOpen = false"
-          @accepted="acceptAIProposal"
-        />
-        <WorkflowStatePanel
-          v-else-if="statePanelOpen"
-          :variables="session.source?.variables ?? []"
-          :types="session.authoring?.body.types ?? []"
-          :references="stateReferenceLocations"
-          :type-change-impact="stateTypeChangeImpact"
-          @command="applyCommand"
-          @insert="insertStateReferenceAtCenter"
-          @locate="locateStateReference"
-          @locate-reference="locateStateReferenceAt"
-          @close="statePanelOpen = false"
-        />
-        <WorkflowGraphCallInspector
-          v-else-if="selectedCall && selectedCallGraph"
-          :call="selectedCall"
-          :graph="selectedCallGraph"
-          :ports="selectedCallPorts"
-          @update="applyCommand({ kind: 'update-graph-call', call: $event })"
-          @open="openCalledGraph(selectedCallGraph.id)"
-          @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
-        />
-        <WorkflowGraphInterfacePanel
-          v-else-if="session.currentGraph?.kind === 'subgraph' && !selectedNodeId"
-          :graph="session.currentGraph"
-          @infer="inferGraphInterface"
-        />
-        <WorkflowInspector
-          v-else
-          :node="selectedNode"
-          :projection="selectedProjection"
-          :variables="session.source?.variables ?? []"
-          :target-defaults="session.source?.targetDefaults ?? []"
-          :types="session.authoring?.body.types ?? []"
-          :connected-input-ids="selectedConnectedInputIDs"
-          @command="applyCommand"
-        />
+        <aside
+          v-if="inspectorSidebarOpen"
+          data-testid="workflow-inspector-sidebar"
+          class="relative flex h-full shrink-0 [&>aside]:!w-full"
+          :style="{ width: `${inspectorSidebarWidth}px` }"
+        >
+          <div
+            role="separator"
+            tabindex="0"
+            :aria-label="t('workflow.sidebar.resize_inspector')"
+            aria-orientation="vertical"
+            class="absolute inset-y-0 left-0 z-30 w-1 cursor-col-resize transition-colors hover:bg-primary/50 focus-visible:bg-primary/70 focus-visible:outline-none"
+            @pointerdown="startSidebarResize('inspector', $event)"
+            @keydown.left.prevent="
+              inspectorSidebarWidth = resizeInspectorSidebar(inspectorSidebarWidth, 16)
+            "
+            @keydown.right.prevent="
+              inspectorSidebarWidth = resizeInspectorSidebar(inspectorSidebarWidth, -16)
+            "
+          />
+          <AIWorkflowReviewPanel
+            v-if="aiPanelOpen"
+            :workflow-id="session.workflowId"
+            :base-revision="session.baseRevision"
+            :dirty="session.dirty"
+            @close="aiPanelOpen = false"
+            @accepted="acceptAIProposal"
+          />
+          <WorkflowStatePanel
+            v-else-if="statePanelOpen"
+            :variables="session.source?.variables ?? []"
+            :types="session.authoring?.body.types ?? []"
+            :references="stateReferenceLocations"
+            :type-change-impact="stateTypeChangeImpact"
+            @command="applyCommand"
+            @insert="insertStateReferenceAtCenter"
+            @locate="locateStateReference"
+            @locate-reference="locateStateReferenceAt"
+            @close="statePanelOpen = false"
+          />
+          <WorkflowGraphCallInspector
+            v-else-if="selectedCall && selectedCallGraph"
+            :call="selectedCall"
+            :graph="selectedCallGraph"
+            :ports="selectedCallPorts"
+            @update="applyCommand({ kind: 'update-graph-call', call: $event })"
+            @open="openCalledGraph(selectedCallGraph.id)"
+            @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
+          />
+          <WorkflowGraphInterfacePanel
+            v-else-if="session.currentGraph?.kind === 'subgraph' && !selectedNodeId"
+            :graph="session.currentGraph"
+            @infer="inferGraphInterface"
+          />
+          <WorkflowInspector
+            v-else
+            :node="selectedNode"
+            :projection="selectedProjection"
+            :variables="session.source?.variables ?? []"
+            :target-defaults="session.source?.targetDefaults ?? []"
+            :types="session.authoring?.body.types ?? []"
+            :connected-input-ids="selectedConnectedInputIDs"
+            @command="applyCommand"
+            @capture-template="selectedNode && captureTemplateForNode(selectedNode.id)"
+          />
+        </aside>
       </div>
 
       <WorkflowRuntimeWorkbench
@@ -707,10 +742,13 @@
         :snapshot="session.debugSnapshot"
         :debug-busy="debugControlBusy"
         :node-labels="debugNodeLabels"
+        :unhandled-routes="unhandledRunRoutes"
+        :diagnostics="session.diagnostics"
         @cancel="cancelRun"
         @refresh="refreshRun"
         @page="loadTimelinePage"
         @focus-node="focusNode"
+        @focus="focusDiagnostic"
         @continue="controlDebug('continue')"
         @pause="controlDebug('pause')"
         @step="controlDebug('step')"
@@ -719,6 +757,7 @@
       <WorkflowQuickAddMenu
         v-model:open="quickAddOpen"
         :items="quickAddItems"
+        :anchor="quickAddAnchor"
         @choose="selectQuickAddItem"
       />
 
@@ -986,15 +1025,14 @@
 
     <BaseModal
       :open="!!pendingRecording"
-      :title="t('workflow.recording.preview_title')"
+      :title="t('recordingSave.title')"
       icon="i-tabler-list-check"
-      size="5xl"
-      tall
+      size="3xl"
       :show-close="false"
       :dismissible="false"
     >
       <div v-if="pendingRecording" class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
+        <div v-if="pendingRecording.mode === 'simple'" class="grid grid-cols-2 gap-3">
           <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
             <p class="text-xs text-muted">{{ t('workflow.recording.result_mode') }}</p>
             <div class="mt-1 flex items-center gap-2">
@@ -1081,20 +1119,14 @@
         >
           {{ t('recordingEditor.editing_unavailable') }}
         </p>
-        <UFormField :label="t('recordingSave.name')" required>
-          <UInput v-model="recordingDraft.name" maxlength="80" autofocus />
-        </UFormField>
-        <UFormField :label="t('common.description')" :hint="t('common.optional')">
-          <UTextarea v-model="recordingDraft.description" :rows="2" />
-        </UFormField>
-        <div class="grid grid-cols-2 gap-3">
-          <UFormField :label="t('common.category')" :hint="t('common.optional')">
-            <UInput v-model="recordingDraft.category" />
-          </UFormField>
-          <UFormField :label="t('common.tags')" :hint="t('assets.tags_hint')">
-            <UInput v-model="recordingDraft.tags" />
-          </UFormField>
-        </div>
+        <RecordingMetadataFields
+          v-model:name="recordingDraft.name"
+          v-model:description="recordingDraft.description"
+          v-model:category="recordingDraft.category"
+          v-model:tags="recordingDraft.tags"
+          :categories="recordingFacetCategories"
+          :tag-suggestions="recordingFacetTags"
+        />
       </div>
       <template #footer>
         <UButton
@@ -1177,7 +1209,9 @@ import {
   computed,
   defineAsyncComponent,
   nextTick,
+  onActivated,
   onBeforeUnmount,
+  onDeactivated,
   onMounted,
   reactive,
   ref,
@@ -1206,6 +1240,7 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { useI18n } from 'vue-i18n'
+import { useLocalStorage } from '@vueuse/core'
 import {
   type Edge,
   type EditorCommand,
@@ -1213,7 +1248,11 @@ import {
   type NodeProjection,
   type StateReferenceMode,
 } from '@/app/editor/EditorSession'
-import type { Annotation, GraphCall } from '../../../contracts/workflow/3.1/workflow-source'
+import type {
+  Annotation,
+  GraphCall,
+  TypeExpression,
+} from '../../../contracts/workflow/3.1/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
 import {
@@ -1224,16 +1263,15 @@ import {
 } from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
 import { useRecordingStart } from '@/composables/useRecordingStart'
+import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedback'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
 import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
-import AIWorkflowReviewPanel from '@/app/editor/AIWorkflowReviewPanel.vue'
-import WorkflowDiagnosticsPanel from '@/app/editor/WorkflowDiagnosticsPanel.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
+import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
 import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
+import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
 import WorkflowSnippetDock from '@/app/editor/WorkflowSnippetDock.vue'
-import WorkflowRuntimeWorkbench from '@/app/editor/WorkflowRuntimeWorkbench.vue'
-import WorkflowStatePanel from '@/app/editor/WorkflowStatePanel.vue'
 import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
 } from '@/app/editor/WorkflowConnectionMenu.vue'
@@ -1259,7 +1297,7 @@ import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
 import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
 import { errorMessage } from '@/lib/invoke'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
-import { nodeRunStatuses } from '@/app/editor/runTrace'
+import { nodeRunStatuses, unhandledExecRouteKeys } from '@/app/editor/runTrace'
 import { nodeDiagnosticSeverities, type WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import {
   compatibleCandidatePorts,
@@ -1305,8 +1343,21 @@ const WorkflowSnippetModal = defineAsyncComponent(
 const WorkflowQuickAddMenu = defineAsyncComponent(
   () => import('@/app/editor/WorkflowQuickAddMenu.vue'),
 )
+const WorkflowRuntimeWorkbench = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowRuntimeWorkbench.vue'),
+)
+const WorkflowStatePanel = defineAsyncComponent(() => import('@/app/editor/WorkflowStatePanel.vue'))
 const PreciseRecordingWorkbench = defineAsyncComponent(
   () => import('@/components/recording/PreciseRecordingWorkbench.vue'),
+)
+const RecordingMetadataFields = defineAsyncComponent(
+  () => import('@/components/recording/RecordingMetadataFields.vue'),
+)
+const WorkflowMetadataDialog = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowMetadataDialog.vue'),
+)
+const AIWorkflowReviewPanel = defineAsyncComponent(
+  () => import('@/app/editor/AIWorkflowReviewPanel.vue'),
 )
 
 const route = useRoute()
@@ -1316,7 +1367,9 @@ const { confirm } = useConfirm()
 const { t, te } = useI18n()
 const session = createEditorSession(workflowTransport)
 const recording = useRecordingStore()
+const editorViewActive = ref(true)
 const { start: beginRecording } = useRecordingStart()
+const { show: showRecordingStartError } = useRecordingStartFeedback()
 const settings = useSettingsStore()
 const assets = useAssetsStore()
 const snippets = useSnippetsStore()
@@ -1329,9 +1382,24 @@ const statePanelOpen = ref(false)
 const catalogQuery = ref('')
 const quickAddOpen = ref(false)
 const quickAddPosition = ref({ x: 160, y: 160 })
+const quickAddAnchor = ref({ x: 160, y: 160 })
 const canvasPointerInside = ref(false)
 const lastCanvasPointer = ref<{ x: number; y: number } | null>(null)
 const workspacePanel = ref<'nodes' | 'resources' | 'snippets'>('nodes')
+const workspaceSidebarOpen = ref(true)
+const workspaceSidebarWidth = ref(224)
+const inspectorAutoOpen = useLocalStorage('yotta.workflow.inspector.auto-open', true)
+const inspectorSidebarOpen = ref(inspectorAutoOpen.value)
+const inspectorSidebarWidth = ref(360)
+const workflowSettingsOpen = ref(false)
+const workflowSettingsBusy = ref(false)
+const workflowSettingsError = ref('')
+const workflowMetadata = reactive<WorkflowMetadataDraft>({
+  name: '',
+  description: '',
+  category: '',
+  tags: [],
+})
 const workspaceResourceKind = ref<'macro' | 'clip' | 'template'>('macro')
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
@@ -1369,10 +1437,12 @@ const connectionError = ref('')
 const snapGuides = ref<{ x?: number; y?: number }>({})
 const layouting = ref(false)
 const minimapOpen = ref(false)
-const diagnosticsOpen = ref(false)
-type RuntimeWorkbenchTab = 'logs' | 'timeline' | 'debug'
+type RuntimeWorkbenchTab = 'diagnostics' | 'logs' | 'timeline' | 'debug'
 const runtimeWorkbenchOpen = ref(false)
 const runtimeWorkbenchTab = ref<RuntimeWorkbenchTab>('logs')
+const diagnosticsOpen = computed(
+  () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'diagnostics',
+)
 const debugControlBusy = ref(false)
 const runTimelineOpen = computed(
   () => runtimeWorkbenchOpen.value && runtimeWorkbenchTab.value === 'timeline',
@@ -1396,7 +1466,14 @@ const recordingActions = ref<MacroAction[]>([])
 const recordingActionsValid = ref(true)
 const recordingTrimStartUs = ref(0)
 const recordingTrimEndUs = ref(0)
-const recordingDraft = reactive({ name: '', description: '', category: '', tags: '' })
+const recordingDraft = reactive({
+  name: '',
+  description: '',
+  category: '',
+  tags: [] as string[],
+})
+const recordingFacetCategories = ref<string[]>([])
+const recordingFacetTags = ref<string[]>([])
 const macroEditing = ref<MacroAsset | null>(null)
 const macroEditBusy = ref(false)
 const macroEditValid = ref(true)
@@ -1433,6 +1510,7 @@ const {
 const nodeGestures = createWorkflowNodeGestureState()
 let unsubscribeRun: (() => void) | undefined
 let unsubscribeDebug: (() => void) | undefined
+let stopSidebarResize: (() => void) | undefined
 let compileFlashTimer: ReturnType<typeof setTimeout> | undefined
 let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 let connectionEndTimer: ReturnType<typeof setTimeout> | undefined
@@ -1668,6 +1746,7 @@ const currentGraphElementCount = computed(() => {
     ? graph.nodes.length + (graph.calls?.length ?? 0) + (graph.annotations?.length ?? 0)
     : 0
 })
+const canInferGraphInterface = computed(() => session.currentGraphInterfaceReadiness())
 
 const flowEdges = computed<FlowEdge[]>(() => [
   ...(session.currentGraph?.edges ?? []).map((edge) => {
@@ -1841,6 +1920,9 @@ const debugNodeLabels = computed<Record<string, string>>(() =>
     ),
   ),
 )
+const unhandledRunRoutes = computed(() =>
+  session.source ? [...unhandledExecRouteKeys(session.source)] : [],
+)
 const recordingTargetItems = computed(() =>
   (settings.data?.automation.targets ?? [])
     .filter((target) => target.targetKind === 'desktop-window')
@@ -1881,18 +1963,32 @@ function setWorkflowDefaultTarget(value: unknown): void {
 
 watch(
   () => recording.state.pending,
-  (pending) => {
-    if (
-      !pending ||
-      route.name !== 'workflow-edit' ||
-      (recording.invocation && recording.invocation !== 'editor')
-    )
-      return
-    recording.claimInvocation('editor')
-    openRecordingPreview(pending)
-  },
+  (pending) => syncPendingRecording(pending),
   { immediate: true },
 )
+
+onActivated(() => {
+  editorViewActive.value = true
+  syncPendingRecording(recording.state.pending)
+})
+onDeactivated(() => {
+  editorViewActive.value = false
+})
+
+function syncPendingRecording(pending: RecordingStopPayload | null): void {
+  if (!pending) {
+    if (recording.state.phase === 'idle') pendingRecording.value = null
+    return
+  }
+  if (
+    !editorViewActive.value ||
+    route.name !== 'workflow-edit' ||
+    (recording.invocation && recording.invocation !== 'editor')
+  )
+    return
+  recording.claimInvocation('editor')
+  openRecordingPreview(pending)
+}
 
 watch(
   () => recording.completionFailure,
@@ -1934,9 +2030,15 @@ onBeforeUnmount(() => {
   clearTimeout(compileFlashTimer)
   clearTimeout(saveFlashTimer)
   clearTimeout(connectionEndTimer)
+  stopSidebarResize?.()
 })
 onBeforeRouteLeave(async () => {
-  if (recording.state.phase === 'recording' || recording.state.phase === 'paused') {
+  if (
+    recording.state.phase === 'armed' ||
+    recording.state.phase === 'countdown' ||
+    recording.state.phase === 'recording' ||
+    recording.state.phase === 'paused'
+  ) {
     const leaveRecording = await confirm({
       title: t('workflow.recording.leave_title'),
       description: t('workflow.recording.leave_hint'),
@@ -1998,7 +2100,7 @@ async function startRecording(): Promise<void> {
       recordingStartOpen.value = false
     }
   } catch (error) {
-    showError(t('workflow.recording.start_failed'), error)
+    showRecordingStartError(t('workflow.recording.start_failed'), error)
     return
   } finally {
     recordingControlBusy.value = false
@@ -2023,8 +2125,7 @@ async function resumeRecording(): Promise<void> {
 
 async function stopRecording(): Promise<void> {
   try {
-    const payload = await recording.stop()
-    if (payload) openRecordingPreview(payload)
+    await recording.stop()
   } catch (error) {
     showError(t('workflow.recording.control_failed'), error)
   }
@@ -2040,7 +2141,33 @@ function openRecordingPreview(payload: RecordingStopPayload): void {
   recordingDraft.name = ''
   recordingDraft.description = ''
   recordingDraft.category = ''
-  recordingDraft.tags = ''
+  recordingDraft.tags = []
+  void loadRecordingMetadataOptions(payload)
+}
+
+async function loadRecordingMetadataOptions(payload: RecordingStopPayload): Promise<void> {
+  const pendingID = payload.pendingID
+  try {
+    const page = await assets.query({
+      search: '',
+      kind: payload.mode === 'simple' ? 'macro' : 'clip',
+      category: '',
+      tags: [],
+      sort: 'created_desc',
+      page: 1,
+      pageSize: 1,
+      thumbnailBudget: 0,
+      recentGUIDs: [],
+    })
+    if (pendingRecording.value?.pendingID !== pendingID) return
+    recordingFacetCategories.value = page.categories.map((item) => item.value)
+    recordingFacetTags.value = page.tags.map((item) => item.value)
+  } catch {
+    // Facets are suggestions only. Creating a new category/tag remains available offline.
+    if (pendingRecording.value?.pendingID !== pendingID) return
+    recordingFacetCategories.value = []
+    recordingFacetTags.value = []
+  }
 }
 
 async function saveRecordingResource(): Promise<void> {
@@ -2053,7 +2180,7 @@ async function saveRecordingResource(): Promise<void> {
       label: recordingDraft.name.trim(),
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),
-      tags: splitRecordingTags(recordingDraft.tags),
+      tags: uniqueRecordingStrings(recordingDraft.tags),
       actions: pending.actions ? cloneRecordingActions(recordingActions.value) : undefined,
       trimStartUs: pending.mode === 'precise' ? recordingTrimStartUs.value : undefined,
       trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
@@ -2085,12 +2212,6 @@ function openTemplateCapture(): void {
       ? selectedSlot
       : workflowDefaultTargetSlot.value || captureTargetSlot.value || targets[0]?.value || ''
   templateCaptureOpen.value = true
-}
-
-function openTemplateResources(nodeId: string): void {
-  selectNodeForContextMenu(nodeId)
-  workspaceResourceKind.value = 'template'
-  workspacePanel.value = 'resources'
 }
 
 function captureTemplateForNode(nodeId: string): void {
@@ -2133,7 +2254,10 @@ async function captureWorkspaceTemplate(): Promise<void> {
   }
 }
 
-function useWorkspaceResource(selection: AssetPickerSelection): void {
+function useWorkspaceResource(
+  selection: AssetPickerSelection,
+  dropPosition?: { x: number; y: number },
+): void {
   const portId =
     selection.kind === 'macro' ? 'macro' : selection.kind === 'clip' ? 'clip' : 'template'
   const current = selectedNode.value
@@ -2163,9 +2287,11 @@ function useWorkspaceResource(selection: AssetPickerSelection): void {
         ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
         : 'https://schemas.yotta.dev/nodes/automation/click-template'
   const rect = canvasElement.value?.getBoundingClientRect()
-  const position = rect
-    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-    : { x: 160, y: 160 }
+  const position =
+    dropPosition ??
+    (rect
+      ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      : { x: 160, y: 160 })
   const targetSlot =
     workflowDefaultTargetSlot.value ||
     recordingTargetSlot.value ||
@@ -2239,6 +2365,7 @@ async function saveSnippet(metadata: {
     await snippets.save({ ...plainCopy(snippetDraft.value), ...metadata })
     snippetModalOpen.value = false
     workspacePanel.value = 'snippets'
+    workspaceSidebarOpen.value = true
   } catch (error) {
     showError(t('workflow.snippets.save_failed'), error)
   } finally {
@@ -2377,15 +2504,16 @@ async function saveMacro(): Promise<void> {
   }
 }
 
-function splitRecordingTags(value: string): string[] {
-  return [
-    ...new Set(
-      value
-        .split(/[,，]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  ]
+function uniqueRecordingStrings(values: string[]): string[] {
+  const seen = new Set<string>()
+  return values
+    .map((value) => value.trim())
+    .filter((value) => {
+      const key = value.toLocaleLowerCase()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 function formatRecordingDuration(durationUs: number): string {
@@ -2560,12 +2688,64 @@ function collapseSelection(): void {
 
 function toggleAIReview(): void {
   aiPanelOpen.value = !aiPanelOpen.value
-  if (aiPanelOpen.value) statePanelOpen.value = false
+  if (aiPanelOpen.value) {
+    statePanelOpen.value = false
+    inspectorSidebarOpen.value = true
+  }
 }
 
 function toggleStatePanel(): void {
   statePanelOpen.value = !statePanelOpen.value
-  if (statePanelOpen.value) aiPanelOpen.value = false
+  if (statePanelOpen.value) {
+    aiPanelOpen.value = false
+    inspectorSidebarOpen.value = true
+  }
+}
+
+function setInspectorVisibility(open: boolean): void {
+  inspectorAutoOpen.value = open
+  inspectorSidebarOpen.value = open
+}
+
+function toggleWorkspacePanel(panel: 'nodes' | 'resources' | 'snippets'): void {
+  if (workspaceSidebarOpen.value && workspacePanel.value === panel) {
+    workspaceSidebarOpen.value = false
+    return
+  }
+  workspacePanel.value = panel
+  workspaceSidebarOpen.value = true
+  if (panel !== 'nodes' && workspaceSidebarWidth.value < 280) workspaceSidebarWidth.value = 320
+}
+
+function resizeWorkspaceSidebar(startWidth: number, deltaX: number): number {
+  return Math.min(480, Math.max(192, startWidth + deltaX))
+}
+
+function resizeInspectorSidebar(startWidth: number, deltaX: number): number {
+  return Math.min(560, Math.max(280, startWidth + deltaX))
+}
+
+function startSidebarResize(side: 'workspace' | 'inspector', event: PointerEvent): void {
+  event.preventDefault()
+  stopSidebarResize?.()
+  const startX = event.clientX
+  const startWidth =
+    side === 'workspace' ? workspaceSidebarWidth.value : inspectorSidebarWidth.value
+  const move = (moveEvent: PointerEvent) => {
+    if (side === 'workspace') {
+      workspaceSidebarWidth.value = resizeWorkspaceSidebar(startWidth, moveEvent.clientX - startX)
+    } else {
+      inspectorSidebarWidth.value = resizeInspectorSidebar(startWidth, startX - moveEvent.clientX)
+    }
+  }
+  const stop = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', stop)
+    stopSidebarResize = undefined
+  }
+  stopSidebarResize = stop
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', stop, { once: true })
 }
 
 function openNodeSearch(): void {
@@ -2673,7 +2853,8 @@ function continueNodeDrag(event: DragEvent): void {
   if (
     !event.dataTransfer?.types.includes(NODE_TYPE_DRAG_FORMAT) &&
     !event.dataTransfer?.types.includes(STATE_REFERENCE_DRAG_FORMAT) &&
-    !event.dataTransfer?.types.includes(SNIPPET_DRAG_FORMAT)
+    !event.dataTransfer?.types.includes(SNIPPET_DRAG_FORMAT) &&
+    !event.dataTransfer?.types.includes(RESOURCE_DRAG_FORMAT)
   )
     return
   event.preventDefault()
@@ -2689,7 +2870,8 @@ function dropNode(event: DragEvent): void {
   const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
   const stateReference = event.dataTransfer?.getData(STATE_REFERENCE_DRAG_FORMAT)
   const snippetID = event.dataTransfer?.getData(SNIPPET_DRAG_FORMAT)
-  if (nodeTypeId || stateReference || snippetID) event.preventDefault()
+  const workspaceResource = event.dataTransfer?.getData(RESOURCE_DRAG_FORMAT)
+  if (nodeTypeId || stateReference || snippetID || workspaceResource) event.preventDefault()
   finishNodeDrag()
   const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
   if (nodeTypeId) {
@@ -2700,10 +2882,19 @@ function dropNode(event: DragEvent): void {
     void useSnippet(snippetID, position)
     return
   }
+  if (workspaceResource) {
+    dropWorkspaceResource(workspaceResource, position)
+    return
+  }
   if (!stateReference) return
   const parsed = parseStateReferenceDrop(stateReference)
   if (!isStateReferenceDrop(parsed)) return
   insertStateReference(parsed.name, parsed.mode, position)
+}
+
+function dropWorkspaceResource(raw: string, position: { x: number; y: number }): void {
+  const selection = parseWorkspaceResource(raw)
+  if (selection) useWorkspaceResource(selection, position)
 }
 
 function parseStateReferenceDrop(raw: string): unknown {
@@ -2727,13 +2918,8 @@ async function locateStateReference(name: string): Promise<void> {
   if (reference) await locateStateReferenceAt(reference.graphId, reference.nodeId)
 }
 
-function stateTypeChangeImpact(name: string, typeId: string) {
-  const type = session.authoring?.body.types.find(
-    (candidate) => candidate.typeRef.typeId === typeId,
-  )
-  return type
-    ? session.stateTypeChangeImpact(name, { kind: 'ref', ref: { ...type.typeRef } })
-    : { references: [], issues: [] }
+function stateTypeChangeImpact(name: string, type: TypeExpression) {
+  return session.stateTypeChangeImpact(name, structuredClone(type))
 }
 
 async function locateStateReferenceAt(graphId: string, nodeId: string): Promise<void> {
@@ -3005,6 +3191,11 @@ function canvasInsertionPosition(): { x: number; y: number } {
 
 function openQuickAdd(): void {
   quickAddPosition.value = canvasInsertionPosition()
+  const rect = canvasElement.value?.getBoundingClientRect()
+  quickAddAnchor.value = lastCanvasPointer.value ?? {
+    x: (rect?.left ?? 0) + (rect?.width ?? 320) / 2,
+    y: (rect?.top ?? 0) + (rect?.height ?? 320) / 2,
+  }
   quickAddOpen.value = true
 }
 
@@ -3393,6 +3584,9 @@ function selectEdge(event: EdgeMouseEvent): void {
 function selectNode(event: NodeMouseEvent): void {
   selectedEdgeId.value = ''
   selectedNodeId.value = event.node.id
+  statePanelOpen.value = false
+  aiPanelOpen.value = false
+  if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true
   const source = event.event as MouseEvent | undefined
   if (!source?.shiftKey && !source?.ctrlKey && !source?.metaKey) {
     selectedNodeIds.value = new Set([event.node.id])
@@ -3402,6 +3596,9 @@ function selectNode(event: NodeMouseEvent): void {
 function selectNodeForContextMenu(nodeId: string): void {
   selectedEdgeId.value = ''
   selectedNodeId.value = nodeId
+  statePanelOpen.value = false
+  aiPanelOpen.value = false
+  if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true
   if (selectedNodeIds.value.has(nodeId)) return
   removeSelectedNodes(getSelectedNodes.value)
   const node = findNode(nodeId)
@@ -3441,16 +3638,70 @@ function moveNode(event: NodeDragEvent): void {
   snapGuides.value = {}
 }
 
-function renameWorkflow(name: string): void {
-  if (name.trim() && name !== session.source?.workflow.name)
-    session.apply({ kind: 'rename-workflow', name })
+async function openWorkflowSettings(): Promise<void> {
+  const source = session.source
+  if (!source) return
+  workflowMetadata.name = source.workflow.name
+  workflowMetadata.description = ''
+  workflowMetadata.category = ''
+  workflowMetadata.tags = []
+  workflowSettingsError.value = ''
+  workflowSettingsOpen.value = true
+  workflowSettingsBusy.value = true
+  try {
+    const metadata = await workflowTransport.getSource(session.workflowId)
+    workflowMetadata.name = metadata.name || source.workflow.name
+    workflowMetadata.description = metadata.description ?? ''
+    workflowMetadata.category = metadata.category ?? ''
+    workflowMetadata.tags = [...(metadata.tags ?? [])]
+  } catch (error) {
+    workflowSettingsError.value = errorMessage(error)
+  } finally {
+    workflowSettingsBusy.value = false
+  }
+}
+
+async function saveWorkflowSettings(draft: WorkflowMetadataDraft): Promise<void> {
+  if (workflowSettingsBusy.value) return
+  workflowSettingsBusy.value = true
+  workflowSettingsError.value = ''
+  try {
+    if (session.dirty && !(await save())) return
+    await workflowTransport.updateSourceMetadata(session.workflowId, session.baseRevision, draft)
+    await session.load(session.workflowId)
+    workflowSettingsOpen.value = false
+  } catch (error) {
+    workflowSettingsError.value = errorMessage(error)
+  } finally {
+    workflowSettingsBusy.value = false
+  }
+}
+
+async function reloadWorkflow(): Promise<void> {
+  if (session.dirty) {
+    const accepted = await confirm({
+      title: t('workflow.editor.discard_title'),
+      description: t('workflow.editor.discard_confirm'),
+      confirmText: t('workflow.editor.discard_action'),
+      color: 'warning',
+    })
+    if (accepted !== true) return
+  }
+  try {
+    await session.load(session.workflowId)
+    selectedNodeId.value = ''
+    selectedNodeIds.value = new Set()
+    selectedEdgeId.value = ''
+  } catch (error) {
+    showError(t('workflow.toast.refresh_failed'), error)
+  }
 }
 
 async function compile(): Promise<void> {
   setCompileSucceeded(false)
   try {
     const result = await session.validate()
-    diagnosticsOpen.value = result.diagnostics.length > 0
+    if (result.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
     if (result.diagnostics.length === 0) setCompileSucceeded(true)
   } catch (error) {
     showError(t('workflow.toast.compile_failed'), error)
@@ -3480,8 +3731,9 @@ async function acceptAIProposal(): Promise<void> {
 
 async function startRun(): Promise<void> {
   try {
-    await session.run()
-    diagnosticsOpen.value = session.diagnostics.length > 0
+    const run = await session.run()
+    if (run) openRuntimeWorkbench('timeline')
+    else if (session.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
   } catch (error) {
     showError(t('workflow.toast.run_failed'), error)
   }
@@ -3490,8 +3742,10 @@ async function startRun(): Promise<void> {
 async function startDebug(): Promise<void> {
   try {
     const run = await session.startDebug(debugBreakpoints())
-    diagnosticsOpen.value = session.diagnostics.length > 0
-    if (!run) return
+    if (!run) {
+      if (session.diagnostics.length > 0) openRuntimeWorkbench('diagnostics')
+      return
+    }
     openRuntimeWorkbench('debug')
     const snapshot = session.debugSnapshot
     if (snapshot?.status === 'paused' && snapshot.nodeId) {
@@ -3571,7 +3825,7 @@ async function cancelRun(): Promise<void> {
 async function refreshRun(): Promise<void> {
   try {
     const run = await session.refreshRun()
-    if (run?.failure) openRuntimeWorkbench('logs')
+    if (run?.failure) openRuntimeWorkbench('timeline')
   } catch (error) {
     showError(t('workflow.toast.refresh_failed'), error)
   }
@@ -3617,6 +3871,9 @@ async function focusNode(graphPath: string[], nodeId: string): Promise<void> {
   addSelectedNodes([node])
   selectedNodeIds.value = new Set([nodeId])
   selectedNodeId.value = nodeId
+  statePanelOpen.value = false
+  aiPanelOpen.value = false
+  if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true
   const width = node.dimensions.width || 230
   const height = node.dimensions.height || 116
   await setCenter(node.position.x + width / 2, node.position.y + height / 2, {

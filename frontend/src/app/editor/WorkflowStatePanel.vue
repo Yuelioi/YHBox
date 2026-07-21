@@ -1,7 +1,7 @@
 <template>
   <aside
     data-testid="workflow-state-panel"
-    class="flex h-full w-[340px] shrink-0 flex-col border-l border-default bg-default"
+    class="flex h-full w-full min-w-0 flex-col border-l border-default bg-default"
   >
     <div class="flex items-center justify-between border-b border-default px-4 py-3">
       <div class="min-w-0">
@@ -56,6 +56,16 @@
             @click="addStateVariable"
           />
         </div>
+        <UFormField
+          :label="t('workflow.state_panel.initial_value')"
+          :hint="t('workflow.state_panel.initial_value_hint')"
+        >
+          <StateDefaultValueEditor
+            v-model="newVariableDefault"
+            :type="selectedStateTypeChoice?.projection"
+            :editor-adapter="selectedStateTypeChoice?.editorAdapter"
+          />
+        </UFormField>
       </section>
 
       <UInput
@@ -125,6 +135,17 @@
               />
             </UDropdownMenu>
           </div>
+          <UFormField
+            class="border-t border-default px-3 py-2"
+            :label="t('workflow.state_panel.initial_value')"
+          >
+            <StateDefaultValueEditor
+              :model-value="variable.default"
+              :type="typeForVariable(variable)"
+              :editor-adapter="editorAdapterForVariable(variable)"
+              @update:model-value="updateVariableDefault(variable, $event)"
+            />
+          </UFormField>
           <div
             v-if="editingName === variable.name"
             class="space-y-2 border-t border-default px-3 py-2"
@@ -236,7 +257,10 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
-import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type {
+  TypeExpression,
+  TypeProjection,
+} from '../../../../contracts/node/3.1/authoring-projection'
 import type {
   EditorCommand,
   StateReferenceMode,
@@ -245,12 +269,17 @@ import type {
 } from '@/app/editor/EditorSession'
 import { filterStateVariables, STATE_VARIABLE_PAGE_SIZE } from '@/app/editor/stateVariableQuery'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import StateDefaultValueEditor from '@/app/editor/StateDefaultValueEditor.vue'
+import {
+  buildStateTypeChoices,
+  stateTypeChoiceForExpression,
+} from '@/app/editor/stateVariableTypes'
 
 const props = defineProps<{
   variables: Variable[]
   types: TypeProjection[]
   references: Record<string, StateReferenceLocation[]>
-  typeChangeImpact: (name: string, typeId: string) => StateTypeChangeImpact
+  typeChangeImpact: (name: string, type: TypeExpression) => StateTypeChangeImpact
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
@@ -262,6 +291,7 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 const newVariableName = ref('')
 const newVariableTypeId = ref('')
+const newVariableDefault = ref<unknown>(null)
 const searchQuery = ref('')
 const editingName = ref('')
 const editingTypeId = ref('')
@@ -270,36 +300,46 @@ const filteredVariables = computed(() =>
   filterStateVariables(props.variables, searchQuery.value, variableTypeLabel),
 )
 const visibleVariables = computed(() => filteredVariables.value.slice(0, visibleLimit.value))
-const stateTypes = computed(() =>
-  props.types.filter((type) => type.traits.includes('durable') && hasValidDefault(type)),
-)
+const stateTypeChoices = computed(() => buildStateTypeChoices(props.types))
 const stateTypeItems = computed(() =>
-  stateTypes.value.map((type) => ({
-    label:
-      type.titleKey && te(type.titleKey)
-        ? t(type.titleKey)
-        : type.typeRef.typeId.split('/').at(-2)!,
-    value: type.typeRef.typeId,
+  stateTypeChoices.value.map((choice) => ({
+    label: choice.titleKey
+      ? t(choice.titleKey)
+      : choice.projection.titleKey && te(choice.projection.titleKey)
+        ? t(choice.projection.titleKey)
+        : choice.id.split('/').at(-2)!,
+    value: choice.id,
   })),
 )
-const selectedStateType = computed(() =>
-  stateTypes.value.find((type) => type.typeRef.typeId === newVariableTypeId.value),
+const selectedStateTypeChoice = computed(() =>
+  stateTypeChoices.value.find((choice) => choice.id === newVariableTypeId.value),
 )
 const canAddVariable = computed(
   () =>
-    /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(newVariableName.value) && Boolean(selectedStateType.value),
+    /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(newVariableName.value) &&
+    Boolean(selectedStateTypeChoice.value),
 )
-const editingImpact = computed<StateTypeChangeImpact>(() =>
-  editingName.value && editingTypeId.value
-    ? props.typeChangeImpact(editingName.value, editingTypeId.value)
-    : { references: [], issues: [] },
+const editingImpact = computed<StateTypeChangeImpact>(() => {
+  if (!editingName.value || !editingTypeId.value) return { references: [], issues: [] }
+  const choice = stateTypeChoices.value.find((candidate) => candidate.id === editingTypeId.value)
+  return choice
+    ? props.typeChangeImpact(editingName.value, choice.expression)
+    : { references: [], issues: [] }
+})
+
+watch(
+  stateTypeChoices,
+  (values) => {
+    if (!values.some((choice) => choice.id === newVariableTypeId.value))
+      newVariableTypeId.value = values[0]?.id ?? ''
+  },
+  { immediate: true },
 )
 
 watch(
-  stateTypes,
-  (values) => {
-    if (!values.some((type) => type.typeRef.typeId === newVariableTypeId.value))
-      newVariableTypeId.value = values[0]?.typeRef.typeId ?? ''
+  selectedStateTypeChoice,
+  (choice) => {
+    newVariableDefault.value = choice ? structuredClone(choice.defaultValue) : null
   },
   { immediate: true },
 )
@@ -309,48 +349,41 @@ watch(searchQuery, () => {
 })
 
 function addStateVariable(): void {
-  const type = selectedStateType.value
-  if (!type || !canAddVariable.value) return
+  const choice = selectedStateTypeChoice.value
+  if (!choice || !canAddVariable.value) return
   emit('command', {
     kind: 'add-state-variable',
     name: newVariableName.value,
-    type: { kind: 'ref', ref: { ...type.typeRef } },
-    defaultValue: defaultStateValue(type),
+    type: structuredClone(choice.expression),
+    defaultValue: structuredClone(newVariableDefault.value),
   })
   newVariableName.value = ''
-}
-
-function defaultStateValue(type: TypeProjection): unknown {
-  if (type.examples.length) return structuredClone(type.examples[0])
-  switch (type.control) {
-    case 'text':
-      return ''
-    case 'number':
-    case 'integer':
-      return 0
-    case 'toggle':
-      return false
-    case 'select':
-      return type.constraints.enum[0] ?? null
-    case 'list':
-      return []
-    case 'object':
-      return {}
-    default:
-      return null
-  }
-}
-
-function hasValidDefault(type: TypeProjection): boolean {
-  return type.examples.length > 0 || type.control !== 'object'
+  newVariableDefault.value = structuredClone(choice.defaultValue)
 }
 
 function variableTypeLabel(variable: Variable): string {
-  if (variable.type.kind !== 'ref') return variable.type.kind
-  const typeId = variable.type.ref.typeId
-  const type = props.types.find((candidate) => candidate.typeRef.typeId === typeId)
-  if (type?.titleKey && te(type.titleKey)) return t(type.titleKey)
-  return typeId.split('/').at(-2) ?? typeId
+  const choice = stateTypeChoiceForExpression(stateTypeChoices.value, variable.type)
+  if (choice?.titleKey) return t(choice.titleKey)
+  if (choice?.projection.titleKey && te(choice.projection.titleKey))
+    return t(choice.projection.titleKey)
+  return choice?.id.split('/').at(-2) ?? variable.type.kind
+}
+
+function typeForVariable(variable: Variable): TypeProjection | undefined {
+  return stateTypeChoiceForExpression(stateTypeChoices.value, variable.type)?.projection
+}
+
+function editorAdapterForVariable(variable: Variable): 'key-chord' | undefined {
+  return stateTypeChoiceForExpression(stateTypeChoices.value, variable.type)?.editorAdapter
+}
+
+function updateVariableDefault(variable: Variable, value: unknown): void {
+  emit('command', {
+    kind: 'update-state-variable',
+    name: variable.name,
+    type: structuredClone(variable.type),
+    defaultValue: value,
+  })
 }
 
 function referenceCount(name: string): number {
@@ -413,7 +446,8 @@ function issueDispositionLabel(disposition: 'conversion' | 'incompatible'): stri
 
 function beginTypeChange(variable: Variable): void {
   editingName.value = variable.name
-  editingTypeId.value = variable.type.kind === 'ref' ? variable.type.ref.typeId : ''
+  editingTypeId.value =
+    stateTypeChoiceForExpression(stateTypeChoices.value, variable.type)?.id ?? ''
 }
 
 function cancelTypeChange(): void {
@@ -423,15 +457,13 @@ function cancelTypeChange(): void {
 
 function commitTypeChange(name: string): void {
   if (editingImpact.value.issues.length) return
-  const type = stateTypes.value.find(
-    (candidate) => candidate.typeRef.typeId === editingTypeId.value,
-  )
-  if (!type) return
+  const choice = stateTypeChoices.value.find((candidate) => candidate.id === editingTypeId.value)
+  if (!choice) return
   emit('command', {
     kind: 'update-state-variable',
     name,
-    type: { kind: 'ref', ref: { ...type.typeRef } },
-    defaultValue: defaultStateValue(type),
+    type: structuredClone(choice.expression),
+    defaultValue: structuredClone(choice.defaultValue),
   })
   cancelTypeChange()
 }

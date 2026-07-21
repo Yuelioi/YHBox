@@ -27,8 +27,9 @@ func TestLogAndThrowUseExplicitEffectAndTerminalFailureSemantics(t *testing.T) {
 		t.Fatalf("log contract = %#v", logContract)
 	}
 	logInput := logContract.Ports.DataInputs[0].Type
-	if logInput.Kind != datatype.TypeExpressionVariable || len(logInput.Constraints) != 1 || logInput.Constraints[0] != string(datatype.TraitObservable) {
-		t.Fatalf("log input is not constrained observable: %#v", logInput)
+	if logContract.Ports.DataInputs[0].Required || logInput.Kind != datatype.TypeExpressionVariable ||
+		len(logInput.Constraints) != 1 || logInput.Constraints[0] != string(datatype.TraitObservable) {
+		t.Fatalf("log input is not an optional constrained observable: %#v", logContract.Ports.DataInputs[0])
 	}
 	throwDefinition, ok := builtins.Definition(nodes.ThrowNodeID)
 	if !ok {

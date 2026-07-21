@@ -7,6 +7,17 @@
     <header class="flex h-8 shrink-0 items-center border-b border-default px-2">
       <div class="flex h-full min-w-0 flex-1 items-center gap-1" role="tablist">
         <UButton
+          :label="t('workflow.workbench.diagnostics')"
+          icon="i-tabler-alert-triangle"
+          color="neutral"
+          :variant="open && tab === 'diagnostics' ? 'soft' : 'ghost'"
+          size="xs"
+          role="tab"
+          :aria-selected="open && tab === 'diagnostics'"
+          :disabled="!diagnostics.length"
+          @click="activate('diagnostics')"
+        />
+        <UButton
           :label="t('workflow.workbench.logs')"
           icon="i-tabler-terminal-2"
           color="neutral"
@@ -50,11 +61,19 @@
     </header>
 
     <div v-if="open" class="min-h-0 flex-1 overflow-hidden">
-      <LogPanel v-if="tab === 'logs'" embedded />
+      <WorkflowDiagnosticsPanel
+        v-if="tab === 'diagnostics' && diagnostics.length"
+        :diagnostics="diagnostics"
+        @focus="emit('focus', $event)"
+        @close="emit('update:open', false)"
+      />
+      <LogPanel v-else-if="tab === 'logs'" embedded />
       <RunTimelinePanel
         v-else-if="tab === 'timeline' && run"
         embedded
         :run="run"
+        :node-labels="nodeLabels"
+        :unhandled-routes="unhandledRoutes"
         @cancel="emit('cancel')"
         @refresh="emit('refresh')"
         @page="emit('page', $event)"
@@ -83,12 +102,16 @@
 import { defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DebugSnapshot, RunView } from '@/app/transport/workflow'
+import type { WorkflowDiagnostic } from '@/app/editor/workflowDiagnostics'
 import RunTimelinePanel from './RunTimelinePanel.vue'
 import WorkflowDebuggerPanel from './WorkflowDebuggerPanel.vue'
 
-type WorkbenchTab = 'logs' | 'timeline' | 'debug'
+type WorkbenchTab = 'diagnostics' | 'logs' | 'timeline' | 'debug'
 
 const LogPanel = defineAsyncComponent(() => import('@/components/LogPanel.vue'))
+const WorkflowDiagnosticsPanel = defineAsyncComponent(
+  () => import('./WorkflowDiagnosticsPanel.vue'),
+)
 const props = defineProps<{
   open: boolean
   tab: WorkbenchTab
@@ -96,6 +119,8 @@ const props = defineProps<{
   snapshot?: DebugSnapshot | null
   debugBusy?: boolean
   nodeLabels?: Record<string, string>
+  unhandledRoutes?: string[]
+  diagnostics: WorkflowDiagnostic[]
 }>()
 const emit = defineEmits<{
   'update:open': [open: boolean]
@@ -107,6 +132,7 @@ const emit = defineEmits<{
   pause: []
   step: []
   'focus-node': [graphPath: string[], nodeId: string]
+  focus: [diagnostic: WorkflowDiagnostic]
 }>()
 const { t } = useI18n()
 

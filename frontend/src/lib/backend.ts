@@ -744,6 +744,7 @@ export const backend = {
     discard: (pendingID: string) => invoke(RecordingService.Discard, pendingID),
     pause: () => invoke(RecordingService.Pause),
     resume: () => invoke(RecordingService.Resume),
+    beginCountdown: () => invoke(RecordingService.BeginCountdown),
     validateTarget: (targetSlot: string) => invoke(RecordingService.ValidateTarget, targetSlot),
     getState: () => invoke(RecordingService.GetState),
     pendingEvents: (pendingID: string, offset: number, limit: number) =>

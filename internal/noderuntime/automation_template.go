@@ -50,6 +50,11 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) compiler.Ada
 			return compiler.AdapterResult{}, templateFailure(nodes.VisionMatchFailedCode, fmt.Errorf("read template: %w", err))
 		}
 		counters["template_bytes"] = templateRef.Size
+		if err := emitTemplateStatus(ctx, invocation, nodes.AutomationTemplateWaitingStatus, map[string]int64{
+			"timeout_ms": timeout.Milliseconds(), "poll_ms": poll.Milliseconds(),
+		}); err != nil {
+			return compiler.AdapterResult{}, err
+		}
 
 		wantPresent := nodeTypeID != nodes.WaitTemplateGoneNodeID
 		match, captures, err := waitForTemplateState(ctx, invocation, templateBytes, region, threshold, timeout, poll, wantPresent)
@@ -69,11 +74,20 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) compiler.Ada
 					counters["captures"]++
 				}
 			}
+			if err := emitTemplateMatchStatus(ctx, invocation, match.Matched, captures); err != nil {
+				return compiler.AdapterResult{}, err
+			}
 			return templateResult(builtins, invocation, match, choose(match.Matched, "found", "timeout"))
 		case nodes.WaitTemplateGoneNodeID:
+			if err := emitTemplateMatchStatus(ctx, invocation, !match.Matched, captures); err != nil {
+				return compiler.AdapterResult{}, err
+			}
 			return templateResult(builtins, invocation, match, choose(!match.Matched, "gone", "timeout"))
 		case nodes.ClickTemplateNodeID:
 			if !match.Matched {
+				if err := emitTemplateMatchStatus(ctx, invocation, false, captures); err != nil {
+					return compiler.AdapterResult{}, err
+				}
 				return templateResult(builtins, invocation, match, "timeout")
 			}
 			if settle > 0 {
@@ -86,6 +100,9 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) compiler.Ada
 				}
 				counters["captures"]++
 				if !relocated.Matched {
+					if err := emitTemplateMatchStatus(ctx, invocation, false, captures); err != nil {
+						return compiler.AdapterResult{}, err
+					}
 					return templateResult(builtins, invocation, relocated, "timeout")
 				}
 				match = relocated
@@ -94,11 +111,29 @@ func automationTemplate(builtins nodes.Builtins, nodeTypeID string) compiler.Ada
 				return compiler.AdapterResult{}, err
 			}
 			counters["clicks"] = 1
+			if err := emitTemplateMatchStatus(ctx, invocation, true, captures); err != nil {
+				return compiler.AdapterResult{}, err
+			}
 			return templateResult(builtins, invocation, match, "completed")
 		default:
 			return compiler.AdapterResult{}, templateFailure(installed.CodeContractViolation, errors.New("template automation node is not installed"))
 		}
 	}
+}
+
+func emitTemplateMatchStatus(ctx context.Context, invocation compiler.Invocation, matched bool, captures int) error {
+	code := nodes.AutomationTemplateTimeoutStatus
+	if matched {
+		code = nodes.AutomationTemplateMatchedStatus
+	}
+	return emitTemplateStatus(ctx, invocation, code, map[string]int64{"captures": int64(captures)})
+}
+
+func emitTemplateStatus(ctx context.Context, invocation compiler.Invocation, code string, counters map[string]int64) error {
+	if invocation.EmitStatus == nil {
+		return errors.New("template automation status emitter is missing")
+	}
+	return invocation.EmitStatus(ctx, code, counters)
 }
 
 func templateEffect(nodeTypeID string) (string, string) {

@@ -47,5 +47,14 @@ func TestAutomationTemplateContractsUseExplicitBlobAndExactTargetCapabilities(t 
 				}
 			}
 		}
+		statuses := make(map[string]nodecontract.StatusCategory, len(machine.StatusEvents))
+		for _, status := range machine.StatusEvents {
+			statuses[status.Code] = status.Category
+		}
+		if statuses[AutomationTemplateWaitingStatus] != nodecontract.StatusWaiting ||
+			statuses[AutomationTemplateMatchedStatus] != nodecontract.StatusProgress ||
+			statuses[AutomationTemplateTimeoutStatus] != nodecontract.StatusProgress {
+			t.Fatalf("template contract %q statuses = %#v", test.id, statuses)
+		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 const playbackReadChunkBytes = int64(64 << 10)
 
 type playbackCommands struct {
+	Now  func() time.Time
 	Wait func(time.Duration) error
 	Play func(installed.PlaybackEvent) error
 }
@@ -38,21 +39,8 @@ func playInputClip() compiler.Adapter {
 		counters["blob_bytes"] = ref.Size
 		counters["events"] = int64(len(clip.Events))
 		counters["duration_ms"] = int64(clip.DurationUs / 1000)
-
-		var previousUs uint64
 		err = runPlaybackSession(ctx, invocation, func(commands playbackCommands) error {
-			for _, event := range clip.Events {
-				if event.TUs > previousUs {
-					if err := commands.Wait(time.Duration(event.TUs-previousUs) * time.Microsecond); err != nil {
-						return err
-					}
-				}
-				previousUs = event.TUs
-				if err := commands.Play(playbackEvent(event, clip.Meta)); err != nil {
-					return err
-				}
-			}
-			return nil
+			return playInputClipTimeline(clip.Events, clip.Meta, commands)
 		})
 		if err != nil {
 			return compiler.AdapterResult{}, err
@@ -82,6 +70,7 @@ func runPlaybackSession(ctx context.Context, invocation compiler.Invocation, seq
 		runErr = errors.Join(runErr, targetSession.Drop(cleanupCtx, handle))
 	}()
 	commands := playbackCommands{
+		Now: invocation.MonotonicNow,
 		Wait: func(duration time.Duration) error {
 			if duration <= 0 {
 				return nil
@@ -121,6 +110,25 @@ func runPlaybackSession(ctx context.Context, invocation compiler.Invocation, seq
 		return mapAutomationFailure(err)
 	}
 	released = true
+	return nil
+}
+
+func playInputClipTimeline(events []inputclip.Event, meta inputclip.ClipMeta, commands playbackCommands) error {
+	if commands.Now == nil || commands.Wait == nil || commands.Play == nil {
+		return automationFailure(installed.CodeContractViolation, errors.New("playback clock or command is missing"))
+	}
+	started := commands.Now()
+	for _, event := range events {
+		deadline := started.Add(time.Duration(event.TUs) * time.Microsecond)
+		if remaining := deadline.Sub(commands.Now()); remaining > 0 {
+			if err := commands.Wait(remaining); err != nil {
+				return err
+			}
+		}
+		if err := commands.Play(playbackEvent(event, meta)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

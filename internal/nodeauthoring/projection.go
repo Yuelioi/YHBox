@@ -17,6 +17,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 )
 
 const (
@@ -216,26 +217,27 @@ type StateAccessProjection struct {
 }
 
 type NodeProjection struct {
-	NodeRef        nodecontract.NodeRef                  `json:"nodeRef"`
-	TitleKey       string                                `json:"titleKey,omitempty"`
-	DescriptionKey string                                `json:"descriptionKey,omitempty"`
-	Category       string                                `json:"category,omitempty"`
-	Tags           []string                              `json:"tags"`
-	Icon           string                                `json:"icon,omitempty"`
-	EditorAdapter  string                                `json:"editorAdapter,omitempty"`
-	Execution      nodecontract.ExecutionSpec            `json:"execution"`
-	Instruction    nodecontract.InstructionSpec          `json:"instruction"`
-	Availability   Availability                          `json:"availability" jsonschema:"required,enum=portable,enum=host-required,enum=target-required,enum=host-and-target-required"`
-	HostFeatures   []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
-	DataInputs     []PortProjection                      `json:"dataInputs"`
-	DataOutputs    []PortProjection                      `json:"dataOutputs"`
-	Signals        []SignalProjection                    `json:"signals"`
-	ConfigFields   []FieldProjection                     `json:"configFields"`
-	Capabilities   []CapabilityProjection                `json:"capabilities"`
-	StateAccesses  []StateAccessProjection               `json:"stateAccesses"`
-	Conversion     *nodecontract.ConversionSpec          `json:"conversion,omitempty"`
-	Errors         []nodecontract.ErrorSpec              `json:"errors"`
-	StatusEvents   []nodecontract.StatusEventSpec        `json:"statusEvents"`
+	NodeRef          nodecontract.NodeRef                  `json:"nodeRef"`
+	TitleKey         string                                `json:"titleKey,omitempty"`
+	DescriptionKey   string                                `json:"descriptionKey,omitempty"`
+	Category         string                                `json:"category,omitempty"`
+	Tags             []string                              `json:"tags"`
+	Icon             string                                `json:"icon,omitempty"`
+	EditorAdapter    string                                `json:"editorAdapter,omitempty"`
+	Execution        nodecontract.ExecutionSpec            `json:"execution"`
+	Instruction      nodecontract.InstructionSpec          `json:"instruction"`
+	Availability     Availability                          `json:"availability" jsonschema:"required,enum=portable,enum=host-required,enum=target-required,enum=host-and-target-required"`
+	HostFeatures     []nodecontract.HostFeatureRequirement `json:"hostFeatureRequirements" jsonschema:"required,maxItems=256"`
+	DataInputs       []PortProjection                      `json:"dataInputs"`
+	DataOutputs      []PortProjection                      `json:"dataOutputs"`
+	Signals          []SignalProjection                    `json:"signals"`
+	ConfigFields     []FieldProjection                     `json:"configFields"`
+	Capabilities     []CapabilityProjection                `json:"capabilities"`
+	StateAccesses    []StateAccessProjection               `json:"stateAccesses"`
+	Conversion       *nodecontract.ConversionSpec          `json:"conversion,omitempty"`
+	Errors           []nodecontract.ErrorSpec              `json:"errors"`
+	StatusEvents     []nodecontract.StatusEventSpec        `json:"statusEvents"`
+	InstanceResolver *nodecontract.InstanceResolver        `json:"instanceResolver,omitempty"`
 }
 
 type body struct {
@@ -250,6 +252,38 @@ type document struct {
 	Version          string          `json:"version" jsonschema:"required,enum=3.1"`
 	ProjectionDigest artifact.Digest `json:"projectionDigest"`
 	Body             body            `json:"body"`
+}
+
+// ResolveInstance projects config-dependent ports for authoring from the same
+// pinned resolver declaration used by the compiler.
+func ResolveInstance(base NodeProjection, config map[string]any) (NodeProjection, error) {
+	if base.InstanceResolver == nil {
+		return base, nil
+	}
+	expected := nodeinstance.SwitchResolver()
+	if *base.InstanceResolver != expected {
+		return NodeProjection{}, errors.New("authoring instance resolver is not installed or does not match its semantic digest")
+	}
+	if len(base.DataInputs) != 1 || base.DataInputs[0].ID != "value" {
+		return NodeProjection{}, errors.New("switch authoring resolver requires the value input prototype")
+	}
+	count, err := nodeinstance.SwitchCaseCount(config)
+	if err != nil {
+		return NodeProjection{}, err
+	}
+	result := cloneNode(base)
+	prototype := result.DataInputs[0]
+	for index := 1; index <= count; index++ {
+		id := fmt.Sprintf("case-%d", index)
+		result.DataInputs = append(result.DataInputs, PortProjection{
+			ID: id, Order: index + 1, Importance: "common", Binding: BindingOptional,
+			Carrier: CarrierDurable, Type: prototype.Type,
+			TitleKey: fmt.Sprintf("node.control.switch.input.case-%d.title", index),
+			DescriptionKey: fmt.Sprintf("node.control.switch.input.case-%d.description", index),
+		})
+		result.Signals = append(result.Signals, SignalProjection{ID: id, Channel: "exec", Direction: "output"})
+	}
+	return result, nil
 }
 
 type state struct {
@@ -461,6 +495,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 		HostFeatures: append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...), DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),
 		StatusEvents: append([]nodecontract.StatusEventSpec{}, machine.StatusEvents...), Conversion: machine.Conversion,
+		InstanceResolver: machine.InstanceResolver,
 	}
 	portAuthoring := make(map[string]nodecontract.PortAuthoring, len(authoring.Ports))
 	for _, port := range authoring.Ports {

@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 func TestPollTemplateStateUsesFreshObservationsAndBoundedWaits(t *testing.T) {
@@ -50,5 +53,33 @@ func TestPollTemplateStatePropagatesCancellation(t *testing.T) {
 	})
 	if err != context.Canceled || captures != 1 {
 		t.Fatalf("captures=%d err=%v", captures, err)
+	}
+}
+
+func TestEmitTemplateMatchStatusDistinguishesMatchAndTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		matched bool
+		want    string
+	}{
+		{name: "matched", matched: true, want: nodes.AutomationTemplateMatchedStatus},
+		{name: "timeout", matched: false, want: nodes.AutomationTemplateTimeoutStatus},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var gotCode string
+			var gotCounters map[string]int64
+			invocation := compiler.Invocation{EmitStatus: func(_ context.Context, code string, counters map[string]int64) error {
+				gotCode = code
+				gotCounters = counters
+				return nil
+			}}
+			if err := emitTemplateMatchStatus(context.Background(), invocation, test.matched, 4); err != nil {
+				t.Fatal(err)
+			}
+			if gotCode != test.want || gotCounters["captures"] != 4 {
+				t.Fatalf("code=%q counters=%v", gotCode, gotCounters)
+			}
+		})
 	}
 }

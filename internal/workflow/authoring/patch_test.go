@@ -58,6 +58,95 @@ func TestEngineAppliesAtomicTypedPatchWithHostOwnedNodeIDs(t *testing.T) {
 	}
 }
 
+func TestEngineRetractsTurnScaleContractWithoutBreakingPlaybackNode(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "playback" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.PlayInputClipNodeID, Position: schema.Position{},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := created.Source
+	node := &stale.Graphs[0].Nodes[0]
+	currentRef := node.NodeRef
+	node.NodeRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
+	node.Bindings["clip"] = schema.InputBinding{Kind: schema.BindingDefault}
+	node.Bindings["turn-scale"] = schema.InputBinding{Kind: schema.BindingDefault}
+
+	upgraded, err := engine.Apply(stale, []authoring.Command{{
+		Kind:                authoring.CommandUpgradeNodeContract,
+		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "playback"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := upgraded.Source.Graphs[0].Nodes[0]
+	_, retainedTurnScale := got.Bindings["turn-scale"]
+	if got.NodeRef != currentRef || retainedTurnScale {
+		t.Fatalf("upgraded node = %#v", got)
+	}
+}
+
+func TestEngineRejectsNodeContractUpgradeThatWouldDropUserBinding(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "playback" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind:    authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.PlayInputClipNodeID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := created.Source
+	node := &stale.Graphs[0].Nodes[0]
+	node.NodeRef.SemanticDigest = "sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b"
+	node.Bindings["turn-scale"] = schema.InputBinding{Kind: schema.BindingDefault}
+	node.Bindings["removed-input"] = schema.InputBinding{Kind: schema.BindingDefault}
+	_, err = engine.Apply(stale, []authoring.Command{{
+		Kind:                authoring.CommandUpgradeNodeContract,
+		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "playback"},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INCOMPATIBLE_NODE_UPGRADE" {
+		t.Fatalf("error = %#v", err)
+	}
+}
+
+func TestEngineRejectsUnregisteredNodeContractMigration(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "concat" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind:    authoring.CommandAddNode,
+		AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.ConcatNodeID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := created.Source
+	stale.Graphs[0].Nodes[0].NodeRef.SemanticDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	_, err = engine.Apply(stale, []authoring.Command{{
+		Kind:                authoring.CommandUpgradeNodeContract,
+		UpgradeNodeContract: &authoring.NodeCommand{GraphID: "main", NodeID: "concat"},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INCOMPATIBLE_NODE_UPGRADE" {
+		t.Fatalf("error = %#v", err)
+	}
+}
+
 func TestEngineRejectsMismatchedUnionAndPublishesNothing(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-one" })

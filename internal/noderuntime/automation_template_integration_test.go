@@ -150,6 +150,15 @@ func TestClickTemplateCapturesMatchesAndClicksTheSameExactTarget(t *testing.T) {
 	if string(matched) != "true" || provider.closed != 2 {
 		t.Fatalf("matched=%s closed=%d", matched, provider.closed)
 	}
+	var statuses []string
+	for _, entry := range journal.Current().Journal() {
+		if entry.Kind == run.JournalNodeStatus {
+			statuses = append(statuses, entry.StatusCode)
+		}
+	}
+	if fmt.Sprint(statuses) != "[automation.template.waiting automation.template.matched]" {
+		t.Fatalf("template statuses = %v", statuses)
+	}
 }
 
 func clickTemplateSource(builtins nodes.Builtins, slot string, template blob.BlobRef) []byte {

@@ -80,4 +80,13 @@ describe('SettingsAutomation', () => {
     expect(source).not.toContain('captureFeedback.activationRequired')
     expect(source).not.toContain('settingsAutomation.capture.runtime_activation_required')
   })
+
+  it('makes desktop targets follow the active mouse calibration unless explicitly overridden', () => {
+    expect(source).toContain('data-testid="automation-target-calibration-inheritance"')
+    expect(source).toContain('store.activeMouseCounts360')
+    expect(source).toContain('store.data?.ui.activeMouseProfile')
+    expect(source).toContain("mouseCalibrationMode: 'active' | 'custom'")
+    expect(source).toContain("target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360")
+    expect(source).toContain("query: { section: 'input' }")
+  })
 })

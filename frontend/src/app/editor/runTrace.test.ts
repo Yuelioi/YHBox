@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RunView } from '@/app/transport/workflow'
-import { nodeRunStatuses } from './runTrace'
+import type { YottaWorkflowSource } from '../../../../contracts/workflow/3.1/workflow-source'
+import { activeRunAttempt, nodeRunStatuses, runRouteKey, unhandledExecRouteKeys } from './runTrace'
 
 describe('node run statuses', () => {
   it('projects the latest node-attempt facts for the visible graph', () => {
@@ -28,6 +29,57 @@ describe('node run statuses', () => {
     } as RunView
 
     expect(nodeRunStatuses(run, 'main').get('broken')).toBe('failed')
+  })
+
+  it('projects the active attempt with its latest waiting fact and timeout budget', () => {
+    const run = {
+      status: 'RUNNING',
+      timeline: [
+        attempt(1, 'main', 'click', 'started'),
+        {
+          sequence: 2,
+          kind: 'node-status',
+          graphPath: ['main'],
+          nodeId: 'click',
+          attempt: 1,
+          statusCode: 'automation.template.waiting',
+          statusCategory: 'waiting',
+          occurredAt: '2026-07-17T00:00:01Z',
+          summary: { code: 'automation.template.waiting', counters: { timeout_ms: 5000 } },
+        },
+      ],
+    } as RunView
+
+    expect(activeRunAttempt(run)).toEqual({
+      graphPath: ['main'],
+      nodeId: 'click',
+      attempt: 1,
+      startedAt: '2026-07-17T00:00:00Z',
+      statusCode: 'automation.template.waiting',
+      statusCategory: 'waiting',
+      counters: { timeout_ms: 5000 },
+    })
+    expect(nodeRunStatuses(run, 'main').get('click')).toBe('waiting')
+  })
+
+  it('identifies an unconnected timeout route without guessing from run status', () => {
+    const source = {
+      graphs: [
+        {
+          id: 'main',
+          nodes: [{ id: 'click' }, { id: 'next' }],
+          edges: [
+            {
+              channel: 'exec',
+              from: { nodeId: 'click', portId: 'completed' },
+              to: { nodeId: 'next', portId: 'in' },
+            },
+          ],
+        },
+      ],
+    } as unknown as YottaWorkflowSource
+
+    expect(unhandledExecRouteKeys(source).has(runRouteKey(['main'], 'click', 'timeout'))).toBe(true)
   })
 })
 

@@ -15,10 +15,11 @@ const workflowConsentDomain = "yotta/installed-automation-target-consent/v1"
 var slotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {
-	Slot    string
-	Label   string
-	Profile ProfileDraft
-	Consent artifact.Digest
+	Slot                  string
+	Label                 string
+	Profile               ProfileDraft
+	Consent               artifact.Digest
+	RuntimeMouseCounts360 int64
 }
 
 type Installation struct {
@@ -87,6 +88,7 @@ func installWithRegistry(drafts []InstallationDraft, registry adapterRegistry) (
 			if err != nil {
 				return Installations{}, err
 			}
+			created.runtimeMouseCounts360 = draft.RuntimeMouseCounts360
 			document := manifest.Machine()
 			installed = Installation{
 				Profile: profile, ProviderID: document.ProviderID,

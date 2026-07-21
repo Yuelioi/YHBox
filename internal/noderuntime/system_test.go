@@ -96,6 +96,33 @@ func TestLogAdapterFormatsObservableInteger(t *testing.T) {
 	}
 }
 
+func TestLogAdapterUsesConfiguredMessageWithoutAnInputBinding(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var emitted noderuntime.LogEntry
+	installed, err := noderuntime.Installed(builtins, noderuntime.Dependencies{
+		Script: unusedScriptRuntime{},
+		Log: noderuntime.LogEmitterFunc(func(_ context.Context, entry noderuntime.LogEntry) error {
+			emitted = entry
+			return nil
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition, _ := builtins.Definition(nodes.LogNodeID)
+	result, err := installed[definition.Implementation.Entrypoint].Run(context.Background(), compiler.Invocation{
+		InvocationID: "invocation-config", Attempt: 1, GraphID: "main", NodeID: "log",
+		Config:       map[string]any{"message": "configured message"},
+		RecordAction: func(context.Context, compiler.AdapterAction) error { return nil },
+	})
+	if err != nil || emitted.Message != "configured message" || len(result.ExecOutputs) != 1 {
+		t.Fatalf("configured log = message %q result %#v error %v", emitted.Message, result, err)
+	}
+}
+
 func TestLogAndThrowReturnStableNodeFailures(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {

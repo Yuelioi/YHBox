@@ -40,14 +40,12 @@ func writeLog(emitter LogEmitter) compiler.Adapter {
 		defer func() {
 			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, action, nodes.LogWriteFailed, runErr))
 		}()
-		envelope, ok := invocation.Inputs["message"]
-		if !ok || len(envelope.InlineJSON()) == 0 {
-			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is missing"))
-		}
-		raw := envelope.InlineJSON()
-		var message string
-		if err := json.Unmarshal(raw, &message); err != nil {
-			message = string(raw)
+		message, _ := invocation.Config["message"].(string)
+		if envelope, ok := invocation.Inputs["message"]; ok && len(envelope.InlineJSON()) != 0 {
+			raw := envelope.InlineJSON()
+			if err := json.Unmarshal(raw, &message); err != nil {
+				message = string(raw)
+			}
 		}
 		if utf8.RuneCountInString(message) > nodes.MaxObservabilityMessageRunes {
 			return compiler.AdapterResult{}, logFailure(nodes.LogContractError, errors.New("log message is invalid"))

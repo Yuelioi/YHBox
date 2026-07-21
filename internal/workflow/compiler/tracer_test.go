@@ -307,6 +307,53 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 	}
 }
 
+func TestCompileResolvesDynamicSwitchPortsIntoProgram(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	switchDefinition, _ := builtins.Definition(nodes.SwitchNodeID)
+	concatDefinition, _ := builtins.Definition(nodes.ConcatNodeID)
+	startRef := started.Contract.NodeRef()
+	switchRef := switchDefinition.Contract.NodeRef()
+	concatRef := concatDefinition.Contract.NodeRef()
+	source := []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-switch","name":"Switch"},
+		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":1},"config":{},"bindings":{"a":{"kind":"value","value":"be"},"b":{"kind":"value","value":"ta"}}},
+			{"id":"switch","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"caseCount":2},"bindings":{"case-1":{"kind":"value","value":"alpha"},"case-2":{"kind":"value","value":"beta"}}}
+		],"edges":[
+			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"switch","portId":"in"}},
+			{"channel":"data","from":{"nodeId":"concat","portId":"result"},"to":{"nodeId":"switch","portId":"value"}}
+		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+	}`, startRef.NodeTypeID, startRef.SemanticDigest, concatRef.NodeTypeID, concatRef.SemanticDigest, switchRef.NodeTypeID, switchRef.SemanticDigest))
+	compiled, err := New(testDigest(t, "dynamic-switch"), builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: source, Catalog: builtins.Catalog,
+	})
+	if err != nil || schema.HasErrors(compiled.Diagnostics) {
+		t.Fatalf("compile diagnostics=%#v err=%v", compiled.Diagnostics, err)
+	}
+	program, ok := compiled.Program()
+	if !ok {
+		t.Fatal("dynamic switch Program is missing")
+	}
+	var document programDocument
+	if err := json.Unmarshal(program.Artifact(), &document); err != nil {
+		t.Fatal(err)
+	}
+	var switchNode programNode
+	for _, node := range document.Body.Graphs[0].Nodes {
+		if node.ID == "switch" {
+			switchNode = node
+		}
+	}
+	if len(switchNode.Ports.DataInputs) != 3 {
+		t.Fatalf("effective switch ports = %#v", switchNode.Ports)
+	}
+}
+
 func TestProgramNodeViewsAreDefensive(t *testing.T) {
 	catalog, contract := concatCatalogForTest(t)
 	compiled, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{

@@ -98,6 +98,11 @@ describe('errorMessage', () => {
   it('裸 message 直接显示', () => {
     expect(errorMessage(new Error('boom'))).toBe('boom')
   })
+  it('Wails 只返回错误码 message 时仍本地化', () => {
+    const message = errorMessage(new Error('RECORDING_CALIBRATION_REQUIRED'))
+    expect(message).toContain('精准相对录制')
+    expect(message).not.toContain('RECORDING_CALIBRATION_REQUIRED')
+  })
   it('{} → UNKNOWN_ERROR 文案', () => {
     const msg = errorMessage({})
     expect(msg).not.toBe('[object Object]')

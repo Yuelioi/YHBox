@@ -37,6 +37,12 @@ import type { GraphBoundaryBinding, GraphBoundaryKey } from './workflowGraphBoun
 
 export { assignable } from './connectionCompatibility'
 
+const PLAY_INPUT_CLIP_NODE_TYPE_ID = 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
+const PLAY_INPUT_CLIP_STABLE_DIGEST =
+  'sha256:5c353fb0725ca6a841a7ef5e9adcca12bb10e2d6362fed4d7d38449a58608e02'
+const PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST =
+  'sha256:ff7ea9d0b2ca91cb2062cff30dd5ca8575555ec5363b4c76e746925ee6ae027b'
+
 export type EditorPhase = 'empty' | 'loading' | 'ready' | 'saving' | 'running' | 'failed'
 
 export interface LinearWorkflowDraftNode {
@@ -76,6 +82,7 @@ export type EditorCommand =
   | { kind: 'update-state-variable'; name: string; type: TypeExpression; defaultValue: unknown }
   | { kind: 'remove-state-variable'; name: string }
   | { kind: 'add-node'; nodeTypeId: string; position: { x: number; y: number }; nodeId?: string }
+  | { kind: 'upgrade-node-contract'; nodeId: string }
   | { kind: 'remove-node'; nodeId: string }
   | { kind: 'move-node'; nodeId: string; position: { x: number; y: number } }
   | {
@@ -358,6 +365,63 @@ export class EditorSession {
       new Set(),
     )
     return projection ? { ...clone(projection), id: port.id } : undefined
+  }
+
+  currentGraphInterfaceReadiness(): { valid: boolean; message: string } {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph')
+      return { valid: false, message: 'open a subgraph first' }
+    let entries = 0
+    let exits = 0
+    const hasIncoming = (nodeId: string, portId: string, channel: Edge['channel']) =>
+      graph.edges.some(
+        (edge) =>
+          edge.channel === channel && edge.to.nodeId === nodeId && edge.to.portId === portId,
+      )
+    const hasOutgoing = (nodeId: string, portId: string, channel: Edge['channel']) =>
+      graph.edges.some(
+        (edge) =>
+          edge.channel === channel && edge.from.nodeId === nodeId && edge.from.portId === portId,
+      )
+    const inspect = (
+      id: string,
+      signals: Array<{ id: string; channel: 'exec' | 'error'; direction: 'input' | 'output' }>,
+    ) => {
+      for (const signal of signals) {
+        if (
+          signal.direction === 'input' &&
+          signal.channel === 'exec' &&
+          signal.id === 'in' &&
+          !hasIncoming(id, signal.id, 'exec')
+        )
+          entries += 1
+        if (signal.direction === 'output' && !hasOutgoing(id, signal.id, signal.channel)) exits += 1
+      }
+    }
+    for (const node of graph.nodes) {
+      const projection = this.nodeInstanceProjection(node)
+      if (projection) inspect(node.id, projection.signals)
+    }
+    for (const call of graph.calls!) {
+      const callee = this.calleeGraph(call)
+      if (!callee) continue
+      inspect(call.id, [
+        { id: 'in', channel: 'exec', direction: 'input' },
+        ...(callee.exits ?? []).map((exit) => ({
+          id: exit.id,
+          channel: exit.channel,
+          direction: 'output' as const,
+        })),
+      ])
+    }
+    if (entries > 1)
+      return { valid: false, message: 'subgraph has multiple unconnected execution entries' }
+    if (!entries || !exits)
+      return {
+        valid: false,
+        message: 'add a node with an unconnected “in” entry and a signal exit first',
+      }
+    return { valid: true, message: '' }
   }
 
   inferCurrentGraphInterface(): void {
@@ -893,6 +957,7 @@ export class EditorSession {
       ])
       this.loadAuthoring(authoringJson)
       this.acceptSource(view)
+      this.upgradeCompatibleNodeContracts()
       this.phase = 'ready'
     } catch (error) {
       this.fail(error)
@@ -1143,6 +1208,32 @@ export class EditorSession {
     this.resetCompileFacts()
   }
 
+  private upgradeCompatibleNodeContracts(): void {
+    const source = this.requireSource()
+    let upgraded = false
+    for (const graph of source.graphs) {
+      for (const node of graph.nodes) {
+        const projection = this.projections.get(node.nodeRef.nodeTypeId)
+        if (
+          !projection ||
+          projection.nodeRef.semanticDigest === node.nodeRef.semanticDigest ||
+          !applyCompatibleNodeContractUpgrade(graph, node, projection)
+        ) {
+          continue
+        }
+        this.pendingCommands.push({
+          graphId: graph.id,
+          command: { kind: 'upgrade-node-contract', nodeId: node.id },
+        })
+        upgraded = true
+      }
+    }
+    if (!upgraded) return
+    source.revision = this.baseRevision + 1
+    this.dirty = true
+    this.resetCompileFacts()
+  }
+
   private resetCompileFacts(): void {
     this.compiledHash = ''
     this.diagnostics = []
@@ -1321,6 +1412,11 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             handle: command.nodeId,
             position: clone(command.position),
           },
+        }
+      case 'upgrade-node-contract':
+        return {
+          kind: command.kind,
+          upgradeNodeContract: { graphId, nodeId: nodeRef(command.nodeId) },
         }
       case 'remove-node':
         return { kind: command.kind, removeNode: { graphId, nodeId: nodeRef(command.nodeId) } }
@@ -1671,13 +1767,31 @@ function applyCommand(
       if (!command.nodeId) throw new Error('resolved add-node command omitted node ID')
       const id = command.nodeId
       if (graph.nodes.some((node) => node.id === id)) throw new Error(`duplicate node ${id}`)
+      const config = Object.fromEntries(
+        projection.configFields
+          .filter((field) => field.hasDefault)
+          .map((field) => [field.id, clone(field.default)]),
+      )
+      const bindings = Object.fromEntries(
+        projection.dataInputs
+          .filter((port) => port.hasDefault)
+          .map((port) => [port.id, { kind: 'default' as const }]),
+      )
       graph.nodes.push({
         id,
         nodeRef: clone(projection.nodeRef),
         position: clone(command.position),
-        config: {},
-        bindings: {},
+        config,
+        bindings,
       })
+      return
+    }
+    case 'upgrade-node-contract': {
+      const node = requireNode(graph, command.nodeId)
+      const projection = projections.get(node.nodeRef.nodeTypeId)
+      if (!projection || !applyCompatibleNodeContractUpgrade(graph, node, projection)) {
+        throw new Error(`node ${node.id} cannot be upgraded without losing authoring data`)
+      }
       return
     }
     case 'remove-node':
@@ -1702,12 +1816,22 @@ function applyCommand(
     case 'set-node-disabled':
       requireNode(graph, command.nodeId).disabled = command.disabled || undefined
       return
-    case 'set-config':
-      requireNode(graph, command.nodeId).config[command.fieldId] = clone(command.value)
+    case 'set-config': {
+      const node = requireNode(graph, command.nodeId)
+      node.config[command.fieldId] = clone(command.value)
+      pruneConfigDependentTopology(graph, node, projections)
       return
-    case 'clear-config':
-      delete requireNode(graph, command.nodeId).config[command.fieldId]
+    }
+    case 'clear-config': {
+      const node = requireNode(graph, command.nodeId)
+      const field = requireProjection(node, projections).configFields.find(
+        (candidate) => candidate.id === command.fieldId,
+      )
+      if (field?.hasDefault) node.config[command.fieldId] = clone(field.default)
+      else delete node.config[command.fieldId]
+      pruneConfigDependentTopology(graph, node, projections)
       return
+    }
     case 'bind-value': {
       const node = requireNode(graph, command.nodeId)
       requireDataInput(node, command.portId, projections)
@@ -2003,14 +2127,15 @@ function resolveNodeInstanceProjection(
   projections: ReadonlyMap<string, NodeProjection>,
   types: ReadonlyMap<string, TypeProjection>,
 ): NodeProjection {
+  const effective = resolveConfigDependentProjection(base, node.config)
   const graph = source?.graphs.find((candidate) =>
     candidate.nodes.some((graphNode) => graphNode.id === node.id),
   )
   const bindings = graph
     ? (solveGraphTypeBindings(source, graph, projections, types).get(node.id) ?? new Map())
-    : stateTypeBindings(source, node, base)
-  if (!bindings.size) return base
-  const projection = clone(base)
+    : stateTypeBindings(source, node, effective)
+  if (!bindings.size) return effective
+  const projection = clone(effective)
   projection.dataInputs = projection.dataInputs.map((port) => ({
     ...port,
     type: specializeTypeUse(port.type, bindings, types),
@@ -2026,6 +2151,108 @@ function resolveNodeInstanceProjection(
   return projection
 }
 
+// Advances only additive-compatible stale contracts. Existing authoring data
+// and topology must all remain representable; otherwise the node stays stale
+// for an explicit, user-directed repair.
+function applyCompatibleNodeContractUpgrade(
+  graph: Graph,
+  node: Node,
+  base: NodeProjection,
+): boolean {
+  if (base.nodeRef.nodeTypeId !== node.nodeRef.nodeTypeId) return false
+  if (base.nodeRef.semanticDigest === node.nodeRef.semanticDigest) return true
+  if (
+    node.nodeRef.nodeTypeId !== PLAY_INPUT_CLIP_NODE_TYPE_ID ||
+    node.nodeRef.semanticDigest !== PLAY_INPUT_CLIP_RETRACTED_SCALE_DIGEST ||
+    base.nodeRef.semanticDigest !== PLAY_INPUT_CLIP_STABLE_DIGEST
+  ) {
+    return false
+  }
+
+  const fields = new Map(base.configFields.map((field) => [field.id, field]))
+  if (Object.keys(node.config).some((fieldId) => !fields.has(fieldId))) return false
+  const config = clone(node.config)
+  for (const field of base.configFields) {
+    if (!(field.id in config) && field.hasDefault) config[field.id] = clone(field.default)
+  }
+  const projection = resolveConfigDependentProjection(base, config)
+  const inputs = new Map(projection.dataInputs.map((port) => [port.id, port]))
+  const bindings = clone(node.bindings)
+  delete bindings['turn-scale']
+  if (Object.keys(bindings).some((portId) => !inputs.has(portId))) return false
+
+  const incoming = new Set<string>()
+  for (const edge of graph.edges) {
+    if (
+      edge.from.nodeId === node.id &&
+      !projectedEndpointExists(projection, edge.from.portId, edge.channel, true)
+    ) {
+      return false
+    }
+    if (edge.to.nodeId === node.id) {
+      if (!projectedEndpointExists(projection, edge.to.portId, edge.channel, false)) return false
+      if (edge.channel === 'data') incoming.add(edge.to.portId)
+    }
+  }
+  for (const port of graph.inputs) {
+    if (port.nodeId !== node.id) continue
+    if (!projectedEndpointExists(projection, port.portId, 'data', false)) return false
+    incoming.add(port.portId)
+  }
+  for (const port of graph.outputs) {
+    if (
+      port.nodeId === node.id &&
+      !projectedEndpointExists(projection, port.portId, 'data', true)
+    ) {
+      return false
+    }
+  }
+  for (const entry of graph.entries ?? []) {
+    if (
+      entry.nodeId === node.id &&
+      !projectedEndpointExists(projection, entry.portId, 'exec', false)
+    ) {
+      return false
+    }
+  }
+  for (const exit of graph.exits ?? []) {
+    if (
+      exit.endpoint.nodeId === node.id &&
+      !projectedEndpointExists(projection, exit.endpoint.portId, exit.channel, true)
+    ) {
+      return false
+    }
+  }
+
+  for (const port of projection.dataInputs) {
+    if (port.id in bindings || incoming.has(port.id)) continue
+    if (port.hasDefault) bindings[port.id] = { kind: 'default' }
+    else if (port.binding === 'required') return false
+  }
+  node.config = config
+  node.bindings = bindings
+  node.nodeRef = clone(projection.nodeRef)
+  return true
+}
+
+function projectedEndpointExists(
+  projection: NodeProjection,
+  portId: string,
+  channel: Edge['channel'],
+  output: boolean,
+): boolean {
+  if (channel === 'data') {
+    const ports = output ? projection.dataOutputs : projection.dataInputs
+    return ports.some((port) => port.id === portId)
+  }
+  return projection.signals.some(
+    (signal) =>
+      signal.id === portId &&
+      signal.channel === channel &&
+      signal.direction === (output ? 'output' : 'input'),
+  )
+}
+
 function solveGraphTypeBindings(
   source: YottaWorkflowSource | null,
   graph: Graph,
@@ -2034,7 +2261,8 @@ function solveGraphTypeBindings(
 ): Map<string, Map<string, TypeExpression>> {
   const result = new Map<string, Map<string, TypeExpression>>()
   for (const node of graph.nodes) {
-    const projection = projections.get(node.nodeRef.nodeTypeId)
+    const base = projections.get(node.nodeRef.nodeTypeId)
+    const projection = base ? resolveConfigDependentProjection(base, node.config) : undefined
     result.set(node.id, projection ? stateTypeBindings(source, node, projection) : new Map())
   }
   const budget = Math.max(1, graph.nodes.length + graph.edges.length) * 2
@@ -2044,8 +2272,14 @@ function solveGraphTypeBindings(
       if (edge.channel !== 'data') continue
       const fromNode = graph.nodes.find((candidate) => candidate.id === edge.from.nodeId)
       const toNode = graph.nodes.find((candidate) => candidate.id === edge.to.nodeId)
-      const from = fromNode ? projections.get(fromNode.nodeRef.nodeTypeId) : undefined
-      const to = toNode ? projections.get(toNode.nodeRef.nodeTypeId) : undefined
+      const fromBase = fromNode ? projections.get(fromNode.nodeRef.nodeTypeId) : undefined
+      const toBase = toNode ? projections.get(toNode.nodeRef.nodeTypeId) : undefined
+      const from =
+        fromNode && fromBase
+          ? resolveConfigDependentProjection(fromBase, fromNode.config)
+          : undefined
+      const to =
+        toNode && toBase ? resolveConfigDependentProjection(toBase, toNode.config) : undefined
       const output = from?.dataOutputs.find((port) => port.id === edge.from.portId)?.type.expression
       const input = to?.dataInputs.find((port) => port.id === edge.to.portId)?.type.expression
       if (!fromNode || !toNode || !output || !input) continue
@@ -2059,6 +2293,43 @@ function solveGraphTypeBindings(
     if (!changed) break
   }
   return result
+}
+
+const SWITCH_INSTANCE_RESOLVER = 'https://schemas.yotta.dev/resolvers/control/switch/v1'
+
+function resolveConfigDependentProjection(
+  base: NodeProjection,
+  config: Record<string, unknown>,
+): NodeProjection {
+  if (!base.instanceResolver) return base
+  if (base.instanceResolver.resolverId !== SWITCH_INSTANCE_RESOLVER)
+    throw new Error(`unsupported instance resolver ${base.instanceResolver.resolverId}`)
+  const configured = config.caseCount
+  const count =
+    configured === undefined
+      ? 8
+      : typeof configured === 'number' && Number.isInteger(configured)
+        ? configured
+        : 0
+  if (count < 1 || count > 32) throw new Error('switch case count must be between 1 and 32')
+  const prototype = base.dataInputs.find((port) => port.id === 'value')
+  if (!prototype) throw new Error('switch value input prototype is missing')
+  const projection = clone(base)
+  for (let index = 1; index <= count; index += 1) {
+    const id = `case-${index}`
+    projection.dataInputs.push({
+      ...clone(prototype),
+      id,
+      titleKey: `node.control.switch.input.case-${index}.title`,
+      descriptionKey: `node.control.switch.input.case-${index}.description`,
+      binding: 'optional',
+      hasDefault: false,
+      order: index + 1,
+      importance: 'common',
+    })
+    projection.signals.push({ id, channel: 'exec', direction: 'output' })
+  }
+  return projection
 }
 
 function stateTypeBindings(
@@ -2185,11 +2456,38 @@ function requireDataInput(
   portId: string,
   projections: Map<string, NodeProjection>,
 ): NodeProjection['dataInputs'][number] {
-  const port = requireProjection(node, projections).dataInputs.find(
-    (candidate) => candidate.id === portId,
-  )
+  const port = resolveConfigDependentProjection(
+    requireProjection(node, projections),
+    node.config,
+  ).dataInputs.find((candidate) => candidate.id === portId)
   if (!port) throw new Error(`node ${node.id} has no data input ${portId}`)
   return port
+}
+
+function pruneConfigDependentTopology(
+  graph: Graph,
+  node: Node,
+  projections: Map<string, NodeProjection>,
+): void {
+  const projection = resolveConfigDependentProjection(
+    requireProjection(node, projections),
+    node.config,
+  )
+  if (!projection.instanceResolver) return
+  const inputs = new Set(projection.dataInputs.map((port) => port.id))
+  const outputs = new Set(
+    projection.signals
+      .filter((signal) => signal.direction === 'output')
+      .map((signal) => `${signal.channel}\u0000${signal.id}`),
+  )
+  for (const portId of Object.keys(node.bindings)) {
+    if (!inputs.has(portId)) delete node.bindings[portId]
+  }
+  graph.edges = graph.edges.filter((edge) => {
+    if (edge.to.nodeId === node.id && edge.channel === 'data') return inputs.has(edge.to.portId)
+    if (edge.from.nodeId === node.id) return outputs.has(`${edge.channel}\u0000${edge.from.portId}`)
+    return true
+  })
 }
 
 function graphAt(source: YottaWorkflowSource, path: string[]): Graph {

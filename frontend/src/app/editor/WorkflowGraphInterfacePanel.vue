@@ -1,7 +1,7 @@
 <template>
   <aside
     data-testid="workflow-graph-interface"
-    class="flex h-full w-[340px] shrink-0 flex-col border-l border-default bg-default"
+    class="flex h-full w-full min-w-0 flex-col border-l border-default bg-default"
   >
     <div class="flex items-center gap-2 border-b border-default px-4 py-3">
       <UIcon name="i-tabler-plug-connected" class="size-4 text-primary" />

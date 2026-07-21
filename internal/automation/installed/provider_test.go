@@ -13,14 +13,15 @@ import (
 )
 
 type fakeDriver struct {
-	operation string
-	request   any
-	err       error
-	closed    int
-	capture   []byte
-	window    target.WindowHandle
-	held      *fakeHeldInput
-	waited    bool
+	operation     string
+	request       any
+	err           error
+	closed        int
+	capture       []byte
+	window        target.WindowHandle
+	held          *fakeHeldInput
+	waited        bool
+	playbackOpens int
 }
 
 type fakeHeldInput struct {
@@ -44,6 +45,10 @@ func (driver *fakeDriver) Capture(_ context.Context) ([]byte, error) {
 func (driver *fakeDriver) PlayEvent(_ context.Context, event PlaybackEvent) error {
 	driver.operation, driver.request = OperationPlayEvent, event
 	return driver.err
+}
+func (driver *fakeDriver) OpenPlayback(context.Context) (playbackSessionDriver, error) {
+	driver.playbackOpens++
+	return driver, driver.err
 }
 func (driver *fakeDriver) ReleaseInput() error {
 	driver.operation = OperationReleaseHeld
@@ -203,7 +208,7 @@ func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 		t.Fatal(err)
 	}
 	driver := &fakeDriver{}
-	provider := &provider{profile: profile, driver: driver}
+	provider := &provider{profile: profile, driver: driver, runtimeMouseCounts360: 4134}
 	input := openInputSession(t, provider, OperationMove)
 	if _, err := provider.Open(context.Background(), resource.ProviderOpenRequest{
 		Kind: KindPlayback, Operations: PlaybackOperations(), CapabilityScope: []byte(`{"operation":"play"}`), Config: []byte(`{}`),
@@ -228,8 +233,53 @@ func TestProviderPlaybackIsExclusiveScaledAndReleasesHeldState(t *testing.T) {
 	if err != nil || OpenEffectResponse(raw) != nil || !ok || event.DeltaX != 6 || event.DeltaY != -4 {
 		t.Fatalf("playback event=%#v response=%s error=%v", driver.request, raw, err)
 	}
-	if err := provider.Close(context.Background(), playback); err != nil || driver.operation != OperationReleaseHeld {
+	if err := provider.Close(context.Background(), playback); err != nil || driver.operation != OperationReleaseHeld || driver.playbackOpens != 1 {
 		t.Fatalf("close operation=%q error=%v", driver.operation, err)
+	}
+}
+
+func TestProviderRelativePlaybackUsesSourceScaleWhenTargetFollowsActiveCalibration(t *testing.T) {
+	base, _ := testProfile(t)
+	desktopProfile := desktopPayload(t, base)
+	desktopProfile.MouseCounts360 = 0
+	profile, err := SealProfile(NewDesktopProfileDraft(desktopProfile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver, runtimeMouseCounts360: 4134}
+	playback := openPlaybackSession(t, provider)
+	payload, err := artifact.Marshal(PlaybackEvent{Kind: PlaybackMoveRelative, DeltaX: 3, DeltaY: -2, SourceCounts360: 4134})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := provider.Invoke(context.Background(), playback, OperationPlayEvent, payload)
+	event, ok := driver.request.(PlaybackEvent)
+	if err != nil || OpenEffectResponse(raw) != nil || !ok || event.DeltaX != 3 || event.DeltaY != -2 {
+		t.Fatalf("playback event=%#v response=%s error=%v", driver.request, raw, err)
+	}
+}
+
+func TestProviderRelativePlaybackUsesExactCalibrationRatio(t *testing.T) {
+	profile, _ := testProfile(t)
+	desktopProfile := desktopPayload(t, profile)
+	desktopProfile.MouseCounts360 = 1000
+	profile, err := SealProfile(NewDesktopProfileDraft(desktopProfile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver := &fakeDriver{}
+	provider := &provider{profile: profile, driver: driver}
+	playback := openPlaybackSession(t, provider)
+	payload, err := artifact.Marshal(PlaybackEvent{Kind: PlaybackMoveRelative, DeltaX: 3, DeltaY: -2, SourceCounts360: 400})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := provider.Invoke(context.Background(), playback, OperationPlayEvent, payload)
+	event, ok := driver.request.(PlaybackEvent)
+	if err != nil || OpenEffectResponse(raw) != nil || !ok || event.DeltaX != 8 || event.DeltaY != -5 {
+		t.Fatalf("playback event=%#v response=%s error=%v", driver.request, raw, err)
 	}
 }
 

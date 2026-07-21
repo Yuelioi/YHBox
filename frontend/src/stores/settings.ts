@@ -49,6 +49,7 @@ export interface Settings {
     minimizeToTray: boolean // 关闭按钮 → 隐藏到托盘
     actionStopHotkey: string // 全局强停热键（默认 "Ctrl+Shift+F9"），改完即时生效（热键中心 rebind）
     calibrateHotkey: string // DPI 校准启动/停止热键（默认 "F8"），改完即时生效
+    recordingStartHotkey: string // 录制开始热键（默认 "F10"）
     recordingStopHotkey: string // 录制停止热键（默认 "F12"，LL hook 拦截不透传游戏）
     recordingPauseHotkey: string // 录制暂停/继续切换热键（默认 "F11"）
     recordingMouseMode: 'relative' | 'absolute' // 录制鼠标语义；改完需重启

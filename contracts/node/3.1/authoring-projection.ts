@@ -76,6 +76,7 @@ export interface NodeProjection {
    */
   hostFeatureRequirements: HostFeatureRequirement[]
   icon?: string
+  instanceResolver?: InstanceResolver
   instruction: InstructionSpec
   nodeRef: NodeRef
   signals: SignalProjection[]
@@ -221,6 +222,11 @@ export interface ExecutionSpec {
 export interface HostFeatureRequirement {
   featureId: string
   id: string
+}
+export interface InstanceResolver {
+  maxPorts: number
+  resolverId: string
+  semanticDigest: string
 }
 export interface InvokeInstruction {}
 export interface RunRootInstruction {

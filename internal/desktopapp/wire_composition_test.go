@@ -11,15 +11,22 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
+	"github.com/yottaapp/yotta/internal/automation/target"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/tools"
 )
 
+type fixedRecordingTargetResolver struct{ counts360 int }
+
+func (resolver fixedRecordingTargetResolver) AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error) {
+	return target.WindowHandle{HWND: 1, ClientW: 1280, ClientH: 720}, resolver.counts360, func() {}, nil
+}
+
 func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	missing := &recordingHkAdapter{}
-	if missing.GetStopHotkeyVK() != 0x7B || missing.GetPauseHotkeyVK() != 0x7A {
+	if missing.GetStartHotkeyVK() != 0x79 || missing.GetStopHotkeyVK() != 0x7B || missing.GetPauseHotkeyVK() != 0x7A {
 		t.Fatal("recording hotkey adapter lost safe defaults")
 	}
 	emptyRegistry := hotkey.NewHotkeyRegistry(nil)
@@ -35,6 +42,9 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	}
 
 	registry := hotkey.NewHotkeyRegistry(nil)
+	if err := registry.RegisterLLHook("recording.start", hotkey.HotkeySourceRecording, "start", "F8", ""); err != nil {
+		t.Fatal(err)
+	}
 	if err := registry.RegisterLLHook("recording.stop", hotkey.HotkeySourceRecording, "stop", "F10", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -42,8 +52,8 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := &recordingHkAdapter{reg: registry}
-	if adapter.GetStopHotkeyVK() != 0x79 || adapter.GetPauseHotkeyVK() != 0x78 {
-		t.Fatalf("recording hotkeys = %#x / %#x", adapter.GetStopHotkeyVK(), adapter.GetPauseHotkeyVK())
+	if adapter.GetStartHotkeyVK() != 0x77 || adapter.GetStopHotkeyVK() != 0x79 || adapter.GetPauseHotkeyVK() != 0x78 {
+		t.Fatalf("recording hotkeys = %#x / %#x / %#x", adapter.GetStartHotkeyVK(), adapter.GetStopHotkeyVK(), adapter.GetPauseHotkeyVK())
 	}
 
 	app := services.NewApp(filepath.Join(t.TempDir(), "settings.json"), nil, zerolog.Nop())
@@ -94,6 +104,46 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	presenter.Detach()
 	if err := emptyRegistry.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRecordingCalibrationTargetsFollowActiveProfileWhenTargetHasNoOverride(t *testing.T) {
+	activeCounts360 := 4134
+	resolver := &recordingCalibrationTargets{
+		targets:         fixedRecordingTargetResolver{counts360: 0},
+		activeCounts360: func() int { return activeCounts360 },
+	}
+	_, counts360, release, err := resolver.AcquireRecordingTarget(context.Background(), "window-target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if counts360 != 4134 {
+		t.Fatalf("recording counts360 = %d, want active calibration 4134", counts360)
+	}
+	activeCounts360 = 5000
+	_, counts360, release, err = resolver.AcquireRecordingTarget(context.Background(), "window-target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if counts360 != 5000 {
+		t.Fatalf("recording counts360 after recalibration = %d, want 5000", counts360)
+	}
+}
+
+func TestRecordingCalibrationTargetsKeepExplicitTargetOverride(t *testing.T) {
+	resolver := &recordingCalibrationTargets{
+		targets:         fixedRecordingTargetResolver{counts360: 8000},
+		activeCounts360: func() int { return 4134 },
+	}
+	_, counts360, release, err := resolver.AcquireRecordingTarget(context.Background(), "window-target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if counts360 != 8000 {
+		t.Fatalf("recording counts360 = %d, want target override 8000", counts360)
 	}
 }
 

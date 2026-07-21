@@ -86,6 +86,7 @@ type Invocation struct {
 	State        map[string]StateBinding
 	Trigger      *SignalTrigger
 	ObservedAt   time.Time
+	MonotonicNow func() time.Time
 	ReadEntropy  func([]byte) error
 	Wait         func(context.Context, time.Duration) error
 	Spawn        func(func(context.Context) error) error
@@ -113,18 +114,20 @@ type ExecutionResult struct {
 }
 
 type Executor struct {
-	catalog   nodecatalog.Snapshot
-	adapters  map[string]InstalledAdapter
-	now       func() time.Time
-	wait      func(context.Context, time.Duration) error
-	entropy   io.Reader
-	entropyMu sync.Mutex
+	catalog      nodecatalog.Snapshot
+	adapters     map[string]InstalledAdapter
+	now          func() time.Time
+	monotonicNow func() time.Time
+	wait         func(context.Context, time.Duration) error
+	entropy      io.Reader
+	entropyMu    sync.Mutex
 }
 
 type ExecutorOptions struct {
-	Now     func() time.Time
-	Entropy io.Reader
-	Wait    func(context.Context, time.Duration) error
+	Now          func() time.Time
+	MonotonicNow func() time.Time
+	Entropy      io.Reader
+	Wait         func(context.Context, time.Duration) error
 }
 
 type ownedLease struct {
@@ -140,13 +143,16 @@ func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]InstalledAdap
 	if options.Now == nil {
 		options.Now = time.Now
 	}
+	if options.MonotonicNow == nil {
+		options.MonotonicNow = time.Now
+	}
 	if options.Entropy == nil {
 		options.Entropy = cryptorand.Reader
 	}
 	if options.Wait == nil {
 		options.Wait = waitContext
 	}
-	return &Executor{catalog: catalog, adapters: installed, now: options.Now, wait: options.Wait, entropy: options.Entropy}
+	return &Executor{catalog: catalog, adapters: installed, now: options.Now, monotonicNow: options.MonotonicNow, wait: options.Wait, entropy: options.Entropy}
 }
 
 func waitContext(ctx context.Context, duration time.Duration) error {

@@ -98,65 +98,34 @@
       <div v-if="loading" class="space-y-2">
         <USkeleton v-for="index in 8" :key="index" class="h-16 rounded-lg" />
       </div>
-      <div v-else-if="items.length" class="space-y-1.5">
-        <article
-          v-for="asset in items"
-          :key="asset.guid"
-          class="group flex cursor-pointer items-center gap-2 rounded-lg border border-default bg-elevated/20 p-2 transition-colors hover:border-primary/40 hover:bg-elevated/50"
-          tabindex="0"
-          @dblclick="useAsset(asset)"
-          @keydown.enter.prevent="useAsset(asset)"
-        >
-          <BlobPreview
-            v-if="asset.thumbnail"
-            :blob="asset.thumbnail"
-            :alt="asset.name"
-            class="size-10 shrink-0"
-          />
-          <span
-            v-else
-            class="flex size-9 shrink-0 items-center justify-center rounded-md bg-elevated text-primary"
-          >
-            <UIcon :name="assetIcon(asset)" class="size-4" />
-          </span>
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-xs font-medium text-highlighted">{{
-              asset.name
-            }}</span>
-            <span class="mt-0.5 block truncate text-[10px] text-dimmed">
-              {{ asset.description || assetMeta(asset) }}
-            </span>
-            <span
-              v-if="asset.category || asset.tags?.length"
-              class="mt-1 flex gap-1 overflow-hidden"
-            >
-              <UBadge v-if="asset.category" color="neutral" variant="soft" size="xs">
-                {{ asset.category }}
-              </UBadge>
-              <span class="truncate text-[9px] text-dimmed">{{
-                asset.tags?.slice(0, 2).join(' · ')
-              }}</span>
-            </span>
-          </span>
+      <AssetLibraryList
+        v-else-if="items.length"
+        :items="libraryItems"
+        compact
+        draggable
+        @use="useLibraryItem"
+        @dragstart="startResourceDrag"
+      >
+        <template #actions="{ item }">
           <UButton
-            v-if="asset.kind === 'macro'"
+            v-if="assetByGUID(item.id)?.kind === 'macro'"
             icon="i-tabler-pencil"
             color="neutral"
             variant="ghost"
             size="xs"
-            :aria-label="t('workflow.resources.edit', { name: asset.name })"
-            @click.stop="emit('edit', asset)"
+            :aria-label="t('workflow.resources.edit', { name: item.name })"
+            @click.stop="editLibraryItem(item.id)"
           />
           <UButton
             icon="i-tabler-plus"
             color="neutral"
             variant="ghost"
             size="xs"
-            :aria-label="t('workflow.resources.use', { name: asset.name })"
-            @click.stop="useAsset(asset)"
+            :aria-label="t('workflow.resources.use', { name: item.name })"
+            @click.stop="useLibraryItem(item)"
           />
-        </article>
-      </div>
+        </template>
+      </AssetLibraryList>
       <EmptyState
         v-else
         inset
@@ -200,15 +169,18 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
-import BlobPreview from '@/components/common/BlobPreview.vue'
+import AssetLibraryList, {
+  type AssetLibraryListItem,
+} from '@/components/assets/AssetLibraryList.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import type { AssetSummary } from '@/lib/backend'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
+import { RESOURCE_DRAG_FORMAT, serializeWorkspaceResource } from './resourceDrag'
 
 type ResourceKind = 'macro' | 'clip' | 'template'
 
 defineProps<{
-  recordingPhase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
+  recordingPhase: 'idle' | 'armed' | 'countdown' | 'recording' | 'paused' | 'finalizing' | 'pending'
 }>()
 const kind = defineModel<ResourceKind>('kind', { default: 'macro' })
 const emit = defineEmits<{
@@ -240,6 +212,18 @@ const tabs = computed(() => [
   { value: 'template' as const, label: t('assets.tabs.templates'), icon: 'i-tabler-photo' },
 ])
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const libraryItems = computed<AssetLibraryListItem[]>(() =>
+  items.value.map((asset) => ({
+    id: asset.guid,
+    name: asset.name,
+    description: asset.description ?? '',
+    category: asset.category ?? '',
+    tags: asset.tags ?? [],
+    meta: assetMeta(asset),
+    icon: assetIcon(asset),
+    previewBlob: asset.thumbnail,
+  })),
+)
 const categoryItems = computed(() => [
   { label: t('assets.all_categories'), value: allCategoriesValue },
   ...categories.value.map((item) => ({
@@ -330,6 +314,36 @@ function useAsset(asset: AssetSummary): void {
     resolution: asset.kind === 'template' ? asset.variants[0]?.resolution : undefined,
     blob: { ...blob },
   })
+}
+
+function assetByGUID(guid: string): AssetSummary | undefined {
+  return items.value.find((asset) => asset.guid === guid)
+}
+
+function useLibraryItem(item: AssetLibraryListItem): void {
+  const asset = assetByGUID(item.id)
+  if (asset) useAsset(asset)
+}
+
+function editLibraryItem(guid: string): void {
+  const asset = assetByGUID(guid)
+  if (asset) emit('edit', asset)
+}
+
+function startResourceDrag(event: DragEvent, item: AssetLibraryListItem): void {
+  const asset = assetByGUID(item.id)
+  if (!asset || !event.dataTransfer) return
+  const blob = asset.kind === 'template' ? asset.variants[0]?.blob : asset.blob
+  if (!blob) return
+  const selection: AssetPickerSelection = {
+    guid: asset.guid,
+    kind: asset.kind,
+    name: asset.name,
+    resolution: asset.kind === 'template' ? asset.variants[0]?.resolution : undefined,
+    blob: { ...blob },
+  }
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData(RESOURCE_DRAG_FORMAT, serializeWorkspaceResource(selection))
 }
 
 function assetIcon(asset: AssetSummary): string {

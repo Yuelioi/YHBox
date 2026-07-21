@@ -74,6 +74,7 @@ func GenerateSchema() ([]byte, error) {
 		{CommandUpdateStateVariable, "updateStateVariable"},
 		{CommandRemoveStateVariable, "removeStateVariable"},
 		{CommandAddNode, "addNode"},
+		{CommandUpgradeNodeContract, "upgradeNodeContract"},
 		{CommandRemoveNode, "removeNode"},
 		{CommandMoveNode, "moveNode"},
 		{CommandSetNodeLabel, "setNodeLabel"},

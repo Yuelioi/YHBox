@@ -238,16 +238,34 @@ type driver interface {
 	Close() error
 }
 
+type playbackSessionDriver interface {
+	PlayEvent(context.Context, PlaybackEvent) error
+	ReleaseInput() error
+}
+
+type playbackOpener interface {
+	OpenPlayback(context.Context) (playbackSessionDriver, error)
+}
+
+type directPlaybackSession struct{ driver driver }
+
+func (session directPlaybackSession) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	return session.driver.PlayEvent(ctx, event)
+}
+
+func (session directPlaybackSession) ReleaseInput() error { return session.driver.ReleaseInput() }
+
 type provider struct {
-	profile       Profile
-	driver        driver
-	verify        func(Profile) error
-	operations    []string
-	closeOnce     sync.Once
-	closeErr      error
-	stateMu       sync.Mutex
-	inputSessions int
-	playbackOpen  bool
+	profile               Profile
+	driver                driver
+	verify                func(Profile) error
+	operations            []string
+	runtimeMouseCounts360 int64
+	closeOnce             sync.Once
+	closeErr              error
+	stateMu               sync.Mutex
+	inputSessions         int
+	playbackOpen          bool
 }
 type session struct {
 	mu             sync.Mutex
@@ -278,7 +296,7 @@ type heldInputSession struct {
 }
 type playbackSession struct {
 	mu        sync.Mutex
-	verified  bool
+	driver    playbackSessionDriver
 	residualX float64
 	residualY float64
 	closed    bool
@@ -320,7 +338,7 @@ func newProvider(profile Profile, manifest InstallationManifest, registry adapte
 	return &provider{profile: profile, driver: driver, verify: registered.verify, operations: operations(document.Capabilities)}, nil
 }
 
-func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest) (any, error) {
+func (p *provider) Open(ctx context.Context, request resource.ProviderOpenRequest) (any, error) {
 	if request.CredentialBindingID != "" {
 		return nil, failure(CodeContractViolation, errors.New("invalid automation session request"))
 	}
@@ -353,12 +371,30 @@ func (p *provider) Open(_ context.Context, request resource.ProviderOpenRequest)
 			return nil, failure(CodeContractViolation, errors.New("automation capability scope is invalid"))
 		}
 		p.stateMu.Lock()
-		defer p.stateMu.Unlock()
 		if p.playbackOpen || p.inputSessions != 0 {
+			p.stateMu.Unlock()
 			return nil, failure(CodePlaybackBusy, errors.New("installed target input authority is already in use"))
 		}
 		p.playbackOpen = true
-		return &playbackSession{}, nil
+		p.stateMu.Unlock()
+		failOpen := func(err error) (any, error) {
+			p.stateMu.Lock()
+			p.playbackOpen = false
+			p.stateMu.Unlock()
+			return nil, err
+		}
+		if err := p.verifyProfile(); err != nil {
+			return failOpen(failure(CodeIdentityChanged, err))
+		}
+		openedDriver := playbackSessionDriver(directPlaybackSession{driver: p.driver})
+		if opener, ok := p.driver.(playbackOpener); ok {
+			var err error
+			openedDriver, err = opener.OpenPlayback(ctx)
+			if err != nil {
+				return failOpen(classifyPlaybackFailure(err))
+			}
+		}
+		return &playbackSession{driver: openedDriver}, nil
 	}
 	if request.Kind == KindHeldInput {
 		if !slices.Equal(request.Operations, heldInputOperations) ||
@@ -544,18 +580,15 @@ func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, 
 		if err := decodeExact(payload, &event, 4096); err != nil || validatePlaybackEvent(event) != nil {
 			return nil, failure(CodeInvalidRequest, errors.New("playback event is invalid"))
 		}
-		if !opened.verified {
-			if err := p.verifyProfile(); err != nil {
-				return nil, failure(CodeIdentityChanged, err)
-			}
-			opened.verified = true
-		}
 		if event.Kind == PlaybackMoveRelative {
 			desktop, ok := DesktopProfile(p.profile)
 			if !ok {
 				return nil, failure(CodeContractViolation, errors.New("relative playback requires a desktop profile"))
 			}
 			targetCounts := desktop.MouseCounts360
+			if targetCounts <= 0 {
+				targetCounts = p.runtimeMouseCounts360
+			}
 			if event.SourceCounts360 <= 0 || targetCounts <= 0 {
 				return nil, failure(CodePlaybackFailed, errors.New("relative playback requires source and target calibration"))
 			}
@@ -566,7 +599,7 @@ func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, 
 			opened.residualX, opened.residualY = scaledX-roundedX, scaledY-roundedY
 			event.DeltaX, event.DeltaY = int64(roundedX), int64(roundedY)
 		}
-		if err := p.driver.PlayEvent(ctx, event); err != nil {
+		if err := opened.driver.PlayEvent(ctx, event); err != nil {
 			return nil, classifyPlaybackFailure(err)
 		}
 		return artifact.Marshal(struct{}{})
@@ -575,7 +608,7 @@ func (p *provider) invokePlayback(ctx context.Context, opened *playbackSession, 
 		if err := decodeExact(payload, &request, 32); err != nil {
 			return nil, failure(CodeInvalidRequest, err)
 		}
-		if err := p.driver.ReleaseInput(); err != nil {
+		if err := opened.driver.ReleaseInput(); err != nil {
 			return nil, classifyPlaybackFailure(err)
 		}
 		return artifact.Marshal(struct{}{})
@@ -686,7 +719,7 @@ func (p *provider) Close(_ context.Context, object any) error {
 			return nil
 		}
 		playback.closed = true
-		releaseErr := p.driver.ReleaseInput()
+		releaseErr := playback.driver.ReleaseInput()
 		playback.mu.Unlock()
 		p.stateMu.Lock()
 		p.playbackOpen = false

@@ -616,15 +616,61 @@
               :label="t('settingsAutomation.targets.mouse_counts_label')"
               :hint="t('settingsAutomation.targets.mouse_counts_hint')"
             >
-              <UInputNumber
-                v-model="target.mouseCounts360"
-                :min="0"
-                :max="10000000"
-                :step="100"
-                size="sm"
-                class="w-full sm:w-48"
-                @change="commit"
-              />
+              <div class="space-y-2">
+                <AdaptiveSelect
+                  :model-value="target.mouseCalibrationMode"
+                  :items="mouseCalibrationModeItems"
+                  class="w-full sm:w-80"
+                  width-mode="fixed"
+                  @update:model-value="
+                    (value: 'active' | 'custom') => setMouseCalibrationMode(target, value)
+                  "
+                />
+                <div
+                  v-if="target.mouseCalibrationMode === 'active'"
+                  data-testid="automation-target-calibration-inheritance"
+                  class="flex flex-wrap items-center gap-2 rounded-lg border p-3"
+                  :class="
+                    activeMouseCounts360 > 0
+                      ? 'border-success/30 bg-success/5'
+                      : 'border-warning/30 bg-warning/5'
+                  "
+                >
+                  <UIcon
+                    :name="activeMouseCounts360 > 0 ? 'i-tabler-link' : 'i-tabler-alert-triangle'"
+                    class="size-4 shrink-0"
+                    :class="activeMouseCounts360 > 0 ? 'text-success' : 'text-warning'"
+                  />
+                  <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                    {{
+                      activeMouseCounts360 > 0
+                        ? t('settingsAutomation.targets.mouse_counts_following', {
+                            name: activeMouseProfileLabel,
+                            n: activeMouseCounts360,
+                          })
+                        : t('settingsAutomation.targets.mouse_counts_missing')
+                    }}
+                  </p>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-tabler-target-arrow"
+                    :label="t('settingsAutomation.targets.open_calibration')"
+                    @click="openInputCalibration"
+                  />
+                </div>
+                <UInputNumber
+                  v-else
+                  v-model="target.mouseCounts360"
+                  :min="1"
+                  :max="10000000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </div>
             </UFormField>
 
             <div class="rounded-lg border border-warning/30 bg-warning/5 p-3">
@@ -753,6 +799,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import {
   backend,
   type AndroidAppDescriptor,
@@ -791,6 +838,7 @@ interface AutomationTargetDraft {
   inputBackend: InputBackend
   captureBackend: CaptureBackend
   mouseCounts360: number
+  mouseCalibrationMode: 'active' | 'custom'
   resolveTimeoutMilliseconds: number
   adbSerial: string
   adbProduct: string
@@ -808,6 +856,7 @@ interface AutomationTargetDraft {
 }
 
 const { t } = useI18n()
+const router = useRouter()
 const { confirm } = useConfirm()
 const store = useSettingsStore()
 const applications = computed(() => store.data?.applications.profiles ?? [])
@@ -864,6 +913,16 @@ let captureTimer: ReturnType<typeof setTimeout> | undefined
 const applicationItems = computed(() =>
   applications.value.map((application) => ({ label: application.label, value: application.slot })),
 )
+const activeMouseCounts360 = computed(() => store.activeMouseCounts360)
+const activeMouseProfileLabel = computed(() => {
+  const profiles = store.mouseProfiles
+  const selected = profiles.find((profile) => profile.label === store.data?.ui.activeMouseProfile)
+  return selected?.label ?? (profiles.length === 1 ? profiles[0]!.label : t('common.untitled'))
+})
+const mouseCalibrationModeItems = computed(() => [
+  { label: t('settingsAutomation.targets.mouse_counts_use_active'), value: 'active' as const },
+  { label: t('settingsAutomation.targets.mouse_counts_custom'), value: 'custom' as const },
+])
 const hasMissingConsent = computed(
   () =>
     applications.value.some((application) => !application.workflowConsent) ||
@@ -970,6 +1029,7 @@ function draftFromProfile(target: InstalledAutomationTargetProfile): AutomationT
     inputBackend: profile.inputBackend ?? '',
     captureBackend: profile.captureBackend ?? '',
     mouseCounts360: profile.mouseCounts360 ?? 0,
+    mouseCalibrationMode: (profile.mouseCounts360 ?? 0) > 0 ? 'custom' : 'active',
     resolveTimeoutMilliseconds: profile.resolveTimeoutMilliseconds ?? 3000,
     adbSerial: profile.adbSerial ?? '',
     adbProduct: profile.adbProduct ?? '',
@@ -1124,6 +1184,7 @@ async function addTargetType(type: AutomationTargetTypeDescriptor) {
     inputBackend: (profileFieldOptions(type, 'inputBackend')[0] ?? '') as InputBackend,
     captureBackend: (profileFieldOptions(type, 'captureBackend')[0] ?? '') as CaptureBackend,
     mouseCounts360: 0,
+    mouseCalibrationMode: 'active',
     resolveTimeoutMilliseconds: 3000,
     adbSerial: '',
     adbProduct: '',
@@ -1175,7 +1236,7 @@ function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfi
         windowClass: target.windowClass,
         inputBackend: target.inputBackend as DesktopAutomationTargetProfile['inputBackend'],
         captureBackend: target.captureBackend as DesktopAutomationTargetProfile['captureBackend'],
-        mouseCounts360: target.mouseCounts360,
+        mouseCounts360: target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360,
         resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
       },
     }
@@ -1213,6 +1274,20 @@ async function commit(): Promise<boolean> {
   const ok = await store.patchAutomationTargets(draft.value.map(metadata))
   if (ok) for (const target of draft.value) target.persisted = true
   return ok
+}
+
+async function setMouseCalibrationMode(
+  target: AutomationTargetDraft,
+  mode: 'active' | 'custom',
+): Promise<void> {
+  target.mouseCalibrationMode = mode
+  if (mode === 'custom' && target.mouseCounts360 <= 0 && activeMouseCounts360.value > 0)
+    target.mouseCounts360 = activeMouseCounts360.value
+  await commit()
+}
+
+function openInputCalibration(): void {
+  void router.push({ path: '/settings', query: { section: 'input' } })
 }
 function targetComplete(target: AutomationTargetDraft): boolean {
   if (isBrowser(target)) {

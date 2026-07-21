@@ -33,6 +33,7 @@
   <USwitch
     v-else-if="adapter === 'toggle'"
     :model-value="Boolean(modelValue)"
+    :size="compact ? 'xs' : 'sm'"
     @update:model-value="emit('update:model-value', $event)"
   />
   <UInputNumber
@@ -41,6 +42,7 @@
     :min="numericConstraint(port.type.constraints.minimum)"
     :max="numericConstraint(port.type.constraints.maximum)"
     :step="port.type.control === 'integer' ? 1 : 'any'"
+    :size="compact ? 'xs' : 'sm'"
     class="w-full"
     @update:model-value="emit('update:model-value', Number($event))"
   />
@@ -49,12 +51,14 @@
     :model-value="selectValue"
     :items="port.type.constraints.enum.map((value) => ({ label: String(value), value }))"
     width-mode="fill"
+    :size="compact ? 'xs' : 'sm'"
     class="w-full"
     @update:model-value="emit('update:model-value', $event)"
   />
   <UInput
     v-else-if="adapter === 'text'"
     :model-value="textValue"
+    :size="compact ? 'xs' : 'sm'"
     class="w-full"
     @change="setText"
   />
@@ -62,6 +66,7 @@
     v-else
     :model-value="jsonValue"
     :rows="compact ? 2 : 5"
+    :size="compact ? 'xs' : 'sm'"
     class="w-full font-mono text-xs"
     @change="setJSON"
   />

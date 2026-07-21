@@ -18,6 +18,27 @@ export function adaptiveSelectWidth(
   return Math.min(upper, Math.max(lower, selectLabelWidth(items, labelKey) + 9))
 }
 
+export function shouldUseSearchableSelect(
+  items: readonly unknown[],
+  searchable: boolean | 'auto' = 'auto',
+): boolean {
+  if (searchable !== 'auto') return searchable
+  return selectItemCount(items) > 10
+}
+
+export function shouldVirtualizeSelect(items: readonly unknown[]): boolean {
+  return selectItemCount(items) > 40
+}
+
+function selectItemCount(items: readonly unknown[]): number {
+  let count = 0
+  for (const item of items) {
+    if (Array.isArray(item)) count += selectItemCount(item)
+    else if (!isRecord(item) || item.type !== 'separator') count += 1
+  }
+  return count
+}
+
 function flattenSelectLabels(items: readonly unknown[], labelKey: string): string[] {
   const labels: string[] = []
   for (const item of items) {

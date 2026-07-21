@@ -388,6 +388,22 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
+              "const": "upgrade-node-contract"
+            },
+            "upgradeNodeContract": {
+              "$ref": "#/$defs/NodeCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "upgradeNodeContract"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
               "const": "remove-node"
             },
             "removeNode": {

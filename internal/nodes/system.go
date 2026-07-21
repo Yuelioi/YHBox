@@ -49,13 +49,16 @@ func defineSystemNodes(messageRef datatype.TypeRef) ([]BuiltinDefinition, error)
 		NodeTypeID: LogNodeID, ConfigSchemaRoot: logSchemaID,
 		ConfigSchemaBundle: []datatype.SchemaResource{{ID: logSchemaID, Schema: json.RawMessage(fmt.Sprintf(`{
 			"$id":%q,"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
-			"properties":{"level":{"type":"string","enum":["debug","info","warn","error"],"default":"info",
+			"properties":{"message":{"type":"string","maxLength":%d,"default":"",
+				"x-yotta-title-key":"node.observability.log.config.message.title",
+				"x-yotta-description-key":"node.observability.log.config.message.description"},
+			"level":{"type":"string","enum":["debug","info","warn","error"],"default":"info",
 				"x-yotta-title-key":"node.observability.log.config.level.title",
 				"x-yotta-description-key":"node.observability.log.config.level.description"}},
 			"additionalProperties":false
-		}`, logSchemaID))}},
+		}`, logSchemaID, MaxObservabilityMessageRunes))}},
 		Ports: nodecontract.PortSet{
-			DataInputs: []nodecontract.DataInputPort{{ID: "message", Type: observableType, Required: true}}, DataOutputs: []nodecontract.DataOutputPort{},
+			DataInputs: []nodecontract.DataInputPort{{ID: "message", Type: observableType, Required: false}}, DataOutputs: []nodecontract.DataOutputPort{},
 			ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed"),
 		},
 		Execution: nodecontract.ExecutionSpec{

@@ -34,6 +34,7 @@
       :label="resourceLabel"
       :placeholder="pickerPlaceholder"
       :stale="resourceStale"
+      :clearable="bindingActions.clear"
       @change="pickerOpen = true"
       @clear="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
     />
@@ -45,7 +46,7 @@
     </p>
     <div class="flex items-center gap-2">
       <UButton
-        v-if="port.hasDefault"
+        v-if="bindingActions.resetToDefault"
         :label="t('workflow.inspector.use_default')"
         size="xs"
         color="neutral"
@@ -53,7 +54,7 @@
         @click="emit('command', { kind: 'bind-default', nodeId: node.id, portId: port.id })"
       />
       <UButton
-        v-if="binding && !usesAssetPicker"
+        v-if="bindingActions.clear && !usesAssetPicker"
         :label="t('workflow.inspector.clear')"
         size="xs"
         color="neutral"
@@ -67,6 +68,7 @@
       :kind="assetKind"
       :selected-blob="bindingBlob"
       @select="setAsset"
+      @capture="emit('capture-template')"
     />
   </div>
 </template>
@@ -77,6 +79,7 @@ import { useI18n } from 'vue-i18n'
 import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
 import { resolvePortAdapter } from '@/app/editor/authoringSurface'
+import { bindingActionPolicy } from '@/app/editor/bindingActionPolicy'
 import AssetReferenceField from '@/app/editor/AssetReferenceField.vue'
 import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
@@ -94,7 +97,10 @@ const props = defineProps<{
   targetSlot?: string
   connected?: boolean
 }>()
-const emit = defineEmits<{ command: [command: EditorCommand] }>()
+const emit = defineEmits<{
+  command: [command: EditorCommand]
+  'capture-template': []
+}>()
 const { t, te } = useI18n()
 const assets = useAssetsStore()
 const pickerOpen = ref(false)
@@ -104,6 +110,13 @@ const immediateSelection = ref<AssetPickerSelection | null>(null)
 let resolveGeneration = 0
 
 const binding = computed(() => props.node.bindings[props.port.id])
+const bindingActions = computed(() =>
+  bindingActionPolicy({
+    required: props.port.binding === 'required',
+    hasDefault: props.port.hasDefault,
+    bound: Boolean(binding.value),
+  }),
+)
 const acceptsInline = computed(() =>
   props.port.type.representations.some((item) => item.kind === 'inline-json'),
 )

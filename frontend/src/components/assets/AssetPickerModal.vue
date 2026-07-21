@@ -225,6 +225,15 @@
             @click="goToPage(page + 1)"
           />
         </div>
+        <UButton
+          v-if="kind === 'template'"
+          icon="i-tabler-camera-plus"
+          color="neutral"
+          variant="soft"
+          @click="captureTemplate"
+        >
+          {{ t('assetPicker.capture_template') }}
+        </UButton>
         <UButton icon="i-tabler-check" :disabled="!candidate" @click="confirmSelection()">
           {{ confirmLabel }}
         </UButton>
@@ -252,6 +261,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   select: [selection: AssetPickerSelection]
+  capture: []
 }>()
 const { t } = useI18n()
 const assets = useAssetsStore()
@@ -425,6 +435,11 @@ function confirmSelection(selection = candidate.value): void {
   assets.markUsed(selection.guid)
   emit('select', selection)
   emit('update:open', false)
+}
+
+function captureTemplate(): void {
+  emit('update:open', false)
+  emit('capture')
 }
 
 function assetMeta(asset: AssetSummary): string {

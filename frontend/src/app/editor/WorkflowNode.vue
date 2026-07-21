@@ -5,29 +5,6 @@
     :data-node-type-id="projection.nodeRef.nodeTypeId"
     @contextmenu.prevent.stop="openNodeContextMenu"
   >
-    <UDropdownMenu
-      v-model:open="contextMenuOpen"
-      :items="contextMenuItems"
-      :content="{ side: 'bottom', align: 'start', sideOffset: 0, collisionPadding: 12 }"
-      :ui="{ content: 'min-w-60' }"
-    >
-      <UButton
-        class="nodrag nopan pointer-events-none absolute size-px -translate-x-1/2 -translate-y-1/2 opacity-0"
-        :style="{ left: `${contextMenuPosition.x}px`, top: `${contextMenuPosition.y}px` }"
-        color="neutral"
-        variant="ghost"
-        tabindex="-1"
-        aria-hidden="true"
-      />
-      <template #content-top>
-        <span data-testid="workflow-node-context-menu" class="sr-only">
-          {{ t('workflow.node_menu.title') }}
-        </span>
-      </template>
-      <template #item-label="{ item }">
-        <span :data-testid="item.testId">{{ item.label }}</span>
-      </template>
-    </UDropdownMenu>
     <span
       v-if="visualState.executionTone"
       data-testid="node-execution-stripe"
@@ -195,6 +172,30 @@
       }}</span>
     </footer>
   </article>
+  <Teleport to="body">
+    <UDropdownMenu
+      v-model:open="contextMenuOpen"
+      :items="contextMenuItems"
+      :content="{ side: 'bottom', align: 'start', sideOffset: 0, collisionPadding: 12 }"
+      :ui="{ content: 'min-w-60' }"
+    >
+      <button
+        type="button"
+        class="pointer-events-none fixed size-px opacity-0"
+        :style="{ left: `${contextMenuPosition.x}px`, top: `${contextMenuPosition.y}px` }"
+        tabindex="-1"
+        aria-hidden="true"
+      />
+      <template #content-top>
+        <span data-testid="workflow-node-context-menu" class="sr-only">
+          {{ t('workflow.node_menu.title') }}
+        </span>
+      </template>
+      <template #item-label="{ item }">
+        <span :data-testid="item.testId">{{ item.label }}</span>
+      </template>
+    </UDropdownMenu>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -245,8 +246,6 @@ const emit = defineEmits<{
   collapse: []
   'toggle-disabled': []
   'toggle-breakpoint': []
-  'open-template-resources': []
-  'capture-template': []
   'save-snippet': []
   remove: []
   command: [command: EditorCommand]
@@ -314,25 +313,6 @@ const contextMenuItems = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: t('workflow.node_menu.visual_template'),
-      icon: 'i-tabler-photo-search',
-      testId: 'workflow-node-menu-visual-template',
-      children: [
-        {
-          label: t('workflow.node_menu.choose_template'),
-          icon: 'i-tabler-photo-search',
-          testId: 'workflow-node-menu-choose-template',
-          onSelect: () => emit('open-template-resources'),
-        },
-        {
-          label: t('workflow.node_menu.capture_template'),
-          icon: 'i-tabler-camera-plus',
-          testId: 'workflow-node-menu-capture-template',
-          onSelect: () => emit('capture-template'),
-        },
-      ],
-    },
-    {
       label: t('workflow.snippets.create_title'),
       icon: 'i-tabler-bookmark',
       testId: 'workflow-node-menu-save-snippet',
@@ -352,8 +332,7 @@ const contextMenuItems = computed<DropdownMenuItem[][]>(() => [
 ])
 
 async function openNodeContextMenu(event: MouseEvent): Promise<void> {
-  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  contextMenuPosition.value = { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
   emit('context-open')
   if (contextMenuOpen.value) {
     contextMenuOpen.value = false
@@ -380,13 +359,14 @@ const diagnosticClass = computed(() => {
 })
 const runStatusText = computed(() => {
   if (props.runStatus === 'failed') return 'text-error'
-  if (props.runStatus === 'cancelled' || props.runStatus === 'routed') return 'text-warning'
+  if (['waiting', 'cancelled', 'routed'].includes(props.runStatus ?? '')) return 'text-warning'
   return 'text-primary'
 })
 const runStatusDot = computed(() => [
   props.runStatus === 'failed' && 'bg-error',
-  (props.runStatus === 'cancelled' || props.runStatus === 'routed') && 'bg-warning',
+  ['waiting', 'cancelled', 'routed'].includes(props.runStatus ?? '') && 'bg-warning',
   props.runStatus === 'running' && 'bg-primary animate-pulse motion-reduce:animate-none',
+  props.runStatus === 'waiting' && 'animate-pulse motion-reduce:animate-none',
 ])
 
 const leftPins = computed<PinView[]>(() => [

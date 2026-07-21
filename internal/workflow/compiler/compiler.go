@@ -16,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodeinstance"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
@@ -41,7 +42,6 @@ const (
 	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
 	CodeInvalidCapabilityBinding = "INVALID_CAPABILITY_BINDING"
 	CodeNoExecutionRoot          = "NO_EXECUTION_ROOT"
-	CodeUnreachableExecution     = "UNREACHABLE_EXECUTION"
 	CodeDataCycle                = "DATA_CYCLE"
 	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
 )
@@ -289,6 +289,14 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, targe
 			diagnostic.Params["reason"] = err.Error()
 			diagnostics = append(diagnostics, diagnostic)
 		}
+		resolvedMachine, err := nodeinstance.Resolve(machine, effectiveConfig)
+		if err != nil {
+			diagnostic := diagnosticAtNode(CodeInvalidConfig, append(path, "config"), graph.ID, sourceNode.ID)
+			diagnostic.Params["reason"] = err.Error()
+			diagnostics = append(diagnostics, diagnostic)
+		} else {
+			machine = resolvedMachine
+		}
 		effectiveRequirements, err := nodecontract.ResolveCapabilityRequirements(machine, effectiveConfig)
 		if err != nil {
 			diagnostic := diagnosticAtNode(CodeInvalidCapabilityBinding, append(path, "config"), graph.ID, sourceNode.ID)
@@ -494,31 +502,54 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, targe
 			node.Inputs[portID] = plan
 		}
 	}
-	for _, node := range compiled.Nodes {
-		for _, port := range node.Ports.DataInputs {
-			if port.Required {
-				if _, present := node.Inputs[port.ID]; !present {
-					diagnostics = append(diagnostics, diagnosticAtNode(CodeMissingInputBinding, []string{"bindings", port.ID}, graph.ID, node.ID))
-				}
-			}
-		}
-	}
 	compiled.DataOrder = topologicalOrder(compiled.Nodes, adjacency, indegree)
 	if len(compiled.DataOrder) != len(compiled.Nodes) {
 		diagnostics = append(diagnostics, diagnostic(CodeDataCycle, []string{"graphs", fmt.Sprint(graphIndex), "edges"}, graph.ID))
 	} else if len(compiled.Nodes) != 0 {
-		roots, reachable := executionReachability(compiled)
+		roots, active := activeProgramNodes(compiled)
 		if len(roots) == 0 {
 			diagnostics = append(diagnostics, diagnostic(CodeNoExecutionRoot, []string{"graphs", fmt.Sprint(graphIndex)}, graph.ID))
 		}
-		for nodeIndex, node := range compiled.Nodes {
-			if node.Execution.Evaluation == nodecontract.EvaluationPush && !reachable[node.ID] {
-				diagnostics = append(diagnostics, warningAtNode(CodeUnreachableExecution,
-					[]string{"graphs", fmt.Sprint(graphIndex), "nodes", fmt.Sprint(nodeIndex)}, graph.ID, node.ID))
+		for _, node := range compiled.Nodes {
+			if !active[node.ID] {
+				continue
+			}
+			for _, port := range node.Ports.DataInputs {
+				if port.Required {
+					if _, present := node.Inputs[port.ID]; !present {
+						diagnostics = append(diagnostics, diagnosticAtNode(CodeMissingInputBinding, []string{"bindings", port.ID}, graph.ID, node.ID))
+					}
+				}
 			}
 		}
+		compiled = retainActiveProgramNodes(compiled, active)
 	}
 	return compiled, diagnostics, nil
+}
+
+func retainActiveProgramNodes(graph programGraph, active map[string]bool) programGraph {
+	nodes := make([]programNode, 0, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		if active[node.ID] {
+			nodes = append(nodes, node)
+		}
+	}
+	routes := make([]programSignalRoute, 0, len(graph.SignalRoutes))
+	for _, route := range graph.SignalRoutes {
+		if active[route.From.NodeID] && active[route.To.NodeID] {
+			routes = append(routes, route)
+		}
+	}
+	order := make([]string, 0, len(graph.DataOrder))
+	for _, nodeID := range graph.DataOrder {
+		if active[nodeID] {
+			order = append(order, nodeID)
+		}
+	}
+	graph.Nodes = nodes
+	graph.SignalRoutes = routes
+	graph.DataOrder = order
+	return graph
 }
 
 type regionSignalScopeViolation struct {
@@ -839,12 +870,6 @@ func diagnostic(code string, path []string, graphID string) Diagnostic {
 func diagnosticAtNode(code string, path []string, graphID, nodeID string) Diagnostic {
 	diagnostic := diagnostic(code, path, graphID)
 	diagnostic.NodeID = nodeID
-	return diagnostic
-}
-
-func warningAtNode(code string, path []string, graphID, nodeID string) Diagnostic {
-	diagnostic := diagnosticAtNode(code, path, graphID, nodeID)
-	diagnostic.Severity = schema.SeverityWarning
 	return diagnostic
 }
 

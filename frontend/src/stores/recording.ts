@@ -1,6 +1,6 @@
 // recording store — 后端录制状态机的【纯镜像】.
 //
-// 单一真相源是后端 recording.Service (Phase: idle|recording|finalizing). 本 store 不自己存
+// 单一真相源是后端 recording.Service（含 armed/countdown/recording 等阶段）. 本 store 不自己存
 // 可 desync 的 isRecording flag — state 只由两个来源更新:
 //   ① 'recording:state' 事件 (后端每次转换广播全量 state)
 //   ② reconcile() 主动调 GetState() 对账 (窗口聚焦 / 编辑器挂载时, 丢事件自愈)
@@ -17,13 +17,14 @@ export type RecordingInvocation = 'library' | 'editor'
 
 export interface RecordingState {
   revision: number
-  phase: 'idle' | 'recording' | 'paused' | 'finalizing' | 'pending'
+  phase: 'idle' | 'armed' | 'countdown' | 'recording' | 'paused' | 'finalizing' | 'pending'
   mode: RecordingMode | ''
   targetSlot: string
   tempID: string
   startedAtMs: number
   pausedMs: number // 累计已暂停毫秒; HUD 算录制时长 = now-startedAt-pausedMs
   pausedAtMs: number // 本次暂停起点 (>0 即暂停态, HUD 冻结计时); recording 态为 0
+  countdownEndsAtMs: number
   pending: RecordingStopPayload | null
 }
 
@@ -195,6 +196,7 @@ const IDLE: RecordingState = {
   startedAtMs: 0,
   pausedMs: 0,
   pausedAtMs: 0,
+  countdownEndsAtMs: 0,
   pending: null,
 }
 
@@ -204,13 +206,21 @@ function normalize(st: any): RecordingState {
   return {
     revision: nonnegativeNumber(st?.revision) ? st.revision : 0,
     phase:
-      p === 'recording' || p === 'paused' || p === 'finalizing' || p === 'pending' ? p : 'idle',
+      p === 'armed' ||
+      p === 'countdown' ||
+      p === 'recording' ||
+      p === 'paused' ||
+      p === 'finalizing' ||
+      p === 'pending'
+        ? p
+        : 'idle',
     mode: st?.mode === 'simple' || st?.mode === 'precise' ? st.mode : '',
     targetSlot: st?.targetSlot ?? '',
     tempID: st?.tempID ?? '',
     startedAtMs: st?.startedAtMs ?? 0,
     pausedMs: st?.pausedMs ?? 0,
     pausedAtMs: st?.pausedAtMs ?? 0,
+    countdownEndsAtMs: st?.countdownEndsAtMs ?? 0,
     pending,
   }
 }
@@ -227,6 +237,8 @@ export const useRecordingStore = defineStore('recording', () => {
   const isPaused = computed(() => state.value.phase === 'paused')
   // Exact installed target slot remains present while paused/finalizing.
   const activeTargetSlot = computed(() =>
+    state.value.phase === 'armed' ||
+    state.value.phase === 'countdown' ||
     state.value.phase === 'recording' ||
     state.value.phase === 'paused' ||
     state.value.phase === 'finalizing'
@@ -289,7 +301,7 @@ export const useRecordingStore = defineStore('recording', () => {
       invocation.value = null
       throw error
     }
-    // 不乐观置态 — 后端 Start 成功即广播 recording:state(recording); 这里对账一次兜底.
+    // 不乐观置态 — 后端 Start 成功即广播 recording:state(armed); 这里对账一次兜底.
     await reconcile()
   }
 

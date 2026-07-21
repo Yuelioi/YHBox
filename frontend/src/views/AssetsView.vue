@@ -248,6 +248,15 @@
             @click="resumeRecording"
           />
           <UButton
+            v-if="recording.state.phase === 'armed' || recording.state.phase === 'countdown'"
+            size="xs"
+            color="error"
+            variant="ghost"
+            icon="i-tabler-x"
+            :label="t('common.cancel')"
+            @click="cancelRecordingPreparation"
+          />
+          <UButton
             v-if="recording.state.phase === 'recording' || recording.state.phase === 'paused'"
             size="xs"
             color="error"
@@ -277,81 +286,27 @@
           <div v-if="loading" class="space-y-px p-2">
             <USkeleton v-for="index in 10" :key="index" class="h-14 rounded-md" />
           </div>
-          <div v-else-if="visibleItems.length" class="min-w-[1080px]">
-            <div
-              class="grid h-9 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b border-default bg-elevated/35 px-3 text-[10px] font-semibold uppercase tracking-wide text-dimmed"
-            >
+          <AssetLibraryList
+            v-else-if="visibleItems.length"
+            :items="visibleItems"
+            @preview-state="setPreviewState"
+          >
+            <template #select-all>
               <UCheckbox
                 :model-value="allCurrentPageSelected"
                 :aria-label="t('assets.select_page')"
                 @update:model-value="toggleCurrentPage(Boolean($event))"
               />
-              <span>{{ t('assets.columns.asset') }}</span>
-              <span>{{ t('common.category') }}</span>
-              <span>{{ t('common.tags') }}</span>
-              <span>{{ t('assets.columns.details') }}</span>
-              <span>{{ t('assets.columns.created') }}</span>
-              <span />
-            </div>
-            <article
-              v-for="item in visibleItems"
-              :key="item.id"
-              class="grid min-h-16 grid-cols-[2.25rem_minmax(18rem,2fr)_10rem_minmax(12rem,1.2fr)_9rem_9rem_2.5rem] items-center gap-3 border-b border-default/70 px-3 hover:bg-elevated/35"
-            >
+            </template>
+            <template #select="{ item }">
               <UCheckbox
                 :model-value="Boolean(selected[item.id])"
                 :aria-label="t('assets.select_named', { name: item.name })"
-                @update:model-value="toggleAsset(item.source, Boolean($event))"
+                @update:model-value="toggleAsset(assetItem(item.id).source, Boolean($event))"
               />
-              <div class="flex min-w-0 items-center gap-2.5 py-1.5">
-                <BlobPreview
-                  v-if="item.previewBlob"
-                  :blob="item.previewBlob"
-                  :alt="item.name"
-                  class="size-10 shrink-0"
-                  @state="previewStates[item.id] = $event"
-                />
-                <div
-                  v-else
-                  class="flex size-9 shrink-0 items-center justify-center rounded-md bg-elevated text-primary"
-                >
-                  <UIcon :name="item.icon" class="size-4" />
-                </div>
-                <div class="min-w-0">
-                  <h3 class="truncate text-xs font-medium text-highlighted">{{ item.name }}</h3>
-                  <p class="mt-0.5 truncate text-[10px] text-dimmed">
-                    {{ item.description || item.meta }}
-                  </p>
-                </div>
-              </div>
-              <div class="min-w-0">
-                <UBadge v-if="item.category" color="neutral" variant="soft" size="sm">{{
-                  item.category
-                }}</UBadge>
-                <span v-else class="text-[10px] text-dimmed">{{ t('assets.unclassified') }}</span>
-              </div>
-              <div class="flex min-w-0 items-center gap-1 overflow-hidden">
-                <UBadge
-                  v-for="tag in item.tags.slice(0, 3)"
-                  :key="tag"
-                  color="neutral"
-                  variant="subtle"
-                  size="sm"
-                >
-                  {{ tag }}
-                </UBadge>
-                <span v-if="!item.tags.length" class="text-[10px] text-dimmed">{{
-                  t('assets.no_tags')
-                }}</span>
-                <span v-else-if="item.tags.length > 3" class="text-[10px] text-dimmed"
-                  >+{{ item.tags.length - 3 }}</span
-                >
-              </div>
-              <span class="truncate text-[10px] text-muted">{{ item.meta }}</span>
-              <span class="truncate text-[10px] text-dimmed">{{
-                formatAssetDate(item.source.createdAt)
-              }}</span>
-              <UDropdownMenu :items="assetMenu(item)">
+            </template>
+            <template #actions="{ item }">
+              <UDropdownMenu :items="assetMenu(assetItem(item.id))">
                 <UButton
                   icon="i-tabler-dots"
                   color="neutral"
@@ -360,8 +315,8 @@
                   :aria-label="t('assets.asset_actions', { name: item.name })"
                 />
               </UDropdownMenu>
-            </article>
-          </div>
+            </template>
+          </AssetLibraryList>
           <EmptyState
             v-else
             inset
@@ -730,7 +685,10 @@
     :dismissible="false"
   >
     <div v-if="pendingRecording" class="space-y-4">
-      <div class="rounded-lg border border-default bg-elevated/35 px-4 py-3">
+      <div
+        v-if="pendingRecording.mode === 'simple'"
+        class="rounded-lg border border-default bg-elevated/35 px-4 py-3"
+      >
         <div class="flex items-center justify-between gap-3">
           <p class="text-sm font-medium text-highlighted">
             {{
@@ -784,14 +742,16 @@
             v-model="recordingDraft.category"
             :items="metadataCategoryOptions"
             :create-item="'always'"
+            :placeholder="t('recordingSave.category_placeholder')"
             @create="createRecordingCategory"
           />
         </UFormField>
-        <UFormField :label="t('common.tags')" :hint="t('common.optional')">
+        <UFormField :label="t('common.tags')" :hint="t('recordingSave.tags_hint')">
           <UInputMenu
             v-model="recordingDraft.tags"
             :items="metadataTagOptions"
             :create-item="'always'"
+            :placeholder="t('recordingSave.tags_placeholder')"
             multiple
             @create="createRecordingTag"
           />
@@ -851,9 +811,10 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
 import { awaitWailsEvent } from '@/composables/useWailsEvent'
 import { useRecordingStart } from '@/composables/useRecordingStart'
+import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedback'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import BlobPreview from '@/components/common/BlobPreview.vue'
+import AssetLibraryList from '@/components/assets/AssetLibraryList.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import MacroActionEditor from '@/components/recording/MacroActionEditor.vue'
 import PreciseRecordingWorkbench from '@/components/recording/PreciseRecordingWorkbench.vue'
@@ -871,6 +832,7 @@ type AssetItem = {
   meta: string
   icon: string
   previewBlob?: BlobRef
+  createdAt?: string
   source: AssetSummary
 }
 type AssetMetadataDraft = { category: string; tags: string[] }
@@ -883,6 +845,7 @@ const settings = useSettingsStore()
 const assets = useAssetsStore()
 const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
+const { show: showRecordingStartError } = useRecordingStartFeedback()
 const activeTab = ref<AssetTab>('macros')
 const queryInput = ref('')
 const query = ref('')
@@ -916,7 +879,12 @@ const macroEditBusy = ref(false)
 const macroEditValid = ref(true)
 const macroCreateOpen = ref(false)
 const macroCreateBusy = ref(false)
-const macroCreateDraft = reactive({ name: '', description: '', category: '', tags: [] as string[] })
+const macroCreateDraft = reactive({
+  name: '',
+  description: '',
+  category: '',
+  tags: [] as string[],
+})
 const preciseViewing = ref<InputClipSummary | null>(null)
 const preciseViewingPreview = computed<RecordingPreview | null>(() => {
   const clip = preciseViewing.value
@@ -1093,6 +1061,7 @@ const items = computed<AssetItem[]>(() => {
         tags: asset.tags ?? [],
         meta: t('assets.macros.library_meta', { bytes: asset.blob?.size ?? 0 }),
         icon: 'i-tabler-list-details',
+        createdAt: formatAssetDate(asset.createdAt),
         source: asset,
       }
     if (asset.kind === 'clip')
@@ -1105,6 +1074,7 @@ const items = computed<AssetItem[]>(() => {
         tags: asset.tags ?? [],
         meta: t('assets.clips.library_meta', { bytes: asset.blob?.size ?? 0 }),
         icon: 'i-tabler-movie',
+        createdAt: formatAssetDate(asset.createdAt),
         source: asset,
       }
     return {
@@ -1117,13 +1087,28 @@ const items = computed<AssetItem[]>(() => {
       meta: t('assets.templates.meta', { count: asset.variantCount }),
       icon: 'i-tabler-photo',
       previewBlob: asset.thumbnail,
+      createdAt: formatAssetDate(asset.createdAt),
       source: asset,
     }
   })
 })
 const visibleItems = computed(() => items.value)
+
+function assetItem(id: string): AssetItem {
+  const item = visibleItems.value.find((candidate) => candidate.id === id)
+  if (!item) throw new Error(`asset ${id} is not on the current page`)
+  return item
+}
+
+function setPreviewState(item: { id: string }, state: 'loading' | 'ready' | 'unavailable'): void {
+  previewStates[item.id] = state
+}
 const recordingBadge = computed(() => {
   switch (recording.state.phase) {
+    case 'armed':
+      return { label: t('recordingHud.waiting'), color: 'primary' as const }
+    case 'countdown':
+      return { label: t('recordingHud.countdown'), color: 'primary' as const }
     case 'recording':
       return { label: t('recordingHud.recording'), color: 'error' as const }
     case 'paused':
@@ -1137,6 +1122,8 @@ const recordingBadge = computed(() => {
   }
 })
 const recordingHint = computed(() => {
+  if (recording.state.phase === 'armed') return t('assets.recording.waiting_hint')
+  if (recording.state.phase === 'countdown') return t('assets.recording.countdown_hint')
   if (recording.state.phase === 'recording' || recording.state.phase === 'paused')
     return t('assets.recording.active_hint', { target: recording.state.targetSlot })
   return t('assets.recording.hint')
@@ -1156,7 +1143,11 @@ watch(activeTab, async () => {
 watch(
   () => recording.state.pending,
   (pending) => {
-    if (!pending || (recording.invocation && recording.invocation !== 'library')) return
+    if (!pending) {
+      if (recording.state.phase === 'idle') pendingRecording.value = null
+      return
+    }
+    if (recording.invocation && recording.invocation !== 'library') return
     recording.claimInvocation('library')
     openRecordingSave(pending)
   },
@@ -1324,7 +1315,7 @@ async function startRecording(mode: RecordingMode): Promise<void> {
   try {
     await beginRecording(mode, selectedTargetSlot.value, 'library')
   } catch (error) {
-    showError(t('assets.recording.start_failed'), error)
+    showRecordingStartError(t('assets.recording.start_failed'), error)
   }
 }
 
@@ -1372,10 +1363,17 @@ async function resumeRecording(): Promise<void> {
   }
 }
 
+async function cancelRecordingPreparation(): Promise<void> {
+  try {
+    await recording.cancel()
+  } catch (error) {
+    showError(t('assets.recording.control_failed'), error)
+  }
+}
+
 async function stopRecording(): Promise<void> {
   try {
-    const payload = await recording.stop()
-    if (payload) openRecordingSave(payload)
+    await recording.stop()
   } catch (error) {
     showError(t('assets.recording.control_failed'), error)
   }

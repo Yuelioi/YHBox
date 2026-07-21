@@ -5,6 +5,33 @@ import { describe, expect, it } from 'vitest'
 const readSource = (path: string) => readFileSync(join(process.cwd(), path), 'utf8')
 
 describe('workflow authoring foundations', () => {
+  it('opens a completed recording from the authoritative pending state only once', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const assets = readSource('src/views/AssetsView.vue')
+    const recordingMetadata = readSource('src/components/recording/RecordingMetadataFields.vue')
+    expect(editor).not.toContain('if (payload) openRecordingPreview(payload)')
+    expect(assets).not.toContain('if (payload) openRecordingSave(payload)')
+    expect(editor).toContain('() => recording.state.pending')
+    expect(assets).toContain('() => recording.state.pending')
+    expect(editor).toContain('!editorViewActive.value')
+    expect(editor).toContain('onDeactivated(() =>')
+    const recordingModal = editor.slice(
+      editor.indexOf(':open="!!pendingRecording"'),
+      editor.indexOf(':open="!!macroEditing"'),
+    )
+    expect(recordingModal).toContain('size="3xl"')
+    expect(recordingModal).not.toContain('\n      tall')
+    expect(recordingModal).not.toContain("t('recordingSave.optional_metadata')")
+    expect(recordingModal).toContain('<RecordingMetadataFields')
+    expect(editor).toContain('const RecordingMetadataFields = defineAsyncComponent(')
+    expect(editor).not.toContain('<UInputMenu')
+    expect(recordingMetadata).toContain(':create-item="\'always\'"')
+    expect(recordingMetadata).toContain('@create="createCategory"')
+    expect(recordingMetadata).toContain('@create="createTag"')
+    expect(recordingMetadata).toContain('multiple')
+    expect(assets).not.toContain("t('recordingSave.optional_metadata')")
+  })
+
   it('provides searchable grouped catalog and an actionable empty canvas', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     expect(source).toContain('v-model="catalogQuery"')
@@ -75,6 +102,19 @@ describe('workflow authoring foundations', () => {
     expect(toolbar).not.toContain('workflow-macro-recording-start')
   })
 
+  it('shares a scannable resource list and lets resources be dragged onto the canvas', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+    const assets = readSource('src/views/AssetsView.vue')
+
+    expect(dock).toContain('<AssetLibraryList')
+    expect(assets).toContain('<AssetLibraryList')
+    expect(dock).toContain('draggable')
+    expect(dock).toContain('RESOURCE_DRAG_FORMAT')
+    expect(editor).toContain('RESOURCE_DRAG_FORMAT')
+    expect(editor).toContain('dropWorkspaceResource')
+  })
+
   it('offers save, discard, and cancel when leaving a dirty workflow', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const dialog = readSource('src/components/common/ConfirmDialog.vue')
@@ -83,10 +123,12 @@ describe('workflow authoring foundations', () => {
     expect(dialog).toContain('data-testid="confirm-alternate"')
   })
 
-  it('uses a full node context menu and keeps visual templates inside the editor flow', () => {
+  it('uses a node-generic context menu and keeps visual templates in typed editor fields', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const node = readSource('src/app/editor/WorkflowNode.vue')
     const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+    const inspector = readSource('src/app/editor/WorkflowInspector.vue')
+    const surfaceItem = readSource('src/app/editor/WorkflowAuthoringSurfaceItem.vue')
 
     expect(node).toContain('<UDropdownMenu')
     expect(node).toContain('@contextmenu.prevent.stop="openNodeContextMenu"')
@@ -98,15 +140,55 @@ describe('workflow authoring foundations', () => {
     expect(node).toContain('workflow-node-menu-save-snippet')
     expect(node).toContain('workflow-node-menu-remove')
     expect(node).toContain("color: 'error'")
-    expect(node).toContain('workflow-node-menu-choose-template')
-    expect(node).toContain('workflow-node-menu-capture-template')
+    expect(node).not.toContain('workflow-node-menu-visual-template')
+    expect(node).not.toContain('workflow-node-menu-choose-template')
+    expect(node).not.toContain('workflow-node-menu-capture-template')
     expect(editor).toContain('@context-open="selectNodeForContextMenu')
-    expect(editor).toContain('@open-template-resources="openTemplateResources')
-    expect(editor).toContain('@capture-template="captureTemplateForNode')
-    expect(editor).toContain("workspaceResourceKind.value = 'template'")
+    expect(editor).not.toContain('@open-template-resources="openTemplateResources')
+    expect(editor).toContain(
+      '@capture-template="selectedNode && captureTemplateForNode(selectedNode.id)"',
+    )
+    expect(inspector).toContain('@capture-template="emit(\'capture-template\')"')
+    expect(surfaceItem).toContain('@capture-template="emit(\'capture-template\')"')
     expect(editor).toContain('v-model:kind="workspaceResourceKind"')
     expect(dock).toContain("defineModel<ResourceKind>('kind'")
     expect(dock).toContain(':aria-pressed="kind === item.value"')
+  })
+
+  it('makes both editor sidebars collapsible and resizable', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    expect(editor).toContain('data-testid="workflow-workspace-sidebar"')
+    expect(editor).toContain('data-testid="workflow-inspector-sidebar"')
+    expect(editor).toContain('role="separator"')
+    expect(editor).toContain('resizeWorkspaceSidebar')
+    expect(editor).toContain('resizeInspectorSidebar')
+    expect(editor).toContain('toggleWorkspacePanel')
+    expect(editor).toContain('inspectorSidebarOpen')
+  })
+
+  it('switches from Run State to node properties without overriding a hidden Inspector preference', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const selectNode = editor.slice(
+      editor.indexOf('function selectNode('),
+      editor.indexOf('function selectNodeForContextMenu'),
+    )
+    expect(selectNode).toContain('statePanelOpen.value = false')
+    expect(selectNode).toContain('if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true')
+    expect(editor).toContain('function setInspectorVisibility(')
+    expect(editor).toContain('inspectorAutoOpen.value = open')
+  })
+
+  it('keeps workflow settings and reload next to Save with an overflow seam', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
+
+    expect(toolbar).toContain('data-testid="workflow-settings"')
+    expect(toolbar).toContain('data-testid="workflow-more"')
+    expect(toolbar).toContain("emit('settings')")
+    expect(toolbar).toContain("emit('reload')")
+    expect(editor).toContain('<WorkflowMetadataDialog')
+    expect(editor).toContain('const WorkflowMetadataDialog = defineAsyncComponent(')
+    expect(editor).toContain('@reload="reloadWorkflow"')
   })
 
   it('asks for an automation target only when a library creation action starts', () => {
@@ -183,6 +265,18 @@ describe('workflow authoring foundations', () => {
     expect(panel).toContain('graph.exits')
   })
 
+  it('keeps a new subgraph editable while explaining when interface refresh is unavailable', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const boundary = readSource('src/app/editor/WorkflowGraphBoundary.vue')
+
+    expect(editor).toContain('canInferGraphInterface')
+    expect(editor).toContain(':disabled="!canInferGraphInterface.valid"')
+    expect(editor).toContain('v-if="session.currentGraph?.kind === \'main\'"')
+    expect(editor).toContain('data-testid="workflow-subgraph-empty-hint"')
+    expect(editor).toContain('pointer-events-none')
+    expect(boundary).toContain('min-w-0 truncate')
+  })
+
   it('restores source-native node search and canvas focus', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
@@ -203,6 +297,30 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('useSnippet(snippet.id, canvasInsertionPosition())')
     expect(quickAdd).toContain('workflow-quick-add-search')
     expect(quickAdd).toContain('@keydown.down.prevent="move(1)"')
+    expect(quickAdd).toContain('<Teleport to="body">')
+    expect(quickAdd).toContain('@mouseenter="previewCategory(entry.value)"')
+    expect(editor).toContain(':anchor="quickAddAnchor"')
     expect(snippetModal).toContain('<HotkeyCaptureInput')
+  })
+
+  it('uses the viewport-native context menu instead of a node-local hidden anchor', () => {
+    const node = readSource('src/app/editor/WorkflowNode.vue')
+    expect(node).toContain('<Teleport to="body">')
+    expect(node).toContain('class="pointer-events-none fixed size-px opacity-0"')
+    expect(node).toContain('x: event.clientX, y: event.clientY')
+    expect(node).not.toContain('clientX - bounds.left')
+  })
+
+  it('keeps region fields readable and makes state initial values editable', () => {
+    const region = readSource('src/app/editor/RegionValueEditor.vue')
+    const state = readSource('src/app/editor/WorkflowStatePanel.vue')
+    const valueEditor = readSource('src/app/editor/WorkflowValueEditor.vue')
+
+    expect(region).toContain('grid-cols-2')
+    expect(region).not.toContain('grid-cols-4')
+    expect(valueEditor).toContain(":size=\"compact ? 'xs' : 'sm'\"")
+    expect(state).toContain('<StateDefaultValueEditor')
+    expect(state).toContain('newVariableDefault')
+    expect(state).toContain('updateVariableDefault(variable, $event)')
   })
 })

@@ -12,8 +12,8 @@
     </header>
 
     <div v-if="boundary.role === 'entry'" class="space-y-1.5 px-3 py-2 text-[11px]">
-      <div class="relative flex h-5 items-center justify-end gap-2">
-        <span class="text-toned">in</span>
+      <div class="relative flex h-5 min-w-0 items-center justify-end gap-2 pr-3">
+        <span class="min-w-0 truncate text-toned">in</span>
         <Handle
           :id="graphHandle('exec', 'output', 'in')"
           type="source"
@@ -24,9 +24,9 @@
       <div
         v-for="port in boundary.inputs"
         :key="port.id"
-        class="relative flex h-5 items-center justify-end"
+        class="relative flex h-5 min-w-0 items-center justify-end pr-3"
       >
-        <span class="max-w-36 truncate text-toned">{{ port.id }}</span>
+        <span class="min-w-0 max-w-36 truncate text-toned">{{ port.id }}</span>
         <Handle
           :id="graphHandle('data', 'output', port.id)"
           type="source"
