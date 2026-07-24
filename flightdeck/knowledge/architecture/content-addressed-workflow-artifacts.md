@@ -1,6 +1,6 @@
 # Content-addressed Workflow artifacts
 
-Yotta 3.1 是产品 release，也是当前 durable contract generation，但这不构成 Go/TypeScript 代码 namespace。代码 package、目录、文件、类型与 service 使用稳定职责名；不得从产品 SemVer 派生 `nodes31`、`workflow31` 或下一代同类名称。产品版本只由 release metadata 管理，serialized artifact generation 使用显式 `format` / `version`，单个 Node 的版本属于 Node contract identity 的显式属性。
+产品 release 与 durable contract generation 是独立版本域，但这不构成 Go/TypeScript 代码 namespace。代码 package、目录、文件、类型与 service 使用稳定职责名；不得从产品 SemVer 派生 `nodes31`、`workflow31` 或下一代同类名称。产品版本只由根 `VERSION` 和构建投影管理，serialized artifact generation 使用显式 `format` / `version`，单个 Node 的版本属于 Node contract identity 的显式属性。
 
 摘要算法域也不跟产品 SemVer 机械同步；只有 canonical preimage 或算法改变才升级 `/vN` domain。改变 durable DTO 时必须换 format/domain 并拒绝旧 artifact，不能在同一 domain 下改变摘要含义，也不能长期运行双 runtime。URI/path 中的版本段只能表达被定义的 durable identity 或 hash domain，不能反向决定内部代码包名。
 
@@ -25,4 +25,4 @@ ValueEnvelope 是 Program/host 的值边界。Program literal 保存 `literal`/`
 
 Blob 内容身份使用原始字节的 SHA-256，不使用 JSON artifact 的 domain-separated `artifact.Sum`；Blob Reference 另含 canonical media type 与 exact size。Blob/inline envelope 可持久化，Stream/Resource envelope 是 Run-only authority，禁止进入 Program、durable trace、日志、clipboard 或 cache。Resource token 必须由 Broker 以 256-bit randomness 签发并绑定 Run/invocation/operation/expiry；内容 hash 不能充当 authority。
 
-新 Compiler 不得 import legacy Container runtime/store/execution queue。旧 `ContainerRunner` 已物理删除；任何 interpreter、migration helper 或历史知识都不得把它回接为 fallback。3.0 行为只可在固定 Git worktree 中作为产品 oracle，不成为 3.1 可执行依赖。
+新 Compiler 不得 import legacy Container runtime/store/execution queue。旧 `ContainerRunner` 已物理删除；任何 interpreter、migration helper 或历史知识都不得把它回接为 fallback。旧产品行为只可在固定 Git worktree 中作为 oracle，不成为当前可执行依赖。

@@ -1,6 +1,6 @@
 # Workflow files are target-bound, not ambient paths
 
-Node Contract 3.1 file nodes bind capability `https://schemas.yotta.dev/capabilities/filesystem/workspace/v1` to target slot `workspace-files` and scope `{"root":"workflow-files"}`. The production Host Profile pins that slot to the built-in `yotta.workspace-files` provider, its exact artifact digest, ABI, resource kind and Yotta-managed `workspace/files` root. Policy must reject any changed provider, target, kind, credential or artifact. Each node requests only its exact operation subset; declaring the capability does not grant every file operation.
+File Node Contracts bind capability `https://schemas.yotta.dev/capabilities/filesystem/workspace/v1` to target slot `workspace-files` and scope `{"root":"workflow-files"}`. The production Host Profile pins that slot to the built-in `yotta.workspace-files` provider, its exact artifact digest, ABI, resource kind and Yotta-managed `workspace/files` root. Policy must reject any changed provider, target, kind, credential or artifact. Each node requests only its exact operation subset; declaring the capability does not grant every file operation.
 
 Production resolves the canonical data workspace as `<dataRoot>/workspace` before constructing providers. If only the legacy sibling `workspace-3.1` exists, bootstrap performs one same-parent atomic rename; if both roots exist, startup fails instead of merging or guessing. After migration every runtime and provider uses only the stable root.
 

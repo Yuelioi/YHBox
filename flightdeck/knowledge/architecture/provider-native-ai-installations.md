@@ -1,6 +1,6 @@
 # Provider-native AI installation contract
 
-Yotta 3.1 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact endpoint/model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：
+Yotta 不把 AI 当成可随调用拼接的 endpoint。设置只声明模型安装档案：稳定 slot、供应商原生协议、exact endpoint/model、输出预算、已验证能力、固定 token pricing 和评估状态。档案被 canonical seal 后，通过 installation generation 发布以下锁定关系：
 
 - 相同 Model Profile 可共享一个 native provider 实例，但每个 slot 必须有独立 target 与 credential binding。
 - OpenAI adapter 只走 Responses API，Anthropic adapter 只走 Messages API。不得通过 Chat、prompt JSON、模型列表或 endpoint 猜测做兼容回退。

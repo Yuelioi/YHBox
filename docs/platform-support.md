@@ -8,4 +8,4 @@
 | Android ADB target | Release candidate, not yet release-validated | Contract/service tests; emulator/device journey pending | Android is an automation target, not a host OS |
 | Browser CDP target | Product-integrated preview | Package/integration tests; Chrome/Edge host smoke pending | Installation and UI exist, release support is not yet proven |
 
-“CI 可编译”、adapter 注册或页面入口不等于完整产品支持。提升平台等级需要安装、权限、创作绑定、输入/截图能力、生命周期和真实设备/浏览器黄金旅程全部闭合。当前 3.1 架构恢复期间，历史 roadmap 的 completed 状态不能单独提升本表等级。
+“CI 可编译”、adapter 注册或页面入口不等于完整产品支持。提升平台等级需要安装、权限、创作绑定、输入/截图能力、生命周期和真实设备/浏览器黄金旅程全部闭合。当前架构恢复期间，历史 roadmap 的 completed 状态不能单独提升本表等级。

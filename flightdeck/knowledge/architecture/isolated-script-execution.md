@@ -1,6 +1,6 @@
 # Script execution is an isolated typed effect
 
-Production code must never evaluate user scripts inside the Wails process. Each attempt launches one worker using protocol `yotta.script.worker/3.1`: a single big-endian length-delimited RFC 8785 frame in each direction and exact typed JSON input/output. Frames reject unknown fields, non-canonical JSON, trailing bytes and budget overruns.
+Production code must never evaluate user scripts inside the Wails process. Each attempt launches one worker using the `internal/scriptengine` current protocol (`yotta.script.worker/1` at the time of writing): a single big-endian length-delimited RFC 8785 frame in each direction and exact typed JSON input/output. Frames reject unknown fields, non-canonical JSON, trailing bytes and budget overruns.
 
 The guest receives only `input`. It has no registry, node enumeration, variables, filesystem, network, process, window, secret, or arbitrary Go object bridge. `Math.random()` uses the request's 32-byte deterministic seed. Time is limited to a frozen `Date.now()` virtual clock; the host-dependent Date constructor is unavailable. Source, input, output, JSON depth/node count, call stack and wall time are bounded.
 

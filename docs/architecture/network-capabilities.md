@@ -1,6 +1,6 @@
 # Installed network capabilities
 
-Workflow 3.1 does not expose an ambient HTTP client. `internal/httpegress` seals each permitted origin into an immutable installation profile containing the exact scheme, host, optional port, private-network policy, response byte limit, and wall-clock timeout. A Node Contract selects only a logical installation slot; workflow data can contribute a relative path and a bounded query object, never a scheme, authority, proxy, redirect policy, credential, cookie, or request header.
+Yotta does not expose an ambient HTTP client. `internal/httpegress` seals each permitted origin into an immutable installation profile containing the exact scheme, host, optional port, private-network policy, response byte limit, and wall-clock timeout. A Node Contract selects only a logical installation slot; workflow data can contribute a relative path and a bounded query object, never a scheme, authority, proxy, redirect policy, credential, cookie, or request header.
 
 The startup composition freezes installations into the Host Profile, provider inventory, target-slot bindings, and built-in Policy. `HTTP GET` declares one sensitive `ConsentOnce` capability and cannot receive a Run Grant until the exact slot/profile consent digest is present. Any semantic profile edit revokes the persisted consent. Because Host Profile and providers are startup snapshots, installing, editing, granting, or revoking an origin takes effect after restart; there is no live fallback provider.
 

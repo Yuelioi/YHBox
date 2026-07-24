@@ -1,4 +1,4 @@
-# Isolated Script 3.1
+# Isolated Script
 
 当前 Script 节点不是旧 goja 控制台，也不是“节点即函数”。Contract 只有：
 

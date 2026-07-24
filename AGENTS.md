@@ -11,7 +11,7 @@
 ## 架构导航
 
 - `main.go`：只保留进程入口与嵌入资源；桌面 composition 位于 `internal/desktopapp/`，生命周期实现位于 `internal/appruntime/`。
-- `internal/nodecontract/` 与 `internal/datatype/`：3.1 节点/数据契约；`internal/workflow/compiler/` 与 `internal/noderuntime/`：唯一工作流执行路径。
+- `internal/nodecontract/` 与 `internal/datatype/`：节点/数据契约；`internal/workflow/compiler/` 与 `internal/noderuntime/`：唯一工作流执行路径。
 - `internal/automation/`：平台中立 target/controller contract；平台能力通过 adapter 接入。
 - `internal/services/`：应用服务；`pkg/`：可复用 adapter/helper；`cmd/`：仓库工具。
 - `frontend/src/`：UI 与编辑器；`docs/architecture/README.md` 是架构文档入口。

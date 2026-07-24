@@ -1,6 +1,6 @@
 # Container lock-last commit 与恢复语义
 
-> 历史知识：3.1 已物理删除 Container Store/runtime，不得把本文协议恢复成现行持久化或兼容层。当前 Workflow/Program/Run/Blob/NodePackage 持久化见 `docs/architecture/storage.md`。
+> 历史知识：当前已物理删除 Container Store/runtime，不得把本文协议恢复成现行持久化或兼容层。当前 Workflow/Program/Run/Blob/NodePackage 持久化见 `docs/architecture/storage.md`。
 ## 权威提交协议
 
 - `Store.Save` 先 deep clone caller，再 validate；持 store writer lock 固定写 `package.json` → `graph.json` → `installation.json` → `yotta-lock.json`。

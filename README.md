@@ -12,7 +12,7 @@ Yotta 是一个可视化自动化工作流平台。它用类型化节点图编�
 - 可视化节点图、子图、变量、表达式与 JavaScript 节点
 - Win32 后台截图和输入、Android ADB target、内部 Browser CDP adapter
 - 模板匹配、颜色检测、图像与文件/JSON/HTTP 节点
-- Workflow 3.1 revision、崩溃一致保存、调度、日志与 typed MCP authoring protocol（默认不启动 transport）
+- 版本化 Workflow revision、崩溃一致保存、调度、日志与 typed MCP authoring protocol（默认不启动 transport）
 - 内置钓鱼、弹琴、音游、战斗等《异环》工作流
 
 ## 从源码开始

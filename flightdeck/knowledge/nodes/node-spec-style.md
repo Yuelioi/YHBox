@@ -1,8 +1,8 @@
-# 3.1 Node Contract style
+# Node Contract style
 
 ## 身份
 
-- `nodeTypeId` 使用稳定 lowercase URI，如 `https://schemas.yotta.dev/nodes/automation/press-keys`；不含 `3.1`、`v31` 或实现包名。
+- `nodeTypeId` 使用稳定 lowercase URI，如 `https://schemas.yotta.dev/nodes/automation/press-keys`；不含产品发布号、其压缩写法或实现包名。
 - `version` 是独立 SemVer；破坏 machine semantics 时升级，展示文案变化不改 semantic digest。
 - TypeRef/CapabilityRef/validator/effect ID 使用各自版本化 URI 与精确 semantic digest。
 

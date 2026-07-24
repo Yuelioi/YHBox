@@ -10,4 +10,4 @@ Win32、Android 与 Browser 通过同一 adapter registry 安装。每个 Adapte
 
 设置提交通过 generation runtime 原子发布；正在运行的 Run 持有旧 generation lease，新 Run 只见新代，空闲旧代回收。正常安装、修改和授权不要求重启应用。
 
-Windows 是完整 host。Android adapter 可在受支持 host 上运行，但 3.1 发布支持仍取决于 ADB emulator/device 黄金旅程。Browser CDP 已有产品接入代码，发布等级同样取决于 installation、权限、生命周期和真实 Chrome/Edge smoke，而不是 controller/package tests。
+Windows 是完整 host。Android adapter 可在受支持 host 上运行，但 当前发布支持仍取决于 ADB emulator/device 黄金旅程。Browser CDP 已有产品接入代码，发布等级同样取决于 installation、权限、生命周期和真实 Chrome/Edge smoke，而不是 controller/package tests。

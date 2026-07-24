@@ -1,40 +1,43 @@
-# Version bump checklist
-版本号唯一来源是 `pkg/version/version.go` 的 `version.Version`。Go 运行时窗口标题、托盘和 `AppInfoService` 都必须读这个常量；前端通过 `backend.appInfo.info()` 获取版本，不能硬编码。
+# Product version maintenance
 
-发布 bump 用：
+产品版本的唯一可编辑来源是仓库根目录 `VERSION`。它使用 numeric SemVer `MAJOR.MINOR.PATCH`；持久化合同、
+Host Interface、wire protocol、store layout 和 private frontend package 不跟随产品 bump。
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 3.1.1
-```
-
-或：
+查看当前产品版本和独立版本域：
 
 ```powershell
-task version:bump VERSION=3.1.1
+task version:show
+task versions:inventory
 ```
 
-脚本要求工作区干净，然后更新：
-
-- `pkg/version/version.go`
-- `build/config.yml`
-- `build/windows/info.json`
-- `build/windows/nsis/wails_tools.nsh`
-- `build/windows/wails.exe.manifest`
-- `build/windows/wails.dev.manifest`
-- `frontend/package.json`
-
-随后脚本会提交 `chore(release): bump version to vX.Y.Z`，再创建 `vX.Y.Z` tag。不要手动只改其中一处，也不要在未提交版本文件前打 tag；tag 必须指向版本 bump commit。
-
-CI 与 release 的只读一致性检查使用：
+提升 patch、minor、major，或指定精确版本：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-version.ps1
+task version:bump BUMP=patch
+task version:bump BUMP=minor
+task version:bump BUMP=major
+task version:bump BUMP=3.2.0
 ```
 
-release 额外传 `-ExpectedVersion <tag 去掉 v>`，tag 与任一版本元数据不一致就失败。`verify-version.ps1` 只验证、不写文件；真正 bump 仍只走 `bump-version.ps1`。
-
-检查脚本行为但不写文件：
+升级命令只修改 `VERSION`，并同步 Wails、Windows VERSIONINFO、manifest 和 NSIS 的静态投影。它不提交、
+不打 tag，也不要求工作区事先干净；调用者应自行审阅并按发布流程提交。只预览时使用：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bump-version.ps1 -Version 3.1.1 -DryRun
+go run ./cmd/yotta-versions bump --dry-run patch
 ```
+
+手动编辑 `VERSION` 后可运行：
+
+```powershell
+task version:sync
+task versions:check
+```
+
+`versions:check` 是只读门禁：校验 SemVer、Windows 数值范围、所有产品投影，以及当前源码中已退役的统一合同
+版本字面量。运行时版本通过 Go linker `-X` 注入；未经过正式构建入口的本地 `go run` 显示 `dev`。
+
+`task build` 完成后会自动运行 `task versions:check:binary`，验证 EXE 的 fixed/string 版本资源和
+`WINDOWS_GUI` subsystem；这同时防止产品版本遗漏和双击时出现控制台黑框。
+
+release 验证可继续调用 `scripts/verify-version.ps1 -ExpectedVersion <tag 去掉 v>`。tag 和 commit 由发布流程显式
+创建，版本工具不会隐式改写 Git 历史。

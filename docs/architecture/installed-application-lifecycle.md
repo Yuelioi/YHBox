@@ -1,6 +1,6 @@
 # Installed application lifecycle
 
-Workflow 3.1 does not expose a generic command, executable path, argument string, working directory, environment, PID, URL, or document opener. Desktop application automation uses capability `https://schemas.yotta.dev/capabilities/application/lifecycle/v1` and binds one logical slot to a user-authorized installed profile.
+Yotta does not expose a generic command, executable path, argument string, working directory, environment, PID, URL, or document opener. Desktop application automation uses capability `https://schemas.yotta.dev/capabilities/application/lifecycle/v1` and binds one logical slot to a user-authorized installed profile.
 
 The trusted profile contains an absolute `.exe` path and a fixed list of argv elements. Shells, PowerShell, script hosts, batch files, file associations, `PATH` lookup, raw command lines, and workflow-supplied arguments are rejected. Yotta's own host executable is also rejected, so a workflow cannot launch or terminate another Yotta instance through this authority. SHA-256 is an inspection observation, not the durable application identity: a normal software update at the authorized path does not revoke the profile or workflow consent. Installation does not touch the external file, so one missing application cannot prevent Yotta from starting; every invocation still requires the path to resolve to a bounded regular `.exe`.
 

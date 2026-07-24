@@ -1,4 +1,4 @@
-# 3.1 节点错误模型
+# 节点错误模型
 
 Node Contract 显式声明允许的 `ErrorSpec{code, category, retryHint}` 和 error output。Adapter 对可路由业务/外部失败返回 `compiler.NodeFailure{Code, Output, Cause}`；Code 与 Output 必须同时匹配 Contract。
 

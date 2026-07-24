@@ -2,7 +2,7 @@
 
 Settings 使用 immutable snapshot：更新流程是 clone、mutate/merge、validate、atomic swap、atomic save。同目录临时文件写入并 sync，rename 后同步父目录；失败保留旧文件。
 
-Workflow Source、Program 与 Run 是分离的 durable artifact。各 Store 只接受 3.1 contract，以 canonical bytes、内容摘要和 revision/generation CAS 约束更新；写入采用同目录临时文件、sync、原子替换和父目录 sync。内存状态只在 durable publish 后更新；rename 已提交但目录 durability 未确认时返回显式 committed-warning，不生成第二个 identity 或伪装失败。
+Workflow Source、Program 与 Run 是分离且独立版本化的 durable artifact。各 Store 只接受当前所属 contract，以 canonical bytes、内容摘要和 revision/generation CAS 约束更新；写入采用同目录临时文件、sync、原子替换和父目录 sync。内存状态只在 durable publish 后更新；rename 已提交但目录 durability 未确认时返回显式 committed-warning，不生成第二个 identity 或伪装失败。
 
 Blob Store 独占 immutable content-addressed bytes，发布前验证 digest/size/quota，引用与租约决定 GC 可达性。Stream 和 Resource lease 只属于 Run 生命周期，不能进入 Workflow Source、Program 或 durable Run value。Run Store 持久化 QUEUED/RUNNING/terminal 状态、NodeAttempt 与 AdapterAction；重启只把遗留 RUNNING 转为 INTERRUPTED，不透明重放副作用。
 

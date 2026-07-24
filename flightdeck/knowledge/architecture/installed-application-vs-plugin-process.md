@@ -1,6 +1,6 @@
 # 已安装桌面应用不能复用插件进程宿主，插件进程也不能复用桌面启动器
 
-桌面自动化需要与用户会话中的受信 GUI 应用交互。Yotta 3.1 为此安装 immutable application profile：绝对 .exe 路径、可执行文件 SHA-256 和固定 argv。安装、授权与每次调用都重新验证文件 identity；workflow 只能选择逻辑 slot 和 launch/terminate operation，不能提供路径、参数、环境、工作目录、PID、进程名、通配符、URL 或文档。Shell/script host 与 Yotta 自身 executable 被拒绝。
+桌面自动化需要与用户会话中的受信 GUI 应用交互。Yotta 为此安装 immutable application profile：绝对 .exe 路径、可执行文件 SHA-256 和固定 argv。安装、授权与每次调用都重新验证文件 identity；workflow 只能选择逻辑 slot 和 launch/terminate operation，不能提供路径、参数、环境、工作目录、PID、进程名、通配符、URL 或文档。Shell/script host 与 Yotta 自身 executable 被拒绝。
 
 Launch 在当前桌面用户 authority 下直接调用精确 executable，不经 shell、文件关联或 PATH，并使用固定环境 allowlist；PID 只在 provider 内部存在，不进入节点输出或 journal。Terminate 枚举进程并比较 OS file identity，只终止与 sealed executable 相同的实例，公开结果只有 terminated count。该 capability 是 dangerous + ConsentOnce，profile 语义变化会使旧 consent 失效。
 

@@ -1,4 +1,4 @@
-# 3.1 节点系统架构
+# 节点系统架构
 
 现行链路只有一条：
 
@@ -39,7 +39,7 @@ Adapter 不拥有调度。它必须匹配 Catalog implementation lock，返回�
 
 ## 版本与身份
 
-`nodeTypeId` 是不含产品发布号的稳定 URI；节点版本是独立 SemVer，语义摘要与 type ID/version 共同构成精确 NodeRef。`3.1` 只表示 artifact format generation，不进入 package、目录或类型名。
+`nodeTypeId` 是不含产品发布号的稳定 URI；节点版本是独立 SemVer，语义摘要与 type ID/version 共同构成精确 NodeRef。artifact 合同版本由所属 module 独立维护，不进入 package、目录或类型名。
 
 ## 正确性边界
 

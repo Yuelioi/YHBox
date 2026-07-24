@@ -5,8 +5,32 @@ Yotta 将可编辑的自动化意图编译成不可变程序，再把程序绑�
 ## Language
 
 **Workflow Source**:
-用户或 AI 可编辑的 3.1 自动化文档，带文档身份与 revision，但本身不可执行；它属于 Yotta 3.1 产品发布线。
+用户或 AI 可编辑的版本化自动化文档，带文档身份与 revision，但本身不可执行；其合同版本独立于 Yotta 产品发布版本。
 _Avoid_: Container, blueprint, flow
+
+**Product Release Version**:
+标识一次 Yotta 应用发布的 SemVer；它用于构建、安装包和展示，不表达 artifact、接口、协议或存储兼容性。
+_Avoid_: Contract version, protocol generation
+
+**Artifact Contract Version**:
+某一种持久化 artifact 的独立格式代际；它与 `format` 共同选择严格 reader 和显式 migration chain。
+_Avoid_: Product version, revision
+
+**Host Interface Version**:
+宿主与可执行扩展进行兼容判断的接口代际；支持范围由宿主接口 owner 定义，不跟随产品发版自动提升。
+_Avoid_: Product version, plugin package version
+
+**Wire Protocol Version**:
+两个进程或传输端点解释消息时使用的协议代际；每种协议由自己的 module 拥有。
+_Avoid_: Product version, transport name
+
+**Storage Layout Version**:
+某个本地 store 的目录、marker 与提交语义代际；不同 store 分别演进。
+_Avoid_: Artifact contract version, product version
+
+**Revision**:
+同一实体内容变化的顺序计数；它不选择 parser，也不表示兼容范围。
+_Avoid_: Version
 
 **Workflow Release**:
 发布者签名的不可变工作流制品，精确绑定 Workflow Source、Workflow Resource、Target Profile Definition 与 Node Package 依赖。

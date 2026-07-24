@@ -1,4 +1,4 @@
-# 3.1 validation layers
+# Node validation layers
 
 - **Parse/schema**：严格格式、unknown field、budget、config schema 和稳定引用。
 - **Compiler**：exact NodeRef、端口/channel、类型、state、GraphCall、instruction、capability plan 和 implementation lock。
