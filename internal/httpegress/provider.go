@@ -19,6 +19,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/resource"
+	"github.com/yottaapp/yotta/pkg/version"
 )
 
 const (
@@ -134,7 +135,7 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 		return nil, failure(CodeInvalidRequest, err)
 	}
 	httpRequest.Header.Set("Accept", "text/plain, application/json;q=0.9, */*;q=0.1")
-	httpRequest.Header.Set("User-Agent", "Yotta-Workflow/3.1")
+	httpRequest.Header.Set("User-Agent", "Yotta/"+version.Version)
 	response, err := p.client.Do(httpRequest)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

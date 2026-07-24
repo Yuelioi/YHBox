@@ -13,7 +13,7 @@ const CHECK_ORDER = [
   'contracts:check',
   'plugins:check',
   'check:ai-eval',
-  'version:verify',
+  'versions:check',
   'wails:verify',
   'check:bindings',
   'check:go:changed',
@@ -56,7 +56,7 @@ export function planChecks(paths) {
       add('plugins:check')
     }
     if (matches(path, /^(internal\/(ai|aiauthoring)\/|cmd\/ai-eval\/|contracts\/ai\/)/)) add('check:ai-eval')
-    if (matches(path, /^(VERSION|frontend\/package\.json|pkg\/version\/|scripts\/verify-version\.ps1)/)) add('version:verify')
+    if (matches(path, /^(VERSION|frontend\/package\.json|pkg\/version\/|cmd\/yotta-versions\/|scripts\/(bump|verify)-version\.ps1|build\/(config\.yml|windows\/(info\.json|wails\.(dev\.)?manifest|nsis\/wails_tools\.nsh)))/)) add('versions:check')
     if (matches(path, /^(wails\.json|build\/.*wails|scripts\/verify-wails-version\.ps1)/)) add('wails:verify')
     if (matches(path, /^(main\.go|internal\/services\/.*\.go$|contracts\/wails-rpc\.json$)/)) add('check:bindings')
 

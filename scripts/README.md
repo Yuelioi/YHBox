@@ -18,9 +18,11 @@ Taskfile 复制一套并行命令；`task check` 是增量本地门禁，`task c
 | `check-go-coverage.ps1` | `task check:go:full` | 只读；合并 Go coverage profile 并按 `go-coverage-budgets.json` 执行门槛。 |
 | `go-coverage-budgets.json` | `task check:go:full` | `check-go-coverage.ps1` 的版本化预算数据，不是可执行脚本。 |
 | `test-script-worker.ps1` | `task check:go:full` | 在 `.task/` 构建临时 ScriptWorker，并运行隔离 worker smoke。 |
-| `verify-version.ps1` | `task version:verify` | 只读；校验 Go、前端、Wails/Windows 资源中的产品版本一致。 |
+| `verify-version.ps1` | `task versions:check` | 兼容包装；只读校验根 `VERSION` 与 Wails/Windows 目标格式投影。 |
+| `verify-windows-binary-version.ps1` | `task versions:check:binary` | 只读校验已构建 EXE 的固定/字符串版本资源和 `WINDOWS_GUI` subsystem。 |
+| `smoke-windows-desktop-startup.ps1` | `task smoke:desktop` | 把已构建 GUI 与 worker 复制到隔离目录，验证启动后不会立即退出。 |
 | `verify-wails-version.ps1` | `task wails:verify` | 只读；校验 Wails Go/CLI/runtime pin 与已安装 CLI。 |
-| `bump-version.ps1` | `task version:bump VERSION=<x.y.z>` | **会修改并提交**版本文件，然后创建 Git tag；要求干净工作区。`-DryRun` 只报告。 |
+| `bump-version.ps1` | `task version:bump BUMP=<patch|minor|major|x.y.z>` | 修改根 `VERSION` 并刷新投影；不 commit、不 tag。`-DryRun` 只报告。 |
 | `stage-release.ps1` | `task release:stage` | **会重建** `artifacts/staging/Yotta` 并生成确定性 ZIP 与 artifact manifest。 |
 | `smoke-release-candidate.ps1` | `task release:smoke` | 将冻结 payload 复制到 `.task/`，运行 worker/plugin/CLI/桌面启动 smoke，并控制测试进程。 |
 | `write-release-checksums.ps1` | `.github/workflows/release.yml` | Release CI 专用；为指定发布产物写 `SHA256SUMS`。 |

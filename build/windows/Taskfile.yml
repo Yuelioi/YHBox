@@ -29,7 +29,7 @@ tasks:
       # -H windowsgui 隐藏启动时弹的 cmd 黑窗口（wails3 是 GUI 应用）。
       # dev/EXTRA_TAGS 分支保留但默认走 production —— 本仓 dev workflow 走 `task dev`，
       # 不用过这条 task。如果以后需要纯 dev native build，传 DEV=true 进来。
-      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="-X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}"{{end}}'
     deps:
       - task: common:build:frontend
         vars:
@@ -83,9 +83,9 @@ tasks:
       GOFLAGS: -mod=readonly
 
   build:cli:
-    summary: Builds the headless Workflow 3.1 command client
+    summary: Builds the headless Workflow command client
     cmds:
-      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" ./cmd/yotta
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" ./cmd/yotta
     env:
       GOOS: windows
       CGO_ENABLED: '0'

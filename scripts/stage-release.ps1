@@ -25,10 +25,10 @@ if ($outputRoot -ne $artifactsRoot -and -not $outputRoot.StartsWith($artifactsPr
     throw "release output must stay under $artifactsRoot"
 }
 
-$versionSource = [System.IO.File]::ReadAllText((Join-Path $root "pkg/version/version.go"))
-$versionMatch = [regex]::Match($versionSource, 'const Version = "([^"]+)"')
-if (-not $versionMatch.Success) { throw "unable to read application version" }
-$version = $versionMatch.Groups[1].Value
+$version = [System.IO.File]::ReadAllText((Join-Path $root "VERSION")).Trim()
+if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+    throw "VERSION is not numeric SemVer: ${version}"
+}
 
 $stageRoot = Join-Path $outputRoot "staging/Yotta"
 if (Test-Path -LiteralPath $stageRoot) {

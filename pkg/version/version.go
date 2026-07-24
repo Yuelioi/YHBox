@@ -1,5 +1,5 @@
-// Package version exposes Yotta's authoritative application version.
-// Release metadata must be updated through scripts/bump-version.ps1 so every consumer stays aligned.
+// Package version exposes the Yotta product release version injected by the
+// official build tasks from the repository VERSION file.
 package version
 
-const Version = "3.1.0"
+var Version = "dev"

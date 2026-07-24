@@ -8,6 +8,8 @@ vars:
   APP_NAME: "Yotta"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  PRODUCT_VERSION:
+    sh: go run ./cmd/yotta-versions show
 
 tasks:
   check:
@@ -22,7 +24,7 @@ tasks:
       - task: contracts:check
       - task: plugins:check
       - task: check:ai-eval
-      - task: version:verify
+      - task: versions:check
       - task: wails:verify
       - task: check:go:full
       - task: check:frontend:full
@@ -129,7 +131,7 @@ tasks:
       - pnpm -C frontend check
 
   contracts:check:
-    summary: Regenerates Workflow 3.1 and Node Contract 3.1 artifacts in memory and rejects drift
+    summary: Regenerates current Workflow and Node Contract artifacts in memory and rejects drift
     deps: [common:install:frontend:deps]
     cmds:
       - node ./scripts/generate-workflow-contracts.mjs
@@ -138,7 +140,7 @@ tasks:
       GOFLAGS: -mod=readonly
 
   contracts:update:
-    summary: Updates tracked Workflow 3.1 and Node Contract 3.1 artifacts from Go source types
+    summary: Updates tracked current Workflow and Node Contract artifacts from Go source types
     deps: [common:install:frontend:deps]
     cmds:
       - node ./scripts/generate-workflow-contracts.mjs --write
@@ -174,9 +176,11 @@ tasks:
 
   build:
     summary: Builds the application
-    deps: [wails:verify]
+    deps: [versions:check, wails:verify]
     cmds:
       - task: "windows:build"
+      - task: versions:check:binary
+      - task: smoke:desktop
 
   package:
     summary: Builds a frozen, auditable portable release candidate
@@ -219,7 +223,7 @@ tasks:
 
   dev:
     summary: Runs the application in development mode
-    deps: [wails:verify]
+    deps: [versions:check, wails:verify]
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
     env:
@@ -255,24 +259,54 @@ tasks:
       - task: "windows:build:capture-dll"
 
   nodes:
-    summary: 从 Node Contract 3.1 Authoring Projection 导出内建节点 Markdown 文档
+    summary: 从当前 Node Contract Authoring Projection 导出内建节点 Markdown 文档
     cmds:
       - go run ./cmd/node-catalog docs
 
   nodes:catalog:
-    summary: 导出当前构建信任的 canonical Node Catalog 3.1 JSON
+    summary: 导出当前构建信任的 canonical Node Catalog JSON
     cmds:
       - go run ./cmd/node-catalog catalog
 
   nodes:authoring:
-    summary: 导出 UI、AI、CLI 与文档共用的 Node Authoring Projection 3.1 JSON
+    summary: 导出 UI、AI、CLI 与文档共用的当前 Node Authoring Projection JSON
     cmds:
       - go run ./cmd/node-catalog authoring
 
-  version:verify:
-    summary: 验证所有版本元数据与 pkg/version.Version 一致
+  version:show:
+    summary: 显示 VERSION 中的产品发布版本
     cmds:
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-version.ps1
+      - go run ./cmd/yotta-versions show
+
+  version:sync:
+    summary: 从 VERSION 刷新 Wails 与 Windows 产品版本投影
+    cmds:
+      - go run ./cmd/yotta-versions sync
+
+  versions:inventory:
+    summary: 显示彼此独立的产品、合同、宿主与协议版本
+    cmds:
+      - go run ./cmd/yotta-versions inventory
+
+  versions:check:
+    summary: 验证 VERSION、产品元数据投影与独立版本域
+    cmds:
+      - go run ./cmd/yotta-versions check
+
+  versions:check:binary:
+    summary: 验证已构建 Windows GUI 的 PE subsystem 与产品版本资源
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-windows-binary-version.ps1 -Path {{.PATH | default "bin/Yotta.exe"}}
+
+  smoke:desktop:
+    summary: 在隔离数据目录启动已构建 Windows GUI 并验证进程不会秒退
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-windows-desktop-startup.ps1
+
+  version:verify:
+    summary: 兼容入口；执行 versions:check
+    cmds:
+      - task: versions:check
 
   wails:verify:
     summary: 验证 Wails library、source pin 与 PATH 中 CLI 版本一致
@@ -280,11 +314,12 @@ tasks:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-wails-version.ps1 -CheckInstalled
 
   version:bump:
-    summary: 更新版本文件、提交并创建 vX.Y.Z tag
+    summary: 提升 VERSION 并自动刷新产品版本投影
     desc: |
-      用法: task version:bump VERSION=3.1.1
-      脚本会要求工作区干净，更新所有版本文件，提交 chore(release)，再创建 tag。
+      用法: task version:bump BUMP=patch
+      BUMP 可取 patch、minor、major 或精确 MAJOR.MINOR.PATCH。
+      命令只修改工作区，不 commit、不 tag；release identity 由后续显式发布动作创建。
     cmds:
-      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.VERSION}}
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.BUMP}}
     requires:
-      vars: [VERSION]
+      vars: [BUMP]
