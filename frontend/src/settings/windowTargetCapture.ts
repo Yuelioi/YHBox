@@ -1,7 +1,6 @@
 export interface InstalledApplicationIdentity {
   slot: string
   executable: string
-  executableDigest: string
 }
 
 export interface ExecutableIdentity {
@@ -14,11 +13,8 @@ export function matchingInstalledApplications<T extends InstalledApplicationIden
   captured: ExecutableIdentity,
 ): T[] {
   const executable = normalizeWindowsPath(captured.executable)
-  const digest = captured.digest.toLocaleLowerCase()
   return applications.filter(
-    (application) =>
-      normalizeWindowsPath(application.executable) === executable &&
-      application.executableDigest.toLocaleLowerCase() === digest,
+    (application) => normalizeWindowsPath(application.executable) === executable,
   )
 }
 

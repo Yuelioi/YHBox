@@ -51,9 +51,6 @@ func Install(drafts []InstallationDraft) (Installations, error) {
 		if err != nil {
 			return Installations{}, fmt.Errorf("seal application profile for slot %q: %w", draft.Slot, err)
 		}
-		if err := VerifyProfile(profile); err != nil {
-			return Installations{}, fmt.Errorf("verify application profile for slot %q: %w", draft.Slot, err)
-		}
 		expected, err := WorkflowConsentDigest(draft.Slot, profile)
 		if err != nil {
 			return Installations{}, err

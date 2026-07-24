@@ -205,7 +205,7 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	applicationDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}}
+	applicationDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}}
 	automationProfile := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
 		Application: applicationDraft, WindowTitle: "Editor.*", WindowTitleMatch: "regex", WindowSelection: "topmost",
 		WindowClass: "EditorWindow", InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
@@ -462,7 +462,7 @@ func TestBuiltinPolicyRequiresExactApplicationInstallationConsent(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	profileDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{"--fixed"}}
+	profileDraft := appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{"--fixed"}}
 	withoutConsent, err := appcontrol.Install([]appcontrol.InstallationDraft{{Slot: "tool", Profile: profileDraft}})
 	if err != nil {
 		t.Fatal(err)
@@ -519,7 +519,7 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	profileDraft := automationinstalled.NewDesktopProfileDraft(automationinstalled.DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
+		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
 		WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "EditorWindow",
 		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	})

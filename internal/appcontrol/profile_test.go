@@ -17,7 +17,7 @@ func testProfile(t *testing.T) (Profile, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, err := SealProfile(ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{"--fixed", "value with spaces"}})
+	profile, err := SealProfile(ProfileDraft{Executable: inspection.Executable, Arguments: []string{"--fixed", "value with spaces"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,13 +41,11 @@ func TestProfileSealsExactExecutableAndFixedArguments(t *testing.T) {
 }
 
 func TestProfileRejectsAmbientAndScriptEntrypoints(t *testing.T) {
-	profile, _ := testProfile(t)
-	digest := profile.Machine().ExecutableDigest
 	for _, draft := range []ProfileDraft{
-		{Executable: "relative.exe", ExecutableDigest: digest},
-		{Executable: filepath.Join(t.TempDir(), "cmd.exe"), ExecutableDigest: digest},
-		{Executable: filepath.Join(t.TempDir(), "tool.bat"), ExecutableDigest: digest},
-		{Executable: filepath.Join(t.TempDir(), "tool.exe"), ExecutableDigest: digest, Arguments: []string{strings.Repeat("x", MaxArgumentBytes+1)}},
+		{Executable: "relative.exe"},
+		{Executable: filepath.Join(t.TempDir(), "cmd.exe")},
+		{Executable: filepath.Join(t.TempDir(), "tool.bat")},
+		{Executable: filepath.Join(t.TempDir(), "tool.exe"), Arguments: []string{strings.Repeat("x", MaxArgumentBytes+1)}},
 	} {
 		if _, err := SealProfile(draft); err == nil {
 			t.Fatalf("SealProfile(%#v) succeeded", draft)
@@ -55,16 +53,35 @@ func TestProfileRejectsAmbientAndScriptEntrypoints(t *testing.T) {
 	}
 }
 
-func TestVerifyProfileDetectsExecutableDrift(t *testing.T) {
+func TestAuthorizedInstallationSurvivesExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
+	consent, err := WorkflowConsentDigest("tool", profile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := VerifyProfile(profile); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("installed-tool-v2"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyProfile(profile); err == nil || !strings.Contains(err.Error(), "identity changed") {
-		t.Fatalf("VerifyProfile() error = %v", err)
+	if err := VerifyProfile(profile); err != nil {
+		t.Fatalf("normal application update invalidated the authorized profile: %v", err)
+	}
+	installed, err := Install([]InstallationDraft{{Slot: "tool", Profile: profile.Machine(), Consent: consent}})
+	if err != nil || len(installed.Entries()) != 1 || installed.Entries()[0].Consent != consent {
+		t.Fatalf("updated authorized application did not install: %#v, %v", installed, err)
+	}
+}
+
+func TestInstallationDefersMissingExecutableToInvocation(t *testing.T) {
+	profile, path := testProfile(t)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := Install([]InstallationDraft{{Slot: "tool", Profile: profile.Machine()}})
+	if err != nil || len(installed.Entries()) != 1 {
+		t.Fatalf("missing executable prevented application startup composition: %#v, %v", installed, err)
 	}
 }
 

@@ -46,6 +46,7 @@ tasks:
       - task: generate:syso
         vars:
           ARCH: '{{.ARCH}}'
+          DEV: '{{.DEV}}'
       - go build -mod=readonly {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
       - cmd: powershell Remove-item *.syso
         platforms: [windows]
@@ -140,9 +141,13 @@ tasks:
     summary: Generates Windows `.syso` file
     dir: build
     cmds:
-      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
+      # Wails starts the development executable via fork/exec, which cannot
+      # satisfy a requireAdministrator manifest. Release builds keep the
+      # production manifest and its UAC contract.
+      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/{{if eq .DEV "true"}}wails.dev.manifest{{else}}wails.exe.manifest{{end}} -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
+      DEV: '{{.DEV}}'
 
   run:
     cmds:

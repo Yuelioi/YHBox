@@ -3,7 +3,6 @@ package installed
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/appcontrol"
@@ -21,7 +20,7 @@ func testProfile(t *testing.T) (Profile, string) {
 		t.Fatal(err)
 	}
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
+		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
 		WindowTitle: "Editor", WindowTitleMatch: "exact", WindowSelection: "unique", WindowClass: "ExampleWindow",
 		InputBackend: "postmessage", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 250,
 	}))
@@ -175,7 +174,7 @@ func TestProfileRequiresExplicitSupportedWindowSelectionPolicy(t *testing.T) {
 	}
 }
 
-func TestVerifyProfileDetectsExecutableDrift(t *testing.T) {
+func TestVerifyProfileAcceptsAuthorizedExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	if err := VerifyProfile(profile); err != nil {
 		t.Fatal(err)
@@ -183,7 +182,7 @@ func TestVerifyProfileDetectsExecutableDrift(t *testing.T) {
 	if err := os.WriteFile(path, []byte("installed-automation-target-v2"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyProfile(profile); err == nil || !strings.Contains(err.Error(), "identity changed") {
-		t.Fatalf("VerifyProfile() error = %v", err)
+	if err := VerifyProfile(profile); err != nil {
+		t.Fatalf("normal application update invalidated the automation target: %v", err)
 	}
 }

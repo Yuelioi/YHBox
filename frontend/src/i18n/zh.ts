@@ -601,16 +601,16 @@ export default {
     application: {
       launch: {
         title: '启动已安装应用',
-        description: '启动设置中封存的精确可执行文件和固定参数；工作流不能提供路径、参数或命令行。',
+        description: '启动设置中用户授权的可执行文件和固定参数；工作流不能提供路径、参数或命令行。',
       },
       terminate: {
         title: '终止已安装应用',
-        description: '只终止与安装档案中可执行文件身份完全一致的进程，并返回终止数量。',
+        description: '只终止与用户授权安装路径对应的进程，并返回终止数量。',
       },
       config: {
         slot: {
           title: '应用槽位',
-          description: '选择已经安装、摘要验证并显式授权的桌面应用。',
+          description: '选择已经安装并显式授权的桌面应用。',
         },
       },
     },
@@ -618,7 +618,7 @@ export default {
       config: {
         slot: {
           title: '窗口目标槽位',
-          description: '选择已绑定可执行文件摘要、窗口标题与窗口类并获得工作流授权的精确目标。',
+          description: '选择已绑定授权应用路径、窗口标题与窗口类并获得工作流授权的目标。',
         },
       },
       clickPointer: { title: '点击指针', description: '在精确安装窗口内执行一次原子点击。' },
@@ -671,7 +671,7 @@ export default {
       },
       waitWindow: {
         title: '等待窗口出现',
-        description: '在给定时限内按安装目标的可执行文件身份和窗口选择器等待窗口出现。',
+        description: '在给定时限内按授权应用路径和窗口选择器等待窗口出现。',
       },
       waitWindowGone: {
         title: '等待窗口消失',
@@ -1349,7 +1349,7 @@ export default {
     },
     application: {
       invalid_request: '应用控制请求无效',
-      identity_changed: '已安装应用身份已变化',
+      identity_changed: '已安装应用当前不可用',
       launch_failed: '应用启动失败',
       terminate_failed: '应用终止失败',
       unsupported_host: '当前平台不支持应用控制',
@@ -2765,11 +2765,11 @@ export default {
   settingsApplications: {
     security: {
       title: '桌面应用会继承 Yotta 的管理员权限',
-      hint: '此能力不是进程沙箱。只有你明确选择、摘要匹配且信任的 GUI 应用才能安装；工作流只引用槽位，不能提供可执行文件、命令行、环境、工作目录或 PID。',
+      hint: '此能力不是进程沙箱。只有你明确选择并信任的 GUI 应用才能安装；工作流只引用槽位，不能提供可执行文件、命令行、环境、工作目录或 PID。',
     },
     profiles: {
       title: '已安装桌面应用',
-      hint: '每个档案固定一个 .exe 内容摘要和逐项参数。启动不经过 shell，终止只匹配同一文件身份。',
+      hint: '每个档案固定一个 .exe 安装路径和逐项参数；软件在该路径正常更新不会撤销授权。启动不经过 shell。',
       add: '选择并安装应用',
       workflow_allowed: '已允许工作流',
       consent_required: '需要授权',
@@ -2784,13 +2784,13 @@ export default {
       arguments_placeholder: '--project\nD:\\Projects\\fixed.aep',
       delete: '删除应用',
       empty: '尚未安装桌面应用',
-      empty_hint: '先选择一个受信 .exe 并检查摘要。安装不会自动授予工作流启动或终止权限。',
+      empty_hint: '先选择一个受信 .exe。安装不会自动授予工作流启动或终止权限。',
       cancelled: '未选择桌面应用',
       cancelled_hint: '文件选择已取消，没有创建或修改任何安装记录。需要时可再次选择。',
     },
     consent: {
       title: '工作流应用生命周期授权',
-      hint: '授权只匹配当前槽位、可执行文件摘要与固定参数。任何修改都会立即撤销；重新授权后当前进程立即生效。',
+      hint: '授权只匹配当前槽位、安装路径与固定参数。修改路径或参数会立即撤销；同路径的软件正常更新不会撤销。',
       grant: '允许启动与终止',
       revoke: '撤销授权',
     },
@@ -2821,7 +2821,7 @@ export default {
       slot_label: '安装槽位',
       slot_hint: '工作流持久引用该标识，保存后不可修改。',
       application_label: '已安装应用',
-      application_hint: '复用应用页中经过 SHA-256 校验的可执行文件身份；不会复用启动参数。',
+      application_hint: '复用应用页中用户授权的安装路径；不会复用启动参数。',
       backend_label: '固定输入后端',
       backend_hint:
         'SendInput 会置前目标窗口；PostMessage 只向精确窗口消息队列投递。运行时不会自动切换。',
@@ -2859,7 +2859,7 @@ export default {
       empty_hint:
         '安装 Windows、Android 或浏览器目标后自动化节点才能通过准入；安装不会自动授权工作流。',
       no_applications: '请先安装桌面应用',
-      no_applications_hint: '窗口目标必须引用应用页中经过内容摘要校验的 .exe。',
+      no_applications_hint: '窗口目标必须引用应用页中用户明确安装的 .exe。',
       new_label: '{name} 窗口',
       new_blank_label: '新窗口目标',
       duplicate: '复制目标',
@@ -2916,7 +2916,7 @@ export default {
       application_missing: '捕获窗口所属应用尚未安装。请先在“桌面应用”中选择并安装该 .exe。',
       install_title: '安装“{name}”、绑定窗口并允许自动化？',
       install_hint:
-        'Yotta 将校验并固定该可执行文件的 SHA-256 身份，创建窗口目标，并只对这份精确身份授予工作流自动化权限：{path}',
+        'Yotta 将安装并授权该可执行文件路径、创建窗口目标；同路径的软件正常更新不会要求重新授权：{path}',
       install_confirm: '安装、绑定并允许',
       install_cancelled: '已取消安装，捕获结果没有写入。',
       installed_and_completed: '已安装窗口所属应用，为“{name}”绑定精确窗口并立即启用。',

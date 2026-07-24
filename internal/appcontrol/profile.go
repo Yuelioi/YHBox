@@ -1,5 +1,5 @@
-// Package appcontrol provides exact, explicitly installed desktop application
-// lifecycle authority. It is not a generic process runner or plugin host.
+// Package appcontrol provides explicitly installed desktop application lifecycle
+// authority. It is not a generic process runner or plugin host.
 package appcontrol
 
 import (
@@ -31,9 +31,8 @@ var deniedEntrypoints = map[string]struct{}{
 }
 
 type ProfileDraft struct {
-	Executable       string          `json:"executable"`
-	ExecutableDigest artifact.Digest `json:"executableDigest"`
-	Arguments        []string        `json:"arguments"`
+	Executable string   `json:"executable"`
+	Arguments  []string `json:"arguments"`
 }
 
 type ExecutableInspection struct {
@@ -54,9 +53,6 @@ func SealProfile(draft ProfileDraft) (Profile, error) {
 	path, err := normalizeExecutablePath(draft.Executable)
 	if err != nil {
 		return Profile{}, err
-	}
-	if !draft.ExecutableDigest.Valid() {
-		return Profile{}, errors.New("installed application executable digest is invalid")
 	}
 	if len(draft.Arguments) > MaxArguments {
 		return Profile{}, errors.New("installed application argument list exceeds budget")
@@ -166,9 +162,6 @@ func VerifyProfile(profile Profile) error {
 	inspection, err := InspectExecutable(profile.Machine().Executable)
 	if err != nil {
 		return err
-	}
-	if inspection.Digest != profile.Machine().ExecutableDigest {
-		return errors.New("installed application executable identity changed")
 	}
 	hostExecutable, err := os.Executable()
 	if err != nil {

@@ -64,12 +64,25 @@ func TestProviderUsesExactInstalledOperation(t *testing.T) {
 	}
 }
 
-func TestProviderFailsClosedOnIdentityDrift(t *testing.T) {
+func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	platform := &fakePlatform{}
 	provider := &provider{profile: profile, platform: platform}
 	object := openSession(t, provider, OperationLaunch)
-	if err := os.WriteFile(path, []byte("tampered"), 0o700); err != nil {
+	if err := os.WriteFile(path, []byte("installed-tool-v2"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Invoke(context.Background(), object, OperationLaunch, []byte(`{}`)); err != nil || platform.launched != 1 {
+		t.Fatalf("Invoke() error = %v, calls=%d", err, platform.launched)
+	}
+}
+
+func TestProviderFailsClosedWhenExecutableIsUnavailable(t *testing.T) {
+	profile, path := testProfile(t)
+	platform := &fakePlatform{}
+	provider := &provider{profile: profile, platform: platform}
+	object := openSession(t, provider, OperationLaunch)
+	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
 	_, err := provider.Invoke(context.Background(), object, OperationLaunch, []byte(`{}`))

@@ -753,18 +753,17 @@ export default {
       launch: {
         title: 'Launch installed application',
         description:
-          'Launch the exact executable and fixed arguments sealed in Settings. Workflows cannot supply a path, arguments, or command line.',
+          'Launch the user-authorized executable and fixed arguments from Settings. Workflows cannot supply a path, arguments, or command line.',
       },
       terminate: {
         title: 'Terminate installed application',
         description:
-          'Terminate only processes whose executable identity exactly matches the installed profile, and return the count.',
+          'Terminate only processes that belong to the user-authorized installation path, and return the count.',
       },
       config: {
         slot: {
           title: 'Application slot',
-          description:
-            'Select an installed, digest-verified, and explicitly consented desktop application.',
+          description: 'Select an installed and explicitly consented desktop application.',
         },
       },
     },
@@ -773,7 +772,7 @@ export default {
         slot: {
           title: 'Window target slot',
           description:
-            'Select an explicitly consented target pinned to an executable digest, window title, and window class.',
+            'Select an explicitly consented target bound to an authorized application path, window title, and window class.',
         },
       },
       clickPointer: {
@@ -856,7 +855,7 @@ export default {
       waitWindow: {
         title: 'Wait for window',
         description:
-          'Wait up to the supplied timeout for the installed executable identity and window selector to match.',
+          'Wait up to the supplied timeout for the authorized application path and window selector to match.',
       },
       waitWindowGone: {
         title: 'Wait for window to disappear',
@@ -1728,7 +1727,7 @@ export default {
     },
     application: {
       invalid_request: 'The application-control request is invalid',
-      identity_changed: 'The installed application identity changed',
+      identity_changed: 'The installed application is currently unavailable',
       launch_failed: 'The application failed to launch',
       terminate_failed: 'The application failed to terminate',
       unsupported_host: 'Application control is unsupported on this host',
@@ -3191,11 +3190,11 @@ export default {
   settingsApplications: {
     security: {
       title: 'Desktop applications inherit Yotta administrator privileges',
-      hint: 'This capability is not a process sandbox. Install only a GUI application you explicitly selected, trust, and verified by digest. Workflows reference only its slot and cannot supply an executable, command line, environment, working directory, or PID.',
+      hint: 'This capability is not a process sandbox. Install only a GUI application you explicitly selected and trust. Workflows reference only its slot and cannot supply an executable, command line, environment, working directory, or PID.',
     },
     profiles: {
       title: 'Installed desktop applications',
-      hint: 'Each profile pins one .exe content digest and fixed argument list. Launch never uses a shell; terminate matches the same file identity only.',
+      hint: 'Each profile fixes one .exe installation path and argument list. Normal updates at that path retain authorization. Launch never uses a shell.',
       add: 'Select and install application',
       workflow_allowed: 'Workflow allowed',
       consent_required: 'Consent required',
@@ -3212,14 +3211,14 @@ export default {
       delete: 'Delete application',
       empty: 'No desktop applications installed',
       empty_hint:
-        'Select a trusted .exe and verify its digest first. Installation does not automatically grant workflow launch or terminate authority.',
+        'Select a trusted .exe first. Installation does not automatically grant workflow launch or terminate authority.',
       cancelled: 'No desktop application selected',
       cancelled_hint:
         'The file picker was cancelled. No installation was created or changed; you can choose again when ready.',
     },
     consent: {
       title: 'Workflow application lifecycle consent',
-      hint: 'Consent matches this exact slot, executable digest, and fixed arguments. Any edit revokes it immediately; reauthorization applies in the current process.',
+      hint: 'Consent matches this slot, installation path, and fixed arguments. Changing the path or arguments revokes it; a normal update at the same path does not.',
       grant: 'Allow launch and terminate',
       revoke: 'Revoke consent',
     },
@@ -3251,7 +3250,7 @@ export default {
       slot_hint: 'Workflows persist this identifier. It cannot be changed after saving.',
       application_label: 'Installed application',
       application_hint:
-        'Reuses the SHA-256 executable identity from Applications. Launch arguments are not inherited.',
+        'Reuses the user-authorized installation path from Applications. Launch arguments are not inherited.',
       backend_label: 'Fixed input backend',
       backend_hint:
         'SendInput foregrounds the target. PostMessage posts only to the exact window queue. Runtime never switches automatically.',
@@ -3293,7 +3292,7 @@ export default {
         'Install a Windows, Android, or browser target before automation nodes can pass admission. Installation does not grant workflow use automatically.',
       no_applications: 'Install a desktop application first',
       no_applications_hint:
-        'A window target must reference a content-verified .exe from the Applications page.',
+        'A window target must reference a user-installed .exe from the Applications page.',
       new_label: '{name} window',
       new_blank_label: 'New window target',
       duplicate: 'Duplicate target',
@@ -3357,7 +3356,7 @@ export default {
         'The captured window application is not installed. Select and install its .exe under Desktop applications first.',
       install_title: 'Install “{name}”, bind this window, and allow automation?',
       install_hint:
-        'Yotta will verify and pin the executable SHA-256 identity, create the window target, and authorize workflow automation only for this exact identity: {path}',
+        'Yotta will install and authorize this executable path and create the window target. Normal updates at the same path will not require reauthorization: {path}',
       install_confirm: 'Install, bind, and allow',
       install_cancelled: 'Installation cancelled. The captured identity was not saved.',
       installed_and_completed:

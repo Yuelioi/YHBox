@@ -19,7 +19,7 @@ const (
 	TargetKind         = "installed-application"
 	OperationLaunch    = "launch"
 	OperationTerminate = "terminate"
-	providerImpl       = "exact-installed-application-lifecycle/v1"
+	providerImpl       = "installed-application-lifecycle/v2"
 
 	CodeInvalidRequest    = "application.invalid_request"
 	CodeIdentityChanged   = "application.identity_changed"
@@ -76,8 +76,8 @@ type session struct {
 }
 
 func NewProvider(profile Profile) (resource.Provider, error) {
-	if err := VerifyProfile(profile); err != nil {
-		return nil, err
+	if !profile.Valid() {
+		return nil, errors.New("application provider requires a profile")
 	}
 	return &provider{profile: profile, platform: newPlatformController()}, nil
 }

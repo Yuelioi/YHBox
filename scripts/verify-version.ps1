@@ -39,6 +39,7 @@ $versions = [ordered]@{
     "build/windows/nsis/wails_tools.nsh"     = Get-RegexVersion "build/windows/nsis/wails_tools.nsh" '!define INFO_PRODUCTVERSION "([^"]+)"'
     "frontend/package.json"                  = [string]$frontend.version
     "build/windows/wails.exe.manifest"       = Get-RegexVersion "build/windows/wails.exe.manifest" 'name="com\.yottaapp\.yotta" version="([^"]+)"'
+    "build/windows/wails.dev.manifest"       = Get-RegexVersion "build/windows/wails.dev.manifest" 'name="com\.yottaapp\.yotta" version="([^"]+)"'
 }
 
 $mismatches = @()

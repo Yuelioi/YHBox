@@ -35,8 +35,8 @@ func TestWindowsControllerLaunchesWithoutAmbientEnvironmentAndTerminatesExactExe
 		t.Fatal(err)
 	}
 	profile, err := SealProfile(ProfileDraft{
-		Executable: inspection.Executable, ExecutableDigest: inspection.Digest,
-		Arguments: []string{"-test.run=^TestApplicationHelperProcess$", "--", "--appcontrol-helper"},
+		Executable: inspection.Executable,
+		Arguments:  []string{"-test.run=^TestApplicationHelperProcess$", "--", "--appcontrol-helper"},
 	})
 	if err != nil {
 		t.Fatal(err)

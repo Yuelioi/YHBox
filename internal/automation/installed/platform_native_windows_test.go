@@ -201,7 +201,7 @@ func hasNativeFixtureEvent(events []nativeFixtureEvent, message uint32, wParam u
 func nativeFixtureProfile(t *testing.T, inspection appcontrol.ExecutableInspection, title, titleMatch, selection string) Profile {
 	t.Helper()
 	profile, err := SealProfile(NewDesktopProfileDraft(DesktopProfilePayload{
-		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, ExecutableDigest: inspection.Digest, Arguments: []string{}},
+		Application: appcontrol.ProfileDraft{Executable: inspection.Executable, Arguments: []string{}},
 		WindowTitle: title, WindowTitleMatch: titleMatch, WindowSelection: selection, WindowClass: nativeFixtureClass,
 		InputBackend: "sendinput", CaptureBackend: "gdi", ResolveTimeoutMilliseconds: 500,
 	}))

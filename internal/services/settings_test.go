@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 )
@@ -384,6 +385,45 @@ func TestLoadSettingsRevokesStaleConsentWithoutDiscardingInstallation(t *testing
 	}
 	if err := loaded.Validate(); err != nil {
 		t.Fatalf("revoked settings are invalid: %v", err)
+	}
+}
+
+func TestLoadSettingsMigratesExplicitApplicationConsentToStableInstallationIdentity(t *testing.T) {
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "Game.exe")
+	if err := os.WriteFile(executable, []byte("game-v1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := appcontrol.InspectExecutable(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyConsent, err := artifact.Sum("yotta/test/legacy-application-consent/v1", []byte("granted"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := defaultSettings()
+	settings.Applications.Profiles = []InstalledApplicationSettings{{
+		Slot: "game", Label: "Game", Executable: inspection.Executable,
+		ExecutableDigest: inspection.Digest, Arguments: []string{}, WorkflowConsent: legacyConsent,
+	}}
+	path := filepath.Join(dir, "settings.json")
+	if err := SaveSettings(path, settings); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded := LoadSettings(path)
+	configured := loaded.Applications.Profiles[0]
+	profile, err := appcontrol.SealProfile(configured.profileDraft())
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if configured.WorkflowConsent != expected || configured.WorkflowConsent == legacyConsent {
+		t.Fatalf("application consent was not migrated: got %s want %s", configured.WorkflowConsent, expected)
 	}
 }
 

@@ -20,6 +20,7 @@ task version:bump VERSION=3.1.1
 - `build/windows/info.json`
 - `build/windows/nsis/wails_tools.nsh`
 - `build/windows/wails.exe.manifest`
+- `build/windows/wails.dev.manifest`
 - `frontend/package.json`
 
 随后脚本会提交 `chore(release): bump version to vX.Y.Z`，再创建 `vX.Y.Z` tag。不要手动只改其中一处，也不要在未提交版本文件前打 tag；tag 必须指向版本 bump commit。

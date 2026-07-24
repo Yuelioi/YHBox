@@ -32,7 +32,20 @@ func TestApplicationWorkflowConsentIsExplicitAndProfileEditsRevokeIt(t *testing.
 		t.Fatalf("GrantWorkflowConsent = %q, %v", consent, err)
 	}
 	settingsService := NewSettingsService(app, nil)
-	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, inspection.Executable) + `","executableDigest":"` + inspection.Digest.String() + `","arguments":["-noui","-fixed"],"workflowConsent":"` + consent + `"}]}}`); err != nil {
+	if err := os.WriteFile(path, []byte("after-effects-v2"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.InspectExecutable(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, updated.Executable) + `","executableDigest":"` + updated.Digest.String() + `","arguments":["-noui"],"workflowConsent":"` + consent + `"}]}}`); err != nil {
+		t.Fatal(err)
+	}
+	if app.Settings().Applications.Profiles[0].WorkflowConsent.String() != consent {
+		t.Fatal("normal executable update revoked application consent")
+	}
+	if err := settingsService.Update(`{"applications":{"profiles":[{"slot":"after-effects","label":"After Effects","executable":"` + escapeJSONPath(t, updated.Executable) + `","executableDigest":"` + updated.Digest.String() + `","arguments":["-noui","-fixed"],"workflowConsent":"` + consent + `"}]}}`); err != nil {
 		t.Fatal(err)
 	}
 	if app.Settings().Applications.Profiles[0].WorkflowConsent != "" {

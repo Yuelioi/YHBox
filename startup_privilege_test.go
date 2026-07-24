@@ -19,6 +19,19 @@ func TestDesktopManifestRequiresAdministrator(t *testing.T) {
 	}
 }
 
+func TestDesktopDevManifestRunsAsInvoker(t *testing.T) {
+	manifest, err := os.ReadFile("build/windows/wails.dev.manifest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(manifest, []byte(`requestedExecutionLevel level="asInvoker" uiAccess="false"`)) {
+		t.Fatal("development manifest must run as invoker so Wails can supervise the process")
+	}
+	if bytes.Contains(manifest, []byte(`requestedExecutionLevel level="requireAdministrator"`)) {
+		t.Fatal("development manifest must not request elevation")
+	}
+}
+
 func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := 0

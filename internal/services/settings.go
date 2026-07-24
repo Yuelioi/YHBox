@@ -135,7 +135,7 @@ type InstalledApplicationSettings struct {
 }
 
 func (configured InstalledApplicationSettings) profileDraft() appcontrol.ProfileDraft {
-	return appcontrol.ProfileDraft{Executable: configured.Executable, ExecutableDigest: configured.ExecutableDigest, Arguments: append([]string(nil), configured.Arguments...)}
+	return appcontrol.ProfileDraft{Executable: configured.Executable, Arguments: append([]string(nil), configured.Arguments...)}
 }
 func (configured InstalledApplicationSettings) installationDraft() appcontrol.InstallationDraft {
 	return appcontrol.InstallationDraft{Slot: configured.Slot, Profile: configured.profileDraft(), Consent: configured.WorkflowConsent}
@@ -385,7 +385,9 @@ func LoadSettings(path string) *Settings {
 
 // revokeStaleWorkflowConsents turns persisted grants into explicit
 // unconsented installations when their current sealed profile/manifest digest
-// changes. It never repairs malformed profiles and never grants new authority.
+// changes. Application consent is migrated from the legacy byte-pinned profile
+// to the stable path-and-arguments profile; the settings file is already the
+// local user's explicit authority record.
 func (s *Settings) revokeStaleWorkflowConsents() {
 	for index := range s.AI.Profiles {
 		configured := &s.AI.Profiles[index]
@@ -416,8 +418,10 @@ func (s *Settings) revokeStaleWorkflowConsents() {
 		}
 		profile, err := appcontrol.SealProfile(configured.profileDraft())
 		expected, digestErr := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
+		if err != nil || digestErr != nil {
 			configured.WorkflowConsent = ""
+		} else if configured.WorkflowConsent != expected {
+			configured.WorkflowConsent = expected
 		}
 	}
 	applications := make(map[string]InstalledApplicationSettings, len(s.Applications.Profiles))
@@ -436,8 +440,14 @@ func (s *Settings) revokeStaleWorkflowConsents() {
 		draft, err := configured.profileDraft(application)
 		profile, sealErr := automationinstalled.SealProfile(draft)
 		expected, digestErr := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || sealErr != nil || digestErr != nil || configured.WorkflowConsent != expected {
+		if err != nil || sealErr != nil || digestErr != nil {
 			configured.WorkflowConsent = ""
+		} else if configured.WorkflowConsent != expected {
+			if configured.requiresApplication() {
+				configured.WorkflowConsent = expected
+			} else {
+				configured.WorkflowConsent = ""
+			}
 		}
 	}
 }

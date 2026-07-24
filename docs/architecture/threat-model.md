@@ -10,11 +10,11 @@
 
 | Surface | Main risk | Current controls |
 |---|---|---|
-| Desktop process privilege | Windows production UI/runtime 以管理员运行会把前端、解析或 native adapter 缺陷放大成主机级权限 | 产品为桌面自动化选择 manifest `requireAdministrator`，不维护按需 runas/双权限 fallback；该选择不授予 workflow ambient authority，所有 effect 仍经 capability/admission，Script/Process/Wasm guest 仍使用独立低权限隔离，Settings/Package/MCP 输入仍严格验证 |
+| Desktop process privilege | Windows production UI/runtime 以管理员运行会把前端、解析或 native adapter 缺陷放大成主机级权限 | 产品发布构建为桌面自动化选择 manifest `requireAdministrator`，不维护按需 runas/双权限 fallback；`task dev` 仅为让 Wails fork/exec 监督开发进程而使用独立 `asInvoker` manifest，不改变发布契约；所有 effect 仍经 capability/admission，Script/Process/Wasm guest 仍使用独立低权限隔离，Settings/Package/MCP 输入仍严格验证 |
 | MCP command surface | 未授权整图覆盖、越权 capability、schema 放大 | 旧 HTTP/runtime tools 已删除；3.1 只提供 bounded catalog、分页 inspect、revision-CAS typed patch、compile 与无副作用 run preview，全部调用同一 Application。MCP transport 默认不装配、不监听；未来显式 transport 也不得拥有旁路执行器 |
 | Script node | 任意代码、宿主逃逸和资源滥用 | Script 3.1 只在一次性隔离 worker 中接收规范化 JSON；没有节点/service registry、文件、网络或进程绑定。宿主 admission 还要求精确隔离 feature，超时由宿主终止整个 worker |
 | HTTP egress | SSRF、DNS rebinding、重定向绕过、响应放大和秘密头泄露 | 只允许显式安装并授权的 exact Origin；workflow 只给相对路径与查询；禁代理/重定向/Cookie/凭据/自定义头；DNS 与拨号地址复验，默认拒绝本机/私网/特殊地址；响应有超时、字节与 UTF-8 上限，只暴露 status/body/content-type |
-| Installed application lifecycle | 任意命令、shell/argument 注入、错误进程终止、受信应用被替换 | workflow 只选 exact installed slot；档案封存绝对 `.exe`、SHA-256 和固定逐项 argv；拒绝 shell/script host、PATH、raw command line、工作目录/env/PID 输入；每次调用重验摘要，终止只匹配 OS 文件身份；dangerous consent 与 journal 不记录路径/argv/PID。该能力明确不是目标应用 sandbox |
+| Installed application lifecycle | 任意命令、shell/argument 注入、错误进程终止 | workflow 只选用户授权的 installed slot；档案封存绝对 `.exe` 路径和固定逐项 argv，SHA-256 只作为检查观测；拒绝 shell/script host、PATH、raw command line、工作目录/env/PID 输入；调用时确认路径仍指向有界常规 `.exe`，终止只匹配该路径的 OS 文件身份；dangerous consent 与 journal 不记录路径/argv/PID。该能力明确不是目标应用 sandbox |
 | File/package import | 路径穿越、zip bomb、namespace 劫持、签名或 trust rollback | Node Package archive 只接受 canonical manifest 的精确 regular-file payload set；entry/压缩与展开 bytes 有上限，路径/case/symlink/size/SHA-256/CRC 全部重验。Store 安装还要求 Ed25519 envelope、已知 publisher key 和该 key 对 manifest exact namespace 的显式 ownership；monotonic trust policy 与 signature evidence 和 generation pointers 在同一 canonical registry-last commit 中持久化。未知/撤销 key、撤销或 quarantine manifest、policy rollback、受阻 generation 的 enable/rollback/reopen 均 fail closed |
 | Fetch/network | SSRF、敏感内网访问、巨大响应 | 节点行为必须显式、超时/大小受限；未来远程分享前需要 URL policy |
 | Input/capture | 错误 target、按键残留、隐私图像 | capability/target validation、context cancel、held-input release、窗口句柄重校验 |

@@ -43,11 +43,11 @@ func defineApplicationNodes(integerRef datatype.TypeRef, lifecycle capability.De
 	if err != nil {
 		return nil, nil, err
 	}
-	launchDefinition, err := defineBuiltin(launch, "application.launch", "v1", "exact-installed-executable-no-shell/v1", nil)
+	launchDefinition, err := defineBuiltin(launch, "application.launch", "v1", "authorized-installed-executable-no-shell/v2", nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	terminateDefinition, err := defineBuiltin(terminate, "application.terminate", "v1", "exact-installed-executable-identity/v1", nil)
+	terminateDefinition, err := defineBuiltin(terminate, "application.terminate", "v1", "authorized-installed-executable-file-identity/v2", nil)
 	if err != nil {
 		return nil, nil, err
 	}

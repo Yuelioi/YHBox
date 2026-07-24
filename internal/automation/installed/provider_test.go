@@ -2,7 +2,6 @@ package installed
 
 import (
 	"context"
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -375,17 +374,16 @@ func TestProviderCaptureIsBoundedAndRequiresCaptureBeforeRead(t *testing.T) {
 	}
 }
 
-func TestProviderFailsClosedOnExecutableDrift(t *testing.T) {
+func TestProviderContinuesAfterAuthorizedExecutableUpdate(t *testing.T) {
 	profile, path := testProfile(t)
 	driver := &fakeDriver{}
 	provider := &provider{profile: profile, driver: driver}
 	object := openInputSession(t, provider, OperationTypeText)
-	if err := os.WriteFile(path, []byte("tampered"), 0o700); err != nil {
+	if err := os.WriteFile(path, []byte("installed-automation-target-v2"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	_, err := provider.Invoke(context.Background(), object, OperationTypeText, []byte(`{"text":"hello"}`))
-	var failure *Failure
-	if !errors.As(err, &failure) || failure.Code != CodeIdentityChanged || driver.operation != "" {
+	if err != nil || driver.operation != OperationTypeText {
 		t.Fatalf("Invoke() error=%v operation=%q", err, driver.operation)
 	}
 }

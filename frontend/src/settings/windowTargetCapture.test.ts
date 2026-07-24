@@ -10,7 +10,7 @@ describe('window target capture installation matching', () => {
     },
   ]
 
-  it('matches the canonical executable and digest without depending on path casing', () => {
+  it('matches the authorized installation path without depending on path casing or app version', () => {
     expect(
       matchingInstalledApplications(installed, {
         executable: 'c:/apps/editor.exe',
@@ -19,7 +19,7 @@ describe('window target capture installation matching', () => {
     ).toEqual(installed)
   })
 
-  it('rejects the same basename or path when exact identity differs', () => {
+  it('rejects a different path but keeps a normal update at the authorized path', () => {
     expect(
       matchingInstalledApplications(installed, {
         executable: String.raw`D:\Apps\Editor.exe`,
@@ -31,6 +31,6 @@ describe('window target capture installation matching', () => {
         executable: String.raw`C:\Apps\Editor.exe`,
         digest: 'sha256:BBBB',
       }),
-    ).toEqual([])
+    ).toEqual(installed)
   })
 })
