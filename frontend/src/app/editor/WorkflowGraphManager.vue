@@ -101,12 +101,34 @@
 
                 <div v-if="definition.kind === 'subgraph'" class="flex shrink-0 items-center">
                   <UButton
+                    icon="i-tabler-copy"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :aria-label="t('workflow.graphs.duplicate_definition')"
+                    @click="duplicateDefinition(definition.id)"
+                  />
+                  <UButton
                     icon="i-tabler-pencil"
                     color="neutral"
                     variant="ghost"
                     size="xs"
                     :aria-label="t('workflow.graphs.rename_definition')"
                     @click="renameDefinition(definition.id)"
+                  />
+                  <UButton
+                    v-if="definition.callCount > 0"
+                    icon="i-tabler-trash-x"
+                    color="error"
+                    variant="ghost"
+                    size="xs"
+                    :aria-label="t('workflow.graphs.delete_definition_cascade')"
+                    :title="
+                      t('workflow.graphs.delete_definition_cascade_hint', {
+                        count: definition.callCount,
+                      })
+                    "
+                    @click="deleteDefinitionCascade(definition.id)"
                   />
                   <UButton
                     icon="i-tabler-trash"
@@ -165,7 +187,9 @@ const emit = defineEmits<{
   open: [graphId: string]
   create: []
   rename: [graphId: string]
+  duplicate: [graphId: string]
   delete: [graphId: string]
+  deleteCascade: [graphId: string]
   locate: [parentGraphId: string, callId: string]
 }>()
 const { t } = useI18n()
@@ -188,9 +212,19 @@ function renameDefinition(graphId: string): void {
   emit('rename', graphId)
 }
 
+function duplicateDefinition(graphId: string): void {
+  open.value = false
+  emit('duplicate', graphId)
+}
+
 function deleteDefinition(graphId: string): void {
   open.value = false
   emit('delete', graphId)
+}
+
+function deleteDefinitionCascade(graphId: string): void {
+  open.value = false
+  emit('deleteCascade', graphId)
 }
 
 function locateCall(parentGraphId: string, callId: string): void {

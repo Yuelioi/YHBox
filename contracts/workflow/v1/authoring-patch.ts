@@ -74,6 +74,10 @@ export type Command =
       kind: 'bind-blob'
     }
   | {
+      bindResource: BindResourceCommand
+      kind: 'bind-resource'
+    }
+  | {
       clearBinding: PortCommand
       kind: 'clear-binding'
     }
@@ -272,6 +276,16 @@ export interface BlobRef {
   mediaType: string
   size: number
 }
+export interface BindResourceCommand {
+  graphId: string
+  nodeId: string
+  portId: string
+  resource: ResourceBinding
+}
+export interface ResourceBinding {
+  resourceId: string
+  variantId?: string
+}
 export interface EdgeCommand {
   edge: Edge
   graphId: string
@@ -357,10 +371,6 @@ export interface InputBinding {
   kind: 'value' | 'default' | 'blob' | 'resource'
   resource?: ResourceBinding
   value?: any
-}
-export interface ResourceBinding {
-  resourceId: string
-  variantId?: string
 }
 export interface GraphExit {
   channel: 'exec' | 'error'

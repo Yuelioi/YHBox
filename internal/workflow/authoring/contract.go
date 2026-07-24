@@ -85,6 +85,7 @@ func GenerateSchema() ([]byte, error) {
 		{CommandBindValue, "bindValue"},
 		{CommandBindDefault, "bindDefault"},
 		{CommandBindBlob, "bindBlob"},
+		{CommandBindResource, "bindResource"},
 		{CommandClearBinding, "clearBinding"},
 		{CommandConnect, "connect"},
 		{CommandDisconnect, "disconnect"},

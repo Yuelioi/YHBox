@@ -62,6 +62,7 @@ const (
 	CommandBindValue              CommandKind = "bind-value"
 	CommandBindDefault            CommandKind = "bind-default"
 	CommandBindBlob               CommandKind = "bind-blob"
+	CommandBindResource           CommandKind = "bind-resource"
 	CommandClearBinding           CommandKind = "clear-binding"
 	CommandConnect                CommandKind = "connect"
 	CommandDisconnect             CommandKind = "disconnect"
@@ -102,6 +103,7 @@ type Command struct {
 	BindValue              *BindValueCommand              `json:"bindValue,omitempty"`
 	BindDefault            *PortCommand                   `json:"bindDefault,omitempty"`
 	BindBlob               *BindBlobCommand               `json:"bindBlob,omitempty"`
+	BindResource           *BindResourceCommand           `json:"bindResource,omitempty"`
 	ClearBinding           *PortCommand                   `json:"clearBinding,omitempty"`
 	Connect                *EdgeCommand                   `json:"connect,omitempty"`
 	Disconnect             *EdgeCommand                   `json:"disconnect,omitempty"`
@@ -262,6 +264,13 @@ type BindBlobCommand struct {
 	NodeID  string       `json:"nodeId"`
 	PortID  string       `json:"portId"`
 	Blob    blob.BlobRef `json:"blob"`
+}
+
+type BindResourceCommand struct {
+	GraphID  string                 `json:"graphId"`
+	NodeID   string                 `json:"nodeId"`
+	PortID   string                 `json:"portId"`
+	Resource schema.ResourceBinding `json:"resource"`
 }
 
 type EdgeCommand struct {
@@ -652,6 +661,20 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		blobRef := command.BindBlob.Blob
 		removeIncomingData(graph, node.ID, command.BindBlob.PortID)
 		node.Bindings[command.BindBlob.PortID] = schema.InputBinding{Kind: schema.BindingBlob, Blob: &blobRef}
+	case CommandBindResource:
+		graph, node, err := resolveNode(source, command.BindResource.GraphID, command.BindResource.NodeID, handles)
+		if err != nil {
+			return patchError(index, "UNKNOWN_NODE", err.Error())
+		}
+		if _, ok := dataInput(e.projection, *node, command.BindResource.PortID); !ok {
+			return patchError(index, "UNKNOWN_DATA_INPUT", "data input is not declared by the Node Contract")
+		}
+		resource := command.BindResource.Resource
+		if _, err := schema.ResolveResourceBinding(source.Resources, resource); err != nil {
+			return patchError(index, "INVALID_RESOURCE_BINDING", err.Error())
+		}
+		removeIncomingData(graph, node.ID, command.BindResource.PortID)
+		node.Bindings[command.BindResource.PortID] = schema.InputBinding{Kind: schema.BindingResource, Resource: &resource}
 	case CommandClearBinding:
 		_, node, err := resolveNode(source, command.ClearBinding.GraphID, command.ClearBinding.NodeID, handles)
 		if err != nil {
@@ -920,7 +943,7 @@ func validateTaggedCommand(command Command) error {
 		command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
 		command.AddNode != nil, command.UpgradeNodeContract != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
-		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.ClearBinding != nil,
+		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.BindResource != nil, command.ClearBinding != nil,
 		command.Connect != nil, command.Disconnect != nil,
 		command.AddGraph != nil, command.RenameGraph != nil, command.RemoveGraph != nil, command.UpdateGraphInterface != nil,
 		command.AddGraphCall != nil, command.RemoveGraphCall != nil,
@@ -948,8 +971,9 @@ func validateTaggedCommand(command Command) error {
 		CommandSetNodeLabel: command.SetNodeLabel != nil, CommandSetNodeDisabled: command.SetNodeDisabled != nil,
 		CommandSetConfig: command.SetConfig != nil, CommandClearConfig: command.ClearConfig != nil,
 		CommandBindValue: command.BindValue != nil, CommandBindDefault: command.BindDefault != nil,
-		CommandBindBlob: command.BindBlob != nil, CommandClearBinding: command.ClearBinding != nil,
-		CommandConnect: command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
+		CommandBindBlob: command.BindBlob != nil, CommandBindResource: command.BindResource != nil,
+		CommandClearBinding: command.ClearBinding != nil,
+		CommandConnect:      command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
 		CommandAddGraph: command.AddGraph != nil, CommandRenameGraph: command.RenameGraph != nil,
 		CommandRemoveGraph: command.RemoveGraph != nil, CommandAddGraphCall: command.AddGraphCall != nil,
 		CommandUpdateGraphInterface: command.UpdateGraphInterface != nil,

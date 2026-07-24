@@ -15,6 +15,15 @@
         :aria-label="t('workflow.graphs.open')"
         @click="emit('open')"
       />
+      <UDropdownMenu :items="lifecycleItems">
+        <UButton
+          icon="i-tabler-dots-vertical"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :aria-label="t('workflow.graphs.call_actions')"
+        />
+      </UDropdownMenu>
       <UButton
         icon="i-tabler-trash"
         color="error"
@@ -75,8 +84,35 @@ const props = defineProps<{
   graph: Graph
   ports: PortProjection[]
 }>()
-const emit = defineEmits<{ update: [call: GraphCall]; open: []; remove: [] }>()
+const emit = defineEmits<{
+  update: [call: GraphCall]
+  open: []
+  duplicate: []
+  fork: []
+  expand: []
+  remove: []
+}>()
 const { t } = useI18n()
+
+const lifecycleItems = computed(() => [
+  [
+    {
+      label: t('workflow.graphs.duplicate_call'),
+      icon: 'i-tabler-copy',
+      onSelect: () => emit('duplicate'),
+    },
+    {
+      label: t('workflow.graphs.fork_definition'),
+      icon: 'i-tabler-git-branch',
+      onSelect: () => emit('fork'),
+    },
+    {
+      label: t('workflow.graphs.expand_call'),
+      icon: 'i-tabler-arrows-maximize',
+      onSelect: () => emit('expand'),
+    },
+  ],
+])
 
 const editorNode = computed<Node>(() => ({
   id: props.call.id,

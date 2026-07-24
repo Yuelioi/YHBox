@@ -5,7 +5,10 @@ import type {
   TypeExpression,
   YottaNodeAuthoringProjection,
 } from '../../../../contracts/node/current/authoring-projection'
-import type { YottaWorkflowSource } from '../../../../contracts/workflow/current/workflow-source'
+import type {
+  Graph,
+  YottaWorkflowSource,
+} from '../../../../contracts/workflow/current/workflow-source'
 import type {
   CompileView,
   RunView,
@@ -1184,6 +1187,180 @@ describe('EditorSession', () => {
     expect(session.currentGraph!.exits![0]!.id).toBe(exitID)
   })
 
+  it('duplicates calls and forks one call to an independent graph definition atomically', async () => {
+    const source = subgraphLifecycleSource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const ids = ['call-copy', 'child-copy']
+    const session = new EditorSession(transport, () => ids.shift() ?? '')
+    await session.load(source.workflow.id)
+
+    expect(session.duplicateCurrentGraphCall('call-child')).toBe('call-copy')
+    expect(session.currentGraph?.calls).toEqual([
+      expect.objectContaining({ id: 'call-child', graphId: 'child' }),
+      expect.objectContaining({
+        id: 'call-copy',
+        graphId: 'child',
+        position: { x: 152, y: 112 },
+      }),
+    ])
+
+    expect(session.forkCurrentGraphCall('call-child')).toBe('child-copy')
+    expect(session.currentGraph?.calls?.find((call) => call.id === 'call-child')?.graphId).toBe(
+      'child-copy',
+    )
+    expect(session.source?.graphs.find((graph) => graph.id === 'child-copy')).toMatchObject({
+      name: '等待 Copy',
+      kind: 'subgraph',
+    })
+
+    session.undo()
+    expect(session.source?.graphs.some((graph) => graph.id === 'child-copy')).toBe(false)
+    expect(session.currentGraph?.calls?.find((call) => call.id === 'call-child')?.graphId).toBe(
+      'child',
+    )
+    session.redo()
+    await session.save()
+    const commands = vi.mocked(transport.applyPatch).mock.calls[0]![2]
+    expect(commands.map((command) => command.kind)).toEqual([
+      'add-graph-call',
+      'add-graph',
+      'update-graph-call',
+    ])
+  })
+
+  it('expands a call as one undoable edit while retaining its reusable definition', async () => {
+    const source = subgraphLifecycleSource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'expanded-wait')
+    await session.load(source.workflow.id)
+
+    expect(session.expandCurrentGraphCall('call-child')).toEqual(['expanded-wait'])
+    expect(session.currentGraph?.calls).toEqual([])
+    expect(session.currentGraph?.nodes).toEqual([
+      expect.objectContaining({
+        id: 'expanded-wait',
+        position: { x: 120, y: 80 },
+        bindings: { 'duration-milliseconds': { kind: 'value', value: 250 } },
+      }),
+    ])
+    expect(session.source?.graphs.some((graph) => graph.id === 'child')).toBe(true)
+
+    session.undo()
+    expect(session.currentGraph?.calls?.map((call) => call.id)).toEqual(['call-child'])
+    expect(session.currentGraph?.nodes).toEqual([])
+    session.redo()
+    await session.save()
+    const commands = vi.mocked(transport.applyPatch).mock.calls[0]![2]
+    expect(commands.map((command) => command.kind)).toEqual([
+      'remove-graph-call',
+      'add-node',
+      'bind-value',
+    ])
+  })
+
+  it('preserves workflow resource bindings when expanding a call', async () => {
+    const source = subgraphLifecycleSource()
+    source.graphs[0]!.calls![0]!.bindings = {}
+    source.graphs[1]!.nodes[0]!.bindings = {
+      'duration-milliseconds': {
+        kind: 'resource',
+        resource: { resourceId: 'template', variantId: 'default' },
+      },
+    }
+    source.resources = [
+      {
+        id: 'template',
+        kind: 'image',
+        name: 'Template',
+        image: {
+          variants: [
+            {
+              id: 'default',
+              resolution: [1, 1],
+              bbox: [0, 0, 1, 1],
+              blob: {
+                mediaType: 'image/png',
+                digest: `sha256:${'1'.repeat(64)}`,
+                size: 1,
+              },
+            },
+          ],
+        },
+      },
+    ]
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'expanded-wait')
+    await session.load(source.workflow.id)
+
+    session.expandCurrentGraphCall('call-child')
+    await session.save()
+
+    expect(vi.mocked(transport.applyPatch).mock.calls[0]![2]).toEqual([
+      {
+        kind: 'remove-graph-call',
+        removeGraphCall: { graphId: 'main', callId: 'call-child' },
+      },
+      expect.objectContaining({ kind: 'add-node' }),
+      {
+        kind: 'bind-resource',
+        bindResource: {
+          graphId: 'main',
+          nodeId: '$expanded-wait',
+          portId: 'duration-milliseconds',
+          resource: { resourceId: 'template', variantId: 'default' },
+        },
+      },
+    ])
+  })
+
+  it('removes every call site and its definition as one explicit cascade edit', async () => {
+    const source = subgraphLifecycleSource()
+    source.graphs.push({
+      id: 'wrapper',
+      name: '包装',
+      kind: 'subgraph',
+      nodes: [],
+      calls: [
+        {
+          id: 'nested-child',
+          graphId: 'child',
+          position: { x: 0, y: 0 },
+          bindings: {},
+        },
+      ],
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+      annotations: [],
+    })
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+
+    session.removeGraphCascade('child')
+    expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main', 'wrapper'])
+    expect(session.source?.graphs[0]!.calls).toEqual([])
+    expect(session.source?.graphs[1]!.calls).toEqual([])
+
+    session.undo()
+    expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main', 'child', 'wrapper'])
+    session.redo()
+    await session.save()
+    expect(vi.mocked(transport.applyPatch).mock.calls[0]![2]).toEqual([
+      {
+        kind: 'remove-graph-call',
+        removeGraphCall: { graphId: 'main', callId: 'call-child' },
+      },
+      {
+        kind: 'remove-graph-call',
+        removeGraphCall: { graphId: 'wrapper', callId: 'nested-child' },
+      },
+      { kind: 'remove-graph', removeGraph: { graphId: 'child' } },
+    ])
+  })
+
   it('binds visible subgraph boundaries back into the canonical graph interface', async () => {
     const source = emptySource()
     const duration = delay.dataInputs.find((port) => port.id === 'duration-milliseconds')!
@@ -1539,6 +1716,58 @@ describe('EditorSession', () => {
     ).toEqual({ kind: 'ref', ref: integer.typeRef })
   })
 })
+
+function subgraphLifecycleSource(): YottaWorkflowSource {
+  const source = emptySource()
+  const duration = delay.dataInputs.find((port) => port.id === 'duration-milliseconds')!
+  source.graphs[0]!.calls = [
+    {
+      id: 'call-child',
+      graphId: 'child',
+      label: '等待',
+      position: { x: 120, y: 80 },
+      bindings: { 'duration-milliseconds': { kind: 'value', value: 250 } },
+    },
+  ]
+  const child: Graph = {
+    id: 'child',
+    name: '等待',
+    kind: 'subgraph',
+    nodes: [
+      {
+        id: 'wait',
+        nodeRef: delay.nodeRef,
+        position: { x: 0, y: 0 },
+        config: {},
+        bindings: {},
+      },
+    ],
+    calls: [],
+    edges: [],
+    inputs: [
+      {
+        id: 'duration-milliseconds',
+        name: '等待时长',
+        type: duration.type.expression,
+        nodeId: 'wait',
+        portId: 'duration-milliseconds',
+      },
+    ],
+    outputs: [],
+    entries: [{ nodeId: 'wait', portId: 'in' }],
+    exits: [
+      {
+        id: 'done',
+        name: '完成',
+        channel: 'exec',
+        endpoint: { nodeId: 'wait', portId: 'done' },
+      },
+    ],
+    annotations: [],
+  }
+  source.graphs.push(child)
+  return source
+}
 
 function emptySource(): YottaWorkflowSource {
   return {

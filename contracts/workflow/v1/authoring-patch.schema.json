@@ -142,6 +142,30 @@
       ],
       "type": "object"
     },
+    "BindResourceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "graphId": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "portId": {
+          "type": "string"
+        },
+        "resource": {
+          "$ref": "#/$defs/ResourceBinding"
+        }
+      },
+      "required": [
+        "graphId",
+        "nodeId",
+        "portId",
+        "resource"
+      ],
+      "type": "object"
+    },
     "BindValueCommand": {
       "additionalProperties": false,
       "properties": {
@@ -541,6 +565,22 @@
           "required": [
             "kind",
             "bindBlob"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bindResource": {
+              "$ref": "#/$defs/BindResourceCommand"
+            },
+            "kind": {
+              "const": "bind-resource"
+            }
+          },
+          "required": [
+            "kind",
+            "bindResource"
           ],
           "type": "object"
         },

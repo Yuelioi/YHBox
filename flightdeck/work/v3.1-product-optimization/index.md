@@ -10,14 +10,14 @@ Open
 
 ## Current
 
-Stage N 的 N1–N2 已完成：定义管理、调用定位、稳定接口 ID/显示名称、显式单入口、typed data ports、
-命名 exec/error exits、引用安全移除和带预览自动推导均已落到唯一 Source/authoring/compiler 链路。当前进入 N3，
-实现复制调用、独立复制定义、展开调用和显式原子级联删除。
+Stage N 的 N1–N3 已完成：定义/调用管理、稳定显式接口，以及复制调用、分叉定义、展开调用和原子级联删除
+均已落到唯一 Source/authoring/compiler 链路。当前进入 N4，执行保存重开、编译运行和 Windows WebView
+真实编辑器旅程，集中收口阶段验收。
 
 ## Next
 
-完成 [N3 子图生命周期](slices/stage-n3-subgraph-lifecycle.md)：先以 Source 转换测试锁定复制调用、复制定义、
-展开调用和级联删除，再扩展单一 authoring patch seam 与无歧义 UI 动作。
+按 [Build and acceptance](../../knowledge/build/build.md) 执行 N4：先补保存重开与 compiler 纵向测试，再运行
+Windows WebView smoke 并实际检查产出的列表、编辑器、资源库和计划编辑器截图。
 
 ## Progress
 
@@ -56,6 +56,9 @@ Stage N 的 N1–N2 已完成：定义管理、调用定位、稳定接口 ID/�
   调用无歧义删除；修复缺失 graph ID 误删最后一个定义。`task check` 通过 74 个测试文件/304 项测试。
 - 2026-07-24 N2 完成：Graph interface 分离稳定 ID/显示名称，显式发布单入口、typed data ports 和命名
   exec/error exits；自动推导改为引用安全预览。`task check` 通过 21 个受影响 Go 包和 76 个测试文件/310 项测试。
+- 2026-07-24 N3 完成：GraphCall 复制、定义复制/分叉、调用展开和显式原子级联删除进入统一 EditorSession/
+  authoring patch；展开保留 value/default/blob/resource binding，并新增正式 `bind-resource` 合同。`task check`
+  通过 12 个受影响 Go 包和 77 个测试文件/318 项测试。
 
 ## References
 

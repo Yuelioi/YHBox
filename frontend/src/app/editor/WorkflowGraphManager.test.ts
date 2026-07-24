@@ -48,6 +48,12 @@ describe('WorkflowGraphManager', () => {
         (button) => !button.disabled,
       ),
     ).toBe(true)
+    expect(
+      surface.querySelectorAll<HTMLButtonElement>('button[aria-label="复制子图定义"]'),
+    ).toHaveLength(3)
+    expect(
+      surface.querySelectorAll<HTMLButtonElement>('button[aria-label="删除定义和全部调用"]'),
+    ).toHaveLength(2)
 
     const callLocation = [...surface.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
       button.textContent?.includes('主图 · 第一次调用'),

@@ -18,7 +18,7 @@ Stage A–L 已完成实现、增量门禁与 Windows 真机验收。用户已�
   引用定位、唯一可读名称和无歧义删除入口。
 - [x] [N2 — 显式接口编辑](slices/stage-n2-subgraph-interface-editor.md)：单入口、typed data inputs/outputs、
   命名 exec/error exits 的新增、重命名、排序、绑定与删除；自动推导降级为带预览的快捷动作。
-- [ ] [N3 — 生命周期闭环](slices/stage-n3-subgraph-lifecycle.md)：展开调用、复制调用、复制定义/创建独立副本、
+- [x] [N3 — 生命周期闭环](slices/stage-n3-subgraph-lifecycle.md)：展开调用、复制调用、复制定义/创建独立副本、
   零引用删除和显式原子级联删除。
 - [ ] N4 — 编辑器真实旅程：折叠、进入、接口编辑、多处调用、引用定位、删除、保存重开、编译运行和 Windows
   WebView smoke。

@@ -124,7 +124,9 @@
           @open="openCalledGraph"
           @create="openGraphDialog('create')"
           @rename="openGraphDialog('rename', $event)"
+          @duplicate="duplicateGraphDefinition"
           @delete="deleteGraphDefinition"
+          @delete-cascade="deleteGraphDefinitionCascade"
           @locate="locateGraphCall"
         />
         <UDropdownMenu :items="callMenuItems">
@@ -715,6 +717,9 @@
             :ports="selectedCallPorts"
             @update="applyCommand({ kind: 'update-graph-call', call: $event })"
             @open="openCalledGraph(selectedCallGraph.id)"
+            @duplicate="duplicateSelectedGraphCall"
+            @fork="forkSelectedGraphCall"
+            @expand="expandSelectedGraphCall"
             @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
           />
           <WorkflowGraphInterfacePanel
@@ -2693,6 +2698,49 @@ function addGraphCall(graphId: string): void {
   }
 }
 
+function duplicateSelectedGraphCall(): void {
+  const call = selectedCall.value
+  if (!call) return
+  try {
+    const callId = session.duplicateCurrentGraphCall(call.id)
+    selectedNodeIds.value = new Set([callId])
+    selectedNodeId.value = callId
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function forkSelectedGraphCall(): void {
+  const call = selectedCall.value
+  if (!call) return
+  try {
+    session.forkCurrentGraphCall(call.id)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+async function expandSelectedGraphCall(): Promise<void> {
+  const call = selectedCall.value
+  if (!call) return
+  const accepted = await confirm({
+    title: t('workflow.graphs.expand_call_title'),
+    description: t('workflow.graphs.expand_call_hint'),
+    confirmText: t('workflow.graphs.expand_call'),
+    cancelText: t('common.cancel'),
+    color: 'primary',
+  })
+  if (!accepted) return
+  try {
+    const elementIds = session.expandCurrentGraphCall(call.id)
+    selectedNodeIds.value = new Set(elementIds)
+    selectedNodeId.value = elementIds[0] ?? ''
+    void fitCurrentGraph()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
 function graphReaches(graphId: string, targetId: string, visited = new Set<string>()): boolean {
   if (!targetId || visited.has(graphId)) return false
   if (graphId === targetId) return true
@@ -2777,6 +2825,42 @@ async function deleteGraphDefinition(graphId: string): Promise<void> {
   if (accepted !== true) return
   try {
     session.removeGraph(graph.id)
+    clearEditorSelection()
+    void fitCurrentGraph()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function duplicateGraphDefinition(graphId: string): void {
+  try {
+    const copyId = session.duplicateGraphDefinition(graphId)
+    openCalledGraph(copyId)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+async function deleteGraphDefinitionCascade(graphId: string): Promise<void> {
+  const source = session.source
+  const graph = source?.graphs.find((candidate) => candidate.id === graphId)
+  const definition = source
+    ? projectGraphDefinitions(source).find((candidate) => candidate.id === graphId)
+    : undefined
+  if (!source || !graph || graph.kind !== 'subgraph' || !definition?.callCount) return
+  const accepted = await confirm({
+    title: t('workflow.graphs.delete_definition_cascade_title'),
+    description: t('workflow.graphs.delete_definition_cascade_confirm', {
+      name: graphLabel(graphId),
+      count: definition.callCount,
+    }),
+    confirmText: t('workflow.graphs.delete_definition_cascade'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (!accepted) return
+  try {
+    session.removeGraphCascade(graphId)
     clearEditorSelection()
     void fitCurrentGraph()
   } catch (error) {

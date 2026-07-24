@@ -6,6 +6,7 @@ import type {
   InputBinding,
   Node,
   BlobRef,
+  ResourceBinding,
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type {
@@ -49,6 +50,14 @@ import {
   type GraphInterfaceItemKind,
   type GraphInterfaceReference,
 } from './subgraphInterface'
+import {
+  duplicateGraphCall,
+  duplicateGraphDefinition,
+  expandGraphCall,
+  graphCallSites,
+  type ExpandedGraphCall,
+  type GraphCallSite,
+} from './subgraphLifecycle'
 
 export { assignable } from './connectionCompatibility'
 
@@ -110,6 +119,7 @@ export type EditorCommand =
   | { kind: 'clear-config'; nodeId: string; fieldId: string }
   | { kind: 'bind-value'; nodeId: string; portId: string; value: unknown }
   | { kind: 'bind-blob'; nodeId: string; portId: string; blob: BlobRef }
+  | { kind: 'bind-resource'; nodeId: string; portId: string; resource: ResourceBinding }
   | { kind: 'bind-default'; nodeId: string; portId: string }
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
@@ -117,6 +127,7 @@ export type EditorCommand =
   | { kind: 'add-graph'; graph: Graph }
   | { kind: 'rename-graph'; graphId: string; name: string }
   | { kind: 'remove-graph'; graphId: string }
+  | { kind: 'remove-graph-cascade'; graphId: string; calls: GraphCallSite[] }
   | {
       kind: 'update-graph-interface'
       inputs: Graph['inputs']
@@ -127,6 +138,8 @@ export type EditorCommand =
   | { kind: 'add-graph-call'; call: GraphCall }
   | { kind: 'update-graph-call'; call: GraphCall }
   | { kind: 'remove-graph-call'; callId: string }
+  | { kind: 'fork-graph-call'; graph: Graph; call: GraphCall }
+  | ({ kind: 'expand-graph-call' } & ExpandedGraphCall)
   | { kind: 'add-annotation'; annotation: Annotation }
   | { kind: 'update-annotation'; annotation: Annotation }
   | { kind: 'remove-annotation'; annotationId: string }
@@ -254,6 +267,73 @@ export class EditorSession {
   removeGraph(graphId: string): void {
     this.apply({ kind: 'remove-graph', graphId })
     this.graphPath = [this.requireSource().entryGraph]
+  }
+
+  removeGraphCascade(graphId: string): void {
+    const source = this.requireSource()
+    if (graphId === source.entryGraph) throw new Error('entry graph cannot be removed')
+    if (!source.graphs.some((graph) => graph.id === graphId))
+      throw new Error(`graph ${graphId} does not exist`)
+    this.apply({ kind: 'remove-graph-cascade', graphId, calls: graphCallSites(source, graphId) })
+    this.graphPath = [this.requireSource().entryGraph]
+  }
+
+  duplicateGraphDefinition(graphId: string): string {
+    const source = this.requireSource()
+    const original = source.graphs.find((graph) => graph.id === graphId)
+    const newGraphId = uniqueGraphId(source, this.idFactory)
+    const graph = duplicateGraphDefinition(
+      source,
+      graphId,
+      newGraphId,
+      `${original?.name?.trim() || graphId} Copy`,
+    )
+    this.apply({ kind: 'add-graph', graph })
+    return newGraphId
+  }
+
+  duplicateCurrentGraphCall(callId: string, offset = { x: 32, y: 32 }): string {
+    const graph = this.currentGraph
+    if (!graph) throw new Error('workflow graph is unavailable')
+    const newCallId = uniqueElementId(graph, this.idFactory)
+    this.apply({
+      kind: 'add-graph-call',
+      call: duplicateGraphCall(graph, callId, newCallId, offset),
+    })
+    return newCallId
+  }
+
+  forkCurrentGraphCall(callId: string): string {
+    const source = this.requireSource()
+    const graph = this.currentGraph
+    const call = graph?.calls?.find((candidate) => candidate.id === callId)
+    if (!graph || !call) throw new Error(`graph call ${callId} does not exist`)
+    const callee = source.graphs.find((candidate) => candidate.id === call.graphId)
+    const newGraphId = uniqueGraphId(source, this.idFactory)
+    const copy = duplicateGraphDefinition(
+      source,
+      call.graphId,
+      newGraphId,
+      `${callee?.name?.trim() || call.graphId} Copy`,
+    )
+    this.apply({
+      kind: 'fork-graph-call',
+      graph: copy,
+      call: { ...clone(call), graphId: newGraphId },
+    })
+    return newGraphId
+  }
+
+  expandCurrentGraphCall(callId: string): string[] {
+    const graph = this.currentGraph
+    if (!graph) throw new Error('workflow graph is unavailable')
+    const expansion = expandGraphCall(this.requireSource(), graph.id, callId, this.idFactory)
+    this.apply({ kind: 'expand-graph-call', ...expansion })
+    return [
+      ...expansion.nodes.map((node) => node.id),
+      ...expansion.calls.map((call) => call.id),
+      ...expansion.annotations.map((annotation) => annotation.id),
+    ]
   }
 
   addAnnotation(position: { x: number; y: number }): string {
@@ -1353,12 +1433,30 @@ function resolveEditorCommand(
 }
 
 function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
-  const expanded = pending.flatMap(({ graphId, command }) =>
-    expandEditorCommand(command).map((expandedCommand) => ({
+  const expanded = pending.flatMap(({ graphId, command }) => {
+    if (command.kind === 'remove-graph-cascade') {
+      return [
+        ...command.calls.map((call) => ({
+          graphId: call.parentGraphId,
+          command: {
+            kind: 'remove-graph-call' as const,
+            callId: call.callId,
+          } satisfies EditorCommand,
+        })),
+        {
+          graphId,
+          command: {
+            kind: 'remove-graph' as const,
+            graphId: command.graphId,
+          } satisfies EditorCommand,
+        },
+      ]
+    }
+    return expandEditorCommand(command).map((expandedCommand) => ({
       graphId,
       command: expandedCommand,
-    })),
-  )
+    }))
+  })
   const generated = new Set(
     expanded.flatMap(({ command }) =>
       command.kind === 'add-node' && command.nodeId ? [command.nodeId] : [],
@@ -1470,6 +1568,16 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             blob: clone(command.blob),
           },
         }
+      case 'bind-resource':
+        return {
+          kind: command.kind,
+          bindResource: {
+            graphId,
+            nodeId: nodeRef(command.nodeId),
+            portId: command.portId,
+            resource: clone(command.resource),
+          },
+        }
       case 'bind-default':
         return {
           kind: command.kind,
@@ -1521,6 +1629,8 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
         }
       case 'remove-graph':
         return { kind: command.kind, removeGraph: { graphId: command.graphId } }
+      case 'remove-graph-cascade':
+        throw new Error('remove-graph-cascade must be expanded before persistence')
       case 'update-graph-interface':
         return {
           kind: command.kind,
@@ -1550,6 +1660,10 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
         return { kind: command.kind, updateGraphCall: { graphId, call: clone(command.call) } }
       case 'remove-graph-call':
         return { kind: command.kind, removeGraphCall: { graphId, callId: command.callId } }
+      case 'fork-graph-call':
+        throw new Error('fork-graph-call must be expanded before persistence')
+      case 'expand-graph-call':
+        throw new Error('expand-graph-call must be expanded before persistence')
       case 'add-annotation':
         return {
           kind: command.kind,
@@ -1648,6 +1762,21 @@ function expandEditorCommand(command: EditorCommand): EditorCommand[] {
         ),
         ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
       ]
+    case 'fork-graph-call':
+      return [
+        { kind: 'add-graph', graph: command.graph },
+        { kind: 'update-graph-call', call: command.call },
+      ]
+    case 'expand-graph-call':
+      return [
+        { kind: 'remove-graph-call', callId: command.callId },
+        ...command.nodes.flatMap(nodeCommands),
+        ...command.calls.map((call): EditorCommand => ({ kind: 'add-graph-call', call })),
+        ...command.annotations.map(
+          (annotation): EditorCommand => ({ kind: 'add-annotation', annotation }),
+        ),
+        ...command.edges.map((edge): EditorCommand => ({ kind: 'connect', edge })),
+      ]
     default:
       return [command]
   }
@@ -1674,6 +1803,13 @@ function nodeCommands(node: Node): EditorCommand[] {
       commands.push({ kind: 'bind-value', nodeId: node.id, portId, value: binding.value })
     } else if (binding.kind === 'blob' && binding.blob) {
       commands.push({ kind: 'bind-blob', nodeId: node.id, portId, blob: binding.blob })
+    } else if (binding.kind === 'resource' && binding.resource) {
+      commands.push({
+        kind: 'bind-resource',
+        nodeId: node.id,
+        portId,
+        resource: binding.resource,
+      })
     } else if (binding.kind === 'default') {
       commands.push({ kind: 'bind-default', nodeId: node.id, portId })
     }
@@ -1857,6 +1993,23 @@ function applyCommand(
       )
       return
     }
+    case 'bind-resource': {
+      const node = requireNode(graph, command.nodeId)
+      requireDataInput(node, command.portId, projections)
+      node.bindings[command.portId] = {
+        kind: 'resource',
+        resource: clone(command.resource),
+      }
+      graph.edges = graph.edges.filter(
+        (edge) =>
+          !(
+            edge.channel === 'data' &&
+            edge.to.nodeId === command.nodeId &&
+            edge.to.portId === command.portId
+          ),
+      )
+      return
+    }
     case 'bind-default': {
       const node = requireNode(graph, command.nodeId)
       const port = requireDataInput(node, command.portId, projections)
@@ -1913,6 +2066,30 @@ function applyCommand(
         1,
       )
       return
+    case 'remove-graph-cascade': {
+      if (command.graphId === source.entryGraph) throw new Error('entry graph cannot be removed')
+      if (!source.graphs.some((candidate) => candidate.id === command.graphId))
+        throw new Error(`graph ${command.graphId} does not exist`)
+      const actual = graphCallSites(source, command.graphId)
+      const expected = new Set(command.calls.map((call) => `${call.parentGraphId}\0${call.callId}`))
+      if (
+        actual.length !== expected.size ||
+        actual.some((call) => !expected.has(`${call.parentGraphId}\0${call.callId}`))
+      )
+        throw new Error('subgraph call sites changed before cascade deletion')
+      for (const call of actual) {
+        const parent = source.graphs.find((candidate) => candidate.id === call.parentGraphId)!
+        parent.calls = (parent.calls ?? []).filter((candidate) => candidate.id !== call.callId)
+        parent.edges = parent.edges.filter(
+          (edge) => edge.from.nodeId !== call.callId && edge.to.nodeId !== call.callId,
+        )
+      }
+      source.graphs.splice(
+        source.graphs.findIndex((candidate) => candidate.id === command.graphId),
+        1,
+      )
+      return
+    }
     case 'update-graph-interface':
       if (graph.kind !== 'subgraph') throw new Error('only subgraphs have a callable interface')
       {
@@ -1966,6 +2143,9 @@ function applyCommand(
         (edge) => edge.from.nodeId !== command.callId && edge.to.nodeId !== command.callId,
       )
       return
+    case 'fork-graph-call':
+    case 'expand-graph-call':
+      throw new Error(`${command.kind} must be expanded before application`)
     case 'add-annotation':
       if (graph.annotations!.some((annotation) => annotation.id === command.annotation.id))
         throw new Error(`annotation ${command.annotation.id} already exists`)

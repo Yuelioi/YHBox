@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -56,6 +58,42 @@ func TestEngineAppliesAtomicTypedPatchWithHostOwnedNodeIDs(t *testing.T) {
 	}
 	if source.Revision != 0 || len(source.Graphs[0].Nodes) != 0 {
 		t.Fatalf("input source was mutated: %#v", source)
+	}
+}
+
+func TestEngineBindsWorkflowResourceWithoutLosingPortableIdentity(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-resource" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := emptySource()
+	source.Resources = []schema.WorkflowResource{{
+		ID: "template", Kind: schema.ResourceImage, Name: "Template",
+		Image: &schema.ImageResource{Variants: []schema.ImageResourceVariant{{
+			ID: "default", Resolution: [2]int{1, 1}, BBox: [4]int{0, 0, 1, 1},
+			Blob: blob.BlobRef{
+				MediaType: "image/png",
+				Digest:    artifact.Digest("sha256:" + strings.Repeat("1", 64)),
+				Size:      1,
+			},
+		}}},
+	}}
+	resource := schema.ResourceBinding{ResourceID: "template", VariantID: "default"}
+	result, err := engine.Apply(source, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "node", Position: schema.Position{},
+		}},
+		{Kind: authoring.CommandBindResource, BindResource: &authoring.BindResourceCommand{
+			GraphID: "main", NodeID: "$node", PortID: "a", Resource: resource,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := result.Source.Graphs[0].Nodes[0].Bindings["a"]
+	if binding.Kind != schema.BindingResource || binding.Resource == nil || *binding.Resource != resource {
+		t.Fatalf("resource binding = %#v", binding)
 	}
 }
 
@@ -411,6 +449,107 @@ func TestEngineAuthorsGraphCallAnnotationAndRerouteLifecycle(t *testing.T) {
 	if len(removed.Source.Graphs) != 1 || len(removed.Source.Graphs[0].Calls) != 0 || len(removed.Source.Graphs[0].Annotations) != 0 || len(removed.Source.Graphs[0].Edges[0].Presentation.Reroutes) != 0 {
 		t.Fatalf("removed graph elements = %#v", removed.Source)
 	}
+}
+
+func TestEngineAppliesSubgraphExpansionAndCascadeAsAtomicPatchTransactions(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"wait-node", "expanded-node"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+			ID: "child", Name: "Wait", Kind: schema.GraphKindSubgraph,
+			Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+			Entries: []schema.Endpoint{}, Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+		}}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "child", NodeTypeID: nodes.DelayNodeID, Handle: "wait",
+		}},
+		{Kind: authoring.CommandUpdateGraphInterface, UpdateGraphInterface: &authoring.GraphInterfaceCommand{
+			GraphID: "child",
+			Entries: []schema.Endpoint{{NodeID: "$wait", PortID: "in"}},
+			Exits: []schema.GraphExit{{
+				ID: "done", Name: "Done", Channel: schema.EdgeExec,
+				Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "done"},
+			}},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{
+			GraphID: "main",
+			Call: schema.GraphCall{
+				ID: "call-child", GraphID: "child",
+				Position: schema.Position{X: 100, Y: 100}, Bindings: map[string]schema.InputBinding{},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("expand", func(t *testing.T) {
+		expanded, err := engine.Apply(created.Source, []authoring.Command{
+			{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{
+				GraphID: "main", CallID: "call-child",
+			}},
+			{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+				GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "expanded",
+				Position: schema.Position{X: 100, Y: 100},
+			}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(expanded.Source.Graphs[0].Calls) != 0 ||
+			len(expanded.Source.Graphs[0].Nodes) != 1 ||
+			len(expanded.Source.Graphs) != 2 {
+			t.Fatalf("expanded source = %#v", expanded.Source.Graphs)
+		}
+	})
+
+	t.Run("cascade", func(t *testing.T) {
+		withWrapper, err := engine.Apply(created.Source, []authoring.Command{
+			{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+				ID: "wrapper", Name: "Wrapper", Kind: schema.GraphKindSubgraph,
+				Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{},
+				Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+				Entries: []schema.Endpoint{}, Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+			}}},
+			{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{
+				GraphID: "wrapper",
+				Call: schema.GraphCall{
+					ID: "nested-child", GraphID: "child",
+					Position: schema.Position{}, Bindings: map[string]schema.InputBinding{},
+				},
+			}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		removed, err := engine.Apply(withWrapper.Source, []authoring.Command{
+			{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{
+				GraphID: "main", CallID: "call-child",
+			}},
+			{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{
+				GraphID: "wrapper", CallID: "nested-child",
+			}},
+			{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "child"}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(removed.Source.Graphs) != 2 ||
+			removed.Source.Graphs[0].ID != "main" ||
+			removed.Source.Graphs[1].ID != "wrapper" {
+			t.Fatalf("cascade source = %#v", removed.Source.Graphs)
+		}
+	})
 }
 
 func TestEngineUsesInstructionSignalChannels(t *testing.T) {

@@ -2177,8 +2177,16 @@ export default {
       new: 'New subgraph',
       rename: 'Rename subgraph',
       rename_definition: 'Rename subgraph definition',
+      duplicate_definition: 'Duplicate subgraph definition',
       add_call: 'Add call',
       call_inspector: 'Subgraph call',
+      call_actions: 'Call actions',
+      duplicate_call: 'Duplicate call (share definition)',
+      fork_definition: 'Create independent definition copy',
+      expand_call: 'Expand call',
+      expand_call_title: 'Expand this call into the current graph?',
+      expand_call_hint:
+        'Internal nodes, calls, annotations, and edges will be inlined atomically. The shared definition remains available, and Undo restores the call.',
       call_count: '{count} calls',
       call_locations: 'Call locations',
       call_hint: 'Inputs can be connected on the canvas or bound here for this call site.',
@@ -2226,6 +2234,11 @@ export default {
       delete_definition: 'Delete subgraph definition',
       delete_definition_referenced:
         '{count} calls still reference it. Locate and resolve those calls first.',
+      delete_definition_cascade: 'Delete definition and all calls',
+      delete_definition_cascade_hint: 'This also removes all {count} calls of the definition.',
+      delete_definition_cascade_title: 'Delete the definition and all calls?',
+      delete_definition_cascade_confirm:
+        '“{name}”, its {count} calls, and edges attached to those calls will be removed atomically. You can Undo before saving.',
       delete_title: 'Delete subgraph definition?',
       delete_hint:
         'Definition “{name}” will be removed from the Workflow Source and cannot be restored after saving.',
