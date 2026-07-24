@@ -720,7 +720,13 @@
           <WorkflowGraphInterfacePanel
             v-else-if="session.currentGraph?.kind === 'subgraph' && !selectedNodeId"
             :graph="session.currentGraph"
+            :candidates="graphInterfaceCandidates"
+            :reference-counts="graphInterfaceReferenceCounts"
             @infer="inferGraphInterface"
+            @add="addGraphInterfaceCandidate"
+            @rename="renameGraphInterfaceItem"
+            @move="moveGraphInterfaceItem"
+            @remove="removeGraphInterfaceItem"
           />
           <WorkflowInspector
             v-else
@@ -1326,6 +1332,10 @@ import {
 } from '@/app/editor/workflowGraphBoundary'
 import { collapseSelectionErrorReason } from '@/app/editor/collapseSelectionError'
 import { projectGraphDefinitions } from '@/app/editor/subgraphManagement'
+import type {
+  GraphInterfaceCandidateKind,
+  GraphInterfaceItemKind,
+} from '@/app/editor/subgraphInterface'
 import {
   alignNodePositions,
   autoLayoutNodePositions,
@@ -1743,7 +1753,38 @@ const currentGraphElementCount = computed(() => {
     ? graph.nodes.length + (graph.calls?.length ?? 0) + (graph.annotations?.length ?? 0)
     : 0
 })
-const canInferGraphInterface = computed(() => session.currentGraphInterfaceReadiness())
+const canInferGraphInterface = computed(() => {
+  const readiness = session.currentGraphInterfaceReadiness()
+  if (readiness.valid) return { valid: true, message: '' }
+  const key =
+    readiness.reason === 'multiple-entry'
+      ? 'workflow.graphs.infer_multiple_entries'
+      : readiness.reason === 'missing-entry-or-exit'
+        ? 'workflow.graphs.infer_missing_endpoints'
+        : 'workflow.graphs.infer_not_subgraph'
+  return { valid: false, message: t(key) }
+})
+const graphInterfaceCandidates = computed(() =>
+  session.currentGraph?.kind === 'subgraph' ? session.currentGraphInterfaceCandidates() : [],
+)
+const graphInterfaceReferenceCounts = computed<Record<string, number>>(() => {
+  const graph = session.currentGraph
+  if (!graph || graph.kind !== 'subgraph') return {}
+  return Object.fromEntries([
+    ...graph.inputs.map((port) => [
+      `input:${port.id}`,
+      session.currentGraphInterfaceReferences('input', port.id).length,
+    ]),
+    ...graph.outputs.map((port) => [
+      `output:${port.id}`,
+      session.currentGraphInterfaceReferences('output', port.id).length,
+    ]),
+    ...(graph.exits ?? []).map((exit) => [
+      `exit:${exit.id}`,
+      session.currentGraphInterfaceReferences('exit', exit.id).length,
+    ]),
+  ])
+})
 
 const flowEdges = computed<FlowEdge[]>(() => [
   ...(session.currentGraph?.edges ?? []).map((edge) => {
@@ -2549,9 +2590,89 @@ function addNode(nodeTypeId: string, position?: { x: number; y: number }): void 
   })
 }
 
-function inferGraphInterface(): void {
+async function inferGraphInterface(): Promise<void> {
   try {
-    session.inferCurrentGraphInterface()
+    if (!canInferGraphInterface.value.valid) {
+      toast.add({
+        title: t('workflow.graphs.infer_interface_blocked'),
+        description: canInferGraphInterface.value.message,
+        color: 'warning',
+      })
+      return
+    }
+    const preview = session.previewCurrentGraphInterfaceInference()
+    const referenced = preview.removed.flatMap((item) =>
+      item.kind === 'entry' ? [] : session.currentGraphInterfaceReferences(item.kind, item.id),
+    )
+    if (referenced.length) {
+      toast.add({
+        title: t('workflow.graphs.infer_interface_blocked'),
+        description: t('workflow.graphs.infer_interface_blocked_hint', {
+          count: referenced.length,
+        }),
+        color: 'warning',
+      })
+      return
+    }
+    const accepted = await confirm({
+      title: t('workflow.graphs.infer_interface_title'),
+      description: t('workflow.graphs.infer_interface_preview', {
+        added: preview.added.length,
+        removed: preview.removed.length,
+      }),
+      confirmText: t('workflow.graphs.infer_interface_confirm'),
+      cancelText: t('common.cancel'),
+      color: 'primary',
+    })
+    if (!accepted) return
+    session.applyCurrentGraphInterfaceInference(preview)
+    void fitCurrentGraph()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function addGraphInterfaceCandidate(candidateKey: string): void {
+  try {
+    session.addCurrentGraphInterfaceCandidate(candidateKey)
+    void fitCurrentGraph()
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function renameGraphInterfaceItem(kind: GraphInterfaceItemKind, id: string, name: string): void {
+  try {
+    session.renameCurrentGraphInterfaceItem(kind, id, name)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function moveGraphInterfaceItem(kind: GraphInterfaceItemKind, id: string, direction: -1 | 1): void {
+  try {
+    session.moveCurrentGraphInterfaceItem(kind, id, direction)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function removeGraphInterfaceItem(kind: GraphInterfaceCandidateKind, id: string): void {
+  try {
+    if (kind !== 'entry') {
+      const references = session.currentGraphInterfaceReferences(kind, id)
+      if (references.length) {
+        toast.add({
+          title: t('workflow.graphs.remove_interface_blocked'),
+          description: t('workflow.graphs.interface_referenced', {
+            count: references.length,
+          }),
+          color: 'warning',
+        })
+        return
+      }
+    }
+    session.removeCurrentGraphInterfaceItem(kind, id)
     void fitCurrentGraph()
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)

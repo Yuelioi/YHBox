@@ -180,13 +180,14 @@ type Graph struct {
 	Edges       []Edge       `json:"edges" jsonschema:"required,maxItems=16384"`
 	Inputs      []GraphPort  `json:"inputs" jsonschema:"required,maxItems=4096"`
 	Outputs     []GraphPort  `json:"outputs" jsonschema:"required,maxItems=4096"`
-	Entries     []Endpoint   `json:"entries,omitempty" jsonschema:"maxItems=64"`
+	Entries     []Endpoint   `json:"entries,omitempty" jsonschema:"maxItems=1"`
 	Exits       []GraphExit  `json:"exits,omitempty" jsonschema:"maxItems=64"`
 	Annotations []Annotation `json:"annotations,omitempty" jsonschema:"maxItems=4096"`
 }
 
 type GraphPort struct {
 	ID     string                  `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Name   string                  `json:"name,omitempty" jsonschema:"maxLength=256"`
 	Type   datatype.TypeExpression `json:"type" jsonschema:"required"`
 	NodeID string                  `json:"nodeId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 	PortID string                  `json:"portId" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
@@ -202,6 +203,7 @@ type GraphCall struct {
 
 type GraphExit struct {
 	ID       string      `json:"id" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	Name     string      `json:"name,omitempty" jsonschema:"maxLength=256"`
 	Channel  EdgeChannel `json:"channel" jsonschema:"required,enum=exec,enum=error"`
 	Endpoint Endpoint    `json:"endpoint" jsonschema:"required"`
 }

@@ -309,7 +309,7 @@ func TestEngineUpdatesCallableSubgraphInterfaceAsOneCommand(t *testing.T) {
 			Kind: authoring.CommandUpdateGraphInterface,
 			UpdateGraphInterface: &authoring.GraphInterfaceCommand{
 				GraphID: "child", Entries: []schema.Endpoint{{NodeID: "$wait", PortID: "in"}},
-				Exits:  []schema.GraphExit{{ID: "done", Channel: schema.EdgeExec, Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "done"}}},
+				Exits:  []schema.GraphExit{{ID: "done", Name: "等待完成", Channel: schema.EdgeExec, Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "done"}}},
 				Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
 			},
 		},
@@ -318,8 +318,25 @@ func TestEngineUpdatesCallableSubgraphInterfaceAsOneCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	child := updated.Source.Graphs[1]
-	if len(child.Entries) != 1 || len(child.Exits) != 1 || updated.Source.Revision != 2 {
+	if len(child.Entries) != 1 || len(child.Exits) != 1 || child.Exits[0].ID != "done" ||
+		child.Exits[0].Name != "等待完成" || updated.Source.Revision != 2 {
 		t.Fatalf("updated subgraph = %#v", child)
+	}
+	_, err = engine.Apply(updated.Source, []authoring.Command{{
+		Kind: authoring.CommandUpdateGraphInterface,
+		UpdateGraphInterface: &authoring.GraphInterfaceCommand{
+			GraphID: "child",
+			Entries: []schema.Endpoint{
+				{NodeID: "wait", PortID: "in"},
+				{NodeID: "wait", PortID: "in"},
+			},
+			Exits:  child.Exits,
+			Inputs: child.Inputs, Outputs: child.Outputs,
+		},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_RESULT" {
+		t.Fatalf("multiple entry error = %#v", err)
 	}
 }
 

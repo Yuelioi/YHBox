@@ -1213,7 +1213,7 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 						return errors.New("selection data input has no declared type")
 					}
 					inputIDs[edge.To] = portID
-					subgraph.Inputs = append(subgraph.Inputs, schema.GraphPort{ID: portID, Type: typ, NodeID: edge.To.NodeID, PortID: edge.To.PortID})
+					subgraph.Inputs = append(subgraph.Inputs, schema.GraphPort{ID: portID, Name: edge.To.PortID, Type: typ, NodeID: edge.To.NodeID, PortID: edge.To.PortID})
 				}
 				copyEdge.To = schema.Endpoint{NodeID: command.CallID, PortID: portID}
 			}
@@ -1229,7 +1229,7 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 						return errors.New("selection data output has no declared type")
 					}
 					outputIDs[edge.From] = portID
-					subgraph.Outputs = append(subgraph.Outputs, schema.GraphPort{ID: portID, Type: typ, NodeID: edge.From.NodeID, PortID: edge.From.PortID})
+					subgraph.Outputs = append(subgraph.Outputs, schema.GraphPort{ID: portID, Name: edge.From.PortID, Type: typ, NodeID: edge.From.NodeID, PortID: edge.From.PortID})
 				}
 				copyEdge.From = schema.Endpoint{NodeID: command.CallID, PortID: portID}
 			} else {
@@ -1241,7 +1241,7 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 				if exitID == "" {
 					exitID = uniqueBoundaryID("exit", edge.From.PortID, len(subgraph.Exits)+1)
 					exitIDs[key] = exitID
-					subgraph.Exits = append(subgraph.Exits, schema.GraphExit{ID: exitID, Channel: edge.Channel, Endpoint: edge.From})
+					subgraph.Exits = append(subgraph.Exits, schema.GraphExit{ID: exitID, Name: edge.From.PortID, Channel: edge.Channel, Endpoint: edge.From})
 				}
 				copyEdge.From = schema.Endpoint{NodeID: command.CallID, PortID: exitID}
 			}
@@ -1276,6 +1276,7 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 	addExit := func(endpoint schema.Endpoint, channel schema.EdgeChannel) {
 		subgraph.Exits = append(subgraph.Exits, schema.GraphExit{
 			ID:       uniqueBoundaryID("exit", endpoint.PortID, len(subgraph.Exits)+1),
+			Name:     endpoint.PortID,
 			Channel:  channel,
 			Endpoint: endpoint,
 		})

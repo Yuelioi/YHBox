@@ -956,11 +956,13 @@ describe('EditorSession', () => {
     expect(session.source?.graphs.find((graph) => graph.id === 'child')?.exits).toEqual([
       {
         id: 'exit_completed_1',
+        name: 'completed',
         channel: 'exec',
         endpoint: { nodeId: 'keys', portId: 'completed' },
       },
       {
         id: 'exit_failed_2',
+        name: 'failed',
         channel: 'error',
         endpoint: { nodeId: 'keys', portId: 'failed' },
       },
@@ -1101,6 +1103,85 @@ describe('EditorSession', () => {
     expect(() => session.removeGraph('missing')).toThrow('graph missing does not exist')
     expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main', 'child'])
     expect(session.dirty).toBe(false)
+  })
+
+  it('publishes entry, typed input, and named exits explicitly with stable IDs', async () => {
+    const source = emptySource()
+    source.graphs.push({
+      id: 'child',
+      name: '等待',
+      kind: 'subgraph',
+      nodes: [
+        {
+          id: 'wait',
+          nodeRef: delay.nodeRef,
+          position: { x: 0, y: 0 },
+          config: {},
+          bindings: {},
+        },
+      ],
+      calls: [],
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+      annotations: [],
+    })
+    const session = new EditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+    await session.load(source.workflow.id)
+    session.enterGraph('child')
+
+    const candidates = () => session.currentGraphInterfaceCandidates()
+    const entry = candidates().find(
+      (candidate) =>
+        candidate.kind === 'entry' &&
+        candidate.endpoint.nodeId === 'wait' &&
+        candidate.endpoint.portId === 'in',
+    )!
+    const input = candidates().find(
+      (candidate) =>
+        candidate.kind === 'input' &&
+        candidate.endpoint.nodeId === 'wait' &&
+        candidate.endpoint.portId === 'duration-milliseconds',
+    )!
+    const exit = candidates().find(
+      (candidate) =>
+        candidate.kind === 'exit' &&
+        candidate.endpoint.nodeId === 'wait' &&
+        candidate.endpoint.portId === 'done',
+    )!
+
+    session.addCurrentGraphInterfaceCandidate(entry.key)
+    session.addCurrentGraphInterfaceCandidate(input.key)
+    session.addCurrentGraphInterfaceCandidate(exit.key)
+    const inputID = session.currentGraph!.inputs[0]!.id
+    const exitID = session.currentGraph!.exits![0]!.id
+    session.renameCurrentGraphInterfaceItem('input', inputID, '等待时长')
+    session.renameCurrentGraphInterfaceItem('exit', exitID, '等待完成')
+
+    expect(session.currentGraph).toMatchObject({
+      entries: [{ nodeId: 'wait', portId: 'in' }],
+      inputs: [
+        {
+          id: inputID,
+          name: '等待时长',
+          nodeId: 'wait',
+          portId: 'duration-milliseconds',
+        },
+      ],
+      exits: [
+        {
+          id: exitID,
+          name: '等待完成',
+          channel: 'exec',
+          endpoint: { nodeId: 'wait', portId: 'done' },
+        },
+      ],
+    })
+    expect(candidates().find((candidate) => candidate.key === input.key)?.published).toBe(true)
+    expect(session.currentGraph!.inputs[0]!.id).toBe(inputID)
+    expect(session.currentGraph!.exits![0]!.id).toBe(exitID)
   })
 
   it('binds visible subgraph boundaries back into the canonical graph interface', async () => {

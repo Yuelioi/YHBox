@@ -911,7 +911,7 @@
           "items": {
             "$ref": "#/$defs/Endpoint"
           },
-          "maxItems": 64,
+          "maxItems": 1,
           "type": "array"
         },
         "exits": {
@@ -1049,6 +1049,10 @@
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
           "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "type": "string"
         }
       },
       "required": [
@@ -1104,6 +1108,10 @@
         "id": {
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
           "type": "string"
         },
         "nodeId": {

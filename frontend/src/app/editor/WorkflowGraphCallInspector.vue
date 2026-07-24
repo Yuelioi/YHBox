@@ -50,6 +50,7 @@
           :key="port.id"
           :node="editorNode"
           :port="port"
+          :title="inputTitle(port.id)"
           @command="applyBindingCommand"
         />
       </section>
@@ -66,6 +67,7 @@ import { useI18n } from 'vue-i18n'
 import type { Graph, GraphCall, Node } from '../../../../contracts/workflow/current/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand } from './EditorSession'
+import { graphInterfacePortLabel } from './subgraphInterface'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
 
 const props = defineProps<{
@@ -90,6 +92,11 @@ const editorNode = computed<Node>(() => ({
 
 function setLabel(event: Event): void {
   emit('update', { ...props.call, label: (event.target as HTMLInputElement).value })
+}
+
+function inputTitle(portId: string): string {
+  const port = props.graph.inputs.find((candidate) => candidate.id === portId)
+  return port ? graphInterfacePortLabel(port) : portId
 }
 
 function applyBindingCommand(command: EditorCommand): void {

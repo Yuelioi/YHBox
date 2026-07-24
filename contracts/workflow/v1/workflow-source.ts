@@ -97,9 +97,9 @@ export interface Graph {
    */
   edges: Edge[]
   /**
-   * @maxItems 64
+   * @maxItems 1
    */
-  entries?: Endpoint[]
+  entries?: [] | [Endpoint]
   /**
    * @maxItems 64
    */
@@ -179,9 +179,11 @@ export interface GraphExit {
   channel: 'exec' | 'error'
   endpoint: Endpoint
   id: string
+  name?: string
 }
 export interface GraphPort {
   id: string
+  name?: string
   nodeId: string
   portId: string
   type: TypeExpression

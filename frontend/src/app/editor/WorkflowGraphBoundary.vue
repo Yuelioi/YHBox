@@ -26,7 +26,9 @@
         :key="port.id"
         class="relative flex h-5 min-w-0 items-center justify-end pr-3"
       >
-        <span class="min-w-0 max-w-36 truncate text-toned">{{ port.id }}</span>
+        <span class="min-w-0 max-w-36 truncate text-toned">{{
+          graphInterfacePortLabel(port)
+        }}</span>
         <Handle
           :id="graphHandle('data', 'output', port.id)"
           type="source"
@@ -48,7 +50,7 @@
           class="min-w-0 flex-1 truncate"
           :class="boundary.exit!.channel === 'error' ? 'text-error' : 'text-toned'"
         >
-          {{ boundary.exit!.id }}
+          {{ graphInterfaceExitLabel(boundary.exit!) }}
         </span>
       </div>
     </div>
@@ -65,7 +67,9 @@
           :position="Position.Left"
           class="workflow-handle-data"
         />
-        <span class="min-w-0 max-w-36 flex-1 truncate text-toned">{{ port.id }}</span>
+        <span class="min-w-0 max-w-36 flex-1 truncate text-toned">{{
+          graphInterfacePortLabel(port)
+        }}</span>
       </div>
     </div>
   </article>
@@ -76,6 +80,7 @@ import { Handle, Position } from '@vue-flow/core'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { graphHandle } from './graphHandles'
+import { graphInterfaceExitLabel, graphInterfacePortLabel } from './subgraphInterface'
 import type { GraphBoundaryNodeData } from './workflowGraphBoundary'
 
 const props = defineProps<{ boundary: GraphBoundaryNodeData }>()

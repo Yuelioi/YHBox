@@ -94,6 +94,7 @@ const macroTypeId = 'https://schemas.yotta.dev/types/automation/macro/v1'
 const props = defineProps<{
   node: Node
   port: PortProjection
+  title?: string
   targetSlot?: string
   connected?: boolean
 }>()
@@ -165,8 +166,10 @@ const resourceLabel = computed(() => {
 const resourceStale = computed(() =>
   Boolean(bindingBlob.value && bindingResolved.value && !resolvedBinding.value?.found),
 )
-const portTitle = computed(() =>
-  props.port.titleKey && te(props.port.titleKey) ? t(props.port.titleKey) : props.port.id,
+const portTitle = computed(
+  () =>
+    props.title?.trim() ||
+    (props.port.titleKey && te(props.port.titleKey) ? t(props.port.titleKey) : props.port.id),
 )
 const portDescription = computed(() =>
   props.port.descriptionKey && te(props.port.descriptionKey) ? t(props.port.descriptionKey) : '',

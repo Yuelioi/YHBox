@@ -34,6 +34,21 @@ import {
 } from './connectionCompatibility'
 import type { ParsedHandle } from './graphHandles'
 import type { GraphBoundaryBinding, GraphBoundaryKey } from './workflowGraphBoundary'
+import {
+  addGraphInterfaceCandidate,
+  graphInterfaceReferences,
+  inferGraphInterface,
+  moveGraphInterfaceItem,
+  projectGraphInterfaceCandidates,
+  removeGraphInterfaceItem,
+  renameGraphInterfaceItem,
+  type GraphInterfaceCandidate,
+  type GraphInterfaceDraft,
+  type GraphInterfaceElement,
+  type GraphInterfaceInferencePreview,
+  type GraphInterfaceItemKind,
+  type GraphInterfaceReference,
+} from './subgraphInterface'
 
 export { assignable } from './connectionCompatibility'
 
@@ -367,155 +382,71 @@ export class EditorSession {
     return projection ? { ...clone(projection), id: port.id } : undefined
   }
 
-  currentGraphInterfaceReadiness(): { valid: boolean; message: string } {
+  currentGraphInterfaceReadiness(): {
+    valid: boolean
+    reason?: 'not-subgraph' | 'multiple-entry' | 'missing-entry-or-exit'
+  } {
     const graph = this.currentGraph
-    if (!graph || graph.kind !== 'subgraph')
-      return { valid: false, message: 'open a subgraph first' }
-    let entries = 0
-    let exits = 0
-    const hasIncoming = (nodeId: string, portId: string, channel: Edge['channel']) =>
-      graph.edges.some(
-        (edge) =>
-          edge.channel === channel && edge.to.nodeId === nodeId && edge.to.portId === portId,
-      )
-    const hasOutgoing = (nodeId: string, portId: string, channel: Edge['channel']) =>
-      graph.edges.some(
-        (edge) =>
-          edge.channel === channel && edge.from.nodeId === nodeId && edge.from.portId === portId,
-      )
-    const inspect = (
-      id: string,
-      signals: Array<{ id: string; channel: 'exec' | 'error'; direction: 'input' | 'output' }>,
-    ) => {
-      for (const signal of signals) {
-        if (
-          signal.direction === 'input' &&
-          signal.channel === 'exec' &&
-          signal.id === 'in' &&
-          !hasIncoming(id, signal.id, 'exec')
-        )
-          entries += 1
-        if (signal.direction === 'output' && !hasOutgoing(id, signal.id, signal.channel)) exits += 1
-      }
-    }
-    for (const node of graph.nodes) {
-      const projection = this.nodeInstanceProjection(node)
-      if (projection) inspect(node.id, projection.signals)
-    }
-    for (const call of graph.calls!) {
-      const callee = this.calleeGraph(call)
-      if (!callee) continue
-      inspect(call.id, [
-        { id: 'in', channel: 'exec', direction: 'input' },
-        ...(callee.exits ?? []).map((exit) => ({
-          id: exit.id,
-          channel: exit.channel,
-          direction: 'output' as const,
-        })),
-      ])
-    }
-    if (entries > 1)
-      return { valid: false, message: 'subgraph has multiple unconnected execution entries' }
-    if (!entries || !exits)
-      return {
-        valid: false,
-        message: 'add a node with an unconnected “in” entry and a signal exit first',
-      }
-    return { valid: true, message: '' }
+    if (!graph || graph.kind !== 'subgraph') return { valid: false, reason: 'not-subgraph' }
+    const candidates = this.currentGraphInterfaceCandidates()
+    const entries = candidates.filter((candidate) => candidate.kind === 'entry').length
+    const exits = candidates.filter((candidate) => candidate.kind === 'exit').length
+    if (entries > 1) return { valid: false, reason: 'multiple-entry' }
+    if (!entries || !exits) return { valid: false, reason: 'missing-entry-or-exit' }
+    return { valid: true }
+  }
+
+  currentGraphInterfaceCandidates(): GraphInterfaceCandidate[] {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph') throw new Error('open a subgraph first')
+    return projectGraphInterfaceCandidates(graph, this.graphInterfaceElements(graph))
+  }
+
+  addCurrentGraphInterfaceCandidate(candidateKey: string): void {
+    const graph = this.requireCurrentSubgraph()
+    const selected = this.currentGraphInterfaceCandidates().find(
+      (candidate) => candidate.key === candidateKey,
+    )
+    if (!selected) throw new Error('subgraph interface candidate is no longer available')
+    this.updateCurrentGraphInterface(addGraphInterfaceCandidate(graph, selected))
+  }
+
+  renameCurrentGraphInterfaceItem(kind: GraphInterfaceItemKind, id: string, name: string): void {
+    const graph = this.requireCurrentSubgraph()
+    this.updateCurrentGraphInterface(renameGraphInterfaceItem(graph, kind, id, name))
+  }
+
+  moveCurrentGraphInterfaceItem(kind: GraphInterfaceItemKind, id: string, direction: -1 | 1): void {
+    const graph = this.requireCurrentSubgraph()
+    this.updateCurrentGraphInterface(moveGraphInterfaceItem(graph, kind, id, direction))
+  }
+
+  removeCurrentGraphInterfaceItem(kind: 'entry' | GraphInterfaceItemKind, id = ''): void {
+    const graph = this.requireCurrentSubgraph()
+    this.updateCurrentGraphInterface(removeGraphInterfaceItem(graph, kind, id))
+  }
+
+  currentGraphInterfaceReferences(
+    kind: GraphInterfaceItemKind,
+    id: string,
+  ): GraphInterfaceReference[] {
+    const graph = this.requireCurrentSubgraph()
+    return graphInterfaceReferences(this.requireSource(), graph.id, kind, id)
+  }
+
+  previewCurrentGraphInterfaceInference(): GraphInterfaceInferencePreview {
+    const graph = this.requireCurrentSubgraph()
+    return inferGraphInterface(graph, this.currentGraphInterfaceCandidates())
+  }
+
+  applyCurrentGraphInterfaceInference(preview?: GraphInterfaceInferencePreview): void {
+    this.updateCurrentGraphInterface(
+      preview?.draft ?? this.previewCurrentGraphInterfaceInference().draft,
+    )
   }
 
   inferCurrentGraphInterface(): void {
-    const graph = this.currentGraph
-    if (!graph || graph.kind !== 'subgraph') throw new Error('open a subgraph first')
-    const inputs: Graph['inputs'] = []
-    const outputs: Graph['outputs'] = []
-    const entries: NonNullable<Graph['entries']> = []
-    const exits: NonNullable<Graph['exits']> = []
-    const hasIncoming = (nodeId: string, portId: string, channel: Edge['channel']) =>
-      graph.edges.some(
-        (edge) =>
-          edge.channel === channel && edge.to.nodeId === nodeId && edge.to.portId === portId,
-      )
-    const hasOutgoing = (nodeId: string, portId: string, channel: Edge['channel']) =>
-      graph.edges.some(
-        (edge) =>
-          edge.channel === channel && edge.from.nodeId === nodeId && edge.from.portId === portId,
-      )
-    const addElement = (
-      id: string,
-      dataInputs: Array<{ id: string; type: TypeExpression }>,
-      dataOutputs: Array<{ id: string; type: TypeExpression }>,
-      signals: Array<{ id: string; channel: 'exec' | 'error'; direction: 'input' | 'output' }>,
-      bindings: Record<string, InputBinding>,
-    ) => {
-      for (const signal of signals) {
-        if (
-          signal.direction === 'input' &&
-          signal.channel === 'exec' &&
-          signal.id === 'in' &&
-          !hasIncoming(id, signal.id, 'exec')
-        )
-          entries.push({ nodeId: id, portId: signal.id })
-        if (signal.direction === 'output' && !hasOutgoing(id, signal.id, signal.channel)) {
-          exits.push({
-            id: boundaryId('exit', signal.id, exits.length + 1),
-            channel: signal.channel,
-            endpoint: { nodeId: id, portId: signal.id },
-          })
-        }
-      }
-      for (const port of dataInputs) {
-        if (!bindings[port.id] && !hasIncoming(id, port.id, 'data'))
-          inputs.push({
-            id: boundaryId('input', port.id, inputs.length + 1),
-            type: clone(port.type),
-            nodeId: id,
-            portId: port.id,
-          })
-      }
-      for (const port of dataOutputs) {
-        if (!hasOutgoing(id, port.id, 'data'))
-          outputs.push({
-            id: boundaryId('output', port.id, outputs.length + 1),
-            type: clone(port.type),
-            nodeId: id,
-            portId: port.id,
-          })
-      }
-    }
-    for (const node of graph.nodes) {
-      const projection = this.nodeInstanceProjection(node)
-      if (!projection) continue
-      addElement(
-        node.id,
-        projection.dataInputs.map((port) => ({ id: port.id, type: port.type.expression })),
-        projection.dataOutputs.map((port) => ({ id: port.id, type: port.type.expression })),
-        projection.signals,
-        node.bindings,
-      )
-    }
-    for (const call of graph.calls!) {
-      const callee = this.calleeGraph(call)
-      if (!callee) continue
-      addElement(
-        call.id,
-        callee.inputs.map((port) => ({ id: port.id, type: port.type })),
-        callee.outputs.map((port) => ({ id: port.id, type: port.type })),
-        [
-          { id: 'in', channel: 'exec', direction: 'input' },
-          ...(callee.exits ?? []).map((exit) => ({
-            id: exit.id,
-            channel: exit.channel,
-            direction: 'output' as const,
-          })),
-        ],
-        call.bindings,
-      )
-    }
-    if (entries.length > 1) throw new Error('subgraph has multiple unconnected execution entries')
-    if (!entries.length || !exits.length)
-      throw new Error('subgraph needs an unconnected “in” entry and at least one signal exit')
-    this.apply({ kind: 'update-graph-interface', inputs, outputs, entries, exits })
+    this.applyCurrentGraphInterfaceInference()
   }
 
   graphBoundaryCompatibility(binding: GraphBoundaryBinding): ConnectionCompatibility {
@@ -584,7 +515,7 @@ export class EditorSession {
     const graph = this.currentGraph!
     const inputs = clone(graph.inputs)
     const outputs = clone(graph.outputs)
-    const entries = clone(graph.entries ?? [])
+    const entries: NonNullable<Graph['entries']> = graph.entries ? clone(graph.entries) : []
     const exits = clone(graph.exits ?? [])
     if (binding.kind === 'entry') entries.splice(0, entries.length, clone(binding.endpoint))
     if (binding.kind === 'input') {
@@ -1232,6 +1163,69 @@ export class EditorSession {
     source.revision = this.baseRevision + 1
     this.dirty = true
     this.resetCompileFacts()
+  }
+
+  private requireCurrentSubgraph(): Graph {
+    const graph = this.currentGraph
+    if (!graph || graph.kind !== 'subgraph') throw new Error('open a subgraph first')
+    return graph
+  }
+
+  private updateCurrentGraphInterface(draft: GraphInterfaceDraft): void {
+    this.apply({ kind: 'update-graph-interface', ...draft })
+  }
+
+  private graphInterfaceElements(graph: Graph): GraphInterfaceElement[] {
+    const elements: GraphInterfaceElement[] = []
+    for (const node of graph.nodes) {
+      const projection = this.nodeInstanceProjection(node)
+      if (!projection) continue
+      elements.push({
+        id: node.id,
+        label: node.label?.trim() || node.id,
+        dataInputs: projection.dataInputs.map((port) => ({
+          id: port.id,
+          name: port.id,
+          type: clone(port.type.expression),
+        })),
+        dataOutputs: projection.dataOutputs.map((port) => ({
+          id: port.id,
+          name: port.id,
+          type: clone(port.type.expression),
+        })),
+        signals: projection.signals.map((signal) => ({ ...signal })),
+        bindings: node.bindings,
+      })
+    }
+    for (const call of graph.calls ?? []) {
+      const callee = this.calleeGraph(call)
+      if (!callee) continue
+      elements.push({
+        id: call.id,
+        label: call.label?.trim() || callee.name?.trim() || call.id,
+        dataInputs: callee.inputs.map((port) => ({
+          id: port.id,
+          name: port.name?.trim() || port.id,
+          type: clone(port.type),
+        })),
+        dataOutputs: callee.outputs.map((port) => ({
+          id: port.id,
+          name: port.name?.trim() || port.id,
+          type: clone(port.type),
+        })),
+        signals: [
+          { id: 'in', name: 'in', channel: 'exec', direction: 'input' },
+          ...(callee.exits ?? []).map((exit) => ({
+            id: exit.id,
+            name: exit.name?.trim() || exit.id,
+            channel: exit.channel,
+            direction: 'output' as const,
+          })),
+        ],
+        bindings: call.bindings,
+      })
+    }
+    return elements
   }
 
   private resetCompileFacts(): void {
@@ -2591,7 +2585,7 @@ function collapseGraphSelection(
             subgraph.entries![0].portId !== edge.to.portId)
         )
           throw new Error('selection has multiple execution entries')
-        if (!subgraph.entries!.length) subgraph.entries!.push(clone(edge.to))
+        if (!subgraph.entries!.length) subgraph.entries = [clone(edge.to)]
         copyEdge.to = { nodeId: command.callId, portId: 'in' }
       } else {
         const key = `${edge.to.nodeId}\0${edge.to.portId}`
@@ -2603,6 +2597,7 @@ function collapseGraphSelection(
           inputs.set(key, portId)
           subgraph.inputs.push({
             id: portId,
+            name: edge.to.portId,
             type: clone(type),
             nodeId: edge.to.nodeId,
             portId: edge.to.portId,
@@ -2623,6 +2618,7 @@ function collapseGraphSelection(
         outputs.set(key, portId)
         subgraph.outputs.push({
           id: portId,
+          name: edge.from.portId,
           type: clone(type),
           nodeId: edge.from.nodeId,
           portId: edge.from.portId,
@@ -2635,7 +2631,12 @@ function collapseGraphSelection(
       if (!exitId) {
         exitId = boundaryId('exit', edge.from.portId, subgraph.exits!.length + 1)
         exits.set(key, exitId)
-        subgraph.exits!.push({ id: exitId, channel: edge.channel, endpoint: clone(edge.from) })
+        subgraph.exits!.push({
+          id: exitId,
+          name: edge.from.portId,
+          channel: edge.channel,
+          endpoint: clone(edge.from),
+        })
       }
       copyEdge.from = { nodeId: command.callId, portId: exitId }
     }
@@ -2670,11 +2671,12 @@ function collapseGraphSelection(
           (subgraph.entries![0].nodeId !== nodeId || subgraph.entries![0].portId !== signal.id)
         )
           throw new Error('selection has multiple execution entries')
-        if (!subgraph.entries!.length) subgraph.entries!.push(endpoint)
+        if (!subgraph.entries!.length) subgraph.entries = [endpoint]
       }
       if (signal.direction === 'output' && !hasOutgoing(nodeId, signal.id, signal.channel)) {
         subgraph.exits!.push({
           id: boundaryId('exit', signal.id, subgraph.exits!.length + 1),
+          name: signal.id,
           channel: signal.channel,
           endpoint,
         })

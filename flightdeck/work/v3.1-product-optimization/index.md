@@ -10,14 +10,14 @@ Open
 
 ## Current
 
-Stage N 的 N1 已完成：子图定义管理器直接从 Source 派生调用数、引用位置和接口摘要；定义/调用删除语义、
-同名消歧、引用保护和 handle 布局均有测试。当前进入 N2，收敛稳定接口 ID 与显示名称、显式单入口/
-typed data ports/多命名 exits 的编辑合同，并把自动推导降级为带预览的快捷动作。
+Stage N 的 N1–N2 已完成：定义管理、调用定位、稳定接口 ID/显示名称、显式单入口、typed data ports、
+命名 exec/error exits、引用安全移除和带预览自动推导均已落到唯一 Source/authoring/compiler 链路。当前进入 N3，
+实现复制调用、独立复制定义、展开调用和显式原子级联删除。
 
 ## Next
 
-完成 [N2 显式接口编辑](slices/stage-n2-subgraph-interface-editor.md)：先锁定 interface identity/display/order
-合同与 caller 引用影响，再实现接口面板、boundary/call 一致投影和带预览的自动推导。
+完成 [N3 子图生命周期](slices/stage-n3-subgraph-lifecycle.md)：先以 Source 转换测试锁定复制调用、复制定义、
+展开调用和级联删除，再扩展单一 authoring patch seam 与无歧义 UI 动作。
 
 ## Progress
 
@@ -54,6 +54,8 @@ typed data ports/多命名 exits 的编辑合同，并把自动推导降级为�
   interface 清单和安全定义删除方案。
 - 2026-07-24 N1 完成：新增 Source-derived 子图管理器、同名 ID 消歧、调用引用定位、接口健康摘要和定义/
   调用无歧义删除；修复缺失 graph ID 误删最后一个定义。`task check` 通过 74 个测试文件/304 项测试。
+- 2026-07-24 N2 完成：Graph interface 分离稳定 ID/显示名称，显式发布单入口、typed data ports 和命名
+  exec/error exits；自动推导改为引用安全预览。`task check` 通过 21 个受影响 Go 包和 76 个测试文件/310 项测试。
 
 ## References
 

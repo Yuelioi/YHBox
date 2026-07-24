@@ -69,6 +69,31 @@ func TestParseSource31RejectsLegacyKindAndImplicitEdgeChannel(t *testing.T) {
 	}
 }
 
+func TestParseSource31PreservesStableGraphInterfaceIDsAndDisplayNames(t *testing.T) {
+	raw := `{
+		"format":"yotta.workflow","version":"1",
+		"workflow":{"id":"wf-interface","name":"Interface"},"revision":0,"entryGraph":"main",
+		"graphs":[
+			{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]},
+			{"id":"child","kind":"subgraph","nodes":[
+				{"id":"inner","nodeRef":{"nodeTypeId":"https://schemas.yotta.dev/nodes/control/delay","version":"1.0.0","semanticDigest":"sha256:1111111111111111111111111111111111111111111111111111111111111111"},"position":{"x":0,"y":0},"config":{},"bindings":{}}
+			],"edges":[],"entries":[{"nodeId":"inner","portId":"in"}],
+			 "inputs":[{"id":"duration_1","name":"等待时长","type":{"kind":"ref","ref":{"typeId":"https://schemas.yotta.dev/types/core/duration/v1","semanticDigest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}},"nodeId":"inner","portId":"duration-milliseconds"}],
+			 "outputs":[],
+			 "exits":[{"id":"completed_1","name":"等待完成","channel":"exec","endpoint":{"nodeId":"inner","portId":"done"}}]}
+		],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]}`
+
+	source, diagnostics := ParseSource([]byte(raw))
+	if len(diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+	child := source.Graphs[1]
+	if child.Inputs[0].ID != "duration_1" || child.Inputs[0].Name != "等待时长" ||
+		child.Exits[0].ID != "completed_1" || child.Exits[0].Name != "等待完成" {
+		t.Fatalf("interface = inputs:%#v exits:%#v", child.Inputs, child.Exits)
+	}
+}
+
 func TestParseSource31RejectsUnknownDuplicateAndMalformedBindingState(t *testing.T) {
 	valid := validSource31ForTest()
 	tests := []struct {

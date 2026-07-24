@@ -43,7 +43,9 @@
             :position="Position.Left"
             class="workflow-handle-data"
           />
-          <span class="min-w-0 flex-1 truncate text-toned">{{ port.id }}</span>
+          <span class="min-w-0 flex-1 truncate text-toned">{{
+            graphInterfacePortLabel(port)
+          }}</span>
         </div>
       </div>
       <div class="space-y-1.5 text-right">
@@ -52,7 +54,9 @@
           :key="port.id"
           class="relative flex h-5 min-w-0 items-center justify-end pr-3"
         >
-          <span class="min-w-0 flex-1 truncate text-toned">{{ port.id }}</span>
+          <span class="min-w-0 flex-1 truncate text-toned">{{
+            graphInterfacePortLabel(port)
+          }}</span>
           <Handle
             :id="graphHandle('data', 'output', port.id)"
             type="source"
@@ -69,7 +73,7 @@
             class="min-w-0 flex-1 truncate"
             :class="exit.channel === 'error' ? 'text-error' : 'text-toned'"
           >
-            {{ exit.id }}
+            {{ graphInterfaceExitLabel(exit) }}
           </span>
           <Handle
             :id="graphHandle(exit.channel, 'output', exit.id)"
@@ -87,6 +91,7 @@
 import { Handle, Position } from '@vue-flow/core'
 import type { Graph, GraphCall } from '../../../../contracts/workflow/current/workflow-source'
 import { graphHandle } from './graphHandles'
+import { graphInterfaceExitLabel, graphInterfacePortLabel } from './subgraphInterface'
 
 defineProps<{ call: GraphCall; graph: Graph; selected?: boolean }>()
 const emit = defineEmits<{ open: [] }>()
