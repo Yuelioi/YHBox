@@ -34,7 +34,7 @@ func TestCollectionTypeVariablesFreezeIntoProgramAndExecute(t *testing.T) {
 		],"edges":[
 			{"channel":"data","from":{"nodeId":"split","portId":"result"},"to":{"nodeId":"get","portId":"list"}},
 			{"channel":"data","from":{"nodeId":"get","portId":"result"},"to":{"nodeId":"concat","portId":"a"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, split.Contract.NodeRef().NodeTypeID, split.Contract.NodeRef().SemanticDigest,
 		get.Contract.NodeRef().NodeTypeID, get.Contract.NodeRef().SemanticDigest,
 		concat.Contract.NodeRef().NodeTypeID, concat.Contract.NodeRef().SemanticDigest))
@@ -78,7 +78,7 @@ func TestUnresolvedCollectionVariableFailsAtCompileBoundary(t *testing.T) {
 		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-unresolved","name":"Unresolved"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"length","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, length.Contract.NodeRef().NodeTypeID, length.Contract.NodeRef().SemanticDigest))
 	build, err := artifact.Sum("yotta/test/compiler-build/v1", []byte(t.Name()))
 	if err != nil {

@@ -256,7 +256,7 @@ func concatSource(t *testing.T, revision int, a, b string) []byte {
 		"revision":%d,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}}
-		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, revision, ref.NodeTypeID, ref.SemanticDigest, a, b))
 }
 

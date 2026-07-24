@@ -2765,6 +2765,11 @@ function isWorkflowSource(value: unknown): value is YottaWorkflowSource {
     typeof source.revision === 'number' &&
     typeof source.entryGraph === 'string' &&
     Array.isArray(source.graphs) &&
+    Array.isArray(source.resources) &&
+    Array.isArray(source.targetProfileDefinitions) &&
+    Array.isArray(source.credentialRequirements) &&
+    Array.isArray(source.dependencies) &&
+    Array.isArray(source.variables) &&
     typeof source.workflow === 'object' &&
     source.workflow !== null
   )

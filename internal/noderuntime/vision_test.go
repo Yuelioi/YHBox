@@ -134,7 +134,7 @@ func visionMatchSource(builtins nodes.Builtins, frame, template blob.BlobRef) []
 		],"edges":[
 			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"branch","portId":"in"}},
 			{"channel":"data","from":{"nodeId":"match","portId":"matched"},"to":{"nodeId":"branch","portId":"condition"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		match.Contract.NodeRef().NodeTypeID, match.Contract.NodeRef().SemanticDigest,
 		frame.MediaType, frame.Digest, frame.Size, template.MediaType, template.Digest, template.Size,

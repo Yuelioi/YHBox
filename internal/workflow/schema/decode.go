@@ -18,6 +18,7 @@ import (
 	runtimejsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
 var workflowValidator = sync.OnceValues(compileWorkflowValidator)
@@ -244,8 +245,20 @@ func validateSource(source WorkflowSource) []Diagnostic {
 	if err := source.Workflow.validateTimestamps(); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"workflow"}, map[string]any{"keyword": "timestamps", "reason": err.Error()}))
 	}
+	if err := validateResources(source.Resources); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"resources"}, map[string]any{"keyword": "workflowResources", "reason": err.Error()}))
+	}
+	if err := validateTargetProfileDefinitions(source.TargetProfileDefinitions); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetProfileDefinitions"}, map[string]any{"keyword": "targetProfileDefinitions", "reason": err.Error()}))
+	}
 	if err := validateTargetDefaults(source.TargetDefaults); err != nil {
 		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetDefaults", "reason": err.Error()}))
+	}
+	if err := validateTargetDefaultReferences(source.TargetDefaults, source.TargetProfileDefinitions); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"targetDefaults"}, map[string]any{"keyword": "targetProfileDefinition", "reason": err.Error()}))
+	}
+	if err := validateCredentialRequirements(source.CredentialRequirements); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"credentialRequirements"}, map[string]any{"keyword": "credentialRequirements", "reason": err.Error()}))
 	}
 
 	graphIDs := map[string]bool{}
@@ -257,6 +270,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		path    []string
 	}{}
 	mainGraphs := 0
+	usedNodeRefs := make(map[nodecontract.NodeRef]struct{})
 	for graphIndex, graph := range source.Graphs {
 		if len(out) >= MaxDiagnostics {
 			return sortedDiagnostics(out)
@@ -282,25 +296,13 @@ func validateSource(source WorkflowSource) []Diagnostic {
 				appendDiagnostic(&out, Diagnostic{Code: CodeDuplicateID, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "id"), Params: map[string]any{"id": node.ID}})
 			}
 			nodeIDs[node.ID] = true
+			usedNodeRefs[node.NodeRef] = struct{}{}
 			if !finitePosition(node.Position) {
 				appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(nodePath, "position"), Params: map[string]any{"keyword": "finite"}})
 			}
 			for portID, binding := range node.Bindings {
 				bindingPath := append(append([]string(nil), nodePath...), "bindings", portID)
-				switch binding.Kind {
-				case BindingValue:
-					if len(binding.Value) == 0 || binding.Blob != nil {
-						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
-					}
-				case BindingDefault:
-					if len(binding.Value) != 0 || binding.Blob != nil {
-						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "value"), Params: map[string]any{"keyword": "bindingState"}})
-					}
-				case BindingBlob:
-					if len(binding.Value) != 0 || binding.Blob == nil || binding.Blob.Validate() != nil {
-						appendDiagnostic(&out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: node.ID, FieldPath: append(bindingPath, "blob"), Params: map[string]any{"keyword": "bindingState"}})
-					}
-				}
+				validateBindingState(&out, graphPath, node.ID, bindingPath, binding, source.Resources)
 			}
 		}
 		for callIndex, call := range graph.Calls {
@@ -314,7 +316,7 @@ func validateSource(source WorkflowSource) []Diagnostic {
 			}
 			for portID, binding := range call.Bindings {
 				bindingPath := append(append([]string(nil), callPath...), "bindings", portID)
-				validateBindingState(&out, graphPath, call.ID, bindingPath, binding)
+				validateBindingState(&out, graphPath, call.ID, bindingPath, binding, source.Resources)
 			}
 			callTargets[graph.ID] = append(callTargets[graph.ID], struct {
 				graphID string
@@ -425,6 +427,9 @@ func validateSource(source WorkflowSource) []Diagnostic {
 			visitCalls(graphID)
 		}
 	}
+	if err := validateDependencies(source.Dependencies, usedNodeRefs); err != nil {
+		appendDiagnostic(&out, diagnostic(CodeInvalidField, []string{"dependencies"}, map[string]any{"keyword": "nodePackageDependencies", "reason": err.Error()}))
+	}
 	variableNames := map[string]bool{}
 	for index, variable := range source.Variables {
 		if len(out) >= MaxDiagnostics {
@@ -439,31 +444,27 @@ func validateSource(source WorkflowSource) []Diagnostic {
 		}
 		variableNames[variable.Name] = true
 	}
-	secretIDs := map[string]bool{}
-	for index, secret := range source.SecretRefs {
-		if len(out) >= MaxDiagnostics {
-			return sortedDiagnostics(out)
-		}
-		path := []string{"secretRefs", fmt.Sprint(index)}
-		if secretIDs[secret.ID] {
-			appendDiagnostic(&out, diagnostic(CodeDuplicateID, append(path, "id"), map[string]any{"id": secret.ID}))
-		}
-		secretIDs[secret.ID] = true
-	}
 	return sortedDiagnostics(out)
 }
 
-func validateBindingState(out *[]Diagnostic, graphPath []string, nodeID string, bindingPath []string, binding InputBinding) {
+func validateBindingState(out *[]Diagnostic, graphPath []string, nodeID string, bindingPath []string, binding InputBinding, resources []WorkflowResource) {
 	field := "value"
 	invalid := false
 	switch binding.Kind {
 	case BindingValue:
-		invalid = len(binding.Value) == 0 || binding.Blob != nil
+		invalid = len(binding.Value) == 0 || binding.Blob != nil || binding.Resource != nil
 	case BindingDefault:
-		invalid = len(binding.Value) != 0 || binding.Blob != nil
+		invalid = len(binding.Value) != 0 || binding.Blob != nil || binding.Resource != nil
 	case BindingBlob:
 		field = "blob"
-		invalid = len(binding.Value) != 0 || binding.Blob == nil || binding.Blob.Validate() != nil
+		invalid = len(binding.Value) != 0 || binding.Blob == nil || binding.Resource != nil || binding.Blob.Validate() != nil
+	case BindingResource:
+		field = "resource"
+		if binding.Resource == nil || len(binding.Value) != 0 || binding.Blob != nil {
+			invalid = true
+		} else if _, err := ResolveResourceBinding(resources, *binding.Resource); err != nil {
+			invalid = true
+		}
 	}
 	if invalid {
 		appendDiagnostic(out, Diagnostic{Code: CodeInvalidField, Severity: SeverityError, GraphPath: graphPath, NodeID: nodeID, FieldPath: append(bindingPath, field), Params: map[string]any{"keyword": "bindingState"}})

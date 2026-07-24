@@ -23,7 +23,7 @@ func TestCompileAllowsDisconnectedDraftNodesBesideReachableExecution(t *testing.
 			{"id":"end","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"config":{},"bindings":{},"position":{"x":200,"y":0}},
 			{"id":"draft-node","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"config":{},"bindings":{},"position":{"x":0,"y":200}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"end","portId":"in"}}],"inputs":[],"outputs":[]}],
-		"variables":[],"secretRefs":[]
+		"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`,
 		started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().Version, started.Contract.NodeRef().SemanticDigest,
 		end.Contract.NodeRef().NodeTypeID, end.Contract.NodeRef().Version, end.Contract.NodeRef().SemanticDigest,

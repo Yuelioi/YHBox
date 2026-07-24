@@ -27,6 +27,14 @@ export type TypeExpression =
     }
 
 export interface YottaWorkflowSource {
+  /**
+   * @maxItems 4096
+   */
+  credentialRequirements: CredentialRequirement[]
+  /**
+   * @maxItems 4096
+   */
+  dependencies: NodePackageDependency[]
   entryGraph: string
   format: 'yotta.workflow'
   /**
@@ -34,21 +42,46 @@ export interface YottaWorkflowSource {
    * @maxItems 256
    */
   graphs: [Graph, ...Graph[]]
-  revision: number
   /**
    * @maxItems 4096
    */
-  secretRefs: SecretRef[]
+  resources: WorkflowResource[]
+  revision: number
   /**
    * @maxItems 64
    */
   targetDefaults?: TargetDefault[]
+  /**
+   * @maxItems 64
+   */
+  targetProfileDefinitions: TargetProfileDefinition[]
   /**
    * @maxItems 4096
    */
   variables: Variable[]
   version: '3.1'
   workflow: Workflow
+}
+export interface CredentialRequirement {
+  kind: string
+  purpose: string
+  slot: string
+}
+export interface NodePackageDependency {
+  manifestDigest: string
+  /**
+   * @minItems 1
+   * @maxItems 4096
+   */
+  nodeRefs: [NodeRef, ...NodeRef[]]
+  packageId: string
+  packageVersion: string
+  publisherNamespace: string
+}
+export interface NodeRef {
+  nodeTypeId: string
+  semanticDigest: string
+  version: string
 }
 export interface Graph {
   /**
@@ -113,13 +146,18 @@ export interface GraphCall {
 }
 export interface InputBinding {
   blob?: BlobRef
-  kind: 'value' | 'default' | 'blob'
+  kind: 'value' | 'default' | 'blob' | 'resource'
+  resource?: ResourceBinding
   value?: any
 }
 export interface BlobRef {
   digest: string
   mediaType: string
   size: number
+}
+export interface ResourceBinding {
+  resourceId: string
+  variantId?: string
 }
 export interface Edge {
   channel: 'data' | 'exec' | 'error'
@@ -165,18 +203,99 @@ export interface Node {
   nodeRef: NodeRef
   position: Position
 }
-export interface NodeRef {
-  nodeTypeId: string
-  semanticDigest: string
-  version: string
-}
-export interface SecretRef {
+export interface WorkflowResource {
+  category?: string
+  description?: string
   id: string
-  purpose: string
+  image?: ImageResource
+  inputClip?: InputClipResource
+  kind: 'image' | 'macro' | 'input-clip'
+  macro?: MacroResource
+  name: string
+  /**
+   * @maxItems 64
+   */
+  tags?: string[]
+}
+export interface ImageResource {
+  /**
+   * @minItems 1
+   * @maxItems 256
+   */
+  variants: [ImageResourceVariant, ...ImageResourceVariant[]]
+}
+export interface ImageResourceVariant {
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  bbox: [number, number, number, number]
+  blob: BlobRef
+  id: string
+  /**
+   * @maxItems 256
+   */
+  regions?: [number, number, number, number][]
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  resolution: [number, number]
+}
+export interface InputClipResource {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  baseResolution: [number, number]
+  blob: BlobRef
+  durationUs: number
+  eventCount: number
+  mouseCounts360: number
+  mouseMode: 'relative' | 'absolute' | 'mixed'
+  recordingMode: 'simple' | 'precise'
+  stopHotkeyVk: number
+}
+export interface MacroResource {
+  actionCount: number
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  baseResolution: [number, number]
+  blob: BlobRef
+  durationUs: number
 }
 export interface TargetDefault {
   slot: string
   target: string
+}
+export interface TargetProfileDefinition {
+  adapterKind: string
+  description?: string
+  /**
+   * @maxItems 64
+   */
+  discoveryHints: TargetDiscoveryHint[]
+  id: string
+  initialDefaults: any
+  name: string
+  profileVersion: string
+  /**
+   * @minItems 1
+   * @maxItems 256
+   */
+  settingsSchemaBundle: [Resource, ...Resource[]]
+  settingsSchemaRoot: string
+  targetKind: string
+}
+export interface TargetDiscoveryHint {
+  kind: 'application-name' | 'executable-name' | 'window-title' | 'android-package' | 'device-model' | 'browser-host'
+  value: string
+}
+export interface Resource {
+  id: string
+  schema: any
 }
 export interface Variable {
   default: any

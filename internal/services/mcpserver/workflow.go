@@ -30,14 +30,17 @@ type WorkflowCreateRequest struct {
 }
 
 type WorkflowSummary struct {
-	WorkflowID    string          `json:"workflowId"`
-	Name          string          `json:"name"`
-	Revision      int64           `json:"revision"`
-	SourceHash    artifact.Digest `json:"sourceHash"`
-	EntryGraph    string          `json:"entryGraph"`
-	GraphCount    int             `json:"graphCount"`
-	VariableCount int             `json:"variableCount"`
-	SecretCount   int             `json:"secretCount"`
+	WorkflowID                 string          `json:"workflowId"`
+	Name                       string          `json:"name"`
+	Revision                   int64           `json:"revision"`
+	SourceHash                 artifact.Digest `json:"sourceHash"`
+	EntryGraph                 string          `json:"entryGraph"`
+	GraphCount                 int             `json:"graphCount"`
+	VariableCount              int             `json:"variableCount"`
+	ResourceCount              int             `json:"resourceCount"`
+	TargetProfileCount         int             `json:"targetProfileCount"`
+	CredentialRequirementCount int             `json:"credentialRequirementCount"`
+	DependencyCount            int             `json:"dependencyCount"`
 }
 
 type WorkflowListResult struct {
@@ -266,7 +269,9 @@ func summarizeSource(snapshot workflowstore.SourceSnapshot) (WorkflowSummary, er
 	return WorkflowSummary{
 		WorkflowID: source.Workflow.ID, Name: source.Workflow.Name, Revision: source.Revision,
 		SourceHash: snapshot.Hash(), EntryGraph: source.EntryGraph, GraphCount: len(source.Graphs),
-		VariableCount: len(source.Variables), SecretCount: len(source.SecretRefs),
+		VariableCount: len(source.Variables), ResourceCount: len(source.Resources),
+		TargetProfileCount: len(source.TargetProfileDefinitions), CredentialRequirementCount: len(source.CredentialRequirements),
+		DependencyCount: len(source.Dependencies),
 	}, nil
 }
 

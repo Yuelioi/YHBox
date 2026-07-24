@@ -23,27 +23,28 @@ import (
 const (
 	MaxSourceBytes = 16 << 20
 
-	CodeInvalidCatalog           = "INVALID_CATALOG"
-	CodeUnknownNodeType          = "UNKNOWN_NODE_TYPE"
-	CodeNodeContractMismatch     = "NODE_CONTRACT_MISMATCH"
-	CodeUnknownPort              = "UNKNOWN_PORT"
-	CodeEdgeChannelMismatch      = "EDGE_CHANNEL_MISMATCH"
-	CodeTypeMismatch             = "TYPE_MISMATCH"
-	CodeUnresolvedType           = "UNRESOLVED_TYPE"
-	CodeResourceLeaseMismatch    = "RESOURCE_LEASE_MISMATCH"
-	CodeMissingInputBinding      = "MISSING_INPUT_BINDING"
-	CodeDuplicateInputBinding    = "DUPLICATE_INPUT_BINDING"
-	CodeDuplicateSignalRoute     = "DUPLICATE_SIGNAL_ROUTE"
-	CodeRegionSignalScope        = "REGION_SIGNAL_SCOPE"
-	CodeInvalidBinding           = "INVALID_BINDING"
-	CodeBlobUnavailable          = "BLOB_UNAVAILABLE"
-	CodeInvalidConfig            = "INVALID_CONFIG"
-	CodeInvalidStateVariable     = "INVALID_STATE_VARIABLE"
-	CodeInvalidStateAccess       = "INVALID_STATE_ACCESS"
-	CodeInvalidCapabilityBinding = "INVALID_CAPABILITY_BINDING"
-	CodeNoExecutionRoot          = "NO_EXECUTION_ROOT"
-	CodeDataCycle                = "DATA_CYCLE"
-	CodeUnsupportedSourceFeature = "UNSUPPORTED_SOURCE_FEATURE"
+	CodeInvalidCatalog                = "INVALID_CATALOG"
+	CodeUnknownNodeType               = "UNKNOWN_NODE_TYPE"
+	CodeNodeContractMismatch          = "NODE_CONTRACT_MISMATCH"
+	CodeNodePackageDependencyMismatch = "NODE_PACKAGE_DEPENDENCY_MISMATCH"
+	CodeUnknownPort                   = "UNKNOWN_PORT"
+	CodeEdgeChannelMismatch           = "EDGE_CHANNEL_MISMATCH"
+	CodeTypeMismatch                  = "TYPE_MISMATCH"
+	CodeUnresolvedType                = "UNRESOLVED_TYPE"
+	CodeResourceLeaseMismatch         = "RESOURCE_LEASE_MISMATCH"
+	CodeMissingInputBinding           = "MISSING_INPUT_BINDING"
+	CodeDuplicateInputBinding         = "DUPLICATE_INPUT_BINDING"
+	CodeDuplicateSignalRoute          = "DUPLICATE_SIGNAL_ROUTE"
+	CodeRegionSignalScope             = "REGION_SIGNAL_SCOPE"
+	CodeInvalidBinding                = "INVALID_BINDING"
+	CodeBlobUnavailable               = "BLOB_UNAVAILABLE"
+	CodeInvalidConfig                 = "INVALID_CONFIG"
+	CodeInvalidStateVariable          = "INVALID_STATE_VARIABLE"
+	CodeInvalidStateAccess            = "INVALID_STATE_ACCESS"
+	CodeInvalidCapabilityBinding      = "INVALID_CAPABILITY_BINDING"
+	CodeNoExecutionRoot               = "NO_EXECUTION_ROOT"
+	CodeDataCycle                     = "DATA_CYCLE"
+	CodeUnsupportedSourceFeature      = "UNSUPPORTED_SOURCE_FEATURE"
 )
 
 type Diagnostic = schema.Diagnostic
@@ -117,15 +118,13 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	for _, slot := range stateSlots {
 		stateByName[slot.Name] = slot
 	}
-	if len(source.SecretRefs) != 0 {
-		result.Diagnostics = append(result.Diagnostics, diagnostic(CodeUnsupportedSourceFeature, []string{"secretRefs"}, ""))
-	}
+	result.Diagnostics = append(result.Diagnostics, validateNodePackageDependencies(source, request.Catalog)...)
 	expanded, expansionDiagnostics, expandErr := expandWorkflow(source, request.Catalog)
 	if expandErr != nil {
 		return result, expandErr
 	}
 	result.Diagnostics = append(result.Diagnostics, expansionDiagnostics...)
-	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, source.TargetDefaults, request.Catalog, c.validators, stateByName, request.BlobVerifier)
+	compiled, graphDiagnostics, compileErr := compileGraph(ctx, expanded.graph, 0, source.Resources, source.TargetDefaults, request.Catalog, c.validators, stateByName, request.BlobVerifier)
 	if compileErr != nil {
 		return CompileResult{}, compileErr
 	}
@@ -176,6 +175,46 @@ func (c *Compiler) CompileDraft(ctx context.Context, request CompileRequest) (Co
 	}
 	sortDiagnostics(result.Diagnostics)
 	return result, nil
+}
+
+func validateNodePackageDependencies(source schema.WorkflowSource, catalog nodecatalog.Snapshot) []Diagnostic {
+	claimed := make(map[nodecontract.NodeRef]int)
+	diagnostics := make([]Diagnostic, 0)
+	for dependencyIndex, dependency := range source.Dependencies {
+		for _, ref := range dependency.NodeRefs {
+			claimed[ref] = dependencyIndex
+			entry, ok := catalog.Lookup(ref.NodeTypeID)
+			if ok && entry.Contract.NodeRef() == ref && entry.Implementation.PackageID == dependency.PackageID &&
+				entry.Implementation.ArtifactDigest == dependency.ManifestDigest {
+				continue
+			}
+			diagnostic := diagnostic(CodeNodePackageDependencyMismatch, []string{"dependencies", fmt.Sprint(dependencyIndex)}, "")
+			diagnostic.Params["nodeTypeId"] = ref.NodeTypeID
+			diagnostics = append(diagnostics, diagnostic)
+		}
+	}
+	seen := make(map[nodecontract.NodeRef]struct{})
+	for _, graph := range source.Graphs {
+		for _, node := range graph.Nodes {
+			if _, duplicate := seen[node.NodeRef]; duplicate {
+				continue
+			}
+			seen[node.NodeRef] = struct{}{}
+			entry, ok := catalog.Lookup(node.NodeRef.NodeTypeID)
+			if !ok || entry.Contract.NodeRef() != node.NodeRef ||
+				(entry.Implementation.ABI.Kind != nodecontract.ABIWIT && entry.Implementation.ABI.Kind != nodecontract.ABIProcess) {
+				continue
+			}
+			if _, ok := claimed[node.NodeRef]; ok {
+				continue
+			}
+			diagnostic := diagnostic(CodeNodePackageDependencyMismatch, []string{"dependencies"}, "")
+			diagnostic.Params["nodeTypeId"] = node.NodeRef.NodeTypeID
+			diagnostic.Params["reason"] = "installed node package is not declared by the Workflow Source"
+			diagnostics = append(diagnostics, diagnostic)
+		}
+	}
+	return diagnostics
 }
 
 func compileStateVariables(source []schema.Variable, catalog nodecatalog.Snapshot) ([]programStateSlot, []Diagnostic) {
@@ -242,7 +281,7 @@ func resolveDeclaredStateType(expression datatype.TypeExpression, catalog nodeca
 	}
 }
 
-func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, targetDefaults []schema.TargetDefault, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
+func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, resources []schema.WorkflowResource, targetDefaults []schema.TargetDefault, catalog nodecatalog.Snapshot, configValidators configvalidator.Registry, state map[string]programStateSlot, blobVerifier BlobVerifier) (programGraph, []Diagnostic, error) {
 	compiled := programGraph{ID: graph.ID, Nodes: []programNode{}, SignalRoutes: []programSignalRoute{}, DataOrder: []string{}}
 	var diagnostics []Diagnostic
 	nodes := make(map[string]int, len(graph.Nodes))
@@ -348,6 +387,20 @@ func compileGraph(ctx context.Context, graph schema.Graph, graphIndex int, targe
 				diagnostic.Params["reason"] = "runtime authority inputs must come from an explicitly leased data edge"
 				diagnostics = append(diagnostics, diagnostic)
 				continue
+			}
+			if binding.Kind == schema.BindingResource {
+				if binding.Resource == nil {
+					diagnostics = append(diagnostics, diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID))
+					continue
+				}
+				ref, err := schema.ResolveResourceBinding(resources, *binding.Resource)
+				if err != nil {
+					diagnostic := diagnosticAtNode(CodeInvalidBinding, append(path, "bindings", portID), graph.ID, sourceNode.ID)
+					diagnostic.Params["reason"] = err.Error()
+					diagnostics = append(diagnostics, diagnostic)
+					continue
+				}
+				binding = schema.InputBinding{Kind: schema.BindingBlob, Blob: &ref}
 			}
 			switch binding.Kind {
 			case schema.BindingValue:

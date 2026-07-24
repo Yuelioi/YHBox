@@ -116,7 +116,7 @@ func applicationSource(t *testing.T, builtins nodes.Builtins, slot string) []byt
 		],"edges":[
 			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"launch","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"launch","portId":"completed"},"to":{"nodeId":"stop","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		launch.Contract.NodeRef().NodeTypeID, launch.Contract.NodeRef().SemanticDigest, slot,
 		terminate.Contract.NodeRef().NodeTypeID, terminate.Contract.NodeRef().SemanticDigest, slot))

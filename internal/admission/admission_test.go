@@ -425,7 +425,7 @@ func conversionProgram(t *testing.T) (nodes.Builtins, compiler.ProgramSnapshot) 
 			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"mediaType":"application/octet-stream"},"bindings":{}}
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size, toBlob.NodeTypeID, toBlob.SemanticDigest))
 	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -456,7 +456,7 @@ func scriptProgram(t *testing.T) (nodes.Builtins, compiler.ProgramSnapshot) {
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"script","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			 "config":{"source":"return input;","timeoutMilliseconds":1000},"bindings":{"input":{"kind":"default"}}}
-		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"script","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"script","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, startRef.NodeTypeID, startRef.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(testDigest(t, "script admission compiler"), builtins.ConfigValidators).CompileDraft(
 		context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog},

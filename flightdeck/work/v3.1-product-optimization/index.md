@@ -10,16 +10,19 @@ Open
 
 ## Current
 
-Stage A–L 已完成实现与必要增量门禁。精准回放使用独立单调时钟和 `start + event.TUs` 绝对 deadline；
+Stage A–L 已完成实现、必要增量门禁与 Windows 真机验收。精准回放使用独立单调时钟和
+`start + event.TUs` 绝对 deadline；
 playback session 在 Open 时固定已验证目标，Windows 不再逐事件解析窗口或置前。InputClip 回放节点只读
 展示录制源与本机目标 counts/360，runtime 自动按 `target/source` 换算，不提供人为倍率。节点契约已恢复
 稳定摘要 `5c353fb…`；开发期 `ff7ea9…` 节点会移除临时 binding 后迁回稳定契约。
 
+Stage M 的共同理解已由用户确认。M1 正式可移植合同已经落地并通过增量门禁；实施只在 Yotta 仓库进行，
+公开 Site Foundation 由用户后续在隔壁仓库完善。
+
 ## Next
 
-重新构建 Windows 应用并重新打开工作流，先确认 `NODE_CONTRACT_MISMATCH` 与派生 `UNKNOWN_PORT` 消失；
-再用原 1504/3526 事件样本复测：节点实际时长应接近 Clip nominal duration，绕花坛应回到接近录制终点，
-半径不再由约 20 放大到约 25；核对 Inspector 的录制源/本机目标 counts/360。
+开始 M2 资源归属与编辑器：先核对现有 Global Asset/编辑器录制与截图保存路径，再设计 Workflow Resource 创建、
+Global Asset snapshot、显式提升和 duplicate 的最小领域接口；继续复用 M1 的 Resource Binding 与 BlobReferences seam。
 
 ## Progress
 
@@ -38,8 +41,19 @@ playback session 在 Open 时固定已验证目标，Windows 不再逐事件解�
 - 2026-07-21 收尾增量门禁通过：Wails/节点/工作流契约、25 个相关 Go 包及 vet、frontend
   format/lint/typecheck/i18n、70 个测试文件/294 项测试；ESLint 债务从 24 收紧到 23。未运行无关 Rust、
   全仓 coverage/staticcheck；本轮 production bundle 已在精准回放修复后单独通过。
+- 2026-07-21 精准录制/回放 Windows 真机校验通过，Stage L 验收闭环。
 - Stage M 已记录下载工作流的依赖预检与本机 target/credential 重绑定；现有 Bundle 携带 Source/Blob，
   但在 M1–M3 完成前不宣称下载工作流可无提示直接运行。
+- 2026-07-21 确认在线试验市场使用独立兄弟仓库 `yotta-registry`、Nuxt UI 与 GoFrame；实现基线已对齐
+  `yueli-official/platform/flightdeck/knowledge` 的 API、SSR/BFF、目录站、OIDC 与 staged import 约定。
+- 2026-07-21 Stage M Grilling 已收敛 Workflow Resource/Global Asset、Release/Installation、Target/Credential
+  Profile、Node Package trust/install/consent、更新/派生/回退、Registry 上架/下架、作者证明与在线/离线交付语义，
+  并重写为 M1–M10 跨三仓执行计划。
+- 2026-07-21 M1 完成首个正式可移植 Source/Bundle 合同：新增 Workflow Resource、Resource Binding、Target Profile
+  Definition、Credential Requirement 与精确 Node Package Dependency；schema 统一负责严格校验、资源解析和 Blob
+  inventory，compiler 校验 Catalog lock 并复用原 Blob value path，Bundle manifest 锁定 dependency 且包含所有资源字节。
+- M1 `task check` 通过：Workflow/Wails 合同一致，20 个受影响 Go 包通过，frontend format/lint/typecheck/i18n 通过，
+  70 个测试文件/294 项测试通过；未运行非增量的 `task check:full`、真实宿主或 production bundle。
 
 ## References
 

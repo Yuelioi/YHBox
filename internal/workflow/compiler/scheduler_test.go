@@ -228,7 +228,7 @@ func compileSchedulerProgram(t *testing.T, catalog nodecatalog.Snapshot, contrac
 			{"id":"left","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}},
 			{"id":"right","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":1},"config":{},"bindings":{}},
 			{"id":"handler","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":2},"config":{},"bindings":{}}
-		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref("source").NodeTypeID, ref("source").SemanticDigest, ref("left").NodeTypeID, ref("left").SemanticDigest,
 		ref("right").NodeTypeID, ref("right").SemanticDigest, ref("handler").NodeTypeID, ref("handler").SemanticDigest,
 		joinStrings(edges)))

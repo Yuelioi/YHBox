@@ -354,8 +354,13 @@ export interface GraphCall {
 }
 export interface InputBinding {
   blob?: BlobRef
-  kind: 'value' | 'default' | 'blob'
+  kind: 'value' | 'default' | 'blob' | 'resource'
+  resource?: ResourceBinding
   value?: any
+}
+export interface ResourceBinding {
+  resourceId: string
+  variantId?: string
 }
 export interface GraphExit {
   channel: 'exec' | 'error'

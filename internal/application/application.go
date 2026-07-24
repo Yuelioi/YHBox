@@ -659,7 +659,8 @@ func (a *Application) CreateSourceWithMetadata(ctx context.Context, requested au
 			}},
 			Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
 		}},
-		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
 	}
 	timestamp := formatWorkflowTimestamp(a.now())
 	source.Workflow.CreatedAt = timestamp
@@ -871,15 +872,11 @@ func (a *Application) WithDurableBlobReferences(ctx context.Context, visit func(
 		if len(diagnostics) != 0 {
 			return errors.New("stored Workflow Source failed blob inventory reopen")
 		}
-		for _, graph := range document.Graphs {
-			for _, node := range graph.Nodes {
-				for _, binding := range node.Bindings {
-					if binding.Kind == schema.BindingBlob && binding.Blob != nil {
-						refs = append(refs, *binding.Blob)
-					}
-				}
-			}
+		sourceRefs, err := schema.BlobReferences(document)
+		if err != nil {
+			return err
 		}
+		refs = append(refs, sourceRefs...)
 	}
 	programs, err := a.programs.List()
 	if err != nil {

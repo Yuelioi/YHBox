@@ -14,6 +14,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
@@ -48,11 +49,11 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	ctx := context.Background()
 	sourceStore := openTestSources(t)
 	sourceBlobs := openTestBlobs(t)
-	ref, err := sourceBlobs.Put(ctx, "application/octet-stream", strings.NewReader("portable payload"))
+	ref, err := sourceBlobs.Put(ctx, "application/vnd.yotta.macro+json", strings.NewReader("portable payload"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := testSource("source_workflow", "Portable source", ref)
+	source := testResourceSource("source_workflow", "Portable source", ref)
 	original, err := sourceStore.Save(ctx, source, -1)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +67,8 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exported.Info.SourceHash != original.Hash() || exported.Info.BlobCount != 1 || exported.Info.BlobBytes != ref.Size {
+	if exported.Info.SourceHash != original.Hash() || exported.Info.ResourceCount != 1 || exported.Info.DependencyCount != 1 ||
+		exported.Info.BlobCount != 1 || exported.Info.BlobBytes != ref.Size {
 		t.Fatalf("export info = %#v", exported.Info)
 	}
 	inspected, err := sourceManager.Inspect(ctx, destination)
@@ -147,7 +149,7 @@ func TestManagerRejectsUndeclaredAndCorruptArchiveEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := json.Marshal(Manifest{Format: Format, Version: Version, WorkflowID: snapshot.WorkflowID(), SourceHash: snapshot.Hash(), Blobs: []blob.BlobRef{ref}})
+	manifest, err := json.Marshal(Manifest{Format: Format, Version: Version, WorkflowID: snapshot.WorkflowID(), SourceHash: snapshot.Hash(), Dependencies: []schema.NodePackageDependency{}, Blobs: []blob.BlobRef{ref}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +203,16 @@ func testSource(workflowID, name string, ref blob.BlobRef) []byte {
 		encoded, _ := json.Marshal(ref)
 		binding = `"asset":{"kind":"blob","blob":` + string(encoded) + `}`
 	}
-	return []byte(fmt.Sprintf(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":%q,"name":%q},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{"id":"node_1","nodeRef":{"nodeTypeId":"https://schemas.yotta.dev/nodes/test","version":"1.0.0","semanticDigest":"sha256:%s"},"position":{"x":0,"y":0},"config":{},"bindings":{%s}}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]}`, workflowID, name, strings.Repeat("1", 64), binding))
+	return []byte(fmt.Sprintf(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":%q,"name":%q},"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{"id":"node_1","nodeRef":{"nodeTypeId":"https://schemas.yotta.dev/nodes/test","version":"1.0.0","semanticDigest":"sha256:%s"},"position":{"x":0,"y":0},"config":{},"bindings":{%s}}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]}`, workflowID, name, strings.Repeat("1", 64), binding))
+}
+
+func testResourceSource(workflowID, name string, ref blob.BlobRef) []byte {
+	raw := string(testSource(workflowID, name, ref))
+	encoded, _ := json.Marshal(ref)
+	raw = strings.Replace(raw, `"asset":{"kind":"blob","blob":`+string(encoded)+`}`, `"asset":{"kind":"resource","resource":{"resourceId":"recording"}}`, 1)
+	raw = strings.Replace(raw, `"resources":[]`, `"resources":[{"id":"recording","kind":"macro","name":"Recording","macro":{"blob":`+string(encoded)+`,"baseResolution":[1920,1080],"actionCount":1,"durationUs":1000}}]`, 1)
+	raw = strings.Replace(raw, `"dependencies":[]`, `"dependencies":[{"publisherNamespace":"https://schemas.yotta.dev/packages","packageId":"https://schemas.yotta.dev/packages/test/v1","packageVersion":"1.0.0","manifestDigest":"sha256:`+strings.Repeat("2", 64)+`","nodeRefs":[{"nodeTypeId":"https://schemas.yotta.dev/nodes/test","version":"1.0.0","semanticDigest":"sha256:`+strings.Repeat("1", 64)+`"}]}]`, 1)
+	return []byte(raw)
 }
 
 func writeTestZip(t *testing.T, destination string, entries map[string][]byte) {

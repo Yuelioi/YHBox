@@ -8,6 +8,34 @@ Yotta 将可编辑的自动化意图编译成不可变程序，再把程序绑�
 用户或 AI 可编辑的 3.1 自动化文档，带文档身份与 revision，但本身不可执行；它属于 Yotta 3.1 产品发布线。
 _Avoid_: Container, blueprint, flow
 
+**Workflow Release**:
+发布者签名的不可变工作流制品，精确绑定 Workflow Source、Workflow Resource、Target Profile Definition 与 Node Package 依赖。
+_Avoid_: Workflow installation, downloaded copy
+
+**Workflow Installation**:
+一个 Workflow Release 在某台宿主上的独立本机实例，拥有自己的用户配置、授权、计划与更新状态；同一 Release 可有多个 Installation。
+_Avoid_: Workflow release, imported source
+
+**Platform Delisting**:
+在线平台停止提供某个 Workflow Release 的新下载；它不是撤销、远程停用或本地信任策略变更。
+_Avoid_: Release revocation, remote disable
+
+**Publisher Namespace**:
+工作流或节点包发布者的稳定命名空间，由 User 或 Organization owner 持有但不等于其可变用户名。
+_Avoid_: Username, account ID
+
+**Publisher Attestation**:
+用户中心对“已认证发布者声明了某个精确 release digest”的长期可验证证明；它不同于平台审核后的上架证明。
+_Avoid_: OIDC token, platform publication proof
+
+**Platform Publication Proof**:
+Registry 审核通过后对某个精确 release digest 曾获准上架的长期证明；后续下架不改写这项历史事实。
+_Avoid_: Publisher attestation, remote authorization
+
+**Installation Plan**:
+一次在线或离线安装所需的精确 Workflow Release、Node Package Release、digest、大小与可用状态投影；它不授予信任或执行权限。
+_Avoid_: Offline pack, execution grant
+
 **Compile Result**:
 对某一份 Workflow Source 和 Catalog Snapshot 的完整诊断结果；没有 error diagnostics 时才包含 Program Snapshot。
 _Avoid_: Validation result, build response
@@ -51,6 +79,18 @@ _Avoid_: Any value, output data map
 **Binding State**:
 输入绑定是否 absent 或 present 的独立状态；present-null、present-default 和 absent 必须保持可区分。
 _Avoid_: Nullable input, defaulted value
+
+**Workflow Resource**:
+归属于一个工作流并随其完整导出、导入的图片、Macro 或 InputClip；它不自动成为用户的可复用资产。
+_Avoid_: Local asset, embedded file
+
+**Global Asset**:
+独立于任何单个工作流、由用户管理并可被多个工作流选用的资源；资产库中创建的资源默认属于此类。
+_Avoid_: Shared file, common blob
+
+**Resource Promotion**:
+用户将 Workflow Resource 显式提升为 Global Asset 的领域动作；提升不改变原工作流的资源归属。
+_Avoid_: Automatic import, asset copy
 
 **Blob Reference**:
 通过 media type、内容摘要和字节大小引用不可变大对象的可持久化值表示；存储位置不属于其身份。
@@ -132,6 +172,26 @@ _Avoid_: Environment variables, platform capability
 可被 capability provider 操作的具名对象，例如 host desktop、Android device 或 After Effects instance；它不是授权本身。
 _Avoid_: Platform, credential, capability
 
+**Target Profile Definition**:
+工作流对逻辑自动化目标的设置形状、首次安装默认值与发现提示的可移植定义；它不是用户在某台宿主上的实际配置。
+_Avoid_: Target installation, user target settings
+
+**Automation Target Profile**:
+用户在一台宿主上为 Target Profile Definition 选定的应用、目标选项与校准配置；它可具有工作流或全局归属。
+_Avoid_: Target definition, device handle
+
+**Workflow Target Profile**:
+归属于某个工作流安装的本机 Automation Target Profile；它不参与 Workflow Source 身份且在工作流升级时保留。
+_Avoid_: Embedded target, workflow default
+
+**Global Target Profile**:
+独立于单个工作流、由用户管理并可显式用来初始化或重绑定 Workflow Target Profile 的 Automation Target Profile。
+_Avoid_: Default target, shared handle
+
+**Target Installation**:
+在一台宿主上将 Automation Target Profile 解析为精确本机身份、provider 与授权的事实；它不随工作流分发。
+_Avoid_: Target profile, workflow target
+
 **Target Planner**:
 Run admission 内把 Capability Plan 的 target/credential slot 与可信 Host Profile 中的 provider、Automation Target 和 non-secret credential metadata 做精确消歧的模块；零候选、歧义或 host/ABI/digest 不兼容都在 Policy 与 provider effect 前失败。
 _Avoid_: Provider lookup, default target, service discovery
@@ -151,6 +211,14 @@ _Avoid_: Requested capability, access token, approval flag
 **Credential Binding**:
 宿主把 Program 中的 credential slot 绑定到安全存储中 credential 的运行期事实；secret material 不进入 Source、Program、Value Envelope 或 Run Grant projection。
 _Avoid_: API key config, secret value
+
+**Workflow Credential Profile**:
+归属于某个工作流安装的本机 credential 配置与安全存储绑定；它不随工作流分发或升级。
+_Avoid_: Embedded secret, workflow API key
+
+**Global Credential Profile**:
+由用户在本机管理并可显式绑定到多个工作流的 credential 配置；其 secret 仍只存在安全存储中。
+_Avoid_: Shared secret value, exported credential
 
 **Node Package**:
 可独立安装和验证的节点发布制品，包含一个或多个 Node Contract 及其可执行实现。

@@ -250,7 +250,7 @@ func automationPlaybackSource(builtins nodes.Builtins, slot string, ref blob.Blo
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"clip":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
-		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().SemanticDigest, slot, ref.MediaType, ref.Digest, ref.Size))
 }
@@ -264,7 +264,7 @@ func automationMacroSource(builtins nodes.Builtins, slot string, ref blob.BlobRe
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"macro":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
-		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"playback","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		playback.Contract.NodeRef().NodeTypeID, playback.Contract.NodeRef().SemanticDigest, slot, ref.MediaType, ref.Digest, ref.Size))
 }

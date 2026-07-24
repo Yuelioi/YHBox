@@ -184,7 +184,7 @@ func TestConcatTracerFreezesTypedDataEdgesIndependentOfSourceOrder(t *testing.T)
 			{"id":"second","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"b":{"kind":"value","value":"c"}}},
 			{"id":"first","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"first","portId":"result"},"to":{"nodeId":"second","portId":"a"}}],"inputs":[],"outputs":[]}],
-		"variables":[],"secretRefs":[]
+		"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, ref.NodeTypeID, ref.SemanticDigest))
 	result, err := New(testDigest(t, "compiler"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil {
@@ -275,7 +275,7 @@ func TestOpenProgramRevalidatesPinnedConfigValidator(t *testing.T) {
 			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"slot":"default","schema":%q},"bindings":{"prompt":{"kind":"value","value":"hello"}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"extract","portId":"in"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		extract.NodeTypeID, extract.SemanticDigest, validSchema))
 	build := testDigest(t, "AI config validator")
@@ -327,7 +327,7 @@ func TestCompileResolvesDynamicSwitchPortsIntoProgram(t *testing.T) {
 		],"edges":[
 			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"switch","portId":"in"}},
 			{"channel":"data","from":{"nodeId":"concat","portId":"result"},"to":{"nodeId":"switch","portId":"value"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, startRef.NodeTypeID, startRef.SemanticDigest, concatRef.NodeTypeID, concatRef.SemanticDigest, switchRef.NodeTypeID, switchRef.SemanticDigest))
 	compiled, err := New(testDigest(t, "dynamic-switch"), builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,
@@ -426,7 +426,7 @@ func TestCompilerFreezesConcreteTypedStateAndStrictOpenRevalidatesInitialValues(
 			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],
-		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"secretRefs":[]
+		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, typeRef.TypeID, typeRef.SemanticDigest))
 	build := testDigest(t, "compiler-state")
 	compiled, err := New(build, builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: builtins.Catalog})
@@ -480,7 +480,7 @@ func TestCompilerRejectsUnresolvedUnknownAndNonInlineStateDeclarations(t *testin
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":"a"},"b":{"kind":"value","value":"b"}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[%s],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[%s],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, "%s")
 	unknown := artifact.Digest("sha256:" + strings.Repeat("2", 64))
 	tests := []string{
@@ -566,6 +566,51 @@ func TestCompilerReportsUnavailableBlobAtItsNodeAndPort(t *testing.T) {
 	t.Fatalf("diagnostics = %#v", result.Diagnostics)
 }
 
+func TestCompilerResolvesWorkflowResourceBindingThroughBlobVerifier(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := blob.BlobRef{MediaType: schema.MacroResourceMediaType, Digest: testDigest(t, "workflow resource blob"), Size: 4}
+	raw := string(conversionSourceForTest(builtins.BlobToStreamContract.NodeRef(), builtins.StreamToBlobContract.NodeRef(), ref))
+	raw = strings.Replace(raw,
+		fmt.Sprintf(`"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}`, ref.MediaType, ref.Digest, ref.Size),
+		`"blob":{"kind":"resource","resource":{"resourceId":"recording"}}`, 1)
+	raw = strings.Replace(raw, `"resources":[]`, fmt.Sprintf(
+		`"resources":[{"id":"recording","kind":"macro","name":"Recording","macro":{"blob":{"mediaType":%q,"digest":%q,"size":%d},"baseResolution":[1920,1080],"actionCount":1,"durationUs":1000}}]`,
+		ref.MediaType, ref.Digest, ref.Size), 1)
+	verified := 0
+	result, err := New(testDigest(t, "compiler resource binding"), builtins.ConfigValidators).CompileDraft(context.Background(), CompileRequest{
+		SourceJSON: []byte(raw), Catalog: builtins.Catalog,
+		BlobVerifier: BlobVerifierFunc(func(_ context.Context, candidate blob.BlobRef) error {
+			verified++
+			if candidate != ref {
+				t.Fatalf("verified blob = %#v, want %#v", candidate, ref)
+			}
+			return nil
+		}),
+	})
+	if err != nil || hasDiagnostic(result.Diagnostics, CodeInvalidBinding) || hasDiagnostic(result.Diagnostics, CodeBlobUnavailable) || verified != 1 {
+		t.Fatalf("diagnostics=%#v verified=%d err=%v", result.Diagnostics, verified, err)
+	}
+}
+
+func TestCompilerRejectsDependencyThatDoesNotMatchCatalogLock(t *testing.T) {
+	catalog, contract := concatCatalogForTest(t)
+	entry, ok := catalog.Lookup(contract.NodeRef().NodeTypeID)
+	if !ok {
+		t.Fatal("concat node is missing from test Catalog")
+	}
+	dependency := fmt.Sprintf(
+		`{"publisherNamespace":"https://schemas.yotta.dev/packages","packageId":%q,"packageVersion":"1.0.0","manifestDigest":%q,"nodeRefs":[{"nodeTypeId":%q,"version":%q,"semanticDigest":%q}]}`,
+		entry.Implementation.PackageID, testDigest(t, "wrong package manifest"), contract.NodeRef().NodeTypeID, contract.NodeRef().Version, contract.NodeRef().SemanticDigest)
+	raw := strings.Replace(string(concatSourceForTest(contract.NodeRef(), "a", "b", nil)), `"dependencies":[]`, `"dependencies":[`+dependency+`]`, 1)
+	result, err := New(testDigest(t, "compiler dependency mismatch"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: []byte(raw), Catalog: catalog})
+	if err != nil || !hasDiagnostic(result.Diagnostics, CodeNodePackageDependencyMismatch) {
+		t.Fatalf("diagnostics=%#v err=%v", result.Diagnostics, err)
+	}
+}
+
 func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
 	builtins, err := nodes.Build()
 	if err != nil {
@@ -578,7 +623,7 @@ func TestCompilerRejectsBlobLiteralForResourceLeasedInput(t *testing.T) {
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{"mediaType":"application/octet-stream"},"bindings":{"stream":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, blobRef.MediaType, blobRef.Digest, blobRef.Size))
 	result, err := New(testDigest(t, "compiler-invalid-carrier"), testConfigValidators()).CompileDraft(context.Background(), CompileRequest{
 		SourceJSON: source, Catalog: builtins.Catalog,
@@ -657,7 +702,7 @@ func concatSourceForTest(ref nodecontract.NodeRef, a, b string, edge *string) []
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"concat-1","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":%q},"b":{"kind":"value","value":%q}}
-		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest, a, b, edges))
 }
 
@@ -669,7 +714,7 @@ func conversionSourceForTest(toStream, toBlob nodecontract.NodeRef, ref blob.Blo
 			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],
-		"variables":[],"secretRefs":[]
+		"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, toBlob.NodeTypeID, toBlob.SemanticDigest, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size))
 }
 
@@ -679,7 +724,7 @@ func signalSourceForTest(source, target nodecontract.NodeRef, edges []string) []
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"source","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"target","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
-		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[%s],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, source.NodeTypeID, source.SemanticDigest, target.NodeTypeID, target.SemanticDigest, strings.Join(edges, ",")))
 }
 

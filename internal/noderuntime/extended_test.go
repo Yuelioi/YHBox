@@ -28,7 +28,7 @@ func TestTypedSelectResolvesFromItsConsumerAndExecutesWithoutCoercion(t *testing
 			{"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},
 			 "bindings":{"b":{"kind":"value","value":"!"}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"select","portId":"result"},"to":{"nodeId":"concat","portId":"a"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, selectDefinition.Contract.NodeRef().NodeTypeID, selectDefinition.Contract.NodeRef().SemanticDigest,
 		concatDefinition.Contract.NodeRef().NodeTypeID, concatDefinition.Contract.NodeRef().SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)

@@ -56,7 +56,7 @@ func TestScriptExecuteRunsThroughInjectedIsolationAndJournalsOnlyRedactedFacts(t
 			{"id":"script","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"source":%q,"timeoutMilliseconds":2500},"bindings":{"input":{"kind":"value","value":{"value":41}}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"script","portId":"in"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest, scriptRef.NodeTypeID, scriptRef.SemanticDigest, sourceText))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 16, 8, 30, 0, 123_000_000, time.UTC)

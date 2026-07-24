@@ -26,7 +26,7 @@ func TestStateReadIsBoundFromProgramStateAndJournaledAsAnEffect(t *testing.T) {
 			"id":"read","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{"variable":"message"},"bindings":{}
 		}],"edges":[],"inputs":[],"outputs":[]}],
-		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"secretRefs":[]
+		"variables":[{"name":"message","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":"ready"}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, nodeRef.NodeTypeID, nodeRef.SemanticDigest, typeRef.TypeID, typeRef.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 14, 0, 0, 0, time.UTC)

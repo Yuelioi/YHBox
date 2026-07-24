@@ -1138,9 +1138,13 @@
           "enum": [
             "value",
             "default",
-            "blob"
+            "blob",
+            "resource"
           ],
           "type": "string"
+        },
+        "resource": {
+          "$ref": "#/$defs/ResourceBinding"
         },
         "value": true
       },
@@ -1348,6 +1352,25 @@
       },
       "required": [
         "name"
+      ],
+      "type": "object"
+    },
+    "ResourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "resourceId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "variantId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resourceId"
       ],
       "type": "object"
     },

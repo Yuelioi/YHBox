@@ -1,6 +1,7 @@
 package authoring_test
 
 import (
+	"encoding/json"
 	"errors"
 	"math"
 	"strings"
@@ -173,7 +174,17 @@ func TestEngineSetsAndClearsWorkflowTargetDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	set, err := engine.Apply(emptySource(), []authoring.Command{{
+	source := emptySource()
+	source.TargetProfileDefinitions = []schema.TargetProfileDefinition{{
+		ID: "window-target", Name: "Window target", TargetKind: "desktop-window", AdapterKind: "win32", ProfileVersion: "1",
+		SettingsSchemaRoot: "https://schemas.yotta.dev/targets/window/v1/schema",
+		SettingsSchemaBundle: []datatype.SchemaResource{{
+			ID:     "https://schemas.yotta.dev/targets/window/v1/schema",
+			Schema: json.RawMessage(`{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.yotta.dev/targets/window/v1/schema","type":"object","additionalProperties":false}`),
+		}},
+		InitialDefaults: json.RawMessage(`{}`), DiscoveryHints: []schema.TargetDiscoveryHint{},
+	}}
+	set, err := engine.Apply(source, []authoring.Command{{
 		Kind:             authoring.CommandSetTargetDefault,
 		SetTargetDefault: &authoring.SetTargetDefaultCommand{Target: "target", Slot: "window-target"},
 	}})
@@ -634,6 +645,7 @@ func emptySource() schema.WorkflowSource {
 		Graphs: []schema.Graph{{
 			ID: "main", Kind: schema.GraphKindMain, Nodes: []schema.Node{}, Edges: []schema.Edge{}, Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
 		}},
-		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
 	}
 }

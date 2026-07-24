@@ -146,7 +146,7 @@ func desktopWindowOperationsSource(builtins nodes.Builtins, slot string) []byte 
 			{"channel":"exec","from":{"nodeId":"state","portId":"completed"},"to":{"nodeId":"wait","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"wait","portId":"found"},"to":{"nodeId":"minimize","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"minimize","portId":"completed"},"to":{"nodeId":"close","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		move.Contract.NodeRef().NodeTypeID, move.Contract.NodeRef().SemanticDigest, slot,
 		state.Contract.NodeRef().NodeTypeID, state.Contract.NodeRef().SemanticDigest, slot,

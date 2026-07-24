@@ -73,7 +73,7 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 		"revision":0,"entryGraph":%q,"graphs":[{"id":%q,"kind":"main","nodes":[{
 			"id":%q,"nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, graphID, graphID, nodeID, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -132,7 +132,7 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
 	if err != nil || len(compiled.Diagnostics) != 0 {
@@ -499,6 +499,6 @@ func conversionSource(builtins nodes.Builtins, ref blob.BlobRef) []byte {
 			{"id":"to-blob","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":{"mediaType":"application/octet-stream"},"bindings":{}}
 		],"edges":[{"channel":"data","from":{"nodeId":"to-stream","portId":"stream"},
-		"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"to":{"nodeId":"to-blob","portId":"stream"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, toStream.NodeTypeID, toStream.SemanticDigest, ref.MediaType, ref.Digest, ref.Size, toBlob.NodeTypeID, toBlob.SemanticDigest))
 }

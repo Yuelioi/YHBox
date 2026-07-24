@@ -29,7 +29,7 @@ func TestRecordedRandomAndTimeUseHostFactsAndPersistActions(t *testing.T) {
 			{"id":"random","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"minimum":{"kind":"value","value":10},"maximum":{"kind":"value","value":20},"distribution":{"kind":"value","value":"uniform"}}},
 			{"id":"time","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
-		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, randomRef.NodeTypeID, randomRef.SemanticDigest, timeRef.NodeTypeID, timeRef.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
@@ -79,7 +79,7 @@ func TestEntropyFailureIsADeclaredRecordedRunFailure(t *testing.T) {
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"random","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"probability":{"kind":"value","value":0.5}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 12, 30, 0, 0, time.UTC)

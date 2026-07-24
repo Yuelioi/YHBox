@@ -85,7 +85,7 @@ func waitStableSource(builtins nodes.Builtins, slot string) []byte {
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"stable","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"region":{"kind":"default"},"threshold":{"kind":"value","value":0.02},"timeout":{"kind":"value","value":20},"poll-interval":{"kind":"value","value":10},"grid-size":{"kind":"value","value":4},"cell-delta":{"kind":"value","value":12},"stable-duration":{"kind":"value","value":10}}}
-		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"stable","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"stable","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		stable.Contract.NodeRef().NodeTypeID, stable.Contract.NodeRef().SemanticDigest, slot))
 }

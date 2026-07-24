@@ -29,7 +29,7 @@ func TestPrimitiveInlineAdaptersCompileAndExecuteNominalValues(t *testing.T) {
 			{"id":"greater","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},
 			 "bindings":{"b":{"kind":"value","value":4}}}
 		],"edges":[{"channel":"data","from":{"nodeId":"add","portId":"result"},"to":{"nodeId":"greater","portId":"a"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, add.Contract.NodeRef().NodeTypeID, add.Contract.NodeRef().SemanticDigest, greater.Contract.NodeRef().NodeTypeID, greater.Contract.NodeRef().SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
@@ -64,7 +64,7 @@ func TestPrimitiveUnrepresentableResultPersistsDeclaredTerminalFailureWithoutInv
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"add","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			"bindings":{"a":{"kind":"value","value":9007199254740991},"b":{"kind":"value","value":9007199254740991}}
-		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 10, 30, 0, 0, time.UTC)

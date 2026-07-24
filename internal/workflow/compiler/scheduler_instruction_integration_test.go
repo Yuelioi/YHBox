@@ -57,7 +57,7 @@ func TestSchedulerExecutesCountedAndCollectionRegions(t *testing.T) {
 					{"channel":"exec","from":{"nodeId":"write","portId":"done"},"to":{"nodeId":"end","portId":"in"}},
 					{"channel":"data","from":{"nodeId":"region","portId":%q},"to":{"nodeId":"write","portId":"value"}}
 				],"inputs":[],"outputs":[]}],
-				"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":%s}],"secretRefs":[]
+				"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":%s}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 			}`, started.NodeTypeID, started.SemanticDigest, region.NodeTypeID, region.SemanticDigest,
 				test.bindingPort, test.bindingValue, write.NodeTypeID, write.SemanticDigest,
 				end.NodeTypeID, end.SemanticDigest, test.outputPort, valueType.TypeID, valueType.SemanticDigest, defaultValue))
@@ -93,7 +93,7 @@ func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 			{"channel":"error","from":{"nodeId":"delay","portId":"failed"},"to":{"nodeId":"retry","portId":"retry"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"completed"},"to":{"nodeId":"end","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"exhausted"},"to":{"nodeId":"end","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.NodeTypeID, started.SemanticDigest, retry.NodeTypeID, retry.SemanticDigest,
 		delay.NodeTypeID, delay.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
 	program := compileSchedulerInstructionProgram(t, builtins, source)
@@ -131,7 +131,7 @@ func TestDebugStepPausesInsideCountedLoopInsteadOfRunningTheRegion(t *testing.T)
 			{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"repeat","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"repeat","portId":"body"},"to":{"nodeId":"end","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"repeat","portId":"completed"},"to":{"nodeId":"end","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.NodeTypeID, started.SemanticDigest, repeat.NodeTypeID, repeat.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
 	program := compileSchedulerInstructionProgram(t, builtins, source)
 	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, compiler.ExecutorOptions{})
@@ -189,7 +189,7 @@ func TestDebugStepPausesForEveryRetryAttempt(t *testing.T) {
 			{"channel":"error","from":{"nodeId":"delay","portId":"failed"},"to":{"nodeId":"retry","portId":"retry"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"completed"},"to":{"nodeId":"end","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"exhausted"},"to":{"nodeId":"end","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.NodeTypeID, started.SemanticDigest, retry.NodeTypeID, retry.SemanticDigest,
 		delay.NodeTypeID, delay.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
 	program := compileSchedulerInstructionProgram(t, builtins, source)

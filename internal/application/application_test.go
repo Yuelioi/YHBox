@@ -289,7 +289,8 @@ func TestApplicationRetractsPlaybackScaleContractBeforeCompile(t *testing.T) {
 			Edges:  []schema.Edge{{Channel: schema.EdgeExec, From: schema.Endpoint{NodeID: "start", PortID: "started"}, To: schema.Endpoint{NodeID: "playback", PortID: "in"}}},
 			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
 		}},
-		Variables: []schema.Variable{}, SecretRefs: []schema.SecretRef{},
+		Resources: []schema.WorkflowResource{}, TargetProfileDefinitions: []schema.TargetProfileDefinition{},
+		CredentialRequirements: []schema.CredentialRequirement{}, Dependencies: []schema.NodePackageDependency{}, Variables: []schema.Variable{},
 	}
 	raw, err := artifact.Marshal(source)
 	if err != nil {

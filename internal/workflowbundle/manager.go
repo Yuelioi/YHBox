@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -59,20 +58,25 @@ type Manager struct {
 }
 
 type Manifest struct {
-	Format     string          `json:"format"`
-	Version    int             `json:"version"`
-	WorkflowID string          `json:"workflowId"`
-	SourceHash artifact.Digest `json:"sourceHash"`
-	Blobs      []blob.BlobRef  `json:"blobs"`
+	Format       string                         `json:"format"`
+	Version      int                            `json:"version"`
+	WorkflowID   string                         `json:"workflowId"`
+	SourceHash   artifact.Digest                `json:"sourceHash"`
+	Dependencies []schema.NodePackageDependency `json:"dependencies"`
+	Blobs        []blob.BlobRef                 `json:"blobs"`
 }
 
 type Info struct {
-	WorkflowID string          `json:"workflowId"`
-	Name       string          `json:"name"`
-	Revision   int64           `json:"revision"`
-	SourceHash artifact.Digest `json:"sourceHash"`
-	BlobCount  int             `json:"blobCount"`
-	BlobBytes  int64           `json:"blobBytes"`
+	WorkflowID                 string          `json:"workflowId"`
+	Name                       string          `json:"name"`
+	Revision                   int64           `json:"revision"`
+	SourceHash                 artifact.Digest `json:"sourceHash"`
+	ResourceCount              int             `json:"resourceCount"`
+	TargetProfileCount         int             `json:"targetProfileCount"`
+	CredentialRequirementCount int             `json:"credentialRequirementCount"`
+	DependencyCount            int             `json:"dependencyCount"`
+	BlobCount                  int             `json:"blobCount"`
+	BlobBytes                  int64           `json:"blobBytes"`
 }
 
 type ExportResult struct {
@@ -127,7 +131,10 @@ func (m *Manager) Export(ctx context.Context, workflowID, destination string) (E
 			return ExportResult{}, fmt.Errorf("verify export blob %s: %w", ref.Digest, err)
 		}
 	}
-	manifest := Manifest{Format: Format, Version: Version, WorkflowID: workflowID, SourceHash: digest, Blobs: refs}
+	manifest := Manifest{
+		Format: Format, Version: Version, WorkflowID: workflowID, SourceHash: digest,
+		Dependencies: append([]schema.NodePackageDependency{}, document.Dependencies...), Blobs: refs,
+	}
 	manifestRaw, err := json.Marshal(manifest)
 	if err != nil {
 		return ExportResult{}, err
@@ -281,7 +288,8 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 	if err != nil {
 		return fail(err)
 	}
-	if !bytes.Equal(sourceRaw, canonical) || digest != manifest.SourceHash || document.Workflow.ID != manifest.WorkflowID || !equalRefs(refs, manifest.Blobs) {
+	if !bytes.Equal(sourceRaw, canonical) || digest != manifest.SourceHash || document.Workflow.ID != manifest.WorkflowID ||
+		!equalDependencies(document.Dependencies, manifest.Dependencies) || !equalRefs(refs, manifest.Blobs) {
 		return fail(errors.New("workflow bundle Source identity does not match its manifest"))
 	}
 	blobEntries := make(map[artifact.Digest]*zip.File)
@@ -397,34 +405,10 @@ func inspectSource(raw []byte) (schema.WorkflowSource, []byte, artifact.Digest, 
 	if len(diagnostics) != 0 {
 		return schema.WorkflowSource{}, nil, "", nil, errors.New("workflow bundle Source is invalid")
 	}
-	refs := make([]blob.BlobRef, 0)
-	seen := make(map[blob.BlobRef]struct{})
-	for _, graph := range document.Graphs {
-		for _, node := range graph.Nodes {
-			for _, binding := range node.Bindings {
-				if binding.Kind != schema.BindingBlob || binding.Blob == nil {
-					continue
-				}
-				if err := binding.Blob.Validate(); err != nil {
-					return schema.WorkflowSource{}, nil, "", nil, err
-				}
-				if _, ok := seen[*binding.Blob]; ok {
-					continue
-				}
-				seen[*binding.Blob] = struct{}{}
-				refs = append(refs, *binding.Blob)
-			}
-		}
+	refs, err := schema.BlobReferences(document)
+	if err != nil {
+		return schema.WorkflowSource{}, nil, "", nil, err
 	}
-	sort.Slice(refs, func(i, j int) bool {
-		if refs[i].Digest == refs[j].Digest {
-			if refs[i].MediaType == refs[j].MediaType {
-				return refs[i].Size < refs[j].Size
-			}
-			return refs[i].MediaType < refs[j].MediaType
-		}
-		return refs[i].Digest < refs[j].Digest
-	})
 	return document, canonical, digest, refs, nil
 }
 
@@ -438,11 +422,17 @@ func sourceInfo(document schema.WorkflowSource, digest artifact.Digest, refs []b
 		seen[ref.Digest] = struct{}{}
 		bytes += ref.Size
 	}
-	return Info{WorkflowID: document.Workflow.ID, Name: document.Workflow.Name, Revision: document.Revision, SourceHash: digest, BlobCount: len(seen), BlobBytes: bytes}
+	return Info{
+		WorkflowID: document.Workflow.ID, Name: document.Workflow.Name, Revision: document.Revision, SourceHash: digest,
+		ResourceCount: len(document.Resources), TargetProfileCount: len(document.TargetProfileDefinitions),
+		CredentialRequirementCount: len(document.CredentialRequirements), DependencyCount: len(document.Dependencies),
+		BlobCount: len(seen), BlobBytes: bytes,
+	}
 }
 
 func validateManifest(manifest Manifest) error {
-	if manifest.Format != Format || manifest.Version != Version || strings.TrimSpace(manifest.WorkflowID) == "" || !manifest.SourceHash.Valid() || len(manifest.Blobs) > maxEntries-2 {
+	if manifest.Format != Format || manifest.Version != Version || strings.TrimSpace(manifest.WorkflowID) == "" || !manifest.SourceHash.Valid() ||
+		manifest.Dependencies == nil || len(manifest.Dependencies) > schema.MaxDependencies || manifest.Blobs == nil || len(manifest.Blobs) > maxEntries-2 {
 		return errors.New("workflow bundle manifest identity is invalid")
 	}
 	for i, ref := range manifest.Blobs {
@@ -466,6 +456,25 @@ func equalRefs(left, right []blob.BlobRef) bool {
 	for i := range left {
 		if left[i] != right[i] {
 			return false
+		}
+	}
+	return true
+}
+
+func equalDependencies(left, right []schema.NodePackageDependency) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index].PublisherNamespace != right[index].PublisherNamespace ||
+			left[index].PackageID != right[index].PackageID || left[index].PackageVersion != right[index].PackageVersion ||
+			left[index].ManifestDigest != right[index].ManifestDigest || len(left[index].NodeRefs) != len(right[index].NodeRefs) {
+			return false
+		}
+		for refIndex := range left[index].NodeRefs {
+			if left[index].NodeRefs[refIndex] != right[index].NodeRefs[refIndex] {
+				return false
+			}
 		}
 	}
 	return true

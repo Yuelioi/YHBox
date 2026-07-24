@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 142,
-    "models": 200
+    "models": 201
   },
   "services": [
     {
@@ -7611,6 +7611,10 @@
             {
               "name": "BindingBlob",
               "value": "\"blob\""
+            },
+            {
+              "name": "BindingResource",
+              "value": "\"resource\""
             }
           ]
         },
@@ -7941,6 +7945,11 @@
               "name": "\"blob\"",
               "optional": true,
               "type": "blob$0.BlobRef | null"
+            },
+            {
+              "name": "\"resource\"",
+              "optional": true,
+              "type": "ResourceBinding | null"
             }
           ]
         },
@@ -7998,6 +8007,22 @@
               "name": "\"y\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ResourceBinding",
+          "fields": [
+            {
+              "name": "\"resourceId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"variantId\"",
+              "optional": true,
+              "type": "string"
             }
           ]
         },

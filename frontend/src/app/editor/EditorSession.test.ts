@@ -1350,7 +1350,10 @@ function emptySource(): YottaWorkflowSource {
     entryGraph: 'main',
     graphs: [{ id: 'main', kind: 'main', nodes: [], edges: [], inputs: [], outputs: [] }],
     variables: [],
-    secretRefs: [],
+    resources: [],
+    targetProfileDefinitions: [],
+    credentialRequirements: [],
+    dependencies: [],
   }
 }
 

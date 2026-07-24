@@ -49,7 +49,7 @@ func TestCompilerExpandsTypedSubgraphIntoTheOnlySchedulerPath(t *testing.T) {
 			{"id":"child","name":"Child","kind":"subgraph","nodes":[
 				{"id":"step","nodeRef":%s,"position":{"x":0,"y":0},"config":{},"bindings":{}}
 			],"edges":[],"inputs":[],"outputs":[],"entries":[{"nodeId":"step","portId":"in"}],"exits":[{"id":"done","channel":"exec","endpoint":{"nodeId":"step","portId":"done"}}]}
-		],"variables":[],"secretRefs":[]}`, ref(root), ref(sink), ref(step)))
+		],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]}`, ref(root), ref(sink), ref(step)))
 	build := testDigest(t, "multigraph-build")
 	compiled, err := New(build, testConfigValidators()).CompileDraft(context.Background(), CompileRequest{SourceJSON: raw, Catalog: catalog})
 	if err != nil || schema.HasErrors(compiled.Diagnostics) {

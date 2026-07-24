@@ -128,7 +128,7 @@ func TestRunStartedBranchDelayAndStateWriteFormOneExplicitSignalFlow(t *testing.
 			{"channel":"exec","from":{"nodeId":"delay","portId":"done"},"to":{"nodeId":"write","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"write","portId":"done"},"to":{"nodeId":"end","portId":"in"}}
 		],"inputs":[],"outputs":[]}],
-		"variables":[{"name":"flag","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":false}],"secretRefs":[]
+		"variables":[{"name":"flag","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":false}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, startedID, startedDigest, branchID, branchDigest, delayID, delayDigest, writeID, writeDigest, endID, endDigest,
 		booleanRef.TypeID, booleanRef.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
@@ -246,7 +246,7 @@ func TestRepeatAndForEachUseIsolatedActivationState(t *testing.T) {
 					{"channel":"exec","from":{"nodeId":"region","portId":"completed"},"to":{"nodeId":"end","portId":"in"}},
 					{"channel":"data","from":{"nodeId":"region","portId":%q},"to":{"nodeId":"write","portId":"value"}}
 				],"inputs":[],"outputs":[]}],
-				"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":%s}],"secretRefs":[]
+				"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":%s}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 			}`, startID, startDigest, regionID, regionDigest, test.bindingPort, test.bindingValue, writeID, writeDigest, endID, endDigest,
 				test.outputPort, typeRef.TypeID, typeRef.SemanticDigest, initialJSON(test.want)))
 			program := compilePrimitiveProgram(t, builtins, source)
@@ -303,7 +303,7 @@ func TestRetryConsumesOnlyExplicitlyRoutedFailuresInsideItsActivation(t *testing
 			{"channel":"error","from":{"nodeId":"delay","portId":"failed"},"to":{"nodeId":"retry","portId":"retry"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"completed"},"to":{"nodeId":"end","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"retry","portId":"exhausted"},"to":{"nodeId":"end","portId":"in"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, startID, startDigest, retryID, retryDigest, delayID, delayDigest, endID, endDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
 	now := time.Date(2026, 7, 15, 16, 30, 0, 0, time.UTC)
@@ -370,7 +370,7 @@ func TestNestedRegionSignalPropagatesToItsExactOwner(t *testing.T) {
 			{"channel":"exec","from":{"nodeId":"write","portId":"done"},"to":{"nodeId":"end","portId":"in"}},
 			{"channel":"data","from":{"nodeId":"outer","portId":"index"},"to":{"nodeId":"write","portId":"value"}}
 		],"inputs":[],"outputs":[]}],
-		"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":-1}],"secretRefs":[]
+		"variables":[{"name":"value","type":{"kind":"ref","ref":{"typeId":%q,"semanticDigest":%q}},"default":-1}],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, startID, startDigest, repeatID, repeatDigest, repeatID, repeatDigest, branchID, branchDigest,
 		writeID, writeDigest, endID, endDigest, integerRef.TypeID, integerRef.SemanticDigest))
 	program := compilePrimitiveProgram(t, builtins, source)
@@ -416,7 +416,7 @@ func TestCompilerRejectsRetrySignalsOutsideTheirActivationOrOnTheWrongChannel(t 
 			],"edges":[
 				{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"retry","portId":"in"}},
 				{"channel":"exec","from":{"nodeId":"started","portId":"started"},"to":{"nodeId":"delay","portId":"in"}},%s
-			],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+			],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 		}`, startID, startDigest, retryID, retryDigest, delayID, delayDigest, edge))
 		build, err := compiler.BuildDigest()
 		if err != nil {

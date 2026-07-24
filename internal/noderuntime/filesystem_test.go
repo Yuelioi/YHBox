@@ -208,7 +208,7 @@ func filesystemSource(t *testing.T, builtins nodes.Builtins, nodeID, path string
 			{"id":"file","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
 			 "config":%s,"bindings":{"path":{"kind":"value","value":%q}}}
 		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"file","portId":"in"}}],
-		"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		file.Contract.NodeRef().NodeTypeID, file.Contract.NodeRef().SemanticDigest, config, path))
 }
@@ -237,7 +237,7 @@ func filesystemImageRoundTripSource(t *testing.T, builtins nodes.Builtins) []byt
 			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"load","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"load","portId":"completed"},"to":{"nodeId":"save","portId":"in"}},
 			{"channel":"data","from":{"nodeId":"load","portId":"image"},"to":{"nodeId":"save","portId":"image"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		load.Contract.NodeRef().NodeTypeID, load.Contract.NodeRef().SemanticDigest, nodes.DefaultImageFileBytes,
 		save.Contract.NodeRef().NodeTypeID, save.Contract.NodeRef().SemanticDigest))

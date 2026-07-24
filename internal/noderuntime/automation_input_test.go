@@ -187,7 +187,7 @@ func automationInputSource(t *testing.T, builtins nodes.Builtins, slot string) [
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"type","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
 			 "bindings":{"text":{"kind":"value","value":"private text 节点"}}}
-		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"type","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"edges":[{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"type","portId":"in"}}],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		typeText.Contract.NodeRef().NodeTypeID, typeText.Contract.NodeRef().SemanticDigest, slot))
 }
@@ -207,7 +207,7 @@ func heldInputSource(t *testing.T, builtins nodes.Builtins, slot string) []byte 
 			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"hold","portId":"in"}},
 			{"channel":"exec","from":{"nodeId":"hold","portId":"completed"},"to":{"nodeId":"release","portId":"in"}},
 			{"channel":"data","from":{"nodeId":"hold","portId":"held"},"to":{"nodeId":"release","portId":"held"}}
-		],"inputs":[],"outputs":[]}],"variables":[],"secretRefs":[]
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		hold.Contract.NodeRef().NodeTypeID, hold.Contract.NodeRef().SemanticDigest, slot,
 		release.Contract.NodeRef().NodeTypeID, release.Contract.NodeRef().SemanticDigest, slot))
