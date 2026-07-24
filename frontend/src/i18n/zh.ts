@@ -412,6 +412,53 @@ export default {
           blobs: { title: '颜色连通域', description: '按面积、纵向位置、横向位置稳定排序。' },
         },
       },
+      trackDualColorBar: {
+        title: '追踪双色条',
+        description: '在显式图像区域内按列聚类，追踪窄指针相对宽目标条的位置。',
+        input: {
+          image: { title: '源图像', description: '待分析图像。' },
+          'inner-range': { title: '指针颜色', description: '窄指针的 RGB 或 HSV 范围。' },
+          'outer-range': { title: '目标条颜色', description: '宽目标条的 RGB 或 HSV 范围。' },
+          region: { title: '追踪区域', description: '包含双色条的比例或像素矩形。' },
+          'inner-minimum-width': {
+            title: '指针最小宽度',
+            description: '有效指针列簇的最小像素宽度。',
+          },
+          'inner-maximum-width': {
+            title: '指针最大宽度',
+            description: '有效指针列簇的最大像素宽度；0 表示自动。',
+          },
+          'outer-minimum-width': {
+            title: '目标条最小宽度',
+            description: '有效目标条的最小像素宽度；0 表示自动。',
+          },
+          'band-height-ratio': {
+            title: '扫描带高度比例',
+            description: '目标条扫描带相对区域高度的比例。',
+          },
+          'band-inner-height-ratio': {
+            title: '指针高度比例',
+            description: '扫描带相对指针高度的比例。',
+          },
+          'inner-confidence-weight': {
+            title: '指针置信权重',
+            description: '指针检测对总置信度的权重。',
+          },
+          'outer-confidence-weight': {
+            title: '目标条置信权重',
+            description: '目标条检测对总置信度的权重。',
+          },
+        },
+        output: {
+          found: { title: '已找到', description: '指针和目标条是否同时有效。' },
+          'inner-x': { title: '指针 X', description: '指针中心的源图像像素 X。' },
+          'outer-x': { title: '目标条 X', description: '目标条中心的源图像像素 X。' },
+          'outer-width': { title: '目标条宽度', description: '目标条列簇的像素宽度。' },
+          confidence: { title: '置信度', description: '组合检测置信度。' },
+          'inner-pixels': { title: '指针像素数', description: '命中指针颜色的像素数。' },
+          'outer-pixels': { title: '目标条像素数', description: '命中目标条颜色的像素数。' },
+        },
+      },
     },
     text: {
       concat: {

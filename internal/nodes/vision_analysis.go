@@ -15,12 +15,14 @@ const (
 	DecodeQRNodeID            = "https://schemas.yotta.dev/nodes/vision/decode-qr"
 	AnalyzeColorNodeID        = "https://schemas.yotta.dev/nodes/vision/analyze-color"
 	FindColorBlobsNodeID      = "https://schemas.yotta.dev/nodes/vision/find-color-blobs"
+	TrackDualColorBarNodeID   = "https://schemas.yotta.dev/nodes/vision/track-dual-color-bar"
 
 	FindTemplateMatchesEffectID = "https://schemas.yotta.dev/effects/vision/find-template-matches/v1"
 	CompareImagesEffectID       = "https://schemas.yotta.dev/effects/vision/compare-images/v1"
 	DecodeQREffectID            = "https://schemas.yotta.dev/effects/vision/decode-qr/v1"
 	AnalyzeColorEffectID        = "https://schemas.yotta.dev/effects/vision/analyze-color/v1"
 	FindColorBlobsEffectID      = "https://schemas.yotta.dev/effects/vision/find-color-blobs/v1"
+	TrackDualColorBarEffectID   = "https://schemas.yotta.dev/effects/vision/track-dual-color-bar/v1"
 
 	VisionColorRangeInvalidCode = "vision.color_range_invalid"
 	VisionAnalysisFailedCode    = "vision.analysis_failed"
@@ -42,6 +44,12 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 	defaultCellDelta := json.RawMessage(`12`)
 	defaultMinimumDistance := json.RawMessage(`0`)
 	defaultMinimumArea := json.RawMessage(`1`)
+	defaultInnerMinimumWidth := json.RawMessage(`2`)
+	defaultAutomaticWidth := json.RawMessage(`0`)
+	defaultBandHeightRatio := json.RawMessage(`0.3`)
+	defaultBandInnerHeightRatio := json.RawMessage(`0.85`)
+	defaultInnerConfidenceWeight := json.RawMessage(`0.42`)
+	defaultOuterConfidenceWeight := json.RawMessage(`0.58`)
 	imageType := datatype.RefExpression(imageRef)
 	regionType := datatype.RefExpression(types.regionRef)
 	numberType := datatype.RefExpression(types.numberRef)
@@ -105,7 +113,31 @@ func defineVisionAnalysisNodes(types extendedTypes, visionTypes visionTypeSet, i
 			},
 			outputs: []nodecontract.DataOutputPort{{ID: "blobs", Type: datatype.ListExpression(datatype.RefExpression(visionTypes.colorBlob.TypeRef()))}},
 			errors:  append([]nodecontract.ErrorSpec{{Code: VisionColorRangeInvalidCode, Category: "vision", RetryHint: false}}, commonErrors...),
-			tags:    []string{"dualcolorbartrack", "roicolorscan", "findcolorsignature", "color-bar", "color-signature"},
+			tags:    []string{"roicolorscan", "findcolorsignature", "color-signature"},
+		},
+		{
+			id: TrackDualColorBarNodeID, effect: TrackDualColorBarEffectID, entrypoint: "vision.track-dual-color-bar",
+			conformance: "explicit-png-roi-inclusive-rgb-hsv-column-clusters/v1", key: "node.vision.trackDualColorBar", icon: "adjustments-horizontal",
+			inputs: []nodecontract.DataInputPort{
+				{ID: "image", Type: imageType, Required: true},
+				{ID: "inner-range", Type: datatype.RefExpression(visionTypes.colorRange.TypeRef()), Required: true},
+				{ID: "outer-range", Type: datatype.RefExpression(visionTypes.colorRange.TypeRef()), Required: true},
+				{ID: "region", Type: regionType, Required: true, Default: &defaultRegion},
+				{ID: "inner-minimum-width", Type: integerType, Required: true, Default: &defaultInnerMinimumWidth},
+				{ID: "inner-maximum-width", Type: integerType, Required: true, Default: &defaultAutomaticWidth},
+				{ID: "outer-minimum-width", Type: integerType, Required: true, Default: &defaultAutomaticWidth},
+				{ID: "band-height-ratio", Type: numberType, Required: true, Default: &defaultBandHeightRatio},
+				{ID: "band-inner-height-ratio", Type: numberType, Required: true, Default: &defaultBandInnerHeightRatio},
+				{ID: "inner-confidence-weight", Type: numberType, Required: true, Default: &defaultInnerConfidenceWeight},
+				{ID: "outer-confidence-weight", Type: numberType, Required: true, Default: &defaultOuterConfidenceWeight},
+			},
+			outputs: []nodecontract.DataOutputPort{
+				{ID: "found", Type: datatype.RefExpression(types.booleanRef)},
+				{ID: "inner-x", Type: numberType}, {ID: "outer-x", Type: numberType}, {ID: "outer-width", Type: numberType},
+				{ID: "confidence", Type: numberType}, {ID: "inner-pixels", Type: integerType}, {ID: "outer-pixels", Type: integerType},
+			},
+			errors: append([]nodecontract.ErrorSpec{{Code: VisionColorRangeInvalidCode, Category: "vision", RetryHint: false}}, commonErrors...),
+			tags:   []string{"dualcolorbartrack", "color-bar", "cursor-target", "tracking"},
 		},
 	}
 	definitions := make([]BuiltinDefinition, 0, len(specs))

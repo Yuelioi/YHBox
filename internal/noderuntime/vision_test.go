@@ -109,6 +109,68 @@ func TestMatchTemplateReadsExplicitImagesAndReturnsTypedBestMatch(t *testing.T) 
 	}
 }
 
+func TestTrackDualColorBarReadsExplicitImageAndReturnsTypedClusters(t *testing.T) {
+	builtins, err := nodes.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := image.NewRGBA(image.Rect(0, 0, 160, 40))
+	for y := 12; y < 15; y++ {
+		for x := 50; x < 91; x++ {
+			frame.SetRGBA(x, y, color.RGBA{B: 255, A: 255})
+		}
+	}
+	for y := 16; y < 22; y++ {
+		for x := 62; x < 65; x++ {
+			frame.SetRGBA(x, y, color.RGBA{R: 255, A: 255})
+		}
+	}
+	store, err := blob.Open(t.TempDir(), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 2 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frameRef, err := store.Put(context.Background(), "image/png", bytes.NewReader(encodeVisionPNG(t, frame)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := blob.NewProvider(store, blob.ProviderLimits{MaxChunkBytes: 64 << 10, QueueCapacity: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := compilePrimitiveProgram(t, builtins, visionDualBarSource(builtins, frameRef))
+	now := time.Date(2026, 7, 24, 7, 0, 0, 0, time.UTC)
+	_, owner, journal := admittedExecution(t, builtins, program, map[string]run.InstalledProvider{
+		blob.ProviderID: {ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: provider},
+	}, now)
+	t.Cleanup(func() { _ = owner.Close(context.Background()) })
+	adapters, err := noderuntime.Installed(builtins, testDependencies())
+	if err != nil {
+		t.Fatal(err)
+	}
+	execution, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).
+		Run(context.Background(), program, owner, journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	var innerX, outerX, outerWidth float64
+	if err := json.Unmarshal(execution.NodeOutputs["track"]["found"].InlineJSON(), &found); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(execution.NodeOutputs["track"]["inner-x"].InlineJSON(), &innerX); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(execution.NodeOutputs["track"]["outer-x"].InlineJSON(), &outerX); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(execution.NodeOutputs["track"]["outer-width"].InlineJSON(), &outerWidth); err != nil {
+		t.Fatal(err)
+	}
+	if !found || innerX != 63 || outerX != 70 || outerWidth != 41 {
+		t.Fatalf("track output found=%v inner=%v outer=%v width=%v", found, innerX, outerX, outerWidth)
+	}
+}
+
 func encodeVisionPNG(t *testing.T, source image.Image) []byte {
 	t.Helper()
 	var encoded bytes.Buffer
@@ -138,5 +200,31 @@ func visionMatchSource(builtins nodes.Builtins, frame, template blob.BlobRef) []
 	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
 		match.Contract.NodeRef().NodeTypeID, match.Contract.NodeRef().SemanticDigest,
 		frame.MediaType, frame.Digest, frame.Size, template.MediaType, template.Digest, template.Size,
+		branch.Contract.NodeRef().NodeTypeID, branch.Contract.NodeRef().SemanticDigest))
+}
+
+func visionDualBarSource(builtins nodes.Builtins, frame blob.BlobRef) []byte {
+	started, _ := builtins.Definition(nodes.RunStartedNodeID)
+	track, _ := builtins.Definition(nodes.TrackDualColorBarNodeID)
+	branch, _ := builtins.Definition(nodes.BranchNodeID)
+	return []byte(fmt.Sprintf(`{
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-vision-dual-bar","name":"Vision Dual Bar"},"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[
+			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
+			{"id":"track","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":1},"config":{},"bindings":{
+				"image":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}},
+				"inner-range":{"kind":"value","value":{"space":"rgb","minimum":[250,0,0],"maximum":[255,5,5]}},
+				"outer-range":{"kind":"value","value":{"space":"rgb","minimum":[0,0,250],"maximum":[5,5,255]}},
+				"region":{"kind":"default"},"inner-minimum-width":{"kind":"default"},"inner-maximum-width":{"kind":"default"},
+				"outer-minimum-width":{"kind":"default"},"band-height-ratio":{"kind":"default"},"band-inner-height-ratio":{"kind":"default"},
+				"inner-confidence-weight":{"kind":"default"},"outer-confidence-weight":{"kind":"default"}}},
+			{"id":"branch","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{}}
+		],"edges":[
+			{"channel":"exec","from":{"nodeId":"start","portId":"started"},"to":{"nodeId":"branch","portId":"in"}},
+			{"channel":"data","from":{"nodeId":"track","portId":"found"},"to":{"nodeId":"branch","portId":"condition"}}
+		],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
+	}`, started.Contract.NodeRef().NodeTypeID, started.Contract.NodeRef().SemanticDigest,
+		track.Contract.NodeRef().NodeTypeID, track.Contract.NodeRef().SemanticDigest,
+		frame.MediaType, frame.Digest, frame.Size,
 		branch.Contract.NodeRef().NodeTypeID, branch.Contract.NodeRef().SemanticDigest))
 }

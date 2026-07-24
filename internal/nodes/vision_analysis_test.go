@@ -35,6 +35,7 @@ func TestVisionAnalysisCatalogUsesTypedDataAndOneReadAuthority(t *testing.T) {
 		{DecodeQRNodeID, DecodeQREffectID, "codes"},
 		{AnalyzeColorNodeID, AnalyzeColorEffectID, "pixel-count"},
 		{FindColorBlobsNodeID, FindColorBlobsEffectID, "blobs"},
+		{TrackDualColorBarNodeID, TrackDualColorBarEffectID, "found"},
 	}
 	for _, want := range nodes {
 		definition, ok := builtins.Definition(want.id)

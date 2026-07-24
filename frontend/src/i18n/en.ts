@@ -487,6 +487,74 @@ export default {
           },
         },
       },
+      trackDualColorBar: {
+        title: 'Track dual-color bar',
+        description:
+          'Track a narrow cursor relative to a wide target bar using column clusters in an explicit image region.',
+        input: {
+          image: { title: 'Source image', description: 'Image to analyze.' },
+          'inner-range': {
+            title: 'Cursor color',
+            description: 'RGB or HSV range for the narrow cursor.',
+          },
+          'outer-range': {
+            title: 'Target color',
+            description: 'RGB or HSV range for the wide target bar.',
+          },
+          region: {
+            title: 'Tracking region',
+            description: 'Ratio or pixel rectangle containing the two-color bar.',
+          },
+          'inner-minimum-width': {
+            title: 'Minimum cursor width',
+            description: 'Minimum valid cursor cluster width in pixels.',
+          },
+          'inner-maximum-width': {
+            title: 'Maximum cursor width',
+            description:
+              'Maximum valid cursor cluster width in pixels; zero selects automatic sizing.',
+          },
+          'outer-minimum-width': {
+            title: 'Minimum target width',
+            description:
+              'Minimum valid target cluster width in pixels; zero selects automatic sizing.',
+          },
+          'band-height-ratio': {
+            title: 'Band height ratio',
+            description: 'Target scan-band height relative to the region.',
+          },
+          'band-inner-height-ratio': {
+            title: 'Cursor height ratio',
+            description: 'Target scan-band height relative to the cursor height.',
+          },
+          'inner-confidence-weight': {
+            title: 'Cursor confidence weight',
+            description: 'Cursor contribution to combined confidence.',
+          },
+          'outer-confidence-weight': {
+            title: 'Target confidence weight',
+            description: 'Target contribution to combined confidence.',
+          },
+        },
+        output: {
+          found: {
+            title: 'Found',
+            description: 'Whether both cursor and target clusters are valid.',
+          },
+          'inner-x': { title: 'Cursor X', description: 'Cursor center X in source-image pixels.' },
+          'outer-x': { title: 'Target X', description: 'Target center X in source-image pixels.' },
+          'outer-width': { title: 'Target width', description: 'Target cluster width in pixels.' },
+          confidence: { title: 'Confidence', description: 'Combined detection confidence.' },
+          'inner-pixels': {
+            title: 'Cursor pixels',
+            description: 'Pixels matching the cursor range.',
+          },
+          'outer-pixels': {
+            title: 'Target pixels',
+            description: 'Pixels matching the target range.',
+          },
+        },
+      },
     },
     text: {
       concat: {

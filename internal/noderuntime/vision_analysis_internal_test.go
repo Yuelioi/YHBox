@@ -98,4 +98,7 @@ func TestVisionColorRangeInputAndOutputSealingAreStrict(t *testing.T) {
 	if _, err := findColorBlobs(builtins)(context.Background(), compiler.Invocation{}); err == nil {
 		t.Fatal("findColorBlobs accepted missing minimum area")
 	}
+	if _, err := trackDualColorBar(builtins)(context.Background(), compiler.Invocation{}); err == nil {
+		t.Fatal("trackDualColorBar accepted missing inputs")
+	}
 }

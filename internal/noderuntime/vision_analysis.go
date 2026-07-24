@@ -254,6 +254,82 @@ func findColorBlobs(builtins nodes.Builtins) compiler.Adapter {
 	}
 }
 
+func trackDualColorBar(builtins nodes.Builtins) compiler.Adapter {
+	return func(ctx context.Context, invocation compiler.Invocation) (_ compiler.AdapterResult, runErr error) {
+		counters := map[string]int64{}
+		defer func() {
+			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, compiler.AdapterAction{
+				EffectID: nodes.TrackDualColorBarEffectID, Action: "vision.track-dual-color-bar", SummaryCode: "vision.track-dual-color-bar", Counters: counters,
+			}, nodes.VisionAnalysisFailedCode, runErr))
+		}()
+		innerRange, err := visionColorRangeNamedInput(invocation, "inner-range")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("inner range: %w", err))
+		}
+		outerRange, err := visionColorRangeNamedInput(invocation, "outer-range")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionColorRangeInvalidCode, fmt.Errorf("outer range: %w", err))
+		}
+		region, err := visionRegionInput(invocation)
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+		}
+		frame, ref, err := loadVisionImage(ctx, invocation, "image")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionImageInvalidCode, err)
+		}
+		searchRect, err := resolveVisionRegion(frame.Bounds(), region)
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionRegionInvalidCode, err)
+		}
+		innerMinimumWidth, err := integerInput(invocation, "inner-minimum-width")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		innerMaximumWidth, err := integerInput(invocation, "inner-maximum-width")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		outerMinimumWidth, err := integerInput(invocation, "outer-minimum-width")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		bandHeightRatio, err := numberInput(invocation, "band-height-ratio")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		bandInnerHeightRatio, err := numberInput(invocation, "band-inner-height-ratio")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		innerWeight, err := numberInput(invocation, "inner-confidence-weight")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		outerWeight, err := numberInput(invocation, "outer-confidence-weight")
+		if err != nil {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, err)
+		}
+		if innerMinimumWidth < 1 || innerMaximumWidth < 0 || outerMinimumWidth < 0 ||
+			bandHeightRatio <= 0 || bandInnerHeightRatio <= 0 || innerWeight < 0 || outerWeight < 0 || innerWeight+outerWeight <= 0 {
+			return compiler.AdapterResult{}, visionFailure(nodes.VisionAnalysisFailedCode, errors.New("dual color bar options are outside their supported ranges"))
+		}
+		result := vision.AnalyzeDualColorBar(frame, searchRect,
+			vision.ColorRange{Space: innerRange.Space, Minimum: innerRange.Minimum, Maximum: innerRange.Maximum},
+			vision.ColorRange{Space: outerRange.Space, Minimum: outerRange.Minimum, Maximum: outerRange.Maximum},
+			vision.DualColorBarOptions{
+				InnerMinimumWidth: int(innerMinimumWidth), InnerMaximumWidth: int(innerMaximumWidth), OuterMinimumWidth: int(outerMinimumWidth),
+				BandHeightRatio: bandHeightRatio, BandInnerHeightRatio: bandInnerHeightRatio,
+				InnerConfidenceWeight: innerWeight, OuterConfidenceWeight: outerWeight,
+			})
+		counters["image_bytes"], counters["inner_pixels"], counters["outer_pixels"] = ref.Size, int64(result.InnerPixels), int64(result.OuterPixels)
+		return sealVisionOutputs(builtins, invocation, map[string]any{
+			"found": result.Found, "inner-x": result.InnerX, "outer-x": result.OuterX, "outer-width": result.OuterWidth,
+			"confidence": result.Confidence, "inner-pixels": result.InnerPixels, "outer-pixels": result.OuterPixels,
+		})
+	}
+}
+
 func loadVisionImage(ctx context.Context, invocation compiler.Invocation, id string) (*image.RGBA, blob.BlobRef, error) {
 	ref, err := visionBlobInput(invocation, id)
 	if err != nil {
@@ -271,7 +347,11 @@ func loadVisionImage(ctx context.Context, invocation compiler.Invocation, id str
 }
 
 func visionColorRangeInput(invocation compiler.Invocation) (visionColorRange, error) {
-	input, ok := invocation.Inputs["range"]
+	return visionColorRangeNamedInput(invocation, "range")
+}
+
+func visionColorRangeNamedInput(invocation compiler.Invocation, id string) (visionColorRange, error) {
+	input, ok := invocation.Inputs[id]
 	if !ok || len(input.InlineJSON()) == 0 {
 		return visionColorRange{}, errors.New("color range is missing")
 	}

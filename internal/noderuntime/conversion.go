@@ -107,6 +107,7 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]c
 		nodes.DecodeQRNodeID:             decodeQR(builtins),
 		nodes.AnalyzeColorNodeID:         analyzeColor(builtins),
 		nodes.FindColorBlobsNodeID:       findColorBlobs(builtins),
+		nodes.TrackDualColorBarNodeID:    trackDualColorBar(builtins),
 		nodes.LogNodeID:                  writeLog(dependencies.Log),
 		nodes.ThrowNodeID:                throwFailure(),
 	}

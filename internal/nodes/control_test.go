@@ -13,7 +13,7 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(builtins.Types) != 23 || len(builtins.Definitions()) != 146 {
+	if len(builtins.Types) != 23 || len(builtins.Definitions()) != 147 {
 		t.Fatalf("types=%d nodes=%d", len(builtins.Types), len(builtins.Definitions()))
 	}
 	runStarted, _ := builtins.Definition(RunStartedNodeID)
@@ -83,9 +83,10 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	repeatProjection, _ := projection.Node(RepeatNodeID)
 	delayProjection, _ := projection.Node(DelayNodeID)
 	colorProjection, _ := projection.Node(FindColorBlobsNodeID)
+	dualBarProjection, _ := projection.Node(TrackDualColorBarNodeID)
 	if !containsString(repeatProjection.Tags, "eventtick") || !containsString(delayProjection.Tags, "polling") ||
-		!containsString(colorProjection.Tags, "dualcolorbartrack") || !containsString(colorProjection.Tags, "roicolorscan") {
-		t.Fatalf("replacement discovery tags = repeat:%v delay:%v color:%v", repeatProjection.Tags, delayProjection.Tags, colorProjection.Tags)
+		!containsString(dualBarProjection.Tags, "dualcolorbartrack") || !containsString(colorProjection.Tags, "roicolorscan") {
+		t.Fatalf("replacement discovery tags = repeat:%v delay:%v color:%v dual-bar:%v", repeatProjection.Tags, delayProjection.Tags, colorProjection.Tags, dualBarProjection.Tags)
 	}
 }
 
