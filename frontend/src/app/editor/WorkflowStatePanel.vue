@@ -28,7 +28,9 @@
           <h3 class="text-xs font-semibold text-highlighted">
             {{ t('workflow.inspector.state_title') }}
           </h3>
-          <UBadge color="neutral" variant="soft" size="sm">{{ variables.length }}</UBadge>
+          <UBadge data-testid="workflow-state-count" color="neutral" variant="soft" size="sm">{{
+            variables.length
+          }}</UBadge>
         </div>
         <p class="text-[11px] leading-5 text-muted">
           {{ t('workflow.inspector.state_hint') }}
@@ -36,11 +38,13 @@
         <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
           <UInput
             v-model="newVariableName"
+            data-testid="workflow-state-new-name"
             :placeholder="t('workflow.inspector.state_name_placeholder')"
             size="sm"
           />
           <AdaptiveSelect
             v-model="newVariableTypeId"
+            data-testid="workflow-state-new-type"
             :items="stateTypeItems"
             value-key="value"
             label-key="label"
@@ -48,6 +52,7 @@
             :max-width="28"
           />
           <UButton
+            data-testid="workflow-state-add"
             icon="i-tabler-plus"
             size="sm"
             color="primary"
@@ -79,6 +84,7 @@
         <div
           v-for="variable in visibleVariables"
           :key="variable.name"
+          :data-testid="`workflow-state-variable-${variable.name}`"
           class="rounded-lg border border-default bg-elevated/35"
         >
           <div
@@ -254,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Variable } from '../../../../contracts/workflow/current/workflow-source'
 import type {
@@ -339,7 +345,7 @@ watch(
 watch(
   selectedStateTypeChoice,
   (choice) => {
-    newVariableDefault.value = choice ? structuredClone(choice.defaultValue) : null
+    newVariableDefault.value = choice ? cloneReactiveValue(choice.defaultValue) : null
   },
   { immediate: true },
 )
@@ -354,11 +360,11 @@ function addStateVariable(): void {
   emit('command', {
     kind: 'add-state-variable',
     name: newVariableName.value,
-    type: structuredClone(choice.expression),
-    defaultValue: structuredClone(newVariableDefault.value),
+    type: cloneReactiveValue(choice.expression),
+    defaultValue: cloneReactiveValue(newVariableDefault.value),
   })
   newVariableName.value = ''
-  newVariableDefault.value = structuredClone(choice.defaultValue)
+  newVariableDefault.value = cloneReactiveValue(choice.defaultValue)
 }
 
 function variableTypeLabel(variable: Variable): string {
@@ -381,7 +387,7 @@ function updateVariableDefault(variable: Variable, value: unknown): void {
   emit('command', {
     kind: 'update-state-variable',
     name: variable.name,
-    type: structuredClone(variable.type),
+    type: cloneReactiveValue(variable.type),
     defaultValue: value,
   })
 }
@@ -462,8 +468,8 @@ function commitTypeChange(name: string): void {
   emit('command', {
     kind: 'update-state-variable',
     name,
-    type: structuredClone(choice.expression),
-    defaultValue: structuredClone(choice.defaultValue),
+    type: cloneReactiveValue(choice.expression),
+    defaultValue: cloneReactiveValue(choice.defaultValue),
   })
   cancelTypeChange()
 }
@@ -475,5 +481,9 @@ function startStateDrag(event: DragEvent, name: string): void {
     'application/x-yotta-state-reference',
     JSON.stringify({ name, mode: event.altKey ? 'write' : 'read' }),
   )
+}
+
+function cloneReactiveValue<T>(value: T): T {
+  return structuredClone(toRaw(value))
 }
 </script>

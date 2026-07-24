@@ -25,7 +25,11 @@ const (
 )
 
 func defineStateNodes(types primitiveTypes) ([]BuiltinDefinition, error) {
-	valueType := datatype.VariableExpression("T", string(datatype.TraitDurable))
+	// State declarations and the compiler already prove that every slot has one
+	// frozen durable type. Keep the generic read/write access unconstrained so
+	// structural durable types such as list<KeyCode> can bind to T as well as
+	// named data types. Numeric update remains explicitly constrained below.
+	valueType := datatype.VariableExpression("T")
 	numericType := datatype.VariableExpression("N", string(datatype.TraitDurable), string(datatype.TraitNumeric))
 	integerType := datatype.RefExpression(types.integerRef)
 	type stateNode struct {

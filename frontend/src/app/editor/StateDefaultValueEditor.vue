@@ -35,18 +35,29 @@
     class="w-full"
     @change="setText"
   />
-  <UTextarea
-    v-else
-    :model-value="jsonValue"
-    :rows="2"
-    size="sm"
-    class="w-full font-mono text-xs"
-    @change="setJSON"
-  />
+  <div v-else class="space-y-1">
+    <UTextarea
+      :model-value="jsonDraft"
+      :rows="2"
+      size="sm"
+      class="w-full font-mono text-xs"
+      @update:model-value="setJSONDraft"
+      @blur="commitJSON"
+    />
+    <p
+      v-if="jsonError"
+      data-testid="workflow-state-invalid-json"
+      class="text-[11px] text-error"
+      role="alert"
+    >
+      {{ t('workflow.state_panel.invalid_initial_json') }}
+    </p>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TypeProjection } from '../../../../contracts/node/current/authoring-projection'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
@@ -58,6 +69,7 @@ const props = defineProps<{
   editorAdapter?: 'key-chord'
 }>()
 const emit = defineEmits<{ 'update:model-value': [value: unknown] }>()
+const { t } = useI18n()
 
 const numericValue = computed(() =>
   typeof props.modelValue === 'number' ? props.modelValue : undefined,
@@ -81,7 +93,17 @@ const selectItems = computed(() =>
     )
     .map((value) => ({ label: String(value), value })),
 )
-const jsonValue = computed(() => JSON.stringify(props.modelValue ?? null, null, 2))
+const jsonDraft = ref('')
+const jsonError = ref(false)
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    jsonDraft.value = JSON.stringify(value ?? null, null, 2)
+    jsonError.value = false
+  },
+  { immediate: true, deep: true },
+)
 
 function numericConstraint(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined
@@ -91,11 +113,17 @@ function setText(event: Event): void {
   emit('update:model-value', (event.target as HTMLInputElement).value)
 }
 
-function setJSON(event: Event): void {
+function setJSONDraft(value: string | number): void {
+  jsonDraft.value = String(value)
+}
+
+function commitJSON(): void {
   try {
-    emit('update:model-value', JSON.parse((event.target as HTMLTextAreaElement).value))
+    const value: unknown = JSON.parse(jsonDraft.value)
+    jsonError.value = false
+    emit('update:model-value', value)
   } catch {
-    return
+    jsonError.value = true
   }
 }
 </script>

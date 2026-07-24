@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -143,6 +144,7 @@ type TypeProjection struct {
 	InlinePriority  int                           `json:"inlinePriority,omitempty"`
 	Preset          string                        `json:"preset,omitempty"`
 	Examples        []json.RawMessage             `json:"examples"`
+	StateInitial    json.RawMessage               `json:"stateInitial,omitempty"`
 	Representations []datatype.RepresentationSpec `json:"representations"`
 	Lifecycle       Lifecycle                     `json:"lifecycle" jsonschema:"required,enum=durable,enum=runtime-only,enum=durable-or-runtime,enum=resolved-at-compile"`
 	Constraints     FieldConstraints              `json:"constraints"`
@@ -396,10 +398,43 @@ func projectTypes(input Input) ([]TypeProjection, map[string]TypeProjection, err
 			Examples: cloneRawList(authoring.Examples), Representations: append([]datatype.RepresentationSpec(nil), machine.Representations...),
 			Lifecycle: lifecycleFor(machine.Representations), Control: controlForSchema(resolved, complete), Constraints: constraintsFor(resolved),
 		}
+		projection.StateInitial = stateInitialValue(input.Catalog, projection)
 		result = append(result, projection)
 		index[ref.TypeID] = projection
 	}
 	return result, index, nil
+}
+
+func stateInitialValue(catalog nodecatalog.Snapshot, projection TypeProjection) json.RawMessage {
+	if !slices.Contains(projection.Traits, datatype.TraitDurable) ||
+		!slices.Contains(projection.Representations, datatype.RepresentationSpec{
+			Kind: datatype.RepresentationInlineJSON, Codec: datatype.CodecJCSV1,
+		}) {
+		return nil
+	}
+	candidates := cloneRawList(projection.Examples)
+	switch projection.Control {
+	case ControlText:
+		candidates = append(candidates, json.RawMessage(`""`))
+	case ControlNumber, ControlInteger:
+		candidates = append(candidates, json.RawMessage(`0`))
+	case ControlToggle:
+		candidates = append(candidates, json.RawMessage(`false`))
+	case ControlSelect:
+		candidates = append(candidates, cloneRawList(projection.Constraints.Enum)...)
+	case ControlList:
+		candidates = append(candidates, json.RawMessage(`[]`))
+	case ControlJSON:
+		candidates = append(candidates, json.RawMessage(`null`))
+	}
+	resolved := datatype.RefResolvedType(projection.TypeRef)
+	for _, candidate := range candidates {
+		value, err := datatype.SealInlineJSON(catalog, resolved, candidate)
+		if err == nil {
+			return value.InlineJSON()
+		}
+	}
+	return nil
 }
 
 func projectedAssignableTargets(catalog nodecatalog.Snapshot, source datatype.TypeRef, candidates []datatype.TypeRef) []datatype.TypeRef {

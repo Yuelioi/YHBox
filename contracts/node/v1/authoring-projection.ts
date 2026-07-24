@@ -302,6 +302,7 @@ export interface TypeProjection {
   preset?: string
   representations: RepresentationSpec[]
   schemaRoot: string
+  stateInitial?: any
   structure?: StructureSpec
   titleKey?: string
   traits: string[]

@@ -1844,6 +1844,7 @@ export default {
       key_chord_type: '组合键',
       initial_value: '初始值',
       initial_value_hint: '每次 Run 开始时用该值初始化状态。',
+      invalid_initial_json: '初始值不是有效的 JSON；修正后才会保存。',
       title: '工作流状态',
       hint: '属于整个工作流，不属于当前选中的节点。',
       empty: '还没有 Run 状态变量。只在需要跨节点保存值时添加。',

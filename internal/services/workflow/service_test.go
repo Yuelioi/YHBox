@@ -1,7 +1,9 @@
 package workflow_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,7 +15,9 @@ import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -300,6 +304,76 @@ func TestServicePersistsCompilesAndPhysicallyDeletesSubgraphLifecycle(t *testing
 	}
 	if compiled, err := service.CompileSource(created.WorkflowID); err != nil || schema.HasErrors(compiled.Diagnostics) {
 		t.Fatalf("compile cascade-deleted source = %#v, %v", compiled.Diagnostics, err)
+	}
+}
+
+func TestServicePersistsAndCompilesEveryRunStateType(t *testing.T) {
+	now := time.Date(2026, 7, 24, 15, 0, 0, 0, time.UTC)
+	runtime := workflowRuntime(t, now)
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("Run state matrix")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := nodeauthoring.Project(nodeauthoring.Input{
+		Catalog: runtime.Builtins.Catalog, Types: runtime.Builtins.Types,
+		Capabilities: runtime.Builtins.Capabilities, Contracts: runtime.Builtins.Contracts,
+		GeneratorVersion: nodes.GeneratorVersion,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := make([]authoring.Command, 0, len(runtime.Builtins.Types)+1)
+	for _, definition := range runtime.Builtins.Types {
+		projected, ok := projection.Type(definition.TypeRef().TypeID)
+		if !ok || len(projected.StateInitial) == 0 {
+			continue
+		}
+		var initial any
+		decoder := json.NewDecoder(bytes.NewReader(projected.StateInitial))
+		decoder.UseNumber()
+		if err := decoder.Decode(&initial); err != nil {
+			t.Fatal(err)
+		}
+		commands = append(commands, authoring.Command{
+			Kind: authoring.CommandAddStateVariable,
+			AddStateVariable: &authoring.AddStateVariableCommand{
+				Name: fmt.Sprintf("state-%02d", len(commands)),
+				Type: datatype.RefExpression(definition.TypeRef()), Default: initial,
+			},
+		})
+	}
+	keyCode := runtime.Builtins.KeyCodeType.TypeRef()
+	commands = append(commands, authoring.Command{
+		Kind: authoring.CommandAddStateVariable,
+		AddStateVariable: &authoring.AddStateVariableCommand{
+			Name:    "shortcut",
+			Type:    datatype.ListExpression(datatype.RefExpression(keyCode)),
+			Default: []any{"CTRL", "K"},
+		},
+	})
+	if _, err := service.ApplyPatch(created.WorkflowID, created.Revision, commands); err != nil {
+		t.Fatal(err)
+	}
+	reopened := parseServiceSource(t, service, created.WorkflowID)
+	if len(reopened.Variables) != len(commands) {
+		t.Fatalf("reopened state variables = %d, want %d", len(reopened.Variables), len(commands))
+	}
+	if compiled, err := service.CompileSource(created.WorkflowID); err != nil || schema.HasErrors(compiled.Diagnostics) {
+		t.Fatalf("compile state matrix = %#v, %v", compiled.Diagnostics, err)
 	}
 }
 

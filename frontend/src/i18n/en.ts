@@ -2260,6 +2260,7 @@ export default {
       key_chord_type: 'Key chord',
       initial_value: 'Initial value',
       initial_value_hint: 'This value initializes the state at the start of every Run.',
+      invalid_initial_json: 'The initial value is not valid JSON. Fix it before saving.',
       title: 'Workflow state',
       hint: 'This belongs to the workflow, not the selected node.',
       empty: 'No Run state variables yet. Add one only when values must persist across nodes.',

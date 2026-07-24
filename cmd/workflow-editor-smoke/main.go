@@ -200,6 +200,7 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
 	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
 	quickAddScreenshot := siblingScreenshot(screenshot, "quick-add.png")
+	runStateScreenshot := siblingScreenshot(screenshot, "run-state.png")
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("discover Wails WebView: %w", err)
@@ -526,6 +527,12 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.WorkflowState }); err != nil {
 		return fmt.Errorf("open workflow state panel: %w", err)
 	}
+	if err := exerciseRunState(ctx, client); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, runStateScreenshot); err != nil {
+		return err
+	}
 	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
 		return err
 	}
@@ -679,6 +686,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		"subgraphScreenshot":  subgraphScreenshot,
 		"nodeMenuScreenshot":  nodeMenuScreenshot,
 		"quickAddScreenshot":  quickAddScreenshot,
+		"runStateScreenshot":  runStateScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -862,6 +870,63 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return current.DebugCompleted && current.DebugStart
 	}); err != nil {
 		return fmt.Errorf("stop debug Run: %w", err)
+	}
+	return nil
+}
+
+func exerciseRunState(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(async () => {
+		const waitFor = async (probe, label) => {
+			const deadline = performance.now() + 10000;
+			while (performance.now() < deadline) {
+				const value = probe();
+				if (value) return value;
+				await new Promise(resolve => requestAnimationFrame(resolve));
+			}
+			throw new Error('timed out waiting for ' + label);
+		};
+		const type = await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-new-type"]'),
+			'Run state type selector',
+		);
+		type.click();
+		const option = await waitFor(
+			() => [...document.querySelectorAll('[role="option"]')]
+				.find(candidate => /文件元数据|File metadata/.test(candidate.textContent || '')),
+			'File metadata state type option',
+		);
+		option.click();
+		await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-panel"] textarea')?.value.includes('"mediaType"'),
+			'File metadata initial value',
+		);
+		const name = await waitFor(
+			() => document.querySelector(
+				'input[data-testid="workflow-state-new-name"], [data-testid="workflow-state-new-name"] input',
+			),
+			'Run state name input',
+		);
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+		if (!setter) throw new Error('native input value setter is unavailable');
+		setter.call(name, 'smoke_metadata');
+		name.dispatchEvent(new Event('input', { bubbles: true }));
+		const add = await waitFor(
+			() => document.querySelector(
+				'button[data-testid="workflow-state-add"], [data-testid="workflow-state-add"] button',
+			),
+			'Run state add button',
+		);
+		await waitFor(() => !add.disabled, 'enabled Run state add button');
+		add.click();
+		await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-variable-smoke_metadata"]'),
+			'persisted File metadata state row',
+		);
+		if (document.querySelector('[data-testid="workflow-state-invalid-json"]')) {
+			throw new Error('File metadata state default is reported as invalid JSON');
+		}
+	})()`); err != nil {
+		return fmt.Errorf("exercise File metadata Run state: %w", err)
 	}
 	return nil
 }

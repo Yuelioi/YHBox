@@ -46,24 +46,7 @@ export function buildStateTypeChoices(types: readonly TypeProjection[]): StateTy
 }
 
 export function defaultStateValue(type: TypeProjection): unknown {
-  if (type.examples.length) return structuredClone(type.examples[0])
-  switch (type.control) {
-    case 'text':
-      return ''
-    case 'number':
-    case 'integer':
-      return 0
-    case 'toggle':
-      return false
-    case 'select':
-      return type.constraints.enum[0]
-    case 'list':
-      return []
-    case 'json':
-      return null
-    case 'object':
-      return undefined
-  }
+  return type.stateInitial === undefined ? undefined : structuredClone(type.stateInitial)
 }
 
 export function stateTypeChoiceForExpression(

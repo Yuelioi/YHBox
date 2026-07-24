@@ -10,14 +10,14 @@ Open
 
 ## Current
 
-Stage N 的 N1–N4 已全部完成：定义/调用管理、稳定显式接口、复制/分叉/展开/原子级联删除，以及真实
-store 重开、compiler、production build 和 Windows WebView 验收均已闭环。下一阶段恢复 Stage M2 的
-Workflow Resource / Global Asset 归属与编辑器工作。
+Stage O 已完成：Run 状态的 18 个 Catalog 命名类型和按键组合列表均由自动矩阵覆盖添加、初值、
+保存重开、compiler 和 runtime；“文件元数据”真实 WebView 添加通过。下一步恢复 Stage M2 的
+Workflow Resource / Global Asset 归属与编辑器闭环。
 
 ## Next
 
-继续 [Stage M2 资源归属与编辑器](plan.md)：先用现有 Workflow Resource 合同补齐 Global Asset snapshot、
-显式 promotion 和共享/duplicate 语义，再进入 UI。
+按 [产品优化计划](plan.md) 恢复 Stage M2：先建立 Workflow Resource 与 Global Asset 创建、快照和
+提升语义的领域红灯，再接入编辑器。
 
 ## Progress
 
@@ -62,6 +62,11 @@ Workflow Resource / Global Asset 归属与编辑器工作。
 - 2026-07-24 N4/Stage N 完成：真实 service/store 覆盖保存重开、展开、物理级联删除和 compiler；WebView
   smoke 修正冷启动、选择、推导确认与调试终态竞态后退出 0，子图截图无裁切/遮挡。production editor gzip
   205329/220000 字节，`task build` 生成版本 3.1.0 Windows GUI `bin/Yotta.exe` 并通过隔离启动 smoke。
+- 2026-07-24 O1/Stage O 完成：修复复合状态初值的 reactive proxy `DataCloneError`，由 Authoring
+  Projection 提供 schema 验证后的权威初值；19 类状态通过 UI、Source 保存重开、compiler 和 runtime
+  矩阵。按键组合列表可由通用状态节点读写，Increment 继续只接受 numeric；非法 JSON 初值显示中文行内
+  错误。`task check` 通过 42 个 Go 包和 79 个前端测试文件/339 项测试，Windows WebView 文件元数据
+  旅程通过，production editor gzip 205314/220000 字节。
 
 ## References
 

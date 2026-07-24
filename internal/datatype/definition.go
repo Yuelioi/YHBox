@@ -156,6 +156,9 @@ func SealDefinition(draft DefinitionDraft) (Definition, error) {
 	if err != nil {
 		return Definition{}, err
 	}
+	if err := validateAuthoringExamples(semantic, authoring); err != nil {
+		return Definition{}, err
+	}
 	return sealNormalized(semantic, authoring)
 }
 
@@ -199,6 +202,9 @@ func OpenDefinition(raw []byte) (Definition, error) {
 	}
 	authoring, err := normalizeAuthoring(document.Authoring)
 	if err != nil {
+		return Definition{}, err
+	}
+	if err := validateAuthoringExamples(semantic, authoring); err != nil {
 		return Definition{}, err
 	}
 	sealed, err := sealNormalized(semantic, authoring)
@@ -568,6 +574,21 @@ func normalizeAuthoring(source Authoring) (Authoring, error) {
 		HelpKey: source.HelpKey, Importance: source.Importance, InlinePriority: source.InlinePriority, Preset: source.Preset,
 		Examples: examples, BreakTitleKey: source.BreakTitleKey, BreakDescriptionKey: source.BreakDescriptionKey,
 	}, nil
+}
+
+func validateAuthoringExamples(machine MachineDefinition, authoring Authoring) error {
+	for index, raw := range authoring.Examples {
+		var value any
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.UseNumber()
+		if err := decoder.Decode(&value); err != nil {
+			return fmt.Errorf("decode data type example %d: %w", index, err)
+		}
+		if err := validateDefinitionInline(machine, value); err != nil {
+			return fmt.Errorf("data type example %d violates its pinned schema: %w", index, err)
+		}
+	}
+	return nil
 }
 
 func validateAbsoluteURI(value string) error {

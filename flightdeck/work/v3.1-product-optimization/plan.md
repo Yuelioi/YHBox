@@ -6,8 +6,23 @@
 
 ## Current stage
 
-Stage A–L 已完成实现、增量门禁与 Windows 真机验收。用户已把 Source-native 子图系统指定为下一阶段目标，
-当前执行 Stage N；Stage M 的 M1 合同保持完成，M2 在 Stage N 闭环后继续。
+Stage A–L、Stage N 与 Stage O 已完成实现、增量门禁和 Windows 真机验收。Stage M 的 M1 合同保持
+完成，下一阶段恢复 M2 的资源归属与编辑器闭环。
+
+## Stage O — Run 状态全类型兼容性
+
+范围：在唯一 Data Type / Authoring Projection / Workflow Source / Compiler / runtime 链路上，验证并修复
+每一种可声明 Run 状态的添加、初值编辑、保存重开、节点读写和执行行为。
+
+- [x] [O1 — 类型矩阵与真实旅程](slices/stage-o1-run-state-type-matrix.md)：后端权威初值、全部类型 UI
+  添加/复合值编辑、Source 保存重开、compiler/runtime 读写、结构列表适配和 Windows WebView 自动验收。
+
+非目标：不把 runtime-only handle/stream 或只允许 BlobRef 的类型伪装成 inline Run 状态；不恢复第二套
+变量 store；不让前端根据控件类型自行猜测未经 schema 验证的初值。
+
+阶段门槛：所有公开状态类型由自动矩阵逐项点击并走到持久 Source；每个初值能被 pinned Data Type schema
+封装，状态 Read/Write 对每种类型可编译运行，Increment 只开放给 numeric；`task check` 和真实 WebView
+文件元数据旅程均通过。
 
 ## Stage N — Source-native 子图系统闭环
 

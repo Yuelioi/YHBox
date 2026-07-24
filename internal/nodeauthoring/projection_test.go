@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes"
 )
@@ -90,6 +91,33 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	integer, ok := projection.Type(nodes.IntegerTypeID)
 	if !ok || len(integer.AssignableTo) != 1 || integer.AssignableTo[0].TypeID != nodes.NumberTypeID || len(integer.Traits) == 0 {
 		t.Fatalf("integer type relations = %#v", integer)
+	}
+	stateTypes := 0
+	for _, definition := range builtins.Types {
+		projected, ok := projection.Type(definition.TypeRef().TypeID)
+		if !ok {
+			t.Fatalf("missing projected type %q", definition.TypeRef().TypeID)
+		}
+		if !builtins.Catalog.TypeSystem().HasTrait(definition.TypeRef(), datatype.TraitDurable) {
+			if len(projected.StateInitial) != 0 {
+				t.Fatalf("non-durable type %q has a state initializer", definition.TypeRef().TypeID)
+			}
+			continue
+		}
+		if len(projected.StateInitial) == 0 {
+			t.Fatalf("durable inline type %q has no state initializer", definition.TypeRef().TypeID)
+		}
+		if _, err := datatype.SealInlineJSON(
+			builtins.Catalog,
+			datatype.RefResolvedType(definition.TypeRef()),
+			projected.StateInitial,
+		); err != nil {
+			t.Fatalf("state initializer for %q: %v", definition.TypeRef().TypeID, err)
+		}
+		stateTypes++
+	}
+	if stateTypes == 0 {
+		t.Fatal("projection did not expose any state-initializable data types")
 	}
 	stateRead, ok := projection.Node(nodes.StateReadNodeID)
 	if !ok || len(stateRead.StateAccesses) != 1 || stateRead.StateAccesses[0].Mode != "read" ||

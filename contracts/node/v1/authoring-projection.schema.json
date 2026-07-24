@@ -1188,6 +1188,7 @@
         "schemaRoot": {
           "type": "string"
         },
+        "stateInitial": true,
         "structure": {
           "$ref": "#/$defs/StructureSpec"
         },
