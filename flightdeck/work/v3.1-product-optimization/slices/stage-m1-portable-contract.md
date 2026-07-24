@@ -50,3 +50,10 @@ Target Profile Definition、Credential Requirement 与精确 Node Package Depend
   inspect 拒绝身份、entry、digest、size 或声明不一致。
 - `task check` 通过：20 个受影响 Go 包与 70 个 frontend 测试文件/294 项测试通过；合同、bindings、格式、lint、
   typecheck 与 i18n 均通过。
+
+## Post-completion hardening — 2026-07-24
+
+- Source Store 内置按 `format + version` 登记的确定性逐版本 migration plan；当前登记表刻意为空，不迁移开发期旧 `3.1`。
+- migration 只处理显式旧合同，最终结果先通过当前 strict schema 和 durable identity 检查，再原子替换原 Source。
+- 未登记版本继续隔离；migration 实现失败、产出错误版本/无效当前合同或改变身份时，启动失败并保留原文件，不启用
+  compatibility reader、dual runtime 或字段猜测。

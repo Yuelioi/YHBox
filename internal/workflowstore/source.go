@@ -82,6 +82,14 @@ type SourceStore struct {
 }
 
 func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, error) {
+	migrations, err := currentSourceMigrationPlan()
+	if err != nil {
+		return nil, err
+	}
+	return openSourceStore(root, options, migrations)
+}
+
+func openSourceStore(root string, options SourceStoreOptions, migrations sourceMigrationPlan) (*SourceStore, error) {
 	if strings.TrimSpace(root) == "" || options.MaxSources <= 0 {
 		return nil, errors.New("workflow source store requires root and positive source limit")
 	}
@@ -119,8 +127,23 @@ func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, err
 		if err != nil {
 			return nil, err
 		}
-		snapshot, err := openSourceArtifact(raw, true)
+		candidate, migrated, err := migrations.Migrate(raw)
 		if err != nil {
+			if !errors.Is(err, errSourceMigrationUnavailable) {
+				return nil, fmt.Errorf("migrate Workflow Source %q: %w", entry.Name(), err)
+			}
+			recovery, quarantineErr := quarantineSource(resolved, entry.Name(), raw, err)
+			if quarantineErr != nil {
+				return nil, fmt.Errorf("quarantine Workflow Source %q: %w", entry.Name(), quarantineErr)
+			}
+			recoveries[recovery.ID] = recovery
+			continue
+		}
+		snapshot, err := openSourceArtifact(candidate, !migrated)
+		if err != nil {
+			if migrated {
+				return nil, fmt.Errorf("validate migrated Workflow Source %q: %w", entry.Name(), err)
+			}
 			recovery, quarantineErr := quarantineSource(resolved, entry.Name(), raw, err)
 			if quarantineErr != nil {
 				return nil, fmt.Errorf("quarantine Workflow Source %q: %w", entry.Name(), quarantineErr)
@@ -129,12 +152,20 @@ func OpenSourceStore(root string, options SourceStoreOptions) (*SourceStore, err
 			continue
 		}
 		if entry.Name() != snapshot.workflowID+".json" {
+			if migrated {
+				return nil, fmt.Errorf("migrated Workflow Source %q changed its durable identity to %q", entry.Name(), snapshot.workflowID)
+			}
 			recovery, quarantineErr := quarantineSource(resolved, entry.Name(), raw, errors.New("workflow source filename does not match its identity"))
 			if quarantineErr != nil {
 				return nil, fmt.Errorf("quarantine Workflow Source %q: %w", entry.Name(), quarantineErr)
 			}
 			recoveries[recovery.ID] = recovery
 			continue
+		}
+		if migrated {
+			if err := durablefs.WriteFile(path, snapshot.raw, 0o600); err != nil {
+				return nil, fmt.Errorf("publish migrated Workflow Source %q: %w", entry.Name(), err)
+			}
 		}
 		sources[snapshot.workflowID] = snapshot
 		if len(sources) > options.MaxSources {
