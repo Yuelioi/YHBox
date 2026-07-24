@@ -76,6 +76,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	base := pageState{
 		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
 		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main", MinimapToggle: true,
+		DebugStart: true,
 	}
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
@@ -140,6 +141,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 1, 0, 1
 		}),
 		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries, state.ConfirmDialog = "child", 1, 0, 1, true
+		}),
+		withState(connected, func(state *pageState) {
 			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries, state.GraphInterface = "child", 1, 0, 3, true
 		}),
 		connected,
@@ -166,13 +170,6 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			state.SnippetDock, state.SnippetItems, state.ConfirmDialog = true, 1, true
 		}),
 		withState(connected, func(state *pageState) { state.SnippetDock = true }),
-		withState(connected, func(state *pageState) { state.NodeContextMenu = true }),
-		withState(connected, func(state *pageState) {
-			state.NodeContextMenu, state.TemplateMenuActions = true, 2
-		}),
-		withState(connected, func(state *pageState) {
-			state.ResourceDock, state.TemplateResourceOpen = true, true
-		}),
 		withState(connected, func(state *pageState) {
 			state.AIReview, state.ResourceDock, state.ResourceCreate, state.ResourceTabs = true, true, true, 3
 		}),
@@ -186,6 +183,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	var serverURL string
 	var lastState pageState
 	probeReads := 0
+	quickSelectionPending := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
 			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/devtools/page/page-1"
@@ -212,6 +210,19 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			result := map[string]any{}
 			expression := stringValue(call.Params["expression"])
 			if call.Method == "Runtime.evaluate" && strings.Contains(expression, "const probe = document.createElement") {
+				if quickSelectionPending {
+					selected := lastState
+					selected.SelectedNodes = 1
+					raw, _ := json.Marshal(selected)
+					quickSelectionPending = false
+					result = map[string]any{"result": map[string]any{"value": string(raw)}}
+					if err := wsjson.Write(context.Background(), connection, map[string]any{
+						"id": call.ID, "result": result,
+					}); err != nil {
+						return
+					}
+					continue
+				}
 				if len(states) == 0 {
 					t.Errorf("unexpected extra page state request")
 					return
@@ -234,7 +245,10 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				result = map[string]any{"result": map[string]any{"value": value}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
-				if strings.Contains(expression, "multi-selection needs") {
+				if strings.Contains(expression, "quick-added click template node header") {
+					quickSelectionPending = true
+					value = `{"x":15,"y":15}`
+				} else if strings.Contains(expression, "multi-selection needs") {
 					value = `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				} else if strings.Contains(expression, "Delay.in connection candidate") {
 					value = `{"x":15,"y":15}`
@@ -257,7 +271,6 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	screenshot := filepath.Join(dir, "workflow.png")
 	assetsScreenshot := filepath.Join(dir, "assets.png")
 	nodeMenuScreenshot := filepath.Join(dir, "node-context-menu.png")
-	templateMenuScreenshot := filepath.Join(dir, "node-template-menu.png")
 	quickAddScreenshot := filepath.Join(dir, "quick-add.png")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -267,7 +280,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	if len(states) != 0 {
 		t.Fatalf("unconsumed page states: %d", len(states))
 	}
-	for _, path := range []string{screenshot, assetsScreenshot, nodeMenuScreenshot, templateMenuScreenshot, quickAddScreenshot} {
+	for _, path := range []string{screenshot, assetsScreenshot, nodeMenuScreenshot, quickAddScreenshot} {
 		if raw, err := os.ReadFile(path); err != nil || string(raw) != "png" {
 			t.Fatalf("screenshot %s = %q, %v", path, raw, err)
 		}

@@ -20,8 +20,8 @@ Stage A–L 已完成实现、增量门禁与 Windows 真机验收。用户已�
   命名 exec/error exits 的新增、重命名、排序、绑定与删除；自动推导降级为带预览的快捷动作。
 - [x] [N3 — 生命周期闭环](slices/stage-n3-subgraph-lifecycle.md)：展开调用、复制调用、复制定义/创建独立副本、
   零引用删除和显式原子级联删除。
-- [ ] N4 — 编辑器真实旅程：折叠、进入、接口编辑、多处调用、引用定位、删除、保存重开、编译运行和 Windows
-  WebView smoke。
+- [x] [N4 — 编辑器真实旅程与阶段验收](slices/stage-n4-subgraph-acceptance.md)：折叠、进入、接口编辑、
+  调用投影、保存重开、编译、物理删除、production build 和 Windows WebView smoke。
 
 非目标：不把 GraphCall 注册为 Catalog node；不持久化 boundary 虚拟节点；不恢复多执行入口或 3.0 Container/
 subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。

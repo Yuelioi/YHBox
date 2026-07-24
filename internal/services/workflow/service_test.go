@@ -189,6 +189,133 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	}
 }
 
+func TestServicePersistsCompilesAndPhysicallyDeletesSubgraphLifecycle(t *testing.T) {
+	now := time.Date(2026, 7, 24, 13, 0, 0, 0, time.UTC)
+	runtime := workflowRuntime(t, now)
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("Subgraph lifecycle")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authored, err := service.ApplyPatch(created.WorkflowID, created.Revision, []authoring.Command{
+		{Kind: authoring.CommandAddGraph, AddGraph: &authoring.AddGraphCommand{Graph: schema.Graph{
+			ID: "child", Name: "Wait", Kind: schema.GraphKindSubgraph,
+			Nodes: []schema.Node{}, Calls: []schema.GraphCall{}, Edges: []schema.Edge{},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+			Entries: []schema.Endpoint{}, Exits: []schema.GraphExit{}, Annotations: []schema.Annotation{},
+		}}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "child", NodeTypeID: nodes.DelayNodeID, Handle: "wait",
+			Position: schema.Position{X: 40, Y: 60},
+		}},
+		{Kind: authoring.CommandBindDefault, BindDefault: &authoring.PortCommand{
+			GraphID: "child", NodeID: "$wait", PortID: "duration-milliseconds",
+		}},
+		{Kind: authoring.CommandUpdateGraphInterface, UpdateGraphInterface: &authoring.GraphInterfaceCommand{
+			GraphID: "child",
+			Entries: []schema.Endpoint{{NodeID: "$wait", PortID: "in"}},
+			Exits: []schema.GraphExit{
+				{ID: "done", Name: "完成", Channel: schema.EdgeExec, Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "done"}},
+				{ID: "failed", Name: "失败", Channel: schema.EdgeError, Endpoint: schema.Endpoint{NodeID: "$wait", PortID: "failed"}},
+			},
+			Inputs: []schema.GraphPort{}, Outputs: []schema.GraphPort{},
+		}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{
+			GraphID: "main",
+			Call: schema.GraphCall{
+				ID: "call-a", GraphID: "child", Position: schema.Position{X: 160, Y: 80},
+				Bindings: map[string]schema.InputBinding{},
+			},
+		}},
+		{Kind: authoring.CommandAddGraphCall, AddGraphCall: &authoring.GraphCallCommand{
+			GraphID: "main",
+			Call: schema.GraphCall{
+				ID: "call-b", GraphID: "child", Position: schema.Position{X: 360, Y: 80},
+				Bindings: map[string]schema.InputBinding{},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened := parseServiceSource(t, service, created.WorkflowID)
+	if len(reopened.Graphs) != 2 || len(reopened.Graphs[0].Calls) != 2 ||
+		len(reopened.Graphs[1].Entries) != 1 || len(reopened.Graphs[1].Exits) != 2 {
+		t.Fatalf("reopened authored source = %#v", reopened.Graphs)
+	}
+	if compiled, err := service.CompileSource(created.WorkflowID); err != nil || schema.HasErrors(compiled.Diagnostics) {
+		t.Fatalf("compile authored source = %#v, %v", compiled.Diagnostics, err)
+	}
+
+	expanded, err := service.ApplyPatch(created.WorkflowID, authored.Source.Revision, []authoring.Command{
+		{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{
+			GraphID: "main", CallID: "call-a",
+		}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "expanded",
+			Position: schema.Position{X: 160, Y: 80},
+		}},
+		{Kind: authoring.CommandBindDefault, BindDefault: &authoring.PortCommand{
+			GraphID: "main", NodeID: "$expanded", PortID: "duration-milliseconds",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened = parseServiceSource(t, service, created.WorkflowID)
+	if len(reopened.Graphs) != 2 || len(reopened.Graphs[0].Calls) != 1 ||
+		reopened.Graphs[0].Calls[0].ID != "call-b" || len(reopened.Graphs[0].Nodes) != 2 {
+		t.Fatalf("reopened expanded source = %#v", reopened.Graphs)
+	}
+	if compiled, err := service.CompileSource(created.WorkflowID); err != nil || schema.HasErrors(compiled.Diagnostics) {
+		t.Fatalf("compile expanded source = %#v, %v", compiled.Diagnostics, err)
+	}
+
+	if _, err := service.ApplyPatch(created.WorkflowID, expanded.Source.Revision, []authoring.Command{
+		{Kind: authoring.CommandRemoveGraphCall, RemoveGraphCall: &authoring.CallCommand{
+			GraphID: "main", CallID: "call-b",
+		}},
+		{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "child"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	reopened = parseServiceSource(t, service, created.WorkflowID)
+	if len(reopened.Graphs) != 1 || reopened.Graphs[0].ID != "main" ||
+		len(reopened.Graphs[0].Calls) != 0 || len(reopened.Graphs[0].Nodes) != 2 {
+		t.Fatalf("reopened cascade-deleted source = %#v", reopened.Graphs)
+	}
+	if compiled, err := service.CompileSource(created.WorkflowID); err != nil || schema.HasErrors(compiled.Diagnostics) {
+		t.Fatalf("compile cascade-deleted source = %#v, %v", compiled.Diagnostics, err)
+	}
+}
+
+func parseServiceSource(t *testing.T, service *workflow.Service, workflowID string) schema.WorkflowSource {
+	t.Helper()
+	view, err := service.GetSource(workflowID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, diagnostics := schema.ParseSource([]byte(view.SourceJSON))
+	if schema.HasErrors(diagnostics) {
+		t.Fatalf("reopened source diagnostics = %#v", diagnostics)
+	}
+	return source
+}
+
 func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *testing.T) {
 	runtime := workflowRuntime(t, time.Date(2026, 7, 17, 3, 30, 0, 0, time.UTC))
 	if err := runtime.Start(context.Background()); err != nil {

@@ -10,14 +10,14 @@ Open
 
 ## Current
 
-Stage N 的 N1–N3 已完成：定义/调用管理、稳定显式接口，以及复制调用、分叉定义、展开调用和原子级联删除
-均已落到唯一 Source/authoring/compiler 链路。当前进入 N4，执行保存重开、编译运行和 Windows WebView
-真实编辑器旅程，集中收口阶段验收。
+Stage N 的 N1–N4 已全部完成：定义/调用管理、稳定显式接口、复制/分叉/展开/原子级联删除，以及真实
+store 重开、compiler、production build 和 Windows WebView 验收均已闭环。下一阶段恢复 Stage M2 的
+Workflow Resource / Global Asset 归属与编辑器工作。
 
 ## Next
 
-按 [Build and acceptance](../../knowledge/build/build.md) 执行 N4：先补保存重开与 compiler 纵向测试，再运行
-Windows WebView smoke 并实际检查产出的列表、编辑器、资源库和计划编辑器截图。
+继续 [Stage M2 资源归属与编辑器](plan.md)：先用现有 Workflow Resource 合同补齐 Global Asset snapshot、
+显式 promotion 和共享/duplicate 语义，再进入 UI。
 
 ## Progress
 
@@ -59,6 +59,9 @@ Windows WebView smoke 并实际检查产出的列表、编辑器、资源库和�
 - 2026-07-24 N3 完成：GraphCall 复制、定义复制/分叉、调用展开和显式原子级联删除进入统一 EditorSession/
   authoring patch；展开保留 value/default/blob/resource binding，并新增正式 `bind-resource` 合同。`task check`
   通过 12 个受影响 Go 包和 77 个测试文件/318 项测试。
+- 2026-07-24 N4/Stage N 完成：真实 service/store 覆盖保存重开、展开、物理级联删除和 compiler；WebView
+  smoke 修正冷启动、选择、推导确认与调试终态竞态后退出 0，子图截图无裁切/遮挡。production editor gzip
+  205329/220000 字节，`task build` 生成版本 3.1.0 Windows GUI `bin/Yotta.exe` 并通过隔离启动 smoke。
 
 ## References
 

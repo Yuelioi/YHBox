@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 142,
-    "models": 201
+    "models": 202
   },
   "services": [
     {
@@ -6550,6 +6550,32 @@
         },
         {
           "kind": "class",
+          "name": "BindResourceCommand",
+          "fields": [
+            {
+              "name": "\"graphId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"portId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resource\"",
+              "optional": false,
+              "type": "schema$0.ResourceBinding"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "BindValueCommand",
           "fields": [
             {
@@ -6737,6 +6763,11 @@
               "type": "BindBlobCommand | null"
             },
             {
+              "name": "\"bindResource\"",
+              "optional": true,
+              "type": "BindResourceCommand | null"
+            },
+            {
               "name": "\"clearBinding\"",
               "optional": true,
               "type": "PortCommand | null"
@@ -6892,6 +6923,10 @@
             {
               "name": "CommandBindBlob",
               "value": "\"bind-blob\""
+            },
+            {
+              "name": "CommandBindResource",
+              "value": "\"bind-resource\""
             },
             {
               "name": "CommandClearBinding",
@@ -7872,6 +7907,11 @@
               "type": "string"
             },
             {
+              "name": "\"name\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
               "name": "\"channel\"",
               "optional": false,
               "type": "EdgeChannel"
@@ -7908,6 +7948,11 @@
             {
               "name": "\"id\"",
               "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": true,
               "type": "string"
             },
             {

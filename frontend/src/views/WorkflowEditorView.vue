@@ -1278,7 +1278,6 @@ import { useRecordingStart } from '@/composables/useRecordingStart'
 import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedback'
 import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
-import WorkflowInspector from '@/app/editor/WorkflowInspector.vue'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
 import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
@@ -1289,10 +1288,7 @@ import WorkflowConnectionMenu, {
 } from '@/app/editor/WorkflowConnectionMenu.vue'
 import WorkflowSelectionToolbar from '@/app/editor/WorkflowSelectionToolbar.vue'
 import WorkflowGraphCall from '@/app/editor/WorkflowGraphCall.vue'
-import WorkflowGraphCallInspector from '@/app/editor/WorkflowGraphCallInspector.vue'
 import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
-import WorkflowGraphInterfacePanel from '@/app/editor/WorkflowGraphInterfacePanel.vue'
-import WorkflowGraphManager from '@/app/editor/WorkflowGraphManager.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -1362,6 +1358,16 @@ const WorkflowSnippetModal = defineAsyncComponent(
 const WorkflowQuickAddMenu = defineAsyncComponent(
   () => import('@/app/editor/WorkflowQuickAddMenu.vue'),
 )
+const WorkflowGraphManager = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowGraphManager.vue'),
+)
+const WorkflowGraphCallInspector = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowGraphCallInspector.vue'),
+)
+const WorkflowGraphInterfacePanel = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowGraphInterfacePanel.vue'),
+)
+const WorkflowInspector = defineAsyncComponent(() => import('@/app/editor/WorkflowInspector.vue'))
 const WorkflowRuntimeWorkbench = defineAsyncComponent(
   () => import('@/app/editor/WorkflowRuntimeWorkbench.vue'),
 )

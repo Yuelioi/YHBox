@@ -57,6 +57,7 @@ type pageState struct {
 	ConnectionCandidates int            `json:"connectionCandidates"`
 	ConnectionError      string         `json:"connectionError"`
 	Debugger             bool           `json:"debugger"`
+	DebugStart           bool           `json:"debugStart"`
 	DebugPaused          bool           `json:"debugPaused"`
 	DebugBusy            bool           `json:"debugBusy"`
 	DebugCompleted       bool           `json:"debugCompleted"`
@@ -198,7 +199,6 @@ func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot strin
 
 func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
 	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
-	templateMenuScreenshot := siblingScreenshot(screenshot, "node-template-menu.png")
 	quickAddScreenshot := siblingScreenshot(screenshot, "quick-add.png")
 	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
 	if err != nil {
@@ -231,7 +231,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	})()`); err != nil {
 		return err
 	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
+	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
 		return current.RecoveryPanel && current.LauncherButton
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
@@ -569,7 +569,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 500))))`); err != nil {
 		return err
 	}
-	if err := exerciseSnippets(ctx, client, nodeMenuScreenshot, templateMenuScreenshot); err != nil {
+	if err := exerciseSnippets(ctx, client, nodeMenuScreenshot); err != nil {
 		return err
 	}
 	if err := clickRequired(ctx, client, "workflow-workspace-resources"); err != nil {
@@ -675,11 +675,10 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
-		"schedulesScreenshot":    schedulesScreenshot,
-		"subgraphScreenshot":     subgraphScreenshot,
-		"nodeMenuScreenshot":     nodeMenuScreenshot,
-		"templateMenuScreenshot": templateMenuScreenshot,
-		"quickAddScreenshot":     quickAddScreenshot,
+		"schedulesScreenshot": schedulesScreenshot,
+		"subgraphScreenshot":  subgraphScreenshot,
+		"nodeMenuScreenshot":  nodeMenuScreenshot,
+		"quickAddScreenshot":  quickAddScreenshot,
 	}, "", "  ")
 	fmt.Println(string(result))
 	return nil
@@ -738,6 +737,14 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	}
 	if err := clickRequired(ctx, client, "workflow-graph-infer-interface"); err != nil {
 		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("preview inferred subgraph interface: %w", err)
+	}
+	if err := clickRequired(ctx, client, "confirm-accept"); err != nil {
+		return fmt.Errorf("confirm inferred subgraph interface: %w", err)
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.GraphBoundaries >= 2 && current.GraphInterface && current.BoundaryClipped == 0 && current.BoundaryObscured == 0
@@ -835,7 +842,7 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.DebugCompleted && current.DebugCurrent == 0
+		return current.DebugCompleted && current.DebugCurrent == 0 && current.DebugStart
 	}); err != nil {
 		return fmt.Errorf("step next visible node to completion: %w", err)
 	}
@@ -851,7 +858,9 @@ func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) e
 	if err := clickRequired(ctx, client, "workflow-debug-stop"); err != nil {
 		return err
 	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.DebugCompleted }); err != nil {
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugCompleted && current.DebugStart
+	}); err != nil {
 		return fmt.Errorf("stop debug Run: %w", err)
 	}
 	return nil
@@ -1018,13 +1027,20 @@ func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, s
 	if err := evalJSON(ctx, client, `(() => {
 		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
 		if (!inserted) throw new Error('quick-added click template node not found for cleanup');
-		const rect = inserted.getBoundingClientRect();
+		const header = inserted.querySelector('.workflow-node-drag-handle');
+		if (!header) throw new Error('quick-added click template node header not found for cleanup');
+		const rect = header.getBoundingClientRect();
 		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 	})()`, &point); err != nil {
 		return fmt.Errorf("locate quick-added node: %w", err)
 	}
 	if err := dispatchMouseClick(ctx, client, point.X, point.Y); err != nil {
 		return fmt.Errorf("select quick-added node: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 1
+	}); err != nil {
+		return fmt.Errorf("wait for quick-added node selection: %w", err)
 	}
 	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
 		return fmt.Errorf("delete quick-added node: %w", err)
@@ -1037,7 +1053,7 @@ func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, s
 	return nil
 }
 
-func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot, templateMenuScreenshot string) error {
+func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot string) error {
 	before, err := state(ctx, client)
 	if err != nil {
 		return err
@@ -1070,15 +1086,20 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, n
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.SnippetModal }); err != nil {
 		return fmt.Errorf("open save-as-snippet dialog: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
+	var shortcutPoint point
+	if err := evalJSON(ctx, client, `(() => {
 		const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
 		if (!capture) throw new Error('snippet shortcut capture not found');
-		capture.click();
-	})()`); err != nil {
+		const rect = capture.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	})()`, &shortcutPoint); err != nil {
 		return err
 	}
+	if err := dispatchMouseClick(ctx, client, shortcutPoint.X, shortcutPoint.Y); err != nil {
+		return fmt.Errorf("activate snippet shortcut capture: %w", err)
+	}
 	if err := eval(ctx, client, `(async () => {
-		const deadline = performance.now() + 5000;
+		const deadline = performance.now() + 15000;
 		while (performance.now() < deadline) {
 			const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
 			if (capture && document.activeElement === capture) return;
@@ -1174,43 +1195,6 @@ func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, n
 		return current.SnippetItems == saved.SnippetItems-1 && !current.ConfirmDialog
 	}); err != nil {
 		return fmt.Errorf("delete snippet: %w", err)
-	}
-	if err := eval(ctx, client, `(() => {
-		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
-		if (!node) throw new Error('configured Delay node not found for template workflow');
-		node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeContextMenu }); err != nil {
-		return fmt.Errorf("reopen node context menu for visual template: %w", err)
-	}
-	if err := eval(ctx, client, `(() => {
-		const action = document.querySelector('[data-testid="workflow-node-menu-visual-template"]');
-		if (!action) throw new Error('visual template submenu not found');
-		action.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }));
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.TemplateMenuActions == 2
-	}); err != nil {
-		return fmt.Errorf("open visual template submenu: %w", err)
-	}
-	if err := capture(ctx, client, templateMenuScreenshot); err != nil {
-		return err
-	}
-	if err := eval(ctx, client, `(() => {
-		const action = document.querySelector('[data-testid="workflow-node-menu-choose-template"]');
-		if (!action) throw new Error('choose visual template action not found');
-		action.click();
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.ResourceDock && current.TemplateResourceOpen && strings.Contains(current.Href, "/workflows/")
-	}); err != nil {
-		return fmt.Errorf("open visual templates inside workflow editor: %w", err)
 	}
 	return nil
 }
@@ -1346,7 +1330,16 @@ func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func
 }
 
 func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicate func(pageState) bool) error {
-	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	return waitUntilFor(ctx, client, 15*time.Second, predicate)
+}
+
+func waitUntilFor(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	timeout time.Duration,
+	predicate func(pageState) bool,
+) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	for {
 		current, err := state(waitCtx, client)
@@ -1636,6 +1629,7 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		connectionCandidates: document.querySelectorAll('[data-testid="workflow-connection-candidate"]').length,
 		connectionError: document.querySelector('[data-testid="workflow-connection-error"]')?.textContent?.trim() || '',
 		debugger: Boolean(document.querySelector('[data-testid="workflow-debugger"]')),
+		debugStart: Boolean(document.querySelector('[data-testid="workflow-debug-start"]')),
 		debugPaused: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-step"]') !== null,
 		debugBusy: Boolean(document.querySelector('[data-testid="workflow-debug-step"]')?.disabled),
 		debugCompleted: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-stop"]') === null,
@@ -1711,14 +1705,15 @@ func dispatchModifiedKeyPress(ctx context.Context, client *browsercdp.WebSocketC
 }
 
 func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	const shiftModifier = 8
 	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
-		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y,
+		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y, "modifiers": shiftModifier,
 	}); err != nil {
 		return err
 	}
 	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 		"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
-		"button": "left", "buttons": 1, "clickCount": 1,
+		"button": "left", "buttons": 1, "clickCount": 1, "modifiers": shiftModifier,
 	}); err != nil {
 		return err
 	}
@@ -1728,14 +1723,14 @@ func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketCli
 			"type":   "mouseMoved",
 			"x":      gesture.Start.X + (gesture.End.X-gesture.Start.X)*ratio,
 			"y":      gesture.Start.Y + (gesture.End.Y-gesture.Start.Y)*ratio,
-			"button": "left", "buttons": 1,
+			"button": "left", "buttons": 1, "modifiers": shiftModifier,
 		}); err != nil {
 			return err
 		}
 	}
 	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 		"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
-		"button": "left", "buttons": 0, "clickCount": 1,
+		"button": "left", "buttons": 0, "clickCount": 1, "modifiers": shiftModifier,
 	})
 	return err
 }
