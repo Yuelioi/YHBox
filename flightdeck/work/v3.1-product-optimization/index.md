@@ -10,19 +10,14 @@ Open
 
 ## Current
 
-Stage A–L 已完成实现、必要增量门禁与 Windows 真机验收。精准回放使用独立单调时钟和
-`start + event.TUs` 绝对 deadline；
-playback session 在 Open 时固定已验证目标，Windows 不再逐事件解析窗口或置前。InputClip 回放节点只读
-展示录制源与本机目标 counts/360，runtime 自动按 `target/source` 换算，不提供人为倍率。节点契约已恢复
-稳定摘要 `5c353fb…`；开发期 `ff7ea9…` 节点会移除临时 binding 后迁回稳定契约。
-
-Stage M 的共同理解已由用户确认。M1 正式可移植合同已经落地并通过增量门禁；实施只在 Yotta 仓库进行，
-公开 Site Foundation 由用户后续在隔壁仓库完善。
+Stage N 的 N1 已完成：子图定义管理器直接从 Source 派生调用数、引用位置和接口摘要；定义/调用删除语义、
+同名消歧、引用保护和 handle 布局均有测试。当前进入 N2，收敛稳定接口 ID 与显示名称、显式单入口/
+typed data ports/多命名 exits 的编辑合同，并把自动推导降级为带预览的快捷动作。
 
 ## Next
 
-开始 M2 资源归属与编辑器：先核对现有 Global Asset/编辑器录制与截图保存路径，再设计 Workflow Resource 创建、
-Global Asset snapshot、显式提升和 duplicate 的最小领域接口；继续复用 M1 的 Resource Binding 与 BlobReferences seam。
+完成 [N2 显式接口编辑](slices/stage-n2-subgraph-interface-editor.md)：先锁定 interface identity/display/order
+合同与 caller 引用影响，再实现接口面板、boundary/call 一致投影和带预览的自动推导。
 
 ## Progress
 
@@ -54,6 +49,11 @@ Global Asset snapshot、显式提升和 duplicate 的最小领域接口；继续
   inventory，compiler 校验 Catalog lock 并复用原 Blob value path，Bundle manifest 锁定 dependency 且包含所有资源字节。
 - M1 `task check` 通过：Workflow/Wails 合同一致，20 个受影响 Go 包通过，frontend format/lint/typecheck/i18n 通过，
   70 个测试文件/294 项测试通过；未运行非增量的 `task check:full`、真实宿主或 production bundle。
+- 2026-07-24 Stage N 启动：折叠开放边界修复已提交为 `26577e20`；调用节点和内部 boundary 的 handle gutter/
+  长标签布局已由组件测试锁定；Unreal、Blender、Node-RED、Unity 官方资料已收敛为定义/调用分层、canonical
+  interface 清单和安全定义删除方案。
+- 2026-07-24 N1 完成：新增 Source-derived 子图管理器、同名 ID 消歧、调用引用定位、接口健康摘要和定义/
+  调用无歧义删除；修复缺失 graph ID 误删最后一个定义。`task check` 通过 74 个测试文件/304 项测试。
 
 ## References
 
@@ -69,3 +69,4 @@ Global Asset snapshot、显式提升和 duplicate 的最小领域接口；继续
 - [Schedule modal flow](references/17-schedule-modal-flow.md) — 计划 Modal 的验收记录。
 - [Canvas authoring boundary](../../knowledge/frontend/canvas-node-authoring-boundary.md) — 当前画布创作规则。
 - [Build and acceptance](../../knowledge/build/build.md) — 完整门禁的触发条件。
+- [Subgraph management research](references/subgraph-management-research.md) — 定义/调用、接口编辑和生命周期的一手资料与本地方案。

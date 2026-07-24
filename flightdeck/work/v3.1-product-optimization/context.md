@@ -40,6 +40,11 @@ Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Com
   发布页只提示风险并列出打包资源，内容隐私由发布者负责。格式、大小、hash 和归档安全检查仍必须执行。
 - 当前没有需要保护的旧格式用户数据；Stage M 直接替换开发期 Source/Bundle/资源形状，不增加旧 `.yotta-workflow`
   兼容 reader。从此次正式格式开始建立显式版本与未来迁移机制。
+- 子图定义 `Graph` 与调用实例 `GraphCall` 是两个独立对象：画布 Delete 只删除调用；定义删除从子图管理器进入，
+  默认在存在引用时阻止并列出调用位置。显式级联删除必须作为原子危险动作，不能复用普通 Delete。
+- `Graph.inputs / outputs / entries / exits` 是子图接口的唯一事实；接口面板负责编辑该事实，内部 boundary 与外部
+  GraphCall 只做投影。当前保持一个执行入口和多个命名 exec/error 出口，不恢复 legacy subgraph runtime。
+- 子图接口身份与显示名称应分离；调用数、引用位置和接口健康度由 Source 派生，不新增平行前端 store。
 - 在线试验市场独立放在 `E:\projects\organizations\yottaapp\yotta-registry`，不进入 Yotta 桌面仓库；前端固定采用
   Nuxt 4 + Nuxt UI，后端固定采用 GoFrame v2，并优先复用 `yueli-official/platform/flightdeck/knowledge` 的公司约定。
 - Registry API 使用 `/api/v1/<plural>`、camelCase JSON、RFC3339 UTC 时间和带 `traceId` 的统一响应 envelope；

@@ -6,9 +6,27 @@
 
 ## Current stage
 
-Stage A–L 已完成实现、增量门禁与 Windows 真机验收。Stage M 的网上下载/离线安装产品与架构
-Grilling 已获用户确认；[M1 正式可移植合同](slices/stage-m1-portable-contract.md) 已完成，当前进入
-M2 资源归属与编辑器。
+Stage A–L 已完成实现、增量门禁与 Windows 真机验收。用户已把 Source-native 子图系统指定为下一阶段目标，
+当前执行 Stage N；Stage M 的 M1 合同保持完成，M2 在 Stage N 闭环后继续。
+
+## Stage N — Source-native 子图系统闭环
+
+范围：不增加第二套 runtime，在现有 Graph/GraphCall/Graph interface/authoring patch seam 上完成定义管理、
+显式接口编辑和安全可逆生命周期。
+
+- [x] [N1 — 子图定义管理与对象语义](slices/stage-n1-subgraph-definition-management.md)：可搜索管理器、调用数、
+  引用定位、唯一可读名称和无歧义删除入口。
+- [ ] [N2 — 显式接口编辑](slices/stage-n2-subgraph-interface-editor.md)：单入口、typed data inputs/outputs、
+  命名 exec/error exits 的新增、重命名、排序、绑定与删除；自动推导降级为带预览的快捷动作。
+- [ ] N3 — 生命周期闭环：展开调用、复制调用、复制定义/创建独立副本、零引用删除和显式原子级联删除。
+- [ ] N4 — 编辑器真实旅程：折叠、进入、接口编辑、多处调用、引用定位、删除、保存重开、编译运行和 Windows
+  WebView smoke。
+
+非目标：不把 GraphCall 注册为 Catalog node；不持久化 boundary 虚拟节点；不恢复多执行入口或 3.0 Container/
+subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
+
+阶段门槛：每个生命周期动作通过同一 authoring patch interface 在前端 optimistic projection 和 Go 后端得到一致
+结果；受影响调用与边在提交前可见；`task check`、保存重开和真实 WebView 旅程全部通过。
 
 ## Stage L — 第三批真机反馈闭环
 

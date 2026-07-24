@@ -37,14 +37,17 @@
     </div>
 
     <div v-else-if="boundary.role === 'exit'" class="px-3 py-2 text-[11px]">
-      <div class="relative flex h-5 items-center gap-2">
+      <div class="relative flex h-5 min-w-0 items-center gap-2 pl-3">
         <Handle
           :id="graphHandle(boundary.exit!.channel, 'input', 'in')"
           type="target"
           :position="Position.Left"
           class="workflow-handle-signal"
         />
-        <span :class="boundary.exit!.channel === 'error' ? 'text-error' : 'text-toned'">
+        <span
+          class="min-w-0 flex-1 truncate"
+          :class="boundary.exit!.channel === 'error' ? 'text-error' : 'text-toned'"
+        >
           {{ boundary.exit!.id }}
         </span>
       </div>
@@ -54,7 +57,7 @@
       <div
         v-for="port in boundary.outputs"
         :key="port.id"
-        class="relative flex h-5 items-center gap-2"
+        class="relative flex h-5 min-w-0 items-center gap-2 pl-3"
       >
         <Handle
           :id="graphHandle('data', 'input', port.id)"
@@ -62,7 +65,7 @@
           :position="Position.Left"
           class="workflow-handle-data"
         />
-        <span class="max-w-36 truncate text-toned">{{ port.id }}</span>
+        <span class="min-w-0 max-w-36 flex-1 truncate text-toned">{{ port.id }}</span>
       </div>
     </div>
   </article>

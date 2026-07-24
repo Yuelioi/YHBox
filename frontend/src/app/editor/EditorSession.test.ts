@@ -1032,6 +1032,77 @@ describe('EditorSession', () => {
     })
   })
 
+  it('separates deleting a graph call from deleting its reusable definition', async () => {
+    const source = emptySource()
+    source.graphs[0]!.calls = [
+      {
+        id: 'call-child',
+        graphId: 'child',
+        label: '等待',
+        position: { x: 120, y: 80 },
+        bindings: {},
+      },
+    ]
+    source.graphs.push({
+      id: 'child',
+      name: '等待',
+      kind: 'subgraph',
+      nodes: [],
+      calls: [],
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+      annotations: [],
+    })
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+
+    expect(() => session.removeGraph('child')).toThrow('graph child is still referenced')
+    expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main', 'child'])
+    expect(session.dirty).toBe(false)
+
+    session.apply({ kind: 'remove-graph-call', callId: 'call-child' })
+    expect(session.currentGraph?.calls).toEqual([])
+    expect(session.source?.graphs.some((graph) => graph.id === 'child')).toBe(true)
+
+    session.removeGraph('child')
+    expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main'])
+    await session.save()
+    expect(transport.applyPatch).toHaveBeenCalledWith(source.workflow.id, 0, [
+      {
+        kind: 'remove-graph-call',
+        removeGraphCall: { graphId: 'main', callId: 'call-child' },
+      },
+      { kind: 'remove-graph', removeGraph: { graphId: 'child' } },
+    ])
+  })
+
+  it('does not remove another definition when a graph ID is missing', async () => {
+    const source = emptySource()
+    source.graphs.push({
+      id: 'child',
+      name: '等待',
+      kind: 'subgraph',
+      nodes: [],
+      calls: [],
+      edges: [],
+      inputs: [],
+      outputs: [],
+      entries: [],
+      exits: [],
+      annotations: [],
+    })
+    const session = new EditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+    await session.load(source.workflow.id)
+
+    expect(() => session.removeGraph('missing')).toThrow('graph missing does not exist')
+    expect(session.source?.graphs.map((graph) => graph.id)).toEqual(['main', 'child'])
+    expect(session.dirty).toBe(false)
+  })
+
   it('binds visible subgraph boundaries back into the canonical graph interface', async () => {
     const source = emptySource()
     const duration = delay.dataInputs.find((port) => port.id === 'duration-milliseconds')!

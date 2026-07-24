@@ -20,7 +20,8 @@
         color="error"
         variant="ghost"
         size="xs"
-        :aria-label="t('common.delete')"
+        :aria-label="t('workflow.graphs.delete_call')"
+        :title="t('workflow.graphs.delete_call')"
         @click="emit('remove')"
       />
     </div>

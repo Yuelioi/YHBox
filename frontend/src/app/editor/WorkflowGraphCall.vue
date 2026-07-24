@@ -23,32 +23,36 @@
     </header>
     <div class="grid grid-cols-2 gap-x-6 px-3 py-2 text-[11px]">
       <div class="space-y-1.5">
-        <div class="relative flex h-5 items-center">
+        <div class="relative flex h-5 min-w-0 items-center pl-3">
           <Handle
             :id="graphHandle('exec', 'input', 'in')"
             type="target"
             :position="Position.Left"
             class="workflow-handle-signal"
           />
-          <span class="text-toned">in</span>
+          <span class="min-w-0 flex-1 truncate text-toned">in</span>
         </div>
-        <div v-for="port in graph.inputs" :key="port.id" class="relative flex h-5 items-center">
+        <div
+          v-for="port in graph.inputs"
+          :key="port.id"
+          class="relative flex h-5 min-w-0 items-center pl-3"
+        >
           <Handle
             :id="graphHandle('data', 'input', port.id)"
             type="target"
             :position="Position.Left"
             class="workflow-handle-data"
           />
-          <span class="truncate text-toned">{{ port.id }}</span>
+          <span class="min-w-0 flex-1 truncate text-toned">{{ port.id }}</span>
         </div>
       </div>
       <div class="space-y-1.5 text-right">
         <div
           v-for="port in graph.outputs"
           :key="port.id"
-          class="relative flex h-5 items-center justify-end"
+          class="relative flex h-5 min-w-0 items-center justify-end pr-3"
         >
-          <span class="truncate text-toned">{{ port.id }}</span>
+          <span class="min-w-0 flex-1 truncate text-toned">{{ port.id }}</span>
           <Handle
             :id="graphHandle('data', 'output', port.id)"
             type="source"
@@ -59,11 +63,14 @@
         <div
           v-for="exit in graph.exits ?? []"
           :key="exit.id"
-          class="relative flex h-5 items-center justify-end"
+          class="relative flex h-5 min-w-0 items-center justify-end pr-3"
         >
-          <span class="truncate" :class="exit.channel === 'error' ? 'text-error' : 'text-toned'">{{
-            exit.id
-          }}</span>
+          <span
+            class="min-w-0 flex-1 truncate"
+            :class="exit.channel === 'error' ? 'text-error' : 'text-toned'"
+          >
+            {{ exit.id }}
+          </span>
           <Handle
             :id="graphHandle(exit.channel, 'output', exit.id)"
             type="source"

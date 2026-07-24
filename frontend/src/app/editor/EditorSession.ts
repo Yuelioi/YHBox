@@ -1906,6 +1906,8 @@ function applyCommand(
     }
     case 'remove-graph':
       if (command.graphId === source.entryGraph) throw new Error('entry graph cannot be removed')
+      if (!source.graphs.some((candidate) => candidate.id === command.graphId))
+        throw new Error(`graph ${command.graphId} does not exist`)
       if (
         source.graphs.some((candidate) =>
           candidate.calls?.some((call) => call.graphId === command.graphId),

@@ -117,15 +117,16 @@
             @click="session.setTargetDefault('target', '')"
           />
         </div>
-        <UDropdownMenu :items="graphMenuItems">
-          <UButton
-            icon="i-tabler-folders"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :label="t('workflow.graphs.all')"
-          />
-        </UDropdownMenu>
+        <WorkflowGraphManager
+          v-if="session.source"
+          :source="session.source"
+          :current-graph-id="session.currentGraph?.id"
+          @open="openCalledGraph"
+          @create="openGraphDialog('create')"
+          @rename="openGraphDialog('rename', $event)"
+          @delete="deleteGraphDefinition"
+          @locate="locateGraphCall"
+        />
         <UDropdownMenu :items="callMenuItems">
           <UButton
             data-testid="workflow-graph-add-call"
@@ -1280,6 +1281,7 @@ import WorkflowGraphCall from '@/app/editor/WorkflowGraphCall.vue'
 import WorkflowGraphCallInspector from '@/app/editor/WorkflowGraphCallInspector.vue'
 import WorkflowGraphBoundary from '@/app/editor/WorkflowGraphBoundary.vue'
 import WorkflowGraphInterfacePanel from '@/app/editor/WorkflowGraphInterfacePanel.vue'
+import WorkflowGraphManager from '@/app/editor/WorkflowGraphManager.vue'
 import WorkflowAnnotation from '@/app/editor/WorkflowAnnotation.vue'
 import WorkflowRerouteEdge from '@/app/editor/WorkflowRerouteEdge.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -1323,6 +1325,7 @@ import {
   projectGraphBoundaries,
 } from '@/app/editor/workflowGraphBoundary'
 import { collapseSelectionErrorReason } from '@/app/editor/collapseSelectionError'
+import { projectGraphDefinitions } from '@/app/editor/subgraphManagement'
 import {
   alignNodePositions,
   autoLayoutNodePositions,
@@ -1404,6 +1407,7 @@ const workflowMetadata = reactive<WorkflowMetadataDraft>({
 const workspaceResourceKind = ref<'macro' | 'clip' | 'template'>('macro')
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
+const graphDialogTargetId = ref('')
 const graphName = ref('')
 const nodeSearchOpen = ref(false)
 const nodeSearchQuery = ref('')
@@ -1568,14 +1572,6 @@ interface WorkflowNodeSearchResult {
   icon: string
   searchText: string
 }
-
-const graphMenuItems = computed(() => [
-  (session.source?.graphs ?? []).map((graph) => ({
-    label: graphLabel(graph.id),
-    icon: graph.kind === 'main' ? 'i-tabler-home' : 'i-tabler-folders',
-    onSelect: () => openCalledGraph(graph.id),
-  })),
-])
 
 const callableGraphs = computed(() =>
   (session.source?.graphs ?? []).filter(
@@ -2605,9 +2601,13 @@ function openGraphAt(index: number): void {
   void fitCurrentGraph()
 }
 
-function openGraphDialog(mode: 'create' | 'rename'): void {
+function openGraphDialog(
+  mode: 'create' | 'rename',
+  graphId = session.currentGraph?.id ?? '',
+): void {
   graphDialogMode.value = mode
-  graphName.value = mode === 'rename' ? graphLabel(session.currentGraph?.id ?? '') : ''
+  graphDialogTargetId.value = mode === 'rename' ? graphId : ''
+  graphName.value = mode === 'rename' ? graphLabel(graphId) : ''
   graphDialogOpen.value = true
 }
 
@@ -2619,7 +2619,7 @@ function commitGraphDialog(): void {
       session.createSubgraph(name)
       clearEditorSelection()
       void fitCurrentGraph()
-    } else if (session.currentGraph) session.renameGraph(session.currentGraph.id, name)
+    } else if (graphDialogTargetId.value) session.renameGraph(graphDialogTargetId.value, name)
     graphDialogOpen.value = false
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
@@ -2629,6 +2629,24 @@ function commitGraphDialog(): void {
 async function deleteCurrentGraph(): Promise<void> {
   const graph = session.currentGraph
   if (!graph || graph.kind !== 'subgraph') return
+  await deleteGraphDefinition(graph.id)
+}
+
+async function deleteGraphDefinition(graphId: string): Promise<void> {
+  const source = session.source
+  const graph = source?.graphs.find((candidate) => candidate.id === graphId)
+  if (!source || !graph || graph.kind !== 'subgraph') return
+  const definition = projectGraphDefinitions(source).find((candidate) => candidate.id === graphId)
+  if (definition?.callCount) {
+    toast.add({
+      title: t('workflow.graphs.delete_definition'),
+      description: t('workflow.graphs.delete_definition_referenced', {
+        count: definition.callCount,
+      }),
+      color: 'warning',
+    })
+    return
+  }
   const accepted = await confirm({
     title: t('workflow.graphs.delete_title'),
     description: t('workflow.graphs.delete_hint', { name: graphLabel(graph.id) }),
@@ -2643,6 +2661,12 @@ async function deleteCurrentGraph(): Promise<void> {
   } catch (error) {
     showError(t('workflow.toast.edit_rejected'), error)
   }
+}
+
+async function locateGraphCall(parentGraphId: string, callId: string): Promise<void> {
+  const entry = session.source?.entryGraph
+  if (!entry) return
+  await focusNode(parentGraphId === entry ? [entry] : [entry, parentGraphId], callId)
 }
 
 function addComment(): void {

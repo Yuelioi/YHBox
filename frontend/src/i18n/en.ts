@@ -2169,11 +2169,18 @@ export default {
     },
     graphs: {
       all: 'Graphs',
+      manager: 'Subgraph manager',
+      manager_hint: 'Manage shared definitions, call locations, and interface health.',
+      search: 'Search names, IDs, or call locations',
+      search_empty: 'No matching graph definitions.',
       main: 'Main graph',
       new: 'New subgraph',
       rename: 'Rename subgraph',
+      rename_definition: 'Rename subgraph definition',
       add_call: 'Add call',
       call_inspector: 'Subgraph call',
+      call_count: '{count} calls',
+      call_locations: 'Call locations',
       call_hint: 'Inputs can be connected on the canvas or bound here for this call site.',
       no_call_inputs: 'This subgraph has no data inputs.',
       open: 'Open subgraph',
@@ -2186,10 +2193,17 @@ export default {
       interface_hint:
         'Canvas boundaries, call nodes, and the compiler read the same Source interface. Drag a boundary connection to rebind it.',
       interface_empty: 'There are no data ports or named exits yet.',
+      interface_summary: '{inputs} inputs · {outputs} outputs · {exits} exits',
+      interface_unhealthy: 'The interface is not fully bound',
       add_comment: 'Add comment',
       default_name: 'Subgraph',
-      delete_title: 'Delete subgraph?',
-      delete_hint: '“{name}” will be deleted. Referenced subgraphs cannot be deleted.',
+      delete_call: 'Delete this call',
+      delete_definition: 'Delete subgraph definition',
+      delete_definition_referenced:
+        '{count} calls still reference it. Locate and resolve those calls first.',
+      delete_title: 'Delete subgraph definition?',
+      delete_hint:
+        'Definition “{name}” will be removed from the Workflow Source and cannot be restored after saving.',
     },
     reroute: {
       add: 'Add reroute point',
