@@ -45,6 +45,8 @@ Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Com
 - `Graph.inputs / outputs / entries / exits` 是子图接口的唯一事实；接口面板负责编辑该事实，内部 boundary 与外部
   GraphCall 只做投影。当前保持一个执行入口和多个命名 exec/error 出口，不恢复 legacy subgraph runtime。
 - 子图接口身份与显示名称应分离；调用数、引用位置和接口健康度由 Source 派生，不新增平行前端 store。
+- 折叠器推导 callable graph entry 时必须遵循 compiler Instruction 的主 `entryInput`；Repeat/ForEach 的
+  `break/continue` 与 Retry 的 `retry` 是区域控制输入，不得因未连接而被误判为额外图入口。
 - WebView 纵向验收必须等待产品真实状态而非固定 sleep：冷启动 hydration 使用独立较长窗口，普通 UI 转换保持
   短窗口；节点 Delete 前先断言选中，框选发送 Shift，推导接口确认预览，调试完成同时等待 Run 回到可再次启动。
 - Run 状态可选类型与初值由 Authoring Projection 的 schema-validated `stateInitial` 提供；前端不得从 control

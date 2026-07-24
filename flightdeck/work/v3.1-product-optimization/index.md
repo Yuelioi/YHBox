@@ -10,9 +10,9 @@ Open
 
 ## Current
 
-Stage O 已完成：Run 状态的 18 个 Catalog 命名类型和按键组合列表均由自动矩阵覆盖添加、初值、
-保存重开、compiler 和 runtime；“文件元数据”真实 WebView 添加通过。下一步恢复 Stage M2 的
-Workflow Resource / Global Asset 归属与编辑器闭环。
+Stage P 已完成：真实 `fishing-v2` 从 60 节点单图整理为 3 个主图节点、6 个业务子图调用；
+60 nodes、88 edges、18 组图片资源和 Run 状态保持，production CLI 编译 0 诊断。Windows WebView
+逐一进入六个子图且无 JS/页面错误，准备、买饵和卖鱼长链经截图反馈改为紧凑分层布局。
 
 ## Next
 
@@ -67,6 +67,11 @@ Workflow Resource / Global Asset 归属与编辑器闭环。
   矩阵。按键组合列表可由通用状态节点读写，Increment 继续只接受 numeric；非法 JSON 初值显示中文行内
   错误。`task check` 通过 42 个 Go 包和 79 个前端测试文件/339 项测试，Windows WebView 文件元数据
   旅程通过，production editor gzip 205314/220000 字节。
+- 2026-07-24 P1/Stage P 完成：真实 `fishing-v2` 重组为准备、拉钩、溜鱼、结算、买饵、卖鱼六个
+  Source-native 子图；修复 Repeat/ForEach/Retry 区域控制输入被折叠器误判为 callable graph entry。
+  原 revision 4 由 SourceStore 保存在 `.recovery`，当前 revision 8 由 production CLI 编译 0 诊断；
+  Windows WebView 管理器和六个子图逐项打开，无不健康接口、alert 或 JS error。`task check` 通过
+  12 个受影响 Go 包，`task build` 生成当前 3.1.0 GUI 并通过隔离启动 smoke。
 
 ## References
 

@@ -324,6 +324,68 @@ func TestEngineCollapsesTrailingNodeWithUnconnectedSignalExits(t *testing.T) {
 	}
 }
 
+func TestEngineCollapsesLoopWithoutTreatingOptionalControlInputsAsGraphEntries(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"root", "loop", "orphan"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.RunStartedNodeID, Handle: "root",
+		}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.RepeatNodeID, Handle: "loop",
+		}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "orphan",
+		}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{
+			GraphID: "main",
+			Edge: schema.Edge{
+				Channel: schema.EdgeExec,
+				From:    schema.Endpoint{NodeID: "$root", PortID: "started"},
+				To:      schema.Endpoint{NodeID: "$loop", PortID: "in"},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	collapsed, err := engine.Apply(base.Source, []authoring.Command{{
+		Kind: authoring.CommandCollapseSelection,
+		CollapseSelection: &authoring.CollapseSelectionCommand{
+			GraphID: "main", SubgraphID: "loop-body", CallID: "call-loop",
+			Name: "Loop", NodeIDs: []string{"loop"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := collapsed.Source.Graphs[1]
+	if len(child.Entries) != 1 || child.Entries[0] != (schema.Endpoint{NodeID: "loop", PortID: "in"}) {
+		t.Fatalf("collapsed loop entries = %+v", child.Entries)
+	}
+
+	_, err = engine.Apply(base.Source, []authoring.Command{{
+		Kind: authoring.CommandCollapseSelection,
+		CollapseSelection: &authoring.CollapseSelectionCommand{
+			GraphID: "main", SubgraphID: "invalid", CallID: "call-invalid",
+			Name: "Invalid", NodeIDs: []string{"loop", "orphan"},
+		},
+	}})
+	var patchErr *authoring.PatchError
+	if !errors.As(err, &patchErr) || patchErr.Code != "INVALID_SELECTION" {
+		t.Fatalf("disconnected execution root error = %#v", err)
+	}
+}
+
 func TestEngineUpdatesCallableSubgraphInterfaceAsOneCommand(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "wait" })

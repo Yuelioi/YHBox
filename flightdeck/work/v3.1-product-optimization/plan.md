@@ -6,8 +6,23 @@
 
 ## Current stage
 
-Stage A–L、Stage N 与 Stage O 已完成实现、增量门禁和 Windows 真机验收。Stage M 的 M1 合同保持
-完成，下一阶段恢复 M2 的资源归属与编辑器闭环。
+Stage A–L、Stage N、Stage O 与 Stage P 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
+M1 合同保持完成，下一阶段恢复 M2 的资源归属与编辑器闭环。
+
+## Stage P — 真实钓鱼工作流子图实战
+
+范围：在不改变现有钓鱼循环、timeout/continue/break 路由、模板资源和状态语义的前提下，把 60 节点
+单图整理为可理解的主图与业务子图，并用过程中暴露的问题反证 Source-native 子图管理能力。
+
+- [x] [P1 — fishing-v2 子图重组与验收](slices/stage-p1-fishing-subgraph-acceptance.md)：修复 Repeat
+  可选控制输入的入口误判；整理准备、拉钩、溜鱼、结算、买饵、卖鱼六个子图；备份并替换真实 Source，
+  执行 compiler、保存重开和 Windows GUI 验收。
+
+非目标：不趁重组改变游戏策略、错误恢复或模板阈值；不把 `bin/data` 用户数据提交到 Git；不为旧
+State Read 摘要伪造迁移许可。
+
+阶段门槛：主图只保留启动、激活、轮次 Repeat 和六个 GraphCall；全部 60 个业务节点、88 条边、
+18 组图片资源和 Run 状态保留；当前 Catalog 下编译 0 诊断，真实 GUI 可进入每个子图且保存重开不反弹。
 
 ## Stage O — Run 状态全类型兼容性
 

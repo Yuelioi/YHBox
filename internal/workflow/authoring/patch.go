@@ -1313,7 +1313,9 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 		for _, signal := range projection.Signals {
 			endpoint := schema.Endpoint{NodeID: node.ID, PortID: signal.ID}
 			channel := schema.EdgeChannel(signal.Channel)
-			if signal.Direction == "input" && channel == schema.EdgeExec && !hasIncoming(node.ID, signal.ID, channel) {
+			if signal.Direction == "input" && channel == schema.EdgeExec &&
+				isGraphEntryInput(projection.Instruction, signal.ID) &&
+				!hasIncoming(node.ID, signal.ID, channel) {
 				if err := addEntry(endpoint); err != nil {
 					return err
 				}
@@ -1348,6 +1350,21 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 	graph.Calls = append(graph.Calls, schema.GraphCall{ID: command.CallID, GraphID: command.SubgraphID, Label: subgraph.Name, Position: command.Position, Bindings: map[string]schema.InputBinding{}})
 	source.Graphs = append(source.Graphs, subgraph)
 	return nil
+}
+
+func isGraphEntryInput(instruction nodecontract.InstructionSpec, portID string) bool {
+	switch instruction.Kind {
+	case nodecontract.InstructionInvoke:
+		return true
+	case nodecontract.InstructionCountedLoop:
+		return instruction.CountedLoop != nil && instruction.CountedLoop.EntryInput == portID
+	case nodecontract.InstructionForEach:
+		return instruction.ForEach != nil && instruction.ForEach.EntryInput == portID
+	case nodecontract.InstructionRetry:
+		return instruction.Retry != nil && instruction.Retry.EntryInput == portID
+	default:
+		return false
+	}
 }
 
 func (e *Engine) endpointType(source *schema.WorkflowSource, graph *schema.Graph, endpoint schema.Endpoint, output bool) (datatype.TypeExpression, bool) {
