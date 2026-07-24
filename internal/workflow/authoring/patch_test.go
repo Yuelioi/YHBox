@@ -232,13 +232,57 @@ func TestEngineCollapsesSelectionAndProtectsReferencedSubgraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	main, child := collapsed.Source.Graphs[0], collapsed.Source.Graphs[1]
-	if collapsed.Source.Revision != 2 || len(main.Calls) != 1 || len(main.Nodes) != 2 || len(main.Edges) != 2 || len(child.Nodes) != 1 || len(child.Entries) != 1 || len(child.Exits) != 1 {
+	if collapsed.Source.Revision != 2 || len(main.Calls) != 1 || len(main.Nodes) != 2 || len(main.Edges) != 2 || len(child.Nodes) != 1 || len(child.Entries) != 1 || len(child.Exits) != 2 {
 		t.Fatalf("collapsed source = %#v", collapsed.Source)
 	}
 	_, err = engine.Apply(collapsed.Source, []authoring.Command{{Kind: authoring.CommandRemoveGraph, RemoveGraph: &authoring.GraphCommand{GraphID: "wait"}}})
 	var patchErr *authoring.PatchError
 	if !errors.As(err, &patchErr) || patchErr.Code != "REFERENCE_IN_USE" {
 		t.Fatalf("referenced delete error = %#v", err)
+	}
+}
+
+func TestEngineCollapsesTrailingNodeWithUnconnectedSignalExits(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"root", "keys"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.RunStartedNodeID, Handle: "root"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.PressKeysNodeID, Handle: "keys"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: schema.Edge{
+			Channel: schema.EdgeExec,
+			From:    schema.Endpoint{NodeID: "$root", PortID: "started"},
+			To:      schema.Endpoint{NodeID: "$keys", PortID: "in"},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	collapsed, err := engine.Apply(base.Source, []authoring.Command{{
+		Kind: authoring.CommandCollapseSelection,
+		CollapseSelection: &authoring.CollapseSelectionCommand{
+			GraphID: "main", SubgraphID: "press", CallID: "call-press",
+			Name: "Press keys", NodeIDs: []string{"keys"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := collapsed.Source.Graphs[1]
+	if len(child.Entries) != 1 || len(child.Exits) != 2 {
+		t.Fatalf("collapsed child boundaries = entries:%+v exits:%+v", child.Entries, child.Exits)
+	}
+	if child.Exits[0].Channel != schema.EdgeExec || child.Exits[0].Endpoint.PortID != "completed" ||
+		child.Exits[1].Channel != schema.EdgeError || child.Exits[1].Endpoint.PortID != "failed" {
+		t.Fatalf("collapsed child exits = %+v", child.Exits)
 	}
 }
 

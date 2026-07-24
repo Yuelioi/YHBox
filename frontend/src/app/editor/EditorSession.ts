@@ -2639,6 +2639,65 @@ function collapseGraphSelection(
     }
     parentEdges.push(copyEdge)
   }
+  const hasIncoming = (nodeId: string, portId: string, channel: Edge['channel']) =>
+    graph.edges.some(
+      (edge) => edge.channel === channel && edge.to.nodeId === nodeId && edge.to.portId === portId,
+    )
+  const hasOutgoing = (nodeId: string, portId: string, channel: Edge['channel']) =>
+    graph.edges.some(
+      (edge) =>
+        edge.channel === channel && edge.from.nodeId === nodeId && edge.from.portId === portId,
+    )
+  const addOpenSignals = (
+    nodeId: string,
+    signals: Array<{
+      id: string
+      channel: 'exec' | 'error'
+      direction: 'input' | 'output'
+    }>,
+  ) => {
+    for (const signal of signals) {
+      const endpoint = { nodeId, portId: signal.id }
+      if (
+        signal.direction === 'input' &&
+        signal.channel === 'exec' &&
+        !hasIncoming(nodeId, signal.id, signal.channel)
+      ) {
+        if (
+          subgraph.entries!.length &&
+          (subgraph.entries![0].nodeId !== nodeId || subgraph.entries![0].portId !== signal.id)
+        )
+          throw new Error('selection has multiple execution entries')
+        if (!subgraph.entries!.length) subgraph.entries!.push(endpoint)
+      }
+      if (signal.direction === 'output' && !hasOutgoing(nodeId, signal.id, signal.channel)) {
+        subgraph.exits!.push({
+          id: boundaryId('exit', signal.id, subgraph.exits!.length + 1),
+          channel: signal.channel,
+          endpoint,
+        })
+      }
+    }
+  }
+  for (const node of nodes) {
+    const projection = resolveConfigDependentProjection(
+      requireProjection(node, projections),
+      node.config,
+    )
+    addOpenSignals(node.id, projection.signals)
+  }
+  for (const call of calls) {
+    const callee = source.graphs.find((candidate) => candidate.id === call.graphId)
+    if (!callee) throw new Error(`graph ${call.graphId} does not exist`)
+    addOpenSignals(call.id, [
+      { id: 'in', channel: 'exec', direction: 'input' },
+      ...(callee.exits ?? []).map((exit) => ({
+        id: exit.id,
+        channel: exit.channel,
+        direction: 'output' as const,
+      })),
+    ])
+  }
   if (!subgraph.entries!.length || !subgraph.exits!.length)
     throw new Error('selection needs one execution entry and at least one signal exit')
   graph.nodes = graph.nodes.filter((node) => !selected.has(node.id))

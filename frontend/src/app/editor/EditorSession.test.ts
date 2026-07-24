@@ -883,6 +883,11 @@ describe('EditorSession', () => {
       entries: [{ nodeId: 'delay', portId: 'in' }],
       exits: [
         { id: 'exit_done_1', channel: 'exec', endpoint: { nodeId: 'delay', portId: 'done' } },
+        {
+          id: 'exit_failed_2',
+          channel: 'error',
+          endpoint: { nodeId: 'delay', portId: 'failed' },
+        },
       ],
     })
 
@@ -918,6 +923,48 @@ describe('EditorSession', () => {
         expect.objectContaining({ kind: 'add-annotation' }),
       ]),
     )
+  })
+
+  it('exposes unconnected signal outputs when collapsing a trailing node', async () => {
+    const source = emptySource()
+    const ids = ['start', 'keys', 'child', 'call_child']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    for (const [projection, x] of [
+      [runStarted, 0],
+      [pressKeys, 240],
+    ] as const) {
+      session.apply({
+        kind: 'add-node',
+        nodeTypeId: projection.nodeRef.nodeTypeId,
+        position: { x, y: 0 },
+      })
+    }
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'exec',
+        from: { nodeId: 'start', portId: 'started' },
+        to: { nodeId: 'keys', portId: 'in' },
+      },
+    })
+
+    expect(session.collapseSelection(['keys'], 'Press keys')).toBe('call_child')
+    expect(session.source?.graphs.find((graph) => graph.id === 'child')?.exits).toEqual([
+      {
+        id: 'exit_completed_1',
+        channel: 'exec',
+        endpoint: { nodeId: 'keys', portId: 'completed' },
+      },
+      {
+        id: 'exit_failed_2',
+        channel: 'error',
+        endpoint: { nodeId: 'keys', portId: 'failed' },
+      },
+    ])
   })
 
   it('inserts an existing subgraph call and reuses the callee input projection', async () => {

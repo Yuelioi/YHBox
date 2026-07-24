@@ -2144,6 +2144,16 @@ export default {
         'The selection has {count} distinct entries. Merge them into one execution entry first; a conflicting edge is selected.',
       collapse_incoming_error:
         'An error channel cannot enter a subgraph. Handle it outside or reshape the control flow first; the conflicting edge is selected.',
+      collapse_invalid:
+        'The current selection cannot form a subgraph. Select only executable nodes or existing graph calls.',
+      collapse_input_type:
+        'The data input type at the selection boundary could not be determined. Check the node contracts.',
+      collapse_output_type:
+        'The data output type at the selection boundary could not be determined. Check the node contracts.',
+      collapse_missing_boundary:
+        'The selection needs exactly one execution entry and at least one execution or error exit.',
+      collapse_unknown:
+        'An internal error occurred while creating the subgraph. Retry or check the current selection.',
     },
     canvas: {
       help: 'Canvas gestures',

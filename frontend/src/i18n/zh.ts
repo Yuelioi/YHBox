@@ -1740,6 +1740,11 @@ export default {
         '所选区域存在 {count} 条不同入口。请先汇合为一个执行入口；已定位其中一条冲突连线。',
       collapse_incoming_error:
         '错误通道不能作为子图入口。请在区域外处理错误，或先改造控制流；已定位冲突连线。',
+      collapse_invalid: '当前选择无法组成子图。请只选择可执行节点或已有子图调用。',
+      collapse_input_type: '无法确定所选区域的数据输入类型，请检查节点契约。',
+      collapse_output_type: '无法确定所选区域的数据输出类型，请检查节点契约。',
+      collapse_missing_boundary: '所选区域需要且只能有一个执行入口，并至少提供一个执行或错误出口。',
+      collapse_unknown: '创建子图时发生内部错误，请重试或检查当前选择。',
     },
     canvas: {
       help: '画布手势',

@@ -1322,6 +1322,7 @@ import {
   isGraphBoundaryNodeId,
   projectGraphBoundaries,
 } from '@/app/editor/workflowGraphBoundary'
+import { collapseSelectionErrorReason } from '@/app/editor/collapseSelectionError'
 import {
   alignNodePositions,
   autoLayoutNodePositions,
@@ -2682,7 +2683,11 @@ function collapseSelection(): void {
     selectedNodeIds.value = new Set([callId])
     selectedNodeId.value = callId
   } catch (error) {
-    showError(t('workflow.toast.edit_rejected'), error)
+    const reason = collapseSelectionErrorReason(error)
+    showError(
+      t('workflow.selection.collapse_rejected'),
+      new Error(t(`workflow.selection.collapse_${reason}`)),
+    )
   }
 }
 

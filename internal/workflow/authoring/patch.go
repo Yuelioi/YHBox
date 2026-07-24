@@ -1248,6 +1248,72 @@ func (e *Engine) collapseSelection(source *schema.WorkflowSource, command Collap
 			parentEdges = append(parentEdges, copyEdge)
 		}
 	}
+	hasIncoming := func(nodeID, portID string, channel schema.EdgeChannel) bool {
+		for _, edge := range graph.Edges {
+			if edge.Channel == channel && edge.To.NodeID == nodeID && edge.To.PortID == portID {
+				return true
+			}
+		}
+		return false
+	}
+	hasOutgoing := func(nodeID, portID string, channel schema.EdgeChannel) bool {
+		for _, edge := range graph.Edges {
+			if edge.Channel == channel && edge.From.NodeID == nodeID && edge.From.PortID == portID {
+				return true
+			}
+		}
+		return false
+	}
+	addEntry := func(endpoint schema.Endpoint) error {
+		if len(subgraph.Entries) != 0 && subgraph.Entries[0] != endpoint {
+			return errors.New("selection has multiple execution entries")
+		}
+		if len(subgraph.Entries) == 0 {
+			subgraph.Entries = append(subgraph.Entries, endpoint)
+		}
+		return nil
+	}
+	addExit := func(endpoint schema.Endpoint, channel schema.EdgeChannel) {
+		subgraph.Exits = append(subgraph.Exits, schema.GraphExit{
+			ID:       uniqueBoundaryID("exit", endpoint.PortID, len(subgraph.Exits)+1),
+			Channel:  channel,
+			Endpoint: endpoint,
+		})
+	}
+	for _, node := range subgraph.Nodes {
+		projection, ok := instanceProjection(e.projection, node)
+		if !ok {
+			return fmt.Errorf("selected node %q has no exact authoring projection", node.ID)
+		}
+		for _, signal := range projection.Signals {
+			endpoint := schema.Endpoint{NodeID: node.ID, PortID: signal.ID}
+			channel := schema.EdgeChannel(signal.Channel)
+			if signal.Direction == "input" && channel == schema.EdgeExec && !hasIncoming(node.ID, signal.ID, channel) {
+				if err := addEntry(endpoint); err != nil {
+					return err
+				}
+			}
+			if signal.Direction == "output" && !hasOutgoing(node.ID, signal.ID, channel) {
+				addExit(endpoint, channel)
+			}
+		}
+	}
+	for _, call := range subgraph.Calls {
+		if !hasIncoming(call.ID, graphCallInputPort, schema.EdgeExec) {
+			if err := addEntry(schema.Endpoint{NodeID: call.ID, PortID: graphCallInputPort}); err != nil {
+				return err
+			}
+		}
+		callee, err := graphByID(source, call.GraphID)
+		if err != nil {
+			return err
+		}
+		for _, exit := range callee.Exits {
+			if !hasOutgoing(call.ID, exit.ID, exit.Channel) {
+				addExit(schema.Endpoint{NodeID: call.ID, PortID: exit.ID}, exit.Channel)
+			}
+		}
+	}
 	if len(subgraph.Entries) == 0 || len(subgraph.Exits) == 0 {
 		return errors.New("selection must have one execution entry and at least one signal exit")
 	}
