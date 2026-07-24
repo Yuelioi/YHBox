@@ -9,7 +9,7 @@ import (
 )
 
 func TestTrackedSchemasAreClosedAndPinnedTo31(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "contracts", "workflow", "3.1")
+	root := filepath.Join("..", "..", "..", "contracts", "workflow", SchemaPathVersion)
 	for _, name := range []string{"workflow-source.schema.json", "diagnostic.schema.json"} {
 		raw, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil {

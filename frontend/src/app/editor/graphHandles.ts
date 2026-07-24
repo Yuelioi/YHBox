@@ -1,4 +1,4 @@
-import type { Edge } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Edge } from '../../../../contracts/workflow/current/workflow-source'
 
 export type HandleChannel = Edge['channel']
 export type HandleDirection = 'input' | 'output'

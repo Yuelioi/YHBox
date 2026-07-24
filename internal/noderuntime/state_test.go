@@ -21,7 +21,7 @@ func TestStateReadIsBoundFromProgramStateAndJournaledAsAnEffect(t *testing.T) {
 	definition, _ := builtins.Definition(nodes.StateReadNodeID)
 	nodeRef, typeRef := definition.Contract.NodeRef(), builtins.StringType.TypeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-state-read","name":"State read"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-state-read","name":"State read"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"read","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
 			"config":{"variable":"message"},"bindings":{}

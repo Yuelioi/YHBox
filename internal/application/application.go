@@ -1,4 +1,4 @@
-// Package application owns the Yotta 3.1 command surface and its single local
+// Package application owns the Yotta command surface and its single local
 // Run worker. GUI, CLI, MCP, schedules, and hotkeys call this package instead
 // of constructing execution runtimes themselves.
 package application

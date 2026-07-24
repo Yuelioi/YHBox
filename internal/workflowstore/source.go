@@ -1,5 +1,5 @@
 // Package workflowstore owns the durable Workflow Source and Program facts
-// consumed by the Yotta 3.1 application command surface.
+// consumed by the application command surface.
 package workflowstore
 
 import (
@@ -21,7 +21,8 @@ import (
 
 const (
 	sourceMarker         = ".yotta-workflow-source-store"
-	sourceMarkerContents = "yotta/workflow-source-store/3.1\n"
+	SourceLayoutVersion  = "1"
+	sourceMarkerContents = "yotta/workflow-source-store/" + SourceLayoutVersion + "\n"
 	sourceRecoveryDir    = ".recovery"
 	sourceRecoverySchema = 1
 )
@@ -188,7 +189,7 @@ func (s *SourceStore) ListRecoveries() []SourceRecovery {
 	return result
 }
 
-// RepairRecovery validates replacement bytes against the current 3.1 Source
+// RepairRecovery validates replacement bytes against the current Source
 // contract before atomically returning the object to the active store.
 func (s *SourceStore) RepairRecovery(ctx context.Context, recoveryID artifact.Digest, raw []byte) (SourceSnapshot, error) {
 	if ctx == nil || !recoveryID.Valid() {
@@ -534,7 +535,7 @@ func claimDirectory(root, markerName, markerContents string) ([]os.DirEntry, err
 	info, statErr := os.Lstat(markerPath)
 	marker, readErr := os.ReadFile(markerPath)
 	if statErr != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || readErr != nil || string(marker) != markerContents {
-		return nil, errors.New("store directory is not owned by Yotta 3.1")
+		return nil, errors.New("store directory has an unsupported Workflow Source ownership marker")
 	}
 	return entries, nil
 }

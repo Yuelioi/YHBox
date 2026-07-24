@@ -1,4 +1,4 @@
-// Package authoring applies the only mutable Workflow 3.1 authoring protocol.
+// Package authoring applies the only mutable Workflow authoring protocol.
 // Callers submit small domain commands against an exact source revision; they
 // never replace a complete Workflow Source document.
 package authoring

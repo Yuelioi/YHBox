@@ -1,4 +1,4 @@
-// Package runid owns the canonical Yotta 3.1 Run identifier.
+// Package runid owns the canonical Yotta Run identifier.
 package runid
 
 import (

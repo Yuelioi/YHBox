@@ -69,7 +69,7 @@ func TestScheduleStoreRejectsLegacySchema(t *testing.T) {
 
 func TestScheduleStoreRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()
-	doc := `{"schemaVersion":"3.1","id":"unknown","name":"unknown","targets":[{"kind":"workflow","id":"w"}],"trigger":{"kind":"manual"},"timeoutMinutes":0,"onError":"stop","surprise":true,"createdAt":"0001-01-01T00:00:00Z","updatedAt":"0001-01-01T00:00:00Z"}`
+	doc := `{"schemaVersion":"1","id":"unknown","name":"unknown","targets":[{"kind":"workflow","id":"w"}],"trigger":{"kind":"manual"},"timeoutMinutes":0,"onError":"stop","surprise":true,"createdAt":"0001-01-01T00:00:00Z","updatedAt":"0001-01-01T00:00:00Z"}`
 	if err := os.WriteFile(filepath.Join(dir, "unknown.json"), []byte(doc), 0o644); err != nil {
 		t.Fatal(err)
 	}

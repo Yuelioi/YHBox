@@ -16,7 +16,7 @@ import (
 
 const (
 	Format            = "yotta.data-type"
-	Version           = "3.1"
+	Version           = "1"
 	JSONSchemaDialect = "https://json-schema.org/draft/2020-12/schema"
 
 	semanticDigestDomain   = "yotta/data-type-semantic/v1"

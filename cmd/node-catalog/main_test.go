@@ -27,7 +27,7 @@ func TestRenderExportsExactNodeContract31Artifacts(t *testing.T) {
 			if err := json.Unmarshal(raw, &document); err != nil {
 				t.Fatalf("decode %s artifact: %v", test.command, err)
 			}
-			if document.Format != test.format || document.Version != "3.1" {
+			if document.Format != test.format || document.Version != "1" {
 				t.Fatalf("%s artifact = %q / %q", test.command, document.Format, document.Version)
 			}
 		})
@@ -41,7 +41,7 @@ func TestRenderDocumentationComesFromAuthoringProjection(t *testing.T) {
 	}
 	document := string(raw)
 	for _, want := range []string{
-		"# Yotta 3.1 built-in nodes",
+		"# Yotta built-in nodes",
 		"Generated from the strict Node Authoring Projection",
 		"https://schemas.yotta.dev/nodes/text/concat",
 		"| input | `a` |",

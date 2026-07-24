@@ -6,9 +6,10 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/yottaapp/yotta/internal/datatype"
+	workflowschema "github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-const patchSchemaID = "https://yottaapp.dev/contracts/workflow/3.1/authoring-patch.schema.json"
+const patchSchemaID = "https://yottaapp.dev/contracts/workflow/" + workflowschema.SchemaPathVersion + "/authoring-patch.schema.json"
 
 // GenerateSchema emits the tracked Workflow authoring command contract. The
 // reflected Go shape is tightened into an exact oneOf tagged union so clients

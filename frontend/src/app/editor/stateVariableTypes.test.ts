@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
-import type { YottaNodeAuthoringProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import authoringDocument from '../../../../contracts/node/current/builtin-authoring'
+import type { YottaNodeAuthoringProjection } from '../../../../contracts/node/current/authoring-projection'
 import { buildStateTypeChoices } from './stateVariableTypes'
 
 const authoring = authoringDocument as unknown as YottaNodeAuthoringProjection

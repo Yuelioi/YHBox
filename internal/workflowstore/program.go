@@ -21,7 +21,8 @@ import (
 
 const (
 	programMarker         = ".yotta-program-store"
-	programMarkerContents = "yotta/program-store/3.1\n"
+	ProgramLayoutVersion  = "1"
+	programMarkerContents = "yotta/program-store/" + ProgramLayoutVersion + "\n"
 )
 
 var (

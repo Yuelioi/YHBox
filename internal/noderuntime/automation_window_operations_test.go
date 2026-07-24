@@ -73,7 +73,7 @@ func TestDesktopWindowOperationFamilyUsesTypedRequestsOutputsAndRoutes(t *testin
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindWindow}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -132,7 +132,7 @@ func desktopWindowOperationsSource(builtins nodes.Builtins, slot string) []byte 
 	minimize, _ := builtins.Definition(nodes.MinimizeWindowNodeID)
 	closeWindow, _ := builtins.Definition(nodes.CloseWindowNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-window-operations","name":"Window operations"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-window-operations","name":"Window operations"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"move","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{"x":{"kind":"value","value":10},"y":{"kind":"value","value":20},"width":{"kind":"value","value":800},"height":{"kind":"value","value":600}}},

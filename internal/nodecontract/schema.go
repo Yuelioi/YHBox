@@ -7,9 +7,9 @@ import (
 	"github.com/yottaapp/yotta/internal/datatype"
 )
 
-const SchemaID = "https://yottaapp.dev/contracts/node/3.1/node-contract.schema.json"
+const SchemaID = "https://yottaapp.dev/contracts/node/" + SchemaPathVersion + "/node-contract.schema.json"
 
-// GenerateSchema returns the tracked JSON Schema projection of Node Contract 3.1.
+// GenerateSchema returns the tracked JSON Schema projection of the current Node Contract.
 // Seal and Open remain the authority for semantic invariants that JSON Schema
 // cannot express, such as content digests and execution-class combinations.
 func GenerateSchema() ([]byte, error) {

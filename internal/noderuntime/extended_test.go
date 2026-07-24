@@ -21,7 +21,7 @@ func TestTypedSelectResolvesFromItsConsumerAndExecutesWithoutCoercion(t *testing
 	selectDefinition, _ := builtins.Definition(nodes.SelectNodeID)
 	concatDefinition, _ := builtins.Definition(nodes.ConcatNodeID)
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-select","name":"Select"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-select","name":"Select"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"select","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"condition":{"kind":"value","value":true},"when_true":{"kind":"value","value":"typed"},"when_false":{"kind":"value","value":"wrong"}}},

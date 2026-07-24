@@ -87,7 +87,7 @@ func Run(config Config) error {
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
-	// 数据根：<exeDir>/data/。各 3.1 Store 只创建并管理自己的目录。
+	// 数据根：<exeDir>/data/。各 Store 只创建并管理自己的目录。
 	dataDir := "data"
 	if exe, err := os.Executable(); err == nil {
 		dataDir = filepath.Join(filepath.Dir(exe), "data")
@@ -295,7 +295,7 @@ func Run(config Config) error {
 	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{application: workflowRuntime.Application}, scheduleHotkeyAdapter)
 	scheduleSvc = schedule.NewService(scheduleStore, scheduleDaemon.Reload)
 
-	// InputClip remains an authoring asset service; 3.1 playback reads the
+	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
 	macroSvc := newMacroService(assetStore, app.Emit)
@@ -389,7 +389,7 @@ func Run(config Config) error {
 	// Triggers stop before the single Workflow worker and its Run Owners.
 	applicationRuntime := appruntime.New(
 		appruntime.Resource{
-			Name:  "workflow-runtime-3.1",
+			Name:  "workflow-runtime",
 			Start: workflowRuntime.Start,
 			Close: workflowRuntime.Close,
 		},

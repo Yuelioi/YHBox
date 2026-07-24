@@ -1,4 +1,4 @@
-// Package run owns Yotta 3.1 admission and lifecycle semantics.
+// Package run owns admission and lifecycle semantics.
 package run
 
 import (

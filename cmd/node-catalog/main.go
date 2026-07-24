@@ -1,4 +1,4 @@
-// node-catalog exports the exact Node Contract 3.1 artifacts compiled into Yotta.
+// node-catalog exports the exact Node Contract artifacts compiled into Yotta.
 package main
 
 import (
@@ -32,7 +32,7 @@ func main() {
 func render(command string) ([]byte, error) {
 	artifacts, err := nodes.GenerateArtifacts()
 	if err != nil {
-		return nil, fmt.Errorf("generate Node Contract 3.1 artifacts: %w", err)
+		return nil, fmt.Errorf("generate Node Contract artifacts: %w", err)
 	}
 	switch command {
 	case "catalog":

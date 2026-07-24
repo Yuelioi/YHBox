@@ -25,7 +25,7 @@ import (
 
 const (
 	ProgramFormat       = "yotta.program"
-	ProgramVersion      = "3.1"
+	ProgramVersion      = "1"
 	MaxProgramBytes     = 16 << 20
 	MaxProgramJSONDepth = 128
 	MaxProgramJSONNodes = 1_048_576

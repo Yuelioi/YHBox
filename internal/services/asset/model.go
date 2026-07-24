@@ -15,7 +15,7 @@ const (
 )
 
 // RecordSchemaVersion is an exact persisted contract. Other versions are
-// rejected; Yotta 3.1 does not carry a compatibility reader.
+// rejected; the current application does not carry a compatibility reader.
 const RecordSchemaVersion = 2
 
 // Origin 描述资产来源。

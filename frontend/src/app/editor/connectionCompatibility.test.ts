@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
+import authoringDocument from '../../../../contracts/node/current/builtin-authoring'
 import parityDocument from '../../../../internal/workflow/compiler/testdata/connection_plan_parity.json'
 import type {
   NodeProjection,
   TypeExpression,
   YottaNodeAuthoringProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import {
   compatibleCandidatePorts,
   projectedConnectionCompatibility,

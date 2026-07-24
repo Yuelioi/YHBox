@@ -61,7 +61,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, resolveComponent, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Graph } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Graph } from '../../../../contracts/workflow/current/workflow-source'
 
 interface InterfaceItem {
   label: string

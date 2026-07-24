@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Graph } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Graph } from '../../../../contracts/workflow/current/workflow-source'
 import { graphHandle } from './graphHandles'
 import {
   analyzeCollapseBoundary,

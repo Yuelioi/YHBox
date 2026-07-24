@@ -58,7 +58,7 @@ func TestFrameRoundTripIsCanonicalAndRejectsAmbiguity(t *testing.T) {
 		t.Fatal("ReadRequest(trailing data) error = nil")
 	}
 
-	payload := []byte(`{"protocol":"yotta.script.worker/3.1", "attemptId":"attempt-1"}`)
+	payload := []byte(`{"protocol":"yotta.script.worker/0", "attemptId":"attempt-1"}`)
 	if _, err := artifact.Canonicalize(payload); err != nil {
 		t.Fatalf("test payload is invalid JSON: %v", err)
 	}

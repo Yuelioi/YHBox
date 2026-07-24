@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue'
-import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { ValueEditorAdapter } from './authoringSurface'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 

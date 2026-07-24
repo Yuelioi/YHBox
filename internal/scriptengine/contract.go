@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	Protocol = "yotta.script.worker/3.1"
+	ProtocolVersion = "1"
+	Protocol        = "yotta.script.worker/" + ProtocolVersion
 
-	WorkerArgument       = "--yotta-script-worker-3.1"
+	WorkerArgument       = "--yotta-script-worker-" + ProtocolVersion
 	WorkerExecutableName = "Yotta.ScriptWorker.exe"
 
 	MaxFrameBytes       = 2 << 20

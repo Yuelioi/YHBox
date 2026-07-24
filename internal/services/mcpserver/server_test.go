@@ -65,7 +65,7 @@ func TestStructuredProtocolCreatesPatchesAndCompilesOneDurableRevision(t *testin
 	}
 	initialize := mcp.InitializeRequest{}
 	initialize.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	initialize.Params.ClientInfo = mcp.Implementation{Name: "yotta-test", Version: "3.1"}
+	initialize.Params.ClientInfo = mcp.Implementation{Name: "yotta-test", Version: "1.0"}
 	if _, err := protocolClient.Initialize(context.Background(), initialize); err != nil {
 		t.Fatal(err)
 	}

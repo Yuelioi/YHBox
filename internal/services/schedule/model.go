@@ -6,7 +6,7 @@ import "time"
 
 type SchemaVersion string
 
-const CurrentSchemaVersion SchemaVersion = "3.1"
+const CurrentSchemaVersion SchemaVersion = "1"
 
 type TargetKind string
 

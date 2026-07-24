@@ -1,4 +1,4 @@
-import type { FieldProjection } from '../../../contracts/node/3.1/authoring-projection'
+import type { FieldProjection } from '../../../contracts/node/current/authoring-projection'
 
 export function projectedInitialConfig(
   config: Readonly<Record<string, unknown>> | undefined,

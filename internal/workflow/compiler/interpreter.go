@@ -27,7 +27,7 @@ type Interpreter struct {
 	builtins map[string]InstalledBuiltin
 }
 
-// RunResult stores canonical ValueEnvelope 3.1 artifacts, not untyped JSON.
+// RunResult stores canonical ValueEnvelope artifacts, not untyped JSON.
 type RunResult struct {
 	NodeOutputs map[string]map[string]json.RawMessage
 }
@@ -42,10 +42,10 @@ func NewInterpreter(catalog nodecatalog.Snapshot, builtins map[string]InstalledB
 
 func (i *Interpreter) Run(ctx context.Context, program ProgramSnapshot) (RunResult, error) {
 	if !program.Valid() {
-		return RunResult{}, errors.New("interpreter requires a valid Program 3.1 snapshot")
+		return RunResult{}, errors.New("interpreter requires a valid Program snapshot")
 	}
 	if !i.catalog.Valid() || program.state.document.Body.CatalogHash != i.catalog.Hash() {
-		return RunResult{}, errors.New("interpreter catalog does not match Program 3.1")
+		return RunResult{}, errors.New("interpreter catalog does not match Program v1")
 	}
 	body := program.state.document.Body
 	if len(program.CapabilityPlan().Entries()) != 0 {

@@ -8,7 +8,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
-const SchemaID = "https://yottaapp.dev/contracts/node/3.1/authoring-projection.schema.json"
+const SchemaID = "https://yottaapp.dev/contracts/node/" + nodecontract.SchemaPathVersion + "/authoring-projection.schema.json"
 
 func GenerateSchema() ([]byte, error) {
 	reflector := &jsonschema.Reflector{Anonymous: true, ExpandedStruct: true}

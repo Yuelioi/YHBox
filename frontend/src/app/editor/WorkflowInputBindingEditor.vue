@@ -76,7 +76,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
 import { resolvePortAdapter } from '@/app/editor/authoringSurface'
 import { bindingActionPolicy } from '@/app/editor/bindingActionPolicy'

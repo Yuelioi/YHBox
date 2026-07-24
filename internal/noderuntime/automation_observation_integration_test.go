@@ -38,7 +38,7 @@ func TestWaitStableRunsThroughExactTargetCaptureAndRecordedJournal(t *testing.T)
 	captureCapability, _ := builtins.Catalog.LookupCapability(nodes.AutomationCaptureCapabilityID)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: captureCapability.Ref(), ResourceKind: automationinstalled.KindCapture}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -80,7 +80,7 @@ func waitStableSource(builtins nodes.Builtins, slot string) []byte {
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	stable, _ := builtins.Definition(nodes.WaitStableNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-wait-stable","name":"Wait Stable"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-wait-stable","name":"Wait Stable"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"stable","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},

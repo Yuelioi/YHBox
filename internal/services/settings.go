@@ -275,7 +275,7 @@ type MouseProfile struct {
 }
 
 // LauncherBlock 悬浮窗启动器的一个块（积木式编排）。Type 决定形态：
-//   - "workflow": 一个 Workflow 3.1 按钮（WorkflowID + 可选 Icon/Label）
+//   - "workflow": 一个 Workflow 按钮（WorkflowID + 可选 Icon/Label）
 //   - "label":     文字标题（Label = 标题文字），占整行
 //   - "hsep":      水平分隔符（占整行的横线，把后面的块挤到下一排）
 //   - "vsep":      垂直分隔符（同排按钮之间的竖线）

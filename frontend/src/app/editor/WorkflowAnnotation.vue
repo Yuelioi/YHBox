@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { Annotation } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Annotation } from '../../../../contracts/workflow/current/workflow-source'
 
 const props = defineProps<{ annotation: Annotation; selected?: boolean }>()
 const emit = defineEmits<{ update: [annotation: Annotation] }>()

@@ -26,7 +26,7 @@ import type {
 import type {
   Command as WorkflowPatchCommand,
   JSONValue as WorkflowJSONValue,
-} from '../../../../contracts/workflow/3.1/authoring-patch'
+} from '../../../../contracts/workflow/current/authoring-patch'
 import { callRPC, invoke } from '@/lib/invoke'
 
 export interface RunChangedEvent {

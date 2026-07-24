@@ -16,7 +16,7 @@ import (
 
 const (
 	RunGrantFormat       = "yotta.run-grant"
-	RunGrantVersion      = "3.1"
+	RunGrantVersion      = "1"
 	MaxRunGrantBytes     = 4 << 20
 	runGrantDigestDomain = "yotta/run-grant/v1"
 )

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	workflowSchemaID   = "https://yottaapp.dev/contracts/workflow/3.1/workflow-source.schema.json"
-	diagnosticSchemaID = "https://yottaapp.dev/contracts/workflow/3.1/diagnostic.schema.json"
+	workflowSchemaID   = "https://yottaapp.dev/contracts/workflow/" + SchemaPathVersion + "/workflow-source.schema.json"
+	diagnosticSchemaID = "https://yottaapp.dev/contracts/workflow/" + SchemaPathVersion + "/diagnostic.schema.json"
 )
 
 // GenerateContract returns the canonical JSON Schema document used by both the

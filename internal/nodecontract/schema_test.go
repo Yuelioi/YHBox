@@ -65,7 +65,7 @@ func TestTrackedMetaSchemaMatchesGenerator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tracked, err := os.ReadFile(filepath.Join("..", "..", "contracts", "node", "3.1", "node-contract.schema.json"))
+	tracked, err := os.ReadFile(filepath.Join("..", "..", "contracts", "node", SchemaPathVersion, "node-contract.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

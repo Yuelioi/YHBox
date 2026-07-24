@@ -21,7 +21,8 @@ import (
 
 const (
 	runStoreMarker         = ".yotta-run-store"
-	runStoreMarkerContents = "yotta/run-store/3.1\n"
+	LayoutVersion          = "1"
+	runStoreMarkerContents = "yotta/run-store/" + LayoutVersion + "\n"
 )
 
 var (
@@ -86,7 +87,7 @@ func OpenStore(root string, catalog datatype.ValueTypeCatalog, options StoreOpti
 		markerInfo, statErr := os.Lstat(markerPath)
 		marker, err := os.ReadFile(markerPath)
 		if statErr != nil || markerInfo.Mode()&os.ModeSymlink != 0 || !markerInfo.Mode().IsRegular() || err != nil || string(marker) != runStoreMarkerContents {
-			return nil, errors.New("run store directory is not owned by Yotta 3.1")
+			return nil, errors.New("run store directory has an unsupported ownership marker")
 		}
 	}
 	records := make(map[string]Record)

@@ -69,10 +69,10 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	}
 	ref := builtins.ConcatContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-pure","name":"Pure"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-pure","name":"Pure"},
 		"revision":0,"entryGraph":%q,"graphs":[{"id":%q,"kind":"main","nodes":[{
 			"id":%q,"nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
-			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
+			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"v1"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, graphID, graphID, nodeID, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(ctx, compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
@@ -99,7 +99,7 @@ func TestExecutorRunsPureProgramWithoutResourceProviders(t *testing.T) {
 	if err := json.Unmarshal(execution.NodeOutputs[nodeID]["result"].InlineJSON(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got != "Yotta 3.1" {
+	if got != "Yotta v1" {
 		t.Fatalf("concat result = %q", got)
 	}
 	if journal.Current().Status() != run.StatusSucceeded {
@@ -128,10 +128,10 @@ func TestExecutorClosesSuccessfulAttemptWhenCallerCancelsAsAdapterReturns(t *tes
 	}
 	ref := builtins.ConcatContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-cancel-race","name":"Cancel race"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-cancel-race","name":"Cancel race"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[{
 			"id":"concat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},
-			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"3.1"}}
+			"config":{},"bindings":{"a":{"kind":"value","value":"Yotta "},"b":{"kind":"value","value":"v1"}}
 		}],"edges":[],"inputs":[],"outputs":[]}],"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`, ref.NodeTypeID, ref.SemanticDigest))
 	compiled, err := compiler.New(build, builtins.ConfigValidators).CompileDraft(context.Background(), compiler.CompileRequest{SourceJSON: source, Catalog: builtins.Catalog})
@@ -185,7 +185,7 @@ func TestExecutorConvertsBlobToStreamAndBackThroughAdmittedCapabilities(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := bytes.Repeat([]byte("Yotta-3.1-conversion\n"), 20_000)
+	want := bytes.Repeat([]byte("Yotta-v1-conversion\n"), 20_000)
 	inputRef, err := store.Put(ctx, "application/octet-stream", bytes.NewReader(want))
 	if err != nil {
 		t.Fatal(err)
@@ -435,20 +435,20 @@ func executionProfile(t *testing.T, builtins nodes.Builtins) admission.HostProfi
 		return definition.Ref()
 	}
 	return admission.HostProfileDraft{
-		OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1",
+		OS: "windows", Architecture: "amd64", HostAPIGeneration: "1.0",
 		Features: []string{scriptengine.IsolationHostFeatureID},
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"}, Capabilities: []admission.ProviderCapability{
 					{Capability: capabilityRef(nodes.BlobReadCapabilityID), ResourceKind: blob.KindReader},
 					{Capability: capabilityRef(nodes.BlobWriteCapabilityID), ResourceKind: blob.KindWriter},
 				}},
 			{ID: stream.ProviderID, ArtifactDigest: streamProviderDigest(t), ABI: stream.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"}, Capabilities: []admission.ProviderCapability{
 					{Capability: capabilityRef(nodes.StreamCapabilityID), ResourceKind: stream.Kind},
 				}},
 			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFSProviderDigest(t), ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"}, Capabilities: []admission.ProviderCapability{
+				OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"}, Capabilities: []admission.ProviderCapability{
 					{Capability: capabilityRef(nodes.FilesystemCapabilityID), ResourceKind: workspacefs.Kind},
 				}},
 		},
@@ -492,7 +492,7 @@ func conversionSource(builtins nodes.Builtins, ref blob.BlobRef) []byte {
 	toStream := builtins.BlobToStreamContract.NodeRef()
 	toBlob := builtins.StreamToBlobContract.NodeRef()
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-convert","name":"Convert"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-convert","name":"Convert"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"to-stream","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},
 			 "bindings":{"blob":{"kind":"blob","blob":{"mediaType":%q,"digest":%q,"size":%d}}}},

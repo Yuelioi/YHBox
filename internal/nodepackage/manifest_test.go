@@ -28,7 +28,7 @@ func TestManifestIsDeterministicContentAddressedAndReopens(t *testing.T) {
 		PublisherNamespace: testNamespace,
 		PackageID:          testNamespace + "/packages/transform/v1",
 		PackageVersion:     "1.2.3-rc.1+build.7",
-		HostAPI:            HostAPIRange{Min: "3.1", MaxExclusive: "4.0"},
+		HostAPI:            HostAPIRange{Min: "1.0", MaxExclusive: "2.0"},
 		Types:              []datatype.Definition{typeDefinition},
 		Capabilities:       []capability.Definition{capabilityDefinition},
 		Nodes:              []NodeDraft{node},
@@ -41,7 +41,7 @@ func TestManifestIsDeterministicContentAddressedAndReopens(t *testing.T) {
 		PublisherNamespace: testNamespace,
 		PackageID:          testNamespace + "/packages/transform/v1",
 		PackageVersion:     "1.2.3-rc.1+build.7",
-		HostAPI:            HostAPIRange{Min: "3.1", MaxExclusive: "4.0"},
+		HostAPI:            HostAPIRange{Min: "1.0", MaxExclusive: "2.0"},
 		Nodes:              []NodeDraft{node},
 		Capabilities:       []capability.Definition{capabilityDefinition},
 		Types:              []datatype.Definition{typeDefinition},
@@ -61,7 +61,7 @@ func TestManifestIsDeterministicContentAddressedAndReopens(t *testing.T) {
 		reopened.PackageVersion() != "1.2.3-rc.1+build.7" || reopened.HostAPI() != left.HostAPI() {
 		t.Fatal("reopened manifest changed package identity")
 	}
-	if !reopened.SupportsHostAPI("3.1") || !reopened.SupportsHostAPI("3.99") || reopened.SupportsHostAPI("4.0") {
+	if !reopened.SupportsHostAPI("1.0") || !reopened.SupportsHostAPI("1.99") || reopened.SupportsHostAPI("2.0") {
 		t.Fatal("half-open host API range was not enforced")
 	}
 	if len(reopened.Types()) != 1 || len(reopened.Capabilities()) != 1 ||
@@ -88,7 +88,7 @@ func TestManifestRejectsNamespaceVersionHostRangeAndGoABI(t *testing.T) {
 		{"namespace", func(d *Draft) { d.Nodes[0].Contract = testForeignNode(t, d.Types[0].TypeRef()) }},
 		{"version", func(d *Draft) { d.PackageVersion = "01.2.3" }},
 		{"prerelease version", func(d *Draft) { d.PackageVersion = "1.2.3-01" }},
-		{"host range", func(d *Draft) { d.HostAPI.MaxExclusive = "3.1" }},
+		{"host range", func(d *Draft) { d.HostAPI.MaxExclusive = "1.0" }},
 		{"builtin ABI", func(d *Draft) {
 			d.Nodes[0].Contract = testNode(t, d.Types[0].TypeRef(), capability.Ref{}, nodecontract.ABIBuiltin)
 			d.Nodes[0].Implementation.ABI = nodecontract.ABIRequirement{Kind: nodecontract.ABIBuiltin, Version: "v1"}
@@ -175,7 +175,7 @@ func testDraft(t *testing.T, kind nodecontract.ABIKind) Draft {
 		PublisherNamespace: testNamespace,
 		PackageID:          testNamespace + "/packages/transform/v1",
 		PackageVersion:     "1.0.0",
-		HostAPI:            HostAPIRange{Min: "3.1", MaxExclusive: "4.0"},
+		HostAPI:            HostAPIRange{Min: "1.0", MaxExclusive: "2.0"},
 		Types:              []datatype.Definition{typeDefinition},
 		Nodes: []NodeDraft{{
 			Contract: contract, Implementation: testImplementation(t, kind),

@@ -17,7 +17,7 @@ func TestCompileAllowsDisconnectedDraftNodesBesideReachableExecution(t *testing.
 	end, _ := builtins.Definition(nodes.EndBranchNodeID)
 	concat, _ := builtins.Definition(nodes.ConcatNodeID)
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"draft","name":"Draft"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"draft","name":"Draft"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","name":"Main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"config":{},"bindings":{},"position":{"x":0,"y":0}},
 			{"id":"end","nodeRef":{"nodeTypeId":%q,"version":%q,"semanticDigest":%q},"config":{},"bindings":{},"position":{"x":200,"y":0}},

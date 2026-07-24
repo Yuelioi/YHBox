@@ -1,4 +1,4 @@
-import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Variable } from '../../../../contracts/workflow/current/workflow-source'
 
 export const STATE_VARIABLE_PAGE_SIZE = 100
 

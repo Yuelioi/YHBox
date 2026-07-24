@@ -1,4 +1,4 @@
-/* Generated from Workflow Authoring Patch 3.1 Go types. Do not edit. */
+/* Generated from current Workflow Authoring Patch Go types. Do not edit. */
 
 export type Command =
   | {

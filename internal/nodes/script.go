@@ -27,7 +27,7 @@ func defineScriptNode(jsonRef datatype.TypeRef) (BuiltinDefinition, nodecontract
 		contract,
 		scriptEntrypoint,
 		scriptImplementationVersion,
-		"isolated-one-shot-canonical-json-worker/3.1",
+		"isolated-one-shot-canonical-json-worker/v1",
 		nil,
 	)
 	if err != nil {

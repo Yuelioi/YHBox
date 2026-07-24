@@ -8,6 +8,13 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 )
 
+const (
+	CatalogSearchFormat       = "yotta.catalog-search"
+	CatalogSearchVersion      = "1"
+	CatalogDescriptionFormat  = "yotta.catalog-description"
+	CatalogDescriptionVersion = "1"
+)
+
 type CatalogSearchRequest struct {
 	Query  string `json:"query,omitempty" jsonschema:"description=Node type ID title description or tag substring"`
 	Offset int    `json:"offset,omitempty" jsonschema:"minimum=0"`
@@ -65,7 +72,7 @@ func searchCatalog(projection nodeauthoring.Snapshot, request CatalogSearchReque
 		})
 	}
 	return CatalogSearchResult{
-		Format: "yotta.catalog-search", Version: "3.1", ProjectionDigest: projection.Digest(),
+		Format: CatalogSearchFormat, Version: CatalogSearchVersion, ProjectionDigest: projection.Digest(),
 		GeneratorVersion: projection.GeneratorVersion(), Offset: offset, Total: len(items),
 		Items: page(items, offset, limit),
 	}, nil
@@ -77,7 +84,7 @@ func describeCatalog(projection nodeauthoring.Snapshot, request CatalogDescribeR
 		return CatalogDescribeResult{}, fmt.Errorf("UNKNOWN_NODE_TYPE: %s", request.NodeTypeID)
 	}
 	return CatalogDescribeResult{
-		Format: "yotta.catalog-description", Version: "3.1", ProjectionDigest: projection.Digest(),
+		Format: CatalogDescriptionFormat, Version: CatalogDescriptionVersion, ProjectionDigest: projection.Digest(),
 		GeneratorVersion: projection.GeneratorVersion(), Node: projected,
 	}, nil
 }

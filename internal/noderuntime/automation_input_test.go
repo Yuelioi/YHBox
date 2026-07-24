@@ -89,7 +89,7 @@ func TestAutomationInputUsesInstalledTargetAndRedactsJournal(t *testing.T) {
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindInput}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -149,7 +149,7 @@ func TestHeldInputLeaseCrossesNodesAndIsClosedByRun(t *testing.T) {
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindHeldInput}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -182,7 +182,7 @@ func automationInputSource(t *testing.T, builtins nodes.Builtins, slot string) [
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	typeText, _ := builtins.Definition(nodes.TypeTextNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-input","name":"Automation Input"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-automation-input","name":"Automation Input"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"type","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
@@ -198,7 +198,7 @@ func heldInputSource(t *testing.T, builtins nodes.Builtins, slot string) []byte 
 	hold, _ := builtins.Definition(nodes.HoldKeysNodeID)
 	release, _ := builtins.Definition(nodes.ReleaseHeldInputNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-held-input","name":"Held Input"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-held-input","name":"Held Input"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"hold","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{"keys":{"kind":"value","value":["CTRL"]}}},

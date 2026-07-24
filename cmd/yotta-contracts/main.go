@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -14,7 +15,7 @@ import (
 )
 
 func main() {
-	output := flag.String("output", "contracts/workflow/3.1/workflow-source.schema.json", "JSON Schema output path")
+	output := flag.String("output", "contracts/workflow/v1/workflow-source.schema.json", "JSON Schema output path")
 	contractName := flag.String("contract", "workflow", "contract to generate: workflow, diagnostic, workflow-authoring, node, authoring, builtin-catalog, builtin-authoring, or builtin-docs")
 	flag.Parse()
 
@@ -31,6 +32,12 @@ func main() {
 }
 
 func generate(name string) ([]byte, error) {
+	if name == "metadata" {
+		return json.MarshalIndent(map[string]any{
+			"workflow": map[string]string{"format": workflowschema.Format, "version": workflowschema.Version, "pathVersion": workflowschema.SchemaPathVersion},
+			"node":     map[string]string{"format": nodecontract.Format, "version": nodecontract.Version, "pathVersion": nodecontract.SchemaPathVersion},
+		}, "", "  ")
+	}
 	if name == "node" {
 		return nodecontract.GenerateSchema()
 	}

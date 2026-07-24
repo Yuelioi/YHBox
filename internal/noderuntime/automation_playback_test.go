@@ -102,7 +102,7 @@ func TestPlayInputClipReadsNominalBlobAndUsesExclusivePlaybackSession(t *testing
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: playbackCapability.Ref(), ResourceKind: automationinstalled.KindPlayback}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -191,7 +191,7 @@ func TestPlayMacroPreservesOverlappingKeysAndReleasesSession(t *testing.T) {
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: playbackCapability.Ref(), ResourceKind: automationinstalled.KindPlayback}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -245,7 +245,7 @@ func automationPlaybackSource(builtins nodes.Builtins, slot string, ref blob.Blo
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	playback, _ := builtins.Definition(nodes.PlayInputClipNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-playback","name":"Automation Playback"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-automation-playback","name":"Automation Playback"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},
@@ -259,7 +259,7 @@ func automationMacroSource(builtins nodes.Builtins, slot string, ref blob.BlobRe
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	playback, _ := builtins.Definition(nodes.PlayMacroNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-macro","name":"Automation Macro"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-automation-macro","name":"Automation Macro"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"playback","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},

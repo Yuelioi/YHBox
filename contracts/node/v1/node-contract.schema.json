@@ -1083,7 +1083,7 @@
       "type": "object"
     }
   },
-  "$id": "https://yottaapp.dev/contracts/node/3.1/node-contract.schema.json",
+  "$id": "https://yottaapp.dev/contracts/node/v1/node-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -1104,7 +1104,7 @@
     },
     "version": {
       "enum": [
-        "3.1"
+        "1"
       ],
       "type": "string"
     }

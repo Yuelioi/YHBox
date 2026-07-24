@@ -256,11 +256,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Variable } from '../../../../contracts/workflow/current/workflow-source'
 import type {
   TypeExpression,
   TypeProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import type {
   EditorCommand,
   StateReferenceMode,

@@ -1,7 +1,7 @@
 import type {
   TypeExpression,
   TypeProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 
 const KEY_CODE_TYPE_ID = 'https://schemas.yotta.dev/types/automation/key-code/v1'
 

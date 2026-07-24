@@ -4,7 +4,7 @@ import { builtinNodeProjections, builtinTypeProjections } from './node'
 const concatID = 'https://schemas.yotta.dev/nodes/text/concat'
 const stringID = 'https://schemas.yotta.dev/types/core/string/v1'
 
-describe('generated Node Contract 3.1 authoring projection', () => {
+describe('generated current Node Contract authoring projection', () => {
   it('projects Concat with nominal type and binding hints but no control pins', () => {
     const projection = builtinNodeProjections.get(concatID)
     expect(projection).toBeDefined()

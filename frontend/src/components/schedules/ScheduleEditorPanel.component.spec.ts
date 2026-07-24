@@ -18,7 +18,7 @@ afterEach(() => {
 describe('ScheduleEditorPanel', () => {
   it('opens from a reactive schedule returned by the management view', () => {
     const schedule = reactive({
-      schemaVersion: '3.1',
+      schemaVersion: '1',
       id: 'schedule-1',
       name: 'Morning run',
       enabled: true,
@@ -42,7 +42,7 @@ describe('ScheduleEditorPanel', () => {
 
   it('persists the visible interval default when the number field is untouched', async () => {
     const schedule = {
-      schemaVersion: '3.1',
+      schemaVersion: '1',
       id: 'schedule-2',
       name: 'Interval run',
       enabled: true,

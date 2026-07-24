@@ -68,7 +68,7 @@ func TestMainWindowOptionsEnforceEditorMinimumWidth(t *testing.T) {
 		t.Fatalf("main window width = %d, minimum = %d", options.Width, options.MinWidth)
 	}
 	if options.URL != "/#/workflows" {
-		t.Fatalf("main window URL = %q, want Workflow 3.1 list", options.URL)
+		t.Fatalf("main window URL = %q, want workflow list", options.URL)
 	}
 }
 

@@ -1,4 +1,4 @@
-// Package nodecontract defines the durable Node Contract 3.1 machine contract.
+// Package nodecontract defines the current durable Node Contract.
 package nodecontract
 
 import (
@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	Format  = "yotta.node-contract"
-	Version = "3.1"
+	Format            = "yotta.node-contract"
+	Version           = "1"
+	SchemaPathVersion = "v" + Version
 
 	semanticDigestDomain = "yotta/node-contract-semantic/v1"
 	MaxContractBytes     = 1 << 20
@@ -322,7 +323,7 @@ type MachineContract struct {
 
 type document struct {
 	Format    string          `json:"format" jsonschema:"required,enum=yotta.node-contract"`
-	Version   string          `json:"version" jsonschema:"required,enum=3.1"`
+	Version   string          `json:"version" jsonschema:"required,enum=1"`
 	NodeRef   NodeRef         `json:"nodeRef" jsonschema:"required"`
 	Semantic  MachineContract `json:"semantic" jsonschema:"required"`
 	Authoring Authoring       `json:"authoring" jsonschema:"required"`

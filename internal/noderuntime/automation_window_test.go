@@ -101,7 +101,7 @@ func executeWindowActivation(t *testing.T, provider *automationWindowProvider) (
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = append(profileDraft.Providers, admission.ProviderDescriptor{
 		ID: providerID, ArtifactDigest: providerDigest, ABI: automationinstalled.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: automationinstalled.KindWindow}},
 	})
 	profileDraft.Targets = append(profileDraft.Targets, admission.AutomationTarget{ID: targetID, Kind: automationinstalled.TargetKind, ProviderID: providerID})
@@ -129,7 +129,7 @@ func automationWindowSource(t *testing.T, builtins nodes.Builtins, slot string) 
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	activate, _ := builtins.Definition(nodes.ActivateWindowNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-automation-window","name":"Automation Window"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-automation-window","name":"Automation Window"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"activate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{"slot":%q},"bindings":{}}

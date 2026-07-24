@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, type CSSProperties } from 'vue'
 import { BaseEdge, useVueFlow } from '@vue-flow/core'
-import type { Edge, Position } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Edge, Position } from '../../../../contracts/workflow/current/workflow-source'
 
 const props = defineProps<{
   id: string

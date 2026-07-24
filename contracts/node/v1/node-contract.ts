@@ -1,4 +1,4 @@
-/* Generated from Node Contract 3.1 Go types. Do not edit. */
+/* Generated from current Node Contract Go types. Do not edit. */
 
 export type InstructionSpec =
   | {
@@ -52,7 +52,7 @@ export interface YottaNodeContract {
   format: 'yotta.node-contract'
   nodeRef: NodeRef
   semantic: MachineContract
-  version: '3.1'
+  version: '1'
 }
 export interface Authoring {
   category?: string

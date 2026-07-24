@@ -1,4 +1,4 @@
-// Package schema defines the only durable Workflow Source contract accepted by Yotta 3.1.
+// Package schema defines the current durable Workflow Source contract.
 package schema
 
 import (
@@ -13,16 +13,17 @@ import (
 )
 
 const (
-	Format          = "yotta.workflow"
-	Version         = "3.1"
-	MaxRevision     = 9_007_199_254_740_991
-	MaxDiagnostics  = 10_000
-	MaxVariables    = 4_096
-	MaxResources    = 4_096
-	MaxCredentials  = 4_096
-	MaxDependencies = 4_096
-	MaxGraphDepth   = 32
-	MaxGraphPath    = MaxGraphDepth*2 - 1
+	Format            = "yotta.workflow"
+	Version           = "1"
+	SchemaPathVersion = "v" + Version
+	MaxRevision       = 9_007_199_254_740_991
+	MaxDiagnostics    = 10_000
+	MaxVariables      = 4_096
+	MaxResources      = 4_096
+	MaxCredentials    = 4_096
+	MaxDependencies   = 4_096
+	MaxGraphDepth     = 32
+	MaxGraphPath      = MaxGraphDepth*2 - 1
 )
 
 type GraphKind string
@@ -34,7 +35,7 @@ const (
 
 type WorkflowSource struct {
 	Format                   string                    `json:"format" jsonschema:"required,enum=yotta.workflow"`
-	Version                  string                    `json:"version" jsonschema:"required,enum=3.1"`
+	Version                  string                    `json:"version" jsonschema:"required,enum=1"`
 	Workflow                 Workflow                  `json:"workflow" jsonschema:"required"`
 	Revision                 int64                     `json:"revision" jsonschema:"required,minimum=0,maximum=9007199254740991"`
 	EntryGraph               string                    `json:"entryGraph" jsonschema:"required,maxLength=128,pattern=^[A-Za-z0-9_][A-Za-z0-9._-]*$"`

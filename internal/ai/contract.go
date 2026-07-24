@@ -1,4 +1,4 @@
-// Package ai owns Yotta 3.1's provider-native model contract. It deliberately
+// Package ai owns Yotta's provider-native model contract. It deliberately
 // does not expose a generic Chat API: provider wire transcripts remain inside
 // their adapters while stable generation outcomes cross the runtime boundary.
 package ai

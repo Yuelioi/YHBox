@@ -1,4 +1,4 @@
-// Package blob owns Yotta 3.1 immutable, content-addressed binary values.
+// Package blob owns immutable, content-addressed binary values.
 package blob
 
 import (
@@ -21,7 +21,8 @@ import (
 
 const (
 	ownershipMarker = ".yotta-blob-store"
-	markerContents  = "yotta/blob-store/3.1\n"
+	LayoutVersion   = "1"
+	markerContents  = "yotta/blob-store/" + LayoutVersion + "\n"
 )
 
 type BlobRef struct {
@@ -98,7 +99,7 @@ func Open(root string, limits Limits) (*Store, error) {
 	} else {
 		marker, err := os.ReadFile(markerPath)
 		if err != nil || string(marker) != markerContents {
-			return nil, errors.New("blob store directory is not owned by Yotta 3.1")
+			return nil, errors.New("blob store directory has an unsupported ownership marker")
 		}
 	}
 	var total int64

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Variable } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Variable } from '../../../../contracts/workflow/current/workflow-source'
 import { filterStateVariables, STATE_VARIABLE_PAGE_SIZE } from './stateVariableQuery'
 
 describe('state variable query', () => {

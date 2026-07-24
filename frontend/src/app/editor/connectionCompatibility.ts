@@ -4,7 +4,7 @@ import type {
   ResourceLeaseBinding,
   TypeExpression,
   TypeProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import type { ParsedHandle } from './graphHandles'
 
 export type ConnectionIssue =

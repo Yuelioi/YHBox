@@ -1,4 +1,4 @@
-import type { TypeExpression } from '../../../../contracts/node/3.1/authoring-projection'
+import type { TypeExpression } from '../../../../contracts/node/current/authoring-projection'
 
 export const keyCodeTypeId = 'https://schemas.yotta.dev/types/automation/key-code/v1'
 

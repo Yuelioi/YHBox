@@ -8,7 +8,11 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 )
 
-const valueDigestDomain = "yotta/value-envelope/v2"
+const (
+	valueEnvelopeFormat  = "yotta.value-envelope"
+	valueEnvelopeVersion = "1"
+	valueDigestDomain    = "yotta/value-envelope/v2"
+)
 
 type envelopeDocument struct {
 	Format      string          `json:"format"`
@@ -61,8 +65,8 @@ func openInlineEnvelope(raw []byte) (envelopeDocument, error) {
 	if err := decoder.Decode(&document); err != nil {
 		return envelopeDocument{}, err
 	}
-	if document.Format != "yotta.value-envelope" || document.Version != "3.1" || document.Repr != "inline-json" || document.Codec != "yotta.jcs/v1" || !document.ValueDigest.Valid() {
-		return envelopeDocument{}, errors.New("value envelope is not an inline 3.1 JCS value")
+	if document.Format != valueEnvelopeFormat || document.Version != valueEnvelopeVersion || document.Repr != "inline-json" || document.Codec != "yotta.jcs/v1" || !document.ValueDigest.Valid() {
+		return envelopeDocument{}, errors.New("value envelope is not a supported inline JCS value")
 	}
 	digest, err := envelopeDigest(document)
 	if err != nil || digest != document.ValueDigest {

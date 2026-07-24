@@ -1784,7 +1784,7 @@ export default {
     list: {
       eyebrow: 'WORKFLOW SOURCES',
       title: 'Workflows',
-      description: 'Every run compiles a saved 3.1 source into an immutable Program snapshot.',
+      description: 'Every run compiles a saved Workflow Source into an immutable Program snapshot.',
       management_description: 'Search, filter, and manage Workflow Sources in bulk.',
       new_workflow: 'New workflow',
       library_actions: 'Workflow library actions',
@@ -1892,7 +1892,7 @@ export default {
       recovery_delete: 'Delete corrupt object',
       recovery_repair_title: 'Repair workflow source',
       recovery_repair_description:
-        'Edit the original JSON and submit it. Yotta validates the complete current 3.1 contract before returning it to the workflow library.',
+        'Edit the original JSON and submit it. Yotta validates the complete current Workflow contract before returning it to the workflow library.',
       recovery_source_json: 'Workflow Source JSON to repair',
       recovery_validate_repair: 'Validate and repair',
       recovery_delete_title: 'Delete corrupt object “{name}”?',
@@ -2598,7 +2598,7 @@ export default {
     eyebrow: 'WORKFLOW ASSETS',
     title: 'Library and recording',
     description:
-      'Manage input recordings and visual templates that bind directly to 3.1 nodes. Content digests pin resources into workflows.',
+      'Manage input recordings and visual templates that bind directly to nodes. Content digests pin resources into workflows.',
     target_placeholder: 'Select an automation target',
     action_target_hint:
       'Choose the automation target for this action only; persistent target configuration does not occupy the library header.',

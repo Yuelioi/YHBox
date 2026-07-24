@@ -43,8 +43,8 @@ try {
     $workflowStore = Join-Path $binDir 'data/workspace/workflows'
     New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/3.1`n", $utf8NoBom)
-    [System.IO.File]::WriteAllText((Join-Path $workflowStore 'damaged-workflow.json'), '{"format":"yotta.workflow","version":"3.1",', $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/1`n", $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $workflowStore 'damaged-workflow.json'), '{"format":"yotta.workflow","version":"1",', $utf8NoBom)
 
     try {
         Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$VitePort" -TimeoutSec 1 | Out-Null

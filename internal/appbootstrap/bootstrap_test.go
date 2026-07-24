@@ -82,7 +82,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		t.Fatalf("GetAuthoringProjection = %s", authoring)
 	}
 	created, err := service.CreateSource(" Empty ")
-	if err != nil || created.Name != "Empty" || created.Revision != 0 || !strings.Contains(created.SourceJSON, `"version":"3.1"`) {
+	if err != nil || created.Name != "Empty" || created.Revision != 0 || !strings.Contains(created.SourceJSON, `"version":"1"`) {
 		t.Fatalf("CreateSource = %#v, %v", created, err)
 	}
 	started, err := service.StartRun(saved.WorkflowID)
@@ -98,7 +98,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 				if err != nil || timeline.Status != string(run.StatusSucceeded) || len(timeline.Timeline) != 4 || timeline.Failure != nil {
 					t.Fatalf("GetRunTimeline = %#v, %v", timeline, err)
 				}
-				if catalog := service.GetCatalog(); !strings.Contains(catalog, `"version":"3.1"`) {
+				if catalog := service.GetCatalog(); !strings.Contains(catalog, `"version":"1"`) {
 					t.Fatalf("GetCatalog = %s", catalog)
 				}
 				return
@@ -150,7 +150,7 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 	}
 	closeRuntime(first)
 	path := filepath.Join(dataRoot, "workspace", "workflows", created.WorkflowID+".json")
-	if err := os.WriteFile(path, []byte(`{"format":"yotta.workflow","version":"3.1",`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"format":"yotta.workflow","version":"1",`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

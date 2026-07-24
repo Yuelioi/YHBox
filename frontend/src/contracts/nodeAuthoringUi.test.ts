@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { FieldProjection } from '../../../contracts/node/3.1/authoring-projection'
+import type { FieldProjection } from '../../../contracts/node/current/authoring-projection'
 import {
   patchProjectedConfig,
   projectedConstraintTokens,

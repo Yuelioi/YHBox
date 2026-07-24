@@ -21,7 +21,7 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 		t.Fatal(err)
 	}
 
-	packages, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64"})
+	packages, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "1.0", OperatingSystem: "windows", Architecture: "amd64"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 	if _, err := node.Payload.Read(ctx, 1<<20); err == nil {
 		t.Fatal("previous runtime projection remained executable after disable")
 	}
-	if disabled, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64"}); err != nil || len(disabled) != 0 {
+	if disabled, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "1.0", OperatingSystem: "windows", Architecture: "amd64"}); err != nil || len(disabled) != 0 {
 		t.Fatalf("disabled runtime projection = %#v, %v", disabled, err)
 	}
 }
@@ -63,7 +63,7 @@ func TestRuntimePayloadRevalidatesIdentityAtReadBoundary(t *testing.T) {
 	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
 		t.Fatal(err)
 	}
-	packages, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64"})
+	packages, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "1.0", OperatingSystem: "windows", Architecture: "amd64"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,9 +36,9 @@ func TestGeneratedArtifactsShareOneContractAndDocumentNoExecOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(artifacts.Catalog, []byte(`"version":"3.1"`)) ||
+	if !bytes.Contains(artifacts.Catalog, []byte(`"version":"1"`)) ||
 		!bytes.Contains(artifacts.Authoring, []byte(`"format":"yotta.node-authoring-projection"`)) {
-		t.Fatalf("generated artifacts are not pinned to 3.1")
+		t.Fatalf("generated artifacts are not pinned to their current contract versions")
 	}
 	if _, err := nodecatalog.Open(artifacts.Catalog); err != nil {
 		t.Fatalf("generated machine catalog is not a strict canonical artifact: %v", err)

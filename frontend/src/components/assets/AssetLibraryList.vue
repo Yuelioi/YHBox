@@ -106,7 +106,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BlobPreview from '@/components/common/BlobPreview.vue'
-import type { BlobRef } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { BlobRef } from '../../../../contracts/workflow/current/workflow-source'
 
 export interface AssetLibraryListItem {
   id: string

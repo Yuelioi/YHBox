@@ -1,4 +1,4 @@
-// Command yotta exposes the headless Workflow 3.1 Application command surface.
+// Command yotta exposes the headless Workflow Application command surface.
 package main
 
 import (

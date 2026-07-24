@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type {
   NodeProjection,
   PortProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import {
   effectiveTargetSlot,
   projectAuthoringSurface,

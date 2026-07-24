@@ -3,7 +3,7 @@ import type {
   FieldProjection,
   NodeProjection,
   PortProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import type { Node } from './EditorSession'
 import { isKeyChordType } from './keyChord'
 

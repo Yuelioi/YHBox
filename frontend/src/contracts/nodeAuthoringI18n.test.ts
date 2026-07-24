@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import authoring from '../../../contracts/node/3.1/builtin-authoring.json'
+import authoring from '../../../contracts/node/current/builtin-authoring'
 import en from '@/i18n/en'
 import zh from '@/i18n/zh'
 
-describe('Node Authoring Projection 3.1 i18n', () => {
+describe('current Node Authoring Projection i18n', () => {
   it('resolves every projected title and description key in both locales', () => {
     const keys = collectMessageKeys(authoring)
     expect(keys.size).toBeGreaterThan(100)

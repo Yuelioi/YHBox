@@ -84,7 +84,7 @@ func TestTypeRefRequiresIndependentVersionedIdentity(t *testing.T) {
 	if err := ref.Validate(); err == nil {
 		t.Fatal("accepted unversioned type id")
 	}
-	ref.TypeID = "https://schemas.yotta.dev/types/core/string/3.1"
+	ref.TypeID = "https://schemas.yotta.dev/types/core/string/not-versioned"
 	if err := ref.Validate(); err == nil {
 		t.Fatal("accepted product version as type identity version")
 	}

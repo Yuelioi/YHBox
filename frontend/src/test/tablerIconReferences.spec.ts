@@ -47,7 +47,7 @@ describe('literal Tabler icon references', () => {
       ...Object.keys(collection.aliases ?? {}),
     ])
     const authoring = JSON.parse(
-      readFileSync(join(process.cwd(), '../contracts/node/3.1/builtin-authoring.json'), 'utf8'),
+      readFileSync(join(process.cwd(), '../contracts/node/current/builtin-authoring.json'), 'utf8'),
     ) as {
       body: { nodes: Array<{ nodeRef: { nodeTypeId: string }; icon?: string }> }
     }

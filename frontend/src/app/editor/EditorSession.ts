@@ -7,7 +7,7 @@ import type {
   Node,
   BlobRef,
   YottaWorkflowSource,
-} from '../../../../contracts/workflow/3.1/workflow-source'
+} from '../../../../contracts/workflow/current/workflow-source'
 import type {
   NodeProjection,
   PortProjection,
@@ -15,7 +15,7 @@ import type {
   TypeProjection,
   TypeUse,
   YottaNodeAuthoringProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
+} from '../../../../contracts/node/current/authoring-projection'
 import type {
   CompileView,
   RunView,
@@ -2761,7 +2761,7 @@ function isWorkflowSource(value: unknown): value is YottaWorkflowSource {
   const source = value as Record<string, unknown>
   return (
     source.format === 'yotta.workflow' &&
-    source.version === '3.1' &&
+    source.version === '1' &&
     typeof source.revision === 'number' &&
     typeof source.entryGraph === 'string' &&
     Array.isArray(source.graphs) &&
@@ -2780,7 +2780,7 @@ function isAuthoringProjection(value: unknown): value is YottaNodeAuthoringProje
   const document = value as Record<string, unknown>
   if (
     document.format !== 'yotta.node-authoring-projection' ||
-    document.version !== '3.1' ||
+    document.version !== '1' ||
     typeof document.projectionDigest !== 'string' ||
     typeof document.body !== 'object' ||
     document.body === null

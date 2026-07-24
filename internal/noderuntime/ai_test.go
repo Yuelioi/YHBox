@@ -29,7 +29,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	}
 	generate := builtins.AIGenerateContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-ai","name":"AI"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai","name":"AI"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
@@ -56,7 +56,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = []admission.ProviderDescriptor{{
 		ID: "ai-test", ArtifactDigest: providerDigest, ABI: ai.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: ai.KindModelSession}},
 	}}
 	profileDraft.Targets = profileDraft.Targets[:1]
@@ -144,7 +144,7 @@ func TestCompilerRejectsAIExtractSchemaOutsidePinnedStrictProfile(t *testing.T) 
 	extract := builtins.AIExtractContract.NodeRef()
 	invalidSchema := `{"type":"object","properties":{},"required":[],"additionalProperties":true}`
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-ai-extract","name":"AI Extract"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-extract","name":"AI Extract"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"extract","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
@@ -182,7 +182,7 @@ func TestCompilerRejectsLegacyAIInstructionsOverride(t *testing.T) {
 	}
 	generate := builtins.AIGenerateContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-ai-legacy","name":"AI legacy"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-ai-legacy","name":"AI legacy"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"generate","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
@@ -217,7 +217,7 @@ func TestExecutorRunsBoundedAIAgentToolLoopAndJournalsTerminalBudget(t *testing.
 	started, _ := builtins.Definition(nodes.RunStartedNodeID)
 	agent := builtins.AIAgentContract.NodeRef()
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-agent","name":"Agent"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-agent","name":"Agent"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"agent","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},
@@ -239,7 +239,7 @@ func TestExecutorRunsBoundedAIAgentToolLoopAndJournalsTerminalBudget(t *testing.
 	profileDraft := executionProfile(t, builtins)
 	profileDraft.Providers = []admission.ProviderDescriptor{{
 		ID: "ai-agent-test", ArtifactDigest: providerDigest, ABI: ai.ProviderABI, PluginInstanceID: "builtin",
-		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"3.1"},
+		OperatingSystems: []string{"windows"}, Architectures: []string{"amd64"}, HostAPIs: []string{"1.0"},
 		Capabilities: []admission.ProviderCapability{{Capability: capabilityDefinition.Ref(), ResourceKind: ai.KindModelSession}},
 	}}
 	profileDraft.Targets = profileDraft.Targets[:1]

@@ -1,4 +1,4 @@
-// Package mcpserver projects the Yotta 3.1 Application command surface into a
+// Package mcpserver projects the Application command surface into a
 // bounded MCP authoring protocol. It never constructs a runtime, enumerates
 // host windows, or accepts whole-document Workflow replacement.
 package mcpserver
@@ -16,6 +16,7 @@ import (
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
+	"github.com/yottaapp/yotta/pkg/version"
 )
 
 type registrar struct {
@@ -80,7 +81,7 @@ func newRegistrar(application *appcore.Application) (*registrar, error) {
 // desktop application does not open an MCP listener by default.
 func (s *registrar) protocol() *server.MCPServer {
 	protocol := server.NewMCPServer(
-		"Yotta Workflow Authoring", "3.1",
+		"Yotta Workflow Authoring", version.Version,
 		server.WithToolCapabilities(false),
 		server.WithOutputSchemaValidation(),
 	)
@@ -90,30 +91,30 @@ func (s *registrar) protocol() *server.MCPServer {
 
 func (s *registrar) register(protocol *server.MCPServer) {
 	protocol.AddTool(s.tool(
-		"catalog_search", "Search the admitted Yotta 3.1 node catalog without loading the full projection."),
+		"catalog_search", "Search the admitted Yotta node catalog without loading the full projection."),
 		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogSearchRequest) (CatalogSearchResult, error) {
 			return searchCatalog(s.projection, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
-		"catalog_describe", "Describe one exact Node Contract 3.1 with typed channel-separated ports and authoring constraints."),
+		"catalog_describe", "Describe one exact Node Contract with typed channel-separated ports and authoring constraints."),
 		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogDescribeRequest) (CatalogDescribeResult, error) {
 			return describeCatalog(s.projection, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
-		"workflow_list", "List durable Workflow 3.1 sources as bounded metadata."),
+		"workflow_list", "List durable Workflow Sources as bounded metadata."),
 		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request PageRequest) (WorkflowListResult, error) {
 			return listWorkflows(s.application, request)
 		}),
 	)
-	protocol.AddTool(s.mutationTool("workflow_create", "Create the host-owned empty Workflow 3.1 root."),
+	protocol.AddTool(s.mutationTool("workflow_create", "Create the host-owned empty Workflow root."),
 		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowCreateRequest) (WorkflowSummary, error) {
 			return createWorkflow(ctx, s.application, request)
 		}),
 	)
 	protocol.AddTool(s.tool(
-		"workflow_inspect", "Inspect one graph page from a durable Workflow 3.1 revision."),
+		"workflow_inspect", "Inspect one graph page from a durable Workflow revision."),
 		mcp.NewStructuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request WorkflowInspectRequest) (WorkflowInspectResult, error) {
 			return inspectWorkflow(s.application, request)
 		}),
@@ -124,7 +125,7 @@ func (s *registrar) register(protocol *server.MCPServer) {
 		}),
 	)
 	protocol.AddTool(s.tool(
-		"workflow_compile", "Strictly compile the current durable Workflow 3.1 revision and return stable diagnostics."),
+		"workflow_compile", "Strictly compile the current durable Workflow revision and return stable diagnostics."),
 		mcp.NewStructuredToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, request WorkflowIDRequest) (WorkflowCompileResult, error) {
 			return compileWorkflow(ctx, s.application, request)
 		}),

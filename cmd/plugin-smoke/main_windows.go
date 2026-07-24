@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/hostapi"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -61,7 +62,7 @@ func run() error {
 		return err
 	}
 	packages, err := fixtures.Store.RuntimePackages(context.Background(), nodepackage.RuntimeHost{
-		APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64",
+		APIGeneration: hostapi.Current, OperatingSystem: "windows", Architecture: "amd64",
 	})
 	if err != nil {
 		return err

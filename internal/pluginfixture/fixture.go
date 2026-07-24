@@ -20,6 +20,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
+	"github.com/yottaapp/yotta/internal/hostapi"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
@@ -165,7 +166,7 @@ func release(root string, key ed25519.PrivateKey, name string, kind nodecontract
 	}
 	manifest, err := nodepackage.Seal(nodepackage.Draft{
 		PublisherNamespace: Namespace, PackageID: Namespace + "/packages/" + name + "/v1", PackageVersion: "1.0.0",
-		HostAPI: nodepackage.HostAPIRange{Min: "3.1", MaxExclusive: "4.0"}, Types: types,
+		HostAPI: nodepackage.HostAPIRange{Min: hostapi.Current, MaxExclusive: hostapi.NextMajor}, Types: types,
 		Nodes: []nodepackage.NodeDraft{{Contract: contract, Implementation: nodepackage.Implementation{
 			ABI: nodecontract.ABIRequirement{Kind: kind, Version: "v1"}, Entrypoint: "fixture:" + name + "/node#run",
 			Payload:   nodepackage.Payload{Path: path, Digest: artifact.Digest("sha256:" + hex.EncodeToString(digest[:])), Size: int64(len(payload)), MediaType: mediaType},

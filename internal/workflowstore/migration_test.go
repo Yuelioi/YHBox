@@ -12,22 +12,22 @@ import (
 )
 
 func TestSourceMigrationPlanRunsOnlyRegisteredVersionChain(t *testing.T) {
-	plan, err := newSourceMigrationPlan(sourceContract{Format: schema.Format, Version: "3.3"}, []sourceMigrationStep{
+	plan, err := newSourceMigrationPlan(sourceContract{Format: schema.Format, Version: "3"}, []sourceMigrationStep{
 		{
-			From:  sourceContract{Format: schema.Format, Version: "3.1"},
-			To:    sourceContract{Format: schema.Format, Version: "3.2"},
-			Apply: rewriteSourceVersion("3.2"),
+			From:  sourceContract{Format: schema.Format, Version: "1"},
+			To:    sourceContract{Format: schema.Format, Version: "2"},
+			Apply: rewriteSourceVersion("2"),
 		},
 		{
-			From:  sourceContract{Format: schema.Format, Version: "3.2"},
-			To:    sourceContract{Format: schema.Format, Version: "3.3"},
-			Apply: rewriteSourceVersion("3.3"),
+			From:  sourceContract{Format: schema.Format, Version: "2"},
+			To:    sourceContract{Format: schema.Format, Version: "3"},
+			Apply: rewriteSourceVersion("3"),
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	original := []byte(`{"format":"yotta.workflow","version":"3.1","kept":true}`)
+	original := []byte(`{"format":"yotta.workflow","version":"1","kept":true}`)
 	migrated, changed, err := plan.Migrate(original)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestSourceMigrationPlanRunsOnlyRegisteredVersionChain(t *testing.T) {
 	if err := json.Unmarshal(migrated, &document); err != nil {
 		t.Fatal(err)
 	}
-	if document.Version != "3.3" || !document.Kept {
+	if document.Version != "3" || !document.Kept {
 		t.Fatalf("migrated document = %#v", document)
 	}
 }
@@ -53,13 +53,13 @@ func TestSourceMigrationPlanRejectsUnavailableAndConfusedMigrations(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	original := []byte(`{"format":"yotta.workflow","version":"3.0"}`)
+	original := []byte(`{"format":"yotta.workflow","version":"0"}`)
 	if _, _, err := plan.Migrate(original); !errors.Is(err, errSourceMigrationUnavailable) {
 		t.Fatalf("unregistered migration error = %v", err)
 	}
 
 	confused, err := newSourceMigrationPlan(current, []sourceMigrationStep{{
-		From:  sourceContract{Format: schema.Format, Version: "3.0"},
+		From:  sourceContract{Format: schema.Format, Version: "0"},
 		To:    current,
 		Apply: rewriteSourceVersion("9.9"),
 	}})
@@ -77,13 +77,13 @@ func TestOpenSourceStoreAtomicallyPublishesValidatedMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(root, "wf-migrated.json")
-	legacy := []byte(`{"format":"yotta.workflow","version":"3.0","workflowId":"wf-migrated"}`)
+	legacy := []byte(`{"format":"yotta.workflow","version":"0","workflowId":"wf-migrated"}`)
 	if err := os.WriteFile(path, legacy, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	current := sourceContract{Format: schema.Format, Version: schema.Version}
 	plan, err := newSourceMigrationPlan(current, []sourceMigrationStep{{
-		From: sourceContract{Format: schema.Format, Version: "3.0"},
+		From: sourceContract{Format: schema.Format, Version: "0"},
 		To:   current,
 		Apply: func(raw []byte) ([]byte, error) {
 			if !bytes.Equal(raw, legacy) {
@@ -121,15 +121,8 @@ func TestCurrentSourceMigrationPlanDoesNotRepairDevelopmentArtifacts(t *testing.
 		t.Fatal(err)
 	}
 	developmentArtifact := []byte(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":"old-dev","name":"Old development shape"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`)
-	got, changed, err := plan.Migrate(developmentArtifact)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if changed || !bytes.Equal(got, developmentArtifact) {
-		t.Fatalf("development artifact was migrated: changed=%v artifact=%s", changed, got)
-	}
-	if _, err := openSourceArtifact(got, true); err == nil {
-		t.Fatal("development artifact unexpectedly passed the current strict schema")
+	if _, _, err := plan.Migrate(developmentArtifact); !errors.Is(err, errSourceMigrationUnavailable) {
+		t.Fatalf("development artifact migration error = %v", err)
 	}
 }
 
@@ -162,13 +155,13 @@ func TestOpenSourceStorePreservesOriginalWhenRegisteredMigrationFails(t *testing
 		t.Fatal(err)
 	}
 	path := filepath.Join(root, "wf-migration-failure.json")
-	legacy := []byte(`{"format":"yotta.workflow","version":"3.0","workflowId":"wf-migration-failure"}`)
+	legacy := []byte(`{"format":"yotta.workflow","version":"0","workflowId":"wf-migration-failure"}`)
 	if err := os.WriteFile(path, legacy, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	current := sourceContract{Format: schema.Format, Version: schema.Version}
 	plan, err := newSourceMigrationPlan(current, []sourceMigrationStep{{
-		From: sourceContract{Format: schema.Format, Version: "3.0"},
+		From: sourceContract{Format: schema.Format, Version: "0"},
 		To:   current,
 		Apply: func([]byte) ([]byte, error) {
 			return nil, errors.New("synthetic migration failure")
@@ -209,7 +202,7 @@ func rewriteSourceVersion(version string) sourceMigration {
 
 func migrationTestSource() []byte {
 	return []byte(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-migrated","name":"Migrated"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-migrated","name":"Migrated"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
 		"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
 	}`)

@@ -172,7 +172,7 @@ func controlAuthoringTags(nodeID, category string) []string {
 	if nodeID == DelayNodeID || nodeID == RepeatNodeID {
 		// EventTick was an unsafe ambient background sub-runner in 3.0. Keep its
 		// authoring intent discoverable through the explicit, cancellable loop
-		// primitives that replace it in 3.1.
+		// primitives that replace it in the current contract.
 		tags = append(tags, "eventtick", "tick", "timer", "polling")
 	}
 	return tags

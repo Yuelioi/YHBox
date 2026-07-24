@@ -1,4 +1,4 @@
-// Package nodecatalog defines the immutable machine Catalog 3.1 artifact.
+// Package nodecatalog defines the immutable machine Catalog artifact.
 package nodecatalog
 
 import (
@@ -21,7 +21,7 @@ import (
 
 const (
 	Format                 = "yotta.catalog"
-	Version                = "3.1"
+	Version                = "1"
 	MaxCatalogBytes        = 16 << 20
 	MaxCatalogDepth        = 128
 	MaxCatalogNodes        = 4_096

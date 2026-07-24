@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import type { Graph, GraphCall } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { Graph, GraphCall } from '../../../../contracts/workflow/current/workflow-source'
 import { graphHandle } from './graphHandles'
 
 defineProps<{ call: GraphCall; graph: Graph; selected?: boolean }>()

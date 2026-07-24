@@ -16,7 +16,7 @@ import (
 
 const (
 	ValueEnvelopeFormat   = "yotta.value-envelope"
-	ValueEnvelopeVersion  = "3.1"
+	ValueEnvelopeVersion  = "1"
 	MaxValueEnvelopeBytes = 4 << 20
 	MaxInlineValueBytes   = 1 << 20
 	valueDigestDomain     = "yotta/value-envelope/v2"
@@ -37,7 +37,7 @@ type valueEnvelopeState struct {
 	artifact []byte
 }
 
-// ValueEnvelope is the immutable, typed value passed across Program 3.1
+// ValueEnvelope is the immutable, typed value passed across Program
 // boundaries. External values contain only strict references; raw resources
 // remain inside the Blob Store or Resource Broker.
 type ValueEnvelope struct{ state *valueEnvelopeState }

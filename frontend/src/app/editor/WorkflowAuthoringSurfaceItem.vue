@@ -91,8 +91,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TargetDefault } from '../../../../contracts/workflow/3.1/workflow-source'
-import type { CapabilityProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { TargetDefault } from '../../../../contracts/workflow/current/workflow-source'
+import type { CapabilityProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import type { AuthoringSurfaceItem } from './authoringSurface'
 import GeneratedFieldEditor from './GeneratedFieldEditor.vue'

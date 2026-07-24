@@ -30,7 +30,7 @@ type StructuredOutputSpec struct {
 
 func StrictSchemaValidatorDigest() (artifact.Digest, error) {
 	manifest, err := artifact.Marshal(map[string]any{
-		"validatorId": StrictSchemaValidatorID, "schemaProfile": "yotta.ai-schema/3.1",
+		"validatorId": StrictSchemaValidatorID, "schemaProfile": "yotta.ai-schema/1",
 		"maxBytes": MaxStructuredSchemaBytes, "maxDepth": MaxStructuredDepth, "maxNodes": MaxStructuredNodes,
 		"keywords": []string{"additionalProperties", "anyOf", "description", "enum", "items", "properties", "required", "type"},
 	})

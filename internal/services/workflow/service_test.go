@@ -160,7 +160,7 @@ func TestServiceProjectsProductionWorkflowLifecycle(t *testing.T) {
 	if err != nil || preview.ProgramHash != compiled.ProgramHash {
 		t.Fatalf("PreviewRun() = %#v, %v", preview, err)
 	}
-	if !strings.Contains(service.GetCatalog(), `"version":"3.1"`) || !strings.Contains(service.GetAuthoringProjection(), `"format":"yotta.node-authoring-projection"`) {
+	if !strings.Contains(service.GetCatalog(), `"version":"1"`) || !strings.Contains(service.GetAuthoringProjection(), `"format":"yotta.node-authoring-projection"`) {
 		t.Fatal("service projections omitted their format identity")
 	}
 	started, err := service.StartRun(created.WorkflowID)

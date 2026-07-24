@@ -1,16 +1,16 @@
-import authoring from '../../../contracts/node/3.1/builtin-authoring.json'
+import authoring from '../../../contracts/node/current/builtin-authoring'
 import type {
   FieldProjection,
   NodeProjection,
   TypeProjection,
   YottaNodeAuthoringProjection,
-} from '../../../contracts/node/3.1/authoring-projection'
+} from '../../../contracts/node/current/authoring-projection'
 
 const document = authoring as unknown as YottaNodeAuthoringProjection
 
 if (
   document.format !== 'yotta.node-authoring-projection' ||
-  document.version !== '3.1' ||
+  document.version !== '1' ||
   !document.projectionDigest.startsWith('sha256:') ||
   !document.body.catalogHash.startsWith('sha256:')
 ) {

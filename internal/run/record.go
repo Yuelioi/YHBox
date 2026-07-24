@@ -21,7 +21,7 @@ import (
 
 const (
 	RecordFormat       = "yotta.run-record"
-	RecordVersion      = "3.1"
+	RecordVersion      = "1"
 	MaxRecordBytes     = 16 << 20
 	recordDigestDomain = "yotta/run-record/v1"
 )

@@ -1252,7 +1252,7 @@ import type {
   Annotation,
   GraphCall,
   TypeExpression,
-} from '../../../contracts/workflow/3.1/workflow-source'
+} from '../../../contracts/workflow/current/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
 import {

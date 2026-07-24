@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue'
-import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { TypeProjection } from '../../../../contracts/node/current/authoring-projection'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 const KeyChordValueEditor = defineAsyncComponent(() => import('./KeyChordValueEditor.vue'))

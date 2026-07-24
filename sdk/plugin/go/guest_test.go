@@ -120,7 +120,7 @@ func TestGuestExercisesMediatedCallsAndCanonicalResults(t *testing.T) {
 }
 
 func TestInlineValueHelpersVerifyAndResealDigest(t *testing.T) {
-	document := envelopeDocument{Format: "yotta.value-envelope", Version: "3.1", Type: json.RawMessage(`{}`), Repr: "inline-json", Codec: "yotta.jcs/v1", Value: json.RawMessage(`{"a":1}`)}
+	document := envelopeDocument{Format: valueEnvelopeFormat, Version: valueEnvelopeVersion, Type: json.RawMessage(`{}`), Repr: "inline-json", Codec: "yotta.jcs/v1", Value: json.RawMessage(`{"a":1}`)}
 	var err error
 	document.ValueDigest, err = envelopeDigest(document)
 	if err != nil {

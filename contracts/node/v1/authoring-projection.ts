@@ -1,4 +1,4 @@
-/* Generated from Node Authoring Projection 3.1 Go types. Do not edit. */
+/* Generated from current Node Authoring Projection Go types. Do not edit. */
 
 export type TypeExpression =
   | {
@@ -51,7 +51,7 @@ export interface YottaNodeAuthoringProjection {
   body: Body
   format: 'yotta.node-authoring-projection'
   projectionDigest: string
-  version: '3.1'
+  version: '1'
 }
 export interface Body {
   catalogHash: string

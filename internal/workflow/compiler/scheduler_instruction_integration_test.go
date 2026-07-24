@@ -45,7 +45,7 @@ func TestSchedulerExecutesCountedAndCollectionRegions(t *testing.T) {
 				defaultValue = `""`
 			}
 			source := []byte(fmt.Sprintf(`{
-				"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-region","name":"Region"},
+				"format":"yotta.workflow","version":"1","workflow":{"id":"wf-region","name":"Region"},
 				"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 					{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 					{"id":"region","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{%q:{"kind":"value","value":%s}}},
@@ -81,7 +81,7 @@ func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 	delay := schedulerNodeRef(t, builtins, nodes.DelayNodeID)
 	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-retry","name":"Retry"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-retry","name":"Retry"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"retry","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"attempts":{"kind":"value","value":3}}},
@@ -122,7 +122,7 @@ func TestDebugStepPausesInsideCountedLoopInsteadOfRunningTheRegion(t *testing.T)
 	repeat := schedulerNodeRef(t, builtins, nodes.RepeatNodeID)
 	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-debug-loop","name":"Debug Loop"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-debug-loop","name":"Debug Loop"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"repeat","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"count":{"kind":"value","value":2}}},
@@ -177,7 +177,7 @@ func TestDebugStepPausesForEveryRetryAttempt(t *testing.T) {
 	delay := schedulerNodeRef(t, builtins, nodes.DelayNodeID)
 	end := schedulerNodeRef(t, builtins, nodes.EndBranchNodeID)
 	source := []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-debug-retry","name":"Debug Retry"},
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-debug-retry","name":"Debug Retry"},
 		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"started","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"retry","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":1,"y":0},"config":{},"bindings":{"attempts":{"kind":"value","value":3}}},

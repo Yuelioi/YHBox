@@ -2,7 +2,7 @@ package datatype
 
 // TuneTypeExpressionDefinitions replaces reflection's structurally loose view
 // with the same discriminated Type Expression union used by every generated
-// 3.1 contract surface.
+// current contract surface.
 func TuneTypeExpressionDefinitions(definitions map[string]any) {
 	// Some reflection roots only encounter TypeRef through TypeExpression's
 	// pointer fields. Once TypeExpression is replaced by the tagged union the

@@ -174,8 +174,11 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TargetDefault, Variable } from '../../../../contracts/workflow/3.1/workflow-source'
-import type { TypeProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type {
+  TargetDefault,
+  Variable,
+} from '../../../../contracts/workflow/current/workflow-source'
+import type { TypeProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import WorkflowAuthoringSurfaceItem from './WorkflowAuthoringSurfaceItem.vue'
 import {

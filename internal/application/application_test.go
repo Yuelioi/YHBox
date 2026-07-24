@@ -96,7 +96,7 @@ func TestRunKeepsExactProviderGenerationLeaseAcrossHotReplacement(t *testing.T) 
 		defer cancel()
 		_ = application.Close(ctx)
 	})
-	profile, err := admission.SealHostProfile(admission.HostProfileDraft{OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1"})
+	profile, err := admission.SealHostProfile(admission.HostProfileDraft{OS: "windows", Architecture: "amd64", HostAPIGeneration: "1.0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -612,7 +612,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 		t.Fatal(err)
 	}
 	profile, err := admission.SealHostProfile(admission.HostProfileDraft{
-		OS: "windows", Architecture: "amd64", HostAPIGeneration: "3.1",
+		OS: "windows", Architecture: "amd64", HostAPIGeneration: "1.0",
 	})
 	if err != nil {
 		t.Fatal(err)

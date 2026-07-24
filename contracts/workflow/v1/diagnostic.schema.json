@@ -141,7 +141,7 @@
       "type": "object"
     }
   },
-  "$id": "https://yottaapp.dev/contracts/workflow/3.1/diagnostic.schema.json",
+  "$id": "https://yottaapp.dev/contracts/workflow/v1/diagnostic.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {

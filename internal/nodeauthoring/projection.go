@@ -22,7 +22,7 @@ import (
 
 const (
 	Format             = "yotta.node-authoring-projection"
-	Version            = "3.1"
+	Version            = "1"
 	MaxProjectionBytes = 16 << 20
 	MaxProjectedFields = 4096
 	MaxProjectionRefs  = 1024
@@ -249,7 +249,7 @@ type body struct {
 
 type document struct {
 	Format           string          `json:"format" jsonschema:"required,enum=yotta.node-authoring-projection"`
-	Version          string          `json:"version" jsonschema:"required,enum=3.1"`
+	Version          string          `json:"version" jsonschema:"required,enum=1"`
 	ProjectionDigest artifact.Digest `json:"projectionDigest"`
 	Body             body            `json:"body"`
 }
@@ -278,7 +278,7 @@ func ResolveInstance(base NodeProjection, config map[string]any) (NodeProjection
 		result.DataInputs = append(result.DataInputs, PortProjection{
 			ID: id, Order: index + 1, Importance: "common", Binding: BindingOptional,
 			Carrier: CarrierDurable, Type: prototype.Type,
-			TitleKey: fmt.Sprintf("node.control.switch.input.case-%d.title", index),
+			TitleKey:       fmt.Sprintf("node.control.switch.input.case-%d.title", index),
 			DescriptionKey: fmt.Sprintf("node.control.switch.input.case-%d.description", index),
 		})
 		result.Signals = append(result.Signals, SignalProjection{ID: id, Channel: "exec", Direction: "output"})

@@ -26,7 +26,7 @@ func TestInstalledPackageFixturesProjectBothHostsAndRevokeExistingAdapters(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	packages, err := fixtures.Store.RuntimePackages(ctx, nodepackage.RuntimeHost{APIGeneration: "3.1", OperatingSystem: "windows", Architecture: "amd64"})
+	packages, err := fixtures.Store.RuntimePackages(ctx, nodepackage.RuntimeHost{APIGeneration: "1.0", OperatingSystem: "windows", Architecture: "amd64"})
 	if err != nil || len(packages) != 2 {
 		t.Fatalf("RuntimePackages = %#v, %v", packages, err)
 	}

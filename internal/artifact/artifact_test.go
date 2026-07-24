@@ -45,7 +45,7 @@ func TestDigestIsDomainSeparatedAndStrict(t *testing.T) {
 	if a == b || !a.Valid() || !b.Valid() {
 		t.Fatalf("a=%q b=%q", a, b)
 	}
-	if _, err := Sum("yotta/test/a/v3.1", []byte("same")); err != nil {
+	if _, err := Sum("yotta/test/a/v1", []byte("same")); err != nil {
 		t.Fatalf("rejected semantic version domain: %v", err)
 	}
 	for _, invalid := range []string{"", string(a)[7:], "SHA256:" + string(a)[7:]} {

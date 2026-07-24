@@ -1,4 +1,4 @@
-// Package appbootstrap constructs the production Yotta 3.1 application with
+// Package appbootstrap constructs the production Yotta application with
 // immutable contracts, durable stores, installed providers, admission, and a
 // single Program worker.
 package appbootstrap
@@ -19,6 +19,7 @@ import (
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/hostapi"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -93,7 +94,7 @@ func Build(config Config) (*Runtime, error) {
 	}
 	builtins, err := nodes.Build()
 	if err != nil {
-		return nil, fmt.Errorf("build Catalog 3.1: %w", err)
+		return nil, fmt.Errorf("build Catalog: %w", err)
 	}
 	catalog := builtins.Catalog
 	var runtimePackages []nodepackage.RuntimePackage
@@ -102,7 +103,7 @@ func Build(config Config) (*Runtime, error) {
 	pluginFeatures := []string{}
 	if config.NodePackageStore != nil {
 		runtimePackages, err = config.NodePackageStore.RuntimePackages(context.Background(), nodepackage.RuntimeHost{
-			APIGeneration: "3.1", OperatingSystem: runtime.GOOS, Architecture: runtime.GOARCH,
+			APIGeneration: hostapi.Current, OperatingSystem: runtime.GOOS, Architecture: runtime.GOARCH,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("project enabled node packages: %w", err)
@@ -152,7 +153,7 @@ func Build(config Config) (*Runtime, error) {
 		Contracts: contracts, GeneratorVersion: nodes.GeneratorVersion,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("build Authoring Projection 3.1: %w", err)
+		return nil, fmt.Errorf("build Authoring Projection: %w", err)
 	}
 	build, err := compiler.BuildDigest()
 	if err != nil {
@@ -386,20 +387,20 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 		return admission.HostProfile{}, err
 	}
 	draft := admission.HostProfileDraft{
-		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: "3.1",
+		OS: runtime.GOOS, Architecture: runtime.GOARCH, HostAPIGeneration: hostapi.Current,
 		Features: append(scriptRuntime.HostFeatures(), pluginFeatures...),
 		Providers: []admission.ProviderDescriptor{
 			{ID: blob.ProviderID, ArtifactDigest: blobDigest, ABI: blob.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{
 					{Capability: blobRead, ResourceKind: blob.KindReader},
 					{Capability: blobWrite, ResourceKind: blob.KindWriter},
 				}},
 			{ID: stream.ProviderID, ArtifactDigest: streamDigest, ABI: stream.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{{Capability: streamSession, ResourceKind: stream.Kind}}},
 			{ID: workspacefs.ProviderID, ArtifactDigest: workspaceFileDigest, ABI: workspacefs.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{{Capability: filesystem, ResourceKind: workspacefs.Kind}}},
 		},
 		Targets: []admission.AutomationTarget{
@@ -414,7 +415,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
 				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: ai.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{{Capability: aiGeneration, ResourceKind: ai.KindModelSession}},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
@@ -434,7 +435,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
 				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: httpegress.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{{Capability: httpGet, ResourceKind: httpegress.KindHTTPSession}},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
@@ -446,7 +447,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 		if _, exists := providerIDs[installed.ProviderID]; !exists {
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
 				ID: installed.ProviderID, ArtifactDigest: installed.ProviderArtifact, ABI: appcontrol.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: []admission.ProviderCapability{{Capability: applicationLifecycle, ResourceKind: appcontrol.KindApplication}},
 			})
 			providerIDs[installed.ProviderID] = struct{}{}
@@ -470,7 +471,7 @@ func buildHostProfile(builtins nodes.Builtins, blobDigest, streamDigest, workspa
 			}
 			draft.Providers = append(draft.Providers, admission.ProviderDescriptor{
 				ID: manifest.ProviderID, ArtifactDigest: manifest.ProviderArtifact, ABI: manifest.ProviderABI, PluginInstanceID: "builtin",
-				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: []string{"3.1"},
+				OperatingSystems: []string{runtime.GOOS}, Architectures: []string{runtime.GOARCH}, HostAPIs: hostapi.Supported(),
 				Capabilities: capabilities,
 			})
 			providerIDs[installed.ProviderID] = struct{}{}

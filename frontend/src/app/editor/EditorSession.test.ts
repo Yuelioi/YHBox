@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { computed } from 'vue'
-import authoringDocument from '../../../../contracts/node/3.1/builtin-authoring.json'
+import authoringDocument from '../../../../contracts/node/current/builtin-authoring'
 import type {
   TypeExpression,
   YottaNodeAuthoringProjection,
-} from '../../../../contracts/node/3.1/authoring-projection'
-import type { YottaWorkflowSource } from '../../../../contracts/workflow/3.1/workflow-source'
+} from '../../../../contracts/node/current/authoring-projection'
+import type { YottaWorkflowSource } from '../../../../contracts/workflow/current/workflow-source'
 import type {
   CompileView,
   RunView,
@@ -406,7 +406,7 @@ describe('EditorSession', () => {
     )
   })
 
-  it('uses nominal union and list assignability from the 3.1 contract', () => {
+  it('uses nominal union and list assignability from the current contract', () => {
     const stringType = concat.dataInputs[0].type.expression
     const number = authoring.body.types.find((type) => type.typeRef.typeId.endsWith('/number/v1'))!
     const numberType: TypeExpression = { kind: 'ref', ref: number.typeRef }
@@ -1344,7 +1344,7 @@ describe('EditorSession', () => {
 function emptySource(): YottaWorkflowSource {
   return {
     format: 'yotta.workflow',
-    version: '3.1',
+    version: '1',
     workflow: { id: 'workflow_test', name: 'Test workflow' },
     revision: 0,
     entryGraph: 'main',

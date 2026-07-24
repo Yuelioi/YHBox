@@ -1,4 +1,4 @@
-// Package admission owns Yotta 3.1 host planning and policy admission.
+// Package admission owns host planning and policy admission.
 package admission
 
 import (

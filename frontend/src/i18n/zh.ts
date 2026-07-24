@@ -1406,7 +1406,7 @@ export default {
     list: {
       eyebrow: 'WORKFLOW SOURCES',
       title: '工作流',
-      description: '每次运行都会把已保存的 3.1 源编译成不可变的 Program 快照。',
+      description: '每次运行都会把已保存的 Workflow Source 编译成不可变的 Program 快照。',
       management_description: '搜索、筛选并批量管理工作流源码。',
       new_workflow: '新工作流',
       library_actions: '工作流库操作',
@@ -1511,7 +1511,7 @@ export default {
       recovery_delete: '删除损坏对象',
       recovery_repair_title: '修复工作流源码',
       recovery_repair_description:
-        '编辑原始 JSON 后提交。Yotta 会按当前 3.1 契约完整校验，校验通过前不会放回工作流库。',
+        '编辑原始 JSON 后提交。Yotta 会按当前 Workflow 契约完整校验，校验通过前不会放回工作流库。',
       recovery_source_json: '待修复的工作流源码 JSON',
       recovery_validate_repair: '校验并修复',
       recovery_delete_title: '删除损坏对象「{name}」？',
@@ -2195,8 +2195,7 @@ export default {
   assets: {
     eyebrow: 'WORKFLOW ASSETS',
     title: '资源库与录制',
-    description:
-      '集中管理可直接绑定到 3.1 节点的输入录制和视觉模板。资源使用内容摘要固定到工作流。',
+    description: '集中管理可直接绑定到节点的输入录制和视觉模板。资源使用内容摘要固定到工作流。',
     target_placeholder: '选择自动化目标',
     action_target_hint: '只为本次操作选择自动化目标；资源列表不会被持久目标配置占用空间。',
     asset_types: '资源类型',

@@ -123,7 +123,7 @@ func visionMatchSource(builtins nodes.Builtins, frame, template blob.BlobRef) []
 	match, _ := builtins.Definition(nodes.MatchTemplateNodeID)
 	branch, _ := builtins.Definition(nodes.BranchNodeID)
 	return []byte(fmt.Sprintf(`{
-		"format":"yotta.workflow","version":"3.1","workflow":{"id":"wf-vision-match","name":"Vision Match"},"revision":0,"entryGraph":"main",
+		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-vision-match","name":"Vision Match"},"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[
 			{"id":"start","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":0},"config":{},"bindings":{}},
 			{"id":"match","nodeRef":{"nodeTypeId":%q,"version":"1.0.0","semanticDigest":%q},"position":{"x":0,"y":1},"config":{},"bindings":{

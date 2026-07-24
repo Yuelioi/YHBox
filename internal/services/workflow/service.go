@@ -1,4 +1,4 @@
-// Package workflow exposes the Yotta 3.1 application commands to Wails.
+// Package workflow exposes the Yotta application commands to Wails.
 // It is a projection layer; execution and storage remain owned by Application.
 package workflow
 

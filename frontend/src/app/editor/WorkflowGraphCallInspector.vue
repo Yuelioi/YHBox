@@ -62,8 +62,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Graph, GraphCall, Node } from '../../../../contracts/workflow/3.1/workflow-source'
-import type { PortProjection } from '../../../../contracts/node/3.1/authoring-projection'
+import type { Graph, GraphCall, Node } from '../../../../contracts/workflow/current/workflow-source'
+import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand } from './EditorSession'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
 
@@ -79,7 +79,7 @@ const editorNode = computed<Node>(() => ({
   id: props.call.id,
   nodeRef: {
     nodeTypeId: 'https://schemas.yotta.dev/nodes/graph-call',
-    version: '3.1.0',
+    version: '1.0.0',
     semanticDigest: `sha256:${'0'.repeat(64)}`,
   },
   position: props.call.position,

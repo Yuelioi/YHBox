@@ -5,7 +5,7 @@ import type {
   Graph,
   GraphExit,
   GraphPort,
-} from '../../../../contracts/workflow/3.1/workflow-source'
+} from '../../../../contracts/workflow/current/workflow-source'
 import { graphHandle, parseGraphHandle } from './graphHandles'
 
 export type GraphBoundaryRole = 'entry' | 'exit' | 'output'

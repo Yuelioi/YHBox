@@ -44,7 +44,7 @@ func GenerateArtifacts() (GeneratedArtifacts, error) {
 
 func generateDocumentation(builtins Builtins, authoring nodeauthoring.Snapshot) (string, error) {
 	var builder strings.Builder
-	builder.WriteString("# Yotta 3.1 built-in nodes\n\n")
+	builder.WriteString("# Yotta built-in nodes\n\n")
 	fmt.Fprintf(&builder, "Generated from the strict Node Authoring Projection `%s`. Do not edit.\n\n", authoring.Digest())
 	rows, err := validateTypeCapabilityClosure(builtins.Types, builtins.Contracts)
 	if err != nil {

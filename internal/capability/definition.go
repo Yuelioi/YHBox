@@ -1,4 +1,4 @@
-// Package capability owns Yotta 3.1 capability definitions, attributed
+// Package capability owns capability definitions, attributed
 // requirements, and immutable least-privilege plans.
 package capability
 
@@ -22,7 +22,7 @@ import (
 
 const (
 	DefinitionFormat       = "yotta.capability-definition"
-	DefinitionVersion      = "3.1"
+	DefinitionVersion      = "1"
 	MaxDefinitionBytes     = 1 << 20
 	definitionDigestDomain = "yotta/capability-definition/v1"
 )

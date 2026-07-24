@@ -59,7 +59,7 @@ export interface YottaWorkflowSource {
    * @maxItems 4096
    */
   variables: Variable[]
-  version: '3.1'
+  version: '1'
   workflow: Workflow
 }
 export interface CredentialRequirement {

@@ -17,7 +17,7 @@ export interface MouseProfile {
 }
 
 // LauncherBlock 悬浮窗启动器的一个块（积木式编排，跟 Go services.LauncherBlock 对齐）。
-// type: 'workflow'(Workflow 3.1 按钮) | 'label'(文字标题) | 'hsep'(水平分隔符) | 'vsep'(垂直分隔符)。
+// type: 'workflow'(Workflow 按钮) | 'label'(文字标题) | 'hsep'(水平分隔符) | 'vsep'(垂直分隔符)。
 export interface LauncherBlock {
   id: string
   type: 'workflow' | 'label' | 'hsep' | 'vsep'

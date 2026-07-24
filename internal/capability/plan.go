@@ -13,7 +13,7 @@ import (
 
 const (
 	PlanFormat       = "yotta.capability-plan"
-	PlanVersion      = "3.1"
+	PlanVersion      = "1"
 	MaxPlanBytes     = 4 << 20
 	planDigestDomain = "yotta/capability-plan/v1"
 )

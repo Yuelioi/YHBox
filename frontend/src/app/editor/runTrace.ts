@@ -1,5 +1,5 @@
 import type { RunView } from '@/app/transport/workflow'
-import type { YottaWorkflowSource } from '../../../../contracts/workflow/3.1/workflow-source'
+import type { YottaWorkflowSource } from '../../../../contracts/workflow/current/workflow-source'
 
 export type NodeRunStatus = 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | 'routed'
 
