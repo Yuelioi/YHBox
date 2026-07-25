@@ -240,12 +240,14 @@ type DeleteSourceResult struct {
 }
 
 type BundleInfoView struct {
-	WorkflowID string          `json:"workflowId"`
-	Name       string          `json:"name"`
-	Revision   int64           `json:"revision"`
-	SourceHash artifact.Digest `json:"sourceHash"`
-	BlobCount  int             `json:"blobCount"`
-	BlobBytes  int64           `json:"blobBytes"`
+	WorkflowID    string          `json:"workflowId"`
+	Name          string          `json:"name"`
+	Revision      int64           `json:"revision"`
+	SourceHash    artifact.Digest `json:"sourceHash"`
+	BlobCount     int             `json:"blobCount"`
+	BlobBytes     int64           `json:"blobBytes"`
+	SourceTrust   string          `json:"sourceTrust"`
+	EvidenceKinds []string        `json:"evidenceKinds"`
 }
 
 type BundleExportResult struct {
@@ -1076,9 +1078,14 @@ func sourceNodeCount(source schema.WorkflowSource) int {
 }
 
 func bundleInfoView(info workflowbundle.Info) BundleInfoView {
+	evidenceKinds := make([]string, 0, len(info.Evidence))
+	for _, evidence := range info.Evidence {
+		evidenceKinds = append(evidenceKinds, string(evidence.Kind))
+	}
 	return BundleInfoView{
 		WorkflowID: info.WorkflowID, Name: info.Name, Revision: info.Revision,
 		SourceHash: info.SourceHash, BlobCount: info.BlobCount, BlobBytes: info.BlobBytes,
+		SourceTrust: info.SourceTrust, EvidenceKinds: evidenceKinds,
 	}
 }
 

@@ -1494,12 +1494,21 @@ async function replaceSource(source: SelectedSource): Promise<void> {
 }
 
 function bundleDescription(info: BundleInfoView): string {
-  return t('workflow.list.bundle_description', {
-    name: info.name,
-    revision: info.revision,
-    blobs: info.blobCount,
-    bytes: info.blobBytes,
-  })
+  const details = [
+    t('workflow.list.bundle_description', {
+      name: info.name,
+      revision: info.revision,
+      blobs: info.blobCount,
+      bytes: info.blobBytes,
+    }),
+  ]
+  if (info.sourceTrust === 'unverified') {
+    details.push(t('workflow.list.bundle_unverified'))
+  }
+  if (info.evidenceKinds.length > 0) {
+    details.push(t('workflow.list.bundle_evidence', { count: info.evidenceKinds.length }))
+  }
+  return details.join('\n')
 }
 
 function selectedName(workflowId: string): string {

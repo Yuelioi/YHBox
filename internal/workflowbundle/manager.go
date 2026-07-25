@@ -14,6 +14,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -27,18 +29,30 @@ import (
 
 const (
 	Format                = "yotta.workflow-bundle"
-	Version               = 1
+	Version               = 2
+	LegacyVersion         = 1
 	ManifestPath          = "yotta-workflow-bundle.json"
 	SourcePath            = "workflow.json"
 	Extension             = ".yotta-workflow"
+	SourceTrustUnverified = "unverified"
 	maxArchiveBytes       = int64(1 << 30)
 	maxExpandedBytes      = int64(1 << 30)
 	maxSourceBytes        = int64(16 << 20)
 	maxManifestBytes      = int64(1 << 20)
-	maxEntries            = 4098
+	maxEvidenceBytes      = int64(4 << 20)
+	maxEntries            = 4100
 	privateFileMode       = 0o600
 	archiveEncryptionFlag = 1 << 0
 )
+
+type EvidenceKind string
+
+const (
+	EvidencePublisherAttestation     EvidenceKind = "publisher-attestation"
+	EvidencePlatformPublicationProof EvidenceKind = "platform-publication-proof"
+)
+
+var evidenceMediaTypePattern = regexp.MustCompile(`^application/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}(?:\+[a-z0-9][a-z0-9!#$&^_.+-]{0,63})?$`)
 
 type SourceRepository interface {
 	GetSource(string) (workflowstore.SourceSnapshot, error)
@@ -60,10 +74,26 @@ type Manager struct {
 type Manifest struct {
 	Format       string                         `json:"format"`
 	Version      int                            `json:"version"`
+	SourceTrust  string                         `json:"sourceTrust,omitempty"`
 	WorkflowID   string                         `json:"workflowId"`
 	SourceHash   artifact.Digest                `json:"sourceHash"`
 	Dependencies []schema.NodePackageDependency `json:"dependencies"`
 	Blobs        []blob.BlobRef                 `json:"blobs"`
+	Evidence     []EvidenceRef                  `json:"evidence"`
+}
+
+type EvidenceInput struct {
+	Kind      EvidenceKind
+	MediaType string
+	Bytes     []byte
+}
+
+type EvidenceRef struct {
+	Kind      EvidenceKind    `json:"kind"`
+	Path      string          `json:"path"`
+	MediaType string          `json:"mediaType"`
+	Digest    artifact.Digest `json:"digest"`
+	Size      int64           `json:"size"`
 }
 
 type Info struct {
@@ -77,6 +107,8 @@ type Info struct {
 	DependencyCount            int             `json:"dependencyCount"`
 	BlobCount                  int             `json:"blobCount"`
 	BlobBytes                  int64           `json:"blobBytes"`
+	SourceTrust                string          `json:"sourceTrust"`
+	Evidence                   []EvidenceRef   `json:"evidence"`
 }
 
 type ExportResult struct {
@@ -112,6 +144,17 @@ func New(sources SourceRepository, blobs BlobStore) (*Manager, error) {
 }
 
 func (m *Manager) Export(ctx context.Context, workflowID, destination string) (ExportResult, error) {
+	return m.ExportWithEvidence(ctx, workflowID, destination, nil)
+}
+
+// ExportWithEvidence packages exact, opaque proof bytes without interpreting
+// or trusting them. Inspect and Import continue to report the archive as
+// unverified until a separate trust boundary verifies those bytes.
+func (m *Manager) ExportWithEvidence(
+	ctx context.Context,
+	workflowID, destination string,
+	evidence []EvidenceInput,
+) (ExportResult, error) {
 	if ctx == nil || strings.TrimSpace(workflowID) == "" || strings.TrimSpace(destination) == "" {
 		return ExportResult{}, errors.New("workflow bundle export requires context, workflow ID, and destination")
 	}
@@ -131,18 +174,24 @@ func (m *Manager) Export(ctx context.Context, workflowID, destination string) (E
 			return ExportResult{}, fmt.Errorf("verify export blob %s: %w", ref.Digest, err)
 		}
 	}
+	evidence, evidenceRefs, err := normalizeEvidence(evidence)
+	if err != nil {
+		return ExportResult{}, err
+	}
 	manifest := Manifest{
-		Format: Format, Version: Version, WorkflowID: workflowID, SourceHash: digest,
-		Dependencies: append([]schema.NodePackageDependency{}, document.Dependencies...), Blobs: refs,
+		Format: Format, Version: Version, SourceTrust: SourceTrustUnverified,
+		WorkflowID: workflowID, SourceHash: digest,
+		Dependencies: append([]schema.NodePackageDependency{}, document.Dependencies...),
+		Blobs:        refs, Evidence: evidenceRefs,
 	}
 	manifestRaw, err := json.Marshal(manifest)
 	if err != nil {
 		return ExportResult{}, err
 	}
-	if err := m.writeArchive(ctx, destination, manifestRaw, canonical, refs); err != nil {
+	if err := m.writeArchive(ctx, destination, manifestRaw, canonical, refs, evidence); err != nil {
 		return ExportResult{}, err
 	}
-	return ExportResult{Info: sourceInfo(document, digest, refs), Path: destination}, nil
+	return ExportResult{Info: sourceInfo(document, digest, refs, manifest), Path: destination}, nil
 }
 
 func (m *Manager) Inspect(ctx context.Context, archivePath string) (Info, error) {
@@ -230,6 +279,7 @@ type openedBundle struct {
 	document    schema.WorkflowSource
 	info        Info
 	blobEntries map[artifact.Digest]*zip.File
+	evidence    map[EvidenceKind]*zip.File
 }
 
 func (b *openedBundle) close() { _ = b.file.Close() }
@@ -307,7 +357,21 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 		}
 		blobEntries[ref.Digest] = entry
 	}
-	if len(entries) != len(blobEntries)+2 {
+	evidenceEntries := make(map[EvidenceKind]*zip.File, len(manifest.Evidence))
+	for _, ref := range manifest.Evidence {
+		entry, ok := entries[ref.Path]
+		if !ok {
+			return fail(fmt.Errorf("workflow bundle evidence %q is missing", ref.Kind))
+		}
+		if entry.UncompressedSize64 != uint64(ref.Size) {
+			return fail(fmt.Errorf("workflow bundle evidence %q size does not match", ref.Kind))
+		}
+		if err := verifyEntry(ctx, entry, ref.Digest); err != nil {
+			return fail(fmt.Errorf("verify workflow bundle evidence %q: %w", ref.Kind, err))
+		}
+		evidenceEntries[ref.Kind] = entry
+	}
+	if len(entries) != len(blobEntries)+len(evidenceEntries)+2 {
 		return fail(errors.New("workflow bundle archive contains undeclared entries"))
 	}
 	for digest, entry := range blobEntries {
@@ -315,10 +379,20 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 			return fail(err)
 		}
 	}
-	return &openedBundle{file: file, manifest: manifest, document: document, info: sourceInfo(document, digest, refs), blobEntries: blobEntries}, nil
+	return &openedBundle{
+		file: file, manifest: manifest, document: document,
+		info:        sourceInfo(document, digest, refs, manifest),
+		blobEntries: blobEntries, evidence: evidenceEntries,
+	}, nil
 }
 
-func (m *Manager) writeArchive(ctx context.Context, destination string, manifest, source []byte, refs []blob.BlobRef) error {
+func (m *Manager) writeArchive(
+	ctx context.Context,
+	destination string,
+	manifest, source []byte,
+	refs []blob.BlobRef,
+	evidence []EvidenceInput,
+) error {
 	destination, err := filepath.Abs(destination)
 	if err != nil {
 		return err
@@ -380,6 +454,19 @@ func (m *Manager) writeArchive(ctx context.Context, destination string, manifest
 		}
 		written[ref.Digest] = struct{}{}
 	}
+	for _, item := range evidence {
+		writer, err := archive.CreateHeader(archiveHeader(evidencePath(item.Kind)))
+		if err != nil {
+			_ = archive.Close()
+			_ = temp.Close()
+			return err
+		}
+		if _, err := writer.Write(item.Bytes); err != nil {
+			_ = archive.Close()
+			_ = temp.Close()
+			return err
+		}
+	}
 	if err := archive.Close(); err != nil {
 		_ = temp.Close()
 		return err
@@ -412,7 +499,12 @@ func inspectSource(raw []byte) (schema.WorkflowSource, []byte, artifact.Digest, 
 	return document, canonical, digest, refs, nil
 }
 
-func sourceInfo(document schema.WorkflowSource, digest artifact.Digest, refs []blob.BlobRef) Info {
+func sourceInfo(
+	document schema.WorkflowSource,
+	digest artifact.Digest,
+	refs []blob.BlobRef,
+	manifest Manifest,
+) Info {
 	var bytes int64
 	seen := make(map[artifact.Digest]struct{})
 	for _, ref := range refs {
@@ -427,13 +519,27 @@ func sourceInfo(document schema.WorkflowSource, digest artifact.Digest, refs []b
 		ResourceCount: len(document.Resources), TargetProfileCount: len(document.TargetProfileDefinitions),
 		CredentialRequirementCount: len(document.CredentialRequirements), DependencyCount: len(document.Dependencies),
 		BlobCount: len(seen), BlobBytes: bytes,
+		SourceTrust: sourceTrust(manifest), Evidence: append([]EvidenceRef(nil), manifest.Evidence...),
 	}
 }
 
 func validateManifest(manifest Manifest) error {
-	if manifest.Format != Format || manifest.Version != Version || strings.TrimSpace(manifest.WorkflowID) == "" || !manifest.SourceHash.Valid() ||
-		manifest.Dependencies == nil || len(manifest.Dependencies) > schema.MaxDependencies || manifest.Blobs == nil || len(manifest.Blobs) > maxEntries-2 {
+	if manifest.Format != Format || strings.TrimSpace(manifest.WorkflowID) == "" || !manifest.SourceHash.Valid() ||
+		manifest.Dependencies == nil || len(manifest.Dependencies) > schema.MaxDependencies ||
+		manifest.Blobs == nil || len(manifest.Blobs) > maxEntries-4 {
 		return errors.New("workflow bundle manifest identity is invalid")
+	}
+	switch manifest.Version {
+	case LegacyVersion:
+		if manifest.SourceTrust != "" || len(manifest.Evidence) != 0 {
+			return errors.New("legacy workflow bundle cannot declare release evidence")
+		}
+	case Version:
+		if manifest.SourceTrust != SourceTrustUnverified || manifest.Evidence == nil {
+			return errors.New("workflow bundle must explicitly remain unverified before trust evaluation")
+		}
+	default:
+		return errors.New("unsupported workflow bundle manifest version")
 	}
 	for i, ref := range manifest.Blobs {
 		if err := ref.Validate(); err != nil {
@@ -446,7 +552,73 @@ func validateManifest(manifest Manifest) error {
 			}
 		}
 	}
+	for index, ref := range manifest.Evidence {
+		if err := validateEvidenceRef(ref); err != nil {
+			return fmt.Errorf("workflow bundle evidence %d is invalid: %w", index, err)
+		}
+		if index > 0 && manifest.Evidence[index-1].Kind >= ref.Kind {
+			return errors.New("workflow bundle evidence is not uniquely sorted")
+		}
+	}
 	return nil
+}
+
+func normalizeEvidence(inputs []EvidenceInput) ([]EvidenceInput, []EvidenceRef, error) {
+	normalized := append([]EvidenceInput(nil), inputs...)
+	sort.Slice(normalized, func(i, j int) bool { return normalized[i].Kind < normalized[j].Kind })
+	refs := make([]EvidenceRef, 0, len(normalized))
+	for index, input := range normalized {
+		if index > 0 && normalized[index-1].Kind == input.Kind {
+			return nil, nil, errors.New("workflow bundle evidence kind is duplicated")
+		}
+		if len(input.Bytes) == 0 || int64(len(input.Bytes)) > maxEvidenceBytes ||
+			!evidenceMediaTypePattern.MatchString(input.MediaType) {
+			return nil, nil, errors.New("workflow bundle evidence input is invalid")
+		}
+		digest := rawDigest(input.Bytes)
+		ref := EvidenceRef{
+			Kind: input.Kind, Path: evidencePath(input.Kind), MediaType: input.MediaType,
+			Digest: digest, Size: int64(len(input.Bytes)),
+		}
+		if err := validateEvidenceRef(ref); err != nil {
+			return nil, nil, err
+		}
+		refs = append(refs, ref)
+		normalized[index].Bytes = append([]byte(nil), input.Bytes...)
+	}
+	return normalized, refs, nil
+}
+
+func validateEvidenceRef(ref EvidenceRef) error {
+	if ref.Kind != EvidencePublisherAttestation && ref.Kind != EvidencePlatformPublicationProof ||
+		ref.Path != evidencePath(ref.Kind) || !evidenceMediaTypePattern.MatchString(ref.MediaType) ||
+		!ref.Digest.Valid() || ref.Size <= 0 || ref.Size > maxEvidenceBytes {
+		return errors.New("evidence reference is invalid")
+	}
+	return nil
+}
+
+func evidencePath(kind EvidenceKind) string {
+	switch kind {
+	case EvidencePublisherAttestation:
+		return "evidence/publisher-attestation.json"
+	case EvidencePlatformPublicationProof:
+		return "evidence/platform-publication-proof.json"
+	default:
+		return ""
+	}
+}
+
+func sourceTrust(manifest Manifest) string {
+	if manifest.Version == LegacyVersion {
+		return SourceTrustUnverified
+	}
+	return manifest.SourceTrust
+}
+
+func rawDigest(raw []byte) artifact.Digest {
+	sum := sha256.Sum256(raw)
+	return artifact.Digest("sha256:" + hex.EncodeToString(sum[:]))
 }
 
 func equalRefs(left, right []blob.BlobRef) bool {

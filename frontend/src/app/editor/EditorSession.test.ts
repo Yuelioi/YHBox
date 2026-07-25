@@ -1970,6 +1970,8 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
       sourceHash: saved.sourceHash,
       blobCount: 0,
       blobBytes: 0,
+      sourceTrust: 'unverified',
+      evidenceKinds: [],
     })),
     importSourceBundle: vi.fn(async () => saved),
     replaceSourceFromBundle: vi.fn(async () => saved),

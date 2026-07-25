@@ -1542,6 +1542,9 @@ export default {
       replace_result: '已用「{name}」的源码更新目标工作流。',
       bundle_description:
         '源码包：{name}，修订 {revision}，包含 {blobs} 个引用资源（{bytes} 字节）。安装配置、密钥和本机目标信息不会导入。',
+      bundle_unverified:
+        '此文件仍是未验证来源。导入只会创建可编辑副本，不会授予发布者信任、安装节点包或运行权限。',
+      bundle_evidence: '携带 {count} 份待验证发布证明。',
       delete_selected: '删除所选',
       delete_title: '删除 {n} 个工作流？',
       delete_description:

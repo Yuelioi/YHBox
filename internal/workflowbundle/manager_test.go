@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,8 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exported.Info.SourceHash != original.Hash() || exported.Info.ResourceCount != 1 || exported.Info.DependencyCount != 1 ||
+	if exported.Info.SourceHash != original.Hash() || exported.Info.SourceTrust != SourceTrustUnverified ||
+		exported.Info.ResourceCount != 1 || exported.Info.DependencyCount != 1 ||
 		exported.Info.BlobCount != 1 || exported.Info.BlobBytes != ref.Size {
 		t.Fatalf("export info = %#v", exported.Info)
 	}
@@ -147,7 +149,12 @@ func TestManagerRejectsUndeclaredAndCorruptArchiveEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := json.Marshal(Manifest{Format: Format, Version: Version, WorkflowID: snapshot.WorkflowID(), SourceHash: snapshot.Hash(), Dependencies: []schema.NodePackageDependency{}, Blobs: []blob.BlobRef{ref}})
+	manifest, err := json.Marshal(Manifest{
+		Format: Format, Version: Version, SourceTrust: SourceTrustUnverified,
+		WorkflowID: snapshot.WorkflowID(), SourceHash: snapshot.Hash(),
+		Dependencies: []schema.NodePackageDependency{}, Blobs: []blob.BlobRef{ref},
+		Evidence: []EvidenceRef{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,6 +181,115 @@ func TestManagerRejectsUndeclaredAndCorruptArchiveEntries(t *testing.T) {
 				t.Fatal("Inspect() accepted an invalid archive")
 			}
 		})
+	}
+}
+
+func TestManagerCarriesOpaqueEvidenceWithoutClaimingTrust(t *testing.T) {
+	ctx := context.Background()
+	sources, blobs := openTestWorkspace(t)
+	manager, err := New(testSourceRepository{sources}, blobs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := sources.Save(
+		ctx, testSource("release_workflow", "Release evidence", blob.BlobRef{}), -1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "release"+Extension)
+	evidence := []EvidenceInput{
+		{
+			Kind: EvidencePlatformPublicationProof, MediaType: "application/vnd.yotta.publication-proof+json",
+			Bytes: []byte(`{"proof":"platform"}`),
+		},
+		{
+			Kind: EvidencePublisherAttestation, MediaType: "application/vnd.in-toto+json",
+			Bytes: []byte(`{"payloadType":"application/vnd.in-toto+json"}`),
+		},
+	}
+	exported, err := manager.ExportWithEvidence(
+		ctx, snapshot.WorkflowID(), archivePath, evidence,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exported.Info.SourceTrust != SourceTrustUnverified || len(exported.Info.Evidence) != 2 ||
+		exported.Info.Evidence[0].Kind != EvidencePlatformPublicationProof ||
+		exported.Info.Evidence[1].Kind != EvidencePublisherAttestation {
+		t.Fatalf("ExportWithEvidence() = %#v", exported.Info)
+	}
+	secondPath := filepath.Join(t.TempDir(), "release-reordered"+Extension)
+	if _, err := manager.ExportWithEvidence(
+		ctx, snapshot.WorkflowID(), secondPath,
+		[]EvidenceInput{evidence[1], evidence[0]},
+	); err != nil {
+		t.Fatal(err)
+	}
+	firstBytes, firstErr := os.ReadFile(archivePath)
+	secondBytes, secondErr := os.ReadFile(secondPath)
+	if firstErr != nil || secondErr != nil || !bytes.Equal(firstBytes, secondBytes) {
+		t.Fatalf("evidence order changed archive identity: %v, %v", firstErr, secondErr)
+	}
+	inspected, err := manager.Inspect(ctx, archivePath)
+	if err != nil || inspected.SourceTrust != SourceTrustUnverified ||
+		len(inspected.Evidence) != 2 {
+		t.Fatalf("Inspect() = %#v, %v", inspected, err)
+	}
+	entries := readTestZip(t, archivePath)
+	if string(entries[evidencePath(EvidencePublisherAttestation)]) !=
+		`{"payloadType":"application/vnd.in-toto+json"}` {
+		t.Fatal("publisher evidence bytes changed")
+	}
+	entries[evidencePath(EvidencePublisherAttestation)] = []byte(`{"tampered":true}`)
+	tampered := filepath.Join(t.TempDir(), "tampered"+Extension)
+	writeTestZip(t, tampered, entries)
+	if _, err := manager.Inspect(ctx, tampered); err == nil {
+		t.Fatal("Inspect accepted tampered release evidence")
+	}
+	if _, err := manager.ExportWithEvidence(
+		ctx, snapshot.WorkflowID(), filepath.Join(t.TempDir(), "unknown"+Extension),
+		[]EvidenceInput{{Kind: "trust-policy", MediaType: "application/json", Bytes: []byte(`{}`)}},
+	); err == nil {
+		t.Fatal("ExportWithEvidence accepted local authority as release evidence")
+	}
+}
+
+func TestManagerReadsLegacyUnsignedBundleAsUnverified(t *testing.T) {
+	ctx := context.Background()
+	sources, blobs := openTestWorkspace(t)
+	manager, err := New(testSourceRepository{sources}, blobs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := sources.Save(
+		ctx, testSource("legacy_workflow", "Legacy unsigned", blob.BlobRef{}), -1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := json.Marshal(struct {
+		Format       string                         `json:"format"`
+		Version      int                            `json:"version"`
+		WorkflowID   string                         `json:"workflowId"`
+		SourceHash   artifact.Digest                `json:"sourceHash"`
+		Dependencies []schema.NodePackageDependency `json:"dependencies"`
+		Blobs        []blob.BlobRef                 `json:"blobs"`
+	}{
+		Format: Format, Version: LegacyVersion, WorkflowID: snapshot.WorkflowID(),
+		SourceHash: snapshot.Hash(), Dependencies: []schema.NodePackageDependency{},
+		Blobs: []blob.BlobRef{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivePath := filepath.Join(t.TempDir(), "legacy"+Extension)
+	writeTestZip(t, archivePath, map[string][]byte{
+		ManifestPath: manifest, SourcePath: snapshot.Artifact(),
+	})
+	info, err := manager.Inspect(ctx, archivePath)
+	if err != nil || info.SourceTrust != SourceTrustUnverified || len(info.Evidence) != 0 {
+		t.Fatalf("Inspect legacy = %#v, %v", info, err)
 	}
 }
 
@@ -246,4 +362,27 @@ func writeTestZip(t *testing.T, destination string, entries map[string][]byte) {
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func readTestZip(t *testing.T, source string) map[string][]byte {
+	t.Helper()
+	archive, err := zip.OpenReader(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	entries := make(map[string][]byte, len(archive.File))
+	for _, entry := range archive.File {
+		reader, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, err := io.ReadAll(reader)
+		closeErr := reader.Close()
+		if err != nil || closeErr != nil {
+			t.Fatalf("read %s: %v, close: %v", entry.Name, err, closeErr)
+		}
+		entries[entry.Name] = payload
+	}
+	return entries
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
@@ -420,7 +421,8 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 		t.Fatalf("ExportSourceBundle() = %#v, %v", exported, err)
 	}
 	info, err := service.InspectSourceBundle(archivePath)
-	if err != nil || info.WorkflowID != created.WorkflowID || info.SourceHash != created.SourceHash {
+	if err != nil || info.WorkflowID != created.WorkflowID || info.SourceHash != created.SourceHash ||
+		info.SourceTrust != workflowbundle.SourceTrustUnverified || len(info.EvidenceKinds) != 0 {
 		t.Fatalf("InspectSourceBundle() = %#v, %v", info, err)
 	}
 	imported, err := service.ImportSourceBundle(archivePath)

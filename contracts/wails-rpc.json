@@ -6285,6 +6285,16 @@
               "name": "\"blobBytes\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"sourceTrust\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"evidenceKinds\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         },

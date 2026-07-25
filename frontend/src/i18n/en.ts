@@ -1944,6 +1944,9 @@ export default {
       replace_result: 'Updated the target workflow with the source from “{name}”.',
       bundle_description:
         'Source bundle: {name}, revision {revision}, {blobs} referenced assets ({bytes} bytes). Installations, secrets, and machine-local target details are not imported.',
+      bundle_unverified:
+        'This file is still an unverified source. Importing creates an editable copy; it does not grant publisher trust, install node packages, or authorize execution.',
+      bundle_evidence: 'Carries {count} release evidence items awaiting verification.',
       delete_selected: 'Delete selected',
       delete_title: 'Delete {n} workflows?',
       delete_description:

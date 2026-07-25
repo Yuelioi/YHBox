@@ -10,17 +10,23 @@ Open
 
 ## Current
 
-Stage M4 已启动：M4a canonical Installation Plan 合同锁定 Workflow Release 与全部精确 Node Package
-artifact，并严格保持 transport artifact identity 与本机 trust/install/target/credential/consent authority
-分离。M3b Installation-local 配置已完成。
+Stage M4 进行中：M4a canonical Installation Plan 已锁定 Workflow/Node Package exact artifact；M4b
+`.yotta-workflow` version 2 可携带 manifest-locked opaque Publisher Attestation/Platform Publication Proof，
+但 Inspect/Import 始终明确为 unverified，不因 evidence 存在而授予任何本机 authority。
 
 ## Next
 
-继续 [Stage M4](plan.md)：让 data-only `.yotta-workflow` 承载可选 Publisher Attestation/
-Platform Publication Proof，并接入 M4a Installation Plan；之后由 `.yotta-offline-pack` 原样组合相同制品。
+继续 [Stage M4](plan.md)：定义 `.yotta-offline-pack`，原样组合 M4a 计划锁定的 Workflow 与 Node Package
+artifact；再把 publisher trust、精确 package installation 与 execution consent 的用户动作分开。
 
 ## Progress
 
+- 2026-07-26 M4b 完成：`.yotta-workflow` manifest version 2 显式标记 `sourceTrust: unverified`，
+  可携带固定 kind/path 且 digest/size/media type 精确锁定的 Publisher Attestation 与 Platform Publication
+  Proof opaque bytes。两类 evidence 不在桌面端复制 schema，也不会因存在就创建 verified Release；
+  version 1 unsigned bundle 只读迁移为 unverified。Import/Replace 确认文案明确不授予 trust、不安装代码、
+  不授权运行，并报告待验证 evidence 数量。`task check` 通过 10 个 Go 包、Wails 17/155/229 与前端
+  83 文件/353 项测试；Windows WebView smoke `20260726-062735` 退出 0。
 - 2026-07-26 M4a 完成：新增 transport-neutral canonical Installation Plan，锁定 Workflow 的
   publisher/workflow/version/release/source/artifact identity 与每个 Node Package 的
   publisher/package/version/manifest/artifact identity。Plan package 集合必须与 canonical Source
