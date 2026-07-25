@@ -179,6 +179,8 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 
 ### M4 — Bundle、离线包与代码安装边界
 
+- [x] [M4a — Installation Plan 合同](slices/stage-m4a-installation-plan-contract.md)：以 canonical、
+  transport-neutral 计划锁定 Workflow/Node Package exact artifact，且不携带或授予任何本机 authority。
 - [ ] `.yotta-workflow` 只包含 canonical Source、Workflow Resource bytes、manifest 与可选 Publisher Attestation/
   Platform Publication Proof；私有离线文件允许 unsigned，并明确标记 unverified source。
 - [ ] 定义 Installation Plan；在线逐项下载 workflow/package artifact，`.yotta-offline-pack` 原样装入同一组已签名字节，

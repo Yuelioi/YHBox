@@ -10,17 +10,23 @@ Open
 
 ## Current
 
-Stage M3b 完成：Installation-local target profile、secure credential logical binding、精确 run/schedule
-consent、Installation-ID 执行和设置界面均已闭环；secret 始终只留在本机安全存储，Readiness 每次从当前
-目标、依赖与 credential availability 重新计算。
+Stage M4 已启动：M4a canonical Installation Plan 合同锁定 Workflow Release 与全部精确 Node Package
+artifact，并严格保持 transport artifact identity 与本机 trust/install/target/credential/consent authority
+分离。M3b Installation-local 配置已完成。
 
 ## Next
 
-开始 [Stage M4](plan.md)：定义 data-only `.yotta-workflow`、统一 Installation Plan、离线包与
-Node Package trust/install/consent 边界。
+继续 [Stage M4](plan.md)：让 data-only `.yotta-workflow` 承载可选 Publisher Attestation/
+Platform Publication Proof，并接入 M4a Installation Plan；之后由 `.yotta-offline-pack` 原样组合相同制品。
 
 ## Progress
 
+- 2026-07-26 M4a 完成：新增 transport-neutral canonical Installation Plan，锁定 Workflow 的
+  publisher/workflow/version/release/source/artifact identity 与每个 Node Package 的
+  publisher/package/version/manifest/artifact identity。Plan package 集合必须与 canonical Source
+  dependency 一一精确匹配；不同输入顺序归一为同一 digest，unknown/local authority 字段、非 canonical
+  JSON、制品 media type/size/digest 与 dependency drift 均 fail closed。模块不下载、不验签、不安装，
+  也不携带 trust、target、credential 或 consent。
 - 2026-07-26 M3b 完成：Workflow Credential Requirement 以 kind + logical binding ID 选择当前 AI
   credential profile，安全存储只投影 available 状态且不返回 secret；未知、类型不兼容、已删除或不可用
   binding 在更新和 Readiness 两处 fail closed。设置 Modal 支持选择兼容 credential、失效引用与无候选修复入口，
