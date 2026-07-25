@@ -184,6 +184,8 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 - [x] [M4b — Workflow Release evidence container](slices/stage-m4b-workflow-release-evidence.md)：
   `.yotta-workflow` 只包含 canonical Source、Workflow Resource bytes、manifest 与可选 Publisher Attestation/
   Platform Publication Proof；私有离线文件允许 unsigned，并明确标记 unverified source。
+- [x] [M4c — Offline Pack container](slices/stage-m4c-offline-pack-container.md)：只封装 M4a Plan 与
+  exact Workflow/Node Package artifact bytes，容器完整性不产生 trust、install 或 consent authority。
 - [ ] 定义 Installation Plan；在线逐项下载 workflow/package artifact，`.yotta-offline-pack` 原样装入同一组已签名字节，
   外层 manifest 只锁定列表/digest，不产生新的信任。
 - [ ] Node Package Publisher Trust、精确 Package Installation 与 Workflow Execution Consent 分成独立本机记录；

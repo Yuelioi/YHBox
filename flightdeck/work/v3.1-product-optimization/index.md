@@ -10,17 +10,21 @@ Open
 
 ## Current
 
-Stage M4 进行中：M4a canonical Installation Plan 已锁定 Workflow/Node Package exact artifact；M4b
-`.yotta-workflow` version 2 可携带 manifest-locked opaque Publisher Attestation/Platform Publication Proof，
-但 Inspect/Import 始终明确为 unverified，不因 evidence 存在而授予任何本机 authority。
+Stage M4 进行中：M4a canonical Installation Plan、M4b `.yotta-workflow` opaque release evidence 与
+M4c deterministic `.yotta-offline-pack` container 已闭环。在线/离线现在共享 exact artifact identity，
+但容器完整性始终不产生 publisher trust、package install 或 Workflow execution consent authority。
 
 ## Next
 
-继续 [Stage M4](plan.md)：定义 `.yotta-offline-pack`，原样组合 M4a 计划锁定的 Workflow 与 Node Package
-artifact；再把 publisher trust、精确 package installation 与 execution consent 的用户动作分开。
+继续 [Stage M4](plan.md)：把在线逐项获取与离线 pack inspect 接入同一导入协调器，并将 publisher trust、
+精确 package installation 与 Workflow execution consent 保持为三个显式用户动作。
 
 ## Progress
 
+- 2026-07-26 M4c 完成：新增 deterministic `.yotta-offline-pack` transport，只保存 canonical
+  Installation Plan 与按 raw SHA-256 寻址的原始 Workflow/Node Package artifact bytes。Writer 逐项重哈希，
+  Inspect 拒绝 missing/extra/tampered/duplicate/unsafe/encrypted/超预算 entry，只返回原 Plan，不验签、
+  不安装、不携带本机配置或 consent。
 - 2026-07-26 M4b 完成：`.yotta-workflow` manifest version 2 显式标记 `sourceTrust: unverified`，
   可携带固定 kind/path 且 digest/size/media type 精确锁定的 Publisher Attestation 与 Platform Publication
   Proof opaque bytes。两类 evidence 不在桌面端复制 schema，也不会因存在就创建 verified Release；
