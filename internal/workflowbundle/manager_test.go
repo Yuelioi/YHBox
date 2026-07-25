@@ -14,6 +14,8 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
@@ -47,8 +49,7 @@ func (r testSourceRepository) PublishImportedSource(ctx context.Context, raw []b
 
 func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	ctx := context.Background()
-	sourceStore := openTestSources(t)
-	sourceBlobs := openTestBlobs(t)
+	sourceStore, sourceBlobs := openTestWorkspace(t)
 	ref, err := sourceBlobs.Put(ctx, "application/vnd.yotta.macro+json", strings.NewReader("portable payload"))
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +76,7 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 	if err != nil || inspected.WorkflowID != original.WorkflowID() {
 		t.Fatalf("Inspect() = %#v, %v", inspected, err)
 	}
-	targetStore := openTestSources(t)
-	targetBlobs := openTestBlobs(t)
+	targetStore, targetBlobs := openTestWorkspace(t)
 	targetManager, err := New(testSourceRepository{targetStore}, targetBlobs)
 	if err != nil {
 		t.Fatal(err)
@@ -96,8 +96,7 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 
 func TestManagerReplaceRequiresExactTargetIdentity(t *testing.T) {
 	ctx := context.Background()
-	sources := openTestSources(t)
-	blobs := openTestBlobs(t)
+	sources, blobs := openTestWorkspace(t)
 	manager, err := New(testSourceRepository{sources}, blobs)
 	if err != nil {
 		t.Fatal(err)
@@ -134,8 +133,7 @@ func TestManagerReplaceRequiresExactTargetIdentity(t *testing.T) {
 
 func TestManagerRejectsUndeclaredAndCorruptArchiveEntries(t *testing.T) {
 	ctx := context.Background()
-	sources := openTestSources(t)
-	blobs := openTestBlobs(t)
+	sources, blobs := openTestWorkspace(t)
 	manager, err := New(testSourceRepository{sources}, blobs)
 	if err != nil {
 		t.Fatal(err)
@@ -179,22 +177,33 @@ func TestManagerRejectsUndeclaredAndCorruptArchiveEntries(t *testing.T) {
 	}
 }
 
-func openTestSources(t *testing.T) *workflowstore.SourceStore {
+func openTestWorkspace(t *testing.T) (*workflowstore.SourceStore, *blob.Store) {
 	t.Helper()
-	store, err := workflowstore.OpenSourceStore(filepath.Join(t.TempDir(), "sources"), workflowstore.SourceStoreOptions{MaxSources: 16})
+	roots, err := storage.Resolve(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return store
-}
-
-func openTestBlobs(t *testing.T) *blob.Store {
-	t.Helper()
-	store, err := blob.Open(filepath.Join(t.TempDir(), "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	foundation, err := catalog.Open(context.Background(), roots)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return store
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobs, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20},
+		foundation.Objects(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources, err := workflowstore.OpenSourceStore(
+		foundation.Workflows(),
+		workflowstore.SourceStoreOptions{MaxSources: 16},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sources, blobs
 }
 
 func testSource(workflowID, name string, ref blob.BlobRef) []byte {

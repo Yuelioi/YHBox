@@ -12,6 +12,7 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $relativeRunRoot = ".task/workflow-editor-smoke/$stamp"
 $runRoot = Join-Path $root $relativeRunRoot
 $binDir = Join-Path $runRoot 'bin'
+$profileRoot = Join-Path $runRoot 'profile'
 $screenshot = Join-Path $runRoot 'workflow-editor.png'
 $assetsScreenshot = Join-Path $runRoot 'assets.png'
 $workflowsScreenshot = Join-Path $runRoot 'workflows.png'
@@ -22,6 +23,10 @@ $appProcess = $null
 $viteProcess = $null
 $viteListenerPID = $null
 $debugEndpoint = $null
+$previousStorageRoot = $env:YOTTA_ROOT
+$previousDebugPort = $env:YOTTA_WEBVIEW_DEBUG_PORT
+$previousDebugProfile = $env:YOTTA_WEBVIEW_DEBUG_PROFILE
+$previousFrontendDevServer = $env:FRONTEND_DEVSERVER_URL
 
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 
@@ -41,9 +46,17 @@ try {
 
     # A single malformed user Source must be isolated without preventing the
     # real desktop host from starting or hiding the rest of the workflow list.
-    $workflowStore = Join-Path $binDir 'data/workspace/workflows'
-    New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
+    # Seed an explicitly owned root before adding the Source fixture; a
+    # non-empty profile without root.json must fail closed.
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $profileRoot 'root.json'),
+        '{"format":"yotta.storage-root","version":"1"}',
+        $utf8NoBom
+    )
+    $workflowStore = Join-Path $profileRoot 'data/workspace/workflows'
+    New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/1`n", $utf8NoBom)
     [System.IO.File]::WriteAllText((Join-Path $workflowStore 'damaged-workflow.json'), '{"format":"yotta.workflow","version":"1",', $utf8NoBom)
 
@@ -70,6 +83,7 @@ try {
     $env:YOTTA_WEBVIEW_DEBUG_PORT = [string]$DebugPort
     $env:YOTTA_WEBVIEW_DEBUG_PROFILE = Join-Path $runRoot 'webview2'
     $env:FRONTEND_DEVSERVER_URL = "http://127.0.0.1:$VitePort"
+    $env:YOTTA_ROOT = $profileRoot
     $appOut = Join-Path $runRoot 'yotta.out.log'
     $appErr = Join-Path $runRoot 'yotta.err.log'
     $appProcess = Start-Process -FilePath (Join-Path $binDir 'Yotta.SmokeHost.exe') -WorkingDirectory $binDir -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
@@ -123,6 +137,10 @@ try {
         throw "Workflow editor smoke failed with exit code $LASTEXITCODE"
     }
 } finally {
+    $env:YOTTA_ROOT = $previousStorageRoot
+    $env:YOTTA_WEBVIEW_DEBUG_PORT = $previousDebugPort
+    $env:YOTTA_WEBVIEW_DEBUG_PROFILE = $previousDebugProfile
+    $env:FRONTEND_DEVSERVER_URL = $previousFrontendDevServer
     if ($appProcess -and -not $appProcess.HasExited) {
         Stop-Process -Id $appProcess.Id -Force -ErrorAction SilentlyContinue
     }

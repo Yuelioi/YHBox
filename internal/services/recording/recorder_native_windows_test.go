@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	inputdriver "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
@@ -78,14 +75,7 @@ func TestNativeRecorderProducesCanonicalEncodableInput(t *testing.T) {
 		t.Fatalf("decode native recording: %v", err)
 	}
 	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assets, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assets := newRecordingAssetStore(t, root)
 	clips := inputclip.NewService(assets)
 	clip.ID = "clip-native-recorder"
 	clip.Label = "Native recorder"
@@ -114,7 +104,7 @@ func TestNativeRecorderProducesCanonicalEncodableInput(t *testing.T) {
 	if err := backend.ReleaseAll(); err != nil {
 		t.Fatalf("release reloaded native clip input: %v", err)
 	}
-	if _, err := blobs.ReadRange(context.Background(), loaded.Blob, 0, loaded.Blob.Size); err != nil {
+	if _, err := assets.ReadBlob(context.Background(), loaded.Blob); err != nil {
 		t.Fatalf("read reloaded native carrier: %v", err)
 	}
 }

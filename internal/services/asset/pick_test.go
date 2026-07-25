@@ -14,6 +14,8 @@ func TestStore_PickVariant(t *testing.T) {
 
 	b1080 := testBlobRef("sha-1080")
 	b720 := testBlobRef("sha-720")
+	observeTestBlob(t, s, b1080)
+	observeTestBlob(t, s, b720)
 	if err := s.putVariant("g", [2]int{1920, 1080}, b1080, [4]int{0, 0, 1920, 1080}, nil); err != nil {
 		t.Fatalf("PutVariant 1080: %v", err)
 	}

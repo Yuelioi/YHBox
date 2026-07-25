@@ -301,12 +301,13 @@ func TestServiceQueryAndBatchManagement(t *testing.T) {
 
 func TestServiceAssetPickerQueryScalesAndResolvesExactVariant(t *testing.T) {
 	store, _ := newTestStore(t)
-	store.mu.Lock()
 	for index := 0; index < 1_000; index++ {
 		guid := fmt.Sprintf("asset-%04d", index)
 		first := testBlobRef(guid + "-720")
 		second := testBlobRef(guid + "-1080")
-		store.recs[guid] = AssetRecord{
+		observeTestBlob(t, store, first)
+		observeTestBlob(t, store, second)
+		if err := store.putRecord(AssetRecord{
 			SchemaVersion: RecordSchemaVersion, GUID: guid, Kind: KindTemplate,
 			Name: fmt.Sprintf("Asset %04d", index), Category: "fixture", Tags: []string{"common"},
 			Origin: Origin{Kind: "user"}, CreatedAt: time.Unix(int64(index), 0).UTC(),
@@ -314,10 +315,10 @@ func TestServiceAssetPickerQueryScalesAndResolvesExactVariant(t *testing.T) {
 				{Resolution: [2]int{1280, 720}, Blob: first},
 				{Resolution: [2]int{1920, 1080}, Blob: second},
 			},
+		}); err != nil {
+			t.Fatal(err)
 		}
 	}
-	store.revision++
-	store.mu.Unlock()
 
 	service := NewService(store, nil, nil)
 	page, err := service.QueryAssets(AssetQuery{

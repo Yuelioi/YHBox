@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"sort"
 	"strings"
 	"time"
 
@@ -249,130 +248,25 @@ func (s *Service) QueryAssets(query AssetQuery) (AssetPage, error) {
 	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 || len(query.Tags) > 16 || len(query.RecentGUIDs) > 64 {
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "filter budget"})
 	}
-	search := strings.ToLower(strings.TrimSpace(query.Search))
-	category := strings.ToLower(strings.TrimSpace(query.Category))
-	wantedTags := normalizedTags(query.Tags)
-	recentRank := make(map[string]int, len(query.RecentGUIDs))
-	for index, guid := range query.RecentGUIDs {
-		if _, exists := recentRank[guid]; !exists {
-			recentRank[guid] = index
-		}
-	}
-	records, revision := s.store.ListWithRevision()
-	categories, tags := assetFacets(records, query.Kind)
-	items := make([]AssetSummary, 0)
-	for _, record := range records {
-		if query.Kind != "" && record.Kind != query.Kind {
-			continue
-		}
-		if category != "" && strings.ToLower(record.Category) != category {
-			continue
-		}
-		if !containsEveryTag(record.Tags, wantedTags) {
-			continue
-		}
-		if search != "" && !strings.Contains(strings.ToLower(strings.Join(append([]string{record.Name, record.Description, record.Category, record.GUID}, record.Tags...), " ")), search) {
-			continue
-		}
-		items = append(items, assetSummary(record))
-	}
 	switch query.Sort {
-	case "", "name_asc":
-		sort.SliceStable(items, func(i, j int) bool { return assetNameLess(items[i], items[j]) })
-	case "name_desc":
-		sort.SliceStable(items, func(i, j int) bool { return assetNameLess(items[j], items[i]) })
-	case "created_desc":
-		sort.SliceStable(items, func(i, j int) bool {
-			if items[i].CreatedAt == items[j].CreatedAt {
-				return items[i].GUID < items[j].GUID
-			}
-			return items[i].CreatedAt > items[j].CreatedAt
-		})
-	case "recent_desc":
-		sort.SliceStable(items, func(i, j int) bool {
-			left, leftRecent := recentRank[items[i].GUID]
-			right, rightRecent := recentRank[items[j].GUID]
-			if leftRecent != rightRecent {
-				return leftRecent
-			}
-			if leftRecent && left != right {
-				return left < right
-			}
-			return assetNameLess(items[i], items[j])
-		})
+	case "", "name_asc", "name_desc", "created_desc", "recent_desc":
 	default:
 		return AssetPage{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "sort"})
 	}
-	total := len(items)
-	start := min((query.Page-1)*query.PageSize, total)
-	end := min(start+query.PageSize, total)
-	pageItems := append([]AssetSummary(nil), items[start:end]...)
+	page, err := s.store.query(query)
+	if err != nil {
+		return AssetPage{}, err
+	}
 	thumbnailCount := 0
-	for index := range pageItems {
-		if thumbnailCount >= query.ThumbnailBudget || pageItems[index].Kind != KindTemplate || len(pageItems[index].Variants) == 0 {
+	for index := range page.Items {
+		if thumbnailCount >= query.ThumbnailBudget || page.Items[index].Kind != KindTemplate || len(page.Items[index].Variants) == 0 {
 			continue
 		}
-		ref := pageItems[index].Variants[0].Blob
-		pageItems[index].Thumbnail = &ref
+		ref := page.Items[index].Variants[0].Blob
+		page.Items[index].Thumbnail = &ref
 		thumbnailCount++
 	}
-	return AssetPage{
-		Items: pageItems, Total: total, Page: query.Page, PageSize: query.PageSize, Revision: revision,
-		Categories: categories, Tags: tags,
-	}, nil
-}
-
-func assetFacets(records []AssetRecord, kind string) ([]FacetValue, []FacetValue) {
-	categoryCounts := make(map[string]int)
-	tagCounts := make(map[string]int)
-	categoryLabels := make(map[string]string)
-	tagLabels := make(map[string]string)
-	for _, record := range records {
-		if kind != "" && record.Kind != kind {
-			continue
-		}
-		if category := strings.TrimSpace(record.Category); category != "" {
-			key := strings.ToLower(category)
-			categoryCounts[key]++
-			if categoryLabels[key] == "" {
-				categoryLabels[key] = category
-			}
-		}
-		seen := make(map[string]struct{}, len(record.Tags))
-		for _, raw := range record.Tags {
-			tag := strings.TrimSpace(raw)
-			key := strings.ToLower(tag)
-			if key == "" {
-				continue
-			}
-			if _, duplicate := seen[key]; duplicate {
-				continue
-			}
-			seen[key] = struct{}{}
-			tagCounts[key]++
-			if tagLabels[key] == "" {
-				tagLabels[key] = tag
-			}
-		}
-	}
-	return sortedAssetFacetValues(categoryCounts, categoryLabels), sortedAssetFacetValues(tagCounts, tagLabels)
-}
-
-func sortedAssetFacetValues(counts map[string]int, labels map[string]string) []FacetValue {
-	values := make([]FacetValue, 0, len(counts))
-	for key, count := range counts {
-		values = append(values, FacetValue{Value: labels[key], Count: count})
-	}
-	sort.Slice(values, func(i, j int) bool { return strings.ToLower(values[i].Value) < strings.ToLower(values[j].Value) })
-	return values
-}
-
-func assetNameLess(left, right AssetSummary) bool {
-	leftName, rightName := strings.ToLower(left.Name), strings.ToLower(right.Name)
-	if leftName == rightName {
-		return left.GUID < right.GUID
-	}
-	return leftName < rightName
+	return page, nil
 }
 
 // ResolveBinding maps one durable BlobRef back to optional mutable library
@@ -381,21 +275,13 @@ func (s *Service) ResolveBinding(ref blob.BlobRef) (AssetBinding, error) {
 	if err := ref.Validate(); err != nil {
 		return AssetBinding{}, apperr.New(apperr.CodeAssetQueryInvalid, map[string]any{"reason": "blob reference"})
 	}
-	matches := make([]AssetBinding, 0, 1)
-	for _, record := range s.store.List() {
-		if record.Blob != nil && *record.Blob == ref {
-			matches = append(matches, AssetBinding{Found: true, GUID: record.GUID, Kind: record.Kind, Name: record.Name, Blob: ref})
-		}
-		for _, variant := range record.Variants {
-			if variant.Blob == ref {
-				matches = append(matches, AssetBinding{Found: true, GUID: record.GUID, Kind: record.Kind, Name: record.Name, Resolution: variant.Resolution, Blob: ref})
-			}
-		}
+	matches, err := s.store.resolveBinding(ref)
+	if err != nil {
+		return AssetBinding{}, err
 	}
 	if len(matches) == 0 {
 		return AssetBinding{Blob: ref}, nil
 	}
-	sort.Slice(matches, func(i, j int) bool { return matches[i].GUID < matches[j].GUID })
 	matches[0].MatchCount = len(matches)
 	return matches[0], nil
 }

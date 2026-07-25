@@ -10,15 +10,15 @@ Open
 
 ## Current
 
-R3 Catalog foundation 已完成：Content Catalog 与 Run Ledger 在 RootSet 下使用两个 identity/schema/
-WAL/backup 独立的 SQLite 数据库；GUI、CLI、health 和版本清单统一接入。启动严格验证 migration ledger，
-Online Backup 生成经验证、manifest-last 的一致快照。当前只建立基础 schema，不迁移开发期领域数据。
+R5 Workflow Repository + Program cache 已完成：Workflow Source canonical bytes、metadata、revision CAS、
+Blob reference 与 quarantine 进入 Content Catalog schema 3；Program 从 durable workspace 分离到 RootSet
+cache，按 compiler/catalog identity、数量、字节配额与持久 LRU 回收。portable Source/Bundle 合同未改变。
 
 ## Next
 
-进入 [配置与资源持久化目标架构](references/storage-config-target-architecture.md) 的 R4 Asset Catalog +
-CAS v2：先建立 Asset Repository、object reference/lease 与分片物理布局，再用 10k metadata、100k Blob、
-宽限 GC 和崩溃 fixture 验收；不改变 Workflow Resource/Global Asset 的领域归属语义。
+进入 [配置与资源持久化目标架构](references/storage-config-target-architecture.md) 的 R6 Run history：
+把当前一记录一 JSON、事件累计重写的运行历史迁入独立 Run Ledger 的 summary/event/value 追加模型，并建立
+分页、retention/archive 与 payload CAS；不改变现有 Run domain 状态机。
 
 ## Progress
 
@@ -108,6 +108,18 @@ CAS v2：先建立 Asset Repository、object reference/lease 与分片物理布�
   Online Backup；故障注入、损坏/漂移、活动 WAL snapshot、CGO-off 与 race 测试通过。
 - R3 验收：持续后台 `task check` 同一进程退出 0；`task build` 退出 0并通过 Windows metadata/隔离
   5 秒 GUI startup smoke；production CLI 隔离 profile 创建两个数据库，health 返回两库 healthy 且路径脱敏。
+- 2026-07-25 R4 完成：Content Catalog schema 2 接管 Global Asset、variant/tag、object ref/lease/GC；
+  CAS layout 2 改为两级分片且启动配额来自 Catalog，不扫描/哈希全部对象。CAS publish 后才能事务提交引用，
+  缺失/非 active 对象 fail closed，失败提交留下的孤儿由宽限 GC 回收。
+- R4 验收：10k Asset、100k object inventory、256 MiB 固定缓冲、dedup/冲突、并发 revision、共享
+  Workflow Blob、宽限/lease/pin/stale preview 与 staging/trash/Catalog failure fixture 通过；相关 race、
+  `task check`（bindings + 48 个 Go 包）、`task build`、隔离 desktop startup 和 WebView asset smoke 均退出 0。
+- 2026-07-25 R5 完成：Content Catalog schema 3 接管 Workflow Source canonical bytes、metadata、revision、
+  Blob refs 与 quarantine；提交只引用 active CAS inventory 并在失败时完整回滚。Program cache layout 2
+  按 compiler build + Node Catalog identity 分代，支持 count/byte quota、持久 LRU、stale/corrupt rebuild。
+- R5 验收：1,000 Source 查询、CAS 引用回滚、quarantine repair、Program identity/LRU/corruption fixture 与
+  相关 race 通过；最终 `task check` 同一后台进程退出 0，`task build` 与隔离 Windows startup 通过，
+  production CLI health 返回 Content schema 3、Run schema 1 与两库 healthy。
 
 ## References
 

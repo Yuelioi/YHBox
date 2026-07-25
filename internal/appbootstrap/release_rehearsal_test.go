@@ -14,9 +14,12 @@ import (
 
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 )
 
@@ -107,7 +110,30 @@ func TestAssetCleanupProtectsWorkflowBlobRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assetStore, err := asset.NewStore(filepath.Join(t.TempDir(), "assets"), runtime.BlobStore)
+	assetRoot := t.TempDir()
+	assetRoots, err := storage.Resolve(filepath.Join(assetRoot, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetFoundation, err := catalog.Open(ctx, assetRoots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer assetFoundation.Close()
+	for _, ref := range []blob.BlobRef{live, orphan} {
+		if err := assetFoundation.Objects().Observe(ctx, blob.Object{
+			Digest: ref.Digest,
+			Size:   ref.Size,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assetStore, err := asset.NewStore(
+		assetFoundation.Assets(),
+		assetFoundation.Objects(),
+		runtime.BlobStore,
+		asset.WithGCGracePeriod(0),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,8 +214,10 @@ func evaluatedAIInstallations(t *testing.T, slot, endpoint, secret string) ai.In
 
 func buildReleaseRehearsalRuntime(t *testing.T, aiInstallations ai.Installations) *appbootstrap.Runtime {
 	t.Helper()
+	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(),
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
 		AIInstallations: aiInstallations, HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},

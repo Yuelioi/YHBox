@@ -3,6 +3,7 @@ package appbootstrap_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,8 @@ import (
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workspacefs"
@@ -32,8 +35,11 @@ import (
 func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
 	events := make(chan appcore.RunEvent, 16)
+	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs,
+		Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event appcore.RunEvent) { events <- event },
@@ -74,6 +80,21 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	if err != nil || !compiled.ProgramHash.Valid() || len(compiled.Diagnostics) != 0 || saved.SourceHash != compiled.SourceHash {
 		t.Fatalf("CompileSource = %#v, %v", compiled, err)
 	}
+	if record, found, err := stores.foundation.Workflows().Get(context.Background(), saved.WorkflowID); err != nil ||
+		!found || record.Revision != saved.Revision || record.Hash != saved.SourceHash {
+		t.Fatalf("Catalog Workflow Source = %#v, found=%v, %v", record, found, err)
+	}
+	if _, err := os.Stat(filepath.Join(stores.roots.Cache, "programs")); err != nil {
+		t.Fatalf("Program cache RootSet projection: %v", err)
+	}
+	for _, retired := range []string{
+		filepath.Join(stores.roots.Data, "workspace", "workflows"),
+		filepath.Join(stores.roots.Data, "workspace", "programs"),
+	} {
+		if _, err := os.Stat(retired); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("retired workspace store was created at %s: %v", retired, err)
+		}
+	}
 	listed, err := service.ListSources()
 	if err != nil || len(listed) != 1 || listed[0].Name != "Bootstrap" || listed[0].SourceJSON != "" || listed[0].SourceHash != saved.SourceHash {
 		t.Fatalf("ListSources = %#v, %v", listed, err)
@@ -110,14 +131,11 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 }
 
 func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing.T) {
-	dataRoot := t.TempDir()
-	blobStore, err := blob.Open(filepath.Join(dataRoot, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
+	stores := newTestWorkflowStorage(t)
 	build := func() *appbootstrap.Runtime {
 		runtime, err := appbootstrap.Build(appbootstrap.Config{
-			DataRoot: dataRoot, BlobStore: blobStore, Limits: testLimits(),
+			DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+			WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
 			AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 			ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 			ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
@@ -149,8 +167,20 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 		t.Fatal(err)
 	}
 	closeRuntime(first)
-	path := filepath.Join(dataRoot, "workspace", "workflows", created.WorkflowID+".json")
-	if err := os.WriteFile(path, []byte(`{"format":"yotta.workflow","version":"1",`), 0o600); err != nil {
+	if _, err := stores.foundation.Workflows().Delete(
+		context.Background(), created.WorkflowID, created.Revision, created.SourceHash,
+	); err != nil {
+		t.Fatal(err)
+	}
+	corrupt := []byte(`{"format":"yotta.workflow","version":"1",`)
+	recoveryID, err := artifact.Sum("yotta/test/workflow-quarantine/v1", corrupt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stores.foundation.Workflows().PutQuarantine(context.Background(), catalog.WorkflowQuarantineRecord{
+		ID: recoveryID, OriginalName: created.WorkflowID + ".json",
+		Reason: "synthetic invalid JSON", Artifact: corrupt, CreatedAt: time.Now().UTC(),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -177,8 +207,10 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	if !automationinstalled.PlatformSupported() {
 		t.Skip("installed automation targets are intentionally unavailable")
 	}
+	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(),
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},
@@ -640,18 +672,42 @@ func emptyAutomationInstallations(t *testing.T) automationinstalled.Installation
 func testLimits() appbootstrap.Limits {
 	return appbootstrap.Limits{
 		MaxSources: 8, MaxPrograms: 8, MaxRuns: 8,
+		MaxProgramCacheBytes:    8 << 20,
 		MaxResourcePayloadBytes: 2 << 20,
 		BlobChunkBytes:          64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 	}
 }
 
-func testWorkflowBlobStore(t *testing.T) *blob.Store {
+type testWorkflowStorage struct {
+	roots      storage.Roots
+	foundation *catalog.Foundation
+	blobs      *blob.Store
+}
+
+func newTestWorkflowStorage(t *testing.T) testWorkflowStorage {
 	t.Helper()
-	store, err := blob.Open(filepath.Join(t.TempDir(), "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	roots, err := storage.Resolve(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return store
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := foundation.Close(); err != nil {
+			t.Errorf("close test Catalog = %v", err)
+		}
+	})
+	blobs, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20},
+		foundation.Objects(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return testWorkflowStorage{roots: roots, foundation: foundation, blobs: blobs}
 }
 
 func testDigest(t *testing.T, label string) artifact.Digest {

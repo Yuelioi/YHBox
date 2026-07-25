@@ -69,17 +69,36 @@ func (s *Service) withCleanupSnapshot(ctx context.Context, visit func(cleanupSna
 	}
 	s.store.gcMu.Lock()
 	defer s.store.gcMu.Unlock()
-	assetRefs := s.store.assetBlobReferences()
 	complete := func(external []blob.BlobRef) error {
-		live, err := normalizeLiveReferences(append(assetRefs, external...))
+		plan, err := s.store.objects.PlanGC(
+			ctx,
+			external,
+			s.store.now().UTC(),
+			s.store.gcGrace,
+		)
 		if err != nil {
 			return err
 		}
-		objects, err := s.store.blobs.Objects()
+		candidates := make(map[artifact.Digest]struct{}, len(plan.Candidates))
+		for _, object := range plan.Candidates {
+			candidates[object.Digest] = struct{}{}
+		}
+		live := append([]blob.BlobRef(nil), external...)
+		for _, object := range plan.Objects {
+			if _, candidate := candidates[object.Digest]; candidate {
+				continue
+			}
+			live = append(live, blob.BlobRef{
+				MediaType: "application/octet-stream",
+				Digest:    object.Digest,
+				Size:      object.Size,
+			})
+		}
+		live, err = normalizeLiveReferences(live)
 		if err != nil {
 			return err
 		}
-		snapshot, err := buildCleanupSnapshot(live, objects)
+		snapshot, err := buildCleanupSnapshot(live, plan.Objects)
 		if err != nil {
 			return err
 		}
@@ -89,21 +108,6 @@ func (s *Service) withCleanupSnapshot(ctx context.Context, visit func(cleanupSna
 		return complete(nil)
 	}
 	return s.references.WithDurableBlobReferences(ctx, complete)
-}
-
-func (s *Store) assetBlobReferences() []blob.BlobRef {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	refs := make([]blob.BlobRef, 0)
-	for _, record := range s.recs {
-		if record.Blob != nil {
-			refs = append(refs, *record.Blob)
-		}
-		for _, variant := range record.Variants {
-			refs = append(refs, variant.Blob)
-		}
-	}
-	return refs
 }
 
 func normalizeLiveReferences(source []blob.BlobRef) ([]blob.BlobRef, error) {

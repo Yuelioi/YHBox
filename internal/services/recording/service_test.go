@@ -3,7 +3,6 @@ package recording
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +13,8 @@ import (
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/macro"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 type blockingStopRecorder struct {
@@ -299,14 +300,7 @@ func TestServiceStopReleasesExactRecordingTarget(t *testing.T) {
 
 func TestRecordingSessionPersistsCanonicalCarrierAndReloadsDraftReference(t *testing.T) {
 	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assets, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assets := newRecordingAssetStore(t, root)
 	clips := inputclip.NewService(assets)
 	recorder := &resultRecorder{result: &StopResult{
 		TempID: "roundtrip",
@@ -343,6 +337,37 @@ func TestRecordingSessionPersistsCanonicalCarrierAndReloadsDraftReference(t *tes
 	if finalized.AssetKind != asset.KindClip || finalized.Blob != loaded.Blob {
 		t.Fatalf("finalized=%+v blob=%+v", finalized, loaded.Blob)
 	}
+}
+
+func newRecordingAssetStore(t *testing.T, root string) *asset.Store {
+	t.Helper()
+	roots, err := storage.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobs, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20},
+		foundation.Objects(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := asset.NewStore(
+		foundation.Assets(),
+		foundation.Objects(),
+		blobs,
+		asset.WithGCGracePeriod(0),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
 }
 
 func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {

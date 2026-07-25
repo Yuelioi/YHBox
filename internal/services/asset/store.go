@@ -1,371 +1,183 @@
-// internal/services/asset/store.go
 package asset
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 	"sync"
+	"time"
 
-	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
-	"github.com/yottaapp/yotta/internal/durablefs"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
-const maxAssetRecordBytes = 1 << 20
-
-var assetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
-
-// Store 全局资产记录库。平铺布局 (类型即目录, kind 是权威、目录是索引):
-//
-//	<dataRoot>/templates/<guid>.json   (kind=template)
-//	<dataRoot>/clips/<guid>.json       (kind=clip)
-//	<dataRoot>/macros/<guid>.json      (kind=macro)
-//	<dataRoot>/blobs/<sha256>
+// Store is the deep persistence module used by Asset Service. SQLite query,
+// revision, and reference details stay in AssetRepository; immutable bytes,
+// streaming validation, and runtime pins stay in Blob Store.
 type Store struct {
-	gcMu     sync.RWMutex
-	mu       sync.RWMutex
-	root     string
-	recs     map[string]AssetRecord
-	blobs    *blob.Store
-	revision uint64
+	gcMu       sync.RWMutex
+	recordMu   sync.Mutex
+	repository *catalog.AssetRepository
+	objects    *catalog.ObjectRepository
+	blobs      *blob.Store
+	gcGrace    time.Duration
+	now        func() time.Time
 }
 
-// kindDir kind → 顶层目录名。未知 kind 返回 ""。
-func kindDir(kind string) string {
-	switch kind {
-	case KindTemplate:
-		return "templates"
-	case KindClip:
-		return "clips"
-	case KindMacro:
-		return "macros"
+const DefaultGCGracePeriod = 24 * time.Hour
+
+type StoreOption func(*Store) error
+
+func WithGCGracePeriod(grace time.Duration) StoreOption {
+	return func(store *Store) error {
+		if grace < 0 {
+			return errors.New("asset GC grace period cannot be negative")
+		}
+		store.gcGrace = grace
+		return nil
 	}
-	return ""
 }
 
-// NewStore initializes the exact asset schema. Corrupt, mismatched, or old
-// records fail startup; there is no compatibility reader.
-func NewStore(dataRoot string, blobs *blob.Store) (*Store, error) {
-	if strings.TrimSpace(dataRoot) == "" {
-		return nil, errors.New("asset store root is required")
+func WithGCClock(now func() time.Time) StoreOption {
+	return func(store *Store) error {
+		if now == nil {
+			return errors.New("asset GC clock is required")
+		}
+		store.now = now
+		return nil
+	}
+}
+
+func NewStore(
+	repository *catalog.AssetRepository,
+	objects *catalog.ObjectRepository,
+	blobs *blob.Store,
+	options ...StoreOption,
+) (*Store, error) {
+	if repository == nil {
+		return nil, errors.New("asset store requires the Content Catalog repository")
+	}
+	if objects == nil {
+		return nil, errors.New("asset store requires the Content Catalog object repository")
 	}
 	if blobs == nil {
 		return nil, errors.New("asset store requires the shared content-addressed Blob Store")
 	}
-	resolvedRoot, err := filepath.Abs(dataRoot)
-	if err != nil {
-		return nil, fmt.Errorf("resolve asset store root: %w", err)
+	store := &Store{
+		repository: repository,
+		objects:    objects,
+		blobs:      blobs,
+		gcGrace:    DefaultGCGracePeriod,
+		now:        time.Now,
 	}
-	dataRoot = resolvedRoot
-	for _, d := range []string{"templates", "clips", "macros"} {
-		if err := os.MkdirAll(filepath.Join(dataRoot, d), 0o755); err != nil {
-			return nil, fmt.Errorf("asset mkdir %s: %w", d, err)
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("asset store option is nil")
+		}
+		if err := option(store); err != nil {
+			return nil, err
 		}
 	}
-
-	s := &Store{
-		root: dataRoot, recs: map[string]AssetRecord{}, blobs: blobs, revision: 1,
-	}
-	for _, kind := range []string{KindTemplate, KindClip, KindMacro} {
-		if err := s.preload(kind); err != nil {
-			return nil, fmt.Errorf("asset preload %s: %w", kindDir(kind), err)
-		}
-	}
-	if err := s.verifyBlobReferences(context.Background()); err != nil {
-		return nil, err
-	}
-	return s, nil
+	return store, nil
 }
 
-func (s *Store) verifyBlobReferences(ctx context.Context) error {
-	seen := make(map[artifact.Digest]int64)
-	for _, rec := range s.recs {
-		refs := make([]blob.BlobRef, 0, len(rec.Variants)+1)
-		for _, variant := range rec.Variants {
-			refs = append(refs, variant.Blob)
-		}
-		if rec.Blob != nil {
-			refs = append(refs, *rec.Blob)
-		}
-		for _, ref := range refs {
-			if size, ok := seen[ref.Digest]; ok {
-				if size != ref.Size {
-					return fmt.Errorf("asset %q gives blob %s conflicting sizes", rec.GUID, ref.Digest)
-				}
-				continue
-			}
-			if err := s.blobs.Verify(ctx, ref); err != nil {
-				return fmt.Errorf("asset %q references invalid blob %s: %w", rec.GUID, ref.Digest, err)
-			}
-			seen[ref.Digest] = ref.Size
-		}
-	}
-	return nil
-}
-
-// preload treats every persisted record as authoritative contract data. There
-// is no skip-corrupt or old-schema fallback path.
-func (s *Store) preload(expectKind string) error {
-	dir := filepath.Join(s.root, kindDir(expectKind))
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return err
-	}
-	for _, e := range entries {
-		if e.IsDir() || e.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s: unexpected asset store entry", filepath.Join(dir, e.Name()))
-		}
-		name := e.Name()
-		if len(name) < 5 || name[len(name)-5:] != ".json" {
-			return fmt.Errorf("%s: unexpected asset store entry", filepath.Join(dir, name))
-		}
-		path := filepath.Join(dir, name)
-		info, err := e.Info()
-		if err != nil {
-			return fmt.Errorf("inspect %s: %w", path, err)
-		}
-		if info.Size() > maxAssetRecordBytes {
-			return fmt.Errorf("%s: record exceeds byte budget", path)
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
-		}
-		if err := artifact.InspectJSONBudget(b, 64, 65536, maxAssetRecordBytes); err != nil {
-			return fmt.Errorf("inspect JSON %s: %w", path, err)
-		}
-		if _, err := artifact.Canonicalize(b); err != nil {
-			return fmt.Errorf("canonical JSON %s: %w", path, err)
-		}
-		if err := rejectDuplicateJSONKeys(b); err != nil {
-			return fmt.Errorf("decode %s: %w", path, err)
-		}
-		var rec AssetRecord
-		decoder := json.NewDecoder(bytes.NewReader(b))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&rec); err != nil {
-			return fmt.Errorf("decode %s: %w", path, err)
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-			return fmt.Errorf("decode %s: trailing JSON value", path)
-		}
-		if rec.SchemaVersion != RecordSchemaVersion {
-			return fmt.Errorf("%s: schemaVersion %d, require %d", path, rec.SchemaVersion, RecordSchemaVersion)
-		}
-		if err := rec.validate(); err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		if rec.Kind != expectKind {
-			return fmt.Errorf("%s: kind %q 与所在目录 %s/ 不符 (kind 是权威, 文件放错位置)", path, rec.Kind, kindDir(expectKind))
-		}
-		if name != rec.GUID+".json" {
-			return fmt.Errorf("%s: filename does not match asset GUID %q", path, rec.GUID)
-		}
-		if _, exists := s.recs[rec.GUID]; exists {
-			return fmt.Errorf("%s: duplicate asset GUID %q", path, rec.GUID)
-		}
-		s.recs[rec.GUID] = rec
-	}
-	return nil
-}
-
-func rejectDuplicateJSONKeys(raw []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	if err := scanJSONValue(decoder); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return errors.New("trailing JSON value")
-	}
-	return nil
-}
-
-func scanJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, ok := token.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		seen := make(map[string]struct{})
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return errors.New("JSON object key is not a string")
-			}
-			if _, exists := seen[key]; exists {
-				return fmt.Errorf("duplicate JSON field %q", key)
-			}
-			seen[key] = struct{}{}
-			if err := scanJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		_, err = decoder.Token()
-		return err
-	case '[':
-		for decoder.More() {
-			if err := scanJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		_, err = decoder.Token()
-		return err
-	default:
-		return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
-	}
-}
-
-// recordPath 返回记录对应的 JSON 路径 (按 kind 分目录)。
-func (s *Store) recordPath(kind, guid string) string {
-	return filepath.Join(s.root, kindDir(kind), guid+".json")
-}
-
-// writeRecord 原子写单条记录到磁盘（temp+rename）。统一盖 schemaVersion。调用方负责持锁。
-func (s *Store) writeRecord(rec AssetRecord) error {
-	if !assetIDPattern.MatchString(rec.GUID) {
-		return fmt.Errorf("invalid asset GUID %q", rec.GUID)
-	}
-	if err := rec.validate(); err != nil {
-		return err
-	}
-	rec.SchemaVersion = RecordSchemaVersion
-	b, err := json.MarshalIndent(rec, "", "  ")
-	if err != nil {
-		return err
-	}
-	return atomicWriteFile(s.recordPath(rec.Kind, rec.GUID), b)
-}
-
-// Get 返回 guid 对应的记录。
 func (s *Store) Get(guid string) (AssetRecord, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	rec, ok := s.recs[guid]
-	return cloneRecord(rec), ok
-}
-
-// ListWithRevision returns one atomic metadata snapshot and its invalidation revision.
-func (s *Store) ListWithRevision() ([]AssetRecord, uint64) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]AssetRecord, 0, len(s.recs))
-	for _, r := range s.recs {
-		out = append(out, cloneRecord(r))
+	record, found, err := s.repository.Get(context.Background(), guid)
+	if err != nil {
+		return AssetRecord{}, false
 	}
-	return out, s.revision
+	return assetRecordFromCatalog(record), found
 }
 
-// List 返回所有记录的快照切片。
+func (s *Store) get(guid string) (AssetRecord, bool, error) {
+	record, found, err := s.repository.Get(context.Background(), guid)
+	return assetRecordFromCatalog(record), found, err
+}
+
+func (s *Store) ListWithRevision() ([]AssetRecord, uint64) {
+	records, revision, err := s.repository.List(context.Background())
+	if err != nil {
+		return nil, 0
+	}
+	return assetRecordsFromCatalog(records), revision
+}
+
+func (s *Store) listWithRevision() ([]AssetRecord, uint64, error) {
+	records, revision, err := s.repository.List(context.Background())
+	return assetRecordsFromCatalog(records), revision, err
+}
+
 func (s *Store) List() []AssetRecord {
-	records, _ := s.ListWithRevision()
+	records, _, _ := s.listWithRevision()
 	return records
 }
 
 func (s *Store) Revision() uint64 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.revision
+	revision, _ := s.repository.Revision(context.Background())
+	return revision
 }
 
-// PutRecord 写入（新建或全量替换）一条记录。
-func (s *Store) PutRecord(rec AssetRecord) error {
+// PutRecord writes metadata-only records. Any Blob references must enter
+// through CommitRecordBlob so bytes are durably published first.
+func (s *Store) PutRecord(record AssetRecord) error {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
-	if len(rec.Variants) != 0 || rec.Blob != nil {
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	if len(record.Variants) != 0 || record.Blob != nil {
 		return errors.New("records with blob references require CommitRecordBlob")
 	}
-	return s.putRecord(rec)
+	return s.putRecordLocked(record)
 }
 
-func (s *Store) putRecord(rec AssetRecord) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	writeErr := s.writeRecord(rec)
-	if writeErr != nil && !durablefs.Committed(writeErr) {
-		return fmt.Errorf("PutRecord write: %w", writeErr)
-	}
-	rec.SchemaVersion = RecordSchemaVersion
-	s.recs[rec.GUID] = cloneRecord(rec)
-	s.revision++
-	if writeErr != nil {
-		return fmt.Errorf("PutRecord write committed without confirmed durability: %w", writeErr)
-	}
-	return nil
+func (s *Store) putRecord(record AssetRecord) error {
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	return s.putRecordLocked(record)
 }
 
-// PutRecordMeta 仅更新 Name 和 Tags，其余字段不变。
+func (s *Store) putRecordLocked(record AssetRecord) error {
+	_, err := s.repository.Put(context.Background(), assetRecordToCatalog(record))
+	return err
+}
+
 func (s *Store) PutRecordMeta(guid, name, description, category string, tags []string) error {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	rec, ok := s.recs[guid]
-	if !ok {
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	record, found, err := s.get(guid)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return fmt.Errorf("PutRecordMeta: guid %q not found", guid)
 	}
-	rec.Name = name
-	rec.Description = description
-	rec.Category = category
-	rec.Tags = append([]string(nil), tags...)
-	writeErr := s.writeRecord(rec)
-	if writeErr != nil && !durablefs.Committed(writeErr) {
-		return fmt.Errorf("PutRecordMeta write: %w", writeErr)
-	}
-	s.recs[guid] = rec
-	s.revision++
-	if writeErr != nil {
-		return fmt.Errorf("PutRecordMeta write committed without confirmed durability: %w", writeErr)
-	}
-	return nil
+	record.Name = name
+	record.Description = description
+	record.Category = category
+	record.Tags = append([]string(nil), tags...)
+	return s.putRecordLocked(record)
 }
 
-// DeleteRecord 删除记录（内存 + 磁盘）。
 func (s *Store) DeleteRecord(guid string) error {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if rec, ok := s.recs[guid]; ok {
-		removeErr := durablefs.Remove(s.recordPath(rec.Kind, guid))
-		if removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) && !durablefs.Committed(removeErr) {
-			return fmt.Errorf("DeleteRecord rm: %w", removeErr)
-		}
-		delete(s.recs, guid)
-		s.revision++
-		if removeErr != nil && durablefs.Committed(removeErr) {
-			return fmt.Errorf("DeleteRecord committed without confirmed durability: %w", removeErr)
-		}
-		return nil
-	}
-	delete(s.recs, guid)
-	return nil
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	_, err := s.repository.Delete(context.Background(), guid)
+	return err
 }
 
-// CommitRecordBlob is the only way to introduce a record-level blob reference.
-func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source io.Reader, build func(blob.BlobRef) AssetRecord) (blob.BlobRef, error) {
+// CommitRecordBlob publishes immutable bytes before the Catalog transaction.
+// A Catalog failure can only leave an unreachable object for grace-period GC.
+func (s *Store) CommitRecordBlob(
+	ctx context.Context,
+	mediaType string,
+	source io.Reader,
+	build func(blob.BlobRef) AssetRecord,
+) (blob.BlobRef, error) {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
 	if build == nil {
@@ -381,114 +193,182 @@ func (s *Store) CommitRecordBlob(ctx context.Context, mediaType string, source i
 	return ref, nil
 }
 
-// CommitVariantBlob is the only way to introduce or replace a variant blob.
-func (s *Store) CommitVariantBlob(ctx context.Context, mediaType string, source io.Reader, guid string, res [2]int, bbox [4]int, regions [][4]int) (blob.BlobRef, error) {
+func (s *Store) CommitVariantBlob(
+	ctx context.Context,
+	mediaType string,
+	source io.Reader,
+	guid string,
+	resolution [2]int,
+	bbox [4]int,
+	regions [][4]int,
+) (blob.BlobRef, error) {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
 	ref, err := s.blobs.Put(ctx, mediaType, source)
 	if err != nil {
 		return blob.BlobRef{}, err
 	}
-	if err := s.putVariant(guid, res, ref, bbox, regions); err != nil {
+	if err := s.putVariant(guid, resolution, ref, bbox, regions); err != nil {
 		return blob.BlobRef{}, err
 	}
 	return ref, nil
 }
 
-// ReadBlob reads and verifies an entire asset object.
 func (s *Store) ReadBlob(ctx context.Context, ref blob.BlobRef) ([]byte, error) {
 	return s.blobs.ReadRange(ctx, ref, 0, ref.Size)
 }
 
-// PutVariant 锁内读记录 → 按 Resolution upsert 单条 Variant → 写回。
-func (s *Store) putVariant(guid string, res [2]int, blobRef blob.BlobRef, bbox [4]int, regions [][4]int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	rec, ok := s.recs[guid]
-	if !ok {
+func (s *Store) putVariant(
+	guid string,
+	resolution [2]int,
+	blobRef blob.BlobRef,
+	bbox [4]int,
+	regions [][4]int,
+) error {
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	record, found, err := s.get(guid)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return fmt.Errorf("PutVariant: guid %q not found", guid)
 	}
-	v := Variant{
-		Resolution: res,
-		BBox:       bbox,
-		Regions:    append([][4]int(nil), regions...),
-		Blob:       blobRef,
+	variants := make([]Variant, len(record.Variants), len(record.Variants)+1)
+	copy(variants, record.Variants)
+	replacement := Variant{
+		Resolution: resolution, BBox: bbox,
+		Regions: append([][4]int(nil), regions...), Blob: blobRef,
 	}
-	// clone 后再改：rec.Variants 与 map value / 历史 List() 结果共享 backing array,
-	// 原地改会污染别处持有的快照。
-	vs := make([]Variant, len(rec.Variants), len(rec.Variants)+1)
-	copy(vs, rec.Variants)
-	// 同 Resolution 覆盖，否则追加。
-	found := false
-	for i, existing := range vs {
-		if existing.Resolution == res {
-			vs[i] = v
+	found = false
+	for index, existing := range variants {
+		if existing.Resolution == resolution {
+			variants[index] = replacement
 			found = true
 			break
 		}
 	}
 	if !found {
-		vs = append(vs, v)
+		variants = append(variants, replacement)
 	}
-	rec.Variants = vs
-	writeErr := s.writeRecord(rec)
-	if writeErr != nil && !durablefs.Committed(writeErr) {
-		return fmt.Errorf("PutVariant write: %w", writeErr)
-	}
-	s.recs[guid] = rec
-	s.revision++
-	if writeErr != nil {
-		return fmt.Errorf("PutVariant write committed without confirmed durability: %w", writeErr)
-	}
-	return nil
+	record.Variants = variants
+	return s.putRecordLocked(record)
 }
 
-// RemoveVariant 锁内删除指定 Resolution 的 Variant。
-func (s *Store) RemoveVariant(guid string, res [2]int) error {
+func (s *Store) RemoveVariant(guid string, resolution [2]int) error {
 	s.gcMu.RLock()
 	defer s.gcMu.RUnlock()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	rec, ok := s.recs[guid]
-	if !ok {
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	record, found, err := s.get(guid)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return fmt.Errorf("RemoveVariant: guid %q not found", guid)
 	}
-	// 新建 slice, 不复用 rec.Variants 的 backing array (避免污染 List() 快照)。
-	filtered := make([]Variant, 0, len(rec.Variants))
-	for _, v := range rec.Variants {
-		if v.Resolution != res {
-			filtered = append(filtered, v)
+	filtered := make([]Variant, 0, len(record.Variants))
+	for _, variant := range record.Variants {
+		if variant.Resolution != resolution {
+			filtered = append(filtered, variant)
 		}
 	}
-	rec.Variants = filtered
-	writeErr := s.writeRecord(rec)
-	if writeErr != nil && !durablefs.Committed(writeErr) {
-		return fmt.Errorf("RemoveVariant write: %w", writeErr)
-	}
-	s.recs[guid] = rec
-	s.revision++
-	if writeErr != nil {
-		return fmt.Errorf("RemoveVariant write committed without confirmed durability: %w", writeErr)
-	}
-	return nil
+	record.Variants = filtered
+	return s.putRecordLocked(record)
 }
 
-// atomicWriteFile writes through a unique sibling staging file.
-func atomicWriteFile(path string, data []byte) error {
-	return durablefs.WriteFile(path, data, 0o600)
+func (s *Store) query(query AssetQuery) (AssetPage, error) {
+	page, err := s.repository.Query(context.Background(), catalog.AssetQuery{
+		Search: query.Search, Kind: query.Kind, Category: query.Category,
+		Tags: append([]string(nil), query.Tags...), Sort: query.Sort,
+		Page: query.Page, PageSize: query.PageSize,
+		RecentGUIDs: append([]string(nil), query.RecentGUIDs...),
+	})
+	if err != nil {
+		return AssetPage{}, err
+	}
+	items := make([]AssetSummary, len(page.Records))
+	for index, record := range page.Records {
+		items[index] = assetSummary(assetRecordFromCatalog(record))
+	}
+	categories := make([]FacetValue, len(page.Categories))
+	for index, facet := range page.Categories {
+		categories[index] = FacetValue{Value: facet.Value, Count: facet.Count}
+	}
+	tags := make([]FacetValue, len(page.Tags))
+	for index, facet := range page.Tags {
+		tags[index] = FacetValue{Value: facet.Value, Count: facet.Count}
+	}
+	return AssetPage{
+		Items: items, Total: page.Total, Page: page.Page, PageSize: page.PageSize,
+		Revision: page.Revision, Categories: categories, Tags: tags,
+	}, nil
 }
 
-func cloneRecord(source AssetRecord) AssetRecord {
-	clone := source
-	clone.Tags = append([]string(nil), source.Tags...)
-	clone.Variants = make([]Variant, len(source.Variants))
-	for i, variant := range source.Variants {
-		clone.Variants[i] = variant
-		clone.Variants[i].Regions = append([][4]int(nil), variant.Regions...)
+func (s *Store) resolveBinding(ref blob.BlobRef) ([]AssetBinding, error) {
+	matches, err := s.repository.ResolveBinding(context.Background(), ref)
+	if err != nil {
+		return nil, err
 	}
-	if source.Blob != nil {
-		ref := *source.Blob
-		clone.Blob = &ref
+	result := make([]AssetBinding, len(matches))
+	for index, item := range matches {
+		result[index] = AssetBinding{
+			Found: true, GUID: item.GUID, Kind: item.Kind, Name: item.Name,
+			Resolution: item.Resolution, Blob: item.Blob,
+		}
 	}
-	return clone
+	return result, nil
+}
+
+func assetRecordToCatalog(record AssetRecord) catalog.AssetRecord {
+	result := catalog.AssetRecord{
+		GUID: record.GUID, Kind: record.Kind, Name: record.Name,
+		Description: record.Description, Category: record.Category,
+		Tags:      append([]string(nil), record.Tags...),
+		Origin:    catalog.AssetOrigin{Kind: record.Origin.Kind, SourceID: record.Origin.SourceID},
+		CreatedAt: record.CreatedAt,
+	}
+	if record.Blob != nil {
+		ref := *record.Blob
+		result.Blob = &ref
+	}
+	result.Variants = make([]catalog.AssetVariant, len(record.Variants))
+	for index, variant := range record.Variants {
+		result.Variants[index] = catalog.AssetVariant{
+			Resolution: variant.Resolution, BBox: variant.BBox,
+			Regions: append([][4]int(nil), variant.Regions...), Blob: variant.Blob,
+		}
+	}
+	return result
+}
+
+func assetRecordFromCatalog(record catalog.AssetRecord) AssetRecord {
+	result := AssetRecord{
+		SchemaVersion: RecordSchemaVersion,
+		GUID:          record.GUID, Kind: record.Kind, Name: record.Name,
+		Description: record.Description, Category: record.Category,
+		Tags:      append([]string(nil), record.Tags...),
+		Origin:    Origin{Kind: record.Origin.Kind, SourceID: record.Origin.SourceID},
+		CreatedAt: record.CreatedAt,
+	}
+	if record.Blob != nil {
+		ref := *record.Blob
+		result.Blob = &ref
+	}
+	result.Variants = make([]Variant, len(record.Variants))
+	for index, variant := range record.Variants {
+		result.Variants[index] = Variant{
+			Resolution: variant.Resolution, BBox: variant.BBox,
+			Regions: append([][4]int(nil), variant.Regions...), Blob: variant.Blob,
+		}
+	}
+	return result
+}
+
+func assetRecordsFromCatalog(records []catalog.AssetRecord) []AssetRecord {
+	result := make([]AssetRecord, len(records))
+	for index, record := range records {
+		result[index] = assetRecordFromCatalog(record)
+	}
+	return result
 }

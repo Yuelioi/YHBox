@@ -5,10 +5,7 @@ package asset
 // 精确分辨率命中优先；miss 时按长边比距最近的档兜底（调用方据 v.Resolution 自算缩放比）。
 // 算法 = 精确分辨率命中优先, 否则长边比最近的档 (跨分辨率缩放兜底候选)。
 func (s *Store) PickVariant(guid string, frameW, frameH int) (Variant, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	rec, ok := s.recs[guid]
+	rec, ok := s.Get(guid)
 	if !ok {
 		return Variant{}, false
 	}

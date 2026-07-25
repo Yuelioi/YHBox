@@ -51,7 +51,7 @@ func (r AssetRecord) validate() error {
 	if r.GUID == "" {
 		return fmt.Errorf("asset GUID is required")
 	}
-	if kindDir(r.Kind) == "" {
+	if r.Kind != KindTemplate && r.Kind != KindClip && r.Kind != KindMacro {
 		return fmt.Errorf("unknown asset kind %q", r.Kind)
 	}
 	for i, variant := range r.Variants {

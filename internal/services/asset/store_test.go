@@ -5,9 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -15,6 +13,8 @@ import (
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 // ---- helpers ----
@@ -22,16 +22,39 @@ import (
 func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
-	s, err := NewStore(dir, newTestBlobStore(t, dir))
+	roots, err := storage.Resolve(filepath.Join(dir, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobs := newTestBlobStore(t, dir, foundation.Objects())
+	s, err := NewStore(
+		foundation.Assets(),
+		foundation.Objects(),
+		blobs,
+		WithGCGracePeriod(0),
+	)
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
 	return s, dir
 }
 
-func newTestBlobStore(t *testing.T, dir string) *blob.Store {
+func newTestBlobStore(
+	t *testing.T,
+	dir string,
+	objects *catalog.ObjectRepository,
+) *blob.Store {
 	t.Helper()
-	store, err := blob.Open(filepath.Join(dir, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	store, err := blob.Open(
+		filepath.Join(dir, "blobs"),
+		blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20},
+		objects,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +62,19 @@ func newTestBlobStore(t *testing.T, dir string) *blob.Store {
 }
 
 func TestStoreRequiresSharedBlobStore(t *testing.T) {
-	if _, err := NewStore(t.TempDir(), nil); err == nil {
+	if _, err := NewStore(nil, nil, nil); err == nil {
+		t.Fatal("NewStore accepted an implicit Content Catalog")
+	}
+	roots, err := storage.Resolve(filepath.Join(t.TempDir(), "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foundation.Close()
+	if _, err := NewStore(foundation.Assets(), foundation.Objects(), nil); err == nil {
 		t.Fatal("NewStore accepted an implicit Blob Store")
 	}
 }
@@ -66,89 +101,13 @@ func testBlobRef(label string) blob.BlobRef {
 
 func blobPtr(ref blob.BlobRef) *blob.BlobRef { return &ref }
 
-// ---- Task 0.3 tests ----
-
-func TestStore_PreloadRejectsCorrupt(t *testing.T) {
-	dir := t.TempDir()
-	recDir := filepath.Join(dir, "templates")
-	if err := os.MkdirAll(recDir, 0o755); err != nil {
+func observeTestBlob(t *testing.T, store *Store, ref blob.BlobRef) {
+	t.Helper()
+	if err := store.objects.Observe(context.Background(), blob.Object{
+		Digest: ref.Digest,
+		Size:   ref.Size,
+	}); err != nil {
 		t.Fatal(err)
-	}
-
-	// 合法记录
-	good := makeRecord("good", "Good Asset", KindTemplate)
-	b, _ := json.MarshalIndent(good, "", "  ")
-	if err := os.WriteFile(filepath.Join(recDir, "good.json"), b, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// 坏 JSON
-	if err := os.WriteFile(filepath.Join(recDir, "bad.json"), []byte("{not json"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
-		t.Fatal("NewStore accepted corrupt persisted contract data")
-	}
-}
-
-func TestStore_PreloadRejectsOldSchema(t *testing.T) {
-	dir := t.TempDir()
-	recDir := filepath.Join(dir, "templates")
-	if err := os.MkdirAll(recDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	rec := makeRecord("old", "Old", KindTemplate)
-	rec.SchemaVersion = RecordSchemaVersion - 1
-	b, _ := json.Marshal(rec)
-	if err := os.WriteFile(filepath.Join(recDir, "old.json"), b, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
-		t.Fatal("NewStore accepted an old schema through a compatibility path")
-	}
-}
-
-func TestStore_PreloadRejectsDanglingBlobReference(t *testing.T) {
-	dir := t.TempDir()
-	first, err := NewStore(dir, newTestBlobStore(t, dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	rec := makeRecord("dangling", "Dangling", KindTemplate)
-	ref := testBlobRef("missing")
-	rec.Variants = []Variant{{Resolution: [2]int{1, 1}, Blob: ref}}
-	if err := first.putRecord(rec); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
-		t.Fatal("NewStore accepted a durable reference to a missing blob")
-	}
-}
-
-func TestStore_PreloadRejectsUnboundedAmbiguousOrUnknownJSON(t *testing.T) {
-	tests := []struct {
-		name string
-		raw  []byte
-	}{
-		{name: "unknown field", raw: []byte(`{"schemaVersion":2,"guid":"bad","guidExtra":"x","kind":"template","name":"Bad","origin":{"kind":"user"},"createdAt":"2026-07-15T00:00:00Z"}`)},
-		{name: "duplicate field", raw: []byte(`{"schemaVersion":2,"guid":"bad","guid":"other","kind":"template","name":"Bad","origin":{"kind":"user"},"createdAt":"2026-07-15T00:00:00Z"}`)},
-		{name: "oversized", raw: bytes.Repeat([]byte{' '}, maxAssetRecordBytes+1)},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			dir := t.TempDir()
-			recordDir := filepath.Join(dir, "templates")
-			if err := os.MkdirAll(recordDir, 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(recordDir, "bad.json"), test.raw, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := NewStore(dir, newTestBlobStore(t, dir)); err == nil {
-				t.Fatalf("NewStore accepted %s record", test.name)
-			}
-		})
 	}
 }
 
@@ -171,7 +130,16 @@ func TestStore_PutRecord_And_Get(t *testing.T) {
 
 func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 	dir := t.TempDir()
-	s1, err := NewStore(dir, newTestBlobStore(t, dir))
+	roots, err := storage.Resolve(filepath.Join(dir, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobs := newTestBlobStore(t, dir, foundation.Objects())
+	s1, err := NewStore(foundation.Assets(), foundation.Objects(), blobs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,18 +151,28 @@ func TestStore_PutRecord_PersistAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// 新实例 preload
-	s2, err := NewStore(dir, newTestBlobStore(t, dir))
+	if err := foundation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	reopenedBlobs := newTestBlobStore(t, dir, reopened.Objects())
+	s2, err := NewStore(reopened.Assets(), reopened.Objects(), reopenedBlobs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, ok := s2.Get("persist1")
 	if !ok {
-		t.Fatal("preload should restore record")
+		t.Fatal("Catalog reopen should restore record")
 	}
 	if got.Blob == nil || *got.Blob != ref {
 		t.Errorf("Blob: %#v", got.Blob)
+	}
+	if err := s2.blobs.Verify(context.Background(), ref); err != nil {
+		t.Fatalf("CAS reopen did not restore bytes: %v", err)
 	}
 }
 
@@ -240,7 +218,7 @@ func TestStore_PutRecordMeta_NotFound(t *testing.T) {
 }
 
 func TestStore_DeleteRecord(t *testing.T) {
-	s, dir := newTestStore(t)
+	s, _ := newTestStore(t)
 	s.PutRecord(makeRecord("d1", "Delete Me", KindTemplate))
 
 	if err := s.DeleteRecord("d1"); err != nil {
@@ -250,12 +228,6 @@ func TestStore_DeleteRecord(t *testing.T) {
 	_, ok := s.Get("d1")
 	if ok {
 		t.Error("Get after delete should miss")
-	}
-
-	// 磁盘文件也删掉了
-	_, err := os.Stat(filepath.Join(dir, "templates", "d1.json"))
-	if err == nil {
-		t.Error("record file should be removed from disk")
 	}
 }
 
@@ -274,6 +246,44 @@ func TestStore_CommitRecordBlob(t *testing.T) {
 	}
 }
 
+func TestStoreCatalogFailureLeavesOnlyGraceCollectableOrphan(t *testing.T) {
+	s, _ := newTestStore(t)
+	content := []byte("published-before-invalid-metadata")
+	if _, err := s.CommitRecordBlob(
+		context.Background(),
+		"application/octet-stream",
+		bytes.NewReader(content),
+		func(ref blob.BlobRef) AssetRecord {
+			record := makeRecord("", "invalid", KindClip)
+			record.Blob = &ref
+			return record
+		},
+	); err == nil {
+		t.Fatal("CommitRecordBlob() accepted invalid Catalog metadata")
+	}
+	sum := sha256.Sum256(content)
+	orphan := blob.BlobRef{
+		MediaType: "application/octet-stream",
+		Digest:    artifact.Digest(fmt.Sprintf("sha256:%x", sum)),
+		Size:      int64(len(content)),
+	}
+	if err := s.blobs.Verify(context.Background(), orphan); err != nil {
+		t.Fatalf("CAS publish was not recoverable after Catalog failure: %v", err)
+	}
+	service := NewService(s, nil, nil)
+	preview, err := service.PreviewCleanup()
+	if err != nil || preview.CandidateCount != 1 {
+		t.Fatalf("PreviewCleanup() = %#v, %v", preview, err)
+	}
+	result, err := service.CommitCleanup(preview.Token)
+	if err != nil || result.Reclaimed != 1 {
+		t.Fatalf("CommitCleanup() = %#v, %v", result, err)
+	}
+	if err := s.blobs.Verify(context.Background(), orphan); err == nil {
+		t.Fatal("Catalog failure orphan survived grace-period cleanup")
+	}
+}
+
 // ---- Task 0.4 tests ----
 
 func TestStore_PutVariantConcurrentNoLostUpdate(t *testing.T) {
@@ -282,18 +292,22 @@ func TestStore_PutVariantConcurrentNoLostUpdate(t *testing.T) {
 
 	res1 := [2]int{1920, 1080}
 	res2 := [2]int{1280, 720}
+	ref1 := testBlobRef("sha1")
+	ref2 := testBlobRef("sha2")
+	observeTestBlob(t, s, ref1)
+	observeTestBlob(t, s, ref2)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		if err := s.putVariant("g", res1, testBlobRef("sha1"), [4]int{0, 0, 100, 100}, nil); err != nil {
+		if err := s.putVariant("g", res1, ref1, [4]int{0, 0, 100, 100}, nil); err != nil {
 			t.Errorf("PutVariant res1: %v", err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		if err := s.putVariant("g", res2, testBlobRef("sha2"), [4]int{0, 0, 200, 200}, nil); err != nil {
+		if err := s.putVariant("g", res2, ref2, [4]int{0, 0, 200, 200}, nil); err != nil {
 			t.Errorf("PutVariant res2: %v", err)
 		}
 	}()
@@ -313,8 +327,12 @@ func TestStore_PutVariant_Upsert(t *testing.T) {
 	s.PutRecord(makeRecord("u1", "Upsert", KindTemplate))
 
 	res := [2]int{1920, 1080}
-	s.putVariant("u1", res, testBlobRef("sha-old"), [4]int{0, 0, 100, 100}, nil)
-	s.putVariant("u1", res, testBlobRef("sha-new"), [4]int{5, 5, 95, 95}, nil)
+	oldRef := testBlobRef("sha-old")
+	newRef := testBlobRef("sha-new")
+	observeTestBlob(t, s, oldRef)
+	observeTestBlob(t, s, newRef)
+	s.putVariant("u1", res, oldRef, [4]int{0, 0, 100, 100}, nil)
+	s.putVariant("u1", res, newRef, [4]int{5, 5, 95, 95}, nil)
 
 	got, _ := s.Get("u1")
 	if len(got.Variants) != 1 {
@@ -331,8 +349,12 @@ func TestStore_RemoveVariant(t *testing.T) {
 
 	res1 := [2]int{1920, 1080}
 	res2 := [2]int{1280, 720}
-	s.putVariant("rv", res1, testBlobRef("sha1"), [4]int{}, nil)
-	s.putVariant("rv", res2, testBlobRef("sha2"), [4]int{}, nil)
+	ref1 := testBlobRef("sha1")
+	ref2 := testBlobRef("sha2")
+	observeTestBlob(t, s, ref1)
+	observeTestBlob(t, s, ref2)
+	s.putVariant("rv", res1, ref1, [4]int{}, nil)
+	s.putVariant("rv", res2, ref2, [4]int{}, nil)
 
 	if err := s.RemoveVariant("rv", res1); err != nil {
 		t.Fatalf("RemoveVariant: %v", err)

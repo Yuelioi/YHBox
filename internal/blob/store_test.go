@@ -54,7 +54,8 @@ func TestStoreRejectsTamperingTraversalAndQuotaAmplification(t *testing.T) {
 	if _, err := store.ReadRange(context.Background(), forged, 0, 1); err == nil {
 		t.Fatal("accepted a forged blob path")
 	}
-	path := filepath.Join(root, strings.TrimPrefix(ref.Digest.String(), "sha256:"))
+	name := strings.TrimPrefix(ref.Digest.String(), "sha256:")
+	path := filepath.Join(root, name[:2], name[2:4], name)
 	if err := os.WriteFile(path, []byte("HELLO"), 0o600); err != nil {
 		t.Fatal(err)
 	}

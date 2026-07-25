@@ -7,8 +7,8 @@
 ## Current stage
 
 Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
-M1 合同与 M2a 资源侧栏保持完成。Stage R 的审计与 RootSet/lifecycle 基座已经完成，下一步建立 Catalog
-foundation，再继续依赖该基础的 M2/M3。
+M1 合同与 M2a 资源侧栏保持完成。Stage R 的审计、RootSet/lifecycle、Catalog foundation 与 Asset
+Catalog/CAS v2 已完成；下一步迁 Workflow Source/revision/reference 与可重建 Program cache。
 
 ## Stage R — 配置与资源持久化基础设施
 
@@ -24,6 +24,12 @@ data-root、存储接口、完整性、恢复、GC 和版本迁移边界。
 - [x] [R3 — Catalog foundation](slices/stage-r3-catalog-foundation.md)：锁定 CGO-free SQLite adapter，
   建立 Content Catalog/Run Ledger application identity、schema migration、online backup、quick-check
   与故障注入基座；暂不迁具体领域数据。
+- [x] [R4 — Asset Catalog + CAS v2](slices/stage-r4-asset-catalog-cas-v2.md)：Asset metadata/query/reference
+  进入 Content Catalog；CAS 使用分片物理布局、持久 object refs、宽限 GC 和分区配额，并以 10k metadata/
+  100k Blob 与崩溃矩阵验收。
+- [x] [R5 — Workflow Repository 与 Program cache](slices/stage-r5-workflow-repository-program-cache.md)：
+  Source metadata/revision/reference/quarantine 进入 Content Catalog；Program 按 compiler/catalog identity
+  进入可按数量、字节和 LRU 回收的独立 cache。
 
 非目标：不在审计阶段直接搬动用户目录，不把所有对象塞进单一数据库，不把 secret 或本机安装配置带入
 Workflow Source/Bundle，也不为了当前开发样本忽略 1000+ 对象和 GB 级内容。

@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"image/png"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -212,8 +213,10 @@ func consentedAutomationInstallations(t *testing.T, slot, label string, draft au
 
 func buildPlatformSmokeRuntime(t *testing.T, installations automationinstalled.Installations) (*appbootstrap.Runtime, *workflow.Service) {
 	t.Helper()
+	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: testWorkflowBlobStore(t), Limits: testLimits(),
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: installations,
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},

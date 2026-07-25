@@ -20,6 +20,8 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -161,7 +163,14 @@ func TestApplicationCommandsRequireLiveLifecycle(t *testing.T) {
 
 func TestApplicationInventoriesWorkflowSourceBlobReferences(t *testing.T) {
 	now := time.Date(2026, 7, 17, 10, 40, 0, 0, time.UTC)
-	application, _, _, builtins, _, _ := newTestApplication(t, now, nil)
+	ref := blob.BlobRef{
+		MediaType: "application/octet-stream",
+		Digest:    artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Size:      42,
+	}
+	application, _, _, builtins, _, _ := newTestApplication(
+		t, now, nil, blob.Object{Digest: ref.Digest, Size: ref.Size},
+	)
 	if err := application.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -175,11 +184,6 @@ func TestApplicationInventoriesWorkflowSourceBlobReferences(t *testing.T) {
 	created, err := application.CreateSource(context.Background(), "Blob inventory")
 	if err != nil {
 		t.Fatal(err)
-	}
-	ref := blob.BlobRef{
-		MediaType: "application/octet-stream",
-		Digest:    artifact.Digest("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-		Size:      42,
 	}
 	patched, err := application.ApplyPatch(context.Background(), authoring.PatchRequest{
 		WorkflowID: created.WorkflowID(), BaseRevision: created.Revision(), Commands: []authoring.Command{
@@ -584,7 +588,7 @@ func waitApplicationDebug(t *testing.T, events <-chan appcore.DebugEvent, runID 
 	}
 }
 
-func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent, chan appcore.DebugEvent) {
+func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Adapter, observed ...blob.Object) (*appcore.Application, *workflowstore.SourceStore, *workflowstore.ProgramStore, nodes.Builtins, chan appcore.RunEvent, chan appcore.DebugEvent) {
 	t.Helper()
 	builtins, err := nodes.Build()
 	if err != nil {
@@ -599,11 +603,25 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	}
 	build := testDigest(t, "application compiler")
 	root := t.TempDir()
-	sources, err := workflowstore.OpenSourceStore(filepath.Join(root, "sources"), workflowstore.SourceStoreOptions{MaxSources: 8})
+	roots, err := storage.Resolve(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	programs, err := workflowstore.OpenProgramStore(filepath.Join(root, "programs"), builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: 8})
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	for _, object := range observed {
+		if err := foundation.Objects().Observe(context.Background(), object); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sources, err := workflowstore.OpenSourceStore(foundation.Workflows(), workflowstore.SourceStoreOptions{MaxSources: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	programs, err := workflowstore.OpenProgramStore(filepath.Join(roots.Cache, "programs"), builtins.Catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: 8, MaxBytes: 8 << 20})
 	if err != nil {
 		t.Fatal(err)
 	}

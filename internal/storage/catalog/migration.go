@@ -23,6 +23,28 @@ var foundationSchemaObjects = []schemaObject{
 	{kind: "index", name: "idx_schema_migrations_to_version"},
 }
 
+var contentSchemaObjects = append([]schemaObject{}, append(foundationSchemaObjects,
+	[]schemaObject{
+		{kind: "table", name: "assets"},
+		{kind: "table", name: "asset_variants"},
+		{kind: "table", name: "asset_tags"},
+		{kind: "table", name: "object_refs"},
+		{kind: "table", name: "gc_objects"},
+		{kind: "table", name: "object_leases"},
+		{kind: "table", name: "workflow_sources"},
+		{kind: "table", name: "workflow_refs"},
+		{kind: "table", name: "workflow_quarantine"},
+		{kind: "index", name: "idx_assets_kind_name"},
+		{kind: "index", name: "idx_assets_kind_created"},
+		{kind: "index", name: "idx_asset_tags_normalized"},
+		{kind: "index", name: "idx_object_refs_digest"},
+		{kind: "index", name: "idx_gc_objects_state_unreachable"},
+		{kind: "index", name: "idx_object_leases_expiry"},
+		{kind: "index", name: "idx_workflow_sources_name"},
+		{kind: "index", name: "idx_workflow_refs_digest"},
+		{kind: "index", name: "idx_workflow_quarantine_created"},
+	}...)...)
+
 type migration struct {
 	id         string
 	from       int
@@ -53,13 +75,128 @@ var foundationStatements = []string{
 	`CREATE INDEX idx_schema_migrations_to_version ON schema_migrations(to_version)`,
 }
 
-var contentMigrations = []migration{{
-	id: "content.foundation.1", from: 0, to: 1, statements: foundationStatements,
-}}
+var contentMigrations = []migration{
+	{id: "content.foundation.1", from: 0, to: 1, statements: foundationStatements},
+	{id: "content.assets-and-objects.2", from: 1, to: 2, statements: assetCatalogStatements},
+	{id: "content.workflow-sources.3", from: 2, to: 3, statements: workflowCatalogStatements},
+}
 
 var runMigrations = []migration{{
 	id: "runs.foundation.1", from: 0, to: 1, statements: foundationStatements,
 }}
+
+var assetCatalogStatements = []string{
+	`CREATE TABLE assets (
+		guid TEXT PRIMARY KEY NOT NULL,
+		kind TEXT NOT NULL CHECK (kind IN ('template', 'clip', 'macro')),
+		name TEXT NOT NULL,
+		description TEXT NOT NULL,
+		category TEXT NOT NULL,
+		origin_kind TEXT NOT NULL,
+		origin_source_id TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		record_revision INTEGER NOT NULL CHECK (record_revision > 0),
+		record_blob_media_type TEXT,
+		record_blob_digest TEXT,
+		record_blob_size INTEGER,
+		CHECK (
+			(record_blob_media_type IS NULL AND record_blob_digest IS NULL AND record_blob_size IS NULL)
+			OR
+			(record_blob_media_type IS NOT NULL AND record_blob_digest IS NOT NULL AND record_blob_size >= 0)
+		)
+	) STRICT`,
+	`CREATE TABLE asset_variants (
+		asset_guid TEXT NOT NULL REFERENCES assets(guid) ON DELETE CASCADE,
+		ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+		width INTEGER NOT NULL CHECK (width > 0),
+		height INTEGER NOT NULL CHECK (height > 0),
+		bbox_x1 INTEGER NOT NULL,
+		bbox_y1 INTEGER NOT NULL,
+		bbox_x2 INTEGER NOT NULL,
+		bbox_y2 INTEGER NOT NULL,
+		regions_json TEXT NOT NULL,
+		blob_media_type TEXT NOT NULL,
+		blob_digest TEXT NOT NULL,
+		blob_size INTEGER NOT NULL CHECK (blob_size >= 0),
+		PRIMARY KEY (asset_guid, width, height),
+		UNIQUE (asset_guid, ordinal)
+	) STRICT`,
+	`CREATE TABLE asset_tags (
+		asset_guid TEXT NOT NULL REFERENCES assets(guid) ON DELETE CASCADE,
+		ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+		tag TEXT NOT NULL,
+		normalized_tag TEXT NOT NULL,
+		PRIMARY KEY (asset_guid, normalized_tag),
+		UNIQUE (asset_guid, ordinal)
+	) STRICT`,
+	`CREATE TABLE object_refs (
+		owner_kind TEXT NOT NULL,
+		owner_id TEXT NOT NULL,
+		role TEXT NOT NULL,
+		digest TEXT NOT NULL,
+		media_type TEXT NOT NULL,
+		size INTEGER NOT NULL CHECK (size >= 0),
+		PRIMARY KEY (owner_kind, owner_id, role),
+		FOREIGN KEY (digest) REFERENCES gc_objects(digest) ON DELETE RESTRICT
+	) STRICT`,
+	`CREATE TABLE gc_objects (
+		digest TEXT PRIMARY KEY NOT NULL,
+		size INTEGER NOT NULL CHECK (size >= 0),
+		physical_generation INTEGER NOT NULL CHECK (physical_generation > 0),
+		state TEXT NOT NULL CHECK (state IN ('active', 'deleting')),
+		observed_at TEXT NOT NULL,
+		unreachable_since TEXT,
+		last_error TEXT
+	) STRICT`,
+	`CREATE TABLE object_leases (
+		token TEXT PRIMARY KEY NOT NULL,
+		digest TEXT NOT NULL,
+		owner_kind TEXT NOT NULL,
+		owner_id TEXT NOT NULL,
+		expires_at TEXT NOT NULL,
+		FOREIGN KEY (digest) REFERENCES gc_objects(digest) ON DELETE RESTRICT
+	) STRICT`,
+	`CREATE INDEX idx_assets_kind_name ON assets(kind, name COLLATE NOCASE, guid)`,
+	`CREATE INDEX idx_assets_kind_created ON assets(kind, created_at DESC, guid)`,
+	`CREATE INDEX idx_asset_tags_normalized ON asset_tags(normalized_tag, asset_guid)`,
+	`CREATE INDEX idx_object_refs_digest ON object_refs(digest)`,
+	`CREATE INDEX idx_gc_objects_state_unreachable ON gc_objects(state, unreachable_since, digest)`,
+	`CREATE INDEX idx_object_leases_expiry ON object_leases(expires_at, digest)`,
+	`INSERT INTO meta(key, value) VALUES ('asset_revision', '0')`,
+}
+
+var workflowCatalogStatements = []string{
+	`CREATE TABLE workflow_sources (
+		workflow_id TEXT PRIMARY KEY NOT NULL,
+		name TEXT NOT NULL,
+		revision INTEGER NOT NULL CHECK (revision >= 0),
+		source_hash TEXT NOT NULL CHECK (length(source_hash) = 71),
+		format TEXT NOT NULL,
+		version TEXT NOT NULL,
+		artifact BLOB NOT NULL CHECK (length(artifact) > 0),
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	) STRICT`,
+	`CREATE TABLE workflow_refs (
+		workflow_id TEXT NOT NULL REFERENCES workflow_sources(workflow_id) ON DELETE CASCADE,
+		role TEXT NOT NULL,
+		digest TEXT NOT NULL,
+		media_type TEXT NOT NULL,
+		size INTEGER NOT NULL CHECK (size >= 0),
+		PRIMARY KEY (workflow_id, role),
+		FOREIGN KEY (digest) REFERENCES gc_objects(digest) ON DELETE RESTRICT
+	) STRICT`,
+	`CREATE TABLE workflow_quarantine (
+		recovery_id TEXT PRIMARY KEY NOT NULL CHECK (length(recovery_id) = 71),
+		original_name TEXT NOT NULL,
+		reason TEXT NOT NULL,
+		artifact BLOB NOT NULL CHECK (length(artifact) > 0),
+		created_at TEXT NOT NULL
+	) STRICT`,
+	`CREATE INDEX idx_workflow_sources_name ON workflow_sources(name COLLATE NOCASE, workflow_id)`,
+	`CREATE INDEX idx_workflow_refs_digest ON workflow_refs(digest, workflow_id)`,
+	`CREATE INDEX idx_workflow_quarantine_created ON workflow_quarantine(created_at, recovery_id)`,
+}
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {
 	if err := validateRegistry(d.spec); err != nil {

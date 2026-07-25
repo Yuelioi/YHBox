@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -71,117 +69,14 @@ func TestSourceMigrationPlanRejectsUnavailableAndConfusedMigrations(t *testing.T
 	}
 }
 
-func TestOpenSourceStoreAtomicallyPublishesValidatedMigration(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, sourceMarker), []byte(sourceMarkerContents), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(root, "wf-migrated.json")
-	legacy := []byte(`{"format":"yotta.workflow","version":"0","workflowId":"wf-migrated"}`)
-	if err := os.WriteFile(path, legacy, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	current := sourceContract{Format: schema.Format, Version: schema.Version}
-	plan, err := newSourceMigrationPlan(current, []sourceMigrationStep{{
-		From: sourceContract{Format: schema.Format, Version: "0"},
-		To:   current,
-		Apply: func(raw []byte) ([]byte, error) {
-			if !bytes.Equal(raw, legacy) {
-				return nil, errors.New("migration did not receive exact legacy bytes")
-			}
-			return migrationTestSource(), nil
-		},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	store, err := openSourceStore(root, SourceStoreOptions{MaxSources: 2}, plan)
-	if err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := store.Load("wf-migrated")
-	if err != nil {
-		t.Fatal(err)
-	}
-	durable, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(durable, loaded.Artifact()) || bytes.Equal(durable, legacy) {
-		t.Fatalf("durable migration = %s; snapshot = %s", durable, loaded.Artifact())
-	}
-	if len(store.ListRecoveries()) != 0 {
-		t.Fatalf("validated migration was quarantined: %#v", store.ListRecoveries())
-	}
-}
-
 func TestCurrentSourceMigrationPlanDoesNotRepairDevelopmentArtifacts(t *testing.T) {
 	plan, err := currentSourceMigrationPlan()
 	if err != nil {
 		t.Fatal(err)
 	}
-	developmentArtifact := []byte(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":"old-dev","name":"Old development shape"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`)
+	developmentArtifact := []byte(`{"format":"yotta.workflow","version":"3.1"}`)
 	if _, _, err := plan.Migrate(developmentArtifact); !errors.Is(err, errSourceMigrationUnavailable) {
 		t.Fatalf("development artifact migration error = %v", err)
-	}
-}
-
-func TestOpenSourceStoreQuarantinesInvalidCurrentDevelopmentArtifact(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, sourceMarker), []byte(sourceMarkerContents), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(root, "old-dev.json")
-	developmentArtifact := []byte(`{"format":"yotta.workflow","version":"3.1","workflow":{"id":"old-dev","name":"Old development shape"},"revision":0,"entryGraph":"main","graphs":[],"variables":[],"secretRefs":[]}`)
-	if err := os.WriteFile(path, developmentArtifact, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	store, err := OpenSourceStore(root, SourceStoreOptions{MaxSources: 2})
-	if err != nil {
-		t.Fatal(err)
-	}
-	recoveries := store.ListRecoveries()
-	if len(recoveries) != 1 || !bytes.Equal(recoveries[0].Artifact(), developmentArtifact) {
-		t.Fatalf("development recovery = %#v", recoveries)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("invalid current artifact remained active: %v", err)
-	}
-}
-
-func TestOpenSourceStorePreservesOriginalWhenRegisteredMigrationFails(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, sourceMarker), []byte(sourceMarkerContents), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(root, "wf-migration-failure.json")
-	legacy := []byte(`{"format":"yotta.workflow","version":"0","workflowId":"wf-migration-failure"}`)
-	if err := os.WriteFile(path, legacy, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	current := sourceContract{Format: schema.Format, Version: schema.Version}
-	plan, err := newSourceMigrationPlan(current, []sourceMigrationStep{{
-		From: sourceContract{Format: schema.Format, Version: "0"},
-		To:   current,
-		Apply: func([]byte) ([]byte, error) {
-			return nil, errors.New("synthetic migration failure")
-		},
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := openSourceStore(root, SourceStoreOptions{MaxSources: 2}, plan); err == nil {
-		t.Fatal("migration failure did not fail store open")
-	}
-	durable, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(durable, legacy) {
-		t.Fatalf("migration failure changed original bytes: %s", durable)
-	}
-	if _, err := os.Stat(filepath.Join(root, sourceRecoveryDir)); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("migration failure was incorrectly quarantined: %v", err)
 	}
 }
 
@@ -198,12 +93,4 @@ func rewriteSourceVersion(version string) sourceMigration {
 		document["version"] = encoded
 		return json.Marshal(document)
 	}
-}
-
-func migrationTestSource() []byte {
-	return []byte(`{
-		"format":"yotta.workflow","version":"1","workflow":{"id":"wf-migrated","name":"Migrated"},
-		"revision":0,"entryGraph":"main","graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
-		"variables":[],"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[]
-	}`)
 }

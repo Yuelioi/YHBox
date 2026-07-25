@@ -30,6 +30,7 @@ import (
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
@@ -40,6 +41,7 @@ import (
 type Limits struct {
 	MaxSources              int
 	MaxPrograms             int
+	MaxProgramCacheBytes    int64
 	MaxRuns                 int
 	MaxResourcePayloadBytes int
 	BlobChunkBytes          int
@@ -50,6 +52,8 @@ type Limits struct {
 
 type Config struct {
 	DataRoot                 string
+	ProgramCacheRoot         string
+	WorkflowRepository       *catalog.WorkflowRepository
 	BlobStore                *blob.Store
 	Limits                   Limits
 	AIInstallations          ai.Installations
@@ -82,7 +86,7 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.WorkflowRepository == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -163,11 +167,20 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	sources, err := workflowstore.OpenSourceStore(filepath.Join(workspace, "workflows"), workflowstore.SourceStoreOptions{MaxSources: config.Limits.MaxSources})
+	sources, err := workflowstore.OpenSourceStore(config.WorkflowRepository, workflowstore.SourceStoreOptions{
+		MaxSources: config.Limits.MaxSources, Now: config.Now,
+	})
 	if err != nil {
 		return nil, err
 	}
-	programs, err := workflowstore.OpenProgramStore(filepath.Join(workspace, "programs"), catalog, builtins.ConfigValidators, build, workflowstore.ProgramStoreOptions{MaxPrograms: config.Limits.MaxPrograms})
+	programs, err := workflowstore.OpenProgramStore(
+		config.ProgramCacheRoot, catalog, builtins.ConfigValidators, build,
+		workflowstore.ProgramStoreOptions{
+			MaxPrograms: config.Limits.MaxPrograms,
+			MaxBytes:    config.Limits.MaxProgramCacheBytes,
+			Now:         config.Now,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +354,7 @@ func Build(config Config) (*Runtime, error) {
 }
 
 func validateLimits(limits Limits) error {
-	if limits.MaxSources <= 0 || limits.MaxPrograms <= 0 || limits.MaxRuns <= 0 ||
+	if limits.MaxSources <= 0 || limits.MaxPrograms <= 0 || limits.MaxProgramCacheBytes <= 0 || limits.MaxRuns <= 0 ||
 		limits.MaxResourcePayloadBytes < 2*nodes.DefaultFileReadBytes || limits.BlobChunkBytes <= 0 || limits.BlobChunkBytes > limits.MaxResourcePayloadBytes ||
 		limits.BlobQueueCapacity <= 0 || limits.StreamCapacity <= 0 || limits.StreamChunkBytes <= 0 ||
 		limits.StreamChunkBytes > limits.MaxResourcePayloadBytes {

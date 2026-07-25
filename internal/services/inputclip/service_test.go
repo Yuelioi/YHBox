@@ -1,23 +1,19 @@
 package inputclip
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assets, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assets, _ := newInputClipAssetStore(t, root)
 	service := NewService(assets)
 	clip := &InputClip{
 		ID: "clip-test", Label: "Before", Description: "old", Category: "demo", Tags: []string{"a"},
@@ -67,14 +63,7 @@ func TestServiceMetadataUpdatePreservesNominalBlobIdentity(t *testing.T) {
 
 func TestServiceEmitsUnifiedAssetInvalidation(t *testing.T) {
 	root := t.TempDir()
-	blobs, err := blob.Open(filepath.Join(root, "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assets, err := asset.NewStore(root, blobs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assets, _ := newInputClipAssetStore(t, root)
 	events := make([]string, 0)
 	service := NewService(assets, func(name string, _ any) { events = append(events, name) })
 	clip := &InputClip{
@@ -92,4 +81,35 @@ func TestServiceEmitsUnifiedAssetInvalidation(t *testing.T) {
 	if len(events) != 2 || events[0] != "asset:changed" || events[1] != "clip:changed" {
 		t.Fatalf("events = %v", events)
 	}
+}
+
+func newInputClipAssetStore(t *testing.T, root string) (*asset.Store, *blob.Store) {
+	t.Helper()
+	roots, err := storage.Resolve(filepath.Join(root, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobs, err := blob.Open(
+		filepath.Join(root, "blobs"),
+		blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 4 << 20},
+		foundation.Objects(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := asset.NewStore(
+		foundation.Assets(),
+		foundation.Objects(),
+		blobs,
+		asset.WithGCGracePeriod(0),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store, blobs
 }

@@ -21,7 +21,7 @@ import (
 const (
 	ContentFilename      = "content.db"
 	RunFilename          = "runs.db"
-	ContentSchemaVersion = 1
+	ContentSchemaVersion = 3
 	RunSchemaVersion     = 1
 	ContentApplicationID = 0x594F5443 // YOTC; provisional, not SQLite-registered.
 	RunApplicationID     = 0x594F5452 // YOTR; provisional, not SQLite-registered.
@@ -63,6 +63,35 @@ type Foundation struct {
 	content *database
 	runs    *database
 	once    sync.Once
+}
+
+// Assets returns the Global Asset repository owned by the Content Catalog.
+// Its lifetime is bounded by the Foundation; it does not expose SQL handles.
+func (f *Foundation) Assets() *AssetRepository {
+	if f == nil || f.content == nil {
+		return nil
+	}
+	return &AssetRepository{database: f.content}
+}
+
+// Objects returns the object reference and GC metadata repository owned by the
+// Content Catalog. Physical bytes remain in the file CAS.
+func (f *Foundation) Objects() *ObjectRepository {
+	if f == nil || f.content == nil {
+		return nil
+	}
+	return &ObjectRepository{database: f.content}
+}
+
+// Workflows returns the Workflow Source metadata, revision, reference, and
+// quarantine repository owned by the Content Catalog. Portable Source bytes
+// remain the formal exchange artifact; this repository is only their local
+// durable authority.
+func (f *Foundation) Workflows() *WorkflowRepository {
+	if f == nil || f.content == nil {
+		return nil
+	}
+	return &WorkflowRepository{database: f.content}
 }
 
 type faultHooks struct {
@@ -117,7 +146,7 @@ func newDatabaseSpec(kind databaseKind, path string) databaseSpec {
 		return databaseSpec{
 			kind: contentKind, path: path, applicationID: ContentApplicationID,
 			currentVersion: ContentSchemaVersion, migrations: contentMigrations,
-			requiredObjects: foundationSchemaObjects,
+			requiredObjects: contentSchemaObjects,
 		}
 	case runKind:
 		return databaseSpec{

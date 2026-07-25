@@ -277,7 +277,11 @@ func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	blobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
+	blobStore, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
+		catalogFoundation.Objects(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -293,10 +297,12 @@ func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 		return nil, err
 	}
 	applicationRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: roots.Data, BlobStore: blobStore,
+		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
+		WorkflowRepository: catalogFoundation.Workflows(), BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536, MaxResourcePayloadBytes: 4 << 20,
-			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
+			MaxProgramCacheBytes: 2 << 30,
+			BlobChunkBytes:       64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,

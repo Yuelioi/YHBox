@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -203,7 +202,12 @@ func (p *Provider) Close(ctx context.Context, object any) error {
 
 func (p *Provider) openReader(ctx context.Context, ref BlobRef) (*readerState, error) {
 	p.store.mu.RLock()
-	file, err := os.Open(filepath.Join(p.store.root, objectName(ref.Digest)))
+	path, err := p.store.checkedObjectPath(ref.Digest)
+	if err != nil {
+		p.store.mu.RUnlock()
+		return nil, err
+	}
+	file, err := os.Open(path)
 	if err != nil {
 		p.store.mu.RUnlock()
 		return nil, fmt.Errorf("open blob: %w", err)

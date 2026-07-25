@@ -20,6 +20,8 @@ import (
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 func TestProtocolRegistersOnlyBoundedWorkflow31Tools(t *testing.T) {
@@ -175,14 +177,25 @@ func testApplication(t *testing.T) *appcore.Application {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobStore, err := blob.Open(filepath.Join(t.TempDir(), "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	roots, err := storage.Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20}, foundation.Objects())
 	if err != nil {
 		t.Fatal(err)
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: blobStore,
+		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
+		WorkflowRepository: foundation.Workflows(), BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 16, MaxPrograms: 16, MaxRuns: 16,
+			MaxProgramCacheBytes:    16 << 20,
 			MaxResourcePayloadBytes: 2 << 20,
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},

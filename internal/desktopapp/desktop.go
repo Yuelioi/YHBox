@@ -118,11 +118,19 @@ func Run(config Config) error {
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
-	sharedBlobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
+	sharedBlobStore, err := blob.Open(
+		roots.Objects,
+		blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
+		catalogFoundation.Objects(),
+	)
 	if err != nil {
 		return fmt.Errorf("initialize shared Blob Store: %w", err)
 	}
-	assetStore, err := asset.NewStore(filepath.Join(roots.Data, "assets"), sharedBlobStore)
+	assetStore, err := asset.NewStore(
+		catalogFoundation.Assets(),
+		catalogFoundation.Objects(),
+		sharedBlobStore,
+	)
 	if err != nil {
 		return fmt.Errorf("initialize asset store: %w", err)
 	}
@@ -168,9 +176,11 @@ func Run(config Config) error {
 		return fmt.Errorf("initialize node package store: %w", err)
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: roots.Data, BlobStore: sharedBlobStore,
+		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
+		WorkflowRepository: catalogFoundation.Workflows(), BlobStore: sharedBlobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
+			MaxProgramCacheBytes:    2 << 30,
 			MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},

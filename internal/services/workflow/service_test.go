@@ -23,6 +23,8 @@ import (
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -534,7 +536,16 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobStore, err := blob.Open(filepath.Join(t.TempDir(), "blobs"), blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20})
+	roots, err := storage.Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foundation.Close() })
+	blobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 1 << 20, MaxTotalBytes: 8 << 20}, foundation.Objects())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,10 +558,12 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 		t.Fatal(err)
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: t.TempDir(), BlobStore: blobStore,
+		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
+		WorkflowRepository: foundation.Workflows(), BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: sourceLimit, MaxPrograms: 8, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20,
-			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
+			MaxProgramCacheBytes: 8 << 20,
+			BlobChunkBytes:       64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10,
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
