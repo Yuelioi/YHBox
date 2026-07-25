@@ -80,6 +80,24 @@ func (r *Runtime) UpdateWorkflowInstallationTargetProfile(
 	return r.Installations.Settings(ctx, installationID)
 }
 
+func (r *Runtime) UpdateWorkflowInstallationCredentialBinding(
+	ctx context.Context,
+	installationID string,
+	expectedGeneration int64,
+	requirementSlot string,
+	credentialBindingID string,
+) (workflowinstallation.SettingsSnapshot, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.SettingsSnapshot{}, errors.New("workflow installation runtime is unavailable")
+	}
+	if _, err := r.Installations.UpdateCredentialBinding(
+		ctx, installationID, expectedGeneration, requirementSlot, credentialBindingID,
+	); err != nil {
+		return workflowinstallation.SettingsSnapshot{}, err
+	}
+	return r.Installations.Settings(ctx, installationID)
+}
+
 func (r *Runtime) GrantWorkflowInstallationConsent(
 	ctx context.Context,
 	installationID string,

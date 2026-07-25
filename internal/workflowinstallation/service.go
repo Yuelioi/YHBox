@@ -129,6 +129,7 @@ type Options struct {
 	NewID        func() string
 	Dependencies func(context.Context) ([]DependencyState, error)
 	Targets      func(context.Context) ([]TargetState, error)
+	Credentials  func(context.Context) ([]CredentialState, error)
 }
 
 // Module is the command/query boundary for Workflow Installations. Verified
@@ -139,6 +140,7 @@ type Module struct {
 	newID        func() string
 	dependencies func(context.Context) ([]DependencyState, error)
 	targets      func(context.Context) ([]TargetState, error)
+	credentials  func(context.Context) ([]CredentialState, error)
 }
 
 func New(repository Repository, options Options) (*Module, error) {
@@ -157,9 +159,12 @@ func New(repository Repository, options Options) (*Module, error) {
 	if options.Targets == nil {
 		options.Targets = func(context.Context) ([]TargetState, error) { return nil, nil }
 	}
+	if options.Credentials == nil {
+		options.Credentials = func(context.Context) ([]CredentialState, error) { return nil, nil }
+	}
 	return &Module{
 		repository: repository, now: options.Now, newID: options.NewID,
-		dependencies: options.Dependencies, targets: options.Targets,
+		dependencies: options.Dependencies, targets: options.Targets, credentials: options.Credentials,
 	}, nil
 }
 
@@ -304,9 +309,15 @@ func (m *Module) executionState(
 	if err != nil {
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
+	credentials, err := m.credentials(ctx)
+	if err != nil {
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
+	}
 	report, err := EvaluateReadiness(
 		installation, release, configuration,
-		ReadinessEnvironment{Dependencies: dependencies, Targets: targets},
+		ReadinessEnvironment{
+			Dependencies: dependencies, Targets: targets, Credentials: credentials,
+		},
 	)
 	if err != nil {
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
@@ -357,6 +368,7 @@ type SettingsSnapshot struct {
 	Configuration          Configuration
 	TargetDefinitions      []schema.TargetProfileDefinition
 	CredentialRequirements []schema.CredentialRequirement
+	Credentials            []CredentialState
 }
 
 func (m *Module) Settings(ctx context.Context, installationID string) (SettingsSnapshot, error) {
@@ -379,11 +391,93 @@ func (m *Module) Settings(ctx context.Context, installationID string) (SettingsS
 	if schema.HasErrors(diagnostics) {
 		return SettingsSnapshot{}, errors.New("Workflow Release Source is invalid")
 	}
+	credentials, err := m.credentials(ctx)
+	if err != nil {
+		return SettingsSnapshot{}, err
+	}
 	return SettingsSnapshot{
 		Configuration:          configuration,
 		TargetDefinitions:      append([]schema.TargetProfileDefinition(nil), source.TargetProfileDefinitions...),
 		CredentialRequirements: append([]schema.CredentialRequirement(nil), source.CredentialRequirements...),
+		Credentials:            append([]CredentialState(nil), credentials...),
 	}, nil
+}
+
+func (m *Module) UpdateCredentialBinding(
+	ctx context.Context,
+	installationID string,
+	expectedGeneration int64,
+	requirementSlot string,
+	credentialBindingID string,
+) (Configuration, error) {
+	if !slotPattern.MatchString(requirementSlot) ||
+		credentialBindingID != "" && !localReferencePattern.MatchString(credentialBindingID) {
+		return Configuration{}, errors.New("Workflow credential binding update is invalid")
+	}
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return Configuration{}, err
+	}
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if !found {
+		return Configuration{}, errors.New("Workflow Installation references a missing Release")
+	}
+	current, err := m.configuration(ctx, installation, release)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if current.Generation != expectedGeneration {
+		return Configuration{}, ErrInstallationConflict
+	}
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return Configuration{}, errors.New("Workflow Release Source is invalid")
+	}
+	var requirement *schema.CredentialRequirement
+	for index := range source.CredentialRequirements {
+		if source.CredentialRequirements[index].Slot == requirementSlot {
+			requirement = &source.CredentialRequirements[index]
+			break
+		}
+	}
+	if requirement == nil {
+		return Configuration{}, errors.New("Workflow credential requirement is unknown")
+	}
+	if credentialBindingID != "" {
+		credentials, err := m.credentials(ctx)
+		if err != nil {
+			return Configuration{}, err
+		}
+		compatible := false
+		for _, credential := range credentials {
+			if credential.CredentialBindingID == credentialBindingID &&
+				credential.Kind == requirement.Kind && credential.Available {
+				compatible = true
+				break
+			}
+		}
+		if !compatible {
+			return Configuration{}, errors.New("Workflow credential binding is unavailable or incompatible")
+		}
+	}
+	next := CloneConfiguration(current)
+	if credentialBindingID == "" {
+		delete(next.CredentialBindings, requirementSlot)
+	} else {
+		next.CredentialBindings[requirementSlot] = credentialBindingID
+	}
+	next.Generation++
+	next.UpdatedAt = m.now().UTC()
+	if err := ValidateConfiguration(next); err != nil {
+		return Configuration{}, err
+	}
+	if err := m.repository.ReplaceConfiguration(ctx, expectedGeneration, next); err != nil {
+		return Configuration{}, err
+	}
+	return CloneConfiguration(next), nil
 }
 
 func (m *Module) UpdateTargetProfile(

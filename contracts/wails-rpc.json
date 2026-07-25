@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 17,
-    "methods": 154,
-    "models": 228
+    "methods": 155,
+    "models": 229
   },
   "services": [
     {
@@ -1946,6 +1946,33 @@
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
+        },
+        {
+          "name": "UpdateInstallationCredentialBinding",
+          "bindingId": "3011832973",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "expectedGeneration",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "requirementSlot",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "credentialBindingID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
         },
         {
           "name": "UpdateInstallationTargetProfile",
@@ -6430,6 +6457,27 @@
         },
         {
           "kind": "class",
+          "name": "InstallationCredentialCandidateView",
+          "fields": [
+            {
+              "name": "\"bindingId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"available\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "InstallationCredentialRequirementView",
           "fields": [
             {
@@ -6451,6 +6499,11 @@
               "name": "\"bindingId\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"candidates\"",
+              "optional": false,
+              "type": "InstallationCredentialCandidateView[]"
             }
           ]
         },

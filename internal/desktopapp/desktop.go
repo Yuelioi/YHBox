@@ -199,7 +199,11 @@ func Run(config Config) error {
 			MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes:          64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
 		},
-		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations, ScriptRuntime: scriptRuntime,
+		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
+		CredentialStates: func(ctx context.Context) ([]workflowinstallation.CredentialState, error) {
+			return appbootstrap.AICredentialStates(ctx, aiInstallations, aiSecrets)
+		},
+		ScriptRuntime:    scriptRuntime,
 		NodePackageStore: nodePackageStore, WasmRunnerExecutable: filepath.Join(filepath.Dir(executable), wasmrunner.WorkerExecutableName),
 		LogEmitter: newWorkflowLogEmitter(rootLog),
 		GrantTTL:   runGrantTTL, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,

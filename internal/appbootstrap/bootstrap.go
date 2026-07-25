@@ -63,6 +63,7 @@ type Config struct {
 	HTTPInstallations        httpegress.Installations
 	ApplicationInstallations appcontrol.Installations
 	AutomationInstallations  automationinstalled.Installations
+	CredentialStates         func(context.Context) ([]workflowinstallation.CredentialState, error)
 	ScriptRuntime            *scriptengine.Runtime
 	NodePackageStore         *nodepackage.Store
 	WasmRunnerExecutable     string
@@ -361,6 +362,7 @@ func Build(config Config) (*Runtime, error) {
 			}
 			return automationTargets.WorkflowTargetStates(), nil
 		},
+		Credentials: config.CredentialStates,
 	})
 	if err != nil {
 		return nil, err

@@ -1227,29 +1227,45 @@ func addNodeViaQuickAddAfter(
 ) error {
 	queryJSON, _ := json.Marshal(query)
 	nodeTypeJSON, _ := json.Marshal(nodeTypeID)
-	if err := eval(ctx, client, fmt.Sprintf(`(async () => {
-		const wait = async predicate => {
-			const deadline = performance.now() + 5000;
-			while (performance.now() < deadline) {
-				const value = predicate();
-				if (value) return value;
-				await new Promise(resolve => setTimeout(resolve, 25));
-			}
-			throw new Error('node quick add did not become ready');
-		};
+	if err := eval(ctx, client, `(() => {
 		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
 		if (!trigger) throw new Error('explicit add node trigger not found');
 		trigger.click();
-		const input = await wait(() => document.querySelector(
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
+		/* quick add search ready */
+		return Boolean(document.querySelector(
 			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
 		));
+	})()`); err != nil {
+		return fmt.Errorf("wait for quick-add search: %w", err)
+	}
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const input = document.querySelector(
+			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
+		);
+		if (!input) throw new Error('node quick-add search unavailable');
 		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
 		setter.call(input, %s);
 		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-		const item = await wait(() => [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
-			.find(candidate => candidate.getAttribute('data-item-id') === %s));
+	})()`, queryJSON)); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, fmt.Sprintf(`(() => {
+		/* quick add item ready */
+		return [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.some(candidate => candidate.getAttribute('data-item-id') === %s);
+	})()`, nodeTypeJSON)); err != nil {
+		return fmt.Errorf("wait for quick-add item %s: %w", nodeTypeID, err)
+	}
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const item = [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.find(candidate => candidate.getAttribute('data-item-id') === %s);
+		if (!item) throw new Error('node quick-add item unavailable');
 		item.click();
-	})()`, queryJSON, nodeTypeJSON)); err != nil {
+	})()`, nodeTypeJSON)); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
@@ -1656,6 +1672,30 @@ func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func
 
 func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicate func(pageState) bool) error {
 	return waitUntilFor(ctx, client, 15*time.Second, predicate)
+}
+
+func waitUntilJS(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	timeout time.Duration,
+	expression string,
+) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		var ready bool
+		if err := evalJSON(waitCtx, client, expression, &ready); err != nil {
+			return err
+		}
+		if ready {
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
 }
 
 func waitUntilFor(

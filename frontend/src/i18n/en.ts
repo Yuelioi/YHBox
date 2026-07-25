@@ -2008,8 +2008,15 @@ export default {
       credentials_empty: 'This Release does not require a secure credential.',
       credential_bound: 'Bound',
       credential_unbound: 'Not bound',
-      credentials_pending_hint:
-        'Credential values always remain in secure storage. This view currently reports binding state only, and unbound requirements continue to block execution.',
+      credential_profile: 'Secure credential profile',
+      select_credential: 'Select a compatible secure credential',
+      credential_required: 'Select an available secure credential.',
+      credential_unavailable: 'unavailable in secure storage',
+      no_compatible_credential:
+        'No compatible secure credential is available. Save an API key in AI Settings first.',
+      open_credential_settings: 'Open AI Settings',
+      credentials_secure_hint:
+        'Only a logical credential reference is saved here. API keys remain in system secure storage and never enter the Workflow Installation, Release, or frontend response.',
     },
     template: {
       windows: {

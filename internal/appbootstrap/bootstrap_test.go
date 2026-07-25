@@ -524,6 +524,31 @@ func TestBuiltinPolicyRequiresExactAIInstallationConsent(t *testing.T) {
 	}
 }
 
+func TestAICredentialStatesExposeOnlyNonSecretAvailability(t *testing.T) {
+	profileDraft, evaluation := approvedAIProfile(t, ai.ModelProfileDraft{
+		Provider: ai.ProviderOpenAIResponses, Model: "gpt-test", MaxOutputTokens: 4096,
+		Capabilities: ai.ProfileCapabilities{StructuredOutput: true},
+	})
+	installations, err := ai.Install([]ai.InstallationDraft{
+		{Slot: "missing", Profile: profileDraft, Evaluation: evaluation},
+		{Slot: "primary", Profile: profileDraft, Evaluation: evaluation},
+	}, testAICredentials{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	states, err := appbootstrap.AICredentialStates(
+		context.Background(), installations,
+		testCredentialAvailability{"primary": true},
+	)
+	if err != nil || len(states) != 2 ||
+		states[0].CredentialBindingID != ai.CredentialBindingID("missing") ||
+		states[0].Available ||
+		states[1].CredentialBindingID != ai.CredentialBindingID("primary") ||
+		states[1].Kind != ai.CredentialKindAPIKey || !states[1].Available {
+		t.Fatalf("AICredentialStates() = %#v, %v", states, err)
+	}
+}
+
 func TestBuiltinPolicyRequiresExactHTTPInstallationConsent(t *testing.T) {
 	now := time.Date(2026, 7, 16, 17, 0, 0, 0, time.UTC)
 	profileDraft := httpegress.ProfileDraft{Origin: "https://example.com", ResponseByteLimit: 4096, TimeoutMilliseconds: 5000}
@@ -704,6 +729,12 @@ func TestBuiltinPolicyRequiresExactAutomationInputConsent(t *testing.T) {
 type testAICredentials struct{}
 
 func (testAICredentials) Get(string) (string, error) { return "secret", nil }
+
+type testCredentialAvailability map[string]bool
+
+func (availability testCredentialAvailability) HasSlot(slot string) (bool, error) {
+	return availability[slot], nil
+}
 
 type discardWorkflowLog struct{}
 

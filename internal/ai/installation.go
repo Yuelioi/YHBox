@@ -12,6 +12,8 @@ import (
 
 const workflowConsentDomain = "yotta/ai-workflow-consent/v1"
 
+const CredentialKindAPIKey = "https://schemas.yotta.dev/credentials/ai-api-key/v1"
+
 var installationSlotPattern = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 
 type InstallationDraft struct {

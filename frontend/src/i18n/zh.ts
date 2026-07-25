@@ -1604,8 +1604,14 @@ export default {
       credentials_empty: '此 Release 不需要安全凭据。',
       credential_bound: '已绑定',
       credential_unbound: '未绑定',
-      credentials_pending_hint:
-        '凭据值始终保存在安全存储中。此界面当前只显示绑定状态，未绑定项仍会阻止执行。',
+      credential_profile: '安全凭据 Profile',
+      select_credential: '选择兼容的安全凭据',
+      credential_required: '必须选择一个可用的安全凭据。',
+      credential_unavailable: '安全存储中不可用',
+      no_compatible_credential: '没有兼容且可用的安全凭据。请先在 AI 设置中保存 API Key。',
+      open_credential_settings: '打开 AI 设置',
+      credentials_secure_hint:
+        '这里只保存逻辑凭据引用。API Key 始终留在系统安全存储中，不会进入 Workflow Installation、Release 或前端响应。',
     },
     template: {
       windows: {

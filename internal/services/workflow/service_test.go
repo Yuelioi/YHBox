@@ -475,7 +475,10 @@ func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
 			"settingsSchemaBundle":[{"id":"https://example.test/desktop/v1","schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://example.test/desktop/v1","type":"object","properties":{"windowTitle":{"type":"string"}},"additionalProperties":false}}],
 			"initialDefaults":{},"discoveryHints":[{"kind":"window-title","value":"Yotta"}]
 		}],
-		"credentialRequirements":[],"dependencies":[],"variables":[]
+		"credentialRequirements":[{
+			"slot":"api","kind":"https://schemas.yotta.dev/credentials/ai-api-key/v1",
+			"purpose":"Call the configured AI model"
+		}],"dependencies":[],"variables":[]
 	}`))
 	if err != nil {
 		t.Fatal(err)
@@ -503,7 +506,11 @@ func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
 	if err != nil || settings.Generation != 1 || len(settings.Targets) != 1 ||
 		settings.Targets[0].DefinitionID != "desktop" ||
 		settings.Targets[0].SettingsJSON != `{}` ||
-		len(settings.Targets[0].DiscoveryHints) != 1 {
+		len(settings.Targets[0].DiscoveryHints) != 1 ||
+		len(settings.Credentials) != 1 ||
+		len(settings.Credentials[0].Candidates) != 1 ||
+		settings.Credentials[0].Candidates[0].BindingID != ai.CredentialBindingID("primary") ||
+		!settings.Credentials[0].Candidates[0].Available {
 		t.Fatalf("GetInstallationSettings() = %#v, %v", settings, err)
 	}
 	settings, err = service.UpdateInstallationTargetProfile(
@@ -514,6 +521,13 @@ func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
 		settings.Targets[0].TargetInstallationID != "automation-target/desktop" ||
 		settings.Targets[0].SettingsJSON != `{"windowTitle":"Yotta"}` {
 		t.Fatalf("UpdateInstallationTargetProfile() = %#v, %v", settings, err)
+	}
+	settings, err = service.UpdateInstallationCredentialBinding(
+		installation.ID, settings.Generation, "api", ai.CredentialBindingID("primary"),
+	)
+	if err != nil || settings.Generation != 3 ||
+		settings.Credentials[0].BindingID != ai.CredentialBindingID("primary") {
+		t.Fatalf("UpdateInstallationCredentialBinding() = %#v, %v", settings, err)
 	}
 }
 
@@ -646,6 +660,14 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
+		CredentialStates: func(context.Context) ([]workflowinstallation.CredentialState, error) {
+			return []workflowinstallation.CredentialState{{
+				CredentialBindingID: ai.CredentialBindingID("primary"),
+				Kind:                ai.CredentialKindAPIKey,
+				Label:               "primary · gpt-test",
+				Available:           true,
+			}}, nil
+		},
 		ScriptRuntime: scriptRuntime, LogEmitter: noderuntime.LogEmitterFunc(func(context.Context, noderuntime.LogEntry) error { return nil }),
 		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 	})

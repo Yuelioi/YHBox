@@ -39,7 +39,10 @@
   profile version 全部精确匹配的本机安装；Settings 替换目标后会立即更新该 projection。
 - Workflow Wails service 暴露 Installation settings/query/update。工作流列表显示 Installation readiness、
   手动运行 consent 与 Installation-ID 执行；设置 Modal 只列兼容目标，覆盖 loading/empty/error/失效绑定，
-  credential 区明确只报告现有 logical binding，不读取或伪造 secret。
+  credential 区只保存 logical binding，不读取或伪造 secret。
+- AI Credential Installation 投影提供稳定 binding ID、kind、非敏感标签与 secure store availability；
+  更新必须精确匹配 Requirement kind 且当前可用，Readiness 也按实时 availability fail closed。设置 Modal
+  只列兼容 profile，保留失效引用用于解释状态，无可用候选时引导到 AI 设置。
 
 ## Verification
 
@@ -58,8 +61,12 @@
   83 文件/353 项测试全部通过。
 - Windows WebView smoke 首轮在旧 Analyze Color CDP 旅程遇到瞬态 `Promise was collected`；确认进程退出后
   重跑 `20260726-054225` 退出 0，已安装工作流列表、设置 Modal、计划、编辑器与资源面均通过，新增截图已目检。
+- Credential 领域测试覆盖 kind/ID/availability 精确匹配、stale generation、失效安全存储 blocker 与非敏感
+  projection；service 测试覆盖候选投影和更新往返。最终 `task check` 退出 0：35 个 Go 包、Wails
+  17 服务/155 方法/229 模型、前端 83 文件/353 项测试全部通过。
+- WebView smoke 连续复现旧 quick-add 长异步 `Runtime.evaluate` 的 `Promise was collected` 后，将 runner
+  拆为短同步动作和 Go 侧 DOM 轮询，并增加 fake-CDP 稳定回归测试；`20260726-060626` 完整旅程退出 0。
 
 ## Status
 
-In progress. Target Profile materialization 与目标设置界面已完成；剩余工作是 secure credential logical
-binding 与对应安全存储选择界面。
+Finished.

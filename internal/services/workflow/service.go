@@ -41,6 +41,7 @@ type InstallationRuntime interface {
 	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
 	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
 	UpdateWorkflowInstallationTargetProfile(context.Context, string, int64, string, []byte, string) (workflowinstallation.SettingsSnapshot, error)
+	UpdateWorkflowInstallationCredentialBinding(context.Context, string, int64, string, string) (workflowinstallation.SettingsSnapshot, error)
 	GrantWorkflowInstallationConsent(context.Context, string, workflowinstallation.ExecutionScope) (workflowinstallation.ReadinessReport, error)
 	StartInstallationRun(context.Context, string, workflowinstallation.ExecutionScope) (appcore.StartRunResult, error)
 }
@@ -133,10 +134,17 @@ type InstallationTargetProfileView struct {
 }
 
 type InstallationCredentialRequirementView struct {
-	Slot      string `json:"slot"`
-	Kind      string `json:"kind"`
-	Purpose   string `json:"purpose"`
+	Slot       string                                `json:"slot"`
+	Kind       string                                `json:"kind"`
+	Purpose    string                                `json:"purpose"`
+	BindingID  string                                `json:"bindingId"`
+	Candidates []InstallationCredentialCandidateView `json:"candidates"`
+}
+
+type InstallationCredentialCandidateView struct {
 	BindingID string `json:"bindingId"`
+	Label     string `json:"label"`
+	Available bool   `json:"available"`
 }
 
 type InstallationSettingsView struct {
@@ -859,6 +867,25 @@ func (s *Service) UpdateInstallationTargetProfile(
 	return installationSettingsView(snapshot), nil
 }
 
+func (s *Service) UpdateInstallationCredentialBinding(
+	installationID string,
+	expectedGeneration int64,
+	requirementSlot string,
+	credentialBindingID string,
+) (InstallationSettingsView, error) {
+	if s.installations == nil {
+		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	snapshot, err := s.installations.UpdateWorkflowInstallationCredentialBinding(
+		context.Background(), installationID, expectedGeneration,
+		requirementSlot, credentialBindingID,
+	)
+	if err != nil {
+		return InstallationSettingsView{}, err
+	}
+	return installationSettingsView(snapshot), nil
+}
+
 func (s *Service) GrantInstallationConsent(
 	installationID string,
 	scope string,
@@ -958,10 +985,22 @@ func installationSettingsView(snapshot workflowinstallation.SettingsSnapshot) In
 		view.Targets = append(view.Targets, target)
 	}
 	for _, requirement := range snapshot.CredentialRequirements {
-		view.Credentials = append(view.Credentials, InstallationCredentialRequirementView{
+		credential := InstallationCredentialRequirementView{
 			Slot: requirement.Slot, Kind: requirement.Kind, Purpose: requirement.Purpose,
-			BindingID: snapshot.Configuration.CredentialBindings[requirement.Slot],
-		})
+			BindingID:  snapshot.Configuration.CredentialBindings[requirement.Slot],
+			Candidates: []InstallationCredentialCandidateView{},
+		}
+		for _, candidate := range snapshot.Credentials {
+			if candidate.Kind != requirement.Kind {
+				continue
+			}
+			credential.Candidates = append(credential.Candidates, InstallationCredentialCandidateView{
+				BindingID: candidate.CredentialBindingID,
+				Label:     candidate.Label,
+				Available: candidate.Available,
+			})
+		}
+		view.Credentials = append(view.Credentials, credential)
 	}
 	return view
 }

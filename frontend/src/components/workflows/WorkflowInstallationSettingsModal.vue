@@ -150,27 +150,65 @@
           <div
             v-for="credential in settings.credentials"
             :key="credential.slot"
-            class="flex items-start gap-3 bg-elevated/10 px-4 py-3"
+            class="space-y-3 bg-elevated/10 px-4 py-3"
           >
-            <UIcon name="i-tabler-lock" class="mt-0.5 size-4 shrink-0 text-dimmed" />
-            <div class="min-w-0 flex-1">
-              <p class="text-xs font-medium text-highlighted">{{ credential.purpose }}</p>
-              <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">
-                {{ credential.slot }} · {{ credential.kind }}
-              </p>
+            <div class="flex items-start gap-3">
+              <UIcon name="i-tabler-lock" class="mt-0.5 size-4 shrink-0 text-dimmed" />
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-medium text-highlighted">{{ credential.purpose }}</p>
+                <p class="mt-0.5 truncate font-mono text-[10px] text-dimmed">
+                  {{ credential.slot }} · {{ credential.kind }}
+                </p>
+              </div>
+              <UBadge
+                :color="credential.bindingId ? 'success' : 'warning'"
+                variant="soft"
+                size="xs"
+              >
+                {{
+                  t(
+                    credential.bindingId
+                      ? 'workflow.installation.credential_bound'
+                      : 'workflow.installation.credential_unbound',
+                  )
+                }}
+              </UBadge>
             </div>
-            <UBadge :color="credential.bindingId ? 'success' : 'warning'" variant="soft" size="xs">
-              {{
-                t(
-                  credential.bindingId
-                    ? 'workflow.installation.credential_bound'
-                    : 'workflow.installation.credential_unbound',
-                )
-              }}
-            </UBadge>
+
+            <UFormField
+              :label="t('workflow.installation.credential_profile')"
+              :error="credentialErrors[credential.slot]"
+              required
+            >
+              <AdaptiveSelect
+                v-model="credentialDrafts[credential.slot]"
+                :items="credentialItems(credential)"
+                width-mode="fill"
+                :placeholder="t('workflow.installation.select_credential')"
+              />
+            </UFormField>
+
+            <div
+              v-if="availableCredentials(credential).length === 0"
+              class="flex flex-wrap items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2"
+              role="status"
+            >
+              <UIcon name="i-tabler-alert-triangle" class="size-4 shrink-0 text-warning" />
+              <p class="min-w-0 flex-1 text-xs text-warning">
+                {{ t('workflow.installation.no_compatible_credential') }}
+              </p>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-tabler-settings"
+                :label="t('workflow.installation.open_credential_settings')"
+                @click="openAISettings"
+              />
+            </div>
           </div>
           <p class="bg-elevated/10 px-4 py-2 text-[11px] text-dimmed">
-            {{ t('workflow.installation.credentials_pending_hint') }}
+            {{ t('workflow.installation.credentials_secure_hint') }}
           </p>
         </div>
       </section>
@@ -220,6 +258,8 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 type TargetView = InstallationSettingsView['targets'][number]
+type CredentialView = InstallationSettingsView['credentials'][number]
+type CredentialCandidate = CredentialView['candidates'][number]
 type Draft = { targetInstallationId: string; settingsJson: string }
 type DraftError = { target?: string; settings?: string }
 
@@ -237,6 +277,7 @@ const saving = ref(false)
 const failure = ref('')
 const saveFailure = ref('')
 const drafts = reactive<Record<string, Draft>>({})
+const credentialDrafts = reactive<Record<string, string>>({})
 
 const draftErrors = computed<Record<string, DraftError>>(() => {
   const result: Record<string, DraftError> = {}
@@ -256,15 +297,28 @@ const draftErrors = computed<Record<string, DraftError>>(() => {
   }
   return result
 })
+const credentialErrors = computed<Record<string, string>>(() =>
+  Object.fromEntries(
+    (settings.value?.credentials ?? [])
+      .filter((credential) => !credentialDrafts[credential.slot])
+      .map((credential) => [credential.slot, t('workflow.installation.credential_required')]),
+  ),
+)
 const hasErrors = computed(() =>
-  Object.values(draftErrors.value).some((error) => error.target || error.settings),
+  Boolean(
+    Object.values(draftErrors.value).some((error) => error.target || error.settings) ||
+    Object.keys(credentialErrors.value).length,
+  ),
 )
 const hasChanges = computed(() =>
   Boolean(
     settings.value?.targets.some((target) => {
       const draft = drafts[target.definitionId]
       return draft ? targetChanged(target, draft) : false
-    }),
+    }) ||
+    settings.value?.credentials.some(
+      (credential) => credential.bindingId !== credentialDrafts[credential.slot],
+    ),
   ),
 )
 
@@ -291,6 +345,9 @@ async function load(): Promise<void> {
         targetInstallationId: target.targetInstallationId,
         settingsJson: prettyJSON(target.settingsJson),
       }
+    }
+    for (const credential of snapshot.credentials) {
+      credentialDrafts[credential.slot] = credential.bindingId
     }
   } catch (error) {
     failure.value = errorMessage(error)
@@ -351,6 +408,19 @@ async function save(): Promise<void> {
       )
       settings.value = current
     }
+    for (const credential of current.credentials) {
+      const bindingID = credentialDrafts[credential.slot]
+      const currentCredential =
+        current.credentials.find((candidate) => candidate.slot === credential.slot) ?? credential
+      if (currentCredential.bindingId === bindingID) continue
+      current = await workflowTransport.updateInstallationCredentialBinding(
+        props.installationId,
+        current.generation,
+        credential.slot,
+        bindingID,
+      )
+      settings.value = current
+    }
     emit('saved')
     emit('update:open', false)
   } catch (error) {
@@ -367,9 +437,39 @@ function targetChanged(target: TargetView, draft: Draft): boolean {
   )
 }
 
+function availableCredentials(credential: CredentialView): CredentialCandidate[] {
+  return credential.candidates.filter((candidate) => candidate.available)
+}
+
+function credentialItems(
+  credential: CredentialView,
+): Array<{ label: string; value: string; disabled?: boolean }> {
+  const result = credential.candidates.map((candidate) => ({
+    label: candidate.available
+      ? candidate.label
+      : `${candidate.label} (${t('workflow.installation.credential_unavailable')})`,
+    value: candidate.bindingId,
+    disabled: !candidate.available,
+  }))
+  const current = credentialDrafts[credential.slot]
+  if (current && !result.some((item) => item.value === current)) {
+    result.unshift({
+      label: `${current} (${t('workflow.installation.credential_unavailable')})`,
+      value: current,
+      disabled: true,
+    })
+  }
+  return result
+}
+
 function openAutomationSettings(): void {
   emit('update:open', false)
   void router.push({ path: '/settings', query: { section: 'automation' } })
+}
+
+function openAISettings(): void {
+  emit('update:open', false)
+  void router.push({ path: '/settings', query: { section: 'ai' } })
 }
 
 function prettyJSON(value: string): string {

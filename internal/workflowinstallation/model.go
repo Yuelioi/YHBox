@@ -344,11 +344,19 @@ type TargetState struct {
 	Authorized           bool
 }
 
+type CredentialState struct {
+	CredentialBindingID string
+	Kind                string
+	Label               string
+	Available           bool
+}
+
 // ReadinessEnvironment is a projection of installation-local bindings and
 // exact host package state. Secret material is never part of this value.
 type ReadinessEnvironment struct {
 	Dependencies []DependencyState
 	Targets      []TargetState
+	Credentials  []CredentialState
 }
 
 type ReadinessReport struct {
@@ -430,7 +438,16 @@ func EvaluateReadiness(
 		))
 	}
 	for _, requirement := range source.CredentialRequirements {
-		if strings.TrimSpace(configuration.CredentialBindings[requirement.Slot]) != "" {
+		bindingID := configuration.CredentialBindings[requirement.Slot]
+		credentialAvailable := false
+		for _, credential := range environment.Credentials {
+			if credential.CredentialBindingID == bindingID &&
+				credential.Kind == requirement.Kind && credential.Available {
+				credentialAvailable = true
+				break
+			}
+		}
+		if strings.TrimSpace(bindingID) != "" && credentialAvailable {
 			continue
 		}
 		blockers = append(blockers, newBlocker(

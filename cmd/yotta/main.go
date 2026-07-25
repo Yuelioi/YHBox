@@ -32,6 +32,7 @@ import (
 	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 type options struct {
@@ -388,6 +389,9 @@ func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 		},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations,
 		ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
+		CredentialStates: func(ctx context.Context) ([]workflowinstallation.CredentialState, error) {
+			return appbootstrap.AICredentialStates(ctx, aiInstallations, secrets)
+		},
 		ScriptRuntime: scriptRuntime, NodePackageStore: packages,
 		WasmRunnerExecutable: filepath.Join(filepath.Dir(opt.executable), wasmrunner.WorkerExecutableName),
 		LogEmitter:           discardLog{}, GrantTTL: 5 * time.Minute, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,

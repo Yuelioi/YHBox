@@ -279,7 +279,20 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			result := map[string]any{}
 			expression := stringValue(call.Params["expression"])
 			if call.Method == "Runtime.evaluate" &&
-				strings.Contains(expression, "workflow-canvas-add-node") &&
+				strings.Contains(expression, "node quick add did not become ready") &&
+				strings.Contains(expression, "vision/analyze-color") {
+				if err := wsjson.Write(context.Background(), connection, map[string]any{
+					"id": call.ID,
+					"error": map[string]any{
+						"code": -32000, "message": "Promise was collected",
+					},
+				}); err != nil {
+					return
+				}
+				continue
+			}
+			if call.Method == "Runtime.evaluate" &&
+				strings.Contains(expression, "workflow-quick-add-item") &&
 				strings.Contains(expression, "vision/analyze-color") {
 				analyzeColorUsedQuickAdd = true
 			}
@@ -317,6 +330,10 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				}
 				value := fmt.Sprintf(`{"centerX":100,"centerY":100,"blankX":300,"blankY":300,"width":320,"height":240,"zoom":%v}`, zoom)
 				result = map[string]any{"result": map[string]any{"value": value}}
+			} else if call.Method == "Runtime.evaluate" &&
+				(strings.Contains(expression, "quick add search ready") ||
+					strings.Contains(expression, "quick add item ready")) {
+				result = map[string]any{"result": map[string]any{"value": "true"}}
 			} else if call.Method == "Runtime.evaluate" && strings.Contains(expression, "JSON.stringify") {
 				value := `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				if strings.Contains(expression, "quick-added click template node header") {

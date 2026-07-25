@@ -10,17 +10,23 @@ Open
 
 ## Current
 
-Stage M3b 进行中：Target Profile Definition 已按 Installation materialize 为独立本机 profile，
-Content Catalog schema 6 持久化精确设置与 Target Installation binding；工作流列表可查看 readiness、
-授予手动运行 consent，并在设置 Modal 中选择兼容本机目标。secure credential binding 仍待完成。
+Stage M3b 完成：Installation-local target profile、secure credential logical binding、精确 run/schedule
+consent、Installation-ID 执行和设置界面均已闭环；secret 始终只留在本机安全存储，Readiness 每次从当前
+目标、依赖与 credential availability 重新计算。
 
 ## Next
 
-完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：接通 secure credential logical binding，
-让设置 Modal 可从安全存储中的兼容 credential profile 选择引用，并以 Readiness/运行验收收尾。
+开始 [Stage M4](plan.md)：定义 data-only `.yotta-workflow`、统一 Installation Plan、离线包与
+Node Package trust/install/consent 边界。
 
 ## Progress
 
+- 2026-07-26 M3b 完成：Workflow Credential Requirement 以 kind + logical binding ID 选择当前 AI
+  credential profile，安全存储只投影 available 状态且不返回 secret；未知、类型不兼容、已删除或不可用
+  binding 在更新和 Readiness 两处 fail closed。设置 Modal 支持选择兼容 credential、失效引用与无候选修复入口，
+  Wails 契约更新为 17 服务/155 方法/229 模型。`task check` 通过 35 个 Go 包与前端 83 文件/353 项测试；
+  WebView smoke 暴露并修复 runner 的长异步 quick-add Promise 被 WebView2 回收问题，稳定回归测试与
+  `20260726-060626` 真实旅程均退出 0。
 - 2026-07-26 M3b Target Profile 完成：首次安装从 exact Release Definition materialize 独立 profile，
   schema 6 持久化 canonical settings 与 Target Installation ID，schema 5 记录按 generation CAS 惰性补齐。
   Readiness 只接受仍安装、类型/adapter/version 精确匹配且已授权的自动化目标；Wails 154 个方法暴露

@@ -124,6 +124,58 @@ func TestMaterializeTargetProfilesRejectsPersistedSchemaDriftAndUnknownDefinitio
 	}
 }
 
+func TestUpdateCredentialBindingRequiresCompatibleAvailableSecureProfile(t *testing.T) {
+	release := testRelease(t)
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	module, err := New(repository, Options{
+		Now:   func() time.Time { return time.Date(2026, 7, 26, 2, 20, 0, 0, time.UTC) },
+		NewID: func() string { return "installation-credential" },
+		Credentials: func(context.Context) ([]CredentialState, error) {
+			return []CredentialState{
+				testCredentialState("credential-api"),
+				{
+					CredentialBindingID: "credential-other",
+					Kind:                "https://example.test/credentials/other/v1",
+					Label:               "Other", Available: true,
+				},
+				{
+					CredentialBindingID: "credential-missing",
+					Kind:                "https://example.test/credentials/api/v1",
+					Label:               "Missing", Available: false,
+				},
+			}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bindingID := range []string{"credential-other", "credential-missing", "credential-unknown"} {
+		if _, err := module.UpdateCredentialBinding(
+			context.Background(), installation.ID, 1, "api", bindingID,
+		); err == nil {
+			t.Fatalf("UpdateCredentialBinding accepted %q", bindingID)
+		}
+	}
+	updated, err := module.UpdateCredentialBinding(
+		context.Background(), installation.ID, 1, "api", "credential-api",
+	)
+	if err != nil || updated.Generation != 2 ||
+		updated.CredentialBindings["api"] != "credential-api" {
+		t.Fatalf("UpdateCredentialBinding() = %#v, %v", updated, err)
+	}
+	if _, err := module.UpdateCredentialBinding(
+		context.Background(), installation.ID, 1, "api", "",
+	); !errors.Is(err, ErrInstallationConflict) {
+		t.Fatalf("stale UpdateCredentialBinding error = %v", err)
+	}
+}
+
 func TestGetConfigurationMaterializesProfilesForPreProfileConfiguration(t *testing.T) {
 	release := testRelease(t)
 	repository := &memoryRepository{
@@ -189,6 +241,7 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 	readyExceptSchedule := ReadinessEnvironment{
 		Dependencies: []DependencyState{sourceDependency},
 		Targets:      []TargetState{testTargetState("target-installation-a")},
+		Credentials:  []CredentialState{testCredentialState("credential-profile-a")},
 	}
 	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
 	if err != nil {
@@ -236,6 +289,9 @@ func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testi
 		},
 		Targets: func(context.Context) ([]TargetState, error) {
 			return []TargetState{testTargetState("target-a")}, nil
+		},
+		Credentials: func(context.Context) ([]CredentialState, error) {
+			return []CredentialState{testCredentialState("credential-a")}, nil
 		},
 	})
 	if err != nil {
@@ -357,6 +413,14 @@ func testTargetState(targetInstallationID string) TargetState {
 		TargetInstallationID: targetInstallationID,
 		TargetKind:           "desktop", AdapterKind: "windows", ProfileVersion: "1",
 		Available: true, Authorized: true,
+	}
+}
+
+func testCredentialState(bindingID string) CredentialState {
+	return CredentialState{
+		CredentialBindingID: bindingID,
+		Kind:                "https://example.test/credentials/api/v1",
+		Label:               "API credential", Available: true,
 	}
 }
 

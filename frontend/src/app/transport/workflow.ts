@@ -57,6 +57,12 @@ export interface WorkflowTransport {
     settingsJson: string,
     targetInstallationId: string,
   ): Promise<InstallationSettingsView>
+  updateInstallationCredentialBinding(
+    installationId: string,
+    expectedGeneration: number,
+    requirementSlot: string,
+    credentialBindingId: string,
+  ): Promise<InstallationSettingsView>
   grantInstallationConsent(
     installationId: string,
     scope: 'run' | 'schedule',
@@ -131,6 +137,19 @@ export const workflowTransport: WorkflowTransport = {
       definitionId,
       settingsJson,
       targetInstallationId,
+    ),
+  updateInstallationCredentialBinding: (
+    installationId,
+    expectedGeneration,
+    requirementSlot,
+    credentialBindingId,
+  ) =>
+    invoke(
+      WorkflowService.UpdateInstallationCredentialBinding,
+      installationId,
+      expectedGeneration,
+      requirementSlot,
+      credentialBindingId,
     ),
   grantInstallationConsent: (installationId, scope) =>
     invoke(WorkflowService.GrantInstallationConsent, installationId, scope),
