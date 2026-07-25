@@ -17,6 +17,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
@@ -45,6 +46,21 @@ func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
 	if len(recoveries) != 1 || recoveries[0].OriginalName != "damaged-workflow.json" ||
 		string(recoveries[0].Artifact) != `{"format":"yotta.workflow","version":"1",` {
 		t.Fatalf("recoveries = %#v", recoveries)
+	}
+	installations, err := workflowinstallation.New(
+		foundation.WorkflowInstallations(),
+		workflowinstallation.Options{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := installations.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != smokeInstallationID ||
+		listed[0].Name != "Installed smoke workflow" {
+		t.Fatalf("installations = %#v", listed)
 	}
 }
 

@@ -83,6 +83,12 @@ type StartRunRequest struct {
 	Selection  admission.Selection
 }
 
+type StartArtifactRunRequest struct {
+	SourceArtifact []byte
+	Principal      string
+	Selection      admission.Selection
+}
+
 type StartRunResult struct {
 	SourceHash  artifact.Digest
 	ProgramHash artifact.Digest
@@ -681,6 +687,21 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 	return a.startRun(ctx, request, false, nil)
 }
 
+// StartArtifactRun executes immutable Source bytes that another trusted
+// module has already authorized. It shares the compiler, admission, ledger,
+// provider, and worker path with local editable Source runs.
+func (a *Application) StartArtifactRun(ctx context.Context, request StartArtifactRunRequest) (StartRunResult, error) {
+	if ctx == nil {
+		return StartRunResult{}, errors.New("start artifact Run context is required")
+	}
+	if len(request.SourceArtifact) == 0 {
+		return StartRunResult{}, errors.New("start artifact Run requires Workflow Source bytes")
+	}
+	a.commandMu.RLock()
+	defer a.commandMu.RUnlock()
+	return a.startRunArtifact(ctx, request.SourceArtifact, request.Principal, request.Selection, "", false, nil)
+}
+
 func (a *Application) StartDebugRun(ctx context.Context, request StartRunRequest, breakpoints []compiler.DebugBreakpoint) (StartRunResult, error) {
 	if ctx == nil {
 		return StartRunResult{}, errors.New("start debug Run context is required")
@@ -717,7 +738,22 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 	if err != nil {
 		return StartRunResult{}, err
 	}
-	compiled, err := a.compileDraft(ctx, source.Artifact())
+	return a.startRunArtifact(ctx, source.Artifact(), request.Principal, request.Selection, request.WorkflowID, debug, breakpoints)
+}
+
+func (a *Application) startRunArtifact(
+	ctx context.Context,
+	sourceArtifact []byte,
+	principal string,
+	selection admission.Selection,
+	sourceWorkflowID string,
+	debug bool,
+	breakpoints []compiler.DebugBreakpoint,
+) (StartRunResult, error) {
+	if err := a.requireRunning(); err != nil {
+		return StartRunResult{}, err
+	}
+	compiled, err := a.compileDraft(ctx, sourceArtifact)
 	result := StartRunResult{SourceHash: compiled.SourceHash, Diagnostics: append([]schema.Diagnostic(nil), compiled.Diagnostics...)}
 	if err != nil || schema.HasErrors(compiled.Diagnostics) {
 		return result, err
@@ -741,7 +777,7 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 		}
 	}()
 	admitted, err := a.admitter.Admit(ctx, admission.Request{
-		Program: program, Principal: request.Principal, Selection: request.Selection,
+		Program: program, Principal: principal, Selection: selection,
 	})
 	result.Record = admitted.Record
 	if err != nil {
@@ -766,7 +802,7 @@ func (a *Application) startRun(ctx context.Context, request StartRunRequest, deb
 		return result, ErrClosed
 	}
 	a.jobs[runID] = &runJob{
-		workflowID: request.WorkflowID, state: jobQueued,
+		workflowID: sourceWorkflowID, state: jobQueued,
 		providers: providers, release: releaseProviders,
 	}
 	if control != nil {

@@ -87,6 +87,12 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 	if err != nil || !report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 0 {
 		t.Fatalf("ready report = %#v, %v", report, err)
 	}
+	configuration.RunConsentRelease = ""
+	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
+	if err != nil || report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 1 ||
+		report.Blockers[0].Kind != BlockerRunConsent {
+		t.Fatalf("run-only blocker report = %#v, %v", report, err)
+	}
 }
 
 func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testing.T) {
@@ -113,6 +119,14 @@ func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := module.PrepareExecution(context.Background(), installation.ID, ScopeRun); err == nil {
+		t.Fatal("PrepareExecution accepted an unready Installation")
+	} else {
+		var notReady *NotReadyError
+		if !errors.As(err, &notReady) || notReady.RPCErrorEnvelope().Code != "workflow_installation.not_ready" {
+			t.Fatalf("PrepareExecution error = %T %v", err, err)
+		}
+	}
 	configuration, err := module.ReplaceBindings(context.Background(), installation.ID, 1, BindingUpdate{
 		TargetBindings:     map[string]string{"desktop": "target-a"},
 		CredentialBindings: map[string]string{"api": "credential-a"},
@@ -134,6 +148,25 @@ func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testi
 	report, err := module.Readiness(context.Background(), installation.ID)
 	if err != nil || !report.RunAllowed || !report.ScheduleAllowed {
 		t.Fatalf("Readiness() = %#v, %v", report, err)
+	}
+	readsBeforePrepare := repository.configurationReads
+	prepared, err := module.PrepareExecution(context.Background(), installation.ID, ScopeSchedule)
+	if err != nil || !prepared.Valid() || prepared.InstallationID() != installation.ID ||
+		prepared.ReleaseID() != release.ID || len(prepared.SourceArtifact()) == 0 ||
+		prepared.TargetSelection()["desktop"] != "target-a" ||
+		prepared.CredentialSelection()["api"] != "credential-a" {
+		t.Fatalf("PrepareExecution() = %#v, %v", prepared, err)
+	}
+	if repository.configurationReads != readsBeforePrepare+1 {
+		t.Fatalf(
+			"PrepareExecution configuration reads = %d, want one readiness snapshot",
+			repository.configurationReads-readsBeforePrepare,
+		)
+	}
+	artifactCopy := prepared.SourceArtifact()
+	artifactCopy[0] = 'x'
+	if prepared.SourceArtifact()[0] == 'x' {
+		t.Fatal("PreparedExecution leaked mutable Source bytes")
 	}
 }
 
@@ -202,6 +235,7 @@ const testSourceJSON = `{
 		"position":{"x":0,"y":0},"config":{},"bindings":{}
 	}],"edges":[],"inputs":[],"outputs":[]}],
 	"resources":[],
+	"targetDefaults":[{"target":"desktop-target","slot":"desktop"}],
 	"targetProfileDefinitions":[{
 		"id":"desktop","name":"Desktop","targetKind":"desktop","adapterKind":"windows",
 		"profileVersion":"1","settingsSchemaRoot":"https://example.test/desktop/v1",
@@ -218,9 +252,10 @@ const testSourceJSON = `{
 }`
 
 type memoryRepository struct {
-	releases       map[artifact.Digest]ReleaseRecord
-	installations  map[string]InstallationRecord
-	configurations map[string]Configuration
+	releases           map[artifact.Digest]ReleaseRecord
+	installations      map[string]InstallationRecord
+	configurations     map[string]Configuration
+	configurationReads int
 }
 
 func (r *memoryRepository) Commit(_ context.Context, release ReleaseRecord, installation InstallationRecord) error {
@@ -260,6 +295,7 @@ func (r *memoryRepository) GetRelease(_ context.Context, id artifact.Digest) (Re
 }
 
 func (r *memoryRepository) GetConfiguration(_ context.Context, id string) (Configuration, bool, error) {
+	r.configurationReads++
 	value, found := r.configurations[id]
 	return CloneConfiguration(value), found, nil
 }

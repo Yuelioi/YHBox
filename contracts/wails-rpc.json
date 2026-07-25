@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 17,
-    "methods": 148,
-    "models": 221
+    "methods": 152,
+    "models": 224
   },
   "services": [
     {
@@ -1681,6 +1681,18 @@
           "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
         },
         {
+          "name": "GetInstallationReadiness",
+          "bindingId": "284852380",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InstallationReadinessView>"
+        },
+        {
           "name": "GetRunTimeline",
           "bindingId": "3918199178",
           "parameters": [
@@ -1727,6 +1739,23 @@
           "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
+          "name": "GrantInstallationConsent",
+          "bindingId": "3992596264",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "scope",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InstallationReadinessView>"
+        },
+        {
           "name": "ImportSourceBundle",
           "bindingId": "1615102936",
           "parameters": [
@@ -1749,6 +1778,12 @@
             }
           ],
           "returns": "$CancellablePromise<$models.BundleInfoView>"
+        },
+        {
+          "name": "ListInstallations",
+          "bindingId": "1714633689",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.InstallationView[]>"
         },
         {
           "name": "ListSourceRecoveries",
@@ -1872,6 +1907,18 @@
               "name": "breakpoints",
               "optional": false,
               "type": "compiler$0.DebugBreakpoint[]"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.StartRunView>"
+        },
+        {
+          "name": "StartInstallationRun",
+          "bindingId": "460722153",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
@@ -5621,7 +5668,7 @@
             },
             {
               "name": "CurrentSchemaVersion",
-              "value": "\"1\""
+              "value": "\"2\""
             }
           ]
         },
@@ -5634,8 +5681,8 @@
               "value": "\"\""
             },
             {
-              "name": "TargetWorkflow",
-              "value": "\"workflow\""
+              "name": "TargetWorkflowInstallation",
+              "value": "\"workflow-installation\""
             }
           ]
         },
@@ -6339,6 +6386,83 @@
         },
         {
           "kind": "class",
+          "name": "InstallationReadinessView",
+          "fields": [
+            {
+              "name": "\"installationId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"lifecycle\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"lifecycleAllowsExecution\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"runAllowed\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"scheduleAllowed\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"blockers\"",
+              "optional": false,
+              "type": "ReadinessBlockerView[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InstallationView",
+          "fields": [
+            {
+              "name": "\"installationId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"lifecycle\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "PatchView",
           "fields": [
             {
@@ -6350,6 +6474,37 @@
               "name": "\"generatedNodes\"",
               "optional": false,
               "type": "authoring$0.GeneratedNode[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ReadinessBlockerView",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"requirementId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"expected\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"blocks\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"action\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },

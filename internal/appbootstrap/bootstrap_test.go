@@ -29,6 +29,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
 
@@ -62,7 +63,7 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 			t.Errorf("Close = %v", err)
 		}
 	})
-	service, err := workflow.NewService(runtime.Application)
+	service, err := workflow.NewService(runtime.Application, workflow.WithInstallationRuntime(runtime))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +133,84 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 		case <-deadline:
 			t.Fatal("production Run did not succeed")
 		}
+	}
+}
+
+func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *testing.T) {
+	now := time.Date(2026, 7, 26, 6, 0, 0, 0, time.UTC)
+	stores := newTestWorkflowStorage(t)
+	runtime, err := appbootstrap.Build(appbootstrap.Config{
+		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
+		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
+		RunRepository: stores.foundation.Runs(), BlobStore: stores.blobs,
+		Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
+		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
+		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
+		GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close = %v", err)
+		}
+	})
+	service, err := workflow.NewService(runtime.Application, workflow.WithInstallationRuntime(runtime))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := service.CreateSource("Installed release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := runtime.Application.GetSource(source.WorkflowID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := workflowinstallation.NewVerifiedRelease(snapshot.Artifact(), workflowinstallation.VerificationReceipt{
+		ReleaseDigest:      testDigest(t, "workflow-release"),
+		AttestationDigest:  testDigest(t, "publisher-attestation"),
+		PublisherNamespace: "publisher-1", ReleaseVersion: "1.0.0", VerifiedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := runtime.Installations.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := service.ListInstallations()
+	if err != nil || len(listed) != 1 || listed[0].InstallationID != installation.ID {
+		t.Fatalf("ListInstallations() = %#v, %v", listed, err)
+	}
+	readiness, err := service.GetInstallationReadiness(installation.ID)
+	if err != nil || readiness.RunAllowed || readiness.ScheduleAllowed || len(readiness.Blockers) != 2 {
+		t.Fatalf("GetInstallationReadiness() = %#v, %v", readiness, err)
+	}
+	if _, err := service.StartInstallationRun(installation.ID); err == nil {
+		t.Fatal("run accepted Installation without manual execution consent")
+	}
+	afterConsent, err := service.GrantInstallationConsent(installation.ID, string(workflowinstallation.ScopeRun))
+	if err != nil || !afterConsent.RunAllowed || afterConsent.ScheduleAllowed {
+		t.Fatalf("GrantInstallationConsent() = %#v, %v", afterConsent, err)
+	}
+	if _, err := service.GrantInstallationConsent(installation.ID, "invalid"); err == nil {
+		t.Fatal("GrantInstallationConsent accepted invalid scope")
+	}
+	started, err := service.StartInstallationRun(installation.ID)
+	if err != nil || started.Run == nil || started.SourceHash != release.SourceHash {
+		t.Fatalf("StartInstallationRun() = %#v, %v", started, err)
+	}
+	if _, err := runtime.StartInstallationRun(
+		context.Background(), installation.ID, workflowinstallation.ScopeSchedule,
+	); err == nil {
+		t.Fatal("schedule accepted Installation without schedule execution consent")
 	}
 }
 

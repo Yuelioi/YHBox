@@ -19,8 +19,8 @@ func TestScheduleService_CreateDefault(t *testing.T) {
 	if sc.OnError != OnErrorStop {
 		t.Errorf("default onError should be stop")
 	}
-	if !sc.Enabled {
-		t.Error("default enabled true")
+	if sc.Enabled {
+		t.Error("new schedules must remain disabled until explicit schedule consent")
 	}
 	// Create 不持久化（spec），只返默认 Schedule
 	if len(s.List()) != 0 {
@@ -33,7 +33,7 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}}
 	if err := svc.Save(sc); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -45,9 +45,9 @@ func TestScheduleService_SaveAndList(t *testing.T) {
 func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
 	want := errors.New("reload failed")
-	svc := NewService(store, func() error { return want })
+	svc := NewService(store, WithChangeListener(func() error { return want }))
 	schedule, _ := svc.Create("x")
-	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}}
 	if err := svc.Save(schedule); !errors.Is(err, want) {
 		t.Fatalf("Save error = %v, want reload failure", err)
 	} else {
@@ -58,12 +58,50 @@ func TestScheduleServicePropagatesReloadFailure(t *testing.T) {
 	}
 }
 
+func TestScheduleServiceRejectsArmingUnreadyInstallationBeforeCommit(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	want := errors.New("schedule consent required")
+	svc := NewService(store, WithTargetReadiness(func(installationID string) error {
+		if installationID != "installation-1" {
+			t.Fatalf("readiness installation = %q", installationID)
+		}
+		return want
+	}))
+	schedule, _ := svc.Create("blocked")
+	schedule.Enabled = true
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "installation-1"}}
+	if err := svc.Save(schedule); !errors.Is(err, want) {
+		t.Fatalf("Save error = %v", err)
+	}
+	if len(store.List()) != 0 {
+		t.Fatal("unready enabled schedule was persisted")
+	}
+	schedule.Enabled = false
+	if err := svc.Save(schedule); err != nil {
+		t.Fatalf("Save disabled schedule = %v", err)
+	}
+}
+
+func TestScheduleServiceRejectsArmingWithoutReadinessAuthority(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	svc := NewService(store)
+	schedule, _ := svc.Create("blocked")
+	schedule.Enabled = true
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "installation-1"}}
+	if err := svc.Save(schedule); err == nil {
+		t.Fatal("Save armed a schedule without a Workflow Installation readiness authority")
+	}
+	if len(store.List()) != 0 {
+		t.Fatal("schedule without readiness authority was persisted")
+	}
+}
+
 func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}}
 	_ = svc.Save(sc)
 	originalID := sc.ID
 
@@ -88,7 +126,7 @@ func TestScheduleService_Delete(t *testing.T) {
 	s, _ := NewStore(dir)
 	svc := NewService(s)
 	sc, _ := svc.Create("x")
-	sc.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "c1"}}
+	sc.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "c1"}}
 	_ = svc.Save(sc)
 	if err := svc.Delete(sc.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -102,7 +140,7 @@ func TestScheduleServiceUpdateRejectsUnknownFields(t *testing.T) {
 	store, _ := NewStore(t.TempDir())
 	svc := NewService(store)
 	schedule, _ := svc.Create("x")
-	schedule.Targets = []TargetRef{{Kind: TargetWorkflow, ID: "workflow-1"}}
+	schedule.Targets = []TargetRef{{Kind: TargetWorkflowInstallation, ID: "installation-1"}}
 	if err := svc.Save(schedule); err != nil {
 		t.Fatal(err)
 	}

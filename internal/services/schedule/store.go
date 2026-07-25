@@ -65,6 +65,19 @@ func (s *Store) load() error {
 		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 			return fmt.Errorf("parse %s: expected exactly one JSON value", path)
 		}
+		if sc.SchemaVersion == "1" {
+			for index := range sc.Targets {
+				if sc.Targets[index].Kind != "workflow" {
+					return fmt.Errorf("migrate %s: legacy target kind %q is invalid", path, sc.Targets[index].Kind)
+				}
+				sc.Targets[index].Kind = TargetWorkflowInstallation
+			}
+			// A legacy Workflow Source ID cannot be proven to identify one
+			// Installation. Preserve it for repair, but never keep the old
+			// schedule armed across the semantic migration.
+			sc.SchemaVersion = CurrentSchemaVersion
+			sc.Enabled = false
+		}
 		if err := sc.Validate(); err != nil {
 			return fmt.Errorf("validate %s: %w", path, err)
 		}

@@ -16,7 +16,10 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/browsercdp"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
+
+const smokeInstallationID = "smoke-installation"
 
 type pageState struct {
 	Href                  string         `json:"href"`
@@ -189,6 +192,48 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 		Reason: "synthetic invalid JSON", Artifact: raw, CreatedAt: time.Now().UTC(),
 	}); err != nil {
 		return fmt.Errorf("seed workflow recovery fixture: %w", err)
+	}
+	sourceArtifact, err := artifact.Canonicalize([]byte(`{
+		"format":"yotta.workflow","version":"1",
+		"workflow":{"id":"smoke-release-workflow","name":"Installed smoke workflow"},
+		"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
+		"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[],"variables":[]
+	}`))
+	if err != nil {
+		return fmt.Errorf("canonicalize smoke Workflow Release: %w", err)
+	}
+	releaseDigest, err := artifact.Sum("yotta/smoke/workflow-release/v1", sourceArtifact)
+	if err != nil {
+		return fmt.Errorf("identify smoke Workflow Release: %w", err)
+	}
+	attestationDigest, err := artifact.Sum("yotta/smoke/publisher-attestation/v1", []byte("verified smoke publisher"))
+	if err != nil {
+		return fmt.Errorf("identify smoke Publisher Attestation: %w", err)
+	}
+	verifiedAt := time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC)
+	release, err := workflowinstallation.NewVerifiedRelease(sourceArtifact, workflowinstallation.VerificationReceipt{
+		ReleaseDigest:      releaseDigest,
+		AttestationDigest:  attestationDigest,
+		PublisherNamespace: "yotta.smoke",
+		ReleaseVersion:     "1.0.0",
+		VerifiedAt:         verifiedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("construct smoke Workflow Release: %w", err)
+	}
+	installations, err := workflowinstallation.New(
+		foundation.WorkflowInstallations(),
+		workflowinstallation.Options{
+			Now:   func() time.Time { return verifiedAt },
+			NewID: func() string { return smokeInstallationID },
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("open smoke Workflow Installation module: %w", err)
+	}
+	if _, err := installations.InstallVerified(ctx, release, "Installed smoke workflow"); err != nil {
+		return fmt.Errorf("seed smoke Workflow Installation: %w", err)
 	}
 	return nil
 }
@@ -753,27 +798,26 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		if err := clickRequired(ctx, client, "schedule-add-target"); err != nil {
 			return fmt.Errorf("add workflow to schedule: %w", err)
 		}
-		workflowID := strings.Split(strings.TrimPrefix(workflowHash, "#/"), "/")[1]
 		if err := waitUntil(ctx, client, func(current pageState) bool {
-			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == workflowID
+			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == smokeInstallationID
 		}); err != nil {
-			return fmt.Errorf("bind created workflow to schedule: %w", err)
+			return fmt.Errorf("bind installed workflow to schedule: %w", err)
 		}
 		if err := clickRequired(ctx, client, "schedule-save"); err != nil {
 			return fmt.Errorf("save schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
 			return current.SchedulesView && !current.ScheduleEditor && current.ScheduleRows == 1 &&
-				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == workflowID
+				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == smokeInstallationID
 		}); err != nil {
-			return fmt.Errorf("persist schedule workflow reference: %w", err)
+			return fmt.Errorf("persist schedule installation reference: %w", err)
 		}
 		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
 			return fmt.Errorf("reopen saved schedule: %w", err)
 		}
 		if err := waitUntil(ctx, client, func(current pageState) bool {
 			return current.ScheduleEditor && len(current.ScheduleEditTargets) == 1 &&
-				current.ScheduleEditTargets[0] == workflowID
+				current.ScheduleEditTargets[0] == smokeInstallationID
 		}); err != nil {
 			return fmt.Errorf("verify reopened schedule reference: %w", err)
 		}

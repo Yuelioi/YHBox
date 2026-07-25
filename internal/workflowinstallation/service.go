@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
@@ -16,6 +17,101 @@ var (
 	ErrInstallationConflict = errors.New("Workflow Installation conflict")
 	ErrReleaseConflict      = errors.New("Workflow Release identity collision")
 )
+
+type NotReadyError struct {
+	Report ReadinessReport
+	Scope  ExecutionScope
+}
+
+func (e *NotReadyError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return "Workflow Installation is not ready for " + string(e.Scope)
+}
+
+func (e *NotReadyError) RPCErrorEnvelope() apperr.Envelope {
+	if e == nil {
+		return apperr.Envelope{
+			Code: apperr.CodeUnclassified, Category: apperr.CategoryInfrastructure,
+			Message: "unknown Workflow Installation readiness error",
+		}
+	}
+	blockers := make([]map[string]any, 0, len(e.Report.Blockers))
+	for _, blocker := range e.Report.Blockers {
+		scopes := make([]string, 0, len(blocker.Blocks))
+		for _, scope := range blocker.Blocks {
+			scopes = append(scopes, string(scope))
+		}
+		blockers = append(blockers, map[string]any{
+			"kind": blocker.Kind, "requirementId": blocker.RequirementID,
+			"expected": blocker.Expected, "blocks": scopes,
+			"action": blocker.Action.Kind,
+		})
+	}
+	return apperr.Envelope{
+		Code: "workflow_installation.not_ready", Category: apperr.CategoryPolicy,
+		Message: "Workflow Installation is not ready for execution",
+		Details: map[string]any{
+			"installationId": e.Report.InstallationID,
+			"releaseId":      e.Report.ReleaseID,
+			"scope":          e.Scope,
+			"blockers":       blockers,
+		},
+	}
+}
+
+// PreparedExecution is an immutable, readiness-authorized projection consumed
+// by the one application runtime. Callers cannot construct one directly.
+type PreparedExecution struct{ state *preparedExecutionState }
+
+type preparedExecutionState struct {
+	installationID string
+	releaseID      artifact.Digest
+	sourceArtifact []byte
+	targets        map[string]string
+	credentials    map[string]string
+}
+
+func (e PreparedExecution) Valid() bool {
+	return e.state != nil && installationIDPattern.MatchString(e.state.installationID) &&
+		e.state.releaseID.Valid() && len(e.state.sourceArtifact) != 0
+}
+
+func (e PreparedExecution) InstallationID() string {
+	if !e.Valid() {
+		return ""
+	}
+	return e.state.installationID
+}
+
+func (e PreparedExecution) ReleaseID() artifact.Digest {
+	if !e.Valid() {
+		return ""
+	}
+	return e.state.releaseID
+}
+
+func (e PreparedExecution) SourceArtifact() []byte {
+	if !e.Valid() {
+		return nil
+	}
+	return append([]byte(nil), e.state.sourceArtifact...)
+}
+
+func (e PreparedExecution) TargetSelection() map[string]string {
+	if !e.Valid() {
+		return nil
+	}
+	return cloneBindings(e.state.targets)
+}
+
+func (e PreparedExecution) CredentialSelection() map[string]string {
+	if !e.Valid() {
+		return nil
+	}
+	return cloneBindings(e.state.credentials)
+}
 
 type Repository interface {
 	Commit(context.Context, ReleaseRecord, InstallationRecord) error
@@ -132,29 +228,79 @@ func (m *Module) Readiness(
 	ctx context.Context,
 	installationID string,
 ) (ReadinessReport, error) {
+	_, _, _, report, err := m.executionState(ctx, installationID)
+	return report, err
+}
+
+func (m *Module) executionState(
+	ctx context.Context,
+	installationID string,
+) (InstallationRecord, ReleaseRecord, Configuration, ReadinessReport, error) {
 	installation, err := m.Get(ctx, installationID)
 	if err != nil {
-		return ReadinessReport{}, err
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
 	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
 	if err != nil {
-		return ReadinessReport{}, err
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
 	if !found {
-		return ReadinessReport{}, errors.New("Workflow Installation references a missing Release")
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{},
+			errors.New("Workflow Installation references a missing Release")
 	}
 	configuration, found, err := m.repository.GetConfiguration(ctx, installation.ID)
 	if err != nil {
-		return ReadinessReport{}, err
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
 	if !found {
-		return ReadinessReport{}, errors.New("Workflow Installation configuration is missing")
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{},
+			errors.New("Workflow Installation configuration is missing")
 	}
 	dependencies, err := m.dependencies(ctx)
 	if err != nil {
-		return ReadinessReport{}, err
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
-	return EvaluateReadiness(installation, release, configuration, ReadinessEnvironment{Dependencies: dependencies})
+	report, err := EvaluateReadiness(
+		installation, release, configuration, ReadinessEnvironment{Dependencies: dependencies},
+	)
+	if err != nil {
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
+	}
+	return installation, release, configuration, report, nil
+}
+
+func (m *Module) PrepareExecution(
+	ctx context.Context,
+	installationID string,
+	scope ExecutionScope,
+) (PreparedExecution, error) {
+	if scope != ScopeRun && scope != ScopeSchedule {
+		return PreparedExecution{}, errors.New("Workflow Installation execution scope is invalid")
+	}
+	installation, release, configuration, report, err := m.executionState(ctx, installationID)
+	if err != nil {
+		return PreparedExecution{}, err
+	}
+	allowed := report.RunAllowed
+	if scope == ScopeSchedule {
+		allowed = report.ScheduleAllowed
+	}
+	if !allowed {
+		return PreparedExecution{}, &NotReadyError{Report: report, Scope: scope}
+	}
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return PreparedExecution{}, errors.New("Workflow Release Source is invalid")
+	}
+	targets := make(map[string]string, len(source.TargetDefaults))
+	for _, targetDefault := range source.TargetDefaults {
+		targets[targetDefault.Slot] = configuration.TargetBindings[targetDefault.Slot]
+	}
+	return PreparedExecution{state: &preparedExecutionState{
+		installationID: installation.ID, releaseID: release.ID,
+		sourceArtifact: append([]byte(nil), release.SourceArtifact...),
+		targets:        targets, credentials: cloneBindings(configuration.CredentialBindings),
+	}}, nil
 }
 
 type BindingUpdate struct {

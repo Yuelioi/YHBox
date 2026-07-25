@@ -10,6 +10,8 @@ import type {
   DeleteSourcePreview,
   DeleteSourceRequest,
   DeleteSourceResult,
+  InstallationReadinessView,
+  InstallationView,
   PatchView,
   RunView,
   SourcePage,
@@ -44,6 +46,12 @@ export interface DebugChangedEvent {
 
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
+  listInstallations(): Promise<InstallationView[]>
+  getInstallationReadiness(installationId: string): Promise<InstallationReadinessView>
+  grantInstallationConsent(
+    installationId: string,
+    scope: 'run' | 'schedule',
+  ): Promise<InstallationReadinessView>
   querySources(query: SourceQuery): Promise<SourcePage>
   listSourceRecoveries(): Promise<SourceRecoveryView[]>
   repairSourceRecovery(recoveryId: string, sourceJson: string): Promise<SourceView>
@@ -81,6 +89,7 @@ export interface WorkflowTransport {
   ): Promise<PatchView>
   compileSource(workflowId: string): Promise<CompileView>
   startRun(workflowId: string): Promise<StartRunView>
+  startInstallationRun(installationId: string): Promise<StartRunView>
   startDebugRun(workflowId: string, breakpoints: DebugBreakpoint[]): Promise<StartRunView>
   getDebugSnapshot(runId: string): Promise<DebugSnapshot>
   controlDebugRun(runId: string, action: 'continue' | 'pause' | 'step'): Promise<DebugSnapshot>
@@ -94,6 +103,11 @@ export interface WorkflowTransport {
 
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
+  listInstallations: () => invoke(WorkflowService.ListInstallations),
+  getInstallationReadiness: (installationId) =>
+    invoke(WorkflowService.GetInstallationReadiness, installationId),
+  grantInstallationConsent: (installationId, scope) =>
+    invoke(WorkflowService.GrantInstallationConsent, installationId, scope),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),
   listSourceRecoveries: () => invoke(WorkflowService.ListSourceRecoveries),
   repairSourceRecovery: (recoveryId, sourceJson) =>
@@ -155,6 +169,8 @@ export const workflowTransport: WorkflowTransport = {
     ),
   compileSource: (workflowId) => invoke(WorkflowService.CompileSource, workflowId),
   startRun: (workflowId) => invoke(WorkflowService.StartRun, workflowId),
+  startInstallationRun: (installationId) =>
+    invoke(WorkflowService.StartInstallationRun, installationId),
   startDebugRun: (workflowId, breakpoints) =>
     invoke(WorkflowService.StartDebugRun, workflowId, breakpoints),
   getDebugSnapshot: (runId) => invoke(WorkflowService.GetDebugSnapshot, runId),
@@ -217,6 +233,8 @@ export type {
   BundleExportResult,
   BundleInfoView,
   CompileView,
+  InstallationReadinessView,
+  InstallationView,
   CreateSourceRequest,
   DeleteSourcePreview,
   DeleteSourceRequest,

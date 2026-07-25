@@ -1937,6 +1937,9 @@ function runView(status: string): RunView {
 function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
   return {
     listSources: vi.fn(async () => [saved]),
+    listInstallations: vi.fn(async () => []),
+    getInstallationReadiness: vi.fn(async () => ({}) as never),
+    grantInstallationConsent: vi.fn(async () => ({}) as never),
     querySources: vi.fn(async () => ({
       items: [saved],
       total: 1,
@@ -1988,6 +1991,15 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
         }) as CompileView,
     ),
     startRun: vi.fn(
+      async () =>
+        ({
+          sourceHash: 'sha256:source-next',
+          programHash: 'sha256:program',
+          diagnostics: [],
+          run,
+        }) as StartRunView,
+    ),
+    startInstallationRun: vi.fn(
       async () =>
         ({
           sourceHash: 'sha256:source-next',

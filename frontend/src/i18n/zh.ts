@@ -2309,6 +2309,10 @@ export default {
     workflow_unnamed: '(未命名)',
     workflow_unbound: '不绑定 (仅手动)',
     create_default_name: '计划 {n}',
+    consent_title: '允许计划运行？',
+    consent_desc: '允许「{name}」由此计划触发。该授权只适用于当前精确 Release 的计划运行。',
+    consent_confirm: '允许计划运行',
+    readiness_blocked: '此工作流安装仍缺少依赖、目标或凭据，暂时不能启用计划。',
     validation: {
       name: '请输入计划名称。',
       targets: '请至少添加一个目标工作流。',

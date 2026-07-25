@@ -45,6 +45,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/screenshot"
 	"github.com/yottaapp/yotta/pkg/version"
@@ -242,29 +243,24 @@ func Run(config Config) error {
 		return fmt.Errorf("attach live automation settings: %w", err)
 	}
 	var scheduleSvc *schedule.Service
-	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflow.WithBundleManager(workflowRuntime.Bundles), workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
-		references := make([]workflow.SourceReference, 0)
-		if scheduleSvc != nil {
-			for _, configured := range scheduleSvc.List() {
-				for _, target := range configured.Targets {
-					if target.Kind == schedule.TargetWorkflow && target.ID == workflowID {
-						references = append(references, workflow.SourceReference{Kind: "schedule", ID: configured.ID, Label: configured.Name})
-						break
+	workflowSvc, err := workflow.NewService(
+		workflowRuntime.Application,
+		workflow.WithBundleManager(workflowRuntime.Bundles),
+		workflow.WithInstallationRuntime(workflowRuntime),
+		workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
+			references := make([]workflow.SourceReference, 0)
+			for _, block := range app.Settings().UI.LauncherItems {
+				if block.Type == "workflow" && block.WorkflowID == workflowID {
+					label := block.Label
+					if label == "" {
+						label = block.ID
 					}
+					references = append(references, workflow.SourceReference{Kind: "launcher", ID: block.ID, Label: label})
 				}
 			}
-		}
-		for _, block := range app.Settings().UI.LauncherItems {
-			if block.Type == "workflow" && block.WorkflowID == workflowID {
-				label := block.Label
-				if label == "" {
-					label = block.ID
-				}
-				references = append(references, workflow.SourceReference{Kind: "launcher", ID: block.ID, Label: label})
-			}
-		}
-		return references
-	}))
+			return references
+		}),
+	)
 	if err != nil {
 		return fmt.Errorf("initialize workflow service: %w", err)
 	}
@@ -337,8 +333,17 @@ func Run(config Config) error {
 	}
 	// Schedule triggers enter the same durable Workflow Run command as GUI.
 	scheduleHotkeyAdapter := &scheduleHotkeyRegistrar{reg: hotkeyRegistry}
-	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{application: workflowRuntime.Application}, scheduleHotkeyAdapter)
-	scheduleSvc = schedule.NewService(scheduleStore, scheduleDaemon.Reload)
+	scheduleDaemon := schedule.NewDaemon(scheduleStore, &workflowRunStarter{runtime: workflowRuntime}, scheduleHotkeyAdapter)
+	scheduleSvc = schedule.NewService(
+		scheduleStore,
+		schedule.WithChangeListener(scheduleDaemon.Reload),
+		schedule.WithTargetReadiness(func(installationID string) error {
+			_, err := workflowRuntime.Installations.PrepareExecution(
+				context.Background(), installationID, workflowinstallation.ScopeSchedule,
+			)
+			return err
+		}),
+	)
 
 	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.

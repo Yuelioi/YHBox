@@ -20,19 +20,28 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 type Service struct {
-	application *appcore.Application
-	authoring   nodeauthoring.Snapshot
-	bundles     *workflowbundle.Manager
-	references  ReferenceResolver
+	application   *appcore.Application
+	authoring     nodeauthoring.Snapshot
+	bundles       *workflowbundle.Manager
+	references    ReferenceResolver
+	installations InstallationRuntime
 }
 
 type ReferenceResolver func(workflowID string) []SourceReference
 
 type Option func(*Service)
+
+type InstallationRuntime interface {
+	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
+	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
+	GrantWorkflowInstallationConsent(context.Context, string, workflowinstallation.ExecutionScope) (workflowinstallation.ReadinessReport, error)
+	StartInstallationRun(context.Context, string, workflowinstallation.ExecutionScope) (appcore.StartRunResult, error)
+}
 
 func WithReferenceResolver(resolver ReferenceResolver) Option {
 	return func(service *Service) { service.references = resolver }
@@ -40,6 +49,10 @@ func WithReferenceResolver(resolver ReferenceResolver) Option {
 
 func WithBundleManager(manager *workflowbundle.Manager) Option {
 	return func(service *Service) { service.bundles = manager }
+}
+
+func WithInstallationRuntime(runtime InstallationRuntime) Option {
+	return func(service *Service) { service.installations = runtime }
 }
 
 func NewService(application *appcore.Application, options ...Option) (*Service, error) {
@@ -71,6 +84,33 @@ type SourceView struct {
 	Revision    int64           `json:"revision"`
 	SourceHash  artifact.Digest `json:"sourceHash"`
 	SourceJSON  string          `json:"sourceJson,omitempty"`
+}
+
+type InstallationView struct {
+	InstallationID string          `json:"installationId"`
+	ReleaseID      artifact.Digest `json:"releaseId"`
+	Name           string          `json:"name"`
+	Lifecycle      string          `json:"lifecycle"`
+	CreatedAt      string          `json:"createdAt"`
+	UpdatedAt      string          `json:"updatedAt"`
+}
+
+type ReadinessBlockerView struct {
+	Kind          string   `json:"kind"`
+	RequirementID string   `json:"requirementId"`
+	Expected      string   `json:"expected"`
+	Blocks        []string `json:"blocks"`
+	Action        string   `json:"action"`
+}
+
+type InstallationReadinessView struct {
+	InstallationID           string                 `json:"installationId"`
+	ReleaseID                artifact.Digest        `json:"releaseId"`
+	Lifecycle                string                 `json:"lifecycle"`
+	LifecycleAllowsExecution bool                   `json:"lifecycleAllowsExecution"`
+	RunAllowed               bool                   `json:"runAllowed"`
+	ScheduleAllowed          bool                   `json:"scheduleAllowed"`
+	Blockers                 []ReadinessBlockerView `json:"blockers"`
 }
 
 type SourceQuery struct {
@@ -723,6 +763,75 @@ func (s *Service) StartRun(workflowID string) (StartRunView, error) {
 	return view, err
 }
 
+func (s *Service) ListInstallations() ([]InstallationView, error) {
+	if s.installations == nil {
+		return nil, errors.New("Workflow Installation runtime is unavailable")
+	}
+	records, err := s.installations.ListWorkflowInstallations(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]InstallationView, 0, len(records))
+	for _, record := range records {
+		result = append(result, InstallationView{
+			InstallationID: record.ID, ReleaseID: record.ReleaseID, Name: record.Name,
+			Lifecycle: string(record.Lifecycle),
+			CreatedAt: record.CreatedAt.Format(time.RFC3339Nano),
+			UpdatedAt: record.UpdatedAt.Format(time.RFC3339Nano),
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) GetInstallationReadiness(installationID string) (InstallationReadinessView, error) {
+	if s.installations == nil {
+		return InstallationReadinessView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	report, err := s.installations.WorkflowInstallationReadiness(context.Background(), installationID)
+	if err != nil {
+		return InstallationReadinessView{}, err
+	}
+	return installationReadinessView(report), nil
+}
+
+func (s *Service) GrantInstallationConsent(
+	installationID string,
+	scope string,
+) (InstallationReadinessView, error) {
+	if s.installations == nil {
+		return InstallationReadinessView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	executionScope := workflowinstallation.ExecutionScope(scope)
+	if executionScope != workflowinstallation.ScopeRun && executionScope != workflowinstallation.ScopeSchedule {
+		return InstallationReadinessView{}, errors.New("Workflow Installation consent scope is invalid")
+	}
+	report, err := s.installations.GrantWorkflowInstallationConsent(
+		context.Background(), installationID, executionScope,
+	)
+	if err != nil {
+		return InstallationReadinessView{}, err
+	}
+	return installationReadinessView(report), nil
+}
+
+func (s *Service) StartInstallationRun(installationID string) (StartRunView, error) {
+	if s.installations == nil {
+		return StartRunView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	result, err := s.installations.StartInstallationRun(
+		context.Background(), installationID, workflowinstallation.ScopeRun,
+	)
+	view := StartRunView{
+		SourceHash: result.SourceHash, ProgramHash: result.ProgramHash,
+		Diagnostics: append([]schema.Diagnostic(nil), result.Diagnostics...),
+	}
+	if result.Record.Valid() {
+		run := runView(result.Record)
+		view.Run = &run
+	}
+	return view, err
+}
+
 func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugBreakpoint) (StartRunView, error) {
 	result, err := s.application.StartDebugRun(context.Background(), appcore.StartRunRequest{WorkflowID: workflowID, Principal: "local-user"}, breakpoints)
 	view := StartRunView{
@@ -737,6 +846,26 @@ func (s *Service) StartDebugRun(workflowID string, breakpoints []compiler.DebugB
 		}
 	}
 	return view, err
+}
+
+func installationReadinessView(report workflowinstallation.ReadinessReport) InstallationReadinessView {
+	view := InstallationReadinessView{
+		InstallationID: report.InstallationID, ReleaseID: report.ReleaseID,
+		Lifecycle: string(report.Lifecycle), LifecycleAllowsExecution: report.LifecycleAllowsExecution,
+		RunAllowed: report.RunAllowed, ScheduleAllowed: report.ScheduleAllowed,
+		Blockers: make([]ReadinessBlockerView, 0, len(report.Blockers)),
+	}
+	for _, blocker := range report.Blockers {
+		blocks := make([]string, 0, len(blocker.Blocks))
+		for _, scope := range blocker.Blocks {
+			blocks = append(blocks, string(scope))
+		}
+		view.Blockers = append(view.Blockers, ReadinessBlockerView{
+			Kind: string(blocker.Kind), RequirementID: blocker.RequirementID,
+			Expected: blocker.Expected, Blocks: blocks, Action: string(blocker.Action.Kind),
+		})
+	}
+	return view
 }
 
 func (s *Service) GetDebugSnapshot(runID string) (compiler.DebugSnapshot, error) {

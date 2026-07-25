@@ -2743,6 +2743,12 @@ export default {
     workflow_unnamed: '(Untitled)',
     workflow_unbound: 'Unbound (manual only)',
     create_default_name: 'Schedule {n}',
+    consent_title: 'Allow scheduled execution?',
+    consent_desc:
+      'Allow “{name}” to run from this schedule. This grants schedule execution only for the current exact release.',
+    consent_confirm: 'Allow schedule',
+    readiness_blocked:
+      'This workflow installation still needs dependencies, targets, or credentials before scheduling.',
     validation: {
       name: 'Enter a schedule name.',
       targets: 'Add at least one target workflow.',

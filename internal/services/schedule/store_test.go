@@ -12,7 +12,7 @@ func validSchedule(id string) *Schedule {
 		SchemaVersion: CurrentSchemaVersion,
 		ID:            id,
 		Name:          "n",
-		Targets:       []TargetRef{{Kind: TargetWorkflow, ID: "workflow-1"}},
+		Targets:       []TargetRef{{Kind: TargetWorkflowInstallation, ID: "installation-1"}},
 		Trigger:       Trigger{Kind: TriggerManual},
 		OnError:       OnErrorStop,
 	}
@@ -64,6 +64,24 @@ func TestScheduleStoreRejectsLegacySchema(t *testing.T) {
 	}
 	if _, err := NewStore(dir); err == nil || !strings.Contains(err.Error(), "schemaVersion") {
 		t.Fatalf("NewStore error = %v, want strict legacy schema rejection", err)
+	}
+}
+
+func TestScheduleStoreDisarmsLegacyWorkflowTargetsForExplicitRepair(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"schemaVersion":"1","id":"legacy","name":"legacy","enabled":true,"targets":[{"kind":"workflow","id":"workflow-1"}],"trigger":{"kind":"manual"},"timeoutMinutes":0,"onError":"stop","createdAt":"2026-07-26T00:00:00Z","updatedAt":"2026-07-26T00:00:00Z"}`
+	if err := os.WriteFile(filepath.Join(dir, "legacy.json"), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrated, found := store.Get("legacy")
+	if !found || migrated.Enabled || migrated.SchemaVersion != CurrentSchemaVersion ||
+		len(migrated.Targets) != 1 || migrated.Targets[0].Kind != TargetWorkflowInstallation ||
+		migrated.Targets[0].ID != "workflow-1" {
+		t.Fatalf("migrated legacy schedule = %#v, found=%v", migrated, found)
 	}
 }
 

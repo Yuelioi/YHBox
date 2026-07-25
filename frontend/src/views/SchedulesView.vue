@@ -64,7 +64,7 @@
 
       <ScheduleListPanel
         :list="filteredSchedules"
-        :workflows="workflows"
+        :installations="installations"
         @edit="onEdit"
         @delete="onDelete"
         @toggle="onToggle"
@@ -82,7 +82,7 @@
       <ScheduleEditorPanel
         v-if="editing"
         :schedule="editing"
-        :workflows="workflows"
+        :installations="installations"
         @save="onSaveEdit"
         @cancel="editing = null"
       />
@@ -98,7 +98,7 @@ import { useSchedulesStore } from '@/stores/schedules'
 import { useConfirm } from '@/composables/useConfirm'
 import { errorMessage } from '@/lib/invoke'
 import type { Schedule } from '@/lib/backend'
-import { workflowTransport, type SourceView } from '@/app/transport/workflow'
+import { workflowTransport, type InstallationView } from '@/app/transport/workflow'
 import ScheduleListPanel from '@/components/schedules/ScheduleListPanel.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
@@ -111,7 +111,7 @@ const { confirm } = useConfirm()
 const editing = shallowRef<Schedule | null>(null)
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
-const workflows = ref<SourceView[]>([])
+const installations = ref<InstallationView[]>([])
 
 const enabledCount = computed(() => store.list.filter((schedule) => schedule.enabled).length)
 const automaticCount = computed(
@@ -136,8 +136,8 @@ const filteredSchedules = computed(() => {
 
 onMounted(async () => {
   try {
-    const [, sources] = await Promise.all([store.reload(), workflowTransport.listSources()])
-    workflows.value = sources
+    const [, installed] = await Promise.all([store.reload(), workflowTransport.listInstallations()])
+    installations.value = installed
   } catch (error) {
     showError(t('workflow.toast.list_failed'), error)
   }
@@ -157,6 +157,7 @@ function onEdit(schedule: Schedule) {
 }
 async function onSaveEdit(schedule: Schedule) {
   try {
+    if (!(await ensureScheduleCanEnable(schedule))) return
     await store.save(schedule)
     editing.value = null
   } catch (error) {
@@ -165,10 +166,40 @@ async function onSaveEdit(schedule: Schedule) {
 }
 async function onToggle(schedule: Schedule, enabled: boolean) {
   try {
+    if (enabled && !(await ensureScheduleCanEnable({ ...schedule, enabled }))) return
     await store.update(schedule.id, { enabled })
   } catch (error) {
     showError(t('toast.operation_failed'), error)
   }
+}
+
+async function ensureScheduleCanEnable(schedule: Schedule): Promise<boolean> {
+  if (!schedule.enabled) return true
+  for (const installationId of new Set(schedule.targets.map((target) => target.id))) {
+    const readiness = await workflowTransport.getInstallationReadiness(installationId)
+    const blockers = readiness.blockers.filter((blocker) => blocker.blocks.includes('schedule'))
+    if (blockers.length === 0) continue
+    if (blockers.some((blocker) => blocker.kind !== 'schedule-consent')) {
+      throw new Error(t('schedule.readiness_blocked'))
+    }
+    const installation = installations.value.find(
+      (candidate) => candidate.installationId === installationId,
+    )
+    const accepted = await confirm({
+      title: t('schedule.consent_title'),
+      description: t('schedule.consent_desc', {
+        name: installation?.name ?? installationId,
+      }),
+      confirmText: t('schedule.consent_confirm'),
+    })
+    if (accepted !== true) return false
+    const afterConsent = await workflowTransport.grantInstallationConsent(
+      installationId,
+      'schedule',
+    )
+    if (!afterConsent.scheduleAllowed) throw new Error(t('schedule.readiness_blocked'))
+  }
+  return true
 }
 async function onDelete(schedule: Schedule) {
   const yes = await confirm({

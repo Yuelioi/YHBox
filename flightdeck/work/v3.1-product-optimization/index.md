@@ -10,13 +10,13 @@ Open
 
 ## Current
 
-Stage M3b 进行中：Installation-local target/credential logical binding、精确 Release consent 与
-Node Package readiness 已进入 Content Catalog schema 5；unsigned `.yotta-workflow` 仍严格保持 Source-only。
+Stage M3b 进行中：Installation-ID 已成为 verified Release 的手动运行与计划执行入口；两条路径在保存/
+触发时复用持久 Readiness，并将 exact Release bytes 与本机 logical binding 送入唯一 Application runtime。
 
 ## Next
 
-完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：把现有 Workflow-ID 运行/计划入口改为
-Installation-ID，复用同一 Readiness Report 与本机 binding fail closed。
+完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：提供“工作流设置 → 目标与凭据”，从
+Target Profile Definition materialize 本机 profile，并接通 secure credential logical binding。
 
 ## Progress
 
@@ -28,6 +28,12 @@ Installation-ID，复用同一 Readiness Report 与本机 binding fail closed。
   logical binding 与精确 Release run/schedule consent；Readiness 改从 repository 与 verified/enabled/
   host-compatible Node Package projection 读取，不接受调用方伪造本机状态。`task check` 通过 36 个受影响
   Go 包。
+- 2026-07-26 M3b 执行入口完成：`PrepareExecution` 从一次持久事实快照产出 opaque immutable execution，
+  手动运行与 Schedule 均使用 Installation-ID、独立 scope consent、exact Release Source 和同一 Application
+  compiler/admission/Run Ledger 路径。Schedule schema 2 保存 Installation reference；schema 1 迁移时强制
+  disarm 等待显式修复，启用保存与触发时双重 fail closed。Wails/前端改为列出 Installation，计划启用可显式
+  授予 schedule consent；`task check` 通过 35 个 Go 包及前端 82 文件/351 测试，Windows WebView smoke
+  `20260726-045653` 退出 0，计划、恢复、编辑器与资源库截图已目检。
 - Stage A–I 完成专业画布、Source-native 子图、Macro/InputClip、资源工作区、typed Authoring Surface、
   durable Snippets、Tab 快速添加、Macro 原地编辑、共享计划 Modal 与三路安全退出。
 - Stage J 闭环录制/模板连续性、运行停滞可解释性、节点与大选项发现、参数密度、Run State 初值和动态

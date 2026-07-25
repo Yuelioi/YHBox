@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +12,16 @@ import (
 
 // ChangeListener Schedule CRUD 后回调，main.go 注入 daemon.Reload。
 type ChangeListener func() error
+type TargetReadiness func(installationID string) error
+type ServiceOption func(*Service)
+
+func WithChangeListener(listener ChangeListener) ServiceOption {
+	return func(service *Service) { service.onChange = listener }
+}
+
+func WithTargetReadiness(readiness TargetReadiness) ServiceOption {
+	return func(service *Service) { service.readiness = readiness }
+}
 
 // PostCommitError means durable schedule state changed successfully, but the
 // live daemon could not fully reload it. Callers must not blindly retry the
@@ -27,14 +38,17 @@ func (e *PostCommitError) Unwrap() error   { return e.Err }
 func (e *PostCommitError) Committed() bool { return true }
 
 type Service struct {
-	store    *Store
-	onChange ChangeListener
+	store     *Store
+	onChange  ChangeListener
+	readiness TargetReadiness
 }
 
-func NewService(store *Store, listener ...ChangeListener) *Service {
+func NewService(store *Store, options ...ServiceOption) *Service {
 	service := &Service{store: store}
-	if len(listener) != 0 {
-		service.onChange = listener[0]
+	for _, option := range options {
+		if option != nil {
+			option(service)
+		}
 	}
 	return service
 }
@@ -67,7 +81,7 @@ func (s *Service) Create(name string) (Schedule, error) {
 		SchemaVersion: CurrentSchemaVersion,
 		ID:            uuid.NewString(),
 		Name:          name,
-		Enabled:       true,
+		Enabled:       false,
 		Targets:       []TargetRef{},
 		Trigger:       Trigger{Kind: TriggerManual},
 		OnError:       OnErrorStop,
@@ -77,6 +91,9 @@ func (s *Service) Create(name string) (Schedule, error) {
 
 // Save 持久化一个完整 Schedule（首次或后续）。
 func (s *Service) Save(sc Schedule) error {
+	if err := s.requireEnabledTargetsReady(sc); err != nil {
+		return err
+	}
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
@@ -101,11 +118,32 @@ func (s *Service) Update(id string, patchJSON string) error {
 		return fmt.Errorf("parse patchJSON: expected exactly one JSON object")
 	}
 	sc.ID = id // 防 patch 改 ID 触发 path traversal
+	if err := s.requireEnabledTargetsReady(sc); err != nil {
+		return err
+	}
 	if err := s.store.Save(&sc); err != nil {
 		return err
 	}
 	if err := s.emitChange(); err != nil {
 		return &PostCommitError{Operation: "update", Err: err}
+	}
+	return nil
+}
+
+func (s *Service) requireEnabledTargetsReady(schedule Schedule) error {
+	if !schedule.Enabled {
+		return nil
+	}
+	if s.readiness == nil {
+		return errors.New("Workflow Installation readiness is unavailable")
+	}
+	for _, target := range schedule.Targets {
+		if target.Kind != TargetWorkflowInstallation {
+			continue
+		}
+		if err := s.readiness(target.ID); err != nil {
+			return fmt.Errorf("Workflow Installation %q is not ready for schedule: %w", target.ID, err)
+		}
 	}
 	return nil
 }

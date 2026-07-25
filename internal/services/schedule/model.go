@@ -6,11 +6,11 @@ import "time"
 
 type SchemaVersion string
 
-const CurrentSchemaVersion SchemaVersion = "1"
+const CurrentSchemaVersion SchemaVersion = "2"
 
 type TargetKind string
 
-const TargetWorkflow TargetKind = "workflow"
+const TargetWorkflowInstallation TargetKind = "workflow-installation"
 
 type TriggerKind string
 
@@ -42,7 +42,7 @@ const (
 	FireStatusFailed FireStatus = "failed"
 )
 
-// TargetRef Schedule 触发后要跑的 Workflow Source。
+// TargetRef Schedule 触发后要跑的 Workflow Installation。
 type TargetRef struct {
 	Kind TargetKind `json:"kind"`
 	ID   string     `json:"id"`

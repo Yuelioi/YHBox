@@ -316,7 +316,7 @@ func EvaluateReadiness(
 	if configuration.RunConsentRelease != release.ID {
 		blockers = append(blockers, newBlocker(
 			BlockerRunConsent, "workflow-execution", release.ID.String(),
-			ActionGrantRunConsent, ScopeRun, ScopeSchedule,
+			ActionGrantRunConsent, ScopeRun,
 		))
 	}
 	if configuration.ScheduleConsentRelease != release.ID {
