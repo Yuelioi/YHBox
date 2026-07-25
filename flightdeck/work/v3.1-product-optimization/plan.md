@@ -161,9 +161,11 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 
 ### M3 — Release、Installation 与本机配置
 
-- [ ] [M3a — Release、Installation 与 Readiness 核心](slices/stage-m3a-release-installation-readiness-core.md)：
-  verified Release projection、多实例 Installation、独立 lifecycle/readiness 与 Catalog 原子持久化已落地；
-  待把 Installation-local 配置接入运行/计划 fail-closed 后完成。
+- [x] [M3a — Release、Installation 与 Readiness 核心](slices/stage-m3a-release-installation-readiness-core.md)：
+  verified Release projection、多实例 Installation、独立 lifecycle/readiness 与 Catalog 原子持久化。
+- [ ] [M3b — Installation-local 配置](slices/stage-m3b-installation-local-configuration.md)：
+  target/credential logical binding、精确 Release consent 与 Node Package readiness 已进入持久事实源；
+  下一步把运行和计划入口改为 Installation-ID 并 fail closed。
 - [ ] 引入不可变 Workflow Release 与可多实例化的 Workflow Installation；verified workflow artifact 到达后立即创建
   Installation，即使依赖/目标/凭据/授权尚未齐全。
 - [ ] Installation lifecycle 与 Readiness Report 分离；readiness 同时返回 dependency、target、credential、consent

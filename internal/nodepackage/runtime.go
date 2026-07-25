@@ -39,12 +39,13 @@ type RuntimeNode struct {
 }
 
 type RuntimePackage struct {
-	PackageID      string
-	PackageVersion string
-	ManifestDigest artifact.Digest
-	Types          []datatype.Definition
-	Capabilities   []capability.Definition
-	Nodes          []RuntimeNode
+	PublisherNamespace string
+	PackageID          string
+	PackageVersion     string
+	ManifestDigest     artifact.Digest
+	Types              []datatype.Definition
+	Capabilities       []capability.Definition
+	Nodes              []RuntimeNode
 }
 
 func (s *Store) RuntimePackages(ctx context.Context, host RuntimeHost) ([]RuntimePackage, error) {
@@ -96,7 +97,8 @@ func (s *Store) RuntimePackages(ctx context.Context, host RuntimeHost) ([]Runtim
 			continue
 		}
 		runtimePackage := RuntimePackage{
-			PackageID: packageID, PackageVersion: manifest.PackageVersion(), ManifestDigest: manifest.Digest(),
+			PublisherNamespace: manifest.PublisherNamespace(),
+			PackageID:          packageID, PackageVersion: manifest.PackageVersion(), ManifestDigest: manifest.Digest(),
 			Types: manifest.Types(), Capabilities: manifest.Capabilities(),
 		}
 		for _, node := range manifest.Nodes() {

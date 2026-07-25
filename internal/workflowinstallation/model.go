@@ -24,6 +24,8 @@ const (
 
 var (
 	installationIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+	localReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$`)
+	slotPattern           = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
 	semverPattern         = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
 )
 
@@ -132,6 +134,59 @@ func ValidateInstallationRecord(record InstallationRecord) error {
 	return nil
 }
 
+type Configuration struct {
+	InstallationID         string
+	Generation             int64
+	TargetBindings         map[string]string
+	CredentialBindings     map[string]string
+	RunConsentRelease      artifact.Digest
+	ScheduleConsentRelease artifact.Digest
+	UpdatedAt              time.Time
+}
+
+func NewConfiguration(installation InstallationRecord) Configuration {
+	return Configuration{
+		InstallationID: installation.ID, Generation: 1,
+		TargetBindings: map[string]string{}, CredentialBindings: map[string]string{},
+		UpdatedAt: installation.CreatedAt,
+	}
+}
+
+func ValidateConfiguration(configuration Configuration) error {
+	if !installationIDPattern.MatchString(configuration.InstallationID) ||
+		configuration.Generation < 1 || configuration.UpdatedAt.IsZero() ||
+		configuration.UpdatedAt.Location() != time.UTC ||
+		(configuration.RunConsentRelease != "" && !configuration.RunConsentRelease.Valid()) ||
+		(configuration.ScheduleConsentRelease != "" && !configuration.ScheduleConsentRelease.Valid()) {
+		return errors.New("Workflow Installation configuration is invalid")
+	}
+	for slot, reference := range configuration.TargetBindings {
+		if !slotPattern.MatchString(slot) || !localReferencePattern.MatchString(reference) {
+			return errors.New("Workflow Installation target binding is invalid")
+		}
+	}
+	for slot, reference := range configuration.CredentialBindings {
+		if !slotPattern.MatchString(slot) || !localReferencePattern.MatchString(reference) {
+			return errors.New("Workflow Installation credential binding is invalid")
+		}
+	}
+	return nil
+}
+
+func CloneConfiguration(configuration Configuration) Configuration {
+	configuration.TargetBindings = cloneBindings(configuration.TargetBindings)
+	configuration.CredentialBindings = cloneBindings(configuration.CredentialBindings)
+	return configuration
+}
+
+func cloneBindings(source map[string]string) map[string]string {
+	result := make(map[string]string, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
 type BlockerKind string
 
 const (
@@ -183,11 +238,7 @@ type DependencyState struct {
 // ReadinessEnvironment is a projection of installation-local bindings and
 // exact host package state. Secret material is never part of this value.
 type ReadinessEnvironment struct {
-	Dependencies           []DependencyState
-	TargetBindings         map[string]string
-	CredentialBindings     map[string]string
-	RunConsentRelease      artifact.Digest
-	ScheduleConsentRelease artifact.Digest
+	Dependencies []DependencyState
 }
 
 type ReadinessReport struct {
@@ -203,6 +254,7 @@ type ReadinessReport struct {
 func EvaluateReadiness(
 	installation InstallationRecord,
 	release ReleaseRecord,
+	configuration Configuration,
 	environment ReadinessEnvironment,
 ) (ReadinessReport, error) {
 	if err := ValidateInstallationRecord(installation); err != nil {
@@ -213,6 +265,12 @@ func EvaluateReadiness(
 	}
 	if installation.ReleaseID != release.ID {
 		return ReadinessReport{}, errors.New("Workflow Installation does not reference the supplied Release")
+	}
+	if err := ValidateConfiguration(configuration); err != nil {
+		return ReadinessReport{}, err
+	}
+	if configuration.InstallationID != installation.ID {
+		return ReadinessReport{}, errors.New("Workflow Installation configuration identity does not match")
 	}
 	source, diagnostics := schema.ParseSource(release.SourceArtifact)
 	if schema.HasErrors(diagnostics) {
@@ -238,7 +296,7 @@ func EvaluateReadiness(
 		))
 	}
 	for _, definition := range source.TargetProfileDefinitions {
-		if strings.TrimSpace(environment.TargetBindings[definition.ID]) != "" {
+		if strings.TrimSpace(configuration.TargetBindings[definition.ID]) != "" {
 			continue
 		}
 		blockers = append(blockers, newBlocker(
@@ -247,7 +305,7 @@ func EvaluateReadiness(
 		))
 	}
 	for _, requirement := range source.CredentialRequirements {
-		if strings.TrimSpace(environment.CredentialBindings[requirement.Slot]) != "" {
+		if strings.TrimSpace(configuration.CredentialBindings[requirement.Slot]) != "" {
 			continue
 		}
 		blockers = append(blockers, newBlocker(
@@ -255,13 +313,13 @@ func EvaluateReadiness(
 			ActionBindCredential, ScopeRun, ScopeSchedule,
 		))
 	}
-	if environment.RunConsentRelease != release.ID {
+	if configuration.RunConsentRelease != release.ID {
 		blockers = append(blockers, newBlocker(
 			BlockerRunConsent, "workflow-execution", release.ID.String(),
 			ActionGrantRunConsent, ScopeRun, ScopeSchedule,
 		))
 	}
-	if environment.ScheduleConsentRelease != release.ID {
+	if configuration.ScheduleConsentRelease != release.ID {
 		blockers = append(blockers, newBlocker(
 			BlockerScheduleConsent, "scheduled-execution", release.ID.String(),
 			ActionGrantSchedule, ScopeSchedule,

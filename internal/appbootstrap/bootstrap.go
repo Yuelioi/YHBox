@@ -341,7 +341,20 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	installations, err := workflowinstallation.New(config.InstallationRepository, workflowinstallation.Options{Now: config.Now})
+	installationDependencies := make([]workflowinstallation.DependencyState, 0, len(runtimePackages))
+	for _, installed := range runtimePackages {
+		installationDependencies = append(installationDependencies, workflowinstallation.DependencyState{
+			PublisherNamespace: installed.PublisherNamespace,
+			PackageID:          installed.PackageID, PackageVersion: installed.PackageVersion,
+			ManifestDigest: installed.ManifestDigest, Enabled: true,
+		})
+	}
+	installations, err := workflowinstallation.New(config.InstallationRepository, workflowinstallation.Options{
+		Now: config.Now,
+		Dependencies: func(context.Context) ([]workflowinstallation.DependencyState, error) {
+			return append([]workflowinstallation.DependencyState(nil), installationDependencies...), nil
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

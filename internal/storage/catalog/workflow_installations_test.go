@@ -42,6 +42,29 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 		string(loadedRelease.SourceArtifact) != string(release.SourceArtifact) {
 		t.Fatalf("GetRelease() = %#v, found=%v, err=%v", loadedRelease, found, err)
 	}
+	configuration, found, err := repository.GetConfiguration(context.Background(), first.ID)
+	if err != nil || !found || configuration.Generation != 1 ||
+		len(configuration.TargetBindings) != 0 || len(configuration.CredentialBindings) != 0 {
+		t.Fatalf("GetConfiguration() = %#v, found=%v, err=%v", configuration, found, err)
+	}
+	configuration.Generation = 2
+	configuration.TargetBindings["desktop"] = "target-a"
+	configuration.CredentialBindings["api"] = "credential-a"
+	configuration.RunConsentRelease = release.ID
+	configuration.UpdatedAt = now.Add(time.Minute)
+	if err := repository.ReplaceConfiguration(context.Background(), 1, configuration); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, found, err := repository.GetConfiguration(context.Background(), first.ID)
+	if err != nil || !found || reloaded.Generation != 2 ||
+		reloaded.TargetBindings["desktop"] != "target-a" ||
+		reloaded.CredentialBindings["api"] != "credential-a" ||
+		reloaded.RunConsentRelease != release.ID {
+		t.Fatalf("reloaded configuration = %#v, found=%v, err=%v", reloaded, found, err)
+	}
+	if err := repository.ReplaceConfiguration(context.Background(), 1, configuration); !errors.Is(err, workflowinstallation.ErrInstallationConflict) {
+		t.Fatalf("stale ReplaceConfiguration() error = %v", err)
+	}
 }
 
 func TestWorkflowInstallationRepositoryRejectsIdentityCollisionsAtomically(t *testing.T) {

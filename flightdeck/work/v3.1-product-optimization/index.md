@@ -10,13 +10,13 @@ Open
 
 ## Current
 
-Stage M3a 进行中：verified Workflow Release projection、多实例 Installation、独立 lifecycle/readiness 与
-Content Catalog schema 4 已落地；unsigned `.yotta-workflow` 仍严格保持 Source-only。
+Stage M3b 进行中：Installation-local target/credential logical binding、精确 Release consent 与
+Node Package readiness 已进入 Content Catalog schema 5；unsigned `.yotta-workflow` 仍严格保持 Source-only。
 
 ## Next
 
-完成 [M3a](slices/stage-m3a-release-installation-readiness-core.md)：把 Installation-local target/credential/
-consent 投影接入运行与计划入口，确保两条路径都基于同一 Readiness Report fail closed。
+完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：把现有 Workflow-ID 运行/计划入口改为
+Installation-ID，复用同一 Readiness Report 与本机 binding fail closed。
 
 ## Progress
 
@@ -24,6 +24,10 @@ consent 投影接入运行与计划入口，确保两条路径都基于同一 Re
   深模块进入 Content Catalog schema 4 和桌面/CLI composition；Release/Installation 原子提交、identity
   collision 回滚、五类并存 blocker、run/schedule 分离与精确 Release consent lineage 已由测试锁定。
   `task check` 通过 38 个受影响 Go 包和 82 个测试文件/351 项测试。
+- 2026-07-26 M3b 配置事实源完成首批：Catalog schema 5 持久化 generation-CAS target/credential
+  logical binding 与精确 Release run/schedule consent；Readiness 改从 repository 与 verified/enabled/
+  host-compatible Node Package projection 读取，不接受调用方伪造本机状态。`task check` 通过 36 个受影响
+  Go 包。
 - Stage A–I 完成专业画布、Source-native 子图、Macro/InputClip、资源工作区、typed Authoring Surface、
   durable Snippets、Tab 快速添加、Macro 原地编辑、共享计划 Modal 与三路安全退出。
 - Stage J 闭环录制/模板连续性、运行停滞可解释性、节点与大选项发现、参数密度、Run State 初值和动态

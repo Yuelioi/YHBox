@@ -36,6 +36,7 @@ var contentSchemaObjects = append([]schemaObject{}, append(foundationSchemaObjec
 		{kind: "table", name: "workflow_quarantine"},
 		{kind: "table", name: "workflow_releases"},
 		{kind: "table", name: "workflow_installations"},
+		{kind: "table", name: "workflow_installation_configurations"},
 		{kind: "index", name: "idx_assets_kind_name"},
 		{kind: "index", name: "idx_assets_kind_created"},
 		{kind: "index", name: "idx_asset_tags_normalized"},
@@ -96,6 +97,7 @@ var contentMigrations = []migration{
 	{id: "content.assets-and-objects.2", from: 1, to: 2, statements: assetCatalogStatements},
 	{id: "content.workflow-sources.3", from: 2, to: 3, statements: workflowCatalogStatements},
 	{id: "content.workflow-installations.4", from: 3, to: 4, statements: workflowInstallationStatements},
+	{id: "content.workflow-installation-configurations.5", from: 4, to: 5, statements: workflowInstallationConfigurationStatements},
 }
 
 var runMigrations = []migration{
@@ -286,6 +288,23 @@ var workflowInstallationStatements = []string{
 	`CREATE INDEX idx_workflow_releases_source ON workflow_releases(source_hash, release_id)`,
 	`CREATE INDEX idx_workflow_installations_release ON workflow_installations(release_id, installation_id)`,
 	`CREATE INDEX idx_workflow_installations_lifecycle ON workflow_installations(lifecycle, updated_at DESC, installation_id)`,
+}
+
+var workflowInstallationConfigurationStatements = []string{
+	`CREATE TABLE workflow_installation_configurations (
+		installation_id TEXT PRIMARY KEY NOT NULL REFERENCES workflow_installations(installation_id) ON DELETE CASCADE,
+		generation INTEGER NOT NULL CHECK (generation > 0),
+		target_bindings BLOB NOT NULL CHECK (length(target_bindings) > 0),
+		credential_bindings BLOB NOT NULL CHECK (length(credential_bindings) > 0),
+		run_consent_release TEXT CHECK (run_consent_release IS NULL OR length(run_consent_release) = 71),
+		schedule_consent_release TEXT CHECK (schedule_consent_release IS NULL OR length(schedule_consent_release) = 71),
+		updated_at TEXT NOT NULL
+	) STRICT`,
+	`INSERT INTO workflow_installation_configurations(
+		installation_id, generation, target_bindings, credential_bindings, updated_at
+	)
+	SELECT installation_id, 1, x'7b7d', x'7b7d', created_at
+	FROM workflow_installations`,
 }
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {
