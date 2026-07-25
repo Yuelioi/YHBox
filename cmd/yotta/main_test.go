@@ -20,10 +20,8 @@ func TestParseOptionsAcceptsEveryCommandAndResolvesPaths(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
-			settings := filepath.Join(root, "settings.json")
 			opt, err := parseOptions([]string{
 				"--data-root", root,
-				"--settings", settings,
 				"--principal", "test-principal",
 				"--timeout", "30s",
 				command, "argument",
@@ -34,7 +32,7 @@ func TestParseOptionsAcceptsEveryCommandAndResolvesPaths(t *testing.T) {
 			if opt.command != command || opt.argument != "argument" || opt.principal != "test-principal" || opt.timeout != 30*time.Second {
 				t.Fatalf("unexpected options: %#v", opt)
 			}
-			if opt.dataRoot != root || opt.settings != settings || !filepath.IsAbs(opt.executable) {
+			if opt.dataRoot != root || !filepath.IsAbs(opt.executable) {
 				t.Fatalf("paths were not preserved/resolved: %#v", opt)
 			}
 		})
@@ -46,6 +44,7 @@ func TestParseOptionsRejectsInvalidInvocation(t *testing.T) {
 	for _, arguments := range [][]string{
 		{},
 		{"validate"},
+		{"health", "unexpected"},
 		{"unknown", "workflow"},
 		{"--timeout", "0s", "inspect", "workflow"},
 		{"--timeout", "not-a-duration", "inspect", "workflow"},
@@ -56,11 +55,55 @@ func TestParseOptionsRejectsInvalidInvocation(t *testing.T) {
 	}
 }
 
+func TestRunHealthIsReadOnlyAndRedactsTheRootByDefault(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "profile")
+	runtime, err := buildRuntime(options{
+		dataRoot:   root,
+		executable: filepath.Join(root, "Yotta.CLI.exe"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := runtime.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var output bytes.Buffer
+	if err := run([]string{"--data-root", root, "health"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	var report struct {
+		Root      string `json:"root"`
+		Databases struct {
+			Healthy bool `json:"healthy"`
+			Content struct {
+				Present bool `json:"present"`
+			} `json:"content"`
+			Runs struct {
+				Present bool `json:"present"`
+			} `json:"runs"`
+		} `json:"databases"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Root != "<redacted>" {
+		t.Fatalf("health output exposed or omitted root: %s", output.String())
+	}
+	if !report.Databases.Healthy || !report.Databases.Content.Present || !report.Databases.Runs.Present {
+		t.Fatalf("health output omitted catalog foundation: %s", output.String())
+	}
+	if err := run([]string{"--data-root", root, "--show-path", "health"}, &output); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBuildRuntimeStartsWithAnEmptyInstallationSet(t *testing.T) {
 	root := t.TempDir()
 	runtime, err := buildRuntime(options{
 		dataRoot:   root,
-		settings:   filepath.Join(root, "settings.json"),
 		executable: filepath.Join(root, "Yotta.CLI.exe"),
 	})
 	if err != nil {
@@ -96,7 +139,6 @@ func TestRunValidateStrictlyRejectsLegacySource(t *testing.T) {
 	var output bytes.Buffer
 	err := run([]string{
 		"--data-root", filepath.Join(root, "data"),
-		"--settings", filepath.Join(root, "settings.json"),
 		"--timeout", "10s",
 		"validate", sourcePath,
 	}, &output)
@@ -119,7 +161,6 @@ func TestRunWorkflowCommandsRejectMissingWorkflow(t *testing.T) {
 			var output bytes.Buffer
 			err := run([]string{
 				"--data-root", filepath.Join(root, "data"),
-				"--settings", filepath.Join(root, "settings.json"),
 				"--timeout", "10s",
 				command, "missing-workflow",
 			}, &output)

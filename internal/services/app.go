@@ -17,7 +17,7 @@ type App struct {
 	emitter          func(name string, data any)
 	presentationLife presentationLifecycle
 
-	settingsPath      string // exe 同目录的 settings.json；NewApp 决定，SaveSettings 用
+	settingsPath      string
 	settings          *Settings
 	settingsMu        sync.RWMutex
 	settingsUpdateMu  sync.Mutex
@@ -66,33 +66,44 @@ const (
 	presentationClosed
 )
 
-// NewApp 构造。settingsPath="" 走全局 default（settings.go 里 exe 同目录的 settings.json）。
-// LoadSettings 失败也返回（fallback default）。
+// NewApp is the test/embedding convenience constructor. Production composition
+// uses OpenConfiguredApp so settings recovery failures remain explicit.
 func NewApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
-	if settingsPath == "" {
-		settingsPath = settingsFilePath
+	app, err := OpenApp(settingsPath, "", sink, rootLog)
+	if err != nil {
+		panic(fmt.Sprintf("open settings-backed app: %v", err))
 	}
-	settings := LoadSettings(settingsPath)
+	return app
+}
+
+func OpenApp(settingsPath, defaultLogsDir string, sink *LogSink, rootLog zerolog.Logger) (*App, error) {
+	store, settings, err := OpenSettingsStore(settingsPath)
+	if err != nil {
+		return nil, err
+	}
 	app := &App{
 		settingsPath:  settingsPath,
 		settings:      settings,
-		settingsSaver: SaveSettings,
+		settingsSaver: func(_ string, next *Settings) error { return store.Save(next) },
 		logSink:       sink,
 		rootLog:       rootLog,
 		shutdownDone:  make(chan struct{}),
 	}
-	app.logs = NewLogRuntime(sink)
+	app.logs = NewLogRuntime(sink, defaultLogsDir)
 	app.logs.ConfigurePolicy(settings.UI.Logger)
-	return app
+	return app, nil
 }
 
-// NewConfiguredApp constructs the production owner and immediately applies
+// OpenConfiguredApp constructs the production owner and immediately applies
 // persisted file-output policy. Tests and embedding hosts can keep using
 // NewApp when they own an already-configured sink.
-func NewConfiguredApp(settingsPath string, sink *LogSink, rootLog zerolog.Logger) *App {
-	app := NewApp(settingsPath, sink, rootLog)
+func OpenConfiguredApp(settingsPath, defaultLogsDir string, sink *LogSink, rootLog zerolog.Logger) (*App, error) {
+	app, err := OpenApp(settingsPath, defaultLogsDir, sink, rootLog)
+	if err != nil {
+		return nil, err
+	}
 	app.logs.Configure(app.Settings().UI.Logger)
-	return app
+	return app, nil
 }
 
 // AttachEmitter atomically connects the single-assignment presentation transport.

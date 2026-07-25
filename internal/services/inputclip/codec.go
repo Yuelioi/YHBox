@@ -13,7 +13,7 @@ import (
 
 const (
 	MediaType                = "application/vnd.yotta.input-clip"
-	formatVersion            = uint32(3)
+	FormatVersion            = uint32(3)
 	MaxEncodedInputClipBytes = 40 << 20
 	MaxInputClipEvents       = 1_000_000
 	MaxInputClipDurationUs   = uint64(24 * 60 * 60 * 1_000_000)
@@ -54,7 +54,7 @@ func Encode(w io.Writer, clip *InputClip) error {
 	if _, err := w.Write([]byte("ICLP")); err != nil {
 		return err
 	}
-	if err := binary.Write(w, binary.LittleEndian, formatVersion); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, FormatVersion); err != nil {
 		return err
 	}
 	if err := binary.Write(w, binary.LittleEndian, uint32(len(header))); err != nil {
@@ -96,7 +96,7 @@ func Decode(source io.Reader) (*InputClip, error) {
 	if len(data) > MaxEncodedInputClipBytes || len(data) < 16 || string(data[:4]) != "ICLP" {
 		return nil, errors.New("input clip carrier is invalid")
 	}
-	if version := binary.LittleEndian.Uint32(data[4:8]); version != formatVersion {
+	if version := binary.LittleEndian.Uint32(data[4:8]); version != FormatVersion {
 		return nil, fmt.Errorf("input clip version %d is unsupported", version)
 	}
 	headerLength := int(binary.LittleEndian.Uint32(data[8:12]))

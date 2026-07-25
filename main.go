@@ -17,12 +17,18 @@ var assets embed.FS
 var trayIcon []byte
 
 func main() {
-	desktopMain(desktopapp.Run, os.Stderr, os.Exit)
+	desktopMainWithReporter(desktopapp.Run, os.Stderr, showStartupError, os.Exit)
 }
 
 func desktopMain(start func(desktopapp.Config) error, stderr io.Writer, exit func(int)) {
+	desktopMainWithReporter(start, stderr, func(string) {}, exit)
+}
+
+func desktopMainWithReporter(start func(desktopapp.Config) error, stderr io.Writer, report func(string), exit func(int)) {
 	if err := start(desktopapp.Config{Assets: assets, TrayIcon: trayIcon}); err != nil {
-		_, _ = fmt.Fprintf(stderr, "Yotta startup failed: %v\n", err)
+		message := fmt.Sprintf("Yotta startup failed: %v", err)
+		_, _ = fmt.Fprintln(stderr, message)
+		report(message)
 		exit(1)
 	}
 }

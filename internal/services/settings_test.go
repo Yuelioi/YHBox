@@ -123,7 +123,9 @@ func TestAppMutateSettingsSaveFailureKeepsPublishedSnapshot(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("block"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	app.settingsPath = filepath.Join(blocker, "settings.json")
+	app.settingsSaver = func(string, *Settings) error {
+		return os.ErrInvalid
+	}
 	before := app.Settings()
 	if _, after, err := app.MutateSettings(func(s *Settings) error {
 		s.Locale = "en"
@@ -209,44 +211,6 @@ func TestUpdateWindowSizeLogsPersistenceFailure(t *testing.T) {
 	}
 }
 
-func TestSaveSettingsReplaceFailurePreservesOldFileAndCleansTemp(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-	old := []byte(`{"locale":"zh"}`)
-	if err := os.WriteFile(path, old, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	wantErr := errors.New("replace failed")
-	err := saveSettingsBytes(path, []byte(`{"locale":"en"}`), func(string, string) error {
-		return wantErr
-	}, func(string) error { return nil })
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("save error = %v", err)
-	}
-	got, err := os.ReadFile(path)
-	if err != nil || string(got) != string(old) {
-		t.Fatalf("old file changed: %q, err=%v", got, err)
-	}
-	temps, err := filepath.Glob(filepath.Join(dir, ".settings.json.tmp-*"))
-	if err != nil || len(temps) != 0 {
-		t.Fatalf("temp files = %v, err=%v", temps, err)
-	}
-}
-
-func TestSaveSettingsClassifiesDirectorySyncFailureAsCommitted(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-	wantErr := errors.New("directory sync failed")
-	err := saveSettingsBytes(path, []byte(`{"locale":"en"}`), os.Rename, func(string) error { return wantErr })
-	if !errors.Is(err, wantErr) || !settingsSaveCommitted(err) {
-		t.Fatalf("save error = %v, committed=%v", err, settingsSaveCommitted(err))
-	}
-	got, readErr := os.ReadFile(path)
-	if readErr != nil || string(got) != `{"locale":"en"}` {
-		t.Fatalf("committed file = %q, err=%v", got, readErr)
-	}
-}
-
 func TestSettingsValidate_OK(t *testing.T) {
 	s := defaultSettings()
 	if err := s.Validate(); err != nil {
@@ -328,7 +292,10 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err := SaveSettings(path, original); err != nil {
 		t.Fatalf("SaveSettings: %v", err)
 	}
-	loaded := LoadSettings(path)
+	loaded, err := LoadSettings(path)
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
 	if loaded.UI.Logger.WriteFile != false {
 		t.Errorf("WriteFile round-trip failed")
 	}
@@ -338,25 +305,27 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 }
 
 func TestLoadSettings_MissingFileReturnsDefault(t *testing.T) {
-	s := LoadSettings(filepath.Join(t.TempDir(), "does-not-exist.json"))
+	s, err := LoadSettings(filepath.Join(t.TempDir(), "does-not-exist.json"))
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
 	if s == nil {
 		t.Fatal("nil settings")
 	}
-	if s.UI.Logger.FileDir != "logs" {
-		t.Errorf("expected default FileDir=logs, got %q", s.UI.Logger.FileDir)
+	if s.UI.Logger.FileDir != "" {
+		t.Errorf("expected managed default log directory, got %q", s.UI.Logger.FileDir)
 	}
 	if !s.UI.Logger.Enabled || !s.UI.Logger.LiveView || s.UI.Logger.Level != "info" {
 		t.Fatalf("unexpected logger defaults: %+v", s.UI.Logger)
 	}
 }
 
-func TestLoadSettings_CorruptedFileReturnsDefault(t *testing.T) {
+func TestLoadSettings_CorruptedFileRequiresRecovery(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 	_ = os.WriteFile(path, []byte("{not valid json"), 0644)
-	s := LoadSettings(path)
-	if s.UI.Logger.FileDir != "logs" {
-		t.Errorf("expected default on corrupt; got %q", s.UI.Logger.FileDir)
+	if _, err := LoadSettings(path); !errors.Is(err, ErrSettingsRecoveryRequired) {
+		t.Fatalf("LoadSettings error = %v, want recovery required", err)
 	}
 }
 
@@ -372,11 +341,12 @@ func TestLoadSettingsRevokesStaleConsentWithoutDiscardingInstallation(t *testing
 		Slot: "status-api", Label: "Status API", Origin: "https://example.test/",
 		ResponseByteLimit: 8192, TimeoutMilliseconds: 1000, WorkflowConsent: stale,
 	}}
-	if err := SaveSettings(path, settings); err != nil {
-		t.Fatal(err)
-	}
+	writeUncheckedSettingsEnvelope(t, path, settings, 1)
 
-	loaded := LoadSettings(path)
+	loaded, err := LoadSettings(path)
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
 	if loaded.Locale != "en" || len(loaded.Network.HTTPOrigins) != 1 {
 		t.Fatalf("installation was discarded: %#v", loaded)
 	}
@@ -388,7 +358,7 @@ func TestLoadSettingsRevokesStaleConsentWithoutDiscardingInstallation(t *testing
 	}
 }
 
-func TestLoadSettingsMigratesExplicitApplicationConsentToStableInstallationIdentity(t *testing.T) {
+func TestLoadSettingsRevokesStaleApplicationConsent(t *testing.T) {
 	dir := t.TempDir()
 	executable := filepath.Join(dir, "Game.exe")
 	if err := os.WriteFile(executable, []byte("game-v1"), 0o700); err != nil {
@@ -398,43 +368,41 @@ func TestLoadSettingsMigratesExplicitApplicationConsentToStableInstallationIdent
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyConsent, err := artifact.Sum("yotta/test/legacy-application-consent/v1", []byte("granted"))
+	staleConsent, err := artifact.Sum("yotta/test/stale-application-consent/v1", []byte("granted"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	settings := defaultSettings()
 	settings.Applications.Profiles = []InstalledApplicationSettings{{
 		Slot: "game", Label: "Game", Executable: inspection.Executable,
-		ExecutableDigest: inspection.Digest, Arguments: []string{}, WorkflowConsent: legacyConsent,
+		ExecutableDigest: inspection.Digest, Arguments: []string{}, WorkflowConsent: staleConsent,
 	}}
 	path := filepath.Join(dir, "settings.json")
-	if err := SaveSettings(path, settings); err != nil {
-		t.Fatal(err)
-	}
+	writeUncheckedSettingsEnvelope(t, path, settings, 1)
 
-	loaded := LoadSettings(path)
+	loaded, err := LoadSettings(path)
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
 	configured := loaded.Applications.Profiles[0]
-	profile, err := appcontrol.SealProfile(configured.profileDraft())
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected, err := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if configured.WorkflowConsent != expected || configured.WorkflowConsent == legacyConsent {
-		t.Fatalf("application consent was not migrated: got %s want %s", configured.WorkflowConsent, expected)
+	if configured.WorkflowConsent != "" {
+		t.Fatalf("stale application consent was not revoked: got %s", configured.WorkflowConsent)
 	}
 }
 
-func TestLoadSettings_EmptyFileDirFallsToDefault(t *testing.T) {
+func TestLoadSettings_EmptyFileDirUsesManagedDefault(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
-	// 写一个没有 fileDir 字段的 settings（空字符串等同于未设置）
-	_ = os.WriteFile(path, []byte(`{"ui":{"logger":{"panelOpen":true}},"locale":"zh","capture":{"method":"auto"},"ui":{"window":{"width":1100,"height":720}}}`), 0644)
-	s := LoadSettings(path)
-	if s.UI.Logger.FileDir != "logs" {
-		t.Errorf("expected FileDir=logs fallback, got %q", s.UI.Logger.FileDir)
+	settings := defaultSettings()
+	if err := SaveSettings(path, settings); err != nil {
+		t.Fatal(err)
+	}
+	s, err := LoadSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.UI.Logger.FileDir != "" {
+		t.Errorf("expected managed FileDir, got %q", s.UI.Logger.FileDir)
 	}
 }
 
@@ -482,44 +450,5 @@ func TestUISettings_LauncherZeroValue(t *testing.T) {
 	}
 	if len(s.UI.LauncherItems) != 0 {
 		t.Errorf("LauncherItems zero: want len 0, got %d", len(s.UI.LauncherItems))
-	}
-}
-
-func TestLoadSettings_UnmarshalIntoBase(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "s.json")
-
-	// 1) 部分字段缺失 → 缺的保默认, 有的生效
-	_ = os.WriteFile(p, []byte(`{"locale":"en"}`), 0o644)
-	s := LoadSettings(p)
-	if s.Locale != "en" {
-		t.Fatalf("locale: want en, got %q", s.Locale)
-	}
-	if s.UI.Logger.FileDir != "logs" || s.Capture.Method != "auto" {
-		t.Fatalf("missing fields should keep defaults, got FileDir=%q Method=%q", s.UI.Logger.FileDir, s.Capture.Method)
-	}
-	if s.UI.RecordingStopHotkey != "F12" {
-		t.Fatalf("missing hotkey should keep default F12, got %q", s.UI.RecordingStopHotkey)
-	}
-
-	// 2) Window 显式 0 → 兜底
-	_ = os.WriteFile(p, []byte(`{"ui":{"window":{"width":0,"height":0}}}`), 0o644)
-	s = LoadSettings(p)
-	if s.UI.Window.Width != 1100 || s.UI.Window.Height != 720 {
-		t.Fatalf("window 0 should fall back, got %dx%d", s.UI.Window.Width, s.UI.Window.Height)
-	}
-
-	// 3) 非法 RecordingMouseMode → relative
-	_ = os.WriteFile(p, []byte(`{"ui":{"recordingMouseMode":"bogus"}}`), 0o644)
-	s = LoadSettings(p)
-	if s.UI.RecordingMouseMode != "relative" {
-		t.Fatalf("bogus mouse mode should fall back to relative, got %q", s.UI.RecordingMouseMode)
-	}
-
-	// 4) 损坏 JSON → 全新默认
-	_ = os.WriteFile(p, []byte(`{bad`), 0o644)
-	s = LoadSettings(p)
-	if s.Locale != "zh" || s.UI.Window.Width != 1100 {
-		t.Fatalf("corrupt should return fresh defaults, got locale=%q w=%d", s.Locale, s.UI.Window.Width)
 	}
 }

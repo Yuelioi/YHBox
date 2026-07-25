@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	registryFormat   = "yotta.node-package-registry"
-	registryVersion  = "2"
+	RegistryFormat   = "yotta.node-package-registry"
+	RegistryVersion  = "2"
 	registryFilename = "registry.json"
 	generationsDir   = "generations"
 	maxRegistryBytes = 16 << 20
@@ -458,7 +458,7 @@ func loadRegistry(ctx context.Context, root string) (map[string]PackageInstallat
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, TrustPolicy{}, false, errors.New("node package registry contains trailing JSON values")
 	}
-	if document.Format != registryFormat || document.Version != registryVersion {
+	if document.Format != RegistryFormat || document.Version != RegistryVersion {
 		return nil, TrustPolicy{}, false, errors.New("unsupported node package registry format")
 	}
 	policy, err := OpenTrustPolicy(document.Trust)
@@ -537,7 +537,7 @@ func marshalRegistry(entries map[string]PackageInstallation, policy TrustPolicy)
 		packages = append(packages, cloneInstallation(installed))
 	}
 	sort.Slice(packages, func(i, j int) bool { return packages[i].PackageID < packages[j].PackageID })
-	raw, err := artifact.Marshal(registryDocument{Format: registryFormat, Version: registryVersion, Trust: policy.Bytes(), Packages: packages})
+	raw, err := artifact.Marshal(registryDocument{Format: RegistryFormat, Version: RegistryVersion, Trust: policy.Bytes(), Packages: packages})
 	if err != nil {
 		return nil, err
 	}

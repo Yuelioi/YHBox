@@ -21,11 +21,19 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
+	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
 	runartifact "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/services"
+	"github.com/yottaapp/yotta/internal/services/asset"
+	"github.com/yottaapp/yotta/internal/services/inputclip"
+	"github.com/yottaapp/yotta/internal/services/macro"
 	"github.com/yottaapp/yotta/internal/services/mcpserver"
 	"github.com/yottaapp/yotta/internal/services/schedule"
+	"github.com/yottaapp/yotta/internal/services/snippet"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
@@ -126,6 +134,9 @@ func run(arguments []string) error {
 			return fmt.Errorf("product version projections are stale: %s; run task version:sync", strings.Join(changed, ", "))
 		}
 		if err := checkRetiredUnifiedVersionLiterals(root); err != nil {
+			return err
+		}
+		if err := checkStoragePathOwnership(root); err != nil {
 			return err
 		}
 		fmt.Printf("product version projections OK: %s\n", current)
@@ -337,6 +348,11 @@ func replaceExactlyOne(raw []byte, pattern *regexp.Regexp, replacement []byte) (
 func printInventory(product productVersion) {
 	rows := [][2]string{
 		{"product", product.String()},
+		{storage.RootFormat, storage.LayoutVersion},
+		{"content-catalog-schema", strconv.Itoa(catalog.ContentSchemaVersion)},
+		{"run-ledger-schema", strconv.Itoa(catalog.RunSchemaVersion)},
+		{catalog.BackupFormat, strconv.Itoa(catalog.BackupVersion)},
+		{services.SettingsFormat, services.SettingsSchemaVersion},
 		{schema.Format, schema.Version},
 		{datatype.Format, datatype.Version},
 		{nodecontract.Format, nodecontract.Version},
@@ -347,7 +363,13 @@ func printInventory(product productVersion) {
 		{capability.PlanFormat, capability.PlanVersion},
 		{capability.RunGrantFormat, capability.RunGrantVersion},
 		{runartifact.RecordFormat, runartifact.RecordVersion},
+		{"run-store-layout", runartifact.LayoutVersion},
+		{"asset-record-schema", strconv.Itoa(asset.RecordSchemaVersion)},
 		{"schedule-schema", string(schedule.CurrentSchemaVersion)},
+		{"snippet-schema", snippet.SchemaVersion},
+		{"macro-schema", strconv.Itoa(macro.SchemaVersion)},
+		{inputclip.MediaType, strconv.FormatUint(uint64(inputclip.FormatVersion), 10)},
+		{nodepackage.RegistryFormat, nodepackage.RegistryVersion},
 		{"host-interface", hostapi.Current},
 		{"script-worker-protocol", scriptengine.Protocol},
 		{"plugin-protocol", pluginprotocol.Protocol},
@@ -365,8 +387,7 @@ func printInventory(product productVersion) {
 func checkRetiredUnifiedVersionLiterals(root string) error {
 	scanRoots := []string{"internal", "pkg", "cmd", "sdk", filepath.Join("frontend", "src")}
 	allowed := map[string]struct{}{
-		filepath.Clean(filepath.Join("internal", "appbootstrap", "workspace_root.go")): {},
-		filepath.Clean(filepath.Join("cmd", "yotta-versions", "main.go")):              {},
+		filepath.Clean(filepath.Join("cmd", "yotta-versions", "main.go")): {},
 	}
 	var violations []string
 	for _, relativeRoot := range scanRoots {
@@ -405,6 +426,56 @@ func checkRetiredUnifiedVersionLiterals(root string) error {
 	}
 	if len(violations) != 0 {
 		return fmt.Errorf("retired unified version literal %q found in current source: %s", retiredUnifiedVersionLiteral, strings.Join(violations, ", "))
+	}
+	return nil
+}
+
+func checkStoragePathOwnership(root string) error {
+	scanRoots := []string{"internal", "pkg", "cmd"}
+	banned := []struct {
+		pattern *regexp.Regexp
+		label   string
+	}{
+		{regexp.MustCompile(`filepath\.Join\(\s*filepath\.Dir\([^)]+\),\s*"data"\s*\)`), "exe-relative data root"},
+		{regexp.MustCompile(`(?:New|Open)ConfiguredApp\(\s*""\s*,`), "implicit settings root"},
+		{regexp.MustCompile(`DevOutputPath\(\s*"captures"\s*\)`), "development capture root"},
+		{regexp.MustCompile(`YOTTA_DATA_DIR`), "split data-root environment variable"},
+		{regexp.MustCompile(`FileDir:\s*"logs"`), "relative log root"},
+	}
+	var violations []string
+	for _, relativeRoot := range scanRoots {
+		absoluteRoot := filepath.Join(root, relativeRoot)
+		err := filepath.WalkDir(absoluteRoot, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+				return nil
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			if filepath.Clean(relative) == filepath.Clean(filepath.Join("cmd", "yotta-versions", "main.go")) {
+				return nil
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, rule := range banned {
+				if rule.pattern.Match(raw) {
+					violations = append(violations, filepath.ToSlash(relative)+" ("+rule.label+")")
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("scan storage path ownership in %s: %w", relativeRoot, err)
+		}
+	}
+	if len(violations) != 0 {
+		return fmt.Errorf("production storage paths must come from storage.Roots: %s", strings.Join(violations, ", "))
 	}
 	return nil
 }

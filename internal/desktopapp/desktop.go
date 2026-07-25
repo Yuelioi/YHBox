@@ -40,30 +40,61 @@ import (
 	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/pkg/locale"
-	"github.com/yottaapp/yotta/pkg/platform"
 	"github.com/yottaapp/yotta/pkg/screenshot"
 	"github.com/yottaapp/yotta/pkg/version"
 )
 
 type Config struct {
-	Assets   embed.FS
-	TrayIcon []byte
+	Assets      embed.FS
+	TrayIcon    []byte
+	StorageRoot string
 }
 
 func Run(config Config) error {
+	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: config.StorageRoot})
+	if err != nil {
+		return fmt.Errorf("open storage profile: %w", err)
+	}
+	defer func() {
+		if closeErr := profile.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "close storage profile: %v\n", closeErr)
+		}
+	}()
+	roots := profile.Roots
+	catalogFoundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		return fmt.Errorf("open catalog foundation: %w", err)
+	}
+	defer func() {
+		if closeErr := catalogFoundation.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "close catalog foundation: %v\n", closeErr)
+		}
+	}()
+
 	// 日志栈：zerolog process/Workflow diagnostics → LogSink → 单一 log:batch 事件 + 可选 JSONL.
 	logSink := services.NewLogSink(nil) // emit 在 wailsApp 构造后装配
 	rootLog := zerolog.New(logSink).With().Timestamp().Logger()
 	// App 构造即加载并应用日志策略，让 persisted off/level 在任何启动日志前生效。
-	app := services.NewConfiguredApp("", logSink, rootLog) // settingsPath="" 走默认（exe 同目录）
+	app, err := services.OpenConfiguredApp(roots.SettingsFile(), roots.Logs, logSink, rootLog)
+	if err != nil {
+		return fmt.Errorf("open application settings: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if shutdownErr := app.ShutdownContext(shutdownCtx); shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "shutdown application settings/log runtime: %v\n", shutdownErr)
+		}
+	}()
 	aiSecrets := services.NewAISecrets(securestore.New())
 
-	// Screenshot writer: 给 bot 异步落盘带标注 PNG 用，调试调参时打开 Capture.DumpDebug
-	// settings 在 debug/captures/<bot>/<date>/ 累积。默认关，写盘走独立 goroutine。
-	// debug/ 是 gitignored 的开发者本地目录。
-	screenshot.InitDefault(platform.DevOutputPath("captures"), 16, app.Settings().Capture.DumpDebug)
+	// Screenshot diagnostics belong to the active storage profile and never to
+	// the executable or process working directory.
+	screenshot.InitDefault(roots.Captures, 16, app.Settings().Capture.DumpDebug)
 	defer screenshot.CloseDefault()
 
 	// 按 settings.locale 加载每个 bot 的配置 + 视觉模板。
@@ -87,25 +118,15 @@ func Run(config Config) error {
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
 
-	// 数据根：<exeDir>/data/。各 Store 只创建并管理自己的目录。
-	dataDir := "data"
-	if exe, err := os.Executable(); err == nil {
-		dataDir = filepath.Join(filepath.Dir(exe), "data")
-	}
-	// Screenshot 节点写盘根目录 = dataDir (绝对). 不设的话节点回落到相对 "bin/data"，
-	// 在 exeDir 已是 bin/ 时会拼成 bin/bin/data/... 还跟模板里的 screenshots/ 段重复。
-	if err := os.Setenv("YOTTA_DATA_DIR", dataDir); err != nil {
-		rootLog.Error().Err(err).Str("tag", "SYSTEM").Msg("set image output data directory")
-	}
-	sharedBlobStore, err := blob.Open(filepath.Join(dataDir, "blobs"), blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
+	sharedBlobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
 	if err != nil {
 		return fmt.Errorf("initialize shared Blob Store: %w", err)
 	}
-	assetStore, err := asset.NewStore(dataDir, sharedBlobStore)
+	assetStore, err := asset.NewStore(filepath.Join(roots.Data, "assets"), sharedBlobStore)
 	if err != nil {
 		return fmt.Errorf("initialize asset store: %w", err)
 	}
-	snippetStore, err := snippet.NewStore(filepath.Join(dataDir, "snippets"))
+	snippetStore, err := snippet.NewStore(filepath.Join(roots.Data, "snippets"))
 	if err != nil {
 		return fmt.Errorf("initialize snippet store: %w", err)
 	}
@@ -142,12 +163,12 @@ func Run(config Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize script runtime: %w", err)
 	}
-	nodePackageStore, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(dataDir, "node-packages"))
+	nodePackageStore, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(roots.Packages, "node"))
 	if err != nil {
 		return fmt.Errorf("initialize node package store: %w", err)
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
-		DataRoot: dataDir, BlobStore: sharedBlobStore,
+		DataRoot: roots.Data, BlobStore: sharedBlobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
 			MaxResourcePayloadBytes: 4 << 20,
@@ -286,7 +307,7 @@ func Run(config Config) error {
 	// document can inject a native window selector.
 	assetSvc := asset.NewService(assetStore, authoringTargets, workflowRuntime.Application, app.Emit)
 
-	scheduleStore, err := schedule.NewStore(filepath.Join(dataDir, "schedules"))
+	scheduleStore, err := schedule.NewStore(filepath.Join(roots.Data, "schedules"))
 	if err != nil {
 		return fmt.Errorf("initialize schedule store: %w", err)
 	}

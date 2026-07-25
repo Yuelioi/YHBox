@@ -1,6 +1,8 @@
 package services
 
 import (
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 
 	"github.com/rs/zerolog"
@@ -16,10 +18,16 @@ type LogRuntime struct {
 	live    atomic.Bool
 	persist atomic.Bool
 	minimum atomic.Int32
+
+	defaultFileDir string
 }
 
-func NewLogRuntime(sink *LogSink) *LogRuntime {
-	return &LogRuntime{sink: sink}
+func NewLogRuntime(sink *LogSink, defaultFileDir ...string) *LogRuntime {
+	runtime := &LogRuntime{sink: sink}
+	if len(defaultFileDir) != 0 {
+		runtime.defaultFileDir = strings.TrimSpace(defaultFileDir[0])
+	}
+	return runtime
 }
 
 func (r *LogRuntime) Configure(settings LoggerSettings) {
@@ -27,7 +35,7 @@ func (r *LogRuntime) Configure(settings LoggerSettings) {
 }
 
 // ConfigurePolicy initializes source/stream behavior without taking ownership
-// of a file configured by a test or embedding host. NewConfiguredApp promotes
+// of a file configured by a test or embedding host. OpenConfiguredApp promotes
 // the same settings to persisted-output ownership during construction.
 func (r *LogRuntime) ConfigurePolicy(settings LoggerSettings) {
 	r.configure(settings, false)
@@ -44,9 +52,11 @@ func (r *LogRuntime) configure(settings LoggerSettings, configureFile bool) {
 		if configureFile {
 			dir := ""
 			if r.persist.Load() {
-				dir = settings.FileDir
+				dir = strings.TrimSpace(settings.FileDir)
 				if dir == "" {
-					dir = "logs"
+					dir = r.defaultFileDir
+				} else if r.defaultFileDir != "" && !filepath.IsAbs(dir) {
+					dir = filepath.Join(filepath.Dir(r.defaultFileDir), dir)
 				}
 			}
 			r.sink.SetFileWriter(dir)

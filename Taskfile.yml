@@ -227,6 +227,7 @@ tasks:
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
     env:
+      YOTTA_ROOT: '{{.ROOT_DIR}}/.task/yotta-dev'
       YOTTA_WEBVIEW_DEBUG_PORT: '{{.WEBVIEW_DEBUG_PORT | default "9227"}}'
 
   webview:screenshot:

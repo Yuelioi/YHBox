@@ -1,5 +1,9 @@
 # R1 — 配置与资源持久化审计
 
+## Status
+
+Completed — 2026-07-25
+
 ## Journey
 
 Yotta 已同时持久化应用设置、工作流 Source/Program、Global Asset、Workflow Resource、CAS Blob、录制、
@@ -26,12 +30,21 @@ Yotta 已同时持久化应用设置、工作流 Source/Program、Global Asset�
 
 ## Deliverable
 
-1. 当前持久化清单与容量/一致性风险矩阵。
-2. 目标目录树和配置/资源领域所有权决策。
-3. Storage/Repository、索引、原子写、锁、备份恢复、GC 与 migration seam 方案。
-4. 后续实现 Slice、兼容边界、自动化门禁和真实大数据 fixture 验收计划。
+1. [当前持久化清单与容量/一致性风险矩阵](../references/storage-config-current-audit.md)。
+2. [目标目录、领域所有权与深模块方案](../references/storage-config-target-architecture.md)。
+3. [外部一手资料研究](../references/storage-config-primary-research.md)。
+4. 后续实现从 [R2 — RootSet 与持久化生命周期基座](stage-r2-storage-root-lifecycle.md) 开始。
 
 ## Next
 
-从仓库入口、`internal/services/`、现有 store、data-root 初始化和 schema 开始只读审计；使用 1000+
-Workflow/Asset、GB 级 Blob 和崩溃中断场景校准目标，而不是只为当前小样本设计。
+实现 R2 的平台 RootSet、显式开发/便携 override、settings recovery envelope、统一 diagnostics 路径、
+根级 writer lease 和完整 version inventory；在 migration engine 就绪前不自动搬动或删除现有数据。
+
+## Result
+
+- 当前不到 1 MiB 的开发数据已同时分散在 exe 同目录、`data/` 和相对 `logs/`，并由多套启动扫描、
+  原子写、损坏和版本策略管理；Run journal 还存在累计 O(n²) 重写风险。
+- 目标不是“全部 SQLite”，而是 Content Catalog + 独立 Run Ledger + 文件 CAS + portable artifacts；
+  settings 保持小型 recovery envelope，secret 继续由平台 secure store 管理。
+- 产品版本、artifact schema、DB schema 和物理 layout 分离。正式迁移必须有注册 step checksum、
+  preflight/dry-run、backup、apply、verify、commit 和 resume/recovery。

@@ -3,7 +3,6 @@ package appbootstrap
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -18,9 +17,9 @@ func TestResolveWorkspaceRootUsesStableDirectory(t *testing.T) {
 	}
 }
 
-func TestResolveWorkspaceRootMigratesLegacyDirectory(t *testing.T) {
+func TestResolveWorkspaceRootDoesNotInspectOrMigrateLegacyDirectories(t *testing.T) {
 	root := t.TempDir()
-	legacy := filepath.Join(root, legacyWorkspaceDirectory)
+	legacy := filepath.Join(root, "workspace-3.1")
 	if err := os.Mkdir(legacy, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -33,34 +32,10 @@ func TestResolveWorkspaceRootMigratesLegacyDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(got, "marker")); err != nil {
-		t.Fatalf("migrated marker: %v", err)
+	if got != filepath.Join(root, workspaceDirectory) {
+		t.Fatalf("resolveWorkspaceRoot = %q", got)
 	}
-	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
-		t.Fatalf("legacy directory still exists: %v", err)
-	}
-}
-
-func TestResolveWorkspaceRootRejectsAmbiguousRoots(t *testing.T) {
-	root := t.TempDir()
-	for _, name := range []string{workspaceDirectory, legacyWorkspaceDirectory} {
-		if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	_, err := resolveWorkspaceRoot(root)
-	if err == nil || !strings.Contains(err.Error(), "both") {
-		t.Fatalf("resolveWorkspaceRoot error = %v", err)
-	}
-}
-
-func TestResolveWorkspaceRootRejectsFiles(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, workspaceDirectory), []byte("invalid"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := resolveWorkspaceRoot(root)
-	if err == nil || !strings.Contains(err.Error(), "not a directory") {
-		t.Fatalf("resolveWorkspaceRoot error = %v", err)
+	if raw, err := os.ReadFile(marker); err != nil || string(raw) != "kept" {
+		t.Fatalf("legacy data changed: %q, %v", raw, err)
 	}
 }

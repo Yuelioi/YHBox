@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/yottaapp/yotta/internal/ai"
@@ -16,17 +14,6 @@ import (
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/pkg/locale"
 )
-
-// settingsFileName / settingsFilePath 跟 walk 时代保持兼容：exe 同目录的 settings.json。
-const settingsFileName = "settings.json"
-
-var settingsFilePath = func() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return settingsFileName
-	}
-	return filepath.Join(filepath.Dir(exe), settingsFileName)
-}()
 
 // Settings 是持久化层 schema。
 type Settings struct {
@@ -323,7 +310,7 @@ type LoggerSettings struct {
 	ShowTag    bool   `json:"showTag"`
 	WrapText   bool   `json:"wrapText"`
 	WriteFile  bool   `json:"writeFile"`
-	FileDir    string `json:"fileDir"` // 写文件目录, 空 = 默认 "logs"
+	FileDir    string `json:"fileDir"` // 写文件目录；空 = 当前 RootSet 的 diagnostics/logs
 }
 
 // defaultSettings 返回内置默认值。
@@ -333,7 +320,7 @@ func defaultSettings() *Settings {
 			Logger: LoggerSettings{
 				Enabled: true, LiveView: true, Level: "info",
 				PanelOpen: true, AutoScroll: true, ShowTime: true, ShowTag: true,
-				WrapText: false, WriteFile: true, FileDir: "logs",
+				WrapText: false, WriteFile: true, FileDir: "",
 			},
 			Window:               WindowSettings{Width: 1100, Height: 720},
 			ActionStopHotkey:     "Ctrl+Shift+F9",
@@ -355,39 +342,10 @@ func defaultSettings() *Settings {
 	}
 }
 
-// LoadSettings 从 path 读 JSON。文件不存在、损坏或结构无效时用默认值；
-// capability/profile 演进导致的过期 workflow consent 只撤销授权，保留安装配置。
-// 直接 unmarshal 进 defaultSettings() 基底：缺失字段天然保留默认，无需逐字段空值回落。
-func LoadSettings(path string) *Settings {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return defaultSettings()
-	}
-	s := defaultSettings()
-	if err := json.Unmarshal(data, s); err != nil {
-		return defaultSettings() // 损坏 → 全新默认（s 已被部分改写，不能返回）
-	}
-	// Window 显式 0/负值会覆盖默认 → 兜底（非空值垫片，保留）
-	if s.UI.Window.Width <= 0 || s.UI.Window.Height <= 0 {
-		s.UI.Window.Width = 1100
-		s.UI.Window.Height = 720
-	}
-	// RecordingMouseMode 枚举校验：非 relative/absolute → relative（非空值垫片，保留）
-	if s.UI.RecordingMouseMode != "relative" && s.UI.RecordingMouseMode != "absolute" {
-		s.UI.RecordingMouseMode = "relative"
-	}
-	s.revokeStaleWorkflowConsents()
-	if err := s.Validate(); err != nil {
-		return defaultSettings()
-	}
-	return s
-}
-
 // revokeStaleWorkflowConsents turns persisted grants into explicit
 // unconsented installations when their current sealed profile/manifest digest
-// changes. Application consent is migrated from the legacy byte-pinned profile
-// to the stable path-and-arguments profile; the settings file is already the
-// local user's explicit authority record.
+// changes. Consent digests are never rewritten as a compatibility shortcut:
+// the local user must authorize the changed installation again.
 func (s *Settings) revokeStaleWorkflowConsents() {
 	for index := range s.AI.Profiles {
 		configured := &s.AI.Profiles[index]
@@ -418,10 +376,8 @@ func (s *Settings) revokeStaleWorkflowConsents() {
 		}
 		profile, err := appcontrol.SealProfile(configured.profileDraft())
 		expected, digestErr := appcontrol.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || digestErr != nil {
+		if err != nil || digestErr != nil || configured.WorkflowConsent != expected {
 			configured.WorkflowConsent = ""
-		} else if configured.WorkflowConsent != expected {
-			configured.WorkflowConsent = expected
 		}
 	}
 	applications := make(map[string]InstalledApplicationSettings, len(s.Applications.Profiles))
@@ -440,26 +396,10 @@ func (s *Settings) revokeStaleWorkflowConsents() {
 		draft, err := configured.profileDraft(application)
 		profile, sealErr := automationinstalled.SealProfile(draft)
 		expected, digestErr := automationinstalled.WorkflowConsentDigest(configured.Slot, profile)
-		if err != nil || sealErr != nil || digestErr != nil {
+		if err != nil || sealErr != nil || digestErr != nil || configured.WorkflowConsent != expected {
 			configured.WorkflowConsent = ""
-		} else if configured.WorkflowConsent != expected {
-			if configured.requiresApplication() {
-				configured.WorkflowConsent = expected
-			} else {
-				configured.WorkflowConsent = ""
-			}
 		}
 	}
-}
-
-// SaveSettings writes a complete snapshot through a same-directory temporary
-// file, fsync, atomic replace, and host-specific directory durability barrier.
-func SaveSettings(path string, s *Settings) error {
-	data, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
-	}
-	return saveSettingsBytes(path, data, replaceSettingsFile, syncSettingsDir)
 }
 
 type settingsCommittedError struct{ err error }
@@ -471,56 +411,6 @@ func (e *settingsCommittedError) Committed() bool { return true }
 func settingsSaveCommitted(err error) bool {
 	var committed *settingsCommittedError
 	return errors.As(err, &committed)
-}
-
-func saveSettingsBytes(
-	path string,
-	data []byte,
-	replace func(oldPath, newPath string) error,
-	syncDir func(string) error,
-) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create settings directory: %w", err)
-	}
-	mode := os.FileMode(0o644)
-	if info, err := os.Stat(path); err == nil {
-		mode = info.Mode().Perm()
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("stat settings file: %w", err)
-	}
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("create settings temp file: %w", err)
-	}
-	tmpPath := tmp.Name()
-	committed := false
-	defer func() {
-		_ = tmp.Close()
-		if !committed {
-			_ = os.Remove(tmpPath)
-		}
-	}()
-	if err := tmp.Chmod(mode); err != nil {
-		return fmt.Errorf("chmod settings temp file: %w", err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		return fmt.Errorf("write settings temp file: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		return fmt.Errorf("sync settings temp file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close settings temp file: %w", err)
-	}
-	if err := replace(tmpPath, path); err != nil {
-		return fmt.Errorf("replace settings file: %w", err)
-	}
-	committed = true
-	if err := syncDir(dir); err != nil {
-		return &settingsCommittedError{err: fmt.Errorf("sync settings directory: %w", err)}
-	}
-	return nil
 }
 
 // Clone deep copy。SettingsService.Update 的 clone→merge→Validate→swap→save 流程用。

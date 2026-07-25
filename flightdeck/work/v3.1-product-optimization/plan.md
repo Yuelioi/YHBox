@@ -7,7 +7,8 @@
 ## Current stage
 
 Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
-M1 合同与 M2a 资源侧栏保持完成。Stage R 先处理配置与资源持久化基础设施，再继续依赖该基础的 M2/M3。
+M1 合同与 M2a 资源侧栏保持完成。Stage R 的审计与 RootSet/lifecycle 基座已经完成，下一步建立 Catalog
+foundation，再继续依赖该基础的 M2/M3。
 
 ## Stage R — 配置与资源持久化基础设施
 
@@ -15,8 +16,14 @@ M1 合同与 M2a 资源侧栏保持完成。Stage R 先处理配置与资源持�
 录制、计划、运行历史、插件/节点包、索引与缓存放回清晰的领域所有权和容量模型，建立适合中大型桌面软件的
 data-root、存储接口、完整性、恢复、GC 和版本迁移边界。
 
-- [ ] [R1 — 配置与资源持久化审计](slices/stage-r1-storage-config-audit.md)：当前持久化清单、风险矩阵、
+- [x] [R1 — 配置与资源持久化审计](slices/stage-r1-storage-config-audit.md)：当前持久化清单、风险矩阵、
   目标目录/所有权、Storage/Repository seam、索引/锁/恢复/GC/migration 方案与后续实现切片。
+- [x] [R2 — RootSet 与持久化生命周期基座](slices/stage-r2-storage-root-lifecycle.md)：Windows LocalAppData、
+  显式 profile override、root identity/writer lease、settings recovery envelope、只读 health、完整版本清单与
+  后续发布版 migration registry。
+- [x] [R3 — Catalog foundation](slices/stage-r3-catalog-foundation.md)：锁定 CGO-free SQLite adapter，
+  建立 Content Catalog/Run Ledger application identity、schema migration、online backup、quick-check
+  与故障注入基座；暂不迁具体领域数据。
 
 非目标：不在审计阶段直接搬动用户目录，不把所有对象塞进单一数据库，不把 secret 或本机安装配置带入
 Workflow Source/Bundle，也不为了当前开发样本忽略 1000+ 对象和 GB 级内容。

@@ -10,15 +10,15 @@ Open
 
 ## Current
 
-Stage Q 与 M2a 已完成并通过提交前门禁：子图/三类资源/Snippet 成为左侧一级工作区，Workflow Resource
-增删改、Global Asset snapshot、筛选/分页/批量管理、大图预览和按稳定身份定位形成闭环；资源命令进入
-正式 authoring patch 与单次 undo。用户已把下一阶段明确转向配置与资源持久化基础设施。
+R3 Catalog foundation 已完成：Content Catalog 与 Run Ledger 在 RootSet 下使用两个 identity/schema/
+WAL/backup 独立的 SQLite 数据库；GUI、CLI、health 和版本清单统一接入。启动严格验证 migration ledger，
+Online Backup 生成经验证、manifest-last 的一致快照。当前只建立基础 schema，不迁移开发期领域数据。
 
 ## Next
 
-执行 [R1 — 配置与资源持久化审计](slices/stage-r1-storage-config-audit.md)：盘清全部配置、资源、CAS、
-索引、缓存和运行数据的所有权与容量边界，给出目标 data-root、存储接口、完整性/恢复/GC 和内置迁移框架，
-再决定分阶段改造顺序。
+进入 [配置与资源持久化目标架构](references/storage-config-target-architecture.md) 的 R4 Asset Catalog +
+CAS v2：先建立 Asset Repository、object reference/lease 与分片物理布局，再用 10k metadata、100k Blob、
+宽限 GC 和崩溃 fixture 验收；不改变 Workflow Resource/Global Asset 的领域归属语义。
 
 ## Progress
 
@@ -92,6 +92,22 @@ Stage Q 与 M2a 已完成并通过提交前门禁：子图/三类资源/Snippet 
   打开左侧对应面板并精确过滤、高亮目标。1000 条素材 GUID 查询、`task check`（29 个 Go 包、81 个
   前端测试文件/347 项测试）、production bundle（editor 201985/220000 gzip）及持续等待同一进程退出码的
   WebView smoke 均通过；同时补齐 M2 资源 authoring 命令的 Wails RPC 合同快照。
+- 2026-07-25 R1 完成：审计发现 GUI settings/data 绑定 exe 目录、日志依赖 cwd，Store 启动全量扫描、
+  损坏/耐久语义分裂，Run journal 累计重写以及 CAS 缺少持久化引用/宽限 GC。结合 Microsoft、Go、
+  SQLite、Git/OCI/containerd 66 个一手链接，目标确定为两个事务一致性域加文件 CAS；根布局与产品版本
+  分离，正式迁移具备 checksum registry、dry-run、backup、verify 和 resume/recovery。
+- 2026-07-25 R2 完成：新增 `internal/storage` RootSet、Windows Known Folder resolver、root manifest、
+  跨平台 writer lease、只读 health 和确定性 migration registry；settings 使用 schema/generation/checksum
+  envelope 并从 primary/backup/staging 选择最新完整代。GUI/CLI/dev/build smoke 不再依赖 exe/cwd，
+  `workspace-3.1` 隐式 rename 已删除，Windows 启动失败会显示错误框。
+- R2 验收：`task check` 由持续后台 wrapper 保留同一进程最终退出码并返回 0（30 个受影响 Go 包）；
+  `task build` 返回 0，3.1.0 Windows GUI metadata 正确；修正后的 isolated smoke 将 app/profile 分离、
+  断言 exe 旁无 data/settings，存活 5 秒后清理退出 0；production CLI `health` 返回受支持 layout 1。
+- 2026-07-25 R3 完成：锁定 CGO-free `modernc.org/sqlite v1.54.0`，建立 `content.db`/`runs.db` 的
+  application ID、schema 1、不可变 checksum migration ledger、WAL/FULL、quick/foreign-key health 和
+  Online Backup；故障注入、损坏/漂移、活动 WAL snapshot、CGO-off 与 race 测试通过。
+- R3 验收：持续后台 `task check` 同一进程退出 0；`task build` 退出 0并通过 Windows metadata/隔离
+  5 秒 GUI startup smoke；production CLI 隔离 profile 创建两个数据库，health 返回两库 healthy 且路径脱敏。
 
 ## References
 

@@ -26,6 +26,8 @@ import (
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
@@ -33,10 +35,10 @@ import (
 
 type options struct {
 	dataRoot   string
-	settings   string
 	principal  string
 	timeout    time.Duration
 	executable string
+	showPath   bool
 	command    string
 	argument   string
 }
@@ -45,6 +47,38 @@ type compileView struct {
 	SourceHash  string              `json:"sourceHash,omitempty"`
 	ProgramHash string              `json:"programHash,omitempty"`
 	Diagnostics []schema.Diagnostic `json:"diagnostics"`
+}
+
+type healthView struct {
+	storage.HealthReport
+	Databases catalog.HealthReport `json:"databases"`
+}
+
+type commandRuntime struct {
+	*appbootstrap.Runtime
+	profile           *storage.Profile
+	catalogFoundation *catalog.Foundation
+	settingsApp       *services.App
+}
+
+func (runtime *commandRuntime) Close(ctx context.Context) error {
+	if runtime == nil {
+		return nil
+	}
+	var errs []error
+	if runtime.Runtime != nil {
+		errs = append(errs, runtime.Runtime.Close(ctx))
+	}
+	if runtime.settingsApp != nil {
+		errs = append(errs, runtime.settingsApp.ShutdownContext(ctx))
+	}
+	if runtime.catalogFoundation != nil {
+		errs = append(errs, runtime.catalogFoundation.Close())
+	}
+	if runtime.profile != nil {
+		errs = append(errs, runtime.profile.Close())
+	}
+	return errors.Join(errs...)
 }
 
 func main() {
@@ -59,23 +93,41 @@ func run(arguments []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	if opt.command == "health" {
+		ctx := context.Background()
+		report, err := storage.Inspect(ctx, storage.InspectOptions{
+			Root: opt.dataRoot, ShowPhysicalPath: opt.showPath,
+		})
+		if err != nil {
+			return err
+		}
+		roots, err := storage.Resolve(opt.dataRoot)
+		if err != nil {
+			return err
+		}
+		databases, err := catalog.Inspect(ctx, roots)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(healthView{HealthReport: report, Databases: databases})
+	}
 	runtime, err := buildRuntime(opt)
 	if err != nil {
 		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), opt.timeout)
-	defer cancel()
-	if err := runtime.Start(ctx); err != nil {
-		return fmt.Errorf("start Application: %w", err)
 	}
 	defer func() {
 		closeCtx, closeCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer closeCancel()
 		_ = runtime.Close(closeCtx)
 	}()
+	ctx, cancel := context.WithTimeout(context.Background(), opt.timeout)
+	defer cancel()
+	if err := runtime.Start(ctx); err != nil {
+		return fmt.Errorf("start Application: %w", err)
+	}
 
-	encoder := json.NewEncoder(output)
-	encoder.SetIndent("", "  ")
 	switch opt.command {
 	case "validate":
 		raw, readErr := os.ReadFile(opt.argument)
@@ -128,19 +180,38 @@ func parseOptions(arguments []string) (options, error) {
 	set := flag.NewFlagSet("yotta", flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	var opt options
-	set.StringVar(&opt.dataRoot, "data-root", "", "Yotta data directory")
-	set.StringVar(&opt.settings, "settings", "", "settings JSON path")
+	set.StringVar(&opt.dataRoot, "data-root", "", "Yotta storage profile root")
 	set.StringVar(&opt.principal, "principal", "local-cli", "Run principal")
 	set.DurationVar(&opt.timeout, "timeout", 5*time.Minute, "command deadline")
+	set.BoolVar(&opt.showPath, "show-path", false, "include the physical storage path in health output")
 	if err := set.Parse(arguments); err != nil {
 		return options{}, err
 	}
-	if opt.timeout <= 0 || set.NArg() != 2 {
-		return options{}, errors.New("usage: yotta [--data-root DIR] [--settings FILE] [--timeout 5m] validate <source.json> | compile|inspect|run <workflow-id>")
+	if opt.timeout <= 0 || set.NArg() == 0 {
+		return options{}, errors.New("usage: yotta [--data-root DIR] health | [--timeout 5m] validate <source.json> | compile|inspect|run <workflow-id>")
 	}
-	opt.command, opt.argument = set.Arg(0), set.Arg(1)
-	if opt.command != "validate" && opt.command != "compile" && opt.command != "inspect" && opt.command != "run" {
+	opt.command = set.Arg(0)
+	if opt.command == "health" {
+		if set.NArg() != 1 {
+			return options{}, errors.New("usage: yotta [--data-root DIR] [--show-path] health")
+		}
+	} else if set.NArg() != 2 {
+		return options{}, errors.New("workflow commands require an argument")
+	} else {
+		opt.argument = set.Arg(1)
+	}
+	if opt.command != "health" && opt.command != "validate" && opt.command != "compile" && opt.command != "inspect" && opt.command != "run" {
 		return options{}, fmt.Errorf("unknown command %q", opt.command)
+	}
+	if opt.dataRoot != "" {
+		absoluteRoot, err := filepath.Abs(opt.dataRoot)
+		if err != nil {
+			return options{}, err
+		}
+		opt.dataRoot = absoluteRoot
+	}
+	if opt.command == "health" {
+		return opt, nil
 	}
 	executable, err := os.Executable()
 	if err != nil {
@@ -150,16 +221,41 @@ func parseOptions(arguments []string) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	if opt.dataRoot == "" {
-		opt.dataRoot = filepath.Join(filepath.Dir(opt.executable), "data")
-	}
-	opt.dataRoot, err = filepath.Abs(opt.dataRoot)
-	return opt, err
+	return opt, nil
 }
 
-func buildRuntime(opt options) (*appbootstrap.Runtime, error) {
+func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 	logger := zerolog.New(io.Discard)
-	settingsApp := services.NewApp(opt.settings, nil, logger)
+	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: opt.dataRoot})
+	if err != nil {
+		return nil, fmt.Errorf("open storage profile: %w", err)
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, profile.Close())
+		}
+	}()
+	roots := profile.Roots
+	catalogFoundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		return nil, fmt.Errorf("open catalog foundation: %w", err)
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, catalogFoundation.Close())
+		}
+	}()
+	settingsApp, err := services.OpenApp(roots.SettingsFile(), roots.Logs, nil, logger)
+	if err != nil {
+		return nil, fmt.Errorf("open application settings: %w", err)
+	}
+	defer func() {
+		if resultErr != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			resultErr = errors.Join(resultErr, settingsApp.ShutdownContext(shutdownCtx))
+		}
+	}()
 	secrets := services.NewAISecrets(securestore.New())
 	aiInstallations, err := ai.Install(settingsApp.Settings().AI.InstallationDrafts(), secrets)
 	if err != nil {
@@ -181,7 +277,7 @@ func buildRuntime(opt options) (*appbootstrap.Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	blobStore, err := blob.Open(filepath.Join(opt.dataRoot, "blobs"), blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
+	blobStore, err := blob.Open(roots.Objects, blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30})
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +288,12 @@ func buildRuntime(opt options) (*appbootstrap.Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	packages, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(opt.dataRoot, "node-packages"))
+	packages, _, err := nodepackage.OpenStoreIfPresent(context.Background(), filepath.Join(roots.Packages, "node"))
 	if err != nil {
 		return nil, err
 	}
-	return appbootstrap.Build(appbootstrap.Config{
-		DataRoot: opt.dataRoot, BlobStore: blobStore,
+	applicationRuntime, err := appbootstrap.Build(appbootstrap.Config{
+		DataRoot: roots.Data, BlobStore: blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536, MaxResourcePayloadBytes: 4 << 20,
 			BlobChunkBytes: 64 << 10, BlobQueueCapacity: 8, StreamCapacity: 16, StreamChunkBytes: 64 << 10,
@@ -208,6 +304,13 @@ func buildRuntime(opt options) (*appbootstrap.Runtime, error) {
 		WasmRunnerExecutable: filepath.Join(filepath.Dir(opt.executable), wasmrunner.WorkerExecutableName),
 		LogEmitter:           discardLog{}, GrantTTL: 5 * time.Minute, OwnerCloseTimeout: 10 * time.Second, Now: time.Now,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return &commandRuntime{
+		Runtime: applicationRuntime, profile: profile,
+		catalogFoundation: catalogFoundation, settingsApp: settingsApp,
+	}, nil
 }
 
 func compileResultView(result compiler.CompileResult) compileView {
