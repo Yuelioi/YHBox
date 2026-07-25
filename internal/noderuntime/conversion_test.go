@@ -392,7 +392,7 @@ func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 1})
+	store, err := newNodeRuntimeRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

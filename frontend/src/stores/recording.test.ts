@@ -4,13 +4,14 @@ import { setActivePinia, createPinia } from 'pinia'
 // recordStore 是后端状态机的纯镜像. 验: applyState 镜像 / isRecording 派生 /
 // activeTargetSlot 派生 / reconcile 走 getState 对账.
 // vi.hoisted: vi.mock 工厂被提升到文件顶, 引用的 mock 必须也提升, 否则 ReferenceError.
-const { getStateMock } = vi.hoisted(() => ({
+const { getStateMock, finalizeMock } = vi.hoisted(() => ({
   getStateMock: vi.fn(async () => ({
     phase: 'recording',
     targetSlot: 'editor',
     tempID: 't1',
     startedAtMs: 123,
   })),
+  finalizeMock: vi.fn(),
 }))
 const { pauseMock, resumeMock } = vi.hoisted(() => ({
   pauseMock: vi.fn(async () => {}),
@@ -24,6 +25,7 @@ vi.mock('@/lib/backend', () => ({
       stop: vi.fn(),
       pause: pauseMock,
       resume: resumeMock,
+      finalize: finalizeMock,
     },
   },
 }))
@@ -35,6 +37,41 @@ import { isRecordingStopPayload, useRecordingStore } from './recording'
 
 describe('recordStore — 后端状态机镜像', () => {
   beforeEach(() => setActivePinia(createPinia()))
+
+  it('accepts the destination-tagged Workflow Resource finalize result', async () => {
+    finalizeMock.mockResolvedValueOnce({
+      destination: 'workflow-resource',
+      targetSlot: 'editor',
+      resource: {
+        id: 'macro-local',
+        kind: 'macro',
+        name: 'Local macro',
+        macro: {
+          blob: {
+            mediaType: 'application/vnd.yotta.macro+json',
+            digest: `sha256:${'a'.repeat(64)}`,
+            size: 42,
+          },
+          baseResolution: [1280, 720],
+          actionCount: 1,
+          durationUs: 25_000,
+        },
+      },
+    })
+    const store = useRecordingStore()
+    const result = await store.finalize({
+      pendingID: 'pending-local',
+      destination: 'workflow-resource',
+      label: 'Local macro',
+      description: '',
+      category: '',
+      tags: [],
+    })
+    expect(result.destination).toBe('workflow-resource')
+    expect(finalizeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: 'workflow-resource' }),
+    )
+  })
 
   it('applyState(recording) mirrors the exact installed target slot', () => {
     const s = useRecordingStore()

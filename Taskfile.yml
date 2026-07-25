@@ -304,6 +304,11 @@ tasks:
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-windows-desktop-startup.ps1
 
+  smoke:storage-migration:
+    summary: 用冻结 layout 1 profile 验证 production 恢复、隔离、续接与 GUI 重启
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-storage-migration.ps1
+
   version:verify:
     summary: 兼容入口；执行 versions:check
     cmds:

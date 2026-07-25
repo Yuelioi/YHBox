@@ -46,6 +46,9 @@ Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed�
 
 - Windows automation native smoke：`task windows:smoke:automation`。修改 `pkg/input`、`pkg/winutil`、Windows adapter、窗口捕获或 recorder native path 后，在阶段末批量运行。该 smoke 使用全局 SendInput、foreground 与 native hook，必须串行且占用独立桌面；不要与其它 UI smoke 并行或中途强杀。当前前台若是更高完整性进程，应以与 production 相同的管理员完整性运行 smoke，不得靠反复重试刷绿；中断后先清理精确测试进程并确认输入状态。
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
+- Storage migration smoke：`task smoke:storage-migration`。修改 root layout、Catalog/Run migration、
+  snapshot/journal/rollback/quarantine 或启动期 recovery UI 后运行；它使用冻结 layout 1 profile，
+  强停一次 production recovery GUI，再隔离阻塞记录、resume 并验证 layout 2 双库 health 与 GUI 重启。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
 - Workflow WebView smoke 只能证明页面/创作入口；工作区工具数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。
 - Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/android-adb-smoke.ps1 -Serial <exact-serial> -Package <exact-package>`。它必须走 Source → Compiler → Admission → installed provider → journal，覆盖 exact identity、应用发现、activate、PNG capture、template click、drag、InputClip playback 与 stop-app；controller mock 或 controller-only smoke 不能替代。

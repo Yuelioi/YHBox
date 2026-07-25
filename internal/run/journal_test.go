@@ -14,7 +14,7 @@ import (
 func TestRunJournalPersistsAppendOnlyAttemptAndAdapterFacts(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	root := t.TempDir()
-	store, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestRunJournalPersistsAppendOnlyAttemptAndAdapterFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
+	reopened, err := openRunStore(t, root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestRunJournalUsesFailureWhenAnAttemptHasFailedAndCancelledActions(t *testi
 
 func TestJournalWriterRejectsASecondRecordOwner(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
-	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}

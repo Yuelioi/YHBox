@@ -1402,6 +1402,36 @@ describe('EditorSession', () => {
       mockTransport(sourceView(referenced), runView('QUEUED')),
     )
     await referencedSession.load(referenced.workflow.id)
+    const replacement = structuredClone(resource)
+    replacement.image!.variants[0]!.resolution = [2, 2]
+    replacement.image!.variants[0]!.bbox = [0, 0, 2, 2]
+    replacement.image!.variants[0]!.blob = {
+      mediaType: 'image/png',
+      digest: `sha256:${'2'.repeat(64)}`,
+      size: 2,
+    }
+    referencedSession.apply({
+      kind: 'replace-resource',
+      resourceId: resource.id,
+      resource: replacement,
+    })
+    expect(referencedSession.source?.resources[0]?.image?.variants[0]?.blob).toEqual(
+      replacement.image!.variants[0]!.blob,
+    )
+    expect(referencedSession.source?.graphs[0]?.nodes[0]?.bindings.a?.resource?.resourceId).toBe(
+      resource.id,
+    )
+    referencedSession.undo()
+    expect(referencedSession.source?.resources[0]?.image?.variants[0]?.blob).toEqual(
+      resource.image!.variants[0]!.blob,
+    )
+    expect(() =>
+      referencedSession.apply({
+        kind: 'replace-resource',
+        resourceId: resource.id,
+        resource: { ...replacement, id: 'different' },
+      }),
+    ).toThrow('preserve identity')
     expect(() =>
       referencedSession.apply({ kind: 'remove-resource', resourceId: resource.id }),
     ).toThrow('still in use')

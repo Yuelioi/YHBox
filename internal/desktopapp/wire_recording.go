@@ -10,6 +10,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/macro"
 	"github.com/yottaapp/yotta/internal/services/recording"
+	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
 )
 
 type recordingTargetAcquirer interface {
@@ -80,7 +81,7 @@ func (a *recordingHkAdapter) GetMouseMode() string {
 // F12 停录路径 (v2): LL hook 检测 vk == activeStopHotkeyVK → return 1 不透传游戏 →
 // 异步调 service.StopAsync → emit 'recording:completed'. 停录/暂停热键值从 hotkey
 // registry 取 (recording.start/stop/pause, ll-hook 机制), 不再读 settings raw 字段。
-func newRecordingService(app *services.App, clipSvc *inputclip.Service, macroSvc *macro.Service, reg *hotkey.HotkeyRegistry, targets automationinstalled.AuthoringTargets, emit ...func(name string, data any)) *recording.Service {
+func newRecordingService(app *services.App, clipSvc *inputclip.Service, macroSvc *macro.Service, resources *resourceauthoring.Creator, reg *hotkey.HotkeyRegistry, targets automationinstalled.AuthoringTargets, emit ...func(name string, data any)) *recording.Service {
 	rec := recording.NewRecorder()
 	calibratedTargets := &recordingCalibrationTargets{
 		targets: targets,
@@ -91,5 +92,5 @@ func newRecordingService(app *services.App, clipSvc *inputclip.Service, macroSvc
 			return app.Settings().ActiveMouseCounts360()
 		},
 	}
-	return recording.NewService(rec, &recordingHkAdapter{app: app, reg: reg}, clipSvc, macroSvc, calibratedTargets, emit...)
+	return recording.NewService(rec, &recordingHkAdapter{app: app, reg: reg}, clipSvc, macroSvc, resources, calibratedTargets, emit...)
 }

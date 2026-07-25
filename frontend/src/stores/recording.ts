@@ -11,6 +11,7 @@ import { ref, computed } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { backend, type BlobRef, type MacroAction, type MacroActionKind } from '@/lib/backend'
 import { i18n } from '@/i18n'
+import type { WorkflowResource } from '../../../contracts/workflow/current/workflow-source'
 
 export type RecordingMode = 'simple' | 'precise'
 export type RecordingInvocation = 'library' | 'editor'
@@ -74,13 +75,22 @@ export interface RecordingPreview {
   }>
 }
 
-export interface RecordingFinalizePayload {
-  assetID: string
-  assetKind: 'macro' | 'clip'
-  targetSlot: string
-  label: string
-  blob: BlobRef
-}
+export type RecordingFinalizePayload =
+  | {
+      destination: 'global-asset'
+      targetSlot: string
+      asset: {
+        guid: string
+        kind: 'macro' | 'clip'
+        label: string
+        blob: BlobRef
+      }
+    }
+  | {
+      destination: 'workflow-resource'
+      targetSlot: string
+      resource: WorkflowResource
+    }
 
 export function isRecordingStopPayload(value: unknown): value is RecordingStopPayload {
   if (!isRecord(value) || !isRecord(value.preview) || !Array.isArray(value.preview.steps))
@@ -156,17 +166,39 @@ function isMacroAction(value: unknown): value is MacroAction {
 }
 
 function isRecordingFinalizePayload(value: unknown): value is RecordingFinalizePayload {
-  if (!isRecord(value) || !isRecord(value.blob)) return false
+  if (!isRecord(value) || typeof value.targetSlot !== 'string') return false
+  if (value.destination === 'workflow-resource') return isWorkflowResource(value.resource)
+  if (value.destination !== 'global-asset' || !isRecord(value.asset)) return false
+  const asset = value.asset
   return (
-    typeof value.assetID === 'string' &&
-    value.assetID.length > 0 &&
-    (value.assetKind === 'macro' || value.assetKind === 'clip') &&
-    typeof value.targetSlot === 'string' &&
-    typeof value.label === 'string' &&
-    typeof value.blob.mediaType === 'string' &&
-    typeof value.blob.digest === 'string' &&
-    nonnegativeNumber(value.blob.size)
+    typeof asset.guid === 'string' &&
+    asset.guid.length > 0 &&
+    (asset.kind === 'macro' || asset.kind === 'clip') &&
+    typeof asset.label === 'string' &&
+    isBlobRef(asset.blob)
   )
+}
+
+function isBlobRef(value: unknown): value is BlobRef {
+  return (
+    isRecord(value) &&
+    typeof value.mediaType === 'string' &&
+    typeof value.digest === 'string' &&
+    nonnegativeNumber(value.size)
+  )
+}
+
+function isWorkflowResource(value: unknown): value is WorkflowResource {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.name !== 'string')
+    return false
+  if (value.kind === 'image')
+    return (
+      isRecord(value.image) &&
+      Array.isArray(value.image.variants) &&
+      value.image.variants.length > 0
+    )
+  if (value.kind === 'macro') return isRecord(value.macro) && isBlobRef(value.macro.blob)
+  return value.kind === 'input-clip' && isRecord(value.inputClip) && isBlobRef(value.inputClip.blob)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -335,6 +367,7 @@ export const useRecordingStore = defineStore('recording', () => {
 
   async function finalize(args: {
     pendingID: string
+    destination: 'global-asset' | 'workflow-resource'
     label: string
     description: string
     category: string

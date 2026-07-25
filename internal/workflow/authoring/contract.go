@@ -87,6 +87,7 @@ func GenerateSchema() ([]byte, error) {
 		{CommandBindBlob, "bindBlob"},
 		{CommandBindResource, "bindResource"},
 		{CommandAddResource, "addResource"},
+		{CommandReplaceResource, "replaceResource"},
 		{CommandUpdateResourceMetadata, "updateResourceMetadata"},
 		{CommandRemoveResource, "removeResource"},
 		{CommandClearBinding, "clearBinding"},

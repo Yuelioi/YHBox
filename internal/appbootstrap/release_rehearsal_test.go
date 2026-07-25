@@ -217,7 +217,9 @@ func buildReleaseRehearsalRuntime(t *testing.T, aiInstallations ai.Installations
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
+		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
+		RunRepository: stores.foundation.Runs(),
+		BlobStore:     stores.blobs, Limits: testLimits(),
 		AIInstallations: aiInstallations, HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},

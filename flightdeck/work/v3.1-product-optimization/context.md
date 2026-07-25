@@ -4,8 +4,9 @@
 
 Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Compiler 和统一 runtime。
 恢复旧体验只能复用用户心智和已验证交互，不得复制 3.0 Container、registry、localStorage store 或
-第二套执行路径。当前已批准的 Stage 全部完成；下一次启动首先应确认用户是否带来新的真机反馈，
-而不是自动继续历史清单。
+第二套执行路径。Stage M2 的资源归属与编辑旅程已完成：创建、Global Asset snapshot、显式提升、
+Source-native 内容编辑和 duplicate 都以 Workflow Resource/CAS 为事实。下一步进入 M3 的 Release、
+Installation、Readiness 与本机 target/credential 配置。
 
 ## Decisions
 
@@ -24,6 +25,8 @@ Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Com
   不进入可移植资源，导入后必须经过兼容性预检和本机重绑定。
 - 资产库中创建的图片、Macro 和 InputClip 是 Global Asset；工作流编辑中创建的是 Workflow Resource。
   编辑器同时发现当前工作流资源和全局资产，Workflow Resource 只能经用户显式提升为 Global Asset。
+- Workflow Resource 的摘要、预览和内容编辑只读取 Source metadata 与其 CAS BlobRef；内容重写保留
+  Resource ID 并同步影响全部共享 binding，显式 duplicate 分配新 ID 且不隐式改绑节点。
 - 工作流只分发 Target Profile Definition，其设置 schema、应用发现提示与 `counts/360` 等首次安装默认值参与
   发布身份；首次安装会产生独立本机 Workflow Target Profile，其用户值不参与 Source 身份且升级只补新项、
   不覆盖已有项。Global Target Profile 只能经用户显式操作初始化或重绑定工作流配置。

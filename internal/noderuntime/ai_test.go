@@ -70,7 +70,7 @@ func TestExecutorRunsAIGenerateThroughInstallationSlotAndJournalsProviderFacts(t
 	}
 
 	now := time.Date(2026, 7, 16, 1, 0, 0, 0, time.UTC)
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 1})
+	store, err := newNodeRuntimeRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestExecutorRunsBoundedAIAgentToolLoopAndJournalsTerminalBudget(t *testing.
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 17, 4, 0, 0, 0, time.UTC)
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 1})
+	store, err := newNodeRuntimeRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

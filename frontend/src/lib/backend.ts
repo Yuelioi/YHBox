@@ -10,6 +10,7 @@ import * as CalibrationService from '@bindings/github.com/yottaapp/yotta/interna
 import * as ToolsService from '@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js'
 import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/services/appinfoservice.js'
 import * as RecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/recording/service.js'
+import * as ResourceAuthoringService from '@bindings/github.com/yottaapp/yotta/internal/services/resourceauthoring/service.js'
 import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/services/inputclip/service.js'
 import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
 import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
@@ -29,6 +30,7 @@ import type { Schedule as ScheduleModel } from '@bindings/github.com/yottaapp/yo
 import { BlobRef as BlobRefBinding } from '@bindings/github.com/yottaapp/yotta/internal/blob/models.js'
 import { callRPC, invoke } from './invoke'
 import * as E from '@/constants/events'
+import type { WorkflowResource } from '../../../contracts/workflow/current/workflow-source'
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
@@ -228,6 +230,25 @@ export interface InputClipSummary {
     lastUs: number
   }>
 }
+
+export interface WorkflowResourceContent {
+  kind: WorkflowResource['kind']
+  macro?: MacroDocument
+  inputClip?: {
+    durationUs: number
+    eventCount: number
+    recordingMode: 'simple' | 'precise'
+    mouseMode: string
+    baseResolution: [number, number]
+    mouseCounts360: number
+    stopHotkeyVk: number
+    tracks: InputClipSummary['tracks']
+  }
+}
+
+export type WorkflowResourceEdit =
+  | { kind: 'macro-document'; macro: { document: MacroDocument } }
+  | { kind: 'input-clip-trim'; inputClip: { trimStartUs: number; trimEndUs: number } }
 
 export type MacroSaveInput = Omit<MacroAsset, 'id' | 'createdAt' | 'blob'> & {
   id?: string
@@ -725,6 +746,7 @@ export const backend = {
     cancel: () => invoke(RecordingService.Cancel),
     finalize: (args: {
       pendingID: string
+      destination: 'global-asset' | 'workflow-resource'
       label: string
       description: string
       category: string
@@ -749,6 +771,49 @@ export const backend = {
     getState: () => invoke(RecordingService.GetState),
     pendingEvents: (pendingID: string, offset: number, limit: number) =>
       invoke(RecordingService.PendingEvents, pendingID, offset, limit) as Promise<InputEventPage>,
+  },
+  workflowResources: {
+    createImage: (draft: {
+      name: string
+      description: string
+      category: string
+      tags: string[]
+      dataURL: string
+      resolution: [number, number]
+      region: [number, number, number, number]
+    }) =>
+      invoke(
+        ResourceAuthoringService.CreateImage,
+        draft as Parameters<typeof ResourceAuthoringService.CreateImage>[0],
+      ),
+    promote: (resource: WorkflowResource) =>
+      invoke(
+        ResourceAuthoringService.Promote,
+        resource as unknown as Parameters<typeof ResourceAuthoringService.Promote>[0],
+      ),
+    open: (resource: WorkflowResource) =>
+      invoke(
+        ResourceAuthoringService.Open,
+        resource as unknown as Parameters<typeof ResourceAuthoringService.Open>[0],
+      ) as Promise<WorkflowResourceContent>,
+    rewrite: (resource: WorkflowResource, edit: WorkflowResourceEdit) =>
+      invoke(
+        ResourceAuthoringService.Rewrite,
+        resource as unknown as Parameters<typeof ResourceAuthoringService.Rewrite>[0],
+        edit as unknown as Parameters<typeof ResourceAuthoringService.Rewrite>[1],
+      ) as Promise<WorkflowResource>,
+    events: (resource: WorkflowResource, offset: number, limit: number) =>
+      invoke(
+        ResourceAuthoringService.Events,
+        resource as unknown as Parameters<typeof ResourceAuthoringService.Events>[0],
+        offset,
+        limit,
+      ) as Promise<InputEventPage>,
+    duplicate: (resource: WorkflowResource) =>
+      invoke(
+        ResourceAuthoringService.Duplicate,
+        resource as unknown as Parameters<typeof ResourceAuthoringService.Duplicate>[0],
+      ) as Promise<WorkflowResource>,
   },
   // 全局 ClipService (main.go RegisterService(clipSvc); 资产全局化后无 lib/容器两套存储).
   // Exposes authoring metadata and the nominal content BlobRef; runtime does not call this RPC.
@@ -797,7 +862,13 @@ export const backend = {
     openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
     closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
     openScreenPicker: (
-      mode: 'point' | 'rect' | 'template_save' | 'template_recapture' | 'color',
+      mode:
+        | 'point'
+        | 'rect'
+        | 'template_save'
+        | 'workflow_resource'
+        | 'template_recapture'
+        | 'color',
       id: string,
       targetSlot = '',
       colorSpace = '',

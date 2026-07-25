@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,14 +12,39 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
+	"github.com/yottaapp/yotta/internal/storage"
+	storagecatalog "github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
 const admissionRunID = "0190c7d4-1e40-7cc5-a783-57b16d5c8e3a"
+
+func newAdmissionRunStore(
+	t *testing.T,
+	valueCatalog datatype.ValueTypeCatalog,
+	options run.StoreOptions,
+) (*run.Store, error) {
+	t.Helper()
+	roots, err := storage.Resolve(filepath.Join(t.TempDir(), "profile"))
+	if err != nil {
+		return nil, err
+	}
+	foundation, err := storagecatalog.Open(context.Background(), roots)
+	if err != nil {
+		return nil, err
+	}
+	t.Cleanup(func() {
+		if err := foundation.Close(); err != nil {
+			t.Errorf("close test Run Ledger: %v", err)
+		}
+	})
+	return run.OpenStore(foundation.Runs(), valueCatalog, options)
+}
 
 func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T) {
 	builtins, program := scriptProgram(t)
@@ -30,7 +56,7 @@ func TestAdmitterRejectsMissingHostFeatureBeforePolicyOrRunCreation(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +93,7 @@ func TestAdmitterReplacementUsesOneNewEnvironmentGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +151,7 @@ func TestAdmitterPlansPolicyAndPersistsQueuedRunBeforeReturning(t *testing.T) {
 	builtins, program := conversionProgram(t)
 	now := time.Date(2026, 7, 15, 6, 0, 0, 0, time.UTC)
 	profile := builtinProfile(t, builtins)
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +257,7 @@ func TestAdmitterRejectsAmbiguousTargetBeforePolicyOrRunCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +306,7 @@ func TestAdmitterUsesTrustedHostProfileSlotBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +370,7 @@ func TestAdmitterRejectsProviderABIMismatchAndPolicyDenialBeforeRunCreation(t *t
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+			store, err := newAdmissionRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 			if err != nil {
 				t.Fatal(err)
 			}

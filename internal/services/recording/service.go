@@ -15,6 +15,8 @@ import (
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/macro"
+	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 // HotkeySettingsProvider 给 Service 拿录制热键 VK + mouseMode.
@@ -57,12 +59,13 @@ type TargetResolver interface {
 // 停录热键: LL hook 直接检测 → return 1 拦截不透传游戏 → 异步调 StopAsync.
 // StopAsync 完成时 emit 'recording:completed' pending payload 或 {error}.
 type Service struct {
-	rec      recorderLifecycle
-	hkProv   HotkeySettingsProvider
-	clipSvc  clipStore
-	macroSvc macroStore
-	targets  TargetResolver
-	emit     func(name string, data any)
+	rec       recorderLifecycle
+	hkProv    HotkeySettingsProvider
+	clipSvc   clipStore
+	macroSvc  macroStore
+	resources *resourceauthoring.Creator
+	targets   TargetResolver
+	emit      func(name string, data any)
 
 	mu                  sync.Mutex // 串行化 Start/Stop 命令 (防 F12 callback 跟 UI Stop 重入)
 	pending             *pendingRecording
@@ -78,9 +81,9 @@ type Service struct {
 	shutdownDone        chan struct{}
 }
 
-func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, macroSvc macroStore, targets TargetResolver, emit ...func(name string, data any)) *Service {
+func NewService(rec recorderLifecycle, hkProv HotkeySettingsProvider, clipSvc clipStore, macroSvc macroStore, resources *resourceauthoring.Creator, targets TargetResolver, emit ...func(name string, data any)) *Service {
 	service := &Service{
-		rec: rec, hkProv: hkProv, clipSvc: clipSvc, macroSvc: macroSvc, targets: targets,
+		rec: rec, hkProv: hkProv, clipSvc: clipSvc, macroSvc: macroSvc, resources: resources, targets: targets,
 		state: RecordingState{Phase: PhaseIdle}, shutdownDone: make(chan struct{}),
 		startHotkeyFactory: newStartHotkeyWatch,
 	}
@@ -459,6 +462,7 @@ type pendingRecording struct {
 // FinalizeArgs supplies user-owned metadata for a pending recording.
 type FinalizeArgs struct {
 	PendingID   string          `json:"pendingID"`
+	Destination string          `json:"destination"`
 	Label       string          `json:"label"`
 	Description string          `json:"description"`
 	Category    string          `json:"category"`
@@ -468,13 +472,25 @@ type FinalizeArgs struct {
 	TrimEndUs   *uint64         `json:"trimEndUs,omitempty"`
 }
 
-// FinalizeResult identifies the durable asset created from a pending recording.
+const (
+	DestinationGlobalAsset      = "global-asset"
+	DestinationWorkflowResource = "workflow-resource"
+)
+
+type FinalizedAsset struct {
+	GUID  string       `json:"guid"`
+	Kind  string       `json:"kind"`
+	Label string       `json:"label"`
+	Blob  blob.BlobRef `json:"blob"`
+}
+
+// FinalizeResult is a destination-tagged recording creation result. Exactly
+// one of Asset or Resource is present.
 type FinalizeResult struct {
-	AssetID    string       `json:"assetID"`
-	AssetKind  string       `json:"assetKind"`
-	TargetSlot string       `json:"targetSlot"`
-	Label      string       `json:"label"`
-	Blob       blob.BlobRef `json:"blob"`
+	Destination string                   `json:"destination"`
+	TargetSlot  string                   `json:"targetSlot"`
+	Asset       *FinalizedAsset          `json:"asset,omitempty"`
+	Resource    *schema.WorkflowResource `json:"resource,omitempty"`
 }
 
 // Stop 同步停止录制并保留为内存 pending，等待用户命名后 Finalize.
@@ -599,6 +615,9 @@ func (s *Service) Cancel() error {
 func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if args.Destination != DestinationGlobalAsset && args.Destination != DestinationWorkflowResource {
+		return nil, errors.New("recording destination is invalid")
+	}
 	label := strings.TrimSpace(args.Label)
 	if label == "" {
 		return nil, errors.New("录制名称不能为空")
@@ -617,7 +636,7 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	finalizing := pendingState
 	finalizing.Phase = PhaseFinalizing
 	s.setState(finalizing)
-	result, err := s.finalizePending(pending, label, description, category, tags, args.Actions, args.TrimStartUs, args.TrimEndUs)
+	result, err := s.finalizePending(pending, args.Destination, label, description, category, tags, args.Actions, args.TrimStartUs, args.TrimEndUs)
 	if err != nil {
 		s.setState(pendingState)
 		return nil, err
@@ -627,14 +646,11 @@ func (s *Service) Finalize(args FinalizeArgs) (*FinalizeResult, error) {
 	return result, nil
 }
 
-func (s *Service) finalizePending(pending pendingRecording, label, description, category string, tags []string, editedActions *[]macro.Action, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
+func (s *Service) finalizePending(pending pendingRecording, destination, label, description, category string, tags []string, editedActions *[]macro.Action, trimStartUs, trimEndUs *uint64) (*FinalizeResult, error) {
 	result := pending.result
 	if result.Meta.RecordingMode == inputclip.RecordingModeSimple {
 		if trimStartUs != nil || trimEndUs != nil {
 			return nil, errors.New("macros do not accept precise trim boundaries")
-		}
-		if s.macroSvc == nil {
-			return nil, errors.New("macro store is unavailable")
 		}
 		document, err := buildMacroDocument(result)
 		if err != nil {
@@ -646,6 +662,26 @@ func (s *Service) finalizePending(pending pendingRecording, label, description, 
 		if err := macro.Validate(document); err != nil {
 			return nil, fmt.Errorf("validate macro: %w", err)
 		}
+		if destination == DestinationWorkflowResource {
+			if s.resources == nil {
+				return nil, errors.New("Workflow Resource creator is unavailable")
+			}
+			resource, err := s.resources.CreateMacro(context.Background(), resourceauthoring.MacroDraft{
+				Metadata: resourceauthoring.Metadata{
+					Name: label, Description: description, Category: category, Tags: tags,
+				},
+				Document: document,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return &FinalizeResult{
+				Destination: destination, TargetSlot: pending.targetSlot, Resource: &resource,
+			}, nil
+		}
+		if s.macroSvc == nil {
+			return nil, errors.New("macro store is unavailable")
+		}
 		saved, err := s.macroSvc.Save(&macro.Macro{
 			ID: "macro-" + result.TempID, Label: label, Description: description, Category: category,
 			Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Document: document,
@@ -654,7 +690,8 @@ func (s *Service) finalizePending(pending pendingRecording, label, description, 
 			return nil, fmt.Errorf("save macro: %w", err)
 		}
 		return &FinalizeResult{
-			AssetID: saved.ID, AssetKind: asset.KindMacro, TargetSlot: pending.targetSlot, Label: saved.Label, Blob: saved.Blob,
+			Destination: destination, TargetSlot: pending.targetSlot,
+			Asset: &FinalizedAsset{GUID: saved.ID, Kind: asset.KindMacro, Label: saved.Label, Blob: saved.Blob},
 		}, nil
 	}
 	if editedActions != nil {
@@ -675,19 +712,37 @@ func (s *Service) finalizePending(pending pendingRecording, label, description, 
 		}
 		result = &StopResult{TempID: result.TempID, Meta: result.Meta, Events: trimmed}
 	}
-	if s.clipSvc == nil {
-		return nil, errors.New("clip store is unavailable")
-	}
 	clip := &inputclip.InputClip{
 		ID: "clip-" + result.TempID, Label: label, Description: description, Category: category,
 		Tags: tags, CreatedAt: time.Now().UTC().Format(time.RFC3339), Meta: result.Meta, Events: result.Events,
 	}
 	clip.UpdateDuration()
+	if destination == DestinationWorkflowResource {
+		if s.resources == nil {
+			return nil, errors.New("Workflow Resource creator is unavailable")
+		}
+		resource, err := s.resources.CreateInputClip(context.Background(), resourceauthoring.InputClipDraft{
+			Metadata: resourceauthoring.Metadata{
+				Name: label, Description: description, Category: category, Tags: tags,
+			},
+			Clip: *clip,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &FinalizeResult{
+			Destination: destination, TargetSlot: pending.targetSlot, Resource: &resource,
+		}, nil
+	}
+	if s.clipSvc == nil {
+		return nil, errors.New("clip store is unavailable")
+	}
 	if err := s.clipSvc.Save(clip); err != nil {
 		return nil, fmt.Errorf("save clip: %w", err)
 	}
 	return &FinalizeResult{
-		AssetID: clip.ID, AssetKind: asset.KindClip, TargetSlot: pending.targetSlot, Label: clip.Label, Blob: clip.Blob,
+		Destination: destination, TargetSlot: pending.targetSlot,
+		Asset: &FinalizedAsset{GUID: clip.ID, Kind: asset.KindClip, Label: clip.Label, Blob: clip.Blob},
 	}, nil
 }
 

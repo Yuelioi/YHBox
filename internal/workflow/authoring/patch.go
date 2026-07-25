@@ -65,6 +65,7 @@ const (
 	CommandBindBlob               CommandKind = "bind-blob"
 	CommandBindResource           CommandKind = "bind-resource"
 	CommandAddResource            CommandKind = "add-resource"
+	CommandReplaceResource        CommandKind = "replace-resource"
 	CommandUpdateResourceMetadata CommandKind = "update-resource-metadata"
 	CommandRemoveResource         CommandKind = "remove-resource"
 	CommandClearBinding           CommandKind = "clear-binding"
@@ -109,6 +110,7 @@ type Command struct {
 	BindBlob               *BindBlobCommand               `json:"bindBlob,omitempty"`
 	BindResource           *BindResourceCommand           `json:"bindResource,omitempty"`
 	AddResource            *AddResourceCommand            `json:"addResource,omitempty"`
+	ReplaceResource        *ReplaceResourceCommand        `json:"replaceResource,omitempty"`
 	UpdateResourceMetadata *UpdateResourceMetadataCommand `json:"updateResourceMetadata,omitempty"`
 	RemoveResource         *RemoveResourceCommand         `json:"removeResource,omitempty"`
 	ClearBinding           *PortCommand                   `json:"clearBinding,omitempty"`
@@ -282,6 +284,11 @@ type BindResourceCommand struct {
 
 type AddResourceCommand struct {
 	Resource schema.WorkflowResource `json:"resource"`
+}
+
+type ReplaceResourceCommand struct {
+	ResourceID string                  `json:"resourceId"`
+	Resource   schema.WorkflowResource `json:"resource"`
 }
 
 type UpdateResourceMetadataCommand struct {
@@ -711,6 +718,23 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		sort.Slice(source.Resources, func(left, right int) bool {
 			return source.Resources[left].ID < source.Resources[right].ID
 		})
+	case CommandReplaceResource:
+		payload := command.ReplaceResource
+		resource := resourceByID(source.Resources, payload.ResourceID)
+		if resource == nil {
+			return patchError(index, "UNKNOWN_RESOURCE", "workflow resource does not exist")
+		}
+		replacement := payload.Resource
+		if replacement.ID != payload.ResourceID {
+			return patchError(index, "RESOURCE_ID_CHANGED", "workflow resource replacement must preserve identity")
+		}
+		if replacement.Kind != resource.Kind {
+			return patchError(index, "RESOURCE_KIND_CHANGED", "workflow resource replacement must preserve kind")
+		}
+		if err := schema.ValidateWorkflowResource(replacement); err != nil {
+			return patchError(index, "INVALID_RESOURCE", err.Error())
+		}
+		*resource = replacement
 	case CommandUpdateResourceMetadata:
 		payload := command.UpdateResourceMetadata
 		resource := resourceByID(source.Resources, payload.ResourceID)
@@ -1004,7 +1028,8 @@ func validateTaggedCommand(command Command) error {
 		command.AddNode != nil, command.UpgradeNodeContract != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
 		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.BindResource != nil,
-		command.AddResource != nil, command.UpdateResourceMetadata != nil, command.RemoveResource != nil, command.ClearBinding != nil,
+		command.AddResource != nil, command.ReplaceResource != nil, command.UpdateResourceMetadata != nil,
+		command.RemoveResource != nil, command.ClearBinding != nil,
 		command.Connect != nil, command.Disconnect != nil,
 		command.AddGraph != nil, command.RenameGraph != nil, command.RemoveGraph != nil, command.UpdateGraphInterface != nil,
 		command.AddGraphCall != nil, command.RemoveGraphCall != nil,
@@ -1033,10 +1058,11 @@ func validateTaggedCommand(command Command) error {
 		CommandSetConfig: command.SetConfig != nil, CommandClearConfig: command.ClearConfig != nil,
 		CommandBindValue: command.BindValue != nil, CommandBindDefault: command.BindDefault != nil,
 		CommandBindBlob: command.BindBlob != nil, CommandBindResource: command.BindResource != nil,
-		CommandAddResource: command.AddResource != nil, CommandUpdateResourceMetadata: command.UpdateResourceMetadata != nil,
-		CommandRemoveResource: command.RemoveResource != nil,
-		CommandClearBinding:   command.ClearBinding != nil,
-		CommandConnect:        command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
+		CommandAddResource: command.AddResource != nil, CommandReplaceResource: command.ReplaceResource != nil,
+		CommandUpdateResourceMetadata: command.UpdateResourceMetadata != nil,
+		CommandRemoveResource:         command.RemoveResource != nil,
+		CommandClearBinding:           command.ClearBinding != nil,
+		CommandConnect:                command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
 		CommandAddGraph: command.AddGraph != nil, CommandRenameGraph: command.RenameGraph != nil,
 		CommandRemoveGraph: command.RemoveGraph != nil, CommandAddGraphCall: command.AddGraphCall != nil,
 		CommandUpdateGraphInterface: command.UpdateGraphInterface != nil,

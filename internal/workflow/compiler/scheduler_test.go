@@ -263,7 +263,7 @@ func admittedSchedulerExecution(t *testing.T, catalog nodecatalog.Snapshot, prog
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 1})
+	store, err := newCompilerRunStore(t, catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

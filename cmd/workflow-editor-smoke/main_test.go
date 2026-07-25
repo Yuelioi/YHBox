@@ -15,7 +15,38 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
+
+func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "profile")
+	if err := seedRecoveryFixture(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer profile.Close()
+	if raw, err := os.ReadFile(profile.Roots.ManifestFile()); err != nil ||
+		!strings.Contains(string(raw), `"version": "2"`) {
+		t.Fatalf("root manifest = %q, %v", raw, err)
+	}
+	foundation, err := catalog.Open(context.Background(), profile.Roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foundation.Close()
+	recoveries, err := foundation.Workflows().ListQuarantine(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recoveries) != 1 || recoveries[0].OriginalName != "damaged-workflow.json" ||
+		string(recoveries[0].Artifact) != `{"format":"yotta.workflow","version":"1",` {
+		t.Fatalf("recoveries = %#v", recoveries)
+	}
+}
 
 func TestWorkflowEditorUIFailures(t *testing.T) {
 	t.Run("accepts the dark non-overlapping Nuxt UI flow", func(t *testing.T) {

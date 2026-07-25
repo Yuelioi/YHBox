@@ -28,19 +28,21 @@ import (
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
 type options struct {
-	dataRoot   string
-	principal  string
-	timeout    time.Duration
-	executable string
-	showPath   bool
-	command    string
-	argument   string
+	dataRoot    string
+	principal   string
+	timeout     time.Duration
+	executable  string
+	showPath    bool
+	command     string
+	argument    string
+	destination string
 }
 
 type compileView struct {
@@ -112,6 +114,9 @@ func run(arguments []string, output io.Writer) error {
 			return err
 		}
 		return encoder.Encode(healthView{HealthReport: report, Databases: databases})
+	}
+	if opt.command == "migrate" {
+		return runMigrationCommand(context.Background(), encoder, opt)
 	}
 	runtime, err := buildRuntime(opt)
 	if err != nil {
@@ -188,19 +193,37 @@ func parseOptions(arguments []string) (options, error) {
 		return options{}, err
 	}
 	if opt.timeout <= 0 || set.NArg() == 0 {
-		return options{}, errors.New("usage: yotta [--data-root DIR] health | [--timeout 5m] validate <source.json> | compile|inspect|run <workflow-id>")
+		return options{}, errors.New("usage: yotta [--data-root DIR] health | migrate plan|apply|resume|rollback|list|quarantine|restore|export [argument] | [--timeout 5m] validate <source.json> | compile|inspect|run <workflow-id>")
 	}
 	opt.command = set.Arg(0)
 	if opt.command == "health" {
 		if set.NArg() != 1 {
 			return options{}, errors.New("usage: yotta [--data-root DIR] [--show-path] health")
 		}
+	} else if opt.command == "migrate" {
+		if set.NArg() < 2 {
+			return options{}, errors.New("storage migration requires plan, apply, resume, rollback, list, quarantine, restore, or export")
+		}
+		opt.argument = set.Arg(1)
+		switch opt.argument {
+		case "plan", "apply", "resume", "rollback", "list":
+			if set.NArg() != 2 {
+				return options{}, errors.New("storage migration action has unexpected arguments")
+			}
+		case "export", "quarantine", "restore":
+			if set.NArg() != 3 {
+				return options{}, errors.New("storage migration action requires one path or record name")
+			}
+			opt.destination = set.Arg(2)
+		default:
+			return options{}, fmt.Errorf("unknown storage migration action %q", opt.argument)
+		}
 	} else if set.NArg() != 2 {
 		return options{}, errors.New("workflow commands require an argument")
 	} else {
 		opt.argument = set.Arg(1)
 	}
-	if opt.command != "health" && opt.command != "validate" && opt.command != "compile" && opt.command != "inspect" && opt.command != "run" {
+	if opt.command != "health" && opt.command != "migrate" && opt.command != "validate" && opt.command != "compile" && opt.command != "inspect" && opt.command != "run" {
 		return options{}, fmt.Errorf("unknown command %q", opt.command)
 	}
 	if opt.dataRoot != "" {
@@ -210,7 +233,7 @@ func parseOptions(arguments []string) (options, error) {
 		}
 		opt.dataRoot = absoluteRoot
 	}
-	if opt.command == "health" {
+	if opt.command == "health" || opt.command == "migrate" {
 		return opt, nil
 	}
 	executable, err := os.Executable()
@@ -224,8 +247,65 @@ func parseOptions(arguments []string) (options, error) {
 	return opt, nil
 }
 
+func runMigrationCommand(ctx context.Context, encoder *json.Encoder, opt options) error {
+	migrationOptions := storagemigrate.Options{Root: opt.dataRoot, MaxRuns: 65536}
+	switch opt.argument {
+	case "plan":
+		plan, err := storagemigrate.Inspect(ctx, migrationOptions)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(plan)
+	case "apply":
+		result, err := storagemigrate.Apply(ctx, migrationOptions)
+		if encodeErr := encoder.Encode(result); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	case "resume":
+		result, err := storagemigrate.Resume(ctx, migrationOptions)
+		if encodeErr := encoder.Encode(result); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	case "rollback":
+		result, err := storagemigrate.Rollback(ctx, migrationOptions)
+		if encodeErr := encoder.Encode(result); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	case "list":
+		records, err := storagemigrate.ListQuarantine(migrationOptions)
+		if err != nil {
+			return err
+		}
+		return encoder.Encode(records)
+	case "quarantine":
+		record, err := storagemigrate.QuarantineLegacyRun(ctx, migrationOptions, opt.destination)
+		if encodeErr := encoder.Encode(record); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	case "restore":
+		record, err := storagemigrate.RestoreLegacyRun(ctx, migrationOptions, opt.destination)
+		if encodeErr := encoder.Encode(record); encodeErr != nil {
+			return encodeErr
+		}
+		return err
+	case "export":
+		return storagemigrate.ExportDiagnostics(ctx, migrationOptions, opt.destination)
+	default:
+		return fmt.Errorf("unsupported storage migration action %q", opt.argument)
+	}
+}
+
 func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 	logger := zerolog.New(io.Discard)
+	if _, err := storagemigrate.Ensure(context.Background(), storagemigrate.Options{
+		Root: opt.dataRoot, MaxRuns: 65536,
+	}); err != nil {
+		return nil, fmt.Errorf("prepare storage profile migration: %w", err)
+	}
 	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: opt.dataRoot})
 	if err != nil {
 		return nil, fmt.Errorf("open storage profile: %w", err)
@@ -298,7 +378,9 @@ func buildRuntime(opt options) (_ *commandRuntime, resultErr error) {
 	}
 	applicationRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: catalogFoundation.Workflows(), BlobStore: blobStore,
+		WorkflowRepository: catalogFoundation.Workflows(), InstallationRepository: catalogFoundation.WorkflowInstallations(),
+		RunRepository: catalogFoundation.Runs(),
+		BlobStore:     blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536, MaxResourcePayloadBytes: 4 << 20,
 			MaxProgramCacheBytes: 2 << 30,

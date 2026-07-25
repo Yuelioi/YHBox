@@ -832,6 +832,10 @@ func (a *Application) SetDebugBreakpoints(ctx context.Context, runID string, bre
 
 func (a *Application) GetRun(runID string) (run.Record, error) { return a.runs.Load(runID) }
 
+func (a *Application) GetRunTimelinePage(ctx context.Context, runID string, page, pageSize int) (run.TimelinePage, error) {
+	return a.runs.TimelinePage(ctx, runID, page, pageSize)
+}
+
 func (a *Application) GetSource(workflowID string) (workflowstore.SourceSnapshot, error) {
 	return a.sources.Load(workflowID)
 }
@@ -889,17 +893,11 @@ func (a *Application) WithDurableBlobReferences(ctx context.Context, visit func(
 		}
 		refs = append(refs, programRefs...)
 	}
-	records, err := a.runs.List()
+	runRefs, err := a.runs.BlobReferences(ctx)
 	if err != nil {
 		return err
 	}
-	for _, record := range records {
-		runRefs, err := record.BlobReferences(a.catalog)
-		if err != nil {
-			return err
-		}
-		refs = append(refs, runRefs...)
-	}
+	refs = append(refs, runRefs...)
 	return visit(uniqueBlobReferences(refs))
 }
 

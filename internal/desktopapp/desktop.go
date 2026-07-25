@@ -36,12 +36,14 @@ import (
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/recording"
+	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
 	"github.com/yottaapp/yotta/internal/services/schedule"
 	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
+	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/wasmrunner"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/screenshot"
@@ -55,6 +57,11 @@ type Config struct {
 }
 
 func Run(config Config) error {
+	if _, err := storagemigrate.Ensure(context.Background(), storagemigrate.Options{
+		Root: config.StorageRoot, MaxRuns: 65536,
+	}); err != nil {
+		return runStorageRecovery(config, err)
+	}
 	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: config.StorageRoot})
 	if err != nil {
 		return fmt.Errorf("open storage profile: %w", err)
@@ -134,6 +141,11 @@ func Run(config Config) error {
 	if err != nil {
 		return fmt.Errorf("initialize asset store: %w", err)
 	}
+	resourceCreator, err := resourceauthoring.NewCreator(sharedBlobStore, assetStore)
+	if err != nil {
+		return fmt.Errorf("initialize Workflow Resource creator: %w", err)
+	}
+	resourceAuthoringSvc := resourceauthoring.NewService(resourceCreator, app.Emit)
 	snippetStore, err := snippet.NewStore(filepath.Join(roots.Data, "snippets"))
 	if err != nil {
 		return fmt.Errorf("initialize snippet store: %w", err)
@@ -177,7 +189,9 @@ func Run(config Config) error {
 	}
 	workflowRuntime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: catalogFoundation.Workflows(), BlobStore: sharedBlobStore,
+		WorkflowRepository: catalogFoundation.Workflows(), InstallationRepository: catalogFoundation.WorkflowInstallations(),
+		RunRepository: catalogFoundation.Runs(),
+		BlobStore:     sharedBlobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: 4096, MaxPrograms: 16384, MaxRuns: 65536,
 			MaxProgramCacheBytes:    2 << 30,
@@ -355,7 +369,9 @@ func Run(config Config) error {
 
 	// 简易录制落原子 Macro；精准录制落 InputClip。两条产品路径共享原生采集器，
 	// 但不再共享持久化模型或“保存后加到画布”副作用。
-	recordingSvc := newRecordingService(app, clipSvc, macroSvc, hotkeyRegistry, authoringTargets, app.Emit)
+	recordingSvc := newRecordingService(
+		app, clipSvc, macroSvc, resourceCreator, hotkeyRegistry, authoringTargets, app.Emit,
+	)
 
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
@@ -464,6 +480,7 @@ func Run(config Config) error {
 		application.NewService(scheduleSvc),
 		application.NewService(calibrationSvc),
 		application.NewService(recordingSvc),
+		application.NewService(resourceAuthoringSvc),
 		application.NewService(toolsSvc),
 		application.NewService(clipSvc),
 		application.NewService(macroSvc),

@@ -616,6 +616,22 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
+              "const": "replace-resource"
+            },
+            "replaceResource": {
+              "$ref": "#/$defs/ReplaceResourceCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "replaceResource"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
               "const": "update-resource-metadata"
             },
             "updateResourceMetadata": {
@@ -1629,6 +1645,22 @@
       },
       "required": [
         "name"
+      ],
+      "type": "object"
+    },
+    "ReplaceResourceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "$ref": "#/$defs/WorkflowResource"
+        },
+        "resourceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "resourceId",
+        "resource"
       ],
       "type": "object"
     },

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yotta 存储恢复</title>
+    <link rel="stylesheet" href="/recovery.css" />
+    <script src="/recovery.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="product">Yotta Storage Recovery</p>
+          <h1>存储升级需要处理</h1>
+          <p class="intro">迁移没有提交。迁移前快照仍然保留，主应用尚未打开数据。</p>
+        </div>
+        <div id="state" class="state" aria-live="polite">正在检查</div>
+      </header>
+
+      <section class="summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">迁移摘要</h2>
+        <dl>
+          <div>
+            <dt>布局</dt>
+            <dd id="layout">检查中</dd>
+          </div>
+          <div>
+            <dt>备份估算</dt>
+            <dd id="backup">检查中</dd>
+          </div>
+          <div>
+            <dt>可用空间</dt>
+            <dd id="space">检查中</dd>
+          </div>
+          <div>
+            <dt>旧 Run 记录</dt>
+            <dd id="runs">检查中</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="message-section" aria-labelledby="message-title">
+        <h2 id="message-title">当前状态</h2>
+        <pre id="message" tabindex="0">正在读取迁移日志...</pre>
+      </section>
+
+      <section class="actions" aria-labelledby="actions-title">
+        <div>
+          <h2 id="actions-title">恢复操作</h2>
+          <p>重试会从已持久化的边界继续，不会重新覆盖快照。</p>
+        </div>
+        <div class="button-row">
+          <button id="resume" class="primary" type="button">重试迁移</button>
+          <button id="rollback" type="button">回滚到快照</button>
+          <button id="export" type="button">导出诊断</button>
+        </div>
+      </section>
+
+      <section id="blocker-section" class="blocker" aria-labelledby="blocker-title" hidden>
+        <div>
+          <h2 id="blocker-title">阻塞记录</h2>
+          <p id="blocker-name"></p>
+        </div>
+        <button id="quarantine" type="button">隔离此记录</button>
+      </section>
+
+      <section id="quarantine-section" class="quarantine" aria-labelledby="quarantine-title" hidden>
+        <h2 id="quarantine-title">隔离区</h2>
+        <div id="quarantine-list"></div>
+      </section>
+
+      <p class="footnote">
+        关闭此窗口不会删除数据。你也可以稍后运行 <code>yotta migrate resume</code>。
+      </p>
+    </main>
+  </body>
+</html>

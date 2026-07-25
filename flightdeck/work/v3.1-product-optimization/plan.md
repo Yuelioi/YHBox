@@ -6,9 +6,9 @@
 
 ## Current stage
 
-Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
-M1 合同与 M2a 资源侧栏保持完成。Stage R 的审计、RootSet/lifecycle、Catalog foundation 与 Asset
-Catalog/CAS v2 已完成；下一步迁 Workflow Source/revision/reference 与可重建 Program cache。
+Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage R
+R1–R7 已完成。Stage M 的 M1 正式合同和 M2 资源归属/编辑器旅程已完成；下一步进入 M3，建立
+Workflow Release、Installation、Readiness 与本机 target/credential 配置。
 
 ## Stage R — 配置与资源持久化基础设施
 
@@ -30,6 +30,10 @@ data-root、存储接口、完整性、恢复、GC 和版本迁移边界。
 - [x] [R5 — Workflow Repository 与 Program cache](slices/stage-r5-workflow-repository-program-cache.md)：
   Source metadata/revision/reference/quarantine 进入 Content Catalog；Program 按 compiler/catalog identity
   进入可按数量、字节和 LRU 回收的独立 cache。
+- [x] [R6 — Run Ledger](slices/stage-r6-run-ledger.md)：Run summary/event/value 进入独立追加型 Ledger；
+  timeline page、retention/archive、payload CAS reference 与 legacy Run JSON 幂等导入闭环。
+- [x] [R7 — 正式 data migration 与恢复 UI](slices/stage-r7-data-migration-recovery.md)：冻结旧布局
+  fixture，建立 dry-run/空间估算、自动 snapshot、resume/rollback、quarantine 管理与升级/断电真机验收。
 
 非目标：不在审计阶段直接搬动用户目录，不把所有对象塞进单一数据库，不把 secret 或本机安装配置带入
 Workflow Source/Bundle，也不为了当前开发样本忽略 1000+ 对象和 GB 级内容。
@@ -143,17 +147,23 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 ### M2 — 资源归属与编辑器
 
 - [x] [M2a — 工作流资源侧栏与本机素材快照](slices/stage-m2-workflow-resource-sidebar.md)
-- [ ] 资产库录制/截图创建 Global Asset；工作流编辑器内录制/截图创建 Workflow Resource。
+- [x] [M2b — 编辑器内 Workflow Resource 创作](slices/stage-m2b-workflow-resource-creation.md)：资产库
+  录制/截图创建 Global Asset；工作流编辑器内录制/截图创建 Workflow Resource，本机素材拖放复用完整 snapshot。
 - [x] 编辑器同时显示当前工作流资源与 Global Asset；选中 Global Asset 时创建 metadata snapshot 的 Workflow Resource，
   可共享 CAS 字节，但后续全局修改/删除不影响工作流。
-- [ ] Workflow Resource 支持显式提升为 Global Asset，提升不改变原工作流归属；共享资源编辑影响全部引用。
-- [ ] 导入后图片、Macro、InputClip 的摘要、时长、录制源 counts/360 和编辑能力只依赖 Source/resource metadata，
-  不要求接收方先建立 Global Asset 记录。
+- [x] [M2c — Workflow Resource 显式提升](slices/stage-m2c-workflow-resource-promotion.md)：提升创建独立
+  Global Asset 身份并复用 CAS 字节，不改变原工作流归属或 EditorSession。
+- [x] [M2d — Source-native Workflow Resource 编辑](slices/stage-m2d-source-native-resource-editing.md)：
+  导入后图片、Macro、InputClip 的摘要、时长、录制源 counts/360、内容编辑与显式复制只依赖
+  Source/resource metadata 和 CAS，不要求接收方先建立 Global Asset 记录。
 
 验收：导出后删除原 Global Asset 仍可完整编辑/运行；提升、duplicate 和共享更新都有领域与 UI 定向测试。
 
 ### M3 — Release、Installation 与本机配置
 
+- [ ] [M3a — Release、Installation 与 Readiness 核心](slices/stage-m3a-release-installation-readiness-core.md)：
+  verified Release projection、多实例 Installation、独立 lifecycle/readiness 与 Catalog 原子持久化已落地；
+  待把 Installation-local 配置接入运行/计划 fail-closed 后完成。
 - [ ] 引入不可变 Workflow Release 与可多实例化的 Workflow Installation；verified workflow artifact 到达后立即创建
   Installation，即使依赖/目标/凭据/授权尚未齐全。
 - [ ] Installation lifecycle 与 Readiness Report 分离；readiness 同时返回 dependency、target、credential、consent

@@ -187,11 +187,13 @@ func clipSummary(clip *InputClip) ClipSummary {
 	return ClipSummary{
 		ID: clip.ID, Label: clip.Label, Description: clip.Description, Category: clip.Category,
 		Tags: clip.Tags, DurationUs: clip.DurationUs, CreatedAt: clip.CreatedAt,
-		Meta: clip.Meta, EventCount: len(clip.Events), Blob: clip.Blob, Tracks: eventTracks(clip.Events),
+		Meta: clip.Meta, EventCount: len(clip.Events), Blob: clip.Blob, Tracks: EventTracks(clip.Events),
 	}
 }
 
-func eventTracks(events []Event) []EventTrack {
+// EventTracks projects a bounded summary from carrier events for both Global
+// Assets and Source-native Workflow Resources.
+func EventTracks(events []Event) []EventTrack {
 	tracks := map[string]*EventTrack{}
 	for _, event := range events {
 		kind := ""

@@ -1,29 +1,21 @@
 package run
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
-	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/runid"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
-const (
-	runStoreMarker         = ".yotta-run-store"
-	LayoutVersion          = "1"
-	runStoreMarkerContents = "yotta/run-store/" + LayoutVersion + "\n"
-)
+const LayoutVersion = "ledger-2"
 
 var (
 	ErrRunExists     = errors.New("run already exists")
@@ -37,9 +29,8 @@ type StoreOptions struct {
 	MaxRecords int
 }
 
-// CommitOutcome distinguishes a Run that was never published, one whose
-// authoritative directory entry was published but whose directory sync could
-// not be confirmed, and one whose publication is crash-durable.
+// CommitOutcome is retained as the admission publication contract. SQLite
+// commits either fail before publication or return as crash-durable commits.
 type CommitOutcome uint8
 
 const (
@@ -48,85 +39,42 @@ const (
 	CommitDurable
 )
 
-// Store is the single durable owner of RunRecord generations. Each update is
-// compare-and-swap against the previous record digest and atomically replaces
-// one canonical record file.
+// Store is the deep Run domain boundary. It validates canonical Records and
+// successor transitions, while RunRepository owns their append-oriented
+// summary/event/value representation.
 type Store struct {
-	mu      sync.RWMutex
-	root    string
-	catalog datatype.ValueTypeCatalog
-	max     int
-	records map[string]Record
+	mu         sync.Mutex
+	repository *catalog.RunRepository
+	catalog    datatype.ValueTypeCatalog
+	max        int
 }
 
-func OpenStore(root string, catalog datatype.ValueTypeCatalog, options StoreOptions) (*Store, error) {
-	if strings.TrimSpace(root) == "" || catalog == nil || options.MaxRecords <= 0 {
-		return nil, errors.New("run store requires root, trusted type catalog, and positive record limit")
+func OpenStore(
+	repository *catalog.RunRepository,
+	valueCatalog datatype.ValueTypeCatalog,
+	options StoreOptions,
+) (*Store, error) {
+	if repository == nil || valueCatalog == nil || options.MaxRecords <= 0 {
+		return nil, errors.New("run store requires a Run repository, trusted type catalog, and positive record limit")
 	}
-	resolved, err := filepath.Abs(root)
+	count, err := repository.Count(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open Run Ledger: %w", err)
 	}
-	if err := os.MkdirAll(resolved, 0o700); err != nil {
-		return nil, fmt.Errorf("create Run Store: %w", err)
+	if count > options.MaxRecords {
+		return nil, errors.New("run store exceeds record limit")
 	}
-	entries, err := os.ReadDir(resolved)
-	if err != nil {
-		return nil, err
-	}
-	markerPath := filepath.Join(resolved, runStoreMarker)
-	if len(entries) == 0 {
-		if err := durablefs.WriteFile(markerPath, []byte(runStoreMarkerContents), 0o600); err != nil {
-			return nil, fmt.Errorf("claim Run Store directory: %w", err)
-		}
-		entries, err = os.ReadDir(resolved)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		markerInfo, statErr := os.Lstat(markerPath)
-		marker, err := os.ReadFile(markerPath)
-		if statErr != nil || markerInfo.Mode()&os.ModeSymlink != 0 || !markerInfo.Mode().IsRegular() || err != nil || string(marker) != runStoreMarkerContents {
-			return nil, errors.New("run store directory has an unsupported ownership marker")
-		}
-	}
-	records := make(map[string]Record)
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == runStoreMarker {
-			continue
-		}
-		path := filepath.Join(resolved, name)
-		if strings.HasPrefix(name, ".durable-") && strings.HasSuffix(name, ".tmp") {
-			if err := durablefs.Remove(path); err != nil {
-				return nil, fmt.Errorf("remove abandoned Run staging file: %w", err)
-			}
-			continue
-		}
-		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || filepath.Ext(name) != ".json" {
-			return nil, fmt.Errorf("run store contains invalid entry %q", name)
-		}
-		runID := strings.TrimSuffix(name, ".json")
-		if err := runid.Validate(runID); err != nil {
-			return nil, fmt.Errorf("run store contains invalid record name %q", name)
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-		record, err := OpenRecord(raw, catalog)
-		if err != nil || record.Admission().RunID != runID {
-			return nil, fmt.Errorf("open Run record %q: %w", name, errors.Join(err, ErrRunIdentity))
-		}
-		records[runID] = record
-		if len(records) > options.MaxRecords {
-			return nil, errors.New("run store exceeds record limit")
-		}
-	}
-	return &Store{root: resolved, catalog: catalog, max: options.MaxRecords, records: records}, nil
+	return &Store{
+		repository: repository,
+		catalog:    valueCatalog,
+		max:        options.MaxRecords,
+	}, nil
 }
 
 func (s *Store) Create(ctx context.Context, record Record) (CommitOutcome, error) {
+	if ctx == nil {
+		return CommitNotApplied, errors.New("run create requires a context")
+	}
 	if err := ctx.Err(); err != nil {
 		return CommitNotApplied, err
 	}
@@ -140,32 +88,32 @@ func (s *Store) Create(ctx context.Context, record Record) (CommitOutcome, error
 	if trusted.Digest() != record.Digest() {
 		return CommitNotApplied, ErrRunIdentity
 	}
-	record = trusted
-	runID := record.Admission().RunID
+	durable, err := ledgerRecord(trusted, s.catalog)
+	if err != nil {
+		return CommitNotApplied, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, exists := s.records[runID]; exists {
-		return CommitNotApplied, ErrRunExists
+	count, err := s.repository.Count(ctx)
+	if err != nil {
+		return CommitNotApplied, err
 	}
-	if len(s.records) >= s.max {
+	if count >= s.max {
 		return CommitNotApplied, errors.New("run store record limit reached")
 	}
-	if _, err := os.Lstat(s.recordPath(runID)); err == nil || !os.IsNotExist(err) {
-		return CommitNotApplied, ErrRunExists
+	if err := s.repository.Create(ctx, durable); err != nil {
+		if errors.Is(err, catalog.ErrRunLedgerConflict) {
+			return CommitNotApplied, ErrRunExists
+		}
+		return CommitNotApplied, err
 	}
-	err = durablefs.WriteFile(s.recordPath(runID), record.Bytes(), 0o600)
-	if err == nil {
-		s.records[runID] = record
-		return CommitDurable, nil
-	}
-	if durablefs.Committed(err) {
-		s.records[runID] = record
-		return CommitPublished, err
-	}
-	return CommitNotApplied, err
+	return CommitDurable, nil
 }
 
 func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Record) error {
+	if ctx == nil {
+		return errors.New("run update requires a context")
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -180,107 +128,155 @@ func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Recor
 		return ErrRunIdentity
 	}
 	next = trusted
-	admission := next.Admission()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	current, exists := s.records[admission.RunID]
-	if !exists {
-		return ErrRunNotFound
-	}
-	raw, err := os.ReadFile(s.recordPath(admission.RunID))
+	current, err := s.load(ctx, next.Admission().RunID)
 	if err != nil {
 		return err
-	}
-	durable, err := OpenRecord(raw, s.catalog)
-	if err != nil || durable.Digest() != current.Digest() || !bytes.Equal(durable.Bytes(), current.Bytes()) {
-		return fmt.Errorf("run store record changed outside store: %w", errors.Join(err, ErrRunConflict))
 	}
 	if current.Digest() != previous || next.Generation() != current.Generation()+1 {
 		return ErrRunConflict
 	}
-	if current.Admission() != admission {
+	if current.Admission() != next.Admission() {
 		return ErrRunIdentity
 	}
 	if !validSuccessor(current, next) {
 		return ErrRunTransition
 	}
-	err = durablefs.WriteFile(s.recordPath(admission.RunID), next.Bytes(), 0o600)
-	if err == nil || durablefs.Committed(err) {
-		s.records[admission.RunID] = next
+
+	if current.Status() == StatusRunning && next.Status() == StatusRunning {
+		entry := next.state.document.Journal[len(next.state.document.Journal)-1]
+		event, err := ledgerEvent(entry)
+		if err != nil {
+			return err
+		}
+		err = s.repository.AppendEvent(
+			ctx, next.Admission().RunID,
+			current.Generation(), current.Digest(),
+			next.Generation(), next.Digest(), event, entry.OccurredAt,
+		)
+		return mapRunRepositoryError(err)
 	}
-	return err
+	summary, err := ledgerSummary(next)
+	if err != nil {
+		return err
+	}
+	values, err := ledgerValues(next.state.document.Values, s.catalog)
+	if err != nil {
+		return err
+	}
+	err = s.repository.Transition(ctx, current.Generation(), current.Digest(), summary, values)
+	return mapRunRepositoryError(err)
 }
 
 func (s *Store) Load(runID string) (Record, error) {
 	if err := runid.Validate(runID); err != nil {
 		return Record{}, err
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	record, ok := s.records[runID]
-	path := s.recordPath(runID)
-	catalog := s.catalog
-	if !ok {
-		return Record{}, ErrRunNotFound
-	}
-	raw, err := os.ReadFile(path)
+	return s.load(context.Background(), runID)
+}
+
+func (s *Store) load(ctx context.Context, runID string) (Record, error) {
+	stored, err := s.repository.Get(ctx, runID)
 	if err != nil {
-		return Record{}, err
+		return Record{}, mapRunRepositoryError(err)
 	}
-	durable, err := OpenRecord(raw, catalog)
-	if err != nil || durable.Digest() != record.Digest() || !bytes.Equal(durable.Bytes(), record.Bytes()) {
-		return Record{}, fmt.Errorf("run store record changed outside store: %w", errors.Join(err, ErrRunConflict))
+	record, err := openLedgerRecord(stored, s.catalog)
+	if err != nil {
+		return Record{}, fmt.Errorf("open Run Ledger record: %w", errors.Join(err, ErrRunConflict))
 	}
-	return durable, nil
+	return record, nil
 }
 
 func (s *Store) List() ([]Record, error) {
-	s.mu.RLock()
-	ids := make([]string, 0, len(s.records))
-	for id := range s.records {
-		ids = append(ids, id)
+	stored, err := s.repository.List(context.Background())
+	if err != nil {
+		return nil, err
 	}
-	s.mu.RUnlock()
-	sort.Strings(ids)
-	result := make([]Record, 0, len(ids))
-	for _, id := range ids {
-		record, err := s.Load(id)
+	result := make([]Record, 0, len(stored))
+	for _, item := range stored {
+		record, err := openLedgerRecord(item, s.catalog)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open Run Ledger record: %w", errors.Join(err, ErrRunConflict))
 		}
 		result = append(result, record)
 	}
 	return result, nil
 }
 
+func (s *Store) TimelinePage(ctx context.Context, runID string, page, pageSize int) (TimelinePage, error) {
+	if ctx == nil {
+		return TimelinePage{}, errors.New("Run timeline requires a context")
+	}
+	if err := runid.Validate(runID); err != nil {
+		return TimelinePage{}, err
+	}
+	summaryRecord, eventPage, err := s.repository.TimelinePage(ctx, runID, page, pageSize)
+	if err != nil {
+		return TimelinePage{}, mapRunRepositoryError(err)
+	}
+	summary, err := openLedgerSummary(summaryRecord)
+	if err != nil {
+		return TimelinePage{}, fmt.Errorf("open Run Ledger summary: %w", errors.Join(err, ErrRunConflict))
+	}
+	entries := make([]JournalEntry, 0, len(eventPage.Events))
+	for _, stored := range eventPage.Events {
+		entry, err := openLedgerEvent(stored)
+		if err != nil {
+			return TimelinePage{}, fmt.Errorf("open Run Ledger event: %w", errors.Join(err, ErrRunConflict))
+		}
+		entries = append(entries, journalEntryView(entry))
+	}
+	return TimelinePage{
+		Summary: summary, Entries: entries,
+		Page: eventPage.Page, Pages: eventPage.Pages, Total: eventPage.Total,
+	}, nil
+}
+
+func (s *Store) BlobReferences(ctx context.Context) ([]blob.BlobRef, error) {
+	if ctx == nil {
+		return nil, errors.New("Run Blob inventory requires a context")
+	}
+	return s.repository.BlobReferences(ctx)
+}
+
+func (s *Store) ArchiveTerminal(ctx context.Context, endedBefore, archivedAt time.Time, limit int) (int, error) {
+	return s.repository.ArchiveTerminal(ctx, endedBefore, archivedAt, limit)
+}
+
+func (s *Store) PurgeArchived(ctx context.Context, archivedBefore time.Time, limit int) (int, error) {
+	return s.repository.PurgeArchived(ctx, archivedBefore, limit)
+}
+
 // InterruptRunning durably terminates every Run left running after process
 // restart. It never replays effects or silently requeues work.
 func (s *Store) InterruptRunning(ctx context.Context, at time.Time) ([]Record, error) {
+	if ctx == nil {
+		return nil, errors.New("run recovery requires a context")
+	}
 	if at.Location() != time.UTC {
 		return nil, errors.New("run recovery timestamp must be UTC")
 	}
-	s.mu.RLock()
-	ids := make([]string, 0)
-	for id, record := range s.records {
-		if record.Status() == StatusRunning {
-			ids = append(ids, id)
-		}
+	summaries, err := s.repository.ListByStatus(ctx, string(StatusRunning))
+	if err != nil {
+		return nil, err
 	}
-	s.mu.RUnlock()
-	sort.Strings(ids)
-	updated := make([]Record, 0, len(ids))
-	for _, id := range ids {
+	updated := make([]Record, 0, len(summaries))
+	for _, summary := range summaries {
 		if err := ctx.Err(); err != nil {
 			return updated, err
 		}
-		current, err := s.Load(id)
+		current, err := s.load(ctx, summary.RunID)
 		if err != nil {
 			return updated, err
 		}
 		if current.Status() != StatusRunning {
 			continue
 		}
-		next, err := current.Interrupt(at, RunError{Code: "runtime.process_interrupted", Category: ErrorCategoryInfrastructure})
+		next, err := current.Interrupt(at, RunError{
+			Code: "runtime.process_interrupted", Category: ErrorCategoryInfrastructure,
+		})
 		if err != nil {
 			return updated, err
 		}
@@ -293,27 +289,24 @@ func (s *Store) InterruptRunning(ctx context.Context, at time.Time) ([]Record, e
 }
 
 // CancelQueued durably closes Runs that were admitted but never handed to a
-// live worker before the previous process stopped. Startup never guesses that
-// a stale in-memory notification was delivered.
+// live worker before the previous process stopped.
 func (s *Store) CancelQueued(ctx context.Context, at time.Time) ([]Record, error) {
+	if ctx == nil {
+		return nil, errors.New("run recovery requires a context")
+	}
 	if at.Location() != time.UTC {
 		return nil, errors.New("run recovery timestamp must be UTC")
 	}
-	s.mu.RLock()
-	ids := make([]string, 0)
-	for id, record := range s.records {
-		if record.Status() == StatusQueued {
-			ids = append(ids, id)
-		}
+	summaries, err := s.repository.ListByStatus(ctx, string(StatusQueued))
+	if err != nil {
+		return nil, err
 	}
-	s.mu.RUnlock()
-	sort.Strings(ids)
-	updated := make([]Record, 0, len(ids))
-	for _, id := range ids {
+	updated := make([]Record, 0, len(summaries))
+	for _, summary := range summaries {
 		if err := ctx.Err(); err != nil {
 			return updated, err
 		}
-		current, err := s.Load(id)
+		current, err := s.load(ctx, summary.RunID)
 		if err != nil {
 			return updated, err
 		}
@@ -332,16 +325,30 @@ func (s *Store) CancelQueued(ctx context.Context, at time.Time) ([]Record, error
 	return updated, nil
 }
 
-func (s *Store) recordPath(runID string) string { return filepath.Join(s.root, runID+".json") }
+func mapRunRepositoryError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, catalog.ErrRunLedgerNotFound):
+		return ErrRunNotFound
+	case errors.Is(err, catalog.ErrRunLedgerConflict):
+		return ErrRunConflict
+	default:
+		return err
+	}
+}
 
 func validSuccessor(current, next Record) bool {
-	if !current.Valid() || !next.Valid() || current.Admission() != next.Admission() || next.Generation() != current.Generation()+1 {
+	if !current.Valid() || !next.Valid() ||
+		current.Admission() != next.Admission() ||
+		next.Generation() != current.Generation()+1 {
 		return false
 	}
 	currentJournal := current.state.document.Journal
 	nextJournal := next.state.document.Journal
 	if current.Status() == StatusRunning && next.Status() == StatusRunning {
-		if len(nextJournal) != len(currentJournal)+1 || !reflect.DeepEqual(nextJournal[:len(currentJournal)], currentJournal) {
+		if len(nextJournal) != len(currentJournal)+1 ||
+			!reflect.DeepEqual(nextJournal[:len(currentJournal)], currentJournal) {
 			return false
 		}
 		currentDocument := current.state.document

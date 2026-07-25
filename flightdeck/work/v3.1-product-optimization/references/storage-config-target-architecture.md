@@ -1,6 +1,7 @@
 # 配置与资源持久化目标架构
 
-> 状态：R1 设计草案。先定义边界与验收，不在本 Slice 直接搬迁用户目录。
+> 状态：R1–R7 存储基座已实现并通过 Windows production migration smoke；installation/consent 等
+> 后续领域仍按 Stage M 独立演进。
 
 ## 决策摘要
 

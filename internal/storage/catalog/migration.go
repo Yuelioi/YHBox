@@ -34,6 +34,8 @@ var contentSchemaObjects = append([]schemaObject{}, append(foundationSchemaObjec
 		{kind: "table", name: "workflow_sources"},
 		{kind: "table", name: "workflow_refs"},
 		{kind: "table", name: "workflow_quarantine"},
+		{kind: "table", name: "workflow_releases"},
+		{kind: "table", name: "workflow_installations"},
 		{kind: "index", name: "idx_assets_kind_name"},
 		{kind: "index", name: "idx_assets_kind_created"},
 		{kind: "index", name: "idx_asset_tags_normalized"},
@@ -43,6 +45,20 @@ var contentSchemaObjects = append([]schemaObject{}, append(foundationSchemaObjec
 		{kind: "index", name: "idx_workflow_sources_name"},
 		{kind: "index", name: "idx_workflow_refs_digest"},
 		{kind: "index", name: "idx_workflow_quarantine_created"},
+		{kind: "index", name: "idx_workflow_releases_source"},
+		{kind: "index", name: "idx_workflow_installations_release"},
+		{kind: "index", name: "idx_workflow_installations_lifecycle"},
+	}...)...)
+
+var runSchemaObjects = append([]schemaObject{}, append(foundationSchemaObjects,
+	[]schemaObject{
+		{kind: "table", name: "runs"},
+		{kind: "table", name: "run_events"},
+		{kind: "table", name: "run_values"},
+		{kind: "index", name: "idx_runs_status_queued"},
+		{kind: "index", name: "idx_runs_archived_ended"},
+		{kind: "index", name: "idx_run_events_occurred"},
+		{kind: "index", name: "idx_run_values_blob"},
 	}...)...)
 
 type migration struct {
@@ -79,11 +95,60 @@ var contentMigrations = []migration{
 	{id: "content.foundation.1", from: 0, to: 1, statements: foundationStatements},
 	{id: "content.assets-and-objects.2", from: 1, to: 2, statements: assetCatalogStatements},
 	{id: "content.workflow-sources.3", from: 2, to: 3, statements: workflowCatalogStatements},
+	{id: "content.workflow-installations.4", from: 3, to: 4, statements: workflowInstallationStatements},
 }
 
-var runMigrations = []migration{{
-	id: "runs.foundation.1", from: 0, to: 1, statements: foundationStatements,
-}}
+var runMigrations = []migration{
+	{id: "runs.foundation.1", from: 0, to: 1, statements: foundationStatements},
+	{id: "runs.ledger.2", from: 1, to: 2, statements: runLedgerStatements},
+}
+
+var runLedgerStatements = []string{
+	`CREATE TABLE runs (
+		run_id TEXT PRIMARY KEY NOT NULL,
+		generation INTEGER NOT NULL CHECK (generation > 0),
+		record_digest TEXT NOT NULL CHECK (length(record_digest) = 71),
+		status TEXT NOT NULL CHECK (status IN (
+			'queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted'
+		)),
+		queued_at TEXT NOT NULL,
+		started_at TEXT,
+		ended_at TEXT,
+		summary_artifact BLOB NOT NULL CHECK (length(summary_artifact) > 0),
+		journal_count INTEGER NOT NULL CHECK (journal_count >= 0),
+		archived_at TEXT,
+		updated_at TEXT NOT NULL
+	) STRICT`,
+	`CREATE TABLE run_events (
+		run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+		sequence INTEGER NOT NULL CHECK (sequence > 0),
+		kind TEXT NOT NULL,
+		occurred_at TEXT NOT NULL,
+		artifact BLOB NOT NULL CHECK (length(artifact) > 0),
+		PRIMARY KEY (run_id, sequence)
+	) STRICT`,
+	`CREATE TABLE run_values (
+		run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+		ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+		value_id TEXT NOT NULL,
+		value_digest TEXT NOT NULL CHECK (length(value_digest) = 71),
+		artifact BLOB NOT NULL CHECK (length(artifact) > 0),
+		blob_media_type TEXT,
+		blob_digest TEXT,
+		blob_size INTEGER,
+		PRIMARY KEY (run_id, value_id),
+		UNIQUE (run_id, ordinal),
+		CHECK (
+			(blob_media_type IS NULL AND blob_digest IS NULL AND blob_size IS NULL)
+			OR
+			(blob_media_type IS NOT NULL AND length(blob_digest) = 71 AND blob_size >= 0)
+		)
+	) STRICT`,
+	`CREATE INDEX idx_runs_status_queued ON runs(status, queued_at, run_id)`,
+	`CREATE INDEX idx_runs_archived_ended ON runs(archived_at, ended_at, run_id)`,
+	`CREATE INDEX idx_run_events_occurred ON run_events(run_id, occurred_at, sequence)`,
+	`CREATE INDEX idx_run_values_blob ON run_values(blob_digest, run_id) WHERE blob_digest IS NOT NULL`,
+}
 
 var assetCatalogStatements = []string{
 	`CREATE TABLE assets (
@@ -196,6 +261,31 @@ var workflowCatalogStatements = []string{
 	`CREATE INDEX idx_workflow_sources_name ON workflow_sources(name COLLATE NOCASE, workflow_id)`,
 	`CREATE INDEX idx_workflow_refs_digest ON workflow_refs(digest, workflow_id)`,
 	`CREATE INDEX idx_workflow_quarantine_created ON workflow_quarantine(created_at, recovery_id)`,
+}
+
+var workflowInstallationStatements = []string{
+	`CREATE TABLE workflow_releases (
+		release_id TEXT PRIMARY KEY NOT NULL CHECK (length(release_id) = 71),
+		source_hash TEXT NOT NULL CHECK (length(source_hash) = 71),
+		workflow_id TEXT NOT NULL,
+		workflow_name TEXT NOT NULL,
+		publisher_namespace TEXT NOT NULL,
+		release_version TEXT NOT NULL,
+		attestation_digest TEXT NOT NULL CHECK (length(attestation_digest) = 71),
+		source_artifact BLOB NOT NULL CHECK (length(source_artifact) > 0),
+		verified_at TEXT NOT NULL
+	) STRICT`,
+	`CREATE TABLE workflow_installations (
+		installation_id TEXT PRIMARY KEY NOT NULL,
+		release_id TEXT NOT NULL REFERENCES workflow_releases(release_id) ON DELETE RESTRICT,
+		name TEXT NOT NULL,
+		lifecycle TEXT NOT NULL CHECK (lifecycle IN ('active', 'archived')),
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	) STRICT`,
+	`CREATE INDEX idx_workflow_releases_source ON workflow_releases(source_hash, release_id)`,
+	`CREATE INDEX idx_workflow_installations_release ON workflow_installations(release_id, installation_id)`,
+	`CREATE INDEX idx_workflow_installations_lifecycle ON workflow_installations(lifecycle, updated_at DESC, installation_id)`,
 }
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 16,
-    "methods": 142,
-    "models": 211
+    "services": 17,
+    "methods": 148,
+    "models": 221
   },
   "services": [
     {
@@ -1034,6 +1034,98 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
+      "module": "internal/services/resourceauthoring/service",
+      "methods": [
+        {
+          "name": "CreateImage",
+          "bindingId": "2559939041",
+          "parameters": [
+            {
+              "name": "draft",
+              "optional": false,
+              "type": "$models.ImageDraft"
+            }
+          ],
+          "returns": "$CancellablePromise<schema$0.WorkflowResource>"
+        },
+        {
+          "name": "Duplicate",
+          "bindingId": "3741817489",
+          "parameters": [
+            {
+              "name": "resource",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            }
+          ],
+          "returns": "$CancellablePromise<schema$0.WorkflowResource>"
+        },
+        {
+          "name": "Events",
+          "bindingId": "1558538225",
+          "parameters": [
+            {
+              "name": "resource",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            },
+            {
+              "name": "offset",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "limit",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.EventPage>"
+        },
+        {
+          "name": "Open",
+          "bindingId": "3451740088",
+          "parameters": [
+            {
+              "name": "resource",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Content>"
+        },
+        {
+          "name": "Promote",
+          "bindingId": "3866878644",
+          "parameters": [
+            {
+              "name": "resource",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Promotion>"
+        },
+        {
+          "name": "Rewrite",
+          "bindingId": "1009078272",
+          "parameters": [
+            {
+              "name": "resource",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            },
+            {
+              "name": "edit",
+              "optional": false,
+              "type": "$models.Edit"
+            }
+          ],
+          "returns": "$CancellablePromise<schema$0.WorkflowResource>"
         }
       ]
     },
@@ -4800,6 +4892,11 @@
               "type": "string"
             },
             {
+              "name": "\"destination\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"label\"",
               "optional": false,
               "type": "string"
@@ -4838,20 +4935,15 @@
         },
         {
           "kind": "class",
-          "name": "FinalizeResult",
+          "name": "FinalizedAsset",
           "fields": [
             {
-              "name": "\"assetID\"",
+              "name": "\"guid\"",
               "optional": false,
               "type": "string"
             },
             {
-              "name": "\"assetKind\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"targetSlot\"",
+              "name": "\"kind\"",
               "optional": false,
               "type": "string"
             },
@@ -4864,6 +4956,32 @@
               "name": "\"blob\"",
               "optional": false,
               "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FinalizeResult",
+          "fields": [
+            {
+              "name": "\"destination\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"targetSlot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"asset\"",
+              "optional": true,
+              "type": "FinalizedAsset | null"
+            },
+            {
+              "name": "\"resource\"",
+              "optional": true,
+              "type": "schema$0.WorkflowResource | null"
             }
           ]
         },
@@ -5157,6 +5275,214 @@
               "name": "\"environment\"",
               "optional": false,
               "type": "RecordingEnvironment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/resourceauthoring/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Content",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "schema$0.ResourceKind"
+            },
+            {
+              "name": "\"macro\"",
+              "optional": true,
+              "type": "macro$0.Document | null"
+            },
+            {
+              "name": "\"inputClip\"",
+              "optional": true,
+              "type": "InputClipContent | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Edit",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"macro\"",
+              "optional": true,
+              "type": "MacroEdit | null"
+            },
+            {
+              "name": "\"inputClip\"",
+              "optional": true,
+              "type": "InputClipEdit | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "EventPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "inputclip$0.Event[]"
+            },
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"offset\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"limit\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ImageDraft",
+          "fields": [
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"dataURL\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"region\"",
+              "optional": false,
+              "type": "number[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputClipContent",
+          "fields": [
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"eventCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"recordingMode\"",
+              "optional": false,
+              "type": "inputclip$0.RecordingMode"
+            },
+            {
+              "name": "\"mouseMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"mouseCounts360\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"stopHotkeyVk\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"tracks\"",
+              "optional": false,
+              "type": "inputclip$0.EventTrack[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputClipEdit",
+          "fields": [
+            {
+              "name": "\"trimStartUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"trimEndUs\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MacroEdit",
+          "fields": [
+            {
+              "name": "\"document\"",
+              "optional": false,
+              "type": "macro$0.Document"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Promotion",
+          "fields": [
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         }
@@ -6784,6 +7110,11 @@
               "type": "AddResourceCommand | null"
             },
             {
+              "name": "\"replaceResource\"",
+              "optional": true,
+              "type": "ReplaceResourceCommand | null"
+            },
+            {
               "name": "\"updateResourceMetadata\"",
               "optional": true,
               "type": "UpdateResourceMetadataCommand | null"
@@ -6957,6 +7288,10 @@
             {
               "name": "CommandAddResource",
               "value": "\"add-resource\""
+            },
+            {
+              "name": "CommandReplaceResource",
+              "value": "\"replace-resource\""
             },
             {
               "name": "CommandUpdateResourceMetadata",
@@ -7248,6 +7583,22 @@
               "name": "\"name\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ReplaceResourceCommand",
+          "fields": [
+            {
+              "name": "\"resourceId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resource\"",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
             }
           ]
         },

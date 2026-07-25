@@ -49,10 +49,11 @@
   347 项测试，production build（editor 201985/220000 gzip）和同一执行单元持续等待的 Windows WebView
   smoke 均退出 0。门禁还补齐 M2 authoring resource 模型的 Wails RPC 快照（202 → 211 models）。
 
-## Remaining M2
+## M2 completion
 
-- 编辑器内新录制/新截图仍沿用现有 Global Asset 保存完成链，需要把 finalize target 改成 Workflow Resource；
-  资产库创建继续保持 Global Asset。
-- Workflow Resource 显式提升为 Global Asset、duplicate/shared update 与删除原 Global Asset 后的完整导出运行验收
-  尚未实现。
-- 本机素材拖放目前仍保留旧 BlobRef 快捷路径；按钮/双击已走 snapshot，拖放应在下一 Slice 收敛到同一语义。
+- [M2b](stage-m2b-workflow-resource-creation.md) 已把编辑器内新录制/新截图改为直接创建 Workflow Resource；
+  资产库创建继续保持 Global Asset，本机素材拖放也已收敛到完整 snapshot。
+- [M2c](stage-m2c-workflow-resource-promotion.md) 已完成显式提升；提升新增独立 Global Asset Catalog 身份并
+  复用 CAS 字节，不修改 Source 或 Resource Binding。
+- [M2d](stage-m2d-source-native-resource-editing.md) 已完成导入后 Source-native 查看/编辑、三类 duplicate
+  与共享 binding 内容更新；资源内容路径不要求存在 Global Asset 记录。

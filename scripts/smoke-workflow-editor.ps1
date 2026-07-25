@@ -46,19 +46,12 @@ try {
 
     # A single malformed user Source must be isolated without preventing the
     # real desktop host from starting or hiding the rest of the workflow list.
-    # Seed an explicitly owned root before adding the Source fixture; a
-    # non-empty profile without root.json must fail closed.
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
-    [System.IO.File]::WriteAllText(
-        (Join-Path $profileRoot 'root.json'),
-        '{"format":"yotta.storage-root","version":"1"}',
-        $utf8NoBom
-    )
-    $workflowStore = Join-Path $profileRoot 'data/workspace/workflows'
-    New-Item -ItemType Directory -Force -Path $workflowStore | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $workflowStore '.yotta-workflow-source-store'), "yotta/workflow-source-store/1`n", $utf8NoBom)
-    [System.IO.File]::WriteAllText((Join-Path $workflowStore 'damaged-workflow.json'), '{"format":"yotta.workflow","version":"1",', $utf8NoBom)
+    # Seed through the current Catalog boundary so this fixture follows the
+    # same storage authority as the production Workflow Source service.
+    go run ./cmd/workflow-editor-smoke -seed-root $profileRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Workflow recovery fixture failed with exit code $LASTEXITCODE"
+    }
 
     try {
         Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$VitePort" -TimeoutSec 1 | Out-Null

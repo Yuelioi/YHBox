@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/storage"
+	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
@@ -97,6 +99,49 @@ func TestRunHealthIsReadOnlyAndRedactsTheRootByDefault(t *testing.T) {
 	}
 	if err := run([]string{"--data-root", root, "--show-path", "health"}, &output); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRunMigrationPlanIsReadOnlyAndApplyCommitsLayout(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "layout-1")
+	roots, err := storage.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(roots.Config, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		roots.ManifestFile(),
+		[]byte("{\n  \"format\": \"yotta.storage-root\",\n  \"version\": \"1\"\n}"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := run([]string{"--data-root", root, "migrate", "plan"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	var plan storagemigrate.Plan
+	if err := json.Unmarshal(output.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+	if plan.From != "1" || plan.To != storage.LayoutVersion {
+		t.Fatalf("migration plan = %#v", plan)
+	}
+	if _, err := os.Stat(filepath.Join(roots.Migrations, "layout-1-to-2")); !os.IsNotExist(err) {
+		t.Fatalf("plan wrote migration state: %v", err)
+	}
+	output.Reset()
+	if err := run([]string{"--data-root", root, "migrate", "apply"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	var result storagemigrate.Result
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Journal.State != storagemigrate.StateCommitted {
+		t.Fatalf("migration result = %#v", result)
 	}
 }
 

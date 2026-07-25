@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/browsercdp"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
 
 type pageState struct {
@@ -135,10 +138,18 @@ func main() {
 	subgraphScreenshot := flag.String("subgraph-screenshot", ".task/subgraph-smoke.png", "subgraph authoring PNG output path")
 	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
 	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
+	seedRoot := flag.String("seed-root", "", "seed the isolated storage root used by the product journey")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
+	if *seedRoot != "" {
+		if err := seedRecoveryFixture(ctx, *seedRoot); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *captureOnly {
 		if err := captureCurrent(ctx, *endpoint, *urlContains, *screenshot); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -150,6 +161,36 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func seedRecoveryFixture(ctx context.Context, root string) error {
+	const originalName = "damaged-workflow.json"
+	raw := []byte(`{"format":"yotta.workflow","version":"1",`)
+	identityInput := make([]byte, 0, len(originalName)+1+len(raw))
+	identityInput = append(identityInput, originalName...)
+	identityInput = append(identityInput, 0)
+	identityInput = append(identityInput, raw...)
+	recoveryID, err := artifact.Sum("yotta/workflow-source-recovery/v1", identityInput)
+	if err != nil {
+		return fmt.Errorf("identify workflow recovery fixture: %w", err)
+	}
+	profile, err := storage.Open(ctx, storage.OpenOptions{Root: root})
+	if err != nil {
+		return fmt.Errorf("open smoke storage profile: %w", err)
+	}
+	defer profile.Close()
+	foundation, err := catalog.Open(ctx, profile.Roots)
+	if err != nil {
+		return fmt.Errorf("open smoke Catalog: %w", err)
+	}
+	defer foundation.Close()
+	if err := foundation.Workflows().PutQuarantine(ctx, catalog.WorkflowQuarantineRecord{
+		ID: recoveryID, OriginalName: originalName,
+		Reason: "synthetic invalid JSON", Artifact: raw, CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		return fmt.Errorf("seed workflow recovery fixture: %w", err)
+	}
+	return nil
 }
 
 func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot string) error {

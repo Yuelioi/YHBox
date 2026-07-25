@@ -115,7 +115,7 @@ func TestMigrationFaultRollsBackAndCanResume(t *testing.T) {
 		t.Fatalf("count schema objects: %v", err)
 	}
 	_ = db.Close()
-	if identity.applicationID != ContentApplicationID || identity.userVersion != ContentSchemaVersion-1 || objects != 15 {
+	if identity.applicationID != ContentApplicationID || identity.userVersion != ContentSchemaVersion-1 || objects != 21 {
 		t.Fatalf("rolled-back identity = %#v, objects=%d; want last committed schema", identity, objects)
 	}
 

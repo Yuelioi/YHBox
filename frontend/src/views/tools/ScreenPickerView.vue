@@ -335,8 +335,11 @@
           </template>
         </section>
 
-        <!-- template_save 表单 -->
-        <section v-if="mode === 'template_save'" class="screen-picker-section">
+        <!-- New Global Asset / Workflow Resource metadata form -->
+        <section
+          v-if="mode === 'template_save' || mode === 'workflow_resource'"
+          class="screen-picker-section"
+        >
           <div class="screen-picker-section__heading">
             <UIcon name="i-tabler-photo-plus" class="size-3.5" />
             <h2>{{ t('screenPicker.template.title') }}</h2>
@@ -441,6 +444,7 @@ const mode = computed(
       | 'point'
       | 'rect'
       | 'template_save'
+      | 'workflow_resource'
       | 'template_recapture'
       | 'color',
 )
@@ -452,7 +456,12 @@ const targetSlot = computed(() => String(route.query.targetSlot ?? ''))
 const recaptureGUID = computed(() => String(route.query.guid ?? ''))
 const pickerAccent = computed<'primary' | 'success' | 'warning'>(() => {
   if (mode.value === 'color') return 'warning'
-  if (mode.value === 'template_save' || mode.value === 'template_recapture') return 'success'
+  if (
+    mode.value === 'template_save' ||
+    mode.value === 'workflow_resource' ||
+    mode.value === 'template_recapture'
+  )
+    return 'success'
   return 'primary'
 })
 
@@ -568,7 +577,7 @@ function onCreateTplCategory(item: string) {
   tplCategory.value = result.value
 }
 async function loadTemplateCategories() {
-  if (mode.value !== 'template_save') return
+  if (mode.value !== 'template_save' && mode.value !== 'workflow_resource') return
   const summaries = await backend.assets.list()
   if (!summaries) return
   tplKnownCategories.value = uniqueCategoryOptions(
@@ -587,14 +596,15 @@ const canConfirm = computed(() => {
   if (!dataURL.value) return false
   if (mode.value === 'point') return !!pointSelNat.value
   if (mode.value === 'rect') return !!rectSelNat.value
-  if (mode.value === 'template_save') return !!tplName.value.trim()
+  if (mode.value === 'template_save' || mode.value === 'workflow_resource')
+    return !!tplName.value.trim()
   // 重拍: 资产已有 name, 不用填; 有截图即可 (region 可选).
   if (mode.value === 'template_recapture') return !!dataURL.value
   // color mode 自动提取 (pointerup 触发), 不走 confirm 按钮
   return false
 })
 const confirmLabel = computed(() => {
-  if (mode.value === 'template_save') {
+  if (mode.value === 'template_save' || mode.value === 'workflow_resource') {
     return t(rectSelNat.value ? 'screenPicker.save_crop' : 'screenPicker.save_full')
   }
   if (mode.value === 'template_recapture') {
@@ -865,7 +875,11 @@ async function confirm() {
   if (!canConfirm.value) return
   saving.value = true
   try {
-    if (mode.value === 'template_save' || mode.value === 'template_recapture') {
+    if (
+      mode.value === 'template_save' ||
+      mode.value === 'workflow_resource' ||
+      mode.value === 'template_recapture'
+    ) {
       const png = await cropToDataURL()
       const region: [number, number, number, number] = rectSelNat.value
         ? [
@@ -884,7 +898,7 @@ async function confirm() {
           region,
         )
         await emitResult({ guid: recaptureGUID.value })
-      } else {
+      } else if (mode.value === 'template_save') {
         // SaveTemplateCapture allocates a new global asset guid.
         const guid = await backend.assets.saveTemplateCapture(
           png,
@@ -896,6 +910,18 @@ async function confirm() {
         )
         lastTplCategory.value = tplCategory.value.trim()
         await emitResult({ guid: guid as string })
+      } else {
+        const resource = await backend.workflowResources.createImage({
+          name: tplName.value.trim(),
+          description: '',
+          category: tplCategory.value.trim(),
+          tags: tplTags.value,
+          dataURL: png,
+          resolution: [natW.value, natH.value],
+          region,
+        })
+        lastTplCategory.value = tplCategory.value.trim()
+        await emitResult({ resource })
       }
     } else if (mode.value === 'point' && pointSelNat.value) {
       await emitResult({

@@ -625,7 +625,7 @@ func newTestApplication(t *testing.T, now time.Time, adapterOverride compiler.Ad
 	if err != nil {
 		t.Fatal(err)
 	}
-	runs, err := run.OpenStore(filepath.Join(root, "runs"), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
+	runs, err := run.OpenStore(foundation.Runs(), builtins.Catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}

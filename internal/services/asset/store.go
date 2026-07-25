@@ -193,6 +193,35 @@ func (s *Store) CommitRecordBlob(
 	return ref, nil
 }
 
+// PublishExistingRecord atomically publishes Global Asset metadata for BlobRefs
+// that are already present in the shared CAS. It never overwrites an existing
+// Global Asset identity.
+func (s *Store) PublishExistingRecord(ctx context.Context, record AssetRecord) error {
+	if ctx == nil {
+		return errors.New("publish existing asset context is required")
+	}
+	s.gcMu.RLock()
+	defer s.gcMu.RUnlock()
+	for index, variant := range record.Variants {
+		if err := s.blobs.Verify(ctx, variant.Blob); err != nil {
+			return fmt.Errorf("verify existing asset variant %d: %w", index, err)
+		}
+	}
+	if record.Blob != nil {
+		if err := s.blobs.Verify(ctx, *record.Blob); err != nil {
+			return fmt.Errorf("verify existing asset blob: %w", err)
+		}
+	}
+	s.recordMu.Lock()
+	defer s.recordMu.Unlock()
+	if _, found, err := s.get(record.GUID); err != nil {
+		return err
+	} else if found {
+		return fmt.Errorf("asset %q already exists", record.GUID)
+	}
+	return s.putRecordLocked(record)
+}
+
 func (s *Store) CommitVariantBlob(
 	ctx context.Context,
 	mediaType string,

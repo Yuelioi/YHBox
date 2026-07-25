@@ -2442,6 +2442,16 @@ export default {
       empty: 'No resources in this category',
       empty_hint: 'Record or capture here; new resources appear in this list immediately.',
       saved: 'Resource information saved.',
+      promote: 'Promote to local library',
+      promoted: 'Promoted “{name}” as an independent local asset.',
+      edit_content: 'Edit resource content',
+      duplicate: 'Create independent copy',
+      duplicated: 'Created an independent workflow resource copy of “{name}”.',
+      image_summary: '{variants} variants · {width}×{height}',
+      macro_summary: '{actions} actions · {duration}',
+      input_clip_summary: '{events} events · {duration} · recorded at {counts} counts/360',
+      load_content_failed: 'Workflow resource content could not be loaded',
+      save_content_failed: 'Workflow resource content could not be saved',
       snapshot_created:
         'A local asset snapshot was added to this workflow and bound on the canvas.',
       snapshot_missing_payload: 'The asset has no payload that can be added to this workflow.',
@@ -3200,6 +3210,7 @@ export default {
       point: 'Pick screen point',
       rect: 'Select screen region',
       template_save: 'Capture new template',
+      workflow_resource: 'Capture workflow resource',
       template_recapture: 'Recapture template',
       color: 'Pick screen color',
     },
@@ -3207,6 +3218,8 @@ export default {
       point: 'Click the canvas to choose an exact position',
       rect: 'Drag on the canvas to choose a rectangular region',
       template_save: 'Optionally drag a crop; save the full capture when no region is selected',
+      workflow_resource:
+        'Save the capture only in this workflow without creating a local-library asset',
       template_recapture:
         'Save a new resolution variant of the same asset; references follow automatically',
       color: 'Click for a single color or drag to analyze a target-color region',

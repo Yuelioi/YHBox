@@ -225,7 +225,9 @@ func testRuntime(t *testing.T, now time.Time) *appbootstrap.Runtime {
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: foundation.Workflows(), BlobStore: blobStore,
+		WorkflowRepository: foundation.Workflows(), InstallationRepository: foundation.WorkflowInstallations(),
+		RunRepository:   foundation.Runs(),
+		BlobStore:       blobStore,
 		Limits:          appbootstrap.Limits{MaxSources: 8, MaxPrograms: 8, MaxProgramCacheBytes: 8 << 20, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20, BlobChunkBytes: 64 << 10, BlobQueueCapacity: 2, StreamCapacity: 4, StreamChunkBytes: 64 << 10},
 		AIInstallations: aiInstallations, HTTPInstallations: httpInstallations, ApplicationInstallations: applicationInstallations, AutomationInstallations: automationInstallations,
 		ScriptRuntime: script, LogEmitter: discardLog{}, GrantTTL: 5 * time.Minute, OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },

@@ -82,6 +82,10 @@ export type Command =
       kind: 'add-resource'
     }
   | {
+      kind: 'replace-resource'
+      replaceResource: ReplaceResourceCommand
+    }
+  | {
       kind: 'update-resource-metadata'
       updateResourceMetadata: UpdateResourceMetadataCommand
     }
@@ -363,6 +367,10 @@ export interface MacroResource {
   baseResolution: [number, number]
   blob: BlobRef
   durationUs: number
+}
+export interface ReplaceResourceCommand {
+  resource: WorkflowResource
+  resourceId: string
 }
 export interface UpdateResourceMetadataCommand {
   category: string

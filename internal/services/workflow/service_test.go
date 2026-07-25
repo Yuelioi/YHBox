@@ -559,7 +559,9 @@ func workflowRuntime(t *testing.T, now time.Time, maxSources ...int) *appbootstr
 	}
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: roots.Data, ProgramCacheRoot: filepath.Join(roots.Cache, "programs"),
-		WorkflowRepository: foundation.Workflows(), BlobStore: blobStore,
+		WorkflowRepository: foundation.Workflows(), InstallationRepository: foundation.WorkflowInstallations(),
+		RunRepository: foundation.Runs(),
+		BlobStore:     blobStore,
 		Limits: appbootstrap.Limits{
 			MaxSources: sourceLimit, MaxPrograms: 8, MaxRuns: 8, MaxResourcePayloadBytes: 2 << 20,
 			MaxProgramCacheBytes: 8 << 20,

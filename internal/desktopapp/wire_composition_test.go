@@ -70,7 +70,7 @@ func TestRootCompositionAdaptersExposeSafeDefaultsAndLifecycle(t *testing.T) {
 	if adapter.GetMouseMode() != "absolute" {
 		t.Fatalf("configured mouse mode = %q", adapter.GetMouseMode())
 	}
-	if service := newRecordingService(app, nil, nil, registry, automationinstalled.AuthoringTargets{}); service == nil {
+	if service := newRecordingService(app, nil, nil, nil, registry, automationinstalled.AuthoringTargets{}); service == nil {
 		t.Fatal("recording composition returned nil")
 	}
 

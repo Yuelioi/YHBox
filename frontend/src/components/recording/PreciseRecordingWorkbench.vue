@@ -183,6 +183,7 @@ import { backend, type InputEventPage } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
 import type { RecordingEnvironment, RecordingPreview } from '@/stores/recording'
 import InfoTile from '@/components/common/InfoTile.vue'
+import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
 
 const props = defineProps<{
   preview: RecordingPreview
@@ -192,6 +193,7 @@ const props = defineProps<{
   trimEndUs: number
   pendingId?: string
   clipId?: string
+  workflowResource?: WorkflowResource
   editableTrim?: boolean
 }>()
 const emit = defineEmits<{
@@ -262,13 +264,25 @@ async function toggleDetails(): Promise<void> {
 }
 
 async function loadRaw(offset: number): Promise<void> {
-  if (!props.pendingId && !props.clipId) return
+  if (!props.pendingId && !props.clipId && !props.workflowResource) return
   rawLoading.value = true
   rawFailure.value = ''
   try {
-    rawPage.value = props.pendingId
-      ? await backend.recording.pendingEvents(props.pendingId, offset, rawPage.value.limit)
-      : await backend.clips.events(props.clipId!, offset, rawPage.value.limit)
+    if (props.pendingId) {
+      rawPage.value = await backend.recording.pendingEvents(
+        props.pendingId,
+        offset,
+        rawPage.value.limit,
+      )
+    } else if (props.workflowResource) {
+      rawPage.value = await backend.workflowResources.events(
+        props.workflowResource,
+        offset,
+        rawPage.value.limit,
+      )
+    } else {
+      rawPage.value = await backend.clips.events(props.clipId!, offset, rawPage.value.limit)
+    }
   } catch (error) {
     rawFailure.value = errorMessage(error)
   } finally {

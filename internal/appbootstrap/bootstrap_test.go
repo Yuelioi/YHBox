@@ -38,14 +38,19 @@ func TestBuildComposesWorkflowServiceThroughProductionProgramChain(t *testing.T)
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs,
-		Limits: testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
+		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
+		RunRepository: stores.foundation.Runs(),
+		BlobStore:     stores.blobs,
+		Limits:        testLimits(), AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t), ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t), ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute,
 		LogEmitter:        discardWorkflowLog{},
 		OwnerCloseTimeout: time.Second, Now: func() time.Time { return now },
 		OnRunEvent: func(event appcore.RunEvent) { events <- event },
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.Installations == nil {
+		t.Fatal("Build() did not compose the Workflow Installation module")
 	}
 	if err := runtime.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -135,7 +140,9 @@ func TestBuildStartsWithOneCorruptWorkflowSourceIsolatedAndRepairable(t *testing
 	build := func() *appbootstrap.Runtime {
 		runtime, err := appbootstrap.Build(appbootstrap.Config{
 			DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-			WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
+			WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
+			RunRepository: stores.foundation.Runs(),
+			BlobStore:     stores.blobs, Limits: testLimits(),
 			AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 			ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 			ScriptRuntime: bootstrapScriptRuntime(t), LogEmitter: discardWorkflowLog{},
@@ -210,7 +217,9 @@ func TestRuntimeHotReplacesApplicationAutomationAndAuthoringGeneration(t *testin
 	stores := newTestWorkflowStorage(t)
 	runtime, err := appbootstrap.Build(appbootstrap.Config{
 		DataRoot: stores.roots.Data, ProgramCacheRoot: filepath.Join(stores.roots.Cache, "programs"),
-		WorkflowRepository: stores.foundation.Workflows(), BlobStore: stores.blobs, Limits: testLimits(),
+		WorkflowRepository: stores.foundation.Workflows(), InstallationRepository: stores.foundation.WorkflowInstallations(),
+		RunRepository: stores.foundation.Runs(),
+		BlobStore:     stores.blobs, Limits: testLimits(),
 		AIInstallations: emptyAIInstallations(t), HTTPInstallations: emptyHTTPInstallations(t),
 		ApplicationInstallations: emptyApplicationInstallations(t), AutomationInstallations: emptyAutomationInstallations(t),
 		ScriptRuntime: bootstrapScriptRuntime(t), GrantTTL: 5 * time.Minute, LogEmitter: discardWorkflowLog{},

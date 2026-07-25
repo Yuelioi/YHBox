@@ -772,11 +772,11 @@ func (s *Service) GetRunTimeline(runID string) (RunView, error) {
 }
 
 func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView, error) {
-	record, err := s.application.GetRun(runID)
+	timeline, err := s.application.GetRunTimelinePage(context.Background(), runID, page, pageSize)
 	if err != nil {
 		return RunView{}, err
 	}
-	return runViewPage(record, page, pageSize), nil
+	return runTimelinePageView(timeline), nil
 }
 
 func (s *Service) GetCatalog() string { return string(s.application.CatalogArtifact()) }
@@ -830,6 +830,27 @@ func runViewPage(record run.Record, page, pageSize int) RunView {
 		Timeline: timelineView(pageEntries), TimelinePage: currentPage, TimelinePages: pages, TimelineTotal: len(entries),
 	}
 	if failure, ok := record.Failure(); ok {
+		view.Failure = &FailureView{
+			Code: failure.Code, Category: failure.Category, Retryable: failure.Retryable,
+			GraphID: failure.GraphID, NodeID: failure.NodeID, Attempt: failure.Attempt,
+		}
+	}
+	return view
+}
+
+func runTimelinePageView(timeline run.TimelinePage) RunView {
+	summary := timeline.Summary
+	admission := summary.Admission
+	view := RunView{
+		RunID: admission.RunID, Status: string(summary.Status),
+		Generation: summary.Generation, RecordDigest: summary.Digest,
+		ProgramHash: admission.ProgramHash,
+		QueuedAt:    admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
+		Timeline:    timelineView(timeline.Entries), TimelinePage: timeline.Page,
+		TimelinePages: timeline.Pages, TimelineTotal: timeline.Total,
+	}
+	if summary.Failure != nil {
+		failure := summary.Failure
 		view.Failure = &FailureView{
 			Code: failure.Code, Category: failure.Category, Retryable: failure.Retryable,
 			GraphID: failure.GraphID, NodeID: failure.NodeID, Attempt: failure.Attempt,

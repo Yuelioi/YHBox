@@ -15,7 +15,7 @@ import (
 
 const (
 	RootFormat           = "yotta.storage-root"
-	LayoutVersion        = "1"
+	LayoutVersion        = "2"
 	rootManifestFilename = "root.json"
 	rootLeaseFilename    = "writer.lock"
 )
@@ -63,6 +63,71 @@ func Open(ctx context.Context, options OpenOptions) (*Profile, error) {
 	if err := openOrClaimRoot(roots, claimable); err != nil {
 		return nil, err
 	}
+	return openProfileDirectories(roots)
+}
+
+// OpenForMigration acquires the normal profile writer lease for one exact
+// released older layout without claiming or advancing it. Only the root
+// migration Module should use this entry point.
+func OpenForMigration(ctx context.Context, options OpenOptions, from string) (*Profile, error) {
+	if ctx == nil {
+		return nil, errors.New("open storage migration profile requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	roots, err := Resolve(options.Root)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := prepareRoot(roots.Root); err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(roots.ManifestFile())
+	if err != nil {
+		return nil, fmt.Errorf("read storage root manifest for migration: %w", err)
+	}
+	manifest, err := decodeRootManifest(raw)
+	if err != nil || manifest.Format != RootFormat || manifest.Version != from {
+		return nil, fmt.Errorf("%w: migration requires %s/%s", ErrUnsupportedLayout, RootFormat, from)
+	}
+	return openProfileDirectories(roots)
+}
+
+func (p *Profile) Close() error {
+	if p == nil || p.lease == nil {
+		return nil
+	}
+	held := p.lease
+	p.lease = nil
+	return held.close()
+}
+
+// PublishCurrentLayout is the migration commit point. It advances only an
+// exact older manifest while the caller still owns the profile writer lease.
+func (p *Profile) PublishCurrentLayout(from string) error {
+	if p == nil || p.lease == nil {
+		return errors.New("publish storage layout requires an open migration profile")
+	}
+	raw, err := os.ReadFile(p.Roots.ManifestFile())
+	if err != nil {
+		return err
+	}
+	manifest, err := decodeRootManifest(raw)
+	if err != nil || manifest.Format != RootFormat || manifest.Version != from {
+		return fmt.Errorf("%w: storage layout changed during migration", ErrUnsupportedLayout)
+	}
+	encoded, err := json.MarshalIndent(RootManifest{Format: RootFormat, Version: LayoutVersion}, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := durablefs.WriteFile(p.Roots.ManifestFile(), encoded, 0o600); err != nil {
+		return fmt.Errorf("publish storage layout: %w", err)
+	}
+	return nil
+}
+
+func openProfileDirectories(roots Roots) (*Profile, error) {
 	if err := os.MkdirAll(roots.Runtime, 0o700); err != nil {
 		return nil, fmt.Errorf("create storage runtime directory: %w", err)
 	}
@@ -80,15 +145,6 @@ func Open(ctx context.Context, options OpenOptions) (*Profile, error) {
 		}
 	}
 	return profile, nil
-}
-
-func (p *Profile) Close() error {
-	if p == nil || p.lease == nil {
-		return nil
-	}
-	held := p.lease
-	p.lease = nil
-	return held.close()
 }
 
 func prepareRoot(root string) (bool, error) {

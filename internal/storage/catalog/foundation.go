@@ -21,8 +21,8 @@ import (
 const (
 	ContentFilename      = "content.db"
 	RunFilename          = "runs.db"
-	ContentSchemaVersion = 3
-	RunSchemaVersion     = 1
+	ContentSchemaVersion = 4
+	RunSchemaVersion     = 2
 	ContentApplicationID = 0x594F5443 // YOTC; provisional, not SQLite-registered.
 	RunApplicationID     = 0x594F5452 // YOTR; provisional, not SQLite-registered.
 
@@ -94,6 +94,25 @@ func (f *Foundation) Workflows() *WorkflowRepository {
 	return &WorkflowRepository{database: f.content}
 }
 
+// WorkflowInstallations returns the repository for immutable verified Release
+// projections and their independent local Installation instances.
+func (f *Foundation) WorkflowInstallations() *WorkflowInstallationRepository {
+	if f == nil || f.content == nil {
+		return nil
+	}
+	return &WorkflowInstallationRepository{database: f.content}
+}
+
+// Runs returns the append-oriented Run Ledger repository. Run domain
+// validation remains in internal/run; this repository owns only the durable
+// summary/event/value representation and its transaction boundaries.
+func (f *Foundation) Runs() *RunRepository {
+	if f == nil || f.runs == nil {
+		return nil
+	}
+	return &RunRepository{database: f.runs}
+}
+
 type faultHooks struct {
 	beforeMigrationCommit func(databaseKind, int) error
 	beforeBackupManifest  func() error
@@ -152,7 +171,7 @@ func newDatabaseSpec(kind databaseKind, path string) databaseSpec {
 		return databaseSpec{
 			kind: runKind, path: path, applicationID: RunApplicationID,
 			currentVersion: RunSchemaVersion, migrations: runMigrations,
-			requiredObjects: foundationSchemaObjects,
+			requiredObjects: runSchemaObjects,
 		}
 	default:
 		panic("unknown catalog database kind")

@@ -34,6 +34,7 @@ import (
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 	"github.com/yottaapp/yotta/internal/workspacefs"
 )
@@ -54,6 +55,8 @@ type Config struct {
 	DataRoot                 string
 	ProgramCacheRoot         string
 	WorkflowRepository       *catalog.WorkflowRepository
+	InstallationRepository   *catalog.WorkflowInstallationRepository
+	RunRepository            *catalog.RunRepository
 	BlobStore                *blob.Store
 	Limits                   Limits
 	AIInstallations          ai.Installations
@@ -77,6 +80,7 @@ type Runtime struct {
 	Builtins          nodes.Builtins
 	BlobStore         *blob.Store
 	Bundles           *workflowbundle.Manager
+	Installations     *workflowinstallation.Module
 	ai                ai.Installations
 	http              httpegress.Installations
 	automationTargets *AutomationTargetRuntime
@@ -86,7 +90,7 @@ func Build(config Config) (*Runtime, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.WorkflowRepository == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
+	if !config.AIInstallations.Valid() || !config.HTTPInstallations.Valid() || !config.ApplicationInstallations.Valid() || !config.AutomationInstallations.Valid() || config.BlobStore == nil || config.WorkflowRepository == nil || config.InstallationRepository == nil || config.RunRepository == nil || config.ScriptRuntime == nil || config.LogEmitter == nil || config.GrantTTL <= 0 || config.GrantTTL > 24*time.Hour || config.OwnerCloseTimeout <= 0 {
 		return nil, errors.New("app bootstrap requires trusted installations, isolated effect runtimes, and bounded Run lifetimes")
 	}
 	if err := validateLimits(config.Limits); err != nil {
@@ -184,7 +188,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs, err := run.OpenStore(filepath.Join(workspace, "runs"), catalog, run.StoreOptions{MaxRecords: config.Limits.MaxRuns})
+	runs, err := run.OpenStore(config.RunRepository, catalog, run.StoreOptions{MaxRecords: config.Limits.MaxRuns})
 	if err != nil {
 		return nil, err
 	}
@@ -337,6 +341,10 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	installations, err := workflowinstallation.New(config.InstallationRepository, workflowinstallation.Options{Now: config.Now})
+	if err != nil {
+		return nil, err
+	}
 	generationOwned = true
 	automationTargets := &AutomationTargetRuntime{
 		application: application, ai: config.AIInstallations, http: config.HTTPInstallations,
@@ -348,7 +356,7 @@ func Build(config Config) (*Runtime, error) {
 		},
 	}
 	return &Runtime{
-		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles,
+		Application: application, Builtins: builtins, BlobStore: blobStore, Bundles: bundles, Installations: installations,
 		ai: config.AIInstallations, http: config.HTTPInstallations, automationTargets: automationTargets,
 	}, nil
 }

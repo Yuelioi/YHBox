@@ -92,7 +92,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 		target.KindAndroidADB: androidAdapter,
 	})
 
-	err := svc.OpenScreenPicker("rect", "req-1", "editor", "rgb", "asset-1")
+	err := svc.OpenScreenPicker("workflow_resource", "req-1", "editor", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestServiceOpenScreenPicker_ResolvesTargetKindAndRoutes(t *testing.T) {
 		t.Fatalf("android adapter calls = %+v", androidAdapter.pickerCalls)
 	}
 	got := androidAdapter.pickerCalls[0]
-	if got.Mode != "rect" || got.RequestID != "req-1" || got.TargetSlot != "editor" || got.ColorSpace != "rgb" || got.GUID != "asset-1" {
+	if got.Mode != "workflow_resource" || got.RequestID != "req-1" || got.TargetSlot != "editor" || got.ColorSpace != "" || got.GUID != "" {
 		t.Fatalf("picker request = %+v", got)
 	}
 }

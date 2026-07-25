@@ -10,18 +10,20 @@ Open
 
 ## Current
 
-R5 Workflow Repository + Program cache 已完成：Workflow Source canonical bytes、metadata、revision CAS、
-Blob reference 与 quarantine 进入 Content Catalog schema 3；Program 从 durable workspace 分离到 RootSet
-cache，按 compiler/catalog identity、数量、字节配额与持久 LRU 回收。portable Source/Bundle 合同未改变。
+Stage M3a 进行中：verified Workflow Release projection、多实例 Installation、独立 lifecycle/readiness 与
+Content Catalog schema 4 已落地；unsigned `.yotta-workflow` 仍严格保持 Source-only。
 
 ## Next
 
-进入 [配置与资源持久化目标架构](references/storage-config-target-architecture.md) 的 R6 Run history：
-把当前一记录一 JSON、事件累计重写的运行历史迁入独立 Run Ledger 的 summary/event/value 追加模型，并建立
-分页、retention/archive 与 payload CAS；不改变现有 Run domain 状态机。
+完成 [M3a](slices/stage-m3a-release-installation-readiness-core.md)：把 Installation-local target/credential/
+consent 投影接入运行与计划入口，确保两条路径都基于同一 Readiness Report fail closed。
 
 ## Progress
 
+- 2026-07-26 M3a 首批核心完成：verified Release projection、多实例 Installation 与独立 Readiness
+  深模块进入 Content Catalog schema 4 和桌面/CLI composition；Release/Installation 原子提交、identity
+  collision 回滚、五类并存 blocker、run/schedule 分离与精确 Release consent lineage 已由测试锁定。
+  `task check` 通过 38 个受影响 Go 包和 82 个测试文件/351 项测试。
 - Stage A–I 完成专业画布、Source-native 子图、Macro/InputClip、资源工作区、typed Authoring Surface、
   durable Snippets、Tab 快速添加、Macro 原地编辑、共享计划 Modal 与三路安全退出。
 - Stage J 闭环录制/模板连续性、运行停滞可解释性、节点与大选项发现、参数密度、Run State 初值和动态
@@ -120,6 +122,35 @@ cache，按 compiler/catalog identity、数量、字节配额与持久 LRU 回�
 - R5 验收：1,000 Source 查询、CAS 引用回滚、quarantine repair、Program identity/LRU/corruption fixture 与
   相关 race 通过；最终 `task check` 同一后台进程退出 0，`task build` 与隔离 Windows startup 通过，
   production CLI health 返回 Content schema 3、Run schema 1 与两库 healthy。
+- 2026-07-25 R6 完成：Run Ledger schema 2 接管 summary/event/value；domain Record 继续负责 generation、
+  digest、状态机与 journal 顺序，Repository 只原子追加 event/更新 bounded head。timeline page 使用一致
+  SQLite snapshot，archive/purge 与 payload CAS roots 已闭环；legacy v1 JSON 幂等导入且不删除旧 bytes。
+- R6 验收：全 `internal/...` 普通测试、Catalog/Run race、最终 `task check`（30 个受影响 Go 包）、
+  `task build`、Windows metadata/隔离 startup 均退出 0；production CLI health 返回 Content schema 3、
+  Run schema 2、WAL/FULL、quick-check ok 与两库 healthy。
+- 2026-07-25 R7 核心实现完成：冻结 released layout 1 fixture，layout 2 migration Module 建立只读 plan、
+  空间估算、完整 snapshot、immutable journal/checksum、resume/rollback、legacy Run quarantine/restore
+  与脱敏诊断导出；CLI 和启动期独立 recovery window 复用同一 Interface。prepared/Catalog/manifest
+  前后 kill-point、journal/snapshot 篡改和 GUI handler 定向测试通过。
+- R7 验收：targeted race、最终 `task check`（router self-test、AI eval、bindings、32 个 Go 包）、
+  `task build` 均退出 0；新增 `task smoke:storage-migration` 用 production 二进制验证 plan read-only、
+  invalid Run recovery、GUI kill、quarantine/resume、layout 2 双库 health 与迁移后 GUI 存活。
+- 2026-07-25 M2b 完成：新增 Workflow Resource authoring Module；编辑器录制/截图直接写 CAS 并返回完整
+  图片/Macro/InputClip resource，资产库仍创建 Global Asset；本机素材拖放改为 GUID-only payload 后从
+  Catalog 重新取权威 metadata、创建 snapshot 与 Resource Binding。`task check` 通过 34 个 Go 包和前端
+  82 文件/351 测试；`task build` editor gzip 202909/220000，Windows 隔离启动 smoke 退出 0。
+- 2026-07-26 M2c 完成：三类 Workflow Resource 可显式提升为独立 Global Asset，提升前严格验证 resource
+  与全部 CAS BlobRef，重复提升复用内容字节但分配不同 GUID；资源侧栏刷新素材库且不产生 Source dirty/undo。
+  `task check` 通过 36 个 Go 包和前端 82 文件/351 测试；`task build` editor gzip 202920/220000，
+  Windows GUI metadata 与隔离启动 smoke 退出 0。
+- 2026-07-26 M2d/Stage M2 完成：`resourceauthoring` 直接从 Workflow Resource/CAS 打开 Macro 与
+  InputClip，提供严格 carrier/metadata 校验、分页事件、动作重写、精准裁剪与三类显式 duplicate；
+  authoring `replace-resource` 保留 ID/kind、共享 binding 和单 undo。资源侧栏显示三类 Source-native
+  摘要，并复用现有 Macro/精准录制工作台完成内容编辑，不查询 Global Asset。
+- M2d 验收：最终 `task check` 路由 113 个变更文件，AI 8/8、Wails 17 服务/148 方法、37 个 Go 包、
+  前端 82 文件/351 测试全部通过；`task build` editor gzip 203779/220000 并通过 Windows metadata/
+  隔离启动。修正 WebView smoke 的旧文件夹恢复夹具为 Catalog quarantine 后，`task webview:smoke`
+  退出 0，`20260726-010939` 的恢复面、编辑器、资源工具、资源库与计划截图已目检。
 
 ## References
 

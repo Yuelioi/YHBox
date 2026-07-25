@@ -84,6 +84,13 @@ func validateResources(resources []WorkflowResource) error {
 	return nil
 }
 
+// ValidateWorkflowResource validates one portable resource independently of a
+// Source document. Authoring RPCs use it before accepting untrusted resource
+// values from the frontend.
+func ValidateWorkflowResource(resource WorkflowResource) error {
+	return validateResources([]WorkflowResource{resource})
+}
+
 func validateImageResource(resource ImageResource) error {
 	if len(resource.Variants) == 0 || len(resource.Variants) > 256 {
 		return errors.New("image variant count is invalid")

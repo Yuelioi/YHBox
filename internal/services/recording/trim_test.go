@@ -53,7 +53,7 @@ func TestTrimPreciseEventsSynthesizesHeldInputAtArbitraryBoundaries(t *testing.T
 }
 
 func TestPendingEventsPagesPreciseRecordingWithinBudget(t *testing.T) {
-	service := NewService(&resultRecorder{}, nil, nil, nil, nil)
+	service := NewService(&resultRecorder{}, nil, nil, nil, nil, nil)
 	service.pending = &pendingRecording{result: &StopResult{
 		TempID: "precise",
 		Meta:   inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise},

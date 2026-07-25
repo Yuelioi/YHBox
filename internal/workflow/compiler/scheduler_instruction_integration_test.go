@@ -331,7 +331,7 @@ func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, p
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := run.OpenStore(t.TempDir(), builtins.Catalog, run.StoreOptions{MaxRecords: 1})
+	store, err := newCompilerIntegrationRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

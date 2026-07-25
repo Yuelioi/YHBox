@@ -75,7 +75,7 @@ func TestNativeRecorderProducesCanonicalEncodableInput(t *testing.T) {
 		t.Fatalf("decode native recording: %v", err)
 	}
 	root := t.TempDir()
-	assets := newRecordingAssetStore(t, root)
+	assets, _ := newRecordingAssetStore(t, root)
 	clips := inputclip.NewService(assets)
 	clip.ID = "clip-native-recorder"
 	clip.Label = "Native recorder"

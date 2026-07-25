@@ -70,7 +70,7 @@ func Resolve(explicit string) (Roots, error) {
 		Cache: filepath.Join(absolute, "cache"), State: filepath.Join(absolute, "state"),
 		Diagnostics: diagnostics, Logs: filepath.Join(diagnostics, "logs"), Crashes: filepath.Join(diagnostics, "crashes"),
 		Captures: filepath.Join(diagnostics, "captures"),
-		Backups: backups, Migrations: filepath.Join(backups, "migrations"),
+		Backups:  backups, Migrations: filepath.Join(backups, "migrations"),
 		Runtime: filepath.Join(absolute, "runtime"), Temp: filepath.Join(absolute, "tmp"),
 	}, nil
 }
@@ -83,3 +83,4 @@ func (r Roots) directories() []string {
 }
 
 func (r Roots) SettingsFile() string { return filepath.Join(r.Config, "settings.json") }
+func (r Roots) ManifestFile() string { return filepath.Join(r.Root, rootManifestFilename) }

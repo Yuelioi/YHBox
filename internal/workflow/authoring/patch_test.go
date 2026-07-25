@@ -167,6 +167,66 @@ func TestEngineAuthorsWorkflowResourceLifecycleAndProtectsReferences(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	replacement := resource
+	replacement.Image = &schema.ImageResource{Variants: []schema.ImageResourceVariant{{
+		ID: "default", Resolution: [2]int{2, 2}, BBox: [4]int{0, 0, 2, 2},
+		Blob: blob.BlobRef{
+			MediaType: "image/png",
+			Digest:    artifact.Digest("sha256:" + strings.Repeat("3", 64)),
+			Size:      2,
+		},
+	}}}
+	replaced, err := engine.Apply(referenced.Source, []authoring.Command{{
+		Kind: authoring.CommandReplaceResource,
+		ReplaceResource: &authoring.ReplaceResourceCommand{
+			ResourceID: resource.ID,
+			Resource:   replacement,
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotBinding := replaced.Source.Graphs[0].Nodes[0].Bindings["a"]
+	if gotBinding.Resource == nil || gotBinding.Resource.ResourceID != resource.ID ||
+		replaced.Source.Resources[0].Image.Variants[0].Blob != replacement.Image.Variants[0].Blob {
+		t.Fatalf("replacement did not preserve shared binding: %#v %#v", gotBinding, replaced.Source.Resources)
+	}
+
+	changedID := replacement
+	changedID.ID = "different"
+	_, err = engine.Apply(referenced.Source, []authoring.Command{{
+		Kind: authoring.CommandReplaceResource,
+		ReplaceResource: &authoring.ReplaceResourceCommand{
+			ResourceID: resource.ID,
+			Resource:   changedID,
+		},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "RESOURCE_ID_CHANGED") {
+		t.Fatalf("changed replacement ID error = %v", err)
+	}
+
+	changedKind := replacement
+	changedKind.Kind = schema.ResourceMacro
+	changedKind.Image = nil
+	changedKind.Macro = &schema.MacroResource{
+		Blob: blob.BlobRef{
+			MediaType: schema.MacroResourceMediaType,
+			Digest:    artifact.Digest("sha256:" + strings.Repeat("4", 64)),
+			Size:      2,
+		},
+		BaseResolution: [2]int{2, 2},
+	}
+	_, err = engine.Apply(referenced.Source, []authoring.Command{{
+		Kind: authoring.CommandReplaceResource,
+		ReplaceResource: &authoring.ReplaceResourceCommand{
+			ResourceID: resource.ID,
+			Resource:   changedKind,
+		},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "RESOURCE_KIND_CHANGED") {
+		t.Fatalf("changed replacement kind error = %v", err)
+	}
+
 	_, err = engine.Apply(referenced.Source, []authoring.Command{{
 		Kind: authoring.CommandRemoveResource, RemoveResource: &authoring.RemoveResourceCommand{ResourceID: resource.ID},
 	}})

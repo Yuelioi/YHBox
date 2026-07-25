@@ -17,4 +17,10 @@ describe('ScreenPickerView template capture metadata', () => {
     expect(source).toContain('const tplCategory = ref(lastTplCategory.value)')
     expect(source).toContain('lastTplCategory.value = tplCategory.value.trim()')
   })
+
+  it('creates an editor capture through the Workflow Resource authoring module', () => {
+    expect(source).toContain("mode.value === 'workflow_resource'")
+    expect(source).toContain('backend.workflowResources.createImage({')
+    expect(source).toContain('await emitResult({ resource })')
+  })
 })

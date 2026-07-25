@@ -40,6 +40,14 @@ _Avoid_: Workflow installation, downloaded copy
 一个 Workflow Release 在某台宿主上的独立本机实例，拥有自己的用户配置、授权、计划与更新状态；同一 Release 可有多个 Installation。
 _Avoid_: Workflow release, imported source
 
+**Installation Lifecycle**:
+Workflow Installation 在本机的持久存在状态，例如 active 或 archived；它不表达依赖、目标、凭据或授权是否齐全。
+_Avoid_: Readiness, setup status
+
+**Readiness Report**:
+对某个精确 Workflow Installation/Release 的当前可执行性投影，同时列出 dependency、target、credential、手动运行授权与计划授权 blocker 及修复动作；它不推进 Installation lifecycle。
+_Avoid_: Installation status, setup step
+
 **Platform Delisting**:
 在线平台停止提供某个 Workflow Release 的新下载；它不是撤销、远程停用或本地信任策略变更。
 _Avoid_: Release revocation, remote disable

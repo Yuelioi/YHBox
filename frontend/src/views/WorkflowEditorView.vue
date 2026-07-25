@@ -283,6 +283,8 @@
             @capture-template="openTemplateCapture"
             @open-library="router.push('/assets')"
             @edit="openMacroEditor"
+            @edit-workflow-resource="openWorkflowResourceEditor"
+            @duplicate-workflow-resource="duplicateWorkflowResource"
             @use="useWorkspaceResource"
             @use-workflow="useWorkflowResource"
             @import-workflow-resource="importWorkflowResource"
@@ -1147,6 +1149,86 @@
         </UButton>
       </template>
     </BaseModal>
+    <BaseModal
+      :open="!!workflowMacroEditing"
+      :title="workflowMacroEditing?.resource.name ?? t('macroEditor.title')"
+      icon="i-tabler-list-details"
+      size="5xl"
+      tall
+      @update:open="(open) => !open && (workflowMacroEditing = null)"
+    >
+      <div v-if="workflowMacroEditing" class="flex h-full min-h-0 flex-col gap-3">
+        <div
+          class="flex shrink-0 items-center gap-3 rounded-lg border border-default bg-elevated/25 px-3 py-2 text-xs text-muted"
+        >
+          <span>{{ t('assets.macros.base_resolution') }}</span>
+          <strong class="font-mono text-toned">
+            {{ workflowMacroEditing.document.baseResolution[0] }}×{{
+              workflowMacroEditing.document.baseResolution[1]
+            }}
+          </strong>
+          <span class="ml-auto truncate font-mono text-[10px] text-dimmed">{{
+            workflowMacroEditing.resource.id
+          }}</span>
+        </div>
+        <MacroActionEditor
+          v-model="workflowMacroEditing.document.actions"
+          class="min-h-0 flex-1"
+          @validity="workflowMacroEditValid = $event"
+        />
+      </div>
+      <template #footer>
+        <UButton color="neutral" variant="ghost" @click="workflowMacroEditing = null">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          icon="i-tabler-device-floppy"
+          :loading="workflowResourceEditBusy"
+          :disabled="!workflowMacroEditValid"
+          @click="saveWorkflowMacro"
+        >
+          {{ t('common.save') }}
+        </UButton>
+      </template>
+    </BaseModal>
+    <BaseModal
+      :open="!!workflowClipEditing"
+      :title="workflowClipEditing?.resource.name ?? t('preciseWorkbench.title')"
+      icon="i-tabler-route-alt-left"
+      size="5xl"
+      tall
+      @update:open="(open) => !open && (workflowClipEditing = null)"
+    >
+      <PreciseRecordingWorkbench
+        v-if="workflowClipEditing && workflowClipPreview"
+        :preview="workflowClipPreview"
+        :environment="{
+          baseResolution: workflowClipEditing.content.baseResolution,
+          mouseMode: workflowClipEditing.content.mouseMode,
+          mouseCounts360: workflowClipEditing.content.mouseCounts360,
+        }"
+        :duration-us="workflowClipEditing.content.durationUs"
+        :trim-start-us="workflowClipTrimStartUs"
+        :trim-end-us="workflowClipTrimEndUs"
+        :workflow-resource="workflowClipEditing.resource"
+        editable-trim
+        @update:trim-start-us="workflowClipTrimStartUs = $event"
+        @update:trim-end-us="workflowClipTrimEndUs = $event"
+      />
+      <template #footer>
+        <UButton color="neutral" variant="ghost" @click="workflowClipEditing = null">
+          {{ t('common.cancel') }}
+        </UButton>
+        <UButton
+          icon="i-tabler-cut"
+          :loading="workflowResourceEditBusy"
+          :disabled="!workflowClipTrimChanged"
+          @click="saveWorkflowClipTrim"
+        >
+          {{ t('common.save') }}
+        </UButton>
+      </template>
+    </BaseModal>
     <WorkflowSnippetModal
       :open="snippetModalOpen"
       :snippet-id="snippetDraft?.id ?? ''"
@@ -1226,6 +1308,7 @@ import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
+import { snapshotGlobalAssetByID } from '@/app/editor/workflowResourceSnapshot'
 import type {
   ResourceLocateRequest,
   ResourceLocation,
@@ -1245,11 +1328,19 @@ import {
   useRecordingStore,
   type MacroAction,
   type RecordingMode,
+  type RecordingPreview,
   type RecordingStopPayload,
 } from '@/stores/recording'
 import { useSettingsStore } from '@/stores/settings'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
-import { backend, type AssetSummary, type MacroAsset, type WorkflowSnippet } from '@/lib/backend'
+import {
+  backend,
+  type AssetSummary,
+  type MacroAsset,
+  type MacroDocument,
+  type WorkflowResourceContent,
+  type WorkflowSnippet,
+} from '@/lib/backend'
 import { useSnippetsStore } from '@/stores/snippets'
 import { shortcutFromKeyboardEvent } from '@/app/editor/snippetShortcut'
 import type { WorkflowQuickAddItem } from '@/app/editor/workflowQuickAdd'
@@ -1466,6 +1557,41 @@ const recordingFacetTags = ref<string[]>([])
 const macroEditing = ref<MacroAsset | null>(null)
 const macroEditBusy = ref(false)
 const macroEditValid = ref(true)
+const workflowMacroEditing = ref<{
+  resource: WorkflowResource
+  document: MacroDocument
+} | null>(null)
+const workflowMacroEditValid = ref(true)
+const workflowClipEditing = ref<{
+  resource: WorkflowResource
+  content: NonNullable<WorkflowResourceContent['inputClip']>
+} | null>(null)
+const workflowClipTrimStartUs = ref(0)
+const workflowClipTrimEndUs = ref(0)
+const workflowResourceEditBusy = ref(false)
+const workflowClipPreview = computed<RecordingPreview | null>(() => {
+  const clip = workflowClipEditing.value?.content
+  if (!clip) return null
+  const counts = Object.fromEntries(clip.tracks.map((track) => [track.kind, track.count]))
+  return {
+    mode: 'precise',
+    durationUs: clip.durationUs,
+    eventCount: clip.eventCount,
+    keyActions: counts.keyboard ?? 0,
+    clickActions: counts['mouse-buttons'] ?? 0,
+    pointerMoves: counts['absolute-motion'] ?? 0,
+    rawDeltas: counts['relative-motion'] ?? 0,
+    scrollActions: counts.scroll ?? 0,
+    steps: [],
+    tracks: clip.tracks,
+  }
+})
+const workflowClipTrimChanged = computed(() => {
+  const clip = workflowClipEditing.value?.content
+  return Boolean(
+    clip && (workflowClipTrimStartUs.value > 0 || workflowClipTrimEndUs.value < clip.durationUs),
+  )
+})
 const templateCaptureOpen = ref(false)
 const captureTargetSlot = ref('')
 const templateCaptureBusy = ref(false)
@@ -2169,6 +2295,7 @@ async function saveRecordingResource(): Promise<void> {
   try {
     const saved = await recording.finalize({
       pendingID: pending.pendingID,
+      destination: 'workflow-resource',
       label: recordingDraft.name.trim(),
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),
@@ -2178,13 +2305,10 @@ async function saveRecordingResource(): Promise<void> {
       trimEndUs: pending.mode === 'precise' ? recordingTrimEndUs.value : undefined,
     })
     pendingRecording.value = null
-    useWorkspaceResource({
-      guid: saved.assetID,
-      kind: saved.assetKind,
-      name: saved.label,
-      blob: { ...saved.blob },
-    })
-    assets.invalidate()
+    if (saved.destination !== 'workflow-resource') {
+      throw new Error('recording finalize returned the wrong destination')
+    }
+    importWorkflowResource(saved.resource)
   } catch (error) {
     showError(t('recordingSave.save_failed'), error)
   } finally {
@@ -2218,27 +2342,14 @@ async function captureWorkspaceTemplate(): Promise<void> {
   try {
     const resultPromise = awaitWailsEvent<{
       id: string
-      payload?: { cancelled?: boolean; guid?: string }
+      payload?: { cancelled?: boolean; resource?: WorkflowResource }
     }>('tools:picker-result', (payload) => payload?.id === id)
-    await backend.tools.openScreenPicker('template_save', id, captureTargetSlot.value)
+    await backend.tools.openScreenPicker('workflow_resource', id, captureTargetSlot.value)
     templateCaptureOpen.value = false
     const result = await resultPromise
-    const guid = result.payload?.guid
-    if (!guid || result.payload?.cancelled) return
-    assets.invalidate()
-    const asset = await backend.assets.get(guid)
-    const variant = asset.variants?.[0]
-    if (!variant) return
-    useWorkspaceResource({
-      guid,
-      kind: 'template',
-      name: asset.name,
-      resolution:
-        variant.resolution.length === 2
-          ? [variant.resolution[0], variant.resolution[1]]
-          : undefined,
-      blob: { ...variant.blob },
-    })
+    const resource = result.payload?.resource
+    if (!resource || result.payload?.cancelled) return
+    importWorkflowResource(resource)
   } catch (error) {
     showError(t('assets.templates.capture_failed'), error)
   } finally {
@@ -2326,7 +2437,10 @@ function locateBoundResource(location: ResourceLocation): void {
   }
 }
 
-function importWorkflowResource(resource: WorkflowResource): void {
+function importWorkflowResource(
+  resource: WorkflowResource,
+  position?: { x: number; y: number },
+): void {
   const source = session.source
   if (!source) return
   const baseID = resource.id
@@ -2338,13 +2452,14 @@ function importWorkflowResource(resource: WorkflowResource): void {
   }
   const snapshot = { ...plainCopy(resource), id }
   const variantId = snapshot.kind === 'image' ? (snapshot.image?.variants[0]?.id ?? '') : ''
-  placeWorkflowResource(snapshot, variantId, true)
+  placeWorkflowResource(snapshot, variantId, true, position)
 }
 
 function placeWorkflowResource(
   resource: WorkflowResource,
   variantId: string,
   addResource: boolean,
+  requestedPosition?: { x: number; y: number },
 ): void {
   const portId =
     resource.kind === 'macro' ? 'macro' : resource.kind === 'input-clip' ? 'clip' : 'template'
@@ -2383,9 +2498,11 @@ function placeWorkflowResource(
         ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
         : 'https://schemas.yotta.dev/nodes/automation/click-template'
   const rect = canvasElement.value?.getBoundingClientRect()
-  const position = rect
-    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-    : { x: 160, y: 160 }
+  const position =
+    requestedPosition ??
+    (rect
+      ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      : { x: 160, y: 160 })
   const targetSlot =
     workflowDefaultTargetSlot.value ||
     recordingTargetSlot.value ||
@@ -2593,6 +2710,95 @@ function cloneRecordingActions(actions: MacroAction[]): MacroAction[] {
   }))
 }
 
+function cloneMacroDocument(document: MacroDocument): MacroDocument {
+  return {
+    ...document,
+    baseResolution: [...document.baseResolution] as [number, number],
+    actions: cloneRecordingActions(document.actions),
+  }
+}
+
+async function openWorkflowResourceEditor(resource: WorkflowResource): Promise<void> {
+  try {
+    const content = await backend.workflowResources.open(plainCopy(resource))
+    if (resource.kind === 'macro' && content.macro) {
+      workflowMacroEditing.value = {
+        resource: plainCopy(resource),
+        document: cloneMacroDocument(content.macro),
+      }
+      workflowMacroEditValid.value = true
+      return
+    }
+    if (resource.kind === 'input-clip' && content.inputClip) {
+      workflowClipEditing.value = {
+        resource: plainCopy(resource),
+        content: plainCopy(content.inputClip),
+      }
+      workflowClipTrimStartUs.value = 0
+      workflowClipTrimEndUs.value = content.inputClip.durationUs
+      return
+    }
+    throw new Error(`resource ${resource.id} has no editable content`)
+  } catch (error) {
+    showError(t('workflow.resources.load_content_failed'), error)
+  }
+}
+
+async function saveWorkflowMacro(): Promise<void> {
+  const editing = workflowMacroEditing.value
+  if (!editing || !workflowMacroEditValid.value) return
+  workflowResourceEditBusy.value = true
+  try {
+    const updated = await backend.workflowResources.rewrite(plainCopy(editing.resource), {
+      kind: 'macro-document',
+      macro: { document: cloneMacroDocument(editing.document) },
+    })
+    session.apply({
+      kind: 'replace-resource',
+      resourceId: editing.resource.id,
+      resource: plainCopy(updated),
+    })
+    workflowMacroEditing.value = null
+  } catch (error) {
+    showError(t('workflow.resources.save_content_failed'), error)
+  } finally {
+    workflowResourceEditBusy.value = false
+  }
+}
+
+async function saveWorkflowClipTrim(): Promise<void> {
+  const editing = workflowClipEditing.value
+  if (!editing || !workflowClipTrimChanged.value) return
+  workflowResourceEditBusy.value = true
+  try {
+    const updated = await backend.workflowResources.rewrite(plainCopy(editing.resource), {
+      kind: 'input-clip-trim',
+      inputClip: {
+        trimStartUs: workflowClipTrimStartUs.value,
+        trimEndUs: workflowClipTrimEndUs.value,
+      },
+    })
+    session.apply({
+      kind: 'replace-resource',
+      resourceId: editing.resource.id,
+      resource: plainCopy(updated),
+    })
+    workflowClipEditing.value = null
+  } catch (error) {
+    showError(t('workflow.resources.save_content_failed'), error)
+  } finally {
+    workflowResourceEditBusy.value = false
+  }
+}
+
+function duplicateWorkflowResource(resource: WorkflowResource): void {
+  try {
+    session.apply({ kind: 'add-resource', resource: plainCopy(resource) })
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
 async function openMacroEditor(asset: AssetSummary): Promise<void> {
   try {
     const value = await backend.macros.get(asset.guid)
@@ -2600,11 +2806,7 @@ async function openMacroEditor(asset: AssetSummary): Promise<void> {
     macroEditing.value = {
       ...value,
       tags: [...(value.tags ?? [])],
-      document: {
-        ...value.document,
-        baseResolution: [...value.document.baseResolution] as [number, number],
-        actions: cloneRecordingActions(value.document.actions),
-      },
+      document: cloneMacroDocument(value.document),
       blob: { ...value.blob },
     }
     macroEditValid.value = true
@@ -2619,10 +2821,7 @@ async function saveMacro(): Promise<void> {
   try {
     await backend.macros.save({
       ...macroEditing.value,
-      document: {
-        ...macroEditing.value.document,
-        actions: cloneRecordingActions(macroEditing.value.document.actions),
-      },
+      document: cloneMacroDocument(macroEditing.value.document),
     })
     macroEditing.value = null
     assets.invalidate()
@@ -3190,7 +3389,7 @@ function dropNode(event: DragEvent): void {
     return
   }
   if (workspaceResource) {
-    dropWorkspaceResource(workspaceResource, position)
+    void dropWorkspaceResource(workspaceResource, position)
     return
   }
   if (!stateReference) return
@@ -3199,9 +3398,18 @@ function dropNode(event: DragEvent): void {
   insertStateReference(parsed.name, parsed.mode, position)
 }
 
-function dropWorkspaceResource(raw: string, position: { x: number; y: number }): void {
-  const selection = parseWorkspaceResource(raw)
-  if (selection) useWorkspaceResource(selection, position)
+async function dropWorkspaceResource(
+  raw: string,
+  position: { x: number; y: number },
+): Promise<void> {
+  const guid = parseWorkspaceResource(raw)
+  if (!guid) return
+  try {
+    importWorkflowResource(await snapshotGlobalAssetByID(guid), position)
+    assets.markUsed(guid)
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
 }
 
 function parseStateReferenceDrop(raw: string): unknown {

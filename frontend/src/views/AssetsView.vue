@@ -1404,6 +1404,7 @@ async function saveRecording(): Promise<void> {
   try {
     await recording.finalize({
       pendingID: pending.pendingID,
+      destination: 'global-asset',
       label: recordingDraft.name.trim(),
       description: recordingDraft.description.trim(),
       category: recordingDraft.category.trim(),

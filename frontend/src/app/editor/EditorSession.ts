@@ -123,6 +123,7 @@ export type EditorCommand =
   | { kind: 'bind-blob'; nodeId: string; portId: string; blob: BlobRef }
   | { kind: 'bind-resource'; nodeId: string; portId: string; resource: ResourceBinding }
   | { kind: 'add-resource'; resource: WorkflowResource }
+  | { kind: 'replace-resource'; resourceId: string; resource: WorkflowResource }
   | {
       kind: 'update-resource-metadata'
       resourceId: string
@@ -1608,6 +1609,14 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
           kind: command.kind,
           addResource: { resource: clone(command.resource) },
         }
+      case 'replace-resource':
+        return {
+          kind: command.kind,
+          replaceResource: {
+            resourceId: command.resourceId,
+            resource: clone(command.resource),
+          },
+        }
       case 'update-resource-metadata':
         return {
           kind: command.kind,
@@ -2066,6 +2075,16 @@ function applyCommand(
         throw new Error(`workflow resource ${command.resource.id} already exists`)
       source.resources.push(normalizeWorkflowResource(command.resource))
       source.resources.sort((left, right) => left.id.localeCompare(right.id))
+      return
+    }
+    case 'replace-resource': {
+      const index = source.resources.findIndex((candidate) => candidate.id === command.resourceId)
+      if (index < 0) throw new Error(`workflow resource ${command.resourceId} does not exist`)
+      if (command.resource.id !== command.resourceId)
+        throw new Error('workflow resource replacement must preserve identity')
+      if (command.resource.kind !== source.resources[index]!.kind)
+        throw new Error('workflow resource replacement must preserve kind')
+      source.resources[index] = normalizeWorkflowResource(command.resource)
       return
     }
     case 'update-resource-metadata': {

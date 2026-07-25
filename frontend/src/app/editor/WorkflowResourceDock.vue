@@ -366,6 +366,7 @@ import type {
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import { RESOURCE_DRAG_FORMAT, serializeWorkspaceResource } from './resourceDrag'
+import { snapshotGlobalAsset } from './workflowResourceSnapshot'
 import {
   projectWorkflowResourcePage,
   workflowResourceReferenceCount,
@@ -392,6 +393,8 @@ const emit = defineEmits<{
   use: [selection: AssetPickerSelection]
   'use-workflow': [resource: WorkflowResource, variantId: string]
   'import-workflow-resource': [resource: WorkflowResource]
+  'edit-workflow-resource': [resource: WorkflowResource]
+  'duplicate-workflow-resource': [resource: WorkflowResource]
   'update-workflow-resources': [
     payloads: Array<{
       resourceId: string
@@ -688,7 +691,7 @@ function useLibraryItem(item: AssetLibraryListItem): void {
 async function importAsset(asset: AssetSummary): Promise<void> {
   busy.value = true
   try {
-    emit('import-workflow-resource', await snapshotAsset(asset))
+    emit('import-workflow-resource', await snapshotGlobalAsset(asset))
     assets.markUsed(asset.guid)
     showFeedback('success', t('workflow.resources.snapshot_created'))
   } catch (error) {
@@ -718,6 +721,30 @@ function itemMenu(id: string) {
             },
           ]
         : []),
+      ...(isWorkflowResource(value)
+        ? [
+            ...(value.kind === 'macro' || value.kind === 'input-clip'
+              ? [
+                  {
+                    label: t('workflow.resources.edit_content'),
+                    icon:
+                      value.kind === 'macro' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left',
+                    onSelect: () => emit('edit-workflow-resource', value),
+                  },
+                ]
+              : []),
+            {
+              label: t('workflow.resources.duplicate'),
+              icon: 'i-tabler-copy',
+              onSelect: () => void duplicateWorkflowResource(value),
+            },
+            {
+              label: t('workflow.resources.promote'),
+              icon: 'i-tabler-library-plus',
+              onSelect: () => void promoteWorkflowResource(value),
+            },
+          ]
+        : []),
     ],
     [
       {
@@ -729,6 +756,34 @@ function itemMenu(id: string) {
       },
     ],
   ]
+}
+
+async function duplicateWorkflowResource(resource: WorkflowResource): Promise<void> {
+  if (busy.value) return
+  busy.value = true
+  try {
+    const duplicate = await backend.workflowResources.duplicate(resource)
+    emit('duplicate-workflow-resource', duplicate)
+    showFeedback('success', t('workflow.resources.duplicated', { name: resource.name }))
+  } catch (error) {
+    showFeedback('error', errorMessage(error))
+  } finally {
+    busy.value = false
+  }
+}
+
+async function promoteWorkflowResource(resource: WorkflowResource): Promise<void> {
+  if (busy.value) return
+  busy.value = true
+  try {
+    await backend.workflowResources.promote(resource)
+    assets.invalidate()
+    showFeedback('success', t('workflow.resources.promoted', { name: resource.name }))
+  } catch (error) {
+    showFeedback('error', errorMessage(error))
+  } finally {
+    busy.value = false
+  }
 }
 
 function openEdit(value: WorkflowResource | AssetSummary): void {
@@ -896,17 +951,8 @@ function startResourceDrag(event: DragEvent, item: AssetLibraryListItem): void {
   if (scope.value !== 'library') return
   const asset = libraryAssets.value.find((candidate) => candidate.guid === item.id)
   if (!asset || !event.dataTransfer) return
-  const blob = asset.kind === 'template' ? asset.variants[0]?.blob : asset.blob
-  if (!blob) return
-  const selection: AssetPickerSelection = {
-    guid: asset.guid,
-    kind: asset.kind,
-    name: asset.name,
-    resolution: asset.kind === 'template' ? asset.variants[0]?.resolution : undefined,
-    blob: { ...blob },
-  }
   event.dataTransfer.effectAllowed = 'copy'
-  event.dataTransfer.setData(RESOURCE_DRAG_FORMAT, serializeWorkspaceResource(selection))
+  event.dataTransfer.setData(RESOURCE_DRAG_FORMAT, serializeWorkspaceResource(asset.guid))
 }
 
 function visibleSourceByID(id: string): WorkflowResource | AssetSummary | undefined {
@@ -921,18 +967,48 @@ function sourceID(value: WorkflowResource | AssetSummary): string {
 
 function workflowListItem(resource: WorkflowResource): AssetLibraryListItem {
   const references = referenceCount(resource.id)
+  const summary = workflowResourceSummary(resource)
+  const referenceSummary = references
+    ? t('workflow.resources.reference_count', { n: references })
+    : t('workflow.resources.unused')
   return {
     id: resource.id,
     name: resource.name,
-    description: resource.description ?? '',
+    description: [resource.description ?? '', summary, referenceSummary]
+      .filter(Boolean)
+      .join(' · '),
     category: resource.category ?? '',
     tags: resource.tags ?? [],
-    meta: references
-      ? t('workflow.resources.reference_count', { n: references })
-      : t('workflow.resources.unused'),
+    meta: `${summary} · ${referenceSummary}`,
     icon: assetIconForKind(resource.kind),
     previewBlob: resource.kind === 'image' ? resource.image?.variants[0]?.blob : undefined,
   }
+}
+
+function workflowResourceSummary(resource: WorkflowResource): string {
+  if (resource.kind === 'image') {
+    const variant = resource.image?.variants[0]
+    return t('workflow.resources.image_summary', {
+      variants: resource.image?.variants.length ?? 0,
+      width: variant?.resolution[0] ?? 0,
+      height: variant?.resolution[1] ?? 0,
+    })
+  }
+  if (resource.kind === 'macro') {
+    return t('workflow.resources.macro_summary', {
+      actions: resource.macro?.actionCount ?? 0,
+      duration: formatResourceDuration(resource.macro?.durationUs ?? 0),
+    })
+  }
+  return t('workflow.resources.input_clip_summary', {
+    events: resource.inputClip?.eventCount ?? 0,
+    duration: formatResourceDuration(resource.inputClip?.durationUs ?? 0),
+    counts: resource.inputClip?.mouseCounts360 || '—',
+  })
+}
+
+function formatResourceDuration(durationUs: number): string {
+  return `${(Math.max(0, durationUs) / 1_000_000).toFixed(2)}s`
 }
 
 function referenceCount(resourceId: string): number {
@@ -961,82 +1037,6 @@ function assetMeta(asset: AssetSummary): string {
   if (asset.kind === 'template') return t('assets.templates.meta', { count: asset.variantCount })
   if (asset.kind === 'clip') return t('assetPicker.clip_size', { size: asset.blob?.size ?? 0 })
   return t('assetPicker.macro_size', { size: asset.blob?.size ?? 0 })
-}
-
-async function snapshotAsset(asset: AssetSummary): Promise<WorkflowResource> {
-  const identity = `asset-${asset.guid}`
-  const presentation = {
-    id: identity,
-    name: asset.name,
-    description: asset.description?.trim() || undefined,
-    category: asset.category?.trim() || undefined,
-    tags: uniqueStrings(asset.tags ?? []),
-  }
-  if (asset.kind === 'template') {
-    const record = await backend.assets.get(asset.guid)
-    const variants = (record.variants ?? []).map((variant, index) => {
-      const resolution: [number, number] = [
-        Number(variant.resolution[0] ?? 0),
-        Number(variant.resolution[1] ?? 0),
-      ]
-      const bbox: [number, number, number, number] =
-        variant.bbox.length === 4
-          ? [
-              Number(variant.bbox[0]),
-              Number(variant.bbox[1]),
-              Number(variant.bbox[2]),
-              Number(variant.bbox[3]),
-            ]
-          : [0, 0, resolution[0], resolution[1]]
-      return {
-        id: `variant-${resolution[0]}x${resolution[1]}-${index + 1}`,
-        resolution,
-        bbox,
-        blob: { ...variant.blob },
-      }
-    })
-    variants.sort((left, right) => left.id.localeCompare(right.id))
-    if (!variants.length) throw new Error(t('workflow.resources.snapshot_missing_payload'))
-    return {
-      ...presentation,
-      kind: 'image',
-      image: { variants: variants as [(typeof variants)[0], ...typeof variants] },
-    }
-  }
-  if (asset.kind === 'macro') {
-    const macro = await backend.macros.get(asset.guid)
-    if (!macro) throw new Error(t('workflow.resources.snapshot_missing_payload'))
-    const analysis = await backend.macros.analyze(macro.document)
-    return {
-      ...presentation,
-      kind: 'macro',
-      macro: {
-        blob: { ...macro.blob },
-        baseResolution: [...macro.document.baseResolution],
-        actionCount: macro.document.actions.length,
-        durationUs: analysis.durationUs,
-      },
-    }
-  }
-  const clip = await backend.clips.summary(asset.guid)
-  const mouseMode =
-    clip.meta.mouseMode === 'relative' || clip.meta.mouseMode === 'absolute'
-      ? clip.meta.mouseMode
-      : 'mixed'
-  return {
-    ...presentation,
-    kind: 'input-clip',
-    inputClip: {
-      blob: { ...clip.blob },
-      durationUs: clip.durationUs,
-      eventCount: clip.eventCount,
-      recordingMode: clip.meta.recordingMode,
-      mouseMode,
-      baseResolution: [...clip.meta.baseResolution],
-      mouseCounts360: clip.meta.mouseCounts360,
-      stopHotkeyVk: clip.meta.stopHotkeyVK,
-    },
-  }
 }
 
 function showFeedback(tone: 'success' | 'warning' | 'error', message: string): void {

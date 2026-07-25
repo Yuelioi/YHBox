@@ -2,6 +2,7 @@ package run_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,13 +12,15 @@ import (
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
 	run "github.com/yottaapp/yotta/internal/run"
+	"github.com/yottaapp/yotta/internal/storage"
+	storagecatalog "github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 )
 
 func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	root := t.TempDir()
-	store, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +40,7 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	if err := store.Update(context.Background(), queued.Digest(), running); !errors.Is(err, run.ErrRunConflict) {
 		t.Fatalf("stale update = %v", err)
 	}
-	reopened, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
+	reopened, err := openRunStore(t, root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,10 +50,66 @@ func TestRunStorePersistsGenerationsAndRejectsStaleUpdates(t *testing.T) {
 	}
 }
 
+func TestRunStoreImportsLegacyJSONRecordsIdempotently(t *testing.T) {
+	valueCatalog, _ := stringValueCatalog(t)
+	legacyRoot := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(legacyRoot, ".yotta-run-store"),
+		[]byte("yotta/run-store/1\n"), 0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	queued := queuedRecord(t, time.Date(2026, 7, 15, 1, 0, 0, 0, time.UTC))
+	if err := os.WriteFile(
+		filepath.Join(legacyRoot, testRunID+".json"),
+		queued.Bytes(), 0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	ledgerRoot := t.TempDir()
+	options := run.StoreOptions{MaxRecords: 8}
+	roots, err := storage.Resolve(filepath.Join(ledgerRoot, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := storagecatalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.ImportLegacyStore(
+		context.Background(), foundation.Runs(), valueCatalog, legacyRoot, options.MaxRecords,
+	); err != nil {
+		_ = foundation.Close()
+		t.Fatal(err)
+	}
+	if err := foundation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openRunStore(t, ledgerRoot, valueCatalog, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(testRunID)
+	if err != nil || loaded.Digest() != queued.Digest() {
+		t.Fatalf("Load(imported) = %s, %v", loaded.Digest(), err)
+	}
+	if _, err := os.Stat(filepath.Join(legacyRoot, ".yotta-run-ledger-imported")); err != nil {
+		t.Fatalf("legacy import marker: %v", err)
+	}
+	reopened, err := openRunStore(t, ledgerRoot, valueCatalog, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = reopened.Load(testRunID)
+	if err != nil || loaded.Digest() != queued.Digest() {
+		t.Fatalf("Load(reopened) = %s, %v", loaded.Digest(), err)
+	}
+}
+
 func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	root := t.TempDir()
-	store, err := run.OpenStore(root, catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, root, catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,8 +124,19 @@ func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 	if err := store.Update(context.Background(), queued.Digest(), running); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(root, testRunID+".json")
-	if err := os.WriteFile(path, append(running.Bytes(), '\n'), 0o600); err != nil {
+	roots, err := storage.Resolve(filepath.Join(root, "profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", filepath.Join(roots.State, storagecatalog.RunFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("UPDATE runs SET summary_artifact = CAST(summary_artifact || x'0A' AS BLOB) WHERE run_id = ?", testRunID); err != nil {
+		_ = db.Close()
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Load(testRunID); !errors.Is(err, run.ErrRunConflict) {
@@ -79,7 +149,7 @@ func TestRunStoreRejectsOutOfBandRecordMutation(t *testing.T) {
 
 func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) {
 	recordCatalog, definition := stringValueCatalog(t)
-	store, err := run.OpenStore(t.TempDir(), valueCatalog{}, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, t.TempDir(), valueCatalog{}, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +182,7 @@ func TestRunStoreRejectsTerminalRecordSealedAgainstAnotherCatalog(t *testing.T) 
 
 func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
-	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
+	store, err := openRunStore(t, t.TempDir(), catalog, run.StoreOptions{MaxRecords: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +211,7 @@ func TestRunStoreInterruptsOrphanedRunningRecordsWithoutReplay(t *testing.T) {
 func TestRunStoreCancelsUndeliveredQueuedRecordsWithoutStartingThem(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 9, 0, 0, 0, time.UTC)
-	store, err := run.OpenStore(t.TempDir(), catalog, run.StoreOptions{MaxRecords: 4})
+	store, err := openRunStore(t, t.TempDir(), catalog, run.StoreOptions{MaxRecords: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,6 +230,29 @@ func TestRunStoreCancelsUndeliveredQueuedRecordsWithoutStartingThem(t *testing.T
 	if again, err := store.CancelQueued(context.Background(), queuedAt.Add(2*time.Second)); err != nil || len(again) != 0 {
 		t.Fatalf("second CancelQueued = %#v, %v", again, err)
 	}
+}
+
+func openRunStore(
+	t *testing.T,
+	root string,
+	valueCatalog datatype.ValueTypeCatalog,
+	options run.StoreOptions,
+) (*run.Store, error) {
+	t.Helper()
+	roots, err := storage.Resolve(filepath.Join(root, "profile"))
+	if err != nil {
+		return nil, err
+	}
+	foundation, err := storagecatalog.Open(context.Background(), roots)
+	if err != nil {
+		return nil, err
+	}
+	t.Cleanup(func() {
+		if err := foundation.Close(); err != nil {
+			t.Errorf("close test Run Ledger: %v", err)
+		}
+	})
+	return run.OpenStore(foundation.Runs(), valueCatalog, options)
 }
 
 func queuedRecord(t *testing.T, queuedAt time.Time) run.Record {
