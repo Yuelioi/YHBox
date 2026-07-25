@@ -374,6 +374,28 @@ func validateTargetDefaultsSchema(root string, resources []datatype.SchemaResour
 	return validator.Validate(value)
 }
 
+// ValidateTargetProfileSettings validates one Installation-local settings
+// document against the exact portable definition carried by its Release. The
+// returned bytes are canonical and safe to persist outside Workflow Source.
+func ValidateTargetProfileSettings(
+	definition TargetProfileDefinition,
+	raw json.RawMessage,
+) (json.RawMessage, error) {
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePortableTargetDefaults(canonical); err != nil {
+		return nil, err
+	}
+	if err := validateTargetDefaultsSchema(
+		definition.SettingsSchemaRoot, definition.SettingsSchemaBundle, canonical,
+	); err != nil {
+		return nil, err
+	}
+	return append(json.RawMessage(nil), canonical...), nil
+}
+
 func inspectPortableTargetValue(value any) error {
 	switch typed := value.(type) {
 	case map[string]any:

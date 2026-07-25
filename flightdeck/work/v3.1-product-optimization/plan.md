@@ -164,13 +164,13 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 - [x] [M3a — Release、Installation 与 Readiness 核心](slices/stage-m3a-release-installation-readiness-core.md)：
   verified Release projection、多实例 Installation、独立 lifecycle/readiness 与 Catalog 原子持久化。
 - [ ] [M3b — Installation-local 配置](slices/stage-m3b-installation-local-configuration.md)：
-  持久 binding/readiness、精确 consent 与 Installation-ID run/schedule fail closed 已完成；下一步完成
-  Target Profile materialization、secure credential binding 与设置界面。
+  持久 binding/readiness、精确 consent、Installation-ID run/schedule、Target Profile materialization
+  与目标设置界面已完成；下一步完成 secure credential logical binding。
 - [x] 引入不可变 Workflow Release 与可多实例化的 Workflow Installation；verified workflow artifact 到达后立即创建
   Installation，即使依赖/目标/凭据/授权尚未齐全。
 - [x] Installation lifecycle 与 Readiness Report 分离；readiness 同时返回 dependency、target、credential、consent
   blocker 和可执行修复动作，查看/编辑不被阻止，运行/计划 fail closed。
-- [ ] 首次安装从 Target Profile Definition materialize Workflow Target Profile；Global Target Profile 仅显式初始化/重绑，
+- [x] 首次安装从 Target Profile Definition materialize Workflow Target Profile；Global Target Profile 仅显式初始化/重绑，
   不做 live inheritance。精确本机身份只进入 Target Installation。
 - [ ] 提供“工作流设置 → 目标与凭据”，持久配置不由通用节点修改；credential secret 只进入本机安全存储。
 

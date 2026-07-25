@@ -349,19 +349,27 @@ func Build(config Config) (*Runtime, error) {
 			ManifestDigest: installed.ManifestDigest, Enabled: true,
 		})
 	}
+	var automationTargets *AutomationTargetRuntime
 	installations, err := workflowinstallation.New(config.InstallationRepository, workflowinstallation.Options{
 		Now: config.Now,
 		Dependencies: func(context.Context) ([]workflowinstallation.DependencyState, error) {
 			return append([]workflowinstallation.DependencyState(nil), installationDependencies...), nil
+		},
+		Targets: func(context.Context) ([]workflowinstallation.TargetState, error) {
+			if automationTargets == nil {
+				return workflowTargetStates(config.AutomationInstallations), nil
+			}
+			return automationTargets.WorkflowTargetStates(), nil
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
 	generationOwned = true
-	automationTargets := &AutomationTargetRuntime{
+	automationTargets = &AutomationTargetRuntime{
 		application: application, ai: config.AIInstallations, http: config.HTTPInstallations,
 		current: automationGeneration, authoring: authoringTargets,
+		workflowTargets: workflowTargetStates(config.AutomationInstallations),
 		environment: automationEnvironmentConfig{
 			builtins: builtins, blobDigest: blobDigest, streamDigest: streamDigest, workspaceFileDigest: workspaceFileDigest,
 			scriptRuntime: config.ScriptRuntime, pluginFeatures: append([]string(nil), pluginFeatures...), now: config.Now,

@@ -39,6 +39,8 @@ type Option func(*Service)
 type InstallationRuntime interface {
 	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
 	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
+	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
+	UpdateWorkflowInstallationTargetProfile(context.Context, string, int64, string, []byte, string) (workflowinstallation.SettingsSnapshot, error)
 	GrantWorkflowInstallationConsent(context.Context, string, workflowinstallation.ExecutionScope) (workflowinstallation.ReadinessReport, error)
 	StartInstallationRun(context.Context, string, workflowinstallation.ExecutionScope) (appcore.StartRunResult, error)
 }
@@ -111,6 +113,38 @@ type InstallationReadinessView struct {
 	RunAllowed               bool                   `json:"runAllowed"`
 	ScheduleAllowed          bool                   `json:"scheduleAllowed"`
 	Blockers                 []ReadinessBlockerView `json:"blockers"`
+}
+
+type TargetDiscoveryHintView struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
+
+type InstallationTargetProfileView struct {
+	DefinitionID         string                    `json:"definitionId"`
+	Name                 string                    `json:"name"`
+	Description          string                    `json:"description"`
+	TargetKind           string                    `json:"targetKind"`
+	AdapterKind          string                    `json:"adapterKind"`
+	ProfileVersion       string                    `json:"profileVersion"`
+	SettingsJSON         string                    `json:"settingsJson"`
+	TargetInstallationID string                    `json:"targetInstallationId"`
+	DiscoveryHints       []TargetDiscoveryHintView `json:"discoveryHints"`
+}
+
+type InstallationCredentialRequirementView struct {
+	Slot      string `json:"slot"`
+	Kind      string `json:"kind"`
+	Purpose   string `json:"purpose"`
+	BindingID string `json:"bindingId"`
+}
+
+type InstallationSettingsView struct {
+	InstallationID string                                  `json:"installationId"`
+	Generation     int64                                   `json:"generation"`
+	UpdatedAt      string                                  `json:"updatedAt"`
+	Targets        []InstallationTargetProfileView         `json:"targets"`
+	Credentials    []InstallationCredentialRequirementView `json:"credentials"`
 }
 
 type SourceQuery struct {
@@ -794,6 +828,37 @@ func (s *Service) GetInstallationReadiness(installationID string) (InstallationR
 	return installationReadinessView(report), nil
 }
 
+func (s *Service) GetInstallationSettings(installationID string) (InstallationSettingsView, error) {
+	if s.installations == nil {
+		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	snapshot, err := s.installations.WorkflowInstallationSettings(context.Background(), installationID)
+	if err != nil {
+		return InstallationSettingsView{}, err
+	}
+	return installationSettingsView(snapshot), nil
+}
+
+func (s *Service) UpdateInstallationTargetProfile(
+	installationID string,
+	expectedGeneration int64,
+	definitionID string,
+	settingsJSON string,
+	targetInstallationID string,
+) (InstallationSettingsView, error) {
+	if s.installations == nil {
+		return InstallationSettingsView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	snapshot, err := s.installations.UpdateWorkflowInstallationTargetProfile(
+		context.Background(), installationID, expectedGeneration, definitionID,
+		[]byte(settingsJSON), targetInstallationID,
+	)
+	if err != nil {
+		return InstallationSettingsView{}, err
+	}
+	return installationSettingsView(snapshot), nil
+}
+
 func (s *Service) GrantInstallationConsent(
 	installationID string,
 	scope string,
@@ -863,6 +928,39 @@ func installationReadinessView(report workflowinstallation.ReadinessReport) Inst
 		view.Blockers = append(view.Blockers, ReadinessBlockerView{
 			Kind: string(blocker.Kind), RequirementID: blocker.RequirementID,
 			Expected: blocker.Expected, Blocks: blocks, Action: string(blocker.Action.Kind),
+		})
+	}
+	return view
+}
+
+func installationSettingsView(snapshot workflowinstallation.SettingsSnapshot) InstallationSettingsView {
+	view := InstallationSettingsView{
+		InstallationID: snapshot.Configuration.InstallationID,
+		Generation:     snapshot.Configuration.Generation,
+		UpdatedAt:      snapshot.Configuration.UpdatedAt.Format(time.RFC3339Nano),
+		Targets:        make([]InstallationTargetProfileView, 0, len(snapshot.TargetDefinitions)),
+		Credentials:    make([]InstallationCredentialRequirementView, 0, len(snapshot.CredentialRequirements)),
+	}
+	for _, definition := range snapshot.TargetDefinitions {
+		profile := snapshot.Configuration.TargetProfiles[definition.ID]
+		target := InstallationTargetProfileView{
+			DefinitionID: definition.ID, Name: definition.Name, Description: definition.Description,
+			TargetKind: definition.TargetKind, AdapterKind: definition.AdapterKind,
+			ProfileVersion: definition.ProfileVersion, SettingsJSON: string(profile.Settings),
+			TargetInstallationID: profile.TargetInstallationID,
+			DiscoveryHints:       make([]TargetDiscoveryHintView, 0, len(definition.DiscoveryHints)),
+		}
+		for _, hint := range definition.DiscoveryHints {
+			target.DiscoveryHints = append(target.DiscoveryHints, TargetDiscoveryHintView{
+				Kind: hint.Kind, Value: hint.Value,
+			})
+		}
+		view.Targets = append(view.Targets, target)
+	}
+	for _, requirement := range snapshot.CredentialRequirements {
+		view.Credentials = append(view.Credentials, InstallationCredentialRequirementView{
+			Slot: requirement.Slot, Kind: requirement.Kind, Purpose: requirement.Purpose,
+			BindingID: snapshot.Configuration.CredentialBindings[requirement.Slot],
 		})
 	}
 	return view

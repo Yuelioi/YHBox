@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const {
   push,
   querySources,
+  listInstallations,
+  getInstallationReadiness,
   createSourceWithMetadata,
   batchUpdateSourceMetadata,
   queryAssets,
@@ -29,6 +31,33 @@ const {
     pageSize: 20,
     categories: [{ value: 'Operations', count: 20 }],
     tags: [{ value: 'Daily', count: 20 }],
+  })),
+  listInstallations: vi.fn(async () => [
+    {
+      installationId: 'installation-1',
+      releaseId: 'sha256:release',
+      name: 'Installed report',
+      lifecycle: 'active',
+      createdAt: '2026-07-26T00:00:00Z',
+      updatedAt: '2026-07-26T00:00:00Z',
+    },
+  ]),
+  getInstallationReadiness: vi.fn(async () => ({
+    installationId: 'installation-1',
+    releaseId: 'sha256:release',
+    lifecycle: 'active',
+    lifecycleAllowsExecution: true,
+    runAllowed: true,
+    scheduleAllowed: false,
+    blockers: [
+      {
+        kind: 'schedule-consent',
+        requirementId: 'scheduled-execution',
+        expected: 'sha256:release',
+        blocks: ['schedule'],
+        action: 'grant-schedule-consent',
+      },
+    ],
   })),
   createSourceWithMetadata: vi.fn(async () => ({
     workflowId: 'workflow-created',
@@ -141,6 +170,8 @@ vi.mock('@/composables/useConfirm', () => ({
 vi.mock('@/app/transport/workflow', () => ({
   workflowTransport: {
     querySources,
+    listInstallations,
+    getInstallationReadiness,
     listSourceRecoveries: vi.fn(async () => []),
     createSourceWithMetadata,
     batchUpdateSourceMetadata,
@@ -229,6 +260,8 @@ describe('library management views', () => {
     const root = await mountView(WorkflowsView)
 
     expect(root.textContent).toContain('Daily report')
+    expect(root.textContent).toContain('Installed report')
+    expect(root.textContent).toContain('workflow.installation.status_ready')
     expect(root.textContent).toContain('Exports the daily report')
     expect(root.textContent).toContain('Operations')
     expect(root.textContent).toContain('Daily')
@@ -354,9 +387,10 @@ async function mountView(
 }
 
 async function flushView(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
-  await nextTick()
+  for (let index = 0; index < 4; index++) {
+    await Promise.resolve()
+    await nextTick()
+  }
 }
 
 function buttonByText(root: HTMLElement, value: string): HTMLButtonElement {

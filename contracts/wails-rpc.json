@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 17,
-    "methods": 152,
-    "models": 224
+    "methods": 154,
+    "models": 228
   },
   "services": [
     {
@@ -1693,6 +1693,18 @@
           "returns": "$CancellablePromise<$models.InstallationReadinessView>"
         },
         {
+          "name": "GetInstallationSettings",
+          "bindingId": "1410123185",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
+        },
+        {
           "name": "GetRunTimeline",
           "bindingId": "3918199178",
           "parameters": [
@@ -1934,6 +1946,38 @@
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
+        },
+        {
+          "name": "UpdateInstallationTargetProfile",
+          "bindingId": "1165031745",
+          "parameters": [
+            {
+              "name": "installationID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "expectedGeneration",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "definitionID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "settingsJSON",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "targetInstallationID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.InstallationSettingsView>"
         },
         {
           "name": "UpdateSourceMetadata",
@@ -6386,6 +6430,32 @@
         },
         {
           "kind": "class",
+          "name": "InstallationCredentialRequirementView",
+          "fields": [
+            {
+              "name": "\"slot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"purpose\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"bindingId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "InstallationReadinessView",
           "fields": [
             {
@@ -6422,6 +6492,88 @@
               "name": "\"blockers\"",
               "optional": false,
               "type": "ReadinessBlockerView[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InstallationSettingsView",
+          "fields": [
+            {
+              "name": "\"installationId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"generation\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"targets\"",
+              "optional": false,
+              "type": "InstallationTargetProfileView[]"
+            },
+            {
+              "name": "\"credentials\"",
+              "optional": false,
+              "type": "InstallationCredentialRequirementView[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InstallationTargetProfileView",
+          "fields": [
+            {
+              "name": "\"definitionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"targetKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"adapterKind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"profileVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"settingsJson\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"targetInstallationId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"discoveryHints\"",
+              "optional": false,
+              "type": "TargetDiscoveryHintView[]"
             }
           ]
         },
@@ -6803,6 +6955,22 @@
               "name": "\"counters\"",
               "optional": false,
               "type": "{ [_ in string]?: number }"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TargetDiscoveryHintView",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },

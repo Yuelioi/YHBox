@@ -27,10 +27,18 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 	second := first
 	second.ID = "installation-b"
 	second.Name = "Second"
-	if err := repository.Commit(context.Background(), release, first); err != nil {
+	firstConfiguration, err := workflowinstallation.NewConfigurationForRelease(first, release)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.Commit(context.Background(), release, second); err != nil {
+	secondConfiguration, err := workflowinstallation.NewConfigurationForRelease(second, release)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Commit(context.Background(), release, first, firstConfiguration); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Commit(context.Background(), release, second, secondConfiguration); err != nil {
 		t.Fatal(err)
 	}
 	installations, err := repository.ListInstallations(context.Background())
@@ -44,11 +52,16 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 	}
 	configuration, found, err := repository.GetConfiguration(context.Background(), first.ID)
 	if err != nil || !found || configuration.Generation != 1 ||
-		len(configuration.TargetBindings) != 0 || len(configuration.CredentialBindings) != 0 {
+		len(configuration.TargetProfiles) != 1 || len(configuration.TargetBindings) != 0 ||
+		len(configuration.CredentialBindings) != 0 {
 		t.Fatalf("GetConfiguration() = %#v, found=%v, err=%v", configuration, found, err)
 	}
 	configuration.Generation = 2
 	configuration.TargetBindings["desktop"] = "target-a"
+	profile := configuration.TargetProfiles["desktop"]
+	profile.TargetInstallationID = "target-a"
+	profile.Settings = []byte(`{"windowTitle":"Changed"}`)
+	configuration.TargetProfiles["desktop"] = profile
 	configuration.CredentialBindings["api"] = "credential-a"
 	configuration.RunConsentRelease = release.ID
 	configuration.UpdatedAt = now.Add(time.Minute)
@@ -58,6 +71,8 @@ func TestWorkflowInstallationRepositoryCommitsReleaseAndMultipleInstances(t *tes
 	reloaded, found, err := repository.GetConfiguration(context.Background(), first.ID)
 	if err != nil || !found || reloaded.Generation != 2 ||
 		reloaded.TargetBindings["desktop"] != "target-a" ||
+		reloaded.TargetProfiles["desktop"].TargetInstallationID != "target-a" ||
+		string(reloaded.TargetProfiles["desktop"].Settings) != `{"windowTitle":"Changed"}` ||
 		reloaded.CredentialBindings["api"] != "credential-a" ||
 		reloaded.RunConsentRelease != release.ID {
 		t.Fatalf("reloaded configuration = %#v, found=%v, err=%v", reloaded, found, err)
@@ -80,7 +95,11 @@ func TestWorkflowInstallationRepositoryRejectsIdentityCollisionsAtomically(t *te
 		ID: "installation-a", ReleaseID: release.ID, Name: "First",
 		Lifecycle: workflowinstallation.LifecycleActive, CreatedAt: now, UpdatedAt: now,
 	}
-	if err := repository.Commit(context.Background(), release, installation); err != nil {
+	configuration, err := workflowinstallation.NewConfigurationForRelease(installation, release)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Commit(context.Background(), release, installation, configuration); err != nil {
 		t.Fatal(err)
 	}
 	collision := release
@@ -100,7 +119,11 @@ func TestWorkflowInstallationRepositoryRejectsIdentityCollisionsAtomically(t *te
 	}
 	other := installation
 	other.ID = "installation-b"
-	if err := repository.Commit(context.Background(), collision, other); !errors.Is(err, workflowinstallation.ErrReleaseConflict) {
+	otherConfiguration, err := workflowinstallation.NewConfigurationForRelease(other, collision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Commit(context.Background(), collision, other, otherConfiguration); !errors.Is(err, workflowinstallation.ErrReleaseConflict) {
 		t.Fatalf("release collision error = %v", err)
 	}
 	if _, found, err := repository.GetInstallation(context.Background(), other.ID); err != nil || found {
@@ -115,7 +138,15 @@ func catalogTestVerifiedRelease(t *testing.T) workflowinstallation.ReleaseRecord
 		"workflow":{"id":"release-workflow","name":"Released"},
 		"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
-		"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[],"variables":[]
+		"resources":[],
+		"targetDefaults":[{"target":"desktop-target","slot":"desktop"}],
+		"targetProfileDefinitions":[{
+			"id":"desktop","name":"Desktop","targetKind":"desktop","adapterKind":"windows",
+			"profileVersion":"1","settingsSchemaRoot":"https://example.test/desktop/v1",
+			"settingsSchemaBundle":[{"id":"https://example.test/desktop/v1","schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://example.test/desktop/v1","type":"object","properties":{"windowTitle":{"type":"string"}},"additionalProperties":false}}],
+			"initialDefaults":{"windowTitle":"Released"},"discoveryHints":[]
+		}],
+		"credentialRequirements":[],"dependencies":[],"variables":[]
 	}`)
 	canonical, err := artifact.Canonicalize(raw)
 	if err != nil {

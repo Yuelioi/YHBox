@@ -4,6 +4,7 @@ package workflowinstallation
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -26,6 +27,7 @@ var (
 	installationIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 	localReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$`)
 	slotPattern           = regexp.MustCompile(`^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`)
+	profileVersionPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
 	semverPattern         = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
 )
 
@@ -137,6 +139,7 @@ func ValidateInstallationRecord(record InstallationRecord) error {
 type Configuration struct {
 	InstallationID         string
 	Generation             int64
+	TargetProfiles         map[string]TargetProfile
 	TargetBindings         map[string]string
 	CredentialBindings     map[string]string
 	RunConsentRelease      artifact.Digest
@@ -144,12 +147,83 @@ type Configuration struct {
 	UpdatedAt              time.Time
 }
 
+type TargetProfile struct {
+	DefinitionID         string          `json:"definitionId"`
+	ReleaseID            artifact.Digest `json:"releaseId"`
+	TargetKind           string          `json:"targetKind"`
+	AdapterKind          string          `json:"adapterKind"`
+	ProfileVersion       string          `json:"profileVersion"`
+	Settings             json.RawMessage `json:"settings"`
+	TargetInstallationID string          `json:"targetInstallationId,omitempty"`
+}
+
 func NewConfiguration(installation InstallationRecord) Configuration {
 	return Configuration{
 		InstallationID: installation.ID, Generation: 1,
+		TargetProfiles: map[string]TargetProfile{},
 		TargetBindings: map[string]string{}, CredentialBindings: map[string]string{},
 		UpdatedAt: installation.CreatedAt,
 	}
+}
+
+func NewConfigurationForRelease(
+	installation InstallationRecord,
+	release ReleaseRecord,
+) (Configuration, error) {
+	configuration := NewConfiguration(installation)
+	return MaterializeTargetProfiles(configuration, release)
+}
+
+func MaterializeTargetProfiles(
+	configuration Configuration,
+	release ReleaseRecord,
+) (Configuration, error) {
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return Configuration{}, errors.New("Workflow Release Source is invalid")
+	}
+	next := CloneConfiguration(configuration)
+	if next.TargetProfiles == nil {
+		next.TargetProfiles = map[string]TargetProfile{}
+	}
+	definitionIDs := make(map[string]struct{}, len(source.TargetProfileDefinitions))
+	for _, definition := range source.TargetProfileDefinitions {
+		definitionIDs[definition.ID] = struct{}{}
+		if current, found := next.TargetProfiles[definition.ID]; found {
+			if current.ReleaseID != release.ID || current.DefinitionID != definition.ID ||
+				current.TargetKind != definition.TargetKind || current.AdapterKind != definition.AdapterKind ||
+				current.ProfileVersion != definition.ProfileVersion {
+				return Configuration{}, errors.New("Workflow Target Profile does not match its Release definition")
+			}
+			settings, err := schema.ValidateTargetProfileSettings(definition, current.Settings)
+			if err != nil {
+				return Configuration{}, fmt.Errorf(
+					"validate materialized Workflow Target Profile %q: %w",
+					definition.ID, err,
+				)
+			}
+			if !bytes.Equal(current.Settings, settings) {
+				return Configuration{}, errors.New("materialized Workflow Target Profile settings are not canonical")
+			}
+			continue
+		}
+		settings, err := schema.ValidateTargetProfileSettings(definition, definition.InitialDefaults)
+		if err != nil {
+			return Configuration{}, fmt.Errorf("materialize Workflow Target Profile %q: %w", definition.ID, err)
+		}
+		next.TargetProfiles[definition.ID] = TargetProfile{
+			DefinitionID: definition.ID, ReleaseID: release.ID,
+			TargetKind: definition.TargetKind, AdapterKind: definition.AdapterKind,
+			ProfileVersion: definition.ProfileVersion, Settings: settings,
+			TargetInstallationID: next.TargetBindings[definition.ID],
+		}
+	}
+	for definitionID := range next.TargetProfiles {
+		if _, found := definitionIDs[definitionID]; !found {
+			return Configuration{}, errors.New("Workflow Target Profile references an unknown Release definition")
+		}
+	}
+	return next, nil
 }
 
 func ValidateConfiguration(configuration Configuration) error {
@@ -160,9 +234,25 @@ func ValidateConfiguration(configuration Configuration) error {
 		(configuration.ScheduleConsentRelease != "" && !configuration.ScheduleConsentRelease.Valid()) {
 		return errors.New("Workflow Installation configuration is invalid")
 	}
+	for definitionID, profile := range configuration.TargetProfiles {
+		canonical, err := artifact.Canonicalize(profile.Settings)
+		if !slotPattern.MatchString(definitionID) || definitionID != profile.DefinitionID ||
+			!profile.ReleaseID.Valid() || !slotPattern.MatchString(profile.TargetKind) ||
+			!slotPattern.MatchString(profile.AdapterKind) || !profileVersionPattern.MatchString(profile.ProfileVersion) ||
+			err != nil || !bytes.Equal(profile.Settings, canonical) ||
+			profile.TargetInstallationID != "" && !localReferencePattern.MatchString(profile.TargetInstallationID) {
+			return errors.New("Workflow Target Profile is invalid")
+		}
+		if configuration.TargetBindings[definitionID] != profile.TargetInstallationID {
+			return errors.New("Workflow Target Profile binding is inconsistent")
+		}
+	}
 	for slot, reference := range configuration.TargetBindings {
 		if !slotPattern.MatchString(slot) || !localReferencePattern.MatchString(reference) {
 			return errors.New("Workflow Installation target binding is invalid")
+		}
+		if _, found := configuration.TargetProfiles[slot]; len(configuration.TargetProfiles) != 0 && !found {
+			return errors.New("Workflow Installation target binding has no materialized profile")
 		}
 	}
 	for slot, reference := range configuration.CredentialBindings {
@@ -174,9 +264,19 @@ func ValidateConfiguration(configuration Configuration) error {
 }
 
 func CloneConfiguration(configuration Configuration) Configuration {
+	configuration.TargetProfiles = cloneTargetProfiles(configuration.TargetProfiles)
 	configuration.TargetBindings = cloneBindings(configuration.TargetBindings)
 	configuration.CredentialBindings = cloneBindings(configuration.CredentialBindings)
 	return configuration
+}
+
+func cloneTargetProfiles(source map[string]TargetProfile) map[string]TargetProfile {
+	result := make(map[string]TargetProfile, len(source))
+	for key, value := range source {
+		value.Settings = append(json.RawMessage(nil), value.Settings...)
+		result[key] = value
+	}
+	return result
 }
 
 func cloneBindings(source map[string]string) map[string]string {
@@ -235,10 +335,20 @@ type DependencyState struct {
 	Enabled            bool
 }
 
+type TargetState struct {
+	TargetInstallationID string
+	TargetKind           string
+	AdapterKind          string
+	ProfileVersion       string
+	Available            bool
+	Authorized           bool
+}
+
 // ReadinessEnvironment is a projection of installation-local bindings and
 // exact host package state. Secret material is never part of this value.
 type ReadinessEnvironment struct {
 	Dependencies []DependencyState
+	Targets      []TargetState
 }
 
 type ReadinessReport struct {
@@ -296,7 +406,22 @@ func EvaluateReadiness(
 		))
 	}
 	for _, definition := range source.TargetProfileDefinitions {
-		if strings.TrimSpace(configuration.TargetBindings[definition.ID]) != "" {
+		profile, materialized := configuration.TargetProfiles[definition.ID]
+		targetAvailable := false
+		for _, target := range environment.Targets {
+			if target.TargetInstallationID == profile.TargetInstallationID &&
+				target.TargetKind == definition.TargetKind &&
+				target.AdapterKind == definition.AdapterKind &&
+				target.ProfileVersion == definition.ProfileVersion &&
+				target.Available && target.Authorized {
+				targetAvailable = true
+				break
+			}
+		}
+		if materialized && profile.ReleaseID == release.ID &&
+			profile.TargetKind == definition.TargetKind && profile.AdapterKind == definition.AdapterKind &&
+			profile.ProfileVersion == definition.ProfileVersion &&
+			strings.TrimSpace(profile.TargetInstallationID) != "" && targetAvailable {
 			continue
 		}
 		blockers = append(blockers, newBlocker(

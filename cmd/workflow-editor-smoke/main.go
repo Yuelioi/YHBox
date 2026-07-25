@@ -55,6 +55,8 @@ type pageState struct {
 	ScheduleEditTargets   []string       `json:"scheduleEditTargets"`
 	CreateInput           bool           `json:"createInput"`
 	RecoveryPanel         bool           `json:"recoveryPanel"`
+	InstallationRows      int            `json:"installationRows"`
+	InstallationSettings  bool           `json:"installationSettings"`
 	LauncherButton        bool           `json:"launcherButton"`
 	GraphChromeDark       bool           `json:"graphChromeDark"`
 	HandleOverlaps        int            `json:"handleOverlaps"`
@@ -326,7 +328,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return err
 	}
 	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
-		return current.RecoveryPanel && current.LauncherButton
+		return current.RecoveryPanel && current.InstallationRows == 1 && current.LauncherButton
 	}); err != nil {
 		return fmt.Errorf("wait for workflow list hydration: %w", err)
 	}
@@ -334,6 +336,32 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		if err := capture(ctx, client, workflowsScreenshot); err != nil {
 			return fmt.Errorf("capture workflow recovery surface: %w", err)
 		}
+	}
+	if err := eval(ctx, client, `(() => {
+		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
+		const button = row?.querySelector('[data-testid="workflow-installation-settings"]');
+		if (!button) throw new Error('workflow installation settings button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.InstallationSettings
+	}); err != nil {
+		return fmt.Errorf("open workflow installation settings: %w", err)
+	}
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-settings.png")); err != nil {
+			return fmt.Errorf("capture workflow installation settings: %w", err)
+		}
+	}
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.InstallationSettings
+	}); err != nil {
+		return fmt.Errorf("close workflow installation settings: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
 		const button = document.querySelector('[data-testid="workflow-new-button"]');
@@ -1940,6 +1968,8 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
 		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
+		installationRows: document.querySelectorAll('[data-testid="workflow-installation-row"]').length,
+		installationSettings: Boolean(document.querySelector('[data-testid="workflow-installation-settings-body"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
 		handleOverlaps,

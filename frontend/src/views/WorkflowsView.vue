@@ -77,6 +77,117 @@
         </ul>
       </section>
 
+      <section
+        class="mb-3 shrink-0 overflow-hidden rounded-lg border border-default bg-elevated/15"
+        aria-labelledby="workflow-installations-title"
+        data-testid="workflow-installations"
+      >
+        <div class="flex items-center gap-2 border-b border-default px-3 py-2">
+          <UIcon name="i-tabler-package" class="size-4 text-primary" />
+          <h2 id="workflow-installations-title" class="text-xs font-semibold text-highlighted">
+            {{ t('workflow.installation.title') }}
+          </h2>
+          <UBadge color="neutral" variant="soft" size="xs">{{ installations.length }}</UBadge>
+          <p class="ml-1 min-w-0 flex-1 truncate text-[11px] text-dimmed">
+            {{ t('workflow.installation.description') }}
+          </p>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-refresh"
+            :aria-label="t('workflow.installation.refresh')"
+            :loading="installationsLoading"
+            @click="loadInstallations"
+          />
+        </div>
+
+        <div v-if="installationsLoading" class="grid gap-2 p-2 md:grid-cols-2">
+          <USkeleton v-for="index in 2" :key="index" class="h-16 rounded-md" />
+        </div>
+        <div
+          v-else-if="installationsFailure"
+          class="flex items-center gap-2 px-3 py-3 text-xs text-error"
+          role="alert"
+        >
+          <span class="min-w-0 flex-1">{{ installationsFailure }}</span>
+          <UButton size="xs" color="error" variant="soft" @click="loadInstallations">{{
+            t('common.retry')
+          }}</UButton>
+        </div>
+        <p v-else-if="installations.length === 0" class="px-3 py-4 text-center text-xs text-dimmed">
+          {{ t('workflow.installation.empty') }}
+        </p>
+        <div v-else class="max-h-44 overflow-y-auto">
+          <article
+            v-for="installation in installations"
+            :key="installation.installationId"
+            class="flex min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 last:border-b-0"
+            data-testid="workflow-installation-row"
+            :data-installation-id="installation.installationId"
+          >
+            <span
+              class="flex size-8 shrink-0 items-center justify-center rounded-md border border-default bg-default"
+            >
+              <UIcon name="i-tabler-package" class="size-4 text-muted" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex min-w-0 items-center gap-2">
+                <p class="truncate text-xs font-medium text-highlighted">{{ installation.name }}</p>
+                <UBadge
+                  :color="installationBadgeColor(installation.installationId)"
+                  variant="soft"
+                  size="xs"
+                >
+                  {{ installationStatus(installation.installationId) }}
+                </UBadge>
+                <UBadge
+                  v-if="runFeedbackById[installation.installationId]"
+                  :color="runFeedbackById[installation.installationId].tone"
+                  variant="soft"
+                  size="xs"
+                >
+                  {{ runFeedbackById[installation.installationId].label }}
+                </UBadge>
+              </div>
+              <p class="mt-0.5 truncate text-[10px] text-dimmed">
+                {{ installationBlockers(installation.installationId) }}
+              </p>
+            </div>
+            <UButton
+              v-if="hasRunConsentBlocker(installation.installationId)"
+              size="xs"
+              color="neutral"
+              variant="soft"
+              icon="i-tabler-shield-check"
+              :label="t('workflow.installation.authorize_run')"
+              :loading="consentBusyId === installation.installationId"
+              :disabled="Boolean(consentBusyId)"
+              @click="grantRunConsent(installation.installationId)"
+            />
+            <UButton
+              data-testid="workflow-installation-settings"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-adjustments"
+              :label="t('workflow.installation.settings')"
+              @click="openInstallationSettings(installation)"
+            />
+            <UButton
+              size="xs"
+              icon="i-tabler-player-play"
+              :label="t('workflow.installation.run')"
+              :loading="runStartingId === installation.installationId"
+              :disabled="
+                Boolean(runStartingId) || !readinessById[installation.installationId]?.runAllowed
+              "
+              @click="runInstallation(installation.installationId)"
+            />
+          </article>
+        </div>
+      </section>
+
       <section class="shrink-0 overflow-hidden rounded-t-lg border border-default bg-elevated/15">
         <form
           class="flex items-center gap-2 border-b border-default p-3"
@@ -485,6 +596,14 @@
       </template>
     </BaseModal>
 
+    <WorkflowInstallationSettingsModal
+      v-if="activeInstallation"
+      v-model:open="installationSettingsOpen"
+      :installation-id="activeInstallation.installationId"
+      :name="activeInstallation.name"
+      @saved="loadInstallations"
+    />
+
     <BaseModal
       v-model:open="metadataModalOpen"
       :title="t(editingSource ? 'workflow.list.edit_metadata_title' : 'workflow.list.create_title')"
@@ -606,6 +725,8 @@ import {
   workflowTransport,
   type BundleInfoView,
   type DeleteSourcePreview,
+  type InstallationReadinessView,
+  type InstallationView,
   type SourceRecoveryView,
   type SourceView,
 } from '@/app/transport/workflow'
@@ -622,6 +743,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
+import WorkflowInstallationSettingsModal from '@/components/workflows/WorkflowInstallationSettingsModal.vue'
 
 defineOptions({ name: 'WorkflowsView' })
 
@@ -640,6 +762,8 @@ const toast = useToast()
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const sources = ref<SourceView[]>([])
+const installations = ref<InstallationView[]>([])
+const readinessById = ref<Record<string, InstallationReadinessView>>({})
 const recoveries = ref<SourceRecoveryView[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -656,6 +780,11 @@ const tags = ref<Array<{ value: string; count: number }>>([])
 const visibleColumns = ref<WorkflowColumn[]>(loadColumns())
 const selected = ref<Record<string, SelectedSource>>({})
 const loading = ref(true)
+const installationsLoading = ref(true)
+const installationsFailure = ref('')
+const installationSettingsOpen = ref(false)
+const activeInstallation = ref<InstallationView | null>(null)
+const consentBusyId = ref('')
 const deleting = ref(false)
 const importing = ref(false)
 const exportingId = ref('')
@@ -862,7 +991,7 @@ watch(
 )
 onMounted(load)
 
-async function load(): Promise<void> {
+async function load(refreshInstallations = true): Promise<void> {
   loading.value = true
   failure.value = ''
   try {
@@ -878,6 +1007,7 @@ async function load(): Promise<void> {
         pageSize: pageSize.value,
       }),
       workflowTransport.listSourceRecoveries(),
+      refreshInstallations ? loadInstallations() : Promise.resolve(),
     ])
     sources.value = result.items
     recoveries.value = isolated
@@ -886,7 +1016,7 @@ async function load(): Promise<void> {
     tags.value = result.tags ?? []
     if (page.value > pageCount.value) {
       page.value = pageCount.value
-      await load()
+      await load(false)
     }
   } catch (error) {
     failure.value = errorText(error)
@@ -895,9 +1025,30 @@ async function load(): Promise<void> {
   }
 }
 
+async function loadInstallations(): Promise<void> {
+  installationsLoading.value = true
+  installationsFailure.value = ''
+  try {
+    const listed = await workflowTransport.listInstallations()
+    const readiness = await Promise.all(
+      listed.map((installation) =>
+        workflowTransport.getInstallationReadiness(installation.installationId),
+      ),
+    )
+    installations.value = listed
+    readinessById.value = Object.fromEntries(
+      readiness.map((report) => [report.installationId, report]),
+    )
+  } catch (error) {
+    installationsFailure.value = errorText(error)
+  } finally {
+    installationsLoading.value = false
+  }
+}
+
 async function queryChanged(): Promise<void> {
   page.value = 1
-  await load()
+  await load(false)
 }
 
 async function applySearch(): Promise<void> {
@@ -1440,6 +1591,94 @@ function referenceDetails(preview: DeleteSourcePreview): string[] {
 
 function sourceName(workflowId: string, previews: DeleteSourcePreview[]): string {
   return previews.find((preview) => preview.workflowId === workflowId)?.name ?? workflowId
+}
+
+function installationBadgeColor(
+  installationId: string,
+): 'success' | 'warning' | 'neutral' | 'error' {
+  const report = readinessById.value[installationId]
+  if (!report || report.lifecycle !== 'active') return 'neutral'
+  return report.runAllowed ? 'success' : 'warning'
+}
+
+function installationStatus(installationId: string): string {
+  const report = readinessById.value[installationId]
+  if (!report) return t('workflow.installation.status_unknown')
+  if (report.lifecycle !== 'active') return t('workflow.installation.status_archived')
+  return t(
+    report.runAllowed
+      ? 'workflow.installation.status_ready'
+      : 'workflow.installation.status_blocked',
+  )
+}
+
+function installationBlockers(installationId: string): string {
+  const report = readinessById.value[installationId]
+  if (!report) return t('workflow.installation.readiness_unknown')
+  if (report.blockers.length === 0) return t('workflow.installation.no_blockers')
+  return report.blockers
+    .map((blocker) =>
+      t(`workflow.installation.blocker_${blocker.kind}`, { id: blocker.requirementId }),
+    )
+    .join(' · ')
+}
+
+function hasRunConsentBlocker(installationId: string): boolean {
+  return Boolean(
+    readinessById.value[installationId]?.blockers.some((blocker) => blocker.kind === 'run-consent'),
+  )
+}
+
+function openInstallationSettings(installation: InstallationView): void {
+  activeInstallation.value = installation
+  installationSettingsOpen.value = true
+}
+
+async function grantRunConsent(installationId: string): Promise<void> {
+  if (consentBusyId.value) return
+  consentBusyId.value = installationId
+  try {
+    const report = await workflowTransport.grantInstallationConsent(installationId, 'run')
+    readinessById.value = { ...readinessById.value, [installationId]: report }
+  } catch (error) {
+    toast.add({
+      title: t('workflow.installation.authorize_failed'),
+      description: errorText(error),
+      color: 'error',
+    })
+  } finally {
+    consentBusyId.value = ''
+  }
+}
+
+async function runInstallation(installationId: string): Promise<void> {
+  if (runStartingId.value) return
+  runStartingId.value = installationId
+  try {
+    const started = await workflowTransport.startInstallationRun(installationId)
+    if (!started.run) {
+      runFeedbackById[installationId] = {
+        tone: 'warning',
+        label: t('workflow.toast.not_started'),
+        detail: diagnosticText(started),
+      }
+      return
+    }
+    runFeedbackById[installationId] = {
+      tone: 'success',
+      label: t('workflow.toast.queued'),
+      detail: started.run.runId,
+    }
+  } catch (error) {
+    delete runFeedbackById[installationId]
+    toast.add({
+      title: t('workflow.toast.run_failed'),
+      description: errorText(error),
+      color: 'error',
+    })
+  } finally {
+    runStartingId.value = ''
+  }
 }
 
 async function runWorkflow(workflowId: string): Promise<void> {

@@ -1,8 +1,10 @@
 package workflowinstallation
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -114,7 +116,7 @@ func (e PreparedExecution) CredentialSelection() map[string]string {
 }
 
 type Repository interface {
-	Commit(context.Context, ReleaseRecord, InstallationRecord) error
+	Commit(context.Context, ReleaseRecord, InstallationRecord, Configuration) error
 	GetInstallation(context.Context, string) (InstallationRecord, bool, error)
 	ListInstallations(context.Context) ([]InstallationRecord, error)
 	GetRelease(context.Context, artifact.Digest) (ReleaseRecord, bool, error)
@@ -126,6 +128,7 @@ type Options struct {
 	Now          func() time.Time
 	NewID        func() string
 	Dependencies func(context.Context) ([]DependencyState, error)
+	Targets      func(context.Context) ([]TargetState, error)
 }
 
 // Module is the command/query boundary for Workflow Installations. Verified
@@ -135,6 +138,7 @@ type Module struct {
 	now          func() time.Time
 	newID        func() string
 	dependencies func(context.Context) ([]DependencyState, error)
+	targets      func(context.Context) ([]TargetState, error)
 }
 
 func New(repository Repository, options Options) (*Module, error) {
@@ -150,9 +154,12 @@ func New(repository Repository, options Options) (*Module, error) {
 	if options.Dependencies == nil {
 		options.Dependencies = func(context.Context) ([]DependencyState, error) { return nil, nil }
 	}
+	if options.Targets == nil {
+		options.Targets = func(context.Context) ([]TargetState, error) { return nil, nil }
+	}
 	return &Module{
 		repository: repository, now: options.Now, newID: options.NewID,
-		dependencies: options.Dependencies,
+		dependencies: options.Dependencies, targets: options.Targets,
 	}, nil
 }
 
@@ -182,7 +189,11 @@ func (m *Module) InstallVerified(
 	if err := ValidateInstallationRecord(installation); err != nil {
 		return InstallationRecord{}, err
 	}
-	if err := m.repository.Commit(ctx, release, installation); err != nil {
+	configuration, err := NewConfigurationForRelease(installation, release)
+	if err != nil {
+		return InstallationRecord{}, err
+	}
+	if err := m.repository.Commit(ctx, release, installation, configuration); err != nil {
 		return InstallationRecord{}, err
 	}
 	return installation, nil
@@ -214,14 +225,47 @@ func (m *Module) GetConfiguration(ctx context.Context, installationID string) (C
 	if err != nil {
 		return Configuration{}, err
 	}
-	configuration, found, err := m.repository.GetConfiguration(ctx, installation.ID)
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
 	if err != nil {
 		return Configuration{}, err
 	}
 	if !found {
-		return Configuration{}, errors.New("Workflow Installation configuration is missing")
+		return Configuration{}, errors.New("Workflow Installation references a missing Release")
 	}
-	return CloneConfiguration(configuration), nil
+	return m.configuration(ctx, installation, release)
+}
+
+func (m *Module) configuration(
+	ctx context.Context,
+	installation InstallationRecord,
+	release ReleaseRecord,
+) (Configuration, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		configuration, found, err := m.repository.GetConfiguration(ctx, installation.ID)
+		if err != nil {
+			return Configuration{}, err
+		}
+		if !found {
+			return Configuration{}, errors.New("Workflow Installation configuration is missing")
+		}
+		materialized, err := MaterializeTargetProfiles(configuration, release)
+		if err != nil {
+			return Configuration{}, err
+		}
+		if targetProfilesEqual(configuration.TargetProfiles, materialized.TargetProfiles) {
+			return CloneConfiguration(configuration), nil
+		}
+		materialized.Generation++
+		materialized.UpdatedAt = m.now().UTC()
+		if err := m.repository.ReplaceConfiguration(ctx, configuration.Generation, materialized); err != nil {
+			if errors.Is(err, ErrInstallationConflict) {
+				continue
+			}
+			return Configuration{}, err
+		}
+		return CloneConfiguration(materialized), nil
+	}
+	return Configuration{}, ErrInstallationConflict
 }
 
 func (m *Module) Readiness(
@@ -248,20 +292,21 @@ func (m *Module) executionState(
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{},
 			errors.New("Workflow Installation references a missing Release")
 	}
-	configuration, found, err := m.repository.GetConfiguration(ctx, installation.ID)
+	configuration, err := m.configuration(ctx, installation, release)
 	if err != nil {
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
-	}
-	if !found {
-		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{},
-			errors.New("Workflow Installation configuration is missing")
 	}
 	dependencies, err := m.dependencies(ctx)
 	if err != nil {
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
 	}
+	targets, err := m.targets(ctx)
+	if err != nil {
+		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
+	}
 	report, err := EvaluateReadiness(
-		installation, release, configuration, ReadinessEnvironment{Dependencies: dependencies},
+		installation, release, configuration,
+		ReadinessEnvironment{Dependencies: dependencies, Targets: targets},
 	)
 	if err != nil {
 		return InstallationRecord{}, ReleaseRecord{}, Configuration{}, ReadinessReport{}, err
@@ -294,7 +339,7 @@ func (m *Module) PrepareExecution(
 	}
 	targets := make(map[string]string, len(source.TargetDefaults))
 	for _, targetDefault := range source.TargetDefaults {
-		targets[targetDefault.Slot] = configuration.TargetBindings[targetDefault.Slot]
+		targets[targetDefault.Slot] = configuration.TargetProfiles[targetDefault.Slot].TargetInstallationID
 	}
 	return PreparedExecution{state: &preparedExecutionState{
 		installationID: installation.ID, releaseID: release.ID,
@@ -308,6 +353,108 @@ type BindingUpdate struct {
 	CredentialBindings map[string]string
 }
 
+type SettingsSnapshot struct {
+	Configuration          Configuration
+	TargetDefinitions      []schema.TargetProfileDefinition
+	CredentialRequirements []schema.CredentialRequirement
+}
+
+func (m *Module) Settings(ctx context.Context, installationID string) (SettingsSnapshot, error) {
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return SettingsSnapshot{}, err
+	}
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return SettingsSnapshot{}, err
+	}
+	if !found {
+		return SettingsSnapshot{}, errors.New("Workflow Installation references a missing Release")
+	}
+	configuration, err := m.configuration(ctx, installation, release)
+	if err != nil {
+		return SettingsSnapshot{}, err
+	}
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return SettingsSnapshot{}, errors.New("Workflow Release Source is invalid")
+	}
+	return SettingsSnapshot{
+		Configuration:          configuration,
+		TargetDefinitions:      append([]schema.TargetProfileDefinition(nil), source.TargetProfileDefinitions...),
+		CredentialRequirements: append([]schema.CredentialRequirement(nil), source.CredentialRequirements...),
+	}, nil
+}
+
+func (m *Module) UpdateTargetProfile(
+	ctx context.Context,
+	installationID string,
+	expectedGeneration int64,
+	definitionID string,
+	settings []byte,
+	targetInstallationID string,
+) (Configuration, error) {
+	if !slotPattern.MatchString(definitionID) ||
+		targetInstallationID != "" && !localReferencePattern.MatchString(targetInstallationID) {
+		return Configuration{}, errors.New("Workflow Target Profile update is invalid")
+	}
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return Configuration{}, err
+	}
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if !found {
+		return Configuration{}, errors.New("Workflow Installation references a missing Release")
+	}
+	current, err := m.configuration(ctx, installation, release)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if current.Generation != expectedGeneration {
+		return Configuration{}, ErrInstallationConflict
+	}
+	source, diagnostics := schema.ParseSource(release.SourceArtifact)
+	if schema.HasErrors(diagnostics) {
+		return Configuration{}, errors.New("Workflow Release Source is invalid")
+	}
+	var definition *schema.TargetProfileDefinition
+	for index := range source.TargetProfileDefinitions {
+		if source.TargetProfileDefinitions[index].ID == definitionID {
+			definition = &source.TargetProfileDefinitions[index]
+			break
+		}
+	}
+	if definition == nil {
+		return Configuration{}, errors.New("Workflow Target Profile definition is unknown")
+	}
+	canonical, err := schema.ValidateTargetProfileSettings(*definition, settings)
+	if err != nil {
+		return Configuration{}, fmt.Errorf("validate Workflow Target Profile settings: %w", err)
+	}
+	next := CloneConfiguration(current)
+	profile := next.TargetProfiles[definitionID]
+	profile.Settings = canonical
+	profile.TargetInstallationID = targetInstallationID
+	next.TargetProfiles[definitionID] = profile
+	if targetInstallationID == "" {
+		delete(next.TargetBindings, definitionID)
+	} else {
+		next.TargetBindings[definitionID] = targetInstallationID
+	}
+	next.Generation++
+	next.UpdatedAt = m.now().UTC()
+	if err := ValidateConfiguration(next); err != nil {
+		return Configuration{}, err
+	}
+	if err := m.repository.ReplaceConfiguration(ctx, expectedGeneration, next); err != nil {
+		return Configuration{}, err
+	}
+	return CloneConfiguration(next), nil
+}
+
 func (m *Module) ReplaceBindings(
 	ctx context.Context,
 	installationID string,
@@ -318,19 +465,19 @@ func (m *Module) ReplaceBindings(
 	if err != nil {
 		return Configuration{}, err
 	}
-	current, found, err := m.repository.GetConfiguration(ctx, installation.ID)
-	if err != nil {
-		return Configuration{}, err
-	}
-	if !found || current.Generation != expectedGeneration {
-		return Configuration{}, ErrInstallationConflict
-	}
 	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
 	if err != nil {
 		return Configuration{}, err
 	}
 	if !found {
 		return Configuration{}, errors.New("Workflow Installation references a missing Release")
+	}
+	current, err := m.configuration(ctx, installation, release)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if current.Generation != expectedGeneration {
+		return Configuration{}, ErrInstallationConflict
 	}
 	if err := validateBindingUpdate(release, update); err != nil {
 		return Configuration{}, err
@@ -339,6 +486,10 @@ func (m *Module) ReplaceBindings(
 	next.Generation++
 	next.TargetBindings = cloneBindings(update.TargetBindings)
 	next.CredentialBindings = cloneBindings(update.CredentialBindings)
+	for definitionID, profile := range next.TargetProfiles {
+		profile.TargetInstallationID = next.TargetBindings[definitionID]
+		next.TargetProfiles[definitionID] = profile
+	}
 	next.UpdatedAt = m.now().UTC()
 	if err := ValidateConfiguration(next); err != nil {
 		return Configuration{}, err
@@ -359,11 +510,18 @@ func (m *Module) GrantConsent(
 	if err != nil {
 		return Configuration{}, err
 	}
-	current, found, err := m.repository.GetConfiguration(ctx, installation.ID)
+	release, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
 	if err != nil {
 		return Configuration{}, err
 	}
-	if !found || current.Generation != expectedGeneration {
+	if !found {
+		return Configuration{}, errors.New("Workflow Installation references a missing Release")
+	}
+	current, err := m.configuration(ctx, installation, release)
+	if err != nil {
+		return Configuration{}, err
+	}
+	if current.Generation != expectedGeneration {
 		return Configuration{}, ErrInstallationConflict
 	}
 	next := CloneConfiguration(current)
@@ -407,4 +565,23 @@ func validateBindingUpdate(release ReleaseRecord, update BindingUpdate) error {
 		}
 	}
 	return nil
+}
+
+func targetProfilesEqual(left, right map[string]TargetProfile) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftProfile := range left {
+		rightProfile, found := right[key]
+		if !found || leftProfile.DefinitionID != rightProfile.DefinitionID ||
+			leftProfile.ReleaseID != rightProfile.ReleaseID ||
+			leftProfile.TargetKind != rightProfile.TargetKind ||
+			leftProfile.AdapterKind != rightProfile.AdapterKind ||
+			leftProfile.ProfileVersion != rightProfile.ProfileVersion ||
+			leftProfile.TargetInstallationID != rightProfile.TargetInstallationID ||
+			!bytes.Equal(leftProfile.Settings, rightProfile.Settings) {
+			return false
+		}
+	}
+	return true
 }

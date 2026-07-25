@@ -13,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/artifact"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -27,6 +28,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	"github.com/yottaapp/yotta/internal/workflowinstallation"
 )
 
 func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
@@ -437,6 +439,81 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 	repeated := service.ExportSourceBundles([]string{created.WorkflowID}, batchDirectory)
 	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Error != "destination already exists" {
 		t.Fatalf("repeated ExportSourceBundles() = %#v", repeated)
+	}
+}
+
+func TestServiceReadsAndUpdatesInstallationTargetProfiles(t *testing.T) {
+	now := time.Date(2026, 7, 26, 5, 45, 0, 0, time.UTC)
+	runtime := workflowRuntime(t, now)
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	service, err := workflow.NewService(
+		runtime.Application,
+		workflow.WithInstallationRuntime(runtime),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := artifact.Canonicalize([]byte(`{
+		"format":"yotta.workflow","version":"1",
+		"workflow":{"id":"installed-settings","name":"Installed settings"},
+		"revision":0,"entryGraph":"main",
+		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
+		"resources":[],
+		"targetDefaults":[{"target":"desktop-target","slot":"desktop"}],
+		"targetProfileDefinitions":[{
+			"id":"desktop","name":"Desktop","targetKind":"desktop-window","adapterKind":"win32",
+			"profileVersion":"1","settingsSchemaRoot":"https://example.test/desktop/v1",
+			"settingsSchemaBundle":[{"id":"https://example.test/desktop/v1","schema":{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://example.test/desktop/v1","type":"object","properties":{"windowTitle":{"type":"string"}},"additionalProperties":false}}],
+			"initialDefaults":{},"discoveryHints":[{"kind":"window-title","value":"Yotta"}]
+		}],
+		"credentialRequirements":[],"dependencies":[],"variables":[]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseDigest, err := artifact.Sum("yotta/test/workflow-service-release/v1", []byte("release"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestationDigest, err := artifact.Sum("yotta/test/workflow-service-attestation/v1", []byte("attestation"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := workflowinstallation.NewVerifiedRelease(source, workflowinstallation.VerificationReceipt{
+		ReleaseDigest: releaseDigest, AttestationDigest: attestationDigest,
+		PublisherNamespace: "publisher.test", ReleaseVersion: "1.0.0", VerifiedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := runtime.Installations.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings, err := service.GetInstallationSettings(installation.ID)
+	if err != nil || settings.Generation != 1 || len(settings.Targets) != 1 ||
+		settings.Targets[0].DefinitionID != "desktop" ||
+		settings.Targets[0].SettingsJSON != `{}` ||
+		len(settings.Targets[0].DiscoveryHints) != 1 {
+		t.Fatalf("GetInstallationSettings() = %#v, %v", settings, err)
+	}
+	settings, err = service.UpdateInstallationTargetProfile(
+		installation.ID, settings.Generation, "desktop",
+		`{"windowTitle":"Yotta"}`, "automation-target/desktop",
+	)
+	if err != nil || settings.Generation != 2 ||
+		settings.Targets[0].TargetInstallationID != "automation-target/desktop" ||
+		settings.Targets[0].SettingsJSON != `{"windowTitle":"Yotta"}` {
+		t.Fatalf("UpdateInstallationTargetProfile() = %#v, %v", settings, err)
 	}
 }
 

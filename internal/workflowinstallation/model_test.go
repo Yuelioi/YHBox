@@ -41,6 +41,115 @@ func TestInstallVerifiedCreatesIndependentInstallationsBeforeReadiness(t *testin
 		len(repository.releases) != 1 || len(repository.installations) != 2 {
 		t.Fatalf("installations = %#v / %#v, repository = %#v", first, second, repository)
 	}
+	firstConfiguration, err := module.GetConfiguration(context.Background(), first.ID)
+	if err != nil || len(firstConfiguration.TargetProfiles) != 1 ||
+		firstConfiguration.TargetProfiles["desktop"].ReleaseID != release.ID ||
+		string(firstConfiguration.TargetProfiles["desktop"].Settings) != `{}` {
+		t.Fatalf("materialized configuration = %#v, %v", firstConfiguration, err)
+	}
+	secondConfiguration, err := module.GetConfiguration(context.Background(), second.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstProfile := firstConfiguration.TargetProfiles["desktop"]
+	firstProfile.Settings[0] = 'x'
+	if secondConfiguration.TargetProfiles["desktop"].Settings[0] == 'x' {
+		t.Fatal("Workflow Installations share mutable Target Profile settings")
+	}
+}
+
+func TestUpdateTargetProfileValidatesExactReleaseSchemaAndGeneration(t *testing.T) {
+	release := testRelease(t)
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	module, err := New(repository, Options{
+		Now:   func() time.Time { return time.Date(2026, 7, 26, 2, 0, 0, 0, time.UTC) },
+		NewID: func() string { return "installation-profile" },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := module.UpdateTargetProfile(
+		context.Background(), installation.ID, 1, "desktop",
+		[]byte(`{"unknown":true}`), "target-a",
+	); err == nil {
+		t.Fatal("UpdateTargetProfile accepted settings outside the exact Release schema")
+	}
+	updated, err := module.UpdateTargetProfile(
+		context.Background(), installation.ID, 1, "desktop", []byte(`{ }`), "target-a",
+	)
+	if err != nil || updated.Generation != 2 ||
+		updated.TargetProfiles["desktop"].TargetInstallationID != "target-a" ||
+		updated.TargetBindings["desktop"] != "target-a" ||
+		string(updated.TargetProfiles["desktop"].Settings) != `{}` {
+		t.Fatalf("UpdateTargetProfile() = %#v, %v", updated, err)
+	}
+	if _, err := module.UpdateTargetProfile(
+		context.Background(), installation.ID, 1, "desktop", []byte(`{}`), "target-b",
+	); !errors.Is(err, ErrInstallationConflict) {
+		t.Fatalf("stale UpdateTargetProfile error = %v", err)
+	}
+}
+
+func TestMaterializeTargetProfilesRejectsPersistedSchemaDriftAndUnknownDefinitions(t *testing.T) {
+	release := testRelease(t)
+	installation := InstallationRecord{
+		ID: "installation-profile-validation", ReleaseID: release.ID, Name: "Installed",
+		Lifecycle: LifecycleActive,
+		CreatedAt: time.Date(2026, 7, 26, 2, 15, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 7, 26, 2, 15, 0, 0, time.UTC),
+	}
+	configuration, err := NewConfigurationForRelease(installation, release)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifted := CloneConfiguration(configuration)
+	profile := drifted.TargetProfiles["desktop"]
+	profile.Settings = []byte(`{"unknown":true}`)
+	drifted.TargetProfiles["desktop"] = profile
+	if _, err := MaterializeTargetProfiles(drifted, release); err == nil {
+		t.Fatal("MaterializeTargetProfiles accepted settings outside the Release schema")
+	}
+	unknown := CloneConfiguration(configuration)
+	profile.DefinitionID = "unknown"
+	profile.Settings = []byte(`{}`)
+	unknown.TargetProfiles["unknown"] = profile
+	if _, err := MaterializeTargetProfiles(unknown, release); err == nil {
+		t.Fatal("MaterializeTargetProfiles accepted an unknown Release definition")
+	}
+}
+
+func TestGetConfigurationMaterializesProfilesForPreProfileConfiguration(t *testing.T) {
+	release := testRelease(t)
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	module, err := New(repository, Options{
+		Now:   func() time.Time { return time.Date(2026, 7, 26, 2, 30, 0, 0, time.UTC) },
+		NewID: func() string { return "installation-migrated" },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), release, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := repository.configurations[installation.ID]
+	legacy.TargetProfiles = map[string]TargetProfile{}
+	legacy.TargetBindings["desktop"] = "target-existing"
+	repository.configurations[installation.ID] = legacy
+
+	materialized, err := module.GetConfiguration(context.Background(), installation.ID)
+	if err != nil || materialized.Generation != 2 ||
+		materialized.TargetProfiles["desktop"].TargetInstallationID != "target-existing" {
+		t.Fatalf("GetConfiguration() = %#v, %v", materialized, err)
+	}
 }
 
 func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
@@ -51,7 +160,10 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 		CreatedAt: time.Date(2026, 7, 26, 1, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, 7, 26, 1, 0, 0, 0, time.UTC),
 	}
-	configuration := NewConfiguration(installation)
+	configuration, err := NewConfigurationForRelease(installation, release)
+	if err != nil {
+		t.Fatal(err)
+	}
 	report, err := EvaluateReadiness(installation, release, configuration, ReadinessEnvironment{})
 	if err != nil {
 		t.Fatal(err)
@@ -69,10 +181,14 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 
 	sourceDependency := testDependency(t)
 	configuration.TargetBindings["desktop"] = "target-installation-a"
+	profile := configuration.TargetProfiles["desktop"]
+	profile.TargetInstallationID = "target-installation-a"
+	configuration.TargetProfiles["desktop"] = profile
 	configuration.CredentialBindings["api"] = "credential-profile-a"
 	configuration.RunConsentRelease = release.ID
 	readyExceptSchedule := ReadinessEnvironment{
 		Dependencies: []DependencyState{sourceDependency},
+		Targets:      []TargetState{testTargetState("target-installation-a")},
 	}
 	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
 	if err != nil {
@@ -87,6 +203,13 @@ func TestReadinessReturnsEveryBlockerAndSeparatesRunFromSchedule(t *testing.T) {
 	if err != nil || !report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 0 {
 		t.Fatalf("ready report = %#v, %v", report, err)
 	}
+	readyExceptSchedule.Targets[0].Authorized = false
+	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
+	if err != nil || report.RunAllowed || report.ScheduleAllowed || len(report.Blockers) != 1 ||
+		report.Blockers[0].Kind != BlockerTarget {
+		t.Fatalf("unauthorized target report = %#v, %v", report, err)
+	}
+	readyExceptSchedule.Targets[0].Authorized = true
 	configuration.RunConsentRelease = ""
 	report, err = EvaluateReadiness(installation, release, configuration, readyExceptSchedule)
 	if err != nil || report.RunAllowed || !report.ScheduleAllowed || len(report.Blockers) != 1 ||
@@ -110,6 +233,9 @@ func TestModulePersistsBindingsAndExactReleaseConsentsWithGenerationCAS(t *testi
 		NewID: func() string { return "installation-config" },
 		Dependencies: func(context.Context) ([]DependencyState, error) {
 			return []DependencyState{testDependency(t)}, nil
+		},
+		Targets: func(context.Context) ([]TargetState, error) {
+			return []TargetState{testTargetState("target-a")}, nil
 		},
 	})
 	if err != nil {
@@ -226,6 +352,14 @@ func testDependency(t *testing.T) DependencyState {
 	}
 }
 
+func testTargetState(targetInstallationID string) TargetState {
+	return TargetState{
+		TargetInstallationID: targetInstallationID,
+		TargetKind:           "desktop", AdapterKind: "windows", ProfileVersion: "1",
+		Available: true, Authorized: true,
+	}
+}
+
 const testSourceJSON = `{
 	"format":"yotta.workflow","version":"1",
 	"workflow":{"id":"workflow-release","name":"Released workflow"},
@@ -258,7 +392,12 @@ type memoryRepository struct {
 	configurationReads int
 }
 
-func (r *memoryRepository) Commit(_ context.Context, release ReleaseRecord, installation InstallationRecord) error {
+func (r *memoryRepository) Commit(
+	_ context.Context,
+	release ReleaseRecord,
+	installation InstallationRecord,
+	configuration Configuration,
+) error {
 	if current, found := r.releases[release.ID]; found {
 		if current.SourceHash != release.SourceHash || current.AttestationDigest != release.AttestationDigest {
 			return ErrReleaseConflict
@@ -272,7 +411,7 @@ func (r *memoryRepository) Commit(_ context.Context, release ReleaseRecord, inst
 	if r.configurations == nil {
 		r.configurations = map[string]Configuration{}
 	}
-	r.configurations[installation.ID] = NewConfiguration(installation)
+	r.configurations[installation.ID] = CloneConfiguration(configuration)
 	return nil
 }
 

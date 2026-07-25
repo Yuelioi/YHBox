@@ -51,6 +51,35 @@ func (r *Runtime) WorkflowInstallationReadiness(
 	return r.Installations.Readiness(ctx, installationID)
 }
 
+func (r *Runtime) WorkflowInstallationSettings(
+	ctx context.Context,
+	installationID string,
+) (workflowinstallation.SettingsSnapshot, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.SettingsSnapshot{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.Settings(ctx, installationID)
+}
+
+func (r *Runtime) UpdateWorkflowInstallationTargetProfile(
+	ctx context.Context,
+	installationID string,
+	expectedGeneration int64,
+	definitionID string,
+	settings []byte,
+	targetInstallationID string,
+) (workflowinstallation.SettingsSnapshot, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.SettingsSnapshot{}, errors.New("workflow installation runtime is unavailable")
+	}
+	if _, err := r.Installations.UpdateTargetProfile(
+		ctx, installationID, expectedGeneration, definitionID, settings, targetInstallationID,
+	); err != nil {
+		return workflowinstallation.SettingsSnapshot{}, err
+	}
+	return r.Installations.Settings(ctx, installationID)
+}
+
 func (r *Runtime) GrantWorkflowInstallationConsent(
 	ctx context.Context,
 	installationID string,

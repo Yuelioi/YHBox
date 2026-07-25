@@ -11,6 +11,7 @@ import type {
   DeleteSourceRequest,
   DeleteSourceResult,
   InstallationReadinessView,
+  InstallationSettingsView,
   InstallationView,
   PatchView,
   RunView,
@@ -48,6 +49,14 @@ export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   listInstallations(): Promise<InstallationView[]>
   getInstallationReadiness(installationId: string): Promise<InstallationReadinessView>
+  getInstallationSettings(installationId: string): Promise<InstallationSettingsView>
+  updateInstallationTargetProfile(
+    installationId: string,
+    expectedGeneration: number,
+    definitionId: string,
+    settingsJson: string,
+    targetInstallationId: string,
+  ): Promise<InstallationSettingsView>
   grantInstallationConsent(
     installationId: string,
     scope: 'run' | 'schedule',
@@ -106,6 +115,23 @@ export const workflowTransport: WorkflowTransport = {
   listInstallations: () => invoke(WorkflowService.ListInstallations),
   getInstallationReadiness: (installationId) =>
     invoke(WorkflowService.GetInstallationReadiness, installationId),
+  getInstallationSettings: (installationId) =>
+    invoke(WorkflowService.GetInstallationSettings, installationId),
+  updateInstallationTargetProfile: (
+    installationId,
+    expectedGeneration,
+    definitionId,
+    settingsJson,
+    targetInstallationId,
+  ) =>
+    invoke(
+      WorkflowService.UpdateInstallationTargetProfile,
+      installationId,
+      expectedGeneration,
+      definitionId,
+      settingsJson,
+      targetInstallationId,
+    ),
   grantInstallationConsent: (installationId, scope) =>
     invoke(WorkflowService.GrantInstallationConsent, installationId, scope),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),
@@ -234,6 +260,7 @@ export type {
   BundleInfoView,
   CompileView,
   InstallationReadinessView,
+  InstallationSettingsView,
   InstallationView,
   CreateSourceRequest,
   DeleteSourcePreview,

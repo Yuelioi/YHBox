@@ -1939,6 +1939,8 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     listSources: vi.fn(async () => [saved]),
     listInstallations: vi.fn(async () => []),
     getInstallationReadiness: vi.fn(async () => ({}) as never),
+    getInstallationSettings: vi.fn(async () => ({}) as never),
+    updateInstallationTargetProfile: vi.fn(async () => ({}) as never),
     grantInstallationConsent: vi.fn(async () => ({}) as never),
     querySources: vi.fn(async () => ({
       items: [saved],

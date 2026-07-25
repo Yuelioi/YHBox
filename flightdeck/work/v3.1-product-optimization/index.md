@@ -10,16 +10,23 @@ Open
 
 ## Current
 
-Stage M3b 进行中：Installation-ID 已成为 verified Release 的手动运行与计划执行入口；两条路径在保存/
-触发时复用持久 Readiness，并将 exact Release bytes 与本机 logical binding 送入唯一 Application runtime。
+Stage M3b 进行中：Target Profile Definition 已按 Installation materialize 为独立本机 profile，
+Content Catalog schema 6 持久化精确设置与 Target Installation binding；工作流列表可查看 readiness、
+授予手动运行 consent，并在设置 Modal 中选择兼容本机目标。secure credential binding 仍待完成。
 
 ## Next
 
-完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：提供“工作流设置 → 目标与凭据”，从
-Target Profile Definition materialize 本机 profile，并接通 secure credential logical binding。
+完成 [M3b](slices/stage-m3b-installation-local-configuration.md)：接通 secure credential logical binding，
+让设置 Modal 可从安全存储中的兼容 credential profile 选择引用，并以 Readiness/运行验收收尾。
 
 ## Progress
 
+- 2026-07-26 M3b Target Profile 完成：首次安装从 exact Release Definition materialize 独立 profile，
+  schema 6 持久化 canonical settings 与 Target Installation ID，schema 5 记录按 generation CAS 惰性补齐。
+  Readiness 只接受仍安装、类型/adapter/version 精确匹配且已授权的自动化目标；Wails 154 个方法暴露
+  设置读写，工作流列表提供安装级状态、运行授权、执行与密集设置 Modal，凭据区明确只显示绑定状态。
+  `task check` 通过 36 个 Go 包和前端 83 文件/353 项测试；Windows WebView smoke
+  `20260726-054225` 退出 0，已安装列表与设置截图已目检。
 - 2026-07-26 M3a 首批核心完成：verified Release projection、多实例 Installation 与独立 Readiness
   深模块进入 Content Catalog schema 4 和桌面/CLI composition；Release/Installation 原子提交、identity
   collision 回滚、五类并存 blocker、run/schedule 分离与精确 Release consent lineage 已由测试锁定。

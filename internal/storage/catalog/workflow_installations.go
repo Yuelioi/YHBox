@@ -24,6 +24,7 @@ func (r *WorkflowInstallationRepository) Commit(
 	ctx context.Context,
 	release workflowinstallation.ReleaseRecord,
 	installation workflowinstallation.InstallationRecord,
+	configuration workflowinstallation.Configuration,
 ) error {
 	if err := r.ready(); err != nil {
 		return err
@@ -39,6 +40,13 @@ func (r *WorkflowInstallationRepository) Commit(
 	}
 	if installation.ReleaseID != release.ID {
 		return errors.New("Workflow Installation release identity does not match committed Release")
+	}
+	if err := workflowinstallation.ValidateConfiguration(configuration); err != nil {
+		return err
+	}
+	if configuration.InstallationID != installation.ID || configuration.Generation != 1 ||
+		!configuration.UpdatedAt.Equal(installation.CreatedAt) {
+		return errors.New("Workflow Installation initial configuration does not match Installation")
 	}
 	tx, err := r.database.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -86,17 +94,16 @@ func (r *WorkflowInstallationRepository) Commit(
 	if inserted == 0 {
 		return errors.Join(workflowinstallation.ErrInstallationConflict, tx.Rollback())
 	}
-	configuration := workflowinstallation.NewConfiguration(installation)
-	targets, credentials, err := marshalConfigurationBindings(configuration)
+	profiles, targets, credentials, err := marshalConfiguration(configuration)
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO workflow_installation_configurations(
-			installation_id, generation, target_bindings, credential_bindings,
+			installation_id, generation, target_profiles, target_bindings, credential_bindings,
 			run_consent_release, schedule_consent_release, updated_at
-		) VALUES (?, ?, ?, ?, NULL, NULL, ?)
-	`, configuration.InstallationID, configuration.Generation, targets, credentials,
+		) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)
+	`, configuration.InstallationID, configuration.Generation, profiles, targets, credentials,
 		configuration.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		return errors.Join(err, tx.Rollback())
 	}
@@ -180,16 +187,16 @@ func (r *WorkflowInstallationRepository) ReplaceConfiguration(
 	if err := workflowinstallation.ValidateConfiguration(next); err != nil {
 		return err
 	}
-	targets, credentials, err := marshalConfigurationBindings(next)
+	profiles, targets, credentials, err := marshalConfiguration(next)
 	if err != nil {
 		return err
 	}
 	result, err := r.database.db.ExecContext(ctx, `
 		UPDATE workflow_installation_configurations
-		SET generation = ?, target_bindings = ?, credential_bindings = ?,
+		SET generation = ?, target_profiles = ?, target_bindings = ?, credential_bindings = ?,
 		    run_consent_release = ?, schedule_consent_release = ?, updated_at = ?
 		WHERE installation_id = ? AND generation = ?
-	`, next.Generation, targets, credentials, nullableDigest(next.RunConsentRelease),
+	`, next.Generation, profiles, targets, credentials, nullableDigest(next.RunConsentRelease),
 		nullableDigest(next.ScheduleConsentRelease), next.UpdatedAt.Format(time.RFC3339Nano),
 		next.InstallationID, expectedGeneration)
 	if err != nil {
@@ -290,21 +297,24 @@ func getWorkflowInstallationConfiguration(
 		return workflowinstallation.Configuration{}, false, errors.New("Workflow Installation identity is invalid")
 	}
 	row := query.QueryRowContext(ctx, `
-		SELECT installation_id, generation, target_bindings, credential_bindings,
+		SELECT installation_id, generation, target_profiles, target_bindings, credential_bindings,
 		       run_consent_release, schedule_consent_release, updated_at
 		FROM workflow_installation_configurations WHERE installation_id = ?
 	`, installationID)
 	var configuration workflowinstallation.Configuration
-	var targets, credentials []byte
+	var profiles, targets, credentials []byte
 	var runConsent, scheduleConsent sql.NullString
 	var updatedAt string
 	if err := row.Scan(
-		&configuration.InstallationID, &configuration.Generation, &targets, &credentials,
+		&configuration.InstallationID, &configuration.Generation, &profiles, &targets, &credentials,
 		&runConsent, &scheduleConsent, &updatedAt,
 	); errors.Is(err, sql.ErrNoRows) {
 		return workflowinstallation.Configuration{}, false, nil
 	} else if err != nil {
 		return workflowinstallation.Configuration{}, false, err
+	}
+	if err := decodeCanonicalTargetProfiles(profiles, &configuration.TargetProfiles); err != nil {
+		return workflowinstallation.Configuration{}, false, ErrSchemaDrift
 	}
 	if err := decodeCanonicalBindings(targets, &configuration.TargetBindings); err != nil {
 		return workflowinstallation.Configuration{}, false, ErrSchemaDrift
@@ -325,16 +335,20 @@ func getWorkflowInstallationConfiguration(
 	return workflowinstallation.CloneConfiguration(configuration), true, nil
 }
 
-func marshalConfigurationBindings(configuration workflowinstallation.Configuration) ([]byte, []byte, error) {
+func marshalConfiguration(configuration workflowinstallation.Configuration) ([]byte, []byte, []byte, error) {
+	profiles, err := artifact.Marshal(configuration.TargetProfiles)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	targets, err := artifact.Marshal(configuration.TargetBindings)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	credentials, err := artifact.Marshal(configuration.CredentialBindings)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return targets, credentials, nil
+	return profiles, targets, credentials, nil
 }
 
 func decodeCanonicalBindings(raw []byte, target *map[string]string) error {
@@ -344,6 +358,17 @@ func decodeCanonicalBindings(raw []byte, target *map[string]string) error {
 	}
 	if err := json.Unmarshal(raw, target); err != nil || *target == nil {
 		return errors.New("bindings are invalid")
+	}
+	return nil
+}
+
+func decodeCanonicalTargetProfiles(raw []byte, target *map[string]workflowinstallation.TargetProfile) error {
+	canonical, err := artifact.Canonicalize(raw)
+	if err != nil || !bytes.Equal(raw, canonical) {
+		return errors.New("Workflow Target Profiles are not canonical")
+	}
+	if err := json.Unmarshal(raw, target); err != nil || *target == nil {
+		return errors.New("Workflow Target Profiles are invalid")
 	}
 	return nil
 }

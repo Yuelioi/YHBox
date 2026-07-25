@@ -98,6 +98,7 @@ var contentMigrations = []migration{
 	{id: "content.workflow-sources.3", from: 2, to: 3, statements: workflowCatalogStatements},
 	{id: "content.workflow-installations.4", from: 3, to: 4, statements: workflowInstallationStatements},
 	{id: "content.workflow-installation-configurations.5", from: 4, to: 5, statements: workflowInstallationConfigurationStatements},
+	{id: "content.workflow-target-profiles.6", from: 5, to: 6, statements: workflowTargetProfileStatements},
 }
 
 var runMigrations = []migration{
@@ -305,6 +306,12 @@ var workflowInstallationConfigurationStatements = []string{
 	)
 	SELECT installation_id, 1, x'7b7d', x'7b7d', created_at
 	FROM workflow_installations`,
+}
+
+var workflowTargetProfileStatements = []string{
+	`ALTER TABLE workflow_installation_configurations
+		ADD COLUMN target_profiles BLOB NOT NULL DEFAULT x'7b7d'
+		CHECK (length(target_profiles) > 0)`,
 }
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {

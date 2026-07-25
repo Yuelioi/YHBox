@@ -56,8 +56,9 @@ describe('WorkflowsView entry points', () => {
     expect(source.slice(filterStart, filterEnd)).not.toContain('width-mode="fixed"')
   })
 
-  it('keeps refresh in the library overflow menu instead of duplicating it in filters', () => {
-    expect(source.match(/i-tabler-refresh/g)).toHaveLength(1)
+  it('keeps Source refresh in the library menu and gives installations their own refresh action', () => {
+    expect(source.match(/i-tabler-refresh/g)).toHaveLength(2)
+    expect(source).toContain('@click="loadInstallations"')
     expect(assetsSource.match(/i-tabler-refresh/g)).toHaveLength(1)
   })
 
