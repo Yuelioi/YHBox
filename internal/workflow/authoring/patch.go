@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -63,6 +64,9 @@ const (
 	CommandBindDefault            CommandKind = "bind-default"
 	CommandBindBlob               CommandKind = "bind-blob"
 	CommandBindResource           CommandKind = "bind-resource"
+	CommandAddResource            CommandKind = "add-resource"
+	CommandUpdateResourceMetadata CommandKind = "update-resource-metadata"
+	CommandRemoveResource         CommandKind = "remove-resource"
 	CommandClearBinding           CommandKind = "clear-binding"
 	CommandConnect                CommandKind = "connect"
 	CommandDisconnect             CommandKind = "disconnect"
@@ -104,6 +108,9 @@ type Command struct {
 	BindDefault            *PortCommand                   `json:"bindDefault,omitempty"`
 	BindBlob               *BindBlobCommand               `json:"bindBlob,omitempty"`
 	BindResource           *BindResourceCommand           `json:"bindResource,omitempty"`
+	AddResource            *AddResourceCommand            `json:"addResource,omitempty"`
+	UpdateResourceMetadata *UpdateResourceMetadataCommand `json:"updateResourceMetadata,omitempty"`
+	RemoveResource         *RemoveResourceCommand         `json:"removeResource,omitempty"`
 	ClearBinding           *PortCommand                   `json:"clearBinding,omitempty"`
 	Connect                *EdgeCommand                   `json:"connect,omitempty"`
 	Disconnect             *EdgeCommand                   `json:"disconnect,omitempty"`
@@ -271,6 +278,22 @@ type BindResourceCommand struct {
 	NodeID   string                 `json:"nodeId"`
 	PortID   string                 `json:"portId"`
 	Resource schema.ResourceBinding `json:"resource"`
+}
+
+type AddResourceCommand struct {
+	Resource schema.WorkflowResource `json:"resource"`
+}
+
+type UpdateResourceMetadataCommand struct {
+	ResourceID  string   `json:"resourceId"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+}
+
+type RemoveResourceCommand struct {
+	ResourceID string `json:"resourceId"`
 }
 
 type EdgeCommand struct {
@@ -675,6 +698,43 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		}
 		removeIncomingData(graph, node.ID, command.BindResource.PortID)
 		node.Bindings[command.BindResource.PortID] = schema.InputBinding{Kind: schema.BindingResource, Resource: &resource}
+	case CommandAddResource:
+		resource := command.AddResource.Resource
+		if resourceByID(source.Resources, resource.ID) != nil {
+			return patchError(index, "DUPLICATE_RESOURCE", "workflow resource already exists")
+		}
+		resource.Name = strings.TrimSpace(resource.Name)
+		resource.Description = strings.TrimSpace(resource.Description)
+		resource.Category = strings.TrimSpace(resource.Category)
+		resource.Tags = normalizeResourceTags(resource.Tags)
+		source.Resources = append(source.Resources, resource)
+		sort.Slice(source.Resources, func(left, right int) bool {
+			return source.Resources[left].ID < source.Resources[right].ID
+		})
+	case CommandUpdateResourceMetadata:
+		payload := command.UpdateResourceMetadata
+		resource := resourceByID(source.Resources, payload.ResourceID)
+		if resource == nil {
+			return patchError(index, "UNKNOWN_RESOURCE", "workflow resource does not exist")
+		}
+		resource.Name = strings.TrimSpace(payload.Name)
+		resource.Description = strings.TrimSpace(payload.Description)
+		resource.Category = strings.TrimSpace(payload.Category)
+		resource.Tags = normalizeResourceTags(payload.Tags)
+	case CommandRemoveResource:
+		resourceID := strings.TrimSpace(command.RemoveResource.ResourceID)
+		if resourceByID(source.Resources, resourceID) == nil {
+			return patchError(index, "UNKNOWN_RESOURCE", "workflow resource does not exist")
+		}
+		if countResourceReferences(*source, resourceID) != 0 {
+			return patchError(index, "RESOURCE_IN_USE", "workflow resource still has bindings")
+		}
+		for resourceIndex := range source.Resources {
+			if source.Resources[resourceIndex].ID == resourceID {
+				source.Resources = append(source.Resources[:resourceIndex], source.Resources[resourceIndex+1:]...)
+				break
+			}
+		}
 	case CommandClearBinding:
 		_, node, err := resolveNode(source, command.ClearBinding.GraphID, command.ClearBinding.NodeID, handles)
 		if err != nil {
@@ -943,7 +1003,8 @@ func validateTaggedCommand(command Command) error {
 		command.AddStateVariable != nil, command.UpdateStateVariable != nil, command.RemoveStateVariable != nil,
 		command.AddNode != nil, command.UpgradeNodeContract != nil, command.RemoveNode != nil, command.MoveNode != nil, command.SetNodeLabel != nil,
 		command.SetNodeDisabled != nil, command.SetConfig != nil, command.ClearConfig != nil,
-		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.BindResource != nil, command.ClearBinding != nil,
+		command.BindValue != nil, command.BindDefault != nil, command.BindBlob != nil, command.BindResource != nil,
+		command.AddResource != nil, command.UpdateResourceMetadata != nil, command.RemoveResource != nil, command.ClearBinding != nil,
 		command.Connect != nil, command.Disconnect != nil,
 		command.AddGraph != nil, command.RenameGraph != nil, command.RemoveGraph != nil, command.UpdateGraphInterface != nil,
 		command.AddGraphCall != nil, command.RemoveGraphCall != nil,
@@ -972,8 +1033,10 @@ func validateTaggedCommand(command Command) error {
 		CommandSetConfig: command.SetConfig != nil, CommandClearConfig: command.ClearConfig != nil,
 		CommandBindValue: command.BindValue != nil, CommandBindDefault: command.BindDefault != nil,
 		CommandBindBlob: command.BindBlob != nil, CommandBindResource: command.BindResource != nil,
-		CommandClearBinding: command.ClearBinding != nil,
-		CommandConnect:      command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
+		CommandAddResource: command.AddResource != nil, CommandUpdateResourceMetadata: command.UpdateResourceMetadata != nil,
+		CommandRemoveResource: command.RemoveResource != nil,
+		CommandClearBinding:   command.ClearBinding != nil,
+		CommandConnect:        command.Connect != nil, CommandDisconnect: command.Disconnect != nil,
 		CommandAddGraph: command.AddGraph != nil, CommandRenameGraph: command.RenameGraph != nil,
 		CommandRemoveGraph: command.RemoveGraph != nil, CommandAddGraphCall: command.AddGraphCall != nil,
 		CommandUpdateGraphInterface: command.UpdateGraphInterface != nil,
@@ -1701,6 +1764,54 @@ func removeIncomingData(graph *schema.Graph, nodeID, portID string) {
 		}
 	}
 	graph.Edges = edges
+}
+
+func resourceByID(resources []schema.WorkflowResource, resourceID string) *schema.WorkflowResource {
+	for index := range resources {
+		if resources[index].ID == resourceID {
+			return &resources[index]
+		}
+	}
+	return nil
+}
+
+func normalizeResourceTags(tags []string) []string {
+	normalized := make([]string, 0, len(tags))
+	seen := make(map[string]struct{}, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		key := strings.ToLower(tag)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, tag)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func countResourceReferences(source schema.WorkflowSource, resourceID string) int {
+	count := 0
+	countBindings := func(bindings map[string]schema.InputBinding) {
+		for _, binding := range bindings {
+			if binding.Kind == schema.BindingResource && binding.Resource != nil && binding.Resource.ResourceID == resourceID {
+				count++
+			}
+		}
+	}
+	for _, graph := range source.Graphs {
+		for _, node := range graph.Nodes {
+			countBindings(node.Bindings)
+		}
+		for _, call := range graph.Calls {
+			countBindings(call.Bindings)
+		}
+	}
+	return count
 }
 
 func finitePosition(position schema.Position) bool {

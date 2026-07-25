@@ -10,14 +10,15 @@ Open
 
 ## Current
 
-Stage P 已完成：真实 `fishing-v2` 从 60 节点单图整理为 3 个主图节点、6 个业务子图调用；
-60 nodes、88 edges、18 组图片资源和 Run 状态保持，production CLI 编译 0 诊断。Windows WebView
-逐一进入六个子图且无 JS/页面错误，准备、买饵和卖鱼长链经截图反馈改为紧凑分层布局。
+Stage Q 与 M2a 已完成并通过提交前门禁：子图/三类资源/Snippet 成为左侧一级工作区，Workflow Resource
+增删改、Global Asset snapshot、筛选/分页/批量管理、大图预览和按稳定身份定位形成闭环；资源命令进入
+正式 authoring patch 与单次 undo。用户已把下一阶段明确转向配置与资源持久化基础设施。
 
 ## Next
 
-按 [产品优化计划](plan.md) 恢复 Stage M2：先建立 Workflow Resource 与 Global Asset 创建、快照和
-提升语义的领域红灯，再接入编辑器。
+执行 [R1 — 配置与资源持久化审计](slices/stage-r1-storage-config-audit.md)：盘清全部配置、资源、CAS、
+索引、缓存和运行数据的所有权与容量边界，给出目标 data-root、存储接口、完整性/恢复/GC 和内置迁移框架，
+再决定分阶段改造顺序。
 
 ## Progress
 
@@ -69,9 +70,28 @@ Stage P 已完成：真实 `fishing-v2` 从 60 节点单图整理为 3 个主图
   旅程通过，production editor gzip 205314/220000 字节。
 - 2026-07-24 P1/Stage P 完成：真实 `fishing-v2` 重组为准备、拉钩、溜鱼、结算、买饵、卖鱼六个
   Source-native 子图；修复 Repeat/ForEach/Retry 区域控制输入被折叠器误判为 callable graph entry。
-  原 revision 4 由 SourceStore 保存在 `.recovery`，当前 revision 8 由 production CLI 编译 0 诊断；
+  原 revision 4 已移至不参与 SourceStore 扫描的 `bin/data/backups/workflow-sources/`，当前 revision 8 由 production CLI 编译 0 诊断；
   Windows WebView 管理器和六个子图逐项打开，无不健康接口、alert 或 JS error。`task check` 通过
   12 个受影响 Go 包，`task build` 生成当前 3.1.0 GUI 并通过隔离启动 smoke。
+- 2026-07-25 Q1/Stage Q 完成：左侧 rail 重组为子图、Macro、精准录制、视觉模板和 Snippet；子图管理
+  从顶部 Popover 改为停靠面板，节点发现收敛到 Tab 与显式“添加节点”。修正 WebView 烟测残留目录选择器和
+  子图新建稳定入口；`task check` 通过 79 个前端测试文件/340 项测试，`task webview:smoke` 退出 0，
+  六类关键 PNG 已目检。
+- 2026-07-25 M2a 完成：Workflow Resource 增删改/引用保护进入正式合同与 EditorSession；资源侧栏提供
+  scope/mode、三筛选、数字分页、逐项/本页/跨页选择、元数据与批量删除；Global Asset 按钮/双击创建
+  图片、Macro 或 InputClip snapshot。`task check` 通过 80 个前端测试文件/343 项测试，最终 Windows
+  WebView smoke 退出 0；同时根治首轮 L 形框选误选和 Ctrl modifier 假多选。
+- 2026-07-25 修复 M2a production bundle 回归：`WorkflowResourceDock` 从 editor 同步依赖改为按需 chunk，
+  editor 初始 gzip 223692 → 201936 bytes；`task build` 退出 0，`bin/Yotta.exe` 通过 Windows GUI metadata
+  与 5 秒隔离启动 smoke，随后 `task check` 再次通过 13 个 Go 包和 80 个前端测试文件/343 项测试。
+- 2026-07-25 根据真机反馈撤回资源侧栏“使用/管理”双模式：范围切换增加显式 primary 激活态，列表同时
+  提供使用、选择和 overflow 管理，筛选列等宽铺满。WebView smoke 新增 computed-style/实际宽度断言并
+  分别截图两种 scope；同时修复 WebView2 仅监听 IPv6 `::1` 时脚本误轮询 IPv4 导致的首轮假失败。
+- 2026-07-25 资源预览/定位闭环：资源库、选择器和节点模板缩略图统一支持大图、适应窗口、实际尺寸和
+  25%–400% 缩放；所有通用素材绑定字段可按 Workflow `resourceId + variantId` 或 Global Asset GUID
+  打开左侧对应面板并精确过滤、高亮目标。1000 条素材 GUID 查询、`task check`（29 个 Go 包、81 个
+  前端测试文件/347 项测试）、production bundle（editor 201985/220000 gzip）及持续等待同一进程退出码的
+  WebView smoke 均通过；同时补齐 M2 资源 authoring 命令的 Wails RPC 合同快照。
 
 ## References
 

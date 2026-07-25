@@ -59,6 +59,8 @@
               :key="`${item.kind}:${item.id}`"
               type="button"
               data-testid="workflow-quick-add-item"
+              :data-item-id="item.id"
+              :data-item-kind="item.kind"
               class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary"
               :class="index === activeIndex ? 'bg-primary/10' : 'hover:bg-elevated'"
               @mouseenter="activeIndex = index"

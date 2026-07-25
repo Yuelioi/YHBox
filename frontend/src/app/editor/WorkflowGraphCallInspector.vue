@@ -60,7 +60,9 @@
           :node="editorNode"
           :port="port"
           :title="inputTitle(port.id)"
+          :resources="resources"
           @command="applyBindingCommand"
+          @locate-resource="emit('locate-resource', $event)"
         />
       </section>
       <div v-else class="rounded-lg border border-default bg-elevated/30 px-3 py-4">
@@ -73,16 +75,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Graph, GraphCall, Node } from '../../../../contracts/workflow/current/workflow-source'
+import type {
+  Graph,
+  GraphCall,
+  Node,
+  WorkflowResource,
+} from '../../../../contracts/workflow/current/workflow-source'
 import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand } from './EditorSession'
 import { graphInterfacePortLabel } from './subgraphInterface'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
+import type { ResourceLocation } from './resourceLocator'
 
 const props = defineProps<{
   call: GraphCall
   graph: Graph
   ports: PortProjection[]
+  resources?: WorkflowResource[]
 }>()
 const emit = defineEmits<{
   update: [call: GraphCall]
@@ -91,6 +100,7 @@ const emit = defineEmits<{
   fork: []
   expand: []
   remove: []
+  'locate-resource': [location: ResourceLocation]
 }>()
 const { t } = useI18n()
 

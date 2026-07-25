@@ -6,8 +6,36 @@
 
 ## Current stage
 
-Stage A–L、Stage N、Stage O 与 Stage P 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
-M1 合同保持完成，下一阶段恢复 M2 的资源归属与编辑器闭环。
+Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage M 的
+M1 合同与 M2a 资源侧栏保持完成。Stage R 先处理配置与资源持久化基础设施，再继续依赖该基础的 M2/M3。
+
+## Stage R — 配置与资源持久化基础设施
+
+范围：把应用设置、安装级配置、Workflow Source/Program、Global Asset、Workflow Resource、CAS Blob、
+录制、计划、运行历史、插件/节点包、索引与缓存放回清晰的领域所有权和容量模型，建立适合中大型桌面软件的
+data-root、存储接口、完整性、恢复、GC 和版本迁移边界。
+
+- [ ] [R1 — 配置与资源持久化审计](slices/stage-r1-storage-config-audit.md)：当前持久化清单、风险矩阵、
+  目标目录/所有权、Storage/Repository seam、索引/锁/恢复/GC/migration 方案与后续实现切片。
+
+非目标：不在审计阶段直接搬动用户目录，不把所有对象塞进单一数据库，不把 secret 或本机安装配置带入
+Workflow Source/Bundle，也不为了当前开发样本忽略 1000+ 对象和 GB 级内容。
+
+阶段门槛：每类持久化对象都有唯一所有者、权威格式、版本/迁移、容量、并发、完整性、备份恢复和清理语义；
+后续改造可按对象族独立上线并由大数据 fixture、崩溃中断和真实 Windows data-root 验收。
+
+## Stage Q — 编辑器工作区导航重组
+
+范围：把子图定义管理和三类工作区资源提升为左侧一级工具，移除与 Tab 快速添加重复的常驻节点目录，
+同时保留无鼠标记忆负担的显式添加入口。
+
+- [x] [Q1 — 编辑器工作区工具栏重组](slices/stage-q1-workspace-tool-rail.md)：停靠式子图管理、五工具
+  icon rail、三类独立资源面板、显式快速添加和 Windows WebView 纵向验收。
+
+非目标：不删除 Catalog/Projection，不改变 Graph/GraphCall 或资源领域语义，不提前实现 M2 的资源快照和提升。
+
+阶段门槛：Tab 与“添加节点”均可创建节点；子图定义生命周期动作在停靠面板可达；Macro、精准录制、视觉模板
+各有一级入口；`task check` 与真实 Windows WebView smoke 通过并目检关键截图。
 
 ## Stage P — 真实钓鱼工作流子图实战
 
@@ -101,8 +129,9 @@ subgraph store；不把 workflow-local Graph 定义升级成 Global Asset。
 
 ### M2 — 资源归属与编辑器
 
+- [x] [M2a — 工作流资源侧栏与本机素材快照](slices/stage-m2-workflow-resource-sidebar.md)
 - [ ] 资产库录制/截图创建 Global Asset；工作流编辑器内录制/截图创建 Workflow Resource。
-- [ ] 编辑器同时显示当前工作流资源与 Global Asset；选中 Global Asset 时创建 metadata snapshot 的 Workflow Resource，
+- [x] 编辑器同时显示当前工作流资源与 Global Asset；选中 Global Asset 时创建 metadata snapshot 的 Workflow Resource，
   可共享 CAS 字节，但后续全局修改/删除不影响工作流。
 - [ ] Workflow Resource 支持显式提升为 Global Asset，提升不改变原工作流归属；共享资源编辑影响全部引用。
 - [ ] 导入后图片、Macro、InputClip 的摘要、时长、录制源 counts/360 和编辑能力只依赖 Source/resource metadata，

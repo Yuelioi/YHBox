@@ -12,7 +12,9 @@ Yotta 3.1 的唯一产品事实是 Workflow Source、Catalog/Node Contract、Com
 - Selection、execution、debug 与 validation 是独立状态，不复用一种节点高亮表达。
 - 复杂节点使用通用 Authoring Projection 加类型级 Editor Adapter；画布节点保持低密度，完整参数在 Inspector。
 - Macro 与精准 InputClip 在领域、资源、编辑器和回放节点上分轨，不隐式互转。
-- Tab 搜索和左侧目录共享 Catalog Projection；Snippet 快捷键必须可见、可校验冲突且只在编辑器上下文生效。
+- Tab 搜索、画布“添加节点”和连线候选共享 Catalog Projection；Snippet 快捷键必须可见、可校验冲突且只在编辑器上下文生效。
+- Catalog Projection 继续作为 Tab、画布“添加节点”和连线候选的共同事实，但不再占用常驻左栏；左侧一级
+  工具只承载子图定义、Macro、精准 InputClip、视觉模板和 Snippet 等需要持续管理的对象。
 - 离开脏工作流必须提供取消、放弃、保存并退出三路选择，保存失败不得继续导航。
 - 单对象短流程使用 Modal 保留列表上下文；长生命周期、多页面任务才使用独立路由。
 - Stage 内运行最小定向门禁，Stage 完成后再统一执行 `task check` 和触发的真实宿主 smoke。

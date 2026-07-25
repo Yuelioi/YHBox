@@ -21,12 +21,15 @@ func TestGeneratedPatchSchemaUsesExactTaggedUnion(t *testing.T) {
 	if err := json.Unmarshal(raw, &document); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(document.Definitions["Command"].OneOf); got != 34 {
+	if got := len(document.Definitions["Command"].OneOf); got != 37 {
 		t.Fatalf("command variants = %d", got)
 	}
 	if !bytes.Contains(raw, []byte(`"additionalProperties": false`)) ||
 		!bytes.Contains(raw, []byte(`"const": "connect"`)) ||
 		!bytes.Contains(raw, []byte(`"const": "bind-resource"`)) ||
+		!bytes.Contains(raw, []byte(`"const": "add-resource"`)) ||
+		!bytes.Contains(raw, []byte(`"const": "update-resource-metadata"`)) ||
+		!bytes.Contains(raw, []byte(`"const": "remove-resource"`)) ||
 		!bytes.Contains(raw, []byte(`"connect"`)) {
 		t.Fatalf("schema is not an exact tagged union: %s", raw)
 	}

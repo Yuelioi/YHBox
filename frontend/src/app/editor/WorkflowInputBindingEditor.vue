@@ -29,13 +29,16 @@
     <AssetReferenceField
       v-else-if="usesAssetPicker"
       :kind="assetKind ?? 'clip'"
-      :bound="binding?.kind === 'blob'"
+      :bound="binding?.kind === 'blob' || binding?.kind === 'resource'"
       :blob="bindingBlob"
       :label="resourceLabel"
       :placeholder="pickerPlaceholder"
       :stale="resourceStale"
       :clearable="bindingActions.clear"
+      :locatable="Boolean(resourceLocation)"
+      :identity="resourceIdentity"
       @change="pickerOpen = true"
+      @locate="resourceLocation && emit('locate-resource', resourceLocation)"
       @clear="emit('command', { kind: 'clear-binding', nodeId: node.id, portId: port.id })"
     />
     <p v-if="needsPickerTarget" class="text-[11px] leading-5 text-warning">
@@ -78,8 +81,14 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node } from '@/app/editor/EditorSession'
+import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
 import { resolvePortAdapter } from '@/app/editor/authoringSurface'
 import { bindingActionPolicy } from '@/app/editor/bindingActionPolicy'
+import {
+  resolveWorkflowResourceBinding,
+  workspaceResourceKind,
+  type ResourceLocation,
+} from '@/app/editor/resourceLocator'
 import AssetReferenceField from '@/app/editor/AssetReferenceField.vue'
 import AssetPickerModal from '@/components/assets/AssetPickerModal.vue'
 import { useAssetsStore, type AssetPickerSelection } from '@/stores/assets'
@@ -97,10 +106,12 @@ const props = defineProps<{
   title?: string
   targetSlot?: string
   connected?: boolean
+  resources?: WorkflowResource[]
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
   'capture-template': []
+  'locate-resource': [location: ResourceLocation]
 }>()
 const { t, te } = useI18n()
 const assets = useAssetsStore()
@@ -142,7 +153,13 @@ const needsPickerTarget = computed(
   () => !props.targetSlot && ['point', 'region', 'color-range'].includes(editorAdapter.value),
 )
 const bindingBlob = computed(() =>
-  binding.value?.kind === 'blob' ? binding.value.blob : undefined,
+  binding.value?.kind === 'blob' ? binding.value.blob : resolvedWorkflowBinding.value?.blob,
+)
+const resolvedWorkflowBinding = computed(() =>
+  resolveWorkflowResourceBinding(
+    props.resources ?? [],
+    binding.value?.kind === 'resource' ? binding.value.resource : undefined,
+  ),
 )
 const pickerPlaceholder = computed(() =>
   t(
@@ -154,18 +171,55 @@ const pickerPlaceholder = computed(() =>
   ),
 )
 const resourceLabel = computed(() => {
+  const workflow = resolvedWorkflowBinding.value
+  if (workflow) {
+    return workflow.resolution
+      ? `${workflow.resource.name} · ${workflow.resolution[0]}×${workflow.resolution[1]}`
+      : workflow.resource.name
+  }
   const selection = immediateSelection.value
   if (selection && sameBlob(selection.blob, bindingBlob.value)) return selectionLabel(selection)
   const resolved = resolvedBinding.value
   if (!resolved?.found) return t('workflow.inspector.resource_missing')
+  if (resolved.matchCount > 1) {
+    return t('workflow.inspector.resource_ambiguous', { n: resolved.matchCount })
+  }
   if (resolved.kind === 'template' && resolved.resolution[0] > 0) {
     return `${resolved.name} · ${resolved.resolution[0]}×${resolved.resolution[1]}`
   }
   return resolved.name
 })
 const resourceStale = computed(() =>
-  Boolean(bindingBlob.value && bindingResolved.value && !resolvedBinding.value?.found),
+  binding.value?.kind === 'resource'
+    ? !resolvedWorkflowBinding.value
+    : Boolean(bindingBlob.value && bindingResolved.value && !resolvedBinding.value?.found),
 )
+const resourceLocation = computed<ResourceLocation | undefined>(() => {
+  const workflow = resolvedWorkflowBinding.value
+  if (workflow) {
+    return {
+      kind: workspaceResourceKind(workflow.resource),
+      scope: 'workflow',
+      id: workflow.resource.id,
+      ...(binding.value?.kind === 'resource' && binding.value.resource?.variantId
+        ? { variantId: binding.value.resource.variantId }
+        : {}),
+    }
+  }
+  const selection = immediateSelection.value
+  if (selection && sameBlob(selection.blob, bindingBlob.value)) {
+    return { kind: selection.kind, scope: 'library', id: selection.guid }
+  }
+  const resolved = resolvedBinding.value
+  if (!resolved?.found || resolved.matchCount !== 1 || !resolved.guid || !assetKind.value)
+    return undefined
+  return { kind: assetKind.value, scope: 'library', id: resolved.guid }
+})
+const resourceIdentity = computed(() => {
+  const location = resourceLocation.value
+  if (!location) return ''
+  return location.variantId ? `${location.id}/${location.variantId}` : location.id
+})
 const portTitle = computed(
   () =>
     props.title?.trim() ||
@@ -194,6 +248,17 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => [
+    binding.value?.kind,
+    binding.value?.resource?.resourceId,
+    binding.value?.resource?.variantId,
+  ],
+  () => {
+    immediateSelection.value = null
+  },
+)
+
 function setLiteral(value: unknown): void {
   emit('command', { kind: 'bind-value', nodeId: props.node.id, portId: props.port.id, value })
 }
@@ -212,6 +277,10 @@ async function resolveCurrentBinding(): Promise<void> {
   const blob = bindingBlob.value
   resolvedBinding.value = null
   bindingResolved.value = !blob
+  if (binding.value?.kind === 'resource') {
+    bindingResolved.value = Boolean(resolvedWorkflowBinding.value)
+    return
+  }
   if (!blob) {
     immediateSelection.value = null
     return

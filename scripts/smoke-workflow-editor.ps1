@@ -21,6 +21,7 @@ $launcherScreenshot = Join-Path $runRoot 'launcher.png'
 $appProcess = $null
 $viteProcess = $null
 $viteListenerPID = $null
+$debugEndpoint = $null
 
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 
@@ -73,24 +74,39 @@ try {
     $appErr = Join-Path $runRoot 'yotta.err.log'
     $appProcess = Start-Process -FilePath (Join-Path $binDir 'Yotta.SmokeHost.exe') -WorkingDirectory $binDir -WindowStyle Hidden -RedirectStandardOutput $appOut -RedirectStandardError $appErr -PassThru
 
-    for ($attempt = 0; $attempt -lt 100; $attempt++) {
+    for ($attempt = 0; $attempt -lt 300; $attempt++) {
         Start-Sleep -Milliseconds 100
+        if ($appProcess.HasExited) {
+            throw "Yotta exited before exposing WebView CDP; see $appErr"
+        }
+        $debugListeners = Get-NetTCPConnection -State Listen -LocalPort $DebugPort -ErrorAction SilentlyContinue
+        if (-not $debugListeners) {
+            continue
+        }
+        if ($debugListeners | Where-Object { $_.LocalAddress -in @('127.0.0.1', '0.0.0.0') }) {
+            $candidateEndpoint = "http://127.0.0.1:$DebugPort"
+        } elseif ($debugListeners | Where-Object { $_.LocalAddress -in @('::1', '::') }) {
+            $candidateEndpoint = "http://[::1]:$DebugPort"
+        } else {
+            continue
+        }
         try {
-            Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$DebugPort/json" -TimeoutSec 1 | Out-Null
+            Invoke-WebRequest -UseBasicParsing -Uri "$candidateEndpoint/json" -TimeoutSec 1 | Out-Null
+            $debugEndpoint = $candidateEndpoint
             break
         } catch {
-            if ($appProcess.HasExited) {
-                throw "Yotta exited before exposing WebView CDP; see $appErr"
-            }
-            if ($attempt -eq 99) {
-                throw "WebView CDP did not listen on port $DebugPort"
+            if ($attempt -eq 299) {
+                throw "WebView CDP listened on port $DebugPort but did not expose /json"
             }
         }
+    }
+    if (-not $debugEndpoint) {
+        throw "WebView CDP did not listen on IPv4 or IPv6 loopback port $DebugPort"
     }
 
     $smokeArgs = @(
         'run', './cmd/workflow-editor-smoke',
-        '-endpoint', "http://127.0.0.1:$DebugPort",
+        '-endpoint', $debugEndpoint,
         '-screenshot', $screenshot,
         '-assets-screenshot', $assetsScreenshot,
         '-workflows-screenshot', $workflowsScreenshot,

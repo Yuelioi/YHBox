@@ -7,6 +7,7 @@ import type {
   Node,
   BlobRef,
   ResourceBinding,
+  WorkflowResource,
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type {
@@ -74,6 +75,7 @@ export interface LinearWorkflowDraftNode {
   config: Record<string, unknown>
   values: Record<string, unknown>
   blobs: Record<string, BlobRef>
+  resources?: Record<string, ResourceBinding>
   execInput: string
   execOutput: string
 }
@@ -120,6 +122,16 @@ export type EditorCommand =
   | { kind: 'bind-value'; nodeId: string; portId: string; value: unknown }
   | { kind: 'bind-blob'; nodeId: string; portId: string; blob: BlobRef }
   | { kind: 'bind-resource'; nodeId: string; portId: string; resource: ResourceBinding }
+  | { kind: 'add-resource'; resource: WorkflowResource }
+  | {
+      kind: 'update-resource-metadata'
+      resourceId: string
+      name: string
+      description: string
+      category: string
+      tags: string[]
+    }
+  | { kind: 'remove-resource'; resourceId: string }
   | { kind: 'bind-default'; nodeId: string; portId: string }
   | { kind: 'clear-binding'; nodeId: string; portId: string }
   | { kind: 'connect'; edge: Edge }
@@ -178,6 +190,7 @@ export type EditorCommand =
       position: { x: number; y: number }
       edge: Edge
     }
+  | { kind: 'batch'; commands: EditorCommand[] }
 
 interface PendingCommand {
   graphId: string
@@ -913,6 +926,7 @@ export class EditorSession {
   insertLinearDraft(
     draftNodes: LinearWorkflowDraftNode[],
     origin: { x: number; y: number },
+    resources: WorkflowResource[] = [],
   ): string[] {
     const graph = this.currentGraph
     if (!graph || draftNodes.length === 0) return []
@@ -930,6 +944,9 @@ export class EditorSession {
       }
       for (const [portId, blob] of Object.entries(draft.blobs)) {
         bindings[portId] = { kind: 'blob', blob: clone(blob) }
+      }
+      for (const [portId, resource] of Object.entries(draft.resources ?? {})) {
+        bindings[portId] = { kind: 'resource', resource: clone(resource) }
       }
       const config = clone(draft.config)
       if (defaultTargetSlot && config.slot === defaultTargetSlot) delete config.slot
@@ -950,7 +967,10 @@ export class EditorSession {
         to: { nodeId: node.id, portId: draftNodes[index + 1].execInput },
       }),
     )
-    this.apply({ kind: 'insert-node-selection', nodes, calls: [], annotations: [], edges })
+    this.applyBatch([
+      ...resources.map((resource): EditorCommand => ({ kind: 'add-resource', resource })),
+      { kind: 'insert-node-selection', nodes, calls: [], annotations: [], edges },
+    ])
     return nodes.map((node) => node.id)
   }
 
@@ -992,6 +1012,11 @@ export class EditorSession {
     this.dirty = true
     this.saveConflict = ''
     this.resetCompileFacts()
+  }
+
+  applyBatch(commands: EditorCommand[]): void {
+    if (!commands.length) return
+    this.apply({ kind: 'batch', commands: clone(commands) })
   }
 
   undo(): void {
@@ -1578,6 +1603,27 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
             resource: clone(command.resource),
           },
         }
+      case 'add-resource':
+        return {
+          kind: command.kind,
+          addResource: { resource: clone(command.resource) },
+        }
+      case 'update-resource-metadata':
+        return {
+          kind: command.kind,
+          updateResourceMetadata: {
+            resourceId: command.resourceId,
+            name: command.name,
+            description: command.description,
+            category: command.category,
+            tags: [...command.tags],
+          },
+        }
+      case 'remove-resource':
+        return {
+          kind: command.kind,
+          removeResource: { resourceId: command.resourceId },
+        }
       case 'bind-default':
         return {
           kind: command.kind,
@@ -1707,12 +1753,16 @@ function toWorkflowPatch(pending: PendingCommand[]): WorkflowPatchCommand[] {
         throw new Error('remove-nodes must be expanded before persistence')
       case 'insert-node-selection':
         throw new Error('insert-node-selection must be expanded before persistence')
+      case 'batch':
+        throw new Error('batch must be expanded before persistence')
     }
   })
 }
 
 function expandEditorCommand(command: EditorCommand): EditorCommand[] {
   switch (command.kind) {
+    case 'batch':
+      return command.commands.flatMap(expandEditorCommand)
     case 'insert-connected-node':
       return [
         {
@@ -1996,6 +2046,7 @@ function applyCommand(
     case 'bind-resource': {
       const node = requireNode(graph, command.nodeId)
       requireDataInput(node, command.portId, projections)
+      requireWorkflowResourceBinding(source, command.resource)
       node.bindings[command.portId] = {
         kind: 'resource',
         resource: clone(command.resource),
@@ -2008,6 +2059,33 @@ function applyCommand(
             edge.to.portId === command.portId
           ),
       )
+      return
+    }
+    case 'add-resource': {
+      if (source.resources.some((resource) => resource.id === command.resource.id))
+        throw new Error(`workflow resource ${command.resource.id} already exists`)
+      source.resources.push(normalizeWorkflowResource(command.resource))
+      source.resources.sort((left, right) => left.id.localeCompare(right.id))
+      return
+    }
+    case 'update-resource-metadata': {
+      const resource = source.resources.find((candidate) => candidate.id === command.resourceId)
+      if (!resource) throw new Error(`workflow resource ${command.resourceId} does not exist`)
+      const name = command.name.trim()
+      if (!name) throw new Error('workflow resource name is required')
+      resource.name = name
+      resource.description = command.description.trim() || undefined
+      resource.category = command.category.trim() || undefined
+      const tags = normalizeTextSet(command.tags)
+      resource.tags = tags.length ? tags : undefined
+      return
+    }
+    case 'remove-resource': {
+      if (!source.resources.some((resource) => resource.id === command.resourceId))
+        throw new Error(`workflow resource ${command.resourceId} does not exist`)
+      if (workflowResourceReferenceCount(source, command.resourceId) !== 0)
+        throw new Error('workflow resource is still in use')
+      source.resources = source.resources.filter((resource) => resource.id !== command.resourceId)
       return
     }
     case 'bind-default': {
@@ -2179,6 +2257,7 @@ function applyCommand(
     case 'promote-output-to-state':
     case 'remove-nodes':
     case 'insert-node-selection':
+    case 'batch':
       throw new Error(`${command.kind} expansion failed`)
     case 'disconnect':
       graph.edges = graph.edges.filter((edge) => !sameEdge(edge, command.edge))
@@ -3062,8 +3141,71 @@ function validBlob(blob: BlobRef): boolean {
   )
 }
 
+function normalizeTextSet(values: readonly string[]): string[] {
+  const byKey = new Map<string, string>()
+  for (const raw of values) {
+    const value = raw.trim()
+    if (value && !byKey.has(value.toLocaleLowerCase())) {
+      byKey.set(value.toLocaleLowerCase(), value)
+    }
+  }
+  return [...byKey.values()].sort()
+}
+
+function normalizeWorkflowResource(resource: WorkflowResource): WorkflowResource {
+  const next = clone(resource)
+  next.id = next.id.trim()
+  next.name = next.name.trim()
+  if (!next.id) throw new Error('workflow resource ID is required')
+  if (!next.name) throw new Error('workflow resource name is required')
+  next.description = next.description?.trim() || undefined
+  next.category = next.category?.trim() || undefined
+  const tags = normalizeTextSet(next.tags ?? [])
+  next.tags = tags.length ? tags : undefined
+  return next
+}
+
+function requireWorkflowResourceBinding(
+  source: YottaWorkflowSource,
+  binding: ResourceBinding,
+): WorkflowResource {
+  const resource = source.resources.find((candidate) => candidate.id === binding.resourceId)
+  if (!resource) throw new Error(`workflow resource ${binding.resourceId} does not exist`)
+  if (resource.kind === 'image') {
+    if (
+      !binding.variantId ||
+      !resource.image?.variants.some((variant) => variant.id === binding.variantId)
+    ) {
+      throw new Error(`workflow image resource ${binding.resourceId} variant does not exist`)
+    }
+  } else if (binding.variantId) {
+    throw new Error(`workflow resource ${binding.resourceId} does not accept a variant`)
+  }
+  return resource
+}
+
+function workflowResourceReferenceCount(source: YottaWorkflowSource, resourceId: string): number {
+  let count = 0
+  for (const graph of source.graphs) {
+    for (const owner of [...graph.nodes, ...(graph.calls ?? [])]) {
+      for (const binding of Object.values(owner.bindings)) {
+        if (binding.kind === 'resource' && binding.resource?.resourceId === resourceId) count++
+      }
+    }
+  }
+  return count
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export type { Edge, Graph, InputBinding, Node, NodeProjection, YottaWorkflowSource }
+export type {
+  Edge,
+  Graph,
+  InputBinding,
+  Node,
+  NodeProjection,
+  WorkflowResource,
+  YottaWorkflowSource,
+}

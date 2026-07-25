@@ -32,10 +32,13 @@ describe('workflow authoring foundations', () => {
     expect(assets).not.toContain("t('recordingSave.optional_metadata')")
   })
 
-  it('provides searchable grouped catalog and an actionable empty canvas', () => {
+  it('keeps node creation contextual without a permanent catalog sidebar', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
-    expect(source).toContain('v-model="catalogQuery"')
-    expect(source).toContain('v-for="group in catalogGroups"')
+    expect(source).not.toContain('v-model="catalogQuery"')
+    expect(source).not.toContain('v-for="group in catalogGroups"')
+    expect(source).not.toContain('data-testid="workflow-workspace-nodes"')
+    expect(source).toContain('data-testid="workflow-canvas-add-node"')
+    expect(source).toContain("event.key === 'Tab'")
     expect(source).toContain('data-testid="workflow-empty-canvas"')
     expect(source).toContain('addNode(RUN_STARTED_NODE_ID')
   })
@@ -87,14 +90,29 @@ describe('workflow authoring foundations', () => {
     const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
 
     expect(editor).toContain('<WorkflowResourceDock')
+    expect(editor).toContain('const WorkflowResourceDock = defineAsyncComponent(')
+    expect(editor).not.toContain(
+      "import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'",
+    )
     expect(editor).toContain('@capture-template="openTemplateCapture"')
     expect(editor).toContain('@use="useWorkspaceResource"')
     expect(editor).toContain('session.insertLinearDraft(')
     expect(editor).toContain("kind: 'bind-blob'")
-    expect(dock).toContain('pageSize = 20')
+    expect(dock).toContain('pageSize = ref(20)')
     expect(dock).toContain('assets.query(')
     expect(dock).toContain("emit('start-recording'")
-    expect(dock).toContain("emit('edit', asset)")
+    expect(dock).toContain("emit('edit', value)")
+    expect(dock).toContain("scope = ref<ResourceScope>('workflow')")
+    expect(dock).not.toContain('type ResourceMode')
+    expect(dock).not.toContain('workflow-resource-mode-')
+    expect(dock).toContain(':data-active="scope === candidate.value"')
+    expect(dock).toContain('data-testid="workflow-resource-filter-row"')
+    expect(dock).toContain('data-testid="workflow-resource-filter-category"')
+    expect(dock).toContain('data-testid="workflow-resource-filter-sort"')
+    expect(dock).toContain('width-mode="fill"')
+    expect(dock).toContain('<UPagination')
+    expect(dock).toContain('backend.assets.batchDelete')
+    expect(dock).toContain("emit('remove-workflow-resources'")
     expect(editor).toContain('@edit="openMacroEditor"')
     expect(editor).toContain('backend.macros.get(asset.guid)')
     expect(dock).toContain("allCategoriesValue = '__yotta_all_categories__'")
@@ -150,9 +168,9 @@ describe('workflow authoring foundations', () => {
     )
     expect(inspector).toContain('@capture-template="emit(\'capture-template\')"')
     expect(surfaceItem).toContain('@capture-template="emit(\'capture-template\')"')
-    expect(editor).toContain('v-model:kind="workspaceResourceKind"')
-    expect(dock).toContain("defineModel<ResourceKind>('kind'")
-    expect(dock).toContain(':aria-pressed="kind === item.value"')
+    expect(editor).toContain(':kind="workspaceResourceKind"')
+    expect(dock).toContain('kind: ResourceKind')
+    expect(dock).not.toContain('workflow-resource-tab-')
   })
 
   it('makes both editor sidebars collapsible and resizable', () => {
@@ -164,6 +182,22 @@ describe('workflow authoring foundations', () => {
     expect(editor).toContain('resizeInspectorSidebar')
     expect(editor).toContain('toggleWorkspacePanel')
     expect(editor).toContain('inspectorSidebarOpen')
+  })
+
+  it('uses the left tool rail for graphs and distinct workflow resource kinds', () => {
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const graphManager = readSource('src/app/editor/WorkflowGraphManager.vue')
+
+    expect(editor).toContain('data-testid="workflow-workspace-graphs"')
+    expect(editor).toContain('data-testid="workflow-workspace-macro"')
+    expect(editor).toContain('data-testid="workflow-workspace-clip"')
+    expect(editor).toContain('data-testid="workflow-workspace-template"')
+    expect(editor).toContain('data-testid="workflow-workspace-snippets"')
+    expect(editor).not.toContain('data-testid="workflow-workspace-resources"')
+    expect(editor).toContain('<WorkflowGraphManager')
+    expect(graphManager).toContain('data-testid="workflow-graph-manager"')
+    expect(graphManager).not.toContain('workflow-graph-manager-trigger')
+    expect(graphManager).not.toContain('<UPopover')
   })
 
   it('switches from Run State to node properties without overriding a hidden Inspector preference', () => {
@@ -227,6 +261,36 @@ describe('workflow authoring foundations', () => {
     expect(inspector).not.toContain('clipsStore.refresh')
     expect(inspector).not.toContain('templatesStore.reload')
     expect(graphCallInspector).not.toContain('clipsStore.refresh')
+  })
+
+  it('uses one expandable Blob preview across the library, picker, and inspector', () => {
+    const preview = readSource('src/components/common/BlobPreview.vue')
+    const library = readSource('src/components/assets/AssetLibraryList.vue')
+    const picker = readSource('src/components/assets/AssetPickerModal.vue')
+    const field = readSource('src/app/editor/AssetReferenceField.vue')
+
+    expect(preview).toContain("t('assets.preview_actual_size')")
+    expect(preview).toContain('viewerImageStyle')
+    expect(library).toContain('expandable')
+    expect(picker).toContain('expandable')
+    expect(field).toContain('expandable')
+  })
+
+  it('locates every shared asset binding through stable workflow or library identity', () => {
+    const inputEditor = readSource('src/app/editor/WorkflowInputBindingEditor.vue')
+    const inspector = readSource('src/app/editor/WorkflowInspector.vue')
+    const graphCallInspector = readSource('src/app/editor/WorkflowGraphCallInspector.vue')
+    const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
+    const editor = readSource('src/views/WorkflowEditorView.vue')
+
+    expect(inputEditor).toContain('resolveWorkflowResourceBinding')
+    expect(inputEditor).toContain("scope: 'workflow'")
+    expect(inputEditor).toContain("scope: 'library'")
+    expect(inspector).toContain('@locate-resource')
+    expect(graphCallInspector).toContain('@locate-resource')
+    expect(dock).toContain('applyLocateRequest')
+    expect(dock).toContain(':focused-id="focusedResourceId"')
+    expect(editor).toContain('locateBoundResource')
   })
 
   it('offers compatible nodes when a typed connection ends on the canvas', () => {

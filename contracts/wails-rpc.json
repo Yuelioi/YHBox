@@ -4,7 +4,7 @@
   "summary": {
     "services": 16,
     "methods": 142,
-    "models": 202
+    "models": 211
   },
   "services": [
     {
@@ -6471,6 +6471,17 @@
         },
         {
           "kind": "class",
+          "name": "AddResourceCommand",
+          "fields": [
+            {
+              "name": "\"resource\"",
+              "optional": false,
+              "type": "schema$0.WorkflowResource"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "AddStateVariableCommand",
           "fields": [
             {
@@ -6768,6 +6779,21 @@
               "type": "BindResourceCommand | null"
             },
             {
+              "name": "\"addResource\"",
+              "optional": true,
+              "type": "AddResourceCommand | null"
+            },
+            {
+              "name": "\"updateResourceMetadata\"",
+              "optional": true,
+              "type": "UpdateResourceMetadataCommand | null"
+            },
+            {
+              "name": "\"removeResource\"",
+              "optional": true,
+              "type": "RemoveResourceCommand | null"
+            },
+            {
               "name": "\"clearBinding\"",
               "optional": true,
               "type": "PortCommand | null"
@@ -6927,6 +6953,18 @@
             {
               "name": "CommandBindResource",
               "value": "\"bind-resource\""
+            },
+            {
+              "name": "CommandAddResource",
+              "value": "\"add-resource\""
+            },
+            {
+              "name": "CommandUpdateResourceMetadata",
+              "value": "\"update-resource-metadata\""
+            },
+            {
+              "name": "CommandRemoveResource",
+              "value": "\"remove-resource\""
             },
             {
               "name": "CommandClearBinding",
@@ -7166,6 +7204,17 @@
         },
         {
           "kind": "class",
+          "name": "RemoveResourceCommand",
+          "fields": [
+            {
+              "name": "\"resourceId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "RemoveStateVariableCommand",
           "fields": [
             {
@@ -7304,6 +7353,37 @@
               "name": "\"slot\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "UpdateResourceMetadataCommand",
+          "fields": [
+            {
+              "name": "\"resourceId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
             }
           ]
         },
@@ -7974,6 +8054,48 @@
         },
         {
           "kind": "class",
+          "name": "ImageResource",
+          "fields": [
+            {
+              "name": "\"variants\"",
+              "optional": false,
+              "type": "ImageResourceVariant[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ImageResourceVariant",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"resolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"bbox\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"regions\"",
+              "optional": true,
+              "type": "number[][]"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "InputBinding",
           "fields": [
             {
@@ -7995,6 +8117,78 @@
               "name": "\"resource\"",
               "optional": true,
               "type": "ResourceBinding | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "InputClipResource",
+          "fields": [
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"eventCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"recordingMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"mouseMode\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"mouseCounts360\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"stopHotkeyVk\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "MacroResource",
+          "fields": [
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            },
+            {
+              "name": "\"baseResolution\"",
+              "optional": false,
+              "type": "number[]"
+            },
+            {
+              "name": "\"actionCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"durationUs\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         },
@@ -8073,6 +8267,28 @@
         },
         {
           "kind": "enum",
+          "name": "ResourceKind",
+          "members": [
+            {
+              "name": "$zero",
+              "value": "\"\""
+            },
+            {
+              "name": "ResourceImage",
+              "value": "\"image\""
+            },
+            {
+              "name": "ResourceMacro",
+              "value": "\"macro\""
+            },
+            {
+              "name": "ResourceInputClip",
+              "value": "\"input-clip\""
+            }
+          ]
+        },
+        {
+          "kind": "enum",
           "name": "Severity",
           "members": [
             {
@@ -8106,6 +8322,57 @@
               "name": "\"height\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowResource",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "ResourceKind"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"image\"",
+              "optional": true,
+              "type": "ImageResource | null"
+            },
+            {
+              "name": "\"macro\"",
+              "optional": true,
+              "type": "MacroResource | null"
+            },
+            {
+              "name": "\"inputClip\"",
+              "optional": true,
+              "type": "InputClipResource | null"
             }
           ]
         }

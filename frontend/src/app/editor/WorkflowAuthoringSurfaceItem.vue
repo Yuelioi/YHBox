@@ -68,8 +68,10 @@
     :port="item.port"
     :target-slot="targetSlot"
     :connected="connectedInputIds?.has(item.port.id)"
+    :resources="resources"
     @command="emit('command', $event)"
     @capture-template="emit('capture-template')"
+    @locate-resource="emit('locate-resource', $event)"
   />
 
   <div
@@ -91,13 +93,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TargetDefault } from '../../../../contracts/workflow/current/workflow-source'
+import type {
+  TargetDefault,
+  WorkflowResource,
+} from '../../../../contracts/workflow/current/workflow-source'
 import type { CapabilityProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import type { AuthoringSurfaceItem } from './authoringSurface'
 import GeneratedFieldEditor from './GeneratedFieldEditor.vue'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
 import { useSettingsStore } from '@/stores/settings'
+import type { ResourceLocation } from './resourceLocator'
 
 const props = defineProps<{
   item: AuthoringSurfaceItem
@@ -107,10 +113,12 @@ const props = defineProps<{
   targetDefaults: TargetDefault[]
   targetSlot?: string
   connectedInputIds?: ReadonlySet<string>
+  resources?: WorkflowResource[]
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
   'capture-template': []
+  'locate-resource': [location: ResourceLocation]
 }>()
 const { t, te } = useI18n()
 const settingsStore = useSettingsStore()

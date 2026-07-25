@@ -74,30 +74,34 @@ func TestWorkflowEditorHash(t *testing.T) {
 
 func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	base := pageState{
-		Href: "http://wails.localhost/#/workflows/test/edit", Catalog: 100, CanvasNodes: 3,
+		Href: "http://wails.localhost/#/workflows/test/edit", CanvasNodes: 3,
 		RunStarted: true, GraphChromeDark: true, CurrentGraph: "main", MinimapToggle: true,
-		DebugStart: true,
+		DebugStart: true, NodeAddTrigger: true, WorkspaceTools: 5, GraphManager: true,
 	}
+	oneNode := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
+	twoNodes := withState(base, func(state *pageState) { state.CanvasNodes = 2 })
 	postDelete := withState(base, func(state *pageState) { state.CanvasNodes = 1 })
 	connected := withState(base, func(state *pageState) { state.CanvasNodes, state.CanvasEdges = 2, 1 })
 	states := []pageState{
 		{RecoveryPanel: true, LauncherButton: true},
 		{CreateInput: true, RecoveryPanel: true, LauncherButton: true},
-		{Catalog: 0},
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
+		{},
+		oneNode,
 		withState(base, func(state *pageState) { state.CanvasNodes, state.MinimapOpen = 1, true }),
 		withState(base, func(state *pageState) { state.CanvasNodes = 1 }),
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 1, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
-		{Catalog: 100, CanvasNodes: 2, RunStarted: true},
+		oneNode,
+		twoNodes,
+		oneNode,
+		oneNode,
+		twoNodes,
+		oneNode,
+		oneNode,
+		twoNodes,
+		twoNodes,
 		base,
 		base,
+		base,
+		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
 		base,
 		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
 		withState(base, func(state *pageState) { state.SelectedNodes, state.SelectionToolbar = 2, true }),
@@ -106,8 +110,6 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		withState(postDelete, func(state *pageState) { state.ConnectionMenu = true }),
 		withState(postDelete, func(state *pageState) { state.ConnectionMenu, state.ConnectionCandidates = true, 1 }),
 		connected,
-		connected,
-		withState(connected, func(state *pageState) { state.Catalog = 1 }),
 		connected,
 		withState(connected, func(state *pageState) { state.ConfirmDialog = true }),
 		withState(connected, func(state *pageState) { state.ConfirmDialog = true }),
@@ -134,6 +136,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		}),
 		withState(connected, func(state *pageState) { state.WorkflowState = true }),
 		withState(connected, func(state *pageState) { state.GraphNameInput = true }),
+		withState(connected, func(state *pageState) {
+			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 0, 0, 1
+		}),
 		withState(connected, func(state *pageState) {
 			state.CurrentGraph, state.CanvasNodes, state.CanvasEdges, state.GraphBoundaries = "child", 0, 0, 1
 		}),
@@ -171,12 +176,26 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 		}),
 		withState(connected, func(state *pageState) { state.SnippetDock = true }),
 		withState(connected, func(state *pageState) {
-			state.AIReview, state.ResourceDock, state.ResourceCreate, state.ResourceTabs = true, true, true, 3
+			state.AIReview, state.ResourceDock, state.ResourceCreate, state.ResourceKind = true, true, true, "macro"
 		}),
+		withState(connected, func(state *pageState) {
+			state.ResourceDock, state.ResourceCreate, state.ResourceKind = true, true, "clip"
+		}),
+		withState(connected, func(state *pageState) {
+			state.ResourceDock, state.ResourceCreate, state.ResourceKind = true, true, "template"
+			state.ResourceScope, state.ResourceScopeActive = "workflow", 1
+			state.ResourceScopeContrast, state.ResourceFiltersFill = true, true
+		}),
+		withState(connected, func(state *pageState) {
+			state.ResourceDock, state.ResourceCreate, state.ResourceKind = true, true, "template"
+			state.ResourceScope, state.ResourceScopeActive = "library", 1
+			state.ResourceScopeContrast, state.ResourceFiltersFill = true, true
+		}),
+		connected,
 		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
 		withState(connected, func(state *pageState) { state.AssetsView, state.AssetsRecording = true, true }),
 		withState(connected, func(state *pageState) {
-			state.Catalog, state.CurrentGraph, state.GraphCalls, state.Annotations = 0, "main", 1, 1
+			state.CurrentGraph, state.GraphCalls, state.Annotations = "main", 1, 1
 		}),
 	}
 
@@ -184,6 +203,7 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	var lastState pageState
 	probeReads := 0
 	quickSelectionPending := false
+	analyzeColorUsedQuickAdd := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/json" {
 			wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + "/devtools/page/page-1"
@@ -209,6 +229,11 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 			}
 			result := map[string]any{}
 			expression := stringValue(call.Params["expression"])
+			if call.Method == "Runtime.evaluate" &&
+				strings.Contains(expression, "workflow-canvas-add-node") &&
+				strings.Contains(expression, "vision/analyze-color") {
+				analyzeColorUsedQuickAdd = true
+			}
 			if call.Method == "Runtime.evaluate" && strings.Contains(expression, "const probe = document.createElement") {
 				if quickSelectionPending {
 					selected := lastState
@@ -248,6 +273,8 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 				if strings.Contains(expression, "quick-added click template node header") {
 					quickSelectionPending = true
 					value = `{"x":15,"y":15}`
+				} else if strings.Contains(expression, "batch delete needs two non-root workflow nodes") {
+					value = `[{"x":15,"y":15},{"x":25,"y":25}]`
 				} else if strings.Contains(expression, "multi-selection needs") {
 					value = `{"start":{"x":10,"y":10},"end":{"x":20,"y":20}}`
 				} else if strings.Contains(expression, "Delay.in connection candidate") {
@@ -277,6 +304,9 @@ func TestRunCompletesWorkflowEditorJourney(t *testing.T) {
 	defer cancel()
 	if err := run(ctx, server.URL, screenshot, assetsScreenshot, "", "", "", ""); err != nil {
 		t.Fatal(err)
+	}
+	if !analyzeColorUsedQuickAdd {
+		t.Fatal("Analyze Color smoke insertion bypassed the explicit quick-add entry")
 	}
 	if len(states) != 0 {
 		t.Fatalf("unconsumed page states: %d", len(states))

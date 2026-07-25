@@ -339,6 +339,13 @@ func TestServiceAssetPickerQueryScalesAndResolvesExactVariant(t *testing.T) {
 			t.Fatalf("thumbnail budget at item %d = %#v", index, item.Thumbnail)
 		}
 	}
+	located, err := service.QueryAssets(AssetQuery{
+		Kind: KindTemplate, Search: "asset-0900", Sort: "name_asc",
+		Page: 1, PageSize: 20, ThumbnailBudget: 1,
+	})
+	if err != nil || located.Total != 1 || len(located.Items) != 1 || located.Items[0].GUID != "asset-0900" {
+		t.Fatalf("GUID lookup = %#v, %v", located, err)
+	}
 	binding, err := service.ResolveBinding(page.Items[0].Variants[1].Blob)
 	if err != nil || !binding.Found || binding.GUID != "asset-0900" || binding.Resolution != [2]int{1920, 1080} || binding.MatchCount != 1 {
 		t.Fatalf("ResolveBinding() = %#v, %v", binding, err)

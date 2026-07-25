@@ -41,8 +41,9 @@ Finished
 - `bin/Yotta.CLI.exe --data-root bin/data compile fishing-v2`：source
   `sha256:0adeafb8242e1d1a4f69f86ae31f84800980be447533c34b2a15628a17ff5122`，program
   `sha256:1584a19a123d721394ad9395b720870f2d01a788c18ee1a9c97140d1495af539`，0 diagnostics。
-- 原 revision 4 的恢复 envelope：
-  `bin/data/workspace/workflows/.recovery/bb981fb58fbb8e7f05a53324440927639856111ca090c5a410d898b11701c716.json`。
+- 原 revision 4 的恢复 envelope 已移至不参与 SourceStore 扫描的备份目录：
+  `bin/data/backups/workflow-sources/fishing-v2.pre-subgraph-20260724-233814.recovery-envelope.json`。
+  先前把同 ID 备份放入 `workspace/workflows/` 会被正确隔离并显示为损坏源；这不是当前工作流损坏。
 - Windows WebView：main 显示六个调用；子图管理器显示每个 definition 恰有一个调用且接口健康；逐一双击
   六个调用，业务节点和 1/5、1/1、1/1、1/3、1/7、1/4 入口/出口边界完整，无 alert 或 JS error。
 - 截图目录：`.task/fishing-gui/20260724-234450/`；最终布局重点证据为 `main.png`、

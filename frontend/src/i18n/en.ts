@@ -2156,6 +2156,7 @@ export default {
         'An internal error occurred while creating the subgraph. Retry or check the current selection.',
     },
     canvas: {
+      add_node: 'Add node',
       help: 'Canvas gestures',
       marquee_key: 'Left drag',
       marquee: 'Marquee-select nodes',
@@ -2250,7 +2251,7 @@ export default {
     empty_canvas: {
       title: 'Start from the run root',
       description:
-        'Every Run begins at Run started. Add the root, then connect action nodes from the catalog.',
+        'Every Run begins at Run started. Add the root, then press Tab or choose Add node to continue.',
       add_start: 'Add Run started',
       subgraph_title: 'Build a reusable subgraph',
       subgraph_description:
@@ -2422,11 +2423,41 @@ export default {
     resources: {
       title: 'Workspace resources',
       hint: 'Record, capture, search, and bind resources beside the canvas without leaving this workflow.',
+      macro_hint:
+        'Record, edit, and reuse mouse and keyboard macros with individually adjustable actions.',
+      clip_hint: 'Record and reuse precise input with complete pointer paths and original timing.',
+      template_hint: 'Capture, preview, and bind templates used for visual matching and targeting.',
       open_library: 'Open the full library',
+      current_workflow: 'This workflow',
+      local_library: 'Local library',
+      use_mode: 'Use',
+      manage_mode: 'Manage',
       edit: 'Edit resource “{name}”',
       use: 'Use resource “{name}”',
+      select_named: 'Select resource “{name}”',
+      select_page: 'Select this page',
+      selected_count: '{n} resources selected',
+      reference_count: 'Referenced {n} times',
+      unused: 'Not referenced',
       empty: 'No resources in this category',
       empty_hint: 'Record or capture here; new resources appear in this list immediately.',
+      saved: 'Resource information saved.',
+      snapshot_created:
+        'A local asset snapshot was added to this workflow and bound on the canvas.',
+      snapshot_missing_payload: 'The asset has no payload that can be added to this workflow.',
+      deleted: 'Resource deleted.',
+      delete_description:
+        'A workflow resource is removed only from this workflow. A local asset is removed only from the local library. This action cannot be undone.',
+      batch_edit_title: 'Update {n} resources',
+      batch_edit_hint:
+        'Set one category and tag set for the selected resources. Names and descriptions stay unchanged.',
+      batch_saved: 'The selected resources were updated.',
+      batch_delete_title: 'Delete {n} selected resources?',
+      batch_delete_description:
+        '{deletable} resources will be deleted. {blocked} workflow resources still referenced by nodes will be kept.',
+      batch_deleted: 'Batch deletion finished. {blocked} referenced workflow resources were kept.',
+      located: 'Located resource {id}.',
+      locate_failed: 'Could not locate resource {id}; it may have been deleted.',
       capture_hint:
         'Choose the target for this capture. The visual template is saved and added to the current canvas.',
     },
@@ -2481,6 +2512,8 @@ export default {
       select_template: 'Select an exact template variant',
       resource_missing: 'The library record no longer exists',
       resource_stale: 'Unavailable',
+      resource_ambiguous: 'The same content belongs to {n} assets',
+      locate_resource: 'Locate in the workspace asset library',
       select_target: 'Select an installed target',
       search_target: 'Search installed targets',
       no_installed_target: 'No compatible target is installed. Configure one in Settings first.',
@@ -2793,6 +2826,14 @@ export default {
       'The library record will be deleted. Immutable content references already stored in workflows remain valid.',
     delete_failed: 'Could not delete the resource',
     preview_unavailable: 'Preview unavailable',
+    preview_title: 'Asset preview',
+    open_preview: 'Enlarge “{name}”',
+    preview_tools: 'Preview zoom',
+    preview_fit: 'Fit to window',
+    preview_fit_short: 'Fit',
+    preview_actual_size: 'Actual size',
+    preview_zoom_out: 'Zoom out',
+    preview_zoom_in: 'Zoom in',
     recording: {
       title: 'Input recording',
       hint: 'Keyboard macros and precise trajectories are separate resources.',

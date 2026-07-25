@@ -97,6 +97,84 @@ func TestEngineBindsWorkflowResourceWithoutLosingPortableIdentity(t *testing.T) 
 	}
 }
 
+func TestEngineAuthorsWorkflowResourceLifecycleAndProtectsReferences(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "node-resource-lifecycle" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	resource := schema.WorkflowResource{
+		ID: "template-lifecycle", Kind: schema.ResourceImage, Name: "Template",
+		Image: &schema.ImageResource{Variants: []schema.ImageResourceVariant{{
+			ID: "default", Resolution: [2]int{1, 1}, BBox: [4]int{0, 0, 1, 1},
+			Blob: blob.BlobRef{
+				MediaType: "image/png",
+				Digest:    artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+				Size:      1,
+			},
+		}}},
+	}
+
+	added, err := engine.Apply(emptySource(), []authoring.Command{{
+		Kind: authoring.CommandAddResource, AddResource: &authoring.AddResourceCommand{Resource: resource},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(added.Source.Resources) != 1 || added.Source.Resources[0].ID != resource.ID {
+		t.Fatalf("resources after add = %#v", added.Source.Resources)
+	}
+
+	updated, err := engine.Apply(added.Source, []authoring.Command{{
+		Kind: authoring.CommandUpdateResourceMetadata,
+		UpdateResourceMetadata: &authoring.UpdateResourceMetadataCommand{
+			ResourceID:  resource.ID,
+			Name:        "  Updated template  ",
+			Description: "  local resource  ",
+			Category:    "  Fishing  ",
+			Tags:        []string{" UI ", "ui", "", "Fishing"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := updated.Source.Resources[0]
+	if got.Name != "Updated template" || got.Description != "local resource" || got.Category != "Fishing" ||
+		len(got.Tags) != 2 || got.Tags[0] != "Fishing" || got.Tags[1] != "UI" {
+		t.Fatalf("resource after metadata update = %#v", got)
+	}
+
+	removed, err := engine.Apply(updated.Source, []authoring.Command{{
+		Kind: authoring.CommandRemoveResource, RemoveResource: &authoring.RemoveResourceCommand{ResourceID: resource.ID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed.Source.Resources) != 0 {
+		t.Fatalf("resources after remove = %#v", removed.Source.Resources)
+	}
+
+	referenced, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddResource, AddResource: &authoring.AddResourceCommand{Resource: resource}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{
+			GraphID: "main", NodeTypeID: nodes.ConcatNodeID, Handle: "node", Position: schema.Position{},
+		}},
+		{Kind: authoring.CommandBindResource, BindResource: &authoring.BindResourceCommand{
+			GraphID: "main", NodeID: "$node", PortID: "a",
+			Resource: schema.ResourceBinding{ResourceID: resource.ID, VariantID: "default"},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = engine.Apply(referenced.Source, []authoring.Command{{
+		Kind: authoring.CommandRemoveResource, RemoveResource: &authoring.RemoveResourceCommand{ResourceID: resource.ID},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "RESOURCE_IN_USE") {
+		t.Fatalf("remove referenced resource error = %v", err)
+	}
+}
+
 func TestEngineRetractsTurnScaleContractWithoutBreakingPlaybackNode(t *testing.T) {
 	builtins, projection := testContracts(t)
 	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "playback" })

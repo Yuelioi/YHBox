@@ -1313,6 +1313,100 @@ describe('EditorSession', () => {
     ])
   })
 
+  it('authors workflow resources as one undoable batch and protects referenced resources', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    const resource = {
+      id: 'template',
+      kind: 'image' as const,
+      name: 'Template',
+      image: {
+        variants: [
+          {
+            id: 'default',
+            resolution: [1, 1] as [number, number],
+            bbox: [0, 0, 1, 1] as [number, number, number, number],
+            blob: {
+              mediaType: 'image/png',
+              digest: `sha256:${'1'.repeat(64)}`,
+              size: 1,
+            },
+          },
+        ] as [
+          {
+            id: string
+            resolution: [number, number]
+            bbox: [number, number, number, number]
+            blob: { mediaType: string; digest: string; size: number }
+          },
+        ],
+      },
+    }
+
+    session.applyBatch([
+      { kind: 'add-resource', resource },
+      {
+        kind: 'update-resource-metadata',
+        resourceId: resource.id,
+        name: ' Updated ',
+        description: ' local ',
+        category: ' Fishing ',
+        tags: ['ui', ' UI ', 'fishing'],
+      },
+    ])
+    expect(session.source?.resources).toEqual([
+      expect.objectContaining({
+        id: 'template',
+        name: 'Updated',
+        description: 'local',
+        category: 'Fishing',
+        tags: ['fishing', 'ui'],
+      }),
+    ])
+
+    session.undo()
+    expect(session.source?.resources).toEqual([])
+    session.redo()
+    await session.save()
+    expect(vi.mocked(transport.applyPatch).mock.calls[0]![2]).toEqual([
+      { kind: 'add-resource', addResource: { resource } },
+      {
+        kind: 'update-resource-metadata',
+        updateResourceMetadata: {
+          resourceId: 'template',
+          name: ' Updated ',
+          description: ' local ',
+          category: ' Fishing ',
+          tags: ['ui', ' UI ', 'fishing'],
+        },
+      },
+    ])
+
+    const referenced = emptySource()
+    referenced.resources = [resource]
+    referenced.graphs[0]!.nodes.push({
+      id: 'concat',
+      nodeRef: concat.nodeRef,
+      position: { x: 0, y: 0 },
+      config: {},
+      bindings: {
+        a: {
+          kind: 'resource',
+          resource: { resourceId: resource.id, variantId: 'default' },
+        },
+      },
+    })
+    const referencedSession = new EditorSession(
+      mockTransport(sourceView(referenced), runView('QUEUED')),
+    )
+    await referencedSession.load(referenced.workflow.id)
+    expect(() =>
+      referencedSession.apply({ kind: 'remove-resource', resourceId: resource.id }),
+    ).toThrow('still in use')
+  })
+
   it('removes every call site and its definition as one explicit cascade edit', async () => {
     const source = subgraphLifecycleSource()
     source.graphs.push({

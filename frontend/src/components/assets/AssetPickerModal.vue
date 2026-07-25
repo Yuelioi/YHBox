@@ -119,6 +119,7 @@
                 v-if="asset.thumbnail"
                 :blob="asset.thumbnail"
                 :alt="asset.name"
+                expandable
                 class="size-14 shrink-0"
               />
               <div

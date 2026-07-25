@@ -27,10 +27,8 @@ describe('WorkflowGraphManager', () => {
     }
 
     const root = mount(source, (...args) => located.push(args))
-    root.querySelector<HTMLButtonElement>('[data-testid="workflow-graph-manager-trigger"]')?.click()
     await nextTick()
-    await nextTick()
-    const surface = document.body
+    const surface = root
 
     expect(surface.textContent).toContain('子图管理')
     expect(surface.textContent).toContain('2 个调用')
@@ -38,6 +36,7 @@ describe('WorkflowGraphManager', () => {
     expect(surface.textContent).toContain('子图 · 嵌套调用')
     expect(surface.textContent).toContain('child-a')
     expect(surface.textContent).toContain('child-b')
+    expect(surface.querySelector('[data-testid="workflow-graph-new"]')).not.toBeNull()
 
     const referencedDelete = [
       ...surface.querySelectorAll<HTMLButtonElement>('button[aria-label="删除子图定义"][disabled]'),
@@ -76,14 +75,6 @@ function mount(
     onLocate: locate,
   })
   app.component('UIcon', defineComponent({ setup: () => () => h('i') }))
-  app.component(
-    'UPopover',
-    defineComponent({
-      setup(_, { slots }) {
-        return () => h('div', [slots.default?.(), slots.content?.()])
-      },
-    }),
-  )
   app.component(
     'UButton',
     defineComponent({

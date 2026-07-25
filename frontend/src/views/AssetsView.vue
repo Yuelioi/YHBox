@@ -599,7 +599,12 @@
         :key="`${variant.resolution[0]}x${variant.resolution[1]}`"
         class="flex items-center gap-3 rounded-lg border border-default p-3"
       >
-        <BlobPreview :blob="variant.blob" :alt="variantAsset.name" class="size-14 shrink-0" />
+        <BlobPreview
+          :blob="variant.blob"
+          :alt="variantAsset.name"
+          expandable
+          class="size-14 shrink-0"
+        />
         <div class="min-w-0 flex-1">
           <p class="font-mono text-sm text-highlighted">
             {{ variant.resolution[0] }}×{{ variant.resolution[1] }}

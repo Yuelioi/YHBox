@@ -75,8 +75,10 @@
           :target-defaults="targetDefaults"
           :target-slot="targetSlot"
           :connected-input-ids="connectedInputIds"
+          :resources="resources"
           @command="emit('command', $event)"
           @capture-template="emit('capture-template')"
+          @locate-resource="emit('locate-resource', $event)"
         />
       </section>
 
@@ -108,8 +110,10 @@
               :target-defaults="targetDefaults"
               :target-slot="targetSlot"
               :connected-input-ids="connectedInputIds"
+              :resources="resources"
               @command="emit('command', $event)"
               @capture-template="emit('capture-template')"
+              @locate-resource="emit('locate-resource', $event)"
             />
 
             <section v-if="projection.capabilities.length" class="space-y-2">
@@ -163,8 +167,10 @@
           :target-defaults="targetDefaults"
           :target-slot="targetSlot"
           :connected-input-ids="connectedInputIds"
+          :resources="resources"
           @command="emit('command', $event)"
           @capture-template="emit('capture-template')"
+          @locate-resource="emit('locate-resource', $event)"
         />
       </section>
     </div>
@@ -177,6 +183,7 @@ import { useI18n } from 'vue-i18n'
 import type {
   TargetDefault,
   Variable,
+  WorkflowResource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type { TypeProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
@@ -186,6 +193,7 @@ import {
   projectAuthoringSurface,
   type AuthoringGroup,
 } from './authoringSurface'
+import type { ResourceLocation } from './resourceLocator'
 
 const PlaybackCalibrationPanel = defineAsyncComponent(
   () => import('./PlaybackCalibrationPanel.vue'),
@@ -198,10 +206,12 @@ const props = defineProps<{
   targetDefaults: TargetDefault[]
   types: TypeProjection[]
   connectedInputIds?: ReadonlySet<string>
+  resources?: WorkflowResource[]
 }>()
 const emit = defineEmits<{
   command: [command: EditorCommand]
   'capture-template': []
+  'locate-resource': [location: ResourceLocation]
 }>()
 const { t, te } = useI18n()
 const advancedOpen = ref(false)

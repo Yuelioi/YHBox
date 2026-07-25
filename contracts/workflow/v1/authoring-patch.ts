@@ -78,6 +78,18 @@ export type Command =
       kind: 'bind-resource'
     }
   | {
+      addResource: AddResourceCommand
+      kind: 'add-resource'
+    }
+  | {
+      kind: 'update-resource-metadata'
+      updateResourceMetadata: UpdateResourceMetadataCommand
+    }
+  | {
+      kind: 'remove-resource'
+      removeResource: RemoveResourceCommand
+    }
+  | {
       clearBinding: PortCommand
       kind: 'clear-binding'
     }
@@ -285,6 +297,82 @@ export interface BindResourceCommand {
 export interface ResourceBinding {
   resourceId: string
   variantId?: string
+}
+export interface AddResourceCommand {
+  resource: WorkflowResource
+}
+export interface WorkflowResource {
+  category?: string
+  description?: string
+  id: string
+  image?: ImageResource
+  inputClip?: InputClipResource
+  kind: 'image' | 'macro' | 'input-clip'
+  macro?: MacroResource
+  name: string
+  /**
+   * @maxItems 64
+   */
+  tags?: string[]
+}
+export interface ImageResource {
+  /**
+   * @minItems 1
+   * @maxItems 256
+   */
+  variants: [ImageResourceVariant, ...ImageResourceVariant[]]
+}
+export interface ImageResourceVariant {
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  bbox: [number, number, number, number]
+  blob: BlobRef
+  id: string
+  /**
+   * @maxItems 256
+   */
+  regions?: [number, number, number, number][]
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  resolution: [number, number]
+}
+export interface InputClipResource {
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  baseResolution: [number, number]
+  blob: BlobRef
+  durationUs: number
+  eventCount: number
+  mouseCounts360: number
+  mouseMode: 'relative' | 'absolute' | 'mixed'
+  recordingMode: 'simple' | 'precise'
+  stopHotkeyVk: number
+}
+export interface MacroResource {
+  actionCount: number
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  baseResolution: [number, number]
+  blob: BlobRef
+  durationUs: number
+}
+export interface UpdateResourceMetadataCommand {
+  category: string
+  description: string
+  name: string
+  resourceId: string
+  tags: string[]
+}
+export interface RemoveResourceCommand {
+  resourceId: string
 }
 export interface EdgeCommand {
   edge: Edge

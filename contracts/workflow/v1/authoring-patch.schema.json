@@ -35,6 +35,18 @@
       ],
       "type": "object"
     },
+    "AddResourceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "$ref": "#/$defs/WorkflowResource"
+        }
+      },
+      "required": [
+        "resource"
+      ],
+      "type": "object"
+    },
     "AddStateVariableCommand": {
       "additionalProperties": false,
       "properties": {
@@ -581,6 +593,54 @@
           "required": [
             "kind",
             "bindResource"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "addResource": {
+              "$ref": "#/$defs/AddResourceCommand"
+            },
+            "kind": {
+              "const": "add-resource"
+            }
+          },
+          "required": [
+            "kind",
+            "addResource"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "update-resource-metadata"
+            },
+            "updateResourceMetadata": {
+              "$ref": "#/$defs/UpdateResourceMetadataCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "updateResourceMetadata"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "remove-resource"
+            },
+            "removeResource": {
+              "$ref": "#/$defs/RemoveResourceCommand"
+            }
+          },
+          "required": [
+            "kind",
+            "removeResource"
           ],
           "type": "object"
         },
@@ -1176,6 +1236,71 @@
       ],
       "type": "object"
     },
+    "ImageResource": {
+      "additionalProperties": false,
+      "properties": {
+        "variants": {
+          "items": {
+            "$ref": "#/$defs/ImageResourceVariant"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "variants"
+      ],
+      "type": "object"
+    },
+    "ImageResourceVariant": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        },
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "regions": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "resolution": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "resolution",
+        "bbox",
+        "blob"
+      ],
+      "type": "object"
+    },
     "InputBinding": {
       "additionalProperties": false,
       "properties": {
@@ -1198,6 +1323,66 @@
       },
       "required": [
         "kind"
+      ],
+      "type": "object"
+    },
+    "InputClipResource": {
+      "additionalProperties": false,
+      "properties": {
+        "baseResolution": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "durationUs": {
+          "maximum": 3600000000,
+          "type": "integer"
+        },
+        "eventCount": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mouseCounts360": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mouseMode": {
+          "enum": [
+            "relative",
+            "absolute",
+            "mixed"
+          ],
+          "type": "string"
+        },
+        "recordingMode": {
+          "enum": [
+            "simple",
+            "precise"
+          ],
+          "type": "string"
+        },
+        "stopHotkeyVk": {
+          "maximum": 255,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "blob",
+        "durationUs",
+        "eventCount",
+        "recordingMode",
+        "mouseMode",
+        "baseResolution",
+        "mouseCounts360",
+        "stopHotkeyVk"
       ],
       "type": "object"
     },
@@ -1228,6 +1413,38 @@
           "type": "object"
         }
       ]
+    },
+    "MacroResource": {
+      "additionalProperties": false,
+      "properties": {
+        "actionCount": {
+          "maximum": 4096,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "baseResolution": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "blob": {
+          "$ref": "#/$defs/BlobRef"
+        },
+        "durationUs": {
+          "maximum": 3600000000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "blob",
+        "baseResolution",
+        "actionCount",
+        "durationUs"
+      ],
+      "type": "object"
     },
     "MoveNodeCommand": {
       "additionalProperties": false,
@@ -1360,6 +1577,18 @@
       "required": [
         "x",
         "y"
+      ],
+      "type": "object"
+    },
+    "RemoveResourceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "resourceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "resourceId"
       ],
       "type": "object"
     },
@@ -1648,6 +1877,37 @@
       ],
       "type": "object"
     },
+    "UpdateResourceMetadataCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "resourceId",
+        "name",
+        "description",
+        "category",
+        "tags"
+      ],
+      "type": "object"
+    },
     "UpdateStateVariableCommand": {
       "additionalProperties": false,
       "properties": {
@@ -1690,6 +1950,59 @@
         "description",
         "category",
         "tags"
+      ],
+      "type": "object"
+    },
+    "WorkflowResource": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/ImageResource"
+        },
+        "inputClip": {
+          "$ref": "#/$defs/InputClipResource"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "macro",
+            "input-clip"
+          ],
+          "type": "string"
+        },
+        "macro": {
+          "$ref": "#/$defs/MacroResource"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name"
       ],
       "type": "object"
     }

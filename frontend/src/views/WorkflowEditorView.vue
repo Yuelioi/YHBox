@@ -117,18 +117,6 @@
             @click="session.setTargetDefault('target', '')"
           />
         </div>
-        <WorkflowGraphManager
-          v-if="session.source"
-          :source="session.source"
-          :current-graph-id="session.currentGraph?.id"
-          @open="openCalledGraph"
-          @create="openGraphDialog('create')"
-          @rename="openGraphDialog('rename', $event)"
-          @duplicate="duplicateGraphDefinition"
-          @delete="deleteGraphDefinition"
-          @delete-cascade="deleteGraphDefinitionCascade"
-          @locate="locateGraphCall"
-        />
         <UDropdownMenu :items="callMenuItems">
           <UButton
             data-testid="workflow-graph-add-call"
@@ -160,33 +148,6 @@
           :disabled="!canInferGraphInterface.valid"
           :title="canInferGraphInterface.valid ? undefined : canInferGraphInterface.message"
           @click="inferGraphInterface"
-        />
-        <UButton
-          data-testid="workflow-graph-rename"
-          icon="i-tabler-pencil"
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          :aria-label="t('common.rename')"
-          @click="openGraphDialog('rename')"
-        />
-        <UButton
-          v-if="session.currentGraph?.kind === 'subgraph'"
-          icon="i-tabler-trash"
-          color="error"
-          variant="ghost"
-          size="xs"
-          :aria-label="t('common.delete')"
-          @click="deleteCurrentGraph"
-        />
-        <UButton
-          data-testid="workflow-graph-new"
-          icon="i-tabler-plus"
-          color="neutral"
-          variant="soft"
-          size="xs"
-          :label="t('workflow.graphs.new')"
-          @click="openGraphDialog('create')"
         />
       </div>
 
@@ -228,24 +189,45 @@
           :aria-label="t('workflow.workspace_tools')"
         >
           <UButton
-            data-testid="workflow-workspace-nodes"
-            icon="i-tabler-topology-star-3"
+            data-testid="workflow-workspace-graphs"
+            icon="i-tabler-folders"
             color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'nodes' ? 'soft' : 'ghost'"
+            :variant="workspaceSidebarOpen && workspacePanel === 'graphs' ? 'soft' : 'ghost'"
             size="sm"
-            :aria-label="t('workflow.editor.node_catalog')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'nodes'"
-            @click="toggleWorkspacePanel('nodes')"
+            :aria-label="t('workflow.graphs.manager')"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'graphs'"
+            @click="toggleWorkspacePanel('graphs')"
+          />
+          <div class="my-1 h-px w-6 bg-default" aria-hidden="true" />
+          <UButton
+            data-testid="workflow-workspace-macro"
+            icon="i-tabler-list-details"
+            color="neutral"
+            :variant="workspaceSidebarOpen && workspacePanel === 'macro' ? 'soft' : 'ghost'"
+            size="sm"
+            :aria-label="t('assets.tabs.macros')"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'macro'"
+            @click="toggleWorkspacePanel('macro')"
           />
           <UButton
-            data-testid="workflow-workspace-resources"
-            icon="i-tabler-library"
+            data-testid="workflow-workspace-clip"
+            icon="i-tabler-route-alt-left"
             color="neutral"
-            :variant="workspaceSidebarOpen && workspacePanel === 'resources' ? 'soft' : 'ghost'"
+            :variant="workspaceSidebarOpen && workspacePanel === 'clip' ? 'soft' : 'ghost'"
             size="sm"
-            :aria-label="t('workflow.resources.title')"
-            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'resources'"
-            @click="toggleWorkspacePanel('resources')"
+            :aria-label="t('assets.tabs.clips')"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'clip'"
+            @click="toggleWorkspacePanel('clip')"
+          />
+          <UButton
+            data-testid="workflow-workspace-template"
+            icon="i-tabler-photo"
+            color="neutral"
+            :variant="workspaceSidebarOpen && workspacePanel === 'template' ? 'soft' : 'ghost'"
+            size="sm"
+            :aria-label="t('assets.tabs.templates')"
+            :aria-pressed="workspaceSidebarOpen && workspacePanel === 'template'"
+            @click="toggleWorkspacePanel('template')"
           />
           <UButton
             data-testid="workflow-workspace-snippets"
@@ -279,87 +261,36 @@
               workspaceSidebarWidth = resizeWorkspaceSidebar(workspaceSidebarWidth, 16)
             "
           />
-          <template v-if="workspacePanel === 'nodes'">
-            <div class="border-b border-default px-4 py-3">
-              <h2 class="text-xs font-semibold text-highlighted">
-                {{ t('workflow.editor.node_catalog') }}
-              </h2>
-              <p class="mt-1 text-[11px] leading-4 text-muted">
-                {{ t('workflow.editor.catalog_description') }}
-              </p>
-              <UInput
-                v-model="catalogQuery"
-                data-testid="workflow-catalog-search"
-                icon="i-tabler-search"
-                size="sm"
-                class="mt-3"
-                :placeholder="t('workflow.catalog.search_placeholder')"
-                :aria-label="t('workflow.catalog.search_placeholder')"
-              />
-            </div>
-            <div class="flex-1 overflow-y-auto p-2">
-              <div v-if="catalogGroups.length" class="space-y-3">
-                <section v-for="group in catalogGroups" :key="group.key">
-                  <div class="flex items-center justify-between px-2 pb-1">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-dimmed">
-                      {{ group.label }}
-                    </h3>
-                    <span class="font-mono text-[9px] text-dimmed">{{ group.nodes.length }}</span>
-                  </div>
-                  <div class="space-y-1">
-                    <button
-                      v-for="projection in group.nodes"
-                      :key="projection.nodeRef.nodeTypeId"
-                      type="button"
-                      draggable="true"
-                      data-testid="node-catalog-item"
-                      :data-node-type-id="projection.nodeRef.nodeTypeId"
-                      class="group flex w-full cursor-grab items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing active:translate-y-px"
-                      @click="addNode(projection.nodeRef.nodeTypeId)"
-                      @dragstart="startNodeDrag($event, projection.nodeRef.nodeTypeId)"
-                      @dragend="finishNodeDrag"
-                    >
-                      <UIcon
-                        :name="`i-tabler-${projection.icon || 'box'}`"
-                        class="size-4 shrink-0 text-primary"
-                      />
-                      <span class="min-w-0 flex-1">
-                        <span class="block truncate text-xs font-medium text-toned">{{
-                          projectionTitle(projection)
-                        }}</span>
-                        <span class="block truncate font-mono text-[10px] text-dimmed">{{
-                          projection.execution.class
-                        }}</span>
-                      </span>
-                      <UIcon
-                        name="i-tabler-plus"
-                        class="size-3.5 text-dimmed group-hover:text-primary"
-                      />
-                    </button>
-                  </div>
-                </section>
-              </div>
-              <div v-if="!catalogGroups.length" class="px-3 py-10 text-center">
-                <UIcon name="i-tabler-search-off" class="mx-auto mb-2 size-5 text-dimmed" />
-                <p class="text-xs text-muted">{{ t('workflow.catalog.no_results') }}</p>
-              </div>
-            </div>
-            <div class="border-t border-default px-3 py-2 font-mono text-[10px] text-dimmed">
-              {{ session.authoring.projectionDigest.slice(0, 24) }}
-            </div>
-          </template>
+          <WorkflowGraphManager
+            v-if="workspacePanel === 'graphs'"
+            :source="session.source"
+            :current-graph-id="session.currentGraph?.id"
+            @open="openCalledGraph"
+            @create="openGraphDialog('create')"
+            @rename="openGraphDialog('rename', $event)"
+            @duplicate="duplicateGraphDefinition"
+            @delete="deleteGraphDefinition"
+            @delete-cascade="deleteGraphDefinitionCascade"
+            @locate="locateGraphCall"
+          />
           <WorkflowResourceDock
-            v-else-if="workspacePanel === 'resources'"
-            v-model:kind="workspaceResourceKind"
+            v-else-if="workspaceResourcePanel"
+            :kind="workspaceResourceKind"
+            :source="session.source"
             :recording-phase="recording.state.phase"
+            :locate-request="resourceLocateRequest"
             @start-recording="openRecordingStart"
             @capture-template="openTemplateCapture"
             @open-library="router.push('/assets')"
             @edit="openMacroEditor"
             @use="useWorkspaceResource"
+            @use-workflow="useWorkflowResource"
+            @import-workflow-resource="importWorkflowResource"
+            @update-workflow-resources="updateWorkflowResources"
+            @remove-workflow-resources="removeWorkflowResources"
           />
           <WorkflowSnippetDock
-            v-else
+            v-else-if="workspacePanel === 'snippets'"
             :drag-format="SNIPPET_DRAG_FORMAT"
             @use="useSnippet"
             @edit="editSnippet"
@@ -513,6 +444,15 @@
           <div
             class="absolute right-3 top-3 z-20 flex gap-1 rounded-lg border border-default bg-default/95 p-1 shadow-lg"
           >
+            <UButton
+              data-testid="workflow-canvas-add-node"
+              icon="i-tabler-plus"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :label="t('workflow.canvas.add_node')"
+              @click="openQuickAdd"
+            />
             <template v-if="!selectedNodeIds.size && selectedEdgeId">
               <template v-if="selectedSourceEdge()">
                 <UButton
@@ -715,12 +655,14 @@
             :call="selectedCall"
             :graph="selectedCallGraph"
             :ports="selectedCallPorts"
+            :resources="session.source?.resources ?? []"
             @update="applyCommand({ kind: 'update-graph-call', call: $event })"
             @open="openCalledGraph(selectedCallGraph.id)"
             @duplicate="duplicateSelectedGraphCall"
             @fork="forkSelectedGraphCall"
             @expand="expandSelectedGraphCall"
             @remove="applyCommand({ kind: 'remove-graph-call', callId: selectedCall.id })"
+            @locate-resource="locateBoundResource"
           />
           <WorkflowGraphInterfacePanel
             v-else-if="session.currentGraph?.kind === 'subgraph' && !selectedNodeId"
@@ -741,8 +683,10 @@
             :target-defaults="session.source?.targetDefaults ?? []"
             :types="session.authoring?.body.types ?? []"
             :connected-input-ids="selectedConnectedInputIDs"
+            :resources="session.source?.resources ?? []"
             @command="applyCommand"
             @capture-template="selectedNode && captureTemplateForNode(selectedNode.id)"
+            @locate-resource="locateBoundResource"
           />
         </aside>
       </div>
@@ -1264,6 +1208,7 @@ import type {
   Annotation,
   GraphCall,
   TypeExpression,
+  WorkflowResource,
 } from '../../../contracts/workflow/current/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
 import { graphHandle, parseGraphHandle, type ParsedHandle } from '@/app/editor/graphHandles'
@@ -1280,8 +1225,12 @@ import WorkflowNode from '@/app/editor/WorkflowNode.vue'
 import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import type { WorkflowMetadataDraft } from '@/app/editor/WorkflowMetadataDialog.vue'
-import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'
 import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from '@/app/editor/resourceDrag'
+import type {
+  ResourceLocateRequest,
+  ResourceLocation,
+  WorkspaceResourceKind,
+} from '@/app/editor/resourceLocator'
 import WorkflowSnippetDock from '@/app/editor/WorkflowSnippetDock.vue'
 import WorkflowConnectionMenu, {
   type WorkflowConnectionCandidate,
@@ -1367,6 +1316,9 @@ const WorkflowGraphCallInspector = defineAsyncComponent(
 const WorkflowGraphInterfacePanel = defineAsyncComponent(
   () => import('@/app/editor/WorkflowGraphInterfacePanel.vue'),
 )
+const WorkflowResourceDock = defineAsyncComponent(
+  () => import('@/app/editor/WorkflowResourceDock.vue'),
+)
 const WorkflowInspector = defineAsyncComponent(() => import('@/app/editor/WorkflowInspector.vue'))
 const WorkflowRuntimeWorkbench = defineAsyncComponent(
   () => import('@/app/editor/WorkflowRuntimeWorkbench.vue'),
@@ -1404,15 +1356,17 @@ const selectedEdgeId = ref('')
 const nodeDragActive = ref(false)
 const aiPanelOpen = ref(false)
 const statePanelOpen = ref(false)
-const catalogQuery = ref('')
 const quickAddOpen = ref(false)
 const quickAddPosition = ref({ x: 160, y: 160 })
 const quickAddAnchor = ref({ x: 160, y: 160 })
 const canvasPointerInside = ref(false)
 const lastCanvasPointer = ref<{ x: number; y: number } | null>(null)
-const workspacePanel = ref<'nodes' | 'resources' | 'snippets'>('nodes')
+type WorkspacePanel = 'graphs' | WorkspaceResourceKind | 'snippets'
+const workspacePanel = ref<WorkspacePanel>('graphs')
 const workspaceSidebarOpen = ref(true)
-const workspaceSidebarWidth = ref(224)
+const workspaceSidebarWidth = ref(320)
+const resourceLocateRequest = ref<ResourceLocateRequest | null>(null)
+let resourceLocateSequence = 0
 const inspectorAutoOpen = useLocalStorage('yotta.workflow.inspector.auto-open', true)
 const inspectorSidebarOpen = ref(inspectorAutoOpen.value)
 const inspectorSidebarWidth = ref(360)
@@ -1425,7 +1379,16 @@ const workflowMetadata = reactive<WorkflowMetadataDraft>({
   category: '',
   tags: [],
 })
-const workspaceResourceKind = ref<'macro' | 'clip' | 'template'>('macro')
+const workspaceResourcePanel = computed(
+  () =>
+    workspacePanel.value === 'macro' ||
+    workspacePanel.value === 'clip' ||
+    workspacePanel.value === 'template',
+)
+const workspaceResourceKind = computed<WorkspaceResourceKind>(() => {
+  const panel = workspacePanel.value
+  return panel === 'macro' || panel === 'clip' || panel === 'template' ? panel : 'macro'
+})
 const graphDialogOpen = ref(false)
 const graphDialogMode = ref<'create' | 'rename'>('create')
 const graphDialogTargetId = ref('')
@@ -1618,26 +1581,6 @@ const catalogNodes = computed(() =>
     return visibleForCreationTemplate(projection)
   }),
 )
-const catalogGroups = computed(() => {
-  const query = catalogQuery.value.trim().toLocaleLowerCase()
-  const grouped = new Map<string, NodeProjection[]>()
-  for (const projection of catalogNodes.value) {
-    if (query && !catalogSearchText(projection).includes(query)) continue
-    const key = projection.category || 'other'
-    const nodes = grouped.get(key) ?? []
-    nodes.push(projection)
-    grouped.set(key, nodes)
-  }
-  return [...grouped.entries()]
-    .sort(([left], [right]) => categoryLabel(left).localeCompare(categoryLabel(right)))
-    .map(([key, nodes]) => ({
-      key,
-      label: categoryLabel(key),
-      nodes: nodes.sort((left, right) =>
-        projectionTitle(left).localeCompare(projectionTitle(right)),
-      ),
-    }))
-})
 const quickAddItems = computed<WorkflowQuickAddItem[]>(() => [
   ...catalogNodes.value.map((projection) => {
     const description =
@@ -2369,6 +2312,143 @@ function useWorkspaceResource(
   }
 }
 
+function useWorkflowResource(resource: WorkflowResource, variantId: string): void {
+  placeWorkflowResource(resource, variantId, false)
+}
+
+function locateBoundResource(location: ResourceLocation): void {
+  workspaceSidebarOpen.value = true
+  workspacePanel.value = location.kind
+  resourceLocateSequence += 1
+  resourceLocateRequest.value = {
+    ...location,
+    requestId: resourceLocateSequence,
+  }
+}
+
+function importWorkflowResource(resource: WorkflowResource): void {
+  const source = session.source
+  if (!source) return
+  const baseID = resource.id
+  let id = baseID
+  let suffix = 2
+  while (source.resources.some((candidate) => candidate.id === id)) {
+    id = `${baseID}-${suffix}`
+    suffix++
+  }
+  const snapshot = { ...plainCopy(resource), id }
+  const variantId = snapshot.kind === 'image' ? (snapshot.image?.variants[0]?.id ?? '') : ''
+  placeWorkflowResource(snapshot, variantId, true)
+}
+
+function placeWorkflowResource(
+  resource: WorkflowResource,
+  variantId: string,
+  addResource: boolean,
+): void {
+  const portId =
+    resource.kind === 'macro' ? 'macro' : resource.kind === 'input-clip' ? 'clip' : 'template'
+  const binding = {
+    resourceId: resource.id,
+    ...(variantId ? { variantId } : {}),
+  }
+  const current = selectedNode.value
+  const projection = current ? session.nodeProjection(current.nodeRef.nodeTypeId) : undefined
+  if (current && projection?.dataInputs.some((port) => port.id === portId)) {
+    try {
+      if (addResource) {
+        session.applyBatch([
+          { kind: 'add-resource', resource },
+          { kind: 'bind-resource', nodeId: current.id, portId, resource: binding },
+        ])
+      } else {
+        session.apply({
+          kind: 'bind-resource',
+          nodeId: current.id,
+          portId,
+          resource: binding,
+        })
+      }
+      return
+    } catch (error) {
+      showError(t('workflow.toast.edit_rejected'), error)
+      return
+    }
+  }
+
+  const nodeTypeId =
+    resource.kind === 'macro'
+      ? 'https://schemas.yotta.dev/nodes/automation/play-macro'
+      : resource.kind === 'input-clip'
+        ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
+        : 'https://schemas.yotta.dev/nodes/automation/click-template'
+  const rect = canvasElement.value?.getBoundingClientRect()
+  const position = rect
+    ? screenToFlowCoordinate({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    : { x: 160, y: 160 }
+  const targetSlot =
+    workflowDefaultTargetSlot.value ||
+    recordingTargetSlot.value ||
+    captureTargetSlot.value ||
+    recordingTargetItems.value[0]?.value ||
+    ''
+  try {
+    const ids = session.insertLinearDraft(
+      [
+        {
+          nodeTypeID: nodeTypeId,
+          config: targetSlot ? { slot: targetSlot } : {},
+          values: {},
+          blobs: {},
+          resources: { [portId]: binding },
+          execInput: 'in',
+          execOutput: 'completed',
+        },
+      ],
+      position,
+      addResource ? [resource] : [],
+    )
+    selectedNodeIds.value = new Set(ids)
+    selectedNodeId.value = ids[0] ?? ''
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function updateWorkflowResources(
+  payloads: Array<{
+    resourceId: string
+    name: string
+    description: string
+    category: string
+    tags: string[]
+  }>,
+): void {
+  try {
+    session.applyBatch(
+      payloads.map((payload) => ({
+        kind: 'update-resource-metadata' as const,
+        ...payload,
+      })),
+    )
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
+function removeWorkflowResources(resourceIds: string[]): void {
+  try {
+    session.applyBatch(
+      resourceIds.map((resourceId) => ({
+        kind: 'remove-resource' as const,
+        resourceId,
+      })),
+    )
+  } catch (error) {
+    showError(t('workflow.toast.edit_rejected'), error)
+  }
+}
+
 function openSnippetForNode(node: Node): void {
   const projection = session.nodeProjection(node.nodeRef.nodeTypeId)
   snippetDraft.value = {
@@ -2801,12 +2881,6 @@ function commitGraphDialog(): void {
   }
 }
 
-async function deleteCurrentGraph(): Promise<void> {
-  const graph = session.currentGraph
-  if (!graph || graph.kind !== 'subgraph') return
-  await deleteGraphDefinition(graph.id)
-}
-
 async function deleteGraphDefinition(graphId: string): Promise<void> {
   const source = session.source
   const graph = source?.graphs.find((candidate) => candidate.id === graphId)
@@ -2947,18 +3021,18 @@ function setInspectorVisibility(open: boolean): void {
   inspectorSidebarOpen.value = open
 }
 
-function toggleWorkspacePanel(panel: 'nodes' | 'resources' | 'snippets'): void {
+function toggleWorkspacePanel(panel: WorkspacePanel): void {
   if (workspaceSidebarOpen.value && workspacePanel.value === panel) {
     workspaceSidebarOpen.value = false
     return
   }
   workspacePanel.value = panel
   workspaceSidebarOpen.value = true
-  if (panel !== 'nodes' && workspaceSidebarWidth.value < 280) workspaceSidebarWidth.value = 320
+  if (workspaceSidebarWidth.value < 280) workspaceSidebarWidth.value = 320
 }
 
 function resizeWorkspaceSidebar(startWidth: number, deltaX: number): number {
-  return Math.min(480, Math.max(192, startWidth + deltaX))
+  return Math.min(480, Math.max(240, startWidth + deltaX))
 }
 
 function resizeInspectorSidebar(startWidth: number, deltaX: number): number {
@@ -3080,13 +3154,6 @@ function handleEditorKeydown(event: KeyboardEvent): void {
   if (!selectedNodeIds.value.size && !selectedNodeId.value && !selectedEdgeId.value) return
   event.preventDefault()
   removeSelection()
-}
-
-function startNodeDrag(event: DragEvent, nodeTypeId: string): void {
-  if (!event.dataTransfer) return
-  event.dataTransfer.effectAllowed = 'copy'
-  event.dataTransfer.setData(NODE_TYPE_DRAG_FORMAT, nodeTypeId)
-  nodeDragActive.value = true
 }
 
 function continueNodeDrag(event: DragEvent): void {

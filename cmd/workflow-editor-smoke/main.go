@@ -16,69 +16,76 @@ import (
 )
 
 type pageState struct {
-	Href                 string         `json:"href"`
-	Catalog              int            `json:"catalog"`
-	CanvasNodes          int            `json:"canvasNodes"`
-	CanvasEdges          int            `json:"canvasEdges"`
-	AIReview             bool           `json:"aiReview"`
-	WorkflowState        bool           `json:"workflowState"`
-	ResourceDock         bool           `json:"resourceDock"`
-	ResourceTabs         int            `json:"resourceTabs"`
-	ResourceCreate       bool           `json:"resourceCreate"`
-	RecipeItems          int            `json:"recipeItems"`
-	SnippetDock          bool           `json:"snippetDock"`
-	SnippetItems         int            `json:"snippetItems"`
-	SnippetModal         bool           `json:"snippetModal"`
-	NodeContextMenu      bool           `json:"nodeContextMenu"`
-	TemplateMenuActions  int            `json:"templateMenuActions"`
-	TemplateResourceOpen bool           `json:"templateResourceOpen"`
-	RunStarted           bool           `json:"runStarted"`
-	AssetsView           bool           `json:"assetsView"`
-	AssetsRecording      bool           `json:"assetsRecording"`
-	SchedulesView        bool           `json:"schedulesView"`
-	ScheduleEditor       bool           `json:"scheduleEditor"`
-	ScheduleRows         int            `json:"scheduleRows"`
-	ScheduleRowTargets   []string       `json:"scheduleRowTargets"`
-	ScheduleEditTargets  []string       `json:"scheduleEditTargets"`
-	CreateInput          bool           `json:"createInput"`
-	RecoveryPanel        bool           `json:"recoveryPanel"`
-	LauncherButton       bool           `json:"launcherButton"`
-	GraphChromeDark      bool           `json:"graphChromeDark"`
-	HandleOverlaps       int            `json:"handleOverlaps"`
-	NativeConfirmCalls   int            `json:"nativeConfirmCalls"`
-	ConfirmDialog        bool           `json:"confirmDialog"`
-	Dirty                bool           `json:"dirty"`
-	SaveInlineFeedback   bool           `json:"saveInlineFeedback"`
-	SaveError            string         `json:"saveError"`
-	SaveToast            bool           `json:"saveToast"`
-	SelectedNodes        int            `json:"selectedNodes"`
-	SelectionToolbar     bool           `json:"selectionToolbar"`
-	ConnectionMenu       bool           `json:"connectionMenu"`
-	ConnectionCandidates int            `json:"connectionCandidates"`
-	ConnectionError      string         `json:"connectionError"`
-	Debugger             bool           `json:"debugger"`
-	DebugStart           bool           `json:"debugStart"`
-	DebugPaused          bool           `json:"debugPaused"`
-	DebugBusy            bool           `json:"debugBusy"`
-	DebugCompleted       bool           `json:"debugCompleted"`
-	DebugCurrent         int            `json:"debugCurrent"`
-	DebugNode            string         `json:"debugNode"`
-	Breakpoints          int            `json:"breakpoints"`
-	CurrentGraph         string         `json:"currentGraph"`
-	GraphCalls           int            `json:"graphCalls"`
-	GraphBoundaries      int            `json:"graphBoundaries"`
-	GraphInterface       bool           `json:"graphInterface"`
-	BoundaryClipped      int            `json:"boundaryClipped"`
-	BoundaryObscured     int            `json:"boundaryObscured"`
-	MinimapToggle        bool           `json:"minimapToggle"`
-	MinimapOpen          bool           `json:"minimapOpen"`
-	Annotations          int            `json:"annotations"`
-	GraphNameInput       bool           `json:"graphNameInput"`
-	CallMenuOptions      int            `json:"callMenuOptions"`
-	Reroutes             int            `json:"reroutes"`
-	NodeOverlaps         int            `json:"nodeOverlaps"`
-	NodeGeometry         []nodeGeometry `json:"nodeGeometry"`
-	Errors               []string       `json:"errors"`
+	Href                  string         `json:"href"`
+	NodeAddTrigger        bool           `json:"nodeAddTrigger"`
+	WorkspaceTools        int            `json:"workspaceTools"`
+	GraphManager          bool           `json:"graphManager"`
+	CanvasNodes           int            `json:"canvasNodes"`
+	CanvasEdges           int            `json:"canvasEdges"`
+	AIReview              bool           `json:"aiReview"`
+	WorkflowState         bool           `json:"workflowState"`
+	ResourceDock          bool           `json:"resourceDock"`
+	ResourceKind          string         `json:"resourceKind"`
+	ResourceCreate        bool           `json:"resourceCreate"`
+	ResourceScope         string         `json:"resourceScope"`
+	ResourceScopeActive   int            `json:"resourceScopeActive"`
+	ResourceScopeContrast bool           `json:"resourceScopeContrast"`
+	ResourceModeControls  int            `json:"resourceModeControls"`
+	ResourceFiltersFill   bool           `json:"resourceFiltersFill"`
+	ResourceLoading       bool           `json:"resourceLoading"`
+	RecipeItems           int            `json:"recipeItems"`
+	SnippetDock           bool           `json:"snippetDock"`
+	SnippetItems          int            `json:"snippetItems"`
+	SnippetModal          bool           `json:"snippetModal"`
+	NodeContextMenu       bool           `json:"nodeContextMenu"`
+	TemplateMenuActions   int            `json:"templateMenuActions"`
+	RunStarted            bool           `json:"runStarted"`
+	AssetsView            bool           `json:"assetsView"`
+	AssetsRecording       bool           `json:"assetsRecording"`
+	SchedulesView         bool           `json:"schedulesView"`
+	ScheduleEditor        bool           `json:"scheduleEditor"`
+	ScheduleRows          int            `json:"scheduleRows"`
+	ScheduleRowTargets    []string       `json:"scheduleRowTargets"`
+	ScheduleEditTargets   []string       `json:"scheduleEditTargets"`
+	CreateInput           bool           `json:"createInput"`
+	RecoveryPanel         bool           `json:"recoveryPanel"`
+	LauncherButton        bool           `json:"launcherButton"`
+	GraphChromeDark       bool           `json:"graphChromeDark"`
+	HandleOverlaps        int            `json:"handleOverlaps"`
+	NativeConfirmCalls    int            `json:"nativeConfirmCalls"`
+	ConfirmDialog         bool           `json:"confirmDialog"`
+	Dirty                 bool           `json:"dirty"`
+	SaveInlineFeedback    bool           `json:"saveInlineFeedback"`
+	SaveError             string         `json:"saveError"`
+	SaveToast             bool           `json:"saveToast"`
+	SelectedNodes         int            `json:"selectedNodes"`
+	SelectionToolbar      bool           `json:"selectionToolbar"`
+	ConnectionMenu        bool           `json:"connectionMenu"`
+	ConnectionCandidates  int            `json:"connectionCandidates"`
+	ConnectionError       string         `json:"connectionError"`
+	Debugger              bool           `json:"debugger"`
+	DebugStart            bool           `json:"debugStart"`
+	DebugPaused           bool           `json:"debugPaused"`
+	DebugBusy             bool           `json:"debugBusy"`
+	DebugCompleted        bool           `json:"debugCompleted"`
+	DebugCurrent          int            `json:"debugCurrent"`
+	DebugNode             string         `json:"debugNode"`
+	Breakpoints           int            `json:"breakpoints"`
+	CurrentGraph          string         `json:"currentGraph"`
+	GraphCalls            int            `json:"graphCalls"`
+	GraphBoundaries       int            `json:"graphBoundaries"`
+	GraphInterface        bool           `json:"graphInterface"`
+	BoundaryClipped       int            `json:"boundaryClipped"`
+	BoundaryObscured      int            `json:"boundaryObscured"`
+	MinimapToggle         bool           `json:"minimapToggle"`
+	MinimapOpen           bool           `json:"minimapOpen"`
+	Annotations           int            `json:"annotations"`
+	GraphNameInput        bool           `json:"graphNameInput"`
+	CallMenuOptions       int            `json:"callMenuOptions"`
+	Reroutes              int            `json:"reroutes"`
+	NodeOverlaps          int            `json:"nodeOverlaps"`
+	NodeGeometry          []nodeGeometry `json:"nodeGeometry"`
+	Errors                []string       `json:"errors"`
 }
 
 type canvasNodeErgonomics struct {
@@ -263,7 +270,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	})()`, nameJSON)); err != nil {
 		return err
 	}
-	if err := waitFor(ctx, client, func(state pageState) bool { return state.Catalog == 0 }, func() error {
+	if err := waitFor(ctx, client, func(state pageState) bool { return !state.NodeAddTrigger }, func() error {
 		return eval(ctx, client, `(() => {
 			const button = document.querySelector('[data-testid="workflow-create-submit"]');
 			if (!button || button.disabled) throw new Error('create workflow button is unavailable');
@@ -272,7 +279,9 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	}); err != nil {
 		return err
 	}
-	if err := waitUntil(ctx, client, func(state pageState) bool { return state.Catalog > 0 }); err != nil {
+	if err := waitUntil(ctx, client, func(state pageState) bool {
+		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools == 5
+	}); err != nil {
 		return fmt.Errorf("open workflow editor: %w", err)
 	}
 	if err := exerciseMinimap(ctx, client); err != nil {
@@ -292,37 +301,21 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 			return err
 		}
 	}
-	before, err := state(ctx, client)
-	if err != nil {
-		return err
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"concat",
+		"https://schemas.yotta.dev/nodes/text/concat",
+	); err != nil {
+		return fmt.Errorf("add text concat from the explicit node entry: %w", err)
 	}
-	if err := eval(ctx, client, `document.querySelector('[data-node-type-id="https://schemas.yotta.dev/nodes/text/concat"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == before.CanvasNodes+1 }); err != nil {
-		return fmt.Errorf("click catalog node: %w", err)
-	}
-
-	afterClick, err := state(ctx, client)
-	if err != nil {
-		return err
-	}
-	if err := eval(ctx, client, `(() => {
-		const item = document.querySelectorAll('[data-testid="node-catalog-item"]')[1];
-		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
-		if (!item || !canvas) throw new Error('drag source or workflow canvas not found');
-		const rect = canvas.getBoundingClientRect();
-		const data = new DataTransfer();
-		const point = { clientX: rect.left + rect.width * 0.62, clientY: rect.top + rect.height * 0.42 };
-		item.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, ...point }));
-		canvas.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data, ...point }));
-		canvas.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data, ...point }));
-		item.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data, ...point }));
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == afterClick.CanvasNodes+1 }); err != nil {
-		return fmt.Errorf("drag catalog node: %w", err)
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"delay",
+		"https://schemas.yotta.dev/nodes/control/delay",
+	); err != nil {
+		return fmt.Errorf("add delay from the explicit node entry: %w", err)
 	}
 
 	if err := eval(ctx, client, `(() => {
@@ -346,12 +339,32 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 
 	var selectionGesture connectionGesture
 	if err := evalJSON(ctx, client, `(() => {
-		const nodes = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')].slice(-2);
-		if (nodes.length < 2) throw new Error('multi-selection needs two workflow nodes');
-		const rects = nodes.map(node => node.getBoundingClientRect());
+		const rects = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
+			.map(node => node.getBoundingClientRect());
+		if (rects.length < 2) throw new Error('multi-selection needs two workflow nodes');
+		const intersects = (left, right) =>
+			left.left < right.right && left.right > right.left &&
+			left.top < right.bottom && left.bottom > right.top;
+		const candidates = [];
+		for (let left = 0; left < rects.length; left++) {
+			for (let right = left + 1; right < rects.length; right++) {
+				const box = {
+					left: Math.min(rects[left].left, rects[right].left) - 8,
+					top: Math.min(rects[left].top, rects[right].top) - 4,
+					right: Math.max(rects[left].right, rects[right].right) + 8,
+					bottom: Math.max(rects[left].bottom, rects[right].bottom) + 4,
+				};
+				const covered = rects.filter(rect => intersects(box, rect)).length;
+				if (covered === 2) {
+					candidates.push({ box, area: (box.right - box.left) * (box.bottom - box.top) });
+				}
+			}
+		}
+		const candidate = candidates.sort((left, right) => left.area - right.area)[0];
+		if (!candidate) throw new Error('no isolated two-node marquee region found');
 		return {
-			start: { x: Math.min(...rects.map(rect => rect.left)) - 8, y: Math.min(...rects.map(rect => rect.top)) - 4 },
-			end: { x: Math.max(...rects.map(rect => rect.right)) + 8, y: Math.max(...rects.map(rect => rect.bottom)) + 4 }
+			start: { x: candidate.box.left, y: candidate.box.top },
+			end: { x: candidate.box.right, y: candidate.box.bottom }
 		};
 	})()`, &selectionGesture); err != nil {
 		return err
@@ -363,6 +376,37 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return current.SelectedNodes == 2 && current.SelectionToolbar
 	}); err != nil {
 		return fmt.Errorf("multi-select workflow nodes: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 0 && !current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("clear marquee selection before targeted batch delete: %w", err)
+	}
+	var deletePoints []point
+	if err := evalJSON(ctx, client, `(() => {
+		const nodes = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
+			.filter(node => node.getAttribute('data-id') !== 'run-started')
+			.slice(-2);
+		if (nodes.length < 2) throw new Error('batch delete needs two non-root workflow nodes');
+		return nodes.map(node => {
+			const header = node.querySelector('.workflow-node-drag-handle');
+			if (!header) throw new Error('batch delete node header not found');
+			const rect = header.getBoundingClientRect();
+			return { x: rect.left + 32, y: rect.top + rect.height / 2 };
+		});
+	})()`, &deletePoints); err != nil {
+		return err
+	}
+	if err := dispatchControlClicks(ctx, client, deletePoints); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 2 && current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("select non-root workflow nodes for batch delete: %w", err)
 	}
 	beforeDelete, err := state(ctx, client)
 	if err != nil {
@@ -453,30 +497,6 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err != nil {
 		return err
 	}
-	if err := eval(ctx, client, `(() => {
-		const input = document.querySelector('[data-testid="workflow-catalog-search"] input, input[data-testid="workflow-catalog-search"]');
-		if (!input) throw new Error('catalog search input not found');
-		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-		setter.call(input, 'concat');
-		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Catalog == 1 }); err != nil {
-		return fmt.Errorf("filter node catalog: %w", err)
-	}
-	if err := eval(ctx, client, `(() => {
-		const input = document.querySelector('[data-testid="workflow-catalog-search"] input, input[data-testid="workflow-catalog-search"]');
-		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-		setter.call(input, '');
-		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Catalog > 1 }); err != nil {
-		return fmt.Errorf("clear node catalog search: %w", err)
-	}
-
 	if err := eval(ctx, client, `(() => {
 		window.__yottaNativeConfirmCalls = 0;
 		window.confirm = () => {
@@ -579,13 +599,58 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 	if err := exerciseSnippets(ctx, client, nodeMenuScreenshot); err != nil {
 		return err
 	}
-	if err := clickRequired(ctx, client, "workflow-workspace-resources"); err != nil {
+	if err := clickRequired(ctx, client, "workflow-workspace-macro"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.ResourceDock && current.ResourceTabs == 3 && current.ResourceCreate
+		return current.ResourceDock && current.ResourceKind == "macro" &&
+			current.ResourceCreate && current.WorkspaceTools == 5
 	}); err != nil {
-		return fmt.Errorf("open workflow resource workspace: %w", err)
+		return fmt.Errorf("open macro workspace tool: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-clip"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "clip" && current.ResourceCreate
+	}); err != nil {
+		return fmt.Errorf("open precise recording workspace tool: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-template"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "template" && current.ResourceCreate &&
+			current.ResourceScope == "workflow" && current.ResourceScopeActive == 1 &&
+			current.ResourceScopeContrast && current.ResourceModeControls == 0 &&
+			current.ResourceFiltersFill && !current.ResourceLoading
+	}); err != nil {
+		return fmt.Errorf("open visual template workspace tool: %w", err)
+	}
+	if err := capture(ctx, client, siblingScreenshot(screenshot, "resource-tools-workflow.png")); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-resource-scope-library"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "template" &&
+			current.ResourceScope == "library" && current.ResourceScopeActive == 1 &&
+			current.ResourceScopeContrast && current.ResourceModeControls == 0 &&
+			current.ResourceFiltersFill && !current.ResourceLoading
+	}); err != nil {
+		return fmt.Errorf("switch to local resource library: %w", err)
+	}
+	if err := capture(ctx, client, siblingScreenshot(screenshot, "resource-tools.png")); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-graphs"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.GraphManager && !current.ResourceDock
+	}); err != nil {
+		return fmt.Errorf("restore subgraph management workspace tool: %w", err)
 	}
 	if err := capture(ctx, client, screenshot); err != nil {
 		return err
@@ -679,7 +744,7 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		}
 	}
 	result, _ := json.MarshalIndent(map[string]any{
-		"status": "passed", "href": final.Href, "catalogNodes": final.Catalog,
+		"status": "passed", "href": final.Href, "workspaceTools": final.WorkspaceTools,
 		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
 		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
 		"schedulesScreenshot": schedulesScreenshot,
@@ -733,14 +798,12 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 	}); err != nil {
 		return fmt.Errorf("enter new subgraph: %w", err)
 	}
-	if err := eval(ctx, client, `(() => {
-		const item = document.querySelector('[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
-		if (!item) throw new Error('delay catalog item not found in subgraph');
-		item.click();
-	})()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CanvasNodes == 1 }); err != nil {
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"delay",
+		"https://schemas.yotta.dev/nodes/control/delay",
+	); err != nil {
 		return fmt.Errorf("author subgraph node: %w", err)
 	}
 	if err := clickRequired(ctx, client, "workflow-graph-infer-interface"); err != nil {
@@ -954,12 +1017,13 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 	if err != nil {
 		return err
 	}
-	if err := eval(ctx, client, `document.querySelector('[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]')?.click()`); err != nil {
-		return err
-	}
-	if err := waitUntil(ctx, client, func(current pageState) bool {
-		return current.CanvasNodes == before.CanvasNodes+1
-	}); err != nil {
+	if err := addNodeViaQuickAddAfter(
+		ctx,
+		client,
+		before,
+		"analyze-color",
+		"https://schemas.yotta.dev/nodes/vision/analyze-color",
+	); err != nil {
 		return fmt.Errorf("insert Analyze Color node: %w", err)
 	}
 	probe, err := readCanvasNodeErgonomics(ctx, client)
@@ -1024,6 +1088,61 @@ func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSoc
 		return current.CanvasNodes == before.CanvasNodes
 	}); err != nil {
 		return fmt.Errorf("remove Analyze Color smoke node: %w", err)
+	}
+	return nil
+}
+
+func addNodeViaQuickAdd(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	query string,
+	nodeTypeID string,
+) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	return addNodeViaQuickAddAfter(ctx, client, before, query, nodeTypeID)
+}
+
+func addNodeViaQuickAddAfter(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	before pageState,
+	query string,
+	nodeTypeID string,
+) error {
+	queryJSON, _ := json.Marshal(query)
+	nodeTypeJSON, _ := json.Marshal(nodeTypeID)
+	if err := eval(ctx, client, fmt.Sprintf(`(async () => {
+		const wait = async predicate => {
+			const deadline = performance.now() + 5000;
+			while (performance.now() < deadline) {
+				const value = predicate();
+				if (value) return value;
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+			throw new Error('node quick add did not become ready');
+		};
+		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		if (!trigger) throw new Error('explicit add node trigger not found');
+		trigger.click();
+		const input = await wait(() => document.querySelector(
+			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
+		));
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, %s);
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		const item = await wait(() => [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.find(candidate => candidate.getAttribute('data-item-id') === %s));
+		item.click();
+	})()`, queryJSON, nodeTypeJSON)); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes+1
+	}); err != nil {
+		return fmt.Errorf("wait for quick-added node %s: %w", nodeTypeID, err)
 	}
 	return nil
 }
@@ -1279,17 +1398,45 @@ func dispatchMouseWheel(ctx context.Context, client *browsercdp.WebSocketClient,
 }
 
 func dispatchMouseClick(ctx context.Context, client *browsercdp.WebSocketClient, x, y float64) error {
+	return dispatchModifiedMouseClick(ctx, client, x, y, 0)
+}
+
+func dispatchModifiedMouseClick(ctx context.Context, client *browsercdp.WebSocketClient, x, y float64, modifiers int) error {
 	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 		"type": "mousePressed", "x": x, "y": y,
-		"button": "left", "buttons": 1, "clickCount": 1,
+		"button": "left", "buttons": 1, "clickCount": 1, "modifiers": modifiers,
 	}); err != nil {
 		return err
 	}
 	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
 		"type": "mouseReleased", "x": x, "y": y,
-		"button": "left", "buttons": 0, "clickCount": 1,
+		"button": "left", "buttons": 0, "clickCount": 1, "modifiers": modifiers,
 	})
 	return err
+}
+
+func dispatchControlClicks(ctx context.Context, client *browsercdp.WebSocketClient, points []point) error {
+	const controlModifier = 2
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "rawKeyDown", "key": "Control", "code": "ControlLeft",
+		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17, "modifiers": controlModifier,
+	}); err != nil {
+		return err
+	}
+	var clickErr error
+	for _, point := range points {
+		if clickErr = dispatchModifiedMouseClick(ctx, client, point.X, point.Y, controlModifier); clickErr != nil {
+			break
+		}
+	}
+	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "keyUp", "key": "Control", "code": "ControlLeft",
+		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17,
+	})
+	if clickErr != nil {
+		return clickErr
+	}
+	return releaseErr
 }
 
 func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient) (canvasNodeErgonomics, error) {
@@ -1638,6 +1785,19 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		}).length;
 		const bodyText = document.body.innerText;
 		const saveButtonText = document.querySelector('[data-testid="workflow-save"]')?.innerText || '';
+		const resourceDock = document.querySelector('[data-testid="workflow-resource-dock"]');
+		const resourceScopeButtons = [...document.querySelectorAll('[data-testid^="workflow-resource-scope-"]')];
+		const activeResourceScope = resourceScopeButtons.find(button => button.getAttribute('data-active') === 'true');
+		const inactiveResourceScope = resourceScopeButtons.find(button => button.getAttribute('data-active') !== 'true');
+		const activeResourceScopeStyle = activeResourceScope ? getComputedStyle(activeResourceScope) : null;
+		const inactiveResourceScopeStyle = inactiveResourceScope ? getComputedStyle(inactiveResourceScope) : null;
+		const resourceFilterRow = document.querySelector('[data-testid="workflow-resource-filter-row"]');
+		const resourceFilterControls = [
+			document.querySelector('[data-testid="workflow-resource-filter-category"]'),
+			document.querySelector('[data-testid="workflow-resource-filter-sort"]')
+		].filter(Boolean);
+		const resourceFilterRect = resourceFilterRow?.getBoundingClientRect();
+		const resourceFilterWidths = resourceFilterControls.map(control => control.getBoundingClientRect().width);
 		const nodeRects = [...document.querySelectorAll('.vue-flow__node')].map(node => node.getBoundingClientRect());
 		const canvasRect = document.querySelector('[data-testid="workflow-canvas"]')?.getBoundingClientRect();
 		const boundaryRects = [...document.querySelectorAll('[data-testid="workflow-graph-boundary"]')].map(node => node.closest('.vue-flow__node')?.getBoundingClientRect()).filter(Boolean);
@@ -1652,21 +1812,37 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		}
 		return {
 		href: location.href,
-		catalog: document.querySelectorAll('[data-testid="node-catalog-item"]').length,
+		nodeAddTrigger: Boolean(document.querySelector('[data-testid="workflow-canvas-add-node"]')),
+		workspaceTools: document.querySelectorAll('nav button[data-testid^="workflow-workspace-"]').length,
+		graphManager: Boolean(document.querySelector('[data-testid="workflow-graph-manager"]')),
 		canvasNodes: document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)').length,
 		canvasEdges: document.querySelectorAll('.vue-flow__edge').length,
 		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
 		workflowState: Boolean(document.querySelector('[data-testid="workflow-state-panel"]')),
-		resourceDock: Boolean(document.querySelector('[data-testid="workflow-resource-dock"]')),
-		resourceTabs: document.querySelectorAll('[data-testid^="workflow-resource-tab-"]').length,
+		resourceDock: Boolean(resourceDock),
+		resourceKind: resourceDock?.getAttribute('data-resource-kind') || '',
 		resourceCreate: Boolean(document.querySelector('[data-testid="workflow-resource-create"]')),
+		resourceScope: resourceDock?.getAttribute('data-resource-scope') || '',
+		resourceScopeActive: resourceScopeButtons.filter(button => button.getAttribute('data-active') === 'true').length,
+		resourceScopeContrast: Boolean(
+			activeResourceScopeStyle && inactiveResourceScopeStyle &&
+			(activeResourceScopeStyle.backgroundColor !== inactiveResourceScopeStyle.backgroundColor ||
+				activeResourceScopeStyle.color !== inactiveResourceScopeStyle.color ||
+				activeResourceScopeStyle.boxShadow !== inactiveResourceScopeStyle.boxShadow)
+		),
+		resourceModeControls: document.querySelectorAll('[data-testid^="workflow-resource-mode-"]').length,
+		resourceFiltersFill: Boolean(
+			resourceFilterRect && resourceFilterWidths.length === 2 &&
+			Math.abs(resourceFilterWidths[0] - resourceFilterWidths[1]) <= 2 &&
+			resourceFilterWidths[0] + resourceFilterWidths[1] >= resourceFilterRect.width - 10
+		),
+		resourceLoading: Boolean(document.querySelector('[data-testid="workflow-resource-loading"]')),
 		recipeItems: document.querySelectorAll('[data-testid="workflow-recipe-item"]').length,
 		snippetDock: Boolean(document.querySelector('[data-testid="workflow-snippet-dock"]')),
 		snippetItems: document.querySelectorAll('[data-testid="workflow-snippet-item"]').length,
 		snippetModal: Boolean(document.querySelector('[data-testid="workflow-snippet-name"]')),
 		nodeContextMenu: Boolean(document.querySelector('[data-testid="workflow-node-context-menu"]')),
 		templateMenuActions: document.querySelectorAll('[data-testid="workflow-node-menu-choose-template"], [data-testid="workflow-node-menu-capture-template"]').length,
-		templateResourceOpen: document.querySelector('[data-testid="workflow-resource-tab-template"]')?.getAttribute('aria-pressed') === 'true',
 		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
 		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
 		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
