@@ -11,7 +11,7 @@ CLI 的 `--data-root` 覆盖整个 profile，不能单独拆出 settings 根。
 根级 writer lease，GUI/CLI 不能同时写同一根。未知 identity、未知布局和非空未认领目录都 fail closed；
 打开失败不修改、不迁移、不删除目录内容。
 
-当前 layout 1 的主要生命周期目录是：
+当前 root layout 3 的主要生命周期目录是：
 
 - `config/`：小型设置；
 - `data/`：当前文件型领域 Store；
@@ -76,3 +76,5 @@ Node Package Store 使用另一套严格的 registry-last generation 模型：�
 `storage.MigrationRegistry` 现在已经锁定“唯一、连续、只向前”的根布局路由规则：分叉、缺步、倒退、
 无效 checksum 和高于当前应用的根都会被拒绝。Catalog schema migration 与一致 backup foundation 已落地；
 根布局的数据迁移执行器及 recovery UI 在 R7 实现，Store 构造器不得自行 rename 或暗中兼容旧格式。
+layout 2→3 在 Blob Store 打开前把合法 v1 平铺对象逐项验摘要并迁入 v2 分片目录，同时对账 Catalog
+inventory；Blob marker 最后发布，迁移中断可续接，未提交迁移可恢复到原平铺权威。

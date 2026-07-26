@@ -48,7 +48,7 @@ Linux/macOS 没有等价 sandbox 时 Process/Wasm capability 必须 fail closed�
 - Windows Process/Wasm plugin smoke：task windows:smoke:plugins，必须走真实 LPAC/AppContainer + Job isolation。
 - Storage migration smoke：`task smoke:storage-migration`。修改 root layout、Catalog/Run migration、
   snapshot/journal/rollback/quarantine 或启动期 recovery UI 后运行；它使用冻结 layout 1 profile，
-  强停一次 production recovery GUI，再隔离阻塞记录、resume 并验证 layout 2 双库 health 与 GUI 重启。
+  强停一次 production recovery GUI，再隔离阻塞记录、resume 并验证当前 storage layout、双库 health 与 GUI 重启。
 - Frozen candidate smoke：task release:smoke；校验 manifest exact file set/size/SHA-256，并从 staging copy 运行 ScriptWorker、Process/Wasm plugin、CLI strict legacy rejection 与 desktop startup。smoke 不得修改 staging。
 - Workflow WebView smoke 只能证明页面/创作入口；工作区工具数和 canvas node 数是观测值，不是产品能力。录制、模板、Windows/ADB 输入等宿主能力还必须通过各 Stage 的真实纵向旅程。
 - Android ADB 真机/模拟器 smoke 只在已授权设备可用时运行：`powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/android-adb-smoke.ps1 -Serial <exact-serial> -Package <exact-package>`。它必须走 Source → Compiler → Admission → installed provider → journal，覆盖 exact identity、应用发现、activate、PNG capture、template click、drag、InputClip playback 与 stop-app；controller mock 或 controller-only smoke 不能替代。

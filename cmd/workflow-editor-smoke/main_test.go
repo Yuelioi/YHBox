@@ -30,9 +30,15 @@ func TestSeedRecoveryFixtureUsesCurrentCatalogAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer profile.Close()
-	if raw, err := os.ReadFile(profile.Roots.ManifestFile()); err != nil ||
-		!strings.Contains(string(raw), `"version": "2"`) {
+	raw, err := os.ReadFile(profile.Roots.ManifestFile())
+	if err != nil {
 		t.Fatalf("root manifest = %q, %v", raw, err)
+	}
+	var manifest storage.RootManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil ||
+		manifest.Format != storage.RootFormat ||
+		manifest.Version != storage.LayoutVersion {
+		t.Fatalf("root manifest = %#v, %v", manifest, err)
 	}
 	foundation, err := catalog.Open(context.Background(), profile.Roots)
 	if err != nil {

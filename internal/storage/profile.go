@@ -9,13 +9,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/yottaapp/yotta/internal/durablefs"
 )
 
 const (
 	RootFormat           = "yotta.storage-root"
-	LayoutVersion        = "2"
+	LayoutVersion        = "3"
 	rootManifestFilename = "root.json"
 	rootLeaseFilename    = "writer.lock"
 )
@@ -106,8 +107,21 @@ func (p *Profile) Close() error {
 // PublishCurrentLayout is the migration commit point. It advances only an
 // exact older manifest while the caller still owns the profile writer lease.
 func (p *Profile) PublishCurrentLayout(from string) error {
+	return p.PublishLayout(from, LayoutVersion)
+}
+
+// PublishLayout is the migration commit point for one registered forward step.
+// It never skips a layout generation or publishes beyond this binary.
+func (p *Profile) PublishLayout(from, to string) error {
 	if p == nil || p.lease == nil {
 		return errors.New("publish storage layout requires an open migration profile")
+	}
+	fromNumber, fromErr := strconv.Atoi(from)
+	toNumber, toErr := strconv.Atoi(to)
+	currentNumber, currentErr := strconv.Atoi(LayoutVersion)
+	if fromErr != nil || toErr != nil || currentErr != nil ||
+		fromNumber < 1 || toNumber != fromNumber+1 || toNumber > currentNumber {
+		return errors.New("publish storage layout requires one supported forward generation")
 	}
 	raw, err := os.ReadFile(p.Roots.ManifestFile())
 	if err != nil {
@@ -117,7 +131,7 @@ func (p *Profile) PublishCurrentLayout(from string) error {
 	if err != nil || manifest.Format != RootFormat || manifest.Version != from {
 		return fmt.Errorf("%w: storage layout changed during migration", ErrUnsupportedLayout)
 	}
-	encoded, err := json.MarshalIndent(RootManifest{Format: RootFormat, Version: LayoutVersion}, "", "  ")
+	encoded, err := json.MarshalIndent(RootManifest{Format: RootFormat, Version: to}, "", "  ")
 	if err != nil {
 		return err
 	}

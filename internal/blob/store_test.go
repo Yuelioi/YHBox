@@ -146,3 +146,99 @@ func TestStoreRejectsUnownedOrEmptyRoot(t *testing.T) {
 		t.Fatal("claimed a non-empty directory without an ownership marker")
 	}
 }
+
+func TestStoreMigrationUpgradesLegacyOwnershipMarker(t *testing.T) {
+	root := t.TempDir()
+	markerPath := filepath.Join(root, ".yotta-blob-store")
+	if err := os.WriteFile(markerPath, []byte("yotta/blob-store/1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := blob.MigrateLayoutOneToTwo(context.Background(), root, nil); err != nil {
+		t.Fatalf("migrate legacy Blob Store: %v", err)
+	}
+	if _, err := blob.Open(root, blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096}); err != nil {
+		t.Fatalf("open legacy Blob Store: %v", err)
+	}
+
+	marker, err := os.ReadFile(markerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(marker) != "yotta/blob-store/2\n" {
+		t.Fatalf("marker = %q", marker)
+	}
+}
+
+func TestStoreMigrationPreservesLegacyObjectsAndRollsBack(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(root, ".yotta-blob-store"),
+		[]byte("yotta/blob-store/1\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	const name = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+	legacyPath := filepath.Join(root, name)
+	if err := os.WriteFile(legacyPath, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inventory := newMemoryInventory()
+
+	report, err := blob.MigrateLayoutOneToTwo(context.Background(), root, inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Version != blob.LayoutVersion || report.Objects != 1 || report.Bytes != 5 {
+		t.Fatalf("migration report = %#v", report)
+	}
+	store, err := blob.Open(
+		root,
+		blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096},
+		inventory,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := blob.BlobRef{
+		MediaType: "text/plain",
+		Digest:    artifact.Digest("sha256:" + name),
+		Size:      5,
+	}
+	if err := store.Verify(context.Background(), ref); err != nil {
+		t.Fatalf("migrated object: %v", err)
+	}
+
+	if err := blob.RollbackLayoutTwoToOne(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := os.ReadFile(legacyPath); err != nil || string(raw) != "hello" {
+		t.Fatalf("rolled-back object = %q, %v", raw, err)
+	}
+	if marker, err := os.ReadFile(filepath.Join(root, ".yotta-blob-store")); err != nil ||
+		string(marker) != "yotta/blob-store/1\n" {
+		t.Fatalf("rolled-back marker = %q, %v", marker, err)
+	}
+}
+
+func TestStoreMigrationReconcilesAlreadyShardedObjects(t *testing.T) {
+	root := t.TempDir()
+	store, err := blob.Open(root, blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := store.Put(context.Background(), "text/plain", strings.NewReader("indexed"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory := newMemoryInventory()
+
+	if _, err := blob.MigrateLayoutOneToTwo(context.Background(), root, inventory); err != nil {
+		t.Fatal(err)
+	}
+	if object, found, err := inventory.Object(context.Background(), ref.Digest); err != nil ||
+		!found || object.Size != ref.Size {
+		t.Fatalf("reconciled object = %#v, %v, %v", object, found, err)
+	}
+}

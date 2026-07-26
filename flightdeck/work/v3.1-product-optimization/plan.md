@@ -7,8 +7,7 @@
 ## Current stage
 
 Stage A–L、Stage N、Stage O、Stage P 与 Stage Q 已完成实现、增量门禁和 Windows 真机验收。Stage R
-R1–R7 已完成。Stage M 的 M1 正式合同和 M2 资源归属/编辑器旅程已完成；下一步进入 M3，建立
-Workflow Release、Installation、Readiness 与本机 target/credential 配置。
+R1–R8 已完成。Stage M 的 M1–M5 已完成；下一步进入 M6 的外部 Site Foundation prerelease。
 
 ## Stage R — 配置与资源持久化基础设施
 
@@ -34,6 +33,9 @@ data-root、存储接口、完整性、恢复、GC 和版本迁移边界。
   timeline page、retention/archive、payload CAS reference 与 legacy Run JSON 幂等导入闭环。
 - [x] [R7 — 正式 data migration 与恢复 UI](slices/stage-r7-data-migration-recovery.md)：冻结旧布局
   fixture，建立 dry-run/空间估算、自动 snapshot、resume/rollback、quarantine 管理与升级/断电真机验收。
+- [x] [R8 — Blob layout 发布迁移修复](slices/stage-r8-blob-layout-migration-hotfix.md)：补齐 root
+  layout 2→3 的 Blob Store v1→v2 迁移，锁定对象摘要校验、inventory 对账、resume/rollback 与真实 profile
+  二次启动。
 
 非目标：不在审计阶段直接搬动用户目录，不把所有对象塞进单一数据库，不把 secret 或本机安装配置带入
 Workflow Source/Bundle，也不为了当前开发样本忽略 1000+ 对象和 GB 级内容。

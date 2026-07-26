@@ -10,9 +10,9 @@ Open
 
 ## Current
 
-Stage M5 已完成并通过 review remediation：显式派生、缓存 verified Release、staged update/rollback、
-exact capability scope diff、配置冲突与候选 readiness 均进入真实产品路径；关联计划以可恢复原子批处理
-暂停，Catalog 复用单一 immutable Release ensure。
+Stage M5 已完成并通过 review remediation。随后修复新 EXE 的发布阻断：root layout 2→3 在任何
+domain Store 打开前把 Blob Store v1 平铺对象迁到 v2 分片布局，对账 Catalog inventory，并保留
+resume/rollback 与迁移快照；真实 profile 已完成迁移并连续两次启动成功。
 
 ## Next
 
@@ -21,6 +21,12 @@ exact capability scope diff、配置冲突与候选 readiness 均进入真实产
 
 ## Progress
 
+- 2026-07-26 R8 Blob layout 发布迁移修复完成：真实失败来自 root layout 1→2 已提交，但 Blob marker
+  仍为 `yotta/blob-store/1`；CAS v2 构造器只接受 marker 2，导致新 EXE 启动失败。新增正式 root
+  layout 2→3 step，逐对象验 SHA-256、幂等迁入两级分片、对账 Catalog inventory，marker 与 root
+  manifest 分别最后发布；三个 kill point、resume、rollback、旧 journal 与 1→2→3 连续路由均由测试锁定。
+  相关三包 race、`task check`（56 个 Go 包）、`task build`、production storage migration smoke 均退出 0；
+  实际 `%LocalAppData%` profile journal committed、双库 healthy，迁移当次及二次重开均稳定存活。
 - 2026-07-26 M5e/Stage M5 review remediation 完成：Catalog 可只缓存 verified Release 而不创建
   Installation；工作流列表用一次性 opaque preview token 展示 update/rollback 的 content、dependency、
   target、credential、exact capability scope、conflict 与 readiness，确认后走既有 CAS 切换并清除授权。

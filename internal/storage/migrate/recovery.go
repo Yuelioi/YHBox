@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
@@ -33,11 +34,15 @@ func InspectRecovery(ctx context.Context, options Options) (RecoveryStatus, erro
 	if err != nil {
 		return RecoveryStatus{}, err
 	}
-	journal, found, err := readJournal(
-		filepath.Join(roots.Migrations, layoutOneToTwoID, journalFilename),
-	)
+	journal, found, err := activeJournal(roots)
 	if err != nil {
 		return RecoveryStatus{}, err
+	}
+	if !found {
+		journal, found, err = latestJournal(roots)
+		if err != nil {
+			return RecoveryStatus{}, err
+		}
 	}
 	quarantine, err := ListQuarantine(options)
 	if err != nil {
@@ -58,14 +63,14 @@ func Rollback(ctx context.Context, options Options) (result Result, resultErr er
 	if err != nil {
 		return Result{}, err
 	}
-	migrationDir := filepath.Join(roots.Migrations, layoutOneToTwoID)
-	journal, found, err := readJournal(filepath.Join(migrationDir, journalFilename))
+	journal, found, err := activeJournal(roots)
 	if err != nil {
 		return Result{}, err
 	}
 	if !found {
 		return Result{}, errors.New("storage migration journal does not exist")
 	}
+	migrationDir := filepath.Join(roots.Migrations, journal.MigrationID)
 	if journal.State == StateCommitted {
 		return Result{}, errors.New("committed storage migration requires an explicit future downgrade step")
 	}
@@ -81,6 +86,22 @@ func Rollback(ctx context.Context, options Options) (result Result, resultErr er
 		return Result{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, profile.Close()) }()
+
+	if journal.MigrationID == layoutTwoToThreeID {
+		switch journal.BlobLayoutFrom {
+		case "1":
+			if err := blob.RollbackLayoutTwoToOne(ctx, roots.Objects); err != nil {
+				return Result{}, err
+			}
+		case "":
+			if err := blob.RollbackLayoutTwoToUnclaimed(ctx, roots.Objects); err != nil {
+				return Result{}, err
+			}
+		case blob.LayoutVersion:
+		default:
+			return Result{}, errors.New("Blob migration rollback source is invalid")
+		}
+	}
 
 	for _, database := range []string{
 		filepath.Join(roots.Catalog, catalog.ContentFilename),
@@ -137,9 +158,10 @@ func ExportDiagnostics(ctx context.Context, options Options, destination string)
 		}
 		reportErrors = append(reportErrors, "plan: "+redactRoot(planErr.Error(), roots.Root))
 	}
-	journal, found, journalErr := readJournal(
-		filepath.Join(roots.Migrations, layoutOneToTwoID, journalFilename),
-	)
+	journal, found, journalErr := activeJournal(roots)
+	if journalErr == nil && !found {
+		journal, found, journalErr = latestJournal(roots)
+	}
 	if journalErr != nil {
 		reportErrors = append(reportErrors, "journal: "+redactRoot(journalErr.Error(), roots.Root))
 	}
@@ -172,7 +194,21 @@ func ExportDiagnosticsToProfile(ctx context.Context, options Options) (string, e
 	if err != nil {
 		return "", err
 	}
-	destinationRoot := filepath.Join(roots.Migrations, layoutOneToTwoID, "diagnostics")
+	journal, found, err := activeJournal(roots)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		journal, found, err = latestJournal(roots)
+		if err != nil {
+			return "", err
+		}
+	}
+	migrationID := layoutOneToTwoID
+	if found {
+		migrationID = journal.MigrationID
+	}
+	destinationRoot := filepath.Join(roots.Migrations, migrationID, "diagnostics")
 	if err := ensureTrustedSubdirectory(roots.Root, destinationRoot); err != nil {
 		return "", err
 	}

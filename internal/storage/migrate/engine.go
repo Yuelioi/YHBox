@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/run"
@@ -24,13 +25,15 @@ import (
 )
 
 const (
-	PlanFormat        = "yotta.storage-migration-plan"
-	JournalFormat     = "yotta.storage-migration-journal"
-	DiagnosticsFormat = "yotta.storage-migration-diagnostics"
-	DocumentVersion   = 1
-	layoutOneToTwoID  = "layout-1-to-2"
-	journalFilename   = "journal.json"
-	planFilename      = "plan.json"
+	PlanFormat         = "yotta.storage-migration-plan"
+	JournalFormat      = "yotta.storage-migration-journal"
+	DiagnosticsFormat  = "yotta.storage-migration-diagnostics"
+	DocumentVersion    = 2
+	legacyDocVersion   = 1
+	layoutOneToTwoID   = "layout-1-to-2"
+	layoutTwoToThreeID = "layout-2-to-3"
+	journalFilename    = "journal.json"
+	planFilename       = "plan.json"
 )
 
 var (
@@ -56,6 +59,7 @@ type Plan struct {
 	LegacyRunRecords     int      `json:"legacyRunRecords"`
 	LegacyRunBytes       uint64   `json:"legacyRunBytes"`
 	UnknownRootEntries   uint64   `json:"unknownRootEntries"`
+	BlobLayoutFrom       string   `json:"blobLayoutFrom,omitempty"`
 	Actions              []string `json:"actions"`
 	Blocked              []string `json:"blocked"`
 }
@@ -83,6 +87,7 @@ type Journal struct {
 	UpdatedAt      string       `json:"updatedAt"`
 	BackupManifest string       `json:"backupManifest"`
 	BlockedEntry   string       `json:"blockedEntry,omitempty"`
+	BlobLayoutFrom string       `json:"blobLayoutFrom,omitempty"`
 	LastError      string       `json:"lastError,omitempty"`
 }
 
@@ -158,14 +163,42 @@ func Inspect(ctx context.Context, options Options) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	if len(steps) != 1 {
-		return Plan{}, errors.New("root migration requires one reviewed step")
+	if len(steps) == 0 {
+		return Plan{}, errors.New("root migration has no reviewed step")
 	}
+	step := steps[0]
 	backupBytes, err := estimateSnapshotBytes(roots)
 	if err != nil {
 		return Plan{}, err
 	}
-	legacyCount, legacyBytes, err := inspectLegacyRuns(roots)
+	var legacyCount int
+	var legacyBytes uint64
+	var blobLayoutFrom string
+	var actions []string
+	switch step.ID {
+	case layoutOneToTwoID:
+		legacyCount, legacyBytes, err = inspectLegacyRuns(roots)
+		actions = []string{
+			"checkpoint closed SQLite databases",
+			"snapshot root manifest, settings, Content Catalog, and Run Ledger",
+			"migrate Catalog schemas and import legacy Run records",
+			"verify both databases and publish root layout 2",
+		}
+	case layoutTwoToThreeID:
+		var inspection blob.LayoutInspection
+		inspection, err = blob.InspectLayout(ctx, roots.Objects)
+		if err == nil {
+			blobLayoutFrom = inspection.Version
+		}
+		actions = []string{
+			"checkpoint closed SQLite databases",
+			"snapshot root manifest, settings, Content Catalog, and Run Ledger",
+			"migrate legacy Blob Store objects to verified sharded storage",
+			"reconcile the durable object inventory and publish root layout 3",
+		}
+	default:
+		return Plan{}, fmt.Errorf("root migration %s has no implementation", step.ID)
+	}
 	if err != nil {
 		return Plan{}, err
 	}
@@ -176,17 +209,12 @@ func Inspect(ctx context.Context, options Options) (Plan, error) {
 	required := backupBytes + backupBytes/4 + 16<<20
 	plan := Plan{
 		Format: PlanFormat, Version: DocumentVersion,
-		MigrationID: steps[0].ID, From: steps[0].From, To: steps[0].To,
-		StepChecksum:         steps[0].Checksum.String(),
+		MigrationID: step.ID, From: step.From, To: step.To,
+		StepChecksum:         step.Checksum.String(),
 		EstimatedBackupBytes: backupBytes, RequiredFreeBytes: required,
 		AvailableBytes: available, LegacyRunRecords: legacyCount,
 		LegacyRunBytes: legacyBytes, UnknownRootEntries: health.UnknownEntries,
-		Actions: []string{
-			"checkpoint closed SQLite databases",
-			"snapshot root manifest, settings, Content Catalog, and Run Ledger",
-			"migrate Catalog schemas and import legacy Run records",
-			"verify both databases and publish root layout 2",
-		},
+		BlobLayoutFrom: blobLayoutFrom, Actions: actions,
 	}
 	if health.UnknownEntries != 0 {
 		plan.Blocked = append(plan.Blocked, "unknown root entries must be moved or reviewed")
@@ -197,28 +225,17 @@ func Inspect(ctx context.Context, options Options) (Plan, error) {
 	return plan, nil
 }
 
-// Ensure leaves new/current roots untouched and applies the only registered
+// Ensure leaves new/current roots untouched and applies every registered
 // released upgrade before callers open domain stores.
 func Ensure(ctx context.Context, options Options) (Result, error) {
-	plan, err := Inspect(ctx, options)
+	roots, err := storage.Resolve(options.Root)
 	if err != nil {
 		return Result{}, err
 	}
-	if plan.From == plan.To {
-		roots, err := storage.Resolve(options.Root)
-		if err != nil {
-			return Result{}, err
-		}
-		journal, found, err := readJournal(
-			filepath.Join(roots.Migrations, layoutOneToTwoID, journalFilename),
-		)
-		if err != nil {
-			return Result{}, err
-		}
-		if found && journal.State != StateCommitted {
-			return Resume(ctx, options)
-		}
-		return Result{Plan: plan}, nil
+	if _, found, err := activeJournal(roots); err != nil {
+		return Result{}, err
+	} else if found {
+		return Resume(ctx, options)
 	}
 	return Apply(ctx, options)
 }
@@ -228,6 +245,19 @@ func Apply(ctx context.Context, options Options) (Result, error) {
 }
 
 func apply(ctx context.Context, options Options, internal applyOptions) (result Result, resultErr error) {
+	for {
+		next, err := applyNext(ctx, options, internal)
+		if err != nil {
+			return next, err
+		}
+		result = next
+		if next.Plan.From == next.Plan.To || next.Plan.To == storage.LayoutVersion {
+			return result, nil
+		}
+	}
+}
+
+func applyNext(ctx context.Context, options Options, internal applyOptions) (result Result, resultErr error) {
 	if internal.now == nil {
 		internal.now = time.Now
 	}
@@ -274,6 +304,7 @@ func apply(ctx context.Context, options Options, internal applyOptions) (result 
 			StepChecksum: plan.StepChecksum, State: StatePrepared,
 			StartedAt: now.Format(time.RFC3339Nano), UpdatedAt: now.Format(time.RFC3339Nano),
 			BackupManifest: filepath.ToSlash(manifestPath),
+			BlobLayoutFrom: plan.BlobLayoutFrom,
 		}
 		if err := writeJournal(migrationDir, journal); err != nil {
 			return Result{}, err
@@ -323,19 +354,30 @@ func apply(ctx context.Context, options Options, internal applyOptions) (result 
 			resultErr = errors.Join(resultErr, foundation.Close())
 		}
 	}()
-	builtins, err := nodes.Build()
-	if err != nil {
-		return fail(err)
-	}
-	maxRuns := options.MaxRuns
-	if maxRuns <= 0 {
-		maxRuns = 65536
-	}
-	if err := run.ImportLegacyStore(
-		ctx, foundation.Runs(), builtins.Catalog,
-		filepath.Join(roots.Data, "workspace", "runs"), maxRuns,
-	); err != nil {
-		return fail(err)
+	switch plan.MigrationID {
+	case layoutOneToTwoID:
+		builtins, err := nodes.Build()
+		if err != nil {
+			return fail(err)
+		}
+		maxRuns := options.MaxRuns
+		if maxRuns <= 0 {
+			maxRuns = 65536
+		}
+		if err := run.ImportLegacyStore(
+			ctx, foundation.Runs(), builtins.Catalog,
+			filepath.Join(roots.Data, "workspace", "runs"), maxRuns,
+		); err != nil {
+			return fail(err)
+		}
+	case layoutTwoToThreeID:
+		if _, err := blob.MigrateLayoutOneToTwo(
+			ctx, roots.Objects, foundation.Objects(),
+		); err != nil {
+			return fail(err)
+		}
+	default:
+		return fail(fmt.Errorf("root migration %s has no implementation", plan.MigrationID))
 	}
 	if internal.faults.afterCatalog != nil {
 		if err := internal.faults.afterCatalog(); err != nil {
@@ -356,12 +398,29 @@ func apply(ctx context.Context, options Options, internal applyOptions) (result 
 		return fail(err)
 	}
 	closeFoundation = false
+	if plan.MigrationID == layoutTwoToThreeID {
+		verificationFoundation, err := catalog.Open(ctx, roots)
+		if err != nil {
+			return fail(err)
+		}
+		if _, err := blob.Open(
+			roots.Objects,
+			blob.Limits{MaxBlobBytes: 256 << 20, MaxTotalBytes: 4 << 30},
+			verificationFoundation.Objects(),
+		); err != nil {
+			_ = verificationFoundation.Close()
+			return fail(fmt.Errorf("verify migrated Blob Store: %w", err))
+		}
+		if err := verificationFoundation.Close(); err != nil {
+			return fail(err)
+		}
+	}
 	if internal.faults.beforeCommit != nil {
 		if err := internal.faults.beforeCommit(); err != nil {
 			return fail(err)
 		}
 	}
-	if err := profile.PublishCurrentLayout(plan.From); err != nil {
+	if err := profile.PublishLayout(plan.From, plan.To); err != nil {
 		return fail(err)
 	}
 	if internal.faults.afterCommit != nil {
@@ -384,70 +443,93 @@ func Resume(ctx context.Context, options Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	journal, found, err := readJournal(filepath.Join(roots.Migrations, layoutOneToTwoID, journalFilename))
+	journal, found, err := activeJournal(roots)
 	if err != nil {
 		return Result{}, err
 	}
 	if !found {
-		return Result{}, errors.New("storage migration journal does not exist")
+		journal, found, err = latestJournal(roots)
+		if err != nil {
+			return Result{}, err
+		}
+		if !found {
+			return Result{}, errors.New("storage migration journal does not exist")
+		}
 	}
 	if journal.State == StateCommitted {
 		return Result{Journal: journal}, nil
 	}
-	if journal.To == storage.LayoutVersion {
-		raw, readErr := os.ReadFile(roots.ManifestFile())
-		if readErr == nil {
-			var manifest storage.RootManifest
-			if json.Unmarshal(raw, &manifest) == nil && manifest.Version == storage.LayoutVersion {
-				profile, err := storage.Open(ctx, storage.OpenOptions{Root: roots.Root})
-				if err != nil {
-					return Result{}, err
-				}
-				defer profile.Close()
-				snapshotDir := filepath.Join(roots.Migrations, layoutOneToTwoID, "snapshot")
-				snapshot, err := readSnapshotManifest(
-					filepath.Join(snapshotDir, snapshotManifestFilename),
+	if journal.State == StateRolledBack {
+		return Apply(ctx, options)
+	}
+	raw, readErr := os.ReadFile(roots.ManifestFile())
+	if readErr == nil {
+		var manifest storage.RootManifest
+		if json.Unmarshal(raw, &manifest) == nil && manifest.Version == journal.To {
+			var profile *storage.Profile
+			if journal.To == storage.LayoutVersion {
+				profile, err = storage.Open(ctx, storage.OpenOptions{Root: roots.Root})
+			} else {
+				profile, err = storage.OpenForMigration(
+					ctx, storage.OpenOptions{Root: roots.Root}, journal.To,
 				)
-				if err != nil {
-					return Result{}, err
-				}
-				if err := validateSnapshotFiles(roots, snapshotDir, snapshot); err != nil {
-					return Result{}, err
-				}
-				databases, err := catalog.Inspect(ctx, roots)
-				if err != nil || !databases.Healthy {
-					_ = profile.Close()
-					return Result{}, errors.Join(
-						err, errors.New("published storage migration is not healthy"),
-					)
-				}
-				if err := profile.Close(); err != nil {
-					return Result{}, err
-				}
-				journal.State = StateCommitted
-				journal.LastError = ""
-				journal.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
-				if err := writeJournal(filepath.Join(roots.Migrations, layoutOneToTwoID), journal); err != nil {
-					return Result{}, err
-				}
-				return Result{Journal: journal}, nil
 			}
+			if err != nil {
+				return Result{}, err
+			}
+			migrationDir := filepath.Join(roots.Migrations, journal.MigrationID)
+			snapshotDir := filepath.Join(migrationDir, "snapshot")
+			snapshot, err := readSnapshotManifest(
+				filepath.Join(snapshotDir, snapshotManifestFilename),
+			)
+			if err == nil {
+				err = validateSnapshotFiles(roots, snapshotDir, snapshot)
+			}
+			if err == nil {
+				var databases catalog.HealthReport
+				databases, err = catalog.Inspect(ctx, roots)
+				if err == nil && !databases.Healthy {
+					err = errors.New("published storage migration is not healthy")
+				}
+			}
+			closeErr := profile.Close()
+			if err != nil || closeErr != nil {
+				return Result{}, errors.Join(err, closeErr)
+			}
+			journal.State = StateCommitted
+			journal.LastError = ""
+			journal.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+			if err := writeJournal(migrationDir, journal); err != nil {
+				return Result{}, err
+			}
+			if journal.To != storage.LayoutVersion {
+				return Apply(ctx, options)
+			}
+			return Result{Journal: journal}, nil
 		}
 	}
 	return Apply(ctx, options)
 }
 
 func registry() (storage.MigrationRegistry, error) {
-	checksum, err := artifact.Sum(
+	oneToTwoChecksum, err := artifact.Sum(
 		"yotta/storage-layout-migration/v1",
 		[]byte("layout-1-to-2:checkpoint,snapshot,catalog-schema,legacy-runs,verify,publish"),
 	)
 	if err != nil {
 		return storage.MigrationRegistry{}, err
 	}
-	return storage.NewMigrationRegistry(storage.LayoutVersion, []storage.MigrationStep{{
-		ID: layoutOneToTwoID, From: "1", To: "2", Checksum: checksum,
-	}})
+	twoToThreeChecksum, err := artifact.Sum(
+		"yotta/storage-layout-migration/v1",
+		[]byte("layout-2-to-3:checkpoint,snapshot,blob-v1-to-v2,inventory,verify,publish"),
+	)
+	if err != nil {
+		return storage.MigrationRegistry{}, err
+	}
+	return storage.NewMigrationRegistry(storage.LayoutVersion, []storage.MigrationStep{
+		{ID: layoutOneToTwoID, From: "1", To: "2", Checksum: oneToTwoChecksum},
+		{ID: layoutTwoToThreeID, From: "2", To: "3", Checksum: twoToThreeChecksum},
+	})
 }
 
 func currentPlan() Plan {
@@ -497,16 +579,30 @@ func validateJournal(journal Journal) error {
 	if err != nil {
 		return err
 	}
-	steps, err := registry.Plan("1")
-	if err != nil || len(steps) != 1 {
+	steps, err := registry.Plan(journal.From)
+	if err != nil || len(steps) == 0 {
 		return errors.Join(err, errors.New("storage migration registry is invalid"))
 	}
 	expected := steps[0]
-	if journal.Format != JournalFormat || journal.Version != DocumentVersion ||
+	if journal.Format != JournalFormat ||
+		(journal.Version != legacyDocVersion && journal.Version != DocumentVersion) ||
 		journal.MigrationID != expected.ID || journal.From != expected.From ||
 		journal.To != expected.To || journal.StepChecksum != expected.Checksum.String() ||
 		journal.BackupManifest != "snapshot/"+snapshotManifestFilename {
 		return errors.New("storage migration journal is invalid")
+	}
+	if journal.Version == legacyDocVersion &&
+		(journal.MigrationID != layoutOneToTwoID || journal.BlobLayoutFrom != "") {
+		return errors.New("legacy storage migration journal is invalid")
+	}
+	if journal.MigrationID == layoutOneToTwoID && journal.BlobLayoutFrom != "" {
+		return errors.New("Catalog migration journal contains Blob layout state")
+	}
+	if journal.MigrationID == layoutTwoToThreeID &&
+		journal.BlobLayoutFrom != "" &&
+		journal.BlobLayoutFrom != "1" &&
+		journal.BlobLayoutFrom != blob.LayoutVersion {
+		return errors.New("Blob migration journal has an invalid source layout")
 	}
 	switch journal.State {
 	case StatePrepared, StateApplying, StateVerifying, StateRecoveryRequired,
@@ -529,6 +625,58 @@ func validateJournal(journal Journal) error {
 		}
 	}
 	return nil
+}
+
+func activeJournal(roots storage.Roots) (Journal, bool, error) {
+	registry, err := registry()
+	if err != nil {
+		return Journal{}, false, err
+	}
+	steps, err := registry.Plan("1")
+	if err != nil {
+		return Journal{}, false, err
+	}
+	var active Journal
+	foundActive := false
+	for _, step := range steps {
+		journal, found, err := readJournal(
+			filepath.Join(roots.Migrations, step.ID, journalFilename),
+		)
+		if err != nil {
+			return Journal{}, false, err
+		}
+		if !found || journal.State == StateCommitted || journal.State == StateRolledBack {
+			continue
+		}
+		if foundActive {
+			return Journal{}, false, errors.New("multiple storage migrations require recovery")
+		}
+		active, foundActive = journal, true
+	}
+	return active, foundActive, nil
+}
+
+func latestJournal(roots storage.Roots) (Journal, bool, error) {
+	registry, err := registry()
+	if err != nil {
+		return Journal{}, false, err
+	}
+	steps, err := registry.Plan("1")
+	if err != nil {
+		return Journal{}, false, err
+	}
+	for index := len(steps) - 1; index >= 0; index-- {
+		journal, found, err := readJournal(
+			filepath.Join(roots.Migrations, steps[index].ID, journalFilename),
+		)
+		if err != nil {
+			return Journal{}, false, err
+		}
+		if found {
+			return journal, true, nil
+		}
+	}
+	return Journal{}, false, nil
 }
 
 func writeJSON(path string, value any) error {

@@ -126,7 +126,7 @@ func TestRunMigrationPlanIsReadOnlyAndApplyCommitsLayout(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &plan); err != nil {
 		t.Fatal(err)
 	}
-	if plan.From != "1" || plan.To != storage.LayoutVersion {
+	if plan.From != "1" || plan.To != "2" {
 		t.Fatalf("migration plan = %#v", plan)
 	}
 	if _, err := os.Stat(filepath.Join(roots.Migrations, "layout-1-to-2")); !os.IsNotExist(err) {
@@ -142,6 +142,10 @@ func TestRunMigrationPlanIsReadOnlyAndApplyCommitsLayout(t *testing.T) {
 	}
 	if result.Journal.State != storagemigrate.StateCommitted {
 		t.Fatalf("migration result = %#v", result)
+	}
+	health, err := storage.Inspect(context.Background(), storage.InspectOptions{Root: root})
+	if err != nil || !health.Supported || health.LayoutVersion != storage.LayoutVersion {
+		t.Fatalf("migrated storage health = %#v, %v", health, err)
 	}
 }
 

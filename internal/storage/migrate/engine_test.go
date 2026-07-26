@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/storage"
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 )
@@ -21,7 +23,7 @@ func TestInspectIsReadOnlyAndApplyPublishesVerifiedLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.From != "1" || plan.To != storage.LayoutVersion ||
+	if plan.From != "1" || plan.To != "2" ||
 		plan.MigrationID != layoutOneToTwoID || len(plan.Blocked) != 0 ||
 		plan.RequiredFreeBytes <= plan.EstimatedBackupBytes {
 		t.Fatalf("Inspect() = %#v", plan)
@@ -90,6 +92,82 @@ func TestMigrationResumesEveryDurabilityBoundary(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnsureMigratesLegacyBlobStoreBeforeDesktopOpen(t *testing.T) {
+	root, ref := layoutTwoLegacyBlobFixture(t)
+
+	result, err := Ensure(context.Background(), Options{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Journal.MigrationID != layoutTwoToThreeID ||
+		result.Journal.State != StateCommitted {
+		t.Fatalf("Ensure() = %#v", result)
+	}
+	assertMigratedBlobStore(t, root, ref)
+}
+
+func TestBlobLayoutMigrationResumesEveryDurabilityBoundary(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		hooks faultHooks
+	}{
+		{name: "after Blob migration", hooks: faultHooks{afterCatalog: injectedMigrationFailure}},
+		{name: "before manifest commit", hooks: faultHooks{beforeCommit: injectedMigrationFailure}},
+		{name: "after manifest commit", hooks: faultHooks{afterCommit: injectedMigrationFailure}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root, ref := layoutTwoLegacyBlobFixture(t)
+			_, err := apply(context.Background(), Options{Root: root}, applyOptions{
+				now:    time.Now,
+				faults: test.hooks,
+			})
+			if !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("injected Apply() = %v", err)
+			}
+			result, err := Resume(context.Background(), Options{Root: root})
+			if err != nil || result.Journal.State != StateCommitted {
+				t.Fatalf("Resume() = %#v, %v", result, err)
+			}
+			assertMigratedBlobStore(t, root, ref)
+		})
+	}
+}
+
+func TestBlobLayoutMigrationRollbackRestoresFlatAuthority(t *testing.T) {
+	root, ref := layoutTwoLegacyBlobFixture(t)
+	_, err := apply(context.Background(), Options{Root: root}, applyOptions{
+		now:    time.Now,
+		faults: faultHooks{afterCatalog: injectedMigrationFailure},
+	})
+	if !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("Apply() = %v", err)
+	}
+
+	result, err := Rollback(context.Background(), Options{Root: root})
+	if err != nil || result.Journal.State != StateRolledBack {
+		t.Fatalf("Rollback() = %#v, %v", result, err)
+	}
+	roots, _ := storage.Resolve(root)
+	name := strings.TrimPrefix(ref.Digest.String(), "sha256:")
+	if raw, err := os.ReadFile(filepath.Join(roots.Objects, name)); err != nil ||
+		string(raw) != "legacy-blob" {
+		t.Fatalf("rolled-back Blob = %q, %v", raw, err)
+	}
+	if marker, err := os.ReadFile(filepath.Join(roots.Objects, ".yotta-blob-store")); err != nil ||
+		string(marker) != "yotta/blob-store/1\n" {
+		t.Fatalf("rolled-back marker = %q, %v", marker, err)
+	}
+	health, err := storage.Inspect(context.Background(), storage.InspectOptions{Root: root})
+	if err != nil || health.LayoutVersion != "2" || health.Supported {
+		t.Fatalf("rolled-back health = %#v, %v", health, err)
+	}
+
+	if _, err := Resume(context.Background(), Options{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	assertMigratedBlobStore(t, root, ref)
 }
 
 func TestEnsureReconcilesPublishedManifestWithInterruptedJournal(t *testing.T) {
@@ -201,7 +279,7 @@ func TestMigrationRollbackRestoresOldAuthorityAndCanReapply(t *testing.T) {
 	if err != nil || health.LayoutVersion != "1" || health.Supported {
 		t.Fatalf("rolled-back health = %#v, %v", health, err)
 	}
-	reapplied, err := Apply(context.Background(), Options{Root: root})
+	reapplied, err := Resume(context.Background(), Options{Root: root})
 	if err != nil || reapplied.Journal.State != StateCommitted {
 		t.Fatalf("reapply = %#v, %v", reapplied, err)
 	}
@@ -286,6 +364,84 @@ func layoutOneFixture(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return root
+}
+
+func layoutTwoLegacyBlobFixture(t *testing.T) (string, blob.BlobRef) {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "layout-2")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestJSON(t, filepath.Join(root, "root.json"), storage.RootManifest{
+		Format: storage.RootFormat, Version: "2",
+	})
+	profile, err := storage.OpenForMigration(
+		context.Background(), storage.OpenOptions{Root: root}, "2",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := profile.Roots
+	if err := profile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	foundation, err := catalog.Open(context.Background(), roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := foundation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(roots.Objects, ".yotta-blob-store"),
+		[]byte("yotta/blob-store/1\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	const digest = "db0d377203aa1a21d9da03aa22b4e07abaeb07023c28080107bbe8ed6d03da2b"
+	if err := os.WriteFile(
+		filepath.Join(roots.Objects, digest), []byte("legacy-blob"), 0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	return root, blob.BlobRef{
+		MediaType: "application/octet-stream",
+		Digest:    artifact.Digest("sha256:" + digest),
+		Size:      int64(len("legacy-blob")),
+	}
+}
+
+func assertMigratedBlobStore(t *testing.T, root string, ref blob.BlobRef) {
+	t.Helper()
+	health, err := storage.Inspect(context.Background(), storage.InspectOptions{Root: root})
+	if err != nil || !health.Supported || health.LayoutVersion != storage.LayoutVersion {
+		t.Fatalf("storage health = %#v, %v", health, err)
+	}
+	profile, err := storage.Open(context.Background(), storage.OpenOptions{Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer profile.Close()
+	foundation, err := catalog.Open(context.Background(), profile.Roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer foundation.Close()
+	store, err := blob.Open(
+		profile.Roots.Objects,
+		blob.Limits{MaxBlobBytes: 1024, MaxTotalBytes: 4096},
+		foundation.Objects(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Verify(context.Background(), ref); err != nil {
+		t.Fatalf("migrated Blob = %v", err)
+	}
+	if _, found, err := foundation.Objects().Object(context.Background(), ref.Digest); err != nil || !found {
+		t.Fatalf("migrated Blob inventory = %v, %v", found, err)
+	}
 }
 
 func injectedMigrationFailure() error { return errors.New("injected migration kill point") }

@@ -134,11 +134,11 @@ try {
         throw "production health failed with code $LASTEXITCODE"
     }
     $health = $healthText | ConvertFrom-Json
-    if (-not $health.supported -or $health.layoutVersion -ne "2" -or
+    if (-not $health.supported -or $health.layoutVersion -ne "3" -or
         -not $health.databases.healthy -or
-        $health.databases.content.schemaVersion -ne 3 -or
+        $health.databases.content.schemaVersion -ne 7 -or
         $health.databases.runs.schemaVersion -ne 2) {
-        throw "migrated production health did not report layout 2 and two healthy databases"
+        throw "migrated production health did not report layout 3 and two healthy databases"
     }
 
     $process = Start-YottaSmokeProcess `
@@ -151,7 +151,7 @@ try {
     Stop-YottaSmokeProcess -Target $process
     $process = $null
 
-    Write-Host "production storage migration smoke OK: dry-run stayed read-only, recovery GUI survived kill, quarantine/resume committed layout 2, both databases are healthy, and migrated GUI remained alive"
+    Write-Host "production storage migration smoke OK: dry-run stayed read-only, recovery GUI survived kill, quarantine/resume completed layout 1 to 2 to 3, both databases are healthy, and migrated GUI remained alive"
 } finally {
     [Environment]::SetEnvironmentVariable("YOTTA_ROOT", $previousStorageRoot, "Process")
     [Environment]::SetEnvironmentVariable("__COMPAT_LAYER", $previousCompatLayer, "Process")
