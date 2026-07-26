@@ -348,6 +348,11 @@ func Run(config Config) error {
 			return err
 		}),
 	)
+	if err := workflowRuntime.SetWorkflowInstallationSchedulePauser(
+		schedule.NewInstallationPauser(scheduleSvc).PauseInstallation,
+	); err != nil {
+		return fmt.Errorf("bind Workflow Installation schedule pauser: %w", err)
+	}
 
 	// InputClip remains an authoring asset service; playback reads the
 	// exposed nominal BlobRef through explicit blob-read and playback grants.

@@ -216,6 +216,23 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 		next.RunConsentRelease != "" || next.ScheduleConsentRelease != "" {
 		t.Fatalf("updated configuration = %#v", next)
 	}
+	rollback, err := module.PrepareRollback(context.Background(), installation.ID)
+	if err != nil || !rollback.Valid() || rollback.Diff().CandidateReleaseID != current.ID ||
+		len(rollback.Conflicts()) != 0 {
+		t.Fatalf("PrepareRollback() = %#v conflicts=%#v err=%v", rollback, rollback.Conflicts(), err)
+	}
+	rolledBack, err := module.ApplyUpdate(context.Background(), rollback)
+	if err != nil || rolledBack.ReleaseID != current.ID ||
+		rolledBack.PreviousReleaseID != candidate.ID {
+		t.Fatalf("ApplyUpdate(rollback) = %#v, %v", rolledBack, err)
+	}
+	rolledBackConfiguration := repository.configurations[installation.ID]
+	if rolledBackConfiguration.RunConsentRelease != "" ||
+		rolledBackConfiguration.ScheduleConsentRelease != "" ||
+		rolledBackConfiguration.TargetBindings["desktop"] != "target-a" ||
+		rolledBackConfiguration.CredentialBindings["api"] != "credential-a" {
+		t.Fatalf("rolled back configuration = %#v", rolledBackConfiguration)
+	}
 }
 
 func TestPreparedUpdateFailsClosedForIdentityAndConfiguredTargetConflicts(t *testing.T) {
@@ -735,7 +752,8 @@ func (r *memoryRepository) SwitchRelease(
 	currentConfiguration, configured := r.configurations[installation.ID]
 	if !found || !configured || currentInstallation.ReleaseID != expectedRelease ||
 		currentConfiguration.Generation != expectedGeneration ||
-		configuration.Generation != expectedGeneration+1 {
+		configuration.Generation != expectedGeneration+1 ||
+		installation.PreviousReleaseID != expectedRelease {
 		return ErrInstallationConflict
 	}
 	if current, found := r.releases[release.ID]; found &&

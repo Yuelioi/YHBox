@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -41,6 +42,12 @@ type Service struct {
 	store     *Store
 	onChange  ChangeListener
 	readiness TargetReadiness
+}
+
+type InstallationPauser struct{ service *Service }
+
+func NewInstallationPauser(service *Service) *InstallationPauser {
+	return &InstallationPauser{service: service}
 }
 
 func NewService(store *Store, options ...ServiceOption) *Service {
@@ -146,6 +153,47 @@ func (s *Service) requireEnabledTargetsReady(schedule Schedule) error {
 		}
 	}
 	return nil
+}
+
+// PauseInstallation disables every enabled schedule that references one
+// Workflow Installation. Exact Release consent already prevents execution;
+// this persists the user-visible paused state and reloads the live daemon.
+func (p *InstallationPauser) PauseInstallation(installationID string) ([]string, error) {
+	if p == nil || p.service == nil {
+		return nil, errors.New("Workflow Installation schedule pauser is unavailable")
+	}
+	s := p.service
+	if strings.TrimSpace(installationID) == "" || installationID != strings.TrimSpace(installationID) {
+		return nil, errors.New("Workflow Installation identity is invalid")
+	}
+	paused := make([]string, 0)
+	for _, current := range s.store.List() {
+		if !current.Enabled || !scheduleTargetsInstallation(current, installationID) {
+			continue
+		}
+		current.Enabled = false
+		if err := s.store.Save(&current); err != nil {
+			return paused, fmt.Errorf("pause schedule %q: %w", current.ID, err)
+		}
+		paused = append(paused, current.ID)
+	}
+	if len(paused) == 0 {
+		return paused, nil
+	}
+	sort.Strings(paused)
+	if err := s.emitChange(); err != nil {
+		return paused, &PostCommitError{Operation: "pause installation schedules", Err: err}
+	}
+	return paused, nil
+}
+
+func scheduleTargetsInstallation(schedule Schedule, installationID string) bool {
+	for _, target := range schedule.Targets {
+		if target.Kind == TargetWorkflowInstallation && target.ID == installationID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) Delete(id string) error {

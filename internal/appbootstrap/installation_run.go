@@ -10,6 +10,27 @@ import (
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
+type InstallationUpdatePostCommitError struct{ Err error }
+
+func (e *InstallationUpdatePostCommitError) Error() string {
+	return "Workflow Installation Release switched, but related schedules could not be paused: " + e.Err.Error()
+}
+func (e *InstallationUpdatePostCommitError) Unwrap() error   { return e.Err }
+func (e *InstallationUpdatePostCommitError) Committed() bool { return true }
+
+func (r *Runtime) SetWorkflowInstallationSchedulePauser(
+	pause func(string) ([]string, error),
+) error {
+	if r == nil || pause == nil {
+		return errors.New("workflow installation schedule pauser is invalid")
+	}
+	if r.pauseSchedules != nil {
+		return errors.New("workflow installation schedule pauser is already configured")
+	}
+	r.pauseSchedules = pause
+	return nil
+}
+
 // StartInstallationRun is the only composition command that turns a local
 // Workflow Installation into a Run. Readiness, immutable release bytes, and
 // local target/credential selections are prepared by one Module before the
@@ -68,6 +89,16 @@ func (r *Runtime) PrepareWorkflowInstallationUpdate(
 	return r.Installations.PrepareUpdate(ctx, installationID, candidate)
 }
 
+func (r *Runtime) PrepareWorkflowInstallationRollback(
+	ctx context.Context,
+	installationID string,
+) (workflowinstallation.PreparedUpdate, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.PreparedUpdate{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.PrepareRollback(ctx, installationID)
+}
+
 func (r *Runtime) ApplyWorkflowInstallationUpdate(
 	ctx context.Context,
 	prepared workflowinstallation.PreparedUpdate,
@@ -75,7 +106,16 @@ func (r *Runtime) ApplyWorkflowInstallationUpdate(
 	if r == nil || r.Installations == nil {
 		return workflowinstallation.InstallationRecord{}, errors.New("workflow installation runtime is unavailable")
 	}
-	return r.Installations.ApplyUpdate(ctx, prepared)
+	installation, err := r.Installations.ApplyUpdate(ctx, prepared)
+	if err != nil {
+		return workflowinstallation.InstallationRecord{}, err
+	}
+	if r.pauseSchedules != nil {
+		if _, err := r.pauseSchedules(installation.ID); err != nil {
+			return installation, &InstallationUpdatePostCommitError{Err: err}
+		}
+	}
+	return installation, nil
 }
 
 func (r *Runtime) WorkflowInstallationReadiness(

@@ -82,6 +82,7 @@ type Runtime struct {
 	BlobStore         *blob.Store
 	Bundles           *workflowbundle.Manager
 	Installations     *workflowinstallation.Module
+	pauseSchedules    func(string) ([]string, error)
 	ai                ai.Installations
 	http              httpegress.Installations
 	automationTargets *AutomationTargetRuntime

@@ -133,6 +133,9 @@ func (r *WorkflowInstallationRepository) SwitchRelease(
 	if installation.ReleaseID != release.ID {
 		return errors.New("Workflow Installation update release identity is inconsistent")
 	}
+	if installation.PreviousReleaseID != expectedRelease {
+		return errors.New("Workflow Installation update previous Release is inconsistent")
+	}
 	if err := workflowinstallation.ValidateConfiguration(configuration); err != nil {
 		return err
 	}
@@ -172,9 +175,10 @@ func (r *WorkflowInstallationRepository) SwitchRelease(
 	}
 	result, err = tx.ExecContext(ctx, `
 		UPDATE workflow_installations
-		SET release_id = ?, name = ?, lifecycle = ?, updated_at = ?
+		SET release_id = ?, previous_release_id = ?, name = ?, lifecycle = ?, updated_at = ?
 		WHERE installation_id = ? AND release_id = ?
-	`, installation.ReleaseID.String(), installation.Name, string(installation.Lifecycle),
+	`, installation.ReleaseID.String(), installation.PreviousReleaseID.String(),
+		installation.Name, string(installation.Lifecycle),
 		installation.UpdatedAt.Format(time.RFC3339Nano), installation.ID, expectedRelease.String())
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
@@ -219,7 +223,7 @@ func (r *WorkflowInstallationRepository) GetInstallation(
 		return workflowinstallation.InstallationRecord{}, false, err
 	}
 	row := r.database.db.QueryRowContext(ctx, `
-		SELECT installation_id, release_id, name, lifecycle, created_at, updated_at
+		SELECT installation_id, release_id, previous_release_id, name, lifecycle, created_at, updated_at
 		FROM workflow_installations WHERE installation_id = ?
 	`, installationID)
 	record, err := scanWorkflowInstallation(row)
@@ -236,7 +240,7 @@ func (r *WorkflowInstallationRepository) ListInstallations(
 		return nil, err
 	}
 	rows, err := r.database.db.QueryContext(ctx, `
-		SELECT installation_id, release_id, name, lifecycle, created_at, updated_at
+		SELECT installation_id, release_id, previous_release_id, name, lifecycle, created_at, updated_at
 		FROM workflow_installations ORDER BY installation_id
 	`)
 	if err != nil {
@@ -327,10 +331,16 @@ type rowScanner interface {
 func scanWorkflowInstallation(row rowScanner) (workflowinstallation.InstallationRecord, error) {
 	var record workflowinstallation.InstallationRecord
 	var releaseID, lifecycle, createdAt, updatedAt string
-	if err := row.Scan(&record.ID, &releaseID, &record.Name, &lifecycle, &createdAt, &updatedAt); err != nil {
+	var previousReleaseID sql.NullString
+	if err := row.Scan(
+		&record.ID, &releaseID, &previousReleaseID, &record.Name, &lifecycle, &createdAt, &updatedAt,
+	); err != nil {
 		return workflowinstallation.InstallationRecord{}, err
 	}
 	record.ReleaseID = artifact.Digest(releaseID)
+	if previousReleaseID.Valid {
+		record.PreviousReleaseID = artifact.Digest(previousReleaseID.String)
+	}
 	record.Lifecycle = workflowinstallation.Lifecycle(lifecycle)
 	var err error
 	record.CreatedAt, err = time.Parse(time.RFC3339Nano, createdAt)

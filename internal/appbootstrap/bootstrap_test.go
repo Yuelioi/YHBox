@@ -246,6 +246,13 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
+	pausedInstallationID := ""
+	if err := runtime.SetWorkflowInstallationSchedulePauser(func(installationID string) ([]string, error) {
+		pausedInstallationID = installationID
+		return []string{"schedule-a"}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	preparedUpdate, err := runtime.PrepareWorkflowInstallationUpdate(
 		context.Background(), installation.ID, candidate,
 	)
@@ -253,7 +260,9 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 		t.Fatalf("PrepareWorkflowInstallationUpdate() = %#v, %v", preparedUpdate, err)
 	}
 	updatedInstallation, err := runtime.ApplyWorkflowInstallationUpdate(context.Background(), preparedUpdate)
-	if err != nil || updatedInstallation.ReleaseID != candidate.ID {
+	if err != nil || updatedInstallation.ReleaseID != candidate.ID ||
+		updatedInstallation.PreviousReleaseID != release.ID ||
+		pausedInstallationID != installation.ID {
 		t.Fatalf("ApplyWorkflowInstallationUpdate() = %#v, %v", updatedInstallation, err)
 	}
 	afterUpdate, err := service.GetInstallationReadiness(installation.ID)

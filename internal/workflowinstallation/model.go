@@ -117,16 +117,19 @@ func CloneReleaseRecord(record ReleaseRecord) ReleaseRecord {
 }
 
 type InstallationRecord struct {
-	ID        string
-	ReleaseID artifact.Digest
-	Name      string
-	Lifecycle Lifecycle
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                string
+	ReleaseID         artifact.Digest
+	PreviousReleaseID artifact.Digest
+	Name              string
+	Lifecycle         Lifecycle
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func ValidateInstallationRecord(record InstallationRecord) error {
 	if !installationIDPattern.MatchString(record.ID) || !record.ReleaseID.Valid() ||
+		(record.PreviousReleaseID != "" && (!record.PreviousReleaseID.Valid() ||
+			record.PreviousReleaseID == record.ReleaseID)) ||
 		strings.TrimSpace(record.Name) == "" || record.Name != strings.TrimSpace(record.Name) ||
 		(record.Lifecycle != LifecycleActive && record.Lifecycle != LifecycleArchived) ||
 		record.CreatedAt.IsZero() || record.UpdatedAt.IsZero() ||

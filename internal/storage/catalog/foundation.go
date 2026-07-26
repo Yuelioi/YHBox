@@ -21,7 +21,7 @@ import (
 const (
 	ContentFilename      = "content.db"
 	RunFilename          = "runs.db"
-	ContentSchemaVersion = 6
+	ContentSchemaVersion = 7
 	RunSchemaVersion     = 2
 	ContentApplicationID = 0x594F5443 // YOTC; provisional, not SQLite-registered.
 	RunApplicationID     = 0x594F5452 // YOTR; provisional, not SQLite-registered.

@@ -99,6 +99,7 @@ var contentMigrations = []migration{
 	{id: "content.workflow-installations.4", from: 3, to: 4, statements: workflowInstallationStatements},
 	{id: "content.workflow-installation-configurations.5", from: 4, to: 5, statements: workflowInstallationConfigurationStatements},
 	{id: "content.workflow-target-profiles.6", from: 5, to: 6, statements: workflowTargetProfileStatements},
+	{id: "content.workflow-installation-rollback.7", from: 6, to: 7, statements: workflowInstallationRollbackStatements},
 }
 
 var runMigrations = []migration{
@@ -312,6 +313,13 @@ var workflowTargetProfileStatements = []string{
 	`ALTER TABLE workflow_installation_configurations
 		ADD COLUMN target_profiles BLOB NOT NULL DEFAULT x'7b7d'
 		CHECK (length(target_profiles) > 0)`,
+}
+
+var workflowInstallationRollbackStatements = []string{
+	`ALTER TABLE workflow_installations
+		ADD COLUMN previous_release_id TEXT
+		REFERENCES workflow_releases(release_id) ON DELETE RESTRICT
+		CHECK (previous_release_id IS NULL OR length(previous_release_id) = 71)`,
 }
 
 func (d *database) prepare(ctx context.Context, faults faultHooks) error {

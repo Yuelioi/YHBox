@@ -155,6 +155,7 @@ func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically
 	switchedAt := now.Add(time.Minute)
 	nextInstallation := installation
 	nextInstallation.ReleaseID = candidate.ID
+	nextInstallation.PreviousReleaseID = current.ID
 	nextInstallation.UpdatedAt = switchedAt
 	nextConfiguration := workflowinstallation.CloneConfiguration(configuration)
 	nextConfiguration.Generation++
@@ -170,7 +171,7 @@ func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically
 	}
 	loaded, found, err := repository.GetInstallation(context.Background(), installation.ID)
 	if err != nil || !found || loaded.ReleaseID != candidate.ID ||
-		!loaded.UpdatedAt.Equal(switchedAt) {
+		loaded.PreviousReleaseID != current.ID || !loaded.UpdatedAt.Equal(switchedAt) {
 		t.Fatalf("updated Installation = %#v, found=%v err=%v", loaded, found, err)
 	}
 	loadedConfiguration, found, err := repository.GetConfiguration(context.Background(), installation.ID)
@@ -182,6 +183,7 @@ func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically
 	staleCandidate := catalogTestUpdatedRelease(t, current, "3.0.0")
 	staleInstallation := nextInstallation
 	staleInstallation.ReleaseID = staleCandidate.ID
+	staleInstallation.PreviousReleaseID = candidate.ID
 	staleInstallation.UpdatedAt = switchedAt.Add(time.Minute)
 	staleConfiguration := workflowinstallation.CloneConfiguration(nextConfiguration)
 	staleConfiguration.UpdatedAt = staleInstallation.UpdatedAt

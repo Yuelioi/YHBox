@@ -96,6 +96,41 @@ func TestScheduleServiceRejectsArmingWithoutReadinessAuthority(t *testing.T) {
 	}
 }
 
+func TestScheduleServicePausesOnlyEnabledSchedulesForInstallation(t *testing.T) {
+	store, _ := NewStore(t.TempDir())
+	reloads := 0
+	svc := NewService(
+		store,
+		WithTargetReadiness(func(string) error { return nil }),
+		WithChangeListener(func() error { reloads++; return nil }),
+	)
+	save := func(id, installationID string, enabled bool) {
+		t.Helper()
+		schedule := Schedule{
+			SchemaVersion: CurrentSchemaVersion, ID: id, Name: id, Enabled: enabled,
+			Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: installationID}},
+			Trigger: Trigger{Kind: TriggerManual}, OnError: OnErrorStop,
+		}
+		if err := svc.Save(schedule); err != nil {
+			t.Fatal(err)
+		}
+	}
+	save("affected-b", "installation-a", true)
+	save("unrelated", "installation-b", true)
+	save("already-paused", "installation-a", false)
+	reloads = 0
+
+	paused, err := NewInstallationPauser(svc).PauseInstallation("installation-a")
+	if err != nil || len(paused) != 1 || paused[0] != "affected-b" || reloads != 1 {
+		t.Fatalf("PauseInstallation() = %#v, reloads=%d err=%v", paused, reloads, err)
+	}
+	affected, _ := store.Get("affected-b")
+	unrelated, _ := store.Get("unrelated")
+	if affected.Enabled || !unrelated.Enabled {
+		t.Fatalf("schedule states = affected:%v unrelated:%v", affected.Enabled, unrelated.Enabled)
+	}
+}
+
 func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)

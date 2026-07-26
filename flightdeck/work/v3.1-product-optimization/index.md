@@ -10,16 +10,21 @@ Open
 
 ## Current
 
-Stage M5 进行中；M5a 显式本地派生与 M5b Installation staged update 已完成。更新候选先锁定
-identity、diff、本机配置迁移与 Readiness，确认后以 expected Release + generation 单事务切换。
+Stage M5 进行中；M5a–M5c 已完成。Installation 持久保留 immediate previous Release，rollback
+复用 staged update；任何 Release 切换清空 exact consent 并持久暂停相关计划。
 
 ## Next
 
-继续 [Stage M5](plan.md)：能力范围变化必须暂停相关计划并重新授权，同时保留前一 Release 引用供显式
-rollback；旁装仍创建独立 Installation。
+完成 [Stage M5](plan.md) 最终验收：证明派生 Source 不接受 Release 覆盖/自动 merge，任何 Release
+均可旁装为新 Installation，并运行阶段门禁与 Windows WebView smoke。
 
 ## Progress
 
+- 2026-07-26 M5c 完成：Content Catalog schema 7 为 Installation 持久化 immediate
+  `previous_release_id`；`PrepareRollback` 只读取已缓存 previous Release 并复用 staged diff、迁移、
+  Readiness 与原子 CAS，成功切换后 previous 反向指向被替换版本。每次切换清空 exact consent，并由未暴露
+  Wails RPC 的 schedule pauser 持久禁用相关 enabled 计划、统一 reload daemon。四个关键包 race 与
+  `task check`（Wails 17/156/229、35 个 Go 包）退出 0。
 - 2026-07-26 M5b 完成：opaque `PreparedUpdate` 锁定 current Release/configuration generation、
   candidate、确定性 graph/resource/variable/target/credential/dependency diff、迁移结果与候选 Readiness。
   兼容本机值原样保留、新增 target 只补默认值、exact consent 清空；会误解释或丢失本机值的变化 fail closed。

@@ -427,6 +427,7 @@ func (m *Module) PrepareUpdate(
 	}
 	now := m.now().UTC()
 	nextInstallation := installation
+	nextInstallation.PreviousReleaseID = current.ID
 	nextInstallation.ReleaseID = candidate.ID
 	nextInstallation.UpdatedAt = now
 	nextConfiguration.Generation = configuration.Generation + 1
@@ -464,6 +465,29 @@ func (m *Module) PrepareUpdate(
 		configuration: CloneConfiguration(nextConfiguration), diff: cloneUpdateDiff(diff),
 		conflicts: append([]UpdateConflict(nil), conflicts...), readiness: cloneReadinessReport(readiness),
 	}}, nil
+}
+
+// PrepareRollback stages the immediate cached previous Release through the
+// same diff, migration, readiness, and CAS path as a forward update.
+func (m *Module) PrepareRollback(
+	ctx context.Context,
+	installationID string,
+) (PreparedUpdate, error) {
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	if !installation.PreviousReleaseID.Valid() {
+		return PreparedUpdate{}, errors.New("Workflow Installation has no previous Release to roll back")
+	}
+	previous, found, err := m.repository.GetRelease(ctx, installation.PreviousReleaseID)
+	if err != nil {
+		return PreparedUpdate{}, err
+	}
+	if !found {
+		return PreparedUpdate{}, errors.New("Workflow Installation previous Release is unavailable")
+	}
+	return m.PrepareUpdate(ctx, installationID, previous)
 }
 
 // ApplyUpdate performs the single repository transaction captured by a
