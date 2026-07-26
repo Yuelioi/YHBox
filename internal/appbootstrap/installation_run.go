@@ -6,6 +6,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/admission"
 	appcore "github.com/yottaapp/yotta/internal/application"
+	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
@@ -99,6 +100,48 @@ func (r *Runtime) PrepareWorkflowInstallationRollback(
 	return r.Installations.PrepareRollback(ctx, installationID)
 }
 
+func (r *Runtime) ListWorkflowInstallationUpdateCandidates(
+	ctx context.Context,
+	installationID string,
+) ([]workflowinstallation.UpdateCandidate, error) {
+	if r == nil || r.Installations == nil {
+		return nil, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.ListUpdateCandidates(ctx, installationID)
+}
+
+func (r *Runtime) StageWorkflowInstallationUpdate(
+	ctx context.Context,
+	installationID string,
+	candidateReleaseID artifact.Digest,
+) (workflowinstallation.UpdatePreview, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.UpdatePreview{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.StageUpdate(ctx, installationID, candidateReleaseID)
+}
+
+func (r *Runtime) StageWorkflowInstallationRollback(
+	ctx context.Context,
+	installationID string,
+) (workflowinstallation.UpdatePreview, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.UpdatePreview{}, errors.New("workflow installation runtime is unavailable")
+	}
+	return r.Installations.StageRollback(ctx, installationID)
+}
+
+func (r *Runtime) ApplyStagedWorkflowInstallationUpdate(
+	ctx context.Context,
+	token string,
+) (workflowinstallation.InstallationRecord, error) {
+	if r == nil || r.Installations == nil {
+		return workflowinstallation.InstallationRecord{}, errors.New("workflow installation runtime is unavailable")
+	}
+	installation, err := r.Installations.ApplyStagedUpdate(ctx, token)
+	return r.pauseInstallationSchedulesAfterUpdate(installation, err)
+}
+
 func (r *Runtime) ApplyWorkflowInstallationUpdate(
 	ctx context.Context,
 	prepared workflowinstallation.PreparedUpdate,
@@ -107,8 +150,15 @@ func (r *Runtime) ApplyWorkflowInstallationUpdate(
 		return workflowinstallation.InstallationRecord{}, errors.New("workflow installation runtime is unavailable")
 	}
 	installation, err := r.Installations.ApplyUpdate(ctx, prepared)
-	if err != nil {
-		return workflowinstallation.InstallationRecord{}, err
+	return r.pauseInstallationSchedulesAfterUpdate(installation, err)
+}
+
+func (r *Runtime) pauseInstallationSchedulesAfterUpdate(
+	installation workflowinstallation.InstallationRecord,
+	updateErr error,
+) (workflowinstallation.InstallationRecord, error) {
+	if updateErr != nil {
+		return workflowinstallation.InstallationRecord{}, updateErr
 	}
 	if r.pauseSchedules != nil {
 		if _, err := r.pauseSchedules(installation.ID); err != nil {

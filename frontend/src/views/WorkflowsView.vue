@@ -177,6 +177,15 @@
               @click="deriveInstallation(installation)"
             />
             <UButton
+              data-testid="workflow-installation-update"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-refresh"
+              :label="t('workflow.installation.update')"
+              @click="openInstallationUpdate(installation)"
+            />
+            <UButton
               data-testid="workflow-installation-settings"
               size="xs"
               color="neutral"
@@ -615,6 +624,14 @@
       @saved="loadInstallations"
     />
 
+    <WorkflowInstallationUpdateModal
+      v-if="activeUpdateInstallation"
+      v-model:open="installationUpdateOpen"
+      :installation-id="activeUpdateInstallation.installationId"
+      :name="activeUpdateInstallation.name"
+      @applied="loadInstallations"
+    />
+
     <BaseModal
       v-model:open="metadataModalOpen"
       :title="t(editingSource ? 'workflow.list.edit_metadata_title' : 'workflow.list.create_title')"
@@ -755,6 +772,7 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 import WorkflowInstallationSettingsModal from '@/components/workflows/WorkflowInstallationSettingsModal.vue'
+import WorkflowInstallationUpdateModal from '@/components/workflows/WorkflowInstallationUpdateModal.vue'
 
 defineOptions({ name: 'WorkflowsView' })
 
@@ -795,6 +813,8 @@ const installationsLoading = ref(true)
 const installationsFailure = ref('')
 const installationSettingsOpen = ref(false)
 const activeInstallation = ref<InstallationView | null>(null)
+const installationUpdateOpen = ref(false)
+const activeUpdateInstallation = ref<InstallationView | null>(null)
 const consentBusyId = ref('')
 const derivingId = ref('')
 const deleting = ref(false)
@@ -1653,6 +1673,11 @@ function hasRunConsentBlocker(installationId: string): boolean {
 function openInstallationSettings(installation: InstallationView): void {
   activeInstallation.value = installation
   installationSettingsOpen.value = true
+}
+
+function openInstallationUpdate(installation: InstallationView): void {
+  activeUpdateInstallation.value = installation
+  installationUpdateOpen.value = true
 }
 
 async function deriveInstallation(installation: InstallationView): Promise<void> {

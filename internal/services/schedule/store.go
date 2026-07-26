@@ -8,9 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/yottaapp/yotta/internal/durablefs"
+)
+
+const (
+	pauseJournalFilename = ".pause-installation-transaction"
+	pauseJournalVersion  = "1"
 )
 
 // idRE allowed ID 字符集：alphanumeric + _ + -。
@@ -29,20 +37,46 @@ func validateID(id string) error {
 
 // Store 平铺单文件：data/schedules/<id>.json。
 type Store struct {
-	mu   sync.RWMutex
-	root string
-	byID map[string]Schedule
+	mu     sync.RWMutex
+	root   string
+	byID   map[string]Schedule
+	faults storeFaults
 }
 
 func NewStore(root string) (*Store, error) {
+	return newStore(root, storeFaults{})
+}
+
+type storeFaults struct {
+	beforePauseCommit func() error
+	afterPauseWrite   func(completed int) error
+}
+
+type pauseJournal struct {
+	Version   string     `json:"version"`
+	Schedules []Schedule `json:"schedules"`
+}
+
+type committedStoreError struct{ err error }
+
+func (e *committedStoreError) Error() string { return e.err.Error() }
+func (e *committedStoreError) Unwrap() error { return e.err }
+func (e *committedStoreError) Committed() bool {
+	return true
+}
+
+func newStore(root string, faults storeFaults) (*Store, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir: %w", err)
 	}
-	s := &Store{root: root, byID: map[string]Schedule{}}
+	s := &Store{root: root, byID: map[string]Schedule{}, faults: faults}
 	return s, s.load()
 }
 
 func (s *Store) load() error {
+	if err := s.recoverPauseJournal(); err != nil {
+		return err
+	}
 	entries, err := os.ReadDir(s.root)
 	if err != nil {
 		return err
@@ -108,13 +142,16 @@ func (s *Store) Save(sc *Schedule) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	b, err := json.MarshalIndent(local, "", "  ")
+	if err := s.recoverPauseJournal(); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(local, "", "  ")
 	if err != nil {
 		return err
 	}
 	path := filepath.Join(s.root, local.ID+".json")
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -123,6 +160,117 @@ func (s *Store) Save(sc *Schedule) error {
 	}
 	s.byID[local.ID] = local
 	return nil
+}
+
+// PauseInstallation durably commits one logical batch. The journal is the
+// commit point; schedule files are a recoverable materialization of it.
+func (s *Store) PauseInstallation(installationID string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.recoverPauseJournal(); err != nil {
+		return nil, err
+	}
+
+	paused := make([]string, 0)
+	next := make([]Schedule, 0)
+	now := time.Now().UTC()
+	for _, current := range s.byID {
+		if !current.Enabled || !scheduleTargetsInstallation(current, installationID) {
+			continue
+		}
+		current.Enabled = false
+		current.UpdatedAt = now
+		paused = append(paused, current.ID)
+		next = append(next, current)
+	}
+	sort.Strings(paused)
+	sort.Slice(next, func(i, j int) bool { return next[i].ID < next[j].ID })
+	if len(next) == 0 {
+		return paused, nil
+	}
+	if s.faults.beforePauseCommit != nil {
+		if err := s.faults.beforePauseCommit(); err != nil {
+			return nil, err
+		}
+	}
+	raw, err := json.Marshal(pauseJournal{Version: pauseJournalVersion, Schedules: next})
+	if err != nil {
+		return nil, err
+	}
+	journalPath := filepath.Join(s.root, pauseJournalFilename)
+	journalErr := durablefs.WriteFile(journalPath, raw, 0o600)
+	if journalErr != nil && !durablefs.Committed(journalErr) {
+		return nil, journalErr
+	}
+	for _, schedule := range next {
+		s.byID[schedule.ID] = schedule
+	}
+	if journalErr != nil {
+		return paused, &committedStoreError{err: fmt.Errorf("commit schedule pause journal: %w", journalErr)}
+	}
+	for index, schedule := range next {
+		if err := s.writeSchedule(schedule); err != nil {
+			return paused, &committedStoreError{err: fmt.Errorf("materialize paused schedule %q: %w", schedule.ID, err)}
+		}
+		if s.faults.afterPauseWrite != nil {
+			if err := s.faults.afterPauseWrite(index + 1); err != nil {
+				return paused, &committedStoreError{err: err}
+			}
+		}
+	}
+	if err := durablefs.Remove(journalPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return paused, &committedStoreError{err: fmt.Errorf("retire schedule pause journal: %w", err)}
+	}
+	return paused, nil
+}
+
+func (s *Store) recoverPauseJournal() error {
+	path := filepath.Join(s.root, pauseJournalFilename)
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read schedule pause journal: %w", err)
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.DisallowUnknownFields()
+	var journal pauseJournal
+	if err := decoder.Decode(&journal); err != nil {
+		return fmt.Errorf("parse schedule pause journal: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("parse schedule pause journal: expected exactly one JSON value")
+	}
+	if journal.Version != pauseJournalVersion || len(journal.Schedules) == 0 {
+		return errors.New("schedule pause journal is invalid")
+	}
+	seen := make(map[string]struct{}, len(journal.Schedules))
+	for _, schedule := range journal.Schedules {
+		if _, duplicate := seen[schedule.ID]; duplicate {
+			return errors.New("schedule pause journal contains duplicate identities")
+		}
+		seen[schedule.ID] = struct{}{}
+		if schedule.Enabled || schedule.Validate() != nil {
+			return errors.New("schedule pause journal contains an invalid paused schedule")
+		}
+		if err := s.writeSchedule(schedule); err != nil {
+			return fmt.Errorf("recover paused schedule %q: %w", schedule.ID, err)
+		}
+		s.byID[schedule.ID] = schedule
+	}
+	if err := durablefs.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("retire recovered schedule pause journal: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) writeSchedule(schedule Schedule) error {
+	raw, err := json.MarshalIndent(schedule, "", "  ")
+	if err != nil {
+		return err
+	}
+	return durablefs.WriteFile(filepath.Join(s.root, schedule.ID+".json"), raw, 0o644)
 }
 
 func (s *Store) Get(id string) (Schedule, bool) {
@@ -145,6 +293,12 @@ func (s *Store) List() []Schedule {
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := validateID(id); err != nil {
+		return err
+	}
+	if err := s.recoverPauseJournal(); err != nil {
+		return err
+	}
 	if err := os.Remove(filepath.Join(s.root, id+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

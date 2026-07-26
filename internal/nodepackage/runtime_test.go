@@ -21,6 +21,14 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
+	authority, err := store.ReleaseAuthority(ctx, installed.PackageID, manifest.Digest())
+	if err != nil || authority.PackageID != installed.PackageID ||
+		authority.PackageVersion != manifest.PackageVersion() ||
+		authority.ManifestDigest != manifest.Digest() ||
+		len(authority.Contracts) != len(manifest.Nodes()) ||
+		len(authority.Capabilities) != len(manifest.Capabilities()) {
+		t.Fatalf("ReleaseAuthority() = %#v, %v", authority, err)
+	}
 
 	packages, err := store.RuntimePackages(ctx, RuntimeHost{APIGeneration: "1.0", OperatingSystem: "windows", Architecture: "amd64"})
 	if err != nil {
@@ -43,6 +51,9 @@ func TestRuntimePackagesProjectOnlyEnabledVerifiedHostCompatibleGenerations(t *t
 	}
 	if _, err := store.Disable(installed.PackageID); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := store.ReleaseAuthority(ctx, installed.PackageID, manifest.Digest()); err != nil {
+		t.Fatalf("disabled cached Release lost review authority: %v", err)
 	}
 	if _, err := node.Payload.Read(ctx, 1<<20); err == nil {
 		t.Fatal("previous runtime projection remained executable after disable")

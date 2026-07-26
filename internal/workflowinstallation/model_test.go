@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -229,6 +231,7 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 		Credentials: func(context.Context) ([]CredentialState, error) {
 			return []CredentialState{testCredentialState("credential-a")}, nil
 		},
+		Capabilities: noCapabilityScopes,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -297,6 +300,105 @@ func TestPreparedUpdatePreservesCompatibleLocalValuesAndResetsExactConsent(t *te
 	}
 }
 
+func TestStagedUpdateListsCachedReleaseAndDiffsExactAuthorityBeforeSingleUseApply(t *testing.T) {
+	current := testRelease(t)
+	candidate := testUpdatedRelease(t, func(source *schema.WorkflowSource) {
+		source.Dependencies[0].PackageVersion = "3.0.0"
+		source.Dependencies[0].ManifestDigest = artifact.Digest(
+			"sha256:3333333333333333333333333333333333333333333333333333333333333333",
+		)
+	})
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	identities := []string{"installation-staged", "preview-token", "rollback-token"}
+	module, err := New(repository, Options{
+		Now: func() time.Time { return time.Date(2026, 7, 26, 9, 0, 0, 0, time.UTC) },
+		NewID: func() string {
+			next := identities[0]
+			identities = identities[1:]
+			return next
+		},
+		Capabilities: func(_ context.Context, source schema.WorkflowSource) ([]CapabilityScope, error) {
+			operation := "read"
+			scope := `{"path":"current"}`
+			if source.Dependencies[0].PackageVersion == "3.0.0" {
+				operation = "write"
+				scope = `{"path":"candidate"}`
+			}
+			return []CapabilityScope{{
+				NodeTypeID:   source.Dependencies[0].NodeRefs[0].NodeTypeID,
+				CapabilityID: "https://example.test/capabilities/files/v1",
+				Operations:   []string{operation}, TargetSlot: "desktop",
+				Scope: scope, Risk: "sensitive", Consent: "once",
+			}}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), current, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := module.CacheVerifiedRelease(context.Background(), candidate); err != nil {
+		t.Fatal(err)
+	}
+
+	candidates, err := module.ListUpdateCandidates(context.Background(), installation.ID)
+	if err != nil || len(candidates) != 1 || candidates[0].ReleaseID != candidate.ID ||
+		candidates[0].ImmediatePrevious {
+		t.Fatalf("ListUpdateCandidates() = %#v, %v", candidates, err)
+	}
+	preview, err := module.StageUpdate(context.Background(), installation.ID, candidate.ID)
+	if err != nil || preview.Token != "preview-token" || preview.Rollback ||
+		preview.Diff.CandidateReleaseID != candidate.ID ||
+		len(preview.Diff.AddedDependencies) != 1 || len(preview.Diff.RemovedDependencies) != 1 ||
+		len(preview.Diff.AddedCapabilities) != 1 || len(preview.Diff.RemovedCapabilities) != 1 ||
+		preview.Diff.AddedCapabilities[0].Operations[0] != "write" ||
+		preview.Diff.RemovedCapabilities[0].Operations[0] != "read" {
+		t.Fatalf("StageUpdate() = %#v, %v", preview, err)
+	}
+	updated, err := module.ApplyStagedUpdate(context.Background(), preview.Token)
+	if err != nil || updated.ReleaseID != candidate.ID || updated.PreviousReleaseID != current.ID {
+		t.Fatalf("ApplyStagedUpdate() = %#v, %v", updated, err)
+	}
+	if _, err := module.ApplyStagedUpdate(context.Background(), preview.Token); err == nil {
+		t.Fatal("ApplyStagedUpdate reused a consumed preview token")
+	}
+	rollback, err := module.StageRollback(context.Background(), installation.ID)
+	if err != nil || !rollback.Rollback || rollback.Token != "rollback-token" ||
+		rollback.Diff.CandidateReleaseID != current.ID {
+		t.Fatalf("StageRollback() = %#v, %v", rollback, err)
+	}
+	rolledBack, err := module.ApplyStagedUpdate(context.Background(), rollback.Token)
+	if err != nil || rolledBack.ReleaseID != current.ID || rolledBack.PreviousReleaseID != candidate.ID {
+		t.Fatalf("ApplyStagedUpdate(rollback) = %#v, %v", rolledBack, err)
+	}
+}
+
+func TestPrepareUpdateFailsClosedWithoutCapabilityScopeProjection(t *testing.T) {
+	current := testRelease(t)
+	candidate := testUpdatedRelease(t, func(source *schema.WorkflowSource) {
+		source.Workflow.Name = "candidate"
+	})
+	repository := &memoryRepository{
+		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
+	}
+	module, err := New(repository, Options{NewID: func() string { return "installation-no-authority" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installation, err := module.InstallVerified(context.Background(), current, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := module.PrepareUpdate(context.Background(), installation.ID, candidate); err == nil ||
+		!strings.Contains(err.Error(), "capability scope projection is unavailable") {
+		t.Fatalf("PrepareUpdate error = %v", err)
+	}
+}
+
 func TestPreparedUpdateFailsClosedForIdentityAndConfiguredTargetConflicts(t *testing.T) {
 	current := testRelease(t)
 	incompatible := testUpdatedRelease(t, func(source *schema.WorkflowSource) {
@@ -307,8 +409,9 @@ func TestPreparedUpdateFailsClosedForIdentityAndConfiguredTargetConflicts(t *tes
 		releases: map[artifact.Digest]ReleaseRecord{}, installations: map[string]InstallationRecord{},
 	}
 	module, err := New(repository, Options{
-		Now:   func() time.Time { return time.Date(2026, 7, 26, 8, 30, 0, 0, time.UTC) },
-		NewID: func() string { return "installation-update-conflict" },
+		Now:          func() time.Time { return time.Date(2026, 7, 26, 8, 30, 0, 0, time.UTC) },
+		NewID:        func() string { return "installation-update-conflict" },
+		Capabilities: noCapabilityScopes,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -747,6 +850,10 @@ func testCredentialState(bindingID string) CredentialState {
 	}
 }
 
+func noCapabilityScopes(context.Context, schema.WorkflowSource) ([]CapabilityScope, error) {
+	return []CapabilityScope{}, nil
+}
+
 const testSourceJSON = `{
 	"format":"yotta.workflow","version":"1",
 	"workflow":{"id":"workflow-release","name":"Released workflow"},
@@ -777,6 +884,15 @@ type memoryRepository struct {
 	installations      map[string]InstallationRecord
 	configurations     map[string]Configuration
 	configurationReads int
+}
+
+func (r *memoryRepository) CacheRelease(_ context.Context, release ReleaseRecord) error {
+	if current, found := r.releases[release.ID]; found &&
+		(current.SourceHash != release.SourceHash || current.AttestationDigest != release.AttestationDigest) {
+		return ErrReleaseConflict
+	}
+	r.releases[release.ID] = CloneReleaseRecord(release)
+	return nil
 }
 
 func (r *memoryRepository) Commit(
@@ -844,6 +960,26 @@ func (r *memoryRepository) ListInstallations(context.Context) ([]InstallationRec
 func (r *memoryRepository) GetRelease(_ context.Context, id artifact.Digest) (ReleaseRecord, bool, error) {
 	value, found := r.releases[id]
 	return CloneReleaseRecord(value), found, nil
+}
+
+func (r *memoryRepository) ListReleases(
+	_ context.Context,
+	publisherNamespace string,
+	workflowID string,
+) ([]ReleaseRecord, error) {
+	result := make([]ReleaseRecord, 0)
+	for _, release := range r.releases {
+		if release.PublisherNamespace == publisherNamespace && release.WorkflowID == workflowID {
+			result = append(result, CloneReleaseRecord(release))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if !result[i].VerifiedAt.Equal(result[j].VerifiedAt) {
+			return result[i].VerifiedAt.After(result[j].VerifiedAt)
+		}
+		return result[i].ID < result[j].ID
+	})
+	return result, nil
 }
 
 func (r *memoryRepository) GetConfiguration(_ context.Context, id string) (Configuration, bool, error) {

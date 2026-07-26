@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -166,23 +165,23 @@ func (p *InstallationPauser) PauseInstallation(installationID string) ([]string,
 	if strings.TrimSpace(installationID) == "" || installationID != strings.TrimSpace(installationID) {
 		return nil, errors.New("Workflow Installation identity is invalid")
 	}
-	paused := make([]string, 0)
-	for _, current := range s.store.List() {
-		if !current.Enabled || !scheduleTargetsInstallation(current, installationID) {
-			continue
-		}
-		current.Enabled = false
-		if err := s.store.Save(&current); err != nil {
-			return paused, fmt.Errorf("pause schedule %q: %w", current.ID, err)
-		}
-		paused = append(paused, current.ID)
-	}
+	paused, persistErr := s.store.PauseInstallation(installationID)
 	if len(paused) == 0 {
-		return paused, nil
+		return paused, persistErr
 	}
-	sort.Strings(paused)
-	if err := s.emitChange(); err != nil {
-		return paused, &PostCommitError{Operation: "pause installation schedules", Err: err}
+	reloadErr := s.emitChange()
+	if persistErr != nil {
+		var committed interface{ Committed() bool }
+		if !errors.As(persistErr, &committed) || !committed.Committed() {
+			return paused, persistErr
+		}
+		if reloadErr != nil {
+			persistErr = errors.Join(persistErr, reloadErr)
+		}
+		return paused, &PostCommitError{Operation: "pause installation schedules", Err: persistErr}
+	}
+	if reloadErr != nil {
+		return paused, &PostCommitError{Operation: "pause installation schedules", Err: reloadErr}
 	}
 	return paused, nil
 }

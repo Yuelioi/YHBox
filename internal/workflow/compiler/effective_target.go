@@ -3,9 +3,28 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
+
+// ResolveNodeCapabilityRequirements applies Workflow target defaults and
+// freezes dynamic slots for one exact node contract without resolving them to
+// privileged host installations.
+func ResolveNodeCapabilityRequirements(
+	defaults []schema.TargetDefault,
+	node schema.Node,
+	contract nodecontract.Contract,
+) ([]capability.Requirement, error) {
+	if !contract.Valid() || contract.NodeRef() != node.NodeRef {
+		return nil, fmt.Errorf("node capability projection requires the exact contract")
+	}
+	config, err := effectiveNodeConfig(defaults, node, contract.Machine())
+	if err != nil {
+		return nil, err
+	}
+	return nodecontract.ResolveCapabilityRequirements(contract.Machine(), config)
+}
 
 func effectiveNodeConfig(defaults []schema.TargetDefault, node schema.Node, machine nodecontract.MachineContract) (map[string]any, error) {
 	config := make(map[string]any, len(node.Config)+len(machine.RequirementBindings))

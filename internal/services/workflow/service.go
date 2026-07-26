@@ -38,6 +38,10 @@ type Option func(*Service)
 
 type InstallationRuntime interface {
 	ListWorkflowInstallations(context.Context) ([]workflowinstallation.InstallationRecord, error)
+	ListWorkflowInstallationUpdateCandidates(context.Context, string) ([]workflowinstallation.UpdateCandidate, error)
+	StageWorkflowInstallationUpdate(context.Context, string, artifact.Digest) (workflowinstallation.UpdatePreview, error)
+	StageWorkflowInstallationRollback(context.Context, string) (workflowinstallation.UpdatePreview, error)
+	ApplyStagedWorkflowInstallationUpdate(context.Context, string) (workflowinstallation.InstallationRecord, error)
 	DeriveWorkflowInstallationSource(context.Context, string, string) (workflowstore.SourceSnapshot, error)
 	WorkflowInstallationReadiness(context.Context, string) (workflowinstallation.ReadinessReport, error)
 	WorkflowInstallationSettings(context.Context, string) (workflowinstallation.SettingsSnapshot, error)
@@ -97,6 +101,71 @@ type InstallationView struct {
 	Lifecycle      string          `json:"lifecycle"`
 	CreatedAt      string          `json:"createdAt"`
 	UpdatedAt      string          `json:"updatedAt"`
+}
+
+type InstallationUpdateCandidateView struct {
+	ReleaseID         artifact.Digest `json:"releaseId"`
+	ReleaseVersion    string          `json:"releaseVersion"`
+	VerifiedAt        string          `json:"verifiedAt"`
+	ImmediatePrevious bool            `json:"immediatePrevious"`
+}
+
+type InstallationDependencyChangeView struct {
+	PublisherNamespace string          `json:"publisherNamespace"`
+	PackageID          string          `json:"packageId"`
+	PackageVersion     string          `json:"packageVersion"`
+	ManifestDigest     artifact.Digest `json:"manifestDigest"`
+}
+
+type InstallationCapabilityScopeView struct {
+	NodeTypeID     string   `json:"nodeTypeId"`
+	CapabilityID   string   `json:"capabilityId"`
+	Operations     []string `json:"operations"`
+	TargetSlot     string   `json:"targetSlot"`
+	CredentialSlot string   `json:"credentialSlot"`
+	Scope          string   `json:"scope"`
+	Risk           string   `json:"risk"`
+	Consent        string   `json:"consent"`
+}
+
+type InstallationUpdateConflictView struct {
+	Kind          string `json:"kind"`
+	RequirementID string `json:"requirementId"`
+}
+
+type InstallationUpdateDiffView struct {
+	CurrentReleaseID    artifact.Digest                    `json:"currentReleaseId"`
+	CandidateReleaseID  artifact.Digest                    `json:"candidateReleaseId"`
+	CurrentVersion      string                             `json:"currentVersion"`
+	CandidateVersion    string                             `json:"candidateVersion"`
+	AddedTargets        []string                           `json:"addedTargets"`
+	ChangedTargets      []string                           `json:"changedTargets"`
+	RemovedTargets      []string                           `json:"removedTargets"`
+	AddedCredentials    []string                           `json:"addedCredentials"`
+	ChangedCredentials  []string                           `json:"changedCredentials"`
+	RemovedCredentials  []string                           `json:"removedCredentials"`
+	GraphsChanged       bool                               `json:"graphsChanged"`
+	ResourcesChanged    bool                               `json:"resourcesChanged"`
+	VariablesChanged    bool                               `json:"variablesChanged"`
+	DependenciesChanged bool                               `json:"dependenciesChanged"`
+	AddedDependencies   []InstallationDependencyChangeView `json:"addedDependencies"`
+	RemovedDependencies []InstallationDependencyChangeView `json:"removedDependencies"`
+	AddedCapabilities   []InstallationCapabilityScopeView  `json:"addedCapabilities"`
+	RemovedCapabilities []InstallationCapabilityScopeView  `json:"removedCapabilities"`
+}
+
+type InstallationUpdatePreviewView struct {
+	Token          string                           `json:"token"`
+	InstallationID string                           `json:"installationId"`
+	Rollback       bool                             `json:"rollback"`
+	Diff           InstallationUpdateDiffView       `json:"diff"`
+	Conflicts      []InstallationUpdateConflictView `json:"conflicts"`
+	Readiness      InstallationReadinessView        `json:"readiness"`
+}
+
+type InstallationUpdateApplyView struct {
+	Installation           InstallationView `json:"installation"`
+	ReconciliationRequired bool             `json:"reconciliationRequired"`
 }
 
 type ReadinessBlockerView struct {
@@ -818,12 +887,7 @@ func (s *Service) ListInstallations() ([]InstallationView, error) {
 	}
 	result := make([]InstallationView, 0, len(records))
 	for _, record := range records {
-		result = append(result, InstallationView{
-			InstallationID: record.ID, ReleaseID: record.ReleaseID, Name: record.Name,
-			Lifecycle: string(record.Lifecycle),
-			CreatedAt: record.CreatedAt.Format(time.RFC3339Nano),
-			UpdatedAt: record.UpdatedAt.Format(time.RFC3339Nano),
-		})
+		result = append(result, installationView(record))
 	}
 	return result, nil
 }
@@ -842,6 +906,80 @@ func (s *Service) DeriveInstallationSource(
 		return SourceView{}, err
 	}
 	return sourceView(snapshot, true)
+}
+
+func (s *Service) ListInstallationUpdateCandidates(
+	installationID string,
+) ([]InstallationUpdateCandidateView, error) {
+	if s.installations == nil {
+		return nil, errors.New("Workflow Installation runtime is unavailable")
+	}
+	candidates, err := s.installations.ListWorkflowInstallationUpdateCandidates(
+		context.Background(), installationID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]InstallationUpdateCandidateView, 0, len(candidates))
+	for _, candidate := range candidates {
+		result = append(result, InstallationUpdateCandidateView{
+			ReleaseID: candidate.ReleaseID, ReleaseVersion: candidate.ReleaseVersion,
+			VerifiedAt:        candidate.VerifiedAt.Format(time.RFC3339Nano),
+			ImmediatePrevious: candidate.ImmediatePrevious,
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) PreviewInstallationUpdate(
+	installationID string,
+	candidateReleaseID string,
+) (InstallationUpdatePreviewView, error) {
+	if s.installations == nil {
+		return InstallationUpdatePreviewView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	preview, err := s.installations.StageWorkflowInstallationUpdate(
+		context.Background(), installationID, artifact.Digest(candidateReleaseID),
+	)
+	if err != nil {
+		return InstallationUpdatePreviewView{}, err
+	}
+	return installationUpdatePreviewView(preview), nil
+}
+
+func (s *Service) PreviewInstallationRollback(
+	installationID string,
+) (InstallationUpdatePreviewView, error) {
+	if s.installations == nil {
+		return InstallationUpdatePreviewView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	preview, err := s.installations.StageWorkflowInstallationRollback(
+		context.Background(), installationID,
+	)
+	if err != nil {
+		return InstallationUpdatePreviewView{}, err
+	}
+	return installationUpdatePreviewView(preview), nil
+}
+
+func (s *Service) ApplyInstallationUpdate(token string) (InstallationUpdateApplyView, error) {
+	if s.installations == nil {
+		return InstallationUpdateApplyView{}, errors.New("Workflow Installation runtime is unavailable")
+	}
+	record, err := s.installations.ApplyStagedWorkflowInstallationUpdate(
+		context.Background(), token,
+	)
+	if err != nil {
+		var committed interface{ Committed() bool }
+		if !errors.As(err, &committed) || !committed.Committed() ||
+			workflowinstallation.ValidateInstallationRecord(record) != nil {
+			return InstallationUpdateApplyView{}, err
+		}
+		return InstallationUpdateApplyView{
+			Installation: installationView(record), ReconciliationRequired: true,
+		}, nil
+	}
+	return InstallationUpdateApplyView{Installation: installationView(record)}, nil
 }
 
 func (s *Service) GetInstallationReadiness(installationID string) (InstallationReadinessView, error) {
@@ -977,6 +1115,76 @@ func installationReadinessView(report workflowinstallation.ReadinessReport) Inst
 		})
 	}
 	return view
+}
+
+func installationView(record workflowinstallation.InstallationRecord) InstallationView {
+	return InstallationView{
+		InstallationID: record.ID, ReleaseID: record.ReleaseID, Name: record.Name,
+		Lifecycle: string(record.Lifecycle),
+		CreatedAt: record.CreatedAt.Format(time.RFC3339Nano),
+		UpdatedAt: record.UpdatedAt.Format(time.RFC3339Nano),
+	}
+}
+
+func installationUpdatePreviewView(
+	preview workflowinstallation.UpdatePreview,
+) InstallationUpdatePreviewView {
+	diff := preview.Diff
+	view := InstallationUpdatePreviewView{
+		Token: preview.Token, InstallationID: preview.InstallationID, Rollback: preview.Rollback,
+		Diff: InstallationUpdateDiffView{
+			CurrentReleaseID: diff.CurrentReleaseID, CandidateReleaseID: diff.CandidateReleaseID,
+			CurrentVersion: diff.CurrentVersion, CandidateVersion: diff.CandidateVersion,
+			AddedTargets:       append([]string(nil), diff.AddedTargets...),
+			ChangedTargets:     append([]string(nil), diff.ChangedTargets...),
+			RemovedTargets:     append([]string(nil), diff.RemovedTargets...),
+			AddedCredentials:   append([]string(nil), diff.AddedCredentials...),
+			ChangedCredentials: append([]string(nil), diff.ChangedCredentials...),
+			RemovedCredentials: append([]string(nil), diff.RemovedCredentials...),
+			GraphsChanged:      diff.GraphsChanged, ResourcesChanged: diff.ResourcesChanged,
+			VariablesChanged: diff.VariablesChanged, DependenciesChanged: diff.DependenciesChanged,
+			AddedDependencies:   make([]InstallationDependencyChangeView, 0, len(diff.AddedDependencies)),
+			RemovedDependencies: make([]InstallationDependencyChangeView, 0, len(diff.RemovedDependencies)),
+			AddedCapabilities:   make([]InstallationCapabilityScopeView, 0, len(diff.AddedCapabilities)),
+			RemovedCapabilities: make([]InstallationCapabilityScopeView, 0, len(diff.RemovedCapabilities)),
+		},
+		Conflicts: make([]InstallationUpdateConflictView, 0, len(preview.Conflicts)),
+		Readiness: installationReadinessView(preview.Readiness),
+	}
+	for _, change := range diff.AddedDependencies {
+		view.Diff.AddedDependencies = append(view.Diff.AddedDependencies, dependencyChangeView(change))
+	}
+	for _, change := range diff.RemovedDependencies {
+		view.Diff.RemovedDependencies = append(view.Diff.RemovedDependencies, dependencyChangeView(change))
+	}
+	for _, scope := range diff.AddedCapabilities {
+		view.Diff.AddedCapabilities = append(view.Diff.AddedCapabilities, capabilityScopeView(scope))
+	}
+	for _, scope := range diff.RemovedCapabilities {
+		view.Diff.RemovedCapabilities = append(view.Diff.RemovedCapabilities, capabilityScopeView(scope))
+	}
+	for _, conflict := range preview.Conflicts {
+		view.Conflicts = append(view.Conflicts, InstallationUpdateConflictView{
+			Kind: string(conflict.Kind), RequirementID: conflict.RequirementID,
+		})
+	}
+	return view
+}
+
+func dependencyChangeView(change workflowinstallation.DependencyChange) InstallationDependencyChangeView {
+	return InstallationDependencyChangeView{
+		PublisherNamespace: change.PublisherNamespace, PackageID: change.PackageID,
+		PackageVersion: change.PackageVersion, ManifestDigest: change.ManifestDigest,
+	}
+}
+
+func capabilityScopeView(scope workflowinstallation.CapabilityScope) InstallationCapabilityScopeView {
+	return InstallationCapabilityScopeView{
+		NodeTypeID: scope.NodeTypeID, CapabilityID: scope.CapabilityID,
+		Operations: append([]string(nil), scope.Operations...),
+		TargetSlot: scope.TargetSlot, CredentialSlot: scope.CredentialSlot,
+		Scope: scope.Scope, Risk: scope.Risk, Consent: scope.Consent,
+	}
 }
 
 func installationSettingsView(snapshot workflowinstallation.SettingsSnapshot) InstallationSettingsView {

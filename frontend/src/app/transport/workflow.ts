@@ -12,6 +12,9 @@ import type {
   DeleteSourceResult,
   InstallationReadinessView,
   InstallationSettingsView,
+  InstallationUpdateApplyView,
+  InstallationUpdateCandidateView,
+  InstallationUpdatePreviewView,
   InstallationView,
   PatchView,
   RunView,
@@ -48,6 +51,15 @@ export interface DebugChangedEvent {
 export interface WorkflowTransport {
   listSources(): Promise<SourceView[]>
   listInstallations(): Promise<InstallationView[]>
+  listInstallationUpdateCandidates(
+    installationId: string,
+  ): Promise<InstallationUpdateCandidateView[]>
+  previewInstallationUpdate(
+    installationId: string,
+    candidateReleaseId: string,
+  ): Promise<InstallationUpdatePreviewView>
+  previewInstallationRollback(installationId: string): Promise<InstallationUpdatePreviewView>
+  applyInstallationUpdate(token: string): Promise<InstallationUpdateApplyView>
   deriveInstallationSource(installationId: string, name: string): Promise<SourceView>
   getInstallationReadiness(installationId: string): Promise<InstallationReadinessView>
   getInstallationSettings(installationId: string): Promise<InstallationSettingsView>
@@ -120,6 +132,13 @@ export interface WorkflowTransport {
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
   listInstallations: () => invoke(WorkflowService.ListInstallations),
+  listInstallationUpdateCandidates: (installationId) =>
+    invoke(WorkflowService.ListInstallationUpdateCandidates, installationId),
+  previewInstallationUpdate: (installationId, candidateReleaseId) =>
+    invoke(WorkflowService.PreviewInstallationUpdate, installationId, candidateReleaseId),
+  previewInstallationRollback: (installationId) =>
+    invoke(WorkflowService.PreviewInstallationRollback, installationId),
+  applyInstallationUpdate: (token) => invoke(WorkflowService.ApplyInstallationUpdate, token),
   deriveInstallationSource: (installationId, name) =>
     invoke(WorkflowService.DeriveInstallationSource, installationId, name),
   getInstallationReadiness: (installationId) =>
@@ -283,6 +302,9 @@ export type {
   CompileView,
   InstallationReadinessView,
   InstallationSettingsView,
+  InstallationUpdateApplyView,
+  InstallationUpdateCandidateView,
+  InstallationUpdatePreviewView,
   InstallationView,
   CreateSourceRequest,
   DeleteSourcePreview,

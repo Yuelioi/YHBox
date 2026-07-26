@@ -10,16 +10,27 @@ Open
 
 ## Current
 
-Stage M5 已完成：显式本地派生、staged update、exact consent/计划重新授权、离线 rollback lineage
-与派生隔离/旁装语义均已进入唯一 Source/Installation/runtime 路径。
+Stage M5 已完成并通过 review remediation：显式派生、缓存 verified Release、staged update/rollback、
+exact capability scope diff、配置冲突与候选 readiness 均进入真实产品路径；关联计划以可恢复原子批处理
+暂停，Catalog 复用单一 immutable Release ensure。
 
 ## Next
 
 下一执行阶段为 [Stage M6](plan.md) 的外部 Site Foundation prerelease；进入兄弟仓库前先核对对应
-依赖 Work 与发布授权，本仓当前无未完成的 Stage M5 动作。
+依赖 Work 与发布授权。
 
 ## Progress
 
+- 2026-07-26 M5e/Stage M5 review remediation 完成：Catalog 可只缓存 verified Release 而不创建
+  Installation；工作流列表用一次性 opaque preview token 展示 update/rollback 的 content、dependency、
+  target、credential、exact capability scope、conflict 与 readiness，确认后走既有 CAS 切换并清除授权。
+  Schedule pause 改为 journal commit-point + 可重放物化，提交前失败零修改，提交后中断可恢复且只 reload
+  一次；Catalog 两条事务路径共享 Release ensure。相关三包 race、`task check`（38 个 Go 包、前端
+  84 文件/358 项、Wails 17/160/236）及 Windows WebView update/apply/rollback smoke
+  `20260726-134114` 均退出 0，两张 Modal 截图已目检。
+- 2026-07-26 M5 code review 重新打开 Stage：确认 update/rollback 只有内部 runtime 方法、候选权限范围
+  未进入 diff，schedule pause 逐文件写入会留下部分暂停状态，Catalog 两条事务路径重复 Release ensure。
+  `task smoke:storage-migration` 已退出 0，排除现有生产存储迁移回归。
 - 2026-07-26 M5d/Stage M5 完成：跨语义测试从 Installation 派生独立 Source、投影为 verified Release，
   证明其因 workflow identity 不同无法覆盖/merge 原 Installation，但可旁装为新 Installation，原实例不变。
   Stage 最终 `task check` 通过 34 个受影响 Go 包；Windows WebView smoke `20260726-123823` 退出 0，

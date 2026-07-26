@@ -131,6 +131,40 @@ func TestScheduleServicePausesOnlyEnabledSchedulesForInstallation(t *testing.T) 
 	}
 }
 
+func TestScheduleServiceReloadsOnceAfterCommittedPauseInterruption(t *testing.T) {
+	store, err := newStore(t.TempDir(), storeFaults{
+		afterPauseWrite: func(completed int) error {
+			if completed == 1 {
+				return errors.New("injected postcommit interruption")
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"a", "b"} {
+		schedule := Schedule{
+			SchemaVersion: CurrentSchemaVersion, ID: id, Name: id, Enabled: true,
+			Targets: []TargetRef{{Kind: TargetWorkflowInstallation, ID: "installation-a"}},
+			Trigger: Trigger{Kind: TriggerManual}, OnError: OnErrorStop,
+		}
+		if err := store.Save(&schedule); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reloads := 0
+	service := NewService(store, WithChangeListener(func() error {
+		reloads++
+		return nil
+	}))
+	paused, err := NewInstallationPauser(service).PauseInstallation("installation-a")
+	var postCommit *PostCommitError
+	if len(paused) != 2 || !errors.As(err, &postCommit) || reloads != 1 {
+		t.Fatalf("PauseInstallation() = %#v, reloads=%d, err=%v", paused, reloads, err)
+	}
+}
+
 func TestScheduleService_Update_PathTraversalProtected(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := NewStore(dir)

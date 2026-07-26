@@ -20,6 +20,29 @@ type WorkflowInstallationRepository struct {
 	database *database
 }
 
+func (r *WorkflowInstallationRepository) CacheRelease(
+	ctx context.Context,
+	release workflowinstallation.ReleaseRecord,
+) error {
+	if err := r.ready(); err != nil {
+		return err
+	}
+	if ctx == nil {
+		return errors.New("cache Workflow Release requires a context")
+	}
+	if err := workflowinstallation.ValidateReleaseRecord(release); err != nil {
+		return err
+	}
+	tx, err := r.database.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err := ensureWorkflowRelease(ctx, tx, release); err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
+	return tx.Commit()
+}
+
 func (r *WorkflowInstallationRepository) Commit(
 	ctx context.Context,
 	release workflowinstallation.ReleaseRecord,
@@ -52,32 +75,10 @@ func (r *WorkflowInstallationRepository) Commit(
 	if err != nil {
 		return err
 	}
+	if err := ensureWorkflowRelease(ctx, tx, release); err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO workflow_releases(
-			release_id, source_hash, workflow_id, workflow_name, publisher_namespace,
-			release_version, attestation_digest, source_artifact, verified_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(release_id) DO NOTHING
-	`, release.ID.String(), release.SourceHash.String(), release.WorkflowID, release.WorkflowName,
-		release.PublisherNamespace, release.ReleaseVersion, release.AttestationDigest.String(),
-		release.SourceArtifact, release.VerifiedAt.Format(time.RFC3339Nano))
-	if err != nil {
-		return errors.Join(err, tx.Rollback())
-	}
-	inserted, err := result.RowsAffected()
-	if err != nil {
-		return errors.Join(err, tx.Rollback())
-	}
-	if inserted == 0 {
-		current, found, err := getWorkflowRelease(ctx, tx, release.ID)
-		if err != nil {
-			return errors.Join(err, tx.Rollback())
-		}
-		if !found || !equalWorkflowRelease(current, release) {
-			return errors.Join(workflowinstallation.ErrReleaseConflict, tx.Rollback())
-		}
-	}
-	result, err = tx.ExecContext(ctx, `
 		INSERT INTO workflow_installations(
 			installation_id, release_id, name, lifecycle, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?)
@@ -87,7 +88,7 @@ func (r *WorkflowInstallationRepository) Commit(
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
 	}
-	inserted, err = result.RowsAffected()
+	inserted, err := result.RowsAffected()
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
 	}
@@ -148,32 +149,10 @@ func (r *WorkflowInstallationRepository) SwitchRelease(
 	if err != nil {
 		return err
 	}
+	if err := ensureWorkflowRelease(ctx, tx, release); err != nil {
+		return errors.Join(err, tx.Rollback())
+	}
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO workflow_releases(
-			release_id, source_hash, workflow_id, workflow_name, publisher_namespace,
-			release_version, attestation_digest, source_artifact, verified_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(release_id) DO NOTHING
-	`, release.ID.String(), release.SourceHash.String(), release.WorkflowID, release.WorkflowName,
-		release.PublisherNamespace, release.ReleaseVersion, release.AttestationDigest.String(),
-		release.SourceArtifact, release.VerifiedAt.Format(time.RFC3339Nano))
-	if err != nil {
-		return errors.Join(err, tx.Rollback())
-	}
-	inserted, err := result.RowsAffected()
-	if err != nil {
-		return errors.Join(err, tx.Rollback())
-	}
-	if inserted == 0 {
-		current, found, err := getWorkflowRelease(ctx, tx, release.ID)
-		if err != nil {
-			return errors.Join(err, tx.Rollback())
-		}
-		if !found || !equalWorkflowRelease(current, release) {
-			return errors.Join(workflowinstallation.ErrReleaseConflict, tx.Rollback())
-		}
-	}
-	result, err = tx.ExecContext(ctx, `
 		UPDATE workflow_installations
 		SET release_id = ?, previous_release_id = ?, name = ?, lifecycle = ?, updated_at = ?
 		WHERE installation_id = ? AND release_id = ?
@@ -213,6 +192,40 @@ func (r *WorkflowInstallationRepository) SwitchRelease(
 		return errors.Join(workflowinstallation.ErrInstallationConflict, tx.Rollback())
 	}
 	return tx.Commit()
+}
+
+func ensureWorkflowRelease(
+	ctx context.Context,
+	tx *sql.Tx,
+	release workflowinstallation.ReleaseRecord,
+) error {
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO workflow_releases(
+			release_id, source_hash, workflow_id, workflow_name, publisher_namespace,
+			release_version, attestation_digest, source_artifact, verified_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(release_id) DO NOTHING
+	`, release.ID.String(), release.SourceHash.String(), release.WorkflowID, release.WorkflowName,
+		release.PublisherNamespace, release.ReleaseVersion, release.AttestationDigest.String(),
+		release.SourceArtifact, release.VerifiedAt.Format(time.RFC3339Nano))
+	if err != nil {
+		return err
+	}
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if inserted != 0 {
+		return nil
+	}
+	current, found, err := getWorkflowRelease(ctx, tx, release.ID)
+	if err != nil {
+		return err
+	}
+	if !found || !equalWorkflowRelease(current, release) {
+		return workflowinstallation.ErrReleaseConflict
+	}
+	return nil
 }
 
 func (r *WorkflowInstallationRepository) GetInstallation(
@@ -266,6 +279,36 @@ func (r *WorkflowInstallationRepository) GetRelease(
 		return workflowinstallation.ReleaseRecord{}, false, err
 	}
 	return getWorkflowRelease(ctx, r.database.db, releaseID)
+}
+
+func (r *WorkflowInstallationRepository) ListReleases(
+	ctx context.Context,
+	publisherNamespace string,
+	workflowID string,
+) ([]workflowinstallation.ReleaseRecord, error) {
+	if err := r.ready(); err != nil {
+		return nil, err
+	}
+	rows, err := r.database.db.QueryContext(ctx, `
+		SELECT release_id, source_hash, workflow_id, workflow_name, publisher_namespace,
+		       release_version, attestation_digest, source_artifact, verified_at
+		FROM workflow_releases
+		WHERE publisher_namespace = ? AND workflow_id = ?
+		ORDER BY verified_at DESC, release_id
+	`, publisherNamespace, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]workflowinstallation.ReleaseRecord, 0)
+	for rows.Next() {
+		record, err := scanWorkflowReleaseRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
 }
 
 func (r *WorkflowInstallationRepository) GetConfiguration(
@@ -369,24 +412,30 @@ func getWorkflowRelease(
 		       release_version, attestation_digest, source_artifact, verified_at
 		FROM workflow_releases WHERE release_id = ?
 	`, releaseID.String())
+	record, err := scanWorkflowReleaseRow(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return workflowinstallation.ReleaseRecord{}, false, nil
+	}
+	return record, err == nil, err
+}
+
+func scanWorkflowReleaseRow(row interface{ Scan(...any) error }) (workflowinstallation.ReleaseRecord, error) {
 	var record workflowinstallation.ReleaseRecord
 	var rawID, rawSourceHash, rawAttestation, rawVerifiedAt string
 	if err := row.Scan(
 		&rawID, &rawSourceHash, &record.WorkflowID, &record.WorkflowName, &record.PublisherNamespace,
 		&record.ReleaseVersion, &rawAttestation, &record.SourceArtifact, &rawVerifiedAt,
-	); errors.Is(err, sql.ErrNoRows) {
-		return workflowinstallation.ReleaseRecord{}, false, nil
-	} else if err != nil {
-		return workflowinstallation.ReleaseRecord{}, false, err
+	); err != nil {
+		return workflowinstallation.ReleaseRecord{}, err
 	}
 	record.ID = artifact.Digest(rawID)
 	record.SourceHash = artifact.Digest(rawSourceHash)
 	record.AttestationDigest = artifact.Digest(rawAttestation)
 	record.VerifiedAt, _ = time.Parse(time.RFC3339Nano, rawVerifiedAt)
 	if workflowinstallation.ValidateReleaseRecord(record) != nil {
-		return workflowinstallation.ReleaseRecord{}, false, ErrSchemaDrift
+		return workflowinstallation.ReleaseRecord{}, ErrSchemaDrift
 	}
-	return workflowinstallation.CloneReleaseRecord(record), true, nil
+	return workflowinstallation.CloneReleaseRecord(record), nil
 }
 
 func equalWorkflowRelease(left, right workflowinstallation.ReleaseRecord) bool {

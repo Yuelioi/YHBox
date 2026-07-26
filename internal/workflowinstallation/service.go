@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,11 @@ var (
 	ErrInstallationNotFound = errors.New("Workflow Installation not found")
 	ErrInstallationConflict = errors.New("Workflow Installation conflict")
 	ErrReleaseConflict      = errors.New("Workflow Release identity collision")
+)
+
+const (
+	maxStagedUpdates = 128
+	stagedUpdateTTL  = 15 * time.Minute
 )
 
 type NotReadyError struct {
@@ -169,6 +175,44 @@ type UpdateDiff struct {
 	ResourcesChanged    bool
 	VariablesChanged    bool
 	DependenciesChanged bool
+	AddedDependencies   []DependencyChange
+	RemovedDependencies []DependencyChange
+	AddedCapabilities   []CapabilityScope
+	RemovedCapabilities []CapabilityScope
+}
+
+type DependencyChange struct {
+	PublisherNamespace string
+	PackageID          string
+	PackageVersion     string
+	ManifestDigest     artifact.Digest
+}
+
+type CapabilityScope struct {
+	NodeTypeID     string
+	CapabilityID   string
+	Operations     []string
+	TargetSlot     string
+	CredentialSlot string
+	Scope          string
+	Risk           string
+	Consent        string
+}
+
+type UpdateCandidate struct {
+	ReleaseID         artifact.Digest
+	ReleaseVersion    string
+	VerifiedAt        time.Time
+	ImmediatePrevious bool
+}
+
+type UpdatePreview struct {
+	Token          string
+	InstallationID string
+	Rollback       bool
+	Diff           UpdateDiff
+	Conflicts      []UpdateConflict
+	Readiness      ReadinessReport
 }
 
 // PreparedUpdate is an immutable staged transition from one exact Release and
@@ -217,6 +261,7 @@ func (p PreparedUpdate) CandidateReadiness() ReadinessReport {
 }
 
 type Repository interface {
+	CacheRelease(context.Context, ReleaseRecord) error
 	Commit(context.Context, ReleaseRecord, InstallationRecord, Configuration) error
 	SwitchRelease(
 		context.Context,
@@ -229,8 +274,22 @@ type Repository interface {
 	GetInstallation(context.Context, string) (InstallationRecord, bool, error)
 	ListInstallations(context.Context) ([]InstallationRecord, error)
 	GetRelease(context.Context, artifact.Digest) (ReleaseRecord, bool, error)
+	ListReleases(context.Context, string, string) ([]ReleaseRecord, error)
 	GetConfiguration(context.Context, string) (Configuration, bool, error)
 	ReplaceConfiguration(context.Context, int64, Configuration) error
+}
+
+func (m *Module) CacheVerifiedRelease(ctx context.Context, release ReleaseRecord) error {
+	if ctx == nil {
+		return errors.New("cache verified Workflow Release requires a context")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := ValidateReleaseRecord(release); err != nil {
+		return err
+	}
+	return m.repository.CacheRelease(ctx, release)
 }
 
 type Options struct {
@@ -239,6 +298,7 @@ type Options struct {
 	Dependencies func(context.Context) ([]DependencyState, error)
 	Targets      func(context.Context) ([]TargetState, error)
 	Credentials  func(context.Context) ([]CredentialState, error)
+	Capabilities func(context.Context, schema.WorkflowSource) ([]CapabilityScope, error)
 }
 
 // Module is the command/query boundary for Workflow Installations. Verified
@@ -250,6 +310,14 @@ type Module struct {
 	dependencies func(context.Context) ([]DependencyState, error)
 	targets      func(context.Context) ([]TargetState, error)
 	credentials  func(context.Context) ([]CredentialState, error)
+	capabilities func(context.Context, schema.WorkflowSource) ([]CapabilityScope, error)
+	updateMu     sync.Mutex
+	staged       map[string]stagedUpdate
+}
+
+type stagedUpdate struct {
+	prepared  PreparedUpdate
+	createdAt time.Time
 }
 
 func New(repository Repository, options Options) (*Module, error) {
@@ -271,9 +339,15 @@ func New(repository Repository, options Options) (*Module, error) {
 	if options.Credentials == nil {
 		options.Credentials = func(context.Context) ([]CredentialState, error) { return nil, nil }
 	}
+	if options.Capabilities == nil {
+		options.Capabilities = func(context.Context, schema.WorkflowSource) ([]CapabilityScope, error) {
+			return nil, errors.New("Workflow capability scope projection is unavailable")
+		}
+	}
 	return &Module{
 		repository: repository, now: options.Now, newID: options.NewID,
 		dependencies: options.Dependencies, targets: options.Targets, credentials: options.Credentials,
+		capabilities: options.Capabilities, staged: make(map[string]stagedUpdate),
 	}, nil
 }
 
@@ -419,8 +493,17 @@ func (m *Module) PrepareUpdate(
 	if schema.HasErrors(diagnostics) {
 		return PreparedUpdate{}, errors.New("candidate Workflow Release Source is invalid")
 	}
+	currentCapabilities, err := m.capabilities(ctx, currentSource)
+	if err != nil {
+		return PreparedUpdate{}, fmt.Errorf("project current Workflow capability scopes: %w", err)
+	}
+	candidateCapabilities, err := m.capabilities(ctx, candidateSource)
+	if err != nil {
+		return PreparedUpdate{}, fmt.Errorf("project candidate Workflow capability scopes: %w", err)
+	}
 	nextConfiguration, diff, conflicts, err := prepareUpdateConfiguration(
 		configuration, current, candidate, currentSource, candidateSource,
+		currentCapabilities, candidateCapabilities,
 	)
 	if err != nil {
 		return PreparedUpdate{}, err
@@ -465,6 +548,120 @@ func (m *Module) PrepareUpdate(
 		configuration: CloneConfiguration(nextConfiguration), diff: cloneUpdateDiff(diff),
 		conflicts: append([]UpdateConflict(nil), conflicts...), readiness: cloneReadinessReport(readiness),
 	}}, nil
+}
+
+func (m *Module) ListUpdateCandidates(
+	ctx context.Context,
+	installationID string,
+) ([]UpdateCandidate, error) {
+	installation, err := m.Get(ctx, installationID)
+	if err != nil {
+		return nil, err
+	}
+	current, found, err := m.repository.GetRelease(ctx, installation.ReleaseID)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, errors.New("Workflow Installation references a missing Release")
+	}
+	releases, err := m.repository.ListReleases(ctx, current.PublisherNamespace, current.WorkflowID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]UpdateCandidate, 0, len(releases))
+	for _, release := range releases {
+		if release.ID == current.ID {
+			continue
+		}
+		result = append(result, UpdateCandidate{
+			ReleaseID: release.ID, ReleaseVersion: release.ReleaseVersion,
+			VerifiedAt: release.VerifiedAt, ImmediatePrevious: release.ID == installation.PreviousReleaseID,
+		})
+	}
+	return result, nil
+}
+
+func (m *Module) StageUpdate(
+	ctx context.Context,
+	installationID string,
+	candidateReleaseID artifact.Digest,
+) (UpdatePreview, error) {
+	if ctx == nil || !candidateReleaseID.Valid() {
+		return UpdatePreview{}, errors.New("stage Workflow Installation update request is invalid")
+	}
+	candidate, found, err := m.repository.GetRelease(ctx, candidateReleaseID)
+	if err != nil {
+		return UpdatePreview{}, err
+	}
+	if !found {
+		return UpdatePreview{}, errors.New("cached Workflow Release candidate was not found")
+	}
+	prepared, err := m.PrepareUpdate(ctx, installationID, candidate)
+	if err != nil {
+		return UpdatePreview{}, err
+	}
+	return m.stagePrepared(prepared, false)
+}
+
+func (m *Module) StageRollback(
+	ctx context.Context,
+	installationID string,
+) (UpdatePreview, error) {
+	prepared, err := m.PrepareRollback(ctx, installationID)
+	if err != nil {
+		return UpdatePreview{}, err
+	}
+	return m.stagePrepared(prepared, true)
+}
+
+func (m *Module) ApplyStagedUpdate(
+	ctx context.Context,
+	token string,
+) (InstallationRecord, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return InstallationRecord{}, errors.New("staged Workflow Installation update token is invalid")
+	}
+	m.updateMu.Lock()
+	staged, found := m.staged[token]
+	delete(m.staged, token)
+	m.updateMu.Unlock()
+	if !found || m.now().UTC().Sub(staged.createdAt) > stagedUpdateTTL {
+		return InstallationRecord{}, errors.New("staged Workflow Installation update expired or was already consumed")
+	}
+	return m.ApplyUpdate(ctx, staged.prepared)
+}
+
+func (m *Module) stagePrepared(prepared PreparedUpdate, rollback bool) (UpdatePreview, error) {
+	if !prepared.Valid() {
+		return UpdatePreview{}, errors.New("prepared Workflow Installation update is invalid")
+	}
+	now := m.now().UTC()
+	m.updateMu.Lock()
+	defer m.updateMu.Unlock()
+	for token, current := range m.staged {
+		if now.Sub(current.createdAt) > stagedUpdateTTL ||
+			current.prepared.state.installation.ID == prepared.state.installation.ID {
+			delete(m.staged, token)
+		}
+	}
+	if len(m.staged) >= maxStagedUpdates {
+		return UpdatePreview{}, errors.New("too many staged Workflow Installation updates")
+	}
+	token := m.newID()
+	if strings.TrimSpace(token) == "" {
+		return UpdatePreview{}, errors.New("staged Workflow Installation update token is invalid")
+	}
+	if _, collision := m.staged[token]; collision {
+		return UpdatePreview{}, errors.New("staged Workflow Installation update token collision")
+	}
+	m.staged[token] = stagedUpdate{prepared: prepared, createdAt: now}
+	return UpdatePreview{
+		Token: token, InstallationID: prepared.state.installation.ID, Rollback: rollback,
+		Diff: prepared.Diff(), Conflicts: prepared.Conflicts(),
+		Readiness: prepared.CandidateReadiness(),
+	}, nil
 }
 
 // PrepareRollback stages the immediate cached previous Release through the
@@ -998,6 +1195,8 @@ func prepareUpdateConfiguration(
 	candidateRelease ReleaseRecord,
 	currentSource schema.WorkflowSource,
 	candidateSource schema.WorkflowSource,
+	currentCapabilities []CapabilityScope,
+	candidateCapabilities []CapabilityScope,
 ) (Configuration, UpdateDiff, []UpdateConflict, error) {
 	next := CloneConfiguration(current)
 	next.TargetProfiles = make(map[string]TargetProfile, len(candidateSource.TargetProfileDefinitions))
@@ -1012,6 +1211,12 @@ func prepareUpdateConfiguration(
 		VariablesChanged:    !canonicalEqual(currentSource.Variables, candidateSource.Variables),
 		DependenciesChanged: !canonicalEqual(currentSource.Dependencies, candidateSource.Dependencies),
 	}
+	diff.AddedDependencies, diff.RemovedDependencies = diffDependencyChanges(
+		currentSource.Dependencies, candidateSource.Dependencies,
+	)
+	diff.AddedCapabilities, diff.RemovedCapabilities = diffCapabilityScopes(
+		currentCapabilities, candidateCapabilities,
+	)
 	conflicts := make([]UpdateConflict, 0)
 	currentTargets := make(map[string]schema.TargetProfileDefinition, len(currentSource.TargetProfileDefinitions))
 	candidateTargets := make(map[string]schema.TargetProfileDefinition, len(candidateSource.TargetProfileDefinitions))
@@ -1148,6 +1353,18 @@ func sortUpdateDiff(diff *UpdateDiff) {
 	sort.Strings(diff.AddedCredentials)
 	sort.Strings(diff.ChangedCredentials)
 	sort.Strings(diff.RemovedCredentials)
+	sort.Slice(diff.AddedDependencies, func(i, j int) bool {
+		return dependencyChangeKey(diff.AddedDependencies[i]) < dependencyChangeKey(diff.AddedDependencies[j])
+	})
+	sort.Slice(diff.RemovedDependencies, func(i, j int) bool {
+		return dependencyChangeKey(diff.RemovedDependencies[i]) < dependencyChangeKey(diff.RemovedDependencies[j])
+	})
+	sort.Slice(diff.AddedCapabilities, func(i, j int) bool {
+		return capabilityScopeKey(diff.AddedCapabilities[i]) < capabilityScopeKey(diff.AddedCapabilities[j])
+	})
+	sort.Slice(diff.RemovedCapabilities, func(i, j int) bool {
+		return capabilityScopeKey(diff.RemovedCapabilities[i]) < capabilityScopeKey(diff.RemovedCapabilities[j])
+	})
 }
 
 func cloneUpdateDiff(diff UpdateDiff) UpdateDiff {
@@ -1157,7 +1374,91 @@ func cloneUpdateDiff(diff UpdateDiff) UpdateDiff {
 	diff.AddedCredentials = append([]string(nil), diff.AddedCredentials...)
 	diff.ChangedCredentials = append([]string(nil), diff.ChangedCredentials...)
 	diff.RemovedCredentials = append([]string(nil), diff.RemovedCredentials...)
+	diff.AddedDependencies = append([]DependencyChange(nil), diff.AddedDependencies...)
+	diff.RemovedDependencies = append([]DependencyChange(nil), diff.RemovedDependencies...)
+	diff.AddedCapabilities = cloneCapabilityScopes(diff.AddedCapabilities)
+	diff.RemovedCapabilities = cloneCapabilityScopes(diff.RemovedCapabilities)
 	return diff
+}
+
+func diffDependencyChanges(
+	current []schema.NodePackageDependency,
+	candidate []schema.NodePackageDependency,
+) ([]DependencyChange, []DependencyChange) {
+	project := func(source []schema.NodePackageDependency) map[string]DependencyChange {
+		result := make(map[string]DependencyChange, len(source))
+		for _, dependency := range source {
+			change := DependencyChange{
+				PublisherNamespace: dependency.PublisherNamespace,
+				PackageID:          dependency.PackageID, PackageVersion: dependency.PackageVersion,
+				ManifestDigest: dependency.ManifestDigest,
+			}
+			result[dependencyChangeKey(change)] = change
+		}
+		return result
+	}
+	before, after := project(current), project(candidate)
+	added, removed := make([]DependencyChange, 0), make([]DependencyChange, 0)
+	for key, change := range after {
+		if _, found := before[key]; !found {
+			added = append(added, change)
+		}
+	}
+	for key, change := range before {
+		if _, found := after[key]; !found {
+			removed = append(removed, change)
+		}
+	}
+	return added, removed
+}
+
+func diffCapabilityScopes(
+	current []CapabilityScope,
+	candidate []CapabilityScope,
+) ([]CapabilityScope, []CapabilityScope) {
+	project := func(source []CapabilityScope) map[string]CapabilityScope {
+		result := make(map[string]CapabilityScope, len(source))
+		for _, scope := range source {
+			scope.Operations = append([]string(nil), scope.Operations...)
+			sort.Strings(scope.Operations)
+			result[capabilityScopeKey(scope)] = scope
+		}
+		return result
+	}
+	before, after := project(current), project(candidate)
+	added, removed := make([]CapabilityScope, 0), make([]CapabilityScope, 0)
+	for key, scope := range after {
+		if _, found := before[key]; !found {
+			added = append(added, scope)
+		}
+	}
+	for key, scope := range before {
+		if _, found := after[key]; !found {
+			removed = append(removed, scope)
+		}
+	}
+	return added, removed
+}
+
+func dependencyChangeKey(change DependencyChange) string {
+	return strings.Join([]string{
+		change.PublisherNamespace, change.PackageID, change.PackageVersion, change.ManifestDigest.String(),
+	}, "\x00")
+}
+
+func capabilityScopeKey(scope CapabilityScope) string {
+	return strings.Join([]string{
+		scope.NodeTypeID, scope.CapabilityID, strings.Join(scope.Operations, "\x1f"),
+		scope.TargetSlot, scope.CredentialSlot, scope.Scope, scope.Risk, scope.Consent,
+	}, "\x00")
+}
+
+func cloneCapabilityScopes(source []CapabilityScope) []CapabilityScope {
+	result := append([]CapabilityScope(nil), source...)
+	for index := range result {
+		result[index].Operations = append([]string(nil), result[index].Operations...)
+	}
+	return result
 }
 
 func cloneReadinessReport(report ReadinessReport) ReadinessReport {

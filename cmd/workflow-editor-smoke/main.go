@@ -57,6 +57,9 @@ type pageState struct {
 	RecoveryPanel         bool           `json:"recoveryPanel"`
 	InstallationRows      int            `json:"installationRows"`
 	InstallationSettings  bool           `json:"installationSettings"`
+	InstallationUpdate    bool           `json:"installationUpdate"`
+	InstallationApply     bool           `json:"installationApply"`
+	InstallationRollback  bool           `json:"installationRollback"`
 	LauncherButton        bool           `json:"launcherButton"`
 	GraphChromeDark       bool           `json:"graphChromeDark"`
 	HandleOverlaps        int            `json:"handleOverlaps"`
@@ -195,13 +198,14 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 	}); err != nil {
 		return fmt.Errorf("seed workflow recovery fixture: %w", err)
 	}
-	sourceArtifact, err := artifact.Canonicalize([]byte(`{
+	sourceJSON := `{
 		"format":"yotta.workflow","version":"1",
 		"workflow":{"id":"smoke-release-workflow","name":"Installed smoke workflow"},
 		"revision":0,"entryGraph":"main",
 		"graphs":[{"id":"main","kind":"main","nodes":[],"edges":[],"inputs":[],"outputs":[]}],
 		"resources":[],"targetProfileDefinitions":[],"credentialRequirements":[],"dependencies":[],"variables":[]
-	}`))
+	}`
+	sourceArtifact, err := artifact.Canonicalize([]byte(sourceJSON))
 	if err != nil {
 		return fmt.Errorf("canonicalize smoke Workflow Release: %w", err)
 	}
@@ -236,6 +240,36 @@ func seedRecoveryFixture(ctx context.Context, root string) error {
 	}
 	if _, err := installations.InstallVerified(ctx, release, "Installed smoke workflow"); err != nil {
 		return fmt.Errorf("seed smoke Workflow Installation: %w", err)
+	}
+	candidateArtifact, err := artifact.Canonicalize([]byte(strings.Replace(
+		sourceJSON, "Installed smoke workflow", "Installed smoke workflow v2", 1,
+	)))
+	if err != nil {
+		return fmt.Errorf("canonicalize smoke candidate Workflow Release: %w", err)
+	}
+	candidateDigest, err := artifact.Sum("yotta/smoke/workflow-release/v1", candidateArtifact)
+	if err != nil {
+		return fmt.Errorf("identify smoke candidate Workflow Release: %w", err)
+	}
+	candidateAttestation, err := artifact.Sum(
+		"yotta/smoke/publisher-attestation/v1", []byte("verified smoke publisher v2"),
+	)
+	if err != nil {
+		return fmt.Errorf("identify smoke candidate Publisher Attestation: %w", err)
+	}
+	candidate, err := workflowinstallation.NewVerifiedRelease(
+		candidateArtifact,
+		workflowinstallation.VerificationReceipt{
+			ReleaseDigest: candidateDigest, AttestationDigest: candidateAttestation,
+			PublisherNamespace: release.PublisherNamespace, ReleaseVersion: "2.0.0",
+			VerifiedAt: verifiedAt.Add(time.Minute),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("construct smoke candidate Workflow Release: %w", err)
+	}
+	if err := installations.CacheVerifiedRelease(ctx, candidate); err != nil {
+		return fmt.Errorf("cache smoke candidate Workflow Release: %w", err)
 	}
 	return nil
 }
@@ -362,6 +396,72 @@ func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsS
 		return !current.InstallationSettings
 	}); err != nil {
 		return fmt.Errorf("close workflow installation settings: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
+		const button = row?.querySelector('[data-testid="workflow-installation-update"]');
+		if (!button) throw new Error('workflow installation update button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.InstallationUpdate
+	}); err != nil {
+		return fmt.Errorf("open workflow installation update: %w", err)
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-preview-update"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.InstallationApply
+	}); err != nil {
+		return fmt.Errorf("preview workflow installation update: %w", err)
+	}
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-update.png")); err != nil {
+			return fmt.Errorf("capture workflow installation update: %w", err)
+		}
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-apply-update"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.InstallationUpdate && current.InstallationRows == 1
+	}); err != nil {
+		return fmt.Errorf("apply workflow installation update: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
+		row?.querySelector('[data-testid="workflow-installation-update"]')?.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.InstallationUpdate && current.InstallationRollback
+	}); err != nil {
+		return fmt.Errorf("open workflow installation rollback: %w", err)
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-installation-preview-rollback"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.InstallationApply
+	}); err != nil {
+		return fmt.Errorf("preview workflow installation rollback: %w", err)
+	}
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(workflowsScreenshot, "workflow-installation-rollback.png")); err != nil {
+			return fmt.Errorf("capture workflow installation rollback: %w", err)
+		}
+	}
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.InstallationUpdate
+	}); err != nil {
+		return fmt.Errorf("close workflow installation rollback: %w", err)
 	}
 	if err := eval(ctx, client, `(() => {
 		const row = document.querySelector('[data-testid="workflow-installation-row"][data-installation-id="smoke-installation"]');
@@ -2044,6 +2144,9 @@ func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, 
 		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
 		installationRows: document.querySelectorAll('[data-testid="workflow-installation-row"]').length,
 		installationSettings: Boolean(document.querySelector('[data-testid="workflow-installation-settings-body"]')),
+		installationUpdate: Boolean(document.querySelector('[data-testid="workflow-installation-update-body"]')),
+		installationApply: Boolean(document.querySelector('[data-testid="workflow-installation-apply-update"]:not(:disabled)')),
+		installationRollback: Boolean(document.querySelector('[data-testid="workflow-installation-preview-rollback"]')),
 		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
 		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
 		handleOverlaps,

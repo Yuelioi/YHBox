@@ -57,7 +57,7 @@ describe('WorkflowsView entry points', () => {
   })
 
   it('keeps Source refresh in the library menu and gives installations their own refresh action', () => {
-    expect(source.match(/i-tabler-refresh/g)).toHaveLength(2)
+    expect(source.match(/i-tabler-refresh/g)).toHaveLength(3)
     expect(source).toContain('@click="loadInstallations"')
     expect(assetsSource.match(/i-tabler-refresh/g)).toHaveLength(1)
   })
@@ -67,6 +67,13 @@ describe('WorkflowsView entry points', () => {
     expect(source).toContain("t('workflow.installation.derive_description')")
     expect(source).toContain('workflowTransport.deriveInstallationSource')
     expect(source).toContain('router.push(`/workflows/${derived.workflowId}/edit`)')
+  })
+
+  it('opens the staged update and rollback surface from each Installation', () => {
+    expect(source).toContain('data-testid="workflow-installation-update"')
+    expect(source).toContain('<WorkflowInstallationUpdateModal')
+    expect(source).toContain('v-model:open="installationUpdateOpen"')
+    expect(source).toContain('@applied="loadInstallations"')
   })
 
   it('previews references and performs CAS-protected partial batch deletion', () => {

@@ -33,6 +33,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowinstallation"
 	"github.com/yottaapp/yotta/internal/workflowstore"
@@ -364,6 +365,9 @@ func Build(config Config) (*Runtime, error) {
 			return automationTargets.WorkflowTargetStates(), nil
 		},
 		Credentials: config.CredentialStates,
+		Capabilities: func(ctx context.Context, source schema.WorkflowSource) ([]workflowinstallation.CapabilityScope, error) {
+			return projectWorkflowCapabilityScopes(ctx, source, catalog, config.NodePackageStore)
+		},
 	})
 	if err != nil {
 		return nil, err

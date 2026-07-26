@@ -246,24 +246,42 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := runtime.Installations.CacheVerifiedRelease(context.Background(), candidate); err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := service.ListInstallationUpdateCandidates(installation.ID)
+	if err != nil || len(candidates) != 1 || candidates[0].ReleaseID != candidate.ID ||
+		candidates[0].ImmediatePrevious {
+		t.Fatalf("ListInstallationUpdateCandidates() = %#v, %v", candidates, err)
+	}
 	pausedInstallationID := ""
+	pauseFailure := false
 	if err := runtime.SetWorkflowInstallationSchedulePauser(func(installationID string) ([]string, error) {
 		pausedInstallationID = installationID
+		if pauseFailure {
+			return nil, errors.New("injected schedule pause reconciliation")
+		}
 		return []string{"schedule-a"}, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	preparedUpdate, err := runtime.PrepareWorkflowInstallationUpdate(
-		context.Background(), installation.ID, candidate,
-	)
-	if err != nil || !preparedUpdate.Valid() || len(preparedUpdate.Conflicts()) != 0 {
-		t.Fatalf("PrepareWorkflowInstallationUpdate() = %#v, %v", preparedUpdate, err)
+	preview, err := service.PreviewInstallationUpdate(installation.ID, candidate.ID.String())
+	if err != nil || preview.Token == "" || preview.Diff.CandidateReleaseID != candidate.ID ||
+		len(preview.Conflicts) != 0 {
+		t.Fatalf("PreviewInstallationUpdate() = %#v, %v", preview, err)
 	}
-	updatedInstallation, err := runtime.ApplyWorkflowInstallationUpdate(context.Background(), preparedUpdate)
-	if err != nil || updatedInstallation.ReleaseID != candidate.ID ||
-		updatedInstallation.PreviousReleaseID != release.ID ||
+	updatedInstallation, err := service.ApplyInstallationUpdate(preview.Token)
+	if err != nil || updatedInstallation.Installation.ReleaseID != candidate.ID ||
+		updatedInstallation.ReconciliationRequired ||
 		pausedInstallationID != installation.ID {
-		t.Fatalf("ApplyWorkflowInstallationUpdate() = %#v, %v", updatedInstallation, err)
+		t.Fatalf("ApplyInstallationUpdate() = %#v, %v", updatedInstallation, err)
+	}
+	if _, err := service.ApplyInstallationUpdate(preview.Token); err == nil {
+		t.Fatal("ApplyInstallationUpdate reused a consumed preview")
+	}
+	rollback, err := service.PreviewInstallationRollback(installation.ID)
+	if err != nil || !rollback.Rollback || rollback.Diff.CandidateReleaseID != release.ID {
+		t.Fatalf("PreviewInstallationRollback() = %#v, %v", rollback, err)
 	}
 	afterUpdate, err := service.GetInstallationReadiness(installation.ID)
 	if err != nil || afterUpdate.ReleaseID != candidate.ID || afterUpdate.RunAllowed ||
@@ -277,6 +295,12 @@ func TestRuntimeStartsOnlyReadyWorkflowInstallationThroughSharedApplication(t *t
 		context.Background(), installation.ID, workflowinstallation.ScopeSchedule,
 	); err == nil {
 		t.Fatal("schedule accepted Installation without schedule execution consent")
+	}
+	pauseFailure = true
+	reconciledRollback, err := service.ApplyInstallationUpdate(rollback.Token)
+	if err != nil || !reconciledRollback.ReconciliationRequired ||
+		reconciledRollback.Installation.ReleaseID != release.ID {
+		t.Fatalf("postcommit rollback reconciliation = %#v, %v", reconciledRollback, err)
 	}
 }
 

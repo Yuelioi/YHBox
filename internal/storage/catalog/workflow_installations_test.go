@@ -152,6 +152,13 @@ func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically
 	if err := repository.Commit(context.Background(), current, installation, configuration); err != nil {
 		t.Fatal(err)
 	}
+	if err := repository.CacheRelease(context.Background(), candidate); err != nil {
+		t.Fatal(err)
+	}
+	beforeSwitch, found, err := repository.GetInstallation(context.Background(), installation.ID)
+	if err != nil || !found || beforeSwitch.ReleaseID != current.ID {
+		t.Fatalf("CacheRelease changed Installation = %#v, found=%v err=%v", beforeSwitch, found, err)
+	}
 	switchedAt := now.Add(time.Minute)
 	nextInstallation := installation
 	nextInstallation.ReleaseID = candidate.ID
@@ -178,6 +185,12 @@ func TestWorkflowInstallationRepositorySwitchesReleaseAndConfigurationAtomically
 	if err != nil || !found || loadedConfiguration.Generation != 2 ||
 		loadedConfiguration.TargetProfiles["desktop"].ReleaseID != candidate.ID {
 		t.Fatalf("updated configuration = %#v, found=%v err=%v", loadedConfiguration, found, err)
+	}
+	releases, err := repository.ListReleases(
+		context.Background(), current.PublisherNamespace, current.WorkflowID,
+	)
+	if err != nil || len(releases) != 2 || releases[0].ID != candidate.ID || releases[1].ID != current.ID {
+		t.Fatalf("ListReleases() = %#v, %v", releases, err)
 	}
 
 	staleCandidate := catalogTestUpdatedRelease(t, current, "3.0.0")
