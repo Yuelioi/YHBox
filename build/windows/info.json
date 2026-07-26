@@ -1,0 +1,17 @@
+{
+	"fixed": {
+		"file_version": "4.0.0.0",
+		"product_version": "4.0.0.0"
+	},
+	"info": {
+		"0409": {
+			"Comments": "Wails 3 + Vue 3 + NuxtUI v4",
+			"CompanyName": "Yotta",
+			"FileDescription": "节点编排，自动执行",
+			"FileVersion": "4.0.0",
+			"LegalCopyright": "(c) 2026 Yotta",
+			"ProductName": "Yotta",
+			"ProductVersion": "4.0.0"
+		}
+	}
+}

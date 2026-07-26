@@ -1,0 +1,29 @@
+{
+  "protocol": "yotta.plugin/1",
+  "vectors": [
+    {
+      "name": "minimal-invocation",
+      "direction": "host-to-guest",
+      "frameBase64": "Cg55b3R0YS5wbHVnaW4vMRABUkkKCXJlcXVlc3QtMRIMaW52b2NhdGlvbi0xGgRtYWluIgZub2RlLTEoATABOAJCAnt9SgJ7fVICe31qDgiAgIAEEICAgAQYCCAI",
+      "sha256": "0120024227f341a94bc72ff290ecfc264e6d3e14f6c998f21c040e6041459956"
+    },
+    {
+      "name": "successful-result",
+      "direction": "guest-to-host",
+      "frameBase64": "Cg55b3R0YS5wbHVnaW4vMRACkgEPCAEqC2Nvb3BlcmF0aXZl",
+      "sha256": "b367741a062d10802578fc84094bee5a66dd92c6684e2ee60541ea0f3c1c5723"
+    },
+    {
+      "name": "capability-denied",
+      "direction": "host-to-guest",
+      "frameBase64": "Cg55b3R0YS5wbHVnaW4vMRADYj0KBm9wZW4tMRozChdwbHVnaW4uaG9zdF9jYWxsX2ZhaWxlZBoYcmVzb3VyY2Ugb3BlbiB3YXMgZGVuaWVk",
+      "sha256": "1d0a4439732afd0962bbcca342022db0d443a90e9c00652516d33b722fc8e0ba"
+    },
+    {
+      "name": "deadline-cancel",
+      "direction": "host-to-guest",
+      "frameBase64": "Cg55b3R0YS5wbHVnaW4vMRAEmgETChFkZWFkbGluZV9leGNlZWRlZA==",
+      "sha256": "ef4ef66fd52d527c28f8e9131726c9f13b84dd30aca843c6f93ac5d4636adb91"
+    }
+  ]
+}

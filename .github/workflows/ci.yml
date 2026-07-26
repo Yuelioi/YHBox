@@ -1,0 +1,341 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+
+concurrency:
+  group: go-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Scan Git history for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+
+  security:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux package-loading dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: Scan reachable Go vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Check frontend production licenses
+        run: |
+          pnpm -C frontend install --frozen-lockfile
+          pnpm -C frontend licenses list --prod --json > frontend/third-party-licenses.json
+          node frontend/scripts/check-licenses.mjs frontend/third-party-licenses.json
+
+      - name: Upload frontend license report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: third-party-frontend-licenses
+          path: frontend/third-party-licenses.json
+
+  rust-supply-chain:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check Rust advisories and licenses
+        uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2.0.20
+        with:
+          manifest-path: native/capture_wgc/Cargo.toml
+          command: check advisories licenses
+          arguments: --all-features
+
+  quality-windows:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Task
+        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        with:
+          version: 3.49.1
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Run canonical quality gate
+        run: task check:full
+
+      - name: Verify module identity
+        shell: pwsh
+        run: |
+          $module = go list -m
+          if ($module -ne "github.com/yottaapp/yotta") {
+            throw "unexpected Go module path: $module"
+          }
+
+      - name: Check and report third-party Go licenses
+        shell: pwsh
+        run: |
+          go run ./cmd/check-go-licenses | Set-Content -Encoding utf8NoBOM third-party-go-licenses.csv
+
+      - name: Upload third-party Go license report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: third-party-go-licenses
+          path: third-party-go-licenses.csv
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-coverage-windows
+          path: coverage.out
+
+  race-windows:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Race-sensitive packages
+        run: >-
+          go test -race
+          ./internal/services
+          ./internal/application
+          ./internal/noderuntime
+          ./internal/run
+          ./internal/workflowstore
+          ./internal/services/schedule
+          ./internal/services/tools
+          ./internal/services/inputclip
+          ./internal/hotkey
+          ./pkg/winutil
+          ./pkg/capture
+
+  fuzz-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Fuzz MCP node parameters
+        run: go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime=10s
+
+      - name: Fuzz Workflow v3 strict parser
+        run: go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime=10s
+
+      - name: Fuzz Workflow v3 compiler
+        run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime=10s
+
+      - name: Fuzz Workflow v3 Program open
+        run: go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime=10s
+
+  portable-core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test platform-neutral core
+        run: >-
+          go test
+          ./internal/apperr
+          ./internal/artifact
+          ./internal/automation/controller
+          ./internal/automation/installed
+          ./internal/automation/target
+          ./internal/automation/trace
+          ./internal/capability
+          ./internal/datatype
+          ./internal/nodeauthoring
+          ./internal/nodecatalog
+          ./internal/nodecontract
+          ./internal/nodes
+          ./internal/nodepackage
+          ./internal/pluginconformance
+          ./internal/pluginfixture
+          ./internal/pluginhost
+          ./internal/pluginprotocol
+          ./internal/processsandbox
+          ./internal/run
+          ./internal/services
+          ./internal/services/mcpserver
+          ./internal/services/workflow
+          ./internal/wasmrunner
+          ./internal/workflow/authoring
+          ./internal/workflow/compiler
+          ./internal/workflow/schema
+          ./internal/workflowstore
+          ./pkg/imageutil
+          ./pkg/locale
+          ./pkg/runctl
+          ./pkg/vision
+          ./sdk/plugin/go
+
+  gui-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            binary: yotta-linux-amd64
+            artifact: yotta-linux-amd64
+            cgo: "1"
+          - os: macos-15
+            binary: yotta-darwin-arm64
+            artifact: yotta-darwin-arm64
+            cgo: "1"
+          - os: windows-2025
+            binary: Yotta-windows-amd64.exe
+            artifact: yotta-windows-amd64
+            cgo: "0"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+
+      - name: Verify Wails toolchain
+        shell: pwsh
+        run: ./scripts/verify-wails-version.ps1 -CheckInstalled
+
+      - name: Install frontend dependencies
+        run: pnpm -C frontend install --frozen-lockfile
+
+      - name: Generate bindings
+        run: node frontend/scripts/generate-bindings.mjs
+
+      - name: Build production frontend
+        run: pnpm -C frontend build
+
+      # Compile only: this must not launch the GUI on a hosted runner. On Windows this is
+      # the Wails production-tag compile smoke; installer, DLL and runtime smoke stay separate.
+      - name: Compile production GUI
+        shell: pwsh
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          $output = "bin/${{ matrix.binary }}"
+          if ($env:RUNNER_OS -eq "Windows") {
+            go build -tags production -trimpath -ldflags="-w -s -H windowsgui" -o $output .
+          } else {
+            go build -tags production -trimpath -o $output .
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload GUI compile binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin/${{ matrix.binary }}
+          if-no-files-found: error

@@ -1,0 +1,171 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+vars:
+  # Signing configuration - edit these values for your project
+  # SIGN_CERTIFICATE: "path/to/certificate.pfx"
+  # SIGN_THUMBPRINT: "certificate-thumbprint"  # Alternative to SIGN_CERTIFICATE
+  # TIMESTAMP_SERVER: "http://timestamp.digicert.com"
+  #
+  # Password is stored securely in system keychain. Run: wails3 setup signing
+
+tasks:
+  build:
+    summary: Builds the application for Windows
+    cmds:
+      - task: build:native
+        vars:
+          ARCH: '{{.ARCH}}'
+          DEV: '{{.DEV}}'
+          EXTRA_TAGS: '{{.EXTRA_TAGS}}'
+
+  build:native:
+    summary: Builds the application using native Go cross-compilation
+    internal: true
+    vars:
+      # production tag 让 wails3 走 embed dist 而不是 vite dev server；
+      # -H windowsgui 隐藏启动时弹的 cmd 黑窗口（wails3 是 GUI 应用）。
+      # dev/EXTRA_TAGS 分支保留但默认走 production —— 本仓 dev workflow 走 `task dev`，
+      # 不用过这条 task。如果以后需要纯 dev native build，传 DEV=true 进来。
+      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="-X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}"{{end}}'
+    deps:
+      - task: common:build:frontend
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+          DEV:
+            ref: .DEV
+      - task: build:adb
+      - task: build:capture-dll
+      - task: build:script-worker
+      - task: build:wasm-plugin-runner
+      - task: build:cli
+    cmds:
+      - task: generate:syso
+        vars:
+          ARCH: '{{.ARCH}}'
+          DEV: '{{.DEV}}'
+      - go build -mod=readonly {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
+      - cmd: powershell Remove-item *.syso
+        platforms: [windows]
+      - cmd: rm -f *.syso
+        platforms: [linux, darwin]
+
+    env:
+      GOOS: windows
+      CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:script-worker:
+    summary: Builds the isolated headless JavaScript worker
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" ./cmd/yotta-script-worker
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:wasm-plugin-runner:
+    summary: Builds the isolated trusted WebAssembly plugin runner
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" -o "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" ./cmd/yotta-wasm-plugin-runner
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  build:cli:
+    summary: Builds the headless Workflow command client
+    cmds:
+      - go build -mod=readonly -tags production -trimpath -buildvcs=false -ldflags="-w -s -X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" ./cmd/yotta
+    env:
+      GOOS: windows
+      CGO_ENABLED: '0'
+      GOARCH: '{{.ARCH | default ARCH}}'
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  smoke:plugins:
+    summary: Runs signed Process and Wasm packages through the real Windows isolation chain
+    cmds:
+      - go run ./cmd/plugin-smoke
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  smoke:automation:
+    summary: Runs the explicit Windows input, capture, recording, and window-operation stage smoke
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-windows-automation.ps1
+
+  build:capture-dll:
+    summary: |
+      Builds the Rust WGC capture DLL (Windows Graphics Capture backend).
+      Output: bin/capture_wgc.dll, loaded by pkg/capture at runtime via syscall.LazyDLL.
+      cargo handles incremental builds; this task only re-copies the dll into bin/.
+    sources:
+      - "{{.ROOT_DIR}}/native/capture_wgc/Cargo.toml"
+      - "{{.ROOT_DIR}}/native/capture_wgc/Cargo.lock"
+      - "{{.ROOT_DIR}}/native/capture_wgc/src/**/*.rs"
+    generates:
+      - "{{.ROOT_DIR}}/{{.BIN_DIR}}/capture_wgc.dll"
+    cmds:
+      - cargo build --release --locked --manifest-path "{{.ROOT_DIR}}/native/capture_wgc/Cargo.toml"
+      - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.ROOT_DIR}}/{{.BIN_DIR}}' | Out-Null; Copy-Item '{{.ROOT_DIR}}/native/capture_wgc/target/release/capture_wgc.dll' '{{.ROOT_DIR}}/{{.BIN_DIR}}/capture_wgc.dll' -Force"
+        platforms: [windows]
+    preconditions:
+      - sh: cargo --version > /dev/null 2>&1 || cargo.exe --version > /dev/null 2>&1
+        msg: "cargo (Rust) not found in PATH. Install Rust toolchain: https://rustup.rs/"
+
+  build:adb:
+    summary: Copies the bundled Windows ADB runtime into bin/platform-tools.
+    sources:
+      - "{{.ROOT_DIR}}/build/windows/platform-tools/**/*"
+    generates:
+      - "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools/adb.exe"
+    cmds:
+      - cmd: powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '{{.ROOT_DIR}}\\{{.BIN_DIR}}\\platform-tools' | Out-Null; Copy-Item -Path '{{.ROOT_DIR}}\\build\\windows\\platform-tools\\*' -Destination '{{.ROOT_DIR}}\\{{.BIN_DIR}}\\platform-tools' -Recurse -Force"
+        platforms: [windows]
+      - cmd: mkdir -p "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools" && cp -R "{{.ROOT_DIR}}/build/windows/platform-tools/." "{{.ROOT_DIR}}/{{.BIN_DIR}}/platform-tools/"
+        platforms: [linux, darwin]
+
+  generate:syso:
+    summary: Generates Windows `.syso` file
+    dir: build
+    cmds:
+      # Wails starts the development executable via fork/exec, which cannot
+      # satisfy a requireAdministrator manifest. Release builds keep the
+      # production manifest and its UAC contract.
+      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/{{if eq .DEV "true"}}wails.dev.manifest{{else}}wails.exe.manifest{{end}} -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+      DEV: '{{.DEV}}'
+
+  run:
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
+
+  sign:
+    summary: Signs the already-built frozen Windows payload without rebuilding it
+    desc: |
+      Signs the .exe with an Authenticode certificate.
+      Configure SIGN_CERTIFICATE or SIGN_THUMBPRINT in the vars section at the top of this file.
+      Password is retrieved from system keychain (run: wails3 setup signing)
+    cmds:
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe" {{if .SIGN_CERTIFICATE}}--certificate {{.SIGN_CERTIFICATE}}{{end}} {{if .SIGN_THUMBPRINT}}--thumbprint {{.SIGN_THUMBPRINT}}{{end}} {{if .TIMESTAMP_SERVER}}--timestamp {{.TIMESTAMP_SERVER}}{{end}}
+    preconditions:
+      - sh: '[ -n "{{.SIGN_CERTIFICATE}}" ] || [ -n "{{.SIGN_THUMBPRINT}}" ]'
+        msg: "Either SIGN_CERTIFICATE or SIGN_THUMBPRINT is required. Set it in the vars section at the top of build/windows/Taskfile.yml"
+      - sh: 'powershell -NoProfile -Command "if (-not ((Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.ScriptWorker.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.WasmPluginRunner.exe'' -PathType Leaf) -and (Test-Path -LiteralPath ''{{.BIN_DIR}}/{{.APP_NAME}}.CLI.exe'' -PathType Leaf))) { exit 1 }"'
+        msg: "Build and freeze the Windows payload before signing; the sign task never rebuilds"

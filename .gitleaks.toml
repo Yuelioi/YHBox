@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependency scanner fixture identifiers, not credentials"
+regexTarget = "match"
+regexes = [
+  '''3680b3d2-d31d-461c-b697-0d9c3e6a87ed''',
+  '''clip-2ba73f97-2820-4090-958a-c07dd3f8f48c''',
+]

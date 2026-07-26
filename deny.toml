@@ -1,0 +1,15 @@
+[advisories]
+ignore = []
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+# The workspace crate follows the repository's source-available LICENSE and is
+# never published to crates.io; cargo-deny still checks every third-party crate.
+ignore = true

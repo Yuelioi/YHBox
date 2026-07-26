@@ -1,0 +1,1121 @@
+{
+  "$defs": {
+    "ABIRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "builtin",
+            "host-instruction",
+            "wit",
+            "process"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^v[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "version"
+      ],
+      "type": "object"
+    },
+    "Authoring": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/PortAuthoring"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "titleKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tags",
+        "ports"
+      ],
+      "type": "object"
+    },
+    "ConfigValidatorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "configKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "validatorId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "configKey",
+        "validatorId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "ConversionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "autoInsert": {
+          "type": "boolean"
+        },
+        "cost": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inputPort": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "lossless",
+            "lossy",
+            "parser"
+          ],
+          "type": "string"
+        },
+        "outputPort": {
+          "type": "string"
+        },
+        "total": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "inputPort",
+        "outputPort",
+        "kind",
+        "total",
+        "cost",
+        "autoInsert"
+      ],
+      "type": "object"
+    },
+    "CountedLoopInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "countInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "maxIterations": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "countInput",
+        "indexOutput",
+        "ordinalType",
+        "maxIterations"
+      ],
+      "type": "object"
+    },
+    "DataInputPort": {
+      "additionalProperties": false,
+      "properties": {
+        "default": true,
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "resourceLease": {
+          "$ref": "#/$defs/ResourceLeaseBinding"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "required"
+      ],
+      "type": "object"
+    },
+    "DataOutputPort": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "resourceLease": {
+          "$ref": "#/$defs/ResourceLeaseBinding"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ErrorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "retryHint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "retryHint"
+      ],
+      "type": "object"
+    },
+    "ExecutionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cache": {
+          "enum": [
+            "none",
+            "per-run"
+          ],
+          "type": "string"
+        },
+        "cancellation": {
+          "enum": [
+            "cooperative",
+            "immediate",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "class": {
+          "enum": [
+            "pure-data",
+            "effect",
+            "control",
+            "event",
+            "region",
+            "marker",
+            "visual"
+          ],
+          "type": "string"
+        },
+        "determinism": {
+          "enum": [
+            "deterministic",
+            "recorded",
+            "nondeterministic"
+          ],
+          "type": "string"
+        },
+        "effects": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "evaluation": {
+          "enum": [
+            "pull",
+            "push"
+          ],
+          "type": "string"
+        },
+        "retry": {
+          "enum": [
+            "never",
+            "idempotent",
+            "operation-id"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "enum": [
+            "none",
+            "required",
+            "optional"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "class",
+        "effects",
+        "determinism",
+        "evaluation",
+        "cache",
+        "retry",
+        "cancellation",
+        "timeout"
+      ],
+      "type": "object"
+    },
+    "ForEachInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "itemOutput": {
+          "type": "string"
+        },
+        "itemsInput": {
+          "type": "string"
+        },
+        "maxItems": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "itemsInput",
+        "indexOutput",
+        "itemOutput",
+        "ordinalType",
+        "maxItems"
+      ],
+      "type": "object"
+    },
+    "HostFeatureRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "featureId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "featureId"
+      ],
+      "type": "object"
+    },
+    "InstanceResolver": {
+      "additionalProperties": false,
+      "properties": {
+        "maxPorts": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "resolverId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resolverId",
+        "semanticDigest",
+        "maxPorts"
+      ],
+      "type": "object"
+    },
+    "InstructionSpec": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "invoke": {
+              "$ref": "#/$defs/InvokeInstruction"
+            },
+            "kind": {
+              "const": "invoke"
+            }
+          },
+          "required": [
+            "kind",
+            "invoke"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run-root"
+            },
+            "runRoot": {
+              "$ref": "#/$defs/RunRootInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "runRoot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "countedLoop": {
+              "$ref": "#/$defs/CountedLoopInstruction"
+            },
+            "kind": {
+              "const": "counted-loop"
+            }
+          },
+          "required": [
+            "kind",
+            "countedLoop"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "forEach": {
+              "$ref": "#/$defs/ForEachInstruction"
+            },
+            "kind": {
+              "const": "for-each"
+            }
+          },
+          "required": [
+            "kind",
+            "forEach"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "retry"
+            },
+            "retry": {
+              "$ref": "#/$defs/RetryInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "retry"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "InvokeInstruction": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "MachineContract": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityRequirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "configSchemaBundle": {
+          "items": {
+            "$ref": "#/$defs/Resource"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "configSchemaRoot": {
+          "format": "uri",
+          "type": "string"
+        },
+        "configValidators": {
+          "items": {
+            "$ref": "#/$defs/ConfigValidatorSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "conversion": {
+          "$ref": "#/$defs/ConversionSpec"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/ErrorSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionSpec"
+        },
+        "hostFeatureRequirements": {
+          "items": {
+            "$ref": "#/$defs/HostFeatureRequirement"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "implementationABI": {
+          "items": {
+            "$ref": "#/$defs/ABIRequirement"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "instanceResolver": {
+          "$ref": "#/$defs/InstanceResolver"
+        },
+        "instruction": {
+          "$ref": "#/$defs/InstructionSpec"
+        },
+        "nodeTypeId": {
+          "format": "uri",
+          "type": "string"
+        },
+        "ports": {
+          "$ref": "#/$defs/PortSet"
+        },
+        "requirementBindings": {
+          "items": {
+            "$ref": "#/$defs/RequirementBindingSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "stateAccesses": {
+          "items": {
+            "$ref": "#/$defs/StateAccessSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "statusEvents": {
+          "items": {
+            "$ref": "#/$defs/StatusEventSpec"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "version",
+        "configSchemaRoot",
+        "configSchemaBundle",
+        "ports",
+        "execution",
+        "instruction",
+        "hostFeatureRequirements",
+        "capabilityRequirements",
+        "requirementBindings",
+        "configValidators",
+        "errors",
+        "statusEvents",
+        "stateAccesses",
+        "implementationABI"
+      ],
+      "type": "object"
+    },
+    "NodeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeTypeId": {
+          "format": "uri",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "version",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "PortAuthoring": {
+      "additionalProperties": false,
+      "properties": {
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "group": {
+          "enum": [
+            "required",
+            "common",
+            "advanced",
+            "output"
+          ],
+          "type": "string"
+        },
+        "helpKey": {
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "titleKey": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PortSet": {
+      "additionalProperties": false,
+      "properties": {
+        "dataInputs": {
+          "items": {
+            "$ref": "#/$defs/DataInputPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "dataOutputs": {
+          "items": {
+            "$ref": "#/$defs/DataOutputPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "errorOutputs": {
+          "items": {
+            "$ref": "#/$defs/SignalPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "execInputs": {
+          "items": {
+            "$ref": "#/$defs/SignalPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "execOutputs": {
+          "items": {
+            "$ref": "#/$defs/SignalPort"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        }
+      },
+      "required": [
+        "dataInputs",
+        "dataOutputs",
+        "execInputs",
+        "execOutputs",
+        "errorOutputs"
+      ],
+      "type": "object"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityId": {
+          "type": "string"
+        },
+        "semanticDigest": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "capabilityId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "Requirement": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/Ref"
+        },
+        "credentialSlot": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scope": true,
+        "targetSlot": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "capability",
+        "operations",
+        "targetSlot",
+        "scope"
+      ],
+      "type": "object"
+    },
+    "RequirementBindingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "credentialSlotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "requirementId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "targetSlotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId"
+      ],
+      "type": "object"
+    },
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "schema": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "schema"
+      ],
+      "type": "object"
+    },
+    "ResourceLeaseBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "requirementId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId",
+        "operations"
+      ],
+      "type": "object"
+    },
+    "RetryInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "attemptOutput": {
+          "type": "string"
+        },
+        "attemptsInput": {
+          "type": "string"
+        },
+        "bodyOutput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "exhaustedOutput": {
+          "type": "string"
+        },
+        "maxAttempts": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        },
+        "retryInput": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryInput",
+        "retryInput",
+        "bodyOutput",
+        "completedOutput",
+        "exhaustedOutput",
+        "attemptsInput",
+        "attemptOutput",
+        "ordinalType",
+        "maxAttempts"
+      ],
+      "type": "object"
+    },
+    "RunRootInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "output": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output"
+      ],
+      "type": "object"
+    },
+    "SignalPort": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "StateAccessSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "slotConfigKey",
+        "type",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "StatusEventSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "progress",
+            "waiting",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category"
+      ],
+      "type": "object"
+    },
+    "TypeExpression": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ref",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/TypeRef"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "element": {
+              "$ref": "#/$defs/TypeExpression"
+            },
+            "kind": {
+              "const": "list",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "element"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "union",
+              "type": "string"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/TypeExpression"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "members"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "constraints": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "kind": {
+              "const": "variable",
+              "type": "string"
+            },
+            "variable": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "variable"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "TypeExpression"
+    },
+    "TypeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "typeId": {
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "typeId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://yottaapp.dev/contracts/node/v1/node-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authoring": {
+      "$ref": "#/$defs/Authoring"
+    },
+    "format": {
+      "enum": [
+        "yotta.node-contract"
+      ],
+      "type": "string"
+    },
+    "nodeRef": {
+      "$ref": "#/$defs/NodeRef"
+    },
+    "semantic": {
+      "$ref": "#/$defs/MachineContract"
+    },
+    "version": {
+      "enum": [
+        "1"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "nodeRef",
+    "semantic",
+    "authoring"
+  ],
+  "title": "Yotta Node Contract",
+  "type": "object"
+}

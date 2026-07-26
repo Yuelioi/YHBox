@@ -1,0 +1,339 @@
+// WGC backend: syscall 调 capture_wgc.dll（Rust 编出来的 cdylib）。
+//
+// DLL 暴露 4 个 C 函数（详见 native/capture_wgc/src/lib.rs）：
+//
+//	uint64_t wgc_session_open(hwnd, *out_w, *out_h)
+//	int32_t  wgc_session_grab(sid, buf, buf_len, *out_w, *out_h)
+//	void     wgc_session_close(sid)
+//	const char* wgc_last_error()
+//
+// 每个 session 在 DLL 内部对应一个 sid（HashMap 管理）。多个 session 同时跑
+// 各持各的 sid，互不干扰。
+//
+// 文件名带 _windows.go 因为 syscall.LazyDLL 是 Windows 专属。本项目本来就只跑
+// Windows，保留这个 suffix 让 go vet / cross-compile 不误报。
+
+package capture
+
+import (
+	"fmt"
+	"image"
+	"sync"
+	"syscall"
+	"time"
+	"unsafe"
+
+	"github.com/lxn/win"
+
+	"github.com/yottaapp/yotta/pkg/winutil"
+)
+
+// DLL 错误码常量，跟 Rust 端对齐（参见 native/capture_wgc/src/lib.rs）
+const (
+	wgcOK             = 0
+	wgcErrBufTooSmall = -1
+	wgcErrNotReady    = -2
+	// < -10 是真错误，统一当 fatal 处理
+)
+
+var (
+	wgcDLL          *syscall.LazyDLL
+	wgcSessionOpen  *syscall.LazyProc
+	wgcSessionGrab  *syscall.LazyProc
+	wgcSessionClose *syscall.LazyProc
+	wgcLastError    *syscall.LazyProc
+	wgcLoadOnce     sync.Once
+	wgcLoadErr      error
+)
+
+// initWGC 加载 DLL 并解析符号；多次调用幂等。
+// 加载失败原因通常是 DLL 不在 exe 同目录（task build 走了但 dll 没拷到 bin/）。
+func initWGC() error {
+	wgcLoadOnce.Do(func() {
+		// LazyDLL 按 Windows 搜索路径找 capture_wgc.dll：
+		//   1. exe 同目录
+		//   2. PATH
+		// 在 dev mode (wails3 dev) 下 cwd 通常是项目根，那时 dll 也在 bin/，
+		// 需要 PATH 或者手动加 bin/。但 dev mode 一般用不到 WGC，先不管。
+		wgcDLL = syscall.NewLazyDLL("capture_wgc.dll")
+		if err := wgcDLL.Load(); err != nil {
+			wgcLoadErr = fmt.Errorf("加载 capture_wgc.dll 失败: %w (确认 bin/capture_wgc.dll 存在，且 cwd 跟 exe 同目录)", err)
+			return
+		}
+		wgcSessionOpen = wgcDLL.NewProc("wgc_session_open")
+		wgcSessionGrab = wgcDLL.NewProc("wgc_session_grab")
+		wgcSessionClose = wgcDLL.NewProc("wgc_session_close")
+		wgcLastError = wgcDLL.NewProc("wgc_last_error")
+		// LazyProc.Find 主动解析符号，没找到的话第一次 Call 才报错
+		for _, p := range []*syscall.LazyProc{wgcSessionOpen, wgcSessionGrab, wgcSessionClose, wgcLastError} {
+			if err := p.Find(); err != nil {
+				wgcLoadErr = fmt.Errorf("找不到导出 %s: %w", p.Name, err)
+				return
+			}
+		}
+	})
+	return wgcLoadErr
+}
+
+// dllLastError 读 wgc_last_error() 返回的 C 字符串。线程本地，Go-syscall 走的
+// 是当前 OS 线程，多数情况能拿到对应调用的错误（除非中间 goroutine 切换了线程，
+// 但 syscall 期间 runtime 不会切线程，所以稳）。
+func dllLastError() string {
+	if wgcLastError == nil {
+		return "wgc dll not loaded"
+	}
+	r, _, _ := wgcLastError.Call()
+	if r == 0 {
+		return ""
+	}
+	return winutil.ReadCString(r)
+}
+
+// wgcSession 是单个 HWND 的捕获会话。
+//
+// mu 保护 grab path (buf / width / height / DLL sid). 同 session 多 goroutine 调
+// grab 会 race buf 写入, 加锁串行化. cache 复用模式 (wgcFrame 共享同 HWND session)
+// 可能并发, 加锁是 safety net.
+type wgcSession struct {
+	mu     sync.Mutex
+	sid    uint64
+	hwnd   win.HWND
+	width  int32 // 上一次 grab 看到的尺寸；可能变（窗口 resize）
+	height int32
+	buf    []byte // BGRA 缓冲；需要时按 width*height*4 扩
+}
+
+func openWGCSession(hwnd win.HWND) (*wgcSession, error) {
+	if err := initWGC(); err != nil {
+		return nil, err
+	}
+	var w, h int32
+	r, _, _ := wgcSessionOpen.Call(
+		uintptr(hwnd),
+		uintptr(unsafe.Pointer(&w)),
+		uintptr(unsafe.Pointer(&h)),
+	)
+	if r == 0 {
+		return nil, fmt.Errorf("wgc_session_open: %s", dllLastError())
+	}
+	return &wgcSession{
+		sid:    uint64(r),
+		hwnd:   hwnd,
+		width:  w,
+		height: h,
+	}, nil
+}
+
+// grab 抓最新帧到 s.buf；返回当前帧 W/H。
+// 处理 ERR_BUF_TOO_SMALL / ERR_NOT_READY 自动重试一次。
+func (s *wgcSession) grab() (w, h int, _ error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		if cap(s.buf) < int(s.width)*int(s.height)*4 {
+			s.buf = make([]byte, int(s.width)*int(s.height)*4)
+		}
+		var bufPtr *byte
+		if len(s.buf) > 0 {
+			bufPtr = &s.buf[0]
+		}
+		var outW, outH int32
+		r, _, _ := wgcSessionGrab.Call(
+			uintptr(s.sid),
+			uintptr(unsafe.Pointer(bufPtr)),
+			uintptr(uint32(cap(s.buf))),
+			uintptr(unsafe.Pointer(&outW)),
+			uintptr(unsafe.Pointer(&outH)),
+		)
+		ret := int32(r)
+		switch ret {
+		case wgcOK:
+			s.width, s.height = outW, outH
+			return int(outW), int(outH), nil
+		case wgcErrBufTooSmall:
+			s.width, s.height = outW, outH
+			s.buf = make([]byte, int(outW)*int(outH)*4)
+			continue // 重试
+		case wgcErrNotReady:
+			return 0, 0, errWGCNotReady
+		default:
+			return 0, 0, fmt.Errorf("wgc_session_grab=%d: %s", ret, dllLastError())
+		}
+	}
+	return 0, 0, fmt.Errorf("wgc_session_grab: buf 重分配后仍不够")
+}
+
+func (s *wgcSession) close() {
+	if s.sid != 0 {
+		wgcSessionClose.Call(uintptr(s.sid))
+		s.sid = 0
+	}
+}
+
+// errWGCNotReady 表示 WGC frame pool 当前没有新帧。caller 可短暂 sleep 后重试。
+var errWGCNotReady = fmt.Errorf("wgc: 暂无新帧（重试）")
+
+// wgcBGRAtoRGBA 把 BGRA 行连续字节流转成 *image.RGBA（顺便从全帧裁出 ROI）。
+// src 行无 padding（Rust 端已经 pitch→stride 拷贝过了）。
+func wgcBGRAtoRGBA(src []byte, srcW, srcH, roiX, roiY, roiW, roiH int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, roiW, roiH))
+	for y := 0; y < roiH; y++ {
+		sy := y + roiY
+		if sy < 0 || sy >= srcH {
+			continue
+		}
+		srcRow := sy * srcW * 4
+		dstRow := y * roiW * 4
+		for x := 0; x < roiW; x++ {
+			sx := x + roiX
+			if sx < 0 || sx >= srcW {
+				continue
+			}
+			si := srcRow + sx*4
+			di := dstRow + x*4
+			img.Pix[di+0] = src[si+2]
+			img.Pix[di+1] = src[si+1]
+			img.Pix[di+2] = src[si+0]
+			img.Pix[di+3] = 255
+		}
+	}
+	return img
+}
+
+// 包级 WGC session cache: wgcFrame / wgcFrameROI 共享同 HWND 的 session 避免黄框
+// 反复 open/close (用户体验黄框一闪一闪很诡异). idle > wgcIdleTimeout 后 reaper 关.
+var (
+	wgcCacheMu     sync.Mutex
+	wgcCache       map[win.HWND]*wgcCachedSession
+	wgcReaperOnce  sync.Once
+	wgcIdleTimeout = 10 * time.Second
+)
+
+type wgcCachedSession struct {
+	s        *wgcSession
+	lastUsed time.Time
+}
+
+// getCachedWGCSession 拿同 HWND 的 cache session, 没有就开一个加入 cache.
+// 失败时 cache 不污染.
+func getCachedWGCSession(hwnd win.HWND) (*wgcSession, error) {
+	wgcCacheMu.Lock()
+	defer wgcCacheMu.Unlock()
+	if wgcCache == nil {
+		wgcCache = make(map[win.HWND]*wgcCachedSession)
+	}
+	if c, ok := wgcCache[hwnd]; ok {
+		c.lastUsed = time.Now()
+		return c.s, nil
+	}
+	s, err := openWGCSession(hwnd)
+	if err != nil {
+		return nil, err
+	}
+	wgcCache[hwnd] = &wgcCachedSession{s: s, lastUsed: time.Now()}
+	wgcReaperOnce.Do(startWGCReaper)
+	return s, nil
+}
+
+// invalidateWGCSession 在 grab 失败后调, 关掉 cache 里这条 entry, 下次 wgcFrame
+// 会重开 session. 防止死 session 永远卡 caller.
+func invalidateWGCSession(hwnd win.HWND) {
+	wgcCacheMu.Lock()
+	defer wgcCacheMu.Unlock()
+	if c, ok := wgcCache[hwnd]; ok {
+		c.s.close()
+		delete(wgcCache, hwnd)
+	}
+}
+
+// startWGCReaper 每 2s 扫一次 cache, idle > wgcIdleTimeout 的 session 关掉 (黄框消失).
+// 首次 cache 命中时 sync.Once 启一次.
+func startWGCReaper() {
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			wgcCacheMu.Lock()
+			now := time.Now()
+			for hwnd, c := range wgcCache {
+				if now.Sub(c.lastUsed) > wgcIdleTimeout {
+					c.s.close()
+					delete(wgcCache, hwnd)
+				}
+			}
+			wgcCacheMu.Unlock()
+		}
+	}()
+}
+
+// wgcFrame: 一次性抓帧，包级 Frame() 走这里。
+// session 走 cache 复用同 HWND, idle 10s 后 reaper 关 (黄框跟 session 绑死,
+// 不复用就一闪一闪很诡异).
+func wgcFrame(hwnd win.HWND) (*image.RGBA, error) {
+	s, err := getCachedWGCSession(hwnd)
+	if err != nil {
+		return nil, err
+	}
+	w, h, err := s.grabWithRetry()
+	if err != nil {
+		invalidateWGCSession(hwnd)
+		return nil, err
+	}
+	return wgcBGRAtoRGBA(s.buf, w, h, 0, 0, w, h), nil
+}
+
+// wgcFrameROI 同 gdiFrameROI 语义：抓全帧后裁 ROI。
+// 没用 WGC 的 dirty region 之类的，因为 windows-rs 没暴露简单 API。
+func wgcFrameROI(hwnd win.HWND, roiX, roiY, roiW, roiH int) (*image.RGBA, error) {
+	s, err := getCachedWGCSession(hwnd)
+	if err != nil {
+		return nil, err
+	}
+	w, h, err := s.grabWithRetry()
+	if err != nil {
+		invalidateWGCSession(hwnd)
+		return nil, err
+	}
+	// 裁剪 ROI 到帧内
+	if roiX < 0 {
+		roiW += roiX
+		roiX = 0
+	}
+	if roiY < 0 {
+		roiH += roiY
+		roiY = 0
+	}
+	if roiX+roiW > w {
+		roiW = w - roiX
+	}
+	if roiY+roiH > h {
+		roiH = h - roiY
+	}
+	if roiW <= 0 || roiH <= 0 {
+		return nil, fmt.Errorf("ROI 无效")
+	}
+	return wgcBGRAtoRGBA(s.buf, w, h, roiX, roiY, roiW, roiH), nil
+}
+
+// grabWithRetry: 处理 ERR_NOT_READY 的轮询重试。WGC 启动后第一帧可能要等
+// 一两次 vsync（游戏 60fps 时 ~17ms 一帧），bot 第一次抓帧偶尔要更久。
+// 200 次 × 2ms = 400ms 给足缓冲；正常运行时 TryGetNextFrame 几乎瞬时成功。
+//
+// 持 s.mu 串行同 session 多 goroutine 调用 (cache 复用模式下可能 contend).
+func (s *wgcSession) grabWithRetry() (w, h int, _ error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := 0; i < 200; i++ {
+		w, h, err := s.grab()
+		if err == nil {
+			return w, h, nil
+		}
+		if err != errWGCNotReady {
+			return 0, 0, err
+		}
+		sleepMs(2)
+	}
+	return 0, 0, fmt.Errorf("wgc: 等帧超时 400ms（窗口最小化或未渲染？）")
+}
+
+// sleepMs 给 grabWithRetry 用。不引 time 避免循环 import 的潜在风险（捕获是低层）。
+var procSleep = syscall.NewLazyDLL("kernel32.dll").NewProc("Sleep")
+
+func sleepMs(ms uint32) { procSleep.Call(uintptr(ms)) }

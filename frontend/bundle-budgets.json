@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "units": "decimal bytes",
+  "gzipLevel": 9,
+  "entry": {
+    "manifestKey": "index.html",
+    "maxInitialGzipBytes": 350000
+  },
+  "editor": {
+    "manifestKey": "src/views/WorkflowEditorView.vue",
+    "maxInitialGzipBytes": 220000,
+    "targetInitialGzipBytes": 125000
+  },
+  "forbidden": {
+    "tablerIconsManifestSuffix": "node_modules/@iconify-json/tabler/icons.json"
+  }
+}

@@ -1,0 +1,20 @@
+# Yotta architecture
+
+Yotta 把桌面壳、应用生命周期、节点引擎、Target contract 和平台 adapter 分开。核心原则是：
+Workflow 是唯一内容对象，Target 保存本机差异，GUI、CLI、MCP 与 Schedule 共用同一条运行路径。
+
+- [Runtime and lifecycle](runtime.md)
+- [Node engine](node-engine.md)
+- [Automation targets and controllers](automation-targets.md)
+- [Storage consistency](storage.md)
+- [Threat model](threat-model.md)
+- [Installed network capabilities](network-capabilities.md)
+- [Installed application lifecycle](installed-application-lifecycle.md)
+
+源码导航：`main.go` 只保留进程入口与嵌入资源，`internal/desktopapp` 组合 Wails presentation，
+`internal/appruntime` 管应用生命周期；`internal/workflow/*` 与 `internal/workflowstore` 保存和编译
+Workflow，`internal/application` 是 GUI、headless CLI、AI、MCP 与 Schedule 共用的
+`StartRun(workflowID)` command/worker seam。`internal/datatype`、`internal/nodecontract`、
+`internal/nodecatalog` 和 `internal/nodeauthoring` 拥有节点与编辑契约，`internal/noderuntime` 执行节点；
+`internal/automation` 管 Target/controller，`internal/blob`、`internal/resource`、`internal/stream`
+管理数据载体，`internal/services/*` 提供用户动作，`pkg/*` 放可复用 adapter/helper。

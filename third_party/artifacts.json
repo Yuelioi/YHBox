@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "path": "build/windows/platform-tools/adb.exe",
+      "version": "34.0.5",
+      "source": "adbutils 2.2.1 packaged Android platform-tools",
+      "license": "Apache-2.0",
+      "sha256": "58765259a349cce392fbb2f15dab75fed3b7c0b40cc68a7653278b9850602a2f"
+    },
+    {
+      "path": "build/windows/platform-tools/AdbWinApi.dll",
+      "version": "34.0.5",
+      "source": "adbutils 2.2.1 packaged Android platform-tools",
+      "license": "Apache-2.0",
+      "sha256": "689e4263252c734ee40d748f0e5a911801c6083a8e81b5040fd9c49dff3bfdce"
+    },
+    {
+      "path": "build/windows/platform-tools/AdbWinUsbApi.dll",
+      "version": "34.0.5",
+      "source": "adbutils 2.2.1 packaged Android platform-tools",
+      "license": "Apache-2.0",
+      "sha256": "e6141805bb19eeafac6ab2d0fb50aa098b8c27149dc8ed73739cc40436274748"
+    },
+    {
+      "path": "build/windows/platform-tools/ADBUTILS_LICENSE",
+      "version": "2.2.1",
+      "source": "adbutils package",
+      "license": "MIT",
+      "sha256": "426f967a2f4288b1f6a50b24a6d5e6cbb91d01350429b9e8d5fe5be5ce901acf"
+    }
+  ]
+}

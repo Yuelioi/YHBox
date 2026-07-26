@@ -1,0 +1,11 @@
+# 残留中文字面值合法白名单 (glob, 相对 frontend/)
+# 节点 kind metadata + pin label 留 P4 spec 处理
+# Command palette: label 走 i18n, keywords 保留中英双语字面值作搜索辅助 (非显示内容)
+src/composables/containerEditor/useCommandPalette.ts
+# 开发调试 HUD: 不是日常用户路径, 工作量不抵价值
+src/views/tools/MouseHUDView.vue
+src/views/tools/RecordingHUDView.vue
+src/views/tools/ScreenPickerView.vue
+# 测试文件
+**/*.test.ts
+**/*.spec.ts

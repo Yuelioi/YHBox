@@ -1,0 +1,44 @@
+# Contributing to Yotta
+
+感谢你改进 Yotta。当前优先接受可移植后端、automation adapter、节点、可靠性测试、文档和无障碍 UI 改进。
+
+## 开发环境
+
+- Go 版本以 `go.mod` 为准。
+- Node 与 pnpm 的精确版本均以 `frontend/package.json` 为准。
+- Wails CLI 版本必须通过 `scripts/verify-wails-version.ps1 -CheckInstalled`。
+- Windows 完整构建需要 Rust、Task 和 WGC DLL 工具链。
+
+## 提交前检查
+
+```powershell
+gofmt -w <changed-go-files>
+task check
+```
+
+`task check` 根据当前 Git 变更选择相关门禁：Go 改动测试并 vet 受影响包及其反向依赖，前端改动运行
+format/lint/typecheck/i18n/test，契约、bindings、依赖与 Rust 只在相关文件变化时检查。设置
+`CHECK_BASE=<ref>` 可把已提交但尚未合并的 diff 纳入选择。CI、发布或明确要求完整验收时运行
+`task check:full`，其中包含全仓 coverage/staticcheck、production bundle 和全部供应链检查。自动修复
+必须显式运行 `pnpm -C frontend lint:fix` 或 `pnpm -C frontend format`；CI 永不修改源码。
+
+并发、生命周期或持久化改动还应对受影响包运行 `go test -race`。Parser、导入和非可信 JSON 边界应补 seed corpus 或 fuzz test。
+
+## 架构约束
+
+- 平台中立核心不得直接 import Win32 实现；新增平台能力通过 automation controller/capability adapter。
+- 后台资源必须有明确 owner，`Start` 失败可回滚，`Close` 幂等且逆序。
+- 用户数据写入使用原子快照或可验证的 lock-last transaction。
+- 节点通过 Node Contract 声明 effect、capability、target 与 implementation lock；Compiler/admission 在执行前 fail closed。
+- 测试构造局部 Contract/Catalog snapshot；不要引入包级 mutable registry 或依赖 `init()` 的隐藏装配。
+- 内建节点在 tree 内显式装配；第三方执行只走已签名启用的 Process/Wasm Node Package，不承诺 Go plugin ABI，也不加载插件前端代码。
+
+详细背景见 [docs/architecture](docs/architecture/README.md)。行为或数据格式变更需同步[兼容策略](docs/compatibility.md)、breaking-change 说明和旧格式拒绝测试；未发布的旧开发格式不新增迁移器或兼容 shim。
+
+## Pull request
+
+PR 请说明问题、设计取舍、平台影响、验证命令和用户数据兼容性。避免把格式化、重命名和行为变更混在一个巨大提交中。安全问题不要公开提 issue，请按 [SECURITY.md](SECURITY.md) 私下报告。
+
+## 许可提示
+
+贡献者提交代码即确认自己有权提交，并同意项目当前仓库许可。当前许可不是 OSI 开源许可证；维护者改变项目许可证前需要完成法律与贡献者授权确认。

@@ -1,0 +1,62 @@
+# Runtime debug
+debug/
+
+# IDE
+.vscode/
+.idea/
+
+# brainstorming visual-companion mockups (transient)
+.superpowers/
+
+# OS
+Thumbs.db
+.DS_Store
+
+logs/
+
+# Go build output
+*.exe*
+*.syso
+
+# Go test coverage
+/coverage
+/coverage.out
+
+# 但 wails3 build 需要 wails.exe.manifest 作为 syso 输入；它是 XML 不是 binary，
+# 必须 checkin（CI 上 git clone 时拿不到就炸 `wails3 generate syso`）。
+!build/windows/wails.exe.manifest
+!build/windows/platform-tools/adb.exe
+
+# wails3 build output
+bin/
+artifacts/
+# 运行期落地的 action/container/schedule/template 数据（spec § data/）
+data/
+frontend/dist/
+frontend/node_modules/
+frontend/bindings/
+# wails3 generate 在错的 cwd 跑过会建 frontend/frontend/，留个 net 防再忘
+frontend/frontend/
+
+# Taskfile local cache
+.task/
+
+# lint/format cache
+frontend/.eslintcache
+frontend/.oxlintcache
+
+# Rust
+native/capture_wgc/target
+
+# AI Tools
+.claude/
+
+# Agent workspace
+flightdeck/references
+flightdeck/tmp
+
+# User Data
+settings.json
+
+
+tmp

@@ -1,0 +1,971 @@
+/* 技术值使用本地等宽字体；界面正文跟随桌面系统字体，避免额外加载一整套 UI 字体。 */
+@import '@fontsource-variable/jetbrains-mono';
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+/* 显式告诉 TW v4 扫整个 src/。默认 auto-detect 应该已经覆盖，
+   但 @nuxt/ui/vite 在某些场景下会影响源检测，加这一行兜底。 */
+@source "./**/*.{vue,ts,js}";
+
+/* ── Global base ── */
+html,
+body {
+  font-family:
+    'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC',
+    'Noto Sans CJK SC', ui-sans-serif, system-ui, sans-serif;
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+}
+
+/* 全 textarea (含 NuxtUI UTextarea 内部 element) 支持垂直拉高. NuxtUI 默认 resize:none.
+   只放垂直 (不放水平) — 水平拉伸会破布局. */
+textarea {
+  resize: vertical !important;
+  min-height: 2.5em;
+}
+
+/* ── V4 暗色基调 (唯一权威锚点): 把整套中性色阶比 NuxtUI 默认深一档。
+   NuxtUI 默认 dark 的 --ui-bg = neutral-900 (zinc-900) 比稿子的 base #09090b (neutral-950) 亮一整档,
+   而所有表面 (NuxtUI 组件底 + 下面的 @utility raised/sunken/overlay 都派生自 --ui-bg) 都浮在它上面,
+   于是整体"不够深邃"。这里一处下沉 → 全场表面跟着深, 无需散改各组件。
+   (不分层规则压过 NuxtUI @layer theme 里的 .dark 定义, 见文件末 width hack 的同款机制。) ── */
+.dark {
+  --ui-bg: var(--ui-color-neutral-950); /* 画布 / 卡片底基准: was neutral-900 → #09090b */
+  --ui-bg-muted: var(--ui-color-neutral-900); /* was neutral-800 */
+  --ui-bg-elevated: var(--ui-color-neutral-900); /* 模态 / popover / 输入框底: was neutral-800 */
+  --ui-bg-accented: var(--ui-color-neutral-800); /* hover / scrollbar thumb: was neutral-700 */
+  --ui-border-accented: var(--ui-color-neutral-800); /* 浮层描边: was neutral-700 */
+}
+
+/* ── 凹陷面: 比主背景 (--ui-bg) 再深一档, 给终端日志区 / 时间轴轨道这类要"挖下去"的面。
+   semantic token 到 bg-default 为止, 更深的统一从这里取 — 禁止散写 zinc-950/zinc-900 字面值。 ── */
+@utility bg-sunken {
+  background-color: color-mix(in oklab, var(--ui-bg) 45%, black);
+}
+
+/* ── V4 浮层表面: 主体保持黑 (--ui-bg), 只在顶部给一点高光 + 柔投影, 让卡片/面板「轻浮起」。
+   不整面提亮 (用户定 2026-06-14): 填充黑底, 仅顶部一道渐隐高光 + 1px 白线 + 亮一档上边框。
+   派生自 --ui-bg, 禁止散写 zinc 字面值。 ── */
+@utility raised-surface {
+  background-color: var(--ui-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%);
+  border: 1px solid var(--ui-border);
+  border-top-color: color-mix(in oklab, var(--ui-border) 50%, white);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ── 浮层 overlay: 菜单 / 模态 / popover, 同黑底 + 顶部高光, 但顶光略强 + 更重投影来「浮起」。 ── */
+@utility overlay-surface {
+  background-color: var(--ui-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 25%);
+  border: 1px solid var(--ui-border-accented);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── 主按钮唯一显眼渐变 (V4 渐变纪律: 全场只两处, 此其一)。
+   由 vite.config 的 button.compoundVariants base 引用; 普通 CSS 类(非 @utility),
+   始终输出、不被 purge。盖在 NuxtUI 默认 bg-primary 之上 (background-image 覆盖 background-color)。 ── */
+.btn-primary-raised {
+  background-image: linear-gradient(180deg, #11c08a, #0a9d6f);
+  box-shadow:
+    0 1px 3px rgba(16, 185, 129, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.btn-primary-raised:hover {
+  background-image: linear-gradient(180deg, #15cf96, #0caf7c);
+}
+
+/* ── Custom scrollbar (跟 dark theme 一致的细滚动条) ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ui-bg-accented);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-bg-elevated);
+}
+
+/* ── Text selection ── */
+::selection {
+  background-color: color-mix(in oklab, var(--ui-primary) 25%, transparent);
+  color: var(--ui-text-highlighted);
+}
+
+/* ── Tabular nums for log timestamps / stat values ── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── NuxtUI v4 UInput/UTextarea 默认 inline-flex 在表单里得显式 w-full
+   才撑满，写起来麻烦。全局把含 input/textarea 的相对容器改 flex+100%。
+   :has() webview2 chromium 105+ 已支持。
+   关键: Tailwind v4 工具类都在 @layer utilities, 而**不分层的规则永远压过分层的**
+   (跟优先级无关) — 所以 width 必须放进 @layer components, 组件上直接写的
+   w-* 宽度类 (utilities 层, 排序更后) 才能压过它; display:flex 反而要留在
+   层外, 它就是要压过元素自带的 .inline-flex 工具类。 */
+.relative.inline-flex.items-center:has(> input),
+.relative.inline-flex.items-center:has(> textarea) {
+  display: flex;
+}
+@layer components {
+  .relative.inline-flex.items-center:has(> input),
+  .relative.inline-flex.items-center:has(> textarea) {
+    width: 100%;
+  }
+
+  /* 设置页使用一条连续内容流；分区靠节奏和分隔线组织，避免同色卡片层层嵌套。 */
+  .settings-page {
+    display: flex;
+    width: 100%;
+    max-width: 920px;
+    margin-inline: auto;
+    padding: 28px 32px 40px;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .settings-page--wide {
+    max-width: 1120px;
+  }
+
+  .settings-shell {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: 224px minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--ui-bg);
+  }
+
+  .settings-sidebar {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    overflow: hidden;
+    border-right: 1px solid var(--ui-border);
+    background: color-mix(in oklab, var(--ui-bg-muted) 28%, var(--ui-bg));
+  }
+
+  .settings-navigation {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+  }
+
+  .settings-nav-item {
+    width: 100%;
+    min-height: 52px;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    color: var(--ui-text-muted);
+  }
+
+  .settings-nav-item:hover {
+    color: var(--ui-text);
+    background: var(--ui-bg-elevated);
+  }
+
+  .settings-nav-item--active {
+    color: var(--ui-text-highlighted);
+    background: color-mix(in oklab, var(--ui-primary) 10%, var(--ui-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 24%, transparent);
+  }
+
+  .settings-content {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .settings-page-header {
+    flex: none;
+    border-bottom: 1px solid var(--ui-border);
+    background: color-mix(in oklab, var(--ui-bg) 94%, var(--ui-bg-elevated));
+  }
+
+  .settings-page-header__inner {
+    display: flex;
+    width: 100%;
+    max-width: 920px;
+    margin-inline: auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 32px 20px;
+  }
+
+  .settings-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
+    align-items: center;
+    gap: 24px;
+    min-height: 44px;
+  }
+
+  .settings-row__control {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .settings-toolbar {
+    position: sticky;
+    top: -28px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-block: 12px;
+    background: color-mix(in oklab, var(--ui-bg) 94%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .hotkey-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding-block: 12px;
+  }
+
+  .settings-empty-state {
+    display: flex;
+    min-height: 160px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 1px dashed var(--ui-border);
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .calibration-profile {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .calibration-profile--active {
+    border-color: color-mix(in oklab, var(--ui-primary) 42%, var(--ui-border));
+    background: color-mix(in oklab, var(--ui-primary) 6%, var(--ui-bg));
+    box-shadow: inset 3px 0 0 color-mix(in oklab, var(--ui-primary) 72%, transparent);
+  }
+
+  .launcher-builder {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 24px;
+  }
+
+  .launcher-block {
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 42%, transparent);
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease;
+  }
+
+  .launcher-block:hover {
+    border-color: var(--ui-border-accented);
+    background: color-mix(in oklab, var(--ui-bg-elevated) 64%, transparent);
+  }
+
+  .launcher-library {
+    padding: 14px 16px;
+    border: 1px dashed var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 22%, transparent);
+  }
+
+  .launcher-health-card {
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+  }
+
+  .launcher-health-card--warning {
+    border-color: color-mix(in oklab, var(--ui-warning) 28%, var(--ui-border));
+  }
+
+  .launcher-health-loading {
+    display: flex;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+  }
+
+  .launcher-health-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .launcher-health-stats > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+  }
+
+  .launcher-health-stats > div + div {
+    border-left: 1px solid var(--ui-border);
+  }
+
+  .launcher-health-stats strong {
+    color: var(--ui-text-highlighted);
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .launcher-health-stats span {
+    overflow: hidden;
+    color: var(--ui-text-dimmed);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-health-action {
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .launcher-health-action__icon {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--ui-warning) 30%, var(--ui-border));
+    border-radius: 8px;
+    color: var(--ui-warning);
+    background: color-mix(in oklab, var(--ui-warning) 8%, transparent);
+  }
+
+  .launcher-health-action--ready .launcher-health-action__icon {
+    color: var(--ui-success);
+    border-color: color-mix(in oklab, var(--ui-success) 28%, var(--ui-border));
+    background: color-mix(in oklab, var(--ui-success) 7%, transparent);
+  }
+
+  .launcher-stale-list {
+    display: flex;
+    max-height: 72px;
+    flex-wrap: wrap;
+    gap: 4px;
+    overflow: auto;
+    margin-top: 6px;
+    padding-right: 4px;
+    list-style: none;
+  }
+
+  .launcher-stale-list li {
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid color-mix(in oklab, var(--ui-warning) 22%, var(--ui-border));
+    border-radius: 5px;
+    color: var(--ui-text-muted);
+    background: color-mix(in oklab, var(--ui-warning) 5%, transparent);
+    font-size: 10px;
+    line-height: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-preview {
+    position: sticky;
+    top: 0;
+    padding: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: var(--ui-bg-elevated);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 16%);
+  }
+
+  .launcher-preview__window {
+    position: relative;
+    min-height: 180px;
+    padding: 26px 8px 8px;
+    border: 1px solid color-mix(in oklab, var(--ui-border) 80%, transparent);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg) 78%, black);
+  }
+
+  .launcher-preview__handle {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 32px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--ui-border-accented);
+    transform: translateX(-50%);
+  }
+
+  .ai-profile {
+    overflow: hidden;
+    padding: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 34%, transparent);
+  }
+
+  .ai-profile__details {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 14px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ui-border);
+  }
+
+  .mcp-capability {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 32%, transparent);
+  }
+
+  .mcp-capability--active {
+    border-color: color-mix(in oklab, var(--ui-success) 26%, var(--ui-border));
+  }
+
+  .mcp-capability--danger {
+    border-color: color-mix(in oklab, var(--ui-error) 38%, var(--ui-border));
+    background: color-mix(in oklab, var(--ui-error) 5%, var(--ui-bg));
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+
+  .settings-section:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  @media (max-width: 860px) {
+    .settings-shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .settings-sidebar {
+      gap: 12px;
+      padding: 12px 16px;
+      border-right: 0;
+      border-bottom: 1px solid var(--ui-border);
+    }
+
+    .settings-navigation {
+      flex-direction: row;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .settings-nav-item {
+      width: auto;
+      min-width: max-content;
+      min-height: 36px;
+    }
+
+    .settings-nav-item span span:last-child,
+    .settings-nav-item > svg:last-child {
+      display: none;
+    }
+
+    .settings-page-header__inner,
+    .settings-page {
+      padding-inline: 20px;
+    }
+
+    .settings-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .settings-row__control {
+      justify-content: flex-start;
+    }
+
+    .settings-toolbar,
+    .hotkey-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .launcher-builder {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .launcher-preview {
+      position: static;
+    }
+  }
+
+  .workspace-page {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        circle at 16% -20%,
+        color-mix(in oklab, var(--ui-primary) 8%, transparent),
+        transparent 34%
+      ),
+      var(--ui-bg);
+  }
+
+  .workspace-page__header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 16px 32px;
+  }
+
+  .workspace-page__mark {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklab, var(--ui-primary) 24%, var(--ui-border));
+    border-radius: 10px;
+    color: var(--ui-primary);
+    background: color-mix(in oklab, var(--ui-primary) 8%, var(--ui-bg-elevated));
+  }
+
+  .workspace-page__eyebrow {
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ui-text-dimmed);
+  }
+
+  .workspace-page__title {
+    margin-top: 4px;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--ui-text-highlighted);
+  }
+
+  .workspace-page__tabs {
+    width: auto;
+    min-width: 280px;
+  }
+
+  .workspace-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex: none;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 24%, transparent);
+  }
+
+  .workspace-metric {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    border-inline-end: 1px solid var(--ui-border);
+  }
+
+  .workspace-metric:last-child {
+    border-inline-end: 0;
+  }
+
+  .workspace-metric span {
+    overflow: hidden;
+    font-size: 11px;
+    color: var(--ui-text-dimmed);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-metric strong {
+    font-size: 16px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-text-highlighted);
+  }
+
+  .workspace-metric--primary strong {
+    color: var(--ui-primary);
+  }
+
+  .view-switcher {
+    display: inline-flex;
+    flex: none;
+    padding: 2px;
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 54%, transparent);
+  }
+
+  .schedule-toolbar {
+    padding: 10px 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 28%, transparent);
+  }
+
+  .schedule-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .schedule-list {
+    display: flex;
+    flex-direction: column;
+    border-block: 1px solid var(--ui-border);
+  }
+
+  .schedule-row {
+    display: flex;
+    min-height: 82px;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--ui-border);
+    transition: background-color 140ms ease;
+  }
+
+  .schedule-row:last-child {
+    border-bottom: 0;
+  }
+
+  .schedule-row:hover {
+    background: color-mix(in oklab, var(--ui-bg-elevated) 42%, transparent);
+  }
+
+  .schedule-row--disabled {
+    opacity: 0.68;
+  }
+
+  .schedule-row__trigger {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ui-border);
+    border-radius: 50%;
+    color: var(--ui-primary);
+    background: color-mix(in oklab, var(--ui-primary) 6%, var(--ui-bg));
+  }
+
+  .schedule-row__policy {
+    display: flex;
+    min-width: 128px;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .schedule-editor {
+    width: 100%;
+    max-width: 860px;
+    margin-inline: auto;
+  }
+
+  .schedule-editor__form {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .schedule-editor__section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 28%, var(--ui-bg));
+  }
+
+  .schedule-editor__section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 2px;
+  }
+
+  .schedule-editor__section-heading > span {
+    display: flex;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--ui-text-toned);
+    background: var(--ui-bg-elevated);
+  }
+
+  .schedule-editor__section-heading h2 {
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--ui-text-highlighted);
+  }
+
+  .schedule-editor__row {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(140px, 1fr) minmax(280px, 380px);
+    align-items: center;
+    gap: 24px;
+    padding-top: 14px;
+    border-top: 1px solid color-mix(in oklab, var(--ui-border) 72%, transparent);
+  }
+
+  .schedule-editor__label {
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ui-text-toned);
+  }
+
+  .schedule-editor__label > span {
+    color: var(--ui-error);
+  }
+
+  .schedule-editor__label small {
+    display: block;
+    margin-top: 3px;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--ui-text-dimmed);
+  }
+
+  .schedule-editor__control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .schedule-editor__switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ui-text-dimmed);
+  }
+
+  .schedule-editor__validation {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--ui-error);
+  }
+
+  .schedule-target {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--ui-border);
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--ui-bg-elevated) 30%, transparent);
+  }
+
+  .schedule-target__order {
+    display: flex;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 650;
+    color: var(--ui-primary);
+    background: color-mix(in oklab, var(--ui-primary) 10%, transparent);
+  }
+
+  .schedule-target-empty {
+    display: flex;
+    min-height: 88px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px dashed var(--ui-border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--ui-text-dimmed);
+  }
+
+  .schedule-editor__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  @media (max-width: 900px) {
+    .workspace-page__header {
+      align-items: flex-start;
+      flex-direction: column;
+      padding-inline: 24px;
+    }
+
+    .workspace-page__tabs {
+      width: 100%;
+    }
+
+    .workspace-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .workspace-metric:nth-child(2) {
+      border-inline-end: 0;
+    }
+
+    .workspace-metric:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--ui-border);
+    }
+
+    .schedule-row__policy {
+      display: none;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .schedule-editor__section {
+      padding: 16px;
+    }
+
+    .schedule-editor__row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .schedule-toolbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .schedule-toolbar > * {
+      width: 100%;
+      max-width: none;
+    }
+
+    .schedule-row {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .schedule-row__trigger {
+      width: 36px;
+      height: 36px;
+    }
+  }
+
+  .detail-form {
+    display: flex;
+    width: 100%;
+    max-width: 920px;
+    margin-inline: auto;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+}
+
+/* ── Compact toast: 顶部居中 / 暗色 + border / 无倒计时进度条 / 紧凑（Plan B Task A.5）── */
+/* NuxtUI v4 UToast 渲染在 [data-sonner-toaster] 容器 */
+[data-sonner-toaster] [data-sonner-toast] {
+  background: var(--ui-bg-elevated) !important;
+  border: 1px solid var(--ui-border-accented) !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-title] {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+/* 干掉倒计时进度条 */
+[data-sonner-toaster] [data-sonner-toast] > [data-progress],
+[data-sonner-toaster] [data-sonner-toast] > div[role='progressbar'] {
+  display: none !important;
+}

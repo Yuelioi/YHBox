@@ -1,0 +1,331 @@
+version: '3'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+
+vars:
+  APP_NAME: "Yotta"
+  BIN_DIR: "bin"
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  PRODUCT_VERSION:
+    sh: go run ./cmd/yotta-versions show
+
+tasks:
+  check:
+    summary: Runs checks relevant to the current Git change set
+    cmds:
+      - node ./scripts/check-changed.mjs
+
+  check:full:
+    summary: Runs the complete CI and release quality gate
+    cmds:
+      - task: check:supply-chain
+      - task: contracts:check
+      - task: plugins:check
+      - task: check:ai-eval
+      - task: versions:check
+      - task: wails:verify
+      - task: check:go:full
+      - task: check:frontend:full
+
+  check:supply-chain:
+    summary: Verifies immutable Actions, exact toolchains and frozen dependency inputs
+    cmds:
+      - task: check:supply-chain:actions
+      - task: check:supply-chain:toolchains
+      - task: check:supply-chain:artifacts
+      - task: check:supply-chain:go
+      - task: check:supply-chain:frontend
+      - task: check:rust
+    env:
+      GOTOOLCHAIN: local
+
+  check:ai-eval:
+    summary: Regrades the mandatory offline AI corpus and rejects report drift
+    cmds:
+      - go run ./cmd/ai-eval
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  ai:eval:update:
+    summary: Updates the canonical mandatory offline AI evaluation report
+    cmds:
+      - go run ./cmd/ai-eval -write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  check:supply-chain:actions:
+    summary: Verifies immutable GitHub Actions references
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-actions-pinned.ps1
+
+  check:supply-chain:toolchains:
+    summary: Verifies pinned and installed toolchains
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-toolchains.ps1 -CheckInstalled
+
+  check:supply-chain:artifacts:
+    summary: Verifies tracked third-party artifacts
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-third-party-artifacts.ps1
+
+  check:supply-chain:go:
+    summary: Verifies the Go module cache against go.sum
+    cmds:
+      - go mod verify
+
+  check:supply-chain:frontend:
+    summary: Verifies the frozen frontend dependency graph
+    cmds:
+      - pnpm -C frontend install --frozen-lockfile
+
+  check:rust:
+    summary: Verifies the Rust capture crate metadata and lockfile
+    cmds:
+      - cargo metadata --locked --no-deps --format-version 1 --manifest-path native/capture_wgc/Cargo.toml
+
+  check:changed:self:
+    summary: Tests the changed-file quality-gate router
+    cmds:
+      - node --test ./scripts/check-changed.test.mjs
+
+  check:go:changed:
+    summary: Tests and vets changed Go packages plus their reverse dependencies
+    cmds:
+      - node ./scripts/check-go-changed.mjs
+
+  check:go:full:
+    summary: Runs Go tests, coverage, vet and static analysis
+    cmds:
+      - go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - powershell -NoProfile -Command "New-Item -ItemType Directory -Force .task | Out-Null"
+      - go test -count=1 -covermode=atomic "-coverpkg=./internal/pluginfixture,./internal/pluginhost,./internal/pluginprotocol,./internal/processsandbox,./internal/wasmrunner,./sdk/plugin/go" "-coverprofile=.task/plugin-conformance-coverage.out" ./internal/pluginconformance ./internal/pluginprotocol ./internal/pluginhost ./internal/processsandbox ./internal/wasmrunner ./sdk/plugin/go
+      - cmd: powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-script-worker.ps1
+        platforms: [windows]
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1 -AdditionalCoverageFiles .task/plugin-conformance-coverage.out
+      - go vet ./...
+      - staticcheck ./...
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  check:bindings:
+    summary: Regenerates and verifies Wails RPC bindings contracts
+    cmds:
+      - node frontend/scripts/generate-bindings.mjs
+      - pnpm -C frontend bindings:check
+
+  check:frontend:quick:
+    summary: Runs frontend source checks without dependency install or production bundle
+    cmds:
+      - pnpm -C frontend check:quick
+
+  check:frontend:full:
+    summary: Generates bindings and runs the complete frontend gate
+    cmds:
+      - pnpm -C frontend install --frozen-lockfile
+      - node frontend/scripts/generate-bindings.mjs
+      - pnpm -C frontend check
+
+  contracts:check:
+    summary: Regenerates current Workflow and Node Contract artifacts in memory and rejects drift
+    deps: [common:install:frontend:deps]
+    cmds:
+      - node ./scripts/generate-workflow-contracts.mjs
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  contracts:update:
+    summary: Updates tracked current Workflow and Node Contract artifacts from Go source types
+    deps: [common:install:frontend:deps]
+    cmds:
+      - node ./scripts/generate-workflow-contracts.mjs --write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  plugins:check:
+    summary: Regenerates plugin Proto, WIT, SDK contracts and conformance vectors in memory and rejects drift
+    cmds:
+      - go run ./cmd/plugin-sdk
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  plugins:update:
+    summary: Updates tracked plugin Proto, WIT, SDK contracts and conformance vectors
+    cmds:
+      - go run ./cmd/plugin-sdk --write
+    env:
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+  check:fuzz:
+    summary: Runs bounded fuzz smoke tests for untrusted parsers and authoring inputs
+    cmds:
+      - go test ./internal/services/mcpserver -run=^$ -fuzz=^FuzzMCPPatchCommands$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/schema -run=^$ -fuzz=^FuzzParseSource$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzCompileDraft$ -fuzztime={{.FUZZ_TIME}}
+      - go test ./internal/workflow/compiler -run=^$ -fuzz=^FuzzOpenProgram$ -fuzztime={{.FUZZ_TIME}}
+    vars:
+      FUZZ_TIME: '{{.FUZZ_TIME | default "10s"}}'
+
+  build:
+    summary: Builds the application
+    deps: [versions:check, wails:verify]
+    cmds:
+      - task: "windows:build"
+      - task: versions:check:binary
+      - task: smoke:desktop
+
+  package:
+    summary: Builds a frozen, auditable portable release candidate
+    cmds:
+      - task: release:verify-clean
+      - task: check:full
+      - task: build
+      - task: release:stage
+      - task: release:smoke
+      - task: release:verify-clean
+
+  release:stage:
+    summary: Creates the allowlisted Windows staging tree and deterministic archive
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1
+
+  release:smoke:
+    summary: Verifies and smoke-tests the exact frozen Windows staging payload without rebuilding it
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-release-candidate.ps1
+
+  release:sign-and-stage:
+    summary: Signs the frozen payload, restages it without rebuilding, and repeats candidate smoke
+    cmds:
+      - task: release:verify-clean
+      - task: windows:sign
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1 -SigningState authenticode-signed
+      - task: release:smoke
+      - task: release:verify-clean
+
+  release:verify-clean:
+    summary: Rejects staged, unstaged and untracked release inputs
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/assert-clean-worktree.ps1
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: "windows:run"
+
+  dev:
+    summary: Runs the application in development mode
+    deps: [versions:check, wails:verify]
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+    env:
+      YOTTA_ROOT: '{{.ROOT_DIR}}/.task/yotta-dev'
+      YOTTA_WEBVIEW_DEBUG_PORT: '{{.WEBVIEW_DEBUG_PORT | default "9227"}}'
+
+  webview:screenshot:
+    summary: Captures the current page from a running development WebView over loopback CDP
+    vars:
+      DEBUG_PORT: '{{.WEBVIEW_DEBUG_PORT | default "9227"}}'
+      SCREENSHOT: '{{.SCREENSHOT | default ".task/webview/current.png"}}'
+      URL_CONTAINS: '{{.URL_CONTAINS | default "wails.localhost"}}'
+    cmds:
+      - >-
+        go run ./cmd/workflow-editor-smoke
+        -capture-only
+        -endpoint "http://127.0.0.1:{{.DEBUG_PORT}}"
+        -url-contains "{{.URL_CONTAINS}}"
+        -screenshot "{{.SCREENSHOT}}"
+
+  webview:smoke:
+    summary: Runs the isolated Wails WebView CDP journey and captures the primary management surfaces
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1 -SkipLauncher
+
+  webview:smoke:full:
+    summary: Runs the isolated Wails WebView CDP journey including the floating launcher
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-workflow-editor.ps1
+
+  dll:
+    summary: 单独打包 Rust WGC capture DLL → bin/capture_wgc.dll (改 .rs 后跑)
+    cmds:
+      - task: "windows:build:capture-dll"
+
+  nodes:
+    summary: 从当前 Node Contract Authoring Projection 导出内建节点 Markdown 文档
+    cmds:
+      - go run ./cmd/node-catalog docs
+
+  nodes:catalog:
+    summary: 导出当前构建信任的 canonical Node Catalog JSON
+    cmds:
+      - go run ./cmd/node-catalog catalog
+
+  nodes:authoring:
+    summary: 导出 UI、AI、CLI 与文档共用的当前 Node Authoring Projection JSON
+    cmds:
+      - go run ./cmd/node-catalog authoring
+
+  version:show:
+    summary: 显示 VERSION 中的产品发布版本
+    cmds:
+      - go run ./cmd/yotta-versions show
+
+  version:sync:
+    summary: 从 VERSION 刷新 Wails 与 Windows 产品版本投影
+    cmds:
+      - go run ./cmd/yotta-versions sync
+
+  versions:inventory:
+    summary: 显示彼此独立的产品、合同、宿主与协议版本
+    cmds:
+      - go run ./cmd/yotta-versions inventory
+
+  versions:check:
+    summary: 验证 VERSION、产品元数据投影与独立版本域
+    cmds:
+      - go run ./cmd/yotta-versions check
+
+  versions:check:binary:
+    summary: 验证已构建 Windows GUI 的 PE subsystem 与产品版本资源
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-windows-binary-version.ps1 -Path {{.PATH | default "bin/Yotta.exe"}}
+
+  smoke:desktop:
+    summary: 在隔离数据目录启动已构建 Windows GUI 并验证进程不会秒退
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-windows-desktop-startup.ps1
+
+  smoke:storage-migration:
+    summary: 用冻结 layout 1 profile 验证 production 恢复、隔离、续接与 GUI 重启
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-storage-migration.ps1
+
+  version:verify:
+    summary: 兼容入口；执行 versions:check
+    cmds:
+      - task: versions:check
+
+  wails:verify:
+    summary: 验证 Wails library、source pin 与 PATH 中 CLI 版本一致
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-wails-version.ps1 -CheckInstalled
+
+  version:bump:
+    summary: 提升 VERSION 并自动刷新产品版本投影
+    desc: |
+      用法: task version:bump BUMP=patch
+      BUMP 可取 patch、minor、major 或精确 MAJOR.MINOR.PATCH。
+      命令只修改工作区，不 commit、不 tag；release identity 由后续显式发布动作创建。
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bump-version.ps1 -Version {{.BUMP}}
+    requires:
+      vars: [BUMP]

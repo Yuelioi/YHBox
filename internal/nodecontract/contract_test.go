@@ -1,0 +1,529 @@
+package nodecontract
+
+import (
+	"bytes"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/datatype"
+)
+
+func TestSealConcatContractHasOnlyDataPortsAndStableIdentity(t *testing.T) {
+	draft := concatContractDraftForTest()
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = artifact.Digest("sha256:e88214ec5b6d09f16d3cfec785ce809e6b62274d3f2f136502456cdbe8972f9c")
+	if got := contract.NodeRef().SemanticDigest; got != want {
+		t.Fatalf("semantic digest = %q, want %q", got, want)
+	}
+	if got := contract.NodeRef().Version; got != "1.0.0" {
+		t.Fatalf("node version = %q, want 1.0.0", got)
+	}
+	upgraded := draft
+	upgraded.Version = "1.0.1"
+	upgradedContract, err := Seal(upgraded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upgradedContract.NodeRef().SemanticDigest == contract.NodeRef().SemanticDigest {
+		t.Fatal("node version did not participate in semantic identity")
+	}
+
+	var document struct {
+		Semantic struct {
+			Ports PortSet `json:"ports"`
+		} `json:"semantic"`
+	}
+	if err := json.Unmarshal(contract.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	if len(document.Semantic.Ports.DataInputs) != 2 || len(document.Semantic.Ports.DataOutputs) != 1 {
+		t.Fatalf("concat data ports = %#v", document.Semantic.Ports)
+	}
+	if document.Semantic.Ports.ExecInputs == nil || document.Semantic.Ports.ExecOutputs == nil ||
+		document.Semantic.Ports.ErrorOutputs == nil {
+		t.Fatal("empty control port arrays were encoded as null or omitted")
+	}
+	if len(document.Semantic.Ports.ExecInputs)+len(document.Semantic.Ports.ExecOutputs)+
+		len(document.Semantic.Ports.ErrorOutputs) != 0 {
+		t.Fatalf("concat gained control ports: %#v", document.Semantic.Ports)
+	}
+
+	draft.Authoring.TitleKey = "node.text.concat.renamed"
+	renamed, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.NodeRef() != contract.NodeRef() {
+		t.Fatal("authoring annotation changed node semantic identity")
+	}
+	reopened, err := Open(contract.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.NodeRef() != contract.NodeRef() {
+		t.Fatalf("reopened ref = %#v, want %#v", reopened.NodeRef(), contract.NodeRef())
+	}
+}
+
+func TestSemanticArtifactExcludesAuthoringAndCanBeReopened(t *testing.T) {
+	left := concatContractDraftForTest()
+	left.Authoring = Authoring{TitleKey: "node.concat.title", Tags: []string{"text"}}
+	right := concatContractDraftForTest()
+	right.Authoring = Authoring{
+		TitleKey: "node.concat.renamed", Tags: []string{"utility"},
+		Ports: []PortAuthoring{{ID: "a", TitleKey: "node.concat.input.a.title", DescriptionKey: "node.concat.input.a.description"}},
+	}
+
+	leftContract, err := Seal(left)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightContract, err := Seal(right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(leftContract.SemanticBytes(), rightContract.SemanticBytes()) {
+		t.Fatal("authoring changed semantic artifact")
+	}
+	reopened, err := OpenSemantic(leftContract.NodeRef(), leftContract.SemanticBytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.NodeRef() != leftContract.NodeRef() || !bytes.Equal(reopened.SemanticBytes(), leftContract.SemanticBytes()) {
+		t.Fatal("semantic artifact round trip changed identity")
+	}
+	if reopened.Authoring().TitleKey != "" || len(reopened.Authoring().Tags) != 0 || len(reopened.Authoring().Ports) != 0 {
+		t.Fatalf("machine-only contract leaked authoring: %#v", reopened.Authoring())
+	}
+}
+
+func TestPortAuthoringIsStrictAndCannotReferenceUnknownPorts(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Authoring = Authoring{Tags: []string{}, Ports: []PortAuthoring{{ID: "a", EditorAdapter: "template-image"}}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contract.Authoring().Ports) != 1 || contract.Authoring().Ports[0].ID != "a" {
+		t.Fatalf("port authoring = %#v", contract.Authoring().Ports)
+	}
+	draft.Authoring.Ports[0].ID = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted authoring metadata for an unknown port")
+	}
+	draft.Authoring.Ports[0] = PortAuthoring{ID: "a", EditorAdapter: "plugin-javascript"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an unregistered port editor adapter")
+	}
+	draft.Authoring.Ports[0] = PortAuthoring{ID: "a", Group: "plugin-section"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an unregistered authoring group")
+	}
+}
+
+func TestSealNormalizesAndValidatesHostFeatureRequirements(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.HostFeatureRequirements = []HostFeatureRequirement{
+		{ID: "renderer", FeatureID: "https://schemas.yotta.dev/host-features/renderer/v1"},
+		{ID: "browser", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+	}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements := contract.Machine().HostFeatureRequirements
+	if len(requirements) != 2 || requirements[0].ID != "browser" || requirements[1].ID != "renderer" {
+		t.Fatalf("host feature requirements = %#v", requirements)
+	}
+
+	draft.HostFeatureRequirements = []HostFeatureRequirement{
+		{ID: "first", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+		{ID: "second", FeatureID: "https://schemas.yotta.dev/host-features/browser/v1"},
+	}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("duplicate host feature was accepted")
+	}
+}
+
+func TestSealRejectsPureDataControlPortsAndInvalidTypeExpressions(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Ports.ExecOutputs = []SignalPort{{ID: "out"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted pure-data contract with exec output")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.StatusEvents = []StatusEventSpec{{Code: "node.progress", Category: StatusProgress}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted pure-data contract with a status event")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Ports.DataInputs[0].Type = datatype.TypeExpression{Kind: datatype.TypeExpressionUnion}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted invalid data port type expression")
+	}
+}
+
+func TestSealRequiresExplicitVersionAndStableNodeTypeID(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Version = ""
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node contract without an explicit version")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Version = "v1"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a non-SemVer node version")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.NodeTypeID += "/v1"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node type ID with an embedded version")
+	}
+}
+
+func TestSealRequiresAnExactCompilerInstructionUnion(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Instruction = InstructionSpec{}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a node contract without a compiler instruction")
+	}
+	draft = concatContractDraftForTest()
+	draft.Instruction.RunRoot = &RunRootInstruction{Output: "result"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted multiple compiler instruction payloads")
+	}
+	draft = concatContractDraftForTest()
+	draft.Instruction = RunRoot("result")
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted run-root lowering on a pure-data node")
+	}
+	draft = concatContractDraftForTest()
+	draft.ImplementationABI = []ABIRequirement{{Kind: ABIHostInstruction, Version: "v1"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted host-instruction ABI on an invoke instruction")
+	}
+}
+
+func TestSealEnforcesOfflineConfigSchemaClosure(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.ConfigSchemaBundle[0].Schema = json.RawMessage(`{
+		"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
+		"$schema":"https://json-schema.org/draft/2020-12/schema",
+		"$ref":"https://remote.example/missing"
+	}`)
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted unbundled config schema reference")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.ConfigSchemaBundle[0].Schema = json.RawMessage(`{
+		"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
+		"$schema":"https://json-schema.org/draft/2020-12/schema",
+		"$defs":{
+			"container":{"$id":"embedded/","$ref":"value"},
+			"value":{"$id":"embedded/value","type":"string"}
+		},
+		"const":{"$id":"not-a-schema-id","$ref":"literal-instance-data"}
+	}`)
+	if _, err := Seal(draft); err != nil {
+		t.Fatalf("rejected bundled nested reference or interpreted const as schema: %v", err)
+	}
+}
+
+func TestOpenRejectsUnknownAndOverdeepContracts(t *testing.T) {
+	contract, err := Seal(concatContractDraftForTest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(contract.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	document["unexpected"] = true
+	raw, err := artifact.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(raw); err == nil {
+		t.Fatal("accepted unknown node contract field")
+	}
+
+	overdeep := []byte(strings.Repeat("[", MaxContractDepth+1) + "0" + strings.Repeat("]", MaxContractDepth+1))
+	if _, err := Open(overdeep); err == nil {
+		t.Fatal("accepted node contract over depth budget")
+	}
+}
+
+func TestSealEnforcesExecutionCapabilityInvariants(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "network", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/network/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"read"}, TargetSlot: "network", Scope: json.RawMessage(`{}`),
+	}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted pure-data contract with a capability requirement")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	draft.Ports.ExecInputs = []SignalPort{{ID: "in"}}
+	draft.Ports.ExecOutputs = []SignalPort{{ID: "done"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted effect contract without an effect or capability")
+	}
+}
+
+func TestSealRequiresTypedStateAccessToUseEffectSemantics(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.StateAccesses = []StateAccessSpec{{
+		ID: "state", SlotConfigKey: "variable", Type: datatype.VariableExpression("T"), Mode: StateRead,
+	}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted state access on a pure-data node")
+	}
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/state/read/v1"}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accesses := contract.Machine().StateAccesses
+	if len(accesses) != 1 || accesses[0].ID != "state" || accesses[0].Mode != StateRead {
+		t.Fatalf("state accesses = %#v", accesses)
+	}
+	draft.StateAccesses[0].SlotConfigKey = "Variable"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an invalid state slot config key")
+	}
+}
+
+func TestSealEnforcesEventControlAndPushEffectEntrySemantics(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEvent
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	if _, err := Seal(draft); err != nil {
+		t.Fatalf("valid event contract: %v", err)
+	}
+	draft.Ports.ExecInputs = []SignalPort{{ID: "in"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an event with an exec input")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Execution.Class = ExecutionControl
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a control node without an exec input")
+	}
+
+	draft = concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/test/push/v1"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a push effect without an exec input")
+	}
+}
+
+func TestSealRejectsErrorOutputWithoutStructuredErrorDeclaration(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEvent
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Evaluation = EvaluationPush
+	draft.Ports.ErrorOutputs = []SignalPort{{ID: "failed"}}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted an error output without an ErrorSpec")
+	}
+}
+
+func TestSealBindsResourcePortsToExactCapabilityOperations(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/blob/read/v1"}
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "blob", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/blob/read/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"read-range"}, TargetSlot: "workspace", Scope: json.RawMessage(`{}`),
+	}}
+	draft.Ports.DataOutputs[0].ResourceLease = &ResourceLeaseBinding{RequirementID: "blob", Operations: []string{"read-range"}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease := contract.Machine().Ports.DataOutputs[0].ResourceLease
+	if lease == nil || lease.RequirementID != "blob" || len(lease.Operations) != 1 {
+		t.Fatalf("resource lease = %#v", lease)
+	}
+	draft.Ports.DataOutputs[0].ResourceLease.Operations = []string{"delete"}
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a resource port that widened capability operations")
+	}
+}
+
+func TestCapabilityRequirementBindingsResolveOnlyLogicalInstallationSlots(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Execution.Class = ExecutionEffect
+	draft.Execution.Cache = CacheNone
+	draft.Execution.Effects = []EffectID{"https://schemas.yotta.dev/effects/ai/generate/v1"}
+	draft.CapabilityRequirements = []capability.Requirement{{
+		ID: "model", Capability: capability.Ref{
+			CapabilityID:   "https://schemas.yotta.dev/capabilities/ai/generate/v1",
+			SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("2", 64)),
+		}, Operations: []string{"generate"}, TargetSlot: "model", CredentialSlot: "credential", Scope: json.RawMessage(`{}`),
+	}}
+	draft.RequirementBindings = []RequirementBindingSpec{{
+		RequirementID: "model", TargetSlotConfigKey: "slot", CredentialSlotConfigKey: "slot",
+	}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requirements, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{"slot": "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(requirements) != 1 || requirements[0].TargetSlot != "production" || requirements[0].CredentialSlot != "production" {
+		t.Fatalf("effective requirements = %#v", requirements)
+	}
+	if contract.Machine().CapabilityRequirements[0].TargetSlot != "model" {
+		t.Fatal("instance resolution mutated the trusted node contract")
+	}
+	if _, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{"slot": "Production"}); err == nil {
+		t.Fatal("accepted an invalid installation slot identity")
+	}
+	if _, err := ResolveCapabilityRequirements(contract.Machine(), map[string]any{}); err == nil {
+		t.Fatal("accepted a missing installation slot")
+	}
+
+	draft.RequirementBindings[0].RequirementID = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a binding for an unknown capability requirement")
+	}
+}
+
+func TestConfigValidatorsAreVersionedAndContentAddressed(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.ConfigValidators = []ConfigValidatorSpec{{
+		ID: "output-schema", ConfigKey: "schema",
+		ValidatorID:    "https://schemas.yotta.dev/config-validators/example/v1",
+		SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("3", 64)),
+	}}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validators := contract.Machine().ConfigValidators
+	if len(validators) != 1 || validators[0].ConfigKey != "schema" {
+		t.Fatalf("config validators = %#v", validators)
+	}
+
+	draft.ConfigValidators[0].SemanticDigest = "sha256:bad"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted a config validator with an invalid semantic digest")
+	}
+	draft.ConfigValidators[0].SemanticDigest = artifact.Digest("sha256:" + strings.Repeat("3", 64))
+	draft.ConfigValidators = append(draft.ConfigValidators, draft.ConfigValidators[0])
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted duplicate config validator identities")
+	}
+}
+
+func TestConversionSpecIsPortCheckedAndAutoInsertSafe(t *testing.T) {
+	draft := concatContractDraftForTest()
+	draft.Conversion = &ConversionSpec{
+		InputPort: "a", OutputPort: "result", Kind: ConversionLossless,
+		Total: true, Cost: 1, AutoInsert: true,
+	}
+	contract, err := Seal(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := contract.Machine().Conversion; got == nil || got.InputPort != "a" || !got.AutoInsert {
+		t.Fatalf("conversion = %#v", got)
+	}
+
+	draft.Conversion.Kind = ConversionLossy
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted lossy auto-insert conversion")
+	}
+	draft.Conversion.AutoInsert = false
+	draft.Conversion.Total = false
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted partial conversion without a declared error")
+	}
+	draft.Errors = []ErrorSpec{{Code: "conversion.failed", Category: "evaluation"}}
+	if _, err := Seal(draft); err != nil {
+		t.Fatalf("rejected explicit fallible conversion: %v", err)
+	}
+	draft.Conversion.InputPort = "missing"
+	if _, err := Seal(draft); err == nil {
+		t.Fatal("accepted conversion with a missing input port")
+	}
+}
+
+func concatContractDraftForTest() Draft {
+	stringRef := datatype.TypeRef{
+		TypeID:         "https://schemas.yotta.dev/types/core/string/v1",
+		SemanticDigest: artifact.Digest("sha256:" + strings.Repeat("1", 64)),
+	}
+	stringType := datatype.RefExpression(stringRef)
+	const configID = "https://schemas.yotta.dev/nodes/text/concat/config"
+	return Draft{
+		NodeTypeID:       "https://schemas.yotta.dev/nodes/text/concat",
+		Version:          "1.0.0",
+		ConfigSchemaRoot: configID,
+		ConfigSchemaBundle: []datatype.SchemaResource{{
+			ID: configID,
+			Schema: json.RawMessage(`{
+				"$id":"https://schemas.yotta.dev/nodes/text/concat/config",
+				"$schema":"https://json-schema.org/draft/2020-12/schema",
+				"type":"object",
+				"additionalProperties":false
+			}`),
+		}},
+		Ports: PortSet{
+			DataInputs: []DataInputPort{
+				{ID: "a", Type: stringType, Required: true},
+				{ID: "b", Type: stringType, Required: true},
+			},
+			DataOutputs:  []DataOutputPort{{ID: "result", Type: stringType}},
+			ExecInputs:   []SignalPort{},
+			ExecOutputs:  []SignalPort{},
+			ErrorOutputs: []SignalPort{},
+		},
+		Execution: ExecutionSpec{
+			Class: ExecutionPureData, Determinism: Deterministic,
+			Evaluation: EvaluationPull, Cache: CachePerRun, Retry: RetryNever,
+			Cancellation: CancellationCooperative, Timeout: TimeoutNone,
+			Effects: []EffectID{},
+		},
+		Instruction:            Invoke(),
+		CapabilityRequirements: []capability.Requirement{},
+		RequirementBindings:    []RequirementBindingSpec{},
+		ConfigValidators:       []ConfigValidatorSpec{},
+		Errors:                 []ErrorSpec{},
+		StatusEvents:           []StatusEventSpec{},
+		ImplementationABI:      []ABIRequirement{{Kind: ABIBuiltin, Version: "v1"}},
+		Authoring:              Authoring{TitleKey: "node.text.concat.title", Category: "text"},
+	}
+}

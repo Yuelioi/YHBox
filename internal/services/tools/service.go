@@ -1,0 +1,500 @@
+package tools
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/automation/target"
+)
+
+// TargetResolver provides trusted local tooling access to installed targets.
+type TargetResolver interface {
+	ResolveWindow(context.Context, string) (target.WindowHandle, error)
+	ResolveTarget(context.Context, string) (target.Target, error)
+	CaptureBackend(string) (string, error)
+}
+
+// cachedWindow gameWindowFor 的短期缓存条目 (MousePos 高频 poll，不能每帧 EnumWindows)。
+// 注意: wh.HWND 在 2s TTL 内若游戏关了又开会变陈旧失效，调用方 (screenToClient / capture.Frame) 需容错。
+type cachedWindow struct {
+	wh target.WindowHandle
+	at time.Time
+}
+
+// Service is the tools RPC entry point.
+type Service struct {
+	resolver  TargetResolver
+	presenter Presenter
+
+	mu              sync.Mutex
+	winCache        map[string]cachedWindow // target slot → resolved window (2s TTL)
+	hud             windowSlot
+	recordingHUD    windowSlot
+	calibratorHUD   windowSlot
+	launcher        windowSlot
+	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
+	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
+	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
+	onCalibratorClose func()
+	// pickerWindows: requestID → lifecycle slot，方便复用（同 id 重开聚焦旧窗口）
+	pickerWindows map[string]*windowSlot
+	targetTools   targetToolRouter
+	// captureHotkey 返当前「窗口捕获」键的 (mods, vk)。main.go 从 hotkey registry
+	// (tools.window-capture 条目) 注入；nil 或返 vk==0 时 StartWin32WindowTargetCapture 回退 F9。
+	captureHotkey func() (mods, vk uint32)
+	closed        atomic.Bool
+	shutdownOnce  sync.Once
+	shutdownDone  chan struct{}
+	shutdownErr   error
+}
+
+type Options struct {
+	CaptureHotkey     func() (mods, vk uint32)
+	OnCalibratorClose func()
+}
+
+func NewService(resolver TargetResolver, presenter Presenter) *Service {
+	return NewServiceWithOptions(resolver, presenter, Options{})
+}
+
+func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options Options) *Service {
+	s := &Service{
+		resolver:          resolver,
+		presenter:         presenter,
+		captureHotkey:     options.CaptureHotkey,
+		onCalibratorClose: options.OnCalibratorClose,
+		winCache:          map[string]cachedWindow{},
+		pickerWindows:     map[string]*windowSlot{},
+		shutdownDone:      make(chan struct{}),
+	}
+	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
+		target.KindWin32Window: win32TargetToolAdapter{service: s},
+		target.KindAndroidADB:  androidTargetToolAdapter{service: s},
+	})
+	return s
+}
+
+// gameWindowFor resolves an installed target with a short polling cache.
+func (s *Service) gameWindowFor(targetSlot string) (target.WindowHandle, bool) {
+	cacheKey := targetSlot
+	s.mu.Lock()
+	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
+		wh := c.wh
+		s.mu.Unlock()
+		return wh, wh.HWND != 0
+	}
+	s.mu.Unlock()
+
+	// 锁外调阻塞解析 (winutil.ResolveWindow 窗口没开时最长等 3s), 不持锁, 不卡其它 RPC.
+	wh, err := s.resolver.ResolveWindow(context.Background(), targetSlot)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// double-check: 期间并发 poll 可能已写缓存
+	if c, ok := s.winCache[cacheKey]; ok && time.Since(c.at) < 2*time.Second {
+		return c.wh, c.wh.HWND != 0
+	}
+	if err != nil {
+		// 负缓存: 失败也存零值 2s, 避免游戏关着时高频 poll 反复阻塞解析
+		s.winCache[cacheKey] = cachedWindow{at: time.Now()}
+		return target.WindowHandle{}, false
+	}
+	s.winCache[cacheKey] = cachedWindow{wh: wh, at: time.Now()}
+	return wh, true
+}
+
+func (s *Service) windowPresenter() Presenter {
+	s.mu.Lock()
+	presenter := s.presenter
+	s.mu.Unlock()
+	if s.closed.Load() || presenter == nil || !presenter.Ready() {
+		return nil
+	}
+	return presenter
+}
+
+// Shutdown closes every secondary window, waits for in-flight opens to observe
+// cancellation, and releases the temporary Win32 capture hotkey.
+func Shutdown(ctx context.Context, s *Service) error {
+	s.shutdownOnce.Do(func() {
+		s.closed.Store(true)
+		go s.shutdown()
+	})
+	select {
+	case <-s.shutdownDone:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.shutdownErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Service) shutdown() {
+	s.mu.Lock()
+	s.launcherVisible = false
+
+	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher}
+	for _, slot := range s.pickerWindows {
+		if slot != nil {
+			slots = append(slots, slot)
+		}
+	}
+	s.pickerWindows = map[string]*windowSlot{}
+	windows := make([]Window, 0, len(slots))
+	attempts := make([]*windowOpenAttempt, 0, len(slots))
+	calibratorActive := false
+	for _, slot := range slots {
+		// A completed window no longer owns its closing callback after the
+		// generation bump below, so run that cleanup here. An in-flight open
+		// performs the same cleanup in openWindowSlot after it observes cancel.
+		if slot == &s.calibratorHUD && slot.window != nil {
+			calibratorActive = true
+		}
+		slot.generation++
+		if slot.window != nil {
+			windows = append(windows, slot.window)
+			slot.window = nil
+		}
+		if slot.opening != nil {
+			attempts = append(attempts, slot.opening)
+		}
+	}
+	calibratorClose := s.onCalibratorClose
+	s.mu.Unlock()
+
+	captureDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		captureDone <- shutdownWin32WindowTargetCapture(ctx)
+	}()
+	for _, window := range windows {
+		window.Close()
+	}
+	if calibratorActive && calibratorClose != nil {
+		calibratorClose()
+	}
+	for _, attempt := range attempts {
+		<-attempt.cleanupDone
+	}
+	var errs []error
+	if err := <-captureDone; err != nil {
+		errs = append(errs, err)
+	}
+	joined := errors.Join(errs...)
+	s.mu.Lock()
+	s.shutdownErr = joined
+	s.mu.Unlock()
+	close(s.shutdownDone)
+}
+
+// MousePos returns cursor coordinates for one exact installed target slot.
+func (s *Service) MousePos(targetSlot string) (MousePosInfo, error) {
+	sx, sy, err := readCursor()
+	info := MousePosInfo{ScreenX: sx, ScreenY: sy}
+	if err != nil {
+		return info, err
+	}
+	wh, hasGame := s.gameWindowFor(targetSlot)
+	if !hasGame {
+		return info, nil
+	}
+	hwnd, cw, ch := wh.HWND, wh.ClientW, wh.ClientH
+	if hwnd == 0 || cw <= 0 || ch <= 0 {
+		return info, nil
+	}
+	info.HasGame = true
+	info.ClientW, info.ClientH = cw, ch
+	cx, cy, err := screenToClient(hwnd, sx, sy)
+	if err != nil {
+		return info, err
+	}
+	info.ClientX, info.ClientY = cx, cy
+	if cw > 0 {
+		info.XRatio = float64(cx) / float64(cw)
+	}
+	if ch > 0 {
+		info.YRatio = float64(cy) / float64(ch)
+	}
+	return info, nil
+}
+
+// OpenMouseHUD opens the cursor HUD for one installed target slot.
+func (s *Service) OpenMouseHUD(targetSlot string) error {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	w, opened, err := s.openWindow(presenter, &s.hud, WindowRequest{
+		Kind:       WindowMouseHUD,
+		TargetSlot: targetSlot,
+	}, nil)
+	if err != nil {
+		return err
+	}
+	if !opened && w != nil {
+		w.Focus()
+	}
+	return nil
+}
+
+// OpenRecordingHUD 打开录制控制悬浮窗 — 实心盒子窗 frameless + AlwaysOnTop (跟校准窗同风格).
+// 内容: 标题栏(X) / 大号 REC 计时 + 模式 / 暂停·继续·停止按钮 + 热键 hint. 解决 "录制时切回 Yotta 不方便" 痛点.
+// 已开则 focus. 用户关闭窗口 / 录制结束都触发自动关.
+func (s *Service) OpenRecordingHUD() error {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	w, opened, err := s.openWindow(presenter, &s.recordingHUD, WindowRequest{Kind: WindowRecordingHUD}, nil)
+	if err != nil {
+		return err
+	}
+	if !opened && w != nil {
+		w.Focus()
+	}
+	return nil
+}
+
+// OpenLauncher 打开（或显示+聚焦）悬浮窗启动器。frameless + AlwaysOnTop，仿 OpenRecordingHUD。
+// 入口按钮调；关闭按钮走 HideLauncher（隐藏不销毁）。
+func (s *Service) OpenLauncher() error {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	w, opened, err := s.openWindow(presenter, &s.launcher, WindowRequest{Kind: WindowLauncher}, func() {
+		s.mu.Lock()
+		s.launcherVisible = false
+		s.mu.Unlock()
+	})
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.launcherVisible = true
+	s.mu.Unlock()
+	if !opened && w != nil {
+		w.Show()
+		w.Focus()
+	}
+	return nil
+}
+
+// OpenLauncherSettings reveals the existing main window and asks only its
+// main-shell router to navigate. The launcher webview remains on its
+// standalone route and no editor draft is bypassed or force-reloaded.
+func (s *Service) OpenLauncherSettings() error {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	if err := presenter.ShowMain(); err != nil {
+		return err
+	}
+	presenter.Emit("main:navigate", map[string]string{"path": "/settings", "section": "launcher"})
+	return nil
+}
+
+// ToggleLauncher 呼出/隐藏（toggle 全局热键调）。可见 → 隐；否则 → 开/显示。
+func (s *Service) ToggleLauncher() error {
+	s.mu.Lock()
+	visible := s.launcherVisible && s.launcher.window != nil
+	w := s.launcher.window
+	s.mu.Unlock()
+	if visible {
+		s.mu.Lock()
+		s.launcherVisible = false
+		s.mu.Unlock()
+		w.Hide()
+		return nil
+	}
+	return s.OpenLauncher()
+}
+
+// HideLauncher 标题栏 × 按钮调（FE）：隐藏不销毁，状态保留。
+func (s *Service) HideLauncher() error {
+	s.mu.Lock()
+	w := s.launcher.window
+	s.launcherVisible = false
+	s.mu.Unlock()
+	if w != nil {
+		w.Hide()
+	}
+	return nil
+}
+
+// SetLauncherAlwaysOnTop 图钉切换：运行时改启动器窗口置顶（默认开窗即置顶）。
+func (s *Service) SetLauncherAlwaysOnTop(on bool) error {
+	w := s.currentWindow(&s.launcher)
+	if w != nil {
+		w.SetAlwaysOnTop(on)
+	}
+	return nil
+}
+
+// SetLauncherSize 程序化设启动器窗口尺寸（前端按内容自适应高度 / 右下角手柄拖拽时调用）。
+func (s *Service) SetLauncherSize(width, height int) error {
+	w := s.currentWindow(&s.launcher)
+	if w != nil && width > 0 && height > 0 {
+		w.SetSize(width, height)
+	}
+	return nil
+}
+
+// OpenCalibratorHUD 打开独立置顶校准窗 (frameless + AlwaysOnTop)。
+// 校准测量走全局 raw-input (INPUTSINK, 不挑前台窗口), F8 走自治 LL 钩 —— 所以这里不绑任何游戏:
+// 开窗后用户自己切到想校准的游戏/软件按 F8 即可。通用框架不假设"唯一的那个游戏", 也不强制把某个
+// 检测到的游戏置前 (那是 v1 单游戏残留)。requestID 透到窗口 URL, 校准完成时窗口 emit
+// 'calibration:result' 带 id 给调用方匹配。已开则 focus。
+//
+// 返 (opened, error) 而非纯 error: wails3 纯 error 方法经 FE invoke 后成功/失败都返 undefined,
+// 调用方无法区分 (见 incident wails-error-only-rpc-invoke-undefined)。
+func (s *Service) OpenCalibratorHUD(requestID string) (bool, error) {
+	presenter := s.windowPresenter()
+	if presenter == nil {
+		return false, apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	w, opened, err := s.openWindow(presenter, &s.calibratorHUD, WindowRequest{
+		Kind:      WindowCalibratorHUD,
+		RequestID: requestID,
+	}, func() {
+		s.mu.Lock()
+		cb := s.onCalibratorClose
+		s.mu.Unlock()
+		if cb != nil {
+			cb()
+		}
+	})
+	if err != nil {
+		return false, err
+	}
+	if !opened && w != nil {
+		w.Focus()
+	}
+	if !opened && w == nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+// CloseCalibratorHUD 前端校准完成/取消时调, 让后端关窗 (前端拿不到 self handle)。幂等。
+func (s *Service) CloseCalibratorHUD() error {
+	w := s.invalidateWindow(&s.calibratorHUD)
+	if w != nil {
+		w.Close()
+		s.mu.Lock()
+		cb := s.onCalibratorClose
+		s.mu.Unlock()
+		if cb != nil {
+			cb()
+		}
+	}
+	return nil
+}
+
+// CloseRecordingHUD 录制 service 停录时调, 主动关 HUD.
+// 已关或没开时 idempotent.
+func (s *Service) CloseRecordingHUD() {
+	w := s.invalidateWindow(&s.recordingHUD)
+	if w != nil {
+		w.Close()
+	}
+}
+
+// OpenScreenPicker 打开屏幕选择器。mode: "point" | "rect" | "template_save" |
+// "workflow_resource" | "template_recapture" | "color"。
+// requestID 调用方生成（UUID），picker 完成时通过 emit 事件 "tools:picker-result"
+// 带上 id 给调用方匹配。targetSlot 选择精确的已安装自动化目标。
+// colorSpace 仅 color 模式需要（"hsv" | "rgb"），其他模式传 ""。
+// guid 仅 template_recapture 模式需要（重拍目标资产 GUID，存成同 GUID 的新分辨率档）；其他模式传 ""。
+func (s *Service) OpenScreenPicker(mode, requestID, targetSlot, colorSpace, guid string) error {
+	if mode != "point" && mode != "rect" && mode != "template_save" && mode != "workflow_resource" && mode != "template_recapture" && mode != "color" {
+		return fmt.Errorf("unsupported mode %q", mode)
+	}
+	if requestID == "" {
+		return fmt.Errorf("requestID 不能为空")
+	}
+	if s.resolver == nil {
+		return errors.New("installed target resolver is unavailable")
+	}
+	tg, err := s.resolver.ResolveTarget(context.Background(), targetSlot)
+	if err != nil {
+		return err
+	}
+	return s.targetTools.OpenPicker(tg, PickerRequest{
+		Mode: mode, RequestID: requestID, TargetSlot: targetSlot,
+		ColorSpace: colorSpace, GUID: guid,
+	})
+}
+
+// ClosePicker 由 picker 完成后或取消时调，前端拿不到 self window handle，
+// 让后端清理。
+func (s *Service) ClosePicker(requestID string) error {
+	s.mu.Lock()
+	slot, ok := s.pickerWindows[requestID]
+	if ok {
+		delete(s.pickerWindows, requestID)
+	}
+	s.mu.Unlock()
+	if !ok || slot == nil {
+		return nil
+	}
+	if w := s.invalidateWindow(slot); w != nil {
+		w.Close()
+	}
+	return nil
+}
+
+// --- Win32WindowTarget capture (temporary global keyboard hook, async via event) ---
+
+// StartWin32WindowTargetCapture 临时监听「窗口捕获」热键 (默认 F9, 走热键中心可 rebind),
+// 用户按下后:
+//  1. 查前台窗口 metadata
+//  2. emit "win32windowtarget:captured" event {title, class, executable}
+//  3. 自动反注册热键
+//
+// 键来源 = constructor-pinned registry getter (mods+vk); 未注入回退 F9。
+// 同时只能一个 capture session. 用户多次开启需要先 CancelWin32WindowTargetCapture.
+// 返 captureID 给前端用来 cancel.
+//
+// 流程: 前端 NodeInspector 点 "捕获" → 调本 RPC → 用户 Alt-Tab 到游戏 → 按该键
+// → 前端收 event 填表. 取代旧 CaptureForegroundWindow (用户在游戏前台时无法点按钮).
+func (s *Service) StartWin32WindowTargetCapture() (string, error) {
+	if err := win32WindowCaptureSupported(); err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return "", apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	var mods, vk uint32
+	getter := s.captureHotkey
+	if getter != nil {
+		mods, vk = getter()
+	}
+	if vk == 0 {
+		mods, vk = 0, 0x78 // VK_F9 回退
+	}
+	presenter := s.presenter
+	if presenter == nil || !presenter.Ready() {
+		return "", apperr.New(apperr.CodeWailsNotReady, nil)
+	}
+	return startWin32WindowTargetCapture(mods, vk, func(name string, data any) {
+		presenter.Emit(name, data)
+	})
+}
+
+// CancelWin32WindowTargetCapture 主动 cancel 一个等待中的 capture session.
+// captureID 必须匹配 — 不匹配 / 无活跃 session 都返 nil (idempotent).
+// 前端组件 unmount / 用户再点按钮取消都调本 RPC.
+func (s *Service) CancelWin32WindowTargetCapture(captureID string) error {
+	return cancelWin32WindowTargetCapture(captureID)
+}

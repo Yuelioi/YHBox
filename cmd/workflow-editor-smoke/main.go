@@ -1,0 +1,2125 @@
+package main
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/automation/browsercdp"
+	"github.com/yottaapp/yotta/internal/storage"
+	"github.com/yottaapp/yotta/internal/storage/catalog"
+)
+
+type pageState struct {
+	Href                  string         `json:"href"`
+	NodeAddTrigger        bool           `json:"nodeAddTrigger"`
+	WorkspaceTools        int            `json:"workspaceTools"`
+	GraphManager          bool           `json:"graphManager"`
+	CanvasNodes           int            `json:"canvasNodes"`
+	CanvasEdges           int            `json:"canvasEdges"`
+	AIReview              bool           `json:"aiReview"`
+	WorkflowState         bool           `json:"workflowState"`
+	ResourceDock          bool           `json:"resourceDock"`
+	ResourceKind          string         `json:"resourceKind"`
+	ResourceCreate        bool           `json:"resourceCreate"`
+	ResourceScope         string         `json:"resourceScope"`
+	ResourceScopeActive   int            `json:"resourceScopeActive"`
+	ResourceScopeContrast bool           `json:"resourceScopeContrast"`
+	ResourceModeControls  int            `json:"resourceModeControls"`
+	ResourceFiltersFill   bool           `json:"resourceFiltersFill"`
+	ResourceLoading       bool           `json:"resourceLoading"`
+	RecipeItems           int            `json:"recipeItems"`
+	SnippetDock           bool           `json:"snippetDock"`
+	SnippetItems          int            `json:"snippetItems"`
+	SnippetModal          bool           `json:"snippetModal"`
+	NodeContextMenu       bool           `json:"nodeContextMenu"`
+	TemplateMenuActions   int            `json:"templateMenuActions"`
+	RunStarted            bool           `json:"runStarted"`
+	AssetsView            bool           `json:"assetsView"`
+	AssetsRecording       bool           `json:"assetsRecording"`
+	SchedulesView         bool           `json:"schedulesView"`
+	ScheduleEditor        bool           `json:"scheduleEditor"`
+	ScheduleRows          int            `json:"scheduleRows"`
+	ScheduleRowTargets    []string       `json:"scheduleRowTargets"`
+	ScheduleEditTargets   []string       `json:"scheduleEditTargets"`
+	CreateInput           bool           `json:"createInput"`
+	RecoveryPanel         bool           `json:"recoveryPanel"`
+	LauncherButton        bool           `json:"launcherButton"`
+	GraphChromeDark       bool           `json:"graphChromeDark"`
+	HandleOverlaps        int            `json:"handleOverlaps"`
+	NativeConfirmCalls    int            `json:"nativeConfirmCalls"`
+	ConfirmDialog         bool           `json:"confirmDialog"`
+	Dirty                 bool           `json:"dirty"`
+	SaveInlineFeedback    bool           `json:"saveInlineFeedback"`
+	SaveError             string         `json:"saveError"`
+	SaveToast             bool           `json:"saveToast"`
+	SelectedNodes         int            `json:"selectedNodes"`
+	SelectionToolbar      bool           `json:"selectionToolbar"`
+	ConnectionMenu        bool           `json:"connectionMenu"`
+	ConnectionCandidates  int            `json:"connectionCandidates"`
+	ConnectionError       string         `json:"connectionError"`
+	Debugger              bool           `json:"debugger"`
+	DebugStart            bool           `json:"debugStart"`
+	DebugPaused           bool           `json:"debugPaused"`
+	DebugBusy             bool           `json:"debugBusy"`
+	DebugCompleted        bool           `json:"debugCompleted"`
+	DebugCurrent          int            `json:"debugCurrent"`
+	DebugNode             string         `json:"debugNode"`
+	Breakpoints           int            `json:"breakpoints"`
+	CurrentGraph          string         `json:"currentGraph"`
+	GraphCalls            int            `json:"graphCalls"`
+	GraphBoundaries       int            `json:"graphBoundaries"`
+	GraphInterface        bool           `json:"graphInterface"`
+	BoundaryClipped       int            `json:"boundaryClipped"`
+	BoundaryObscured      int            `json:"boundaryObscured"`
+	MinimapToggle         bool           `json:"minimapToggle"`
+	MinimapOpen           bool           `json:"minimapOpen"`
+	Annotations           int            `json:"annotations"`
+	GraphNameInput        bool           `json:"graphNameInput"`
+	CallMenuOptions       int            `json:"callMenuOptions"`
+	Reroutes              int            `json:"reroutes"`
+	NodeOverlaps          int            `json:"nodeOverlaps"`
+	NodeGeometry          []nodeGeometry `json:"nodeGeometry"`
+	Errors                []string       `json:"errors"`
+}
+
+type canvasNodeErgonomics struct {
+	CenterX                float64 `json:"centerX"`
+	CenterY                float64 `json:"centerY"`
+	BlankX                 float64 `json:"blankX"`
+	BlankY                 float64 `json:"blankY"`
+	Width                  float64 `json:"width"`
+	Height                 float64 `json:"height"`
+	Zoom                   float64 `json:"zoom"`
+	Selected               bool    `json:"selected"`
+	CompositeInlineEditors int     `json:"compositeInlineEditors"`
+}
+
+type wheelOwnershipProbe struct {
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
+	Zoom float64 `json:"zoom"`
+}
+
+type nodeGeometry struct {
+	ID        string  `json:"id"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
+	Width     float64 `json:"width"`
+	Height    float64 `json:"height"`
+	Transform string  `json:"transform"`
+}
+
+type point struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type connectionGesture struct {
+	Start point `json:"start"`
+	End   point `json:"end"`
+}
+
+func main() {
+	endpoint := flag.String("endpoint", "http://127.0.0.1:9227", "WebView2 CDP endpoint")
+	screenshot := flag.String("screenshot", ".task/workflow-editor-smoke.png", "PNG output path")
+	assetsScreenshot := flag.String("assets-screenshot", ".task/assets-smoke.png", "asset library PNG output path")
+	workflowsScreenshot := flag.String("workflows-screenshot", ".task/workflows-smoke.png", "workflow recovery PNG output path")
+	launcherScreenshot := flag.String("launcher-screenshot", ".task/launcher-smoke.png", "floating launcher PNG output path")
+	schedulesScreenshot := flag.String("schedules-screenshot", ".task/schedules-smoke.png", "schedule editor PNG output path")
+	subgraphScreenshot := flag.String("subgraph-screenshot", ".task/subgraph-smoke.png", "subgraph authoring PNG output path")
+	captureOnly := flag.Bool("capture-only", false, "capture the current WebView page without running the product journey")
+	urlContains := flag.String("url-contains", "wails.localhost", "substring used to select one WebView page target")
+	seedRoot := flag.String("seed-root", "", "seed the isolated storage root used by the product journey")
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	if *seedRoot != "" {
+		if err := seedRecoveryFixture(ctx, *seedRoot); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *captureOnly {
+		if err := captureCurrent(ctx, *endpoint, *urlContains, *screenshot); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if err := run(ctx, *endpoint, *screenshot, *assetsScreenshot, *workflowsScreenshot, *launcherScreenshot, *schedulesScreenshot, *subgraphScreenshot); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func seedRecoveryFixture(ctx context.Context, root string) error {
+	const originalName = "damaged-workflow.json"
+	raw := []byte(`{"format":"yotta.workflow","version":"1",`)
+	identityInput := make([]byte, 0, len(originalName)+1+len(raw))
+	identityInput = append(identityInput, originalName...)
+	identityInput = append(identityInput, 0)
+	identityInput = append(identityInput, raw...)
+	recoveryID, err := artifact.Sum("yotta/workflow-source-recovery/v1", identityInput)
+	if err != nil {
+		return fmt.Errorf("identify workflow recovery fixture: %w", err)
+	}
+	profile, err := storage.Open(ctx, storage.OpenOptions{Root: root})
+	if err != nil {
+		return fmt.Errorf("open smoke storage profile: %w", err)
+	}
+	defer profile.Close()
+	foundation, err := catalog.Open(ctx, profile.Roots)
+	if err != nil {
+		return fmt.Errorf("open smoke Catalog: %w", err)
+	}
+	defer foundation.Close()
+	if err := foundation.Workflows().PutQuarantine(ctx, catalog.WorkflowQuarantineRecord{
+		ID: recoveryID, OriginalName: originalName,
+		Reason: "synthetic invalid JSON", Artifact: raw, CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		return fmt.Errorf("seed workflow recovery fixture: %w", err)
+	}
+	return nil
+}
+
+func captureCurrent(ctx context.Context, endpoint, urlContains, screenshot string) error {
+	if strings.TrimSpace(screenshot) == "" {
+		return errors.New("screenshot output path is required")
+	}
+	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("discover Wails WebView: %w", err)
+	}
+	var selected *browsercdp.TargetInfo
+	for index := range targets {
+		if urlContains != "" && !strings.Contains(targets[index].URL, urlContains) {
+			continue
+		}
+		if selected != nil {
+			return fmt.Errorf("multiple WebView pages matched %q; use -url-contains to select one", urlContains)
+		}
+		selected = &targets[index]
+	}
+	if selected == nil {
+		return fmt.Errorf("no WebView page matched %q", urlContains)
+	}
+	client, err := browsercdp.DialWebSocketClient(ctx, selected.WebSocketDebuggerURL)
+	if err != nil {
+		return fmt.Errorf("connect Wails WebView: %w", err)
+	}
+	defer client.Close()
+	for _, call := range []struct {
+		method string
+		params map[string]any
+	}{
+		{method: "Runtime.enable"},
+		{method: "Page.enable"},
+		{method: "Page.bringToFront"},
+		{method: "Emulation.setFocusEmulationEnabled", params: map[string]any{"enabled": true}},
+	} {
+		if _, err := client.Call(ctx, call.method, call.params); err != nil {
+			return err
+		}
+	}
+	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, screenshot); err != nil {
+		return err
+	}
+	result, _ := json.MarshalIndent(map[string]any{
+		"status": "captured", "title": selected.Title, "url": selected.URL, "screenshot": screenshot,
+	}, "", "  ")
+	fmt.Println(string(result))
+	return nil
+}
+
+func run(ctx context.Context, endpoint, screenshot, assetsScreenshot, workflowsScreenshot, launcherScreenshot, schedulesScreenshot, subgraphScreenshot string) error {
+	nodeMenuScreenshot := siblingScreenshot(screenshot, "node-context-menu.png")
+	quickAddScreenshot := siblingScreenshot(screenshot, "quick-add.png")
+	runStateScreenshot := siblingScreenshot(screenshot, "run-state.png")
+	targets, err := browsercdp.NewService(endpoint).ListTargets(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("discover Wails WebView: %w", err)
+	}
+	if len(targets) != 1 {
+		return fmt.Errorf("expected one Wails page target, got %d", len(targets))
+	}
+	client, err := browsercdp.DialWebSocketClient(ctx, targets[0].WebSocketDebuggerURL)
+	if err != nil {
+		return fmt.Errorf("connect Wails WebView: %w", err)
+	}
+	defer client.Close()
+
+	if _, err := client.Call(ctx, "Runtime.enable", nil); err != nil {
+		return err
+	}
+	if _, err := client.Call(ctx, "Page.enable", nil); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		window.__yottaSmokeErrors = [];
+		window.addEventListener('error', event => window.__yottaSmokeErrors.push(String(event.error?.stack || event.message)));
+		window.addEventListener('unhandledrejection', event => window.__yottaSmokeErrors.push(String(event.reason?.stack || event.reason)));
+		const originalError = console.error.bind(console);
+		console.error = (...args) => {
+			window.__yottaSmokeErrors.push(args.map(value => { try { return String(value) } catch { return '<unprintable>' } }).join(' '));
+			originalError(...args);
+		};
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntilFor(ctx, client, 45*time.Second, func(current pageState) bool {
+		return current.RecoveryPanel && current.LauncherButton
+	}); err != nil {
+		return fmt.Errorf("wait for workflow list hydration: %w", err)
+	}
+	if workflowsScreenshot != "" {
+		if err := capture(ctx, client, workflowsScreenshot); err != nil {
+			return fmt.Errorf("capture workflow recovery surface: %w", err)
+		}
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-new-button"]');
+		if (!button) throw new Error('new workflow button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CreateInput }); err != nil {
+		return fmt.Errorf("wait for workflow creation dialog: %w", err)
+	}
+	nameJSON, _ := json.Marshal("Agent UI smoke " + time.Now().UTC().Format("20060102T150405Z"))
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const input = document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input');
+		if (!input) throw new Error('workflow name input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, %s);
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+	})()`, nameJSON)); err != nil {
+		return err
+	}
+	if err := waitFor(ctx, client, func(state pageState) bool { return !state.NodeAddTrigger }, func() error {
+		return eval(ctx, client, `(() => {
+			const button = document.querySelector('[data-testid="workflow-create-submit"]');
+			if (!button || button.disabled) throw new Error('create workflow button is unavailable');
+			button.click();
+		})()`)
+	}); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(state pageState) bool {
+		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools == 5
+	}); err != nil {
+		return fmt.Errorf("open workflow editor: %w", err)
+	}
+	if err := exerciseMinimap(ctx, client); err != nil {
+		return err
+	}
+	if err := exerciseCanvasNodeErgonomics(ctx, client, siblingScreenshot(screenshot, "analyze-color.png")); err != nil {
+		return err
+	}
+	if err := exerciseQuickAdd(ctx, client, quickAddScreenshot); err != nil {
+		return err
+	}
+	if launcherScreenshot != "" {
+		if err := configureLauncherWorkflow(ctx, client); err != nil {
+			return err
+		}
+		if err := exerciseLauncher(ctx, endpoint, targets[0].ID, client, launcherScreenshot); err != nil {
+			return err
+		}
+	}
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"concat",
+		"https://schemas.yotta.dev/nodes/text/concat",
+	); err != nil {
+		return fmt.Errorf("add text concat from the explicit node entry: %w", err)
+	}
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"delay",
+		"https://schemas.yotta.dev/nodes/control/delay",
+	); err != nil {
+		return fmt.Errorf("add delay from the explicit node entry: %w", err)
+	}
+
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-layout-lr"]');
+		if (!button) throw new Error('left-to-right layout button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.NodeOverlaps == 0 }); err != nil {
+		return fmt.Errorf("auto-layout workflow nodes: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 0 && !current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("clear workflow selection before box select: %w", err)
+	}
+
+	var selectionGesture connectionGesture
+	if err := evalJSON(ctx, client, `(() => {
+		const rects = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
+			.map(node => node.getBoundingClientRect());
+		if (rects.length < 2) throw new Error('multi-selection needs two workflow nodes');
+		const intersects = (left, right) =>
+			left.left < right.right && left.right > right.left &&
+			left.top < right.bottom && left.bottom > right.top;
+		const candidates = [];
+		for (let left = 0; left < rects.length; left++) {
+			for (let right = left + 1; right < rects.length; right++) {
+				const box = {
+					left: Math.min(rects[left].left, rects[right].left) - 8,
+					top: Math.min(rects[left].top, rects[right].top) - 4,
+					right: Math.max(rects[left].right, rects[right].right) + 8,
+					bottom: Math.max(rects[left].bottom, rects[right].bottom) + 4,
+				};
+				const covered = rects.filter(rect => intersects(box, rect)).length;
+				if (covered === 2) {
+					candidates.push({ box, area: (box.right - box.left) * (box.bottom - box.top) });
+				}
+			}
+		}
+		const candidate = candidates.sort((left, right) => left.area - right.area)[0];
+		if (!candidate) throw new Error('no isolated two-node marquee region found');
+		return {
+			start: { x: candidate.box.left, y: candidate.box.top },
+			end: { x: candidate.box.right, y: candidate.box.bottom }
+		};
+	})()`, &selectionGesture); err != nil {
+		return err
+	}
+	if err := dispatchMarqueeGesture(ctx, client, selectionGesture); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 2 && current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("multi-select workflow nodes: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Escape", "Escape", 27); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 0 && !current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("clear marquee selection before targeted batch delete: %w", err)
+	}
+	var deletePoints []point
+	if err := evalJSON(ctx, client, `(() => {
+		const nodes = [...document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)')]
+			.filter(node => node.getAttribute('data-id') !== 'run-started')
+			.slice(-2);
+		if (nodes.length < 2) throw new Error('batch delete needs two non-root workflow nodes');
+		return nodes.map(node => {
+			const header = node.querySelector('.workflow-node-drag-handle');
+			if (!header) throw new Error('batch delete node header not found');
+			const rect = header.getBoundingClientRect();
+			return { x: rect.left + 32, y: rect.top + rect.height / 2 };
+		});
+	})()`, &deletePoints); err != nil {
+		return err
+	}
+	if err := dispatchControlClicks(ctx, client, deletePoints); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 2 && current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("select non-root workflow nodes for batch delete: %w", err)
+	}
+	beforeDelete, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-selection-remove"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == beforeDelete.CanvasNodes-2 && current.SelectedNodes == 0 && !current.SelectionToolbar
+	}); err != nil {
+		return fmt.Errorf("delete selected workflow nodes: %w", err)
+	}
+	beforeConnection, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+
+	var gesture connectionGesture
+	if err := evalJSON(ctx, client, `(() => {
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!handle || !canvas) throw new Error('connection handle or canvas not found');
+		const h = handle.getBoundingClientRect();
+		const c = canvas.getBoundingClientRect();
+		const candidates = [];
+		for (const y of [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22]) {
+			for (const x of [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22]) {
+				candidates.push({ x: c.left + c.width * x, y: c.top + c.height * y });
+			}
+		}
+		const end = candidates.find(point => {
+			const element = document.elementFromPoint(point.x, point.y);
+			return element && canvas.contains(element) && !element.closest('.vue-flow__node, .vue-flow__edge, .vue-flow__controls, .vue-flow__minimap, [data-testid="workflow-selection-toolbar"]');
+		});
+		if (!end) throw new Error('blank connection drop point not found');
+		return { start: { x: h.left + h.width / 2, y: h.top + h.height / 2 }, end };
+	})()`, &gesture); err != nil {
+		return err
+	}
+	if err := dispatchConnectionGesture(ctx, client, gesture); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.ConnectionMenu }); err != nil {
+		return fmt.Errorf("open compatible connection menu: %w", err)
+	}
+	wheelBefore, err := readConnectionMenuWheelProbe(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := dispatchMouseWheel(ctx, client, wheelBefore.X, wheelBefore.Y, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	wheelAfter, err := readConnectionMenuWheelProbe(ctx, client)
+	if err != nil {
+		return err
+	}
+	if wheelAfter.Zoom < wheelBefore.Zoom-0.001 || wheelAfter.Zoom > wheelBefore.Zoom+0.001 {
+		return fmt.Errorf("connection candidate wheel zoomed canvas: %.3f -> %.3f", wheelBefore.Zoom, wheelAfter.Zoom)
+	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-connection-search"] input, input[data-testid="workflow-connection-search"]');
+		if (!input) throw new Error('connection candidate search input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'delay');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ConnectionCandidates == 1
+	}); err != nil {
+		return fmt.Errorf("filter compatible connection candidates: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const candidate = document.querySelector('[data-testid="workflow-connection-candidate"][data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"][data-port-id="in"]');
+		if (!candidate) throw new Error('Delay.in connection candidate not found');
+		candidate.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitForConnectionInsert(ctx, client, beforeConnection); err != nil {
+		return fmt.Errorf("insert compatible connection candidate: %w", err)
+	}
+
+	visualState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		window.__yottaNativeConfirmCalls = 0;
+		window.confirm = () => {
+			window.__yottaNativeConfirmCalls++;
+			return false;
+		};
+		const button = document.querySelector('[data-testid="workflow-editor-back"]');
+		if (!button) throw new Error('workflow editor back button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.NativeConfirmCalls > 0 || current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("request discard confirmation: %w", err)
+	}
+	confirmState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if confirmState.ConfirmDialog {
+		if err := eval(ctx, client, `document.querySelector('[data-testid="confirm-cancel"]')?.click()`); err != nil {
+			return err
+		}
+	}
+
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="workflow-save"]');
+		if (!button || button.disabled) throw new Error('workflow save button is unavailable');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitForSave(ctx, client); err != nil {
+		return fmt.Errorf("save workflow: %w", err)
+	}
+	saveState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := exerciseDebugger(ctx, client); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.WorkflowState }); err != nil {
+		return fmt.Errorf("open workflow state panel: %w", err)
+	}
+	if err := exerciseRunState(ctx, client); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, runStateScreenshot); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `document.querySelector('[data-testid="workflow-state-open"]')?.click()`); err != nil {
+		return err
+	}
+	if err := exerciseMultigraph(ctx, client, subgraphScreenshot); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-save"); err != nil {
+		return err
+	}
+	if err := waitForSave(ctx, client); err != nil {
+		return fmt.Errorf("save multigraph workflow: %w", err)
+	}
+	uiFailures := workflowEditorUIFailures(visualState, confirmState, saveState)
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('[data-testid="ai-workflow-review-open"]');
+		if (!button) throw new Error('AI workflow review button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.AIReview }); err != nil {
+		return fmt.Errorf("open AI workflow review: %w", err)
+	}
+
+	final, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if len(final.Errors) != 0 {
+		return fmt.Errorf("WebView reported errors: %s", strings.Join(final.Errors, " | "))
+	}
+	if len(uiFailures) != 0 {
+		return fmt.Errorf("workflow editor UI regressions: %s", strings.Join(uiFailures, " | "))
+	}
+	if _, err := client.Call(ctx, "Page.bringToFront", nil); err != nil {
+		return err
+	}
+	if _, err := client.Call(ctx, "Emulation.setFocusEmulationEnabled", map[string]any{"enabled": true}); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 500))))`); err != nil {
+		return err
+	}
+	if err := exerciseSnippets(ctx, client, nodeMenuScreenshot); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-macro"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "macro" &&
+			current.ResourceCreate && current.WorkspaceTools == 5
+	}); err != nil {
+		return fmt.Errorf("open macro workspace tool: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-clip"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "clip" && current.ResourceCreate
+	}); err != nil {
+		return fmt.Errorf("open precise recording workspace tool: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-template"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "template" && current.ResourceCreate &&
+			current.ResourceScope == "workflow" && current.ResourceScopeActive == 1 &&
+			current.ResourceScopeContrast && current.ResourceModeControls == 0 &&
+			current.ResourceFiltersFill && !current.ResourceLoading
+	}); err != nil {
+		return fmt.Errorf("open visual template workspace tool: %w", err)
+	}
+	if err := capture(ctx, client, siblingScreenshot(screenshot, "resource-tools-workflow.png")); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-resource-scope-library"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ResourceDock && current.ResourceKind == "template" &&
+			current.ResourceScope == "library" && current.ResourceScopeActive == 1 &&
+			current.ResourceScopeContrast && current.ResourceModeControls == 0 &&
+			current.ResourceFiltersFill && !current.ResourceLoading
+	}); err != nil {
+		return fmt.Errorf("switch to local resource library: %w", err)
+	}
+	if err := capture(ctx, client, siblingScreenshot(screenshot, "resource-tools.png")); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-workspace-graphs"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.GraphManager && !current.ResourceDock
+	}); err != nil {
+		return fmt.Errorf("restore subgraph management workspace tool: %w", err)
+	}
+	if err := capture(ctx, client, screenshot); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `location.hash = '#/assets'`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.AssetsView && current.AssetsRecording
+	}); err != nil {
+		return fmt.Errorf("open asset library: %w", err)
+	}
+	assetsState, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if len(assetsState.Errors) != 0 {
+		return fmt.Errorf("asset library reported errors: %s", strings.Join(assetsState.Errors, " | "))
+	}
+	if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+		return err
+	}
+	if err := capture(ctx, client, assetsScreenshot); err != nil {
+		return err
+	}
+	workflowHash, err := workflowEditorHash(final.Href)
+	if err != nil {
+		return err
+	}
+	workflowID, err := workflowIDFromEditorHash(workflowHash)
+	if err != nil {
+		return err
+	}
+	workflowHashJSON, _ := json.Marshal(workflowHash)
+	if err := eval(ctx, client, fmt.Sprintf(`location.hash = %s`, workflowHashJSON)); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.RunStarted && current.CanvasNodes > 0 && current.CurrentGraph == "main" &&
+			current.GraphCalls == 1 && current.Annotations == 1
+	}); err != nil {
+		return fmt.Errorf("reopen saved workflow: %w", err)
+	}
+	if schedulesScreenshot != "" {
+		if err := eval(ctx, client, `location.hash = '#/schedules'`); err != nil {
+			return err
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.SchedulesView && !current.ScheduleEditor
+		}); err != nil {
+			return fmt.Errorf("open schedules view: %w", err)
+		}
+		if err := eval(ctx, client, `(() => {
+			const button = document.querySelector('[data-testid="schedule-create"]');
+			if (!button) throw new Error('new schedule button not found');
+			button.click();
+		})()`); err != nil {
+			return err
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool { return current.ScheduleEditor }); err != nil {
+			return fmt.Errorf("open schedule editor: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-add-target"); err != nil {
+			return fmt.Errorf("add workflow to schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return len(current.ScheduleEditTargets) == 1 && current.ScheduleEditTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("bind workflow to schedule: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-save"); err != nil {
+			return fmt.Errorf("save schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.SchedulesView && !current.ScheduleEditor && current.ScheduleRows == 1 &&
+				len(current.ScheduleRowTargets) == 1 && current.ScheduleRowTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("persist schedule workflow reference: %w", err)
+		}
+		if err := clickRequired(ctx, client, "schedule-edit"); err != nil {
+			return fmt.Errorf("reopen saved schedule: %w", err)
+		}
+		if err := waitUntil(ctx, client, func(current pageState) bool {
+			return current.ScheduleEditor && len(current.ScheduleEditTargets) == 1 &&
+				current.ScheduleEditTargets[0] == workflowID
+		}); err != nil {
+			return fmt.Errorf("verify reopened schedule reference: %w", err)
+		}
+		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+			return err
+		}
+		if err := capture(ctx, client, schedulesScreenshot); err != nil {
+			return err
+		}
+	}
+	result, _ := json.MarshalIndent(map[string]any{
+		"status": "passed", "href": final.Href, "workspaceTools": final.WorkspaceTools,
+		"canvasNodes": final.CanvasNodes, "aiReview": final.AIReview, "screenshot": screenshot,
+		"assetsScreenshot": assetsScreenshot, "workflowsScreenshot": workflowsScreenshot,
+		"schedulesScreenshot": schedulesScreenshot,
+		"subgraphScreenshot":  subgraphScreenshot,
+		"nodeMenuScreenshot":  nodeMenuScreenshot,
+		"quickAddScreenshot":  quickAddScreenshot,
+		"runStateScreenshot":  runStateScreenshot,
+	}, "", "  ")
+	fmt.Println(string(result))
+	return nil
+}
+
+func workflowEditorHash(href string) (string, error) {
+	const marker = "#/workflows/"
+	start := strings.Index(href, marker)
+	if start < 0 {
+		return "", fmt.Errorf("created workflow identity is unavailable in %q", href)
+	}
+	hash := href[start+1:]
+	if !strings.HasSuffix(hash, "/edit") {
+		return "", fmt.Errorf("created workflow editor route is invalid: %q", hash)
+	}
+	parts := strings.Split(strings.Trim(hash, "/"), "/")
+	if len(parts) != 3 || parts[0] != "workflows" || strings.TrimSpace(parts[1]) == "" || parts[2] != "edit" {
+		return "", fmt.Errorf("created workflow editor route is invalid: %q", hash)
+	}
+	return "#" + hash, nil
+}
+
+func workflowIDFromEditorHash(hash string) (string, error) {
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(hash, "#"), "/"), "/")
+	if len(parts) != 3 || parts[0] != "workflows" || parts[1] == "" || parts[2] != "edit" {
+		return "", fmt.Errorf("workflow editor route is invalid: %q", hash)
+	}
+	return parts[1], nil
+}
+
+func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient, subgraphScreenshot string) error {
+	if err := clickRequired(ctx, client, "workflow-graph-new"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.GraphNameInput }); err != nil {
+		return fmt.Errorf("open new subgraph dialog: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-graph-name"] input, input[data-testid="workflow-graph-name"]');
+		if (!input) throw new Error('subgraph name input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'Reusable wait');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+	})()`); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-graph-confirm"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CurrentGraph != "" && current.CurrentGraph != "main" && current.CanvasNodes == 0 && current.GraphBoundaries == 1
+	}); err != nil {
+		return fmt.Errorf("enter new subgraph: %w", err)
+	}
+	if err := addNodeViaQuickAdd(
+		ctx,
+		client,
+		"delay",
+		"https://schemas.yotta.dev/nodes/control/delay",
+	); err != nil {
+		return fmt.Errorf("author subgraph node: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-graph-infer-interface"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("preview inferred subgraph interface: %w", err)
+	}
+	if err := clickRequired(ctx, client, "confirm-accept"); err != nil {
+		return fmt.Errorf("confirm inferred subgraph interface: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.GraphBoundaries >= 2 && current.GraphInterface && current.BoundaryClipped == 0 && current.BoundaryObscured == 0
+	}); err != nil {
+		return fmt.Errorf("project inferred subgraph interface: %w", err)
+	}
+	if subgraphScreenshot != "" {
+		if err := eval(ctx, client, `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 300))))`); err != nil {
+			return err
+		}
+		if err := capture(ctx, client, subgraphScreenshot); err != nil {
+			return fmt.Errorf("capture subgraph authoring surface: %w", err)
+		}
+	}
+	if err := clickRequired(ctx, client, "workflow-graph-breadcrumb-main"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CurrentGraph == "main" }); err != nil {
+		return fmt.Errorf("return to main graph: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const edge = document.querySelector('.vue-flow__edge .vue-flow__edge-interaction, .vue-flow__edge path');
+		if (!edge) throw new Error('workflow edge not found for reroute');
+		edge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := clickRequired(ctx, client, "workflow-reroute-add"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Reroutes > 0 }); err != nil {
+		return fmt.Errorf("add edge reroute: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-graph-add-call"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.CallMenuOptions > 0 }); err != nil {
+		return fmt.Errorf("open callable subgraph menu: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const item = document.querySelector('[role="menu"] [role="menuitem"]');
+		if (!item) throw new Error('callable subgraph menu item not found');
+		item.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.GraphCalls == 1 }); err != nil {
+		return fmt.Errorf("insert graph call: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-annotation-add"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Annotations == 1 }); err != nil {
+		return fmt.Errorf("add graph annotation: %w", err)
+	}
+	return nil
+}
+
+func exerciseDebugger(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
+		if (!button) throw new Error('RunStarted breakpoint button not found');
+		if (Number(getComputedStyle(button).opacity) > 0.01) throw new Error('inactive breakpoint control is visible outside debug context');
+		if (!document.querySelector('[data-testid="workflow-debug-start"]')) throw new Error('debug start button unavailable before setting breakpoint');
+	})()`); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const button = document.querySelector('.vue-flow__node[data-id="run-started"] [data-testid="node-breakpoint"]');
+		if (!button) throw new Error('RunStarted breakpoint button not found');
+		button.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.Breakpoints == 1 }); err != nil {
+		return fmt.Errorf("set node breakpoint: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-start"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.Debugger && current.DebugPaused && current.DebugCurrent == 1 && current.DebugNode == "run-started"
+	}); err != nil {
+		return fmt.Errorf("start paused debug Run: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-step"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugPaused && !current.DebugBusy && current.DebugCurrent == 1 && current.DebugNode != "run-started"
+	}); err != nil {
+		return fmt.Errorf("step from Run start to next visible node: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-step"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugCompleted && current.DebugCurrent == 0 && current.DebugStart
+	}); err != nil {
+		return fmt.Errorf("step next visible node to completion: %w", err)
+	}
+
+	if err := clickRequired(ctx, client, "workflow-debug-start"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugPaused
+	}); err != nil {
+		return fmt.Errorf("restart paused debug Run: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-debug-stop"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.DebugCompleted && current.DebugStart
+	}); err != nil {
+		return fmt.Errorf("stop debug Run: %w", err)
+	}
+	return nil
+}
+
+func exerciseRunState(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(async () => {
+		const waitFor = async (probe, label) => {
+			const deadline = performance.now() + 10000;
+			while (performance.now() < deadline) {
+				const value = probe();
+				if (value) return value;
+				await new Promise(resolve => requestAnimationFrame(resolve));
+			}
+			throw new Error('timed out waiting for ' + label);
+		};
+		const type = await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-new-type"]'),
+			'Run state type selector',
+		);
+		type.click();
+		const option = await waitFor(
+			() => [...document.querySelectorAll('[role="option"]')]
+				.find(candidate => /文件元数据|File metadata/.test(candidate.textContent || '')),
+			'File metadata state type option',
+		);
+		option.click();
+		await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-panel"] textarea')?.value.includes('"mediaType"'),
+			'File metadata initial value',
+		);
+		const name = await waitFor(
+			() => document.querySelector(
+				'input[data-testid="workflow-state-new-name"], [data-testid="workflow-state-new-name"] input',
+			),
+			'Run state name input',
+		);
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+		if (!setter) throw new Error('native input value setter is unavailable');
+		setter.call(name, 'smoke_metadata');
+		name.dispatchEvent(new Event('input', { bubbles: true }));
+		const add = await waitFor(
+			() => document.querySelector(
+				'button[data-testid="workflow-state-add"], [data-testid="workflow-state-add"] button',
+			),
+			'Run state add button',
+		);
+		await waitFor(() => !add.disabled, 'enabled Run state add button');
+		add.click();
+		await waitFor(
+			() => document.querySelector('[data-testid="workflow-state-variable-smoke_metadata"]'),
+			'persisted File metadata state row',
+		);
+		if (document.querySelector('[data-testid="workflow-state-invalid-json"]')) {
+			throw new Error('File metadata state default is reported as invalid JSON');
+		}
+	})()`); err != nil {
+		return fmt.Errorf("exercise File metadata Run state: %w", err)
+	}
+	return nil
+}
+
+func exerciseMinimap(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := clickRequired(ctx, client, "workflow-minimap-toggle"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.MinimapOpen && current.GraphChromeDark
+	}); err != nil {
+		return fmt.Errorf("open dark workflow minimap: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-minimap-toggle"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return !current.MinimapOpen }); err != nil {
+		return fmt.Errorf("close workflow minimap: %w", err)
+	}
+	return nil
+}
+
+func exerciseCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient, screenshot string) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := addNodeViaQuickAddAfter(
+		ctx,
+		client,
+		before,
+		"analyze-color",
+		"https://schemas.yotta.dev/nodes/vision/analyze-color",
+	); err != nil {
+		return fmt.Errorf("insert Analyze Color node: %w", err)
+	}
+	probe, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if screenshot != "" {
+		if err := capture(ctx, client, screenshot); err != nil {
+			return fmt.Errorf("capture Analyze Color node: %w", err)
+		}
+	}
+	if err := dispatchMouseClick(ctx, client, probe.BlankX, probe.BlankY); err != nil {
+		return err
+	}
+	time.Sleep(200 * time.Millisecond)
+	unselected, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	var failures []string
+	if probe.Width > 320 || probe.Height > 360 {
+		failures = append(failures, fmt.Sprintf("oversized: %.0fx%.0f", probe.Width, probe.Height))
+	}
+	if probe.CompositeInlineEditors != 0 {
+		failures = append(failures, fmt.Sprintf("contains %d composite inline editors", probe.CompositeInlineEditors))
+	}
+	if unselected.Selected {
+		failures = append(failures, "blank-canvas click did not clear node selection")
+	}
+	if err := dispatchMouseWheel(ctx, client, unselected.BlankX, unselected.BlankY, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	afterBlankWheel, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if afterBlankWheel.Zoom >= unselected.Zoom-0.001 {
+		failures = append(failures, fmt.Sprintf("blank-canvas wheel did not zoom: %.3f -> %.3f", unselected.Zoom, afterBlankWheel.Zoom))
+	}
+	if err := dispatchMouseWheel(ctx, client, afterBlankWheel.CenterX, afterBlankWheel.CenterY, 320); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	afterNodeWheel, err := readCanvasNodeErgonomics(ctx, client)
+	if err != nil {
+		return err
+	}
+	if afterNodeWheel.Zoom >= afterBlankWheel.Zoom-0.001 {
+		failures = append(failures, fmt.Sprintf("unselected-node wheel did not zoom: %.3f -> %.3f", afterBlankWheel.Zoom, afterNodeWheel.Zoom))
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("analyze color canvas node %s", strings.Join(failures, "; "))
+	}
+	if err := eval(ctx, client, `document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]')?.click()`); err != nil {
+		return err
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove Analyze Color smoke node: %w", err)
+	}
+	return nil
+}
+
+func addNodeViaQuickAdd(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	query string,
+	nodeTypeID string,
+) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	return addNodeViaQuickAddAfter(ctx, client, before, query, nodeTypeID)
+}
+
+func addNodeViaQuickAddAfter(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	before pageState,
+	query string,
+	nodeTypeID string,
+) error {
+	queryJSON, _ := json.Marshal(query)
+	nodeTypeJSON, _ := json.Marshal(nodeTypeID)
+	if err := eval(ctx, client, `(() => {
+		const trigger = document.querySelector('[data-testid="workflow-canvas-add-node"]');
+		if (!trigger) throw new Error('explicit add node trigger not found');
+		trigger.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, `(() => {
+		/* quick add search ready */
+		return Boolean(document.querySelector(
+			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
+		));
+	})()`); err != nil {
+		return fmt.Errorf("wait for quick-add search: %w", err)
+	}
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const input = document.querySelector(
+			'[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'
+		);
+		if (!input) throw new Error('node quick-add search unavailable');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, %s);
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+	})()`, queryJSON)); err != nil {
+		return err
+	}
+	if err := waitUntilJS(ctx, client, 5*time.Second, fmt.Sprintf(`(() => {
+		/* quick add item ready */
+		return [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.some(candidate => candidate.getAttribute('data-item-id') === %s);
+	})()`, nodeTypeJSON)); err != nil {
+		return fmt.Errorf("wait for quick-add item %s: %w", nodeTypeID, err)
+	}
+	if err := eval(ctx, client, fmt.Sprintf(`(() => {
+		const item = [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.find(candidate => candidate.getAttribute('data-item-id') === %s);
+		if (!item) throw new Error('node quick-add item unavailable');
+		item.click();
+	})()`, nodeTypeJSON)); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes+1
+	}); err != nil {
+		return fmt.Errorf("wait for quick-added node %s: %w", nodeTypeID, err)
+	}
+	return nil
+}
+
+func exerciseQuickAdd(ctx context.Context, client *browsercdp.WebSocketClient, screenshot string) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(async () => {
+		const wait = async predicate => {
+			const deadline = performance.now() + 5000;
+			while (performance.now() < deadline) {
+				const value = predicate();
+				if (value) return value;
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+			throw new Error('quick add did not become ready');
+		};
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!canvas) throw new Error('workflow canvas not found for quick add');
+		const rect = canvas.getBoundingClientRect();
+		const point = { clientX: rect.left + rect.width * 0.58, clientY: rect.top + rect.height * 0.48 };
+		canvas.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse', ...point }));
+		canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', ...point }));
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true, cancelable: true }));
+		await wait(() => document.querySelector('[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]'));
+		const input = document.querySelector('[data-testid="workflow-quick-add-search"] input, input[data-testid="workflow-quick-add-search"]');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'click-template');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		await wait(() => [...document.querySelectorAll('[data-testid="workflow-quick-add-item"]')]
+			.find(item => item.textContent.includes('点击模板') || item.textContent.includes('Click Template')));
+	})()`); err != nil {
+		return fmt.Errorf("open and search workflow quick add: %w", err)
+	}
+	if screenshot != "" {
+		if err := capture(ctx, client, screenshot); err != nil {
+			return fmt.Errorf("capture workflow quick add: %w", err)
+		}
+	}
+	if err := dispatchKeyPress(ctx, client, "Enter", "Enter", 13); err != nil {
+		return fmt.Errorf("choose quick-add result: %w", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+	if screenshot != "" {
+		if err := capture(ctx, client, siblingScreenshot(screenshot, "quick-add-result.png")); err != nil {
+			return fmt.Errorf("capture selected quick-add result: %w", err)
+		}
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes+1
+	}); err != nil {
+		return fmt.Errorf("insert quick-add node: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
+		if (!inserted) throw new Error('quick-added click template node not found');
+	})()`); err != nil {
+		return err
+	}
+	var point struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	}
+	if err := evalJSON(ctx, client, `(() => {
+		const inserted = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/automation/click-template"]');
+		if (!inserted) throw new Error('quick-added click template node not found for cleanup');
+		const header = inserted.querySelector('.workflow-node-drag-handle');
+		if (!header) throw new Error('quick-added click template node header not found for cleanup');
+		const rect = header.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	})()`, &point); err != nil {
+		return fmt.Errorf("locate quick-added node: %w", err)
+	}
+	if err := dispatchMouseClick(ctx, client, point.X, point.Y); err != nil {
+		return fmt.Errorf("select quick-added node: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SelectedNodes == 1
+	}); err != nil {
+		return fmt.Errorf("wait for quick-added node selection: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return fmt.Errorf("delete quick-added node: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == before.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove quick-added node: %w", err)
+	}
+	return nil
+}
+
+func exerciseSnippets(ctx context.Context, client *browsercdp.WebSocketClient, nodeMenuScreenshot string) error {
+	before, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if before.RecipeItems != 0 {
+		return fmt.Errorf("node catalog still exposes %d hardcoded recipes", before.RecipeItems)
+	}
+	if err := eval(ctx, client, `(() => {
+		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/control/delay"]');
+		if (!node) throw new Error('configured Delay node not found for snippet save');
+		node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.NodeContextMenu && !current.SnippetModal
+	}); err != nil {
+		return fmt.Errorf("open node context menu without executing snippet action: %w", err)
+	}
+	if err := capture(ctx, client, nodeMenuScreenshot); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const action = document.querySelector('[data-testid="workflow-node-menu-save-snippet"]');
+		if (!action) throw new Error('save snippet context action not found');
+		action.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.SnippetModal }); err != nil {
+		return fmt.Errorf("open save-as-snippet dialog: %w", err)
+	}
+	var shortcutPoint point
+	if err := evalJSON(ctx, client, `(() => {
+		const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+		if (!capture) throw new Error('snippet shortcut capture not found');
+		const rect = capture.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	})()`, &shortcutPoint); err != nil {
+		return err
+	}
+	if err := dispatchMouseClick(ctx, client, shortcutPoint.X, shortcutPoint.Y); err != nil {
+		return fmt.Errorf("activate snippet shortcut capture: %w", err)
+	}
+	if err := eval(ctx, client, `(async () => {
+		const deadline = performance.now() + 15000;
+		while (performance.now() < deadline) {
+			const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+			if (capture && document.activeElement === capture) return;
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		throw new Error('snippet shortcut capture did not receive focus');
+	})()`); err != nil {
+		return err
+	}
+	if err := dispatchModifiedKeyPress(ctx, client, "K", "KeyK", 75, 2|8); err != nil {
+		return fmt.Errorf("capture snippet shortcut: %w", err)
+	}
+	if err := eval(ctx, client, `(async () => {
+		const deadline = performance.now() + 5000;
+		while (performance.now() < deadline) {
+			const capture = document.querySelector('[data-testid="workflow-snippet-shortcut"] button');
+			if (capture?.textContent?.includes('Ctrl+Shift+K')) return;
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		throw new Error('snippet shortcut capture did not persist the chord');
+	})()`); err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const input = document.querySelector('[data-testid="workflow-snippet-name"] input, input[data-testid="workflow-snippet-name"]');
+		if (!input) throw new Error('snippet name input not found');
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(input, 'Smoke configured delay');
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+		const save = document.querySelector('[data-testid="workflow-snippet-save"]');
+		if (!save || save.disabled) throw new Error('snippet save button unavailable');
+		save.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return !current.SnippetModal && current.SnippetDock && current.SnippetItems > 0
+	}); err != nil {
+		return fmt.Errorf("persist snippet and open snippet dock: %w", err)
+	}
+	saved, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if err := eval(ctx, client, `(() => {
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!canvas) throw new Error('workflow canvas not found for snippet shortcut');
+		const rect = canvas.getBoundingClientRect();
+		const point = { clientX: rect.left + rect.width * 0.55, clientY: rect.top + rect.height * 0.45 };
+		canvas.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, pointerType: 'mouse', ...point }));
+		canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', ...point }));
+	})()`); err != nil {
+		return err
+	}
+	if err := dispatchModifiedKeyPress(ctx, client, "K", "KeyK", 75, 2|8); err != nil {
+		return fmt.Errorf("insert snippet with shortcut: %w", err)
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == saved.CanvasNodes+1 && current.SelectedNodes == 1
+	}); err != nil {
+		return fmt.Errorf("insert snippet at viewport center: %w", err)
+	}
+	if err := dispatchKeyPress(ctx, client, "Delete", "Delete", 46); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.CanvasNodes == saved.CanvasNodes
+	}); err != nil {
+		return fmt.Errorf("remove inserted snippet node: %w", err)
+	}
+	if err := clickRequired(ctx, client, "workflow-save"); err != nil {
+		return err
+	}
+	if err := waitForSave(ctx, client); err != nil {
+		return fmt.Errorf("save workflow after snippet journey: %w", err)
+	}
+	if err := eval(ctx, client, `(() => {
+		const item = [...document.querySelectorAll('[data-testid="workflow-snippet-item"]')]
+			.find(candidate => candidate.textContent.includes('Smoke configured delay'));
+		const remove = item?.querySelector('[data-testid="workflow-snippet-delete"]');
+		if (!remove) throw new Error('saved snippet delete action not found');
+		remove.click();
+	})()`); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool { return current.ConfirmDialog }); err != nil {
+		return fmt.Errorf("confirm snippet deletion: %w", err)
+	}
+	if err := clickRequired(ctx, client, "confirm-accept"); err != nil {
+		return err
+	}
+	if err := waitUntil(ctx, client, func(current pageState) bool {
+		return current.SnippetItems == saved.SnippetItems-1 && !current.ConfirmDialog
+	}); err != nil {
+		return fmt.Errorf("delete snippet: %w", err)
+	}
+	return nil
+}
+
+func siblingScreenshot(path, name string) string {
+	if path == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(path), name)
+}
+
+func dispatchMouseWheel(ctx context.Context, client *browsercdp.WebSocketClient, x, y, deltaY float64) error {
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseWheel", "x": x, "y": y, "deltaX": 0, "deltaY": deltaY,
+	})
+	return err
+}
+
+func dispatchMouseClick(ctx context.Context, client *browsercdp.WebSocketClient, x, y float64) error {
+	return dispatchModifiedMouseClick(ctx, client, x, y, 0)
+}
+
+func dispatchModifiedMouseClick(ctx context.Context, client *browsercdp.WebSocketClient, x, y float64, modifiers int) error {
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mousePressed", "x": x, "y": y,
+		"button": "left", "buttons": 1, "clickCount": 1, "modifiers": modifiers,
+	}); err != nil {
+		return err
+	}
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseReleased", "x": x, "y": y,
+		"button": "left", "buttons": 0, "clickCount": 1, "modifiers": modifiers,
+	})
+	return err
+}
+
+func dispatchControlClicks(ctx context.Context, client *browsercdp.WebSocketClient, points []point) error {
+	const controlModifier = 2
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "rawKeyDown", "key": "Control", "code": "ControlLeft",
+		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17, "modifiers": controlModifier,
+	}); err != nil {
+		return err
+	}
+	var clickErr error
+	for _, point := range points {
+		if clickErr = dispatchModifiedMouseClick(ctx, client, point.X, point.Y, controlModifier); clickErr != nil {
+			break
+		}
+	}
+	_, releaseErr := client.Call(ctx, "Input.dispatchKeyEvent", map[string]any{
+		"type": "keyUp", "key": "Control", "code": "ControlLeft",
+		"windowsVirtualKeyCode": 17, "nativeVirtualKeyCode": 17,
+	})
+	if clickErr != nil {
+		return clickErr
+	}
+	return releaseErr
+}
+
+func readCanvasNodeErgonomics(ctx context.Context, client *browsercdp.WebSocketClient) (canvasNodeErgonomics, error) {
+	var probe canvasNodeErgonomics
+	err := evalJSON(ctx, client, `(() => {
+		const marker = 'Analyze Color node ergonomics probe';
+		const node = document.querySelector('.workflow-node[data-node-type-id="https://schemas.yotta.dev/nodes/vision/analyze-color"]');
+		const viewport = document.querySelector('.vue-flow__transformationpane');
+		const canvas = document.querySelector('[data-testid="workflow-canvas"]');
+		if (!node || !viewport || !canvas) throw new Error(marker + ' unavailable');
+		const rect = node.getBoundingClientRect();
+		const canvasRect = canvas.getBoundingClientRect();
+		let blank = null;
+		for (let row = 1; row < 9 && !blank; row++) {
+			for (let column = 1; column < 9; column++) {
+				const x = canvasRect.left + canvasRect.width * column / 9;
+				const y = canvasRect.top + canvasRect.height * row / 9;
+				const hit = document.elementFromPoint(x, y);
+				if (hit && canvas.contains(hit) && !hit.closest('.vue-flow__node, .vue-flow__controls, .vue-flow__minimap')) {
+					blank = { x, y };
+					break;
+				}
+			}
+		}
+		if (!blank) throw new Error(marker + ' blank point unavailable');
+		const transform = getComputedStyle(viewport).transform;
+		const zoom = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1;
+		const compositeInlineEditors = node.querySelectorAll('[data-inline-adapter="color-range"], [data-inline-adapter="point"], [data-inline-adapter="region"], [data-inline-adapter="json"]').length;
+		return { centerX: rect.left + rect.width / 2, centerY: rect.top + rect.height / 2, blankX: blank.x, blankY: blank.y, width: node.offsetWidth, height: node.offsetHeight, zoom, selected: Boolean(node.closest('.vue-flow__node')?.classList.contains('selected')), compositeInlineEditors };
+	})()`, &probe)
+	if err != nil {
+		return canvasNodeErgonomics{}, fmt.Errorf("inspect Analyze Color node ergonomics: %w", err)
+	}
+	return probe, nil
+}
+
+func readConnectionMenuWheelProbe(ctx context.Context, client *browsercdp.WebSocketClient) (wheelOwnershipProbe, error) {
+	var probe wheelOwnershipProbe
+	err := evalJSON(ctx, client, `(() => {
+		const menu = document.querySelector('[data-testid="workflow-connection-menu"]');
+		const viewport = document.querySelector('.vue-flow__transformationpane');
+		if (!menu || !viewport) throw new Error('connection menu wheel probe unavailable');
+		const rect = menu.getBoundingClientRect();
+		const transform = getComputedStyle(viewport).transform;
+		const zoom = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1;
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, zoom };
+	})()`, &probe)
+	if err != nil {
+		return wheelOwnershipProbe{}, fmt.Errorf("inspect connection menu wheel ownership: %w", err)
+	}
+	return probe, nil
+}
+
+func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, testID string) error {
+	testIDJSON, _ := json.Marshal(testID)
+	return eval(ctx, client, fmt.Sprintf(`(() => {
+		const button = document.querySelector('[data-testid=' + %s + ']');
+		if (!button) throw new Error(%s + ' button not found');
+		if (button.disabled) throw new Error(%s + ' button is disabled');
+		button.click();
+	})()`, testIDJSON, testIDJSON, testIDJSON))
+}
+
+func workflowEditorUIFailures(visualState, confirmState, saveState pageState) []string {
+	var failures []string
+	if !visualState.GraphChromeDark {
+		failures = append(failures, "Vue Flow controls or minimap use a light background")
+	}
+	if !visualState.MinimapToggle {
+		failures = append(failures, "workflow canvas omitted the minimap toggle")
+	}
+	if visualState.HandleOverlaps != 0 {
+		failures = append(failures, fmt.Sprintf("%d workflow handles overlap their labels", visualState.HandleOverlaps))
+	}
+	if !visualState.RunStarted {
+		failures = append(failures, "new workflow omitted the RunStarted root")
+	}
+	if confirmState.NativeConfirmCalls != 0 {
+		failures = append(failures, "workflow navigation called window.confirm")
+	}
+	if !confirmState.ConfirmDialog {
+		failures = append(failures, "workflow navigation did not open the shared confirm dialog")
+	}
+	if saveState.SaveToast {
+		failures = append(failures, "workflow save displayed a success toast")
+	}
+	if !saveState.SaveInlineFeedback {
+		failures = append(failures, "workflow save omitted inline success feedback")
+	}
+	return failures
+}
+
+func waitFor(ctx context.Context, client *browsercdp.WebSocketClient, ready func(pageState) bool, action func() error) error {
+	current, err := state(ctx, client)
+	if err != nil {
+		return err
+	}
+	if !ready(current) {
+		return errors.New("unexpected initial page state")
+	}
+	time.Sleep(100 * time.Millisecond)
+	return action()
+}
+
+func waitUntil(ctx context.Context, client *browsercdp.WebSocketClient, predicate func(pageState) bool) error {
+	return waitUntilFor(ctx, client, 15*time.Second, predicate)
+}
+
+func waitUntilJS(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	timeout time.Duration,
+	expression string,
+) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		var ready bool
+		if err := evalJSON(waitCtx, client, expression, &ready); err != nil {
+			return err
+		}
+		if ready {
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func waitUntilFor(
+	ctx context.Context,
+	client *browsercdp.WebSocketClient,
+	timeout time.Duration,
+	predicate func(pageState) bool,
+) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		current, err := state(waitCtx, client)
+		if err != nil {
+			return err
+		}
+		if predicate(current) {
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			details, _ := json.Marshal(current)
+			return fmt.Errorf("%w; last page state: %s", waitCtx.Err(), details)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func waitForConnectionInsert(ctx context.Context, client *browsercdp.WebSocketClient, before pageState) error {
+	for {
+		current, err := state(ctx, client)
+		if err != nil {
+			return err
+		}
+		if current.ConnectionError != "" {
+			return errors.New(current.ConnectionError)
+		}
+		if !current.ConnectionMenu && current.CanvasNodes == before.CanvasNodes+1 && current.CanvasEdges == before.CanvasEdges+1 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			details, _ := json.Marshal(current)
+			return fmt.Errorf("%w; last page state: %s", ctx.Err(), details)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func waitForSave(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	for {
+		current, err := state(ctx, client)
+		if err != nil {
+			return err
+		}
+		if current.SaveError != "" {
+			return errors.New(current.SaveError)
+		}
+		if !current.Dirty && (current.SaveInlineFeedback || current.SaveToast) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			details, _ := json.Marshal(current)
+			return fmt.Errorf("%w; last page state: %s", ctx.Err(), details)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func exerciseLauncher(ctx context.Context, endpoint, mainTargetID string, mainClient *browsercdp.WebSocketClient, screenshot string) error {
+	discovery := browsercdp.NewService(endpoint)
+	var launcherTargetID string
+	for cycle := 0; cycle < 2; cycle++ {
+		if err := eval(ctx, mainClient, `(() => {
+			const button = document.querySelector('[data-testid="open-launcher"]');
+			if (!button || button.disabled) throw new Error('launcher button is unavailable');
+			button.click();
+		})()`); err != nil {
+			return fmt.Errorf("open floating launcher: %w", err)
+		}
+		var launcher browsercdp.TargetInfo
+		for !launcherTargetValid(launcher) {
+			targets, err := discovery.ListTargets(ctx, endpoint)
+			if err != nil {
+				return fmt.Errorf("discover floating launcher: %w", err)
+			}
+			launcherTargets := targetsExcept(targets, mainTargetID)
+			if len(launcherTargets) > 1 {
+				return fmt.Errorf("floating launcher opened duplicate targets: %d", len(launcherTargets))
+			}
+			if len(launcherTargets) == 1 {
+				launcher = launcherTargets[0]
+			}
+			if launcherTargetValid(launcher) {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("wait for floating launcher: %w", ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+		if launcherTargetID == "" {
+			launcherTargetID = launcher.ID
+		} else if launcher.ID != launcherTargetID {
+			return fmt.Errorf("floating launcher did not reuse its window: first target %q, next target %q", launcherTargetID, launcher.ID)
+		}
+		launcherClient, err := browsercdp.DialWebSocketClient(ctx, launcher.WebSocketDebuggerURL)
+		if err != nil {
+			return fmt.Errorf("connect floating launcher: %w", err)
+		}
+		if _, err := launcherClient.Call(ctx, "Runtime.enable", nil); err != nil {
+			launcherClient.Close()
+			return err
+		}
+		if _, err := launcherClient.Call(ctx, "Page.enable", nil); err != nil {
+			launcherClient.Close()
+			return err
+		}
+		for {
+			var ready bool
+			if err := evalJSON(ctx, launcherClient, `Boolean(document.querySelector('.launcher-content .launcher-command'))`, &ready); err == nil && ready {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				launcherClient.Close()
+				return fmt.Errorf("wait for floating launcher content: %w", ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+		if cycle == 0 {
+			if err := eval(ctx, launcherClient, `(() => {
+				const command = document.querySelector('.launcher-command');
+				if (!command || command.disabled) throw new Error('launcher workflow command is unavailable');
+				command.click();
+			})()`); err != nil {
+				launcherClient.Close()
+				return fmt.Errorf("execute workflow from floating launcher: %w", err)
+			}
+			for {
+				var succeeded bool
+				if err := evalJSON(ctx, launcherClient, `Boolean(document.querySelector('.launcher-command--success'))`, &succeeded); err == nil && succeeded {
+					break
+				}
+				select {
+				case <-ctx.Done():
+					launcherClient.Close()
+					return fmt.Errorf("wait for floating launcher workflow success: %w", ctx.Err())
+				case <-time.After(100 * time.Millisecond):
+				}
+			}
+			if err := capture(ctx, launcherClient, screenshot); err != nil {
+				launcherClient.Close()
+				return fmt.Errorf("capture floating launcher: %w", err)
+			}
+		}
+		if err := eval(ctx, launcherClient, `(() => {
+			const buttons = [...document.querySelectorAll('.hud-shell__actions button')];
+			const close = buttons.at(-1);
+			if (!close || close.disabled) throw new Error('launcher hide button is unavailable');
+			close.click();
+		})()`); err != nil {
+			launcherClient.Close()
+			return fmt.Errorf("hide floating launcher: %w", err)
+		}
+		launcherClient.Close()
+
+		// HideLauncher deliberately retains the WebView so query, selection and
+		// window geometry survive the next invocation. Give the async click
+		// handler a moment to cross the Wails bridge, then require exactly that
+		// one retained target; the next cycle proves it is reused.
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for floating launcher hide: %w", ctx.Err())
+		case <-time.After(250 * time.Millisecond):
+		}
+		targets, err := discovery.ListTargets(ctx, endpoint)
+		if err != nil {
+			return fmt.Errorf("check floating launcher retention: %w", err)
+		}
+		launcherTargets := targetsExcept(targets, mainTargetID)
+		if len(launcherTargets) != 1 || launcherTargets[0].ID != launcherTargetID {
+			return fmt.Errorf("floating launcher retention drifted: targets=%v", launcherTargets)
+		}
+	}
+	return nil
+}
+
+func configureLauncherWorkflow(ctx context.Context, client *browsercdp.WebSocketClient) error {
+	if err := eval(ctx, client, `(async () => {
+		const match = location.hash.match(/\/workflows\/([^/]+)\/edit/);
+		if (!match) throw new Error('created workflow identity is unavailable');
+		const { backend } = await import('/src/lib/backend.ts');
+		await backend.settings.update({ ui: { launcherItems: [{
+			id: 'workflow-editor-smoke', type: 'workflow', workflowId: match[1],
+			icon: 'i-tabler-player-play', label: 'Smoke workflow'
+		}] } });
+	})()`); err != nil {
+		return fmt.Errorf("configure floating launcher workflow: %w", err)
+	}
+	return nil
+}
+
+func targetsExcept(targets []browsercdp.TargetInfo, excludedID string) []browsercdp.TargetInfo {
+	out := make([]browsercdp.TargetInfo, 0, len(targets))
+	for _, target := range targets {
+		if target.ID != excludedID {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+func launcherTargetValid(target browsercdp.TargetInfo) bool {
+	return target.ID != "" && target.WebSocketDebuggerURL != ""
+}
+
+func state(ctx context.Context, client *browsercdp.WebSocketClient) (pageState, error) {
+	var out pageState
+	err := evalJSON(ctx, client, `(() => {
+		const probe = document.createElement('div');
+		probe.style.background = 'var(--ui-bg)';
+		document.body.append(probe);
+		const expectedBackground = getComputedStyle(probe).backgroundColor;
+		probe.remove();
+		const darkBackground = element => {
+			if (!element) return false;
+			return getComputedStyle(element).backgroundColor === expectedBackground;
+		};
+		const controls = document.querySelector('.vue-flow__controls');
+		const controlButtons = [...document.querySelectorAll('.vue-flow__controls-button')];
+		const minimap = document.querySelector('.vue-flow__minimap');
+		const handleOverlaps = [...document.querySelectorAll('.workflow-node .vue-flow__handle')].filter(handle => {
+			const label = handle.parentElement?.querySelector('span');
+			if (!label) return false;
+			const a = handle.getBoundingClientRect();
+			const b = label.getBoundingClientRect();
+			return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+		}).length;
+		const bodyText = document.body.innerText;
+		const saveButtonText = document.querySelector('[data-testid="workflow-save"]')?.innerText || '';
+		const resourceDock = document.querySelector('[data-testid="workflow-resource-dock"]');
+		const resourceScopeButtons = [...document.querySelectorAll('[data-testid^="workflow-resource-scope-"]')];
+		const activeResourceScope = resourceScopeButtons.find(button => button.getAttribute('data-active') === 'true');
+		const inactiveResourceScope = resourceScopeButtons.find(button => button.getAttribute('data-active') !== 'true');
+		const activeResourceScopeStyle = activeResourceScope ? getComputedStyle(activeResourceScope) : null;
+		const inactiveResourceScopeStyle = inactiveResourceScope ? getComputedStyle(inactiveResourceScope) : null;
+		const resourceFilterRow = document.querySelector('[data-testid="workflow-resource-filter-row"]');
+		const resourceFilterControls = [
+			document.querySelector('[data-testid="workflow-resource-filter-category"]'),
+			document.querySelector('[data-testid="workflow-resource-filter-sort"]')
+		].filter(Boolean);
+		const resourceFilterRect = resourceFilterRow?.getBoundingClientRect();
+		const resourceFilterWidths = resourceFilterControls.map(control => control.getBoundingClientRect().width);
+		const nodeRects = [...document.querySelectorAll('.vue-flow__node')].map(node => node.getBoundingClientRect());
+		const canvasRect = document.querySelector('[data-testid="workflow-canvas"]')?.getBoundingClientRect();
+		const boundaryRects = [...document.querySelectorAll('[data-testid="workflow-graph-boundary"]')].map(node => node.closest('.vue-flow__node')?.getBoundingClientRect()).filter(Boolean);
+		const chromeRects = [controls, minimap].filter(Boolean).map(element => element.getBoundingClientRect());
+		const intersects = (left, right) => left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top;
+		let nodeOverlaps = 0;
+		for (let left = 0; left < nodeRects.length; left++) {
+			for (let right = left + 1; right < nodeRects.length; right++) {
+				const a = nodeRects[left], b = nodeRects[right];
+				if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) nodeOverlaps++;
+			}
+		}
+		return {
+		href: location.href,
+		nodeAddTrigger: Boolean(document.querySelector('[data-testid="workflow-canvas-add-node"]')),
+		workspaceTools: document.querySelectorAll('nav button[data-testid^="workflow-workspace-"]').length,
+		graphManager: Boolean(document.querySelector('[data-testid="workflow-graph-manager"]')),
+		canvasNodes: document.querySelectorAll('.vue-flow__node:not(.vue-flow__node-graph-boundary)').length,
+		canvasEdges: document.querySelectorAll('.vue-flow__edge').length,
+		aiReview: Boolean(document.querySelector('[data-testid="ai-workflow-review-panel"]')),
+		workflowState: Boolean(document.querySelector('[data-testid="workflow-state-panel"]')),
+		resourceDock: Boolean(resourceDock),
+		resourceKind: resourceDock?.getAttribute('data-resource-kind') || '',
+		resourceCreate: Boolean(document.querySelector('[data-testid="workflow-resource-create"]')),
+		resourceScope: resourceDock?.getAttribute('data-resource-scope') || '',
+		resourceScopeActive: resourceScopeButtons.filter(button => button.getAttribute('data-active') === 'true').length,
+		resourceScopeContrast: Boolean(
+			activeResourceScopeStyle && inactiveResourceScopeStyle &&
+			(activeResourceScopeStyle.backgroundColor !== inactiveResourceScopeStyle.backgroundColor ||
+				activeResourceScopeStyle.color !== inactiveResourceScopeStyle.color ||
+				activeResourceScopeStyle.boxShadow !== inactiveResourceScopeStyle.boxShadow)
+		),
+		resourceModeControls: document.querySelectorAll('[data-testid^="workflow-resource-mode-"]').length,
+		resourceFiltersFill: Boolean(
+			resourceFilterRect && resourceFilterWidths.length === 2 &&
+			Math.abs(resourceFilterWidths[0] - resourceFilterWidths[1]) <= 2 &&
+			resourceFilterWidths[0] + resourceFilterWidths[1] >= resourceFilterRect.width - 10
+		),
+		resourceLoading: Boolean(document.querySelector('[data-testid="workflow-resource-loading"]')),
+		recipeItems: document.querySelectorAll('[data-testid="workflow-recipe-item"]').length,
+		snippetDock: Boolean(document.querySelector('[data-testid="workflow-snippet-dock"]')),
+		snippetItems: document.querySelectorAll('[data-testid="workflow-snippet-item"]').length,
+		snippetModal: Boolean(document.querySelector('[data-testid="workflow-snippet-name"]')),
+		nodeContextMenu: Boolean(document.querySelector('[data-testid="workflow-node-context-menu"]')),
+		templateMenuActions: document.querySelectorAll('[data-testid="workflow-node-menu-choose-template"], [data-testid="workflow-node-menu-capture-template"]').length,
+		runStarted: Boolean(document.querySelector('.vue-flow__node[data-id="run-started"]')),
+		assetsView: Boolean(document.querySelector('[data-testid="assets-view"]')),
+		assetsRecording: Boolean(document.querySelector('[data-testid="assets-recording-start"], [data-testid="assets-recording-controls"]')),
+		schedulesView: Boolean(document.querySelector('[data-testid="schedules-view"]')),
+		scheduleEditor: Boolean(document.querySelector('[data-testid="schedule-editor"]')),
+		scheduleRows: document.querySelectorAll('[data-testid="schedule-row"]').length,
+		scheduleRowTargets: [...document.querySelectorAll('[data-testid="schedule-row"]')]
+			.flatMap(row => (row.getAttribute('data-target-ids') || '').split(',').filter(Boolean)),
+		scheduleEditTargets: [...document.querySelectorAll('[data-testid="schedule-target"]')]
+			.map(target => target.getAttribute('data-workflow-id') || '').filter(Boolean),
+		createInput: Boolean(document.querySelector('input[data-testid="workflow-create-name"], [data-testid="workflow-create-name"] input')),
+		recoveryPanel: Boolean(document.querySelector('[data-testid="workflow-recovery-panel"]')),
+		launcherButton: Boolean(document.querySelector('[data-testid="open-launcher"]')),
+		graphChromeDark: darkBackground(controls) && controlButtons.length > 0 && controlButtons.every(darkBackground) && (!minimap || darkBackground(minimap)),
+		handleOverlaps,
+		nativeConfirmCalls: window.__yottaNativeConfirmCalls || 0,
+		confirmDialog: Boolean(document.querySelector('[data-testid="confirm-dialog"]')),
+		dirty: Boolean(document.querySelector('[data-testid="workflow-unsaved"]')),
+		saveInlineFeedback: saveButtonText.includes('已保存') || saveButtonText.includes('Saved'),
+		saveError: document.querySelector('[data-testid="workflow-save-error"]')?.textContent?.trim() || '',
+		saveToast: bodyText.includes('工作流已保存') || bodyText.includes('Workflow saved'),
+		selectedNodes: document.querySelectorAll('.vue-flow__node.selected').length,
+		selectionToolbar: Boolean(document.querySelector('[data-testid="workflow-selection-toolbar"]')),
+		connectionMenu: Boolean(document.querySelector('[data-testid="workflow-connection-menu"]')),
+		connectionCandidates: document.querySelectorAll('[data-testid="workflow-connection-candidate"]').length,
+		connectionError: document.querySelector('[data-testid="workflow-connection-error"]')?.textContent?.trim() || '',
+		debugger: Boolean(document.querySelector('[data-testid="workflow-debugger"]')),
+		debugStart: Boolean(document.querySelector('[data-testid="workflow-debug-start"]')),
+		debugPaused: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-step"]') !== null,
+		debugBusy: Boolean(document.querySelector('[data-testid="workflow-debug-step"]')?.disabled),
+		debugCompleted: Boolean(document.querySelector('[data-testid="workflow-debugger"]')) && document.querySelector('[data-testid="workflow-debug-stop"]') === null,
+		debugCurrent: document.querySelectorAll('.vue-flow__node [data-testid="node-debug-current"]').length,
+		debugNode: document.querySelector('.vue-flow__node [data-testid="node-debug-current"]')?.closest('.vue-flow__node')?.getAttribute('data-id') || '',
+		breakpoints: document.querySelectorAll('[data-testid="node-breakpoint"][aria-pressed="true"]').length,
+		currentGraph: document.querySelector('[data-testid="workflow-canvas"]')?.getAttribute('data-graph-id') || '',
+		graphCalls: document.querySelectorAll('[data-testid="workflow-graph-call"]').length,
+		graphBoundaries: document.querySelectorAll('[data-testid="workflow-graph-boundary"]').length,
+		graphInterface: Boolean(document.querySelector('[data-testid="workflow-graph-interface"]')),
+		boundaryClipped: canvasRect ? boundaryRects.filter(rect => rect.left < canvasRect.left || rect.right > canvasRect.right || rect.top < canvasRect.top || rect.bottom > canvasRect.bottom).length : 0,
+		boundaryObscured: boundaryRects.filter(rect => chromeRects.some(chrome => intersects(rect, chrome))).length,
+		minimapToggle: Boolean(document.querySelector('[data-testid="workflow-minimap-toggle"]')),
+		minimapOpen: Boolean(minimap),
+		annotations: document.querySelectorAll('[data-testid="workflow-annotation"]').length,
+		graphNameInput: Boolean(document.querySelector('[data-testid="workflow-graph-name"] input, input[data-testid="workflow-graph-name"]')),
+		callMenuOptions: document.querySelectorAll('[role="menu"] [role="menuitem"]').length,
+		reroutes: document.querySelectorAll('[data-testid="workflow-reroute-point"]').length,
+		nodeOverlaps,
+		nodeGeometry: [...document.querySelectorAll('.vue-flow__node')].map(node => {
+			const rect = node.getBoundingClientRect();
+			return { id: node.getAttribute('data-id') || '', x: rect.x, y: rect.y, width: rect.width, height: rect.height, transform: node.style.transform };
+		}),
+		errors: window.__yottaSmokeErrors || []
+		};
+	})()`, &out)
+	return out, err
+}
+
+func dispatchConnectionGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	payload, _ := json.Marshal(gesture)
+	return eval(ctx, client, fmt.Sprintf(`(async () => {
+		const gesture = %s;
+		const handle = document.querySelector('.vue-flow__node[data-id="run-started"] .vue-flow__handle.source');
+		if (!handle) throw new Error('RunStarted connection handle not found');
+		const handleRect = handle.getBoundingClientRect();
+		const start = { x: handleRect.left + handleRect.width / 2, y: handleRect.top + handleRect.height / 2 };
+		const mouse = (type, point, buttons) => new MouseEvent(type, {
+			bubbles: true, cancelable: true, view: window, button: 0, buttons,
+			clientX: point.x, clientY: point.y
+		});
+		handle.dispatchEvent(mouse('mousedown', start, 1));
+		await new Promise(resolve => setTimeout(resolve, 50));
+		for (let step = 1; step <= 8; step++) {
+			const ratio = step / 8;
+			const point = {
+				x: start.x + (gesture.end.x - start.x) * ratio,
+				y: start.y + (gesture.end.y - start.y) * ratio
+			};
+			document.dispatchEvent(mouse('mousemove', point, 1));
+			await new Promise(resolve => setTimeout(resolve, 20));
+		}
+		document.dispatchEvent(mouse('mouseup', gesture.end, 0));
+	})()`, payload))
+}
+
+func dispatchKeyPress(ctx context.Context, client *browsercdp.WebSocketClient, key, code string, virtualKey int) error {
+	return dispatchModifiedKeyPress(ctx, client, key, code, virtualKey, 0)
+}
+
+func dispatchModifiedKeyPress(ctx context.Context, client *browsercdp.WebSocketClient, key, code string, virtualKey, modifiers int) error {
+	params := map[string]any{
+		"key": key, "code": code, "windowsVirtualKeyCode": virtualKey, "nativeVirtualKeyCode": virtualKey,
+		"modifiers": modifiers,
+	}
+	params["type"] = "keyDown"
+	if _, err := client.Call(ctx, "Input.dispatchKeyEvent", params); err != nil {
+		return err
+	}
+	params["type"] = "keyUp"
+	_, err := client.Call(ctx, "Input.dispatchKeyEvent", params)
+	return err
+}
+
+func dispatchMarqueeGesture(ctx context.Context, client *browsercdp.WebSocketClient, gesture connectionGesture) error {
+	const shiftModifier = 8
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseMoved", "x": gesture.Start.X, "y": gesture.Start.Y, "modifiers": shiftModifier,
+	}); err != nil {
+		return err
+	}
+	if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mousePressed", "x": gesture.Start.X, "y": gesture.Start.Y,
+		"button": "left", "buttons": 1, "clickCount": 1, "modifiers": shiftModifier,
+	}); err != nil {
+		return err
+	}
+	for step := 1; step <= 8; step++ {
+		ratio := float64(step) / 8
+		if _, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+			"type":   "mouseMoved",
+			"x":      gesture.Start.X + (gesture.End.X-gesture.Start.X)*ratio,
+			"y":      gesture.Start.Y + (gesture.End.Y-gesture.Start.Y)*ratio,
+			"button": "left", "buttons": 1, "modifiers": shiftModifier,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err := client.Call(ctx, "Input.dispatchMouseEvent", map[string]any{
+		"type": "mouseReleased", "x": gesture.End.X, "y": gesture.End.Y,
+		"button": "left", "buttons": 0, "clickCount": 1, "modifiers": shiftModifier,
+	})
+	return err
+}
+
+func eval(ctx context.Context, client *browsercdp.WebSocketClient, expression string) error {
+	result, err := client.Call(ctx, "Runtime.evaluate", map[string]any{
+		"expression": expression, "awaitPromise": true, "returnByValue": true,
+	})
+	if err != nil {
+		return err
+	}
+	if details, ok := result["exceptionDetails"].(map[string]any); ok {
+		return fmt.Errorf("WebView evaluation failed: %v", details)
+	}
+	return nil
+}
+
+func evalJSON(ctx context.Context, client *browsercdp.WebSocketClient, expression string, out any) error {
+	result, err := client.Call(ctx, "Runtime.evaluate", map[string]any{
+		"expression":   fmt.Sprintf("JSON.stringify(%s)", expression),
+		"awaitPromise": true, "returnByValue": true,
+	})
+	if err != nil {
+		return err
+	}
+	if details, ok := result["exceptionDetails"].(map[string]any); ok {
+		return fmt.Errorf("WebView evaluation failed: %v", details)
+	}
+	remote, ok := result["result"].(map[string]any)
+	if !ok {
+		return errors.New("CDP evaluate response omitted result")
+	}
+	value, ok := remote["value"].(string)
+	if !ok {
+		return errors.New("CDP evaluate response omitted JSON value")
+	}
+	return json.Unmarshal([]byte(value), out)
+}
+
+func capture(ctx context.Context, client *browsercdp.WebSocketClient, path string) error {
+	result, err := client.Call(ctx, "Page.captureScreenshot", map[string]any{
+		"format": "png", "fromSurface": true, "captureBeyondViewport": false,
+	})
+	if err != nil {
+		return err
+	}
+	encoded, ok := result["data"].(string)
+	if !ok {
+		return errors.New("CDP screenshot response omitted data")
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o600)
+}

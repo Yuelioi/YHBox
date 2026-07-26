@@ -1,0 +1,118 @@
+name: Reproducible Build
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 3'
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+
+jobs:
+  build:
+    name: Clean build ${{ matrix.attempt }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # pinned action commit
+        with:
+          toolchain: 1.97.0
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install Task
+        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        with:
+          version: 3.49.1
+
+      - name: Install pinned build tools
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Build from clean checkout
+        shell: pwsh
+        run: |
+          $destination = Join-Path '${{ runner.temp }}' 'yotta-source-${{ matrix.attempt }}'
+          Copy-Item -LiteralPath $env:GITHUB_WORKSPACE -Destination $destination -Recurse -Force
+          Set-Location $destination
+          task package
+
+      - name: Upload comparison input
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: clean-build-${{ matrix.attempt }}
+          path: |
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/artifacts/Yotta-*.zip
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/artifacts/staging/Yotta
+            ${{ runner.temp }}/yotta-source-${{ matrix.attempt }}/frontend/dist
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 3
+
+  compare:
+    name: Compare clean build hashes
+    needs: build
+    runs-on: windows-2025
+    steps:
+      - name: Download build 1
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: clean-build-1
+          path: compare/1
+
+      - name: Download build 2
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: clean-build-2
+          path: compare/2
+
+      - name: Require identical payloads and archives
+        shell: pwsh
+        run: |
+          $firstRoot = (Resolve-Path compare/1).Path
+          $secondRoot = (Resolve-Path compare/2).Path
+          $firstFiles = @(Get-ChildItem $firstRoot -File -Recurse | ForEach-Object {
+            [IO.Path]::GetRelativePath($firstRoot, $_.FullName).Replace('\', '/')
+          } | Sort-Object)
+          $secondFiles = @(Get-ChildItem $secondRoot -File -Recurse | ForEach-Object {
+            [IO.Path]::GetRelativePath($secondRoot, $_.FullName).Replace('\', '/')
+          } | Sort-Object)
+          $shapeDiff = Compare-Object $firstFiles $secondFiles
+          if ($shapeDiff) { throw "clean builds produced different file sets:`n$($shapeDiff | Out-String)" }
+          foreach ($relative in $firstFiles) {
+            $firstHash = (Get-FileHash (Join-Path $firstRoot $relative) -Algorithm SHA256).Hash
+            $secondHash = (Get-FileHash (Join-Path $secondRoot $relative) -Algorithm SHA256).Hash
+            if ($firstHash -ne $secondHash) {
+              throw "clean build mismatch for ${relative}: $firstHash != $secondHash"
+            }
+          }
+          Write-Host "reproducible build contract OK: $($firstFiles.Count) files"

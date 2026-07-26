@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "go": "1.25.12",
+  "node": "24.18.0",
+  "pnpm": "11.1.2",
+  "task": "3.49.1",
+  "rust": "1.97.0",
+  "nsis": "3.11",
+  "syft": "v1.44.0",
+  "staticcheck": "v0.6.1",
+  "govulncheck": "v1.6.0",
+  "wails": {
+    "go": "v3.0.0-alpha2.117",
+    "cli": "v3.0.0-alpha2.117",
+    "runtime": "3.0.0-alpha.97"
+  },
+  "githubRunners": {
+    "ubuntu": "ubuntu-24.04",
+    "macos": "macos-15",
+    "windows": "windows-2025"
+  }
+}

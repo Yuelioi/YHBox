@@ -1,0 +1,1526 @@
+<template>
+  <div class="settings-page">
+    <div class="flex items-start gap-3 rounded-xl border border-error/30 bg-error/5 p-4">
+      <UIcon
+        name="i-tabler-device-desktop-cog"
+        class="mt-0.5 size-5 shrink-0 text-error"
+        aria-hidden="true"
+      />
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-default">{{ t('settingsAutomation.security.title') }}</p>
+        <p class="mt-1 text-xs leading-relaxed text-dimmed">
+          {{ t('settingsAutomation.security.hint') }}
+        </p>
+      </div>
+    </div>
+
+    <SettingsSection
+      :title="t('settingsAutomation.targets.title')"
+      :description="t('settingsAutomation.targets.hint')"
+      icon="i-tabler-pointer-cog"
+    >
+      <template #badge>
+        <UBadge size="xs" color="neutral" variant="subtle">{{ draft.length }}</UBadge>
+      </template>
+      <template #actions>
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-windows"
+            :disabled="!desktopTargetType"
+            @click="addTarget('desktop-window')"
+          >
+            {{ t('settingsAutomation.targets.add_windows') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-android"
+            :disabled="!androidTargetType"
+            @click="addTarget('android-device')"
+          >
+            {{ t('settingsAutomation.targets.add_android') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-chrome"
+            :disabled="!browserTargetType"
+            @click="addTarget('browser-page')"
+          >
+            {{ t('settingsAutomation.targets.add_browser') }}
+          </UButton>
+          <UButton
+            v-for="type in genericTargetTypes"
+            :key="`${type.targetKind}:${type.adapterKind}`"
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-pointer-cog"
+            @click="addTargetType(type)"
+          >
+            {{ type.profileKind }}
+          </UButton>
+        </div>
+      </template>
+
+      <div
+        v-if="captureFeedback"
+        class="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-xs"
+        :class="
+          captureFeedback.tone === 'success'
+            ? 'border-success/30 bg-success/10 text-success'
+            : captureFeedback.tone === 'warning'
+              ? 'border-warning/30 bg-warning/10 text-warning'
+              : 'border-error/30 bg-error/10 text-error'
+        "
+        :role="captureFeedback.tone === 'error' ? 'alert' : 'status'"
+      >
+        <span class="min-w-0 flex-1">{{ captureFeedback.message }}</span>
+      </div>
+
+      <div v-if="draft.length" class="space-y-3">
+        <article v-for="(target, index) in draft" :key="target.slot" class="ai-profile">
+          <button
+            type="button"
+            class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+            :aria-expanded="expandedSlot === target.slot"
+            :aria-controls="`automation-target-${target.slot}`"
+            @click="toggleExpanded(target.slot)"
+          >
+            <span
+              class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-default bg-elevated"
+            >
+              <UIcon name="i-tabler-pointer-cog" class="size-4 text-toned" aria-hidden="true" />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex flex-wrap items-center gap-2">
+                <span class="truncate text-sm font-medium text-default">{{ target.label }}</span>
+                <UBadge v-if="isDesktop(target)" size="xs" color="neutral" variant="subtle">
+                  {{ t(`settingsAutomation.backend.${target.inputBackend}`) }}
+                </UBadge>
+                <UBadge v-if="isDesktop(target)" size="xs" color="neutral" variant="subtle">
+                  {{ t(`settingsAutomation.captureBackend.${target.captureBackend}`) }}
+                </UBadge>
+                <UBadge size="xs" color="neutral" variant="outline">
+                  {{ target.targetKind }} · {{ target.adapterKind }}
+                </UBadge>
+              </span>
+              <span class="mt-1 block truncate text-xs text-dimmed">
+                {{ targetSummary(target) }} · <code>{{ target.slot }}</code>
+              </span>
+            </span>
+            <UIcon
+              name="i-tabler-chevron-down"
+              class="size-4 shrink-0 text-dimmed transition-transform"
+              :class="expandedSlot === target.slot ? 'rotate-180' : ''"
+              aria-hidden="true"
+            />
+          </button>
+
+          <div
+            v-if="expandedSlot === target.slot"
+            :id="`automation-target-${target.slot}`"
+            class="ai-profile__details"
+          >
+            <div data-testid="automation-target-core-fields" class="space-y-4">
+              <UFormField :label="t('settingsAutomation.targets.name_label')" required>
+                <UInput v-model.trim="target.label" size="sm" @change="commit" />
+              </UFormField>
+              <UFormField
+                :label="t('settingsAutomation.targets.slot_label')"
+                :hint="t('settingsAutomation.targets.slot_hint')"
+              >
+                <UInput :model-value="target.slot" size="sm" disabled class="font-mono" />
+              </UFormField>
+              <UFormField
+                v-if="isDesktop(target)"
+                :label="t('settingsAutomation.targets.application_label')"
+                :hint="t('settingsAutomation.targets.application_hint')"
+                required
+              >
+                <AdaptiveSelect
+                  :model-value="target.applicationSlot"
+                  :items="applicationItems"
+                  size="sm"
+                  width-mode="fill"
+                  @update:model-value="(value: string) => setApplication(index, value)"
+                />
+              </UFormField>
+              <UFormField
+                v-if="isDesktop(target)"
+                :label="t('settingsAutomation.targets.backend_label')"
+                :hint="t('settingsAutomation.targets.backend_hint')"
+                required
+              >
+                <AdaptiveSelect
+                  :model-value="target.inputBackend"
+                  :items="backendItems"
+                  size="sm"
+                  width-mode="fill"
+                  @update:model-value="(value: InputBackend) => setBackend(index, value)"
+                />
+              </UFormField>
+              <UFormField
+                v-if="isDesktop(target)"
+                :label="t('settingsAutomation.targets.capture_backend_label')"
+                :hint="t('settingsAutomation.targets.capture_backend_hint')"
+                required
+              >
+                <AdaptiveSelect
+                  :model-value="target.captureBackend"
+                  :items="captureBackendItems"
+                  size="sm"
+                  width-mode="fill"
+                  @update:model-value="(value: CaptureBackend) => setCaptureBackend(index, value)"
+                />
+              </UFormField>
+            </div>
+
+            <template v-if="isDesktop(target)">
+              <div
+                class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3"
+              >
+                <UIcon name="i-tabler-focus-2" class="size-4 shrink-0 text-primary" />
+                <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                  {{ t('settingsAutomation.capture.hint') }}
+                </p>
+                <UButton
+                  v-if="capturingSlot !== target.slot"
+                  size="sm"
+                  color="primary"
+                  variant="soft"
+                  icon="i-tabler-focus-2"
+                  :disabled="Boolean(capturingSlot)"
+                  @click="startCapture(target)"
+                >
+                  {{ t('settingsAutomation.capture.start') }}
+                </UButton>
+                <UButton
+                  v-else
+                  size="sm"
+                  color="warning"
+                  variant="soft"
+                  icon="i-tabler-x"
+                  @click="cancelCapture()"
+                >
+                  {{ t('settingsAutomation.capture.cancel') }}
+                </UButton>
+              </div>
+
+              <div data-testid="automation-target-window-fields" class="space-y-4">
+                <UFormField
+                  :label="t('settingsAutomation.targets.window_title_match_label')"
+                  :hint="t('settingsAutomation.targets.window_title_match_hint')"
+                >
+                  <AdaptiveSelect
+                    v-model="target.windowTitleMatch"
+                    :items="windowTitleMatchItems"
+                    class="w-full sm:w-56"
+                    width-mode="fixed"
+                    @update:model-value="commit"
+                  />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.targets.window_title_label')"
+                  :hint="t('settingsAutomation.targets.window_title_hint')"
+                >
+                  <UInput v-model="target.windowTitle" size="sm" @change="commit" />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.targets.window_selection_label')"
+                  :hint="t('settingsAutomation.targets.window_selection_hint')"
+                >
+                  <AdaptiveSelect
+                    v-model="target.windowSelection"
+                    :items="windowSelectionItems"
+                    class="w-full sm:w-72"
+                    width-mode="fixed"
+                    @update:model-value="commit"
+                  />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.targets.window_class_label')"
+                  :hint="t('settingsAutomation.targets.window_class_hint')"
+                >
+                  <UInput
+                    v-model="target.windowClass"
+                    size="sm"
+                    class="font-mono"
+                    @change="commit"
+                  />
+                </UFormField>
+              </div>
+
+              <UFormField
+                :label="t('settingsAutomation.targets.timeout_label')"
+                :hint="t('settingsAutomation.targets.timeout_hint')"
+              >
+                <UInputNumber
+                  v-model="target.resolveTimeoutMilliseconds"
+                  :min="100"
+                  :max="10000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </UFormField>
+              <div class="flex flex-wrap items-center gap-2 rounded-lg border border-default p-3">
+                <UButton
+                  size="sm"
+                  variant="soft"
+                  icon="i-tabler-radar"
+                  :loading="healthLoading[target.slot]"
+                  :disabled="!target.persisted"
+                  @click="checkHealth(target)"
+                >
+                  {{ t('settingsAutomation.targets.preview_matches') }}
+                </UButton>
+                <UBadge
+                  v-if="health[target.slot]"
+                  :color="health[target.slot]?.ok ? 'success' : 'error'"
+                  size="sm"
+                  variant="subtle"
+                >
+                  {{ health[target.slot]?.code }}
+                </UBadge>
+                <p v-if="health[target.slot]?.message" class="min-w-0 flex-1 text-xs text-dimmed">
+                  {{ health[target.slot]?.message }}
+                </p>
+              </div>
+            </template>
+
+            <template v-else-if="isAndroid(target)">
+              <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <div class="flex flex-wrap items-center gap-3">
+                  <UIcon name="i-tabler-brand-android" class="size-4 shrink-0 text-primary" />
+                  <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                    {{ t('settingsAutomation.android.discovery_hint') }}
+                  </p>
+                  <UButton
+                    size="sm"
+                    variant="soft"
+                    icon="i-tabler-refresh"
+                    :loading="adbLoading"
+                    @click="refreshADBDevices"
+                  >
+                    {{ t('settingsAutomation.android.refresh') }}
+                  </UButton>
+                </div>
+                <p v-if="adbError" class="mt-2 text-xs text-error" role="alert">{{ adbError }}</p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField
+                  :label="t('settingsAutomation.android.device_label')"
+                  :hint="t('settingsAutomation.android.device_hint')"
+                  required
+                >
+                  <AdaptiveSelect
+                    :model-value="target.adbSerial"
+                    :items="adbDeviceItems"
+                    size="sm"
+                    width-mode="fill"
+                    @update:model-value="(value: string) => setADBDevice(index, value)"
+                  />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.android.package_label')"
+                  :hint="t('settingsAutomation.android.package_hint')"
+                  required
+                >
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <USelectMenu
+                        :model-value="target.androidPackage"
+                        :items="androidAppItems(target.adbSerial)"
+                        :placeholder="t('settingsAutomation.android.app_unselected')"
+                        :search-input="{
+                          placeholder: t('settingsAutomation.android.app_search'),
+                        }"
+                        :virtualize="androidAppItems(target.adbSerial).length > 40"
+                        value-key="value"
+                        label-key="label"
+                        size="sm"
+                        class="min-w-0 flex-1"
+                        :disabled="!target.adbSerial"
+                        @update:model-value="(value: string) => setAndroidApp(index, value)"
+                      />
+                      <UButton
+                        size="sm"
+                        variant="soft"
+                        icon="i-tabler-refresh"
+                        :aria-label="t('settingsAutomation.android.refresh_apps')"
+                        :loading="adbAppsLoading.has(target.adbSerial)"
+                        :disabled="!target.adbSerial"
+                        @click="refreshADBApps(target)"
+                      />
+                    </div>
+                    <UInput
+                      v-model.trim="target.androidPackage"
+                      size="sm"
+                      class="font-mono"
+                      :placeholder="t('settingsAutomation.android.manual_package')"
+                      @change="androidPackageChanged(target)"
+                    />
+                    <p
+                      v-if="adbAppsError.get(target.adbSerial)"
+                      class="text-xs text-warning"
+                      role="status"
+                    >
+                      {{ adbAppsError.get(target.adbSerial) }}
+                    </p>
+                  </div>
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.android.identity_label')">
+                  <UInput
+                    :model-value="androidIdentity(target)"
+                    size="sm"
+                    disabled
+                    class="font-mono"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.android.state_label')">
+                  <div class="flex items-center gap-2">
+                    <UBadge
+                      :color="health[target.slot]?.ok ? 'success' : 'neutral'"
+                      size="sm"
+                      variant="subtle"
+                    >
+                      {{ health[target.slot]?.code ?? t('settingsAutomation.android.not_checked') }}
+                    </UBadge>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      :disabled="!target.persisted"
+                      :loading="healthLoading[target.slot]"
+                      @click="checkHealth(target)"
+                    >
+                      {{ t('settingsAutomation.android.check_health') }}
+                    </UButton>
+                  </div>
+                  <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
+                    {{ health[target.slot]?.message }}
+                  </p>
+                </UFormField>
+              </div>
+              <UFormField
+                :label="t('settingsAutomation.targets.timeout_label')"
+                :hint="t('settingsAutomation.targets.timeout_hint')"
+              >
+                <UInputNumber
+                  v-model="target.resolveTimeoutMilliseconds"
+                  :min="100"
+                  :max="10000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </UFormField>
+            </template>
+
+            <template v-else-if="isBrowser(target)">
+              <div class="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <div class="flex flex-wrap items-center gap-3">
+                  <UIcon name="i-tabler-brand-chrome" class="size-4 shrink-0 text-primary" />
+                  <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                    {{ t('settingsAutomation.browser.discovery_hint') }}
+                  </p>
+                  <UButton
+                    size="sm"
+                    variant="soft"
+                    icon="i-tabler-refresh"
+                    :loading="browserLoading"
+                    :disabled="!target.browserEndpoint?.trim()"
+                    @click="refreshBrowserTargets(target)"
+                  >
+                    {{ t('settingsAutomation.browser.refresh') }}
+                  </UButton>
+                </div>
+                <p v-if="browserError" class="mt-2 text-xs text-error" role="alert">
+                  {{ browserError }}
+                </p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField
+                  :label="t('settingsAutomation.browser.endpoint_label')"
+                  :hint="t('settingsAutomation.browser.endpoint_hint')"
+                  required
+                >
+                  <UInput
+                    v-model.trim="target.browserEndpoint"
+                    size="sm"
+                    class="font-mono"
+                    @change="browserEndpointChanged(target)"
+                  />
+                </UFormField>
+                <UFormField
+                  :label="t('settingsAutomation.browser.page_label')"
+                  :hint="t('settingsAutomation.browser.page_hint')"
+                  required
+                >
+                  <AdaptiveSelect
+                    :model-value="target.browserTargetId"
+                    :items="browserTargetItems"
+                    size="sm"
+                    width-mode="fill"
+                    @update:model-value="(value: string) => setBrowserTarget(index, value)"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.browser.url_label')">
+                  <UInput
+                    :model-value="target.browserUrl || '—'"
+                    size="sm"
+                    disabled
+                    class="font-mono"
+                  />
+                </UFormField>
+                <UFormField :label="t('settingsAutomation.browser.state_label')">
+                  <div class="flex items-center gap-2">
+                    <UBadge
+                      :color="health[target.slot]?.ok ? 'success' : 'neutral'"
+                      size="sm"
+                      variant="subtle"
+                    >
+                      {{ health[target.slot]?.code ?? t('settingsAutomation.browser.not_checked') }}
+                    </UBadge>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      :disabled="!target.persisted"
+                      :loading="healthLoading[target.slot]"
+                      @click="checkHealth(target)"
+                    >
+                      {{ t('settingsAutomation.browser.check_health') }}
+                    </UButton>
+                  </div>
+                  <p v-if="health[target.slot]?.message" class="mt-1 text-xs text-dimmed">
+                    {{ health[target.slot]?.message }}
+                  </p>
+                </UFormField>
+              </div>
+              <UFormField
+                :label="t('settingsAutomation.targets.timeout_label')"
+                :hint="t('settingsAutomation.targets.timeout_hint')"
+              >
+                <UInputNumber
+                  v-model="target.resolveTimeoutMilliseconds"
+                  :min="100"
+                  :max="10000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </UFormField>
+            </template>
+
+            <template v-else>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField
+                  v-for="field in targetFields(target)"
+                  :key="field.id"
+                  :label="field.id"
+                  :hint="field.kind"
+                  :required="field.required"
+                >
+                  <AdaptiveSelect
+                    v-if="field.kind === 'installation-slot'"
+                    :model-value="stringProfileValue(target, field.id)"
+                    :items="applicationItems"
+                    size="sm"
+                    width-mode="fill"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value)
+                    "
+                  />
+                  <AdaptiveSelect
+                    v-else-if="field.options?.length"
+                    :model-value="stringProfileValue(target, field.id)"
+                    :items="field.options"
+                    size="sm"
+                    width-mode="fill"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value)
+                    "
+                  />
+                  <UInputNumber
+                    v-else-if="field.kind === 'integer' || field.kind === 'duration-ms'"
+                    :model-value="numberProfileValue(target, field.id)"
+                    :min="field.kind === 'duration-ms' ? 100 : 0"
+                    size="sm"
+                    class="w-full sm:w-48"
+                    @update:model-value="
+                      (value: number) => setProfileValue(target, field.id, value, false)
+                    "
+                    @change="commit"
+                  />
+                  <UInput
+                    v-else
+                    :model-value="stringProfileValue(target, field.id)"
+                    size="sm"
+                    @update:model-value="
+                      (value: string) => setProfileValue(target, field.id, value, false)
+                    "
+                    @change="commit"
+                  />
+                </UFormField>
+              </div>
+            </template>
+
+            <UFormField
+              v-if="isDesktop(target)"
+              :label="t('settingsAutomation.targets.mouse_counts_label')"
+              :hint="t('settingsAutomation.targets.mouse_counts_hint')"
+            >
+              <div class="space-y-2">
+                <AdaptiveSelect
+                  :model-value="target.mouseCalibrationMode"
+                  :items="mouseCalibrationModeItems"
+                  class="w-full sm:w-80"
+                  width-mode="fixed"
+                  @update:model-value="
+                    (value: 'active' | 'custom') => setMouseCalibrationMode(target, value)
+                  "
+                />
+                <div
+                  v-if="target.mouseCalibrationMode === 'active'"
+                  data-testid="automation-target-calibration-inheritance"
+                  class="flex flex-wrap items-center gap-2 rounded-lg border p-3"
+                  :class="
+                    activeMouseCounts360 > 0
+                      ? 'border-success/30 bg-success/5'
+                      : 'border-warning/30 bg-warning/5'
+                  "
+                >
+                  <UIcon
+                    :name="activeMouseCounts360 > 0 ? 'i-tabler-link' : 'i-tabler-alert-triangle'"
+                    class="size-4 shrink-0"
+                    :class="activeMouseCounts360 > 0 ? 'text-success' : 'text-warning'"
+                  />
+                  <p class="min-w-0 flex-1 text-xs leading-5 text-dimmed">
+                    {{
+                      activeMouseCounts360 > 0
+                        ? t('settingsAutomation.targets.mouse_counts_following', {
+                            name: activeMouseProfileLabel,
+                            n: activeMouseCounts360,
+                          })
+                        : t('settingsAutomation.targets.mouse_counts_missing')
+                    }}
+                  </p>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-tabler-target-arrow"
+                    :label="t('settingsAutomation.targets.open_calibration')"
+                    @click="openInputCalibration"
+                  />
+                </div>
+                <UInputNumber
+                  v-else
+                  v-model="target.mouseCounts360"
+                  :min="1"
+                  :max="10000000"
+                  :step="100"
+                  size="sm"
+                  class="w-full sm:w-48"
+                  @change="commit"
+                />
+              </div>
+            </UFormField>
+
+            <div class="flex items-center border-t border-default/60 pt-4">
+              <UButton
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                icon="i-tabler-copy"
+                :disabled="!target.persisted"
+                @click="duplicateTarget(target)"
+              >
+                {{ t('settingsAutomation.targets.duplicate') }}
+              </UButton>
+              <UButton
+                class="ml-auto"
+                size="sm"
+                variant="ghost"
+                color="error"
+                icon="i-tabler-trash"
+                @click="removeTarget(target)"
+              >
+                {{ t('settingsAutomation.targets.delete') }}
+              </UButton>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-else class="settings-empty-state" role="status">
+        <UIcon name="i-tabler-pointer-cog" class="size-6 text-dimmed" aria-hidden="true" />
+        <p class="text-sm font-medium text-default">{{ t('settingsAutomation.targets.empty') }}</p>
+        <p class="max-w-md text-center text-xs leading-relaxed text-dimmed">
+          {{ t('settingsAutomation.targets.empty_hint') }}
+        </p>
+        <div class="flex flex-wrap justify-center gap-2">
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-windows"
+            :disabled="!desktopTargetType"
+            @click="addTarget('desktop-window')"
+          >
+            {{ t('settingsAutomation.targets.add_windows') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-android"
+            :disabled="!androidTargetType"
+            @click="addTarget('android-device')"
+          >
+            {{ t('settingsAutomation.targets.add_android') }}
+          </UButton>
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-brand-chrome"
+            :disabled="!browserTargetType"
+            @click="addTarget('browser-page')"
+          >
+            {{ t('settingsAutomation.targets.add_browser') }}
+          </UButton>
+          <UButton
+            v-for="type in genericTargetTypes"
+            :key="`${type.targetKind}:${type.adapterKind}`"
+            size="sm"
+            color="primary"
+            variant="soft"
+            icon="i-tabler-pointer-cog"
+            @click="addTargetType(type)"
+          >
+            {{ type.profileKind }}
+          </UButton>
+        </div>
+      </div>
+    </SettingsSection>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import {
+  backend,
+  type AndroidAppDescriptor,
+  type AndroidAutomationTargetProfile,
+  type AndroidDeviceDescriptor,
+  type AutomationTargetHealth,
+  type AutomationTargetTypeDescriptor,
+  type BrowserTargetDescriptor,
+  type BrowserAutomationTargetProfile,
+  type DesktopAutomationTargetProfile,
+  type InstalledAutomationTargetProfile,
+} from '@/lib/backend'
+import { errorMessage } from '@/lib/invoke'
+import { useSettingsStore } from '@/stores/settings'
+import { useConfirm } from '@/composables/useConfirm'
+import SettingsSection from '@/components/settings/SettingsSection.vue'
+import { useWailsEvent } from '@/composables/useWailsEvent'
+import { matchingInstalledApplications } from '@/settings/windowTargetCapture'
+import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+
+type InputBackend = DesktopAutomationTargetProfile['inputBackend'] | ''
+type CaptureBackend = DesktopAutomationTargetProfile['captureBackend'] | ''
+type WindowTitleMatch = DesktopAutomationTargetProfile['windowTitleMatch']
+type WindowSelection = DesktopAutomationTargetProfile['windowSelection']
+interface AutomationTargetDraft {
+  slot: string
+  label: string
+  targetKind: InstalledAutomationTargetProfile['targetKind']
+  adapterKind: InstalledAutomationTargetProfile['adapterKind']
+  profileVersion: string
+  applicationSlot: string
+  windowTitle: string
+  windowTitleMatch: WindowTitleMatch
+  windowSelection: WindowSelection
+  windowClass: string
+  inputBackend: InputBackend
+  captureBackend: CaptureBackend
+  mouseCounts360: number
+  mouseCalibrationMode: 'active' | 'custom'
+  resolveTimeoutMilliseconds: number
+  adbSerial: string
+  adbProduct: string
+  adbModel: string
+  adbDevice: string
+  androidPackage: string
+  browserEndpoint: string
+  browserTargetId: string
+  browserWebSocketUrl: string
+  browserTitle: string
+  browserUrl: string
+  profile: Record<string, string | number>
+  persisted: boolean
+}
+
+const { t } = useI18n()
+const router = useRouter()
+const { confirm } = useConfirm()
+const store = useSettingsStore()
+const applications = computed(() => store.data?.applications.profiles ?? [])
+const targets = computed(() => store.data?.automation.targets ?? [])
+const targetTypes = ref<AutomationTargetTypeDescriptor[]>([])
+const desktopTargetType = computed(() =>
+  targetTypes.value.find(
+    (candidate) => candidate.profileKind === 'desktop-window' && candidate.hostAvailable,
+  ),
+)
+const androidTargetType = computed(() =>
+  targetTypes.value.find(
+    (candidate) => candidate.profileKind === 'android-device' && candidate.hostAvailable,
+  ),
+)
+const browserTargetType = computed(() =>
+  targetTypes.value.find(
+    (candidate) => candidate.profileKind === 'browser-page' && candidate.hostAvailable,
+  ),
+)
+const genericTargetTypes = computed(() =>
+  targetTypes.value.filter(
+    (candidate) =>
+      candidate.hostAvailable &&
+      !(
+        (candidate.targetKind === 'desktop-window' && candidate.adapterKind === 'win32') ||
+        (candidate.targetKind === 'android-device' && candidate.adapterKind === 'android-adb') ||
+        (candidate.targetKind === 'browser-cdp' && candidate.adapterKind === 'browser-cdp')
+      ),
+  ),
+)
+const draft = ref<AutomationTargetDraft[]>([])
+const expandedSlot = ref('')
+const capturingSlot = ref('')
+const captureID = ref('')
+const captureFeedback = ref<{
+  tone: 'success' | 'warning' | 'error'
+  message: string
+} | null>(null)
+const adbDevices = ref<AndroidDeviceDescriptor[]>([])
+const adbLoading = ref(false)
+const adbError = ref('')
+const adbApps = reactive(new Map<string, AndroidAppDescriptor[]>())
+const adbAppsLoading = reactive(new Set<string>())
+const adbAppsError = reactive(new Map<string, string>())
+const browserTargets = ref<BrowserTargetDescriptor[]>([])
+const browserLoading = ref(false)
+const browserError = ref('')
+const health = reactive<Record<string, AutomationTargetHealth | undefined>>({})
+const healthLoading = reactive<Record<string, boolean>>({})
+let captureTimer: ReturnType<typeof setTimeout> | undefined
+const applicationItems = computed(() =>
+  applications.value.map((application) => ({ label: application.label, value: application.slot })),
+)
+const activeMouseCounts360 = computed(() => store.activeMouseCounts360)
+const activeMouseProfileLabel = computed(() => {
+  const profiles = store.mouseProfiles
+  const selected = profiles.find((profile) => profile.label === store.data?.ui.activeMouseProfile)
+  return selected?.label ?? (profiles.length === 1 ? profiles[0]!.label : t('common.untitled'))
+})
+const mouseCalibrationModeItems = computed(() => [
+  { label: t('settingsAutomation.targets.mouse_counts_use_active'), value: 'active' as const },
+  { label: t('settingsAutomation.targets.mouse_counts_custom'), value: 'custom' as const },
+])
+const backendItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'inputBackend').map((value) => ({
+    label: t(`settingsAutomation.backend.${value}`),
+    value,
+  })),
+)
+const captureBackendItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'captureBackend').map((value) => ({
+    label: t(`settingsAutomation.captureBackend.${value}`),
+    value,
+  })),
+)
+const windowTitleMatchItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'windowTitleMatch').map((value) => ({
+    label: t(`settingsAutomation.targets.window_title_match_${value}`),
+    value: value as WindowTitleMatch,
+  })),
+)
+const windowSelectionItems = computed(() =>
+  profileFieldOptions(desktopTargetType.value, 'windowSelection').map((value) => ({
+    label: t(`settingsAutomation.targets.window_selection_${value}`),
+    value: value as WindowSelection,
+  })),
+)
+const adbDeviceItems = computed(() =>
+  adbDevices.value.map((device) => ({
+    label: `${device.model || device.serial} · ${device.serial} · ${device.state}`,
+    value: device.serial,
+    disabled: device.state !== 'device' || !device.product || !device.model || !device.device,
+  })),
+)
+function androidAppItems(serial: string) {
+  return (adbApps.get(serial) ?? []).map((app) => ({
+    label: app.foreground
+      ? t('settingsAutomation.android.foreground_app', { name: app.label, package: app.package })
+      : app.label === app.package
+        ? app.package
+        : `${app.label} · ${app.package}`,
+    value: app.package,
+  }))
+}
+const browserTargetItems = computed(() =>
+  browserTargets.value.map((target) => ({
+    label: `${target.title || target.url || target.id} · ${target.id}`,
+    value: target.id,
+  })),
+)
+
+onMounted(async () => {
+  targetTypes.value = (await backend.automation.listTargetTypes()) ?? []
+})
+
+watch(
+  targets,
+  () => {
+    draft.value = targets.value.map(draftFromProfile)
+  },
+  { immediate: true },
+)
+
+useWailsEvent<unknown>('win32windowtarget:captured', (raw) => {
+  const payload = Array.isArray(raw) ? raw[0] : raw
+  void acceptCapture(payload)
+})
+
+onBeforeUnmount(() => {
+  void cancelCapture(true)
+})
+
+function toggleExpanded(slot: string) {
+  expandedSlot.value = expandedSlot.value === slot ? '' : slot
+}
+function profileFieldOptions(
+  targetType: AutomationTargetTypeDescriptor | undefined,
+  fieldID: string,
+): string[] {
+  return targetType?.fields.find((field) => field.id === fieldID)?.options ?? []
+}
+function draftFromProfile(target: InstalledAutomationTargetProfile): AutomationTargetDraft {
+  const profile = target.profile as Partial<
+    DesktopAutomationTargetProfile & AndroidAutomationTargetProfile & BrowserAutomationTargetProfile
+  >
+  return {
+    slot: target.slot,
+    label: target.label,
+    targetKind: target.targetKind,
+    adapterKind: target.adapterKind,
+    profileVersion: target.profileVersion,
+    applicationSlot: profile.applicationSlot ?? '',
+    windowTitle: profile.windowTitle ?? '',
+    windowTitleMatch: profile.windowTitleMatch ?? 'exact',
+    windowSelection: profile.windowSelection ?? 'unique',
+    windowClass: profile.windowClass ?? '',
+    inputBackend: profile.inputBackend ?? '',
+    captureBackend: profile.captureBackend ?? '',
+    mouseCounts360: profile.mouseCounts360 ?? 0,
+    mouseCalibrationMode: (profile.mouseCounts360 ?? 0) > 0 ? 'custom' : 'active',
+    resolveTimeoutMilliseconds: profile.resolveTimeoutMilliseconds ?? 3000,
+    adbSerial: profile.adbSerial ?? '',
+    adbProduct: profile.adbProduct ?? '',
+    adbModel: profile.adbModel ?? '',
+    adbDevice: profile.adbDevice ?? '',
+    androidPackage: profile.androidPackage ?? '',
+    browserEndpoint: profile.browserEndpoint ?? '',
+    browserTargetId: profile.browserTargetId ?? '',
+    browserWebSocketUrl: profile.browserWebSocketUrl ?? '',
+    browserTitle: profile.browserTitle ?? '',
+    browserUrl: profile.browserUrl ?? '',
+    profile: editableProfile(profile),
+    persisted: true,
+  }
+}
+function applicationLabel(slot: string) {
+  return applications.value.find((application) => application.slot === slot)?.label ?? slot
+}
+function isDesktop(target: AutomationTargetDraft): boolean {
+  return target.targetKind === 'desktop-window' && target.adapterKind === 'win32'
+}
+function isAndroid(target: AutomationTargetDraft): boolean {
+  return target.targetKind === 'android-device' && target.adapterKind === 'android-adb'
+}
+function isBrowser(target: AutomationTargetDraft): boolean {
+  return target.targetKind === 'browser-cdp' && target.adapterKind === 'browser-cdp'
+}
+function targetSummary(target: AutomationTargetDraft): string {
+  if (isDesktop(target)) return applicationLabel(target.applicationSlot)
+  if (isBrowser(target))
+    return `${target.browserTitle || t('settingsAutomation.browser.unselected')} · ${target.browserUrl || '—'}`
+  if (isAndroid(target))
+    return `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
+  return targetTypeFor(target)?.profileKind ?? `${target.targetKind} · ${target.adapterKind}`
+}
+function editableProfile(source: Record<string, unknown>): Record<string, string | number> {
+  return Object.fromEntries(
+    Object.entries(source).filter((entry): entry is [string, string | number] => {
+      const value = entry[1]
+      return typeof value === 'string' || typeof value === 'number'
+    }),
+  )
+}
+function targetTypeFor(target: AutomationTargetDraft): AutomationTargetTypeDescriptor | undefined {
+  return targetTypes.value.find(
+    (candidate) =>
+      candidate.targetKind === target.targetKind && candidate.adapterKind === target.adapterKind,
+  )
+}
+function targetFields(target: AutomationTargetDraft) {
+  return targetTypeFor(target)?.fields ?? []
+}
+function stringProfileValue(target: AutomationTargetDraft, fieldID: string): string {
+  const value = target.profile[fieldID]
+  return typeof value === 'string' ? value : value == null ? '' : String(value)
+}
+function numberProfileValue(target: AutomationTargetDraft, fieldID: string): number {
+  const value = target.profile[fieldID]
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+function setProfileValue(
+  target: AutomationTargetDraft,
+  fieldID: string,
+  value: string | number,
+  save = true,
+): void {
+  target.profile[fieldID] = value
+  if (save) void commit()
+}
+function androidIdentity(target: AutomationTargetDraft): string {
+  if (!target.adbSerial) return '—'
+  return `${target.adbProduct || '?'} / ${target.adbModel || '?'} / ${target.adbDevice || '?'}`
+}
+function uniqueSlot(base: string): string {
+  const taken = new Set([
+    ...draft.value.map((target) => target.slot),
+    ...(store.data?.ai.profiles ?? []).map((profile) => profile.slot),
+    ...(store.data?.network.httpOrigins ?? []).map((origin) => origin.slot),
+    ...(store.data?.applications.profiles ?? []).map((application) => application.slot),
+  ])
+  if (!taken.has(base)) return base
+  for (let index = 2; ; index++) if (!taken.has(`${base}-${index}`)) return `${base}-${index}`
+}
+function uniqueLabel(base: string): string {
+  const taken = new Set(draft.value.map((target) => target.label))
+  if (!taken.has(base)) return base
+  for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
+}
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() || path
+}
+function slug(value: string): string {
+  return (
+    value
+      .toLocaleLowerCase()
+      .replace(/\.exe$/i, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'application'
+  )
+}
+function uniqueApplicationLabel(base: string): string {
+  const taken = new Set(applications.value.map((application) => application.label))
+  if (!taken.has(base)) return base
+  for (let index = 2; ; index++) if (!taken.has(`${base} ${index}`)) return `${base} ${index}`
+}
+async function addTarget(profileKind: 'desktop-window' | 'android-device' | 'browser-page') {
+  const type =
+    profileKind === 'desktop-window'
+      ? desktopTargetType.value
+      : profileKind === 'android-device'
+        ? androidTargetType.value
+        : browserTargetType.value
+  if (!type) return
+  await addTargetType(type)
+}
+async function addTargetType(type: AutomationTargetTypeDescriptor) {
+  const profileKind = type.profileKind
+  const desktop = profileKind === 'desktop-window'
+  const browser = profileKind === 'browser-page'
+  const android = profileKind === 'android-device'
+  const slot = uniqueSlot(
+    desktop
+      ? 'window-target'
+      : browser
+        ? 'browser-target'
+        : android
+          ? 'android-target'
+          : 'automation-target',
+  )
+  draft.value.push({
+    slot,
+    label: uniqueLabel(
+      t(
+        desktop
+          ? 'settingsAutomation.targets.new_blank_label'
+          : browser
+            ? 'settingsAutomation.browser.new_blank_label'
+            : android
+              ? 'settingsAutomation.android.new_blank_label'
+              : 'settingsAutomation.targets.new_blank_label',
+      ),
+    ),
+    targetKind: type.targetKind as InstalledAutomationTargetProfile['targetKind'],
+    adapterKind: type.adapterKind as InstalledAutomationTargetProfile['adapterKind'],
+    profileVersion: type.profileVersion,
+    applicationSlot: '',
+    windowTitle: '',
+    windowTitleMatch: 'exact',
+    windowSelection: 'unique',
+    windowClass: '',
+    inputBackend: (profileFieldOptions(type, 'inputBackend')[0] ?? '') as InputBackend,
+    captureBackend: (profileFieldOptions(type, 'captureBackend')[0] ?? '') as CaptureBackend,
+    mouseCounts360: 0,
+    mouseCalibrationMode: 'active',
+    resolveTimeoutMilliseconds: 3000,
+    adbSerial: '',
+    adbProduct: '',
+    adbModel: '',
+    adbDevice: '',
+    androidPackage: '',
+    browserEndpoint: 'http://127.0.0.1:9222',
+    browserTargetId: '',
+    browserWebSocketUrl: '',
+    browserTitle: '',
+    browserUrl: '',
+    profile: defaultProfile(type),
+    persisted: false,
+  })
+  expandedSlot.value = slot
+}
+async function duplicateTarget(source: AutomationTargetDraft) {
+  if (!source.persisted) return
+  const slot = uniqueSlot(`${source.slot}-copy`)
+  const duplicate: AutomationTargetDraft = {
+    ...source,
+    profile: { ...source.profile },
+    slot,
+    label: uniqueLabel(t('settingsAutomation.targets.copy_label', { name: source.label })),
+    persisted: false,
+  }
+  draft.value.push(duplicate)
+  expandedSlot.value = slot
+  await commit()
+}
+function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfile {
+  const common = {
+    slot: target.slot,
+    label: target.label.trim(),
+    targetKind: target.targetKind,
+    adapterKind: target.adapterKind,
+    profileVersion: target.profileVersion,
+  }
+  if (isDesktop(target))
+    return {
+      ...common,
+      profile: {
+        applicationSlot: target.applicationSlot,
+        windowTitle: target.windowTitle,
+        windowTitleMatch: target.windowTitleMatch,
+        windowSelection: target.windowSelection,
+        windowClass: target.windowClass,
+        inputBackend: target.inputBackend as DesktopAutomationTargetProfile['inputBackend'],
+        captureBackend: target.captureBackend as DesktopAutomationTargetProfile['captureBackend'],
+        mouseCounts360: target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360,
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
+    }
+  if (isBrowser(target))
+    return {
+      ...common,
+      profile: {
+        browserEndpoint: target.browserEndpoint.trim(),
+        browserTargetId: target.browserTargetId.trim(),
+        browserWebSocketUrl: target.browserWebSocketUrl.trim(),
+        browserTitle: target.browserTitle.trim(),
+        browserUrl: target.browserUrl.trim(),
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
+    }
+  if (isAndroid(target))
+    return {
+      ...common,
+      profile: {
+        adbSerial: target.adbSerial.trim(),
+        adbProduct: target.adbProduct.trim(),
+        adbModel: target.adbModel.trim(),
+        adbDevice: target.adbDevice.trim(),
+        androidPackage: target.androidPackage.trim(),
+        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
+      },
+    }
+  return {
+    ...common,
+    profile: { ...target.profile },
+  }
+}
+async function commit(): Promise<boolean> {
+  if (draft.value.some((target) => !targetComplete(target))) return false
+  const ok = await store.patchAutomationTargets(draft.value.map(metadata))
+  if (ok) for (const target of draft.value) target.persisted = true
+  return ok
+}
+
+async function setMouseCalibrationMode(
+  target: AutomationTargetDraft,
+  mode: 'active' | 'custom',
+): Promise<void> {
+  target.mouseCalibrationMode = mode
+  if (mode === 'custom' && target.mouseCounts360 <= 0 && activeMouseCounts360.value > 0)
+    target.mouseCounts360 = activeMouseCounts360.value
+  await commit()
+}
+
+function openInputCalibration(): void {
+  void router.push({ path: '/settings', query: { section: 'input' } })
+}
+function targetComplete(target: AutomationTargetDraft): boolean {
+  if (isBrowser(target)) {
+    return Boolean(
+      target.label.trim() &&
+      target.browserEndpoint?.trim() &&
+      target.browserTargetId?.trim() &&
+      target.browserWebSocketUrl?.trim(),
+    )
+  }
+  if (isAndroid(target)) {
+    return Boolean(
+      target.label.trim() &&
+      target.adbSerial &&
+      target.adbProduct &&
+      target.adbModel &&
+      target.adbDevice &&
+      target.androidPackage?.trim(),
+    )
+  }
+  if (!isDesktop(target)) {
+    const type = targetTypeFor(target)
+    return Boolean(
+      target.label.trim() &&
+      type &&
+      type.fields
+        .filter((field) => field.required)
+        .every((field) => {
+          const value = target.profile[field.id]
+          if (field.kind === 'installation-slot')
+            return (
+              typeof value === 'string' &&
+              applications.value.some((application) => application.slot === value)
+            )
+          return typeof value === 'number' ? Number.isFinite(value) : Boolean(value?.trim())
+        }),
+    )
+  }
+  return Boolean(
+    target.label.trim() &&
+    target.applicationSlot &&
+    applications.value.some((application) => application.slot === target.applicationSlot) &&
+    target.windowTitle.trim() &&
+    target.windowClass.trim(),
+  )
+}
+
+function defaultProfile(type: AutomationTargetTypeDescriptor): Record<string, string | number> {
+  return Object.fromEntries(
+    type.fields.map((field) => [
+      field.id,
+      field.options?.[0] ??
+        (field.kind === 'duration-ms' ? 3000 : field.kind === 'integer' ? 0 : ''),
+    ]),
+  )
+}
+
+async function refreshBrowserTargets(target: AutomationTargetDraft): Promise<void> {
+  browserLoading.value = true
+  browserError.value = ''
+  try {
+    browserTargets.value =
+      (await backend.automation.listBrowserTargets(target.browserEndpoint?.trim() || '')) ?? []
+    if (browserTargets.value.length === 0)
+      browserError.value = t('settingsAutomation.browser.none_found')
+  } catch (error) {
+    browserTargets.value = []
+    browserError.value = errorText(error)
+  } finally {
+    browserLoading.value = false
+  }
+}
+
+function browserEndpointChanged(target: AutomationTargetDraft): void {
+  target.browserTargetId = ''
+  target.browserWebSocketUrl = ''
+  target.browserTitle = ''
+  target.browserUrl = ''
+  delete health[target.slot]
+  browserTargets.value = []
+}
+
+async function setBrowserTarget(index: number, id: string): Promise<void> {
+  const selected = browserTargets.value.find((target) => target.id === id)
+  const target = draft.value[index]
+  if (!selected || !target || !isBrowser(target)) return
+  target.browserTargetId = selected.id
+  target.browserWebSocketUrl = selected.webSocketDebuggerUrl
+  target.browserTitle = selected.title
+  target.browserUrl = selected.url
+  delete health[target.slot]
+  await commit()
+}
+async function refreshADBDevices(): Promise<void> {
+  adbLoading.value = true
+  adbError.value = ''
+  try {
+    adbDevices.value = (await backend.automation.listADBDevices()) ?? []
+    if (adbDevices.value.length === 0) adbError.value = t('settingsAutomation.android.none_found')
+  } catch (error) {
+    adbError.value = errorText(error)
+  } finally {
+    adbLoading.value = false
+  }
+}
+async function setADBDevice(index: number, serial: string): Promise<void> {
+  const selected = adbDevices.value.find(
+    (device) => device.serial === serial && device.state === 'device',
+  )
+  const target = draft.value[index]
+  if (!selected || !target) return
+  target.adbSerial = selected.serial
+  target.adbProduct = selected.product
+  target.adbModel = selected.model
+  target.adbDevice = selected.device
+  target.androidPackage = ''
+  delete health[target.slot]
+  await refreshADBApps(target)
+}
+async function refreshADBApps(target: AutomationTargetDraft): Promise<void> {
+  const serial = target.adbSerial
+  if (!serial) return
+  adbAppsLoading.add(serial)
+  adbAppsError.delete(serial)
+  try {
+    const apps = (await backend.automation.listAndroidApps(serial)) ?? []
+    adbApps.set(serial, apps)
+    if (apps.length === 0) adbAppsError.set(serial, t('settingsAutomation.android.apps_none_found'))
+  } catch (error) {
+    adbApps.set(serial, [])
+    adbAppsError.set(serial, errorText(error))
+  } finally {
+    adbAppsLoading.delete(serial)
+  }
+}
+async function setAndroidApp(index: number, packageName: string): Promise<void> {
+  const target = draft.value[index]
+  if (!target || !isAndroid(target)) return
+  target.androidPackage = packageName
+  delete health[target.slot]
+  await commit()
+}
+async function androidPackageChanged(target: AutomationTargetDraft): Promise<void> {
+  delete health[target.slot]
+  await commit()
+}
+async function checkHealth(target: AutomationTargetDraft): Promise<void> {
+  if (!(await commit())) return
+  healthLoading[target.slot] = true
+  try {
+    health[target.slot] = await backend.automation.checkTargetHealth(target.slot)
+  } catch (error) {
+    health[target.slot] = { ok: false, code: 'unavailable', message: errorText(error) }
+  } finally {
+    healthLoading[target.slot] = false
+  }
+}
+async function setApplication(index: number, value: string) {
+  draft.value[index]!.applicationSlot = value
+  await commit()
+}
+async function setBackend(index: number, value: InputBackend) {
+  draft.value[index]!.inputBackend = value
+  await commit()
+}
+async function setCaptureBackend(index: number, value: CaptureBackend) {
+  draft.value[index]!.captureBackend = value
+  await commit()
+}
+async function removeTarget(target: AutomationTargetDraft) {
+  if (capturingSlot.value === target.slot) await cancelCapture(true)
+  if (!target.persisted) {
+    draft.value = draft.value.filter((candidate) => candidate.slot !== target.slot)
+    return
+  }
+  const accepted = await confirm({
+    title: t('settingsAutomation.confirm.delete_title', { name: target.label }),
+    description: t('settingsAutomation.confirm.delete_hint'),
+    confirmText: t('common.delete'),
+    cancelText: t('common.cancel'),
+    color: 'error',
+  })
+  if (accepted === true) {
+    await store.patchAutomationTargets(
+      targets.value.filter((candidate) => candidate.slot !== target.slot),
+    )
+  }
+}
+
+async function startCapture(target: AutomationTargetDraft): Promise<void> {
+  if (capturingSlot.value) return
+  captureFeedback.value = null
+  capturingSlot.value = target.slot
+  try {
+    const id = await backend.tools.startWin32WindowTargetCapture()
+    if (!id) throw new Error(t('settingsAutomation.capture.start_failed'))
+    captureID.value = id
+    captureTimer = setTimeout(() => void timeoutCapture(), 30_000)
+  } catch (error) {
+    resetCapture()
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
+  }
+}
+
+async function cancelCapture(silent = false): Promise<void> {
+  const id = captureID.value
+  resetCapture()
+  if (id) {
+    try {
+      await backend.tools.cancelWin32WindowTargetCapture(id)
+    } catch (error) {
+      if (!silent) captureFeedback.value = { tone: 'error', message: errorText(error) }
+      return
+    }
+  }
+  if (!silent) {
+    captureFeedback.value = {
+      tone: 'warning',
+      message: t('settingsAutomation.capture.cancelled'),
+    }
+  }
+}
+
+async function timeoutCapture(): Promise<void> {
+  await cancelCapture(true)
+  captureFeedback.value = {
+    tone: 'warning',
+    message: t('settingsAutomation.capture.timeout'),
+  }
+}
+
+async function acceptCapture(raw: unknown): Promise<void> {
+  const slot = capturingSlot.value
+  if (!slot || typeof raw !== 'object' || raw === null) return
+  const payload = raw as Record<string, unknown>
+  resetCapture()
+  if (typeof payload.error === 'string' && payload.error) {
+    captureFeedback.value = { tone: 'error', message: payload.error }
+    return
+  }
+  if (
+    typeof payload.executable !== 'string' ||
+    typeof payload.title !== 'string' ||
+    typeof payload.class !== 'string' ||
+    !payload.executable ||
+    !payload.title ||
+    !payload.class
+  ) {
+    captureFeedback.value = {
+      tone: 'error',
+      message: t('settingsAutomation.capture.incomplete'),
+    }
+    return
+  }
+  try {
+    const inspection = await backend.applications.inspectExecutable(payload.executable)
+    if (!inspection) throw new Error(t('settingsAutomation.capture.inspect_failed'))
+    const matches = matchingInstalledApplications(applications.value, inspection)
+    if (matches.length === 0) {
+      const executableName = fileName(inspection.executable).replace(/\.exe$/i, '')
+      const accepted = await confirm({
+        title: t('settingsAutomation.capture.install_title', { name: executableName }),
+        description: t('settingsAutomation.capture.install_hint', {
+          path: inspection.executable,
+        }),
+        confirmText: t('settingsAutomation.capture.install_confirm'),
+        cancelText: t('common.cancel'),
+        color: 'warning',
+      })
+      if (accepted !== true) {
+        captureFeedback.value = {
+          tone: 'warning',
+          message: t('settingsAutomation.capture.install_cancelled'),
+        }
+        return
+      }
+      const target = draft.value.find((candidate) => candidate.slot === slot)
+      if (!target) return
+      const application = {
+        slot: uniqueSlot(slug(executableName)),
+        label: uniqueApplicationLabel(executableName),
+        executable: inspection.executable,
+        executableDigest: inspection.digest,
+        arguments: [],
+      }
+      target.applicationSlot = application.slot
+      target.windowTitle = payload.title
+      target.windowTitleMatch = 'exact'
+      target.windowSelection = 'unique'
+      target.windowClass = payload.class
+      const ok = await store.patch({
+        applications: { profiles: [...applications.value, application] },
+        automation: { targets: draft.value.map(metadata) },
+      })
+      if (!ok) throw new Error(t('settingsAutomation.capture.save_failed'))
+      for (const candidate of draft.value) candidate.persisted = true
+      await store.load()
+      captureFeedback.value = {
+        tone: 'success',
+        message: t('settingsAutomation.capture.installed_and_completed', { name: target.label }),
+      }
+      return
+    }
+    if (matches.length > 1) throw new Error(t('settingsAutomation.capture.application_ambiguous'))
+    const target = draft.value.find((candidate) => candidate.slot === slot)
+    if (!target) return
+    target.applicationSlot = matches[0]!.slot
+    target.windowTitle = payload.title
+    target.windowTitleMatch = 'exact'
+    target.windowSelection = 'unique'
+    target.windowClass = payload.class
+    if (!(await commit())) throw new Error(t('settingsAutomation.capture.save_failed'))
+    await store.load()
+    captureFeedback.value = {
+      tone: 'success',
+      message: t('settingsAutomation.capture.completed', { name: target.label }),
+    }
+  } catch (error) {
+    captureFeedback.value = { tone: 'error', message: errorText(error) }
+  }
+}
+
+function resetCapture(): void {
+  if (captureTimer) clearTimeout(captureTimer)
+  captureTimer = undefined
+  captureID.value = ''
+  capturingSlot.value = ''
+}
+
+function errorText(error: unknown): string {
+  return errorMessage(error)
+}
+</script>

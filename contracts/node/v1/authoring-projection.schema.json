@@ -1,0 +1,1394 @@
+{
+  "$defs": {
+    "CapabilityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/Ref"
+        },
+        "consent": {
+          "enum": [
+            "none",
+            "once",
+            "every-run"
+          ],
+          "type": "string"
+        },
+        "credential": {
+          "enum": [
+            "none",
+            "required"
+          ],
+          "type": "string"
+        },
+        "credentialSlot": {
+          "type": "string"
+        },
+        "credentialSlotConfigKey": {
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "requirementId": {
+          "type": "string"
+        },
+        "risk": {
+          "enum": [
+            "low",
+            "sensitive",
+            "dangerous"
+          ],
+          "type": "string"
+        },
+        "scope": true,
+        "targetKinds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetSlot": {
+          "type": "string"
+        },
+        "targetSlotConfigKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId",
+        "capability",
+        "operations",
+        "scope",
+        "targetSlot",
+        "targetKinds",
+        "credential",
+        "risk",
+        "consent"
+      ],
+      "type": "object"
+    },
+    "ConversionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "autoInsert": {
+          "type": "boolean"
+        },
+        "cost": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inputPort": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "lossless",
+            "lossy",
+            "parser"
+          ],
+          "type": "string"
+        },
+        "outputPort": {
+          "type": "string"
+        },
+        "total": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "inputPort",
+        "outputPort",
+        "kind",
+        "total",
+        "cost",
+        "autoInsert"
+      ],
+      "type": "object"
+    },
+    "CountedLoopInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "countInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "maxIterations": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "countInput",
+        "indexOutput",
+        "ordinalType",
+        "maxIterations"
+      ],
+      "type": "object"
+    },
+    "ErrorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "retryHint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "retryHint"
+      ],
+      "type": "object"
+    },
+    "ExecutionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "cache": {
+          "enum": [
+            "none",
+            "per-run"
+          ],
+          "type": "string"
+        },
+        "cancellation": {
+          "enum": [
+            "cooperative",
+            "immediate",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "class": {
+          "enum": [
+            "pure-data",
+            "effect",
+            "control",
+            "event",
+            "region",
+            "marker",
+            "visual"
+          ],
+          "type": "string"
+        },
+        "determinism": {
+          "enum": [
+            "deterministic",
+            "recorded",
+            "nondeterministic"
+          ],
+          "type": "string"
+        },
+        "effects": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "evaluation": {
+          "enum": [
+            "pull",
+            "push"
+          ],
+          "type": "string"
+        },
+        "retry": {
+          "enum": [
+            "never",
+            "idempotent",
+            "operation-id"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "enum": [
+            "none",
+            "required",
+            "optional"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "class",
+        "effects",
+        "determinism",
+        "evaluation",
+        "cache",
+        "retry",
+        "cancellation",
+        "timeout"
+      ],
+      "type": "object"
+    },
+    "FieldConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "enum": {
+          "items": true,
+          "type": "array"
+        },
+        "maxItems": {
+          "type": "integer"
+        },
+        "maxLength": {
+          "type": "integer"
+        },
+        "maximum": true,
+        "minItems": {
+          "type": "integer"
+        },
+        "minLength": {
+          "type": "integer"
+        },
+        "minimum": true,
+        "pattern": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enum"
+      ],
+      "type": "object"
+    },
+    "FieldProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "additionalProperties": false,
+        "constraints": {
+          "$ref": "#/$defs/FieldConstraints"
+        },
+        "control": {
+          "enum": [
+            "text",
+            "code",
+            "number",
+            "integer",
+            "toggle",
+            "select",
+            "object",
+            "list",
+            "json",
+            "state-variable"
+          ],
+          "type": "string"
+        },
+        "default": true,
+        "deprecated": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "examples": {
+          "items": true,
+          "type": "array"
+        },
+        "group": {
+          "type": "string"
+        },
+        "hasDefault": {
+          "type": "boolean"
+        },
+        "helpKey": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "items": {
+          "$ref": "#/$defs/FieldProjection"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/FieldProjection"
+          },
+          "type": "array"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "titleKey": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "control",
+        "required",
+        "hasDefault",
+        "examples",
+        "deprecated",
+        "readOnly",
+        "constraints",
+        "properties"
+      ],
+      "type": "object"
+    },
+    "ForEachInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyOutput": {
+          "type": "string"
+        },
+        "breakInput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "continueInput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "indexOutput": {
+          "type": "string"
+        },
+        "itemOutput": {
+          "type": "string"
+        },
+        "itemsInput": {
+          "type": "string"
+        },
+        "maxItems": {
+          "maximum": 16384,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        }
+      },
+      "required": [
+        "entryInput",
+        "breakInput",
+        "continueInput",
+        "bodyOutput",
+        "completedOutput",
+        "itemsInput",
+        "indexOutput",
+        "itemOutput",
+        "ordinalType",
+        "maxItems"
+      ],
+      "type": "object"
+    },
+    "HostFeatureRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "featureId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "featureId"
+      ],
+      "type": "object"
+    },
+    "InstanceResolver": {
+      "additionalProperties": false,
+      "properties": {
+        "maxPorts": {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "resolverId": {
+          "format": "uri",
+          "pattern": "/v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resolverId",
+        "semanticDigest",
+        "maxPorts"
+      ],
+      "type": "object"
+    },
+    "InstructionSpec": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "invoke": {
+              "$ref": "#/$defs/InvokeInstruction"
+            },
+            "kind": {
+              "const": "invoke"
+            }
+          },
+          "required": [
+            "kind",
+            "invoke"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run-root"
+            },
+            "runRoot": {
+              "$ref": "#/$defs/RunRootInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "runRoot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "countedLoop": {
+              "$ref": "#/$defs/CountedLoopInstruction"
+            },
+            "kind": {
+              "const": "counted-loop"
+            }
+          },
+          "required": [
+            "kind",
+            "countedLoop"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "forEach": {
+              "$ref": "#/$defs/ForEachInstruction"
+            },
+            "kind": {
+              "const": "for-each"
+            }
+          },
+          "required": [
+            "kind",
+            "forEach"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "retry"
+            },
+            "retry": {
+              "$ref": "#/$defs/RetryInstruction"
+            }
+          },
+          "required": [
+            "kind",
+            "retry"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "InvokeInstruction": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "NodeProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "enum": [
+            "portable",
+            "host-required",
+            "target-required",
+            "host-and-target-required"
+          ],
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/CapabilityProjection"
+          },
+          "type": "array"
+        },
+        "category": {
+          "type": "string"
+        },
+        "configFields": {
+          "items": {
+            "$ref": "#/$defs/FieldProjection"
+          },
+          "type": "array"
+        },
+        "conversion": {
+          "$ref": "#/$defs/ConversionSpec"
+        },
+        "dataInputs": {
+          "items": {
+            "$ref": "#/$defs/PortProjection"
+          },
+          "type": "array"
+        },
+        "dataOutputs": {
+          "items": {
+            "$ref": "#/$defs/PortProjection"
+          },
+          "type": "array"
+        },
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/ErrorSpec"
+          },
+          "type": "array"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionSpec"
+        },
+        "hostFeatureRequirements": {
+          "items": {
+            "$ref": "#/$defs/HostFeatureRequirement"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "instanceResolver": {
+          "$ref": "#/$defs/InstanceResolver"
+        },
+        "instruction": {
+          "$ref": "#/$defs/InstructionSpec"
+        },
+        "nodeRef": {
+          "$ref": "#/$defs/NodeRef"
+        },
+        "signals": {
+          "items": {
+            "$ref": "#/$defs/SignalProjection"
+          },
+          "type": "array"
+        },
+        "stateAccesses": {
+          "items": {
+            "$ref": "#/$defs/StateAccessProjection"
+          },
+          "type": "array"
+        },
+        "statusEvents": {
+          "items": {
+            "$ref": "#/$defs/StatusEventSpec"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "titleKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeRef",
+        "tags",
+        "execution",
+        "instruction",
+        "availability",
+        "hostFeatureRequirements",
+        "dataInputs",
+        "dataOutputs",
+        "signals",
+        "configFields",
+        "capabilities",
+        "stateAccesses",
+        "errors",
+        "statusEvents"
+      ],
+      "type": "object"
+    },
+    "NodeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "nodeTypeId": {
+          "format": "uri",
+          "type": "string"
+        },
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeTypeId",
+        "version",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "PortProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "enum": [
+            "required",
+            "optional",
+            "default-available",
+            "output"
+          ],
+          "type": "string"
+        },
+        "carrier": {
+          "enum": [
+            "durable",
+            "runtime"
+          ],
+          "type": "string"
+        },
+        "default": true,
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "hasDefault": {
+          "type": "boolean"
+        },
+        "helpKey": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "resourceLease": {
+          "$ref": "#/$defs/ResourceLeaseBinding"
+        },
+        "titleKey": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeUse"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "binding",
+        "hasDefault",
+        "carrier",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityId": {
+          "type": "string"
+        },
+        "semanticDigest": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "capabilityId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "RepresentationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "inline-json",
+            "blob-ref",
+            "stream-ref",
+            "handle-ref"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "codec"
+      ],
+      "type": "object"
+    },
+    "ResourceLeaseBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "requirementId": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirementId",
+        "operations"
+      ],
+      "type": "object"
+    },
+    "RetryInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "attemptOutput": {
+          "type": "string"
+        },
+        "attemptsInput": {
+          "type": "string"
+        },
+        "bodyOutput": {
+          "type": "string"
+        },
+        "completedOutput": {
+          "type": "string"
+        },
+        "entryInput": {
+          "type": "string"
+        },
+        "exhaustedOutput": {
+          "type": "string"
+        },
+        "maxAttempts": {
+          "maximum": 256,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ordinalType": {
+          "$ref": "#/$defs/TypeRef"
+        },
+        "retryInput": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryInput",
+        "retryInput",
+        "bodyOutput",
+        "completedOutput",
+        "exhaustedOutput",
+        "attemptsInput",
+        "attemptOutput",
+        "ordinalType",
+        "maxAttempts"
+      ],
+      "type": "object"
+    },
+    "RunRootInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "output": {
+          "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output"
+      ],
+      "type": "object"
+    },
+    "SignalProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "exec",
+            "error"
+          ],
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "input",
+            "output"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "direction"
+      ],
+      "type": "object"
+    },
+    "StateAccessProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "read",
+            "write"
+          ],
+          "type": "string"
+        },
+        "slotConfigKey": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeUse"
+        }
+      },
+      "required": [
+        "id",
+        "slotConfigKey",
+        "type",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "StatusEventSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "progress",
+            "waiting",
+            "connection"
+          ],
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "category"
+      ],
+      "type": "object"
+    },
+    "StructureField": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "jsonKey": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TypeExpression"
+        }
+      },
+      "required": [
+        "id",
+        "jsonKey",
+        "type"
+      ],
+      "type": "object"
+    },
+    "StructureSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "breakNodeTypeId": {
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/StructureField"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "breakNodeTypeId",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "TypeExpression": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ref",
+              "type": "string"
+            },
+            "ref": {
+              "$ref": "#/$defs/TypeRef"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "element": {
+              "$ref": "#/$defs/TypeExpression"
+            },
+            "kind": {
+              "const": "list",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "element"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "union",
+              "type": "string"
+            },
+            "members": {
+              "items": {
+                "$ref": "#/$defs/TypeExpression"
+              },
+              "maxItems": 64,
+              "minItems": 2,
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "members"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "constraints": {
+              "items": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "kind": {
+              "const": "variable",
+              "type": "string"
+            },
+            "variable": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "variable"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "TypeExpression"
+    },
+    "TypeProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "assignableTo": {
+          "items": {
+            "$ref": "#/$defs/TypeRef"
+          },
+          "type": "array"
+        },
+        "color": {
+          "type": "string"
+        },
+        "constraints": {
+          "$ref": "#/$defs/FieldConstraints"
+        },
+        "control": {
+          "enum": [
+            "text",
+            "number",
+            "integer",
+            "toggle",
+            "select",
+            "object",
+            "list",
+            "json"
+          ],
+          "type": "string"
+        },
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "examples": {
+          "items": true,
+          "type": "array"
+        },
+        "helpKey": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "lifecycle": {
+          "enum": [
+            "durable",
+            "runtime-only",
+            "durable-or-runtime",
+            "resolved-at-compile"
+          ],
+          "type": "string"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "representations": {
+          "items": {
+            "$ref": "#/$defs/RepresentationSpec"
+          },
+          "type": "array"
+        },
+        "schemaRoot": {
+          "type": "string"
+        },
+        "stateInitial": true,
+        "structure": {
+          "$ref": "#/$defs/StructureSpec"
+        },
+        "titleKey": {
+          "type": "string"
+        },
+        "traits": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "typeRef": {
+          "$ref": "#/$defs/TypeRef"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "typeRef",
+        "traits",
+        "assignableTo",
+        "schemaRoot",
+        "control",
+        "examples",
+        "representations",
+        "lifecycle",
+        "constraints"
+      ],
+      "type": "object"
+    },
+    "TypeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "semanticDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "typeId": {
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "typeId",
+        "semanticDigest"
+      ],
+      "type": "object"
+    },
+    "TypeUse": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "constraints": {
+          "$ref": "#/$defs/FieldConstraints"
+        },
+        "control": {
+          "enum": [
+            "text",
+            "number",
+            "integer",
+            "toggle",
+            "select",
+            "object",
+            "list",
+            "json"
+          ],
+          "type": "string"
+        },
+        "descriptionKey": {
+          "type": "string"
+        },
+        "editorAdapter": {
+          "type": "string"
+        },
+        "examples": {
+          "items": true,
+          "type": "array"
+        },
+        "expression": {
+          "$ref": "#/$defs/TypeExpression"
+        },
+        "helpKey": {
+          "type": "string"
+        },
+        "importance": {
+          "type": "string"
+        },
+        "inlinePriority": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "lifecycle": {
+          "enum": [
+            "durable",
+            "runtime-only",
+            "durable-or-runtime",
+            "resolved-at-compile"
+          ],
+          "type": "string"
+        },
+        "preset": {
+          "type": "string"
+        },
+        "representations": {
+          "items": {
+            "$ref": "#/$defs/RepresentationSpec"
+          },
+          "type": "array"
+        },
+        "titleKey": {
+          "type": "string"
+        },
+        "typeIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "label",
+        "control",
+        "typeIds",
+        "representations",
+        "lifecycle",
+        "constraints",
+        "examples"
+      ],
+      "type": "object"
+    },
+    "body": {
+      "additionalProperties": false,
+      "properties": {
+        "catalogHash": {
+          "type": "string"
+        },
+        "generatorVersion": {
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/NodeProjection"
+          },
+          "type": "array"
+        },
+        "types": {
+          "items": {
+            "$ref": "#/$defs/TypeProjection"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "catalogHash",
+        "generatorVersion",
+        "types",
+        "nodes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://yottaapp.dev/contracts/node/v1/authoring-projection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "$ref": "#/$defs/body"
+    },
+    "format": {
+      "enum": [
+        "yotta.node-authoring-projection"
+      ],
+      "type": "string"
+    },
+    "projectionDigest": {
+      "type": "string"
+    },
+    "version": {
+      "enum": [
+        "1"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "projectionDigest",
+    "body"
+  ],
+  "title": "Yotta Node Authoring Projection",
+  "type": "object"
+}

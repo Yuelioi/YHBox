@@ -1,0 +1,24 @@
+Yotta third-party notices
+=========================
+
+This distribution contains third-party software. The machine-readable SBOM
+published with each release candidate is the complete dependency inventory.
+
+Android platform-tools 34.0.5
+--------------------------------
+The Windows ADB runtime is packaged from adbutils 2.2.1. Android platform-tools
+are distributed under the Apache License 2.0. The adbutils package license is
+included as platform-tools/ADBUTILS_LICENSE.
+
+Wails runtime
+-------------
+Wails and @wailsio/runtime are distributed under the MIT License.
+
+Frontend assets
+---------------
+Tabler Icons are MIT licensed. Inter and JetBrains Mono are distributed under
+the SIL Open Font License. ELK/elkjs is distributed under the Eclipse Public
+License 2.0.
+
+The LICENSE file in this distribution applies only to Yotta itself. Third-party
+components remain governed by their respective licenses.

@@ -1,0 +1,118 @@
+//go:build windows
+
+package input
+
+import (
+	"testing"
+	"unsafe"
+)
+
+func TestNewBackend_SendInput(t *testing.T) {
+	b, err := NewBackend("sendinput")
+	if err != nil {
+		t.Fatalf("NewBackend(sendinput): %v", err)
+	}
+	if b == nil {
+		t.Fatal("nil backend")
+	}
+	if b.Name() != "sendinput" {
+		t.Errorf("Name = %q, want sendinput", b.Name())
+	}
+	caps := b.Capabilities()
+	if caps.BackgroundInput || !caps.RelativeMouse || !caps.GlobalInput {
+		t.Errorf("caps = %+v, want {BackgroundInput:false RelativeMouse:true GlobalInput:true}", caps)
+	}
+}
+
+func TestNewBackend_EmptyNameDefaultsToSendInput(t *testing.T) {
+	b, err := NewBackend("")
+	if err != nil {
+		t.Fatalf("NewBackend with empty name should default to sendinput, got err: %v", err)
+	}
+	if b.Name() != "sendinput" {
+		t.Errorf("empty name should default to sendinput, got %q", b.Name())
+	}
+}
+
+func TestSendInputBackend_ReleaseAll_ClearsState(t *testing.T) {
+	b := newSendInputBackend()
+	b.heldKeys[0xFF] = struct{}{}
+	b.heldKeys[0xFE] = struct{}{}
+	b.heldBtns[1] = struct{}{}
+	releasedKeys := map[uint32]bool{}
+	var releasedMouseFlags []uint32
+	if err := b.releaseAllWith(
+		func(key uint32, keyUp bool) error {
+			releasedKeys[key] = keyUp
+			return nil
+		},
+		func(flags uint32) error {
+			releasedMouseFlags = append(releasedMouseFlags, flags)
+			return nil
+		},
+	); err != nil {
+		t.Fatalf("releaseAllWith: %v", err)
+	}
+	if !releasedKeys[0xFE] || !releasedKeys[0xFF] {
+		t.Errorf("released keys = %v", releasedKeys)
+	}
+	if len(releasedMouseFlags) != 1 || releasedMouseFlags[0] != siMouseLeftUp {
+		t.Errorf("released mouse flags = %v", releasedMouseFlags)
+	}
+	if len(b.heldKeys) != 0 {
+		t.Errorf("heldKeys not cleared: %v", b.heldKeys)
+	}
+	if len(b.heldBtns) != 0 {
+		t.Errorf("heldBtns not cleared: %v", b.heldBtns)
+	}
+}
+
+func TestSendInputKeyboardBlockSizeMatchesWin32Input(t *testing.T) {
+	got := unsafe.Sizeof(sendInputKeyBlock{})
+	want := unsafe.Sizeof(sendInputBlock{})
+	if got != want {
+		t.Fatalf("sendInputKeyBlock size = %d, want %d", got, want)
+	}
+}
+
+func TestSendInputPureMappingsAndValidation(t *testing.T) {
+	for _, test := range []struct {
+		ratio float64
+		want  int32
+	}{
+		{ratio: -1, want: 0},
+		{ratio: 0.5, want: 32767},
+		{ratio: 2, want: 65535},
+	} {
+		if got := ratioToAbs(test.ratio); got != test.want {
+			t.Fatalf("ratioToAbs(%v) = %d, want %d", test.ratio, got, test.want)
+		}
+	}
+	for _, test := range []struct {
+		button   string
+		vk       uint32
+		down, up uint32
+	}{
+		{button: "left", vk: 1, down: siMouseLeftDown, up: siMouseLeftUp},
+		{button: "right", vk: 2, down: siMouseRightDown, up: siMouseRightUp},
+		{button: "middle", vk: 4, down: siMouseMiddleDown, up: siMouseMiddleUp},
+	} {
+		if siButtonVK(test.button) != test.vk || siButtonFlags(test.button, false) != test.down || siButtonFlags(test.button, true) != test.up {
+			t.Fatalf("button mapping for %q is inconsistent", test.button)
+		}
+	}
+	b := newSendInputBackend()
+	for _, invoke := range []func() error{
+		func() error { return b.KeyDown(0, "missing") },
+		func() error { return b.KeyUp(0, "missing") },
+		func() error { return b.KeyDownCode(0, 0) },
+		func() error { return b.KeyUpCode(0, 256) },
+	} {
+		if err := invoke(); err == nil {
+			t.Fatal("invalid key operation succeeded")
+		}
+	}
+	if _, _, err := b.CursorRatio(0); err == nil {
+		t.Fatal("CursorRatio accepted an empty client rect")
+	}
+}

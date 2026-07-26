@@ -1,0 +1,41 @@
+.workflow-flow :deep(.vue-flow__edge-path) {
+  stroke-width: 2;
+}
+
+.workflow-flow :deep(.vue-flow__controls),
+.workflow-flow :deep(.vue-flow__minimap) {
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ui-bg);
+}
+
+.workflow-flow :deep(.vue-flow__controls-button) {
+  border-bottom-color: var(--ui-border);
+  background: var(--ui-bg);
+  color: var(--ui-text-muted);
+}
+
+.workflow-flow :deep(.vue-flow__controls-button:last-child) {
+  border-bottom: 0;
+}
+
+.workflow-flow :deep(.vue-flow__controls-button:hover) {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+
+.workflow-flow :deep(.vue-flow__controls-button svg) {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.workflow-flow :deep(.vue-flow__controls-button:disabled) {
+  color: var(--ui-text-dimmed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-flow :deep(.vue-flow__edge-path) {
+    animation: none !important;
+  }
+}

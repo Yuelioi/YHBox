@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "exact-named-type",
+      "output": { "kind": "named", "name": "string" },
+      "input": { "kind": "named", "name": "string" },
+      "expected": "exact"
+    },
+    {
+      "id": "declared-safe-promotion",
+      "output": { "kind": "named", "name": "integer" },
+      "input": { "kind": "named", "name": "number" },
+      "expected": "assignable"
+    },
+    {
+      "id": "undeclared-narrowing",
+      "output": { "kind": "named", "name": "number" },
+      "input": { "kind": "named", "name": "integer" },
+      "expected": "invalid"
+    },
+    {
+      "id": "generic-trait-binding",
+      "output": { "kind": "named", "name": "integer" },
+      "input": { "kind": "variable", "variable": "T", "constraints": ["numeric"] },
+      "expected": "generic-bind"
+    },
+    {
+      "id": "generic-trait-rejection",
+      "output": { "kind": "named", "name": "boolean" },
+      "input": { "kind": "variable", "variable": "T", "constraints": ["ordered"] },
+      "expected": "invalid"
+    },
+    {
+      "id": "source-union-all-members",
+      "output": {
+        "kind": "union",
+        "members": [
+          { "kind": "named", "name": "integer" },
+          { "kind": "named", "name": "number" }
+        ]
+      },
+      "input": { "kind": "named", "name": "number" },
+      "expected": "assignable"
+    },
+    {
+      "id": "target-union-one-member",
+      "output": { "kind": "named", "name": "string" },
+      "input": {
+        "kind": "union",
+        "members": [
+          { "kind": "named", "name": "string" },
+          { "kind": "named", "name": "number" }
+        ]
+      },
+      "expected": "exact"
+    },
+    {
+      "id": "source-union-rejects-partial-match",
+      "output": {
+        "kind": "union",
+        "members": [
+          { "kind": "named", "name": "string" },
+          { "kind": "named", "name": "number" }
+        ]
+      },
+      "input": { "kind": "named", "name": "number" },
+      "expected": "invalid"
+    },
+    {
+      "id": "list-exact",
+      "output": { "kind": "list", "element": { "kind": "named", "name": "string" } },
+      "input": { "kind": "list", "element": { "kind": "named", "name": "string" } },
+      "expected": "exact"
+    },
+    {
+      "id": "list-remains-invariant",
+      "output": { "kind": "list", "element": { "kind": "named", "name": "integer" } },
+      "input": { "kind": "list", "element": { "kind": "named", "name": "number" } },
+      "expected": "invalid"
+    },
+    {
+      "id": "list-generic-element-binding",
+      "output": { "kind": "list", "element": { "kind": "named", "name": "integer" } },
+      "input": {
+        "kind": "list",
+        "element": { "kind": "variable", "variable": "T", "constraints": ["numeric"] }
+      },
+      "expected": "generic-bind"
+    },
+    {
+      "id": "semantic-digest-is-identity",
+      "output": { "kind": "named", "name": "string", "staleDigest": true },
+      "input": { "kind": "named", "name": "string" },
+      "expected": "invalid"
+    }
+  ]
+}
