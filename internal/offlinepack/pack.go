@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -37,6 +38,14 @@ type ArtifactSource func(
 	context.Context,
 	installationplan.ArtifactDescriptor,
 ) (io.ReadCloser, error)
+
+type Pack struct {
+	mu          sync.RWMutex
+	file        *os.File
+	plan        installationplan.Plan
+	entries     map[string]*zip.File
+	descriptors map[artifact.Digest]installationplan.ArtifactDescriptor
+}
 
 func Write(
 	ctx context.Context,
@@ -132,55 +141,124 @@ func Write(
 }
 
 func Inspect(ctx context.Context, archivePath string) (installationplan.Plan, error) {
+	pack, err := Open(ctx, archivePath)
+	if err != nil {
+		return installationplan.Plan{}, err
+	}
+	defer pack.Close()
+	return pack.Plan(), nil
+}
+
+// Open verifies one complete offline transport before exposing its exact
+// artifacts. The returned Pack owns the archive file and must be closed.
+func Open(ctx context.Context, archivePath string) (*Pack, error) {
 	if ctx == nil || strings.TrimSpace(archivePath) == "" {
-		return installationplan.Plan{}, errors.New("offline pack inspect request is invalid")
+		return nil, errors.New("offline pack open request is invalid")
 	}
 	file, err := os.Open(archivePath)
 	if err != nil {
-		return installationplan.Plan{}, err
+		return nil, err
 	}
-	defer file.Close()
+	closeWithError := func(openErr error) (*Pack, error) {
+		_ = file.Close()
+		return nil, openErr
+	}
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxArchiveBytes {
-		return installationplan.Plan{}, errors.New("offline pack archive size is invalid")
+		return closeWithError(errors.New("offline pack archive size is invalid"))
 	}
 	reader, err := zip.NewReader(file, info.Size())
 	if err != nil {
-		return installationplan.Plan{}, fmt.Errorf("open offline pack: %w", err)
+		return closeWithError(fmt.Errorf("open offline pack: %w", err))
 	}
 	entries, err := indexEntries(reader.File)
 	if err != nil {
-		return installationplan.Plan{}, err
+		return closeWithError(err)
 	}
 	planEntry, found := entries[PlanPath]
 	if !found {
-		return installationplan.Plan{}, errors.New("offline pack Installation Plan is missing")
+		return closeWithError(errors.New("offline pack Installation Plan is missing"))
 	}
 	planBytes, err := readEntry(ctx, planEntry, maxPlanBytes)
 	if err != nil {
-		return installationplan.Plan{}, err
+		return closeWithError(err)
 	}
 	plan, err := installationplan.Open(planBytes)
 	if err != nil {
-		return installationplan.Plan{}, err
+		return closeWithError(err)
 	}
 	artifacts, err := planArtifacts(plan)
 	if err != nil {
-		return installationplan.Plan{}, err
+		return closeWithError(err)
 	}
 	if len(entries) != len(artifacts)+1 {
-		return installationplan.Plan{}, errors.New("offline pack contains undeclared or missing artifacts")
+		return closeWithError(errors.New("offline pack contains undeclared or missing artifacts"))
 	}
+	descriptors := make(map[artifact.Digest]installationplan.ArtifactDescriptor, len(artifacts))
 	for _, descriptor := range artifacts {
 		entry, found := entries[artifactPath(descriptor.Digest)]
 		if !found || entry.UncompressedSize64 != uint64(descriptor.Size) {
-			return installationplan.Plan{}, fmt.Errorf("offline artifact %s is missing or has the wrong size", descriptor.Digest)
+			return closeWithError(fmt.Errorf("offline artifact %s is missing or has the wrong size", descriptor.Digest))
 		}
 		if err := verifyEntry(ctx, entry, descriptor); err != nil {
-			return installationplan.Plan{}, err
+			return closeWithError(err)
 		}
+		descriptors[descriptor.Digest] = descriptor
 	}
-	return plan, nil
+	return &Pack{file: file, plan: plan, entries: entries, descriptors: descriptors}, nil
+}
+
+func (p *Pack) Plan() installationplan.Plan {
+	if p == nil {
+		return installationplan.Plan{}
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.plan
+}
+
+func (p *Pack) OpenArtifact(
+	ctx context.Context,
+	descriptor installationplan.ArtifactDescriptor,
+) (io.ReadCloser, error) {
+	if p == nil || ctx == nil {
+		return nil, errors.New("offline artifact open request is invalid")
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.file == nil {
+		return nil, errors.New("offline pack is closed")
+	}
+	expected, found := p.descriptors[descriptor.Digest]
+	if !found || expected != descriptor {
+		return nil, errors.New("offline artifact is not declared by the Installation Plan")
+	}
+	entry := p.entries[artifactPath(descriptor.Digest)]
+	reader, err := entry.Open()
+	if err != nil {
+		return nil, err
+	}
+	return &artifactReader{
+		contextReader: contextReader{ctx: ctx, reader: reader},
+		close:         reader,
+	}, nil
+}
+
+func (p *Pack) Close() error {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.file == nil {
+		return nil
+	}
+	err := p.file.Close()
+	p.file = nil
+	p.entries = nil
+	p.descriptors = nil
+	p.plan = installationplan.Plan{}
+	return err
 }
 
 func planArtifacts(plan installationplan.Plan) ([]installationplan.ArtifactDescriptor, error) {
@@ -308,4 +386,13 @@ func (r *contextReader) Read(target []byte) (int, error) {
 		return 0, err
 	}
 	return r.reader.Read(target)
+}
+
+type artifactReader struct {
+	contextReader
+	close io.Closer
+}
+
+func (r *artifactReader) Close() error {
+	return r.close.Close()
 }

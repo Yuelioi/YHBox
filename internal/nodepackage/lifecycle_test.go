@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -281,6 +282,58 @@ func TestStoreRequiresPackageScopedPublisherTrust(t *testing.T) {
 	}
 	if !reopenedCandidate.Granted {
 		t.Fatal("package-scoped publisher trust grant was not persisted")
+	}
+}
+
+func TestLegacyRegistryInfersTrustOnlyForAlreadyInstalledPackages(t *testing.T) {
+	ctx := context.Background()
+	root := filepath.Join(t.TempDir(), "packages")
+	policy, privateKey := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, root, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, archivePath := lifecycleArchive(t, privateKey, "1.0.0", "process-v1")
+	grantArchive(t, ctx, store, archivePath)
+	if _, err := store.InstallArchive(ctx, archivePath); err != nil {
+		t.Fatal(err)
+	}
+	registryPath := filepath.Join(root, registryFilename)
+	raw, err := os.ReadFile(registryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy registryDocument
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	legacy.Version = legacyRegistryVersion
+	legacy.Grants = nil
+	raw, err = json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err = artifact.Canonicalize(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(registryPath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenStore(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := reopened.InspectArchiveTrust(ctx, archivePath)
+	if err != nil || !installed.Granted {
+		t.Fatalf("legacy installed package trust = %#v, %v", installed, err)
+	}
+	_, siblingArchive := lifecycleArchiveForPackage(
+		t, privateKey, testNamespace+"/packages/sibling/v1", "1.0.0", "sibling-v1",
+	)
+	sibling, err := reopened.InspectArchiveTrust(ctx, siblingArchive)
+	if err != nil || sibling.Granted {
+		t.Fatalf("legacy sibling package trust = %#v, %v", sibling, err)
 	}
 }
 
